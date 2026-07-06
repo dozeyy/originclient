@@ -1,0 +1,25 @@
+﻿<Application x:Class="OriginLauncher.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OriginLauncher.App"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme/Colors.xaml"/>
+                <ResourceDictionary Source="Theme/Typography.xaml"/>
+                <ResourceDictionary Source="Theme/Spacing.xaml"/>
+                <ResourceDictionary Source="Theme/Buttons.xaml"/>
+                <ResourceDictionary Source="Theme/Inputs.xaml"/>
+                <ResourceDictionary Source="Theme/Brand.xaml"/>
+                <ResourceDictionary Source="Theme/Icons.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style TargetType="Button" BasedOn="{StaticResource Button.Secondary}"/>
+            <Style TargetType="TextBox" BasedOn="{StaticResource Input.TextBox}"/>
+            <Style TargetType="Slider" BasedOn="{StaticResource Input.Slider}"/>
+            <Style TargetType="ComboBox" BasedOn="{StaticResource Input.ComboBox}"/>
+            <Style TargetType="ComboBoxItem" BasedOn="{StaticResource Input.ComboBoxItem}"/>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,113 @@
+<UserControl x:Class="OriginLauncher.App.UI.Pages.SettingsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style x:Key="FieldRow" TargetType="StackPanel">
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- Left margin (80, vs. the usual 32) clears the floating left-edge
+         icon column, which sits at roughly x:16-52. Content is sized to fit
+         within the window's MinHeight (600) without scrolling; the scrollbar
+         is hidden rather than disabled so wheel-scroll still works as a
+         safety net if a future addition pushes past that budget, instead of
+         silently clipping content. -->
+    <ScrollViewer Margin="80,16,32,20" VerticalScrollBarVisibility="Hidden">
+        <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+            <TextBlock Text="Settings" Style="{StaticResource Text.H1}" Margin="0,0,0,12"/>
+
+            <!-- Performance -->
+            <Border Style="{StaticResource SectionCard}">
+                <StackPanel>
+                    <TextBlock Text="Performance" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
+
+                    <StackPanel Style="{StaticResource FieldRow}">
+                        <TextBlock Text="Launch mode" Style="{StaticResource FieldLabel}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <ToggleButton Grid.Column="0" x:Name="GraphicsModeToggle" Style="{StaticResource Button.NavItem}"
+                                          Content="Graphics" HorizontalContentAlignment="Center" Height="40"
+                                          Checked="GraphicsModeToggle_Checked"/>
+                            <ToggleButton Grid.Column="2" x:Name="PerformanceModeToggle" Style="{StaticResource Button.NavItem}"
+                                          Content="Performance" HorizontalContentAlignment="Center" Height="40"
+                                          Checked="PerformanceModeToggle_Checked"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Margin="0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="RAM allocation" Style="{StaticResource FieldLabel}"/>
+                            <TextBlock Grid.Column="1" x:Name="RamValueText" Text="4096 MB" Style="{StaticResource Text.Body}"/>
+                        </Grid>
+                        <Slider x:Name="RamSlider" Minimum="1024" SmallChange="256"
+                                ValueChanged="RamSlider_ValueChanged"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Game -->
+            <Border Style="{StaticResource SectionCard}">
+                <StackPanel>
+                    <TextBlock Text="Game" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
+
+                    <StackPanel Style="{StaticResource FieldRow}">
+                        <TextBlock Text="Minecraft version" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="VersionComboBox" SelectionChanged="VersionComboBox_SelectionChanged"/>
+                    </StackPanel>
+
+                    <StackPanel Style="{StaticResource FieldRow}">
+                        <TextBlock Text="Install path" Style="{StaticResource FieldLabel}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" x:Name="InstallPathTextBox" LostFocus="InstallPathTextBox_LostFocus"/>
+                            <Button Grid.Column="2" Content="Browse" Click="BrowseButton_Click"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Margin="0">
+                        <TextBlock Text="Resolution" Style="{StaticResource FieldLabel}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="100"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" x:Name="ResolutionWidthTextBox" LostFocus="ResolutionTextBox_LostFocus"/>
+                            <TextBlock Grid.Column="1" Text="&#215;" Style="{StaticResource Text.BodyDim}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="2" x:Name="ResolutionHeightTextBox" LostFocus="ResolutionTextBox_LostFocus"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

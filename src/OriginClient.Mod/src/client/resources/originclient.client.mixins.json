@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "com.origin.client.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"TitleScreenMixin",
+		"LoadingOverlayMixin",
+		"GameRendererMixin",
+		"MouseHandlerMixin",
+		"EntityViewAngleMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

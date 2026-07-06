@@ -1,0 +1,62 @@
+<UserControl x:Class="OriginLauncher.App.UI.Controls.OriginBackground"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             Loaded="OriginBackground_OnLoaded"
+             IsHitTestVisible="False">
+
+    <!--
+        Ambient "space field": 4 large tilted rings, each spinning continuously
+        at its own speed/direction. Only RenderTransform.Angle animates (cheap,
+        transform-only) — geometry, stroke, and blur are all static per ring,
+        so the animation cost stays flat regardless of ring count. Back rings
+        get lower opacity + a small static blur for depth; nothing here is
+        re-evaluated per frame except the rotation itself.
+    -->
+    <Grid Background="{StaticResource Brush.Bg}" ClipToBounds="True">
+
+        <Ellipse x:Name="RingD" Width="1500" Height="520" Stroke="{StaticResource Brush.SoftStroke}"
+                  StrokeThickness="1.4" Fill="Transparent" Opacity="0.18"
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Margin="140,-80,0,0" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.Effect>
+                <BlurEffect Radius="7"/>
+            </Ellipse.Effect>
+            <Ellipse.RenderTransform>
+                <RotateTransform x:Name="RingDTransform" Angle="15"/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <Ellipse x:Name="RingC" Width="1200" Height="440" Stroke="{StaticResource Brush.SoftStroke}"
+                  StrokeThickness="1.5" Fill="Transparent" Opacity="0.22"
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Margin="-120,60,0,0" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.Effect>
+                <BlurEffect Radius="4"/>
+            </Ellipse.Effect>
+            <Ellipse.RenderTransform>
+                <RotateTransform x:Name="RingCTransform" Angle="100"/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <Ellipse x:Name="RingB" Width="950" Height="360" Stroke="{StaticResource Brush.Stroke}"
+                  StrokeThickness="1.6" Fill="Transparent" Opacity="0.28"
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Margin="60,-40,0,0" RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <RotateTransform x:Name="RingBTransform" Angle="45"/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <Ellipse x:Name="RingA" Width="700" Height="260" Stroke="{StaticResource Brush.Stroke}"
+                  StrokeThickness="1.8" Fill="Transparent" Opacity="0.35"
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                  RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <RotateTransform x:Name="RingATransform" Angle="0"/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+    </Grid>
+</UserControl>

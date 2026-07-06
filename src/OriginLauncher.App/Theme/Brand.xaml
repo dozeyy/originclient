@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Shared glow for the origin mark + background rings. One shared effect
+         per consumer (not one per ring) keeps the cost of the glow constant
+         regardless of how many rings are drawn. Monochrome by design — no
+         new hue, just a soft white-ish bloom consistent with the accent. -->
+    <DropShadowEffect x:Key="Effect.OriginGlow"
+                      Color="#FFEDEDED"
+                      Opacity="0.55"
+                      BlurRadius="18"
+                      ShadowDepth="0"/>
+
+    <DropShadowEffect x:Key="Effect.OriginGlowSoft"
+                      Color="#FFEDEDED"
+                      Opacity="0.25"
+                      BlurRadius="14"
+                      ShadowDepth="0"/>
+
+</ResourceDictionary>

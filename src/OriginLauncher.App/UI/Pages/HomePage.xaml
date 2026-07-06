@@ -1,0 +1,26 @@
+<UserControl x:Class="OriginLauncher.App.UI.Pages.HomePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d">
+
+    <Grid>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+
+            <ComboBox x:Name="VersionComboBox" MinWidth="160" HorizontalAlignment="Center"
+                      HorizontalContentAlignment="Center" Margin="0,0,0,28"
+                      SelectionChanged="VersionComboBox_SelectionChanged"/>
+
+            <Button x:Name="PlayButton" Content="PLAY"
+                    Style="{StaticResource Button.PlayHero}"
+                    IsEnabled="False"
+                    ToolTip="Sign in and select a version to play"
+                    Click="PlayButton_Click"/>
+
+            <TextBlock x:Name="StatusText" Text="No account signed in"
+                       Style="{StaticResource Text.BodyDim}"
+                       HorizontalAlignment="Center" Margin="0,20,0,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

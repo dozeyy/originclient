@@ -1,0 +1,78 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 24x24 viewBox, stroke-only line icons, 1.7 stroke, round caps/joins — no fills, no emoji -->
+
+    <Style x:Key="Icon.Base" TargetType="Path">
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="Width" Value="18"/>
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="StrokeThickness" Value="1.7"/>
+        <Setter Property="StrokeStartLineCap" Value="Round"/>
+        <Setter Property="StrokeEndLineCap" Value="Round"/>
+        <Setter Property="StrokeLineJoin" Value="Round"/>
+        <Setter Property="Fill" Value="Transparent"/>
+    </Style>
+
+    <GeometryGroup x:Key="Icon.Mods">
+        <RectangleGeometry Rect="4,4,7,7" RadiusX="1.5" RadiusY="1.5"/>
+        <RectangleGeometry Rect="13,4,7,7" RadiusX="1.5" RadiusY="1.5"/>
+        <RectangleGeometry Rect="4,13,7,7" RadiusX="1.5" RadiusY="1.5"/>
+        <RectangleGeometry Rect="13,13,7,7" RadiusX="1.5" RadiusY="1.5"/>
+    </GeometryGroup>
+
+    <PathGeometry x:Key="Icon.Home">
+        <PathFigure StartPoint="4,12" IsClosed="False">
+            <LineSegment Point="12,5"/>
+            <LineSegment Point="20,12"/>
+        </PathFigure>
+        <PathFigure StartPoint="6.5,11" IsClosed="False">
+            <LineSegment Point="6.5,19.5"/>
+            <LineSegment Point="17.5,19.5"/>
+            <LineSegment Point="17.5,11"/>
+        </PathFigure>
+    </PathGeometry>
+
+    <GeometryGroup x:Key="Icon.Settings">
+        <PathGeometry>
+            <PathFigure StartPoint="5,7" IsClosed="False">
+                <LineSegment Point="19,7"/>
+            </PathFigure>
+            <PathFigure StartPoint="5,12" IsClosed="False">
+                <LineSegment Point="19,12"/>
+            </PathFigure>
+            <PathFigure StartPoint="5,17" IsClosed="False">
+                <LineSegment Point="19,17"/>
+            </PathFigure>
+        </PathGeometry>
+        <EllipseGeometry Center="9,7" RadiusX="1.8" RadiusY="1.8"/>
+        <EllipseGeometry Center="16,12" RadiusX="1.8" RadiusY="1.8"/>
+        <EllipseGeometry Center="11,17" RadiusX="1.8" RadiusY="1.8"/>
+    </GeometryGroup>
+
+    <GeometryGroup x:Key="Icon.Account">
+        <EllipseGeometry Center="12,9" RadiusX="3.2" RadiusY="3.2"/>
+        <PathGeometry>
+            <PathFigure StartPoint="5,20" IsClosed="False">
+                <BezierSegment Point1="5,15" Point2="8,13" Point3="12,13"/>
+                <BezierSegment Point1="16,13" Point2="19,15" Point3="19,20"/>
+            </PathFigure>
+        </PathGeometry>
+    </GeometryGroup>
+
+    <PathGeometry x:Key="Icon.Minimize">
+        <PathFigure StartPoint="6,17" IsClosed="False">
+            <LineSegment Point="18,17"/>
+        </PathFigure>
+    </PathGeometry>
+
+    <PathGeometry x:Key="Icon.Close">
+        <PathFigure StartPoint="6,6" IsClosed="False">
+            <LineSegment Point="18,18"/>
+        </PathFigure>
+        <PathFigure StartPoint="18,6" IsClosed="False">
+            <LineSegment Point="6,18"/>
+        </PathFigure>
+    </PathGeometry>
+
+</ResourceDictionary>
