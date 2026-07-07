@@ -1,5 +1,6 @@
 package com.origin.client.client;
 
+import com.origin.client.client.font.OriginFontDebugOverlay;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
@@ -19,6 +20,8 @@ public class OriginClientMod implements ClientModInitializer {
 
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 		HudRenderCallback.EVENT.register((guiGraphics, tickCounter) -> OriginHud.render(guiGraphics));
+		// M3 checkpoint only -- see OriginFontDebugOverlay's own doc comment.
+		HudRenderCallback.EVENT.register((guiGraphics, tickCounter) -> OriginFontDebugOverlay.render(guiGraphics));
 	}
 
 	private void onEndTick(Minecraft client) {

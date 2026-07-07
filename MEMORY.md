@@ -957,3 +957,83 @@ gui/mixin file from this pass are deleted, not just disabled.
   instance out of a variable font, it just opens whatever FreeType treats
   as default, which is a different (and more plausible) failure mode than
   "can't parse the format."
+
+## 2026-07-07 — Third UI attempt: design-system spec + incremental, self-verified build-out (M0-M3)
+
+Will asked for a third pass at the website-matching in-game UI, but explicitly
+asked to "work as slow as needed... one step at a time" instead of another
+big blind rewrite. Wrote `src/OriginClient.Mod/DESIGN_SYSTEM.md` first
+(exact tokens/behavior extracted from `website/css/styles.css` and
+`js/main.js`, plus the lessons below folded in as guardrails), then a
+plan-mode session designed a milestoned build-out
+(`/root/.claude/plans/harmonic-knitting-willow.md`) specifically to front-load
+everything self-verifiable without a live client, since that gap (not sloppy
+analysis) is what sank both prior attempts.
+
+- **Real, confirmed environment constraint this session**: this sandbox's
+  egress proxy allows `registry.npmjs.org`/`pypi.org` directly but returns
+  403 for `maven.fabricmc.net`, `libraries.minecraft.net`,
+  `piston-meta.mojang.com`, `fonts.google.com`, `github.com` — confirmed via
+  the proxy's own status endpoint and live `curl` tests, not assumed.
+  **`repo1.maven.org` (Maven Central) is reachable**, though — pulled a real
+  Gson jar from there for partial compile verification (see M3 below).
+  Net effect: this session could not run `./gradlew build` or reach
+  Mojang/Fabric's Maven at all; every Java-touching milestone needs Will to
+  build+run locally, which the plan accounts for as a hard checkpoint, not
+  an afterthought.
+- **M0 — font acquisition**: pulled `@fontsource/inter` from npm (static
+  per-weight WOFF2, not Google Fonts' variable file) and converted each of
+  400/500/600/700/800 to plain TTF via fontTools, asserting no `fvar` table
+  survived — the exact pitfall that broke Bahnschrift twice before.
+  Reproducible via `tools/font-atlas/fetch_fonts.py`.
+- **M1 — `OriginTheme`**: pure-Java design tokens (colors/spacing/radii/
+  motion) matching the website's CSS variables exactly, plus a real
+  Newton-Raphson cubic-bezier evaluator for the site's ease-out/spring
+  curves. Numerically verified in this sandbox (no MC classpath needed):
+  `easeOut` is monotonic 0→1, `spring` overshoots to ~1.10 before settling
+  at 1 — matches `cubic-bezier(0.34,1.56,0.64,1)`'s real bounce shape.
+- **M2 — font atlas generator**: `tools/font-atlas/generate_atlas.py` bakes
+  each weight into a supersampled (512px em → 64px em, 8x oversample),
+  anti-aliased bitmap atlas using the one technique already proven correct
+  in the second prior attempt (opaque black-on-white render, then
+  luminosity→alpha as a post-process) — but this time metrics (advance/
+  bearing/bbox) come from Pillow's own `font.getbbox()`/`getlength()` at the
+  *same* render size as the bitmap, so image and metrics can never disagree
+  about scale (unlike Minecraft's own bitmap font provider, which re-derives
+  width by scanning pixels — the source of the near-monospace bug last
+  time). **Actually looked at the output**: composited sample HUD strings
+  ("COORDS 142, 74, -308") at native (64px), mid (22px), and realistic small
+  HUD (14px) sizes and viewed the PNGs directly — genuinely anti-aliased,
+  proportional (non-monospaced) glyph widths, no residue or bleeding, at all
+  three sizes. This is the first time in three attempts the font asset
+  itself was actually inspected before reaching Minecraft.
+- **M3 — `OriginFont` (no-shader renderer)**: loads an atlas PNG as a
+  `DynamicTexture`, forces `setFilter(true, false)` (GL_LINEAR, no mipmap —
+  Minecraft's own UI textures typically sample nearest-neighbor, which is
+  the live hypothesis for why earlier attempts still looked blocky even
+  after their alpha-residue bug was fixed), and draws glyph quads via
+  `GuiGraphics.blit` with no custom shader — deliberately testing that
+  hypothesis against `DESIGN_SYSTEM.md`'s own claim that the real ceiling is
+  structural (GuiGraphics's GUI-Scale-tied coordinate space) before
+  committing to a full SDF+shader renderer (M4). Wired into a temporary
+  `OriginFontDebugOverlay` (new HUD corner, not real UI yet) so a bad result
+  costs nothing to revert.
+  - **Could not compile this against real Minecraft classes** (network
+    blocked, confirmed above) — the exact `GuiGraphics.blit`/
+    `ResourceLocation.fromNamespaceAndPath`/`DynamicTexture`/
+    `AbstractTexture.setFilter` signatures used are from memory of stable,
+    long-standing 1.21.1-era Mojmap API, not verified against a real jar.
+    Mitigated as much as possible short of that: wrote minimal stub classes
+    matching the assumed signatures and compiled the real font classes
+    against them plus a real Gson jar (Maven Central, unlike Fabric's own
+    maven, is reachable) — confirms this code's own logic/syntax is
+    internally consistent, and separately ran the actual JSON-parsing path
+    against a real generated `inter-700.json` (95 glyphs round-tripped
+    correctly, including the space glyph's zero-size/nonzero-advance case).
+    Does **not** confirm the MC API signatures themselves are right — that's
+    exactly what Will's `./gradlew build` checkpoint is for.
+- **Not done yet, waiting on Will**: pull the branch, `./gradlew build`
+  (report any compile errors verbatim so a signature mismatch can be fixed
+  precisely), run the client, F2-screenshot the debug corner (top-left,
+  below existing HUD text), share the image back. Result decides M4
+  (skip if smooth, build the SDF+shader escalation if not) per the plan.
