@@ -6,6 +6,13 @@ public enum PerformanceMode
     Performance
 }
 
+public enum LoaderKind
+{
+    Vanilla,
+    Fabric,
+    Forge
+}
+
 public sealed class LauncherSettings
 {
     public int RamMb { get; set; } = 4096;
@@ -14,4 +21,10 @@ public sealed class LauncherSettings
     public string InstallPath { get; set; } = OriginPaths.Instances;
     public string? SelectedVersion { get; set; }
     public PerformanceMode PerformanceMode { get; set; } = PerformanceMode.Graphics;
+
+    // Null means "follow the automatic per-version recommendation" (Fabric
+    // where the perf-mod catalog has data, Forge otherwise) rather than a
+    // sticky user override — see HomePage's loader selector.
+    public LoaderKind? SelectedLoader { get; set; }
+    public bool OptiFineEnabled { get; set; }
 }

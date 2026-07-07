@@ -5,6 +5,7 @@ using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Launch;
+using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Models;
 using OriginLauncher.App.Core.Versions;
 
@@ -16,6 +17,7 @@ public partial class HomePage : UserControl
     private readonly VersionManager _versionManager = new();
     private bool _isLoading = true;
     private bool _isLaunching;
+    private bool _settingLoaderProgrammatically;
     private StoredAccount? _selectedAccount;
 
     public HomePage()
@@ -79,6 +81,7 @@ public partial class HomePage : UserControl
         finally
         {
             _isLoading = false;
+            UpdateLoaderControls();
             UpdatePlayState();
         }
     }
@@ -92,10 +95,120 @@ public partial class HomePage : UserControl
 
     private void VersionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isLoading) return;
+        // IsEnabled guard too, not just _isLoading: ShowVersionLoadFailure's
+        // placeholder text is technically a string, and _isLoading is still
+        // true when it's assigned — but that's timing-fragile, so also
+        // refuse to ever persist the placeholder as a "real" selected version.
+        if (_isLoading || !VersionComboBox.IsEnabled) return;
         _settings.SelectedVersion = VersionComboBox.SelectedItem as string;
+        // Version changed — go back to the auto-recommended loader for it
+        // rather than carrying over a choice that made sense for the old one.
+        _settings.SelectedLoader = null;
         SettingsStore.Save(_settings);
+        UpdateLoaderControls();
         UpdatePlayState();
+    }
+
+    // Fabric where the perf-mod catalog has data, Forge otherwise — never
+    // both, so the selector only ever shows Vanilla + one of the two.
+    private LoaderKind RecommendedLoader(string version) =>
+        PerformanceModCatalog.RecommendsFabric(version) ? LoaderKind.Fabric : LoaderKind.Forge;
+
+    private void UpdateLoaderControls()
+    {
+        if (VersionComboBox.SelectedItem is not string version) return;
+        var fabricAvailable = PerformanceModCatalog.RecommendsFabric(version);
+        var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
+
+        _settingLoaderProgrammatically = true;
+        LoaderFabricToggle.Visibility = fabricAvailable ? Visibility.Visible : Visibility.Collapsed;
+        LoaderForgeToggle.Visibility = fabricAvailable ? Visibility.Collapsed : Visibility.Visible;
+
+        LoaderVanillaToggle.IsChecked = loader == LoaderKind.Vanilla;
+        LoaderFabricToggle.IsChecked = loader == LoaderKind.Fabric;
+        LoaderForgeToggle.IsChecked = loader == LoaderKind.Forge;
+
+        OptiFineRow.Visibility = loader == LoaderKind.Forge ? Visibility.Visible : Visibility.Collapsed;
+        OptiFineToggle.IsChecked = loader == LoaderKind.Forge
+            && _settings.OptiFineEnabled
+            && OptiFineCacheStore.IsCached(version);
+        _settingLoaderProgrammatically = false;
+    }
+
+    private void SetLoader(LoaderKind loader)
+    {
+        if (_settingLoaderProgrammatically) return;
+
+        _settingLoaderProgrammatically = true;
+        LoaderVanillaToggle.IsChecked = loader == LoaderKind.Vanilla;
+        LoaderFabricToggle.IsChecked = loader == LoaderKind.Fabric;
+        LoaderForgeToggle.IsChecked = loader == LoaderKind.Forge;
+        _settingLoaderProgrammatically = false;
+
+        _settings.SelectedLoader = loader;
+        SettingsStore.Save(_settings);
+
+        var version = VersionComboBox.SelectedItem as string;
+        OptiFineRow.Visibility = loader == LoaderKind.Forge ? Visibility.Visible : Visibility.Collapsed;
+        OptiFineToggle.IsChecked = loader == LoaderKind.Forge
+            && version != null
+            && _settings.OptiFineEnabled
+            && OptiFineCacheStore.IsCached(version);
+    }
+
+    private void LoaderVanillaToggle_Checked(object sender, RoutedEventArgs e) => SetLoader(LoaderKind.Vanilla);
+    private void LoaderFabricToggle_Checked(object sender, RoutedEventArgs e) => SetLoader(LoaderKind.Fabric);
+    private void LoaderForgeToggle_Checked(object sender, RoutedEventArgs e) => SetLoader(LoaderKind.Forge);
+
+    // Auto-downloads OptiFine straight into the instance's cache (BMCLAPI
+    // mirror — see OptiFineCatalog) instead of asking the player to locate
+    // a jar themselves. Reverts the toggle on any failure so it never gets
+    // stuck claiming OptiFine is on when it isn't actually cached.
+    private async void OptiFineToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_settingLoaderProgrammatically) return;
+        if (VersionComboBox.SelectedItem is not string version) return;
+
+        if (!OptiFineCacheStore.IsCached(version))
+        {
+            OptiFineToggle.IsEnabled = false;
+            StatusText.Text = "Downloading OptiFine...";
+
+            try
+            {
+                var entry = await OptiFineCatalog.TryFindFor(version);
+                if (entry == null)
+                {
+                    StatusText.Text = $"No OptiFine build found for {version}.";
+                    OptiFineToggle.IsChecked = false;
+                    return;
+                }
+
+                await OptiFineCatalog.DownloadAsync(entry, OptiFineCacheStore.JarPathFor(version));
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"OptiFine download failed: {ex.Message}";
+                OptiFineToggle.IsChecked = false;
+                return;
+            }
+            finally
+            {
+                OptiFineToggle.IsEnabled = true;
+            }
+
+            UpdatePlayState();
+        }
+
+        _settings.OptiFineEnabled = true;
+        SettingsStore.Save(_settings);
+    }
+
+    private void OptiFineToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_settingLoaderProgrammatically) return;
+        _settings.OptiFineEnabled = false;
+        SettingsStore.Save(_settings);
     }
 
     private async void PlayButton_Click(object sender, RoutedEventArgs e)
@@ -105,10 +218,12 @@ public partial class HomePage : UserControl
 
         _isLaunching = true;
         PlayButton.IsEnabled = false;
-        StatusText.Text = "Signing in...";
+        var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
+        LoadingOverlay.Show(version, LoaderCaption(loader));
 
         try
         {
+            LoadingOverlay.ReportStage("Signing in...");
             var refreshToken = AccountStore.TryUnprotectRefreshToken(_selectedAccount.ProtectedRefreshToken);
             if (refreshToken == null)
             {
@@ -129,15 +244,17 @@ public partial class HomePage : UserControl
                 AccountStore.Save(accounts);
             }
 
-            StatusText.Text = "Launching Minecraft...";
             var launchOption = LaunchProfileBuilder.Build(_settings, result.Session);
-            var process = await _versionManager.InstallAndBuildProcessAsync(version, launchOption);
+            var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
+            var process = await _versionManager.InstallAndBuildProcessAsync(
+                version, loader, _settings.OptiFineEnabled, launchOption, installProgress);
 
             if (_settings.PerformanceMode == PerformanceMode.Performance)
             {
                 GpuPreference.PreferHighPerformanceGpu(process.StartInfo.FileName);
             }
 
+            LoadingOverlay.ReportStage("Launching Minecraft...");
             StartWithLifecycleCapture(process, version);
 
             StatusText.Text = $"Launched {version} — signed in as {result.Session.Username}";
@@ -147,17 +264,32 @@ public partial class HomePage : UserControl
             StatusText.Text = ex.Stage == "token_refresh"
                 ? "Your session expired — remove and re-add this account in the account switcher."
                 : ex.Message;
+            System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed (auth): {ex}");
+            File.WriteAllText(@"C:\Users\Will\AppData\Local\Temp\claude\C--Users-Will-Documents-Origin-Client\d4c38423-9727-4f18-805d-e8d301b2fb83\scratchpad\launch_error.txt", ex.ToString());
         }
         catch (Exception ex)
         {
             StatusText.Text = $"Launch failed: {ex.Message}";
+            System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed: {ex}");
+            File.WriteAllText(@"C:\Users\Will\AppData\Local\Temp\claude\C--Users-Will-Documents-Origin-Client\d4c38423-9727-4f18-805d-e8d301b2fb83\scratchpad\launch_error.txt", ex.ToString());
         }
         finally
         {
             _isLaunching = false;
-            UpdatePlayState();
+            LoadingOverlay.Hide();
+            // Not the full UpdatePlayState() — that unconditionally overwrites
+            // StatusText with "Signed in as X", clobbering whatever specific
+            // message the try/catch above just set. Only re-sync IsEnabled here.
+            PlayButton.IsEnabled = _selectedAccount != null && VersionComboBox.SelectedItem is string;
         }
     }
+
+    private static string LoaderCaption(LoaderKind loader) => loader switch
+    {
+        LoaderKind.Fabric => "Fabric",
+        LoaderKind.Forge => "Forge",
+        _ => "Vanilla"
+    };
 
     // Redirects the launched instance's stdout/stderr to a per-launch log file
     // and reports the exit code back to Home once the game closes — this is

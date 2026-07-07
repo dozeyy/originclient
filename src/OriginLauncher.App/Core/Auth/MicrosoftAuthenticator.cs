@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -21,8 +20,19 @@ namespace OriginLauncher.App.Core.Auth;
 // System.Text.Json are all in the .NET 8 base class library.
 public sealed class MicrosoftAuthenticator
 {
-    // Azure App Registration (public client, personal Microsoft accounts only).
-    private const string ClientId = "de37d9e5-82d5-43a7-8f66-ebac788e8ba5";
+    // TEMPORARY — single switch for the whole test setup. Flip to false (and
+    // revert ClientId below) once Origin's own Azure app registration is
+    // confirmed working. Every place that needs to behave differently while
+    // testing (silent refresh included — that's what was still broken)
+    // checks this same flag, so nothing can drift out of sync.
+    public const bool IsTestMode = true;
+
+    // TEMPORARY — testing only. Swapped to a public client ID (registered in
+    // Microsoft's legacy Live Connect system) to isolate whether the auth
+    // chain itself works, independent of whether Origin's own Azure app
+    // registration (de37d9e5-82d5-43a7-8f66-ebac788e8ba5) has finished
+    // propagating. Revert to Origin's own ID before shipping.
+    private const string ClientId = "00000000402b5328";
 
     // "Personal Microsoft accounts only" apps authenticate against the
     // /consumers authority, not the app's own Directory (tenant) ID — that
@@ -47,8 +57,12 @@ public sealed class MicrosoftAuthenticator
     // (empty response body)".
     private static readonly JsonSerializerOptions RequestJsonOptions = new() { PropertyNamingPolicy = null };
 
-    // Full interactive sign-in: opens the browser, requires the user to log in.
-    public async Task<AuthResult> SignInAsync(CancellationToken ct = default)
+    // Full interactive sign-in: requires the user to log in through whatever
+    // surface presentAuthorizationUrl renders (an embedded WebView2 page inside
+    // the launcher, not an external browser popup — the caller decides how the
+    // URL gets shown; this class only needs it navigated to somehow so the
+    // loopback listener below sees the redirect).
+    public async Task<AuthResult> SignInAsync(Action<string> presentAuthorizationUrl, CancellationToken ct = default)
     {
         var port = GetFreeLoopbackPort();
         var redirectUri = $"http://localhost:{port}/";
@@ -57,9 +71,55 @@ public sealed class MicrosoftAuthenticator
         var codeChallenge = Pkce.GenerateCodeChallenge(codeVerifier);
         var state = Guid.NewGuid().ToString("N");
 
-        var code = await GetAuthorizationCodeAsync(redirectUri, port, codeChallenge, state, ct);
+        var code = await GetAuthorizationCodeAsync(redirectUri, port, codeChallenge, state, presentAuthorizationUrl, ct);
         var (msaToken, refreshToken) = await ExchangeCodeForTokenAsync(code, redirectUri, codeVerifier, ct);
 
+        var session = await CompleteMinecraftAuthAsync(msaToken, ct);
+        return new AuthResult { Session = session, MsaRefreshToken = refreshToken };
+    }
+
+    // TEMPORARY — testing only, paired with the ClientId swap above. This is
+    // this client ID's actual registered redirect — Microsoft's own generic
+    // native-client landing page (login.live.com, not a third party's own
+    // domain), which is why this ID is usable this way at all. Since our
+    // sign-in runs inside our own embedded WebView2 rather than the system
+    // browser, the caller just watches WebView2's NavigationStarting for
+    // this URI and cancels it before it actually loads that blank page,
+    // then hands the extracted code to CompleteTestSignInAsync below.
+    // See MicrosoftSignInPanel.
+    public const string TestRedirectUri = "https://login.live.com/oauth20_desktop.srf";
+
+    // TEMPORARY — testing only. This client ID is registered in Microsoft's
+    // legacy Live Connect identity system, not modern Azure AD v2 — the v2
+    // "/consumers/oauth2/v2.0/token" endpoint returned AADSTS700016 ("app not
+    // found in directory") because it genuinely isn't there. These legacy
+    // endpoints are where it actually lives.
+    private const string TestAuthorizeEndpoint = "https://login.live.com/oauth20_authorize.srf";
+    private const string TestTokenEndpoint = "https://login.live.com/oauth20_token.srf";
+
+    public (string AuthUrl, string CodeVerifier) BuildTestAuthorizationRequest()
+    {
+        var codeVerifier = Pkce.GenerateCodeVerifier();
+        var codeChallenge = Pkce.GenerateCodeChallenge(codeVerifier);
+        var state = Guid.NewGuid().ToString("N");
+
+        var authUrl =
+            $"{TestAuthorizeEndpoint}" +
+            $"?client_id={Uri.EscapeDataString(ClientId)}" +
+            $"&response_type=code" +
+            $"&redirect_uri={Uri.EscapeDataString(TestRedirectUri)}" +
+            $"&response_mode=query" +
+            $"&scope={Uri.EscapeDataString("XboxLive.signin offline_access")}" +
+            $"&code_challenge={codeChallenge}" +
+            $"&code_challenge_method=S256" +
+            $"&state={state}";
+
+        return (authUrl, codeVerifier);
+    }
+
+    public async Task<AuthResult> CompleteTestSignInAsync(string code, string codeVerifier, CancellationToken ct = default)
+    {
+        var (msaToken, refreshToken) = await ExchangeCodeForTokenAsync(code, TestRedirectUri, codeVerifier, ct, TestTokenEndpoint);
         var session = await CompleteMinecraftAuthAsync(msaToken, ct);
         return new AuthResult { Session = session, MsaRefreshToken = refreshToken };
     }
@@ -94,7 +154,8 @@ public sealed class MicrosoftAuthenticator
     // --- Step 1 + 2: open the browser, listen on the loopback redirect ---
 
     private static async Task<string> GetAuthorizationCodeAsync(
-        string redirectUri, int port, string codeChallenge, string state, CancellationToken ct)
+        string redirectUri, int port, string codeChallenge, string state,
+        Action<string> presentAuthorizationUrl, CancellationToken ct)
     {
         var authUrl =
             $"{AuthorizeEndpoint}" +
@@ -111,7 +172,7 @@ public sealed class MicrosoftAuthenticator
         listener.Prefixes.Add($"http://localhost:{port}/");
         listener.Start();
 
-        Process.Start(new ProcessStartInfo(authUrl) { UseShellExecute = true });
+        presentAuthorizationUrl(authUrl);
 
         var context = await listener.GetContextAsync().WaitAsync(TimeSpan.FromMinutes(5), ct);
         var query = context.Request.QueryString;
@@ -170,7 +231,7 @@ public sealed class MicrosoftAuthenticator
     // --- Step 3 (first half): trade the auth code for a Microsoft access token ---
 
     private static async Task<(string AccessToken, string RefreshToken)> ExchangeCodeForTokenAsync(
-        string code, string redirectUri, string codeVerifier, CancellationToken ct)
+        string code, string redirectUri, string codeVerifier, CancellationToken ct, string tokenEndpoint = TokenEndpoint)
     {
         var form = new Dictionary<string, string>
         {
@@ -182,7 +243,7 @@ public sealed class MicrosoftAuthenticator
             ["scope"] = "XboxLive.signin offline_access"
         };
 
-        using var response = await Http.PostAsync(TokenEndpoint, new FormUrlEncodedContent(form), ct);
+        using var response = await Http.PostAsync(tokenEndpoint, new FormUrlEncodedContent(form), ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
             throw new MicrosoftAuthException("token_exchange", $"Microsoft token exchange failed: {DescribeFailure(response, json)}");
@@ -205,7 +266,13 @@ public sealed class MicrosoftAuthenticator
             ["scope"] = "XboxLive.signin offline_access"
         };
 
-        using var response = await Http.PostAsync(TokenEndpoint, new FormUrlEncodedContent(form), ct);
+        // TEMPORARY — IsTestMode routes this to the legacy endpoint too; the
+        // test client ID only exists in Microsoft's legacy Live Connect
+        // directory, so silent refresh against the modern endpoint fails
+        // with the same AADSTS700016 ("app not found") the initial sign-in
+        // did before this switch was added.
+        var endpoint = IsTestMode ? TestTokenEndpoint : TokenEndpoint;
+        using var response = await Http.PostAsync(endpoint, new FormUrlEncodedContent(form), ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
             throw new MicrosoftAuthException("token_refresh", $"Silent sign-in failed, a fresh login is needed: {DescribeFailure(response, json)}");

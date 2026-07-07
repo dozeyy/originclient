@@ -31,6 +31,8 @@ public partial class SettingsPage : UserControl
         else
             GraphicsModeToggle.IsChecked = true;
 
+        OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
+
         _isLoading = false;
         _ = LoadVersionsAsync();
     }
@@ -120,6 +122,18 @@ public partial class SettingsPage : UserControl
             _settings.InstallPath = dialog.FolderName;
             SettingsStore.Save(_settings);
         }
+    }
+
+    private void OriginUiToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        OriginClientConfigBridge.SetOriginUiEnabled(true);
+    }
+
+    private void OriginUiToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        OriginClientConfigBridge.SetOriginUiEnabled(false);
     }
 
     private void ResolutionTextBox_LostFocus(object sender, RoutedEventArgs e)

@@ -1,0 +1,30 @@
+<UserControl x:Class="OriginLauncher.App.UI.Controls.LaunchLoadingOverlay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
+             mc:Ignorable="d"
+             Visibility="Collapsed"
+             IsHitTestVisible="True">
+
+    <!-- Load-then-snap cover for the whole Home page during install+launch —
+         opaque, not a translucent scrim, since there's real work happening
+         behind it and nothing underneath should be interactive meanwhile.
+         The origin mark doubles as the spinner: same brand geometry, just
+         given a continuous spin instead of sitting static. -->
+    <Border Background="{StaticResource Brush.Bg}">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <controls:OriginMark x:Name="Mark" Width="72" Height="72" Margin="0,0,0,28"
+                                  RenderTransformOrigin="0.5,0.5"/>
+
+            <TextBlock Text="LAUNCHING" Style="{StaticResource Text.Eyebrow}" HorizontalAlignment="Center"/>
+            <TextBlock x:Name="VersionText" Style="{StaticResource Text.H1}"
+                       HorizontalAlignment="Center" Margin="0,4,0,2"/>
+            <TextBlock x:Name="LoaderCaptionText" Style="{StaticResource Text.Label}"
+                       HorizontalAlignment="Center" Margin="0,0,0,24"/>
+
+            <TextBlock x:Name="StageText" Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center"/>
+        </StackPanel>
+    </Border>
+</UserControl>

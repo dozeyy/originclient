@@ -108,6 +108,28 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
+
+            <!-- Origin Client -->
+            <Border Style="{StaticResource SectionCard}">
+                <StackPanel>
+                    <TextBlock Text="Origin Client" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Origin UI" Style="{StaticResource Text.BodyDim}"/>
+                            <TextBlock Text="Custom title screen, client settings, and mods browser in-game. Off reverts to plain vanilla Minecraft menus."
+                                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,2,16,0"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      Checked="OriginUiToggle_Checked" Unchecked="OriginUiToggle_Unchecked"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

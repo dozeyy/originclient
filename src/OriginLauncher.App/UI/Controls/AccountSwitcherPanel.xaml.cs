@@ -11,6 +11,7 @@ public partial class AccountSwitcherPanel : UserControl
 {
     public event EventHandler? CloseRequested;
     public event EventHandler? AccountsChanged;
+    public event EventHandler? AddAccountRequested;
 
     private List<StoredAccount> _accounts = AccountStore.Load();
 
@@ -53,43 +54,40 @@ public partial class AccountSwitcherPanel : UserControl
         AccountsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private async void AddAccountButton_Click(object sender, RoutedEventArgs e)
+    private void AddAccountButton_Click(object sender, RoutedEventArgs e)
     {
         ErrorText.Visibility = Visibility.Collapsed;
-        AddAccountButton.IsEnabled = false;
-        AddAccountButton.Content = "SIGNING IN...";
+        AddAccountRequested?.Invoke(this, EventArgs.Empty);
+    }
 
-        try
+    // Called by MainWindow once the embedded sign-in page (see
+    // MicrosoftSignInPanel) completes the MSA -> Xbox Live -> XSTS ->
+    // Minecraft chain successfully.
+    public void CompleteSignIn(AuthResult result)
+    {
+        var stored = new StoredAccount
         {
-            var result = await new MicrosoftAuthenticator().SignInAsync();
+            Id = result.Session.UUID ?? "",
+            Gamertag = result.Session.Username ?? "",
+            LastUsedUtc = DateTimeOffset.UtcNow,
+            ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken)
+        };
 
-            var stored = new StoredAccount
-            {
-                Id = result.Session.UUID ?? "",
-                Gamertag = result.Session.Username ?? "",
-                LastUsedUtc = DateTimeOffset.UtcNow,
-                ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken)
-            };
+        _accounts = AccountStore.Upsert(_accounts, stored);
+        AccountStore.Save(_accounts);
+        RefreshList();
+        AccountsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
-            _accounts = AccountStore.Upsert(_accounts, stored);
-            AccountStore.Save(_accounts);
-            RefreshList();
-            AccountsChanged?.Invoke(this, EventArgs.Empty);
-        }
-        catch (MicrosoftAuthException ex)
-        {
-            ErrorText.Text = ex.Message;
-            ErrorText.Visibility = Visibility.Visible;
-        }
-        catch (Exception ex)
-        {
-            ErrorText.Text = $"Sign-in failed: {ex.Message}";
-            ErrorText.Visibility = Visibility.Visible;
-        }
-        finally
-        {
-            AddAccountButton.IsEnabled = true;
-            AddAccountButton.Content = "ADD MICROSOFT ACCOUNT";
-        }
+    public void ShowSignInError(string message)
+    {
+        ErrorText.Text = message;
+        ErrorText.Visibility = Visibility.Visible;
+    }
+
+    public void SetAddAccountEnabled(bool enabled)
+    {
+        AddAccountButton.IsEnabled = enabled;
+        AddAccountButton.Content = enabled ? "ADD MICROSOFT ACCOUNT" : "SIGNING IN...";
     }
 }

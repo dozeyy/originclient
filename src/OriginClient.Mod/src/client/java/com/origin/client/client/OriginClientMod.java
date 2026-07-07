@@ -1,6 +1,5 @@
 package com.origin.client.client;
 
-import com.origin.client.client.gui.OriginModMenuScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
@@ -23,12 +22,6 @@ public class OriginClientMod implements ClientModInitializer {
 	}
 
 	private void onEndTick(Minecraft client) {
-		while (OriginKeyBindings.openModMenu.consumeClick()) {
-			if (client.screen == null) {
-				client.setScreen(new OriginModMenuScreen(null));
-			}
-		}
-
 		applyFullbright(client);
 
 		LocalPlayer player = client.player;

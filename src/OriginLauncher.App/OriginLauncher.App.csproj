@@ -11,11 +11,37 @@
 
   <ItemGroup>
     <PackageReference Include="CmlLib.Core" Version="4.0.6" />
+    <PackageReference Include="CmlLib.Core.Installer.Forge" Version="1.1.1" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Assets\origin.ico" />
+  </ItemGroup>
+
+  <!--
+    Bundles OriginClient.Mod's own Gradle build output into the launcher's
+    output directory (as Bundled/OriginClient/originclient.jar, read at
+    runtime via OriginPaths.BundledOriginClientJar) so a Fabric instance the
+    launcher provisions can be pre-loaded with Origin Client automatically —
+    no separate manual copy step, and whatever tool packages this output into
+    a setup installer picks the jar up along with everything else.
+
+    Filename is pinned to the exact mod_version in
+    src/OriginClient.Mod/gradle.properties (currently 0.1.0) rather than a
+    wildcard: a glob risks matching a stale jar left behind from a prior
+    version bump if `build/libs` isn't cleaned, which would break the build
+    with an ambiguous duplicate match. Bump this alongside mod_version.
+    Requires `./gradlew build` to have been run in OriginClient.Mod first —
+    if that hasn't happened yet on a fresh checkout, this Content item simply
+    has nothing to copy and the reference below fails at restore/build time.
+  -->
+  <ItemGroup>
+    <Content Include="..\OriginClient.Mod\build\libs\originclient-0.1.0.jar">
+      <Link>Bundled\OriginClient\originclient.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

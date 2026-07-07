@@ -2,36 +2,39 @@ package com.origin.client.client.mixin;
 
 import com.origin.client.client.OriginFreelookState;
 import net.minecraft.client.MouseHandler;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-// While freelook is held, intercepts the two rotation writes turnPlayer()
-// normally applies to the player entity and redirects them into a
-// camera-only accumulator instead — the entity's real yaw/pitch stay frozen
-// (used for movement/hitbox), only the rendered view rotates.
+// While freelook is held, intercepts the single rotation call turnPlayer()
+// makes on the player entity and redirects it into a camera-only accumulator
+// instead — the entity's real yaw/pitch stay frozen (used for movement/
+// hitbox), only the rendered view rotates.
 //
-// Known limitation: vanilla clamps pitch relative to the entity's frozen
-// angle before the redirected call arrives here, so extreme freelook pitch
-// past +-90 from the angle you engaged at may not accumulate further.
+// Confirmed against the real 1.21.1 bytecode: turnPlayer doesn't call
+// Entity.setYRot(float)/setXRot(float) with an absolute new angle the way
+// this mixin originally assumed. It calls turn(double yRotDelta, double
+// xRotDelta) exactly once — deltas to add, not new absolute angles.
+//
+// That method is declared on Entity, but the real invoke instruction inside
+// turnPlayer references it through Minecraft.player's own static type,
+// LocalPlayer — not Entity. Targeting Entity;turn(DD)V here compiled and
+// remapped cleanly (no build-time error) but still failed to match anything
+// at runtime ("(0/1) succeeded. Scanned 0 target(s)") because Mixin's INVOKE
+// matcher checks the owner as it actually appears in the target bytecode,
+// not the method's semantic declaring class. Retargeting through
+// LocalPlayer — the exact owner the real invokevirtual instruction uses —
+// is what actually matches.
 @Mixin(MouseHandler.class)
 public class MouseHandlerMixin {
-	@Redirect(method = "turnPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;setYRot(F)V"))
-	private void originclient$redirectYaw(Entity entity, float newYaw) {
+	@Redirect(method = "turnPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))
+	private void originclient$redirectTurn(LocalPlayer player, double yRotDelta, double xRotDelta) {
 		if (OriginFreelookState.active) {
-			OriginFreelookState.cameraYaw += newYaw - entity.getYRot();
+			OriginFreelookState.cameraYaw += (float) yRotDelta;
+			OriginFreelookState.cameraPitch += (float) xRotDelta;
 		} else {
-			entity.setYRot(newYaw);
-		}
-	}
-
-	@Redirect(method = "turnPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;setXRot(F)V"))
-	private void originclient$redirectPitch(Entity entity, float newPitch) {
-		if (OriginFreelookState.active) {
-			OriginFreelookState.cameraPitch += newPitch - entity.getXRot();
-		} else {
-			entity.setXRot(newPitch);
+			player.turn(yRotDelta, xRotDelta);
 		}
 	}
 }

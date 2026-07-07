@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
 
 // Minimal, clean HUD overlay: FPS / coordinates / ping. Deliberately just
 // text in the corner — no boxes or backgrounds, matching the "simplest" brief.
@@ -28,18 +29,18 @@ public final class OriginHud {
 		}
 
 		int y = PADDING;
-		guiGraphics.drawString(client.font, "FPS: " + client.getFps(), PADDING, y, TEXT_COLOR);
+		guiGraphics.drawString(client.font, Component.literal("FPS: " + client.getFps()), PADDING, y, TEXT_COLOR);
 		y += LINE_HEIGHT;
 
 		String coords = String.format("XYZ: %.1f / %.1f / %.1f", player.getX(), player.getY(), player.getZ());
-		guiGraphics.drawString(client.font, coords, PADDING, y, TEXT_COLOR);
+		guiGraphics.drawString(client.font, Component.literal(coords), PADDING, y, TEXT_COLOR);
 		y += LINE_HEIGHT;
 
 		ClientPacketListener connection = client.getConnection();
 		if (connection != null) {
 			PlayerInfo info = connection.getPlayerInfo(player.getUUID());
 			if (info != null) {
-				guiGraphics.drawString(client.font, "Ping: " + info.getLatency() + "ms", PADDING, y, TEXT_COLOR);
+				guiGraphics.drawString(client.font, Component.literal("Ping: " + info.getLatency() + "ms"), PADDING, y, TEXT_COLOR);
 			}
 		}
 	}

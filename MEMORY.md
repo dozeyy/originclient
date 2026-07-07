@@ -417,3 +417,543 @@ Will clarified the rename should cover everything, not just the mod:
   wording at the time), not the actually-visible-and-running WPF launcher
   app, which is what Will was actually looking at when he noticed the
   leftover branding.
+
+## 2026-07-06 — In-game UI framework expansion (Client Settings + Mods screen + master UI toggle)
+Expanded the Origin Client mod's custom-UI framework: a shared theme/rounded-
+rect primitive, a real Mods browser, tabbed client settings, and a master
+kill-switch back to vanilla.
+- `client/gui/OriginTheme.java` (new): single source of Deskify color tokens
+  for the mod side + a cheap software rounded-rect fill (bulk via 3
+  `GuiGraphics.fill` calls, corners via a small per-pixel circle test — only
+  ~100 fills at the 6-10px radii used here). `OriginToggleButton` now draws
+  through this instead of its own hardcoded hex constants.
+- `client/gui/OriginSlider.java` (new): flat track+pill slider matching the
+  toggle button's look. First real user: **Zoom FOV** is no longer a fixed
+  `/4.0` divisor in `GameRendererMixin` — it's a configurable absolute FOV
+  (`OriginFeatures.zoomFov`, default 30, slider range 5-50) applied directly
+  when the zoom key is held.
+- `client/gui/OriginModMenuScreen.java` renamed/rebuilt as
+  **`OriginClientSettingsScreen`** — now tabbed (Performance / HUD & Render /
+  Quality of Life via `OriginTabButton`, new). Switching tabs opens a fresh
+  screen instance already on that tab rather than juggling a shared widget
+  list.
+- **Master switch**: `OriginFeatures.originUiEnabled` (default true). The
+  settings screen's bottom button reads "Disable Origin UI" / "Enable Origin
+  UI" depending on current state — it's a real toggle, not one-way.
+  `TitleScreenMixin` and `LoadingOverlayMixin` both check this flag and, if
+  false, return immediately at their injection point, leaving vanilla's own
+  rendering/widgets untouched — confirmed this works by inspection of
+  Minecraft's own behavior: `Minecraft.setScreen()` re-runs `Screen#init()`
+  every time a screen becomes current (even a pre-existing instance), so
+  toggling off and returning to the same `TitleScreen` re-triggers the mixin,
+  which now just no-ops and leaves vanilla's freshly-added widgets alone —
+  reverts instantly, no restart needed.
+  Deliberately does **not** gate the Right Shift quick-menu keybinding or the
+  individual feature mods (zoom/freelook/HUD/etc.) — those stay live even
+  with the UI disabled, so there's always a way back into the setting that
+  re-enables it. Without this the toggle would be a one-way lockout.
+- **`LoadingOverlayMixin`** rewritten: was TAIL-inject text-only branding,
+  now cancels vanilla's render at HEAD (when UI enabled) and draws a fully
+  custom dark screen + wordmark + animated indeterminate progress bar. Uses
+  `System.currentTimeMillis()` for the animation rather than reading
+  `LoadingOverlay`'s real reload-progress fields — those aren't stable API
+  and reading them via `@Shadow` would be guessing private field names per
+  MC version; cancelling render only skips this frame's drawing, the actual
+  `ReloadInstance` driving resource loading runs independently and is
+  unaffected.
+- New `client/mods/` package — real mod-folder scanning, not a stub:
+  `OriginModScanner` reads `FabricLoader.getInstance().getGameDir()/mods`
+  directly (the same folder the launcher's `VersionManager` already
+  provisions per instance — no separate "Origin mods path" concept needed).
+  Parses `fabric.mod.json` via Gson (id/name/version/description/icon, icon
+  handles both a plain string and the `{"16":..., "32":...}` size-map form)
+  and hand-rolls a minimal `mods.toml` reader for Forge/NeoForge (just the
+  4 keys actually needed — a full TOML parser would be a new dependency for
+  no real gain). `OriginModIcons` lazily decodes+registers a mod's icon
+  texture only the first time it's actually drawn, cached per session.
+  `OriginFolderOpener` uses plain `java.awt.Desktop#open` rather than
+  `Util.getPlatform()` — that Minecraft API has shifted signatures across
+  versions; `Desktop` has been stable since Java 6.
+- `client/gui/OriginModsScreen.java` (new): left scrollable list (hand-rolled
+  scroll/click/scissor-clip, not vanilla `ObjectSelectionList`, to keep full
+  control of the Deskify styling) + right detail panel with an "Open Mods
+  Folder" button. Title screen gained a 5th button, "Mods", wired to this.
+- Verified for real: `./gradlew build` from `src/OriginClient.Mod` — clean,
+  0 errors, including the Mixin refmap/remap step (so every `@Mixin` target
+  used above is confirmed to exist in the real 1.21.1 Mojmap jar, not just
+  assumed). One real compile error caught and fixed along the way:
+  `AbstractSliderButton.renderWidget` is `public` in this Mojmap version, not
+  `protected` — `OriginSlider` had to match that visibility.
+- **Launcher side (C#)**: checked `VersionManager.cs` before writing anything
+  new — Fabric/Forge install (via CmlLib.Core, no external browser) and
+  per-version instance isolation (`instances/{version}/mods`) already exist
+  and already satisfy "seamless internal dependency architecture, no browser
+  redirects, auto-provisioned mod folder" from this session's request. Only
+  gap found: the mods folder was only actually created on disk if a perf
+  profile or OptiFine happened to populate it — for Fabric with no matching
+  `PerformanceModCatalog` entry, or Forge without OptiFine, the folder never
+  got created up front. Fixed with one unconditional
+  `Directory.CreateDirectory(modsFolder)` when `loader != Vanilla`, before
+  the loader-specific switch. Not yet full-rebuilt end-to-end in this
+  session (the running launcher instance held its own `.exe` locked during
+  `dotnet build`, which only blocked the final copy step — the C# itself
+  compiled with no CS errors before that).
+- Not done, flagged as future scope rather than attempted here: mods-screen
+  drag-drop install / per-mod enable-disable toggle (still Phase 2 per
+  `./CLAUDE.md`'s roadmap — this session only built the read-only browser +
+  metadata scanner, which those features would sit on top of), and
+  `instances/<version>_<loader>` folder naming (user's own spec suggested
+  loader in the folder name; current isolation is per-version only, changing
+  it would touch a working system and wasn't asked for directly this
+  session — worth a real decision before doing it, not a silent rename).
+
+## 2026-07-06 — Bundled Origin Client jar into the launcher's own build output
+Will's ask: everything from today's mod UI work should be available straight
+from the launcher exe, so packaging it into a setup installer later needs no
+separate manual step to attach the mod.
+- `OriginLauncher.App.csproj`: new `Content` item copies
+  `src/OriginClient.Mod/build/libs/originclient-0.1.0.jar` (Gradle's own
+  build output — requires `./gradlew build` to have run in OriginClient.Mod
+  first) into the launcher's own output dir as
+  `Bundled/OriginClient/originclient.jar`, `CopyToOutputDirectory=
+  PreserveNewest`. Filename is pinned to the exact `mod_version` in
+  `OriginClient.Mod/gradle.properties` rather than a wildcard — a glob
+  risks matching a stale jar from a prior version bump left in `build/libs`,
+  which would break the build with an ambiguous match. Whatever tool
+  eventually packages the launcher into a setup installer just picks this up
+  along with the rest of the output directory — no separate step.
+- `OriginPaths.BundledOriginClientJar` resolves it via `AppContext
+  .BaseDirectory` at runtime, so it works the same from a dev `bin/Debug`
+  build and from wherever an installer actually places the app.
+- `VersionManager.InstallAndBuildProcessAsync`: for the Fabric case, when
+  the target version is exactly `1.21.1` (the version Origin Client is
+  pinned to — must be kept in sync with `gradle.properties` if that ever
+  changes) and the bundled jar exists on disk, it's copied straight into
+  the instance's `mods/` folder.
+- **Caught a real bug while wiring this up, not just plumbing**: the
+  launcher already had a *separate* standalone perf-mod installer
+  (`PerformanceModCatalog` / `PerfModInstaller`) that downloads Sodium/
+  Indium/Lithium/FerriteCore/Krypton straight from Modrinth for any Fabric
+  instance — including 1.21.1. Origin Client's own jar *also* bundles
+  those same 5 mods jar-in-jar (see `build.gradle`'s `include(...)` deps).
+  Installing both into the same instance would have given Fabric Loader two
+  copies of the same mod id (e.g. two "sodium"s — the catalog even pins a
+  different Sodium point version, 0.8.12 vs. the mod's 0.6.13) and the game
+  would flat-out refuse to launch. Fixed by only falling back to
+  `PerfModInstaller` when the Origin Client jar *wasn't* installed (wrong
+  version, or a dev checkout where the mod hasn't been built yet) — a real
+  instance never ends up with both installed at once.
+- Verified end-to-end: `dotnet build` on the launcher, confirmed
+  `bin/Debug/net8.0-windows/Bundled/OriginClient/originclient.jar` actually
+  exists on disk afterward, not just that the csproj change compiled.
+
+## 2026-07-06 — Fabric API auto-installed for every Fabric instance (real launch blocker, not just tidying)
+Will asked to have Fabric API built into all Fabric versions "so it works" —
+turned out to be catching a real bug, not a nice-to-have: nothing in the
+launcher installed Fabric API into any instance at all, and Origin Client's
+own `fabric.mod.json` declares `"fabric-api": "*"` as a hard dependency. The
+exe would have failed at Fabric Loader's own dependency check the moment it
+tried to load Origin Client.
+- New `Core/Loaders/FabricApiInstaller.cs`: unlike `PerformanceModCatalog`
+  (a small, deliberately hand-pinned table — exact build pairing matters
+  there), Fabric API needs to "just work" for whatever exact MC version is
+  being installed across every Fabric version Origin supports, so this
+  queries Modrinth's version API live (`loaders=fabric&game_versions=X`) and
+  grabs the newest build rather than hand-maintaining a table back to 1.14.
+  Skip-if-already-present via `fabric-api-*.jar` glob, same idea as
+  `PerfModInstaller`. Wired into `VersionManager` unconditionally for every
+  Fabric install (not gated to 1.21.1 like the Origin Client jar/perf-mod
+  logic — every Fabric mod depends on this, not just ours).
+- **Caught a second real bug by actually testing the request, not just
+  reading the code back**: Modrinth's API returns `400 Bad Request` when
+  `?loaders=["fabric"]&game_versions=["1.21.1"]` is sent with literal
+  unencoded brackets/quotes — confirmed by hand with curl. Had to
+  `Uri.EscapeDataString` each JSON-array query value
+  (`%5B%22fabric%22%5D`) before the API accepted it. Also confirmed the
+  resolved download URL actually serves a valid jar (2.4MB, real Java
+  archive) end-to-end, not just that the API call parses.
+- Lesson: this class of bug (URL/query construction that looks obviously
+  right in code) doesn't surface from reading the code or from a clean
+  compile — it only shows up by actually firing the request at the real
+  API. Worth doing for any other code in this project that builds a URL by
+  hand rather than through a typed HTTP client library.
+
+## 2026-07-06 — Real crash on first launch: freelook Mixin targeted a method that doesn't exist that way
+Will actually ran the exe end-to-end for the first time and hit a real crash:
+Minecraft exited with code -1 immediately after the title screen loaded. Log
+at `%LocalAppData%\OriginLauncher\logs\1.21.1_*.log` had the actual cause.
+
+**Root cause, found with real evidence, not guessing:**
+`java.lang.RuntimeException: Mixin transformation of net.minecraft.class_312
+failed` → `InjectionError: ... Redirector originclient$redirectYaw(...) ...
+failed injection check, (0/1) succeeded. Scanned 0 target(s). No refMap
+loaded.` — `MouseHandlerMixin`'s two `@Redirect`s assumed
+`MouseHandler.turnPlayer` calls `Entity.setYRot(float)`/`setXRot(float)`
+with an absolute new angle. That assumption was never checked against the
+real 1.21.1 bytecode when the freelook feature was originally written.
+
+**Two dead ends before the real fix, both worth remembering:**
+1. First suspected the build.gradle plugin id — this project uses
+   `net.fabricmc.fabric-loom-remap` (`LoomRemapGradlePlugin`) instead of the
+   official `fabric-loom` (`LoomNoRemapGradlePlugin`) FabricMC's own
+   example-mod template uses. Switched to `fabric-loom` and did a clean
+   rebuild. **This did not actually fix anything** — verified by decompiling
+   the rebuilt class with `javap` and finding the crash persisted. Kept the
+   plugin-id fix anyway since it matches the documented official convention
+   and caused no regressions, but it was a red herring for this specific bug.
+2. Suspected "No refMap loaded" meant Mixin's annotation-remapping never
+   ran at all. Wrong — disassembled the actual compiled class
+   (`javap -v -p`) and found the `@Redirect`/`@Mixin` annotation string
+   values (`Lnet/minecraft/class_1297;method_36456(F)V` etc.) were already
+   correctly remapped to real intermediary names at build time. "No refMap
+   loaded" is a red herring here — Loom's remap step embeds already-translated
+   values directly, no separate refmap resource needed. The real problem was
+   the target simply didn't exist in that shape.
+**How the real bug was actually found:** pulled the real intermediary-mapped
+Minecraft jar out of Loom's own cache
+(`~/.gradle/caches/fabric-loom/minecraftMaven/.../minecraft-merged-intermediary-*.jar`),
+extracted `MouseHandler` (`class_312`), and disassembled `turnPlayer`
+(`method_1606`) with `javap -p -c`. Real signature is `turnPlayer(double)`,
+not the parameterless/float-forwarding shape assumed — it does mouse-
+sensitivity smoothing math and ends by calling
+`LocalPlayer.method_5872(double, double)` exactly once. Looked that up in
+Loom's own cached tiny mapping file
+(`~/.gradle/caches/fabric-loom/1.21.1/loom.mappings.../mappings.tiny`,
+`grep method_5872`) → real name is `Entity.turn(double yRotDelta, double
+xRotDelta)`, declared on `Entity` (`class_1297`), inherited by `LocalPlayer`.
+Confirms the two params are **deltas to add**, not absolute new angles.
+**Fix**: `MouseHandlerMixin.java` — collapsed the two wrong `@Redirect`s
+(targeting a nonexistent `setYRot`/`setXRot` call shape) into one correct
+`@Redirect` targeting `Entity.turn(DD)V`. Delta semantics actually simplify
+the freelook accumulator logic — no more `newAngle - entity.getYRot()` diffing,
+the intercepted values already are the deltas. Verified post-fix by
+re-disassembling the rebuilt class: annotation now reads
+`Lnet/minecraft/class_1297;method_5872(DD)V`, matching the real invocation
+exactly (just expressed via the declaring class `Entity` rather than the
+call site's static type `LocalPlayer` — the correct, idiomatic way to write
+it; Mixin resolves inherited methods through the class hierarchy).
+`EntityViewAngleMixin` (the other freelook mixin, overriding
+`getViewYRot`/`getViewXRot`) was checked too and is fine — both method names
+verified to exist on `Entity` with the expected `(F)F` shape via the same
+tiny mapping file.
+**Still not verified**: I can't drive a full 3D Minecraft client window from
+this sandboxed shell to confirm the crash is actually gone — bytecode-level
+verification is as far as this session went. Needs Will to actually
+relaunch and confirm freelook itself feels right (delta accumulation with no
+pitch clamp — freelook can now rotate past vanilla's vertical look limits
+since our `@Redirect` fully replaces the vanilla call and we chose not to
+add our own clamp, matching the original simple-accumulator design intent).
+**Lesson for future mixin work on this project**: don't write a `@Redirect`/
+`@Inject` target from memory or assumption about what a vanilla method
+"probably" does — pull the real jar from Loom's cache and disassemble the
+actual target method with `javap -p -c` first. This is the second real bug
+in a row (after the Fabric API URL-encoding one) that only surfaced by
+testing against the real artifact, not by re-reading the code.
+
+## 2026-07-06 — Lunar-Client-vibe UI pass: launcher-side toggle, animated title screen, keybinds, custom font
+Will asked for four things at once: move "Disable Origin UI" to the launcher's
+own Settings page as an on/off switch; make the in-game title screen look
+like the launcher (black bg, animated floating rings, simple button) instead
+of vanilla; give every keybind-driven feature mod (zoom, freelook) an actual
+rebind control; and stop using Minecraft's font — use Bahnschrift everywhere
+in Origin's own UI.
+
+- **Launcher-side toggle**: new `Core/OriginClientConfigBridge.cs` reads/
+  writes just the `originUiEnabled` key in the mod's own
+  `instances/1.21.1/config/originclient.json` via a loose `JsonNode` parse
+  (not a fixed C# model) — so it never clobbers other fields the Java side
+  (`OriginConfig`/Gson) owns, like the player's zoom FOV or HUD toggle.
+  Wired into `SettingsPage.xaml`/`.xaml.cs` reusing the existing
+  `Toggle.Switch` style (same one the OptiFine toggle already uses — found
+  it already existed rather than inventing a new switch style). Removed the
+  in-game "Disable/Enable Origin UI" button from
+  `OriginClientSettingsScreen` entirely — this control now lives in exactly
+  one place.
+- **Custom font (Bahnschrift)**: copied the real `bahnschrift.ttf` from
+  `C:\Windows\Fonts\` into `src/client/resources/assets/originclient/font/`
+  + a `ttf` font-provider JSON, registered as `originclient:bahnschrift` and
+  applied via `OriginFont.text(String)` (a styled-Component wrapper) across
+  every custom Origin screen/widget — title screen buttons, client settings,
+  mods browser, HUD, loading screen. Deliberately does **not** override
+  `assets/minecraft/font/default.json` globally — vanilla text elsewhere
+  (chat, inventory, tooltips) is untouched, matching how Lunar Client's own
+  mod-menu actually behaves (custom font on its own surfaces only).
+  **Flagged to Will, not silently decided**: this bundles an actual
+  Microsoft-licensed font file inside the mod jar. Fine for personal/current
+  use; worth checking Bahnschrift's specific embedding/redistribution terms
+  before this ships more broadly.
+- **Keybind settings UI**: new `OriginKeybindRow` widget + a fourth
+  "Keybinds" tab on `OriginClientSettingsScreen` (Zoom / Freelook / Open
+  Client Settings). Click-to-rebind is handled by the *screen* catching
+  `keyPressed`/`mouseClicked` while any row is in a "listening" state,
+  rather than depending on Minecraft's per-widget focus-forwarding for a
+  plain `Button` (uncertain whether that reliably routes raw key events to
+  a specific widget) — simpler and more predictable. Verified the real
+  `KeyMapping` API before using it (`setKey`, `resetMapping` — note:
+  *not* the render-adjacent `setAll`, a different method that looked
+  similar by name at first read; `getTranslatedKeyMessage`), same
+  javap-first discipline as everything else tonight.
+- **Title screen redesign** — the highest-risk piece, so verified most
+  carefully before touching anything:
+  - Confirmed via `javap` on the real compiled `TitleScreen.class` that
+    it overrides `render()` (`method_25394`), `init()` (`method_25426`),
+    and `renderPanorama(GuiGraphics, float)` (`method_57728`) — the tiny
+    mapping file alone made it *look* like `init` wasn't overridden at all
+    (identical-signature overrides aren't always re-listed per-subclass in
+    that file), which would have meant the mod's existing, already-shipped
+    `TitleScreenMixin` was broken and had simply never been exercised yet.
+    False alarm, but only confirmed as one by checking the real class file
+    directly instead of trusting the mapping's absence-of-evidence.
+  - `renderPanorama` is purely decorative (unlike `LoadingOverlay.render`,
+    nothing else depends on its side effects) — confirmed by disassembling
+    it — so cancelling it outright at HEAD and drawing new
+    `OriginRingsBackground` (a handful of large tilted stroke-only rings,
+    ~160 point-samples each, continuously rotating at independent
+    speeds — the in-game equivalent of the launcher's animated
+    `OriginBackground.xaml`) is safe.
+  - Also `@Redirect`-suppressed the vanilla Minecraft logo draw
+    (`LogoRenderer.renderLogo`, found via real bytecode disassembly of
+    `render()`'s actual call sequence, not guessed) for a clean,
+    unbranded look matching the launcher.
+  - New `OriginMenuButton` replaces the vanilla-styled `Button.builder(...)`
+    calls in `TitleScreenMixin` with flat Deskify-styled buttons (same
+    drawing approach as `OriginToggleButton`).
+- Verified end-to-end at the bytecode level for everything above (`javap`
+  on the rebuilt jar matched the real game's call sites exactly) and
+  confirmed the launcher's bundled jar actually picked up the new build.
+  Still not confirmed by an actual live playtest in this session — that's
+  the next real test.
+
+## 2026-07-06 — Fixed broken text (variable font), exact-matched background, anti-aliased corners
+Will reported text was "completely broken" everywhere and asked the
+background match the launcher's exactly and buttons not look pixelated.
+
+- **Root cause of broken text, confirmed not guessed**: `bahnschrift.ttf`
+  contains an `fvar` table — it's a *variable* font (single file spanning a
+  weight axis), and Minecraft's TTF font provider (STB TrueType via LWJGL)
+  is known to render these incorrectly/garbled. Confirmed by grepping the
+  actual font file for the `fvar` table tag before assuming.
+- **Fix**: replaced the TTF provider entirely with a pre-rendered bitmap
+  font atlas. Generated via a PowerShell + `System.Drawing` (GDI+, which
+  resolves variable fonts correctly) script that rasterizes all 95 printable
+  ASCII characters from the real installed Bahnschrift into a 512×192 PNG
+  grid, anti-aliased, white glyphs on transparent alpha (so Minecraft's text
+  color tinting still works). Visually verified the atlas before wiring it
+  in (composited onto black to check — white-on-transparent renders blank
+  in a plain image viewer, which looked like a bug at first but wasn't).
+  Caught one real bitmap-font gotcha before it shipped: Minecraft divides
+  each row's pixel width by *that row's own string length* to find cell
+  width, so a final row with fewer characters than the others (mine had 15
+  vs. 16) would have misaligned every glyph in it — padded to a uniform 16
+  characters per row (including the short last row) so every row divides
+  into identical 32px cells.
+- **Background**: `OriginRingsBackground` was re-derived from the actual
+  values in `OriginBackground.xaml`/`.xaml.cs` (4 rings' exact
+  Width/Height/Opacity/initial angle, and `StartRing`'s period+direction
+  args) instead of the invented approximation from the first pass. Scaled
+  proportionally to the real game window width against the launcher's own
+  reference width (`MainWindow.xaml`'s 1180) so the same relative
+  proportions hold regardless of the player's actual resolution.
+- **Anti-aliased rounded corners**: `OriginTheme.fillRounded`'s corner fill
+  was a hard binary circle test (in-or-out per pixel) — replaced with a
+  coverage-based alpha falloff over the boundary half-pixel, same technique
+  any raster circle renderer uses. This is a real, meaningful smoothing
+  improvement, but there's a hard limit worth being upfront about: Minecraft
+  draws its 2D UI in a low-resolution *virtual* coordinate space tied to GUI
+  Scale (each "pixel" GuiGraphics draws can be a multi-pixel block on
+  screen), which is fundamentally blockier than WPF's native
+  hardware-accelerated rendering. Getting fully WPF-smooth visuals in-game
+  would need a custom shader-based overlay bypassing Minecraft's own GUI
+  coordinate system entirely — a much larger undertaking than this pass;
+  flagged rather than silently promised.
+- Verified: clean build, bitmap atlas visually inspected before shipping,
+  jar contents confirmed (font assets present, no leftover ttf), launcher's
+  bundled copy confirmed fresh. Not yet confirmed by an actual live
+  playtest.
+
+## 2026-07-06 — Font path bug (root cause of "looks the same"), universal background + font across every menu
+Follow-up on the font/background/pixelation fixes: Will reported it still
+looked broken and that only the title screen was custom while every other
+menu was still default Minecraft.
+
+- **Real root cause found via the actual game log, not guessed**: `Failed to
+  load builder (originclient:bahnschrift...) FileNotFoundException:
+  originclient:textures/font/bahnschrift_atlas.png`. Minecraft's bitmap font
+  provider automatically prepends `textures/` to the "file" path — I'd put
+  the PNG at `assets/originclient/font/`, it needed to be at
+  `assets/originclient/textures/font/`. Because the font failed to load,
+  Minecraft silently fell back to vanilla's own font everywhere, which is
+  exactly why nothing looked different — not a rendering bug, a wrong
+  resource path. Moved the file, no JSON changes needed (the "file" value
+  was already the correct logical reference). Confirmed no crash in that
+  same log run — the mixins were all applying fine and the game ran to a
+  normal "Stopping!" shutdown, which was reassuring alongside the fix.
+- **Universal font**: added `assets/minecraft/font/default.json` — a
+  from-scratch override of vanilla's OWN default font (checked vanilla's
+  real provider chain first: `space` → `default` (non-uniform) → `unifont`)
+  that inserts the Bahnschrift bitmap atlas between `space` and vanilla's
+  own ASCII glyphs. Font providers resolve per-character in listed order,
+  so this means Origin's font now renders everywhere in the game
+  (including vanilla's own Singleplayer/Multiplayer/Options screens, world
+  names, etc.) while non-Latin/CJK text still correctly falls through to
+  unifont exactly as before — nothing lost, much broader win than manually
+  re-styling every individual screen's text draws.
+- **Universal background**: new `ScreenBackgroundMixin` targets
+  `Screen.renderPanorama` directly (the shared base method, not
+  TitleScreen's own separate override) — confirmed via bytecode that
+  `PauseScreen.renderBackground` just delegates to `Screen`'s base
+  implementation (doesn't override `renderPanorama` itself), so one mixin
+  reaches world-select, multiplayer, and options-from-title all at once.
+  Deliberately skips (does nothing) whenever `Minecraft.level != null` —
+  that's the "actually paused mid-game" case, where vanilla shows a blurred
+  capture of the running game behind the pause menu. Replacing that with an
+  opaque rings background would hide the game the player is paused in,
+  which would be worse, not better, even though it's the same method call —
+  flagged this UX call to Will rather than silently doing the more literal
+  but wrong thing.
+- **Caught before shipping**: created `ScreenBackgroundMixin.java` but
+  initially forgot to add it to `originclient.client.mixins.json`'s
+  `"client"` array — it would have compiled clean and sat there completely
+  inert (Mixin only transforms classes explicitly listed in the config; an
+  unlisted mixin class is silently never applied, not an error). Would have
+  looked like "the fix didn't work" with zero error output to explain why.
+  Caught by checking the config file before declaring this done, not by
+  waiting for another confusing bug report.
+- Not done this pass, flagged as a real scope boundary rather than
+  attempted and risked: full custom button/widget reskinning of the pause
+  menu, world-select list, server list, and options grid. Those are
+  functionally complex vanilla screens (world management, server
+  connections, dozens of settings) — reskinning their actual widgets means
+  reimplementing real game logic, not just applying a background/font, and
+  wasn't something to rush after tonight's several build-verify-fix cycles
+  already on the higher-risk title-screen work. Universal background + font
+  gets everything most of the way there; pause menu's own button styling
+  (keeping the world-blur backdrop) is the natural next piece if wanted.
+
+## 2026-07-06 — Real cause of the wide/broken text font, splash text + branding suppression
+Will sent real screenshots + a long technical spec (from elsewhere) demanding
+a "total reskin." The screenshots showed something concrete and useful:
+every screen's text — including untouched vanilla ones — had unnaturally
+wide, near-monospaced letter spacing.
+
+- **Root cause, found by replicating Minecraft's real algorithm, not
+  guessed**: disassembled `BitmapProvider`'s actual glyph-width scanner
+  (`class_386$class_387.method_2038`) — it scans each glyph cell
+  right-to-left for the first column with any non-zero-alpha pixel, exactly
+  as I'd assumed. The real bug was upstream: GDI+'s anti-aliased
+  `DrawString` onto a `Format32bppArgb` transparent bitmap is known to leave
+  faint non-zero-alpha "residue" well outside the visible glyph — which
+  fooled Minecraft's scanner into measuring nearly every glyph as ~30px
+  wide regardless of the actual letter, i.e. monospaced-looking spacing.
+  Confirmed by writing a PowerShell script that replicates MC's exact
+  scanning algorithm against the old atlas and printing widths.
+- **Fix**: regenerated the atlas rendering opaque black-on-white (no alpha
+  involved at all, sidesteps the GDI+ issue entirely), then manually
+  converting luminosity to alpha as a post-process. Re-ran the same
+  MC-algorithm-replica scanner against the new atlas and confirmed
+  proportional widths this time (i/l ~10-12px, M/W ~21-24px, not ~30px
+  uniformly).
+- **Splash text + version/branding text removed from the title screen**:
+  found via disassembling `TitleScreen.render()` that the yellow splash
+  ("pls rt" etc.) is a self-contained `SplashRenderer.render(...)` call, and
+  the bottom-left "Minecraft 1.21.1 / Fabric" line is the *only*
+  `GuiGraphics.drawString` call inside that method (its returned width is
+  immediately discarded by the caller, confirmed via bytecode, so returning
+  0 instead of drawing is safe). Both suppressed via `@Redirect` in
+  `TitleScreenMixin`, same safety profile as the existing logo redirect.
+- **Added real hover-scale animation** to `OriginMenuButton` — eased via
+  actual elapsed wall-clock time (`System.nanoTime()` per-frame delta), not
+  Minecraft's fixed 20-tick/s clock, so it stays smooth at any framerate
+  instead of looking stepped. `OriginTheme.lerpColor` added for the
+  accompanying color fade.
+- **Pushed back on part of the pasted spec rather than implementing it
+  blindly**: it recommended injecting at `render()`'s `HEAD` and calling
+  `ci.cancel()` before drawing custom UI, "so vanilla rendering never
+  executes." This would also cancel the widget-rendering pass that draws
+  our *own* added buttons (`addRenderableWidget` relies on `Screen`'s
+  default `render()` body actually running) — the exact same category of
+  mistake that caused the loading-screen hang earlier tonight. Explained
+  this to Will instead of silently implementing something that would have
+  broken the buttons.
+- Not done this pass: the separate `OriginTitleScreen extends Screen` +
+  screen-swap-via-Mixin restructuring the pasted spec also asked for.
+  Current approach (Mixin directly into `TitleScreen`, clear + rebuild
+  widgets in `init()`) already achieves the same "zero vanilla widgets"
+  result without the extra indirection, so this would be a rewrite for its
+  own sake, not a fix for anything broken.
+
+## 2026-07-07 — Full UI rewrite attempted and abandoned; back to stock vanilla
+
+Will asked for a complete architectural rewrite of every in-game screen (main
+menu, loading, singleplayer, multiplayer, settings, an in-game Lunar-Client-
+style blurred mod menu) as a custom UI matching the launcher/website. Built a
+real shared widget/screen framework and one full pass at the main menu across
+several rounds of live feedback, then Will asked to tear all of it back out
+and pause UI work entirely. End state: **100% stock vanilla Minecraft menus**
+— only the pre-existing feature mods (Zoom, Freelook, HUD text, Toggle
+Sprint/Sneak, Fullbright) remain. `originUiEnabled` and every custom
+gui/mixin file from this pass are deleted, not just disabled.
+
+**Real technical findings from this pass, worth keeping for next time:**
+- Confirmed via `javap` against the real 1.21.1 mapped classes (not guessed):
+  world list (`LevelStorageSource`/`LevelSummary`/`WorldOpenFlows`/
+  `LevelStorageAccess`), server list (`ServerList`/`ServerData`/
+  `ServerStatusPinger`/`ConnectScreen`), and options (`OptionInstance`,
+  though `Options` has no bulk-enumeration API — each setting is its own
+  named getter) all have clean, real, public APIs a custom screen can call
+  into without reimplementing vanilla's own logic.
+- `Screen.renderBlurredBackground(float)` is `protected`, not private, and
+  has **no `isPauseScreen()`/`Minecraft.level` coupling** — a non-pausing
+  custom overlay Screen can call it directly to blur the game behind it
+  (Lunar-Client-style mod menu). This part of the plan was never actually
+  built/tested live before the rewrite was abandoned.
+- **Root cause of a real, confirmed "laggy as all hell" frame rate**:
+  `OriginTheme.fillCorner`'s anti-aliased rounded-corner math issued one
+  `GuiGraphics.fill()` call *per pixel* in the corner's radius×radius box.
+  Fine at small button radii (6-10px), but `glow()`'s largest blur pass
+  inflates that radius past 50-100px for things like a logo bloom — tens of
+  thousands of individual fill() calls, every frame, just for one glow.
+  Fixed by switching to a row-based algorithm (one wide fill() per fully-
+  opaque row, only boundary pixels done individually) — O(radius) draw
+  calls instead of O(radius²), same visual output. Confirmed via reasoning
+  about real call counts, not just guessed; this class of bug (per-pixel
+  fill() in a hot path) is worth checking first if "laggy" comes up again
+  on any future custom-rendered screen.
+- **Font**: both real attempts (variable-weight TTF, then a static instance
+  produced via `fonttools varLib.instancer wght=400 wdth=100` from the real
+  `bahnschrift.ttf`) still looked wrong live in-game ("completely blurred",
+  "still looks bad"). Per Will's own pre-agreed fallback, dropped custom
+  Bahnschrift entirely — back to Minecraft's stock default font. Two font
+  attempts across two sessions now, both failed live despite passing static
+  analysis each time; a third attempt shouldn't be tried without a way to
+  actually visually verify it first (see next point).
+- **Live verification gap, the real blocker throughout this pass**:
+  computer-use could not resolve the dev Minecraft window for screenshots
+  under any name tried (`Minecraft`, `Minecraft* 1.21.1` — the exact real
+  title bar text — `Java`, `javaw`), even once confirmed running. Every
+  round of feedback this pass depended on Will manually looking at the
+  window and describing/screenshotting it. If a future session revisits
+  in-game UI work, solving this gap first (or accepting manual
+  screenshots as the only channel) would save a lot of round-trips.
+- Icon design lesson: hand-drawn procedural icons (point-sampled dotted
+  lines/arcs via repeated small `fill()` calls, mimicking
+  `OriginRingsBackground`'s technique) read as messy scattered dots at
+  real button sizes, not clean glyphs. Will's own original icon pack at
+  `Documents/Icon Packs/downloads/icons-dark/png/` (163 icons, 6 sizes
+  each, his own design) is the right source for any future icon needs —
+  real raster assets via `GuiGraphics.blit`, not procedural drawing.
+- `Krypton` (one of the bundled jar-in-jar performance mods) crashes
+  `./gradlew runClient` with `NoClassDefFoundError` on its nested
+  `velocity-native` jar — Loom's `include()` doesn't seem to propagate a
+  bundled mod's *own* jar-in-jar through to the dev classpath. Had to
+  temporarily comment out Krypton's `include(...)` in `build.gradle` to get
+  a live dev client running at all this session; restored before finishing.
+  Unrelated to any UI work — a real, reproducible dev-environment-only
+  issue worth root-causing before the next time live testing is needed.
+- Also confirmed (in case a variable-font retry ever comes up): the real
+  1.21.1 TTF font provider path is LWJGL **FreeType**
+  (`TrueTypeGlyphProviderDefinition` → `FT_New_Memory_Face`), not STB as
+  a prior session's memory entry claimed — FreeType never selects a named
+  instance out of a variable font, it just opens whatever FreeType treats
+  as default, which is a different (and more plausible) failure mode than
+  "can't parse the format."

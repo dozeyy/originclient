@@ -11,12 +11,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin {
-	private static final double ZOOM_FOV_DIVISOR = 4.0;
-
 	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
 	private void originclient$applyZoom(Camera camera, float partialTick, boolean usePerspective, CallbackInfoReturnable<Double> cir) {
 		if (OriginClientMod.FEATURES.zoomEnabled && OriginKeyBindings.zoom.isDown()) {
-			cir.setReturnValue(cir.getReturnValue() / ZOOM_FOV_DIVISOR);
+			cir.setReturnValue(OriginClientMod.FEATURES.zoomFov);
 		}
 	}
 }

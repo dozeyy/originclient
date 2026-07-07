@@ -3,7 +3,7 @@
 	"id": "originclient",
 	"version": "${version}",
 	"name": "Origin Client",
-	"description": "The custom client wrapper for Orbit Launcher — simplified title screen and a curated overlay of clean, minimal QoL mods.",
+	"description": "The custom client wrapper for Origin Launcher — simplified title screen and a curated overlay of clean, minimal QoL mods.",
 	"authors": [
 		"Will Henry"
 	],

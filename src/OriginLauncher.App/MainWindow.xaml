@@ -10,6 +10,7 @@
         Icon="Assets/origin.ico"
         Width="1180" Height="740"
         MinWidth="980" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResize"
         AllowsTransparency="False"
@@ -101,6 +102,26 @@
                 <TranslateTransform x:Name="AccountPanelTransform" X="320"/>
             </Border.RenderTransform>
             <ContentControl x:Name="AccountPanelHost"/>
+        </Border>
+
+        <!-- Embedded Microsoft sign-in: a locked-in-place card over the rest of
+             the app (not a separate OS window) so the whole OAuth flow stays
+             inside the launcher. Only ever shown while AccountPanel is already
+             open, so it reuses that panel's Scrim rather than needing its own. -->
+        <Border x:Name="SignInPanel" Width="460" Height="640"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="{StaticResource Brush.Panel}"
+                BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Card}"
+                Opacity="0" IsHitTestVisible="False"
+                RenderTransformOrigin="0.5,0.5">
+            <Border.Effect>
+                <DropShadowEffect Color="#FF000000" Opacity="0.4" BlurRadius="32" ShadowDepth="8" Direction="270"/>
+            </Border.Effect>
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="SignInPanelScale" ScaleX="0.94" ScaleY="0.94"/>
+            </Border.RenderTransform>
+            <ContentControl x:Name="SignInPanelHost"/>
         </Border>
     </Grid>
 </Window>

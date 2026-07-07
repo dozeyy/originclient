@@ -16,3 +16,6 @@ build/
 # OS
 Thumbs.db
 .DS_Store
+
+# .NET publish output
+publish/
