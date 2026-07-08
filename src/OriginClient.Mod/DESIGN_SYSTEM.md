@@ -17,6 +17,15 @@ lessons from three prior attempts — instead of re-deriving both from scratch.
 > are superseded by this decision; don't re-attempt them without first solving the
 > live-verification gap described in §6f (a way to actually see the running client
 > during development, not just after a full round-trip through Will).
+>
+> **Amended 2026-07-08: Inter now ships via Minecraft's own TTF font provider.**
+> `assets/minecraft/font/default.json` is overridden from the mod's resources to
+> put an Inter Medium `ttf` provider (size 10, oversample 4) ahead of vanilla's
+> bitmap/unifont providers (kept as glyph fallbacks). This is NOT the banned
+> custom glyph rendering — Minecraft's own font engine rasterizes and draws the
+> glyphs; we never touch glyph rendering code. Every `Font`/`drawString` call in
+> the game (dynamic strings included) renders Inter automatically. The ban on
+> hand-rolled glyph atlas/draw code stands.
 
 ## 0. Read this first — prior attempts and why they were rolled back
 

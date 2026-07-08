@@ -1526,3 +1526,29 @@ covers the whole menu tree, exactly once per frame, always under widgets:
   screen changes, which reads as intended polish). Known acceptable gap: any
   screen that fully overrides renderBackground without calling super gets no
   glow -- none observed yet; fix per-screen if one shows up live.
+
+## 2026-07-08 — Inter everywhere via vanilla's TTF font provider ("add the custom text")
+
+The move that was always available but hidden behind the M3 trauma: instead of
+custom glyph rendering (banned, 3 live failures), override
+`assets/minecraft/font/default.json` from mod resources with a `ttf` provider
+pointing at bundled Inter Medium (`assets/originclient/font/inter.ttf`,
+OFL license alongside). Minecraft's OWN font engine rasterizes it — zero
+custom draw code, so every dynamic string (slider labels, tooltips, chat,
+HUD) gets the website font for free, at every GUI scale.
+- Provider order: `include/space` ref first (vanilla space handling), Inter
+  ttf second (size 10.0 → caps ≈7.3px vs vanilla's 7; oversample 4.0 for
+  crispness at high GUI scale), then vanilla `include/default` +
+  `include/unifont` refs as fallbacks — Inter-500 is a 230-glyph Latin
+  subset (verified with fontTools; no ✔/▶), so non-Latin/symbols fall
+  through to vanilla glyphs instead of missing boxes.
+- Same open question as the sprite-override attempt: whether Fabric mod
+  resources actually override vanilla-namespace assets was never proven
+  (the sprite test was moot — those sprites were never drawn). If Will's
+  build shows unchanged pixel font, fallback plan: register the assets as a
+  Fabric built-in resource pack (ResourceManagerHelper,
+  DEFAULT_ENABLED) instead of relying on implicit mod-resource override.
+- Baked-label buttons keep their textures (wordmark-quality glow); now
+  visually consistent since both are Inter.
+- DESIGN_SYSTEM.md banner amended: the ban stays for hand-rolled glyph
+  rendering; the TTF provider path is explicitly allowed.
