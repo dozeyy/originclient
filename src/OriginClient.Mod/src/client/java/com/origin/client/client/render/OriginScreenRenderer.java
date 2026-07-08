@@ -77,7 +77,7 @@ public final class OriginScreenRenderer {
 		}
 
 		// Wordmark + bar + caption as a group, roughly centered.
-		double inkH = fitInkHeight(h * 0.15, w, 0.85);
+		double inkH = fitInkHeight(h * 0.13, w, 0.85);
 		int wordmarkBottom = drawWordmark(guiGraphics, w / 2.0, h * 0.43, inkH);
 		int barBottom = drawProgressBar(guiGraphics, w, h, wordmarkBottom, clamped);
 
@@ -110,7 +110,7 @@ public final class OriginScreenRenderer {
 
 		int singleplayerTop = h / 4 + 48;        // vanilla TitleScreen first-button Y
 		double centerY = singleplayerTop / 2.0;  // midpoint between top of screen and that button
-		double inkH = fitInkHeight(h * 0.16, w, 0.82);
+		double inkH = fitInkHeight(h * 0.14, w, 0.82);
 		drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
 	}
 
@@ -138,7 +138,11 @@ public final class OriginScreenRenderer {
 		RenderSystem.enableBlend();
 		for (Ring ring : rings) {
 			double revs = (now / 1000.0) / ring.periodSeconds();
-			double angle = ring.angle0() + (ring.reverse() ? -revs : revs) * 360.0;
+			// Wrap to [0,360) in double BEFORE the float cast: the absolute
+			// angle grows to ~1e10 degrees over time, which a 32-bit float
+			// quantizes to ~1000-degree steps -> rings freeze then jump every
+			// several seconds. Modulo keeps it small and precise.
+			double angle = (ring.angle0() + (ring.reverse() ? -revs : revs) * 360.0) % 360.0;
 			float scale = (float) (ring.widthFrac() * w * 1.1 / TEX); // *1.1: ellipse fills 0.9 of its square texture
 
 			pose.pushPose();
