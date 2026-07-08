@@ -1823,3 +1823,17 @@ updated. Implemented end to end:
 - **CONSTRAINT told to Will**: unauthenticated releases API requires the
   repo (or its releases) PUBLIC; on a private repo every check 404s → fails
   open → no updates ever surface.
+
+## 2026-07-08 — Release channel: ship from the `release` branch, not main
+
+Will: releases must be deliberate, not every main push. Repo now has three
+explicit areas (root README.md): build/test = src/ + tools/ on main; release
+= the `release` branch + release/RELEASING.md (process doc); website =
+website/ (own Pages workflow on main, untouched). launcher-release.yml
+trigger changed: push to `release` only (paths filter dropped — any push to
+release ships). Ship flow: merge main → release, push. Note: run #1 of the
+workflow (triggered from main under the old trigger) may still produce
+launcher-v1.0.1 — harmless, it's the pipeline's shakedown; subsequent main
+pushes no longer release. The `release` branch is created from main after
+this merge (explicitly requested channel), which fires the first
+release-channel build.
