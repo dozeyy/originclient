@@ -89,7 +89,7 @@ public final class OriginScreenRenderer {
 		// Layout matched to the mockup (option 01), with the whole
 		// wordmark + bar + caption group centered vertically on screen.
 		double markCapH = fitInkHeight(h * 0.13, w, 0.85);
-		int barW = (int) (w * 0.44);
+		int barW = (int) (w * 0.46); // .loader { width: 46% } in the mockup
 		int barH = Math.max(2, (int) (h * 0.013));
 		double capH = Math.max(6.0, h * 0.024);
 		double gapMarkBar = h * 0.12;
@@ -148,12 +148,14 @@ public final class OriginScreenRenderer {
 		glowHover = target > glowHover ? Math.min(target, glowHover + step) : Math.max(target, glowHover - step);
 		double hv = OriginTheme.easeOut(glowHover);
 
-		// Halo lag: pos += (target - pos) * 0.12 per 60fps frame, dt-corrected.
+		// Halo lag, dt-corrected. The website's 0.12/frame felt too floaty
+		// in-game (Will: "much faster, just a slight lag") -- 0.38/frame keeps
+		// a visible trail but snaps close behind the cursor.
 		if (Double.isNaN(haloX)) {
 			haloX = mouseX;
 			haloY = mouseY;
 		}
-		double f = 1.0 - Math.pow(1.0 - OriginTheme.HALO_LERP_FACTOR, dtMs / 16.7);
+		double f = 1.0 - Math.pow(1.0 - 0.38, dtMs / 16.7);
 		haloX += (mouseX - haloX) * f;
 		haloY += (mouseY - haloY) * f;
 
@@ -232,15 +234,26 @@ public final class OriginScreenRenderer {
 		if (grainId == null) {
 			return;
 		}
+		// Tile in REAL pixels (pose-scale 1/guiScale): drawn in GUI units the
+		// 1px noise texels become guiScale-sized blocks -- the "low res" grain
+		// Will flagged. At 1:1 each noise grain is a single screen pixel,
+		// like the website's.
+		double gs = Math.max(1.0, Minecraft.getInstance().getWindow().getGuiScale());
+		int realW = (int) Math.ceil(w * gs);
+		int realH = (int) Math.ceil(h * gs);
 		int tile = 128;
+		PoseStack pose = guiGraphics.pose();
+		pose.pushPose();
+		pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
 		RenderSystem.enableBlend();
 		RenderSystem.setShaderColor(1f, 1f, 1f, 0.028f);
-		for (int y = 0; y < h; y += tile) {
-			for (int x = 0; x < w; x += tile) {
+		for (int y = 0; y < realH; y += tile) {
+			for (int x = 0; x < realW; x += tile) {
 				guiGraphics.blit(grainId, x, y, 0, 0, tile, tile, tile, tile);
 			}
 		}
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		pose.popPose();
 	}
 
 	/** Draws the wordmark with its ink box centered on (inkCenterX, inkCenterY), ink scaled to targetInkHeight. Returns ink bottom (screen Y). */
@@ -281,7 +294,11 @@ public final class OriginScreenRenderer {
 		int bx = (int) Math.round(cx - barW / 2.0);
 		int by = barTop;
 
-		guiGraphics.fill(bx, by, bx + barW, by + barH, OriginTheme.STROKE);       // track
+		// Track brighter than the hairline stroke: at 8% white on charcoal the
+		// unfilled track was invisible in-game, so only the fill showed and the
+		// bar read as the wrong (too small) size. ~16% matches how the mockup's
+		// track actually reads on screen.
+		guiGraphics.fill(bx, by, bx + barW, by + barH, 0x29FFFFFF);              // track
 		int fillW = Math.round(barW * progress);
 		if (fillW > 0) {
 			guiGraphics.fill(bx - 1, by - 1, bx + fillW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW); // soft glow

@@ -1363,3 +1363,20 @@ Will confirmed responsiveness is right; two fixes from his next look:
   the fallback fix is deriving scale from framebuffer/gui width.
 - Buttons stay clickable exactly as before — nothing about the in-place
   restyle changed, only how the label texture is chosen/drawn.
+
+## 2026-07-08 — Halo speed, 1:1 grain, loading-bar track visibility
+
+Buttons confirmed good by Will. Three follow-ups shipped:
+- **Halo "much faster, slight lag"**: lerp factor 0.12/frame (the website's
+  value) → 0.38/frame, dt-corrected. Site-exact felt floaty in-game.
+- **Grain "too low res"**: the grain is per-pixel noise but was drawn in GUI
+  units, so each texel rendered as a guiScale-sized block (2x2/3x3...). Now
+  tiled in REAL pixels via pose-scale 1/guiScale — every grain is exactly one
+  screen pixel, like the website. (~100-500 small blits per frame, fine —
+  nothing like the per-pixel fill() trap.)
+- **Loading bar "still not the correct size"**: layout numbers already matched
+  the mockup (46%/1.3%) — the real issue is the unfilled TRACK was 8% white on
+  charcoal, i.e. invisible in-game, so only the fill showed and the bar read
+  as a stubby wrong-size bar. Track brightened to ~16% white (0x29FFFFFF) and
+  width set to the mockup-exact 46%. If Will still flags size after this,
+  get an actual loading-screen screenshot before touching numbers again.
