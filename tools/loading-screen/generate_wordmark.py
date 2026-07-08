@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""Bake the "Origin" wordmark into a smooth texture, matching the original
-loading-screen mockup (tools/loading-screen/wordmark_preview.png): mixed-case
-"Origin" — same casing as the website nav brand and hero — set in Inter 700
-at natural (slightly tight) letter-spacing, with a soft white glow bloom behind
-it. Used on both the loading screen and the main menu.
+"""Bake the "ORIGIN" wordmark into a smooth texture: all-caps, Inter 700, with
+letter-spacing of ~0.45x a space width (a little under half a space — decent,
+clearly-spaced tracking, Will's spec) and a soft white glow bloom behind it.
+Used on both the loading screen and the main menu.
 
-The earlier all-caps "ORIGIN" + 0.22em treatment (commit 2fd52e1) drifted away
-from this mockup; this restores the intended mark. Baked as a texture (not live
-text) so it shows instantly -- Minecraft's own font isn't loaded during the
-first resource load, and this is one fixed word as an image, not a dynamic
-glyph atlas, so it carries none of the earlier custom-font risk.
+Baked as a texture (not live text) so it shows instantly -- Minecraft's own
+font isn't loaded during the first resource load, and this is one fixed word as
+an image, not a dynamic glyph atlas, so it carries none of the earlier
+custom-font risk.
 
 Usage: python3 generate_wordmark.py
 Output: ../../src/OriginClient.Mod/.../assets/originclient/textures/ui/
@@ -24,21 +22,22 @@ HERE = Path(__file__).resolve().parent
 OUT = (HERE / ".." / ".." / "src" / "OriginClient.Mod" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
 
-TEXT = "Origin"
+TEXT = "ORIGIN"
 CAP = 300                          # glyph size, px (baked large, displayed scaled)
-# Natural spacing, a hair tight like the website's big display type
-# (--hero__title letter-spacing: -0.02em). Not the wide all-caps treatment.
-LETTER_SPACING = -0.015 * CAP
+# Letter-spacing = 0.45 x the font's own space advance: "half a normal space,
+# maybe a little less, but decently some space in between" (Will). Derived from
+# the space glyph so it stays a true half-space if the font/size changes.
+SPACING_FRAC_OF_SPACE = 0.45
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     font = load_font("../font-atlas/fonts/Inter-700.ttf", CAP)
-    # Broad, soft bloom behind the crisp letters — the mockup's glow reads
-    # wider and softer than the letters themselves (a halo, not just an
-    # edge glow), so blur generously and keep the peak alpha gentle.
-    img, meta = render_text(font, TEXT, letter_spacing_px=LETTER_SPACING,
-                            pad=180, glow_blur=70, glow_alpha=0.28)
+    letter_spacing = SPACING_FRAC_OF_SPACE * font.getlength(" ")
+    # Soft bloom behind the crisp letters — a halo, not just an edge glow, so
+    # blur generously and keep the peak alpha gentle.
+    img, meta = render_text(font, TEXT, letter_spacing_px=letter_spacing,
+                            pad=150, glow_blur=60, glow_alpha=0.26)
     img.save(OUT / "wordmark.png")
     (OUT / "wordmark.json").write_text(json.dumps(meta, indent=2))
     print(f"wordmark '{TEXT}': texture {meta['width']}x{meta['height']}, "

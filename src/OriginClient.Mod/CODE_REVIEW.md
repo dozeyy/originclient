@@ -28,22 +28,25 @@ Default Minecraft font for **all** in-game text. The baked-Inter label ladder
 and the Inter TTF `font/default.json` override were both built, shipped, and
 then reverted at Will's direction. One text path now (`drawLabel` →
 `font.drawString`), so buttons/sliders/menus/HUD are uniform by construction.
-The only baked text is the "Origin" wordmark (the brand mark — mixed-case Inter
+The only baked text is the "ORIGIN" wordmark (the brand mark — all-caps Inter
 700 with a glow bloom, and it must render before the font loads). The old
-"LOADING xx%" caption strip was removed: the original loading mockup has no
-percentage, and it was the last baked-Inter text that wasn't the logo.
+"LOADING xx%" caption strip was removed: the loading screen has no percentage
+text, and it was the last baked-Inter text that wasn't the logo.
 
-## Loading screen — matched to the original mockup
+## Loading screen — final layout (Will's spec)
 
-`renderLoading` (startup resource load) is a faithful rebuild of
-`tools/loading-screen/wordmark_preview.png`: near-black (#050505) + crisp
-orbital rings + fine grain + the "Origin" wordmark (0.165h ink, optically
-centered) + a thin word-width progress bar just beneath it. The interim drift
-(all-caps "ORIGIN" + 0.22em, dreamy over-blurred rings, no rings on the load
-screen, an over-wide 46% bar, a percentage caption) is gone. Every asset was
-re-verified in-sandbox against the mock before shipping (Pillow renders the
-scene exactly as the Java does); the Java layout numbers are the ones that
-matched the mock in that harness.
+`renderLoading` (startup resource load): near-black (#050505) + crisp orbital
+rings + fine grain + the "ORIGIN" wordmark + a chunky progress bar well below
+it. Specifics Will locked in:
+- **All-caps "ORIGIN"**, Inter 700, letter-spacing = 0.45x the font's space
+  advance ("half a space, a little less"; derived from the space glyph in
+  `generate_wordmark.py`, not a magic em value).
+- **Cap height 0.135h** (all-caps has no descender, so ink height == cap
+  height); wordmark centered at 0.48h so the logo+bar group stays balanced.
+- **Bar**: full-word-width, 0.012h thick, sitting 1.15x the cap-height below
+  the wordmark centre (a clear gap — "farther down and bigger").
+Every asset + layout number was verified in-sandbox (Pillow renders the scene
+exactly as the Java does) before shipping.
 
 ## GL-state discipline (the recurring bug class)
 

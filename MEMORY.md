@@ -1640,3 +1640,24 @@ didn't apply to static PNGs.
   lettering, size, glow, rings, underline). Java layout numbers are the ones
   that matched in that harness. Still no in-game build (gradle network-blocked);
   Java wiring is deterministic, assets are pixel-confirmed.
+
+## 2026-07-08 — Logo to all-caps ORIGIN + loading bar bigger/lower (Will)
+
+Will revised the just-restored logo: wanted it back to **all-caps "ORIGIN"**
+(not mixed-case), with letter-spacing "half a normal space, maybe a little
+less" — implemented as 0.45x the font's own space advance (measured 71px @
+CAP 300 → 32px tracking, 0.107em) in generate_wordmark.py, so it stays a true
+half-space if the font/size changes. Kept Inter 700 + the glow bloom.
+
+Loading-screen layout retuned (all verified in-sandbox against the ring bg via
+the Pillow harness, since gradle is still network-blocked):
+- Cap height picked as the **middle** of a 0.12/0.135/0.15 comparison → 0.135h
+  (all-caps has no descender, so ink height == cap height).
+- Wordmark centre nudged to 0.48h; **bar moved farther down (1.15x cap-height
+  below centre) and made bigger** (full word width, 0.012h thick vs the old
+  0.92-width / 0.006h). OriginScreenRenderer.renderLoading.
+
+Also regenerated the every-screen mockups (scratchpad screens.py) with a pixel
+font (PixelifySans) standing in for MC's default text instead of Inter, and
+fixed the sound screen to show ON/OFF **toggle buttons** (what vanilla actually
+uses there) rather than misplaced checkboxes.
