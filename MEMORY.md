@@ -1837,3 +1837,23 @@ launcher-v1.0.1 — harmless, it's the pipeline's shakedown; subsequent main
 pushes no longer release. The `release` branch is created from main after
 this merge (explicitly requested channel), which fires the first
 release-channel build.
+
+## 2026-07-08 — Offline test mode + build-check CI (MS auth pending ~1 week)
+
+Will: Microsoft app approval will take ~a week; get everything else as far as
+possible. Also stated THE PLAN: lock down 1.21.1 (UI + all mods, flawless) →
+then 1.8.9 → slowly up through every version → he verifies each → release.
+
+Shipped to serve that:
+- **Offline test mode** (Settings → Developer, Toggle.Switch row, marked
+  temporary/remove-before-release): LauncherSettings.OfflineTestMode; with it
+  on and no account, Play launches MSession.CreateOfflineSession
+  ("OriginTester") — full pipeline testable (provisioning, loaders, in-game
+  UI) with zero Microsoft dependency. HomePage reads the flag FRESH from
+  SettingsStore at click/UpdatePlayState (Settings page has its own settings
+  instance; stale-cache bug avoided); MainWindow.NavHome_Checked now calls
+  RefreshAccountState() so returning from Settings re-evaluates Play.
+- **build-check.yml**: compile-verification workflow on push to main +
+  claude/** branches + PRs (mod gradle build + launcher publish, same shape
+  as release, publishes nothing). From now on all sandbox-written code is
+  machine-verified BEFORE merge — the "can't build here" era is over.

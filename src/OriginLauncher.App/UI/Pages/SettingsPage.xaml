@@ -130,6 +130,28 @@
                     </Grid>
                 </StackPanel>
             </Border>
+
+            <!-- Developer (temporary: remove before public release) -->
+            <Border Style="{StaticResource SectionCard}">
+                <StackPanel>
+                    <TextBlock Text="Developer" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Offline test mode" Style="{StaticResource Text.BodyDim}"/>
+                            <TextBlock Text="Launch without a Microsoft account while sign-in approval is pending. Local testing only — no online servers."
+                                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,2,16,0"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" x:Name="OfflineTestToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      Checked="OfflineTestToggle_Checked" Unchecked="OfflineTestToggle_Unchecked"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

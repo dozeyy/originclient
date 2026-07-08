@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using CmlLib.Core.Auth;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
@@ -57,11 +58,16 @@ public partial class HomePage : UserControl
     {
         var hasAccount = _selectedAccount != null;
         var hasVersion = VersionComboBox.SelectedItem is string;
+        // Read fresh (not the cached _settings): the toggle lives on the
+        // Settings page, which persists to disk; a page switch must pick the
+        // change up without app-restart plumbing.
+        var offlineTest = SettingsStore.Load().OfflineTestMode;
+        var canPlay = hasAccount || offlineTest;
 
-        PlayButton.IsEnabled = hasAccount && hasVersion && !_isLaunching;
+        PlayButton.IsEnabled = canPlay && hasVersion && !_isLaunching;
         PlayButton.ToolTip = _isLaunching
             ? null
-            : hasAccount
+            : canPlay
                 ? (hasVersion ? null : "Select a version to play")
                 : "Sign in to play";
 
@@ -69,7 +75,9 @@ public partial class HomePage : UserControl
         {
             StatusText.Text = hasAccount
                 ? $"Signed in as {_selectedAccount!.Gamertag}"
-                : "No account signed in";
+                : offlineTest
+                    ? "Offline test mode — launching without an account"
+                    : "No account signed in";
         }
     }
 
@@ -240,7 +248,8 @@ public partial class HomePage : UserControl
 
     private async void PlayButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isLaunching || _selectedAccount == null) return;
+        var offlineTest = SettingsStore.Load().OfflineTestMode;
+        if (_isLaunching || (_selectedAccount == null && !offlineTest)) return;
         if (VersionComboBox.SelectedItem is not string version) return;
 
         // Mandatory updates (Will's rule): a launcher older than the latest
@@ -268,30 +277,44 @@ public partial class HomePage : UserControl
 
         try
         {
-            LoadingOverlay.ReportStage("Signing in...");
-            var refreshToken = AccountStore.TryUnprotectRefreshToken(_selectedAccount.ProtectedRefreshToken);
-            if (refreshToken == null)
+            MSession session;
+            if (_selectedAccount != null)
             {
-                StatusText.Text = "Session expired — remove and re-add this account in the account switcher.";
-                return;
+                LoadingOverlay.ReportStage("Signing in...");
+                var refreshToken = AccountStore.TryUnprotectRefreshToken(_selectedAccount.ProtectedRefreshToken);
+                if (refreshToken == null)
+                {
+                    StatusText.Text = "Session expired — remove and re-add this account in the account switcher.";
+                    return;
+                }
+
+                var result = await new MicrosoftAuthenticator().SignInSilentlyAsync(refreshToken);
+
+                // Microsoft rotates refresh tokens on use — persist the new one
+                // immediately, and bump last-used, so the account list stays accurate.
+                var accounts = AccountStore.Load();
+                var stored = accounts.FirstOrDefault(a => a.Id == _selectedAccount.Id);
+                if (stored != null)
+                {
+                    stored.ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken);
+                    stored.LastUsedUtc = DateTimeOffset.UtcNow;
+                    AccountStore.Save(accounts);
+                }
+                session = result.Session;
             }
-
-            var result = await new MicrosoftAuthenticator().SignInSilentlyAsync(refreshToken);
-
-            // Microsoft rotates refresh tokens on use — persist the new one
-            // immediately, and bump last-used, so the account list stays accurate.
-            var accounts = AccountStore.Load();
-            var stored = accounts.FirstOrDefault(a => a.Id == _selectedAccount.Id);
-            if (stored != null)
+            else
             {
-                stored.ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken);
-                stored.LastUsedUtc = DateTimeOffset.UtcNow;
-                AccountStore.Save(accounts);
+                // Offline test mode (Settings -> Developer): Microsoft's
+                // app-registration approval is pending, so real sign-in is
+                // unavailable — a local session lets every other part of the
+                // pipeline (provisioning, loaders, the in-game UI) be tested.
+                LoadingOverlay.ReportStage("Starting offline test session...");
+                session = MSession.CreateOfflineSession("OriginTester");
             }
 
             cts.Token.ThrowIfCancellationRequested();
 
-            var launchOption = LaunchProfileBuilder.Build(_settings, result.Session);
+            var launchOption = LaunchProfileBuilder.Build(_settings, session);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             var process = await _versionManager.InstallAndBuildProcessAsync(
                 version, loader, _settings.OptiFineEnabled, launchOption, installProgress, cts.Token);
@@ -308,7 +331,9 @@ public partial class HomePage : UserControl
             LoadingOverlay.ReportStage("Launching Minecraft...");
             StartWithLifecycleCapture(process, version);
 
-            StatusText.Text = $"Launched {version} — signed in as {result.Session.Username}";
+            StatusText.Text = _selectedAccount != null
+                ? $"Launched {version} — signed in as {session.Username}"
+                : $"Launched {version} — offline test session";
         }
         catch (OperationCanceledException)
         {
@@ -341,7 +366,9 @@ public partial class HomePage : UserControl
                 // Not the full UpdatePlayState() — that unconditionally overwrites
                 // StatusText with "Signed in as X", clobbering whatever specific
                 // message the try/catch above just set. Only re-sync IsEnabled here.
-                PlayButton.IsEnabled = _selectedAccount != null && VersionComboBox.SelectedItem is string;
+                PlayButton.IsEnabled =
+                    (_selectedAccount != null || SettingsStore.Load().OfflineTestMode)
+                    && VersionComboBox.SelectedItem is string;
             }
             cts.Dispose();
         }

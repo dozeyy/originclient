@@ -116,6 +116,9 @@ public partial class MainWindow : Window
     {
         NavMods.IsChecked = false;
         NavSettings.IsChecked = false;
+        // Re-evaluate Play enablement/status on return: settings that gate it
+        // (e.g. offline test mode) may have changed on the Settings page.
+        _homePage.RefreshAccountState();
         PageHost.Content = _homePage;
     }
 
