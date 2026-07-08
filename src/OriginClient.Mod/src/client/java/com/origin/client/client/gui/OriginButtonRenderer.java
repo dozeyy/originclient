@@ -20,14 +20,14 @@ import java.util.WeakHashMap;
 
 import com.origin.client.client.theme.OriginTheme;
 
-// Draws a vanilla button in the Origin style: a 9-sliced rounded-rect fill +
-// hairline border (baked alpha masks tinted to theme colors), a white Inter
-// label, a soft glow that blooms on hover, and a couple-px hover lift -- eased
-// on wall-clock time via OriginTheme, matching the website's button feel
-// (DESIGN_SYSTEM.md §3/§6d). Called from AbstractButtonMixin (which cancels the
-// vanilla button rendering on the title screen), so no widgets are added or
-// removed -- the existing buttons keep their positions, actions, and clicks.
-// Per-button hover animation state is kept in a WeakHashMap keyed by the button.
+// Draws vanilla buttons/sliders/checkboxes in the Origin style: a 9-sliced
+// rounded-rect fill + hairline border (baked alpha masks tinted to theme
+// colors), the label in the default Minecraft font, and a couple-px hover lift
+// -- eased on wall-clock time via OriginTheme, matching the website's button
+// feel (DESIGN_SYSTEM.md §3/§6d). Called from the widget mixins, which cancel
+// the vanilla drawing on every screen, so no widgets are added or removed --
+// the existing widgets keep their positions, actions, and clicks. Per-widget
+// hover animation state is kept in a WeakHashMap keyed by the widget.
 public final class OriginButtonRenderer {
 	private static final Gson GSON = new Gson();
 

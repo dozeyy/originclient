@@ -1582,3 +1582,30 @@ backround mouse affect buttons and default minecraft text for single player
 multiplayer realms and change text for options and main menu" — the
 background/glow/buttons already apply to every menu, so asked him what
 "change text for options and main menu" means before acting on it.
+
+## 2026-07-08 — Autonomous batch: loading screens, FPS pass, simplify + review
+
+Will handed off a multi-part task to run without him ("continue without me,
+don't ask, use best judgement"), then left. Done:
+- **Loading/progress screens** get the menu background + a loading bar:
+  LevelLoadingScreen / ReceivingLevelScreen / ProgressScreen take over render()
+  (HEAD-cancel) → Origin scene (bg + default-font title + smooth indeterminate
+  sweeping bar), replacing the chunk map / dirt. ConnectScreen keeps its Cancel
+  button + status text (bg already from ScreenBackgroundMixin) and gets the bar
+  added at render TAIL. New mixins isolated in originclient.loading.mixins.json
+  with required:false + defaultRequire:0 so a moved target degrades to
+  vanilla-for-that-screen instead of crashing the mod. Bar is indeterminate on
+  purpose (real progress would need an unverifiable @Shadow; no jar/javap in the
+  remote sandbox this round — gradle/piston/maven all network-blocked).
+- **FPS**: grain tile 128→256px (~135→~40 blits/frame at 1080p, 1:1 look kept;
+  512 rejected for jar size); volatile fast-path on both ensureLoaded()s so the
+  per-frame / per-widget already-loaded case skips the monitor.
+- **Simplify**: trimmed generate_buttons.py to shell-only (label ladder gone);
+  deleted the dead M3 generate_atlas.py. fetch_fonts.py + Inter TTFs kept
+  (wordmark/caption bakers still source them).
+- **Code review**: wrote CODE_REVIEW.md (architecture, the GL shader-tint +
+  blend-teardown bug class documented as the standing rule, perf notes, and a
+  numbered list of untested assumptions for Will to verify on first launch).
+  No new bugs found in the feature mixins (freelook/zoom/HUD unchanged).
+- Everything committed + pushed to claude/ingame-ui-design-system-21cp08;
+  Will will build/run when back. Not yet visually confirmed (no remote build).
