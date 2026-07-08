@@ -1380,3 +1380,29 @@ Buttons confirmed good by Will. Three follow-ups shipped:
   as a stubby wrong-size bar. Track brightened to ~16% white (0x29FFFFFF) and
   width set to the mockup-exact 46%. If Will still flags size after this,
   get an actual loading-screen screenshot before touching numbers again.
+
+## 2026-07-08 — OPT: full menu-tree restyle begins (staged); OPT-1 = buttons everywhere
+
+Will's next directive: apply the design system to the ENTIRE Options tree and
+every Java Edition menu — sliders, toggles, checkboxes, tabs, disabled states,
+backgrounds — preserving all functionality, Sodium compatibility included.
+This is exactly the scope that killed the 2026-07-07 full rewrite, but the
+difference now is the proven **restyle-in-place at the widget base class**
+pattern (no screen reimplementation, no widget-list surgery). Staged:
+- OPT-1 buttons everywhere (shipped, this entry) → OPT-2 menu backgrounds →
+  OPT-3 sliders → OPT-4 checkboxes/toggles/tabs → OPT-5 Sodium (its own
+  widget classes; separate decision).
+- **OPT-1**: AbstractButtonMixin's TitleScreen gate removed — every
+  AbstractButton on every screen now draws Origin style. Coverage is
+  naturally scoped by the hierarchy: subclasses with their OWN renderWidget
+  (ImageButton, SpriteIconButton, Checkbox, AbstractSliderButton) bypass the
+  mixin and stay vanilla until their own pass — so this can't mangle icon
+  buttons or sliders. CycleButton ("Graphics: Fancy" etc.) does NOT override
+  renderWidget → all Options toggles get the style + vanilla-font dynamic
+  labels (consistent with the settled font decision). Disabled buttons
+  (active=false, e.g. Telemetry) render dimmed Origin style (FILL/BORDER
+  _DISABLED + MUTED label) and skip hover; `active` is a public
+  AbstractWidget field (javap-confirmed earlier).
+- Next round-trip needs javap on: Screen (background methods for OPT-2),
+  AbstractSliderButton (value field + renderWidget for OPT-3), Checkbox,
+  CycleButton (confirm no renderWidget override), tab classes (OPT-4).

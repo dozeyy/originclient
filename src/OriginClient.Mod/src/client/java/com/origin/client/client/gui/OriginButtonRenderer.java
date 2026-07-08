@@ -36,6 +36,10 @@ public final class OriginButtonRenderer {
 	private static final int BORDER_NORMAL = 0x1CFFFFFF;
 	private static final int BORDER_HOVER = 0x4DFFFFFF;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
+	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
+	private static final int FILL_DISABLED = 0x04FFFFFF;
+	private static final int BORDER_DISABLED = 0x10FFFFFF;
+	private static final int LABEL_DISABLED = OriginTheme.MUTED;
 	private static final int CORNER_DISPLAY = 6;
 	private static final double LIFT_PX = 2.0;
 	// Short + eased = the website's snappy hover; no per-button glow (the
@@ -68,12 +72,13 @@ public final class OriginButtonRenderer {
 	public static void render(GuiGraphics guiGraphics, AbstractButton button) {
 		ensureLoaded();
 		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+		boolean enabled = button.active;
 
 		State st = STATE.computeIfAbsent(button, k -> new State());
 		long now = System.nanoTime();
 		double dtMs = st.lastNanos == 0 ? 0 : (now - st.lastNanos) / 1_000_000.0;
 		st.lastNanos = now;
-		double target = button.isHovered() ? 1.0 : 0.0;
+		double target = (enabled && button.isHovered()) ? 1.0 : 0.0;
 		if (st.hover < target) {
 			st.hover = Math.min(target, st.hover + dtMs / HOVER_MS);
 		} else if (st.hover > target) {
@@ -85,24 +90,28 @@ public final class OriginButtonRenderer {
 		double cx = x + w / 2.0;
 		double cy = drawY + h / 2.0;
 
+		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
+		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
+
 		if (!assetsOk) {
-			drawFallback(guiGraphics, x, drawY, w, h, hv, button.getMessage());
+			drawFallback(guiGraphics, x, drawY, w, h, fill, border, labelColor, button.getMessage());
 			return;
 		}
 
 		RenderSystem.enableBlend();
 
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-		shaderColor(OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv));
+		shaderColor(fill);
 		nineSlice(guiGraphics, fillTex, x, drawY, w, h, cd);
-		shaderColor(OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv));
+		shaderColor(border);
 		nineSlice(guiGraphics, borderTex, x, drawY, w, h, cd);
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-		drawLabel(guiGraphics, cx, cy, h, button.getMessage());
+		drawLabel(guiGraphics, cx, cy, h, button.getMessage(), labelColor);
 	}
 
-	private static void drawLabel(GuiGraphics guiGraphics, double cx, double cy, int h, Component message) {
+	private static void drawLabel(GuiGraphics guiGraphics, double cx, double cy, int h, Component message, int labelColor) {
 		// Vanilla labels can carry a trailing ellipsis ("Options...") -- strip
 		// it both for the baked-texture lookup and for what gets displayed
 		// (Will: no dots), falling back to vanilla font only if the cleaned
@@ -128,7 +137,7 @@ public final class OriginButtonRenderer {
 			pose.pushPose();
 			pose.translate(cx - dwGui / 2.0, cy - dhGui / 2.0, 0);
 			pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
-			shaderColor(LABEL_COLOR);
+			shaderColor(labelColor);
 			guiGraphics.blit(best.tex(), 0, 0, best.width(), best.cellH(),
 					0f, 0f, best.width(), best.cellH(), best.width(), best.cellH());
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
@@ -136,7 +145,7 @@ public final class OriginButtonRenderer {
 		} else {
 			Font font = Minecraft.getInstance().font;
 			int tw = font.width(text);
-			guiGraphics.drawString(font, text, (int) (cx - tw / 2.0), (int) (cy - 4), LABEL_COLOR, false);
+			guiGraphics.drawString(font, text, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, false);
 		}
 	}
 
@@ -148,16 +157,15 @@ public final class OriginButtonRenderer {
 		return s.trim();
 	}
 
-	private static void drawFallback(GuiGraphics guiGraphics, int x, int y, int w, int h, double hv, Component message) {
-		guiGraphics.fill(x, y, x + w, y + h, OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv));
-		int border = OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv);
+	private static void drawFallback(GuiGraphics guiGraphics, int x, int y, int w, int h, int fill, int border, int labelColor, Component message) {
+		guiGraphics.fill(x, y, x + w, y + h, fill);
 		guiGraphics.fill(x, y, x + w, y + 1, border);
 		guiGraphics.fill(x, y + h - 1, x + w, y + h, border);
 		guiGraphics.fill(x, y, x + 1, y + h, border);
 		guiGraphics.fill(x + w - 1, y, x + w, y + h, border);
 		Font font = Minecraft.getInstance().font;
 		int tw = font.width(message);
-		guiGraphics.drawString(font, message, x + (w - tw) / 2, y + (h - 8) / 2, LABEL_COLOR, false);
+		guiGraphics.drawString(font, message, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, false);
 	}
 
 	private static void nineSlice(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h, int cd) {
