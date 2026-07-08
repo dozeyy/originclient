@@ -1,11 +1,13 @@
-# Push-to-update pipeline, build side. Every push to main that touches src/
-# builds the whole client (Origin Client mod jar via Gradle, then the WPF
-# launcher with that jar bundled in) and publishes a GitHub release tagged
-# launcher-v1.0.<run>. Running launchers poll the release feed
-# (Core/Updates/UpdateService.cs), light the corner download badge, and
-# self-update from the OriginLauncher-win-x64.zip asset. Updates are
-# mandatory: a launcher older than the latest release refuses to launch the
-# game until updated.
+# Push-to-update pipeline, build side. Releases fire ONLY from the release
+# branch (Will: main is for building/testing; shipping is a deliberate act).
+# To ship: merge main into release and push — see release/RELEASING.md.
+# Every push to release builds the whole client (Origin Client mod jar via
+# Gradle, then the WPF launcher with that jar bundled in) and publishes a
+# GitHub release tagged launcher-v1.0.<run>. Running launchers poll the
+# release feed (Core/Updates/UpdateService.cs), light the corner download
+# badge, and self-update from the OriginLauncher-win-x64.zip asset. Updates
+# are mandatory: a launcher older than the latest release refuses to launch
+# the game until updated.
 #
 # NOTE: the launcher polls this feed UNAUTHENTICATED, which requires the
 # repository (or at least its releases) to be public.
@@ -13,10 +15,7 @@ name: launcher-release
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - ".github/workflows/launcher-release.yml"
+    branches: [release]
 
 permissions:
   contents: write
