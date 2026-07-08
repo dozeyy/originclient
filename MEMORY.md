@@ -1552,3 +1552,17 @@ HUD) gets the website font for free, at every GUI scale.
   visually consistent since both are Inter.
 - DESIGN_SYSTEM.md banner amended: the ban stays for hand-rolled glyph
   rendering; the TTF provider path is explicitly allowed.
+
+## 2026-07-08 — TTF override CONFIRMED live; baked button labels retired
+
+Will's screenshots confirm the font/default.json override WORKS (Fabric mod
+resources DO override vanilla-namespace assets — settles the open question
+from the sprite round): the Options tree renders real Inter. But that exposed
+a mismatch he called out immediately: main-menu buttons still drew the old
+per-GUI-scale BAKED label textures (glow baked in, own sizing) next to live
+TTF text — two renderers, two looks. Fix: deleted the baked-label pipeline
+(drawLabel ladder, LABELS/LabelInfo, labels.json load, label_*.png assets) —
+every label now goes through the one game font (= Inter), shadow-off,
+ellipsis-stripped. The ladder was a workaround for the pixel font; with the
+TTF provider it was pure duplication. Wordmark + loading caption textures
+stay (brand marks, not UI text).

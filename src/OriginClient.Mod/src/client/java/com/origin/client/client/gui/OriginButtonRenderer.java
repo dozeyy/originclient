@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -16,7 +15,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -52,17 +50,9 @@ public final class OriginButtonRenderer {
 	private static boolean assetsOk = false;
 	private static int TEX, CORNER;
 	private static ResourceLocation fillTex, borderTex;
-	// text -> (baked cell height -> texture). One bake per GUI scale; the
-	// renderer picks the rung matching the current scale and draws it at
-	// exactly 1:1 texels-to-screen-pixels, so labels stay wordmark-sharp at
-	// every GUI scale instead of being pixel-perfect at only one.
-	private static final Map<String, Map<Integer, LabelInfo>> LABELS = new HashMap<>();
 
 	// Keyed by widget (buttons, sliders, checkboxes all share hover easing).
 	private static final Map<Object, State> STATE = new WeakHashMap<>();
-
-	private record LabelInfo(ResourceLocation tex, int width, int cellH) {
-	}
 
 	private static final class State {
 		double hover = 0.0;
@@ -228,46 +218,17 @@ public final class OriginButtonRenderer {
 	}
 
 	private static void drawLabel(GuiGraphics guiGraphics, double cx, double cy, int h, Component message, int labelColor) {
-		// Vanilla labels can carry a trailing ellipsis ("Options...") -- strip
-		// it both for the baked-texture lookup and for what gets displayed
-		// (Will: no dots), falling back to vanilla font only if the cleaned
-		// string has no baked label at all.
+		// One text pipeline for EVERY label (Will: "every text needs to be the
+		// same"): the game font -- which the mod's font/default.json override
+		// makes Inter -- drawn without shadow. The old per-GUI-scale baked
+		// label textures were a workaround for the vanilla pixel font and were
+		// removed the day the TTF override landed: two renderers meant two
+		// subtly different looks. Trailing ellipsis/dots stripped (Will: no
+		// dots on "Options...").
 		String text = cleanLabel(message.getString());
-		Map<Integer, LabelInfo> rungs = LABELS.get(text);
-		if (rungs != null && !rungs.isEmpty()) {
-			// Pick the bake whose cell height is closest to the label's REAL
-			// pixel height at the current GUI scale, then draw it 1:1 (the
-			// pose scale converts real pixels back to GUI units), so GL never
-			// resamples it -- pixel-perfect at every GUI scale.
-			double gs = Math.max(1.0, Minecraft.getInstance().getWindow().getGuiScale());
-			double targetReal = h * 0.72 * gs;
-			LabelInfo best = null;
-			for (LabelInfo li : rungs.values()) {
-				if (best == null || Math.abs(li.cellH() - targetReal) < Math.abs(best.cellH() - targetReal)) {
-					best = li;
-				}
-			}
-			double dwGui = best.width() / gs;
-			double dhGui = best.cellH() / gs;
-			PoseStack pose = guiGraphics.pose();
-			pose.pushPose();
-			pose.translate(cx - dwGui / 2.0, cy - dhGui / 2.0, 0);
-			pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
-			// A fill() earlier in the frame may have left blending disabled
-			// (see renderSlider) -- the label texture needs it back on or its
-			// antialiased alpha is ignored.
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			shaderColor(labelColor);
-			guiGraphics.blit(best.tex(), 0, 0, best.width(), best.cellH(),
-					0f, 0f, best.width(), best.cellH(), best.width(), best.cellH());
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			pose.popPose();
-		} else {
-			Font font = Minecraft.getInstance().font;
-			int tw = font.width(text);
-			guiGraphics.drawString(font, text, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, false);
-		}
+		Font font = Minecraft.getInstance().font;
+		int tw = font.width(text);
+		guiGraphics.drawString(font, text, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, false);
 	}
 
 	private static String cleanLabel(String raw) {
@@ -335,24 +296,6 @@ public final class OriginButtonRenderer {
 			CORNER = btn.get("corner").getAsInt();
 			fillTex = register(mc, "button_fill", "/assets/originclient/textures/ui/button_fill.png");
 			borderTex = register(mc, "button_border", "/assets/originclient/textures/ui/button_border.png");
-
-			JsonObject labelsRoot;
-			try (InputStream in = open("/assets/originclient/textures/ui/labels.json")) {
-				labelsRoot = GSON.fromJson(readAll(in), JsonObject.class);
-			}
-			JsonObject map = labelsRoot.getAsJsonObject("labels");
-			for (String key : map.keySet()) {
-				JsonObject rungsJson = map.getAsJsonObject(key);
-				Map<Integer, LabelInfo> rungs = new HashMap<>();
-				for (String cellKey : rungsJson.keySet()) {
-					JsonObject l = rungsJson.getAsJsonObject(cellKey);
-					int cellH = Integer.parseInt(cellKey);
-					String file = l.get("file").getAsString();
-					ResourceLocation id = register(mc, file.replace(".png", ""), "/assets/originclient/textures/ui/" + file);
-					rungs.put(cellH, new LabelInfo(id, l.get("width").getAsInt(), cellH));
-				}
-				LABELS.put(key, rungs);
-			}
 			assetsOk = true;
 		} catch (Exception e) {
 			assetsOk = false;
