@@ -14,7 +14,7 @@ import org.lwjgl.glfw.GLFW;
 // accessors every feature hook uses. Values persist via ModsConfig; the
 // legacy originclient.json feature flags are migrated in on first load.
 public final class Mods {
-	// A mod definition. Icon is drawn by ModIcons keyed on id.
+	// A mod definition. Icon comes from the baked atlas (OriginUi) keyed on id.
 	public record Mod(String id, String name, boolean defaultOn, List<ModOption> options) {
 	}
 

@@ -11,6 +11,8 @@ public final class HudPos {
 	public int anchor;
 	public double dx, dy;
 	public double scale = 1.0;
+	// per-module backing opacity (0 = none), drawn as a rounded panel
+	public double bg = 0.0;
 
 	public HudPos(int anchor, double dx, double dy, double scale) {
 		this.anchor = anchor;
@@ -47,10 +49,17 @@ public final class HudPos {
 
 	public static HudPos load(String elementId, HudPos def) {
 		double[] v = ModsConfigAccess.hud(elementId);
-		return v == null ? def : new HudPos((int) v[0], v[1], v[2], v[3]);
+		if (v == null) {
+			return def;
+		}
+		HudPos p = new HudPos((int) v[0], v[1], v[2], v[3]);
+		if (v.length >= 5) {
+			p.bg = v[4];
+		}
+		return p;
 	}
 
 	public void save(String elementId) {
-		ModsConfigAccess.putHud(elementId, new double[]{anchor, dx, dy, scale});
+		ModsConfigAccess.putHud(elementId, new double[]{anchor, dx, dy, scale, bg});
 	}
 }

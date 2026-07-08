@@ -1888,3 +1888,24 @@ older launcher keeps loading even after the launcher updates. Fixes:
 Reship as v1.0.4. NOTE: launcher/mod delivery path still never verified live
 (auth blocked); this is the first time the launcher->game handoff got real
 scrutiny.
+
+## 2026-07-08 — Premium redesign: menu pages, Apple switches, freeform editor
+
+Will's redesign spec, implemented: (1) mod settings = FULL-PAGE navigation
+(whole overlay becomes the settings page, fade+scale in, back chip/Esc
+returns — no nested panels); (2) Apple-style switches from baked supersampled
+assets (switch_track mask tinted per state + full-color knob w/ baked shadow
++ highlight, 170ms eased knob); (3) HUD editor: NO dim/blur — pure edit layer
+over live game, freeform pixel drag (grid snap REMOVED, center guides draw
+only, never lock), per-element control card (scale slider 0.5–2.5 + per-
+module background-opacity slider + reset), scroll-to-scale kept; (4) HudPos
+grew a 5th persisted value `bg` (4-value arrays still load); every element
+draws its rounded backing at that opacity in-game too; (5) mod icons: baked
+96px atlas (tools/mod-menu/generate_ui_assets.py, 24 icons, one stroke
+language, preview verified in-sandbox) replacing the pixel-fill ModIcons
+(deleted); (6) Right Shift header now centers the 3-ring Origin MARK (built
+from ring-0.png at 0/60/120°) with hover glow/scale — click = HUD editing
+mode; HUD Editor chip goes to the same workspace; (7) shared OriginUi kit
+(rounded 9-slice panels from the button masks, switches, icons, glow, mark,
+slim sliders, eased anim map) — only MC font stays pixelated. Smooth-scroll
+lerp added to the grid.

@@ -172,6 +172,16 @@ public final class HudElements {
 		return mc.font.width(s) <= px ? s : mc.font.plainSubstrByWidth(s, px - 6) + "…";
 	}
 
+	/** Per-module rounded backing at the element's own opacity (0 = none). */
+	public static void drawBacking(net.minecraft.client.gui.GuiGraphics g, int x, int y, int w, int h, double bg) {
+		if (bg <= 0.01) {
+			return;
+		}
+		int a = (int) (bg * 255);
+		com.origin.client.client.gui.OriginUi.panel(g, x - 4, y - 4, w + 8, h + 8, 6,
+				(a << 24) | 0x0E0E0E, 0);
+	}
+
 	private static void renderKeystrokes(GuiGraphics g, Minecraft mc, int w, int h) {
 		int color = Mods.color("keystrokes", "color");
 		var o = mc.options;
@@ -213,6 +223,7 @@ public final class HudElements {
 			int[] size = e.measure().apply(mc);
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(sw, w), y = pos.y(sh, h);
+			drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
 			var p = g.pose();
 			p.pushPose();
 			p.translate(x, y, 0);
