@@ -23,6 +23,10 @@
 		{
 			"config": "originclient.client.mixins.json",
 			"environment": "client"
+		},
+		{
+			"config": "originclient.loading.mixins.json",
+			"environment": "client"
 		}
 	],
 	"depends": {

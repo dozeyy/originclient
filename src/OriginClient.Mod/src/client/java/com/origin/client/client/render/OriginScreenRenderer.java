@@ -107,6 +107,82 @@ public final class OriginScreenRenderer {
 		drawCaption(guiGraphics, w / 2.0, capTop, "LOADING " + pct + "%", capH, OriginTheme.MUTED);
 	}
 
+	/**
+	 * Full-screen loading/progress scene for the world-load screens
+	 * (LevelLoadingScreen, ReceivingLevelScreen, ProgressScreen): the same
+	 * charcoal + rings + grain background as the menus, the screen's title in
+	 * the default font, and a smooth indeterminate bar. Drawn as a HEAD-cancel
+	 * takeover, so it replaces vanilla's chunk map / dirt / progress clutter
+	 * with one clean Origin scene. Indeterminate (not tied to a real percent):
+	 * reading each screen's internal progress field would need an unverifiable
+	 * @Shadow, and a calm sweeping bar reads as premium regardless.
+	 */
+	public static void renderLoadingScene(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title) {
+		ensureLoaded();
+		Minecraft mc = Minecraft.getInstance();
+		int w = mc.getWindow().getGuiScaledWidth();
+		int h = mc.getWindow().getGuiScaledHeight();
+
+		guiGraphics.fill(0, 0, w, h, BG_COLOR);
+		if (!ringsFailed) {
+			drawRings(guiGraphics, w, h);
+			drawGrain(guiGraphics, w, h);
+		}
+
+		Font font = mc.font;
+		int barW = Math.max(80, (int) (w * 0.30));
+		int barH = Math.max(2, (int) (h * 0.010));
+		float titleScale = 1.5f;
+		int titleH = (int) Math.ceil(font.lineHeight * titleScale);
+		double gap = Math.max(8.0, h * 0.045);
+
+		String s = title == null ? "" : title.getString().trim();
+		boolean hasTitle = !s.isEmpty();
+		double groupH = (hasTitle ? titleH + gap : 0) + barH;
+		double groupTop = h / 2.0 - groupH / 2.0;
+
+		if (hasTitle) {
+			PoseStack pose = guiGraphics.pose();
+			pose.pushPose();
+			pose.translate(w / 2.0, groupTop, 0);
+			pose.scale(titleScale, titleScale, 1f);
+			guiGraphics.drawString(font, s, -font.width(s) / 2, 0, OriginTheme.TEXT, false);
+			pose.popPose();
+		}
+		int barTop = (int) Math.round(groupTop + (hasTitle ? titleH + gap : 0));
+		drawIndeterminateBar(guiGraphics, w / 2.0, barTop, barW, barH);
+	}
+
+	/**
+	 * Just the indeterminate bar, placed just below screen center -- for
+	 * screens kept on their vanilla render (ConnectScreen: its Cancel button
+	 * and status text stay, the Origin menu background comes from
+	 * ScreenBackgroundMixin, and this adds the bar on top).
+	 */
+	public static void renderConnectingBar(GuiGraphics guiGraphics) {
+		ensureLoaded();
+		Minecraft mc = Minecraft.getInstance();
+		int w = mc.getWindow().getGuiScaledWidth();
+		int h = mc.getWindow().getGuiScaledHeight();
+		int barW = Math.max(80, (int) (w * 0.30));
+		int barH = Math.max(2, (int) (h * 0.010));
+		drawIndeterminateBar(guiGraphics, w / 2.0, (int) (h * 0.60), barW, barH);
+	}
+
+	/** A calm sweeping segment (smooth ping-pong) over the standard track. */
+	private static void drawIndeterminateBar(GuiGraphics guiGraphics, double cx, int barTop, int barW, int barH) {
+		int bx = (int) Math.round(cx - barW / 2.0);
+		int by = barTop;
+		guiGraphics.fill(bx, by, bx + barW, by + barH, 0x29FFFFFF); // track
+		int segW = Math.max(8, (int) (barW * 0.32));
+		int travel = Math.max(1, barW - segW);
+		double t = (System.currentTimeMillis() % 1800L) / 1800.0;
+		double eased = 0.5 - 0.5 * Math.cos(t * 2.0 * Math.PI); // smooth 0->1->0
+		int segX = bx + (int) Math.round(eased * travel);
+		guiGraphics.fill(segX - 1, by - 1, segX + segW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW);
+		guiGraphics.fill(segX, by, segX + segW, by + barH, OriginTheme.ACCENT);
+	}
+
 	/** Main menu background: charcoal + rotating rings + grain (behind vanilla's logo/buttons). */
 	public static void renderTitleBackground(GuiGraphics guiGraphics) {
 		ensureLoaded();
