@@ -1609,3 +1609,34 @@ don't ask, use best judgement"), then left. Done:
   No new bugs found in the feature mixins (freelook/zoom/HUD unchanged).
 - Everything committed + pushed to claude/ingame-ui-design-system-21cp08;
   Will will build/run when back. Not yet visually confirmed (no remote build).
+
+## 2026-07-08 — Loading/logo design restored to the original mockup
+
+Will (billion-dollar-polish pass): the loading screens/logo/grain/glow had
+drifted from the original design (`tools/loading-screen/wordmark_preview.png`).
+Diagnosed the exact drift commits and restored the intended look. **Key win:
+Pillow 12 + the Inter TTFs are present in the sandbox, so the whole scene could
+be composited exactly as the Java renders it and eyeballed against the mock
+BEFORE any build** — the live-verification gap that blocked earlier asset work
+didn't apply to static PNGs.
+
+- **Wordmark**: all-caps "ORIGIN" + 0.22em (commit 2fd52e1) → back to mixed-case
+  **"Origin"**, Inter-700, natural (-0.015em) spacing, broad soft glow bloom
+  (blur 70 @ 0.28). generate_wordmark.py.
+- **Rings**: the "blur all of them, dreamy" pass (9614d07) → restored **crisp**
+  originals (front two blur 0, back two 1.4/2.4; thinner strokes, lower
+  opacity). generate_textures.py RINGS.
+- **Grain**: dropped the 0.4px blur that enlarged the grain → fine per-pixel
+  noise like the website's SVG fractalNoise (still subtle at 2.8% in-game).
+- **renderLoading**: added the missing rings; wordmark bumped 0.13h→**0.165h**
+  and optically centered (0.50h); bar narrowed from 46%-screen to **~word
+  width** and sits just under the logo (the mock's underline). Removed the
+  "LOADING xx%" caption + its whole glyph-strip pipeline (drawCaption, fields,
+  loader, caption.png/json, generate_caption.py) — the mock has no percentage
+  and it was the last non-logo baked text.
+- World-load screens (LevelLoading/Receiving/Progress/Connect) unchanged — they
+  keep contextual default-font titles and just inherit the upgraded ring/grain.
+- All asset params verified in-sandbox against the mock (side-by-side matched on
+  lettering, size, glow, rings, underline). Java layout numbers are the ones
+  that matched in that harness. Still no in-game build (gradle network-blocked);
+  Java wiring is deterministic, assets are pixel-confirmed.

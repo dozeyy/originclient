@@ -2,9 +2,8 @@
 """Shared helper: bake a text string into a smooth white texture with optional
 letter-spacing and a soft glow, returning the image + ink-box metrics.
 
-Used by generate_wordmark.py (the "ORIGIN" wordmark) and generate_caption.py
-(the loading-bar caption glyphs). All Origin in-game "text" that must appear
-instantly (before Minecraft's own font loads) is baked this way -- a fixed
+Used by generate_wordmark.py (the "Origin" wordmark). The wordmark must appear
+instantly (before Minecraft's own font loads), so it's baked this way -- a fixed
 image, not a dynamic glyph atlas, so it carries none of the earlier
 custom-font-rendering risk.
 """

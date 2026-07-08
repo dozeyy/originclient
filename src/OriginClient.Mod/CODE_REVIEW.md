@@ -28,8 +28,22 @@ Default Minecraft font for **all** in-game text. The baked-Inter label ladder
 and the Inter TTF `font/default.json` override were both built, shipped, and
 then reverted at Will's direction. One text path now (`drawLabel` →
 `font.drawString`), so buttons/sliders/menus/HUD are uniform by construction.
-The ORIGIN wordmark + loading caption stay as baked textures (brand marks, and
-they must render before the font loads).
+The only baked text is the "Origin" wordmark (the brand mark — mixed-case Inter
+700 with a glow bloom, and it must render before the font loads). The old
+"LOADING xx%" caption strip was removed: the original loading mockup has no
+percentage, and it was the last baked-Inter text that wasn't the logo.
+
+## Loading screen — matched to the original mockup
+
+`renderLoading` (startup resource load) is a faithful rebuild of
+`tools/loading-screen/wordmark_preview.png`: near-black (#050505) + crisp
+orbital rings + fine grain + the "Origin" wordmark (0.165h ink, optically
+centered) + a thin word-width progress bar just beneath it. The interim drift
+(all-caps "ORIGIN" + 0.22em, dreamy over-blurred rings, no rings on the load
+screen, an over-wide 46% bar, a percentage caption) is gone. Every asset was
+re-verified in-sandbox against the mock before shipping (Pillow renders the
+scene exactly as the Java does); the Java layout numbers are the ones that
+matched the mock in that harness.
 
 ## GL-state discipline (the recurring bug class)
 

@@ -42,13 +42,14 @@ FILL_FRAC = 0.90   # ellipse major axis as a fraction of the square canvas
 # / ~1180px reference window). period/reverse drive the in-game rotation.
 RINGS = [
     # name, widthFrac, strokePx(final tex), opacity, blur, angle0, periodSec, reverse
-    # All rings are softly blurred (ambient, dreamy look) and rotate slowly.
-    # Stroke + opacity are bumped to keep the blurred strokes visible (blur
-    # spreads the ink and lowers peak brightness).
-    ("A", 0.59, 4.4, 0.48,  5.0,   0, 32, False),
-    ("B", 0.81, 4.0, 0.40,  6.0,  45, 48, True),
-    ("C", 1.02, 3.4, 0.30,  7.0, 100, 66, False),
-    ("D", 1.27, 3.0, 0.24,  8.0,  15, 88, True),
+    # Crisp thin hairlines, matching the original mockup
+    # (wordmark_preview.png): the two front rings are razor-sharp (blur 0),
+    # the two back rings get only a touch of blur for depth. The "blur all of
+    # them, dreamy" pass (commit 9614d07) muddied this; restore the clean look.
+    ("A", 0.59, 3.2, 0.42,  0.0,   0, 40, False),
+    ("B", 0.81, 2.8, 0.34,  0.0,  45, 65, True),
+    ("C", 1.02, 2.5, 0.26,  1.4, 100, 90, False),
+    ("D", 1.27, 2.2, 0.20,  2.4,  15, 120, True),
 ]
 
 
@@ -82,7 +83,11 @@ def make_grain() -> Image.Image:
     count that's already trivially fast). Still tileable.
     """
     tile = 256
-    noise = Image.effect_noise((tile, tile), 26).filter(ImageFilter.GaussianBlur(0.4))
+    # Fine, per-pixel grain like the website's SVG fractalNoise (high
+    # baseFrequency, so grain == one pixel). No blur: blurring enlarges the
+    # grain and reads as "low res"; the website's is crisp single-pixel noise,
+    # kept flawless by staying subtle (alpha applied in-game) rather than soft.
+    noise = Image.effect_noise((tile, tile), 22)
     # Center the noise on mid-gray and keep it subtle; alpha is applied in-game.
     return Image.merge("RGBA", (noise, noise, noise, Image.new("L", (tile, tile), 255)))
 

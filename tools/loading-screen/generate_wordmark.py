@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Bake the "ORIGIN" wordmark into a smooth texture, matching the first
-loading-screen mockup: all-caps, Inter 600, wide letter-spacing (0.22em), soft
-white glow. Used on both the loading screen and the main menu.
+"""Bake the "Origin" wordmark into a smooth texture, matching the original
+loading-screen mockup (tools/loading-screen/wordmark_preview.png): mixed-case
+"Origin" — same casing as the website nav brand and hero — set in Inter 700
+at natural (slightly tight) letter-spacing, with a soft white glow bloom behind
+it. Used on both the loading screen and the main menu.
 
-Baked as a texture (not live text) so it shows instantly -- Minecraft's own
-font isn't loaded during the first resource load, and this is one fixed word as
-an image, not a dynamic glyph atlas, so it carries none of the earlier
-custom-font risk.
+The earlier all-caps "ORIGIN" + 0.22em treatment (commit 2fd52e1) drifted away
+from this mockup; this restores the intended mark. Baked as a texture (not live
+text) so it shows instantly -- Minecraft's own font isn't loaded during the
+first resource load, and this is one fixed word as an image, not a dynamic
+glyph atlas, so it carries none of the earlier custom-font risk.
 
 Usage: python3 generate_wordmark.py
 Output: ../../src/OriginClient.Mod/.../assets/originclient/textures/ui/
@@ -21,16 +24,21 @@ HERE = Path(__file__).resolve().parent
 OUT = (HERE / ".." / ".." / "src" / "OriginClient.Mod" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
 
-TEXT = "ORIGIN"
-CAP = 260                          # glyph size, px (baked large, displayed scaled)
-LETTER_SPACING = 0.22 * CAP        # 0.22em, matching the mockup's .mark
+TEXT = "Origin"
+CAP = 300                          # glyph size, px (baked large, displayed scaled)
+# Natural spacing, a hair tight like the website's big display type
+# (--hero__title letter-spacing: -0.02em). Not the wide all-caps treatment.
+LETTER_SPACING = -0.015 * CAP
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    font = load_font("../font-atlas/fonts/Inter-600.ttf", CAP)
+    font = load_font("../font-atlas/fonts/Inter-700.ttf", CAP)
+    # Broad, soft bloom behind the crisp letters — the mockup's glow reads
+    # wider and softer than the letters themselves (a halo, not just an
+    # edge glow), so blur generously and keep the peak alpha gentle.
     img, meta = render_text(font, TEXT, letter_spacing_px=LETTER_SPACING,
-                            pad=90, glow_blur=40, glow_alpha=0.30)
+                            pad=180, glow_blur=70, glow_alpha=0.28)
     img.save(OUT / "wordmark.png")
     (OUT / "wordmark.json").write_text(json.dumps(meta, indent=2))
     print(f"wordmark '{TEXT}': texture {meta['width']}x{meta['height']}, "
