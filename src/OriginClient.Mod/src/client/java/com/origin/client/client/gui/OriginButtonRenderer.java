@@ -46,7 +46,7 @@ public final class OriginButtonRenderer {
 	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
 	private static final double HOVER_MS = 90.0;
 
-	private static boolean loaded = false;
+	private static volatile boolean loaded = false;
 	private static boolean assetsOk = false;
 	private static int TEX, CORNER;
 	private static ResourceLocation fillTex, borderTex;
@@ -280,7 +280,16 @@ public final class OriginButtonRenderer {
 		RenderSystem.setShaderColor(r, g, b, a);
 	}
 
-	private static synchronized void ensureLoaded() {
+	// Volatile fast-path: this runs once per widget per frame, so the
+	// already-loaded case must avoid acquiring the class monitor.
+	private static void ensureLoaded() {
+		if (loaded) {
+			return;
+		}
+		ensureLoaded0();
+	}
+
+	private static synchronized void ensureLoaded0() {
 		if (loaded) {
 			return;
 		}

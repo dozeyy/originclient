@@ -73,8 +73,15 @@ def make_ring(stroke_px: float, blur: float) -> Image.Image:
 
 
 def make_grain() -> Image.Image:
-    """Small tileable, very low-contrast grayscale grain (website-style, lighter)."""
-    tile = 128
+    """Tileable, very low-contrast grayscale grain (website-style, lighter).
+
+    256px (not 128): the in-game grain is tiled at 1:1 real pixels, so a bigger
+    tile means fewer blits per frame to cover the screen (~135 -> ~40 at 1080p,
+    an FPS win on every menu/loading screen) with the same per-pixel look. 256
+    balances the blit win against jar size (512 quadruples the PNG for a blit
+    count that's already trivially fast). Still tileable.
+    """
+    tile = 256
     noise = Image.effect_noise((tile, tile), 26).filter(ImageFilter.GaussianBlur(0.4))
     # Center the noise on mid-gray and keep it subtle; alpha is applied in-game.
     return Image.merge("RGBA", (noise, noise, noise, Image.new("L", (tile, tile), 255)))

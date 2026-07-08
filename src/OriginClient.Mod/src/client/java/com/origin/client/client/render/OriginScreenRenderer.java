@@ -35,7 +35,7 @@ public final class OriginScreenRenderer {
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
 
-	private static boolean loaded = false;
+	private static volatile boolean loaded = false;
 	private static boolean ringsFailed = false;
 	private static final List<Ring> rings = new ArrayList<>();
 	private static ResourceLocation grainId;
@@ -317,7 +317,7 @@ public final class OriginScreenRenderer {
 		double gs = Math.max(1.0, Minecraft.getInstance().getWindow().getGuiScale());
 		int realW = (int) Math.ceil(w * gs);
 		int realH = (int) Math.ceil(h * gs);
-		int tile = 128;
+		int tile = 256; // matches grain.png; larger tile -> ~3x fewer blits/frame
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
 		pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
@@ -425,7 +425,16 @@ public final class OriginScreenRenderer {
 
 	// ---- Loading ----
 
-	private static synchronized void ensureLoaded() {
+	// Volatile fast-path so the common (already-loaded) case is a plain field
+	// read with no monitor -- ensureLoaded() runs several times per frame.
+	private static void ensureLoaded() {
+		if (loaded) {
+			return;
+		}
+		ensureLoaded0();
+	}
+
+	private static synchronized void ensureLoaded0() {
 		if (loaded) {
 			return;
 		}
