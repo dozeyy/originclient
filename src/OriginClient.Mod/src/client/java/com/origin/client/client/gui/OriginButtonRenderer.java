@@ -137,25 +137,39 @@ public final class OriginButtonRenderer {
 		// the value bar + handle nearly invisible).
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-		int inset = 3;
-		int handleW = 4;
-		int trackX = x + inset;
-		int trackW = w - 2 * inset - handleW;
-		int hx = trackX + (int) Math.round(trackW * v);      // handle left edge
-		int handleMid = hx + handleW / 2;
+		// A thin groove track with a filled portion up to the handle, plus a
+		// gray knob -- all dark-theme (no stark white), but with enough contrast
+		// on the faint shell to read clearly. Vanilla's label sits centered over
+		// the top, exactly as before.
+		int inset = 6;
+		int trackX0 = x + inset;
+		int trackX1 = x + w - inset;
+		int trackW = Math.max(0, trackX1 - trackX0);
+		int trackH = 2;
+		int trackY = y + (h - trackH) / 2;
 
-		// Value fill: clearly visible progress from the left up to the handle.
-		if (handleMid > trackX) {
-			guiGraphics.fill(trackX, y + inset, handleMid, y + h - inset,
-					enabled ? OriginTheme.lerpColor(0x30FFFFFF, 0x40FFFFFF, hv) : 0x12FFFFFF);
+		int handleW = 6;
+		int handleH = Math.max(8, h - 6);
+		int handleY = y + (h - handleH) / 2;
+		int travel = Math.max(0, trackW - handleW);
+		int handleX = trackX0 + (int) Math.round(travel * v);
+
+		// Empty groove across the full range so the slider's extent is visible.
+		guiGraphics.fill(trackX0, trackY, trackX1, trackY + trackH,
+				enabled ? 0x26FFFFFF : 0x12FFFFFF);
+		// Filled portion (left of the knob) -- a touch brighter gray.
+		int fillTo = handleX + handleW / 2;
+		if (fillTo > trackX0) {
+			guiGraphics.fill(trackX0, trackY, fillTo, trackY + trackH,
+					enabled ? OriginTheme.lerpColor(0x40FFFFFF, 0x59FFFFFF, hv) : 0x1CFFFFFF);
 		}
 
-		// Handle: a bright white knob, with a hover glow.
-		if (enabled && hv > 0.01) {
-			guiGraphics.fill(hx - 2, y, hx + handleW + 2, y + h,
-					OriginTheme.lerpColor(0x00FFFFFF, OriginTheme.ACCENT_GLOW, hv));
-		}
-		guiGraphics.fill(hx, y + 1, hx + handleW, y + h - 1, enabled ? OriginTheme.ACCENT : 0x669A9A9A);
+		// Knob: a gray block, dark-theme but clearly visible, brightening on
+		// hover. A subtle dark outline defines it against the shell.
+		guiGraphics.fill(handleX - 1, handleY - 1, handleX + handleW + 1, handleY + handleH + 1,
+				enabled ? 0x40000000 : 0x24000000);
+		guiGraphics.fill(handleX, handleY, handleX + handleW, handleY + handleH,
+				enabled ? OriginTheme.lerpColor(0xFFB4B4B4, 0xFFD8D8D8, hv) : 0x66808080);
 
 		// Border on top.
 		if (assetsOk) {
@@ -196,8 +210,10 @@ public final class OriginButtonRenderer {
 
 		if (checkbox.selected()) {
 			int inset = Math.max(3, box / 5);
+			// Gray fill (not stark white), matching the slider knob, still
+			// clearly visible against the faint shell; brightens on hover.
 			guiGraphics.fill(x + inset, y + inset, x + box - inset, y + box - inset,
-					enabled ? OriginTheme.ACCENT : 0x669A9A9A);
+					enabled ? OriginTheme.lerpColor(0xFFB4B4B4, 0xFFD8D8D8, hv) : 0x669A9A9A);
 		}
 
 		Font font = Minecraft.getInstance().font;
