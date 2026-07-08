@@ -29,7 +29,7 @@
     a setup installer picks the jar up along with everything else.
 
     Filename is pinned to the exact mod_version in
-    src/OriginClient.Mod/gradle.properties (currently 0.1.0) rather than a
+    src/OriginClient.Mod/gradle.properties (currently 0.2.0) rather than a
     wildcard: a glob risks matching a stale jar left behind from a prior
     version bump if `build/libs` isn't cleaned, which would break the build
     with an ambiguous duplicate match. Bump this alongside mod_version.
@@ -40,8 +40,8 @@
     bundled jar is absent (VersionManager falls back to the standalone
     perf-mod catalog). A RELEASE build must still verify the jar is present.
   -->
-  <ItemGroup Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.1.0.jar')">
-    <Content Include="..\OriginClient.Mod\build\libs\originclient-0.1.0.jar">
+  <ItemGroup Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.2.0.jar')">
+    <Content Include="..\OriginClient.Mod\build\libs\originclient-0.2.0.jar">
       <Link>Bundled\OriginClient\originclient.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

@@ -190,8 +190,19 @@ public class OriginModMenuScreen extends Screen {
 		}
 		g.disableScissor();
 
+		// Version stamp (bottom-right of the panel): so it's unambiguous
+		// which build is actually loaded in-game — the fix for "the launcher
+		// ran an old client". Sourced from the loaded mod's own metadata.
+		String ver = "Origin Client " + VERSION;
+		g.drawString(font, ver, px + pw - 8 - font.width(ver), py + ph - 14, OriginTheme.MUTED, false);
+
 		pose.popPose();
 	}
+
+	private static final String VERSION = net.fabricmc.loader.api.FabricLoader.getInstance()
+			.getModContainer("originclient")
+			.map(c -> c.getMetadata().getVersion().getFriendlyString())
+			.orElse("dev");
 
 	private void drawBox(GuiGraphics g, Mods.Mod mod, int[] r, int mx, int my, long now) {
 		boolean hover = in(mx, my, r[0], r[1], r[2], r[3]);

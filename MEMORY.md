@@ -1867,3 +1867,24 @@ Merged to main and shipped main → release at Will's request ("wheres the new
 launcher will every update today"). Remaining live-check items for Will:
 menu feel/animation, HUD editor drag, per-feature visual checks; riskiest =
 motion blur (guarded no-op on failure) and fullbright gamma clamp.
+
+## 2026-07-08 — "launcher ran an OLD in-game client" — root cause + fix
+
+Will: the RELEASE launcher launched an old client (bad text, old mod menu,
+no custom UI); the correct client only appears via `.\gradlew.bat runClient`.
+Root cause = TIMING/staleness, not a bad release: v1.0.2 (19:32) was built
+BEFORE the mod system merged (~21:14), so its bundled originclient.jar was
+the pre-mod-system build. v1.0.3 (21:17) is the first release WITH the mod
+system. But a stale originclient.jar left in the instance mods/ folder by an
+older launcher keeps loading even after the launcher updates. Fixes:
+- VersionManager now DELETES any existing originclient*.jar in the instance
+  mods/ before copying the launcher's bundled jar (kills the stale-jar class
+  of bug for good).
+- Bumped mod_version 0.1.0 -> 0.2.0 (traceable); updated the csproj bundle
+  path to match (0.2.0).
+- Mod menu now shows "Origin Client <version>" bottom-right + it's the loaded
+  mod's real metadata version, so Will can instantly confirm which build is
+  in-game.
+Reship as v1.0.4. NOTE: launcher/mod delivery path still never verified live
+(auth blocked); this is the first time the launcher->game handoff got real
+scrutiny.

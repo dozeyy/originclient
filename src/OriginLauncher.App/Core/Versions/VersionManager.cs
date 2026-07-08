@@ -149,6 +149,17 @@ public sealed class VersionManager
                 if (version == OriginClientModVersion && File.Exists(OriginPaths.BundledOriginClientJar))
                 {
                     progress?.Report("Installing Origin Client...");
+                    // Remove ANY previously-installed Origin Client jar first,
+                    // whatever its filename — a stale jar left by an older
+                    // launcher build (e.g. a pre-mod-system release) would
+                    // otherwise keep loading in-game even after the launcher
+                    // updated. This is exactly the "old client through the
+                    // launcher" symptom: the launcher was new, the instance
+                    // jar was old. Always ship the launcher's own bundled jar.
+                    foreach (var stale in Directory.EnumerateFiles(modsFolder, "originclient*.jar"))
+                    {
+                        try { File.Delete(stale); } catch { /* locked/removed already */ }
+                    }
                     File.Copy(OriginPaths.BundledOriginClientJar, Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
                     originClientInstalled = true;
                 }
