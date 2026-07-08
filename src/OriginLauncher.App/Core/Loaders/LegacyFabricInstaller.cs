@@ -9,8 +9,9 @@ namespace OriginLauncher.App.Core.Loaders;
 
 // Fabric for Minecraft versions older than 1.14, where official Fabric does
 // not exist: Legacy Fabric (legacyfabric.net) is the community port of the
-// same loader + mixin system, covering 1.3.2–1.13.2 (Origin's floor is
-// 1.7.10, enforced by the version picker). Its meta server is a drop-in
+// same loader + mixin system, covering 1.3.2–1.13.2 — of which Origin
+// supports exactly 1.8.9 and 1.12.2 (the only legacy versions the picker
+// offers; see VersionManager.PinnedVersions). Its meta server is a drop-in
 // mirror of Fabric's own v2 API, so installing is protocol-level and needs
 // no loader-specific CmlLib support:
 //
@@ -43,11 +44,11 @@ public static class LegacyFabricInstaller
         return http;
     }
 
-    // True for release versions below 1.14 ("1.7.10" .. "1.13.2"): the range
-    // official Fabric doesn't reach and Legacy Fabric does. The picker's
-    // 1.7.10 floor bounds the other end, so a simple minor-version check is
-    // enough. Unparseable strings (snapshots etc. — the picker never shows
-    // them) are conservatively not-legacy.
+    // True for release versions below 1.14: the range official Fabric
+    // doesn't reach and Legacy Fabric does. In practice only 1.8.9 and
+    // 1.12.2 ever get here (the picker's supported set), so a simple
+    // minor-version check is enough. Unparseable strings (snapshots etc. —
+    // the picker never shows them) are conservatively not-legacy.
     public static bool Supports(string mcVersion)
     {
         var parts = mcVersion.Split('.');

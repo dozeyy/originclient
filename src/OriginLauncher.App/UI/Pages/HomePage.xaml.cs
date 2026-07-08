@@ -127,9 +127,10 @@ public partial class HomePage : UserControl
 
         _settingLoaderProgrammatically = true;
         // Modern versions: Vanilla + Fabric (as before). Legacy versions
-        // (1.7.10–1.13.2): Vanilla + Fabric + Forge — Legacy Fabric is the
+        // (1.8.9, 1.12.2): Vanilla + Fabric + Forge — Legacy Fabric is the
         // recommended Origin path, but the existing Forge(+OptiFine) option
-        // stays one click away. The in-between gap keeps Vanilla + Forge.
+        // stays one click away. Modern versions without a perf-catalog entry
+        // (e.g. 1.18.0) keep Vanilla + Forge.
         LoaderFabricToggle.Visibility = modernFabric || legacyFabric ? Visibility.Visible : Visibility.Collapsed;
         LoaderForgeToggle.Visibility = modernFabric ? Visibility.Collapsed : Visibility.Visible;
 

@@ -70,10 +70,13 @@ preference:
    - **Legacy Fabric** — Minecraft 1.3.2 → 1.13.2 (covers the two legacy
      versions that matter commercially: **1.8.9** and **1.12.2**);
      meta server at `meta.legacyfabric.net`. **DECIDED (Will, 2026-07-08):
-     this is the route, and the product floor is 1.7.10** — the launcher
-     already limits its picker there.
+     this is the route. The supported version set is exactly `1.8.9`,
+     `1.12.2`, `1.16.5`, and `1.17 → newest`** — the launcher's picker shows
+     only this set (`VersionManager.PinnedVersions` + the 1.17 floor).
+     1.8.9/1.12.2 launch via Legacy Fabric; 1.16.5 and 1.17+ via official
+     Fabric.
    - **Babric** (Beta 1.7.3) / **Ornithe** (broad historical coverage) — the
-     beta-era route. **Out of scope** now that the floor is 1.7.10.
+     beta-era route. **Out of scope**: the supported set stops at 1.8.9.
    Because the launcher owns the install, the player never sees any of this:
    pick a version, and the launcher installs the right loader flavor + the
    Origin build for that era, exactly as it installs Fabric for 1.21.x.
@@ -92,9 +95,9 @@ carries over 100%; only the drawing/mixin layer is per-era):
 | Tier | Versions | Loader | GUI era (port size) |
 |------|----------|--------|---------------------|
 | A | 1.20 → latest | Fabric | `GuiGraphics` — current code, per-version builds |
-| B | 1.14 → 1.19.4 | Fabric | `Screen` + `PoseStack` draws — moderate port |
-| C | 1.7.10 → 1.13.2 | Legacy Fabric | `GuiScreen`, fixed-function GL — bigger port, simpler drawing |
-| D | Beta 1.7.3 | Babric/Ornithe | **out of scope** — product floor is 1.7.10 |
+| B | 1.16.5 → 1.19.4 | Fabric | `Screen` + `PoseStack` draws — moderate port |
+| C | 1.8.9, 1.12.2 | Legacy Fabric | `GuiScreen`, fixed-function GL — bigger port, simpler drawing |
+| D | Beta 1.7.3 | Babric/Ornithe | **out of scope** — supported set stops at 1.8.9 |
 
 Rollout is demand-driven: v1 ships Tier A (1.21.1). Next targets by player
 population are 1.8.9 and 1.12.2 (Tier C via Legacy Fabric). Until a tier is
@@ -104,7 +107,8 @@ Origin menus arrive per tier.
 
 ### Launcher wiring: implemented (2026-07-08)
 
-The launcher now installs Legacy Fabric end-to-end for 1.7.10–1.13.2:
+The launcher now installs Legacy Fabric end-to-end for 1.8.9 and 1.12.2 (the
+two legacy versions in the supported set):
 
 - `Core/Loaders/LegacyFabricInstaller.cs` — resolves the newest stable loader
   from `meta.legacyfabric.net/v2/versions/loader/{game}`, fetches the standard
@@ -122,14 +126,14 @@ The launcher now installs Legacy Fabric end-to-end for 1.7.10–1.13.2:
 
 **Verify at home** (none of this could be exercised from the sandbox — the
 proxy blocks the meta servers):
-1. `https://meta.legacyfabric.net/v2/versions/game` lists `1.7.10` (and
-   `/v2/versions/loader/1.7.10` is non-empty).
-2. Launcher → pick 1.7.10 (and 1.8.9) → Fabric toggle appears and is the
-   recommendation → Play: watch "Installing Fabric loader..." then a normal
-   vanilla-looking 1.7.10 that shows Legacy Fabric in its crash-report/mods
-   listing (F3 brand string says fabric).
-3. Old-version Java: 1.7.10 wants Java 8 — confirm CmlLib's bundled-runtime
-   selection handles it (launch plain Vanilla 1.7.10 first to isolate this
+1. `https://meta.legacyfabric.net/v2/versions/game` lists `1.8.9` and
+   `1.12.2` (and `/v2/versions/loader/1.8.9` is non-empty).
+2. Launcher → the picker shows exactly 1.8.9, 1.12.2, 1.16.5, 1.17+ → pick
+   1.8.9 (then 1.12.2) → Fabric toggle appears and is the recommendation →
+   Play: watch "Installing Fabric loader..." then a normal vanilla-looking
+   game whose F3 brand string says fabric.
+3. Old-version Java: 1.8.9 wants Java 8 — confirm CmlLib's bundled-runtime
+   selection handles it (launch plain Vanilla 1.8.9 first to isolate this
    from the loader change).
 4. A dropped-in legacy-fabric mod jar loads from the instance's `mods/`.
 

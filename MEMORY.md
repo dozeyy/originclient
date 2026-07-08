@@ -1738,3 +1738,21 @@ Babric/Ornithe out of scope). Implemented launcher-side, test-at-home:
   against API surfaces already proven in this codebase. At-home checklist in
   VERSIONS.md (incl. 1.7.10-wants-Java-8 check via plain vanilla launch
   first, and confirming 1.7.10 is in Legacy Fabric's game list).
+
+## 2026-07-08 — Supported versions replanned: 1.8.9, 1.12.2, 1.16.5, 1.17+
+
+Will narrowed the support set (was: everything back to 1.7.10). Now exactly:
+1.8.9, 1.12.2, 1.16.5, and 1.17 → newest.
+- VersionManager: OldestSupportedVersion cutoff replaced with PinnedVersions
+  {1.8.9, 1.12.2, 1.16.5} + ModernFloorVersion "1.17" (release-time floor so
+  future versions appear regardless of naming; fails open if the floor lookup
+  misses, like the old cutoff). Picker shows exactly the set.
+- Happy alignment: PerformanceModCatalog's verified data starts at exactly
+  1.16.5 — every supported modern version can carry the perf stack, and the
+  1.14–1.16.4 "gap" versions are simply gone from the picker. Catalog holes
+  (1.18.0, 1.20.3, 1.21.2) still fall back to Vanilla+Forge per existing
+  policy.
+- Legacy Fabric path (built earlier today) now serves only 1.8.9 + 1.12.2;
+  comments/docs updated (LegacyFabricInstaller, HomePage, VERSIONS.md tiers:
+  B = 1.16.5–1.19.4, C = 1.8.9 + 1.12.2, D still out of scope). At-home
+  checklist retargeted to 1.8.9.

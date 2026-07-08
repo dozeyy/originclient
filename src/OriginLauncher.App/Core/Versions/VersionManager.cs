@@ -32,10 +32,14 @@ public sealed class VersionManager
     private static Task<IReadOnlyList<string>>? _cachedReleaseVersions;
     private static readonly SemaphoreSlim ReleaseVersionsGate = new(1, 1);
 
-    // Oldest supported release — Origin doesn't target anything older than this,
-    // so the picker only ever shows 1.7.10 and newer instead of the full
-    // Mojang history back to alpha.
-    private const string OldestSupportedVersion = "1.7.10";
+    // The supported version set (Will, 2026-07-08): the classic pillars
+    // 1.8.9 and 1.12.2, plus 1.16.5, plus every release from 1.17 upward.
+    // The picker shows exactly this set instead of the full Mojang history —
+    // 1.8.9/1.12.2 launch via Legacy Fabric, everything else via official
+    // Fabric (the perf-mod catalog's verified data starts at 1.16.5, so no
+    // supported version lands in the unsupported 1.14–1.16.4 gap).
+    private static readonly string[] PinnedVersions = { "1.8.9", "1.12.2", "1.16.5" };
+    private const string ModernFloorVersion = "1.17";
 
     // Must match minecraft_version in src/OriginClient.Mod/gradle.properties.
     // The bundled jar's own Mixins/fabric.mod.json target this exact MC
@@ -74,9 +78,15 @@ public sealed class VersionManager
         var versions = await ManifestLauncher.GetAllVersionsAsync();
         var releases = versions.Where(v => v.Type == "release").ToList();
 
-        var cutoff = releases.FirstOrDefault(v => v.Name == OldestSupportedVersion)?.ReleaseTime;
-        if (cutoff != null)
-            releases = releases.Where(v => v.ReleaseTime >= cutoff).ToList();
+        // Pinned classics + everything from the modern floor up (by release
+        // time, so future versions appear automatically whatever Mojang names
+        // them). If the floor lookup ever fails, fail open like the old
+        // cutoff did rather than emptying the picker.
+        var floor = releases.FirstOrDefault(v => v.Name == ModernFloorVersion)?.ReleaseTime;
+        releases = releases.Where(v =>
+            PinnedVersions.Contains(v.Name)
+            || floor == null
+            || v.ReleaseTime >= floor).ToList();
 
         return releases.Select(v => v.Name).ToList();
     }
