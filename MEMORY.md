@@ -1756,3 +1756,36 @@ Will narrowed the support set (was: everything back to 1.7.10). Now exactly:
   comments/docs updated (LegacyFabricInstaller, HomePage, VERSIONS.md tiers:
   B = 1.16.5–1.19.4, C = 1.8.9 + 1.12.2, D still out of scope). At-home
   checklist retargeted to 1.8.9.
+
+## 2026-07-08 — One-click launch flow hardened (Will: "a click and it works")
+
+Audited the full pick-version→Play pipeline for every supported version and
+fixed what broke the one-click promise:
+- **REAL BUG — launch failure crashed the launcher on any non-dev machine**:
+  both catch blocks in HomePage.PlayButton_Click did File.WriteAllText to a
+  hardcoded C:\Users\Will\...\launch_error.txt debug path (leftover live-debug
+  scaffolding). On other machines that throws INSIDE the catch → unhandled in
+  async void → app crash exactly when a launch fails. Replaced with
+  WriteLaunchErrorLog → %LocalAppData%/OriginLauncher/logs/launcher_error_*.log,
+  wrapped so it can never throw.
+- **Launch cancellation implemented** (CLAUDE.md hard requirement, was just a
+  re-click block): _launchCts CancellationTokenSource per launch; overlay got
+  a Cancel button (Button.Chrome ghost style) + CancelRequested event; token
+  flows through InstallAndBuildProcessAsync into CmlLib; ThrowIfCancellation
+  gates after auth AND right before Process start (a cancel landing after
+  provisioning must not still launch). finally gated on ReferenceEquals so
+  only the token-owning launch resets shared UI; OperationCanceledException →
+  "Launch cancelled", no error.
+- **csproj**: bundled originclient.jar Content item now Condition=Exists —
+  fresh checkout / launcher-only builds no longer hard-fail before gradle has
+  ever run (runtime already fail-softs to the perf catalog). Release builds
+  must still confirm the jar is present.
+- **Verified the Aikar Performance flag set actually starts a Java 21 VM**
+  (sandbox has OpenJDK 21.0.10: exit 0, no warnings) — Performance mode is
+  safe on modern MC. Java 8 (1.8.9) untestable here; Aikar's set was designed
+  on 8, flagged for the at-home pass.
+- Checked: no Java path is pinned in MLaunchOption (CmlLib auto-selects the
+  per-version Mojang runtime — 1.8.9 gets Java 8, modern gets 21); OptiFine/
+  loaders/mods all download in-app (no external pages anywhere in the flow);
+  auth is the only browser hop and only on first sign-in (refresh tokens
+  after).

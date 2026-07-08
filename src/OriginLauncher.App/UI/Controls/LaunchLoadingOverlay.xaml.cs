@@ -14,11 +14,16 @@ public partial class LaunchLoadingOverlay : UserControl
         InitializeComponent();
     }
 
+    /// <summary>Raised when the player clicks Cancel; the launch flow that
+    /// showed the overlay cancels its in-flight provisioning.</summary>
+    public event EventHandler? CancelRequested;
+
     public void Show(string version, string loaderCaption)
     {
         VersionText.Text = version;
         LoaderCaptionText.Text = loaderCaption;
         StageText.Text = "Preparing...";
+        CancelButton.IsEnabled = true;
         Visibility = Visibility.Visible;
 
         var transform = new RotateTransform();
@@ -40,4 +45,13 @@ public partial class LaunchLoadingOverlay : UserControl
     }
 
     public void ReportStage(string stage) => StageText.Text = stage;
+
+    private void CancelButton_Click(object sender, RoutedEventArgs e)
+    {
+        // One shot: further clicks do nothing while the cancellation unwinds
+        // (the launch flow hides the overlay from its own finally).
+        CancelButton.IsEnabled = false;
+        StageText.Text = "Cancelling...";
+        CancelRequested?.Invoke(this, EventArgs.Empty);
+    }
 }

@@ -20,10 +20,16 @@ public partial class HomePage : UserControl
     private bool _settingLoaderProgrammatically;
     private StoredAccount? _selectedAccount;
 
+    // In-flight launch provisioning. The newest launch action always wins
+    // (CLAUDE.md hard requirement): the overlay's Cancel aborts this token,
+    // and starting a new launch replaces it.
+    private CancellationTokenSource? _launchCts;
+
     public HomePage()
     {
         InitializeComponent();
         _settings = SettingsStore.Load();
+        LoadingOverlay.CancelRequested += (_, _) => _launchCts?.Cancel();
         RefreshAccountState();
         _ = LoadVersionsAsync();
     }
@@ -226,6 +232,12 @@ public partial class HomePage : UserControl
         if (_isLaunching || _selectedAccount == null) return;
         if (VersionComboBox.SelectedItem is not string version) return;
 
+        // Newest launch action wins: replace (and cancel) any stale token
+        // before starting. The overlay's Cancel button aborts this one.
+        _launchCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _launchCts = cts;
+
         _isLaunching = true;
         PlayButton.IsEnabled = false;
         var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
@@ -254,20 +266,32 @@ public partial class HomePage : UserControl
                 AccountStore.Save(accounts);
             }
 
+            cts.Token.ThrowIfCancellationRequested();
+
             var launchOption = LaunchProfileBuilder.Build(_settings, result.Session);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             var process = await _versionManager.InstallAndBuildProcessAsync(
-                version, loader, _settings.OptiFineEnabled, launchOption, installProgress);
+                version, loader, _settings.OptiFineEnabled, launchOption, installProgress, cts.Token);
 
             if (_settings.PerformanceMode == PerformanceMode.Performance)
             {
                 GpuPreference.PreferHighPerformanceGpu(process.StartInfo.FileName);
             }
 
+            // Last gate before the game actually starts — a cancel that
+            // landed after provisioning finished must not still launch.
+            cts.Token.ThrowIfCancellationRequested();
+
             LoadingOverlay.ReportStage("Launching Minecraft...");
             StartWithLifecycleCapture(process, version);
 
             StatusText.Text = $"Launched {version} — signed in as {result.Session.Username}";
+        }
+        catch (OperationCanceledException)
+        {
+            // Player hit Cancel on the overlay (or a newer launch superseded
+            // this one) — not an error, just back to the Home state.
+            StatusText.Text = "Launch cancelled";
         }
         catch (MicrosoftAuthException ex)
         {
@@ -275,22 +299,47 @@ public partial class HomePage : UserControl
                 ? "Your session expired — remove and re-add this account in the account switcher."
                 : ex.Message;
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed (auth): {ex}");
-            File.WriteAllText(@"C:\Users\Will\AppData\Local\Temp\claude\C--Users-Will-Documents-Origin-Client\d4c38423-9727-4f18-805d-e8d301b2fb83\scratchpad\launch_error.txt", ex.ToString());
+            WriteLaunchErrorLog(ex);
         }
         catch (Exception ex)
         {
             StatusText.Text = $"Launch failed: {ex.Message}";
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed: {ex}");
-            File.WriteAllText(@"C:\Users\Will\AppData\Local\Temp\claude\C--Users-Will-Documents-Origin-Client\d4c38423-9727-4f18-805d-e8d301b2fb83\scratchpad\launch_error.txt", ex.ToString());
+            WriteLaunchErrorLog(ex);
         }
         finally
         {
-            _isLaunching = false;
-            LoadingOverlay.Hide();
-            // Not the full UpdatePlayState() — that unconditionally overwrites
-            // StatusText with "Signed in as X", clobbering whatever specific
-            // message the try/catch above just set. Only re-sync IsEnabled here.
-            PlayButton.IsEnabled = _selectedAccount != null && VersionComboBox.SelectedItem is string;
+            // Only the launch that still owns the token resets the shared UI —
+            // if a newer launch has already replaced it, that one drives.
+            if (ReferenceEquals(_launchCts, cts))
+            {
+                _isLaunching = false;
+                LoadingOverlay.Hide();
+                // Not the full UpdatePlayState() — that unconditionally overwrites
+                // StatusText with "Signed in as X", clobbering whatever specific
+                // message the try/catch above just set. Only re-sync IsEnabled here.
+                PlayButton.IsEnabled = _selectedAccount != null && VersionComboBox.SelectedItem is string;
+            }
+            cts.Dispose();
+        }
+    }
+
+    // Persists the full exception under /logs/ for diagnostics. Must never
+    // throw itself — an error writer that can crash the catch block would
+    // turn a failed launch into a crashed launcher (the previous hardcoded
+    // debug path did exactly that on any machine but the dev box).
+    private static void WriteLaunchErrorLog(Exception ex)
+    {
+        try
+        {
+            OriginPaths.EnsureScaffold();
+            File.WriteAllText(
+                Path.Combine(OriginPaths.Logs, $"launcher_error_{DateTime.Now:yyyyMMdd_HHmmss}.log"),
+                ex.ToString());
+        }
+        catch
+        {
+            // Best-effort only.
         }
     }
 

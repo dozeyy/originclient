@@ -33,11 +33,14 @@
     wildcard: a glob risks matching a stale jar left behind from a prior
     version bump if `build/libs` isn't cleaned, which would break the build
     with an ambiguous duplicate match. Bump this alongside mod_version.
-    Requires `./gradlew build` to have been run in OriginClient.Mod first —
-    if that hasn't happened yet on a fresh checkout, this Content item simply
-    has nothing to copy and the reference below fails at restore/build time.
+
+    Conditional on the jar existing so a fresh checkout (or a launcher-only
+    change) still builds before `./gradlew build` has ever been run in
+    OriginClient.Mod — the launcher already fail-softs at runtime when the
+    bundled jar is absent (VersionManager falls back to the standalone
+    perf-mod catalog). A RELEASE build must still verify the jar is present.
   -->
-  <ItemGroup>
+  <ItemGroup Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.1.0.jar')">
     <Content Include="..\OriginClient.Mod\build\libs\originclient-0.1.0.jar">
       <Link>Bundled\OriginClient\originclient.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

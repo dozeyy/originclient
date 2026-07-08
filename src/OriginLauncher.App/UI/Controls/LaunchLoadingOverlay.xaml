@@ -25,6 +25,13 @@
                        HorizontalAlignment="Center" Margin="0,0,0,24"/>
 
             <TextBlock x:Name="StageText" Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center"/>
+
+            <!-- The overlay is opaque and covers Home, so the abort path has
+                 to live here: cancels the in-flight provisioning (the newest
+                 launch action always wins — CLAUDE.md hard requirement). -->
+            <Button x:Name="CancelButton" Style="{StaticResource Button.Chrome}"
+                    Content="Cancel" Padding="18,6" Margin="0,28,0,0"
+                    HorizontalAlignment="Center" Click="CancelButton_Click"/>
         </StackPanel>
     </Border>
 </UserControl>
