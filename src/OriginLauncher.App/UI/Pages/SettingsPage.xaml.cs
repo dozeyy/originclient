@@ -32,6 +32,7 @@ public partial class SettingsPage : UserControl
             GraphicsModeToggle.IsChecked = true;
 
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
+        OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
 
         _isLoading = false;
         _ = LoadVersionsAsync();
@@ -134,6 +135,20 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
         OriginClientConfigBridge.SetOriginUiEnabled(false);
+    }
+
+    private void OfflineTestToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.OfflineTestMode = true;
+        SettingsStore.Save(_settings);
+    }
+
+    private void OfflineTestToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.OfflineTestMode = false;
+        SettingsStore.Save(_settings);
     }
 
     private void ResolutionTextBox_LostFocus(object sender, RoutedEventArgs e)

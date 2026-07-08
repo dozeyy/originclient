@@ -27,4 +27,10 @@ public sealed class LauncherSettings
     // sticky user override — see HomePage's loader selector.
     public LoaderKind? SelectedLoader { get; set; }
     public bool OptiFineEnabled { get; set; }
+
+    // Developer escape hatch while Microsoft's app-registration approval is
+    // pending: lets Play run with a local offline session instead of a real
+    // Microsoft sign-in, so the whole launcher/game pipeline can be tested.
+    // Surfaced under Settings -> Developer; remove before public release.
+    public bool OfflineTestMode { get; set; }
 }

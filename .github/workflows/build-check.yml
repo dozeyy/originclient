@@ -1,0 +1,51 @@
+# Compile verification for every change — the counterpart to
+# launcher-release.yml, which only fires from the release branch. This one
+# runs on pushes to main and working branches and on PRs, builds the mod +
+# launcher exactly like a release would, and publishes NOTHING. It exists so
+# code written in environments that can't build (e.g. the remote dev sandbox,
+# where Gradle/Mojang downloads are blocked) is machine-verified before it
+# ever reaches the release channel.
+name: build-check
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "src/**"
+      - ".github/workflows/build-check.yml"
+  pull_request:
+    paths:
+      - "src/**"
+
+concurrency:
+  group: build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build Origin Client mod
+        working-directory: src/OriginClient.Mod
+        run: .\gradlew.bat build --no-daemon
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # Same publish shape as a real release (single-file, self-contained)
+      # so anything that would break shipping breaks here first.
+      - name: Publish launcher (verify only)
+        run: >
+          dotnet publish src/OriginLauncher.App/OriginLauncher.App.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish
