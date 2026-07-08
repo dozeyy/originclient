@@ -14,7 +14,9 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.origin.client.client.theme.OriginTheme;
 
@@ -38,12 +40,22 @@ public final class OriginScreenRenderer {
 	private static final List<Ring> rings = new ArrayList<>();
 	private static ResourceLocation grainId;
 
-	// Baked "Origin" wordmark (Inter). Null -> fall back to vanilla drawString.
+	// Baked "ORIGIN" wordmark (Inter). Null -> fall back to vanilla drawString.
 	private static ResourceLocation wordmarkId;
 	private static int wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH;
 
+	// Baked caption glyph strip ("LOADING 0123456789%") for the loading bar's
+	// live percentage. Null -> caption is skipped (no vanilla-font fallback, to
+	// avoid tofu boxes during the first resource load).
+	private static ResourceLocation captionId;
+	private static int capAtlasW, capAtlasH, capCellH, capCapH;
+	private static final Map<Character, CaptionGlyph> captionGlyphs = new HashMap<>();
+
 	private record Ring(ResourceLocation texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {
+	}
+
+	private record CaptionGlyph(int x, int y, int width, double bearingX, double advance) {
 	}
 
 	private OriginScreenRenderer() {
@@ -51,19 +63,28 @@ public final class OriginScreenRenderer {
 
 	// ---- Public entry points ----
 
-	/** Loading screen: charcoal + grain + centered wordmark + progress bar. No rings. */
+	/** Loading screen: charcoal + grain + wordmark + progress bar + "LOADING xx%" caption. No rings. */
 	public static void renderLoading(GuiGraphics guiGraphics, float progress) {
 		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
+		float clamped = Math.max(0f, Math.min(1f, progress));
 
 		guiGraphics.fill(0, 0, w, h, BG_COLOR);
 		if (!ringsFailed) {
 			drawGrain(guiGraphics, w, h);
 		}
-		int wordmarkBottom = drawWordmark(guiGraphics, w / 2.0, h / 2.0, h * 0.15);
-		drawProgressBar(guiGraphics, w, h, wordmarkBottom, Math.max(0f, Math.min(1f, progress)));
+
+		// Wordmark + bar + caption as a group, roughly centered.
+		double inkH = fitInkHeight(h * 0.15, w, 0.85);
+		int wordmarkBottom = drawWordmark(guiGraphics, w / 2.0, h * 0.43, inkH);
+		int barBottom = drawProgressBar(guiGraphics, w, h, wordmarkBottom, clamped);
+
+		int pct = Math.round(clamped * 100f);
+		double capH = Math.max(7.0, h * 0.02);
+		drawCaption(guiGraphics, w / 2.0, barBottom + Math.max(8, (int) (h * 0.02)),
+				"LOADING " + pct + "%", capH, OriginTheme.MUTED);
 	}
 
 	/** Main menu background: charcoal + rotating rings + grain (behind vanilla's logo/buttons). */
@@ -80,13 +101,30 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	/** Main menu: draw the "Origin" wordmark where the vanilla Minecraft logo sits (top-center). */
+	/** Main menu: draw the "ORIGIN" wordmark centered between the top of the screen and the Singleplayer button. */
 	public static void renderTitleWordmark(GuiGraphics guiGraphics) {
 		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
-		drawWordmark(guiGraphics, w / 2.0, h * 0.18, h * 0.12);
+
+		int singleplayerTop = h / 4 + 48;        // vanilla TitleScreen first-button Y
+		double centerY = singleplayerTop / 2.0;  // midpoint between top of screen and that button
+		double inkH = fitInkHeight(h * 0.16, w, 0.82);
+		drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
+	}
+
+	/** Clamps a target ink height so the wordmark's displayed width stays within maxWidthFrac of the screen. */
+	private static double fitInkHeight(double targetInkHeight, int w, double maxWidthFrac) {
+		if (wordmarkId == null || wmInkW <= 0) {
+			return targetInkHeight;
+		}
+		double dispW = wmInkW * (targetInkHeight / wmInkH);
+		double maxW = w * maxWidthFrac;
+		if (dispW > maxW) {
+			return wmInkH * (maxW / wmInkW);
+		}
+		return targetInkHeight;
 	}
 
 	// ---- Primitives ----
@@ -163,7 +201,8 @@ public final class OriginScreenRenderer {
 		return (int) Math.round(inkCenterY + 5 * scale);
 	}
 
-	private static void drawProgressBar(GuiGraphics guiGraphics, int w, int h, int wordmarkBottom, float progress) {
+	/** Draws the progress bar just below the wordmark; returns the bar's bottom Y. */
+	private static int drawProgressBar(GuiGraphics guiGraphics, int w, int h, int wordmarkBottom, float progress) {
 		int barW = Math.max(120, (int) (w * 0.22));
 		int barH = 3;
 		int bx = (w - barW) / 2;
@@ -175,6 +214,48 @@ public final class OriginScreenRenderer {
 			guiGraphics.fill(bx - 1, by - 1, bx + fillW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW); // soft glow
 			guiGraphics.fill(bx, by, bx + fillW, by + barH, OriginTheme.ACCENT);  // fill
 		}
+		return by + barH;
+	}
+
+	/** Composes a caption from the baked glyph strip, centered horizontally on centerX, tinted `color`. */
+	private static void drawCaption(GuiGraphics guiGraphics, double centerX, double topY, String text, double targetCapHeight, int color) {
+		if (captionId == null) {
+			return; // no vanilla-font fallback: avoids tofu during the first resource load
+		}
+		double scale = targetCapHeight / capCapH;
+
+		double total = 0;
+		for (int i = 0; i < text.length(); i++) {
+			CaptionGlyph g = captionGlyphs.get(text.charAt(i));
+			if (g != null) {
+				total += g.advance();
+			}
+		}
+
+		float r = ((color >> 16) & 0xFF) / 255f;
+		float g = ((color >> 8) & 0xFF) / 255f;
+		float b = (color & 0xFF) / 255f;
+		float a = ((color >>> 24) & 0xFF) / 255f;
+
+		RenderSystem.enableBlend();
+		RenderSystem.setShaderColor(r, g, b, a);
+		PoseStack pose = guiGraphics.pose();
+		double penX = centerX - (total * scale) / 2.0;
+		for (int i = 0; i < text.length(); i++) {
+			CaptionGlyph glyph = captionGlyphs.get(text.charAt(i));
+			if (glyph == null) {
+				continue;
+			}
+			if (glyph.width() > 0) {
+				pose.pushPose();
+				pose.translate(penX + glyph.bearingX() * scale, topY, 0);
+				pose.scale((float) scale, (float) scale, 1f);
+				guiGraphics.blit(captionId, 0, 0, glyph.x(), glyph.y(), glyph.width(), capCellH, capAtlasW, capAtlasH);
+				pose.popPose();
+			}
+			penX += glyph.advance() * scale;
+		}
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	// ---- Loading ----
@@ -227,6 +308,31 @@ public final class OriginScreenRenderer {
 		} catch (Exception e) {
 			wordmarkId = null;
 			com.origin.client.OriginClient.LOGGER.warn("Origin wordmark failed to load; using vanilla font", e);
+		}
+
+		// Caption glyph strip (for the loading-bar percentage). Optional.
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			JsonObject cap;
+			try (InputStream in = open("/assets/originclient/textures/ui/caption.json")) {
+				cap = GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
+			}
+			capAtlasW = cap.get("atlasWidth").getAsInt();
+			capAtlasH = cap.get("atlasHeight").getAsInt();
+			capCellH = cap.get("cellHeight").getAsInt();
+			capCapH = cap.get("capHeight").getAsInt();
+			JsonObject glyphs = cap.getAsJsonObject("glyphs");
+			for (String key : glyphs.keySet()) {
+				JsonObject g = glyphs.getAsJsonObject(key);
+				double bearingX = g.has("bearingX") ? g.get("bearingX").getAsDouble() : 0.0;
+				captionGlyphs.put(key.charAt(0), new CaptionGlyph(
+						g.get("x").getAsInt(), g.get("y").getAsInt(), g.get("width").getAsInt(),
+						bearingX, g.get("advance").getAsDouble()));
+			}
+			captionId = registerTexture(mc, "origin_caption", "/assets/originclient/textures/ui/caption.png");
+		} catch (Exception e) {
+			captionId = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin caption strip failed to load; skipping caption", e);
 		}
 	}
 

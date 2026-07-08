@@ -28,3 +28,6 @@ tools/font-atlas/output/
 # src/OriginClient.Mod/.../assets/originclient/textures/ui/)
 tools/loading-screen/*preview*.png
 tools/loading-screen/loading_preview.png
+
+# Python
+__pycache__/

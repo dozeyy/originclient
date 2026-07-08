@@ -42,10 +42,12 @@ FILL_FRAC = 0.90   # ellipse major axis as a fraction of the square canvas
 # / ~1180px reference window). period/reverse drive the in-game rotation.
 RINGS = [
     # name, widthFrac, strokePx(final tex), opacity, blur, angle0, periodSec, reverse
-    ("A", 0.59, 3.4, 0.35,  0.0,   0, 40, False),
-    ("B", 0.81, 3.0, 0.28,  0.0,  45, 65, True),
-    ("C", 1.02, 2.7, 0.22,  1.6, 100, 90, False),
-    ("D", 1.27, 2.4, 0.18,  2.6,  15, 120, True),
+    # Periods are faster than the launcher's slow ambient values (40-120s) so the
+    # rotation actually reads as motion on the main menu, where you linger.
+    ("A", 0.59, 3.4, 0.35,  0.0,   0, 16, False),
+    ("B", 0.81, 3.0, 0.28,  0.0,  45, 24, True),
+    ("C", 1.02, 2.7, 0.22,  1.6, 100, 33, False),
+    ("D", 1.27, 2.4, 0.18,  2.6,  15, 44, True),
 ]
 
 

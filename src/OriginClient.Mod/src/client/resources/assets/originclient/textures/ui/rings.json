@@ -9,7 +9,7 @@
       "widthFrac": 0.59,
       "opacity": 0.35,
       "angle0": 0,
-      "periodSeconds": 40,
+      "periodSeconds": 16,
       "reverse": false
     },
     {
@@ -18,7 +18,7 @@
       "widthFrac": 0.81,
       "opacity": 0.28,
       "angle0": 45,
-      "periodSeconds": 65,
+      "periodSeconds": 24,
       "reverse": true
     },
     {
@@ -27,7 +27,7 @@
       "widthFrac": 1.02,
       "opacity": 0.22,
       "angle0": 100,
-      "periodSeconds": 90,
+      "periodSeconds": 33,
       "reverse": false
     },
     {
@@ -36,7 +36,7 @@
       "widthFrac": 1.27,
       "opacity": 0.18,
       "angle0": 15,
-      "periodSeconds": 120,
+      "periodSeconds": 44,
       "reverse": true
     }
   ]
