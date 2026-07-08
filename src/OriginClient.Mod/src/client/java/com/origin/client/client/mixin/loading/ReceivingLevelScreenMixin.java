@@ -16,7 +16,9 @@ public class ReceivingLevelScreenMixin {
 
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void originclient$originLoadingScene(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		OriginScreenRenderer.renderLoadingScene(guiGraphics, ((Screen) (Object) this).getTitle());
-		ci.cancel();
+		// Only cancel vanilla when the Origin scene actually drew (fail-soft).
+		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, ((Screen) (Object) this).getTitle())) {
+			ci.cancel();
+		}
 	}
 }

@@ -57,8 +57,11 @@ of a raw log dump, and secure multi-account switching without constant re-auth.
   launcher was renamed to match ("Orbit Launcher" -> "Origin Launcher") the
   same day. Whole product is "Origin" now, no remaining "Orbit" branding.
   Java package `com.origin.client`, mod id `originclient`.
-- Pinned to Minecraft 1.21.1 for v1 (loader choice re-evaluated per version
-  later, not a fixed multi-version abstraction now)
+- Pinned to Minecraft 1.21.1 for v1. Multi-version/multi-loader strategy is
+  settled in `src/OriginClient.Mod/VERSIONS.md`: one build per MC version,
+  launcher always installs Fabric + the matching build (Lunar model; OptiFine
+  never paired — Sodium conflict), fail-soft runtime degrades any mismatch to
+  vanilla instead of crashing.
 - Scaffolded from FabricMC's official `fabric-example-mod` (1.21.1 branch) to
   guarantee a matching Gradle wrapper/Loom version/mappings instead of
   hand-writing config

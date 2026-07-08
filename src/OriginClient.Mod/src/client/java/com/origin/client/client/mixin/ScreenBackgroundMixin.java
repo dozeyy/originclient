@@ -39,8 +39,11 @@ public class ScreenBackgroundMixin {
 
 	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackdrop(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		if (Minecraft.getInstance().level == null) {
-			OriginScreenRenderer.renderTitleBackground(guiGraphics);
+		// Cancel vanilla's backdrop only when the Origin one actually drew
+		// (fail-soft contract): a failed draw releases the vanilla backdrop
+		// instead of leaving the screen black.
+		if (Minecraft.getInstance().level == null
+				&& OriginScreenRenderer.renderTitleBackground(guiGraphics)) {
 			OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, originclient$hoveringClickable());
 			ci.cancel();
 		}
@@ -55,7 +58,9 @@ public class ScreenBackgroundMixin {
 
 	@Inject(method = "renderMenuBackgroundTexture", at = @At("HEAD"), cancellable = true)
 	private static void originclient$noListTexture(GuiGraphics guiGraphics, ResourceLocation texture, int x, int y, float uOffset, float vOffset, int width, int height, CallbackInfo ci) {
-		if (Minecraft.getInstance().level == null) {
+		// Gated on renderer health: if the Origin backdrop is broken, lists
+		// get their vanilla strip back along with the vanilla background.
+		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()) {
 			ci.cancel();
 		}
 	}

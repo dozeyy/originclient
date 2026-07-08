@@ -53,20 +53,31 @@ public class TitleScreenMixin {
 		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, hoveringClickable);
 	}
 
+	// Both suppressions are gated on the renderer's health: if the Origin
+	// backdrop ever fails (fail-soft contract), vanilla's panorama comes back
+	// instead of leaving a black screen.
 	@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressPanorama(GuiGraphics guiGraphics, float partialTick, CallbackInfo ci) {
-		ci.cancel();
+		if (OriginScreenRenderer.isActive()) {
+			ci.cancel();
+		}
 	}
 
 	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		ci.cancel();
+		if (OriginScreenRenderer.isActive()) {
+			ci.cancel();
+		}
 	}
 
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))
 	private void originclient$logo(LogoRenderer instance, GuiGraphics guiGraphics, int screenWidth, float alpha) {
-		OriginScreenRenderer.renderTitleWordmark(guiGraphics);
+		// Fail-soft: if the wordmark can't draw, restore vanilla's own logo
+		// call so the title never loses its centerpiece.
+		if (!OriginScreenRenderer.renderTitleWordmark(guiGraphics)) {
+			instance.renderLogo(guiGraphics, screenWidth, alpha);
+		}
 	}
 
 	// Remove the yellow splash text.

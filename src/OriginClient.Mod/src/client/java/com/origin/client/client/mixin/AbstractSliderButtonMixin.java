@@ -22,7 +22,9 @@ public class AbstractSliderButtonMixin {
 
 	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
 	private void originclient$originStyle(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		OriginButtonRenderer.renderSlider(guiGraphics, (AbstractSliderButton) (Object) this, this.value);
-		ci.cancel();
+		// Only cancel vanilla when Origin actually drew (fail-soft contract).
+		if (OriginButtonRenderer.renderSlider(guiGraphics, (AbstractSliderButton) (Object) this, this.value)) {
+			ci.cancel();
+		}
 	}
 }

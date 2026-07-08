@@ -16,7 +16,9 @@ public class CheckboxMixin {
 
 	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
 	private void originclient$originStyle(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		OriginButtonRenderer.renderCheckbox(guiGraphics, (Checkbox) (Object) this);
-		ci.cancel();
+		// Only cancel vanilla when Origin actually drew (fail-soft contract).
+		if (OriginButtonRenderer.renderCheckbox(guiGraphics, (Checkbox) (Object) this)) {
+			ci.cancel();
+		}
 	}
 }

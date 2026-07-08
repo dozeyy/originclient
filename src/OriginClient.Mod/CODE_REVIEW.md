@@ -72,6 +72,17 @@ Both are now handled in `render`/`renderSlider`/`renderCheckbox`/`drawLabel`.
   halo trail, rings, and the indeterminate bar stay smooth at any FPS.
 - HUD (`OriginHud`) is minimal text, on par with vanilla's debug lines.
 
+## Fail-soft contract (multi-version safety)
+
+Every Origin draw entry point catches `Throwable` and, on first failure, flips
+a session-wide health switch: Origin rendering stops, widget mixins stop
+cancelling the vanilla draw, and the standalone suppressions (title panorama,
+menu-list strips, the vanilla-logo redirect) release — so vanilla visuals
+genuinely return instead of a black screen or a crash. Both mixin configs are
+`required:false` / `defaultRequire:0`, so renamed targets on other game
+versions skip per-surface at load time too. Worst case on any version/loader
+mismatch: the vanilla look. See `VERSIONS.md` for the full strategy.
+
 ## Correctness notes / assumptions to verify on first launch
 
 1. **Loading screens** (`mixin/loading/`, `originclient.loading.mixins.json`,

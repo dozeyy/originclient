@@ -1661,3 +1661,39 @@ Also regenerated the every-screen mockups (scratchpad screens.py) with a pixel
 font (PixelifySans) standing in for MC's default text instead of Inter, and
 fixed the sound screen to show ON/OFF **toggle buttons** (what vanilla actually
 uses there) rather than misplaced checkboxes.
+
+## 2026-07-08 — Multi-version/multi-loader: fail-soft hardening + VERSIONS.md
+
+Will (on fable): "every version of Minecraft, Fabric/OptiFine/Forge or none —
+menus must work flawlessly everywhere." Sodium restyle explicitly cancelled
+mid-question ("don't mess with sodium actually").
+
+Architecture truths documented in src/OriginClient.Mod/VERSIONS.md: a Fabric
+jar can't load under Forge and nothing loads with no loader, so the LAUNCHER
+guarantees the loader (always installs Fabric + the version-matched Origin
+build — Lunar model; "vanilla" in the launcher UI = Fabric+Origin invisibly).
+OptiFine is never paired (Sodium conflict; bundled stack + future Iris covers
+it). Forge = separate port decision later. Multi-version = one build per MC
+version (mixins bind exact names; e.g. GuiGraphics.blit reshaped in 1.21.2),
+Stonecutter recommended when build access exists.
+
+Implemented now — the fail-soft contract (runtime half of "works everywhere"):
+- Both mixin configs required:false + defaultRequire:0 (main config was
+  required:true/defaultRequire:1 → any moved target used to abort the game).
+- OriginScreenRenderer + OriginButtonRenderer: every public draw entry wraps
+  in catch(Throwable) → one-time error log → session-wide `broken` switch.
+  Boolean-returning entries (renderTitleBackground, renderLoadingScene,
+  renderTitleWordmark, render/renderSlider/renderCheckbox) tell callers
+  whether Origin actually drew.
+- All HEAD-cancel mixins now cancel ONLY on success; TitleScreen's
+  panorama/background suppressions + ScreenBackground's list-strip cancel are
+  gated on isActive(); the logo @Redirect falls back to the real
+  instance.renderLogo(...) when the wordmark can't draw.
+- Net: worst case on any version/loader mismatch = vanilla visuals, no crash,
+  no black screen. Verified by inspection (call-site grep + brace/wrapper
+  structure check); still no compile possible remotely.
+
+NOT done (needs build access, honestly out of scope in this sandbox): actual
+per-version builds/ports, Sodium jar verification (Modrinth blocked by proxy
+policy — attempted, 403), any javap of non-1.21.1 versions. VERSIONS.md lists
+the known API breakpoints to verify per version.

@@ -34,6 +34,16 @@ public final class OriginScreenRenderer {
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
 
+	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
+	// Minecraft GUI API that renamed/changed shape in a different game
+	// version), rendering flips to vanilla permanently for this session
+	// instead of crashing. Callers that cancel vanilla drawing must only
+	// cancel when the boolean-returning entry points report success, and
+	// must gate standalone suppressions on isActive(). This is the runtime
+	// half of the multi-version contract (see VERSIONS.md); the mixin
+	// configs' required:false is the load-time half.
+	private static volatile boolean broken = false;
+
 	private static volatile boolean loaded = false;
 	private static boolean ringsFailed = false;
 	private static final List<Ring> rings = new ArrayList<>();
@@ -61,6 +71,18 @@ public final class OriginScreenRenderer {
 	private OriginScreenRenderer() {
 	}
 
+	/** False once any Origin screen draw has failed; vanilla takes over. */
+	public static boolean isActive() {
+		return !broken;
+	}
+
+	private static boolean fail(Throwable t) {
+		broken = true;
+		com.origin.client.OriginClient.LOGGER.error(
+				"Origin screen rendering failed; falling back to vanilla screens for this session", t);
+		return false;
+	}
+
 	// ---- Public entry points ----
 
 	/**
@@ -72,6 +94,19 @@ public final class OriginScreenRenderer {
 	 * reads more premium.
 	 */
 	public static void renderLoading(GuiGraphics guiGraphics, float progress) {
+		// Drawn at TAIL over vanilla's overlay, so skipping when broken simply
+		// reveals the vanilla loading screen -- no cancel to unwind.
+		if (broken) {
+			return;
+		}
+		try {
+			renderLoading0(guiGraphics, progress);
+		} catch (Throwable t) {
+			fail(t);
+		}
+	}
+
+	private static void renderLoading0(GuiGraphics guiGraphics, float progress) {
 		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
@@ -111,7 +146,21 @@ public final class OriginScreenRenderer {
 	 * reading each screen's internal progress field would need an unverifiable
 	 * @Shadow, and a calm sweeping bar reads as premium regardless.
 	 */
-	public static void renderLoadingScene(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title) {
+	public static boolean renderLoadingScene(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title) {
+		// HEAD-cancel takeover: callers must only ci.cancel() when this
+		// returns true, so a failure mid-draw falls back to the vanilla screen.
+		if (broken) {
+			return false;
+		}
+		try {
+			renderLoadingScene0(guiGraphics, title);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title) {
 		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
@@ -154,13 +203,21 @@ public final class OriginScreenRenderer {
 	 * ScreenBackgroundMixin, and this adds the bar on top).
 	 */
 	public static void renderConnectingBar(GuiGraphics guiGraphics) {
-		ensureLoaded();
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
-		int barW = Math.max(80, (int) (w * 0.30));
-		int barH = Math.max(2, (int) (h * 0.010));
-		drawIndeterminateBar(guiGraphics, w / 2.0, (int) (h * 0.60), barW, barH);
+		// TAIL-additive over the vanilla connect screen; skip when broken.
+		if (broken) {
+			return;
+		}
+		try {
+			ensureLoaded();
+			Minecraft mc = Minecraft.getInstance();
+			int w = mc.getWindow().getGuiScaledWidth();
+			int h = mc.getWindow().getGuiScaledHeight();
+			int barW = Math.max(80, (int) (w * 0.30));
+			int barH = Math.max(2, (int) (h * 0.010));
+			drawIndeterminateBar(guiGraphics, w / 2.0, (int) (h * 0.60), barW, barH);
+		} catch (Throwable t) {
+			fail(t);
+		}
 	}
 
 	/** A calm sweeping segment (smooth ping-pong) over the standard track. */
@@ -177,17 +234,29 @@ public final class OriginScreenRenderer {
 		guiGraphics.fill(segX, by, segX + segW, by + barH, OriginTheme.ACCENT);
 	}
 
-	/** Main menu background: charcoal + rotating rings + grain (behind vanilla's logo/buttons). */
-	public static void renderTitleBackground(GuiGraphics guiGraphics) {
-		ensureLoaded();
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
+	/**
+	 * Menu background: near-black + rotating rings + grain (behind vanilla's
+	 * logo/buttons). Returns true only if the Origin backdrop actually drew;
+	 * callers that cancel vanilla's own backdrop must key off this.
+	 */
+	public static boolean renderTitleBackground(GuiGraphics guiGraphics) {
+		if (broken) {
+			return false;
+		}
+		try {
+			ensureLoaded();
+			Minecraft mc = Minecraft.getInstance();
+			int w = mc.getWindow().getGuiScaledWidth();
+			int h = mc.getWindow().getGuiScaledHeight();
 
-		guiGraphics.fill(0, 0, w, h, BG_COLOR);
-		if (!ringsFailed) {
-			drawRings(guiGraphics, w, h);
-			drawGrain(guiGraphics, w, h);
+			guiGraphics.fill(0, 0, w, h, BG_COLOR);
+			if (!ringsFailed) {
+				drawRings(guiGraphics, w, h);
+				drawGrain(guiGraphics, w, h);
+			}
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
 		}
 	}
 
@@ -201,6 +270,18 @@ public final class OriginScreenRenderer {
 	 * GUI width the way the CSS pixel sizes relate to a typical viewport.
 	 */
 	public static void renderTitleCursorGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
+		// Purely additive; skip when broken.
+		if (broken) {
+			return;
+		}
+		try {
+			renderTitleCursorGlow0(guiGraphics, mouseX, mouseY, hoveringClickable);
+		} catch (Throwable t) {
+			fail(t);
+		}
+	}
+
+	private static void renderTitleCursorGlow0(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
 		ensureLoaded();
 		if (radialGlowId == null) {
 			return;
@@ -244,17 +325,29 @@ public final class OriginScreenRenderer {
 				d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
 	}
 
-	/** Main menu: draw the "Origin" wordmark centered between the top of the screen and the Singleplayer button. */
-	public static void renderTitleWordmark(GuiGraphics guiGraphics) {
-		ensureLoaded();
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
+	/**
+	 * Main menu: draw the "ORIGIN" wordmark centered between the top of the
+	 * screen and the Singleplayer button. Returns true only if it drew;
+	 * the title logo redirect falls back to vanilla's logo on false.
+	 */
+	public static boolean renderTitleWordmark(GuiGraphics guiGraphics) {
+		if (broken) {
+			return false;
+		}
+		try {
+			ensureLoaded();
+			Minecraft mc = Minecraft.getInstance();
+			int w = mc.getWindow().getGuiScaledWidth();
+			int h = mc.getWindow().getGuiScaledHeight();
 
-		int singleplayerTop = h / 4 + 48;        // vanilla TitleScreen first-button Y
-		double centerY = singleplayerTop / 2.0;  // midpoint between top of screen and that button
-		double inkH = fitInkHeight(h * 0.13, w, 0.82); // same size as the loading screen
-		drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
+			int singleplayerTop = h / 4 + 48;        // vanilla TitleScreen first-button Y
+			double centerY = singleplayerTop / 2.0;  // midpoint between top of screen and that button
+			double inkH = fitInkHeight(h * 0.13, w, 0.82); // same size as the loading screen
+			drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
 	}
 
 	/** Clamps a target ink height so the wordmark's displayed width stays within maxWidthFrac of the screen. */

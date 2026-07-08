@@ -46,6 +46,13 @@ public final class OriginButtonRenderer {
 	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
 	private static final double HOVER_MS = 90.0;
 
+	// Fail-soft master switch, mirroring OriginScreenRenderer: if any Origin
+	// widget draw throws (e.g. a GUI API that changed shape in a different
+	// game version), widget rendering flips back to vanilla permanently for
+	// this session instead of crashing. The widget mixins only ci.cancel()
+	// the vanilla draw when these entry points return true.
+	private static volatile boolean broken = false;
+
 	private static volatile boolean loaded = false;
 	private static boolean assetsOk = false;
 	private static int TEX, CORNER;
@@ -62,7 +69,27 @@ public final class OriginButtonRenderer {
 	private OriginButtonRenderer() {
 	}
 
-	public static void render(GuiGraphics guiGraphics, AbstractButton button) {
+	private static boolean fail(Throwable t) {
+		broken = true;
+		com.origin.client.OriginClient.LOGGER.error(
+				"Origin widget rendering failed; falling back to vanilla widgets for this session", t);
+		return false;
+	}
+
+	/** Origin-styled button. Returns true only if it drew (callers cancel vanilla on true). */
+	public static boolean render(GuiGraphics guiGraphics, AbstractButton button) {
+		if (broken) {
+			return false;
+		}
+		try {
+			render0(guiGraphics, button);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	private static void render0(GuiGraphics guiGraphics, AbstractButton button) {
 		ensureLoaded();
 		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 		boolean enabled = button.active;
@@ -101,7 +128,19 @@ public final class OriginButtonRenderer {
 	 * drag/click logic is untouched -- this only redraws, and reads `value`
 	 * live each frame, so dragging stays exactly as responsive as vanilla.
 	 */
-	public static void renderSlider(GuiGraphics guiGraphics, AbstractSliderButton slider, double value) {
+	public static boolean renderSlider(GuiGraphics guiGraphics, AbstractSliderButton slider, double value) {
+		if (broken) {
+			return false;
+		}
+		try {
+			renderSlider0(guiGraphics, slider, value);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	private static void renderSlider0(GuiGraphics guiGraphics, AbstractSliderButton slider, double value) {
 		ensureLoaded();
 		int x = slider.getX(), y = slider.getY(), w = slider.getWidth(), h = slider.getHeight();
 		boolean enabled = slider.active;
@@ -165,7 +204,19 @@ public final class OriginButtonRenderer {
 	 * Origin checkbox: a small rounded shell with an accent inner square when
 	 * selected, label to the right in vanilla font. Click handling untouched.
 	 */
-	public static void renderCheckbox(GuiGraphics guiGraphics, Checkbox checkbox) {
+	public static boolean renderCheckbox(GuiGraphics guiGraphics, Checkbox checkbox) {
+		if (broken) {
+			return false;
+		}
+		try {
+			renderCheckbox0(guiGraphics, checkbox);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	private static void renderCheckbox0(GuiGraphics guiGraphics, Checkbox checkbox) {
 		ensureLoaded();
 		int x = checkbox.getX(), y = checkbox.getY(), h = checkbox.getHeight();
 		boolean enabled = checkbox.active;
