@@ -5,7 +5,13 @@
 	"client": [
 		"GameRendererMixin",
 		"MouseHandlerMixin",
-		"EntityViewAngleMixin"
+		"EntityViewAngleMixin",
+		"LoadingOverlayMixin",
+		"TitleScreenMixin",
+		"AbstractButtonMixin",
+		"ScreenBackgroundMixin",
+		"AbstractSliderButtonMixin",
+		"CheckboxMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

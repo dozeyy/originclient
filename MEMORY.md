@@ -957,3 +957,655 @@ gui/mixin file from this pass are deleted, not just disabled.
   instance out of a variable font, it just opens whatever FreeType treats
   as default, which is a different (and more plausible) failure mode than
   "can't parse the format."
+
+## 2026-07-07 — Third UI attempt: design-system spec + incremental, self-verified build-out (M0-M3)
+
+Will asked for a third pass at the website-matching in-game UI, but explicitly
+asked to "work as slow as needed... one step at a time" instead of another
+big blind rewrite. Wrote `src/OriginClient.Mod/DESIGN_SYSTEM.md` first
+(exact tokens/behavior extracted from `website/css/styles.css` and
+`js/main.js`, plus the lessons below folded in as guardrails), then a
+plan-mode session designed a milestoned build-out
+(`/root/.claude/plans/harmonic-knitting-willow.md`) specifically to front-load
+everything self-verifiable without a live client, since that gap (not sloppy
+analysis) is what sank both prior attempts.
+
+- **Real, confirmed environment constraint this session**: this sandbox's
+  egress proxy allows `registry.npmjs.org`/`pypi.org` directly but returns
+  403 for `maven.fabricmc.net`, `libraries.minecraft.net`,
+  `piston-meta.mojang.com`, `fonts.google.com`, `github.com` — confirmed via
+  the proxy's own status endpoint and live `curl` tests, not assumed.
+  **`repo1.maven.org` (Maven Central) is reachable**, though — pulled a real
+  Gson jar from there for partial compile verification (see M3 below).
+  Net effect: this session could not run `./gradlew build` or reach
+  Mojang/Fabric's Maven at all; every Java-touching milestone needs Will to
+  build+run locally, which the plan accounts for as a hard checkpoint, not
+  an afterthought.
+- **M0 — font acquisition**: pulled `@fontsource/inter` from npm (static
+  per-weight WOFF2, not Google Fonts' variable file) and converted each of
+  400/500/600/700/800 to plain TTF via fontTools, asserting no `fvar` table
+  survived — the exact pitfall that broke Bahnschrift twice before.
+  Reproducible via `tools/font-atlas/fetch_fonts.py`.
+- **M1 — `OriginTheme`**: pure-Java design tokens (colors/spacing/radii/
+  motion) matching the website's CSS variables exactly, plus a real
+  Newton-Raphson cubic-bezier evaluator for the site's ease-out/spring
+  curves. Numerically verified in this sandbox (no MC classpath needed):
+  `easeOut` is monotonic 0→1, `spring` overshoots to ~1.10 before settling
+  at 1 — matches `cubic-bezier(0.34,1.56,0.64,1)`'s real bounce shape.
+- **M2 — font atlas generator**: `tools/font-atlas/generate_atlas.py` bakes
+  each weight into a supersampled (512px em → 64px em, 8x oversample),
+  anti-aliased bitmap atlas using the one technique already proven correct
+  in the second prior attempt (opaque black-on-white render, then
+  luminosity→alpha as a post-process) — but this time metrics (advance/
+  bearing/bbox) come from Pillow's own `font.getbbox()`/`getlength()` at the
+  *same* render size as the bitmap, so image and metrics can never disagree
+  about scale (unlike Minecraft's own bitmap font provider, which re-derives
+  width by scanning pixels — the source of the near-monospace bug last
+  time). **Actually looked at the output**: composited sample HUD strings
+  ("COORDS 142, 74, -308") at native (64px), mid (22px), and realistic small
+  HUD (14px) sizes and viewed the PNGs directly — genuinely anti-aliased,
+  proportional (non-monospaced) glyph widths, no residue or bleeding, at all
+  three sizes. This is the first time in three attempts the font asset
+  itself was actually inspected before reaching Minecraft.
+- **M3 — `OriginFont` (no-shader renderer)**: loads an atlas PNG as a
+  `DynamicTexture`, forces `setFilter(true, false)` (GL_LINEAR, no mipmap —
+  Minecraft's own UI textures typically sample nearest-neighbor, which is
+  the live hypothesis for why earlier attempts still looked blocky even
+  after their alpha-residue bug was fixed), and draws glyph quads via
+  `GuiGraphics.blit` with no custom shader — deliberately testing that
+  hypothesis against `DESIGN_SYSTEM.md`'s own claim that the real ceiling is
+  structural (GuiGraphics's GUI-Scale-tied coordinate space) before
+  committing to a full SDF+shader renderer (M4). Wired into a temporary
+  `OriginFontDebugOverlay` (new HUD corner, not real UI yet) so a bad result
+  costs nothing to revert.
+  - **Could not compile this against real Minecraft classes** (network
+    blocked, confirmed above) — the exact `GuiGraphics.blit`/
+    `ResourceLocation.fromNamespaceAndPath`/`DynamicTexture`/
+    `AbstractTexture.setFilter` signatures used are from memory of stable,
+    long-standing 1.21.1-era Mojmap API, not verified against a real jar.
+    Mitigated as much as possible short of that: wrote minimal stub classes
+    matching the assumed signatures and compiled the real font classes
+    against them plus a real Gson jar (Maven Central, unlike Fabric's own
+    maven, is reachable) — confirms this code's own logic/syntax is
+    internally consistent, and separately ran the actual JSON-parsing path
+    against a real generated `inter-700.json` (95 glyphs round-tripped
+    correctly, including the space glyph's zero-size/nonzero-advance case).
+    Does **not** confirm the MC API signatures themselves are right — that's
+    exactly what Will's `./gradlew build` checkpoint is for.
+- **Not done yet, waiting on Will**: pull the branch, `./gradlew build`
+  (report any compile errors verbatim so a signature mismatch can be fixed
+  precisely), run the client, F2-screenshot the debug corner (top-left,
+  below existing HUD text), share the image back. Result decides M4
+  (skip if smooth, build the SDF+shader escalation if not) per the plan.
+
+## 2026-07-08 — First real M3 checkpoint: `GuiGraphics.blit` compiled clean, crash was unrelated, first screenshot showed still-blocky text
+
+Walked Will through the whole checkpoint end-to-end (new machine, project
+folder was actually at `Documents\Origin Client`, not a guessable path —
+had to search for it; separately his monitor briefly went gray from an
+unrelated display-driver hiccup, resolved on its own / possibly via
+Ctrl+Win+Shift+B, unrelated to this work).
+
+- **`./gradlew build` succeeded on the first real try** — every
+  `GuiGraphics.blit`/`ResourceLocation.fromNamespaceAndPath`/
+  `DynamicTexture`/`AbstractTexture.setFilter` signature guessed from memory
+  in M3 (see prior entry) was actually correct against the real 1.21.1
+  Mojmap classes. Worth remembering: the stub-compile + fake-Gson-jar
+  verification done from the sandbox (no MC classpath at all) was a
+  reasonable proxy after all, at least for this set of calls.
+- **`./gradlew runClient` crashed before reaching any menu** — but the real
+  cause was completely unrelated to this session's font work:
+  `NoClassDefFoundError: com/velocitypowered/natives/util/Natives` from
+  Krypton's `KryptonSharedInitializer`. This is the *exact* bug a prior
+  session already root-caused (2026-07-07 entry): Krypton bundles its own
+  nested `velocity-native` jar-in-jar, and Loom's `include()` doesn't
+  propagate that nested jar through to the `runClient` dev classpath. Fixed
+  the same way as before — commented out Krypton's `include(...)` in
+  `build.gradle` with an explanatory comment and a note to restore it before
+  any real release build. This is a recurring dev-environment-only trap
+  worth solving properly (or at least remembering faster) next time
+  `runClient` is needed.
+- **First real screenshot of the M3 debug corner**: text rendered, correctly
+  positioned, correctly proportioned/kerned — but Will's direct read was
+  "too bold and too blocky." Two separate causes:
+  - *Too bold*: the debug overlay itself drew an oversized (22px), heavy
+    (weight 700) test heading that was never meant to represent real HUD
+    styling — a debug-test artifact, not a design decision. Fixed by
+    rewriting the overlay to render at the sizes the design actually calls
+    for (11px/weight 400 for HUD-style rows, a modest 16px/weight 600
+    heading instead of 22px/700).
+  - *Too blocky*: the real finding. Working theory: the atlas was baked at
+    64px-em and then shrunk as much as ~4.6x at draw time (down to 14px) via
+    GL linear filtering *without mipmaps* — large minification ratios
+    without a mip chain are a well-known way to get aliased/blocky results
+    regardless of the base filter mode, independent of whether Minecraft's
+    GUI-coordinate-space ceiling theory (`DESIGN_SYSTEM.md` §6a) is also in
+    play. Lowered `generate_atlas.py`'s baked `EM_SIZE` from 64 to 32 (16x
+    oversample instead of 8x, same underlying rasterization quality) so the
+    common HUD-row case (11px) is now roughly a 2.9x reduction instead of
+    4.6x. Re-verified the new atlas the same way as M2 (rendered the same
+    sample strings at realistic sizes and looked at the PNGs directly) —
+    still smooth. Did **not** touch `AbstractTexture.setFilter`'s mipmap
+    flag (still `false`) since enabling mipmapped sampling without confirming
+    Minecraft actually generates/uploads a full mip chain for a plain
+    `DynamicTexture` risks a worse, more confusing failure (an incomplete
+    texture can render solid black) — safer to isolate one variable at a
+    time. If the resized atlas is *still* blocky live, that's much stronger
+    evidence for the structural GuiGraphics-coordinate-space theory and the
+    real next step is M4 (SDF atlas + threshold shader), not further
+    fiddling with atlas resolution.
+- **Not done yet, waiting on Will (round 2)**: pull, rebuild
+  (`.\gradlew.bat build` — should be fast, only resource files + one small
+  Java edit changed), `.\gradlew.bat runClient` again, same screenshot ask.
+
+## 2026-07-08 — Third custom-font attempt abandoned; standardizing on vanilla Minecraft text
+
+Round 2 screenshot came back *worse*, not better: the 11px/14px HUD-style lines
+(`COORDS`/`PING`, same weight+size as before) rendered clean, but the alphabet row,
+numbers/symbols row, and a 16px heading all showed visibly garbled/overlapping glyph
+shapes — worse than round 1's "bold and blocky." Working theory, not confirmed
+(no way to verify further without another live round-trip): something about dense,
+space-free strings at the new smaller baked `EM_SIZE` (32, down from 64) exposed a
+positioning/advance issue that wasn't visible in strings with natural gaps (spaces,
+punctuation) between characters — plausible candidates include `Math.round`ing the
+per-glyph pen position in atlas-em-units before the `PoseStack` scale is applied, or
+`GuiGraphics.blit`'s actual UV-sampling behavior not matching what §0/M3's memory
+entry assumed. **Not going to chase this further blind.**
+
+Will's call, and the right one: three separate techniques (real TTF via MC's font
+provider, a bitmap-provider atlas, a hand-rolled blit-based renderer bypassing MC's
+font system entirely) have now failed live across three sessions, every time only
+after passing whatever checks were possible without a running client. That's not a
+"one more fix" pattern. **Decision: use Minecraft's own vanilla font for all in-game
+text, indefinitely** — it already looks clean at HUD sizes (visible in every one of
+these screenshots, right next to the failed custom text). Effort goes into the parts
+of the design system that don't carry this risk instead: the translucent panel
+styling, the mouse-reactive cursor-glow background, button hover/press motion,
+colors/spacing — none of which depend on custom glyph rendering.
+
+- Deleted (not disabled) `OriginFont`/`OriginFontAtlas`/`OriginFontDebugOverlay` and
+  their `HudRenderCallback` registration in `OriginClientMod` — same convention as
+  the 2026-07-07 full-rewrite abandonment (delete dead code, don't leave it inert).
+  `OriginHud.java` is untouched, still plain vanilla-font text, unaffected by any of
+  this session's font work.
+- Kept `tools/font-atlas/` (fetch script, atlas generator, baked Inter TTFs/atlases)
+  in the repo, unused — the asset pipeline itself works and was self-verified clean
+  every time (viewed directly as PNGs); the failure is specifically in the live
+  Minecraft rendering/verification loop, not the font asset. No point deleting a
+  working, reusable tool over a problem it didn't cause.
+- Updated `DESIGN_SYSTEM.md` with an explicit "settled" banner and marked the
+  Typography section + §6a/6b superseded, so a future session doesn't re-attempt
+  this a fourth time without first reading why it was shelved. The real, durable
+  blocker across all three attempts: no way to observe the live client *during*
+  development, only after a full rebuild+relaunch+navigate+screenshot round-trip
+  each time. Solving that (or accepting small-increment, Will-reviewed development
+  as the permanent mode) is a precondition for ever revisiting custom text
+  rendering, not just a one-off inconvenience this session hit.
+- Also fixed in passing: `gradlew` was missing its execute bit (harmless on
+  Windows via `gradlew.bat`, would have broken `./gradlew` on Linux/macOS).
+- Next: continue the plan from M5 (HUD panel) onward, but M5 now means rebuilding
+  `OriginHud` into a styled panel using vanilla `Font`/`GuiGraphics.drawString`
+  instead of a custom renderer — same panel spec (DESIGN_SYSTEM.md §2), different
+  text-drawing call. M6a (cursor glow) and M6b (buttons + mod-menu screen) are
+  unaffected by this pivot.
+
+## 2026-07-08 — Custom loading screen: smooth orbital rings (texture-based), real progress via verified javap
+
+Will's next ask: custom loading screen — website charcoal background, "Origin"
+centered (any window size/fullscreen), a clean progress bar, and an ambient
+background. Gave him a live HTML mockup (Artifact) of 4 background options
+(bare+grain, orbital rings, ambient glow, dot matrix); he picked **orbital
+rings + light grain**, "just as smooth and clean as the website."
+
+- **The smoothness problem, solved the right way this time.** Thin curved ring
+  strokes drawn *procedurally* in MC's GUI space come out as jagged scattered
+  dots (the icon lesson from 2026-07-07). Instead: pre-render each ring as a
+  supersampled anti-aliased PNG (`tools/loading-screen/generate_textures.py`),
+  then only blit+rotate the texture in-game. Magnifying a smooth texture stays
+  smooth (unlike the font's *minification* problem), so this sidesteps the
+  whole ceiling that killed the font. Ring geometry/opacity/speed mirror the
+  launcher's `OriginBackground.xaml` (4 tilted ellipses ~0.37 h:w, back rings
+  fainter + gaussian-blurred for depth) so launcher/website/in-game are one
+  system. **Self-verified in-sandbox before any Minecraft**: composited all 4
+  rings over #050505 at real opacities/rotations and viewed at 3x zoom — clean
+  AA curves, no jaggies, grain subtle. This is the key discipline the font
+  work lacked: prove the pixels in a viewer first.
+- `OriginLoadingRenderer` (new, `client/loading/`): draws bg + rings (each
+  rotating at its own period/direction via `Axis.ZP.rotationDegrees` +
+  pose scale) + tiled grain + "ORIGIN" in **vanilla MC font** (per the settled
+  font decision) + a thin glowing progress bar, all centered off the live
+  GUI-scaled window size each frame. Textures load via **classloader**
+  (`getResourceAsStream`), not the resource manager, so it's safe during the
+  earliest overlay while resources are still loading; degrades to plain
+  charcoal if textures fail rather than crashing. Reuses the exact
+  texture/blit/DynamicTexture APIs that already built clean in M3 (confirmed),
+  plus stub-compiled clean against the new pose/RenderSystem/Font shapes.
+- **LoadingOverlay hooked against real bytecode, not memory** — honoring the
+  project's #1 mixin rule. Had Will run `javap -p` on
+  `net.minecraft.client.gui.screens.LoadingOverlay` from his now-populated Loom
+  cache (jar: `minecraftMaven/.../minecraft-clientonly-1.21.1-loom.mappings...jar`;
+  note javap wasn't on PATH, used the full jdk-21.0.10 path). Confirmed:
+  `render(GuiGraphics, int, int, float)` and `private float currentProgress`
+  (already-smoothed 0..1 load progress). `LoadingOverlayMixin` injects at
+  **`render` TAIL, non-cancelling**, reading `currentProgress` (via `@Shadow`)
+  for a real progress bar. TAIL+no-cancel is the specific, deliberate choice
+  that makes it hang-proof: vanilla's own fade timing + `setOverlay(null)`
+  transition still run fully; we only paint an opaque scene on top afterward.
+  (HEAD+cancel is exactly what hung the loading screen in a prior attempt.)
+- **Known v1 limitation, flagged not hidden**: opaque TAIL over-draw means
+  vanilla's fade-in/out isn't respected — the overlay appears instantly and
+  cuts to the (still-vanilla) title screen rather than cross-fading. Minor,
+  and fixable later by replicating the fade alpha (would need `javap -c` of
+  render for the exact formula); deferred until the look itself is confirmed.
+- **Waiting on Will**: pull, `.\gradlew.bat build` (report errors verbatim),
+  `.\gradlew.bat runClient`. The loading screen shows at startup — watch the
+  first couple seconds for the rings + filling bar; also F3+T in-world forces a
+  resource reload to re-trigger it. Screenshot back.
+
+## 2026-07-08 — Loading screen worked; wordmark→Inter texture; rings moved to main menu
+
+Loading screen came out great live (rings smooth exactly like the website).
+Will's feedback drove three follow-ups, all shipped:
+- **Squares for the first ~2s** were Minecraft's own font not being loaded yet
+  during the first resource reload (drawString renders tofu). Fixed by baking
+  the wordmark as a **texture** (`generate_wordmark.py`, website's Inter font —
+  Will chose Inter over MC-pixel when asked). Shows instantly; it's one fixed
+  word as an image, not a glyph atlas for dynamic text, so none of the earlier
+  custom-font risk. Verified smooth in-sandbox (composited over the rings and
+  viewed) before shipping.
+- **Perfect centering + bar directly under**: renderer now centers the
+  wordmark's *ink box* (letters, excluding glow padding) on screen center using
+  the baked pixel dims, and places the bar just below the ink bottom.
+- **Rings off the loading screen, onto the main menu** (Will's later request).
+  Refactored `OriginLoadingRenderer` -> `OriginScreenRenderer`
+  (`client/render/`), shared by both screens: `renderLoading()` = charcoal +
+  grain + centered wordmark + bar (no rings); `renderTitleBackground()` +
+  `renderTitleWordmark()` = charcoal + rotating rings + grain + wordmark where
+  the vanilla logo sits.
+
+**TitleScreenMixin** (main menu re-skin), all targets confirmed via `javap -p`
+on the mapped 1.21.1 `TitleScreen` + `LogoRenderer` (not guessed):
+- Draw Origin background at `render()` HEAD (guaranteed-called, non-cancelling,
+  so it paints under logo/buttons).
+- Cancel **both** `renderPanorama(GuiGraphics,float)` and
+  `renderBackground(GuiGraphics,int,int,float)` at HEAD — belt-and-suspenders
+  so whichever backdrop path render() uses can't paint over ours. Both are
+  background-only on TitleScreen; widgets draw in the separate widget pass,
+  untouched. (Didn't have `javap -c` of render() to know which path it uses, so
+  cancelling both covers it in one build instead of risking a round-trip.)
+- `@Redirect` the `LogoRenderer.renderLogo(GuiGraphics,int,float)` INVOKE ->
+  draw the Origin wordmark instead of the Minecraft logo. Targeted the 3-arg
+  overload (render's likely call); the 4-arg overload also exists, so if the
+  build fails on this redirect, switch the descriptor to `(...IFI)V`.
+- Vanilla buttons + splash/version text left as-is ("keep default for now").
+- **Known v1 limitations, flagged**: wordmark ignores the title fade-in
+  (appears instantly); if the panorama still shows, render() uses a bg path I
+  didn't cancel (unlikely given both are cancelled). Loading screen's hard
+  cut (no fade) also still stands.
+- **Waiting on Will**: one build for both changes — pull, `.\gradlew.bat build`
+  (report errors verbatim, esp. the renderLogo redirect), `.\gradlew.bat
+  runClient`. Loading screen = no rings now; main menu = rings + Origin logo.
+
+## 2026-07-08 — Feedback round 2 shipped; title text-removal via confirmed descriptors
+
+Title mixin built + ran clean (BUILD SUCCESSFUL) — the renderLogo→wordmark
+redirect (3-arg overload) was right. Will's next feedback batch, mostly shipped:
+- Wordmark re-baked all-caps "ORIGIN" + 0.22em letter-spacing (matching the very
+  first HTML mockup), used on both screens. `bake_text.py` shared helper does
+  char-by-char rendering with letter-spacing.
+- Loading bar gained the live "LOADING xx%" caption (mockup option 01). Baked as
+  a small glyph strip (`caption.png/json`, fixed charset, Inter 500) composed
+  in-game — shows instantly, no tofu, not the failed dynamic atlas.
+- Rings sped up to 16/24/33/44s periods (were 40-120s, too slow to read as
+  motion — that's why Will said "not spinning").
+- Main-menu header enlarged + centered between screen top and the Singleplayer
+  button (`h/8+24`), width-clamped.
+- **Title text removal** via `javap -c` grep (confirmed real descriptors, not
+  guessed): splash = `SplashRenderer.render(GuiGraphics,I,Font,I)V` →
+  @Redirect no-op; version line = the *only* `GuiGraphics.drawString(Font,
+  String,III)I` in render() → @Redirect return 0. No separate copyright
+  drawString exists in render() (only one drawString total), so if a
+  bottom-right copyright line remains it's a widget added in init(), to remove
+  separately. Small risk the version @Redirect conflicts with a Fabric branding
+  mixin on the same invoke — if the build errors there, switch to MixinExtras
+  @WrapWithCondition.
+- **Waiting on Will**: pull, build, runClient, screenshot the main menu + the
+  loading screen (F3+T). First visual check of: caps ORIGIN, the % caption,
+  spinning rings, big centered header, and no splash/version text.
+
+## 2026-07-08 — Custom menu buttons (BTN-0..2): reskin-in-place, not widget swap
+
+After the loading/menu polish landed, tackled the last vanilla piece — the menu
+buttons — as a planned sub-project (plan approved). Design (with Will): flat
+translucent-charcoal fill + hairline border, white baked-Inter labels, hover =
+border brighten + soft glow bloom + ~2px lift, all eased on wall-clock time.
+- **BTN-0 assets** (`tools/buttons/generate_buttons.py`, reuses `bake_text`):
+  rounded-rect fill + hairline border alpha masks (9-sliced + tinted in-game),
+  a soft glow, and Inter labels baked as uniform baseline-aligned cells (an
+  earlier ink-box-height sizing made "Realms" render bigger than
+  "Singleplayer" because descenders inflate the ink box — fixed by a shared
+  cellHeight). Self-verified by compositing a full menu mock (9-sliced buttons,
+  hover+normal, over the rings) and viewing — smooth corners, clean hairline,
+  readable glow. Baked "Quit Game"/"Minecraft Realms" variants too since the
+  vanilla button strings may not be "Quit"/"Realms".
+- **Approach pivot** (important): originally planned to swap each vanilla
+  `Button` for a custom `OriginButton` widget, but adding widgets needs the
+  protected/generic `Screen.addRenderableWidget`, and inherited-member access
+  already bit us once (the `removeWidget` @Shadow crash). Switched to
+  **restyle-in-place**: `AbstractButtonMixin` @Injects `renderWidget` HEAD,
+  and *only when `Minecraft.getInstance().screen instanceof TitleScreen`*
+  cancels vanilla drawing and calls `OriginButtonRenderer.render(...)`. No
+  widgets added/removed; buttons keep positions/actions/clicks. Invisible
+  buttons (the hidden language/accessibility/copyright ones) never reach
+  renderWidget, so they're excluded for free. `OriginButtonRenderer` keeps
+  per-button hover state in a `WeakHashMap` keyed by the button.
+- **Deferred to polish (BTN-3)**: press-squash (needs the click hook —
+  `playDownSound`/`onClick` — whose declaring class I haven't javap-confirmed;
+  hover-only ships first). Also any layout/spacing/size tuning from live view.
+- All targets confirmed via javap (scaling `blit` overload, Button ctor/OnPress,
+  AbstractWidget accessors); `OriginButtonRenderer` stub-compiled clean. The
+  only unverified bit is that `renderWidget` is declared on `AbstractButton`
+  (confident — it's the button-drawing method) — a wrong target fails the build
+  clearly, not silently.
+- **Waiting on Will**: pull, `.\gradlew.bat build`, `runClient`, screenshot the
+  menu + hover a button. First live look at the styled buttons.
+
+## 2026-07-08 — Button polish round: cursor-follow glow, label quality parity, Options"..." fix
+
+Will's live feedback on the first styled-buttons build, all addressed:
+- **"Glow looks square"** — the baked hover-glow's blur didn't decay to zero
+  inside the texture bounds, so the rectangle edge showed at draw scale. Moot
+  now: per Will, the glow comes **off the buttons** entirely and becomes the
+  website's **mouse-follow spotlight** on the main menu instead. Baked a true
+  radial gradient (`radial_glow.png`, alpha 1→0 at 70% radius, zero well inside
+  the bounds — can never show an edge; verified over charcoal in-sandbox).
+  `OriginScreenRenderer.renderTitleCursorGlow`: core snaps to cursor, halo
+  trails via the site's 0.12/frame lerp (dt-corrected), both bloom + brighten
+  (~250ms ease) while hovering a clickable — sizes/opacities derived from the
+  CSS (130→200px core, 560→720px halo, on a ~1600px viewport → fractions of
+  GUI width). Drawn in the render-HEAD inject: over rings, under widgets, same
+  z-order as the site (glow z1, content above). Hover detection = any visible
+  `AbstractWidget.isHovered()` among `children()` (public fields/methods,
+  javap-confirmed earlier).
+- **"Options still normal Minecraft + remove the 3 dots"** — one bug: the
+  vanilla label is `Options...`, which missed the baked `Options` texture and
+  fell back to vanilla pixel font (dots included). Fix: `cleanLabel()` strips
+  `…`/trailing dots before both the lookup and the fallback draw.
+- **"Labels not ORIGIN-logo quality"** — real cause: the wordmark texture only
+  minifies ~1.4x at draw, but labels were baked at 125px cell and drawn at
+  ~25 real px (~5x minification, no mipmaps → aliasing; the exact M3 font
+  lesson resurfacing). Fix: generator now LANCZOS-downscales label cells to
+  32px at bake time so draw-time scaling is ~1.3x. Verified at true display
+  size in-sandbox — crisp.
+- Hover made snappier (90ms ease-out; lift stays 2px, matching the site's
+  translateY(-2px); the site's buttons don't scale on hover — the *glow* is
+  what grows, which is what "it gets slightly bigger" maps to).
+- **Waiting on Will**: pull/build/runClient — check the mouse-follow light
+  (trailing halo, bloom over buttons), Options label now Inter without dots,
+  and label crispness vs the wordmark.
+
+## 2026-07-08 — Glow shrunk 60%; labels re-baked per GUI scale for pixel-perfect sharpness
+
+Will confirmed responsiveness is right; two fixes from his next look:
+- **Mouse glow too big** — shrunk both layers to 40% of the website-proportional
+  sizes (halo 0.35w→0.14w, core 0.081w→0.032w; blooms scaled likewise). The
+  1:1 CSS translation was correct math but wrong feel in-game.
+- **Labels still not wordmark-sharp** — root cause this round: a single 32px
+  bake is only pixel-perfect at GUI scale 2. At scale 3/4 it *up*-scales
+  (soft), at scale 1 it minifies (aliased). Fix: bake each label at a ladder
+  of cell heights (one per GUI scale 1..6 = round(14.4·gs) real px, subtle
+  wordmark-style glow baked in), and at draw time pick the rung matching
+  `Window.getGuiScale()` and draw it at exactly 1:1 texels-to-screen-pixels
+  (pose-scale 1/gs to escape integer GUI units). Verified rungs at true 1:1
+  in-sandbox — crisp at both 29px (scale 2) and 43px (scale 3).
+- **One unverified API this round**: `Window.getGuiScale()` (double) — very
+  stable API but not javap-confirmed; a mismatch fails the build loudly, and
+  the fallback fix is deriving scale from framebuffer/gui width.
+- Buttons stay clickable exactly as before — nothing about the in-place
+  restyle changed, only how the label texture is chosen/drawn.
+
+## 2026-07-08 — Halo speed, 1:1 grain, loading-bar track visibility
+
+Buttons confirmed good by Will. Three follow-ups shipped:
+- **Halo "much faster, slight lag"**: lerp factor 0.12/frame (the website's
+  value) → 0.38/frame, dt-corrected. Site-exact felt floaty in-game.
+- **Grain "too low res"**: the grain is per-pixel noise but was drawn in GUI
+  units, so each texel rendered as a guiScale-sized block (2x2/3x3...). Now
+  tiled in REAL pixels via pose-scale 1/guiScale — every grain is exactly one
+  screen pixel, like the website. (~100-500 small blits per frame, fine —
+  nothing like the per-pixel fill() trap.)
+- **Loading bar "still not the correct size"**: layout numbers already matched
+  the mockup (46%/1.3%) — the real issue is the unfilled TRACK was 8% white on
+  charcoal, i.e. invisible in-game, so only the fill showed and the bar read
+  as a stubby wrong-size bar. Track brightened to ~16% white (0x29FFFFFF) and
+  width set to the mockup-exact 46%. If Will still flags size after this,
+  get an actual loading-screen screenshot before touching numbers again.
+
+## 2026-07-08 — OPT: full menu-tree restyle begins (staged); OPT-1 = buttons everywhere
+
+Will's next directive: apply the design system to the ENTIRE Options tree and
+every Java Edition menu — sliders, toggles, checkboxes, tabs, disabled states,
+backgrounds — preserving all functionality, Sodium compatibility included.
+This is exactly the scope that killed the 2026-07-07 full rewrite, but the
+difference now is the proven **restyle-in-place at the widget base class**
+pattern (no screen reimplementation, no widget-list surgery). Staged:
+- OPT-1 buttons everywhere (shipped, this entry) → OPT-2 menu backgrounds →
+  OPT-3 sliders → OPT-4 checkboxes/toggles/tabs → OPT-5 Sodium (its own
+  widget classes; separate decision).
+- **OPT-1**: AbstractButtonMixin's TitleScreen gate removed — every
+  AbstractButton on every screen now draws Origin style. Coverage is
+  naturally scoped by the hierarchy: subclasses with their OWN renderWidget
+  (ImageButton, SpriteIconButton, Checkbox, AbstractSliderButton) bypass the
+  mixin and stay vanilla until their own pass — so this can't mangle icon
+  buttons or sliders. CycleButton ("Graphics: Fancy" etc.) does NOT override
+  renderWidget → all Options toggles get the style + vanilla-font dynamic
+  labels (consistent with the settled font decision). Disabled buttons
+  (active=false, e.g. Telemetry) render dimmed Origin style (FILL/BORDER
+  _DISABLED + MUTED label) and skip hover; `active` is a public
+  AbstractWidget field (javap-confirmed earlier).
+- Next round-trip needs javap on: Screen (background methods for OPT-2),
+  AbstractSliderButton (value field + renderWidget for OPT-3), Checkbox,
+  CycleButton (confirm no renderWidget override), tab classes (OPT-4).
+
+## 2026-07-08 — OPT-2/3/4a shipped in one pass (backgrounds, sliders, checkboxes)
+
+Will's javap batch confirmed every target, so all three stages went out in one
+build (each independently revertable via its mixin registration):
+- **OPT-2 backgrounds** (`ScreenBackgroundMixin`): `Screen.renderBackground`
+  HEAD-cancel → Origin charcoal+rings+grain, gated `Minecraft.level == null`
+  so in-game screens keep vanilla's blurred-world backdrop. Also cancels the
+  static `Screen.renderMenuBackgroundTexture` (same gate) — that's the helper
+  option/selection LISTS use to tile their darker strip, so lists now sit
+  transparently on the Origin background. TitleScreen overrides
+  renderBackground, so its own path is unaffected (no double draw).
+- **OPT-3 sliders** (`AbstractSliderButtonMixin`): renderWidget HEAD-cancel →
+  `OriginButtonRenderer.renderSlider`: button shell + faint fill-to-value
+  (loading-bar read) + 3px accent handle w/ hover glow + centered label.
+  `value` read via @Shadow on a field DECLARED on the target class (the safe
+  shadow case — javap-confirmed `protected double value`; precedent:
+  LoadingOverlay.currentProgress shadow works). Drag logic untouched; value is
+  read live per frame so it's exactly as responsive as vanilla.
+- **OPT-4a checkboxes** (`CheckboxMixin`): renderWidget HEAD-cancel → rounded
+  shell + accent inner square when `selected()` (public, confirmed) + label
+  right, disabled dim like buttons.
+- CycleButton confirmed to have NO renderWidget override → OPT-1 already
+  covers every Options toggle. TabButton wasn't at
+  `components.tabs.TabButton` (class not found) — locate later (likely
+  `components.TabButton`); vanilla Options has no tabs, create-world does.
+- Refactor: hover easing unified into `hoverEase(Object,boolean)` with a
+  WeakHashMap<Object,State> shared by buttons/sliders/checkboxes.
+- **Waiting on Will**: pull/build/runClient → Options should now be fully
+  Origin (background + rings behind the list, styled toggles/sliders/
+  checkboxes, dimmed Telemetry). Also check world-select/create-world
+  (background + transparent lists) and that in-game pause still shows the
+  blurred world.
+
+## 2026-07-08 — The white ring on the FOV slider: focus highlight, killed via sprite override
+
+Will's screenshots showed a thick white rounded ring around the FOV slider on
+the Options screen that survived two rounds of our border changes — including
+pinning the slider shell to the resting border color. Diagnosis from evidence
+(no jar access in the remote sandbox — network policy blocks piston/gradle, so
+no javap this round):
+- Our renderSlider IS running for that widget (its groove/handle changed in
+  lockstep with our commits), so the AbstractSliderButton renderWidget cancel
+  works. Yet the ring persisted unchanged → drawn by some OTHER code path.
+- The ring is visually vanilla's `widget/slider_highlighted` focused-slider
+  sprite (rounded corners, thick white border), and the FOV slider is the
+  screen's initially-focused widget — explaining why only it ringed and why
+  our color constants never mattered. Likely mechanism: the concrete class
+  (`OptionInstance$OptionInstanceSliderButton`/`AbstractOptionSliderButton`)
+  overrides renderWidget, calls super (where our HEAD inject draws + cancels
+  only the super body), then blits its own sprite on top.
+- **Fix that works regardless of the exact call site**: override the vanilla
+  sprites with fully transparent PNGs from our mod resources
+  (`assets/minecraft/textures/gui/sprites/widget/`: slider,
+  slider_highlighted, slider_handle, slider_handle_highlighted,
+  button_highlighted) — mod assets layer above the vanilla pack, so ANY
+  uncancelled path that draws them renders nothing. If they're already dead
+  sprites, the overrides are no-ops. Deliberately did NOT blank
+  `widget/button`/`button_disabled` (an unknown vanilla-drawn button should
+  stay visible, not become an invisible click target).
+  Generator: `tools/buttons/generate_vanilla_overrides.py`, alpha verified 0.
+- If a ring still shows after this, next step is javap on
+  `net.minecraft.client.OptionInstance$OptionInstanceSliderButton` and
+  `...gui.components.AbstractOptionSliderButton` (Will's Loom cache) to find
+  the real draw site.
+- Also learned: remote gradle is blocked at the network layer (wrapper 403 on
+  services.gradle.org; maven.fabricmc.net/piston unreachable), system gradle
+  8.14.3 exists at /opt/gradle but can't fetch Loom either — so the
+  stub-compile + Will-builds loop remains the only verification path.
+
+## 2026-07-08 — White ring SOLVED: fill() teardown disables blending; our border drew opaque
+
+The sprite-override guess was wrong — Will's Music & Sounds screenshot (EVERY
+slider ringed, no button ringed, "nothing to do with selecting") + his javap
+dump pinned the real mechanism:
+- javap facts: `OptionInstance$OptionInstanceSliderButton.renderWidget` just
+  calls `super.renderWidget` (invokespecial at offset 6) →
+  `AbstractOptionSliderButton` has NO renderWidget → resolves to
+  `AbstractSliderButton.renderWidget` (the two vanilla `blitSprite` calls at
+  46/83) — which our mixin cancels. Vanilla slider sprites never draw at all;
+  the transparent overrides were dead code (now reverted, so any future
+  uncovered slider subclass renders vanilla rather than invisible).
+- **Root cause**: `guiGraphics.fill()` flushes through a RenderType whose
+  teardown DISABLES GL blending. In renderSlider we fill() the handle between
+  the shell blit and the border blit → the border texture drew with blending
+  off → its 11% alpha ignored → fully-opaque thick white rounded ring. Only
+  sliders fill() between texture passes, hence ring-on-every-slider,
+  never-on-buttons, immune to every border-color change, and immune to the
+  sprite blanking. (Checkboxes were safe by accident: their fills come after
+  both blits.)
+- **Fix**: `RenderSystem.enableBlend()+defaultBlendFunc()` immediately before
+  the border nine-slice in renderSlider, plus defensively at the top of
+  render/renderSlider/renderCheckbox and before the baked-label blit in
+  drawLabel (any fill()-then-blit sequence is a landmine).
+- **Rule learned (add to the M3/shader-tint family)**: around GuiGraphics,
+  every textured blit must assume BOTH shader color AND blend state are dirty
+  — reset both before drawing. fill() is the usual saboteur.
+- Only unverified API this round: `RenderSystem.defaultBlendFunc()` (no javap;
+  ultra-stable Blaze3D method vanilla widget code itself calls — a mismatch
+  fails the build loudly).
+
+## 2026-07-08 — Cursor spotlight on every menu
+
+Will: "the same lighting effect around the mouse in every menu." The
+mouse-follow glow (core + trailing halo) was title-screen-only
+(TitleScreenMixin render HEAD). Now drawn from ScreenBackgroundMixin so it
+covers the whole menu tree, exactly once per frame, always under widgets:
+- Out-of-world: inside the existing renderBackground HEAD-cancel path, right
+  after the Origin backdrop.
+- In-world (pause, in-game options): a new renderBackground TAIL inject draws
+  it over vanilla's blurred-world backdrop. TAIL never runs when HEAD
+  cancels, so the paths are exclusive by construction.
+- TitleScreen overrides renderBackground (and draws its own glow in its own
+  mixin), so no double glow there. Hover-bloom uses the same visible+hovered
+  children() test as the title screen, now shared as a mixin-local helper.
+- renderTitleCursorGlow was verified to have no title-only assumptions
+  (gui-scaled width + wall-clock statics; halo state carries smoothly across
+  screen changes, which reads as intended polish). Known acceptable gap: any
+  screen that fully overrides renderBackground without calling super gets no
+  glow -- none observed yet; fix per-screen if one shows up live.
+
+## 2026-07-08 — Inter everywhere via vanilla's TTF font provider ("add the custom text")
+
+The move that was always available but hidden behind the M3 trauma: instead of
+custom glyph rendering (banned, 3 live failures), override
+`assets/minecraft/font/default.json` from mod resources with a `ttf` provider
+pointing at bundled Inter Medium (`assets/originclient/font/inter.ttf`,
+OFL license alongside). Minecraft's OWN font engine rasterizes it — zero
+custom draw code, so every dynamic string (slider labels, tooltips, chat,
+HUD) gets the website font for free, at every GUI scale.
+- Provider order: `include/space` ref first (vanilla space handling), Inter
+  ttf second (size 10.0 → caps ≈7.3px vs vanilla's 7; oversample 4.0 for
+  crispness at high GUI scale), then vanilla `include/default` +
+  `include/unifont` refs as fallbacks — Inter-500 is a 230-glyph Latin
+  subset (verified with fontTools; no ✔/▶), so non-Latin/symbols fall
+  through to vanilla glyphs instead of missing boxes.
+- Same open question as the sprite-override attempt: whether Fabric mod
+  resources actually override vanilla-namespace assets was never proven
+  (the sprite test was moot — those sprites were never drawn). If Will's
+  build shows unchanged pixel font, fallback plan: register the assets as a
+  Fabric built-in resource pack (ResourceManagerHelper,
+  DEFAULT_ENABLED) instead of relying on implicit mod-resource override.
+- Baked-label buttons keep their textures (wordmark-quality glow); now
+  visually consistent since both are Inter.
+- DESIGN_SYSTEM.md banner amended: the ban stays for hand-rolled glyph
+  rendering; the TTF provider path is explicitly allowed.
+
+## 2026-07-08 — TTF override CONFIRMED live; baked button labels retired
+
+Will's screenshots confirm the font/default.json override WORKS (Fabric mod
+resources DO override vanilla-namespace assets — settles the open question
+from the sprite round): the Options tree renders real Inter. But that exposed
+a mismatch he called out immediately: main-menu buttons still drew the old
+per-GUI-scale BAKED label textures (glow baked in, own sizing) next to live
+TTF text — two renderers, two looks. Fix: deleted the baked-label pipeline
+(drawLabel ladder, LABELS/LabelInfo, labels.json load, label_*.png assets) —
+every label now goes through the one game font (= Inter), shadow-off,
+ellipsis-stripped. The ladder was a workaround for the pixel font; with the
+TTF provider it was pure duplication. Wordmark + loading caption textures
+stay (brand marks, not UI text).
+
+## 2026-07-08 — Font settled FOR REAL: default Minecraft text everywhere (Will's call)
+
+Will's decision after seeing Inter live: "all text back to default minecraft."
+Removed the font/default.json override + bundled inter.ttf. Because the
+baked-label pipeline was already retired, every label (buttons, sliders,
+titles, HUD) now goes through the untouched default font — consistency is
+structural, not curated. DESIGN_SYSTEM banner updated: the TTF-provider
+mechanism is PROVEN and documented for any future revisit; the hand-rolled
+glyph-rendering ban stands. The menu look (Origin background, cursor glow,
+styled widgets) is unchanged.
+Unparsed remainder of his message: "then after make the same menu with
+backround mouse affect buttons and default minecraft text for single player
+multiplayer realms and change text for options and main menu" — the
+background/glow/buttons already apply to every menu, so asked him what
+"change text for options and main menu" means before acting on it.
+
+## 2026-07-08 — Autonomous batch: loading screens, FPS pass, simplify + review
+
+Will handed off a multi-part task to run without him ("continue without me,
+don't ask, use best judgement"), then left. Done:
+- **Loading/progress screens** get the menu background + a loading bar:
+  LevelLoadingScreen / ReceivingLevelScreen / ProgressScreen take over render()
+  (HEAD-cancel) → Origin scene (bg + default-font title + smooth indeterminate
+  sweeping bar), replacing the chunk map / dirt. ConnectScreen keeps its Cancel
+  button + status text (bg already from ScreenBackgroundMixin) and gets the bar
+  added at render TAIL. New mixins isolated in originclient.loading.mixins.json
+  with required:false + defaultRequire:0 so a moved target degrades to
+  vanilla-for-that-screen instead of crashing the mod. Bar is indeterminate on
+  purpose (real progress would need an unverifiable @Shadow; no jar/javap in the
+  remote sandbox this round — gradle/piston/maven all network-blocked).
+- **FPS**: grain tile 128→256px (~135→~40 blits/frame at 1080p, 1:1 look kept;
+  512 rejected for jar size); volatile fast-path on both ensureLoaded()s so the
+  per-frame / per-widget already-loaded case skips the monitor.
+- **Simplify**: trimmed generate_buttons.py to shell-only (label ladder gone);
+  deleted the dead M3 generate_atlas.py. fetch_fonts.py + Inter TTFs kept
+  (wordmark/caption bakers still source them).
+- **Code review**: wrote CODE_REVIEW.md (architecture, the GL shader-tint +
+  blend-teardown bug class documented as the standing rule, perf notes, and a
+  numbered list of untested assumptions for Will to verify on first launch).
+  No new bugs found in the feature mixins (freelook/zoom/HUD unchanged).
+- Everything committed + pushed to claude/ingame-ui-design-system-21cp08;
+  Will will build/run when back. Not yet visually confirmed (no remote build).

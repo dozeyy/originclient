@@ -19,3 +19,19 @@ Thumbs.db
 
 # .NET publish output
 publish/
+
+# Font atlas generator scratch output (canonical copies live under
+# src/OriginClient.Mod/.../assets/originclient/textures/font/)
+tools/font-atlas/output/
+
+# Loading-screen generator scratch previews (canonical textures live under
+# src/OriginClient.Mod/.../assets/originclient/textures/ui/)
+tools/loading-screen/*preview*.png
+tools/loading-screen/loading_preview.png
+
+# Python
+__pycache__/
+
+# Button generator scratch mockups
+tools/buttons/*mock*.png
+tools/loading-screen/*check*.png

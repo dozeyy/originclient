@@ -57,7 +57,14 @@ dependencies {
 	modImplementation(include("maven.modrinth:indium:${project.indium_version}"))
 	modImplementation(include("maven.modrinth:lithium:${project.lithium_version}"))
 	modImplementation(include("maven.modrinth:ferrite-core:${project.ferritecore_version}"))
-	modImplementation(include("maven.modrinth:krypton:${project.krypton_version}"))
+	// Temporarily disabled: Krypton bundles its own nested velocity-native
+	// jar-in-jar, and Loom's include() doesn't propagate that nested jar
+	// through to the `runClient` dev classpath (real, reproducible,
+	// dev-environment-only -- see MEMORY.md 2026-07-07), so runClient
+	// crashes on NoClassDefFoundError: com/velocitypowered/natives/util/Natives
+	// before ever reaching a menu. Re-enable before any real release build --
+	// this only affects the dev client, not the actual launcher-shipped jar.
+	// modImplementation(include("maven.modrinth:krypton:${project.krypton_version}"))
 }
 
 processResources {
