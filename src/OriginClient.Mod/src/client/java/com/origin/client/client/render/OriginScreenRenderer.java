@@ -39,7 +39,7 @@ public final class OriginScreenRenderer {
 	private static final List<Ring> rings = new ArrayList<>();
 	private static ResourceLocation grainId;
 
-	// Baked "Origin" wordmark (Inter, mixed-case + glow bloom). Null -> fall
+	// Baked "ORIGIN" wordmark (Inter, all-caps + glow bloom). Null -> fall
 	// back to vanilla drawString.
 	private static ResourceLocation wordmarkId;
 	private static int wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH;
@@ -84,17 +84,20 @@ public final class OriginScreenRenderer {
 			drawGrain(guiGraphics, w, h);
 		}
 
-		// Wordmark optically centered, bar just below it. Size (0.165h ink) and
-		// placement match the original mock's proportions, verified in-sandbox
-		// against wordmark_preview.png (the earlier 0.13h read noticeably small).
-		double markInkH = fitInkHeight(h * 0.165, w, 0.82);
-		double markCenterY = h * 0.50;
+		// Wordmark nudged slightly above center so the logo+bar group stays
+		// balanced. All-caps "ORIGIN" has no descender, so its ink height IS the
+		// cap height: 0.135h gives the right cap size (Will's chosen "middle"
+		// size). The bar sits well below the logo with a clear gap and is a
+		// chunky full-word-width bar (Will: "farther down and bigger"). All
+		// verified in-sandbox against the ring background.
+		double markInkH = fitInkHeight(h * 0.135, w, 0.82);
+		double markCenterY = h * 0.48;
 		drawWordmark(guiGraphics, w / 2.0, markCenterY, markInkH);
 
 		double dispW = (wordmarkId != null && wmInkH > 0) ? wmInkW * (markInkH / wmInkH) : w * 0.24;
-		int barW = (int) Math.round(dispW * 0.92);
-		int barH = Math.max(2, (int) Math.round(h * 0.006));
-		int barTop = (int) Math.round(markCenterY + markInkH * 0.62);
+		int barW = (int) Math.round(dispW);
+		int barH = Math.max(3, (int) Math.round(h * 0.012));
+		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
 		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
 	}
 
@@ -344,7 +347,7 @@ public final class OriginScreenRenderer {
 
 		// Fallback (texture missing): vanilla font, centered on the point.
 		Font font = Minecraft.getInstance().font;
-		String mark = "Origin";
+		String mark = "ORIGIN";
 		float scale = 4.0f;
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
