@@ -1,8 +1,10 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.render.OriginScreenRenderer;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.LogoRenderer;
+import net.minecraft.client.gui.components.SplashRenderer;
 import net.minecraft.client.gui.screens.TitleScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -47,5 +49,19 @@ public class TitleScreenMixin {
 			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))
 	private void originclient$logo(LogoRenderer instance, GuiGraphics guiGraphics, int screenWidth, float alpha) {
 		OriginScreenRenderer.renderTitleWordmark(guiGraphics);
+	}
+
+	// Remove the yellow splash text.
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/components/SplashRenderer;render(Lnet/minecraft/client/gui/GuiGraphics;ILnet/minecraft/client/gui/Font;I)V"))
+	private void originclient$noSplash(SplashRenderer instance, GuiGraphics guiGraphics, int screenWidth, Font font, int color) {
+		// draw nothing
+	}
+
+	// Remove the bottom version line (the only drawString in render()).
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/GuiGraphics;drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)I"))
+	private int originclient$noVersion(GuiGraphics instance, Font font, String text, int x, int y, int color) {
+		return 0; // draw nothing
 	}
 }

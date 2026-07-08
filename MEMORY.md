@@ -1245,3 +1245,30 @@ on the mapped 1.21.1 `TitleScreen` + `LogoRenderer` (not guessed):
 - **Waiting on Will**: one build for both changes — pull, `.\gradlew.bat build`
   (report errors verbatim, esp. the renderLogo redirect), `.\gradlew.bat
   runClient`. Loading screen = no rings now; main menu = rings + Origin logo.
+
+## 2026-07-08 — Feedback round 2 shipped; title text-removal via confirmed descriptors
+
+Title mixin built + ran clean (BUILD SUCCESSFUL) — the renderLogo→wordmark
+redirect (3-arg overload) was right. Will's next feedback batch, mostly shipped:
+- Wordmark re-baked all-caps "ORIGIN" + 0.22em letter-spacing (matching the very
+  first HTML mockup), used on both screens. `bake_text.py` shared helper does
+  char-by-char rendering with letter-spacing.
+- Loading bar gained the live "LOADING xx%" caption (mockup option 01). Baked as
+  a small glyph strip (`caption.png/json`, fixed charset, Inter 500) composed
+  in-game — shows instantly, no tofu, not the failed dynamic atlas.
+- Rings sped up to 16/24/33/44s periods (were 40-120s, too slow to read as
+  motion — that's why Will said "not spinning").
+- Main-menu header enlarged + centered between screen top and the Singleplayer
+  button (`h/8+24`), width-clamped.
+- **Title text removal** via `javap -c` grep (confirmed real descriptors, not
+  guessed): splash = `SplashRenderer.render(GuiGraphics,I,Font,I)V` →
+  @Redirect no-op; version line = the *only* `GuiGraphics.drawString(Font,
+  String,III)I` in render() → @Redirect return 0. No separate copyright
+  drawString exists in render() (only one drawString total), so if a
+  bottom-right copyright line remains it's a widget added in init(), to remove
+  separately. Small risk the version @Redirect conflicts with a Fabric branding
+  mixin on the same invoke — if the build errors there, switch to MixinExtras
+  @WrapWithCondition.
+- **Waiting on Will**: pull, build, runClient, screenshot the main menu + the
+  loading screen (F3+T). First visual check of: caps ORIGIN, the % caption,
+  spinning rings, big centered header, and no splash/version text.
