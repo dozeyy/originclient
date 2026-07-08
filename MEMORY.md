@@ -1148,3 +1148,56 @@ colors/spacing — none of which depend on custom glyph rendering.
   instead of a custom renderer — same panel spec (DESIGN_SYSTEM.md §2), different
   text-drawing call. M6a (cursor glow) and M6b (buttons + mod-menu screen) are
   unaffected by this pivot.
+
+## 2026-07-08 — Custom loading screen: smooth orbital rings (texture-based), real progress via verified javap
+
+Will's next ask: custom loading screen — website charcoal background, "Origin"
+centered (any window size/fullscreen), a clean progress bar, and an ambient
+background. Gave him a live HTML mockup (Artifact) of 4 background options
+(bare+grain, orbital rings, ambient glow, dot matrix); he picked **orbital
+rings + light grain**, "just as smooth and clean as the website."
+
+- **The smoothness problem, solved the right way this time.** Thin curved ring
+  strokes drawn *procedurally* in MC's GUI space come out as jagged scattered
+  dots (the icon lesson from 2026-07-07). Instead: pre-render each ring as a
+  supersampled anti-aliased PNG (`tools/loading-screen/generate_textures.py`),
+  then only blit+rotate the texture in-game. Magnifying a smooth texture stays
+  smooth (unlike the font's *minification* problem), so this sidesteps the
+  whole ceiling that killed the font. Ring geometry/opacity/speed mirror the
+  launcher's `OriginBackground.xaml` (4 tilted ellipses ~0.37 h:w, back rings
+  fainter + gaussian-blurred for depth) so launcher/website/in-game are one
+  system. **Self-verified in-sandbox before any Minecraft**: composited all 4
+  rings over #050505 at real opacities/rotations and viewed at 3x zoom — clean
+  AA curves, no jaggies, grain subtle. This is the key discipline the font
+  work lacked: prove the pixels in a viewer first.
+- `OriginLoadingRenderer` (new, `client/loading/`): draws bg + rings (each
+  rotating at its own period/direction via `Axis.ZP.rotationDegrees` +
+  pose scale) + tiled grain + "ORIGIN" in **vanilla MC font** (per the settled
+  font decision) + a thin glowing progress bar, all centered off the live
+  GUI-scaled window size each frame. Textures load via **classloader**
+  (`getResourceAsStream`), not the resource manager, so it's safe during the
+  earliest overlay while resources are still loading; degrades to plain
+  charcoal if textures fail rather than crashing. Reuses the exact
+  texture/blit/DynamicTexture APIs that already built clean in M3 (confirmed),
+  plus stub-compiled clean against the new pose/RenderSystem/Font shapes.
+- **LoadingOverlay hooked against real bytecode, not memory** — honoring the
+  project's #1 mixin rule. Had Will run `javap -p` on
+  `net.minecraft.client.gui.screens.LoadingOverlay` from his now-populated Loom
+  cache (jar: `minecraftMaven/.../minecraft-clientonly-1.21.1-loom.mappings...jar`;
+  note javap wasn't on PATH, used the full jdk-21.0.10 path). Confirmed:
+  `render(GuiGraphics, int, int, float)` and `private float currentProgress`
+  (already-smoothed 0..1 load progress). `LoadingOverlayMixin` injects at
+  **`render` TAIL, non-cancelling**, reading `currentProgress` (via `@Shadow`)
+  for a real progress bar. TAIL+no-cancel is the specific, deliberate choice
+  that makes it hang-proof: vanilla's own fade timing + `setOverlay(null)`
+  transition still run fully; we only paint an opaque scene on top afterward.
+  (HEAD+cancel is exactly what hung the loading screen in a prior attempt.)
+- **Known v1 limitation, flagged not hidden**: opaque TAIL over-draw means
+  vanilla's fade-in/out isn't respected — the overlay appears instantly and
+  cuts to the (still-vanilla) title screen rather than cross-fading. Minor,
+  and fixable later by replicating the fade alpha (would need `javap -c` of
+  render for the exact formula); deferred until the look itself is confirmed.
+- **Waiting on Will**: pull, `.\gradlew.bat build` (report errors verbatim),
+  `.\gradlew.bat runClient`. The loading screen shows at startup — watch the
+  first couple seconds for the rings + filling bar; also F3+T in-world forces a
+  resource reload to re-trigger it. Screenshot back.
