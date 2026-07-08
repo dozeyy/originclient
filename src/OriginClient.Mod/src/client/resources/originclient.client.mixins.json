@@ -11,7 +11,14 @@
 		"AbstractButtonMixin",
 		"ScreenBackgroundMixin",
 		"AbstractSliderButtonMixin",
-		"CheckboxMixin"
+		"CheckboxMixin",
+		"LevelRendererMixin",
+		"ParticleEngineMixin",
+		"LevelTimeMixin",
+		"EntityNametagMixin",
+		"ChatTimestampMixin",
+		"GuiScoreboardMixin",
+		"GameRendererAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 0

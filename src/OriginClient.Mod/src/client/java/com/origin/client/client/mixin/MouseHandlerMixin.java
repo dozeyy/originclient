@@ -28,6 +28,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 // is what actually matches.
 @Mixin(MouseHandler.class)
 public class MouseHandlerMixin {
+
+	// Feeds the CPS counter + Keystrokes overlay: raw button press/release
+	// events, recorded before any GUI/game routing so held-state is exact.
+	@org.spongepowered.asm.mixin.injection.Inject(method = "onPress", at = @At("HEAD"))
+	private void originclient$trackClicks(long windowPointer, int button, int action, int modifiers,
+										  org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+		com.origin.client.client.mods.ClickStats.onButton(button, action == org.lwjgl.glfw.GLFW.GLFW_PRESS);
+	}
+
 	@Redirect(method = "turnPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))
 	private void originclient$redirectTurn(LocalPlayer player, double yRotDelta, double xRotDelta) {
 		if (OriginFreelookState.active) {
