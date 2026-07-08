@@ -31,3 +31,6 @@ tools/loading-screen/loading_preview.png
 
 # Python
 __pycache__/
+
+# Button generator scratch mockups
+tools/buttons/*mock*.png

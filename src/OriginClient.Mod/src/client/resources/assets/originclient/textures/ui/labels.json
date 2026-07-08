@@ -1,0 +1,25 @@
+{
+  "cellHeight": 125,
+  "labels": {
+    "Singleplayer": {
+      "file": "label_singleplayer.png",
+      "width": 599
+    },
+    "Multiplayer": {
+      "file": "label_multiplayer.png",
+      "width": 540
+    },
+    "Options": {
+      "file": "label_options.png",
+      "width": 376
+    },
+    "Quit": {
+      "file": "label_quit.png",
+      "width": 202
+    },
+    "Realms": {
+      "file": "label_realms.png",
+      "width": 351
+    }
+  }
+}
