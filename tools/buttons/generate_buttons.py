@@ -34,7 +34,11 @@ CORNER = 24       # corner region size (px) used for 9-slicing; also the radius
 BORDER_PX = 4     # border stroke in texture px (~1px in-game after down-scale)
 SS = 4            # supersample for anti-aliasing
 
-LABELS = ["Singleplayer", "Multiplayer", "Options", "Quit", "Realms"]
+# Bake the likely vanilla title-menu strings (and variants) so the in-game
+# label lookup, keyed by the button's exact getString(), matches; anything
+# unmatched falls back to vanilla font.
+LABELS = ["Singleplayer", "Multiplayer", "Options", "Quit", "Quit Game",
+          "Realms", "Minecraft Realms"]
 LABEL_CAP = 96
 
 
@@ -105,7 +109,8 @@ def main():
         draw = ImageDraw.Draw(layer)
         for ch, px in positions:
             draw.text((pad + px, baseline), ch, fill=255, font=font, anchor="ls")
-        fname = "label_" + text.lower() + ".png"
+        slug = "".join(c if c.isalnum() else "_" for c in text.lower())
+        fname = "label_" + slug + ".png"
         _to_rgba(layer).save(OUT / fname)
         labels[text] = {"file": fname, "width": layer.width}
         print(f"label '{text}': {layer.width}x{cell_h} -> {fname}")
