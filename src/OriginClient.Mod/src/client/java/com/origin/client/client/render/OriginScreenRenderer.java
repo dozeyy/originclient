@@ -51,6 +51,16 @@ public final class OriginScreenRenderer {
 	private static int capAtlasW, capAtlasH, capCellH, capCapH;
 	private static final Map<Character, CaptionGlyph> captionGlyphs = new HashMap<>();
 
+	// Cursor-follow glow (the website's two-layer spotlight): one radial
+	// gradient texture drawn twice -- a tight core that snaps to the cursor
+	// and a soft halo that trails it with lerped physics, both blooming when
+	// hovering a clickable. State is static: one cursor, one glow.
+	private static ResourceLocation radialGlowId;
+	private static final int RADIAL_TEX = 512;
+	private static double haloX = Double.NaN, haloY = Double.NaN;
+	private static double glowHover = 0.0;
+	private static long glowLastNanos = 0L;
+
 	private record Ring(ResourceLocation texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {
 	}
@@ -109,6 +119,57 @@ public final class OriginScreenRenderer {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);
 		}
+	}
+
+	/**
+	 * Main menu: the website's two-layer cursor spotlight, drawn over the ring
+	 * background but under the widgets/wordmark. The core (small, brighter)
+	 * snaps to the cursor every frame; the halo (large, faint) trails it via
+	 * the website's exact per-frame lerp (0.12 @60fps, dt-corrected here so it
+	 * feels identical at any framerate). Both grow + brighten while hovering a
+	 * clickable, mirroring the site's .is-active bloom. Sizes scale with the
+	 * GUI width the way the CSS pixel sizes relate to a typical viewport.
+	 */
+	public static void renderTitleCursorGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
+		ensureLoaded();
+		if (radialGlowId == null) {
+			return;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		int w = mc.getWindow().getGuiScaledWidth();
+
+		long now = System.nanoTime();
+		double dtMs = glowLastNanos == 0 ? 16.7 : Math.min(100.0, (now - glowLastNanos) / 1_000_000.0);
+		glowLastNanos = now;
+
+		// Hover bloom easing (~0.3s ease, like the site's transition).
+		double target = hoveringClickable ? 1.0 : 0.0;
+		double step = dtMs / 250.0;
+		glowHover = target > glowHover ? Math.min(target, glowHover + step) : Math.max(target, glowHover - step);
+		double hv = OriginTheme.easeOut(glowHover);
+
+		// Halo lag: pos += (target - pos) * 0.12 per 60fps frame, dt-corrected.
+		if (Double.isNaN(haloX)) {
+			haloX = mouseX;
+			haloY = mouseY;
+		}
+		double f = 1.0 - Math.pow(1.0 - OriginTheme.HALO_LERP_FACTOR, dtMs / 16.7);
+		haloX += (mouseX - haloX) * f;
+		haloY += (mouseY - haloY) * f;
+
+		RenderSystem.enableBlend();
+		// Halo: 560px -> 720px of a ~1600px viewport; gradient 0.35 * layer opacity 0.32 -> 0.5.
+		drawRadial(guiGraphics, haloX, haloY, w * (0.35 + 0.10 * hv), 0.112 + 0.063 * hv);
+		// Core: 130px -> 200px; gradient 0.55 * layer opacity 0.55 -> 0.85.
+		drawRadial(guiGraphics, mouseX, mouseY, w * (0.081 + 0.044 * hv), 0.30 + 0.17 * hv);
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+	}
+
+	private static void drawRadial(GuiGraphics guiGraphics, double cx, double cy, double diameter, double alpha) {
+		int d = Math.max(2, (int) Math.round(diameter));
+		RenderSystem.setShaderColor(1f, 1f, 1f, (float) alpha);
+		guiGraphics.blit(radialGlowId, (int) Math.round(cx - d / 2.0), (int) Math.round(cy - d / 2.0),
+				d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
 	}
 
 	/** Main menu: draw the "ORIGIN" wordmark centered between the top of the screen and the Singleplayer button. */
@@ -344,6 +405,15 @@ public final class OriginScreenRenderer {
 		} catch (Exception e) {
 			captionId = null;
 			com.origin.client.OriginClient.LOGGER.warn("Origin caption strip failed to load; skipping caption", e);
+		}
+
+		// Cursor-follow glow texture. Optional; skipped entirely on failure.
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			radialGlowId = registerTexture(mc, "origin_radial_glow", "/assets/originclient/textures/ui/radial_glow.png");
+		} catch (Exception e) {
+			radialGlowId = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin radial glow failed to load; skipping cursor glow", e);
 		}
 	}
 

@@ -35,15 +35,16 @@ public final class OriginButtonRenderer {
 	private static final int BORDER_NORMAL = 0x1CFFFFFF;
 	private static final int BORDER_HOVER = 0x4DFFFFFF;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
-	private static final double GLOW_ALPHA = 0.5;
 	private static final int CORNER_DISPLAY = 6;
 	private static final double LIFT_PX = 2.0;
-	private static final double HOVER_MS = 140.0;
+	// Short + eased = the website's snappy hover; no per-button glow (the
+	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
+	private static final double HOVER_MS = 90.0;
 
 	private static boolean loaded = false;
 	private static boolean assetsOk = false;
-	private static int TEX, CORNER, GLOW, cellHeight;
-	private static ResourceLocation fillTex, borderTex, glowTex;
+	private static int TEX, CORNER, cellHeight;
+	private static ResourceLocation fillTex, borderTex;
 	private static final Map<String, LabelInfo> LABELS = new HashMap<>();
 
 	private static final Map<AbstractButton, State> STATE = new WeakHashMap<>();
@@ -86,13 +87,6 @@ public final class OriginButtonRenderer {
 
 		RenderSystem.enableBlend();
 
-		if (hv > 0.01 && glowTex != null) {
-			int gw = w + (int) (h * 2.2);
-			int gh = (int) (h * 3.2);
-			RenderSystem.setShaderColor(1f, 1f, 1f, (float) (hv * GLOW_ALPHA));
-			guiGraphics.blit(glowTex, (int) (cx - gw / 2.0), (int) (cy - gh / 2.0), gw, gh, 0f, 0f, GLOW, GLOW, GLOW, GLOW);
-		}
-
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
 		shaderColor(OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv));
 		nineSlice(guiGraphics, fillTex, x, drawY, w, h, cd);
@@ -104,7 +98,12 @@ public final class OriginButtonRenderer {
 	}
 
 	private static void drawLabel(GuiGraphics guiGraphics, double cx, double cy, int h, Component message) {
-		LabelInfo li = LABELS.get(message.getString());
+		// Vanilla labels can carry a trailing ellipsis ("Options...") -- strip
+		// it both for the baked-texture lookup and for what gets displayed
+		// (Will: no dots), falling back to vanilla font only if the cleaned
+		// string has no baked label at all.
+		String text = cleanLabel(message.getString());
+		LabelInfo li = LABELS.get(text);
 		if (li != null) {
 			double scale = (h * 0.62) / cellHeight;
 			double dw = li.width() * scale;
@@ -115,9 +114,17 @@ public final class OriginButtonRenderer {
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		} else {
 			Font font = Minecraft.getInstance().font;
-			int tw = font.width(message);
-			guiGraphics.drawString(font, message, (int) (cx - tw / 2.0), (int) (cy - 4), LABEL_COLOR, false);
+			int tw = font.width(text);
+			guiGraphics.drawString(font, text, (int) (cx - tw / 2.0), (int) (cy - 4), LABEL_COLOR, false);
 		}
+	}
+
+	private static String cleanLabel(String raw) {
+		String s = raw.replace("…", "").trim();
+		while (s.endsWith(".")) {
+			s = s.substring(0, s.length() - 1);
+		}
+		return s.trim();
 	}
 
 	private static void drawFallback(GuiGraphics guiGraphics, int x, int y, int w, int h, double hv, Component message) {
@@ -176,10 +183,8 @@ public final class OriginButtonRenderer {
 			}
 			TEX = btn.get("texSize").getAsInt();
 			CORNER = btn.get("corner").getAsInt();
-			GLOW = btn.get("glowSize").getAsInt();
 			fillTex = register(mc, "button_fill", "/assets/originclient/textures/ui/button_fill.png");
 			borderTex = register(mc, "button_border", "/assets/originclient/textures/ui/button_border.png");
-			glowTex = register(mc, "button_glow", "/assets/originclient/textures/ui/button_glow.png");
 
 			JsonObject labelsRoot;
 			try (InputStream in = open("/assets/originclient/textures/ui/labels.json")) {

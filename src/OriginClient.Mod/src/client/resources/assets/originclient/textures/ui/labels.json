@@ -1,33 +1,33 @@
 {
-  "cellHeight": 125,
+  "cellHeight": 32,
   "labels": {
     "Singleplayer": {
       "file": "label_singleplayer.png",
-      "width": 599
+      "width": 153
     },
     "Multiplayer": {
       "file": "label_multiplayer.png",
-      "width": 540
+      "width": 138
     },
     "Options": {
       "file": "label_options.png",
-      "width": 376
+      "width": 96
     },
     "Quit": {
       "file": "label_quit.png",
-      "width": 202
+      "width": 52
     },
     "Quit Game": {
       "file": "label_quit_game.png",
-      "width": 505
+      "width": 129
     },
     "Realms": {
       "file": "label_realms.png",
-      "width": 351
+      "width": 90
     },
     "Minecraft Realms": {
       "file": "label_minecraft_realms.png",
-      "width": 838
+      "width": 215
     }
   }
 }

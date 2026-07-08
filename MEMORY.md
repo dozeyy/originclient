@@ -1309,3 +1309,37 @@ border brighten + soft glow bloom + ~2px lift, all eased on wall-clock time.
   clearly, not silently.
 - **Waiting on Will**: pull, `.\gradlew.bat build`, `runClient`, screenshot the
   menu + hover a button. First live look at the styled buttons.
+
+## 2026-07-08 — Button polish round: cursor-follow glow, label quality parity, Options"..." fix
+
+Will's live feedback on the first styled-buttons build, all addressed:
+- **"Glow looks square"** — the baked hover-glow's blur didn't decay to zero
+  inside the texture bounds, so the rectangle edge showed at draw scale. Moot
+  now: per Will, the glow comes **off the buttons** entirely and becomes the
+  website's **mouse-follow spotlight** on the main menu instead. Baked a true
+  radial gradient (`radial_glow.png`, alpha 1→0 at 70% radius, zero well inside
+  the bounds — can never show an edge; verified over charcoal in-sandbox).
+  `OriginScreenRenderer.renderTitleCursorGlow`: core snaps to cursor, halo
+  trails via the site's 0.12/frame lerp (dt-corrected), both bloom + brighten
+  (~250ms ease) while hovering a clickable — sizes/opacities derived from the
+  CSS (130→200px core, 560→720px halo, on a ~1600px viewport → fractions of
+  GUI width). Drawn in the render-HEAD inject: over rings, under widgets, same
+  z-order as the site (glow z1, content above). Hover detection = any visible
+  `AbstractWidget.isHovered()` among `children()` (public fields/methods,
+  javap-confirmed earlier).
+- **"Options still normal Minecraft + remove the 3 dots"** — one bug: the
+  vanilla label is `Options...`, which missed the baked `Options` texture and
+  fell back to vanilla pixel font (dots included). Fix: `cleanLabel()` strips
+  `…`/trailing dots before both the lookup and the fallback draw.
+- **"Labels not ORIGIN-logo quality"** — real cause: the wordmark texture only
+  minifies ~1.4x at draw, but labels were baked at 125px cell and drawn at
+  ~25 real px (~5x minification, no mipmaps → aliasing; the exact M3 font
+  lesson resurfacing). Fix: generator now LANCZOS-downscales label cells to
+  32px at bake time so draw-time scaling is ~1.3x. Verified at true display
+  size in-sandbox — crisp.
+- Hover made snappier (90ms ease-out; lift stays 2px, matching the site's
+  translateY(-2px); the site's buttons don't scale on hover — the *glow* is
+  what grows, which is what "it gets slightly bigger" maps to).
+- **Waiting on Will**: pull/build/runClient — check the mouse-follow light
+  (trailing halo, bloom over buttons), Options label now Inter without dots,
+  and label crispness vs the wordmark.

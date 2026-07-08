@@ -80,6 +80,31 @@ def make_grain() -> Image.Image:
     return Image.merge("RGBA", (noise, noise, noise, Image.new("L", (tile, tile), 255)))
 
 
+def make_radial_glow() -> Image.Image:
+    """Circular radial gradient matching the website's cursor-glow layers:
+    radial-gradient(circle, white 0%, transparent 70%) — full alpha at the
+    center, linear falloff hitting zero at 70% of the radius, fully
+    transparent well inside the texture bounds (so a scaled blit can never
+    show a square edge; the first hover-glow bake failed exactly that way).
+    One texture serves both the core and the halo — peak opacity and size are
+    applied at draw time."""
+    size = 512
+    half = size / 2.0
+    fade_end = 0.7 * half
+    img = Image.new("L", (size, size), 0)
+    px = img.load()
+    for y in range(size):
+        dy = y + 0.5 - half
+        for x in range(size):
+            dx = x + 0.5 - half
+            r = (dx * dx + dy * dy) ** 0.5
+            a = 1.0 - r / fade_end
+            if a > 0:
+                px[x, y] = int(a * 255)
+    white = Image.new("L", (size, size), 255)
+    return Image.merge("RGBA", (white, white, white, img))
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     meta = {"texSize": TEX, "heightRatio": HEIGHT_RATIO, "fillFrac": FILL_FRAC, "rings": []}
@@ -96,6 +121,9 @@ def main():
 
     make_grain().save(OUT / "grain.png")
     print("grain -> grain.png")
+
+    make_radial_glow().save(OUT / "radial_glow.png")
+    print("radial glow -> radial_glow.png")
 
     (OUT / "rings.json").write_text(json.dumps(meta, indent=2))
     print(f"metadata -> rings.json")

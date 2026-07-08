@@ -39,6 +39,18 @@ public class TitleScreenMixin {
 	@Inject(method = "render", at = @At("HEAD"))
 	private void originclient$background(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		OriginScreenRenderer.renderTitleBackground(guiGraphics);
+		// The website's mouse-follow spotlight: over the rings, under the
+		// widgets (this HEAD inject runs before the widget pass). Blooms while
+		// any visible button is hovered, like the site's hover targets.
+		boolean hoveringClickable = false;
+		Screen self = (Screen) (Object) this;
+		for (GuiEventListener child : self.children()) {
+			if (child instanceof AbstractWidget widget && widget.visible && widget.isHovered()) {
+				hoveringClickable = true;
+				break;
+			}
+		}
+		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, hoveringClickable);
 	}
 
 	@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
