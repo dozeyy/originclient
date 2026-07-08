@@ -34,3 +34,4 @@ __pycache__/
 
 # Button generator scratch mockups
 tools/buttons/*mock*.png
+tools/loading-screen/*check*.png
