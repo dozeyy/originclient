@@ -92,6 +92,7 @@ public final class OriginButtonRenderer {
 		}
 
 		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
 
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
 		shaderColor(fill);
@@ -126,6 +127,7 @@ public final class OriginButtonRenderer {
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
 		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
 
 		// Shell -- identical to a resting button.
@@ -153,7 +155,14 @@ public final class OriginButtonRenderer {
 				enabled ? OriginTheme.lerpColor(0xFFB4B4B4, 0xFFD8D8D8, hv) : 0x66808080);
 
 		// Border on top -- resting gray, matching the other boxes.
+		// CRITICAL: fill() above flushes through a render type whose teardown
+		// DISABLES blending -- without re-enabling it, the border texture's
+		// alpha is ignored and it draws as a fully-opaque THICK WHITE RING
+		// (the exact bug Will saw on every slider box, and only on sliders,
+		// because only sliders fill() between the two texture passes).
 		if (assetsOk) {
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
 			shaderColor(border);
 			nineSlice(guiGraphics, borderTex, x, y, w, h, cd);
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
@@ -177,6 +186,7 @@ public final class OriginButtonRenderer {
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
 		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
 		int box = h;
 		int cd = Math.min(4, box / 3);
 		if (assetsOk) {
@@ -243,6 +253,11 @@ public final class OriginButtonRenderer {
 			pose.pushPose();
 			pose.translate(cx - dwGui / 2.0, cy - dhGui / 2.0, 0);
 			pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
+			// A fill() earlier in the frame may have left blending disabled
+			// (see renderSlider) -- the label texture needs it back on or its
+			// antialiased alpha is ignored.
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
 			shaderColor(labelColor);
 			guiGraphics.blit(best.tex(), 0, 0, best.width(), best.cellH(),
 					0f, 0f, best.width(), best.cellH(), best.width(), best.cellH());

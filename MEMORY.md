@@ -1475,3 +1475,34 @@ no javap this round):
   services.gradle.org; maven.fabricmc.net/piston unreachable), system gradle
   8.14.3 exists at /opt/gradle but can't fetch Loom either — so the
   stub-compile + Will-builds loop remains the only verification path.
+
+## 2026-07-08 — White ring SOLVED: fill() teardown disables blending; our border drew opaque
+
+The sprite-override guess was wrong — Will's Music & Sounds screenshot (EVERY
+slider ringed, no button ringed, "nothing to do with selecting") + his javap
+dump pinned the real mechanism:
+- javap facts: `OptionInstance$OptionInstanceSliderButton.renderWidget` just
+  calls `super.renderWidget` (invokespecial at offset 6) →
+  `AbstractOptionSliderButton` has NO renderWidget → resolves to
+  `AbstractSliderButton.renderWidget` (the two vanilla `blitSprite` calls at
+  46/83) — which our mixin cancels. Vanilla slider sprites never draw at all;
+  the transparent overrides were dead code (now reverted, so any future
+  uncovered slider subclass renders vanilla rather than invisible).
+- **Root cause**: `guiGraphics.fill()` flushes through a RenderType whose
+  teardown DISABLES GL blending. In renderSlider we fill() the handle between
+  the shell blit and the border blit → the border texture drew with blending
+  off → its 11% alpha ignored → fully-opaque thick white rounded ring. Only
+  sliders fill() between texture passes, hence ring-on-every-slider,
+  never-on-buttons, immune to every border-color change, and immune to the
+  sprite blanking. (Checkboxes were safe by accident: their fills come after
+  both blits.)
+- **Fix**: `RenderSystem.enableBlend()+defaultBlendFunc()` immediately before
+  the border nine-slice in renderSlider, plus defensively at the top of
+  render/renderSlider/renderCheckbox and before the baked-label blit in
+  drawLabel (any fill()-then-blit sequence is a landmine).
+- **Rule learned (add to the M3/shader-tint family)**: around GuiGraphics,
+  every textured blit must assume BOTH shader color AND blend state are dirty
+  — reset both before drawing. fill() is the usual saboteur.
+- Only unverified API this round: `RenderSystem.defaultBlendFunc()` (no javap;
+  ultra-stable Blaze3D method vanilla widget code itself calls — a mismatch
+  fails the build loudly).
