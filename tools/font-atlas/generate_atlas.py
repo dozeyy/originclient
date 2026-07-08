@@ -42,7 +42,11 @@ WEIGHTS = [400, 500, 600, 700, 800]
 CHARSET = "".join(chr(c) for c in range(0x20, 0x7F))
 
 SUPER_SIZE = 512   # render/measure size (px per em) -- the supersample factor
-EM_SIZE = 64        # target baked-atlas size (px per em) -- 8x oversample
+# Baked size chosen close to real HUD/menu usage (roughly 11-32px), not a
+# large size relying on GL to shrink it a lot at draw time -- large
+# minification ratios without mipmaps alias/look blocky regardless of the
+# filter mode, which is what the first live check (M3) actually surfaced.
+EM_SIZE = 32        # target baked-atlas size (px per em) -- 16x oversample
 SCALE = EM_SIZE / SUPER_SIZE
 PADDING_SUPER = 24  # ink padding at SUPER_SIZE, so linear-filtered glyphs
                      # never bleed into their neighbor in the packed atlas

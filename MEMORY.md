@@ -1037,3 +1037,63 @@ analysis) is what sank both prior attempts.
   precisely), run the client, F2-screenshot the debug corner (top-left,
   below existing HUD text), share the image back. Result decides M4
   (skip if smooth, build the SDF+shader escalation if not) per the plan.
+
+## 2026-07-08 — First real M3 checkpoint: `GuiGraphics.blit` compiled clean, crash was unrelated, first screenshot showed still-blocky text
+
+Walked Will through the whole checkpoint end-to-end (new machine, project
+folder was actually at `Documents\Origin Client`, not a guessable path —
+had to search for it; separately his monitor briefly went gray from an
+unrelated display-driver hiccup, resolved on its own / possibly via
+Ctrl+Win+Shift+B, unrelated to this work).
+
+- **`./gradlew build` succeeded on the first real try** — every
+  `GuiGraphics.blit`/`ResourceLocation.fromNamespaceAndPath`/
+  `DynamicTexture`/`AbstractTexture.setFilter` signature guessed from memory
+  in M3 (see prior entry) was actually correct against the real 1.21.1
+  Mojmap classes. Worth remembering: the stub-compile + fake-Gson-jar
+  verification done from the sandbox (no MC classpath at all) was a
+  reasonable proxy after all, at least for this set of calls.
+- **`./gradlew runClient` crashed before reaching any menu** — but the real
+  cause was completely unrelated to this session's font work:
+  `NoClassDefFoundError: com/velocitypowered/natives/util/Natives` from
+  Krypton's `KryptonSharedInitializer`. This is the *exact* bug a prior
+  session already root-caused (2026-07-07 entry): Krypton bundles its own
+  nested `velocity-native` jar-in-jar, and Loom's `include()` doesn't
+  propagate that nested jar through to the `runClient` dev classpath. Fixed
+  the same way as before — commented out Krypton's `include(...)` in
+  `build.gradle` with an explanatory comment and a note to restore it before
+  any real release build. This is a recurring dev-environment-only trap
+  worth solving properly (or at least remembering faster) next time
+  `runClient` is needed.
+- **First real screenshot of the M3 debug corner**: text rendered, correctly
+  positioned, correctly proportioned/kerned — but Will's direct read was
+  "too bold and too blocky." Two separate causes:
+  - *Too bold*: the debug overlay itself drew an oversized (22px), heavy
+    (weight 700) test heading that was never meant to represent real HUD
+    styling — a debug-test artifact, not a design decision. Fixed by
+    rewriting the overlay to render at the sizes the design actually calls
+    for (11px/weight 400 for HUD-style rows, a modest 16px/weight 600
+    heading instead of 22px/700).
+  - *Too blocky*: the real finding. Working theory: the atlas was baked at
+    64px-em and then shrunk as much as ~4.6x at draw time (down to 14px) via
+    GL linear filtering *without mipmaps* — large minification ratios
+    without a mip chain are a well-known way to get aliased/blocky results
+    regardless of the base filter mode, independent of whether Minecraft's
+    GUI-coordinate-space ceiling theory (`DESIGN_SYSTEM.md` §6a) is also in
+    play. Lowered `generate_atlas.py`'s baked `EM_SIZE` from 64 to 32 (16x
+    oversample instead of 8x, same underlying rasterization quality) so the
+    common HUD-row case (11px) is now roughly a 2.9x reduction instead of
+    4.6x. Re-verified the new atlas the same way as M2 (rendered the same
+    sample strings at realistic sizes and looked at the PNGs directly) —
+    still smooth. Did **not** touch `AbstractTexture.setFilter`'s mipmap
+    flag (still `false`) since enabling mipmapped sampling without confirming
+    Minecraft actually generates/uploads a full mip chain for a plain
+    `DynamicTexture` risks a worse, more confusing failure (an incomplete
+    texture can render solid black) — safer to isolate one variable at a
+    time. If the resized atlas is *still* blocky live, that's much stronger
+    evidence for the structural GuiGraphics-coordinate-space theory and the
+    real next step is M4 (SDF atlas + threshold shader), not further
+    fiddling with atlas resolution.
+- **Not done yet, waiting on Will (round 2)**: pull, rebuild
+  (`.\gradlew.bat build` — should be fast, only resource files + one small
+  Java edit changed), `.\gradlew.bat runClient` again, same screenshot ask.

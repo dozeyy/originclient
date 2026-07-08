@@ -19,9 +19,13 @@ public final class OriginFontDebugOverlay {
 		}
 		int x = 6;
 		int y = 40;
-		OriginFont.drawString(guiGraphics, "ORIGIN FONT TEST", x, y, 700, 22f);
-		OriginFont.drawString(guiGraphics, "COORDS  142, 74, -308", x, y + 28, 400, 14f);
-		OriginFont.drawString(guiGraphics, "abcdefghijklmnopqrstuvwxyz", x, y + 50, 400, 14f);
-		OriginFont.drawString(guiGraphics, "0123456789 !@#$%^&*()", x, y + 68, 500, 14f);
+		// Actual planned HUD-row size/weight (DESIGN_SYSTEM.md §2) -- the one
+		// that matters most for the M3 checkpoint.
+		OriginFont.drawString(guiGraphics, "COORDS  142, 74, -308", x, y, 400, 11f);
+		OriginFont.drawString(guiGraphics, "PING  12ms", x, y + 14, 400, 11f);
+		// A modest heading size/weight, not an exaggerated bold test.
+		OriginFont.drawString(guiGraphics, "Origin Font Test", x, y + 32, 600, 16f);
+		OriginFont.drawString(guiGraphics, "abcdefghijklmnopqrstuvwxyz", x, y + 54, 400, 14f);
+		OriginFont.drawString(guiGraphics, "0123456789 !@#$%^&*()", x, y + 72, 500, 14f);
 	}
 }
