@@ -3,6 +3,7 @@ package com.origin.client.client.mixin;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.PlainTextButton;
 import net.minecraft.client.gui.components.SplashRenderer;
@@ -11,19 +12,15 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.ArrayList;
-import java.util.List;
-
 // Re-skins the main menu: the Origin background (charcoal + rotating rings +
 // grain) replaces the panorama, the "ORIGIN" wordmark replaces the vanilla
 // "Minecraft" logo, and the splash/version text + the language/accessibility/
-// copyright buttons are removed -- leaving just the real menu buttons + header.
+// copyright buttons are hidden -- leaving just the real menu buttons + header.
 //
 // Strategy (all targets confirmed via javap against the mapped 1.21.1 jar):
 //  - Draw the Origin background at render() HEAD -- render() is guaranteed to
@@ -33,14 +30,11 @@ import java.util.List;
 //    (whichever path render() uses) never paints over ours. Both are
 //    background-only on TitleScreen; widgets draw in the separate widget pass.
 //  - Redirect renderLogo -> Origin wordmark; no-op the splash + version draws.
-//  - After init(), strip the SpriteIconButton (language, accessibility) and
-//    PlainTextButton (copyright) widgets -- the only widgets of those types;
-//    the real options are plain Button, left intact.
+//  - After init(), hide the SpriteIconButton (language, accessibility) and
+//    PlainTextButton (copyright) widgets via visible/active -- the only widgets
+//    of those types; the real options are plain Button, left intact.
 @Mixin(TitleScreen.class)
-public abstract class TitleScreenMixin {
-
-	@Shadow
-	protected abstract void removeWidget(GuiEventListener listener);
+public class TitleScreenMixin {
 
 	@Inject(method = "render", at = @At("HEAD"))
 	private void originclient$background(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
@@ -77,19 +71,18 @@ public abstract class TitleScreenMixin {
 		return 0; // draw nothing
 	}
 
-	// Remove the language + accessibility icons (SpriteIconButton) and the
-	// copyright line (PlainTextButton), re-run each time the screen (re)inits.
+	// Hide the language + accessibility icons (SpriteIconButton) and the
+	// copyright line (PlainTextButton). visible=false stops both rendering and
+	// clicks; re-run on every (re)init so it survives window resizes.
 	@Inject(method = "init", at = @At("TAIL"))
 	private void originclient$stripExtraButtons(CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
-		List<GuiEventListener> toRemove = new ArrayList<>();
 		for (GuiEventListener child : self.children()) {
-			if (child instanceof SpriteIconButton || child instanceof PlainTextButton) {
-				toRemove.add(child);
+			if ((child instanceof SpriteIconButton || child instanceof PlainTextButton)
+					&& child instanceof AbstractWidget widget) {
+				widget.visible = false;
+				widget.active = false;
 			}
-		}
-		for (GuiEventListener widget : toRemove) {
-			removeWidget(widget);
 		}
 	}
 }
