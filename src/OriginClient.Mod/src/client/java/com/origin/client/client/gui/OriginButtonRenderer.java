@@ -117,14 +117,18 @@ public final class OriginButtonRenderer {
 		double v = Math.max(0.0, Math.min(1.0, value));
 		double hv = hoverEase(slider, enabled && slider.isHovered());
 
-		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
-		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		// The shell always uses the RESTING gray-box look (identical to an
+		// un-hovered button) -- Will: the slider box must match the other gray
+		// boxes, with no bright/white outline even when it's the focused/hovered
+		// widget. All hover feedback lives on the handle instead.
+		int fill = enabled ? FILL_NORMAL : FILL_DISABLED;
+		int border = enabled ? BORDER_NORMAL : BORDER_DISABLED;
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
 		RenderSystem.enableBlend();
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
 
-		// Shell -- identical to a button.
+		// Shell -- identical to a resting button.
 		if (assetsOk) {
 			shaderColor(fill);
 			nineSlice(guiGraphics, fillTex, x, y, w, h, cd);
@@ -132,46 +136,23 @@ public final class OriginButtonRenderer {
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 			guiGraphics.fill(x, y, x + w, y + h, fill);
 		}
-		// CRITICAL: reset the shader tint before any guiGraphics.fill() below,
-		// or the fill()s get multiplied by the shell's faint tint (which made
-		// the value bar + handle nearly invisible).
+		// CRITICAL: reset the shader tint before the handle's guiGraphics.fill(),
+		// or it gets multiplied by the shell's faint tint (near-invisible).
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
-		// A thin groove track with a filled portion up to the handle, plus a
-		// gray knob -- all dark-theme (no stark white), but with enough contrast
-		// on the faint shell to read clearly. Vanilla's label sits centered over
-		// the top, exactly as before.
+		// Just the draggable handle: a thin vertical gray bar at the value
+		// position -- no horizontal center groove line (Will). Gray, clearly
+		// visible on the dark shell, brightening a touch on hover.
 		int inset = 6;
-		int trackX0 = x + inset;
-		int trackX1 = x + w - inset;
-		int trackW = Math.max(0, trackX1 - trackX0);
-		int trackH = 2;
-		int trackY = y + (h - trackH) / 2;
-
-		int handleW = 6;
-		int handleH = Math.max(8, h - 6);
+		int handleW = 4;
+		int handleH = Math.max(6, h - 8);
 		int handleY = y + (h - handleH) / 2;
-		int travel = Math.max(0, trackW - handleW);
-		int handleX = trackX0 + (int) Math.round(travel * v);
-
-		// Empty groove across the full range so the slider's extent is visible.
-		guiGraphics.fill(trackX0, trackY, trackX1, trackY + trackH,
-				enabled ? 0x26FFFFFF : 0x12FFFFFF);
-		// Filled portion (left of the knob) -- a touch brighter gray.
-		int fillTo = handleX + handleW / 2;
-		if (fillTo > trackX0) {
-			guiGraphics.fill(trackX0, trackY, fillTo, trackY + trackH,
-					enabled ? OriginTheme.lerpColor(0x40FFFFFF, 0x59FFFFFF, hv) : 0x1CFFFFFF);
-		}
-
-		// Knob: a gray block, dark-theme but clearly visible, brightening on
-		// hover. A subtle dark outline defines it against the shell.
-		guiGraphics.fill(handleX - 1, handleY - 1, handleX + handleW + 1, handleY + handleH + 1,
-				enabled ? 0x40000000 : 0x24000000);
+		int travel = Math.max(0, w - 2 * inset - handleW);
+		int handleX = x + inset + (int) Math.round(travel * v);
 		guiGraphics.fill(handleX, handleY, handleX + handleW, handleY + handleH,
 				enabled ? OriginTheme.lerpColor(0xFFB4B4B4, 0xFFD8D8D8, hv) : 0x66808080);
 
-		// Border on top.
+		// Border on top -- resting gray, matching the other boxes.
 		if (assetsOk) {
 			shaderColor(border);
 			nineSlice(guiGraphics, borderTex, x, y, w, h, cd);
