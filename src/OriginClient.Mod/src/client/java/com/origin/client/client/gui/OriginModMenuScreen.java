@@ -240,9 +240,9 @@ public class OriginModMenuScreen extends Screen {
 	private void renderGrid(GuiGraphics g, int mouseX, int mouseY, long now, float alpha) {
 		int hy = py() + 10;
 
-		// ORIGIN logo (top-left): the real baked nav-mark + wordmark
-		OriginUi.logo(g, px() + 22, hy + 10, 22, alpha);
-		g.drawString(font, "Origin", px() + 38, hy + 5, withAlpha(OriginTheme.TEXT, alpha), false);
+		// ORIGIN mark only (top-left) — the wordmark is dropped; the mark alone
+		// is the identity here
+		OriginUi.logo(g, px() + 24, hy + 10, 24, alpha);
 
 		// MODS / SETTINGS tabs (centered)
 		renderTabs(g, mouseX, mouseY, hy, alpha);
@@ -305,7 +305,7 @@ public class OriginModMenuScreen extends Screen {
 	// Tabs sit left-anchored right after the logo — never centered, so they can
 	// never collide with the right-aligned chips at small panel widths.
 	private int tabStartX() {
-		return px() + 38 + font.width("Origin") + 16;
+		return px() + 44;
 	}
 
 	private void renderTabs(GuiGraphics g, int mx, int my, int hy, float alpha) {

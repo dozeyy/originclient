@@ -119,18 +119,18 @@ def _(d):  # speedometer
 
 
 @icon("cps")
-def _(d):  # mouse, split buttons
+def _(d):  # computer mouse — button split stays INSIDE the body outline
     rrect(d, 30, 14, 66, 82, 18)
-    line(d, [(48, 14), (48, 44)])
-    line(d, [(30, 44), (66, 44)])
+    line(d, [(48, 16), (48, 44)])   # centre divider, from just inside the top
+    line(d, [(34, 44), (62, 44)])   # button base, inset off the side walls
 
 
 @icon("coords")
-def _(d):  # location pin
-    arc(d, 28, 14, 68, 54, 120, 420)
-    line(d, [(31, 46), (48, 82)])
-    line(d, [(65, 46), (48, 82)])
-    circle(d, 48, 34, 7, fill=True)
+def _(d):  # simple map pin: ~270° head arc + taper to a point + ring hole
+    arc(d, 30, 14, 66, 50, 135, 405)
+    line(d, [(35, 45), (48, 82)])
+    line(d, [(61, 45), (48, 82)])
+    circle(d, 48, 32, 6)
 
 
 @icon("keystrokes")
@@ -152,16 +152,15 @@ def _(d):  # clean Erlenmeyer flask + liquid line
 
 
 @icon("armorhud")
-def _(d):  # shield with center seam
-    line(d, [(48, 12), (78, 22), (78, 48), (48, 84), (18, 48), (18, 22), (48, 12)])
-    line(d, [(48, 22), (48, 74)], w=5)
+def _(d):  # heraldic shield: flat top, sides taper to a point
+    line(d, [(24, 14), (72, 14), (72, 46), (48, 84), (24, 46), (24, 14)])
 
 
 @icon("serveraddress")
-def _(d):  # globe
-    circle(d, 48, 48, 34)
-    d.ellipse([P(34), P(14), P(62), P(82)], outline=255, width=int(P(STROKE)))
-    line(d, [(14, 48), (82, 48)])
+def _(d):  # globe — meridian ellipse + equator spanning the full width
+    circle(d, 48, 48, 33)
+    d.ellipse([P(30), P(15), P(66), P(81)], outline=255, width=int(P(STROKE)))
+    line(d, [(15, 48), (81, 48)])
 
 
 # (packdisplay icon removed — mod no longer exists)
@@ -181,9 +180,13 @@ def _(d):  # eye
 
 
 @icon("togglesprint")
-def _(d):  # speed chevrons
-    line(d, [(24, 20), (52, 48), (24, 76)])
-    line(d, [(50, 20), (78, 48), (50, 76)])
+def _(d):  # running figure — reads as sprint/sneak movement
+    circle(d, 56, 22, 8, fill=True)          # head, leaning forward
+    line(d, [(53, 30), (46, 52)])            # torso
+    line(d, [(46, 52), (34, 64)])            # trailing leg
+    line(d, [(46, 52), (58, 60), (60, 76)])  # leading leg, bent
+    line(d, [(50, 38), (36, 36)])            # trailing arm
+    line(d, [(50, 38), (64, 46)])            # leading arm
 
 
 # (togglesneak icon removed — merged into Toggle Sneak/Sprint = togglesprint)
@@ -199,9 +202,11 @@ def _(d):  # sun
 
 
 @icon("blockoverlay")
-def _(d):  # highlighted cube
-    rrect(d, 18, 18, 78, 78, 10)
-    rrect(d, 34, 34, 62, 62, 4, fill=True)
+def _(d):  # isometric block (cube) — the outlined block you're looking at
+    line(d, [(48, 14), (78, 31), (48, 48), (18, 31), (48, 14)])  # top face
+    line(d, [(18, 31), (18, 65), (48, 82), (48, 48)])            # left + front-left
+    line(d, [(78, 31), (78, 65), (48, 82)])                      # right
+    line(d, [(48, 48), (48, 82)])                                # front vertical
 
 
 @icon("chunkborders")
@@ -212,10 +217,11 @@ def _(d):  # grid
 
 
 @icon("hitboxes")
-def _(d):  # box around figure
-    rrect(d, 14, 10, 82, 86, 8, w=5)
-    circle(d, 48, 36, 10)
-    line(d, [(48, 46), (48, 68)])
+def _(d):  # bounding box around a minimal entity
+    rrect(d, 22, 12, 74, 84, 3, w=5)
+    circle(d, 48, 34, 8)              # head
+    line(d, [(48, 42), (48, 62)])     # spine
+    line(d, [(38, 50), (58, 50)])     # arms
 
 
 @icon("nametags")
@@ -226,14 +232,19 @@ def _(d):  # tag above head
 
 
 @icon("weather")
-def _(d):  # cloud + rain (weather changer, no slash)
-    arc(d, 18, 34, 46, 60, 90, 270)
-    arc(d, 28, 20, 68, 56, 180, 360)
-    arc(d, 58, 34, 82, 60, 270, 90)
-    line(d, [(32, 60), (70, 60)])
-    line(d, [(34, 70), (28, 82)])
-    line(d, [(50, 70), (44, 82)])
-    line(d, [(66, 70), (60, 82)])
+def _(d):  # cloud as ONE continuous closed path (no gaps) + even rain
+    cloud = [
+        (30, 62),
+        (21, 58), (20, 47), (31, 45),   # left lobe
+        (32, 33), (48, 29), (55, 40),   # tall middle lobe
+        (60, 33), (73, 37), (72, 50),   # right lobe
+        (78, 57), (72, 62),             # shoulder down to the base
+        (30, 62),                       # flat bottom back to start
+    ]
+    line(d, cloud)
+    line(d, [(34, 70), (30, 80)], w=6)
+    line(d, [(48, 70), (44, 80)], w=6)
+    line(d, [(62, 70), (58, 80)], w=6)
 
 
 # (customsky icon removed — mod no longer exists)
@@ -304,9 +315,38 @@ def bake_icons():
         pass
 
 
+# ---------- brand logo ----------
+
+def bake_logo():
+    # Exact geometry of the website nav mark (website/index.html .mark +
+    # .nav__brand .mark { stroke-width: 7 }): three nested ellipses of
+    # decreasing size at 0/60/120 deg. White stroke on transparent,
+    # supersampled hard for a smooth, high-quality mark at any in-game size.
+    vb = 200
+    ss = 8
+    size = vb * ss
+    stroke = int(round(7 * ss))
+    specs = [(90, 32, 0), (75, 27, 60), (60, 22, 120)]
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    cx = cy = size // 2
+    for rx, ry, rot in specs:
+        layer = Image.new("L", (size, size), 0)
+        d = ImageDraw.Draw(layer)
+        d.ellipse([cx - rx * ss, cy - ry * ss, cx + rx * ss, cy + ry * ss], outline=255, width=stroke)
+        if rot:
+            layer = layer.rotate(-rot, resample=Image.BICUBIC, center=(cx, cy))
+        white = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+        white.putalpha(layer)
+        img.alpha_composite(white)
+    out = img.resize((256, 256), Image.LANCZOS)
+    out.save(OUT / "origin_logo.png")
+    print("logo: origin_logo.png 256x256 (nav-mark geometry)")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     bake_switch()
+    bake_logo()
     bake_icons()
 
 

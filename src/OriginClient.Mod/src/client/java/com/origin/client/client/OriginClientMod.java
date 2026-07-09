@@ -35,8 +35,12 @@ public class OriginClientMod implements ClientModInitializer {
 
 	// Live time-changer output, read by LevelTimeMixin every frame.
 	public static volatile double timeOverride = 6000;
-	// Toggle-mode zoom latch, read by GameRendererMixin.
+	// Toggle-mode zoom latch + smooth-zoom progress (0..1), read by GameRendererMixin.
 	public static volatile boolean zoomToggled = false;
+	public static volatile double zoomProgress = 0;
+	// Nametag toggle latches, read by EntityNametagMixin.
+	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
+	private boolean nametagAllKeyWasDown = false, nametagPlayerKeyWasDown = false;
 
 	@Override
 	public void onInitializeClient() {
@@ -107,6 +111,28 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		fullbrightKeyWasDown = fbDown;
 
+		// Nametag toggle keybinds (default unbound). Toggle All hides every
+		// nametag; Toggle Players hides only other players'.
+		boolean naDown = client.screen == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
+		if (naDown && !nametagAllKeyWasDown) {
+			nametagsHidden = !nametagsHidden;
+			if (Mods.bool("nametags", "displayToggleMessage")) {
+				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+						nametagsHidden ? "Nametags hidden" : "Nametags shown"), true);
+			}
+		}
+		nametagAllKeyWasDown = naDown;
+
+		boolean npDown = client.screen == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
+		if (npDown && !nametagPlayerKeyWasDown) {
+			playerNametagsHidden = !playerNametagsHidden;
+			if (Mods.bool("nametags", "displayToggleMessage")) {
+				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+						playerNametagsHidden ? "Player nametags hidden" : "Player nametags shown"), true);
+			}
+		}
+		nametagPlayerKeyWasDown = npDown;
+
 		// Toggle Zoom: in toggle mode the key latches instead of holding
 		boolean zDown = client.screen == null
 				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isDown());
@@ -118,6 +144,18 @@ public class OriginClientMod implements ClientModInitializer {
 			zoomToggled = false;
 		}
 		zoomKeyWasDown = zDown;
+		// smooth-zoom easing: progress eases toward the active state, or snaps
+		// when Smooth Zoom is off. GameRendererMixin lerps the FOV by this.
+		boolean zoomActive = Mods.on("zoom") && (Mods.bool("zoom", "toggleZoom") ? zoomToggled : zDown);
+		double zTarget = zoomActive ? 1 : 0;
+		if (Mods.bool("zoom", "smoothZoom")) {
+			zoomProgress += (zTarget - zoomProgress) * 0.4;
+			if (Math.abs(zTarget - zoomProgress) < 0.001) {
+				zoomProgress = zTarget;
+			}
+		} else {
+			zoomProgress = zTarget;
+		}
 
 		// Chunk borders toggle keybind (edge-triggered, ignored in screens).
 		int cbKey = Mods.keyCode("chunkborders", "key");

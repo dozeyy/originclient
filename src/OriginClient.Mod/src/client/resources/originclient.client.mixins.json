@@ -16,6 +16,7 @@
 		"LevelRendererMixin",
 		"ParticleEngineMixin",
 		"LevelTimeMixin",
+		"HitboxMixin",
 		"EntityNametagMixin",
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
