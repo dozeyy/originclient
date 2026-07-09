@@ -23,6 +23,12 @@ public class HudEditorScreen extends Screen {
 	private String selectedId = null;
 	private int dragSlider = 0; // 0 none, 1 scale, 2 bg
 
+	// resize via the single top-right handle (spec §3)
+	private String resizingId = null;
+	private double resizeElemX;
+	private int resizeBaseW;
+	private static final int HANDLE = 8;
+
 	public HudEditorScreen() {
 		super(Component.literal("HUD Editor"));
 	}
@@ -59,9 +65,21 @@ public class HudEditorScreen extends Screen {
 			// the element's own backing (what it also shows in-game), plus a
 			// hairline edit frame — brighter when selected/hovered
 			HudElements.drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
+			// dark, semi-transparent hover highlight behind the element — content
+			// stays legible through it (spec §3)
+			if (hover || selected) {
+				g.fill((int) x, (int) y, (int) (x + w), (int) (y + h), 0x40303030);
+			}
 			float hv = OriginUi.anim("hud:" + e.id(), hover || selected, 120.0);
 			int frame = selected ? 0xB4FFFFFF : OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_STRONG, hv);
 			OriginUi.panel(g, (int) x - 3, (int) y - 3, (int) w + 6, (int) h + 6, 5, 0, frame);
+			// single top-right resize handle (the only interactive handle)
+			if (hover || selected) {
+				int hxp = (int) (x + w), hyp = (int) y;
+				boolean hh = Math.abs(mouseX - hxp) <= HANDLE && Math.abs(mouseY - hyp) <= HANDLE;
+				g.fill(hxp - HANDLE / 2 - 1, hyp - HANDLE / 2 - 1, hxp + HANDLE / 2 + 1, hyp + HANDLE / 2 + 1, 0xB0000000);
+				g.fill(hxp - HANDLE / 2, hyp - HANDLE / 2, hxp + HANDLE / 2, hyp + HANDLE / 2, hh ? 0xFFFFFFFF : 0xE0E0E0E0);
+			}
 
 			var p = g.pose();
 			p.pushPose();
@@ -170,6 +188,14 @@ public class HudEditorScreen extends Screen {
 			int[] size = e.measure().apply(mc);
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(width, w), y = pos.y(height, h);
+			// top-right handle grab -> resize (checked before the body so it wins)
+			if (Math.abs(mx - (x + w)) <= HANDLE && Math.abs(my - y) <= HANDLE) {
+				selectedId = e.id();
+				resizingId = e.id();
+				resizeElemX = x;
+				resizeBaseW = size[0];
+				return true;
+			}
 			if (mx >= x - 4 && mx < x + w + 4 && my >= y - 4 && my < y + h + 4) {
 				selectedId = e.id();
 				draggingId = e.id();
@@ -202,6 +228,15 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+		if (resizingId != null) {
+			var e = byId(resizingId);
+			if (e != null && resizeBaseW > 0) {
+				HudPos pos = e.pos();
+				pos.scale = Math.max(0.5, Math.min(2.5, (mx - resizeElemX) / resizeBaseW));
+				pos.save(e.id());
+			}
+			return true;
+		}
 		if (dragSlider != 0) {
 			applyCardSlider(mx);
 			return true;
@@ -216,6 +251,10 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(double mx, double my, int button) {
+		if (resizingId != null) {
+			resizingId = null;
+			return true;
+		}
 		if (dragSlider != 0) {
 			dragSlider = 0;
 			return true;

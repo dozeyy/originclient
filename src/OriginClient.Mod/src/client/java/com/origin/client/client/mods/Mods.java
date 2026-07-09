@@ -27,6 +27,34 @@ public final class Mods {
 
 	public static final List<Mod> ALL = new ArrayList<>();
 
+	// SETTINGS tab (spec §7) — two sub-tabs, stored under their own pseudo-ids
+	// via the same read/write accessors the mods use. No CONTROLS sub-tab:
+	// keybinds live only inside Zoom and Freelook.
+	public static final String GENERAL_ID = "@general";
+	public static final String PERFORMANCE_ID = "@performance";
+
+	public static final List<ModOption> GENERAL_SETTINGS = List.of(
+			ModOption.toggle("borderlessFullscreen", "Borderless Fullscreen", false),
+			ModOption.toggle("rawMouseInput", "Raw Mouse Input", true),
+			ModOption.toggle("smartDisconnect", "Smart Disconnect", true),
+			ModOption.toggle("keepInventoryCentered", "Keep Inventory Centered", false),
+			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),
+			ModOption.dropdown("mainMenuStyle", "Main Menu Style", "Origin", "Vanilla"),
+			ModOption.toggle("showAchievements", "Show Achievements", true));
+
+	public static final List<ModOption> PERFORMANCE_SETTINGS = List.of(
+			ModOption.toggle("turboNametags", "Turbo Nametags", true),
+			ModOption.toggle("memorySavings", "Memory Savings", true),
+			ModOption.toggle("renderRegions", "Render Regions", true),
+			ModOption.dropdown("lazyChunkLoading", "Lazy Chunk Loading", "Off", "Low", "Medium", "High"),
+			ModOption.toggle("hudCaching", "HUD Caching", true),
+			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
+			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
+			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
+			ModOption.toggle("particlePhysics", "Use Particle Physics", false),
+			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
+			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"));
+
 	// Vanilla 1.21.1 particle types (net.minecraft.core.particles.ParticleTypes)
 	// — the Particle Changer builds a per-type control block from this list so
 	// coverage is exhaustive rather than a hand-picked sample.

@@ -93,6 +93,21 @@ public class OriginModMenuScreen extends Screen {
 
 	private Tab tab = Tab.MODS;
 
+	// SETTINGS tab: General / Performance sub-tabs (spec §7 — no Controls tab)
+	enum SubTab { GENERAL, PERFORMANCE }
+
+	private SubTab subTab = SubTab.GENERAL;
+	private double settingsTabScroll = 0, settingsTabScrollTarget = 0;
+	private int settingsTabMaxScroll = 0;
+
+	private java.util.List<ModOption> subOpts() {
+		return subTab == SubTab.GENERAL ? Mods.GENERAL_SETTINGS : Mods.PERFORMANCE_SETTINGS;
+	}
+
+	private String subId() {
+		return subTab == SubTab.GENERAL ? Mods.GENERAL_ID : Mods.PERFORMANCE_ID;
+	}
+
 	private void layout() {
 		cols = Math.max(3, (pw() - 24 + gap) / (cellW + gap));
 		filtered.clear();
@@ -138,6 +153,7 @@ public class OriginModMenuScreen extends Screen {
 		lastFrameNanos = nanos;
 		scroll += (scrollTarget - scroll) * Math.min(1.0, dt / 60.0);
 		settingsScroll += (settingsScrollTarget - settingsScroll) * Math.min(1.0, dt / 60.0);
+		settingsTabScroll += (settingsTabScrollTarget - settingsTabScroll) * Math.min(1.0, dt / 60.0);
 
 		double p = OriginTheme.easeOut(Math.min(1.0, (now - openedAt) / (double) SLIDE_MS));
 		if (closingAt > 0) {
@@ -300,12 +316,52 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private void renderSettingsTab(GuiGraphics g, int mx, int my, long now, float alpha) {
-		// Full General/Performance settings arrive in the structure phase; a
-		// clean placeholder for now so tab navigation is complete.
-		int cx = px() + pw() / 2;
-		OriginUi.mark(g, cx, py() + ph() / 2 - 16, 26, 0.5f * alpha);
-		String s = "Settings — General & Performance";
-		g.drawString(font, s, cx - font.width(s) / 2, py() + ph() / 2 + 22, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+		int x0 = px() + 18, x1 = px() + pw() - 18;
+		int sty = py() + 40;
+		String[] labels = {"GENERAL", "PERFORMANCE"};
+		SubTab[] subs = {SubTab.GENERAL, SubTab.PERFORMANCE};
+		int tx = x0;
+		for (int i = 0; i < labels.length; i++) {
+			int w = font.width(labels[i]) + 24;
+			boolean active = subTab == subs[i];
+			boolean hover = in(mx, my, tx, sty, tx + w, sty + 20);
+			OriginUi.panel(g, tx, sty, w, 20, 8,
+					withAlpha(active ? 0x2EFFFFFF : (hover ? 0x1EFFFFFF : 0x12FFFFFF), alpha),
+					withAlpha(active ? 0x55FFFFFF : OriginTheme.STROKE, alpha));
+			g.drawString(font, labels[i], tx + 12, sty + 6,
+					withAlpha(active ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), false);
+			tx += w + 8;
+		}
+
+		int top = py() + 70;
+		int bottom = py() + ph() - 10;
+		settingsTabMaxScroll = layoutRows(subOpts(), subId(), top, settingsTabScroll, "");
+		g.enableScissor(px(), top, px() + pw(), bottom);
+		drawRows(g, subId(), x0, x1, top, bottom, mx, my, alpha);
+		g.disableScissor();
+	}
+
+	private boolean clickSettingsTab(double mx, double my) {
+		int x0 = px() + 18, x1 = px() + pw() - 18;
+		int sty = py() + 40;
+		String[] labels = {"GENERAL", "PERFORMANCE"};
+		SubTab[] subs = {SubTab.GENERAL, SubTab.PERFORMANCE};
+		int tx = x0;
+		for (int i = 0; i < labels.length; i++) {
+			int w = font.width(labels[i]) + 24;
+			if (in(mx, my, tx, sty, tx + w, sty + 20)) {
+				subTab = subs[i];
+				settingsTabScroll = settingsTabScrollTarget = 0;
+				return true;
+			}
+			tx += w + 8;
+		}
+		int top = py() + 70, bottom = py() + ph() - 10;
+		settingsTabMaxScroll = layoutRows(subOpts(), subId(), top, settingsTabScroll, "");
+		if (my >= top && my <= bottom) {
+			clickRows(subId(), x0, x1, mx, my);
+		}
+		return true; // settings-tab clicks never fall through
 	}
 
 	private void renderSettings(GuiGraphics g, int mouseX, int mouseY, long now, float alpha, Mods.Mod mod) {
@@ -342,23 +398,11 @@ public class OriginModMenuScreen extends Screen {
 				withAlpha(settingsSearch.isEmpty() ? OriginTheme.MUTED : OriginTheme.TEXT, alpha), false);
 
 		// scrollable content
-		layoutSettings(mod);
 		int top = hy + 62;
 		int bottom = py() + ph() - 10;
+		settingsMaxScroll = layoutRows(mod.options(), mod.id(), top, settingsScroll, settingsSearch);
 		g.enableScissor(px(), top, px() + pw(), bottom);
-		for (SRow r : srows) {
-			if (r.y() + r.h() < top - 6 || r.y() > bottom) {
-				continue;
-			}
-			if (r.o().kind == ModOption.Kind.HEADER) {
-				g.drawString(font, r.o().label.toUpperCase(java.util.Locale.ROOT), x0 + 2, r.y() + 5,
-						withAlpha(OriginTheme.MUTED, alpha), false);
-				g.fill(x0 + 2, r.y() + 16, x1, r.y() + 17, withAlpha(OriginTheme.STROKE, alpha));
-			} else {
-				int rx0 = r.indent() ? x0 + 16 : x0;
-				renderRow(g, mod.id(), r.o(), rx0, x1, r.y(), mouseX, mouseY, alpha);
-			}
-		}
+		drawRows(g, mod.id(), x0, x1, top, bottom, mouseX, mouseY, alpha);
 		g.disableScissor();
 
 		if (mod.options().isEmpty()) {
@@ -370,15 +414,14 @@ public class OriginModMenuScreen extends Screen {
 	// Builds the scroll-adjusted row layout shared by render + click, so hit
 	// testing always matches what's drawn. Headers add a section gap; rows
 	// nested under an off toggle are omitted; a search query flattens to matches.
-	private void layoutSettings(Mods.Mod mod) {
+	private int layoutRows(java.util.List<ModOption> opts, String id, int top, double scroll, String search) {
 		srows.clear();
-		int top = py() + 12 + 62;
 		int bottom = py() + ph() - 10;
-		int y = top + 6 - (int) Math.round(settingsScroll);
-		String q = settingsSearch.toLowerCase(java.util.Locale.ROOT);
+		int y = top + 6 - (int) Math.round(scroll);
+		String q = search.toLowerCase(java.util.Locale.ROOT);
 		boolean searching = !q.isEmpty();
 		boolean first = true;
-		for (ModOption o : mod.options()) {
+		for (ModOption o : opts) {
 			if (o.kind == ModOption.Kind.HEADER) {
 				if (searching) {
 					continue;
@@ -391,7 +434,7 @@ public class OriginModMenuScreen extends Screen {
 				first = false;
 				continue;
 			}
-			if (o.dependsOn != null && !Mods.bool(mod.id(), o.dependsOn)) {
+			if (o.dependsOn != null && !Mods.bool(id, o.dependsOn)) {
 				continue;
 			}
 			if (searching && !o.label.toLowerCase(java.util.Locale.ROOT).contains(q)) {
@@ -401,8 +444,40 @@ public class OriginModMenuScreen extends Screen {
 			y += 30;
 			first = false;
 		}
-		int content = y + (int) Math.round(settingsScroll) - (top + 6);
-		settingsMaxScroll = Math.max(0, content - (bottom - top));
+		int content = y + (int) Math.round(scroll) - (top + 6);
+		return Math.max(0, content - (bottom - top));
+	}
+
+	// draws the currently-laid-out srows (headers + control rows) for a target
+	// id, within an already-active scissor region.
+	private void drawRows(GuiGraphics g, String id, int x0, int x1, int top, int bottom, int mouseX, int mouseY, float alpha) {
+		for (SRow r : srows) {
+			if (r.y() + r.h() < top - 6 || r.y() > bottom) {
+				continue;
+			}
+			if (r.o().kind == ModOption.Kind.HEADER) {
+				g.drawString(font, r.o().label.toUpperCase(java.util.Locale.ROOT), x0 + 2, r.y() + 5,
+						withAlpha(OriginTheme.MUTED, alpha), false);
+				g.fill(x0 + 2, r.y() + 16, x1, r.y() + 17, withAlpha(OriginTheme.STROKE, alpha));
+			} else {
+				int rx0 = r.indent() ? x0 + 16 : x0;
+				renderRow(g, id, r.o(), rx0, x1, r.y(), mouseX, mouseY, alpha);
+			}
+		}
+	}
+
+	// hit-tests the currently-laid-out srows against a click.
+	private boolean clickRows(String id, int x0, int x1, double mx, double my) {
+		for (SRow r : srows) {
+			if (r.o().kind == ModOption.Kind.HEADER) {
+				continue;
+			}
+			int rx0 = r.indent() ? x0 + 16 : x0;
+			if (my >= r.y() && my < r.y() + r.h() && clickRow(id, r.o(), rx0, x1, r.y(), mx)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void renderRow(GuiGraphics g, String modId, ModOption o, int x0, int x1, int y, int mx, int my, float alpha) {
@@ -478,7 +553,7 @@ public class OriginModMenuScreen extends Screen {
 				return true;
 			}
 			if (tab == Tab.SETTINGS) {
-				return super.mouseClicked(mx, my, button);
+				return clickSettingsTab(mx, my);
 			}
 			for (int i = 0; i < filtered.size(); i++) {
 				int[] r = cellRect(i);
@@ -516,19 +591,11 @@ public class OriginModMenuScreen extends Screen {
 			Mods.setOn(mod.id(), !Mods.on(mod.id()));
 			return true;
 		}
-		layoutSettings(mod);
 		int top = py() + 12 + 62;
 		int bottom = py() + ph() - 10;
-		if (my >= top && my <= bottom) {
-			for (SRow r : srows) {
-				if (r.o().kind == ModOption.Kind.HEADER) {
-					continue;
-				}
-				int rx0 = r.indent() ? x0 + 16 : x0;
-				if (my >= r.y() && my < r.y() + r.h() && clickRow(mod.id(), r.o(), rx0, x1, r.y(), mx)) {
-					return true;
-				}
-			}
+		settingsMaxScroll = layoutRows(mod.options(), mod.id(), top, settingsScroll, settingsSearch);
+		if (my >= top && my <= bottom && clickRows(mod.id(), x0, x1, mx, my)) {
+			return true;
 		}
 		return super.mouseClicked(mx, my, button);
 	}
@@ -648,7 +715,11 @@ public class OriginModMenuScreen extends Screen {
 			return true;
 		}
 		if (page == null) {
-			scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget - sy * 30));
+			if (tab == Tab.SETTINGS) {
+				settingsTabScrollTarget = Math.max(0, Math.min(settingsTabMaxScroll, settingsTabScrollTarget - sy * 30));
+			} else {
+				scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget - sy * 30));
+			}
 		} else {
 			settingsScrollTarget = Math.max(0, Math.min(settingsMaxScroll, settingsScrollTarget - sy * 30));
 		}
@@ -680,7 +751,7 @@ public class OriginModMenuScreen extends Screen {
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-			if (page == null && !search.isEmpty()) {
+			if (page == null && tab == Tab.MODS && !search.isEmpty()) {
 				search = search.substring(0, search.length() - 1);
 				scrollTarget = 0;
 				return true;
@@ -699,7 +770,7 @@ public class OriginModMenuScreen extends Screen {
 		if (capMod != null) {
 			return true;
 		}
-		if (page == null && chr >= 32 && search.length() < 24) {
+		if (page == null && tab == Tab.MODS && chr >= 32 && search.length() < 24) {
 			search += chr;
 			scrollTarget = 0;
 			return true;
