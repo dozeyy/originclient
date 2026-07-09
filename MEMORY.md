@@ -1945,3 +1945,39 @@ is now 0.2.0. On next launch the purge deletes the 0.1.0 jar and installs 0.2.0.
 (`src/OriginLauncher.App/bin/Debug/net8.0-windows/OriginLauncher.App.exe`) and
 do a genuine first-run (delete an instance's `config/`, or pick a fresh
 version) to confirm no crash; launch 1.21.1 to confirm the 0.2.0 premium UI.
+
+---
+
+## 2026-07-08 — In-game mod menu overhaul (ORIGIN revision spec)
+
+Implemented the full "ORIGIN Client — Mod Menu Revision Spec" in
+`src/OriginClient.Mod`. All compiling (`gradlew build` green); mod bumped
+0.2.0 -> 0.3.0, launcher rebuilt so the bundled jar ships it. Commits af57f48
+(shell + color picker + content) and 2eb0c4c (settings tab + HUD resize).
+
+- Right-Shift now opens `OriginQuickMenu` (ORIGIN mark + single MODS button) ->
+  grid. Grid: ORIGIN logo top-left, MODS/SETTINGS tabs, search, 4-col cards with
+  OPTIONS + ENABLED/DISABLED. Custom Sky removed.
+- `OriginColorPicker`: one shared chroma picker (2D SB field, hue/alpha sliders,
+  chroma toggle/speed/type, hex, presets) opened by every color row. Chroma
+  settings persist as sibling keys `<key>#chroma/#speed/#type`.
+- `ModOption` extended: HEADER (section labels), DROPDOWN (`< value >`), nesting
+  via `.under(parentKey)`, color default. Settings pages scroll, with a
+  description line, per-page search, section headers, nested rows.
+- Registry rewritten to the full spec set with exact options + full vanilla
+  particle-type coverage (Particle Changer builds per-type blocks from
+  PARTICLE_TYPES). Toggle Sneak/Sprint merged into one mod; sprint/sneak hooks
+  updated. Gameplay-wired keys preserved (zoom fov/key, chat opacity/scale/
+  timestamps, chunkborders/blockoverlay color+thickness, fullbright gamma,
+  timechanger time, coords biome/direction, scoreboard scale, nametags scale,
+  motionblur amount, particles mode).
+- SETTINGS tab: General/Performance sub-tabs (Mods.GENERAL_SETTINGS /
+  PERFORMANCE_SETTINGS, stored under @general/@performance). No Controls tab.
+- HUD editor: dark hover highlight + single top-right square resize handle.
+- Row engine shared across mod pages + settings tab (layoutRows/drawRows/clickRows).
+
+Scope note: this was a mod-MENU spec — every page/control is built and persists,
+but some newly-added options are schema-only (not yet wired to gameplay, e.g.
+weather mode dropdown, block-outline sub-toggles). Icons: existing baked atlas
+already covers every mod id; not regenerated. NOT yet visually confirmed in-game
+(compiles clean, but no live launch from here) — needs a real 1.21.1 launch.
