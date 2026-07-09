@@ -109,13 +109,28 @@ public sealed class VersionManager
         var path = BuildInstancePath(version);
         var launcher = new MinecraftLauncher(path);
         var modsFolder = Path.Combine(path.BasePath, "mods");
+        var configFolder = Path.Combine(path.BasePath, "config");
 
         // Provisioned unconditionally for any loader, not just when a perf
         // profile or OptiFine happens to populate it — the folder must be
         // ready to receive dropped-in .jar files the moment a loader is
         // installed, with zero manual folder creation on the player's part.
+        //
+        // config/ is created for the same reason, and it fixes a real
+        // first-launch crash: FerriteCore (part of every Fabric perf stack)
+        // calls Files.createFile("config/ferritecore.mixin.properties") during
+        // early mixin init, and createFile does NOT create parent dirs — so on
+        // a brand-new instance with no config/ folder it throws
+        // NoSuchFileException, FerriteConfig's static init fails, and Minecraft
+        // hard-crashes. The *second* launch worked only because Sodium/Lithium
+        // had since created config/ while writing their own defaults. Making
+        // the folder exist up front removes the "first run always crashes"
+        // class entirely, for any config-writing mod, on any version.
         if (loader != LoaderKind.Vanilla)
+        {
             Directory.CreateDirectory(modsFolder);
+            Directory.CreateDirectory(configFolder);
+        }
 
         var versionName = version;
 

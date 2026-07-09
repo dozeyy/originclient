@@ -1909,3 +1909,39 @@ mode; HUD Editor chip goes to the same workspace; (7) shared OriginUi kit
 (rounded 9-slice panels from the button masks, switches, icons, glow, mark,
 slim sliders, eased anim map) — only MC font stays pixelated. Smooth-scroll
 lerp added to the grid.
+
+---
+
+## 2026-07-08 — First-run crash (all versions) root-caused + fixed; stale 1.21.1 UI
+
+**Symptom (Will):** first launch of any version crashes (exit code 1), second
+launch works; 1.17.1 crashed outright; 1.21.1 loaded the OLD in-game UI.
+
+**Crash root cause (proven from `logs/1.17.1_20260708_185211.log`):**
+FerriteCore (in every Fabric perf stack) calls
+`Files.createFile("config/ferritecore.mixin.properties")` during early mixin
+plugin init. `createFile` does NOT create parent dirs, so on a brand-new
+instance with no `config/` folder it throws `NoSuchFileException` →
+`FerriteConfig` static init fails → `NoClassDefFoundError` → "Minecraft has
+crashed!". The *second* launch worked only because Sodium/Lithium had since
+created `config/` while writing their own defaults. Filesystem-confirmed: the
+1.17.1 instance base + `mods/` were provisioned at 18:50, but `config/` (with
+only `lithium.properties` + `sodium-mixins.properties`) was timestamped 18:52 —
+i.e. created *during* the crashing boot, not by the launcher.
+
+**Fix:** `VersionManager.InstallAndBuildProcessAsync` now creates
+`<instance>/config/` alongside `mods/` for any non-vanilla loader, before
+launch. Removes the "first run always crashes" class for any config-writing mod
+on any version.
+
+**Stale 1.21.1 UI:** local branch was 16 commits behind `origin/main`; fast-
+forwarded to `5b7e16b` (premium redesign) which also carries `12ecd2a` (purge
+stale `originclient*.jar` + bump 0.1.0→0.2.0). The 1.21.1 instance still had a
+0.1.0 `originclient.jar` from Jul 6 (the old UI). Rebuilt mod (0.2.0,
+`gradlew build`) + launcher (`dotnet build`); bundled jar in the launcher output
+is now 0.2.0. On next launch the purge deletes the 0.1.0 jar and installs 0.2.0.
+
+**Still to confirm in-game:** run the freshly built launcher
+(`src/OriginLauncher.App/bin/Debug/net8.0-windows/OriginLauncher.App.exe`) and
+do a genuine first-run (delete an instance's `config/`, or pick a fresh
+version) to confirm no crash; launch 1.21.1 to confirm the 0.2.0 premium UI.

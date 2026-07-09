@@ -343,15 +343,16 @@ public partial class HomePage : UserControl
         }
         catch (MicrosoftAuthException ex)
         {
-            StatusText.Text = ex.Stage == "token_refresh"
+            var upToDateMessage = ex.Stage == "token_refresh"
                 ? "Your session expired — remove and re-add this account in the account switcher."
                 : ex.Message;
+            StatusText.Text = await LaunchFailureTextAsync(ex, upToDateMessage);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed (auth): {ex}");
             WriteLaunchErrorLog(ex);
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"Launch failed: {ex.Message}";
+            StatusText.Text = await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}");
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed: {ex}");
             WriteLaunchErrorLog(ex);
         }
@@ -391,6 +392,44 @@ public partial class HomePage : UserControl
         {
             // Best-effort only.
         }
+    }
+
+    // Update-aware failure text. A launcher older than the latest release is
+    // almost always failing on a bug that's already fixed upstream — that's
+    // exactly how the login_with_xbox / SSL auth failure got resolved: by
+    // updating. So on any launch failure, re-check the feed (the pre-launch
+    // gate fails open on a transient, so an out-of-date build can slip through
+    // to here) and, when this build is genuinely out of date, tell the user to
+    // update instead of showing a raw error they can't act on. Dev builds and
+    // up-to-date builds fall through to the real message + error code so it can
+    // actually be reported. CheckAsync never throws (it fails open internally).
+    private static async Task<string> LaunchFailureTextAsync(Exception ex, string upToDateMessage)
+    {
+        await UpdateService.CheckAsync();
+        return UpdateService.UpdateRequired
+            ? "Launch failed — please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version."
+            : upToDateMessage;
+    }
+
+    // A concise, reportable error string for an up-to-date build: the top-level
+    // message plus the innermost cause (for wrapped failures like a TLS reset,
+    // that inner message is the part that matters), tagged with a short code the
+    // user can quote. Full detail still goes to the launcher_error log.
+    private static string DescribeError(Exception ex)
+    {
+        var inner = ex;
+        while (inner.InnerException != null) inner = inner.InnerException;
+
+        var code = ex is System.Net.Http.HttpRequestException http
+                   && http.HttpRequestError != System.Net.Http.HttpRequestError.Unknown
+            ? http.HttpRequestError.ToString()
+            : inner.GetType().Name;
+
+        var detail = ReferenceEquals(inner, ex) || inner.Message == ex.Message
+            ? ex.Message
+            : $"{ex.Message} — {inner.Message}";
+
+        return $"{detail} [{code}]";
     }
 
     private static string LoaderCaption(LoaderKind loader) => loader switch
