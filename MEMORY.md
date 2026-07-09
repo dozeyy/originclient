@@ -1981,3 +1981,27 @@ but some newly-added options are schema-only (not yet wired to gameplay, e.g.
 weather mode dropdown, block-outline sub-toggles). Icons: existing baked atlas
 already covers every mod id; not regenerated. NOT yet visually confirmed in-game
 (compiles clean, but no live launch from here) — needs a real 1.21.1 launch.
+
+---
+
+## 2026-07-08 — Live-test feedback pass (mod 0.3.1, commit d1b7c86)
+
+Will's first real in-game test of the overhaul produced a fix batch:
+
+**Freelook root cause (real bug, worth remembering):** the mixin config sets
+`defaultRequire: 0`, so a failed @Redirect owner-match dies SILENTLY — the
+turnPlayer redirect never applied at runtime even though the build was green.
+Plus the release handler copied the camera angle onto the player (opposite of
+snap-back). Fix: HEAD @Inject on turnPlayer w/ @Shadow accumulatedDX/DY —
+consume deltas into the camera accumulator, cancel, never touch player
+rotation. Lesson: with defaultRequire=0, a green build proves nothing about
+mixins applying — prefer @Inject(HEAD) over @Redirect where possible.
+
+Also: Right Shift now opens HudEditorScreen(quick=true) directly (drag/resize
+immediately + ORIGIN logo + dark MODS button; OriginQuickMenu deleted); cards
+use sage-green/clay-red ONLY on the ENABLED/DISABLED button, icons always
+white; search centered + focusable w/ pulsing cursor; cursor-halo glow across
+menu; cells shrink to fit width; potion HUD draws real effect sprites + new
+GuiEffectsMixin gates vanilla top-right behind "Vanilla Display" toggle; block
+outline chroma reverted; icon atlas regenerated (21 icons = 21 mods, cleaner
+flask/shield/cloud; customsky/togglesneak/packdisplay removed).
