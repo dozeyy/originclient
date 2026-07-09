@@ -198,6 +198,7 @@ public final class Mods {
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
 
 		add("potionhud", "Potion Effects", "Active status effects.", false,
+				ModOption.toggle("vanillaDisplay", "Vanilla Display (top-right)", false),
 				ModOption.toggle("showInInventory", "Show In Inventory", true),
 				ModOption.toggle("showWhileTyping", "Show While Typing", true),
 				ModOption.toggle("effectName", "Effect Name", true),
@@ -241,7 +242,7 @@ public final class Mods {
 
 		// ---- gameplay / camera ----
 		add("freelook", "Freelook", "Look around without turning.", true,
-				ModOption.dropdown("listMode", "List Mode", "First Person", "Third Person"),
+				ModOption.dropdown("listMode", "List Mode", "Third Person", "First Person"),
 				ModOption.toggle("invertPitch", "Invert Pitch", false),
 				ModOption.toggle("invertYaw", "Invert Yaw", false),
 				ModOption.toggle("toggle", "Toggle Freelook", false),
@@ -254,14 +255,14 @@ public final class Mods {
 				ModOption.slider("gamma", "Boost Factor", 1, 10, 0.5, 10, "%.1fx"));
 
 		// ---- world overlays ----
+		// No chroma anywhere on Block Outline (reverted — it doesn't work on
+		// the outline renderer): plain color + width only.
 		add("blockoverlay", "Block Outline", "Selection outline and overlay.", false,
 				ModOption.toggle("outline", "Block Outline", true),
 				ModOption.slider("thickness", "Block Outline Width", 1, 3, 1, 1, "%.0f").under("outline"),
-				ModOption.dropdown("outlineMode", "Block Outline Mode", "Static", "Chroma", "Rainbow").under("outline"),
 				ModOption.color("color", "Block Outline Color", 0xFFFFFFFF).under("outline"),
 				ModOption.toggle("interpolateAlpha", "Interpolate Alpha", false).under("outline"),
 				ModOption.toggle("overlay", "Block Overlay", false),
-				ModOption.dropdown("overlayMode", "Block Overlay Mode", "Static", "Chroma").under("overlay"),
 				ModOption.color("overlayColor", "Block Overlay Color", 0x55FFFFFF).under("overlay"),
 				ModOption.toggle("side", "Side", false),
 				ModOption.toggle("showHiddenFoliage", "Show Hidden Foliage", false));

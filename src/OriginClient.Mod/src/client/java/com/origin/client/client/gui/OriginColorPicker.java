@@ -21,6 +21,8 @@ public final class OriginColorPicker {
 
 	private static boolean open = false;
 	private static String modId, key, title;
+	// chroma is hidden for consumers whose renderer can't animate it (block outline)
+	private static boolean allowChroma = true;
 
 	// working HSVA (0..360, 0..1, 0..1, 0..255)
 	private static float h, s, v;
@@ -38,6 +40,7 @@ public final class OriginColorPicker {
 		OriginColorPicker.modId = modId;
 		OriginColorPicker.key = key;
 		OriginColorPicker.title = label;
+		OriginColorPicker.allowChroma = !"blockoverlay".equals(modId);
 		int argb = Mods.color(modId, key);
 		float[] hsv = argbToHsv(argb);
 		h = hsv[0];
@@ -104,9 +107,11 @@ public final class OriginColorPicker {
 		boolean closeHover = in(mx, my, px + PW - 26, py + 8, px + PW - 8, py + 24);
 		g.drawString(font, "✕", px + PW - 22, py + 10, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED, false);
 
-		// chroma switch + label
-		g.drawString(font, "Chroma", chromaSwX() - 4 - font.width("Chroma"), chromaSwY() + 4, OriginTheme.TEXT_DIM, false);
-		OriginUi.switchAt(g, "cp:chroma", chromaSwX(), chromaSwY(), 30, chromaOn(modId, key), true);
+		// chroma switch + label (hidden for non-animatable consumers)
+		if (allowChroma) {
+			g.drawString(font, "Chroma", chromaSwX() - 4 - font.width("Chroma"), chromaSwY() + 4, OriginTheme.TEXT_DIM, false);
+			OriginUi.switchAt(g, "cp:chroma", chromaSwX(), chromaSwY(), 30, chromaOn(modId, key), true);
+		}
 
 		// 2D saturation/brightness field: white->hue horizontally, then a
 		// transparent->black vertical overlay = the standard SB square.
@@ -145,19 +150,20 @@ public final class OriginColorPicker {
 		int ay2 = barY() + Math.round((1 - alpha / 255f) * FIELD_H);
 		g.fill(ax - 2, ay2 - 1, ax + BAR_W + 2, ay2 + 1, 0xFFFFFFFF);
 
-		// speed slider + value
-		g.drawString(font, "Speed", speedX(), speedY() - 12, OriginTheme.MUTED, false);
-		double speed = chromaSpeed(modId, key);
-		OriginUi.slider(g, speedX(), speedY(), SPEED_W, clamp01((speed - 1) / 99.0), drag == 4);
-		g.drawString(font, String.format("%.0f", speed), speedX() + SPEED_W + 8, speedY() - 4, OriginTheme.TEXT_DIM, false);
+		// speed slider + type dropdown — chroma-only controls
+		if (allowChroma) {
+			g.drawString(font, "Speed", speedX(), speedY() - 12, OriginTheme.MUTED, false);
+			double speed = chromaSpeed(modId, key);
+			OriginUi.slider(g, speedX(), speedY(), SPEED_W, clamp01((speed - 1) / 99.0), drag == 4);
+			g.drawString(font, String.format("%.0f", speed), speedX() + SPEED_W + 8, speedY() - 4, OriginTheme.TEXT_DIM, false);
 
-		// type dropdown < value >
-		String type = chromaType();
-		boolean tHover = in(mx, my, typeX(), typeY(), typeX() + 92, typeY() + 18);
-		OriginUi.panel(g, typeX(), typeY(), 92, 18, 7, tHover ? 0x24FFFFFF : 0x14FFFFFF, OriginTheme.STROKE);
-		g.drawString(font, "<", typeX() + 6, typeY() + 5, OriginTheme.TEXT_DIM, false);
-		g.drawString(font, type, typeX() + (92 - font.width(type)) / 2, typeY() + 5, OriginTheme.TEXT, false);
-		g.drawString(font, ">", typeX() + 92 - 6 - font.width(">"), typeY() + 5, OriginTheme.TEXT_DIM, false);
+			String type = chromaType();
+			boolean tHover = in(mx, my, typeX(), typeY(), typeX() + 92, typeY() + 18);
+			OriginUi.panel(g, typeX(), typeY(), 92, 18, 7, tHover ? 0x24FFFFFF : 0x14FFFFFF, OriginTheme.STROKE);
+			g.drawString(font, "<", typeX() + 6, typeY() + 5, OriginTheme.TEXT_DIM, false);
+			g.drawString(font, type, typeX() + (92 - font.width(type)) / 2, typeY() + 5, OriginTheme.TEXT, false);
+			g.drawString(font, ">", typeX() + 92 - 6 - font.width(">"), typeY() + 5, OriginTheme.TEXT_DIM, false);
+		}
 
 		// preset palette + hex
 		int argb = current();
@@ -191,7 +197,7 @@ public final class OriginColorPicker {
 			close(); // click outside dismisses
 			return true;
 		}
-		if (in(mx, my, chromaSwX() - 4, chromaSwY(), chromaSwX() + 30, chromaSwY() + 18)) {
+		if (allowChroma && in(mx, my, chromaSwX() - 4, chromaSwY(), chromaSwX() + 30, chromaSwY() + 18)) {
 			Mods.set(modId, key + "#chroma", !chromaOn(modId, key));
 			return true;
 		}
@@ -210,12 +216,12 @@ public final class OriginColorPicker {
 			applyAlpha(my);
 			return true;
 		}
-		if (in(mx, my, speedX(), speedY() - 4, speedX() + SPEED_W, speedY() + 10)) {
+		if (allowChroma && in(mx, my, speedX(), speedY() - 4, speedX() + SPEED_W, speedY() + 10)) {
 			drag = 4;
 			applySpeed(mx);
 			return true;
 		}
-		if (in(mx, my, typeX(), typeY(), typeX() + 92, typeY() + 18)) {
+		if (allowChroma && in(mx, my, typeX(), typeY(), typeX() + 92, typeY() + 18)) {
 			cycleType(button == 1 ? -1 : 1);
 			return true;
 		}

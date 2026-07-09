@@ -85,8 +85,19 @@ public class OriginModMenuScreen extends Screen {
 		return (int) (height * 0.75);
 	}
 
-	private int cellW = 118, cellH = 104, gap = 10, cols = 4;
+	private static final int BASE_CELL_W = 118;
+	private int cellW = BASE_CELL_W, cellH = 104, gap = 10, cols = 4;
 	private final List<Mods.Mod> filtered = new ArrayList<>();
+
+	// the two non-gray colors in the system (muted sage / muted clay) — used
+	// ONLY by the ENABLED/DISABLED button per the design: icons and everything
+	// else stay white regardless of state.
+	private static final int GREEN_TEXT = 0xFF7FA98F, GREEN_EDGE = 0xB32F7D53, GREEN_FILL = 0x2E2F7D53;
+	private static final int RED_TEXT = 0xFFC77A73, RED_EDGE = 0xB3B23A33, RED_FILL = 0x2EB23A33;
+
+	// search focus + the cursor-halo glow that follows the mouse
+	private boolean searchFocused = false;
+	private double haloX = -1, haloY = -1;
 
 	// top-bar tab selection
 	enum Tab { MODS, SETTINGS }
@@ -109,7 +120,12 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private void layout() {
-		cols = Math.max(3, (pw() - 24 + gap) / (cellW + gap));
+		// Global scaling: pick how many base-width cells fit (min 3 columns),
+		// then shrink the cell to exactly fill the row — cards can never be
+		// pushed out of view sideways at any window size; overflow scrolls.
+		int avail = pw() - 24;
+		cols = Math.max(3, (avail + gap) / (BASE_CELL_W + gap));
+		cellW = Math.min(BASE_CELL_W, (avail - (cols - 1) * gap) / cols);
 		filtered.clear();
 		String q = search.toLowerCase();
 		for (Mods.Mod m : Mods.ALL) {
@@ -198,6 +214,16 @@ public class OriginModMenuScreen extends Screen {
 
 		pose.popPose();
 
+		// cursor halo across the whole menu — same lagged-follow factor as the
+		// launcher site's glow (HALO_LERP_FACTOR)
+		if (haloX < 0) {
+			haloX = mouseX;
+			haloY = mouseY;
+		}
+		haloX += (mouseX - haloX) * OriginTheme.HALO_LERP_FACTOR;
+		haloY += (mouseY - haloY) * OriginTheme.HALO_LERP_FACTOR;
+		OriginUi.glow(g, haloX, haloY, 150, 0.10f * (float) p);
+
 		// shared color picker overlay draws last, in raw screen space
 		OriginColorPicker.render(g, mouseX, mouseY);
 	}
@@ -234,17 +260,24 @@ public class OriginModMenuScreen extends Screen {
 			return;
 		}
 
-		// search bar (below the top bar)
+		// search bar — centered, identical in clear and backed states. Focused:
+		// placeholder disappears and a pulsing cursor shows it's ready.
 		int sy = py() + 40;
 		int sw = Math.min(300, pw() - 24);
-		int sx = px() + 12;
-		OriginUi.panel(g, sx, sy, sw, 22, 8, withAlpha(0x66000000, alpha), withAlpha(OriginTheme.STROKE, alpha));
+		int sx = px() + (pw() - sw) / 2;
+		OriginUi.panel(g, sx, sy, sw, 22, 8,
+				withAlpha(searchFocused ? 0x80000000 : 0x66000000, alpha),
+				withAlpha(searchFocused ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
 		OriginUi.icon(g, "zoom", sx + 5, sy + 3, 15, withAlpha(OriginTheme.MUTED, alpha));
-		String shown = search.isEmpty() ? "Search mods" : search;
-		g.drawString(font, shown, sx + 24, sy + 7, withAlpha(search.isEmpty() ? OriginTheme.MUTED : OriginTheme.TEXT, alpha), false);
-		if ((now / 530) % 2 == 0 && !search.isEmpty()) {
+		if (search.isEmpty() && !searchFocused) {
+			g.drawString(font, "Search mods", sx + 24, sy + 7, withAlpha(OriginTheme.MUTED, alpha), false);
+		} else {
+			g.drawString(font, search, sx + 24, sy + 7, withAlpha(OriginTheme.TEXT, alpha), false);
+		}
+		if (searchFocused) {
+			float pulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(now / 350.0));
 			int cw = font.width(search);
-			g.fill(sx + 24 + cw + 1, sy + 6, sx + 24 + cw + 2, sy + 16, withAlpha(OriginTheme.TEXT, alpha));
+			g.fill(sx + 24 + cw + 1, sy + 6, sx + 24 + cw + 2, sy + 16, withAlpha(OriginTheme.TEXT, alpha * pulse));
 		}
 
 		// grid
@@ -288,11 +321,13 @@ public class OriginModMenuScreen extends Screen {
 
 		OriginUi.panel(g, cx, cy, cellW, cellH, 10,
 				withAlpha(hover ? 0x24FFFFFF : 0x14FFFFFF, alpha),
-				withAlpha(on ? 0x4DFFFFFF : (hover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE), alpha));
+				withAlpha(hover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
 
+		// icon stays fully white in every state — only the toggle button below
+		// communicates enabled/disabled
 		int iconSize = 30 + Math.round(2 * hv);
 		OriginUi.icon(g, mod.id(), cx + (cellW - iconSize) / 2, cy + 12 - Math.round(hv), iconSize,
-				withAlpha(on ? OriginTheme.TEXT : OriginTheme.MUTED, alpha * (0.82f + 0.18f * hv)));
+				withAlpha(OriginTheme.TEXT, alpha));
 
 		String name = font.width(mod.name()) > cellW - 12
 				? font.plainSubstrByWidth(mod.name(), cellW - 16) + "…" : mod.name();
@@ -308,11 +343,14 @@ public class OriginModMenuScreen extends Screen {
 		int tby = cy + 80;
 		String label = on ? "ENABLED" : "DISABLED";
 		boolean tHover = in(mx, my, bx, tby, bx + bw, tby + 15);
-		OriginUi.panel(g, bx, tby, bw, 15, 7,
-				withAlpha(on ? (tHover ? 0x33FFFFFF : 0x22FFFFFF) : (tHover ? 0x1EFFFFFF : 0x12FFFFFF), alpha),
-				withAlpha(on ? 0x66FFFFFF : OriginTheme.STROKE, alpha));
+		int fill = on ? GREEN_FILL : RED_FILL;
+		if (tHover) {
+			fill = (fill & 0xFFFFFF) | 0x46000000;
+		}
+		OriginUi.panel(g, bx, tby, bw, 15, 7, withAlpha(fill, alpha),
+				withAlpha(on ? GREEN_EDGE : RED_EDGE, alpha));
 		g.drawString(font, label, bx + (bw - font.width(label)) / 2, tby + 4,
-				withAlpha(on ? OriginTheme.TEXT : OriginTheme.MUTED, alpha), false);
+				withAlpha(on ? GREEN_TEXT : RED_TEXT, alpha), false);
 	}
 
 	private void renderSettingsTab(GuiGraphics g, int mx, int my, long now, float alpha) {
@@ -553,7 +591,16 @@ public class OriginModMenuScreen extends Screen {
 				return true;
 			}
 			if (tab == Tab.SETTINGS) {
+				searchFocused = false;
 				return clickSettingsTab(mx, my);
+			}
+			// search bar focus (centered box below the top bar)
+			int sy2 = py() + 40;
+			int sw2 = Math.min(300, pw() - 24);
+			int sx2 = px() + (pw() - sw2) / 2;
+			searchFocused = in(mx, my, sx2, sy2, sx2 + sw2, sy2 + 22);
+			if (searchFocused) {
+				return true;
 			}
 			for (int i = 0; i < filtered.size(); i++) {
 				int[] r = cellRect(i);
@@ -772,6 +819,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 		if (page == null && tab == Tab.MODS && chr >= 32 && search.length() < 24) {
 			search += chr;
+			searchFocused = true; // typing puts the box in its focused state
 			scrollTarget = 0;
 			return true;
 		}

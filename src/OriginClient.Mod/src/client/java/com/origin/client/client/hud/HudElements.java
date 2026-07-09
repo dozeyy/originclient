@@ -92,19 +92,27 @@ public final class HudElements {
 
 		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 6, 1.0), mc -> {
 			int n = mc.player == null ? 1 : Math.max(1, mc.player.getActiveEffects().size());
-			return new int[]{110, n * 12};
+			return new int[]{130, n * 20};
 		}, (g, mc, w, h) -> {
 			if (mc.player == null) {
 				return;
 			}
+			// Real effect sprite (like vanilla's top-right display), no
+			// backing — icon, then name + remaining time beside it.
 			int y = 0;
 			for (MobEffectInstance e : mc.player.getActiveEffects()) {
-				int color = 0xFF000000 | e.getEffect().value().getColor();
-				g.fill(0, y + 2, 6, y + 8, color);
+				try {
+					var sprite = mc.getMobEffectTextures().get(e.getEffect());
+					g.blit(0, y, 0, 18, 18, sprite);
+				} catch (Throwable t) {
+					int color = 0xFF000000 | e.getEffect().value().getColor();
+					g.fill(2, y + 4, 12, y + 14, color);
+				}
 				String name = e.getEffect().value().getDisplayName().getString();
-				String time = e.isInfiniteDuration() ? "∞" : (e.getDuration() / 20) / 60 + ":" + String.format("%02d", (e.getDuration() / 20) % 60);
-				g.drawString(mc.font, trim(mc, name, 70) + " " + time, 10, y, TEXT);
-				y += 12;
+				String time = e.isInfiniteDuration() ? "∞"
+						: (e.getDuration() / 20) / 60 + ":" + String.format("%02d", (e.getDuration() / 20) % 60);
+				g.drawString(mc.font, trim(mc, name, 78) + " " + time, 22, y + 5, TEXT);
+				y += 20;
 			}
 		});
 
@@ -137,16 +145,6 @@ public final class HudElements {
 					}
 					int players = mc.getConnection() != null ? mc.getConnection().getOnlinePlayers().size() : 0;
 					g.drawString(mc.font, server.ip + " (" + players + ")", 0, 0, TEXT);
-				});
-
-		add("packdisplay", "packdisplay", "Pack", new HudPos(8, -6, -6, 1.0), mc -> text("Pack: Default"),
-				(g, mc, w, h) -> {
-					var ids = mc.getResourcePackRepository().getSelectedIds();
-					String last = "Default";
-					for (String id : ids) {
-						last = id;
-					}
-					g.drawString(mc.font, "Pack: " + trim(mc, last.replace("file/", ""), 110), 0, 0, TEXT);
 				});
 
 		add("sprintstate", "togglesprint", "Sprint state", new HudPos(6, 6, -6, 1.0), mc -> text("Sprint (Toggled)"),

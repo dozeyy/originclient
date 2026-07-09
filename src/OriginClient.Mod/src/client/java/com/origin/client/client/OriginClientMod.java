@@ -19,6 +19,7 @@ public class OriginClientMod implements ClientModInitializer {
 	public static final OriginFeatures FEATURES = OriginConfig.load();
 
 	private boolean freelookWasDown = false;
+	private net.minecraft.client.CameraType savedPerspective = null;
 	private boolean gammaApplied = false;
 	private double savedGamma = 1.0;
 	private boolean chatApplied = false;
@@ -57,9 +58,11 @@ public class OriginClientMod implements ClientModInitializer {
 	private void onEndTick(Minecraft client) {
 		// Right Shift opens the mod menu (the screen itself closes on the
 		// same key or Esc, with the reversed slide).
+		// Right Shift opens the quick HUD-edit screen (drag/resize elements
+		// directly, ORIGIN logo, dark MODS button into the full grid).
 		while (OriginKeyBindings.openModMenu.consumeClick()) {
 			if (client.screen == null) {
-				client.setScreen(new com.origin.client.client.gui.OriginQuickMenu());
+				client.setScreen(new com.origin.client.client.hud.HudEditorScreen(true));
 			}
 		}
 
@@ -111,19 +114,32 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		// Freelook: custom bind (default Left Alt) with the vanilla-controls
-		// binding as a fallback.
-		boolean freelookDown = Mods.on("freelook") && client.screen == null
+		// binding as a fallback. Hold = look around; release = snap back (the
+		// player's real rotation is never touched — see MouseHandlerMixin).
+		// "Toggle Freelook" turns the hold into a press-on/press-off latch.
+		boolean keyDown = Mods.on("freelook") && client.screen == null
 				&& (isRawKeyDown(Mods.keyCode("freelook", "key")) || OriginKeyBindings.freelook.isDown());
-		if (freelookDown && !freelookWasDown) {
-			OriginFreelookState.cameraYaw = player.getYRot();
-			OriginFreelookState.cameraPitch = player.getXRot();
+		boolean freelookDown = Mods.bool("freelook", "toggle")
+				? (keyDown && !freelookWasDown) != OriginFreelookState.active
+				: keyDown;
+		if (freelookDown && !OriginFreelookState.active) {
+			OriginFreelookState.cameraYaw = player.getViewYRot(1f);
+			OriginFreelookState.cameraPitch = player.getViewXRot(1f);
 			OriginFreelookState.active = true;
-		} else if (!freelookDown && freelookWasDown) {
-			player.setYRot(OriginFreelookState.cameraYaw);
-			player.setXRot(OriginFreelookState.cameraPitch);
+			// Third Person mode = Lunar-style orbit: jump to third person for
+			// the hold and restore whatever perspective the player was in.
+			if (Mods.mode("freelook", "listMode").equals("Third Person")) {
+				savedPerspective = client.options.getCameraType();
+				client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
+			}
+		} else if (!freelookDown && OriginFreelookState.active) {
 			OriginFreelookState.active = false;
+			if (savedPerspective != null) {
+				client.options.setCameraType(savedPerspective);
+				savedPerspective = null;
+			}
 		}
-		freelookWasDown = freelookDown;
+		freelookWasDown = keyDown;
 	}
 
 	// FullBright: pushes vanilla gamma to the configured level (validator

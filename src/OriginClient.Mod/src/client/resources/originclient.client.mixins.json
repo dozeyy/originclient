@@ -17,6 +17,7 @@
 		"LevelTimeMixin",
 		"EntityNametagMixin",
 		"ChatTimestampMixin",
+		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
 		"GameRendererAccessor"
 	],

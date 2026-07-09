@@ -1,5 +1,6 @@
 package com.origin.client.client.hud;
 
+import com.origin.client.client.gui.OriginModMenuScreen;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.theme.OriginTheme;
@@ -9,28 +10,41 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
-// The HUD editing workspace: a lightweight layer directly over the LIVE
-// game — no dim, no blur, nothing between the player and their world, so
-// overlays are positioned against real gameplay. Completely freeform: pixel
-// precise drag, no grid, no snapping; thin center guides appear as a visual
-// aid only when an element passes near them. Click an element to select it;
-// a control card at the bottom gives smooth live sliders for its scale and
-// its own background opacity, plus reset. Everything renders through the
-// premium OriginUi kit.
+// The HUD editing workspace: a lightweight layer directly over the LIVE game
+// — no dim, no blur, so overlays are positioned against real gameplay.
+// Completely freeform: pixel-precise drag, no snapping; thin center guides
+// appear only while an element passes near them. Hovering an element shows a
+// dark translucent highlight + a bold outline + the single top-right resize
+// handle; scroll also scales the hovered element.
+//
+// quick mode IS the Right Shift screen (spec: "I should be able to edit my
+// screen the moment I press Right Shift"): the same editable surface plus the
+// ORIGIN logo (same mark+wordmark as the launcher's corner) and one dark MODS
+// button that leads to the full grid.
 public class HudEditorScreen extends Screen {
+	private final boolean quick;
+	private final long openedAt = System.currentTimeMillis();
+
 	private String draggingId = null;
 	private double dragOffX, dragOffY, dragX, dragY;
 	private String selectedId = null;
-	private int dragSlider = 0; // 0 none, 1 scale, 2 bg
+	private String hoveredId = null;
 
-	// resize via the single top-right handle (spec §3)
+	// resize via the single top-right handle
 	private String resizingId = null;
 	private double resizeElemX;
 	private int resizeBaseW;
 	private static final int HANDLE = 8;
 
+	private static final int BTN_W = 132, BTN_H = 26;
+
 	public HudEditorScreen() {
-		super(Component.literal("HUD Editor"));
+		this(false);
+	}
+
+	public HudEditorScreen(boolean quick) {
+		super(Component.literal(quick ? "Origin" : "HUD Editor"));
+		this.quick = quick;
 	}
 
 	@Override
@@ -43,9 +57,18 @@ public class HudEditorScreen extends Screen {
 		// Intentionally nothing: the game stays perfectly visible.
 	}
 
+	private int btnX() {
+		return (width - BTN_W) / 2;
+	}
+
+	private int btnY() {
+		return height - BTN_H - 24;
+	}
+
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		Minecraft mc = Minecraft.getInstance();
+		float in = (float) OriginTheme.easeOut(Math.min(1.0, (System.currentTimeMillis() - openedAt) / 160.0));
 		String hovered = null;
 
 		for (HudElements.Element e : HudElements.ALL) {
@@ -59,27 +82,19 @@ public class HudEditorScreen extends Screen {
 			if (hover) {
 				hovered = e.id();
 			}
-			boolean selected = e.id().equals(selectedId);
-			boolean enabled = Mods.on(e.modId());
+			boolean active = hover || e.id().equals(selectedId) || e.id().equals(draggingId) || e.id().equals(resizingId);
 
-			// the element's own backing (what it also shows in-game), plus a
-			// hairline edit frame — brighter when selected/hovered
+			// element's own backing, then a dark translucent hover highlight the
+			// content stays legible through
 			HudElements.drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
-			// dark, semi-transparent hover highlight behind the element — content
-			// stays legible through it (spec §3)
-			if (hover || selected) {
-				g.fill((int) x, (int) y, (int) (x + w), (int) (y + h), 0x40303030);
+			if (active) {
+				g.fill((int) x - 2, (int) y - 2, (int) (x + w) + 2, (int) (y + h) + 2, 0x48303030);
 			}
-			float hv = OriginUi.anim("hud:" + e.id(), hover || selected, 120.0);
-			int frame = selected ? 0xB4FFFFFF : OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_STRONG, hv);
+
+			// box around every element; bold when hovered/selected
+			float hv = OriginUi.anim("hud:" + e.id(), active, 120.0);
+			int frame = OriginTheme.lerpColor(OriginTheme.STROKE_STRONG, 0xE6FFFFFF, hv);
 			OriginUi.panel(g, (int) x - 3, (int) y - 3, (int) w + 6, (int) h + 6, 5, 0, frame);
-			// single top-right resize handle (the only interactive handle)
-			if (hover || selected) {
-				int hxp = (int) (x + w), hyp = (int) y;
-				boolean hh = Math.abs(mouseX - hxp) <= HANDLE && Math.abs(mouseY - hyp) <= HANDLE;
-				g.fill(hxp - HANDLE / 2 - 1, hyp - HANDLE / 2 - 1, hxp + HANDLE / 2 + 1, hyp + HANDLE / 2 + 1, 0xB0000000);
-				g.fill(hxp - HANDLE / 2, hyp - HANDLE / 2, hxp + HANDLE / 2, hyp + HANDLE / 2, hh ? 0xFFFFFFFF : 0xE0E0E0E0);
-			}
 
 			var p = g.pose();
 			p.pushPose();
@@ -92,93 +107,54 @@ public class HudEditorScreen extends Screen {
 			}
 			p.popPose();
 
-			if (hover && !enabled) {
-				g.drawString(font, e.label() + " (off)", (int) x, (int) y - 12, OriginTheme.MUTED, false);
+			// the single top-right resize handle
+			if (active) {
+				int hxp = (int) (x + w), hyp = (int) y;
+				boolean hh = Math.abs(mouseX - hxp) <= HANDLE && Math.abs(mouseY - hyp) <= HANDLE;
+				g.fill(hxp - HANDLE / 2 - 1, hyp - HANDLE / 2 - 1, hxp + HANDLE / 2 + 1, hyp + HANDLE / 2 + 1, 0xB0000000);
+				g.fill(hxp - HANDLE / 2, hyp - HANDLE / 2, hxp + HANDLE / 2, hyp + HANDLE / 2, hh ? 0xFFFFFFFF : 0xE0E0E0E0);
 			}
 
-			// alignment guides: drawn only, never snapped to
+			// center alignment guides: drawn only, never snapped to
 			if (e.id().equals(draggingId)) {
-				double cx = x + w / 2, cy = y + h / 2;
-				if (Math.abs(cx - width / 2.0) < 5) {
+				double ccx = x + w / 2, ccy = y + h / 2;
+				if (Math.abs(ccx - width / 2.0) < 5) {
 					g.fill(width / 2, 0, width / 2 + 1, height, 0x50FFFFFF);
 				}
-				if (Math.abs(cy - height / 2.0) < 5) {
+				if (Math.abs(ccy - height / 2.0) < 5) {
 					g.fill(0, height / 2, width, height / 2 + 1, 0x50FFFFFF);
 				}
 			}
 		}
 		this.hoveredId = hovered;
 
-		// top hint chip
-		String hint = "Drag freely · click to select · Esc to save";
-		int hw = font.width(hint) + 20;
-		OriginUi.panel(g, (width - hw) / 2, 8, hw, 18, 8, 0x90101010, OriginTheme.STROKE);
-		g.drawString(font, hint, (width - font.width(hint)) / 2, 13, OriginTheme.TEXT_DIM, false);
+		if (quick) {
+			// ORIGIN logo — same mark + wordmark as the launcher's corner
+			int cx = width / 2;
+			int ly = 26;
+			OriginUi.glow(g, cx, ly, 90, 0.14f * in);
+			OriginUi.mark(g, cx - 28, ly, 16, in);
+			g.drawString(font, "ORIGIN", cx - 12, ly - 4, withAlpha(OriginTheme.TEXT, in), false);
 
-		// selected element control card
-		if (selectedId != null) {
-			var e = byId(selectedId);
-			if (e != null) {
-				renderControlCard(g, e, mouseX, mouseY);
-			}
+			// dark MODS button, same chip language as the menu
+			boolean hoverBtn = in(mouseX, mouseY, btnX(), btnY(), btnX() + BTN_W, btnY() + BTN_H);
+			float hb = OriginUi.anim("quick:mods", hoverBtn, 120.0);
+			OriginUi.panel(g, btnX(), btnY() - Math.round(hb), BTN_W, BTN_H, 9,
+					withAlpha(hoverBtn ? 0xE6181818 : 0xD0101010, in),
+					withAlpha(hoverBtn ? 0x66FFFFFF : OriginTheme.STROKE_STRONG, in));
+			g.drawString(font, "MODS", cx - font.width("MODS") / 2, btnY() + 9 - Math.round(hb),
+					withAlpha(OriginTheme.TEXT, in), false);
 		}
 	}
-
-	private int cardX() {
-		return (width - 300) / 2;
-	}
-
-	private int cardY() {
-		return height - 66;
-	}
-
-	private void renderControlCard(GuiGraphics g, HudElements.Element e, int mx, int my) {
-		int x = cardX(), y = cardY();
-		HudPos pos = e.pos();
-		OriginUi.panel(g, x, y, 300, 56, 10, 0xD00E0E0E, OriginTheme.STROKE_STRONG);
-		g.drawString(font, e.label(), x + 12, y + 8, OriginTheme.TEXT, false);
-
-		boolean resetHover = in(mx, my, x + 300 - 54, y + 5, x + 300 - 8, y + 21);
-		OriginUi.panel(g, x + 300 - 54, y + 5, 46, 16, 7,
-				resetHover ? 0x2EFFFFFF : 0x16FFFFFF, OriginTheme.STROKE);
-		g.drawString(font, "Reset", x + 300 - 47, y + 9, OriginTheme.TEXT_DIM, false);
-
-		g.drawString(font, "Size", x + 12, y + 27, OriginTheme.MUTED, false);
-		OriginUi.slider(g, x + 44, y + 29, 92, (pos.scale - 0.5) / 2.0, dragSlider == 1);
-		g.drawString(font, "Back", x + 152, y + 27, OriginTheme.MUTED, false);
-		OriginUi.slider(g, x + 186, y + 29, 92, pos.bg, dragSlider == 2);
-
-		String vals = String.format("%.1fx · %.0f%%", pos.scale, pos.bg * 100);
-		g.drawString(font, vals, x + 12, y + 42, OriginTheme.MUTED, false);
-	}
-
-	private String hoveredId = null;
 
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
 		if (button != 0) {
 			return super.mouseClicked(mx, my, button);
 		}
-		// control card sliders first
-		if (selectedId != null && in(mx, my, cardX(), cardY(), cardX() + 300, cardY() + 56)) {
-			var e = byId(selectedId);
-			if (e != null) {
-				int x = cardX(), y = cardY();
-				if (in(mx, my, x + 300 - 54, y + 5, x + 300 - 8, y + 21)) {
-					com.origin.client.client.mods.ModsConfigAccess.resetHud(e.id());
-					return true;
-				}
-				if (my >= y + 24 && my <= y + 40) {
-					if (mx >= x + 40 && mx <= x + 142) {
-						dragSlider = 1;
-					} else if (mx >= x + 182 && mx <= x + 284) {
-						dragSlider = 2;
-					}
-					applyCardSlider(mx);
-					return true;
-				}
-			}
-			return true; // clicks on the card never fall through
+		if (quick && in(mx, my, btnX(), btnY(), btnX() + BTN_W, btnY() + BTN_H)) {
+			Minecraft.getInstance().setScreen(new OriginModMenuScreen());
+			return true;
 		}
 
 		Minecraft mc = Minecraft.getInstance();
@@ -188,7 +164,7 @@ public class HudEditorScreen extends Screen {
 			int[] size = e.measure().apply(mc);
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(width, w), y = pos.y(height, h);
-			// top-right handle grab -> resize (checked before the body so it wins)
+			// top-right handle first, so it wins over the body
 			if (Math.abs(mx - (x + w)) <= HANDLE && Math.abs(my - y) <= HANDLE) {
 				selectedId = e.id();
 				resizingId = e.id();
@@ -210,22 +186,6 @@ public class HudEditorScreen extends Screen {
 		return super.mouseClicked(mx, my, button);
 	}
 
-	private void applyCardSlider(double mx) {
-		var e = byId(selectedId);
-		if (e == null || dragSlider == 0) {
-			return;
-		}
-		HudPos pos = e.pos();
-		int x = cardX();
-		if (dragSlider == 1) {
-			double t = clamp01((mx - (x + 44)) / 92.0);
-			pos.scale = 0.5 + t * 2.0;
-		} else {
-			pos.bg = clamp01((mx - (x + 186)) / 92.0);
-		}
-		pos.save(e.id());
-	}
-
 	@Override
 	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
 		if (resizingId != null) {
@@ -235,10 +195,6 @@ public class HudEditorScreen extends Screen {
 				pos.scale = Math.max(0.5, Math.min(2.5, (mx - resizeElemX) / resizeBaseW));
 				pos.save(e.id());
 			}
-			return true;
-		}
-		if (dragSlider != 0) {
-			applyCardSlider(mx);
 			return true;
 		}
 		if (draggingId != null) {
@@ -253,10 +209,6 @@ public class HudEditorScreen extends Screen {
 	public boolean mouseReleased(double mx, double my, int button) {
 		if (resizingId != null) {
 			resizingId = null;
-			return true;
-		}
-		if (dragSlider != 0) {
-			dragSlider = 0;
 			return true;
 		}
 		if (draggingId != null) {
@@ -291,6 +243,10 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+			onClose();
+			return true;
+		}
 		if (keyCode == GLFW.GLFW_KEY_R && hoveredId != null) {
 			com.origin.client.client.mods.ModsConfigAccess.resetHud(hoveredId);
 			return true;
@@ -311,7 +267,8 @@ public class HudEditorScreen extends Screen {
 		return mx >= x0 && mx < x1 && my >= y0 && my < y1;
 	}
 
-	private static double clamp01(double v) {
-		return Math.max(0, Math.min(1, v));
+	private static int withAlpha(int argb, float alpha) {
+		int a = (int) (((argb >>> 24) & 0xFF) * alpha);
+		return (a << 24) | (argb & 0xFFFFFF);
 	}
 }

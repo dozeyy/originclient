@@ -143,18 +143,18 @@ def _(d):  # key cluster
 
 
 @icon("potionhud")
-def _(d):  # potion bottle
+def _(d):  # clean Erlenmeyer flask + liquid line
     line(d, [(40, 12), (56, 12)])
-    line(d, [(44, 14), (44, 34)])
-    line(d, [(52, 14), (52, 34)])
-    arc(d, 22, 30, 74, 84, 0, 360)
-    circle(d, 48, 60, 12, fill=True)
+    line(d, [(43, 12), (43, 30)])
+    line(d, [(53, 12), (53, 30)])
+    line(d, [(43, 30), (26, 70), (70, 70), (53, 30)])
+    line(d, [(33, 56), (63, 56)], w=5)
 
 
 @icon("armorhud")
-def _(d):  # chestplate
-    line(d, [(28, 14), (28, 50), (34, 78), (62, 78), (68, 50), (68, 14)])
-    line(d, [(28, 14), (38, 22), (58, 22), (68, 14)])
+def _(d):  # shield with center seam
+    line(d, [(48, 12), (78, 22), (78, 48), (48, 84), (18, 48), (18, 22), (48, 12)])
+    line(d, [(48, 22), (48, 74)], w=5)
 
 
 @icon("serveraddress")
@@ -164,11 +164,7 @@ def _(d):  # globe
     line(d, [(14, 48), (82, 48)])
 
 
-@icon("packdisplay")
-def _(d):  # package cube
-    line(d, [(48, 10), (82, 28), (82, 66), (48, 84), (14, 66), (14, 28), (48, 10)])
-    line(d, [(14, 28), (48, 46), (82, 28)])
-    line(d, [(48, 46), (48, 84)])
+# (packdisplay icon removed — mod no longer exists)
 
 
 @icon("zoom")
@@ -190,10 +186,7 @@ def _(d):  # speed chevrons
     line(d, [(50, 20), (78, 48), (50, 76)])
 
 
-@icon("togglesneak")
-def _(d):  # low chevron
-    line(d, [(20, 36), (48, 60), (76, 36)])
-    line(d, [(20, 58), (48, 82), (76, 58)])
+# (togglesneak icon removed — merged into Toggle Sneak/Sprint = togglesprint)
 
 
 @icon("fullbright")
@@ -233,23 +226,17 @@ def _(d):  # tag above head
 
 
 @icon("weather")
-def _(d):  # cloud + slash
-    arc(d, 22, 26, 58, 62, 90, 270)
-    arc(d, 38, 18, 78, 58, 180, 360)
-    line(d, [(76, 40), (76, 44), (24, 44), (24, 42)], w=STROKE)
-    line(d, [(30, 58), (24, 72)])
-    line(d, [(48, 58), (42, 72)])
-    line(d, [(66, 58), (60, 72)])
-    line(d, [(16, 16), (80, 84)], w=8)
+def _(d):  # cloud + rain (weather changer, no slash)
+    arc(d, 18, 34, 46, 60, 90, 270)
+    arc(d, 28, 20, 68, 56, 180, 360)
+    arc(d, 58, 34, 82, 60, 270, 90)
+    line(d, [(32, 60), (70, 60)])
+    line(d, [(34, 70), (28, 82)])
+    line(d, [(50, 70), (44, 82)])
+    line(d, [(66, 70), (60, 82)])
 
 
-@icon("customsky")
-def _(d):  # horizon + sun
-    line(d, [(12, 70), (84, 70)])
-    arc(d, 30, 40, 66, 76, 180, 360)
-    line(d, [(48, 18), (48, 28)])
-    line(d, [(24, 30), (31, 37)])
-    line(d, [(72, 30), (65, 37)])
+# (customsky icon removed — mod no longer exists)
 
 
 @icon("timechanger")
@@ -308,10 +295,13 @@ def bake_icons():
     (OUT / "mod_icons.json").write_text(json.dumps(meta, indent=2))
     print(f"icons: {len(names)} at {CELL}px -> mod_icons.png ({atlas.size[0]}x{atlas.size[1]})")
 
-    # preview sheet on dark for eyeballing
-    prev = Image.new("RGB", atlas.size, (10, 10, 10))
-    prev.paste(Image.new("RGB", atlas.size, (230, 230, 230)), mask=atlas.split()[3])
-    prev.save("/tmp/icons_preview.png")
+    # preview sheet on dark for eyeballing (best-effort; path may not exist)
+    try:
+        prev = Image.new("RGB", atlas.size, (10, 10, 10))
+        prev.paste(Image.new("RGB", atlas.size, (230, 230, 230)), mask=atlas.split()[3])
+        prev.save(HERE / "icons_preview.png")
+    except Exception:
+        pass
 
 
 def main():
