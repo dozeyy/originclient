@@ -247,25 +247,27 @@ public class HudEditorScreen extends Screen {
 		if (resizingId != null) {
 			var e = byId(resizingId);
 			if (e != null && resizeBaseW > 0 && resizeBaseH > 0) {
+				// one HudPos instance: pos() loads a fresh object each call, so
+				// setting scale and saving must use the SAME reference.
+				HudPos pos = e.pos();
 				// scale from the anchored corner: how far the cursor is from it,
 				// relative to the element's base size (dominant axis wins)
 				double sx = Math.abs(mx - resizeFixedX) / resizeBaseW;
 				double sy = Math.abs(my - resizeFixedY) / resizeBaseH;
-				double s = Math.max(0.5, Math.min(2.5, Math.max(sx, sy)));
-				// one HudPos instance: pos() loads a fresh object each call, so
-				// setting scale and saving must use the SAME reference.
-				HudPos pos = e.pos();
-				pos.scale = s;
+				// cap so the growing edge can't leave the screen either
+				double availW = freeLeft(pos.anchor) ? resizeFixedX : (width - resizeFixedX);
+				double availH = freeTop(pos.anchor) ? resizeFixedY : (height - resizeFixedY);
+				double maxS = Math.min(2.5, Math.min(availW / resizeBaseW, availH / resizeBaseH));
+				pos.scale = Math.max(0.5, Math.min(maxS, Math.max(sx, sy)));
 				pos.save(e.id());
 			}
 			return true;
 		}
 		if (draggingId != null) {
-			// free placement (elements may overlap and hang off the edge), but a
-			// 12px sliver always stays on screen so nothing can be lost off-map
-			int keep = 12;
-			dragX = Math.max(keep - dragW, Math.min(width - keep, mx - dragOffX));
-			dragY = Math.max(keep - dragH, Math.min(height - keep, my - dragOffY));
+			// locked fully on-screen: the whole element stays within the window
+			// bounds (elements may still overlap each other freely)
+			dragX = Math.max(0, Math.min(width - dragW, mx - dragOffX));
+			dragY = Math.max(0, Math.min(height - dragH, my - dragOffY));
 			return true;
 		}
 		return super.mouseDragged(mx, my, button, dx, dy);
