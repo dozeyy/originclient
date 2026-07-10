@@ -177,6 +177,36 @@ public sealed class VersionManager
                     }
                     File.Copy(OriginPaths.BundledOriginClientJar, Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
                     originClientInstalled = true;
+
+                    // Origin Client bundles its own pinned Sodium/Indium/Lithium/
+                    // FerriteCore/Iris as jar-in-jar. Purge any STANDALONE copies a
+                    // pre-bundle install (or a hand-dropped mod) left behind: a
+                    // stray newer Sodium overrides the bundled 0.6.x and, being
+                    // incompatible with the pinned Iris 1.8.x, silently disables
+                    // Iris — killing shaders AND leaving the client in a mixed
+                    // Sodium state that breaks other Origin mixins. Matched by
+                    // name prefix so version-drifted leftovers (e.g.
+                    // sodium-fabric-0.8.12) are caught too. fabric-api, krypton
+                    // (not bundled), and any user-dropped mods are left untouched.
+                    string[] bundledPerfPrefixes =
+                        { "sodium", "indium", "lithium", "ferritecore", "ferrite-core", "iris" };
+                    foreach (var jar in Directory.EnumerateFiles(modsFolder, "*.jar"))
+                    {
+                        var name = Path.GetFileName(jar);
+                        if (name.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        bool isBundledPerf = false;
+                        foreach (var prefix in bundledPerfPrefixes)
+                            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                isBundledPerf = true;
+                                break;
+                            }
+                        if (isBundledPerf)
+                        {
+                            try { File.Delete(jar); } catch { /* locked/removed already */ }
+                        }
+                    }
                 }
 
                 // Origin Client already carries its own pinned Sodium/Indium/
