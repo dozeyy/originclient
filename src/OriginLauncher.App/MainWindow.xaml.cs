@@ -17,6 +17,10 @@ public partial class MainWindow : Window
     private bool _accountPanelOpen;
     private bool _signInPanelOpen;
 
+    // Throttles the on-focus update re-check so window focus-flapping can't spam
+    // GitHub's (unauthenticated, 60/hr) releases API.
+    private DateTime _lastFocusCheck = DateTime.MinValue;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -37,15 +41,28 @@ public partial class MainWindow : Window
             _homePage.RefreshUpdateGate();
         });
         _ = PollForUpdatesAsync();
+
+        // Re-check the instant the launcher regains focus, so a release Will
+        // just published is caught immediately instead of on the next poll tick
+        // (throttled — see _lastFocusCheck).
+        Activated += async (_, _) =>
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastFocusCheck < TimeSpan.FromSeconds(30)) return;
+            _lastFocusCheck = now;
+            await UpdateService.CheckAsync();
+        };
     }
 
-    // Poll loop lives for the app's lifetime; process shutdown ends it.
+    // Poll loop lives for the app's lifetime; process shutdown ends it. A short
+    // interval keeps the corner badge close to "instant" after a publish; the
+    // hard gate is the fresh re-check on the Play click, which never waits.
     private async Task PollForUpdatesAsync()
     {
         while (true)
         {
             await UpdateService.CheckAsync();
-            await Task.Delay(TimeSpan.FromMinutes(10));
+            await Task.Delay(TimeSpan.FromMinutes(2));
         }
     }
 
