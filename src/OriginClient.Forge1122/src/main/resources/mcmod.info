@@ -1,0 +1,15 @@
+[
+{
+  "modid": "originclient",
+  "name": "Origin Client",
+  "description": "Origin Client — premium QoL client for Minecraft.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "authorList": ["Origin"],
+  "credits": "",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]

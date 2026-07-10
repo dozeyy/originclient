@@ -55,6 +55,12 @@ public sealed class VersionManager
     // sitting alongside it.
     private const string OriginClientModVersion = "1.21.1";
 
+    // Classic pillars where Origin ships as a Forge mod (MCP-mapped, own Java-8
+    // build) with OptiFine for shaders — not the Fabric build. Must match the
+    // bundled originclient-<ver>-forge.jar files (OriginPaths) and the Forge
+    // module dirs (src/OriginClient.Forge189, .Forge1122).
+    private static readonly string[] ForgeOriginVersions = { "1.8.9", "1.12.2" };
+
     public async Task<IReadOnlyList<string>> GetReleaseVersionsAsync()
     {
         await ReleaseVersionsGate.WaitAsync();
@@ -239,14 +245,58 @@ public sealed class VersionManager
                 var forgeInstaller = new ForgeInstaller(launcher);
                 versionName = await forgeInstaller.Install(version);
 
-                if (optiFineEnabled && OptiFineCacheStore.IsCached(version))
+                Directory.CreateDirectory(modsFolder);
+                bool originClassic = ForgeOriginVersions.Contains(version);
+
+                // OptiFine is the only shader path on the classics, so for an
+                // Origin classic we provision it out of the box (download if the
+                // cache is cold), not just when the OptiFine toggle is on — "the
+                // shaders pre-installed". Fail-soft: any download failure leaves a
+                // working Forge instance without shaders rather than blocking.
+                if (optiFineEnabled || originClassic)
                 {
-                    progress?.Report("Adding OptiFine...");
-                    Directory.CreateDirectory(modsFolder);
-                    File.Copy(
-                        OptiFineCacheStore.JarPathFor(version),
-                        Path.Combine(modsFolder, "OptiFine.jar"),
-                        overwrite: true);
+                    if (!OptiFineCacheStore.IsCached(version))
+                    {
+                        try
+                        {
+                            progress?.Report("Downloading OptiFine (shaders)...");
+                            var entry = await OptiFineCatalog.TryFindFor(version);
+                            if (entry != null)
+                                await OptiFineCatalog.DownloadAsync(entry, OptiFineCacheStore.JarPathFor(version), ct);
+                        }
+                        catch { /* shaders are optional; continue without them */ }
+                    }
+                    if (OptiFineCacheStore.IsCached(version))
+                    {
+                        progress?.Report("Adding OptiFine...");
+                        File.Copy(
+                            OptiFineCacheStore.JarPathFor(version),
+                            Path.Combine(modsFolder, "OptiFine.jar"),
+                            overwrite: true);
+                    }
+                }
+
+                // Install the matching Origin Client Forge jar so the classic
+                // versions get the same branded menus + QoL as 1.21.1 Fabric.
+                // Purge any stale Origin jar first (same discipline as the Fabric
+                // path) so an older bundled build never keeps loading in-game.
+                if (originClassic)
+                {
+                    var forgeJar = OriginPaths.BundledForgeOriginClientJar(version);
+                    if (File.Exists(forgeJar))
+                    {
+                        progress?.Report("Installing Origin Client...");
+                        foreach (var file in Directory.EnumerateFiles(modsFolder))
+                        {
+                            var fn = Path.GetFileName(file);
+                            if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
+                                && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                try { File.Delete(file); } catch { /* locked/removed already */ }
+                            }
+                        }
+                        File.Copy(forgeJar, Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
+                    }
                 }
                 break;
             }

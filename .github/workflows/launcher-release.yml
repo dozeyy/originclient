@@ -43,6 +43,26 @@ jobs:
         working-directory: src/OriginClient.Mod
         run: .\gradlew.bat build --no-daemon
 
+      # The classic-version Origin builds run on Forge with legacy ForgeGradle
+      # (1.8.9: FG 2.1 + Gradle 3.1; 1.12.2: FG 2.3 + Gradle 4.10.3), both of
+      # which require Java 8. Installing it here repoints JAVA_HOME, which each
+      # module's gradlew uses; the Fabric build above already ran under Java 21.
+      # These produce originclient-1.8.9-forge-0.4.1.jar and the 1.12.2 twin,
+      # bundled by the csproj Content items (conditional on existence).
+      - name: Set up Java 8 (classic Forge builds)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Build Origin Client (Forge 1.8.9)
+        working-directory: src/OriginClient.Forge189
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client (Forge 1.12.2)
+        working-directory: src/OriginClient.Forge1122
+        run: .\gradlew.bat build --no-daemon
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"

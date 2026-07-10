@@ -55,4 +55,26 @@
     </Content>
   </ItemGroup>
 
+  <!-- Classic (Forge) Origin Client jars — 1.8.9 and 1.12.2, built by their own
+       Java-8 ForgeGradle modules. Bundled loose next to the exe exactly like the
+       Fabric jar above (see OriginPaths.BundledForgeOriginClientJar); the
+       launcher installs the matching one into a Forge instance's mods folder.
+       Conditional on existence so a launcher-only dev build still compiles. -->
+  <ItemGroup Condition="Exists('..\OriginClient.Forge189\build\libs\originclient-1.8.9-forge-0.4.1.jar')">
+    <Content Include="..\OriginClient.Forge189\build\libs\originclient-1.8.9-forge-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.8.9-forge.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+  </ItemGroup>
+  <ItemGroup Condition="Exists('..\OriginClient.Forge1122\build\libs\originclient-1.12.2-forge-0.4.1.jar')">
+    <Content Include="..\OriginClient.Forge1122\build\libs\originclient-1.12.2-forge-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.12.2-forge.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+  </ItemGroup>
+
 </Project>

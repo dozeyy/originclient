@@ -26,6 +26,14 @@ public static class OriginPaths
     public static string BundledOriginClientJar => Path.Combine(
         AppContext.BaseDirectory, "Bundled", "OriginClient", "originclient.jar");
 
+    // The classic (Forge) Origin Client jars, one per legacy Minecraft version,
+    // bundled the same way as the Fabric jar above. 1.8.9 and 1.12.2 run Origin
+    // on Forge (+ OptiFine for shaders), not Fabric, so they ship their own
+    // MCP-mapped build. Returns the path for a given version (may not exist on
+    // a dev checkout that hasn't built that module — callers must File.Exists).
+    public static string BundledForgeOriginClientJar(string mcVersion) => Path.Combine(
+        AppContext.BaseDirectory, "Bundled", "OriginClient", $"originclient-{mcVersion}-forge.jar");
+
     public static void EnsureScaffold()
     {
         Directory.CreateDirectory(Instances);
