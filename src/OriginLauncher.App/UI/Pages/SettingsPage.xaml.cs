@@ -32,6 +32,7 @@ public partial class SettingsPage : UserControl
             GraphicsModeToggle.IsChecked = true;
 
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
+        ShaderCacheToggle.IsChecked = _settings.ShaderCacheOptimization;
         OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
 
         _isLoading = false;
@@ -135,6 +136,20 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
         OriginClientConfigBridge.SetOriginUiEnabled(false);
+    }
+
+    private void ShaderCacheToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ShaderCacheOptimization = true;
+        SettingsStore.Save(_settings);
+    }
+
+    private void ShaderCacheToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ShaderCacheOptimization = false;
+        SettingsStore.Save(_settings);
     }
 
     private void OfflineTestToggle_Checked(object sender, RoutedEventArgs e)

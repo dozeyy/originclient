@@ -66,6 +66,21 @@
                         <Slider x:Name="RamSlider" Minimum="1024" SmallChange="256"
                                 ValueChanged="RamSlider_ValueChanged"/>
                     </StackPanel>
+
+                    <Grid Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Reduce shader stutter" Style="{StaticResource Text.BodyDim}"/>
+                            <TextBlock Text="Keeps the GPU's compiled-shader cache so Iris shaderpacks don't recompile and hitch each session. No visual change. Works best on NVIDIA GPUs."
+                                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,2,16,0"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" x:Name="ShaderCacheToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      Checked="ShaderCacheToggle_Checked" Unchecked="ShaderCacheToggle_Unchecked"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 

@@ -28,6 +28,15 @@ public sealed class LauncherSettings
     public LoaderKind? SelectedLoader { get; set; }
     public bool OptiFineEnabled { get; set; }
 
+    // OpenGL shader disk-cache tuning applied to the game process at launch:
+    // keeps the GPU driver's compiled-shader cache large and un-pruned so Iris
+    // shaderpacks don't recompile (and stutter) every session. Quality-neutral
+    // — pure smoothness, no visual change. On by default (a missing key in an
+    // older settings.json deserializes to this initializer, so existing installs
+    // get it too). Surfaced under Settings -> Performance. Primarily helps
+    // NVIDIA GPUs; harmless on others (unknown env vars are ignored).
+    public bool ShaderCacheOptimization { get; set; } = true;
+
     // Developer escape hatch while Microsoft's app-registration approval is
     // pending: lets Play run with a local offline session instead of a real
     // Microsoft sign-in, so the whole launcher/game pipeline can be tested.

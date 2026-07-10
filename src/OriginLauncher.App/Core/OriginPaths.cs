@@ -12,6 +12,11 @@ public static class OriginPaths
     public static string Logs => Path.Combine(Root, "logs");
     public static string OptiFineCache => Path.Combine(Root, "optifine-cache");
 
+    // Persistent home for the GPU driver's compiled-shader cache (see
+    // Core/ShaderCache.cs) — kept under our data root so it survives across
+    // instances and game versions, maximising cache hits between sessions.
+    public static string ShaderCache => Path.Combine(Root, "shader-cache");
+
     // Read-only asset shipped alongside the exe (see the Content item in
     // OriginLauncher.App.csproj that copies it out of OriginClient.Mod's own
     // Gradle build output) — not user data, so it lives next to the app

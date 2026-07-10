@@ -332,6 +332,13 @@ public partial class HomePage : UserControl
                 GpuPreference.PreferHighPerformanceGpu(process.StartInfo.FileName);
             }
 
+            // Quality-neutral shader-stutter reducer: keep the driver's compiled
+            // shader cache so Iris packs don't recompile (and hitch) each launch.
+            if (_settings.ShaderCacheOptimization)
+            {
+                ShaderCache.Apply(process.StartInfo);
+            }
+
             // Last gate before the game actually starts — a cancel that
             // landed after provisioning finished must not still launch.
             cts.Token.ThrowIfCancellationRequested();
