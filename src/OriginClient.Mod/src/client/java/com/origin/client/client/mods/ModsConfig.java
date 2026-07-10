@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
@@ -42,51 +44,86 @@ public final class ModsConfig {
 			return;
 		}
 		loaded = true;
-		if (!Files.exists(PATH)) {
+		if (Files.exists(PATH)) {
+			try (Reader reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {
+				JsonObject root = GSON.fromJson(reader, JsonObject.class);
+				if (root != null) {
+					parseInto(root);
+				}
+			} catch (IOException | RuntimeException e) {
+				com.origin.client.OriginClient.LOGGER.warn("Failed to read originclient-mods.json, using defaults", e);
+			}
 			return;
 		}
-		try (Reader reader = Files.newBufferedReader(PATH, StandardCharsets.UTF_8)) {
-			JsonObject root = GSON.fromJson(reader, JsonObject.class);
-			if (root == null) {
+		// Fresh instance — no user config yet. Seed from the bundled default so a
+		// brand-new client starts with Origin's curated settings + HUD layout
+		// instead of the bare schema defaults. The moment the user changes
+		// anything, save() writes their own originclient-mods.json, which then
+		// wins on every subsequent load (this branch is skipped once it exists).
+		loadSeedDefaults();
+	}
+
+	// Loads the bundled default-mods-config.json (shipped in the jar) into the
+	// in-memory stores. A missing or unparseable seed falls through silently to
+	// the schema defaults, so a bad/absent resource can never break startup.
+	private static void loadSeedDefaults() {
+		try (InputStream in = ModsConfig.class.getResourceAsStream("/assets/originclient/default-mods-config.json")) {
+			if (in == null) {
+				// A shipped jar should always carry its seed; if it doesn't, a
+				// fresh instance silently getting bare schema defaults would be
+				// baffling — surface it instead.
+				com.origin.client.OriginClient.LOGGER.warn("No bundled default-mods-config.json on classpath; new instance falls back to schema defaults");
 				return;
 			}
-			JsonObject mods = root.getAsJsonObject("mods");
-			if (mods != null) {
-				for (String id : mods.keySet()) {
-					JsonObject o = mods.getAsJsonObject(id);
-					Map<String, JsonElement> m = new HashMap<>();
-					for (String k : o.keySet()) {
-						m.put(k, o.get(k));
-					}
-					VALUES.put(id, m);
+			try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+				JsonObject root = GSON.fromJson(reader, JsonObject.class);
+				if (root != null) {
+					parseInto(root);
 				}
 			}
-			JsonObject hud = root.getAsJsonObject("hud");
-			if (hud != null) {
-				for (String id : hud.keySet()) {
-					var arr = hud.getAsJsonArray(id);
-					// save() writes 5 values [anchor, dx, dy, scale, bg]; pre-bg
-					// files have 4. Accept >= 4 and keep EVERY value (so bg
-					// round-trips). The old "== 4" guard silently dropped every
-					// 5-element entry on load, resetting all moved HUD elements to
-					// their defaults on relaunch — the "positions not saved" bug.
-					if (arr != null && arr.size() >= 4) {
-						double[] vals = new double[arr.size()];
-						for (int i = 0; i < arr.size(); i++) {
-							vals[i] = arr.get(i).getAsDouble();
-						}
-						HUD.put(id, vals);
-					}
-				}
-			}
-			JsonObject meta = root.getAsJsonObject("meta");
-			if (meta != null) {
-				for (String k : meta.keySet()) {
-					META.put(k, meta.get(k));
-				}
-			}
+			com.origin.client.OriginClient.LOGGER.info("Seeded new instance from bundled default-mods-config.json");
 		} catch (IOException | RuntimeException e) {
-			com.origin.client.OriginClient.LOGGER.warn("Failed to read originclient-mods.json, using defaults", e);
+			com.origin.client.OriginClient.LOGGER.warn("Failed to read bundled default-mods-config.json", e);
+		}
+	}
+
+	// Reads a parsed config root (mods / hud / meta blocks) into VALUES/HUD/META.
+	// Shared by the user-file load and the bundled-seed load.
+	private static void parseInto(JsonObject root) {
+		JsonObject mods = root.getAsJsonObject("mods");
+		if (mods != null) {
+			for (String id : mods.keySet()) {
+				JsonObject o = mods.getAsJsonObject(id);
+				Map<String, JsonElement> m = new HashMap<>();
+				for (String k : o.keySet()) {
+					m.put(k, o.get(k));
+				}
+				VALUES.put(id, m);
+			}
+		}
+		JsonObject hud = root.getAsJsonObject("hud");
+		if (hud != null) {
+			for (String id : hud.keySet()) {
+				var arr = hud.getAsJsonArray(id);
+				// save() writes 5 values [anchor, dx, dy, scale, bg]; pre-bg
+				// files have 4. Accept >= 4 and keep EVERY value (so bg
+				// round-trips). The old "== 4" guard silently dropped every
+				// 5-element entry on load, resetting all moved HUD elements to
+				// their defaults on relaunch — the "positions not saved" bug.
+				if (arr != null && arr.size() >= 4) {
+					double[] vals = new double[arr.size()];
+					for (int i = 0; i < arr.size(); i++) {
+						vals[i] = arr.get(i).getAsDouble();
+					}
+					HUD.put(id, vals);
+				}
+			}
+		}
+		JsonObject meta = root.getAsJsonObject("meta");
+		if (meta != null) {
+			for (String k : meta.keySet()) {
+				META.put(k, meta.get(k));
+			}
 		}
 	}
 

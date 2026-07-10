@@ -265,6 +265,8 @@ public static class ModManager
             || n.StartsWith("indium-")
             || n.StartsWith("ferritecore-")
             || n.StartsWith("krypton-")
+            || n.StartsWith("immediatelyfast-fabric-")
+            || n.StartsWith("modernfix-fabric-")
             || n.StartsWith("iris-fabric-")
             || n.StartsWith("iris-mc");
     }
