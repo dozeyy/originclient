@@ -455,29 +455,85 @@ public partial class HomePage : UserControl
     {
         OriginPaths.EnsureScaffold();
         var logPath = Path.Combine(OriginPaths.Logs, $"{version}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
-        var logWriter = new StreamWriter(logPath, append: false) { AutoFlush = true };
+
+        StreamWriter? logWriter = null;
+        try { logWriter = new StreamWriter(logPath, append: false) { AutoFlush = true }; }
+        catch { /* logging is best-effort — a failed log file must never block a launch */ }
+
+        // Hard rule: the launched game is fully independent of the launcher.
+        // Nothing the child process does — exiting, crashing, or a late burst of
+        // stdout/stderr as it closes — may EVER take the launcher down. This used
+        // to be the "launcher closes when the game closes, and Play won't work
+        // again" bug: the Exited handler disposed logWriter, but stdout/stderr
+        // callbacks (which run on their own threads and can fire AFTER Exited
+        // while buffered output drains) then wrote to the disposed writer, throwing
+        // ObjectDisposedException on a ThreadPool thread — and with no global
+        // handler (App.xaml.cs), an unhandled background-thread exception kills the
+        // whole process. stdout and stderr also shared one non-thread-safe writer.
+        //
+        // Fix: serialize every write, dispose the writer exactly ONCE and only
+        // after BOTH streams have signalled end-of-stream (null Data) so no write
+        // can race the dispose, and wrap every callback so an exception can never
+        // escape onto a background thread.
+        var gate = new object();
+        var openStreams = 2;
+
+        void OnData(string? data)
+        {
+            try
+            {
+                if (data == null)
+                {
+                    // stdout or stderr reached EOF; dispose once both have.
+                    if (Interlocked.Decrement(ref openStreams) == 0)
+                        lock (gate) { logWriter?.Dispose(); logWriter = null; }
+                    return;
+                }
+                lock (gate) { logWriter?.WriteLine(data); }
+            }
+            catch { /* best-effort logging; never surface onto this thread */ }
+        }
 
         process.StartInfo.RedirectStandardOutput = true;
         process.StartInfo.RedirectStandardError = true;
         process.StartInfo.UseShellExecute = false;
         process.EnableRaisingEvents = true;
 
-        process.OutputDataReceived += (_, args) => { if (args.Data != null) logWriter.WriteLine(args.Data); };
-        process.ErrorDataReceived += (_, args) => { if (args.Data != null) logWriter.WriteLine(args.Data); };
+        process.OutputDataReceived += (_, args) => OnData(args.Data);
+        process.ErrorDataReceived += (_, args) => OnData(args.Data);
         process.Exited += (_, _) =>
         {
-            var exitCode = process.ExitCode;
-            logWriter.Dispose();
-            Dispatcher.Invoke(() =>
+            // Runs on a ThreadPool thread — must be exception-proof end to end.
+            try
             {
-                StatusText.Text = exitCode == 0
-                    ? "Minecraft closed normally"
-                    : $"Minecraft exited with code {exitCode} — log saved to {logPath}";
-            });
+                int exitCode;
+                try { exitCode = process.ExitCode; } catch { exitCode = -1; }
+
+                Dispatcher.BeginInvoke(() =>
+                {
+                    // A newer launch may already be in flight (Play clicked again
+                    // while this instance was running); don't clobber its status.
+                    if (_isLaunching) return;
+                    StatusText.Text = exitCode == 0
+                        ? "Minecraft closed — click Play to launch again."
+                        : $"Minecraft exited with code {exitCode} — log saved to {logPath}";
+                });
+            }
+            catch { /* the game's exit must never crash the launcher */ }
         };
 
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        try
+        {
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+        }
+        catch
+        {
+            // Start failed — release the log handle and let PlayButton_Click's
+            // catch report it, rather than leaking the writer.
+            lock (gate) { logWriter?.Dispose(); logWriter = null; }
+            throw;
+        }
     }
 }
