@@ -327,17 +327,14 @@ public partial class HomePage : UserControl
             var process = await _versionManager.InstallAndBuildProcessAsync(
                 version, loader, _settings.OptiFineEnabled, launchOption, installProgress, cts.Token);
 
-            if (_settings.PerformanceMode == PerformanceMode.Performance)
-            {
-                GpuPreference.PreferHighPerformanceGpu(process.StartInfo.FileName);
-            }
+            // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
+            // that the Graphics/Performance launch-mode toggle is gone — the
+            // high-performance GPU is simply the right default for a game.
+            GpuPreference.PreferHighPerformanceGpu(process.StartInfo.FileName);
 
             // Quality-neutral shader-stutter reducer: keep the driver's compiled
             // shader cache so Iris packs don't recompile (and hitch) each launch.
-            if (_settings.ShaderCacheOptimization)
-            {
-                ShaderCache.Apply(process.StartInfo);
-            }
+            ShaderCache.Apply(process.StartInfo, _settings.ShaderCacheNvidia, _settings.ShaderCacheAmd);
 
             // Last gate before the game actually starts — a cancel that
             // landed after provisioning finished must not still launch.

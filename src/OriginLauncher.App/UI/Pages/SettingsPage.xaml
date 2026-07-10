@@ -37,23 +37,6 @@
                 <StackPanel>
                     <TextBlock Text="Performance" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
 
-                    <StackPanel Style="{StaticResource FieldRow}">
-                        <TextBlock Text="Launch mode" Style="{StaticResource FieldLabel}"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <ToggleButton Grid.Column="0" x:Name="GraphicsModeToggle" Style="{StaticResource Button.NavItem}"
-                                          Content="Graphics" HorizontalContentAlignment="Center" Height="40"
-                                          Checked="GraphicsModeToggle_Checked"/>
-                            <ToggleButton Grid.Column="2" x:Name="PerformanceModeToggle" Style="{StaticResource Button.NavItem}"
-                                          Content="Performance" HorizontalContentAlignment="Center" Height="40"
-                                          Checked="PerformanceModeToggle_Checked"/>
-                        </Grid>
-                    </StackPanel>
-
                     <StackPanel Margin="0">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -67,19 +50,30 @@
                                 ValueChanged="RamSlider_ValueChanged"/>
                     </StackPanel>
 
-                    <Grid Margin="0,16,0,0">
+                    <TextBlock Text="Reduce shader stutter" Style="{StaticResource FieldLabel}" Margin="0,16,0,0"/>
+                    <TextBlock Text="Keeps the GPU's compiled-shader cache so Iris shaderpacks don't recompile and hitch each session. No visual change — pick the toggle for your graphics card."
+                               Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,2,0,8"/>
+
+                    <Grid Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="Reduce shader stutter" Style="{StaticResource Text.BodyDim}"/>
-                            <TextBlock Text="Keeps the GPU's compiled-shader cache so Iris shaderpacks don't recompile and hitch each session. No visual change. Works best on NVIDIA GPUs."
-                                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,2,16,0"/>
-                        </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="ShaderCacheToggle" Style="{StaticResource Toggle.Switch}"
+                        <TextBlock Grid.Column="0" Text="NVIDIA GPU" Style="{StaticResource Text.Body}" VerticalAlignment="Center"/>
+                        <ToggleButton Grid.Column="1" x:Name="ShaderCacheNvidiaToggle" Style="{StaticResource Toggle.Switch}"
                                       VerticalAlignment="Center"
-                                      Checked="ShaderCacheToggle_Checked" Unchecked="ShaderCacheToggle_Unchecked"/>
+                                      Checked="ShaderCacheNvidiaToggle_Checked" Unchecked="ShaderCacheNvidiaToggle_Unchecked"/>
+                    </Grid>
+
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="AMD GPU" Style="{StaticResource Text.Body}" VerticalAlignment="Center"/>
+                        <ToggleButton Grid.Column="1" x:Name="ShaderCacheAmdToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      Checked="ShaderCacheAmdToggle_Checked" Unchecked="ShaderCacheAmdToggle_Unchecked"/>
                     </Grid>
                 </StackPanel>
             </Border>

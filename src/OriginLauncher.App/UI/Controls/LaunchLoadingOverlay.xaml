@@ -22,7 +22,22 @@
             <TextBlock x:Name="VersionText" Style="{StaticResource Text.H1}"
                        HorizontalAlignment="Center" Margin="0,4,0,2"/>
             <TextBlock x:Name="LoaderCaptionText" Style="{StaticResource Text.Label}"
-                       HorizontalAlignment="Center" Margin="0,0,0,24"/>
+                       HorizontalAlignment="Center" Margin="0,0,0,22"/>
+
+            <!-- Indeterminate sliding bar: the install pipeline reports stage
+                 text, not a byte percentage, so an honest "working" bar beats a
+                 faked fill. A 70px accent block slides across a 240px track,
+                 animated from the code-behind (see Show/Hide). -->
+            <Border x:Name="ProgressTrack" Width="240" Height="3" CornerRadius="1.5"
+                    Background="{StaticResource Brush.SoftStroke}" HorizontalAlignment="Center"
+                    ClipToBounds="True" Margin="0,0,0,14">
+                <Border x:Name="ProgressFill" Width="70" Height="3" CornerRadius="1.5"
+                        Background="{StaticResource Brush.Accent}" HorizontalAlignment="Left">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="ProgressTranslate" X="-70"/>
+                    </Border.RenderTransform>
+                </Border>
+            </Border>
 
             <TextBlock x:Name="StageText" Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center"/>
 

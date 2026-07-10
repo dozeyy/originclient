@@ -8,6 +8,7 @@ namespace OriginLauncher.App.UI.Controls;
 public partial class LaunchLoadingOverlay : UserControl
 {
     private AnimationClock? _spinClock;
+    private AnimationClock? _progressClock;
 
     public LaunchLoadingOverlay()
     {
@@ -35,6 +36,17 @@ public partial class LaunchLoadingOverlay : UserControl
         };
         _spinClock = animation.CreateClock();
         transform.ApplyAnimationClock(RotateTransform.AngleProperty, _spinClock);
+
+        // Slide the 70px fill across the 240px track (start off-left at -70,
+        // end off-right at the track width), easing at each end so it reads as
+        // a smooth continuous sweep rather than a hard loop.
+        var slide = new DoubleAnimation(-70, 240, new Duration(TimeSpan.FromSeconds(1.15)))
+        {
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+        };
+        _progressClock = slide.CreateClock();
+        ProgressTranslate.ApplyAnimationClock(TranslateTransform.XProperty, _progressClock);
     }
 
     public void Hide()
@@ -42,6 +54,8 @@ public partial class LaunchLoadingOverlay : UserControl
         Visibility = Visibility.Collapsed;
         _spinClock?.Controller?.Stop();
         _spinClock = null;
+        _progressClock?.Controller?.Stop();
+        _progressClock = null;
     }
 
     public void ReportStage(string stage) => StageText.Text = stage;

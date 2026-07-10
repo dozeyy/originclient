@@ -26,13 +26,9 @@ public partial class SettingsPage : UserControl
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
 
-        if (_settings.PerformanceMode == PerformanceMode.Performance)
-            PerformanceModeToggle.IsChecked = true;
-        else
-            GraphicsModeToggle.IsChecked = true;
-
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
-        ShaderCacheToggle.IsChecked = _settings.ShaderCacheOptimization;
+        ShaderCacheNvidiaToggle.IsChecked = _settings.ShaderCacheNvidia;
+        ShaderCacheAmdToggle.IsChecked = _settings.ShaderCacheAmd;
         OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
 
         _isLoading = false;
@@ -71,22 +67,6 @@ public partial class SettingsPage : UserControl
         VersionComboBox.SelectedIndex = 0;
         VersionComboBox.IsEnabled = false;
         _isLoading = false;
-    }
-
-    private void GraphicsModeToggle_Checked(object sender, RoutedEventArgs e)
-    {
-        PerformanceModeToggle.IsChecked = false;
-        if (_isLoading) return;
-        _settings.PerformanceMode = PerformanceMode.Graphics;
-        SettingsStore.Save(_settings);
-    }
-
-    private void PerformanceModeToggle_Checked(object sender, RoutedEventArgs e)
-    {
-        GraphicsModeToggle.IsChecked = false;
-        if (_isLoading) return;
-        _settings.PerformanceMode = PerformanceMode.Performance;
-        SettingsStore.Save(_settings);
     }
 
     private void RamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -138,17 +118,31 @@ public partial class SettingsPage : UserControl
         OriginClientConfigBridge.SetOriginUiEnabled(false);
     }
 
-    private void ShaderCacheToggle_Checked(object sender, RoutedEventArgs e)
+    private void ShaderCacheNvidiaToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
-        _settings.ShaderCacheOptimization = true;
+        _settings.ShaderCacheNvidia = true;
         SettingsStore.Save(_settings);
     }
 
-    private void ShaderCacheToggle_Unchecked(object sender, RoutedEventArgs e)
+    private void ShaderCacheNvidiaToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
-        _settings.ShaderCacheOptimization = false;
+        _settings.ShaderCacheNvidia = false;
+        SettingsStore.Save(_settings);
+    }
+
+    private void ShaderCacheAmdToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ShaderCacheAmd = true;
+        SettingsStore.Save(_settings);
+    }
+
+    private void ShaderCacheAmdToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ShaderCacheAmd = false;
         SettingsStore.Save(_settings);
     }
 
