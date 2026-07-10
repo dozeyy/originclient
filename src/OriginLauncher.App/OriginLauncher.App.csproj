@@ -44,6 +44,14 @@
     <Content Include="..\OriginClient.Mod\build\libs\originclient-0.4.1.jar">
       <Link>Bundled\OriginClient\originclient.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <!-- Keep the jar LOOSE next to the exe in a single-file publish. Without
+           this it gets embedded in the bundle and extracted to a temp dir,
+           while OriginPaths.BundledOriginClientJar looks in AppContext.BaseDirectory
+           (the exe's own folder) — so File.Exists is false, the launcher thinks
+           the mod isn't bundled, and it falls back to the standalone perf-mod
+           catalog (a stray Sodium that breaks Iris). Loose = the path resolves. -->
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
 

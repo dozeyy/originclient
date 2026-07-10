@@ -49,6 +49,10 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 [Files]
 ; The single-file, self-contained publish output (dotnet publish -o publish).
 Source: "..\publish\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion
+; The bundled Origin Client mod jar, kept LOOSE next to the exe (see the
+; ExcludeFromSingleFile note in the csproj) so the launcher finds it at
+; {app}\Bundled\OriginClient\originclient.jar via AppContext.BaseDirectory.
+Source: "..\publish\Bundled\*"; DestDir: "{app}\Bundled"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
