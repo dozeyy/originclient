@@ -142,12 +142,12 @@ public partial class HomePage : UserControl
         UpdatePlayState();
     }
 
-    // Fabric wherever a Fabric-family loader exists for the version: the
-    // modern perf-catalog versions, and the pre-1.14 range via Legacy Fabric
-    // (Origin's own loader path — see VERSIONS.md). Forge is recommended only
-    // in the gap where neither applies.
+    // Fabric only where the modern perf/shader stack exists. The classics
+    // (1.8.9, 1.12.2) are Forge now: Legacy Fabric was dropped there because it
+    // can't run shaders (no Iris/Sodium pre-1.16), so Forge + OptiFine — the
+    // only shader path on those versions — is the recommendation instead.
     private LoaderKind RecommendedLoader(string version) =>
-        PerformanceModCatalog.RecommendsFabric(version) || LegacyFabricInstaller.Supports(version)
+        PerformanceModCatalog.RecommendsFabric(version)
             ? LoaderKind.Fabric
             : LoaderKind.Forge;
 
@@ -155,16 +155,18 @@ public partial class HomePage : UserControl
     {
         if (VersionComboBox.SelectedItem is not string version) return;
         var modernFabric = PerformanceModCatalog.RecommendsFabric(version);
-        var legacyFabric = LegacyFabricInstaller.Supports(version);
         var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
+        // Fabric isn't offered on the classics anymore — if an old saved choice
+        // still selects it there, fall back to the recommended Forge instead of
+        // leaving a hidden-but-checked toggle.
+        if (loader == LoaderKind.Fabric && !modernFabric)
+            loader = RecommendedLoader(version);
 
         _settingLoaderProgrammatically = true;
-        // Modern versions: Vanilla + Fabric (as before). Legacy versions
-        // (1.8.9, 1.12.2): Vanilla + Fabric + Forge — Legacy Fabric is the
-        // recommended Origin path, but the existing Forge(+OptiFine) option
-        // stays one click away. Modern versions without a perf-catalog entry
-        // (e.g. 1.18.0) keep Vanilla + Forge.
-        LoaderFabricToggle.Visibility = modernFabric || legacyFabric ? Visibility.Visible : Visibility.Collapsed;
+        // Modern versions: Vanilla + Fabric. Classics (1.8.9, 1.12.2) and any
+        // modern version without a perf-catalog entry: Vanilla + Forge(+OptiFine)
+        // — Fabric is hidden because it brings nothing shaders/perf there.
+        LoaderFabricToggle.Visibility = modernFabric ? Visibility.Visible : Visibility.Collapsed;
         LoaderForgeToggle.Visibility = modernFabric ? Visibility.Collapsed : Visibility.Visible;
 
         LoaderVanillaToggle.IsChecked = loader == LoaderKind.Vanilla;
