@@ -16,8 +16,9 @@
   --accent-dim: rgba(255, 255, 255, 0.55);
 
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  /* Brand wordmark only — Minecraft's pixel type. Body copy stays Inter. */
-  --font-brand: "Monocraft", ui-monospace, "Courier New", monospace;
+  /* Brand wordmark only — Michroma, matching the in-game main-menu ORIGIN
+     mark. Body copy stays Inter. */
+  --font-brand: "Michroma", "Inter", system-ui, sans-serif;
 
   --space-1: 8px;
   --space-2: 16px;
@@ -37,12 +38,13 @@
   --t-med: 0.3s;
 }
 
-/* Monocraft (SIL OFL 1.1) — subset to the wordmark glyphs (ORIGIN.origin) so
-   the whole face is ~0.7KB. See assets/fonts/OFL.txt. */
+/* Michroma (SIL OFL 1.1) — the in-game main-menu wordmark font, subset to the
+   wordmark glyphs (ORIGIN.origin) so the whole face is ~3.6KB. See
+   assets/fonts/OFL.txt. */
 @font-face {
-  font-family: "Monocraft";
-  src: url("../assets/fonts/Monocraft-wordmark.woff2") format("woff2"),
-       url("../assets/fonts/Monocraft-wordmark.woff") format("woff");
+  font-family: "Michroma";
+  src: url("../assets/fonts/Michroma-wordmark.woff2") format("woff2"),
+       url("../assets/fonts/Michroma-wordmark.woff") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -154,7 +156,7 @@ a { color: inherit; }
   letter-spacing: 0.02em;
 }
 .nav__brand .mark { width: 26px; height: 26px; fill: none; stroke: var(--text); stroke-width: 7; }
-.nav__brand span { font-family: var(--font-brand); font-weight: 400; letter-spacing: 0.02em; }
+.nav__brand span { font-family: var(--font-brand); font-weight: 400; letter-spacing: 0.06em; }
 
 .nav__links { display: flex; gap: var(--space-4); }
 .nav__links a {
@@ -256,10 +258,10 @@ a { color: inherit; }
 
 .hero__title {
   font-family: var(--font-brand);
-  font-size: clamp(38px, 7vw, 78px);
+  font-size: clamp(32px, 6vw, 68px);
   font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.05;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
   text-transform: uppercase;
   margin: 0 0 var(--space-4);
 }
@@ -430,7 +432,7 @@ a { color: inherit; }
   text-transform: uppercase;
   color: var(--text-dim);
 }
-.marquee__group .accent { color: var(--accent); text-shadow: 0 0 24px var(--accent-glow); font-family: var(--font-brand); font-weight: 400; letter-spacing: 0; }
+.marquee__group .accent { color: var(--accent); text-shadow: 0 0 24px var(--accent-glow); font-family: var(--font-brand); font-weight: 400; letter-spacing: 0.04em; }
 .marquee__dot { font-size: 10px; color: var(--muted); }
 
 @keyframes marquee-scroll {
