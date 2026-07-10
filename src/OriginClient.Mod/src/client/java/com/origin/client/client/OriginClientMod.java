@@ -128,6 +128,7 @@ public class OriginClientMod implements ClientModInitializer {
 		applyHitboxes(client);
 		applyWeather(client);
 		applyTimeChanger(client);
+		GeneralSettings.tick(client);
 		MotionBlur.tick(client);
 
 		LocalPlayer player = client.player;

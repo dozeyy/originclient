@@ -33,25 +33,27 @@ public final class Mods {
 	public static final String GENERAL_ID = "@general";
 	public static final String PERFORMANCE_ID = "@performance";
 
+	// Every option here is backed by real behavior — Smart Disconnect prompts
+	// before leaving a world (PauseScreenMixin), the rest apply via the tick
+	// loop / dedicated mixins. Cosmetic-only toggles that couldn't be honestly
+	// implemented in a lightweight Fabric mod were dropped rather than left as
+	// save-but-do-nothing switches.
 	public static final List<ModOption> GENERAL_SETTINGS = List.of(
 			ModOption.toggle("borderlessFullscreen", "Borderless Fullscreen", false),
 			ModOption.toggle("rawMouseInput", "Raw Mouse Input", true),
-			ModOption.toggle("smartDisconnect", "Smart Disconnect", true),
-			ModOption.toggle("keepInventoryCentered", "Keep Inventory Centered", false),
+			ModOption.toggle("smartDisconnect", "Smart Disconnect", true).tip("Ask for confirmation before leaving a world or server."),
 			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),
 			ModOption.dropdown("mainMenuStyle", "Main Menu Style", "Origin", "Vanilla"),
-			ModOption.toggle("showAchievements", "Show Achievements", true));
+			ModOption.toggle("showAchievements", "Show Achievements", true).tip("Show the advancement toast pop-ups."));
 
+	// Entity/Tile Entity Distance are a percentage of your render distance: at
+	// 100% nothing extra is culled; lower values stop drawing distant entities /
+	// block entities. The FPS caps kick in when the window is unfocused or you're
+	// sitting on the main menu.
 	public static final List<ModOption> PERFORMANCE_SETTINGS = List.of(
-			ModOption.toggle("turboNametags", "Turbo Nametags", true),
-			ModOption.toggle("memorySavings", "Memory Savings", true),
-			ModOption.toggle("renderRegions", "Render Regions", true),
-			ModOption.dropdown("lazyChunkLoading", "Lazy Chunk Loading", "Off", "Low", "Medium", "High"),
-			ModOption.toggle("hudCaching", "HUD Caching", true),
 			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
-			ModOption.toggle("particlePhysics", "Use Particle Physics", false),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
 			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"));
 
@@ -488,11 +490,23 @@ public final class Mods {
 	}
 
 	private static ModOption opt(String modId, String key) {
-		Mod m = byId(modId);
-		if (m == null) {
-			return null;
+		// The SETTINGS tab stores under pseudo-ids that aren't in ALL, so resolve
+		// their schema (and thus their defaults) from the settings lists directly
+		// — otherwise every General/Performance option would fall back to 0/false
+		// before it's ever touched (e.g. Entity Distance -> 0 = cull everything).
+		List<ModOption> opts;
+		if (GENERAL_ID.equals(modId)) {
+			opts = GENERAL_SETTINGS;
+		} else if (PERFORMANCE_ID.equals(modId)) {
+			opts = PERFORMANCE_SETTINGS;
+		} else {
+			Mod m = byId(modId);
+			if (m == null) {
+				return null;
+			}
+			opts = m.options();
 		}
-		for (ModOption o : m.options()) {
+		for (ModOption o : opts) {
 			if (o.key.equals(key)) {
 				return o;
 			}

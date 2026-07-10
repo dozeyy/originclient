@@ -47,6 +47,15 @@ public abstract class MouseHandlerMixin {
 			double f = OriginClientMod.zoomScrollFactor * Math.pow(1.15, -yOffset * speed);
 			OriginClientMod.zoomScrollFactor = Math.max(0.2, Math.min(3.0, f));
 			ci.cancel();
+			return;
+		}
+		// Disable Hotbar Scrolling (SETTINGS > General): swallow the wheel while
+		// in-game so it never changes the held slot. Only the plain in-world
+		// case — screens (their own scroll) and spectator mode are left alone.
+		Minecraft mc = Minecraft.getInstance();
+		if (Mods.bool(Mods.GENERAL_ID, "disableHotbarScrolling")
+				&& mc.screen == null && mc.player != null && !mc.player.isSpectator()) {
+			ci.cancel();
 		}
 	}
 
