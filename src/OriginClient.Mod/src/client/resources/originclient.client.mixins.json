@@ -29,7 +29,8 @@
 		"ToastComponentMixin",
 		"EntityRenderDispatcherMixin",
 		"BlockEntityRenderDispatcherMixin",
-		"PauseScreenMixin"
+		"PauseScreenMixin",
+		"IrisShadowDirectivesMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

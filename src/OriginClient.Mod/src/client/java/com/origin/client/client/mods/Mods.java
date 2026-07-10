@@ -49,8 +49,11 @@ public final class Mods {
 	// Entity/Tile Entity Distance are a percentage of your render distance: at
 	// 100% nothing extra is culled; lower values stop drawing distant entities /
 	// block entities. The FPS caps kick in when the window is unfocused or you're
-	// sitting on the main menu.
+	// sitting on the main menu. Shader Performance Mode halves every active
+	// shaderpack's shadow map resolution + shadow render distance (the biggest
+	// GPU lever with shaders on) via IrisShadowDirectivesMixin.
 	public static final List<ModOption> PERFORMANCE_SETTINGS = List.of(
+			ModOption.toggle("shaderPerformanceMode", "Shader Performance Mode", true).tip("Any shader you load runs at half shadow resolution and half shadow distance for a big FPS gain. Turn off for full quality; tuning a shader's own shadow options still applies (at half)."),
 			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
