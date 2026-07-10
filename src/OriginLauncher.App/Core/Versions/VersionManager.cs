@@ -33,14 +33,17 @@ public sealed class VersionManager
     private static Task<IReadOnlyList<string>>? _cachedReleaseVersions;
     private static readonly SemaphoreSlim ReleaseVersionsGate = new(1, 1);
 
-    // The supported version set (Will, 2026-07-08): the classic pillars
-    // 1.8.9 and 1.12.2, plus 1.16.5, plus every release from 1.17 upward.
-    // The picker shows exactly this set instead of the full Mojang history —
-    // 1.8.9/1.12.2 launch via Legacy Fabric, everything else via official
-    // Fabric (the perf-mod catalog's verified data starts at 1.16.5, so no
-    // supported version lands in the unsupported 1.14–1.16.4 gap).
-    private static readonly string[] PinnedVersions = { "1.8.9", "1.12.2", "1.16.5" };
-    private const string ModernFloorVersion = "1.17";
+    // The supported version set. Modern versions are gated on the perf catalog
+    // having a real shader stack (Sodium + Iris) for them — Origin never offers
+    // a version where shaders/Sodium don't exist yet, which drops brand-new
+    // Minecraft releases the perf mods haven't caught up to (they reappear the
+    // moment the catalog is regenerated with their Sodium/Iris builds).
+    //
+    // The two classic pillars 1.8.9 and 1.12.2 are kept explicitly: they launch
+    // via Legacy Fabric and predate Sodium/Iris entirely, so the catalog gate
+    // can't include them. (1.16.5 is the oldest catalog-shader version, so it's
+    // covered by the gate and doesn't need pinning.)
+    private static readonly string[] PinnedVersions = { "1.8.9", "1.12.2" };
 
     // Must match minecraft_version in src/OriginClient.Mod/gradle.properties.
     // The bundled jar's own Mixins/fabric.mod.json target this exact MC
@@ -79,15 +82,13 @@ public sealed class VersionManager
         var versions = await ManifestLauncher.GetAllVersionsAsync();
         var releases = versions.Where(v => v.Type == "release").ToList();
 
-        // Pinned classics + everything from the modern floor up (by release
-        // time, so future versions appear automatically whatever Mojang names
-        // them). If the floor lookup ever fails, fail open like the old
-        // cutoff did rather than emptying the picker.
-        var floor = releases.FirstOrDefault(v => v.Name == ModernFloorVersion)?.ReleaseTime;
+        // Only offer versions that actually work end-to-end: the classic
+        // pillars, plus any modern release the perf catalog has a full
+        // Sodium + Iris stack for. This deliberately hides brand-new Minecraft
+        // versions until the perf mods (and therefore shaders) support them.
         releases = releases.Where(v =>
             PinnedVersions.Contains(v.Name)
-            || floor == null
-            || v.ReleaseTime >= floor).ToList();
+            || PerformanceModCatalog.HasShaderStack(v.Name)).ToList();
 
         return releases.Select(v => v.Name).ToList();
     }

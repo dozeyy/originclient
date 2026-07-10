@@ -15,6 +15,15 @@ public static partial class PerformanceModCatalog
     public static VersionPerfProfile? TryGet(string mcVersion) =>
         Data.TryGetValue(mcVersion, out var profile) ? profile : null;
 
+    // True only when this version has the full, shader-capable stack — Sodium
+    // (the renderer Iris is built on) AND Iris itself. Used to gate the version
+    // picker so Origin never offers a version where shaders/Sodium don't exist
+    // yet (e.g. a just-released Minecraft the perf mods haven't caught up to).
+    // Self-updating: regenerating PerformanceModCatalog.Data.cs from Modrinth
+    // (once Sodium/Iris ship for a new version) makes it appear automatically.
+    public static bool HasShaderStack(string mcVersion) =>
+        Data.TryGetValue(mcVersion, out var p) && p.Sodium != null && p.Iris != null;
+
     // Whether Fabric is the recommended loader for this version — i.e. we
     // have at least a partial perf-mod profile for it. Versions inside the
     // Fabric-supporting range but missing from Data (a handful of odd point
