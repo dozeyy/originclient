@@ -38,6 +38,49 @@ public final class ShaderDownloader {
 		return STATES.getOrDefault(slug, IDLE_STATE);
 	}
 
+	/**
+	 * Deletes an installed pack's file from shaderpacks/ and resets it to IDLE
+	 * (so the row shows Download again). No-op unless the pack is DONE — its
+	 * State.message() holds the downloaded filename.
+	 */
+	public static void remove(String slug) {
+		State s = state(slug);
+		if (s.status() != Status.DONE) {
+			return;
+		}
+		try {
+			// message() is the filename; strip any path parts defensively
+			String fileName = Path.of(s.message()).getFileName().toString();
+			Files.deleteIfExists(IrisBridge.shaderpacksDir().resolve(fileName));
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Shader remove failed for {}", slug, t);
+		}
+		STATES.remove(slug);
+	}
+
+	/**
+	 * Reconciles in-memory DONE states with the shaderpacks/ folder: if a pack's
+	 * file was deleted outside the client (e.g. the player cleaned out the
+	 * folder), drop it back to IDLE so the row shows Download again. Called when
+	 * the browser screen (re)opens.
+	 */
+	public static void syncWithDisk() {
+		Path dir = IrisBridge.shaderpacksDir();
+		for (var e : STATES.entrySet()) {
+			if (e.getValue().status() != Status.DONE) {
+				continue;
+			}
+			try {
+				String fileName = Path.of(e.getValue().message()).getFileName().toString();
+				if (!Files.exists(dir.resolve(fileName))) {
+					STATES.remove(e.getKey());
+				}
+			} catch (Throwable ignored) {
+				// unparseable filename — leave the state as-is
+			}
+		}
+	}
+
 	/** Kicks off resolve+download for a pack; safe to call repeatedly. */
 	public static void start(String slug, String gameVersion) {
 		State s = state(slug);

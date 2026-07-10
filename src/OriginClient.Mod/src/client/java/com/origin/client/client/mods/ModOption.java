@@ -16,6 +16,12 @@ public final class ModOption {
 	public final String label;
 	public final Kind kind;
 
+	// Optional one-line hover description ("what this setting does"). null = none;
+	// self-explanatory rows (color pickers, obvious names) are left null on
+	// purpose. Set fluently via .tip("...") after any factory. Mutable so it can
+	// be attached without threading a param through every factory.
+	public String tooltip = null;
+
 	// key of the TOGGLE this row is nested under; null = top-level row.
 	public final String dependsOn;
 
@@ -97,7 +103,15 @@ public final class ModOption {
 
 	/** Returns a copy of this row nested under the given TOGGLE key. */
 	public ModOption under(String parentKey) {
-		return new ModOption(key, label, kind, parentKey, min, max, step, defNum, format,
+		ModOption c = new ModOption(key, label, kind, parentKey, min, max, step, defNum, format,
 				defBool, defColor, defKey, modes);
+		c.tooltip = tooltip;
+		return c;
+	}
+
+	/** Attaches a hover description; returns this for fluent chaining. */
+	public ModOption tip(String description) {
+		this.tooltip = description;
+		return this;
 	}
 }

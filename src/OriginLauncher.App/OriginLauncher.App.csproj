@@ -40,8 +40,8 @@
     bundled jar is absent (VersionManager falls back to the standalone
     perf-mod catalog). A RELEASE build must still verify the jar is present.
   -->
-  <ItemGroup Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.4.0.jar')">
-    <Content Include="..\OriginClient.Mod\build\libs\originclient-0.4.0.jar">
+  <ItemGroup Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.4.1.jar')">
+    <Content Include="..\OriginClient.Mod\build\libs\originclient-0.4.1.jar">
       <Link>Bundled\OriginClient\originclient.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

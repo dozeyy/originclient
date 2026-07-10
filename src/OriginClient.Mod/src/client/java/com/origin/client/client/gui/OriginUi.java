@@ -85,8 +85,11 @@ public final class OriginUi {
 		}
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
+		// Off end is a solid Apple-style neutral track (opaque so it reads the
+		// same in clear/backed modes) instead of a faint translucent white that
+		// looked broken; On end unchanged.
 		int trackOn = enabled ? 0xD9DDDDDD : 0x5AFFFFFF;
-		tint(OriginTheme.lerpColor(enabled ? 0x40FFFFFF : 0x22FFFFFF, trackOn, k));
+		tint(OriginTheme.lerpColor(enabled ? 0xFF48484A : 0x22FFFFFF, trackOn, k));
 		g.blit(trackTex, x, y, wDisp, hDisp, 0f, 0f, 120, 64, 120, 64);
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		// knob: 72px art holds a 52px disc + shadow padding -> draw oversized
@@ -164,23 +167,28 @@ public final class OriginUi {
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
-	/** Rounded slider: track + fill + knob. value 0..1. Returns knob center x. */
+	/** Rounded pill slider: track + fill + a ball knob that stays vertically
+	 *  centered and sits flush at both ends (its travel is inset by the knob
+	 *  radius). `y` is the pill top; value 0..1. Returns the knob center x. */
 	public static int slider(GuiGraphics g, int x, int y, int w, double value, boolean active) {
-		int h = 4;
-		panel(g, x, y, w, h, 2, 0x30FFFFFF, 0);
-		int fw = (int) Math.round(w * value);
-		if (fw > 2) {
-			panel(g, x, y, fw, h, 2, active ? 0xE6E0E0E0 : 0xA8D8D8D8, 0);
+		int h = 6;              // pill height
+		int r = 5;              // knob radius — travel is inset by r so the ball is flush at the ends
+		double v = Math.max(0.0, Math.min(1.0, value));
+		int cy = y + h / 2;     // pill vertical center — the knob centers on this
+		panel(g, x, y, w, h, h / 2, 0x30FFFFFF, 0);
+		int kx = x + r + (int) Math.round(v * (w - 2 * r));
+		int fw = kx - x;        // fill runs from the track start to the knob center
+		if (v > 0.001 && fw > 0) {
+			panel(g, x, y, Math.min(w, fw + r), h, h / 2, active ? 0xE6E0E0E0 : 0xA8D8D8D8, 0);
 		}
-		int kx = x + (int) Math.round(value * w);
 		ensureLoaded();
+		int kd = active ? r * 2 + 4 : r * 2 + 2;   // ball; grows slightly while dragging
 		if (ok) {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
-			int kd = 12;
-			g.blit(knobTex, kx - kd / 2, y + h / 2 - kd / 2, kd, kd, 0f, 0f, 72, 72, 72, 72);
+			g.blit(knobTex, kx - kd / 2, cy - kd / 2, kd, kd, 0f, 0f, 72, 72, 72, 72);
 		} else {
-			g.fill(kx - 2, y - 2, kx + 2, y + h + 2, 0xFFE8E8E8);
+			g.fill(kx - kd / 2, cy - kd / 2, kx + kd / 2, cy + kd / 2, 0xFFE8E8E8);
 		}
 		return kx;
 	}

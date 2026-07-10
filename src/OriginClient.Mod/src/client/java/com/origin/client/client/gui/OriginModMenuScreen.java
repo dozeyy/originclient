@@ -99,6 +99,11 @@ public class OriginModMenuScreen extends Screen {
 	private boolean searchFocused = false;
 	private double haloX = -1, haloY = -1;
 
+	// hover tooltip captured during a settings render pass, drawn last (raw
+	// screen space, on top of everything but the color picker).
+	private String hoverTip;
+	private int hoverTipX, hoverTipY;
+
 	// transparent-menu mode: no panel backing behind the content, so every
 	// surface switches to dark translucent fills + text shadows for contrast
 	private boolean clear = false;
@@ -169,6 +174,7 @@ public class OriginModMenuScreen extends Screen {
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		layout();
+		hoverTip = null;
 		long now = System.currentTimeMillis();
 
 		// smooth scrolling
@@ -233,8 +239,58 @@ public class OriginModMenuScreen extends Screen {
 		haloY += (mouseY - haloY) * OriginTheme.HALO_LERP_FACTOR;
 		OriginUi.glow(g, haloX, haloY, 150, 0.10f * (float) p);
 
+		// hover tooltip (captured while drawing rows) — above the menu, below
+		// the color picker
+		if (hoverTip != null && !OriginColorPicker.isOpen() && closingAt < 0) {
+			drawTooltip(g, hoverTipX, hoverTipY, hoverTip);
+		}
+
 		// shared color picker overlay draws last, in raw screen space
 		OriginColorPicker.render(g, mouseX, mouseY);
+	}
+
+	// wraps text to maxW and draws a dark rounded tooltip near (mx,my), clamped
+	// to stay on-screen.
+	private void drawTooltip(GuiGraphics g, int mx, int my, String text) {
+		int maxW = 190;
+		List<String> lines = wrapText(text, maxW);
+		int tw = 0;
+		for (String l : lines) {
+			tw = Math.max(tw, font.width(l));
+		}
+		int lh = font.lineHeight + 1;
+		int th = lines.size() * lh + 7;
+		int bx = mx + 12, by = my + 10;
+		if (bx + tw + 12 > width) {
+			bx = Math.max(4, width - tw - 12);
+		}
+		if (by + th > height) {
+			by = Math.max(4, height - th - 2);
+		}
+		OriginUi.panel(g, bx, by, tw + 12, th, 6, 0xF01A1A1A, OriginTheme.STROKE_STRONG);
+		int ty = by + 5;
+		for (String l : lines) {
+			g.drawString(font, l, bx + 6, ty, OriginTheme.TEXT, false);
+			ty += lh;
+		}
+	}
+
+	private List<String> wrapText(String s, int maxW) {
+		List<String> out = new ArrayList<>();
+		StringBuilder cur = new StringBuilder();
+		for (String word : s.split(" ")) {
+			String test = cur.length() == 0 ? word : cur + " " + word;
+			if (font.width(test) > maxW && cur.length() > 0) {
+				out.add(cur.toString());
+				cur = new StringBuilder(word);
+			} else {
+				cur = new StringBuilder(test);
+			}
+		}
+		if (cur.length() > 0) {
+			out.add(cur.toString());
+		}
+		return out;
 	}
 
 	private void renderGrid(GuiGraphics g, int mouseX, int mouseY, long now, float alpha) {
@@ -446,9 +502,14 @@ public class OriginModMenuScreen extends Screen {
 		int sbw = Math.min(240, x1 - x0);
 		OriginUi.panel(g, x0, sby, sbw, 20, 8, withAlpha(0x66000000, alpha), withAlpha(OriginTheme.STROKE, alpha));
 		OriginUi.icon(g, "zoom", x0 + 4, sby + 2, 14, withAlpha(OriginTheme.MUTED, alpha));
-		String sq = settingsSearch.isEmpty() ? "Search settings" : settingsSearch;
-		g.drawString(font, sq, x0 + 22, sby + 6,
-				withAlpha(settingsSearch.isEmpty() ? OriginTheme.MUTED : OriginTheme.TEXT, alpha), false);
+		// The settings box is always ready for input on a mod page: show a
+		// flashing caret in place of the placeholder.
+		float sPulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(now / 350.0));
+		int caretX = x0 + 22 + font.width(settingsSearch);
+		if (!settingsSearch.isEmpty()) {
+			g.drawString(font, settingsSearch, x0 + 22, sby + 6, withAlpha(OriginTheme.TEXT, alpha), false);
+		}
+		g.fill(caretX + 1, sby + 5, caretX + 2, sby + 15, withAlpha(OriginTheme.TEXT, alpha * sPulse));
 
 		// scrollable content
 		int top = hy + 62;
@@ -526,7 +587,7 @@ public class OriginModMenuScreen extends Screen {
 				continue;
 			}
 			int rx0 = r.indent() ? x0 + 16 : x0;
-			if (my >= r.y() && my < r.y() + r.h() && clickRow(id, r.o(), rx0, x1, r.y(), mx)) {
+			if (my >= r.y() && my < r.y() + r.h() && clickRow(id, r.o(), rx0, x1, r.y(), mx, my)) {
 				return true;
 			}
 		}
@@ -538,6 +599,13 @@ public class OriginModMenuScreen extends Screen {
 				withAlpha(clear ? 0xC0101010 : 0x10FFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
 		g.drawString(font, o.label, x0 + 10, y + 9,
 				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
+
+		// hover description (non-obvious settings only carry a tooltip)
+		if (o.tooltip != null && in(mx, my, x0, y, x1, y + 26)) {
+			hoverTip = o.tooltip;
+			hoverTipX = mx;
+			hoverTipY = my;
+		}
 
 		switch (o.kind) {
 			case TOGGLE -> OriginUi.switchAt(g, modId + ":" + o.key, x1 - 40, y + 5, 30, Mods.bool(modId, o.key), true);
@@ -651,7 +719,9 @@ public class OriginModMenuScreen extends Screen {
 			pageChangedAt = System.currentTimeMillis();
 			return true;
 		}
-		if (in(mx, my, x1 - 38, hy, x1, hy + 24)) { // master switch
+		// master switch — drawn at (x1-34, py()+13) sized 34 x 18; require the
+		// click to land on the pill itself.
+		if (in(mx, my, x1 - 34, py() + 13, x1, py() + 31)) {
 			Mods.setOn(mod.id(), !Mods.on(mod.id()));
 			return true;
 		}
@@ -679,10 +749,12 @@ public class OriginModMenuScreen extends Screen {
 		return false;
 	}
 
-	private boolean clickRow(String modId, ModOption o, int x0, int x1, int y, double mx) {
+	private boolean clickRow(String modId, ModOption o, int x0, int x1, int y, double mx, double my) {
 		switch (o.kind) {
 			case TOGGLE -> {
-				if (mx >= x1 - 46) {
+				// The switch is drawn at (x1-40, y+5) sized 30 x 16 — the click
+				// must land on the pill itself, not anywhere to its right.
+				if (in(mx, my, x1 - 40, y + 5, x1 - 10, y + 21)) {
 					Mods.set(modId, o.key, !Mods.bool(modId, o.key));
 					return true;
 				}
@@ -690,7 +762,9 @@ public class OriginModMenuScreen extends Screen {
 			case SLIDER -> {
 				int tw = Math.min(140, (x1 - x0) / 3);
 				int tx = x1 - 10 - tw;
-				if (mx >= tx - 6 && mx <= x1 - 4) {
+				// Strictly the track — clicking to the right of it (or in the
+				// value-text gap on the left) must NOT grab the slider.
+				if (mx >= tx && mx <= tx + tw) {
 					dragMod = modId;
 					dragKey = o.key;
 					dragTrackX0 = tx;

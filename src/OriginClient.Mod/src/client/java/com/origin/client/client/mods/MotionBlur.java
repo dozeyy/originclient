@@ -5,39 +5,52 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
 // Motion Blur: a previous-frame accumulation post chain (the classic
-// "phosphor" technique), loaded through vanilla's own post-effect pipeline
-// so resize/processing come for free. Three strength variants are separate
-// shader assets (a post chain's uniforms are baked into its JSON). The
-// program/shader files live under the minecraft namespace (served from our
-// jar) because pass program names can't carry a namespace; the post JSONs
-// are properly namespaced. Everything is guarded: if the shader fails to
-// load on some driver/version, the feature silently no-ops.
+// "phosphor" technique) loaded through vanilla's own post-effect pipeline. A
+// single chain now covers the whole range — the blend strength is a live
+// `Amount` uniform driven by the 0..10 slider (0 = off, 10 = maximum), so the
+// slider is smooth end to end instead of three fixed variants. Fully guarded:
+// if the shader fails on some driver, the feature silently no-ops.
 public final class MotionBlur {
-	private static int applied = 0; // 0 = off, 1..3 = variant
+	private static final ResourceLocation EFFECT =
+			ResourceLocation.fromNamespaceAndPath("originclient", "shaders/post/motion_blur.json");
+
+	private static boolean loaded = false;
 	private static boolean broken = false;
 
 	private MotionBlur() {
 	}
 
 	public static void tick(Minecraft mc) {
-		int desired = !broken && Mods.on("motionblur")
-				? (int) Math.max(1, Math.min(3, Mods.num("motionblur", "amount"))) : 0;
-		if (desired == applied) {
-			return;
+		double amount = (!broken && Mods.on("motionblur")) ? Mods.num("motionblur", "amount") : 0;
+		boolean want = amount >= 0.5;
+
+		if (want != loaded) {
+			try {
+				if (want) {
+					((GameRendererAccessor) mc.gameRenderer).originclient$loadEffect(EFFECT);
+				} else {
+					mc.gameRenderer.shutdownEffect();
+				}
+				loaded = want;
+			} catch (Throwable t) {
+				broken = true;
+				loaded = false;
+				com.origin.client.OriginClient.LOGGER.warn("Motion blur shader failed to load; feature disabled this session", t);
+				return;
+			}
 		}
-		try {
-			if (applied != 0 || desired == 0) {
-				mc.gameRenderer.shutdownEffect();
+
+		if (loaded) {
+			// map 0..10 -> 0..0.92 blend of the previous frame (higher = blurrier)
+			double blend = Math.min(0.92, Math.max(0.0, amount / 10.0) * 0.92);
+			try {
+				var effect = mc.gameRenderer.currentEffect();
+				if (effect != null) {
+					effect.setUniform("Amount", (float) blend);
+				}
+			} catch (Throwable ignored) {
+				// a different post effect may be active; ignore
 			}
-			if (desired != 0) {
-				((GameRendererAccessor) mc.gameRenderer).originclient$loadEffect(
-						ResourceLocation.fromNamespaceAndPath("originclient", "shaders/post/motion_blur_" + desired + ".json"));
-			}
-			applied = desired;
-		} catch (Throwable t) {
-			broken = true;
-			applied = 0;
-			com.origin.client.OriginClient.LOGGER.warn("Motion blur shader failed to load; feature disabled this session", t);
 		}
 	}
 }

@@ -34,7 +34,12 @@ public class EntityNametagMixin {
 		}
 		poseStack.pushPose();
 		if (Mods.on("nametags")) {
+			// There is no "scale" option, so num() returns 0 — guard it to 1 so
+			// the tag never collapses to nothing (the "can't see my nametag" bug).
 			float s = (float) Mods.num("nametags", "scale");
+			if (s <= 0f) {
+				s = 1f;
+			}
 			poseStack.scale(s, s, s);
 		}
 	}

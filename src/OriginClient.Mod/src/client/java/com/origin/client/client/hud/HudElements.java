@@ -273,8 +273,14 @@ public final class HudElements {
 
 		// ---- Potion Effects ----
 		add("potionhud", "potionhud", "Potions", new HudPos(2, -6, 6, 1.0), mc -> {
-			int n = potionRows(mc).size();
-			return new int[]{130, Math.max(1, n) * 20};
+			// width grows to the widest FULL name+time so nothing is ellipsised;
+			// right-anchored, so it just extends further left to fit.
+			var rows = potionRows(mc);
+			int wMax = 60;
+			for (PotionRow row : rows) {
+				wMax = Math.max(wMax, 22 + rowTextWidth(mc, row));
+			}
+			return new int[]{wMax, Math.max(1, rows.size()) * 20};
 		}, (g, mc, w, h) -> {
 			if (mc.player == null) {
 				return;
@@ -293,7 +299,7 @@ public final class HudElements {
 				for (PotionRow row : rows) {
 					wAct = Math.max(wAct, 22 + rowTextWidth(mc, row));
 				}
-				OriginUi.panel(g, -3, -3, Math.min(130, wAct) + 6, rows.size() * 20 + 4, 5,
+				OriginUi.panel(g, -3, -3, wAct + 6, rows.size() * 20 + 4, 5,
 						OriginColorPicker.liveColor("potionhud", "bgColor"), 0);
 			}
 			int y = 0;
@@ -428,7 +434,7 @@ public final class HudElements {
 			g.drawString(mc.font, time, x, y + 5, timeColor, shadow);
 			return;
 		}
-		String nm = trim(mc, name, 74);
+		String nm = name;   // full name, never trimmed (the box grows to fit)
 		if (Mods.bool("potionhud", "reversedText")) {
 			g.drawString(mc.font, time, x, y + 5, timeColor, shadow);
 			g.drawString(mc.font, nm, x + mc.font.width(time + " "), y + 5, nameColor, shadow);
@@ -537,10 +543,13 @@ public final class HudElements {
 		if (Mods.bool("keystrokes", "border")) {
 			int t = (int) Math.max(1, Math.min(4, Math.round(Mods.num("keystrokes", "borderThickness"))));
 			int bc = OriginColorPicker.liveColor("keystrokes", "borderColor");
+			// top/bottom span full width; left/right fill only the gap between them
+			// so corner pixels are never drawn twice (which made corners darker
+			// than the straight edges at higher opacity).
 			g.fill(x, y, x + w, y + t, bc);
 			g.fill(x, y + h - t, x + w, y + h, bc);
-			g.fill(x, y, x + t, y + h, bc);
-			g.fill(x + w - t, y, x + w, y + h, bc);
+			g.fill(x, y + t, x + t, y + h - t, bc);
+			g.fill(x + w - t, y + t, x + w, y + h - t, bc);
 		}
 		if (!label.isEmpty()) {
 			int up = OriginColorPicker.liveColor("keystrokes", "color");
@@ -558,6 +567,34 @@ public final class HudElements {
 		}
 		int a = (int) (bg * 255);
 		OriginUi.panel(g, x - 4, y - 4, w + 8, h + 8, 6, (a << 24) | 0x0E0E0E, 0);
+	}
+
+	/** Draws just the Potion element over an open inventory/container screen
+	 *  (the normal HUD pass is skipped while a screen is open, so "Show In
+	 *  Inventory" needs its own draw). */
+	public static void renderInInventory(GuiGraphics g) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null || !Mods.on("potionhud")) {
+			return;
+		}
+		for (Element e : ALL) {
+			if (!e.modId().equals("potionhud")) {
+				continue;
+			}
+			HudPos pos = e.pos();
+			int[] size = e.measure().apply(mc);
+			double w = size[0] * pos.scale, h = size[1] * pos.scale;
+			double x = pos.x(g.guiWidth(), w), y = pos.y(g.guiHeight(), h);
+			var p = g.pose();
+			p.pushPose();
+			p.translate(x, y, 0);
+			p.scale((float) pos.scale, (float) pos.scale, 1f);
+			try {
+				e.renderer().render(g, mc, size[0], size[1]);
+			} catch (Throwable ignored) {
+			}
+			p.popPose();
+		}
 	}
 
 	/** Main in-game dispatcher: draws every enabled element at its anchored,

@@ -20,8 +20,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	private boolean freelookWasDown = false;
 	private net.minecraft.client.CameraType savedPerspective = null;
-	private boolean gammaApplied = false;
-	private double savedGamma = 1.0;
+	private boolean sneakForced = false;
 	private boolean chatApplied = false;
 	private double savedChatOpacity = 1.0, savedChatScale = 1.0;
 	private boolean hitboxesApplied = false;
@@ -35,9 +34,12 @@ public class OriginClientMod implements ClientModInitializer {
 
 	// Live time-changer output, read by LevelTimeMixin every frame.
 	public static volatile double timeOverride = 6000;
-	// Toggle-mode zoom latch + smooth-zoom progress (0..1), read by GameRendererMixin.
+	// Toggle-mode zoom latch. zoomActive = zoom is engaged this tick (the target
+	// GameRendererMixin eases the FOV toward, frame-side). zoomScrollFactor is a
+	// transient scroll-to-zoom multiplier, reset whenever zoom disengages.
 	public static volatile boolean zoomToggled = false;
-	public static volatile double zoomProgress = 0;
+	public static volatile boolean zoomActive = false;
+	public static volatile double zoomScrollFactor = 1.0;
 	// Nametag toggle latches, read by EntityNametagMixin.
 	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
 	private boolean nametagAllKeyWasDown = false, nametagPlayerKeyWasDown = false;
@@ -55,12 +57,20 @@ public class OriginClientMod implements ClientModInitializer {
 		// added via Fabric's screen API (no Iris mixin to break on updates).
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen.getClass().getName().contains("ShaderPackScreen")) {
-				var btn = net.minecraft.client.gui.components.Button.builder(
-								net.minecraft.network.chat.Component.literal("Download Shaders"),
-								b -> client.setScreen(new com.origin.client.client.shaders.ShaderBrowserScreen(screen)))
-						.bounds(6, 6, 120, 20)
-						.build();
-				net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen).add(btn);
+				var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen);
+				// Iris re-inits its screen on resize and every time we return from
+				// the browser — guard so our button is added exactly once and never
+				// stacks. This is the ONLY shader-download entry point (Iris ships
+				// no Modrinth/download button of its own).
+				net.minecraft.network.chat.Component label =
+						net.minecraft.network.chat.Component.literal("Download Shaders");
+				boolean present = buttons.stream().anyMatch(w ->
+						w instanceof net.minecraft.client.gui.components.Button b
+								&& label.equals(b.getMessage()));
+				if (!present) {
+					buttons.add(new com.origin.client.client.shaders.OriginShaderButton(6, 6, 120, 20, label,
+							b -> client.setScreen(new com.origin.client.client.shaders.ShaderBrowserScreen(screen))));
+				}
 			}
 		});
 		WorldRenderEvents.LAST.register(context -> {
@@ -68,6 +78,25 @@ public class OriginClientMod implements ClientModInitializer {
 				ChunkBorderRenderer.render(context);
 			} catch (Throwable t) {
 				// overlay must never take the frame down
+			}
+		});
+		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
+		// container screen is open, so draw the potion element over it here.
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen) {
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) -> {
+					if (Mods.on("potionhud") && Mods.bool("potionhud", "showInInventory")) {
+						com.origin.client.client.hud.HudElements.renderInInventory(g);
+					}
+				});
+			}
+		});
+		// Block Outline + Overlay (own colour/width + translucent fill).
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
+			try {
+				return com.origin.client.client.mods.BlockOverlayRenderer.onBlockOutline(wctx, octx);
+			} catch (Throwable t) {
+				return true; // fail-soft: let vanilla draw its outline
 			}
 		});
 	}
@@ -95,7 +124,6 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 
-		applyFullbright(client);
 		applyChat(client);
 		applyHitboxes(client);
 		applyWeather(client);
@@ -148,7 +176,9 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		nametagPlayerKeyWasDown = npDown;
 
-		// Toggle Zoom: in toggle mode the key latches instead of holding
+		// Toggle Zoom: in toggle mode the key latches instead of holding. The
+		// FOV easing itself lives in GameRendererMixin (frame-side); here we only
+		// resolve whether zoom is engaged and expose it as zoomActive.
 		boolean zDown = client.screen == null
 				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isDown());
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
@@ -159,17 +189,9 @@ public class OriginClientMod implements ClientModInitializer {
 			zoomToggled = false;
 		}
 		zoomKeyWasDown = zDown;
-		// smooth-zoom easing: progress eases toward the active state, or snaps
-		// when Smooth Zoom is off. GameRendererMixin lerps the FOV by this.
-		boolean zoomActive = Mods.on("zoom") && (Mods.bool("zoom", "toggleZoom") ? zoomToggled : zDown);
-		double zTarget = zoomActive ? 1 : 0;
-		if (Mods.bool("zoom", "smoothZoom")) {
-			zoomProgress += (zTarget - zoomProgress) * 0.4;
-			if (Math.abs(zTarget - zoomProgress) < 0.001) {
-				zoomProgress = zTarget;
-			}
-		} else {
-			zoomProgress = zTarget;
+		zoomActive = Mods.on("zoom") && (Mods.bool("zoom", "toggleZoom") ? zoomToggled : zDown);
+		if (!zoomActive) {
+			zoomScrollFactor = 1.0;   // reset scroll-zoom depth when not zooming
 		}
 
 		// Chunk borders toggle keybind (edge-triggered, ignored in screens).
@@ -184,19 +206,24 @@ public class OriginClientMod implements ClientModInitializer {
 		// nothing); "Toggle" flips on the vanilla key or the custom bind.
 		// Toggle Sneak/Sprint is one mod now (spec §5): the "sprint"/"sneak"
 		// sub-toggles pick which the hands-free behavior applies to.
+		// Toggle happens ONLY on the mod's assigned toggle key — we no longer
+		// consume the vanilla sprint/sneak keys, so double-tap-W sprinting and
+		// hold-Ctrl / hold-Shift keep working normally. We also never force the
+		// state OFF: sprint is only pushed ON while toggled+moving, and sneak is
+		// released once on un-toggle, so vanilla stays in control the rest of the
+		// time.
 		boolean toggleMod = Mods.on("togglesprint");
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
 			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sprintKeyWasDown;
 			sprintKeyWasDown = custom;
-			if (client.options.keySprint.consumeClick() || edge) {
+			if (edge) {
 				FEATURES.sprintToggledOn = !FEATURES.sprintToggledOn;
 			}
-			// only sprint while actually moving forward — vanilla behavior;
-			// forcing the flag while stationary spawns sprint particles at
-			// the player's feet nonstop
 			boolean moving = player.input != null && player.input.hasForwardImpulse();
-			player.setSprinting(FEATURES.sprintToggledOn && player.isAlive() && moving);
+			if (FEATURES.sprintToggledOn && player.isAlive() && moving) {
+				player.setSprinting(true);
+			}
 		} else {
 			FEATURES.sprintToggledOn = false;
 		}
@@ -205,11 +232,21 @@ public class OriginClientMod implements ClientModInitializer {
 			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
-			if (client.options.keyShift.consumeClick() || edge) {
+			if (edge) {
 				FEATURES.sneakToggledOn = !FEATURES.sneakToggledOn;
 			}
-			player.setShiftKeyDown(FEATURES.sneakToggledOn);
+			if (FEATURES.sneakToggledOn) {
+				player.setShiftKeyDown(true);
+				sneakForced = true;
+			} else if (sneakForced) {
+				player.setShiftKeyDown(false);   // one-shot release; hold-Shift then works normally
+				sneakForced = false;
+			}
 		} else {
+			if (sneakForced) {
+				player.setShiftKeyDown(false);
+				sneakForced = false;
+			}
 			FEATURES.sneakToggledOn = false;
 		}
 
@@ -288,26 +325,6 @@ public class OriginClientMod implements ClientModInitializer {
 			timePassageAccum = 0;
 		}
 		timeOverride = (base + timePassageAccum) % 24000;
-	}
-
-	// FullBright: pushes vanilla gamma to the configured level (validator
-	// permitting — flagged for live check) and restores the player's own
-	// value on disable. Gated on the mod switch AND its Full Bright sub-toggle.
-	private void applyFullbright(Minecraft client) {
-		boolean on = Mods.on("fullbright") && Mods.bool("fullbright", "fullBright");
-		double target = Mods.num("fullbright", "gamma");
-		if (on) {
-			if (!gammaApplied) {
-				savedGamma = client.options.gamma().get();
-				gammaApplied = true;
-			}
-			if (client.options.gamma().get() != target) {
-				client.options.gamma().set(target);
-			}
-		} else if (gammaApplied) {
-			client.options.gamma().set(savedGamma);
-			gammaApplied = false;
-		}
 	}
 
 	// Chat options ride the vanilla accessibility options. IMPORTANT mapping:

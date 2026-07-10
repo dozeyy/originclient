@@ -2032,3 +2032,116 @@ Also this pass: editor shows only enabled mods (config persists while
 disabled), drag clamp keeps a 12px grabbable sliver on-screen (still free
 overlap + off-screen hang), potions/armor backgrounds hug actual content
 in-game (none when empty; editor previews unchanged).
+
+---
+
+## 2026-07-09 — Shader store: crash fix, WebP covers, search, remove, +shaders
+
+Live-test feedback pass on the in-client shader store (ShaderBrowserScreen /
+ShaderDownloader / ShaderPreviews, injected into Iris's ShaderPackScreen).
+
+1. **Apply-shader crash (root cause + fix).** Downloading worked; selecting a
+   pack in Iris crashed with `NoClassDefFoundError: org/anarres/cpp/
+   PreprocessorListener` at `ShaderPack.loadProperties` (crash-2026-07-09_
+   14.50.43). Iris nests its GLSL toolchain as jar-in-jar (jcpp-1.4.14,
+   glsl-transformer-2.0.1, antlr4-runtime-4.13.1); Loom's `include()` does NOT
+   propagate a nested mod's OWN nested jars onto the runClient dev classpath
+   (same bug class as the Krypton note, 2026-07-07). Shaders-off never touches
+   these, so it only crashes the instant a pack is applied. Fix: add the three
+   as `runtimeOnly` in build.gradle (+ `mavenCentral()`). Verified end-to-end —
+   client now boots straight into a world with Complementary active, 0 errors.
+   Production launcher jar is unaffected (recursive JiJ handles it).
+
+2. **Covers were all the Origin logo.** Modrinth serves shader gallery/icon
+   images as **lossless WebP (VP8L)**, which NativeImage/STB cannot decode, so
+   every preview fell back to the branded tile. Fix: decode via ImageIO with
+   TwelveMonkeys `imageio-webp:3.12.0` (pure Java) registered manually in a
+   ShaderPreviews static block (`IIORegistry...registerServiceProvider(new
+   WebPImageReaderSpi())`), then BufferedImage->NativeImage (getRGB is ARGB;
+   NativeImage wants ABGR — swap R/B). `implementation` covers dev classpath +
+   transitives; `include` bundles for the shipped jar. Verified the decoder on
+   real Modrinth VP8L bytes AND that the ImageIO SPI registry is shared across
+   the daemon decode threads on JDK 21.
+
+3. **Shader list** rebuilt from Modrinth's live top-downloads API (76 packs,
+   real verified slugs, no dups) with a 3rd column = short description shown
+   under the name (replaced the "#N most downloaded" line). Correct slug drives
+   both download and cover.
+
+4. **Search**: type-to-filter box at the top of ShaderBrowserScreen (name +
+   description, case-insensitive); Esc clears then closes; live pack count.
+
+5. **Remove**: once a pack is DONE it shows "✓ Installed", and on hover turns
+   into a danger-clay **Remove** button that deletes the file from shaderpacks/
+   (ShaderDownloader.remove, filename from State.message) and resets to IDLE.
+
+6. Only-ours button: Iris 1.8.8 ships no Modrinth/download button of its own
+   (verified against its lang + ShaderPackScreen class); the injected "Download
+   Shaders" is the sole entry point. Hardened the AFTER_INIT injector to dedup
+   so it can't stack on re-init/resize.
+
+---
+
+## 2026-07-09 — Big mod-fix pass (Batches 1–3): root causes
+
+Shared UI + ~18 mod behaviour fixes. Non-obvious root causes worth keeping:
+
+- **Silent mixin no-ops.** `originclient.client.mixins.json` has `defaultRequire: 0`
+  — an injector whose target doesn't match dies SILENTLY. Prime suspect whenever
+  a mod "does nothing." Put `require = 1` on load-bearing injectors (e.g.
+  LightTextureMixin) so drift is loud in dev.
+- **Full Bright** never worked because vanilla clamps the gamma option to [0,1].
+  Fix: redirect the 2nd `OptionInstance.get()` in `LightTexture.updateLightTexture`
+  (ordinal 1 = gamma; ordinal 0 = darknessEffectScale) and feed the Boost Factor.
+- **Zoom choppy**: FOV progress was eased in the 20 TPS client tick. Ease it in
+  `GameRenderer.getFov` (per frame, time-based) instead. Scroll-zoom needed a
+  `MouseHandler.onScroll` HEAD-cancel (there was none).
+- **Toggle Sprint** killed double-tap-W because it consumed the vanilla sprint key
+  and force-set sprinting false every tick. Fix: toggle only on the mod's own key,
+  only force sprint ON while moving, one-shot release for sneak.
+- **Block-break particles** are spawned via `ParticleEngine.destroy/crack`, NOT
+  `createParticle` — so the createParticle mixin never saw them. Gate destroy/crack.
+- **Particle Scale** wired via `SingleQuadParticle.getQuadSize` @RETURN multiply.
+- **Chat timestamps** targeted the 1-arg `addMessage(Component)`, but it delegates
+  to the 3-arg `addMessage(Component,MessageSignature,GuiMessageTag)` (verified in
+  the jar) which is the real funnel — target that. Stack collapse: on a duplicate,
+  `allMessages.remove(0)` + `refreshTrimmedMessages()` (both @Shadow) then re-add
+  with a "(xN)" counter.
+- **Motion Blur** made continuous: the `.fsh` already had a `uniform float Amount`;
+  drive it each frame via `GameRenderer.currentEffect().setUniform("Amount", ..)`
+  from one post chain instead of 3 baked variants. 0..10 -> 0..0.92 blend.
+- **Block Overlay** fill needs Fabric's `WorldRenderEvents.BLOCK_OUTLINE` (gives the
+  matrix + a quad buffer via `RenderType.debugQuads()`); the old renderHitOutline
+  mixin only had a lines buffer, so a filled overlay was impossible there.
+- **Potion HUD in inventory**: the HUD pass is skipped while a screen is open —
+  draw it from `ScreenEvents.afterRender` on `AbstractContainerScreen`.
+- **Chunk Borders / Hitbox** "settings do nothing": the renderers hard-coded style
+  and ignored most options; rewired to read every option + use `liveColor` (chroma).
+
+Deferred (flagged to Will, not silently dropped): per-particle scale/colour/sound
+(global scale works), Nametag "own tag" (needs shouldShowName override), true
+loading smoothness (already wall-clock; residual stutter is chunk-gen starving the
+render thread), full responsive reflow (fixed the color-picker overlap), Iris
+"1.8.8/Dev Environment" text (Iris-drawn; "Dev Environment" is dev-only), block
+overlay Show-Hidden-Foliage (needs a raytrace change).
+
+## 2026-07-09 — In-game UI feedback pass (switches, fullbright, nametag, chat, particles)
+- **Nametag invisible (root cause):** `EntityNametagMixin` scaled the tag by
+  `Mods.num("nametags","scale")`, but the Nametags mod has NO `scale` option — so
+  `num()` returned 0 and the tag rendered at zero size. Guarded `s<=0 -> 1`. (If a
+  real scale slider is added later, this already honours it.)
+- **Chat timestamps greyed the whole message:** the timestamp was `withStyle(DARK_GRAY)`
+  on the PARENT and the message `.append`ed as a child, so the message inherited grey.
+  Fix: `Component.empty().append(stampGrey).append(message)` — siblings of an unstyled
+  root, so the message keeps its own white.
+- **Fullbright vs Boost Factor decoupled:** Full Bright now returns a fixed max gamma
+  (15.0) and ignores Boost Factor; Boost Factor (`gamma` slider) only applies when Full
+  Bright is OFF (`>1.0` pushes brightness, `1.0`=vanilla) — capped below fullbright.
+- **Apple switch hitbox:** row + master toggles only checked `mx>=x1-46` (no y, no right
+  bound) so clicking right of the pill toggled. Now require the click inside the pill
+  rect (row: `x1-40..x1-10, y+5..y+21`; master: `x1-34..x1, py()+13..+31`).
+- **Off-switch styling:** off-track end changed from faint `0x40FFFFFF` to solid Apple
+  grey `0xFF48484A` (opaque, consistent in clear/backed modes); on-end unchanged.
+- **Removed by request:** Chat → Copy Chat + Hover Image Preview; Particle Changer →
+  Always Show Sharpness, Custom Color, Color Mode, and per-type Custom Color (all were
+  schema-only, no implementation — safe deletes).

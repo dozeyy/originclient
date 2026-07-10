@@ -8,6 +8,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
+import javax.imageio.ImageIO;
+import javax.imageio.spi.IIORegistry;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -22,8 +25,21 @@ import java.util.concurrent.ConcurrentHashMap;
 // the render thread, then cached. Only visible rows call get(), so at most a
 // handful load at once. Fully guarded — a missing/undecodable image just shows
 // the fallback tile.
+//
+// Decoding goes through ImageIO, not NativeImage/STB: Modrinth serves covers as
+// lossless WebP, which STB can't read. TwelveMonkeys' WebP reader is registered
+// with ImageIO once below so ImageIO.read handles WebP (and png/jpeg) uniformly.
 public final class ShaderPreviews {
 	private ShaderPreviews() {
+	}
+
+	static {
+		try {
+			IIORegistry.getDefaultInstance().registerServiceProvider(
+					new com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi());
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("WebP preview decoder unavailable; covers will fall back", t);
+		}
 	}
 
 	public record Preview(ResourceLocation id, int w, int h) {
@@ -72,7 +88,11 @@ public final class ShaderPreviews {
 				return;
 			}
 			byte[] bytes = getBytes(url);
-			NativeImage img = NativeImage.read(new ByteArrayInputStream(bytes));
+			BufferedImage bi = ImageIO.read(new ByteArrayInputStream(bytes));
+			if (bi == null) {
+				return;
+			}
+			NativeImage img = toNativeImage(bi);
 			int w = img.getWidth(), h = img.getHeight();
 			Minecraft.getInstance().execute(() -> {
 				try {
@@ -90,6 +110,22 @@ public final class ShaderPreviews {
 			// leave unavailable; INFLIGHT keeps it from retrying in a tight loop
 			com.origin.client.OriginClient.LOGGER.debug("preview load failed for {}", slug, t);
 		}
+	}
+
+	// Copies an ImageIO BufferedImage into a fresh NativeImage. getRGB gives
+	// ARGB (0xAARRGGBB); NativeImage stores RGBA bytes little-endian, so the
+	// packed int it wants is ABGR (0xAABBGGRR) — swap R and B.
+	private static NativeImage toNativeImage(BufferedImage bi) {
+		int w = bi.getWidth(), h = bi.getHeight();
+		NativeImage img = new NativeImage(NativeImage.Format.RGBA, w, h, false);
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int argb = bi.getRGB(x, y);
+				int a = (argb >>> 24) & 0xFF, r = (argb >> 16) & 0xFF, g = (argb >> 8) & 0xFF, b = argb & 0xFF;
+				img.setPixelRGBA(x, y, (a << 24) | (b << 16) | (g << 8) | r);
+			}
+		}
+		return img;
 	}
 
 	private static JsonObject getJson(String url) throws Exception {

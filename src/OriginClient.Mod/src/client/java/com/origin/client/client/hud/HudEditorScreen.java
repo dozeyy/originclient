@@ -264,10 +264,13 @@ public class HudEditorScreen extends Screen {
 			return true;
 		}
 		if (draggingId != null) {
-			// locked fully on-screen: the whole element stays within the window
-			// bounds (elements may still overlap each other freely)
-			dragX = Math.max(0, Math.min(width - dragW, mx - dragOffX));
-			dragY = Math.max(0, Math.min(height - dragH, my - dragOffY));
+			// locked fully on-screen: the whole element AND its 4px outline stay
+			// inside the window — it hits the edge and stops, never slipping
+			// partway off. (Elements may still overlap each other freely.)
+			double maxX = Math.max(4, width - dragW - 4);
+			double maxY = Math.max(4, height - dragH - 4);
+			dragX = Math.max(4, Math.min(maxX, mx - dragOffX));
+			dragY = Math.max(4, Math.min(maxY, my - dragOffY));
 			return true;
 		}
 		return super.mouseDragged(mx, my, button, dx, dy);

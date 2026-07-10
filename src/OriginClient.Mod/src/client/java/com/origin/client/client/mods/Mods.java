@@ -108,7 +108,6 @@ public final class Mods {
 	static {
 		// ---- HUD readouts ----
 		add("fps", "FPS", "Frames-per-second readout.", false,
-				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
 				ModOption.toggle("reverseOrder", "Reverse Order", false),
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBrackets", "Show Brackets", false),
@@ -117,11 +116,10 @@ public final class Mods {
 				ModOption.color("color", "Text Color", 0xFFFFFFFF));
 
 		add("cps", "CPS", "Clicks per second.", false,
-				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
 				ModOption.toggle("rightClick", "Right Click CPS", false),
 				ModOption.toggle("showText", "Show CPS Text", true),
 				ModOption.toggle("reverseText", "Reverse Text", false),
-				ModOption.toggle("ignoreCancelled", "Ignore Cancelled Clicks", false),
+				ModOption.toggle("ignoreCancelled", "Ignore Cancelled Clicks", false).tip("Don't count clicks that didn't register a hit."),
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
@@ -129,20 +127,19 @@ public final class Mods {
 
 		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
-				ModOption.toggle("sprint", "Toggle Sprint", true),
-				ModOption.toggle("sneak", "Toggle Sneak", true),
-				ModOption.toggle("doubleTap", "Double Tap", false),
-				ModOption.toggle("flyBoost", "Fly Boost", false),
+				ModOption.toggle("sprint", "Toggle Sprint", true).tip("Sprint stays on after one press of the toggle key."),
+				ModOption.toggle("sneak", "Toggle Sneak", true).tip("Sneak stays on after one press of the toggle key."),
+				ModOption.toggle("flyBoost", "Fly Boost", false).tip("Multiplies your creative/spectator flight speed."),
 				ModOption.slider("flyBoostAmount", "Fly Boost Amount", 1, 5, 0.1, 2, "%.1fx").under("flyBoost"),
 				ModOption.keybind("key", "Sprint key", -1),
 				ModOption.dropdown("mode", "Mode", "Toggle", "Hold"));
 
 		add("zoom", "Zoom", "Smooth, configurable zoom.", true,
 				ModOption.keybind("key", "Zoom Key", GLFW.GLFW_KEY_C),
-				ModOption.toggle("toggleZoom", "Toggle Zoom", false),
-				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true),
-				ModOption.toggle("smoothZoom", "Smooth Zoom In/Out", true),
-				ModOption.toggle("scrollZoom", "Scroll to Zoom", true),
+				ModOption.toggle("toggleZoom", "Toggle Zoom", false).tip("Press once to zoom, press again to unzoom (instead of holding)."),
+				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true).tip("Eases camera motion so the view glides instead of snapping."),
+				ModOption.toggle("smoothZoom", "Smooth Zoom In/Out", true).tip("Animates the FOV change when zooming instead of an instant jump."),
+				ModOption.toggle("scrollZoom", "Scroll to Zoom", true).tip("While zoomed, scroll the mouse wheel to change the zoom level."),
 				ModOption.slider("scrollSpeed", "Scroll Zoom Speed", 0.1, 2.0, 0.1, 1.0, "%.1fx").under("scrollZoom"),
 				ModOption.slider("fov", "Zoom Level", 10, 60, 1, 30, "%.0f"),
 				ModOption.slider("sensitivity", "Zoomed Sensitivity", 0.1, 2.0, 0.05, 1.0, "%.2fx"));
@@ -160,7 +157,6 @@ public final class Mods {
 				ModOption.color("damageColor", "Damage Color", 0xFFE05555));
 
 		add("keystrokes", "Key Strokes", "On-screen key display.", false,
-				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
 				ModOption.toggle("showClicks", "Show Clicks", true),
 				ModOption.toggle("arrows", "Replace Names With Arrows", false),
 				ModOption.toggle("showMovement", "Show Movement Keys", true),
@@ -168,8 +164,7 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("border", "Border", true),
 				ModOption.slider("borderThickness", "Border Thickness", 0, 4, 0.5, 1, "%.1f").under("border"),
-				ModOption.slider("boxSize", "Box Size", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
-				ModOption.slider("keyFadeDelay", "Key Fade Delay", 0, 1000, 50, 200, "%.0fms"),
+				ModOption.slider("keyFadeDelay", "Key Fade Delay", 0, 1000, 50, 200, "%.0fms").tip("How long a key stays highlighted after you release it."),
 				ModOption.slider("spacebarThickness", "Spacebar Thickness", 1, 10, 1, 4, "%.0f"),
 				ModOption.header("Color"),
 				ModOption.color("color", "Text Color", 0xFFFFFFFF),
@@ -179,11 +174,10 @@ public final class Mods {
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
 
 		add("coords", "Coordinates", "Position, direction, and biome.", true,
-				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
 				ModOption.toggle("x", "X Coordinate", true),
 				ModOption.toggle("y", "Y Coordinate", true),
 				ModOption.toggle("z", "Z Coordinate", true),
-				ModOption.toggle("renderers", "C (Active Renderers)", false),
+				ModOption.toggle("renderers", "C (Active Renderers)", false).tip("Show how many chunk sections are currently rendered."),
 				ModOption.toggle("direction", "Direction", true),
 				ModOption.toggle("biome", "Biome", true),
 				ModOption.dropdown("listMode", "List Mode", "Vertical", "Horizontal"),
@@ -192,7 +186,6 @@ public final class Mods {
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.toggle("copyClipboard", "Copy Coords To Clipboard", true),
 				ModOption.toggle("decimal", "Decimal Coordinates", false),
-				ModOption.toggle("moveIndividually", "Move each coordinate individually", false),
 				ModOption.header("Color"),
 				ModOption.color("bgColor", "Background Color", 0x99000000),
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
@@ -204,14 +197,11 @@ public final class Mods {
 				ModOption.toggle("effectName", "Effect Name", true),
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
-				ModOption.toggle("minimal", "Minimal Mode", false),
-				ModOption.toggle("border", "Border", false),
+				ModOption.toggle("minimal", "Minimal Mode", false).tip("Show only the timer, hiding the effect name."),
 				ModOption.toggle("formattedDurations", "Formatted Durations", true),
 				ModOption.toggle("uppercase", "Uppercase Potion Names", false),
 				ModOption.toggle("reversedText", "Reversed Text", false),
-				ModOption.toggle("blink", "Blink", true),
-				ModOption.slider("blinkDuration", "Blink Duration", 1, 10, 0.5, 5, "%.1fs").under("blink"),
-				ModOption.toggle("excludePermanent", "Exclude Permanent Effects", false),
+				ModOption.toggle("excludePermanent", "Exclude Permanent Effects", false).tip("Hide effects with infinite duration (e.g. beacon buffs)."),
 				ModOption.header("Color"),
 				ModOption.color("bgColor", "Background Color", 0x99000000),
 				ModOption.toggle("colorByEffect", "Color Name Based on Effect", true),
@@ -219,7 +209,6 @@ public final class Mods {
 				ModOption.color("durationColor", "Duration Color", 0xFFB0B0B0));
 
 		add("serveraddress", "Server Address", "Current server IP.", false,
-				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"),
 				ModOption.toggle("serverIcon", "Display Server Icon", true),
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
@@ -227,7 +216,6 @@ public final class Mods {
 				ModOption.color("color", "Text Color", 0xFFFFFFFF));
 
 		add("scoreboard", "Scoreboard", "Server scoreboard styling.", false,
-				ModOption.slider("scale", "Scale", 0.5, 1.5, 0.05, 1.0, "%.1fx"),
 				ModOption.toggle("hideNumbers", "Hide Numbers", false),
 				ModOption.toggle("hideScoreboard", "Hide Scoreboard", false),
 				ModOption.toggle("textShadow", "Text Shadow", true),
@@ -246,22 +234,21 @@ public final class Mods {
 				ModOption.toggle("invertPitch", "Invert Pitch", false),
 				ModOption.toggle("invertYaw", "Invert Yaw", false),
 				ModOption.toggle("toggle", "Toggle Freelook", false),
-				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true),
+				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true).tip("Eases camera motion so the view glides instead of snapping."),
 				ModOption.keybind("key", "Freelook Key", GLFW.GLFW_KEY_LEFT_ALT));
 
 		add("fullbright", "Lighting", "Full-bright and brightness boost.", false,
-				ModOption.toggle("fullBright", "Full Bright", true),
+				ModOption.toggle("fullBright", "Full Bright", true).tip("Lights the whole world to maximum brightness."),
 				ModOption.keybind("key", "Full Bright Toggle", -1),
-				ModOption.slider("gamma", "Boost Factor", 1, 10, 0.5, 10, "%.1fx"));
+				ModOption.slider("gamma", "Boost Factor", 1, 10, 0.5, 5, "%.1fx").tip("Fine brightness boost — only applies when Full Bright is off."));
 
 		// ---- world overlays ----
 		// No chroma anywhere on Block Outline (reverted — it doesn't work on
 		// the outline renderer): plain color + width only.
 		add("blockoverlay", "Block Outline", "Selection outline and overlay.", false,
 				ModOption.toggle("outline", "Block Outline", true),
-				ModOption.slider("thickness", "Block Outline Width", 1, 3, 1, 1, "%.0f").under("outline"),
+				ModOption.slider("thickness", "Block Outline Width", 1, 10, 1, 1, "%.0f").under("outline"),
 				ModOption.color("color", "Block Outline Color", 0xFFFFFFFF).under("outline"),
-				ModOption.toggle("interpolateAlpha", "Interpolate Alpha", false).under("outline"),
 				ModOption.toggle("overlay", "Block Overlay", false),
 				ModOption.color("overlayColor", "Block Overlay Color", 0x55FFFFFF).under("overlay"),
 				ModOption.toggle("side", "Side", false),
@@ -273,10 +260,10 @@ public final class Mods {
 				ModOption.slider("gridSize", "Grid Size", 1, 16, 1, 16, "%.0f").under("grid"),
 				ModOption.slider("thickness", "Line Thickness", 1, 3, 1, 1, "%.0f").under("grid"),
 				ModOption.color("color", "Grid Color", 0xFF55DDDD).under("grid"),
-				ModOption.toggle("innerCorners", "Inner Corners", true),
+				ModOption.toggle("innerCorners", "Inner Corners", true).tip("Mark the corners inside your current chunk."),
 				ModOption.slider("innerThickness", "Line Thickness", 1, 3, 1, 1, "%.0f").under("innerCorners"),
 				ModOption.color("innerColor", "Inner Chunk Corner Color", 0xFFFFD855).under("innerCorners"),
-				ModOption.toggle("outerCorners", "Outer Corners", true),
+				ModOption.toggle("outerCorners", "Outer Corners", true).tip("Mark the corners of the neighbouring chunks."),
 				ModOption.slider("outerThickness", "Line Thickness", 1, 3, 1, 1, "%.0f").under("outerCorners"),
 				ModOption.color("outerColor", "Outer Chunk Corner Color", 0xFFE05555).under("outerCorners"));
 
@@ -288,7 +275,7 @@ public final class Mods {
 				ModOption.color("lineColor", "Line Color", 0xFFFFFFFF).under("players"),
 				ModOption.toggle("showHittable", "Show Hittable Color", false).under("players"),
 				ModOption.toggle("showDamaged", "Show Damaged Color", false).under("players"),
-				ModOption.toggle("showLookVector", "Show Look Vector", false).under("players"),
+				ModOption.toggle("showLookVector", "Show Look Vector", false).tip("Draw a line showing where the entity is looking.").under("players"),
 				ModOption.header("Entity Types"),
 				ModOption.toggle("items", "Items", true),
 				ModOption.toggle("itemFrames", "Item Frames", true),
@@ -311,8 +298,7 @@ public final class Mods {
 				ModOption.keybind("togglePlayers", "Toggle Player Nametags Only", -1),
 				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
 				ModOption.slider("opacity", "Nametag Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
-				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false),
-				ModOption.slider("scale", "Scale", 0.5, 2.0, 0.1, 1.0, "%.1fx"));
+				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false));
 
 		add("weather", "Weather Changer", "Force a client weather mode.", false,
 				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),
@@ -333,19 +319,16 @@ public final class Mods {
 				ModOption.slider("speed", "Speed", 0.1, 10, 0.1, 1.0, "%.1fx").under("timePassage"));
 
 		add("motionblur", "Motion Blur", "Frame-blend motion blur.", false,
-				ModOption.slider("amount", "Value", 1, 3, 1, 2, "%.0f"));
+				ModOption.slider("amount", "Strength", 0, 10, 1, 3, "%.0f").tip("0 = off, 10 = maximum blur; smooth in between."));
 
 		add("chat", "Chat", "Chat behavior and appearance.", false,
-				ModOption.toggle("unlimited", "Unlimited Chat", false),
-				ModOption.toggle("stackSpam", "Stack Spam Messages", true),
+				ModOption.toggle("unlimited", "Unlimited Chat", false).tip("Remove the limit on stored chat history length."),
+				ModOption.toggle("stackSpam", "Stack Spam Messages", true).tip("Collapse repeated messages into one line with a counter."),
 				ModOption.toggle("textShadow", "Text Shadow in Chat", true),
 				ModOption.toggle("keepHistory", "Keep Chat History", true),
-				ModOption.toggle("copyChat", "Copy Chat", true),
-				ModOption.toggle("hoverImagePreview", "Hover Image Preview", false),
-				ModOption.toggle("smoothChat", "Smooth Chat", true),
+				ModOption.toggle("smoothChat", "Smooth Chat", true).tip("Animate new messages sliding into the chat."),
 				ModOption.toggle("timestamps", "Timestamps", false),
 				ModOption.slider("opacity", "Background Opacity", 0.0, 1.0, 0.05, 0.5, "%.0f%%"),
-				ModOption.slider("inputOpacity", "Input Field Opacity", 0.0, 1.0, 0.05, 1.0, "%.0f%%"),
 				ModOption.slider("scale", "Scale", 0.5, 1.0, 0.05, 1.0, "%.0f%%"));
 
 		add("particles", "Particle Changer", "Per-particle visibility and styling.", false,
@@ -357,16 +340,13 @@ public final class Mods {
 	private static ModOption[] buildParticleOptions() {
 		List<ModOption> o = new ArrayList<>();
 		o.add(ModOption.header("General"));
-		o.add(ModOption.toggle("alwaysShowSharpness", "Always Show Sharpness", false));
-		o.add(ModOption.toggle("hideFirstPerson", "Hide First Person Particles", false));
+		o.add(ModOption.toggle("hideFirstPerson", "Hide First Person Particles", false).tip("Hides particles spawned right next to you in first person."));
 		o.add(ModOption.toggle("hideBlockBreak", "Hide Block-Breaking Particle", false));
 		o.add(ModOption.toggle("hideAll", "Hide All Particles", false));
 		o.add(ModOption.header("Global"));
 		o.add(ModOption.dropdown("mode", "Particles", "All", "Reduced", "Off"));
-		o.add(ModOption.slider("scale", "Scale", 0.1, 2.0, 0.1, 1.0, "%.1fx"));
+		o.add(ModOption.slider("scale", "Scale", 0.1, 2.0, 0.1, 1.0, "%.1fx").tip("Global size multiplier for every particle."));
 		o.add(ModOption.slider("multiplier", "Multiplier", 0.1, 2.0, 0.1, 1.0, "%.1fx"));
-		o.add(ModOption.color("customColor", "Custom Color", 0xFFFFFFFF));
-		o.add(ModOption.dropdown("colorMode", "Color Mode", "Overlay", "Replace", "Multiply"));
 		o.add(ModOption.header("Particle Types"));
 		for (String[] p : PARTICLE_TYPES) {
 			String id = p[0];
@@ -378,7 +358,6 @@ public final class Mods {
 			o.add(ModOption.slider("p_" + id + "_scale", "Scale", 0.1, 2.0, 0.1, 1.0, "%.1fx").under("p_" + id));
 			o.add(ModOption.slider("p_" + id + "_multiplier", "Multiplier", 0.1, 2.0, 0.1, 1.0, "%.1fx").under("p_" + id));
 			o.add(ModOption.toggle("p_" + id + "_hide", "Hide Particle", false).under("p_" + id));
-			o.add(ModOption.color("p_" + id + "_color", "Custom Color", 0xFFFFFFFF).under("p_" + id));
 		}
 		return o.toArray(new ModOption[0]);
 	}

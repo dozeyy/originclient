@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.OriginFreelookState;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
@@ -30,7 +31,23 @@ public abstract class MouseHandlerMixin {
 	// events, recorded before any GUI/game routing so held-state is exact.
 	@Inject(method = "onPress", at = @At("HEAD"))
 	private void originclient$trackClicks(long windowPointer, int button, int action, int modifiers, CallbackInfo ci) {
-		com.origin.client.client.mods.ClickStats.onButton(button, action == org.lwjgl.glfw.GLFW.GLFW_PRESS);
+		// A click made while a screen (inventory/menu) is open is a "cancelled"
+		// click for CPS purposes — track the held-state but don't count it.
+		boolean counts = Minecraft.getInstance().screen == null;
+		com.origin.client.client.mods.ClickStats.onButton(button, action == org.lwjgl.glfw.GLFW.GLFW_PRESS, counts);
+	}
+
+	// Scroll to Zoom: while actively zoomed, the wheel changes zoom depth (a
+	// transient multiplier applied in GameRendererMixin) instead of scrolling
+	// the hotbar. Only swallows the scroll when zoom is actually active.
+	@Inject(method = "onScroll", at = @At("HEAD"), cancellable = true)
+	private void originclient$scrollZoom(long windowPointer, double xOffset, double yOffset, CallbackInfo ci) {
+		if (Mods.on("zoom") && OriginClientMod.zoomActive && Mods.bool("zoom", "scrollZoom") && yOffset != 0) {
+			double speed = Math.max(0.1, Mods.num("zoom", "scrollSpeed"));
+			double f = OriginClientMod.zoomScrollFactor * Math.pow(1.15, -yOffset * speed);
+			OriginClientMod.zoomScrollFactor = Math.max(0.2, Math.min(3.0, f));
+			ci.cancel();
+		}
 	}
 
 	@Inject(method = "turnPlayer", at = @At("HEAD"), cancellable = true)

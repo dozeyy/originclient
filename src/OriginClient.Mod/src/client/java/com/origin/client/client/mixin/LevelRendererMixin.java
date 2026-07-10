@@ -47,50 +47,6 @@ public class LevelRendererMixin {
 		}
 	}
 
-	@Inject(method = "renderHitOutline", at = @At("HEAD"), cancellable = true)
-	private void originclient$blockOverlay(PoseStack poseStack, VertexConsumer consumer, Entity entity,
-										   double camX, double camY, double camZ, BlockPos pos,
-										   BlockState state, CallbackInfo ci) {
-		if (!Mods.on("blockoverlay")) {
-			return;
-		}
-		var level = Minecraft.getInstance().level;
-		if (level == null) {
-			return;
-		}
-		ci.cancel();
-
-		int color = Mods.color("blockoverlay", "color");
-		float r = ((color >> 16) & 0xFF) / 255f;
-		float g = ((color >> 8) & 0xFF) / 255f;
-		float b = (color & 0xFF) / 255f;
-		int passes = (int) Math.max(1, Math.min(3, Mods.num("blockoverlay", "thickness")));
-
-		VoxelShape shape = state.getShape(level, pos, net.minecraft.world.phys.shapes.CollisionContext.of(entity));
-		double ox = pos.getX() - camX, oy = pos.getY() - camY, oz = pos.getZ() - camZ;
-		PoseStack.Pose pose = poseStack.last();
-
-		for (int i = 0; i < passes; i++) {
-			// Pseudo-thickness: each extra pass re-draws the edges expanded a
-			// hair outward, which reads as a thicker line at any distance.
-			float grow = i * 0.0035f;
-			shape.forAllEdges((x1, y1, z1, x2, y2, z2) -> {
-				float ax = (float) (x1 + ox) + (x1 < 0.5 ? -grow : grow);
-				float ay = (float) (y1 + oy) + (y1 < 0.5 ? -grow : grow);
-				float az = (float) (z1 + oz) + (z1 < 0.5 ? -grow : grow);
-				float bx = (float) (x2 + ox) + (x2 < 0.5 ? -grow : grow);
-				float by = (float) (y2 + oy) + (y2 < 0.5 ? -grow : grow);
-				float bz = (float) (z2 + oz) + (z2 < 0.5 ? -grow : grow);
-				float nx = bx - ax, ny = by - ay, nz = bz - az;
-				float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-				if (len > 0) {
-					nx /= len;
-					ny /= len;
-					nz /= len;
-				}
-				consumer.addVertex(pose, ax, ay, az).setColor(r, g, b, 1f).setNormal(pose, nx, ny, nz);
-				consumer.addVertex(pose, bx, by, bz).setColor(r, g, b, 1f).setNormal(pose, nx, ny, nz);
-			});
-		}
-	}
+	// Block Outline + Overlay moved to BlockOverlayRenderer (Fabric BLOCK_OUTLINE
+	// event) so it can draw a filled overlay, not just lines.
 }

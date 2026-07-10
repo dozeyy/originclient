@@ -15,16 +15,22 @@ public final class ClickStats {
 	private ClickStats() {
 	}
 
-	public static synchronized void onButton(int button, boolean pressed) {
+	/**
+	 * @param counts whether this press should count toward CPS. Held-state
+	 *               (for the Keystrokes overlay) always updates; only the CPS
+	 *               tally is gated, so clicks made in a menu ("cancelled"
+	 *               clicks) don't inflate the counter.
+	 */
+	public static synchronized void onButton(int button, boolean pressed, boolean counts) {
 		long now = System.currentTimeMillis();
 		if (button == 0) {
 			leftDown = pressed;
-			if (pressed) {
+			if (pressed && counts) {
 				LEFT.addLast(now);
 			}
 		} else if (button == 1) {
 			rightDown = pressed;
-			if (pressed) {
+			if (pressed && counts) {
 				RIGHT.addLast(now);
 			}
 		}

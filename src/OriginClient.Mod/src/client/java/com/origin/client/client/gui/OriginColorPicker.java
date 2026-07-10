@@ -29,7 +29,7 @@ public final class OriginColorPicker {
 	private static int alpha;
 
 	private static int px, py;
-	private static final int PW = 234, PH = 210;
+	private static final int PW = 234, PH = 236;
 	private static int drag = 0; // 0 none, 1 field, 2 hue, 3 alpha, 4 speed
 
 	public static boolean isOpen() {
@@ -40,7 +40,7 @@ public final class OriginColorPicker {
 		OriginColorPicker.modId = modId;
 		OriginColorPicker.key = key;
 		OriginColorPicker.title = label;
-		OriginColorPicker.allowChroma = !"blockoverlay".equals(modId);
+		OriginColorPicker.allowChroma = true;
 		int argb = Mods.color(modId, key);
 		float[] hsv = argbToHsv(argb);
 		h = hsv[0];
@@ -91,9 +91,11 @@ public final class OriginColorPicker {
 	private int speedX() { return px + 12; }
 	private int speedY() { return fieldY() + FIELD_H + 16; }
 	private static final int SPEED_W = 120;
-	private int typeX() { return px + PW - 12 - 92; }
-	private int typeY() { return speedY() - 4; }
-	private int presetY() { return speedY() + 16; }
+	// Type dropdown sits on its OWN row below the speed slider (it used to
+	// overlap the speed value at every window size).
+	private int typeX() { return px + 12; }
+	private int typeY() { return speedY() + 18; }
+	private int presetY() { return typeY() + 22; }
 
 	// ---- render ----
 	public static void render(GuiGraphics g, int mx, int my) {
@@ -107,8 +109,8 @@ public final class OriginColorPicker {
 		Font font = Minecraft.getInstance().font;
 		int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
 		int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
-		px = (sw - PW) / 2;
-		py = (sh - PH) / 2;
+		px = Math.max(2, (sw - PW) / 2);
+		py = Math.max(2, (sh - PH) / 2);
 
 		// scrim + panel
 		g.fill(0, 0, sw, sh, 0x66000000);
@@ -153,13 +155,19 @@ public final class OriginColorPicker {
 		int hy2 = barY() + Math.round(h / 360f * FIELD_H);
 		g.fill(hx - 2, hy2 - 1, hx + BAR_W + 2, hy2 + 1, 0xFFFFFFFF);
 
-		// alpha slider (checker under transparent->opaque current color)
+		// alpha slider: fully invisible at the TOP, fully visible at the BOTTOM.
+		// Drawn as per-row strips (not fillGradient, whose 0-alpha endpoint reads
+		// as opaque) so the fade is guaranteed linear over the checker.
 		int ax = alphaX();
 		checker(g, ax, barY(), BAR_W, FIELD_H);
-		int solid = hsvToArgb(h, s, v, 255);
-		g.fillGradient(ax, barY(), ax + BAR_W, barY() + FIELD_H, solid & 0xFFFFFF, solid);
+		int solidRGB = hsvToArgb(h, s, v, 255) & 0xFFFFFF;
+		for (int i = 0; i < FIELD_H; i++) {
+			int a = Math.round(255f * i / (FIELD_H - 1));
+			g.fill(ax, barY() + i, ax + BAR_W, barY() + i + 1, (a << 24) | solidRGB);
+		}
 		OriginUi.panel(g, ax - 1, barY() - 1, BAR_W + 2, FIELD_H + 2, 3, 0, OriginTheme.STROKE);
-		int ay2 = barY() + Math.round((1 - alpha / 255f) * FIELD_H);
+		// handle matches the gradient: alpha 0 at the top, 255 at the bottom
+		int ay2 = barY() + Math.round(alpha / 255f * FIELD_H);
 		g.fill(ax - 2, ay2 - 1, ax + BAR_W + 2, ay2 + 1, 0xFFFFFFFF);
 
 		// speed slider + type dropdown — chroma-only controls
@@ -195,8 +203,8 @@ public final class OriginColorPicker {
 			return false;
 		}
 		OriginColorPicker cp = new OriginColorPicker();
-		cp.px = (Minecraft.getInstance().getWindow().getGuiScaledWidth() - PW) / 2;
-		cp.py = (Minecraft.getInstance().getWindow().getGuiScaledHeight() - PH) / 2;
+		cp.px = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledWidth() - PW) / 2);
+		cp.py = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledHeight() - PH) / 2);
 		return cp.click(mx, my, button);
 	}
 
@@ -258,8 +266,8 @@ public final class OriginColorPicker {
 			return false;
 		}
 		OriginColorPicker cp = new OriginColorPicker();
-		cp.px = (Minecraft.getInstance().getWindow().getGuiScaledWidth() - PW) / 2;
-		cp.py = (Minecraft.getInstance().getWindow().getGuiScaledHeight() - PH) / 2;
+		cp.px = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledWidth() - PW) / 2);
+		cp.py = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledHeight() - PH) / 2);
 		switch (drag) {
 			case 1 -> cp.applyField(mx, my);
 			case 2 -> cp.applyHue(my);
@@ -299,7 +307,8 @@ public final class OriginColorPicker {
 	}
 
 	private void applyAlpha(double my) {
-		alpha = (int) Math.round((1 - clamp01((my - barY()) / (double) FIELD_H)) * 255);
+		// top = transparent (0), bottom = opaque (255) — matches the gradient
+		alpha = (int) Math.round(clamp01((my - barY()) / (double) FIELD_H) * 255);
 		commit();
 	}
 
