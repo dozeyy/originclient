@@ -16,6 +16,8 @@
   --accent-dim: rgba(255, 255, 255, 0.55);
 
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Brand wordmark only — Minecraft's pixel type. Body copy stays Inter. */
+  --font-brand: "Monocraft", ui-monospace, "Courier New", monospace;
 
   --space-1: 8px;
   --space-2: 16px;
@@ -33,6 +35,17 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --t-fast: 0.15s;
   --t-med: 0.3s;
+}
+
+/* Monocraft (SIL OFL 1.1) — subset to the wordmark glyphs (ORIGIN.origin) so
+   the whole face is ~0.7KB. See assets/fonts/OFL.txt. */
+@font-face {
+  font-family: "Monocraft";
+  src: url("../assets/fonts/Monocraft-wordmark.woff2") format("woff2"),
+       url("../assets/fonts/Monocraft-wordmark.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
 * { box-sizing: border-box; }
@@ -141,6 +154,7 @@ a { color: inherit; }
   letter-spacing: 0.02em;
 }
 .nav__brand .mark { width: 26px; height: 26px; fill: none; stroke: var(--text); stroke-width: 7; }
+.nav__brand span { font-family: var(--font-brand); font-weight: 400; letter-spacing: 0.02em; }
 
 .nav__links { display: flex; gap: var(--space-4); }
 .nav__links a {
@@ -241,9 +255,10 @@ a { color: inherit; }
 }
 
 .hero__title {
-  font-size: clamp(42px, 7.5vw, 84px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: var(--font-brand);
+  font-size: clamp(38px, 7vw, 78px);
+  font-weight: 400;
+  letter-spacing: 0;
   line-height: 1.05;
   text-transform: uppercase;
   margin: 0 0 var(--space-4);
@@ -415,7 +430,7 @@ a { color: inherit; }
   text-transform: uppercase;
   color: var(--text-dim);
 }
-.marquee__group .accent { color: var(--accent); text-shadow: 0 0 24px var(--accent-glow); }
+.marquee__group .accent { color: var(--accent); text-shadow: 0 0 24px var(--accent-glow); font-family: var(--font-brand); font-weight: 400; letter-spacing: 0; }
 .marquee__dot { font-size: 10px; color: var(--muted); }
 
 @keyframes marquee-scroll {
