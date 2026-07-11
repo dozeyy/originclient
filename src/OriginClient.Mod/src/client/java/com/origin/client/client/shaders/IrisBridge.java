@@ -88,6 +88,25 @@ public final class IrisBridge {
 		}
 	}
 
+	/**
+	 * Hot-reloads Iris only if a pack is actually active. Used when a setting
+	 * that feeds Iris's pipeline (shader performance mode) changes at runtime:
+	 * ShadowRenderer caches directive values at pipeline creation while the
+	 * per-frame uniforms read them live, so without a rebuild the two disagree
+	 * and shadows glitch until the next manual reload. Fail-soft no-op when
+	 * Iris is absent or shaders are off.
+	 */
+	public static void reloadIfPackActive() {
+		if (currentPack() == null) {
+			return;
+		}
+		try {
+			Class.forName("net.irisshaders.iris.Iris").getMethod("reload").invoke(null);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Iris reload after settings change failed", t);
+		}
+	}
+
 	/** Opens Iris's own shader screen (full per-pack options UI). */
 	public static boolean openIrisScreen() {
 		Minecraft mc = Minecraft.getInstance();

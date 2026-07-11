@@ -53,7 +53,7 @@ public final class Mods {
 	// shaderpack's shadow map resolution + shadow render distance (the biggest
 	// GPU lever with shaders on) via IrisShadowDirectivesMixin.
 	public static final List<ModOption> PERFORMANCE_SETTINGS = List.of(
-			ModOption.toggle("shaderPerformanceMode", "Shader Performance Mode", true).tip("Any shader you load runs at half shadow resolution and half shadow distance for a big FPS gain. Turn off for full quality; tuning a shader's own shadow options still applies (at half)."),
+			ModOption.toggle("shaderPerformanceMode", "Shader Performance Mode", true).tip("Any shader you load renders shadows at half distance for a big FPS gain. Turn off for full quality; applies instantly."),
 			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),

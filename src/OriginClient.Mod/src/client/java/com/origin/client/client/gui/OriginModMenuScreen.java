@@ -756,6 +756,13 @@ public class OriginModMenuScreen extends Screen {
 				// must land on the pill itself, not anywhere to its right.
 				if (in(mx, my, x1 - 40, y + 5, x1 - 10, y + 21)) {
 					Mods.set(modId, o.key, !Mods.bool(modId, o.key));
+					// Shader Performance Mode feeds Iris's shadow pipeline, which
+					// caches directive values at pipeline creation — rebuild it so
+					// the change lands coherently (and instantly) instead of
+					// desyncing the cached readers from the per-frame ones.
+					if (Mods.PERFORMANCE_ID.equals(modId) && "shaderPerformanceMode".equals(o.key)) {
+						com.origin.client.client.shaders.IrisBridge.reloadIfPackActive();
+					}
 					return true;
 				}
 			}

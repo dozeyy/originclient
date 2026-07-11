@@ -7,19 +7,27 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-// Cross-mod @Pseudo mixin into Iris's PackShadowDirectives. Shadow map
-// resolution and shadow render distance are read from these two getters by both
-// the shadow framebuffer allocation (in ShadowRenderer's constructor) and the
-// per-frame shadow culling, so halving the returned values here applies to
-// EVERY shaderpack with no per-pack config — the biggest single GPU win with
-// shaders enabled (a 2048 -> 1024 shadow map is a quarter of the pixels).
+// Cross-mod @Pseudo mixin into Iris's PackShadowDirectives. Shadow render
+// distance is read from getDistance() by every Java-side consumer -- the
+// shadow ortho matrix, the per-frame culling, and the shadowDistance uniform
+// -- so halving it here shrinks the shadow pass coherently for EVERY
+// shaderpack: far fewer chunks rendered into the shadow map each frame, the
+// biggest single win with shaders enabled.
+//
+// Resolution (getResolution) is deliberately NOT halved: Iris allocates the
+// shadow framebuffer from that getter at pipeline creation, but a pack's own
+// GLSL `const int shadowMapResolution` compiles as-written (Iris only rewrites
+// it through its user-facing option system) -- so serving a halved value gives
+// const-math packs a half-size depth texture under full-size texel arithmetic
+// and visibly breaks their shadows (confirmed in-game on 1.20.4 + Complementary;
+// same defect existed here until this fix -- see MEMORY.md 2026-07-10).
 //
 // Behavior: when SETTINGS > Performance > Shader Performance Mode is on, the
-// pack's shadow settings are always served at half. Tuning a shader's own
-// shadow sliders still works (the pack re-resolves, we halve the new value);
-// to get full quality back the user turns the toggle off. remap = false (Iris
-// isn't Minecraft-mapped) and require = 0 so this whole mixin no-ops cleanly if
-// Iris is absent or renames its internals in a future version.
+// pack's shadow distance is always served at half; toggling triggers an Iris
+// reload (OriginModMenuScreen) so cached-at-creation and per-frame readers
+// never disagree mid-run. remap = false (Iris isn't Minecraft-mapped) and
+// require = 0 so this whole mixin no-ops cleanly if Iris is absent or renames
+// its internals in a future version.
 @Pseudo
 @Mixin(targets = "net.irisshaders.iris.shaderpack.properties.PackShadowDirectives", remap = false)
 public class IrisShadowDirectivesMixin {
@@ -28,18 +36,6 @@ public class IrisShadowDirectivesMixin {
 			return Mods.bool(Mods.PERFORMANCE_ID, "shaderPerformanceMode");
 		} catch (Throwable t) {
 			return false;
-		}
-	}
-
-	@Inject(method = "getResolution", at = @At("RETURN"), cancellable = true, remap = false, require = 0)
-	private void originclient$halveResolution(CallbackInfoReturnable<Integer> cir) {
-		if (!originclient$perf()) {
-			return;
-		}
-		int res = cir.getReturnValueI();
-		// Keep a sane floor so a low-res pack doesn't collapse to mush.
-		if (res > 512) {
-			cir.setReturnValue(Math.max(512, res / 2));
 		}
 	}
 
