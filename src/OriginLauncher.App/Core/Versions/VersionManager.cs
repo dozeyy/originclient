@@ -62,6 +62,9 @@ public sealed class VersionManager
             // standalone from the catalog alongside it.
             ["1.20"]   = new("originclient-1.20.jar",   BundlesPerfStack: false),
             ["1.20.1"] = new("originclient-1.20.jar",   BundlesPerfStack: false),
+            // 1.20.4 API family (src/OriginClient.Mod1204) — same install model
+            // as 1.20: Origin jar + standalone perf/shader catalog stack.
+            ["1.20.4"] = new("originclient-1.20.4.jar", BundlesPerfStack: false),
         };
 
     // Versions always offered in the picker even if the shader-stack gate below

@@ -7,17 +7,18 @@
 > set is now **1.20 and up** (currently 1.20, 1.20.1, 1.20.4, 1.21, 1.21.1,
 > 1.21.11), all on official Fabric.
 >
-> The Origin **mod** currently ships for **1.21.1 only** (`fabric.mod.json`
-> targets `~1.21.1`); on the other offered versions the launcher installs Fabric
-> + the perf/shader stack but the menus stay vanilla until each per-version build
-> lands. Bringing the UI to 1.20+ is a per-version port (one jar per MC version):
-> a `src/OriginClient.Mod120` module was scaffolded for 1.20 and compiles against
-> MC 1.20 but is **not finished** — the 1.20→1.21.1 gap is ~35 API changes (vertex
-> API rename in 1.21, `Holder<MobEffect>`, `DeltaTracker`/`SpriteIconButton`
-> absent, `mouseScrolled` arity, skin/`countRenderedSections`/`setUniform`), and
-> each version needs in-game verification. Stonecutter (one codebase → per-version
-> jars) is the intended long-term tool; a first attempt hit a Loom split-sourceset
-> JiJ-nesting blocker and was reverted to protect the shipping 1.21.1 build.
+> The Origin **mod** ships per API family: `OriginClient.Mod` (**1.21.1**,
+> `~1.21.1`, bundles its perf stack jar-in-jar), `OriginClient.Mod120`
+> (**1.20 + 1.20.1**, `>=1.20- <1.20.2`, Origin-only jar + standalone catalog
+> stack), and `OriginClient.Mod1204` (**1.20.4**, `>=1.20.3- <1.20.5`, same
+> model as 1.20). All three are runClient-verified with zero mixin-apply
+> failures and full shader integration (Iris + Sodium from the catalog pins).
+> Remaining per-version builds: **1.21** (reuse/adapt 1.21.1) and **1.21.11**
+> (blit reworked at 1.21.2). Porting method that works: copy the nearest API
+> family module, adjust only version-forced deltas, javap-verify every mixin
+> descriptor against the mapped jar, then runClient-verify. Stonecutter (one
+> codebase → per-version jars) remains the long-term intent; a first attempt
+> hit a Loom split-sourceset JiJ-nesting blocker and was reverted.
 
 The product promise: **whatever version/config the player picks in Origin
 Launcher, the game boots and the Origin menus work — flawlessly or not at all,

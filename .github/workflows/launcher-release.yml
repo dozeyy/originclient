@@ -54,6 +54,13 @@ jobs:
         working-directory: src/OriginClient.Mod120
         run: .\gradlew.bat build --no-daemon
 
+      # The 1.20.4 API-family mod (src/OriginClient.Mod1204), bundled as
+      # Bundled/OriginClient/originclient-1.20.4.jar. Same Java 17-via-JDK-21
+      # and absent-libs/ notes as the 1.20 module above.
+      - name: Build Origin Client mod (1.20.4)
+        working-directory: src/OriginClient.Mod1204
+        run: .\gradlew.bat build --no-daemon
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"

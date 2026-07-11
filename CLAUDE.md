@@ -70,16 +70,20 @@ corner controls. In-game menus match this exactly.
   Minecraft `login_with_xbox` returns 403 (leading theory: new-app-registration
   propagation) — retry sign-in after time; Azure config verified correct.
 - 1.21.1 Origin mod: full, shipping.
-- 1.20 Origin mod (`src/OriginClient.Mod120`, covers 1.20 + 1.20.1): ported,
-  builds, wired into the launcher (`OriginBuilds` registry + per-version bundling
-  in the csproj). runClient boots to title screen; fixing the remaining
-  `@Inject`/`@Shadow` apply mismatches so every Origin surface renders.
-- Remaining to satisfy the mandate: finish 1.20 mixin fixes, then per-version
-  builds + shader verification for 1.20.4, 1.21, 1.21.11.
+- 1.20 Origin mod (`src/OriginClient.Mod120`, covers 1.20 + 1.20.1): full,
+  shipping (runClient-verified, zero mixin-apply failures).
+- 1.20.4 Origin mod (`src/OriginClient.Mod1204`): full, shipping — ported from
+  Mod120 (1.20.2-era API: 4-arg renderBackground/mouseScrolled, gui sprites,
+  PlayerSkin, panorama drawn inline in TitleScreen.render), every mixin javap-
+  verified against the mapped 1.20.4 jar, runClient-verified clean with the
+  catalog's Sodium 0.5.8 + Iris 1.7.2. Wired into `OriginBuilds`, csproj
+  bundling, and the release workflow.
+- Remaining to satisfy the mandate: per-version builds + shader verification
+  for 1.21 and 1.21.11.
 
 ## Roadmap
-- [ ] **1.20 / 1.20.1** — finish runtime mixin fixes, verify UI + shaders in-game.
-- [ ] **1.20.4** — per-version build (renderBackground 4-arg era), UI + shaders.
+- [x] **1.20 / 1.20.1** — runtime mixin fixes done, UI + shaders verified in-game.
+- [x] **1.20.4** — per-version build (renderBackground 4-arg era), UI + shaders.
 - [ ] **1.21** — reuse/adapt the 1.21.1 build, UI + shaders.
 - [ ] **1.21.11** — per-version build (blit reworked at 1.21.2), UI + shaders.
 - [ ] Crash system: Origin debug screen, log-cause detection, disable-mods-&-retry.

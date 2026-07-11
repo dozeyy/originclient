@@ -36,6 +36,14 @@ jobs:
         working-directory: src/OriginClient.Mod
         run: .\gradlew.bat build --no-daemon
 
+      - name: Build Origin Client mod (1.20)
+        working-directory: src/OriginClient.Mod120
+        run: .\gradlew.bat build --no-daemon
+
+      - name: Build Origin Client mod (1.20.4)
+        working-directory: src/OriginClient.Mod1204
+        run: .\gradlew.bat build --no-daemon
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"

@@ -5,6 +5,109 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-10 — Shader Performance Mode fixed across 1.21.1 + 1.20 (ported from 1.20.4; 1.20 was silently dead)
+Ported the 1.20.4 shader-perf fix to the two shipping modules + shipped. Two
+findings beyond a straight copy, both javap-verified against each module's
+actual Iris jar:
+- **1.21.1 (Iris 1.8.8):** same resolution-halving bug as 1.20.4 (mixin applied,
+  broke const-math packs). Fix = drop the getResolution inject (distance-only),
+  add IrisBridge.reloadIfPackActive() (currentPack-based; net.irisshaders.iris
+  .Iris exists in 1.8.8), wire the toggle, fix tooltip.
+- **1.20 (Iris 1.6.4):** the mixin was targeting net.irisshaders.iris.shaderpack
+  .properties.PackShadowDirectives — which DOESN'T EXIST in 1.6.4. Iris didn't
+  finish the net.coderbot -> net.irisshaders rename until 1.7, so on 1.20 the
+  @Pseudo mixin (require=0) SILENTLY never applied: Shader Performance Mode did
+  nothing at all there, ever. Real target is net.coderbot.iris.shaderpack
+  .PackShadowDirectives (getDistance()F / getResolution()I both present). Fix =
+  retarget to coderbot + distance-only. IrisBridge on 1.20 is ALSO coderbot-era
+  (its net.irisshaders.iris.Iris reflection fails → apply/currentPack fall back
+  to opening Iris's own screen), so reloadIfPackActive() there uses the STABLE
+  public API net.irisshaders.iris.api.v0.IrisApi.isShaderPackInUse() (present on
+  every Iris we ship) for the gate and tries BOTH Iris.reload roots (coderbot
+  then irisshaders). Pre-existing 1.20 shader-BROWSER breakage (apply/currentPack
+  on wrong package) left as-is — out of scope, works via the Iris-screen fallback.
+- **Verified** both via runClient with -Dmixin.debug.verbose (temp vmArg, reverted
+  before commit): 1.21.1 logged "Mixing IrisShadowDirectivesMixin ... into
+  net.irisshaders.iris.shaderpack.properties.PackShadowDirectives"; 1.20 logged
+  "... into net.coderbot.iris.shaderpack.PackShadowDirectives"; both zero
+  mixin-apply failures, Complementary auto-loaded on boot. LESSON: @Pseudo cross-
+  mod mixins into a versioned dependency MUST have their target FQN verified
+  against that exact dependency jar — a wrong package is a silent no-op, not an
+  error. Iris's net.coderbot->net.irisshaders rename spans the 1.6/1.7 boundary.
+
+## 2026-07-10 — 1.20.4 in-game bugs: Iris dirt bands + shader perf mode shadows (root-caused, fixed)
+Will's first hands-on 1.20.4 session surfaced two real bugs; both root-caused
+from iris-1.7.2 bytecode, not guessed.
+- **Iris screen dirt bands (top/bottom of Shader Packs screen).** Not vanilla:
+  on 1.20.4 vanilla removed renderTopAndBottom, but Iris BACKPORTS the look —
+  ShaderPackSelectionList and ShaderPackOptionList override renderDecorations
+  (method_25320) and blit Screen.BACKGROUND_LOCATION dirt across the areas
+  outside the list, unconditionally, in-world and out. Mod120's fix
+  (AbstractSelectionListMixin) can't reach an override in Iris's own classes.
+  Fix: new IrisListDecorationsMixin (@Pseudo, both classes) cancels
+  renderDecorations at HEAD when OriginScreenRenderer.isActive(). KEY TRICK:
+  the method is Minecraft-inherited, so its runtime name differs by namespace
+  (mojmap "renderDecorations" in dev, intermediary "method_25320" in prod) —
+  the @Inject lists BOTH names with remap=false + require=0 so it matches in
+  either environment and no-ops if Iris reshapes. Remember this pattern for any
+  future mixin into a mod's override of a Minecraft method.
+- **Shader Performance Mode = completely broken shadows (Complementary).**
+  Mechanism (bytecode-proven): IrisRenderingPipeline/ShadowRenderTargets
+  allocate the shadow framebuffer from PackShadowDirectives.getResolution()
+  ONCE at pipeline creation, but a pack's own GLSL `const int
+  shadowMapResolution` compiles AS-WRITTEN — Iris only rewrites that const via
+  its user-facing option system (OptionAnnotatedSource special-cases it). So
+  the old getResolution-halving mixin gave const-math packs a half-size depth
+  texture under full-size texel arithmetic → catastrophic shadow breakage.
+  Fix on 1204: (1) removed the getResolution inject — distance-only halving
+  (getDistance flows exclusively through Java-side readers: ShadowRenderer,
+  MatrixUniforms, IrisRenderingPipeline — and culling at half distance is the
+  real FPS win anyway); (2) toggling the option now calls
+  IrisBridge.reloadIfPackActive() (new) because ShadowRenderer caches directive
+  values at creation while MatrixUniforms reads them per-frame — flipping the
+  toggle without a rebuild desyncs them mid-run; (3) tooltip updated to match.
+  LATENT: Mod (1.21.1) and Mod120 (1.20) still carry the old resolution-halving
+  mixin + no reload-on-toggle — same class of bug, unverified there; flagged as
+  a spawn-task to audit and port.
+
+## 2026-07-10 — 1.20.4 Origin build: ported, verified, wired (src/OriginClient.Mod1204)
+- New module copied from Mod120 (nearest API family), only version-forced deltas
+  changed. MC 1.20.4 / Java 17 / fabric-api 0.97.3+1.20.4; fabric.mod.json range
+  `>=1.20.3- <1.20.5` (covers 1.20.3 + 1.20.4). Jar: originclient-1.20.4-0.4.1.
+- 1.20.4 sits BETWEEN the two reference modules, javap-confirmed per target
+  against the mapped 1.20.4 jar (the discipline that matters — javac passed with
+  ONE error while five mixin descriptors were silently wrong):
+  - 1.21.1-flavor (arrived 1.20.2/1.20.3): renderBackground(GuiGraphics,int,int,F)
+    4-arg, mouseScrolled 4-arg, SkinManager.getInsecureSkin→PlayerSkin,
+    SpriteIconButton on the title screen, countRenderedSections.
+  - Mod120-flavor (changes only at 1.20.5/1.21): old vertex API, new
+    ResourceLocation(), MobEffect (no Holder), float Gui.render (no DeltaTracker),
+    PoseStack-first renderSky, no-rgb renderHitbox, no-partialTick renderNameTag,
+    refreshTrimmedMessage, PostChainAccessor (no PostChain.setUniform),
+    renderDirtBackground still exists, no-arg turnPlayer.
+  - 1.20.4-ONLY shapes (matched neither module): TitleScreen has NO renderPanorama
+    (that split out in 1.20.5) and its renderBackground override is an empty stub —
+    render() calls PanoramaRenderer.render(FF) + blits PANORAMA_OVERLAY inline, so
+    the suppression became two @Redirects in render(). ExperimentsScreen's content
+    dirt blit moved from render() into its renderBackground override.
+    AbstractSelectionList lost renderTopAndBottom and its render() became
+    renderWidget() (dirt + edge gradients now gate on the one renderBackground
+    field). IrisWatermarkMixin retargeted net.coderbot→net.irisshaders (Iris moved
+    packages at 1.7; fields verified present in iris-1.7.2's ShaderPackScreen).
+- Verified: `./gradlew runClient` with the catalog-pinned dev stack (Sodium
+  0.5.8+mc1.20.4, Iris 1.7.2+mc1.20.4, nested-jar runtimeOnly deps updated to
+  glsl-transformer 2.0.1 / antlr4 4.13.1 per iris jar's META-INF/jars) — ZERO
+  mixin apply/injection failures across all phrasings, booted to title, world
+  created + played in-session. IrisBridge's whole reflection surface
+  (getIrisConfig/reload/ShaderPackScreen ctor/IrisApi) confirmed in iris 1.7.2.
+- Perf stack: no swaps needed — the catalog's 1.20.4 entry was already Full tier
+  (Sodium 0.5.8, Indium 1.0.31, Lithium 0.12.1, FerriteCore 6.0.3, Krypton 0.2.6,
+  Iris 1.7.2), all pinned from live Modrinth data on 2026-07-06.
+- Launcher wiring: OriginBuilds["1.20.4"] → originclient-1.20.4.jar
+  (BundlesPerfStack: false, same install model as 1.20), csproj Content link,
+  launcher-release.yml build step. dotnet build verified all three jars land in
+  Bundled/OriginClient/.
+
 ## 2026-07-10 — Direction locked: full Origin UI + shaders on EVERY version
 - Will's mandate (now in `./CLAUDE.md`, rewritten + simplified): Fabric only;
   every supported version gets the full Origin experience (title, loading

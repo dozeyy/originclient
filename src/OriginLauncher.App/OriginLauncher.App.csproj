@@ -66,6 +66,14 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <!-- 1.20.4 — Origin client only; perf stack installed standalone. -->
+    <Content Condition="Exists('..\OriginClient.Mod1204\build\libs\originclient-1.20.4-0.4.1.jar')"
+             Include="..\OriginClient.Mod1204\build\libs\originclient-1.20.4-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.20.4.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
   </ItemGroup>
 
 </Project>
