@@ -1,13 +1,18 @@
-# Push-to-update pipeline, build side. Releases fire ONLY from the release
-# branch (Will: main is for building/testing; shipping is a deliberate act).
-# To ship: merge main into release and push — see release/RELEASING.md.
-# Every push to release builds the whole client (Origin Client mod jar via
-# Gradle, then the WPF launcher with that jar bundled in) and publishes a
-# GitHub release tagged launcher-v1.0.<run>. Running launchers poll the
-# release feed (Core/Updates/UpdateService.cs), light the corner download
+# Push-to-update pipeline, build side. Releases fire ONLY from a version tag
+# pushed to main (Will: main always reflects at least the latest release;
+# shipping is one deliberate act). To ship, from a green main:
+#   git tag launcher-v1.0.N && git push origin launcher-v1.0.N
+# — see docs/RELEASING.md. The tag builds the whole client (each live Origin
+# Client mod jar via Gradle, then the WPF launcher with those jars bundled in)
+# and publishes a GitHub release under the same tag. Running launchers poll
+# the release feed (Core/Updates/UpdateService.cs), light the corner download
 # badge, and self-update from the OriginLauncher-win-x64.zip asset. Updates
 # are mandatory: a launcher older than the latest release refuses to launch
 # the game until updated.
+#
+# COMPATIBILITY: installed launchers key on the launcher-v tag prefix and the
+# exact asset names (OriginLauncher-win-x64.zip / OriginLauncher-Setup.exe).
+# Never change those. New tags must be strictly greater than the last release.
 #
 # NOTE: the launcher polls this feed UNAUTHENTICATED, which requires the
 # repository (or at least its releases) to be public.
@@ -15,7 +20,7 @@ name: launcher-release
 
 on:
   push:
-    branches: [release]
+    tags: ["launcher-v*"]
 
 permissions:
   contents: write
@@ -90,10 +95,14 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      # Version comes from the tag itself (launcher-v1.0.21 -> 1.0.21) so the
+      # release a player sees is exactly the version Will typed — no run#.
       - name: Compute version
         id: ver
         shell: pwsh
-        run: echo "version=1.0.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+        run: |
+          $v = "${{ github.ref_name }}".Substring("launcher-v".Length)
+          echo "version=$v" >> $env:GITHUB_OUTPUT
 
       # Single-file, self-contained: the update zip swaps cleanly as one exe
       # (plus a couple of native satellites) with no .NET install required
@@ -107,6 +116,28 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:Version=${{ steps.ver.outputs.version }}
           -o publish
+
+      # Guard against the csproj's silent Exists() conditions: if a bundling
+      # path is ever wrong (e.g. after a module moves), the publish still goes
+      # green but ships WITHOUT mod jars and every instance falls back to the
+      # standalone catalog. Fail the release instead. Keep this list in sync
+      # with the live entries in VersionManager.OriginBuilds.
+      - name: Assert bundled mod jars present
+        shell: pwsh
+        run: |
+          $expected = @(
+            "originclient-1.21.1.jar",
+            "originclient-1.20.jar",
+            "originclient-1.20.4.jar",
+            "originclient-1.21.jar"
+          )
+          $dir = "publish\Bundled\OriginClient"
+          $missing = $expected | Where-Object { -not (Test-Path (Join-Path $dir $_)) }
+          if ($missing) {
+            Write-Error "Missing bundled jars: $($missing -join ', ') — check the csproj Content paths."
+            exit 1
+          }
+          Write-Host "All expected bundled jars present."
 
       # Fresh-install path: a per-user setup.exe (install/uninstall via
       # Add/Remove Programs). The zip below stays the SELF-UPDATE path — an
@@ -127,9 +158,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: >
-          gh release create "launcher-v${{ steps.ver.outputs.version }}"
+          gh release create "${{ github.ref_name }}"
           OriginLauncher-win-x64.zip
           installer\Output\OriginLauncher-Setup.exe
-          --target ${{ github.sha }}
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes "Automated build of ${{ github.sha }}"

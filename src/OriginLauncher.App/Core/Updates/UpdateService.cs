@@ -10,9 +10,9 @@ using System.Windows;
 namespace OriginLauncher.App.Core.Updates;
 
 // Push-to-update pipeline, launcher side. The GitHub Actions workflow
-// (.github/workflows/launcher-release.yml) publishes a release tagged
-// launcher-v1.0.<run> with a OriginLauncher-win-x64.zip asset on every push
-// to the RELEASE branch (main is build/test only — see release/RELEASING.md).
+// (.github/workflows/launcher-release.yml) publishes a release with a
+// OriginLauncher-win-x64.zip asset whenever a launcher-v* tag is pushed to
+// main (see docs/RELEASING.md).
 // This service polls that feed, exposes the newest release, and applies it:
 // download -> stage -> swap-and-restart via a tiny cmd script (a running exe
 // can't overwrite itself on Windows).
