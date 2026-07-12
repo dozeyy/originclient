@@ -72,17 +72,40 @@ public sealed class VersionManager
             // 1.20.4 API family (src/OriginClient.Mod1204) — same install model
             // as 1.20: Origin jar + standalone perf/shader catalog stack.
             ["1.20.4"] = new("originclient-1.20.4.jar", BundlesPerfStack: false),
-            // 1.21.11 (src/OriginClient.Mod12111) — STAGED, not yet active. The
-            // module is a complete Tier-A port of the 1.21.1 build (only the
-            // 1.21.2 blit rework differs; look/feel identical), and the 1.21.11
-            // perf/shader stack is already Full in PerformanceModCatalog — so
-            // 1.21.11 is already offered as a Fabric+shaders version (vanilla
-            // menus) via HasShaderStack. This line stays commented until the jar
-            // is built + runClient-verified on a machine with Loom/Mojang access
-            // (CLAUDE.md's ship bar; sandbox/CI can't resolve the version yet).
-            // Every rewritten blit descriptor is javap-pending — see
-            // src/OriginClient.Mod12111/PORT-12111.md. Re-enable to add the
-            // Origin menus (install model matches 1.20.4: Origin jar + catalog):
+            // 1.21 (src/OriginClient.Mod121) — LIVE. Same pre-1.21.2-blit-rework
+            // API family as 1.21.1 (byte-identical source), but its own mapped
+            // build + the standalone install model (1.21's Sodium mc1.21-0.5.11
+            // differs from 1.21.1's bundled 0.6.13). 1.21 is a real version + Full
+            // in the catalog, so it ships like 1.20.4. runClient at home confirms
+            // mixin-apply; a runtime miss fail-softs to vanilla (never crashes).
+            ["1.21"] = new("originclient-1.21.jar", BundlesPerfStack: false),
+            // 1.21.2 – 1.21.11 (src/OriginClient.Mod12111) — the post-1.21.2
+            // blit-rework API family. ONE Origin jar (originclient-1.21.11.jar)
+            // covers the whole range: the source is byte-identical across it, so
+            // every version in the family installs the same jar (the Mod120 model,
+            // where 1.20 + 1.20.1 share one jar). fabric.mod.json declares
+            // >=1.21.2- <1.22 to match. All lines STAGED (commented) for two
+            // independent reasons:
+            //   1. Verification: the jar must be built + javap'd + runClient'd on a
+            //      machine with Loom/Mojang access before shipping (CLAUDE.md's
+            //      bar); sandbox/CI can't resolve these versions yet. Guide:
+            //      src/OriginClient.Mod12111/PORT-12111.md.
+            //   2. Shaders: of this family, ONLY 1.21.11 is Full in
+            //      PerformanceModCatalog — 1.21.3–1.21.10 are Partial and 1.21.2
+            //      is absent, so HasShaderStack hides them regardless of a mapping.
+            //      They light up per-version as their catalog entry gains Sodium +
+            //      Iris (regenerate PerformanceModCatalog.Data.cs from Modrinth).
+            // Uncomment a line once BOTH its shaders exist and the jar is
+            // runClient-verified on that version:
+            //   ["1.21.2"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            //   ["1.21.3"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            //   ["1.21.4"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            //   ["1.21.5"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            //   ["1.21.6"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            //   ["1.21.7"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            //   ["1.21.8"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            //   ["1.21.9"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            //   ["1.21.10"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             //   ["1.21.11"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             // 26.2 (src/OriginClient.Mod262) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is

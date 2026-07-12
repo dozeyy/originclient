@@ -13,9 +13,14 @@
 > stack), and `OriginClient.Mod1204` (**1.20.4**, `>=1.20.3- <1.20.5`, same
 > model as 1.20). All three are runClient-verified with zero mixin-apply
 > failures and full shader integration (Iris + Sodium from the catalog pins).
-> Remaining per-version builds: **1.21** (reuse/adapt 1.21.1) and **1.21.11**
-> (blit reworked at 1.21.2). Porting method that works: copy the nearest API
-> family module, adjust only version-forced deltas, javap-verify every mixin
+> **1.21** (`OriginClient.Mod121`, `>=1.21- <1.21.1`, standalone stack) shares
+> the 1.21.1 source verbatim (same pre-1.21.2 blit API) and is wired live +
+> real CI. The **post-1.21.2 blit-rework family** (1.21.2 – 1.21.11) is one
+> build, `OriginClient.Mod12111` (`>=1.21.2- <1.22`, standalone), covering the
+> whole range with a single jar; it's staged per-version behind the shader gate
+> (only 1.21.11 is Full today) + runClient. Porting method that works: copy the
+> nearest API family module, adjust only version-forced deltas (for the 1.21.x
+> family that's just the 1.21.2 `blit` rework), javap-verify every mixin
 > descriptor against the mapped jar, then runClient-verify. Stonecutter (one
 > codebase → per-version jars) remains the long-term intent; a first attempt
 > hit a Loom split-sourceset JiJ-nesting blocker and was reverted.

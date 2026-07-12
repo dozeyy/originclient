@@ -81,21 +81,33 @@ corner controls. In-game menus match this exactly.
 - 26.2 mod port + Voxy support (1.21.1): merged to `main` (PR #15) and shipped in
   launcher v1.0.19. 26.2's own Origin build stays STAGED in `OriginBuilds` (render
   layer mid-port to retained-mode GUI); 26.2 is offered as Fabric+shaders today.
-- 1.21.11 Origin mod (`src/OriginClient.Mod12111`): complete Tier-A port of the
-  1.21.1 build — only the 1.21.2 `blit` rework differs, so look/feel are identical
-  to 1.21.1; install model = 1.20.4 (Origin jar + standalone catalog stack, which
-  is already Full for 1.21.11). STAGED: csproj bundle + `OriginBuilds` line + CI
-  steps are in place but commented, pending an at-home `./gradlew build` + javap of
-  the rewritten blit descriptors + `runClient` (sandbox/CI can't resolve the
-  version yet). Guide: `src/OriginClient.Mod12111/PORT-12111.md`.
-- Remaining to satisfy the mandate: per-version build for 1.21, and the at-home
-  javap+runClient verification that flips 1.21.11 (and 26.2) live.
+- 1.21 Origin mod (`src/OriginClient.Mod121`): byte-identical source to 1.21.1
+  (shared pre-1.21.2 blit API), standalone install model, its own 1.21-mapped
+  build. Wired LIVE (OriginBuilds + csproj + real CI build steps — 1.21 is a real,
+  Full-shader version the runner can compile). runClient at home is the remaining
+  confidence check; a runtime miss fail-softs to vanilla.
+- 1.21.2–1.21.11 Origin mod (`src/OriginClient.Mod12111`): one build covers the
+  whole post-1.21.2-blit-rework family (source byte-identical across the range;
+  fabric.mod.json `>=1.21.2- <1.22`; OriginBuilds maps every version string to the
+  one jar, Mod120-style). Only the 1.21.2 `blit` rework differs from 1.21.1, so
+  look/feel are identical. STAGED per-version: each flips live once its shaders are
+  Full in the catalog AND the jar is runClient-verified. Only 1.21.11 is Full
+  today; 1.21.3–1.21.10 are shader-blocked (Partial), 1.21.2 absent. Guide:
+  `src/OriginClient.Mod12111/PORT-12111.md`.
+- Remaining to satisfy the mandate: fill the 1.21.3–1.21.10 shader catalog from
+  Modrinth (at home), then the at-home javap+runClient verification that flips
+  those (and 1.21.11, 26.2) live.
 
 ## Roadmap
 - [x] **1.20 / 1.20.1** — runtime mixin fixes done, UI + shaders verified in-game.
 - [x] **1.20.4** — per-version build (renderBackground 4-arg era), UI + shaders.
-- [ ] **1.21** — reuse/adapt the 1.21.1 build, UI + shaders.
-- [~] **1.21.11** — per-version build DONE (blit reworked at 1.21.2; look/feel =
-  1.21.1). Staged; needs at-home javap + runClient to flip live (PORT-12111.md).
+- [x] **1.21** — per-version build (`src/OriginClient.Mod121`), byte-identical
+  source to 1.21.1 (shared pre-1.21.2 blit API), standalone install model. Wired
+  LIVE + real CI build (1.21 is a real, Full-shader version); runClient at home.
+- [~] **1.21.2 – 1.21.11** — one build (`src/OriginClient.Mod12111`) covers the
+  whole post-1.21.2-blit-rework family (blit reworked at 1.21.2; look/feel =
+  1.21.1). Staged per-version: each flips live once its shaders are Full in the
+  catalog AND the jar is runClient-verified. Only 1.21.11 is Full today; 1.21.3–
+  1.21.10 are shader-blocked, 1.21.2 absent (PORT-12111.md).
 - [ ] Crash system: Origin debug screen, log-cause detection, disable-mods-&-retry.
 - [ ] Light theme (Deskify inverse tokens).

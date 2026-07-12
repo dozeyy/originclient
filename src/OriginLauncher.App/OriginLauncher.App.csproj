@@ -99,6 +99,15 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <!-- 1.21 — Origin client only; perf/shader stack installed standalone.
+         Same source as 1.21.1 (pre-1.21.2 blit API); its own 1.21-mapped jar. -->
+    <Content Condition="Exists('..\OriginClient.Mod121\build\libs\originclient-1.21-0.4.1.jar')"
+             Include="..\OriginClient.Mod121\build\libs\originclient-1.21-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.21.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
     <!-- 26.2 — Origin client only; perf/shader stack installed standalone. -->
     <Content Condition="Exists('..\OriginClient.Mod262\build\libs\originclient-26.2-0.4.1.jar')"
              Include="..\OriginClient.Mod262\build\libs\originclient-26.2-0.4.1.jar">

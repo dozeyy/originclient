@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "originclient",
+	"version": "${version}",
+	"name": "Origin Client",
+	"description": "The custom client wrapper for Origin Launcher — simplified title screen and a curated overlay of clean, minimal QoL mods.",
+	"authors": [
+		"Will Henry"
+	],
+	"contact": {},
+	"license": "ARR",
+	"icon": "assets/originclient/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"com.origin.client.OriginClient"
+		],
+		"client": [
+			"com.origin.client.client.OriginClientMod"
+		]
+	},
+	"mixins": [
+		{
+			"config": "originclient.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "originclient.loading.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": ">=1.21- <1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

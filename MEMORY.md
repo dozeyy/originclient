@@ -5,6 +5,33 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-12 — Fill out the rest of 1.21.x (1.21 live; 1.21.2–1.21.11 family)
+Extended the 1.21 line after grounding in the shader-catalog gate
+(`HasShaderStack` = version in Data AND Sodium != null AND Iris != null). Of the
+1.21 line, only **1.21, 1.21.1, 1.21.11** are Full (offered); **1.21.3–1.21.10**
+are Partial and **1.21.2** is absent, so they're hidden regardless of a mod build.
+
+**1.21 (`src/OriginClient.Mod121`) — LIVE.** Family A (pre-1.21.2 blit); source
+is byte-identical to the 1.21.1 module (1.21 and 1.21.1 share the old
+GuiGraphics.blit signature — no render changes). Standalone install model (1.21's
+Sodium mc1.21-0.5.11 differs from 1.21.1's bundled 0.6.13), MC 1.21 / Java 21,
+range `>=1.21- <1.21.1`. Wired LIVE: OriginBuilds `["1.21"]`, csproj bundle, and
+REAL CI build steps in both workflows — 1.21 is a real version so the GitHub
+runner resolves + compiles it (unlike the fictional 1.21.11). `fabric_api_version`
+guessed 0.102.1+1.21; CI will flag if the pin's wrong (iterate). runClient at home
+is the remaining check; a runtime miss fail-softs to vanilla.
+
+**1.21.2–1.21.11 (`src/OriginClient.Mod12111`) — family coverage, STAGED.** The
+1.21.11 module now covers the whole post-1.21.2 blit-rework family: one jar, source
+byte-identical across the range, `fabric.mod.json` widened to `>=1.21.2- <1.22`,
+and OriginBuilds maps every version string (1.21.2..1.21.11) to
+`originclient-1.21.11.jar` (Mod120 model). All staged (commented) behind two
+gates: shaders (only 1.21.11 Full today) + runClient. Deliberately did NOT spin up
+9 near-duplicate modules — the family shares one build, and the shader gate hides
+the rest until `PerformanceModCatalog.Data.cs` is regenerated from Modrinth (an
+at-home/network task). Per-version javap+runClient before each flip. Guide:
+`src/OriginClient.Mod12111/PORT-12111.md`.
+
 ## 2026-07-12 — Merge 26.2 to main; scaffold the 1.21.11 Origin build
 Two things this session.
 

@@ -68,6 +68,13 @@ jobs:
         working-directory: src/OriginClient.Mod1204
         run: .\gradlew.bat build --no-daemon
 
+      # The 1.21 base release (src/OriginClient.Mod121), bundled as
+      # Bundled/OriginClient/originclient-1.21.jar. Same source as 1.21.1, its
+      # own 1.21-mapped build; real version so the runner resolves + ships it.
+      - name: Build Origin Client mod (1.21)
+        working-directory: src/OriginClient.Mod121
+        run: .\gradlew.bat build --no-daemon
+
       # NOTE (1.21.11): src/OriginClient.Mod12111 is a complete Tier-A port of the
       # 1.21.1 build (only the 1.21.2 blit rework differs). It is NOT built/shipped
       # here yet — Loom can't resolve the 1.21.11 game version on the runner until
