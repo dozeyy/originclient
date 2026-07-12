@@ -248,11 +248,58 @@ public partial class HomePage : UserControl
         await LaunchAsync();
     }
 
+    // Persist a Voxy-support flip made from the launch guard, and keep this
+    // page's in-memory settings in sync. Loads fresh so a concurrent Settings-
+    // page edit to other fields isn't clobbered.
+    private void SaveVoxySupport(bool value)
+    {
+        _settings.VoxySupport1211 = value;
+        var persisted = SettingsStore.Load();
+        persisted.VoxySupport1211 = value;
+        SettingsStore.Save(persisted);
+    }
+
     private async Task LaunchAsync()
     {
         var offlineTest = SettingsStore.Load().OfflineTestMode;
         if (_isLaunching || (_selectedAccount == null && !offlineTest)) return;
         if (_selectedVersion is not { } version) return;
+
+        // Voxy support guard (1.21.1 only) — keep the toggle and the instance's
+        // Voxy presence consistent BEFORE provisioning, so a launch never mixes
+        // the two incompatible stacks (Voxy needs Sodium 0.8.12; the stock build
+        // ships 0.6.13). Read fresh so a Settings-page flip is honoured. On a
+        // mismatch, offer to flip the switch and continue; cancel aborts.
+        bool voxySupport = SettingsStore.Load().VoxySupport1211;
+        if (version == "1.21.1")
+        {
+            var modsFolder = Path.Combine(OriginPaths.Instances, version, "mods");
+            bool voxyPresent = Directory.Exists(modsFolder)
+                && Directory.EnumerateFiles(modsFolder).Any(f =>
+                    Path.GetFileName(f).StartsWith("voxy", StringComparison.OrdinalIgnoreCase)
+                    && Path.GetFileName(f).EndsWith(".jar", StringComparison.OrdinalIgnoreCase));
+
+            if (voxyPresent && !voxySupport)
+            {
+                var turnOn = await ConfirmOverlay.ShowAsync(
+                    "Voxy is installed",
+                    "This 1.21.1 instance has the Voxy mod, but Voxy support is off — launching now would crash (Voxy needs the Sodium 0.8 build). Turn Voxy support on?",
+                    "Turn on & launch", "Cancel");
+                if (!turnOn) return;
+                voxySupport = true;
+                SaveVoxySupport(true);
+            }
+            else if (!voxyPresent && voxySupport && !File.Exists(OriginPaths.BundledVoxyJar))
+            {
+                var turnOff = await ConfirmOverlay.ShowAsync(
+                    "Voxy unavailable",
+                    "Voxy support is on but the Voxy mod isn't available to install. Turn Voxy support off and launch the standard 1.21.1 build?",
+                    "Turn off & launch", "Cancel");
+                if (!turnOff) return;
+                voxySupport = false;
+                SaveVoxySupport(false);
+            }
+        }
 
         // Mandatory updates (Will's rule): a launcher older than the latest
         // published release must update before it can launch the game. The
@@ -319,7 +366,7 @@ public partial class HomePage : UserControl
             var launchOption = LaunchProfileBuilder.Build(_settings, session);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             var process = await _versionManager.InstallAndBuildProcessAsync(
-                version, loader, _settings.OptiFineEnabled, launchOption, installProgress, cts.Token);
+                version, loader, _settings.OptiFineEnabled, launchOption, voxySupport, installProgress, cts.Token);
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the

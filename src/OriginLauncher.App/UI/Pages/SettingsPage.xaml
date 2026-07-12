@@ -137,6 +137,23 @@
                                       VerticalAlignment="Center"
                                       Checked="OriginUiToggle_Checked" Unchecked="OriginUiToggle_Unchecked"/>
                     </Grid>
+
+                    <Border Height="1" Background="{StaticResource Brush.SoftStroke}" Margin="0,16"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Voxy far-render (1.21.1)" Style="{StaticResource Text.BodyDim}"/>
+                            <TextBlock Text="Swaps 1.21.1 to the Sodium 0.8 build and adds the Voxy LoD renderer for extreme view distances. Off keeps the standard build. Distant Horizons and other Sodium 0.6 mods aren't compatible while this is on."
+                                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,2,16,0"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" x:Name="VoxyToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      Checked="VoxyToggle_Checked" Unchecked="VoxyToggle_Unchecked"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 

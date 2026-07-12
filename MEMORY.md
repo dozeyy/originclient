@@ -2968,3 +2968,48 @@ HudElementRegistry APIs later). Runtime fixes found via runClient (all critical)
   Bugs) overflow — OriginButtonRenderer.drawLabel now clips to button width via
   font.plainSubstrByWidth. Build: `JAVA_HOME=C:\Users\Will\.jdks\jdk-25.0.3+9
   ./gradlew -p src/OriginClient.Mod262 runClient`.
+
+### 2026-07-11 — Voxy far-render support for 1.21.1 (opt-in launcher toggle)
+User built a Voxy 0.2.15-beta jar for 1.21.1 (no official 1.21.1 release) and hit
+Fabric's "Incompatible mods found": Voxy hard-requires `sodium >=0.8.12-alpha.2`
+(it mixins into Sodium's 0.8 chunk renderer — won't run on 0.6.x at all), but the
+Origin 1.21.1 build bundles Sodium 0.6.13 jar-in-jar.
+
+**Root cause + compatible stack (all verified against real jar metadata + a full
+~80-mod instance launch, 0 mixin-apply failures):**
+- Sodium 0.8.12 (release, exists for 1.21.1) satisfies Voxy.
+- Sodium 0.8.12 bundles the Fabric Rendering API and declares `provides "indium"`,
+  so **Indium is dropped** on the voxy variant (FRAPI mods — Cobblemon/TACZ/
+  amendments — still get custom rendering). No Indium build targets Sodium 0.8.x.
+- Iris must be **>=1.8.13** (Sodium 0.8.12 `breaks: iris <1.8.13`); **1.8.14-beta.1**
+  declares `sodium: 0.8.x`. Origin has NO Sodium mixins (only IrisShadowDirectives
+  + IrisBridge reflection) and all Iris targets exist in 1.8.14 → no Origin code
+  changes needed.
+- **Distant Horizons 2.3.2-b is INCOMPATIBLE with Sodium 0.8**: DH's SodiumAccessor
+  .setFogOcclusion does `Class.forName("net.caffeinemc...gui.SodiumGameOptions")`
+  (a 0.6.x class removed in 0.8) with no fallback → hard crash. DH and Voxy are
+  competing LoD mods with opposite Sodium needs; user chose Voxy (DH removed).
+  (Cubes-Without-Borders' Sodium mixins are soft "target not found" WARNs — fine.)
+- runClient (dev) hits a DEV-ONLY crash here: Sodium 0.8.12's eager FRAPI init
+  force-loads LevelRenderer at mod-init, and Iris's refmap "could not be read" in
+  the Loom dev remapper → MixinIntermediaryDevRemapper NPE. Does NOT occur in the
+  shipped/instance runtime (real refmap, no dev remapper) — verified by launching
+  the actual instance offline: boots into a world clean.
+
+**Delivery = opt-in launcher toggle (not a blanket bump), since Sodium 0.8 breaks
+DH-style mods.** `src/OriginClient.Mod` now builds TWO 1.21.1 jars via a Gradle flag:
+default = STOCK (Sodium 0.6.13 + Indium + Iris 1.8.8); `gradlew build -Pvoxy` =
+VOXY (Sodium 0.8.12 + Iris 1.8.14-beta.1, no Indium, archivesName originclient-voxy).
+Launcher wiring:
+- `LauncherSettings.VoxySupport1211` (default off), Settings -> Origin Client toggle.
+- csproj bundles both originclient jars + the Voxy mod jar (BundledVoxy/, gated on
+  Exists so the build fail-softs). `OriginPaths.BundledVoxyJar`.
+- `VersionManager.InstallAndBuildProcessAsync(... bool voxySupport ...)`: for 1.21.1,
+  OFF installs stock jar + strips any voxy*.jar; ON installs originclient-1.21.1-voxy.jar
+  + drops the bundled Voxy mod in. OriginBuild.VoxyVariantJarFileName holds the name.
+- HomePage.LaunchAsync guards the mismatch BEFORE install via a house-style
+  ConfirmOverlay: voxy jar present + toggle off -> "turn on?"; toggle on + voxy
+  missing -> "turn off?"; each flips the switch (SaveVoxySupport) or cancels.
+Both mod variants + the launcher build clean (0 warnings). NOT yet delivered to the
+INSTALLED launcher (%LocalAppData%\Programs\OriginLauncher, single-file self-contained,
+auto-updates from releases) — needs a release (v1.0.16) or an in-place file copy.
