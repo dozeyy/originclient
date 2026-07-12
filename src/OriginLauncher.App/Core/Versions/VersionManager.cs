@@ -51,13 +51,20 @@ public sealed class VersionManager
     //  - false (1.20/1.20.1): the jar carries only the Origin client itself, so
     //    the launcher installs it ALONGSIDE the standalone perf catalog (Sodium +
     //    Iris + ... for that version) exactly as a vanilla-menu install would get.
-    private sealed record OriginBuild(string JarFileName, bool BundlesPerfStack);
+    // VoxyVariantJarFileName: an alternate bundled jar built with Sodium 0.8.12
+    // instead of the stock 0.6.13 (see src/OriginClient.Mod `gradlew -Pvoxy`),
+    // installed in place of JarFileName when the "Voxy support" toggle is on.
+    // Null for versions with no Voxy variant. Both jars are BundlesPerfStack.
+    private sealed record OriginBuild(
+        string JarFileName, bool BundlesPerfStack, string? VoxyVariantJarFileName = null);
 
     private static readonly IReadOnlyDictionary<string, OriginBuild> OriginBuilds =
         new Dictionary<string, OriginBuild>
         {
-            // Full Origin experience, self-contained perf stack.
-            ["1.21.1"] = new("originclient-1.21.1.jar", BundlesPerfStack: true),
+            // Full Origin experience, self-contained perf stack. 1.21.1 is the
+            // only version with a Voxy variant (Sodium 0.8.12 build) today.
+            ["1.21.1"] = new("originclient-1.21.1.jar", BundlesPerfStack: true,
+                             VoxyVariantJarFileName: "originclient-1.21.1-voxy.jar"),
             // 1.20 API family (src/OriginClient.Mod120) — perf stack installed
             // standalone from the catalog alongside it.
             ["1.20"]   = new("originclient-1.20.jar",   BundlesPerfStack: false),
@@ -144,6 +151,7 @@ public sealed class VersionManager
     // reports human-readable stage text — used to drive LaunchLoadingOverlay.
     public async Task<Process> InstallAndBuildProcessAsync(
         string version, LoaderKind loader, bool optiFineEnabled, MLaunchOption option,
+        bool voxySupport = false,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
         var path = BuildInstancePath(version);
@@ -214,8 +222,50 @@ public sealed class VersionManager
                             try { File.Delete(file); } catch { /* locked/removed already */ }
                         }
                     }
-                    File.Copy(OriginPaths.BundledOriginClientJar(originBuild.JarFileName), Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
+                    // Pick the STOCK jar, or the Voxy variant (Sodium 0.8.12)
+                    // when the toggle is on and that build is actually bundled.
+                    // Falling back to stock if the variant jar is missing keeps a
+                    // partial launcher install from failing outright.
+                    var chosenJarFileName = originBuild.JarFileName;
+                    var useVoxyVariant = voxySupport
+                        && originBuild.VoxyVariantJarFileName != null
+                        && File.Exists(OriginPaths.BundledOriginClientJar(originBuild.VoxyVariantJarFileName));
+                    if (useVoxyVariant)
+                        chosenJarFileName = originBuild.VoxyVariantJarFileName!;
+
+                    File.Copy(OriginPaths.BundledOriginClientJar(chosenJarFileName), Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
                     originBundlesPerfStack = originBuild.BundlesPerfStack;
+
+                    // Voxy is a standalone far-render mod that only runs on the
+                    // Sodium 0.8.12 (voxy-variant) build. Keep the instance's Voxy
+                    // presence in lockstep with the toggle so the two never mix:
+                    //   variant ON  -> drop the bundled Voxy jar in (if not present)
+                    //   variant OFF -> strip any voxy*.jar, or stock Sodium 0.6.x
+                    //                  would hit the "Incompatible mods" wall.
+                    // Matched by the "voxy" filename prefix so a re-versioned
+                    // drop-in is still recognised; ".jar.disabled" is left alone.
+                    if (useVoxyVariant)
+                    {
+                        if (File.Exists(OriginPaths.BundledVoxyJar)
+                            && !Directory.EnumerateFiles(modsFolder).Any(f =>
+                                Path.GetFileName(f).StartsWith("voxy", StringComparison.OrdinalIgnoreCase)
+                                && Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            File.Copy(OriginPaths.BundledVoxyJar, Path.Combine(modsFolder, OriginPaths.VoxyModJarFileName), overwrite: true);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var file in Directory.EnumerateFiles(modsFolder))
+                        {
+                            var name = Path.GetFileName(file);
+                            if (name.StartsWith("voxy", StringComparison.OrdinalIgnoreCase)
+                                && name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                try { File.Delete(file); } catch { /* locked/removed already */ }
+                            }
+                        }
+                    }
 
                     // Only when THIS build carries its own perf stack jar-in-jar
                     // (e.g. 1.21.1): purge any STANDALONE copies a pre-bundle

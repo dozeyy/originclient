@@ -71,5 +71,8 @@
              so a launch that starts while it's (somehow) open still covers it. -->
         <controls:VersionSelectOverlay x:Name="VersionOverlay"/>
         <controls:LaunchLoadingOverlay x:Name="LoadingOverlay"/>
+        <!-- Topmost: a launch-blocking confirm (e.g. the Voxy/Sodium mismatch
+             guard) must sit above the loading overlay. -->
+        <controls:ConfirmOverlay x:Name="ConfirmOverlay"/>
     </Grid>
 </UserControl>

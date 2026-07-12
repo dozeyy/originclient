@@ -33,6 +33,16 @@ public static class OriginPaths
     public static string BundledOriginClientJar(string jarFileName) =>
         Path.Combine(BundledOriginClientDir, jarFileName);
 
+    // The Voxy far-render mod jar, shipped alongside the exe (csproj Content)
+    // and dropped into a 1.21.1 instance's mods/ only when the "Voxy support"
+    // toggle is on — see VersionManager's Fabric install path. Canonical Modrinth
+    // filename; the launcher matches "voxy*.jar" when adding/removing it so a
+    // re-versioned drop-in is still recognised.
+    public const string VoxyModJarFileName = "voxy-0.2.15-beta+1.21.1-fabric.jar";
+    public static string BundledVoxyDir => Path.Combine(
+        AppContext.BaseDirectory, "Bundled", "Voxy");
+    public static string BundledVoxyJar => Path.Combine(BundledVoxyDir, VoxyModJarFileName);
+
     public static void EnsureScaffold()
     {
         Directory.CreateDirectory(Instances);

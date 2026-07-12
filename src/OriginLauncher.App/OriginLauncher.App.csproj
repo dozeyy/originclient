@@ -52,10 +52,33 @@
     stray Sodium that breaks Iris). Loose = the path resolves.
   -->
   <ItemGroup>
-    <!-- 1.21.1 — full Origin build, self-contained perf stack (jar-in-jar). -->
-    <Content Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.4.1.jar')"
-             Include="..\OriginClient.Mod\build\libs\originclient-0.4.1.jar">
+    <!-- 1.21.1 STOCK — full Origin build, self-contained perf stack (jar-in-jar):
+         Sodium 0.6.13 + Indium + Iris 1.8.8. Default install. -->
+    <Content Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.4.2.jar')"
+             Include="..\OriginClient.Mod\build\libs\originclient-0.4.2.jar">
       <Link>Bundled\OriginClient\originclient-1.21.1.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <!-- 1.21.1 VOXY variant (built with `gradlew -Pvoxy`): Sodium 0.8.12 + Iris
+         1.8.14-beta.1, Indium dropped (0.8.12 provides FRAPI). Installed in place
+         of the stock jar when the "Voxy support" toggle is on. Mods that hard-ref
+         Sodium 0.6.x (e.g. Distant Horizons 2.3.2-b) crash on it — see MEMORY.md
+         2026-07-11. -->
+    <Content Condition="Exists('..\OriginClient.Mod\build\libs\originclient-voxy-0.4.2.jar')"
+             Include="..\OriginClient.Mod\build\libs\originclient-voxy-0.4.2.jar">
+      <Link>Bundled\OriginClient\originclient-1.21.1-voxy.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <!-- The Voxy far-render mod jar itself, auto-dropped into a 1.21.1 instance's
+         mods/ when Voxy support is on (see VersionManager + OriginPaths.BundledVoxyJar).
+         Condition so the launcher still builds if the jar isn't checked out. -->
+    <Content Condition="Exists('BundledVoxy\voxy-0.2.15-beta+1.21.1-fabric.jar')"
+             Include="BundledVoxy\voxy-0.2.15-beta+1.21.1-fabric.jar">
+      <Link>Bundled\Voxy\voxy-0.2.15-beta+1.21.1-fabric.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
