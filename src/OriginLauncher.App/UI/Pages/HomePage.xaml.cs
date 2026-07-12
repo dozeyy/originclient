@@ -1,6 +1,8 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using CmlLib.Core.Auth;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Accounts;
@@ -159,6 +161,11 @@ public partial class HomePage : UserControl
         OptiFineToggle.IsChecked = loader == LoaderKind.Forge
             && _settings.OptiFineEnabled
             && OptiFineCacheStore.IsCached(version);
+        // Only Fabric launches can separate Origin's mods from the player's
+        // (Fabric's modsFolder redirect — Forge/Vanilla have no equivalent
+        // hook), so the switch only shows where it can actually be honoured.
+        ExternalModsRow.Visibility = loader == LoaderKind.Fabric ? Visibility.Visible : Visibility.Collapsed;
+        ExternalModsToggle.IsChecked = _settings.PlayWithExternalMods;
         _settingLoaderProgrammatically = false;
     }
 
@@ -181,6 +188,7 @@ public partial class HomePage : UserControl
             && version != null
             && _settings.OptiFineEnabled
             && OptiFineCacheStore.IsCached(version);
+        ExternalModsRow.Visibility = loader == LoaderKind.Fabric ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void LoaderVanillaToggle_Checked(object sender, RoutedEventArgs e) => SetLoader(LoaderKind.Vanilla);
@@ -238,6 +246,28 @@ public partial class HomePage : UserControl
         SettingsStore.Save(_settings);
     }
 
+    private void ExternalModsToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_settingLoaderProgrammatically) return;
+        SaveExternalMods(true);
+    }
+
+    private void ExternalModsToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_settingLoaderProgrammatically) return;
+        SaveExternalMods(false);
+    }
+
+    // Load-fresh-then-save: only this one field is written, so a concurrent
+    // Settings-page edit to other fields survives.
+    private void SaveExternalMods(bool value)
+    {
+        _settings.PlayWithExternalMods = value;
+        var persisted = SettingsStore.Load();
+        persisted.PlayWithExternalMods = value;
+        SettingsStore.Save(persisted);
+    }
+
     private async void PlayButton_Click(object sender, RoutedEventArgs e) => await LaunchAsync();
 
     // The version picker's Launch button: adopt the chosen version, then launch
@@ -248,58 +278,16 @@ public partial class HomePage : UserControl
         await LaunchAsync();
     }
 
-    // Persist a Voxy-support flip made from the launch guard, and keep this
-    // page's in-memory settings in sync. Loads fresh so a concurrent Settings-
-    // page edit to other fields isn't clobbered.
-    private void SaveVoxySupport(bool value)
-    {
-        _settings.VoxySupport1211 = value;
-        var persisted = SettingsStore.Load();
-        persisted.VoxySupport1211 = value;
-        SettingsStore.Save(persisted);
-    }
-
     private async Task LaunchAsync()
     {
-        var offlineTest = SettingsStore.Load().OfflineTestMode;
+        // One fresh read for every launch-gating setting: offline test mode
+        // and the external-mods switch can both change on other pages between
+        // clicks, and this launch must honour what's on disk NOW.
+        var freshSettings = SettingsStore.Load();
+        var offlineTest = freshSettings.OfflineTestMode;
+        var externalMods = freshSettings.PlayWithExternalMods;
         if (_isLaunching || (_selectedAccount == null && !offlineTest)) return;
         if (_selectedVersion is not { } version) return;
-
-        // Voxy support guard (1.21.1 only) — keep the toggle and the instance's
-        // Voxy presence consistent BEFORE provisioning, so a launch never mixes
-        // the two incompatible stacks (Voxy needs Sodium 0.8.12; the stock build
-        // ships 0.6.13). Read fresh so a Settings-page flip is honoured. On a
-        // mismatch, offer to flip the switch and continue; cancel aborts.
-        bool voxySupport = SettingsStore.Load().VoxySupport1211;
-        if (version == "1.21.1")
-        {
-            var modsFolder = Path.Combine(OriginPaths.Instances, version, "mods");
-            bool voxyPresent = Directory.Exists(modsFolder)
-                && Directory.EnumerateFiles(modsFolder).Any(f =>
-                    Path.GetFileName(f).StartsWith("voxy", StringComparison.OrdinalIgnoreCase)
-                    && Path.GetFileName(f).EndsWith(".jar", StringComparison.OrdinalIgnoreCase));
-
-            if (voxyPresent && !voxySupport)
-            {
-                var turnOn = await ConfirmOverlay.ShowAsync(
-                    "Voxy is installed",
-                    "This 1.21.1 instance has the Voxy mod, but Voxy support is off — launching now would crash (Voxy needs the Sodium 0.8 build). Turn Voxy support on?",
-                    "Turn on & launch", "Cancel");
-                if (!turnOn) return;
-                voxySupport = true;
-                SaveVoxySupport(true);
-            }
-            else if (!voxyPresent && voxySupport && !File.Exists(OriginPaths.BundledVoxyJar))
-            {
-                var turnOff = await ConfirmOverlay.ShowAsync(
-                    "Voxy unavailable",
-                    "Voxy support is on but the Voxy mod isn't available to install. Turn Voxy support off and launch the standard 1.21.1 build?",
-                    "Turn off & launch", "Cancel");
-                if (!turnOff) return;
-                voxySupport = false;
-                SaveVoxySupport(false);
-            }
-        }
 
         // Mandatory updates (Will's rule): a launcher older than the latest
         // published release must update before it can launch the game. The
@@ -321,8 +309,14 @@ public partial class HomePage : UserControl
 
         _isLaunching = true;
         PlayButton.IsEnabled = false;
+        SetPlayLaunching(true);
         var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
         LoadingOverlay.Show(version, LoaderCaption(loader));
+
+        // Set true once the game process has actually started: from that point
+        // WatchBootAsync owns the launching state (spinner + _isLaunching) and
+        // the finally below must not reset it.
+        var bootWatchStarted = false;
 
         try
         {
@@ -366,7 +360,8 @@ public partial class HomePage : UserControl
             var launchOption = LaunchProfileBuilder.Build(_settings, session);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             var process = await _versionManager.InstallAndBuildProcessAsync(
-                version, loader, _settings.OptiFineEnabled, launchOption, voxySupport, installProgress, cts.Token);
+                version, loader, _settings.OptiFineEnabled, launchOption,
+                externalMods, installProgress, cts.Token);
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the
@@ -382,11 +377,18 @@ public partial class HomePage : UserControl
             cts.Token.ThrowIfCancellationRequested();
 
             LoadingOverlay.ReportStage("Launching Minecraft...");
-            StartWithLifecycleCapture(process, version);
+            var logPath = StartWithLifecycleCapture(process, version);
 
-            StatusText.Text = _selectedAccount != null
+            // The process is up but the game window isn't — the Play button
+            // keeps spinning (via WatchBootAsync) until Minecraft's window
+            // actually appears, or the boot dies early, which restores the
+            // button and surfaces the crash.
+            StatusText.Text = $"Starting Minecraft {version}...";
+            var runningMessage = _selectedAccount != null
                 ? $"Launched {version} — signed in as {session.Username}"
                 : $"Launched {version} — offline test session";
+            bootWatchStarted = true;
+            _ = WatchBootAsync(process, logPath, runningMessage);
         }
         catch (OperationCanceledException)
         {
@@ -415,16 +417,85 @@ public partial class HomePage : UserControl
             // if a newer launch has already replaced it, that one drives.
             if (ReferenceEquals(_launchCts, cts))
             {
-                _isLaunching = false;
+                // Release ownership BEFORE disposing. _launchCts must never be
+                // left pointing at a disposed source: the next launch's
+                // "_launchCts?.Cancel()" (and the overlay's Cancel handler)
+                // would throw ObjectDisposedException — this was the "Play
+                // crashes/does nothing on every launch after the first" bug
+                // (see crash_20260712_113213.log).
+                _launchCts = null;
                 LoadingOverlay.Hide();
-                // Not the full UpdatePlayState() — that unconditionally overwrites
-                // StatusText with "Signed in as X", clobbering whatever specific
-                // message the try/catch above just set. Only re-sync IsEnabled here.
-                PlayButton.IsEnabled =
-                    (_selectedAccount != null || SettingsStore.Load().OfflineTestMode)
-                    && _selectedVersion != null;
+                if (!bootWatchStarted)
+                {
+                    _isLaunching = false;
+                    SetPlayLaunching(false);
+                    // Not the full UpdatePlayState() — that unconditionally overwrites
+                    // StatusText with "Signed in as X", clobbering whatever specific
+                    // message the try/catch above just set. Only re-sync IsEnabled here.
+                    PlayButton.IsEnabled =
+                        (_selectedAccount != null || SettingsStore.Load().OfflineTestMode)
+                        && _selectedVersion != null;
+                }
             }
             cts.Dispose();
+        }
+    }
+
+    // Owns the tail of the launching state: keeps the Play button spinning
+    // after the game process starts, until Minecraft's window actually exists
+    // (launch finished) or the process dies during boot (crash — surface it
+    // and return the button to normal). Runs on the UI context; the polls are
+    // cheap and non-blocking. The 90s ceiling is a fail-open safety net for a
+    // machine where window detection misbehaves — the button must never spin
+    // forever.
+    private async Task WatchBootAsync(System.Diagnostics.Process process, string? logPath, string runningMessage)
+    {
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(90);
+            while (DateTime.UtcNow < deadline)
+            {
+                bool exited;
+                try { exited = process.HasExited; }
+                catch { break; } // process handle gone — nothing more to learn
+
+                if (exited)
+                {
+                    int exitCode;
+                    try { exitCode = process.ExitCode; } catch { exitCode = -1; }
+                    StatusText.Text = exitCode == 0
+                        ? "Minecraft closed — click Play to launch again."
+                        : logPath != null
+                            ? $"Minecraft crashed while starting (exit code {exitCode}) — log saved to {logPath}"
+                            : $"Minecraft crashed while starting (exit code {exitCode}).";
+                    return;
+                }
+
+                try
+                {
+                    process.Refresh();
+                    if (process.MainWindowHandle != IntPtr.Zero)
+                    {
+                        StatusText.Text = runningMessage;
+                        return;
+                    }
+                }
+                catch { break; }
+
+                await Task.Delay(500);
+            }
+            // Timed out without seeing a window — assume the game is running
+            // (headless/odd window setups) rather than reporting a failure
+            // that didn't happen.
+            StatusText.Text = runningMessage;
+        }
+        finally
+        {
+            _isLaunching = false;
+            SetPlayLaunching(false);
+            PlayButton.IsEnabled =
+                (_selectedAccount != null || SettingsStore.Load().OfflineTestMode)
+                && _selectedVersion != null;
         }
     }
 
@@ -495,8 +566,9 @@ public partial class HomePage : UserControl
     // Redirects the launched instance's stdout/stderr to a per-launch log file
     // and reports the exit code back to Home once the game closes — this is
     // the crash-diagnostics foundation Phase 3 builds on, not full crash
-    // parsing yet.
-    private void StartWithLifecycleCapture(System.Diagnostics.Process process, string version)
+    // parsing yet. Returns the log path so the boot watcher can point at it
+    // when the game dies during startup.
+    private string StartWithLifecycleCapture(System.Diagnostics.Process process, string version)
     {
         OriginPaths.EnsureScaffold();
         var logPath = Path.Combine(OriginPaths.Logs, $"{version}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
@@ -579,6 +651,39 @@ public partial class HomePage : UserControl
             // catch report it, rather than leaking the writer.
             lock (gate) { logWriter?.Dispose(); logWriter = null; }
             throw;
+        }
+
+        return logPath;
+    }
+
+    // Swaps the Play button between its label and the spinning launch arc.
+    // Same clock pattern as LaunchLoadingOverlay: a fresh RotateTransform +
+    // AnimationClock per run, stopped and dropped on restore so nothing keeps
+    // ticking behind a static button.
+    private AnimationClock? _playSpinClock;
+
+    private void SetPlayLaunching(bool launching)
+    {
+        if (launching && _playSpinClock != null) return; // already spinning
+
+        PlayLabel.Visibility = launching ? Visibility.Collapsed : Visibility.Visible;
+        PlaySpinner.Visibility = launching ? Visibility.Visible : Visibility.Collapsed;
+
+        if (launching)
+        {
+            var transform = new RotateTransform();
+            PlaySpinner.RenderTransform = transform;
+            var spin = new DoubleAnimation(0, 360, new Duration(TimeSpan.FromSeconds(1.1)))
+            {
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            _playSpinClock = spin.CreateClock();
+            transform.ApplyAnimationClock(RotateTransform.AngleProperty, _playSpinClock);
+        }
+        else
+        {
+            _playSpinClock?.Controller?.Stop();
+            _playSpinClock = null;
         }
     }
 }

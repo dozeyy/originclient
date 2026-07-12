@@ -27,7 +27,6 @@ public partial class SettingsPage : UserControl
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
 
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
-        VoxyToggle.IsChecked = _settings.VoxySupport1211;
         ShaderCacheNvidiaToggle.IsChecked = _settings.ShaderCacheNvidia;
         ShaderCacheAmdToggle.IsChecked = _settings.ShaderCacheAmd;
         OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
@@ -117,23 +116,6 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
         OriginClientConfigBridge.SetOriginUiEnabled(false);
-    }
-
-    // Voxy support only changes which build/mods the launcher provisions on the
-    // NEXT 1.21.1 launch (see VersionManager) — no files are touched here, so
-    // toggling is instant and safe. The launch guard reconciles any mismatch.
-    private void VoxyToggle_Checked(object sender, RoutedEventArgs e)
-    {
-        if (_isLoading) return;
-        _settings.VoxySupport1211 = true;
-        SettingsStore.Save(_settings);
-    }
-
-    private void VoxyToggle_Unchecked(object sender, RoutedEventArgs e)
-    {
-        if (_isLoading) return;
-        _settings.VoxySupport1211 = false;
-        SettingsStore.Save(_settings);
     }
 
     private void ShaderCacheNvidiaToggle_Checked(object sender, RoutedEventArgs e)

@@ -271,6 +271,54 @@ public static class ModManager
             || n.StartsWith("iris-mc");
     }
 
+    // The managed mod families, keyed by canonical filename prefix. Iris ships
+    // under two historical shapes ("iris-fabric-*", "iris-mc*") — both map to
+    // one family so a shape change can't leave two Irises behind.
+    private static readonly string[] ManagedFamilyPrefixes =
+    {
+        "originclient",
+        "fabric-api-",
+        "legacy-fabric-api-",
+        "sodium-fabric-",
+        "lithium-fabric-",
+        "indium-",
+        "ferritecore-",
+        "krypton-",
+        "immediatelyfast-fabric-",
+        "modernfix-fabric-",
+        "iris-fabric-",
+        "iris-mc",
+    };
+
+    /// <summary>
+    /// Groups a managed jar under its mod-family key so provisioning can keep
+    /// exactly ONE enabled copy per family. Fabric refuses to boot at all on a
+    /// duplicate mod id, so two coexisting copies of e.g. fabric-api (a player
+    /// updating it by hand next to the launcher's, or a catalog version bump
+    /// leaving the old pin behind) turn into "the game never launches".
+    /// Non-managed names key to themselves (a group of one — never touched).
+    /// </summary>
+    public static string ModFamilyKey(string jarName)
+    {
+        var n = jarName.ToLowerInvariant();
+        foreach (var prefix in ManagedFamilyPrefixes)
+            if (n.StartsWith(prefix))
+                return prefix == "iris-mc" ? "iris-fabric-" : prefix;
+        return n;
+    }
+
+    /// <summary>
+    /// Best-effort mod version from a canonical filename: the first dotted
+    /// numeric run after the family prefix — "fabric-api-0.116.13+1.21.1.jar"
+    /// → 0.116.13, "sodium-fabric-0.6.13+mc1.21.1.jar" → 0.6.13. Null when the
+    /// name has no parseable version (e.g. "originclient.jar").
+    /// </summary>
+    public static Version? TryParseVersion(string jarName)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(jarName, @"(\d+(?:\.\d+)+)");
+        return match.Success && Version.TryParse(match.Groups[1].Value, out var v) ? v : null;
+    }
+
     // Turn "sodium-fabric-0.6.13+mc1.21.1.jar" into "sodium-fabric 0.6.13".
     // Purely cosmetic; the real identity is always the filename.
     private static string PrettyName(string jarName)

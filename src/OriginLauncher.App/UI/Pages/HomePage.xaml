@@ -56,11 +56,44 @@
                               Checked="OptiFineToggle_Checked" Unchecked="OptiFineToggle_Unchecked"/>
             </Grid>
 
-            <Button x:Name="PlayButton" Content="PLAY"
+            <!-- Fabric-only (hidden for Vanilla/Forge): ON loads the player's own
+                 mods/ folder as-is alongside Origin's; OFF launches with ONLY the
+                 Origin-provisioned set (see VersionManager's fabric.modsFolder
+                 redirect) without touching the player's files. -->
+            <Grid x:Name="ExternalModsRow" Margin="0,0,0,18" HorizontalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Play with external mods" Style="{StaticResource Text.BodyDim}"
+                           VerticalAlignment="Center"
+                           ToolTip="On: your own added mods load alongside Origin's. Off: only Origin's built-in mods load — your files stay untouched."/>
+                <ToggleButton Grid.Column="2" x:Name="ExternalModsToggle" Style="{StaticResource Toggle.Switch}"
+                              VerticalAlignment="Center"
+                              ToolTip="On: your own added mods load alongside Origin's. Off: only Origin's built-in mods load — your files stay untouched."
+                              Checked="ExternalModsToggle_Checked" Unchecked="ExternalModsToggle_Unchecked"/>
+            </Grid>
+
+            <!-- While a launch is in flight the label swaps for a spinning arc
+                 (same 24-grid stroke language as the icon set) that runs until
+                 the game window is actually up — or the boot fails, which
+                 restores the label and surfaces the error in StatusText. -->
+            <Button x:Name="PlayButton"
                     Style="{StaticResource Button.PlayHero}"
                     IsEnabled="False"
                     ToolTip="Sign in and select a version to play"
-                    Click="PlayButton_Click"/>
+                    Click="PlayButton_Click">
+                <Grid>
+                    <TextBlock x:Name="PlayLabel" Text="PLAY"/>
+                    <Path x:Name="PlaySpinner" Visibility="Collapsed"
+                          Width="48" Height="48"
+                          Data="M 24,4 A 20,20 0 1 1 4,24"
+                          Stroke="{StaticResource Brush.TextOnAccent}" StrokeThickness="3.4"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          RenderTransformOrigin="0.5,0.5"/>
+                </Grid>
+            </Button>
 
             <TextBlock x:Name="StatusText" Text="No account signed in"
                        Style="{StaticResource Text.BodyDim}"
@@ -71,8 +104,5 @@
              so a launch that starts while it's (somehow) open still covers it. -->
         <controls:VersionSelectOverlay x:Name="VersionOverlay"/>
         <controls:LaunchLoadingOverlay x:Name="LoadingOverlay"/>
-        <!-- Topmost: a launch-blocking confirm (e.g. the Voxy/Sodium mismatch
-             guard) must sit above the loading overlay. -->
-        <controls:ConfirmOverlay x:Name="ConfirmOverlay"/>
     </Grid>
 </UserControl>

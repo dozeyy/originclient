@@ -51,20 +51,13 @@ public sealed class VersionManager
     //  - false (1.20/1.20.1): the jar carries only the Origin client itself, so
     //    the launcher installs it ALONGSIDE the standalone perf catalog (Sodium +
     //    Iris + ... for that version) exactly as a vanilla-menu install would get.
-    // VoxyVariantJarFileName: an alternate bundled jar built with Sodium 0.8.12
-    // instead of the stock 0.6.13 (see src/OriginClient.Mod `gradlew -Pvoxy`),
-    // installed in place of JarFileName when the "Voxy support" toggle is on.
-    // Null for versions with no Voxy variant. Both jars are BundlesPerfStack.
-    private sealed record OriginBuild(
-        string JarFileName, bool BundlesPerfStack, string? VoxyVariantJarFileName = null);
+    private sealed record OriginBuild(string JarFileName, bool BundlesPerfStack);
 
     private static readonly IReadOnlyDictionary<string, OriginBuild> OriginBuilds =
         new Dictionary<string, OriginBuild>
         {
-            // Full Origin experience, self-contained perf stack. 1.21.1 is the
-            // only version with a Voxy variant (Sodium 0.8.12 build) today.
-            ["1.21.1"] = new("originclient-1.21.1.jar", BundlesPerfStack: true,
-                             VoxyVariantJarFileName: "originclient-1.21.1-voxy.jar"),
+            // Full Origin experience, self-contained perf stack.
+            ["1.21.1"] = new("originclient-1.21.1.jar", BundlesPerfStack: true),
             // 1.20 API family (src/OriginClient.Mod120) — perf stack installed
             // standalone from the catalog alongside it.
             ["1.20"]   = new("originclient-1.20.jar",   BundlesPerfStack: false),
@@ -151,7 +144,7 @@ public sealed class VersionManager
     // reports human-readable stage text — used to drive LaunchLoadingOverlay.
     public async Task<Process> InstallAndBuildProcessAsync(
         string version, LoaderKind loader, bool optiFineEnabled, MLaunchOption option,
-        bool voxySupport = false,
+        bool externalMods = true,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
         var path = BuildInstancePath(version);
@@ -222,50 +215,8 @@ public sealed class VersionManager
                             try { File.Delete(file); } catch { /* locked/removed already */ }
                         }
                     }
-                    // Pick the STOCK jar, or the Voxy variant (Sodium 0.8.12)
-                    // when the toggle is on and that build is actually bundled.
-                    // Falling back to stock if the variant jar is missing keeps a
-                    // partial launcher install from failing outright.
-                    var chosenJarFileName = originBuild.JarFileName;
-                    var useVoxyVariant = voxySupport
-                        && originBuild.VoxyVariantJarFileName != null
-                        && File.Exists(OriginPaths.BundledOriginClientJar(originBuild.VoxyVariantJarFileName));
-                    if (useVoxyVariant)
-                        chosenJarFileName = originBuild.VoxyVariantJarFileName!;
-
-                    File.Copy(OriginPaths.BundledOriginClientJar(chosenJarFileName), Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
+                    File.Copy(OriginPaths.BundledOriginClientJar(originBuild.JarFileName), Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
                     originBundlesPerfStack = originBuild.BundlesPerfStack;
-
-                    // Voxy is a standalone far-render mod that only runs on the
-                    // Sodium 0.8.12 (voxy-variant) build. Keep the instance's Voxy
-                    // presence in lockstep with the toggle so the two never mix:
-                    //   variant ON  -> drop the bundled Voxy jar in (if not present)
-                    //   variant OFF -> strip any voxy*.jar, or stock Sodium 0.6.x
-                    //                  would hit the "Incompatible mods" wall.
-                    // Matched by the "voxy" filename prefix so a re-versioned
-                    // drop-in is still recognised; ".jar.disabled" is left alone.
-                    if (useVoxyVariant)
-                    {
-                        if (File.Exists(OriginPaths.BundledVoxyJar)
-                            && !Directory.EnumerateFiles(modsFolder).Any(f =>
-                                Path.GetFileName(f).StartsWith("voxy", StringComparison.OrdinalIgnoreCase)
-                                && Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            File.Copy(OriginPaths.BundledVoxyJar, Path.Combine(modsFolder, OriginPaths.VoxyModJarFileName), overwrite: true);
-                        }
-                    }
-                    else
-                    {
-                        foreach (var file in Directory.EnumerateFiles(modsFolder))
-                        {
-                            var name = Path.GetFileName(file);
-                            if (name.StartsWith("voxy", StringComparison.OrdinalIgnoreCase)
-                                && name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                            {
-                                try { File.Delete(file); } catch { /* locked/removed already */ }
-                            }
-                        }
-                    }
 
                     // Only when THIS build carries its own perf stack jar-in-jar
                     // (e.g. 1.21.1): purge any STANDALONE copies a pre-bundle
@@ -328,6 +279,102 @@ public sealed class VersionManager
                 // clobbers anything Iris (or the player) already wrote there.
                 if (irisPresent)
                     IrisConfigSeeder.DisableUpdateMessage(configFolder);
+
+                // Crash-during-write (or power-loss) leaves config files full of
+                // NUL bytes — seen in the wild 13 files at once. Depending on the
+                // mod that's anywhere from a red "config corrupted" toast every
+                // boot (Sodium fail-softs) to a hard crash at entrypoint init
+                // (do_a_barrel_roll, ok_zoomer refuse to start). Such a file
+                // holds zero real data, so deleting it loses nothing and each
+                // mod regenerates its defaults. Swept before every launch.
+                SanitizeCorruptConfigs(configFolder);
+
+                // Exactly ONE enabled jar per managed mod family. Fabric hard-
+                // fails the entire boot on a duplicate mod id, so a second copy
+                // of a launcher-managed mod — a player hand-updating fabric-api
+                // next to the launcher's copy, or a catalog version bump leaving
+                // the old pinned jar behind — silently turns into "the game
+                // never launches". Heal it on every launch: the HIGHEST version
+                // parsed from the filename wins (a hand-updated fabric-api is an
+                // upgrade — keep it), falling back to most-recently-landed time
+                // when a version can't be parsed. User (unmanaged) jars group as
+                // singletons and are never touched.
+                foreach (var family in Directory.EnumerateFiles(modsFolder)
+                             .Where(f => Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                             .Where(f => ModManager.IsManaged(Path.GetFileName(f)))
+                             .GroupBy(f => ModManager.ModFamilyKey(Path.GetFileName(f)), StringComparer.OrdinalIgnoreCase))
+                {
+                    foreach (var stale in family
+                                 .OrderByDescending(f => ModManager.TryParseVersion(Path.GetFileName(f)) ?? new Version(0, 0))
+                                 .ThenByDescending(f => Max(File.GetCreationTimeUtc(f), File.GetLastWriteTimeUtc(f)))
+                                 .Skip(1))
+                    {
+                        try { File.Delete(stale); } catch { /* locked/removed already */ }
+                    }
+                }
+
+                // "Play with external mods" OFF: the game must load ONLY the
+                // jars Origin itself provisions. Fabric Loader's supported
+                // fabric.modsFolder property points it at a launcher-owned
+                // folder rebuilt fresh each launch from the managed set just
+                // provisioned above — the player's mods/ folder (and every
+                // enabled/disabled state in it) is never touched, so flipping
+                // the switch back on restores their setup exactly. Rebuilding
+                // from scratch each launch means the folder can never drift
+                // stale relative to what a normal launch would install.
+                if (!externalMods)
+                {
+                    progress?.Report("Preparing Origin-only mod set...");
+                    var originOnlyFolder = Path.Combine(path.BasePath, "mods-origin-only");
+                    Directory.CreateDirectory(originOnlyFolder);
+
+                    // Managed = Origin-provisioned: originclient.jar, Fabric API,
+                    // and the perf/shader stack. Everything else is the player's
+                    // and stays out of this launch.
+                    var desired = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var file in Directory.EnumerateFiles(modsFolder))
+                    {
+                        var name = Path.GetFileName(file);
+                        if (name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
+                            && ModManager.IsManaged(name))
+                        {
+                            desired[name] = file;
+                        }
+                    }
+
+                    // Diff-sync rather than delete+recreate: a still-running game
+                    // instance holds these jars open (Windows file locks), which
+                    // made a relaunch-while-playing fail with IOException. An
+                    // unchanged set now needs zero file ops; stale extras are
+                    // removed best-effort (a locked one belongs to the running
+                    // instance and gets cleaned on the next launch instead).
+                    foreach (var existing in Directory.EnumerateFiles(originOnlyFolder))
+                    {
+                        if (!desired.ContainsKey(Path.GetFileName(existing)))
+                        {
+                            try { File.Delete(existing); } catch { /* locked by a running instance */ }
+                        }
+                    }
+                    foreach (var (name, source) in desired)
+                    {
+                        var dest = Path.Combine(originOnlyFolder, name);
+                        try
+                        {
+                            if (!File.Exists(dest) || new FileInfo(dest).Length != new FileInfo(source).Length)
+                                File.Copy(source, dest, overwrite: true);
+                        }
+                        catch (IOException) when (File.Exists(dest))
+                        {
+                            // Locked by a still-running instance but present — the
+                            // existing copy is loadable, and launching with it
+                            // beats failing the whole launch.
+                        }
+                    }
+
+                    var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
+                    extraJvm.Add(new MArgument($"-Dfabric.modsFolder={originOnlyFolder}"));
+                    option.ExtraJvmArguments = extraJvm;
+                }
                 break;
             }
             case LoaderKind.Forge:
@@ -376,5 +423,50 @@ public sealed class VersionManager
             progress?.Report($"Downloading game files ({e.ProgressedTasks}/{e.TotalTasks})"));
 
         return await launcher.InstallAndBuildProcessAsync(versionName, option, fileProgress, null, ct);
+    }
+
+    private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
+
+    // Recursively deletes config files that contain ONLY NUL/whitespace bytes —
+    // the signature of a crash- or power-loss-interrupted write (NTFS allocates
+    // the length but the data never hits disk). Deliberately extension-agnostic
+    // (json, json5, toml, even .txt configs corrupt this way) and deliberately
+    // conservative: a single real byte anywhere means the file is left alone,
+    // so genuine settings can never be lost. Never throws — a bad launch beats
+    // a blocked one, and every mod regenerates defaults for a missing file.
+    private static void SanitizeCorruptConfigs(string configFolder)
+    {
+        try
+        {
+            if (!Directory.Exists(configFolder)) return;
+            foreach (var file in Directory.EnumerateFiles(configFolder, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    var info = new FileInfo(file);
+                    if (info.Length == 0 || info.Length > 4 * 1024 * 1024) continue;
+
+                    var blank = true;
+                    foreach (var b in File.ReadAllBytes(file))
+                    {
+                        if (b != 0x00 && b != 0x09 && b != 0x0A && b != 0x0D && b != 0x20)
+                        {
+                            blank = false;
+                            break;
+                        }
+                    }
+                    if (blank)
+                        File.Delete(file);
+                }
+                catch
+                {
+                    // Unreadable/locked — leave it; the owning mod deals with it.
+                }
+            }
+        }
+        catch
+        {
+            // Best-effort sweep only.
+        }
     }
 }

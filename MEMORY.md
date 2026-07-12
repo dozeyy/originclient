@@ -3013,3 +3013,62 @@ Launcher wiring:
 Both mod variants + the launcher build clean (0 warnings). NOT yet delivered to the
 INSTALLED launcher (%LocalAppData%\Programs\OriginLauncher, single-file self-contained,
 auto-updates from releases) — needs a release (v1.0.16) or an in-place file copy.
+
+## 2026-07-12 — Launch reliability pass: Play crash root-caused, boot watch, external-mods switch, Voxy removed
+All verified end-to-end on the real machine (two consecutive launches, second one
+while the first game was still running).
+- **ROOT CAUSE of "Play does nothing / recurring crash dialog"
+  (ObjectDisposedException in crash_20260712_113213.log):** LaunchAsync's finally
+  disposed the CancellationTokenSource but left `_launchCts` pointing at it, so
+  the NEXT Play's `_launchCts?.Cancel()` threw on the UI thread → crash dialog on
+  every launch after the first, until restart. Fix: null out `_launchCts` (release
+  ownership) BEFORE disposing. Rule: never leave a field pointing at a disposed
+  CTS.
+- **Second silent killer: duplicate managed jars.** Instance had fabric-api
+  0.116.7 AND 0.116.13 (hand-updated next to the launcher's copy) — Fabric refuses
+  to boot on a duplicate mod id, with no launcher feedback. Fix at source:
+  per-family dedupe sweep during Fabric provisioning (ModManager.ModFamilyKey +
+  TryParseVersion; highest filename version wins, landed-time tiebreak; user jars
+  never touched). Note: first cut used newest-file-time and kept the OLDER jar —
+  version-parse beats timestamps for "which duplicate to keep".
+- **Play button launch state:** button label swaps to a spinning arc from click
+  until the game window actually exists (WatchBootAsync polls MainWindowHandle /
+  HasExited, 90s fail-open) — crash during JVM boot now restores the button and
+  surfaces exit code + log path. LoadingOverlay unchanged for provisioning.
+- **"Play with external mods" switch (Home, Fabric only):** OFF = game launches
+  with ONLY Origin-provisioned jars via Fabric's `-Dfabric.modsFolder` pointing at
+  instance `mods-origin-only/` (rebuilt as a DIFF-SYNC each launch — never
+  delete+recreate: a still-running instance's file locks made that IOException-
+  fail; identical set = zero file ops). Player's mods/ is never modified. Proven
+  by game log: top-level mods = fabric-api, fabricloader, java, minecraft,
+  originclient only. Setting: LauncherSettings.PlayWithExternalMods (default ON =
+  old behavior). Not offered on Forge/Vanilla (no modsFolder hook).
+- **Voxy support fully removed** (Will: launcher should have nothing to do with
+  Voxy). Gone: VoxySupport1211 setting, Settings toggle, launch guard +
+  ConfirmOverlay usage, voxy-variant OriginBuild + lockstep install/strip,
+  OriginPaths.BundledVoxy*, csproj voxy Content items, workflow `-Pvoxy` build.
+  One-time cleanup: voxy jar deleted from the 1.21.1 instance + repo BundledVoxy/
+  removed. The mod-side `gradlew -Pvoxy` variant support still exists in
+  OriginClient.Mod/build.gradle but nothing builds or ships it.
+- **Sodium red "config corrupted" toast:** instance sodium-options.json was pure
+  whitespace; Sodium resets in memory but never rewrites the file, so the toast
+  repeats forever. Fix: launcher deletes a can't-possibly-parse sodium-options.json
+  (doesn't start with `{`) pre-launch so Sodium regenerates defaults; healthy
+  files untouched.
+- **Loading-screen "□□□□□□□" boxes:** OriginScreenRenderer.drawCaption drew
+  "LOADING..." with the MC font on the STARTUP resource-reload overlay — fonts
+  aren't baked yet at that point, so text can only ever render as missing-glyph
+  boxes there (why vanilla's overlay has no text). Removed the caption from the
+  boot overlay (mock never had one); world-load screens keep their text (fonts
+  loaded by then). Mod rebuilt (originclient-0.4.2.jar) and rebundled.
+- **Known remaining (not fixed, flagged):** (1) Settings' "Minecraft version"
+  ComboBox is redundant with the Home picker and shows stale values — candidates
+  for removal. (2) Will's own mods include TWO timcore jars (1.27.0 + 1.31.0) —
+  duplicate mod id will fail external-mods-ON boots; user-owned, launcher won't
+  touch them, but the boot watch now surfaces the crash instead of silence.
+- **Single-instance guard added** (found because computer-use `open_application`
+  kept spawning duplicate launchers during verification): named mutex
+  `Local\OriginLauncher.SingleInstance` in App.OnStartup; a second launch fronts
+  the existing window (SetForegroundWindow + SW_RESTORE) and shuts down. Two
+  instances racing settings.json / provisioning was a real corruption class.
+  Verified: double Start-Process → 1 process running.

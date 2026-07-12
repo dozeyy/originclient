@@ -39,16 +39,9 @@ jobs:
       # build/libs/originclient-0.1.0.jar and bundles it (the csproj Content
       # item is conditional on it existing — a fresh runner always builds it
       # here, so releases always ship the mod).
-      # Two 1.21.1 variants: STOCK (default — Sodium 0.6.13) and VOXY
-      # (`-Pvoxy` — Sodium 0.8.12, archivesName originclient-voxy). The csproj
-      # bundles both (originclient-1.21.1.jar / originclient-1.21.1-voxy.jar);
-      # the launcher installs the voxy one only when its "Voxy support" toggle
-      # is on. See MEMORY.md 2026-07-11.
       - name: Build Origin Client mod
         working-directory: src/OriginClient.Mod
-        run: |
-          .\gradlew.bat build --no-daemon
-          .\gradlew.bat build -Pvoxy --no-daemon
+        run: .\gradlew.bat build --no-daemon
 
       # The 1.20 API-family mod (src/OriginClient.Mod120, covers 1.20 + 1.20.1),
       # so the launcher below bundles build/libs/originclient-1.20-0.4.1.jar as

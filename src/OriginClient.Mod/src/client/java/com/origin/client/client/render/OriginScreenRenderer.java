@@ -174,10 +174,11 @@ public final class OriginScreenRenderer {
 		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
 		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
 
-		// Mono status caption below the bar (the "techy HUD" info layer) + the
-		// aerospace corner brackets on top of everything.
-		int captionY = barTop + barH + Math.max(8, (int) Math.round(h * 0.035));
-		drawCaption(guiGraphics, w / 2.0, captionY, elapsed);
+		// No text on this screen: it renders DURING the initial resource reload,
+		// before any font glyphs are baked, so font-drawn strings can only ever
+		// show missing-glyph boxes here (vanilla's overlay avoids text for the
+		// same reason). The animated wordmark + bar carry the scene — which is
+		// also the original mock's look. Corner brackets on top of everything.
 		drawCornerBrackets(guiGraphics, w, h);
 	}
 
@@ -743,34 +744,6 @@ public final class OriginScreenRenderer {
 		}
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		pose.popPose();
-	}
-
-	/**
-	 * Mono status caption ("LOADING" + cycling dots) below the progress bar —
-	 * the small information layer that keeps the scene from reading empty. Muted
-	 * tone, manual letter-tracking for the techy look, three dot slots reserved
-	 * so the word never shifts as the dots animate.
-	 */
-	private static void drawCaption(GuiGraphics guiGraphics, double cx, int y, long elapsedMs) {
-		Font font = Minecraft.getInstance().font;
-		String base = "LOADING";
-		int tracking = 2;
-		int dots = (int) ((elapsedMs / 400L) % 4L);
-		int dotW = font.width(".") + tracking;
-		int textW = 0;
-		for (int i = 0; i < base.length(); i++) {
-			textW += font.width(String.valueOf(base.charAt(i))) + tracking;
-		}
-		double penX = cx - (textW + 3 * dotW) / 2.0;
-		for (int i = 0; i < base.length(); i++) {
-			String ch = String.valueOf(base.charAt(i));
-			guiGraphics.drawString(font, ch, (int) Math.round(penX), y, OriginTheme.MUTED, false);
-			penX += font.width(ch) + tracking;
-		}
-		for (int i = 0; i < dots; i++) {
-			guiGraphics.drawString(font, ".", (int) Math.round(penX), y, OriginTheme.MUTED, false);
-			penX += dotW;
-		}
 	}
 
 	/** Draws the wordmark with its ink box centered on (inkCenterX, inkCenterY), ink scaled to targetInkHeight. Returns ink bottom (screen Y). */

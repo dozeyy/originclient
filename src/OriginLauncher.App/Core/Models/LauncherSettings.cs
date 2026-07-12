@@ -46,13 +46,13 @@ public sealed class LauncherSettings
     // Surfaced under Settings -> Developer; remove before public release.
     public bool OfflineTestMode { get; set; }
 
-    // Opt-in Voxy far-render support for 1.21.1 (Settings -> Origin Client).
-    // OFF (default) installs the STOCK originclient-1.21.1.jar (Sodium 0.6.13)
-    // and strips any Voxy jar from the instance. ON installs the VOXY variant
-    // jar (Sodium 0.8.12 — the only line Voxy 0.2.15-beta runs on) and
-    // auto-populates the bundled Voxy mod. The two are mutually exclusive:
-    // Voxy on stock Sodium refuses to launch, and mods that hard-link Sodium
-    // 0.6.x (e.g. Distant Horizons) break on 0.8.12 — so the launch flow guards
-    // the mismatch with a confirm prompt. Only 1.21.1 has a Voxy variant today.
-    public bool VoxySupport1211 { get; set; }
+    // "Play with external mods" switch on Home. ON (default — matches the
+    // behavior every existing install already has): the instance's mods/
+    // folder loads as-is, the player's own jars included. OFF: the game is
+    // pointed at a launcher-owned folder containing only the jars Origin
+    // itself provisions (via Fabric's fabric.modsFolder property — see
+    // VersionManager), so a broken third-party mod can never break a launch.
+    // The player's mods/ folder is never modified by this — flip it back on
+    // and everything loads exactly as before.
+    public bool PlayWithExternalMods { get; set; } = true;
 }
