@@ -3135,3 +3135,27 @@ that removal is a later 26.x change, not 1.21.2.
   `runClient` for zero mixin-apply failures + Origin UI + a shader pack, then
   uncomment OriginBuilds + the two CI steps. Full guide:
   src/OriginClient.Mod12111/PORT-12111.md.
+
+## 2026-07-12 — 1.21 was never launchable: catalog Iris/Sodium era mismatch (found in pre-release verification)
+Real 1.21 launch through the launcher (the "runClient at home" check the Mod121
+notes called for) failed instantly: Fabric resolver refused the mod set.
+- **Root cause:** PerformanceModCatalog.Data.cs "1.21" entry (auto-generated)
+  paired Sodium 0.5.11+mc1.21 with Iris 1.8.8+mc1.21.1 — Iris 1.8.x hard-requires
+  Sodium 0.6.x. Same failure class as the hand-fixed "1.20" entry: **Iris and
+  Sodium pins must come from the same era.** Hand-fixed to iris-1.7.3+mc1.21
+  (2024-07-01, newest 0.5.x-era Iris with a 1.21 build); EXCEPTION comment added
+  so regeneration doesn't clobber it.
+- **Two launcher gaps found via the same bug and fixed:**
+  1. ModManager didn't recognize the old plain "iris-<ver>+mc<ver>.jar" filename
+     shape (only iris-fabric-/iris-mc) → origin-only mode would have silently
+     dropped Iris (no shaders) on 1.20.1/1.20.4/1.21. Now all three Iris shapes
+     map to one managed family ("iris-" + digit check keeps third-party
+     "iris-*-compat" addons out).
+  2. Family dedupe now prefers the CATALOG PIN over highest-version — the wrong
+     leftover iris-1.8.8 is numerically newer than the correct 1.7.3 pin, so
+     version-wins would have resurrected the bug every launch.
+- **Verified:** 1.21 boots clean through the launcher — resolver passes,
+  `iris 1.7.3+mc1.21` + `sodium 0.5.11+mc1.21` + `originclient 0.4.1` loaded,
+  ZERO "Mixin apply" failures, no Origin-renderer fail-soft events. 1.21's
+  verification bar is met; 1.21.2–1.21.11 remain staged (shader catalog +
+  runClient per version), 1.21.2 absent from the catalog entirely.

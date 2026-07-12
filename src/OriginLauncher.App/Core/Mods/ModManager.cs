@@ -267,13 +267,22 @@ public static class ModManager
             || n.StartsWith("krypton-")
             || n.StartsWith("immediatelyfast-fabric-")
             || n.StartsWith("modernfix-fabric-")
-            || n.StartsWith("iris-fabric-")
-            || n.StartsWith("iris-mc");
+            || IsIrisJar(n);
     }
 
-    // The managed mod families, keyed by canonical filename prefix. Iris ships
-    // under two historical shapes ("iris-fabric-*", "iris-mc*") — both map to
-    // one family so a shape change can't leave two Irises behind.
+    // Iris has shipped THREE canonical filename shapes over the catalog's era
+    // range: "iris-fabric-1.8.8+mc1.21.1", "iris-mc1.20-1.6.4", and the plain
+    // "iris-1.7.3+mc1.21". The last is "iris-" + digit — that digit check is
+    // what keeps genuinely third-party jars like "iris-flywheel-compat" out of
+    // the managed set.
+    private static bool IsIrisJar(string lowerName) =>
+        lowerName.StartsWith("iris-fabric-")
+        || lowerName.StartsWith("iris-mc")
+        || (lowerName.StartsWith("iris-") && lowerName.Length > 5 && char.IsAsciiDigit(lowerName[5]));
+
+    // The managed mod families, keyed by canonical filename prefix. Iris is
+    // handled separately (see IsIrisJar — it has shipped three filename shapes
+    // that must all land in one family).
     private static readonly string[] ManagedFamilyPrefixes =
     {
         "originclient",
@@ -286,8 +295,6 @@ public static class ModManager
         "krypton-",
         "immediatelyfast-fabric-",
         "modernfix-fabric-",
-        "iris-fabric-",
-        "iris-mc",
     };
 
     /// <summary>
@@ -301,9 +308,11 @@ public static class ModManager
     public static string ModFamilyKey(string jarName)
     {
         var n = jarName.ToLowerInvariant();
+        if (IsIrisJar(n))
+            return "iris-fabric-"; // all three Iris filename shapes = one family
         foreach (var prefix in ManagedFamilyPrefixes)
             if (n.StartsWith(prefix))
-                return prefix == "iris-mc" ? "iris-fabric-" : prefix;
+                return prefix;
         return n;
     }
 

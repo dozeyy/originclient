@@ -296,14 +296,11 @@ public sealed class VersionManager
                 // ships without the perf stack (1.20). This keeps the perf/shader
                 // experience identical whether or not Origin's menus are present.
                 bool irisPresent = originBundlesPerfStack; // 1.21.1's bundled Iris (jar-in-jar)
-                if (!originBundlesPerfStack)
+                var perfProfile = originBundlesPerfStack ? null : PerformanceModCatalog.TryGet(version);
+                if (perfProfile != null)
                 {
-                    var profile = PerformanceModCatalog.TryGet(version);
-                    if (profile != null)
-                    {
-                        await PerfModInstaller.InstallAsync(profile, modsFolder, progress, ct);
-                        irisPresent = profile.Iris != null;
-                    }
+                    await PerfModInstaller.InstallAsync(perfProfile, modsFolder, progress, ct);
+                    irisPresent = perfProfile.Iris != null;
                 }
 
                 // Iris's own "a new version is available, click to update" nag
@@ -329,20 +326,31 @@ public sealed class VersionManager
                 // of a launcher-managed mod — a player hand-updating fabric-api
                 // next to the launcher's copy, or a catalog version bump leaving
                 // the old pinned jar behind — silently turns into "the game
-                // never launches". Heal it on every launch: the HIGHEST version
-                // parsed from the filename wins (a hand-updated fabric-api is an
-                // upgrade — keep it), falling back to most-recently-landed time
-                // when a version can't be parsed. User (unmanaged) jars group as
-                // singletons and are never touched.
+                // never launches". Heal it on every launch. Which twin survives:
+                //   1. The catalog PIN for this version, when the family has one
+                //      — pins are deliberate era-pairings (Iris 1.7.x must ride
+                //      Sodium 0.5.x), so a numerically higher leftover from a
+                //      different MC version is exactly the wrong file to keep.
+                //   2. Otherwise the highest filename version (a hand-updated
+                //      fabric-api is an upgrade — keep it), then most-recently-
+                //      landed time when versions don't parse.
+                // User (unmanaged) jars group as singletons — never touched.
+                var pinnedJarNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (perfProfile != null)
+                    foreach (var pinned in perfProfile.Mods())
+                        pinnedJarNames.Add(pinned.FileName);
+
                 foreach (var family in Directory.EnumerateFiles(modsFolder)
                              .Where(f => Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
                              .Where(f => ModManager.IsManaged(Path.GetFileName(f)))
                              .GroupBy(f => ModManager.ModFamilyKey(Path.GetFileName(f)), StringComparer.OrdinalIgnoreCase))
                 {
-                    foreach (var stale in family
-                                 .OrderByDescending(f => ModManager.TryParseVersion(Path.GetFileName(f)) ?? new Version(0, 0))
-                                 .ThenByDescending(f => Max(File.GetCreationTimeUtc(f), File.GetLastWriteTimeUtc(f)))
-                                 .Skip(1))
+                    var keep = family.FirstOrDefault(f => pinnedJarNames.Contains(Path.GetFileName(f)))
+                        ?? family
+                            .OrderByDescending(f => ModManager.TryParseVersion(Path.GetFileName(f)) ?? new Version(0, 0))
+                            .ThenByDescending(f => Max(File.GetCreationTimeUtc(f), File.GetLastWriteTimeUtc(f)))
+                            .First();
+                    foreach (var stale in family.Where(f => !ReferenceEquals(f, keep)))
                     {
                         try { File.Delete(stale); } catch { /* locked/removed already */ }
                     }
