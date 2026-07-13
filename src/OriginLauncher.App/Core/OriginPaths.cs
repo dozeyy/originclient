@@ -10,7 +10,6 @@ public static class OriginPaths
     public static string Instances => Path.Combine(Root, "instances");
     public static string Accounts => Path.Combine(Root, "accounts");
     public static string Logs => Path.Combine(Root, "logs");
-    public static string OptiFineCache => Path.Combine(Root, "optifine-cache");
 
     // Persistent home for the GPU driver's compiled-shader cache (see
     // Core/ShaderCache.cs) — kept under our data root so it survives across
@@ -18,7 +17,7 @@ public static class OriginPaths
     public static string ShaderCache => Path.Combine(Root, "shader-cache");
 
     // Read-only assets shipped alongside the exe (see the Content items in
-    // OriginLauncher.App.csproj that copy them out of each mods/versions/1.21.1*
+    // OriginLauncher.App.csproj that copy them out of each src/mods module's
     // Gradle build output) — not user data, so they live next to the app
     // binary rather than under %LocalAppData%. Resolved from the running
     // process's own directory so this works identically from a dev build and
@@ -38,6 +37,11 @@ public static class OriginPaths
         Directory.CreateDirectory(Instances);
         Directory.CreateDirectory(Accounts);
         Directory.CreateDirectory(Logs);
-        Directory.CreateDirectory(OptiFineCache);
+
+        // The OptiFine feature was removed with the Forge path (Fabric-only
+        // mandate); clear the cache an older launcher build left behind.
+        // Best-effort — a locked file just means it goes next run.
+        try { Directory.Delete(Path.Combine(Root, "optifine-cache"), recursive: true); }
+        catch { /* absent or locked — fine either way */ }
     }
 }

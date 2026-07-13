@@ -20,7 +20,7 @@ public partial class HomePage : UserControl
     private readonly LauncherSettings _settings;
     private readonly VersionManager _versionManager = new();
     private bool _isLaunching;
-    private bool _settingLoaderProgrammatically;
+    private bool _syncingToggles;
     private StoredAccount? _selectedAccount;
 
     // The version the player has chosen in the grid picker. Source of truth for
@@ -103,21 +103,18 @@ public partial class HomePage : UserControl
             ? _settings.SelectedVersion
             : VersionCatalog.DefaultVersion;
         SetVersionButtonText(_selectedVersion);
-        UpdateLoaderControls();
+        SyncExternalModsToggle();
         UpdatePlayState();
     }
 
     // Raised by the grid picker when the player confirms a specific version.
+    // Does exactly one thing: records the new version. No other setting moves.
     private void OnVersionSelected(string version)
     {
         _selectedVersion = version;
         _settings.SelectedVersion = version;
-        // Version changed — go back to the auto-recommended loader for it rather
-        // than carrying over a choice that made sense for the old one.
-        _settings.SelectedLoader = null;
         SettingsStore.Save(_settings);
         SetVersionButtonText(version);
-        UpdateLoaderControls();
         UpdatePlayState();
     }
 
@@ -127,134 +124,24 @@ public partial class HomePage : UserControl
     private void VersionButton_Click(object sender, RoutedEventArgs e) =>
         VersionOverlay.Show(_selectedVersion);
 
-    // Origin is a Fabric mod, so Fabric is the recommendation on every version
-    // the launcher offers (all of which have a Fabric perf/shader catalog entry).
-    // Forge remains only as a bare fallback for a version with no Fabric stack.
-    private LoaderKind RecommendedLoader(string version) =>
-        PerformanceModCatalog.RecommendsFabric(version)
-            ? LoaderKind.Fabric
-            : LoaderKind.Forge;
-
-    private void UpdateLoaderControls()
+    // Reflect the persisted value into the switch without re-triggering the
+    // Checked/Unchecked save handlers (the _syncingToggles guard).
+    private void SyncExternalModsToggle()
     {
-        if (_selectedVersion is not { } version) return;
-        var modernFabric = PerformanceModCatalog.RecommendsFabric(version);
-        var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
-        // Fabric isn't offered on the classics anymore — if an old saved choice
-        // still selects it there, fall back to the recommended Forge instead of
-        // leaving a hidden-but-checked toggle.
-        if (loader == LoaderKind.Fabric && !modernFabric)
-            loader = RecommendedLoader(version);
-
-        _settingLoaderProgrammatically = true;
-        // Modern versions: Vanilla + Fabric. Classics (1.8.9, 1.12.2) and any
-        // modern version without a perf-catalog entry: Vanilla + Forge(+OptiFine)
-        // — Fabric is hidden because it brings nothing shaders/perf there.
-        LoaderFabricToggle.Visibility = modernFabric ? Visibility.Visible : Visibility.Collapsed;
-        LoaderForgeToggle.Visibility = modernFabric ? Visibility.Collapsed : Visibility.Visible;
-
-        LoaderVanillaToggle.IsChecked = loader == LoaderKind.Vanilla;
-        LoaderFabricToggle.IsChecked = loader == LoaderKind.Fabric;
-        LoaderForgeToggle.IsChecked = loader == LoaderKind.Forge;
-
-        OptiFineRow.Visibility = loader == LoaderKind.Forge ? Visibility.Visible : Visibility.Collapsed;
-        OptiFineToggle.IsChecked = loader == LoaderKind.Forge
-            && _settings.OptiFineEnabled
-            && OptiFineCacheStore.IsCached(version);
-        // Only Fabric launches can separate Origin's mods from the player's
-        // (Fabric's modsFolder redirect — Forge/Vanilla have no equivalent
-        // hook), so the switch only shows where it can actually be honoured.
-        ExternalModsRow.Visibility = loader == LoaderKind.Fabric ? Visibility.Visible : Visibility.Collapsed;
+        _syncingToggles = true;
         ExternalModsToggle.IsChecked = _settings.PlayWithExternalMods;
-        _settingLoaderProgrammatically = false;
-    }
-
-    private void SetLoader(LoaderKind loader)
-    {
-        if (_settingLoaderProgrammatically) return;
-
-        _settingLoaderProgrammatically = true;
-        LoaderVanillaToggle.IsChecked = loader == LoaderKind.Vanilla;
-        LoaderFabricToggle.IsChecked = loader == LoaderKind.Fabric;
-        LoaderForgeToggle.IsChecked = loader == LoaderKind.Forge;
-        _settingLoaderProgrammatically = false;
-
-        _settings.SelectedLoader = loader;
-        SettingsStore.Save(_settings);
-
-        var version = _selectedVersion;
-        OptiFineRow.Visibility = loader == LoaderKind.Forge ? Visibility.Visible : Visibility.Collapsed;
-        OptiFineToggle.IsChecked = loader == LoaderKind.Forge
-            && version != null
-            && _settings.OptiFineEnabled
-            && OptiFineCacheStore.IsCached(version);
-        ExternalModsRow.Visibility = loader == LoaderKind.Fabric ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void LoaderVanillaToggle_Checked(object sender, RoutedEventArgs e) => SetLoader(LoaderKind.Vanilla);
-    private void LoaderFabricToggle_Checked(object sender, RoutedEventArgs e) => SetLoader(LoaderKind.Fabric);
-    private void LoaderForgeToggle_Checked(object sender, RoutedEventArgs e) => SetLoader(LoaderKind.Forge);
-
-    // Auto-downloads OptiFine straight into the instance's cache (BMCLAPI
-    // mirror — see OptiFineCatalog) instead of asking the player to locate
-    // a jar themselves. Reverts the toggle on any failure so it never gets
-    // stuck claiming OptiFine is on when it isn't actually cached.
-    private async void OptiFineToggle_Checked(object sender, RoutedEventArgs e)
-    {
-        if (_settingLoaderProgrammatically) return;
-        if (_selectedVersion is not { } version) return;
-
-        if (!OptiFineCacheStore.IsCached(version))
-        {
-            OptiFineToggle.IsEnabled = false;
-            StatusText.Text = "Downloading OptiFine...";
-
-            try
-            {
-                var entry = await OptiFineCatalog.TryFindFor(version);
-                if (entry == null)
-                {
-                    StatusText.Text = $"No OptiFine build found for {version}.";
-                    OptiFineToggle.IsChecked = false;
-                    return;
-                }
-
-                await OptiFineCatalog.DownloadAsync(entry, OptiFineCacheStore.JarPathFor(version));
-            }
-            catch (Exception ex)
-            {
-                StatusText.Text = $"OptiFine download failed: {ex.Message}";
-                OptiFineToggle.IsChecked = false;
-                return;
-            }
-            finally
-            {
-                OptiFineToggle.IsEnabled = true;
-            }
-
-            UpdatePlayState();
-        }
-
-        _settings.OptiFineEnabled = true;
-        SettingsStore.Save(_settings);
-    }
-
-    private void OptiFineToggle_Unchecked(object sender, RoutedEventArgs e)
-    {
-        if (_settingLoaderProgrammatically) return;
-        _settings.OptiFineEnabled = false;
-        SettingsStore.Save(_settings);
+        _syncingToggles = false;
     }
 
     private void ExternalModsToggle_Checked(object sender, RoutedEventArgs e)
     {
-        if (_settingLoaderProgrammatically) return;
+        if (_syncingToggles) return;
         SaveExternalMods(true);
     }
 
     private void ExternalModsToggle_Unchecked(object sender, RoutedEventArgs e)
     {
-        if (_settingLoaderProgrammatically) return;
+        if (_syncingToggles) return;
         SaveExternalMods(false);
     }
 
@@ -310,8 +197,7 @@ public partial class HomePage : UserControl
         _isLaunching = true;
         PlayButton.IsEnabled = false;
         SetPlayLaunching(true);
-        var loader = _settings.SelectedLoader ?? RecommendedLoader(version);
-        LoadingOverlay.Show(version, LoaderCaption(loader));
+        LoadingOverlay.Show(version, "Fabric");
 
         // Set true once the game process has actually started: from that point
         // WatchBootAsync owns the launching state (spinner + _isLaunching) and
@@ -360,8 +246,7 @@ public partial class HomePage : UserControl
             var launchOption = LaunchProfileBuilder.Build(_settings, session);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             var process = await _versionManager.InstallAndBuildProcessAsync(
-                version, loader, _settings.OptiFineEnabled, launchOption,
-                externalMods, installProgress, cts.Token);
+                version, launchOption, externalMods, installProgress, cts.Token);
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the
@@ -555,13 +440,6 @@ public partial class HomePage : UserControl
 
         return $"{detail} [{code}]";
     }
-
-    private static string LoaderCaption(LoaderKind loader) => loader switch
-    {
-        LoaderKind.Fabric => "Fabric",
-        LoaderKind.Forge => "Forge",
-        _ => "Vanilla"
-    };
 
     // Redirects the launched instance's stdout/stderr to a per-launch log file
     // and reports the exit code back to Home once the game closes — this is

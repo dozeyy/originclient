@@ -6,20 +6,16 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
-// Build variant. STOCK by default (Sodium 0.6.13 + Indium + Iris 1.8.8, the pins
-// in gradle.properties). `gradlew build -Pvoxy` builds the VOXY variant: Sodium
-// 0.8.12 + Iris 1.8.14-beta.1, Indium dropped (Sodium 0.8.12 provides FRAPI).
-// The launcher bundles BOTH jars and installs the voxy one when its
-// "Voxy support (1.21.1)" toggle is on — the only Sodium line Voxy 0.2.15-beta
-// runs on. Distinct archive name so the two outputs never collide in build/libs.
-def voxyBuild = project.hasProperty('voxy')
-def sodiumVersion = voxyBuild ? 'mc1.21.1-0.8.12-fabric'      : project.sodium_version
-def irisVersion   = voxyBuild ? '1.8.14-beta.1+1.21.1-fabric' : project.iris_version
-// Iris nests different GLSL-toolchain versions per line; match them so the dev
-// runClient shader path resolves (dev-only — shipped jar gets them via JiJ).
-def glslTransformerVersion = voxyBuild ? '3.0.0-pre3' : '2.0.1'
+// Single build: Sodium 0.6.13 + Indium + Iris 1.8.8, the pins in
+// gradle.properties. (The old `-Pvoxy` variant was removed 2026-07-12 with
+// the launcher's Voxy support — see MEMORY.md.)
+def sodiumVersion = project.sodium_version
+def irisVersion   = project.iris_version
+// Iris nests its GLSL toolchain per line; match it so the dev runClient
+// shader path resolves (dev-only — the shipped jar gets them via JiJ).
+def glslTransformerVersion = '2.0.1'
 base {
-	archivesName = voxyBuild ? 'originclient-voxy' : 'originclient'
+	archivesName = 'originclient'
 }
 
 repositories {
@@ -88,13 +84,8 @@ dependencies {
 	// Fabric Loader loads them automatically — no separate download/install
 	// needed by the player.
 	modImplementation(include("maven.modrinth:sodium:${sodiumVersion}"))
-	// Indium: STOCK variant only. Sodium 0.8.12 (voxy variant) bundles the
-	// Fabric Rendering API itself and `provides "indium"`, so a separate Indium
-	// jar is redundant there (and no Indium build targets Sodium 0.8.x on
-	// 1.21.1 anyway). Stock Sodium 0.6.x still needs Indium for FRAPI.
-	if (!voxyBuild) {
-		modImplementation(include("maven.modrinth:indium:${project.indium_version}"))
-	}
+	// Indium provides FRAPI for Sodium 0.6.x.
+	modImplementation(include("maven.modrinth:indium:${project.indium_version}"))
 	modImplementation(include("maven.modrinth:lithium:${project.lithium_version}"))
 	modImplementation(include("maven.modrinth:ferrite-core:${project.ferritecore_version}"))
 	// Draw-batch performance mods — no visual change (see the gradle.properties

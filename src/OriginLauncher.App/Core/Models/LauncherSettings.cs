@@ -1,18 +1,9 @@
 namespace OriginLauncher.App.Core.Models;
 
-public enum PerformanceMode
-{
-    Graphics,
-    Performance
-}
-
-public enum LoaderKind
-{
-    Vanilla,
-    Fabric,
-    Forge
-}
-
+// Origin is Fabric-only (CLAUDE.md mandate): there is no loader choice, no
+// Forge/OptiFine path, and no Graphics/Performance mode. Old settings.json
+// files that still carry those removed keys deserialize fine — System.Text.Json
+// ignores unknown properties.
 public sealed class LauncherSettings
 {
     public int RamMb { get; set; } = 4096;
@@ -20,13 +11,6 @@ public sealed class LauncherSettings
     public int ResolutionHeight { get; set; } = 720;
     public string InstallPath { get; set; } = OriginPaths.Instances;
     public string? SelectedVersion { get; set; }
-    public PerformanceMode PerformanceMode { get; set; } = PerformanceMode.Graphics;
-
-    // Null means "follow the automatic per-version recommendation" (Fabric
-    // where the perf-mod catalog has data, Forge otherwise) rather than a
-    // sticky user override — see HomePage's loader selector.
-    public LoaderKind? SelectedLoader { get; set; }
-    public bool OptiFineEnabled { get; set; }
 
     // Shader disk-cache tuning applied to the game process at launch: keeps the
     // GPU driver's compiled-shader cache large and un-pruned so Iris shaderpacks
