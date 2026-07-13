@@ -8,7 +8,6 @@ using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Launch;
-using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Models;
 using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.Core.Versions;
@@ -113,7 +112,7 @@ public partial class HomePage : UserControl
     {
         _selectedVersion = version;
         _settings.SelectedVersion = version;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => s.SelectedVersion = version);
         SetVersionButtonText(version);
         UpdatePlayState();
     }
@@ -145,14 +144,10 @@ public partial class HomePage : UserControl
         SaveExternalMods(false);
     }
 
-    // Load-fresh-then-save: only this one field is written, so a concurrent
-    // Settings-page edit to other fields survives.
     private void SaveExternalMods(bool value)
     {
         _settings.PlayWithExternalMods = value;
-        var persisted = SettingsStore.Load();
-        persisted.PlayWithExternalMods = value;
-        SettingsStore.Save(persisted);
+        SettingsStore.Update(s => s.PlayWithExternalMods = value);
     }
 
     private async void PlayButton_Click(object sender, RoutedEventArgs e) => await LaunchAsync();

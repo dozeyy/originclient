@@ -8,7 +8,6 @@ using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
-using OriginLauncher.App.Core.Models;
 
 namespace OriginLauncher.App.Core.Versions;
 

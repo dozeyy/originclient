@@ -4,9 +4,26 @@ using OriginLauncher.App.Core.Models;
 
 namespace OriginLauncher.App.Core;
 
+// The ONLY way to persist a setting is Update(mutate): load fresh -> mutate ->
+// save, under a lock. HomePage and SettingsPage are long-lived and each holds
+// its own LauncherSettings snapshot for initial UI state; writing a whole
+// cached snapshot back (the old public Save) meant one page's stale copy
+// silently reverted fields the other page had just changed. Update writes only
+// what the mutation touches, against what's actually on disk right now.
 public static class SettingsStore
 {
     private static readonly string FilePath = Path.Combine(OriginPaths.Root, "settings.json");
+    private static readonly object Gate = new();
+
+    public static void Update(Action<LauncherSettings> mutate)
+    {
+        lock (Gate)
+        {
+            var settings = Load();
+            mutate(settings);
+            Save(settings);
+        }
+    }
 
     public static LauncherSettings Load()
     {
@@ -33,7 +50,7 @@ public static class SettingsStore
         return Math.Max(2048, totalMb / 2);
     }
 
-    public static void Save(LauncherSettings settings)
+    private static void Save(LauncherSettings settings)
     {
         Directory.CreateDirectory(OriginPaths.Root);
         var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });

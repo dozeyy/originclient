@@ -5,6 +5,63 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-12/13 — The big reorganization (repo, releases, launcher, crash screen)
+One pass covering structure, release hygiene, and launcher cleanup. All phases
+committed separately on `claude/mods-restructure`, merged after green CI.
+
+**Release flow (shipped as launcher-v1.0.21).** launcher-release.yml now fires
+from `launcher-v*` TAGS on main (was: pushes to the `release` branch; branch
+deleted). Version comes from the tag, not the CI run number. New post-publish
+assertion fails a release if any expected bundled mod jar is missing from
+publish/Bundled/OriginClient — the csproj Content items are `Exists()`-
+conditional and previously would have shipped a jarless launcher silently.
+RELEASING.md moved to docs/. Hygiene: releases 1.0.1–1.0.18 + their tags
+deleted (kept 1.0.19/1.0.20/1.0.21 — Will: keep last 3); 10 stale claude/*
+branches deleted (all squash-merged or the abandoned Forge direction).
+
+**Mod restructure.** `src/OriginClient.Mod*` → `src/mods/{shared,versions,staged}`:
+versions/{1.21.1,1.20,1.20.4,1.21} shipped, staged/{1.21.11,26.2} WIP (never
+built by CI). `shared/` = the 79 files byte-identical across ALL live modules
+(measured, not judged — includes theme/, most gui/hud/mods/, shared assets,
+and a few genuinely identical mixins). tools/shared-sync/sync.py copies
+shared/ into every module; per-module overrides.txt marks deliberate forks
+(empty everywhere except 26.2's 28 mid-port files); build-check runs
+`sync.py --check` as a drift gate. Duplicated per-module docs collapsed into
+src/mods/docs/; new src/mods/VERSIONS.md is the live/staged registry.
+Asset generators in tools/ now write to shared/. LESSON: bulk path renames
+must replace longest-first — "Mod120"→"1.20" before "Mod1204" produced
+"1.204" in the workflows (caught by re-grep before push).
+
+**Launcher Fabric-only cleanup.** Loader selector (Vanilla/Fabric/Forge),
+OptiFine feature (catalog, cache store, toggle, settings), Forge branch +
+CmlLib.Core.Installer.Forge, classics, PerformanceMode, BundledVoxy/ + the
+-Pvoxy gradle variant: all removed end to end. One control, one job:
+version pick no longer resets any other setting; the external-mods switch
+writes exactly its own field. InstallAndBuildProcessAsync is one straight
+Fabric path. OfflineTestMode KEPT (only test path while login_with_xbox 403s).
+
+**Crash screen v1.** Core/Launch/CrashAnalyzer.cs parses the per-launch log +
+Fabric crash-reports/ (priority: incompatible-mod-set → duplicate mod id →
+mixin apply failure → Suspected Mods → stack-package match vs installed jars;
+honest "unknown" fallback). UI/Windows/CrashReportWindow (self-contained
+styling like CrashWindow) names culprit jars, offers "Disable external mods &
+retry" (fabric.modsFolder mechanism) + Open log. Hooked into WatchBootAsync;
+the retry is queued via Dispatcher so the launch state releases first.
+Parsing verified against 6 synthetic Fabric error shapes.
+
+**Settings clobber fixed at the source.** HomePage/SettingsPage each held a
+startup snapshot and SettingsStore.Save wrote the WHOLE object — either page
+could silently revert the other's fields. Now SettingsStore.Update(mutate)
+(load fresh → mutate → save, locked) is the ONLY write path; Save is private.
+Verified: concurrent field updates + old settings.json with removed keys
+(SelectedLoader/OptiFineEnabled/PerformanceMode) both round-trip clean.
+
+**Deliberately NOT done:** HomePage.xaml.cs launch-lifecycle extraction —
+the file is ~700 lines but single-purpose; extraction adds indirection for no
+behavior gain and couldn't be runtime-verified here. Revisit only if it grows.
+
+---
+
 ## 2026-07-11 — Launcher redesign: master-detail version picker (shipped) + crash window
 Replaced Home's version ComboBox with a full-screen artwork picker.
 - New files: Core/Versions/VersionCatalog.cs (9 version families, newest→oldest;
