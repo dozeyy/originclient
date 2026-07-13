@@ -1,0 +1,195 @@
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+// Single build: Sodium 0.6.13 + Indium + Iris 1.8.8, the pins in
+// gradle.properties. (The old `-Pvoxy` variant was removed 2026-07-12 with
+// the launcher's Voxy support — see MEMORY.md.)
+def sodiumVersion = project.sodium_version
+def irisVersion   = project.iris_version
+// Iris nests its GLSL toolchain per line; match it so the dev runClient
+// shader path resolves (dev-only — the shipped jar gets them via JiJ).
+def glslTransformerVersion = '2.0.1'
+base {
+	archivesName = 'originclient'
+}
+
+repositories {
+	// Add repositories to retrieve artifacts from in here.
+	// You should only use this when depending on other mods because
+	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
+	// for more information about repositories.
+
+	// Maven Central — for Iris's own bundled GLSL libraries (see the
+	// runtimeOnly note in dependencies below).
+	mavenCentral()
+
+	// Modrinth's official Maven proxy — used for the bundled performance
+	// mods below (Sodium, Indium, Lithium, FerriteCore, Krypton).
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Modrinth"
+				url = "https://api.modrinth.com/maven"
+			}
+		}
+		filter {
+			includeGroup "maven.modrinth"
+		}
+	}
+
+	// Lenni0451's maven — hosts net.lenni0451:Reflect, which ImmediatelyFast
+	// nests jar-in-jar for its Iris compat. See the runtimeOnly note below.
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Lenni0451"
+				url = "https://maven.lenni0451.net/releases"
+			}
+		}
+		filter {
+			includeGroup "net.lenni0451"
+		}
+	}
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"originclient" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Bundled performance mods (see the note above sodium_version in
+	// gradle.properties for the version-pinning rationale). `include(...)`
+	// makes Loom nest each jar inside Origin Client's own built jar, so
+	// Fabric Loader loads them automatically — no separate download/install
+	// needed by the player.
+	modImplementation(include("maven.modrinth:sodium:${sodiumVersion}"))
+	// Indium provides FRAPI for Sodium 0.6.x.
+	modImplementation(include("maven.modrinth:indium:${project.indium_version}"))
+	modImplementation(include("maven.modrinth:lithium:${project.lithium_version}"))
+	modImplementation(include("maven.modrinth:ferrite-core:${project.ferritecore_version}"))
+	// Draw-batch performance mods — no visual change (see the gradle.properties
+	// note above these versions). EntityCulling was removed 2026-07-10 (see note).
+	modImplementation(include("maven.modrinth:immediatelyfast:${project.immediatelyfast_version}"))
+	modImplementation(include("maven.modrinth:modernfix:${project.modernfix_version}"))
+	// Iris shader loader (see gradle.properties for the Sodium pairing note).
+	// Accessed via reflection only (IrisBridge) so an Iris update can never
+	// break our compile — but bundled jar-in-jar like the rest of the stack.
+	modImplementation(include("maven.modrinth:iris:${irisVersion}"))
+	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
+	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loom's include() does
+	// NOT propagate a nested mod's OWN nested jars onto the runClient dev
+	// classpath (same class of bug as Krypton below — see MEMORY 2026-07-07).
+	// With shaders OFF Iris never touches these, so the client boots fine and
+	// only crashes the instant a pack is applied — ShaderPack.loadProperties
+	// -> NoClassDefFoundError org/anarres/cpp/PreprocessorListener (confirmed
+	// via crash-2026-07-09_14.50.43). Versions match exactly what Iris
+	// 1.8.14-beta.1 nests (glsl-transformer jumped to 3.0.0-pre3 with the
+	// Sodium 0.8 bump). Dev-runtime only; the launcher-shipped jar gets them
+	// via recursive JiJ and is unaffected.
+	runtimeOnly "org.anarres:jcpp:1.4.14"
+	runtimeOnly "io.github.douira:glsl-transformer:${glslTransformerVersion}"
+	runtimeOnly "org.antlr:antlr4-runtime:4.13.1"
+
+	// ImmediatelyFast's Iris compat (IrisCompat.init) reflects via
+	// net.lenni0451:Reflect, which ImmediatelyFast nests jar-in-jar. Same
+	// dev-classpath gap as the Iris toolchain above — Loom's include() does not
+	// propagate a nested mod's own nested jars onto the runClient classpath, so
+	// without this the client crashes at window init with NoClassDefFoundError
+	// net/lenni0451/reflect/accessor/FieldAccessor. Version matches the bundled
+	// Reflect-1.6.2.jar inside immediatelyfast 1.6.11. Dev-runtime only; the
+	// shipped launcher jar gets it via recursive JiJ.
+	runtimeOnly "net.lenni0451:Reflect:1.6.2"
+
+	// WebP preview decoding. Modrinth serves shader cover images as lossless
+	// WebP (VP8L), which Minecraft's NativeImage/STB cannot decode — so every
+	// cover fell back to the Origin logo. TwelveMonkeys is a pure-Java WebP
+	// reader we register with ImageIO in ShaderPreviews (verified decoding real
+	// Modrinth thumbnails). `implementation` puts it (and its transitive
+	// common-*/core/metadata jars) on the dev runClient classpath; the `include`
+	// lines bundle the same jars into the shipped jar as jar-in-jar.
+	implementation "com.twelvemonkeys.imageio:imageio-webp:3.12.0"
+	include "com.twelvemonkeys.imageio:imageio-webp:3.12.0"
+	include "com.twelvemonkeys.imageio:imageio-core:3.12.0"
+	include "com.twelvemonkeys.imageio:imageio-metadata:3.12.0"
+	include "com.twelvemonkeys.common:common-lang:3.12.0"
+	include "com.twelvemonkeys.common:common-io:3.12.0"
+	include "com.twelvemonkeys.common:common-image:3.12.0"
+	// Temporarily disabled: Krypton bundles its own nested velocity-native
+	// jar-in-jar, and Loom's include() doesn't propagate that nested jar
+	// through to the `runClient` dev classpath (real, reproducible,
+	// dev-environment-only -- see MEMORY.md 2026-07-07), so runClient
+	// crashes on NoClassDefFoundError: com/velocitypowered/natives/util/Natives
+	// before ever reaching a menu. Re-enable before any real release build --
+	// this only affects the dev client, not the actual launcher-shipped jar.
+	// modImplementation(include("maven.modrinth:krypton:${project.krypton_version}"))
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName"}
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}

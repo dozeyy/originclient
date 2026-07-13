@@ -14,7 +14,7 @@ an image, not a dynamic glyph atlas, so it carries none of the earlier
 custom-font risk.
 
 Usage: python3 generate_wordmark.py
-Output: ../../src/OriginClient.Mod/.../assets/originclient/textures/ui/
+Output: ../../src/mods/shared/.../assets (then run tools/shared-sync/sync.py)/originclient/textures/ui/
         wordmark.png + wordmark.json (pixel dims + ink box, for exact centering)
 """
 import json
@@ -23,7 +23,7 @@ from pathlib import Path
 from bake_text import load_font, render_text
 
 HERE = Path(__file__).resolve().parent
-OUT = (HERE / ".." / ".." / "src" / "OriginClient.Mod" / "src" / "client" /
+OUT = (HERE / ".." / ".." / "src" / "mods" / "shared" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
 
 TEXT = "ORIGIN"

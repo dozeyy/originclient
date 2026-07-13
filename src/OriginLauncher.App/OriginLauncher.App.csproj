@@ -11,7 +11,6 @@
 
   <ItemGroup>
     <PackageReference Include="CmlLib.Core" Version="4.0.6" />
-    <PackageReference Include="CmlLib.Core.Installer.Forge" Version="1.1.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4022.49" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
   </ItemGroup>
@@ -23,7 +22,7 @@
   </ItemGroup>
 
   <!--
-    Bundles each OriginClient.Mod* Gradle build output into the launcher's
+    Bundles each src/mods module's Gradle build output into the launcher's
     output directory (as Bundled/OriginClient/originclient-<mcver>.jar, read at
     runtime via OriginPaths.BundledOriginClientJar) so a Fabric instance the
     launcher provisions can be pre-loaded with the Origin Client build matching
@@ -54,24 +53,24 @@
   <ItemGroup>
     <!-- 1.21.1 STOCK — full Origin build, self-contained perf stack (jar-in-jar):
          Sodium 0.6.13 + Indium + Iris 1.8.8. Default install. -->
-    <Content Condition="Exists('..\OriginClient.Mod\build\libs\originclient-0.4.2.jar')"
-             Include="..\OriginClient.Mod\build\libs\originclient-0.4.2.jar">
+    <Content Condition="Exists('..\mods\versions\1.21.1\build\libs\originclient-0.4.2.jar')"
+             Include="..\mods\versions\1.21.1\build\libs\originclient-0.4.2.jar">
       <Link>Bundled\OriginClient\originclient-1.21.1.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <!-- 1.20 / 1.20.1 — Origin client only; perf stack installed standalone. -->
-    <Content Condition="Exists('..\OriginClient.Mod120\build\libs\originclient-1.20-0.4.1.jar')"
-             Include="..\OriginClient.Mod120\build\libs\originclient-1.20-0.4.1.jar">
+    <Content Condition="Exists('..\mods\versions\1.20\build\libs\originclient-1.20-0.4.1.jar')"
+             Include="..\mods\versions\1.20\build\libs\originclient-1.20-0.4.1.jar">
       <Link>Bundled\OriginClient\originclient-1.20.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <!-- 1.20.4 — Origin client only; perf stack installed standalone. -->
-    <Content Condition="Exists('..\OriginClient.Mod1204\build\libs\originclient-1.20.4-0.4.1.jar')"
-             Include="..\OriginClient.Mod1204\build\libs\originclient-1.20.4-0.4.1.jar">
+    <Content Condition="Exists('..\mods\versions\1.20.4\build\libs\originclient-1.20.4-0.4.1.jar')"
+             Include="..\mods\versions\1.20.4\build\libs\originclient-1.20.4-0.4.1.jar">
       <Link>Bundled\OriginClient\originclient-1.20.4.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -79,8 +78,8 @@
     </Content>
     <!-- 1.21 — Origin client only; perf/shader stack installed standalone.
          Same source as 1.21.1 (pre-1.21.2 blit API); its own 1.21-mapped jar. -->
-    <Content Condition="Exists('..\OriginClient.Mod121\build\libs\originclient-1.21-0.4.1.jar')"
-             Include="..\OriginClient.Mod121\build\libs\originclient-1.21-0.4.1.jar">
+    <Content Condition="Exists('..\mods\versions\1.21\build\libs\originclient-1.21-0.4.1.jar')"
+             Include="..\mods\versions\1.21\build\libs\originclient-1.21-0.4.1.jar">
       <Link>Bundled\OriginClient\originclient-1.21.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -89,18 +88,18 @@
     <!-- 1.21.11 — Origin client only; perf/shader stack installed standalone.
          Bundled once the module is built; the OriginBuilds entry that installs
          it is staged (commented) until runClient-verified — see
-         src/OriginClient.Mod12111/PORT-12111.md. Conditional on Exists so this
+         src/mods/staged/1.21.11/PORT-12111.md. Conditional on Exists so this
          is a harmless no-op until the jar is produced. -->
-    <Content Condition="Exists('..\OriginClient.Mod12111\build\libs\originclient-1.21.11-0.4.1.jar')"
-             Include="..\OriginClient.Mod12111\build\libs\originclient-1.21.11-0.4.1.jar">
+    <Content Condition="Exists('..\mods\staged\1.21.11\build\libs\originclient-1.21.11-0.4.1.jar')"
+             Include="..\mods\staged\1.21.11\build\libs\originclient-1.21.11-0.4.1.jar">
       <Link>Bundled\OriginClient\originclient-1.21.11.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <!-- 26.2 — Origin client only; perf/shader stack installed standalone. -->
-    <Content Condition="Exists('..\OriginClient.Mod262\build\libs\originclient-26.2-0.4.1.jar')"
-             Include="..\OriginClient.Mod262\build\libs\originclient-26.2-0.4.1.jar">
+    <Content Condition="Exists('..\mods\staged\26.2\build\libs\originclient-26.2-0.4.1.jar')"
+             Include="..\mods\staged\26.2\build\libs\originclient-26.2-0.4.1.jar">
       <Link>Bundled\OriginClient\originclient-26.2.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

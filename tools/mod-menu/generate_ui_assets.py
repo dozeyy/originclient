@@ -12,7 +12,7 @@ Same methodology as the loading screen/buttons: pre-render smooth assets,
 eyeball the preview sheet in-sandbox before they touch Minecraft.
 
 Usage: python3 generate_ui_assets.py
-Output: ../../src/OriginClient.Mod/.../assets/originclient/textures/ui/
+Output: ../../src/mods/shared/.../assets (then run tools/shared-sync/sync.py)/originclient/textures/ui/
 """
 import json
 import math
@@ -21,7 +21,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
 HERE = Path(__file__).resolve().parent
-OUT = (HERE / ".." / ".." / "src" / "OriginClient.Mod" / "src" / "client" /
+OUT = (HERE / ".." / ".." / "src" / "mods" / "shared" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
 
 SS = 4  # supersample

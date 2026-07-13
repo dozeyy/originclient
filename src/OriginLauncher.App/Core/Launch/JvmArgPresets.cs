@@ -1,13 +1,13 @@
-using OriginLauncher.App.Core.Models;
-
 namespace OriginLauncher.App.Core.Launch;
 
 public static class JvmArgPresets
 {
     // Aikar's flags — the widely-published, community-standard G1GC tuning
     // set used across Minecraft server/client launchers. Real, documented
-    // flags (not invented) for the Performance-mode baseline.
-    private static readonly string[] AikarsFlags =
+    // flags (not invented). Applied to every launch: since the old
+    // Graphics/Performance mode toggle was removed there is exactly one
+    // JVM preset, and this tuned set is the right baseline for a game.
+    public static readonly IReadOnlyList<string> AikarsFlags =
     [
         "-XX:+UseG1GC",
         "-XX:+ParallelRefProcEnabled",
@@ -28,13 +28,4 @@ public static class JvmArgPresets
         "-XX:+PerfDisableSharedMem",
         "-XX:MaxTenuringThreshold=1"
     ];
-
-    private static readonly string[] GraphicsFlags =
-    [
-        "-XX:+UseG1GC",
-        "-XX:+ParallelRefProcEnabled"
-    ];
-
-    public static IReadOnlyList<string> For(PerformanceMode mode) =>
-        mode == PerformanceMode.Performance ? AikarsFlags : GraphicsFlags;
 }

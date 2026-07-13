@@ -21,11 +21,11 @@ Thumbs.db
 publish/
 
 # Font atlas generator scratch output (canonical copies live under
-# src/OriginClient.Mod/.../assets/originclient/textures/font/)
+# src/mods/shared/.../assets/originclient/textures/font/)
 tools/font-atlas/output/
 
 # Loading-screen generator scratch previews (canonical textures live under
-# src/OriginClient.Mod/.../assets/originclient/textures/ui/)
+# src/mods/shared/.../assets/originclient/textures/ui/)
 tools/loading-screen/*preview*.png
 tools/loading-screen/loading_preview.png
 
@@ -39,11 +39,11 @@ tools/loading-screen/*check*.png
 # Dev-only third-party mod jars for runClient shader-integration testing
 # (matches the launcher's PerformanceModCatalog pins) — never bundled into the
 # shipping originclient jar, never committed.
-src/OriginClient.Mod*/libs/
+src/mods/*/*/libs/
 
 # Gradle runClient working dir (world saves, logs, crash-reports, per-run
 # config) — dev runtime scratch, never source.
-src/OriginClient.Mod*/run/
+src/mods/*/*/run/
 
 # Inno Setup installer output (built in CI from installer/OriginLauncher.iss).
 installer/Output/

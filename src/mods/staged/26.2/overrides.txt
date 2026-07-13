@@ -1,0 +1,34 @@
+# Files under src/ that this module DELIBERATELY diverges from
+# src/mods/shared/ on. tools/shared-sync/sync.py never copies these
+# into this module. One path per line, relative to this module's src/.
+# Files not in shared/ at all (this module's mixins, renderer, etc.)
+# don't need listing - sync only ever touches files that exist in shared/.
+
+client/java/com/origin/client/client/GeneralSettings.java
+client/java/com/origin/client/client/OriginHud.java
+client/java/com/origin/client/client/OriginKeyBindings.java
+client/java/com/origin/client/client/gui/OriginColorPicker.java
+client/java/com/origin/client/client/mixin/AbstractButtonMixin.java
+client/java/com/origin/client/client/mixin/AbstractSliderButtonMixin.java
+client/java/com/origin/client/client/mixin/BlockEntityRenderDispatcherMixin.java
+client/java/com/origin/client/client/mixin/CameraMixin.java
+client/java/com/origin/client/client/mixin/CheckboxMixin.java
+client/java/com/origin/client/client/mixin/ClientLevelTimeMixin.java
+client/java/com/origin/client/client/mixin/EntityRenderDispatcherMixin.java
+client/java/com/origin/client/client/mixin/GameRendererAccessor.java
+client/java/com/origin/client/client/mixin/GameRendererMixin.java
+client/java/com/origin/client/client/mixin/GuiScoreboardMixin.java
+client/java/com/origin/client/client/mixin/LevelTimeMixin.java
+client/java/com/origin/client/client/mixin/LightTextureMixin.java
+client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
+client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java
+client/java/com/origin/client/client/mixin/MouseHandlerMixin.java
+client/java/com/origin/client/client/mixin/ParticleEngineMixin.java
+client/java/com/origin/client/client/mixin/PauseScreenMixin.java
+client/java/com/origin/client/client/mixin/ToastComponentMixin.java
+client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/ReceivingLevelScreenMixin.java
+client/java/com/origin/client/client/mods/Mods.java
+client/java/com/origin/client/client/mods/ModsConfig.java

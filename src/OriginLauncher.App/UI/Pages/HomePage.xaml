@@ -25,41 +25,11 @@
                 </Grid>
             </Button>
 
-            <!-- Loader: exactly two options per version — Vanilla + Fabric where
-                 the perf-mod catalog has data, or Vanilla + Forge (with OptiFine)
-                 below that floor. A StackPanel (not a Grid) so the hidden third
-                 toggle takes up no space instead of leaving a gap. -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10" HorizontalAlignment="Center">
-                <ToggleButton x:Name="LoaderVanillaToggle" Style="{StaticResource Button.NavItem}"
-                              Content="VANILLA" Padding="14,7" HorizontalContentAlignment="Center" Margin="0,0,6,0"
-                              Checked="LoaderVanillaToggle_Checked"/>
-                <ToggleButton x:Name="LoaderFabricToggle" Style="{StaticResource Button.NavItem}"
-                              Content="FABRIC" Padding="14,7" HorizontalContentAlignment="Center"
-                              Checked="LoaderFabricToggle_Checked"/>
-                <ToggleButton x:Name="LoaderForgeToggle" Style="{StaticResource Button.NavItem}"
-                              Content="FORGE" Padding="14,7" HorizontalContentAlignment="Center"
-                              Checked="LoaderForgeToggle_Checked"/>
-            </StackPanel>
-
-            <!-- Only shown when Forge is the active choice. Downloaded via
-                 OptiFineCatalog (BMCLAPI mirror) on click — OptiFine itself has
-                 no official API and gates downloads behind an ad page. -->
-            <Grid x:Name="OptiFineRow" Margin="0,0,0,18" Visibility="Collapsed" HorizontalAlignment="Center">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="10"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="OptiFine" Style="{StaticResource Text.BodyDim}" VerticalAlignment="Center"/>
-                <ToggleButton Grid.Column="2" x:Name="OptiFineToggle" Style="{StaticResource Toggle.Switch}"
-                              VerticalAlignment="Center"
-                              Checked="OptiFineToggle_Checked" Unchecked="OptiFineToggle_Unchecked"/>
-            </Grid>
-
-            <!-- Fabric-only (hidden for Vanilla/Forge): ON loads the player's own
-                 mods/ folder as-is alongside Origin's; OFF launches with ONLY the
-                 Origin-provisioned set (see VersionManager's fabric.modsFolder
-                 redirect) without touching the player's files. -->
+            <!-- Every launch is Fabric (CLAUDE.md mandate) — there is no loader
+                 choice. ON loads the player's own mods/ folder as-is alongside
+                 Origin's; OFF launches with ONLY the Origin-provisioned set (see
+                 VersionManager's fabric.modsFolder redirect) without touching
+                 the player's files. -->
             <Grid x:Name="ExternalModsRow" Margin="0,0,0,18" HorizontalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>

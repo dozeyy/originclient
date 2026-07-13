@@ -330,7 +330,7 @@
         </Setter>
     </Style>
 
-    <!-- Pill on/off switch (e.g. the OptiFine toggle). Track lightens on
+    <!-- Pill on/off switch (e.g. the external-mods toggle). Track lightens on
          hover like every other control; on check, track goes to accent and
          the knob slides with a small spring so the flip reads as tactile,
          not a flat state swap. -->

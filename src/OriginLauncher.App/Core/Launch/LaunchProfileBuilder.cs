@@ -15,10 +15,7 @@ public static class LaunchProfileBuilder
             MinimumRamMb = Math.Min(1024, settings.RamMb),
             ScreenWidth = settings.ResolutionWidth,
             ScreenHeight = settings.ResolutionHeight,
-            // Always Aikar's flags now that the Graphics/Performance launch-mode
-            // toggle is gone — the tuned G1GC set is the right baseline for every
-            // launch and there's no player-facing reason to ship the weaker one.
-            ExtraJvmArguments = JvmArgPresets.For(PerformanceMode.Performance)
+            ExtraJvmArguments = JvmArgPresets.AikarsFlags
                 .Select(flag => new MArgument(flag))
                 .ToList()
         };

@@ -1,6 +1,6 @@
 # Compile verification for every change — the counterpart to
-# launcher-release.yml, which only fires from the release branch. This one
-# runs on pushes to main and working branches and on PRs, builds the mod +
+# launcher-release.yml, which only fires from launcher-v* tags. This one
+# runs on pushes to main and working branches and on PRs, builds the mods +
 # launcher exactly like a release would, and publishes NOTHING. It exists so
 # code written in environments that can't build (e.g. the remote dev sandbox,
 # where Gradle/Mojang downloads are blocked) is machine-verified before it
@@ -12,10 +12,12 @@ on:
     branches: [main, "claude/**"]
     paths:
       - "src/**"
+      - "tools/shared-sync/**"
       - ".github/workflows/build-check.yml"
   pull_request:
     paths:
       - "src/**"
+      - "tools/shared-sync/**"
 
 concurrency:
   group: build-check-${{ github.ref }}
@@ -27,44 +29,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Drift gate for the shared mod core: every module's copy of
+      # src/mods/shared/ files must be byte-identical to shared/ (or listed in
+      # that module's overrides.txt as a deliberate fork). Catches edits made
+      # in a module that belong in shared/, and shared/ edits never synced.
+      - name: Check shared-core sync
+        run: python tools/shared-sync/sync.py --check
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Build Origin Client mod
-        working-directory: src/OriginClient.Mod
+        working-directory: src/mods/versions/1.21.1
         run: .\gradlew.bat build --no-daemon
 
       - name: Build Origin Client mod (1.20)
-        working-directory: src/OriginClient.Mod120
+        working-directory: src/mods/versions/1.20
         run: .\gradlew.bat build --no-daemon
 
       - name: Build Origin Client mod (1.20.4)
-        working-directory: src/OriginClient.Mod1204
+        working-directory: src/mods/versions/1.20.4
         run: .\gradlew.bat build --no-daemon
 
-      # The 1.21 base release (src/OriginClient.Mod121), bundled as
+      # The 1.21 base release (src/mods/versions/1.21), bundled as
       # Bundled/OriginClient/originclient-1.21.jar. Same source as 1.21.1 (shared
       # pre-1.21.2 blit API), its own 1.21-mapped build. Real version, so the
       # runner resolves + compiles it; Java 21 like the rest.
       - name: Build Origin Client mod (1.21)
-        working-directory: src/OriginClient.Mod121
+        working-directory: src/mods/versions/1.21
         run: .\gradlew.bat build --no-daemon
 
-      # NOTE (1.21.11): src/OriginClient.Mod12111 is a COMPLETE Tier-A port of the
+      # NOTE (1.21.11): src/mods/staged/1.21.11 is a COMPLETE Tier-A port of the
       # 1.21.1 module (only the 1.21.2 blit rework differs — look/feel identical),
       # Java 21, same runner. It is intentionally NOT built here yet because Loom
       # can't resolve the 1.21.11 game version until it's available to the runner;
       # a hard step would fail the whole check. Its OriginBuilds install line is
       # staged (commented) for the same reason. Re-add this step once the version
       # resolves + the rewritten blit descriptors are javap-verified — see
-      # src/OriginClient.Mod12111/PORT-12111.md:
+      # src/mods/staged/1.21.11/PORT-12111.md:
       #   - name: Build Origin Client mod (1.21.11)
-      #     working-directory: src/OriginClient.Mod12111
+      #     working-directory: src/mods/staged/1.21.11  # move to versions/ when flipping live
       #     run: .\gradlew.bat build --no-daemon
 
-      # NOTE (26.2): src/OriginClient.Mod262 is scaffolded and its toolchain is
+      # NOTE (26.2): src/mods/staged/26.2 is scaffolded and its toolchain is
       # proven (Java 25 + unobfuscated Loom config — it resolves + compiles
       # against MC 26.2), but the render layer is mid-port to 26.2's retained-mode
       # GUI (GuiGraphicsExtractor / GuiRenderState) and does NOT compile yet, so

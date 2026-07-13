@@ -45,10 +45,10 @@ jobs:
       # item is conditional on it existing — a fresh runner always builds it
       # here, so releases always ship the mod).
       - name: Build Origin Client mod
-        working-directory: src/OriginClient.Mod
+        working-directory: src/mods/versions/1.21.1
         run: .\gradlew.bat build --no-daemon
 
-      # The 1.20 API-family mod (src/OriginClient.Mod120, covers 1.20 + 1.20.1),
+      # The 1.20 API-family mod (src/mods/versions/1.20, covers 1.20 + 1.20.1),
       # so the launcher below bundles build/libs/originclient-1.20-0.4.1.jar as
       # Bundled/OriginClient/originclient-1.20.jar (csproj Content, conditional on
       # it existing). Same JDK 21 runner: the module targets Java 17 bytecode via
@@ -56,35 +56,35 @@ jobs:
       # Sodium for runClient) is absent on the runner and build.gradle guards
       # those file deps behind .exists(), so `build` runs without them.
       - name: Build Origin Client mod (1.20)
-        working-directory: src/OriginClient.Mod120
+        working-directory: src/mods/versions/1.20
         run: .\gradlew.bat build --no-daemon
 
-      # The 1.20.4 API-family mod (src/OriginClient.Mod1204), bundled as
+      # The 1.20.4 API-family mod (src/mods/versions/1.20.4), bundled as
       # Bundled/OriginClient/originclient-1.20.4.jar. Same Java 17-via-JDK-21
       # and absent-libs/ notes as the 1.20 module above.
       - name: Build Origin Client mod (1.20.4)
-        working-directory: src/OriginClient.Mod1204
+        working-directory: src/mods/versions/1.20.4
         run: .\gradlew.bat build --no-daemon
 
-      # The 1.21 base release (src/OriginClient.Mod121), bundled as
+      # The 1.21 base release (src/mods/versions/1.21), bundled as
       # Bundled/OriginClient/originclient-1.21.jar. Same source as 1.21.1, its
       # own 1.21-mapped build; real version so the runner resolves + ships it.
       - name: Build Origin Client mod (1.21)
-        working-directory: src/OriginClient.Mod121
+        working-directory: src/mods/versions/1.21
         run: .\gradlew.bat build --no-daemon
 
-      # NOTE (1.21.11): src/OriginClient.Mod12111 is a complete Tier-A port of the
+      # NOTE (1.21.11): src/mods/staged/1.21.11 is a complete Tier-A port of the
       # 1.21.1 build (only the 1.21.2 blit rework differs). It is NOT built/shipped
       # here yet — Loom can't resolve the 1.21.11 game version on the runner until
       # it's available, and shipping unverified would violate the runClient bar in
       # CLAUDE.md. The OriginBuilds line and csproj bundle are staged to match.
       # Re-add this step (and uncomment those) once the version resolves and the
-      # port is runClient-verified — see src/OriginClient.Mod12111/PORT-12111.md:
+      # port is runClient-verified — see src/mods/staged/1.21.11/PORT-12111.md:
       #   - name: Build Origin Client mod (1.21.11)
-      #     working-directory: src/OriginClient.Mod12111
+      #     working-directory: src/mods/staged/1.21.11  # move to versions/ when flipping live
       #     run: .\gradlew.bat build --no-daemon
 
-      # NOTE (26.2): src/OriginClient.Mod262 is scaffolded with a proven Java 25 /
+      # NOTE (26.2): src/mods/staged/26.2 is scaffolded with a proven Java 25 /
       # unobfuscated-Loom toolchain, but its render layer is mid-port to 26.2's
       # retained-mode GUI and does not compile yet, so it is intentionally NOT
       # built or shipped here. Re-add this step (JAVA_HOME ${{ env.JAVA_HOME_25_X64 }},

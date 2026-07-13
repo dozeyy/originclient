@@ -15,7 +15,7 @@ baked-label ladder was removed. This generator now only produces the shell.
 
 Usage: python3 generate_buttons.py
 Requires: Pillow
-Output: ../../src/OriginClient.Mod/.../assets/originclient/textures/ui/
+Output: ../../src/mods/shared/.../assets (then run tools/shared-sync/sync.py)/originclient/textures/ui/
         button_fill.png, button_border.png, buttons.json
 """
 import json
@@ -25,7 +25,7 @@ from PIL import Image, ImageChops, ImageDraw
 
 HERE = Path(__file__).resolve().parent
 
-OUT = (HERE / ".." / ".." / "src" / "OriginClient.Mod" / "src" / "client" /
+OUT = (HERE / ".." / ".." / "src" / "mods" / "shared" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
 
 TEX = 96          # square texture size for fill/border

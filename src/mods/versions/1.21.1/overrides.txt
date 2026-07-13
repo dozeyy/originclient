@@ -1,0 +1,6 @@
+# Files under src/ that this module DELIBERATELY diverges from
+# src/mods/shared/ on. tools/shared-sync/sync.py never copies these
+# into this module. One path per line, relative to this module's src/.
+# Files not in shared/ at all (this module's mixins, renderer, etc.)
+# don't need listing - sync only ever touches files that exist in shared/.
+

@@ -3,13 +3,11 @@ using System.IO;
 using System.Net.Http;
 using System.Threading;
 using CmlLib.Core;
-using CmlLib.Core.Installer.Forge;
 using CmlLib.Core.Installers;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
-using OriginLauncher.App.Core.Models;
 
 namespace OriginLauncher.App.Core.Versions;
 
@@ -58,21 +56,21 @@ public sealed class VersionManager
         {
             // Full Origin experience, self-contained perf stack.
             ["1.21.1"] = new("originclient-1.21.1.jar", BundlesPerfStack: true),
-            // 1.20 API family (src/OriginClient.Mod120) — perf stack installed
+            // 1.20 API family (src/mods/versions/1.20) — perf stack installed
             // standalone from the catalog alongside it.
             ["1.20"]   = new("originclient-1.20.jar",   BundlesPerfStack: false),
             ["1.20.1"] = new("originclient-1.20.jar",   BundlesPerfStack: false),
-            // 1.20.4 API family (src/OriginClient.Mod1204) — same install model
+            // 1.20.4 API family (src/mods/versions/1.20.4) — same install model
             // as 1.20: Origin jar + standalone perf/shader catalog stack.
             ["1.20.4"] = new("originclient-1.20.4.jar", BundlesPerfStack: false),
-            // 1.21 (src/OriginClient.Mod121) — LIVE. Same pre-1.21.2-blit-rework
+            // 1.21 (src/mods/versions/1.21) — LIVE. Same pre-1.21.2-blit-rework
             // API family as 1.21.1 (byte-identical source), but its own mapped
             // build + the standalone install model (1.21's Sodium mc1.21-0.5.11
             // differs from 1.21.1's bundled 0.6.13). 1.21 is a real version + Full
             // in the catalog, so it ships like 1.20.4. runClient at home confirms
             // mixin-apply; a runtime miss fail-softs to vanilla (never crashes).
             ["1.21"] = new("originclient-1.21.jar", BundlesPerfStack: false),
-            // 1.21.2 – 1.21.11 (src/OriginClient.Mod12111) — the post-1.21.2
+            // 1.21.2 – 1.21.11 (src/mods/staged/1.21.11) — the post-1.21.2
             // blit-rework API family. ONE Origin jar (originclient-1.21.11.jar)
             // covers the whole range: the source is byte-identical across it, so
             // every version in the family installs the same jar (the Mod120 model,
@@ -82,7 +80,7 @@ public sealed class VersionManager
             //   1. Verification: the jar must be built + javap'd + runClient'd on a
             //      machine with Loom/Mojang access before shipping (CLAUDE.md's
             //      bar); sandbox/CI can't resolve these versions yet. Guide:
-            //      src/OriginClient.Mod12111/PORT-12111.md.
+            //      src/mods/staged/1.21.11/PORT-12111.md.
             //   2. Shaders: of this family, ONLY 1.21.11 is Full in
             //      PerformanceModCatalog — 1.21.3–1.21.10 are Partial and 1.21.2
             //      is absent, so HasShaderStack hides them regardless of a mapping.
@@ -100,7 +98,7 @@ public sealed class VersionManager
             //   ["1.21.9"]  = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             //   ["1.21.10"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
             //   ["1.21.11"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
-            // 26.2 (src/OriginClient.Mod262) — STAGED, not yet active. The module
+            // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
             // proven, but the render layer is mid-port to 26.2's retained-mode GUI
             // and no originclient-26.2.jar builds yet. Listing it here would make
@@ -168,17 +166,16 @@ public sealed class VersionManager
 
     // Every version gets its own root under /instances/{version}/ — hard
     // requirement (see CLAUDE.md): mods, saves, and configs must not leak
-    // between versions, which matters a lot more now that Fabric/Forge
-    // versions carry their own perf-mod/OptiFine jars.
+    // between versions.
     private static MinecraftPath BuildInstancePath(string version) =>
         new(Path.Combine(OriginPaths.Instances, version));
 
-    // Installs the right loader for the version (Fabric perf-mod stack,
-    // Forge + optional OptiFine, or plain vanilla), then installs/builds the
-    // launch process. Caller still has to call Process.Start(). progress
-    // reports human-readable stage text — used to drive LaunchLoadingOverlay.
+    // Every launch is Fabric (CLAUDE.md mandate — the Lunar/Feather model):
+    // install Fabric + the matching Origin build + the perf/shader stack,
+    // then build the launch process. Caller still has to call Process.Start().
+    // progress reports human-readable stage text — drives LaunchLoadingOverlay.
     public async Task<Process> InstallAndBuildProcessAsync(
-        string version, LoaderKind loader, bool optiFineEnabled, MLaunchOption option,
+        string version, MLaunchOption option,
         bool externalMods = true,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
@@ -187,10 +184,10 @@ public sealed class VersionManager
         var modsFolder = Path.Combine(path.BasePath, "mods");
         var configFolder = Path.Combine(path.BasePath, "config");
 
-        // Provisioned unconditionally for any loader, not just when a perf
-        // profile or OptiFine happens to populate it — the folder must be
-        // ready to receive dropped-in .jar files the moment a loader is
-        // installed, with zero manual folder creation on the player's part.
+        // Provisioned unconditionally, not just when a perf profile happens to
+        // populate it — the folder must be ready to receive dropped-in .jar
+        // files the moment the loader is installed, with zero manual folder
+        // creation on the player's part.
         //
         // config/ is created for the same reason, and it fixes a real
         // first-launch crash: FerriteCore (part of every Fabric perf stack)
@@ -202,263 +199,212 @@ public sealed class VersionManager
         // had since created config/ while writing their own defaults. Making
         // the folder exist up front removes the "first run always crashes"
         // class entirely, for any config-writing mod, on any version.
-        if (loader != LoaderKind.Vanilla)
+        Directory.CreateDirectory(modsFolder);
+        Directory.CreateDirectory(configFolder);
+
+        progress?.Report("Installing Fabric loader...");
+        var fabricInstaller = new FabricInstaller(new HttpClient());
+        var versionName = await fabricInstaller.Install(version, path);
+
+        // Every Fabric mod in play here (Origin Client, and any
+        // third-party jar a player drops in) depends on this, so it's
+        // installed unconditionally for every Fabric version, not
+        // just the one Origin Client itself targets.
+        await FabricApiInstaller.InstallAsync(version, modsFolder, progress, ct);
+
+        bool originBundlesPerfStack = false;
+        if (OriginBuilds.TryGetValue(version, out var originBuild)
+            && File.Exists(OriginPaths.BundledOriginClientJar(originBuild.JarFileName)))
         {
-            Directory.CreateDirectory(modsFolder);
-            Directory.CreateDirectory(configFolder);
+            progress?.Report("Installing Origin Client...");
+            // Remove ANY previously-installed Origin Client jar first,
+            // whatever its filename — a stale jar left by an older
+            // launcher build (e.g. a pre-mod-system release) would
+            // otherwise keep loading in-game even after the launcher
+            // updated. This is exactly the "old client through the
+            // launcher" symptom: the launcher was new, the instance
+            // jar was old. Always ship the launcher's own bundled jar.
+            //
+            // Enumerate ALL files and filter by EndsWith rather than a
+            // Win32 "originclient*.jar" glob — the legacy 3-char-ext
+            // match is ambiguous. Enabled ".jar" only; a user's own
+            // ".jar.disabled" is never touched.
+            foreach (var file in Directory.EnumerateFiles(modsFolder))
+            {
+                var fn = Path.GetFileName(file);
+                if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
+                    && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    try { File.Delete(file); } catch { /* locked/removed already */ }
+                }
+            }
+            File.Copy(OriginPaths.BundledOriginClientJar(originBuild.JarFileName), Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
+            originBundlesPerfStack = originBuild.BundlesPerfStack;
+
+            // Only when THIS build carries its own perf stack jar-in-jar
+            // (e.g. 1.21.1): purge any STANDALONE copies a pre-bundle
+            // install (or a hand-dropped mod) left behind. A stray newer
+            // Sodium overrides the bundled 0.6.x and, being incompatible
+            // with the pinned Iris 1.8.x, silently disables Iris — killing
+            // shaders AND leaving the client in a mixed Sodium state that
+            // breaks other Origin mixins. Builds that DON'T bundle the perf
+            // stack (1.20) need the standalone jars, so this purge is
+            // skipped for them and the catalog install below runs instead.
+            //
+            // Matched by ModManager.IsBundledPerfJar, which keys on each
+            // project's canonical filename SHAPE (sodium-fabric-*, etc.)
+            // — so a version-drifted leftover is caught, but user addons
+            // like sodium-extra / sodiumdynamiclights are spared (the old
+            // bare "sodium" prefix silently deleted those every launch).
+            // Only enabled ".jar" files are considered; ".jar.disabled"
+            // user mods are left alone.
+            if (originBundlesPerfStack)
+            {
+                foreach (var file in Directory.EnumerateFiles(modsFolder))
+                {
+                    var name = Path.GetFileName(file);
+                    if (!name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (name.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (ModManager.IsBundledPerfJar(name))
+                    {
+                        try { File.Delete(file); } catch { /* locked/removed already */ }
+                    }
+                }
+            }
         }
 
-        var versionName = version;
-
-        switch (loader)
+        // Install the standalone perf catalog UNLESS the Origin build we
+        // just installed already carries its own pinned Sodium/Indium/
+        // Lithium/FerriteCore/Krypton/Iris jar-in-jar (1.21.1) — in that
+        // one case installing both would give Fabric two copies of the
+        // same mod id. Every other path needs the catalog: a vanilla-menu
+        // version with no Origin build, AND a version whose Origin jar
+        // ships without the perf stack (1.20). This keeps the perf/shader
+        // experience identical whether or not Origin's menus are present.
+        bool irisPresent = originBundlesPerfStack; // 1.21.1's bundled Iris (jar-in-jar)
+        var perfProfile = originBundlesPerfStack ? null : PerformanceModCatalog.TryGet(version);
+        if (perfProfile != null)
         {
-            case LoaderKind.Fabric:
+            await PerfModInstaller.InstallAsync(perfProfile, modsFolder, progress, ct);
+            irisPresent = perfProfile.Iris != null;
+        }
+
+        // Iris's own "a new version is available, click to update" nag
+        // (net.coderbot.iris.UpdateChecker) has no in-launcher equivalent
+        // and would send the player out to a browser mid-session — off by
+        // default via Iris's own supported config flag, not a mixin/patch
+        // of Iris's code. Idempotent: only sets the one key, never
+        // clobbers anything Iris (or the player) already wrote there.
+        if (irisPresent)
+            IrisConfigSeeder.DisableUpdateMessage(configFolder);
+
+        // Crash-during-write (or power-loss) leaves config files full of
+        // NUL bytes — seen in the wild 13 files at once. Depending on the
+        // mod that's anywhere from a red "config corrupted" toast every
+        // boot (Sodium fail-softs) to a hard crash at entrypoint init
+        // (do_a_barrel_roll, ok_zoomer refuse to start). Such a file
+        // holds zero real data, so deleting it loses nothing and each
+        // mod regenerates its defaults. Swept before every launch.
+        SanitizeCorruptConfigs(configFolder);
+
+        // Exactly ONE enabled jar per managed mod family. Fabric hard-
+        // fails the entire boot on a duplicate mod id, so a second copy
+        // of a launcher-managed mod — a player hand-updating fabric-api
+        // next to the launcher's copy, or a catalog version bump leaving
+        // the old pinned jar behind — silently turns into "the game
+        // never launches". Heal it on every launch. Which twin survives:
+        //   1. The catalog PIN for this version, when the family has one
+        //      — pins are deliberate era-pairings (Iris 1.7.x must ride
+        //      Sodium 0.5.x), so a numerically higher leftover from a
+        //      different MC version is exactly the wrong file to keep.
+        //   2. Otherwise the highest filename version (a hand-updated
+        //      fabric-api is an upgrade — keep it), then most-recently-
+        //      landed time when versions don't parse.
+        // User (unmanaged) jars group as singletons — never touched.
+        var pinnedJarNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (perfProfile != null)
+            foreach (var pinned in perfProfile.Mods())
+                pinnedJarNames.Add(pinned.FileName);
+
+        foreach (var family in Directory.EnumerateFiles(modsFolder)
+                     .Where(f => Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                     .Where(f => ModManager.IsManaged(Path.GetFileName(f)))
+                     .GroupBy(f => ModManager.ModFamilyKey(Path.GetFileName(f)), StringComparer.OrdinalIgnoreCase))
+        {
+            var keep = family.FirstOrDefault(f => pinnedJarNames.Contains(Path.GetFileName(f)))
+                ?? family
+                    .OrderByDescending(f => ModManager.TryParseVersion(Path.GetFileName(f)) ?? new Version(0, 0))
+                    .ThenByDescending(f => Max(File.GetCreationTimeUtc(f), File.GetLastWriteTimeUtc(f)))
+                    .First();
+            foreach (var stale in family.Where(f => !ReferenceEquals(f, keep)))
             {
-                progress?.Report("Installing Fabric loader...");
-                var fabricInstaller = new FabricInstaller(new HttpClient());
-                versionName = await fabricInstaller.Install(version, path);
-
-                // Every Fabric mod in play here (Origin Client, and any
-                // third-party jar a player drops in) depends on this, so it's
-                // installed unconditionally for every Fabric version, not
-                // just the one Origin Client itself targets.
-                await FabricApiInstaller.InstallAsync(version, modsFolder, progress, ct);
-
-                bool originBundlesPerfStack = false;
-                if (OriginBuilds.TryGetValue(version, out var originBuild)
-                    && File.Exists(OriginPaths.BundledOriginClientJar(originBuild.JarFileName)))
-                {
-                    progress?.Report("Installing Origin Client...");
-                    // Remove ANY previously-installed Origin Client jar first,
-                    // whatever its filename — a stale jar left by an older
-                    // launcher build (e.g. a pre-mod-system release) would
-                    // otherwise keep loading in-game even after the launcher
-                    // updated. This is exactly the "old client through the
-                    // launcher" symptom: the launcher was new, the instance
-                    // jar was old. Always ship the launcher's own bundled jar.
-                    //
-                    // Enumerate ALL files and filter by EndsWith rather than a
-                    // Win32 "originclient*.jar" glob — the legacy 3-char-ext
-                    // match is ambiguous. Enabled ".jar" only; a user's own
-                    // ".jar.disabled" is never touched.
-                    foreach (var file in Directory.EnumerateFiles(modsFolder))
-                    {
-                        var fn = Path.GetFileName(file);
-                        if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
-                            && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                        {
-                            try { File.Delete(file); } catch { /* locked/removed already */ }
-                        }
-                    }
-                    File.Copy(OriginPaths.BundledOriginClientJar(originBuild.JarFileName), Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
-                    originBundlesPerfStack = originBuild.BundlesPerfStack;
-
-                    // Only when THIS build carries its own perf stack jar-in-jar
-                    // (e.g. 1.21.1): purge any STANDALONE copies a pre-bundle
-                    // install (or a hand-dropped mod) left behind. A stray newer
-                    // Sodium overrides the bundled 0.6.x and, being incompatible
-                    // with the pinned Iris 1.8.x, silently disables Iris — killing
-                    // shaders AND leaving the client in a mixed Sodium state that
-                    // breaks other Origin mixins. Builds that DON'T bundle the perf
-                    // stack (1.20) need the standalone jars, so this purge is
-                    // skipped for them and the catalog install below runs instead.
-                    //
-                    // Matched by ModManager.IsBundledPerfJar, which keys on each
-                    // project's canonical filename SHAPE (sodium-fabric-*, etc.)
-                    // — so a version-drifted leftover is caught, but user addons
-                    // like sodium-extra / sodiumdynamiclights are spared (the old
-                    // bare "sodium" prefix silently deleted those every launch).
-                    // Only enabled ".jar" files are considered; ".jar.disabled"
-                    // user mods are left alone.
-                    if (originBundlesPerfStack)
-                    {
-                        foreach (var file in Directory.EnumerateFiles(modsFolder))
-                        {
-                            var name = Path.GetFileName(file);
-                            if (!name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                                continue;
-                            if (name.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
-                                continue;
-                            if (ModManager.IsBundledPerfJar(name))
-                            {
-                                try { File.Delete(file); } catch { /* locked/removed already */ }
-                            }
-                        }
-                    }
-                }
-
-                // Install the standalone perf catalog UNLESS the Origin build we
-                // just installed already carries its own pinned Sodium/Indium/
-                // Lithium/FerriteCore/Krypton/Iris jar-in-jar (1.21.1) — in that
-                // one case installing both would give Fabric two copies of the
-                // same mod id. Every other path needs the catalog: a vanilla-menu
-                // version with no Origin build, AND a version whose Origin jar
-                // ships without the perf stack (1.20). This keeps the perf/shader
-                // experience identical whether or not Origin's menus are present.
-                bool irisPresent = originBundlesPerfStack; // 1.21.1's bundled Iris (jar-in-jar)
-                var perfProfile = originBundlesPerfStack ? null : PerformanceModCatalog.TryGet(version);
-                if (perfProfile != null)
-                {
-                    await PerfModInstaller.InstallAsync(perfProfile, modsFolder, progress, ct);
-                    irisPresent = perfProfile.Iris != null;
-                }
-
-                // Iris's own "a new version is available, click to update" nag
-                // (net.coderbot.iris.UpdateChecker) has no in-launcher equivalent
-                // and would send the player out to a browser mid-session — off by
-                // default via Iris's own supported config flag, not a mixin/patch
-                // of Iris's code. Idempotent: only sets the one key, never
-                // clobbers anything Iris (or the player) already wrote there.
-                if (irisPresent)
-                    IrisConfigSeeder.DisableUpdateMessage(configFolder);
-
-                // Crash-during-write (or power-loss) leaves config files full of
-                // NUL bytes — seen in the wild 13 files at once. Depending on the
-                // mod that's anywhere from a red "config corrupted" toast every
-                // boot (Sodium fail-softs) to a hard crash at entrypoint init
-                // (do_a_barrel_roll, ok_zoomer refuse to start). Such a file
-                // holds zero real data, so deleting it loses nothing and each
-                // mod regenerates its defaults. Swept before every launch.
-                SanitizeCorruptConfigs(configFolder);
-
-                // Exactly ONE enabled jar per managed mod family. Fabric hard-
-                // fails the entire boot on a duplicate mod id, so a second copy
-                // of a launcher-managed mod — a player hand-updating fabric-api
-                // next to the launcher's copy, or a catalog version bump leaving
-                // the old pinned jar behind — silently turns into "the game
-                // never launches". Heal it on every launch. Which twin survives:
-                //   1. The catalog PIN for this version, when the family has one
-                //      — pins are deliberate era-pairings (Iris 1.7.x must ride
-                //      Sodium 0.5.x), so a numerically higher leftover from a
-                //      different MC version is exactly the wrong file to keep.
-                //   2. Otherwise the highest filename version (a hand-updated
-                //      fabric-api is an upgrade — keep it), then most-recently-
-                //      landed time when versions don't parse.
-                // User (unmanaged) jars group as singletons — never touched.
-                var pinnedJarNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (perfProfile != null)
-                    foreach (var pinned in perfProfile.Mods())
-                        pinnedJarNames.Add(pinned.FileName);
-
-                foreach (var family in Directory.EnumerateFiles(modsFolder)
-                             .Where(f => Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                             .Where(f => ModManager.IsManaged(Path.GetFileName(f)))
-                             .GroupBy(f => ModManager.ModFamilyKey(Path.GetFileName(f)), StringComparer.OrdinalIgnoreCase))
-                {
-                    var keep = family.FirstOrDefault(f => pinnedJarNames.Contains(Path.GetFileName(f)))
-                        ?? family
-                            .OrderByDescending(f => ModManager.TryParseVersion(Path.GetFileName(f)) ?? new Version(0, 0))
-                            .ThenByDescending(f => Max(File.GetCreationTimeUtc(f), File.GetLastWriteTimeUtc(f)))
-                            .First();
-                    foreach (var stale in family.Where(f => !ReferenceEquals(f, keep)))
-                    {
-                        try { File.Delete(stale); } catch { /* locked/removed already */ }
-                    }
-                }
-
-                // "Play with external mods" OFF: the game must load ONLY the
-                // jars Origin itself provisions. Fabric Loader's supported
-                // fabric.modsFolder property points it at a launcher-owned
-                // folder rebuilt fresh each launch from the managed set just
-                // provisioned above — the player's mods/ folder (and every
-                // enabled/disabled state in it) is never touched, so flipping
-                // the switch back on restores their setup exactly. Rebuilding
-                // from scratch each launch means the folder can never drift
-                // stale relative to what a normal launch would install.
-                if (!externalMods)
-                {
-                    progress?.Report("Preparing Origin-only mod set...");
-                    var originOnlyFolder = Path.Combine(path.BasePath, "mods-origin-only");
-                    Directory.CreateDirectory(originOnlyFolder);
-
-                    // Managed = Origin-provisioned: originclient.jar, Fabric API,
-                    // and the perf/shader stack. Everything else is the player's
-                    // and stays out of this launch.
-                    var desired = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var file in Directory.EnumerateFiles(modsFolder))
-                    {
-                        var name = Path.GetFileName(file);
-                        if (name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
-                            && ModManager.IsManaged(name))
-                        {
-                            desired[name] = file;
-                        }
-                    }
-
-                    // Diff-sync rather than delete+recreate: a still-running game
-                    // instance holds these jars open (Windows file locks), which
-                    // made a relaunch-while-playing fail with IOException. An
-                    // unchanged set now needs zero file ops; stale extras are
-                    // removed best-effort (a locked one belongs to the running
-                    // instance and gets cleaned on the next launch instead).
-                    foreach (var existing in Directory.EnumerateFiles(originOnlyFolder))
-                    {
-                        if (!desired.ContainsKey(Path.GetFileName(existing)))
-                        {
-                            try { File.Delete(existing); } catch { /* locked by a running instance */ }
-                        }
-                    }
-                    foreach (var (name, source) in desired)
-                    {
-                        var dest = Path.Combine(originOnlyFolder, name);
-                        try
-                        {
-                            if (!File.Exists(dest) || new FileInfo(dest).Length != new FileInfo(source).Length)
-                                File.Copy(source, dest, overwrite: true);
-                        }
-                        catch (IOException) when (File.Exists(dest))
-                        {
-                            // Locked by a still-running instance but present — the
-                            // existing copy is loadable, and launching with it
-                            // beats failing the whole launch.
-                        }
-                    }
-
-                    var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
-                    extraJvm.Add(new MArgument($"-Dfabric.modsFolder={originOnlyFolder}"));
-                    option.ExtraJvmArguments = extraJvm;
-                }
-                break;
+                try { File.Delete(stale); } catch { /* locked/removed already */ }
             }
-            case LoaderKind.Forge:
+        }
+
+        // "Play with external mods" OFF: the game must load ONLY the
+        // jars Origin itself provisions. Fabric Loader's supported
+        // fabric.modsFolder property points it at a launcher-owned
+        // folder rebuilt fresh each launch from the managed set just
+        // provisioned above — the player's mods/ folder (and every
+        // enabled/disabled state in it) is never touched, so flipping
+        // the switch back on restores their setup exactly. Rebuilding
+        // from scratch each launch means the folder can never drift
+        // stale relative to what a normal launch would install.
+        if (!externalMods)
+        {
+            progress?.Report("Preparing Origin-only mod set...");
+            var originOnlyFolder = Path.Combine(path.BasePath, "mods-origin-only");
+            Directory.CreateDirectory(originOnlyFolder);
+
+            // Managed = Origin-provisioned: originclient.jar, Fabric API,
+            // and the perf/shader stack. Everything else is the player's
+            // and stays out of this launch.
+            var desired = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in Directory.EnumerateFiles(modsFolder))
             {
-                // Forge is a plain loader option only — Origin Client itself does
-                // NOT ship on Forge (it is a Fabric mod; the classics run it via
-                // Legacy Fabric, see VERSIONS.md). We install the loader and,
-                // when the user asks for it, OptiFine; no Origin jar goes in.
-                progress?.Report("Installing Forge loader...");
-                var forgeInstaller = new ForgeInstaller(launcher);
-                versionName = await forgeInstaller.Install(version);
-
-                Directory.CreateDirectory(modsFolder);
-
-                if (optiFineEnabled)
+                var name = Path.GetFileName(file);
+                if (name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
+                    && ModManager.IsManaged(name))
                 {
-                    if (!OptiFineCacheStore.IsCached(version))
-                    {
-                        try
-                        {
-                            progress?.Report("Downloading OptiFine (shaders)...");
-                            var entry = await OptiFineCatalog.TryFindFor(version);
-                            if (entry != null)
-                                await OptiFineCatalog.DownloadAsync(entry, OptiFineCacheStore.JarPathFor(version), ct);
-                        }
-                        catch { /* shaders are optional; continue without them */ }
-                    }
-                    if (OptiFineCacheStore.IsCached(version))
-                    {
-                        progress?.Report("Adding OptiFine...");
-                        File.Copy(
-                            OptiFineCacheStore.JarPathFor(version),
-                            Path.Combine(modsFolder, "OptiFine.jar"),
-                            overwrite: true);
-                    }
+                    desired[name] = file;
                 }
-                break;
             }
-            case LoaderKind.Vanilla:
-            default:
-                break;
+
+            // Diff-sync rather than delete+recreate: a still-running game
+            // instance holds these jars open (Windows file locks), which
+            // made a relaunch-while-playing fail with IOException. An
+            // unchanged set now needs zero file ops; stale extras are
+            // removed best-effort (a locked one belongs to the running
+            // instance and gets cleaned on the next launch instead).
+            foreach (var existing in Directory.EnumerateFiles(originOnlyFolder))
+            {
+                if (!desired.ContainsKey(Path.GetFileName(existing)))
+                {
+                    try { File.Delete(existing); } catch { /* locked by a running instance */ }
+                }
+            }
+            foreach (var (name, source) in desired)
+            {
+                var dest = Path.Combine(originOnlyFolder, name);
+                try
+                {
+                    if (!File.Exists(dest) || new FileInfo(dest).Length != new FileInfo(source).Length)
+                        File.Copy(source, dest, overwrite: true);
+                }
+                catch (IOException) when (File.Exists(dest))
+                {
+                    // Locked by a still-running instance but present — the
+                    // existing copy is loadable, and launching with it
+                    // beats failing the whole launch.
+                }
+            }
+
+            var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
+            extraJvm.Add(new MArgument($"-Dfabric.modsFolder={originOnlyFolder}"));
+            option.ExtraJvmArguments = extraJvm;
         }
 
         progress?.Report("Downloading game files...");

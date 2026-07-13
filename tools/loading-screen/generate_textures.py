@@ -19,7 +19,7 @@ its own period/direction, back rings fainter + softly blurred for depth.
 
 Usage: python3 generate_textures.py
 Requires: Pillow
-Output: ../../src/OriginClient.Mod/src/client/resources/assets/originclient/textures/ui/
+Output: ../../src/mods/shared/src/client/resources/assets (then run tools/shared-sync/sync.py)/originclient/textures/ui/
         ring-{0..3}.png, grain.png, rings.json
 """
 import json
@@ -28,7 +28,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter
 
 HERE = Path(__file__).resolve().parent
-OUT = (HERE / ".." / ".." / "src" / "OriginClient.Mod" / "src" / "client" /
+OUT = (HERE / ".." / ".." / "src" / "mods" / "shared" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
 
 TEX = 768          # final square texture size per ring, px

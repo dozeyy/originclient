@@ -1,4 +1,3 @@
-using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -75,21 +74,23 @@ public partial class SettingsPage : UserControl
         RamValueText.Text = $"{ramMb} MB";
         if (_isLoading) return;
         _settings.RamMb = ramMb;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => s.RamMb = ramMb);
     }
 
     private void VersionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isLoading) return;
-        _settings.SelectedVersion = VersionComboBox.SelectedItem as string;
-        SettingsStore.Save(_settings);
+        var version = VersionComboBox.SelectedItem as string;
+        _settings.SelectedVersion = version;
+        SettingsStore.Update(s => s.SelectedVersion = version);
     }
 
     private void InstallPathTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
-        _settings.InstallPath = InstallPathTextBox.Text;
-        SettingsStore.Save(_settings);
+        var path = InstallPathTextBox.Text;
+        _settings.InstallPath = path;
+        SettingsStore.Update(s => s.InstallPath = path);
     }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -102,7 +103,7 @@ public partial class SettingsPage : UserControl
         {
             InstallPathTextBox.Text = dialog.FolderName;
             _settings.InstallPath = dialog.FolderName;
-            SettingsStore.Save(_settings);
+            SettingsStore.Update(s => s.InstallPath = dialog.FolderName);
         }
     }
 
@@ -122,42 +123,42 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
         _settings.ShaderCacheNvidia = true;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => s.ShaderCacheNvidia = true);
     }
 
     private void ShaderCacheNvidiaToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
         _settings.ShaderCacheNvidia = false;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => s.ShaderCacheNvidia = false);
     }
 
     private void ShaderCacheAmdToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
         _settings.ShaderCacheAmd = true;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => s.ShaderCacheAmd = true);
     }
 
     private void ShaderCacheAmdToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
         _settings.ShaderCacheAmd = false;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => s.ShaderCacheAmd = false);
     }
 
     private void OfflineTestToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
         _settings.OfflineTestMode = true;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => s.OfflineTestMode = true);
     }
 
     private void OfflineTestToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
         _settings.OfflineTestMode = false;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => s.OfflineTestMode = false);
     }
 
     private void ResolutionTextBox_LostFocus(object sender, RoutedEventArgs e)
@@ -177,6 +178,6 @@ public partial class SettingsPage : UserControl
 
         _settings.ResolutionWidth = width;
         _settings.ResolutionHeight = height;
-        SettingsStore.Save(_settings);
+        SettingsStore.Update(s => { s.ResolutionWidth = width; s.ResolutionHeight = height; });
     }
 }
