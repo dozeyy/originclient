@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = Checkbox.class, priority = 2000)
 public class CheckboxMixin {
 
-	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "renderContents", at = @At("HEAD"), cancellable = true)
 	private void originclient$originStyle(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		// Only cancel vanilla when Origin actually drew (fail-soft contract).
 		if (OriginButtonRenderer.renderCheckbox(guiGraphics, (Checkbox) (Object) this)) {

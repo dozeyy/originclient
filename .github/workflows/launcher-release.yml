@@ -85,6 +85,26 @@ jobs:
         working-directory: src/mods/versions/1.21.8
         run: .\gradlew.bat build --no-daemon
 
+      # 1.20.2 (covers 1.20.2) — gap sub-family gone live 2026-07-14.
+      - name: Build Origin Client mod (1.20.2)
+        working-directory: src/mods/versions/1.20.2
+        run: .\gradlew.bat build --no-daemon
+
+      # 1.21.4 (covers 1.21.2/1.21.3/1.21.4) — gap sub-family gone live 2026-07-14.
+      - name: Build Origin Client mod (1.21.4)
+        working-directory: src/mods/versions/1.21.4
+        run: .\gradlew.bat build --no-daemon
+
+      # 1.21.6 (covers 1.21.6/1.21.7) — gap sub-family gone live 2026-07-14.
+      - name: Build Origin Client mod (1.21.6)
+        working-directory: src/mods/versions/1.21.6
+        run: .\gradlew.bat build --no-daemon
+
+      # 1.21.10 (own render-state sub-family, split from 1.21.11) — gap sub-family gone live 2026-07-14.
+      - name: Build Origin Client mod (1.21.10)
+        working-directory: src/mods/versions/1.21.10
+        run: .\gradlew.bat build --no-daemon
+
       # 1.21.10 + 1.21.11 (src/mods/versions/1.21.11): ONE jar for the
       # render-pipeline + world-event-v2 era, bundled as
       # Bundled/OriginClient/originclient-1.21.11.jar. LIVE 2026-07-13. Lower
@@ -141,7 +161,11 @@ jobs:
             "originclient-1.21.jar",
             "originclient-1.21.5.jar",
             "originclient-1.21.8.jar",
-            "originclient-1.21.11.jar"
+            "originclient-1.21.11.jar",
+            "originclient-1.20.2.jar",
+            "originclient-1.21.4.jar",
+            "originclient-1.21.6.jar",
+            "originclient-1.21.10.jar"
           )
           $dir = "publish\Bundled\OriginClient"
           $missing = $expected | Where-Object { -not (Test-Path (Join-Path $dir $_)) }

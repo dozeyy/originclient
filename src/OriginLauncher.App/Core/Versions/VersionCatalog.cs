@@ -57,7 +57,7 @@ public static class VersionCatalog
             "26.2", "26.1.2", "26.1.1", "26.1"),
         Group("1.21", "1.21 – 1.21.11", "Tricky Trials",
             "Explore the new trial chambers and outsmart their spawners for loot from ominous vaults. Battle the wind-charging Breeze and the crossbow-wielding Bogged, forge the powerful Mace for devastating smash attacks, and automate builds with the new crafter block and expanded copper and tuff sets.",
-            "1.21.11", "1.21.10", "1.21.9", "1.21.8", "1.21.7",
+            "1.21.11", "1.21.10", "1.21.8", "1.21.7",
             "1.21.6", "1.21.5", "1.21.4", "1.21.3", "1.21.2", "1.21.1", "1.21"),
         Group("1.20", "1.20 – 1.20.6",  "Trails & Tales",
             "Wander pink cherry groves, brush suspicious sand and gravel to uncover archaeology finds, and hatch the ancient sniffer from a rediscovered egg. Ride camels across the desert, craft bamboo rafts and hanging signs, and personalize your gear with the reworked smithing table and decorative armor trims.",

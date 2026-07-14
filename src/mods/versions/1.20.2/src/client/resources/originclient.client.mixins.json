@@ -1,0 +1,49 @@
+{
+	"required": false,
+	"package": "com.origin.client.client.mixin",
+	"compatibilityLevel": "JAVA_17",
+	"client": [
+		"GameRendererMixin",
+		"GuiHudMixin",
+		"MouseHandlerMixin",
+		"ClientLevelTimeMixin",
+		"CameraMixin",
+		"LoadingOverlayMixin",
+		"TitleScreenMixin",
+		"AbstractButtonMixin",
+		"ScreenBackgroundMixin",
+		"AbstractSelectionListMixin",
+		"TabButtonMixin",
+		"TabNavigationBarMixin",
+		"CreateWorldScreenMixin",
+		"ExperimentsScreenMixin",
+		"AbstractSliderButtonMixin",
+		"CheckboxMixin",
+		"LevelRendererMixin",
+		"LightTextureMixin",
+		"ParticleEngineMixin",
+		"SingleQuadParticleMixin",
+		"LevelTimeMixin",
+		"HitboxMixin",
+		"EntityNametagMixin",
+		"ChatTimestampMixin",
+		"GuiEffectsMixin",
+		"GuiScoreboardMixin",
+		"GameRendererAccessor",
+		"PostChainAccessor",
+		"MinecraftFramerateMixin",
+		"ToastComponentMixin",
+		"EntityRenderDispatcherMixin",
+		"BlockEntityRenderDispatcherMixin",
+		"PauseScreenMixin",
+		"IrisShadowDirectivesMixin",
+		"IrisWatermarkMixin",
+		"IrisListDecorationsMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

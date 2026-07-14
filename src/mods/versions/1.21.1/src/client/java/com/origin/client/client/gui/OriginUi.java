@@ -260,7 +260,7 @@ public final class OriginUi {
 				img.close();
 			}
 			ok = true;
-		} catch (Exception e) {
+		} catch (Throwable e) {
 			ok = false;
 			com.origin.client.OriginClient.LOGGER.warn("Origin UI assets failed to load; using flat fallbacks", e);
 		}

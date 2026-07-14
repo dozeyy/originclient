@@ -42,7 +42,8 @@ changes unless you change it or deliberately run the sync.
 | `1.21` | 1.21 | `>=1.21- <1.21.1` | standalone stack (source byte-identical to 1.21.1 — shared pre-1.21.2 blit API) | 21 |
 | `1.21.5` | 1.21.5 | `>=1.21.3- <1.21.6` | standalone stack (blit-rework + HitboxRenderState era) | 21 |
 | `1.21.8` | 1.21.8 | `>=1.21.6- <1.21.9` | standalone stack (Matrix3x2fStack + no-setShaderColor era) | 21 |
-| `1.21.11` | 1.21.10, 1.21.11 | `>=1.21.10- <1.22` | standalone stack (render-pipeline + world-event-v2 era) | 21 |
+| `1.21.10` | 1.21.10 | `>=1.21.10- <1.21.11` | standalone stack (split from 1.21.11: the 1.21.11 mapping-rename wave made one jar impossible) | 21 |
+| `1.21.11` | 1.21.11 | `>=1.21.10- <1.22` | standalone stack (render-pipeline + world-event-v2 era) | 21 |
 
 All are boot-verified with zero mixin-apply failures and full shader
 integration (Iris + Sodium from the catalog pins). Each module's
@@ -75,11 +76,31 @@ each stays out of `OriginBuilds`, so the picker greys it "Coming Soon"
 1.21.3/1.21.4; 1.21.8 → 1.21.6/1.21.7; the 1.21.11 module → 1.21.9 once its
 Fabric-API `.world` path is reverted).
 
+**Gone LIVE 2026-07-14 (launcher-v1.0.23):** `1.20.2`, `1.21.4` (covers 1.21.2/3/4),
+`1.21.6` (covers 1.21.6/7), and the `1.21.10` split — all boot-swept clean, in-world
+verified on 1.21.11 by Will (outline, overlay, chunk borders, particles, motion blur,
+zoom, lock icon). Remaining known gaps: motion blur inert on <=1.21.5 (no persistent
+post-target support), and hitboxes/nametags/tile-entity-culling absent on
+1.21.10/1.21.11 (deferred-render port pending).
+
 ## Staged versions (in `staged/`)
 
-| Module | Covers | Blocking | Guide |
-|--------|--------|----------|-------|
-| `26.2` | 26.2 | render layer mid-port to the retained-mode GUI; does not compile (most source parked in `disabled262/`). Java 25. The 1.21.11 module's port (see its overrides.txt) solved many of the same API moves — start there. | `staged/26.2/PORT-262.md` |
+| Module | Covers | Status | Blocking / next step |
+|--------|--------|--------|----------------------|
+| `26.2` | 26.2 | does NOT compile | render layer mid-port to the retained-mode GUI (most source parked in `disabled262/`). Java 25. The 1.21.11 module's port solved many of the same API moves — start there. `staged/26.2/PORT-262.md` |
+
+The three 1.20.2/1.21.4/1.21.6 modules above are wired into the launcher
+(`VersionManager.OriginBuilds` + the csproj bundle, both pointing at their
+`staged/` jars) and offered in the picker for boot-testing. **1.21.9 was pulled
+entirely** (removed from `VersionCatalog` — it was the hard input-event-boundary +
+fabric-API-gap hybrid; not worth carrying). Its analysis lives in memory if ever
+revisited.
+
+**Not attempted — 1.16.5, 1.17.x, 1.18.x, 1.19.x:** these are pre-`GuiGraphics`
+(it only exists since 1.20). 28 of a module's 69 files + 11 `shared/` files draw
+through `GuiGraphics` (~138 call-sites); pre-1.20 uses `PoseStack` + static
+`GuiComponent` draws instead. That's a second rendering backend — a large separate
+project, not a gap-port.
 
 ## Flipping a staged version live — the 3 coupling points
 

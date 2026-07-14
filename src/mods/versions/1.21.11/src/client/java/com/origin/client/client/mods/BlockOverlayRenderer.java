@@ -3,58 +3,115 @@ package com.origin.client.client.mods;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginColorPicker;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.BlockOutlineRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-// Block Outline + Block Overlay, via Fabric's BLOCK_OUTLINE event (which hands
-// us both the lines buffer AND the world matrix, so we can draw a filled
-// overlay the old renderHitOutline mixin couldn't).
+// Block Outline + Block Overlay, drawn from LevelRendererMixin's direct hook on
+// vanilla's renderBlockOutline (the Lunar model: own the draw path; Fabric's
+// BEFORE_BLOCK_OUTLINE event proved fragile on 1.21.11).
 //   outline  — custom-coloured selection outline; width 1..10 via offset passes.
 //   overlay  — a translucent fill over the block's shape (overlayColor).
 //   side     — with overlay on, fill ONLY the face the crosshair is on.
-// Returning false cancels vanilla's white outline so only ours shows; if both
-// sub-toggles are off we defer to vanilla.
+// renderDirect returns TRUE when Origin drew (the mixin then cancels vanilla's
+// white outline); false defers to vanilla entirely.
 public final class BlockOverlayRenderer {
 	private BlockOverlayRenderer() {
 	}
 
-	public static boolean onBlockOutline(WorldRenderContext wctx, BlockOutlineRenderState octx) {
-		if (!Mods.on("blockoverlay")) {
-			return true;
+	/**
+	 * END_MAIN entry point — the ONE world-render path proven to execute in the
+	 * real launcher instance under Sodium+Iris (the chunk-border LineWidth crash
+	 * fired from it). Vanilla still extracts blockOutlineRenderState every frame
+	 * even when Sodium bypasses vanilla's own outline draw, so we read it from
+	 * the world state here and draw ourselves. Vanilla's outline is suppressed
+	 * separately by LevelRendererMixin (cancel-only, no drawing there).
+	 */
+	public static void renderFromWorldEvent(net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext context) {
+		// One-time diagnostic breadcrumbs: each branch logs once so a real-world
+		// session pinpoints exactly where this path dies (Sodium/Iris debugging).
+		if (!loggedEvent) {
+			loggedEvent = true;
+			com.origin.client.OriginClient.LOGGER.info("Origin[outline]: END_MAIN fired (matrices={}, consumers={})",
+					context.matrices() != null, context.consumers() != null);
+		}
+		BlockOutlineRenderState octx = context.worldState().blockOutlineRenderState;
+		if (octx == null) {
+			return; // no block targeted this frame (or state not extracted)
+		}
+		if (!loggedTarget) {
+			loggedTarget = true;
+			com.origin.client.OriginClient.LOGGER.info("Origin[outline]: target state present at {}", octx.pos());
+		}
+		if (context.matrices() == null || context.consumers() == null) {
+			return;
+		}
+		try {
+			boolean drew = renderDirect(context.matrices(), context.consumers(), context.worldState().cameraRenderState.pos, octx);
+			if (!drew && !loggedNoDraw) {
+				loggedNoDraw = true;
+				com.origin.client.OriginClient.LOGGER.info("Origin[outline]: renderDirect returned false (on={}, outline={}, overlay={})",
+						Mods.on("blockoverlay"), Mods.bool("blockoverlay", "outline"), Mods.bool("blockoverlay", "overlay"));
+			}
+		} catch (Throwable t) {
+			if (!loggedThrow) {
+				loggedThrow = true;
+				com.origin.client.OriginClient.LOGGER.error("Origin[outline]: draw threw", t);
+			}
+		}
+	}
+
+	private static boolean loggedNoDraw = false;
+	private static boolean loggedThrow = false;
+
+	private static boolean loggedEvent = false;
+	private static boolean loggedTarget = false;
+
+	/** True when the mod would take over outline drawing for this target. */
+	public static boolean wouldDraw(BlockOutlineRenderState octx) {
+		return octx != null && Mods.on("blockoverlay")
+				&& (Mods.bool("blockoverlay", "outline") || Mods.bool("blockoverlay", "overlay"))
+				&& (octx.shape() != null || Mods.bool("blockoverlay", "showHiddenFoliage"));
+	}
+
+	/** Returns true when Origin drew the outline/overlay (caller cancels vanilla). */
+	public static boolean renderDirect(PoseStack poseStack, MultiBufferSource consumers, Vec3 cam, BlockOutlineRenderState octx) {
+		if (octx == null || !Mods.on("blockoverlay")) {
+			return false;
 		}
 		boolean outline = Mods.bool("blockoverlay", "outline");
 		boolean overlay = Mods.bool("blockoverlay", "overlay");
 		if (!outline && !overlay) {
-			return true;
+			return false;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || wctx.matrices() == null || wctx.consumers() == null) {
-			return true;
+		if (mc.level == null) {
+			return false;
 		}
 		BlockPos pos = octx.pos();
-		// 1.21.11 hands us the already-extracted interaction shape instead of
-		// the BlockState + entity collision context.
-		VoxelShape shape = octx.interactionShape();
-		if (shape.isEmpty()) {
+		// 1.21.11: the render state's 4-arg ctor only fills shape(); the other
+		// shape fields (interactionShape etc.) are NULL in real gameplay — that
+		// NPE was the silently-swallowed killer of every outline attempt.
+		VoxelShape shape = octx.shape();
+		if (shape == null || shape.isEmpty()) {
 			// Show Hidden Foliage: grass/crops with an empty collision shape get
 			// no outline normally — fall back to a full-block box so they're
 			// highlighted. Off (default) keeps vanilla's "no outline" behavior.
 			if (!Mods.bool("blockoverlay", "showHiddenFoliage")) {
-				return true;
+				return false;
 			}
 			shape = net.minecraft.world.phys.shapes.Shapes.block();
 		}
-		var cam = wctx.worldState().cameraRenderState.pos;
 		double ox = pos.getX() - cam.x;
 		double oy = pos.getY() - cam.y;
 		double oz = pos.getZ() - cam.z;
-		PoseStack.Pose pose = wctx.matrices().last();
+		PoseStack.Pose pose = poseStack.last();
 
 		if (overlay) {
 			int col = OriginColorPicker.liveColor("blockoverlay", "overlayColor");
@@ -63,7 +120,7 @@ public final class BlockOverlayRenderer {
 					&& bhr.getBlockPos().equals(pos)) {
 				only = bhr.getDirection();
 			}
-			VertexConsumer q = wctx.consumers().getBuffer(RenderTypes.debugQuads());
+			VertexConsumer q = consumers.getBuffer(RenderTypes.debugQuads());
 			Direction faceOnly = only;
 			shape.forAllBoxes((minX, minY, minZ, maxX, maxY, maxZ) ->
 					fillBox(q, pose, minX + ox, minY + oy, minZ + oz, maxX + ox, maxY + oy, maxZ + oz, col, faceOnly));
@@ -72,7 +129,7 @@ public final class BlockOverlayRenderer {
 		if (outline) {
 			int col = OriginColorPicker.liveColor("blockoverlay", "color");
 			int passes = (int) Math.max(1, Math.min(10, Mods.num("blockoverlay", "thickness")));
-			VertexConsumer lines = wctx.consumers().getBuffer(RenderTypes.lines());
+			VertexConsumer lines = consumers.getBuffer(RenderTypes.lines());
 			float r = ((col >> 16) & 0xFF) / 255f, g = ((col >> 8) & 0xFF) / 255f, b = (col & 0xFF) / 255f;
 			float a = ((col >>> 24) & 0xFF) / 255f;
 			if (a <= 0f) {
@@ -95,13 +152,23 @@ public final class BlockOverlayRenderer {
 						ny /= len;
 						nz /= len;
 					}
-					lines.addVertex(pose, ax, ay, az).setColor(fr, fg, fb, fa).setNormal(pose, nx, ny, nz);
-					lines.addVertex(pose, bx, by, bz).setColor(fr, fg, fb, fa).setNormal(pose, nx, ny, nz);
+					// 1.21.11: lines format requires a per-vertex LineWidth element, else
+					// "Missing elements in vertex: LineWidth" crashes at the buffer flush.
+					lines.addVertex(pose, ax, ay, az).setColor(fr, fg, fb, fa).setNormal(pose, nx, ny, nz).setLineWidth(Math.max(1.0f, passes));
+					lines.addVertex(pose, bx, by, bz).setColor(fr, fg, fb, fa).setNormal(pose, nx, ny, nz).setLineWidth(Math.max(1.0f, passes));
 				});
 			}
 		}
-		return false;
+		if (!loggedFirstDraw) {
+			loggedFirstDraw = true;
+			// One-time breadcrumb: proves in the log whether the outline draw path
+			// actually runs in a real world (visibility debugging on 1.21.11).
+			com.origin.client.OriginClient.LOGGER.info("Origin: block outline/overlay drew (outline={}, overlay={})", outline, overlay);
+		}
+		return true;
 	}
+
+	private static boolean loggedFirstDraw = false;
 
 	// Fills a box's faces with a translucent colour (QUADS). `only` limits to a
 	// single face; null fills all six. Faces are outset a hair to avoid z-fight.

@@ -131,7 +131,11 @@ public final class ChunkBorderRenderer {
 			ny /= len;
 			nz /= len;
 		}
-		buf.addVertex(pose, (float) ax, (float) ay, (float) az).setColor(r, g, b, a).setNormal(pose, nx, ny, nz);
-		buf.addVertex(pose, (float) bx, (float) by, (float) bz).setColor(r, g, b, a).setNormal(pose, nx, ny, nz);
+		// 1.21.11: the lines vertex format REQUIRES a per-vertex LineWidth element —
+		// omitting it throws "Missing elements in vertex: LineWidth" at the shared
+		// buffer flush (outside our try/catch), crashing the game. Thickness is still
+		// emulated via offset passes, so a unit width here just satisfies the format.
+		buf.addVertex(pose, (float) ax, (float) ay, (float) az).setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
+		buf.addVertex(pose, (float) bx, (float) by, (float) bz).setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
 	}
 }

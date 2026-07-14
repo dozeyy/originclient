@@ -80,6 +80,12 @@ public final class OriginButtonRenderer {
 
 	/** Origin-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(GuiGraphics guiGraphics, AbstractButton button) {
+		// Difficulty-lock padlock: vanilla draws it as a compact lock ICON, but the
+		// Origin pill restyle would print its full "Lock Difficulty" message text,
+		// oversized. Leave this one button vanilla so the icon shows.
+		if (button instanceof net.minecraft.client.gui.components.LockIconButton) {
+			return false;
+		}
 		if (broken) {
 			return false;
 		}

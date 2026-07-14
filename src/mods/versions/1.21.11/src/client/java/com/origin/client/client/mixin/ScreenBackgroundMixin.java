@@ -57,6 +57,17 @@ public class ScreenBackgroundMixin {
 		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, originclient$hoveringClickable());
 	}
 
+@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
+	private void originclient$suppressTitlePanorama(GuiGraphics guiGraphics, float partialTick, CallbackInfo ci) {
+		// 1.21.6+: renderPanorama moved TitleScreen -> Screen, so TitleScreenMixin
+		// can no longer bind it. Suppress it ONLY on the title screen (the sole
+		// screen with a panorama) when Origin's main-menu style is active + healthy.
+		if ((Object) this instanceof net.minecraft.client.gui.screens.TitleScreen
+				&& com.origin.client.client.mods.Mods.mode(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle").equals("Origin")
+				&& OriginScreenRenderer.isActive()) {
+			ci.cancel();
+		}
+	}
 	@Inject(method = "renderMenuBackgroundTexture", at = @At("HEAD"), cancellable = true)
 	private static void originclient$noListTexture(GuiGraphics guiGraphics, Identifier texture, int x, int y, float uOffset, float vOffset, int width, int height, CallbackInfo ci) {
 		// Gated on renderer health: if the Origin backdrop is broken, lists

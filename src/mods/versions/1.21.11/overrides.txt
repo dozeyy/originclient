@@ -17,3 +17,6 @@ client/java/com/origin/client/client/mixin/MouseHandlerMixin.java
 client/java/com/origin/client/client/mixin/PauseScreenMixin.java
 client/java/com/origin/client/client/mixin/ToastComponentMixin.java
 client/java/com/origin/client/client/mixin/loading/ReceivingLevelScreenMixin.java
+client/java/com/origin/client/client/mixin/GameRendererMixin.java
+client/java/com/origin/client/client/mixin/LightTextureMixin.java
+client/java/com/origin/client/client/mixin/CheckboxMixin.java

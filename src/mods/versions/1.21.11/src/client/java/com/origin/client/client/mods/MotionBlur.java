@@ -13,9 +13,9 @@ import net.minecraft.resources.Identifier;
 // feature silently no-ops.
 public final class MotionBlur {
 	private static final Identifier[] EFFECTS = {
-			Identifier.fromNamespaceAndPath("originclient", "shaders/post/motion_blur_1.json"),
-			Identifier.fromNamespaceAndPath("originclient", "shaders/post/motion_blur_2.json"),
-			Identifier.fromNamespaceAndPath("originclient", "shaders/post/motion_blur_3.json"),
+			Identifier.fromNamespaceAndPath("originclient", "motion_blur_1"),
+			Identifier.fromNamespaceAndPath("originclient", "motion_blur_2"),
+			Identifier.fromNamespaceAndPath("originclient", "motion_blur_3"),
 	};
 
 	private static int loadedStep = 0; // 0 = off, 1..3 = variant strength

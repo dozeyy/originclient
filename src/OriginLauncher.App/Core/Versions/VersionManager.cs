@@ -104,8 +104,31 @@ public sealed class VersionManager
             // 1.21.3, 1.21.4, 1.21.6, 1.21.7, 1.21.9. Each needs its own port +
             // boot verify; the 1.21.5/1.21.8 modules are the templates for the
             // sub-families around them.
-            ["1.21.10"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            // 1.21.10 and 1.21.11 are SEPARATE sub-families: Mojang's 1.21.11 mapping
+            // rename wave (ResourceLocation→Identifier, RenderType→rendertype.RenderType,
+            // projectile subpackages, DynamicTexture.setFilter removed→getSamplerCache)
+            // means the 1.21.11 jar NoClassDefFounds on 1.21.10. Each has its own build.
+            ["1.21.10"] = new("originclient-1.21.10.jar", BundlesPerfStack: false),
             ["1.21.11"] = new("originclient-1.21.11.jar", BundlesPerfStack: false),
+            // --- Gap sub-families staged 2026-07-13 (src/mods/staged/*) ---
+            // Compile-verified against each version's mapped jar; ENABLED here for
+            // local boot-testing. Each still needs a `runClient`/launcher boot check
+            // (zero Mixin-apply failures + full Origin menus) before any release tag.
+            // Perf/shader stack for all of these is already Full in the catalog.
+            //
+            // 1.21.2/1.21.3/1.21.4 — one API family (pre-HitboxRenderState, post-
+            // 1.21.2 blit). ONE jar (originclient-1.21.4.jar), range >=1.21.2- <1.21.5.
+            ["1.21.2"] = new("originclient-1.21.4.jar", BundlesPerfStack: false),
+            ["1.21.3"] = new("originclient-1.21.4.jar", BundlesPerfStack: false),
+            ["1.21.4"] = new("originclient-1.21.4.jar", BundlesPerfStack: false),
+            // 1.21.6/1.21.7 — same API family as the live 1.21.8 (its jar already
+            // declares >=1.21.6- <1.21.9). ONE jar (originclient-1.21.6.jar), built
+            // from the 1.21.8 source with zero code deltas.
+            ["1.21.6"] = new("originclient-1.21.6.jar", BundlesPerfStack: false),
+            ["1.21.7"] = new("originclient-1.21.6.jar", BundlesPerfStack: false),
+            // 1.20.2 — same 1.20.2+ renderBackground family as the live 1.20.4 (zero
+            // code deltas; background mixin descriptors javap-verified identical).
+            ["1.20.2"] = new("originclient-1.20.2.jar", BundlesPerfStack: false),
             // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
             // proven, but the render layer is mid-port to 26.2's retained-mode GUI

@@ -174,7 +174,7 @@ public class OriginModMenuScreen extends Screen {
 
 	private double maxScroll() {
 		int rows = (filtered.size() + cols - 1) / cols;
-		return Math.max(0, rows * (cellH + gap) - gap - (py() + ph() - 10 - gridTop()));
+		return Math.max(0, rows * (cellH + gap) - gap - (py() + ph() - 18 - gridTop()));
 	}
 
 	// ---- render ----
@@ -355,7 +355,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 
 		// grid
-		g.enableScissor(px(), gridTop(), px() + pw(), py() + ph() - 8);
+		g.enableScissor(px(), gridTop(), px() + pw(), py() + ph() - 18);
 		for (int i = 0; i < filtered.size(); i++) {
 			int[] r = cellRect(i);
 			if (r[3] < gridTop() - cellH || r[1] > py() + ph()) {

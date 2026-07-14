@@ -1,0 +1,29 @@
+{
+  "targets": [
+    "swap",
+    "prev"
+  ],
+  "passes": [
+    {
+      "name": "originclient_motion_blur_2",
+      "intarget": "minecraft:main",
+      "outtarget": "swap",
+      "auxtargets": [
+        {
+          "name": "PrevSampler",
+          "id": "prev"
+        }
+      ]
+    },
+    {
+      "name": "blit",
+      "intarget": "swap",
+      "outtarget": "prev"
+    },
+    {
+      "name": "blit",
+      "intarget": "swap",
+      "outtarget": "minecraft:main"
+    }
+  ]
+}

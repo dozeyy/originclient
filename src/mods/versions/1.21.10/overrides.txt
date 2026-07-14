@@ -1,0 +1,21 @@
+# Files under src/ that this module DELIBERATELY diverges from
+# src/mods/shared/ on. tools/shared-sync/sync.py never copies these
+# into this module. One path per line, relative to this module's src/.
+#
+# 1.21.11 forked these from shared during the render-pipeline-era port
+# (2026-07-13): Identifier/RenderType renames, per-blit ARGB tints, the
+# input-event API, EntityEquipment armor slots, typed key categories, and
+# two shared files that no longer exist here at all (ToastComponentMixin
+# became ToastManagerMixin; ReceivingLevelScreen was removed from the game).
+client/java/com/origin/client/client/GeneralSettings.java
+client/java/com/origin/client/client/OriginKeyBindings.java
+client/java/com/origin/client/client/mixin/BlockEntityRenderDispatcherMixin.java
+client/java/com/origin/client/client/mixin/GameRendererAccessor.java
+client/java/com/origin/client/client/mixin/GuiScoreboardMixin.java
+client/java/com/origin/client/client/mixin/LevelTimeMixin.java
+client/java/com/origin/client/client/mixin/MouseHandlerMixin.java
+client/java/com/origin/client/client/mixin/PauseScreenMixin.java
+client/java/com/origin/client/client/mixin/ToastComponentMixin.java
+client/java/com/origin/client/client/mixin/loading/ReceivingLevelScreenMixin.java
+client/java/com/origin/client/client/mixin/GameRendererMixin.java
+client/java/com/origin/client/client/mixin/LightTextureMixin.java

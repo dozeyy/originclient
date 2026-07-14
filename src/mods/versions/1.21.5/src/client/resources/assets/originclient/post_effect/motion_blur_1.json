@@ -1,0 +1,29 @@
+{
+    "targets": { "swap": {}, "prev": {} },
+    "passes": [
+        {
+            "vertex_shader": "minecraft:post/blit",
+            "fragment_shader": "originclient:post/motion_blur",
+            "inputs": [
+                { "sampler_name": "In", "target": "minecraft:main" },
+                { "sampler_name": "Prev", "target": "prev" }
+            ],
+            "output": "swap",
+            "uniforms": [ { "name": "Blend", "type": "float", "values": [ 0.70 ] } ]
+        },
+        {
+            "vertex_shader": "minecraft:post/blit",
+            "fragment_shader": "minecraft:post/blit",
+            "inputs": [ { "sampler_name": "In", "target": "swap" } ],
+            "output": "prev",
+            "uniforms": [ { "name": "ColorModulate", "type": "vec4", "values": [ 1.0, 1.0, 1.0, 1.0 ] } ]
+        },
+        {
+            "vertex_shader": "minecraft:post/blit",
+            "fragment_shader": "minecraft:post/blit",
+            "inputs": [ { "sampler_name": "In", "target": "swap" } ],
+            "output": "minecraft:main",
+            "uniforms": [ { "name": "ColorModulate", "type": "vec4", "values": [ 1.0, 1.0, 1.0, 1.0 ] } ]
+        }
+    ]
+}

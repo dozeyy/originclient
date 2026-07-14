@@ -118,6 +118,37 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <!-- Gap sub-families staged 2026-07-13 — compile-verified, bundled for local
+         boot-testing. 1.21.4 jar covers 1.21.2/3/4; 1.21.6 jar covers 1.21.6/7. -->
+    <Content Condition="Exists('..\mods\versions\1.20.2\build\libs\originclient-1.20.2-0.4.1.jar')"
+             Include="..\mods\versions\1.20.2\build\libs\originclient-1.20.2-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.20.2.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Condition="Exists('..\mods\versions\1.21.4\build\libs\originclient-1.21.4-0.4.1.jar')"
+             Include="..\mods\versions\1.21.4\build\libs\originclient-1.21.4-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.21.4.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Condition="Exists('..\mods\versions\1.21.6\build\libs\originclient-1.21.6-0.4.1.jar')"
+             Include="..\mods\versions\1.21.6\build\libs\originclient-1.21.6-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.21.6.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <!-- 1.21.10 split from 1.21.11 (own sub-family; the 1.21.11 mapping rename wave). -->
+    <Content Condition="Exists('..\mods\versions\1.21.10\build\libs\originclient-1.21.10-0.4.1.jar')"
+             Include="..\mods\versions\1.21.10\build\libs\originclient-1.21.10-0.4.1.jar">
+      <Link>Bundled\OriginClient\originclient-1.21.10.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
   </ItemGroup>
 
 </Project>

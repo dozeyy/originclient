@@ -98,8 +98,8 @@ public class TitleScreenMixin {
 
 	// Remove the yellow splash text (Origin style only).
 	@Redirect(method = "render", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/components/SplashRenderer;render(Lnet/minecraft/client/gui/GuiGraphics;ILnet/minecraft/client/gui/Font;I)V"))
-	private void originclient$noSplash(SplashRenderer instance, GuiGraphics guiGraphics, int screenWidth, Font font, int color) {
+			target = "Lnet/minecraft/client/gui/components/SplashRenderer;render(Lnet/minecraft/client/gui/GuiGraphics;ILnet/minecraft/client/gui/Font;F)V"))
+	private void originclient$noSplash(SplashRenderer instance, GuiGraphics guiGraphics, int screenWidth, Font font, float color) {
 		if (!originclient$origin()) {
 			instance.render(guiGraphics, screenWidth, font, color);
 		}

@@ -95,6 +95,11 @@ public class OriginClientMod implements ClientModInitializer {
 			} catch (Throwable t) {
 				// overlay must never take the frame down
 			}
+			try {
+				com.origin.client.client.mods.BlockOverlayRenderer.renderFromWorldEvent(context);
+			} catch (Throwable t) {
+				// outline must never take the frame down
+			}
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
 		// container screen is open, so draw the potion element over it here.
@@ -107,14 +112,9 @@ public class OriginClientMod implements ClientModInitializer {
 				});
 			}
 		});
-		// Block Outline + Overlay (own colour/width + translucent fill).
-		net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((wctx, octx) -> {
-			try {
-				return com.origin.client.client.mods.BlockOverlayRenderer.onBlockOutline(wctx, octx);
-			} catch (Throwable t) {
-				return true; // fail-soft: let vanilla draw its outline
-			}
-		});
+		// Block Outline + Overlay draws from LevelRendererMixin's direct hook on
+		// renderBlockOutline (1.21.11) - the Fabric BEFORE_BLOCK_OUTLINE event
+		// proved fragile here, so there is deliberately no registration.
 	}
 
 	// Flush everything to disk once, when Minecraft is shutting down. Each

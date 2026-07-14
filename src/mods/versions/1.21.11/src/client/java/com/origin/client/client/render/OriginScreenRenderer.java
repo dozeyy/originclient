@@ -907,9 +907,15 @@ public final class OriginScreenRenderer {
 			image = NativeImage.read(in);
 		}
 		Identifier id = Identifier.fromNamespaceAndPath("originclient", name);
-		// 1.21.11: DynamicTexture takes a debug-label supplier; per-texture
-		// setFilter is gone (sampling is owned by the pipeline/sampler now).
-		DynamicTexture texture = new DynamicTexture(() -> "originclient:" + name, image);
+		// 1.21.11: DynamicTexture lost setFilter — filtering now rides the texture's
+		// GpuSampler. GUI_TEXTURED's default samples NEAREST (choppy icons/font), so
+		// bind a LINEAR clamp sampler to match the smooth pre-1.21.6 look.
+		DynamicTexture texture = new DynamicTexture(() -> "originclient:" + name, image) {
+			{
+				// 1.21.11 dropped setFilter; bind a LINEAR clamp sampler for smooth icons/font.
+				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+			}
+		};
 		mc.getTextureManager().register(id, texture);
 		return id;
 	}
