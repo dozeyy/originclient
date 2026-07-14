@@ -3411,3 +3411,31 @@ missing. Root causes + fixes, all screenshot-verified through the launcher:
 - Boot-test note: the launcher pipeline re-installs the BUNDLED jar over
   mods/originclient.jar every launch — hand-copying a jar into the instance is
   useless; refresh the harness's Bundled/ copy instead.
+
+## 2026-07-14 — Legacy round-2 fixes (Will's 2nd play-test); FPS-regression lesson
+Second feedback pass. Key durable lessons:
+- **DON'T move per-tick logic onto the per-frame RenderTickEvent if it reads
+  the Gson config.** Round-1's time-changer blink fix pinned time every
+  rendered frame (300+/s) with `Mods.num()` JSON reads — the boxing churn
+  caused Will's "super inconsistent FPS." Fix: singleplayer sets gamerule
+  `doDaylightCycle` false + `WorldServer.setWorldTime()` ONCE (authoritative,
+  no packet fight, no blink, zero per-frame work); MP keeps a light cached
+  client-side pin. Night-vision fullbright likewise: apply once at duration
+  1000000, never re-add (each re-add = a lightmap-rebuild hitch).
+- **OptiFine reclaims `mc.loadingScreen`** after mod init, leaving the vanilla
+  "building terrain" screen. A one-shot swap loses; re-assert every client
+  tick via `!(mc.loadingScreen instanceof OriginLoadingRenderer)`.
+- **When Will says "match 1.21.1," use the EXACT modern constants, don't
+  invent.** Extracted from versions/1.20 + 1.21.1: title cursor glow =
+  0.38/frame dt-corrected + 250ms hover ramp; mod card icon top pinned at
+  cardTop+12 (grows down, NOT centered); quick HUD editor is SCREEN-CENTERED
+  in native GUI units (`btnY=(height-28)/2`), not eff-2/lower-third. My
+  invented values (0.55 glow, y+18 icon, lower-third editor) were all wrong.
+- **`worldServerForDimension(int)` → `getWorld(int)` in 1.12.2 MCP** (was
+  unchanged assumption; it's renamed). `world.provider.getDimensionId()` →
+  `getDimension()`.
+- Shader browser: 9 packs now (added KUDA/Tea/Complementary Reimagined/BSL —
+  all list 1.8.9+1.12.2 OptiFine support on Modrinth).
+- **Testing caveat:** a legacy test window sitting behind an exclusive-
+  fullscreen game (Valorant) dies abruptly at OptiFine GL init (context loss)
+  — NOT a mod bug. Don't interactive-test behind Will's active fullscreen game.
