@@ -65,16 +65,22 @@ docs/RELEASING.md         how shipping works (tag flow)
 - Staged work NEVER lives next to shipped work — `staged/` is the boundary.
 
 ## Supported versions
-1.20, 1.20.1, 1.20.4, 1.21, 1.21.1, 1.21.5, 1.21.8, 1.21.10, 1.21.11 are LIVE
-(Fabric), **plus the legacy pair 1.8.9 and 1.12.2 (Forge + OptiFine), LIVE
-2026-07-14** — each a from-scratch Forge-event port of the Origin surfaces
-(no mixins, `.no-shared-sync`, boot- and shader-verified through the real
-launcher pipeline). 26.2 staged. The 1.21.x line is NOT one build — Minecraft
-rewrote its render/GUI/input system in stages, so each sub-family is its own
-port. The popular gap versions (1.21.5, 1.21.8) shipped; 1.21.2/3/4/6/7/9
-aren't built yet and stay greyed in the picker. Per-version status, API
-boundaries, install models, and the promotion checklist live in
-`src/mods/VERSIONS.md` — keep that file the single source of truth, not this
+1.20, 1.20.1, 1.20.2, 1.20.4, 1.21, 1.21.1, 1.21.2/3/4, 1.21.5, 1.21.6/7,
+1.21.8, 1.21.10, 1.21.11 are LIVE (Fabric), **plus the pre-1.20 set 1.16.5,
+1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 (LIVE 2026-07-15, launcher-v1.0.24)**
+and **the legacy pair 1.8.9 and 1.12.2 (Forge + OptiFine), LIVE 2026-07-14** —
+each a from-scratch Forge-event port of the Origin surfaces (no mixins,
+`.no-shared-sync`, boot- and shader-verified through the real launcher
+pipeline). 26.2 staged. **Pre-1.20 is a SECOND rendering backend**, not a
+gap-port: `GuiGraphics` only exists since 1.20, so those six modules draw via
+`PoseStack` through a per-module `Gfx` wrapper that mirrors the GuiGraphics
+method shapes (1.16.5 additionally is Java 8 + fixed-function GL). They are
+`.no-shared-sync` for that reason. 1.18.1 is deliberately NOT offered (its
+only Sodium is an alpha, its only Iris a pre-release). The 1.21.x line is NOT
+one build — Minecraft rewrote its render/GUI/input system in stages, so each
+sub-family is its own port. Still greyed in the picker: 1.21.9 (pulled). Per-
+version status, API boundaries, install models, and the promotion checklist
+live in `src/mods/VERSIONS.md` — keep that file the single source of truth, not this
 one.
 
 **Verification bar:** compiling clean only proves mixin *targets exist*.
@@ -96,10 +102,20 @@ players. Full rules: `docs/RELEASING.md`.
   for token-at-rest. System.Text.Json for config. Settings writes go through
   `SettingsStore.Update(mutate)` ONLY — never write a whole cached snapshot.
 - Mod: Java + Fabric (loader + API) + Loom + official Mojang mappings. 1.21.x
-  on Java 21, 1.20.x on Java 17 bytecode, 26.2 on Java 25. Shaders via Iris;
-  perf via Sodium/Lithium/FerriteCore. 1.21.1 bundles its perf stack
-  jar-in-jar; other versions get the stack standalone from
-  `PerformanceModCatalog` (`VersionManager.OriginBuilds` records which model).
+  on Java 21, 1.20.x/1.18–1.19.x on Java 17 bytecode, 1.17.1 on 16, 1.16.5 on
+  8, 26.2 on Java 25. Shaders via Iris; perf via Sodium/Lithium/FerriteCore.
+  1.21.1 bundles its perf stack jar-in-jar; other versions get the stack
+  standalone from `PerformanceModCatalog` (`VersionManager.OriginBuilds`
+  records which model).
+- Pre-1.20 mod (1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4): still
+  Fabric + Loom, but a SECOND render backend — no `GuiGraphics` before 1.20, so
+  all drawing goes through each module's `client/gui/Gfx.java` (a PoseStack +
+  `GuiComponent`-statics shim mirroring the GuiGraphics method shapes). Hence
+  `.no-shared-sync` on all six. Era cliffs: `fabric-api` as a depends key does
+  NOT resolve below 1.18 (Fabric API's mod id is `fabric` there — use that);
+  Loom's `splitEnvironmentSourceSets()` fails below 1.18 (no bundled server
+  jar → merged source set); 1.16.5 has no `RenderSystem.setShader*` at all
+  (fixed-function: `TextureManager.bind` + `color4f`).
 - Legacy mod (1.8.9 / 1.12.2): Java 8, Forge, MCP mappings via
   gg.essential.loom (Gradle 8.7, foojay-provisioned JDK 8), NO mixins — all
   Forge events. Launcher side: `LegacyForgeInstaller` (bundled version JSON +
@@ -124,7 +140,18 @@ floating corner controls. In-game menus match this exactly.
 - Newest launch action cancels any in-flight one.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
-## Current state (2026-07-14)
+## Current state (2026-07-15)
+- **1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4 went LIVE 2026-07-15**
+  (`launcher-v1.0.24`) — Will's order: 1.16.5 and everything above it, skipping
+  the unfinished 1.21.x gaps, Lunar-parity coverage. The pre-`GuiGraphics`
+  PoseStack backend (one `Gfx` wrapper per module); all six boot-verified by
+  Will. 1.19.3 got its OWN jar (hybrid era: 1.19.4 APIs but renderButton
+  widgets/no LogoRenderer/dirt bg — the 1.19.4 jar degrades silently there).
+  Boot testing found what a 100%-green mixin audit could not: Fabric API's mod
+  id is `fabric` (not `fabric-api`) below 1.18 → loader refused to start; and
+  1.16.5's `TitleScreen.render()` opens with a full-screen WHITE fill that
+  vanilla hides behind the panorama → suppressing the panorama exposed it and
+  buried the Origin backdrop. Both fixed; full detail in MEMORY.md.
 - **1.8.9 + 1.12.2 went LIVE 2026-07-14** (Will's direct order, amending the
   Fabric-only mandate): full Origin experience re-implemented from scratch on
   legacy Forge (byte-identical art assets, ported theme/scene math, Forge
@@ -154,8 +181,10 @@ floating corner controls. In-game menus match this exactly.
   boot-verified (`src/mods/versions/{1.21.5,1.21.8,1.21.11}`).
 - [x] 1.8.9 + 1.12.2 — legacy pair live (Forge + OptiFine, own from-scratch
   modules), boot- and shader-verified 2026-07-14.
-- [ ] 1.21.2/3/4/6/7/9 — remaining sub-families (templates: the 1.21.5 and
-  1.21.8 modules; boundaries in `src/mods/VERSIONS.md`).
+- [x] 1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 — the pre-1.20 PoseStack
+  backend, live + boot-verified 2026-07-15 (`launcher-v1.0.24`).
+- [ ] 1.21.9 — pulled (input-event boundary + fabric-API gap); analysis in memory.
+- [ ] 1.18.1 — blocked on a stable Sodium/Iris pair (alpha/pre-release only today).
 - [~] 26.2 — staged, render layer mid-port (`src/mods/staged/26.2/PORT-262.md`).
 - [x] Crash system v1 — boot-crash blame + Origin-only retry.
 - [ ] Crash system v2 — in-game Origin debug screen, log-cause detection.

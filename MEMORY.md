@@ -94,10 +94,24 @@ could find (both fixed):
    overwrite conflict" warning is a RED HERRING — white persisted with Iris
    removed AND with Sodium+Indium removed.
 
-**STILL PENDING (Will's gate):** boot check for 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 /
-1.19.4 (1.16.5 done), in-world + shader checks, and the staged→`versions/`
-promotion (3 coupling points + CI build steps + release-jar assertions).
-Compile-clean only proves mixin *targets exist*.
+**SHIPPED 2026-07-15 — `launcher-v1.0.24`.** Will boot-tested all six, so they
+cleared the gate and were promoted `staged/`→`versions/` in one commit (2ba334a):
+both workflows build all six (runner Java 21 cross-compiles via `options.release`
+17/16/8 — no extra setup-java), csproj repointed, and **all six jars added to the
+release "Assert bundled mod jars present" list**. That assertion matters: the
+csproj `<Content>` entries are `Exists()`-conditional, so had the jars not been
+built by CI they'd have been silently absent and every one of these versions would
+have installed with VANILLA menus — a mandate-#2 break that ships green. Verified
+before tagging: `sync.py --check` green (79 files/12 modules), clean build of all
+six from the new paths, and a real single-file publish asserting all 19 jars.
+
+**CI gotcha:** `main` was ALREADY RED before this work — build-check on 1a433dc
+failed at "Build Origin Client mod (1.8.9, Forge)" with `could not resolve plugin
+artifact dev.architectury.architectury-pack200:...:0.1.3`. It is NOT a config bug
+(`maven.architectury.dev` is already in that module's `pluginManagement`
+repositories, and it resolves locally from the gradle cache) — it was a TRANSIENT
+network failure on that runner. The very next run went green with zero changes.
+Don't "fix" it by adding repos; re-run first.
 
 ## 2026-07-13 — 1.21.10 + 1.21.11 LIVE + the "1.21.x is NOT one family" finding
 Will asked for 1.21.2–1.21.11 "all like 1.21.1". Reality: only 1.21.10+1.21.11
