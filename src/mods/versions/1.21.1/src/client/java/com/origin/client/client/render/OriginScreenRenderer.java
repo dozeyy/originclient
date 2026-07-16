@@ -9,6 +9,8 @@ import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.CubeMap;
+import net.minecraft.client.renderer.PanoramaRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
@@ -19,13 +21,19 @@ import java.util.List;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
 
-// Shared Origin screen rendering, used by both the loading screen
-// (LoadingOverlayMixin) and the main menu (TitleScreenMixin): near-black
-// (#050505) background, the pre-rendered crisp orbital rings (mirroring the
-// launcher's OriginBackground), fine grain, and the "Origin" wordmark in the
-// website's Inter font (baked to a texture so it shows instantly and carries no
-// custom-glyph-rendering risk). Matches the original mockup
-// (tools/loading-screen/wordmark_preview.png).
+// Shared Origin screen rendering, used by the loading screen
+// (LoadingOverlayMixin), the main menu (TitleScreenMixin) and every out-of-world
+// menu (ScreenBackgroundMixin). The two surfaces deliberately differ:
+//
+//  - MENUS: the vanilla panorama, live-rotating, blurred, graded into Origin's
+//    palette (renderTitleBackground). The 2026-07-15 redesign put this on the
+//    pixel grid — no rings, grain, particles, vignette or cursor spotlight.
+//  - LOADING: still near-black (#050505) + the pre-rendered orbital rings +
+//    grain + vignette + the baked "ORIGIN" wordmark, matching the original mock
+//    (tools/loading-screen/wordmark_preview.png). The panorama is NOT available
+//    this early — the cubemap's textures aren't loaded yet — so the ring
+//    background stays exactly where it belongs, and keeps the brand mark on the
+//    one screen that has nothing else on it.
 //
 // Textures load via the classloader (not the resource manager), so this is
 // safe during the earliest loading overlay while resources are still loading,
@@ -34,6 +42,19 @@ public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
+
+	// The menu backdrop: vanilla's own panorama cubemap, spun and blurred live.
+	// Both are plain ResourceLocation holders, so building them at class-load is
+	// safe -- no texture is touched until the first render.
+	private static final CubeMap PANORAMA_CUBE = new CubeMap(
+			ResourceLocation.withDefaultNamespace("textures/gui/title/background/panorama"));
+	private static final PanoramaRenderer PANORAMA = new PanoramaRenderer(PANORAMA_CUBE);
+
+	// Origin's "Lighter grade" over the blurred panorama: charcoal at 55% alpha.
+	// Tuned against the approved preview -- enough to mute the world and let
+	// vanilla's white button labels stay legible, while keeping the colour that
+	// made Will pick this variant over the fully-graded one.
+	private static final int GRADE = 0x8C08080A;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
@@ -282,34 +303,64 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Menu background: near-black + rotating rings + grain (behind vanilla's
-	 * logo/buttons). Returns true only if the Origin backdrop actually drew;
-	 * callers that cancel vanilla's own backdrop must key off this.
+	 * Menu background: the vanilla panorama, live-rotating, blurred, then graded
+	 * into Origin's palette. Returns true only if the Origin backdrop actually
+	 * drew; callers that cancel vanilla's own backdrop must key off this.
+	 *
+	 * This replaced an 8-layer composite (flat fill + rings + grain + particles +
+	 * orbiting bodies + vignette + brackets) that cost ~85-100 draw calls a frame,
+	 * most of it the grain tiling ~40 times at 1080p and ~150 at 4K.
+	 *
+	 * Will picked live rotation over a cached blur knowing it is the most
+	 * expensive option -- the panorama cubemap and the blur post-effect both run
+	 * every frame here. If that ever needs winding back, the cheap path is to
+	 * blur once into a texture on menu open and blit that instead (~1 draw call).
 	 */
 	public static boolean renderTitleBackground(GuiGraphics guiGraphics) {
 		if (broken) {
 			return false;
 		}
 		try {
-			ensureLoaded();
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
+			// false = ignore the frozen-tick pause, so the panorama keeps spinning
+			// smoothly on menus that don't advance game time.
+			float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
 
-			guiGraphics.fill(0, 0, w, h, BG_COLOR);
-			if (!ringsFailed) {
-				drawRings(guiGraphics, w, h);
-				drawGrain(guiGraphics, w, h);
-			}
-			// Menu ambient life: drifting dust behind, bodies orbiting the rings
-			// on top -- both under the vignette so the frame still darkens them.
-			drawParticles(guiGraphics, w, h);
-			drawOrbitingBodies(guiGraphics, w, h);
-			drawFrame(guiGraphics, w, h);
+			PANORAMA.render(guiGraphics, w, h, 1.0f, partial);
+
+			// processBlurEffect leaves the blur's own framebuffer bound, so the
+			// main render target MUST be rebound before anything else draws --
+			// otherwise every widget after this (buttons, wordmark, even vanilla's
+			// logo) renders into the wrong target and the screen looks empty except
+			// for the panorama. Vanilla's Screen.renderBlurredBackground does these
+			// two calls as a pair for exactly this reason; they must stay together.
+			mc.gameRenderer.processBlurEffect(partial);
+			mc.getMainRenderTarget().bindWrite(false);
+
+			drawGrade(guiGraphics, w, h);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
+	}
+
+	/**
+	 * The Origin grade over the blurred panorama ("Lighter grade" -- the variant
+	 * that keeps most of the world's colour).
+	 *
+	 * One alpha blend toward charcoal. Blending toward a neutral pulls every
+	 * channel together, so this darkens and mutes in a single pass, which is what
+	 * the grade is mostly doing. It is NOT a true desaturation: that needs
+	 * per-pixel luminance, i.e. cross-channel maths, which GuiGraphics cannot
+	 * express -- fill() and setShaderColor() can only scale channels
+	 * independently. A real desaturate would mean a post-process shader stage.
+	 * Lighter grade is the colour-retaining option by design, so the gap is small
+	 * and in the right direction; revisit only if Will wants the world greyer.
+	 */
+	private static void drawGrade(GuiGraphics guiGraphics, int w, int h) {
+		guiGraphics.fill(0, 0, w, h, GRADE);
 	}
 
 	/**
@@ -322,53 +373,17 @@ public final class OriginScreenRenderer {
 	 * GUI width the way the CSS pixel sizes relate to a typical viewport.
 	 */
 	public static void renderTitleCursorGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		// Purely additive; skip when broken.
-		if (broken) {
-			return;
-		}
-		try {
-			renderTitleCursorGlow0(guiGraphics, mouseX, mouseY, hoveringClickable);
-		} catch (Throwable t) {
-			fail(t);
-		}
+		// Retired by the pixel-grid commit -- deliberately empty.
+		//
+		// This was a two-layer mouse-follow spotlight ported from the website: a
+		// soft radial bloom trailing the cursor. It's the one effect that cannot
+		// exist on Minecraft's pixel grid at any size, because the blur IS the
+		// effect. Kept as an empty method rather than deleted: both call sites are
+		// ScreenBackgroundMixin's two mutually-exclusive paths (cancelled-HEAD for
+		// out-of-world menus, TAIL for in-world), and that pairing is subtle enough
+		// to be worth leaving undisturbed.
 	}
 
-	private static void renderTitleCursorGlow0(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		ensureLoaded();
-		if (radialGlowId == null) {
-			return;
-		}
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-
-		long now = System.nanoTime();
-		double dtMs = glowLastNanos == 0 ? 16.7 : Math.min(100.0, (now - glowLastNanos) / 1_000_000.0);
-		glowLastNanos = now;
-
-		// Hover bloom easing (~0.3s ease, like the site's transition).
-		double target = hoveringClickable ? 1.0 : 0.0;
-		double step = dtMs / 250.0;
-		glowHover = target > glowHover ? Math.min(target, glowHover + step) : Math.max(target, glowHover - step);
-		double hv = OriginTheme.easeOut(glowHover);
-
-		// Halo lag, dt-corrected. The website's 0.12/frame felt too floaty
-		// in-game (Will: "much faster, just a slight lag") -- 0.38/frame keeps
-		// a visible trail but snaps close behind the cursor.
-		if (Double.isNaN(haloX)) {
-			haloX = mouseX;
-			haloY = mouseY;
-		}
-		double f = 1.0 - Math.pow(1.0 - 0.38, dtMs / 16.7);
-		haloX += (mouseX - haloX) * f;
-		haloY += (mouseY - haloY) * f;
-
-		RenderSystem.enableBlend();
-		// Sizes are ~40% of the website's proportional values -- the 1:1
-		// translation read far too big in-game (Will: "shrink by 60% at least").
-		drawRadial(guiGraphics, haloX, haloY, w * (0.14 + 0.04 * hv), 0.112 + 0.063 * hv);
-		drawRadial(guiGraphics, mouseX, mouseY, w * (0.032 + 0.018 * hv), 0.30 + 0.17 * hv);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-	}
 
 	private static void drawRadial(GuiGraphics guiGraphics, double cx, double cy, double diameter, double alpha) {
 		int d = Math.max(2, (int) Math.round(diameter));

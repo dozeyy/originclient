@@ -168,7 +168,14 @@ public sealed class VersionManager
             // (src/mods/versions/1.8.9, /1.12.2 — Forge events, no mixins).
             // BundlesPerfStack is inert for legacy entries: the legacy install
             // branch never consults the Fabric perf catalog at all.
-            ["1.8.9"]  = new("originclient-1.8.9.jar",  BundlesPerfStack: false),
+            // 1.8.9 — DISABLED 2026-07-16 (Will's call: deprioritized, not being
+            // worked for a while). Commenting it out of OriginBuilds is the whole
+            // grey-out: OriginSupportedVersions drops it, so VersionCatalog marks
+            // it unsupported -> the 1.8 card shows "Coming Soon" and can't launch,
+            // and any stale 1.8.9 selection falls back to the default version. The
+            // 1.8.9 module + legacy install code stay in place, ready to re-enable
+            // by uncommenting this line.
+            // ["1.8.9"]  = new("originclient-1.8.9.jar",  BundlesPerfStack: false),
             ["1.12.2"] = new("originclient-1.12.2.jar", BundlesPerfStack: false),
             // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is

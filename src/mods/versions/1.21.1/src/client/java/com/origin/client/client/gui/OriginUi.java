@@ -24,10 +24,8 @@ public final class OriginUi {
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
-	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, iconsTex, glowTex, ringTex, logoTex;
+	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex;
 	private static int panelTexSize = 96, panelCorner = 24;
-	private static int iconCell = 96, atlasW = 576, atlasH = 384;
-	private static final Map<String, int[]> ICONS = new HashMap<>();
 
 	// eased animation state keyed by arbitrary id (switch knobs, hovers)
 	private static final Map<String, double[]> ANIM = new HashMap<>(); // {value, lastNanos, target}
@@ -52,23 +50,30 @@ public final class OriginUi {
 		return (float) OriginTheme.easeOut(st[0]);
 	}
 
-	/** Rounded panel: 9-sliced baked masks, fill + hairline border. */
+	/**
+	 * A surface: flat fill plus a 1px border. Square corners, hard edges.
+	 *
+	 * This is the whole pixel-grid commit in one place. It used to 9-slice baked
+	 * rounded-corner masks through GL_LINEAR, which is why every Origin surface
+	 * read as a web panel dropped into Minecraft. Every surface in the mod menu,
+	 * HUD editor, chips, tooltips and switches draws through here, so squaring it
+	 * squares all of them at once and keeps them consistent by construction.
+	 *
+	 * `corner` is kept in the signature but deliberately ignored -- callers pass
+	 * radii that no longer mean anything, and threading a removal through every
+	 * call site would be churn for no gain. Two fills beat nine blits, too.
+	 */
 	public static void panel(GuiGraphics g, int x, int y, int w, int h, int corner, int fill, int border) {
-		ensureLoaded();
-		if (!ok) {
-			g.fill(x, y, x + w, y + h, fill);
+		if (w <= 0 || h <= 0) {
 			return;
 		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		int cd = Math.min(corner, Math.min(w, h) / 2);
-		tint(fill);
-		nine(g, fillTex, x, y, w, h, cd);
+		g.fill(x, y, x + w, y + h, fill);
 		if (((border >>> 24) & 0xFF) > 0) {
-			tint(border);
-			nine(g, borderTex, x, y, w, h, cd);
+			g.fill(x, y, x + w, y + 1, border);                 // top
+			g.fill(x, y + h - 1, x + w, y + h, border);         // bottom
+			g.fill(x, y + 1, x + 1, y + h - 1, border);         // left
+			g.fill(x + w - 1, y + 1, x + w, y + h - 1, border); // right
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	/**
@@ -103,32 +108,26 @@ public final class OriginUi {
 		return k;
 	}
 
-	/** Hi-res icon from the baked atlas, tinted. */
+	/**
+	 * Mod icon. Now a real Minecraft item (or a baked Origin texture for the few
+	 * ideas no item expresses) -- see ModIcons. The old 96px line-icon atlas is
+	 * gone, so the `argb` tint no longer colours the art: a spyglass has to look
+	 * like a spyglass. Only the ALPHA is honoured, which is what callers actually
+	 * need it for -- the mod menu's open/close and page-swap fades.
+	 */
 	public static void icon(GuiGraphics g, String name, int x, int y, int size, int argb) {
-		ensureLoaded();
-		int[] uv = ok ? ICONS.get(name) : null;
-		if (uv == null) {
-			g.fill(x + 2, y + 2, x + size - 2, y + size - 2, argb);
-			return;
-		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		tint(argb);
-		g.blit(iconsTex, x, y, size, size, uv[0], uv[1], iconCell, iconCell, atlasW, atlasH);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		ModIcons.draw(g, name, x, y, size, ((argb >>> 24) & 0xFF) / 255f);
 	}
 
-	/** Soft radial glow centered at (cx,cy). */
+	/**
+	 * Cursor glow -- intentionally does nothing now.
+	 *
+	 * A soft radial bloom is the opposite of the pixel grid: it's the one effect
+	 * that can't exist on Minecraft's grid at any size, because it IS the blur.
+	 * Kept as a no-op rather than deleted so the call sites (mod menu halo, HUD
+	 * editor) stay readable as "there was a glow here" and don't need touching.
+	 */
 	public static void glow(GuiGraphics g, double cx, double cy, int diameter, float alpha) {
-		ensureLoaded();
-		if (!ok) {
-			return;
-		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
-		g.blit(glowTex, (int) (cx - diameter / 2.0), (int) (cy - diameter / 2.0), diameter, diameter, 0f, 0f, 512, 512, 512, 512);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	/** The 3-ring Origin mark (brand geometry: one ellipse at 0/60/120 deg). */
@@ -245,20 +244,6 @@ public final class OriginUi {
 			glowTex = reg(mc, "ui_glow", "/assets/originclient/textures/ui/radial_glow.png");
 			ringTex = reg(mc, "ui_ring", "/assets/originclient/textures/ui/ring-0.png");
 			logoTex = reg(mc, "ui_logo", "/assets/originclient/textures/ui/origin_logo.png");
-			JsonObject icons = readJson("/assets/originclient/textures/ui/mod_icons.json");
-			iconCell = icons.get("cell").getAsInt();
-			JsonObject list = icons.getAsJsonObject("icons");
-			for (String k : list.keySet()) {
-				JsonObject o = list.getAsJsonObject(k);
-				ICONS.put(k, new int[]{o.get("x").getAsInt(), o.get("y").getAsInt()});
-			}
-			iconsTex = reg(mc, "ui_mod_icons", "/assets/originclient/textures/ui/mod_icons.png");
-			try (InputStream in = OriginUi.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.png")) {
-				NativeImage img = NativeImage.read(in);
-				atlasW = img.getWidth();
-				atlasH = img.getHeight();
-				img.close();
-			}
 			ok = true;
 		} catch (Throwable e) {
 			ok = false;

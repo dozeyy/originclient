@@ -53,6 +53,17 @@ public class HitboxMixin {
 			return;
 		}
 
+		// Your own box, first person: vanilla suppresses the camera entity in the
+		// MAIN pass, but Iris still feeds it to the SHADOW pass -- so it draws only as
+		// a box-shaped shadow on the ground. Skip it for the camera entity in first
+		// person (third person still shows it, matching vanilla). Same reasoning as the
+		// Show Look Vector exclusion below.
+		Minecraft mc = Minecraft.getInstance();
+		if (entity == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson()) {
+			ci.cancel();
+			return;
+		}
+
 		// draw our own styled box, then cancel vanilla's
 		boolean isPlayer = entity instanceof Player;
 		float r = red, g = green, b = blue, a = 1f;

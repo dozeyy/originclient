@@ -8,11 +8,8 @@ client/java/com/origin/client/client/GeneralSettings.java
 client/java/com/origin/client/client/OriginHud.java
 client/java/com/origin/client/client/OriginKeyBindings.java
 client/java/com/origin/client/client/gui/OriginColorPicker.java
-client/java/com/origin/client/client/mixin/AbstractButtonMixin.java
-client/java/com/origin/client/client/mixin/AbstractSliderButtonMixin.java
 client/java/com/origin/client/client/mixin/BlockEntityRenderDispatcherMixin.java
 client/java/com/origin/client/client/mixin/CameraMixin.java
-client/java/com/origin/client/client/mixin/CheckboxMixin.java
 client/java/com/origin/client/client/mixin/ClientLevelTimeMixin.java
 client/java/com/origin/client/client/mixin/EntityRenderDispatcherMixin.java
 client/java/com/origin/client/client/mixin/GameRendererAccessor.java

@@ -107,6 +107,17 @@ public class OriginClientMod implements ClientModInitializer {
 				});
 			}
 		});
+		// The in-game HUD pass is skipped while ANY screen is open, so Origin's HUD
+		// vanishes when the mod menu opens -- a toggle flipped in the menu (Potion
+		// Effects, Armor Status, ...) then doesn't show until you close it. Draw the
+		// HUD over the Origin mod menu so changes preview live, like the inventory
+		// workaround above. renderAll already excludes the HUD editor.
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen instanceof com.origin.client.client.gui.OriginModMenuScreen) {
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) ->
+					com.origin.client.client.hud.HudElements.renderAll(g));
+			}
+		});
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {
