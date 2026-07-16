@@ -332,6 +332,11 @@ public final class Mods {
 
 		add("particles", "Particle Changer", "Per-particle visibility and styling.", false,
 				buildParticleOptions());
+
+		// ---- interface ----
+		// JEI is bundled jar-in-jar (mezz, MIT). It cannot be unloaded at runtime, so
+		// OFF means Origin suppresses its whole render + input surface; vanilla shows through.
+		add("jei", "JEI", "Item and recipe viewer.", false);
 	}
 
 	// Assembles the Particle Changer option list: global controls, then a

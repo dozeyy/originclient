@@ -1,6 +1,8 @@
-# Files under src/ that this module DELIBERATELY diverges from
-# src/mods/shared/ on. tools/shared-sync/sync.py never copies these
-# into this module. One path per line, relative to this module's src/.
-# Files not in shared/ at all (this module's mixins, renderer, etc.)
-# don't need listing - sync only ever touches files that exist in shared/.
+# Files under src/ that this module DELIBERATELY diverges from src/mods/shared/.
+# sync.py never copies these in; build-check --check treats them as intentional forks.
 
+# TEMPORARY FORK (2026-07-16) - JEI on 1.21. The "jei" mod card + the MULTISELECT
+# control (for JEI's sort-order settings) live only where JEI is bundled. Promote
+# to shared/ when JEI ships on every version.
+client/java/com/origin/client/client/mods/Mods.java
+client/java/com/origin/client/client/mods/ModOption.java

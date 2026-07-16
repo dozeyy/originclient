@@ -10,7 +10,10 @@ package com.origin.client.client.mods;
 //   dependsOn — a row nested under a TOGGLE: indented, and only shown while
 //               that toggle is on (Block Outline -> width/mode/color, etc.).
 public final class ModOption {
-	public enum Kind { HEADER, TOGGLE, SLIDER, DROPDOWN, KEYBIND, COLOR }
+	// MULTISELECT: an ORDERED subset of a fixed choice set (JEI sort stages), a
+	// comma-separated list whose membership AND order matter. Row opens the shared
+	// OriginMultiSelect overlay, like COLOR opens the color picker.
+	public enum Kind { HEADER, TOGGLE, SLIDER, DROPDOWN, KEYBIND, COLOR, MULTISELECT }
 
 	public final String key;
 	public final String label;
@@ -99,6 +102,12 @@ public final class ModOption {
 	/** Back-compat alias — same as {@link #dropdown}. */
 	public static ModOption mode(String key, String label, String... choices) {
 		return dropdown(key, label, choices);
+	}
+
+	/** Ordered multi-select over the given choice set; live value is an ordered
+	 *  subset stored comma-separated. `choices` (held in `modes`) is the full set. */
+	public static ModOption multiselect(String key, String label, String... choices) {
+		return new ModOption(key, label, Kind.MULTISELECT, null, 0, 0, 0, 0, null, false, 0, -1, choices);
 	}
 
 	/** Returns a copy of this row nested under the given TOGGLE key. */

@@ -38,7 +38,9 @@
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
 		"IrisWatermarkMixin",
-		"IrisListDecorationsMixin"
+		"IrisListDecorationsMixin",
+		"JeiGuiEventHandlerMixin",
+		"JeiClientInputHandlerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

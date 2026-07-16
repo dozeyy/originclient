@@ -246,12 +246,13 @@ public class OriginModMenuScreen extends Screen {
 
 		// hover tooltip (captured while drawing rows) — above the menu, below
 		// the color picker
-		if (hoverTip != null && !OriginColorPicker.isOpen() && closingAt < 0) {
+		if (hoverTip != null && !OriginColorPicker.isOpen() && !OriginMultiSelect.isOpen() && closingAt < 0) {
 			drawTooltip(g, hoverTipX, hoverTipY, hoverTip);
 		}
 
 		// shared color picker overlay draws last, in raw screen space
 		OriginColorPicker.render(g, mouseX, mouseY);
+		OriginMultiSelect.render(g, mouseX, mouseY);
 	}
 
 	// wraps text to maxW and draws a dark rounded tooltip near (mx,my), clamped
@@ -525,12 +526,12 @@ public class OriginModMenuScreen extends Screen {
 		// scrollable content
 		int top = hy + 62;
 		int bottom = py() + ph() - 10;
-		settingsMaxScroll = layoutRows(mod.options(), mod.id(), top, settingsScroll, settingsSearch);
+		settingsMaxScroll = layoutRows(optionsFor(mod), mod.id(), top, settingsScroll, settingsSearch);
 		g.enableScissor(px(), top, px() + pw(), bottom);
 		drawRows(g, mod.id(), x0, x1, top, bottom, mouseX, mouseY, alpha);
 		g.disableScissor();
 
-		if (mod.options().isEmpty()) {
+		if (optionsFor(mod).isEmpty()) {
 			g.drawString(font, "No additional settings — the switch is everything.",
 					x0, top + 6, withAlpha(OriginTheme.MUTED, alpha), false);
 		}
@@ -559,7 +560,7 @@ public class OriginModMenuScreen extends Screen {
 				first = false;
 				continue;
 			}
-			if (o.dependsOn != null && !Mods.bool(id, o.dependsOn)) {
+			if (o.dependsOn != null && !vBool(id, o.dependsOn)) {
 				continue;
 			}
 			if (searching && !o.label.toLowerCase(java.util.Locale.ROOT).contains(q)) {
@@ -605,6 +606,69 @@ public class OriginModMenuScreen extends Screen {
 		return false;
 	}
 
+	// ---- backing-store dispatch: the "jei" page reads/writes JEI's own config
+	// (JeiSettings), every other page reads/writes ModsConfig (Mods.*). One switch
+	// point per access so the row renderer/click code stays store-agnostic. ----
+
+	private static boolean isJei(String id) {
+		return "jei".equals(id);
+	}
+
+	private java.util.List<ModOption> optionsFor(Mods.Mod mod) {
+		return isJei(mod.id()) ? JeiSettings.options() : mod.options();
+	}
+
+	private boolean vBool(String id, String key) {
+		return isJei(id) ? JeiSettings.getBool(key) : Mods.bool(id, key);
+	}
+
+	private void vSetBool(String id, String key, boolean v) {
+		if (isJei(id)) { JeiSettings.setBool(key, v); } else { Mods.set(id, key, v); }
+	}
+
+	private double vNum(String id, String key) {
+		return isJei(id) ? JeiSettings.getNum(key) : Mods.num(id, key);
+	}
+
+	private void vSetNum(String id, String key, double v) {
+		if (isJei(id)) { JeiSettings.setNum(key, v); } else { Mods.set(id, key, v); }
+	}
+
+	private String vMode(String id, String key) {
+		return isJei(id) ? JeiSettings.getMode(key) : Mods.mode(id, key);
+	}
+
+	private void vSetMode(String id, String key, String v) {
+		if (isJei(id)) { JeiSettings.setMode(key, v); } else { Mods.set(id, key, v); }
+	}
+
+	private String vMulti(String id, String key) {
+		return isJei(id) ? JeiSettings.getMulti(key) : Mods.mode(id, key);
+	}
+
+	private void vSetMulti(String id, String key, String csv) {
+		if (isJei(id)) { JeiSettings.setMulti(key, csv); } else { Mods.set(id, key, csv); }
+	}
+
+	private int multiBtnW(int x0, int x1) {
+		return Math.min(180, Math.max(80, (x1 - x0) / 2));
+	}
+
+	private static java.util.List<String> splitCsv(String csv) {
+		java.util.List<String> out = new java.util.ArrayList<>();
+		if (csv != null) {
+			for (String q : csv.split(",")) {
+				String t = q.trim();
+				if (!t.isEmpty()) { out.add(t); }
+			}
+		}
+		return out;
+	}
+
+	private static String joinCsv(java.util.List<String> tokens) {
+		return String.join(", ", tokens);
+	}
+
 	private void renderRow(GuiGraphics g, String modId, ModOption o, int x0, int x1, int y, int mx, int my, float alpha) {
 		OriginUi.panel(g, x0, y, x1 - x0, 26, 8,
 				withAlpha(clear ? 0xC0101010 : 0x10FFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
@@ -619,9 +683,9 @@ public class OriginModMenuScreen extends Screen {
 		}
 
 		switch (o.kind) {
-			case TOGGLE -> OriginUi.switchAt(g, modId + ":" + o.key, x1 - 40, y + 5, 30, Mods.bool(modId, o.key), true);
+			case TOGGLE -> OriginUi.switchAt(g, modId + ":" + o.key, x1 - 40, y + 5, 30, vBool(modId, o.key), true);
 			case SLIDER -> {
-				double v = Mods.num(modId, o.key);
+				double v = vNum(modId, o.key);
 				double tt = (v - o.min) / (o.max - o.min);
 				int tw = Math.min(140, (x1 - x0) / 3);
 				int tx = x1 - 10 - tw;
@@ -652,13 +716,26 @@ public class OriginModMenuScreen extends Screen {
 				g.drawString(font, name, x1 - 10 - bw + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 			}
 			case DROPDOWN -> {
-				String v = Mods.mode(modId, o.key);
+				String v = vMode(modId, o.key);
 				int bw = Math.max(70, font.width(v) + 34);
 				int bx = x1 - 10 - bw;
 				OriginUi.panel(g, bx, y + 4, bw, 18, 7, withAlpha(0x1EFFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
 				g.drawString(font, "<", bx + 6, y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
 				g.drawString(font, v, bx + (bw - font.width(v)) / 2, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 				g.drawString(font, ">", bx + bw - 6 - font.width(">"), y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+			}
+			case MULTISELECT -> {
+				java.util.List<String> sel = splitCsv(vMulti(modId, o.key));
+				String summary = sel.isEmpty() ? "None"
+						: String.join(", ", sel.stream().map(JeiSettings::prettify).toList());
+				int bw = multiBtnW(x0, x1);
+				int bx = x1 - 10 - bw;
+				boolean bHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
+				OriginUi.panel(g, bx, y + 4, bw, 18, 7,
+						withAlpha(bHover ? 0x2EFFFFFF : 0x1EFFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+				String shown = font.width(summary) > bw - 16
+						? font.plainSubstrByWidth(summary, bw - 22) + "…" : summary;
+				g.drawString(font, shown, bx + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 			}
 		}
 	}
@@ -669,6 +746,9 @@ public class OriginModMenuScreen extends Screen {
 	public boolean mouseClicked(double mx, double my, int button) {
 		if (OriginColorPicker.isOpen()) {
 			return OriginColorPicker.mouseClicked(mx, my, button);
+		}
+		if (OriginMultiSelect.isOpen()) {
+			return OriginMultiSelect.mouseClicked(mx, my, button);
 		}
 		if (button != 0 || closingAt > 0) {
 			return super.mouseClicked(mx, my, button);
@@ -743,7 +823,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 		int top = py() + 12 + 62;
 		int bottom = py() + ph() - 10;
-		settingsMaxScroll = layoutRows(mod.options(), mod.id(), top, settingsScroll, settingsSearch);
+		settingsMaxScroll = layoutRows(optionsFor(mod), mod.id(), top, settingsScroll, settingsSearch);
 		if (my >= top && my <= bottom && clickRows(mod.id(), x0, x1, mx, my)) {
 			return true;
 		}
@@ -771,7 +851,7 @@ public class OriginModMenuScreen extends Screen {
 				// The switch is drawn at (x1-40, y+5) sized 30 x 16 — the click
 				// must land on the pill itself, not anywhere to its right.
 				if (in(mx, my, x1 - 40, y + 5, x1 - 10, y + 21)) {
-					Mods.set(modId, o.key, !Mods.bool(modId, o.key));
+					vSetBool(modId, o.key, !vBool(modId, o.key));
 					// Shader Performance Mode feeds Iris's shadow pipeline, which
 					// caches directive values at pipeline creation — rebuild it so
 					// the change lands coherently (and instantly) instead of
@@ -813,18 +893,31 @@ public class OriginModMenuScreen extends Screen {
 				}
 			}
 			case DROPDOWN -> {
-				int bw = Math.max(70, font.width(Mods.mode(modId, o.key)) + 34);
+				int bw = Math.max(70, font.width(vMode(modId, o.key)) + 34);
 				int bx = x1 - 10 - bw;
 				if (mx >= bx && mx <= x1 - 10) {
 					int dir = mx < bx + bw / 2.0 ? -1 : 1; // left half prev, right half next
-					String cur = Mods.mode(modId, o.key);
+					String cur = vMode(modId, o.key);
 					int idx = 0;
 					for (int i = 0; i < o.modes.length; i++) {
 						if (o.modes[i].equals(cur)) {
 							idx = i;
 						}
 					}
-					Mods.set(modId, o.key, o.modes[(idx + dir + o.modes.length) % o.modes.length]);
+					vSetMode(modId, o.key, o.modes[(idx + dir + o.modes.length) % o.modes.length]);
+					return true;
+				}
+			}
+			case MULTISELECT -> {
+				int bw = multiBtnW(x0, x1);
+				int bx = x1 - 10 - bw;
+				if (mx >= bx && mx <= x1 - 10) {
+					java.util.List<String> allChoices = java.util.Arrays.asList(o.modes);
+					java.util.List<String> sel = splitCsv(vMulti(modId, o.key));
+					String mid = modId;
+					String mkey = o.key;
+					OriginMultiSelect.open(o.label, allChoices, sel,
+							chosen -> vSetMulti(mid, mkey, joinCsv(chosen)));
 					return true;
 				}
 			}
@@ -835,7 +928,7 @@ public class OriginModMenuScreen extends Screen {
 	private void applySlider(ModOption o, double mx) {
 		double t = Math.max(0, Math.min(1, (mx - dragTrackX0) / (double) (dragTrackX1 - dragTrackX0)));
 		double v = o.min + t * (o.max - o.min);
-		Mods.set(dragMod, o.key, Math.round(v / o.step) * o.step);
+		vSetNum(dragMod, o.key, Math.round(v / o.step) * o.step);
 	}
 
 	@Override
@@ -866,7 +959,7 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public boolean mouseScrolled(double mx, double my, double amount) {
-		if (OriginColorPicker.isOpen()) {
+		if (OriginColorPicker.isOpen() || OriginMultiSelect.isOpen()) {
 			return true;
 		}
 		if (page == null) {
@@ -885,6 +978,9 @@ public class OriginModMenuScreen extends Screen {
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (OriginColorPicker.isOpen()) {
 			return OriginColorPicker.keyPressed(keyCode);
+		}
+		if (OriginMultiSelect.isOpen()) {
+			return OriginMultiSelect.keyPressed(keyCode);
 		}
 		if (capMod != null) {
 			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);

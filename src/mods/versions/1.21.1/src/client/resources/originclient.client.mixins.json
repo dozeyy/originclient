@@ -10,10 +10,7 @@
 		"CameraMixin",
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
-		"AbstractButtonMixin",
 		"ScreenBackgroundMixin",
-		"AbstractSliderButtonMixin",
-		"CheckboxMixin",
 		"LevelRendererMixin",
 		"LightTextureMixin",
 		"ParticleEngineMixin",
@@ -21,6 +18,8 @@
 		"LevelTimeMixin",
 		"HitboxMixin",
 		"EntityNametagMixin",
+		"LivingNametagMixin",
+		"LevelWeatherMixin",
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
@@ -30,7 +29,9 @@
 		"EntityRenderDispatcherMixin",
 		"BlockEntityRenderDispatcherMixin",
 		"PauseScreenMixin",
-		"IrisShadowDirectivesMixin"
+		"IrisShadowDirectivesMixin",
+		"JeiGuiEventHandlerMixin",
+		"JeiClientInputHandlerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

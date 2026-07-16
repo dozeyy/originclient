@@ -67,6 +67,27 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
+
+	// Dev-only verification switches, off unless explicitly asked for, so a
+	// normal `runClient` is unchanged.
+	//
+	// Why these exist: our JEI mixins target classes JEI only constructs once its
+	// runtime starts, which is on world join. A boot that stops at the main menu
+	// never loads them, so mixin never applies them and never reports a failure —
+	// a green log that proves nothing. `-Pquickplay="<world>"` drives straight
+	// into a world so the classes actually load, and `-Pmixinexport` dumps the
+	// post-transform bytecode to run/.mixin.out/ so the injection can be read back
+	// out of the class instead of inferred from silence.
+	runs {
+		client {
+			if (project.hasProperty("quickplay")) {
+				programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
+			}
+			if (project.hasProperty("mixinexport")) {
+				property "mixin.debug.export", "true"
+			}
+		}
+	}
 }
 
 dependencies {
@@ -96,6 +117,11 @@ dependencies {
 	// Accessed via reflection only (IrisBridge) so an Iris update can never
 	// break our compile — but bundled jar-in-jar like the rest of the stack.
 	modImplementation(include("maven.modrinth:iris:${irisVersion}"))
+
+	// JEI — item/recipe viewer, bundled like the rest of the stack. See the
+	// coordinate-hazard note in gradle.properties: this pin is ambiguous across
+	// loaders by construction, unlike every other line here.
+	modImplementation(include("maven.modrinth:jei:${project.jei_version}"))
 	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
 	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loom's include() does
 	// NOT propagate a nested mod's OWN nested jars onto the runClient dev
@@ -175,6 +201,11 @@ jar {
 	from("LICENSE") {
 		rename { "${it}_$projectName"}
 	}
+
+	// Notices for the mods we bundle jar-in-jar. Required, not decorative: JEI is
+	// MIT and its own jar carries no LICENSE file, so if Origin doesn't ship the
+	// notice, nothing does and the redistribution is non-compliant.
+	from("THIRD-PARTY-LICENSES.txt")
 }
 
 // configure the maven publication

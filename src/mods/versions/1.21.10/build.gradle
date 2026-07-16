@@ -10,6 +10,17 @@ base {
 
 repositories {
 	mavenCentral()
+
+	// Modrinth maven — for the bundled JEI (jar-in-jar). See gradle.properties.
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Modrinth"
+				url = "https://api.modrinth.com/maven"
+			}
+		}
+		filter { includeGroup "maven.modrinth" }
+	}
 }
 
 loom {
@@ -21,6 +32,21 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
+
+	// Dev-only verification switches (mirror 1.21.11): `-Pquickplay="<world>"`
+	// drives straight into a world so the JEI runtime mixins (GuiEventHandler /
+	// ClientInputHandler) actually load; `-Pmixinexport` dumps post-transform
+	// bytecode to run/.mixin.out/ so the injection can be read back, not inferred.
+	runs {
+		client {
+			if (project.hasProperty("quickplay")) {
+				programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
+			}
+			if (project.hasProperty("mixinexport")) {
+				property "mixin.debug.export", "true"
+			}
+		}
+	}
 }
 
 dependencies {
@@ -28,6 +54,11 @@ dependencies {
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// JEI — item/recipe viewer, bundled jar-in-jar (see gradle.properties). Unlike
+	// the perf stack below, JEI is NOT in the launcher's catalog, so it must ship
+	// inside the Origin jar via include().
+	modImplementation(include("maven.modrinth:jei:${project.jei_version}"))
 
 	// The perf/shader stack (Sodium, Iris, Lithium, ...) is NOT bundled here —
 	// the launcher installs the matching 1.21.11 stack from its
@@ -101,4 +132,6 @@ jar {
 	from("LICENSE") {
 		rename { "${it}_originclient" }
 	}
+	// Notices for the bundled JEI (MIT; its jar carries no LICENSE of its own).
+	from("THIRD-PARTY-LICENSES.txt")
 }

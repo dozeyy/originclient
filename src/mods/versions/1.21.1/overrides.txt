@@ -4,3 +4,25 @@
 # Files not in shared/ at all (this module's mixins, renderer, etc.)
 # don't need listing - sync only ever touches files that exist in shared/.
 
+# TEMPORARY FORK (2026-07-15, Will's call) - JEI.
+# 1.21.1 is the only module that bundles JEI, so it is the only one whose mod
+# registry lists a "jei" card. The card has to live exactly where the JEI mixins
+# live: registering it anywhere else would show a toggle with no code behind it,
+# i.e. a switch that silently does nothing.
+#
+# The cost is real and worth stating: 1.21.1 had ZERO overrides before this, so
+# it tracked shared/ perfectly. From now on a change to shared/Mods.java will NOT
+# reach 1.21.1 - it has to be ported by hand. Whoever edits shared/Mods.java next
+# needs to know that.
+#
+# This fork is meant to DIE: once JEI ships on every version, the "jei" entry
+# belongs in shared/Mods.java unconditionally and this line should be deleted.
+client/java/com/origin/client/client/mods/Mods.java
+
+# TEMPORARY FORK (2026-07-16, Will's call) - JEI settings tab.
+# Adds ModOption.Kind.MULTISELECT + the multiselect() factory, needed by the JEI
+# settings tab (JEI's sort-order settings are ordered multi-selects). Kept a
+# 1.21.1 fork rather than a shared change so the other 11 live, boot-verified
+# modules are untouched. Promote to shared/ (delete this line) when a second
+# version needs a multi-select control.
+client/java/com/origin/client/client/mods/ModOption.java

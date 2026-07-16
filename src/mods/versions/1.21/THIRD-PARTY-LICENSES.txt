@@ -1,0 +1,71 @@
+Origin Client — third-party notices
+===================================
+
+Origin Client bundles the mods below inside its own jar (jar-in-jar, under
+META-INF/jars/). They are the work of their respective authors, not of Origin,
+and each is redistributed under its own licence. This file carries the notices
+those licences require us to ship.
+
+Origin Client's own code is licensed separately — see LICENSE_originclient.
+
+
+-------------------------------------------------------------------------------
+Just Enough Items (JEI)
+-------------------------------------------------------------------------------
+Author:     mezz
+Version:    19.27.0.340 (1.21.1, Fabric)
+Source:     https://github.com/mezz/JustEnoughItems
+Licence:    The MIT License (MIT)
+
+The MIT licence requires that the copyright notice and permission notice below
+be included with all copies of the software. The JEI jar carries no LICENSE file
+of its own, so Origin ships that notice here on its behalf. Text reproduced
+verbatim from LICENSE.txt in the upstream repository.
+
+The MIT License (MIT)
+
+Copyright (c) 2014-2015 mezz
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
+-------------------------------------------------------------------------------
+Other bundled mods — NOT yet covered by this file
+-------------------------------------------------------------------------------
+Origin also bundles the mods below. Their licences are recorded here for
+accuracy; the notice text each one requires has NOT been added yet, because
+that predates the JEI work and is a separate decision for Will. Do not read
+this section as a compliance claim.
+
+  sodium          Polyform-Shield-1.0.0   (source-available, NOT an OSI licence)
+  iris            LGPL-3.0-only
+  lithium         LGPL-3.0-only
+  immediatelyfast LGPL-3.0-or-later
+  modernfix       LGPL-3.0
+  indium          Apache-2.0
+  ferrite-core    MIT
+  twelvemonkeys   "The BSD License" (imageio-*, common-*)
+
+Sourcing, so a later reader can re-check rather than trust this file: every mod
+licence above is the string declared by that mod's own fabric.mod.json inside the
+jar Origin actually bundles, read on 2026-07-15. The twelvemonkeys entry has no
+fabric.mod.json (it is a plain library, not a mod) — its string is what the
+TwelveMonkeys parent POM on Maven Central declares; the upstream README describes
+it as BSD-3-Clause, which is not repeated here because it was not verified against
+the licence text itself.

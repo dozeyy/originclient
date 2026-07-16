@@ -35,7 +35,9 @@
 		"BlockEntityRenderDispatcherMixin",
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
-		"IrisWatermarkMixin"
+		"IrisWatermarkMixin",
+		"JeiGuiEventHandlerMixin",
+		"JeiClientInputHandlerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

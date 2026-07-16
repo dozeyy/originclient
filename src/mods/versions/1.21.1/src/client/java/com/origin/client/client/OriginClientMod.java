@@ -51,6 +51,13 @@ public class OriginClientMod implements ClientModInitializer {
 	// Fly Boost restore latch + thunder-sound cadence counter.
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
+	// JEI onboarding, resolved once at init and surfaced once in-world. foreignJei =
+	// a JEI version other than the bundled one is loaded (a player added their own
+	// jar, which Fabric picked over our nested one). jeiNoticeShown gates the
+	// one-time message.
+	private static final String BUNDLED_JEI = "19.27.0.340";
+	private static String foreignJei = null;
+	private boolean jeiNoticeShown = false;
 
 	@Override
 	public void onInitializeClient() {
@@ -107,6 +114,27 @@ public class OriginClientMod implements ClientModInitializer {
 				});
 			}
 		});
+		// The in-game HUD pass (Gui.render) is skipped while ANY screen is open, so
+		// Origin's HUD vanishes the instant the mod menu opens -- a toggle you flip in
+		// the menu (Potion Effects, Armor Status, ...) then doesn't show until you
+		// close it. Draw the whole HUD over the Origin mod menu so changes preview
+		// live, exactly like the inventory workaround above draws the potion element
+		// over a container screen. renderAll already excludes the HUD editor.
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen instanceof com.origin.client.client.gui.OriginModMenuScreen) {
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) ->
+						com.origin.client.client.hud.HudElements.renderAll(g));
+			}
+		});
+		// Fragility guards for the bundled JEI: warn if a foreign JEI is overriding
+		// ours, and if the JEI internals the toggle mixins bind to have moved. Wrapped
+		// so a check can never fail client init.
+		try {
+			detectForeignJei();
+			selfCheckJeiMixins();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
+		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {
@@ -184,6 +212,24 @@ public class OriginClientMod implements ClientModInitializer {
 		LocalPlayer player = client.player;
 		if (player == null) {
 			return;
+		}
+
+		// One-time JEI onboarding, now that a player exists to message: warn if a
+		// foreign JEI is overriding ours, otherwise point at the bundled one (it ships
+		// off, so it's easy to miss).
+		if (!jeiNoticeShown && client.screen == null) {
+			jeiNoticeShown = true;
+			if (foreignJei != null) {
+				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+						"§eOrigin already includes JEI (" + BUNDLED_JEI + "). A separate JEI ("
+								+ foreignJei + ") in your mods folder is overriding it — remove that jar so"
+								+ " Origin's JEI and its toggle work."), false);
+			} else if (!Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
+				Mods.setMetaBool("jeiHintShown", true);
+				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+						"§7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the"
+								+ " Origin menu: §fRight Shift → Mods → JEI§7."), false);
+			}
 		}
 
 		// Scoreboard hide toggle keybind (+ optional action-bar message)
@@ -379,10 +425,16 @@ public class OriginClientMod implements ClientModInitializer {
 		if (!Mods.on("weather") || client.level == null) {
 			return;
 		}
+		// NOTE: no setRainLevel/setThunderLevel here any more.
+		//
+		// Writing those every tick mutated real level state, so the mod wasn't
+		// purely visual, whatever it forced stayed stuck when you turned it off
+		// (nothing restored it), and vanilla's own updates fought the writes so
+		// switching lagged instead of snapping. The values are now produced on READ
+		// by LevelWeatherMixin -> WeatherOverride, which makes switching instant,
+		// leaves nothing behind, and never touches the server's weather.
 		String mode = Mods.mode("weather", "mode");
-		client.level.setRainLevel(mode.equals("Clear") ? 0f : 1f);
 		boolean thunder = mode.equals("Thunder") || Mods.bool("weather", "thunder");
-		client.level.setThunderLevel(thunder ? 1f : 0f);
 
 		// Play Thunder Sounds: forcing the thunder level alone never actually
 		// makes a sound (vanilla thunder rides real lightning bolts we don't
@@ -462,6 +514,57 @@ public class OriginClientMod implements ClientModInitializer {
 		if (on != hitboxesApplied) {
 			client.getEntityRenderDispatcher().setRenderHitBoxes(on);
 			hitboxesApplied = on;
+		}
+	}
+
+	// Foreign-JEI detection (rec #10). Origin bundles JEI nested; if a player drops
+	// their own JEI jar in, Fabric deduplicates the "jei" id and may load THEIRS.
+	// Our toggle mixins target 19.27.0.340 internals, so a different version breaks
+	// the integration silently. Detect the mismatch here; onEndTick surfaces it.
+	private static void detectForeignJei() {
+		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("jei").ifPresent(c -> {
+			String v = c.getMetadata().getVersion().getFriendlyString();
+			if (!BUNDLED_JEI.equals(v)) {
+				foreignJei = v;
+				com.origin.client.OriginClient.LOGGER.warn(
+						"Origin bundles JEI {} but JEI {} is loaded -- a separate JEI jar is overriding "
+								+ "the bundled one; JEI integration may not work until it is removed.",
+						BUNDLED_JEI, v);
+			}
+		});
+	}
+
+	// Mixin self-check (rec #2): make fail-soft non-silent. Origin's JEI toggle
+	// mixins bind to JEI INTERNAL method names; a JEI update renaming one makes the
+	// mixin silently not apply (required:false) and the toggle quietly break. Verify
+	// the targets still exist and log loudly if not. Reflection-based, so it needs
+	// no build-specific handler names.
+	private static void selfCheckJeiMixins() {
+		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler",
+				"onDrawScreenPost", "onDrawForeground", "renderCompactPotionIndicators");
+		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler",
+				"onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
+	}
+
+	private static void jeiMethodCheck(String className, String... methods) {
+		try {
+			Class<?> c = Class.forName(className);
+			java.util.Set<String> present = new java.util.HashSet<>();
+			for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+				present.add(m.getName());
+			}
+			for (String m : methods) {
+				if (!present.contains(m)) {
+					com.origin.client.OriginClient.LOGGER.warn(
+							"Origin self-check: JEI method {}.{} is missing -- the JEI toggle mixin may "
+									+ "not have applied. JEI integration is likely broken with this JEI version; "
+									+ "re-verify the mixin targets.", className, m);
+				}
+			}
+		} catch (ClassNotFoundException e) {
+			// JEI not on the classpath at all -> nothing to integrate, not an error.
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin self-check for JEI mixins failed", t);
 		}
 	}
 }

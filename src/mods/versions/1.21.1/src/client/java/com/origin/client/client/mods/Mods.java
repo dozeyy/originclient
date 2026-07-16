@@ -242,7 +242,7 @@ public final class Mods {
 				ModOption.keybind("key", "Freelook Key", GLFW.GLFW_KEY_LEFT_ALT));
 
 		add("fullbright", "Lighting", "Full-bright and brightness boost.", false,
-				ModOption.toggle("fullBright", "Full Bright", true).tip("Lights the whole world to maximum brightness."),
+				ModOption.toggle("fullBright", "Full Bright", true).tip("Lights the whole world to maximum brightness. Shaders must be OFF for this to work — a shaderpack does its own lighting and ignores it."),
 				ModOption.keybind("key", "Full Bright Toggle", -1),
 				ModOption.slider("gamma", "Boost Factor", 1, 10, 0.5, 5, "%.1fx").tip("Fine brightness boost — only applies when Full Bright is off."));
 
@@ -271,15 +271,28 @@ public final class Mods {
 				ModOption.slider("outerThickness", "Line Thickness", 1, 3, 1, 1, "%.0f").under("outerCorners"),
 				ModOption.color("outerColor", "Outer Chunk Corner Color", 0xFFE05555).under("outerCorners"));
 
+		// Line Width / Line Color / Hittable / Damaged are NOT under("players"):
+		// they style every hitbox the mod draws, not just other players. They used
+		// to be nested there, which matched a renderer that only ever coloured
+		// players and left every mob vanilla white.
+		// Hittable and Damaged now carry their own colour pickers -- their colours
+		// were previously hardcoded constants with no way to change them.
 		add("hitboxes", "Hitbox", "Entity hitbox rendering.", false,
 				ModOption.dropdown("linePattern", "Line Pattern", "Solid", "Dashed", "Dotted"),
 				ModOption.slider("maxDistance", "Max Showable Distance", 8, 128, 8, 64, "%.0f"),
+				ModOption.slider("lineWidth", "Line Width", 1, 6, 1, 1, "%.0f"),
+				ModOption.color("lineColor", "Line Color", 0xFFFFFFFF),
+				ModOption.toggle("showHittable", "Show Hittable Color", false).tip("Tint the hitbox of whatever your crosshair is on."),
+				ModOption.color("hittableColor", "Hittable Color", 0xFF7FA98F).under("showHittable"),
+				ModOption.toggle("showDamaged", "Show Damaged Color", false).tip("Tint an entity's hitbox while it's taking damage."),
+				ModOption.color("damagedColor", "Damaged Color", 0xFFE05555).under("showDamaged"),
+				// Not under("players") and not self-only: the look ray is drawn on
+				// every OTHER entity. Drawing it on yourself is pointless -- vanilla
+				// suppresses the camera entity in the main pass, so you could never
+				// see your own ray anyway; all it did was get picked up by Iris's
+				// shadow pass and render as a shadow on the ground.
 				ModOption.toggle("players", "Players", true),
-				ModOption.slider("lineWidth", "Line Width", 1, 4, 0.5, 1, "%.1f").under("players"),
-				ModOption.color("lineColor", "Line Color", 0xFFFFFFFF).under("players"),
-				ModOption.toggle("showHittable", "Show Hittable Color", false).under("players"),
-				ModOption.toggle("showDamaged", "Show Damaged Color", false).under("players"),
-				ModOption.toggle("showLookVector", "Show Look Vector", false).tip("Draw a line showing where the entity is looking.").under("players"),
+				ModOption.toggle("showLookVector", "Show Look Vector", false).tip("Draw a line showing where other players and mobs are looking."),
 				ModOption.header("Entity Types"),
 				ModOption.toggle("items", "Items", true),
 				ModOption.toggle("itemFrames", "Item Frames", true),
@@ -332,6 +345,18 @@ public final class Mods {
 
 		add("particles", "Particle Changer", "Per-particle visibility and styling.", false,
 				buildParticleOptions());
+
+		// ---- interface ----
+		// JEI is not Origin code — it's mezz's mod, bundled jar-in-jar (see
+		// THIRD-PARTY-LICENSES.txt). That makes its toggle different in kind from
+		// every other mod here: the others gate code we own and simply don't run,
+		// but Fabric Loader loads JEI at startup and it CANNOT be unloaded. So
+		// "off" can't mean "absent" — it means Origin suppresses JEI's entire
+		// player-visible surface (render + input) at its two root event handlers,
+		// leaving vanilla to draw and handle everything. See JeiGuiEventHandlerMixin
+		// / JeiClientInputHandlerMixin for why those two are the choke points.
+		// Default off, like every mod here except zoom/coords/freelook.
+		add("jei", "JEI", "Item and recipe viewer.", false);
 	}
 
 	// Assembles the Particle Changer option list: global controls, then a

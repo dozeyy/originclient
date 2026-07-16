@@ -19,4 +19,9 @@ client/java/com/origin/client/client/mixin/ToastComponentMixin.java
 client/java/com/origin/client/client/mixin/loading/ReceivingLevelScreenMixin.java
 client/java/com/origin/client/client/mixin/GameRendererMixin.java
 client/java/com/origin/client/client/mixin/LightTextureMixin.java
-client/java/com/origin/client/client/mixin/CheckboxMixin.java
+
+# TEMPORARY FORK (2026-07-16) - JEI on 1.21.11. The "jei" mod card + the
+# MULTISELECT control (for JEI's sort-order settings) live only where JEI is
+# bundled. Promote to shared/ when JEI ships on every version.
+client/java/com/origin/client/client/mods/Mods.java
+client/java/com/origin/client/client/mods/ModOption.java

@@ -52,10 +52,28 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
 
+	// JEI bundled here is jei-1.20-fabric-14.0.0.11 (see gradle.properties). If a
+	// player drops a different JEI in, Fabric loads the higher version and ours is
+	// shadowed — detectForeignJei() catches that. jeiNoticeShown gates the one-time
+	// in-world chat notice.
+	private static final String BUNDLED_JEI = "14.0.0.11";
+	private static String foreignJei = null;
+	private boolean jeiNoticeShown = false;
+
 	@Override
 	public void onInitializeClient() {
 		OriginKeyBindings.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
+
+		// Fragility guards for the bundled JEI: warn if a foreign JEI overrides ours
+		// and if the JEI internals the toggle mixins bind to have moved. Wrapped so a
+		// check can never fail client init.
+		try {
+			detectForeignJei();
+			selfCheckJeiMixins();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
+		}
 		// Single authoritative autosave when the player leaves the game (quit to
 		// desktop / window close). Mod + HUD settings already save eagerly on
 		// every change; this flushes all three stores once on exit so nothing is
@@ -143,6 +161,17 @@ public class OriginClientMod implements ClientModInitializer {
 				});
 			}
 		});
+		// The in-game HUD pass is skipped while ANY screen is open, so Origin's HUD
+		// vanishes when the mod menu opens -- a toggle flipped in the menu (Potion
+		// Effects, Armor Status, ...) then doesn't show until you close it. Draw the
+		// HUD over the Origin mod menu so changes preview live, like the inventory
+		// workaround above. renderAll already excludes the HUD editor.
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen instanceof com.origin.client.client.gui.OriginModMenuScreen) {
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) ->
+					com.origin.client.client.hud.HudElements.renderAll(g));
+			}
+		});
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {
@@ -220,6 +249,21 @@ public class OriginClientMod implements ClientModInitializer {
 		LocalPlayer player = client.player;
 		if (player == null) {
 			return;
+		}
+
+		if (!jeiNoticeShown && client.screen == null) {
+			jeiNoticeShown = true;
+			if (foreignJei != null) {
+				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+						"§eOrigin already includes JEI (" + BUNDLED_JEI + "). A separate JEI ("
+								+ foreignJei + ") in your mods folder is overriding it — remove that jar so"
+								+ " Origin's JEI and its toggle work."), false);
+			} else if (!Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
+				Mods.setMetaBool("jeiHintShown", true);
+				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+						"§7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the"
+								+ " Origin menu: §fRight Shift → Mods → JEI§7."), false);
+			}
 		}
 
 		// Scoreboard hide toggle keybind (+ optional action-bar message)
@@ -498,6 +542,40 @@ public class OriginClientMod implements ClientModInitializer {
 		if (on != hitboxesApplied) {
 			client.getEntityRenderDispatcher().setRenderHitBoxes(on);
 			hitboxesApplied = on;
+		}
+	}
+
+	private static void detectForeignJei() {
+		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("jei").ifPresent(c -> {
+			String v = c.getMetadata().getVersion().getFriendlyString();
+			if (!BUNDLED_JEI.equals(v)) {
+				foreignJei = v;
+				com.origin.client.OriginClient.LOGGER.warn(
+						"Origin bundles JEI {} but JEI {} is loaded -- a separate JEI jar is overriding "
+								+ "the bundled one; JEI integration may not work until it is removed.", BUNDLED_JEI, v);
+			}
+		});
+	}
+
+	private static void selfCheckJeiMixins() {
+		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler", "onDrawScreenPost", "onDrawForeground", "renderCompactPotionIndicators");
+		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler", "onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
+	}
+
+	private static void jeiMethodCheck(String className, String... methods) {
+		try {
+			Class<?> c = Class.forName(className);
+			java.util.Set<String> present = new java.util.HashSet<>();
+			for (java.lang.reflect.Method m : c.getDeclaredMethods()) { present.add(m.getName()); }
+			for (String m : methods) {
+				if (!present.contains(m)) {
+					com.origin.client.OriginClient.LOGGER.warn(
+							"Origin self-check: JEI method {}.{} is missing -- toggle mixin may not have applied.", className, m);
+				}
+			}
+		} catch (ClassNotFoundException e) {
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin self-check for JEI mixins failed", t);
 		}
 	}
 }

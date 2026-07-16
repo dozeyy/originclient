@@ -1,0 +1,7 @@
+# Files this module deliberately diverges from src/mods/shared/.
+# sync.py never copies these in; --check treats them as intentional forks.
+
+# TEMPORARY FORK (2026-07-16) - JEI on 1.19.2. The "jei" mod card + the MULTISELECT
+# control live only where JEI is bundled. Promote to shared/ when JEI ships everywhere.
+client/java/com/origin/client/client/mods/Mods.java
+client/java/com/origin/client/client/mods/ModOption.java
