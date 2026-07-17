@@ -22,6 +22,21 @@ loom {
 			sourceSet sourceSets.main
 		}
 	}
+
+	// Dev-only verification switches (mirror 1.21.1): `-Pquickplay="<world>"` drives
+	// straight into a world so runtime-constructed mixin targets actually load;
+	// `-Pmixinexport` dumps post-transform bytecode to run/.mixin.out/ so the
+	// injection can be read back, not inferred.
+	runs {
+		client {
+			if (project.hasProperty("quickplay")) {
+				programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
+			}
+			if (project.hasProperty("mixinexport")) {
+				property "mixin.debug.export", "true"
+			}
+		}
+	}
 }
 
 dependencies {
@@ -66,9 +81,15 @@ dependencies {
 	// what iris-mc1.20-1.6.4.jar nests (see its META-INF/jars/). Dev-runtime
 	// only -- a real launcher install extracts these from inside Iris's own
 	// jar via Fabric Loader's nested-jar mechanism and is unaffected.
-	runtimeOnly "org.anarres:jcpp:1.4.14"
-	runtimeOnly "io.github.douira:glsl-transformer:2.0.0-pre13"
-	runtimeOnly "org.antlr:antlr4-runtime:4.11.1"
+	// Gated like the Iris jar above: these exist ONLY to feed Iris's dev-
+	// runtime GLSL toolchain. With no libs/ present they resolve for nothing,
+	// and glsl-transformer's metadata (needs JVM 17+) fails the WHOLE
+	// runClient resolution under this module's older run toolchain.
+	if (file("libs/sodium-fabric-mc1.17.1-0.3.4+build.13.jar").exists()) {
+		runtimeOnly "org.anarres:jcpp:1.4.14"
+		runtimeOnly "io.github.douira:glsl-transformer:2.0.0-pre13"
+		runtimeOnly "org.antlr:antlr4-runtime:4.11.1"
+	}
 
 	// WebP preview decoding for the shader browser (fail-soft if the reader is
 	// absent). implementation = compile + dev classpath; include = jar-in-jar.
