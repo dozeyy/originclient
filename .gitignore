@@ -53,3 +53,5 @@ tools/loading-screen/out/
 
 # per-module boot-verification logs (runClient captures)
 src/mods/versions/*/run-*.log
+src/mods/versions/*/runboot.log
+src/mods/versions/*/runthick-*.log
