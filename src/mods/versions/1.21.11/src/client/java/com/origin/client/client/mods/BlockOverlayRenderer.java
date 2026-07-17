@@ -126,38 +126,38 @@ public final class BlockOverlayRenderer {
 					fillBox(q, pose, minX + ox, minY + oy, minZ + oz, maxX + ox, maxY + oy, maxZ + oz, col, faceOnly));
 		}
 
-		if (outline) {
+		// The overlay OVERRIDES the outline. The toggle stays on and keeps its
+		// setting, but when the overlay is painting the block's faces there is
+		// nothing for an outline to add -- drawing both stacked a line on top of a
+		// filled face and, because the two use different geometry and depth
+		// handling, left a visible seam. Skipping it here is what makes
+		// "outline + overlay" look identical to "overlay" alone (Will).
+		if (outline && !overlay) {
 			int col = OriginColorPicker.liveColor("blockoverlay", "color");
-			int passes = (int) Math.max(1, Math.min(10, Mods.num("blockoverlay", "thickness")));
-			VertexConsumer lines = consumers.getBuffer(RenderTypes.lines());
 			float r = ((col >> 16) & 0xFF) / 255f, g = ((col >> 8) & 0xFF) / 255f, b = (col & 0xFF) / 255f;
 			float a = ((col >>> 24) & 0xFF) / 255f;
 			if (a <= 0f) {
 				a = 1f;
 			}
-			for (int i = 0; i < passes; i++) {
-				float grow = i * 0.005f;
-				float fr = r, fg = g, fb = b, fa = a;
-				shape.forAllEdges((x1, y1, z1, x2, y2, z2) -> {
-					float ax = (float) (x1 + ox) + (x1 < 0.5 ? -grow : grow);
-					float ay = (float) (y1 + oy) + (y1 < 0.5 ? -grow : grow);
-					float az = (float) (z1 + oz) + (z1 < 0.5 ? -grow : grow);
-					float bx = (float) (x2 + ox) + (x2 < 0.5 ? -grow : grow);
-					float by = (float) (y2 + oy) + (y2 < 0.5 ? -grow : grow);
-					float bz = (float) (z2 + oz) + (z2 < 0.5 ? -grow : grow);
-					float nx = bx - ax, ny = by - ay, nz = bz - az;
-					float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-					if (len > 0) {
-						nx /= len;
-						ny /= len;
-						nz /= len;
-					}
-					// 1.21.11: lines format requires a per-vertex LineWidth element, else
-					// "Missing elements in vertex: LineWidth" crashes at the buffer flush.
-					lines.addVertex(pose, ax, ay, az).setColor(fr, fg, fb, fa).setNormal(pose, nx, ny, nz).setLineWidth(Math.max(1.0f, passes));
-					lines.addVertex(pose, bx, by, bz).setColor(fr, fg, fb, fa).setNormal(pose, nx, ny, nz).setLineWidth(Math.max(1.0f, passes));
-				});
-			}
+			// ONE thick line per edge -- not a stack of thin ones. Each edge is a
+			// solid box (ThickLine) drawn into debugQuads (POSITION_COLOR -- no
+			// LineWidth element, so the 1.21.11 lines-format crash can't apply),
+			// sized by the slider and biased inward so its outer face stays on the
+			// block surface. The centre comes from the SHAPE's bounds, not the
+			// block's, so slabs/stairs/fences thicken instead of translating.
+			double thickness = Math.max(1, Math.min(10, Mods.num("blockoverlay", "thickness")));
+			double t = 0.004 + (thickness - 1) * 0.005;
+			net.minecraft.world.phys.AABB bounds = shape.bounds();
+			double cx = (bounds.minX + bounds.maxX) / 2.0 + ox;
+			double cy = (bounds.minY + bounds.maxY) / 2.0 + oy;
+			double cz = (bounds.minZ + bounds.maxZ) / 2.0 + oz;
+			VertexConsumer q = consumers.getBuffer(RenderTypes.debugQuads());
+			// The alpha guard above reassigns `a`, so it can't be captured directly.
+			float fr = r, fg = g, fb = b, fa = a;
+			shape.forAllEdges((x1, y1, z1, x2, y2, z2) ->
+					com.origin.client.client.render.ThickLine.edge(q, pose,
+							x1 + ox, y1 + oy, z1 + oz, x2 + ox, y2 + oy, z2 + oz,
+							cx, cy, cz, t, fr, fg, fb, fa));
 		}
 		if (!loggedFirstDraw) {
 			loggedFirstDraw = true;
@@ -180,7 +180,12 @@ public final class BlockOverlayRenderer {
 		if (a <= 0f) {
 			a = 0.35f;
 		}
-		float e = 0.002f;
+		// Each face is pushed out along its own normal by this much, purely to
+		// escape z-fighting with the block it's painted on. It was 0.002 (2cm at
+		// block scale), which made the shell visibly larger than the block and left
+		// a lip standing proud at every edge. 0.0005 still clears the depth buffer
+		// but reads as paint ON the surface rather than a skin stretched over it.
+		float e = 0.0005f;
 		if (only == null || only == Direction.DOWN) {
 			quad(q, pose, x0, y0 - e, z0, x0, y0 - e, z1, x1, y0 - e, z1, x1, y0 - e, z0, r, g, b, a);
 		}
