@@ -68,42 +68,56 @@ public final class BlockOverlayRenderer {
 					fillBox(q, pose, minX + ox, minY + oy, minZ + oz, maxX + ox, maxY + oy, maxZ + oz, col, faceOnly));
 		}
 
-		if (outline) {
+		// The overlay OVERRIDES the outline. The toggle stays on and keeps its
+		// setting, but when the overlay is painting the block's faces there is
+		// nothing for an outline to add -- drawing both stacked a line on top of a
+		// filled face and, because the two use different geometry and depth
+		// handling, left a visible seam. Skipping it here is what makes
+		// "outline + overlay" look identical to "overlay" alone (Will).
+		if (outline && !overlay) {
 			int col = OriginColorPicker.liveColor("blockoverlay", "color");
-			int passes = (int) Math.max(1, Math.min(10, Mods.num("blockoverlay", "thickness")));
-			VertexConsumer lines = octx.vertexConsumer();
 			float r = ((col >> 16) & 0xFF) / 255f, g = ((col >> 8) & 0xFF) / 255f, b = (col & 0xFF) / 255f;
 			float a = ((col >>> 24) & 0xFF) / 255f;
 			if (a <= 0f) {
 				a = 1f;
 			}
-			for (int i = 0; i < passes; i++) {
-				float grow = i * 0.005f;
-				float fr = r, fg = g, fb = b, fa = a;
-				shape.forAllEdges((x1, y1, z1, x2, y2, z2) -> {
-					float ax = (float) (x1 + ox) + (x1 < 0.5 ? -grow : grow);
-					float ay = (float) (y1 + oy) + (y1 < 0.5 ? -grow : grow);
-					float az = (float) (z1 + oz) + (z1 < 0.5 ? -grow : grow);
-					float bx = (float) (x2 + ox) + (x2 < 0.5 ? -grow : grow);
-					float by = (float) (y2 + oy) + (y2 < 0.5 ? -grow : grow);
-					float bz = (float) (z2 + oz) + (z2 < 0.5 ? -grow : grow);
-					float nx = bx - ax, ny = by - ay, nz = bz - az;
-					float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-					if (len > 0) {
-						nx /= len;
-						ny /= len;
-						nz /= len;
-					}
-					lines.addVertex(pose, ax, ay, az).setColor(fr, fg, fb, fa).setNormal(pose, nx, ny, nz);
-					lines.addVertex(pose, bx, by, bz).setColor(fr, fg, fb, fa).setNormal(pose, nx, ny, nz);
-				});
-			}
+			// ONE thick line per edge -- not a stack of thin ones.
+			//
+			// This loop used to run `thickness` passes of the whole wireframe,
+			// each nudged a few mm further out, because RenderType.lines() pins GL
+			// line width and can't be told to draw thicker. That never worked: the
+			// copies converged into a single line at range and fanned out into
+			// little inward dots at the corners, which is exactly what Will saw.
+			// It also grew OUTWARD, floating the outline off the block as a cage.
+			//
+			// Now each edge is one solid box (ThickLine), sized by the slider and
+			// biased inward so its outer face stays on the block surface. Raising
+			// thickness makes the single line fatter, painted on the block.
+			//
+			// The centre comes from the SHAPE's bounds, not the block's. The old
+			// code took its sign from `coord < 0.5` -- the block's midpoint -- so
+			// any shape not straddling 0.5 (slab, stairs, fence, pane) had both
+			// endpoints pushed the same way, TRANSLATING the outline off the
+			// surface instead of thickening it.
+			double thickness = Math.max(1, Math.min(10, Mods.num("blockoverlay", "thickness")));
+			double t = 0.004 + (thickness - 1) * 0.005;
+			net.minecraft.world.phys.AABB bounds = shape.bounds();
+			double cx = (bounds.minX + bounds.maxX) / 2.0 + ox;
+			double cy = (bounds.minY + bounds.maxY) / 2.0 + oy;
+			double cz = (bounds.minZ + bounds.maxZ) / 2.0 + oz;
+			VertexConsumer q = wctx.consumers().getBuffer(RenderType.debugQuads());
+			// The alpha guard above reassigns `a`, so it can't be captured directly.
+			float fr = r, fg = g, fb = b, fa = a;
+			shape.forAllEdges((x1, y1, z1, x2, y2, z2) ->
+					com.origin.client.client.render.ThickLine.edge(q, pose,
+							x1 + ox, y1 + oy, z1 + oz, x2 + ox, y2 + oy, z2 + oz,
+							cx, cy, cz, t, fr, fg, fb, fa));
 		}
 		return false;
 	}
 
 	// Fills a box's faces with a translucent colour (QUADS). `only` limits to a
-	// single face; null fills all six. Faces are outset a hair to avoid z-fight.
+	// single face; null fills all six.
 	private static void fillBox(VertexConsumer q, PoseStack.Pose pose,
 								double x0, double y0, double z0, double x1, double y1, double z1,
 								int color, Direction only) {
@@ -112,7 +126,12 @@ public final class BlockOverlayRenderer {
 		if (a <= 0f) {
 			a = 0.35f;
 		}
-		float e = 0.002f;
+		// Each face is pushed out along its own normal by this much, purely to
+		// escape z-fighting with the block it's painted on. It was 0.002 (2cm at
+		// block scale), which made the shell visibly larger than the block and left
+		// a lip standing proud at every edge. 0.0005 still clears the depth buffer
+		// but reads as paint ON the surface rather than a skin stretched over it.
+		float e = 0.0005f;
 		if (only == null || only == Direction.DOWN) {
 			quad(q, pose, x0, y0 - e, z0, x0, y0 - e, z1, x1, y0 - e, z1, x1, y0 - e, z0, r, g, b, a);
 		}

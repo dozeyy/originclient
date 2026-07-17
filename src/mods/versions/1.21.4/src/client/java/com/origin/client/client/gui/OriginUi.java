@@ -36,10 +36,8 @@ public final class OriginUi {
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
-	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, iconsTex, glowTex, ringTex, logoTex;
+	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex;
 	private static int panelTexSize = 96, panelCorner = 24;
-	private static int iconCell = 96, atlasW = 576, atlasH = 384;
-	private static final Map<String, int[]> ICONS = new HashMap<>();
 
 	// eased animation state keyed by arbitrary id (switch knobs, hovers)
 	private static final Map<String, double[]> ANIM = new HashMap<>(); // {value, lastNanos, target}
@@ -113,17 +111,15 @@ public final class OriginUi {
 		return k;
 	}
 
-	/** Hi-res icon from the baked atlas, tinted. */
+	/**
+	 * Mod icon. Now a real Minecraft item (or a baked Origin texture for the few
+	 * ideas no item expresses) -- see ModIcons. The old 96px line-icon atlas is
+	 * gone, so the `argb` tint no longer colours the art: a spyglass has to look
+	 * like a spyglass. Only the ALPHA is honoured, which is what callers actually
+	 * need it for -- the mod menu's open/close and page-swap fades.
+	 */
 	public static void icon(GuiGraphics g, String name, int x, int y, int size, int argb) {
-		ensureLoaded();
-		int[] uv = ok ? ICONS.get(name) : null;
-		if (uv == null) {
-			g.fill(x + 2, y + 2, x + size - 2, y + size - 2, argb);
-			return;
-		}
-		tint(argb);
-		g.blit(RenderType::guiTextured, iconsTex, x, y, (float) uv[0], (float) uv[1], size, size, iconCell, iconCell, atlasW, atlasH);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		ModIcons.draw(g, name, x, y, size, ((argb >>> 24) & 0xFF) / 255f);
 	}
 
 	/** Soft radial glow centered at (cx,cy). */
@@ -245,20 +241,6 @@ public final class OriginUi {
 			glowTex = reg(mc, "ui_glow", "/assets/originclient/textures/ui/radial_glow.png");
 			ringTex = reg(mc, "ui_ring", "/assets/originclient/textures/ui/ring-0.png");
 			logoTex = reg(mc, "ui_logo", "/assets/originclient/textures/ui/origin_logo.png");
-			JsonObject icons = readJson("/assets/originclient/textures/ui/mod_icons.json");
-			iconCell = icons.get("cell").getAsInt();
-			JsonObject list = icons.getAsJsonObject("icons");
-			for (String k : list.keySet()) {
-				JsonObject o = list.getAsJsonObject(k);
-				ICONS.put(k, new int[]{o.get("x").getAsInt(), o.get("y").getAsInt()});
-			}
-			iconsTex = reg(mc, "ui_mod_icons", "/assets/originclient/textures/ui/mod_icons.png");
-			try (InputStream in = OriginUi.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.png")) {
-				NativeImage img = NativeImage.read(in);
-				atlasW = img.getWidth();
-				atlasH = img.getHeight();
-				img.close();
-			}
 			ok = true;
 		} catch (Throwable e) {
 			ok = false;

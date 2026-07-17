@@ -21,6 +21,21 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
+
+	// Dev-only verification switches (mirror 1.21.1): `-Pquickplay="<world>"` drives
+	// straight into a world so runtime-constructed mixin targets actually load;
+	// `-Pmixinexport` dumps post-transform bytecode to run/.mixin.out/ so the
+	// injection can be read back, not inferred.
+	runs {
+		client {
+			if (project.hasProperty("quickplay")) {
+				programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
+			}
+			if (project.hasProperty("mixinexport")) {
+				property "mixin.debug.export", "true"
+			}
+		}
+	}
 }
 
 dependencies {
