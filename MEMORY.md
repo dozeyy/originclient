@@ -3547,3 +3547,25 @@ Second feedback pass. Key durable lessons:
 - **Testing caveat:** a legacy test window sitting behind an exclusive-
   fullscreen game (Valorant) dies abruptly at OptiFine GL init (context loss)
   — NOT a mod bug. Don't interactive-test behind Will's active fullscreen game.
+
+## 2026-07-17 — ThickLine + ModIcons propagated to every live Fabric module
+- ThickLine (real-thickness hitbox + block-outline lines, replaces concentric
+  copies) and ModIcons (real-item mod-menu icons) now on ALL 16 Fabric modules;
+  each port compiled + runClient boot-verified (javap of run/.mixin.out
+  bytecode, zero mixin-apply failures) + committed per module.
+- Two features REVIVED where they'd been silently dead: Hitboxes on 1.21.10
+  (re-hosted on HitboxFeatureRenderer/submit era) and 1.21.11 (re-hosted on the
+  new gizmo system — full 1.21.1 parity back: damaged/hittable/look-vector,
+  native stroke width).
+- Boot caught what compile couldn't: 1.21.4's render() dropped rotationYaw
+  (1-float capture); dev runs{} blocks were missing from 1.21.4/5/6/8 +
+  1.17.1/1.16.5 (mixinexport silently ignored → false NO-EXPORT); unconditional
+  Iris GLSL deps broke runClient on Java 16/8 toolchains (now gated on libs/).
+- 1.16.5 icon substitutes (no spyglass): zoom=Target, @search=Observer —
+  awaiting Will's visual confirmation. Items can't alpha-fade on 1.21.6+
+  (setShaderColor gone) — they pop in full-opacity, accepted.
+- Visual pass per era still pending (Will): thick lines look right, icons show
+  the right items. Full per-era API map: memory/thickline-modicons-propagation.
+- NEXT (Will's report): 1.21.x render-pipeline versions (confirmed 1.21.4 +
+  1.21.5, likely 1.21.6/8/10/11) still show the PRE-redesign UI (static
+  backgrounds, old panels/buttons) — UI-parity port is the next batch.
