@@ -28,11 +28,34 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Hitbox mod: replaces vanilla's plain white box with a fully-styled one so the
 // page's settings do something. Per-type filtering + Max Distance decide whether
-// to draw; players additionally honour Line Color, Line Width, Show Damaged and
-// Show Look Vector; Line Pattern (Solid/Dashed/Dotted) applies to every box.
-// We draw into vanilla's own line buffer then cancel the vanilla draw.
+// to draw; Line Color, Line Width, Show Hittable and Show Damaged style every
+// entity's box; Show Look Vector is player-only. Line Pattern (Solid/Dashed/
+// Dotted) applies to every box. We cancel the vanilla draw and do our own.
 @Mixin(EntityRenderDispatcher.class)
 public class HitboxMixin {
+
+	/**
+	 * The buffer source for the entity currently being rendered.
+	 *
+	 * renderHitbox is static and only receives vanilla's LINES consumer, but a
+	 * genuinely thick line has to be quads. Grabbing a global buffer instead --
+	 * renderBuffers().bufferSource() -- does NOT work: it's flushed at a different
+	 * point in the frame than the pose we're handed, so the camera-relative
+	 * vertices get transformed a second time and the box flies off into the sky.
+	 * Capturing the MultiBufferSource that render() is actually using keeps our
+	 * quads in the same batch and the same pose context as the hitbox itself.
+	 *
+	 * Single-threaded render thread, and set immediately before every renderHitbox
+	 * call in the same method, so a plain static is safe here.
+	 */
+	private static net.minecraft.client.renderer.MultiBufferSource originclient$buffers;
+
+	@Inject(method = "render", at = @At("HEAD"))
+	private <E extends Entity> void originclient$captureBuffers(E entity, double x, double y, double z,
+			float rotationYaw, float partialTick, PoseStack poseStack,
+			net.minecraft.client.renderer.MultiBufferSource buffers, int packedLight, CallbackInfo ci) {
+		originclient$buffers = buffers;
+	}
 
 	@Inject(method = "renderHitbox", at = @At("HEAD"), cancellable = true)
 	private static void originclient$filterHitbox(PoseStack poseStack, VertexConsumer consumer, Entity entity,
@@ -54,47 +77,83 @@ public class HitboxMixin {
 		}
 
 		// Your own box, first person: vanilla suppresses the camera entity in the
-		// MAIN pass, but Iris still feeds it to the SHADOW pass -- so it draws only as
-		// a box-shaped shadow on the ground. Skip it for the camera entity in first
-		// person (third person still shows it, matching vanilla). Same reasoning as the
-		// Show Look Vector exclusion below.
+		// MAIN pass, but Iris still feeds it to the SHADOW pass -- so it never draws
+		// as a box, only as a box-shaped shadow on the ground. Skip it entirely for
+		// the camera entity in first person (third person still shows it, matching
+		// vanilla). Same reasoning as the Show Look Vector exclusion below.
 		Minecraft mc = Minecraft.getInstance();
 		if (entity == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson()) {
 			ci.cancel();
 			return;
 		}
 
-		// draw our own styled box, then cancel vanilla's
-		boolean isPlayer = entity instanceof Player;
-		float r = red, g = green, b = blue, a = 1f;
-		if (isPlayer) {
-			int col = OriginColorPicker.liveColor("hitboxes", "lineColor");
-			if (Mods.bool("hitboxes", "showDamaged") && ((net.minecraft.world.entity.LivingEntity) entity).hurtTime > 0) {
-				col = 0xFFE05555;
-			}
-			// Show Hittable Color: green on the entity your crosshair is on (the
-			// one you'd hit if you attacked right now). Wins over the damaged tint.
-			if (Mods.bool("hitboxes", "showHittable")
-					&& Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.EntityHitResult ehr
-					&& ehr.getEntity() == entity) {
-				col = 0xFF7FA98F;
-			}
-			r = ((col >> 16) & 0xFF) / 255f;
-			g = ((col >> 8) & 0xFF) / 255f;
-			b = (col & 0xFF) / 255f;
-			a = ((col >>> 24) & 0xFF) / 255f;
-			if (a <= 0f) {
-				a = 1f;
-			}
+		// Draw our own styled box, then cancel vanilla's.
+		//
+		// Colour and width apply to EVERY entity, not just players. This used to
+		// be wrapped in `if (entity instanceof Player)`, which meant Line Color,
+		// chroma and Line Width silently did nothing on mobs -- they kept vanilla's
+		// white -- and the whole mod read as broken. Only Show Look Vector is
+		// player-specific now (see below), because only players aim.
+		int col = OriginColorPicker.liveColor("hitboxes", "lineColor");
+		// Item entities are immune to both tints (Will): you can't attack a dropped
+		// item, so colouring one "hittable" or "damaged" would be a lie.
+		boolean tintable = !(entity instanceof net.minecraft.world.entity.item.ItemEntity);
+		// Damaged tint: any LivingEntity can be hurt, not only players.
+		if (tintable && Mods.bool("hitboxes", "showDamaged")
+				&& entity instanceof net.minecraft.world.entity.LivingEntity le && le.hurtTime > 0) {
+			col = OriginColorPicker.liveColor("hitboxes", "damagedColor");
 		}
-		int passes = isPlayer ? (int) Math.max(1, Math.round(Mods.num("hitboxes", "lineWidth"))) : 1;
+		// Hittable tint: whatever your crosshair is on -- i.e. the thing you'd hit
+		// if you attacked right now. Wins over the damaged tint.
+		if (tintable && Mods.bool("hitboxes", "showHittable")
+				&& Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.EntityHitResult ehr
+				&& ehr.getEntity() == entity) {
+			col = OriginColorPicker.liveColor("hitboxes", "hittableColor");
+		}
+		float r = ((col >> 16) & 0xFF) / 255f;
+		float g = ((col >> 8) & 0xFF) / 255f;
+		float b = (col & 0xFF) / 255f;
+		float a = ((col >>> 24) & 0xFF) / 255f;
+		if (a <= 0f) {
+			a = 1f;
+		}
+		int passes = (int) Math.max(1, Math.round(Mods.num("hitboxes", "lineWidth")));
 		String pattern = Mods.mode("hitboxes", "linePattern");
 
 		AABB box = entity.getBoundingBox().move(-entity.getX(), -entity.getY(), -entity.getZ());
 		PoseStack.Pose pose = poseStack.last();
-		drawBox(consumer, pose, box, r, g, b, a, passes, pattern);
+		// ONE thick line per edge, exactly like the block outline -- not a stack of
+		// thin ones. Stacking offset copies is what drew the ladder of parallel red
+		// lines; more lines is not a thicker line.
+		//
+		// Every pattern gets width, not just Solid: patternSegments decides where
+		// the pieces are, ThickLine decides how thick each piece is. At width 1
+		// there's nothing to thicken, so that stays on the cheaper line path.
+		if (passes > 1 && originclient$buffers != null) {
+			var q = originclient$buffers.getBuffer(net.minecraft.client.renderer.RenderType.debugQuads());
+			double t = (passes - 1) * 0.012;
+			double ccx = (box.minX + box.maxX) / 2, ccy = (box.minY + box.maxY) / 2, ccz = (box.minZ + box.maxZ) / 2;
+			// The alpha guard above reassigns `a`, so these can't be captured directly.
+			float fr = r, fg = g, fb = b, fa = a;
+			forEachEdge(box, (ax, ay, az, bx, by, bz) ->
+					patternSegments(ax, ay, az, bx, by, bz, pattern,
+							(sx, sy, sz, ex, ey, ez) ->
+									com.origin.client.client.render.ThickLine.edge(q, pose,
+											sx, sy, sz, ex, ey, ez, ccx, ccy, ccz, t, fr, fg, fb, fa)));
+		} else {
+			drawBox(consumer, pose, box, r, g, b, a, 1, pattern);
+		}
 
-		if (isPlayer && Mods.bool("hitboxes", "showLookVector")) {
+		// Every entity EXCEPT yourself.
+		//
+		// It used to be `entity instanceof Player`, which included the camera
+		// entity -- you. That was the worst of both: vanilla suppresses the camera
+		// entity in the main pass so you could never actually see your own ray,
+		// but Iris still renders it into the SHADOW pass, so it showed up as a line
+		// of shadow on the ground and nowhere else. Excluding self removes that
+		// artifact, and widening past Player makes the option do something useful:
+		// mobs aim too.
+		if (entity != Minecraft.getInstance().player && Mods.bool("hitboxes", "showLookVector")) {
 			double eye = entity.getEyeHeight();
 			Vec3 look = entity.getViewVector(partialTick);
 			patternLine(consumer, pose, 0, eye, 0, look.x * 2, eye + look.y * 2, look.z * 2, r, g, b, a, pattern);
@@ -102,12 +161,44 @@ public class HitboxMixin {
 		ci.cancel();
 	}
 
+	/** Receives each of an AABB's 12 edges as a pair of points. */
+	@FunctionalInterface
+	private interface EdgeSink {
+		void accept(double ax, double ay, double az, double bx, double by, double bz);
+	}
+
+	/** Walks an AABB's 12 edges -- the same enumeration drawBox does inline. */
+	private static void forEachEdge(AABB box, EdgeSink sink) {
+		double[] xs = {box.minX, box.maxX}, ys = {box.minY, box.maxY}, zs = {box.minZ, box.maxZ};
+		for (int yi = 0; yi < 2; yi++) {
+			for (int zi = 0; zi < 2; zi++) {
+				sink.accept(box.minX, ys[yi], zs[zi], box.maxX, ys[yi], zs[zi]);
+			}
+		}
+		for (int xi = 0; xi < 2; xi++) {
+			for (int zi = 0; zi < 2; zi++) {
+				sink.accept(xs[xi], box.minY, zs[zi], xs[xi], box.maxY, zs[zi]);
+			}
+		}
+		for (int xi = 0; xi < 2; xi++) {
+			for (int yi = 0; yi < 2; yi++) {
+				sink.accept(xs[xi], ys[yi], box.minZ, xs[xi], ys[yi], box.maxZ);
+			}
+		}
+	}
+
 	private static void drawBox(VertexConsumer c, PoseStack.Pose pose, AABB box,
 								float r, float g, float b, float a, int passes, String pattern) {
 		double[] xs = {box.minX, box.maxX}, ys = {box.minY, box.maxY}, zs = {box.minZ, box.maxZ};
 		double ccx = (box.minX + box.maxX) / 2, ccy = (box.minY + box.maxY) / 2, ccz = (box.minZ + box.maxZ) / 2;
 		for (int p = 0; p < passes; p++) {
-			double grow = p * 0.01;
+			// Vanilla's RenderType.lines() pins GL line width to
+			// max(2.5, windowWidth/1920*2.5) and gives no way to set it per-draw,
+			// so "width" is faked by stacking concentric boxes. The old 0.01 step
+			// put those passes 1cm apart -- sub-pixel beyond arm's reach, so the
+			// slider appeared to do nothing. 0.03 is far enough to read at normal
+			// range while still hugging the entity rather than ballooning off it.
+			double grow = p * 0.03;
 			for (int yi = 0; yi < 2; yi++) {
 				for (int zi = 0; zi < 2; zi++) {
 					edge(c, pose, box.minX, ys[yi], zs[zi], box.maxX, ys[yi], zs[zi], ccx, ccy, ccz, grow, r, g, b, a, pattern);
@@ -134,10 +225,20 @@ public class HitboxMixin {
 		patternLine(c, pose, aox, aoy, aoz, box2, boy, boz, r, g, b, a, pattern);
 	}
 
-	private static void patternLine(VertexConsumer c, PoseStack.Pose pose, double ax, double ay, double az,
-									double bx, double by, double bz, float r, float g, float b, float a, String pattern) {
+	/**
+	 * Cuts an edge into the pattern's visible pieces and hands each to `sink`.
+	 *
+	 * Split out from patternLine so the dash maths lives in exactly one place and
+	 * BOTH renderers can use it: the thin line path draws each piece as a line,
+	 * the thick path draws each piece as a box. That's what lets Dashed/Dotted
+	 * honour Line Width -- the pattern decides WHERE the pieces are, the renderer
+	 * decides how thick they are. The two are independent, and previously only
+	 * Solid could be thick purely because this loop was welded to seg().
+	 */
+	private static void patternSegments(double ax, double ay, double az,
+										double bx, double by, double bz, String pattern, EdgeSink sink) {
 		if (pattern == null || pattern.equals("Solid")) {
-			seg(c, pose, ax, ay, az, bx, by, bz, r, g, b, a);
+			sink.accept(ax, ay, az, bx, by, bz);
 			return;
 		}
 		double dx = bx - ax, dy = by - ay, dz = bz - az;
@@ -150,8 +251,15 @@ public class HitboxMixin {
 		for (double s = 0; s < len; s += period) {
 			double e = Math.min(len, s + dash);
 			double t0 = s / len, t1 = e / len;
-			seg(c, pose, ax + dx * t0, ay + dy * t0, az + dz * t0, ax + dx * t1, ay + dy * t1, az + dz * t1, r, g, b, a);
+			sink.accept(ax + dx * t0, ay + dy * t0, az + dz * t0,
+					ax + dx * t1, ay + dy * t1, az + dz * t1);
 		}
+	}
+
+	private static void patternLine(VertexConsumer c, PoseStack.Pose pose, double ax, double ay, double az,
+									double bx, double by, double bz, float r, float g, float b, float a, String pattern) {
+		patternSegments(ax, ay, az, bx, by, bz, pattern,
+				(sx, sy, sz, ex, ey, ez) -> seg(c, pose, sx, sy, sz, ex, ey, ez, r, g, b, a));
 	}
 
 	private static void seg(VertexConsumer c, PoseStack.Pose pose, double ax, double ay, double az,
