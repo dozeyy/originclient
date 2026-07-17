@@ -50,3 +50,6 @@ installer/Output/
 
 # Loading-screen generator scratch output dir.
 tools/loading-screen/out/
+
+# per-module boot-verification logs (runClient captures)
+src/mods/versions/*/run-*.log
