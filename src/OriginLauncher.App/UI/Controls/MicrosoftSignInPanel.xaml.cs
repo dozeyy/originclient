@@ -10,13 +10,14 @@ namespace OriginLauncher.App.UI.Controls;
 // browser. MicrosoftAuthenticator still owns the whole MSA -> Xbox Live ->
 // XSTS -> Minecraft chain and the loopback redirect listener; this control
 // only supplies "how to show the user the authorization URL".
-public partial class MicrosoftSignInPanel : UserControl
+public partial class MicrosoftSignInPanel : UserControl, IDisposable
 {
     public event EventHandler<AuthResult>? SignInSucceeded;
     public event EventHandler<string>? SignInFailed;
     public event EventHandler? Cancelled;
 
     private readonly CancellationTokenSource _cts = new();
+    private bool _disposed;
 
     public MicrosoftSignInPanel()
     {
@@ -113,5 +114,25 @@ public partial class MicrosoftSignInPanel : UserControl
     {
         _cts.Cancel();
         Cancelled?.Invoke(this, EventArgs.Empty);
+    }
+
+    // MainWindow creates a brand-new MicrosoftSignInPanel (and its embedded
+    // WebView2) every time the user clicks "Add Microsoft Account". WebView2
+    // does not reliably release its browser process / user data folder lock
+    // just because it's removed from the visual tree (Content = null) — the
+    // WPF control's cleanup on Unload is not synchronous, so a second panel
+    // created before the first one is GC'd can find the environment still
+    // held and fail to load. Disposing explicitly the moment the panel closes
+    // is what Microsoft's own WebView2 WPF samples do for exactly this
+    // reason: it's what makes repeated sign-in attempts (a 2nd, 3rd account)
+    // reliable instead of intermittently silently failing.
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _cts.Cancel();
+        _cts.Dispose();
+        WebView.Dispose();
     }
 }

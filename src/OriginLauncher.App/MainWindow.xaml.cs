@@ -110,6 +110,11 @@ public partial class MainWindow : Window
     {
         SetSignInPanelOpen(false);
         _accountPanel.SetAddAccountEnabled(true);
+        // Dispose the WebView2 before dropping the reference — see the comment
+        // on MicrosoftSignInPanel.Dispose(); without this, adding a second
+        // account can find the first sign-in's browser process/user data
+        // folder still locked and fail to load.
+        (SignInPanelHost.Content as MicrosoftSignInPanel)?.Dispose();
         SignInPanelHost.Content = null;
     }
 

@@ -3582,3 +3582,38 @@ Second feedback pass. Key durable lessons:
 - Follow-ups queued: loading-scene shader-readiness guard (first-boot overlay
   throws before the text shader compiles, partial scene draw); dev-client
   ~20s self-close on .4/.5 unexplained (dev-only).
+
+## 2026-07-19 — "Add Microsoft Account" fails on repeat use: WebView2 not disposed (root-caused + confirmed fixed)
+Will: clicking "Add Microsoft Account" (to add a second account) started
+loading the sign-in page then stopped.
+- `MainWindow.OpenSignInPanel()` (`MainWindow.xaml.cs`) constructs a brand
+  new `MicrosoftSignInPanel` — and therefore a brand new embedded
+  `Microsoft.Web.WebView2.Wpf.WebView2` control — every single time the
+  button is clicked. `CloseSignInPanel()` only did
+  `SignInPanelHost.Content = null`; nothing anywhere in the codebase ever
+  called `WebView2.Dispose()`.
+- WebView2's WPF control does not reliably tear down its browser
+  process/user-data-folder lock just from being removed from the visual
+  tree. Without an explicit `Dispose()`, a second `EnsureCoreWebView2Async()`
+  (2nd account, or a retry after a failed 1st attempt) can race against the
+  first environment's still-pending cleanup and silently fail to navigate —
+  matches "starts to load, then stops" exactly.
+- Fix: `MicrosoftSignInPanel` now implements `IDisposable` (disposes its
+  `WebView2` + `CancellationTokenSource`); `MainWindow.CloseSignInPanel()`
+  disposes the outgoing panel before nulling `SignInPanelHost.Content`, on
+  all three close paths (success, failure, cancel).
+- **Debugging red herring, worth remembering**: launching the app via
+  `dotnet OriginLauncher.App.dll` (instead of the real built `.exe`) makes
+  WebView2 resolve its user-data folder relative to `dotnet.exe`'s own
+  install path (e.g. `C:\Program Files\dotnet\`), which is admin-protected —
+  produces `Sign-in failed: Access is denied. (0x80070005 E_ACCESSDENIED)`
+  that looks exactly like a real app bug but isn't. Always launch/test the
+  built `OriginLauncher.App.exe` directly, never via `dotnet <dll>`.
+- **Confirmed by Will**: rebuilt, relaunched via the real `.exe`, sign-in
+  succeeded. Shipped as `launcher-v1.0.28`.
+- **Still true from the 2026-07-06 auth-chain entries** (unchanged, no
+  action taken here): `IsTestMode = true` in `MicrosoftAuthenticator.cs`
+  still routes sign-in through a legacy Live Connect client ID
+  (`00000000402b5328`) against `login.live.com`, not Origin's real Azure app
+  registration. Revisit before shipping wider — see `MicrosoftAuthenticator.cs`
+  TEMPORARY comments.
