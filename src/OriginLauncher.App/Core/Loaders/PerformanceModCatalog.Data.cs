@@ -1,6 +1,15 @@
 ﻿// AUTO-GENERATED from live Modrinth API data on 2026-07-06 — see MEMORY.md / chat log for
 // methodology. Do not hand-edit; regenerate if mod versions change.
 //
+// EXTRAS (2026-07-20): the trailing `Extras:` array on each line (Sodium
+// Extra, MoreCulling + Cloth Config, Cull Leaves + MidnightLib, Better Render
+// Distance, ImmediatelyFast, ModernFix) is generated SEPARATELY by
+// `gen_catalog.py --extras --apply`, which only ever appends/replaces that
+// fragment — the six core pins on a line are never touched by it (CI's
+// perf-catalog-extras workflow enforces suffix-only diffs). Regenerating a
+// FULL line still throws away hand-pins; the extras mode is the only
+// regeneration that is safe to run over live entries.
+//
 // EXCEPTION (2026-07-10, hand-fixed, do not regenerate over this): the "1.20"
 // entry's Iris pin. The naive "newest Iris that lists 1.20" pick was
 // iris-mc1.20.1-1.6.11 (Dec 2023), but that build hard-requires Sodium 0.5.7+ —

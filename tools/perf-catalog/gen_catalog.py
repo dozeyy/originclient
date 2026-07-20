@@ -69,9 +69,10 @@ EXTRA_PROJECTS = {
     "cullleaves": "cull-leaves",          # Cull Leaves
     "immediatelyfast": "immediatelyfast", # was 1.21.1-bundle-only; parity for every version
     "modernfix": "modernfix",             # was 1.21.1-bundle-only; parity for every version
-    # "brd": "<unresolved>",              # "BetterRenderDistances" from Will's reference
-    #                                       screenshot (v1.2.0) — resolve the real slug
-    #                                       with --search before adding a row here.
+    "brd": "better-render-distance",      # "BetterRenderDi... 1.2.0" from Will's reference
+    #                                       screenshot; resolved via --search 2026-07-20:
+    #                                       the 123k-download Fabric optimization mod
+    #                                       (the other hits were paper/neoforge or toys).
 }
 
 # Modrinth project ids that must NEVER be pulled in via an extra's dependency
@@ -93,8 +94,12 @@ API = "https://api.modrinth.com/v2"
 UA = "origin-launcher-catalog-gen/1.0 (dev tooling; contact will@willhenry.me)"
 
 
-def list_versions(project: str, mc_version: str):
-    """All Fabric releases of `project` that list `mc_version`, newest first."""
+def list_versions(project: str, mc_version: str, releases_only: bool = False):
+    """All Fabric builds of `project` that list `mc_version`, newest first.
+    releases_only drops beta/alpha builds — the extras stack never ships a
+    pre-release ("never broken" outranks coverage, same rule that keeps
+    1.18.1 out of the catalog entirely). Full-line mode keeps the historical
+    no-filter behavior so regenerating a NEW version's core line is unchanged."""
     q = urllib.parse.urlencode({
         "loaders": json.dumps(["fabric"]),
         "game_versions": json.dumps([mc_version]),
@@ -103,6 +108,8 @@ def list_versions(project: str, mc_version: str):
                                  headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=30) as r:
         versions = json.load(r)
+    if releases_only:
+        versions = [v for v in versions if v.get("version_type") == "release"]
     # Modrinth returns newest first, but sort by date_published to be safe.
     versions.sort(key=lambda v: v.get("date_published", ""), reverse=True)
     return versions
@@ -176,26 +183,43 @@ def pinned_sodium_from_data(data_cs_text: str, mc: str):
 
 
 def pick_sodium_extra(mc: str, pinned_sodium: str | None):
-    """Sodium Extra tracks Sodium's 0.X line; a cross-era pair is the
-    'Incompatible mods found' boot refusal (same failure class as the
-    Iris/Sodium EXCEPTION entries above). Rule:
-      - no Sodium pinned for this version -> no Sodium Extra;
-      - if every Sodium build published for this MC version is the pinned era
-        anyway, any Sodium Extra tagged for it targets that era -> newest;
-      - otherwise (multiple Sodium eras list this MC version) only accept a
-        Sodium Extra whose own version number carries the pinned 0.X line;
-        none -> omit, never 'closest'."""
+    """Sodium Extra must pair with the PINNED Sodium's 0.X era; a cross-era
+    pair is the 'Incompatible mods found' boot refusal (same failure class as
+    the Iris/Sodium EXCEPTION entries in Data.cs). Checked per candidate,
+    newest release first, most-authoritative signal first:
+      1. the candidate's own declared Modrinth Sodium dependency, when it
+         names an exact version — its 0.X line must equal the pin's. (Their
+         version NUMBERS decoupled in the 0.8/0.9 era: sodium-extra 0.9.x
+         pairs with sodium 0.8.x on 1.21.11, so own-number matching alone
+         would wrongly reject the right build.)
+      2. no declared pin, but the pinned era is the ONLY Sodium era published
+         for this MC version -> anything built for it targets that era.
+      3. several Sodium eras coexist and nothing declared -> fall back to the
+         candidate's own 0.X line.
+    No candidate passes -> omit, never 'closest'. No Sodium pin -> no Extra."""
     if pinned_sodium is None:
         return None
     pin_line = sodium_line(pinned_sodium)
-    candidates = list_versions(EXTRA_PROJECTS["sodium-extra"], mc)
+    candidates = list_versions(EXTRA_PROJECTS["sodium-extra"], mc, releases_only=True)
     if not candidates:
         return None
     sodium_eras = {sodium_line(v["version_number"]) for v in list_versions("sodium", mc)}
     sodium_eras.discard(None)
-    if sodium_eras <= {pin_line}:
-        return as_pin(candidates[0])
     for cand in candidates:
+        declared = None
+        for dep in cand.get("dependencies", []):
+            if dep.get("project_id") == "AANobbMI" and dep.get("version_id"):
+                try:
+                    declared = sodium_line(get_version_by_id(dep["version_id"])["version_number"])
+                except Exception:
+                    declared = None
+                break
+        if declared is not None:
+            if declared == pin_line:
+                return as_pin(cand)
+            continue
+        if sodium_eras <= {pin_line}:
+            return as_pin(cand)
         if sodium_line(cand["version_number"]) == pin_line:
             return as_pin(cand)
     print(f"// !! {mc}: no sodium-extra matches pinned Sodium line {pin_line} "
@@ -221,7 +245,7 @@ def resolve_required_deps(version_obj, mc: str, chosen_project_ids: set, depth=0
             if dep.get("version_id"):
                 dep_ver = get_version_by_id(dep["version_id"])
             else:
-                vers = list_versions(pid, mc)
+                vers = list_versions(pid, mc, releases_only=True)
                 dep_ver = vers[0] if vers else None
         except Exception as e:
             print(f"// !! {mc}: dep {pid} lookup failed ({e}) — omitted", file=sys.stderr)
@@ -251,9 +275,9 @@ def resolve_extras(mc: str, data_cs_text: str):
                 if pin:
                     pins.append(pin)
                 continue
-            candidates = list_versions(slug, mc)
+            candidates = list_versions(slug, mc, releases_only=True)
             if not candidates:
-                print(f"// {mc}: no {key} build — skipped (fail-soft)", file=sys.stderr)
+                print(f"// {mc}: no {key} release — skipped (fail-soft)", file=sys.stderr)
                 continue
             top = candidates[0]
             deps = resolve_required_deps(top, mc, chosen)
