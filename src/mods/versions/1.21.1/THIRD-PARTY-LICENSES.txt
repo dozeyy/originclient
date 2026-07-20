@@ -62,6 +62,18 @@ this section as a compliance claim.
   ferrite-core    MIT
   twelvemonkeys   "The BSD License" (imageio-*, common-*)
 
+  Added with the extras stack 2026-07-20 (bundle parity with the launcher's
+  standalone install). Licence strings NOT yet verified — read each jar's
+  fabric.mod.json before any release that treats this file as authoritative
+  (same rule as above; the sandbox this change was written in cannot open
+  the jars):
+  sodium-extra             (unverified)
+  moreculling              (unverified)
+  cloth-config             (unverified — commonly reported LGPL-3.0)
+  cull-leaves              (unverified)
+  midnightlib              (unverified)
+  better-render-distance   (unverified)
+
 Sourcing, so a later reader can re-check rather than trust this file: every mod
 licence above is the string declared by that mod's own fabric.mod.json inside the
 jar Origin actually bundles, read on 2026-07-15. The twelvemonkeys entry has no

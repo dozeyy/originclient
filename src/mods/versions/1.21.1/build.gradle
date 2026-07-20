@@ -113,6 +113,15 @@ dependencies {
 	// note above these versions). EntityCulling was removed 2026-07-10 (see note).
 	modImplementation(include("maven.modrinth:immediatelyfast:${project.immediatelyfast_version}"))
 	modImplementation(include("maven.modrinth:modernfix:${project.modernfix_version}"))
+	// The extras stack (2026-07-20) — see the pin rationale block in
+	// gradle.properties. MoreCulling+ClothConfig and CullLeaves+MidnightLib are
+	// required pairs: shipping one without its dep is a boot refusal.
+	modImplementation(include("maven.modrinth:sodium-extra:${project.sodium_extra_version}"))
+	modImplementation(include("maven.modrinth:moreculling:${project.moreculling_version}"))
+	modImplementation(include("maven.modrinth:cloth-config:${project.cloth_config_version}"))
+	modImplementation(include("maven.modrinth:cull-leaves:${project.cullleaves_version}"))
+	modImplementation(include("maven.modrinth:midnightlib:${project.midnightlib_version}"))
+	modImplementation(include("maven.modrinth:better-render-distance:${project.betterrenderdistance_version}"))
 	// Iris shader loader (see gradle.properties for the Sodium pairing note).
 	// Accessed via reflection only (IrisBridge) so an Iris update can never
 	// break our compile — but bundled jar-in-jar like the rest of the stack.
