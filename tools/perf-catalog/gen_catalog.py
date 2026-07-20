@@ -38,6 +38,13 @@ Slug lookup — search Modrinth when a project's slug is unknown:
 
     python3 tools/perf-catalog/gen_catalog.py --search "better render distance"
 
+Version listing — every build of one project for one MC version, with its
+declared dependencies (used to hand-pin the 1.21.1 jar-in-jar bundle, whose
+Sodium is the BUNDLED 0.6.13, not the standalone row's — so the automatic
+pin-pairing doesn't apply and a human reads this instead):
+
+    python3 tools/perf-catalog/gen_catalog.py --list sodium-extra 1.21.1
+
 Requires only the Python standard library.
 """
 import json
@@ -331,6 +338,16 @@ def run_extras(mc_versions, apply: bool):
         print(f"// applied to {data_path}", file=sys.stderr)
 
 
+def run_list(slug: str, mc: str):
+    for v in list_versions(slug, mc):
+        pin = as_pin(v)
+        deps = ", ".join(
+            f"{d.get('dependency_type')}:{d.get('project_id')}@{d.get('version_id') or 'any'}"
+            for d in v.get("dependencies", [])) or "-"
+        print(f"{v['version_number']:36} {v.get('version_type', '?'):8} "
+              f"{pin[2] if pin else '-':52} deps: {deps}")
+
+
 def run_search(query: str):
     q = urllib.parse.urlencode({"query": query, "limit": 15})
     req = urllib.request.Request(f"{API}/search?{q}", headers={"User-Agent": UA})
@@ -384,6 +401,8 @@ if __name__ == "__main__":
         sys.exit(2)
     if args[0] == "--search":
         run_search(" ".join(args[1:]))
+    elif args[0] == "--list":
+        run_list(args[1], args[2])
     elif args[0] == "--extras":
         rest = args[1:]
         apply = "--apply" in rest

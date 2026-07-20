@@ -281,6 +281,7 @@ public static class ModManager
             || n.StartsWith("cloth-config-")
             || n.StartsWith("cullleaves-")
             || n.StartsWith("midnightlib-")
+            || n.StartsWith("betterrenderdistance-")
             || IsIrisJar(n);
     }
 
@@ -320,6 +321,7 @@ public static class ModManager
         "cloth-config-",
         "cullleaves-",
         "midnightlib-",
+        "betterrenderdistance-",
     };
 
     /// <summary>

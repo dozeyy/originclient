@@ -81,6 +81,18 @@ jobs:
           echo "---- search: render distance ----"
           python3 tools/perf-catalog/gen_catalog.py --search "render distance"
 
+      # Pin data for the 1.21.1 jar-in-jar bundle: its Sodium is the BUNDLED
+      # 0.6.13, not the standalone row's 0.8.12, so the automatic pin-pairing
+      # doesn't apply — a human reads this listing and hand-pins
+      # src/mods/versions/1.21.1/gradle.properties instead.
+      - name: List 1.21.1 bundle candidates
+        if: github.event_name == 'push' || inputs.search == ''
+        run: |
+          for slug in sodium-extra moreculling cullleaves better-render-distance cloth-config midnightlib; do
+            echo "==== $slug @ 1.21.1"
+            python3 tools/perf-catalog/gen_catalog.py --list "$slug" 1.21.1 || true
+          done
+
       - name: Resolve extras (dry run)
         if: github.event_name == 'workflow_dispatch' && inputs.search == '' && !inputs.apply
         run: python3 tools/perf-catalog/gen_catalog.py --extras ${{ inputs.versions || env.DEFAULT_VERSIONS }}
