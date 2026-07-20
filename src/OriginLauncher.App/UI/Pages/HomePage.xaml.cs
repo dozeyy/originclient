@@ -168,6 +168,8 @@ public partial class HomePage : UserControl
         var freshSettings = SettingsStore.Load();
         var offlineTest = freshSettings.OfflineTestMode;
         var externalMods = freshSettings.PlayWithExternalMods;
+        var chunkMultithreading = freshSettings.ChunkMultithreading;
+        var fastLightEngine = freshSettings.FastLightEngine;
         if (_isLaunching || (_selectedAccount == null && !offlineTest)) return;
         if (_selectedVersion is not { } version) return;
 
@@ -244,7 +246,8 @@ public partial class HomePage : UserControl
             var launchOption = LaunchProfileBuilder.Build(_settings, session);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             var process = await _versionManager.InstallAndBuildProcessAsync(
-                version, launchOption, externalMods, installProgress, cts.Token);
+                version, launchOption, externalMods, chunkMultithreading, fastLightEngine,
+                installProgress, cts.Token);
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the

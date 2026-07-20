@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using OriginLauncher.App.Core.Mods;
 
 namespace OriginLauncher.App.Core.Loaders;
 
@@ -11,12 +13,34 @@ public static class PerfModInstaller
 {
     private static readonly HttpClient Http = new();
 
-    public static async Task InstallAsync(
+    // The always-on stack (core slots + Extras).
+    public static Task InstallAsync(
         VersionPerfProfile profile, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default)
+        => DownloadMissingAsync(profile.Mods(), modsFolder, progress, ct);
+
+    // The opt-in mods (VersionPerfProfile.Optional), each gated by the matching
+    // Settings -> Performance flag: C2ME by chunkMt, Starlight/ScalableLux by
+    // fastLight. Only the enabled families are downloaded — a disabled family is
+    // left untouched here and removed by VersionManager's optional-off sweep.
+    public static Task InstallOptionalAsync(
+        VersionPerfProfile profile, string modsFolder, bool chunkMt, bool fastLight,
+        IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        var wanted = new List<PerfMod>();
+        foreach (var mod in profile.Optional ?? [])
+        {
+            if (chunkMt && ModManager.IsC2meJar(mod.FileName)) wanted.Add(mod);
+            else if (fastLight && ModManager.IsLightEngineJar(mod.FileName)) wanted.Add(mod);
+        }
+        return DownloadMissingAsync(wanted, modsFolder, progress, ct);
+    }
+
+    private static async Task DownloadMissingAsync(
+        IEnumerable<PerfMod> mods, string modsFolder, IProgress<string>? progress, CancellationToken ct)
     {
         Directory.CreateDirectory(modsFolder);
 
-        foreach (var mod in profile.Mods())
+        foreach (var mod in mods)
         {
             var destPath = Path.Combine(modsFolder, mod.FileName);
             // Skip if already present in EITHER state — an enabled ".jar" or a

@@ -18,7 +18,15 @@ public sealed record VersionPerfProfile(
     // exists for this Minecraft version — the installer just skips it
     // (fail-soft). Extras NEVER participate in HasShaderStack / Tier: a
     // version's shader-capability is decided by the six core slots only.
-    IReadOnlyList<PerfMod>? Extras = null)
+    IReadOnlyList<PerfMod>? Extras = null,
+    // Opt-in experimental mods (C2ME chunk multithreading, Starlight/ScalableLux
+    // light engine) — installed ONLY when the matching Settings -> Performance
+    // flag is on, and REMOVED when it's off (see VersionManager's optional pass
+    // + PerfModInstaller.InstallOptionalAsync). Deliberately NOT yielded by
+    // Mods(): Mods() is the always-on set (core stack + Extras), and is what the
+    // de-dupe's pinned-name list is built from. Which optional jar a given flag
+    // controls is decided by filename family (c2me-* vs starlight-*/scalablelux-*).
+    IReadOnlyList<PerfMod>? Optional = null)
 {
     public IEnumerable<PerfMod> Mods()
     {

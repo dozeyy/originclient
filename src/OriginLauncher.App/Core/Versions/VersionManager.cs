@@ -254,6 +254,7 @@ public sealed class VersionManager
     public async Task<Process> InstallAndBuildProcessAsync(
         string version, MLaunchOption option,
         bool externalMods = true,
+        bool chunkMultithreading = false, bool fastLightEngine = false,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
         var path = BuildInstancePath(version);
@@ -421,6 +422,34 @@ public sealed class VersionManager
             irisPresent = perfProfile.Iris != null;
         }
 
+        // Opt-in experimental perf mods (Settings -> Performance): C2ME (chunk
+        // multithreading) and Starlight/ScalableLux (fast light engine). These
+        // are ALWAYS standalone — never bundled — so unlike the core stack they
+        // apply on 1.21.1 too; the catalog line exists there even though
+        // perfProfile is forced null for the bundled case, so fetch it directly.
+        // ON  -> download the enabled families (InstallOptionalAsync filters).
+        // OFF -> delete any copy left from a previous "on" launch, so toggling
+        //        the switch off actually removes the mod. The sweep is scoped to
+        //        the exact managed family (IsC2meJar / IsLightEngineJar) — the
+        //        same discipline the rest of the managed stack uses — and covers
+        //        both the enabled ".jar" and a ".jar.disabled" twin. Runs BEFORE
+        //        the family de-dupe and the origin-only rebuild below, so both
+        //        see the corrected mods/ folder.
+        var optionalProfile = PerformanceModCatalog.TryGet(version);
+        if (optionalProfile?.Optional is { Count: > 0 })
+            await PerfModInstaller.InstallOptionalAsync(
+                optionalProfile, modsFolder, chunkMultithreading, fastLightEngine, progress, ct);
+        foreach (var file in Directory.EnumerateFiles(modsFolder))
+        {
+            var name = Path.GetFileName(file);
+            var isC2me = ModManager.IsC2meJar(name);
+            var isLight = ModManager.IsLightEngineJar(name);
+            if ((isC2me && !chunkMultithreading) || (isLight && !fastLightEngine))
+            {
+                try { File.Delete(file); } catch { /* locked/removed already */ }
+            }
+        }
+
         // Iris's own "a new version is available, click to update" nag
         // (net.coderbot.iris.UpdateChecker) has no in-launcher equivalent
         // and would send the player out to a browser mid-session — off by
@@ -457,6 +486,14 @@ public sealed class VersionManager
         if (perfProfile != null)
             foreach (var pinned in perfProfile.Mods())
                 pinnedJarNames.Add(pinned.FileName);
+        // Enabled opt-in pins win their family too (the catalog build is the one
+        // to keep over a hand-dropped copy). Uses optionalProfile, which is
+        // populated even on 1.21.1 where perfProfile is null.
+        if (optionalProfile?.Optional is { } opt)
+            foreach (var mod in opt)
+                if ((ModManager.IsC2meJar(mod.FileName) && chunkMultithreading)
+                    || (ModManager.IsLightEngineJar(mod.FileName) && fastLightEngine))
+                    pinnedJarNames.Add(mod.FileName);
 
         foreach (var family in Directory.EnumerateFiles(modsFolder)
                      .Where(f => Path.GetFileName(f).EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))

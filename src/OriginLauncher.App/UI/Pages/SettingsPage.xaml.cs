@@ -28,6 +28,8 @@ public partial class SettingsPage : UserControl
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
         ShaderCacheNvidiaToggle.IsChecked = _settings.ShaderCacheNvidia;
         ShaderCacheAmdToggle.IsChecked = _settings.ShaderCacheAmd;
+        ChunkMultithreadingToggle.IsChecked = _settings.ChunkMultithreading;
+        FastLightEngineToggle.IsChecked = _settings.FastLightEngine;
         OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
 
         _isLoading = false;
@@ -145,6 +147,34 @@ public partial class SettingsPage : UserControl
         if (_isLoading) return;
         _settings.ShaderCacheAmd = false;
         SettingsStore.Update(s => s.ShaderCacheAmd = false);
+    }
+
+    private void ChunkMultithreadingToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ChunkMultithreading = true;
+        SettingsStore.Update(s => s.ChunkMultithreading = true);
+    }
+
+    private void ChunkMultithreadingToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ChunkMultithreading = false;
+        SettingsStore.Update(s => s.ChunkMultithreading = false);
+    }
+
+    private void FastLightEngineToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.FastLightEngine = true;
+        SettingsStore.Update(s => s.FastLightEngine = true);
+    }
+
+    private void FastLightEngineToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.FastLightEngine = false;
+        SettingsStore.Update(s => s.FastLightEngine = false);
     }
 
     private void OfflineTestToggle_Checked(object sender, RoutedEventArgs e)

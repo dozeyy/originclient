@@ -39,4 +39,18 @@ public sealed class LauncherSettings
     // The player's mods/ folder is never modified by this — flip it back on
     // and everything loads exactly as before.
     public bool PlayWithExternalMods { get; set; } = true;
+
+    // Opt-in experimental performance mods, surfaced under Settings ->
+    // Performance and installed ONLY when their flag is on (VersionManager's
+    // optional-install pass). Both default OFF: they're beta-channel upstream
+    // and can interact badly with heavy modpacks, so the player turns them on
+    // deliberately after reading the tooltip warning. Turning a flag back off
+    // removes the jar on the next launch. Never bundled into the Origin jar —
+    // always installed standalone, so 1.21.1 gets them too.
+    //   ChunkMultithreading -> C2ME (multithreaded chunk gen/load). Can slow
+    //     Distant Horizons and conflict with worldgen packs — hence off.
+    //   FastLightEngine -> Starlight (<=1.20) / ScalableLux (1.21+): a light-
+    //     engine rewrite for faster chunk loads. Safe with DH/Sodium/shaders.
+    public bool ChunkMultithreading { get; set; }
+    public bool FastLightEngine { get; set; }
 }

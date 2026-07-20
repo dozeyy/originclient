@@ -75,6 +75,38 @@
                                       VerticalAlignment="Center"
                                       Checked="ShaderCacheAmdToggle_Checked" Unchecked="ShaderCacheAmdToggle_Unchecked"/>
                     </Grid>
+
+                    <TextBlock Text="Experimental" Style="{StaticResource FieldLabel}" Margin="0,16,0,0"/>
+                    <TextBlock Text="Off by default. These add extra optimization mods that boost chunk and lighting speed, but they're experimental — turn them on only if you know your setup can take them."
+                               Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,2,0,2"/>
+                    <TextBlock Text="Not recommended alongside Distant Horizons or large world-generation modpacks."
+                               Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Chunk Multithreading (C2ME)" Style="{StaticResource Text.Body}" VerticalAlignment="Center"
+                                   ToolTip="Generates and loads chunks across multiple CPU cores — faster world generation and less stutter at high render distance. Experimental; uses more memory, and can slow down Distant Horizons or conflict with heavy world-generation modpacks — leave off if you use those."/>
+                        <ToggleButton Grid.Column="1" x:Name="ChunkMultithreadingToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      ToolTip="Generates and loads chunks across multiple CPU cores — faster world generation and less stutter at high render distance. Experimental; uses more memory, and can slow down Distant Horizons or conflict with heavy world-generation modpacks — leave off if you use those."
+                                      Checked="ChunkMultithreadingToggle_Checked" Unchecked="ChunkMultithreadingToggle_Unchecked"/>
+                    </Grid>
+
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Fast Light Engine" Style="{StaticResource Text.Body}" VerticalAlignment="Center"
+                                   ToolTip="Replaces Minecraft's lighting engine (Starlight on 1.20 and older, ScalableLux on 1.21+) for much faster chunk loads and fewer light glitches. Experimental; safe with Distant Horizons, Sodium and shaders."/>
+                        <ToggleButton Grid.Column="1" x:Name="FastLightEngineToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      ToolTip="Replaces Minecraft's lighting engine (Starlight on 1.20 and older, ScalableLux on 1.21+) for much faster chunk loads and fewer light glitches. Experimental; safe with Distant Horizons, Sodium and shaders."
+                                      Checked="FastLightEngineToggle_Checked" Unchecked="FastLightEngineToggle_Unchecked"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 

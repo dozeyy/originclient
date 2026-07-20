@@ -248,7 +248,26 @@ public static class ModManager
             || n.StartsWith("fabric-api-")
             || n.StartsWith("legacy-fabric-api-")
             || n.Equals("optifine.jar")
-            || IsBundledPerfJar(jarName);
+            || IsBundledPerfJar(jarName)
+            || IsC2meJar(jarName)
+            || IsLightEngineJar(jarName);
+    }
+
+    // The two OPT-IN experimental families (Settings -> Performance toggles):
+    // C2ME (chunk multithreading) and the light engine (Starlight <=1.20 /
+    // ScalableLux 1.21+). Deliberately NOT part of IsBundledPerfJar: the 1.21.1
+    // standalone purge keys off that set, and these must SURVIVE on 1.21.1 so
+    // their toggle works there too (they're never bundled jar-in-jar). They are
+    // still managed (IsManaged + ManagedFamilyPrefixes) so they mirror into
+    // mods-origin-only and show read-only on the Mods page. VersionManager's
+    // optional pass installs them when the flag is on and deletes them when off.
+    public static bool IsC2meJar(string jarName) =>
+        jarName.ToLowerInvariant().StartsWith("c2me-");
+
+    public static bool IsLightEngineJar(string jarName)
+    {
+        var n = jarName.ToLowerInvariant();
+        return n.StartsWith("starlight-") || n.StartsWith("scalablelux-");
     }
 
     /// <summary>
@@ -322,6 +341,12 @@ public static class ModManager
         "cullleaves-",
         "midnightlib-",
         "betterrenderdistance-",
+        // The opt-in experimental families (Settings -> Performance) — managed
+        // for de-dupe/mirror/Mods-page, but NOT in IsBundledPerfJar (see the
+        // IsC2meJar / IsLightEngineJar predicates for why).
+        "c2me-",
+        "starlight-",
+        "scalablelux-",
     };
 
     /// <summary>
