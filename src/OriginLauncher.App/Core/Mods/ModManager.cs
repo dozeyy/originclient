@@ -236,8 +236,10 @@ public static class ModManager
     ///
     /// Matches each project's canonical filename SHAPE, not a bare token, so
     /// third-party addons that merely start with the same word survive:
-    /// "sodium-extra", "sodiumdynamiclights", "reeses-sodium-options" are NOT
-    /// Sodium itself and are left fully under user control.
+    /// "sodiumdynamiclights" and "reeses-sodium-options" are NOT Sodium itself
+    /// and are left fully under user control. (Sodium Extra used to be the
+    /// canonical example here — it flipped to launcher-managed 2026-07-20 on
+    /// Will's direction, when the extras stack made it part of every version.)
     /// </summary>
     public static bool IsManaged(string jarName)
     {
@@ -265,8 +267,20 @@ public static class ModManager
             || n.StartsWith("indium-")
             || n.StartsWith("ferritecore-")
             || n.StartsWith("krypton-")
-            || n.StartsWith("immediatelyfast-fabric-")
+            // "immediatelyfast-", not "-fabric-": pre-1.20 releases are plain
+            // "ImmediatelyFast-1.1.12+1.18.2.jar" — both shapes, one family.
+            || n.StartsWith("immediatelyfast-")
             || n.StartsWith("modernfix-fabric-")
+            // The extras stack (2026-07-20): Sodium Extra, MoreCulling + its
+            // Cloth Config, Cull Leaves + its MidnightLib. Each covers every
+            // filename shape the project has shipped ("sodium-extra-fabric-"
+            // and "sodium-extra-", "moreculling-fabric-" and "moreculling-",
+            // "cullleaves-fabric-" and bare "cullleaves-").
+            || n.StartsWith("sodium-extra-")
+            || n.StartsWith("moreculling-")
+            || n.StartsWith("cloth-config-")
+            || n.StartsWith("cullleaves-")
+            || n.StartsWith("midnightlib-")
             || IsIrisJar(n);
     }
 
@@ -283,6 +297,9 @@ public static class ModManager
     // The managed mod families, keyed by canonical filename prefix. Iris is
     // handled separately (see IsIrisJar — it has shipped three filename shapes
     // that must all land in one family).
+    // NOTE: ModFamilyKey returns the FIRST matching prefix, so no entry here
+    // may be a prefix of another (two spellings of one family would split it
+    // into two "families" and defeat the one-enabled-copy rule).
     private static readonly string[] ManagedFamilyPrefixes =
     {
         "originclient",
@@ -293,8 +310,16 @@ public static class ModManager
         "indium-",
         "ferritecore-",
         "krypton-",
-        "immediatelyfast-fabric-",
+        // Covers both "ImmediatelyFast-Fabric-*" and the pre-1.20 plain
+        // "ImmediatelyFast-*" shape as ONE family.
+        "immediatelyfast-",
         "modernfix-fabric-",
+        // The extras stack (2026-07-20) — see IsBundledPerfJar.
+        "sodium-extra-",
+        "moreculling-",
+        "cloth-config-",
+        "cullleaves-",
+        "midnightlib-",
     };
 
     /// <summary>

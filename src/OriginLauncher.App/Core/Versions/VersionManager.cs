@@ -381,8 +381,11 @@ public sealed class VersionManager
             // Matched by ModManager.IsBundledPerfJar, which keys on each
             // project's canonical filename SHAPE (sodium-fabric-*, etc.)
             // — so a version-drifted leftover is caught, but user addons
-            // like sodium-extra / sodiumdynamiclights are spared (the old
-            // bare "sodium" prefix silently deleted those every launch).
+            // like sodiumdynamiclights / reeses-sodium-options are spared
+            // (the old bare "sodium" prefix silently deleted those every
+            // launch). Sodium Extra is NO LONGER spared: it joined the
+            // managed extras stack 2026-07-20, so a hand-installed copy is
+            // purged/de-duped like any other managed family now.
             // Only enabled ".jar" files are considered; ".jar.disabled"
             // user mods are left alone.
             if (originBundlesPerfStack)
