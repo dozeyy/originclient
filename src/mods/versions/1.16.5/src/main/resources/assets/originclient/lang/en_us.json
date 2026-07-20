@@ -1,5 +1,9 @@
 {
 	"key.categories.originclient": "Origin Client",
+	"originclient.menu.mods": "Mods",
+	"originclient.screen.mods.title": "Mods",
+	"originclient.screen.mods.origin": "Origin",
+	"originclient.screen.mods.yours": "Your Mods",
 	"key.originclient.open_mod_menu": "Open Mod Menu",
 	"key.originclient.zoom": "Zoom",
 	"key.originclient.freelook": "Freelook",

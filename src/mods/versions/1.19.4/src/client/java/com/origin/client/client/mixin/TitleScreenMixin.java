@@ -2,11 +2,13 @@ package com.origin.client.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.origin.client.client.gui.Gfx;
+import com.origin.client.client.gui.OriginModsListScreen;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.PlainTextButton;
@@ -14,11 +16,15 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.renderer.PanoramaRenderer;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.ArrayList;
+import java.util.List;
 
 // Re-skins the main menu: the Origin background (charcoal + rotating rings +
 // grain) replaces the panorama, the "ORIGIN" wordmark replaces the vanilla
@@ -41,15 +47,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //    via the one drawCenteredString call in render() -- redirected to a no-op
 //    (its pose push/rotate/pop around the call stays balanced). The version
 //    line is the one drawString call, same treatment.
-//  - After init(), hide the ImageButton (language, accessibility) and
-//    PlainTextButton (copyright) widgets via visible/active -- the only widgets
-//    of those types; the real options are plain Button, left intact.
+//  - After init(), keep hiding the copyright PlainTextButton, un-hide the
+//    language/accessibility icon squares (ImageButton), insert the "Mods" row
+//    (opens the read-only OriginModsListScreen), and shift the Options/Quit
+//    half-row + icons down one 24px pitch. Button faces come from this module's
+//    AbstractButtonMixin restyle, same as every menu. 2026-07-20 redesign from
+//    Will's reference shots; settings stay in-game (Right Shift).
 // priority 2000 (default 1000): if another mod also modifies TitleScreen (e.g.
 // redirects the logo/background), Origin's re-skin wins the conflict. Scoped to
 // the UI mixins only — perf/render mixins stay at default so Sodium/Iris
 // application ordering is left undisturbed.
 @Mixin(value = TitleScreen.class, priority = 2000)
-public class TitleScreenMixin {
+public abstract class TitleScreenMixin extends Screen {
+
+	protected TitleScreenMixin(Component title) {
+		super(title);
+	}
 
 	// SETTINGS > General > Main Menu Style. "Vanilla" turns the entire re-skin
 	// off — every inject below no-ops so the stock title screen shows through.
@@ -132,21 +145,50 @@ public class TitleScreenMixin {
 		}
 	}
 
-	// Hide the language + accessibility icons (ImageButton) and the
-	// copyright line (PlainTextButton). visible=false stops both rendering and
-	// clicks; re-run on every (re)init so it survives window resizes.
+	// The Origin stacked layout (Will's reference shots): keep vanilla's
+	// Singleplayer/Multiplayer/Realms rows where they are, insert a "Mods" row
+	// beneath them, and push the Options/Quit half-row + the two icon squares
+	// down one 24px pitch. Copyright (PlainTextButton) stays hidden. Widgets are
+	// matched by type + width (200 = stack row, 98 = half row, ImageButton =
+	// icon square), so the match is locale-proof; anchoring on the first stack
+	// row's own y tracks the version's layout anchor. Re-runs on every (re)init,
+	// and init() rebuilds widgets, so resizes never double the Mods row. An
+	// unexpected widget census leaves vanilla's arrangement alone (fail-soft).
 	@Inject(method = "init", at = @At("TAIL"))
-	private void originclient$stripExtraButtons(CallbackInfo ci) {
+	private void originclient$originLayout(CallbackInfo ci) {
 		if (!originclient$origin()) {
 			return;
 		}
-		Screen self = (Screen) (Object) this;
-		for (GuiEventListener child : self.children()) {
-			if ((child instanceof ImageButton || child instanceof PlainTextButton)
-					&& child instanceof AbstractWidget widget) {
-				widget.visible = false;
-				widget.active = false;
+		List<AbstractWidget> stack = new ArrayList<>();
+		List<AbstractWidget> halfRow = new ArrayList<>();
+		List<AbstractWidget> icons = new ArrayList<>();
+		for (GuiEventListener child : this.children()) {
+			if (child instanceof PlainTextButton copyright) {
+				copyright.visible = false;
+				copyright.active = false;
+			} else if (child instanceof ImageButton icon) {
+				icons.add(icon);
+			} else if (child instanceof AbstractWidget widget && widget.getWidth() == 200) {
+				stack.add(widget);
+			} else if (child instanceof AbstractWidget widget && widget.getWidth() == 98) {
+				halfRow.add(widget);
 			}
 		}
+		if (stack.isEmpty()) {
+			return;
+		}
+		int modsY = stack.get(0).getY() + 24 * stack.size();
+		int rowY = modsY + 24 + 12; // vanilla's own 12px gap before the half row
+		for (AbstractWidget widget : halfRow) {
+			widget.setY(rowY);
+		}
+		for (AbstractWidget widget : icons) {
+			widget.setY(rowY);
+		}
+		Screen self = (Screen) (Object) this;
+		addRenderableWidget(Button.builder(Component.translatable("originclient.menu.mods"),
+						b -> this.minecraft.setScreen(new OriginModsListScreen(self)))
+				.bounds(this.width / 2 - 100, modsY, 200, 20)
+				.build());
 	}
 }
