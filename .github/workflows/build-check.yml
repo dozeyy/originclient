@@ -160,3 +160,14 @@ jobs:
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish
+
+      # Not a release (no tag, nothing shipped to players via auto-update) —
+      # just exposes this verification build as a downloadable zip so a
+      # feature branch can be smoke-tested on Windows before it's tagged.
+      # See docs/RELEASING.md for the actual release flow.
+      - name: Upload launcher build (branch testing only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OriginLauncher-${{ github.sha }}
+          path: publish/
+          retention-days: 14
