@@ -122,6 +122,15 @@ dependencies {
 	modImplementation(include("maven.modrinth:cull-leaves:${project.cullleaves_version}"))
 	modImplementation(include("maven.modrinth:midnightlib:${project.midnightlib_version}"))
 	modImplementation(include("maven.modrinth:better-render-distance:${project.betterrenderdistance_version}"))
+	// The 2026-07-21 QoL batch (Feature D) — see gradle.properties. Each mod's
+	// only required dep is Fabric API (already provided), so none needs a bundled
+	// library alongside it. Simple Voice Chat is bundled but seeded INERT
+	// (disabled=true) by the launcher's VoiceChatConfigSeeder, like JEI.
+	modImplementation(include("maven.modrinth:simple-voice-chat:${project.voicechat_version}"))
+	modImplementation(include("maven.modrinth:clumps:${project.clumps_version}"))
+	modImplementation(include("maven.modrinth:noisium:${project.noisium_version}"))
+	modImplementation(include("maven.modrinth:world-host:${project.worldhost_version}"))
+	modImplementation(include("maven.modrinth:shulkerboxtooltip:${project.shulkerboxtooltip_version}"))
 	// Iris shader loader (see gradle.properties for the Sodium pairing note).
 	// Accessed via reflection only (IrisBridge) so an Iris update can never
 	// break our compile — but bundled jar-in-jar like the rest of the stack.

@@ -74,6 +74,18 @@ this section as a compliance claim.
   midnightlib              (unverified)
   better-render-distance   (unverified)
 
+  Added with the QoL batch 2026-07-21 (Feature D — same bundle-parity rule).
+  Licence strings NOT yet verified from the jars (sandbox cannot open them):
+  simple-voice-chat        All Rights Reserved (proprietary, source-available,
+                           NOT OSI) — bundled/downloaded from the official
+                           Modrinth CDN at build time, never redistributed as
+                           source or forked; same posture as Sodium's
+                           source-available entry and the OptiFine installer.
+  clumps                   (unverified — commonly reported MIT)
+  noisium                  (unverified)
+  world-host               (unverified — commonly reported LGPL-3.0)
+  shulkerboxtooltip        (unverified — commonly reported LGPL-3.0-or-later)
+
 Sourcing, so a later reader can re-check rather than trust this file: every mod
 licence above is the string declared by that mod's own fabric.mod.json inside the
 jar Origin actually bundles, read on 2026-07-15. The twelvemonkeys entry has no

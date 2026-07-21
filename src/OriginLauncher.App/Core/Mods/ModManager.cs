@@ -248,20 +248,21 @@ public static class ModManager
             || n.StartsWith("fabric-api-")
             || n.StartsWith("legacy-fabric-api-")
             || n.Equals("optifine.jar")
-            || IsBundledPerfJar(jarName)
+            || IsBundledPerfJar(jarName) // now also covers the QoL batch (IsQolExtraJar)
             || IsC2meJar(jarName)
-            || IsLightEngineJar(jarName)
-            || IsQolExtraJar(jarName);
+            || IsLightEngineJar(jarName);
     }
 
     // The 2026-07-21 always-on QoL batch: Simple Voice Chat (bundled inert, like
-    // JEI) plus Clumps, Noisium, World Host, Shulker Box Tooltip and Status
-    // Effect Timer. Installed via the catalog Extras on every version that has a
-    // build. Managed (mirror to mods-origin-only, de-dupe, show read-only on the
-    // Mods page) but — like C2ME / the light engine, and UNLIKE the bundled perf
-    // stack — deliberately NOT in IsBundledPerfJar: none of these ride jar-in-jar
-    // inside originclient.jar, so the 1.21.1 standalone purge must not touch a
-    // player's own copy of them.
+    // JEI) plus Clumps, Noisium, World Host and Shulker Box Tooltip. (A potion-
+    // timer overlay was considered but dropped — its only broadly-versioned
+    // option hard-requires ModMenu.) Installed via the catalog Extras standalone
+    // on every version that has
+    // a build, AND bundled jar-in-jar on 1.21.1 (like the rest of that build's
+    // stack) — so this family IS part of IsBundledPerfJar, which is what makes the
+    // 1.21.1 standalone purge de-dupe a player's own loose copy against the
+    // bundled one (the bundled jar lives inside originclient.jar, invisible to the
+    // file-level family de-dupe, so the purge is the only thing that can catch it).
     //
     // NOTE: these prefixes are the mods' canonical CDN filename shapes; the exact
     // strings are confirmed against the URLs the perf-catalog-extras CI resolve
@@ -277,8 +278,7 @@ public static class ModManager
             || n.StartsWith("clumps-")
             || n.StartsWith("noisium-")
             || n.StartsWith("world-host-")
-            || n.StartsWith("shulkerboxtooltip-")
-            || n.StartsWith("effecttimerplus-");
+            || n.StartsWith("shulkerboxtooltip-");
     }
 
     // The two OPT-IN experimental families (Settings -> Performance toggles):
@@ -329,6 +329,10 @@ public static class ModManager
             || n.StartsWith("cullleaves-")
             || n.StartsWith("midnightlib-")
             || n.StartsWith("betterrenderdistance-")
+            // The 2026-07-21 QoL batch — bundled jar-in-jar on 1.21.1 too, so it
+            // shares the same standalone-purge/de-dupe treatment as the rest of
+            // the bundled stack (see IsQolExtraJar).
+            || IsQolExtraJar(n)
             || IsIrisJar(n);
     }
 
@@ -382,7 +386,6 @@ public static class ModManager
         "noisium-",
         "world-host-",
         "shulkerboxtooltip-",
-        "effecttimerplus-",
     };
 
     /// <summary>

@@ -40,9 +40,9 @@ public class OriginModsListScreen extends Screen {
 			"immediatelyfast", "modernfix", "betterrenderdistance",
 			"c2me", "starlight", "scalablelux",
 			// Always-on QoL batch (2026-07-21): Voice Chat + Clumps, Noisium,
-			// World Host, Shulker Box Tooltip, Status Effect Timer.
+			// World Host, Shulker Box Tooltip.
 			"voicechat", "clumps", "noisium", "world_host",
-			"shulkerboxtooltip", "effecttimerplus"));
+			"shulkerboxtooltip"));
 
 	private static final Set<String> HIDDEN_IDS = new HashSet<String>(Arrays.asList(
 			"minecraft", "java", "fabricloader"));

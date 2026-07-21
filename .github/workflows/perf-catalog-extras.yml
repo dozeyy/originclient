@@ -69,7 +69,7 @@ jobs:
       - name: Validate slugs + BRD candidates
         if: github.event_name == 'push' || inputs.search == ''
         run: |
-          for slug in sodium-extra moreculling cull-leaves cullleaves immediatelyfast modernfix cloth-config c2me-fabric starlight scalablelux simple-voice-chat clumps noisium world-host shulkerboxtooltip effecttimerplus; do
+          for slug in sodium-extra moreculling cull-leaves cullleaves immediatelyfast modernfix cloth-config c2me-fabric starlight scalablelux simple-voice-chat clumps noisium world-host shulkerboxtooltip; do
             printf '== %-18s ' "$slug"
             curl -sf --max-time 30 -A "origin-launcher-catalog-gen/1.0" \
               "https://api.modrinth.com/v2/project/$slug" \
@@ -94,8 +94,8 @@ jobs:
           done
 
       # The 2026-07-21 QoL batch's 1.21.1 bundle pins (Feature D). Voice Chat +
-      # Clumps/Noisium/World Host/Shulker Box Tooltip/Effect Timer Plus are
-      # installed standalone on every other version; 1.21.1 bundles jar-in-jar,
+      # Clumps/Noisium/World Host/Shulker Box Tooltip are installed standalone
+      # on every other version; 1.21.1 bundles jar-in-jar,
       # so a human reads this listing and hand-pins gradle.properties/build.gradle.
       # The --extras dry run prints the FULL 1.21.1 resolution INCLUDING each
       # mod's required deps (so a dep not already in the bundle can be added too).
@@ -104,7 +104,7 @@ jobs:
         run: |
           echo "==== full 1.21.1 extras resolution (deps included) ===="
           python3 tools/perf-catalog/gen_catalog.py --extras 1.21.1 || true
-          for slug in simple-voice-chat clumps noisium world-host shulkerboxtooltip effecttimerplus; do
+          for slug in simple-voice-chat clumps noisium world-host shulkerboxtooltip; do
             echo "==== $slug @ 1.21.1"
             python3 tools/perf-catalog/gen_catalog.py --list "$slug" 1.21.1 || true
           done
