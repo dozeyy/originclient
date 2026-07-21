@@ -45,6 +45,18 @@ application
    Origin surfaces work — or degrade silently to vanilla, never crash. Boot
    crashes surface the CrashReportWindow naming the culprit mod when evidence
    allows (Core/Launch/CrashAnalyzer.cs), with an Origin-only retry.
+5. **Per-version best-fit, one consistent look.** Every version is built for its
+   OWN layout and API era — there is NO one-size-fits-all implementation. If a
+   mechanism that works on one version does not work on another, do NOT force it:
+   swap in the best — fastest, most reliable, stable — replacement that works on
+   THAT version. The method under the hood may differ per version; the player-
+   facing look and feel must stay consistent across every version (mandate 2 —
+   consistent, not identical internals). Prefer each version's own stable stack
+   over dragging a newer/older mechanism onto it and breaking things. Example
+   (2026-07-21): the mod list inside Video Settings uses Sodium's Config API on
+   the versions already on stable Sodium 0.8; 1.21.1 ships stable Sodium 0.6.13
+   (no Config API, and its 0.8 is a shader-breaking alpha), so it gets the same
+   feature via a Sodium 0.6.13 GUI mixin instead — same look, different method.
 
 ## Repo layout (the boundaries that matter)
 ```
