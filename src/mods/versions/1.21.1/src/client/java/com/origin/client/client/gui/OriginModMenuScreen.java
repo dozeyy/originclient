@@ -2,6 +2,7 @@ package com.origin.client.client.gui;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.hud.HudEditorScreen;
+import com.origin.client.client.hud.HudElements;
 import com.origin.client.client.mods.ModOption;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.theme.OriginTheme;
@@ -63,6 +64,21 @@ public class OriginModMenuScreen extends Screen {
 
 	public OriginModMenuScreen() {
 		super(Component.literal("Origin Mods"));
+	}
+
+	@Override
+	protected void init() {
+		super.init();
+		// Preview mode while the menu is open: armor/potions/scoreboard draw with
+		// SAMPLE content so you can see them while configuring; reverts to real
+		// in-game content the moment the menu closes (removed()).
+		HudElements.editorPreview = true;
+	}
+
+	@Override
+	public void removed() {
+		HudElements.editorPreview = false;
+		super.removed();
 	}
 
 	@Override
@@ -266,6 +282,10 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+		// Live HUD preview behind the menu (raw screen space, before the panel):
+		// enabled elements draw with sample content so you see your edits live.
+		HudElements.renderAll(g);
+		HudElements.renderScoreboardPreview(g);
 		layout();
 		hoverTip = null;
 		long now = System.currentTimeMillis();

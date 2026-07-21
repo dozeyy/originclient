@@ -605,6 +605,64 @@ public final class HudElements {
 		}
 	}
 
+	// A Lunar-style SAMPLE scoreboard, drawn only while previewing (mod menu / HUD
+	// editor) so you can see your Scoreboard styling live — the real one only shows
+	// on a server that sends a sidebar. Right-center anchored + scaled like the real
+	// one (GuiScoreboardMixin), and it honors bg/header colors, hide-numbers, border,
+	// text shadow, and scale. Never drawn in normal gameplay (editorPreview gate).
+	public static void renderScoreboardPreview(GuiGraphics g) {
+		if (!editorPreview || !Mods.on("scoreboard") || Mods.bool("scoreboard", "hideScoreboard")) {
+			return;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		var font = mc.font;
+		String title = "Origin Network";
+		String[][] rows = {
+				{"Rank: ", "VIP"}, {"Coins: ", "1,234"}, {"Wins: ", "42"},
+				{"Map: ", "Skylands"}, {"Players: ", "12/16"}};
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		boolean shadow = Mods.bool("scoreboard", "textShadow");
+		int headerColor = OriginColorPicker.liveColor("scoreboard", "headerColor");
+		int bg = OriginColorPicker.liveColor("scoreboard", "bgColor");
+		float scale = (float) Mods.num("scoreboard", "scale");
+		if (scale <= 0.05f) {
+			scale = 1f;
+		}
+		int rowW = font.width(title);
+		for (String[] r : rows) {
+			rowW = Math.max(rowW, font.width(r[0]) + (hideNums ? 0 : font.width(r[1]) + 10));
+		}
+		int lineH = font.lineHeight + 1;
+		int contentH = (rows.length + 1) * lineH + 3;
+		int boxW = rowW + 6;
+
+		var p = g.pose();
+		p.pushPose();
+		p.translate(g.guiWidth(), g.guiHeight() / 2f, 0);
+		p.scale(scale, scale, 1f);
+		int x1 = -3, x0 = x1 - boxW, y0 = -contentH / 2;
+		OriginUi.panel(g, x0, y0, boxW, contentH, 0, bg, 0);
+		if (Mods.bool("scoreboard", "border")) {
+			int bt = (int) Math.max(1, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));
+			int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
+			g.fill(x0, y0, x0 + boxW, y0 + bt, bc);
+			g.fill(x0, y0 + contentH - bt, x0 + boxW, y0 + contentH, bc);
+			g.fill(x0, y0, x0 + bt, y0 + contentH, bc);
+			g.fill(x0 + boxW - bt, y0, x0 + boxW, y0 + contentH, bc);
+		}
+		int ty = y0 + 2;
+		g.drawString(font, title, x0 + (boxW - font.width(title)) / 2, ty, headerColor, shadow);
+		ty += lineH + 1;
+		for (String[] r : rows) {
+			g.drawString(font, r[0], x0 + 3, ty, TEXT, shadow);
+			if (!hideNums) {
+				g.drawString(font, r[1], x1 - 3 - font.width(r[1]), ty, 0xFFE05555, shadow);
+			}
+			ty += lineH;
+		}
+		p.popPose();
+	}
+
 	/** Main in-game dispatcher: draws every enabled element at its anchored,
 	 *  scaled position. Skipped entirely while the HUD editor is open (the
 	 *  editor draws its own draggable versions). */

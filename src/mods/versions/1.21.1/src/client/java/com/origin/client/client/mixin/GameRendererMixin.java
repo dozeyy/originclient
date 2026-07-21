@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GameRenderer.class)
@@ -44,5 +45,12 @@ public class GameRendererMixin {
 			tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
 			cir.setReturnValue(vanilla + (tfov - vanilla) * originclient$zoomAnim);
 		}
+	}
+
+	// Color Saturation mod: grade the finished frame (world + HUD) at render TAIL.
+	// Fail-soft + no-op when off/neutral (see ColorGrade).
+	@Inject(method = "render", at = @At("TAIL"))
+	private void originclient$colorGrade(net.minecraft.client.DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
+		com.origin.client.client.render.ColorGrade.process(deltaTracker.getGameTimeDeltaPartialTick(true));
 	}
 }

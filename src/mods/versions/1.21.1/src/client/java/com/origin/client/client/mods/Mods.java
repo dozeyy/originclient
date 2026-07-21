@@ -337,6 +337,14 @@ public final class Mods {
 		add("motionblur", "Motion Blur", "Frame-blend motion blur.", false,
 				ModOption.slider("amount", "Strength", 0, 10, 1, 3, "%.0f").tip("0 = off, 10 = maximum blur; smooth in between."));
 
+		// Color Saturation: a full-screen colour grade (ColorGrade + the
+		// origin_color_grade post shader). Each slider's MIDDLE (1.0x) is normal;
+		// down decreases, up increases. Applies to the whole rendered frame.
+		add("colorsaturation", "Color Saturation", "Grade the whole screen's colour.", false,
+				ModOption.slider("saturation", "Saturation", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = greyer, up = more vivid."),
+				ModOption.slider("brightness", "Brightness", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = darker, up = brighter."),
+				ModOption.slider("contrast", "Contrast", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = flatter, up = punchier."));
+
 		add("chat", "Chat", "Chat behavior and appearance.", false,
 				ModOption.toggle("unlimited", "Unlimited Chat", false).tip("Remove the limit on stored chat history length."),
 				ModOption.toggle("stackSpam", "Stack Spam Messages", true).tip("Collapse repeated messages into one line with a counter."),

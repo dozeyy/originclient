@@ -214,6 +214,10 @@ public class HudEditorScreen extends Screen {
 		}
 		this.hoveredId = hovered;
 
+		// Sample scoreboard preview (the scoreboard isn't a draggable element — it's
+		// server-driven — so it just previews here so you can see your styling).
+		HudElements.renderScoreboardPreview(g);
+
 		if (quick) {
 			int cx = width / 2;
 			int bt = btnY();

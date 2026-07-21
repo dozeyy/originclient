@@ -69,6 +69,8 @@ public final class ModIcons {
 		// it. NOT part of the locked icon table (JEI postdates it) — Will's call
 		// to confirm.
 		ITEMS.put("jei", Items.KNOWLEDGE_BOOK);
+		// Color Saturation — the archaeology brush reads as "tune/adjust the picture".
+		ITEMS.put("colorsaturation", Items.BRUSH);
 
 		// Settings tab pseudo-ids (Mods.GENERAL_ID / PERFORMANCE_ID) and the
 		// menu's own chrome. These aren't mods, but they draw through the same
