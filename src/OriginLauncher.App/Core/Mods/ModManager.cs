@@ -278,8 +278,7 @@ public static class ModManager
             || n.StartsWith("noisium-")
             || n.StartsWith("world-host-")
             || n.StartsWith("shulkerboxtooltip-")
-            || n.StartsWith("statuseffecttimer-")
-            || n.StartsWith("status-effect-timer-");
+            || n.StartsWith("effecttimerplus-");
     }
 
     // The two OPT-IN experimental families (Settings -> Performance toggles):
@@ -383,8 +382,7 @@ public static class ModManager
         "noisium-",
         "world-host-",
         "shulkerboxtooltip-",
-        "statuseffecttimer-",
-        "status-effect-timer-",
+        "effecttimerplus-",
     };
 
     /// <summary>

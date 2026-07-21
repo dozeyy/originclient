@@ -105,7 +105,10 @@ EXTRA_PROJECTS = {
     "noisium": "noisium",                 # worldgen performance; pairs cleanly with C2ME/Lithium/Sodium
     "worldhost": "world-host",            # friends join your singleplayer/LAN world, no port forwarding
     "shulkerboxtooltip": "shulkerboxtooltip",  # preview shulker/container contents on hover
-    "statuseffecttimer": "status-effect-timer",  # remaining-time + amplifier overlay on potion icons
+    "effecttimerplus": "effecttimerplus",  # remaining-time + amplifier overlay on potion icons
+    #                                        (the maintained successor of "Status Effect Timer",
+    #                                        which itself only ships a 1.21 build — this covers
+    #                                        ~1.20–1.21.x with the same feature).
 }
 
 # The OPT-IN experimental stack ("Optional" slot in VersionPerfProfile) — the

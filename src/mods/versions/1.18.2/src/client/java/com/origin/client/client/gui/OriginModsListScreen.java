@@ -41,7 +41,7 @@ public class OriginModsListScreen extends Screen {
 			// Always-on QoL batch (2026-07-21): Voice Chat + Clumps, Noisium,
 			// World Host, Shulker Box Tooltip, Status Effect Timer.
 			"voicechat", "clumps", "noisium", "world_host",
-			"shulkerboxtooltip", "statuseffecttimer");
+			"shulkerboxtooltip", "effecttimerplus");
 
 	private static final Set<String> HIDDEN_IDS = Set.of("minecraft", "java", "fabricloader");
 
