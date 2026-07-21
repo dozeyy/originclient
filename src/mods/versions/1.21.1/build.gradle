@@ -122,6 +122,10 @@ dependencies {
 	// coordinate-hazard note in gradle.properties: this pin is ambiguous across
 	// loaders by construction, unlike every other line here.
 	modImplementation(include("maven.modrinth:jei:${project.jei_version}"))
+
+	// Mod Menu (TerraformersMC) — standard Fabric mods list + the title-screen
+	// "Mods" button. Bundled jar-in-jar; needs Fabric API (already bundled).
+	modImplementation(include("maven.modrinth:modmenu:${project.modmenu_version}"))
 	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
 	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loom's include() does
 	// NOT propagate a nested mod's OWN nested jars onto the runClient dev

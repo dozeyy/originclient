@@ -107,6 +107,23 @@ public class HudEditorScreen extends Screen {
 		return anchor / 3 == 2;
 	}
 
+	// The hover "turn off" X: size scales with the element; positioned just OUTSIDE
+	// the box at the anchored corner (opposite the resize handle) so it never covers
+	// content; clamped to stay on screen. Shared by render + click so they agree.
+	private int xBtn(double scale) {
+		return (int) Math.max(8, Math.min(22, Math.round(XBTN * scale)));
+	}
+
+	private int xBtnX(int anchor, int ox0, int ox1, int xs) {
+		int x = freeLeft(anchor) ? ox1 : ox0 - xs; // outward from the anchored corner
+		return Math.max(0, Math.min(width - xs, x));
+	}
+
+	private int xBtnY(int anchor, int oy0, int oy1, int xs) {
+		int y = freeTop(anchor) ? oy1 : oy0 - xs;
+		return Math.max(0, Math.min(height - xs, y));
+	}
+
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		Minecraft mc = Minecraft.getInstance();
@@ -165,15 +182,22 @@ public class HudEditorScreen extends Screen {
 				g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
 
 				// X toggle in the corner OPPOSITE the resize handle (the anchored
-				// corner): click to turn the mod off, removing it from the overlay.
-				int xs = XBTN;
-				int xbx = freeLeft(pos.anchor) ? ox1 - xs : ox0;
-				int xby = freeTop(pos.anchor) ? oy1 - xs : oy0;
+				// corner). Placed just OUTSIDE the element's box so it never covers the
+				// content/text, and scaled with the element so it grows/shrinks as you
+				// resize. Clamped to stay on screen.
+				int xs = xBtn(pos.scale);
+				int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
+				int xby = xBtnY(pos.anchor, oy0, oy1, xs);
 				boolean xh = mouseX >= xbx && mouseX <= xbx + xs && mouseY >= xby && mouseY <= xby + xs;
 				g.fill(xbx - 1, xby - 1, xbx + xs + 1, xby + xs + 1, 0xC0000000);
 				g.fill(xbx, xby, xbx + xs, xby + xs, xh ? 0xFFC77A73 : 0xE0202020);
-				g.drawString(font, "✕", xbx + (xs - font.width("✕")) / 2 + 1, xby + 1,
-						xh ? 0xFFFFFFFF : 0xFFE0E0E0, false);
+				float gs = xs / (float) XBTN;
+				var xp = g.pose();
+				xp.pushPose();
+				xp.translate(xbx + xs / 2f, xby + xs / 2f, 0);
+				xp.scale(gs, gs, 1f);
+				g.drawString(font, "✕", -font.width("✕") / 2, -4, xh ? 0xFFFFFFFF : 0xFFE0E0E0, false);
+				xp.popPose();
 			}
 
 			// center guides while dragging: they light up exactly when the element
@@ -247,9 +271,10 @@ public class HudEditorScreen extends Screen {
 			int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
 			// X toggle in the anchored corner (opposite the handle): turn the mod
 			// off and drop it from the overlay. Tested before handle/body.
-			int xbx = freeLeft(pos.anchor) ? ox1 - XBTN : ox0;
-			int xby = freeTop(pos.anchor) ? oy1 - XBTN : oy0;
-			if (mx >= xbx && mx <= xbx + XBTN && my >= xby && my <= xby + XBTN) {
+			int xs = xBtn(pos.scale);
+			int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
+			int xby = xBtnY(pos.anchor, oy0, oy1, xs);
+			if (mx >= xbx && mx <= xbx + xs && my >= xby && my <= xby + xs) {
 				Mods.setOn(e.modId(), false);
 				if (e.id().equals(selectedId)) {
 					selectedId = null;

@@ -492,7 +492,11 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private void renderCard(GuiGraphics g, Mods.Mod mod, int[] r, int mx, int my, float alpha) {
-		boolean hover = in(mx, my, r[0], r[1], r[2], r[3]);
+		// A card scrolled behind the search bar (top) or below the panel edge is not
+		// clickable (mouseClicked clamps to this band) — so it must not HIGHLIGHT on
+		// hover either. Every hover state below is gated on the click being in-band.
+		boolean inBand = my >= gridTop() && my < py() + ph() - 18;
+		boolean hover = inBand && in(mx, my, r[0], r[1], r[2], r[3]);
 		float hv = OriginUi.anim("cell:" + mod.id(), hover, 130.0);
 		boolean on = Mods.on(mod.id());
 		// No hover lift (Will): the card stays put; hover reads through the border
@@ -515,7 +519,7 @@ public class OriginModMenuScreen extends Screen {
 
 		int bw = cellW - 24, bx = cx + 12;
 		int oby = cy + 61;
-		boolean oHover = in(mx, my, bx, oby, bx + bw, oby + 15);
+		boolean oHover = inBand && in(mx, my, bx, oby, bx + bw, oby + 15);
 		OriginUi.panel(g, bx, oby, bw, 15, 7,
 				withAlpha(clear ? (oHover ? 0xE0202020 : 0xD0181818) : (oHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
 				withAlpha(oHover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
@@ -524,7 +528,7 @@ public class OriginModMenuScreen extends Screen {
 
 		int tby = cy + 80;
 		String label = on ? "ENABLED" : "DISABLED";
-		boolean tHover = in(mx, my, bx, tby, bx + bw, tby + 15);
+		boolean tHover = inBand && in(mx, my, bx, tby, bx + bw, tby + 15);
 		int fill = on ? GREEN_FILL : RED_FILL;
 		if (tHover) {
 			fill = (fill & 0xFFFFFF) | 0x46000000;

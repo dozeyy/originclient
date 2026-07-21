@@ -191,13 +191,6 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 
-		// Standalone "Installed Mods" viewer — opens from anywhere in-game.
-		while (OriginKeyBindings.modsList.consumeClick()) {
-			if (client.screen == null) {
-				client.setScreen(new com.origin.client.client.gui.ModsListScreen());
-			}
-		}
-
 		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
 		// your XYZ on the clipboard, gated by the Coordinates mod + its toggle.
 		while (OriginKeyBindings.copyCoords.consumeClick()) {
