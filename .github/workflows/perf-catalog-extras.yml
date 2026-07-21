@@ -69,7 +69,7 @@ jobs:
       - name: Validate slugs + BRD candidates
         if: github.event_name == 'push' || inputs.search == ''
         run: |
-          for slug in sodium-extra moreculling cull-leaves cullleaves immediatelyfast modernfix cloth-config c2me-fabric starlight scalablelux; do
+          for slug in sodium-extra moreculling cull-leaves cullleaves immediatelyfast modernfix cloth-config c2me-fabric starlight scalablelux simple-voice-chat clumps noisium world-host shulkerboxtooltip status-effect-timer statuseffecttimer; do
             printf '== %-18s ' "$slug"
             curl -sf --max-time 30 -A "origin-launcher-catalog-gen/1.0" \
               "https://api.modrinth.com/v2/project/$slug" \

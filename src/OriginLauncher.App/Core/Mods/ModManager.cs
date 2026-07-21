@@ -250,7 +250,36 @@ public static class ModManager
             || n.Equals("optifine.jar")
             || IsBundledPerfJar(jarName)
             || IsC2meJar(jarName)
-            || IsLightEngineJar(jarName);
+            || IsLightEngineJar(jarName)
+            || IsQolExtraJar(jarName);
+    }
+
+    // The 2026-07-21 always-on QoL batch: Simple Voice Chat (bundled inert, like
+    // JEI) plus Clumps, Noisium, World Host, Shulker Box Tooltip and Status
+    // Effect Timer. Installed via the catalog Extras on every version that has a
+    // build. Managed (mirror to mods-origin-only, de-dupe, show read-only on the
+    // Mods page) but — like C2ME / the light engine, and UNLIKE the bundled perf
+    // stack — deliberately NOT in IsBundledPerfJar: none of these ride jar-in-jar
+    // inside originclient.jar, so the 1.21.1 standalone purge must not touch a
+    // player's own copy of them.
+    //
+    // NOTE: these prefixes are the mods' canonical CDN filename shapes; the exact
+    // strings are confirmed against the URLs the perf-catalog-extras CI resolve
+    // writes into PerformanceModCatalog.Data.cs, then tightened here if a jar
+    // turns out to ship a different shape.
+    public static bool IsVoiceChatJar(string jarName) =>
+        jarName.ToLowerInvariant().StartsWith("voicechat-");
+
+    public static bool IsQolExtraJar(string jarName)
+    {
+        var n = jarName.ToLowerInvariant();
+        return IsVoiceChatJar(n)
+            || n.StartsWith("clumps-")
+            || n.StartsWith("noisium-")
+            || n.StartsWith("world-host-")
+            || n.StartsWith("shulkerboxtooltip-")
+            || n.StartsWith("statuseffecttimer-")
+            || n.StartsWith("status-effect-timer-");
     }
 
     // The two OPT-IN experimental families (Settings -> Performance toggles):
@@ -347,6 +376,15 @@ public static class ModManager
         "c2me-",
         "starlight-",
         "scalablelux-",
+        // The always-on QoL batch (2026-07-21) — see IsQolExtraJar. Managed for
+        // de-dupe/mirror/Mods-page; not bundled jar-in-jar anywhere.
+        "voicechat-",
+        "clumps-",
+        "noisium-",
+        "world-host-",
+        "shulkerboxtooltip-",
+        "statuseffecttimer-",
+        "status-effect-timer-",
     };
 
     /// <summary>

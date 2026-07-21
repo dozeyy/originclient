@@ -459,6 +459,22 @@ public sealed class VersionManager
         if (irisPresent)
             IrisConfigSeeder.DisableUpdateMessage(configFolder);
 
+        // Simple Voice Chat ships bundled but INERT (like JEI): installed and
+        // ready, but silent until the player turns it on. Seed SVC's own config
+        // to disabled so a fresh install has no mic/HUD icons and skips the
+        // first-join onboarding nudge. Only on versions where it's actually
+        // installed (its Extras pin is present — so never on the 1.21.1 bundled
+        // path, which carries no Voice Chat), and the seeder writes only when
+        // the config doesn't exist yet, so if the player later enables voice
+        // chat from SVC's own V-key screen that choice survives every relaunch.
+        if (perfProfile?.Extras is { } extras)
+            foreach (var extra in extras)
+                if (ModManager.IsVoiceChatJar(extra.FileName))
+                {
+                    VoiceChatConfigSeeder.SeedIfAbsent(configFolder);
+                    break;
+                }
+
         // Crash-during-write (or power-loss) leaves config files full of
         // NUL bytes — seen in the wild 13 files at once. Depending on the
         // mod that's anywhere from a red "config corrupted" toast every

@@ -87,6 +87,25 @@ EXTRA_PROJECTS = {
     #                                       screenshot; resolved via --search 2026-07-20:
     #                                       the 123k-download Fabric optimization mod
     #                                       (the other hits were paper/neoforge or toys).
+    # --- Simple Voice Chat + the 2026-07-21 QoL batch (Feature D). Bundled on
+    #     every version that has a build (fail-soft elsewhere). Voice Chat ships
+    #     inert by default via VoiceChatConfigSeeder (like JEI: installed but off
+    #     until the player enables it); the rest are always-active QoL. Slugs are
+    #     CI-validated (perf-catalog-extras.yml "Validate slugs") before the pins
+    #     land, so a mistyped slug shows NOT FOUND in the log instead of silently
+    #     shipping nothing.
+    # Simple Voice Chat is "All Rights Reserved" (proprietary, source-available,
+    # not OSI). That does NOT block the download-at-install model: like every
+    # catalog extra it is fetched from the official Modrinth CDN at install time
+    # and never redistributed, embedded, or forked by Origin — the same posture
+    # as the OptiFine installer's own doc comment and Origin's Sodium entry
+    # (itself source-available, not OSI). Seeded inert via VoiceChatConfigSeeder.
+    "voicechat": "simple-voice-chat",     # Simple Voice Chat (proximity voice; seeded disabled=true)
+    "clumps": "clumps",                   # merges XP orbs into one entity — cuts orb lag
+    "noisium": "noisium",                 # worldgen performance; pairs cleanly with C2ME/Lithium/Sodium
+    "worldhost": "world-host",            # friends join your singleplayer/LAN world, no port forwarding
+    "shulkerboxtooltip": "shulkerboxtooltip",  # preview shulker/container contents on hover
+    "statuseffecttimer": "status-effect-timer",  # remaining-time + amplifier overlay on potion icons
 }
 
 # The OPT-IN experimental stack ("Optional" slot in VersionPerfProfile) — the
