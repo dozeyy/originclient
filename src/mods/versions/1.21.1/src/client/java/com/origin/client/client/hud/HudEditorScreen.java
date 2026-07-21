@@ -42,6 +42,7 @@ public class HudEditorScreen extends Screen {
 
 	private static final int HANDLE_VIS = 5; // drawn square side (small, tucked into the corner)
 	private static final int HANDLE_HIT = 6; // extra click tolerance around it
+	private static final int XBTN = 10;      // the hover "turn off" X button, opposite the resize handle
 	// Resize feel: cursor must move this far from the grab distance before the
 	// element starts scaling (forgiving grab), per B2.
 	private static final double RESIZE_DEADZONE = 3.0;
@@ -162,6 +163,17 @@ public class HudEditorScreen extends Screen {
 						&& mouseY >= hy0 - HANDLE_HIT && mouseY <= hy0 + HANDLE_VIS + HANDLE_HIT;
 				g.fill(hx0 - 1, hy0 - 1, hx0 + HANDLE_VIS + 1, hy0 + HANDLE_VIS + 1, 0xC0000000);
 				g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
+
+				// X toggle in the corner OPPOSITE the resize handle (the anchored
+				// corner): click to turn the mod off, removing it from the overlay.
+				int xs = XBTN;
+				int xbx = freeLeft(pos.anchor) ? ox1 - xs : ox0;
+				int xby = freeTop(pos.anchor) ? oy1 - xs : oy0;
+				boolean xh = mouseX >= xbx && mouseX <= xbx + xs && mouseY >= xby && mouseY <= xby + xs;
+				g.fill(xbx - 1, xby - 1, xbx + xs + 1, xby + xs + 1, 0xC0000000);
+				g.fill(xbx, xby, xbx + xs, xby + xs, xh ? 0xFFC77A73 : 0xE0202020);
+				g.drawString(font, "✕", xbx + (xs - font.width("✕")) / 2 + 1, xby + 1,
+						xh ? 0xFFFFFFFF : 0xFFE0E0E0, false);
 			}
 
 			// center guides while dragging: they light up exactly when the element
@@ -233,6 +245,17 @@ public class HudEditorScreen extends Screen {
 			int ox0 = (int) x - 4, oy0 = (int) y - 4, ox1 = (int) (x + w) + 4, oy1 = (int) (y + h) + 4;
 			int hx0 = freeLeft(pos.anchor) ? ox0 : ox1 - HANDLE_VIS;
 			int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
+			// X toggle in the anchored corner (opposite the handle): turn the mod
+			// off and drop it from the overlay. Tested before handle/body.
+			int xbx = freeLeft(pos.anchor) ? ox1 - XBTN : ox0;
+			int xby = freeTop(pos.anchor) ? oy1 - XBTN : oy0;
+			if (mx >= xbx && mx <= xbx + XBTN && my >= xby && my <= xby + XBTN) {
+				Mods.setOn(e.modId(), false);
+				if (e.id().equals(selectedId)) {
+					selectedId = null;
+				}
+				return true;
+			}
 			// free-corner handle first, so it wins over the body
 			if (mx >= hx0 - HANDLE_HIT && mx <= hx0 + HANDLE_VIS + HANDLE_HIT
 					&& my >= hy0 - HANDLE_HIT && my <= hy0 + HANDLE_VIS + HANDLE_HIT) {

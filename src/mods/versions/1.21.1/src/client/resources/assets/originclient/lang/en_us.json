@@ -3,5 +3,6 @@
 	"key.originclient.open_mod_menu": "Open Mod Menu",
 	"key.originclient.zoom": "Zoom",
 	"key.originclient.freelook": "Freelook",
-	"key.originclient.copy_coords": "Copy Coordinates"
+	"key.originclient.copy_coords": "Copy Coordinates",
+	"key.originclient.mods_list": "Installed Mods List"
 }
