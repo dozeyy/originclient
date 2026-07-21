@@ -23,12 +23,15 @@
     </UserControl.Resources>
 
     <!-- Left margin (80, vs. the usual 32) clears the floating left-edge
-         icon column, which sits at roughly x:16-52. Content is sized to fit
-         within the window's MinHeight (600) without scrolling; the scrollbar
-         is hidden rather than disabled so wheel-scroll still works as a
-         safety net if a future addition pushes past that budget, instead of
-         silently clipping content. -->
-    <ScrollViewer Margin="80,16,32,20" VerticalScrollBarVisibility="Hidden">
+         icon column, which sits at roughly x:16-52. The scrollbar is Auto with
+         the app's thin ScrollBar.Minimal style (same as VersionSelectOverlay /
+         ModsPage): it only appears when the settings content actually overflows
+         the window, so as more settings are added the page scrolls with a
+         visible cue instead of silently clipping below the fold. -->
+    <ScrollViewer Margin="80,16,32,20" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer.Resources>
+            <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
+        </ScrollViewer.Resources>
         <StackPanel MaxWidth="640" HorizontalAlignment="Left">
             <TextBlock Text="Settings" Style="{StaticResource Text.H1}" Margin="0,0,0,12"/>
 
