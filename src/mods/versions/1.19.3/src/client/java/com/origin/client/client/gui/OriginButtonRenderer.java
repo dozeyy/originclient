@@ -93,10 +93,14 @@ public final class OriginButtonRenderer {
 
 	/** Origin-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(Gfx guiGraphics, AbstractButton button) {
-		// Difficulty-lock padlock: vanilla draws it as a compact lock ICON, but the
-		// Origin pill restyle would print its full "Lock Difficulty" message text,
-		// oversized. Leave this one button vanilla so the icon shows.
-		if (button instanceof net.minecraft.client.gui.components.LockIconButton) {
+		// Difficulty-lock padlock AND the language / accessibility icon squares:
+		// vanilla draws each as a compact ICON, but the Origin pill restyle would
+		// print the button's narration message ("Lock Difficulty", "Select
+		// language...") as oversized text over/around the small icon. Leave these
+		// vanilla so the icon shows clean, no overlapping label; they stay fully
+		// clickable (only the render is skipped, positions/actions are untouched).
+		if (button instanceof net.minecraft.client.gui.components.LockIconButton
+				|| button instanceof net.minecraft.client.gui.components.ImageButton) {
 			return false;
 		}
 		if (broken) {
