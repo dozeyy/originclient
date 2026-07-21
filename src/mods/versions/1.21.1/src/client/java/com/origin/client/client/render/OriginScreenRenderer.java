@@ -490,11 +490,10 @@ public final class OriginScreenRenderer {
 			int x = Math.max(10, (int) Math.round(w * 0.03));
 			int y = x;
 
-			// No border stroke (Will) — just a faint translucent backing so the
-			// white username stays legible over the rings.
-			OriginUi.panel(guiGraphics, x, y, chipW, chipH, OriginTheme.RADIUS_MD,
-					OriginTheme.PANEL_TRANSLUCENT, 0);
-
+			// No background behind the head/username (Will 2026-07-21): the chip's
+			// translucent backing is removed so the head sits directly on the menu.
+			// The username keeps a text shadow (below) so it stays legible over the
+			// rings without a panel.
 			int hx = x + padX, hy = y + padY;
 			boolean drewHead = false;
 			try {
@@ -510,7 +509,7 @@ public final class OriginScreenRenderer {
 			}
 
 			guiGraphics.drawString(font, name, hx + head + gap,
-					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, false);
+					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, true);
 		} catch (Throwable t) {
 			fail(t);
 		}

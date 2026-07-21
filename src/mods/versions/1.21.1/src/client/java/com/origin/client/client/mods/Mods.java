@@ -118,7 +118,8 @@ public final class Mods {
 				ModOption.toggle("showBrackets", "Show Brackets", false),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("cps", "CPS", "Clicks per second.", false,
 				ModOption.toggle("rightClick", "Right Click CPS", false),
@@ -127,7 +128,8 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
@@ -158,7 +160,8 @@ public final class Mods {
 				ModOption.dropdown("damageThreshold", "Damage Threshold Type", "Percent", "Value").tip("Whether Damage Color kicks in by percent remaining (<25%) or raw durability left (<50)."),
 				ModOption.header("Color"),
 				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
-				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."));
+				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("keystrokes", "Key Strokes", "On-screen key display.", false,
 				ModOption.toggle("showClicks", "Show Clicks", true),
@@ -217,7 +220,8 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("scoreboard", "Scoreboard", "Server scoreboard styling.", false,
 				ModOption.toggle("hideNumbers", "Hide Numbers", false),

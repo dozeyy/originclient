@@ -35,6 +35,17 @@ public final class OriginTheme {
 	// rgba(255,255,255,0.55) — cursor core glow
 	public static final int ACCENT_DIM = 0x8CFFFFFF;
 
+	// ---- Box surface (matches the main-menu button skin, OriginButtonRenderer) ----
+	// Every box INSIDE the mod menu (cards, setting rows, chips, dropdowns, the
+	// search field) draws with these so it reads as the exact same material as the
+	// Frost-style buttons on the main menu: a see-through dark fill with a darker
+	// hairline frame; hover firms both up. Same values Will tuned on the buttons
+	// (2026-07-21). Sizes are unchanged — only the fill opacity + border colour.
+	public static final int BOX_FILL = 0x59161616;
+	public static final int BOX_FILL_HOVER = 0x99303030;
+	public static final int BOX_BORDER = 0xF00A0A0A;
+	public static final int BOX_BORDER_HOVER = 0xFF1A1A1A;
+
 	// ---- Mod-menu toggle (C4) ----
 	// The rounded box switch: knob slides left = off, right = on. On/off are the
 	// theme's only two non-gray tones (muted sage / muted clay), kept solid so

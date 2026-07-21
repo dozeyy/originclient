@@ -173,14 +173,18 @@ public final class OriginUi {
 	 *  radius). `y` is the pill top; value 0..1. Returns the knob center x. */
 	public static int slider(GuiGraphics g, int x, int y, int w, double value, boolean active) {
 		int h = 6;              // pill height
-		int r = 5;              // knob radius — travel is inset by r so the ball is flush at the ends
+		int r = 5;              // knob radius
 		double v = Math.max(0.0, Math.min(1.0, value));
 		int cy = y + h / 2;     // pill vertical center — the knob centers on this
 		panel(g, x, y, w, h, h / 2, 0x30FFFFFF, 0);
-		int kx = x + r + (int) Math.round(v * (w - 2 * r));
+		// The knob CENTER travels the full track (x .. x+w) so it reaches both
+		// endpoints — at 0% its center sits on the left end, at 100% on the right
+		// end (the ball overhangs by its radius, like a standard slider). This
+		// also matches the drag hit-test, which maps the full track width to 0..1.
+		int kx = x + (int) Math.round(v * w);
 		int fw = kx - x;        // fill runs from the track start to the knob center
-		if (v > 0.001 && fw > 0) {
-			panel(g, x, y, Math.min(w, fw + r), h, h / 2, active ? 0xE6E0E0E0 : 0xA8D8D8D8, 0);
+		if (fw > 0) {
+			panel(g, x, y, Math.min(w, fw), h, h / 2, active ? 0xE6E0E0E0 : 0xA8D8D8D8, 0);
 		}
 		ensureLoaded();
 		int kd = active ? r * 2 + 4 : r * 2 + 2;   // ball; grows slightly while dragging

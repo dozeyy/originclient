@@ -117,7 +117,7 @@ public class OriginModMenuScreen extends Screen {
 	private boolean clear = false;
 
 	private int chipFill(boolean hover) {
-		return clear ? (hover ? 0xE0181818 : 0xC8101010) : (hover ? 0x2EFFFFFF : 0x16FFFFFF);
+		return clear ? (hover ? 0xE0181818 : 0xC8101010) : (hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL);
 	}
 
 	// top-bar tab selection — shaders live in Sodium/Iris's own menu, not here
@@ -432,8 +432,8 @@ public class OriginModMenuScreen extends Screen {
 		int sw = Math.min(300, pw() - 24);
 		int sx = px() + (pw() - sw) / 2;
 		OriginUi.panel(g, sx, sy, sw, 22, 8,
-				withAlpha(clear ? 0xC8101010 : (searchFocused ? 0x80000000 : 0x66000000), alpha),
-				withAlpha(searchFocused ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE, alpha));
+				withAlpha(clear ? 0xC8101010 : (searchFocused ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
+				withAlpha(searchFocused ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
 		OriginUi.icon(g, "@search", sx + 5, sy + 3, 15, withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha));
 		if (search.isEmpty() && !searchFocused) {
 			g.drawString(font, "Search mods", sx + 24, sy + 7,
@@ -500,8 +500,8 @@ public class OriginModMenuScreen extends Screen {
 		int cx = r[0], cy = r[1];
 
 		OriginUi.panel(g, cx, cy, cellW, cellH, 10,
-				withAlpha(clear ? (hover ? 0xD8141414 : 0xC8101010) : (hover ? 0x24FFFFFF : 0x14FFFFFF), alpha),
-				withAlpha(hover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
+				withAlpha(clear ? (hover ? 0xD8141414 : 0xC8101010) : (hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
+				withAlpha(hover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
 
 		// icon stays fully white in every state — only the toggle button below
 		// communicates enabled/disabled
@@ -517,8 +517,8 @@ public class OriginModMenuScreen extends Screen {
 		int oby = cy + 61;
 		boolean oHover = in(mx, my, bx, oby, bx + bw, oby + 15);
 		OriginUi.panel(g, bx, oby, bw, 15, 7,
-				withAlpha(clear ? (oHover ? 0xE0202020 : 0xD0181818) : (oHover ? 0x2EFFFFFF : 0x18FFFFFF), alpha),
-				withAlpha(OriginTheme.STROKE, alpha));
+				withAlpha(clear ? (oHover ? 0xE0202020 : 0xD0181818) : (oHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
+				withAlpha(oHover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
 		g.drawString(font, "OPTIONS", bx + (bw - font.width("OPTIONS")) / 2, oby + 4,
 				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
 
@@ -707,7 +707,7 @@ public class OriginModMenuScreen extends Screen {
 
 	private void renderRow(GuiGraphics g, String modId, ModOption o, int x0, int x1, int y, int mx, int my, float alpha) {
 		OriginUi.panel(g, x0, y, x1 - x0, 26, 8,
-				withAlpha(clear ? 0xC0101010 : 0x10FFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+				withAlpha(clear ? 0xC0101010 : OriginTheme.BOX_FILL, alpha), withAlpha(OriginTheme.BOX_BORDER, alpha));
 		g.drawString(font, o.label, x0 + 10, y + 9,
 				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
 
@@ -821,22 +821,29 @@ public class OriginModMenuScreen extends Screen {
 			if (searchFocused) {
 				return true;
 			}
-			for (int i = 0; i < filtered.size(); i++) {
-				int[] r = cellRect(i);
-				if (!in(mx, my, r[0], r[1], r[2], r[3])) {
-					continue;
+			// Only the VISIBLE portion of the grid is clickable. Cards are drawn under
+			// a scissor (gridTop()..panel bottom); a card scrolled up behind the search
+			// bar / tabs, or below the panel edge, must not take clicks on its hidden
+			// part. Clamp the click to that same band before hit-testing any card.
+			int gTop = gridTop(), gBot = py() + ph() - 18;
+			if (my >= gTop && my < gBot) {
+				for (int i = 0; i < filtered.size(); i++) {
+					int[] r = cellRect(i);
+					if (!in(mx, my, r[0], r[1], r[2], r[3])) {
+						continue;
+					}
+					Mods.Mod mod = filtered.get(i);
+					int bx = r[0] + 12, bw = cellW - 24, tby = r[1] + 80;
+					if (in(mx, my, bx, tby, bx + bw, tby + 15)) {
+						Mods.setOn(mod.id(), !Mods.on(mod.id())); // ENABLED/DISABLED toggle
+					} else {
+						page = mod.id(); // OPTIONS button or card body opens the page
+						pageChangedAt = System.currentTimeMillis();
+						settingsSearch = "";
+						settingsScroll = settingsScrollTarget = 0;
+					}
+					return true;
 				}
-				Mods.Mod mod = filtered.get(i);
-				int bx = r[0] + 12, bw = cellW - 24, tby = r[1] + 80;
-				if (in(mx, my, bx, tby, bx + bw, tby + 15)) {
-					Mods.setOn(mod.id(), !Mods.on(mod.id())); // ENABLED/DISABLED toggle
-				} else {
-					page = mod.id(); // OPTIONS button or card body opens the page
-					pageChangedAt = System.currentTimeMillis();
-					settingsSearch = "";
-					settingsScroll = settingsScrollTarget = 0;
-				}
-				return true;
 			}
 			return super.mouseClicked(mx, my, button);
 		}
@@ -930,7 +937,14 @@ public class OriginModMenuScreen extends Screen {
 			}
 			case COLOR -> {
 				if (mx >= x1 - 90) {
-					OriginColorPicker.open(modId, o.key, o.label);
+					// Toggle: clicking the same swatch again closes the popup; the
+					// picker pops up anchored just under this row (y + row height).
+					String k = modId + ":" + o.key;
+					if (OriginColorPicker.isOpen() && k.equals(OriginColorPicker.openKey())) {
+						OriginColorPicker.close();
+					} else {
+						OriginColorPicker.open(modId, o.key, o.label, x0, y + 26);
+					}
 					return true;
 				}
 			}

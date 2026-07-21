@@ -66,10 +66,13 @@ public final class HudElements {
 		return mc.screen instanceof ChatScreen;
 	}
 
-	/** Standard text row backing, gated by the mod's Show Background toggle. */
+	/** Standard text row backing, gated by the mod's Show Background toggle. Uses
+	 *  the mod's OWN Background Color so the setting works identically on every HUD
+	 *  (Will 2026-07-21 — this was a hardcoded PANEL, so fps/cps/server ignored it).
+	 *  Every mod routed through here now carries a "bgColor" option (see Mods). */
 	private static void bg(GuiGraphics g, String modId, int w, int h) {
 		if (Mods.bool(modId, "showBackground")) {
-			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, PANEL, 0);
+			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, "bgColor"), 0);
 		}
 	}
 
@@ -464,7 +467,7 @@ public final class HudElements {
 			boolean dur = !durPos.equals("Hidden");
 			int wAct = vertical ? 19 + (dur ? 30 : 0) : items.size() * 19;
 			int hAct = vertical ? items.size() * 19 : 17 + (dur ? 10 : 0);
-			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, PANEL, 0);
+			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, OriginColorPicker.liveColor("armorhud", "bgColor"), 0);
 		}
 
 		int x = 0, y = 0;

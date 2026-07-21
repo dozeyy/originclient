@@ -29,18 +29,32 @@ public final class OriginColorPicker {
 	private static int alpha;
 
 	private static int px, py;
+	// Anchor (screen coords) of the row the picker belongs to — the picker pops
+	// up directly beneath that row instead of floating in the screen center, and
+	// animates in from it. openedAt drives that pop-open animation.
+	private static int anchorX, anchorY;
+	private static long openedAt;
 	private static final int PW = 234, PH = 236;
+	private static final long ANIM_MS = 160;
 	private static int drag = 0; // 0 none, 1 field, 2 hue, 3 alpha, 4 speed
 
 	public static boolean isOpen() {
 		return open;
 	}
 
-	public static void open(String modId, String key, String label) {
+	/** Which option this picker is currently editing ("modId:key"), or null. */
+	public static String openKey() {
+		return open ? modId + ":" + key : null;
+	}
+
+	public static void open(String modId, String key, String label, int anchorX, int anchorY) {
 		OriginColorPicker.modId = modId;
 		OriginColorPicker.key = key;
 		OriginColorPicker.title = label;
 		OriginColorPicker.allowChroma = true;
+		OriginColorPicker.anchorX = anchorX;
+		OriginColorPicker.anchorY = anchorY;
+		OriginColorPicker.openedAt = System.currentTimeMillis();
 		int argb = Mods.color(modId, key);
 		float[] hsv = argbToHsv(argb);
 		h = hsv[0];
@@ -49,6 +63,19 @@ public final class OriginColorPicker {
 		alpha = (argb >>> 24) & 0xFF;
 		open = true;
 		drag = 0;
+	}
+
+	// Places the panel just under its row (anchorX/anchorY), clamped so it always
+	// stays fully on screen — if there isn't room below, it lifts up to fit.
+	private void computePos() {
+		int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+		int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+		px = Math.max(2, Math.min(anchorX, sw - 2 - PW));
+		py = anchorY;
+		if (py + PH > sh - 2) {
+			py = sh - 2 - PH;
+		}
+		py = Math.max(2, py);
 	}
 
 	public static void close() {
@@ -107,13 +134,21 @@ public final class OriginColorPicker {
 
 	private void draw(GuiGraphics g, int mx, int my) {
 		Font font = Minecraft.getInstance().font;
-		int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
-		int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
-		px = Math.max(2, (sw - PW) / 2);
-		py = Math.max(2, (sh - PH) / 2);
+		computePos();
 
-		// scrim + panel
-		g.fill(0, 0, sw, sh, 0x66000000);
+		// Pop-open animation: the panel scales up from 0.94 and slides the last
+		// few pixels into place under its row, so it reads as popping out of the
+		// row rather than appearing centered. No full-screen scrim — this is an
+		// inline popup, not a modal that dims the whole menu.
+		float t = (float) OriginTheme.easeOut(Math.min(1.0, (System.currentTimeMillis() - openedAt) / (double) ANIM_MS));
+		var pose = g.pose();
+		pose.pushPose();
+		float sc = 0.94f + 0.06f * t;
+		pose.translate(px + PW / 2.0, py, 0);
+		pose.scale(sc, sc, 1f);
+		pose.translate(-(px + PW / 2.0), -py, 0);
+		pose.translate(0, (1f - t) * -6f, 0);
+
 		OriginUi.panel(g, px, py, PW, PH, 12, 0xF2101010, OriginTheme.STROKE_STRONG);
 
 		// header
@@ -195,16 +230,18 @@ public final class OriginColorPicker {
 			int cx = startX + i * (psw + pgap);
 			OriginUi.panel(g, cx, presetY(), psw, psw, 4, Mods.PALETTE[i], 0x40000000);
 		}
+		pose.popPose();
 	}
 
 	// ---- input ----
+	// Hit-testing always uses the settled (unanimated) position from computePos,
+	// so clicks land correctly even during the pop-open animation.
 	public static boolean mouseClicked(double mx, double my, int button) {
 		if (!open) {
 			return false;
 		}
 		OriginColorPicker cp = new OriginColorPicker();
-		cp.px = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledWidth() - PW) / 2);
-		cp.py = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledHeight() - PH) / 2);
+		cp.computePos();
 		return cp.click(mx, my, button);
 	}
 
@@ -268,8 +305,7 @@ public final class OriginColorPicker {
 			return false;
 		}
 		OriginColorPicker cp = new OriginColorPicker();
-		cp.px = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledWidth() - PW) / 2);
-		cp.py = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledHeight() - PH) / 2);
+		cp.computePos();
 		switch (drag) {
 			case 1 -> cp.applyField(mx, my);
 			case 2 -> cp.applyHue(my);
