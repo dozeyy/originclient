@@ -107,21 +107,19 @@ public class HudEditorScreen extends Screen {
 		return anchor / 3 == 2;
 	}
 
-	// The hover "turn off" X: size scales with the element; positioned just OUTSIDE
-	// the box at the anchored corner (opposite the resize handle) so it never covers
-	// content; clamped to stay on screen. Shared by render + click so they agree.
-	private int xBtn(double scale) {
-		return (int) Math.max(8, Math.min(22, Math.round(XBTN * scale)));
+	// The hover "turn off" X: sits INSIDE the box at the anchored corner (opposite
+	// the resize handle) and its size scales with the BOX (smaller box → smaller X,
+	// bigger box → bigger X). Shared by render + click so they always agree.
+	private int xBtn(double boxMin) {
+		return (int) Math.max(6, Math.min(18, Math.round(boxMin * 0.35)));
 	}
 
 	private int xBtnX(int anchor, int ox0, int ox1, int xs) {
-		int x = freeLeft(anchor) ? ox1 : ox0 - xs; // outward from the anchored corner
-		return Math.max(0, Math.min(width - xs, x));
+		return freeLeft(anchor) ? ox1 - xs : ox0; // inside, at the anchored corner
 	}
 
 	private int xBtnY(int anchor, int oy0, int oy1, int xs) {
-		int y = freeTop(anchor) ? oy1 : oy0 - xs;
-		return Math.max(0, Math.min(height - xs, y));
+		return freeTop(anchor) ? oy1 - xs : oy0;
 	}
 
 	@Override
@@ -185,18 +183,20 @@ public class HudEditorScreen extends Screen {
 				// corner). Placed just OUTSIDE the element's box so it never covers the
 				// content/text, and scaled with the element so it grows/shrinks as you
 				// resize. Clamped to stay on screen.
-				int xs = xBtn(pos.scale);
+				int xs = xBtn(Math.min(w, h));
 				int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
 				int xby = xBtnY(pos.anchor, oy0, oy1, xs);
 				boolean xh = mouseX >= xbx && mouseX <= xbx + xs && mouseY >= xby && mouseY <= xby + xs;
-				g.fill(xbx - 1, xby - 1, xbx + xs + 1, xby + xs + 1, 0xC0000000);
-				g.fill(xbx, xby, xbx + xs, xby + xs, xh ? 0xFFC77A73 : 0xE0202020);
+				// Invisible until the element is hovered (we're inside `if (active)`);
+				// a soft 60% red ✕ with NO box, firming to full red when pointed at.
+				// Scaled to the box so it never crowds the letters.
+				int xcol = xh ? 0xFFC77A73 : 0x99C77A73;
 				float gs = xs / (float) XBTN;
 				var xp = g.pose();
 				xp.pushPose();
 				xp.translate(xbx + xs / 2f, xby + xs / 2f, 0);
 				xp.scale(gs, gs, 1f);
-				g.drawString(font, "✕", -font.width("✕") / 2, -4, xh ? 0xFFFFFFFF : 0xFFE0E0E0, false);
+				g.drawString(font, "✕", -font.width("✕") / 2, -4, xcol, false);
 				xp.popPose();
 			}
 
@@ -221,17 +221,24 @@ public class HudEditorScreen extends Screen {
 			// the "ORIGIN" wordmark (same baked Michroma as the main menu), then a
 			// clear gap to the MODS button — nothing overlaps. The mark is lifted
 			// well above the button to make room for the wordmark beneath it.
-			OriginUi.glow(g, cx, bt - 76, 104, 0.16f * in);
-			OriginUi.logo(g, cx, bt - 76, 46, in);
-			if (!OriginScreenRenderer.renderWordmarkAt(g, cx, bt - 44, 13, in)) {
+			// Wordmark sits just above the button; the ring mark ANIMATES up from
+			// BEHIND the wordmark on open (rises out of the name). Both lowered to sit
+			// ~60% closer to the button than before (not touching).
+			int wordY = bt - 22;
+			int logoFinalY = bt - 54;
+			int logoY = (int) Math.round(OriginTheme.lerp(wordY, logoFinalY, in));
+			OriginUi.glow(g, cx, logoY, 104, 0.16f * in);
+			OriginUi.logo(g, cx, logoY, 46, in);
+			// wordmark drawn AFTER the logo, so the logo emerges from behind it
+			if (!OriginScreenRenderer.renderWordmarkAt(g, cx, wordY, 13, in)) {
 				String o = "ORIGIN";
-				g.drawString(font, o, cx - font.width(o) / 2, bt - 48, withAlpha(OriginTheme.TEXT, in), false);
+				g.drawString(font, o, cx - font.width(o) / 2, wordY - 4, withAlpha(OriginTheme.TEXT, in), false);
 			}
 
-			// dark, clean MODS button — perfectly centered, no hover lift. Label
-			// stays the default Minecraft font (Will: revert the baked-font MODS).
+			// MODS button — slightly rounded corners (the one place a soft edge is
+			// wanted; the rest of the UI is square by design). Centered, no hover lift.
 			boolean hoverBtn = in(mouseX, mouseY, btnX(), bt, btnX() + BTN_W, bt + BTN_H);
-			OriginUi.panel(g, btnX(), bt, BTN_W, BTN_H, 9,
+			roundRect(g, btnX(), bt, BTN_W, BTN_H, 4,
 					withAlpha(hoverBtn ? 0xE6181818 : 0xD0101010, in),
 					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE_STRONG, in));
 			g.drawString(font, "MODS", cx - font.width("MODS") / 2, bt + 10,
@@ -244,6 +251,29 @@ public class HudEditorScreen extends Screen {
 		g.fill(x0, y1 - t, x1, y1, color);          // bottom
 		g.fill(x0, y0, x0 + t, y1, color);          // left
 		g.fill(x1 - t, y0, x1, y1, color);          // right
+	}
+
+	// A slightly rounded rect (fill + 1px border) — used only for the MODS button
+	// (the rest of the UI is square by design). Corners use a small linear chamfer
+	// of radius r: rows near the top/bottom edge inset inward, which reads as a
+	// gentle curve at r=4 with no textures.
+	private static void roundRect(GuiGraphics g, int x, int y, int w, int h, int r, int fill, int border) {
+		for (int i = 0; i < h; i++) {
+			int d = Math.min(i, h - 1 - i);
+			int inset = d < r ? r - d : 0;
+			g.fill(x + inset, y + i, x + w - inset, y + i + 1, fill);
+		}
+		if (((border >>> 24) & 0xFF) == 0) {
+			return;
+		}
+		for (int i = 0; i < h; i++) {
+			int d = Math.min(i, h - 1 - i);
+			int inset = d < r ? r - d : 0;
+			g.fill(x + inset, y + i, x + inset + 1, y + i + 1, border);
+			g.fill(x + w - inset - 1, y + i, x + w - inset, y + i + 1, border);
+		}
+		g.fill(x + r, y, x + w - r, y + 1, border);
+		g.fill(x + r, y + h - 1, x + w - r, y + h, border);
 	}
 
 	@Override
@@ -271,7 +301,7 @@ public class HudEditorScreen extends Screen {
 			int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
 			// X toggle in the anchored corner (opposite the handle): turn the mod
 			// off and drop it from the overlay. Tested before handle/body.
-			int xs = xBtn(pos.scale);
+			int xs = xBtn(Math.min(w, h));
 			int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
 			int xby = xBtnY(pos.anchor, oy0, oy1, xs);
 			if (mx >= xbx && mx <= xbx + xs && my >= xby && my <= xby + xs) {
