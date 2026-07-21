@@ -47,10 +47,14 @@ public class GameRendererMixin {
 		}
 	}
 
-	// Color Saturation mod: grade the finished frame (world + HUD) at render TAIL.
+	// Color Saturation mod: grade ONLY the game world. Hooked at the TAIL of
+	// renderLevel (after the world is drawn to the main target, BEFORE the HUD and
+	// any open menu draw on top), so menus, the HUD, the logo and the title screen
+	// are never tinted — only the actual 3D game. renderLevel isn't called at all
+	// outside gameplay, so the grade is inert on menus by construction.
 	// Fail-soft + no-op when off/neutral (see ColorGrade).
-	@Inject(method = "render", at = @At("TAIL"))
-	private void originclient$colorGrade(net.minecraft.client.DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
-		com.origin.client.client.render.ColorGrade.process(deltaTracker.getGameTimeDeltaPartialTick(true));
+	@Inject(method = "renderLevel", at = @At("TAIL"))
+	private void originclient$colorGrade(net.minecraft.client.DeltaTracker deltaTracker, CallbackInfo ci) {
+		com.origin.client.client.render.ColorGrade.process(deltaTracker.getGameTimeDeltaPartialTick(false));
 	}
 }

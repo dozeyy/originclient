@@ -155,10 +155,78 @@ public final class HudElements {
 					net.minecraft.util.Mth.wrapDegrees(pl.getYRot())));
 		}
 		if (Mods.bool("coords", "biome") && mc.level != null) {
-			var biome = mc.level.getBiome(BlockPos.containing(pl.position()));
-			lines.add("Biome: " + biome.unwrapKey().map(k -> k.location().getPath().replace('_', ' ')).orElse("unknown"));
+			lines.add("Biome: " + biomeName(mc.level.getBiome(BlockPos.containing(pl.position()))));
 		}
 		return lines;
+	}
+
+	// Biome display name: vanilla → Title Case ("Savanna Plateau"); modded → the
+	// designer's translated name if they provide one, else the raw path (never
+	// force-cased). Vanilla has no biome lang keys, hence the manual case.
+	private static String biomeName(Holder<net.minecraft.world.level.biome.Biome> biome) {
+		var key = biome.unwrapKey();
+		if (key.isEmpty()) {
+			return "Unknown";
+		}
+		var loc = key.get().location();
+		String path = loc.getPath();
+		if (loc.getNamespace().equals("minecraft")) {
+			return titleCase(path.replace('_', ' '));
+		}
+		String tk = "biome." + loc.getNamespace() + "." + path;
+		String disp = net.minecraft.network.chat.Component.translatable(tk).getString();
+		return disp.equals(tk) ? path.replace('_', ' ') : disp;
+	}
+
+	private static String titleCase(String s) {
+		StringBuilder sb = new StringBuilder(s.length());
+		boolean cap = true;
+		for (char c : s.toCharArray()) {
+			if (c == ' ') {
+				cap = true;
+				sb.append(c);
+			} else if (cap) {
+				sb.append(Character.toUpperCase(c));
+				cap = false;
+			} else {
+				sb.append(c);
+			}
+		}
+		return sb.toString();
+	}
+
+	// Intuitive colour per biome family, keyword-matched on the id. Oceans scale
+	// warm→cold (lighter→darker) and deepen for the deep_ variants.
+	static int biomeColor(Holder<net.minecraft.world.level.biome.Biome> biome) {
+		var key = biome.unwrapKey();
+		if (key.isEmpty()) {
+			return TEXT;
+		}
+		String p = key.get().location().getPath().toLowerCase(java.util.Locale.ROOT);
+		if (p.contains("warm_ocean")) return 0xFF4FB6FF;
+		if (p.contains("lukewarm_ocean")) return p.contains("deep") ? 0xFF2A7FD6 : 0xFF3A97E6;
+		if (p.contains("frozen_ocean")) return p.contains("deep") ? 0xFF7FB0DD : 0xFF9FCBF0;
+		if (p.contains("cold_ocean")) return p.contains("deep") ? 0xFF163E86 : 0xFF1E56A8;
+		if (p.contains("ocean")) return p.contains("deep") ? 0xFF15408F : 0xFF2166CC;
+		if (p.contains("river")) return 0xFF3A97E6;
+		if (p.contains("swamp") || p.contains("mangrove")) return 0xFF3A6B2A;
+		if (p.contains("jungle")) return 0xFF2FA82F;
+		if (p.contains("forest") || p.contains("taiga") || p.contains("grove") || p.contains("wooded")) return 0xFF3FA34D;
+		if (p.contains("cherry")) return 0xFFFF9CC6;
+		if (p.contains("savanna")) return 0xFFC7B24A;
+		if (p.contains("plains") || p.contains("meadow") || p.contains("lush")) return 0xFF6FC24A;
+		if (p.contains("beach")) return 0xFFEAD9A0;
+		if (p.contains("desert")) return 0xFFE0C877;
+		if (p.contains("badlands") || p.contains("mesa")) return 0xFFD1662B;
+		if (p.contains("warped")) return 0xFF1FB6A6;
+		if (p.contains("crimson") || p.contains("nether") || p.contains("basalt") || p.contains("soul")) return 0xFFC0392B;
+		if (p.contains("frozen") || p.contains("snow") || p.contains("ice")) return 0xFFCFE6FF;
+		if (p.contains("end") || p.contains("void")) return 0xFFCBB0FF;
+		if (p.contains("mushroom")) return 0xFFC792E0;
+		if (p.contains("dripstone")) return 0xFFB07A55;
+		if (p.contains("deep_dark")) return 0xFF2A6E7A;
+		if (p.contains("stony") || p.contains("windswept") || p.contains("hills") || p.contains("peaks")) return 0xFFB8B8B8;
+		return TEXT;
 	}
 
 	/** Keystrokes vertical extent {top, bottom} of the currently-shown rows. */
@@ -259,9 +327,11 @@ public final class HudElements {
 			p.scale(s, s, 1f);
 			bgColored(g, "coords", "bgColor", (int) (w / s), (int) (h / s));
 			boolean shadow = Mods.bool("coords", "textShadow");
+			var biomeH = mc.level != null ? mc.level.getBiome(BlockPos.containing(mc.player.position())) : null;
 			int y = 1;
 			for (String line : coordsLines(mc)) {
-				g.drawString(mc.font, line, 1, y, TEXT, shadow);
+				int col = (biomeH != null && line.startsWith("Biome:")) ? biomeColor(biomeH) : TEXT;
+				g.drawString(mc.font, line, 1, y, col, shadow);
 				y += 10;
 			}
 			p.popPose();

@@ -20,10 +20,10 @@ public final class OriginTheme {
 	public static final int STROKE = 0x14FFFFFF;
 	// rgba(255,255,255,0.18)
 	public static final int STROKE_STRONG = 0x2EFFFFFF;
-	// Hover outline — a MUCH lighter gray than the resting stroke, so a hovered
-	// box reads as obviously responsive (A2). One shared value: every hovered
-	// custom box (mod menu, HUD editor, vanilla widget shells) brightens to this.
-	public static final int STROKE_HOVER = 0x9EFFFFFF;
+	// Hover outline — BRIGHT WHITE (Will 2026-07-21): every hovered custom box /
+	// button (mod menu, HUD editor MODS button, tabs, chips) highlights to full
+	// white, not the old light-gray. One shared value drives them all.
+	public static final int STROKE_HOVER = 0xFFFFFFFF;
 	public static final int TEXT = 0xFFF5F5F5;
 	public static final int TEXT_DIM = 0xFF9A9A9A;
 	public static final int MUTED = 0xFF616161;
