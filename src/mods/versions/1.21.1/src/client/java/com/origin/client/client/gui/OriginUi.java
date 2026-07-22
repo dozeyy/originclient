@@ -125,6 +125,8 @@ public final class OriginUi {
 		sh.safeGetUniform("BorderColor").set(((border >> 16) & 0xFF) / 255f, ((border >> 8) & 0xFF) / 255f,
 				(border & 0xFF) / 255f, ((border >>> 24) & 0xFF) / 255f);
 		BufferUploader.drawWithShader(mesh);
+		// restore state so it can't leak into later GUI / world (sky) rendering
+		OriginShaders.restoreState();
 	}
 
 	/**

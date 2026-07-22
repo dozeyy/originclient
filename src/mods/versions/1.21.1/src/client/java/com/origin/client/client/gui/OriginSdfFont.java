@@ -76,7 +76,12 @@ public final class OriginSdfFont {
 
 	/** Whether menus should route text through this renderer right now. */
 	public static boolean active() {
-		return OriginShaders.enabled() && ready();
+		boolean en = OriginShaders.enabled();
+		boolean rdy = ready();
+		if (en && !rdy) {
+			OriginShaders.noteTextFallback();
+		}
+		return en && rdy;
 	}
 
 	private static synchronized void ensureLoaded() {
@@ -204,5 +209,8 @@ public final class OriginSdfFont {
 		RenderSystem.setShaderTexture(0, f.atlas);
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		BufferUploader.drawWithShader(mesh);
+		// CRITICAL: restore state so this immediate-mode draw can't leak into the
+		// next GUI element or, once the menu closes, into world/sky rendering.
+		OriginShaders.restoreState();
 	}
 }
