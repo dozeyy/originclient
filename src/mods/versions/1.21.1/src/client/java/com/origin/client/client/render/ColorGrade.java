@@ -7,9 +7,11 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * The Color Saturation mod's renderer: a full-screen post-process pass over the
- * finished frame that applies Saturation / Brightness / Contrast (see the
- * origin_color_grade shader). Driven per-frame from GameRendererMixin at the tail
- * of the render, so it grades the whole frame (world + HUD).
+ * rendered WORLD that applies Saturation / Brightness / Contrast (see the
+ * origin_color_grade shader). Driven per-frame from GuiHudMixin at the HEAD of
+ * Gui.render — i.e. after the world is fully drawn but BEFORE the HUD and any
+ * screen/menu paint on top. So the grade affects only the game world (live, even
+ * behind an open mod menu), never the HUD, the menu, or the title screen.
  *
  * Fail-soft: if the post effect can't load or process (missing shader, GL issue,
  * or an Iris pipeline that owns the main target), it latches `broken` and never
@@ -34,14 +36,19 @@ public final class ColorGrade {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		// Only grade the LIVE game — never while a screen/menu is open (so menus, the
-		// logo, and the HUD-over-a-menu stay untouched) and never outside a world.
-		if (mc.screen != null || mc.level == null) {
+		// Grade whenever there's a world (in-game) — including behind an OPEN mod menu,
+		// so adjusting the sliders is a LIVE change you see immediately. Skipped only
+		// outside a world (title screen etc.). Runs pre-HUD (Gui.render HEAD), so only
+		// world pixels are graded — never the HUD or menu.
+		if (mc.level == null) {
 			return;
 		}
-		double sat = Mods.num("colorsaturation", "saturation");
-		double bri = Mods.num("colorsaturation", "brightness");
-		double con = Mods.num("colorsaturation", "contrast");
+		// Sliders are multipliers around 1.0 (neutral). Halve the deviation from
+		// neutral so the effect is gentler — at either slider extreme it's only half
+		// as strong as the raw value would give.
+		double sat = half(Mods.num("colorsaturation", "saturation"));
+		double bri = half(Mods.num("colorsaturation", "brightness"));
+		double con = half(Mods.num("colorsaturation", "contrast"));
 		// Neutral (all ~1.0) → skip the pass entirely (zero cost when unchanged).
 		if (near1(sat) && near1(bri) && near1(con)) {
 			return;
@@ -67,6 +74,11 @@ public final class ColorGrade {
 			broken = true;
 			com.origin.client.OriginClient.LOGGER.warn("Color Saturation post-effect failed; disabling for this session", t);
 		}
+	}
+
+	// Half the distance from neutral (1.0): value v → 1 + (v - 1) * 0.5.
+	private static double half(double v) {
+		return 1.0 + (v - 1.0) * 0.5;
 	}
 
 	private static boolean near1(double v) {

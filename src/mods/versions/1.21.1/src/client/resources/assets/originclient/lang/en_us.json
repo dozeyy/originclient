@@ -5,6 +5,6 @@
 	"key.originclient.freelook": "Freelook",
 	"key.originclient.copy_coords": "Copy Coordinates",
 	"key.originclient.waypoint_menu": "Open Waypoints",
-	"key.originclient.waypoint_quick": "Quick Waypoint",
+	"key.originclient.waypoint_create": "Create Waypoint",
 	"key.originclient.waypoint_toggle": "Toggle Waypoints"
 }

@@ -69,15 +69,17 @@ public class OriginModMenuScreen extends Screen {
 	@Override
 	protected void init() {
 		super.init();
-		// Preview mode while the menu is open: armor/potions/scoreboard draw with
-		// SAMPLE content so you can see them while configuring; reverts to real
-		// in-game content the moment the menu closes (removed()).
+		// Preview mode while the menu is open: armor/potions draw with SAMPLE content
+		// so you can see them while configuring; reverts on close (removed()). The
+		// scoreboard is suppressed here so it can't stick out past the centered panel.
 		HudElements.editorPreview = true;
+		HudElements.suppressScoreboard = true;
 	}
 
 	@Override
 	public void removed() {
 		HudElements.editorPreview = false;
+		HudElements.suppressScoreboard = false;
 		super.removed();
 	}
 
@@ -427,7 +429,7 @@ public class OriginModMenuScreen extends Screen {
 		int vbX = px() + pw() - 12 - 24;
 		boolean vbHover = in(mouseX, mouseY, vbX, hy, vbX + 24, hy + 20);
 		boolean backing = !clear;
-		OriginUi.panel(g, vbX, hy, 24, 20, 8,
+		OriginUi.bevelPanel(g, vbX, hy, 24, 20, 3,
 				withAlpha(chipFill(vbHover), alpha),
 				withAlpha(vbHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 		// @backing, not "blockoverlay": this chip toggles the panel between opaque
@@ -440,7 +442,7 @@ public class OriginModMenuScreen extends Screen {
 		int hbW = font.width("HUD Editor") + 16;
 		int hbX = vbX - 6 - hbW;
 		boolean hbHover = in(mouseX, mouseY, hbX, hy, hbX + hbW, hy + 20);
-		OriginUi.panel(g, hbX, hy, hbW, 20, 8,
+		OriginUi.bevelPanel(g, hbX, hy, hbW, 20, 3,
 				withAlpha(chipFill(hbHover), alpha),
 				withAlpha(hbHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 		g.drawString(font, "HUD Editor", hbX + 8, hy + 6, withAlpha(OriginTheme.TEXT, alpha), clear);
@@ -457,7 +459,7 @@ public class OriginModMenuScreen extends Screen {
 		int sx = px() + (pw() - sw) / 2;
 		OriginUi.panel(g, sx, sy, sw, 22, 8,
 				withAlpha(clear ? 0xC8101010 : (searchFocused ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
-				withAlpha(searchFocused ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
+				withAlpha(searchFocused ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
 		OriginUi.icon(g, "@search", sx + 5, sy + 3, 15, withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha));
 		if (search.isEmpty() && !searchFocused) {
 			g.drawString(font, "Search mods", sx + 24, sy + 7,
@@ -527,9 +529,9 @@ public class OriginModMenuScreen extends Screen {
 		// brightening + fill only.
 		int cx = r[0], cy = r[1];
 
-		OriginUi.panel(g, cx, cy, cellW, cellH, 10,
+		OriginUi.bevelPanel(g, cx, cy, cellW, cellH, 3,
 				withAlpha(clear ? (hover ? 0xD8141414 : 0xC8101010) : (hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
-				withAlpha(hover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
+				withAlpha(hover ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
 
 		// Favorite/pin star (top-left corner): GOLD when pinned (always shown so you
 		// know it's pinned), a faint star on hover otherwise. Click it to toggle +
@@ -554,9 +556,9 @@ public class OriginModMenuScreen extends Screen {
 		int bw = cellW - 24, bx = cx + 12;
 		int oby = cy + 61;
 		boolean oHover = inBand && in(mx, my, bx, oby, bx + bw, oby + 15);
-		OriginUi.panel(g, bx, oby, bw, 15, 7,
+		OriginUi.bevelPanel(g, bx, oby, bw, 15, 3,
 				withAlpha(clear ? (oHover ? 0xE0202020 : 0xD0181818) : (oHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
-				withAlpha(oHover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
+				withAlpha(oHover ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
 		g.drawString(font, "OPTIONS", bx + (bw - font.width("OPTIONS")) / 2, oby + 4,
 				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
 
@@ -567,8 +569,8 @@ public class OriginModMenuScreen extends Screen {
 		if (tHover) {
 			fill = (fill & 0xFFFFFF) | 0x46000000;
 		}
-		OriginUi.panel(g, bx, tby, bw, 15, 7, withAlpha(fill, alpha),
-				withAlpha(on ? GREEN_EDGE : RED_EDGE, alpha));
+		OriginUi.bevelPanel(g, bx, tby, bw, 15, 3, withAlpha(fill, alpha),
+				withAlpha(tHover ? OriginTheme.STROKE_HOVER : (on ? GREEN_EDGE : RED_EDGE), alpha));
 		g.drawString(font, label, bx + (bw - font.width(label)) / 2, tby + 4,
 				withAlpha(on ? GREEN_TEXT : RED_TEXT, alpha), false);
 	}
@@ -628,7 +630,7 @@ public class OriginModMenuScreen extends Screen {
 
 		// back chip
 		boolean backHover = in(mouseX, mouseY, x0, hy, x0 + 24, hy + 20);
-		OriginUi.panel(g, x0, hy, 24, 20, 8,
+		OriginUi.bevelPanel(g, x0, hy, 24, 20, 3,
 				withAlpha(backHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
 				withAlpha(backHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 		g.drawString(font, "<", x0 + 9, hy + 6, withAlpha(OriginTheme.TEXT, alpha), false);
@@ -785,15 +787,19 @@ public class OriginModMenuScreen extends Screen {
 				boolean capturing = modId.equals(capMod) && o.key.equals(capKey);
 				String name = capturing ? "press a key" : keyName(Mods.keyCode(modId, o.key));
 				int bw = Math.max(40, font.width(name) + 16);
-				OriginUi.panel(g, x1 - 10 - bw, y + 4, bw, 18, 7,
-						withAlpha(capturing ? 0x40FFFFFF : 0x1EFFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+				boolean kHover = in(mx, my, x1 - 10 - bw, y + 4, x1 - 10, y + 22);
+				OriginUi.bevelPanel(g, x1 - 10 - bw, y + 4, bw, 18, 3,
+						withAlpha(capturing ? 0x40FFFFFF : 0x1EFFFFFF, alpha),
+						withAlpha(kHover || capturing ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 				g.drawString(font, name, x1 - 10 - bw + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 			}
 			case DROPDOWN -> {
 				String v = vMode(modId, o.key);
 				int bw = Math.max(70, font.width(v) + 34);
 				int bx = x1 - 10 - bw;
-				OriginUi.panel(g, bx, y + 4, bw, 18, 7, withAlpha(0x1EFFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+				boolean dHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
+				OriginUi.bevelPanel(g, bx, y + 4, bw, 18, 3, withAlpha(0x1EFFFFFF, alpha),
+						withAlpha(dHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 				g.drawString(font, "<", bx + 6, y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
 				g.drawString(font, v, bx + (bw - font.width(v)) / 2, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 				g.drawString(font, ">", bx + bw - 6 - font.width(">"), y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
@@ -807,8 +813,9 @@ public class OriginModMenuScreen extends Screen {
 				int bw = multiBtnW(x0, x1);
 				int bx = x1 - 10 - bw;
 				boolean bHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
-				OriginUi.panel(g, bx, y + 4, bw, 18, 7,
-						withAlpha(bHover ? 0x2EFFFFFF : 0x1EFFFFFF, alpha), withAlpha(OriginTheme.STROKE, alpha));
+				OriginUi.bevelPanel(g, bx, y + 4, bw, 18, 3,
+						withAlpha(bHover ? 0x2EFFFFFF : 0x1EFFFFFF, alpha),
+						withAlpha(bHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
 				String shown = font.width(summary) > bw - 16
 						? font.plainSubstrByWidth(summary, bw - 22) + "…" : summary;
 				g.drawString(font, shown, bx + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);

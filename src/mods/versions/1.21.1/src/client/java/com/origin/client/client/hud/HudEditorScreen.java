@@ -235,12 +235,13 @@ public class HudEditorScreen extends Screen {
 				g.drawString(font, o, cx - font.width(o) / 2, wordY - 4, withAlpha(OriginTheme.TEXT, in), false);
 			}
 
-			// MODS button — slightly rounded corners (the one place a soft edge is
-			// wanted; the rest of the UI is square by design). Centered, no hover lift.
+			// MODS button — the SAME style as every other menu button (Will): the
+			// shared 3px bevel cut, the standard button fill/border tokens, bright
+			// white border on hover. Centered, no hover lift.
 			boolean hoverBtn = in(mouseX, mouseY, btnX(), bt, btnX() + BTN_W, bt + BTN_H);
-			roundRect(g, btnX(), bt, BTN_W, BTN_H, 4,
-					withAlpha(hoverBtn ? 0xE6181818 : 0xD0101010, in),
-					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE_STRONG, in));
+			OriginUi.bevelPanel(g, btnX(), bt, BTN_W, BTN_H, 3,
+					withAlpha(hoverBtn ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, in),
+					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, in));
 			g.drawString(font, "MODS", cx - font.width("MODS") / 2, bt + 10,
 					withAlpha(OriginTheme.TEXT, in), false);
 		}
@@ -251,29 +252,6 @@ public class HudEditorScreen extends Screen {
 		g.fill(x0, y1 - t, x1, y1, color);          // bottom
 		g.fill(x0, y0, x0 + t, y1, color);          // left
 		g.fill(x1 - t, y0, x1, y1, color);          // right
-	}
-
-	// A slightly rounded rect (fill + 1px border) — used only for the MODS button
-	// (the rest of the UI is square by design). Corners use a small linear chamfer
-	// of radius r: rows near the top/bottom edge inset inward, which reads as a
-	// gentle curve at r=4 with no textures.
-	private static void roundRect(GuiGraphics g, int x, int y, int w, int h, int r, int fill, int border) {
-		for (int i = 0; i < h; i++) {
-			int d = Math.min(i, h - 1 - i);
-			int inset = d < r ? r - d : 0;
-			g.fill(x + inset, y + i, x + w - inset, y + i + 1, fill);
-		}
-		if (((border >>> 24) & 0xFF) == 0) {
-			return;
-		}
-		for (int i = 0; i < h; i++) {
-			int d = Math.min(i, h - 1 - i);
-			int inset = d < r ? r - d : 0;
-			g.fill(x + inset, y + i, x + inset + 1, y + i + 1, border);
-			g.fill(x + w - inset - 1, y + i, x + w - inset, y + i + 1, border);
-		}
-		g.fill(x + r, y, x + w - r, y + 1, border);
-		g.fill(x + r, y + h - 1, x + w - r, y + h, border);
 	}
 
 	@Override

@@ -364,7 +364,11 @@ public final class Mods {
 		// Before Delete are read live by Waypoints/WaypointScreen.
 		add("waypoints", "Waypoints", "In-world markers with beams, labels, and distance.", false,
 				ModOption.toggle("deathWaypoints", "Death Waypoints", true).tip("Auto-drop a waypoint where you die."),
-				ModOption.toggle("confirmDelete", "Confirm Before Delete", true).tip("Ask before removing a waypoint."));
+				ModOption.toggle("confirmDelete", "Confirm Before Delete", true).tip("Ask before removing a waypoint."),
+				ModOption.toggle("locatorBar", "Locator Bar", false)
+						.tip("A compass strip in the XP bar showing every waypoint's direction (max 2000 blocks)."),
+				ModOption.toggle("separateBar", "Separate Bar", false)
+						.tip("Detach the locator bar from the XP bar into a standalone, movable HUD element."));
 
 		// ---- interface ----
 		// JEI is not Origin code — it's mezz's mod, bundled jar-in-jar (see

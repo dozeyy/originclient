@@ -29,13 +29,23 @@ public final class Waypoints {
 		public String group = "";
 		public int x, y, z;
 		public String dimension = "minecraft:overworld";
-		public int color = 0xFFFFFFFF;      // white default
+		public int color = 0xFFFFFFFF;      // waypoint colour: beam + block highlight
 		public boolean enabled = true;      // per-waypoint on/off toggle
+		public boolean showIcon = true;     // the ◆ marker at the waypoint
 		public boolean showText = true;
 		public boolean showBeam = true;
 		public boolean highlightBlock = false;
 		public boolean showDistance = true;
-		public double scale = 1.0;
+		// Style — every visual part has its OWN colour and scale so each is
+		// independently tunable (icon vs beam vs text). Gson leaves these
+		// initializer defaults in place for waypoints saved before the fields
+		// existed; unknown old keys (e.g. the retired "scale") are ignored.
+		public int iconColor = 0xFFFFFFFF;
+		public int textColor = 0xFFFFFFFF;
+		public int textBgColor = 0xC0000000;
+		public double iconScale = 1.0;
+		public double textScale = 1.0;
+		public double distScale = 1.0;
 	}
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -94,15 +104,12 @@ public final class Waypoints {
 		return w;
 	}
 
-	/** Quick-create at the player's feet with an auto-incrementing "Waypoint N" name
-	 *  and all defaults. Returns null if there's no player. */
-	public static Waypoint quickCreate() {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null) {
-			return null;
-		}
-		BlockPos p = mc.player.blockPosition();
-		return create(nextName("Waypoint"), p.getX(), p.getY(), p.getZ(), currentDim(), 0xFFFFFFFF);
+	/** Commits a fully-built waypoint (the editor's create-draft: nothing exists
+	 *  until the player clicks Done, then this adds + saves it). */
+	public static synchronized void add(Waypoint w) {
+		ensureLoaded();
+		ALL.add(w);
+		save();
 	}
 
 	/** Next free "<base> N" name (N auto-increments past existing ones). */

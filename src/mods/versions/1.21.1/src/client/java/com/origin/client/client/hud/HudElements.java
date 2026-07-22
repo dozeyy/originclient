@@ -38,6 +38,11 @@ public final class HudElements {
 	// measure/hit-testing see the same preview the render shows.
 	public static volatile boolean editorPreview = false;
 
+	// The mod menu sets this while open: the scoreboard sample sits at the right
+	// edge and would stick out past the centered menu panel, so it's suppressed
+	// there (the menu is in front of everything). The HUD editor leaves it false.
+	public static volatile boolean suppressScoreboard = false;
+
 	public interface Renderer {
 		void render(GuiGraphics g, Minecraft mc, int w, int h);
 	}
@@ -160,9 +165,10 @@ public final class HudElements {
 		return lines;
 	}
 
-	// Biome display name: vanilla → Title Case ("Savanna Plateau"); modded → the
-	// designer's translated name if they provide one, else the raw path (never
-	// force-cased). Vanilla has no biome lang keys, hence the manual case.
+	// Biome display name: vanilla → Title Case ("Savanna Plateau" — first letter
+	// of each word, Will 2026-07-21); modded → the designer's translated name if
+	// they provide one, else the raw path — kept in the designer's own casing,
+	// never force-cased. Vanilla has no biome lang keys, hence the manual casing.
 	private static String biomeName(Holder<net.minecraft.world.level.biome.Biome> biome) {
 		var key = biome.unwrapKey();
 		if (key.isEmpty()) {
@@ -436,10 +442,29 @@ public final class HudElements {
 		add("scoreboard", "scoreboard", "Scoreboard", new HudPos(5, -3, 0, 1.0),
 				mc -> sampleScoreboardSize(),
 				(g, mc, w, h) -> {
-					if (editorPreview) {
+					if (editorPreview && !suppressScoreboard) {
 						drawSampleScoreboard(g);
 					}
 				});
+
+		// ---- Locator Bar (Separate/movable mode) ----
+		// The draggable placement element for the separate locator bar. In normal
+		// gameplay the bar itself is drawn by WaypointHud.renderBars from the vanilla
+		// hotbar layer (same batch context as the XP bar — required so the gems land
+		// on top of the sprite); this element only draws the PREVIEW in the HUD
+		// editor / mod menu, and provides the drag target. Measuring 0×0 while off
+		// keeps it out of the editor until separate mode is enabled.
+		add("locatorbar", "waypoints", "Locator Bar", new HudPos(7, 0, -22, 1.0),
+				mc -> locatorBarActive() ? new int[]{182, 5} : new int[]{0, 0},
+				(g, mc, w, h) -> {
+					if (locatorBarActive() && (editorPreview || mc.screen instanceof HudEditorScreen)) {
+						com.origin.client.client.waypoints.WaypointHud.drawBar(g, mc, 0, 0, w, true);
+					}
+				});
+	}
+
+	private static boolean locatorBarActive() {
+		return Mods.bool("waypoints", "locatorBar") && Mods.bool("waypoints", "separateBar");
 	}
 
 	private static void add(String id, String modId, String label, HudPos def,
@@ -777,5 +802,19 @@ public final class HudElements {
 			}
 			p.popPose();
 		}
+		// Waypoint icon/name/distance overlay — screen-projected so it's always
+		// visible (through blocks) and untouched by world lighting/shaders.
+		try {
+			com.origin.client.client.waypoints.WaypointHud.render(g);
+		} catch (Throwable t) {
+			// must never take the HUD down — but log the FIRST failure so a broken
+			// overlay is visible in the log instead of silently absent on screen
+			if (!waypointHudWarned) {
+				waypointHudWarned = true;
+				com.origin.client.OriginClient.LOGGER.warn("Origin: waypoint HUD overlay failed", t);
+			}
+		}
 	}
+
+	private static boolean waypointHudWarned = false;
 }

@@ -32,4 +32,28 @@ public class GuiHudMixin {
 	private void originclient$topHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		HudElements.renderAll(guiGraphics);
 	}
+
+	// Color Saturation: grade the world at the HEAD of the HUD render — the world is
+	// fully drawn by now, but the HUD and any open screen/menu paint AFTER this, so
+	// only the game world is graded. Gui.render runs every in-game frame (the HUD
+	// draws behind any open screen), so the grade stays live even behind the mod menu.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$colorGrade(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+		com.origin.client.client.render.ColorGrade.process(deltaTracker.getGameTimeDeltaPartialTick(true));
+	}
+
+	// Waypoint Locator Bar — drawn at the TAIL of the hotbar layer, i.e. in the SAME
+	// HUD layer/batching context vanilla uses to draw the XP bar and the level number
+	// over it. Drawing from Gui.render RETURN instead put our gems in a later batch
+	// that HUD batching (ImmediatelyFast) reordered under the bar sprite — pixels
+	// proved fills vanish wherever a sprite overlaps. Inside the layer, draw order
+	// is authoritative, exactly like vanilla's own text-over-bar rendering.
+	@Inject(method = "renderHotbarAndDecorations", at = @At("TAIL"))
+	private void originclient$locatorBar(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+		try {
+			com.origin.client.client.waypoints.WaypointHud.renderBars(guiGraphics);
+		} catch (Throwable t) {
+			// the locator bar must never take the HUD down
+		}
+	}
 }

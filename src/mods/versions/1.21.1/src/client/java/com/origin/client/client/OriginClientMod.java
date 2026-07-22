@@ -215,14 +215,15 @@ public class OriginClientMod implements ClientModInitializer {
 		while (OriginKeyBindings.waypointToggle.consumeClick()) {
 			Mods.setOn("waypoints", !Mods.on("waypoints"));
 		}
-		while (OriginKeyBindings.waypointQuick.consumeClick()) {
-			if (Mods.on("waypoints") && client.player != null) {
-				com.origin.client.client.waypoints.Waypoints.quickCreate();
-			}
-		}
 		while (OriginKeyBindings.waypointMenu.consumeClick()) {
 			if (client.screen == null) {
 				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+			}
+		}
+		while (OriginKeyBindings.waypointCreate.consumeClick()) {
+			// Opens the Waypoints screen straight into a fresh Create form.
+			if (client.screen == null) {
+				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen(true));
 			}
 		}
 		// Death waypoint: drop one on the alive→dead transition (edge-triggered).

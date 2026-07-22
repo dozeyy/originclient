@@ -26,21 +26,42 @@ public final class BlockOverlayRenderer {
 	}
 
 	public static boolean onBlockOutline(WorldRenderContext wctx, WorldRenderContext.BlockOutlineContext octx) {
-		if (!Mods.on("blockoverlay")) {
-			return true;
-		}
-		boolean outline = Mods.bool("blockoverlay", "outline");
-		boolean overlay = Mods.bool("blockoverlay", "overlay");
-		if (!outline && !overlay) {
-			return true;
-		}
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || wctx.matrixStack() == null || wctx.consumers() == null) {
 			return true;
 		}
+		boolean modOn = Mods.on("blockoverlay");
+		boolean outline = modOn && Mods.bool("blockoverlay", "outline");
+		boolean overlay = modOn && Mods.bool("blockoverlay", "overlay");
+
 		BlockPos pos = octx.blockPos();
 		BlockState state = octx.blockState();
 		VoxelShape shape = state.getShape(mc.level, pos, CollisionContext.of(octx.entity()));
+		double ox = pos.getX() - octx.cameraX();
+		double oy = pos.getY() - octx.cameraY();
+		double oz = pos.getZ() - octx.cameraZ();
+		PoseStack.Pose pose = wctx.matrixStack().last();
+
+		// Mod off (or both sub-toggles off): the "normal" outline — vanilla's black
+		// 40% look, but drawn as a HAIRLINE (Will: thinner than vanilla, whose GL
+		// line scales up to ~2.5px with resolution). Same ThickLine quads as the
+		// custom outline at a fixed tiny thickness, depth-tested like vanilla.
+		if (!outline && !overlay) {
+			if (shape.isEmpty()) {
+				return true;   // grass/crops etc: vanilla draws nothing — keep that
+			}
+			net.minecraft.world.phys.AABB vb = shape.bounds();
+			double vcx = (vb.minX + vb.maxX) / 2.0 + ox;
+			double vcy = (vb.minY + vb.maxY) / 2.0 + oy;
+			double vcz = (vb.minZ + vb.maxZ) / 2.0 + oz;
+			VertexConsumer vq = wctx.consumers().getBuffer(RenderType.debugQuads());
+			shape.forAllEdges((x1, y1, z1, x2, y2, z2) ->
+					com.origin.client.client.render.ThickLine.edge(vq, pose,
+							x1 + ox, y1 + oy, z1 + oz, x2 + ox, y2 + oy, z2 + oz,
+							vcx, vcy, vcz, 0.002, 0f, 0f, 0f, 0.4f));
+			return false;
+		}
+
 		if (shape.isEmpty()) {
 			// Show Hidden Foliage: grass/crops with an empty collision shape get
 			// no outline normally — fall back to a full-block box so they're
@@ -50,10 +71,6 @@ public final class BlockOverlayRenderer {
 			}
 			shape = net.minecraft.world.phys.shapes.Shapes.block();
 		}
-		double ox = pos.getX() - octx.cameraX();
-		double oy = pos.getY() - octx.cameraY();
-		double oz = pos.getZ() - octx.cameraZ();
-		PoseStack.Pose pose = wctx.matrixStack().last();
 
 		if (overlay) {
 			int col = OriginColorPicker.liveColor("blockoverlay", "overlayColor");

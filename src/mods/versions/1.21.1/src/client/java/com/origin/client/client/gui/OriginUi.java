@@ -77,6 +77,38 @@ public final class OriginUi {
 	}
 
 	/**
+	 * The BUTTON shape (Will, 2026-07-21): a small angled corner CUT — a 45°
+	 * chamfer of `cut` px at each corner. Not a full round, not a plain right
+	 * angle. Rows near the top/bottom edge inset linearly, which reads as a
+	 * crisp diagonal notch; the 1px border traces the edges including the
+	 * diagonals. Every button-like surface (mod menu buttons/cards/chips, the
+	 * MODS button, the restyled vanilla widgets) draws through here so the cut
+	 * stays consistent by construction.
+	 */
+	public static void bevelPanel(GuiGraphics g, int x, int y, int w, int h, int cut, int fill, int border) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		int c = Math.max(0, Math.min(cut, Math.min(w, h) / 2 - 1));
+		for (int i = 0; i < h; i++) {
+			int d = Math.min(i, h - 1 - i);
+			int inset = d < c ? c - d : 0;
+			g.fill(x + inset, y + i, x + w - inset, y + i + 1, fill);
+		}
+		if (((border >>> 24) & 0xFF) == 0) {
+			return;
+		}
+		for (int i = 0; i < h; i++) {
+			int d = Math.min(i, h - 1 - i);
+			int inset = d < c ? c - d : 0;
+			g.fill(x + inset, y + i, x + inset + 1, y + i + 1, border);          // left edge / diagonal
+			g.fill(x + w - inset - 1, y + i, x + w - inset, y + i + 1, border);  // right edge / diagonal
+		}
+		g.fill(x + c, y, x + w - c, y + 1, border);                              // top run
+		g.fill(x + c, y + h - 1, x + w - c, y + h, border);                      // bottom run
+	}
+
+	/**
 	 * Rounded-box toggle (C4): a rectangular track with curved corners, a knob
 	 * that slides LEFT = off / RIGHT = on, green when on and red when off. Built
 	 * from the shared rounded-rect masks so it stays crisp at any size. Same

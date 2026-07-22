@@ -124,8 +124,8 @@ public final class OriginButtonRenderer {
 			// Selected pins the hover look; unselected eases with the cursor.
 			double lit = selected ? 1.0 : hv;
 			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, lit);
-			int border = OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, lit);
-			OriginUi.panel(g, x, y, w, h, 0, fill, border);
+			int border = OriginTheme.lerpColor(BORDER_NORMAL, OriginTheme.STROKE_HOVER, lit);
+			OriginUi.bevelPanel(g, x, y, w, h, 3, fill, border);
 			if (selected) {
 				int uw = Math.max(16, Math.min(w - 8, (int) Math.round(w * 0.55)));
 				int ux = x + (w - uw) / 2;
@@ -244,12 +244,14 @@ public final class OriginButtonRenderer {
 
 	// ---- shared drawing ----
 
-	/** The Frost box: a flat translucent-dark square fill + hairline border,
-	 *  eased between resting and hover. Square corners via OriginUi.panel(corner=0). */
+	/** The Frost box: a flat translucent-dark fill + hairline border, eased
+	 *  between resting and hover. Corners are a small 3px angled CUT (bevel), not
+	 *  square and not round (Will, 2026-07-21) — via OriginUi.bevelPanel. Hover
+	 *  brightens the border to bright white. */
 	private static void box(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv) {
 		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
-		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
-		OriginUi.panel(g, x, y, w, h, 0, fill, border);
+		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, OriginTheme.STROKE_HOVER, hv) : BORDER_DISABLED;
+		OriginUi.bevelPanel(g, x, y, w, h, 3, fill, border);
 	}
 
 	/** Centered label in the default Minecraft font, WITH the standard drop
