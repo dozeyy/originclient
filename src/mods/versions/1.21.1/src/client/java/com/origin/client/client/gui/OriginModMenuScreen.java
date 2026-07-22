@@ -688,7 +688,7 @@ public class OriginModMenuScreen extends Screen {
 		g.disableScissor();
 	}
 
-	// The MENU appearance sub-tab — currently the background-opacity control.
+	// The MENU appearance sub-tab: background opacity + the scalable-rendering toggle.
 	private void renderMenuSettings(GuiGraphics g, int x0, int x1, int top, int mx, int my, long now, float alpha) {
 		int y = top + 4;
 		OriginUi.panel(g, x0, y, x1 - x0, 26, 8, withAlpha(clear ? 0xC0101010 : OriginTheme.BOX_FILL, alpha),
@@ -703,9 +703,20 @@ public class OriginModMenuScreen extends Screen {
 		OriginUi.slider(g, tx, y + 11, tw, v, dragOpacity);
 		String val = String.format("%.0f%%", v * 100);
 		OriginText.draw(g, font, val, tx - OriginText.width(font, val) - 10, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
-		y += 34;
-		OriginText.draw(g, font, "Slide to fully clear for a see-through menu.", x0 + 2, y,
+		OriginText.draw(g, font, "Slide to fully clear for a see-through menu.", x0 + 2, y + 30,
 				withAlpha(OriginTheme.MUTED, alpha), clear);
+
+		// Scalable rendering (SDF/MSDF) toggle — smooth text + curves at any size.
+		int y2 = top + 52;
+		OriginUi.panel(g, x0, y2, x1 - x0, 26, 8, withAlpha(clear ? 0xC0101010 : OriginTheme.BOX_FILL, alpha),
+				withAlpha(OriginTheme.BOX_BORDER, alpha));
+		OriginText.draw(g, font, "Smooth Text & Curves (SDF)", x0 + 10, y2 + 9,
+				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
+		OriginUi.switchAt(g, "@sdf", x1 - 40, y2 + 5, 30, OriginShaders.enabled(), true);
+		String status = OriginShaders.enabled()
+				? (OriginSdfFont.ready() ? "Vector text + curves — crisp at any scale." : "On, but shaders didn't load — using the fallback.")
+				: "Off — using the pixel-grid fallback renderer.";
+		OriginText.draw(g, font, status, x0 + 2, y2 + 30, withAlpha(OriginTheme.MUTED, alpha), clear);
 	}
 
 	private void applyOpacity(double mx) {
@@ -743,6 +754,11 @@ public class OriginModMenuScreen extends Screen {
 			if (mx >= opTrackX0 && mx <= opTrackX1 && my >= y + 6 && my <= y + 20) {
 				dragOpacity = true;
 				applyOpacity(mx);
+				return true;
+			}
+			int y2 = top + 52; // SDF toggle switch (drawn at x1-40, y2+5, 30x16)
+			if (in(mx, my, x1 - 40, y2 + 5, x1 - 10, y2 + 21)) {
+				Mods.setMetaBool("originSdf", !Mods.metaBool("originSdf", true));
 			}
 			return true;
 		}

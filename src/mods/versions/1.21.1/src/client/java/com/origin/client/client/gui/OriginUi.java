@@ -4,11 +4,18 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
+import org.joml.Matrix4f;
 
 import java.io.InputStream;
 import java.util.HashMap;
@@ -76,10 +83,48 @@ public final class OriginUi {
 			return;
 		}
 		int r = Math.max(0, Math.min(corner, Math.min(w, h) / 2));
+		// Scalable path: one rounded-box SDF quad, perfect curves at any scale.
+		// Gated to screens (menus) so it never touches the in-world HUD render
+		// path, and falls back to the software fills below if the shader is off
+		// or failed to load.
+		if (OriginShaders.roundActive()) {
+			roundShader(g, x, y, w, h, r, fill, border);
+			return;
+		}
 		roundedFill(g, x, y, w, h, r, fill);
 		if (((border >>> 24) & 0xFF) > 0) {
 			roundedStroke(g, x, y, w, h, r, border);
 		}
+	}
+
+	/** Draws the rounded rect as a single SDF quad via {@link OriginShaders#ROUND}. */
+	private static void roundShader(GuiGraphics g, int x, int y, int w, int h, int r, int fill, int border) {
+		float hw = w / 2f, hh = h / 2f;
+		boolean hasBorder = ((border >>> 24) & 0xFF) > 0;
+		var sh = OriginShaders.ROUND;
+		Matrix4f m = g.pose().last().pose();
+		// POSITION_TEX: UV carries the local pixel coordinate measured from centre,
+		// which the fragment shader turns into the rounded-box distance.
+		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+		bb.addVertex(m, x, y, 0).setUv(-hw, -hh);
+		bb.addVertex(m, x, y + h, 0).setUv(-hw, hh);
+		bb.addVertex(m, x + w, y + h, 0).setUv(hw, hh);
+		bb.addVertex(m, x + w, y, 0).setUv(hw, -hh);
+		MeshData mesh = bb.build();
+		if (mesh == null) {
+			return;
+		}
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.setShader(() -> sh);
+		sh.safeGetUniform("RectHalf").set(hw, hh);
+		sh.safeGetUniform("Radius").set((float) Math.min(r, Math.min(hw, hh)));
+		sh.safeGetUniform("Border").set(hasBorder ? 1.0f : 0.0f);
+		sh.safeGetUniform("FillColor").set(((fill >> 16) & 0xFF) / 255f, ((fill >> 8) & 0xFF) / 255f,
+				(fill & 0xFF) / 255f, ((fill >>> 24) & 0xFF) / 255f);
+		sh.safeGetUniform("BorderColor").set(((border >> 16) & 0xFF) / 255f, ((border >> 8) & 0xFF) / 255f,
+				(border & 0xFF) / 255f, ((border >>> 24) & 0xFF) / 255f);
+		BufferUploader.drawWithShader(mesh);
 	}
 
 	/**

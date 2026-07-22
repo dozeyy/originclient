@@ -65,6 +65,9 @@ public class OriginClientMod implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		OriginKeyBindings.register();
+		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
+		// menus. Fails soft — if they don't load, the UI uses the software path.
+		com.origin.client.client.gui.OriginShaders.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 		// Single authoritative autosave when the player leaves the game (quit to
 		// desktop / window close). Mod + HUD settings already save eagerly on

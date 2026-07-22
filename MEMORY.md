@@ -5,6 +5,44 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-22 — 1.21.1 menus: real SDF/MSDF text + rounded-box SDF shaders (scalable rendering)
+Will: the menu pixelates on scaling because text/curves rasterise at a fixed
+resolution — replace with SDF/MSDF text + shader-based rounded rects, "actual
+scalable approach, not higher-res or blur." Correct call, and it's the
+documented "M4" escalation the 3 abandoned font attempts never reached.
+
+- **What it actually was (told Will):** menu text = bitmap font atlas (vanilla,
+  and the MC TTF provider I'd added — both bake glyphs to a fixed-size texture);
+  the rounded rects I'd just added = software per-pixel coverage fills. Neither
+  resolution-independent. NOT GL_LINES.
+- **Built the real pipeline:**
+  - MSDF atlases for Inter 400 + 600 generated in-sandbox with `msdf-bmfont-xml`
+    (npm; msdfgen bundled) — `-t msdf -s 42 -r 4`, 512px atlases + compact metrics
+    json. Self-verified dims/glyph count. This is the verifiable keystone.
+  - Two core shaders (`assets/originclient/shaders/core/rendertype_origin_{msdf,
+    round}`): MSDF text uses median-of-3 + `screenPxRange` (fwidth) AA; rounded
+    rect uses `sdRoundBox` + fwidth smoothstep. Both anti-alias in SCREEN space →
+    smooth at any scale, like web vector rendering.
+  - Java: `OriginShaders` (Fabric `CoreShaderRegistrationCallback` register +
+    live `meta "originSdf"` kill switch, gated to screens so it never touches the
+    in-world HUD), `OriginSdfFont` (two-weight MSDF renderer, immediate-mode
+    quads via Tesselator/BufferUploader, LINEAR DynamicTexture atlas). Routed
+    through the existing façades: `OriginText.draw/width` → SDF when active,
+    `OriginUi.panel` → rounded-box SDF quad when active.
+  - **Hard 3-deep fallback (mandate 4):** SDF shader → MC Inter TTF provider →
+    vanilla glyphs. If shaders/atlas fail to load, `active()`/`roundActive()` go
+    false and the menu uses the software path. A Settings → Menu toggle A/Bs it
+    live in-game (the iteration lever the earlier blind attempts lacked).
+- **HONEST STATUS — iteration-1, NOT verified.** The sandbox still can't build
+  or run MC (Fabric maven 403, proven), so the shaders/renderer are written
+  blind against 1.21.1 Mojmap/Fabric APIs. Highest-risk-to-be-wrong spots:
+  `CoreShaderRegistrationCallback.register` signature, immediate-mode
+  `Tesselator.begin`/`addVertex`/`BufferUploader.drawWithShader`, `safeGetUniform`
+  set, core-shader json uniform/attribute matching, and GuiGraphics scissor NOT
+  clipping raw draws (scroll regions may overflow — known follow-up). Two tunables
+  need Will's eye: `OriginSdfFont.EM_PX` (9.0) and `MATCH_DY` (-0.5). Expect 1-2
+  build-test rounds; the fallback keeps the menu safe meanwhile.
+
 ## 2026-07-22 — 1.21.1 mod-menu redesign (OneConfig-style): rounded, sidebar, Inter, iOS toggles, profiles
 Will's spec (with a OneConfig reference screenshot): reverse the 2026-07-15
 "pixel-grid" squaring and rebuild the Right-Shift menu as a modern, cohesive UI.
