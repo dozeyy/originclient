@@ -5,6 +5,62 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-07-22 — 1.21.1 mod-menu redesign (OneConfig-style): rounded, sidebar, Inter, iOS toggles, profiles
+Will's spec (with a OneConfig reference screenshot): reverse the 2026-07-15
+"pixel-grid" squaring and rebuild the Right-Shift menu as a modern, cohesive UI.
+Scope confirmed **1.21.1 only** (working order). Built in this sandbox but **NOT
+compiled/run** — the env can't fetch Gradle/Fabric maven (403), so every Java
+call was matched to existing stable-API usage in the module and the whole thing
+is pending Will's `./gradlew build` + `runClient`.
+
+- **Rounded corners everywhere** — `OriginUi.panel/bevelPanel` no longer draw
+  squares/chamfers; they draw software-anti-aliased rounded rects (coverage-based
+  corner alpha, same-alpha runs batched into one `g.fill` so a panel is a handful
+  of quads, not r²). `corner` is the radius again. `bevelPanel` just forwards to
+  `panel`. Because ALL Origin surfaces route through `OriginUi.panel` (menu, HUD
+  editor, color picker, multiselect, waypoint screen, shader browser, buttons,
+  HUD backings), one change rounded the whole client consistently.
+- **iOS toggles** — `OriginUi.switchAt` is now an Apple-style pill: green (ON) ↔
+  red (OFF) crossfade + a white circular knob sliding on the same eased progress.
+  Same signature/geometry, so all 6 callers + hit-tests unchanged. Colors are
+  local constants in OriginUi (IOS_ON/IOS_OFF), not OriginTheme, so the rest of
+  the monochrome system is untouched.
+- **Inter font in menus (the clean way, NOT a 4th hand-rolled renderer)** — Will:
+  "other clients use MC font on the HUD but a custom font in their menus — figure
+  out how and do it cleanly." Answer: Minecraft's OWN TrueType pipeline. Bundled
+  `Inter-400/600` as `assets/originclient/font/inter{_semibold}.ttf` + `ttf`
+  provider JSONs (`font/inter.json`, `inter_semibold.json`). `OriginText` renders
+  menu words by handing the normal `Font` a `Component` whose Style names
+  `originclient:inter` — stbtt rasterises it exactly like a vanilla font, crisp
+  at any size, and **fails soft to vanilla glyphs** if the provider ever fails to
+  load. Deliberately different from the 3 deleted attempts (those blitted glyphs
+  by hand / used bitmap providers at tiny HUD sizes). HUD/world text stays vanilla
+  — HudElements untouched. UI symbol glyphs (★ < > ×) stay vanilla too (Inter has
+  no such codepoints; a missing-glyph box would look worse). **Font `size` in the
+  provider JSONs (9.0) is the one thing that needs a live eyeball — bump/trim to
+  taste.**
+- **Left sidebar** — Mods / Profiles / Settings nav + Edit HUD / Close pinned at
+  the bottom; content to the right of a divider. Replaces the old top-tabs +
+  top-right chips. Per-mod settings still open in the content area with the
+  sidebar visible.
+- **Compact 4-per-row cards** — icon on top, a name bar under it (sage when the
+  mod is ON, gray when OFF — the theme's sanctioned enabled/disabled language;
+  click the bar to toggle), favourite star in the bottom-right corner (click to
+  pin). Click the icon area to open the mod's page.
+- **Profiles (functional)** — `Profiles` API over `ModsConfig`: save/apply/delete
+  named snapshots of the whole loadout (mods + HUD, deep-copied; menu meta
+  excluded). Persist in a new `profiles` block in `originclient-mods.json`.
+- **Menu background = solid + opacity** — replaced the old binary `panelBacking`
+  toggle with a `menuBgOpacity` meta (0..1, default 0.88), a slider under
+  Settings → **MENU**; at ~0 the panel disappears and content switches to
+  translucent fills for contrast (the old `clear` path).
+- New files: `gui/OriginText.java`, `mods/Profiles.java`, `font/*`. Touched:
+  `OriginUi`, `OriginModMenuScreen` (full rewrite, proven row/click machinery
+  preserved verbatim), `ModsConfig`, `Mods`.
+- **Open interpretation for Will:** "all chat boxes" was read as the menu's own
+  boxes; the in-game vanilla chat box isn't rounded (would need a separate mixin)
+  — say the word if that's what you meant.
+
 ## 2026-07-15 — pre-1.20 PoseStack backend built (1.16.5→1.19.4), staged for boot
 Will's order: "work on 1.16.5 and all the versions above it, skipping the not-done
 1.21.x versions, make them all work flawlessly like the 1.21.x versions, use Lunar

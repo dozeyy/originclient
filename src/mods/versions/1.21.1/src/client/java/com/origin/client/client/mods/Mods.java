@@ -529,6 +529,22 @@ public final class Mods {
 		ModsConfig.save();
 	}
 
+	public static double metaNum(String key, double def) {
+		ModsConfig.ensureLoaded();
+		var v = ModsConfig.META.get(key);
+		try {
+			return v == null ? def : v.getAsDouble();
+		} catch (RuntimeException e) {
+			return def;
+		}
+	}
+
+	public static void setMetaNum(String key, double v) {
+		ModsConfig.ensureLoaded();
+		ModsConfig.META.put(key, new JsonPrimitive(v));
+		ModsConfig.save();
+	}
+
 	/** Force the whole mod / HUD / meta store to disk in one pass. Every
 	 *  mutation already saves eagerly, so this is the authoritative "save once
 	 *  on exit" flush the client-stopping hook uses — a belt-and-braces write
