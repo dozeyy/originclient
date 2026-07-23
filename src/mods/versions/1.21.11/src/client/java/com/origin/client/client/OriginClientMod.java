@@ -2,6 +2,7 @@ package com.origin.client.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.gui.OriginModMenuScreen;
+import com.origin.client.client.gui.OriginShaders;
 import com.origin.client.client.mods.ChunkBorderRenderer;
 import com.origin.client.client.mods.MotionBlur;
 import com.origin.client.client.mods.Mods;
@@ -42,7 +43,18 @@ public class OriginClientMod implements ClientModInitializer {
 	public static volatile double zoomScrollFactor = 1.0;
 	// Nametag toggle latches, read by EntityNametagMixin.
 	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
+	// Whether the Tab Editor's custom player-list overlay should draw this frame. Set
+	// each tick; read by GuiHudMixin. We drive our own visibility (not vanilla's,
+	// which refuses to show the list on a solo local server) so it also previews in
+	// single-player and never double-draws with vanilla (PlayerTabOverlayMixin cancels).
+	public static volatile boolean tabListVisible = false;
 	private boolean nametagAllKeyWasDown = false, nametagPlayerKeyWasDown = false;
+	// Tab Editor: sticky tap-vs-hold state + two-way keybind sync bookkeeping.
+	private boolean tabKeyWasDown = false;
+	private boolean tabStickyOn = false;
+	private long tabPressAt = 0;
+	private boolean tabSyncInit = false;
+	private int lastOurTabKey = -1, lastMcTabKey = -1;
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
 	private boolean zoomSensApplied = false;
 	private double savedSensitivity = 0.5;
@@ -63,6 +75,7 @@ public class OriginClientMod implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		OriginKeyBindings.register();
+		OriginShaders.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 
 		// Fragility guards for the bundled JEI: warn if a foreign JEI overrides ours
@@ -81,6 +94,21 @@ public class OriginClientMod implements ClientModInitializer {
 		// never writes. Per-version isolation is automatic: options.txt and the
 		// config/ dir both live inside this version's own instance folder.
 		ClientLifecycleEvents.CLIENT_STOPPING.register(this::onClientStopping);
+		// DIAGNOSTIC (2026-07-23, invisible MSDF text bug — task 14): installs
+		// LWJGL's GL_KHR_debug message callback so the GPU driver's OWN compile/
+		// link/draw errors print straight to the console, instead of relying on
+		// only whatever Mojang's own code happens to log. Must run AFTER the GL
+		// context exists (onInitializeClient() runs before the window/context
+		// are created), so this is deferred to CLIENT_STARTED. No-ops silently
+		// if the driver doesn't support debug output.
+		ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+			try {
+				org.lwjgl.opengl.GLUtil.setupDebugMessageCallback();
+				com.origin.client.OriginClient.LOGGER.info("Origin DEBUG: GL debug message callback installed");
+			} catch (Throwable t) {
+				com.origin.client.OriginClient.LOGGER.warn("Origin DEBUG: GL debug callback setup failed (driver may not support it)", t);
+			}
+		});
 		// Origin's HUD is drawn from GuiHudMixin (Gui.render RETURN, high order)
 		// instead of HudRenderCallback so it always lands on top of any other
 		// mod's HUD — see that mixin for why the callback can't guarantee this.
@@ -270,6 +298,61 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 		nametagPlayerKeyWasDown = npDown;
+
+		// Tab list — Origin drives visibility itself so it shows even on a solo local
+		// server (vanilla refuses to). Holding the Player List key always shows it;
+		// the Tab Editor mod adds sticky tap-to-lock + two-way keybind sync on top.
+		int mcTab = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+				.getBoundKeyOf(client.options.keyPlayerList).getValue();
+		boolean rawTab = client.screen == null && isRawKeyDown(mcTab);
+		if (Mods.on("tablist")) {
+			int ourTab = Mods.keyCode("tablist", "tabKey");
+			if (!tabSyncInit) {
+				// On first tick, adopt Minecraft's Player List binding as the source
+				// of truth so the two always start in agreement.
+				tabSyncInit = true;
+				if (ourTab != mcTab) {
+					Mods.set("tablist", "tabKey", mcTab);
+					ourTab = mcTab;
+				}
+			} else if (ourTab != lastOurTabKey && ourTab != mcTab) {
+				// Rebound in the Origin menu → push to Minecraft's controls.
+				// PER-VERSION DELTA (1.21.11): InputConstants.getKey(int,int) is gone;
+				// build the Key from the raw GLFW code via Type.KEYSYM instead (same
+				// pattern OriginModMenuScreen's keyName() helper already uses).
+				client.options.keyPlayerList.setKey(
+						com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(ourTab));
+				net.minecraft.client.KeyMapping.resetMapping();
+				client.options.save();
+				mcTab = ourTab;
+			} else if (mcTab != lastMcTabKey && mcTab != ourTab) {
+				// Rebound in Minecraft's controls → pull into the Origin option.
+				Mods.set("tablist", "tabKey", mcTab);
+				ourTab = mcTab;
+			}
+			lastOurTabKey = ourTab;
+			lastMcTabKey = mcTab;
+
+			long now = System.currentTimeMillis();
+			if (rawTab && !tabKeyWasDown) {
+				tabPressAt = now;
+			}
+			if (!rawTab && tabKeyWasDown) {
+				// Quick tap → toggle the sticky lock; a longer hold-then-release just
+				// ends the vanilla peek (sticky stays off).
+				if (Mods.bool("tablist", "stickyToggle") && (now - tabPressAt) < 200) {
+					tabStickyOn = !tabStickyOn;
+				} else {
+					tabStickyOn = false;
+				}
+			}
+		} else {
+			tabStickyOn = false;
+			tabSyncInit = false;
+		}
+		tabKeyWasDown = rawTab;
+		// Held → always visible (even solo / mod off); sticky lock only with the mod on.
+		tabListVisible = rawTab || (Mods.on("tablist") && tabStickyOn);
 
 		// Toggle Zoom: in toggle mode the key latches instead of holding. The
 		// FOV easing itself lives in GameRendererMixin (frame-side); here we only

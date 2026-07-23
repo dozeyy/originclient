@@ -10,6 +10,8 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Checkbox;
+import net.minecraft.client.gui.components.SpriteIconButton;
+import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
@@ -237,6 +239,103 @@ public final class OriginButtonRenderer {
 		Font font = Minecraft.getInstance().font;
 		String text = cleanLabel(checkbox.getMessage().getString());
 		guiGraphics.drawString(font, text, x + box + 5, y + (box - 8) / 2 + 1, labelColor, false);
+	}
+
+	/** Origin-styled header tab (Game/World/More on Create World and friends): a
+	 *  box that pins the hover look when selected (plus an accent underline),
+	 *  eases with the cursor otherwise. Click/selection logic untouched.
+	 *  Returns true only if it drew (callers cancel vanilla on true). */
+	public static boolean renderTab(GuiGraphics g, Object key, int x, int y, int w, int h,
+									Component label, boolean selected, boolean hovered) {
+		if (broken) {
+			return false;
+		}
+		try {
+			ensureLoaded();
+			double hv = hoverEase(key, hovered);
+			// Selected pins the hover look; unselected eases with the cursor.
+			double lit = selected ? 1.0 : hv;
+			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, lit);
+			int border = OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, lit);
+			if (assetsOk) {
+				int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
+				nineSlice(g, fillTex, x, y, w, h, cd, fill);
+				nineSlice(g, borderTex, x, y, w, h, cd, border);
+			} else {
+				g.fill(x, y, x + w, y + h, fill);
+			}
+			if (selected) {
+				int uw = Math.max(16, Math.min(w - 8, (int) Math.round(w * 0.55)));
+				int ux = x + (w - uw) / 2;
+				g.fill(ux, y + h - 2, ux + uw, y + h - 1, OriginTheme.TEXT);
+			}
+			int labelColor = selected ? LABEL_COLOR
+					: OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, hv);
+			drawLabel(g, x + w / 2.0, y + h / 2.0, h, label, labelColor);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	/**
+	 * Origin-styled icon button (title-screen Accessibility/Language buttons, or
+	 * any icon+text button): the same box as a regular button, plus the vanilla
+	 * sprite glyph -- centered (CenteredIcon) or trailing a label (TextAndIcon).
+	 * Returns true only if it drew (callers cancel vanilla on true).
+	 *
+	 * PER-VERSION DELTA (1.21.11): `sprite` is WidgetSprites now (bundles
+	 * enabled/disabled/focused variants) -- resolved to the actual Identifier via
+	 * WidgetSprites.get(active, hoveredOrFocused), matching vanilla's own
+	 * SpriteIconButton.renderSprite. blitSprite takes an explicit ARGB tint
+	 * argument now instead of a RenderSystem.setShaderColor call.
+	 */
+	public static boolean renderIconButton(GuiGraphics guiGraphics, SpriteIconButton button,
+										   WidgetSprites sprite, int spriteWidth, int spriteHeight) {
+		if (broken) {
+			return false;
+		}
+		try {
+			renderIconButton0(guiGraphics, button, sprite, spriteWidth, spriteHeight);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	private static void renderIconButton0(GuiGraphics guiGraphics, SpriteIconButton button,
+										  WidgetSprites sprite, int spriteWidth, int spriteHeight) {
+		ensureLoaded();
+		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+		boolean enabled = button.active;
+		double hv = hoverEase(button, enabled && button.isHovered());
+
+		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
+		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
+
+		if (!assetsOk) {
+			drawFallback(guiGraphics, x, y, w, h, fill, border, labelColor, button.getMessage());
+		} else {
+			int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
+			nineSlice(guiGraphics, fillTex, x, y, w, h, cd, fill);
+			nineSlice(guiGraphics, borderTex, x, y, w, h, cd, border);
+		}
+
+		// TextAndIcon draws a label at the vanilla position (icon-only
+		// CenteredIcon never draws its message -- matches vanilla behavior).
+		int ix, iy = y + h / 2 - spriteHeight / 2;
+		if (button instanceof SpriteIconButton.TextAndIcon) {
+			String text = cleanLabel(button.getMessage().getString());
+			Font font = Minecraft.getInstance().font;
+			guiGraphics.drawString(font, text, x + 2, y + (h - 8) / 2, labelColor, false);
+			ix = x + w - spriteWidth - 2;
+		} else {
+			ix = x + w / 2 - spriteWidth / 2;
+		}
+
+		Identifier spriteId = sprite.get(button.active, button.isHoveredOrFocused());
+		guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, spriteId, ix, iy, spriteWidth, spriteHeight, 0xFFFFFFFF);
 	}
 
 	/** Shared eased hover progress (0..1) for any widget. */

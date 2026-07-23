@@ -39,6 +39,12 @@ public final class HudElements {
 	// armor / an active potion to be visible draw sample content instead, and
 	// measure/hit-testing see the same preview the render shows.
 	public static volatile boolean editorPreview = false;
+	// Set by the mod menu screen (which also calls renderAll for its own live
+	// backdrop) so a scoreboard preview element doesn't double-draw alongside
+	// the menu's own content. No "scoreboard" draggable HUD element exists on
+	// 1.21.11 yet, so this currently has no reader — kept for API parity with
+	// 1.21.1's OriginModMenuScreen, which sets it unconditionally on open/close.
+	public static volatile boolean suppressScoreboard = false;
 
 	public interface Renderer {
 		void render(GuiGraphics g, Minecraft mc, int w, int h);

@@ -25,3 +25,20 @@ client/java/com/origin/client/client/mixin/LightTextureMixin.java
 # bundled. Promote to shared/ when JEI ships on every version.
 client/java/com/origin/client/client/mods/Mods.java
 client/java/com/origin/client/client/mods/ModOption.java
+
+# TEMPORARY FORK (2026-07-23) - Profiles feature (named config loadout
+# save/apply/delete). Adds the PROFILES map + snapshotCurrent/restoreFrom/
+# saveProfile/applyProfile/deleteProfile/profileNames to ModsConfig. Promote
+# to shared/ once Profiles ships on every version (it's pure JSON config
+# logic, no per-version API dependency — the only reason this is forked
+# instead of landing in shared/ directly is to keep this port's diff scoped
+# to 1.21.11).
+client/java/com/origin/client/client/mods/ModsConfig.java
+
+# TEMPORARY FORK (2026-07-23) - the 2026-07-21 "hover highlights to full white"
+# visual redesign (STROKE_HOVER/TEXT brightened) + the Frost-style box-surface
+# tokens (BOX_FILL/BOX_FILL_HOVER/BOX_BORDER/BOX_BORDER_HOVER) the redesigned
+# mod menu depends on. Global visual constants, not a per-version API forced
+# fork — promote to shared/ once every version adopts the look (mirrors the
+# same undeclared drift already found in 1.21.1's copy of this file).
+client/java/com/origin/client/client/theme/OriginTheme.java
