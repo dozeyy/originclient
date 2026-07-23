@@ -13,6 +13,12 @@ import org.lwjgl.glfw.GLFW;
 // sibling keys (key#chroma / key#speed / key#type) so any consumer can animate
 // the hue. HSV editing throughout: the 2D field is saturation×brightness, the
 // vertical sliders are hue and alpha.
+//
+// PER-VERSION DELTA (1.21.11): the redesign this ports (anchor-to-row popup +
+// drag-to-move + pop-open animation, replacing the old screen-centered modal)
+// only touches pose transforms and two icon glyphs — GuiGraphics.pose() is a
+// Matrix3x2fStack here (2D: translate(x,y)/scale(x,y)/pushMatrix()/popMatrix(),
+// not the old 3D PoseStack's translate(x,y,z)/scale(x,y,z)/pushPose()/popPose()).
 public final class OriginColorPicker {
 	private OriginColorPicker() {
 	}
@@ -29,18 +35,37 @@ public final class OriginColorPicker {
 	private static int alpha;
 
 	private static int px, py;
+	// Anchor (screen coords) of the row the picker belongs to — the picker pops
+	// up directly beneath that row instead of floating in the screen center, and
+	// animates in from it. openedAt drives that pop-open animation.
+	private static int anchorX, anchorY;
+	private static long openedAt;
 	private static final int PW = 234, PH = 236;
-	private static int drag = 0; // 0 none, 1 field, 2 hue, 3 alpha, 4 speed
+	private static final long ANIM_MS = 160;
+	private static int drag = 0; // 0 none, 1 field, 2 hue, 3 alpha, 4 speed, 5 window move
+	// Window dragging (Will): once the player grabs the header the popup detaches
+	// from its row anchor and stays wherever they drop it. `grabDX/DY` is the
+	// cursor offset within the panel at grab time so it moves without jumping.
+	private static boolean moved = false;
+	private static int grabDX, grabDY;
 
 	public static boolean isOpen() {
 		return open;
 	}
 
-	public static void open(String modId, String key, String label) {
+	/** Which option this picker is currently editing ("modId:key"), or null. */
+	public static String openKey() {
+		return open ? modId + ":" + key : null;
+	}
+
+	public static void open(String modId, String key, String label, int anchorX, int anchorY) {
 		OriginColorPicker.modId = modId;
 		OriginColorPicker.key = key;
 		OriginColorPicker.title = label;
 		OriginColorPicker.allowChroma = true;
+		OriginColorPicker.anchorX = anchorX;
+		OriginColorPicker.anchorY = anchorY;
+		OriginColorPicker.openedAt = System.currentTimeMillis();
 		int argb = Mods.color(modId, key);
 		float[] hsv = argbToHsv(argb);
 		h = hsv[0];
@@ -49,6 +74,26 @@ public final class OriginColorPicker {
 		alpha = (argb >>> 24) & 0xFF;
 		open = true;
 		drag = 0;
+		moved = false; // a freshly opened picker anchors to its row again
+	}
+
+	// Places the panel just under its row (anchorX/anchorY), clamped so it always
+	// stays fully on screen — if there isn't room below, it lifts up to fit.
+	private void computePos() {
+		int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+		int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+		if (moved) {
+			// The player has dragged it — keep their position, only clamp on-screen.
+			px = Math.max(2, Math.min(px, sw - 2 - PW));
+			py = Math.max(2, Math.min(py, sh - 2 - PH));
+			return;
+		}
+		px = Math.max(2, Math.min(anchorX, sw - 2 - PW));
+		py = anchorY;
+		if (py + PH > sh - 2) {
+			py = sh - 2 - PH;
+		}
+		py = Math.max(2, py);
 	}
 
 	public static void close() {
@@ -107,19 +152,27 @@ public final class OriginColorPicker {
 
 	private void draw(GuiGraphics g, int mx, int my) {
 		Font font = Minecraft.getInstance().font;
-		int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
-		int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
-		px = Math.max(2, (sw - PW) / 2);
-		py = Math.max(2, (sh - PH) / 2);
+		computePos();
 
-		// scrim + panel
-		g.fill(0, 0, sw, sh, 0x66000000);
+		// Pop-open animation: the panel scales up from 0.94 and slides the last
+		// few pixels into place under its row, so it reads as popping out of the
+		// row rather than appearing centered. No full-screen scrim — this is an
+		// inline popup, not a modal that dims the whole menu.
+		float t = (float) OriginTheme.easeOut(Math.min(1.0, (System.currentTimeMillis() - openedAt) / (double) ANIM_MS));
+		var pose = g.pose();
+		pose.pushMatrix();
+		float sc = 0.94f + 0.06f * t;
+		pose.translate((float) (px + PW / 2.0), (float) py);
+		pose.scale(sc, sc);
+		pose.translate((float) -(px + PW / 2.0), (float) -py);
+		pose.translate(0f, (1f - t) * -6f);
+
 		OriginUi.panel(g, px, py, PW, PH, 12, 0xF2101010, OriginTheme.STROKE_STRONG);
 
 		// header
 		g.drawString(font, title == null ? "Color" : title, px + 12, py + 10, OriginTheme.TEXT, false);
 		boolean closeHover = in(mx, my, px + PW - 26, py + 8, px + PW - 8, py + 24);
-		g.drawString(font, "✕", px + PW - 22, py + 10, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED, false);
+		OriginUi.iconClose(g, px + PW - 22, py + 9, 10, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED);
 
 		// chroma switch + label (hidden for non-animatable consumers)
 		if (allowChroma) {
@@ -180,9 +233,9 @@ public final class OriginColorPicker {
 			String type = chromaType();
 			boolean tHover = in(mx, my, typeX(), typeY(), typeX() + 92, typeY() + 18);
 			OriginUi.panel(g, typeX(), typeY(), 92, 18, 7, tHover ? 0x24FFFFFF : 0x14FFFFFF, OriginTheme.STROKE);
-			g.drawString(font, "<", typeX() + 6, typeY() + 5, OriginTheme.TEXT_DIM, false);
+			OriginUi.iconChevron(g, typeX() + 5, typeY() + 4, 9, OriginTheme.TEXT_DIM, true);
 			g.drawString(font, type, typeX() + (92 - font.width(type)) / 2, typeY() + 5, OriginTheme.TEXT, false);
-			g.drawString(font, ">", typeX() + 92 - 6 - font.width(">"), typeY() + 5, OriginTheme.TEXT_DIM, false);
+			OriginUi.iconChevron(g, typeX() + 92 - 14, typeY() + 4, 9, OriginTheme.TEXT_DIM, false);
 		}
 
 		// preset palette + hex
@@ -195,16 +248,18 @@ public final class OriginColorPicker {
 			int cx = startX + i * (psw + pgap);
 			OriginUi.panel(g, cx, presetY(), psw, psw, 4, Mods.PALETTE[i], 0x40000000);
 		}
+		pose.popMatrix();
 	}
 
 	// ---- input ----
+	// Hit-testing always uses the settled (unanimated) position from computePos,
+	// so clicks land correctly even during the pop-open animation.
 	public static boolean mouseClicked(double mx, double my, int button) {
 		if (!open) {
 			return false;
 		}
 		OriginColorPicker cp = new OriginColorPicker();
-		cp.px = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledWidth() - PW) / 2);
-		cp.py = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledHeight() - PH) / 2);
+		cp.computePos();
 		return cp.click(mx, my, button);
 	}
 
@@ -215,6 +270,15 @@ public final class OriginColorPicker {
 		}
 		if (!in(mx, my, px, py, px + PW, py + PH)) {
 			close(); // click outside dismisses
+			return true;
+		}
+		// Header grab → move the whole window. Restricted to the LEFT of the title
+		// row so it never overlaps the ✕ (right) or the chroma switch.
+		if (in(mx, my, px, py, px + PW - 60, py + 26)) {
+			drag = 5;
+			moved = true;
+			grabDX = (int) Math.round(mx) - px;
+			grabDY = (int) Math.round(my) - py;
 			return true;
 		}
 		// Hit-test exactly the drawn pill (switchAt draws 30 x 30*8/15=16 here),
@@ -268,13 +332,16 @@ public final class OriginColorPicker {
 			return false;
 		}
 		OriginColorPicker cp = new OriginColorPicker();
-		cp.px = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledWidth() - PW) / 2);
-		cp.py = Math.max(2, (Minecraft.getInstance().getWindow().getGuiScaledHeight() - PH) / 2);
+		cp.computePos();
 		switch (drag) {
 			case 1 -> cp.applyField(mx, my);
 			case 2 -> cp.applyHue(my);
 			case 3 -> cp.applyAlpha(my);
 			case 4 -> cp.applySpeed(mx);
+			case 5 -> {
+				px = (int) Math.round(mx) - grabDX;
+				py = (int) Math.round(my) - grabDY;
+			}
 		}
 		return true;
 	}

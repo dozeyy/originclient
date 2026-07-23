@@ -317,6 +317,29 @@ public final class Mods {
 				ModOption.slider("opacity", "Nametag Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
 				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false));
 
+		add("tablist", "Tab Editor", "Customize the player list overlay.", false,
+				ModOption.toggle("stickyToggle", "Sticky Tab", true)
+						.tip("Tap the list key to lock it open; hold and release for vanilla peek."),
+				ModOption.keybind("tabKey", "Tab Keybind", GLFW.GLFW_KEY_TAB)
+						.tip("Two-way synced with Minecraft's Player List key in Controls."),
+				ModOption.header("Players"),
+				ModOption.toggle("displayHeads", "Display Player Heads", true),
+				ModOption.toggle("hideNpcs", "Hide NPCs", false)
+						.tip("Hide fake players — offline-UUID entities like Citizens NPCs."),
+				ModOption.toggle("moveSelfTop", "Move Yourself to Top", false),
+				ModOption.toggle("highlightSelf", "Highlight Your Name", false),
+				ModOption.color("selfColor", "Your Name Color", 0xFFFFD700).under("highlightSelf"),
+				ModOption.header("Ping"),
+				ModOption.toggle("hidePing", "Hide Ping", false),
+				ModOption.toggle("pingAsNumber", "Show Ping as a Number", false),
+				ModOption.header("Header & Footer"),
+				ModOption.toggle("disableHeader", "Disable Header", false),
+				ModOption.toggle("disableFooter", "Disable Footer", false),
+				ModOption.color("headerColor", "Header Color", 0xFFFFFFFF),
+				ModOption.color("footerColor", "Footer Color", 0xFFFFFFFF),
+				ModOption.header("Background"),
+				ModOption.color("backgroundColor", "Background Color", 0x80000000));
+
 		add("weather", "Weather Changer", "Force a client weather mode.", false,
 				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),
 				ModOption.toggle("thunder", "Thunder", false),
@@ -495,6 +518,22 @@ public final class Mods {
 	}
 
 	public static void setMetaBool(String key, boolean v) {
+		ModsConfig.ensureLoaded();
+		ModsConfig.META.put(key, new JsonPrimitive(v));
+		ModsConfig.save();
+	}
+
+	public static double metaNum(String key, double def) {
+		ModsConfig.ensureLoaded();
+		var v = ModsConfig.META.get(key);
+		try {
+			return v == null ? def : v.getAsDouble();
+		} catch (RuntimeException e) {
+			return def;
+		}
+	}
+
+	public static void setMetaNum(String key, double v) {
 		ModsConfig.ensureLoaded();
 		ModsConfig.META.put(key, new JsonPrimitive(v));
 		ModsConfig.save();

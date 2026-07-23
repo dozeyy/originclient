@@ -37,7 +37,12 @@
 		"JeiGuiEventHandlerMixin",
 		"JeiClientInputHandlerMixin",
 		"LevelWeatherMixin",
-		"LivingNametagMixin"
+		"LivingNametagMixin",
+		"SpriteIconButtonMixin",
+		"SpriteIconButtonAccessor",
+		"PlayerTabOverlayMixin",
+		"PlayerTabOverlayAccessor",
+		"TabButtonMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

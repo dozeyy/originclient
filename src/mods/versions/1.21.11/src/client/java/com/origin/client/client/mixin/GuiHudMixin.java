@@ -31,5 +31,21 @@ public class GuiHudMixin {
 	@Inject(method = "render", at = @At("RETURN"), order = 2000)
 	private void originclient$topHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		HudElements.renderAll(guiGraphics);
+
+		// Tab Editor's custom player-list overlay, drawn here (top of the HUD) on our
+		// own visibility schedule so it works even on a solo local server, where vanilla
+		// refuses to render it. Vanilla's own draw is suppressed by PlayerTabOverlayMixin,
+		// so there's never a double. Fail-soft — the HUD must never go down for this.
+		if (com.origin.client.client.OriginClientMod.tabListVisible) {
+			try {
+				net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+				var acc = (com.origin.client.client.mixin.PlayerTabOverlayAccessor) mc.gui.getTabList();
+				com.origin.client.client.hud.OriginTabList.render(guiGraphics, guiGraphics.guiWidth(),
+						acc.originclient$getPlayerInfos(), acc.originclient$getHeader(), acc.originclient$getFooter(),
+						com.origin.client.client.mods.Mods.on("tablist"));
+			} catch (Throwable ignored) {
+				// never take the HUD down over the tab overlay
+			}
+		}
 	}
 }

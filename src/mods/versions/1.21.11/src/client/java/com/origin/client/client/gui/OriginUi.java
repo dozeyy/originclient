@@ -37,7 +37,7 @@ public final class OriginUi {
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
-	private static Identifier fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex;
+	private static Identifier fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex, starTex;
 	private static int panelTexSize = 96, panelCorner = 24;
 
 	// eased animation state keyed by arbitrary id (switch knobs, hovers)
@@ -118,6 +118,104 @@ public final class OriginUi {
 	 */
 	public static void icon(GuiGraphics g, String name, int x, int y, int size, int argb) {
 		ModIcons.draw(g, name, x, y, size, ((argb >>> 24) & 0xFF) / 255f);
+	}
+
+	/** Software anti-aliased line: `half` px to each side of (ax,ay)->(bx,by),
+	 *  coverage computed per-pixel and drawn as scanline runs via g.fill. Fully
+	 *  self-contained — no shader dependency, so it works regardless of whether
+	 *  the rounded-box SDF pipeline (OriginShaders.ROUND) is available. */
+	public static void aaLine(GuiGraphics g, double ax, double ay, double bx, double by, double half, int color) {
+		int base = (color >>> 24) & 0xFF;
+		if (base == 0) {
+			return;
+		}
+		int rgb = color & 0xFFFFFF;
+		int x0 = (int) Math.floor(Math.min(ax, bx) - half - 1);
+		int x1 = (int) Math.ceil(Math.max(ax, bx) + half + 1);
+		int y0 = (int) Math.floor(Math.min(ay, by) - half - 1);
+		int y1 = (int) Math.ceil(Math.max(ay, by) + half + 1);
+		double abx = bx - ax, aby = by - ay;
+		double len2 = abx * abx + aby * aby;
+		for (int py = y0; py < y1; py++) {
+			int runStart = -1, runArgb = 0;
+			for (int px = x0; px <= x1; px++) {
+				int argb = 0;
+				if (px < x1) {
+					double dpx = px + 0.5 - ax, dpy = py + 0.5 - ay;
+					double t = len2 <= 1e-6 ? 0 : clamp01((dpx * abx + dpy * aby) / len2);
+					double cxp = ax + t * abx, cyp = ay + t * aby;
+					double dx = px + 0.5 - cxp, dy = py + 0.5 - cyp;
+					double dist = Math.sqrt(dx * dx + dy * dy);
+					double cov = clamp01(half - dist + 0.5);
+					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
+					argb = a <= 0 ? 0 : (a << 24) | rgb;
+				}
+				if (argb != runArgb) {
+					if (runStart >= 0 && runArgb != 0) {
+						g.fill(runStart, py, px, py + 1, runArgb);
+					}
+					runStart = px;
+					runArgb = argb;
+				}
+			}
+		}
+	}
+
+	private static double clamp01(double v) {
+		return Math.max(0.0, Math.min(1.0, v));
+	}
+
+	/** A stroke from (ax,ay)->(bx,by), `half` px to each side. PER-VERSION DELTA
+	 *  (1.21.11): 1.21.1/1.21.4 draw this as a rounded-box SDF capsule through
+	 *  OriginShaders.ROUND, falling back to aaLine only if the shader failed to
+	 *  load. The ROUND pipeline isn't ported here yet (see OriginShaders — it
+	 *  needs a custom per-vertex format, not just a retarget), so this always
+	 *  takes the aaLine path for now; revisit once ROUND lands. */
+	public static void capsule(GuiGraphics g, double ax, double ay, double bx, double by, double half, int color) {
+		aaLine(g, ax, ay, bx, by, half, color);
+	}
+
+	/** An X (close) glyph filling a size×size box at (x,y): two crossing capsule
+	 *  strokes. */
+	public static void iconClose(GuiGraphics g, int x, int y, int size, int color) {
+		double h = Math.max(0.9, size * 0.10);
+		double in = size * 0.22;
+		capsule(g, x + in, y + in, x + size - in, y + size - in, h, color);
+		capsule(g, x + size - in, y + in, x + in, y + size - in, h, color);
+	}
+
+	/** A chevron ("<"/">") glyph filling a size×size box at (x,y): two capsule
+	 *  strokes meeting at a point. */
+	public static void iconChevron(GuiGraphics g, int x, int y, int size, int color, boolean left) {
+		double h = Math.max(0.9, size * 0.10);
+		double midY = y + size * 0.5;
+		double pointX = x + size * (left ? 0.34 : 0.66);   // the vertex
+		double armX = x + size * (left ? 0.66 : 0.34);     // the two open ends
+		double topY = y + size * 0.24, botY = y + size * 0.76;
+		capsule(g, pointX, midY, armX, topY, h, color);
+		capsule(g, pointX, midY, armX, botY, h, color);
+	}
+
+	/** A pencil (edit) glyph filling a size×size box at (x,y): a tapered shaft
+	 *  from the eraser end down to a graphite point. */
+	public static void iconEdit(GuiGraphics g, int x, int y, int size, int color) {
+		double s = size;
+		double ex = x + s * 0.80, ey = y + s * 0.20;   // eraser end (top-right)
+		double mx = x + s * 0.36, my = y + s * 0.64;   // where the shaft meets the tip
+		double tx = x + s * 0.16, ty = y + s * 0.84;   // graphite point (bottom-left)
+		capsule(g, ex, ey, mx, my, s * 0.12, color);   // shaft (thicker)
+		capsule(g, mx, my, tx, ty, s * 0.055, color);  // tip (tapers to a point)
+	}
+
+	/** The favourite-mod star: a baked HQ texture (not the pixelated font glyph),
+	 *  tinted to `argb` via the per-blit ARGB tint (no global shader-color state
+	 *  on 1.21.11 — each blit carries its own tint). */
+	public static void star(GuiGraphics g, int x, int y, int size, int argb) {
+		ensureLoaded();
+		if (!ok || starTex == null || ((argb >>> 24) & 0xFF) == 0) {
+			return;
+		}
+		g.blit(RenderPipelines.GUI_TEXTURED, starTex, x, y, 0f, 0f, size, size, 64, 64, 64, 64, argb);
 	}
 
 	/** Soft radial glow centered at (cx,cy). */
@@ -228,6 +326,7 @@ public final class OriginUi {
 			glowTex = reg(mc, "ui_glow", "/assets/originclient/textures/ui/radial_glow.png");
 			ringTex = reg(mc, "ui_ring", "/assets/originclient/textures/ui/ring-0.png");
 			logoTex = reg(mc, "ui_logo", "/assets/originclient/textures/ui/origin_logo.png");
+			starTex = reg(mc, "ui_star", "/assets/originclient/textures/ui/star.png");
 			ok = true;
 		} catch (Throwable e) {
 			ok = false;

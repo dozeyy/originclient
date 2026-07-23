@@ -66,6 +66,7 @@ public final class ModIcons {
 		ITEMS.put("fullbright", Items.GLOWSTONE);
 		ITEMS.put("hitboxes", Items.ARMOR_STAND);
 		ITEMS.put("nametags", Items.NAME_TAG);
+		ITEMS.put("tablist", Items.PLAYER_HEAD);
 		ITEMS.put("weather", Items.TRIDENT);
 		ITEMS.put("timechanger", Items.CLOCK);
 		ITEMS.put("motionblur", Items.PHANTOM_MEMBRANE);
