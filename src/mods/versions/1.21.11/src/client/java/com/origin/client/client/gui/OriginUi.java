@@ -2,15 +2,25 @@ package com.origin.client.client.gui;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ARGB;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.gui.render.TextureSetup;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import org.joml.Matrix3x2f;
+import org.joml.Matrix3x2fc;
 
 import java.io.InputStream;
 import java.util.HashMap;
@@ -165,46 +175,165 @@ public final class OriginUi {
 		return Math.max(0.0, Math.min(1.0, v));
 	}
 
-	/** A stroke from (ax,ay)->(bx,by), `half` px to each side. PER-VERSION DELTA
-	 *  (1.21.11): 1.21.1/1.21.4 draw this as a rounded-box SDF capsule through
-	 *  OriginShaders.ROUND, falling back to aaLine only if the shader failed to
-	 *  load. The ROUND pipeline isn't ported here yet (see OriginShaders — it
-	 *  needs a custom per-vertex format, not just a retarget), so this always
-	 *  takes the aaLine path for now; revisit once ROUND lands. */
+	/** A stroke from (ax,ay)->(bx,by), `half` px to each side. Software
+	 *  anti-aliased fallback only — the icon glyphs that used to compose this
+	 *  at runtime (close/chevron/edit) now sample a baked SDF atlas instead
+	 *  (see {@link #drawIconSdf}); this remains as their fail-soft path and for
+	 *  any other capsule-stroke caller. Still used if the icon SDF atlas fails
+	 *  to load, or by the rounded-box SDF PANEL once that's ported (it needs a
+	 *  custom per-vertex format the engine doesn't support — see OriginShaders). */
 	public static void capsule(GuiGraphics g, double ax, double ay, double bx, double by, double half, int color) {
 		aaLine(g, ax, ay, bx, by, half, color);
 	}
 
-	/** An X (close) glyph filling a size×size box at (x,y): two crossing capsule
-	 *  strokes. */
+	/** An X (close) glyph filling a size×size box at (x,y), sampled from the
+	 *  baked icon SDF atlas — see {@link #drawIconSdf}. */
 	public static void iconClose(GuiGraphics g, int x, int y, int size, int color) {
-		double h = Math.max(0.9, size * 0.10);
-		double in = size * 0.22;
-		capsule(g, x + in, y + in, x + size - in, y + size - in, h, color);
-		capsule(g, x + size - in, y + in, x + in, y + size - in, h, color);
+		drawIconSdf(g, ICON_CLOSE, x, y, size, color);
 	}
 
-	/** A chevron ("<"/">") glyph filling a size×size box at (x,y): two capsule
-	 *  strokes meeting at a point. */
+	/** A chevron ("<"/">") glyph filling a size×size box at (x,y), sampled from
+	 *  the baked icon SDF atlas. */
 	public static void iconChevron(GuiGraphics g, int x, int y, int size, int color, boolean left) {
-		double h = Math.max(0.9, size * 0.10);
-		double midY = y + size * 0.5;
-		double pointX = x + size * (left ? 0.34 : 0.66);   // the vertex
-		double armX = x + size * (left ? 0.66 : 0.34);     // the two open ends
-		double topY = y + size * 0.24, botY = y + size * 0.76;
-		capsule(g, pointX, midY, armX, topY, h, color);
-		capsule(g, pointX, midY, armX, botY, h, color);
+		drawIconSdf(g, left ? ICON_CHEVRON_LEFT : ICON_CHEVRON_RIGHT, x, y, size, color);
 	}
 
-	/** A pencil (edit) glyph filling a size×size box at (x,y): a tapered shaft
-	 *  from the eraser end down to a graphite point. */
+	/** A pencil (edit) glyph filling a size×size box at (x,y), sampled from the
+	 *  baked icon SDF atlas. */
 	public static void iconEdit(GuiGraphics g, int x, int y, int size, int color) {
-		double s = size;
-		double ex = x + s * 0.80, ey = y + s * 0.20;   // eraser end (top-right)
-		double mx = x + s * 0.36, my = y + s * 0.64;   // where the shaft meets the tip
-		double tx = x + s * 0.16, ty = y + s * 0.84;   // graphite point (bottom-left)
-		capsule(g, ex, ey, mx, my, s * 0.12, color);   // shaft (thicker)
-		capsule(g, mx, my, tx, ty, s * 0.055, color);  // tip (tapers to a point)
+		drawIconSdf(g, ICON_EDIT, x, y, size, color);
+	}
+
+	// ---- icon SDF atlas ----
+	// Vector-quality icon glyphs (close X, chevrons, edit pencil), baked offline
+	// (tools/.../gen_icon_sdf.py) into a single-channel SDF texture from the
+	// EXACT SAME capsule-stroke geometry the old software path drew at runtime.
+	// Rendered through OriginShaders.ICON — the identical Position+UV0+Color
+	// pipeline shape as OriginSdfFont's MSDF text (proven working end-to-end).
+	//
+	// Order must match ICONS in gen_icon_sdf.py.
+	private static final int ICON_CLOSE = 0, ICON_CHEVRON_LEFT = 1, ICON_CHEVRON_RIGHT = 2, ICON_EDIT = 3;
+	private static final int ICON_CELLS = 4;
+
+	private static volatile boolean iconSdfLoaded = false;
+	private static boolean iconSdfOk = false;
+	private static Identifier iconSdfAtlas;
+
+	private static void ensureIconSdfLoaded() {
+		if (iconSdfLoaded) {
+			return;
+		}
+		ensureIconSdfLoaded0();
+	}
+
+	private static synchronized void ensureIconSdfLoaded0() {
+		if (iconSdfLoaded) {
+			return;
+		}
+		iconSdfLoaded = true;
+		try {
+			NativeImage img;
+			try (InputStream in = OriginUi.class.getResourceAsStream("/assets/originclient/textures/ui/icon_sdf.png")) {
+				img = NativeImage.read(in);
+			}
+			iconSdfAtlas = Identifier.fromNamespaceAndPath("originclient", "icon_sdf_atlas");
+			DynamicTexture tex = new DynamicTexture(() -> "icon_sdf", img);
+			Minecraft.getInstance().getTextureManager().register(iconSdfAtlas, tex);
+			iconSdfOk = true;
+		} catch (Throwable t) {
+			iconSdfOk = false;
+			com.origin.client.OriginClient.LOGGER.warn(
+					"Origin icon SDF atlas failed to load; icons fall back to the software vector path", t);
+		}
+	}
+
+	// Local rect + UV + pose, transformed in buildVertices — same shape as
+	// vanilla's own ColoredRectangleRenderState, which this pattern is copied
+	// from directly (including its non-null bounds() — see OriginSdfFont's
+	// MsdfTextRenderState.bounds() doc for why that matters).
+	private record IconSdfRenderState(
+			GpuTextureView atlasView, Matrix3x2fc pose, int x0, int y0, int x1, int y1,
+			float u0, float v0, float u1, float v1, int color,
+			ScreenRectangle scissorArea, ScreenRectangle bounds) implements GuiElementRenderState {
+		@Override
+		public void buildVertices(VertexConsumer vertexConsumer) {
+			vertexConsumer.addVertexWith2DPose(pose, x0, y0).setColor(color).setUv(u0, v0);
+			vertexConsumer.addVertexWith2DPose(pose, x0, y1).setColor(color).setUv(u0, v1);
+			vertexConsumer.addVertexWith2DPose(pose, x1, y1).setColor(color).setUv(u1, v1);
+			vertexConsumer.addVertexWith2DPose(pose, x1, y0).setColor(color).setUv(u1, v0);
+		}
+
+		@Override
+		public RenderPipeline pipeline() {
+			return OriginShaders.ICON;
+		}
+
+		@Override
+		public TextureSetup textureSetup() {
+			return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+		}
+
+		@Override
+		public ScreenRectangle scissorArea() {
+			return scissorArea;
+		}
+
+		@Override
+		public ScreenRectangle bounds() {
+			return bounds;
+		}
+	}
+
+	/** Draws icon glyph `cell` (one of the ICON_* indices) filling a size×size
+	 *  box at (x,y), tinted by `argb`. Falls back to the software capsule/aaLine
+	 *  path if the SDF atlas failed to load. */
+	private static void drawIconSdf(GuiGraphics g, int cell, int x, int y, int size, int argb) {
+		ensureIconSdfLoaded();
+		if (((argb >>> 24) & 0xFF) == 0) {
+			return;
+		}
+		if (!iconSdfOk) {
+			iconSoft(g, cell, x, y, size, argb);
+			return;
+		}
+		GpuTextureView atlasView = Minecraft.getInstance().getTextureManager().getTexture(iconSdfAtlas).getTextureView();
+		float u0 = (float) cell / ICON_CELLS, u1 = (float) (cell + 1) / ICON_CELLS;
+		Matrix3x2f pose = new Matrix3x2f(g.pose());
+		ScreenRectangle scissor = g.scissorStack.peek();
+		ScreenRectangle localRect = new ScreenRectangle(x, y, size, size).transformMaxBounds(pose);
+		ScreenRectangle bounds = scissor != null ? scissor.intersection(localRect) : localRect;
+		g.guiRenderState.submitGuiElement(new IconSdfRenderState(
+				atlasView, pose, x, y, x + size, y + size, u0, 0f, u1, 1f, argb, scissor, bounds));
+	}
+
+	/** Software fallback (capsule/aaLine) for when the SDF atlas fails to load —
+	 *  the original 1.21.1-era vector-icon drawing, kept only as a safety net. */
+	private static void iconSoft(GuiGraphics g, int cell, int x, int y, int size, int color) {
+		double h = Math.max(0.9, size * 0.10);
+		switch (cell) {
+			case ICON_CLOSE -> {
+				double in = size * 0.22;
+				capsule(g, x + in, y + in, x + size - in, y + size - in, h, color);
+				capsule(g, x + size - in, y + in, x + in, y + size - in, h, color);
+			}
+			case ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT -> {
+				boolean left = cell == ICON_CHEVRON_LEFT;
+				double midY = y + size * 0.5;
+				double pointX = x + size * (left ? 0.34 : 0.66);
+				double armX = x + size * (left ? 0.66 : 0.34);
+				double topY = y + size * 0.24, botY = y + size * 0.76;
+				capsule(g, pointX, midY, armX, topY, h, color);
+				capsule(g, pointX, midY, armX, botY, h, color);
+			}
+			case ICON_EDIT -> {
+				double s = size;
+				double ex = x + s * 0.80, ey = y + s * 0.20;
+				double mx = x + s * 0.36, my = y + s * 0.64;
+				double tx = x + s * 0.16, ty = y + s * 0.84;
+				capsule(g, ex, ey, mx, my, s * 0.12, color);
+				capsule(g, mx, my, tx, ty, s * 0.055, color);
+			}
+		}
 	}
 
 	/** The favourite-mod star: a baked HQ texture (not the pixelated font glyph),
