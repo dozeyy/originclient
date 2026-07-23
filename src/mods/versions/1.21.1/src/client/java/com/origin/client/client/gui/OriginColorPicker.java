@@ -36,7 +36,12 @@ public final class OriginColorPicker {
 	private static long openedAt;
 	private static final int PW = 234, PH = 236;
 	private static final long ANIM_MS = 160;
-	private static int drag = 0; // 0 none, 1 field, 2 hue, 3 alpha, 4 speed
+	private static int drag = 0; // 0 none, 1 field, 2 hue, 3 alpha, 4 speed, 5 window move
+	// Window dragging (Will): once the player grabs the header the popup detaches
+	// from its row anchor and stays wherever they drop it. `grabDX/DY` is the
+	// cursor offset within the panel at grab time so it moves without jumping.
+	private static boolean moved = false;
+	private static int grabDX, grabDY;
 
 	public static boolean isOpen() {
 		return open;
@@ -63,6 +68,7 @@ public final class OriginColorPicker {
 		alpha = (argb >>> 24) & 0xFF;
 		open = true;
 		drag = 0;
+		moved = false; // a freshly opened picker anchors to its row again
 	}
 
 	// Places the panel just under its row (anchorX/anchorY), clamped so it always
@@ -70,6 +76,12 @@ public final class OriginColorPicker {
 	private void computePos() {
 		int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
 		int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+		if (moved) {
+			// The player has dragged it — keep their position, only clamp on-screen.
+			px = Math.max(2, Math.min(px, sw - 2 - PW));
+			py = Math.max(2, Math.min(py, sh - 2 - PH));
+			return;
+		}
 		px = Math.max(2, Math.min(anchorX, sw - 2 - PW));
 		py = anchorY;
 		if (py + PH > sh - 2) {
@@ -254,6 +266,15 @@ public final class OriginColorPicker {
 			close(); // click outside dismisses
 			return true;
 		}
+		// Header grab → move the whole window. Restricted to the LEFT of the title
+		// row so it never overlaps the ✕ (right) or the chroma switch.
+		if (in(mx, my, px, py, px + PW - 60, py + 26)) {
+			drag = 5;
+			moved = true;
+			grabDX = (int) Math.round(mx) - px;
+			grabDY = (int) Math.round(my) - py;
+			return true;
+		}
 		// Hit-test exactly the drawn pill (switchAt draws 30 x 30*8/15=16 here),
 		// so only clicks on the switch itself toggle it — no slop around the edge.
 		if (allowChroma && in(mx, my, chromaSwX(), chromaSwY(), chromaSwX() + 30, chromaSwY() + 16)) {
@@ -311,6 +332,10 @@ public final class OriginColorPicker {
 			case 2 -> cp.applyHue(my);
 			case 3 -> cp.applyAlpha(my);
 			case 4 -> cp.applySpeed(mx);
+			case 5 -> {
+				px = (int) Math.round(mx) - grabDX;
+				py = (int) Math.round(my) - grabDY;
+			}
 		}
 		return true;
 	}

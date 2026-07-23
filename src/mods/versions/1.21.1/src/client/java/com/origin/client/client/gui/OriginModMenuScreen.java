@@ -62,14 +62,15 @@ public class OriginModMenuScreen extends Screen {
 	private int dragTrackX0, dragTrackX1;
 	private String capMod = null, capKey = null;
 
-	// Menu-background-opacity slider drag (Settings → Menu). Its own path because
-	// it writes menu META, not a mod option.
-	private boolean dragOpacity = false;
-	private int opTrackX0, opTrackX1;
-
 	// Profiles tab: the name currently being typed into the "new profile" field.
 	private String profileInput = "";
 	private boolean profileFocused = false;
+
+	// Profiles feedback: a transient bottom-right "Profile changed" toast that
+	// fades after ~1s (set on Apply), and the profile name currently awaiting a
+	// delete confirmation ("Are you sure?" dialog). Both null/‑1 when idle.
+	private long profileToastAt = -1;
+	private String confirmDeleteName = null;
 
 	public OriginModMenuScreen() {
 		super(Component.literal("Origin Mods"));
@@ -315,8 +316,8 @@ public class OriginModMenuScreen extends Screen {
 		pose.pushPose();
 		pose.translate(0, (1.0 - p) * (height - py()), 0);
 
-		// Solid menu background at the player-set opacity (Settings → Menu).
-		double op = Mods.metaNum("menuBgOpacity", 0.88);
+		// Solid menu background, on/off (Settings → Menu): 1 = solid, 0 = clear.
+		double op = Mods.metaNum("menuBgOpacity", 1.0);
 		clear = op <= 0.02;
 		if (!clear) {
 			int a = (int) Math.round(op * 255);
@@ -361,6 +362,85 @@ public class OriginModMenuScreen extends Screen {
 
 		OriginMultiSelect.render(g, mouseX, mouseY);
 		OriginColorPicker.render(g, mouseX, mouseY);
+
+		// Profiles feedback overlays, drawn last so nothing paints over them.
+		drawProfileToast(g, now);
+		drawDeleteConfirm(g, mouseX, mouseY);
+	}
+
+	// Bottom-right "Profile changed" toast — fades in fast, holds, then fades out
+	// over the last 300ms of its ~1s life. Positioned clear of the version stamp.
+	private void drawProfileToast(GuiGraphics g, long now) {
+		if (profileToastAt < 0) {
+			return;
+		}
+		long dt = now - profileToastAt;
+		long life = 1000;
+		if (dt >= life) {
+			profileToastAt = -1;
+			return;
+		}
+		float a = dt < 120 ? dt / 120f : (dt > life - 300 ? (life - dt) / 300f : 1f);
+		a = Math.max(0f, Math.min(1f, a));
+		String msg = "Profile changed";
+		int tw = OriginText.width(font, msg);
+		int w = tw + 30, h = 26;
+		int x = width - w - 14, y = height - h - 14;
+		OriginUi.panel(g, x, y, w, h, 8, withAlpha(0xF01A1A1A, a), withAlpha(OriginTheme.STROKE_STRONG, a));
+		OriginUi.star(g, x + 9, y + 8, 10, withAlpha(0xFF7FA98F, a)); // small confirmation mark
+		OriginText.draw(g, font, msg, x + 24, y + 9, withAlpha(0xFFDDE7E0, a), false);
+	}
+
+	// Centered "Are you sure?" modal for profile deletion. Geometry is shared with
+	// clickDeleteConfirm so the hit boxes match exactly.
+	private int[] confirmRect() {
+		int w = 264, h = 98;
+		return new int[]{(width - w) / 2, (height - h) / 2, w, h};
+	}
+
+	private void drawDeleteConfirm(GuiGraphics g, int mx, int my) {
+		if (confirmDeleteName == null) {
+			return;
+		}
+		g.fill(0, 0, width, height, 0x99000000); // scrim
+		int[] r = confirmRect();
+		int x = r[0], y = r[1], w = r[2], h = r[3];
+		OriginUi.panel(g, x, y, w, h, 10, 0xF0121212, OriginTheme.STROKE_STRONG);
+		OriginText.drawBold(g, font, "Delete this profile?", x + 16, y + 16, OriginTheme.TEXT, false);
+		String sub = OriginText.ellipsize(font, "\"" + confirmDeleteName + "\" will be removed permanently.", w - 32);
+		OriginText.draw(g, font, sub, x + 16, y + 36, OriginTheme.MUTED, false);
+
+		int bw = 96, bh = 26, by = y + h - bh - 14;
+		int cancelX = x + 16, delX = x + w - bw - 16;
+		boolean cH = in(mx, my, cancelX, by, cancelX + bw, by + bh);
+		boolean dH = in(mx, my, delX, by, delX + bw, by + bh);
+		OriginUi.panel(g, cancelX, by, bw, bh, 7,
+				cH ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, cH ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER);
+		OriginText.draw(g, font, "Cancel", cancelX + (bw - OriginText.width(font, "Cancel")) / 2, by + 9, OriginTheme.TEXT, false);
+		OriginUi.panel(g, delX, by, bw, bh, 7,
+				dH ? 0x66B23A33 : 0x33B23A33, dH ? OriginTheme.STROKE_HOVER : 0xB3B23A33);
+		OriginText.draw(g, font, "Delete", delX + (bw - OriginText.width(font, "Delete")) / 2, by + 9, 0xFFC77A73, false);
+	}
+
+	private boolean clickDeleteConfirm(double mx, double my) {
+		int[] r = confirmRect();
+		int x = r[0], y = r[1], w = r[2], h = r[3];
+		int bw = 96, bh = 26, by = y + h - bh - 14;
+		int cancelX = x + 16, delX = x + w - bw - 16;
+		if (in(mx, my, delX, by, delX + bw, by + bh)) {
+			Profiles.delete(confirmDeleteName);
+			confirmDeleteName = null;
+			return true;
+		}
+		if (in(mx, my, cancelX, by, cancelX + bw, by + bh)) {
+			confirmDeleteName = null;
+			return true;
+		}
+		if (in(mx, my, x, y, x + w, y + h)) {
+			return true; // click inside the dialog but off the buttons — keep it open
+		}
+		confirmDeleteName = null; // click outside cancels
+		return true;
 	}
 
 	// ---- sidebar ----
@@ -398,31 +478,34 @@ public class OriginModMenuScreen extends Screen {
 		if (active) {
 			OriginUi.panel(g, x, y, w, 28, 7, withAlpha(clear ? 0xE0202020 : OriginTheme.BOX_FILL_HOVER, alpha),
 					withAlpha(OriginTheme.STROKE_STRONG, alpha));
-			// leading accent tab
-			g.fill(x + 3, y + 7, x + 5, y + 21, withAlpha(OriginTheme.ACCENT, alpha));
 		} else if (hover) {
 			OriginUi.panel(g, x, y, w, 28, 7, withAlpha(clear ? 0xB0181818 : OriginTheme.BOX_FILL, alpha), 0);
 		}
+		// No leading accent bar (Will) — selection reads through the filled panel
+		// alone. Label centered horizontally in the button.
 		int col = active ? OriginTheme.TEXT : (hover ? OriginTheme.TEXT_DIM : OriginTheme.MUTED);
-		OriginText.drawBold(g, font, label, x + 14, y + 10, withAlpha(col, alpha), clear);
+		int tw = OriginText.widthBold(font, label);
+		OriginText.drawBold(g, font, label, x + (w - tw) / 2, y + 10, withAlpha(col, alpha), clear);
 	}
 
 	private void drawSidebarButton(GuiGraphics g, int x, int y, int w, String label, boolean hover, float alpha, boolean danger) {
-		OriginUi.panel(g, x, y, w, 24, 7,
-				withAlpha(hover ? (clear ? 0xE0242424 : OriginTheme.BOX_FILL_HOVER) : (clear ? 0xC0141414 : OriginTheme.BOX_FILL), alpha),
-				withAlpha(hover ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
-		int col = danger && hover ? 0xFFE0736C : (hover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM);
-		// icon (× for Close, pencil for Edit HUD) + label, centered as one group
-		int icon = 11, g2 = 6;
-		int tw = OriginText.width(font, label);
-		int startX = x + (w - (icon + g2 + tw)) / 2;
-		int iy = y + (24 - icon) / 2;
+		// No box (Will): just a small vector icon + smaller label, left-anchored so
+		// the pair sits neatly in the bottom-left. Edit HUD highlights YELLOW on
+		// hover, Close highlights RED; both sit muted otherwise.
+		int accent = danger ? 0xFFE0736C : 0xFFF2C744;   // red / yellow
+		int col = hover ? accent : OriginTheme.MUTED;
+		var pose = g.pose();
+		pose.pushPose();
+		pose.translate(x + 2, y + 7, 0);
+		pose.scale(0.85f, 0.85f, 1f);                    // smaller than the nav labels
+		int icon = 10, g2 = 5;
 		if (danger) {
-			OriginUi.iconClose(g, startX, iy, icon, withAlpha(col, alpha));
+			OriginUi.iconClose(g, 0, 0, icon, withAlpha(col, alpha));
 		} else {
-			OriginUi.iconEdit(g, startX, iy, icon, withAlpha(col, alpha));
+			OriginUi.iconEdit(g, 0, 0, icon, withAlpha(col, alpha));
 		}
-		OriginText.draw(g, font, label, startX + icon + g2, y + 8, withAlpha(col, alpha), clear);
+		OriginText.draw(g, font, label, icon + g2, 1, withAlpha(col, alpha), clear);
+		pose.popPose();
 	}
 
 	private boolean clickSidebar(double mx, double my) {
@@ -525,12 +608,15 @@ public class OriginModMenuScreen extends Screen {
 		OriginText.draw(g, font, name, cx + 6, barY + (BAR_H - 8) / 2,
 				withAlpha(on ? 0xFFFFFFFF : OriginTheme.TEXT_DIM, alpha), false);
 
-		// favourite star, bottom-right corner of the bar
+		// favourite star, bottom-right corner of the bar — a baked HQ texture, not
+		// the pixelated font glyph. Hit box (star click) matches sx/sy below.
 		boolean fav = Mods.metaBool("fav:" + mod.id(), false);
-		boolean sHover = cardHover && in(mx, my, x2 - 14, y2 - 14, x2 - 1, y2 - 1);
+		int starSize = 10;
+		int sx = x2 - starSize - 4, sy = y2 - starSize - 3;
+		boolean sHover = cardHover && in(mx, my, sx - 2, sy - 2, sx + starSize + 2, sy + starSize + 2);
 		if (fav || cardHover) {
 			int starCol = fav ? 0xFFFFD700 : (sHover ? 0xFFFFFFFF : 0xAAFFFFFF);
-			g.drawString(font, "★", x2 - 12, y2 - 10, withAlpha(starCol, alpha), false);
+			OriginUi.star(g, sx, sy, starSize, withAlpha(starCol, alpha));
 		}
 	}
 
@@ -646,10 +732,11 @@ public class OriginModMenuScreen extends Screen {
 					int appX = delX - 6 - appW;
 					if (in(mx, my, appX, ry + 5, appX + appW, ry + 25)) {
 						Profiles.apply(nm);
+						profileToastAt = System.currentTimeMillis(); // "Profile changed" toast
 						return true;
 					}
 					if (in(mx, my, delX, ry + 5, delX + delW, ry + 25)) {
-						Profiles.delete(nm);
+						confirmDeleteName = nm; // opens the "Are you sure?" dialog
 						return true;
 					}
 					return true;
@@ -688,40 +775,19 @@ public class OriginModMenuScreen extends Screen {
 		g.disableScissor();
 	}
 
-	// The MENU appearance sub-tab: background opacity + the scalable-rendering toggle.
+	// The MENU appearance sub-tab: a single on/off toggle for the solid background.
+	// (The old opacity slider and the "Smooth Text & Curves" toggle are gone — the
+	// background is simply solid-or-clear, and vector text/curves are always on.)
 	private void renderMenuSettings(GuiGraphics g, int x0, int x1, int top, int mx, int my, long now, float alpha) {
 		int y = top + 4;
 		OriginUi.panel(g, x0, y, x1 - x0, 26, 8, withAlpha(clear ? 0xC0101010 : OriginTheme.BOX_FILL, alpha),
 				withAlpha(OriginTheme.BOX_BORDER, alpha));
-		OriginText.draw(g, font, "Menu Background Opacity", x0 + 10, y + 9,
+		OriginText.draw(g, font, "Solid Menu Background", x0 + 10, y + 9,
 				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
-		double v = Mods.metaNum("menuBgOpacity", 0.88);
-		int tw = Math.min(160, (x1 - x0) / 3);
-		int tx = x1 - 10 - tw;
-		opTrackX0 = tx;
-		opTrackX1 = tx + tw;
-		OriginUi.slider(g, tx, y + 11, tw, v, dragOpacity);
-		String val = String.format("%.0f%%", v * 100);
-		OriginText.draw(g, font, val, tx - OriginText.width(font, val) - 10, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
-		OriginText.draw(g, font, "Slide to fully clear for a see-through menu.", x0 + 2, y + 30,
-				withAlpha(OriginTheme.MUTED, alpha), clear);
-
-		// Scalable rendering (SDF/MSDF) toggle — smooth text + curves at any size.
-		int y2 = top + 52;
-		OriginUi.panel(g, x0, y2, x1 - x0, 26, 8, withAlpha(clear ? 0xC0101010 : OriginTheme.BOX_FILL, alpha),
-				withAlpha(OriginTheme.BOX_BORDER, alpha));
-		OriginText.draw(g, font, "Smooth Text & Curves (SDF)", x0 + 10, y2 + 9,
-				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
-		OriginUi.switchAt(g, "@sdf", x1 - 40, y2 + 5, 30, OriginShaders.enabled(), true);
-		String status = OriginShaders.enabled()
-				? (OriginSdfFont.ready() ? "Vector text + curves — crisp at any scale." : "On, but shaders didn't load — using the fallback.")
-				: "Off — using the pixel-grid fallback renderer.";
-		OriginText.draw(g, font, status, x0 + 2, y2 + 30, withAlpha(OriginTheme.MUTED, alpha), clear);
-	}
-
-	private void applyOpacity(double mx) {
-		double t = Math.max(0, Math.min(1, (mx - opTrackX0) / (double) (opTrackX1 - opTrackX0)));
-		Mods.setMetaNum("menuBgOpacity", Math.round(t * 20) / 20.0);
+		boolean solid = Mods.metaNum("menuBgOpacity", 1.0) > 0.5;
+		OriginUi.switchAt(g, "@bgop", x1 - 40, y + 5, 30, solid, true);
+		OriginText.draw(g, font, solid ? "On — a solid backdrop behind the menu." : "Off — a fully see-through menu.",
+				x0 + 2, y + 30, withAlpha(OriginTheme.MUTED, alpha), clear);
 	}
 
 	private void drawTab(GuiGraphics g, int tx, int ty, int w, int h, String label, boolean active, boolean hover, float alpha) {
@@ -751,14 +817,11 @@ public class OriginModMenuScreen extends Screen {
 		int top = py() + 46, bottom = py() + ph() - 12;
 		if (subTab == SubTab.MENU) {
 			int y = top + 4;
-			if (mx >= opTrackX0 && mx <= opTrackX1 && my >= y + 6 && my <= y + 20) {
-				dragOpacity = true;
-				applyOpacity(mx);
-				return true;
-			}
-			int y2 = top + 52; // SDF toggle switch (drawn at x1-40, y2+5, 30x16)
-			if (in(mx, my, x1 - 40, y2 + 5, x1 - 10, y2 + 21)) {
-				Mods.setMetaBool("originSdf", !Mods.metaBool("originSdf", true));
+			// Solid-background on/off toggle (drawn at x1-40, y+5, 30 wide, 16 tall):
+			// on = fully solid, off = fully clear.
+			if (in(mx, my, x1 - 40, y + 5, x1 - 10, y + 21)) {
+				boolean solid = Mods.metaNum("menuBgOpacity", 1.0) > 0.5;
+				Mods.setMetaNum("menuBgOpacity", solid ? 0.0 : 1.0);
 			}
 			return true;
 		}
@@ -965,6 +1028,14 @@ public class OriginModMenuScreen extends Screen {
 		if (OriginColorPicker.isOpen()) {
 			return OriginColorPicker.mouseClicked(mx, my, button);
 		}
+		// The delete-confirmation dialog is modal: it swallows every click until
+		// the player picks Delete or Cancel (a click outside cancels).
+		if (confirmDeleteName != null) {
+			if (button == 0) {
+				return clickDeleteConfirm(mx, my);
+			}
+			return true;
+		}
 		if (button != 0 || closingAt > 0) {
 			return super.mouseClicked(mx, my, button);
 		}
@@ -1162,10 +1233,6 @@ public class OriginModMenuScreen extends Screen {
 		if (OriginColorPicker.mouseDragged(mx, my, button)) {
 			return true;
 		}
-		if (dragOpacity) {
-			applyOpacity(mx);
-			return true;
-		}
 		if (dragMod != null && dragOpt != null) {
 			applySlider(dragOpt, mx);
 			return true;
@@ -1181,7 +1248,6 @@ public class OriginModMenuScreen extends Screen {
 		dragMod = null;
 		dragKey = null;
 		dragOpt = null;
-		dragOpacity = false;
 		return super.mouseReleased(mx, my, button);
 	}
 
@@ -1215,6 +1281,10 @@ public class OriginModMenuScreen extends Screen {
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+			if (confirmDeleteName != null) { // ESC cancels the delete dialog first
+				confirmDeleteName = null;
+				return true;
+			}
 			if (page != null) {
 				page = null;
 				pageChangedAt = System.currentTimeMillis();

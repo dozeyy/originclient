@@ -31,7 +31,7 @@ public final class OriginUi {
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
-	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex;
+	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex, starTex;
 	private static int panelTexSize = 96, panelCorner = 24;
 
 	// iOS toggle colors (Will's redesign spec): green when ON, red when OFF, a
@@ -327,6 +327,25 @@ public final class OriginUi {
 	}
 
 	/**
+	 * The favourite STAR — a baked, anti-aliased 5-point star blitted through
+	 * GL_LINEAR so it stays crisp at any size. Replaces the pixelated "★" font
+	 * glyph. Tinted by `argb`: gold when pinned, faint white otherwise. Only RGB
+	 * + alpha are used.
+	 */
+	public static void star(GuiGraphics g, int x, int y, int size, int argb) {
+		ensureLoaded();
+		float a = ((argb >>> 24) & 0xFF) / 255f;
+		if (!ok || starTex == null || a <= 0f) {
+			return;
+		}
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		RenderSystem.setShaderColor(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f, (argb & 0xFF) / 255f, a);
+		g.blit(starTex, x, y, size, size, 0f, 0f, 64, 64, 64, 64);
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+	}
+
+	/**
 	 * Cursor glow -- intentionally does nothing now.
 	 *
 	 * A soft radial bloom is the opposite of the pixel grid: it's the one effect
@@ -455,6 +474,7 @@ public final class OriginUi {
 			glowTex = reg(mc, "ui_glow", "/assets/originclient/textures/ui/radial_glow.png");
 			ringTex = reg(mc, "ui_ring", "/assets/originclient/textures/ui/ring-0.png");
 			logoTex = reg(mc, "ui_logo", "/assets/originclient/textures/ui/origin_logo.png");
+			starTex = reg(mc, "ui_star", "/assets/originclient/textures/ui/star.png");
 			ok = true;
 		} catch (Throwable e) {
 			ok = false;

@@ -62,9 +62,11 @@ public final class OriginShaders {
 		});
 	}
 
-	/** Master live toggle (Settings → Menu). Default ON. */
+	/** Vector text + curves are ALWAYS on now (Will): the user-facing toggle was
+	 *  removed, so this is unconditionally true. The round/MSDF paths still fail
+	 *  soft on their own if a shader doesn't compile (roundActive / ready()). */
 	public static boolean enabled() {
-		return Mods.metaBool("originSdf", true);
+		return true;
 	}
 
 	/** Rounded-box SDF path is usable. Restricted to screens (menus) so the

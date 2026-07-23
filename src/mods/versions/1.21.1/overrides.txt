@@ -26,3 +26,11 @@ client/java/com/origin/client/client/mods/Mods.java
 # modules are untouched. Promote to shared/ (delete this line) when a second
 # version needs a multi-select control.
 client/java/com/origin/client/client/mods/ModOption.java
+
+# DELIBERATE FORK (2026-07-23, Will's redesign) — color picker.
+# 1.21.1's picker is specialised for this module's redesign: it renders through
+# OriginText (Inter/MSDF) + OriginUi's SDF rounded panels/iOS switch, and the
+# window is draggable (grab the header to move it anywhere). None of that exists
+# in the shared/ picker, so shared must NOT overwrite it here. Reconcile only if
+# the redesign is promoted to shared.
+client/java/com/origin/client/client/gui/OriginColorPicker.java
