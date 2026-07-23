@@ -38,6 +38,11 @@ public final class HudElements {
 	// armor / an active potion to be visible draw sample content instead, and
 	// measure/hit-testing see the same preview the render shows.
 	public static volatile boolean editorPreview = false;
+	// Set by the mod menu while it's open so any Origin-drawn scoreboard preview is
+	// hidden behind the menu. 1.21.4's HudElements has no scoreboard renderer of its
+	// own (the "scoreboard" mod styles vanilla's via GuiScoreboardMixin), so this is
+	// a no-op gate here — kept for API parity with the shared menu screen.
+	public static volatile boolean suppressScoreboard = false;
 
 	public interface Renderer {
 		void render(GuiGraphics g, Minecraft mc, int w, int h);

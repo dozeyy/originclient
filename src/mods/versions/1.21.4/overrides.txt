@@ -7,3 +7,13 @@
 client/java/com/origin/client/client/mixin/GameRendererAccessor.java
 client/java/com/origin/client/client/mixin/ToastComponentMixin.java
 client/java/com/origin/client/client/mixin/GameRendererMixin.java
+
+# DELIBERATE FORKS (2026-07-22) — the 1.21.1 menu-redesign + feature batch ported
+# to this module. These shared/ files carry 1.21.4-specific batch content (new mod
+# entries + the Profiles snapshot store + menu-meta numeric accessors, the SDF-era
+# color picker, and the white-text theme token) that must NOT be overwritten by
+# shared-sync. Reconcile only if the redesign is promoted to shared/.
+client/java/com/origin/client/client/mods/Mods.java
+client/java/com/origin/client/client/mods/ModsConfig.java
+client/java/com/origin/client/client/gui/OriginColorPicker.java
+client/java/com/origin/client/client/theme/OriginTheme.java

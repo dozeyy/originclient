@@ -307,15 +307,50 @@ public final class Mods {
 				ModOption.toggle("monsters", "Monsters", true),
 				ModOption.toggle("other", "Other Entities", true));
 
-		add("nametags", "Nametags", "Name tag rendering tweaks.", false,
-				ModOption.toggle("textShadow", "Nametag Text Shadow", true),
+		add("nametags", "Nametags", "Customize name tag rendering.", false,
+				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("thirdPerson", "Third Person Nametag", true),
-				ModOption.toggle("displayToggleMessage", "Display Toggle Nametags Message", true),
+				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
+				ModOption.slider("opacity", "Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
+				ModOption.color("backgroundColor", "Background Color", 0x66000000)
+						.tip("The tint + opacity of the box behind every nametag."),
+				ModOption.toggle("overrideColor", "Custom Text Color", false)
+						.tip("Recolour every player nametag's text to a colour you pick."),
+				ModOption.color("textColor", "Text Color", 0xFFFFFFFF).under("overrideColor"),
+				// NOTE: the "override YOUR OWN tag" options are omitted on 1.21.4 — its
+				// render-state renderNameTag exposes no live Entity, so self-detection
+				// (see NametagStyleMixin) isn't available on this version.
+				ModOption.header("Toggle Keybinds"),
 				ModOption.keybind("toggleAll", "Toggle All Nametags", -1),
 				ModOption.keybind("togglePlayers", "Toggle Player Nametags Only", -1),
-				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
-				ModOption.slider("opacity", "Nametag Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
-				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false));
+				ModOption.toggle("displayToggleMessage", "Show Toggle Message", true));
+
+		// Item Size Customizer — the per-item scales live in ItemSizes (its own file);
+		// this entry is just the on/off switch + the card that opens the grid screen.
+		add("itemsize", "Item Size", "Set custom dropped-item render sizes per item.", false);
+
+		add("tablist", "Tab Editor", "Customize the player list overlay.", false,
+				ModOption.toggle("stickyToggle", "Sticky Tab", true)
+						.tip("Tap the list key to lock it open; hold and release for vanilla peek."),
+				ModOption.keybind("tabKey", "Tab Keybind", GLFW.GLFW_KEY_TAB)
+						.tip("Two-way synced with Minecraft's Player List key in Controls."),
+				ModOption.header("Players"),
+				ModOption.toggle("displayHeads", "Display Player Heads", true),
+				ModOption.toggle("hideNpcs", "Hide NPCs", false)
+						.tip("Hide fake players — offline-UUID entities like Citizens NPCs."),
+				ModOption.toggle("moveSelfTop", "Move Yourself to Top", false),
+				ModOption.toggle("highlightSelf", "Highlight Your Name", false),
+				ModOption.color("selfColor", "Your Name Color", 0xFFFFD700).under("highlightSelf"),
+				ModOption.header("Ping"),
+				ModOption.toggle("hidePing", "Hide Ping", false),
+				ModOption.toggle("pingAsNumber", "Show Ping as a Number", false),
+				ModOption.header("Header & Footer"),
+				ModOption.toggle("disableHeader", "Disable Header", false),
+				ModOption.toggle("disableFooter", "Disable Footer", false),
+				ModOption.color("headerColor", "Header Color", 0xFFFFFFFF),
+				ModOption.color("footerColor", "Footer Color", 0xFFFFFFFF),
+				ModOption.header("Background"),
+				ModOption.color("backgroundColor", "Background Color", 0x80000000));
 
 		add("weather", "Weather Changer", "Force a client weather mode.", false,
 				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),
@@ -332,6 +367,16 @@ public final class Mods {
 
 		add("motionblur", "Motion Blur", "Frame-blend motion blur.", false,
 				ModOption.slider("amount", "Strength", 0, 10, 1, 3, "%.0f").tip("0 = off, 10 = maximum blur; smooth in between."));
+
+		// Color Saturation (ColorGrade): LIVE on 1.21.4. Its grade uses the
+		// originclient:core/rendertype_origin_grade core shader, compiled on demand
+		// via ShaderManager.getProgram (OriginShaders.ensureCompiled) — 1.21.4 does
+		// NOT need Fabric's removed CoreShaderRegistrationCallback. GRADE loads OK,
+		// so this registration matches 1.21.1 exactly.
+		add("colorsaturation", "Color Saturation", "Grade the whole screen's colour.", false,
+				ModOption.slider("saturation", "Saturation", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = greyer, up = more vivid."),
+				ModOption.slider("brightness", "Brightness", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = darker, up = brighter."),
+				ModOption.slider("contrast", "Contrast", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = flatter, up = punchier."));
 
 		add("chat", "Chat", "Chat behavior and appearance.", false,
 				ModOption.toggle("unlimited", "Unlimited Chat", false).tip("Remove the limit on stored chat history length."),
@@ -488,6 +533,22 @@ public final class Mods {
 	}
 
 	public static void setMetaBool(String key, boolean v) {
+		ModsConfig.ensureLoaded();
+		ModsConfig.META.put(key, new JsonPrimitive(v));
+		ModsConfig.save();
+	}
+
+	public static double metaNum(String key, double def) {
+		ModsConfig.ensureLoaded();
+		var v = ModsConfig.META.get(key);
+		try {
+			return v == null ? def : v.getAsDouble();
+		} catch (RuntimeException e) {
+			return def;
+		}
+	}
+
+	public static void setMetaNum(String key, double v) {
 		ModsConfig.ensureLoaded();
 		ModsConfig.META.put(key, new JsonPrimitive(v));
 		ModsConfig.save();

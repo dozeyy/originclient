@@ -42,7 +42,19 @@ public class OriginClientMod implements ClientModInitializer {
 	public static volatile double zoomScrollFactor = 1.0;
 	// Nametag toggle latches, read by EntityNametagMixin.
 	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
+	// Whether the Tab Editor's custom player-list overlay should draw this frame. Set
+	// each tick; read by GuiHudMixin. We drive our own visibility (not vanilla's,
+	// which refuses to show the list on a solo local server) so it also previews in
+	// single-player and never double-draws with vanilla (PlayerTabOverlayMixin cancels).
+	public static volatile boolean tabListVisible = false;
 	private boolean nametagAllKeyWasDown = false, nametagPlayerKeyWasDown = false;
+
+	// Tab Editor: sticky tap-vs-hold state + two-way keybind sync bookkeeping.
+	private boolean tabKeyWasDown = false;
+	private boolean tabStickyOn = false;
+	private long tabPressAt = 0;
+	private boolean tabSyncInit = false;
+	private int lastOurTabKey = -1, lastMcTabKey = -1;
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
 	private boolean zoomSensApplied = false;
 	private double savedSensitivity = 0.5;
@@ -237,6 +249,58 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 		nametagPlayerKeyWasDown = npDown;
+
+		// Tab list — Origin drives visibility itself so it shows even on a solo local
+		// server (vanilla refuses to). Holding the Player List key always shows it;
+		// the Tab Editor mod adds sticky tap-to-lock + two-way keybind sync on top.
+		int mcTab = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+				.getBoundKeyOf(client.options.keyPlayerList).getValue();
+		boolean rawTab = client.screen == null && isRawKeyDown(mcTab);
+		if (Mods.on("tablist")) {
+			int ourTab = Mods.keyCode("tablist", "tabKey");
+			if (!tabSyncInit) {
+				// On first tick, adopt Minecraft's Player List binding as the source
+				// of truth so the two always start in agreement.
+				tabSyncInit = true;
+				if (ourTab != mcTab) {
+					Mods.set("tablist", "tabKey", mcTab);
+					ourTab = mcTab;
+				}
+			} else if (ourTab != lastOurTabKey && ourTab != mcTab) {
+				// Rebound in the Origin menu → push to Minecraft's controls.
+				client.options.keyPlayerList.setKey(
+						com.mojang.blaze3d.platform.InputConstants.getKey(ourTab, -1));
+				net.minecraft.client.KeyMapping.resetMapping();
+				client.options.save();
+				mcTab = ourTab;
+			} else if (mcTab != lastMcTabKey && mcTab != ourTab) {
+				// Rebound in Minecraft's controls → pull into the Origin option.
+				Mods.set("tablist", "tabKey", mcTab);
+				ourTab = mcTab;
+			}
+			lastOurTabKey = ourTab;
+			lastMcTabKey = mcTab;
+
+			long now = System.currentTimeMillis();
+			if (rawTab && !tabKeyWasDown) {
+				tabPressAt = now;
+			}
+			if (!rawTab && tabKeyWasDown) {
+				// Quick tap → toggle the sticky lock; a longer hold-then-release just
+				// ends the vanilla peek (sticky stays off).
+				if (Mods.bool("tablist", "stickyToggle") && (now - tabPressAt) < 200) {
+					tabStickyOn = !tabStickyOn;
+				} else {
+					tabStickyOn = false;
+				}
+			}
+		} else {
+			tabStickyOn = false;
+			tabSyncInit = false;
+		}
+		tabKeyWasDown = rawTab;
+		// Held → always visible (even solo / mod off); sticky lock only with the mod on.
+		tabListVisible = rawTab || (Mods.on("tablist") && tabStickyOn);
 
 		// Toggle Zoom: in toggle mode the key latches instead of holding. The
 		// FOV easing itself lives in GameRendererMixin (frame-side); here we only

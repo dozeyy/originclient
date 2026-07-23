@@ -1,6 +1,7 @@
 package com.origin.client.client.hud;
 
 import com.origin.client.client.gui.OriginModMenuScreen;
+import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginScreenRenderer;
@@ -42,6 +43,7 @@ public class HudEditorScreen extends Screen {
 
 	private static final int HANDLE_VIS = 5; // drawn square side (small, tucked into the corner)
 	private static final int HANDLE_HIT = 6; // extra click tolerance around it
+	private static final int XBTN = 10;      // the hover "turn off" X button, opposite the resize handle
 	// Resize feel: cursor must move this far from the grab distance before the
 	// element starts scaling (forgiving grab), per B2.
 	private static final double RESIZE_DEADZONE = 3.0;
@@ -106,6 +108,21 @@ public class HudEditorScreen extends Screen {
 		return anchor / 3 == 2;
 	}
 
+	// The hover "turn off" X: sits INSIDE the box at the anchored corner (opposite
+	// the resize handle) and its size scales with the BOX (smaller box → smaller X,
+	// bigger box → bigger X). Shared by render + click so they always agree.
+	private int xBtn(double boxMin) {
+		return (int) Math.max(6, Math.min(18, Math.round(boxMin * 0.35)));
+	}
+
+	private int xBtnX(int anchor, int ox0, int ox1, int xs) {
+		return freeLeft(anchor) ? ox1 - xs : ox0; // inside, at the anchored corner
+	}
+
+	private int xBtnY(int anchor, int oy0, int oy1, int xs) {
+		return freeTop(anchor) ? oy1 - xs : oy0;
+	}
+
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		Minecraft mc = Minecraft.getInstance();
@@ -162,6 +179,26 @@ public class HudEditorScreen extends Screen {
 						&& mouseY >= hy0 - HANDLE_HIT && mouseY <= hy0 + HANDLE_VIS + HANDLE_HIT;
 				g.fill(hx0 - 1, hy0 - 1, hx0 + HANDLE_VIS + 1, hy0 + HANDLE_VIS + 1, 0xC0000000);
 				g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
+
+				// X toggle in the corner OPPOSITE the resize handle (the anchored
+				// corner). Placed just OUTSIDE the element's box so it never covers the
+				// content/text, and scaled with the element so it grows/shrinks as you
+				// resize. Clamped to stay on screen.
+				int xs = xBtn(Math.min(w, h));
+				int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
+				int xby = xBtnY(pos.anchor, oy0, oy1, xs);
+				boolean xh = mouseX >= xbx && mouseX <= xbx + xs && mouseY >= xby && mouseY <= xby + xs;
+				// Invisible until the element is hovered (we're inside `if (active)`);
+				// a soft 60% red ✕ with NO box, firming to full red when pointed at.
+				// Scaled to the box so it never crowds the letters.
+				int xcol = xh ? 0xFFC77A73 : 0x99C77A73;
+				float gs = xs / (float) XBTN;
+				var xp = g.pose();
+				xp.pushPose();
+				xp.translate(xbx + xs / 2f, xby + xs / 2f, 0);
+				xp.scale(gs, gs, 1f);
+				g.drawString(font, "✕", -font.width("✕") / 2, -4, xcol, false);
+				xp.popPose();
 			}
 
 			// center guides while dragging: they light up exactly when the element
@@ -185,20 +222,28 @@ public class HudEditorScreen extends Screen {
 			// the "ORIGIN" wordmark (same baked Michroma as the main menu), then a
 			// clear gap to the MODS button — nothing overlaps. The mark is lifted
 			// well above the button to make room for the wordmark beneath it.
-			OriginUi.glow(g, cx, bt - 76, 104, 0.16f * in);
-			OriginUi.logo(g, cx, bt - 76, 46, in);
-			if (!OriginScreenRenderer.renderWordmarkAt(g, cx, bt - 44, 13, in)) {
+			// Wordmark sits just above the button; the ring mark ANIMATES up from
+			// BEHIND the wordmark on open (rises out of the name). Both lowered to sit
+			// ~60% closer to the button than before (not touching).
+			int wordY = bt - 22;
+			int logoFinalY = bt - 54;
+			int logoY = (int) Math.round(OriginTheme.lerp(wordY, logoFinalY, in));
+			OriginUi.glow(g, cx, logoY, 104, 0.16f * in);
+			OriginUi.logo(g, cx, logoY, 46, in);
+			// wordmark drawn AFTER the logo, so the logo emerges from behind it
+			if (!OriginScreenRenderer.renderWordmarkAt(g, cx, wordY, 13, in)) {
 				String o = "ORIGIN";
-				g.drawString(font, o, cx - font.width(o) / 2, bt - 48, withAlpha(OriginTheme.TEXT, in), false);
+				OriginText.drawBold(g, font, o, cx - OriginText.widthBold(font, o) / 2, wordY - 4, withAlpha(OriginTheme.TEXT, in), false);
 			}
 
-			// dark, clean MODS button — perfectly centered, no hover lift. Label
-			// stays the default Minecraft font (Will: revert the baked-font MODS).
+			// MODS button — the SAME style as every other menu button (Will): the
+			// shared 3px bevel cut, the standard button fill/border tokens, bright
+			// white border on hover. Centered, no hover lift.
 			boolean hoverBtn = in(mouseX, mouseY, btnX(), bt, btnX() + BTN_W, bt + BTN_H);
-			OriginUi.panel(g, btnX(), bt, BTN_W, BTN_H, 9,
-					withAlpha(hoverBtn ? 0xE6181818 : 0xD0101010, in),
-					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE_STRONG, in));
-			g.drawString(font, "MODS", cx - font.width("MODS") / 2, bt + 10,
+			OriginUi.bevelPanel(g, btnX(), bt, BTN_W, BTN_H, 3,
+					withAlpha(hoverBtn ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, in),
+					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, in));
+			OriginText.drawBold(g, font, "MODS", cx - OriginText.widthBold(font, "MODS") / 2, bt + 10,
 					withAlpha(OriginTheme.TEXT, in), false);
 		}
 	}
@@ -233,6 +278,18 @@ public class HudEditorScreen extends Screen {
 			int ox0 = (int) x - 4, oy0 = (int) y - 4, ox1 = (int) (x + w) + 4, oy1 = (int) (y + h) + 4;
 			int hx0 = freeLeft(pos.anchor) ? ox0 : ox1 - HANDLE_VIS;
 			int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
+			// X toggle in the anchored corner (opposite the handle): turn the mod
+			// off and drop it from the overlay. Tested before handle/body.
+			int xs = xBtn(Math.min(w, h));
+			int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
+			int xby = xBtnY(pos.anchor, oy0, oy1, xs);
+			if (mx >= xbx && mx <= xbx + xs && my >= xby && my <= xby + xs) {
+				Mods.setOn(e.modId(), false);
+				if (e.id().equals(selectedId)) {
+					selectedId = null;
+				}
+				return true;
+			}
 			// free-corner handle first, so it wins over the body
 			if (mx >= hx0 - HANDLE_HIT && mx <= hx0 + HANDLE_VIS + HANDLE_HIT
 					&& my >= hy0 - HANDLE_HIT && my <= hy0 + HANDLE_VIS + HANDLE_HIT) {

@@ -176,10 +176,14 @@ public final class OriginScreenRenderer {
 		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
 		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
 
-		// Mono status caption below the bar (the "techy HUD" info layer) + the
-		// aerospace corner brackets on top of everything.
-		int captionY = barTop + barH + Math.max(8, (int) Math.round(h * 0.035));
-		drawCaption(guiGraphics, w / 2.0, captionY, elapsed);
+		// Aerospace corner brackets on top of everything. NO font/text caption on
+		// this screen: it renders DURING the initial resource reload, before the
+		// glyph atlas AND the core `rendertype_text` shader are ready. On 1.21.4's
+		// ShaderManager/batched-GUI era, drawing text here makes the buffer flush
+		// call getProgram(rendertype_text) mid-reload, which throws and wedges the
+		// reload — the game never leaves the loading screen. 1.21.1 avoids text here
+		// for the same reason (missing-glyph boxes); on 1.21.4 it is fatal, not just
+		// ugly. The animated wordmark + bar carry the scene.
 		drawCornerBrackets(guiGraphics, w, h);
 	}
 
@@ -730,34 +734,6 @@ public final class OriginScreenRenderer {
 			guiGraphics.blit(RenderType::guiTextured, wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH, ARGB.white((float) eased));
 		}
 		pose.popPose();
-	}
-
-	/**
-	 * Mono status caption ("LOADING" + cycling dots) below the progress bar —
-	 * the small information layer that keeps the scene from reading empty. Muted
-	 * tone, manual letter-tracking for the techy look, three dot slots reserved
-	 * so the word never shifts as the dots animate.
-	 */
-	private static void drawCaption(GuiGraphics guiGraphics, double cx, int y, long elapsedMs) {
-		Font font = Minecraft.getInstance().font;
-		String base = "LOADING";
-		int tracking = 2;
-		int dots = (int) ((elapsedMs / 400L) % 4L);
-		int dotW = font.width(".") + tracking;
-		int textW = 0;
-		for (int i = 0; i < base.length(); i++) {
-			textW += font.width(String.valueOf(base.charAt(i))) + tracking;
-		}
-		double penX = cx - (textW + 3 * dotW) / 2.0;
-		for (int i = 0; i < base.length(); i++) {
-			String ch = String.valueOf(base.charAt(i));
-			guiGraphics.drawString(font, ch, (int) Math.round(penX), y, OriginTheme.MUTED, false);
-			penX += font.width(ch) + tracking;
-		}
-		for (int i = 0; i < dots; i++) {
-			guiGraphics.drawString(font, ".", (int) Math.round(penX), y, OriginTheme.MUTED, false);
-			penX += dotW;
-		}
 	}
 
 	/** Draws the wordmark with its ink box centered on (inkCenterX, inkCenterY), ink scaled to targetInkHeight. Returns ink bottom (screen Y). */

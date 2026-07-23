@@ -33,7 +33,12 @@
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
 		"LevelWeatherMixin",
-		"LivingNametagMixin"
+		"LivingNametagMixin",
+		"NametagStyleMixin",
+		"PlayerTabOverlayMixin",
+		"PlayerTabOverlayAccessor",
+		"ItemEntityScaleMixin",
+		"ItemEntityRenderStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
