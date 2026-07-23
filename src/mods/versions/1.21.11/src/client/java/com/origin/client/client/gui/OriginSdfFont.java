@@ -215,14 +215,30 @@ public final class OriginSdfFont {
 	// ready to render, same as vanilla's own GlyphRenderState per Font.drawInBatch.
 	private record MsdfTextRenderState(
 			Matrix3x2fc pose, List<GlyphVertex> quads, GpuTextureView atlasView,
-			ScreenRectangle scissor) implements GuiElementRenderState {
+			ScreenRectangle scissor, ScreenRectangle bounds) implements GuiElementRenderState {
 		@Override
 		public void buildVertices(VertexConsumer vertexConsumer) {
-			for (int i = 0; i < quads.size(); i += 4) {
-				for (int v = 0; v < 4; v++) {
-					GlyphVertex gv = quads.get(i + v);
-					vertexConsumer.addVertexWith2DPose(pose, gv.x(), gv.y()).setColor(gv.color()).setUv(gv.u(), gv.v());
+			// DIAGNOSTIC (2026-07-23): this runs LATER, inside GuiRenderer's own
+			// mesh-building pass — outside any try/catch in OriginSdfFont.emit().
+			// If this throws, Minecraft's per-frame render guard could swallow it
+			// silently (no draw call ever gets recorded, no GL error, no crash) —
+			// exactly the symptom under investigation. Logging here converts a
+			// silent failure into a visible one.
+			try {
+				for (int i = 0; i < quads.size(); i += 4) {
+					for (int v = 0; v < 4; v++) {
+						GlyphVertex gv = quads.get(i + v);
+						vertexConsumer.addVertexWith2DPose(pose, gv.x(), gv.y()).setColor(gv.color()).setUv(gv.u(), gv.v());
+					}
 				}
+				if (!loggedFirstBuildVertices) {
+					loggedFirstBuildVertices = true;
+					com.origin.client.OriginClient.LOGGER.info(
+							"Origin MSDF DEBUG: buildVertices() completed OK, wrote {} quads", quads.size() / 4);
+				}
+			} catch (Throwable t) {
+				com.origin.client.OriginClient.LOGGER.error("Origin MSDF DEBUG: buildVertices() THREW", t);
+				throw t;
 			}
 		}
 
@@ -233,7 +249,12 @@ public final class OriginSdfFont {
 
 		@Override
 		public TextureSetup textureSetup() {
-			return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+			try {
+				return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+			} catch (Throwable t) {
+				com.origin.client.OriginClient.LOGGER.error("Origin MSDF DEBUG: textureSetup() THREW", t);
+				throw t;
+			}
 		}
 
 		@Override
@@ -243,7 +264,18 @@ public final class OriginSdfFont {
 
 		@Override
 		public ScreenRectangle bounds() {
-			return null;
+			// ROOT CAUSE (2026-07-23, task 14): this used to return null. Vanilla's
+			// GlyphRenderState can get away with that because vanilla text goes
+			// through a SEPARATE dedicated submission path (forEachText /
+			// submitGlyphToCurrentLayer), not the generic submitGuiElement path.
+			// Our custom element uses the SAME generic path as ColoredRectangleRenderState
+			// and BlitRenderState — and both of THOSE always compute a real,
+			// non-null bounds rectangle. The renderer evidently uses bounds() for
+			// visibility culling on that path: returning null was read as "zero
+			// visible area", so the element got silently dropped before
+			// buildVertices() was ever called — no exception, no GL error, just
+			// nothing drawn. Ever.
+			return bounds;
 		}
 	}
 
@@ -258,6 +290,7 @@ public final class OriginSdfFont {
 
 		List<GlyphVertex> quads = new ArrayList<>();
 		float pen = x;
+		float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
 		for (int i = 0; i < text.length(); i++) {
 			Glyph gl = f.glyphs.get(text.charAt(i));
 			if (gl == null) {
@@ -275,6 +308,10 @@ public final class OriginSdfFont {
 				quads.add(new GlyphVertex(gx0, gy1, u0, v1, color));
 				quads.add(new GlyphVertex(gx1, gy1, u1, v1, color));
 				quads.add(new GlyphVertex(gx1, gy0, u1, v0, color));
+				minX = Math.min(minX, gx0);
+				minY = Math.min(minY, gy0);
+				maxX = Math.max(maxX, gx1);
+				maxY = Math.max(maxY, gy1);
 			}
 			pen += gl.adv * s;
 		}
@@ -293,16 +330,25 @@ public final class OriginSdfFont {
 		GpuTextureView atlasView = Minecraft.getInstance().getTextureManager().getTexture(f.atlas).getTextureView();
 		Matrix3x2f pose = new Matrix3x2f(g.pose());
 		ScreenRectangle scissor = g.scissorStack.peek();
+		// Real bounds, matching ColoredRectangleRenderState/BlitRenderState's own
+		// pattern: local rect -> transformMaxBounds(pose) -> intersect scissor.
+		// See bounds() below for why this fixed the invisible-text bug.
+		ScreenRectangle localRect = new ScreenRectangle(
+				(int) Math.floor(minX), (int) Math.floor(minY),
+				(int) Math.ceil(maxX - Math.floor(minX)), (int) Math.ceil(maxY - Math.floor(minY)));
+		ScreenRectangle transformed = localRect.transformMaxBounds(pose);
+		ScreenRectangle bounds = scissor != null ? scissor.intersection(transformed) : transformed;
 		if (!loggedFirstEmit) {
 			loggedFirstEmit = true;
 			GlyphVertex v0 = quads.get(0);
 			com.origin.client.OriginClient.LOGGER.info(
-					"Origin MSDF DEBUG: first emit('{}') -> {} quads, pipeline={}, atlasView={}, v0=({},{} uv {},{})",
-					text, quads.size() / 4, OriginShaders.MSDF, atlasView, v0.x(), v0.y(), v0.u(), v0.v());
+					"Origin MSDF DEBUG: first emit('{}') -> {} quads, pipeline={}, atlasView={}, v0=({},{} uv {},{}), bounds={}",
+					text, quads.size() / 4, OriginShaders.MSDF, atlasView, v0.x(), v0.y(), v0.u(), v0.v(), bounds);
 		}
-		g.guiRenderState.submitGuiElement(new MsdfTextRenderState(pose, quads, atlasView, scissor));
+		g.guiRenderState.submitGuiElement(new MsdfTextRenderState(pose, quads, atlasView, scissor, bounds));
 	}
 
 	private static volatile boolean warnedEmptyQuads = false;
 	private static volatile boolean loggedFirstEmit = false;
+	private static volatile boolean loggedFirstBuildVertices = false;
 }

@@ -31,16 +31,25 @@ import net.minecraft.resources.Identifier;
  * through) — only the fragment shader (the MSDF median/coverage calculation) is
  * ours.
  *
- * NOT YET PORTED on 1.21.11: the rounded-box SDF panel ({@code rendertype_origin_round})
+ * NOT YET PORTED on 1.21.11: the rounded-box SDF PANEL ({@code rendertype_origin_round})
  * and the fullscreen color-grade ({@code rendertype_origin_grade}). Both need more
  * than a retarget — ROUND's old shader took per-draw uniforms (RectHalf/Radius/
  * Border/FillColor/BorderColor) that have no equivalent hook in the new deferred
- * model (only per-vertex data reaches the renderer), so it needs a custom
- * VertexFormat encoding those params per-vertex instead of uniforms; GRADE needs
- * an actual render-target texture copy, a different problem than drawing a GUI
- * element. Both stay null here — every call site already fails soft to the
- * existing software path (OriginUi's software rounded-panel, no color grade)
- * exactly as it does today. Tracked as follow-up work.
+ * model (confirmed: {@link com.mojang.blaze3d.vertex.VertexConsumer} only exposes
+ * Position/Color/UV0/UV1/UV2/Normal/LineWidth setters — there is no generic
+ * per-vertex channel to carry arbitrary shader params through, so a custom
+ * VertexFormat can't actually receive them either); GRADE needs an actual
+ * render-target texture copy, a different problem than drawing a GUI element.
+ * Both stay null here — every call site already fails soft to the existing
+ * software path (OriginUi's software rounded-panel, no color grade). Tracked as
+ * follow-up work.
+ *
+ * The vector ICON glyphs (close/chevron/edit), by contrast, ARE ported: instead
+ * of a per-vertex-parameterized procedural shader (which hit the same
+ * VertexConsumer wall as ROUND), they're a small baked SDF texture atlas
+ * (tools/.../gen_icon_sdf.py bakes the exact same capsule-stroke geometry
+ * offline), sampled through the identical Position+UV0+Color pipeline shape as
+ * MSDF text — see {@link #ICON}.
  */
 public final class OriginShaders {
 	/** Custom MSDF-text render pipeline. Vertex format matches the atlas quads
@@ -49,6 +58,15 @@ public final class OriginShaders {
 			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
 					.withLocation(Identifier.fromNamespaceAndPath("originclient", "pipeline/origin_msdf"))
 					.withFragmentShader(Identifier.fromNamespaceAndPath("originclient", "core/rendertype_origin_msdf"))
+					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
+					.build());
+
+	/** Custom icon-glyph SDF pipeline (close/chevron/edit) — same vertex shape as
+	 *  MSDF, single-channel SDF fragment shader instead of multi-channel median. */
+	public static final RenderPipeline ICON = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+					.withLocation(Identifier.fromNamespaceAndPath("originclient", "pipeline/origin_icon"))
+					.withFragmentShader(Identifier.fromNamespaceAndPath("originclient", "core/rendertype_origin_icon"))
 					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
 					.build());
 
@@ -71,7 +89,7 @@ public final class OriginShaders {
 			return;
 		}
 		registered = true;
-		OriginClient.LOGGER.info("Origin: MSDF text render pipeline registered "
+		OriginClient.LOGGER.info("Origin: MSDF text + icon-glyph SDF render pipelines registered "
 				+ "(rounded-box SDF panel + color-grade not yet ported on 1.21.11 — using software fallbacks).");
 	}
 
