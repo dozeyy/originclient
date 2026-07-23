@@ -126,6 +126,12 @@ dependencies {
 	// Mod Menu (TerraformersMC) — standard Fabric mods list + the title-screen
 	// "Mods" button. Bundled jar-in-jar; needs Fabric API (already bundled).
 	modImplementation(include("maven.modrinth:modmenu:${project.modmenu_version}"))
+
+	// Simple Voice Chat (henkelmax) — proximity voice chat, bundled jar-in-jar so it
+	// ships with the client. Players configure it entirely through SVC's own menu (V)
+	// and vanilla Controls -> Voice Chat; Origin adds no settings for it (its client
+	// controls aren't exposed via a public API). Version pinned in gradle.properties.
+	modImplementation(include("maven.modrinth:simple-voice-chat:${project.svc_version}"))
 	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
 	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loom's include() does
 	// NOT propagate a nested mod's OWN nested jars onto the runClient dev

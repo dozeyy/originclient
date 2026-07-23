@@ -7,6 +7,13 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.ReadOnlyScoreInfo;
+import net.minecraft.world.scores.ScoreHolder;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,15 +27,19 @@ import java.util.UUID;
  * to-top, hide-NPCs — reliable without fragile mixins into vanilla's render internals.
  *
  * Layout mirrors vanilla: one column up to 20 players, then more columns; each row is
- * a translucent bar with an optional 8px head, the display name, and a ping readout,
- * with a centered header above and footer below. Every value is read live and it only
- * runs while the Tab Editor mod is on, so it's fully fail-soft to vanilla.
+ * a translucent bar with an optional head, the display name, the server's tab-list
+ * scoreboard objective (health hearts / a number), and a ping readout; a centered
+ * header sits above and footer below. The objective is drawn in BOTH modes so the list
+ * still shows the server's hearts/numbers when the Tab Editor mod is off.
  */
 public final class OriginTabList {
 	private OriginTabList() {
 	}
 
 	private static final int ROW_H = 9;
+	private static final ResourceLocation HEART_CONTAINER = ResourceLocation.withDefaultNamespace("hud/heart/container");
+	private static final ResourceLocation HEART_FULL = ResourceLocation.withDefaultNamespace("hud/heart/full");
+	private static final ResourceLocation HEART_HALF = ResourceLocation.withDefaultNamespace("hud/heart/half");
 
 	/**
 	 * @param customize when false (Tab Editor mod OFF) the list renders in a plain,
@@ -41,6 +52,12 @@ public final class OriginTabList {
 		Minecraft mc = Minecraft.getInstance();
 		Font font = mc.font;
 		UUID self = mc.player != null ? mc.player.getUUID() : null;
+
+		// The server's tab-list objective (health hearts or a number beside each name).
+		// Read straight from the scoreboard so it shows in both plain and custom modes.
+		Scoreboard scoreboard = mc.level != null ? mc.level.getScoreboard() : null;
+		Objective objective = scoreboard != null ? scoreboard.getDisplayObjective(DisplaySlot.LIST) : null;
+		boolean hearts = objective != null && objective.getRenderType() == ObjectiveCriteria.RenderType.HEARTS;
 
 		// Options only apply when customizing; otherwise use vanilla-like defaults.
 		boolean heads = !customize || Mods.bool("tablist", "displayHeads");
@@ -74,13 +91,27 @@ public final class OriginTabList {
 		int headW = heads ? ROW_H : 0;
 
 		Component[] names = new Component[n];
+		int[] scores = objective != null ? new int[n] : null;
 		int maxName = 0;
+		int scoreW = 0;
 		for (int i = 0; i < n; i++) {
 			names[i] = displayName(list.get(i));
 			maxName = Math.max(maxName, font.width(names[i]));
+			if (objective != null) {
+				ReadOnlyScoreInfo si = scoreboard.getPlayerScoreInfo(
+						ScoreHolder.forNameOnly(list.get(i).getProfile().getName()), objective);
+				scores[i] = si != null ? si.value() : 0;
+				if (!hearts) {
+					scoreW = Math.max(scoreW, font.width(Integer.toString(scores[i])));
+				}
+			}
 		}
+		if (objective != null) {
+			scoreW = hearts ? 82 : scoreW + 8; // hearts row up to ~10 wide; number + gap
+		}
+
 		int pingW = hidePing ? 0 : (pingNum ? font.width("999ms") : 11);
-		int cellW = headW + maxName + 6 + pingW;
+		int cellW = headW + maxName + 6 + scoreW + pingW;
 
 		// columns: <=20 per column, then widen
 		int rows = n, cols = 1;
@@ -118,6 +149,17 @@ public final class OriginTabList {
 					? Mods.color("tablist", "selfColor") : 0xFFFFFFFF;
 			g.drawString(font, names[i], px, ry, nameCol, false);
 
+			// objective (server hearts / number), right-aligned just left of the ping.
+			if (objective != null) {
+				int scoreRight = x + cellW - pingW - 2;
+				if (hearts) {
+					drawHearts(g, scoreRight, ry, scores[i]);
+				} else {
+					String s = Integer.toString(scores[i]);
+					g.drawString(font, s, scoreRight - font.width(s), ry, 0xFFFFFF55, false);
+				}
+			}
+
 			if (!hidePing) {
 				int ping = info.getLatency();
 				if (pingNum) {
@@ -138,6 +180,28 @@ public final class OriginTabList {
 	private static Component displayName(PlayerInfo info) {
 		Component c = info.getTabListDisplayName();
 		return c != null ? c : Component.literal(info.getProfile().getName());
+	}
+
+	/** Health hearts for the server's tab objective (score = health), right-aligned so
+	 *  the row ends at `rightX`. Mirrors the HUD look: a container outline per heart with
+	 *  a full/half heart on top, up to 10. */
+	private static void drawHearts(GuiGraphics g, int rightX, int y, int score) {
+		int hp = Math.max(0, score);
+		int full = Math.min(10, hp / 2);
+		boolean half = (hp % 2 != 0) && full < 10;
+		int shown = full + (half ? 1 : 0);
+		if (shown == 0) {
+			return;
+		}
+		int sx = rightX - shown * 8;
+		for (int i = 0; i < full; i++) {
+			g.blitSprite(HEART_CONTAINER, sx + i * 8, y, 9, 9);
+			g.blitSprite(HEART_FULL, sx + i * 8, y, 9, 9);
+		}
+		if (half) {
+			g.blitSprite(HEART_CONTAINER, sx + full * 8, y, 9, 9);
+			g.blitSprite(HEART_HALF, sx + full * 8, y, 9, 9);
+		}
 	}
 
 	/** Draws each line of `text` (split on newlines) centered on `cx`; returns the y
