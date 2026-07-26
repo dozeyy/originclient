@@ -1,6 +1,5 @@
 package com.origin.client.client.waypoints;
 
-import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.mods.Mods;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
@@ -10,8 +9,10 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 // The SCREEN-SPACE half of waypoint rendering: the ◆ icon, name, and distance,
 // drawn as a HUD overlay at each waypoint's projected screen position (world →
@@ -72,14 +73,29 @@ public final class WaypointHud {
 		if (mc.player == null || mc.level == null) {
 			return;
 		}
+		// Never over a menu. The overlay is drawn from HudElements.renderAll, which
+		// the mod menu also calls to preview HUD changes live — without this the
+		// markers float on top of the menu panel (Will, 2026-07-26).
+		if (mc.screen != null) {
+			return;
+		}
 		String dim = mc.level.dimension().identifier().toString();
 		Font font = mc.font;
 		int sw = g.guiWidth(), sh = g.guiHeight();
 
-		// The frustum vanilla is drawing with this frame.
-		double aspect = (double) Math.max(1, mc.getWindow().getWidth()) / Math.max(1, mc.getWindow().getHeight());
-		double tanV = Math.tan(Math.toRadians(OriginClientMod.effectiveFovDeg) / 2.0);
-		Quaternionf inv = new Quaternionf(ORIENT).conjugate();
+		// The EXACT view-projection vanilla is drawing the world with this frame.
+		//
+		// This used to be hand-rolled from tan(fov/2) and a published fov value.
+		// Both halves were a liability: getProjectionMatrix is public here, so the
+		// projection never needed re-deriving, and the published fov could go
+		// stale — which put the marker in the right place at screen centre and
+		// increasingly wrong toward the edges, i.e. sliding off the waypoint as
+		// you looked around. View bobbing is deliberately NOT applied: a world
+		// marker should sit still, not bob with the walk cycle.
+		float fov = ((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
+				.originclient$getFov(mc.gameRenderer.getMainCamera(), 1.0f, true);
+		Matrix4f viewProj = mc.gameRenderer.getProjectionMatrix(fov);
+		viewProj.rotate(new Quaternionf(ORIENT).conjugate());
 
 		for (Waypoints.Waypoint w : Waypoints.all()) {
 			if (!w.enabled || !dim.equals(w.dimension)) {
@@ -90,15 +106,13 @@ public final class WaypointHud {
 			}
 			// anchor: just above the waypoint block
 			double wx = w.x + 0.5 - camX, wy = w.y + 1.8 - camY, wz = w.z + 0.5 - camZ;
-			Vector3f v = inv.transform(new Vector3f((float) wx, (float) wy, (float) wz));
-			double depth = -v.z;   // camera looks down -Z
-			if (depth <= 0.05) {
+			Vector4f p = new Vector4f((float) wx, (float) wy, (float) wz, 1f);
+			viewProj.transform(p);
+			if (p.w <= 0.05f) {
 				continue;   // behind the camera — a waypoint is only shown when looked at
 			}
-			double ndcX = (v.x / depth) / (tanV * aspect);
-			double ndcY = (v.y / depth) / tanV;
-			int sx = (int) Math.round((ndcX * 0.5 + 0.5) * sw);
-			int sy = (int) Math.round((0.5 - ndcY * 0.5) * sh);
+			int sx = Math.round((p.x / p.w * 0.5f + 0.5f) * sw);
+			int sy = Math.round((0.5f - p.y / p.w * 0.5f) * sh);
 			if (sx < -60 || sx > sw + 60 || sy < -60 || sy > sh + 60) {
 				continue;
 			}
@@ -202,7 +216,8 @@ public final class WaypointHud {
 		// the cone hard-clamps to the exact end (left/right by which side it's on),
 		// no matter how far behind it is — 45° past the edge and directly behind
 		// land on the same end pixel.
-		double vFov = Math.toRadians(OriginClientMod.effectiveFovDeg);
+		double vFov = Math.toRadians(((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
+				.originclient$getFov(mc.gameRenderer.getMainCamera(), 1.0f, true));
 		double aspect = (double) Math.max(1, mc.getWindow().getWidth()) / Math.max(1, mc.getWindow().getHeight());
 		double halfCone = Math.toDegrees(Math.atan(Math.tan(vFov / 2.0) * aspect));
 

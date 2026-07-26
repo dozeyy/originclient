@@ -41,11 +41,6 @@ public class OriginClientMod implements ClientModInitializer {
 	public static volatile boolean zoomToggled = false;
 	public static volatile boolean zoomActive = false;
 	public static volatile double zoomScrollFactor = 1.0;
-	// The effective VERTICAL fov in degrees vanilla built this frame's projection
-	// from (zoom and every other modifier already applied). Published by
-	// GameRendererMixin because GameRenderer.getFov is private on 1.21.11, and
-	// read by WaypointHud, which projects world positions to the screen itself.
-	public static volatile double effectiveFovDeg = 70.0;
 	// Edge-trigger for death waypoints: true while the player is alive, so a death
 	// drops exactly one waypoint on the alive→dead transition.
 	private boolean wasAlive = false;

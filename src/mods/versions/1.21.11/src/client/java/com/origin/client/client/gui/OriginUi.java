@@ -24,6 +24,7 @@ import org.joml.Matrix3x2fc;
 
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 // The premium drawing kit shared by the mod menu and HUD editor: baked
@@ -96,10 +97,117 @@ public final class OriginUi {
 			return;
 		}
 		int r = Math.max(0, Math.min(corner, Math.min(w, h) / 2));
+		// SMALL, REPEATED panels (grid cells, tabs, switches, chips) get the whole
+		// box baked once at their exact size and drawn as TWO blits — one tinted
+		// pass for the fill, one for the border. That is the same order of cost as
+		// 1.21.1, which draws a panel as a single SDF quad.
+		//
+		// This matters because the cost is per PANEL DRAWN, not per item in the
+		// list: Will found the Item Size screen smooth on the Combat tab (~12
+		// cells) and crawling on All (~40 cells filling the grid). At ~130 quads
+		// per panel that is 5,000+ render-state objects a frame; at 2 it is 80.
+		if (w <= MASK_MAX && h <= MASK_MAX) {
+			Identifier box = boxMask(w, h, r);
+			if (box != null) {
+				if (((fill >>> 24) & 0xFF) > 0) {
+					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, 0f, w, h, w, h * 2, fill);
+				}
+				if (((border >>> 24) & 0xFF) > 0) {
+					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, (float) h, w, h, w, h * 2, border);
+				}
+				return;
+			}
+		}
 		roundedFill(g, x, y, w, h, r, fill);
 		if (((border >>> 24) & 0xFF) > 0) {
 			roundedStroke(g, x, y, w, h, r, border);
 		}
+	}
+
+	/** Largest side that gets a whole-box mask. Chosen to cover everything that
+	 *  repeats: mod-menu cards (~68x74), Item Size cells (24x24), category tabs,
+	 *  switches and chips. Above this — settings rows, the menu shell — panels are
+	 *  few and rarely the same size twice, so they take the corner-blit path
+	 *  instead and never churn the cache. */
+	private static final int MASK_MAX = 96;
+
+	/** (w,h,r) -> one texture holding the fill mask on top and the 1px border ring
+	 *  underneath, so a panel is two blits into the same texture. LRU-capped: a
+	 *  handful of sizes repeat constantly, and anything rare gets evicted. */
+	private static final int MASK_CACHE_MAX = 64;
+	private static final LinkedHashMap<Long, Identifier> BOX_MASKS =
+			new LinkedHashMap<>(16, 0.75f, true) {
+				@Override
+				protected boolean removeEldestEntry(Map.Entry<Long, Identifier> eldest) {
+					if (size() <= MASK_CACHE_MAX) {
+						return false;
+					}
+					if (eldest.getValue() != null) {
+						try {
+							Minecraft.getInstance().getTextureManager().release(eldest.getValue());
+						} catch (Throwable ignored) {
+							// a texture we can't release is a leak, not a crash
+						}
+					}
+					return true;
+				}
+			};
+
+	private static Identifier boxMask(int w, int h, int r) {
+		long key = ((long) w << 40) | ((long) h << 16) | r;
+		if (BOX_MASKS.containsKey(key)) {
+			return BOX_MASKS.get(key);   // may be null: a failed bake is remembered, not retried
+		}
+		Identifier id = null;
+		try {
+			NativeImage img = new NativeImage(NativeImage.Format.RGBA, w, h * 2, false);
+			for (int py = 0; py < h; py++) {
+				for (int px = 0; px < w; px++) {
+					double cov = boxCoverage(px, py, w, h, r, 0);
+					double ring = boxCoverage(px, py, w, h, r, 1);
+					img.setPixel(px, py, alphaWhite(cov));
+					img.setPixel(px, py + h, alphaWhite(ring));
+				}
+			}
+			String name = "origin_box_" + w + "x" + h + "_" + r;
+			id = Identifier.fromNamespaceAndPath("originclient", "textures/ui/" + name);
+			Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> name, img));
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn(
+					"Origin: box mask " + w + "x" + h + " r=" + r + " failed to bake", t);
+		}
+		BOX_MASKS.put(key, id);
+		return id;
+	}
+
+	/**
+	 * Coverage of pixel (px,py) by a rounded rect, computed from the signed
+	 * distance to its outline — identical maths to the corner scanline code, just
+	 * evaluated over the whole box.
+	 *
+	 * @param inset 0 for the solid shape; 1 for a 1px-wide border ring.
+	 */
+	private static double boxCoverage(int px, int py, int w, int h, int r, int inset) {
+		// Standard rounded-box signed distance, measured from the box centre:
+		//   q = |p| - (halfSize - r);  d = |max(q,0)| + min(max(q.x,q.y),0) - r
+		// Negative inside, positive outside, exact everywhere including corners.
+		double hw = w / 2.0, hh = h / 2.0;
+		double qx = Math.abs(px + 0.5 - hw) - (hw - r);
+		double qy = Math.abs(py + 0.5 - hh) - (hh - r);
+		double outX = Math.max(qx, 0), outY = Math.max(qy, 0);
+		double d = Math.sqrt(outX * outX + outY * outY) + Math.min(Math.max(qx, qy), 0) - r;
+
+		double outer = clamp01(0.5 - d);
+		if (inset <= 0) {
+			return outer;
+		}
+		// Ring = the shape minus the same shape shrunk by `inset` px.
+		return outer - clamp01(0.5 - (d + inset));
+	}
+
+	private static int alphaWhite(double cov) {
+		int a = cov <= 0.001 ? 0 : (int) Math.round(255 * Math.min(1.0, cov));
+		return (a << 24) | 0xFFFFFF;
 	}
 
 	/** Alias kept in step with 1.21.1, where the menu's "bevel cut" buttons call
@@ -119,10 +227,7 @@ public final class OriginUi {
 		g.fill(x + r, y, x + w - r, y + h, color);              // center column, full height
 		g.fill(x, y + r, x + r, y + h - r, color);              // left band
 		g.fill(x + w - r, y + r, x + w, y + h - r, color);      // right band
-		aaCorner(g, x, y, x + r, y + r, r, 0, color);                         // top-left
-		aaCorner(g, x + w - r, y, x + w - r, y + r, r, 0, color);             // top-right
-		aaCorner(g, x, y + h - r, x + r, y + h - r, r, 0, color);             // bottom-left
-		aaCorner(g, x + w - r, y + h - r, x + w - r, y + h - r, r, 0, color); // bottom-right
+		corners(g, x, y, w, h, r, cornerMask(r, false), color);
 	}
 
 	private static void roundedStroke(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
@@ -137,49 +242,73 @@ public final class OriginUi {
 		g.fill(x + r, y + h - 1, x + w - r, y + h, color);      // bottom
 		g.fill(x, y + r, x + 1, y + h - r, color);              // left
 		g.fill(x + w - 1, y + r, x + w, y + h - r, color);      // right
-		aaCorner(g, x, y, x + r, y + r, r, r - 1, color);                         // top-left
-		aaCorner(g, x + w - r, y, x + w - r, y + r, r, r - 1, color);             // top-right
-		aaCorner(g, x, y + h - r, x + r, y + h - r, r, r - 1, color);             // bottom-left
-		aaCorner(g, x + w - r, y + h - r, x + w - r, y + h - r, r, r - 1, color); // bottom-right
+		corners(g, x, y, w, h, r, cornerMask(r, true), color);
 	}
 
 	/**
-	 * One anti-aliased quarter-annulus, drawn as scanline runs.
+	 * Blits the four rounded corners from a baked coverage mask.
 	 *
-	 * @param rx,ry          top-left of the corner's r x r box
-	 * @param cx,cy          the arc's centre
-	 * @param rOuter,rInner  ring radii — rInner = 0 fills the whole quarter disc
-	 *                       (panel fill), rInner = rOuter-1 leaves a 1px arc (stroke)
+	 * <p>PERFORMANCE (2026-07-26): these corners used to be drawn as per-pixel
+	 * anti-aliased scanline runs — about 16 {@code g.fill} calls per corner, so
+	 * ~130 per panel once fill and stroke were both counted. That is fine for a
+	 * screen with a dozen boxes and ruinous for one with a grid: the Item Size
+	 * screen draws ~40 cells, i.e. over 5,000 quads a frame, each one an
+	 * allocated render-state object in this era's deferred GUI. Will reported it
+	 * as heavy lag, and it was the direct cost of the AA fix earlier that day.
+	 *
+	 * <p>The mask stores exactly the same coverage values the scanline code
+	 * computed, baked once per radius, so the result is pixel-identical — but a
+	 * panel now costs 7 draws instead of ~67 (fill) and 8 instead of ~64
+	 * (stroke). The mask is 2r x 2r and holds all four corners, so the four
+	 * blits are UV offsets into one texture at 1:1 scale: no filtering, no
+	 * resampling, nothing to go soft.
 	 */
-	private static void aaCorner(GuiGraphics g, int rx, int ry, double cx, double cy, int rOuter, int rInner, int color) {
-		int base = (color >>> 24) & 0xFF;
-		if (base == 0) {
-			return;
+	private static void corners(GuiGraphics g, int x, int y, int w, int h, int r, Identifier mask, int color) {
+		if (mask == null) {
+			return;   // baking failed — the straight bands above still drew a square box
 		}
-		int rgb = color & 0xFFFFFF;
-		// Batch consecutive same-alpha pixels in each row into one fill — the
-		// fully-covered interior of a corner collapses to a single run, so a
-		// rounded panel costs a handful of quads per corner instead of r² of them.
-		for (int py = ry; py < ry + rOuter; py++) {
-			int runStart = -1, runArgb = 0;
-			for (int px = rx; px <= rx + rOuter; px++) {
-				int argb = 0;
-				if (px < rx + rOuter) {
-					double dx = px + 0.5 - cx, dy = py + 0.5 - cy;
+		int t = r * 2;
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y, 0f, 0f, r, r, r, r, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - r, y, (float) r, 0f, r, r, r, r, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y + h - r, 0f, (float) r, r, r, r, r, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - r, y + h - r, (float) r, (float) r, r, r, r, r, t, t, color);
+	}
+
+	// Baked corner masks, keyed by radius. `false` = filled quarter discs (panel
+	// fill), `true` = a 1px ring (panel stroke). Only a handful of radii are ever
+	// used (3..12), and each mask is at most 24x24, so this never grows.
+	private static final Map<Integer, Identifier> FILL_MASKS = new HashMap<>();
+	private static final Map<Integer, Identifier> STROKE_MASKS = new HashMap<>();
+
+	private static Identifier cornerMask(int r, boolean ring) {
+		Map<Integer, Identifier> cache = ring ? STROKE_MASKS : FILL_MASKS;
+		if (cache.containsKey(r)) {
+			return cache.get(r);   // may hold null: a failed bake is remembered, not retried every frame
+		}
+		Identifier id = null;
+		try {
+			int t = r * 2;
+			NativeImage img = new NativeImage(NativeImage.Format.RGBA, t, t, false);
+			double rInner = ring ? r - 1 : 0;
+			for (int py = 0; py < t; py++) {
+				for (int px = 0; px < t; px++) {
+					// Centre of the rounded box: every corner is one quadrant of the
+					// same circle, which is why one mask serves all four.
+					double dx = px + 0.5 - r, dy = py + 0.5 - r;
 					double dist = Math.sqrt(dx * dx + dy * dy);
-					double cov = clamp01(rOuter - dist + 0.5) - clamp01(rInner - dist + 0.5);
-					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
-					argb = a <= 0 ? 0 : (a << 24) | rgb;
-				}
-				if (argb != runArgb) {
-					if (runStart >= 0 && runArgb != 0) {
-						g.fill(runStart, py, px, py + 1, runArgb);
-					}
-					runStart = px;
-					runArgb = argb;
+					double cov = clamp01(r - dist + 0.5) - clamp01(rInner - dist + 0.5);
+					int a = cov <= 0.001 ? 0 : (int) Math.round(255 * cov);
+					img.setPixel(px, py, (a << 24) | 0xFFFFFF);   // white, tinted at blit time
 				}
 			}
+			String name = (ring ? "origin_round_ring_" : "origin_round_fill_") + r;
+			id = Identifier.fromNamespaceAndPath("originclient", "textures/ui/" + name);
+			Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> name, img));
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: rounded-corner mask r=" + r + " failed to bake", t);
 		}
+		cache.put(r, id);
+		return id;
 	}
 
 	/**
