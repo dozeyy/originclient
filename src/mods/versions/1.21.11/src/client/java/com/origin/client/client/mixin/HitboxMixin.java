@@ -108,7 +108,14 @@ public class HitboxMixin {
 				col |= 0xFF000000;
 			}
 
-			AABB box = entity.getBoundingBox();
+			// Entity.getBoundingBox() is the box at the last TICK. Drawing it raw
+			// pins the outline to 20 updates a second while the entity model
+			// renders smoothly at frame rate, so the box visibly stutters and
+			// trails behind anything moving — the "hitboxes feel laggy /
+			// unresponsive" Will reported. Vanilla's own renderer offsets the box
+			// by (interpolated position - tick position); do the same.
+			Vec3 lerp = entity.getPosition(partialTick).subtract(entity.position());
+			AABB box = entity.getBoundingBox().move(lerp);
 			if (pattern == null || pattern.equals("Solid")) {
 				Gizmos.cuboid(box, GizmoStyle.stroke(col, width));
 			} else {
