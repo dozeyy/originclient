@@ -199,7 +199,7 @@ public final class OriginUi {
 					img.setPixel(px, py + ph, alphaWhite(ring));
 				}
 			}
-			String name = "origin_box_" + w + "x" + h + "_" + r + "@" + s;
+			String name = "origin_box_" + w + "x" + h + "_" + r + "_s" + s;
 			id = Identifier.fromNamespaceAndPath("originclient", "textures/ui/" + name);
 			Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> name, img));
 		} catch (Throwable t) {
@@ -337,7 +337,7 @@ public final class OriginUi {
 					img.setPixel(px, py, (a << 24) | 0xFFFFFF);   // white, tinted at blit time
 				}
 			}
-			String name = (ring ? "origin_round_ring_" : "origin_round_fill_") + r + "@" + s;
+			String name = (ring ? "origin_round_ring_" : "origin_round_fill_") + r + "_s" + s;
 			id = Identifier.fromNamespaceAndPath("originclient", "textures/ui/" + name);
 			Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> name, img));
 		} catch (Throwable t) {
