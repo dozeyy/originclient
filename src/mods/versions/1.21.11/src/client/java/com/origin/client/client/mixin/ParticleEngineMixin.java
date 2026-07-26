@@ -4,15 +4,11 @@ import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Particles mod: "Off" suppresses all particle spawns, "Reduced" only the
@@ -77,20 +73,13 @@ public class ParticleEngineMixin {
 		}
 	}
 
-	// Block-breaking / block-hit particles are spawned via destroy()/crack(),
-	// NOT createParticle — so "Hide Block-Breaking Particle" (and Hide All) has
-	// to gate these directly. This is the root cause of that toggle doing nothing.
-	@Inject(method = "destroy", at = @At("HEAD"), cancellable = true)
-	private void originclient$destroy(BlockPos pos, BlockState state, CallbackInfo ci) {
-		if (Mods.on("particles") && (Mods.bool("particles", "hideAll") || Mods.bool("particles", "hideBlockBreak"))) {
-			ci.cancel();
-		}
-	}
-
-	@Inject(method = "crack", at = @At("HEAD"), cancellable = true)
-	private void originclient$crack(BlockPos pos, Direction direction, CallbackInfo ci) {
-		if (Mods.on("particles") && (Mods.bool("particles", "hideAll") || Mods.bool("particles", "hideBlockBreak"))) {
-			ci.cancel();
-		}
-	}
+	// NOTE (1.21.11): the old destroy()/crack() injects that gated block-breaking
+	// and block-hit bursts USED to live here. Both methods were removed from
+	// ParticleEngine in this era — the bursts now spawn through
+	// ClientLevel.addDestroyBlockEffect / addBreakingBlockEffect, and
+	// ClientLevelParticleMixin already gates them there with the same rules. The
+	// injects were left behind pointing at names that no longer exist, so (with
+	// "defaultRequire": 0) they were silently skipped dead weight. Removed
+	// 2026-07-26. Do not re-add them here; the ClientLevel hooks are the ones
+	// that work on this version.
 }

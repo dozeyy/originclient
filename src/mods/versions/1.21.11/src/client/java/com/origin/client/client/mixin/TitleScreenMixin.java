@@ -8,7 +8,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.PlainTextButton;
 import net.minecraft.client.gui.components.SplashRenderer;
-import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -31,9 +30,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //    (whichever path render() uses) never paints over ours. Both are
 //    background-only on TitleScreen; widgets draw in the separate widget pass.
 //  - Redirect renderLogo -> Origin wordmark; no-op the splash + version draws.
-//  - After init(), hide the SpriteIconButton (language, accessibility) and
-//    PlainTextButton (copyright) widgets via visible/active -- the only widgets
-//    of those types; the real options are plain Button, left intact.
+//  - After init(), hide the PlainTextButton (copyright) widget via
+//    visible/active. The SpriteIconButton pair (language, accessibility) is
+//    KEPT and re-skinned by SpriteIconButtonMixin; the real options are plain
+//    Button, left intact.
 // priority 2000 (default 1000): if another mod also modifies TitleScreen (e.g.
 // redirects the logo/background), Origin's re-skin wins the conflict. Scoped to
 // the UI mixins only — perf/render mixins stay at default so Sodium/Iris
@@ -114,9 +114,13 @@ public class TitleScreenMixin {
 		}
 	}
 
-	// Hide the language + accessibility icons (SpriteIconButton) and the
-	// copyright line (PlainTextButton). visible=false stops both rendering and
-	// clicks; re-run on every (re)init so it survives window resizes.
+	// Hide the copyright line (PlainTextButton). visible=false stops both
+	// rendering and clicks; re-run on every (re)init so it survives window
+	// resizes.
+	//
+	// The language + accessibility icons (SpriteIconButton) are KEPT on the
+	// Origin menu, matching 1.21.1 (Will, 2026-07-21). They get the Origin
+	// look from SpriteIconButtonMixin rather than being hidden.
 	@Inject(method = "init", at = @At("TAIL"))
 	private void originclient$stripExtraButtons(CallbackInfo ci) {
 		if (!originclient$origin()) {
@@ -124,8 +128,7 @@ public class TitleScreenMixin {
 		}
 		Screen self = (Screen) (Object) this;
 		for (GuiEventListener child : self.children()) {
-			if ((child instanceof SpriteIconButton || child instanceof PlainTextButton)
-					&& child instanceof AbstractWidget widget) {
+			if (child instanceof PlainTextButton && child instanceof AbstractWidget widget) {
 				widget.visible = false;
 				widget.active = false;
 			}

@@ -317,6 +317,21 @@ public final class Mods {
 				ModOption.slider("opacity", "Nametag Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
 				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false));
 
+		add("colorsaturation", "Color Saturation", "Grade the whole screen's colour.", false,
+				ModOption.slider("saturation", "Saturation", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = greyer, up = more vivid."),
+				ModOption.slider("brightness", "Brightness", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = darker, up = brighter."),
+				ModOption.slider("contrast", "Contrast", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = flatter, up = punchier."));
+
+		add("itemsize", "Item Size", "Set custom dropped-item render sizes per item.", false);
+
+		add("waypoints", "Waypoints", "In-world markers with beams, labels, and distance.", false,
+				ModOption.toggle("deathWaypoints", "Death Waypoints", true).tip("Auto-drop a waypoint where you die."),
+				ModOption.toggle("confirmDelete", "Confirm Before Delete", true).tip("Ask before removing a waypoint."),
+				ModOption.toggle("locatorBar", "Locator Bar", false)
+						.tip("A compass strip in the XP bar showing every waypoint's direction (max 2000 blocks)."),
+				ModOption.toggle("separateBar", "Separate Bar", false)
+						.tip("Detach the locator bar from the XP bar into a standalone, movable HUD element."));
+
 		add("tablist", "Tab Editor", "Customize the player list overlay.", false,
 				ModOption.toggle("stickyToggle", "Sticky Tab", true)
 						.tip("Tap the list key to lock it open; hold and release for vanilla peek."),

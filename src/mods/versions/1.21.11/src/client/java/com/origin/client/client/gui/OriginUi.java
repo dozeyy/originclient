@@ -73,17 +73,112 @@ public final class OriginUi {
 		return (float) OriginTheme.easeOut(st[0]);
 	}
 
-	/** Rounded panel: 9-sliced baked masks, fill + hairline border. */
+	/**
+	 * Rounded panel: fill + 1px hairline border, corners anti-aliased per pixel.
+	 *
+	 * PER-VERSION DELTA (1.21.11): 1.21.1 draws this through the rounded-box SDF
+	 * shader ({@link OriginShaders#ROUND}) and only falls back to this software
+	 * path when the shader is unavailable. Here ROUND is permanently null (see
+	 * OriginShaders' class doc — the new deferred GUI model has no per-draw
+	 * uniform channel to carry rect/radius/border through), so the software path
+	 * IS the path.
+	 *
+	 * It used to 9-slice the baked button_fill/button_border textures instead.
+	 * That looked wrong: the source corner is 24px and gets blitted down to a
+	 * 6-7px destination corner through GUI_TEXTURED's non-interpolating sampler,
+	 * so every corner in the menu came out a hard staircase — and on the mod
+	 * cards the colour bar's own staircase overwrote the card's outline, which is
+	 * the "colour clipping at the bottom corners" Will reported. Computing
+	 * coverage per pixel is exact at any radius and needs no texture at all.
+	 */
 	public static void panel(GuiGraphics g, int x, int y, int w, int h, int corner, int fill, int border) {
-		ensureLoaded();
-		if (!ok) {
-			g.fill(x, y, x + w, y + h, fill);
+		if (w <= 0 || h <= 0) {
 			return;
 		}
-		int cd = Math.min(corner, Math.min(w, h) / 2);
-		nine(g, fillTex, x, y, w, h, cd, fill);
+		int r = Math.max(0, Math.min(corner, Math.min(w, h) / 2));
+		roundedFill(g, x, y, w, h, r, fill);
 		if (((border >>> 24) & 0xFF) > 0) {
-			nine(g, borderTex, x, y, w, h, cd, border);
+			roundedStroke(g, x, y, w, h, r, border);
+		}
+	}
+
+	/** Alias kept in step with 1.21.1, where the menu's "bevel cut" buttons call
+	 *  this with a small corner instead of the panel radius. */
+	public static void bevelPanel(GuiGraphics g, int x, int y, int w, int h, int cut, int fill, int border) {
+		panel(g, x, y, w, h, cut, fill, border);
+	}
+
+	private static void roundedFill(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
+		if (((color >>> 24) & 0xFF) == 0) {
+			return;
+		}
+		if (r <= 0) {
+			g.fill(x, y, x + w, y + h, color);
+			return;
+		}
+		g.fill(x + r, y, x + w - r, y + h, color);              // center column, full height
+		g.fill(x, y + r, x + r, y + h - r, color);              // left band
+		g.fill(x + w - r, y + r, x + w, y + h - r, color);      // right band
+		aaCorner(g, x, y, x + r, y + r, r, 0, color);                         // top-left
+		aaCorner(g, x + w - r, y, x + w - r, y + r, r, 0, color);             // top-right
+		aaCorner(g, x, y + h - r, x + r, y + h - r, r, 0, color);             // bottom-left
+		aaCorner(g, x + w - r, y + h - r, x + w - r, y + h - r, r, 0, color); // bottom-right
+	}
+
+	private static void roundedStroke(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
+		if (r <= 0) {
+			g.fill(x, y, x + w, y + 1, color);
+			g.fill(x, y + h - 1, x + w, y + h, color);
+			g.fill(x, y + 1, x + 1, y + h - 1, color);
+			g.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+			return;
+		}
+		g.fill(x + r, y, x + w - r, y + 1, color);              // top
+		g.fill(x + r, y + h - 1, x + w - r, y + h, color);      // bottom
+		g.fill(x, y + r, x + 1, y + h - r, color);              // left
+		g.fill(x + w - 1, y + r, x + w, y + h - r, color);      // right
+		aaCorner(g, x, y, x + r, y + r, r, r - 1, color);                         // top-left
+		aaCorner(g, x + w - r, y, x + w - r, y + r, r, r - 1, color);             // top-right
+		aaCorner(g, x, y + h - r, x + r, y + h - r, r, r - 1, color);             // bottom-left
+		aaCorner(g, x + w - r, y + h - r, x + w - r, y + h - r, r, r - 1, color); // bottom-right
+	}
+
+	/**
+	 * One anti-aliased quarter-annulus, drawn as scanline runs.
+	 *
+	 * @param rx,ry          top-left of the corner's r x r box
+	 * @param cx,cy          the arc's centre
+	 * @param rOuter,rInner  ring radii — rInner = 0 fills the whole quarter disc
+	 *                       (panel fill), rInner = rOuter-1 leaves a 1px arc (stroke)
+	 */
+	private static void aaCorner(GuiGraphics g, int rx, int ry, double cx, double cy, int rOuter, int rInner, int color) {
+		int base = (color >>> 24) & 0xFF;
+		if (base == 0) {
+			return;
+		}
+		int rgb = color & 0xFFFFFF;
+		// Batch consecutive same-alpha pixels in each row into one fill — the
+		// fully-covered interior of a corner collapses to a single run, so a
+		// rounded panel costs a handful of quads per corner instead of r² of them.
+		for (int py = ry; py < ry + rOuter; py++) {
+			int runStart = -1, runArgb = 0;
+			for (int px = rx; px <= rx + rOuter; px++) {
+				int argb = 0;
+				if (px < rx + rOuter) {
+					double dx = px + 0.5 - cx, dy = py + 0.5 - cy;
+					double dist = Math.sqrt(dx * dx + dy * dy);
+					double cov = clamp01(rOuter - dist + 0.5) - clamp01(rInner - dist + 0.5);
+					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
+					argb = a <= 0 ? 0 : (a << 24) | rgb;
+				}
+				if (argb != runArgb) {
+					if (runStart >= 0 && runArgb != 0) {
+						g.fill(runStart, py, px, py + 1, runArgb);
+					}
+					runStart = px;
+					runArgb = argb;
+				}
+			}
 		}
 	}
 

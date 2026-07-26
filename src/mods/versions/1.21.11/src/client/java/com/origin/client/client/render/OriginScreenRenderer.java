@@ -35,6 +35,9 @@ public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
+	// Charcoal grade laid over the blurred panorama on the title screen.
+	// Same value as 1.21.1 so both versions grade identically.
+	private static final int GRADE = 0x8C08080A;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
@@ -91,9 +94,8 @@ public final class OriginScreenRenderer {
 	// hovering a clickable. State is static: one cursor, one glow.
 	private static Identifier radialGlowId;
 	private static final int RADIAL_TEX = 512;
-	private static double haloX = Double.NaN, haloY = Double.NaN;
-	private static double glowHover = 0.0;
-	private static long glowLastNanos = 0L;
+	// (the cursor-spotlight halo/hover state went with renderTitleCursorGlow --
+	// radialGlowId and drawRadial stay, the orbiting bodies still use them)
 
 	private record Ring(Identifier texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {
@@ -282,30 +284,46 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Menu background: near-black + rotating rings + grain (behind vanilla's
-	 * logo/buttons). Returns true only if the Origin backdrop actually drew;
-	 * callers that cancel vanilla's own backdrop must key off this.
+	 * Menu background: the live-rotating vanilla panorama, blurred, under the
+	 * Origin charcoal grade (behind vanilla's logo/buttons). Returns true only
+	 * if the Origin backdrop actually drew; callers that cancel vanilla's own
+	 * backdrop must key off this.
+	 *
+	 * Ported from 1.21.1 (2026-07-26) so the main menu pans here too. This
+	 * replaced an 8-layer composite (flat fill + rings + grain + particles +
+	 * orbiting bodies + vignette + brackets); see 1.21.1's copy for the cost
+	 * note -- live rotation is deliberately the expensive option.
+	 *
+	 * Two era differences from 1.21.1, both because 1.21.11 renders the GUI
+	 * deferred rather than immediate:
+	 *   - the panorama comes from gameRenderer.getPanorama() (the shared
+	 *     instance vanilla itself spins) instead of a privately-built
+	 *     CubeMap/PanoramaRenderer pair, so spin state and the panoramaSpeed
+	 *     option stay consistent with vanilla. Its render() takes a
+	 *     "should spin" boolean and does its own delta timing -- 1.21.1's
+	 *     alpha + partialTick arguments are gone.
+	 *   - blur is guiGraphics.blurBeforeThisStratum(), which blurs everything
+	 *     queued before this point. 1.21.1's processBlurEffect +
+	 *     bindWrite(false) pair does not exist here and is NOT needed: nothing
+	 *     rebinds a framebuffer, so the widget pass after us is unaffected.
+	 * This mirrors vanilla's own Screen.renderBackground ordering exactly
+	 * (renderPanorama -> renderBlurredBackground), so the grade lands on top
+	 * of the blur rather than being blurred with it.
 	 */
 	public static boolean renderTitleBackground(GuiGraphics guiGraphics) {
 		if (broken) {
 			return false;
 		}
 		try {
-			ensureLoaded();
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
 
-			guiGraphics.fill(0, 0, w, h, BG_COLOR);
-			if (!ringsFailed) {
-				drawRings(guiGraphics, w, h);
-				drawGrain(guiGraphics, w, h);
-			}
-			// Menu ambient life: drifting dust behind, bodies orbiting the rings
-			// on top -- both under the vignette so the frame still darkens them.
-			drawParticles(guiGraphics, w, h);
-			drawOrbitingBodies(guiGraphics, w, h);
-			drawFrame(guiGraphics, w, h);
+			// true = keep spinning; vanilla passes panoramaShouldSpin(), which is
+			// only false while a screen is fading in.
+			mc.gameRenderer.getPanorama().render(guiGraphics, w, h, true);
+			guiGraphics.blurBeforeThisStratum();
+			drawGrade(guiGraphics, w, h);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -313,59 +331,31 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Main menu: the website's two-layer cursor spotlight, drawn over the ring
-	 * background but under the widgets/wordmark. The core (small, brighter)
-	 * snaps to the cursor every frame; the halo (large, faint) trails it via
-	 * the website's exact per-frame lerp (0.12 @60fps, dt-corrected here so it
-	 * feels identical at any framerate). Both grow + brighten while hovering a
-	 * clickable, mirroring the site's .is-active bloom. Sizes scale with the
-	 * GUI width the way the CSS pixel sizes relate to a typical viewport.
+	 * The Origin grade over the blurred panorama ("Lighter grade" -- the variant
+	 * that keeps most of the world's colour). One alpha blend toward charcoal:
+	 * blending toward a neutral pulls every channel together, so this darkens
+	 * and mutes in a single pass. It is NOT a true desaturation (that needs
+	 * per-pixel luminance, i.e. a post-process stage) -- Lighter grade is the
+	 * colour-retaining option by design.
 	 */
-	public static void renderTitleCursorGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		// Purely additive; skip when broken.
-		if (broken) {
-			return;
-		}
-		try {
-			renderTitleCursorGlow0(guiGraphics, mouseX, mouseY, hoveringClickable);
-		} catch (Throwable t) {
-			fail(t);
-		}
+	private static void drawGrade(GuiGraphics guiGraphics, int w, int h) {
+		guiGraphics.fill(0, 0, w, h, GRADE);
 	}
 
-	private static void renderTitleCursorGlow0(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		ensureLoaded();
-		if (radialGlowId == null) {
-			return;
-		}
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-
-		long now = System.nanoTime();
-		double dtMs = glowLastNanos == 0 ? 16.7 : Math.min(100.0, (now - glowLastNanos) / 1_000_000.0);
-		glowLastNanos = now;
-
-		// Hover bloom easing (~0.3s ease, like the site's transition).
-		double target = hoveringClickable ? 1.0 : 0.0;
-		double step = dtMs / 250.0;
-		glowHover = target > glowHover ? Math.min(target, glowHover + step) : Math.max(target, glowHover - step);
-		double hv = OriginTheme.easeOut(glowHover);
-
-		// Halo lag, dt-corrected. The website's 0.12/frame felt too floaty
-		// in-game (Will: "much faster, just a slight lag") -- 0.38/frame keeps
-		// a visible trail but snaps close behind the cursor.
-		if (Double.isNaN(haloX)) {
-			haloX = mouseX;
-			haloY = mouseY;
-		}
-		double f = 1.0 - Math.pow(1.0 - 0.38, dtMs / 16.7);
-		haloX += (mouseX - haloX) * f;
-		haloY += (mouseY - haloY) * f;
-
-		// Sizes are ~40% of the website's proportional values -- the 1:1
-		// translation read far too big in-game (Will: "shrink by 60% at least").
-		drawRadial(guiGraphics, haloX, haloY, w * (0.14 + 0.04 * hv), 0.112 + 0.063 * hv);
-		drawRadial(guiGraphics, mouseX, mouseY, w * (0.032 + 0.018 * hv), 0.30 + 0.17 * hv);
+	/**
+	 * Main menu: the website's two-layer cursor spotlight, drawn over the ring
+	 * background but under the widgets/wordmark.
+	 */
+	public static void renderTitleCursorGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
+		// Retired here to match 1.21.1 -- deliberately empty.
+		//
+		// This was a two-layer mouse-follow spotlight ported from the website: a
+		// soft radial bloom trailing the cursor. It's the one effect that cannot
+		// exist on Minecraft's pixel grid at any size, because the blur IS the
+		// effect. Kept as an empty method rather than deleted: both call sites are
+		// ScreenBackgroundMixin's two mutually-exclusive paths (cancelled-HEAD for
+		// out-of-world menus, TAIL for in-world), and that pairing is subtle enough
+		// to be worth leaving undisturbed.
 	}
 
 	private static void drawRadial(GuiGraphics guiGraphics, double cx, double cy, double diameter, double alpha) {
@@ -469,11 +459,11 @@ public final class OriginScreenRenderer {
 			int x = Math.max(10, (int) Math.round(w * 0.03));
 			int y = x;
 
-			// No border stroke (Will) — just a faint translucent backing so the
-			// white username stays legible over the rings.
-			OriginUi.panel(guiGraphics, x, y, chipW, chipH, OriginTheme.RADIUS_MD,
-					OriginTheme.PANEL_TRANSLUCENT, 0);
-
+			// No background behind the head/username (Will 2026-07-21): the chip's
+			// translucent backing is removed so the head sits directly on the menu.
+			// The username keeps a text shadow (below) so it stays legible over the
+			// panorama without a panel. Brought in line with 1.21.1 on 2026-07-26 —
+			// this module still had the old backed version.
 			int hx = x + padX, hy = y + padY;
 			boolean drewHead = false;
 			try {
@@ -490,7 +480,7 @@ public final class OriginScreenRenderer {
 			}
 
 			guiGraphics.drawString(font, name, hx + head + gap,
-					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, false);
+					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, true);
 		} catch (Throwable t) {
 			fail(t);
 		}

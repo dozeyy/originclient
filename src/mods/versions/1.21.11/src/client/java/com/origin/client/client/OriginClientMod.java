@@ -41,6 +41,14 @@ public class OriginClientMod implements ClientModInitializer {
 	public static volatile boolean zoomToggled = false;
 	public static volatile boolean zoomActive = false;
 	public static volatile double zoomScrollFactor = 1.0;
+	// The effective VERTICAL fov in degrees vanilla built this frame's projection
+	// from (zoom and every other modifier already applied). Published by
+	// GameRendererMixin because GameRenderer.getFov is private on 1.21.11, and
+	// read by WaypointHud, which projects world positions to the screen itself.
+	public static volatile double effectiveFovDeg = 70.0;
+	// Edge-trigger for death waypoints: true while the player is alive, so a death
+	// drops exactly one waypoint on the alive→dead transition.
+	private boolean wasAlive = false;
 	// Nametag toggle latches, read by EntityNametagMixin.
 	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
 	// Whether the Tab Editor's custom player-list overlay should draw this frame. Set
@@ -142,6 +150,11 @@ public class OriginClientMod implements ClientModInitializer {
 				// overlay must never take the frame down
 			}
 			try {
+				com.origin.client.client.waypoints.WaypointRenderer.render(context);
+			} catch (Throwable t) {
+				// waypoints must never take the frame down
+			}
+			try {
 				com.origin.client.client.mods.BlockOverlayRenderer.renderFromWorldEvent(context);
 			} catch (Throwable t) {
 				// outline must never take the frame down
@@ -230,6 +243,32 @@ public class OriginClientMod implements ClientModInitializer {
 				p.displayClientMessage(net.minecraft.network.chat.Component.literal("Copied coordinates: " + c), true);
 			}
 		}
+
+		// Waypoints — three activation paths (in addition to the mod-card ENABLED
+		// toggle and the in-menu toggle in WaypointScreen).
+		while (OriginKeyBindings.waypointToggle.consumeClick()) {
+			Mods.setOn("waypoints", !Mods.on("waypoints"));
+		}
+		while (OriginKeyBindings.waypointMenu.consumeClick()) {
+			if (client.screen == null) {
+				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+			}
+		}
+		while (OriginKeyBindings.waypointCreate.consumeClick()) {
+			// Opens the Waypoints screen straight into a fresh Create form.
+			if (client.screen == null) {
+				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen(true));
+			}
+		}
+		// Death waypoint: drop one on the alive→dead transition (edge-triggered).
+		LocalPlayer wp = client.player;
+		boolean dead = wp != null && (wp.isDeadOrDying() || wp.getHealth() <= 0f);
+		if (dead && wasAlive && Mods.on("waypoints") && Mods.bool("waypoints", "deathWaypoints")) {
+			var bp = wp.blockPosition();
+			com.origin.client.client.waypoints.Waypoints.onDeath(bp.getX(), bp.getY(), bp.getZ(),
+					com.origin.client.client.waypoints.Waypoints.currentDim());
+		}
+		wasAlive = wp != null && !dead;
 
 		applyChat(client);
 		applyHitboxes(client);

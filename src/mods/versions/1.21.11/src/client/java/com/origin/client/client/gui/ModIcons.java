@@ -54,6 +54,11 @@ public final class ModIcons {
 	/** Drawn as live text rather than any icon. */
 	public static final String FPS = "fps";
 
+	/** Drawn as the player's flat face rather than an item — see drawPlayerFace.
+	 *  Still keyed in ITEMS below so it falls back to the head item if no skin
+	 *  has resolved yet. */
+	public static final String FACE = "tablist";
+
 	static {
 		ITEMS.put("togglesprint", Items.FEATHER);
 		ITEMS.put("zoom", Items.SPYGLASS);
@@ -67,6 +72,9 @@ public final class ModIcons {
 		ITEMS.put("hitboxes", Items.ARMOR_STAND);
 		ITEMS.put("nametags", Items.NAME_TAG);
 		ITEMS.put("tablist", Items.PLAYER_HEAD);
+		ITEMS.put("colorsaturation", Items.BRUSH);
+		ITEMS.put("itemsize", Items.DROPPER);
+		ITEMS.put("waypoints", Items.LODESTONE);
 		ITEMS.put("weather", Items.TRIDENT);
 		ITEMS.put("timechanger", Items.CLOCK);
 		ITEMS.put("motionblur", Items.PHANTOM_MEMBRANE);
@@ -128,9 +136,53 @@ public final class ModIcons {
 			drawCustom(g, tex, CUSTOM_SIZE.get(id), x, y, size, alpha);
 			return;
 		}
+		if (FACE.equals(id) && drawPlayerFace(g, x, y, size)) {
+			return;
+		}
 		Item item = ITEMS.get(id);
 		if (item != null) {
 			drawItem(g, item, x, y, size, alpha);
+		}
+	}
+
+	/**
+	 * Tab Editor's icon: the player's own FACE, blitted flat, rather than the
+	 * PLAYER_HEAD item.
+	 *
+	 * The item renders its 3D skull model tilted so the icon is dominated by the
+	 * top of the head — with the current default skin that is a near-black mass
+	 * of hair with the face mostly in shadow (verified identical in the vanilla
+	 * creative menu, so it was never an Origin render bug, just an unreadable
+	 * icon). The flat face is the same thing the tab list itself draws, reads
+	 * instantly at icon size, and is blitted at a whole-number multiple of the
+	 * 8px face so the skin's pixels stay square instead of being resampled.
+	 *
+	 * Returns false if no skin is resolvable yet (no player, no user), letting
+	 * the caller fall back to the item.
+	 */
+	private static boolean drawPlayerFace(GuiGraphics g, int x, int y, int size) {
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			net.minecraft.world.entity.player.PlayerSkin skin = null;
+			if (mc.player != null) {
+				skin = mc.player.getSkin();
+			} else {
+				net.minecraft.client.User user = mc.getUser();
+				if (user != null && user.getName() != null && !user.getName().isEmpty()) {
+					skin = mc.getSkinManager().createLookup(
+							new com.mojang.authlib.GameProfile(user.getProfileId(), user.getName()), false).get();
+				}
+			}
+			if (skin == null) {
+				return false;
+			}
+			// Largest whole multiple of the 8px face that fits the box, centered.
+			int face = Math.max(8, (size / 8) * 8);
+			int off = (size - face) / 2;
+			net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, skin, x + off, y + off, face);
+			return true;
+		} catch (Throwable ignored) {
+			return false;
 		}
 	}
 

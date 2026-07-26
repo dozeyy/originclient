@@ -70,9 +70,28 @@ public final class OriginShaders {
 					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
 					.build());
 
-	/** Rounded-box SDF panel pipeline — not yet ported (see class doc). Every
-	 *  caller checks {@link #roundActive()} first, which is permanently false
-	 *  while this is null, so the software rounded-panel path keeps working. */
+	/**
+	 * Full-screen colour-grade pipeline for the Color Saturation mod. Same vertex
+	 * shape as MSDF/ICON — the amounts it needs (saturation / brightness /
+	 * contrast) ride the per-vertex COLOR channel precisely because this era has
+	 * no per-draw uniform hook; see the fragment shader's header for the packing.
+	 *
+	 * <p>NO BLEND: the grade REPLACES the pixels it covers (it is drawing back a
+	 * graded copy of the same image), so a blending pipeline would double-expose
+	 * the frame. GUI_TEXTURED_SNIPPET's own blend state is overridden below.
+	 */
+	public static final RenderPipeline GRADE = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+					.withLocation(Identifier.fromNamespaceAndPath("originclient", "pipeline/origin_grade"))
+					.withFragmentShader(Identifier.fromNamespaceAndPath("originclient", "core/rendertype_origin_grade"))
+					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
+					.withoutBlend()
+					.build());
+
+	/** Rounded-box SDF panel pipeline — not ported, and no longer needed: every
+	 *  caller checks {@link #roundActive()} first (permanently false while this
+	 *  is null) and OriginUi's software path now computes corner coverage per
+	 *  pixel, which is exact at any radius. */
 	public static final RenderPipeline ROUND = null;
 
 	private static boolean registered = false;
@@ -89,8 +108,8 @@ public final class OriginShaders {
 			return;
 		}
 		registered = true;
-		OriginClient.LOGGER.info("Origin: MSDF text + icon-glyph SDF render pipelines registered "
-				+ "(rounded-box SDF panel + color-grade not yet ported on 1.21.11 — using software fallbacks).");
+		OriginClient.LOGGER.info("Origin: MSDF text + icon-glyph SDF + colour-grade render pipelines registered "
+				+ "(rounded-box SDF panel uses the software per-pixel path on 1.21.11).");
 	}
 
 	/** Vector text is always on (matches 1.21.1/1.21.4 — the user-facing toggle

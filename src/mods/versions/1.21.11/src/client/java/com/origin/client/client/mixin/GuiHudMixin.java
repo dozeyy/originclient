@@ -28,6 +28,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = Gui.class, priority = 2000)
 public class GuiHudMixin {
 
+	// Color Saturation: grade the finished WORLD frame before any HUD is drawn,
+	// so only world pixels are affected. HEAD of Gui.render is exactly that
+	// moment. Fail-soft inside ColorGrade itself, but guarded here too — a grade
+	// failure must never take the HUD down.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$colorGrade(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+		try {
+			com.origin.client.client.render.ColorGrade.process(guiGraphics);
+		} catch (Throwable t) {
+			// never take the frame down over a colour grade
+		}
+	}
+
 	@Inject(method = "render", at = @At("RETURN"), order = 2000)
 	private void originclient$topHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		HudElements.renderAll(guiGraphics);
@@ -46,6 +59,19 @@ public class GuiHudMixin {
 			} catch (Throwable ignored) {
 				// never take the HUD down over the tab overlay
 			}
+		}
+	}
+
+	// Locator Bar. Drawn from the TAIL of the hotbar layer — the same layer vanilla
+	// draws the XP bar and its level number in — so the gems land over the bar
+	// sprite by plain call order. (Drawing from a later hook lets HUD batching
+	// reorder the sprite back over the gems; that was pixel-verified on 1.21.1.)
+	@Inject(method = "renderHotbarAndDecorations", at = @At("TAIL"))
+	private void originclient$locatorBar(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+		try {
+			com.origin.client.client.waypoints.WaypointHud.renderBars(guiGraphics);
+		} catch (Throwable t) {
+			// the locator bar must never take the HUD down
 		}
 	}
 }

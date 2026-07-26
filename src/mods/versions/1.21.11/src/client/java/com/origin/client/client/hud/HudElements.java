@@ -367,6 +367,23 @@ public final class HudElements {
 						g.drawString(mc.font, s, 0, 0, TEXT);
 					}
 				});
+
+		// Locator Bar, "Separate Bar" mode only. The live bar is drawn by
+		// WaypointHud.renderBars from the hotbar layer (so the gems land on top of
+		// the sprite); this element only draws the PREVIEW in the HUD editor / mod
+		// menu, and provides the drag target. Measuring 0×0 while off keeps it out
+		// of the editor until separate mode is enabled.
+		add("locatorbar", "waypoints", "Locator Bar", new HudPos(7, 0, -22, 1.0),
+				mc -> locatorBarActive() ? new int[]{182, 5} : new int[]{0, 0},
+				(g, mc, w, h) -> {
+					if (locatorBarActive() && (editorPreview || mc.screen instanceof HudEditorScreen)) {
+						com.origin.client.client.waypoints.WaypointHud.drawBar(g, mc, 0, 0, w, true);
+					}
+				});
+	}
+
+	private static boolean locatorBarActive() {
+		return Mods.bool("waypoints", "locatorBar") && Mods.bool("waypoints", "separateBar");
 	}
 
 	private static void add(String id, String modId, String label, HudPos def,
@@ -646,5 +663,19 @@ public final class HudElements {
 			}
 			p.popMatrix();
 		}
+		// Waypoint icon/name/distance overlay — screen-projected so it's always
+		// visible (through blocks) and untouched by world lighting/shaders.
+		try {
+			com.origin.client.client.waypoints.WaypointHud.render(g);
+		} catch (Throwable t) {
+			// must never take the HUD down — but log the FIRST failure so a broken
+			// overlay is visible in the log instead of silently absent on screen
+			if (!waypointHudWarned) {
+				waypointHudWarned = true;
+				com.origin.client.OriginClient.LOGGER.warn("Origin: waypoint HUD overlay failed", t);
+			}
+		}
 	}
+
+	private static boolean waypointHudWarned = false;
 }

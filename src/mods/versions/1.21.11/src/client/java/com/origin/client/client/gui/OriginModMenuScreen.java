@@ -1132,11 +1132,18 @@ public class OriginModMenuScreen extends Screen {
 					Mods.setOn(mod.id(), !Mods.on(mod.id()));
 					return true;
 				}
-				// icon area → open the mod's page
-				page = mod.id();
-				pageChangedAt = System.currentTimeMillis();
-				settingsSearch = "";
-				settingsScroll = settingsScrollTarget = 0;
+				// icon area → open the mod's page. Two mods are whole screens of
+				// their own rather than an option list (matching 1.21.1).
+				if (mod.id().equals("waypoints")) {
+					Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+				} else if (mod.id().equals("itemsize")) {
+					Minecraft.getInstance().setScreen(new OriginItemSizeScreen());
+				} else {
+					page = mod.id();
+					pageChangedAt = System.currentTimeMillis();
+					settingsSearch = "";
+					settingsScroll = settingsScrollTarget = 0;
+				}
 				return true;
 			}
 		}

@@ -34,3 +34,40 @@ client/java/com/origin/client/client/mods/ModOption.java
 # in the shared/ picker, so shared must NOT overwrite it here. Reconcile only if
 # the redesign is promoted to shared.
 client/java/com/origin/client/client/gui/OriginColorPicker.java
+
+# TEMPORARY FORK (2026-07-23) - Profiles feature persistence.
+# Adds the PROFILES LinkedHashMap + saveProfile/applyProfile/deleteProfile/
+# profileNames/snapshotCurrent/restoreFrom methods backing the new Profiles
+# feature. Profiles.java (the code that calls these) is 1.21.1-only right now,
+# so this fork is kept out of shared/ to avoid dead code on the other 12 live
+# modules. Promote to shared/ModsConfig.java (delete this line) once Profiles
+# ships on a second version.
+client/java/com/origin/client/client/mods/ModsConfig.java
+
+# TEMPORARY FORK (2026-07-21, Will's call) - "hover to full white" + Frost box skin.
+# STROKE_HOVER/TEXT went to full white, and BOX_FILL/BOX_FILL_HOVER/BOX_BORDER/
+# BOX_BORDER_HOVER were added to match OriginButtonRenderer's Frost-style button
+# skin (shipped launcher-v1.0.29). OriginButtonRenderer.java itself is NOT
+# shared-synced - every version has its own copy, and only 1.21.1's has the
+# Frost reskin so far. Promoting these constants to shared/ would silently
+# change hover/text color on all 12 other live modules before they have the
+# matching button skin. Promote to shared/OriginTheme.java (delete this line)
+# once the Frost button skin ships on a second version.
+client/java/com/origin/client/client/theme/OriginTheme.java
+
+# UNDECLARED DRIFT, now declared (2026-07-26). These four have been failing
+# sync.py --check (and therefore the build-check CI gate) since 2026-07-21;
+# every one of them is a deliberate 1.21.1-only divergence, not a mistake:
+#  - OriginKeyBindings + lang/en_us.json: the three Waypoints keybinds
+#    (Open/Create/Toggle Waypoints) and their labels. shared/ still tracks the
+#    versions that have no Waypoints feature.
+#  - GuiScoreboardMixin: repositions the REAL sidebar to the scoreboard HUD
+#    element's HudPos, so it can be dragged in the HUD editor. shared/'s copy
+#    only rescales it in place, which is correct for modules with no
+#    HudElements.scoreboardPos().
+#  - icon.png: 1.21.1 ships the high-resolution mark (12.7 KB vs shared's
+#    453 B placeholder).
+client/java/com/origin/client/client/OriginKeyBindings.java
+client/java/com/origin/client/client/mixin/GuiScoreboardMixin.java
+client/resources/assets/originclient/lang/en_us.json
+main/resources/assets/originclient/icon.png
