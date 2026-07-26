@@ -109,11 +109,14 @@ public final class OriginUi {
 		if (w <= MASK_MAX && h <= MASK_MAX) {
 			Identifier box = boxMask(w, h, r);
 			if (box != null) {
+				// Destination stays in GUI px; the mask's UVs are physical px.
+				int s = guiScale();
+				int pw = w * s, ph = h * s;
 				if (((fill >>> 24) & 0xFF) > 0) {
-					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, 0f, w, h, w, h * 2, fill);
+					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, 0f, w, h, pw, ph, pw, ph * 2, fill);
 				}
 				if (((border >>> 24) & 0xFF) > 0) {
-					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, (float) h, w, h, w, h * 2, border);
+					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, (float) ph, w, h, pw, ph, pw, ph * 2, border);
 				}
 				return;
 			}
@@ -131,10 +134,10 @@ public final class OriginUi {
 	 *  instead and never churn the cache. */
 	private static final int MASK_MAX = 96;
 
-	/** (w,h,r) -> one texture holding the fill mask on top and the 1px border ring
-	 *  underneath, so a panel is two blits into the same texture. LRU-capped: a
-	 *  handful of sizes repeat constantly, and anything rare gets evicted. */
-	private static final int MASK_CACHE_MAX = 64;
+	/** (w,h,r,guiScale) -> one texture holding the fill mask on top and the 1px
+	 *  border ring underneath, so a panel is two blits into the same texture.
+	 *  LRU-capped: a handful of sizes repeat constantly, anything rare is evicted. */
+	private static final int MASK_CACHE_MAX = 32;
 	private static final LinkedHashMap<Long, Identifier> BOX_MASKS =
 			new LinkedHashMap<>(16, 0.75f, true) {
 				@Override
@@ -153,23 +156,50 @@ public final class OriginUi {
 				}
 			};
 
+	/**
+	 * The GUI scale factor, i.e. how many PHYSICAL pixels one GUI pixel covers.
+	 *
+	 * <p>Masks are baked at physical resolution and blitted back down to their GUI
+	 * size, so one texel lands on exactly one screen pixel and the anti-aliasing
+	 * is computed per SCREEN pixel — which is what 1.21.1's rounded-box SDF shader
+	 * does, and the reason its corners look smooth at any GUI scale.
+	 *
+	 * <p>Baking in GUI pixels instead (the first version of this, and the
+	 * per-pixel scanline code before it) means the mask is magnified by the GUI
+	 * scale on the way to the screen: at Will's guiScale 3 every corner step
+	 * became a 3x3 block. That is the "low quality boxes" he reported — it was
+	 * never the corner MATHS, it was the resolution they were evaluated at.
+	 */
+	private static int guiScale() {
+		try {
+			int s = (int) Math.ceil(Minecraft.getInstance().getWindow().getGuiScale());
+			return Math.max(1, Math.min(8, s));
+		} catch (Throwable t) {
+			return 1;
+		}
+	}
+
 	private static Identifier boxMask(int w, int h, int r) {
-		long key = ((long) w << 40) | ((long) h << 16) | r;
+		int s = guiScale();
+		long key = ((long) w << 44) | ((long) h << 20) | ((long) r << 4) | s;
 		if (BOX_MASKS.containsKey(key)) {
 			return BOX_MASKS.get(key);   // may be null: a failed bake is remembered, not retried
 		}
 		Identifier id = null;
 		try {
-			NativeImage img = new NativeImage(NativeImage.Format.RGBA, w, h * 2, false);
-			for (int py = 0; py < h; py++) {
-				for (int px = 0; px < w; px++) {
-					double cov = boxCoverage(px, py, w, h, r, 0);
-					double ring = boxCoverage(px, py, w, h, r, 1);
+			// Bake in physical pixels: the whole shape scales, radius included.
+			int pw = w * s, ph = h * s, pr = r * s;
+			NativeImage img = new NativeImage(NativeImage.Format.RGBA, pw, ph * 2, false);
+			for (int py = 0; py < ph; py++) {
+				for (int px = 0; px < pw; px++) {
+					double cov = boxCoverage(px, py, pw, ph, pr, 0);
+					// The border stays 1 GUI pixel thick, so it is `s` physical px.
+					double ring = boxCoverage(px, py, pw, ph, pr, s);
 					img.setPixel(px, py, alphaWhite(cov));
-					img.setPixel(px, py + h, alphaWhite(ring));
+					img.setPixel(px, py + ph, alphaWhite(ring));
 				}
 			}
-			String name = "origin_box_" + w + "x" + h + "_" + r;
+			String name = "origin_box_" + w + "x" + h + "_" + r + "@" + s;
 			id = Identifier.fromNamespaceAndPath("originclient", "textures/ui/" + name);
 			Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> name, img));
 		} catch (Throwable t) {
@@ -267,11 +297,14 @@ public final class OriginUi {
 		if (mask == null) {
 			return;   // baking failed — the straight bands above still drew a square box
 		}
-		int t = r * 2;
-		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y, 0f, 0f, r, r, r, r, t, t, color);
-		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - r, y, (float) r, 0f, r, r, r, r, t, t, color);
-		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y + h - r, 0f, (float) r, r, r, r, r, t, t, color);
-		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - r, y + h - r, (float) r, (float) r, r, r, r, r, t, t, color);
+		// The mask is baked at physical resolution, so its UV extents are in
+		// physical px while the destination rect stays in GUI px.
+		int s = guiScale();
+		int pr = r * s, t = pr * 2;
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y, 0f, 0f, r, r, pr, pr, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - r, y, (float) pr, 0f, r, r, pr, pr, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y + h - r, 0f, (float) pr, r, r, pr, pr, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - r, y + h - r, (float) pr, (float) pr, r, r, pr, pr, t, t, color);
 	}
 
 	// Baked corner masks, keyed by radius. `false` = filled quarter discs (panel
@@ -282,32 +315,35 @@ public final class OriginUi {
 
 	private static Identifier cornerMask(int r, boolean ring) {
 		Map<Integer, Identifier> cache = ring ? STROKE_MASKS : FILL_MASKS;
-		if (cache.containsKey(r)) {
-			return cache.get(r);   // may hold null: a failed bake is remembered, not retried every frame
+		int s = guiScale();
+		int key = (r << 4) | s;
+		if (cache.containsKey(key)) {
+			return cache.get(key);   // may hold null: a failed bake is remembered, not retried every frame
 		}
 		Identifier id = null;
 		try {
-			int t = r * 2;
+			// Baked at PHYSICAL resolution — see guiScale() for why.
+			int pr = r * s, t = pr * 2;
 			NativeImage img = new NativeImage(NativeImage.Format.RGBA, t, t, false);
-			double rInner = ring ? r - 1 : 0;
+			double rInner = ring ? pr - s : 0;   // a 1 GUI px ring is s physical px
 			for (int py = 0; py < t; py++) {
 				for (int px = 0; px < t; px++) {
 					// Centre of the rounded box: every corner is one quadrant of the
 					// same circle, which is why one mask serves all four.
-					double dx = px + 0.5 - r, dy = py + 0.5 - r;
+					double dx = px + 0.5 - pr, dy = py + 0.5 - pr;
 					double dist = Math.sqrt(dx * dx + dy * dy);
-					double cov = clamp01(r - dist + 0.5) - clamp01(rInner - dist + 0.5);
+					double cov = clamp01(pr - dist + 0.5) - clamp01(rInner - dist + 0.5);
 					int a = cov <= 0.001 ? 0 : (int) Math.round(255 * cov);
 					img.setPixel(px, py, (a << 24) | 0xFFFFFF);   // white, tinted at blit time
 				}
 			}
-			String name = (ring ? "origin_round_ring_" : "origin_round_fill_") + r;
+			String name = (ring ? "origin_round_ring_" : "origin_round_fill_") + r + "@" + s;
 			id = Identifier.fromNamespaceAndPath("originclient", "textures/ui/" + name);
 			Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> name, img));
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: rounded-corner mask r=" + r + " failed to bake", t);
 		}
-		cache.put(r, id);
+		cache.put(key, id);
 		return id;
 	}
 
