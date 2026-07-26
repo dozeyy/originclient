@@ -51,6 +51,12 @@ public class GameRendererMixin {
 				tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
 				cir.setReturnValue((float) (vanilla + (tfov - vanilla) * originclient$zoomAnim));
 			}
+			// Publish the EFFECTIVE vertical FOV (post-zoom, post-effects) for the
+			// waypoint HUD, which projects world positions to screen itself and
+			// needs the exact value vanilla is about to build its projection from.
+			// getFov is private on 1.21.11, so this RETURN hook is the only place
+			// the final number is visible.
+			OriginClientMod.effectiveFovDeg = cir.getReturnValue();
 		} catch (Throwable t) {
 			// A zoom error must never crash the frame — just skip zoom this frame.
 		}

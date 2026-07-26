@@ -42,3 +42,20 @@ client/java/com/origin/client/client/mods/ModsConfig.java
 # fork — promote to shared/ once every version adopts the look (mirrors the
 # same undeclared drift already found in 1.21.1's copy of this file).
 client/java/com/origin/client/client/theme/OriginTheme.java
+
+# UNDECLARED DRIFT, now declared (2026-07-26). Both were already diverging from
+# shared/ and failing sync.py --check; neither is a mistake:
+#  - OriginColorPicker: the render-pipeline-era port (Matrix3x2fStack pose, ARGB
+#    per-blit tints, event-object input callbacks).
+#  - lang/en_us.json: this module's own keybind set. It gained the three
+#    waypoint keys with the Waypoints port (2026-07-26); shared/'s copy still
+#    tracks the versions that don't have them.
+client/java/com/origin/client/client/gui/OriginColorPicker.java
+client/resources/assets/originclient/lang/en_us.json
+
+# 1.21.11 removed ParticleEngine.destroy()/crack(); block-break and block-hit
+# bursts spawn through ClientLevel.addDestroyBlockEffect/addBreakingBlockEffect
+# instead, and ClientLevelParticleMixin (this module only) gates them there. The
+# two injects were deleted from this copy on 2026-07-26 — shared/'s copy still
+# needs them for every version that still has those methods.
+client/java/com/origin/client/client/mixin/ParticleEngineMixin.java

@@ -34,18 +34,30 @@ import com.origin.client.client.theme.OriginTheme;
 public final class OriginButtonRenderer {
 	private static final Gson GSON = new Gson();
 
-	private static final int FILL_NORMAL = 0x07FFFFFF;
-	private static final int FILL_HOVER = 0x0FFFFFFF;
-	private static final int BORDER_NORMAL = 0x1CFFFFFF;
-	// Hover brightens the outline to a MUCH lighter gray (A2) — one shared token
-	// so every hovered Origin box reads the same, here and in OriginUi panels.
+	// FROST PALETTE (ported from 1.21.1, 2026-07-26 — this module was still on
+	// the older flat white-tint skin). Fill (the "center") is LIGHT and
+	// see-through so the panorama shows through the box like glass; hover fills
+	// it in a bit for feedback. The outline is a near-black frame kept DARKER
+	// THAN THE CENTER so the edge always reads darker than the fill, and hover
+	// takes it to bright white.
+	private static final int FILL_NORMAL = 0x59161616;
+	private static final int FILL_HOVER = 0x99303030;
+	private static final int BORDER_NORMAL = 0xF00A0A0A;
+	// Hover brightens the outline to full white — one shared token so every
+	// hovered Origin box reads the same, here and in OriginUi panels.
 	private static final int BORDER_HOVER = OriginTheme.STROKE_HOVER;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
-	private static final int FILL_DISABLED = 0x04FFFFFF;
-	private static final int BORDER_DISABLED = 0x10FFFFFF;
-	private static final int LABEL_DISABLED = OriginTheme.MUTED;
-	private static final int CORNER_DISPLAY = 6;
+	private static final int FILL_DISABLED = 0x40101010;
+	private static final int BORDER_DISABLED = 0x99080808;
+	private static final int LABEL_DISABLED = 0xFFA0A0A0;
+	// Corners are a small angled CUT (bevel) — not square, not round. Everything
+	// goes through OriginUi.bevelPanel, the same fill+border choke point the rest
+	// of the Origin UI uses, so buttons match the mod menu surfaces by
+	// construction. That ALSO retires this file's own 9-slice texture path, whose
+	// 24px source corner blitted down to a ~6px destination came out as a hard
+	// staircase on every button.
+	private static final int BEVEL_CUT = 3;
 	// Short + eased = the website's snappy hover; no per-button glow (the
 	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
 	private static final double HOVER_MS = 90.0;
@@ -115,16 +127,7 @@ public final class OriginButtonRenderer {
 		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
-		if (!assetsOk) {
-			drawFallback(guiGraphics, x, drawY, w, h, fill, border, labelColor, button.getMessage());
-			return;
-		}
-
-
-		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-		nineSlice(guiGraphics, fillTex, x, drawY, w, h, cd, fill);
-		nineSlice(guiGraphics, borderTex, x, drawY, w, h, cd, border);
-
+		OriginUi.bevelPanel(guiGraphics, x, drawY, w, h, BEVEL_CUT, fill, border);
 		drawLabel(guiGraphics, cx, cy, h, button.getMessage(), labelColor);
 	}
 
@@ -162,14 +165,9 @@ public final class OriginButtonRenderer {
 		int border = enabled ? BORDER_NORMAL : BORDER_DISABLED;
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
-		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-
-		// Shell -- identical to a resting button.
-		if (assetsOk) {
-			nineSlice(guiGraphics, fillTex, x, y, w, h, cd, fill);
-		} else {
-			guiGraphics.fill(x, y, x + w, y + h, fill);
-		}
+		// Shell -- identical to a resting button. Fill only for now; the border
+		// goes on AFTER the handle so the frame always sits on top of it.
+		OriginUi.bevelPanel(guiGraphics, x, y, w, h, BEVEL_CUT, fill, 0);
 
 		// Just the draggable handle: a thin vertical gray bar at the value
 		// position -- no horizontal center groove line (Will). Gray, clearly
@@ -183,12 +181,8 @@ public final class OriginButtonRenderer {
 		guiGraphics.fill(handleX, handleY, handleX + handleW, handleY + handleH,
 				enabled ? OriginTheme.lerpColor(0xFFB4B4B4, 0xFFD8D8D8, hv) : 0x66808080);
 
-		// Border on top -- resting gray, matching the other boxes. (The old
-		// global-blend-state hazard around fill() is gone in the RenderPipeline
-		// era: each blit carries its own pipeline + per-call tint.)
-		if (assetsOk) {
-			nineSlice(guiGraphics, borderTex, x, y, w, h, cd, border);
-		}
+		// Border on top -- resting dark frame, matching the other boxes.
+		OriginUi.bevelPanel(guiGraphics, x, y, w, h, BEVEL_CUT, 0, border);
 
 		drawLabel(guiGraphics, x + w / 2.0, y + h / 2.0, h, slider.getMessage(), labelColor);
 	}
@@ -220,13 +214,7 @@ public final class OriginButtonRenderer {
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
 		int box = h;
-		int cd = Math.min(4, box / 3);
-		if (assetsOk) {
-			nineSlice(guiGraphics, fillTex, x, y, box, box, cd, fill);
-			nineSlice(guiGraphics, borderTex, x, y, box, box, cd, border);
-		} else {
-			guiGraphics.fill(x, y, x + box, y + box, fill);
-		}
+		OriginUi.bevelPanel(guiGraphics, x, y, box, box, Math.min(BEVEL_CUT, box / 3), fill, border);
 
 		if (checkbox.selected()) {
 			int inset = Math.max(3, box / 5);
@@ -237,8 +225,7 @@ public final class OriginButtonRenderer {
 		}
 
 		Font font = Minecraft.getInstance().font;
-		String text = cleanLabel(checkbox.getMessage().getString());
-		guiGraphics.drawString(font, text, x + box + 5, y + (box - 8) / 2 + 1, labelColor, false);
+		guiGraphics.drawString(font, checkbox.getMessage(), x + box + 5, y + (box - 8) / 2 + 1, labelColor, true);
 	}
 
 	/** Origin-styled header tab (Game/World/More on Create World and friends): a
@@ -257,13 +244,7 @@ public final class OriginButtonRenderer {
 			double lit = selected ? 1.0 : hv;
 			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, lit);
 			int border = OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, lit);
-			if (assetsOk) {
-				int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-				nineSlice(g, fillTex, x, y, w, h, cd, fill);
-				nineSlice(g, borderTex, x, y, w, h, cd, border);
-			} else {
-				g.fill(x, y, x + w, y + h, fill);
-			}
+			OriginUi.bevelPanel(g, x, y, w, h, BEVEL_CUT, fill, border);
 			if (selected) {
 				int uw = Math.max(16, Math.min(w - 8, (int) Math.round(w * 0.55)));
 				int ux = x + (w - uw) / 2;
@@ -314,13 +295,7 @@ public final class OriginButtonRenderer {
 		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
-		if (!assetsOk) {
-			drawFallback(guiGraphics, x, y, w, h, fill, border, labelColor, button.getMessage());
-		} else {
-			int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-			nineSlice(guiGraphics, fillTex, x, y, w, h, cd, fill);
-			nineSlice(guiGraphics, borderTex, x, y, w, h, cd, border);
-		}
+		OriginUi.bevelPanel(guiGraphics, x, y, w, h, BEVEL_CUT, fill, border);
 
 		// TextAndIcon draws a label at the vanilla position (icon-only
 		// CenteredIcon never draws its message -- matches vanilla behavior).
@@ -355,15 +330,16 @@ public final class OriginButtonRenderer {
 
 	private static void drawLabel(GuiGraphics guiGraphics, double cx, double cy, int h, Component message, int labelColor) {
 		// One text pipeline for EVERY label (Will: "every text needs to be the
-		// same"): the default game font, drawn without shadow. Baked label
-		// textures and the Inter TTF override were both tried and retired --
-		// Will settled on default Minecraft text everywhere, so consistency
-		// comes free. Trailing ellipsis/dots stripped (Will: no dots on
-		// "Options...").
-		String text = cleanLabel(message.getString());
+		// same"): the default game font. Baked label textures and the Inter TTF
+		// override were both tried and retired -- Will settled on default
+		// Minecraft text everywhere, so consistency comes free.
+		//
+		// Frost skin (2026-07-26): the label now carries the standard drop shadow
+		// and the RAW text is kept -- no dot-stripping -- so "Options..." reads
+		// like vanilla/Frost. Both match 1.21.1.
 		Font font = Minecraft.getInstance().font;
-		int tw = font.width(text);
-		guiGraphics.drawString(font, text, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, false);
+		int tw = font.width(message);
+		guiGraphics.drawString(font, message, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, true);
 	}
 
 	private static String cleanLabel(String raw) {

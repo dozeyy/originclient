@@ -1,6 +1,7 @@
 package com.origin.client.client.hud;
 
 import com.origin.client.client.gui.OriginModMenuScreen;
+import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginScreenRenderer;
@@ -195,13 +196,18 @@ public class HudEditorScreen extends Screen {
 				g.drawString(font, o, cx - font.width(o) / 2, bt - 48, withAlpha(OriginTheme.TEXT, in), false);
 			}
 
-			// dark, clean MODS button — perfectly centered, no hover lift. Label
-			// stays the default Minecraft font (Will: revert the baked-font MODS).
+			// MODS button — the SAME style as every other menu button (matching
+			// 1.21.1): the shared 3px bevel cut, the standard button fill/border
+			// tokens, bright white border on hover. Centered, no hover lift.
+			// The label goes through OriginText like every other Origin label, so
+			// it renders in the menu's own Inter face instead of the vanilla pixel
+			// font — this button was the last place still calling drawString, and
+			// the mismatch is what Will spotted.
 			boolean hoverBtn = in(mouseX, mouseY, btnX(), bt, btnX() + BTN_W, bt + BTN_H);
-			OriginUi.panel(g, btnX(), bt, BTN_W, BTN_H, 9,
-					withAlpha(hoverBtn ? 0xE6181818 : 0xD0101010, in),
-					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE_STRONG, in));
-			g.drawString(font, "MODS", cx - font.width("MODS") / 2, bt + 10,
+			OriginUi.bevelPanel(g, btnX(), bt, BTN_W, BTN_H, 3,
+					withAlpha(hoverBtn ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, in),
+					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, in));
+			OriginText.drawBold(g, font, "MODS", cx - OriginText.widthBold(font, "MODS") / 2, bt + 10,
 					withAlpha(OriginTheme.TEXT, in), false);
 		}
 	}
