@@ -40,10 +40,8 @@ public final class HudElements {
 	// measure/hit-testing see the same preview the render shows.
 	public static volatile boolean editorPreview = false;
 	// Set by the mod menu screen (which also calls renderAll for its own live
-	// backdrop) so a scoreboard preview element doesn't double-draw alongside
-	// the menu's own content. No "scoreboard" draggable HUD element exists on
-	// 1.21.11 yet, so this currently has no reader — kept for API parity with
-	// 1.21.1's OriginModMenuScreen, which sets it unconditionally on open/close.
+	// backdrop) so the scoreboard preview element doesn't double-draw alongside
+	// the menu's own content.
 	public static volatile boolean suppressScoreboard = false;
 
 	public interface Renderer {
@@ -383,6 +381,18 @@ public final class HudElements {
 					}
 				});
 
+		// A real draggable element: default at the right edge, centred. In game it
+		// draws NOTHING — the vanilla sidebar renders, repositioned and rescaled to
+		// this same HudPos by GuiScoreboardMixin — so dragging the sample here moves
+		// the real scoreboard.
+		add("scoreboard", "scoreboard", "Scoreboard", new HudPos(5, -3, 0, 1.0),
+				mc -> sampleScoreboardSize(),
+				(g, mc, w, h) -> {
+					if (editorPreview && !suppressScoreboard) {
+						drawSampleScoreboard(g);
+					}
+				});
+
 		// Locator Bar, "Separate Bar" mode only. The live bar is drawn by
 		// WaypointHud.renderBars from the hotbar layer (so the gems land on top of
 		// the sprite); this element only draws the PREVIEW in the HUD editor / mod
@@ -399,6 +409,67 @@ public final class HudElements {
 
 	private static boolean locatorBarActive() {
 		return Mods.bool("waypoints", "locatorBar") && Mods.bool("waypoints", "separateBar");
+	}
+
+	// The Scoreboard is a real draggable HUD element ("scoreboard" in ALL). In the
+	// editor/menu it draws this SAMPLE at its HudPos; in-game it draws NOTHING here —
+	// the vanilla sidebar renders, repositioned to the same HudPos + scale by
+	// GuiScoreboardMixin. So dragging the sample moves the real scoreboard.
+	private static final String SB_TITLE = "Origin Network";
+	private static final String[][] SB_ROWS = {
+			{"Rank: ", "VIP"}, {"Coins: ", "1,234"}, {"Wins: ", "42"},
+			{"Map: ", "Skylands"}, {"Players: ", "12/16"}};
+
+	public static int[] sampleScoreboardSize() {
+		var font = Minecraft.getInstance().font;
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		int w = font.width(SB_TITLE);
+		for (String[] r : SB_ROWS) {
+			w = Math.max(w, font.width(r[0]) + (hideNums ? 0 : font.width(r[1]) + 10));
+		}
+		int lineH = font.lineHeight + 1;
+		return new int[]{w + 6, (SB_ROWS.length + 1) * lineH + 3};
+	}
+
+	/** The scoreboard element's placement — shared by the editor element AND the
+	 *  mixin that repositions the real sidebar. Default: right edge (inset 3), centred. */
+	public static HudPos scoreboardPos() {
+		return HudPos.load("scoreboard", new HudPos(5, -3, 0, 1.0));
+	}
+
+	// Draws the sample scoreboard at LOCAL (0,0) — the caller has already translated
+	// and scaled to the element's position.
+	private static void drawSampleScoreboard(GuiGraphics g) {
+		if (Mods.bool("scoreboard", "hideScoreboard")) {
+			return;
+		}
+		var font = Minecraft.getInstance().font;
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		boolean shadow = Mods.bool("scoreboard", "textShadow");
+		int headerColor = OriginColorPicker.liveColor("scoreboard", "headerColor");
+		int bgc = OriginColorPicker.liveColor("scoreboard", "bgColor");
+		int[] sz = sampleScoreboardSize();
+		int boxW = sz[0], contentH = sz[1];
+		int lineH = font.lineHeight + 1;
+		OriginUi.panel(g, 0, 0, boxW, contentH, 0, bgc, 0);
+		if (Mods.bool("scoreboard", "border")) {
+			int bt = (int) Math.max(1, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));
+			int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
+			g.fill(0, 0, boxW, bt, bc);
+			g.fill(0, contentH - bt, boxW, contentH, bc);
+			g.fill(0, 0, bt, contentH, bc);
+			g.fill(boxW - bt, 0, boxW, contentH, bc);
+		}
+		int ty = 2;
+		g.drawString(font, SB_TITLE, (boxW - font.width(SB_TITLE)) / 2, ty, headerColor, shadow);
+		ty += lineH + 1;
+		for (String[] r : SB_ROWS) {
+			g.drawString(font, r[0], 3, ty, TEXT, shadow);
+			if (!hideNums) {
+				g.drawString(font, r[1], boxW - 3 - font.width(r[1]), ty, 0xFFE05555, shadow);
+			}
+			ty += lineH;
+		}
 	}
 
 	private static void add(String id, String modId, String label, HudPos def,
