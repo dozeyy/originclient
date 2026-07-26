@@ -223,7 +223,22 @@ public class OriginItemSizeScreen extends Screen {
 		return Math.max(1, (gridRight() - gridLeft()) / CELL);
 	}
 
+	// What `filtered` was last built for. Rebuilding is O(all items) plus a sort,
+	// and render() calls filter() unconditionally on its first line — so without
+	// this the screen re-filtered and re-SORTED the entire ~1300-item registry
+	// every frame, allocating two lowercase Strings per item as it went. Found on
+	// 1.21.11 (Will reported heavy lag in this screen) and fixed here at the same
+	// time: the code is identical, so the bug was identical.
+	private String lastQuery = null;
+	private Cat lastCat = null;
+
 	private void filter() {
+		if (search.equals(lastQuery) && cat == lastCat) {
+			return;
+		}
+		lastQuery = search;
+		lastCat = cat;
+
 		filtered.clear();
 		String q = search.toLowerCase();
 		for (Entry e : allItems()) {
@@ -303,7 +318,14 @@ public class OriginItemSizeScreen extends Screen {
 		g.enableScissor(px(), top, px() + pw(), bottom);
 		int cols = cols();
 		int gx0 = gridLeft();
-		for (int i = 0; i < filtered.size(); i++) {
+		// Only walk the rows that are actually on screen. This used to iterate the
+		// whole filtered list and `continue` past everything off-screen, so the
+		// per-frame cost scaled with the LIST, not the view.
+		int firstRow = Math.max(0, (int) scroll / CELL);
+		int lastRow = (int) (scroll + (bottom - top)) / CELL + 1;
+		int first = firstRow * cols;
+		int last = Math.min(filtered.size(), (lastRow + 1) * cols);
+		for (int i = first; i < last; i++) {
 			int col = i % cols, row = i / cols;
 			int x = gx0 + col * CELL;
 			int y = top + row * CELL - (int) scroll;
@@ -381,31 +403,46 @@ public class OriginItemSizeScreen extends Screen {
 		pose.popPose();
 	}
 
+	/** Id -> entry, built once alongside ALL_ITEMS. entryById is called every
+	 *  frame while an item is selected (the size bar draws its icon and name). */
+	private static java.util.Map<ResourceLocation, Entry> BY_ID;
+
 	private Entry entryById(ResourceLocation id) {
-		for (Entry e : allItems()) {
-			if (e.id.equals(id)) {
-				return e;
-			}
+		if (id == null) {
+			return null;
 		}
-		return null;
+		if (BY_ID == null) {
+			java.util.Map<ResourceLocation, Entry> m = new java.util.HashMap<>();
+			for (Entry e : allItems()) {
+				m.put(e.id, e);
+			}
+			BY_ID = m;
+		}
+		return BY_ID.get(id);
 	}
 
+	/** The cell under the cursor, found by arithmetic rather than by scanning the
+	 *  whole list — this runs every frame (hover highlight + tooltip). */
 	private Entry cellAt(double mx, double my) {
 		int top = gridTop(), bottom = gridBottom();
 		if (my < top || my >= bottom) {
 			return null;
 		}
-		int cols = cols();
 		int gx0 = gridLeft();
-		for (int i = 0; i < filtered.size(); i++) {
-			int col = i % cols, row = i / cols;
-			int x = gx0 + col * CELL;
-			int y = top + row * CELL - (int) scroll;
-			if (in(mx, my, x, y, x + CELL - 2, y + CELL - 2)) {
-				return filtered.get(i);
-			}
+		int cols = cols();
+		int col = (int) ((mx - gx0) / CELL);
+		int row = (int) ((my - top + scroll) / CELL);
+		if (col < 0 || col >= cols || row < 0 || mx < gx0) {
+			return null;
 		}
-		return null;
+		int i = row * cols + col;
+		if (i < 0 || i >= filtered.size()) {
+			return null;
+		}
+		// Reject the 2px gutter between cells so hover matches what was drawn.
+		int x = gx0 + col * CELL;
+		int y = top + row * CELL - (int) scroll;
+		return in(mx, my, x, y, x + CELL - 2, y + CELL - 2) ? filtered.get(i) : null;
 	}
 
 	// ---- slider math ----

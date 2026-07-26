@@ -15,4 +15,20 @@ public interface GameRendererAccessor {
 
 	@Invoker("clearPostEffect")
 	void originclient$clearPostEffect();
+
+	/**
+	 * The EFFECTIVE vertical fov in degrees — the exact number vanilla builds
+	 * this frame's projection from, with zoom and every other modifier already
+	 * applied. Private in 1.21.11, and WaypointHud needs it to project world
+	 * positions to the screen itself.
+	 *
+	 * <p>This is an invoker rather than a value published from a RETURN inject
+	 * on purpose: an inject leaves the reader depending on WHEN in the frame it
+	 * last fired, and if it silently fails to apply the reader keeps a stale
+	 * default (70) instead of the player's real fov — an error that is invisible
+	 * at screen centre and grows toward the edges, i.e. exactly the "marker
+	 * slides around as I look" bug. Calling it directly can't drift.
+	 */
+	@Invoker("getFov")
+	float originclient$getFov(net.minecraft.client.Camera camera, float partialTick, boolean usePerspective);
 }
