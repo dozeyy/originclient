@@ -74,16 +74,31 @@ public final class HudElements {
 		return mc.screen instanceof ChatScreen;
 	}
 
-	/** Standard text row backing, gated by the mod's Show Background toggle. */
+	/**
+	 * Standard text row backing, gated by the mod's Show Background toggle and
+	 * painted in the mod's own Background Color.
+	 *
+	 * <p>This used to paint the hardcoded PANEL tint and ignore the option
+	 * entirely, which made every "Background Color" picker on fps / cps / server
+	 * address a control that did nothing (the same was true on 1.21.1). Every
+	 * caller declares a bgColor, which matters: Mods.color() returns opaque WHITE
+	 * for an option that doesn't exist, so adding a caller without one would
+	 * paint a white slab.
+	 */
 	private static void bg(GuiGraphics g, String modId, int w, int h) {
-		if (Mods.bool(modId, "showBackground")) {
-			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, PANEL, 0);
-		}
+		bgColored(g, modId, "bgColor", null, w, h);
 	}
 
 	private static void bgColored(GuiGraphics g, String modId, String colorKey, int w, int h) {
+		bgColored(g, modId, colorKey, null, w, h);
+	}
+
+	/** `borderKey` null = no outline. Passing one makes the mod's Border Color
+	 *  option real — Coordinates shipped that picker with nothing reading it. */
+	private static void bgColored(GuiGraphics g, String modId, String colorKey, String borderKey, int w, int h) {
 		if (Mods.bool(modId, "showBackground")) {
-			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, colorKey), 0);
+			int border = borderKey == null ? 0 : OriginColorPicker.liveColor(modId, borderKey);
+			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, colorKey), border);
 		}
 	}
 
@@ -266,7 +281,7 @@ public final class HudElements {
 			var p = g.pose();
 			p.pushMatrix();
 			p.scale(s, s);
-			bgColored(g, "coords", "bgColor", (int) (w / s), (int) (h / s));
+			bgColored(g, "coords", "bgColor", "borderColor", (int) (w / s), (int) (h / s));
 			boolean shadow = Mods.bool("coords", "textShadow");
 			int y = 1;
 			for (String line : coordsLines(mc)) {
@@ -496,7 +511,8 @@ public final class HudElements {
 			boolean dur = !durPos.equals("Hidden");
 			int wAct = vertical ? 19 + (dur ? 30 : 0) : items.size() * 19;
 			int hAct = vertical ? items.size() * 19 : 17 + (dur ? 10 : 0);
-			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, PANEL, 0);
+			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5,
+					OriginColorPicker.liveColor("armorhud", "bgColor"), 0);
 		}
 
 		int x = 0, y = 0;

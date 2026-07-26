@@ -82,8 +82,15 @@ public final class HudElements {
 	}
 
 	private static void bgColored(GuiGraphics g, String modId, String colorKey, int w, int h) {
+		bgColored(g, modId, colorKey, null, w, h);
+	}
+
+	/** `borderKey` null = no outline. Passing one makes the mod's Border Color
+	 *  option real — Coordinates shipped that picker with nothing reading it. */
+	private static void bgColored(GuiGraphics g, String modId, String colorKey, String borderKey, int w, int h) {
 		if (Mods.bool(modId, "showBackground")) {
-			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, colorKey), 0);
+			int border = borderKey == null ? 0 : OriginColorPicker.liveColor(modId, borderKey);
+			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, colorKey), border);
 		}
 	}
 
@@ -331,7 +338,7 @@ public final class HudElements {
 			var p = g.pose();
 			p.pushPose();
 			p.scale(s, s, 1f);
-			bgColored(g, "coords", "bgColor", (int) (w / s), (int) (h / s));
+			bgColored(g, "coords", "bgColor", "borderColor", (int) (w / s), (int) (h / s));
 			boolean shadow = Mods.bool("coords", "textShadow");
 			var biomeH = mc.level != null ? mc.level.getBiome(BlockPos.containing(mc.player.position())) : null;
 			int y = 1;

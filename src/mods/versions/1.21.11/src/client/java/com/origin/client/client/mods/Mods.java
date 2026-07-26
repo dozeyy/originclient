@@ -118,7 +118,8 @@ public final class Mods {
 				ModOption.toggle("showBrackets", "Show Brackets", false),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("cps", "CPS", "Clicks per second.", false,
 				ModOption.toggle("rightClick", "Right Click CPS", false),
@@ -127,7 +128,8 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
@@ -158,7 +160,8 @@ public final class Mods {
 				ModOption.dropdown("damageThreshold", "Damage Threshold Type", "Percent", "Value").tip("Whether Damage Color kicks in by percent remaining (<25%) or raw durability left (<50)."),
 				ModOption.header("Color"),
 				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
-				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."));
+				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("keystrokes", "Key Strokes", "On-screen key display.", false,
 				ModOption.toggle("showClicks", "Show Clicks", true),
@@ -217,7 +220,8 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("scoreboard", "Scoreboard", "Server scoreboard styling.", false,
 				ModOption.toggle("hideNumbers", "Hide Numbers", false),
@@ -307,15 +311,31 @@ public final class Mods {
 				ModOption.toggle("monsters", "Monsters", true),
 				ModOption.toggle("other", "Other Entities", true));
 
-		add("nametags", "Nametags", "Name tag rendering tweaks.", false,
-				ModOption.toggle("textShadow", "Nametag Text Shadow", true),
+		// Colour options restored 2026-07-26 to match 1.21.1. They were missing
+		// here while NametagStyleMixin read them anyway — and Mods.color() returns
+		// opaque WHITE for an option that doesn't exist, so every nametag was
+		// getting a solid white backing box.
+		// "replaceOwnColor" went with them: nothing ever read it, so it was a
+		// switch in the menu that did nothing.
+		add("nametags", "Nametags", "Customize name tag rendering.", false,
+				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("thirdPerson", "Third Person Nametag", true),
-				ModOption.toggle("displayToggleMessage", "Display Toggle Nametags Message", true),
+				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
+				ModOption.slider("opacity", "Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
+				ModOption.color("backgroundColor", "Background Color", 0x66000000)
+						.tip("The tint + opacity of the box behind every nametag."),
+				ModOption.toggle("overrideColor", "Custom Text Color", false)
+						.tip("Recolour every player nametag's text to a colour you pick."),
+				ModOption.color("textColor", "Text Color", 0xFFFFFFFF).under("overrideColor"),
+				ModOption.header("Your Nametag"),
+				ModOption.toggle("ownOverride", "Override Your Own Nametag", false)
+						.tip("Give your own tag a different colour from everyone else's."),
+				ModOption.color("ownTextColor", "Your Text Color", 0xFFFFFFFF).under("ownOverride"),
+				ModOption.color("ownBackgroundColor", "Your Background Color", 0x66000000).under("ownOverride"),
+				ModOption.header("Toggle Keybinds"),
 				ModOption.keybind("toggleAll", "Toggle All Nametags", -1),
 				ModOption.keybind("togglePlayers", "Toggle Player Nametags Only", -1),
-				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
-				ModOption.slider("opacity", "Nametag Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
-				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false));
+				ModOption.toggle("displayToggleMessage", "Show Toggle Message", true));
 
 		add("colorsaturation", "Color Saturation", "Grade the whole screen's colour.", false,
 				ModOption.slider("saturation", "Saturation", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = greyer, up = more vivid."),
