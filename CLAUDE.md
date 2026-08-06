@@ -55,20 +55,18 @@ application
 
 ## The mandate (non-negotiable)
 1. **No loader choice, ever** (the Lunar/Feather model): the launcher always
-   installs the right stack for the picked version quietly. **Fabric** for
-   every version Fabric supports (all of 1.20+); **Forge + OptiFine** ONLY for
-   the two legacy versions 1.8.9 and 1.12.2, which predate Fabric entirely —
-   added 2026-07-14 on Will's explicit direction (amending the previous
-   "Fabric only" rule; OptiFine is the only shader layer that exists there).
-   No NeoForge. No loader selector anywhere in the UI or the code.
+   installs the right stack for the picked version quietly. **Fabric for every
+   supported version — the lineup is Fabric-only again as of 2026-08-06**, when
+   the legacy Forge pair (1.8.9, 1.12.2) was pulled. No Forge, no NeoForge, no
+   loader selector anywhere in the UI or the code. (The legacy install path
+   still exists in the launcher but is unreachable — see VERSIONS.md.)
 2. **Every supported version gets the FULL Origin experience.** Identical look
    across versions — title screen, every loading/progress screen, mod menu, and
    HUD must match the Origin design on every supported version. Vanilla menus
    are NOT an acceptable shipped state; fail-soft-to-vanilla exists only as a
    crash-safety net, never the intended result.
-3. **Every supported version has shader integration.** Iris + Sodium on the
-   Fabric versions, OptiFine shaders on the legacy two. A version doesn't
-   ship until its shaders work.
+3. **Every supported version has shader integration.** Iris + Sodium on every
+   supported version. A version doesn't ship until its shaders work.
 4. **Never broken.** Whatever version the player picks, the game boots and the
    Origin surfaces work — or degrade silently to vanilla, never crash. Boot
    crashes surface the CrashReportWindow naming the culprit mod when evidence
@@ -105,20 +103,21 @@ docs/RELEASING.md         how shipping works (tag flow)
 - Staged work NEVER lives next to shipped work — `staged/` is the boundary.
 
 ## Supported versions
-1.20, 1.20.1, 1.20.2, 1.20.4, 1.21, 1.21.1, 1.21.2/3/4, 1.21.5, 1.21.6/7,
-1.21.8, 1.21.10, 1.21.11 are LIVE (Fabric), **plus the pre-1.20 set 1.16.5,
-1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 (LIVE 2026-07-15, launcher-v1.0.24)**
-and **the legacy pair 1.8.9 and 1.12.2 (Forge + OptiFine), LIVE 2026-07-14** —
-each a from-scratch Forge-event port of the Origin surfaces (no mixins,
-`.no-shared-sync`, boot- and shader-verified through the real launcher
-pipeline). 26.2 staged. **Pre-1.20 is a SECOND rendering backend**, not a
+**Fabric only.** 1.20, 1.20.1, 1.20.2, 1.20.4, 1.21, 1.21.1, 1.21.2/3/4,
+1.21.6/7, 1.21.8, 1.21.10, 1.21.11 are LIVE, **plus the pre-1.20 set 1.16.5,
+1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 (LIVE 2026-07-15, launcher-v1.0.24)**.
+26.2 staged. **PULLED 2026-08-06 (Will's call):** 1.21.5, and the legacy Forge
+pair 1.8.9 + 1.12.2 — all three are removed from `VersionCatalog`, so they no
+longer appear in the picker at all, and CI no longer builds or bundles them.
+Their modules stay on disk. **Pre-1.20 is a SECOND rendering backend**, not a
 gap-port: `GuiGraphics` only exists since 1.20, so those six modules draw via
 `PoseStack` through a per-module `Gfx` wrapper that mirrors the GuiGraphics
 method shapes (1.16.5 additionally is Java 8 + fixed-function GL). They are
 `.no-shared-sync` for that reason. 1.18.1 is deliberately NOT offered (its
 only Sodium is an alpha, its only Iris a pre-release). The 1.21.x line is NOT
 one build — Minecraft rewrote its render/GUI/input system in stages, so each
-sub-family is its own port. Still greyed in the picker: 1.21.9 (pulled). Per-
+sub-family is its own port. Greyed "Coming Soon" in the picker: 1.21.2, 1.21.3,
+1.21.7. Per-
 version status, API boundaries, install models, and the promotion checklist
 live in `src/mods/VERSIONS.md` — keep that file the single source of truth, not this
 one.
@@ -205,12 +204,12 @@ floating corner controls. In-game menus match this exactly.
   1.16.5's `TitleScreen.render()` opens with a full-screen WHITE fill that
   vanilla hides behind the panorama → suppressing the panorama exposed it and
   buried the Origin backdrop. Both fixed; full detail in MEMORY.md.
-- **1.8.9 + 1.12.2 went LIVE 2026-07-14** (Will's direct order, amending the
-  Fabric-only mandate): full Origin experience re-implemented from scratch on
-  legacy Forge (byte-identical art assets, ported theme/scene math, Forge
-  events instead of mixins), installed silently as Forge + OptiFine + era
-  perf stack. Both boot- and shader-verified end to end through the real
-  launcher pipeline (Sildur's Vibrant loaded in-world on both).
+- **1.8.9 + 1.12.2 PULLED 2026-08-06** (Will's call), together with **1.21.5**.
+  All three are out of `VersionCatalog`, so their entries/cards are gone from
+  the picker entirely, and neither CI workflow builds them nor does the
+  launcher bundle their jars. The legacy pair went live 2026-07-14 on Forge +
+  OptiFine; with them gone the lineup is Fabric-only again and the legacy
+  install path is unreachable (kept, not deleted — see VERSIONS.md).
 - Launcher shipping via tag flow (latest launcher-v1.0.29; auto-update).
   Auth chain: MSA→Xbox→XSTS confirmed; Minecraft `login_with_xbox` returns 403
   (leading theory: new-app-registration propagation) — `OfflineTestMode` in
@@ -230,12 +229,12 @@ floating corner controls. In-game menus match this exactly.
 ## Roadmap
 - [x] 1.20 / 1.20.1, 1.20.4, 1.21.1 — full Origin experience, verified.
 - [x] 1.21 — wired live; runClient at home is the remaining confidence check.
-- [x] 1.21.5, 1.21.8, 1.21.10, 1.21.11 — live, each its own sub-family port,
-  boot-verified (`src/mods/versions/{1.21.5,1.21.8,1.21.11}`).
-- [x] 1.8.9 + 1.12.2 — legacy pair live (Forge + OptiFine, own from-scratch
-  modules), boot- and shader-verified 2026-07-14.
+- [x] 1.21.8, 1.21.10, 1.21.11 — live, each its own sub-family port,
+  boot-verified (`src/mods/versions/{1.21.8,1.21.11}`).
 - [x] 1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 — the pre-1.20 PoseStack
   backend, live + boot-verified 2026-07-15 (`launcher-v1.0.24`).
+- [x] 1.21.5, 1.8.9, 1.12.2 — PULLED from the lineup 2026-08-06 (Will's call);
+  modules kept on disk, out of the picker and out of CI.
 - [ ] 1.21.9 — pulled (input-event boundary + fabric-API gap); analysis in memory.
 - [ ] 1.18.1 — blocked on a stable Sodium/Iris pair (alpha/pre-release only today).
 - [~] 26.2 — staged, render layer mid-port (`src/mods/staged/26.2/PORT-262.md`).

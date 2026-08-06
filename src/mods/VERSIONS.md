@@ -40,7 +40,6 @@ changes unless you change it or deliberately run the sync.
 | `1.20` | 1.20, 1.20.1 | `>=1.20- <1.20.2` | Origin jar + standalone catalog stack | 17 (via JDK 21) |
 | `1.20.4` | 1.20.3, 1.20.4 | `>=1.20.3- <1.20.5` | standalone stack | 17 (via JDK 21) |
 | `1.21` | 1.21 | `>=1.21- <1.21.1` | standalone stack (source byte-identical to 1.21.1 — shared pre-1.21.2 blit API) | 21 |
-| `1.21.5` | 1.21.5 | `>=1.21.3- <1.21.6` | standalone stack (blit-rework + HitboxRenderState era) | 21 |
 | `1.21.8` | 1.21.8 | `>=1.21.6- <1.21.9` | standalone stack (Matrix3x2fStack + no-setShaderColor era) | 21 |
 | `1.21.10` | 1.21.10 | `>=1.21.10- <1.21.11` | standalone stack (split from 1.21.11: the 1.21.11 mapping-rename wave made one jar impossible) | 21 |
 | `1.21.11` | 1.21.11 | `>=1.21.10- <1.22` | standalone stack (render-pipeline + world-event-v2 era) | 21 |
@@ -74,13 +73,14 @@ launcher). The verified runtime boundaries:
 
 So each 1.21.x sub-family needs its **own** Origin build (a real port with
 its own mixin-descriptor work + boot verification), not a config flip.
-**Shipped (Will picked the popular versions):** 1.21.5, 1.21.8, 1.21.10,
-1.21.11. **Not yet built:** 1.21.2, 1.21.3, 1.21.4, 1.21.6, 1.21.7, 1.21.9 —
-each stays out of `OriginBuilds`, so the picker greys it "Coming Soon"
-(shipping a vanilla-menu version would violate mandate #2). The 1.21.5 and
-1.21.8 modules are the templates for the sub-families around them (1.21.5 →
-1.21.3/1.21.4; 1.21.8 → 1.21.6/1.21.7; the 1.21.11 module → 1.21.9 once its
-Fabric-API `.world` path is reverted).
+**Shipped:** 1.21.4, 1.21.6, 1.21.8, 1.21.10, 1.21.11. **Not built:** 1.21.2,
+1.21.3, 1.21.7 — each stays out of `OriginBuilds`, so the picker greys it
+"Coming Soon" (shipping a vanilla-menu version would violate mandate #2).
+**PULLED (removed from the picker entirely, not greyed):** 1.21.5 and 1.21.9.
+The 1.21.4 and 1.21.8 modules are the templates for the sub-families around
+them; the 1.21.11 module covers 1.21.9 once its Fabric-API `.world` path is
+reverted. The 1.21.5 module is still on disk and remains the reference for the
+blit-rework + HitboxRenderState era even though the version is not shipped.
 
 **Gone LIVE 2026-07-14 (launcher-v1.0.23):** `1.20.2`, `1.21.4` (covers 1.21.2/3/4),
 `1.21.6` (covers 1.21.6/7), and the `1.21.10` split — all boot-swept clean, in-world
@@ -99,19 +99,31 @@ the blur pass's UBO every frame (per-frame GPU-buffer churn racing the private
 `addToFrame` map) — not worth the stability risk; the baked variants are the
 best-fit stable method for this render era.
 
-## Legacy versions (in `versions/`, Forge — the pre-Fabric era)
+## Legacy versions (1.8.9 / 1.12.2, Forge) — PULLED 2026-08-06
 
-| Module | Covers | Loader | Toolchain | Java | Install model |
-|--------|--------|--------|-----------|------|---------------|
-| `1.8.9` | 1.8.9 | Forge 11.15.1.2318 | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_22 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_M5 + TexFix/BetterFps (LegacyStackInstaller) |
-| `1.12.2` | 1.12.2 | Forge 14.23.5.2860 runtime / 2847 dev (last old-format userdev; same 14.23.5 API) | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_39-1.12 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_G5 + FoamFix/Phosphor/VanillaFix/TexFix/BetterFps |
+**Both are removed from the supported lineup** (Will's call). They are gone from
+`VersionCatalog`, so their grid cards no longer appear at all — the picker is
+Fabric-only now — and neither workflow builds them nor does the launcher bundle
+their jars or the Forge version JSONs.
 
-These two versions predate Fabric entirely — Forge + OptiFine is the only
-loader/shader stack that exists there (the call Lunar/Feather made too). The
-launcher installs it silently through `LegacyForgeInstaller` +
-`OptiFineInstaller` + `LegacyStackInstaller`; no loader choice appears
-anywhere. OptiFine is never redistributed: it downloads at install time
-(official site first, mirrors after) and every source is SHA-1-pinned.
+The modules (`versions/1.8.9`, `versions/1.12.2`) and the launcher-side install
+path (`LegacyForgeInstaller` / `OptiFineInstaller` / `LegacyStackInstaller`, plus
+the LEGACY BRANCH in `VersionManager.Prepare`) are still in the repo but are now
+**unreachable code** — no supported version uses Forge. Kept rather than deleted
+so re-adding either version is a catalog + CI change rather than a rewrite; if
+they are not coming back, that subsystem is a clean deletion.
+
+Their original toolchain, for reference if revived:
+
+| Module | Loader | Toolchain | Java | Install model |
+|--------|--------|-----------|------|---------------|
+| `1.8.9` | Forge 11.15.1.2318 | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_22 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_M5 + TexFix/BetterFps |
+| `1.12.2` | Forge 14.23.5.2860 runtime / 2847 dev | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_39-1.12 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_G5 + FoamFix/Phosphor/VanillaFix/TexFix/BetterFps |
+
+These two versions predate Fabric entirely — Forge + OptiFine was the only
+loader/shader stack that exists there (the call Lunar/Feather made too). OptiFine
+was never redistributed: it downloaded at install time (official site first,
+mirrors after) with every source SHA-1-pinned.
 
 **These modules do NOT consume `shared/`.** The shared core is Mojmap/modern-
 Fabric source that cannot compile against MCP-era APIs, so each legacy module

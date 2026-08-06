@@ -61,12 +61,6 @@ jobs:
         working-directory: src/mods/versions/1.21
         run: .\gradlew.bat build --no-daemon
 
-      # 1.21.5 (src/mods/versions/1.21.5): the blit-rework + HitboxRenderState
-      # sub-family; own mapped build, boot-verified. See src/mods/VERSIONS.md.
-      - name: Build Origin Client mod (1.21.5)
-        working-directory: src/mods/versions/1.21.5
-        run: .\gradlew.bat build --no-daemon
-
       # 1.21.8 (src/mods/versions/1.21.8): the Matrix3x2fStack + no-setShaderColor
       # sub-family (pre-1.21.9 input API). Own build, boot-verified.
       - name: Build Origin Client mod (1.21.8)
@@ -127,17 +121,9 @@ jobs:
         working-directory: src/mods/versions/1.16.5
         run: .\gradlew.bat build --no-daemon
 
-      # LEGACY Forge modules (gg.essential.loom, Gradle 8.7). Gradle itself
-      # runs on the Java 21 above; the Java 8 compile/run toolchain is
-      # auto-provisioned by the foojay resolver in each module's
-      # settings.gradle — no extra setup-java needed.
-      - name: Build Origin Client mod (1.8.9, Forge)
-        working-directory: src/mods/versions/1.8.9
-        run: .\gradlew.bat build --no-daemon
-
-      - name: Build Origin Client mod (1.12.2, Forge)
-        working-directory: src/mods/versions/1.12.2
-        run: .\gradlew.bat build --no-daemon
+      # NOTE: 1.21.5, 1.8.9 and 1.12.2 were pulled from the lineup 2026-08-06.
+      # Their modules are still in src/mods/versions/ but are no longer built
+      # here or shipped, so CI does not gate on them.
 
       # NOTE (26.2): src/mods/staged/26.2 is scaffolded and its toolchain is
       # proven (Java 25 + unobfuscated Loom config — it resolves + compiles

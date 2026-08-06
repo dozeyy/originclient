@@ -197,7 +197,11 @@
                          SelectionChanged="GridList_SelectionChanged">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <UniformGrid Rows="3" Columns="3"/>
+                            <!-- Columns fixed at 3, rows left to UniformGrid so the
+                                 grid follows the catalog instead of a hardcoded 9.
+                                 Pulling 1.12 and 1.8 took it to 7 cards (3/3/1);
+                                 hardcoding Rows="3" would have left two dead cells. -->
+                            <UniformGrid Columns="3"/>
                         </ItemsPanelTemplate>
                     </ListBox.ItemsPanel>
                 </ListBox>

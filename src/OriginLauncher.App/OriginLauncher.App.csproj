@@ -85,14 +85,7 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <!-- 1.21.5 — own sub-family build (blit-rework + HitboxRenderState era). -->
-    <Content Condition="Exists('..\mods\versions\1.21.5\build\libs\originclient-1.21.5-0.4.1.jar')"
-             Include="..\mods\versions\1.21.5\build\libs\originclient-1.21.5-0.4.1.jar">
-      <Link>Bundled\OriginClient\originclient-1.21.5.jar</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
+    <!-- 1.21.5 bundle entry REMOVED 2026-08-06: version pulled from the lineup. -->
     <!-- 1.21.8 — own sub-family build (Matrix3x2fStack + no-setShaderColor era). -->
     <Content Condition="Exists('..\mods\versions\1.21.8\build\libs\originclient-1.21.8-0.4.1.jar')"
              Include="..\mods\versions\1.21.8\build\libs\originclient-1.21.8-0.4.1.jar">
@@ -194,37 +187,12 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <!-- LEGACY (Forge) — 1.8.9 + 1.12.2, added 2026-07-14. Forge-event builds
-         (gg.essential.loom toolchain, Java 8), no mixins. -->
-    <Content Condition="Exists('..\mods\versions\1.8.9\build\libs\originclient-1.8.9-0.4.1.jar')"
-             Include="..\mods\versions\1.8.9\build\libs\originclient-1.8.9-0.4.1.jar">
-      <Link>Bundled\OriginClient\originclient-1.8.9.jar</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
-    <Content Condition="Exists('..\mods\versions\1.12.2\build\libs\originclient-1.12.2-0.4.1.jar')"
-             Include="..\mods\versions\1.12.2\build\libs\originclient-1.12.2-0.4.1.jar">
-      <Link>Bundled\OriginClient\originclient-1.12.2.jar</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
-    <!-- Legacy Forge version JSONs (extracted once from the official
-         installers, jline server-only lib dropped) — LegacyForgeInstaller
-         writes these into an instance's versions/ dir. Tiny, always bundled. -->
-    <Content Include="Assets\Forge\forge-1.8.9.json">
-      <Link>Bundled\Forge\forge-1.8.9.json</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
-    <Content Include="Assets\Forge\forge-1.12.2.json">
-      <Link>Bundled\Forge\forge-1.12.2.json</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
+    <!-- LEGACY (Forge) — 1.8.9 + 1.12.2 bundle entries and their Forge version
+         JSONs REMOVED 2026-08-06: both versions are pulled from the lineup, so
+         nothing can install them and shipping the jars would be dead weight in
+         setup.exe. The modules and the legacy installer code remain in the repo;
+         re-adding them means restoring these entries plus the catalog and CI
+         steps. -->
   </ItemGroup>
 
 </Project>

@@ -70,11 +70,11 @@ public sealed class VersionManager
             // in the catalog, so it ships like 1.20.4. runClient at home confirms
             // mixin-apply; a runtime miss fail-softs to vanilla (never crashes).
             ["1.21"] = new("originclient-1.21.jar", BundlesPerfStack: false),
-            // 1.21.5 (src/mods/versions/1.21.5) — the GuiGraphics.blit-rework +
-            // HitboxRenderState era (still setShaderColor + PoseStack transforms).
-            // Its own mapped build; boot-verified clean (2026-07-13). Will asked
-            // for the popular gap versions (1.21.5, 1.21.8) specifically.
-            ["1.21.5"] = new("originclient-1.21.5.jar", BundlesPerfStack: false),
+            // 1.21.5 — PULLED 2026-08-06 (Will's call: dropped from the supported
+            // lineup). It is also removed from VersionCatalog, so it no longer
+            // appears in the picker at all — same treatment as 1.21.9. The module
+            // (src/mods/versions/1.21.5) stays on disk but is no longer built by
+            // CI or bundled into the launcher.
             // 1.21.8 (src/mods/versions/1.21.8) — the Matrix3x2fStack + no-
             // setShaderColor era, still on the pre-1.21.9 input API + String key
             // categories + old WorldRenderEvents path. Own build, boot-verified.
@@ -158,31 +158,19 @@ public sealed class VersionManager
             // 1.16.5 — Java 8 bytecode, fixed-function GL era (no RenderSystem
             // shader API): the oldest Fabric version Origin ships.
             ["1.16.5"] = new("originclient-1.16.5.jar", BundlesPerfStack: false),
-            // --- LEGACY (Forge + OptiFine) — added 2026-07-14 ---
-            // 1.8.9 and 1.12.2 are the pre-Fabric era: Fabric never supported
-            // them, and OptiFine is the only shader/perf layer that exists
-            // there — so these two versions (and ONLY these) install Forge +
-            // OptiFine instead of Fabric + Sodium/Iris, silently, exactly like
-            // the Fabric path (the Lunar model: the player never sees a loader
-            // choice anywhere). Each ships its own from-scratch Origin build
-            // (src/mods/versions/1.8.9, /1.12.2 — Forge events, no mixins).
-            // BundlesPerfStack is inert for legacy entries: the legacy install
-            // branch never consults the Fabric perf catalog at all.
-            // 1.8.9 — DISABLED 2026-07-16 (Will's call: deprioritized, not being
-            // worked for a while). Commenting it out of OriginBuilds is the whole
-            // grey-out: OriginSupportedVersions drops it, so VersionCatalog marks
-            // it unsupported -> the 1.8 card shows "Coming Soon" and can't launch,
-            // and any stale 1.8.9 selection falls back to the default version. The
-            // 1.8.9 module + legacy install code stay in place, ready to re-enable
-            // by uncommenting this line.
-            // ["1.8.9"]  = new("originclient-1.8.9.jar",  BundlesPerfStack: false),
-            // 1.12.2 — DISABLED 2026-07-16 (Will's call: greyed out alongside 1.8.9).
-            // Same one-line grey-out: commenting it out of OriginBuilds drops it from
-            // OriginSupportedVersions -> VersionCatalog marks it unsupported -> the
-            // 1.12 card shows "Coming Soon" and can't launch, stale selections fall
-            // back to default. Module + legacy install code stay, re-enable by
-            // uncommenting. (JEI-on-legacy-Forge is therefore moot until re-enabled.)
-            // ["1.12.2"] = new("originclient-1.12.2.jar", BundlesPerfStack: false),
+            // --- LEGACY (Forge + OptiFine) — REMOVED 2026-08-06 ---
+            // 1.8.9 and 1.12.2 were the only pre-Fabric versions Origin shipped
+            // (Forge + OptiFine, since Fabric never supported them). They were
+            // greyed out 2026-07-16 and are now dropped from the lineup entirely:
+            // both are gone from VersionCatalog, so their cards no longer appear
+            // in the picker, and CI no longer builds or bundles their jars.
+            //
+            // Consequence: no supported version uses Forge any more, so the legacy
+            // install path (LegacyForgeInstaller / OptiFineInstaller /
+            // LegacyStackInstaller and the LEGACY BRANCH in Prepare below) is now
+            // unreachable. It is left in place rather than deleted — the modules
+            // (src/mods/versions/1.8.9, /1.12.2) are still on disk, so re-adding
+            // both versions is a catalog + CI change, not a rewrite.
             // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
             // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
             // proven, but the render layer is mid-port to 26.2's retained-mode GUI
@@ -257,7 +245,6 @@ public sealed class VersionManager
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
         var path = BuildInstancePath(version);
-        var launcher = new MinecraftLauncher(path);
         var modsFolder = Path.Combine(path.BasePath, "mods");
         var configFolder = Path.Combine(path.BasePath, "config");
 
@@ -323,15 +310,42 @@ public sealed class VersionManager
             // fabric.modsFolder Origin-only launch and the Fabric-family
             // dedupe both key on Fabric loader semantics. "Play with external
             // mods" is treated as always-on for legacy instances.
-            progress?.Report("Downloading game files...");
-            var legacyFileProgress = new Progress<InstallerProgressChangedEventArgs>(e =>
-                progress?.Report($"Downloading game files ({e.ProgressedTasks}/{e.TotalTasks})"));
-            return await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, legacyFileProgress, null, ct);
+            // Same stamp policy as the Fabric path — the legacy instances carry
+            // the same multi-hundred-MB asset + JRE rehash, so they get the same
+            // skip once they have proven clean under this launcher build.
+            var legacyDecision = InstallVerification.Evaluate(path.BasePath, version);
+            var legacyLauncher = BuildLauncher(path, legacyDecision.FullVerify);
+
+            progress?.Report(legacyDecision.FullVerify ? "Verifying game files..." : "Preparing game files...");
+            var legacyFileProgress = new InstallProgressThrottle(
+                progress, legacyDecision.FullVerify ? "Verifying game files" : "Preparing game files").Progress;
+
+            var legacyBuilt = await legacyLauncher.InstallAndBuildProcessAsync(
+                forgeVersionName, option, legacyFileProgress, null, ct);
+            InstallVerification.MarkVerified(path.BasePath, version, forgeVersionName);
+            return legacyBuilt;
         }
 
-        progress?.Report("Installing Fabric loader...");
-        var fabricInstaller = new FabricInstaller(new HttpClient());
-        var versionName = await fabricInstaller.Install(version, path);
+        // Fast path: a stamped instance already resolved this loader and passed
+        // a full integrity check under this same launcher build, so both the
+        // Fabric meta round-trips and the whole-install rehash are skipped. Any
+        // doubt returns Full and behaves exactly like it always did. See
+        // InstallVerification for the safety contract.
+        var decision = InstallVerification.Evaluate(path.BasePath, version);
+
+        string versionName;
+        if (decision.CachedVersionName is { } cached)
+        {
+            versionName = cached;
+        }
+        else
+        {
+            progress?.Report("Installing Fabric loader...");
+            var fabricInstaller = new FabricInstaller(SharedHttp);
+            versionName = await fabricInstaller.Install(version, path);
+        }
+
+        var launcher = BuildLauncher(path, decision.FullVerify);
 
         // Every Fabric mod in play here (Origin Client, and any
         // third-party jar a player drops in) depends on this, so it's
@@ -356,16 +370,31 @@ public sealed class VersionManager
             // Win32 "originclient*.jar" glob — the legacy 3-char-ext
             // match is ambiguous. Enabled ".jar" only; a user's own
             // ".jar.disabled" is never touched.
-            foreach (var file in Directory.EnumerateFiles(modsFolder))
+            var bundledJar = OriginPaths.BundledOriginClientJar(originBuild.JarFileName);
+            var installedJar = Path.Combine(modsFolder, "originclient.jar");
+
+            // The jar is up to ~14 MB and was byte-copied on EVERY launch. Skip
+            // the whole sweep when the installed copy already matches the
+            // bundled one on length and write time — the stale-jar problem this
+            // guards against only arises when the launcher ships a DIFFERENT
+            // jar, which changes both.
+            if (!IsSameFile(bundledJar, installedJar))
             {
-                var fn = Path.GetFileName(file);
-                if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
-                    && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                foreach (var file in Directory.EnumerateFiles(modsFolder))
                 {
-                    try { File.Delete(file); } catch { /* locked/removed already */ }
+                    var fn = Path.GetFileName(file);
+                    if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
+                        && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { File.Delete(file); } catch { /* locked/removed already */ }
+                    }
                 }
+                File.Copy(bundledJar, installedJar, overwrite: true);
+                // Stamp the copy with the source's write time so the next launch
+                // can recognise it as current.
+                try { File.SetLastWriteTimeUtc(installedJar, File.GetLastWriteTimeUtc(bundledJar)); }
+                catch { /* non-fatal: worst case we copy again next launch */ }
             }
-            File.Copy(OriginPaths.BundledOriginClientJar(originBuild.JarFileName), Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
             originBundlesPerfStack = originBuild.BundlesPerfStack;
 
             // Only when THIS build carries its own perf stack jar-in-jar
@@ -541,14 +570,69 @@ public sealed class VersionManager
             option.ExtraJvmArguments = extraJvm;
         }
 
-        progress?.Report("Downloading game files...");
-        var fileProgress = new Progress<InstallerProgressChangedEventArgs>(e =>
-            progress?.Report($"Downloading game files ({e.ProgressedTasks}/{e.TotalTasks})"));
+        // On the fast path the installer only stats files, so it finishes almost
+        // immediately and "Verifying" would flash by; say what is actually
+        // happening in each case.
+        progress?.Report(decision.FullVerify ? "Verifying game files..." : "Preparing game files...");
+        var fileProgress = new InstallProgressThrottle(
+            progress, decision.FullVerify ? "Verifying game files" : "Preparing game files").Progress;
 
-        return await launcher.InstallAndBuildProcessAsync(versionName, option, fileProgress, null, ct);
+        var built = await launcher.InstallAndBuildProcessAsync(versionName, option, fileProgress, null, ct);
+
+        // Only stamp after provisioning came back clean. The stamp is what lets
+        // the NEXT launch skip the rehash, so writing it on a failed pass would
+        // be exactly the wrong thing.
+        InstallVerification.MarkVerified(path.BasePath, version, versionName);
+        return built;
+    }
+
+    // One client for the whole process. The Fabric installer used to get a
+    // brand-new HttpClient per launch, which meant a fresh TLS handshake to
+    // meta.fabricmc.net every time and a socket left in TIME_WAIT after.
+    private static readonly HttpClient SharedHttp = new();
+
+    /// <summary>
+    /// Builds the CmlLib launcher with an integrity policy chosen per launch.
+    ///
+    /// fullVerify = true  -> SHA-1 every file (first launch, or after a crash /
+    ///                       launcher update). This is CmlLib's default.
+    /// fullVerify = false -> existence + size only. Note size checking is turned
+    ///                       ON here in both modes; CmlLib ships it OFF, so the
+    ///                       fast path still catches truncated files.
+    /// </summary>
+    private static MinecraftLauncher BuildLauncher(MinecraftPath path, bool fullVerify)
+    {
+        var parameters = MinecraftLauncherParameters.CreateDefault();
+        parameters.MinecraftPath = path;
+
+        var installer = ParallelGameInstaller.CreateAsCoreCount(SharedHttp);
+        installer.CheckFileSize = true;
+        installer.CheckFileChecksum = fullVerify;
+        parameters.GameInstaller = installer;
+
+        return new MinecraftLauncher(parameters);
     }
 
     private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
+
+    // Cheap "is this already the same file" test: length plus last-write time,
+    // no hashing. Used to skip redundant multi-MB copies. Any doubt (missing
+    // file, IO error) answers false so the caller does the copy.
+    private static bool IsSameFile(string source, string dest)
+    {
+        try
+        {
+            if (!File.Exists(source) || !File.Exists(dest)) return false;
+            var a = new FileInfo(source);
+            var b = new FileInfo(dest);
+            return a.Length == b.Length
+                   && a.LastWriteTimeUtc == b.LastWriteTimeUtc;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     // Recursively deletes config files that contain ONLY NUL/whitespace bytes —
     // the signature of a crash- or power-loss-interrupted write (NTFS allocates

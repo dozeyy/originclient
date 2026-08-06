@@ -57,8 +57,11 @@ public static class VersionCatalog
             "26.2", "26.1.2", "26.1.1", "26.1"),
         Group("1.21", "1.21 – 1.21.11", "Tricky Trials",
             "Explore the new trial chambers and outsmart their spawners for loot from ominous vaults. Battle the wind-charging Breeze and the crossbow-wielding Bogged, forge the powerful Mace for devastating smash attacks, and automate builds with the new crafter block and expanded copper and tuff sets.",
+            // 1.21.5 and 1.21.9 are deliberately absent: both were pulled from the
+            // lineup, and a pulled version is removed from the grid entirely rather
+            // than left greyed (see VersionManager.OriginBuilds).
             "1.21.11", "1.21.10", "1.21.8", "1.21.7",
-            "1.21.6", "1.21.5", "1.21.4", "1.21.3", "1.21.2", "1.21.1", "1.21"),
+            "1.21.6", "1.21.4", "1.21.3", "1.21.2", "1.21.1", "1.21"),
         Group("1.20", "1.20 – 1.20.6",  "Trails & Tales",
             "Wander pink cherry groves, brush suspicious sand and gravel to uncover archaeology finds, and hatch the ancient sniffer from a rediscovered egg. Ride camels across the desert, craft bamboo rafts and hanging signs, and personalize your gear with the reworked smithing table and decorative armor trims.",
             "1.20.6", "1.20.5", "1.20.4", "1.20.3", "1.20.2", "1.20.1", "1.20"),
@@ -74,12 +77,10 @@ public static class VersionCatalog
         Group("1.16", "1.16.5",         "The Nether Update",
             "The Nether finally comes alive with crimson and warped forests, soul sand valleys, and basalt deltas to explore. Trade with piglins, ride striders across lava, mine ancient debris to craft top-tier netherite gear, and set your spawn with a respawn anchor.",
             "1.16.5", "1.16.4", "1.16.3", "1.16.2", "1.16.1", "1.16"),
-        Group("1.12", "1.12.2",         "World of Color",
-            "A vibrant classic packed with colorful concrete and glazed terracotta for building, chatty tamable parrots, and the menacing illagers of the woodland mansion. The new recipe book made crafting friendlier for everyone.",
-            "1.12.2", "1.12.1", "1.12"),
-        Group("1.8",  "1.8.9",          "The Classic",
-            "The definitive old-school combat version and the enduring home of competitive Minecraft PvP. Prized for its simple, click-based fighting and rock-solid feel, 1.8.9 remains the go-to choice for hypixel-era servers and classic gameplay.",
-            "1.8.9", "1.8.8", "1.8"),
+        // The 1.12 and 1.8 cards were REMOVED 2026-08-06 (Will's call): 1.12.2 and
+        // 1.8.9 are dropped from the supported lineup, and a pulled version leaves
+        // the grid rather than sitting greyed. They were the only pre-Fabric
+        // (Forge + OptiFine) entries, so the grid is now Fabric-only.
     ];
 
     // Newest playable version overall (1.21.1 today) — the launcher's default
