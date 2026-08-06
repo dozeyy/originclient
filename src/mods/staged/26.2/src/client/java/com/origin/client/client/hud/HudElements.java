@@ -32,11 +32,17 @@ import java.util.List;
 public final class HudElements {
 	public static final int TEXT = 0xFFE0E0E0;
 	private static final int PANEL = 0x66101010;
+	// Width reserved on the right of the coords readout for the direction letter +
+	// travel sign column (vertical list mode).
+	private static final int DIR_COL_W = 22;
 
 	// Set by the HUD editor for its whole lifetime: elements that need worn
 	// armor / an active potion to be visible draw sample content instead, and
 	// measure/hit-testing see the same preview the render shows.
 	public static volatile boolean editorPreview = false;
+	// Set while the HUD editor previews the scoreboard itself, so the normal HUD
+	// path does not draw a second copy.
+	public static volatile boolean suppressScoreboard = false;
 
 	public interface Renderer {
 		void render(GuiGraphicsExtractor g, Minecraft mc, int w, int h);
@@ -145,17 +151,67 @@ public final class HudElements {
 			}
 			if (c >= 0) lines.add("C: " + c);
 		}
-		if (Mods.bool("coords", "direction")) {
-			Direction d = pl.getDirection();
-			lines.add(String.format("Facing: %s (%.0f°)",
-					d.getName().substring(0, 1).toUpperCase() + d.getName().substring(1),
-					net.minecraft.util.Mth.wrapDegrees(pl.getYRot())));
+		// NOTE: in VERTICAL mode the direction letter + travel sign are NOT lines —
+		// they're a right-aligned column drawn beside the Y and Z rows (see the
+		// renderer). Only horizontal mode folds them into the text.
+		if (Mods.bool("coords", "direction") && Mods.mode("coords", "listMode").equals("Horizontal")
+				&& !lines.isEmpty()) {
+			float yaw = pl.getYRot();
+			lines.set(0, lines.get(0) + " (" + facingSign(yaw) + ") " + cardinal8(yaw));
 		}
 		if (Mods.bool("coords", "biome") && mc.level != null) {
 			var biome = mc.level.getBiome(BlockPos.containing(pl.position()));
-			lines.add("Biome: " + biome.unwrapKey().map(k -> k.identifier().getPath().replace('_', ' ')).orElse("unknown"));
+			lines.add("Biome: " + biome.unwrapKey()
+					.map(k -> titleCase(k.identifier().getPath().replace('_', ' '))).orElse("Unknown"));
 		}
 		return lines;
+	}
+
+	/** "birch forest" -> "Birch Forest" — biome names read as proper nouns. */
+	private static String titleCase(String s) {
+		StringBuilder b = new StringBuilder(s.length());
+		boolean up = true;
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			b.append(up ? Character.toUpperCase(c) : c);
+			up = c == ' ';
+		}
+		return b.toString();
+	}
+
+	// 8-way compass letter from a Minecraft yaw. MC yaw: 0 = South (+Z), 90 = West
+	// (-X), 180 = North (-Z), 270 = East (+X); sectors are 45° wide, centred.
+	private static String cardinal8(float yaw) {
+		float y = (yaw % 360f + 360f) % 360f;
+		String[] dirs = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
+		return dirs[Math.round(y / 45f) % 8];
+	}
+
+	// The sign of the dominant horizontal axis of the look direction — whether walking
+	// forward makes that coordinate go up (+) or down (-).
+	private static String facingSign(float yaw) {
+		double rad = Math.toRadians(yaw);
+		double dx = -Math.sin(rad), dz = Math.cos(rad);
+		if (Math.abs(dz) >= Math.abs(dx)) {
+			return dz >= 0 ? "+" : "-";
+		}
+		return dx >= 0 ? "+" : "-";
+	}
+
+	// A representative colour per biome family so the name reads in a matching tone.
+	private static int biomeColor(String name) {
+		String n = name.toLowerCase();
+		if (n.contains("ocean") || n.contains("river")) return 0xFF4A90D9;
+		if (n.contains("snow") || n.contains("frozen") || n.contains("ice") || n.contains("cold")) return 0xFFBFE6FF;
+		if (n.contains("desert") || n.contains("badlands") || n.contains("savanna") || n.contains("beach")) return 0xFFE0C864;
+		if (n.contains("warped")) return 0xFF3FD9C0;
+		if (n.contains("nether") || n.contains("crimson") || n.contains("basalt") || n.contains("soul")) return 0xFFD9564A;
+		if (n.contains("end")) return 0xFFE6DE7A;
+		if (n.contains("mushroom")) return 0xFFC79BE6;
+		if (n.contains("swamp") || n.contains("mangrove")) return 0xFF6E9A54;
+		if (n.contains("jungle") || n.contains("forest") || n.contains("taiga") || n.contains("plains")
+				|| n.contains("grove") || n.contains("meadow") || n.contains("birch") || n.contains("grass")) return 0xFF86C94E;
+		return 0xFF9FD97F;
 	}
 
 	/** Keystrokes vertical extent {top, bottom} of the currently-shown rows. */
@@ -247,6 +303,10 @@ public final class HudElements {
 			for (String l : lines) {
 				wMax = Math.max(wMax, mc.font.width(l));
 			}
+			// Vertical mode reserves a right-hand column for the direction letter/sign.
+			if (Mods.bool("coords", "direction") && !Mods.mode("coords", "listMode").equals("Horizontal")) {
+				wMax += DIR_COL_W;
+			}
 			int n = Math.max(1, lines.size());
 			return new int[]{(int) ((wMax + 2) * s), (int) ((n * 10 + 2) * s)};
 		}, (g, mc, w, h) -> {
@@ -263,9 +323,42 @@ public final class HudElements {
 			bgColored(g, "coords", "bgColor", (int) (w / s), (int) (h / s));
 			boolean shadow = Mods.bool("coords", "textShadow");
 			int y = 1;
+			// Row positions of the Y and Z lines, so the direction column lines up with
+			// them even when some axes are switched off (hardcoding rows 2/3 misaligned
+			// the moment X/Y/Z were toggled).
+			int yRowY = -1, zRowY = -1;
 			for (String line : coordsLines(mc)) {
+				if (line.startsWith("Y: ")) {
+					yRowY = y;
+				} else if (line.startsWith("Z: ")) {
+					zRowY = y;
+				}
+				if (line.startsWith("Biome: ")) {
+					// "Biome: " label in the normal tone, the biome NAME in its family colour.
+					String label = "Biome: ";
+					String bname = line.substring(label.length());
+					g.text(mc.font, label, 1, y, TEXT, shadow);
+					g.text(mc.font, bname, 1 + mc.font.width(label), y, biomeColor(bname), shadow);
+					y += 10;
+					continue;
+				}
 				g.text(mc.font, line, 1, y, TEXT, shadow);
 				y += 10;
+			}
+			// Direction column (vertical mode): the 8-way letter sits beside the Y row
+			// and the travel sign ("+" heading South/East, "-" heading North/West)
+			// beside the Z row, both right-aligned — matching the reference layout.
+			// Horizontal mode already folded them into the text.
+			if (Mods.bool("coords", "direction") && !Mods.mode("coords", "listMode").equals("Horizontal")) {
+				float yaw = mc.player.getYRot();
+				String letter = cardinal8(yaw);
+				String sign = facingSign(yaw);
+				int right = (int) (w / s) - 2;
+				// Fall back to the first/second drawn row if that axis is hidden.
+				int ly = yRowY >= 0 ? yRowY : 1;
+				int sy2 = zRowY >= 0 ? zRowY : ly + 10;
+				g.text(mc.font, letter, right - mc.font.width(letter), ly, TEXT, shadow);
+				g.text(mc.font, sign, right - mc.font.width(sign), sy2, TEXT, shadow);
 			}
 			p.popMatrix();
 		});

@@ -121,11 +121,7 @@ public final class OriginButtonRenderer {
 		RenderSystem.defaultBlendFunc();
 
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-		shaderColor(fill);
-		nineSlice(guiGraphics, fillTex, x, drawY, w, h, cd);
-		shaderColor(border);
-		nineSlice(guiGraphics, borderTex, x, drawY, w, h, cd);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		OriginUi.bevelPanel(guiGraphics, x, drawY, w, h, cd, fill, border);
 
 		drawLabel(guiGraphics, cx, cy, h, button.getMessage(), labelColor);
 	}
@@ -164,11 +160,7 @@ public final class OriginButtonRenderer {
 		RenderSystem.defaultBlendFunc();
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
 		if (assetsOk) {
-			shaderColor(fill);
-			nineSlice(guiGraphics, fillTex, x, y, w, h, cd);
-			shaderColor(border);
-			nineSlice(guiGraphics, borderTex, x, y, w, h, cd);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, fill, border);
 		} else {
 			drawFallback(guiGraphics, x, y, w, h, fill, border, labelColor, label);
 		}
@@ -221,8 +213,7 @@ public final class OriginButtonRenderer {
 
 		// Shell -- identical to a resting button.
 		if (assetsOk) {
-			shaderColor(fill);
-			nineSlice(guiGraphics, fillTex, x, y, w, h, cd);
+			OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, fill, 0);
 		} else {
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 			guiGraphics.fill(x, y, x + w, y + h, fill);
@@ -252,9 +243,7 @@ public final class OriginButtonRenderer {
 		if (assetsOk) {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
-			shaderColor(border);
-			nineSlice(guiGraphics, borderTex, x, y, w, h, cd);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, 0, border);
 		}
 
 		drawLabel(guiGraphics, x + w / 2.0, y + h / 2.0, h, slider.getMessage(), labelColor);
@@ -291,11 +280,7 @@ public final class OriginButtonRenderer {
 		int box = h;
 		int cd = Math.min(4, box / 3);
 		if (assetsOk) {
-			shaderColor(fill);
-			nineSlice(guiGraphics, fillTex, x, y, box, box, cd);
-			shaderColor(border);
-			nineSlice(guiGraphics, borderTex, x, y, box, box, cd);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			OriginUi.bevelPanel(guiGraphics, x, y, box, box, cd, fill, border);
 		} else {
 			guiGraphics.fill(x, y, x + box, y + box, fill);
 		}
@@ -358,29 +343,6 @@ public final class OriginButtonRenderer {
 		Font font = Minecraft.getInstance().font;
 		int tw = font.width(message);
 		guiGraphics.drawString(font, message, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, false);
-	}
-
-	private static void nineSlice(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h, int cd) {
-		int c = CORNER;
-		int t = TEX;
-		int mid = t - 2 * c;
-		int mw = w - 2 * cd;
-		int mh = h - 2 * cd;
-		g.blit(tex, x, y, cd, cd, 0f, 0f, c, c, t, t);
-		g.blit(tex, x + w - cd, y, cd, cd, (float) (t - c), 0f, c, c, t, t);
-		g.blit(tex, x, y + h - cd, cd, cd, 0f, (float) (t - c), c, c, t, t);
-		g.blit(tex, x + w - cd, y + h - cd, cd, cd, (float) (t - c), (float) (t - c), c, c, t, t);
-		if (mw > 0) {
-			g.blit(tex, x + cd, y, mw, cd, (float) c, 0f, mid, c, t, t);
-			g.blit(tex, x + cd, y + h - cd, mw, cd, (float) c, (float) (t - c), mid, c, t, t);
-		}
-		if (mh > 0) {
-			g.blit(tex, x, y + cd, cd, mh, 0f, (float) c, c, mid, t, t);
-			g.blit(tex, x + w - cd, y + cd, cd, mh, (float) (t - c), (float) c, c, mid, t, t);
-		}
-		if (mw > 0 && mh > 0) {
-			g.blit(tex, x + cd, y + cd, mw, mh, (float) c, (float) c, mid, mid, t, t);
-		}
 	}
 
 	private static void shaderColor(int argb) {

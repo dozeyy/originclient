@@ -35,6 +35,11 @@ public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
+	// Charcoal grade laid over the blurred, live-rotating panorama on the title
+	// screen — a light alpha blend toward near-black. Kept VERY light (~12% over
+	// 0x08080A) so the panorama reads bright and saturated; this is the Origin theme
+	// on 26.x's menu, matching every 1.21.x version.
+	private static final int GRADE = 0x2008080A;
 
 	// Untinted draw = full white; alpha-only tint packs onto white.
 	private static final int WHITE = 0xFFFFFFFF;
@@ -80,9 +85,6 @@ public final class OriginScreenRenderer {
 	// Cursor-follow glow (the website's two-layer spotlight).
 	private static Identifier radialGlowId;
 	private static final int RADIAL_TEX = 512;
-	private static double haloX = Double.NaN, haloY = Double.NaN;
-	private static double glowHover = 0.0;
-	private static long glowLastNanos = 0L;
 
 	private record Ring(Identifier texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {
@@ -234,19 +236,19 @@ public final class OriginScreenRenderer {
 			return false;
 		}
 		try {
-			ensureLoaded();
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
 
-			guiGraphics.fill(0, 0, w, h, BG_COLOR);
-			if (!ringsFailed) {
-				drawRings(guiGraphics, w, h);
-				drawGrain(guiGraphics, w, h);
-			}
-			drawParticles(guiGraphics, w, h);
-			drawOrbitingBodies(guiGraphics, w, h);
-			drawFrame(guiGraphics, w, h);
+			// The live-rotating vanilla panorama (the shared instance vanilla itself
+			// spins, so spin state + the panoramaSpeed option stay consistent), blurred,
+			// under the Origin charcoal grade — the SAME themed menu as every 1.21.x
+			// version. This replaces 26.2's old static composite (flat fill + rings +
+			// grain + particles + orbiting bodies + frame) so the main menu pans here too.
+			// 26.2 rename: Panorama.render(g,w,h,spin) → extractRenderState(g,w,h).
+			mc.gameRenderer.panorama().extractRenderState(guiGraphics, w, h);
+			guiGraphics.blurBeforeThisStratum();
+			guiGraphics.fill(0, 0, w, h, GRADE);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -254,44 +256,18 @@ public final class OriginScreenRenderer {
 	}
 
 	public static void renderTitleCursorGlow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		if (broken) {
-			return;
-		}
-		try {
-			renderTitleCursorGlow0(guiGraphics, mouseX, mouseY, hoveringClickable);
-		} catch (Throwable t) {
-			fail(t);
-		}
+		// Retired (Will, 2026-08-02): the mouse-follow spotlight on the title
+		// screen. It was the website's two-layer cursor bloom ported over, and it
+		// never worked right on Minecraft's pixel grid -- the blur IS the effect,
+		// and blur doesn't exist at this resolution. Kept as an empty method
+		// rather than deleted: both call sites (ScreenBackgroundMixin's two
+		// mutually-exclusive paths, and TitleScreenMixin) stay wired for free,
+		// and the pairing between them is subtle enough to be worth leaving
+		// undisturbed. radialGlowId/RADIAL_TEX/drawRadial are NOT part of this --
+		// they're shared with the loading-screen orbiting bodies, which stay.
 	}
 
-	private static void renderTitleCursorGlow0(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		ensureLoaded();
-		if (radialGlowId == null) {
-			return;
-		}
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
 
-		long now = System.nanoTime();
-		double dtMs = glowLastNanos == 0 ? 16.7 : Math.min(100.0, (now - glowLastNanos) / 1_000_000.0);
-		glowLastNanos = now;
-
-		double target = hoveringClickable ? 1.0 : 0.0;
-		double step = dtMs / 250.0;
-		glowHover = target > glowHover ? Math.min(target, glowHover + step) : Math.max(target, glowHover - step);
-		double hv = OriginTheme.easeOut(glowHover);
-
-		if (Double.isNaN(haloX)) {
-			haloX = mouseX;
-			haloY = mouseY;
-		}
-		double f = 1.0 - Math.pow(1.0 - 0.38, dtMs / 16.7);
-		haloX += (mouseX - haloX) * f;
-		haloY += (mouseY - haloY) * f;
-
-		drawRadial(guiGraphics, haloX, haloY, w * (0.14 + 0.04 * hv), 0.112 + 0.063 * hv);
-		drawRadial(guiGraphics, mouseX, mouseY, w * (0.032 + 0.018 * hv), 0.30 + 0.17 * hv);
-	}
 
 	private static void drawRadial(GuiGraphicsExtractor guiGraphics, double cx, double cy, double diameter, double a) {
 		int d = Math.max(2, (int) Math.round(diameter));
@@ -379,14 +355,15 @@ public final class OriginScreenRenderer {
 			int x = Math.max(10, (int) Math.round(w * 0.03));
 			int y = x;
 
-			OriginUi.panel(guiGraphics, x, y, chipW, chipH, OriginTheme.RADIUS_MD,
-					OriginTheme.PANEL_TRANSLUCENT, 0);
-
+			// No panel/border behind the name (Will) — just the Origin mark + username
+			// sit directly on the panorama.
 			int hx = x + padX, hy = y + padY;
 			OriginUi.logo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 
+			// Text shadow keeps the name legible over the panorama now that there is
+			// no panel behind it.
 			guiGraphics.text(font, name, hx + head + gap,
-					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, false);
+					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, true);
 		} catch (Throwable t) {
 			fail(t);
 		}

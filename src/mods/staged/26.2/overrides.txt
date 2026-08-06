@@ -29,3 +29,9 @@ client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
 client/java/com/origin/client/client/mixin/loading/ReceivingLevelScreenMixin.java
 client/java/com/origin/client/client/mods/Mods.java
 client/java/com/origin/client/client/mods/ModsConfig.java
+
+# 26.2 is a mid-port staged module and diverges here on purpose:
+#   ModOption   — adds the MULTISELECT row kind the 26.2 menu needs
+#   OriginTheme — its own wording for the frost box-surface tokens
+client/java/com/origin/client/client/mods/ModOption.java
+client/java/com/origin/client/client/theme/OriginTheme.java

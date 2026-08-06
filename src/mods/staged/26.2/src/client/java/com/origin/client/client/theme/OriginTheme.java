@@ -20,6 +20,11 @@ public final class OriginTheme {
 	public static final int STROKE = 0x14FFFFFF;
 	// rgba(255,255,255,0.18)
 	public static final int STROKE_STRONG = 0x2EFFFFFF;
+	// Frost box-surface tokens (ported from 1.21.x for the Item Size screen and any
+	// other box UI): a light see-through fill over a near-black frame, hover fills in.
+	public static final int BOX_FILL = 0x59161616;
+	public static final int BOX_FILL_HOVER = 0x99303030;
+	public static final int BOX_BORDER = 0xF00A0A0A;
 	// Hover outline — a MUCH lighter gray than the resting stroke, so a hovered
 	// box reads as obviously responsive (A2). One shared value: every hovered
 	// custom box (mod menu, HUD editor, vanilla widget shells) brightens to this.

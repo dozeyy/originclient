@@ -8,7 +8,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.PlainTextButton;
 import net.minecraft.client.gui.components.SplashRenderer;
-import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -122,8 +121,9 @@ public class TitleScreenMixin {
 		}
 		Screen self = (Screen) (Object) this;
 		for (GuiEventListener child : self.children()) {
-			if ((child instanceof SpriteIconButton || child instanceof PlainTextButton)
-					&& child instanceof AbstractWidget widget) {
+			// Baseline (1.21.1): language + accessibility icons are KEPT and
+			// re-skinned; only the copyright line is hidden.
+			if (child instanceof PlainTextButton && child instanceof AbstractWidget widget) {
 				widget.visible = false;
 				widget.active = false;
 			}

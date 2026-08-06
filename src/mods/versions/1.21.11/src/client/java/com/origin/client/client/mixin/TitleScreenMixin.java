@@ -69,22 +69,14 @@ public class TitleScreenMixin {
 		OriginScreenRenderer.renderTitleAccountChip(guiGraphics);
 	}
 
-	// Both suppressions are gated on the renderer's health: if the Origin
-	// backdrop ever fails (fail-soft contract), vanilla's panorama comes back
-	// instead of leaving a black screen.
-	@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
-	private void originclient$suppressPanorama(GuiGraphics guiGraphics, float partialTick, CallbackInfo ci) {
-		if (originclient$origin() && OriginScreenRenderer.isActive()) {
-			ci.cancel();
-		}
-	}
-
-	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
-	private void originclient$suppressBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		if (originclient$origin() && OriginScreenRenderer.isActive()) {
-			ci.cancel();
-		}
-	}
+	// NOTE (1.21.11): the backdrop suppressions do NOT live here any more, and
+	// must not come back. renderPanorama moved TitleScreen -> Screen in 1.21.6,
+	// so an @Inject on it from a TitleScreen mixin binds nothing and is skipped
+	// in silence ("defaultRequire": 0) — it only LOOKED like it was working.
+	// TitleScreen.renderBackground is an empty override here, so cancelling that
+	// achieved nothing either. ScreenBackgroundMixin (@Mixin(Screen.class)) does
+	// both for real, gated on the same Origin-style + renderer-health checks.
+	// Removed 2026-08-01.
 
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))

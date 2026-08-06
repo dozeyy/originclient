@@ -111,9 +111,6 @@ public final class OriginScreenRenderer {
 	// hovering a clickable. State is static: one cursor, one glow.
 	private static ResourceLocation radialGlowId;
 	private static final int RADIAL_TEX = 512;
-	private static double haloX = Double.NaN, haloY = Double.NaN;
-	private static double glowHover = 0.0;
-	private static long glowLastNanos = 0L;
 
 	private record Ring(ResourceLocation texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {

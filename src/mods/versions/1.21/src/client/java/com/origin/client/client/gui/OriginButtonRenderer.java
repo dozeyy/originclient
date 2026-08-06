@@ -7,6 +7,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Checkbox;
@@ -31,18 +32,19 @@ import com.origin.client.client.theme.OriginTheme;
 public final class OriginButtonRenderer {
 	private static final Gson GSON = new Gson();
 
-	private static final int FILL_NORMAL = 0x07FFFFFF;
-	private static final int FILL_HOVER = 0x0FFFFFFF;
-	private static final int BORDER_NORMAL = 0x1CFFFFFF;
+	private static final int FILL_NORMAL = 0x59161616;
+	private static final int FILL_HOVER = 0x99303030;
+	private static final int BORDER_NORMAL = 0xF00A0A0A;
 	// Hover brightens the outline to a MUCH lighter gray (A2) — one shared token
 	// so every hovered Origin box reads the same, here and in OriginUi panels.
-	private static final int BORDER_HOVER = OriginTheme.STROKE_HOVER;
+	private static final int BORDER_HOVER = 0xFF1A1A1A;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
-	private static final int FILL_DISABLED = 0x04FFFFFF;
-	private static final int BORDER_DISABLED = 0x10FFFFFF;
-	private static final int LABEL_DISABLED = OriginTheme.MUTED;
-	private static final int CORNER_DISPLAY = 6;
+	private static final int FILL_DISABLED = 0x40101010;
+	private static final int BORDER_DISABLED = 0x99080808;
+	private static final int LABEL_DISABLED = 0xFFA0A0A0;
+	// Baseline corner radius: 1.21.1 and 1.21.11 both draw buttons at 3 GUI px.
+	private static final int CORNER_DISPLAY = 3;
 	// Short + eased = the website's snappy hover; no per-button glow (the
 	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
 	private static final double HOVER_MS = 90.0;
@@ -121,11 +123,7 @@ public final class OriginButtonRenderer {
 		RenderSystem.defaultBlendFunc();
 
 		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-		shaderColor(fill);
-		nineSlice(guiGraphics, fillTex, x, drawY, w, h, cd);
-		shaderColor(border);
-		nineSlice(guiGraphics, borderTex, x, drawY, w, h, cd);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		OriginUi.bevelPanel(guiGraphics, x, drawY, w, h, cd, fill, border);
 
 		drawLabel(guiGraphics, cx, cy, h, button.getMessage(), labelColor);
 	}
@@ -170,8 +168,7 @@ public final class OriginButtonRenderer {
 
 		// Shell -- identical to a resting button.
 		if (assetsOk) {
-			shaderColor(fill);
-			nineSlice(guiGraphics, fillTex, x, y, w, h, cd);
+			OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, fill, 0);
 		} else {
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 			guiGraphics.fill(x, y, x + w, y + h, fill);
@@ -201,9 +198,7 @@ public final class OriginButtonRenderer {
 		if (assetsOk) {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
-			shaderColor(border);
-			nineSlice(guiGraphics, borderTex, x, y, w, h, cd);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, 0, border);
 		}
 
 		drawLabel(guiGraphics, x + w / 2.0, y + h / 2.0, h, slider.getMessage(), labelColor);
@@ -240,11 +235,7 @@ public final class OriginButtonRenderer {
 		int box = h;
 		int cd = Math.min(4, box / 3);
 		if (assetsOk) {
-			shaderColor(fill);
-			nineSlice(guiGraphics, fillTex, x, y, box, box, cd);
-			shaderColor(border);
-			nineSlice(guiGraphics, borderTex, x, y, box, box, cd);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			OriginUi.bevelPanel(guiGraphics, x, y, box, box, cd, fill, border);
 		} else {
 			guiGraphics.fill(x, y, x + box, y + box, fill);
 		}
@@ -309,29 +300,6 @@ public final class OriginButtonRenderer {
 		guiGraphics.drawString(font, message, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, false);
 	}
 
-	private static void nineSlice(GuiGraphics g, ResourceLocation tex, int x, int y, int w, int h, int cd) {
-		int c = CORNER;
-		int t = TEX;
-		int mid = t - 2 * c;
-		int mw = w - 2 * cd;
-		int mh = h - 2 * cd;
-		g.blit(tex, x, y, cd, cd, 0f, 0f, c, c, t, t);
-		g.blit(tex, x + w - cd, y, cd, cd, (float) (t - c), 0f, c, c, t, t);
-		g.blit(tex, x, y + h - cd, cd, cd, 0f, (float) (t - c), c, c, t, t);
-		g.blit(tex, x + w - cd, y + h - cd, cd, cd, (float) (t - c), (float) (t - c), c, c, t, t);
-		if (mw > 0) {
-			g.blit(tex, x + cd, y, mw, cd, (float) c, 0f, mid, c, t, t);
-			g.blit(tex, x + cd, y + h - cd, mw, cd, (float) c, (float) (t - c), mid, c, t, t);
-		}
-		if (mh > 0) {
-			g.blit(tex, x, y + cd, cd, mh, 0f, (float) c, c, mid, t, t);
-			g.blit(tex, x + w - cd, y + cd, cd, mh, (float) (t - c), (float) c, c, mid, t, t);
-		}
-		if (mw > 0 && mh > 0) {
-			g.blit(tex, x + cd, y + cd, mw, mh, (float) c, (float) c, mid, mid, t, t);
-		}
-	}
-
 	private static void shaderColor(int argb) {
 		float a = ((argb >>> 24) & 0xFF) / 255f;
 		float r = ((argb >> 16) & 0xFF) / 255f;
@@ -393,5 +361,79 @@ public final class OriginButtonRenderer {
 			throw new java.io.FileNotFoundException("Missing Origin button asset: " + classpathResource);
 		}
 		return in;
+	}
+
+	/**
+	 * Origin skin for the sprite-icon buttons — the Accessibility (person) and
+	 * Language (globe) buttons the 1.21.1 baseline keeps on the title screen.
+	 * Drawn with this module's own nine-slice box so it matches every other
+	 * Origin button here exactly. Ported from the baseline 2026-08-01.
+	 */
+	public static boolean renderIconButton(GuiGraphics guiGraphics, SpriteIconButton button,
+										   int spriteWidth, int spriteHeight, Runnable drawIcon) {
+		if (broken) {
+			return false;
+		}
+		try {
+			ensureLoaded();
+			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+			boolean enabled = button.active;
+			double hv = hoverEase(button, enabled && button.isHovered());
+			int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
+			int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+
+			if (!assetsOk) {
+				drawFallback(guiGraphics, x, y, w, h, fill, border,
+						enabled ? LABEL_COLOR : LABEL_DISABLED, button.getMessage());
+			} else {
+				// This era tints the nine-slice through the shader colour.
+				RenderSystem.enableBlend();
+				RenderSystem.defaultBlendFunc();
+				int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
+				OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, fill, border);
+			}
+
+			// Only TextAndIcon carries a label; CenteredIcon is icon-only, exactly
+			// like vanilla. Drawing button.renderString() here instead printed
+			// "Language"/"Accessibility Settings" across the neighbouring buttons.
+			if (button instanceof net.minecraft.client.gui.components.SpriteIconButton.TextAndIcon) {
+				Font font = Minecraft.getInstance().font;
+				guiGraphics.drawString(font, button.getMessage(), x + 2, y + (h - 8) / 2,
+						enabled ? LABEL_COLOR : LABEL_DISABLED, false);
+			}
+			drawIcon.run();
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	public static boolean renderTab(GuiGraphics g, Object key, int x, int y, int w, int h,
+									Component label, boolean selected, boolean hovered) {
+		if (broken) {
+			return false;
+		}
+		try {
+			double hv = hoverEase(key, hovered);
+			// Selected pins the hover look; unselected eases with the cursor.
+			double lit = selected ? 1.0 : hv;
+			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, lit);
+			int border = OriginTheme.lerpColor(BORDER_NORMAL, OriginTheme.STROKE_HOVER, lit);
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
+			OriginUi.bevelPanel(g, x, y, w, h, cd, fill, border);
+			if (selected) {
+				int uw = Math.max(16, Math.min(w - 8, (int) Math.round(w * 0.55)));
+				int ux = x + (w - uw) / 2;
+				g.fill(ux, y + h - 2, ux + uw, y + h - 1, OriginTheme.TEXT);
+			}
+			int labelColor = selected ? LABEL_COLOR
+					: OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, hv);
+			drawLabel(g, x + w / 2.0, y + h / 2.0, h, label, labelColor);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
 	}
 }

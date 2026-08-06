@@ -86,8 +86,18 @@ Fabric-API `.world` path is reverted).
 `1.21.6` (covers 1.21.6/7), and the `1.21.10` split — all boot-swept clean, in-world
 verified on 1.21.11 by Will (outline, overlay, chunk borders, particles, motion blur,
 zoom, lock icon). Remaining known gaps: motion blur inert on <=1.21.5 (no persistent
-post-target support), and hitboxes/nametags/tile-entity-culling absent on
-1.21.10/1.21.11 (deferred-render port pending).
+post-target support). On 1.21.11 hitboxes (gizmo system), nametags, and
+tile-entity culling are now ported and wired (2026-07-26) — the earlier
+"deferred-render port pending" note is resolved. **1.21.11 motion-blur caveat
+(era limitation, accepted per mandate 5):** its reworked `PostPass` bakes each
+uniform into an immutable, non-mappable `GpuBuffer` at load and exposes no
+per-frame setter, so the 0..10 slider maps onto 3 baked strength variants
+(`motion_blur_1/2/3.json`) instead of 1.21.1's single chain with a live,
+time-derived `Amount` uniform. Result on 1.21.11: the slider is stepped and each
+step's trail length is framerate-dependent. True parity would require recreating
+the blur pass's UBO every frame (per-frame GPU-buffer churn racing the private
+`addToFrame` map) — not worth the stability risk; the baked variants are the
+best-fit stable method for this render era.
 
 ## Legacy versions (in `versions/`, Forge — the pre-Fabric era)
 

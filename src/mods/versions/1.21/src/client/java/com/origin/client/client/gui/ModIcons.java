@@ -62,6 +62,7 @@ public final class ModIcons {
 		ITEMS.put("weather", Items.TRIDENT);
 		ITEMS.put("timechanger", Items.CLOCK);
 		ITEMS.put("motionblur", Items.PHANTOM_MEMBRANE);
+		ITEMS.put("colorsaturation", Items.BRUSH);
 		ITEMS.put("chat", Items.WRITABLE_BOOK);
 		ITEMS.put("particles", Items.FIREWORK_STAR);
 		// JEI = look up an item's recipe. The Knowledge Book is vanilla's own
@@ -83,6 +84,7 @@ public final class ModIcons {
 		// Panel-backing toggle: switches the menu panel between opaque and
 		// see-through, and glass is literally the transparency block.
 		ITEMS.put("@backing", Items.GLASS);
+		ITEMS.put("tablist", Items.PLAYER_HEAD);
 
 		custom("cps", 16);
 		custom("keystrokes", 16);

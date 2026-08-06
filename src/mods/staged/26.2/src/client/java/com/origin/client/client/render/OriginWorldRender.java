@@ -39,9 +39,9 @@ public final class OriginWorldRender {
 			if (Mods.on("chunkborders")) {
 				chunkBorders(ctx, mc, cam);
 			}
-			if (Mods.on("hitboxes")) {
-				hitboxes(ctx, mc, cam);
-			}
+			// Hitboxes are drawn by HitboxMixin (the native gizmo system — smooth stroke
+			// width, interpolated, cheap), NOT here. The old submit-outline path stuttered
+			// and the ThickLine path was too heavy.
 		} catch (Throwable t) {
 			// A bad frame must never take the level render down.
 		}
@@ -139,29 +139,65 @@ public final class OriginWorldRender {
 			ny /= len;
 			nz /= len;
 		}
-		buf.addVertex(pose, (float) ax, (float) ay, (float) az).setColor(r, g, b, a).setNormal(pose, nx, ny, nz);
-		buf.addVertex(pose, (float) bx, (float) by, (float) bz).setColor(r, g, b, a).setNormal(pose, nx, ny, nz);
+		// RenderTypes.lines() REQUIRES a per-vertex LineWidth element — omitting it
+		// throws "Missing elements in vertex" when the deferred submitCustomGeometry
+		// lambda flushes (in the render frame, OUTSIDE collect()'s try/catch, so it
+		// crashes the game rather than fail-soft). Thickness is emulated via the
+		// offset passes in post()/ring(), so a unit width here just satisfies the format.
+		buf.addVertex(pose, (float) ax, (float) ay, (float) az).setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
+		buf.addVertex(pose, (float) bx, (float) by, (float) bz).setColor(r, g, b, a).setNormal(pose, nx, ny, nz).setLineWidth(1.0f);
 	}
 
 	// ---- hitboxes ----
 
 	private static void hitboxes(LevelRenderContext ctx, Minecraft mc, Vec3 cam) {
 		int color = OriginColorPicker.liveColor("hitboxes", "lineColor");
-		float width = (float) Math.max(0.5, Mods.num("hitboxes", "lineWidth"));
+		float r = ((color >> 16) & 0xFF) / 255f, g = ((color >> 8) & 0xFF) / 255f, b = (color & 0xFF) / 255f;
+		float a = ((color >>> 24) & 0xFF) / 255f;
+		if (a <= 0f) {
+			a = 1f;
+		}
+		// lineWidth 0.5..N → block-space thickness, same feel as the block outline.
+		double lw = Math.max(0.5, Mods.num("hitboxes", "lineWidth"));
 		double maxD = Mods.num("hitboxes", "maxDistance");
 		double maxSq = maxD * maxD;
-		var poseStack = ctx.poseStack();
-		var collector = ctx.submitNodeCollector();
-		for (Entity e : mc.level.entitiesForRendering()) {
-			if (e == mc.player && mc.options.getCameraType().isFirstPerson()) {
-				continue;
+		final float fr = r, fg = g, fb = b, fa = a;
+		final double ft = 0.006 + (lw - 1) * 0.005;
+		// Draw each box's 12 edges as SOLID geometry (ThickLine → debugQuads), not
+		// RenderTypes.lines() GL lines. GL lines can't set a reliable per-draw width
+		// and read jagged/flickery at distance ("glitchy"); solid edges are smooth and
+		// consistent, matching the Block Outline. One submit for all boxes.
+		ctx.submitNodeCollector().submitCustomGeometry(ctx.poseStack(), RenderTypes.debugQuads(), (pose, q) -> {
+			for (Entity e : mc.level.entitiesForRendering()) {
+				if (e == mc.player && mc.options.getCameraType().isFirstPerson()) {
+					continue;
+				}
+				if (!hitboxEnabled(e) || e.distanceToSqr(cam) > maxSq) {
+					continue;
+				}
+				net.minecraft.world.phys.AABB box = e.getBoundingBox().move(-cam.x, -cam.y, -cam.z);
+				boxEdges(q, pose, box, ft, fr, fg, fb, fa);
 			}
-			if (!hitboxEnabled(e) || e.distanceToSqr(cam) > maxSq) {
-				continue;
-			}
-			var box = e.getBoundingBox().move(-cam.x, -cam.y, -cam.z);
-			collector.submitShapeOutline(poseStack, Shapes.create(box), RenderTypes.lines(), color, width, false);
-		}
+		});
+	}
+
+	// The 12 edges of an AABB, each a solid ThickLine box (smooth, real thickness).
+	private static void boxEdges(VertexConsumer q, PoseStack.Pose pose, net.minecraft.world.phys.AABB box,
+								 double t, float r, float g, float b, float a) {
+		double x0 = box.minX, y0 = box.minY, z0 = box.minZ, x1 = box.maxX, y1 = box.maxY, z1 = box.maxZ;
+		double cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
+		com.origin.client.client.render.ThickLine.edge(q, pose, x0, y0, z0, x1, y0, z0, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x1, y0, z0, x1, y0, z1, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x1, y0, z1, x0, y0, z1, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x0, y0, z1, x0, y0, z0, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x0, y1, z0, x1, y1, z0, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x1, y1, z0, x1, y1, z1, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x1, y1, z1, x0, y1, z1, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x0, y1, z1, x0, y1, z0, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x0, y0, z0, x0, y1, z0, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x1, y0, z0, x1, y1, z0, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x1, y0, z1, x1, y1, z1, cx, cy, cz, t, r, g, b, a);
+		com.origin.client.client.render.ThickLine.edge(q, pose, x0, y0, z1, x0, y1, z1, cx, cy, cz, t, r, g, b, a);
 	}
 
 	// Maps an entity to the mod's category toggles (a pragmatic subset of the

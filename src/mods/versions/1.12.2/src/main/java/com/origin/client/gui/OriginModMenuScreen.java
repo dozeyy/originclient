@@ -53,8 +53,6 @@ public class OriginModMenuScreen extends GuiScreen {
     private double optScroll, optScrollTarget;
 
     // ---- Cursor halo (lerps toward mouse; starts on first frame's mouse) ----
-    private double haloX = Double.NaN, haloY = Double.NaN;
-    private long haloLastMs = System.currentTimeMillis();
 
     // ---- Interaction captures ----
     private String dragKey;          // option key of the slider being dragged
@@ -215,23 +213,12 @@ public class OriginModMenuScreen extends GuiScreen {
             p = OriginTheme.easeOut((now - openTime) / OPEN_MS);
         }
 
-        // Halo trails the cursor, dt-normalized so it feels the same at any
-        // frame rate. 0.45/frame @60fps — tight to the cursor with a hint of
-        // drift; the website's 0.12 read as laggy in-game.
-        if (Double.isNaN(haloX)) { haloX = mouseX; haloY = mouseY; }
-        double haloDt = Math.min(100, now - haloLastMs);
-        haloLastMs = now;
-        double haloF = 1.0 - Math.pow(1.0 - 0.45, haloDt / 16.7);
-        haloX += (mouseX - haloX) * haloF;
-        haloY += (mouseY - haloY) * haloF;
-
         boolean backed = Mods.panelBacking();
 
         GlStateManager.pushMatrix();
         GlStateManager.translate(0, (float) ((1.0 - p) * (height - py)), 0);
 
         if (backed) OriginUi.panel(px, py, pw, ph, 10, 0xC80E0E0E, OriginTheme.STROKE);
-        OriginUi.glow(haloX, haloY, 150, 0.10 * p);
 
         drawTopBar(mouseX, mouseY, backed);
 

@@ -7,6 +7,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.PanoramaRenderer;
+import net.minecraft.client.renderer.CubeMap;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
@@ -45,6 +47,14 @@ public final class OriginScreenRenderer {
 	// must gate standalone suppressions on isActive(). This is the runtime
 	// half of the multi-version contract (see VERSIONS.md); the mixin
 	// configs' required:false is the load-time half.
+	// Origin's "Lighter grade" over the blurred panorama: charcoal at 55% alpha.
+	// The menu backdrop: vanilla's own panorama cubemap, spun and blurred live.
+	private static final CubeMap PANORAMA_CUBE = new CubeMap(
+			ResourceLocation.withDefaultNamespace("textures/gui/title/background/panorama"));
+	private static final PanoramaRenderer PANORAMA = new PanoramaRenderer(PANORAMA_CUBE);
+
+	private static final int GRADE = 0x8C08080A;
+
 	private static volatile boolean broken = false;
 
 	private static volatile boolean loaded = false;
@@ -92,9 +102,6 @@ public final class OriginScreenRenderer {
 	// hovering a clickable. State is static: one cursor, one glow.
 	private static ResourceLocation radialGlowId;
 	private static final int RADIAL_TEX = 512;
-	private static double haloX = Double.NaN, haloY = Double.NaN;
-	private static double glowHover = 0.0;
-	private static long glowLastNanos = 0L;
 
 	private record Ring(ResourceLocation texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {
@@ -292,82 +299,39 @@ public final class OriginScreenRenderer {
 			return false;
 		}
 		try {
-			ensureLoaded();
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
+			// false = ignore the frozen-tick pause, so the panorama keeps spinning
+			// smoothly on menus that don't advance game time.
+			float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 
-			guiGraphics.fill(0, 0, w, h, BG_COLOR);
-			if (!ringsFailed) {
-				drawRings(guiGraphics, w, h);
-				drawGrain(guiGraphics, w, h);
-			}
-			// Menu ambient life: drifting dust behind, bodies orbiting the rings
-			// on top -- both under the vignette so the frame still darkens them.
-			drawParticles(guiGraphics, w, h);
-			drawOrbitingBodies(guiGraphics, w, h);
-			drawFrame(guiGraphics, w, h);
+			PANORAMA.render(guiGraphics, w, h, 1.0f, partial);
+
+			// Blur exactly the way this era's vanilla does it — one call, no partial
+			// tick, no render-target rebind (checked against the jar).
+			mc.gameRenderer.processBlurEffect();
+
+			drawGrade(guiGraphics, w, h);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
 	}
 
-	/**
-	 * Main menu: the website's two-layer cursor spotlight, drawn over the ring
-	 * background but under the widgets/wordmark. The core (small, brighter)
-	 * snaps to the cursor every frame; the halo (large, faint) trails it via
-	 * the website's exact per-frame lerp (0.12 @60fps, dt-corrected here so it
-	 * feels identical at any framerate). Both grow + brighten while hovering a
-	 * clickable, mirroring the site's .is-active bloom. Sizes scale with the
-	 * GUI width the way the CSS pixel sizes relate to a typical viewport.
-	 */
 	public static void renderTitleCursorGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		// Purely additive; skip when broken.
-		if (broken) {
-			return;
-		}
-		try {
-			renderTitleCursorGlow0(guiGraphics, mouseX, mouseY, hoveringClickable);
-		} catch (Throwable t) {
-			fail(t);
-		}
+		// Retired (Will, 2026-08-02): the mouse-follow spotlight on the title
+		// screen. It was the website's two-layer cursor bloom ported over, and it
+		// never worked right on Minecraft's pixel grid -- the blur IS the effect,
+		// and blur doesn't exist at this resolution. Kept as an empty method
+		// rather than deleted: both call sites (ScreenBackgroundMixin's two
+		// mutually-exclusive paths, and TitleScreenMixin) stay wired for free,
+		// and the pairing between them is subtle enough to be worth leaving
+		// undisturbed. radialGlowId/RADIAL_TEX/drawRadial are NOT part of this --
+		// they're shared with the loading-screen orbiting bodies, which stay.
 	}
 
-	private static void renderTitleCursorGlow0(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		ensureLoaded();
-		if (radialGlowId == null) {
-			return;
-		}
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
 
-		long now = System.nanoTime();
-		double dtMs = glowLastNanos == 0 ? 16.7 : Math.min(100.0, (now - glowLastNanos) / 1_000_000.0);
-		glowLastNanos = now;
-
-		// Hover bloom easing (~0.3s ease, like the site's transition).
-		double target = hoveringClickable ? 1.0 : 0.0;
-		double step = dtMs / 250.0;
-		glowHover = target > glowHover ? Math.min(target, glowHover + step) : Math.max(target, glowHover - step);
-		double hv = OriginTheme.easeOut(glowHover);
-
-		// Halo lag, dt-corrected. The website's 0.12/frame felt too floaty
-		// in-game (Will: "much faster, just a slight lag") -- 0.38/frame keeps
-		// a visible trail but snaps close behind the cursor.
-		if (Double.isNaN(haloX)) {
-			haloX = mouseX;
-			haloY = mouseY;
-		}
-		double f = 1.0 - Math.pow(1.0 - 0.38, dtMs / 16.7);
-		haloX += (mouseX - haloX) * f;
-		haloY += (mouseY - haloY) * f;
-
-		// Sizes are ~40% of the website's proportional values -- the 1:1
-		// translation read far too big in-game (Will: "shrink by 60% at least").
-		drawRadial(guiGraphics, haloX, haloY, w * (0.14 + 0.04 * hv), 0.112 + 0.063 * hv);
-		drawRadial(guiGraphics, mouseX, mouseY, w * (0.032 + 0.018 * hv), 0.30 + 0.17 * hv);
-	}
 
 	private static void drawRadial(GuiGraphics guiGraphics, double cx, double cy, double diameter, double alpha) {
 		int d = Math.max(2, (int) Math.round(diameter));
@@ -473,10 +437,8 @@ public final class OriginScreenRenderer {
 			int x = Math.max(10, (int) Math.round(w * 0.03));
 			int y = x;
 
-			// No border stroke (Will) — just a faint translucent backing so the
-			// white username stays legible over the rings.
-			OriginUi.panel(guiGraphics, x, y, chipW, chipH, OriginTheme.RADIUS_MD,
-					OriginTheme.PANEL_TRANSLUCENT, 0);
+			// No background behind the head/username (baseline 1.21.1): the head
+			// sits directly on the panorama, the name keeps its shadow.
 
 			int hx = x + padX, hy = y + padY;
 			boolean drewHead = false;
@@ -925,5 +887,9 @@ public final class OriginScreenRenderer {
 			throw new java.io.FileNotFoundException("Missing Origin asset: " + classpathResource);
 		}
 		return in;
+	}
+
+	private static void drawGrade(GuiGraphics guiGraphics, int w, int h) {
+		guiGraphics.fill(0, 0, w, h, GRADE);
 	}
 }

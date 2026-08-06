@@ -10,7 +10,7 @@ package com.origin.client.client.mods;
 //   dependsOn — a row nested under a TOGGLE: indented, and only shown while
 //               that toggle is on (Block Outline -> width/mode/color, etc.).
 public final class ModOption {
-	public enum Kind { HEADER, TOGGLE, SLIDER, DROPDOWN, KEYBIND, COLOR }
+	public enum Kind { HEADER, TOGGLE, SLIDER, DROPDOWN, KEYBIND, COLOR, MULTISELECT }
 
 	public final String key;
 	public final String label;

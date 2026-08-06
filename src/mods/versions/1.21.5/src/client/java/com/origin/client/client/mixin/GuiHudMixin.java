@@ -32,4 +32,5 @@ public class GuiHudMixin {
 	private void originclient$topHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		HudElements.renderAll(guiGraphics);
 	}
+
 }

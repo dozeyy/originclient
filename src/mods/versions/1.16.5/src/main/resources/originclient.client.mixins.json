@@ -20,6 +20,7 @@
 		"LevelRendererCountAccessor",
 		"LightTextureMixin",
 		"ParticleEngineMixin",
+		"FireworkStarterMixin",
 		"SingleQuadParticleMixin",
 		"LevelTimeMixin",
 		"HitboxMixin",

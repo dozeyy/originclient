@@ -33,7 +33,6 @@ client/java/com/origin/client/client/mods/ModOption.java
 # logic, no per-version API dependency — the only reason this is forked
 # instead of landing in shared/ directly is to keep this port's diff scoped
 # to 1.21.11).
-client/java/com/origin/client/client/mods/ModsConfig.java
 
 # TEMPORARY FORK (2026-07-23) - the 2026-07-21 "hover highlights to full white"
 # visual redesign (STROKE_HOVER/TEXT brightened) + the Frost-style box-surface
@@ -53,9 +52,23 @@ client/java/com/origin/client/client/theme/OriginTheme.java
 client/java/com/origin/client/client/gui/OriginColorPicker.java
 client/resources/assets/originclient/lang/en_us.json
 
+# icon.png: 1.21.11 shipped shared's 453 B placeholder mark; replaced 2026-07-30
+# with 1.21.1's high-resolution 12.7 KB icon to match. Forked so sync.py won't
+# revert it to the placeholder. Promote to shared/ (delete this line) once the
+# real icon lands in shared for every module.
+main/resources/assets/originclient/icon.png
+
 # 1.21.11 removed ParticleEngine.destroy()/crack(); block-break and block-hit
 # bursts spawn through ClientLevel.addDestroyBlockEffect/addBreakingBlockEffect
 # instead, and ClientLevelParticleMixin (this module only) gates them there. The
 # two injects were deleted from this copy on 2026-07-26 — shared/'s copy still
 # needs them for every version that still has those methods.
 client/java/com/origin/client/client/mixin/ParticleEngineMixin.java
+
+# MinecraftFramerateMixin: DELETED from this module (the path is listed so sync
+# never restores it). Minecraft.getFramerateLimit() no longer exists in this
+# era — the value moved onto FramerateLimitTracker, which FramerateLimitTrackerMixin
+# hooks instead. The file was still present and registered here, silently
+# binding nothing ("defaultRequire": 0) and printing a "Cannot remap
+# getFramerateLimit" warning on every build. Removed 2026-08-01.
+client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java

@@ -1,5 +1,6 @@
 package com.origin.client.client.mods;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import com.origin.client.client.OriginClientMod;
 
@@ -486,6 +487,22 @@ public final class Mods {
 	}
 
 	public static void setMetaBool(String key, boolean v) {
+		ModsConfig.ensureLoaded();
+		ModsConfig.META.put(key, new JsonPrimitive(v));
+		ModsConfig.save();
+	}
+
+	public static double metaNum(String key, double def) {
+		ModsConfig.ensureLoaded();
+		JsonElement v = ModsConfig.META.get(key);
+		try {
+			return v == null ? def : v.getAsDouble();
+		} catch (RuntimeException e) {
+			return def;
+		}
+	}
+
+	public static void setMetaNum(String key, double v) {
 		ModsConfig.ensureLoaded();
 		ModsConfig.META.put(key, new JsonPrimitive(v));
 		ModsConfig.save();

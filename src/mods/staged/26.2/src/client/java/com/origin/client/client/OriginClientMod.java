@@ -81,6 +81,16 @@ public class OriginClientMod implements ClientModInitializer {
 				Identifier.fromNamespaceAndPath("originclient", "hud"),
 				(guiGraphics, deltaTracker) -> OriginHud.extractRenderState(guiGraphics));
 
+		// Color Saturation: a full-screen grade over the rendered WORLD. Registered
+		// FIRST so it runs before any vanilla HUD element draws — at that point the
+		// world is fully in the main target and no HUD has been submitted, so only
+		// world pixels are graded (the 26.2 equivalent of 1.21.x's Gui.render HEAD
+		// hook). OriginShaders.register() just logs; the pipeline is a static field.
+		com.origin.client.client.gui.OriginShaders.register();
+		HudElementRegistry.addFirst(
+				Identifier.fromNamespaceAndPath("originclient", "color_grade"),
+				(guiGraphics, deltaTracker) -> com.origin.client.client.render.ColorGrade.process(guiGraphics));
+
 		// Scoreboard mod: rescale the vanilla sidebar around its right-center
 		// anchor, or hide it entirely. 26.2 removed the Gui.displayScoreboardSidebar
 		// draw hook (immediate-mode GuiGraphics is gone), so we wrap the vanilla
@@ -126,12 +136,17 @@ public class OriginClientMod implements ClientModInitializer {
 		net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.COLLECT_SUBMITS.register(
 				com.origin.client.client.render.OriginWorldRender::collect);
 
-		// 26.2 core-first STUB: the shader-download button injection, the chunk-
-		// border + block-overlay world renderers (WorldRenderEvents → LevelRenderEvents,
-		// RenderType.lines/MultiBufferSource gone, block-outline is now a render-state
-		// extraction), and the potion "show in inventory" (ScreenEvents.afterRender →
-		// afterExtract) all need a rework onto 26.2's new pipeline. Re-add each once
-		// its renderer is ported back from disabled262/. See PORT-262.md.
+		// Block Overlay / Block Outline: BEFORE_BLOCK_OUTLINE returns false to cancel
+		// vanilla's white selection box, so Origin owns the draw with no LevelRenderer
+		// mixin needed. The renderer submits its geometry via the submit pipeline.
+		net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.BEFORE_BLOCK_OUTLINE.register(
+				com.origin.client.client.mods.BlockOverlayRenderer::beforeBlockOutline);
+
+		// Chunk Borders + Hitboxes (OriginWorldRender / COLLECT_SUBMITS) and Block
+		// Overlay + Block Outline (BlockOverlayRenderer / BEFORE_BLOCK_OUTLINE) are all
+		// LIVE. Still STUBBED (re-add each once ported from disabled262/, see
+		// PORT-262.md): the shader-download button injection, and the potion "show in
+		// inventory" (ScreenEvents.afterRender → afterExtract).
 	}
 
 	// Flush everything to disk once, when Minecraft is shutting down. Each
@@ -295,11 +310,17 @@ public class OriginClientMod implements ClientModInitializer {
 		// released once on un-toggle, so vanilla stays in control the rest of the
 		// time.
 		boolean toggleMod = Mods.on("togglesprint");
+		// Mode: "Toggle" = press once, stays on. "Hold" = active only while the
+		// mod's key is held (a hands-free key that isn't the vanilla one). The
+		// dropdown used to be read by nothing, so Hold behaved as Toggle.
+		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
 			boolean custom = Minecraft.getInstance().mouseHandler.isMouseGrabbed() && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sprintKeyWasDown;
 			sprintKeyWasDown = custom;
-			if (edge) {
+			if (holdMode) {
+				FEATURES.sprintToggledOn = custom;
+			} else if (edge) {
 				FEATURES.sprintToggledOn = !FEATURES.sprintToggledOn;
 			}
 			boolean moving = player.input != null && player.input.hasForwardImpulse();
@@ -314,7 +335,9 @@ public class OriginClientMod implements ClientModInitializer {
 			boolean custom = Minecraft.getInstance().mouseHandler.isMouseGrabbed() && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
-			if (edge) {
+			if (holdMode) {
+				FEATURES.sneakToggledOn = custom;
+			} else if (edge) {
 				FEATURES.sneakToggledOn = !FEATURES.sneakToggledOn;
 			}
 			if (FEATURES.sneakToggledOn) {
@@ -477,7 +500,15 @@ public class OriginClientMod implements ClientModInitializer {
 	private void applyHitboxes(Minecraft client) {
 		boolean on = Mods.on("hitboxes");
 		if (on != hitboxesApplied) {
-			// 26.2 STUB: EntityRenderDispatcher.setRenderHitBoxes removed. // client.getEntityRenderDispatcher().setRenderHitBoxes(on);
+			// The hitbox flag lives in the debug-entries system. Toggling ENTITY_HITBOXES
+			// is what makes EntityHitboxDebugRenderer.emitGizmos run — HitboxMixin then
+			// owns that emit (styled Origin gizmos, native stroke width, interpolated so
+			// they don't stutter). Replaces the old OriginWorldRender submit-outline path.
+			var entries = client.debugEntries;
+			var id = net.minecraft.client.gui.components.debug.DebugScreenEntries.ENTITY_HITBOXES;
+			if (entries.isCurrentlyEnabled(id) != on) {
+				entries.toggleStatus(id);
+			}
 			hitboxesApplied = on;
 		}
 	}

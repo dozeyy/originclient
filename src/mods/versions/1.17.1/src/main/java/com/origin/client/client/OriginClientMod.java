@@ -54,6 +54,9 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		// Register the scalable MSDF text shader for the menus. Fails soft —
+		// if it doesn't load, the UI uses the vanilla-font path.
+		com.origin.client.client.gui.OriginShaders.register();
 		OriginKeyBindings.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 		// Single authoritative autosave when the player leaves the game (quit to
@@ -318,11 +321,17 @@ public class OriginClientMod implements ClientModInitializer {
 		// released once on un-toggle, so vanilla stays in control the rest of the
 		// time.
 		boolean toggleMod = Mods.on("togglesprint");
+		// Mode: "Toggle" = press once, stays on. "Hold" = active only while the
+		// mod's key is held (a hands-free key that isn't the vanilla one). The
+		// dropdown used to be read by nothing, so Hold behaved as Toggle.
+		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
 			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sprintKeyWasDown;
 			sprintKeyWasDown = custom;
-			if (edge) {
+			if (holdMode) {
+				FEATURES.sprintToggledOn = custom;
+			} else if (edge) {
 				FEATURES.sprintToggledOn = !FEATURES.sprintToggledOn;
 			}
 			boolean moving = player.input != null && player.input.hasForwardImpulse();
@@ -337,7 +346,9 @@ public class OriginClientMod implements ClientModInitializer {
 			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
-			if (edge) {
+			if (holdMode) {
+				FEATURES.sneakToggledOn = custom;
+			} else if (edge) {
 				FEATURES.sneakToggledOn = !FEATURES.sneakToggledOn;
 			}
 			if (FEATURES.sneakToggledOn) {

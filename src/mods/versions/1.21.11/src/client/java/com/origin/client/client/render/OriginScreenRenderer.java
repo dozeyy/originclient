@@ -37,7 +37,9 @@ public final class OriginScreenRenderer {
 	private static final int BG_COLOR = OriginTheme.BG;
 	// Charcoal grade laid over the blurred panorama on the title screen.
 	// Same value as 1.21.1 so both versions grade identically.
-	private static final int GRADE = 0x8C08080A;
+	// Kept VERY light (~12% over 0x08080A) so the panorama reads bright and saturated
+	// (Will) — was 0x8C (~55%).
+	private static final int GRADE = 0x2008080A;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game

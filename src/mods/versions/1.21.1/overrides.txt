@@ -42,7 +42,6 @@ client/java/com/origin/client/client/gui/OriginColorPicker.java
 # so this fork is kept out of shared/ to avoid dead code on the other 12 live
 # modules. Promote to shared/ModsConfig.java (delete this line) once Profiles
 # ships on a second version.
-client/java/com/origin/client/client/mods/ModsConfig.java
 
 # TEMPORARY FORK (2026-07-21, Will's call) - "hover to full white" + Frost box skin.
 # STROKE_HOVER/TEXT went to full white, and BOX_FILL/BOX_FILL_HOVER/BOX_BORDER/

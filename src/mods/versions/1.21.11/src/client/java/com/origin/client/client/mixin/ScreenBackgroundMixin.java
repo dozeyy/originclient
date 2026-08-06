@@ -57,7 +57,7 @@ public class ScreenBackgroundMixin {
 		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, originclient$hoveringClickable());
 	}
 
-@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressTitlePanorama(GuiGraphics guiGraphics, float partialTick, CallbackInfo ci) {
 		// 1.21.6+: renderPanorama moved TitleScreen -> Screen, so TitleScreenMixin
 		// can no longer bind it. Suppress it ONLY on the title screen (the sole
@@ -68,6 +68,7 @@ public class ScreenBackgroundMixin {
 			ci.cancel();
 		}
 	}
+
 	@Inject(method = "renderMenuBackgroundTexture", at = @At("HEAD"), cancellable = true)
 	private static void originclient$noListTexture(GuiGraphics guiGraphics, Identifier texture, int x, int y, float uOffset, float vOffset, int width, int height, CallbackInfo ci) {
 		// Gated on renderer health: if the Origin backdrop is broken, lists

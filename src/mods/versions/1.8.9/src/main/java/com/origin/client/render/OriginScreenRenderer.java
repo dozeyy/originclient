@@ -59,9 +59,6 @@ public final class OriginScreenRenderer {
     public static volatile boolean broken = false;
 
     // Cursor spotlight state (title + menus)
-    private static double haloX = -1, haloY = -1;
-    private static long lastGlowNanos = 0;
-    private static double glowHover = 0;
 
     private OriginScreenRenderer() {}
 
@@ -309,35 +306,11 @@ public final class OriginScreenRenderer {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Cursor spotlight
-    // ------------------------------------------------------------------
-
-    /** Two-layer cursor glow; hover blooms the core. Call every frame. */
+    /** Retired (Will, 2026-08-02): the mouse-follow spotlight on the title
+     *  screen. It never worked right on Minecraft's pixel grid -- the blur IS
+     *  the effect, and blur doesn't exist at this resolution. Kept as an empty
+     *  method rather than deleted: both call sites in OriginScreens.java stay
+     *  wired for free. */
     public static void renderCursorGlow(int w, int mouseX, int mouseY, boolean hoveringWidget) {
-        if (broken) return;
-        try {
-            long nowN = System.nanoTime();
-            double dtMs = lastGlowNanos == 0 ? 16.7 : Math.min(100.0, (nowN - lastGlowNanos) / 1.0e6);
-            lastGlowNanos = nowN;
-
-            double target = hoveringWidget ? 1 : 0;
-            // Exact 1.21.1 title-glow tuning: 250ms hover ramp, 0.38/frame
-            // dt-corrected halo. The dt correction is what keeps it smooth at
-            // any (or inconsistent) frame rate — the value itself matches modern.
-            double step = dtMs / 250.0;
-            glowHover = target > glowHover ? Math.min(target, glowHover + step) : Math.max(target, glowHover - step);
-            double hv = OriginTheme.easeOut(glowHover);
-
-            if (haloX < 0) { haloX = mouseX; haloY = mouseY; }
-            double f = 1.0 - Math.pow(1.0 - 0.38, dtMs / 16.7);
-            haloX += (mouseX - haloX) * f;
-            haloY += (mouseY - haloY) * f;
-
-            OriginUi.glow(haloX, haloY, w * (0.14 + 0.04 * hv), 0.112 + 0.063 * hv);
-            OriginUi.glow(mouseX, mouseY, w * (0.032 + 0.018 * hv), 0.30 + 0.17 * hv);
-        } catch (Throwable t) {
-            fail(t);
-        }
     }
 }

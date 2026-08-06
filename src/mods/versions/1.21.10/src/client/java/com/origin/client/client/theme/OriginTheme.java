@@ -23,8 +23,8 @@ public final class OriginTheme {
 	// Hover outline — a MUCH lighter gray than the resting stroke, so a hovered
 	// box reads as obviously responsive (A2). One shared value: every hovered
 	// custom box (mod menu, HUD editor, vanilla widget shells) brightens to this.
-	public static final int STROKE_HOVER = 0x9EFFFFFF;
-	public static final int TEXT = 0xFFF5F5F5;
+	public static final int STROKE_HOVER = 0xFFFFFFFF;
+	public static final int TEXT = 0xFFFFFFFF;
 	public static final int TEXT_DIM = 0xFF9A9A9A;
 	public static final int MUTED = 0xFF616161;
 	// The one accent — stays white/mono everywhere, no new hue (confirmed
@@ -128,4 +128,12 @@ public final class OriginTheme {
 	private static double clamp01(double v) {
 		return Math.max(0.0, Math.min(1.0, v));
 	}
+
+	// Frost box tokens — the same values the button skin uses, so every Origin
+	// box (mod cards, tabs, chips, switches) reads identically to a button.
+	// Ported from the 1.21.1 baseline 2026-08-01 together with the button skin.
+	public static final int BOX_FILL = 0x59161616;
+	public static final int BOX_FILL_HOVER = 0x99303030;
+	public static final int BOX_BORDER = 0xF00A0A0A;
+	public static final int BOX_BORDER_HOVER = 0xFF1A1A1A;
 }

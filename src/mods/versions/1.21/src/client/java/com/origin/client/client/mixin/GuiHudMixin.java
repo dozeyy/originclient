@@ -32,4 +32,12 @@ public class GuiHudMixin {
 	private void originclient$topHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		HudElements.renderAll(guiGraphics);
 	}
+
+	// Color Saturation: grade the world at the HEAD of the HUD render — the world is
+	// fully drawn by now, but the HUD and any open screen paint AFTER this, so only
+	// the game world is graded. Ported from the 1.21.1 baseline 2026-08-01.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$colorGrade(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+		com.origin.client.client.render.ColorGrade.process(deltaTracker.getGameTimeDeltaPartialTick(true));
+	}
 }

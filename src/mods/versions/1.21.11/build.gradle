@@ -45,6 +45,15 @@ loom {
 			if (project.hasProperty("mixinexport")) {
 				property "mixin.debug.export", "true"
 			}
+			// `-Ppanoramacapture` arms the F8 cubemap grabber (see
+			// client/dev/PanoramaCapture.java) used to author the title-screen
+			// panorama. The heap bump is not optional at capture time: each of
+			// the six faces is 4096x4096, i.e. ~67 MB of RGBA before PNG encode,
+			// on top of whatever the shader pack is already holding.
+			if (project.hasProperty("panoramacapture")) {
+				property "origin.panoramacapture", "true"
+				vmArg "-Xmx4G"
+			}
 		}
 	}
 }
@@ -79,9 +88,14 @@ dependencies {
 	// an unconditional files("libs/...") fails the whole build on a fresh runner
 	// with NoSuchFileException. The check keeps the dev-only shader integration
 	// for runClient while letting the shipping `./gradlew build` run without them.
-	if (file("libs/sodium-fabric-0.8.13+mc1.21.11.jar").exists()) {
-		modRuntimeOnly files("libs/sodium-fabric-0.8.13+mc1.21.11.jar")
-		modRuntimeOnly files("libs/iris-fabric-1.10.4+mc1.21.11.jar")
+	// These filenames MUST track PerformanceModCatalog.Data.cs's "1.21.11" entry
+	// exactly -- the whole point is that runClient exercises the same Sodium/Iris
+	// pair players actually get. They had drifted (0.8.13/1.10.4 named here vs
+	// 0.8.12/1.10.7 shipped), which silently disabled the shader integration in
+	// dev because the .exists() guard never matched. Corrected 2026-07-27.
+	if (file("libs/sodium-fabric-0.8.12+mc1.21.11.jar").exists()) {
+		modRuntimeOnly files("libs/sodium-fabric-0.8.12+mc1.21.11.jar")
+		modRuntimeOnly files("libs/iris-fabric-1.10.7+mc1.21.11.jar")
 	}
 	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
 	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loading Iris via a raw

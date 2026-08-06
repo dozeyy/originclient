@@ -83,6 +83,7 @@ public final class ModIcons {
 		// Panel-backing toggle: switches the menu panel between opaque and
 		// see-through, and glass is literally the transparency block.
 		ITEMS.put("@backing", Items.GLASS);
+		ITEMS.put("tablist", Items.PLAYER_HEAD);
 
 		custom("cps", 16);
 		custom("keystrokes", 16);

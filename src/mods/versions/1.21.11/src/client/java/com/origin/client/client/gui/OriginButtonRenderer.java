@@ -45,7 +45,10 @@ public final class OriginButtonRenderer {
 	private static final int BORDER_NORMAL = 0xF00A0A0A;
 	// Hover brightens the outline to full white — one shared token so every
 	// hovered Origin box reads the same, here and in OriginUi panels.
-	private static final int BORDER_HOVER = OriginTheme.STROKE_HOVER;
+	// Baseline (1.21.1) keeps the frame DARK on hover — it lifts, it does not
+	// flash white. Was STROKE_HOVER here, which made a hovered button on this
+	// version read as a bright white outline the other versions never showed.
+	private static final int BORDER_HOVER = 0xFF1A1A1A;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
 	private static final int FILL_DISABLED = 0x40101010;

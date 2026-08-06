@@ -1,20 +1,20 @@
 package com.origin.client.client.mixin;
 
-import com.origin.client.client.mods.Mods;
-import net.minecraft.client.Minecraft;
+import com.origin.client.client.mods.ParticleFilter;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-// Particle Changer spawn filter. createParticle returning null is the vanilla
-// "didn't spawn" path, so cancelling here is safe: "Off"/"Hide All" suppress
-// every spawn, "Reduced" only the expensive/chaotic categories (explosions,
-// potion clouds, crits, firework spam), plus the per-type row toggles.
+// Particle Changer spawn filter. Every rule lives in ParticleFilter (shared) so
+// this hook can't drift from the other versions:
+//   HEAD   — drop the spawn when the filter says hidden ("Off"/"Hide All", the
+//            per-type rows, Show on Self/Players/Entities, Multiplier<1).
+//            Returning null is the vanilla "didn't spawn" path.
+//   RETURN — per-type Scale, Play Sound, and Multiplier>1 extra copies.
 //
 // 26.2 note: ParticleEngine.destroy(BlockPos,BlockState)/crack(BlockPos,Direction)
 // — the old block-break-burst hooks — were removed here (that spawn path moved),
@@ -27,54 +27,16 @@ public class ParticleEngineMixin {
 	private void originclient$filterParticles(ParticleOptions options, double x, double y, double z,
 											  double xSpeed, double ySpeed, double zSpeed,
 											  CallbackInfoReturnable<Particle> cir) {
-		if (!Mods.on("particles")) {
-			return;
-		}
-		if (Mods.bool("particles", "hideAll")) {
+		if (ParticleFilter.hidden(options, x, y, z)) {
 			cir.setReturnValue(null);
-			return;
 		}
-		// Hide particles that spawn right next to you in first person.
-		if (Mods.bool("particles", "hideFirstPerson")) {
-			Minecraft mc = Minecraft.getInstance();
-			if (mc.player != null && mc.options.getCameraType().isFirstPerson()
-					&& mc.player.getEyePosition().distanceToSqr(x, y, z) < 4.0) {
-				cir.setReturnValue(null);
-				return;
-			}
-		}
-		var typeKey = net.minecraft.core.registries.BuiltInRegistries.PARTICLE_TYPE.getKey(options.getType());
-		if (typeKey != null) {
-			String path = typeKey.getPath();
-			// per-particle-type controls: master row toggle off, or its Hide flag
-			// (only for types that actually have a row — unknown types pass through)
-			if (Mods.hasOption("particles", "p_" + path) && !Mods.bool("particles", "p_" + path)) {
-				cir.setReturnValue(null);
-				return;
-			}
-			if (Mods.bool("particles", "p_" + path + "_hide")) {
-				cir.setReturnValue(null);
-				return;
-			}
-			if (path.equals("block") && Mods.bool("particles", "hideBlockBreak")) {
-				cir.setReturnValue(null);
-				return;
-			}
-		}
-		String mode = Mods.mode("particles", "mode");
-		if (mode.equals("Off")) {
-			cir.setReturnValue(null);
-			return;
-		}
-		if (mode.equals("Reduced")) {
-			var t = options.getType();
-			if (t == ParticleTypes.EXPLOSION || t == ParticleTypes.EXPLOSION_EMITTER
-					|| t == ParticleTypes.POOF || t == ParticleTypes.CRIT
-					|| t == ParticleTypes.ENCHANTED_HIT || t == ParticleTypes.EFFECT
-					|| t == ParticleTypes.ENTITY_EFFECT || t == ParticleTypes.FIREWORK
-					|| t == ParticleTypes.LARGE_SMOKE) {
-				cir.setReturnValue(null);
-			}
-		}
+	}
+
+	@Inject(method = "createParticle", at = @At("RETURN"))
+	private void originclient$tweakSpawn(ParticleOptions options, double x, double y, double z,
+										 double xSpeed, double ySpeed, double zSpeed,
+										 CallbackInfoReturnable<Particle> cir) {
+		ParticleFilter.afterSpawn((ParticleEngine) (Object) this, cir.getReturnValue(), options,
+				x, y, z, xSpeed, ySpeed, zSpeed);
 	}
 }

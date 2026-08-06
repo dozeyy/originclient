@@ -31,7 +31,7 @@ public final class ModsConfig {
 	static final Map<String, Map<String, JsonElement>> VALUES = new HashMap<>();
 	// hud elementId -> [anchor, dx, dy, scale]
 	static final Map<String, double[]> HUD = new HashMap<>();
-	// menu-level extras (panel backing visible, etc.)
+	// menu-level extras (menu background opacity, etc.)
 	static final Map<String, JsonElement> META = new HashMap<>();
 	// named config profiles: profileName -> a frozen {mods, hud} snapshot. A
 	// LinkedHashMap so the list keeps the order profiles were created in.

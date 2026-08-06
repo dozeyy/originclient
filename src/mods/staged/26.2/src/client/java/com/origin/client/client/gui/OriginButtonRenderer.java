@@ -39,18 +39,23 @@ public final class OriginButtonRenderer {
 	// the real theme color/alpha).
 	private static final int WHITE = 0xFFFFFFFF;
 
-	private static final int FILL_NORMAL = 0x07FFFFFF;
-	private static final int FILL_HOVER = 0x0FFFFFFF;
-	private static final int BORDER_NORMAL = 0x1CFFFFFF;
+	// Frost palette, matched to 1.21.1 (Will): a translucent DARK fill with a
+	// near-black hairline border — not the old faint-white fill + light outline,
+	// which read as a thick bright ring around every button.
+	private static final int FILL_NORMAL = 0x59161616;
+	private static final int FILL_HOVER = 0x99303030;
+	private static final int BORDER_NORMAL = 0xF00A0A0A;
 	// Hover brightens the outline to a MUCH lighter gray (A2) — one shared token
 	// so every hovered Origin box reads the same, here and in OriginUi panels.
 	private static final int BORDER_HOVER = OriginTheme.STROKE_HOVER;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
-	private static final int FILL_DISABLED = 0x04FFFFFF;
-	private static final int BORDER_DISABLED = 0x10FFFFFF;
+	private static final int FILL_DISABLED = 0x40101010;
+	private static final int BORDER_DISABLED = 0x99080808;
 	private static final int LABEL_DISABLED = OriginTheme.MUTED;
-	private static final int CORNER_DISPLAY = 6;
+	// 3px angled CUT (bevel) corners, matching 1.21.1's Frost box — not the old 6px
+	// rounded texture corner.
+	private static final int CORNER_DISPLAY = 3;
 	// Short + eased = the website's snappy hover; no per-button glow (the
 	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
 	private static final double HOVER_MS = 90.0;
@@ -119,9 +124,10 @@ public final class OriginButtonRenderer {
 			return;
 		}
 
-		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-		nineSlice(guiGraphics, fillTex, x, drawY, w, h, cd, fill);
-		nineSlice(guiGraphics, borderTex, x, drawY, w, h, cd, border);
+		// One choke point (OriginUi.panel), exactly like 1.21.1 — so buttons are
+		// visually identical to the mod-menu / HUD surfaces by construction, and they
+		// pick up the fast baked-mask path instead of an 18-blit nine-slice.
+		OriginUi.panel(guiGraphics, x, drawY, w, h, CORNER_DISPLAY, fill, border);
 
 		drawLabel(guiGraphics, cx, cy, w, button.getMessage(), labelColor);
 	}
@@ -160,14 +166,9 @@ public final class OriginButtonRenderer {
 		int border = enabled ? BORDER_NORMAL : BORDER_DISABLED;
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
-		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-
-		// Shell -- identical to a resting button.
-		if (assetsOk) {
-			nineSlice(guiGraphics, fillTex, x, y, w, h, cd, fill);
-		} else {
-			guiGraphics.fill(x, y, x + w, y + h, fill);
-		}
+		// Shell -- identical to a resting button (fill only; the border goes on top
+		// of the handle below, so the two halves are drawn separately).
+		OriginUi.panel(guiGraphics, x, y, w, h, CORNER_DISPLAY, fill, 0);
 
 		// Just the draggable handle: a thin vertical gray bar at the value
 		// position -- no horizontal center groove line (Will). Gray, clearly
@@ -181,11 +182,8 @@ public final class OriginButtonRenderer {
 		guiGraphics.fill(handleX, handleY, handleX + handleW, handleY + handleH,
 				enabled ? OriginTheme.lerpColor(0xFFB4B4B4, 0xFFD8D8D8, hv) : 0x66808080);
 
-		// Border on top -- resting gray, matching the other boxes. (26.2: no
-		// blend-state teardown to fight, since tint/blend are per-pipeline.)
-		if (assetsOk) {
-			nineSlice(guiGraphics, borderTex, x, y, w, h, cd, border);
-		}
+		// Border on top -- resting gray, matching the other boxes.
+		OriginUi.panel(guiGraphics, x, y, w, h, CORNER_DISPLAY, 0, border);
 
 		drawLabel(guiGraphics, x + w / 2.0, y + h / 2.0, w, slider.getMessage(), labelColor);
 	}
@@ -217,13 +215,8 @@ public final class OriginButtonRenderer {
 		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
 
 		int box = h;
-		int cd = Math.min(4, box / 3);
-		if (assetsOk) {
-			nineSlice(guiGraphics, fillTex, x, y, box, box, cd, fill);
-			nineSlice(guiGraphics, borderTex, x, y, box, box, cd, border);
-		} else {
-			guiGraphics.fill(x, y, x + box, y + box, fill);
-		}
+		int cd = Math.min(3, box / 3);
+		OriginUi.panel(guiGraphics, x, y, box, box, cd, fill, border);
 
 		if (checkbox.selected()) {
 			int inset = Math.max(3, box / 5);

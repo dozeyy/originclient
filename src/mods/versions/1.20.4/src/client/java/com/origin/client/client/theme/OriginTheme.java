@@ -24,6 +24,12 @@ public final class OriginTheme {
 	// box reads as obviously responsive (A2). One shared value: every hovered
 	// custom box (mod menu, HUD editor, vanilla widget shells) brightens to this.
 	public static final int STROKE_HOVER = 0x9EFFFFFF;
+	// Mod-menu card / row box fill + border — the redesigned menu's neutral
+	// control surface (search bars, cards, dropdown/keybind boxes).
+	public static final int BOX_FILL = 0x59161616;
+	public static final int BOX_FILL_HOVER = 0x99303030;
+	public static final int BOX_BORDER = 0xF00A0A0A;
+	public static final int BOX_BORDER_HOVER = 0xFF1A1A1A;
 	public static final int TEXT = 0xFFF5F5F5;
 	public static final int TEXT_DIM = 0xFF9A9A9A;
 	public static final int MUTED = 0xFF616161;

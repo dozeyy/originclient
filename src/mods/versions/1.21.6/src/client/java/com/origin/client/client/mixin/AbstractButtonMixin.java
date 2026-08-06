@@ -28,6 +28,16 @@ public class AbstractButtonMixin {
 
 	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
 	private void originclient$originStyle(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		// 1.21.6+ made AbstractButton.renderWidget final, so this ONE inject
+		// pre-empts every button type — including the sprite-icon buttons that
+		// have their own styled pass in SpriteIconButtonMixin (which injects
+		// renderContents). Without this exclusion the generic path wins and the
+		// title screen's Language / Accessibility icons render their full message
+		// ("Language", "Accessibility Settings") sprawling out of a 20px box and
+		// across the Options/Quit row. Caught on 1.21.8, 2026-08-01.
+		if ((Object) this instanceof net.minecraft.client.gui.components.SpriteIconButton) {
+			return;
+		}
 		// Only cancel vanilla when Origin actually drew -- if the styled draw
 		// ever fails (e.g. on a different game version), vanilla buttons return.
 		if (OriginButtonRenderer.render(guiGraphics, (AbstractButton) (Object) this)) {

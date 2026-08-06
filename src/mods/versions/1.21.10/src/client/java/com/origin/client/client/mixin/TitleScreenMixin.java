@@ -8,7 +8,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.PlainTextButton;
 import net.minecraft.client.gui.components.SplashRenderer;
-import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -31,8 +30,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //    (whichever path render() uses) never paints over ours. Both are
 //    background-only on TitleScreen; widgets draw in the separate widget pass.
 //  - Redirect renderLogo -> Origin wordmark; no-op the splash + version draws.
-//  - After init(), hide the SpriteIconButton (language, accessibility) and
-//    PlainTextButton (copyright) widgets via visible/active -- the only widgets
+//  - After init(), hide the copyright PlainTextButton. The language +
+//    accessibility SpriteIconButtons are KEPT (baseline) -- the only widgets
 //    of those types; the real options are plain Button, left intact.
 // priority 2000 (default 1000): if another mod also modifies TitleScreen (e.g.
 // redirects the logo/background), Origin's re-skin wins the conflict. Scoped to
@@ -124,8 +123,11 @@ public class TitleScreenMixin {
 		}
 		Screen self = (Screen) (Object) this;
 		for (GuiEventListener child : self.children()) {
-			if ((child instanceof SpriteIconButton || child instanceof PlainTextButton)
-					&& child instanceof AbstractWidget widget) {
+			// Baseline (1.21.1, Will 2026-07-21): the language + accessibility icons
+			// are KEPT on the Origin title screen — only the copyright line goes.
+			// Hiding the SpriteIconButton pair here is what left this version's
+			// title screen missing the two corner icons the baseline shows.
+			if (child instanceof PlainTextButton && child instanceof AbstractWidget widget) {
 				widget.visible = false;
 				widget.active = false;
 			}

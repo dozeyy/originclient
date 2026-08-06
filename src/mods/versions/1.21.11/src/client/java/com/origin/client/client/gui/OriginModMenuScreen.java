@@ -170,6 +170,10 @@ public class OriginModMenuScreen extends Screen {
 	// fills so it stays legible with no panel behind it.
 	private boolean clear = false;
 
+	// Dark scrim laid over the blurred world behind the menu (Lunar-style): dark
+	// enough to read against, translucent enough that the world still shows through.
+	private static final int MENU_SCRIM = 0x99101014;
+
 	private int chipFill(boolean hover) {
 		return clear ? (hover ? 0xE0181818 : 0xC8101010) : (hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL);
 	}
@@ -326,6 +330,15 @@ public class OriginModMenuScreen extends Screen {
 				return;
 			}
 		}
+
+		// Lunar-style backdrop: a dark scrim over the world behind the menu.
+		//
+		// Do NOT call blurBeforeThisStratum() here: this era allows exactly ONE blur
+		// per frame and vanilla ALREADY blurs the world behind an in-world screen, so
+		// a second call throws "Can only blur once per frame" every frame (proven on
+		// 26.2 — it made the menu un-openable). The blur is already there; this scrim
+		// just darkens it.
+		g.fill(0, 0, width, height, MENU_SCRIM);
 
 		var pose = g.pose();
 		pose.pushMatrix();

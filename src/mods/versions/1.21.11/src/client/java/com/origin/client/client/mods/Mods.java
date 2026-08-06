@@ -337,20 +337,7 @@ public final class Mods {
 				ModOption.keybind("togglePlayers", "Toggle Player Nametags Only", -1),
 				ModOption.toggle("displayToggleMessage", "Show Toggle Message", true));
 
-		add("colorsaturation", "Color Saturation", "Grade the whole screen's colour.", false,
-				ModOption.slider("saturation", "Saturation", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = greyer, up = more vivid."),
-				ModOption.slider("brightness", "Brightness", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = darker, up = brighter."),
-				ModOption.slider("contrast", "Contrast", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = flatter, up = punchier."));
-
 		add("itemsize", "Item Size", "Set custom dropped-item render sizes per item.", false);
-
-		add("waypoints", "Waypoints", "In-world markers with beams, labels, and distance.", false,
-				ModOption.toggle("deathWaypoints", "Death Waypoints", true).tip("Auto-drop a waypoint where you die."),
-				ModOption.toggle("confirmDelete", "Confirm Before Delete", true).tip("Ask before removing a waypoint."),
-				ModOption.toggle("locatorBar", "Locator Bar", false)
-						.tip("A compass strip in the XP bar showing every waypoint's direction (max 2000 blocks)."),
-				ModOption.toggle("separateBar", "Separate Bar", false)
-						.tip("Detach the locator bar from the XP bar into a standalone, movable HUD element."));
 
 		add("tablist", "Tab Editor", "Customize the player list overlay.", false,
 				ModOption.toggle("stickyToggle", "Sticky Tab", true)
@@ -391,6 +378,11 @@ public final class Mods {
 		add("motionblur", "Motion Blur", "Frame-blend motion blur.", false,
 				ModOption.slider("amount", "Strength", 0, 10, 1, 3, "%.0f").tip("0 = off, 10 = maximum blur; smooth in between."));
 
+		add("colorsaturation", "Color Saturation", "Grade the whole screen's colour.", false,
+				ModOption.slider("saturation", "Saturation", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = greyer, up = more vivid."),
+				ModOption.slider("brightness", "Brightness", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = darker, up = brighter."),
+				ModOption.slider("contrast", "Contrast", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = flatter, up = punchier."));
+
 		add("chat", "Chat", "Chat behavior and appearance.", false,
 				ModOption.toggle("unlimited", "Unlimited Chat", false).tip("Remove the limit on stored chat history length."),
 				ModOption.toggle("stackSpam", "Stack Spam Messages", true).tip("Collapse repeated messages into one line with a counter."),
@@ -403,6 +395,14 @@ public final class Mods {
 
 		add("particles", "Particle Changer", "Per-particle visibility and styling.", false,
 				buildParticleOptions());
+
+		add("waypoints", "Waypoints", "In-world markers with beams, labels, and distance.", false,
+				ModOption.toggle("deathWaypoints", "Death Waypoints", true).tip("Auto-drop a waypoint where you die."),
+				ModOption.toggle("confirmDelete", "Confirm Before Delete", true).tip("Ask before removing a waypoint."),
+				ModOption.toggle("locatorBar", "Locator Bar", false)
+						.tip("A compass strip in the XP bar showing every waypoint's direction (max 2000 blocks)."),
+				ModOption.toggle("separateBar", "Separate Bar", false)
+						.tip("Detach the locator bar from the XP bar into a standalone, movable HUD element."));
 
 		// ---- interface ----
 		// JEI is bundled jar-in-jar (mezz, MIT). It cannot be unloaded at runtime,

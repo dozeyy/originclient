@@ -102,16 +102,31 @@ public class OriginClientMod implements ClientModInitializer {
 		// link/draw errors print straight to the console, instead of relying on
 		// only whatever Mojang's own code happens to log. Must run AFTER the GL
 		// context exists (onInitializeClient() runs before the window/context
-		// are created), so this is deferred to CLIENT_STARTED. No-ops silently
-		// if the driver doesn't support debug output.
-		ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
-			try {
-				org.lwjgl.opengl.GLUtil.setupDebugMessageCallback();
-				com.origin.client.OriginClient.LOGGER.info("Origin DEBUG: GL debug message callback installed");
-			} catch (Throwable t) {
-				com.origin.client.OriginClient.LOGGER.warn("Origin DEBUG: GL debug callback setup failed (driver may not support it)", t);
-			}
-		});
+		// are created), so this is deferred to CLIENT_STARTED.
+		//
+		// OFF BY DEFAULT (2026-07-26). This shipped enabled, and a KHR_debug
+		// callback is SYNCHRONOUS: the driver calls back on every message, which
+		// forces validation work and serialisation into the GL command stream for
+		// the entire session — a permanent cost on the render thread paid by every
+		// player, for output only a developer reads. Re-enable when debugging with:
+		//     -Dorigin.gldebug=true
+		// DEV-ONLY (2026-07-27): arms the F8 cubemap grabber used to author the
+		// Origin title-screen panorama. Same off-by-default shape as gldebug
+		// below -- nothing registers, and the class never loads, for a player.
+		//     -Dorigin.panoramacapture=true
+		if (Boolean.getBoolean("origin.panoramacapture")) {
+			com.origin.client.client.dev.PanoramaCapture.register();
+		}
+		if (Boolean.getBoolean("origin.gldebug")) {
+			ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+				try {
+					org.lwjgl.opengl.GLUtil.setupDebugMessageCallback();
+					com.origin.client.OriginClient.LOGGER.info("Origin DEBUG: GL debug message callback installed");
+				} catch (Throwable t) {
+					com.origin.client.OriginClient.LOGGER.warn("Origin DEBUG: GL debug callback setup failed (driver may not support it)", t);
+				}
+			});
+		}
 		// Origin's HUD is drawn from GuiHudMixin (Gui.render RETURN, high order)
 		// instead of HudRenderCallback so it always lands on top of any other
 		// mod's HUD — see that mixin for why the callback can't guarantee this.
@@ -439,11 +454,17 @@ public class OriginClientMod implements ClientModInitializer {
 		// released once on un-toggle, so vanilla stays in control the rest of the
 		// time.
 		boolean toggleMod = Mods.on("togglesprint");
+		// Mode: "Toggle" = press once, stays on. "Hold" = active only while the
+		// mod's key is held (a hands-free key that isn't the vanilla one). The
+		// dropdown used to be read by nothing, so Hold behaved as Toggle.
+		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
 			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sprintKeyWasDown;
 			sprintKeyWasDown = custom;
-			if (edge) {
+			if (holdMode) {
+				FEATURES.sprintToggledOn = custom;
+			} else if (edge) {
 				FEATURES.sprintToggledOn = !FEATURES.sprintToggledOn;
 			}
 			boolean moving = player.input != null && player.input.hasForwardImpulse();
@@ -458,7 +479,9 @@ public class OriginClientMod implements ClientModInitializer {
 			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
-			if (edge) {
+			if (holdMode) {
+				FEATURES.sneakToggledOn = custom;
+			} else if (edge) {
 				FEATURES.sneakToggledOn = !FEATURES.sneakToggledOn;
 			}
 			if (FEATURES.sneakToggledOn) {

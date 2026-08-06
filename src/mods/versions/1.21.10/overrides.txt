@@ -25,3 +25,12 @@ client/java/com/origin/client/client/mixin/LightTextureMixin.java
 # bundled. Promote to shared/ when JEI ships on every version.
 client/java/com/origin/client/client/mods/Mods.java
 client/java/com/origin/client/client/mods/ModOption.java
+
+# FORK (2026-08-01) — Frost button skin, ported from the 1.21.1 baseline.
+# STROKE_HOVER/TEXT go to full white and the BOX_* tokens are added, matching
+# the button skin this module now draws. Same deliberate fork 1.21.1 and 1.21.11
+# already carry. shared/ still holds the OLD values because the 1.20.x line has
+# not been reskinned yet — promoting these to shared/ would change hover/text
+# colour there without the matching buttons. Delete this line (and shared's old
+# values) once 1.20/1.20.2/1.20.4 ship the skin too.
+client/java/com/origin/client/client/theme/OriginTheme.java

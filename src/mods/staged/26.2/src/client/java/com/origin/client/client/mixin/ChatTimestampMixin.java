@@ -9,7 +9,11 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -31,6 +35,14 @@ public abstract class ChatTimestampMixin {
 	@Shadow
 	private void refreshTrimmedMessages() {
 		throw new AssertionError();
+	}
+
+	// "Unlimited" with a guard rail: kept lines are never released otherwise, so
+	// this is the memory ceiling (~80x vanilla, a few MB of text at worst).
+	private static final int ORIGIN_MAX_HISTORY = 8192;
+
+	private static boolean originclient$opt(String key) {
+		return Mods.on("chat") && Mods.bool("chat", key);
 	}
 
 	private static String originclient$lastBase = null;
@@ -67,5 +79,27 @@ public abstract class ChatTimestampMixin {
 			result = Component.empty().append(stamp).append(result);
 		}
 		return result;
+	}
+
+	// ---- Unlimited Chat: the two history trims ----
+
+	@ModifyConstant(method = "addMessageToQueue", constant = @Constant(intValue = 100), require = 1)
+	private int originclient$fullHistoryCap(int vanillaCap) {
+		return originclient$opt("unlimited") ? ORIGIN_MAX_HISTORY : vanillaCap;
+	}
+
+	@ModifyConstant(method = "addMessageToDisplayQueue", constant = @Constant(intValue = 100), require = 1)
+	private int originclient$displayHistoryCap(int vanillaCap) {
+		return originclient$opt("unlimited") ? ORIGIN_MAX_HISTORY : vanillaCap;
+	}
+
+	// ---- Keep Chat History across a disconnect ----
+
+	@Inject(method = "clearMessages", at = @At("HEAD"), cancellable = true, require = 1)
+	private void originclient$keepHistory(boolean clearSentMsgHistory, CallbackInfo ci) {
+		// Only the disconnect path passes true; the manual clear passes false.
+		if (clearSentMsgHistory && originclient$opt("keepHistory")) {
+			ci.cancel();
+		}
 	}
 }

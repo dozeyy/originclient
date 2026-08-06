@@ -4,6 +4,94 @@
 layer is being re-architected onto 26.2's **retained-mode** GUI. This file is the
 working guide for finishing that port.
 
+## VERIFIED STATE — 2026-07-30 (read this first; the rest of the file is older)
+
+The module is FURTHER ALONG than the sections below imply. Re-baselined this session
+by compiling + booting the real client (MC 26.2 jar is cached at
+`~/.gradle/caches/fabric-loom/26.2/minecraft-client.jar`, so it builds locally with
+`JAVA_HOME=C:\Users\Will\.jdks\jdk-25.0.3+9`):
+
+- **`compileClientJava` = BUILD SUCCESSFUL.** The "does NOT compile" claim below is
+  STALE. All 50 active source files compile against 26.2.
+- **`runClient` boots CLEAN: zero `Mixin apply … failed` lines.** Origin initialized,
+  reached in-world render, self-closed (~15s, the same dev-client auto-close seen on
+  1.21.4+). Only benign errors in the log (offline-auth 401s, JNA/oshi system-probe
+  NPEs). 24 mixins are active (20 client + 4 loading) and all apply.
+- **HUD is DONE** via the Fabric HUD API — it EXISTS in 26.2 fabric-api
+  (`client.rendering.v1.hud.HudElementRegistry.addLast/addFirst(Identifier, HudElement)`;
+  `HudElement.extractRenderState(GuiGraphicsExtractor, DeltaTracker)`). `OriginClientMod`
+  already registers via `addLast` + `replaceElement(SCOREBOARD/MOB_EFFECTS)`. The
+  disabled `GuiHudMixin` is SUPERSEDED — do not revive it.
+- **Fullbright, nametags (base), weather, particles, toasts, chat, camera, mouse,
+  pause, loading screens, buttons, sliders, title** are all ported to 26.2 models and
+  applying.
+
+### `disabled262/` and mixin-name diffs are UNRELIABLE as a todo list
+26.2 re-architected many features under NEW names, so a parked file is often a stale
+old-era copy of something already re-ported: `LightTextureMixin`→ active
+`LightmapRenderStateExtractorMixin`; `GuiHudMixin`→ HudElementRegistry;
+`ParticleEngineMixin`→ active `ClientLevelParticleMixin`. Audit by FEATURE, not by file.
+
+### The REAL remaining backlog (by feature, verified against 1.21.11)
+Existing 26.2 mod cards whose backing is still parked/stubbed (card shows, does little):
+- **hitboxes + chunkborders** — LIVE (verified 2026-07-30). Both are done via
+  `render/OriginWorldRender.java` on `LevelRenderEvents.COLLECT_SUBMITS`
+  (`submitCustomGeometry` for the chunk-border line grid, `submitShapeOutline` per entity
+  box for hitboxes). NOTE: `RenderTypes.lines()` is NOT gone on 26.2 — that old note was
+  wrong; and Fabric's world-render API is `LevelRenderContext`/`LevelRenderEvents` (the
+  `.level` subpackage), `bufferSource()`/`poseStack()`, camera via
+  `gameRenderer.mainCamera().position()`, `Level.getMinY()/getMaxY()` (from
+  LevelHeightAccessor) all survive.
+- **blockoverlay** — DONE 2026-07-31. `mods/BlockOverlayRenderer.java` on
+  `LevelRenderEvents.BEFORE_BLOCK_OUTLINE` (its callback RETURNS boolean — return false to
+  cancel vanilla's white outline, so NO LevelRenderer mixin is needed, unlike 1.21.11).
+  Draws via `submitNodeCollector().submitCustomGeometry(poseStack, RenderTypes.debugQuads(),
+  (pose,buf)->…)` — thick edges via `ThickLine` (ported verbatim to `render/ThickLine.java`)
+  + translucent face fill. `BlockOutlineRenderState` is in `.state.level` on 26.2 (was
+  `.state`), `pos()`/`shape()` accessors. Camera via `gameRenderer.mainCamera().position()`.
+  The whole world-render trio (chunkborders + hitboxes + blockoverlay) is now LIVE.
+- **motionblur** (MotionBlur/GameRendererAccessor) — same PostChain-uniform era limit
+  as 1.21.11 (see the 1.21.11 module's VERSIONS.md note).
+- **timechanger** — NOT a re-enable: 26.2 replaced `Level.getDayTime()` with a new
+  `net.minecraft.world.clock.WorldClock` system (`Level.getOverworldClockTime()` /
+  `getDefaultClockTime()` / `getClockTimeTicks(...)`). Re-derive which method the
+  sky/sun/moon renderer consults, then hook that. (`OriginClientMod.timeOverride` +
+  its per-tick resolution are ALREADY active — only the reader is missing.)
+- **scoreboard** — replaceElement is wired; GuiScoreboardMixin (drag-to-HudPos) still parked.
+- **nametags** — base works (EntityNametagMixin active); styling (NametagStyleMixin,
+  LivingNametagMixin) not yet ported.
+
+Cards/features MISSING entirely (added to 1.21.x AFTER this port was parked 2026-07-12):
+- **colorsaturation** — DONE + boot-verified clean 2026-07-30 (LOG-clean; visual still
+  needs Will's eye). Files: `client/gui/OriginShaders.java` (GRADE pipeline, the reusable
+  shader base), `client/render/ColorGrade.java`, `client/mixin/GuiGraphicsExtractorAccessor.java`,
+  `shaders/core/rendertype_origin_grade.fsh`, the card in `mods/Mods.java`, wired in
+  `OriginClientMod` via `HudElementRegistry.addFirst`. The 26.2 custom-GUI-pipeline recipe
+  (derive from `RenderPipelines.GUI_TEXTURED`, copy its bind-group layouts, build LAZILY,
+  Optional depth-stencil) is in memory `262-verified-baseline` — reuse it for every future
+  shader feature (Waypoints/Item Size).
+- **itemsize** — DONE 2026-07-30 (render core + full grid screen + card + menu wiring).
+  Files: `mods/ItemSizes.java` (verbatim), `ext/ItemScaleState.java` (duck, verbatim),
+  `mixin/ItemEntityStateMixin.java` (verbatim), `mixin/ItemEntityScaleMixin.java`
+  (only delta: `CameraRenderState` → `.state.level` package), `gui/OriginItemSizeScreen.java`
+  (ported: `render`→`extractRenderState(GuiGraphicsExtractor)`, `OriginText`→vanilla
+  `g.text(font,…)`/`font.width`, `renderFakeItem`→`fakeItem`, `setScreen`→`setScreenAndShow`).
+  Card added to `mods/Mods.java`; `OriginModMenuScreen` special-cases the click to open the
+  screen. Added Frost box tokens (BOX_FILL/BOX_FILL_HOVER/BOX_BORDER) to `theme/OriginTheme.java`.
+- **tablist** (OriginTabList + PlayerTabOverlayMixin/Accessor + TabButtonMixin).
+- **waypoints** (Waypoints/WaypointHud/WaypointRenderer/WaypointScreen — WaypointHud
+  needs the camera-projection rebuild, memory point 1).
+- Foundational infra several of the above need: **OriginShaders** (pipelines),
+  **OriginText/OriginSdfFont** (Inter/MSDF text), **ModIcons** (real-item icons),
+  **Profiles**, **ThickLine**, **OriginMultiSelect**.
+- **jei** — N/A on 26.2 (JEI is not bundled here; not a gap).
+
+Sequencing recommendation: foundational `OriginShaders` → `colorsaturation` (self-
+contained, documented technique) → `timechanger` (WorldClock) → the parked world-render
+mixins (hitboxes/overlays share the gizmo/submit work) → itemsize/tablist/waypoints →
+SDF text/UI polish. Each needs javap-verify against the cached jar THEN a `runClient`
+apply-check on Will's machine (compile-clean ≠ apply-clean).
+
 ## Toolchain (DONE — see build.gradle / gradle.properties / settings.gradle)
 - Java 25 required. Loom checks the JVM running Gradle → run with `JAVA_HOME`
   pointing at a JDK 25 (local dev: `C:\Users\Will\.jdks\jdk-25.0.3+9`). CI: add 25

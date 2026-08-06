@@ -65,16 +65,181 @@ public final class OriginUi {
 
 	/** Rounded panel: 9-sliced baked masks, fill + hairline border. */
 	public static void panel(GuiGraphicsExtractor g, int x, int y, int w, int h, int corner, int fill, int border) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		int r = Math.max(0, Math.min(corner, Math.min(w, h) / 2));
+		// SMALL panels (grid cells, tabs, switches, chips) draw as TWO blits into a
+		// baked rounded-box mask — one tinted pass for the fill, one for the border —
+		// instead of the 9-18 blit nine-slice. This is the fix for the Item Size /
+		// mod-menu lag (Will): the cost is per PANEL DRAWN, and the Item Size "All"
+		// grid draws ~50 of them a frame. Baked at PHYSICAL resolution so corners stay
+		// crisp at any GUI scale. Matches 1.21.11.
+		if (w <= MASK_MAX && h <= MASK_MAX) {
+			Identifier box = boxMask(w, h, r);
+			if (box != null) {
+				int s = guiScale();
+				int pw = w * s, ph = h * s;
+				if (((fill >>> 24) & 0xFF) > 0) {
+					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, 0f, w, h, pw, ph, pw, ph * 2, fill);
+				}
+				if (((border >>> 24) & 0xFF) > 0) {
+					g.blit(RenderPipelines.GUI_TEXTURED, box, x, y, 0f, (float) ph, w, h, pw, ph, pw, ph * 2, border);
+				}
+				return;
+			}
+		}
+		// Larger panels (the menu backdrop etc.) keep the nine-slice texture path.
 		ensureLoaded();
 		if (!ok) {
 			g.fill(x, y, x + w, y + h, fill);
 			return;
 		}
-		int cd = Math.min(corner, Math.min(w, h) / 2);
+		int cd = Math.min(r, Math.min(w, h) / 2);
 		nine(g, fillTex, x, y, w, h, cd, fill);
 		if (((border >>> 24) & 0xFF) > 0) {
 			nine(g, borderTex, x, y, w, h, cd, border);
 		}
+	}
+
+	// ---- UI glyphs (close / edit / chevron / star) ----
+	// 1.21.x draws these from its SDF icon atlas; 26.2's atlas only carries mod-card
+	// icons, so they're drawn as plain vector geometry here — no assets to load, and
+	// it keeps the thin outlined line-icon look the design calls for.
+
+	/** Diagonal (or any) 1px-ish line between two points, `t` px thick. */
+	private static void stroke(GuiGraphicsExtractor g, double x0, double y0, double x1, double y1, int t, int argb) {
+		double dx = x1 - x0, dy = y1 - y0;
+		int steps = (int) Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)));
+		if (steps <= 0) {
+			return;
+		}
+		for (int i = 0; i <= steps; i++) {
+			double f = i / (double) steps;
+			int px = (int) Math.round(x0 + dx * f);
+			int py = (int) Math.round(y0 + dy * f);
+			g.fill(px, py, px + t, py + t, argb);
+		}
+	}
+
+	/** Close "×" — two diagonals across the box. */
+	public static void iconClose(GuiGraphicsExtractor g, int x, int y, int size, int color) {
+		int p = Math.max(2, size / 5), t = Math.max(1, size / 8);
+		stroke(g, x + p, y + p, x + size - p - t, y + size - p - t, t, color);
+		stroke(g, x + size - p - t, y + p, x + p, y + size - p - t, t, color);
+	}
+
+	/** Edit "pencil" — a diagonal shaft with a short tip stroke. */
+	public static void iconEdit(GuiGraphicsExtractor g, int x, int y, int size, int color) {
+		int p = Math.max(2, size / 5), t = Math.max(1, size / 8);
+		stroke(g, x + p, y + size - p - t, x + size - p - t, y + p, t, color);
+		stroke(g, x + p, y + size - p - t, x + p + t * 2, y + size - p - t, t, color);
+	}
+
+	/** Chevron "‹"/"›" — two strokes meeting at a point. */
+	public static void iconChevron(GuiGraphicsExtractor g, int x, int y, int size, int color, boolean left) {
+		int p = Math.max(2, size / 4), t = Math.max(1, size / 8);
+		int midY = y + size / 2;
+		int tipX = left ? x + p : x + size - p - t;
+		int endX = left ? x + size - p - t : x + p;
+		stroke(g, tipX, midY, endX, y + p, t, color);
+		stroke(g, tipX, midY, endX, y + size - p - t, t, color);
+	}
+
+	/** Star (favourite marker) — a compact 4-point asterisk. */
+	public static void star(GuiGraphicsExtractor g, int x, int y, int size, int argb) {
+		int t = Math.max(1, size / 8);
+		int cx = x + size / 2, cy = y + size / 2, r = Math.max(2, size / 2 - t);
+		stroke(g, cx, cy - r, cx, cy + r - t, t, argb);
+		stroke(g, cx - r, cy, cx + r - t, cy, t, argb);
+		int d = (int) (r * 0.7);
+		stroke(g, cx - d, cy - d, cx + d - t, cy + d - t, t, argb);
+		stroke(g, cx + d - t, cy - d, cx - d, cy + d - t, t, argb);
+	}
+
+	// ---- baked rounded-box masks (small-panel fast path, ported from 1.21.11) ----
+	private static final int MASK_MAX = 96;
+	private static final int MASK_CACHE_MAX = 32;
+
+	/** (w,h,r,guiScale) -> one texture: fill mask on the top half, 1px border ring on
+	 *  the bottom half, so a panel is two blits into the same texture. LRU-capped. */
+	private static final java.util.LinkedHashMap<Long, Identifier> BOX_MASKS =
+			new java.util.LinkedHashMap<>(16, 0.75f, true) {
+				@Override
+				protected boolean removeEldestEntry(java.util.Map.Entry<Long, Identifier> eldest) {
+					if (size() <= MASK_CACHE_MAX) {
+						return false;
+					}
+					if (eldest.getValue() != null) {
+						try {
+							net.minecraft.client.Minecraft.getInstance().getTextureManager().release(eldest.getValue());
+						} catch (Throwable ignored) {
+						}
+					}
+					return true;
+				}
+			};
+
+	// PHYSICAL pixels per GUI pixel. Masks bake at physical res and blit back to GUI
+	// size so the anti-aliasing is per SCREEN pixel — crisp corners at any GUI scale.
+	private static int guiScale() {
+		try {
+			return Math.max(1, Math.min(8, net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale()));
+		} catch (Throwable t) {
+			return 1;
+		}
+	}
+
+	private static Identifier boxMask(int w, int h, int r) {
+		int s = guiScale();
+		long key = ((long) w << 44) | ((long) h << 20) | ((long) r << 4) | s;
+		if (BOX_MASKS.containsKey(key)) {
+			return BOX_MASKS.get(key);
+		}
+		Identifier id = null;
+		try {
+			int pw = w * s, ph = h * s, pr = r * s;
+			NativeImage img = new NativeImage(NativeImage.Format.RGBA, pw, ph * 2, false);
+			for (int py = 0; py < ph; py++) {
+				for (int px = 0; px < pw; px++) {
+					double cov = boxCoverage(px, py, pw, ph, pr, 0);
+					double ring = boxCoverage(px, py, pw, ph, pr, s);
+					img.setPixel(px, py, alphaWhite(cov));
+					img.setPixel(px, py + ph, alphaWhite(ring));
+				}
+			}
+			String name = "origin_box_" + w + "x" + h + "_" + r + "_s" + s;
+			id = Identifier.fromNamespaceAndPath("originclient", "textures/ui/" + name);
+			net.minecraft.client.Minecraft.getInstance().getTextureManager()
+					.register(id, new DynamicTexture(() -> name, img));
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: box mask " + w + "x" + h + " r=" + r + " failed to bake", t);
+		}
+		BOX_MASKS.put(key, id);
+		return id;
+	}
+
+	// Exact rounded-box signed-distance coverage; `inset` > 0 returns the border ring.
+	private static double boxCoverage(int px, int py, int w, int h, int r, int inset) {
+		double hw = w / 2.0, hh = h / 2.0;
+		double qx = Math.abs(px + 0.5 - hw) - (hw - r);
+		double qy = Math.abs(py + 0.5 - hh) - (hh - r);
+		double outX = Math.max(qx, 0), outY = Math.max(qy, 0);
+		double d = Math.sqrt(outX * outX + outY * outY) + Math.min(Math.max(qx, qy), 0) - r;
+		double outer = clamp01(0.5 - d);
+		if (inset <= 0) {
+			return outer;
+		}
+		return outer - clamp01(0.5 - (d + inset));
+	}
+
+	private static double clamp01(double v) {
+		return v < 0 ? 0 : (v > 1 ? 1 : v);
+	}
+
+	private static int alphaWhite(double cov) {
+		int a = cov <= 0.001 ? 0 : (int) Math.round(255 * Math.min(1.0, cov));
+		return (a << 24) | 0xFFFFFF;
 	}
 
 	/**
@@ -111,6 +276,13 @@ public final class OriginUi {
 
 	/** Hi-res icon from the baked atlas, tinted. */
 	public static void icon(GuiGraphicsExtractor g, String name, int x, int y, int size, int argb) {
+		// Real Minecraft item icons (the same set every 1.21.x version uses) for any id
+		// ModIcons knows — mod cards, the settings tabs, and "@search". Only names it
+		// doesn't cover fall through to the legacy vector atlas below.
+		if (ModIcons.has(name)) {
+			ModIcons.draw(g, name, x, y, size, ((argb >>> 24) & 0xFF) / 255f);
+			return;
+		}
 		ensureLoaded();
 		int[] uv = ok ? ICONS.get(name) : null;
 		if (uv == null) {
