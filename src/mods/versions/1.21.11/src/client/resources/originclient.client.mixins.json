@@ -11,6 +11,7 @@
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
 		"AbstractButtonMixin",
+		"SprintKeyMixin",
 		"ScreenBackgroundMixin",
 		"AbstractSliderButtonMixin",
 		"CheckboxMixin",
@@ -44,6 +45,7 @@
 		"LivingNametagMixin",
 		"SpriteIconButtonMixin",
 		"SpriteIconButtonAccessor",
+		"CycleButtonSpriteAccessor",
 		"PlayerTabOverlayMixin",
 		"PlayerTabOverlayAccessor",
 		"TabButtonMixin"

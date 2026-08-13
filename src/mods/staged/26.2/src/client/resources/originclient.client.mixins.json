@@ -6,6 +6,7 @@
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
 		"AbstractButtonMixin",
+		"SprintKeyMixin",
 		"GuiGraphicsExtractorAccessor",
 		"GuiRendererMixin",
 		"HitboxMixin",

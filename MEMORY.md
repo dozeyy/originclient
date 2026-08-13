@@ -3711,3 +3711,402 @@ loading the sign-in page then stopped.
   (`00000000402b5328`) against `login.live.com`, not Origin's real Azure app
   registration. Revisit before shipping wider — see `MicrosoftAuthenticator.cs`
   TEMPORARY comments.
+
+## 2026-08-01 — 1.21.11 "Ticking Particle" crash: Hide All Particles + any firework = NPE (root-caused, fixed, boot test pending)
+
+- **Symptom** (Will, on a server, `crash-2026-08-01_15.20.37-client.txt`):
+  `Ticking Particle` → `NullPointerException: Cannot invoke
+  "FireworkParticles$SparkParticle.setTrail(boolean)" because "$$10" is null`,
+  particle type `NO_RENDER`, thrown from `FireworkParticles$Starter`.
+- **Root cause (proven from the 1.21.11 sources, not theory):**
+  `FireworkParticles$Starter.createParticle()` does
+  `(SparkParticle) engine.createParticle(FIREWORK, …); spark.setTrail(…)` with
+  **no null check** (FireworkParticles.java:265). Origin's `ParticleEngineMixin`
+  returns `null` from `ParticleEngine.createParticle` to suppress a spawn, so the
+  Particles mod's own "Hide All" turned every firework explosion into a hard
+  crash. Will's instance config had `particles.enabled=true, hideAll=true`.
+  The Starter itself is spawned by `ClientLevel.createFireworks` via
+  `particleEngine.add(…)` (ClientLevel.java:619) — it never goes through
+  `createParticle`, so the existing filter could not see or stop it.
+- **Audited every vanilla caller of `ParticleEngine.createParticle` in 1.21.11:
+  the firework Starter is the ONLY one that dereferences the result.** Everything
+  else ignores it, so `null` stays a legal "didn't spawn" signal.
+- **Fix (1.21.11 module):** new `mods/ParticleFilter.java` holds the one filter
+  rule; `ParticleEngineMixin` now just calls it, and a new `FireworkStarterMixin`
+  (`@Mixin(targets = "…FireworkParticles$Starter")`, `require = 1`) cancels the
+  spark spawn at HEAD when that same rule says hidden. `Starter.tick` still runs,
+  so the firework **sound still plays** — hiding particles stays visual-only.
+  Descriptor confirmed against the loom jar:
+  `createParticle(DDDDDDLit/unimi/dsi/fastutil/ints/IntList;Lit/unimi/dsi/fastutil/ints/IntList;ZZ)V`.
+- **Status:** `gradlew build` clean. In-game verification (fire a rocket with
+  Hide All on) deferred — Will was mid-Valorant. `run/config/originclient-mods.json`
+  is left armed for that test (`particles.enabled=true, hideAll=true`).
+- **Every other live version has the same latent crash**: `shared/`'s
+  `ParticleEngineMixin` returns null the same way and no module has a firework
+  guard. Not yet propagated (each era needs its own descriptor + boot test).
+
+## 2026-08-01 — Cross-version audit (26.2 / 1.21.1 / 1.21.11) + every dead control wired up
+
+**Audit result: 1.21.1 and 1.21.11 are structurally identical** — same 26 mod cards,
+identical option lists, same 10 HUD elements, same keybinds, byte-identical shipped
+defaults, same per-mod backing coverage. Era differences only (ToastComponent ->
+ToastManager; `ReceivingLevelScreen` deleted by Mojang; per-era shader files).
+
+**Dead controls found by a static "is this option ever read?" sweep** (schema key
+never appears in any consumer) — these were in the 1.21.1 TEMPLATE, so they were
+dead on every version:
+- Chat: `unlimited`, `keepHistory`, `smoothChat`, `textShadow` — 4 of 8 controls.
+- Toggle Sneak/Sprint: the `mode` dropdown (Toggle/Hold) — Hold behaved as Toggle.
+- Particle Changer: global `multiplier`, and per-type `_players`, `_entities`,
+  `_self`, `_sound`, `_scale`, `_multiplier` (6 controls x every particle type).
+  MEMORY 2026-07-09 shows these were knowingly deferred, never finished.
+
+**All now implemented and compile-verified on all 17 shipped modules + 26.2:**
+- `shared/mods/ParticleFilter.java` is the single rule set (hide rules + context +
+  multiplier + scale + sound); `ParticleEngineMixin` is now a thin HEAD/RETURN wire.
+  Per-type Scale applies once at spawn via `Particle.scale()` (no per-frame cost);
+  Show on Self/Players/Entities is a proximity test that only runs when a row turns
+  one OFF; Multiplier <1 drops a share of spawns, >1 adds one jittered copy behind a
+  reentrancy guard; Play Sound is a rate-limited XP-orb ding.
+  Ported to the six pre-1.20 modules too (registry is `Registry.PARTICLE_TYPE`
+  below 1.19.3; 1.16.5 is Java 8 -> no `var`, and needs `getEyePosition(1.0F)`).
+- Chat: per-era ChatComponent work. Trims are `addMessageToQueue`/
+  `addMessageToDisplayQueue` from 1.21 up, but BOTH live in one private
+  `addMessage` on 1.20.x and pre-1.20. Keep History gates on `clearMessages(true)`
+  (disconnect) so F3+D still clears. Text Shadow: `@Redirect` on the render-level
+  `drawString`/`Font.drawShadow` through 1.21.5, but 1.21.6+ draws chat lines from
+  a LAMBDA (synthetic `method_71991`) and 1.21.11 has no per-call shadow flag at
+  all -> both use a `ChatTextState` flag armed around `ChatComponent.render`.
+  26.2 has NO `ChatComponent.render` (chat moved out with the GuiGraphicsExtractor
+  split) so it gets Unlimited + Keep History only; Smooth/Shadow stay on its backlog.
+
+**1.21.11 leftovers cleaned:** `MinecraftFramerateMixin` was registered but dead
+(getFramerateLimit no longer exists; FramerateLimitTrackerMixin does the job) — it
+also caused the "Cannot remap getFramerateLimit" warning on every build; deleted +
+listed in overrides.txt. `TitleScreenMixin`'s renderPanorama/renderBackground
+injects were dead too (panorama moved to Screen in 1.21.6, and TitleScreen's
+renderBackground override is empty) — ScreenBackgroundMixin already does both.
+
+**Launcher (cross-version consistency):**
+- `PerformanceModCatalog` 1.21.1 entry was WRONG (Sodium 0.8.12, no Iris) — inert
+  only because 1.21.1 bundles its stack. Corrected to the mandated pair
+  (Sodium 0.6.13 + Iris 1.8.8) so flipping BundlesPerfStack can't ship a
+  shader-breaking stack.
+- ImmediatelyFast + ModernFix shipped ONLY on 1.21.1 (jar-in-jar). Added to
+  `VersionPerfProfile` + every catalog entry that has a stable Fabric build
+  (ImmediatelyFast: all but 1.16.5/1.17.1 — ModernFix: none for 1.21.2/3,
+  1.21.5-1.21.11, 26.x, 1.19.3, 1.17.1). ModManager already treats both filename
+  families as managed, so dedupe/pinning covers them.
+  **NOT boot-swept yet** — needs the per-version launch sweep before the next tag.
+- ModMenu is still 1.21.1-only ON PURPOSE (it adds a competing mods button to the
+  title screen; spreading it would fight mandate 2). Will's call to remove it.
+
+**Still dead, and they are PORT GAPS, not wiring bugs** (the renderer on those
+versions predates the feature): `scoreboard.hideNumbers` + `scoreboard.headerColor`
+and `nametags.replaceOwnColor` everywhere except 1.21.1/1.21.11; the hitbox extras
+(showHittable/hittableColor/showDamaged/damagedColor/showLookVector, plus some
+category toggles on 1.21.10) on 1.21.5/6/8/10; 26.2's own list. 1.21.4 was left
+untouched on purpose (concurrent SDF port).
+
+## 2026-08-01 (night) — 1.21.x brought onto the 1.21.1 baseline (Will: "use 1.21.1 as a baseplate")
+
+Drove every live 1.21.x dev client with a screenshot harness (see the tooling note
+below) and compared each surface against 1.21.1.
+
+**What was actually different — and is now fixed on 1.21, 1.21.4, 1.21.5, 1.21.6,
+1.21.8, 1.21.10 (1.21.11 already matched except where noted):**
+- **Title backdrop.** 1.21.1 shows the LIVE PANORAMA (blurred + graded); the others
+  still drew the old charcoal + rings + grain + vignette scene. Ported per era:
+  PoseStack line (1.21, 1.21.4, 1.21.5) uses its own `CubeMap`/`PanoramaRenderer`
+  + `processBlurEffect`; the deferred line (1.21.6/8/10) uses
+  `gameRenderer.getPanorama().render(g,w,h,true)` + `blurBeforeThisStratum()`.
+  Era traps: `Minecraft.getTimer()` became `getDeltaTracker()` at 1.21.4, and
+  `processBlurEffect` lost its float arg there too (1.21's still takes one, and
+  only 1.21/1.21.1 need the `getMainRenderTarget().bindWrite(false)` rebind —
+  checked against each jar's own `Screen.renderBlurredBackground` bytecode).
+  NOTE: the rings scene is still correct for LOADING screens — the baseline uses
+  it there too (`renderLoadingScene0`). Only the title screen changed.
+- **Button skin.** Every version except 1.21.1/1.21.11 still wore the OLD frost
+  palette (translucent WHITE fill 0x07FFFFFF + white hairline) instead of the
+  reskin (dark see-through fill 0x59161616 inside a near-black 0xF00A0A0A frame).
+  Ported, along with `OriginTheme.STROKE_HOVER`/`TEXT` -> full white and the
+  BOX_* tokens. The 1.21.1 overrides.txt note that gated this ("promote once a
+  second version ships the skin") is now satisfied.
+- **Corner radius.** Those modules drew buttons at radius 6, the baseline at 3 —
+  visibly rounder pills. Now 3 everywhere.
+- **Hover.** 1.21.11 flashed a FULL WHITE border on hover (BORDER_HOVER =
+  STROKE_HOVER); the baseline keeps the dark frame (0xFF1A1A1A). Fixed.
+- **Title icon buttons.** The baseline KEEPS the language + accessibility icons
+  and re-skins them (SpriteIconButtonMixin + Accessor); the others hid them.
+  Ported per era — the mixin targets `renderWidget` pre-1.21.6 and `renderContents`
+  from 1.21.6, and the accessor's `sprite` field is a `ResourceLocation` before
+  1.21.6 and a `WidgetSprites` after (resolve with `.get(active, hovered)`).
+- **Account chip.** Others drew a translucent pill behind the head/name; the
+  baseline draws it bare. Removed.
+- **Menu-background setting used two different config keys** — `menuBgOpacity`
+  (baseline) vs `panelBacking` (everything else), so the toggle never carried
+  across versions. All modules now read/write `menuBgOpacity`, falling back to a
+  legacy `panelBacking` value so existing configs keep their choice. `metaNum`/
+  `setMetaNum` had to be added to the modules that only had the boolean pair.
+- **mod_version** was 0.4.1 everywhere and 0.4.2 on 1.21.1 — it prints in the mod
+  menu corner. All modules are 0.4.2 now.
+- **ModMenu** (the "Mods" title button) shipped only inside 1.21.1's jar, so the
+  baseline had a 4th button and every other version had 3 — vanilla re-centres
+  the block, so every button sat 24px off. Now pinned per version in the launcher
+  catalog (see the launcher note in the previous entry).
+
+**Still different, and it is a big one:** 1.21, 1.21.4, 1.21.5, 1.21.6, 1.21.8 and
+1.21.10 run the OLDER GENERATION of the mod menu — a top tab bar (MODS/SETTINGS/
+HUD Editor) with OPTIONS + DISABLED buttons inside each card — while 1.21.1 and
+1.21.11 have the left rail (ORIGIN / Mods / Profiles / Settings / Edit / Close),
+the 4-column grid and the green name pills. Porting the newer screen is not a
+copy: it references `Profiles`, `Waypoints`/`WaypointScreen`, `OriginItemSizeScreen`
+and `OriginText`, none of which exist in those modules — i.e. it pulls the whole
+Profiles + Waypoints + Item Size feature chain with it. That is the next block of
+work, sized per version, and it is why those versions still look different.
+
+### Driving the dev clients — two traps that cost real time
+1. `SetForegroundWindow` is REFUSED when another app owns the foreground, and the
+   script then screenshots/clicks whatever IS in front (I captured the Claude
+   window and thought it was Minecraft). Tap ALT first, then verify with
+   `GetForegroundWindow()` and retry — `focus.ps1` does this now.
+2. Never `capture_output=True` on the PowerShell that Start-Process's the game:
+   the game inherits the pipe, so the read never sees EOF and the driver hangs
+   forever (two dead runs before I spotted it). `capture.py` has `ps_detached`.
+   Also: hard-coded click coordinates DO NOT survive across versions (1.21.1 has
+   the extra Mods button, so its buttons sit 24px lower) — locate the target by
+   finding its bright label text in the screenshot instead.
+
+### Icon-button port — the era table I got wrong once, then measured
+`SpriteIconButton.CenteredIcon` is where the Language/Accessibility icons live.
+Assuming "1.21.6+ = renderContents" was WRONG and cost two verification passes.
+Read off each module's own jar:
+
+| module | CenteredIcon overrides | `sprite` field type |
+|---|---|---|
+| 1.21, 1.21.1, 1.21.4, 1.21.5 | `renderWidget` | `ResourceLocation` |
+| 1.21.6, 1.21.8 | `renderWidget` | `ResourceLocation` |
+| 1.21.10 | `renderWidget` | **`WidgetSprites`** (resolve `.get(active, hovered)`) |
+| 1.21.11 | **`renderContents`** | `WidgetSprites` |
+
+`blitSprite` also takes a `RenderPipeline` first argument from 1.21.6 on, and
+`RenderType::guiTextured` on 1.21.5.
+
+Two failure modes seen on the way, both visible on the title screen:
+- Calling `button.renderString(...)` from the Origin renderer printed the button's
+  MESSAGE ("Language", "Accessibility Settings") sprawling across the Options/Quit
+  row. Only `TextAndIcon` should draw a label; `CenteredIcon` is icon-only.
+- Excluding `SpriteIconButton` from `AbstractButtonMixin` while the icon mixin
+  targeted a method that does not exist on that era left the buttons rendering as
+  the VANILLA stone sprite. The exclusion is right, but only lands correctly once
+  the icon mixin actually binds — verify with a screenshot, not a clean build.
+
+## 2026-08-01 (late) — firework crash guard propagated to EVERY version + profiles promoted
+
+- **The "Ticking Particle" firework crash was still live on every version except
+  1.21.11.** Same root cause (vanilla's `FireworkParticles$Starter.createParticle`
+  dereferences `ParticleEngine.createParticle` without a null check, so the
+  Particles mod's own Hide All / Off / Reduced / per-type-firework rows crash the
+  client on the next firework). `FireworkStarterMixin` now ships on all 15 other
+  modules. The descriptor splits by era, javap'd per module rather than assumed:
+  **`int[]` colours through 1.20.4, `IntList` from 1.21 on.**
+  Each carries `require = 1`, so a wrong descriptor aborts at launch instead of
+  silently restoring the crash — which also makes a clean BOOT the proof that the
+  guard bound. Boot-verified so far: 1.21.10, 1.21.8, 1.21.6, 1.21.5, 1.21.4.
+- **`ModsConfig`'s profiles API + `Profiles.java` promoted to `shared/`.** They
+  were forked into 1.21.1/1.21.11 only, and both copies were identical (one
+  comment apart) — pure Gson, no rendering, so they are safe on every era. Both
+  baselines' `ModsConfig` overrides.txt lines were retired. This removes one
+  blocker from the newer-mod-menu chain for every module at once; what still
+  blocks it is Waypoints (4 files, ~1.5k lines), Item Size (5 files, ~850) and
+  the Tab-list editor (4 files, ~340), plus OriginText/OriginSdfFont.
+
+### Firework crash fix — END-TO-END VERIFIED 2026-08-01 23:42
+Not just "the mixin binds": drove 1.21.11 with `particles.enabled=true,
+hideAll=true` (Will's exact crashing config), entered the world, `/give`'d 16
+firework rockets and launched them. **Client still alive and in the world
+afterwards, no crash report written.** Before the guard this was a guaranteed
+"Ticking Particle" NPE on the first explosion.
+Boot-verified on all 15 other modules too (a wrong descriptor with `require = 1`
+aborts startup, so a clean boot IS the proof the guard bound): 1.21.10, 1.21.8,
+1.21.6, 1.21.5, 1.21.4, 1.21, 1.20.4, 1.20.2, 1.20, 1.19.4, 1.19.3, 1.19.2,
+1.18.2, 1.17.1, 1.16.5 — zero `Mixin apply ... failed` in any log. (The trailing
+`> Task :runClient FAILED` in every run log is my own kill, not a crash — it is
+there on known-good runs too.)
+
+Driver note: typing a chat command must go through the SCRIPT THAT FOCUSES the
+window (`shot.ps1 -Keys`). A bare SendKeys call from another process types into
+whatever is in front — my first attempt silently typed nothing and the hotbar
+stayed empty. SendKeys also needs `{}`/`[]`/`()`/`+`/`^`/`%`/`~` brace-escaped,
+which matters for component syntax like
+`firework_rocket[fireworks={explosions:[{...}]}]`.
+
+## 2026-08-02 (early) — Color Saturation + Tab Editor ported into the 1.21.x line
+
+Two of the four mods missing from the non-baseline versions are now in.
+
+**Color Saturation** — on 1.21, 1.21.6, 1.21.8, 1.21.10 (was: 1.21.1/1.21.11 only).
+There are THREE shader eras here, not two, and the jars settle it:
+- 1.21 — `ShaderInstance` + `BufferUploader` + Fabric's `CoreShaderRegistrationCallback`
+  all present -> the 1.21.1 implementation drops straight in.
+- 1.21.4 / 1.21.5 — `ShaderInstance` GONE (it is `CompiledShaderProgram`), 1.21.5 has no
+  `BufferUploader` either, and **Fabric removed CoreShaderRegistrationCallback after
+  1.21.1**. Neither baseline fits; the partial port was BACKED OUT rather than left
+  half-wired. Still missing there.
+- 1.21.6 / 1.21.8 / 1.21.10 — the 1.21.11 RenderPipeline implementation ports, with
+  three era deltas: `buildVertices` takes `(VertexConsumer, float)` before 1.21.10;
+  `addVertexWith2DPose` takes a THIRD float before 1.21.10 and wants the concrete
+  `Matrix3x2f` (not `Matrix3x2fc`); `TextureSetup.singleTexture` takes only the view
+  (the explicit sampler arg arrives in 1.21.11).
+
+**THE BUG THAT ALMOST SHIPPED:** it compiled on all three and did NOTHING. Caught only
+by measuring the frame (mean saturation 0.5137 vs 0.5122 = no change). The log said why:
+`Couldn't compile program for pipeline originclient:pipeline/origin_grade ... unknown
+stage block member has no corresponding member in fragment block`. **This era's
+`DynamicTransforms` std140 block ends with a fifth member, `LineWidth`, that 1.21.11
+dropped** — a std140 block must be declared identically in both stages or the program
+silently fails to link. Added it; the grade then measured **-44.6% saturation** vs
+neutral, exactly the half-strength the slider gives at 0.
+
+**Tab Editor** — ported to all six (1.21, 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10).
+`PlayerTabOverlay.render(GuiGraphics,int,Scoreboard,Objective)` and the header/footer
+fields are IDENTICAL on every version 1.21 -> 1.21.11, so the mixin + accessor are
+verbatim. The deltas are elsewhere:
+- **`GameProfile` accessor is decided by the AUTHLIB each MC version pins, not by the
+  MC version**: authlib 6.x = `getId()`/`getName()`, authlib 7.x+ = `id()`/`name()`.
+  1.21.6/1.21.8 pin 6.0.58; 1.21.10 pins 7.0.61. Check the jar, don't infer from the
+  MC version.
+- `blitSprite`: bare (1.21/1.21.1) -> `RenderType::guiTextured` first arg (1.21.4/1.21.5)
+  -> `RenderPipeline` first arg (1.21.6+).
+- `renderTab` had to be rewritten in each module's own idiom — the baseline's
+  `OriginUi.bevelPanel`/`BEVEL_CUT` belong to its SDF path, and the label helper is
+  `drawLabel(g,cx,cy,h,msg,col)` here vs `drawLabelCentered` on the baseline.
+
+**Verification note (worth repeating):** the tab list could NOT be proven by screenshot —
+holding Tab via `keybd_event` renders nothing, and it renders nothing on the KNOWN-GOOD
+1.21.1 baseline either, so that is a harness limit, not a port defect. Proved it instead
+by booting with `-Pmixinexport` and reading the injection out of the transformed class:
+`run/.mixin.out/.../PlayerTabOverlay.class` contains
+`handler$...$originclient$suppressVanilla` plus `originclient$getHeader/getFooter/
+getPlayerInfos`. That is the check to use whenever a feature can't be photographed.
+
+Also: a greedy regex ("up to the next `\n\t}`") when lifting a method out of a baseline
+swallowed the methods that followed and produced duplicate `render()`/`render0()`
+definitions in six files. Extract by BRACE MATCHING. Recovering meant `git checkout` of
+the six OriginButtonRenderer files and re-applying the night's edits from script.
+
+**Remaining per version** (against the 26-card baseline): itemsize, tablist(done),
+waypoints — so now **itemsize + waypoints everywhere**, plus **colorsaturation on
+1.21.4/1.21.5**, plus JEI on 1.21.4-1.21.8 (no Fabric JEI exists — leave out).
+
+### Item Size: attempted, reverted — it is blocked on the MENU TOOLKIT, not on the era
+Ported the engine cleanly (the entity hook splits THREE ways, all jar-verified:
+`render(ItemEntity,float,float,PoseStack,...)` on 1.21; `extractRenderState` +
+`render(ItemEntityRenderState,PoseStack,MultiBufferSource,int)` on 1.21.4-1.21.8 —
+a shape NEITHER baseline has; `extractRenderState` + `submit(...,SubmitNodeCollector,
+CameraRenderState)` on 1.21.10+). The per-item size must be captured during extraction
+(last place the ItemEntity is in hand) and applied at draw.
+
+But `OriginItemSizeScreen` (639 lines) needs `OriginText` (Inter/MSDF) and
+`OriginUi.iconChevron` — the NEW MENU's toolkit — giving 30-56 compile errors per
+module. And even compiled it would be UNREACHABLE: the old-generation menu on those
+six versions has no entry point that opens it (the baseline opens it from
+OriginModMenuScreen). A card whose editor cannot open is exactly the dead control this
+whole pass has been removing, so the port was REVERTED rather than shipped half-done.
+
+**Order this implies:** OriginText/OriginSdfFont + the OriginUi additions -> the new mod
+menu -> Item Size and Waypoints (both of which hang their screens off that menu).
+Doing Item Size or Waypoints before the menu just produces dead cards.
+
+### 2026-08-02 — TWO BUGS THE BOOT LOG CAUGHT (and a clean build did not)
+Found only while re-reading run logs to answer "what versions are working now".
+Both had passed `gradlew build` AND produced a normal-looking title screen.
+
+1. **1.20 / 1.20.2 / 1.20.4 — a regression I introduced.** The chat port renamed the
+   shadowed refresh method to the PLURAL `refreshTrimmedMessages`, but that era spells
+   it **singular: `refreshTrimmedMessage`**. A bad @Shadow kills the WHOLE mixin, so
+   Timestamps and Stack Spam — which worked before — silently stopped. (Plural is
+   correct from 1.21 on; the name was read back out of each jar to fix it.)
+2. **1.21.11 — Text Shadow in Chat never worked.** `@ModifyArg` with `at = @At("NEW")`
+   points at the NEW opcode, which Mixin cannot bind an arg modifier to
+   ("targetting a non-method insn"). Target the constructor **INVOKE** instead:
+   `@At(value="INVOKE", target="L...GuiTextRenderState;<init>(...)V")`.
+
+**Process rule this earns:** after any mixin change, grep the run log for
+`Mixin apply .* failed|InvalidMixinException|InvalidInjectionException`. A clean build
+does not catch a bad @Shadow or an unbindable injection point, and neither does "the
+game booted" — both of these booted fine with the feature silently dead. Watch the log
+FRESHNESS too: run logs are overwritten per launch, so a count read mid-run can come
+from the previous session (it did once tonight).
+
+Also from the same pass, pre-existing and NOT from tonight's work: 1.20's
+TitleScreenMixin has renderPanorama/renderBackground injects that bind nothing (the
+backdrop still renders correctly — verified by screenshot, so it is dead weight, not a
+defect), and 1.20.2/1.20.4 carry an IrisListDecorationsMixin whose target
+(`renderDecorations`) does not resolve.
+
+---
+
+## 2026-08-12 — 1.21.11 blank inventory squares + Toggle Sprint that keeps its memory
+
+Two things Will hit in a real session (screenshot from his 1.21.11 duel-server
+game): three blank grey squares in the inventory, and a sprint toggle that
+"kinda bugs out — go into inventory / leave a server / bump a wall and you walk
+until you re-toggle."
+
+### 1. The blank squares — 1.21.11 ONLY, and it is the `renderWidget`-final trap
+Root cause (javap against the loom-mapped jars, not theory): 1.21.11 made
+`AbstractButton.renderWidget` **`protected final`** and moved subclass drawing
+into the abstract `renderContents`. Origin's `AbstractButtonMixin` cancels
+`renderWidget` at HEAD, so on 1.21.11 it pre-empts EVERY button type. The three
+squares were all recipe-book widgets whose art lives in `renderContents`:
+- inventory recipe-book open button — `ImageButton`
+- recipe-book tab — `RecipeBookTabButton` (**now extends `ImageButton`**; it was
+  a `StateSwitchingButton`, i.e. not an `AbstractButton` at all, before 1.21.11)
+- craftable filter — **now a `CycleButton<Boolean>`** with a sprite supplier and
+  `DisplayState.HIDE`; Origin drew its shell *and* its hidden label, which is
+  where the stray "Showing All" text came from.
+`CheckboxMixin` (injects `renderContents`) was silently dead for the same reason.
+
+Fix: `AbstractButtonMixin` now uses a **whitelist** (`originclient$ownsLook`) —
+Origin claims plain `Button` subclasses and text `CycleButton`s only; sprite
+buttons (`ImageButton`, `SpriteIconButton`, `PageButton`, `LockIconButton`),
+`PlainTextButton`, sprite `CycleButton`s (new `CycleButtonSpriteAccessor` reads
+the private `spriteSupplier`) and everything that is an `AbstractButton` but not
+a `Button` (Checkbox, beacon buttons) reach vanilla or their own mixin. A
+blacklist is not enough here — every type you forget renders as an empty box.
+1.21.1 / 1.21.4 / 1.21.6 / 1.21.8 / 1.21.10 are NOT affected (checked: their
+`renderWidget` is still overridable and their recipe-book widgets are
+`StateSwitchingButton`).
+
+### 2. Toggle Sprint — stop forcing, hold the key instead (ALL live versions)
+The old code re-asserted `player.setSprinting(true)` from END_CLIENT_TICK when
+`hasForwardImpulse()` — which lands *after* the tick's movement and after
+`LocalPlayer.sendPosition()`, and punched through vanilla's own rules (it forced
+sprint at low hunger too). Vanilla kills the sprint on: no forward impulse (any
+open screen — `Minecraft.setScreen` calls `KeyMapping.releaseAll()`), a hard
+`horizontalCollision`, or `!isSprintingPossible` (hunger).
+
+New mechanism, era-independent: **`SprintKeyMixin` makes `KeyMapping.isDown()`
+return true for `options.keySprint` while the toggle is on** (shared/, one file,
+registered in every module). Every era from 1.16.5 to 1.21.11 starts a sprint
+from exactly that read in `LocalPlayer.aiStep` (1.21.9+ routes it through
+`Input.sprint()` filled by `KeyboardInput.tick`), so the game itself starts and
+*re-starts* the sprint at the right point in the tick. `ToggleKeyMapping` does
+not override `isDown()`, so keySprint is covered. Gated on `mc.screen == null`.
+`OriginFeatures.sprintToggledOn` lost its `transient` (persists across restarts);
+sneak deliberately stays transient.
+
+**Measured on 1.21.11 through runClient** (same 4s scripted W-hold, same runway,
+distance read off the coords HUD): toggle off **22 blocks (walk)** → toggle on
+**27 (sprint)** → after opening/closing inventory AND pause menu **27** → after
+Save-and-Quit-to-Title + rejoin **27** → un-toggled **21 (walk)**. Zero
+`Mixin apply … failed` in the run log (only JEI's optional Amecs mixin, benign).
+
+Landed on all 16 live modules + 1.21.5 + staged 26.2; all compile clean
+(1.16.5/1.17.1 via `compileJava`, the rest `compileClientJava`). Only 1.21.11 was
+boot-verified — the other 15 carry a compile-clean-only guarantee.
+
+**Open question for Will:** Toggle Sneak and Toggle Sprint share ONE keybind, so
+with both sub-toggles on, one press turns both on and the forced crouch means you
+never sprint. Sneak defaults ON in the mod definition.

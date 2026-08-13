@@ -11,6 +11,7 @@
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
 		"AbstractWidgetMixin",
+		"SprintKeyMixin",
 		"AbstractSliderButtonAccessor",
 		"ScreenBackgroundMixin",
 		"AbstractSelectionListMixin",

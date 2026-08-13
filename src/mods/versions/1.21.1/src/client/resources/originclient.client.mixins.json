@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"AbstractButtonMixin",
+		"SprintKeyMixin",
 		"AbstractSliderButtonMixin",
 		"CheckboxMixin",
 		"TabButtonMixin",

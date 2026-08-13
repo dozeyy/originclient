@@ -220,6 +220,32 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 	}
 
+	/**
+	 * True while Toggle Sprint is engaged -- SprintKeyMixin then reports the
+	 * vanilla sprint key as held, so the GAME starts the sprint itself, at the
+	 * exact point in the tick it normally would.
+	 *
+	 * That is what gives the toggle its memory. A screen, a pause, a server hop
+	 * or a wall bump ends the sprint exactly the way vanilla always did, and
+	 * vanilla re-starts it on the first tick the player is moving again -- so it
+	 * never needs re-toggling; only an un-toggle turns it off. Every vanilla
+	 * rule stays in force too: no sprinting inside a screen, at low hunger, or
+	 * while eating/blocking.
+	 */
+	public static boolean sprintKeyHeldByToggle(net.minecraft.client.KeyMapping key) {
+		if (!FEATURES.sprintToggledOn) {
+			return false;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		if (mc == null || mc.options == null || key != mc.options.keySprint) {
+			return false;
+		}
+		if (mc.screen != null) {
+			return false;   // vanilla releases every key in a screen; don't lie to it
+		}
+		return Mods.on("togglesprint") && Mods.bool("togglesprint", "sprint");
+	}
+
 	private void onEndTick(Minecraft client) {
 		// Right Shift opens the mod menu (the screen itself closes on the
 		// same key or Esc, with the reversed slide).
@@ -357,8 +383,9 @@ public class OriginClientMod implements ClientModInitializer {
 		// Toggle happens ONLY on the mod's assigned toggle key — we no longer
 		// consume the vanilla sprint/sneak keys, so double-tap-W sprinting and
 		// hold-Ctrl / hold-Shift keep working normally. We also never force the
-		// state OFF: sprint is only pushed ON while toggled+moving, and sneak is
-		// released once on un-toggle, so vanilla stays in control the rest of the
+		// state OFF: while sprint is toggled the vanilla sprint key simply reads as
+		// held (SprintKeyMixin) so the game drives the sprint itself, and sneak is
+		// released once on un-toggle -- vanilla stays in control the rest of the
 		// time.
 		boolean toggleMod = Mods.on("togglesprint");
 		// Mode: "Toggle" = press once, stays on. "Hold" = active only while the
@@ -374,10 +401,10 @@ public class OriginClientMod implements ClientModInitializer {
 			} else if (edge) {
 				FEATURES.sprintToggledOn = !FEATURES.sprintToggledOn;
 			}
-			boolean moving = player.input != null && player.input.hasForwardImpulse();
-			if (FEATURES.sprintToggledOn && player.isAlive() && moving) {
-				player.setSprinting(true);
-			}
+			// The sprint itself is NOT forced from here any more. While the
+			// toggle is on, SprintKeyMixin makes the vanilla sprint key read as
+			// held, so the game starts (and re-starts) the sprint on its own at
+			// the right point in the tick -- see sprintKeyHeldByToggle().
 		} else {
 			FEATURES.sprintToggledOn = false;
 		}
