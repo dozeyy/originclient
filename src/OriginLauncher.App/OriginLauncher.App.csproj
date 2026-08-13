@@ -53,24 +53,24 @@
   <ItemGroup>
     <!-- 1.21.1 STOCK — full Origin build, self-contained perf stack (jar-in-jar):
          Sodium 0.6.13 + Indium + Iris 1.8.8. Default install. -->
-    <Content Condition="Exists('..\mods\versions\1.21.1\build\libs\originclient-0.4.2.jar')"
-             Include="..\mods\versions\1.21.1\build\libs\originclient-0.4.2.jar">
+    <Content Include="..\mods\versions\1.21.1\build\libs\originclient-*.jar"
+             Exclude="..\mods\versions\1.21.1\build\libs\originclient-*-sources.jar;..\mods\versions\1.21.1\build\libs\originclient-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.21.1.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <!-- 1.20 / 1.20.1 — Origin client only; perf stack installed standalone. -->
-    <Content Condition="Exists('..\mods\versions\1.20\build\libs\originclient-1.20-0.4.1.jar')"
-             Include="..\mods\versions\1.20\build\libs\originclient-1.20-0.4.1.jar">
+    <Content Include="..\mods\versions\1.20\build\libs\originclient-1.20-*.jar"
+             Exclude="..\mods\versions\1.20\build\libs\originclient-1.20-*-sources.jar;..\mods\versions\1.20\build\libs\originclient-1.20-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.20.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <!-- 1.20.4 — Origin client only; perf stack installed standalone. -->
-    <Content Condition="Exists('..\mods\versions\1.20.4\build\libs\originclient-1.20.4-0.4.1.jar')"
-             Include="..\mods\versions\1.20.4\build\libs\originclient-1.20.4-0.4.1.jar">
+    <Content Include="..\mods\versions\1.20.4\build\libs\originclient-1.20.4-*.jar"
+             Exclude="..\mods\versions\1.20.4\build\libs\originclient-1.20.4-*-sources.jar;..\mods\versions\1.20.4\build\libs\originclient-1.20.4-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.20.4.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -78,8 +78,8 @@
     </Content>
     <!-- 1.21 — Origin client only; perf/shader stack installed standalone.
          Same source as 1.21.1 (pre-1.21.2 blit API); its own 1.21-mapped jar. -->
-    <Content Condition="Exists('..\mods\versions\1.21\build\libs\originclient-1.21-0.4.1.jar')"
-             Include="..\mods\versions\1.21\build\libs\originclient-1.21-0.4.1.jar">
+    <Content Include="..\mods\versions\1.21\build\libs\originclient-1.21-*.jar"
+             Exclude="..\mods\versions\1.21\build\libs\originclient-1.21-*-sources.jar;..\mods\versions\1.21\build\libs\originclient-1.21-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.21.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -87,8 +87,8 @@
     </Content>
     <!-- 1.21.5 bundle entry REMOVED 2026-08-06: version pulled from the lineup. -->
     <!-- 1.21.8 — own sub-family build (Matrix3x2fStack + no-setShaderColor era). -->
-    <Content Condition="Exists('..\mods\versions\1.21.8\build\libs\originclient-1.21.8-0.4.1.jar')"
-             Include="..\mods\versions\1.21.8\build\libs\originclient-1.21.8-0.4.1.jar">
+    <Content Include="..\mods\versions\1.21.8\build\libs\originclient-1.21.8-*.jar"
+             Exclude="..\mods\versions\1.21.8\build\libs\originclient-1.21.8-*-sources.jar;..\mods\versions\1.21.8\build\libs\originclient-1.21.8-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.21.8.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -96,16 +96,16 @@
     </Content>
     <!-- 1.21.10 + 1.21.11 — one jar for the render-pipeline + world-event-v2
          era; Origin client only, perf/shader stack installed standalone. LIVE. -->
-    <Content Condition="Exists('..\mods\versions\1.21.11\build\libs\originclient-1.21.11-0.4.1.jar')"
-             Include="..\mods\versions\1.21.11\build\libs\originclient-1.21.11-0.4.1.jar">
+    <Content Include="..\mods\versions\1.21.11\build\libs\originclient-1.21.11-*.jar"
+             Exclude="..\mods\versions\1.21.11\build\libs\originclient-1.21.11-*-sources.jar;..\mods\versions\1.21.11\build\libs\originclient-1.21.11-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.21.11.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <!-- 26.2 — Origin client only; perf/shader stack installed standalone. -->
-    <Content Condition="Exists('..\mods\staged\26.2\build\libs\originclient-26.2-0.4.1.jar')"
-             Include="..\mods\staged\26.2\build\libs\originclient-26.2-0.4.1.jar">
+    <Content Include="..\mods\staged\26.2\build\libs\originclient-26.2-*.jar"
+             Exclude="..\mods\staged\26.2\build\libs\originclient-26.2-*-sources.jar;..\mods\staged\26.2\build\libs\originclient-26.2-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-26.2.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -113,30 +113,30 @@
     </Content>
     <!-- Gap sub-families staged 2026-07-13 — compile-verified, bundled for local
          boot-testing. 1.21.4 jar covers 1.21.2/3/4; 1.21.6 jar covers 1.21.6/7. -->
-    <Content Condition="Exists('..\mods\versions\1.20.2\build\libs\originclient-1.20.2-0.4.1.jar')"
-             Include="..\mods\versions\1.20.2\build\libs\originclient-1.20.2-0.4.1.jar">
+    <Content Include="..\mods\versions\1.20.2\build\libs\originclient-1.20.2-*.jar"
+             Exclude="..\mods\versions\1.20.2\build\libs\originclient-1.20.2-*-sources.jar;..\mods\versions\1.20.2\build\libs\originclient-1.20.2-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.20.2.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Condition="Exists('..\mods\versions\1.21.4\build\libs\originclient-1.21.4-0.4.1.jar')"
-             Include="..\mods\versions\1.21.4\build\libs\originclient-1.21.4-0.4.1.jar">
+    <Content Include="..\mods\versions\1.21.4\build\libs\originclient-1.21.4-*.jar"
+             Exclude="..\mods\versions\1.21.4\build\libs\originclient-1.21.4-*-sources.jar;..\mods\versions\1.21.4\build\libs\originclient-1.21.4-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.21.4.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Condition="Exists('..\mods\versions\1.21.6\build\libs\originclient-1.21.6-0.4.1.jar')"
-             Include="..\mods\versions\1.21.6\build\libs\originclient-1.21.6-0.4.1.jar">
+    <Content Include="..\mods\versions\1.21.6\build\libs\originclient-1.21.6-*.jar"
+             Exclude="..\mods\versions\1.21.6\build\libs\originclient-1.21.6-*-sources.jar;..\mods\versions\1.21.6\build\libs\originclient-1.21.6-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.21.6.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <!-- 1.21.10 split from 1.21.11 (own sub-family; the 1.21.11 mapping rename wave). -->
-    <Content Condition="Exists('..\mods\versions\1.21.10\build\libs\originclient-1.21.10-0.4.1.jar')"
-             Include="..\mods\versions\1.21.10\build\libs\originclient-1.21.10-0.4.1.jar">
+    <Content Include="..\mods\versions\1.21.10\build\libs\originclient-1.21.10-*.jar"
+             Exclude="..\mods\versions\1.21.10\build\libs\originclient-1.21.10-*-sources.jar;..\mods\versions\1.21.10\build\libs\originclient-1.21.10-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.21.10.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -145,43 +145,43 @@
     <!-- Pre-1.20 PoseStack-era builds staged 2026-07-14 (the pre-GuiGraphics
          rendering backend): 1.19.4 jar covers 1.19.3+1.19.4; 1.19.2 jar covers
          1.19–1.19.2; 1.18.2 jar covers 1.18.x; 1.17.1 covers 1.17.x; 1.16.5. -->
-    <Content Condition="Exists('..\mods\versions\1.19.4\build\libs\originclient-1.19.4-0.4.1.jar')"
-             Include="..\mods\versions\1.19.4\build\libs\originclient-1.19.4-0.4.1.jar">
+    <Content Include="..\mods\versions\1.19.4\build\libs\originclient-1.19.4-*.jar"
+             Exclude="..\mods\versions\1.19.4\build\libs\originclient-1.19.4-*-sources.jar;..\mods\versions\1.19.4\build\libs\originclient-1.19.4-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.19.4.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Condition="Exists('..\mods\versions\1.19.3\build\libs\originclient-1.19.3-0.4.1.jar')"
-             Include="..\mods\versions\1.19.3\build\libs\originclient-1.19.3-0.4.1.jar">
+    <Content Include="..\mods\versions\1.19.3\build\libs\originclient-1.19.3-*.jar"
+             Exclude="..\mods\versions\1.19.3\build\libs\originclient-1.19.3-*-sources.jar;..\mods\versions\1.19.3\build\libs\originclient-1.19.3-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.19.3.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Condition="Exists('..\mods\versions\1.19.2\build\libs\originclient-1.19.2-0.4.1.jar')"
-             Include="..\mods\versions\1.19.2\build\libs\originclient-1.19.2-0.4.1.jar">
+    <Content Include="..\mods\versions\1.19.2\build\libs\originclient-1.19.2-*.jar"
+             Exclude="..\mods\versions\1.19.2\build\libs\originclient-1.19.2-*-sources.jar;..\mods\versions\1.19.2\build\libs\originclient-1.19.2-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.19.2.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Condition="Exists('..\mods\versions\1.18.2\build\libs\originclient-1.18.2-0.4.1.jar')"
-             Include="..\mods\versions\1.18.2\build\libs\originclient-1.18.2-0.4.1.jar">
+    <Content Include="..\mods\versions\1.18.2\build\libs\originclient-1.18.2-*.jar"
+             Exclude="..\mods\versions\1.18.2\build\libs\originclient-1.18.2-*-sources.jar;..\mods\versions\1.18.2\build\libs\originclient-1.18.2-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.18.2.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Condition="Exists('..\mods\versions\1.17.1\build\libs\originclient-1.17.1-0.4.1.jar')"
-             Include="..\mods\versions\1.17.1\build\libs\originclient-1.17.1-0.4.1.jar">
+    <Content Include="..\mods\versions\1.17.1\build\libs\originclient-1.17.1-*.jar"
+             Exclude="..\mods\versions\1.17.1\build\libs\originclient-1.17.1-*-sources.jar;..\mods\versions\1.17.1\build\libs\originclient-1.17.1-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.17.1.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Condition="Exists('..\mods\versions\1.16.5\build\libs\originclient-1.16.5-0.4.1.jar')"
-             Include="..\mods\versions\1.16.5\build\libs\originclient-1.16.5-0.4.1.jar">
+    <Content Include="..\mods\versions\1.16.5\build\libs\originclient-1.16.5-*.jar"
+             Exclude="..\mods\versions\1.16.5\build\libs\originclient-1.16.5-*-sources.jar;..\mods\versions\1.16.5\build\libs\originclient-1.16.5-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-1.16.5.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
