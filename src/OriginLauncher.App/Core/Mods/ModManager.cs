@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 
 namespace OriginLauncher.App.Core.Mods;
@@ -267,6 +267,7 @@ public static class ModManager
             || n.StartsWith("krypton-")
             || n.StartsWith("immediatelyfast-fabric-")
             || n.StartsWith("modernfix-fabric-")
+            || n.StartsWith("modmenu-")
             || IsIrisJar(n);
     }
 
@@ -295,6 +296,7 @@ public static class ModManager
         "krypton-",
         "immediatelyfast-fabric-",
         "modernfix-fabric-",
+        "modmenu-",
     };
 
     /// <summary>

@@ -176,7 +176,13 @@ public partial class HomePage : UserControl
         // feed is re-checked right here so a just-pushed release blocks
         // immediately rather than after the next poll; an unreachable feed
         // fails open (see UpdateService's policy note).
-        await UpdateService.CheckAsync();
+        // Use the result the background poller already has rather than blocking
+        // the click on a fresh GitHub round-trip. MainWindow re-checks the feed
+        // every 2 minutes and on window focus, so this is at most ~2 minutes
+        // stale — and a release published inside that window still blocks the
+        // NEXT launch. Trading that for an immediately-responsive Play button is
+        // the right side of the deal; the mandatory-update rule is still
+        // enforced, just not with a network wait in front of it.
         if (UpdateService.UpdateRequired)
         {
             StatusText.Text = "Update required — click the update dot in the top-right corner.";
@@ -243,8 +249,18 @@ public partial class HomePage : UserControl
 
             var launchOption = LaunchProfileBuilder.Build(_settings, session);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
-            var process = await _versionManager.InstallAndBuildProcessAsync(
-                version, launchOption, externalMods, installProgress, cts.Token);
+            // Run provisioning on a worker thread. Everything inside it that is
+            // synchronous — the mods-folder sweeps, the corrupt-config scan, the
+            // jar copies, CmlLib's file-queueing loop and its natives unzip —
+            // used to execute on the UI thread, because none of the awaits in
+            // that path leave the WPF dispatcher. That is what made the loading
+            // overlay stutter and the window look hung while it worked.
+            // installProgress was constructed on the UI thread, so Progress<T>
+            // still marshals every stage update back correctly.
+            var process = await Task.Run(
+                () => _versionManager.InstallAndBuildProcessAsync(
+                    version, launchOption, externalMods, installProgress, cts.Token),
+                cts.Token);
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the
@@ -354,6 +370,12 @@ public partial class HomePage : UserControl
                     StatusText.Text = logPath != null
                         ? $"Minecraft crashed while starting (exit code {exitCode}) — log saved to {logPath}"
                         : $"Minecraft crashed while starting (exit code {exitCode}).";
+                    // A boot crash is the one case where a bad file on disk is a
+                    // live suspect, so drop the "already verified" stamp and make
+                    // the next launch re-hash the whole install. This is the
+                    // safety net that lets normal launches skip verification.
+                    Core.Versions.InstallVerification.Invalidate(
+                        System.IO.Path.Combine(OriginPaths.Instances, version));
                     // Queued (not awaited) so this method's finally releases the
                     // launching state first — the crash window's "retry" path
                     // calls LaunchAsync, which refuses while _isLaunching is set.

@@ -347,6 +347,15 @@ public final class Mods {
 				ModOption.toggle("moveSelfTop", "Move Yourself to Top", false),
 				ModOption.toggle("highlightSelf", "Highlight Your Name", false),
 				ModOption.color("selfColor", "Your Name Color", 0xFFFFD700).under("highlightSelf"),
+				ModOption.header("Health & Combat"),
+				ModOption.toggle("showHealth", "Show Player Health", false)
+						.tip("Their health 0-20 beside the ping — a \"?\" when they're too far to track."),
+				ModOption.toggle("combatHighlight", "Highlight Combat Targets", false)
+						.tip("Anyone you hit turns red and jumps to the top of the list."),
+				ModOption.color("combatColor", "Combat Color", 0xFFFF5555).under("combatHighlight"),
+				ModOption.slider("combatSeconds", "Combat Time", 5, 60, 1, 15, "%.0fs")
+						.under("combatHighlight")
+						.tip("How long after your last hit they stay marked."),
 				ModOption.header("Ping"),
 				ModOption.toggle("hidePing", "Hide Ping", false),
 				ModOption.toggle("pingAsNumber", "Show Ping as a Number", false),

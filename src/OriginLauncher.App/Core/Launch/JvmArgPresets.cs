@@ -14,7 +14,14 @@ public static class JvmArgPresets
         "-XX:MaxGCPauseMillis=200",
         "-XX:+UnlockExperimentalVMOptions",
         "-XX:+DisableExplicitGC",
-        "-XX:+AlwaysPreTouch",
+        // NOTE: Aikar's published set includes -XX:+AlwaysPreTouch. It is
+        // deliberately omitted here. Pre-touch faults in the ENTIRE committed
+        // heap before main() runs, and because Origin now sets -Xms == -Xmx
+        // (see LaunchProfileBuilder) that is the full slider value — several
+        // hundred ms of blocking page-faulting on an 8-16 GB heap, paid on
+        // every launch, right where the player is waiting. Its benefit is
+        // smoothing later allocation jitter, which matters for a long-running
+        // server and very little for a desktop client.
         "-XX:G1NewSizePercent=30",
         "-XX:G1MaxNewSizePercent=40",
         "-XX:G1HeapRegionSize=8M",

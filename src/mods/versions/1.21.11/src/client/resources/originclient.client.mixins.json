@@ -48,6 +48,7 @@
 		"CycleButtonSpriteAccessor",
 		"PlayerTabOverlayMixin",
 		"PlayerTabOverlayAccessor",
+		"MultiPlayerGameModeMixin",
 		"TabButtonMixin"
 	],
 	"injectors": {

@@ -5,10 +5,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
-import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.ReadOnlyScoreInfo;
@@ -62,11 +63,23 @@ public final class OriginTabList {
 
 		// Options only apply when customizing; otherwise use vanilla-like defaults.
 		boolean heads = !customize || Mods.bool("tablist", "displayHeads");
+		// Live health hearts, read off each player's entity (see drawHealth), and the
+		// combat highlight fed by CombatTracker.
+		boolean showHealth = customize && Mods.bool("tablist", "showHealth");
+		boolean combatOn = customize && Mods.bool("tablist", "combatHighlight");
+		long combatMs = (long) (Mods.num("tablist", "combatSeconds") * 1000.0);
+		int combatCol = Mods.color("tablist", "combatColor");
 		boolean hidePing = customize && Mods.bool("tablist", "hidePing");
 		boolean pingNum = customize && Mods.bool("tablist", "pingAsNumber");
 		boolean highlightSelf = customize && Mods.bool("tablist", "highlightSelf");
 		boolean disableHeader = customize && Mods.bool("tablist", "disableHeader");
 		boolean disableFooter = customize && Mods.bool("tablist", "disableFooter");
+		// Our live hearts supersede the server's tab objective when that objective is
+		// itself HEARTS — same information, and two heart strips per row is noise.
+		if (showHealth && hearts) {
+			objective = null;
+			hearts = false;
+		}
 		int bg = customize ? Mods.color("tablist", "backgroundColor") : 0x66000000;
 		int headerCol = customize ? Mods.color("tablist", "headerColor") : 0xFFFFFFFF;
 		int footerCol = customize ? Mods.color("tablist", "footerColor") : 0xFFFFFFFF;
@@ -82,6 +95,14 @@ public final class OriginTabList {
 			final UUID me = self;
 			list.sort((a, b) -> Boolean.compare(
 					b.getProfile().id().equals(me), a.getProfile().id().equals(me)));
+		}
+		// Whoever you're fighting rides at the very top, most recently hit first. This
+		// runs AFTER move-self-to-top so a live fight always outranks it, and List.sort
+		// is stable, so everyone outside the combat window keeps the order above.
+		if (combatOn) {
+			list.sort((a, b) -> Long.compare(
+					CombatTracker.lastHit(b.getProfile().id(), combatMs),
+					CombatTracker.lastHit(a.getProfile().id(), combatMs)));
 		}
 
 		int n = Math.min(80, list.size());
@@ -112,7 +133,8 @@ public final class OriginTabList {
 		}
 
 		int pingW = hidePing ? 0 : (pingNum ? font.width("999ms") : 11);
-		int cellW = headW + maxName + 6 + scoreW + pingW;
+		int healthW = showHealth ? font.width("20") + 4 : 0; // widest number + a hair of gap
+		int cellW = headW + maxName + 6 + healthW + scoreW + pingW;
 
 		// columns: <=20 per column, then widen
 		int rows = n, cols = 1;
@@ -146,9 +168,16 @@ public final class OriginTabList {
 				px += ROW_H;
 			}
 			boolean isSelf = self != null && info.getProfile().id().equals(self);
-			int nameCol = (isSelf && highlightSelf)
-					? Mods.color("tablist", "selfColor") : 0xFFFFFFFF;
+			boolean fighting = combatOn
+					&& CombatTracker.lastHit(info.getProfile().id(), combatMs) > 0L;
+			int nameCol = fighting ? combatCol
+					: (isSelf && highlightSelf) ? Mods.color("tablist", "selfColor") : 0xFFFFFFFF;
 			g.drawString(font, names[i], px, ry, nameCol, false);
+
+			// Live health readout, packed tight against the objective/ping column.
+			if (showHealth) {
+				drawHealth(g, font, mc, info.getProfile().id(), x + cellW - pingW - scoreW - 2, ry);
+			}
 
 			// objective (server hearts / number), right-aligned just left of the ping.
 			if (objective != null) {
@@ -183,6 +212,29 @@ public final class OriginTabList {
 		return c != null ? c : Component.literal(info.getProfile().name());
 	}
 
+	/**
+	 * A player's real health as a bare 0-20 number, right-aligned to end at
+	 * {@code rightX} so the column stays as narrow as possible — a wide tab list on a
+	 * full server costs screen, so this readout is digits only, sat right next to ping.
+	 *
+	 * Health is synced entity data, so the client already knows it for every player
+	 * whose entity it is tracking — no server support needed. Players outside tracking
+	 * range have no entity at all, and their health is genuinely unknown: those get a
+	 * dim "?" instead of a misleading number. Ceil so one sliver of health still reads
+	 * as 1, matching the vanilla HUD.
+	 */
+	private static void drawHealth(GuiGraphics g, Font font, Minecraft mc, UUID id, int rightX, int y) {
+		Player p = mc.level != null ? mc.level.getPlayerByUUID(id) : null;
+		if (p == null) {
+			g.drawString(font, "?", rightX - font.width("?"), y, 0x55FFFFFF, false);
+			return;
+		}
+		// Clamped to the 0-20 scale: attribute-buffed servers can push a player past 20,
+		// and the point of this readout is "how many of the usual 20 are left".
+		String s = Integer.toString(Math.min(20, Math.max(0, (int) Math.ceil(p.getHealth()))));
+		g.drawString(font, s, rightX - font.width(s), y, 0xFFFFFFFF, false);
+	}
+
 	/** Health hearts for the server's tab objective (score = health), right-aligned so
 	 *  the row ends at `rightX`. Mirrors the HUD look: a container outline per heart with
 	 *  a full/half heart on top, up to 10. */
@@ -196,12 +248,22 @@ public final class OriginTabList {
 		}
 		int sx = rightX - shown * 8;
 		for (int i = 0; i < full; i++) {
-			g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART_CONTAINER, sx + i * 8, y, 9, 9);
-			g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART_FULL, sx + i * 8, y, 9, 9);
+			drawHeartCell(g, sx + i * 8, y, 2);
 		}
 		if (half) {
-			g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART_CONTAINER, sx + full * 8, y, 9, 9);
-			g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART_HALF, sx + full * 8, y, 9, 9);
+			drawHeartCell(g, sx + full * 8, y, 1);
+		}
+	}
+
+	/** One 9x9 heart: the container outline, plus a full (fill 2) or half (fill 1)
+	 *  heart on top; fill 0 leaves it empty. The single place this file touches the
+	 *  sprite blit API, which is what changes between 1.21.x families. */
+	private static void drawHeartCell(GuiGraphics g, int x, int y, int fill) {
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART_CONTAINER, x, y, 9, 9);
+		if (fill >= 2) {
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART_FULL, x, y, 9, 9);
+		} else if (fill == 1) {
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART_HALF, x, y, 9, 9);
 		}
 	}
 

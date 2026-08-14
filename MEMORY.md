@@ -4110,3 +4110,40 @@ boot-verified — the other 15 carry a compile-clean-only guarantee.
 **Open question for Will:** Toggle Sneak and Toggle Sprint share ONE keybind, so
 with both sub-toggles on, one press turns both on and the forced crouch means you
 never sprint. Sneak defaults ON in the mod definition.
+
+---
+
+## 2026-08-14 — Tab Editor: live health readout + combat highlight (all 8 1.21.x modules)
+Will: "a heart option ... shows the players health in hearts 1-20", plus anyone
+you hit in the last 15s turns red and floats to the top. Design landed in two
+corrections from him mid-build: hearts bar -> single heart + number -> **number
+only**, sat tight against the ping so a full tab list doesn't get wide.
+
+**Where the health comes from (the load-bearing fact):** `LivingEntity`'s health
+is SYNCED entity data, so `level.getPlayerByUUID(id).getHealth()` is the real
+value on the client for anyone whose entity is being tracked. No server support,
+no scoreboard objective needed. Players outside tracking range have no entity at
+all — those honestly render a dim `?`, never a fake 20. Ceil, clamped 0-20.
+When the server ALREADY publishes a HEARTS objective in the LIST slot, ours
+suppresses that column rather than drawing two health readouts.
+
+**Combat tracking:** new `CombatTracker` (hud/) fed by `MultiPlayerGameModeMixin`
+@Inject at HEAD of `attack(Player, Entity)` — javap-verified byte-identical
+across 1.21 → 1.21.11, and confirmed genuinely applied on 1.21.1 by reading
+`handler$zem000$originclient$trackCombat` out of `run/.mixin.out` (defaultRequire
+0 means silence proves nothing). Timestamp map, entries expire with the window,
+so switching servers needs no reset hook. Sort runs AFTER move-self-to-top and
+relies on `List.sort` being stable, so non-combat rows keep server order.
+
+Options under a new "Health & Combat" header: `showHealth`, `combatHighlight`,
+`combatColor` (default 0xFFFF5555), `combatSeconds` slider 5-60 default 15.
+
+Landed on 1.21, 1.21.1, 1.21.4, 1.21.6, 1.21.8, 1.21.10, 1.21.11 (+ the pulled
+1.21.5, kept in sync). All 8 compile clean. **1.21.1 boot-verified**: tab list
+renders `Player284  16  0ms` — 16 not 20, i.e. the number tracks live health.
+The combat highlight is NOT visually verified — it needs a second real player,
+which a solo dev client can't produce.
+
+**Not ported:** 1.20.x and the pre-1.20 six have no Tab Editor mod at all, so
+there is nothing to add the option to there — that's a Tab Editor port, not this
+feature.

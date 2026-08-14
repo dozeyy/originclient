@@ -29,6 +29,7 @@
 		"NametagStyleMixin",
 		"PlayerTabOverlayMixin",
 		"PlayerTabOverlayAccessor",
+		"MultiPlayerGameModeMixin",
 		"ItemEntityScaleMixin",
 		"LevelWeatherMixin",
 		"ChatTimestampMixin",
