@@ -4147,3 +4147,30 @@ which a solo dev client can't produce.
 **Not ported:** 1.20.x and the pre-1.20 six have no Tab Editor mod at all, so
 there is nothing to add the option to there — that's a Tab Editor port, not this
 feature.
+
+---
+
+## 2026-08-14 — v1.0.35 shipped a total launch outage; root cause + hotfix v1.0.36
+Will hit "Launch failed: Cannot find fabric-loader-0.19.3-1.21.11
+[KeyNotFoundException]" on 1.21.11 right after updating. It was not a 1.21.11
+problem — **every Fabric version was unlaunchable on both v1.0.34 and v1.0.35.**
+
+**Root cause:** `a6c4a05` rewrote `BuildLauncher` for the InstallVerification
+fast path and changed `new MinecraftLauncher(path)` into
+`MinecraftLauncherParameters.CreateDefault()` + `parameters.MinecraftPath = path`.
+CreateDefault() binds its IVersionLoader to the DEFAULT Minecraft path; the later
+assignment does not rebind it, so the instance's own `versions/` folder was never
+enumerated. The Fabric installer had written the profile correctly — the lookup
+was simply reading somewhere else. Fix: `CreateDefault(path, SharedHttp)`.
+
+**Evidence (measured, not reasoned):** a ~30-line console harness against the real
+instance — broken construction returns 906 versions with zero `fabric-loader`
+entries; fixed returns 907 including the target, and `GetVersionAsync` (the exact
+frame that threw) resolves on both the 1.21.1 and 1.21.11 instances.
+
+**Process failure worth keeping:** sync.py --check, all 8 module builds, and the
+launcher Release build were ALL green. None of them launches anything, so none
+could catch it. The release path needs a runtime loader-resolution smoke test
+before tagging. It also shipped twice because the change sat in the working tree
+as unrelated launcher work at release time — the exact hazard already recorded in
+release-flow-gotchas.
