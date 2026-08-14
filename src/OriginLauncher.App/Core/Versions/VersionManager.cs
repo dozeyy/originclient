@@ -602,8 +602,16 @@ public sealed class VersionManager
     /// </summary>
     private static MinecraftLauncher BuildLauncher(MinecraftPath path, bool fullVerify)
     {
-        var parameters = MinecraftLauncherParameters.CreateDefault();
-        parameters.MinecraftPath = path;
+        // MUST pass the path INTO CreateDefault. The parameterless overload builds
+        // its IVersionLoader bound to the DEFAULT Minecraft path, and assigning
+        // parameters.MinecraftPath afterwards does NOT rebind that already-built
+        // loader — so the instance's own versions folder is never enumerated and
+        // the Fabric loader profile we just installed is invisible. That is exactly
+        // the "Cannot find fabric-loader-<x>-<mc> [KeyNotFoundException]" launch
+        // failure: the version collection came back with the Mojang manifest only
+        // (906 entries, zero local) instead of 907 including the loader profile.
+        // Measured both ways against a real instance before changing this.
+        var parameters = MinecraftLauncherParameters.CreateDefault(path, SharedHttp);
 
         var installer = ParallelGameInstaller.CreateAsCoreCount(SharedHttp);
         installer.CheckFileSize = true;
