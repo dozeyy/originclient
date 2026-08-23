@@ -37,6 +37,10 @@ public final class OriginButtonRenderer {
 	// exact xpos*guiWidth/screenWidth mapping vanilla uses for the render-pass
 	// mouseX/mouseY). Used by every hover check in the module.
 	public static boolean hovered(AbstractWidget w) {
+		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		double mx = mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / mc.getWindow().getScreenWidth();
 		double my = mc.mouseHandler.ypos() * mc.getWindow().getGuiScaledHeight() / mc.getWindow().getScreenHeight();
@@ -84,6 +88,23 @@ public final class OriginButtonRenderer {
 	private OriginButtonRenderer() {
 	}
 
+	// Will, 2026-08-23: VANILLA MENUS KEEP VANILLA BUTTONS. The Origin widget
+	// skin used to apply on every screen in the game; it now applies only inside
+	// Origin's OWN screens -- the mod menu and its family. Title, pause, options,
+	// inventory and every other vanilla screen render stock Minecraft widgets.
+	//
+	// The test is the screen's class package: com.origin.* is ours, anything else
+	// is not (so another mod's screen keeps its own look for free). Origin's
+	// title-screen BACKGROUND and wordmark are unaffected -- those are drawn by
+	// OriginScreenRenderer, not by this widget skin.
+	private static boolean originOwnsScreen() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc == null || mc.screen == null) {
+			return false;
+		}
+		return OriginWidgetOwnership.isOriginOwnClass(mc.screen);
+	}
+
 	private static boolean fail(Throwable t) {
 		broken = true;
 		com.origin.client.OriginClient.LOGGER.error(
@@ -93,6 +114,10 @@ public final class OriginButtonRenderer {
 
 	/** Origin-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(Gfx guiGraphics, AbstractButton button) {
+		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
 		// Difficulty-lock padlock: vanilla draws it as a compact lock ICON, but the
 		// Origin pill restyle would print its full "Lock Difficulty" message text,
 		// oversized. Leave this one button vanilla so the icon shows.
@@ -150,6 +175,10 @@ public final class OriginButtonRenderer {
 	 */
 	public static boolean renderTab(Gfx guiGraphics, Object key, int x, int y, int w, int h,
 									Component label, boolean selected, boolean hovered) {
+		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
 		if (broken) {
 			return false;
 		}
@@ -195,6 +224,10 @@ public final class OriginButtonRenderer {
 	 * live each frame, so dragging stays exactly as responsive as vanilla.
 	 */
 	public static boolean renderSlider(Gfx guiGraphics, AbstractSliderButton slider, double value) {
+		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
 		if (broken) {
 			return false;
 		}
@@ -268,6 +301,10 @@ public final class OriginButtonRenderer {
 	 * selected, label to the right in vanilla font. Click handling untouched.
 	 */
 	public static boolean renderCheckbox(Gfx guiGraphics, Checkbox checkbox) {
+		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
 		if (broken) {
 			return false;
 		}

@@ -4174,3 +4174,96 @@ could catch it. The release path needs a runtime loader-resolution smoke test
 before tagging. It also shipped twice because the change sat in the working tree
 as unrelated launcher work at release time — the exact hazard already recorded in
 release-flow-gotchas.
+
+---
+
+## 2026-08-22 — Slider knob press animation crashed on every drag (v1.0.36)
+
+**Symptom:** `InvalidOperationException: 'KnobScale' name cannot be found in the
+name scope of 'System.Windows.Controls.Primitives.Thumb'` the instant a slider
+knob was pressed (stack bottoms out in `MouseDevice.ChangeMouseCapture` →
+`Thumb.DragStarted`). Caught by the global handler, so it logged as `recovered`
+rather than killing the app — every slider drag in Settings raised it.
+
+**Root cause:** in `Theme/Inputs.xaml` the `Input.Slider` template named the
+press-scale transform on the **Thumb element** (`<Thumb.RenderTransform><Scale
+Transform x:Name="KnobScale"/>`), which registers `KnobScale` in the *Slider*
+template's name scope — but animated it from `<Thumb.Triggers>`, whose Storyboard
+resolves `Storyboard.TargetName` in the *Thumb's* name scope. Different scopes →
+the name is unresolvable at the moment the event fires.
+
+**Fix:** moved BOTH the `ScaleTransform` and the two `EventTrigger`s into the
+Thumb's own `ControlTemplate` (transform on the `Knob` Ellipse, triggers in
+`ControlTemplate.Triggers`), so target and storyboard share one name scope.
+
+**The trap worth keeping:** XAML compiles clean either way — `Storyboard.
+TargetName` is resolved only when the event actually fires, so a name-scope
+mismatch is invisible to the build, exactly like a mixin `@Inject` descriptor
+mismatch on the mod side. Only a runtime press catches it. Rule of thumb: a
+storyboard and the element it names must be declared inside the same template.
+
+**Evidence (measured, not reasoned):** a small WPF probe (`SliderProbe`) that
+loads the real built theme dictionaries, applies `Input.Slider`, and raises the
+actual `Thumb.DragStarted`/`DragCompleted` routed events on the real thumb.
+Against the pre-fix XAML it reproduces the exception verbatim; against the fix it
+reports `animationAttached=True` and the knob scaling 1 → 1.25 on press and back
+to 1.0 on release. (Probe gotcha: pumping with `Dispatcher.Invoke` from the UI
+thread runs inline and never ticks the render clock — needs `Dispatcher.PushFrame`,
+or the animation reads as "never ran".)
+
+**Not touched:** the two `.claude/worktrees/` copies carry the same bug on their
+own branches — they need the same edit when those land.
+
+---
+
+## 2026-08-23 — Vanilla menus reverted to vanilla buttons; foreign-mod widgets
+
+**Will's call:** "change all the buttons back to default minecraft for menus
+besides the mod menu one." Every vanilla screen (title, pause, options,
+inventory, world select) now renders STOCK Minecraft widgets. Origin's widget
+skin survives only inside Origin's own screens — the mod menu and its family
+(HUD editor, shader browser, waypoints, item size).
+
+**How it's gated:** one choke point per module, `OriginButtonRenderer
+.originOwnsScreen()`, tested at the top of every `public static boolean` entry
+point. The test is the CURRENT SCREEN's class package — `com.origin.*` is ours,
+anything else is not. Every widget mixin already honoured "only cancel vanilla
+when the renderer returned true", so gating the renderer reverted all five
+mixins at once with no mixin edits. Origin's title BACKGROUND, wordmark and
+account chip are drawn by OriginScreenRenderer, not the widget skin, so they
+are untouched by this.
+
+**The trap that cost a runClient cycle:** I first gated on
+`OriginWidgetOwnership.originOwnsLook(screen)`. That predicate answers "may
+Origin repaint this widget?", for which `net.minecraft.*` is a **YES** — so the
+gate passed on every vanilla screen and changed nothing. The two questions need
+two predicates: `originOwnsLook` (widgets: vanilla = ours to restyle) vs
+`isOriginOwnClass` (screens: only `com.origin.*`). The screenshot caught it;
+the build could not.
+
+**The earlier bug in the same area (still fixed, still worth keeping):** Origin's
+widget mixins hook base classes, so they fired for OTHER MODS' button subclasses
+too. A mod that draws its identity inside `renderString` (Create's custom
+buttons) had that call cancelled → an empty Origin box, which is exactly what
+Will reported. `OriginWidgetOwnership.isForeign` keys off the class package
+(anything not `net.minecraft.*` / `com.mojang.*` / `com.origin.*`), cached via
+`ClassValue`. Deliberate asymmetry: a mod adding a PLAIN vanilla `Button` still
+gets the Origin look, because the class is Minecraft's and there is no custom
+art to erase. `OriginForeignWidgets.avoidOverlap` (title screen, init TAIL)
+additionally moves a foreign widget to the left gutter ONLY if it actually
+overlaps something, so a mod's own layout is otherwise preserved.
+
+**Evidence:** a synthetic foreign button (`dev.origintest.FakeModButton`,
+`extends Button`, draws magenta in `renderString`) added to the title screen
+behind a file flag, so ONE build captured both states. Before: an empty Origin
+box, and a second test button sitting on top of "Multiplayer". After: magenta
+art intact, moved clear of the menu column. Scaffolding has been removed.
+Post-revert runClient confirmed vanilla buttons on title/world-select/pause and
+the Origin mod menu fully intact, 0 `Mixin apply ... failed`.
+
+**Known gap left open:** `avoidOverlap` only sees WIDGETS, so a relocated button
+can still land on Origin's drawn account chip (top-left) — seen in the after
+screenshot. Reserving OriginScreenRenderer's chip rect is the fix; not done.
+
+**Not touched:** 1.21.4 (hands-off — another agent's SDF port), 1.21.5 / 1.8.9 /
+1.12.2 (pulled), 26.2 (staged).

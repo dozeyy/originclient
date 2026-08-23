@@ -77,6 +77,25 @@ public final class OriginButtonRenderer {
 	private OriginButtonRenderer() {
 	}
 
+	// Will, 2026-08-23: VANILLA MENUS KEEP VANILLA BUTTONS. The Frost widget skin
+	// used to apply on every screen in the game; it now applies only inside
+	// Origin's OWN screens -- the mod menu and its family (HUD editor, shader
+	// browser, waypoints, item size). Title, pause, options, inventory and every
+	// other vanilla screen render stock Minecraft widgets again.
+	//
+	// The test is the screen's class package, the same rule
+	// OriginWidgetOwnership uses for widgets: com.origin.* is ours, anything else
+	// is not. That also means another mod's screen keeps its own look for free.
+	// Origin's title-screen BACKGROUND and wordmark are unaffected -- they are
+	// drawn by OriginScreenRenderer, not by this widget skin.
+	private static boolean originOwnsScreen() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc == null || mc.screen == null) {
+			return false;
+		}
+		return OriginWidgetOwnership.isOriginOwnClass(mc.screen);
+	}
+
 	private static boolean fail(Throwable t) {
 		broken = true;
 		com.origin.client.OriginClient.LOGGER.error(
@@ -88,6 +107,17 @@ public final class OriginButtonRenderer {
 
 	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
 	public static boolean render(GuiGraphics g, AbstractButton button) {
+		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
+		// Another mod's own widget class: its art is drawn inside the method
+		// our mixins cancel, so restyling it leaves an empty Origin box. Return
+		// false -> the mixin does not cancel -> the mod draws itself, untouched.
+		if (OriginWidgetOwnership.isForeign(button)) {
+			return false;
+		}
+
 		// The difficulty padlock draws a compact lock ICON, not text -- our label
 		// restyle would print its full "Lock Difficulty" message oversized. Leave
 		// it vanilla so the icon shows.
@@ -116,6 +146,10 @@ public final class OriginButtonRenderer {
 	 *  unselected is the resting box with a muted label and brightens on hover. */
 	public static boolean renderTab(GuiGraphics g, Object key, int x, int y, int w, int h,
 									Component label, boolean selected, boolean hovered) {
+		// Vanilla screens (Create World's header tabs) keep vanilla tabs.
+		if (!originOwnsScreen()) {
+			return false;
+		}
 		if (broken) {
 			return false;
 		}
@@ -152,6 +186,17 @@ public final class OriginButtonRenderer {
 	 *  from the mixin. */
 	public static boolean renderIconButton(GuiGraphics g, SpriteIconButton button,
 										   ResourceLocation sprite, int spriteWidth, int spriteHeight) {
+		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
+		// Another mod's own widget class: its art is drawn inside the method
+		// our mixins cancel, so restyling it leaves an empty Origin box. Return
+		// false -> the mixin does not cancel -> the mod draws itself, untouched.
+		if (OriginWidgetOwnership.isForeign(button)) {
+			return false;
+		}
+
 		if (broken) {
 			return false;
 		}
@@ -185,6 +230,17 @@ public final class OriginButtonRenderer {
 	 *  the value position. Vanilla's drag/click logic is untouched -- `value` is
 	 *  read live each frame, so dragging stays exactly as responsive as vanilla. */
 	public static boolean renderSlider(GuiGraphics g, AbstractSliderButton slider, double value) {
+		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
+		// Another mod's own widget class: its art is drawn inside the method
+		// our mixins cancel, so restyling it leaves an empty Origin box. Return
+		// false -> the mixin does not cancel -> the mod draws itself, untouched.
+		if (OriginWidgetOwnership.isForeign(slider)) {
+			return false;
+		}
+
 		if (broken) {
 			return false;
 		}
@@ -219,6 +275,17 @@ public final class OriginButtonRenderer {
 	 *  inner square when selected, and the label to the right. Toggle logic
 	 *  untouched. */
 	public static boolean renderCheckbox(GuiGraphics g, Checkbox checkbox) {
+		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
+		// Another mod's own widget class: its art is drawn inside the method
+		// our mixins cancel, so restyling it leaves an empty Origin box. Return
+		// false -> the mixin does not cancel -> the mod draws itself, untouched.
+		if (OriginWidgetOwnership.isForeign(checkbox)) {
+			return false;
+		}
+
 		if (broken) {
 			return false;
 		}

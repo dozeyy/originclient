@@ -1,4 +1,4 @@
-namespace OriginLauncher.App.Core.Versions;
+﻿namespace OriginLauncher.App.Core.Versions;
 
 // One selectable Minecraft version inside a group (e.g. "1.20.4"). Supported =
 // Origin ships a full build for it (the mandate: only versions that get the
@@ -92,6 +92,12 @@ public static class VersionCatalog
     // from the grid) — used to reject a stale persisted selection.
     public static bool IsSupported(string? version) =>
         version != null && Groups.SelectMany(g => g.Versions).Any(v => v.Id == version && v.Supported);
+
+    // Every version Origin actually ships, newest first — the JVM arguments
+    // picker lists these rather than Mojang's full release manifest, since args
+    // can only ever apply to a version the launcher can start.
+    public static IReadOnlyList<string> SupportedVersions { get; } =
+        Groups.SelectMany(g => g.Versions).Where(v => v.Supported).Select(v => v.Id).ToList();
 
     public static VersionGroup? GroupContaining(string version) =>
         Groups.FirstOrDefault(g => g.Versions.Any(v => v.Id == version));

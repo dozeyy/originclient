@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.gui.OriginForeignWidgets;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.Font;
@@ -127,5 +128,10 @@ public class TitleScreenMixin {
 				widget.active = false;
 			}
 		}
+		// Other mods add their buttons to this screen too. They keep their own
+		// look (OriginWidgetOwnership) and their own placement -- but if one
+		// landed on top of an Origin button, move it to free space. Runs after
+		// the hide pass above so a hidden widget is not treated as an obstacle.
+		OriginForeignWidgets.avoidOverlap(self);
 	}
 }

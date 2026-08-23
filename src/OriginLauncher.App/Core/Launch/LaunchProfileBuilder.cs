@@ -6,7 +6,7 @@ namespace OriginLauncher.App.Core.Launch;
 
 public static class LaunchProfileBuilder
 {
-    public static MLaunchOption Build(LauncherSettings settings, MSession session)
+    public static MLaunchOption Build(LauncherSettings settings, MSession session, string? version = null)
     {
         return new MLaunchOption
         {
@@ -24,9 +24,30 @@ public static class LaunchProfileBuilder
             MinimumRamMb = settings.RamMb,
             ScreenWidth = settings.ResolutionWidth,
             ScreenHeight = settings.ResolutionHeight,
-            ExtraJvmArguments = JvmArgPresets.AikarsFlags
+            ExtraJvmArguments = BuildJvmArguments(settings, version)
                 .Select(flag => new MArgument(flag))
                 .ToList()
         };
+    }
+
+    /// <summary>
+    /// Origin's tuned preset plus whatever the player set for this version under
+    /// Settings -> JVM arguments. Custom args go LAST on purpose: the JVM takes
+    /// the last occurrence of a repeated flag, so overriding one preset value
+    /// costs nothing else in the set. "Replace Origin's tuned defaults" drops the
+    /// preset entirely for that version instead.
+    /// </summary>
+    public static IReadOnlyList<string> BuildJvmArguments(LauncherSettings settings, string? version)
+    {
+        var custom = settings.JvmArgsFor(version);
+        var flags = new List<string>();
+
+        if (custom is not { ReplacePresets: true })
+            flags.AddRange(JvmArgPresets.AikarsFlags);
+
+        if (custom != null)
+            flags.AddRange(JvmArgLine.Split(custom.Arguments));
+
+        return flags;
     }
 }

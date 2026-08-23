@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -247,7 +247,9 @@ public partial class HomePage : UserControl
 
             cts.Token.ThrowIfCancellationRequested();
 
-            var launchOption = LaunchProfileBuilder.Build(_settings, session);
+            // Pass the version so any per-version JVM arguments the player set
+            // under Settings -> JVM arguments are applied to this launch.
+            var launchOption = LaunchProfileBuilder.Build(_settings, session, version);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             // Run provisioning on a worker thread. Everything inside it that is
             // synchronous — the mods-folder sweeps, the corrupt-config scan, the

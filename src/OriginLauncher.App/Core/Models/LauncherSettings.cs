@@ -1,4 +1,4 @@
-namespace OriginLauncher.App.Core.Models;
+﻿namespace OriginLauncher.App.Core.Models;
 
 // Origin is Fabric-only (CLAUDE.md mandate): there is no loader choice, no
 // Forge/OptiFine path, and no Graphics/Performance mode. Old settings.json
@@ -39,4 +39,15 @@ public sealed class LauncherSettings
     // The player's mods/ folder is never modified by this — flip it back on
     // and everything loads exactly as before.
     public bool PlayWithExternalMods { get; set; } = true;
+
+    // Custom JVM arguments, keyed by Minecraft version id (Settings -> JVM
+    // arguments). Versions the player never customized are simply absent, so an
+    // older settings.json upgrades to an empty map and behaves exactly as before.
+    public Dictionary<string, VersionJvmOptions> JvmArgsByVersion { get; set; } = new();
+
+    /// <summary>The saved JVM options for a version, or null when it has none.</summary>
+    public VersionJvmOptions? JvmArgsFor(string? version) =>
+        version != null && JvmArgsByVersion.TryGetValue(version, out var opts) && !opts.IsEmpty
+            ? opts
+            : null;
 }

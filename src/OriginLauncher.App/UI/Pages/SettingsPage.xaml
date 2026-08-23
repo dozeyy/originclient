@@ -1,4 +1,4 @@
-<UserControl x:Class="OriginLauncher.App.UI.Pages.SettingsPage"
+﻿<UserControl x:Class="OriginLauncher.App.UI.Pages.SettingsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -115,6 +115,51 @@
                             <TextBox Grid.Column="2" x:Name="ResolutionHeightTextBox" LostFocus="ResolutionTextBox_LostFocus"/>
                         </Grid>
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- JVM arguments (per version: the lineup spans Java 8 to 25, so a
+                 flag that is valid on one version aborts startup on another) -->
+            <Border Style="{StaticResource SectionCard}">
+                <StackPanel>
+                    <TextBlock Text="JVM arguments" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
+                    <TextBlock Text="Extra Java flags for one Minecraft version. Added on top of Origin's tuned defaults, so a flag you repeat here wins. Leave empty to change nothing."
+                               Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                    <StackPanel Style="{StaticResource FieldRow}">
+                        <TextBlock Text="Version" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="JvmVersionComboBox" SelectionChanged="JvmVersionComboBox_SelectionChanged"/>
+                    </StackPanel>
+
+                    <StackPanel Style="{StaticResource FieldRow}">
+                        <TextBlock Text="Arguments" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="JvmArgsTextBox" Height="88"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 VerticalContentAlignment="Top"
+                                 TextChanged="JvmArgsTextBox_TextChanged"
+                                 LostFocus="JvmArgsTextBox_LostFocus"/>
+                        <TextBlock x:Name="JvmArgsStatusText" Style="{StaticResource Text.BodyDim}"
+                                   TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
+
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Replace Origin's tuned defaults" Style="{StaticResource Text.BodyDim}"/>
+                            <TextBlock Text="Off: your flags are added to Origin's GC tuning. On: this version launches with only the flags above."
+                                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,2,16,0"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" x:Name="JvmReplacePresetsToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      Checked="JvmReplacePresetsToggle_Checked" Unchecked="JvmReplacePresetsToggle_Unchecked"/>
+                    </Grid>
+
+                    <TextBlock x:Name="JvmCustomizedVersionsText" Style="{StaticResource Text.BodyDim}"
+                               TextWrapping="Wrap" Margin="0,12,0,0"/>
                 </StackPanel>
             </Border>
 
