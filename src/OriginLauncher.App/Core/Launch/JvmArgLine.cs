@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 
 namespace OriginLauncher.App.Core.Launch;
 
@@ -49,6 +49,30 @@ public static class JvmArgLine
             tokens.Add(token);
             current.Clear();
         }
+    }
+
+    // Every collector-selection flag the JVM understands. Selecting two -- which
+    // is what "Origin's G1 preset + your -XX:+UseZGC" adds up to -- is not a
+    // last-one-wins override: the VM refuses to start at all with
+    // "Multiple garbage collectors selected".
+    private static readonly string[] CollectorFlags =
+    {
+        "-XX:+UseG1GC", "-XX:+UseZGC", "-XX:+UseShenandoahGC", "-XX:+UseParallelGC",
+        "-XX:+UseSerialGC", "-XX:+UseEpsilonGC", "-XX:+UseConcMarkSweepGC", "-XX:+UseParNewGC",
+    };
+
+    /// <summary>
+    /// The garbage-collector flag in these arguments, or null if none. Used to
+    /// warn before a launch that would abort in VM init.
+    /// </summary>
+    public static string? SelectedCollector(IReadOnlyList<string> tokens) =>
+        tokens.FirstOrDefault(t => CollectorFlags.Contains(t, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>True when this collector is not the one Origin's preset selects.</summary>
+    public static bool ConflictsWithPresetCollector(IReadOnlyList<string> tokens)
+    {
+        var chosen = SelectedCollector(tokens);
+        return chosen != null && !chosen.Equals("-XX:+UseG1GC", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

@@ -247,9 +247,15 @@ public partial class HomePage : UserControl
 
             cts.Token.ThrowIfCancellationRequested();
 
-            // Pass the version so any per-version JVM arguments the player set
-            // under Settings -> JVM arguments are applied to this launch.
-            var launchOption = LaunchProfileBuilder.Build(_settings, session, version);
+            // freshSettings, NOT the cached _settings: _settings is loaded once when
+            // this page is constructed (launcher start) and is only good for initial
+            // UI state. Building the launch from it meant JVM arguments, RAM and
+            // resolution edited in Settings did nothing until the launcher was
+            // restarted -- and a stale conflicting entry (e.g. ZGC left over from an
+            // earlier edit, on top of the G1 preset) kept aborting the JVM with
+            // "Multiple garbage collectors selected" no matter what the player
+            // changed. Same read the external-mods/offline switches already use.
+            var launchOption = LaunchProfileBuilder.Build(freshSettings, session, version);
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             // Run provisioning on a worker thread. Everything inside it that is
             // synchronous — the mods-folder sweeps, the corrupt-config scan, the
@@ -271,7 +277,7 @@ public partial class HomePage : UserControl
 
             // Quality-neutral shader-stutter reducer: keep the driver's compiled
             // shader cache so Iris packs don't recompile (and hitch) each launch.
-            ShaderCache.Apply(process.StartInfo, _settings.ShaderCacheNvidia, _settings.ShaderCacheAmd);
+            ShaderCache.Apply(process.StartInfo, freshSettings.ShaderCacheNvidia, freshSettings.ShaderCacheAmd);
 
             // Last gate before the game actually starts — a cancel that
             // landed after provisioning finished must not still launch.

@@ -4267,3 +4267,51 @@ screenshot. Reserving OriginScreenRenderer's chip rect is the fix; not done.
 
 **Not touched:** 1.21.4 (hands-off — another agent's SDF port), 1.21.5 / 1.8.9 /
 1.12.2 (pulled), 26.2 (staged).
+
+---
+
+## 2026-08-23 — v1.0.37 shipped a stale-settings bug: JVM args needed a restart
+
+**Symptom (Will, immediately after v1.0.37):** every launch died with
+`Error occurred during initialization of VM / Multiple garbage collectors
+selected`, and it kept happening no matter what he put in the new JVM arguments
+box — including a G1-only list that provably cannot cause it.
+
+**Root cause (mine, shipped in v1.0.37):** `HomePage._settings` is loaded ONCE in
+the constructor (launcher start) and is only good for initial UI state.
+`LaunchAsync` already had a `freshSettings = SettingsStore.Load()` right at the
+top, with a comment saying "this launch must honour what's on disk NOW" — and I
+passed `_settings` to `LaunchProfileBuilder.Build` anyway. So the JVM arguments
+used at launch were whatever was on disk when the LAUNCHER STARTED. Editing them
+in Settings did nothing until a restart, and a stale entry (`-XX:+UseZGC` with
+ReplacePresets **false**, from an earlier edit) kept adding ZGC on top of the G1
+preset forever. RAM and resolution were stale the same way.
+
+**Fix:** build the launch from `freshSettings` (and `ShaderCache.Apply` too).
+One word, but the class of bug is the one SettingsStore's own header warns about:
+*a long-lived page's snapshot must never reach the launch path.* Anything that
+affects a launch reads fresh, every time.
+
+**Second fix — the UI should have caught it.** Selecting a collector is NOT a
+last-one-wins override: `-XX:+UseG1GC -XX:+UseZGC` aborts the VM in init. The
+"custom args go last so they win" model is true for tuning knobs and FALSE for
+`-XX:+Use*GC`. `JvmArgLine.ConflictsWithPresetCollector` now warns in the status
+line and names the "Replace Origin's tuned defaults" switch as the fix.
+
+**Verified (JVM's verdict, not mine):** a probe that RUNS
+`C:\Program Files\Java\jdk-21.0.10\bin\java.exe` with the exact list
+LaunchProfileBuilder produces — stale snapshot reproduces Will's error verbatim;
+on-disk settings start clean; ZGC + Replace-ON starts clean with G1 gone.
+
+**Also learned:** `MLaunchOption.DefaultExtraJvmArguments` in CmlLib 4.0.6 is
+`-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20
+-XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=16M
+-Dlog4j2.formatMsgNoLookups=true`, and `DefaultJvmArguments` is
+`-XstartOnFirstThread -XX:HeapDumpPath=... -Xss1M -Dos.name/-Dos.version`.
+Origin assigns `ExtraJvmArguments`, which replaces the former.
+`JvmArgumentOverrides` is the property that replaces the latter. Duplicate
+identical `-XX:+UseG1GC` is harmless — only DIFFERENT collectors abort.
+
+**Process note:** v1.0.37 went out having booted exactly one version (1.21.1),
+and this bug was in the launcher, which no mod-side check would ever catch. The
+launcher's own settings→launch path has no test; that is the gap.

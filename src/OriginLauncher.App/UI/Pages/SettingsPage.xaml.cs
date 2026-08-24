@@ -277,6 +277,18 @@ public partial class SettingsPage : UserControl
         var tokens = JvmArgLine.Split(JvmArgsTextBox.Text);
         var replace = JvmReplacePresetsToggle.IsChecked == true;
 
+        // The one mistake that stops the game booting outright: choosing a
+        // collector while Origin's G1 preset is still in play. The JVM aborts in
+        // init with "Multiple garbage collectors selected" -- it is not an
+        // override -- so name the switch that fixes it.
+        if (!replace && JvmArgLine.ConflictsWithPresetCollector(tokens))
+        {
+            JvmArgsStatusText.Text =
+                $"\"{JvmArgLine.SelectedCollector(tokens)}\" clashes with Origin's G1 preset - the game "
+                + "won't start. Turn on \"Replace Origin's tuned defaults\" below.";
+            return;
+        }
+
         var warning = JvmArgLine.Warn(tokens);
         if (warning != null)
         {
