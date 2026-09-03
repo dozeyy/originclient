@@ -38,10 +38,10 @@ public final class OriginUi {
 	// pure-white circular knob that slides between them. Kept local to OriginUi
 	// so the switch look is one value, independent of the shared OriginTheme
 	// tokens (which stay squared/monochrome for the rest of the system).
-	private static final int IOS_ON = 0xFF34C759;   // Apple system green
-	private static final int IOS_OFF = 0xFFFF3B30;  // Apple system red
-	private static final int IOS_ON_DISABLED = 0xFF4A6B52;
-	private static final int IOS_OFF_DISABLED = 0xFF6B4A48;
+	private static final int IOS_ON = 0xFF2FD08A;   // Apple system green
+	private static final int IOS_OFF = 0xFFFF4D57;  // Apple system red
+	private static final int IOS_ON_DISABLED = 0xFF3E7A64;
+	private static final int IOS_OFF_DISABLED = 0xFF7A4148;
 
 	// eased animation state keyed by arbitrary id (switch knobs, hovers)
 	private static final Map<String, double[]> ANIM = new HashMap<>(); // {value, lastNanos, target}

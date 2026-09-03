@@ -163,7 +163,7 @@ public class OriginModMenuScreen extends Screen {
 
 	// Card name-bar tones: sage when the mod is ON, neutral gray when OFF (the
 	// theme's sanctioned enabled/disabled colour language, kept subtle).
-	private static final int BAR_ON = 0xFF2F7D53, BAR_ON_HOVER = 0xFF3A9466;
+	private static final int BAR_ON = 0xFF2FD08A, BAR_ON_HOVER = 0xFF3AD895;
 	private static final int BAR_OFF = 0xFF2A2A2A, BAR_OFF_HOVER = 0xFF3A3A3A;
 
 	private java.util.List<ModOption> subOpts() {
@@ -292,7 +292,11 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-		HudElements.renderAll(g);
+		// NOTE: the live HUD preview over this menu is drawn ONCE, by the
+		// ScreenEvents.afterRender hook registered in OriginClientMod. Do NOT also
+		// call HudElements.renderAll(g) here — that double-drew every HUD element,
+		// so translucent backings and text shadows blended onto themselves and read
+		// darker/bolder than in-game (perf-audit + bug-audit finding).
 		layout();
 		hoverTip = null;
 		long now = System.currentTimeMillis();
@@ -389,7 +393,7 @@ public class OriginModMenuScreen extends Screen {
 		int w = tw + 30, h = 26;
 		int x = width - w - 14, y = height - h - 14;
 		OriginUi.panel(g, x, y, w, h, 8, withAlpha(0xF01A1A1A, a), withAlpha(OriginTheme.STROKE_STRONG, a));
-		OriginUi.star(g, x + 9, y + 8, 10, withAlpha(0xFF7FA98F, a)); // small confirmation mark
+		OriginUi.star(g, x + 9, y + 8, 10, withAlpha(0xFF6FD8B4, a)); // small confirmation mark
 		OriginText.draw(g, font, msg, x + 24, y + 9, withAlpha(0xFFDDE7E0, a), false);
 	}
 
@@ -420,8 +424,8 @@ public class OriginModMenuScreen extends Screen {
 				cH ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, cH ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER);
 		OriginText.draw(g, font, "Cancel", cancelX + (bw - OriginText.width(font, "Cancel")) / 2, by + 9, OriginTheme.TEXT, false);
 		OriginUi.panel(g, delX, by, bw, bh, 7,
-				dH ? 0x66B23A33 : 0x33B23A33, dH ? OriginTheme.STROKE_HOVER : 0xB3B23A33);
-		OriginText.draw(g, font, "Delete", delX + (bw - OriginText.width(font, "Delete")) / 2, by + 9, 0xFFC77A73, false);
+				dH ? 0x66E2464F : 0x33E2464F, dH ? OriginTheme.STROKE_HOVER : 0xB3E2464F);
+		OriginText.draw(g, font, "Delete", delX + (bw - OriginText.width(font, "Delete")) / 2, by + 9, 0xFFFF7B84, false);
 	}
 
 	private boolean clickDeleteConfirm(double mx, double my) {
@@ -498,8 +502,11 @@ public class OriginModMenuScreen extends Screen {
 		// Underline placeholder: ALWAYS present under the label — bright white when
 		// this is the active section, dimmed grey otherwise.
 		int uy = y + NAV_H - 2;
-		int uCol = active ? 0xFFFFFFFF : 0x40FFFFFF;
-		g.fill(lx, uy, lx + tw, uy + 1, withAlpha(uCol, alpha));
+		if (active) {
+			auroraUnderline(g, lx, uy, tw, 1, alpha);
+		} else {
+			g.fill(lx, uy, lx + tw, uy + 1, withAlpha(0x40FFFFFF, alpha));
+		}
 	}
 
 	private void drawSidebarButton(GuiGraphics g, int x, int y, int w, String label, boolean hover, float alpha, boolean danger) {
@@ -712,13 +719,13 @@ public class OriginModMenuScreen extends Screen {
 		boolean appHover = in(mx, my, appX, y + 5, appX + appW, y + 25);
 		boolean delHover = in(mx, my, delX, y + 5, delX + delW, y + 25);
 		OriginUi.panel(g, appX, y + 5, appW, 20, 6,
-				withAlpha(appHover ? 0x462F7D53 : 0x2E2F7D53, alpha),
-				withAlpha(appHover ? OriginTheme.STROKE_HOVER : 0xB32F7D53, alpha));
-		OriginText.draw(g, font, "Apply", appX + (appW - OriginText.width(font, "Apply")) / 2, y + 11, withAlpha(0xFF7FA98F, alpha), false);
+				withAlpha(appHover ? 0x462FD08A : 0x2E2FD08A, alpha),
+				withAlpha(appHover ? OriginTheme.STROKE_HOVER : 0xB32FD08A, alpha));
+		OriginText.draw(g, font, "Apply", appX + (appW - OriginText.width(font, "Apply")) / 2, y + 11, withAlpha(0xFF6FD8B4, alpha), false);
 		OriginUi.panel(g, delX, y + 5, delW, 20, 6,
-				withAlpha(delHover ? 0x46B23A33 : 0x2EB23A33, alpha),
-				withAlpha(delHover ? OriginTheme.STROKE_HOVER : 0xB3B23A33, alpha));
-		OriginText.draw(g, font, "Delete", delX + (delW - OriginText.width(font, "Delete")) / 2, y + 11, withAlpha(0xFFC77A73, alpha), false);
+				withAlpha(delHover ? 0x46E2464F : 0x2EE2464F, alpha),
+				withAlpha(delHover ? OriginTheme.STROKE_HOVER : 0xB3E2464F, alpha));
+		OriginText.draw(g, font, "Delete", delX + (delW - OriginText.width(font, "Delete")) / 2, y + 11, withAlpha(0xFFFF7B84, alpha), false);
 	}
 
 	private boolean clickProfiles(double mx, double my) {
@@ -815,8 +822,11 @@ public class OriginModMenuScreen extends Screen {
 		OriginText.drawBold(g, font, label, tx + (w - OriginText.widthBold(font, label)) / 2, ty + (h - 8) / 2,
 				withAlpha(0xFFFFFFFF, alpha), clear);
 		int underY = ty + h - 2;
-		int under = active ? 0xFFFFFFFF : (hover ? 0x80FFFFFF : 0x40FFFFFF);
-		g.fill(tx + 4, underY, tx + w - 4, underY + 2, withAlpha(under, alpha));
+		if (active) {
+			auroraUnderline(g, tx + 4, underY, w - 8, 2, alpha);
+		} else {
+			g.fill(tx + 4, underY, tx + w - 4, underY + 2, withAlpha(hover ? 0x80FFFFFF : 0x40FFFFFF, alpha));
+		}
 	}
 
 	private boolean clickSettingsPage(double mx, double my) {
@@ -1428,6 +1438,19 @@ public class OriginModMenuScreen extends Screen {
 	private static int withAlpha(int argb, float alpha) {
 		int a = (int) (((argb >>> 24) & 0xFF) * alpha);
 		return (a << 24) | (argb & 0xFFFFFF);
+	}
+
+	/** The signature AURORA underline: an indigo→teal sweep `wpx` wide starting at
+	 *  (x,y), `th` tall, faded by alpha. The one gradient moment on the active nav
+	 *  item / sub-tab — drawn as a few flat segments so the hue drifts across it
+	 *  without a shader. */
+	private static void auroraUnderline(GuiGraphics g, int x, int y, int wpx, int th, float alpha) {
+		int seg = 8;
+		for (int s = 0; s < seg; s++) {
+			int sx = x + (int) Math.round(wpx * (s / (double) seg));
+			int ex = x + (int) Math.round(wpx * ((s + 1) / (double) seg));
+			g.fill(sx, y, ex, y + th, withAlpha(OriginTheme.aurora(s / (double) (seg - 1)), alpha));
+		}
 	}
 
 	private static String keyName(int code) {

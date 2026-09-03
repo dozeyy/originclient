@@ -126,10 +126,21 @@ public final class ShaderDownloader {
 				while ((n = in.read(buf)) > 0) {
 					out.write(buf, 0, n);
 					read += n;
-					if (total > 0) {
-						STATES.put(slug, new State(Status.WORKING, (float) ((double) read / total), "Downloading..."));
-					}
+					// Show progress even when the server sends no Content-Length: still
+					// flip the row to "Downloading…" (progress 0) so it never freezes on
+					// "Resolving…" (bug-audit #8). A known length drives the exact bar.
+					STATES.put(slug, new State(Status.WORKING,
+							total > 0 ? (float) ((double) read / total) : 0f, "Downloading..."));
 				}
+			} catch (Throwable t) {
+				// Never leave a half-written <pack>.part lingering in shaderpacks/ on a
+				// mid-stream failure (network drop) — delete it, then rethrow to the
+				// outer handler which reports ERROR. (Bug-audit #8.)
+				try {
+					Files.deleteIfExists(tmp);
+				} catch (Throwable ignored) {
+				}
+				throw t;
 			}
 			Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
 			STATES.put(slug, new State(Status.DONE, 1, name));

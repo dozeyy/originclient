@@ -16,17 +16,14 @@ import java.util.WeakHashMap;
 
 import com.origin.client.client.theme.OriginTheme;
 
-// Frost-style widget skin (Will, 2026-07-21): every vanilla button, slider,
-// checkbox and header tab is redrawn as a FLAT, SQUARE, translucent-dark
-// rectangle with a hairline border and a white centered label -- the look from
-// the Frost client screenshot Will referenced. This deliberately reverses the
-// "TRUE VANILLA buttons" decision from the 2026-07-15 redesign for 1.21.1 only,
-// on Will's direct instruction.
-//
-// Everything draws through OriginUi.panel -- the one square fill+border choke
-// point the rest of the Origin UI already uses -- so buttons stay visually
-// identical to the mod menu / HUD surfaces by construction (no rounded corners,
-// no glow, no textures). The Origin blurred-panorama background is untouched.
+// Aurora widget skin (2026-09 redesign): every vanilla button, slider, checkbox
+// and header tab is redrawn as Origin's premium GLASS control — a rounded,
+// cool-tinted translucent surface with a hairline frame and an Inter (SDF)
+// centred label. It reads as the exact same material as the mod-menu cards and
+// HUD panels by construction (all of them draw through OriginUi.panel + the
+// shared OriginTheme.BOX_* glass tokens). On hover the surface firms up, takes a
+// faint AURORA wash + accent-tinted border, and lifts 1px — restrained, one
+// element at a time, so the identity is felt without every button glowing.
 //
 // Restyling happens in place from the widget mixins (renderWidget cancelled):
 // widgets keep their positions, actions and clicks; only the drawing changes.
@@ -36,29 +33,23 @@ import com.origin.client.client.theme.OriginTheme;
 // entry points return true.
 public final class OriginButtonRenderer {
 
-	// Frost palette. FILL_NORMAL is the theme's existing translucent-panel token
-	// (rgba(16,16,16,0.55)) -- the "same opacity" Will asked to keep. Hover
-	// lightens and firms up the fill so a hovered control reads as lit; the
-	// border also brightens (house rule: hover feedback on everything, but no
-	// vertical lift -- Will).
-	// Fill (the "center"): LIGHT/see-through (Will 2026-07-21 — "more clear, not
-	// more opaque"), so the panorama shows through the box like glass. Hover
-	// fills it in a bit for feedback.
-	private static final int FILL_NORMAL = 0x59161616;
-	private static final int FILL_HOVER = 0x99303030;
-	private static final int FILL_DISABLED = 0x40101010;
-	// Outline: a near-black frame kept DARKER THAN THE CENTER (Will 2026-07-21,
-	// "even darker outline") so the edge always reads darker than the see-through
-	// fill; hover lifts it slightly but it stays the dark frame.
-	private static final int BORDER_NORMAL = 0xF00A0A0A;
-	private static final int BORDER_HOVER = 0xFF1A1A1A;
-	private static final int BORDER_DISABLED = 0x99080808;
+	// Glass palette — one material with the rest of the Origin UI. Fill and border
+	// are the shared theme tokens so a token change re-skins buttons and cards
+	// together; hover firms both and adds a faint accent wash (see box()).
+	private static final int FILL_NORMAL = OriginTheme.BOX_FILL;
+	private static final int FILL_HOVER = OriginTheme.BOX_FILL_HOVER;
+	private static final int FILL_DISABLED = 0x40101018;
+	private static final int BORDER_NORMAL = OriginTheme.BOX_BORDER;
+	private static final int BORDER_HOVER = OriginTheme.BOX_BORDER_HOVER;
+	private static final int BORDER_DISABLED = 0x99080810;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
-	private static final int LABEL_DISABLED = 0xFFA0A0A0;
-	// A near-white accent for slider handles / checkbox ticks, matching Frost's
-	// bright controls; brightens a touch on hover.
-	private static final int HANDLE = 0xFFB4B4B4;
-	private static final int HANDLE_HOVER = 0xFFE0E0E0;
+	private static final int LABEL_DISABLED = 0xFF7A8098;
+	// Slider handles / checkbox ticks read as the AURORA accent — the one place a
+	// control's "value" carries the brand hue; brightens toward full accent on hover.
+	private static final int HANDLE = OriginTheme.ACCENT_BORDER;
+	private static final int HANDLE_HOVER = OriginTheme.ACCENT;
+	// Corner radius for every widget — soft premium glass (matches RADIUS_SM cards).
+	private static final int RADIUS = OriginTheme.RADIUS_SM;
 	// Short + eased = a snappy, tactile hover.
 	private static final double HOVER_MS = 90.0;
 
@@ -159,11 +150,19 @@ public final class OriginButtonRenderer {
 			double lit = selected ? 1.0 : hv;
 			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, lit);
 			int border = OriginTheme.lerpColor(BORDER_NORMAL, OriginTheme.STROKE_HOVER, lit);
-			OriginUi.bevelPanel(g, x, y, w, h, 3, fill, border);
+			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 			if (selected) {
+				// Signature aurora underline: an indigo→teal sweep across the tab,
+				// the one gradient moment on a tab. Drawn as a few segments so the
+				// hue drifts along its width without a shader.
 				int uw = Math.max(16, Math.min(w - 8, (int) Math.round(w * 0.55)));
 				int ux = x + (w - uw) / 2;
-				g.fill(ux, y + h - 2, ux + uw, y + h - 1, OriginTheme.TEXT);
+				int seg = 8;
+				for (int i = 0; i < seg; i++) {
+					int sx = ux + (int) Math.round(uw * (i / (double) seg));
+					int ex = ux + (int) Math.round(uw * ((i + 1) / (double) seg));
+					g.fill(sx, y + h - 2, ex, y + h - 1, OriginTheme.aurora(i / (double) (seg - 1)));
+				}
 			}
 			int labelColor = selected ? LABEL_COLOR
 					: OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, hv);
@@ -311,23 +310,31 @@ public final class OriginButtonRenderer {
 
 	// ---- shared drawing ----
 
-	/** The Frost box: a flat translucent-dark fill + hairline border, eased
-	 *  between resting and hover. Corners are a small 3px angled CUT (bevel), not
-	 *  square and not round (Will, 2026-07-21) — via OriginUi.bevelPanel. Hover
-	 *  brightens the border to bright white. */
+	/** The glass box: a rounded cool-tinted translucent fill + hairline frame,
+	 *  eased between resting and hover. On hover the fill firms up AND takes a
+	 *  faint aurora-accent wash (ACCENT_SOFT), and the border eases toward the
+	 *  accent-tinted BOX_BORDER_HOVER — so a hovered control reads "aurora-lit"
+	 *  without any control ever glowing at rest. Rounded via OriginUi.panel. */
 	private static void box(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv) {
 		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
-		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, OriginTheme.STROKE_HOVER, hv) : BORDER_DISABLED;
-		OriginUi.bevelPanel(g, x, y, w, h, 3, fill, border);
+		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
+		// Aurora wash: a translucent accent fill that fades in with hover only.
+		if (enabled && hv > 0.01) {
+			int wash = OriginTheme.withAlpha(OriginTheme.ACCENT, (int) Math.round(0x24 * hv));
+			OriginUi.panel(g, x, y, w, h, RADIUS, wash, 0);
+		}
 	}
 
-	/** Centered label in the default Minecraft font, WITH the standard drop
-	 *  shadow (Will's choice, to match Frost exactly). Raw label text is kept
-	 *  as-is -- no dot-stripping -- so "Options..." reads like vanilla/Frost. */
+	/** Centered label in Origin's Inter (SDF) font — semibold, with a soft drop
+	 *  shadow — routed through OriginText so it matches every other menu label and
+	 *  the whole client reads in one typeface (no vanilla pixel glyphs on widgets).
+	 *  Raw label text is kept as-is (no dot-stripping) so "Options..." reads right. */
 	private static void drawLabelCentered(GuiGraphics g, double cx, double cy, Component message, int color) {
 		Font font = Minecraft.getInstance().font;
-		int tw = font.width(message);
-		g.drawString(font, message, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
+		String s = message.getString();
+		int tw = OriginText.widthBold(font, s);
+		OriginText.drawBold(g, font, s, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
 	}
 
 	/** Shared eased hover progress (0..1) for any widget, on wall-clock time. */

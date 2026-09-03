@@ -191,7 +191,7 @@ public class HudEditorScreen extends Screen {
 				// Invisible until the element is hovered (we're inside `if (active)`);
 				// a soft 60% red ✕ with NO box, firming to full red when pointed at.
 				// Scaled to the box so it never crowds the letters.
-				int xcol = xh ? 0xFFC77A73 : 0x99C77A73;
+				int xcol = xh ? 0xFFFF7B84 : 0x99FF7B84;
 				float gs = xs / (float) XBTN;
 				var xp = g.pose();
 				xp.pushPose();

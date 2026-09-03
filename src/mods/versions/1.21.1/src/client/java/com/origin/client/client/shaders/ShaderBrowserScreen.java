@@ -272,16 +272,16 @@ public class ShaderBrowserScreen extends Screen {
 			case DONE -> {
 				// Installed → a click here removes the pack from shaderpacks/.
 				boolean hover = in(mx, my, bx, by, bx + bw, by + 18);
-				OriginUi.panel(g, bx, by, bw, 18, 7, hover ? 0x33B23A33 : 0x1EB23A33,
-						hover ? 0x99B23A33 : 0x66B23A33);
+				OriginUi.panel(g, bx, by, bw, 18, 7, hover ? 0x33E2464F : 0x1EE2464F,
+						hover ? 0x99E2464F : 0x66E2464F);
 				String t = hover ? "Remove" : "✓ Installed";
 				g.drawString(font, t, bx + (bw - font.width(t)) / 2, by + 5,
-						hover ? 0xFFC77A73 : 0xFF7FA98F, false);
+						hover ? 0xFFFF7B84 : 0xFF6FD8B4, false);
 			}
 			case ERROR -> {
-				OriginUi.panel(g, bx, by, bw, 18, 7, 0x1EB23A33, 0x66B23A33);
+				OriginUi.panel(g, bx, by, bw, 18, 7, 0x1EE2464F, 0x66E2464F);
 				String t = "Unavailable";
-				g.drawString(font, t, bx + (bw - font.width(t)) / 2, by + 5, 0xFFC77A73, false);
+				g.drawString(font, t, bx + (bw - font.width(t)) / 2, by + 5, 0xFFFF7B84, false);
 			}
 			default -> {
 				boolean hover = in(mx, my, bx, by, bx + bw, by + 18);

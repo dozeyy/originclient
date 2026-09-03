@@ -505,7 +505,7 @@ public class WaypointScreen extends Screen {
 		g.drawString(font, sub, x + 22, y + 13, 0xFF9A9A9A, true);
 		OriginUi.switchAt(g, "wp:" + wp.id, x + w - 74, y + 4, 30, wp.enabled, true);
 		boolean dh = mx >= x + w - 22 && mx <= x + w - 6 && my >= y + 6 && my <= y + 20;
-		g.drawString(font, "✕", x + w - 18, y + 8, dh ? 0xFFC77A73 : 0x99C77A73, false);
+		g.drawString(font, "✕", x + w - 18, y + 8, dh ? 0xFFFF7B84 : 0x99FF7B84, false);
 	}
 
 	private void renderConfirm(GuiGraphics g, int mx, int my) {

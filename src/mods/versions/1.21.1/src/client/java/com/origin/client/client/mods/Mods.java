@@ -287,7 +287,7 @@ public final class Mods {
 				ModOption.slider("lineWidth", "Line Width", 1, 6, 1, 1, "%.0f"),
 				ModOption.color("lineColor", "Line Color", 0xFFFFFFFF),
 				ModOption.toggle("showHittable", "Show Hittable Color", false).tip("Tint the hitbox of whatever your crosshair is on."),
-				ModOption.color("hittableColor", "Hittable Color", 0xFF7FA98F).under("showHittable"),
+				ModOption.color("hittableColor", "Hittable Color", 0xFF6FD8B4).under("showHittable"),
 				ModOption.toggle("showDamaged", "Show Damaged Color", false).tip("Tint an entity's hitbox while it's taking damage."),
 				ModOption.color("damagedColor", "Damaged Color", 0xFFE05555).under("showDamaged"),
 				// Not under("players") and not self-only: the look ray is drawn on
@@ -467,13 +467,62 @@ public final class Mods {
 	private Mods() {
 	}
 
+	// O(1) lookup indexes, built once lazily. ALL and the two settings lists are
+	// fully populated at class-init and never mutated after, so a cached index is
+	// always valid. This matters a lot: the HUD reads hundreds of config options
+	// every frame, and every DEFAULT-valued read used to fall through to a linear
+	// scan over all mods (byId) + all of that mod's options (opt) — thousands of
+	// String.equals per frame at idle. Both are now HashMap gets. (Perf audit #1.)
+	private static volatile Map<String, Mod> BY_ID;
+	private static volatile Map<String, Map<String, ModOption>> OPT_IDX;
+
 	public static Mod byId(String id) {
-		for (Mod m : ALL) {
-			if (m.id().equals(id)) {
-				return m;
+		Map<String, Mod> idx = BY_ID;
+		if (idx == null) {
+			synchronized (Mods.class) {
+				idx = BY_ID;
+				if (idx == null) {
+					idx = new java.util.HashMap<>();
+					for (Mod m : ALL) {
+						idx.put(m.id(), m);
+					}
+					BY_ID = idx;
+				}
 			}
 		}
-		return null;
+		return idx.get(id);
+	}
+
+	/** The (key -> ModOption) map for a mod id or the GENERAL/PERFORMANCE pseudo-id;
+	 *  null for an unknown id. Backs {@link #opt} with an O(1) get. */
+	private static Map<String, ModOption> optsFor(String modId) {
+		Map<String, Map<String, ModOption>> idx = OPT_IDX;
+		if (idx == null) {
+			synchronized (Mods.class) {
+				idx = OPT_IDX;
+				if (idx == null) {
+					idx = new java.util.HashMap<>();
+					for (Mod m : ALL) {
+						idx.put(m.id(), indexOptions(m.options()));
+					}
+					// Pseudo-ids: the SETTINGS tab stores General/Performance options
+					// under ids that aren't in ALL — index them the same way so their
+					// schema defaults resolve (e.g. Entity Distance -> 100, not 0).
+					idx.put(GENERAL_ID, indexOptions(GENERAL_SETTINGS));
+					idx.put(PERFORMANCE_ID, indexOptions(PERFORMANCE_SETTINGS));
+					OPT_IDX = idx;
+				}
+			}
+		}
+		return idx.get(modId);
+	}
+
+	private static Map<String, ModOption> indexOptions(List<ModOption> opts) {
+		Map<String, ModOption> m = new java.util.HashMap<>(opts.size() * 2);
+		for (ModOption o : opts) {
+			m.put(o.key, o);
+		}
+		return m;
 	}
 
 	// ---- typed access (all read-through to ModsConfig with schema defaults) ----
@@ -608,28 +657,11 @@ public final class Mods {
 	}
 
 	private static ModOption opt(String modId, String key) {
-		// The SETTINGS tab stores under pseudo-ids that aren't in ALL, so resolve
-		// their schema (and thus their defaults) from the settings lists directly
-		// — otherwise every General/Performance option would fall back to 0/false
-		// before it's ever touched (e.g. Entity Distance -> 0 = cull everything).
-		List<ModOption> opts;
-		if (GENERAL_ID.equals(modId)) {
-			opts = GENERAL_SETTINGS;
-		} else if (PERFORMANCE_ID.equals(modId)) {
-			opts = PERFORMANCE_SETTINGS;
-		} else {
-			Mod m = byId(modId);
-			if (m == null) {
-				return null;
-			}
-			opts = m.options();
-		}
-		for (ModOption o : opts) {
-			if (o.key.equals(key)) {
-				return o;
-			}
-		}
-		return null;
+		// O(1) via the option index (see optsFor). The pseudo-id handling for the
+		// SETTINGS tab (General/Performance) is baked into the index so their schema
+		// defaults resolve (e.g. Entity Distance -> 100, not 0 = cull everything).
+		Map<String, ModOption> opts = optsFor(modId);
+		return opts == null ? null : opts.get(key);
 	}
 
 	// One-time seed from the legacy originclient.json flags so nobody loses

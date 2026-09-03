@@ -40,7 +40,11 @@ public class GuiScoreboardMixin {
 			pose.translate(tx - vx, ty - vy, 0);
 			float s = (float) p.scale;
 			if (s > 0.05f) {
-				float ax = guiGraphics.guiWidth(), ay = guiGraphics.guiHeight() / 2f;
+				// Pivot the scale about the board's OWN centre (in vanilla draw space),
+				// not the screen's right edge — otherwise a board dragged away from the
+				// right edge also slides sideways when scaled, landing off where the
+				// HUD-editor preview showed it. (Bug-audit #4.)
+				float ax = (float) (vx + sz[0] / 2.0), ay = (float) (vy + sz[1] / 2.0);
 				pose.translate(ax, ay, 0);
 				pose.scale(s, s, 1f);
 				pose.translate(-ax, -ay, 0);
