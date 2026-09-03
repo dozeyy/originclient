@@ -4397,3 +4397,10 @@ The first pass was a re-theme only; Will corrected that he wants new LAYOUTS. Ad
 - **Mod menu → "Command Deck"** (`OriginModMenuScreen`): panel 86×84%; the thin sidebar is now a CATEGORY RAIL (All/HUD/Visual/Gameplay, divider, Profiles/Settings; `railY(i)` is the single geometry for draw + click; active = accent pill + vertical aurora bar); the 4-per-row icon tiles are replaced by DESCRIPTIVE ROW CARDS (icon · bold name + description · star · inline iOS toggle), 2-up when content ≥400px, with "Pinned"/"All mods" headers in the All view; a taller HERO SEARCH ROW with placeholder naming the category + live result count. Rows are laid out once per frame into `items` (an `Item` record list) that render and hit-test both read — no duplicated geometry. Category map is a static id→Cat table in the screen (registry has no category field); unmapped ids fall to Gameplay.
 - Settings/Profiles/per-mod pages untouched — they key off cx0/cx1/py/ph and adapt.
 - Mockup artifact updated to show both new layouts.
+
+### 2026-09-03 (later) — palette rebuilt on colour theory: "Slate" replaces "Aurora" (Will: "real colour theory, everything working together, no nebula, simpler")
+- ONE accent hue (blue ~225°, `#4F8DFF`) used only for state; `ACCENT_2` is now a lighter TINT of the same hue (`#8AB4FF`) and `aurora(t)` is a monochromatic value ramp — API kept so call sites compile, but there is no second hue or gradient anywhere.
+- Harmonised neutrals: every grey carries ~3% of the accent hue (bg `#0B0D12` → panel `#12151C` → card `#181C25` → hover `#222732` → edge `#3A4252`, an even value ladder). Text `#EEF1F6` / dim `#9AA3B2` / muted `#6B7484`.
+- Semantic green `#3DBE7A` / red `#E5535B` at matched lightness, desaturated; a second RGB-substring sweep (36 hits, same files as the first) re-harmonised the mint/coral literals; the pin star is a softened gold `#E3C15C` (mod menu only — config defaults untouched).
+- Kept Will's July rule: BOX_BORDER darker than the see-through card fill.
+- Mockup artifact rebuilt on Slate (title renamed "Origin Slate"), no nebula backdrop.

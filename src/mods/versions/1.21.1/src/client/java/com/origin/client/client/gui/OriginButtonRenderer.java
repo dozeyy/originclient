@@ -16,13 +16,13 @@ import java.util.WeakHashMap;
 
 import com.origin.client.client.theme.OriginTheme;
 
-// Aurora widget skin (2026-09 redesign): every vanilla button, slider, checkbox
+// Slate widget skin (2026-09 redesign): every vanilla button, slider, checkbox
 // and header tab is redrawn as Origin's premium GLASS control — a rounded,
 // cool-tinted translucent surface with a hairline frame and an Inter (SDF)
 // centred label. It reads as the exact same material as the mod-menu cards and
 // HUD panels by construction (all of them draw through OriginUi.panel + the
 // shared OriginTheme.BOX_* glass tokens). On hover the surface firms up, takes a
-// faint AURORA wash + accent-tinted border, and lifts 1px — restrained, one
+// faint accent wash + accent-tinted border, and lifts 1px — restrained, one
 // element at a time, so the identity is felt without every button glowing.
 //
 // Restyling happens in place from the widget mixins (renderWidget cancelled):
@@ -44,7 +44,7 @@ public final class OriginButtonRenderer {
 	private static final int BORDER_DISABLED = 0x99080810;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	private static final int LABEL_DISABLED = 0xFF7A8098;
-	// Slider handles / checkbox ticks read as the AURORA accent — the one place a
+	// Slider handles / checkbox ticks read as the accent — the one place a
 	// control's "value" carries the brand hue; brightens toward full accent on hover.
 	private static final int HANDLE = OriginTheme.ACCENT_BORDER;
 	private static final int HANDLE_HOVER = OriginTheme.ACCENT;
@@ -152,8 +152,8 @@ public final class OriginButtonRenderer {
 			int border = OriginTheme.lerpColor(BORDER_NORMAL, OriginTheme.STROKE_HOVER, lit);
 			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 			if (selected) {
-				// Signature aurora underline: an indigo→teal sweep across the tab,
-				// the one gradient moment on a tab. Drawn as a few segments so the
+				// Accent underline: the accent's own value ramp across the tab,
+				// one blue with a soft highlight. Drawn as a few segments so the
 				// hue drifts along its width without a shader.
 				int uw = Math.max(16, Math.min(w - 8, (int) Math.round(w * 0.55)));
 				int ux = x + (w - uw) / 2;
@@ -312,14 +312,14 @@ public final class OriginButtonRenderer {
 
 	/** The glass box: a rounded cool-tinted translucent fill + hairline frame,
 	 *  eased between resting and hover. On hover the fill firms up AND takes a
-	 *  faint aurora-accent wash (ACCENT_SOFT), and the border eases toward the
-	 *  accent-tinted BOX_BORDER_HOVER — so a hovered control reads "aurora-lit"
+	 *  faint accent wash (ACCENT_SOFT), and the border eases toward the
+	 *  accent-tinted BOX_BORDER_HOVER — so a hovered control reads "accent-lit"
 	 *  without any control ever glowing at rest. Rounded via OriginUi.panel. */
 	private static void box(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv) {
 		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
 		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
 		OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
-		// Aurora wash: a translucent accent fill that fades in with hover only.
+		// Accent wash: a translucent accent fill that fades in with hover only.
 		if (enabled && hv > 0.01) {
 			int wash = OriginTheme.withAlpha(OriginTheme.ACCENT, (int) Math.round(0x24 * hv));
 			OriginUi.panel(g, x, y, w, h, RADIUS, wash, 0);

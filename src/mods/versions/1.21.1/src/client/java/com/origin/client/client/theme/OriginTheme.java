@@ -1,96 +1,91 @@
 package com.origin.client.client.theme;
 
 // ============================================================================
-// ORIGIN — "AURORA" IN-GAME IDENTITY  (1.21.1 redesign, 2026-09-03)
+// ORIGIN — IN-GAME IDENTITY "SLATE"  (1.21.1 redesign, 2026-09-03)
 // ============================================================================
 // The single source of colour, spacing, radius and motion for every
 // Origin-owned surface (mod menu, HUD editor, shader browser, waypoints, the
 // restyled vanilla widgets). No Minecraft imports on purpose: every renderer
-// reads its look from here instead of hardcoding a value locally, so the whole
-// client re-themes from ONE file.
+// reads its look from here, so the whole client re-themes from ONE file.
 //
-// This REPLACES the old "Deskify-derived monochrome, no hue" system (which was
-// exact-matched to the website CSS). Per Will's redesign call, Origin now has
-// its OWN identity — a cosmic, premium dark client look inspired by the premium
-// clients (Lunar/Feather/Badlion) but deliberately none of them:
+// COLOUR SYSTEM — built on colour theory, not mood (Will: "real colour theory,
+// everything working together, simpler colours"):
 //
-//   • Base   — deep-space cool near-black (a whisper of blue, not flat void),
-//              surfaces are smoked glass, translucent and cool-tinted.
-//   • Accent — the AURORA: a periwinkle-indigo hero (#7C83FF) paired with an
-//              aurora-teal (#3DE0C0). The indigo is the single brand accent
-//              (primary actions, active tabs, brand mark); the teal appears
-//              ONLY inside the gradient sweep/glow — never as a competing solid.
-//              This two-stop aurora is the signature that separates Origin from
-//              Lunar's cyan, Feather's magenta and Badlion's red.
-//   • State  — mint success (#2FD08A), coral danger (#FF4D57), amber warn.
-//   • Text   — cool near-white, cool-grey dims (reads as "space", not neutral).
+//   1. ONE ACCENT HUE. A clean blue at ~225°. It is used ONLY for state —
+//      active / selected / focus / primary. No second hue, no gradient. That is
+//      what makes the palette read as one system instead of a theme.
+//   2. HARMONISED NEUTRALS. Every grey carries ~3% of the accent hue, so
+//      surfaces, hairlines and text are visibly related to the blue rather
+//      than a foreign neutral sitting next to it.
+//   3. 60 / 30 / 10. Neutral surfaces dominate; dim text + borders are the
+//      secondary weight; the accent is the last 10%.
+//   4. A VALUE LADDER for depth. bg → panel → card → hover step up in even
+//      ~4% lightness increments; depth comes from lightness, never from a
+//      second colour. Borders sit DARKER than the see-through card fill so an
+//      edge always reads against a bright panorama (Will's rule).
+//   5. SEMANTIC COLOURS AT MATCHED LIGHTNESS, DESATURATED. Success (green)
+//      and danger (red) share the accent's perceived lightness and are pulled
+//      back in chroma so they carry meaning without out-shouting the accent.
+//   6. CONTRAST. Primary text ≥ 12:1, dim text ≥ 7:1, accent-on-panel ≥ 5:1.
 //
-// Colours are 0xAARRGGBB. Field NAMES are unchanged from the old system so no
-// call site breaks; only their values moved, plus a few additions (ACCENT_2,
-// ACCENT_SOFT, ACCENT_BORDER, SUCCESS/DANGER/WARNING, aurora()/withAlpha()).
+// Colours are 0xAARRGGBB. Field NAMES are unchanged from earlier systems so no
+// call site breaks; ACCENT_2 / aurora() are kept as API but are now a TINT of
+// the same hue (monochromatic), not a second colour.
 public final class OriginTheme {
 	private OriginTheme() {
 	}
 
-	// ---- Base surfaces (deep space, cool near-black) ----
-	public static final int BG = 0xFF07080E;
-	public static final int BG_ALT = 0xFF0A0C14;
-	public static final int PANEL = 0xFF0E1018;
-	// panel @ ~62% — the coords/ping/cpu HUD panel background. Kept readable
-	// over bright gameplay while still reading as glass.
-	public static final int PANEL_TRANSLUCENT = 0x9E0E1018;
-	public static final int PANEL_ALT = 0xFF151827;
+	// ---- Value ladder: base surfaces (blue-tinted neutrals, ~3% chroma) ----
+	public static final int BG = 0xFF0B0D12;
+	public static final int BG_ALT = 0xFF0E1117;
+	public static final int PANEL = 0xFF12151C;
+	// panel @ ~65% — the coords/ping/cpu HUD panel background over gameplay.
+	public static final int PANEL_TRANSLUCENT = 0xA612151C;
+	public static final int PANEL_ALT = 0xFF181C25;
 
-	// ---- Hairlines (cool white at low opacity) ----
-	public static final int STROKE = 0x14C8D0FF;
-	public static final int STROKE_STRONG = 0x2ED4DBFF;
-	// Hover outline: every hovered custom box / button firms up to a bright cool
-	// near-white (the redesign keeps Will's "hover reads lit" rule, cooled to the
-	// new palette). PRIMARY controls override this with ACCENT_BORDER instead.
-	public static final int STROKE_HOVER = 0xFFEAEEFF;
+	// ---- Hairlines (white at low alpha inherits the surface tint beneath) ----
+	public static final int STROKE = 0x14FFFFFF;
+	public static final int STROKE_STRONG = 0x24FFFFFF;
+	// Hover outline: a hovered custom box firms up to a soft near-white.
+	public static final int STROKE_HOVER = 0xFFE6EAF2;
 
-	// ---- Text (cool) ----
-	public static final int TEXT = 0xFFF2F4FF;
-	public static final int TEXT_DIM = 0xFF98A0B8;
-	public static final int MUTED = 0xFF5B6178;
+	// ---- Text (softened off-white, cool greys on the same hue) ----
+	public static final int TEXT = 0xFFEEF1F6;
+	public static final int TEXT_DIM = 0xFF9AA3B2;
+	public static final int MUTED = 0xFF6B7484;
 
-	// ---- The aurora accent ----
-	// ACCENT is the ONE brand accent (indigo-periwinkle): active tabs, primary
-	// actions, the brand mark, focus. ACCENT_2 (teal) is its gradient partner —
-	// use it only via aurora()/gradient sweeps and tiny highlights.
-	public static final int ACCENT = 0xFF7C83FF;
-	public static final int ACCENT_2 = 0xFF3DE0C0;
+	// ---- The one accent (blue, ~225°) ----
+	public static final int ACCENT = 0xFF4F8DFF;
+	// A lighter TINT of the same hue — the top of the accent's own value ramp.
+	// Not a second colour: used only where a highlight of the accent is needed.
+	public static final int ACCENT_2 = 0xFF8AB4FF;
 	// accent @ 0.35 — glow behind accent text / brand, cursor halo.
-	public static final int ACCENT_GLOW = 0x597C83FF;
+	public static final int ACCENT_GLOW = 0x594F8DFF;
 	// accent @ 0.55 — cursor core glow.
-	public static final int ACCENT_DIM = 0x8C7C83FF;
-	// accent @ ~0.14 — a faint accent wash for the fill of a selected/primary box.
-	public static final int ACCENT_SOFT = 0x247C83FF;
-	// accent @ ~0.70 — the border of a selected/primary box (reads clearly accent
-	// without shouting). Hover on a primary firms toward full ACCENT.
-	public static final int ACCENT_BORDER = 0xB37C83FF;
+	public static final int ACCENT_DIM = 0x8C4F8DFF;
+	// accent @ ~0.14 — a faint wash for the fill of a selected/primary box.
+	public static final int ACCENT_SOFT = 0x244F8DFF;
+	// accent @ ~0.60 — the border of a selected/primary box; hover → full ACCENT.
+	public static final int ACCENT_BORDER = 0x994F8DFF;
 
-	// ---- Semantic state ----
-	public static final int SUCCESS = 0xFF2FD08A;
-	public static final int DANGER = 0xFFFF4D57;
-	public static final int WARNING = 0xFFFFB454;
+	// ---- Semantic state (matched lightness to the accent, desaturated) ----
+	public static final int SUCCESS = 0xFF3DBE7A;
+	public static final int DANGER = 0xFFE5535B;
+	public static final int WARNING = 0xFFE0A63A;
 
-	// ---- Box surface (glassy — every card / row / chip / dropdown / search) ----
-	// Cool smoked glass: a see-through cool-dark fill with a near-black cool frame;
-	// hover firms both up. One material for the whole menu system by construction.
-	public static final int BOX_FILL = 0x66141726;
-	public static final int BOX_FILL_HOVER = 0x99222741;
-	public static final int BOX_BORDER = 0xF00A0C14;
-	// Hover border leans subtly toward the accent so feedback carries the identity.
-	public static final int BOX_BORDER_HOVER = 0xFF3A3F66;
+	// ---- Box surface (every card / row / chip / dropdown / search) ----
+	// See-through tinted card fill; the frame is DARKER than the fill (Will) so
+	// the edge reads on any backdrop; hover lifts both one rung up the ladder.
+	public static final int BOX_FILL = 0x8C181C25;
+	public static final int BOX_FILL_HOVER = 0xB3222732;
+	public static final int BOX_BORDER = 0xF00C0E13;
+	public static final int BOX_BORDER_HOVER = 0xFF3A4252;
 
-	// ---- Mod-menu / iOS toggle ----
-	// Brand-cohesive: mint when ON, coral when OFF, a cool-white knob. The actual
-	// pill toggle lives in OriginUi (its own tuned geometry); these back any
-	// squared switch that reads from the theme.
-	public static final int SWITCH_ON = 0xFF2FD08A;   // aurora mint
-	public static final int SWITCH_OFF = 0xFFFF4D57;  // coral
-	public static final int SWITCH_KNOB = 0xFFF4F6FF;
+	// ---- Toggle ----
+	// The iOS pill in OriginUi reads its own tuned copies of these two.
+	public static final int SWITCH_ON = SUCCESS;
+	public static final int SWITCH_OFF = DANGER;
+	public static final int SWITCH_KNOB = 0xFFF2F4F8;
 	public static final int SWITCH_STROKE = 0x40000000;
 
 	// ---- Spacing (8px grid) ----
@@ -102,7 +97,7 @@ public final class OriginTheme {
 	public static final int SPACE_8 = 64;
 	public static final int SPACE_10 = 96;
 
-	// ---- Corner radii (softened for the premium glass feel) ----
+	// ---- Corner radii ----
 	public static final int RADIUS_SM = 6;
 	public static final int RADIUS_MD = 12;
 	public static final int RADIUS_LG = 16;
@@ -142,10 +137,10 @@ public final class OriginTheme {
 	}
 
 	/**
-	 * Samples the signature aurora gradient at t (0..1): ACCENT (indigo) at 0,
-	 * ACCENT_2 (teal) at 1. Use for the active-tab underline sweep, the primary
-	 * button bloom, and the brand mark — the one place ACCENT_2 is allowed to
-	 * show. Alpha follows the same lerp so a gradient of translucent stops works.
+	 * The accent's own value ramp at t (0..1): ACCENT at 0 → its lighter tint
+	 * ACCENT_2 at 1. Monochromatic on purpose — an active-tab underline or a
+	 * rail bar drawn through this reads as one blue with a soft highlight, not
+	 * as a gradient between two colours. (Name kept for existing call sites.)
 	 */
 	public static int aurora(double t) {
 		return lerpColor(ACCENT, ACCENT_2, Math.max(0.0, Math.min(1.0, t)));

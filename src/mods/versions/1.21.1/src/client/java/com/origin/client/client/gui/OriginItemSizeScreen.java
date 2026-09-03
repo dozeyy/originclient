@@ -337,8 +337,8 @@ public class OriginItemSizeScreen extends Screen {
 			boolean isSel = e.id.equals(selected);
 			boolean custom = ItemSizes.isCustom(e.id);
 			OriginUi.panel(g, x, y, CELL - 2, CELL - 2, 6,
-					isSel ? 0x552FD08A : (cellHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL),
-					isSel ? 0xB36FD8B4 : (custom ? 0x806FD8B4 : OriginTheme.BOX_BORDER));
+					isSel ? 0x553DBE7A : (cellHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL),
+					isSel ? 0xB37ACF9E : (custom ? 0x807ACF9E : OriginTheme.BOX_BORDER));
 			drawItemIcon(g, e.stack, x + 4, y + 4, 16);
 		}
 		g.disableScissor();

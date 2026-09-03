@@ -287,7 +287,7 @@ public final class Mods {
 				ModOption.slider("lineWidth", "Line Width", 1, 6, 1, 1, "%.0f"),
 				ModOption.color("lineColor", "Line Color", 0xFFFFFFFF),
 				ModOption.toggle("showHittable", "Show Hittable Color", false).tip("Tint the hitbox of whatever your crosshair is on."),
-				ModOption.color("hittableColor", "Hittable Color", 0xFF6FD8B4).under("showHittable"),
+				ModOption.color("hittableColor", "Hittable Color", 0xFF7ACF9E).under("showHittable"),
 				ModOption.toggle("showDamaged", "Show Damaged Color", false).tip("Tint an entity's hitbox while it's taking damage."),
 				ModOption.color("damagedColor", "Damaged Color", 0xFFE05555).under("showDamaged"),
 				// Not under("players") and not self-only: the look ray is drawn on

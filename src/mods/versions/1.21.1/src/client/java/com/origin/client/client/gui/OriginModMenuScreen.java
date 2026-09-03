@@ -16,12 +16,12 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 
-// The Right Shift panel — 2026-09 "Command Deck" redesign (Aurora identity):
+// The Right Shift panel — 2026-09 "Command Deck" redesign (Slate identity):
 //
 //   * a wide, full-bleed glass panel (86% × 84% of the screen);
 //   * a left CATEGORY RAIL: All / HUD / Visual / Gameplay filters, a divider,
 //     then Profiles / Settings; the active row is an accent pill with a vertical
-//     aurora bar; Edit HUD + Close pinned at the rail's foot;
+//     accent bar; Edit HUD + Close pinned at the rail's foot;
 //   * the MODS page opens on a HERO SEARCH ROW (search-first, live result count)
 //     over a scrolling list of DESCRIPTIVE ROW CARDS — icon · bold name + one-
 //     line description · favourite star · inline iOS toggle — laid out 2-up when
@@ -217,7 +217,7 @@ public class OriginModMenuScreen extends Screen {
 
 	// Card name-bar tones: sage when the mod is ON, neutral gray when OFF (the
 	// theme's sanctioned enabled/disabled colour language, kept subtle).
-	private static final int BAR_ON = 0xFF2FD08A, BAR_ON_HOVER = 0xFF3AD895;
+	private static final int BAR_ON = 0xFF3DBE7A, BAR_ON_HOVER = 0xFF4CCB89;
 	private static final int BAR_OFF = 0xFF2A2A2A, BAR_OFF_HOVER = 0xFF3A3A3A;
 
 	private java.util.List<ModOption> subOpts() {
@@ -473,7 +473,7 @@ public class OriginModMenuScreen extends Screen {
 		int w = tw + 30, h = 26;
 		int x = width - w - 14, y = height - h - 14;
 		OriginUi.panel(g, x, y, w, h, 8, withAlpha(0xF01A1A1A, a), withAlpha(OriginTheme.STROKE_STRONG, a));
-		OriginUi.star(g, x + 9, y + 8, 10, withAlpha(0xFF6FD8B4, a)); // small confirmation mark
+		OriginUi.star(g, x + 9, y + 8, 10, withAlpha(0xFF7ACF9E, a)); // small confirmation mark
 		OriginText.draw(g, font, msg, x + 24, y + 9, withAlpha(0xFFDDE7E0, a), false);
 	}
 
@@ -504,8 +504,8 @@ public class OriginModMenuScreen extends Screen {
 				cH ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, cH ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER);
 		OriginText.draw(g, font, "Cancel", cancelX + (bw - OriginText.width(font, "Cancel")) / 2, by + 9, OriginTheme.TEXT, false);
 		OriginUi.panel(g, delX, by, bw, bh, 7,
-				dH ? 0x66E2464F : 0x33E2464F, dH ? OriginTheme.STROKE_HOVER : 0xB3E2464F);
-		OriginText.draw(g, font, "Delete", delX + (bw - OriginText.width(font, "Delete")) / 2, by + 9, 0xFFFF7B84, false);
+				dH ? 0x66D4474F : 0x33D4474F, dH ? OriginTheme.STROKE_HOVER : 0xB3D4474F);
+		OriginText.draw(g, font, "Delete", delX + (bw - OriginText.width(font, "Delete")) / 2, by + 9, 0xFFF08A90, false);
 	}
 
 	private boolean clickDeleteConfirm(double mx, double my) {
@@ -582,7 +582,7 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	// Rail rows: a compact pill per row. The ACTIVE row is an accent-washed pill
-	// with a vertical AURORA bar on its left edge (the rail's one gradient
+	// with a vertical accent bar on its left edge (the accent's value
 	// moment); hover is a faint glass fill; labels are left-aligned.
 	private static final int RAIL_H = 20, RAIL_STEP = 23;
 
@@ -764,7 +764,7 @@ public class OriginModMenuScreen extends Screen {
 		int starY = y + (ROW_H - STAR) / 2;
 		boolean sHover = hover && in(mx, my, starX - 3, starY - 3, starX + STAR + 3, starY + STAR + 3);
 		if (fav || hover) {
-			OriginUi.star(g, starX, starY, STAR, withAlpha(fav ? 0xFFFFD700 : (sHover ? 0xFFFFFFFF : 0x80FFFFFF), alpha));
+			OriginUi.star(g, starX, starY, STAR, withAlpha(fav ? 0xFFE3C15C : (sHover ? 0xFFFFFFFF : 0x80FFFFFF), alpha));
 		}
 
 		// inline iOS toggle (mint on / coral off)
@@ -845,13 +845,13 @@ public class OriginModMenuScreen extends Screen {
 		boolean appHover = in(mx, my, appX, y + 5, appX + appW, y + 25);
 		boolean delHover = in(mx, my, delX, y + 5, delX + delW, y + 25);
 		OriginUi.panel(g, appX, y + 5, appW, 20, 6,
-				withAlpha(appHover ? 0x462FD08A : 0x2E2FD08A, alpha),
-				withAlpha(appHover ? OriginTheme.STROKE_HOVER : 0xB32FD08A, alpha));
-		OriginText.draw(g, font, "Apply", appX + (appW - OriginText.width(font, "Apply")) / 2, y + 11, withAlpha(0xFF6FD8B4, alpha), false);
+				withAlpha(appHover ? 0x463DBE7A : 0x2E3DBE7A, alpha),
+				withAlpha(appHover ? OriginTheme.STROKE_HOVER : 0xB33DBE7A, alpha));
+		OriginText.draw(g, font, "Apply", appX + (appW - OriginText.width(font, "Apply")) / 2, y + 11, withAlpha(0xFF7ACF9E, alpha), false);
 		OriginUi.panel(g, delX, y + 5, delW, 20, 6,
-				withAlpha(delHover ? 0x46E2464F : 0x2EE2464F, alpha),
-				withAlpha(delHover ? OriginTheme.STROKE_HOVER : 0xB3E2464F, alpha));
-		OriginText.draw(g, font, "Delete", delX + (delW - OriginText.width(font, "Delete")) / 2, y + 11, withAlpha(0xFFFF7B84, alpha), false);
+				withAlpha(delHover ? 0x46D4474F : 0x2ED4474F, alpha),
+				withAlpha(delHover ? OriginTheme.STROKE_HOVER : 0xB3D4474F, alpha));
+		OriginText.draw(g, font, "Delete", delX + (delW - OriginText.width(font, "Delete")) / 2, y + 11, withAlpha(0xFFF08A90, alpha), false);
 	}
 
 	private boolean clickProfiles(double mx, double my) {
@@ -1570,9 +1570,9 @@ public class OriginModMenuScreen extends Screen {
 		return (a << 24) | (argb & 0xFFFFFF);
 	}
 
-	/** The signature AURORA underline: an indigo→teal sweep `wpx` wide starting at
+	/** The accent underline: the accent's value ramp (one hue) `wpx` wide starting at
 	 *  (x,y), `th` tall, faded by alpha. The one gradient moment on the active nav
-	 *  item / sub-tab — drawn as a few flat segments so the hue drifts across it
+	 *  item / sub-tab — a few flat segments so the highlight drifts across it
 	 *  without a shader. */
 	private static void auroraUnderline(GuiGraphics g, int x, int y, int wpx, int th, float alpha) {
 		int seg = 8;
