@@ -4390,3 +4390,10 @@ GENERAL/PERFORMANCE preserved). O(1) now.
   item size already SDF/Inter.
 - Optional real glyph swap to Space Grotesk (TTF is in `tools/font-atlas/fonts/`)
   needs an MSDF atlas re-bake (no baker checked in; external `msdf-atlas-gen`).
+
+### 2026-09-03 (later) — STRUCTURAL redesign added (Will: "the whole design, not just colors")
+The first pass was a re-theme only; Will corrected that he wants new LAYOUTS. Added, still 1.21.1-only, still unverified (no build here):
+- **Main menu → hero-left** (`TitleScreenMixin.originclient$layoutHeroLeft` + `OriginScreenRenderer.renderTitleWordmark`): the real vanilla buttons (Button instances; SpriteIconButtons separately; foreign-mod widgets skipped) are repositioned in the `init` TAIL into a left-aligned nav list at x = max(24, 8% w), stack top = max(h/2-8, 40% h), width 140–180; the wordmark is drawn large + left-aligned just above the stack using the SAME left/stack formulas (keep them in sync). Only positions change — labels/clicks untouched; fail-soft.
+- **Mod menu → "Command Deck"** (`OriginModMenuScreen`): panel 86×84%; the thin sidebar is now a CATEGORY RAIL (All/HUD/Visual/Gameplay, divider, Profiles/Settings; `railY(i)` is the single geometry for draw + click; active = accent pill + vertical aurora bar); the 4-per-row icon tiles are replaced by DESCRIPTIVE ROW CARDS (icon · bold name + description · star · inline iOS toggle), 2-up when content ≥400px, with "Pinned"/"All mods" headers in the All view; a taller HERO SEARCH ROW with placeholder naming the category + live result count. Rows are laid out once per frame into `items` (an `Item` record list) that render and hit-test both read — no duplicated geometry. Category map is a static id→Cat table in the screen (registry has no category field); unmapped ids fall to Gameplay.
+- Settings/Profiles/per-mod pages untouched — they key off cx0/cx1/py/ph and adapt.
+- Mockup artifact updated to show both new layouts.

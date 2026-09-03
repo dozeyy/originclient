@@ -16,14 +16,19 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 
-// The Right Shift panel — 2026-07 redesign to Will's OneConfig-style spec:
+// The Right Shift panel — 2026-09 "Command Deck" redesign (Aurora identity):
 //
-//   * a left SIDEBAR of sections (Mods / Profiles / Settings) with Edit HUD +
-//     Close pinned at the bottom, and the content to its right;
-//   * COMPACT mod cards, exactly 4 per row: icon on top, a colored name bar
-//     under it, a favourite star in the bottom-right corner;
-//   * everything drawn with subtle, smooth, anti-aliased ROUNDED corners
-//     (OriginUi.panel) — no more pixel-grid squares;
+//   * a wide, full-bleed glass panel (86% × 84% of the screen);
+//   * a left CATEGORY RAIL: All / HUD / Visual / Gameplay filters, a divider,
+//     then Profiles / Settings; the active row is an accent pill with a vertical
+//     aurora bar; Edit HUD + Close pinned at the rail's foot;
+//   * the MODS page opens on a HERO SEARCH ROW (search-first, live result count)
+//     over a scrolling list of DESCRIPTIVE ROW CARDS — icon · bold name + one-
+//     line description · favourite star · inline iOS toggle — laid out 2-up when
+//     the content is wide enough; "Pinned" / "All mods" section headers in the
+//     All view. Clicking the toggle flips the mod, the star pins it, and the rest
+//     of the row opens its settings page;
+//   * everything drawn with smooth, anti-aliased ROUNDED corners (OriginUi.panel);
 //   * every on/off control is an Apple-style iOS toggle (OriginUi.switchAt);
 //   * all MENU text is Inter (OriginText) — in-world/HUD text stays vanilla;
 //   * the menu background is a solid colour whose opacity the player controls
@@ -110,19 +115,21 @@ public class OriginModMenuScreen extends Screen {
 		return (height - ph()) / 2;
 	}
 
+	// 2026-09 "Command Deck" layout: a wide, full-bleed panel (not the old 78×76%
+	// box) so the row cards have room to breathe on every GUI scale.
 	private int pw() {
-		return (int) (width * 0.78);
+		return (int) (width * 0.86);
 	}
 
 	private int ph() {
-		return (int) (height * 0.76);
+		return (int) (height * 0.84);
 	}
 
-	/** Sidebar width — HALVED from the old 104–150px rail (Will: "make the left
-	 *  part 50% smaller"). Still clamped so it never eats content on small windows;
-	 *  the 3 nav labels stay centered in the narrower rail (drawNavItem). */
+	/** Category rail width — a real rail with an icon-free label per row (All /
+	 *  HUD / Visual / Gameplay, then Profiles / Settings), clamped so it never
+	 *  eats content on small windows. */
 	private int sbW() {
-		return Math.max(52, Math.min(76, pw() * 15 / 100));
+		return Math.max(88, Math.min(120, pw() * 17 / 100));
 	}
 
 	/** Content-region left edge (the divider sits here). */
@@ -131,21 +138,68 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private int cx0() {
-		return contentX() + 14;
+		return contentX() + 16;
 	}
 
 	private int cx1() {
-		return px() + pw() - 14;
+		return px() + pw() - 16;
 	}
 
-	private static final int COLS = 4, GAP = 8, CELL_H = 74, BAR_H = 17;
-	private int cellW = 100;
+	// ---- MODS page model: descriptive ROW cards (icon · name + one-line
+	// description · favourite star · inline iOS toggle), laid out 2-up when the
+	// content is wide enough, 1-up otherwise. Replaces the 4-per-row icon tiles.
+	private static final int ROW_H = 40, GAP = 6, HEAD_H = 18;
+	private int rowCols = 2, rowW = 200;
 	private final List<Mods.Mod> filtered = new ArrayList<>();
+
+	/** One laid-out thing on the mods page: a section header (mod == null) or a
+	 *  mod row. y is relative to gridTop() BEFORE scroll, so render and hit-test
+	 *  share exactly one geometry. */
+	private record Item(Mods.Mod mod, String header, int x, int y, int w, int h) {
+	}
+
+	private final List<Item> items = new ArrayList<>();
+	private int itemsH = 0;
 
 	// section state
 	enum Nav {MODS, PROFILES, SETTINGS}
 
 	private Nav nav = Nav.MODS;
+
+	// ---- Mod categories (the rail's filters). Static by id: the registry has no
+	// category field, and the mapping is a design decision about how a PLAYER
+	// thinks of each mod, not a data property. Anything unmapped lands in
+	// Gameplay so a new mod never disappears from the menu.
+	private enum Cat {
+		ALL("All"), HUD("HUD"), VISUAL("Visual"), GAMEPLAY("Gameplay");
+
+		final String label;
+
+		Cat(String label) {
+			this.label = label;
+		}
+	}
+
+	private Cat cat = Cat.ALL;
+	private static final java.util.Map<String, Cat> CATS = new java.util.HashMap<>();
+
+	static {
+		for (String id : new String[]{"fps", "cps", "armorhud", "keystrokes", "coords", "potionhud",
+				"serveraddress", "scoreboard", "tablist"}) {
+			CATS.put(id, Cat.HUD);
+		}
+		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "chunkborders", "hitboxes", "nametags",
+				"itemsize", "weather", "timechanger", "motionblur", "colorsaturation", "particles"}) {
+			CATS.put(id, Cat.VISUAL);
+		}
+		for (String id : new String[]{"togglesprint", "freelook", "chat", "waypoints", "jei"}) {
+			CATS.put(id, Cat.GAMEPLAY);
+		}
+	}
+
+	private static Cat catOf(Mods.Mod m) {
+		return CATS.getOrDefault(m.id(), Cat.GAMEPLAY);
+	}
 
 	enum SubTab {GENERAL, PERFORMANCE, MENU}
 
@@ -255,37 +309,63 @@ public class OriginModMenuScreen extends Screen {
 	// ---- mods grid layout ----
 
 	private void layout() {
-		int gridW = cx1() - cx0();
-		cellW = Math.max(48, (gridW - (COLS - 1) * GAP) / COLS);
 		filtered.clear();
 		String q = search.toLowerCase();
 		for (Mods.Mod m : Mods.ALL) {
+			if (cat != Cat.ALL && catOf(m) != cat) {
+				continue;
+			}
 			if (q.isEmpty() || m.name().toLowerCase().contains(q)) {
 				filtered.add(m);
 			}
 		}
+		// Pinned (favourite) mods first, then registry order.
 		filtered.sort((a, b) -> Boolean.compare(
 				Mods.metaBool("fav:" + b.id(), false), Mods.metaBool("fav:" + a.id(), false)));
+
+		// Lay the rows out ONCE per frame into `items`; render + click both read it.
+		int gridW = cx1() - cx0();
+		rowCols = gridW >= 400 ? 2 : 1;
+		rowW = (gridW - (rowCols - 1) * GAP) / rowCols;
+		items.clear();
+		int y = 0, col = 0;
+		String lastHeader = null;
+		for (Mods.Mod m : filtered) {
+			// Section headers only in the All view: "Pinned" (when any) then "All mods".
+			String hdr = cat == Cat.ALL
+					? (Mods.metaBool("fav:" + m.id(), false) ? "Pinned" : "All mods") : null;
+			if (hdr != null && !hdr.equals(lastHeader)) {
+				if (col != 0) {          // close the open row before a header
+					y += ROW_H + GAP;
+					col = 0;
+				}
+				if (y > 0) {
+					y += 4;
+				}
+				items.add(new Item(null, hdr, cx0(), y, gridW, HEAD_H));
+				y += HEAD_H;
+				lastHeader = hdr;
+			}
+			items.add(new Item(m, null, cx0() + col * (rowW + GAP), y, rowW, ROW_H));
+			col++;
+			if (col == rowCols) {
+				col = 0;
+				y += ROW_H + GAP;
+			}
+		}
+		if (col != 0) {
+			y += ROW_H + GAP;
+		}
+		itemsH = Math.max(0, y - GAP);
 	}
 
+	/** Top of the scrolling row list — below the hero search row. */
 	private int gridTop() {
-		return py() + 52;
-	}
-
-	private int gridLeft() {
-		return cx0();
-	}
-
-	private int[] cellRect(int i) {
-		int col = i % COLS, row = i / COLS;
-		int x = gridLeft() + col * (cellW + GAP);
-		int y = gridTop() + row * (CELL_H + GAP) - (int) scroll;
-		return new int[]{x, y, x + cellW, y + CELL_H};
+		return py() + 58;
 	}
 
 	private double maxScroll() {
-		int rows = (filtered.size() + COLS - 1) / COLS;
-		return Math.max(0, rows * (CELL_H + GAP) - GAP - (py() + ph() - 14 - gridTop()));
+		return Math.max(0, itemsH - (py() + ph() - 14 - gridTop()));
 	}
 
 	// ---- render ----
@@ -451,62 +531,76 @@ public class OriginModMenuScreen extends Screen {
 
 	// ---- sidebar ----
 
-	private void renderSidebar(GuiGraphics g, int mx, int my, float alpha) {
-		int x = px() + 14;
-		int w = sbW() - 28;
+	// The rail's rows, top to bottom: 4 category filters, a divider, then the two
+	// non-mod sections. railY(i) is THE geometry for both drawing and clicking.
+	private static final String[] RAIL_CATS = {"All", "HUD", "Visual", "Gameplay"};
+	private static final Cat[] RAIL_CAT_VALUES = {Cat.ALL, Cat.HUD, Cat.VISUAL, Cat.GAMEPLAY};
+	private static final String[] RAIL_NAVS = {"Profiles", "Settings"};
+	private static final Nav[] RAIL_NAV_VALUES = {Nav.PROFILES, Nav.SETTINGS};
 
-		// brand: Origin mark + wordmark, CENTERED at the top of the narrow rail
-		// (the old left-anchored logo + "ORIGIN" no longer fits the halved width).
+	/** y of rail row `i` (0–3 categories, 4–5 Profiles/Settings, with a divider gap). */
+	private int railY(int i) {
+		return py() + 60 + i * RAIL_STEP + (i >= RAIL_CATS.length ? 12 : 0);
+	}
+
+	private void renderSidebar(GuiGraphics g, int mx, int my, float alpha) {
+		int x = px() + 10;
+		int w = sbW() - 20;
+
+		// brand: Origin mark + wordmark, centered at the top of the rail
 		int railCx = x + w / 2;
 		OriginUi.logo(g, railCx, py() + 24, 20, alpha);
 		int brandW = OriginText.widthBold(font, "ORIGIN");
 		OriginText.drawBold(g, font, "ORIGIN", x + (w - brandW) / 2, py() + 38, withAlpha(OriginTheme.TEXT, alpha), clear);
 
-		// divider between sidebar and content
+		// divider between rail and content
 		g.fill(contentX(), py() + 10, contentX() + 1, py() + ph() - 10, withAlpha(OriginTheme.STROKE, alpha));
 
-		// nav items
-		String[] labels = {"Mods", "Profiles", "Settings"};
-		Nav[] navs = {Nav.MODS, Nav.PROFILES, Nav.SETTINGS};
-		int y = py() + 64;
-		for (int i = 0; i < labels.length; i++) {
-			boolean active = nav == navs[i] && page == null || (navs[i] == Nav.MODS && page != null);
-			boolean hover = in(mx, my, x, y, x + w, y + NAV_H);
-			drawNavItem(g, x, y, w, labels[i], active, hover, alpha);
-			y += NAV_STEP;
+		// category filters — active = the one whose mods are listed (kept lit while
+		// one of its mods' settings page is open, so the player knows where they are)
+		for (int i = 0; i < RAIL_CATS.length; i++) {
+			int y = railY(i);
+			boolean active = nav == Nav.MODS && cat == RAIL_CAT_VALUES[i];
+			boolean hover = in(mx, my, x, y, x + w, y + RAIL_H);
+			drawRailItem(g, x, y, w, RAIL_CATS[i], active, hover, alpha);
+		}
+		// divider, then Profiles / Settings
+		int dy = railY(RAIL_CATS.length) - 6;
+		g.fill(x + 6, dy, x + w - 6, dy + 1, withAlpha(OriginTheme.STROKE, alpha));
+		for (int i = 0; i < RAIL_NAVS.length; i++) {
+			int y = railY(RAIL_CATS.length + i);
+			boolean active = nav == RAIL_NAV_VALUES[i] && page == null;
+			boolean hover = in(mx, my, x, y, x + w, y + RAIL_H);
+			drawRailItem(g, x, y, w, RAIL_NAVS[i], active, hover, alpha);
 		}
 
-		// bottom actions: Edit + Close, pinned bottom with a TIGHT gap (Will). "Edit"
-		// (not "Edit HUD") so the label fits the halved rail without clipping.
+		// bottom actions: Edit HUD + Close, pinned to the rail's foot.
 		int by2 = py() + ph() - 26;
 		int by1 = by2 - 20;
-		drawSidebarButton(g, x, by1, w, "Edit", in(mx, my, x, by1, x + w, by1 + 18), alpha, false);
+		drawSidebarButton(g, x, by1, w, "Edit HUD", in(mx, my, x, by1, x + w, by1 + 18), alpha, false);
 		drawSidebarButton(g, x, by2, w, "Close", in(mx, my, x, by2, x + w, by2 + 18), alpha, true);
 	}
 
-	// Sidebar nav rows: a short box that HUGS the label (text ~8px + small padding)
-	// rather than a tall block (Will). NAV_STEP leaves a slim gap between rows.
-	private static final int NAV_H = 20, NAV_STEP = 24;
+	// Rail rows: a compact pill per row. The ACTIVE row is an accent-washed pill
+	// with a vertical AURORA bar on its left edge (the rail's one gradient
+	// moment); hover is a faint glass fill; labels are left-aligned.
+	private static final int RAIL_H = 20, RAIL_STEP = 23;
 
-	private void drawNavItem(GuiGraphics g, int x, int y, int w, String label, boolean active, boolean hover, float alpha) {
-		// Faint hover feedback only; the active state now reads through the UNDERLINE
-		// (Will), not a filled selection panel.
-		if (hover && !active) {
-			OriginUi.panel(g, x, y, w, NAV_H, 7, withAlpha(clear ? 0xB0181818 : OriginTheme.BOX_FILL, alpha), 0);
-		}
-		// Text is always WHITE (matching the Origin mark) — selection is shown by the
-		// underline, never by colour. Label centered both ways in the short button.
-		int tw = OriginText.widthBold(font, label);
-		int lx = x + (w - tw) / 2;
-		OriginText.drawBold(g, font, label, lx, y + NAV_H / 2 - 4, withAlpha(0xFFFFFFFF, alpha), clear);
-		// Underline placeholder: ALWAYS present under the label — bright white when
-		// this is the active section, dimmed grey otherwise.
-		int uy = y + NAV_H - 2;
+	private void drawRailItem(GuiGraphics g, int x, int y, int w, String label, boolean active, boolean hover, float alpha) {
 		if (active) {
-			auroraUnderline(g, lx, uy, tw, 1, alpha);
-		} else {
-			g.fill(lx, uy, lx + tw, uy + 1, withAlpha(0x40FFFFFF, alpha));
+			OriginUi.panel(g, x, y, w, RAIL_H, 6,
+					withAlpha(clear ? 0xC0181818 : OriginTheme.ACCENT_SOFT, alpha),
+					withAlpha(OriginTheme.ACCENT_BORDER, alpha));
+			int bx = x + 3, by0 = y + 5, bh = RAIL_H - 10;
+			for (int s = 0; s < 4; s++) {
+				int y0 = by0 + bh * s / 4, y1 = by0 + bh * (s + 1) / 4;
+				g.fill(bx, y0, bx + 2, y1, withAlpha(OriginTheme.aurora(s / 3.0), alpha));
+			}
+		} else if (hover) {
+			OriginUi.panel(g, x, y, w, RAIL_H, 6, withAlpha(clear ? 0xB0181818 : OriginTheme.BOX_FILL, alpha), 0);
 		}
+		OriginText.drawBold(g, font, label, x + 11, y + RAIL_H / 2 - 4,
+				withAlpha(active ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
 	}
 
 	private void drawSidebarButton(GuiGraphics g, int x, int y, int w, String label, boolean hover, float alpha, boolean danger) {
@@ -530,14 +624,25 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private boolean clickSidebar(double mx, double my) {
-		int x = px() + 14;
-		int w = sbW() - 28;
-		String[] labels = {"Mods", "Profiles", "Settings"};
-		Nav[] navs = {Nav.MODS, Nav.PROFILES, Nav.SETTINGS};
-		int y = py() + 64;
-		for (int i = 0; i < labels.length; i++) {
-			if (in(mx, my, x, y, x + w, y + NAV_H)) {
-				nav = navs[i];
+		int x = px() + 10;
+		int w = sbW() - 20;
+		// category filters → the mods list, filtered (search is kept)
+		for (int i = 0; i < RAIL_CATS.length; i++) {
+			int y = railY(i);
+			if (in(mx, my, x, y, x + w, y + RAIL_H)) {
+				nav = Nav.MODS;
+				cat = RAIL_CAT_VALUES[i];
+				page = null;
+				pageChangedAt = System.currentTimeMillis();
+				profileFocused = false;
+				scrollTarget = scroll = 0;
+				return true;
+			}
+		}
+		for (int i = 0; i < RAIL_NAVS.length; i++) {
+			int y = railY(RAIL_CATS.length + i);
+			if (in(mx, my, x, y, x + w, y + RAIL_H)) {
+				nav = RAIL_NAV_VALUES[i];
 				page = null;
 				pageChangedAt = System.currentTimeMillis();
 				searchFocused = false;
@@ -545,7 +650,6 @@ public class OriginModMenuScreen extends Screen {
 				scrollTarget = scroll = 0;
 				return true;
 			}
-			y += NAV_STEP;
 		}
 		int by2 = py() + ph() - 26;
 		int by1 = by2 - 20;
@@ -564,86 +668,108 @@ public class OriginModMenuScreen extends Screen {
 
 	private boolean searchFocused = false;
 
+	// Search row geometry — shared by render + click.
+	private static final int SEARCH_H = 26;
+
 	private void renderMods(GuiGraphics g, int mouseX, int mouseY, long now, float alpha) {
-		// search bar (content top)
+		// HERO SEARCH ROW: the page opens on search (Lunar/OneConfig: search-first).
+		// A taller glass field spanning the content, the placeholder naming the
+		// active category, and the live result count right-aligned inside it.
 		int sy = py() + 18;
 		int sx = cx0();
 		int sw = cx1() - cx0();
-		OriginUi.panel(g, sx, sy, sw, 22, 8,
+		OriginUi.panel(g, sx, sy, sw, SEARCH_H, 9,
 				withAlpha(clear ? 0xC8101010 : (searchFocused ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
-				withAlpha(searchFocused ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
-		OriginUi.icon(g, "@search", sx + 5, sy + 3, 15, withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha));
+				withAlpha(searchFocused ? OriginTheme.ACCENT_BORDER : OriginTheme.BOX_BORDER, alpha));
+		OriginUi.icon(g, "@search", sx + 7, sy + 5, 16, withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha));
+		String placeholder = "Search " + (cat == Cat.ALL ? "all mods" : cat.label.toLowerCase() + " mods");
 		if (search.isEmpty() && !searchFocused) {
-			OriginText.draw(g, font, "Search mods", sx + 24, sy + 7,
+			OriginText.draw(g, font, placeholder, sx + 28, sy + 9,
 					withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha), clear);
 		} else {
-			OriginText.draw(g, font, search, sx + 24, sy + 7, withAlpha(OriginTheme.TEXT, alpha), clear);
+			OriginText.draw(g, font, search, sx + 28, sy + 9, withAlpha(OriginTheme.TEXT, alpha), clear);
 		}
 		if (searchFocused) {
 			float pulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(now / 350.0));
 			int cw = OriginText.width(font, search);
-			g.fill(sx + 24 + cw + 1, sy + 6, sx + 24 + cw + 2, sy + 16, withAlpha(OriginTheme.TEXT, alpha * pulse));
+			g.fill(sx + 28 + cw + 1, sy + 8, sx + 28 + cw + 2, sy + 18, withAlpha(OriginTheme.ACCENT, alpha * pulse));
 		}
+		String count = filtered.size() + (filtered.size() == 1 ? " mod" : " mods");
+		OriginText.draw(g, font, count, sx + sw - 9 - OriginText.width(font, count), sy + 9,
+				withAlpha(OriginTheme.MUTED, alpha), clear);
 
+		// ROW LIST (scrolling): section headers + descriptive row cards.
 		g.enableScissor(contentX(), gridTop(), px() + pw(), py() + ph() - 12);
-		for (int i = 0; i < filtered.size(); i++) {
-			int[] r = cellRect(i);
-			if (r[3] < gridTop() - CELL_H || r[1] > py() + ph()) {
+		int top = gridTop(), off = (int) scroll;
+		for (Item it : items) {
+			int y = top + it.y() - off;
+			if (y + it.h() < top - ROW_H || y > py() + ph()) {
 				continue;
 			}
-			renderCard(g, filtered.get(i), r, mouseX, mouseY, alpha);
+			if (it.header() != null) {
+				String hdr = it.header().toUpperCase();
+				OriginText.drawBold(g, font, hdr, it.x(), y + 3, withAlpha(OriginTheme.MUTED, alpha), clear);
+				int tw = OriginText.widthBold(font, hdr);
+				g.fill(it.x() + tw + 8, y + 7, it.x() + it.w(), y + 8, withAlpha(OriginTheme.STROKE, alpha));
+			} else {
+				renderRow(g, it.mod(), it.x(), y, it.w(), mouseX, mouseY, alpha);
+			}
 		}
 		g.disableScissor();
 	}
 
-	// Compact 4-per-row card: icon on top, colored name bar below, favourite
-	// star in the bottom-right corner of the bar.
-	private void renderCard(GuiGraphics g, Mods.Mod mod, int[] r, int mx, int my, float alpha) {
+	// Row-card geometry (right end), shared by render + click: the iOS toggle sits
+	// at the right edge, the favourite star just left of it.
+	private static final int SW_W = 30, STAR = 10;
+
+	private int rowSwitchX(int x, int w) {
+		return x + w - 10 - SW_W;
+	}
+
+	private int rowStarX(int x, int w) {
+		return rowSwitchX(x, w) - 8 - STAR;
+	}
+
+	/** A descriptive row card: icon · bold name + one-line description · star ·
+	 *  inline toggle. Enabled rows carry a faint accent wash so what's ON reads
+	 *  at a glance; hover firms the glass and tints the border toward the accent. */
+	private void renderRow(GuiGraphics g, Mods.Mod mod, int x, int y, int w, int mx, int my, float alpha) {
 		boolean inBand = my >= gridTop() && my < py() + ph() - 12;
-		int cx = r[0], cy = r[1], x2 = r[2], y2 = r[3];
-		boolean cardHover = inBand && in(mx, my, cx, cy, x2, y2);
-		int barY = y2 - BAR_H;
-		boolean iconHover = cardHover && my < barY;
+		boolean hover = inBand && in(mx, my, x, y, x + w, y + ROW_H);
 		boolean on = Mods.on(mod.id());
 
-		// card body
-		OriginUi.panel(g, cx, cy, cellW, CELL_H, 7,
-				withAlpha(clear ? (iconHover ? 0xD8141414 : 0xC8101010) : (iconHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
-				withAlpha(cardHover ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
-
-		// icon centered in the upper area
-		int iconSize = 30;
-		int iconAreaH = CELL_H - BAR_H;
-		OriginUi.icon(g, mod.id(), cx + (cellW - iconSize) / 2, cy + (iconAreaH - iconSize) / 2 - 1, iconSize,
-				withAlpha(OriginTheme.TEXT, alpha));
-
-		// name bar (bottom) — sage when enabled, gray when disabled; click toggles.
-		// INSET 1px inside the card so its rounded bottom corners nest INSIDE the
-		// card's radius-7 corners (concentric, radius 6) instead of poking past the
-		// card outline — that overhang was the "bulging" corners. The card's 1px
-		// border then frames the bar cleanly on every side.
-		boolean barHover = inBand && in(mx, my, cx, barY, x2, y2);
-		int barFill = on ? (barHover ? BAR_ON_HOVER : BAR_ON) : (barHover ? BAR_OFF_HOVER : BAR_OFF);
-		int inX = cx + 1, inW = cellW - 2;
-		OriginUi.panel(g, inX, barY, inW, BAR_H - 1, 6, withAlpha(barFill, alpha), 0);
-		// square off the bar's TOP corners so it reads as a bar seated in the card,
-		// not a floating pill — redraw the top strip flat over the rounded fill.
-		g.fill(inX, barY, inX + inW, barY + 6, withAlpha(barFill, alpha));
-
-		String name = OriginText.ellipsize(font, mod.name(), cellW - 20);
-		OriginText.draw(g, font, name, cx + 6, barY + (BAR_H - 8) / 2,
-				withAlpha(on ? 0xFFFFFFFF : OriginTheme.TEXT_DIM, alpha), false);
-
-		// favourite star, bottom-right corner of the bar — a baked HQ texture, not
-		// the pixelated font glyph. Hit box (star click) matches sx/sy below.
-		boolean fav = Mods.metaBool("fav:" + mod.id(), false);
-		int starSize = 10;
-		int sx = x2 - starSize - 4, sy = y2 - starSize - 3;
-		boolean sHover = cardHover && in(mx, my, sx - 2, sy - 2, sx + starSize + 2, sy + starSize + 2);
-		if (fav || cardHover) {
-			int starCol = fav ? 0xFFFFD700 : (sHover ? 0xFFFFFFFF : 0xAAFFFFFF);
-			OriginUi.star(g, sx, sy, starSize, withAlpha(starCol, alpha));
+		int fill = clear ? (hover ? 0xD8141414 : 0xC8101010) : (hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL);
+		OriginUi.panel(g, x, y, w, ROW_H, 9, withAlpha(fill, alpha),
+				withAlpha(hover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
+		if (on && !clear) {
+			OriginUi.panel(g, x, y, w, ROW_H, 9, withAlpha(OriginTheme.ACCENT_SOFT, alpha * 0.6f), 0);
 		}
+
+		// icon, vertically centred at the left
+		int ic = 24;
+		OriginUi.icon(g, mod.id(), x + 10, y + (ROW_H - ic) / 2, ic, withAlpha(OriginTheme.TEXT, alpha));
+
+		// name (bold) over a one-line description; both ellipsized to the text track
+		int tx = x + 10 + ic + 10;
+		int starX = rowStarX(x, w);
+		int textW = Math.max(20, starX - 8 - tx);
+		OriginText.drawBold(g, font, OriginText.ellipsize(font, mod.name(), textW), tx, y + 8,
+				withAlpha(on ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
+		String desc = mod.description() == null || mod.description().isEmpty() ? catOf(mod).label : mod.description();
+		OriginText.draw(g, font, OriginText.ellipsize(font, desc, textW), tx, y + 21,
+				withAlpha(OriginTheme.MUTED, alpha), clear);
+
+		// favourite star — gold when pinned, otherwise only on hover
+		boolean fav = Mods.metaBool("fav:" + mod.id(), false);
+		int starY = y + (ROW_H - STAR) / 2;
+		boolean sHover = hover && in(mx, my, starX - 3, starY - 3, starX + STAR + 3, starY + STAR + 3);
+		if (fav || hover) {
+			OriginUi.star(g, starX, starY, STAR, withAlpha(fav ? 0xFFFFD700 : (sHover ? 0xFFFFFFFF : 0x80FFFFFF), alpha));
+		}
+
+		// inline iOS toggle (mint on / coral off)
+		int swX = rowSwitchX(x, w), swH = SW_W * 8 / 15;
+		OriginUi.switchAt(g, mod.id(), swX, y + (ROW_H - swH) / 2, SW_W, on, true);
 	}
 
 	// ---- PROFILES page ----
@@ -1103,31 +1229,35 @@ public class OriginModMenuScreen extends Screen {
 		int sy = py() + 18;
 		int sx = cx0();
 		int sw = cx1() - cx0();
-		searchFocused = in(mx, my, sx, sy, sx + sw, sy + 22);
+		searchFocused = in(mx, my, sx, sy, sx + sw, sy + SEARCH_H);
 		if (searchFocused) {
 			return true;
 		}
 		int gTop = gridTop(), gBot = py() + ph() - 12;
 		if (my >= gTop && my < gBot) {
-			for (int i = 0; i < filtered.size(); i++) {
-				int[] r = cellRect(i);
-				if (!in(mx, my, r[0], r[1], r[2], r[3])) {
+			int off = (int) scroll;
+			for (Item it : items) {
+				if (it.mod() == null) {
+					continue;              // section header — not clickable
+				}
+				int x = it.x(), y = gTop + it.y() - off, w = it.w();
+				if (!in(mx, my, x, y, x + w, y + ROW_H)) {
 					continue;
 				}
-				Mods.Mod mod = filtered.get(i);
-				int x2 = r[2], y2 = r[3];
-				int barY = y2 - BAR_H;
-				// star (bottom-right)
-				if (in(mx, my, x2 - 14, y2 - 14, x2 - 1, y2 - 1)) {
+				Mods.Mod mod = it.mod();
+				// favourite star (left of the toggle) → pin / unpin
+				int starX = rowStarX(x, w), starY = y + (ROW_H - STAR) / 2;
+				if (in(mx, my, starX - 3, starY - 3, starX + STAR + 3, starY + STAR + 3)) {
 					Mods.setMetaBool("fav:" + mod.id(), !Mods.metaBool("fav:" + mod.id(), false));
 					return true;
 				}
-				// name bar → toggle enable
-				if (my >= barY) {
+				// toggle (right end, with a little slack) → enable / disable
+				if (mx >= rowSwitchX(x, w) - 4) {
 					Mods.setOn(mod.id(), !Mods.on(mod.id()));
 					return true;
 				}
-				// icon area → open the mod's page (waypoints has its own screen)
+				// anywhere else on the row → open the mod's settings page
+				// (waypoints + item size own full screens)
 				if (mod.id().equals("waypoints")) {
 					Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
 				} else if (mod.id().equals("itemsize")) {

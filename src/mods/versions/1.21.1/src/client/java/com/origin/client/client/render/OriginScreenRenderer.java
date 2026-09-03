@@ -404,14 +404,21 @@ public final class OriginScreenRenderer {
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
 
-			int singleplayerTop = h / 4 + 48;        // vanilla TitleScreen first-button Y
-			double centerY = singleplayerTop / 2.0;  // midpoint between top of screen and that button
-			double inkH = fitInkHeight(h * 0.13, w, 0.82); // same size as the loading screen
+			// HERO-LEFT (2026-09 redesign): the wordmark is a large left-aligned hero
+			// sitting just above the left-aligned button stack. The left edge and the
+			// stack top use the SAME formulas as TitleScreenMixin.originclient$layoutHeroLeft
+			// so mark and buttons stay locked together on every window size.
+			int left = Math.max(24, (int) Math.round(w * 0.08));
+			int stackY = Math.max(h / 2 - 8, (int) Math.round(h * 0.40));
+			double inkH = fitInkHeight(h * 0.15, w, 0.46);
+			double dispW = wmInkH > 0 ? wmInkW * (inkH / wmInkH) : w * 0.24; // ink width at that height
+			double cx = left + dispW / 2.0;
+			double centerY = stackY - 20 - inkH / 2.0;
 			// Breathing glow: a faint, slightly-larger extra pass whose alpha
 			// swells on a slow sine, so the bloom pulses under the crisp mark.
 			double pulse = 0.5 - 0.5 * Math.cos(System.currentTimeMillis() / BREATH_MS * 2.0 * Math.PI);
-			drawWordmarkGlow(guiGraphics, w / 2.0, centerY, inkH, 1.06, (float) (0.05 + 0.10 * pulse));
-			drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
+			drawWordmarkGlow(guiGraphics, cx, centerY, inkH, 1.06, (float) (0.05 + 0.10 * pulse));
+			drawWordmark(guiGraphics, cx, centerY, inkH);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);

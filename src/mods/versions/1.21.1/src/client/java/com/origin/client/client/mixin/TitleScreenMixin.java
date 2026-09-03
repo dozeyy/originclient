@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.gui.OriginForeignWidgets;
+import com.origin.client.client.gui.OriginWidgetOwnership;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.Font;
@@ -128,10 +129,70 @@ public class TitleScreenMixin {
 				widget.active = false;
 			}
 		}
+		// Hero-left layout (2026-09 redesign) — see originclient$layoutHeroLeft.
+		originclient$layoutHeroLeft(self);
 		// Other mods add their buttons to this screen too. They keep their own
 		// look (OriginWidgetOwnership) and their own placement -- but if one
 		// landed on top of an Origin button, move it to free space. Runs after
 		// the hide pass above so a hidden widget is not treated as an obstacle.
 		OriginForeignWidgets.avoidOverlap(self);
+	}
+
+	// HERO-LEFT main menu (2026-09 redesign): the wordmark sits large at the left
+	// (OriginScreenRenderer.renderTitleWordmark uses the SAME left/stack formula
+	// below) and the real menu buttons stack beneath it as a left-aligned nav
+	// list — Singleplayer / Multiplayer / Realms / Options / Quit — instead of
+	// vanilla's centred stack. The language + accessibility icon buttons tuck in
+	// a row under the list. This only REPOSITIONS vanilla's own widgets (setX/
+	// setY/setWidth): labels, clicks and actions are untouched, so the menu can't
+	// lose a button. Foreign mods' widgets are skipped (they keep their placement;
+	// avoidOverlap then nudges any that collide). Fail-soft: a throw leaves
+	// vanilla's positions in place.
+	private static void originclient$layoutHeroLeft(Screen self) {
+		try {
+			java.util.List<AbstractWidget> main = new java.util.ArrayList<>();
+			java.util.List<AbstractWidget> icons = new java.util.ArrayList<>();
+			for (GuiEventListener child : self.children()) {
+				if (!(child instanceof AbstractWidget w) || !w.visible) {
+					continue;
+				}
+				if (OriginWidgetOwnership.isForeign(w)) {
+					continue;
+				}
+				if (child instanceof net.minecraft.client.gui.components.SpriteIconButton) {
+					icons.add(w);
+				} else if (child instanceof net.minecraft.client.gui.components.Button) {
+					main.add(w);
+				}
+			}
+			if (main.isEmpty()) {
+				return;
+			}
+			// Keep vanilla's order (top→bottom, then left→right for Options/Quit).
+			main.sort(java.util.Comparator.comparingInt(AbstractWidget::getY).thenComparingInt(AbstractWidget::getX));
+			int sw = self.width, sh = self.height;
+			int x = Math.max(24, (int) Math.round(sw * 0.08));          // same left edge as the wordmark
+			int bw = Math.max(140, Math.min(180, sw / 4));
+			int bh = 20, step = 24;
+			int total = main.size() * step - (step - bh);
+			int y = Math.max(sh / 2 - 8, (int) Math.round(sh * 0.40));  // same stack top as the wordmark
+			int iconRowY = sh - 20 - 14;
+			if (y + total > iconRowY - 10) {                              // short window: keep it on-screen
+				y = Math.max(40, iconRowY - 10 - total);
+			}
+			for (AbstractWidget w : main) {
+				w.setX(x);
+				w.setY(y);
+				w.setWidth(bw);
+				y += step;
+			}
+			int ix = x;
+			for (AbstractWidget w : icons) {
+				w.setX(ix);
+				w.setY(iconRowY);
+				ix += w.getWidth() + 6;
+			}
+		} catch (Throwable ignored) {
+		}
 	}
 }
