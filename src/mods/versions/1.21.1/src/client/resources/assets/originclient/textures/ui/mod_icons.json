@@ -2,7 +2,7 @@
   "cell": 96,
   "cols": 6,
   "grid": 24,
-  "stroke": 2.0,
+  "style": "solid+cutout",
   "icons": {
     "@backing": {
       "x": 0,
