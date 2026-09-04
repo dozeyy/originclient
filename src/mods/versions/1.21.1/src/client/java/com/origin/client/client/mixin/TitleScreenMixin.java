@@ -10,8 +10,7 @@ import com.origin.client.client.hud.HudEditorScreen;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.mods.Profiles;
 import com.origin.client.client.render.OriginScreenRenderer;
-import com.origin.client.client.shaders.IrisBridge;
-import com.origin.client.client.shaders.ShaderBrowserScreen;
+import com.origin.client.client.render.TitleLayout;
 import com.origin.client.client.theme.OriginTheme;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -42,7 +41,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.ArrayList;
 import java.util.List;
 
-// The Origin main menu (2026-09 redesign v3, Lunar-style "hero-left"):
+// The Origin main menu (2026-09 redesign v4, Lunar-style "hero-left"):
 //
 //   ┌──────────────────────────────────────────────────────────────────┐
 //   │ [head] Player                                                    │
@@ -50,22 +49,26 @@ import java.util.List;
 //   │  ORIGIN  (letters reveal in)                 ┌─ ORIGIN CLIENT ─┐ │
 //   │  [ Singleplayer ]  ← primary (accent)        │ v0.4.2 · 1.21.1 │ │
 //   │  [ Multiplayer  ]     (nav slides in,        │ Mods     14/26  │ │
-//   │  [ Realms       ]      staggered)            │ Shaders  Pack   │ │
-//   │  [ Mods         ]  ← Origin's own            │ Profiles 3      │ │
-//   │  [ Options…     ]                            │[Shaders][EditHUD]│ │
-//   │  [ Quit Game    ]                            ├─ CONTINUE ──────┤ │
-//   │                                              │ My World  2h ago│ │
-//   │                                              │          [Play] │ │
+//   │  [ Realms       ]      staggered)            │ Profiles 3      │ │
+//   │  [ Mods         ]  ← Origin's own            │ [   Edit HUD  ] │ │
+//   │                                              ├─ CONTINUE ──────┤ │
+//   │  [ Options…     ]                            │ My World  2h ago│ │
+//   │  [ Quit Game    ]                            │          [Play] │ │
 //   │  (lang)(access)                              │ Hypixel   [Join]│ │
 //   └──────────────────────────────────────────────┴─────────────────┘ │
 //
+// GEOMETRY LIVES IN ONE PLACE: TitleLayout. The wordmark (drawn by
+// OriginScreenRenderer) and everything placed here read the same computed
+// block, so they can never collide again on a short window.
+//
 // Vanilla's own widgets are only REPOSITIONED (labels, clicks, actions
-// untouched) and re-skinned by OriginButtonRenderer. The two cards and their
+// untouched) and re-skinned by OriginButtonRenderer. The cards and their
 // buttons are Origin's, added as real widgets through ScreenInvoker. CONTINUE
 // is real quick-play: the most recently played world (LevelStorageSource
 // summaries, loaded async) and the top saved server (ServerList), opened with
-// vanilla's own WorldOpenFlows / ConnectScreen. Mod Menu's stray "Mods" button
-// is hidden. Everything is fail-soft: a throw leaves vanilla's layout in place.
+// vanilla's own WorldOpenFlows / ConnectScreen. Mod Menu's own "Mods" button
+// is excluded from the layout AND hidden every frame (it is added by Mod
+// Menu's screen event after our init hook). Everything is fail-soft.
 //
 // All injection targets and quick-play signatures confirmed via javap against
 // the mapped 1.21.1 jar. priority 2000: Origin's re-skin wins over other mods.
@@ -73,15 +76,17 @@ import java.util.List;
 public class TitleScreenMixin {
 
 	@Unique
-	private Button originclient$modsBtn, originclient$shadersBtn, originclient$playBtn, originclient$joinBtn;
-	@Unique
-	private Button originclient$modsNav;
+	private Button originclient$editHudBtn, originclient$playBtn, originclient$joinBtn, originclient$modsNav;
 	@Unique
 	private long originclient$openedAt = 0;
 	@Unique
 	private final List<AbstractWidget> originclient$nav = new ArrayList<>();
 	@Unique
-	private int originclient$navX = 0;
+	private final List<int[]> originclient$navPos = new ArrayList<>();
+	@Unique
+	private final List<AbstractWidget> originclient$icons = new ArrayList<>();
+	@Unique
+	private final List<int[]> originclient$iconPos = new ArrayList<>();
 
 	// Quick-play data (static: survives the screen being rebuilt on resize, and
 	// the world summaries arrive async). Refreshed on every title init.
@@ -98,28 +103,16 @@ public class TitleScreenMixin {
 		return Mods.mode(Mods.GENERAL_ID, "mainMenuStyle").equals("Origin");
 	}
 
-	// ---- shared geometry ----
-	// {left, stackY, navW, cardX, cardY, cardW, cardH, cardVisible, contY, contH, contVisible}
-	// left + stackY use the SAME formulas as OriginScreenRenderer.renderTitleWordmark
-	// so the wordmark and the nav list stay locked together at every window size.
-	@Unique
-	private static int[] originclient$geom(int sw, int sh) {
-		int left = Math.max(24, (int) Math.round(sw * 0.08));
-		int stackY = Math.max(sh / 2 - 8, (int) Math.round(sh * 0.40));
-		int navW = Math.max(140, Math.min(180, sw / 4));
-		int cardW = Math.max(170, Math.min(240, (int) Math.round(sw * 0.28)));
-		int cardH = 116;
-		int cardX = sw - left - cardW;
-		int cardY = stackY - 6;
-		boolean show = cardX >= left + navW + 24 && cardY + cardH <= sh - 36;
-		int contY = cardY + cardH + 8, contH = 86;
-		boolean showCont = show && contY + contH <= sh - 36;
-		return new int[]{left, stackY, navW, cardX, cardY, cardW, cardH, show ? 1 : 0, contY, contH, showCont ? 1 : 0};
-	}
-
 	@Unique
 	private static double originclient$ease(double raw) {
 		return OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, raw)));
+	}
+
+	/** Mod Menu's title button (any "Mods" button that isn't Origin's own). */
+	@Unique
+	private boolean originclient$isForeignMods(GuiEventListener child) {
+		return child instanceof Button b && b != originclient$modsNav
+				&& "mods".equalsIgnoreCase(b.getMessage().getString());
 	}
 
 	@Inject(method = "render", at = @At("HEAD"))
@@ -132,12 +125,10 @@ public class TitleScreenMixin {
 		Screen self = (Screen) (Object) this;
 		for (GuiEventListener child : self.children()) {
 			// Mod Menu adds its "Mods" button through a screen event that fires
-			// AFTER our init hook, so hide it here, every frame. Origin's own Mods
-			// button (originclient$modsNav) lives in the nav list instead.
-			if (child instanceof Button b && b != originclient$modsNav && b.visible
-					&& "mods".equalsIgnoreCase(b.getMessage().getString())) {
-				b.visible = false;
-				b.active = false;
+			// AFTER our init hook, so hide it here, every frame.
+			if (originclient$isForeignMods(child) && child instanceof AbstractWidget w && w.visible) {
+				w.visible = false;
+				w.active = false;
 				continue;
 			}
 			if (child instanceof AbstractWidget widget && widget.visible && widget.isHovered()) {
@@ -147,60 +138,65 @@ public class TitleScreenMixin {
 		}
 		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, hoveringClickable);
 		OriginScreenRenderer.renderTitleAccountChip(guiGraphics);
-		originclient$animateNav();
+		originclient$applyPositions();
 		originclient$drawChrome(guiGraphics, self);
 	}
 
-	/** Entrance choreography for the nav list: each button slides in from the
-	 *  left a beat after the previous one. Positions are re-set every frame
-	 *  while the animation runs (cheap), then settle exactly on the target. */
+	/** Re-applies Origin's positions to the nav + icon widgets EVERY FRAME, with
+	 *  the entrance slide on X. Every frame because Mod Menu's screen event fires
+	 *  after our init and "bumps" every button below Realms down by 24 to make
+	 *  room for its own (hidden) button — which left a phantom gap in the list
+	 *  until this. Six setX/setY calls a frame is nothing. */
 	@Unique
-	private void originclient$animateNav() {
+	private void originclient$applyPositions() {
 		long el = System.currentTimeMillis() - originclient$openedAt;
-		if (el > 1200 || originclient$nav.isEmpty()) {
-			return;
-		}
 		for (int i = 0; i < originclient$nav.size(); i++) {
-			double e = originclient$ease((el - 120 - i * 55) / 380.0);
-			originclient$nav.get(i).setX(originclient$navX - (int) Math.round((1.0 - e) * 26));
+			int[] t = originclient$navPos.get(i);
+			double e = el > 1200 ? 1.0 : originclient$ease((el - 120 - i * 55) / 380.0);
+			AbstractWidget w = originclient$nav.get(i);
+			w.setX(t[0] - (int) Math.round((1.0 - e) * 26));
+			w.setY(t[1]);
+		}
+		for (int i = 0; i < originclient$icons.size(); i++) {
+			int[] t = originclient$iconPos.get(i);
+			originclient$icons.get(i).setX(t[0]);
+			originclient$icons.get(i).setY(t[1]);
 		}
 	}
 
-	/** Status line under the wordmark + the two side cards (panels and text).
-	 *  Drawn at render HEAD, i.e. under the widgets, so the cards' buttons
-	 *  (real widgets) paint on top. Fades/slides in after the wordmark. */
+	/** The side cards (panels and text). Drawn at render HEAD, i.e. under the
+	 *  widgets, so the cards' buttons (real widgets) paint on top. They fade and
+	 *  slide in after the wordmark has revealed. */
 	@Unique
 	private void originclient$drawChrome(GuiGraphics g, Screen self) {
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			Font font = mc.font;
-			int[] gm = originclient$geom(self.width, self.height);
+			boolean haveWorld = originclient$worldId != null, haveServer = originclient$server != null;
+			TitleLayout.contEntries = (haveWorld ? 1 : 0) + (haveServer ? 1 : 0);
+			TitleLayout L = TitleLayout.of(self.width, self.height);
 			long el = System.currentTimeMillis() - originclient$openedAt;
 			float ca = (float) originclient$ease((el - 260) / 420.0);   // chrome alpha
 			int slide = (int) Math.round((1.0 - ca) * 14);
 
-			String mcVer = net.minecraft.SharedConstants.getCurrentVersion().getName();
-
-			boolean show = gm[7] == 1, showCont = gm[10] == 1;
-			boolean btns = show && ca > 0.6f;
-			if (originclient$modsBtn != null) {
-				originclient$modsBtn.visible = btns;
-				originclient$shadersBtn.visible = btns;
+			boolean btns = L.card && ca > 0.6f;
+			if (originclient$editHudBtn != null) {
+				originclient$editHudBtn.visible = btns;
 			}
-			boolean haveWorld = originclient$worldId != null, haveServer = originclient$server != null;
 			if (originclient$playBtn != null) {
-				originclient$playBtn.visible = btns && showCont && haveWorld;
-				originclient$joinBtn.visible = btns && showCont && haveServer;
+				originclient$playBtn.visible = btns && L.cont && haveWorld;
+				originclient$joinBtn.visible = btns && L.cont && haveServer;
 			}
-			if (!show || ca <= 0.01f) {
+			if (!L.card || ca <= 0.01f) {
 				return;
 			}
-			int cx = gm[3] + slide, cy = gm[4], cw = gm[5], ch = gm[6];
+			int cx = L.cardX + slide, cy = L.cardY, cw = L.cardW, ch = L.cardH;
 			int pad = 12, tx = cx + pad;
 			OriginUi.panel(g, cx, cy, cw, ch, OriginTheme.RADIUS_MD,
 					originclient$a(OriginTheme.BOX_FILL, ca), originclient$a(OriginTheme.BOX_BORDER, ca));
 			OriginText.drawBold(g, font, "ORIGIN CLIENT", tx, cy + 10, originclient$a(OriginTheme.MUTED, ca), true);
 
+			String mcVer = net.minecraft.SharedConstants.getCurrentVersion().getName();
 			String ver = FabricLoader.getInstance().getModContainer("originclient")
 					.map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("");
 			String line2 = (ver.isEmpty() ? "" : "v" + ver + "   ·   ") + "Minecraft " + mcVer;
@@ -212,13 +208,9 @@ public class TitleScreenMixin {
 					on++;
 				}
 			}
-			String pack = IrisBridge.installed() ? IrisBridge.currentPack() : null;
-			String shaders = !IrisBridge.installed() ? "Not installed"
-					: (pack == null || pack.isEmpty()) ? "Off" : pack;
 			int profiles = Profiles.names().size();
 			String[][] rows = {
 					{"Mods", on + " / " + total + " on"},
-					{"Shaders", OriginText.ellipsize(font, shaders, cw - pad * 2 - 54)},
 					{"Profiles", profiles + " saved"},
 			};
 			int ry = cy + 41;
@@ -230,10 +222,10 @@ public class TitleScreenMixin {
 			}
 
 			// CONTINUE card — quick-play. Only when there is something to continue.
-			if (!showCont || (!haveWorld && !haveServer)) {
+			if (!L.cont || (!haveWorld && !haveServer)) {
 				return;
 			}
-			int cy2 = gm[8], ch2 = gm[9];
+			int cy2 = L.contY, ch2 = L.contH;
 			OriginUi.panel(g, cx, cy2, cw, ch2, OriginTheme.RADIUS_MD,
 					originclient$a(OriginTheme.BOX_FILL, ca), originclient$a(OriginTheme.BOX_BORDER, ca));
 			OriginText.drawBold(g, font, "CONTINUE", tx, cy2 + 10, originclient$a(OriginTheme.MUTED, ca), true);
@@ -244,7 +236,7 @@ public class TitleScreenMixin {
 				OriginUi.icon(g, "blockoverlay", tx, rowY + 1, 12, originclient$a(OriginTheme.ACCENT_2, ca));
 				OriginText.drawBold(g, font, OriginText.ellipsize(font, originclient$worldName, textW - 16), tx + 16, rowY,
 						originclient$a(OriginTheme.TEXT, ca), true);
-				OriginText.draw(g, font, "Singleplayer  ·  " + originclient$ago(originclient$worldPlayed), tx + 16, rowY + 12,
+				OriginText.draw(g, font, OriginText.ellipsize(font, originclient$ago(originclient$worldPlayed), textW - 16), tx + 16, rowY + 12,
 						originclient$a(OriginTheme.MUTED, ca), true);
 				rowY += 30;
 			}
@@ -253,7 +245,7 @@ public class TitleScreenMixin {
 				OriginUi.icon(g, "serveraddress", tx, rowY + 1, 12, originclient$a(OriginTheme.ACCENT_2, ca));
 				OriginText.drawBold(g, font, OriginText.ellipsize(font, sd.name == null ? sd.ip : sd.name, textW - 16), tx + 16, rowY,
 						originclient$a(OriginTheme.TEXT, ca), true);
-				OriginText.draw(g, font, OriginText.ellipsize(font, "Multiplayer  ·  " + sd.ip, textW - 16), tx + 16, rowY + 12,
+				OriginText.draw(g, font, OriginText.ellipsize(font, sd.ip, textW - 16), tx + 16, rowY + 12,
 						originclient$a(OriginTheme.MUTED, ca), true);
 			}
 		} catch (Throwable ignored) {
@@ -315,7 +307,7 @@ public class TitleScreenMixin {
 		}
 	}
 
-	// No bottom version line (the status line under the mark carries it).
+	// No bottom version line (the card carries the version).
 	@Redirect(method = "render", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/GuiGraphics;drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)I"))
 	private int originclient$noVersion(GuiGraphics instance, Font font, String text, int x, int y, int color) {
@@ -333,14 +325,9 @@ public class TitleScreenMixin {
 			OriginScreenRenderer.setTitleOpenedAt(originclient$openedAt);
 		}
 		for (GuiEventListener child : self.children()) {
-			// Copyright line: hidden. Mod Menu's own "Mods" button: hidden — the
-			// side card's Mods button opens Origin's menu, which lists everything.
-			boolean hide = child instanceof PlainTextButton;
-			if (child instanceof Button b && OriginWidgetOwnership.isForeign(b)
-					&& "mods".equalsIgnoreCase(b.getMessage().getString())) {
-				hide = true;
-			}
-			if (hide && child instanceof AbstractWidget widget) {
+			// Copyright line + any Mod Menu "Mods" button already present: hidden.
+			if ((child instanceof PlainTextButton || originclient$isForeignMods(child))
+					&& child instanceof AbstractWidget widget) {
 				widget.visible = false;
 				widget.active = false;
 			}
@@ -359,15 +346,21 @@ public class TitleScreenMixin {
 		OriginForeignWidgets.avoidOverlap(self);
 	}
 
-	/** Left nav list under the mark; language/accessibility icons tucked below. */
+	/** Left nav list under the mark; language/accessibility icons tucked below.
+	 *  Publishes the nav count to TitleLayout FIRST so the wordmark is sized for
+	 *  the same block this method places the buttons in. */
 	@Unique
 	private void originclient$layoutHeroLeft(Screen self) {
 		try {
 			originclient$nav.clear();
+			originclient$navPos.clear();
+			originclient$icons.clear();
+			originclient$iconPos.clear();
 			List<AbstractWidget> main = new ArrayList<>();
 			List<AbstractWidget> icons = new ArrayList<>();
 			for (GuiEventListener child : self.children()) {
-				if (!(child instanceof AbstractWidget w) || !w.visible || OriginWidgetOwnership.isForeign(w)) {
+				if (!(child instanceof AbstractWidget w) || !w.visible || OriginWidgetOwnership.isForeign(w)
+						|| originclient$isForeignMods(child)) {
 					continue;
 				}
 				if (child instanceof net.minecraft.client.gui.components.SpriteIconButton) {
@@ -384,78 +377,80 @@ public class TitleScreenMixin {
 			if (originclient$modsNav != null) {
 				main.add(Math.min(3, main.size()), originclient$modsNav);   // after Realms, before Options
 			}
-			int[] gm = originclient$geom(self.width, self.height);
-			int x = gm[0], bw = gm[2];
-			int bh = 20, step = 24;
-			int total = main.size() * step - (step - bh);
-			int y = gm[1];                            // right under the mark
-			int iconRowY = self.height - 20 - 14;
-			if (y + total > iconRowY - 10) {          // short window: keep it on-screen
-				y = Math.max(40, iconRowY - 10 - total);
-			}
-			originclient$navX = x;
-			boolean first = true;
-			for (AbstractWidget w : main) {
+			TitleLayout.navCount = main.size();
+			TitleLayout L = TitleLayout.of(self.width, self.height);
+			int x = L.left, bw = L.navW;
+			int y = L.navTop;
+			for (int i = 0; i < main.size(); i++) {
+				AbstractWidget w = main.get(i);
+				if (i == main.size() - 2 && main.size() >= 4) {
+					y += L.navGroupGap;                    // Options / Quit form their own group
+				}
 				w.setX(x);
 				w.setY(y);
 				w.setWidth(bw);
-				y += step;
 				originclient$nav.add(w);
-				if (first) {
+				originclient$navPos.add(new int[]{x, y});
+				y += L.navStep;
+				if (i == 0) {
 					OriginButtonRenderer.markPrimary(w);   // Singleplayer = the main action
-					first = false;
 				}
 			}
-			int ix = x;
+			// Language / accessibility icons: bottom-right corner, right-aligned.
+			int totalW = 0;
+			for (AbstractWidget w : icons) {
+				totalW += w.getWidth() + 6;
+			}
+			int ix = self.width - L.left - Math.max(0, totalW - 6);
 			for (AbstractWidget w : icons) {
 				w.setX(ix);
-				w.setY(iconRowY);
+				w.setY(L.iconRowY);
+				originclient$icons.add(w);
+				originclient$iconPos.add(new int[]{ix, L.iconRowY});
 				ix += w.getWidth() + 6;
 			}
+			StringBuilder dbg = new StringBuilder();
+			for (AbstractWidget w : main) {
+				dbg.append(w.getClass().getSimpleName()).append(':').append(w.getMessage().getString())
+						.append('@').append(w.getY()).append(' ');
+			}
+			com.origin.client.OriginClient.LOGGER.debug("[title-layout] nav = {}", dbg);
 		} catch (Throwable ignored) {
 		}
 	}
 
-	/** The cards' real buttons: Mods / Shaders (stats card), Play / Join (continue). */
+	/** The cards' real buttons: Edit HUD (stats card), Play / Join (continue). */
 	@Unique
 	private void originclient$addCardButtons(Screen self) {
 		try {
-			int[] gm = originclient$geom(self.width, self.height);
-			if (gm[7] == 0) {
+			TitleLayout L = TitleLayout.of(self.width, self.height);
+			if (!L.card) {
 				return;
 			}
-			int cx = gm[3], cy = gm[4], cw = gm[5], ch = gm[6];
-			int pad = 10, gap = 8;
-			int bw = (cw - pad * 2 - gap) / 2;
-			int by = cy + ch - pad - 20;
+			int cx = L.cardX, cy = L.cardY, cw = L.cardW, ch = L.cardH;
+			int pad = 12;
 			Minecraft mc = Minecraft.getInstance();
 			ScreenInvoker inv = (ScreenInvoker) self;
-			originclient$modsBtn = Button.builder(Component.literal("Shaders"),
-					b -> mc.setScreen(new ShaderBrowserScreen(self))).bounds(cx + pad, by, bw, 20).build();
-			originclient$modsBtn.active = IrisBridge.installed();
-			originclient$shadersBtn = Button.builder(Component.literal("Edit HUD"),
-					b -> mc.setScreen(new HudEditorScreen())).bounds(cx + pad + bw + gap, by, bw, 20).build();
-			originclient$modsBtn.visible = false;
-			originclient$shadersBtn.visible = false;
-			inv.originclient$addRenderableWidget(originclient$modsBtn);
-			inv.originclient$addRenderableWidget(originclient$shadersBtn);
+			originclient$editHudBtn = Button.builder(Component.literal("Edit HUD"),
+					b -> mc.setScreen(new HudEditorScreen())).bounds(cx + pad, cy + ch - pad - 20, cw - pad * 2, 20).build();
+			originclient$editHudBtn.visible = false;
+			inv.originclient$addRenderableWidget(originclient$editHudBtn);
 
 			// CONTINUE: Play (most recent world) / Join (top saved server). Hidden
 			// until drawChrome confirms there is data + room.
-			int cy2 = gm[8];
-			int bx = cx + cw - 12 - 44;
+			int bx = cx + cw - pad - 44;
 			originclient$playBtn = Button.builder(Component.literal("Play"), b -> {
 				String id = originclient$worldId;
 				if (id != null) {
 					mc.createWorldOpenFlows().openWorld(id, () -> mc.setScreen(self));
 				}
-			}).bounds(bx, cy2 + 24, 44, 20).build();
+			}).bounds(bx, L.contY + 24, 44, 20).build();
 			originclient$joinBtn = Button.builder(Component.literal("Join"), b -> {
 				ServerData sd = originclient$server;
 				if (sd != null) {
 					ConnectScreen.startConnecting(self, mc, ServerAddress.parseString(sd.ip), sd, false, null);
 				}
-			}).bounds(bx, cy2 + 24 + (originclient$worldId != null ? 30 : 0), 44, 20).build();
+			}).bounds(bx, L.contY + 24 + (originclient$worldId != null ? 30 : 0), 44, 20).build();
 			originclient$playBtn.visible = false;
 			originclient$joinBtn.visible = false;
 			inv.originclient$addRenderableWidget(originclient$playBtn);
@@ -482,10 +477,9 @@ public class TitleScreenMixin {
 					originclient$worldId = best.getLevelId();
 					originclient$worldName = best.getLevelName();
 					originclient$worldPlayed = best.getLastPlayed();
-					// The Join button sits under Play; re-place it now that we know.
-					Button j = originclient$joinBtn;
-					if (j != null) {
-						j.setY(originclient$playBtn.getY() + 30);
+					Button j = originclient$joinBtn, p = originclient$playBtn;
+					if (j != null && p != null) {
+						j.setY(p.getY() + 30);        // Join sits under Play once we know there is a world
 					}
 				}
 			});

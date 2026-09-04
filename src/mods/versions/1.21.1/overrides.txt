@@ -70,3 +70,13 @@ client/java/com/origin/client/client/OriginKeyBindings.java
 client/java/com/origin/client/client/mixin/GuiScoreboardMixin.java
 client/resources/assets/originclient/lang/en_us.json
 main/resources/assets/originclient/icon.png
+
+# DELIBERATE FORK (2026-09-03, redesign) — baked art. The 1.21.1 wordmark is
+# Inter ExtraBold (tools/loading-screen/generate_wordmark.py now targets this
+# module) and the mod icons are Origin's own 24-grid set
+# (tools/mod-menu/generate_icons.py). shared/ still carries the Michroma mark
+# and the old atlas for the other modules until the redesign is promoted.
+client/resources/assets/originclient/textures/ui/wordmark.png
+client/resources/assets/originclient/textures/ui/wordmark.json
+client/resources/assets/originclient/textures/ui/mod_icons.png
+client/resources/assets/originclient/textures/ui/mod_icons.json

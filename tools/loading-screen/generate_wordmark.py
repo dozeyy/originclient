@@ -23,7 +23,10 @@ from pathlib import Path
 from bake_text import load_font, render_text
 
 HERE = Path(__file__).resolve().parent
-OUT = (HERE / ".." / ".." / "src" / "mods" / "shared" / "src" / "client" /
+# 2026-09 redesign: the wordmark is Inter ExtraBold (the client's own typeface,
+# matching the Slate mockup: 800 weight, 0.14em tracking) and lives in the
+# 1.21.1 module (a deliberate fork of shared/).
+OUT = (HERE / ".." / ".." / "src" / "mods" / "versions" / "1.21.1" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui").resolve()
 
 TEXT = "ORIGIN"
@@ -36,8 +39,8 @@ SPACING_FRAC_OF_SPACE = 0.14
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    font = load_font("../font-atlas/fonts/Michroma-Regular.ttf", CAP)
-    letter_spacing = SPACING_FRAC_OF_SPACE * font.getlength(" ")
+    font = load_font("../font-atlas/fonts/Inter-800.ttf", CAP)
+    letter_spacing = 0.14 * CAP   # 0.14em, as the Slate mockup
     # Soft bloom behind the crisp letters — a halo, not just an edge glow, so
     # blur generously and keep the peak alpha gentle.
     img, meta = render_text(font, TEXT, letter_spacing_px=letter_spacing,

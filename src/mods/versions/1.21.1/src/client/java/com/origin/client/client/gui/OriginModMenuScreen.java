@@ -396,7 +396,7 @@ public class OriginModMenuScreen extends Screen {
 
 	private void renderInspector(GuiGraphics g, int mx, int my, float alpha) {
 		insToggleRect = insOpenRect = null;
-		int x = gridRight() + 12, y = gridTop(), w = cx1() - x, h = py() + ph() - 12 - y;
+		int x = gridRight() + 12, y = gridTop(), w = cx1() - x, h = gridBottom() - y;
 		if (w < 100 || h < 130) {
 			return;
 		}
@@ -518,13 +518,18 @@ public class OriginModMenuScreen extends Screen {
 		}
 	}
 
+	/** Bottom of any scrolling content — clear of the version stamp at the foot. */
+	private int gridBottom() {
+		return py() + ph() - 14;
+	}
+
 	/** Top of the scrolling row list — below the hero search row. */
 	private int gridTop() {
 		return py() + 58;
 	}
 
 	private double maxScroll() {
-		return Math.max(0, itemsH - (py() + ph() - 14 - gridTop()));
+		return Math.max(0, itemsH - (gridBottom() - gridTop()));
 	}
 
 	// ---- render ----
@@ -536,6 +541,13 @@ public class OriginModMenuScreen extends Screen {
 		// call HudElements.renderAll(g) here — that double-drew every HUD element,
 		// so translucent backings and text shadows blended onto themselves and read
 		// darker/bolder than in-game (perf-audit + bug-audit finding).
+		// Out of a world (opened from the title's Mods button) nothing else paints
+		// the frame behind this screen — draw the slate title backdrop so the menu
+		// sits on the same ground as the title and the buffer is fully repainted
+		// (otherwise the slide-in animation ghosts over stale frames).
+		if (Minecraft.getInstance().level == null) {
+			com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(g);
+		}
 		layout();
 		hoverTip = null;
 		long now = System.currentTimeMillis();
@@ -595,10 +607,6 @@ public class OriginModMenuScreen extends Screen {
 		}
 		pose.popPose();
 
-		// version stamp
-		String ver = "Origin Client " + VERSION;
-		OriginText.draw(g, font, ver, cx1() - OriginText.width(font, ver), py() + ph() - 12,
-				withAlpha(OriginTheme.MUTED, (float) p * 0.8f), false);
 
 		pose.popPose();
 
@@ -700,7 +708,21 @@ public class OriginModMenuScreen extends Screen {
 
 	/** y of rail row `i` (0–3 categories, 4–5 Profiles/Settings, with a divider gap). */
 	private int railY(int i) {
-		return py() + 60 + i * RAIL_STEP + (i >= RAIL_CATS.length ? 12 : 0);
+		return py() + railHeaderH() + i * railStep() + (i >= RAIL_CATS.length ? 12 : 0);
+	}
+
+	/** Brand header height: logo + wordmark when the panel is tall, wordmark only
+	 *  on short panels so the rows + foot actions still fit. */
+	private int railHeaderH() {
+		return ph() >= 232 ? 60 : 30;
+	}
+
+	/** Row pitch: 23 when the panel is tall enough, compressed on short panels so
+	 *  the six rows (+ divider) always clear the Edit HUD / Close pair at the foot. */
+	private int railStep() {
+		int rows = RAIL_CATS.length + RAIL_NAVS.length;
+		int room = ph() - railHeaderH() - 12 - 54;  // header, divider, foot actions
+		return Math.max(15, Math.min(RAIL_STEP, room / rows));
 	}
 
 	private void renderSidebar(GuiGraphics g, int mx, int my, float alpha) {
@@ -709,9 +731,13 @@ public class OriginModMenuScreen extends Screen {
 
 		// brand: Origin mark + wordmark, centered at the top of the rail
 		int railCx = x + w / 2;
-		OriginUi.logo(g, railCx, py() + 24, 20, alpha);
 		int brandW = OriginText.widthBold(font, "ORIGIN");
-		OriginText.drawBold(g, font, "ORIGIN", x + (w - brandW) / 2, py() + 38, withAlpha(OriginTheme.TEXT, alpha), clear);
+		if (railHeaderH() >= 60) {
+			OriginUi.logo(g, railCx, py() + 24, 20, alpha);
+			OriginText.drawBold(g, font, "ORIGIN", x + (w - brandW) / 2, py() + 38, withAlpha(OriginTheme.TEXT, alpha), clear);
+		} else {
+			OriginText.drawBold(g, font, "ORIGIN", x + (w - brandW) / 2, py() + 12, withAlpha(OriginTheme.TEXT, alpha), clear);
+		}
 
 		// divider between rail and content
 		g.fill(contentX(), py() + 10, contentX() + 1, py() + ph() - 10, withAlpha(OriginTheme.STROKE, alpha));
@@ -760,9 +786,19 @@ public class OriginModMenuScreen extends Screen {
 
 	/** `trail` (optional) is a small right-aligned count — how many mods the row lists. */
 	private void drawRailItem(GuiGraphics g, int x, int y, int w, String label, boolean active, boolean hover, float alpha, String trail) {
+		// The label always wins: draw the count only when both fit; never truncate
+		// a category name to make room for its number.
+		int labelMax = w - 22;
+		int labelW = OriginText.widthBold(font, label);
 		if (trail != null) {
-			OriginText.draw(g, font, trail, x + w - 9 - OriginText.width(font, trail), y + RAIL_H / 2 - 4,
-					withAlpha(active ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha), clear);
+			int tw = OriginText.width(font, trail);
+			if (labelW + tw + 6 <= labelMax) {
+				OriginText.draw(g, font, trail, x + w - 9 - tw, y + RAIL_H / 2 - 4,
+						withAlpha(active ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha), clear);
+			}
+		}
+		if (labelW > labelMax) {
+			label = OriginText.ellipsize(font, label, Math.max(12, labelMax));
 		}
 		if (active) {
 			OriginUi.panel(g, x, y, w, RAIL_H, 6,
@@ -876,7 +912,7 @@ public class OriginModMenuScreen extends Screen {
 				withAlpha(OriginTheme.MUTED, alpha), clear);
 
 		// ROW LIST (scrolling): section headers + descriptive row cards.
-		g.enableScissor(contentX(), gridTop(), px() + pw(), py() + ph() - 12);
+		g.enableScissor(contentX(), gridTop(), px() + pw(), gridBottom());
 		int top = gridTop(), off = (int) scroll;
 		int rowIdx = 0;
 		for (Item it : items) {
@@ -924,7 +960,7 @@ public class OriginModMenuScreen extends Screen {
 	 *  inline toggle. Enabled rows carry a faint accent wash so what's ON reads
 	 *  at a glance; hover firms the glass and tints the border toward the accent. */
 	private void renderRow(GuiGraphics g, Mods.Mod mod, int x, int y, int w, int mx, int my, float alpha) {
-		boolean inBand = my >= gridTop() && my < py() + ph() - 12;
+		boolean inBand = my >= gridTop() && my < gridBottom();
 		boolean hover = inBand && in(mx, my, x, y, x + w, y + ROW_H);
 		if (hover) {
 			inspectId = mod.id();
@@ -946,11 +982,14 @@ public class OriginModMenuScreen extends Screen {
 		int tx = x + 10 + ic + 10;
 		int starX = rowStarX(x, w);
 		int textW = Math.max(20, starX - 8 - tx);
-		OriginText.drawBold(g, font, OriginText.ellipsize(font, mod.name(), textW), tx, y + 8,
-				withAlpha(on ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
 		String desc = mod.description() == null || mod.description().isEmpty() ? catOf(mod).label : mod.description();
-		OriginText.draw(g, font, OriginText.ellipsize(font, desc, textW), tx, y + 21,
-				withAlpha(OriginTheme.MUTED, alpha), clear);
+		boolean showDesc = textW >= 96;             // narrow row: name only, centred
+		OriginText.drawBold(g, font, OriginText.ellipsize(font, mod.name(), textW), tx, showDesc ? y + 8 : y + (ROW_H - 8) / 2,
+				withAlpha(on ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
+		if (showDesc) {
+			OriginText.draw(g, font, OriginText.ellipsize(font, desc, textW), tx, y + 21,
+					withAlpha(OriginTheme.MUTED, alpha), clear);
+		}
 
 		// favourite star — gold when pinned, otherwise only on hover
 		boolean fav = Mods.metaBool("fav:" + mod.id(), false);
@@ -1009,7 +1048,7 @@ public class OriginModMenuScreen extends Screen {
 
 		java.util.List<String> names = Profiles.names();
 		int top = y;
-		int bottom = py() + ph() - 14;
+		int bottom = gridBottom();
 		g.enableScissor(contentX(), top, px() + pw(), bottom);
 		int ry = top - (int) settingsTabScroll;
 		if (names.isEmpty()) {
@@ -1066,7 +1105,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 		// list
 		int top = y + 34 + 14;
-		int bottom = py() + ph() - 14;
+		int bottom = gridBottom();
 		if (my >= top && my <= bottom) {
 			java.util.List<String> names = Profiles.names();
 			int ry = top - (int) settingsTabScroll;
@@ -1109,7 +1148,7 @@ public class OriginModMenuScreen extends Screen {
 		}
 
 		int top = py() + 46;
-		int bottom = py() + ph() - 12;
+		int bottom = gridBottom();
 		if (subTab == SubTab.MENU) {
 			renderMenuSettings(g, x0, x1, top, mx, my, now, alpha);
 			return;
@@ -1163,7 +1202,7 @@ public class OriginModMenuScreen extends Screen {
 			}
 			tx += w + 8;
 		}
-		int top = py() + 46, bottom = py() + ph() - 12;
+		int top = py() + 46, bottom = gridBottom();
 		if (subTab == SubTab.MENU) {
 			int y = top + 4;
 			// Solid-background on/off toggle (drawn at x1-40, y+5, 30 wide, 16 tall):
@@ -1439,7 +1478,7 @@ public class OriginModMenuScreen extends Screen {
 				return true;
 			}
 		}
-		int gTop = gridTop(), gBot = py() + ph() - 12;
+		int gTop = gridTop(), gBot = gridBottom();
 		if (my >= gTop && my < gBot) {
 			int off = (int) scroll;
 			for (Item it : items) {

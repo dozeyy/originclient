@@ -230,6 +230,10 @@ public class OriginClientMod implements ClientModInitializer {
 	}
 
 	private void onEndTick(Minecraft client) {
+		// Dev-only screenshot matrix (env ORIGIN_SHOTS) — see OriginDevShots.
+		if (OriginDevShots.enabled()) {
+			OriginDevShots.tick(client);
+		}
 		// Right Shift opens the mod menu (the screen itself closes on the
 		// same key or Esc, with the reversed slide).
 		// Right Shift opens the quick HUD-edit screen (drag/resize elements

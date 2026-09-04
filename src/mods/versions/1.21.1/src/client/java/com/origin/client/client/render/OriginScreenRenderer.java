@@ -431,16 +431,16 @@ public final class OriginScreenRenderer {
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
 
-			// HERO-LEFT (2026-09 redesign): the wordmark is a large left-aligned hero
-			// sitting just above the left-aligned button stack. The left edge and the
-			// stack top use the SAME formulas as TitleScreenMixin.originclient$layoutHeroLeft
-			// so mark and buttons stay locked together on every window size.
-			int left = Math.max(24, (int) Math.round(w * 0.08));
-			int stackY = Math.max(h / 2 - 8, (int) Math.round(h * 0.40));
-			double inkH = fitInkHeight(h * 0.15, w, 0.46);
-			double dispW = wmInkH > 0 ? wmInkW * (inkH / wmInkH) : w * 0.24; // ink width at that height
-			double cx = left + dispW / 2.0;
-			double centerY = stackY - 20 - inkH / 2.0;
+			// HERO-LEFT: the wordmark's size and place come from TitleLayout — the
+			// SAME block the mixin places the nav list and cards in — so the mark can
+			// never land on the buttons however short or wide the window is.
+			if (wmInkH > 0 && wmInkW > 0) {
+				TitleLayout.inkAspect = wmInkW / (double) wmInkH;
+			}
+			TitleLayout L = TitleLayout.of(w, h);
+			double inkH = L.inkH;
+			double cx = L.markCenterX;
+			double centerY = L.markCenterY;
 			// Breathing glow: a faint, slightly-larger extra pass whose alpha
 			// swells on a slow sine, so the bloom pulses under the crisp mark.
 			// Entrance: letters rise + fade in left-to-right for the first ~0.9s,
@@ -450,8 +450,9 @@ public final class OriginScreenRenderer {
 				drawWordmarkReveal(guiGraphics, cx, centerY, inkH, el);
 				return true;
 			}
-			double pulse = 0.5 - 0.5 * Math.cos(System.currentTimeMillis() / BREATH_MS * 2.0 * Math.PI);
-			drawWordmarkGlow(guiGraphics, cx, centerY, inkH, 1.06, (float) (0.05 + 0.10 * pulse));
+			// No scaled "breathing" echo pass any more: at 1.06x it read as a grey
+			// misregistered copy behind the crisp mark (seen in the size matrix). The
+			// texture's own baked bloom is the glow.
 			drawWordmark(guiGraphics, cx, centerY, inkH);
 			return true;
 		} catch (Throwable t) {
@@ -546,8 +547,8 @@ public final class OriginScreenRenderer {
 				OriginUi.logo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
 
-			guiGraphics.drawString(font, name, hx + head + gap,
-					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, true);
+			com.origin.client.client.gui.OriginText.drawBold(guiGraphics, font, name, hx + head + gap,
+					y + (chipH - 8) / 2, OriginTheme.TEXT, true);
 		} catch (Throwable t) {
 			fail(t);
 		}
