@@ -747,7 +747,7 @@ public class OriginModMenuScreen extends Screen {
 
 		// icon, vertically centred at the left
 		int ic = 24;
-		OriginUi.icon(g, mod.id(), x + 10, y + (ROW_H - ic) / 2, ic, withAlpha(OriginTheme.TEXT, alpha));
+		OriginUi.icon(g, mod.id(), x + 10, y + (ROW_H - ic) / 2, ic, withAlpha(on ? OriginTheme.ACCENT_2 : OriginTheme.TEXT, alpha));
 
 		// name (bold) over a one-line description; both ellipsized to the text track
 		int tx = x + 10 + ic + 10;

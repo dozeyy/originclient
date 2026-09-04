@@ -79,12 +79,26 @@ public final class OriginButtonRenderer {
 	// is not. That also means another mod's screen keeps its own look for free.
 	// Origin's title-screen BACKGROUND and wordmark are unaffected -- they are
 	// drawn by OriginScreenRenderer, not by this widget skin.
+	// Will, 2026-09-03: the Origin widget skin applies on EVERY screen again —
+	// title, pause, options, world/server lists — so the whole client reads as
+	// one design (the Lunar model). This lifts the 2026-08-23 "vanilla menus
+	// keep vanilla buttons" rule on Will's instruction. Another mod's own widget
+	// classes still keep their own art (OriginWidgetOwnership.isForeign).
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc == null || mc.screen == null) {
-			return false;
+		return mc != null && mc.screen != null;
+	}
+
+	// PRIMARY buttons (the one main action on a screen, e.g. Singleplayer on the
+	// title) draw with the accent: an accent wash fill + accent border at rest,
+	// firming to full accent on hover. Registered by the screen that owns the
+	// widget; weak so a rebuilt screen's widgets are collected normally.
+	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
+
+	public static void markPrimary(Object widget) {
+		if (widget != null) {
+			PRIMARY.put(widget, Boolean.TRUE);
 		}
-		return OriginWidgetOwnership.isOriginOwnClass(mc.screen);
 	}
 
 	private static boolean fail(Throwable t) {
@@ -122,7 +136,7 @@ public final class OriginButtonRenderer {
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 			boolean enabled = button.active;
 			double hv = hoverEase(button, enabled && button.isHovered());
-			box(g, x, y, w, h, enabled, hv);
+			box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
 			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, button.getMessage(),
 					enabled ? LABEL_COLOR : LABEL_DISABLED);
 			return true;
@@ -316,6 +330,19 @@ public final class OriginButtonRenderer {
 	 *  accent-tinted BOX_BORDER_HOVER — so a hovered control reads "accent-lit"
 	 *  without any control ever glowing at rest. Rounded via OriginUi.panel. */
 	private static void box(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv) {
+		box(g, x, y, w, h, enabled, hv, false);
+	}
+
+	private static void box(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv, boolean primary) {
+		if (primary && enabled) {
+			// Accent-washed glass: the one accent moment on a screen.
+			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv);
+			int border = OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, hv);
+			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
+			int wash = OriginTheme.withAlpha(OriginTheme.ACCENT, (int) Math.round(0x2E + 0x1C * hv));
+			OriginUi.panel(g, x, y, w, h, RADIUS, wash, 0);
+			return;
+		}
 		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
 		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
 		OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);

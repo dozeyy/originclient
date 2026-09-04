@@ -398,14 +398,13 @@ public final class OriginUi {
 	}
 
 	/**
-	 * Mod icon. Now a real Minecraft item (or a baked Origin texture for the few
-	 * ideas no item expresses) -- see ModIcons. The old 96px line-icon atlas is
-	 * gone, so the `argb` tint no longer colours the art: a spyglass has to look
-	 * like a spyglass. Only the ALPHA is honoured, which is what callers actually
-	 * need it for -- the mod menu's open/close and page-swap fades.
+	 * Mod icon: Origin's own 24-grid line glyph from the mod_icons atlas (see
+	 * ModIcons), tinted with the FULL argb so icons follow the theme colour --
+	 * TEXT on a card, ACCENT when the mod is on, MUTED in a field. The alpha
+	 * carries the mod menu's open/close and page-swap fades.
 	 */
 	public static void icon(GuiGraphics g, String name, int x, int y, int size, int argb) {
-		ModIcons.draw(g, name, x, y, size, ((argb >>> 24) & 0xFF) / 255f);
+		ModIcons.draw(g, name, x, y, size, argb);
 	}
 
 	/**

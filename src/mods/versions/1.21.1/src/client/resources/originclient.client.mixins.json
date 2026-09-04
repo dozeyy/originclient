@@ -17,6 +17,7 @@
 		"CameraMixin",
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
+		"ScreenInvoker",
 		"ScreenBackgroundMixin",
 		"LevelRendererMixin",
 		"LightTextureMixin",
