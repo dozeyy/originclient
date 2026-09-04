@@ -357,7 +357,25 @@ public final class OriginScreenRenderer {
 	 * and in the right direction; revisit only if Will wants the world greyer.
 	 */
 	private static void drawGrade(GuiGraphics guiGraphics, int w, int h) {
-		guiGraphics.fill(0, 0, w, h, GRADE);
+		// SLATE grade (2026-09, Will: "exactly like the slate mockup"): the blurred
+		// world is only a hint under a near-solid cool slate. Three vertical bands
+		// (the mockup's #0F131C → #121A28 → #0A0E15 at ~86%), then one soft accent
+		// highlight top-right, then the vignette so the edges fall away.
+		int a = 0xDC << 24;
+		int y1 = h * 40 / 100, y2 = h * 62 / 100;
+		guiGraphics.fillGradient(0, 0, w, y1, a | 0x0F131C, a | 0x121A28);
+		guiGraphics.fillGradient(0, y1, w, y2, a | 0x121A28, a | 0x0D131C);
+		guiGraphics.fillGradient(0, y2, w, h, a | 0x0D131C, a | 0x0A0E15);
+		if (radialGlowId != null) {
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.setShaderColor(0x4F / 255f, 0x8D / 255f, 1f, 0.10f);
+			int d = (int) Math.round(w * 1.1);
+			guiGraphics.blit(radialGlowId, (int) Math.round(w * 0.70 - d / 2.0), (int) Math.round(h * 0.15 - d / 2.0),
+					d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		}
+		drawVignette(guiGraphics, w, h);
 	}
 
 	/**
@@ -394,6 +412,15 @@ public final class OriginScreenRenderer {
 	 * screen and the Singleplayer button. Returns true only if it drew;
 	 * the title logo redirect falls back to vanilla's logo on false.
 	 */
+	// When the title screen was (re)opened — drives the letter-by-letter entrance
+	// reveal of the wordmark (same band animation the loading screen uses). Set
+	// by TitleScreenMixin; 0 = no animation (draw the settled mark).
+	private static volatile long titleOpenedAt = 0;
+
+	public static void setTitleOpenedAt(long millis) {
+		titleOpenedAt = millis;
+	}
+
 	public static boolean renderTitleWordmark(GuiGraphics guiGraphics) {
 		if (broken) {
 			return false;
@@ -416,6 +443,13 @@ public final class OriginScreenRenderer {
 			double centerY = stackY - 20 - inkH / 2.0;
 			// Breathing glow: a faint, slightly-larger extra pass whose alpha
 			// swells on a slow sine, so the bloom pulses under the crisp mark.
+			// Entrance: letters rise + fade in left-to-right for the first ~0.9s,
+			// then the settled mark with its breathing glow takes over.
+			long el = titleOpenedAt > 0 ? System.currentTimeMillis() - titleOpenedAt : Long.MAX_VALUE;
+			if (el < 900) {
+				drawWordmarkReveal(guiGraphics, cx, centerY, inkH, el);
+				return true;
+			}
 			double pulse = 0.5 - 0.5 * Math.cos(System.currentTimeMillis() / BREATH_MS * 2.0 * Math.PI);
 			drawWordmarkGlow(guiGraphics, cx, centerY, inkH, 1.06, (float) (0.05 + 0.10 * pulse));
 			drawWordmark(guiGraphics, cx, centerY, inkH);
