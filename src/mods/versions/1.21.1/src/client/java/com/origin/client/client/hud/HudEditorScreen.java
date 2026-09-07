@@ -148,14 +148,16 @@ public class HudEditorScreen extends Screen {
 			boolean active = hover || e.id().equals(selectedId) || e.id().equals(draggingId) || e.id().equals(resizingId);
 
 			HudElements.drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
-			// dark translucent hover highlight — content stays legible through it
-			if (active) {
-				g.fill((int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, 0x40303030);
+			float hv = OriginUi.hover("hud:" + e.id(), active);
+			// The backing and the one-pixel selection edge share the same fast curve;
+			// there is no delayed second outline or line through the element.
+			if (hv > 0.001f) {
+				int shade = ((int) Math.round(0x40 * hv) << 24) | 0x303030;
+				g.fill((int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, shade);
 			}
 
 			// SQUARE outline on the backing bounds — thin (1px) always; hover
 			// state is communicated by brightness, not thickness
-			float hv = OriginUi.anim("hud:" + e.id(), active, 120.0);
 			int edge = OriginTheme.lerpColor(OriginTheme.STROKE_STRONG, 0xF0FFFFFF, hv);
 			squareOutline(g, (int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, 1, edge);
 

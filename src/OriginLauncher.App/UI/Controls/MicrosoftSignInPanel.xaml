@@ -30,7 +30,7 @@
              by LoadingText until the first navigation completes, so the user never
              sees a blank white flash while CoreWebView2 spins up. -->
         <Grid Grid.Row="1" Margin="1,0,1,1" ClipToBounds="True">
-            <wv2:WebView2 x:Name="WebView" DefaultBackgroundColor="#1A1A1A"/>
+            <wv2:WebView2 x:Name="WebView" DefaultBackgroundColor="#121918"/>
             <Border x:Name="LoadingOverlay" Background="{StaticResource Brush.Panel}">
                 <TextBlock x:Name="LoadingText" Text="Loading sign-in..." Style="{StaticResource Text.BodyDim}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>

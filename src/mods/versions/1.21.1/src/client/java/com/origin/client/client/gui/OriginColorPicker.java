@@ -164,13 +164,15 @@ public final class OriginColorPicker {
 		OriginUi.panel(g, px, py, PW, PH, 12, 0xF2101010, OriginTheme.STROKE_STRONG);
 
 		// header
-		g.drawString(font, title == null ? "Color" : title, px + 12, py + 10, OriginTheme.TEXT, false);
+		OriginText.drawBold(g, font, title == null ? "Color" : title, px + 12, py + 10, OriginTheme.TEXT, false);
 		boolean closeHover = in(mx, my, px + PW - 26, py + 8, px + PW - 8, py + 24);
-		OriginUi.iconClose(g, px + PW - 22, py + 9, 10, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED);
+		float closeHp = OriginUi.hover("color-picker:close", closeHover);
+		OriginUi.iconClose(g, px + PW - 22, py + 9, 10,
+				OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, closeHp));
 
 		// chroma switch + label (hidden for non-animatable consumers)
 		if (allowChroma) {
-			g.drawString(font, "Chroma", chromaSwX() - 4 - font.width("Chroma"), chromaSwY() + 4, OriginTheme.TEXT_DIM, false);
+			OriginText.draw(g, font, "Chroma", chromaSwX() - 4 - OriginText.width(font, "Chroma"), chromaSwY() + 4, OriginTheme.TEXT_DIM, false);
 			OriginUi.switchAt(g, "cp:chroma", chromaSwX(), chromaSwY(), 30, chromaOn(modId, key), true);
 		}
 
@@ -219,23 +221,26 @@ public final class OriginColorPicker {
 
 		// speed slider + type dropdown — chroma-only controls
 		if (allowChroma) {
-			g.drawString(font, "Speed", speedX(), speedY() - 12, OriginTheme.MUTED, false);
+			OriginText.draw(g, font, "Speed", speedX(), speedY() - 12, OriginTheme.MUTED, false);
 			double speed = chromaSpeed(modId, key);
 			OriginUi.slider(g, speedX(), speedY(), SPEED_W, clamp01((speed - 1) / 99.0), drag == 4);
-			g.drawString(font, String.format("%.0f", speed), speedX() + SPEED_W + 8, speedY() - 4, OriginTheme.TEXT_DIM, false);
+			OriginText.draw(g, font, String.format("%.0f", speed), speedX() + SPEED_W + 8, speedY() - 4, OriginTheme.TEXT_DIM, false);
 
 			String type = chromaType();
 			boolean tHover = in(mx, my, typeX(), typeY(), typeX() + 92, typeY() + 18);
-			OriginUi.panel(g, typeX(), typeY(), 92, 18, 7, tHover ? 0x24FFFFFF : 0x14FFFFFF, OriginTheme.STROKE);
+			float typeHp = OriginUi.hover("color-picker:type", tHover);
+			OriginUi.panel(g, typeX(), typeY(), 92, 18, 7,
+					OriginTheme.lerpColor(0x14FFFFFF, 0x24FFFFFF, typeHp),
+					OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_HOVER, typeHp));
 			OriginUi.iconChevron(g, typeX() + 5, typeY() + 4, 9, OriginTheme.TEXT_DIM, true);
-			g.drawString(font, type, typeX() + (92 - font.width(type)) / 2, typeY() + 5, OriginTheme.TEXT, false);
+			OriginText.draw(g, font, type, typeX() + (92 - OriginText.width(font, type)) / 2, typeY() + 5, OriginTheme.TEXT, false);
 			OriginUi.iconChevron(g, typeX() + 92 - 14, typeY() + 4, 9, OriginTheme.TEXT_DIM, false);
 		}
 
 		// preset palette + hex
 		int argb = current();
 		String hex = String.format("#%08X", argb);
-		g.drawString(font, hex, px + 12, presetY() + 4, OriginTheme.TEXT_DIM, false);
+		OriginText.draw(g, font, hex, px + 12, presetY() + 4, OriginTheme.TEXT_DIM, false);
 		int psw = 12, pgap = 4;
 		int startX = px + PW - 12 - Mods.PALETTE.length * (psw + pgap) + pgap;
 		for (int i = 0; i < Mods.PALETTE.length; i++) {

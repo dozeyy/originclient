@@ -22,8 +22,19 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+		var mutexName = @"Local\OriginLauncher.SingleInstance";
+#if DEBUG
+		// A locally built launcher must not hand focus to an older installed
+		// release. Keep the production single-instance contract unchanged, but
+		// isolate developer builds by executable path so the UI being verified is
+		// always the binary that was just compiled.
+		var executable = Environment.ProcessPath ?? AppContext.BaseDirectory;
+		var pathBytes = System.Text.Encoding.UTF8.GetBytes(executable.ToUpperInvariant());
+		var pathHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(pathBytes))[..12];
+		mutexName += ".Debug." + pathHash;
+#endif
         _singleInstanceMutex = new System.Threading.Mutex(
-            initiallyOwned: true, @"Local\OriginLauncher.SingleInstance", out var isFirst);
+            initiallyOwned: true, mutexName, out var isFirst);
         if (!isFirst)
         {
             // Another launcher is already running — front it and bow out.
@@ -33,6 +44,20 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+
+        // Follow Windows' animation preference everywhere. The same resource
+        // keys drive page, panel, hover and loading transitions, so one user
+        // setting removes motion without branching every control template.
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            var none = new Duration(TimeSpan.Zero);
+            Resources["Motion.Base"] = none;
+            Resources["Motion.Press"] = none;
+            Resources["Motion.Release"] = none;
+            Resources["Motion.Scene"] = none;
+            Resources["Motion.Exit"] = none;
+        }
+
         OriginPaths.EnsureScaffold();
 
         // A single stray exception used to take the whole launcher down with

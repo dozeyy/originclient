@@ -97,9 +97,11 @@ public final class OriginMultiSelect {
 		g.fill(0, 0, sw, sh, 0x66000000);
 		OriginUi.panel(g, px, py, PW, ph, 12, 0xF2101010, OriginTheme.STROKE_STRONG);
 
-		g.drawString(font, title == null ? "Select" : title, px + 12, py + 10, OriginTheme.TEXT, false);
+		OriginText.drawBold(g, font, title == null ? "Select" : title, px + 12, py + 10, OriginTheme.TEXT, false);
 		boolean closeHover = in(mx, my, px + PW - 26, py + 8, px + PW - 8, py + 24);
-		g.drawString(font, "✕", px + PW - 22, py + 10, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED, false);
+		float closeHp = OriginUi.hover("multi-select:close", closeHover);
+		g.drawString(font, "✕", px + PW - 22, py + 10,
+				OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, closeHp), false);
 
 		int x0 = px + 10, x1 = px + PW - 10;
 		int y = py + HEADER_H;
@@ -108,10 +110,11 @@ public final class OriginMultiSelect {
 		for (int i = 0; i < selected.size(); i++) {
 			String raw = selected.get(i);
 			boolean rowHover = in(mx, my, x0, y, x1, y + ROW - 2);
+			float rowHp = OriginUi.hover("multi-select:selected:" + raw, rowHover);
 			OriginUi.panel(g, x0, y, x1 - x0, ROW - 2, 6,
-					rowHover ? 0x1EFFFFFF : 0x12FFFFFF, OriginTheme.STROKE);
-			g.drawString(font, String.valueOf(i + 1), x0 + 6, y + 5, OriginTheme.MUTED, false);
-			g.drawString(font, JeiSettings.prettify(raw), x0 + 20, y + 5, OriginTheme.TEXT, false);
+					OriginTheme.lerpColor(0x12FFFFFF, 0x1EFFFFFF, rowHp), OriginTheme.STROKE);
+			OriginText.draw(g, font, String.valueOf(i + 1), x0 + 6, y + 5, OriginTheme.MUTED, false);
+			OriginText.draw(g, font, JeiSettings.prettify(raw), x0 + 20, y + 5, OriginTheme.TEXT, false);
 
 			int upX = x1 - 56, dnX = x1 - 38, rmX = x1 - 18;
 			drawGlyph(g, font, "▲", upX, y, mx, my, i > 0);
@@ -121,27 +124,31 @@ public final class OriginMultiSelect {
 		}
 
 		// divider
-		g.drawString(font, selected.isEmpty() ? "PICK ONE OR MORE" : "ADD MORE",
+		OriginText.draw(g, font, selected.isEmpty() ? "PICK ONE OR MORE" : "ADD MORE",
 				x0 + 2, y + 4, OriginTheme.MUTED, false);
-		g.fill(x0 + 2 + font.width(selected.isEmpty() ? "PICK ONE OR MORE" : "ADD MORE") + 6, y + 8, x1, y + 9,
+		g.fill(x0 + 2 + OriginText.width(font, selected.isEmpty() ? "PICK ONE OR MORE" : "ADD MORE") + 6, y + 8, x1, y + 9,
 				OriginTheme.STROKE);
 		y += DIV_H;
 
 		// available — click to append
 		for (String raw : avail) {
 			boolean rowHover = in(mx, my, x0, y, x1, y + ROW - 2);
+			float rowHp = OriginUi.hover("multi-select:available:" + raw, rowHover);
 			OriginUi.panel(g, x0, y, x1 - x0, ROW - 2, 6,
-					rowHover ? 0x1EFFFFFF : 0x0AFFFFFF, OriginTheme.STROKE);
-			g.drawString(font, JeiSettings.prettify(raw), x0 + 8, y + 5,
-					rowHover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, false);
-			g.drawString(font, "+", x1 - 14, y + 5, rowHover ? OriginTheme.TEXT : OriginTheme.MUTED, false);
+					OriginTheme.lerpColor(0x0AFFFFFF, 0x1EFFFFFF, rowHp), OriginTheme.STROKE);
+			OriginText.draw(g, font, JeiSettings.prettify(raw), x0 + 8, y + 5,
+					OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, rowHp), false);
+			OriginText.draw(g, font, "+", x1 - 14, y + 5,
+					OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, rowHp), false);
 			y += ROW;
 		}
 	}
 
 	private static void drawGlyph(GuiGraphics g, Font font, String s, int x, int y, int mx, int my, boolean enabled) {
 		boolean hover = enabled && in(mx, my, x - 2, y, x + 14, y + ROW - 2);
-		int color = !enabled ? OriginTheme.STROKE_HOVER : (hover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM);
+		float hp = OriginUi.hover("multi-select:glyph:" + s + ":" + x + ":" + y, hover);
+		int color = !enabled ? OriginTheme.STROKE_HOVER
+				: OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hp);
 		g.drawString(font, s, x, y + 5, color, false);
 	}
 

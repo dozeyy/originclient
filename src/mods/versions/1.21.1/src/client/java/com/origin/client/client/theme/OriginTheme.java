@@ -1,32 +1,16 @@
 package com.origin.client.client.theme;
 
 // ============================================================================
-// ORIGIN — IN-GAME IDENTITY "SLATE"  (1.21.1 redesign, 2026-09-03)
+// ORIGIN — IN-GAME IDENTITY "ION JADE"  (1.21.1 redesign, 2026-09-07)
 // ============================================================================
 // The single source of colour, spacing, radius and motion for every
 // Origin-owned surface (mod menu, HUD editor, shader browser, waypoints, the
 // restyled vanilla widgets). No Minecraft imports on purpose: every renderer
 // reads its look from here, so the whole client re-themes from ONE file.
 //
-// COLOUR SYSTEM — built on colour theory, not mood (Will: "real colour theory,
-// everything working together, simpler colours"):
-//
-//   1. ONE ACCENT HUE. A clean blue at ~225°. It is used ONLY for state —
-//      active / selected / focus / primary. No second hue, no gradient. That is
-//      what makes the palette read as one system instead of a theme.
-//   2. HARMONISED NEUTRALS. Every grey carries ~3% of the accent hue, so
-//      surfaces, hairlines and text are visibly related to the blue rather
-//      than a foreign neutral sitting next to it.
-//   3. 60 / 30 / 10. Neutral surfaces dominate; dim text + borders are the
-//      secondary weight; the accent is the last 10%.
-//   4. A VALUE LADDER for depth. bg → panel → card → hover step up in even
-//      ~4% lightness increments; depth comes from lightness, never from a
-//      second colour. Borders sit DARKER than the see-through card fill so an
-//      edge always reads against a bright panorama (Will's rule).
-//   5. SEMANTIC COLOURS AT MATCHED LIGHTNESS, DESATURATED. Success (green)
-//      and danger (red) share the accent's perceived lightness and are pulled
-//      back in chroma so they carry meaning without out-shouting the accent.
-//   6. CONTRAST. Primary text ≥ 12:1, dim text ≥ 7:1, accent-on-panel ≥ 5:1.
+// Mineral-black surfaces, silver type, and a blue-jade state colour. It stays
+// cool and architectural without the purple/blue glow common to generated UI.
+// Jade appears only for focus and action; semantic states remain distinct.
 //
 // Colours are 0xAARRGGBB. Field NAMES are unchanged from earlier systems so no
 // call site breaks; ACCENT_2 / aurora() are kept as API but are now a TINT of
@@ -35,57 +19,57 @@ public final class OriginTheme {
 	private OriginTheme() {
 	}
 
-	// ---- Value ladder: base surfaces (blue-tinted neutrals, ~3% chroma) ----
-	public static final int BG = 0xFF0B0D12;
-	public static final int BG_ALT = 0xFF0E1117;
-	public static final int PANEL = 0xFF12151C;
+	// ---- Value ladder: cool mineral surfaces ----
+	public static final int BG = 0xFF090D0C;
+	public static final int BG_ALT = 0xFF0D1211;
+	public static final int PANEL = 0xFF121918;
 	// panel @ ~65% — the coords/ping/cpu HUD panel background over gameplay.
-	public static final int PANEL_TRANSLUCENT = 0xA612151C;
-	public static final int PANEL_ALT = 0xFF181C25;
+	public static final int PANEL_TRANSLUCENT = 0xA6121918;
+	public static final int PANEL_ALT = 0xFF192320;
 
 	// ---- Hairlines (white at low alpha inherits the surface tint beneath) ----
 	public static final int STROKE = 0x14FFFFFF;
 	public static final int STROKE_STRONG = 0x24FFFFFF;
 	// Hover outline: a hovered custom box firms up to a soft near-white.
-	public static final int STROKE_HOVER = 0xFFE6EAF2;
+	public static final int STROKE_HOVER = 0xFF3B524C;
 
-	// ---- Text (softened off-white, cool greys on the same hue) ----
-	public static final int TEXT = 0xFFEEF1F6;
-	public static final int TEXT_DIM = 0xFF9AA3B2;
-	public static final int MUTED = 0xFF6B7484;
+	// ---- Text: cool silver and mineral grey ----
+	public static final int TEXT = 0xFFEFF7F4;
+	public static final int TEXT_DIM = 0xFFA7BBB5;
+	public static final int MUTED = 0xFF6D817B;
 
-	// ---- The one accent (blue, ~225°) ----
-	public static final int ACCENT = 0xFF4F8DFF;
+	// ---- State accent: Origin ion jade ----
+	public static final int ACCENT = 0xFF4BC8AE;
 	// A lighter TINT of the same hue — the top of the accent's own value ramp.
 	// Not a second colour: used only where a highlight of the accent is needed.
-	public static final int ACCENT_2 = 0xFF8AB4FF;
+	public static final int ACCENT_2 = 0xFF79DEC9;
 	// accent @ 0.35 — glow behind accent text / brand, cursor halo.
-	public static final int ACCENT_GLOW = 0x594F8DFF;
+	public static final int ACCENT_GLOW = 0x594BC8AE;
 	// accent @ 0.55 — cursor core glow.
-	public static final int ACCENT_DIM = 0x8C4F8DFF;
+	public static final int ACCENT_DIM = 0x8C4BC8AE;
 	// accent @ ~0.14 — a faint wash for the fill of a selected/primary box.
-	public static final int ACCENT_SOFT = 0x244F8DFF;
+	public static final int ACCENT_SOFT = 0x244BC8AE;
 	// accent @ ~0.60 — the border of a selected/primary box; hover → full ACCENT.
-	public static final int ACCENT_BORDER = 0x994F8DFF;
+	public static final int ACCENT_BORDER = 0x994BC8AE;
 
 	// ---- Semantic state (matched lightness to the accent, desaturated) ----
-	public static final int SUCCESS = 0xFF3DBE7A;
-	public static final int DANGER = 0xFFE5535B;
-	public static final int WARNING = 0xFFE0A63A;
+	public static final int SUCCESS = 0xFF69C596;
+	public static final int DANGER = 0xFFE06B7C;
+	public static final int WARNING = 0xFFD4C66A;
 
 	// ---- Box surface (every card / row / chip / dropdown / search) ----
 	// See-through tinted card fill; the frame is DARKER than the fill (Will) so
 	// the edge reads on any backdrop; hover lifts both one rung up the ladder.
-	public static final int BOX_FILL = 0x8C181C25;
-	public static final int BOX_FILL_HOVER = 0xB3222732;
-	public static final int BOX_BORDER = 0xF00C0E13;
-	public static final int BOX_BORDER_HOVER = 0xFF3A4252;
+	public static final int BOX_FILL = 0x8C192320;
+	public static final int BOX_FILL_HOVER = 0xB323302C;
+	public static final int BOX_BORDER = 0xF0060B0A;
+	public static final int BOX_BORDER_HOVER = 0xFF3B524C;
 
 	// ---- Toggle ----
 	// The iOS pill in OriginUi reads its own tuned copies of these two.
 	public static final int SWITCH_ON = SUCCESS;
 	public static final int SWITCH_OFF = DANGER;
-	public static final int SWITCH_KNOB = 0xFFF2F4F8;
+	public static final int SWITCH_KNOB = 0xFFEFF7F4;
 	public static final int SWITCH_STROKE = 0x40000000;
 
 	// ---- Spacing (8px grid) ----
@@ -139,7 +123,7 @@ public final class OriginTheme {
 	/**
 	 * The accent's own value ramp at t (0..1): ACCENT at 0 → its lighter tint
 	 * ACCENT_2 at 1. Monochromatic on purpose — an active-tab underline or a
-	 * rail bar drawn through this reads as one blue with a soft highlight, not
+	 * rail bar drawn through this reads as one jade with a soft highlight, not
 	 * as a gradient between two colours. (Name kept for existing call sites.)
 	 */
 	public static int aurora(double t) {

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Language</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M12 3.5a8.5 8.5 0 1 1-5.1 15.3L3.5 20l1.2-3.4A8.5 8.5 0 0 1 12 3.5Z"/>
+      <path d="M3.8 11.7h16.4M12 3.5c2.15 2.3 3.25 5.05 3.25 8.2S14.15 17.6 12 20.2M12 3.5c-2.15 2.3-3.25 5.05-3.25 8.2 0 2.15.52 4.12 1.55 5.9"/>
+  </g>
+</svg>

@@ -1,6 +1,7 @@
 package com.origin.client.client.waypoints;
 
 import com.origin.client.client.gui.OriginColorPicker;
+import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.theme.OriginTheme;
@@ -322,17 +323,17 @@ public class WaypointScreen extends Screen {
 		int x = px(), y = py(), w = pw(), h = ph();
 		OriginUi.panel(g, x, y, w, h, 10, 0xC80E0E0E, OriginTheme.STROKE);
 		OriginUi.logo(g, x + 22, y + 20, 22, 1f);
-		g.drawString(font, "Waypoints", x + 42, y + 10, OriginTheme.TEXT, true);
+		OriginText.drawBold(g, font, "Waypoints", x + 42, y + 10, OriginTheme.TEXT, true);
 		int total = Waypoints.all().size();
-		g.drawString(font, total + (total == 1 ? " waypoint" : " waypoints"), x + 42, y + 22, 0xFFB0B0B0, true);
+		OriginText.draw(g, font, total + (total == 1 ? " waypoint" : " waypoints"), x + 42, y + 22, OriginTheme.TEXT_DIM, true);
 
 		int by = y + 36;
 		button(g, x + 12, by, 90, 18, editing != null ? "Done" : "＋ Create", mouseX, mouseY);
 		// right-aligned global-toggle switches: Deaths · Locator Bar · (Separate Bar
 		// appears only when Locator Bar is on).
 		for (Tog t : globalToggles()) {
-			g.drawString(font, t.label(), t.x0(), by + 5, 0xFFFFFFFF, true);
-			OriginUi.switchAt(g, "gt:" + t.key(), t.x0() + font.width(t.label()) + 4, by + 1, 22, t.on(), true);
+			OriginText.draw(g, font, t.label(), t.x0(), by + 5, OriginTheme.TEXT, true);
+			OriginUi.switchAt(g, "gt:" + t.key(), t.x0() + OriginText.width(font, t.label()) + 4, by + 1, 22, t.on(), true);
 		}
 
 		if (editing != null) {
@@ -356,21 +357,21 @@ public class WaypointScreen extends Screen {
 		}
 		g.disableScissor();
 		if (Waypoints.all().isEmpty() && editing == null) {
-			g.drawString(font, "No waypoints yet — click Create Waypoint.", x + 14, top + 6, 0xFFB0B0B0, true);
+			OriginText.draw(g, font, "No waypoints", x + 14, top + 6, OriginTheme.TEXT_DIM, true);
 		}
 
 		if (pendingDelete != null) {
 			renderConfirm(g, mouseX, mouseY);
 		}
-		String hint = editing != null && isNew ? "Done saves · Esc discards" : "Esc saves + closes";
-		g.drawString(font, hint, x + w - 10 - font.width(hint), y + h - 12, 0xFF9A9A9A, true);
+		String hint = editing != null && isNew ? "Done · Esc" : "Esc";
+		OriginText.draw(g, font, hint, x + w - 10 - OriginText.width(font, hint), y + h - 12, OriginTheme.MUTED, true);
 
 		// The colour picker draws last so it floats over everything.
 		OriginColorPicker.render(g, mouseX, mouseY);
 	}
 
 	private void eyebrow(GuiGraphics g, int x, int y, String label) {
-		g.drawString(font, label, x, y, 0xFF8A8A8A, true);
+		OriginText.drawBold(g, font, label, x, y, OriginTheme.MUTED, true);
 	}
 
 	// A right-aligned header toggle switch (label + switch), computed once and shared
@@ -390,7 +391,7 @@ public class WaypointScreen extends Screen {
 	}
 
 	private int addTog(java.util.List<Tog> out, int rx, String key, String label) {
-		int total = font.width(label) + 4 + 22;
+		int total = OriginText.width(font, label) + 4 + 22;
 		int x0 = rx - total;
 		out.add(new Tog(x0, rx, key, Mods.bool("waypoints", key), label));
 		return x0 - 8;   // gap before the next toggle (to the left)
@@ -400,43 +401,43 @@ public class WaypointScreen extends Screen {
 	private void scaleValue(GuiGraphics g, int sliderX, int formTop, double v) {
 		// 2 decimals when the 0.05 steps need it (e.g. 0.25x), else 1.
 		String s = (Math.round(v * 100) % 10 == 0 ? String.format("%.1fx", v) : String.format("%.2fx", v));
-		g.drawString(font, s, sliderX + (64 - font.width(s)) / 2, formTop + ROW_SCALE + 9, 0xFF9A9A9A, true);
+		OriginText.draw(g, font, s, sliderX + (64 - OriginText.width(font, s)) / 2, formTop + ROW_SCALE + 9, OriginTheme.MUTED, true);
 	}
 
 	// The editor, organised into sections: name/group → LOCATION → STYLE → DISPLAY.
 	private void renderForm(GuiGraphics g, int x, int y, int w, int mx, int my) {
 		OriginUi.panel(g, x + 12, y, w - 24, FORM_H, 8, 0xD8101010, OriginTheme.STROKE_STRONG);
 		// name + group (one row)
-		g.drawString(font, "Name", x + 20, y + ROW_NAME + 3, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Name", x + 20, y + ROW_NAME + 3, OriginTheme.TEXT, true);
 		field(g, x + 56, y + ROW_NAME, 118, 14, nameStr, focus == 0, "name");
-		g.drawString(font, "Group", x + 184, y + ROW_NAME + 3, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Group", x + 184, y + ROW_NAME + 3, OriginTheme.TEXT, true);
 		field(g, x + 222, y + ROW_NAME, 88, 14, groupStr, focus == 1, "(none)");
 		// LOCATION
 		eyebrow(g, x + 20, y + EB_LOC, "LOCATION");
-		g.drawString(font, "Pos", x + 20, y + ROW_POS + 3, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Pos", x + 20, y + ROW_POS + 3, OriginTheme.TEXT, true);
 		field(g, x + 44, y + ROW_POS, 56, 14, xStr, focus == 2, "X");
 		field(g, x + 104, y + ROW_POS, 56, 14, yStr, focus == 3, "Y");
 		field(g, x + 164, y + ROW_POS, 56, 14, zStr, focus == 4, "Z");
 		button(g, x + 226, y + ROW_POS, 84, 14, "Use Current", mx, my);
-		g.drawString(font, "Dim", x + 20, y + ROW_DIM + 3, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Dim", x + 20, y + ROW_DIM + 3, OriginTheme.TEXT, true);
 		button(g, x + 44, y + ROW_DIM, 130, 14, "< " + dimDisplay(editing.dimension) + " >", mx, my);
 		// STYLE — a colour per part (beam/highlight, icon, text, label background)
 		// and a scale bar per part (icon, text, distance).
 		eyebrow(g, x + 20, y + EB_STYLE, "STYLE");
-		g.drawString(font, "Color", x + 20, y + ROW_COLOR + 3, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Color", x + 20, y + ROW_COLOR + 3, OriginTheme.TEXT, true);
 		OriginUi.panel(g, x + 56, y + ROW_COLOR, 30, 14, 5, editing.color, OriginTheme.STROKE_HOVER);
-		g.drawString(font, "Icon", x + 94, y + ROW_COLOR + 3, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Icon", x + 94, y + ROW_COLOR + 3, OriginTheme.TEXT, true);
 		OriginUi.panel(g, x + 122, y + ROW_COLOR, 30, 14, 5, editing.iconColor, OriginTheme.STROKE_HOVER);
-		g.drawString(font, "Text", x + 160, y + ROW_COLOR + 3, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Text", x + 160, y + ROW_COLOR + 3, OriginTheme.TEXT, true);
 		OriginUi.panel(g, x + 188, y + ROW_COLOR, 30, 14, 5, editing.textColor, OriginTheme.STROKE_HOVER);
-		g.drawString(font, "BG", x + 226, y + ROW_COLOR + 3, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "BG", x + 226, y + ROW_COLOR + 3, OriginTheme.TEXT, true);
 		OriginUi.panel(g, x + 246, y + ROW_COLOR, 30, 14, 5, editing.textBgColor, OriginTheme.STROKE_HOVER);
 		// scale bars: 0.5x .. 2.0x each, with a live value readout under each bar
-		g.drawString(font, "Icon", x + 20, y + ROW_SCALE + 2, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Icon", x + 20, y + ROW_SCALE + 2, OriginTheme.TEXT, true);
 		OriginUi.slider(g, x + 48, y + ROW_SCALE, 64, fracFromScale(editing.iconScale), dragSlider == 0);
-		g.drawString(font, "Text", x + 124, y + ROW_SCALE + 2, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Text", x + 124, y + ROW_SCALE + 2, OriginTheme.TEXT, true);
 		OriginUi.slider(g, x + 152, y + ROW_SCALE, 64, fracFromScale(editing.textScale), dragSlider == 1);
-		g.drawString(font, "Dist", x + 228, y + ROW_SCALE + 2, 0xFFFFFFFF, true);
+		OriginText.draw(g, font, "Dist", x + 228, y + ROW_SCALE + 2, OriginTheme.TEXT, true);
 		OriginUi.slider(g, x + 256, y + ROW_SCALE, 64, fracFromScale(editing.distScale), dragSlider == 2);
 		scaleValue(g, x + 48, y, editing.iconScale);
 		scaleValue(g, x + 152, y, editing.textScale);
@@ -456,9 +457,9 @@ public class WaypointScreen extends Screen {
 		OriginUi.panel(g, x, y, w, h, 5, focused ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL,
 				focused ? 0xFFFFFFFF : OriginTheme.BOX_BORDER);
 		if (val.isEmpty() && !focused) {
-			g.drawString(font, placeholder, x + 4, y + (h - 8) / 2, 0xFF9A9A9A, true);
+			OriginText.draw(g, font, placeholder, x + 4, y + (h - 8) / 2, OriginTheme.MUTED, true);
 		} else {
-			g.drawString(font, focused ? val + "_" : val, x + 4, y + (h - 8) / 2, 0xFFFFFFFF, true);
+			OriginText.draw(g, font, focused ? val + "_" : val, x + 4, y + (h - 8) / 2, OriginTheme.TEXT, true);
 		}
 	}
 
@@ -479,11 +480,13 @@ public class WaypointScreen extends Screen {
 
 	private void renderGroupRow(GuiGraphics g, String group, int x, int y, int w, int mx, int my) {
 		boolean hover = mx >= x && mx <= x + w && my >= y && my < y + 24;
-		OriginUi.panel(g, x, y, w, 24, 8, hover ? OriginTheme.BOX_FILL_HOVER : 0x40101010,
-				hover ? 0xFFFFFFFF : OriginTheme.BOX_BORDER);
+		float hp = OriginUi.hover("waypoint-group:" + group, hover);
+		OriginUi.panel(g, x, y, w, 24, 8,
+				OriginTheme.lerpColor(0x40101010, OriginTheme.BOX_FILL_HOVER, hp),
+				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, 0xFFFFFFFF, hp));
 		boolean open = !COLLAPSED.contains(group);
 		triangle(g, x + 8, y + (open ? 9 : 7), open, 0xFFFFFFFF);
-		g.drawString(font, group, x + 26, y + 8, 0xFFFFFFFF, true);
+		OriginText.drawBold(g, font, group, x + 26, y + 8, OriginTheme.TEXT, true);
 		int count = 0;
 		for (Waypoints.Waypoint wp : Waypoints.all()) {
 			if (group.equals(wp.group)) {
@@ -491,18 +494,20 @@ public class WaypointScreen extends Screen {
 			}
 		}
 		String n = count + (count == 1 ? " waypoint" : " waypoints");
-		g.drawString(font, n, x + w - 10 - font.width(n), y + 8, 0xFF9A9A9A, true);
+		OriginText.draw(g, font, n, x + w - 10 - OriginText.width(font, n), y + 8, OriginTheme.MUTED, true);
 	}
 
 	private void renderRow(GuiGraphics g, Waypoints.Waypoint wp, int x, int y, int w, int mx, int my) {
 		boolean hover = mx >= x && mx <= x + w && my >= y && my < y + 24;
 		boolean isEditing = wp == editing;
-		OriginUi.panel(g, x, y, w, 24, 8, hover || isEditing ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL,
-				hover || isEditing ? 0xFFFFFFFF : OriginTheme.BOX_BORDER);
+		float hp = isEditing ? 1f : OriginUi.hover("waypoint-row:" + wp.id, hover);
+		OriginUi.panel(g, x, y, w, 24, 8,
+				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp),
+				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, 0xFFFFFFFF, hp));
 		OriginUi.panel(g, x + 6, y + 7, 10, 10, 3, wp.color, 0x40FFFFFF);
-		g.drawString(font, wp.name, x + 22, y + 3, wp.enabled ? 0xFFFFFFFF : 0xFF9A9A9A, true);
+		OriginText.drawBold(g, font, wp.name, x + 22, y + 3, wp.enabled ? OriginTheme.TEXT : OriginTheme.MUTED, true);
 		String sub = wp.x + ", " + wp.y + ", " + wp.z + "  ·  " + dimDisplay(wp.dimension);
-		g.drawString(font, sub, x + 22, y + 13, 0xFF9A9A9A, true);
+		OriginText.draw(g, font, sub, x + 22, y + 13, OriginTheme.MUTED, true);
 		OriginUi.switchAt(g, "wp:" + wp.id, x + w - 74, y + 4, 30, wp.enabled, true);
 		boolean dh = mx >= x + w - 22 && mx <= x + w - 6 && my >= y + 6 && my <= y + 20;
 		g.drawString(font, "✕", x + w - 18, y + 8, dh ? 0xFFF08A90 : 0x99F08A90, false);
@@ -513,21 +518,23 @@ public class WaypointScreen extends Screen {
 		int x = (width - cw) / 2, y = (height - ch) / 2;
 		g.fill(0, 0, width, height, 0x88000000);
 		OriginUi.panel(g, x, y, cw, ch, 10, 0xF01A1A1A, OriginTheme.STROKE_STRONG);
-		g.drawString(font, "Delete \"" + pendingDelete.name + "\"?", x + 12, y + 14, 0xFFFFFFFF, true);
+		OriginText.drawBold(g, font, "Delete \"" + pendingDelete.name + "\"?", x + 12, y + 14, OriginTheme.TEXT, true);
 		button(g, x + 12, y + 46, 100, 20, "Delete", mx, my);
 		button(g, x + cw - 112, y + 46, 100, 20, "Cancel", mx, my);
 	}
 
 	private void button(GuiGraphics g, int x, int y, int w, int h, String label, int mx, int my) {
 		boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + h;
-		OriginUi.bevelPanel(g, x, y, w, h, 3, hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL,
-				hover ? 0xFFFFFFFF : OriginTheme.BOX_BORDER);
-		g.drawString(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, 0xFFFFFFFF, true);
+		float hp = OriginUi.hover("waypoint-button:" + label + ":" + x + ":" + y, hover);
+		OriginUi.bevelPanel(g, x, y, w, h, 3,
+				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp),
+				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, 0xFFFFFFFF, hp));
+		OriginText.draw(g, font, label, x + (w - OriginText.width(font, label)) / 2, y + (h - 8) / 2, OriginTheme.TEXT, true);
 	}
 
 	private void toggle(GuiGraphics g, int x, int y, String label, boolean on) {
-		g.drawString(font, label, x, y + 2, 0xFFFFFFFF, true);
-		OriginUi.switchAt(g, "cf:" + label, x + font.width(label) + 4, y - 1, 22, on, true);
+		OriginText.draw(g, font, label, x, y + 2, OriginTheme.TEXT, true);
+		OriginUi.switchAt(g, "cf:" + label, x + OriginText.width(font, label) + 4, y - 1, 22, on, true);
 	}
 
 	// ---- input ----

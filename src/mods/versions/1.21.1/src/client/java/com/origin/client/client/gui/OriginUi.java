@@ -34,14 +34,12 @@ public final class OriginUi {
 	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex, starTex;
 	private static int panelTexSize = 96, panelCorner = 24;
 
-	// iOS toggle colors (Will's redesign spec): green when ON, red when OFF, a
-	// pure-white circular knob that slides between them. Kept local to OriginUi
-	// so the switch look is one value, independent of the shared OriginTheme
-	// tokens (which stay squared/monochrome for the rest of the system).
-	private static final int IOS_ON = 0xFF3DBE7A;   // Apple system green
-	private static final int IOS_OFF = 0xFFE5535B;  // Apple system red
-	private static final int IOS_ON_DISABLED = 0xFF3C6B52;
-	private static final int IOS_OFF_DISABLED = 0xFF6E3E42;
+	// Theme-matched toggles: familiar state language without borrowing the
+	// operating system's exact colors.
+	private static final int IOS_ON = OriginTheme.SUCCESS;
+	private static final int IOS_OFF = OriginTheme.DANGER;
+	private static final int IOS_ON_DISABLED = 0xFF4E6650;
+	private static final int IOS_OFF_DISABLED = 0xFF6B4642;
 
 	// eased animation state keyed by arbitrary id (switch knobs, hovers)
 	private static final Map<String, double[]> ANIM = new HashMap<>(); // {value, lastNanos, target}
@@ -64,6 +62,11 @@ public final class OriginUi {
 		double step = dt / durMs;
 		st[0] = st[2] > st[0] ? Math.min(st[2], st[0] + step) : Math.max(st[2], st[0] - step);
 		return (float) OriginTheme.easeOut(st[0]);
+	}
+
+	/** Shared fast hover response for every hand-rendered Origin control. */
+	public static float hover(String id, boolean target) {
+		return anim("hover:" + id, target, 48.0);
 	}
 
 	/**

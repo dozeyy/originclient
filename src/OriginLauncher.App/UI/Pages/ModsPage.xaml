@@ -5,14 +5,14 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d">
 
-    <!-- Left margin (80) clears the floating left-edge icon column, matching
-         SettingsPage. Scrollbar hidden (wheel still works) — same convention. -->
-    <ScrollViewer Margin="80,16,32,20" VerticalScrollBarVisibility="Hidden">
+    <!-- MainWindow reserves the compact navigation rail. Scrollbar stays hidden
+         while wheel scrolling remains available. -->
+    <ScrollViewer Margin="28,20,36,24" VerticalScrollBarVisibility="Hidden">
         <ScrollViewer.Resources>
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
         </ScrollViewer.Resources>
 
-        <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+        <StackPanel Width="720" HorizontalAlignment="Left">
 
             <!-- Header -->
             <Grid Margin="0,0,0,4">
@@ -22,21 +22,21 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="Mods" Style="{StaticResource Text.H1}"/>
                 <Border Grid.Column="1" x:Name="VersionChip" VerticalAlignment="Center"
-                        Background="{StaticResource Brush.Panel}"
+                        Background="{StaticResource Brush.AccentSoft}"
                         BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                         CornerRadius="{StaticResource Radius.Chip}" Padding="10,4">
                     <TextBlock x:Name="VersionChipText" Text="—" Style="{StaticResource Text.BodyDim}"/>
                 </Border>
             </Grid>
-            <TextBlock Text="Import your own mods for this version. Each version keeps its own set — switching versions on Home swaps this list to match."
-                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="0,0,0,16"/>
+            <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
+                    CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,18"/>
 
             <!-- Drop zone: drag .jar files in, or click to open the mods folder -->
             <Border x:Name="DropZone" AllowDrop="True" Cursor="Hand"
-                    Background="{StaticResource Brush.Panel}"
-                    BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1.5"
+                    Background="{StaticResource Brush.PanelGlass}"
+                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                     CornerRadius="{StaticResource Radius.Card}"
-                    Padding="24" Margin="0,0,0,20"
+                    Padding="30" Margin="0,0,0,24"
                     MouseLeftButtonUp="DropZone_Click"
                     DragEnter="DropZone_DragEnter" DragOver="DropZone_DragEnter"
                     DragLeave="DropZone_DragLeave" Drop="DropZone_Drop">
@@ -44,9 +44,9 @@
                     <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}"
                           Width="34" Height="34" Stroke="{StaticResource Brush.TextDim}"
                           HorizontalAlignment="Center" Margin="0,0,0,10"/>
-                    <TextBlock Text="Drag &amp; drop .jar mods here"
+                    <TextBlock Text="Drop .jar mods"
                                Style="{StaticResource Text.Body}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="or click to open the mods folder"
+                    <TextBlock Text="or open the folder"
                                Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                 </StackPanel>
             </Border>
@@ -56,17 +56,15 @@
                        Visibility="Collapsed" Margin="0,0,0,12"/>
 
             <!-- Your mods -->
-            <TextBlock Text="YOUR MODS" Style="{StaticResource Text.Eyebrow}" Margin="2,0,0,8"/>
+            <TextBlock Text="Your mods" Style="{StaticResource Text.H2}" Margin="2,0,0,10"/>
             <StackPanel x:Name="UserModsPanel"/>
             <TextBlock x:Name="UserEmptyState"
-                       Text="No mods yet — drag a .jar above to add one."
+                       Text="No mods"
                        Style="{StaticResource Text.BodyDim}" Margin="2,2,0,0"/>
 
             <!-- Built-in (Origin-managed, read-only) -->
             <StackPanel x:Name="BuiltInSection" Visibility="Collapsed" Margin="0,20,0,0">
-                <TextBlock Text="BUILT-IN" Style="{StaticResource Text.Eyebrow}" Margin="2,0,0,8"/>
-                <TextBlock Text="Installed and kept up to date by Origin — always on."
-                           Style="{StaticResource Text.BodyDim}" Margin="2,0,0,8"/>
+                <TextBlock Text="Built-in" Style="{StaticResource Text.H2}" Margin="2,0,0,10"/>
                 <StackPanel x:Name="BuiltInPanel"/>
             </StackPanel>
 

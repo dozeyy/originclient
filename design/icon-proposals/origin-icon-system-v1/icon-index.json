@@ -1,0 +1,314 @@
+{
+  "name": "Origin Icon System \u2014 Proposal 05",
+  "status": "approved-integrated",
+  "reference": "Coolicons v4.1 \u2014 proportion and stroke discipline only; all artwork is original",
+  "grid": 24,
+  "stroke": 1.55,
+  "style": "precision rounded outline",
+  "reusedTitleSymbols": {
+    "title.mods": "launcher.mods",
+    "title.options": "launcher.settings"
+  },
+  "icons": [
+    {
+      "id": "brand.origin-mark",
+      "label": "Origin Mark",
+      "category": "IDENTITY",
+      "use": "Brand mark / in-game identity"
+    },
+    {
+      "id": "brand.app",
+      "label": "Origin App",
+      "category": "IDENTITY",
+      "use": "Windows app icon glyph"
+    },
+    {
+      "id": "launcher.home",
+      "label": "Home",
+      "category": "LAUNCHER",
+      "use": "Main navigation"
+    },
+    {
+      "id": "launcher.mods",
+      "label": "Mods",
+      "category": "LAUNCHER + TITLE",
+      "use": "Launcher nav / title Mods"
+    },
+    {
+      "id": "launcher.settings",
+      "label": "Settings / Options",
+      "category": "LAUNCHER + TITLE",
+      "use": "Launcher settings / title Options"
+    },
+    {
+      "id": "launcher.account",
+      "label": "Account",
+      "category": "LAUNCHER",
+      "use": "Account switcher"
+    },
+    {
+      "id": "launcher.download",
+      "label": "Download Update",
+      "category": "LAUNCHER",
+      "use": "Launcher update"
+    },
+    {
+      "id": "launcher.folder",
+      "label": "Open Folder",
+      "category": "LAUNCHER",
+      "use": "Mods folder / browse"
+    },
+    {
+      "id": "launcher.trash",
+      "label": "Remove",
+      "category": "LAUNCHER",
+      "use": "Remove external mod"
+    },
+    {
+      "id": "launcher.back",
+      "label": "Back",
+      "category": "LAUNCHER",
+      "use": "Version detail back"
+    },
+    {
+      "id": "launcher.minimize",
+      "label": "Minimize",
+      "category": "WINDOW",
+      "use": "Window control"
+    },
+    {
+      "id": "launcher.close",
+      "label": "Close",
+      "category": "WINDOW + CLIENT",
+      "use": "Window / overlay close"
+    },
+    {
+      "id": "launcher.loading",
+      "label": "Loading",
+      "category": "LAUNCHER",
+      "use": "Animated launch state"
+    },
+    {
+      "id": "title.singleplayer",
+      "label": "Singleplayer",
+      "category": "TITLE",
+      "use": "Minecraft title action"
+    },
+    {
+      "id": "title.multiplayer",
+      "label": "Multiplayer",
+      "category": "TITLE",
+      "use": "Minecraft title action"
+    },
+    {
+      "id": "title.realms",
+      "label": "Realms",
+      "category": "TITLE",
+      "use": "Minecraft title action"
+    },
+    {
+      "id": "title.quit",
+      "label": "Quit Game",
+      "category": "TITLE",
+      "use": "Minecraft title action"
+    },
+    {
+      "id": "title.language",
+      "label": "Language",
+      "category": "TITLE",
+      "use": "Minecraft title language action"
+    },
+    {
+      "id": "title.accessibility",
+      "label": "Accessibility",
+      "category": "TITLE",
+      "use": "Minecraft title accessibility action"
+    },
+    {
+      "id": "client.@backing",
+      "label": "Background",
+      "category": "CLIENT CHROME",
+      "use": "Menu background settings"
+    },
+    {
+      "id": "client.@general",
+      "label": "General",
+      "category": "CLIENT CHROME",
+      "use": "Client general settings"
+    },
+    {
+      "id": "client.@hudeditor",
+      "label": "HUD Editor",
+      "category": "CLIENT CHROME",
+      "use": "HUD layout editor"
+    },
+    {
+      "id": "client.@performance",
+      "label": "Performance",
+      "category": "CLIENT CHROME",
+      "use": "Client performance settings"
+    },
+    {
+      "id": "client.@search",
+      "label": "Search",
+      "category": "CLIENT CHROME",
+      "use": "Search fields"
+    },
+    {
+      "id": "client.fps",
+      "label": "FPS",
+      "category": "HUD",
+      "use": "Frames-per-second HUD"
+    },
+    {
+      "id": "client.cps",
+      "label": "Clicks Per Second",
+      "category": "HUD",
+      "use": "Mouse-click rate HUD"
+    },
+    {
+      "id": "client.keystrokes",
+      "label": "Keystrokes",
+      "category": "HUD",
+      "use": "Keyboard input HUD"
+    },
+    {
+      "id": "client.coords",
+      "label": "Coordinates",
+      "category": "HUD",
+      "use": "World-coordinate HUD"
+    },
+    {
+      "id": "client.armorhud",
+      "label": "Armor HUD",
+      "category": "HUD",
+      "use": "Armor durability HUD"
+    },
+    {
+      "id": "client.potionhud",
+      "label": "Potion HUD",
+      "category": "HUD",
+      "use": "Potion-effect HUD"
+    },
+    {
+      "id": "client.serveraddress",
+      "label": "Server Address",
+      "category": "HUD",
+      "use": "Current server HUD"
+    },
+    {
+      "id": "client.scoreboard",
+      "label": "Scoreboard",
+      "category": "HUD",
+      "use": "Scoreboard HUD"
+    },
+    {
+      "id": "client.tablist",
+      "label": "Tab List",
+      "category": "HUD",
+      "use": "Player roster"
+    },
+    {
+      "id": "client.zoom",
+      "label": "Zoom",
+      "category": "VISUAL",
+      "use": "Camera zoom"
+    },
+    {
+      "id": "client.freelook",
+      "label": "Freelook",
+      "category": "VISUAL",
+      "use": "Independent camera look"
+    },
+    {
+      "id": "client.fullbright",
+      "label": "Fullbright",
+      "category": "VISUAL",
+      "use": "Lighting override"
+    },
+    {
+      "id": "client.blockoverlay",
+      "label": "Block Overlay",
+      "category": "VISUAL",
+      "use": "Selected-block outline"
+    },
+    {
+      "id": "client.chunkborders",
+      "label": "Chunk Borders",
+      "category": "VISUAL",
+      "use": "Chunk boundary grid"
+    },
+    {
+      "id": "client.hitboxes",
+      "label": "Hitboxes",
+      "category": "VISUAL",
+      "use": "Entity hitboxes"
+    },
+    {
+      "id": "client.nametags",
+      "label": "Nametags",
+      "category": "VISUAL",
+      "use": "Player nametag styling"
+    },
+    {
+      "id": "client.itemsize",
+      "label": "Item Size",
+      "category": "VISUAL",
+      "use": "Dropped-item scale"
+    },
+    {
+      "id": "client.weather",
+      "label": "Weather",
+      "category": "VISUAL",
+      "use": "Weather override"
+    },
+    {
+      "id": "client.timechanger",
+      "label": "Time Changer",
+      "category": "VISUAL",
+      "use": "Client-side time"
+    },
+    {
+      "id": "client.motionblur",
+      "label": "Motion Blur",
+      "category": "VISUAL",
+      "use": "Motion blur effect"
+    },
+    {
+      "id": "client.colorsaturation",
+      "label": "Color Saturation",
+      "category": "VISUAL",
+      "use": "Color intensity"
+    },
+    {
+      "id": "client.particles",
+      "label": "Particles",
+      "category": "VISUAL",
+      "use": "Particle controls"
+    },
+    {
+      "id": "client.togglesprint",
+      "label": "Toggle Sprint",
+      "category": "GAMEPLAY",
+      "use": "Sprint toggle"
+    },
+    {
+      "id": "client.chat",
+      "label": "Chat",
+      "category": "GAMEPLAY",
+      "use": "Chat enhancements"
+    },
+    {
+      "id": "client.waypoints",
+      "label": "Waypoints",
+      "category": "GAMEPLAY",
+      "use": "World waypoints"
+    },
+    {
+      "id": "client.jei",
+      "label": "Item Browser",
+      "category": "GAMEPLAY",
+      "use": "JEI item/recipe browser"
+    }
+  ]
+}

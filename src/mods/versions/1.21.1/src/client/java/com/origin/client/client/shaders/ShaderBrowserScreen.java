@@ -1,6 +1,7 @@
 package com.origin.client.client.shaders;
 
 import com.origin.client.client.gui.OriginUi;
+import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.gui.GuiGraphics;
@@ -189,10 +190,10 @@ public class ShaderBrowserScreen extends Screen {
 
 		OriginUi.panel(g, px(), py(), pw(), ph(), 12, 0xF2101010, OriginTheme.STROKE_STRONG);
 		OriginUi.logo(g, px() + 18, py() + 18, 20, 1f);
-		g.drawString(font, "Download Shaders", px() + 34, py() + 13, OriginTheme.TEXT, false);
+		OriginText.drawBold(g, font, "Shaders", px() + 34, py() + 13, OriginTheme.TEXT, false);
 		String ver = SharedConstants.getCurrentVersion().getName();
-		String sub = "Auto-installs the right build for " + ver;
-		g.drawString(font, sub, px() + pw() - 12 - font.width(sub), py() + 14, OriginTheme.MUTED, false);
+		String sub = ver;
+		OriginText.draw(g, font, sub, px() + pw() - 12 - OriginText.width(font, sub), py() + 14, OriginTheme.MUTED, false);
 
 		// search field
 		OriginUi.panel(g, searchX(), searchY(), searchW(), SEARCH_H, 7, 0x1AFFFFFF, 0x55FFFFFF);
@@ -203,18 +204,18 @@ public class ShaderBrowserScreen extends Screen {
 		String shown = query;
 		if (!shown.isEmpty()) {
 			int maxW = searchW() - 16 - 10;
-			if (font.width(shown) > maxW) {
-				shown = "…" + trimLeft(shown, maxW - font.width("…"));
+			if (OriginText.width(font, shown) > maxW) {
+				shown = "…" + trimLeft(shown, maxW - OriginText.width(font, "…"));
 			}
-			g.drawString(font, shown, tx, textY, OriginTheme.TEXT, false);
+			OriginText.draw(g, font, shown, tx, textY, OriginTheme.TEXT, false);
 		}
 		float caretPulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(System.currentTimeMillis() / 350.0));
-		int caretX = tx + font.width(shown);
+		int caretX = tx + OriginText.width(font, shown);
 		int caretCol = ((int) (0xE0 * caretPulse) << 24) | 0xE0E0E0;
 		g.fill(caretX + 1, searchY() + 4, caretX + 2, searchY() + SEARCH_H - 4, caretCol);
 		// result count (right of the field)
 		String count = view.size() + (view.size() == 1 ? " pack" : " packs");
-		g.drawString(font, count, searchX() + searchW() - font.width(count) - 8, textY, OriginTheme.MUTED, false);
+		OriginText.draw(g, font, count, searchX() + searchW() - OriginText.width(font, count) - 8, textY, OriginTheme.MUTED, false);
 
 		int x0 = px() + 12, x1 = px() + pw() - 12;
 		int top = listTop(), bottom = listBottom();
@@ -222,7 +223,7 @@ public class ShaderBrowserScreen extends Screen {
 
 		if (view.isEmpty()) {
 			String msg = "No shaders match \"" + query + "\"";
-			g.drawString(font, msg, px() + (pw() - font.width(msg)) / 2, top + 24, OriginTheme.MUTED, false);
+			OriginText.draw(g, font, msg, px() + (pw() - OriginText.width(font, msg)) / 2, top + 24, OriginTheme.MUTED, false);
 			return;
 		}
 
@@ -257,8 +258,8 @@ public class ShaderBrowserScreen extends Screen {
 		int by = y + (ROW_H - 6 - 18) / 2;
 
 		int textX = ix + PREV_W + 12;
-		g.drawString(font, name, textX, y + 11, OriginTheme.TEXT, false);
-		g.drawString(font, trimRight(desc, bx - 8 - textX), textX, y + 23, OriginTheme.MUTED, false);
+		OriginText.drawBold(g, font, name, textX, y + 11, OriginTheme.TEXT, false);
+		OriginText.draw(g, font, trimRight(desc, bx - 8 - textX), textX, y + 23, OriginTheme.MUTED, false);
 
 		var st = ShaderDownloader.state(slug);
 		switch (st.status()) {
@@ -267,46 +268,45 @@ public class ShaderBrowserScreen extends Screen {
 				int fill = (int) (bw * Math.max(0.04, st.progress()));
 				OriginUi.panel(g, bx, by + 4, fill, 10, 5, 0xE6E0E0E0, 0);
 				String pct = Math.round(st.progress() * 100) + "%";
-				g.drawString(font, pct, bx + (bw - font.width(pct)) / 2, by - 6, OriginTheme.TEXT_DIM, false);
+				OriginText.draw(g, font, pct, bx + (bw - OriginText.width(font, pct)) / 2, by - 6, OriginTheme.TEXT_DIM, false);
 			}
 			case DONE -> {
 				// Installed → a click here removes the pack from shaderpacks/.
 				boolean hover = in(mx, my, bx, by, bx + bw, by + 18);
-				OriginUi.panel(g, bx, by, bw, 18, 7, hover ? 0x33D4474F : 0x1ED4474F,
-						hover ? 0x99D4474F : 0x66D4474F);
+				float hp = OriginUi.hover("shader:installed:" + slug, hover);
+				OriginUi.panel(g, bx, by, bw, 18, 7,
+						OriginTheme.lerpColor(0x1ED4474F, 0x33D4474F, hp),
+						OriginTheme.lerpColor(0x66D4474F, 0x99D4474F, hp));
 				String t = hover ? "Remove" : "✓ Installed";
-				g.drawString(font, t, bx + (bw - font.width(t)) / 2, by + 5,
-						hover ? 0xFFF08A90 : 0xFF7ACF9E, false);
+				OriginText.draw(g, font, t, bx + (bw - OriginText.width(font, t)) / 2, by + 5,
+						OriginTheme.lerpColor(0xFF7ACF9E, 0xFFF08A90, hp), false);
 			}
 			case ERROR -> {
 				OriginUi.panel(g, bx, by, bw, 18, 7, 0x1ED4474F, 0x66D4474F);
 				String t = "Unavailable";
-				g.drawString(font, t, bx + (bw - font.width(t)) / 2, by + 5, 0xFFF08A90, false);
+				OriginText.draw(g, font, t, bx + (bw - OriginText.width(font, t)) / 2, by + 5, OriginTheme.DANGER, false);
 			}
 			default -> {
 				boolean hover = in(mx, my, bx, by, bx + bw, by + 18);
-				OriginUi.panel(g, bx, by, bw, 18, 7, hover ? 0x3EFFFFFF : 0x22FFFFFF,
-						hover ? 0x66FFFFFF : OriginTheme.STROKE);
+				float hp = OriginUi.hover("shader:download:" + slug, hover);
+				OriginUi.panel(g, bx, by, bw, 18, 7,
+						OriginTheme.lerpColor(0x22FFFFFF, 0x3EFFFFFF, hp),
+						OriginTheme.lerpColor(OriginTheme.STROKE, 0x66FFFFFF, hp));
 				String t = "Download";
-				g.drawString(font, t, bx + (bw - font.width(t)) / 2, by + 5, OriginTheme.TEXT, false);
+				OriginText.draw(g, font, t, bx + (bw - OriginText.width(font, t)) / 2, by + 5, OriginTheme.TEXT, false);
 			}
 		}
 	}
 
 	/** Truncates s to fit width w, appending an ellipsis when clipped. */
 	private String trimRight(String s, int w) {
-		if (font.width(s) <= w) {
-			return s;
-		}
-		String ell = "…";
-		int budget = Math.max(0, w - font.width(ell));
-		return font.plainSubstrByWidth(s, budget) + ell;
+		return OriginText.ellipsize(font, s, w);
 	}
 
 	/** Keeps the trailing part of s that fits width w (for the search field). */
 	private String trimLeft(String s, int w) {
 		int i = 0;
-		while (i < s.length() && font.width(s.substring(i)) > w) {
+		while (i < s.length() && OriginText.width(font, s.substring(i)) > w) {
 			i++;
 		}
 		return s.substring(i);

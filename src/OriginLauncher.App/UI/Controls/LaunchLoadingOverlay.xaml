@@ -13,12 +13,17 @@
          behind it and nothing underneath should be interactive meanwhile.
          The origin mark doubles as the spinner: same brand geometry, just
          given a continuous spin instead of sitting static. -->
-    <Border Background="{StaticResource Brush.Bg}">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Border Background="{StaticResource Brush.WindowBackdrop}">
+        <StackPanel x:Name="LoadingStage" HorizontalAlignment="Center" VerticalAlignment="Center" Width="420"
+                    RenderTransformOrigin="0.5,0.5">
+            <StackPanel.RenderTransform>
+                <TranslateTransform x:Name="LoadingStageTranslate"/>
+            </StackPanel.RenderTransform>
             <controls:OriginMark x:Name="Mark" Width="72" Height="72" Margin="0,0,0,28"
                                   RenderTransformOrigin="0.5,0.5"/>
 
-            <TextBlock Text="LAUNCHING" Style="{StaticResource Text.Eyebrow}" HorizontalAlignment="Center"/>
+            <TextBlock Text="STARTING" Style="{StaticResource Text.Eyebrow}"
+                       Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
             <TextBlock x:Name="VersionText" Style="{StaticResource Text.H1}"
                        HorizontalAlignment="Center" Margin="0,4,0,2"/>
             <TextBlock x:Name="LoaderCaptionText" Style="{StaticResource Text.Label}"
@@ -28,10 +33,10 @@
                  text, not a byte percentage, so an honest "working" bar beats a
                  faked fill. A 70px accent block slides across a 240px track,
                  animated from the code-behind (see Show/Hide). -->
-            <Border x:Name="ProgressTrack" Width="240" Height="3" CornerRadius="1.5"
+            <Border x:Name="ProgressTrack" Width="280" Height="4" CornerRadius="2"
                     Background="{StaticResource Brush.SoftStroke}" HorizontalAlignment="Center"
                     ClipToBounds="True" Margin="0,0,0,14">
-                <Border x:Name="ProgressFill" Width="70" Height="3" CornerRadius="1.5"
+                <Border x:Name="ProgressFill" Width="84" Height="4" CornerRadius="2"
                         Background="{StaticResource Brush.Accent}" HorizontalAlignment="Left">
                     <Border.RenderTransform>
                         <TranslateTransform x:Name="ProgressTranslate" X="-70"/>

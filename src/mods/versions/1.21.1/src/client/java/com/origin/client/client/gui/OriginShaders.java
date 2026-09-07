@@ -32,6 +32,8 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
  */
 public final class OriginShaders {
 	public static ShaderInstance MSDF;
+	/** Higher-range monochrome SDF used by the custom icon atlas. */
+	public static ShaderInstance ICON;
 	public static ShaderInstance ROUND;
 	/** Fullscreen scene color-grade (Color Saturation), invoked by ColorGrade with
 	 *  our own GL-state discipline instead of a vanilla PostChain. */
@@ -50,12 +52,17 @@ public final class OriginShaders {
 			return;
 		}
 		registered = true;
-		OriginClient.LOGGER.info("Origin: registering scalable core shaders (MSDF text + rounded-box SDF)…");
+		OriginClient.LOGGER.info("Origin: registering scalable core shaders (MSDF text + icon/rounded SDF)…");
 		CoreShaderRegistrationCallback.EVENT.register(context -> {
 			context.register(ResourceLocation.fromNamespaceAndPath("originclient", "rendertype_origin_msdf"),
 					DefaultVertexFormat.POSITION_TEX_COLOR, shader -> {
 						MSDF = shader;
 						OriginClient.LOGGER.info("Origin: MSDF text shader compiled + loaded OK.");
+					});
+			context.register(ResourceLocation.fromNamespaceAndPath("originclient", "rendertype_origin_icon"),
+					DefaultVertexFormat.POSITION_TEX_COLOR, shader -> {
+						ICON = shader;
+						OriginClient.LOGGER.info("Origin: icon SDF shader compiled + loaded OK.");
 					});
 			context.register(ResourceLocation.fromNamespaceAndPath("originclient", "rendertype_origin_round"),
 					DefaultVertexFormat.POSITION_TEX, shader -> {

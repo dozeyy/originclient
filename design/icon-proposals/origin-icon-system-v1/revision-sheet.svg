@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="584" viewBox="0 0 1280 584">
+  <rect width="100%" height="100%" fill="#090D0C"/>
+  <path d="M0 0H1280V5H0Z" fill="#4BC8AE"/>
+  <text x="42" y="60" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="32" font-weight="700" letter-spacing="1">ICON REVISION 05</text>
+  <text x="42" y="98" fill="#A7BBB5" font-family="Segoe UI, Inter, sans-serif" font-size="17">6 refined master symbols · Ion Jade</text>
+  <text x="42" y="126" fill="#4BC8AE" font-family="Segoe UI, Inter, sans-serif" font-size="12" font-weight="700" letter-spacing="1.7">INTEGRATED SYSTEM</text>
+
+  <g>
+    <rect x="42" y="150" width="290" height="190" rx="14" fill="#121918" stroke="#263732"/>
+    <rect x="60" y="168" width="94" height="94" rx="14" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(71 179) scale(3)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="8" r="3"/>
+      <path d="M6.5 19.5c.45-4.1 2.5-6.2 5.5-6.2s5.05 2.1 5.5 6.2"/>
+    </g>
+    <text x="172" y="203" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Singleplayer</text>
+    <text x="172" y="232" fill="#6D817B" font-family="Consolas, monospace" font-size="12">title.singleplayer</text>
+    <rect x="60" y="287" width="60.0" height="29" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="73" y="307" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">TITLE</text>
+  </g>
+  <g>
+    <rect x="344" y="150" width="290" height="190" rx="14" fill="#121918" stroke="#263732"/>
+    <rect x="362" y="168" width="94" height="94" rx="14" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(373 179) scale(3)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M12 3.5a8.5 8.5 0 1 1-5.1 15.3L3.5 20l1.2-3.4A8.5 8.5 0 0 1 12 3.5Z"/>
+      <path d="M3.8 11.7h16.4M12 3.5c2.15 2.3 3.25 5.05 3.25 8.2S14.15 17.6 12 20.2M12 3.5c-2.15 2.3-3.25 5.05-3.25 8.2 0 2.15.52 4.12 1.55 5.9"/>
+    </g>
+    <text x="474" y="203" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Language</text>
+    <text x="474" y="232" fill="#6D817B" font-family="Consolas, monospace" font-size="12">title.language</text>
+    <rect x="362" y="287" width="60.0" height="29" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="375" y="307" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">TITLE</text>
+  </g>
+  <g>
+    <rect x="646" y="150" width="290" height="190" rx="14" fill="#121918" stroke="#263732"/>
+    <rect x="664" y="168" width="94" height="94" rx="14" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(675 179) scale(3)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="4.8" r="2"/>
+      <path d="M4 9.2c2.45 1.05 5.1 1.55 8 1.55s5.55-.5 8-1.55M12 10.75v3.1M7.2 20l4.8-6.15L16.8 20M8.5 10.35l-1.8 4.4M15.5 10.35l1.8 4.4"/>
+    </g>
+    <text x="776" y="203" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Accessibility</text>
+    <text x="776" y="232" fill="#6D817B" font-family="Consolas, monospace" font-size="12">title.accessibility</text>
+    <rect x="664" y="287" width="60.0" height="29" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="677" y="307" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">TITLE</text>
+  </g>
+  <g>
+    <rect x="948" y="150" width="290" height="190" rx="14" fill="#121918" stroke="#263732"/>
+    <rect x="966" y="168" width="94" height="94" rx="14" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(977 179) scale(3)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3" y="4" width="18" height="16" rx="3"/>
+      <path d="M3 8h18M7 11l3 3-3 3M13 17h4"/>
+    </g>
+    <text x="1078" y="203" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Server Address</text>
+    <text x="1078" y="232" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.serveraddress</text>
+    <rect x="966" y="287" width="45.6" height="29" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="979" y="307" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="42" y="352" width="290" height="190" rx="14" fill="#121918" stroke="#263732"/>
+    <rect x="60" y="370" width="94" height="94" rx="14" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(71 381) scale(3)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M10 16H5v5M14 8h5V3"/>
+      <path d="M4.6 9a8 8 0 0 1 14.3-1M19.4 15a8 8 0 0 1-14.3 1"/>
+    </g>
+    <text x="172" y="405" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Loading</text>
+    <text x="172" y="434" fill="#6D817B" font-family="Consolas, monospace" font-size="12">launcher.loading</text>
+    <rect x="60" y="489" width="81.6" height="29" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="73" y="509" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">LAUNCHER</text>
+  </g>
+  <g>
+    <rect x="344" y="352" width="290" height="190" rx="14" fill="#121918" stroke="#263732"/>
+    <rect x="362" y="370" width="94" height="94" rx="14" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(373 381) scale(3)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="5.7" cy="5.7" r="2"/>
+      <path d="M5.7 2.7v-1M5.7 8.7v1M2.7 5.7h-1M8.7 5.7h1M3.58 3.58l-.71-.71M7.82 7.82l.71.71M7.82 3.58l.71-.71M3.58 7.82l-.71.71"/>
+      <path d="M9 17h9a3 3 0 0 0 .2-6 4.8 4.8 0 0 0-9.1 1.4A2.4 2.4 0 0 0 9 17Z"/>
+      <path d="m8.5 19-1 2M13 19l-1 2M17.5 19l-1 2"/>
+    </g>
+    <text x="474" y="405" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Weather</text>
+    <text x="474" y="434" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.weather</text>
+    <rect x="362" y="489" width="67.2" height="29" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="375" y="509" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">VISUAL</text>
+  </g>
+</svg>

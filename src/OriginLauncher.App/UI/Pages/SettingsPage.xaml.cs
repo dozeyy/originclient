@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Launch;
@@ -11,14 +12,12 @@ namespace OriginLauncher.App.UI.Pages;
 public partial class SettingsPage : UserControl
 {
     private readonly LauncherSettings _settings;
-    private readonly VersionManager _versionManager = new();
+    private readonly DispatcherTimer _ramSaveTimer;
     private bool _isLoading = true;
+    private int? _pendingRamMb;
 
-    // The JVM section has its own guard rather than sharing _isLoading: that flag
-    // is flipped back to true asynchronously when the Mojang version list lands
-    // (LoadVersionsAsync), and an edit made during that window would be silently
-    // dropped. This section is populated from the local VersionCatalog, so it is
-    // interactive immediately and must not be gated on a network fetch.
+    // The JVM editor switches between per-version values, so it keeps a local
+    // guard while its fields are being repopulated.
     private bool _jvmLoading = true;
     private string? _jvmVersion;
 
@@ -27,74 +26,56 @@ public partial class SettingsPage : UserControl
         InitializeComponent();
         _settings = SettingsStore.Load();
 
-        RamSlider.Maximum = Math.Max(SystemInfo.GetTotalPhysicalMemoryMb(), _settings.RamMb);
-        RamSlider.Value = _settings.RamMb;
-        RamValueText.Text = $"{_settings.RamMb} MB";
+        _ramSaveTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _ramSaveTimer.Tick += (_, _) => PersistPendingRam();
+        Unloaded += (_, _) => PersistPendingRam();
+
+        var safeMaximum = Math.Max(2048, (SystemInfo.GetTotalPhysicalMemoryMb() - 2048) / 256 * 256);
+        var ramMb = Math.Clamp((int)Math.Round(_settings.RamMb / 256d) * 256, 1024, safeMaximum);
+        RamSlider.Maximum = safeMaximum;
+        RamSlider.Value = ramMb;
+        RamValueText.Text = FormatRam(ramMb);
+        if (ramMb != _settings.RamMb)
+        {
+            _settings.RamMb = ramMb;
+            SettingsStore.Update(s => s.RamMb = ramMb);
+        }
         InstallPathTextBox.Text = _settings.InstallPath;
         ResolutionWidthTextBox.Text = _settings.ResolutionWidth.ToString();
         ResolutionHeightTextBox.Text = _settings.ResolutionHeight.ToString();
 
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
-        ShaderCacheNvidiaToggle.IsChecked = _settings.ShaderCacheNvidia;
-        ShaderCacheAmdToggle.IsChecked = _settings.ShaderCacheAmd;
+        ShaderCacheToggle.IsChecked = _settings.ShaderCacheNvidia || _settings.ShaderCacheAmd;
         OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
 
         InitializeJvmSection();
 
-        _isLoading = false;
-        _ = LoadVersionsAsync();
-    }
-
-    private async Task LoadVersionsAsync()
-    {
-        try
-        {
-            var versions = await _versionManager.GetReleaseVersionsAsync();
-            _isLoading = true;
-            if (versions.Count == 0)
-            {
-                ShowVersionLoadFailure();
-                return;
-            }
-
-            VersionComboBox.ItemsSource = versions;
-            VersionComboBox.SelectedItem = _settings.SelectedVersion ?? versions.FirstOrDefault();
-            _isLoading = false;
-        }
-        catch (Exception ex)
-        {
-            // Broad on purpose: a narrower catch (e.g. HttpRequestException only)
-            // silently swallows timeouts/DNS failures too, leaving the dropdown
-            // blank with no indication why. Always show *something* instead.
-            System.Diagnostics.Debug.WriteLine($"[SettingsPage] Version load failed: {ex}");
-            ShowVersionLoadFailure();
-        }
-    }
-
-    private void ShowVersionLoadFailure()
-    {
-        VersionComboBox.ItemsSource = new[] { "No versions found — check your connection" };
-        VersionComboBox.SelectedIndex = 0;
-        VersionComboBox.IsEnabled = false;
         _isLoading = false;
     }
 
     private void RamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         var ramMb = (int)e.NewValue;
-        RamValueText.Text = $"{ramMb} MB";
+        RamValueText.Text = FormatRam(ramMb);
         if (_isLoading) return;
+        _pendingRamMb = ramMb;
+        _ramSaveTimer.Stop();
+        _ramSaveTimer.Start();
+    }
+
+    private void PersistPendingRam()
+    {
+        _ramSaveTimer.Stop();
+        if (_pendingRamMb is not { } ramMb) return;
+        _pendingRamMb = null;
         _settings.RamMb = ramMb;
         SettingsStore.Update(s => s.RamMb = ramMb);
     }
 
-    private void VersionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_isLoading) return;
-        var version = VersionComboBox.SelectedItem as string;
-        _settings.SelectedVersion = version;
-        SettingsStore.Update(s => s.SelectedVersion = version);
-    }
+    private static string FormatRam(int ramMb) => $"{ramMb / 1024d:0.##} GB";
 
     private void InstallPathTextBox_LostFocus(object sender, RoutedEventArgs e)
     {
@@ -130,32 +111,28 @@ public partial class SettingsPage : UserControl
         OriginClientConfigBridge.SetOriginUiEnabled(false);
     }
 
-    private void ShaderCacheNvidiaToggle_Checked(object sender, RoutedEventArgs e)
+    private void ShaderCacheToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
         _settings.ShaderCacheNvidia = true;
-        SettingsStore.Update(s => s.ShaderCacheNvidia = true);
+        _settings.ShaderCacheAmd = true;
+        SettingsStore.Update(s =>
+        {
+            s.ShaderCacheNvidia = true;
+            s.ShaderCacheAmd = true;
+        });
     }
 
-    private void ShaderCacheNvidiaToggle_Unchecked(object sender, RoutedEventArgs e)
+    private void ShaderCacheToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
         _settings.ShaderCacheNvidia = false;
-        SettingsStore.Update(s => s.ShaderCacheNvidia = false);
-    }
-
-    private void ShaderCacheAmdToggle_Checked(object sender, RoutedEventArgs e)
-    {
-        if (_isLoading) return;
-        _settings.ShaderCacheAmd = true;
-        SettingsStore.Update(s => s.ShaderCacheAmd = true);
-    }
-
-    private void ShaderCacheAmdToggle_Unchecked(object sender, RoutedEventArgs e)
-    {
-        if (_isLoading) return;
         _settings.ShaderCacheAmd = false;
-        SettingsStore.Update(s => s.ShaderCacheAmd = false);
+        SettingsStore.Update(s =>
+        {
+            s.ShaderCacheNvidia = false;
+            s.ShaderCacheAmd = false;
+        });
     }
 
     private void OfflineTestToggle_Checked(object sender, RoutedEventArgs e)
@@ -284,8 +261,7 @@ public partial class SettingsPage : UserControl
         if (!replace && JvmArgLine.ConflictsWithPresetCollector(tokens))
         {
             JvmArgsStatusText.Text =
-                $"\"{JvmArgLine.SelectedCollector(tokens)}\" clashes with Origin's G1 preset - the game "
-                + "won't start. Turn on \"Replace Origin's tuned defaults\" below.";
+                $"{JvmArgLine.SelectedCollector(tokens)} conflicts with Origin defaults. Turn on Replace defaults.";
             return;
         }
 
@@ -299,11 +275,11 @@ public partial class SettingsPage : UserControl
         var count = $"{tokens.Count} argument{(tokens.Count == 1 ? "" : "s")}";
         JvmArgsStatusText.Text = replace
             ? tokens.Count == 0
-                ? "No arguments — this version will launch with no JVM flags beyond memory and resolution."
-                : $"{count} — Origin's tuned defaults are off for this version."
+                ? "No custom arguments"
+                : $"{count} · defaults off"
             : tokens.Count == 0
-                ? "Using Origin's tuned defaults."
-                : $"{count} on top of Origin's tuned defaults.";
+                ? "Using Origin defaults"
+                : $"{count} · Origin defaults on";
     }
 
     private void UpdateJvmCustomizedList()
@@ -313,8 +289,8 @@ public partial class SettingsPage : UserControl
             .ToList();
 
         JvmCustomizedVersionsText.Text = customized.Count == 0
-            ? "No versions have custom arguments."
-            : $"Customized: {string.Join(", ", customized)}";
+            ? "No custom versions"
+            : $"Custom: {string.Join(", ", customized)}";
     }
 
     private void ResolutionTextBox_LostFocus(object sender, RoutedEventArgs e)

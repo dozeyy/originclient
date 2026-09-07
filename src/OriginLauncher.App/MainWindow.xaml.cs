@@ -1,5 +1,8 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Updates;
@@ -16,6 +19,15 @@ public partial class MainWindow : Window
     private readonly AccountSwitcherPanel _accountPanel = new();
     private bool _accountPanelOpen;
     private bool _signInPanelOpen;
+    private bool _syncingNavigation;
+    private LauncherPage _currentPage = LauncherPage.Home;
+
+    private enum LauncherPage
+    {
+        Home,
+        Mods,
+        Settings
+    }
 
     // Throttles the on-focus update re-check so window focus-flapping can't spam
     // GitHub's (unauthenticated, 60/hr) releases API.
@@ -28,6 +40,7 @@ public partial class MainWindow : Window
 
         _accountPanel.CloseRequested += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AccountsChanged += (_, _) => _homePage.RefreshAccountState();
+        _accountPanel.AccountSelected += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AddAccountRequested += (_, _) => OpenSignInPanel();
         AccountPanelHost.Content = _accountPanel;
 
@@ -92,8 +105,9 @@ public partial class MainWindow : Window
         var signIn = new MicrosoftSignInPanel();
         signIn.SignInSucceeded += (_, result) =>
         {
-            _accountPanel.CompleteSignIn(result);
             CloseSignInPanel();
+            if (_accountPanel.CompleteSignIn(result))
+                SetAccountPanelOpen(false);
         };
         signIn.SignInFailed += (_, message) =>
         {
@@ -136,30 +150,89 @@ public partial class MainWindow : Window
 
     private void NavHome_Checked(object sender, RoutedEventArgs e)
     {
-        NavMods.IsChecked = false;
-        NavSettings.IsChecked = false;
-        // Re-evaluate Play enablement/status on return: settings that gate it
-        // (e.g. offline test mode) may have changed on the Settings page.
-        _homePage.RefreshAccountState();
-        PageHost.Content = _homePage;
+        NavigateTo(LauncherPage.Home);
     }
 
     private void NavMods_Checked(object sender, RoutedEventArgs e)
     {
-        NavHome.IsChecked = false;
-        NavSettings.IsChecked = false;
-        // Mirror Home's live version selection so the Mods tab always shows the
-        // set that will actually launch — sourced from the dropdown, not disk
-        // (the default selection is never persisted; see HomePage.CurrentVersion).
-        _modsPage.ShowVersion(_homePage.CurrentVersion);
-        PageHost.Content = _modsPage;
+        NavigateTo(LauncherPage.Mods);
     }
 
     private void NavSettings_Checked(object sender, RoutedEventArgs e)
     {
-        NavHome.IsChecked = false;
-        NavMods.IsChecked = false;
-        PageHost.Content = _settingsPage;
+        NavigateTo(LauncherPage.Settings);
+    }
+
+    private void Nav_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_syncingNavigation) return;
+        SetNavigationSelection(_currentPage);
+    }
+
+    private void NavigateTo(LauncherPage page)
+    {
+        if (_syncingNavigation) return;
+
+        // The version picker and launch cover are modal within Home. Keep the
+        // left rail and its keyboard shortcuts from navigating behind either
+        // scene and preserving a hidden modal until the player returns.
+        if (page != _currentPage && _currentPage == LauncherPage.Home && _homePage.HasOpenScene)
+        {
+            SetNavigationSelection(_currentPage);
+            return;
+        }
+
+        SetNavigationSelection(page);
+        if (page == _currentPage && PageHost.Content != null) return;
+
+        var direction = Math.Sign((int)page - (int)_currentPage);
+        _currentPage = page;
+
+        object content = page switch
+        {
+            LauncherPage.Home => _homePage,
+            LauncherPage.Mods => _modsPage,
+            _ => _settingsPage
+        };
+
+        if (page == LauncherPage.Home)
+            _homePage.RefreshAccountState();
+        else if (page == LauncherPage.Mods)
+            _modsPage.ShowVersion(_homePage.CurrentVersion);
+
+        PageHost.Content = content;
+        AnimatePageIn(direction == 0 ? 1 : direction);
+    }
+
+    private void SetNavigationSelection(LauncherPage page)
+    {
+        _syncingNavigation = true;
+        NavHome.IsChecked = page == LauncherPage.Home;
+        NavMods.IsChecked = page == LauncherPage.Mods;
+        NavSettings.IsChecked = page == LauncherPage.Settings;
+        _syncingNavigation = false;
+    }
+
+    private void AnimatePageIn(int direction)
+    {
+        PageHost.BeginAnimation(OpacityProperty, null);
+        PageTransform.BeginAnimation(TranslateTransform.XProperty, null);
+
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            PageHost.Opacity = 1;
+            PageTransform.X = 0;
+            return;
+        }
+
+        var duration = (Duration)FindResource("Motion.Scene");
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        PageHost.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(0.72, 1, duration) { EasingFunction = ease },
+            HandoffBehavior.SnapshotAndReplace);
+        PageTransform.BeginAnimation(TranslateTransform.XProperty,
+            new DoubleAnimation(direction * 14, 0, duration) { EasingFunction = ease },
+            HandoffBehavior.SnapshotAndReplace);
     }
 
     private void AccountButton_Click(object sender, RoutedEventArgs e)
@@ -169,41 +242,124 @@ public partial class MainWindow : Window
 
     private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        SetAccountPanelOpen(false);
+        if (_signInPanelOpen) CloseSignInPanel();
+        else SetAccountPanelOpen(false);
     }
 
     private void SetAccountPanelOpen(bool open)
     {
         _accountPanelOpen = open;
-        var ease = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.25 };
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
 
-        AccountPanelTransform.BeginAnimation(
-            System.Windows.Media.TranslateTransform.XProperty,
-            new DoubleAnimation(open ? 0 : AccountPanel.Width, (Duration)FindResource("Motion.Release"))
+        if (open)
+        {
+            _accountPanel.Reload();
+            Scrim.Visibility = Visibility.Visible;
+            AccountPanel.Visibility = Visibility.Visible;
+        }
+        AccountPanel.IsHitTestVisible = open;
+
+        var panelAnimation = new DoubleAnimation(open ? 0 : AccountPanel.Width, duration)
+        {
+            EasingFunction = ease
+        };
+        panelAnimation.Completed += (_, _) =>
+        {
+            if (!_accountPanelOpen)
             {
-                EasingFunction = ease
-            });
+                AccountPanel.Visibility = Visibility.Collapsed;
+                if (!_signInPanelOpen) Scrim.Visibility = Visibility.Collapsed;
+            }
+        };
+        AccountPanelTransform.BeginAnimation(TranslateTransform.XProperty, panelAnimation,
+            HandoffBehavior.SnapshotAndReplace);
 
         Scrim.IsHitTestVisible = open;
         Scrim.BeginAnimation(
             OpacityProperty,
-            new DoubleAnimation(open ? 0.5 : 0.0, (Duration)FindResource("Motion.Release")));
+            new DoubleAnimation(open ? 0.5 : 0.0, duration),
+            HandoffBehavior.SnapshotAndReplace);
+
+        if (open)
+            Dispatcher.BeginInvoke(() => AccountPanelHost.MoveFocus(
+                new TraversalRequest(FocusNavigationDirection.First)));
     }
 
     private void SetSignInPanelOpen(bool open)
     {
         _signInPanelOpen = open;
-        var ease = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.3 };
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
+
+        if (open)
+        {
+            SignInPanel.Visibility = Visibility.Visible;
+            Scrim.Visibility = Visibility.Visible;
+        }
 
         SignInPanel.IsHitTestVisible = open;
-        SignInPanel.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation(open ? 1.0 : 0.0, (Duration)FindResource("Motion.Release")));
+        var fade = new DoubleAnimation(open ? 1.0 : 0.0, duration);
+        fade.Completed += (_, _) =>
+        {
+            if (!_signInPanelOpen)
+            {
+                SignInPanel.Visibility = Visibility.Collapsed;
+                if (!_accountPanelOpen) Scrim.Visibility = Visibility.Collapsed;
+            }
+        };
+        SignInPanel.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
         SignInPanelScale.BeginAnimation(
-            System.Windows.Media.ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(open ? 1.0 : 0.94, (Duration)FindResource("Motion.Release")) { EasingFunction = ease });
+            ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(open ? 1.0 : 0.97, duration) { EasingFunction = ease },
+            HandoffBehavior.SnapshotAndReplace);
         SignInPanelScale.BeginAnimation(
-            System.Windows.Media.ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(open ? 1.0 : 0.94, (Duration)FindResource("Motion.Release")) { EasingFunction = ease });
+            ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(open ? 1.0 : 0.97, duration) { EasingFunction = ease },
+            HandoffBehavior.SnapshotAndReplace);
+    }
+
+    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            if (_signInPanelOpen) CloseSignInPanel();
+            else if (_accountPanelOpen) SetAccountPanelOpen(false);
+            else return;
+            e.Handled = true;
+            return;
+        }
+
+        // A Home scene owns the keyboard while it is open. In particular,
+        // Ctrl+1/2/3 must not navigate behind the version picker and leave it
+        // invisibly open until the player returns to Home.
+        if (_currentPage == LauncherPage.Home && _homePage.HasOpenScene)
+            return;
+
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            var target = e.Key switch
+            {
+                Key.D1 or Key.NumPad1 => LauncherPage.Home,
+                Key.D2 or Key.NumPad2 => LauncherPage.Mods,
+                Key.D3 or Key.NumPad3 => LauncherPage.Settings,
+                _ => (LauncherPage?)null
+            };
+            if (target is { } page)
+            {
+                NavigateTo(page);
+                e.Handled = true;
+            }
+            return;
+        }
+
+        if (e.Key == Key.Enter && _currentPage == LauncherPage.Home
+            && !_accountPanelOpen && !_signInPanelOpen
+            && Keyboard.FocusedElement is not TextBoxBase
+            && Keyboard.FocusedElement is not Selector
+            && Keyboard.FocusedElement is not ButtonBase)
+        {
+            e.Handled = _homePage.TryLaunchFromKeyboard();
+        }
     }
 }

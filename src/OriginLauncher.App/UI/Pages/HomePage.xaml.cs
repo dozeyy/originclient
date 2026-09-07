@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using CmlLib.Core.Auth;
@@ -48,6 +49,21 @@ public partial class HomePage : UserControl
     // not persisted until chosen, matching the previous behavior.
     public string? CurrentVersion => _selectedVersion;
 
+    public bool HasOpenScene => VersionOverlay.IsOpen
+        || LoadingOverlay.Visibility == Visibility.Visible;
+
+    // Keyboard/default-action hook owned by MainWindow. It refuses while a
+    // picker or launch cover is open, so Enter can never click through a scene.
+    public bool TryLaunchFromKeyboard()
+    {
+        if (!PlayButton.IsEnabled || VersionOverlay.IsOpen
+            || LoadingOverlay.Visibility == Visibility.Visible)
+            return false;
+
+        _ = LaunchAsync();
+        return true;
+    }
+
     // Called by MainWindow whenever the account switcher panel adds or
     // selects an account, so Home reflects it without needing to navigate away and back.
     public void RefreshAccountState()
@@ -62,7 +78,7 @@ public partial class HomePage : UserControl
     {
         if (UpdateService.UpdateRequired && !_isLaunching)
         {
-            StatusText.Text = "Update available — the launcher must update before playing.";
+            SetStatus("Update required", StatusTone.Warning);
         }
     }
 
@@ -85,11 +101,12 @@ public partial class HomePage : UserControl
 
         if (!_isLaunching)
         {
-            StatusText.Text = hasAccount
-                ? $"Signed in as {_selectedAccount!.Gamertag}"
-                : offlineTest
-                    ? "Offline test mode — launching without an account"
-                    : "No account signed in";
+            if (hasAccount)
+                SetStatus(_selectedAccount!.Gamertag, StatusTone.Success);
+            else if (offlineTest)
+                SetStatus("Offline", StatusTone.Warning);
+            else
+                SetStatus("Sign in to play", StatusTone.Neutral);
         }
     }
 
@@ -144,6 +161,12 @@ public partial class HomePage : UserControl
         SaveExternalMods(false);
     }
 
+    private void ExternalModsLabel_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        ExternalModsToggle.IsChecked = ExternalModsToggle.IsChecked != true;
+        e.Handled = true;
+    }
+
     private void SaveExternalMods(bool value)
     {
         _settings.PlayWithExternalMods = value;
@@ -185,7 +208,7 @@ public partial class HomePage : UserControl
         // enforced, just not with a network wait in front of it.
         if (UpdateService.UpdateRequired)
         {
-            StatusText.Text = "Update required — click the update dot in the top-right corner.";
+            SetStatus("Update required", StatusTone.Warning);
             return;
         }
 
@@ -213,11 +236,11 @@ public partial class HomePage : UserControl
             MSession session;
             if (_selectedAccount != null)
             {
-                LoadingOverlay.ReportStage("Signing in...");
+                LoadingOverlay.ReportStage("Signing in");
                 var refreshToken = AccountStore.TryUnprotectRefreshToken(_selectedAccount.ProtectedRefreshToken);
                 if (refreshToken == null)
                 {
-                    StatusText.Text = "Session expired — remove and re-add this account in the account switcher.";
+                    SetStatus("Session expired", StatusTone.Error);
                     return;
                 }
 
@@ -225,14 +248,16 @@ public partial class HomePage : UserControl
 
                 // Microsoft rotates refresh tokens on use — persist the new one
                 // immediately, and bump last-used, so the account list stays accurate.
-                var accounts = AccountStore.Load();
-                var stored = accounts.FirstOrDefault(a => a.Id == _selectedAccount.Id);
-                if (stored != null)
+                AccountStore.Update(accounts =>
                 {
-                    stored.ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken);
-                    stored.LastUsedUtc = DateTimeOffset.UtcNow;
-                    AccountStore.Save(accounts);
-                }
+                    var stored = accounts.FirstOrDefault(a => a.Id == _selectedAccount.Id);
+                    if (stored != null)
+                    {
+                        stored.ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken);
+                        stored.LastUsedUtc = DateTimeOffset.UtcNow;
+                    }
+                    return accounts;
+                });
                 session = result.Session;
             }
             else
@@ -241,7 +266,7 @@ public partial class HomePage : UserControl
                 // app-registration approval is pending, so real sign-in is
                 // unavailable — a local session lets every other part of the
                 // pipeline (provisioning, loaders, the in-game UI) be tested.
-                LoadingOverlay.ReportStage("Starting offline test session...");
+                LoadingOverlay.ReportStage("Offline session");
                 session = MSession.CreateOfflineSession("OriginTester");
             }
 
@@ -283,17 +308,17 @@ public partial class HomePage : UserControl
             // landed after provisioning finished must not still launch.
             cts.Token.ThrowIfCancellationRequested();
 
-            LoadingOverlay.ReportStage("Launching Minecraft...");
+            LoadingOverlay.ReportStage("Launching");
             var logPath = StartWithLifecycleCapture(process, version);
 
             // The process is up but the game window isn't — the Play button
             // keeps spinning (via WatchBootAsync) until Minecraft's window
             // actually appears, or the boot dies early, which restores the
             // button and surfaces the crash.
-            StatusText.Text = $"Starting Minecraft {version}...";
+            SetStatus($"Starting {version}", StatusTone.Neutral);
             var runningMessage = _selectedAccount != null
-                ? $"Launched {version} — signed in as {session.Username}"
-                : $"Launched {version} — offline test session";
+                ? $"Running · {session.Username}"
+                : "Running · Offline";
             bootWatchStarted = true;
             _ = WatchBootAsync(process, version, logPath, runningMessage);
         }
@@ -301,20 +326,20 @@ public partial class HomePage : UserControl
         {
             // Player hit Cancel on the overlay (or a newer launch superseded
             // this one) — not an error, just back to the Home state.
-            StatusText.Text = "Launch cancelled";
+            SetStatus("Cancelled", StatusTone.Neutral);
         }
         catch (MicrosoftAuthException ex)
         {
             var upToDateMessage = ex.Stage == "token_refresh"
                 ? "Your session expired — remove and re-add this account in the account switcher."
                 : ex.Message;
-            StatusText.Text = await LaunchFailureTextAsync(ex, upToDateMessage);
+            SetStatus(await LaunchFailureTextAsync(ex, upToDateMessage), StatusTone.Error);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed (auth): {ex}");
             WriteLaunchErrorLog(ex);
         }
         catch (Exception ex)
         {
-            StatusText.Text = await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}");
+            SetStatus(await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}"), StatusTone.Error);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed: {ex}");
             WriteLaunchErrorLog(ex);
         }
@@ -372,12 +397,12 @@ public partial class HomePage : UserControl
                     try { exitCode = process.ExitCode; } catch { exitCode = -1; }
                     if (exitCode == 0)
                     {
-                        StatusText.Text = "Minecraft closed — click Play to launch again.";
+                        SetStatus("Ready", StatusTone.Neutral);
                         return;
                     }
-                    StatusText.Text = logPath != null
+                    SetStatus(logPath != null
                         ? $"Minecraft crashed while starting (exit code {exitCode}) — log saved to {logPath}"
-                        : $"Minecraft crashed while starting (exit code {exitCode}).";
+                        : $"Minecraft crashed while starting (exit code {exitCode}).", StatusTone.Error);
                     // A boot crash is the one case where a bad file on disk is a
                     // live suspect, so drop the "already verified" stamp and make
                     // the next launch re-hash the whole install. This is the
@@ -396,7 +421,7 @@ public partial class HomePage : UserControl
                     process.Refresh();
                     if (process.MainWindowHandle != IntPtr.Zero)
                     {
-                        StatusText.Text = runningMessage;
+                        SetStatus(runningMessage, StatusTone.Success);
                         return;
                     }
                 }
@@ -407,7 +432,7 @@ public partial class HomePage : UserControl
             // Timed out without seeing a window — assume the game is running
             // (headless/odd window setups) rather than reporting a failure
             // that didn't happen.
-            StatusText.Text = runningMessage;
+            SetStatus(runningMessage, StatusTone.Success);
         }
         finally
         {
@@ -572,9 +597,9 @@ public partial class HomePage : UserControl
                     // A newer launch may already be in flight (Play clicked again
                     // while this instance was running); don't clobber its status.
                     if (_isLaunching) return;
-                    StatusText.Text = exitCode == 0
-                        ? "Minecraft closed — click Play to launch again."
-                        : $"Minecraft exited with code {exitCode} — log saved to {logPath}";
+                    SetStatus(
+                        exitCode == 0 ? "Ready" : $"Minecraft exited with code {exitCode}",
+                        exitCode == 0 ? StatusTone.Neutral : StatusTone.Error);
                 });
             }
             catch { /* the game's exit must never crash the launcher */ }
@@ -602,6 +627,27 @@ public partial class HomePage : UserControl
     // AnimationClock per run, stopped and dropped on restore so nothing keeps
     // ticking behind a static button.
     private AnimationClock? _playSpinClock;
+
+    private enum StatusTone
+    {
+        Neutral,
+        Success,
+        Warning,
+        Error
+    }
+
+    private void SetStatus(string text, StatusTone tone)
+    {
+        StatusText.Text = text;
+        var brushKey = tone switch
+        {
+            StatusTone.Success => "Brush.Success",
+            StatusTone.Warning => "Brush.Warning",
+            StatusTone.Error => "Brush.Danger",
+            _ => "Brush.Accent"
+        };
+        StatusDot.Fill = (Brush)FindResource(brushKey);
+    }
 
     private void SetPlayLaunching(bool launching)
     {

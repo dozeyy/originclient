@@ -44,7 +44,7 @@ public partial class ModsPage : UserControl
 
         if (_version == null)
         {
-            UserEmptyState.Text = "Select a version on Home to manage its mods.";
+            UserEmptyState.Text = "Choose a version first";
             UserEmptyState.Visibility = Visibility.Visible;
             BuiltInSection.Visibility = Visibility.Collapsed;
             return;
@@ -58,7 +58,7 @@ public partial class ModsPage : UserControl
             UserModsPanel.Children.Add(
                 mod.FileName == _pendingRemove ? BuildConfirmRow(mod) : BuildUserRow(mod));
 
-        UserEmptyState.Text = "No mods yet — drag a .jar above to add one.";
+        UserEmptyState.Text = "No mods";
         UserEmptyState.Visibility = user.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         foreach (var mod in managed)

@@ -20,6 +20,7 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -30,7 +31,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.ArrayList;
 import java.util.List;
 
-// The Origin main menu (2026-09 redesign v5, Lunar-style "hero-left"):
+// The Origin main menu (2026-09 redesign v6, compact centred client layout):
 //
 //   ┌──────────────────────────────────────────────────┐
 //   │ [head] Player                                    │
@@ -43,7 +44,7 @@ import java.util.List;
 //   │  [ Mods         ]  ← Origin's own                │
 //   │  [ Options…     ]                                │
 //   │  [ Quit Game    ]                                │
-//   │                                   (lang)(access) │
+//   │                    (options)(lang)(access)(quit) │
 //   └──────────────────────────────────────────────────┘
 //
 // GEOMETRY LIVES IN ONE PLACE: TitleLayout. The wordmark (drawn by
@@ -119,7 +120,7 @@ public class TitleScreenMixin {
 	}
 
 	/** Re-applies Origin's positions to the nav + icon widgets EVERY FRAME, with
-	 *  the entrance slide on X. Every frame because Mod Menu's screen event fires
+	 *  the entrance rise on Y. Every frame because Mod Menu's screen event fires
 	 *  after our init and "bumps" every button below Realms down by 24 to make
 	 *  room for its own (hidden) button — which left a phantom gap in the list
 	 *  until this. A handful of setX/setY calls a frame is nothing. */
@@ -130,8 +131,8 @@ public class TitleScreenMixin {
 			int[] t = originclient$navPos.get(i);
 			double e = el > 1200 ? 1.0 : originclient$ease((el - 120 - i * 55) / 380.0);
 			AbstractWidget w = originclient$nav.get(i);
-			w.setX(t[0] - (int) Math.round((1.0 - e) * 26));
-			w.setY(t[1]);
+			w.setX(t[0]);
+			w.setY(t[1] + (int) Math.round((1.0 - e) * 8));
 		}
 		for (int i = 0; i < originclient$icons.size(); i++) {
 			int[] t = originclient$iconPos.get(i);
@@ -206,15 +207,14 @@ public class TitleScreenMixin {
 		} catch (Throwable ignored) {
 			originclient$modsNav = null;
 		}
-		originclient$layoutHeroLeft(self);
+		originclient$layoutCentered(self);
 		OriginForeignWidgets.avoidOverlap(self);
 	}
 
-	/** Left nav list under the mark (one even pitch); language/accessibility
-	 *  icons bottom-right. Publishes the nav count to TitleLayout FIRST so the
-	 *  wordmark is sized for the same block this method places the buttons in. */
+	/** Mark + two full actions + one paired row. Options, the two vanilla utility
+	 *  actions and Quit share one small bottom-centre dock. */
 	@Unique
-	private void originclient$layoutHeroLeft(Screen self) {
+	private void originclient$layoutCentered(Screen self) {
 		try {
 			originclient$nav.clear();
 			originclient$navPos.clear();
@@ -241,34 +241,69 @@ public class TitleScreenMixin {
 			if (originclient$modsNav != null) {
 				main.add(Math.min(3, main.size()), originclient$modsNav);   // after Realms, before Options
 			}
-			TitleLayout.navCount = main.size();
+			if (main.size() > 2) {
+				main.get(2).setMessage(Component.literal("Realms"));
+			}
 			TitleLayout L = TitleLayout.of(self.width, self.height);
-			int x = L.left, bw = L.navW;
-			int y = L.navTop;
-			for (int i = 0; i < main.size(); i++) {
+			String[] titleIcons = {
+					"@title-singleplayer", "@title-multiplayer", "@title-realms", "@title-mods"
+			};
+			int visibleMain = Math.min(4, main.size());
+			int half = (L.mainW - L.pairGap) / 2;
+			for (int i = 0; i < visibleMain; i++) {
 				AbstractWidget w = main.get(i);
+				int x = L.mainX;
+				int y = L.mainTop + i * L.rowStep;
+				int width = L.mainW;
+				if (i >= 2) {
+					y = L.mainTop + 2 * L.rowStep;
+					width = half;
+					if (i == 3) x += half + L.pairGap;
+				}
 				w.setX(x);
 				w.setY(y);
-				w.setWidth(bw);
+				w.setWidth(width);
+				w.setHeight(L.buttonH);
 				originclient$nav.add(w);
 				originclient$navPos.add(new int[]{x, y});
-				y += L.navStep;
-				if (i == 0) {
-					OriginButtonRenderer.markPrimary(w);   // Singleplayer = the main action
+				OriginButtonRenderer.setTitlePresentation(w, titleIcons[i], false);
+			}
+
+			List<AbstractWidget> dock = new ArrayList<>();
+			if (main.size() > 4) dock.add(main.get(4));       // Options
+			dock.addAll(icons);                               // Language + Accessibility
+			if (main.size() > 5) dock.add(main.get(5));       // Quit
+			for (int i = 6; i < main.size(); i++) dock.add(main.get(i));
+			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
+			int dx = (self.width - totalW) / 2;
+			for (AbstractWidget w : dock) {
+				w.setX(dx);
+				w.setY(L.dockY);
+				w.setWidth(L.dockSize);
+				w.setHeight(L.dockSize);
+				originclient$icons.add(w);
+				originclient$iconPos.add(new int[]{dx, L.dockY});
+				dx += L.dockSize + L.dockGap;
+			}
+			for (AbstractWidget iconButton : icons) {
+				if (!(iconButton instanceof net.minecraft.client.gui.components.SpriteIconButton)) {
+					continue;
+				}
+				ResourceLocation sprite = ((SpriteIconButtonAccessor) iconButton).originclient$sprite();
+				String path = sprite.getPath();
+				if (path.endsWith("icon/language") || path.endsWith("/language")) {
+					OriginButtonRenderer.setTitlePresentation(iconButton, "@title-language", true);
+				} else if (path.endsWith("icon/accessibility") || path.endsWith("/accessibility")) {
+					OriginButtonRenderer.setTitlePresentation(iconButton, "@title-accessibility", true);
 				}
 			}
-			// Language / accessibility icons: bottom-right corner, right-aligned.
-			int totalW = 0;
-			for (AbstractWidget w : icons) {
-				totalW += w.getWidth() + 6;
+			if (main.size() > 4) {
+				AbstractWidget options = main.get(4);
+				OriginButtonRenderer.setTitlePresentation(options, "@title-options", true);
 			}
-			int ix = self.width - L.left - Math.max(0, totalW - 6);
-			for (AbstractWidget w : icons) {
-				w.setX(ix);
-				w.setY(L.iconRowY);
-				originclient$icons.add(w);
-				originclient$iconPos.add(new int[]{ix, L.iconRowY});
-				ix += w.getWidth() + 6;
+			if (main.size() > 5) {
+				AbstractWidget quit = main.get(5);
+				OriginButtonRenderer.setTitlePresentation(quit, "@title-quit", true);
 			}
 		} catch (Throwable ignored) {
 		}

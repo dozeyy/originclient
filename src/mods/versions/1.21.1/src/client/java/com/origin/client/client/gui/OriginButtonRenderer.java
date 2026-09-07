@@ -16,7 +16,7 @@ import java.util.WeakHashMap;
 
 import com.origin.client.client.theme.OriginTheme;
 
-// Slate widget skin (2026-09 redesign): every vanilla button, slider, checkbox
+// Ion Jade widget skin (2026-09 redesign): every vanilla button, slider, checkbox
 // and header tab is redrawn as Origin's premium GLASS control — a rounded,
 // cool-tinted translucent surface with a hairline frame and an Inter (SDF)
 // centred label. It reads as the exact same material as the mod-menu cards and
@@ -44,6 +44,9 @@ public final class OriginButtonRenderer {
 	private static final int BORDER_DISABLED = 0x99080810;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	private static final int LABEL_DISABLED = 0xFF7A8098;
+	private static final int TITLE_FILL = 0xFF101615;
+	private static final int TITLE_FILL_HOVER = 0xFF17342F;
+	private static final int TITLE_FILL_PRESSED = 0xFF1E5549;
 	// Slider handles / checkbox ticks read as the accent — the one place a
 	// control's "value" carries the brand hue; brightens toward full accent on hover.
 	private static final int HANDLE = OriginTheme.ACCENT_BORDER;
@@ -51,7 +54,8 @@ public final class OriginButtonRenderer {
 	// Corner radius for every widget — soft premium glass (matches RADIUS_SM cards).
 	private static final int RADIUS = OriginTheme.RADIUS_SM;
 	// Short + eased = a snappy, tactile hover.
-	private static final double HOVER_MS = 90.0;
+	private static final double HOVER_IN_MS = 48.0;
+	private static final double HOVER_OUT_MS = 64.0;
 
 	// Fail-soft master switch: latches on the first draw failure and never
 	// resets for the session, so a broken GUI API can't spam-crash.
@@ -94,10 +98,22 @@ public final class OriginButtonRenderer {
 	// firming to full accent on hover. Registered by the screen that owns the
 	// widget; weak so a rebuilt screen's widgets are collected normally.
 	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
+	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
+
+	private record TitlePresentation(String icon, boolean iconOnly) {
+	}
 
 	public static void markPrimary(Object widget) {
 		if (widget != null) {
 			PRIMARY.put(widget, Boolean.TRUE);
+		}
+	}
+
+	/** Gives a title-screen action its approved Origin symbol. Icon-only is used
+	 * for the bottom utility dock; labelled actions keep a compact centred pair. */
+	public static void setTitlePresentation(Object widget, String icon, boolean iconOnly) {
+		if (widget != null && icon != null) {
+			TITLE.put(widget, new TitlePresentation(icon, iconOnly));
 		}
 	}
 
@@ -136,9 +152,15 @@ public final class OriginButtonRenderer {
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 			boolean enabled = button.active;
 			double hv = hoverEase(button, enabled && button.isHovered());
-			box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
-			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, button.getMessage(),
-					enabled ? LABEL_COLOR : LABEL_DISABLED);
+			TitlePresentation title = TITLE.get(button);
+			if (title != null) {
+				titleBox(g, button, enabled, hv);
+				drawTitlePresentation(g, button, title, enabled, hv);
+			} else {
+				box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
+				drawLabelCentered(g, x + w / 2.0, y + h / 2.0, button.getMessage(),
+						enabled ? LABEL_COLOR : LABEL_DISABLED);
+			}
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -167,7 +189,7 @@ public final class OriginButtonRenderer {
 			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 			if (selected) {
 				// Accent underline: the accent's own value ramp across the tab,
-				// one blue with a soft highlight. Drawn as a few segments so the
+				// one jade tone with a soft highlight. Drawn as a few segments so the
 				// hue drifts along its width without a shader.
 				int uw = Math.max(16, Math.min(w - 8, (int) Math.round(w * 0.55)));
 				int ux = x + (w - uw) / 2;
@@ -217,6 +239,12 @@ public final class OriginButtonRenderer {
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 			boolean enabled = button.active;
 			double hv = hoverEase(button, enabled && button.isHovered());
+			TitlePresentation title = TITLE.get(button);
+			if (title != null) {
+				titleBox(g, button, enabled, hv);
+				drawTitlePresentation(g, button, title, enabled, hv);
+				return true;
+			}
 			box(g, x, y, w, h, enabled, hv);
 
 			// Per-subclass text: CenteredIcon.renderString is empty (icon only);
@@ -353,6 +381,17 @@ public final class OriginButtonRenderer {
 		}
 	}
 
+	/** Title controls are one opaque material at rest. Color appears only as
+	 * direct hover/press feedback; there are no stacked washes or idle outlines. */
+	private static void titleBox(GuiGraphics g, AbstractButton button, boolean enabled, double hover) {
+		boolean pressed = enabled && button.isHovered()
+				&& Minecraft.getInstance().mouseHandler.isLeftPressed();
+		int fill = enabled ? OriginTheme.lerpColor(TITLE_FILL, TITLE_FILL_HOVER, hover) : FILL_DISABLED;
+		if (pressed) fill = TITLE_FILL_PRESSED;
+		OriginUi.panel(g, button.getX(), button.getY(), button.getWidth(), button.getHeight(),
+				RADIUS, fill, 0);
+	}
+
 	/** Centered label in Origin's Inter (SDF) font — semibold, with a soft drop
 	 *  shadow — routed through OriginText so it matches every other menu label and
 	 *  the whole client reads in one typeface (no vanilla pixel glyphs on widgets).
@@ -364,17 +403,54 @@ public final class OriginButtonRenderer {
 		OriginText.drawBold(g, font, s, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
 	}
 
+	private static void drawTitlePresentation(GuiGraphics g, AbstractButton button, TitlePresentation title,
+										 boolean enabled, double hover) {
+		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+		int color = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hover) : LABEL_DISABLED;
+		// Twelve logical pixels gives the SDF enough screen area to retain its
+		// hairline character while keeping every dock glyph centred on the same box.
+		int iconSize = Math.max(10, Math.min(12, h - 5));
+		if (title.iconOnly()) {
+			ModIcons.draw(g, title.icon(), x + (w - iconSize) / 2, y + (h - iconSize) / 2, iconSize, color);
+			return;
+		}
+		Font font = Minecraft.getInstance().font;
+		String label = button.getMessage().getString();
+		float textScale = 0.82f;
+		int textW = Math.round(OriginText.widthBold(font, label) * textScale);
+		int gap = 4;
+		int groupW = iconSize + gap + textW;
+		int iconX = x + (w - groupW) / 2;
+		int iconY = y + (h - iconSize) / 2;
+		ModIcons.draw(g, title.icon(), iconX, iconY, iconSize, color);
+		int textX = iconX + iconSize + gap;
+		int textY = y + (h - Math.round(8 * textScale)) / 2;
+		g.pose().pushPose();
+		g.pose().translate(textX, textY, 0);
+		g.pose().scale(textScale, textScale, 1f);
+		OriginText.drawBold(g, font, label, 0, 0, color, true);
+		g.pose().popPose();
+	}
+
 	/** Shared eased hover progress (0..1) for any widget, on wall-clock time. */
 	private static double hoverEase(Object widget, boolean hovered) {
-		State st = STATE.computeIfAbsent(widget, k -> new State());
 		long now = System.nanoTime();
-		double dtMs = st.lastNanos == 0 ? 0 : (now - st.lastNanos) / 1_000_000.0;
+		State st = STATE.get(widget);
+		if (st == null) {
+			st = new State();
+			st.hover = hovered ? 1.0 : 0.0;
+			st.lastNanos = now;
+			STATE.put(widget, st);
+			return OriginTheme.easeOut(st.hover);
+		}
+		double dtMs = Math.min(50.0, (now - st.lastNanos) / 1_000_000.0);
 		st.lastNanos = now;
 		double target = hovered ? 1.0 : 0.0;
+		double duration = hovered ? HOVER_IN_MS : HOVER_OUT_MS;
 		if (st.hover < target) {
-			st.hover = Math.min(target, st.hover + dtMs / HOVER_MS);
+			st.hover = Math.min(target, st.hover + dtMs / duration);
 		} else if (st.hover > target) {
-			st.hover = Math.max(target, st.hover - dtMs / HOVER_MS);
+			st.hover = Math.max(target, st.hover - dtMs / duration);
 		}
 		return OriginTheme.easeOut(st.hover);
 	}

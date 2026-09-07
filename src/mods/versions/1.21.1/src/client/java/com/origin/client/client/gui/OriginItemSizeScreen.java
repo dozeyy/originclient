@@ -279,8 +279,10 @@ public class OriginItemSizeScreen extends Screen {
 		// header: back + title
 		int hy = py() + 16;
 		boolean backHover = in(mouseX, mouseY, px() + 14, hy, px() + 38, hy + 20);
-		OriginUi.panel(g, px() + 14, hy, 24, 20, 6, backHover ? 0x2EFFFFFF : 0x16FFFFFF,
-				backHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE);
+		float backHp = OriginUi.hover("item-size:back", backHover);
+		OriginUi.panel(g, px() + 14, hy, 24, 20, 6,
+				OriginTheme.lerpColor(0x16FFFFFF, 0x2EFFFFFF, backHp),
+				OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_HOVER, backHp));
 		OriginUi.iconChevron(g, px() + 21, hy + 5, 10, OriginTheme.TEXT, true);
 		OriginText.drawBold(g, font, "Item Size", px() + 46, hy + 2, OriginTheme.TEXT, false);
 		OriginText.draw(g, font, "Set dropped-item render sizes per item.", px() + 46, hy + 13, OriginTheme.MUTED, false);
@@ -305,11 +307,13 @@ public class OriginItemSizeScreen extends Screen {
 			int tw = OriginText.widthBold(font, c.label) + 16;
 			boolean active = cat == c;
 			boolean hover = in(mouseX, mouseY, tx, ty, tx + tw, ty + 16);
+			float hp = OriginUi.hover("item-size:tab:" + c.name(), hover);
 			OriginUi.panel(g, tx, ty, tw, 16, 6,
-					active ? OriginTheme.BOX_FILL_HOVER : (hover ? OriginTheme.BOX_FILL : 0x00000000),
+					active ? OriginTheme.BOX_FILL_HOVER
+							: OriginTheme.lerpColor(0x00000000, OriginTheme.BOX_FILL, hp),
 					active ? OriginTheme.STROKE_STRONG : 0);
 			OriginText.drawBold(g, font, c.label, tx + 8, ty + 4,
-					active ? OriginTheme.TEXT : (hover ? OriginTheme.TEXT_DIM : OriginTheme.MUTED), false);
+					active ? OriginTheme.TEXT : OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT_DIM, hp), false);
 			tx += tw + 4;
 		}
 
@@ -336,8 +340,10 @@ public class OriginItemSizeScreen extends Screen {
 			boolean cellHover = in(mouseX, mouseY, x, y, x + CELL - 2, y + CELL - 2) && mouseY >= top && mouseY < bottom;
 			boolean isSel = e.id.equals(selected);
 			boolean custom = ItemSizes.isCustom(e.id);
+			float cellHp = OriginUi.hover("item-size:cell:" + e.id, cellHover);
 			OriginUi.panel(g, x, y, CELL - 2, CELL - 2, 6,
-					isSel ? 0x553DBE7A : (cellHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL),
+					isSel ? OriginTheme.withAlpha(OriginTheme.SUCCESS, 0x55)
+							: OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, cellHp),
 					isSel ? 0xB37ACF9E : (custom ? 0x807ACF9E : OriginTheme.BOX_BORDER));
 			drawItemIcon(g, e.stack, x + 4, y + 4, 16);
 		}
@@ -374,8 +380,10 @@ public class OriginItemSizeScreen extends Screen {
 		// Reset button (right)
 		int rW = 46, rX = bx1 - 8 - rW;
 		boolean rHover = in(mx, my, rX, by + 6, rX + rW, by + 24);
-		OriginUi.panel(g, rX, by + 6, rW, 18, 6, rHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL,
-				rHover ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER);
+		float resetHp = OriginUi.hover("item-size:reset", rHover);
+		OriginUi.panel(g, rX, by + 6, rW, 18, 6,
+				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, resetHp),
+				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, resetHp));
 		OriginText.draw(g, font, "Reset", rX + (rW - OriginText.width(font, "Reset")) / 2, by + 11, OriginTheme.TEXT_DIM, false);
 
 		// value label

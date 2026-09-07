@@ -17,6 +17,9 @@ import net.minecraft.resources.ResourceLocation;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
@@ -54,8 +57,6 @@ public final class OriginScreenRenderer {
 	// Tuned against the approved preview -- enough to mute the world and let
 	// vanilla's white button labels stay legible, while keeping the colour that
 	// made Will pick this variant over the fully-graded one.
-	private static final int GRADE = 0x8C08080A;
-
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
 	// version), rendering flips to vanilla permanently for this session
@@ -357,19 +358,17 @@ public final class OriginScreenRenderer {
 	 * and in the right direction; revisit only if Will wants the world greyer.
 	 */
 	private static void drawGrade(GuiGraphics guiGraphics, int w, int h) {
-		// SLATE grade (2026-09, Will: "exactly like the slate mockup"): the blurred
-		// world is only a hint under a near-solid cool slate. Three vertical bands
-		// (the mockup's #0F131C → #121A28 → #0A0E15 at ~86%), then one soft accent
-		// highlight top-right, then the vignette so the edges fall away.
+		// Ion Jade grade: the world stays a quiet hint below cool mineral bands,
+		// followed by one restrained jade highlight and the edge vignette.
 		int a = 0xDC << 24;
 		int y1 = h * 40 / 100, y2 = h * 62 / 100;
-		guiGraphics.fillGradient(0, 0, w, y1, a | 0x0F131C, a | 0x121A28);
-		guiGraphics.fillGradient(0, y1, w, y2, a | 0x121A28, a | 0x0D131C);
-		guiGraphics.fillGradient(0, y2, w, h, a | 0x0D131C, a | 0x0A0E15);
+		guiGraphics.fillGradient(0, 0, w, y1, a | 0x0B1110, a | 0x0D1715);
+		guiGraphics.fillGradient(0, y1, w, y2, a | 0x0D1715, a | 0x091210);
+		guiGraphics.fillGradient(0, y2, w, h, a | 0x091210, a | 0x070B0B);
 		if (radialGlowId != null) {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
-			RenderSystem.setShaderColor(0x4F / 255f, 0x8D / 255f, 1f, 0.10f);
+			RenderSystem.setShaderColor(0x4B / 255f, 0xC8 / 255f, 0xAE / 255f, 0.09f);
 			int d = (int) Math.round(w * 1.1);
 			guiGraphics.blit(radialGlowId, (int) Math.round(w * 0.70 - d / 2.0), (int) Math.round(h * 0.15 - d / 2.0),
 					d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
@@ -407,15 +406,13 @@ public final class OriginScreenRenderer {
 				d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
 	}
 
-	/**
-	 * Main menu: draw the "ORIGIN" wordmark centered between the top of the
-	 * screen and the Singleplayer button. Returns true only if it drew;
-	 * the title logo redirect falls back to vanilla's logo on false.
-	 */
+	/** Main menu: the approved Origin atom above the compact action stack. */
 	// When the title screen was (re)opened — drives the letter-by-letter entrance
 	// reveal of the wordmark (same band animation the loading screen uses). Set
 	// by TitleScreenMixin; 0 = no animation (draw the settled mark).
 	private static volatile long titleOpenedAt = 0;
+	private static UUID titleSkinProfileId;
+	private static Supplier<net.minecraft.client.resources.PlayerSkin> titleSkinSupplier;
 
 	public static void setTitleOpenedAt(long millis) {
 		titleOpenedAt = millis;
@@ -430,30 +427,12 @@ public final class OriginScreenRenderer {
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
-
-			// HERO-LEFT: the wordmark's size and place come from TitleLayout — the
-			// SAME block the mixin places the nav list and cards in — so the mark can
-			// never land on the buttons however short or wide the window is.
-			if (wmInkH > 0 && wmInkW > 0) {
-				TitleLayout.inkAspect = wmInkW / (double) wmInkH;
-			}
 			TitleLayout L = TitleLayout.of(w, h);
-			double inkH = L.inkH;
-			double cx = L.markCenterX;
-			double centerY = L.markCenterY;
-			// Breathing glow: a faint, slightly-larger extra pass whose alpha
-			// swells on a slow sine, so the bloom pulses under the crisp mark.
-			// Entrance: letters rise + fade in left-to-right for the first ~0.9s,
-			// then the settled mark with its breathing glow takes over.
 			long el = titleOpenedAt > 0 ? System.currentTimeMillis() - titleOpenedAt : Long.MAX_VALUE;
-			if (el < 900) {
-				drawWordmarkReveal(guiGraphics, cx, centerY, inkH, el);
-				return true;
-			}
-			// No scaled "breathing" echo pass any more: at 1.06x it read as a grey
-			// misregistered copy behind the crisp mark (seen in the size matrix). The
-			// texture's own baked bloom is the glow.
-			drawWordmark(guiGraphics, cx, centerY, inkH);
+			double t = el == Long.MAX_VALUE ? 1.0
+					: OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, (el - 40.0) / 420.0)));
+			int size = Math.max(1, (int) Math.round(L.markSize * (0.88 + 0.12 * t)));
+			OriginUi.logo(guiGraphics, L.markCenterX, L.markCenterY, size, (float) t);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -525,7 +504,6 @@ public final class OriginScreenRenderer {
 			int head = 18;
 			int padX = 8, padY = 6, gap = 8;
 			int chipH = head + padY * 2;
-			int chipW = padX + head + gap + font.width(name) + padX;
 			int x = Math.max(10, (int) Math.round(w * 0.03));
 			int y = x;
 
@@ -536,8 +514,15 @@ public final class OriginScreenRenderer {
 			int hx = x + padX, hy = y + padY;
 			boolean drewHead = false;
 			try {
-				com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(user.getProfileId(), name);
-				net.minecraft.client.resources.PlayerSkin skin = mc.getSkinManager().getInsecureSkin(profile);
+				// Minecraft's resolved profile carries the signed `textures` property.
+				// Rebuilding a GameProfile from only UUID + name discards that property,
+				// so SkinManager can return only the generated default head forever.
+				com.mojang.authlib.GameProfile profile = mc.getGameProfile();
+				if (titleSkinSupplier == null || !Objects.equals(titleSkinProfileId, profile.getId())) {
+					titleSkinProfileId = profile.getId();
+					titleSkinSupplier = mc.getSkinManager().lookupInsecure(profile);
+				}
+				net.minecraft.client.resources.PlayerSkin skin = titleSkinSupplier.get();
 				net.minecraft.client.gui.components.PlayerFaceRenderer.draw(guiGraphics, skin, hx, hy, head);
 				drewHead = true;
 			} catch (Throwable ignored) {

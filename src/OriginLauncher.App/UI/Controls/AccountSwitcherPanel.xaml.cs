@@ -11,6 +11,7 @@ public partial class AccountSwitcherPanel : UserControl
 {
     public event EventHandler? CloseRequested;
     public event EventHandler? AccountsChanged;
+    public event EventHandler? AccountSelected;
     public event EventHandler? AddAccountRequested;
 
     private List<StoredAccount> _accounts = AccountStore.Load();
@@ -48,10 +49,21 @@ public partial class AccountSwitcherPanel : UserControl
     {
         if (((FrameworkElement)sender).DataContext is not MinecraftAccount account) return;
 
-        AccountStore.SetSelected(_accounts, account.Id);
-        AccountStore.Save(_accounts);
-        RefreshList();
-        AccountsChanged?.Invoke(this, EventArgs.Empty);
+        try
+        {
+            _accounts = AccountStore.Update(accounts =>
+            {
+                AccountStore.SetSelected(accounts, account.Id);
+                return accounts;
+            });
+            RefreshList();
+            AccountsChanged?.Invoke(this, EventArgs.Empty);
+            AccountSelected?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception)
+        {
+            ShowSignInError("Couldn't switch accounts.");
+        }
     }
 
     private void AddAccountButton_Click(object sender, RoutedEventArgs e)
@@ -63,20 +75,35 @@ public partial class AccountSwitcherPanel : UserControl
     // Called by MainWindow once the embedded sign-in page (see
     // MicrosoftSignInPanel) completes the MSA -> Xbox Live -> XSTS ->
     // Minecraft chain successfully.
-    public void CompleteSignIn(AuthResult result)
+    public bool CompleteSignIn(AuthResult result)
     {
-        var stored = new StoredAccount
+        try
         {
-            Id = result.Session.UUID ?? "",
-            Gamertag = result.Session.Username ?? "",
-            LastUsedUtc = DateTimeOffset.UtcNow,
-            ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken)
-        };
+            var stored = new StoredAccount
+            {
+                Id = result.Session.UUID ?? "",
+                Gamertag = result.Session.Username ?? "",
+                LastUsedUtc = DateTimeOffset.UtcNow,
+                ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken)
+            };
+            _accounts = AccountStore.Update(accounts => AccountStore.Upsert(accounts, stored));
+            RefreshList();
+            AccountsChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+        catch (Exception)
+        {
+            ShowSignInError("Couldn't save this account.");
+            return false;
+        }
+    }
 
-        _accounts = AccountStore.Upsert(_accounts, stored);
-        AccountStore.Save(_accounts);
+    // Refresh whenever the flyout opens: silent sign-in can rotate a token or
+    // update last-used while this long-lived control is closed.
+    public void Reload()
+    {
+        _accounts = AccountStore.Load();
         RefreshList();
-        AccountsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void ShowSignInError(string message)

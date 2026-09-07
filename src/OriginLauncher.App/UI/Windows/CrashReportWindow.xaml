@@ -4,8 +4,9 @@
         Title="Origin — Minecraft crashed"
         Width="620" Height="480" MinWidth="480" MinHeight="360"
         WindowStartupLocation="CenterOwner"
-        Background="#FF121212"
-        FontFamily="Bahnschrift, Segoe UI Variable Text, Segoe UI">
+        Background="#FF090D0C"
+        FontFamily="/OriginLauncher.App;component/Assets/Fonts/#Inter, Segoe UI Variable Text, Segoe UI"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
     <!-- Self-contained styling (hardcoded, no theme StaticResources), same
          rule as CrashWindow: a crash surface must render no matter what. -->
@@ -14,19 +15,20 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="16,9"/>
             <Setter Property="MinWidth" Value="110"/>
-            <Setter Property="Foreground" Value="#FFE0E0E0"/>
-            <Setter Property="Background" Value="#FF444444"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#FFEFF7F4"/>
+            <Setter Property="Background" Value="#FF192320"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#FF263732"/>
+            <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" CornerRadius="7" SnapsToDevicePixels="True">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF505050"/>
+                                <Setter TargetName="B" Property="Background" Value="#FF23302C"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -34,18 +36,19 @@
             </Setter>
         </Style>
         <Style x:Key="CrashButtonPrimary" TargetType="Button" BasedOn="{StaticResource CrashButton}">
-            <Setter Property="Background" Value="#FFE0E0E0"/>
-            <Setter Property="Foreground" Value="#FF121212"/>
+            <Setter Property="Background" Value="#FF4BC8AE"/>
+            <Setter Property="Foreground" Value="#FF061512"/>
+            <Setter Property="BorderBrush" Value="#FF79DEC9"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" CornerRadius="7" SnapsToDevicePixels="True">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FFEDEDED"/>
+                                <Setter TargetName="B" Property="Background" Value="#FF79DEC9"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -64,23 +67,23 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Minecraft crashed while starting"
-                   Foreground="#FFE0E0E0" FontSize="22" FontWeight="SemiBold"/>
+                   Foreground="#FFEFF7F4" FontSize="26" FontWeight="SemiBold"/>
 
-        <TextBlock Grid.Row="1" x:Name="ReasonText" Foreground="#FFB0B0B0" FontSize="13"
+        <TextBlock Grid.Row="1" x:Name="ReasonText" Foreground="#FFA7BBB5" FontSize="13.5" LineHeight="20"
                    TextWrapping="Wrap" Margin="0,8,0,0"/>
 
         <!-- One row per implicated mod; hidden when the culprit is unknown. -->
-        <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,12,0,0" Background="#FF1A1A1A"
-                BorderBrush="#FF3A3A3A" BorderThickness="1" CornerRadius="7" Padding="12"
+        <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,14,0,0" Background="#FF121918"
+                BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="12" Padding="14"
                 Visibility="Collapsed">
             <StackPanel x:Name="CulpritList"/>
         </Border>
 
-        <Border Grid.Row="3" Margin="0,12,0,0" Background="#FF1A1A1A" BorderBrush="#FF3A3A3A"
-                BorderThickness="1" CornerRadius="7">
+        <Border Grid.Row="3" Margin="0,12,0,0" Background="#FF121918" BorderBrush="#FF3B524C"
+                BorderThickness="1" CornerRadius="12">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
-                     Background="Transparent" Foreground="#FFB0B0B0" BorderThickness="0"
-                     FontFamily="Consolas, Cascadia Mono, Courier New" FontSize="11" Padding="12"
+                     Background="Transparent" Foreground="#FFA7BBB5" BorderThickness="0"
+                     FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="11" Padding="14"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
@@ -90,7 +93,7 @@
                     Margin="0,0,8,0" Click="OpenLog_Click"/>
             <Button x:Name="CloseButton" Content="Close" Style="{StaticResource CrashButton}"
                     Margin="0,0,8,0" Click="Close_Click"/>
-            <Button x:Name="RetryButton" Content="Disable external mods &amp; retry"
+            <Button x:Name="RetryButton" Content="Retry without mods"
                     Style="{StaticResource CrashButtonPrimary}" Click="Retry_Click"/>
         </StackPanel>
     </Grid>

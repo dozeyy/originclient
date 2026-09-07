@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Motion Blur</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M3 7h7M5 12h5M3 17h7"/>
+      <circle cx="15.5" cy="12" r="5.5"/>
+      <path d="M13.5 7a5.5 5.5 0 0 0 0 10" opacity=".45"/>
+  </g>
+</svg>

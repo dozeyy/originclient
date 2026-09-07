@@ -18,9 +18,8 @@ namespace OriginLauncher.App.UI.Controls;
 // launch logic beyond raising LaunchRequested.
 public partial class VersionSelectOverlay : UserControl
 {
-    private static readonly Duration Fade = new(TimeSpan.FromSeconds(0.14));
-
     private bool _syncing;
+    private long _sceneRevision;
 
     public VersionSelectOverlay()
     {
@@ -47,18 +46,47 @@ public partial class VersionSelectOverlay : UserControl
         StackList.SelectedItem = null;
         _syncing = false;
 
+        ++_sceneRevision;
         Visibility = Visibility.Visible;
         BeginAnimation(OpacityProperty, null);
-        Opacity = 0;
-        BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, Fade));
-        Focus();
+        OverlayTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+
+        if (SystemParameters.ClientAreaAnimation)
+        {
+            var duration = (Duration)FindResource("Motion.Scene");
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0, 1, duration) { EasingFunction = ease },
+                HandoffBehavior.SnapshotAndReplace);
+            OverlayTranslate.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(10, 0, duration) { EasingFunction = ease },
+                HandoffBehavior.SnapshotAndReplace);
+        }
+        else
+        {
+            Opacity = 1;
+            OverlayTranslate.Y = 0;
+        }
+
+        Dispatcher.BeginInvoke(() => GridList.Focus());
     }
 
     private void CloseOverlay()
     {
-        var fade = new DoubleAnimation(1, 0, Fade);
-        fade.Completed += (_, _) => Visibility = Visibility.Collapsed;
-        BeginAnimation(OpacityProperty, fade);
+        var sceneRevision = ++_sceneRevision;
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var fade = new DoubleAnimation(0, (Duration)FindResource("Motion.Exit"));
+        fade.Completed += (_, _) =>
+        {
+            if (_sceneRevision == sceneRevision)
+                Visibility = Visibility.Collapsed;
+        };
+        BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
     }
 
     // ---- state transitions ----
@@ -72,7 +100,9 @@ public partial class VersionSelectOverlay : UserControl
         {
             GridState.BeginAnimation(OpacityProperty, null);
             GridState.Opacity = 0;
-            GridState.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, Fade));
+            GridState.BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0, 1, (Duration)FindResource("Motion.Base")),
+                HandoffBehavior.SnapshotAndReplace);
         }
         else
         {
@@ -96,9 +126,16 @@ public partial class VersionSelectOverlay : UserControl
         // Fade + a small slide-in so the switch reads as the cards moving aside.
         DetailState.BeginAnimation(OpacityProperty, null);
         DetailState.Opacity = 0;
-        DetailState.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, Fade));
-        var slide = new DoubleAnimation(-28, 0, Fade) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        DetailSlide.BeginAnimation(TranslateTransform.XProperty, slide);
+        var duration = SystemParameters.ClientAreaAnimation
+            ? (Duration)FindResource("Motion.Scene")
+            : new Duration(TimeSpan.Zero);
+        DetailState.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration),
+            HandoffBehavior.SnapshotAndReplace);
+        var slide = new DoubleAnimation(-18, 0, duration)
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        DetailSlide.BeginAnimation(TranslateTransform.XProperty, slide, HandoffBehavior.SnapshotAndReplace);
     }
 
     // Populate the right-hand detail for a family.
@@ -114,10 +151,10 @@ public partial class VersionSelectOverlay : UserControl
         // Legacy families run the pre-Fabric stack — the facts line is the one
         // place the stack is even named, and it must not lie about the loader.
         var legacy = group.Versions.Any(v => v.Supported && Core.Loaders.LegacyForgeInstaller.IsLegacy(v.Id));
-        var stackText = legacy ? "Forge + OptiFine shaders" : "Fabric + Sodium + Iris shaders";
+        var stackText = legacy ? "Forge · OptiFine" : "Fabric · Sodium · Iris";
         FactsText.Text = group.AnySupported
-            ? $"{group.Versions.Count} versions · {playable} playable now · {stackText}"
-            : $"{group.Versions.Count} versions · not yet available in Origin";
+            ? $"{playable} playable · {stackText}"
+            : "Coming soon";
 
         ChipsPanel.Visibility = group.AnySupported ? Visibility.Visible : Visibility.Collapsed;
         ComingSoonNote.Visibility = group.AnySupported ? Visibility.Collapsed : Visibility.Visible;

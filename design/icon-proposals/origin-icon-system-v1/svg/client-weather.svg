@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Weather</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="5.7" cy="5.7" r="2"/>
+      <path d="M5.7 2.7v-1M5.7 8.7v1M2.7 5.7h-1M8.7 5.7h1M3.58 3.58l-.71-.71M7.82 7.82l.71.71M7.82 3.58l.71-.71M3.58 7.82l-.71.71"/>
+      <path d="M9 17h9a3 3 0 0 0 .2-6 4.8 4.8 0 0 0-9.1 1.4A2.4 2.4 0 0 0 9 17Z"/>
+      <path d="m8.5 19-1 2M13 19l-1 2M17.5 19l-1 2"/>
+  </g>
+</svg>

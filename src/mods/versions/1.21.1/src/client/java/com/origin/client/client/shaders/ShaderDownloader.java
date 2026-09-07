@@ -10,6 +10,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -106,7 +107,12 @@ public final class ShaderDownloader {
 				return;
 			}
 			String url = file.get("url").getAsString();
-			String name = file.get("filename").getAsString();
+			// Treat API metadata as untrusted input. Only the final path component
+			// may be written beneath shaderpacks/.
+			String name = Path.of(file.get("filename").getAsString()).getFileName().toString();
+			if (name.isBlank()) {
+				throw new IllegalArgumentException("Shader response contained an empty filename");
+			}
 
 			Path dir = IrisBridge.shaderpacksDir();
 			Files.createDirectories(dir);
@@ -142,7 +148,15 @@ public final class ShaderDownloader {
 				}
 				throw t;
 			}
-			Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
+			if (total > 0 && read != total) {
+				Files.deleteIfExists(tmp);
+				throw new IllegalStateException("Incomplete shader download: " + read + " of " + total + " bytes");
+			}
+			try {
+				Files.move(tmp, dest, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			} catch (AtomicMoveNotSupportedException ignored) {
+				Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
+			}
 			STATES.put(slug, new State(Status.DONE, 1, name));
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Shader download failed for {}", slug, t);

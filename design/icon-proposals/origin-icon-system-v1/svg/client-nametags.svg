@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Nametags</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3" y="2.5" width="18" height="6.5" rx="2"/>
+      <path d="M7 5.75h10"/>
+      <circle cx="12" cy="13.2" r="2.5"/>
+      <path d="M7 21v-1.3c0-2.25 2.2-3.8 5-3.8s5 1.55 5 3.8V21"/>
+  </g>
+</svg>

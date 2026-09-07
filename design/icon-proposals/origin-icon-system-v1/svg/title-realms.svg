@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Realms</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="11" cy="12" r="7.7"/>
+      <path d="M3.8 9.2h14.4M3.8 14.8h14.4M11 4.3c2.05 2.15 3.1 4.7 3.1 7.7s-1.05 5.55-3.1 7.7M11 4.3C8.95 6.45 7.9 9 7.9 12s1.05 5.55 3.1 7.7"/>
+  </g>
+</svg>

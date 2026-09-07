@@ -51,6 +51,7 @@ public final class OriginDevShots {
 	private static int phase = 0;      // 0 = resize, 1 = open screen, 2 = grab
 	private static long nextAt = 0;
 	private static int savedScale = -1;
+	private static int resizeRetries = 0;
 	private static boolean done = false;
 
 	private OriginDevShots() {
@@ -70,6 +71,14 @@ public final class OriginDevShots {
 				if (nextAt == 0) {
 					nextAt = now + 1500;
 				} else if (now >= nextAt) {
+					File output = new File(DIR);
+					if (!output.isDirectory() && !output.mkdirs()) {
+						com.origin.client.OriginClient.LOGGER.error(
+								"[dev-shots] could not create output directory {}", output.getAbsolutePath());
+						done = true;
+						mc.stop();
+						return;
+					}
 					savedScale = mc.options.guiScale().get();
 					step = 0;
 					phase = 0;
@@ -92,6 +101,7 @@ public final class OriginDevShots {
 					mc.getWindow().setWindowed(s.w(), s.h());
 					mc.options.guiScale().set(s.scale());
 					mc.resizeDisplay();
+					resizeRetries = 0;
 					phase = 1;
 					nextAt = now + 800;
 				}
@@ -103,6 +113,21 @@ public final class OriginDevShots {
 					nextAt = now + (s.menu() ? 900 : 1900);
 				}
 				case 2 -> {
+					// Windows may apply a resize one message-loop later (especially
+					// immediately after changing GUI scale). Never label a capture with
+					// dimensions its framebuffer did not actually reach.
+					int actualW = mc.getWindow().getWidth();
+					int actualH = mc.getWindow().getHeight();
+					if ((actualW != s.w() || actualH != s.h()) && resizeRetries++ < 8) {
+						mc.getWindow().setWindowed(s.w(), s.h());
+						mc.resizeDisplay();
+						nextAt = now + 350;
+						return;
+					}
+					if (actualW != s.w() || actualH != s.h()) {
+						throw new IllegalStateException("window stayed at " + actualW + "x" + actualH
+								+ " instead of " + s.w() + "x" + s.h());
+					}
 					Screenshot.grab(new File(DIR), s.name(), mc.getMainRenderTarget(), c -> {
 					});
 					com.origin.client.OriginClient.LOGGER.info("[dev-shots] captured {}", s.name());

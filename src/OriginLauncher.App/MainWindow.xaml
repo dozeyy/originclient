@@ -15,7 +15,12 @@
         ResizeMode="CanResize"
         AllowsTransparency="False"
         Background="{StaticResource Brush.Bg}"
-        FontFamily="{StaticResource Font.Primary}">
+        FontFamily="{StaticResource Font.Primary}"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        PreviewKeyDown="MainWindow_PreviewKeyDown">
 
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
@@ -35,21 +40,25 @@
              fires when the click lands on genuinely empty background. -->
         <Grid Background="Transparent" MouseLeftButtonDown="RootGrid_MouseLeftButtonDown">
 
-            <!-- Top margin reserves the strip occupied by the origin mark badge
-                 and the account/minimize/close cluster (~48px tall) so page
-                 content (e.g. Settings' H1 title) never renders under them.
-                 No left margin here — Home/Mods center their own content and
-                 a global left inset would throw off that centering; the
-                 left-aligned Settings page reserves its own left clearance
-                 for the floating icon column instead (see SettingsPage.xaml). -->
-            <ContentControl x:Name="PageHost" Margin="0,64,0,0"/>
+            <!-- The page canvas clears the compact app rail and title bar. -->
+            <ContentControl x:Name="PageHost" Margin="72,58,0,0" ClipToBounds="True">
+                <ContentControl.RenderTransform>
+                    <TranslateTransform x:Name="PageTransform"/>
+                </ContentControl.RenderTransform>
+            </ContentControl>
 
-            <!-- Top-left: small static origin mark -->
-            <controls:OriginMark Width="28" Height="28" Margin="20"
-                                 HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <!-- Top-left: brand lockup. The mark and wordmark now share the
+                 same baseline and type family as the in-game title surface. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top"
+                        Margin="20,16,0,0">
+                <controls:OriginMark Width="24" Height="24" VerticalAlignment="Center"/>
+                <TextBlock Text="O R I G I N" Margin="10,0,0,0" VerticalAlignment="Center"
+                           FontSize="11" FontWeight="Bold"
+                           Foreground="{StaticResource Brush.Text}"/>
+            </StackPanel>
 
             <!-- Top-right: account avatar + minimize/close cluster -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,16,0">
                 <!-- Update badge: hidden until UpdateService finds a newer
                      release; clicking downloads it, swaps the install, and
                      restarts the launcher. Download glyph in the same
@@ -58,62 +67,76 @@
                      asking for attention. -->
                 <Button x:Name="UpdateBadge" Click="UpdateBadge_Click"
                         Style="{StaticResource Button.Chrome}"
-                        Padding="8" Margin="0,0,4,0" Width="32" Height="32"
+                        Padding="9" Margin="0,0,4,0" Width="36" Height="36"
                         Visibility="Collapsed"
-                        ToolTip="Update available — click to update and restart">
+                        ToolTip="Update available — click to update and restart"
+                        AutomationProperties.Name="Install update">
                     <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
                           Width="16" Height="16" Stroke="{StaticResource Brush.Text}"/>
                 </Button>
                 <Button x:Name="AccountButton" Click="AccountButton_Click"
                         Style="{StaticResource Button.Chrome}"
-                        Padding="8" Margin="0,0,4,0" Width="32" Height="32">
+                        Padding="9" Margin="0,0,4,0" Width="36" Height="36"
+                        ToolTip="Accounts" AutomationProperties.Name="Accounts">
                     <Path Data="{StaticResource Icon.Account}" Style="{StaticResource Icon.Base}"
                           Width="16" Height="16" Stroke="{StaticResource Brush.Text}"/>
                 </Button>
                 <Button Click="MinimizeButton_Click" Style="{StaticResource Button.Chrome}"
-                        Padding="8" Width="32" Height="32">
+                        Padding="10" Width="36" Height="36"
+                        ToolTip="Minimize" AutomationProperties.Name="Minimize">
                     <Path Data="{StaticResource Icon.Minimize}" Style="{StaticResource Icon.Base}"
                           Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
                 </Button>
                 <Button Click="CloseButton_Click" Style="{StaticResource Button.Chrome}"
-                        Padding="8" Width="32" Height="32">
+                        Padding="10" Width="36" Height="36"
+                        ToolTip="Close" AutomationProperties.Name="Close">
                     <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                           Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
                 </Button>
             </StackPanel>
 
-            <!-- Left edge: floating secondary-nav icon column -->
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0">
-                <ToggleButton x:Name="NavHome" Style="{StaticResource Button.NavItem}"
-                              Checked="NavHome_Checked" Width="36" Height="36" Padding="0"
-                              HorizontalContentAlignment="Center" ToolTip="Home" Margin="0,0,0,8">
-                    <Path Data="{StaticResource Icon.Home}" Style="{StaticResource Icon.Base}"
-                          Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                </ToggleButton>
-                <ToggleButton x:Name="NavMods" Style="{StaticResource Button.NavItem}"
-                              Checked="NavMods_Checked" Width="36" Height="36" Padding="0"
-                              HorizontalContentAlignment="Center" ToolTip="Mods" Margin="0,0,0,8">
-                    <Path Data="{StaticResource Icon.Mods}" Style="{StaticResource Icon.Base}"
-                          Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                </ToggleButton>
-                <ToggleButton x:Name="NavSettings" Style="{StaticResource Button.NavItem}"
-                              Checked="NavSettings_Checked" Width="36" Height="36" Padding="0"
-                              HorizontalContentAlignment="Center" ToolTip="Settings">
-                    <Path Data="{StaticResource Icon.Settings}" Style="{StaticResource Icon.Base}"
-                          Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
-                </ToggleButton>
-            </StackPanel>
+            <!-- Microsoft-style compact navigation rail: 44px targets, one
+                 selected-state bar, and quiet material behind the controls. -->
+            <Border Width="56" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0"
+                    Background="{StaticResource Brush.PanelGlass}"
+                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                    CornerRadius="16" Padding="6,8">
+                <StackPanel Orientation="Vertical">
+                    <ToggleButton x:Name="NavHome" Style="{StaticResource Button.NavItem}"
+                                  Checked="NavHome_Checked" Unchecked="Nav_Unchecked" Width="44" Height="44" Padding="0"
+                                  HorizontalContentAlignment="Center" ToolTip="Home" AutomationProperties.Name="Home"
+                                  Margin="0,0,0,6">
+                        <Path Data="{StaticResource Icon.Home}" Style="{StaticResource Icon.Base}"
+                              Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="NavMods" Style="{StaticResource Button.NavItem}"
+                                  Checked="NavMods_Checked" Unchecked="Nav_Unchecked" Width="44" Height="44" Padding="0"
+                                  HorizontalContentAlignment="Center" ToolTip="Mods" AutomationProperties.Name="Mods"
+                                  Margin="0,0,0,6">
+                        <Path Data="{StaticResource Icon.Mods}" Style="{StaticResource Icon.Base}"
+                              Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="NavSettings" Style="{StaticResource Button.NavItem}"
+                                  Checked="NavSettings_Checked" Unchecked="Nav_Unchecked" Width="44" Height="44" Padding="0"
+                                  HorizontalContentAlignment="Center" ToolTip="Settings" AutomationProperties.Name="Settings">
+                        <Path Data="{StaticResource Icon.Settings}" Style="{StaticResource Icon.Base}"
+                              Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                    </ToggleButton>
+                </StackPanel>
+            </Border>
         </Grid>
 
         <!-- Account switcher overlay (scrim + slide-out panel) -->
-        <Border x:Name="Scrim" Background="#000000" Opacity="0" IsHitTestVisible="False"
+        <Border x:Name="Scrim" Background="{StaticResource Brush.Scrim}" Opacity="0"
+                Visibility="Collapsed" IsHitTestVisible="False"
                 MouseLeftButtonDown="Scrim_MouseLeftButtonDown"/>
 
-        <Border x:Name="AccountPanel" Width="320" HorizontalAlignment="Right"
-                Background="{StaticResource Brush.Panel}"
-                BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1,0,0,0">
+        <Border x:Name="AccountPanel" Width="340" HorizontalAlignment="Right"
+                Background="{StaticResource Brush.PanelElevated}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
+                Visibility="Collapsed" IsHitTestVisible="False">
             <Border.RenderTransform>
-                <TranslateTransform x:Name="AccountPanelTransform" X="320"/>
+                <TranslateTransform x:Name="AccountPanelTransform" X="340"/>
             </Border.RenderTransform>
             <ContentControl x:Name="AccountPanelHost"/>
         </Border>
@@ -124,14 +147,12 @@
              open, so it reuses that panel's Scrim rather than needing its own. -->
         <Border x:Name="SignInPanel" Width="460" Height="640"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                Background="{StaticResource Brush.Panel}"
-                BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Card}"
-                Opacity="0" IsHitTestVisible="False"
+                Background="{StaticResource Brush.PanelElevated}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Dialog}"
+                Opacity="0" Visibility="Collapsed" IsHitTestVisible="False"
                 RenderTransformOrigin="0.5,0.5">
-            <Border.Effect>
-                <DropShadowEffect Color="#FF000000" Opacity="0.4" BlurRadius="32" ShadowDepth="8" Direction="270"/>
-            </Border.Effect>
+            <Border.Effect><StaticResource ResourceKey="Shadow.Card"/></Border.Effect>
             <Border.RenderTransform>
                 <ScaleTransform x:Name="SignInPanelScale" ScaleX="0.94" ScaleY="0.94"/>
             </Border.RenderTransform>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Armor HUD</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M12 2.8 19.5 6v5.8c0 4.3-2.5 7.3-7.5 9.4-5-2.1-7.5-5.1-7.5-9.4V6Z"/>
+      <path d="M8 10h8M8 14h5"/>
+  </g>
+</svg>

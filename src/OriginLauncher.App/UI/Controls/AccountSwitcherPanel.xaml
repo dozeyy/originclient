@@ -10,6 +10,8 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <Style x:Key="AccountRow" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
             <Setter Property="Padding" Value="14,12"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
@@ -36,7 +38,8 @@
                     </Trigger.ExitActions>
                 </Trigger>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+                    <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -92,6 +95,7 @@
                                                Style="{StaticResource Text.Label}" FontSize="11"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="ACTIVE" Style="{StaticResource Text.Eyebrow}"
+                                           Foreground="{StaticResource Brush.AccentHover}"
                                            VerticalAlignment="Center"
                                            Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}"/>
                             </Grid>

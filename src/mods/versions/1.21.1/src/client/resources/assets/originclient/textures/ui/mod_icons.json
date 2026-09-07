@@ -1,132 +1,334 @@
 {
-  "cell": 96,
+  "cell": 192,
   "cols": 6,
   "grid": 24,
-  "style": "solid+cutout",
+  "style": "approved-origin-outline-1.55",
+  "rendering": "screen-space-sdf",
+  "distanceRange": 16.0,
+  "opticalWeightBias": 0.6,
+  "centerOffsets": {
+    "@backing": [
+      0,
+      0
+    ],
+    "@origin-mark": [
+      0,
+      0
+    ],
+    "@general": [
+      0,
+      0
+    ],
+    "@hudeditor": [
+      0,
+      0
+    ],
+    "@performance": [
+      0,
+      8
+    ],
+    "@search": [
+      0,
+      0
+    ],
+    "@title-singleplayer": [
+      0,
+      -2
+    ],
+    "@title-multiplayer": [
+      -2,
+      0
+    ],
+    "@title-realms": [
+      8,
+      0
+    ],
+    "@title-mods": [
+      0,
+      0
+    ],
+    "@title-options": [
+      0,
+      4
+    ],
+    "@title-quit": [
+      0,
+      0
+    ],
+    "@title-language": [
+      0,
+      0
+    ],
+    "@title-accessibility": [
+      0,
+      4
+    ],
+    "fps": [
+      0,
+      -8
+    ],
+    "cps": [
+      0,
+      0
+    ],
+    "keystrokes": [
+      0,
+      0
+    ],
+    "coords": [
+      8,
+      -8
+    ],
+    "armorhud": [
+      0,
+      0
+    ],
+    "potionhud": [
+      0,
+      0
+    ],
+    "serveraddress": [
+      0,
+      0
+    ],
+    "scoreboard": [
+      0,
+      0
+    ],
+    "tablist": [
+      0,
+      0
+    ],
+    "zoom": [
+      0,
+      0
+    ],
+    "freelook": [
+      0,
+      0
+    ],
+    "fullbright": [
+      0,
+      0
+    ],
+    "blockoverlay": [
+      0,
+      0
+    ],
+    "chunkborders": [
+      0,
+      0
+    ],
+    "hitboxes": [
+      0,
+      0
+    ],
+    "nametags": [
+      0,
+      2
+    ],
+    "itemsize": [
+      0,
+      0
+    ],
+    "weather": [
+      5,
+      5
+    ],
+    "timechanger": [
+      0,
+      0
+    ],
+    "motionblur": [
+      0,
+      0
+    ],
+    "colorsaturation": [
+      0,
+      0
+    ],
+    "particles": [
+      -4,
+      4
+    ],
+    "togglesprint": [
+      6,
+      3
+    ],
+    "chat": [
+      0,
+      -4
+    ],
+    "waypoints": [
+      0,
+      -4
+    ],
+    "jei": [
+      0,
+      0
+    ]
+  },
+  "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
   "icons": {
     "@backing": {
       "x": 0,
       "y": 0
     },
+    "@origin-mark": {
+      "x": 192,
+      "y": 0
+    },
     "@general": {
-      "x": 96,
+      "x": 384,
       "y": 0
     },
     "@hudeditor": {
-      "x": 192,
+      "x": 576,
       "y": 0
     },
     "@performance": {
-      "x": 288,
+      "x": 768,
       "y": 0
     },
     "@search": {
-      "x": 384,
+      "x": 960,
       "y": 0
     },
-    "armorhud": {
-      "x": 480,
-      "y": 0
-    },
-    "blockoverlay": {
+    "@title-singleplayer": {
       "x": 0,
-      "y": 96
+      "y": 192
     },
-    "chat": {
-      "x": 96,
-      "y": 96
-    },
-    "chunkborders": {
+    "@title-multiplayer": {
       "x": 192,
-      "y": 96
+      "y": 192
     },
-    "colorsaturation": {
-      "x": 288,
-      "y": 96
-    },
-    "coords": {
+    "@title-realms": {
       "x": 384,
-      "y": 96
+      "y": 192
     },
-    "cps": {
-      "x": 480,
-      "y": 96
+    "@title-mods": {
+      "x": 576,
+      "y": 192
+    },
+    "@title-options": {
+      "x": 768,
+      "y": 192
+    },
+    "@title-quit": {
+      "x": 960,
+      "y": 192
+    },
+    "@title-language": {
+      "x": 0,
+      "y": 384
+    },
+    "@title-accessibility": {
+      "x": 192,
+      "y": 384
     },
     "fps": {
+      "x": 384,
+      "y": 384
+    },
+    "cps": {
+      "x": 576,
+      "y": 384
+    },
+    "keystrokes": {
+      "x": 768,
+      "y": 384
+    },
+    "coords": {
+      "x": 960,
+      "y": 384
+    },
+    "armorhud": {
       "x": 0,
-      "y": 192
+      "y": 576
+    },
+    "potionhud": {
+      "x": 192,
+      "y": 576
+    },
+    "serveraddress": {
+      "x": 384,
+      "y": 576
+    },
+    "scoreboard": {
+      "x": 576,
+      "y": 576
+    },
+    "tablist": {
+      "x": 768,
+      "y": 576
+    },
+    "zoom": {
+      "x": 960,
+      "y": 576
     },
     "freelook": {
-      "x": 96,
-      "y": 192
+      "x": 0,
+      "y": 768
     },
     "fullbright": {
       "x": 192,
-      "y": 192
+      "y": 768
+    },
+    "blockoverlay": {
+      "x": 384,
+      "y": 768
+    },
+    "chunkborders": {
+      "x": 576,
+      "y": 768
     },
     "hitboxes": {
-      "x": 288,
-      "y": 192
-    },
-    "itemsize": {
-      "x": 384,
-      "y": 192
-    },
-    "jei": {
-      "x": 480,
-      "y": 192
-    },
-    "keystrokes": {
-      "x": 0,
-      "y": 288
-    },
-    "motionblur": {
-      "x": 96,
-      "y": 288
+      "x": 768,
+      "y": 768
     },
     "nametags": {
-      "x": 192,
-      "y": 288
+      "x": 960,
+      "y": 768
     },
-    "particles": {
-      "x": 288,
-      "y": 288
-    },
-    "potionhud": {
-      "x": 384,
-      "y": 288
-    },
-    "scoreboard": {
-      "x": 480,
-      "y": 288
-    },
-    "serveraddress": {
+    "itemsize": {
       "x": 0,
-      "y": 384
+      "y": 960
     },
-    "tablist": {
-      "x": 96,
-      "y": 384
+    "weather": {
+      "x": 192,
+      "y": 960
     },
     "timechanger": {
-      "x": 192,
-      "y": 384
+      "x": 384,
+      "y": 960
+    },
+    "motionblur": {
+      "x": 576,
+      "y": 960
+    },
+    "colorsaturation": {
+      "x": 768,
+      "y": 960
+    },
+    "particles": {
+      "x": 960,
+      "y": 960
     },
     "togglesprint": {
-      "x": 288,
-      "y": 384
+      "x": 0,
+      "y": 1152
+    },
+    "chat": {
+      "x": 192,
+      "y": 1152
     },
     "waypoints": {
       "x": 384,
-      "y": 384
+      "y": 1152
     },
-    "weather": {
-      "x": 480,
-      "y": 384
-    },
-    "zoom": {
-      "x": 0,
-      "y": 480
+    "jei": {
+      "x": 576,
+      "y": 1152
     }
   }
 }

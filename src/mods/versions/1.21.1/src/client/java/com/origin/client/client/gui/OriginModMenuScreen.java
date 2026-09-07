@@ -16,7 +16,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 
-// The Right Shift panel — 2026-09 "Command Deck" redesign (Slate identity):
+// The Right Shift panel — 2026-09 "Command Deck" redesign (Ion Jade identity):
 //
 //   * a wide, full-bleed glass panel (86% × 84% of the screen);
 //   * a left CATEGORY RAIL: All / HUD / Visual / Gameplay filters, a divider,
@@ -230,8 +230,8 @@ public class OriginModMenuScreen extends Screen {
 
 	// Card name-bar tones: sage when the mod is ON, neutral gray when OFF (the
 	// theme's sanctioned enabled/disabled colour language, kept subtle).
-	private static final int BAR_ON = 0xFF3DBE7A, BAR_ON_HOVER = 0xFF4CCB89;
-	private static final int BAR_OFF = 0xFF2A2A2A, BAR_OFF_HOVER = 0xFF3A3A3A;
+	private static final int BAR_ON = OriginTheme.SUCCESS, BAR_ON_HOVER = 0xFF8BBB8F;
+	private static final int BAR_OFF = 0xFF23302C, BAR_OFF_HOVER = 0xFF30423D;
 
 	private java.util.List<ModOption> subOpts() {
 		return subTab == SubTab.GENERAL ? Mods.GENERAL_SETTINGS : Mods.PERFORMANCE_SETTINGS;
@@ -495,10 +495,14 @@ public class OriginModMenuScreen extends Screen {
 
 	private void drawInsButton(GuiGraphics g, int[] r, String label, boolean hover, float alpha, boolean primary) {
 		int x0 = r[0], y0 = r[1], x1 = r[2], y1 = r[3];
-		int fill = primary ? OriginTheme.ACCENT_SOFT : (clear ? 0xC8101010 : OriginTheme.BOX_FILL);
-		int border = primary ? (hover ? OriginTheme.ACCENT : OriginTheme.ACCENT_BORDER)
-				: (hover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER);
-		OriginUi.panel(g, x0, y0, x1 - x0, y1 - y0, 6, withAlpha(hover && !primary ? OriginTheme.BOX_FILL_HOVER : fill, alpha),
+		float hp = OriginUi.hover("inspector:" + label, hover);
+		int restingFill = primary ? OriginTheme.ACCENT_SOFT : (clear ? 0xC8101010 : OriginTheme.BOX_FILL);
+		int hoverFill = primary ? OriginTheme.ACCENT_SOFT : (clear ? 0xD8141414 : OriginTheme.BOX_FILL_HOVER);
+		int border = primary
+				? OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, hp)
+				: OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.BOX_BORDER_HOVER, hp);
+		OriginUi.panel(g, x0, y0, x1 - x0, y1 - y0, 6,
+				withAlpha(OriginTheme.lerpColor(restingFill, hoverFill, hp), alpha),
 				withAlpha(border, alpha));
 		int tw = OriginText.widthBold(font, label);
 		OriginText.drawBold(g, font, label, x0 + (x1 - x0 - tw) / 2, y0 + 6, withAlpha(OriginTheme.TEXT, alpha), clear);
@@ -641,8 +645,8 @@ public class OriginModMenuScreen extends Screen {
 		int w = tw + 30, h = 26;
 		int x = width - w - 14, y = height - h - 14;
 		OriginUi.panel(g, x, y, w, h, 8, withAlpha(0xF01A1A1A, a), withAlpha(OriginTheme.STROKE_STRONG, a));
-		OriginUi.star(g, x + 9, y + 8, 10, withAlpha(0xFF7ACF9E, a)); // small confirmation mark
-		OriginText.draw(g, font, msg, x + 24, y + 9, withAlpha(0xFFDDE7E0, a), false);
+		OriginUi.star(g, x + 9, y + 8, 10, withAlpha(OriginTheme.SUCCESS, a));
+		OriginText.draw(g, font, msg, x + 24, y + 9, withAlpha(OriginTheme.TEXT, a), false);
 	}
 
 	// Centered "Are you sure?" modal for profile deletion. Geometry is shared with
@@ -668,11 +672,15 @@ public class OriginModMenuScreen extends Screen {
 		int cancelX = x + 16, delX = x + w - bw - 16;
 		boolean cH = in(mx, my, cancelX, by, cancelX + bw, by + bh);
 		boolean dH = in(mx, my, delX, by, delX + bw, by + bh);
+		float ch = OriginUi.hover("profile-confirm:cancel", cH);
+		float dh = OriginUi.hover("profile-confirm:delete", dH);
 		OriginUi.panel(g, cancelX, by, bw, bh, 7,
-				cH ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, cH ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER);
+				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, ch),
+				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, ch));
 		OriginText.draw(g, font, "Cancel", cancelX + (bw - OriginText.width(font, "Cancel")) / 2, by + 9, OriginTheme.TEXT, false);
 		OriginUi.panel(g, delX, by, bw, bh, 7,
-				dH ? 0x66D4474F : 0x33D4474F, dH ? OriginTheme.STROKE_HOVER : 0xB3D4474F);
+				OriginTheme.lerpColor(0x33D4474F, 0x66D4474F, dh),
+				OriginTheme.lerpColor(0xB3D4474F, OriginTheme.STROKE_HOVER, dh));
 		OriginText.draw(g, font, "Delete", delX + (bw - OriginText.width(font, "Delete")) / 2, by + 9, 0xFFF08A90, false);
 	}
 
@@ -786,6 +794,7 @@ public class OriginModMenuScreen extends Screen {
 
 	/** `trail` (optional) is a small right-aligned count — how many mods the row lists. */
 	private void drawRailItem(GuiGraphics g, int x, int y, int w, String label, boolean active, boolean hover, float alpha, String trail) {
+		float hp = OriginUi.hover("rail:" + label, hover);
 		// The label always wins: draw the count only when both fit; never truncate
 		// a category name to make room for its number.
 		int labelMax = w - 22;
@@ -809,11 +818,14 @@ public class OriginModMenuScreen extends Screen {
 				int y0 = by0 + bh * s / 4, y1 = by0 + bh * (s + 1) / 4;
 				g.fill(bx, y0, bx + 2, y1, withAlpha(OriginTheme.aurora(s / 3.0), alpha));
 			}
-		} else if (hover) {
-			OriginUi.panel(g, x, y, w, RAIL_H, 6, withAlpha(clear ? 0xB0181818 : OriginTheme.BOX_FILL, alpha), 0);
+		} else if (hp > 0.001f) {
+			int hoverFill = clear ? 0xB0181818 : OriginTheme.BOX_FILL_HOVER;
+			OriginUi.panel(g, x, y, w, RAIL_H, 6,
+					withAlpha(OriginTheme.lerpColor(0x00000000, hoverFill, hp), alpha), 0);
 		}
 		OriginText.drawBold(g, font, label, x + 11, y + RAIL_H / 2 - 4,
-				withAlpha(active ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
+				withAlpha(active ? OriginTheme.TEXT
+						: OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hp), alpha), clear);
 	}
 
 	private void drawSidebarButton(GuiGraphics g, int x, int y, int w, String label, boolean hover, float alpha, boolean danger) {
@@ -821,7 +833,8 @@ public class OriginModMenuScreen extends Screen {
 		// fixed x so Edit's pencil and Close's × stack in a clean vertical line (labels
 		// may differ in length); each icon is vertically CENTERED on its own label's
 		// mid-line. WHITE like the rest of the menu (Will), brightening on hover.
-		int col = hover ? 0xFFFFFFFF : 0xCCFFFFFF;
+		float hp = OriginUi.hover("sidebar-action:" + label, hover);
+		int col = OriginTheme.lerpColor(0xCCFFFFFF, 0xFFFFFFFF, hp);
 		int icon = 11, gap = 6;
 		int iconX = x + 4;                               // same x for both buttons
 		int textX = iconX + icon + gap;
@@ -966,10 +979,13 @@ public class OriginModMenuScreen extends Screen {
 			inspectId = mod.id();
 		}
 		boolean on = Mods.on(mod.id());
+		float hp = OriginUi.hover("mod-row:" + mod.id(), hover);
 
-		int fill = clear ? (hover ? 0xD8141414 : 0xC8101010) : (hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL);
+		int fill = clear
+				? OriginTheme.lerpColor(0xC8101010, 0xD8141414, hp)
+				: OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp);
 		OriginUi.panel(g, x, y, w, ROW_H, 9, withAlpha(fill, alpha),
-				withAlpha(hover ? OriginTheme.BOX_BORDER_HOVER : OriginTheme.BOX_BORDER, alpha));
+				withAlpha(OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.BOX_BORDER_HOVER, hp), alpha));
 		if (on && !clear) {
 			OriginUi.panel(g, x, y, w, ROW_H, 9, withAlpha(OriginTheme.ACCENT_SOFT, alpha * 0.6f), 0);
 		}
@@ -1035,9 +1051,10 @@ public class OriginModMenuScreen extends Screen {
 		boolean canSave = !profileInput.trim().isEmpty();
 		int saveX = x1 - btnW;
 		boolean saveHover = canSave && in(mouseX, mouseY, saveX, y, saveX + btnW, y + 22);
+		float saveHp = OriginUi.hover("profile:save", saveHover);
 		OriginUi.panel(g, saveX, y, btnW, 22, 8,
-				withAlpha(saveHover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, alpha),
-				withAlpha(saveHover ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
+				withAlpha(OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, saveHp), alpha),
+				withAlpha(OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, saveHp), alpha));
 		OriginText.draw(g, font, "Save", saveX + (btnW - OriginText.width(font, "Save")) / 2, y + 7,
 				withAlpha(canSave ? OriginTheme.TEXT : OriginTheme.MUTED, alpha), clear);
 		y += 34;
@@ -1076,13 +1093,15 @@ public class OriginModMenuScreen extends Screen {
 		int appX = delX - 6 - appW;
 		boolean appHover = in(mx, my, appX, y + 5, appX + appW, y + 25);
 		boolean delHover = in(mx, my, delX, y + 5, delX + delW, y + 25);
+		float appHp = OriginUi.hover("profile:apply:" + name, appHover);
+		float delHp = OriginUi.hover("profile:delete:" + name, delHover);
 		OriginUi.panel(g, appX, y + 5, appW, 20, 6,
-				withAlpha(appHover ? 0x463DBE7A : 0x2E3DBE7A, alpha),
-				withAlpha(appHover ? OriginTheme.STROKE_HOVER : 0xB33DBE7A, alpha));
-		OriginText.draw(g, font, "Apply", appX + (appW - OriginText.width(font, "Apply")) / 2, y + 11, withAlpha(0xFF7ACF9E, alpha), false);
+				withAlpha(OriginTheme.lerpColor(0x2E75A77A, 0x4675A77A, appHp), alpha),
+				withAlpha(OriginTheme.lerpColor(0xB375A77A, OriginTheme.STROKE_HOVER, appHp), alpha));
+		OriginText.draw(g, font, "Apply", appX + (appW - OriginText.width(font, "Apply")) / 2, y + 11, withAlpha(OriginTheme.SUCCESS, alpha), false);
 		OriginUi.panel(g, delX, y + 5, delW, 20, 6,
-				withAlpha(delHover ? 0x46D4474F : 0x2ED4474F, alpha),
-				withAlpha(delHover ? OriginTheme.STROKE_HOVER : 0xB3D4474F, alpha));
+				withAlpha(OriginTheme.lerpColor(0x2ED4474F, 0x46D4474F, delHp), alpha),
+				withAlpha(OriginTheme.lerpColor(0xB3D4474F, OriginTheme.STROKE_HOVER, delHp), alpha));
 		OriginText.draw(g, font, "Delete", delX + (delW - OriginText.width(font, "Delete")) / 2, y + 11, withAlpha(0xFFF08A90, alpha), false);
 	}
 
@@ -1175,6 +1194,7 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private void drawTab(GuiGraphics g, int tx, int ty, int w, int h, String label, boolean active, boolean hover, float alpha) {
+		float hp = OriginUi.hover("settings-tab:" + label, hover);
 		// White text always; the underline is the sole active indicator — white when
 		// active, a dimmed grey placeholder otherwise (always present).
 		OriginText.drawBold(g, font, label, tx + (w - OriginText.widthBold(font, label)) / 2, ty + (h - 8) / 2,
@@ -1183,7 +1203,8 @@ public class OriginModMenuScreen extends Screen {
 		if (active) {
 			auroraUnderline(g, tx + 4, underY, w - 8, 2, alpha);
 		} else {
-			g.fill(tx + 4, underY, tx + w - 4, underY + 2, withAlpha(hover ? 0x80FFFFFF : 0x40FFFFFF, alpha));
+			g.fill(tx + 4, underY, tx + w - 4, underY + 2,
+					withAlpha(OriginTheme.lerpColor(0x40FFFFFF, 0x80FFFFFF, hp), alpha));
 		}
 	}
 
@@ -1231,9 +1252,10 @@ public class OriginModMenuScreen extends Screen {
 		int hy = py() + 16;
 
 		boolean backHover = in(mouseX, mouseY, x0, hy, x0 + 24, hy + 20);
+		float backHp = OriginUi.hover("mod-settings:back", backHover);
 		OriginUi.panel(g, x0, hy, 24, 20, 6,
-				withAlpha(backHover ? 0x2EFFFFFF : 0x16FFFFFF, alpha),
-				withAlpha(backHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
+				withAlpha(OriginTheme.lerpColor(0x16FFFFFF, 0x2EFFFFFF, backHp), alpha),
+				withAlpha(OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_HOVER, backHp), alpha));
 		OriginUi.iconChevron(g, x0 + 7, hy + 5, 10, withAlpha(OriginTheme.TEXT, alpha), true);
 
 		OriginUi.icon(g, mod.id(), x0 + 32, hy - 3, 26, withAlpha(OriginTheme.TEXT, alpha));
@@ -1376,9 +1398,11 @@ public class OriginModMenuScreen extends Screen {
 				String name = capturing ? "press a key" : keyName(Mods.keyCode(modId, o.key));
 				int bw = Math.max(40, OriginText.width(font, name) + 16);
 				boolean kHover = in(mx, my, x1 - 10 - bw, y + 4, x1 - 10, y + 22);
+				float kh = OriginUi.hover("setting:key:" + modId + ":" + o.key, kHover);
 				OriginUi.panel(g, x1 - 10 - bw, y + 4, bw, 18, 6,
-						withAlpha(capturing ? 0x40FFFFFF : 0x1EFFFFFF, alpha),
-						withAlpha(kHover || capturing ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
+						withAlpha(capturing ? 0x40FFFFFF : OriginTheme.lerpColor(0x1EFFFFFF, 0x2EFFFFFF, kh), alpha),
+						withAlpha(capturing ? OriginTheme.STROKE_HOVER
+								: OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_HOVER, kh), alpha));
 				OriginText.draw(g, font, name, x1 - 10 - bw + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 			}
 			case DROPDOWN -> {
@@ -1386,8 +1410,10 @@ public class OriginModMenuScreen extends Screen {
 				int bw = Math.max(70, OriginText.width(font, v) + 34);
 				int bx = x1 - 10 - bw;
 				boolean dHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
-				OriginUi.panel(g, bx, y + 4, bw, 18, 6, withAlpha(0x1EFFFFFF, alpha),
-						withAlpha(dHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
+				float dh = OriginUi.hover("setting:dropdown:" + modId + ":" + o.key, dHover);
+				OriginUi.panel(g, bx, y + 4, bw, 18, 6,
+						withAlpha(OriginTheme.lerpColor(0x1EFFFFFF, 0x2EFFFFFF, dh), alpha),
+						withAlpha(OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_HOVER, dh), alpha));
 				OriginUi.iconChevron(g, bx + 5, y + 8, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), true);
 				OriginText.draw(g, font, v, bx + (bw - OriginText.width(font, v)) / 2, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 				OriginUi.iconChevron(g, bx + bw - 14, y + 8, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
@@ -1399,9 +1425,10 @@ public class OriginModMenuScreen extends Screen {
 				int bw = multiBtnW(x0, x1);
 				int bx = x1 - 10 - bw;
 				boolean bHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
+				float bh = OriginUi.hover("setting:multi:" + modId + ":" + o.key, bHover);
 				OriginUi.panel(g, bx, y + 4, bw, 18, 6,
-						withAlpha(bHover ? 0x2EFFFFFF : 0x1EFFFFFF, alpha),
-						withAlpha(bHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
+						withAlpha(OriginTheme.lerpColor(0x1EFFFFFF, 0x2EFFFFFF, bh), alpha),
+						withAlpha(OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_HOVER, bh), alpha));
 				String shown = OriginText.ellipsize(font, summary, bw - 16);
 				OriginText.draw(g, font, shown, bx + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 			}

@@ -4,45 +4,57 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             Loaded="OriginBackground_OnLoaded"
              IsHitTestVisible="False">
 
     <!--
-        Ambient "space field": 4 large tilted rings, each spinning continuously
-        at its own speed/direction. Only RenderTransform.Angle animates (cheap,
-        transform-only) — geometry, stroke, and blur are all static per ring,
-        so the animation cost stays flat regardless of ring count. Back rings
-        get lower opacity + a small static blur for depth; nothing here is
-        re-evaluated per frame except the rotation itself.
+        Origin Ion Jade atmosphere: mineral black, one restrained jade bloom, and the
+        orbital geometry from the brand mark. Static by design; motion is kept
+        for state changes and launch progress.
     -->
-    <Grid Background="{StaticResource Brush.Bg}" ClipToBounds="True">
+    <Grid Background="{StaticResource Brush.WindowBackdrop}" ClipToBounds="True">
+
+        <Ellipse Width="760" Height="760" HorizontalAlignment="Right" VerticalAlignment="Top"
+                 Margin="0,-430,-300,0" Opacity="0.42">
+            <Ellipse.Fill>
+                <RadialGradientBrush>
+                    <GradientStop Color="#4D4BC8AE" Offset="0"/>
+                    <GradientStop Color="#154BC8AE" Offset="0.42"/>
+                    <GradientStop Color="#004BC8AE" Offset="1"/>
+                </RadialGradientBrush>
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <Border Width="520" Height="1" HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,88,72,0" Opacity="0.32">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="#004BC8AE" Offset="0"/>
+                    <GradientStop Color="#804BC8AE" Offset="0.68"/>
+                    <GradientStop Color="#004BC8AE" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+        </Border>
 
         <Ellipse x:Name="RingD" Width="1500" Height="520" Stroke="{StaticResource Brush.SoftStroke}"
-                  StrokeThickness="1.4" Fill="Transparent" Opacity="0.18"
+                  StrokeThickness="1.2" Fill="Transparent" Opacity="0.08"
                   HorizontalAlignment="Center" VerticalAlignment="Center"
                   Margin="140,-80,0,0" RenderTransformOrigin="0.5,0.5">
-            <Ellipse.Effect>
-                <BlurEffect Radius="7"/>
-            </Ellipse.Effect>
             <Ellipse.RenderTransform>
                 <RotateTransform x:Name="RingDTransform" Angle="15"/>
             </Ellipse.RenderTransform>
         </Ellipse>
 
         <Ellipse x:Name="RingC" Width="1200" Height="440" Stroke="{StaticResource Brush.SoftStroke}"
-                  StrokeThickness="1.5" Fill="Transparent" Opacity="0.22"
+                  StrokeThickness="1.3" Fill="Transparent" Opacity="0.12"
                   HorizontalAlignment="Center" VerticalAlignment="Center"
                   Margin="-120,60,0,0" RenderTransformOrigin="0.5,0.5">
-            <Ellipse.Effect>
-                <BlurEffect Radius="4"/>
-            </Ellipse.Effect>
             <Ellipse.RenderTransform>
                 <RotateTransform x:Name="RingCTransform" Angle="100"/>
             </Ellipse.RenderTransform>
         </Ellipse>
 
-        <Ellipse x:Name="RingB" Width="950" Height="360" Stroke="{StaticResource Brush.Stroke}"
-                  StrokeThickness="1.6" Fill="Transparent" Opacity="0.28"
+        <Ellipse x:Name="RingB" Width="950" Height="360" Stroke="{StaticResource Brush.AccentBorder}"
+                  StrokeThickness="1.3" Fill="Transparent" Opacity="0.13"
                   HorizontalAlignment="Center" VerticalAlignment="Center"
                   Margin="60,-40,0,0" RenderTransformOrigin="0.5,0.5">
             <Ellipse.RenderTransform>
@@ -50,8 +62,8 @@
             </Ellipse.RenderTransform>
         </Ellipse>
 
-        <Ellipse x:Name="RingA" Width="700" Height="260" Stroke="{StaticResource Brush.Stroke}"
-                  StrokeThickness="1.8" Fill="Transparent" Opacity="0.35"
+        <Ellipse x:Name="RingA" Width="700" Height="260" Stroke="{StaticResource Brush.AccentBorder}"
+                  StrokeThickness="1.5" Fill="Transparent" Opacity="0.20"
                   HorizontalAlignment="Center" VerticalAlignment="Center"
                   RenderTransformOrigin="0.5,0.5">
             <Ellipse.RenderTransform>

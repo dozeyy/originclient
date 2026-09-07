@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Multiplayer</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="9" cy="8.3" r="3"/>
+      <path d="M3.6 18.8c.45-3.7 2.45-5.7 5.4-5.7s4.95 2 5.4 5.7"/>
+      <circle cx="17.2" cy="9.4" r="2.35"/>
+      <path d="M15.1 14.6c.7-.45 1.4-.65 2.15-.65 2.15 0 3.55 1.55 3.85 4.25"/>
+  </g>
+</svg>

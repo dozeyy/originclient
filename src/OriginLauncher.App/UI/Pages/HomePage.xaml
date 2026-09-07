@@ -6,73 +6,96 @@
              xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d">
 
-    <Grid>
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+    <Grid Margin="36,12,40,40">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1.06*"/>
+            <ColumnDefinition Width="0.94*"/>
+        </Grid.ColumnDefinitions>
 
-            <!-- Opens the full-screen version picker (VersionSelectOverlay).
-                 Shows the current selection; the grid does the real choosing. -->
-            <Button x:Name="VersionButton" Style="{StaticResource Button.Secondary}"
-                    MinWidth="220" Margin="0,0,0,12" Padding="16,9"
-                    HorizontalContentAlignment="Stretch" Click="VersionButton_Click">
-                <Grid>
-                    <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                        <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}"/>
-                        <TextBlock x:Name="VersionButtonText" Text="—" Style="{StaticResource Text.Body}" Margin="0,1,0,0"/>
-                    </StackPanel>
-                    <Path Data="M0,0 L5,5 L10,0" Stroke="{StaticResource Brush.TextDim}" StrokeThickness="1.7"
-                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Width="10" Height="5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                </Grid>
-            </Button>
-
-            <!-- Every launch is Fabric (CLAUDE.md mandate) — there is no loader
-                 choice. ON loads the player's own mods/ folder as-is alongside
-                 Origin's; OFF launches with ONLY the Origin-provisioned set (see
-                 VersionManager's fabric.modsFolder redirect) without touching
-                 the player's files. -->
-            <Grid x:Name="ExternalModsRow" Margin="0,0,0,18" HorizontalAlignment="Center">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="10"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Play with external mods" Style="{StaticResource Text.BodyDim}"
-                           VerticalAlignment="Center"
-                           ToolTip="On: your own added mods load alongside Origin's. Off: only Origin's built-in mods load — your files stay untouched."/>
-                <ToggleButton Grid.Column="2" x:Name="ExternalModsToggle" Style="{StaticResource Toggle.Switch}"
-                              VerticalAlignment="Center"
-                              ToolTip="On: your own added mods load alongside Origin's. Off: only Origin's built-in mods load — your files stay untouched."
-                              Checked="ExternalModsToggle_Checked" Unchecked="ExternalModsToggle_Unchecked"/>
+        <!-- Origin's signature is the only decorative statement on Home. -->
+        <Grid Grid.Column="0" Margin="28,0,52,0" VerticalAlignment="Center">
+            <Grid Width="410" Height="330" HorizontalAlignment="Left">
+                <Ellipse Width="280" Height="280" HorizontalAlignment="Left"
+                         Stroke="{StaticResource Brush.SoftStroke}" StrokeThickness="1"/>
+                <Border Width="280" Height="1" HorizontalAlignment="Left"
+                        Background="{StaticResource Brush.Accent}" Opacity="0.72"/>
+                <controls:OriginMark Width="146" Height="146" HorizontalAlignment="Left"
+                                     Margin="67,0,0,98" VerticalAlignment="Center"/>
+                <StackPanel VerticalAlignment="Bottom" Margin="0,0,0,8">
+                    <TextBlock Text="MINECRAFT" Style="{StaticResource Text.Eyebrow}"
+                               Foreground="{StaticResource Brush.AccentHover}" Margin="3,0,0,7"/>
+                    <TextBlock Text="ORIGIN" FontFamily="{StaticResource Font.Primary}"
+                               FontSize="54" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"/>
+                </StackPanel>
             </Grid>
+        </Grid>
 
-            <!-- While a launch is in flight the label swaps for a spinning arc
-                 (same 24-grid stroke language as the icon set) that runs until
-                 the game window is actually up — or the boot fails, which
-                 restores the label and surfaces the error in StatusText. -->
-            <Button x:Name="PlayButton"
-                    Style="{StaticResource Button.PlayHero}"
-                    IsEnabled="False"
-                    ToolTip="Sign in and select a version to play"
-                    Click="PlayButton_Click">
-                <Grid>
-                    <TextBlock x:Name="PlayLabel" Text="PLAY"/>
-                    <Path x:Name="PlaySpinner" Visibility="Collapsed"
-                          Width="48" Height="48"
-                          Data="M 24,4 A 20,20 0 1 1 4,24"
-                          Stroke="{StaticResource Brush.TextOnAccent}" StrokeThickness="3.4"
-                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                          RenderTransformOrigin="0.5,0.5"/>
+        <Border Grid.Column="1" MaxWidth="400" Margin="12,0" Padding="24" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                Background="{StaticResource Brush.PanelGlass}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Dialog}" Effect="{StaticResource Shadow.Card}">
+            <StackPanel>
+                <Button x:Name="VersionButton" Style="{StaticResource Button.Secondary}"
+                        Height="66" Margin="0,0,0,12" Padding="16,10"
+                        HorizontalContentAlignment="Stretch" Click="VersionButton_Click"
+                        AutomationProperties.Name="Choose Minecraft version">
+                    <Grid>
+                        <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}"/>
+                            <TextBlock x:Name="VersionButtonText" Text="—" Style="{StaticResource Text.H2}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Button>
+
+                <Border Margin="0,0,0,18" Padding="16,13" Background="{StaticResource Brush.Card}"
+                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius.Control}">
+                    <Grid x:Name="ExternalModsRow">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Personal mods" Style="{StaticResource Text.Body}"
+                                   FontWeight="Medium" Margin="0,0,16,0" VerticalAlignment="Center"
+                                   Cursor="Hand" MouseLeftButtonUp="ExternalModsLabel_MouseLeftButtonUp"/>
+                        <ToggleButton Grid.Column="1" x:Name="ExternalModsToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      ToolTip="Use added .jar mods"
+                                      AutomationProperties.Name="Personal mods"
+                                      Checked="ExternalModsToggle_Checked" Unchecked="ExternalModsToggle_Unchecked"/>
+                    </Grid>
+                </Border>
+
+                <Button x:Name="PlayButton" Style="{StaticResource Button.PlayHero}"
+                        Width="Auto" HorizontalAlignment="Stretch"
+                        IsEnabled="False" ToolTip="Sign in and select a version to play"
+                        AutomationProperties.Name="Play Minecraft"
+                        Click="PlayButton_Click">
+                    <Grid>
+                        <TextBlock x:Name="PlayLabel" Text="PLAY" FontWeight="SemiBold"/>
+                        <Path x:Name="PlaySpinner" Visibility="Collapsed"
+                              Width="24" Height="24"
+                              Data="{StaticResource Icon.Loading}"
+                              Style="{StaticResource Icon.Base}"
+                              Stroke="{StaticResource Brush.TextOnAccent}"
+                              RenderTransformOrigin="0.5,0.5"/>
+                    </Grid>
+                </Button>
+
+                <Grid Margin="0,17,0,0" HorizontalAlignment="Center" MaxWidth="352">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Ellipse x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.Accent}"
+                             VerticalAlignment="Center" Margin="0,0,9,0"/>
+                    <TextBlock Grid.Column="1" x:Name="StatusText" Text="Sign in to play"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"
+                               TextAlignment="Center"/>
                 </Grid>
-            </Button>
-
-            <TextBlock x:Name="StatusText" Text="No account signed in"
-                       Style="{StaticResource Text.BodyDim}"
-                       HorizontalAlignment="Center" Margin="0,20,0,0"/>
-        </StackPanel>
+            </StackPanel>
+        </Border>
 
         <!-- Version picker sits above Home content but below the launch overlay
              so a launch that starts while it's (somehow) open still covers it. -->
-        <controls:VersionSelectOverlay x:Name="VersionOverlay"/>
-        <controls:LaunchLoadingOverlay x:Name="LoadingOverlay"/>
+        <controls:VersionSelectOverlay Grid.ColumnSpan="2" x:Name="VersionOverlay" Margin="-36,-12,-40,-40"/>
+        <controls:LaunchLoadingOverlay Grid.ColumnSpan="2" x:Name="LoadingOverlay" Margin="-36,-12,-40,-40"/>
     </Grid>
 </UserControl>

@@ -39,6 +39,14 @@ public static class SettingsStore
         {
             return new LauncherSettings { RamMb = AutoDetectRamMb() };
         }
+        catch (IOException)
+        {
+            return new LauncherSettings { RamMb = AutoDetectRamMb() };
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new LauncherSettings { RamMb = AutoDetectRamMb() };
+        }
     }
 
     // Half of total physical RAM, leaving headroom for the OS — scales with
@@ -54,6 +62,21 @@ public static class SettingsStore
     {
         Directory.CreateDirectory(OriginPaths.Root);
         var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(FilePath, json);
+        var temporaryPath = Path.Combine(
+            OriginPaths.Root,
+            $"settings.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            File.WriteAllText(temporaryPath, json);
+            // Same-directory rename is atomic on Windows: a crash can leave
+            // either complete version, never a half-written JSON document.
+            File.Move(temporaryPath, FilePath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+        }
     }
 }
