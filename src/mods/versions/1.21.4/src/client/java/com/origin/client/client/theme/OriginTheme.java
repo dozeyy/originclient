@@ -1,51 +1,60 @@
 package com.origin.client.client.theme;
 
-// Design tokens exact-matched to website/css/styles.css's :root custom
-// properties (see DESIGN_SYSTEM.md §1) — colors as 0xAARRGGBB, an 8px
-// spacing scale, corner radii, and the site's two named easing curves.
-// No Minecraft imports on purpose: every Origin-owned renderer should read
-// its look from here instead of hardcoding a value locally.
+// ============================================================================
+// ORIGIN WORKBENCH — shared 1.21.x / 26.x visual contract
+// ============================================================================
+// Minecraft-grounded semantic tokens for every Origin-owned screen, HUD editor,
+// overlay and restyled vanilla control. Keep this class import-free so each
+// rendering generation can consume the same identity without adapter code.
+//
+// Colors are 0xAARRGGBB. Emerald is the sole general interaction accent; lapis,
+// redstone and gold are reserved for information, danger and warning.
 public final class OriginTheme {
 	private OriginTheme() {
 	}
 
-	// ---- Colors ----
-	public static final int BG = 0xFF050505;
-	public static final int BG_ALT = 0xFF0A0A0A;
-	public static final int PANEL = 0xFF101010;
-	// rgba(16,16,16,0.55) — the coords/ping/cpu HUD panel background
-	public static final int PANEL_TRANSLUCENT = 0x8C101010;
-	public static final int PANEL_ALT = 0xFF161616;
-	// rgba(255,255,255,0.08)
-	public static final int STROKE = 0x14FFFFFF;
-	// rgba(255,255,255,0.18)
-	public static final int STROKE_STRONG = 0x2EFFFFFF;
-	// Hover outline — a MUCH lighter gray than the resting stroke, so a hovered
-	// box reads as obviously responsive (A2). One shared value: every hovered
-	// custom box (mod menu, HUD editor, vanilla widget shells) brightens to this.
-	public static final int STROKE_HOVER = 0xFFFFFFFF;
-	public static final int TEXT = 0xFFFFFFFF;
-	public static final int TEXT_DIM = 0xFF9A9A9A;
-	public static final int MUTED = 0xFF616161;
-	// The one accent — stays white/mono everywhere, no new hue (confirmed
-	// with Will; see root CLAUDE.md -> Brand).
-	public static final int ACCENT = 0xFFFFFFFF;
-	// rgba(255,255,255,0.35) — glow behind accent text, cursor halo
-	public static final int ACCENT_GLOW = 0x59FFFFFF;
-	// rgba(255,255,255,0.55) — cursor core glow
-	public static final int ACCENT_DIM = 0x8CFFFFFF;
+	// ---- Primitive surfaces: voidstone -> polished deepslate ----
+	public static final int BG = 0xFF0E1110;
+	public static final int BG_ALT = 0xFF121614;
+	public static final int PANEL = 0xFF171C19;
+	public static final int PANEL_TRANSLUCENT = 0xA6171C19;
+	public static final int PANEL_ALT = 0xFF202720;
 
-	// ---- Mod-menu toggle (C4) ----
-	// The rounded box switch: knob slides left = off, right = on. On/off are the
-	// theme's only two non-gray tones (muted sage / muted clay), kept solid so
-	// the state reads instantly; the knob is a near-white rounded square.
-	public static final int SWITCH_ON = 0xFF2F7D53;   // muted sage
-	public static final int SWITCH_OFF = 0xFFA33A33;  // muted clay
-	public static final int SWITCH_KNOB = 0xFFF0F0F0;
-	// A hairline that darkens the track edge so the box reads crisp on any bg.
-	public static final int SWITCH_STROKE = 0x40000000;
+	// ---- Semantic edges ----
+	public static final int STROKE = 0x246F796F;
+	public static final int STROKE_STRONG = 0x527D897E;
+	public static final int STROKE_HOVER = 0xFF4E705C;
 
-	// ---- Spacing (8px grid) ----
+	// ---- Type: warm parchment over cool mineral surfaces ----
+	public static final int TEXT = 0xFFF1E9D2;
+	public static final int TEXT_DIM = 0xFFB8B5A6;
+	public static final int MUTED = 0xFF7D8279;
+
+	// ---- Interaction and semantic ores ----
+	public static final int ACCENT = 0xFF5FD09B;
+	public static final int ACCENT_2 = 0xFF83E2B5;
+	public static final int ACCENT_GLOW = 0x595FD09B;
+	public static final int ACCENT_DIM = 0x8C5FD09B;
+	public static final int ACCENT_SOFT = 0x245FD09B;
+	public static final int ACCENT_BORDER = 0x995FD09B;
+	public static final int SUCCESS = 0xFF68C490;
+	public static final int INFO = 0xFF6FAEE8;
+	public static final int DANGER = 0xFFE06B5B;
+	public static final int WARNING = 0xFFD8B45B;
+
+	// ---- Unified card/control material ----
+	public static final int BOX_FILL = 0xB31D2420;
+	public static final int BOX_FILL_HOVER = 0xD127302A;
+	public static final int BOX_BORDER = 0xF0080B09;
+	public static final int BOX_BORDER_HOVER = 0xFF4E705C;
+
+	// ---- Toggle ----
+	public static final int SWITCH_ON = SUCCESS;
+	public static final int SWITCH_OFF = 0xFF303732;
+	public static final int SWITCH_KNOB = TEXT;
+	public static final int SWITCH_STROKE = 0x52080B09;
+
+	// ---- Spacing: Minecraft's compact 4/8 rhythm ----
 	public static final int SPACE_1 = 8;
 	public static final int SPACE_2 = 16;
 	public static final int SPACE_3 = 24;
@@ -54,28 +63,31 @@ public final class OriginTheme {
 	public static final int SPACE_8 = 64;
 	public static final int SPACE_10 = 96;
 
-	// ---- Corner radii ----
-	public static final int RADIUS_SM = 6;
-	public static final int RADIUS_MD = 10;
-	public static final int RADIUS_LG = 14;
+	// ---- Shape: crafted, not pill-heavy ----
+	public static final int RADIUS_SM = 1;
+	public static final int RADIUS_MD = 2;
+	public static final int RADIUS_LG = 3;
 
-	// ---- Motion ----
-	public static final double DURATION_FAST_MS = 150.0;
-	public static final double DURATION_MED_MS = 300.0;
-	// The cursor-glow halo's per-frame lag factor from website/js/main.js's
-	// tick(): haloX += (targetX - haloX) * 0.12. Reuse this exact constant,
-	// don't re-derive an approximation.
-	public static final double HALO_LERP_FACTOR = 0.12;
+	// ---- Motion: immediate response with a short, readable settle ----
+	public static final double HOVER_IN_MS = 48.0;
+	public static final double HOVER_OUT_MS = 64.0;
+	public static final double PRESS_MS = 42.0;
+	public static final double FOCUS_MS = 80.0;
+	public static final double DURATION_FAST_MS = 120.0;
+	public static final double DURATION_MED_MS = 180.0;
+	public static final double HALO_LERP_FACTOR = 0.18;
 
 	private static final double[] EASE_OUT = {0.16, 1.0, 0.3, 1.0};
-	private static final double[] SPRING = {0.34, 1.56, 0.64, 1.0};
+	private static final double[] SPRING = {0.2, 0.9, 0.25, 1.05};
 
-	/** cubic-bezier(0.16, 1, 0.3, 1) — css var(--ease-out). */
 	public static double easeOut(double t) {
 		return cubicBezier(EASE_OUT[0], EASE_OUT[1], EASE_OUT[2], EASE_OUT[3], t);
 	}
 
-	/** cubic-bezier(0.34, 1.56, 0.64, 1) — css var(--ease-spring). */
+	/**
+	 * Compatibility curve for existing screen transitions. The small overshoot
+	 * keeps it tactile without the floaty bounce of the former spring.
+	 */
 	public static double spring(double t) {
 		return cubicBezier(SPRING[0], SPRING[1], SPRING[2], SPRING[3], t);
 	}
@@ -84,7 +96,6 @@ public final class OriginTheme {
 		return a + (b - a) * t;
 	}
 
-	/** Component-wise ARGB lerp, for button hover/press color fades. */
 	public static int lerpColor(int a, int b, double t) {
 		int aa = (a >>> 24) & 0xFF, ar = (a >>> 16) & 0xFF, ag = (a >>> 8) & 0xFF, ab = a & 0xFF;
 		int ba = (b >>> 24) & 0xFF, br = (b >>> 16) & 0xFF, bg = (b >>> 8) & 0xFF, bb = b & 0xFF;
@@ -95,13 +106,14 @@ public final class OriginTheme {
 		return (ra << 24) | (rr << 16) | (rg << 8) | rb;
 	}
 
-	/**
-	 * Evaluates a CSS-style cubic-bezier(x1,y1,x2,y2) timing function at
-	 * time t (0..1), implied endpoints (0,0) and (1,1) — same definition
-	 * CSS/browsers use. Solves for the bezier parameter u where the curve's
-	 * x-component equals t (Newton-Raphson, a handful of iterations is
-	 * plenty for UI-scale precision), then returns the y-component at u.
-	 */
+	public static int aurora(double t) {
+		return lerpColor(ACCENT, ACCENT_2, Math.max(0.0, Math.min(1.0, t)));
+	}
+
+	public static int withAlpha(int argb, int alpha) {
+		return ((Math.max(0, Math.min(255, alpha)) & 0xFF) << 24) | (argb & 0xFFFFFF);
+	}
+
 	public static double cubicBezier(double x1, double y1, double x2, double y2, double t) {
 		double u = clamp01(t);
 		for (int i = 0; i < 8; i++) {
@@ -128,11 +140,4 @@ public final class OriginTheme {
 	private static double clamp01(double v) {
 		return Math.max(0.0, Math.min(1.0, v));
 	}
-
-	// Frost box tokens — same values the button skin uses, so every Origin box
-	// reads identically to a button. Ported from the 1.21.1 baseline 2026-08-01.
-	public static final int BOX_FILL = 0x59161616;
-	public static final int BOX_FILL_HOVER = 0x99303030;
-	public static final int BOX_BORDER = 0xF00A0A0A;
-	public static final int BOX_BORDER_HOVER = 0xFF1A1A1A;
 }

@@ -6,69 +6,50 @@
              mc:Ignorable="d"
              IsHitTestVisible="False">
 
-    <!--
-        Origin Ion Jade atmosphere: mineral black, one restrained jade bloom, and the
-        orbital geometry from the brand mark. Static by design; motion is kept
-        for state changes and launch progress.
-    -->
+    <!-- A quiet, tiled deepslate field. The pattern is geometric and static so
+         it feels Minecraft-built without competing with controls or costing
+         animation work. -->
     <Grid Background="{StaticResource Brush.WindowBackdrop}" ClipToBounds="True">
+        <Rectangle Opacity="0.72">
+            <Rectangle.Fill>
+                <DrawingBrush TileMode="Tile" Viewport="0,0,64,64"
+                              ViewportUnits="Absolute" Stretch="None">
+                    <DrawingBrush.Drawing>
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#101D2420">
+                                <GeometryDrawing.Geometry>
+                                    <GeometryGroup>
+                                        <RectangleGeometry Rect="0,0,64,64"/>
+                                    </GeometryGroup>
+                                </GeometryDrawing.Geometry>
+                            </GeometryDrawing>
+                            <GeometryDrawing Brush="#1827302A">
+                                <GeometryDrawing.Geometry>
+                                    <GeometryGroup>
+                                        <RectangleGeometry Rect="5,9,18,2"/>
+                                        <RectangleGeometry Rect="38,5,13,2"/>
+                                        <RectangleGeometry Rect="47,25,11,2"/>
+                                        <RectangleGeometry Rect="12,42,16,2"/>
+                                        <RectangleGeometry Rect="33,53,20,2"/>
+                                        <RectangleGeometry Rect="23,17,2,10"/>
+                                        <RectangleGeometry Rect="56,34,2,13"/>
+                                    </GeometryGroup>
+                                </GeometryDrawing.Geometry>
+                            </GeometryDrawing>
+                            <GeometryDrawing Brush="#12000000">
+                                <GeometryDrawing.Geometry>
+                                    <GeometryGroup>
+                                        <RectangleGeometry Rect="1,30,14,1"/>
+                                        <RectangleGeometry Rect="29,34,18,1"/>
+                                        <RectangleGeometry Rect="8,58,12,1"/>
+                                    </GeometryGroup>
+                                </GeometryDrawing.Geometry>
+                            </GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingBrush.Drawing>
+                </DrawingBrush>
+            </Rectangle.Fill>
+        </Rectangle>
 
-        <Ellipse Width="760" Height="760" HorizontalAlignment="Right" VerticalAlignment="Top"
-                 Margin="0,-430,-300,0" Opacity="0.42">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#4D4BC8AE" Offset="0"/>
-                    <GradientStop Color="#154BC8AE" Offset="0.42"/>
-                    <GradientStop Color="#004BC8AE" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-
-        <Border Width="520" Height="1" HorizontalAlignment="Right" VerticalAlignment="Top"
-                Margin="0,88,72,0" Opacity="0.32">
-            <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                    <GradientStop Color="#004BC8AE" Offset="0"/>
-                    <GradientStop Color="#804BC8AE" Offset="0.68"/>
-                    <GradientStop Color="#004BC8AE" Offset="1"/>
-                </LinearGradientBrush>
-            </Border.Background>
-        </Border>
-
-        <Ellipse x:Name="RingD" Width="1500" Height="520" Stroke="{StaticResource Brush.SoftStroke}"
-                  StrokeThickness="1.2" Fill="Transparent" Opacity="0.08"
-                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                  Margin="140,-80,0,0" RenderTransformOrigin="0.5,0.5">
-            <Ellipse.RenderTransform>
-                <RotateTransform x:Name="RingDTransform" Angle="15"/>
-            </Ellipse.RenderTransform>
-        </Ellipse>
-
-        <Ellipse x:Name="RingC" Width="1200" Height="440" Stroke="{StaticResource Brush.SoftStroke}"
-                  StrokeThickness="1.3" Fill="Transparent" Opacity="0.12"
-                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                  Margin="-120,60,0,0" RenderTransformOrigin="0.5,0.5">
-            <Ellipse.RenderTransform>
-                <RotateTransform x:Name="RingCTransform" Angle="100"/>
-            </Ellipse.RenderTransform>
-        </Ellipse>
-
-        <Ellipse x:Name="RingB" Width="950" Height="360" Stroke="{StaticResource Brush.AccentBorder}"
-                  StrokeThickness="1.3" Fill="Transparent" Opacity="0.13"
-                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                  Margin="60,-40,0,0" RenderTransformOrigin="0.5,0.5">
-            <Ellipse.RenderTransform>
-                <RotateTransform x:Name="RingBTransform" Angle="45"/>
-            </Ellipse.RenderTransform>
-        </Ellipse>
-
-        <Ellipse x:Name="RingA" Width="700" Height="260" Stroke="{StaticResource Brush.AccentBorder}"
-                  StrokeThickness="1.5" Fill="Transparent" Opacity="0.20"
-                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                  RenderTransformOrigin="0.5,0.5">
-            <Ellipse.RenderTransform>
-                <RotateTransform x:Name="RingATransform" Angle="0"/>
-            </Ellipse.RenderTransform>
-        </Ellipse>
     </Grid>
 </UserControl>

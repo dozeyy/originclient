@@ -1,78 +1,60 @@
 package com.origin.client.client.theme;
 
 // ============================================================================
-// ORIGIN — IN-GAME IDENTITY "ION JADE"  (1.21.1 redesign, 2026-09-07)
+// ORIGIN WORKBENCH — shared 1.21.x / 26.x visual contract
 // ============================================================================
-// The single source of colour, spacing, radius and motion for every
-// Origin-owned surface (mod menu, HUD editor, shader browser, waypoints, the
-// restyled vanilla widgets). No Minecraft imports on purpose: every renderer
-// reads its look from here, so the whole client re-themes from ONE file.
+// Minecraft-grounded semantic tokens for every Origin-owned screen, HUD editor,
+// overlay and restyled vanilla control. Keep this class import-free so each
+// rendering generation can consume the same identity without adapter code.
 //
-// Mineral-black surfaces, silver type, and a blue-jade state colour. It stays
-// cool and architectural without the purple/blue glow common to generated UI.
-// Jade appears only for focus and action; semantic states remain distinct.
-//
-// Colours are 0xAARRGGBB. Field NAMES are unchanged from earlier systems so no
-// call site breaks; ACCENT_2 / aurora() are kept as API but are now a TINT of
-// the same hue (monochromatic), not a second colour.
+// Colors are 0xAARRGGBB. Emerald is the sole general interaction accent; lapis,
+// redstone and gold are reserved for information, danger and warning.
 public final class OriginTheme {
 	private OriginTheme() {
 	}
 
-	// ---- Value ladder: cool mineral surfaces ----
-	public static final int BG = 0xFF090D0C;
-	public static final int BG_ALT = 0xFF0D1211;
-	public static final int PANEL = 0xFF121918;
-	// panel @ ~65% — the coords/ping/cpu HUD panel background over gameplay.
-	public static final int PANEL_TRANSLUCENT = 0xA6121918;
-	public static final int PANEL_ALT = 0xFF192320;
+	// ---- Primitive surfaces: voidstone -> polished deepslate ----
+	public static final int BG = 0xFF0E1110;
+	public static final int BG_ALT = 0xFF121614;
+	public static final int PANEL = 0xFF171C19;
+	public static final int PANEL_TRANSLUCENT = 0xA6171C19;
+	public static final int PANEL_ALT = 0xFF202720;
 
-	// ---- Hairlines (white at low alpha inherits the surface tint beneath) ----
-	public static final int STROKE = 0x14FFFFFF;
-	public static final int STROKE_STRONG = 0x24FFFFFF;
-	// Hover outline: a hovered custom box firms up to a soft near-white.
-	public static final int STROKE_HOVER = 0xFF3B524C;
+	// ---- Semantic edges ----
+	public static final int STROKE = 0x246F796F;
+	public static final int STROKE_STRONG = 0x527D897E;
+	public static final int STROKE_HOVER = 0xFF4E705C;
 
-	// ---- Text: cool silver and mineral grey ----
-	public static final int TEXT = 0xFFEFF7F4;
-	public static final int TEXT_DIM = 0xFFA7BBB5;
-	public static final int MUTED = 0xFF6D817B;
+	// ---- Type: warm parchment over cool mineral surfaces ----
+	public static final int TEXT = 0xFFF1E9D2;
+	public static final int TEXT_DIM = 0xFFB8B5A6;
+	public static final int MUTED = 0xFF7D8279;
 
-	// ---- State accent: Origin ion jade ----
-	public static final int ACCENT = 0xFF4BC8AE;
-	// A lighter TINT of the same hue — the top of the accent's own value ramp.
-	// Not a second colour: used only where a highlight of the accent is needed.
-	public static final int ACCENT_2 = 0xFF79DEC9;
-	// accent @ 0.35 — glow behind accent text / brand, cursor halo.
-	public static final int ACCENT_GLOW = 0x594BC8AE;
-	// accent @ 0.55 — cursor core glow.
-	public static final int ACCENT_DIM = 0x8C4BC8AE;
-	// accent @ ~0.14 — a faint wash for the fill of a selected/primary box.
-	public static final int ACCENT_SOFT = 0x244BC8AE;
-	// accent @ ~0.60 — the border of a selected/primary box; hover → full ACCENT.
-	public static final int ACCENT_BORDER = 0x994BC8AE;
+	// ---- Interaction and semantic ores ----
+	public static final int ACCENT = 0xFF5FD09B;
+	public static final int ACCENT_2 = 0xFF83E2B5;
+	public static final int ACCENT_GLOW = 0x595FD09B;
+	public static final int ACCENT_DIM = 0x8C5FD09B;
+	public static final int ACCENT_SOFT = 0x245FD09B;
+	public static final int ACCENT_BORDER = 0x995FD09B;
+	public static final int SUCCESS = 0xFF68C490;
+	public static final int INFO = 0xFF6FAEE8;
+	public static final int DANGER = 0xFFE06B5B;
+	public static final int WARNING = 0xFFD8B45B;
 
-	// ---- Semantic state (matched lightness to the accent, desaturated) ----
-	public static final int SUCCESS = 0xFF69C596;
-	public static final int DANGER = 0xFFE06B7C;
-	public static final int WARNING = 0xFFD4C66A;
-
-	// ---- Box surface (every card / row / chip / dropdown / search) ----
-	// See-through tinted card fill; the frame is DARKER than the fill (Will) so
-	// the edge reads on any backdrop; hover lifts both one rung up the ladder.
-	public static final int BOX_FILL = 0x8C192320;
-	public static final int BOX_FILL_HOVER = 0xB323302C;
-	public static final int BOX_BORDER = 0xF0060B0A;
-	public static final int BOX_BORDER_HOVER = 0xFF3B524C;
+	// ---- Unified card/control material ----
+	public static final int BOX_FILL = 0xB31D2420;
+	public static final int BOX_FILL_HOVER = 0xD127302A;
+	public static final int BOX_BORDER = 0xF0080B09;
+	public static final int BOX_BORDER_HOVER = 0xFF4E705C;
 
 	// ---- Toggle ----
-	// The iOS pill in OriginUi reads its own tuned copies of these two.
 	public static final int SWITCH_ON = SUCCESS;
-	public static final int SWITCH_OFF = DANGER;
-	public static final int SWITCH_KNOB = 0xFFEFF7F4;
-	public static final int SWITCH_STROKE = 0x40000000;
+	public static final int SWITCH_OFF = 0xFF303732;
+	public static final int SWITCH_KNOB = TEXT;
+	public static final int SWITCH_STROKE = 0x52080B09;
 
-	// ---- Spacing (8px grid) ----
+	// ---- Spacing: Minecraft's compact 4/8 rhythm ----
 	public static final int SPACE_1 = 8;
 	public static final int SPACE_2 = 16;
 	public static final int SPACE_3 = 24;
@@ -81,26 +63,31 @@ public final class OriginTheme {
 	public static final int SPACE_8 = 64;
 	public static final int SPACE_10 = 96;
 
-	// ---- Corner radii ----
-	public static final int RADIUS_SM = 6;
-	public static final int RADIUS_MD = 12;
-	public static final int RADIUS_LG = 16;
+	// ---- Shape: crafted, not pill-heavy ----
+	public static final int RADIUS_SM = 1;
+	public static final int RADIUS_MD = 2;
+	public static final int RADIUS_LG = 3;
 
-	// ---- Motion ----
-	public static final double DURATION_FAST_MS = 150.0;
-	public static final double DURATION_MED_MS = 300.0;
-	// Cursor-glow halo per-frame lag factor: haloX += (targetX - haloX) * 0.12.
-	public static final double HALO_LERP_FACTOR = 0.12;
+	// ---- Motion: immediate response with a short, readable settle ----
+	public static final double HOVER_IN_MS = 48.0;
+	public static final double HOVER_OUT_MS = 64.0;
+	public static final double PRESS_MS = 42.0;
+	public static final double FOCUS_MS = 80.0;
+	public static final double DURATION_FAST_MS = 120.0;
+	public static final double DURATION_MED_MS = 180.0;
+	public static final double HALO_LERP_FACTOR = 0.18;
 
 	private static final double[] EASE_OUT = {0.16, 1.0, 0.3, 1.0};
-	private static final double[] SPRING = {0.34, 1.56, 0.64, 1.0};
+	private static final double[] SPRING = {0.2, 0.9, 0.25, 1.05};
 
-	/** cubic-bezier(0.16, 1, 0.3, 1) — css var(--ease-out). */
 	public static double easeOut(double t) {
 		return cubicBezier(EASE_OUT[0], EASE_OUT[1], EASE_OUT[2], EASE_OUT[3], t);
 	}
 
-	/** cubic-bezier(0.34, 1.56, 0.64, 1) — css var(--ease-spring). */
+	/**
+	 * Compatibility curve for existing screen transitions. The small overshoot
+	 * keeps it tactile without the floaty bounce of the former spring.
+	 */
 	public static double spring(double t) {
 		return cubicBezier(SPRING[0], SPRING[1], SPRING[2], SPRING[3], t);
 	}
@@ -109,7 +96,6 @@ public final class OriginTheme {
 		return a + (b - a) * t;
 	}
 
-	/** Component-wise ARGB lerp, for button hover/press color fades. */
 	public static int lerpColor(int a, int b, double t) {
 		int aa = (a >>> 24) & 0xFF, ar = (a >>> 16) & 0xFF, ag = (a >>> 8) & 0xFF, ab = a & 0xFF;
 		int ba = (b >>> 24) & 0xFF, br = (b >>> 16) & 0xFF, bg = (b >>> 8) & 0xFF, bb = b & 0xFF;
@@ -120,27 +106,14 @@ public final class OriginTheme {
 		return (ra << 24) | (rr << 16) | (rg << 8) | rb;
 	}
 
-	/**
-	 * The accent's own value ramp at t (0..1): ACCENT at 0 → its lighter tint
-	 * ACCENT_2 at 1. Monochromatic on purpose — an active-tab underline or a
-	 * rail bar drawn through this reads as one jade with a soft highlight, not
-	 * as a gradient between two colours. (Name kept for existing call sites.)
-	 */
 	public static int aurora(double t) {
 		return lerpColor(ACCENT, ACCENT_2, Math.max(0.0, Math.min(1.0, t)));
 	}
 
-	/** Same ARGB colour at a new alpha (0..255) — for glows, washes, fades. */
 	public static int withAlpha(int argb, int alpha) {
 		return ((Math.max(0, Math.min(255, alpha)) & 0xFF) << 24) | (argb & 0xFFFFFF);
 	}
 
-	/**
-	 * Evaluates a CSS-style cubic-bezier(x1,y1,x2,y2) timing function at
-	 * time t (0..1), implied endpoints (0,0) and (1,1) — same definition
-	 * CSS/browsers use. Solves for the bezier parameter u where the curve's
-	 * x-component equals t (Newton-Raphson), then returns the y-component at u.
-	 */
 	public static double cubicBezier(double x1, double y1, double x2, double y2, double t) {
 		double u = clamp01(t);
 		for (int i = 0; i < 8; i++) {

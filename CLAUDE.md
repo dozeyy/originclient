@@ -21,7 +21,7 @@
    lead with the `cd` into the project root. Never assume he's already in the
    right folder. Full shape:
    ```powershell
-   cd "C:\Users\Will\Documents\Origin Client"    # last-known repo path
+   cd "C:\Users\Will\Documents\Minecraft Mods\Origin Client"    # last-known repo path
    git fetch origin <branch>
    git checkout <branch>
    cd src\mods\versions\1.21.1                    # the version module (holds gradlew.bat)

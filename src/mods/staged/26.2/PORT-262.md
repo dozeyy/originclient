@@ -4,6 +4,17 @@
 layer is being re-architected onto 26.2's **retained-mode** GUI. This file is the
 working guide for finishing that port.
 
+## VERIFIED STATE — 2026-09-09 (Origin Workbench pass)
+
+- `gradlew build --offline --no-daemon` succeeds on Java 25.
+- `tools/boot-smoke/smoke.py src/mods/staged/26.2` reaches LWJGL renderer
+  initialization with Origin active and no mixin-apply failure.
+- The removed `Minecraft.screen` read in `OriginClientMod` now uses the existing
+  `OriginScreenState.current` retained-mode bridge.
+- Workbench palette, typography assets, component materials, and 48/64 ms hover
+  timing are installed. The module remains staged pending manual retained-mode
+  title/menu/HUD review and explicit release approval.
+
 ## VERIFIED STATE — 2026-07-30 (read this first; the rest of the file is older)
 
 The module is FURTHER ALONG than the sections below imply. Re-baselined this session
@@ -82,7 +93,7 @@ Cards/features MISSING entirely (added to 1.21.x AFTER this port was parked 2026
 - **waypoints** (Waypoints/WaypointHud/WaypointRenderer/WaypointScreen — WaypointHud
   needs the camera-projection rebuild, memory point 1).
 - Foundational infra several of the above need: **OriginShaders** (pipelines),
-  **OriginText/OriginSdfFont** (Inter/MSDF text), **ModIcons** (real-item icons),
+  Minecraft-native **OriginText**, **ModIcons** (real-item icons),
   **Profiles**, **ThickLine**, **OriginMultiSelect**.
 - **jei** — N/A on 26.2 (JEI is not bundled here; not a gap).
 

@@ -204,7 +204,7 @@ public class OriginClientMod implements ClientModInitializer {
 		if (mc == null || mc.options == null || key != mc.options.keySprint) {
 			return false;
 		}
-		if (mc.screen != null) {
+		if (OriginScreenState.current != null) {
 			return false;   // vanilla releases every key in a screen; don't lie to it
 		}
 		return Mods.on("togglesprint") && Mods.bool("togglesprint", "sprint");

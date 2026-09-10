@@ -10,35 +10,36 @@
     <system:Double x:Key="Space.5">32</system:Double>
     <system:Double x:Key="Space.6">48</system:Double>
 
-    <!-- Corner radius tiers -->
-    <CornerRadius x:Key="Radius.Chip">7</CornerRadius>
-    <CornerRadius x:Key="Radius.Control">10</CornerRadius>
-    <CornerRadius x:Key="Radius.NavItem">11</CornerRadius>
-    <CornerRadius x:Key="Radius.Row">12</CornerRadius>
-    <CornerRadius x:Key="Radius.Card">16</CornerRadius>
-    <CornerRadius x:Key="Radius.Dialog">18</CornerRadius>
-    <CornerRadius x:Key="Radius.Swatch">12</CornerRadius>
+    <!-- Block-built corners: one-pixel controls and only a slight softening on
+         large containers. Circular geometry is reserved for the Origin mark. -->
+    <CornerRadius x:Key="Radius.Chip">1</CornerRadius>
+    <CornerRadius x:Key="Radius.Control">1</CornerRadius>
+    <CornerRadius x:Key="Radius.NavItem">1</CornerRadius>
+    <CornerRadius x:Key="Radius.Row">2</CornerRadius>
+    <CornerRadius x:Key="Radius.Card">2</CornerRadius>
+    <CornerRadius x:Key="Radius.Dialog">3</CornerRadius>
+    <CornerRadius x:Key="Radius.Swatch">1</CornerRadius>
 
     <!-- Motion timing -->
-    <Duration x:Key="Motion.Base">0:0:0.16</Duration>
-    <Duration x:Key="Motion.Press">0:0:0.08</Duration>
-    <Duration x:Key="Motion.Release">0:0:0.20</Duration>
-    <Duration x:Key="Motion.Scene">0:0:0.19</Duration>
-    <Duration x:Key="Motion.Exit">0:0:0.11</Duration>
+    <Duration x:Key="Motion.Base">0:0:0.048</Duration>
+    <Duration x:Key="Motion.Press">0:0:0.042</Duration>
+    <Duration x:Key="Motion.Release">0:0:0.064</Duration>
+    <Duration x:Key="Motion.Scene">0:0:0.18</Duration>
+    <Duration x:Key="Motion.Exit">0:0:0.12</Duration>
 
-    <!-- Primary action resting shadow — the only element allowed one -->
+    <!-- Hard-edged depth reads like a Minecraft button, without blur work. -->
     <DropShadowEffect x:Key="Shadow.Primary"
-                      Color="#FF4BC8AE"
-                      Opacity="0.28"
-                      BlurRadius="24"
-                      ShadowDepth="6"
+                      Color="#FF5FD09B"
+                      Opacity="0.55"
+                      BlurRadius="0"
+                      ShadowDepth="3"
                       Direction="270"/>
 
     <DropShadowEffect x:Key="Shadow.Card"
                       Color="#FF000000"
-                      Opacity="0.32"
-                      BlurRadius="28"
-                      ShadowDepth="10"
+                      Opacity="0.48"
+                      BlurRadius="0"
+                      ShadowDepth="4"
                       Direction="270"/>
 
 </ResourceDictionary>

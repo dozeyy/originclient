@@ -89,7 +89,7 @@ def main():
                 v = max(0.0, min(1.0, v))
                 val = round(v * 255)
                 px[ox + x, y] = (val, val, val, 255)
-    out_path = r"C:\Users\Will\Documents\Origin Client\src\mods\versions\1.21.11\src\client\resources\assets\originclient\textures\ui\icon_sdf.png"
+    out_path = r"C:\Users\Will\Documents\Minecraft Mods\Origin Client\src\mods\versions\1.21.11\src\client\resources\assets\originclient\textures\ui\icon_sdf.png"
     img.save(out_path)
     print("saved", out_path, "atlas", ATLAS_W, "x", ATLAS_H)
     print("icon order:", ICONS)

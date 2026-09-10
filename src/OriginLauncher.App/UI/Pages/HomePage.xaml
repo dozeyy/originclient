@@ -15,17 +15,14 @@
         <!-- Origin's signature is the only decorative statement on Home. -->
         <Grid Grid.Column="0" Margin="28,0,52,0" VerticalAlignment="Center">
             <Grid Width="410" Height="330" HorizontalAlignment="Left">
-                <Ellipse Width="280" Height="280" HorizontalAlignment="Left"
-                         Stroke="{StaticResource Brush.SoftStroke}" StrokeThickness="1"/>
-                <Border Width="280" Height="1" HorizontalAlignment="Left"
-                        Background="{StaticResource Brush.Accent}" Opacity="0.72"/>
                 <controls:OriginMark Width="146" Height="146" HorizontalAlignment="Left"
                                      Margin="67,0,0,98" VerticalAlignment="Center"/>
                 <StackPanel VerticalAlignment="Bottom" Margin="0,0,0,8">
                     <TextBlock Text="MINECRAFT" Style="{StaticResource Text.Eyebrow}"
                                Foreground="{StaticResource Brush.AccentHover}" Margin="3,0,0,7"/>
-                    <TextBlock Text="ORIGIN" FontFamily="{StaticResource Font.Primary}"
-                               FontSize="54" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"/>
+                    <Path Style="{StaticResource Brand.Wordmark}"
+                          Width="238" Height="46" HorizontalAlignment="Left"
+                          AutomationProperties.Name="Origin"/>
                 </StackPanel>
             </Grid>
         </Grid>
@@ -72,7 +69,8 @@
                         AutomationProperties.Name="Play Minecraft"
                         Click="PlayButton_Click">
                     <Grid>
-                        <TextBlock x:Name="PlayLabel" Text="PLAY" FontWeight="SemiBold"/>
+                        <Path x:Name="PlayLabel" Style="{StaticResource Brand.PlayWordmark}"
+                              Width="72" Height="20" AutomationProperties.Name="Play"/>
                         <Path x:Name="PlaySpinner" Visibility="Collapsed"
                               Width="24" Height="24"
                               Data="{StaticResource Icon.Loading}"

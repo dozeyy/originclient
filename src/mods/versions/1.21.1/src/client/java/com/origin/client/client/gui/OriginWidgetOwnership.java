@@ -31,6 +31,11 @@ package com.origin.client.client.gui;
  * shared/ and syncs to every module.
  */
 public final class OriginWidgetOwnership {
+	// Mod Menu's pause-screen entry is a normal Minecraft button with only a
+	// small update badge added after the base render. Origin owns the base look
+	// so it should match the rest of the pause menu; the badge still renders.
+	private static final String MOD_MENU_BUTTON =
+			"com.terraformersmc.modmenu.gui.widget.ModMenuButtonWidget";
 
 	// Package prefixes whose widgets Origin is entitled to redraw.
 	private static final String[] OWNED_PREFIXES = {
@@ -47,6 +52,9 @@ public final class OriginWidgetOwnership {
 		@Override
 		protected Boolean computeValue(Class<?> type) {
 			String name = type.getName();
+			if (MOD_MENU_BUTTON.equals(name)) {
+				return Boolean.FALSE;
+			}
 			for (String prefix : OWNED_PREFIXES) {
 				if (name.startsWith(prefix)) {
 					return Boolean.FALSE;

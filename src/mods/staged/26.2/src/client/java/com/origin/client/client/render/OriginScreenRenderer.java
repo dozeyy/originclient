@@ -700,6 +700,11 @@ public final class OriginScreenRenderer {
 			wmLetterX1 = null;
 			com.origin.client.OriginClient.LOGGER.warn("Origin wordmark failed to load; using vanilla font", e);
 		}
+		// One typography voice: the title and loading mark use Minecraft's native
+		// font path too. Retain the old asset loader only for binary compatibility.
+		wordmarkId = null;
+		wmLetterX0 = null;
+		wmLetterX1 = null;
 
 		try {
 			Minecraft mc = Minecraft.getInstance();

@@ -80,3 +80,12 @@ client/resources/assets/originclient/textures/ui/wordmark.png
 client/resources/assets/originclient/textures/ui/wordmark.json
 client/resources/assets/originclient/textures/ui/mod_icons.png
 client/resources/assets/originclient/textures/ui/mod_icons.json
+
+# DELIBERATE FORK (2026-09-09) — hardened shader downloads sanitize remote
+# filenames, remove incomplete .part files, validate Content-Length, and prefer
+# atomic replacement. Keep this protection until it is promoted to shared/.
+client/java/com/origin/client/client/shaders/ShaderDownloader.java
+
+# DELIBERATE FORK (2026-09-09) — Mod Menu's 1.21.1 pause-button subclass is
+# safe for Origin to skin while retaining its own update badge.
+client/java/com/origin/client/client/gui/OriginWidgetOwnership.java

@@ -5,7 +5,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-3" CornerRadius="12" BorderThickness="2"
+                    <Border Margin="-3" CornerRadius="2" BorderThickness="2"
                             BorderBrush="{StaticResource Brush.Accent}" Opacity="0.9"/>
                 </ControlTemplate>
             </Setter.Value>
@@ -22,7 +22,7 @@
     -->
 
     <Style x:Key="Button.Base" TargetType="Button">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Padding" Value="16,10"/>
@@ -78,13 +78,13 @@
                             <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
                                              To="1.0" Duration="{StaticResource Motion.Release}">
                                 <DoubleAnimation.EasingFunction>
-                                    <BackEase EasingMode="EaseOut" Amplitude="0.4"/>
+                                    <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
                             <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
                                              To="1.0" Duration="{StaticResource Motion.Release}">
                                 <DoubleAnimation.EasingFunction>
-                                    <BackEase EasingMode="EaseOut" Amplitude="0.4"/>
+                                    <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
                         </Storyboard>
@@ -163,7 +163,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Primary / launch button: the one element allowed to pop + hover lift + resting shadow -->
+    <!-- Primary / launch button: emerald ore state with a hard block shadow. -->
     <Style x:Key="Button.Primary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
@@ -193,20 +193,18 @@
                 <Trigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                             To="1.015" Duration="{StaticResource Motion.Base}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                             To="1.015" Duration="{StaticResource Motion.Base}"/>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.AccentHover}"
+                                            Duration="{StaticResource Motion.Base}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.EnterActions>
                 <Trigger.ExitActions>
                     <BeginStoryboard>
                         <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                             To="1.0" Duration="{StaticResource Motion.Base}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                             To="1.0" Duration="{StaticResource Motion.Base}"/>
+                            <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                            To="{StaticResource Color.Accent}"
+                                            Duration="{StaticResource Motion.Release}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>
@@ -239,13 +237,13 @@
                             <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
                                              To="1.0" Duration="{StaticResource Motion.Release}">
                                 <DoubleAnimation.EasingFunction>
-                                    <BackEase EasingMode="EaseOut" Amplitude="0.4"/>
+                                    <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
                             <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
                                              To="1.0" Duration="{StaticResource Motion.Release}">
                                 <DoubleAnimation.EasingFunction>
-                                    <BackEase EasingMode="EaseOut" Amplitude="0.4"/>
+                                    <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
@@ -264,7 +262,7 @@
 
     <!-- Nav rail item — ToggleButton so exactly one can read as "selected" -->
     <Style x:Key="Button.NavItem" TargetType="ToggleButton">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Padding" Value="12,10"/>
@@ -375,14 +373,14 @@
     <Style x:Key="Button.PlayHero" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="Normal"/>
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="Width" Value="360"/>
         <Setter Property="Height" Value="58"/>
         <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect x:Name="HeroGlow" Color="#FF4BC8AE" Opacity="0.24" BlurRadius="22" ShadowDepth="7" Direction="270"/>
+                <DropShadowEffect x:Name="HeroGlow" Color="#FF5FD09B" Opacity="0.52" BlurRadius="0" ShadowDepth="4" Direction="270"/>
             </Setter.Value>
         </Setter>
         <Setter Property="Template">
@@ -392,7 +390,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="14"
+                            CornerRadius="{StaticResource Radius.Row}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter Margin="{TemplateBinding Padding}"
                                           HorizontalAlignment="Center"
@@ -407,10 +405,6 @@
                 <Trigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                             To="1.015" Duration="{StaticResource Motion.Base}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                             To="1.015" Duration="{StaticResource Motion.Base}"/>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
                                             To="{StaticResource Color.AccentHover}"
                                             Duration="{StaticResource Motion.Base}"/>
@@ -420,13 +414,9 @@
                 <Trigger.ExitActions>
                     <BeginStoryboard>
                         <Storyboard>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
-                                             To="1.0" Duration="{StaticResource Motion.Base}"/>
-                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
-                                             To="1.0" Duration="{StaticResource Motion.Base}"/>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
                                             To="{StaticResource Color.Accent}"
-                                            Duration="{StaticResource Motion.Base}"/>
+                                            Duration="{StaticResource Motion.Release}"/>
                         </Storyboard>
                     </BeginStoryboard>
                 </Trigger.ExitActions>
@@ -456,13 +446,13 @@
                             <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
                                              To="1.0" Duration="{StaticResource Motion.Release}">
                                 <DoubleAnimation.EasingFunction>
-                                    <BackEase EasingMode="EaseOut" Amplitude="0.4"/>
+                                    <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
                             <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
                                              To="1.0" Duration="{StaticResource Motion.Release}">
                                 <DoubleAnimation.EasingFunction>
-                                    <BackEase EasingMode="EaseOut" Amplitude="0.4"/>
+                                    <CubicEase EasingMode="EaseOut"/>
                                 </DoubleAnimation.EasingFunction>
                             </DoubleAnimation>
                         </Storyboard>

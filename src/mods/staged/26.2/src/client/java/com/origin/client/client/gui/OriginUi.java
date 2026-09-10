@@ -63,6 +63,12 @@ public final class OriginUi {
 		return (float) OriginTheme.easeOut(st[0]);
 	}
 
+	/** Shared immediate hover response for every hand-rendered Origin control. */
+	public static float hover(String id, boolean target) {
+		return anim("hover:" + id, target,
+				target ? OriginTheme.HOVER_IN_MS : OriginTheme.HOVER_OUT_MS);
+	}
+
 	/** Rounded panel: 9-sliced baked masks, fill + hairline border. */
 	public static void panel(GuiGraphicsExtractor g, int x, int y, int w, int h, int corner, int fill, int border) {
 		if (w <= 0 || h <= 0) {
@@ -258,18 +264,15 @@ public final class OriginUi {
 		int track = enabled
 				? OriginTheme.lerpColor(OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_ON, k)
 				: OriginTheme.lerpColor(0xFF3C3C3C, 0xFF565656, k);
-		// Rounded RECTANGLE (not a pill) — a modest corner so it reads clearly
-		// different from the old iOS-style switch.
-		int trackCorner = Math.max(3, Math.round(hDisp * 0.30f));
-		panel(g, x, y, wDisp, hDisp, trackCorner, track, OriginTheme.SWITCH_STROKE);
+		// Block-built track; state changes color without changing geometry.
+		panel(g, x, y, wDisp, hDisp, OriginTheme.RADIUS_SM, track, OriginTheme.SWITCH_STROKE);
 
-		// Knob: a near-white rounded square sliding between the track's inset ends.
+		// Near-white square knob sliding between the track's inset ends.
 		int pad = Math.max(2, Math.round(hDisp * 0.15f));
 		int knob = hDisp - 2 * pad;
 		int travel = Math.max(0, wDisp - 2 * pad - knob);
 		int kx = x + pad + Math.round(k * travel);
-		int knobCorner = Math.max(2, Math.round(knob * 0.30f));
-		panel(g, kx, y + pad, knob, knob, knobCorner,
+		panel(g, kx, y + pad, knob, knob, OriginTheme.RADIUS_SM,
 				enabled ? OriginTheme.SWITCH_KNOB : 0xFFB8B8B8, OriginTheme.SWITCH_STROKE);
 		return k;
 	}
@@ -343,19 +346,16 @@ public final class OriginUi {
 		int r = 5;              // knob radius — travel is inset by r so the ball is flush at the ends
 		double v = Math.max(0.0, Math.min(1.0, value));
 		int cy = y + h / 2;     // pill vertical center — the knob centers on this
-		panel(g, x, y, w, h, h / 2, 0x30FFFFFF, 0);
+		panel(g, x, y, w, h, OriginTheme.RADIUS_SM, OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_STROKE);
 		int kx = x + r + (int) Math.round(v * (w - 2 * r));
 		int fw = kx - x;        // fill runs from the track start to the knob center
 		if (v > 0.001 && fw > 0) {
-			panel(g, x, y, Math.min(w, fw + r), h, h / 2, active ? 0xE6E0E0E0 : 0xA8D8D8D8, 0);
+			panel(g, x, y, Math.min(w, fw + r), h, OriginTheme.RADIUS_SM,
+					active ? OriginTheme.ACCENT_2 : OriginTheme.ACCENT, 0);
 		}
-		ensureLoaded();
-		int kd = active ? r * 2 + 4 : r * 2 + 2;   // ball; grows slightly while dragging
-		if (ok) {
-			g.blit(RenderPipelines.GUI_TEXTURED, knobTex, kx - kd / 2, cy - kd / 2, 0f, 0f, kd, kd, 72, 72, 72, 72, WHITE);
-		} else {
-			g.fill(kx - kd / 2, cy - kd / 2, kx + kd / 2, cy + kd / 2, 0xFFE8E8E8);
-		}
+		int kd = active ? r * 2 + 4 : r * 2 + 2;
+		panel(g, kx - kd / 2, cy - kd / 2, kd, kd, OriginTheme.RADIUS_SM,
+				OriginTheme.TEXT, OriginTheme.BOX_BORDER);
 		return kx;
 	}
 

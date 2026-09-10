@@ -115,21 +115,21 @@ public class OriginModMenuScreen extends Screen {
 		return (height - ph()) / 2;
 	}
 
-	// 2026-09 "Command Deck" layout: a wide, full-bleed panel (not the old 78×76%
-	// box) so the row cards have room to breathe on every GUI scale.
+	// Wide, calm shell: enough room for a four-column library at normal GUI
+	// scales without making the sidebar or outer margins visually heavy.
 	private int pw() {
-		return (int) (width * 0.86);
+		return (int) (width * 0.94);
 	}
 
 	private int ph() {
-		return (int) (height * 0.84);
+		return (int) (height * 0.90);
 	}
 
 	/** Category rail width — a real rail with an icon-free label per row (All /
 	 *  HUD / Visual / Gameplay, then Profiles / Settings), clamped so it never
 	 *  eats content on small windows. */
 	private int sbW() {
-		return Math.max(88, Math.min(120, pw() * 17 / 100));
+		return Math.max(72, Math.min(96, pw() * 15 / 100));
 	}
 
 	/** Content-region left edge (the divider sits here). */
@@ -138,18 +138,18 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private int cx0() {
-		return contentX() + 16;
+		return contentX() + 12;
 	}
 
 	private int cx1() {
-		return px() + pw() - 16;
+		return px() + pw() - 12;
 	}
 
-	// ---- MODS page model: descriptive ROW cards (icon · name + one-line
-	// description · favourite star · inline iOS toggle), laid out 2-up when the
-	// content is wide enough, 1-up otherwise. Replaces the 4-per-row icon tiles.
-	private static final int ROW_H = 40, GAP = 6, HEAD_H = 18;
-	private int rowCols = 2, rowW = 200;
+	// ---- MODS page model: compact library cards, four across at normal GUI
+	// sizes and continuing downward. Narrow windows degrade cleanly to fewer
+	// columns without clipping controls or text.
+	private static final int ROW_H = 68, GAP = 6, HEAD_H = 18, MIN_CARD_W = 64;
+	private int rowCols = 4, rowW = 72;
 	private final List<Mods.Mod> filtered = new ArrayList<>();
 
 	/** One laid-out thing on the mods page: a section header (mod == null) or a
@@ -230,8 +230,8 @@ public class OriginModMenuScreen extends Screen {
 
 	// Card name-bar tones: sage when the mod is ON, neutral gray when OFF (the
 	// theme's sanctioned enabled/disabled colour language, kept subtle).
-	private static final int BAR_ON = OriginTheme.SUCCESS, BAR_ON_HOVER = 0xFF8BBB8F;
-	private static final int BAR_OFF = 0xFF23302C, BAR_OFF_HOVER = 0xFF30423D;
+	private static final int BAR_ON = OriginTheme.SUCCESS, BAR_ON_HOVER = OriginTheme.ACCENT_2;
+	private static final int BAR_OFF = OriginTheme.PANEL_ALT, BAR_OFF_HOVER = OriginTheme.BOX_FILL_HOVER;
 
 	private java.util.List<ModOption> subOpts() {
 		return subTab == SubTab.GENERAL ? Mods.GENERAL_SETTINGS : Mods.PERFORMANCE_SETTINGS;
@@ -345,9 +345,9 @@ public class OriginModMenuScreen extends Screen {
 			inspectId = filtered.isEmpty() ? null : filtered.get(0).id();
 		}
 
-		// Lay the rows out ONCE per frame into `items`; render + click both read it.
+		// Lay the cards out ONCE per frame into `items`; render + click both read it.
 		int gridW = gridRight() - cx0();
-		rowCols = gridW >= 400 ? 2 : 1;
+		rowCols = Math.max(1, Math.min(4, (gridW + GAP) / (MIN_CARD_W + GAP)));
 		rowW = (gridW - (rowCols - 1) * GAP) / rowCols;
 		items.clear();
 		int y = 0, col = 0;
@@ -382,16 +382,16 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	private boolean inspectorVisible() {
-		return nav == Nav.MODS && page == null && (cx1() - cx0()) >= INS_MIN_CONTENT;
+		return false;
 	}
 
 	private int insW() {
 		return Math.max(150, Math.min(190, (cx1() - cx0()) * 30 / 100));
 	}
 
-	/** Right edge of the row grid: the whole content, or up to the inspector. */
+	/** Right edge of the card grid. */
 	private int gridRight() {
-		return inspectorVisible() ? cx1() - insW() - 12 : cx1();
+		return cx1();
 	}
 
 	private void renderInspector(GuiGraphics g, int mx, int my, float alpha) {
@@ -679,8 +679,8 @@ public class OriginModMenuScreen extends Screen {
 				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, ch));
 		OriginText.draw(g, font, "Cancel", cancelX + (bw - OriginText.width(font, "Cancel")) / 2, by + 9, OriginTheme.TEXT, false);
 		OriginUi.panel(g, delX, by, bw, bh, 7,
-				OriginTheme.lerpColor(0x33D4474F, 0x66D4474F, dh),
-				OriginTheme.lerpColor(0xB3D4474F, OriginTheme.STROKE_HOVER, dh));
+				OriginTheme.lerpColor(0x33E06B5B, 0x66E06B5B, dh),
+				OriginTheme.lerpColor(0x99E06B5B, OriginTheme.DANGER, dh));
 		OriginText.draw(g, font, "Delete", delX + (bw - OriginText.width(font, "Delete")) / 2, by + 9, 0xFFF08A90, false);
 	}
 
@@ -924,7 +924,7 @@ public class OriginModMenuScreen extends Screen {
 		OriginText.draw(g, font, count, sx + sw - 9 - OriginText.width(font, count), sy + 9,
 				withAlpha(OriginTheme.MUTED, alpha), clear);
 
-		// ROW LIST (scrolling): section headers + descriptive row cards.
+		// CARD GRID (scrolling): section headers + four-across mod cards.
 		g.enableScissor(contentX(), gridTop(), px() + pw(), gridBottom());
 		int top = gridTop(), off = (int) scroll;
 		int rowIdx = 0;
@@ -957,21 +957,29 @@ public class OriginModMenuScreen extends Screen {
 		}
 	}
 
-	// Row-card geometry (right end), shared by render + click: the iOS toggle sits
-	// at the right edge, the favourite star just left of it.
+	// Card-control geometry shared by render + click. The switch is centred on
+	// the bottom edge and the pin remains a quiet top-right secondary action.
 	private static final int SW_W = 30, STAR = 10;
 
 	private int rowSwitchX(int x, int w) {
-		return x + w - 10 - SW_W;
+		return x + (w - SW_W) / 2;
+	}
+
+	private int rowSwitchY(int y) {
+		int swH = SW_W * 8 / 15;
+		return y + ROW_H - swH - 5;
 	}
 
 	private int rowStarX(int x, int w) {
-		return rowSwitchX(x, w) - 8 - STAR;
+		return x + w - STAR - 6;
 	}
 
-	/** A descriptive row card: icon · bold name + one-line description · star ·
-	 *  inline toggle. Enabled rows carry a faint accent wash so what's ON reads
-	 *  at a glance; hover firms the glass and tints the border toward the accent. */
+	private int rowStarY(int y) {
+		return y + 6;
+	}
+
+	/** A compact library card: centred icon, centred name, pin and enable switch.
+	 *  The surface stays one solid color and responds immediately on hover. */
 	private void renderRow(GuiGraphics g, Mods.Mod mod, int x, int y, int w, int mx, int my, float alpha) {
 		boolean inBand = my >= gridTop() && my < gridBottom();
 		boolean hover = inBand && in(mx, my, x, y, x + w, y + ROW_H);
@@ -984,40 +992,29 @@ public class OriginModMenuScreen extends Screen {
 		int fill = clear
 				? OriginTheme.lerpColor(0xC8101010, 0xD8141414, hp)
 				: OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp);
-		OriginUi.panel(g, x, y, w, ROW_H, 9, withAlpha(fill, alpha),
+		OriginUi.panel(g, x, y, w, ROW_H, 3, withAlpha(fill, alpha),
 				withAlpha(OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.BOX_BORDER_HOVER, hp), alpha));
-		if (on && !clear) {
-			OriginUi.panel(g, x, y, w, ROW_H, 9, withAlpha(OriginTheme.ACCENT_SOFT, alpha * 0.6f), 0);
-		}
 
-		// icon, vertically centred at the left
-		int ic = 24;
-		OriginUi.icon(g, mod.id(), x + 10, y + (ROW_H - ic) / 2, ic, withAlpha(on ? OriginTheme.ACCENT_2 : OriginTheme.TEXT, alpha));
+		// Pixel-clean vector icon, optically centred in every card.
+		int ic = 22;
+		OriginUi.icon(g, mod.id(), x + (w - ic) / 2, y + 8, ic,
+				withAlpha(on ? OriginTheme.ACCENT_2 : OriginTheme.TEXT_DIM, alpha));
 
-		// name (bold) over a one-line description; both ellipsized to the text track
-		int tx = x + 10 + ic + 10;
-		int starX = rowStarX(x, w);
-		int textW = Math.max(20, starX - 8 - tx);
-		String desc = mod.description() == null || mod.description().isEmpty() ? catOf(mod).label : mod.description();
-		boolean showDesc = textW >= 96;             // narrow row: name only, centred
-		OriginText.drawBold(g, font, OriginText.ellipsize(font, mod.name(), textW), tx, showDesc ? y + 8 : y + (ROW_H - 8) / 2,
+		// Keep the label exactly centred under the icon; one quiet line is enough.
+		int textW = Math.max(20, w - 10);
+		String name = OriginText.ellipsize(font, mod.name(), textW);
+		OriginText.drawBold(g, font, name, x + (w - OriginText.widthBold(font, name)) / 2, y + 34,
 				withAlpha(on ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
-		if (showDesc) {
-			OriginText.draw(g, font, OriginText.ellipsize(font, desc, textW), tx, y + 21,
-					withAlpha(OriginTheme.MUTED, alpha), clear);
-		}
 
-		// favourite star — gold when pinned, otherwise only on hover
+		// Favourite pin — visible enough to discover, restrained until hovered.
 		boolean fav = Mods.metaBool("fav:" + mod.id(), false);
-		int starY = y + (ROW_H - STAR) / 2;
+		int starX = rowStarX(x, w), starY = rowStarY(y);
 		boolean sHover = hover && in(mx, my, starX - 3, starY - 3, starX + STAR + 3, starY + STAR + 3);
-		if (fav || hover) {
-			OriginUi.star(g, starX, starY, STAR, withAlpha(fav ? 0xFFE3C15C : (sHover ? 0xFFFFFFFF : 0x80FFFFFF), alpha));
-		}
+		OriginUi.star(g, starX, starY, STAR,
+				withAlpha(fav ? 0xFFE3C15C : (sHover ? 0xFFFFFFFF : 0x4DFFFFFF), alpha));
 
-		// inline iOS toggle (mint on / coral off)
-		int swX = rowSwitchX(x, w), swH = SW_W * 8 / 15;
-		OriginUi.switchAt(g, mod.id(), swX, y + (ROW_H - swH) / 2, SW_W, on, true);
+		// Compact enable control, aligned identically across all four columns.
+		OriginUi.switchAt(g, mod.id(), rowSwitchX(x, w), rowSwitchY(y), SW_W, on, true);
 	}
 
 	// ---- PROFILES page ----
@@ -1096,12 +1093,12 @@ public class OriginModMenuScreen extends Screen {
 		float appHp = OriginUi.hover("profile:apply:" + name, appHover);
 		float delHp = OriginUi.hover("profile:delete:" + name, delHover);
 		OriginUi.panel(g, appX, y + 5, appW, 20, 6,
-				withAlpha(OriginTheme.lerpColor(0x2E75A77A, 0x4675A77A, appHp), alpha),
-				withAlpha(OriginTheme.lerpColor(0xB375A77A, OriginTheme.STROKE_HOVER, appHp), alpha));
+				withAlpha(OriginTheme.lerpColor(0x245FD09B, 0x465FD09B, appHp), alpha),
+				withAlpha(OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, appHp), alpha));
 		OriginText.draw(g, font, "Apply", appX + (appW - OriginText.width(font, "Apply")) / 2, y + 11, withAlpha(OriginTheme.SUCCESS, alpha), false);
 		OriginUi.panel(g, delX, y + 5, delW, 20, 6,
-				withAlpha(OriginTheme.lerpColor(0x2ED4474F, 0x46D4474F, delHp), alpha),
-				withAlpha(OriginTheme.lerpColor(0xB3D4474F, OriginTheme.STROKE_HOVER, delHp), alpha));
+				withAlpha(OriginTheme.lerpColor(0x24E06B5B, 0x46E06B5B, delHp), alpha),
+				withAlpha(OriginTheme.lerpColor(0x99E06B5B, OriginTheme.DANGER, delHp), alpha));
 		OriginText.draw(g, font, "Delete", delX + (delW - OriginText.width(font, "Delete")) / 2, y + 11, withAlpha(0xFFF08A90, alpha), false);
 	}
 
@@ -1517,18 +1514,19 @@ public class OriginModMenuScreen extends Screen {
 					continue;
 				}
 				Mods.Mod mod = it.mod();
-				// favourite star (left of the toggle) → pin / unpin
-				int starX = rowStarX(x, w), starY = y + (ROW_H - STAR) / 2;
+				// favourite pin (top-right) → pin / unpin
+				int starX = rowStarX(x, w), starY = rowStarY(y);
 				if (in(mx, my, starX - 3, starY - 3, starX + STAR + 3, starY + STAR + 3)) {
 					Mods.setMetaBool("fav:" + mod.id(), !Mods.metaBool("fav:" + mod.id(), false));
 					return true;
 				}
-				// toggle (right end, with a little slack) → enable / disable
-				if (mx >= rowSwitchX(x, w) - 4) {
+				// centred toggle, with equal hit padding on every side
+				int swX = rowSwitchX(x, w), swY = rowSwitchY(y), swH = SW_W * 8 / 15;
+				if (in(mx, my, swX - 4, swY - 3, swX + SW_W + 4, swY + swH + 3)) {
 					Mods.setOn(mod.id(), !Mods.on(mod.id()));
 					return true;
 				}
-				// anywhere else on the row → the mod's own page
+				// anywhere else on the card → the mod's own page
 				openMod(mod);
 				return true;
 			}

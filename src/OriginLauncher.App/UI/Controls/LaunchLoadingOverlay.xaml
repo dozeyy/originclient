@@ -33,10 +33,10 @@
                  text, not a byte percentage, so an honest "working" bar beats a
                  faked fill. A 70px accent block slides across a 240px track,
                  animated from the code-behind (see Show/Hide). -->
-            <Border x:Name="ProgressTrack" Width="280" Height="4" CornerRadius="2"
+            <Border x:Name="ProgressTrack" Width="280" Height="4" CornerRadius="0"
                     Background="{StaticResource Brush.SoftStroke}" HorizontalAlignment="Center"
                     ClipToBounds="True" Margin="0,0,0,14">
-                <Border x:Name="ProgressFill" Width="84" Height="4" CornerRadius="2"
+                <Border x:Name="ProgressFill" Width="84" Height="4" CornerRadius="0"
                         Background="{StaticResource Brush.Accent}" HorizontalAlignment="Left">
                     <Border.RenderTransform>
                         <TranslateTransform x:Name="ProgressTranslate" X="-70"/>

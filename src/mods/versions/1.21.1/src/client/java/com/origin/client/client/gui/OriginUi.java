@@ -36,10 +36,10 @@ public final class OriginUi {
 
 	// Theme-matched toggles: familiar state language without borrowing the
 	// operating system's exact colors.
-	private static final int IOS_ON = OriginTheme.SUCCESS;
-	private static final int IOS_OFF = OriginTheme.DANGER;
-	private static final int IOS_ON_DISABLED = 0xFF4E6650;
-	private static final int IOS_OFF_DISABLED = 0xFF6B4642;
+	private static final int IOS_ON = OriginTheme.SWITCH_ON;
+	private static final int IOS_OFF = OriginTheme.SWITCH_OFF;
+	private static final int IOS_ON_DISABLED = 0xFF3E5147;
+	private static final int IOS_OFF_DISABLED = 0xFF242A26;
 
 	// eased animation state keyed by arbitrary id (switch knobs, hovers)
 	private static final Map<String, double[]> ANIM = new HashMap<>(); // {value, lastNanos, target}
@@ -66,26 +66,21 @@ public final class OriginUi {
 
 	/** Shared fast hover response for every hand-rendered Origin control. */
 	public static float hover(String id, boolean target) {
-		return anim("hover:" + id, target, 48.0);
+		return anim("hover:" + id, target,
+				target ? OriginTheme.HOVER_IN_MS : OriginTheme.HOVER_OUT_MS);
 	}
 
 	/**
-	 * A surface: rounded fill plus a 1px rounded border, anti-aliased.
-	 *
-	 * The 2026-07 redesign (Will's spec, reference OneConfig): every Origin
-	 * surface gets subtle, smooth rounded corners with NO visible aliasing.
-	 * `corner` is the radius again (clamped to half the smaller side). Corners
-	 * are software-anti-aliased by coverage — each corner pixel's alpha is
-	 * scaled by how much of it falls inside the arc — so curves read smooth at
-	 * any size without a single texture or shader. Every surface in the mod
-	 * menu, HUD editor, chips, tooltips and switches draws through here, so one
-	 * change rounds all of them consistently by construction.
+	 * The single block-surface primitive for the whole client. Older screens may
+	 * still request pill-sized corner values, so the renderer normalizes every
+	 * request to the Workbench 1/2/3 px scale based on the control's short edge.
+	 * This prevents a missed call site from bringing circular buttons back.
 	 */
 	public static void panel(GuiGraphics g, int x, int y, int w, int h, int corner, int fill, int border) {
 		if (w <= 0 || h <= 0) {
 			return;
 		}
-		int r = Math.max(0, Math.min(corner, Math.min(w, h) / 2));
+		int r = craftedRadius(w, h, corner);
 		// Scalable path: one rounded-box SDF quad, perfect curves at any scale.
 		// Gated to screens (menus) so it never touches the in-world HUD render
 		// path, and falls back to the software fills below if the shader is off
@@ -98,6 +93,17 @@ public final class OriginUi {
 		if (((border >>> 24) & 0xFF) > 0) {
 			roundedStroke(g, x, y, w, h, r, border);
 		}
+	}
+
+	private static int craftedRadius(int w, int h, int requested) {
+		if (requested <= 0) {
+			return 0;
+		}
+		int shortEdge = Math.min(w, h);
+		int limit = shortEdge <= 24 ? OriginTheme.RADIUS_SM
+				: shortEdge <= 56 ? OriginTheme.RADIUS_MD
+				: OriginTheme.RADIUS_LG;
+		return Math.max(0, Math.min(Math.min(requested, limit), shortEdge / 2));
 	}
 
 	/** Draws the rounded rect as a single SDF quad via {@link OriginShaders#ROUND}. */
@@ -133,10 +139,9 @@ public final class OriginUi {
 	}
 
 	/**
-	 * Kept for source compatibility with every existing "button-shaped" call
-	 * site. The old 45° chamfer is gone — buttons, cards and chips are rounded
-	 * like everything else now (Will's redesign: one consistent rounded look),
-	 * so this just forwards to {@link #panel} with the cut used as the radius.
+	 * Kept for source compatibility with every existing button-shaped call site.
+	 * The supplied cut is normalized by {@link #panel}, so bevel and panel paths
+	 * cannot diverge into separate shape languages.
 	 */
 	public static void bevelPanel(GuiGraphics g, int x, int y, int w, int h, int cut, int fill, int border) {
 		panel(g, x, y, w, h, cut, fill, border);
@@ -382,21 +387,19 @@ public final class OriginUi {
 		int hDisp = wDisp * 8 / 15;
 		float k = anim("sw:" + id, on, 170.0);
 
-		// Track: red(off) -> green(on); disabled uses muted tones so the whole
-		// control reads as unavailable without changing shape.
+		// Inventory-style block switch: neutral/off -> emerald/on.
 		int track = enabled
 				? OriginTheme.lerpColor(IOS_OFF, IOS_ON, k)
 				: OriginTheme.lerpColor(IOS_OFF_DISABLED, IOS_ON_DISABLED, k);
-		// Fully-rounded pill: radius = half the height.
-		panel(g, x, y, wDisp, hDisp, hDisp / 2, track, 0);
+		panel(g, x, y, wDisp, hDisp, OriginTheme.RADIUS_SM, track, OriginTheme.SWITCH_STROKE);
 
-		// Knob: a white circle sliding between the track's inset ends.
+		// Near-white square knob sliding between the track's inset ends.
 		int pad = Math.max(1, Math.round(hDisp * 0.12f));
 		int knob = hDisp - 2 * pad;
 		int travel = Math.max(0, wDisp - 2 * pad - knob);
 		int kx = x + pad + Math.round(k * travel);
-		panel(g, kx, y + pad, knob, knob, knob / 2,
-				enabled ? 0xFFFFFFFF : 0xFFDDDDDD, 0);
+		panel(g, kx, y + pad, knob, knob, OriginTheme.RADIUS_SM,
+				enabled ? OriginTheme.SWITCH_KNOB : 0xFFB8B8B8, OriginTheme.SWITCH_STROKE);
 		return k;
 	}
 
@@ -486,7 +489,7 @@ public final class OriginUi {
 		int r = 5;              // knob radius
 		double v = Math.max(0.0, Math.min(1.0, value));
 		int cy = y + h / 2;     // pill vertical center — the knob centers on this
-		panel(g, x, y, w, h, h / 2, 0x30FFFFFF, 0);
+		panel(g, x, y, w, h, OriginTheme.RADIUS_SM, OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_STROKE);
 		// The knob CENTER travels the full track (x .. x+w) so it reaches both
 		// endpoints — at 0% its center sits on the left end, at 100% on the right
 		// end (the ball overhangs by its radius, like a standard slider). This
@@ -494,17 +497,12 @@ public final class OriginUi {
 		int kx = x + (int) Math.round(v * w);
 		int fw = kx - x;        // fill runs from the track start to the knob center
 		if (fw > 0) {
-			panel(g, x, y, Math.min(w, fw), h, h / 2, active ? 0xE6E0E0E0 : 0xA8D8D8D8, 0);
+			panel(g, x, y, Math.min(w, fw), h, OriginTheme.RADIUS_SM,
+					active ? OriginTheme.ACCENT_2 : OriginTheme.ACCENT, 0);
 		}
-		ensureLoaded();
-		int kd = active ? r * 2 + 4 : r * 2 + 2;   // ball; grows slightly while dragging
-		if (ok) {
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			g.blit(knobTex, kx - kd / 2, cy - kd / 2, kd, kd, 0f, 0f, 72, 72, 72, 72);
-		} else {
-			g.fill(kx - kd / 2, cy - kd / 2, kx + kd / 2, cy + kd / 2, 0xFFE8E8E8);
-		}
+		int kd = active ? r * 2 + 4 : r * 2 + 2;
+		panel(g, kx - kd / 2, cy - kd / 2, kd, kd, OriginTheme.RADIUS_SM,
+				OriginTheme.TEXT, OriginTheme.BOX_BORDER);
 		return kx;
 	}
 

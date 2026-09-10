@@ -119,14 +119,14 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
                     <Grid VerticalAlignment="Center">
-                        <Border Height="4" Background="{StaticResource Brush.SoftStroke}" CornerRadius="2"/>
+                        <Border Height="4" Background="{StaticResource Brush.SoftStroke}" CornerRadius="0"/>
                         <Track x:Name="PART_Track">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Style="{x:Null}" Background="Transparent" BorderThickness="0"
                                               Command="Slider.DecreaseLarge">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
-                                            <Border Height="4" Background="{StaticResource Brush.Accent}" CornerRadius="2"/>
+                                            <Border Height="4" Background="{StaticResource Brush.Accent}" CornerRadius="0"/>
                                         </ControlTemplate>
                                     </RepeatButton.Template>
                                 </RepeatButton>
@@ -150,29 +150,31 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Ellipse x:Name="Knob" Width="16" Height="16"
-                                                     Fill="{StaticResource Brush.Accent}"
-                                                     RenderTransformOrigin="0.5,0.5">
-                                                <Ellipse.RenderTransform>
+                                            <Border x:Name="Knob" Width="16" Height="16"
+                                                    Background="{StaticResource Brush.Accent}"
+                                                    BorderBrush="{StaticResource Brush.TextOnAccent}"
+                                                    BorderThickness="1" CornerRadius="1"
+                                                    RenderTransformOrigin="0.5,0.5">
+                                                <Border.RenderTransform>
                                                     <ScaleTransform x:Name="KnobScale" ScaleX="1" ScaleY="1"/>
-                                                </Ellipse.RenderTransform>
-                                            </Ellipse>
+                                                </Border.RenderTransform>
+                                            </Border>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Knob" Property="Fill" Value="{StaticResource Brush.AccentHover}"/>
+                                                    <Setter TargetName="Knob" Property="Background" Value="{StaticResource Brush.AccentHover}"/>
                                                 </Trigger>
                                                 <Trigger Property="IsDragging" Value="True">
-                                                    <Setter TargetName="Knob" Property="Fill" Value="{StaticResource Brush.AccentPress}"/>
+                                                    <Setter TargetName="Knob" Property="Background" Value="{StaticResource Brush.AccentPress}"/>
                                                 </Trigger>
                                                 <EventTrigger RoutedEvent="Thumb.DragStarted">
                                                     <BeginStoryboard>
                                                         <Storyboard>
                                                             <DoubleAnimation Storyboard.TargetName="KnobScale"
                                                                              Storyboard.TargetProperty="ScaleX"
-                                                                             To="1.25" Duration="{StaticResource Motion.Press}"/>
+                                                                             To="1.12" Duration="{StaticResource Motion.Press}"/>
                                                             <DoubleAnimation Storyboard.TargetName="KnobScale"
                                                                              Storyboard.TargetProperty="ScaleY"
-                                                                             To="1.25" Duration="{StaticResource Motion.Press}"/>
+                                                                             To="1.12" Duration="{StaticResource Motion.Press}"/>
                                                         </Storyboard>
                                                     </BeginStoryboard>
                                                 </EventTrigger>
@@ -183,14 +185,14 @@
                                                                              Storyboard.TargetProperty="ScaleX"
                                                                              To="1.0" Duration="{StaticResource Motion.Release}">
                                                                 <DoubleAnimation.EasingFunction>
-                                                                    <BackEase EasingMode="EaseOut" Amplitude="0.4"/>
+                                                                    <CubicEase EasingMode="EaseOut"/>
                                                                 </DoubleAnimation.EasingFunction>
                                                             </DoubleAnimation>
                                                             <DoubleAnimation Storyboard.TargetName="KnobScale"
                                                                              Storyboard.TargetProperty="ScaleY"
                                                                              To="1.0" Duration="{StaticResource Motion.Release}">
                                                                 <DoubleAnimation.EasingFunction>
-                                                                    <BackEase EasingMode="EaseOut" Amplitude="0.4"/>
+                                                                    <CubicEase EasingMode="EaseOut"/>
                                                                 </DoubleAnimation.EasingFunction>
                                                             </DoubleAnimation>
                                                         </Storyboard>
@@ -340,24 +342,24 @@
         </Setter>
     </Style>
 
-    <!-- Pill on/off switch (e.g. the external-mods toggle). Track lightens on
-         hover like every other control; on check, track goes to accent and
-         the knob slides with a small spring so the flip reads as tactile,
-         not a flat state swap. -->
+    <!-- Block switch: the inventory-like track and square slider keep the state
+         instantly readable without importing a mobile-style pill control. -->
     <Style x:Key="Toggle.Switch" TargetType="ToggleButton">
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Width" Value="46"/>
-        <Setter Property="Height" Value="26"/>
+        <Setter Property="Width" Value="44"/>
+        <Setter Property="Height" Value="24"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
-                    <Border x:Name="Track" CornerRadius="13" Background="{StaticResource Brush.CardAlt}">
-                        <Ellipse x:Name="Knob" Width="20" Height="20" Fill="{StaticResource Brush.Text}"
-                                 HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0">
-                            <Ellipse.RenderTransform>
+                    <Border x:Name="Track" CornerRadius="1" Background="{StaticResource Brush.CardAlt}"
+                            BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1">
+                        <Border x:Name="Knob" Width="18" Height="18" Background="{StaticResource Brush.Text}"
+                                BorderBrush="{StaticResource Brush.Bg}" BorderThickness="1" CornerRadius="1"
+                                HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0,0,0">
+                            <Border.RenderTransform>
                                 <TranslateTransform x:Name="KnobTransform" X="0"/>
-                            </Ellipse.RenderTransform>
-                        </Ellipse>
+                            </Border.RenderTransform>
+                        </Border>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -384,12 +386,12 @@
                                     <Storyboard>
                                         <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="Background.Color"
                                                         To="{StaticResource Color.Accent}" Duration="{StaticResource Motion.Release}"/>
-                                        <ColorAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="Fill.Color"
+                                        <ColorAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="Background.Color"
                                                         To="{StaticResource Color.TextOnAccent}" Duration="{StaticResource Motion.Release}"/>
                                         <DoubleAnimation Storyboard.TargetName="KnobTransform" Storyboard.TargetProperty="X"
                                                          To="20" Duration="{StaticResource Motion.Release}">
                                             <DoubleAnimation.EasingFunction>
-                                                <BackEase EasingMode="EaseOut" Amplitude="0.5"/>
+                                                <CubicEase EasingMode="EaseOut"/>
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
                                     </Storyboard>
@@ -400,12 +402,12 @@
                                     <Storyboard>
                                         <ColorAnimation Storyboard.TargetName="Track" Storyboard.TargetProperty="Background.Color"
                                                         To="{StaticResource Color.SoftStroke}" Duration="{StaticResource Motion.Release}"/>
-                                        <ColorAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="Fill.Color"
+                                        <ColorAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="Background.Color"
                                                         To="{StaticResource Color.Text}" Duration="{StaticResource Motion.Release}"/>
                                         <DoubleAnimation Storyboard.TargetName="KnobTransform" Storyboard.TargetProperty="X"
                                                          To="0" Duration="{StaticResource Motion.Release}">
                                             <DoubleAnimation.EasingFunction>
-                                                <BackEase EasingMode="EaseOut" Amplitude="0.5"/>
+                                                <CubicEase EasingMode="EaseOut"/>
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
                                     </Storyboard>

@@ -5,7 +5,7 @@
         Width="620" Height="480" MinWidth="480" MinHeight="360"
         WindowStartupLocation="CenterOwner"
         Background="#FF090D0C"
-        FontFamily="/OriginLauncher.App;component/Assets/Fonts/#Inter, Segoe UI Variable Text, Segoe UI"
+        FontFamily="{StaticResource Font.Primary}"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
     <!-- Self-contained styling (hardcoded, no theme StaticResources), same
@@ -23,7 +23,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -43,7 +43,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -74,16 +74,16 @@
 
         <!-- One row per implicated mod; hidden when the culprit is unknown. -->
         <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,14,0,0" Background="#FF121918"
-                BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="12" Padding="14"
+                BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="2" Padding="14"
                 Visibility="Collapsed">
             <StackPanel x:Name="CulpritList"/>
         </Border>
 
         <Border Grid.Row="3" Margin="0,12,0,0" Background="#FF121918" BorderBrush="#FF3B524C"
-                BorderThickness="1" CornerRadius="12">
+                BorderThickness="1" CornerRadius="2">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                      Background="Transparent" Foreground="#FFA7BBB5" BorderThickness="0"
-                     FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="11" Padding="14"
+                     FontFamily="{StaticResource Font.Mono}" FontSize="11" Padding="14"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>

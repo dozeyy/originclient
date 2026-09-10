@@ -40,20 +40,20 @@ public final class OriginButtonRenderer {
 	// it in a bit for feedback. The outline is a near-black frame kept DARKER
 	// THAN THE CENTER so the edge always reads darker than the fill, and hover
 	// takes it to bright white.
-	private static final int FILL_NORMAL = 0x59161616;
-	private static final int FILL_HOVER = 0x99303030;
-	private static final int BORDER_NORMAL = 0xF00A0A0A;
+	private static final int FILL_NORMAL = OriginTheme.BOX_FILL;
+	private static final int FILL_HOVER = OriginTheme.BOX_FILL_HOVER;
+	private static final int BORDER_NORMAL = OriginTheme.BOX_BORDER;
 	// Hover brightens the outline to full white — one shared token so every
 	// hovered Origin box reads the same, here and in OriginUi panels.
 	// Baseline (1.21.1) keeps the frame DARK on hover — it lifts, it does not
 	// flash white. Was STROKE_HOVER here, which made a hovered button on this
 	// version read as a bright white outline the other versions never showed.
-	private static final int BORDER_HOVER = 0xFF1A1A1A;
+	private static final int BORDER_HOVER = OriginTheme.BOX_BORDER_HOVER;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
 	private static final int FILL_DISABLED = 0x40101010;
 	private static final int BORDER_DISABLED = 0x99080808;
-	private static final int LABEL_DISABLED = 0xFFA0A0A0;
+	private static final int LABEL_DISABLED = OriginTheme.MUTED;
 	// Corners are a small angled CUT (bevel) — not square, not round. Everything
 	// goes through OriginUi.bevelPanel, the same fill+border choke point the rest
 	// of the Origin UI uses, so buttons match the mod menu surfaces by
@@ -63,7 +63,8 @@ public final class OriginButtonRenderer {
 	private static final int BEVEL_CUT = 3;
 	// Short + eased = the website's snappy hover; no per-button glow (the
 	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
-	private static final double HOVER_MS = 90.0;
+	private static final double HOVER_IN_MS = OriginTheme.HOVER_IN_MS;
+	private static final double HOVER_OUT_MS = OriginTheme.HOVER_OUT_MS;
 
 	// Fail-soft master switch, mirroring OriginScreenRenderer: if any Origin
 	// widget draw throws (e.g. a GUI API that changed shape in a different
@@ -257,7 +258,8 @@ public final class OriginButtonRenderer {
 		}
 
 		Font font = Minecraft.getInstance().font;
-		guiGraphics.drawString(font, checkbox.getMessage(), x + box + 5, y + (box - 8) / 2 + 1, labelColor, true);
+		OriginText.draw(guiGraphics, font, checkbox.getMessage().getString(),
+				x + box + 5, y + (box - 8) / 2 + 1, labelColor, true);
 	}
 
 	/** Origin-styled header tab (Game/World/More on Create World and friends): a
@@ -343,7 +345,7 @@ public final class OriginButtonRenderer {
 		if (button instanceof SpriteIconButton.TextAndIcon) {
 			String text = cleanLabel(button.getMessage().getString());
 			Font font = Minecraft.getInstance().font;
-			guiGraphics.drawString(font, text, x + 2, y + (h - 8) / 2, labelColor, false);
+			OriginText.draw(guiGraphics, font, text, x + 2, y + (h - 8) / 2, labelColor, false);
 			ix = x + w - spriteWidth - 2;
 		} else {
 			ix = x + w / 2 - spriteWidth / 2;
@@ -360,10 +362,11 @@ public final class OriginButtonRenderer {
 		double dtMs = st.lastNanos == 0 ? 0 : (now - st.lastNanos) / 1_000_000.0;
 		st.lastNanos = now;
 		double target = hovered ? 1.0 : 0.0;
+		double duration = hovered ? HOVER_IN_MS : HOVER_OUT_MS;
 		if (st.hover < target) {
-			st.hover = Math.min(target, st.hover + dtMs / HOVER_MS);
+			st.hover = Math.min(target, st.hover + dtMs / duration);
 		} else if (st.hover > target) {
-			st.hover = Math.max(target, st.hover - dtMs / HOVER_MS);
+			st.hover = Math.max(target, st.hover - dtMs / duration);
 		}
 		return OriginTheme.easeOut(st.hover);
 	}
@@ -378,8 +381,9 @@ public final class OriginButtonRenderer {
 		// and the RAW text is kept -- no dot-stripping -- so "Options..." reads
 		// like vanilla/Frost. Both match 1.21.1.
 		Font font = Minecraft.getInstance().font;
-		int tw = font.width(message);
-		guiGraphics.drawString(font, message, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, true);
+		String text = message.getString();
+		int tw = OriginText.widthBold(font, text);
+		OriginText.drawBold(guiGraphics, font, text, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, true);
 	}
 
 	private static String cleanLabel(String raw) {
@@ -397,8 +401,9 @@ public final class OriginButtonRenderer {
 		guiGraphics.fill(x, y, x + 1, y + h, border);
 		guiGraphics.fill(x + w - 1, y, x + w, y + h, border);
 		Font font = Minecraft.getInstance().font;
-		int tw = font.width(message);
-		guiGraphics.drawString(font, message, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, false);
+		String text = message.getString();
+		int tw = OriginText.widthBold(font, text);
+		OriginText.drawBold(guiGraphics, font, text, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, true);
 	}
 
 	private static void nineSlice(GuiGraphics g, Identifier tex, int x, int y, int w, int h, int cd, int argb) {

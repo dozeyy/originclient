@@ -145,7 +145,7 @@ screen and every loading/connecting/working screen.
 
 | Module | Covers | fabric.mod.json range | Java | Status | Blocking / next step |
 |--------|--------|----------------------|------|--------|----------------------|
-| `26.2` | 26.2 | — | 25 | does NOT compile | render layer mid-port to the retained-mode GUI (most source parked in `disabled262/`). The 1.21.11 module's port solved many of the same API moves — start there. `staged/26.2/PORT-262.md` |
+| `26.2` | 26.2 | — | 25 | compiles + boot-smoke passes (staged) | retained-mode client reaches renderer initialization with the Workbench UI. Keep staged until manual retained-mode screen/HUD review and the normal release gate are explicitly approved. `staged/26.2/PORT-262.md` |
 
 **1.21.9 was pulled entirely** (removed from `VersionCatalog` — it was the hard
 input-event-boundary + fabric-API-gap hybrid; not worth carrying). Its analysis

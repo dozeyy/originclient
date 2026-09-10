@@ -19,14 +19,11 @@
     <Resource Include="Assets\origin.ico" />
     <!-- Version-select grid card artwork (one per version family). -->
     <Resource Include="Assets\Versions\*.png" />
-    <!-- One type family across the launcher and Origin's in-game surfaces.
-         Link the already-licensed Inter faces into the WPF resource pack so
-         release builds do not depend on a font being installed on Windows. -->
-    <Resource Include="..\..\tools\font-atlas\fonts\Inter-400.ttf" Link="Assets\Fonts\Inter-400.ttf" />
-    <Resource Include="..\..\tools\font-atlas\fonts\Inter-500.ttf" Link="Assets\Fonts\Inter-500.ttf" />
-    <Resource Include="..\..\tools\font-atlas\fonts\Inter-600.ttf" Link="Assets\Fonts\Inter-600.ttf" />
-    <Resource Include="..\..\tools\font-atlas\fonts\Inter-700.ttf" Link="Assets\Fonts\Inter-700.ttf" />
-    <Resource Include="..\..\tools\font-atlas\fonts\Inter-800.ttf" Link="Assets\Fonts\Inter-800.ttf" />
+    <!-- The launcher uses one openly licensed Minecraft-style face. In-game
+         UI uses Minecraft's own Font renderer and does not bundle this file. -->
+    <Resource Include="..\..\tools\font-atlas\fonts\Monocraft.ttf" Link="Assets\Fonts\Monocraft.ttf" />
+    <Content Include="..\..\tools\font-atlas\fonts\Monocraft-LICENSE.txt" Link="ThirdParty\Monocraft-LICENSE.txt"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!--

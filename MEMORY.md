@@ -4470,3 +4470,89 @@ The first pass was a re-theme only; Will corrected that he wants new LAYOUTS. Ad
 - Options and Quit stay icon-only without delayed hover tooltips; their meaning is carried by the familiar symbols while hover remains immediate visual feedback.
 - Replaced binary hover colour swaps with a shared 48 ms eased response across mod cards, category rail, inspector actions, settings tabs/controls, profile actions/dialog, Item Size, Shader Browser, Waypoints, Color Picker, Multi Select, and HUD Editor. Hover changes paint only—never control position or hit geometry—so input remains immediate and stable. Vanilla/Minecraft widgets use the matching 48 ms in / 64 ms out renderer path.
 - Verification: `dotnet build OriginLauncher.sln -c Release` passed with 0 warnings/errors; 1.21.1 `gradlew.bat build` passed; the real 64-mod client loaded the text, icon, rounded-box, and grade shaders and completed all 16 fresh title/mod-menu captures across the size and GUI-scale matrix. Every capture was visually inspected at representative compact, 1080p, fixed-scale, and ultrawide targets; the Origin log contained no errors or failed shot steps. The current Release launcher was left open from the exact repository build.
+## 2026-09-09 — Origin Workbench cross-version UI system
+
+Replaced the Ion Jade / older Frost mix with one Minecraft-grounded Workbench
+system across the launcher and the 1.21.x/26.2 Origin modules. The token contract
+uses voidstone/deepslate surfaces, parchment text, emerald interaction, lapis
+information, redstone danger, gold warning, and compact 3/5/7 px radii. Hover
+state is stable under the pointer and uses 48 ms in / 64 ms out; press is 42 ms.
+
+Typography is now role-based: generated Space Grotesk Semibold static TTF + MSDF
+assets drive display/control labels, Inter remains the settings/body face, and
+HUD/world-facing text remains Minecraft-native. The generator is
+`tools/font-atlas/generate_origin_workbench_fonts.py`; the full contract and
+refined brief are in `docs/ORIGIN_UI_SYSTEM.md`.
+
+Applied to modules 1.21.1, 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10, 1.21.11,
+and staged 26.2. All eight Gradle builds passed; launcher Release build passed.
+Boot-smoke passed for 1.21.4, 1.21.5, 1.21.6, 1.21.8, 1.21.10, 1.21.11, and
+26.2. The 1.21.1 dev-shot run loaded all custom shaders and produced 16 clean
+title/menu captures across 1024x768 through 2560x1080 and GUI scales 2/4.
+
+26.2 compile regression fixed: `Minecraft.screen` was removed, so the mod-menu
+reopen guard now reads `OriginScreenState.current`. 26.2 builds and reaches
+renderer initialization but remains staged pending manual retained-mode UI/HUD
+review and explicit release approval.
+
+## 2026-09-09 — Minecraft-native typography and block-material refinement
+
+Removed the mixed Space Grotesk/Inter presentation from the Workbench pass.
+Every Origin in-game screen now measures and draws through Minecraft's active
+vanilla `Font`; the old `OriginText.drawBold` name remains only as a compatible
+call-site alias and no longer selects a custom face or MSDF renderer. The WPF
+launcher uses bundled Monocraft (OFL-1.1) for every role because WPF cannot use
+Minecraft's bitmap font atlas directly.
+
+The surrounding UI was pulled further into Minecraft's material language:
+1/2/3 px corner tokens, square block toggles and slider handles, hard-edged
+button/card depth, square player-head frames, and a static tiled deepslate
+launcher background. Hover remains 48 ms in / 64 ms out and never changes hit
+geometry. Launcher Release and all eight 1.21.x/26.2 Gradle builds passed.
+The full 1.21.1 64-mod client harness then produced and passed visual review of
+all 16 title/menu captures from 1024x768 through 2560x1080 and GUI scales 2/4;
+native text remained sharp and the compact layout did not clip.
+
+## 2026-09-09 — deterministic launcher identity + block-control enforcement
+
+Converted the launcher header and Home ORIGIN wordmarks from live startup text
+to Monocraft-derived WPF vector geometry. The lockup is now available on the
+first rendered frame without embedded-font discovery, remains resolution
+independent, and cannot flash missing-glyph squares. The Home mark's decorative
+frame and the background's top-right ore rule were removed. PLAY uses its own
+Minecraft-shaped vector label so WPF does not synthesize a compressed bold
+face.
+
+The 1.21.1 `OriginUi.panel` renderer now normalizes every legacy corner request
+onto the Workbench 1/2/3 px scale according to the control's short edge. This
+enforces the same crafted block geometry across buttons, fields, cards, rows,
+switches, dialogs, HUD editor surfaces, and Origin secondary screens even when
+an older call site requests a pill radius. The Origin atom remains circular as
+the identity mark, not a control.
+
+Verification: launcher Debug build passed with zero warnings/errors and its
+real Home render was captured and inspected. The 1.21.1 Gradle build passed;
+the 65-mod dev client booted, loaded all four Origin shaders successfully, and
+the live title render was captured and inspected with the final block controls.
+No Origin warning or error appeared after startup. The repository code graph
+was refreshed with `graphify update .`.
+
+## 2026-09-09 — four-column mod library + unified pause-menu entry
+
+The 1.21.1 Origin mod library now uses compact, solid-surface cards in a
+four-column grid at normal play sizes, filling left-to-right and continuing
+down. Icons, names, pins, and enable switches share one centred geometry; the
+same item records drive rendering and hit-testing. Extremely narrow GUI scales
+reduce the column count instead of clipping labels or controls.
+
+Mod Menu's `ModMenuButtonWidget` is now an explicit safe exception to the
+foreign-widget ownership guard. Its Minecraft base button receives Origin's
+shared Workbench skin in the Escape menu while Mod Menu's own update badge can
+still render afterward. Other foreign widget subclasses remain untouched.
+
+Verification: shared-core sync and `git diff --check` passed; launcher Release
+build passed with zero warnings/errors; Gradle builds passed for every changed
+live module (1.21.1, 1.21.4, 1.21.6, 1.21.8, 1.21.10, and 1.21.11). The 1.21.1
+visual harness produced all 16 size/GUI-scale captures, and a real quick-play
+world confirmed the Escape-menu Mods button matches its neighboring buttons.
+The user approved the result for GitHub release.

@@ -15,4 +15,25 @@
                       BlurRadius="18"
                       ShadowDepth="0"/>
 
+    <!--
+        The wordmark is an outline asset, not live text. Keeping the identity
+        geometry in the theme makes first-frame rendering independent of font
+        discovery while preserving the same Minecraft-native Monocraft forms.
+    -->
+    <StreamGeometry x:Key="Brand.OriginWordmark">M120 1080H0V480H120V360H480V480H600V1080H480V1200H120V1080H480V480H120ZM888 600H1248V720H1368V1200H1248V720H888V1200H768V360H1248V480H1368V600H1248V480H888ZM1656 1200V1080H1776V480H1656V360H2016V480H1896V1080H2016V1200ZM2424 1200V1080H2304V480H2424V360H2904V480H2424V1080H2784V720H2664V600H2904V1080H2784V1200ZM3192 1200V1080H3312V480H3192V360H3552V480H3432V1080H3552V1200ZM3840 1200V360H3960V480H4080V600H4200V720H4320V360H4440V1200H4320V840H4200V720H4080V600H3960V1200Z</StreamGeometry>
+    <StreamGeometry x:Key="Brand.PlayGlyphs">M120 600H480V720H120V1200H0V360H480V480H600V600H480V480H120ZM792 1200V360H912V1080H1392V1200ZM1704 600H2064V480H1704V360H2064V480H2184V1200H2064V720H1704V1200H1584V480H1704ZM2616 1200V600H2496V480H2376V360H2496V480H2616V600H2736V480H2856V360H2976V480H2856V600H2736V1200Z</StreamGeometry>
+
+    <Style x:Key="Brand.Wordmark" TargetType="Path">
+        <Setter Property="Data" Value="{StaticResource Brand.OriginWordmark}"/>
+        <Setter Property="Fill" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/>
+    </Style>
+
+    <Style x:Key="Brand.PlayWordmark" TargetType="Path" BasedOn="{StaticResource Brand.Wordmark}">
+        <Setter Property="Data" Value="{StaticResource Brand.PlayGlyphs}"/>
+        <Setter Property="Fill" Value="{StaticResource Brush.TextOnAccent}"/>
+    </Style>
+
 </ResourceDictionary>

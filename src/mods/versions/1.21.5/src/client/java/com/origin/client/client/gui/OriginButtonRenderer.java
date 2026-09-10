@@ -34,22 +34,23 @@ import com.origin.client.client.theme.OriginTheme;
 public final class OriginButtonRenderer {
 	private static final Gson GSON = new Gson();
 
-	private static final int FILL_NORMAL = 0x59161616;
-	private static final int FILL_HOVER = 0x99303030;
-	private static final int BORDER_NORMAL = 0xF00A0A0A;
+	private static final int FILL_NORMAL = OriginTheme.BOX_FILL;
+	private static final int FILL_HOVER = OriginTheme.BOX_FILL_HOVER;
+	private static final int BORDER_NORMAL = OriginTheme.BOX_BORDER;
 	// Hover brightens the outline to a MUCH lighter gray (A2) — one shared token
 	// so every hovered Origin box reads the same, here and in OriginUi panels.
-	private static final int BORDER_HOVER = 0xFF1A1A1A;
+	private static final int BORDER_HOVER = OriginTheme.BOX_BORDER_HOVER;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
 	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
 	private static final int FILL_DISABLED = 0x40101010;
 	private static final int BORDER_DISABLED = 0x99080808;
-	private static final int LABEL_DISABLED = 0xFFA0A0A0;
+	private static final int LABEL_DISABLED = OriginTheme.MUTED;
 	// Baseline corner radius: 1.21.1 and 1.21.11 both draw buttons at 3 GUI px.
 	private static final int CORNER_DISPLAY = 3;
 	// Short + eased = the website's snappy hover; no per-button glow (the
 	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
-	private static final double HOVER_MS = 90.0;
+	private static final double HOVER_IN_MS = OriginTheme.HOVER_IN_MS;
+	private static final double HOVER_OUT_MS = OriginTheme.HOVER_OUT_MS;
 
 	// Fail-soft master switch, mirroring OriginScreenRenderer: if any Origin
 	// widget draw throws (e.g. a GUI API that changed shape in a different
@@ -240,7 +241,7 @@ public final class OriginButtonRenderer {
 
 		Font font = Minecraft.getInstance().font;
 		String text = cleanLabel(checkbox.getMessage().getString());
-		guiGraphics.drawString(font, text, x + box + 5, y + (box - 8) / 2 + 1, labelColor, false);
+		OriginText.draw(guiGraphics, font, text, x + box + 5, y + (box - 8) / 2 + 1, labelColor, false);
 	}
 
 	/** Shared eased hover progress (0..1) for any widget. */
@@ -250,10 +251,11 @@ public final class OriginButtonRenderer {
 		double dtMs = st.lastNanos == 0 ? 0 : (now - st.lastNanos) / 1_000_000.0;
 		st.lastNanos = now;
 		double target = hovered ? 1.0 : 0.0;
+		double duration = hovered ? HOVER_IN_MS : HOVER_OUT_MS;
 		if (st.hover < target) {
-			st.hover = Math.min(target, st.hover + dtMs / HOVER_MS);
+			st.hover = Math.min(target, st.hover + dtMs / duration);
 		} else if (st.hover > target) {
-			st.hover = Math.max(target, st.hover - dtMs / HOVER_MS);
+			st.hover = Math.max(target, st.hover - dtMs / duration);
 		}
 		return OriginTheme.easeOut(st.hover);
 	}
@@ -267,8 +269,8 @@ public final class OriginButtonRenderer {
 		// "Options...").
 		String text = cleanLabel(message.getString());
 		Font font = Minecraft.getInstance().font;
-		int tw = font.width(text);
-		guiGraphics.drawString(font, text, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, false);
+		int tw = OriginText.widthBold(font, text);
+		OriginText.drawBold(guiGraphics, font, text, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, true);
 	}
 
 	private static String cleanLabel(String raw) {
@@ -286,8 +288,9 @@ public final class OriginButtonRenderer {
 		guiGraphics.fill(x, y, x + 1, y + h, border);
 		guiGraphics.fill(x + w - 1, y, x + w, y + h, border);
 		Font font = Minecraft.getInstance().font;
-		int tw = font.width(message);
-		guiGraphics.drawString(font, message, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, false);
+		String text = message.getString();
+		int tw = OriginText.widthBold(font, text);
+		OriginText.drawBold(guiGraphics, font, text, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, true);
 	}
 
 	// Volatile fast-path: this runs once per widget per frame, so the
@@ -377,7 +380,7 @@ public final class OriginButtonRenderer {
 			// "Language"/"Accessibility Settings" across the neighbouring buttons.
 			if (button instanceof net.minecraft.client.gui.components.SpriteIconButton.TextAndIcon) {
 				Font font = Minecraft.getInstance().font;
-				guiGraphics.drawString(font, button.getMessage(), x + 2, y + (h - 8) / 2,
+				OriginText.draw(guiGraphics, font, button.getMessage().getString(), x + 2, y + (h - 8) / 2,
 						enabled ? LABEL_COLOR : LABEL_DISABLED, false);
 			}
 			drawIcon.run();

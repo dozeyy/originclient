@@ -38,15 +38,15 @@ public final class OriginButtonRenderer {
 	// together; hover firms both and adds a faint accent wash (see box()).
 	private static final int FILL_NORMAL = OriginTheme.BOX_FILL;
 	private static final int FILL_HOVER = OriginTheme.BOX_FILL_HOVER;
-	private static final int FILL_DISABLED = 0x40101018;
+	private static final int FILL_DISABLED = 0x40171C19;
 	private static final int BORDER_NORMAL = OriginTheme.BOX_BORDER;
 	private static final int BORDER_HOVER = OriginTheme.BOX_BORDER_HOVER;
-	private static final int BORDER_DISABLED = 0x99080810;
+	private static final int BORDER_DISABLED = 0x99080B09;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
-	private static final int LABEL_DISABLED = 0xFF7A8098;
-	private static final int TITLE_FILL = 0xFF101615;
-	private static final int TITLE_FILL_HOVER = 0xFF17342F;
-	private static final int TITLE_FILL_PRESSED = 0xFF1E5549;
+	private static final int LABEL_DISABLED = OriginTheme.MUTED;
+	private static final int TITLE_FILL = OriginTheme.PANEL;
+	private static final int TITLE_FILL_HOVER = OriginTheme.PANEL_ALT;
+	private static final int TITLE_FILL_PRESSED = 0xFF294333;
 	// Slider handles / checkbox ticks read as the accent — the one place a
 	// control's "value" carries the brand hue; brightens toward full accent on hover.
 	private static final int HANDLE = OriginTheme.ACCENT_BORDER;
@@ -54,8 +54,8 @@ public final class OriginButtonRenderer {
 	// Corner radius for every widget — soft premium glass (matches RADIUS_SM cards).
 	private static final int RADIUS = OriginTheme.RADIUS_SM;
 	// Short + eased = a snappy, tactile hover.
-	private static final double HOVER_IN_MS = 48.0;
-	private static final double HOVER_OUT_MS = 64.0;
+	private static final double HOVER_IN_MS = OriginTheme.HOVER_IN_MS;
+	private static final double HOVER_OUT_MS = OriginTheme.HOVER_OUT_MS;
 
 	// Fail-soft master switch: latches on the first draw failure and never
 	// resets for the session, so a broken GUI API can't spam-crash.
@@ -342,7 +342,7 @@ public final class OriginButtonRenderer {
 						enabled ? OriginTheme.lerpColor(HANDLE, HANDLE_HOVER, hv) : 0x669A9A9A);
 			}
 			Font font = Minecraft.getInstance().font;
-			g.drawString(font, checkbox.getMessage(), x + box + 5, y + (box - 8) / 2 + 1,
+			OriginText.draw(g, font, checkbox.getMessage().getString(), x + box + 5, y + (box - 8) / 2 + 1,
 					enabled ? LABEL_COLOR : LABEL_DISABLED, true);
 			return true;
 		} catch (Throwable t) {
