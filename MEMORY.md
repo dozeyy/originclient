@@ -5,6 +5,23 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-09-25 — Website now mirrors the live Workbench palette; download paused
+
+- Replaced the redesign's cool cyan/light-section palette with the exact current `OriginTheme` roles: `#0E1110` base, `#121614` alternate, `#171C19`/`#202720` panels, `#F1E9D2` parchment text, and `#5FD09B`/`#83E2B5` emerald accents.
+- Removed every installer URL and live download control from the public landing page. The hero routes into product/status content, the closing download treatment is visibly disabled until release, and the launcher illustration uses its Home icon instead of Download. Public GitHub calls to action and the header development-status label were also removed.
+- Browser verification passed at 1440×1000, 820×1180, and 390×844 with no horizontal overflow, no download controls, and no standalone HUD-editor showcase.
+
+## 2026-09-25 — Website HUD-editor showcase removed
+
+- Removed the standalone HUD-editor marketing section at Will's request. The site still describes the shipped HUD editor in factual feature/status copy, but no longer presents a simulated in-game render.
+
+## 2026-09-25 — Website rebuilt around the verified product state
+
+- Replaced the old generic landing page with a responsive Origin-specific product site using the existing mark/icon system, restrained motion, and launcher/mod-menu/HUD-editor interface diagrams.
+- Grounded public copy in the current source of truth: 20 playable Fabric ports (1.16.5–1.21.11 with the exact version matrix), launcher 1.0.39, Microsoft account switching, per-version runtime controls, the Right Shift mod menu, and HUD editing.
+- Removed stale Forge/OptiFine, 1.8.9/1.12.2, waypoint, and blanket HUD-customization claims. Minecraft 26.2 is clearly labeled as staged development pending retained-mode UI review and release gating.
+- Website download actions now resolve to the published latest Windows installer rather than a coming-soon toast.
+
 ## 2026-07-22 — 1.21.1 menus: real SDF/MSDF text + rounded-box SDF shaders (scalable rendering)
 Will: the menu pixelates on scaling because text/curves rasterise at a fixed
 resolution — replace with SDF/MSDF text + shader-based rounded rects, "actual

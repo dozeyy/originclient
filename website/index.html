@@ -1,253 +1,120 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Origin Client — One launcher. Every version.</title>
-<meta name="description" content="Origin is a premium Minecraft client and launcher: pick a version, hit play. The right performance stack, shaders, and a clean custom HUD — installed automatically, no setup.">
-<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e1110">
+  <meta name="description" content="Origin Client is a Minecraft launcher and Fabric client for Windows, with account switching, version-specific runtime controls, a Right Shift mod menu, and a live HUD editor.">
+  <title>Origin Client — Minecraft, assembled</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css?v=20260925e">
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header" data-header>
+    <a class="brand" href="#top" aria-label="Origin Client home"><img src="assets/icons/brand-origin-mark.svg" alt="" width="28" height="28"><span>ORIGIN</span></a>
+    <nav class="site-nav" aria-label="Primary navigation"><a href="#launcher">Launcher</a><a href="#client">In game</a><a href="#versions">Versions</a><a href="#roadmap">Roadmap</a></nav>
+  </header>
 
-<div class="grain" aria-hidden="true"></div>
-<div class="cursor-glow cursor-glow--halo" id="cursorGlowHalo" aria-hidden="true"></div>
-<div class="cursor-glow cursor-glow--core" id="cursorGlowCore" aria-hidden="true"></div>
-
-<header class="nav" id="nav">
-  <a href="#top" class="nav__brand">
-    <svg class="mark" viewBox="0 0 200 200" aria-hidden="true">
-      <ellipse cx="100" cy="100" rx="90" ry="32"/>
-      <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
-      <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
-    </svg>
-    <span>Origin</span>
-  </a>
-  <nav class="nav__links">
-    <a href="#client">The Client</a>
-    <a href="#hud">HUD</a>
-    <a href="#versions">Versions</a>
-  </nav>
-  <div class="nav__actions">
-    <a href="#" class="btn btn--primary btn--sm" id="downloadBtnNav">Download</a>
-  </div>
-</header>
-
-<main id="top">
-
-  <!-- HERO -->
-  <section class="hero">
-    <p class="eyebrow reveal">MINECRAFT CLIENT · FABRIC + FORGE · 1.8.9 → 1.21.11</p>
-    <h1 class="hero__title reveal"><span class="accent">Origin.</span></h1>
-    <p class="hero__tagline reveal">
-      One launcher.<br>Every version.
-    </p>
-    <p class="hero__sub reveal">
-      Pick a version, hit play. Origin quietly installs the right performance
-      stack, shaders, and a clean custom HUD — no loaders to choose, no configs
-      to tweak, nothing to break.
-    </p>
-
-    <div class="hero__cta reveal">
-      <a href="#" class="btn btn--primary btn--lg" id="downloadBtn">Download for Windows</a>
-      <a href="#client" class="link-underline link-underline--lg">See what's inside</a>
-    </div>
-
-    <!-- Recreated Origin in-game HUD — the real elements, drawn in the Origin look -->
-    <div class="showcase reveal" aria-label="A look at the Origin in-game HUD">
-      <div class="ocard ocard--coords showcase__coords">
-        <div class="ocoord"><span class="ocoord__ax">X</span><b>487</b></div>
-        <div class="ocoord"><span class="ocoord__ax">Y</span><b>74</b></div>
-        <div class="ocoord"><span class="ocoord__ax">Z</span><b>-532</b></div>
-        <div class="ocard__sub">NE · Cherry Grove</div>
-      </div>
-
-      <div class="ocard ocard--fps showcase__fps">
-        <b>312</b><span class="ocard__unit">FPS</span>
-      </div>
-
-      <div class="showcase__keys">
-        <span class="okey">W</span>
-        <div class="okey-row">
-          <span class="okey">A</span>
-          <span class="okey">S</span>
-          <span class="okey okey--on">D</span>
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span class="status-dot"></span> Windows launcher · Fabric client</p>
+        <h1 id="hero-title">Your Minecraft setup,<br><em>already assembled.</em></h1>
+        <p class="hero-lede">Origin pairs a focused launcher with a custom in-game client—so the right version, performance stack, menus, mods, and HUD arrive as one coherent experience.</p>
+        <div class="hero-actions">
+          <a class="button button--primary" href="#client"><span>Explore the client</span><span aria-hidden="true">↓</span></a>
+          <a class="text-link" href="#roadmap">Project status <span aria-hidden="true">↘</span></a>
         </div>
+        <dl class="hero-facts" aria-label="Origin at a glance">
+          <div><dt>Latest release</dt><dd>1.0.39</dd></div><div><dt>Playable versions</dt><dd>20</dd></div><div><dt>Current range</dt><dd>1.16.5–1.21.11</dd></div>
+        </dl>
       </div>
 
-      <div class="ocard ocard--wp showcase__wp">
-        <span class="odiamond" aria-hidden="true"></span> Home · <b>122m</b>
-      </div>
-
-      <div class="ocard ocard--clock showcase__clock">
-        <span class="opause" aria-hidden="true"></span> 1:20
-      </div>
-
-      <div class="olocator showcase__locator" aria-hidden="true">
-        <span class="olocator__tick"></span>
-        <span class="olocator__dot" style="left: 41%"></span>
-        <span class="olocator__dot" style="left: 62%"></span>
-      </div>
-    </div>
-  </section>
-
-  <!-- MARQUEE -->
-  <section class="marquee" aria-hidden="true">
-    <div class="marquee__track">
-      <span class="marquee__group">
-        <span>Every Version</span><span class="marquee__dot">&#9670;</span>
-        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Zero Setup</span><span class="marquee__dot">&#9670;</span>
-        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Shaders Built In</span><span class="marquee__dot">&#9670;</span>
-        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>One Custom Look</span><span class="marquee__dot">&#9670;</span>
-        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-      </span>
-      <span class="marquee__group" aria-hidden="true">
-        <span>Every Version</span><span class="marquee__dot">&#9670;</span>
-        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Zero Setup</span><span class="marquee__dot">&#9670;</span>
-        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>Shaders Built In</span><span class="marquee__dot">&#9670;</span>
-        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-        <span>One Custom Look</span><span class="marquee__dot">&#9670;</span>
-        <span class="accent">Origin</span><span class="marquee__dot">&#9670;</span>
-      </span>
-    </div>
-  </section>
-
-  <!-- THE CLIENT -->
-  <section class="section" id="client">
-    <div class="section__head reveal">
-      <p class="eyebrow">THE CLIENT</p>
-      <h2>No loaders. No configs. Just play.</h2>
-      <p class="section__lede">
-        The launcher installs the right stack for whatever version you pick —
-        Fabric on modern versions, Forge + OptiFine on the legacy ones — and
-        pre-configures it. You never see a loader menu.
-      </p>
-    </div>
-
-    <ul class="feature-grid">
-      <li class="feature-card reveal">
-        <h3>Performance, pre-tuned</h3>
-        <p>Sodium, Lithium and FerriteCore ship bundled and configured. Smoother
-          frames and faster chunk loading, out of the box.</p>
-      </li>
-      <li class="feature-card reveal">
-        <h3>Shaders that just work</h3>
-        <p>Iris + Sodium on modern versions, OptiFine on the legacy pair. Drop in
-          a shader pack from the built-in browser and go.</p>
-      </li>
-      <li class="feature-card reveal">
-        <h3>One custom look</h3>
-        <p>A restyled title screen, menus and HUD in a single dark, monochrome
-          theme — consistent on every supported version.</p>
-      </li>
-      <li class="feature-card reveal">
-        <h3>Curated, not bloated</h3>
-        <p>A hand-picked set of QoL mods — zoom, freelook, fullbright, JEI and
-          more. Toggle any of them from one menu. Nothing you didn't ask for.</p>
-      </li>
-    </ul>
-  </section>
-
-  <!-- HUD -->
-  <section class="section section--alt" id="hud">
-    <div class="section__head reveal">
-      <p class="eyebrow">THE HUD</p>
-      <h2>A HUD that's actually yours.</h2>
-      <p class="section__lede">
-        Every element is movable, resizable and recolorable from the in-game
-        editor. Turn on only what you want.
-      </p>
-    </div>
-
-    <div class="hud-demo reveal">
-      <div class="hud-demo__item">
-        <div class="ocard ocard--coords">
-          <div class="ocoord"><span class="ocoord__ax">X</span><b>583</b></div>
-          <div class="ocoord"><span class="ocoord__ax">Y</span><b>74</b></div>
-          <div class="ocoord"><span class="ocoord__ax">Z</span><b>-594</b></div>
-          <div class="ocard__sub">NE · Plains</div>
-        </div>
-        <span class="hud-demo__label">Coordinates + biome</span>
-      </div>
-
-      <div class="hud-demo__item">
-        <div class="ocard ocard--sprint">[Sprinting (Toggled)]</div>
-        <div class="showcase__keys hud-demo__keys">
-          <span class="okey">W</span>
-          <div class="okey-row">
-            <span class="okey okey--on">A</span>
-            <span class="okey">S</span>
-            <span class="okey">D</span>
+      <div class="hero-product reveal" data-tilt aria-label="Illustration of the Origin launcher">
+        <div class="product-shadow"></div>
+        <div class="launcher-window">
+          <div class="window-bar"><div class="window-brand"><img src="assets/icons/brand-origin-mark.svg" alt="" width="18" height="18"><span>ORIGIN</span></div><div class="window-controls" aria-hidden="true"><i></i><i></i></div></div>
+          <div class="launcher-shell">
+            <aside class="launcher-rail" aria-label="Launcher navigation preview">
+              <span class="rail-mark active"><img src="assets/icons/launcher-home.svg" alt=""></span><span class="rail-mark"><img src="assets/icons/launcher-mods.svg" alt=""></span><span class="rail-mark"><img src="assets/icons/launcher-account.svg" alt=""></span><span class="rail-mark rail-mark--bottom"><img src="assets/icons/launcher-settings.svg" alt=""></span>
+            </aside>
+            <div class="launcher-main">
+              <div class="launcher-kicker">READY TO LAUNCH</div><div class="launcher-title"><span>Origin</span><strong>1.21.11</strong></div><div class="launcher-version-line"><span>Fabric</span><span>Performance stack installed</span></div>
+              <div class="launcher-scene" aria-hidden="true"><div class="terrain terrain--back"></div><div class="terrain terrain--front"></div><div class="origin-orb"></div></div>
+              <div class="launcher-actions"><div class="account-chip"><span class="avatar">WH</span><span><small>Playing as</small>WilliamHenry</span></div><span class="play-button">PLAY <b>→</b></span></div>
+            </div>
           </div>
         </div>
-        <span class="hud-demo__label">Keystrokes + sprint state</span>
+        <div class="signal-card signal-card--versions"><small>VERSION MATRIX</small><strong>20 / 20</strong><span>Verified ports</span></div>
+        <div class="signal-card signal-card--status"><span class="status-dot"></span><strong>Ready</strong><small>Runtime checked</small></div>
       </div>
+    </section>
 
-      <div class="hud-demo__item">
-        <div class="ocard ocard--wp"><span class="odiamond"></span> Base · <b>340m</b></div>
-        <div class="olocator hud-demo__locator">
-          <span class="olocator__tick"></span>
-          <span class="olocator__dot" style="left: 30%"></span>
-          <span class="olocator__dot" style="left: 55%"></span>
-          <span class="olocator__dot olocator__dot--far" style="left: 78%"></span>
+    <section class="status-rail" aria-label="Product status">
+      <div><span>01</span><strong>One launcher</strong><small>Accounts, versions, runtime</small></div><div><span>02</span><strong>One client layer</strong><small>Menus, mods, HUD</small></div><div><span>03</span><strong>Version-aware</strong><small>Each port verified separately</small></div><div><span>04</span><strong>Current build</strong><small>Launcher 1.0.39</small></div>
+    </section>
+
+    <section class="section section--launcher" id="launcher" aria-labelledby="launcher-title">
+      <div class="section-heading reveal"><p class="eyebrow">01 / The launcher</p><h2 id="launcher-title">The setup screen is<br><em>the setup.</em></h2><p>Choose an account and Minecraft version, tune the runtime if you need to, then launch. Origin provisions the matching Fabric build and curated performance stack around that choice.</p></div>
+      <div class="launcher-details">
+        <div class="feature-list reveal">
+          <article class="feature-row"><span class="feature-index">A</span><div><h3>Microsoft account switching</h3><p>Add multiple Microsoft accounts and choose the active profile without leaving the launcher.</p></div></article>
+          <article class="feature-row"><span class="feature-index">B</span><div><h3>Per-version runtime control</h3><p>Set RAM, Java arguments, resolution, install location, and personal-mod behavior for the way you play.</p></div></article>
+          <article class="feature-row"><span class="feature-index">C</span><div><h3>Fabric, performance, shaders</h3><p>Origin installs its supported Fabric stack with Sodium and Iris where that version's port supports them.</p></div></article>
+          <article class="feature-row"><span class="feature-index">D</span><div><h3>Updates without guesswork</h3><p>The launcher checks Origin releases and keeps the application on the current published build.</p></div></article>
         </div>
-        <span class="hud-demo__label">Waypoints + locator bar</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- VERSIONS -->
-  <section class="section" id="versions">
-    <div class="section__head reveal">
-      <p class="eyebrow">COMPATIBILITY</p>
-      <h2>From 1.8.9 to the latest.</h2>
-      <p class="section__lede">
-        Eighteen supported versions and counting — each one gets the full Origin
-        experience, built for its own era.
-      </p>
-    </div>
-
-    <div class="versions reveal">
-      <div class="versions__group">
-        <span class="versions__tag">Legacy · Forge + OptiFine</span>
-        <div class="chips">
-          <span class="chip">1.8.9</span>
-          <span class="chip">1.12.2</span>
+        <div class="settings-panel reveal" aria-label="Illustration of Origin launcher settings">
+          <div class="panel-top"><span>LAUNCH PROFILE</span><span>01 — 04</span></div>
+          <div class="settings-profile"><div class="profile-symbol">O</div><div><small>Selected version</small><strong>Minecraft 1.21.11</strong><span>Origin UI enabled</span></div></div>
+          <div class="setting-line"><span>Memory allocation</span><strong>6 GB</strong></div><div class="range-track"><i></i></div>
+          <div class="setting-line"><span>Window resolution</span><strong>1920 × 1080</strong></div><div class="setting-line"><span>Personal mods</span><strong class="toggle">ON</strong></div><div class="setting-line"><span>Java arguments</span><strong class="mono">CUSTOM</strong></div>
+          <div class="panel-note"><span class="status-dot"></span> Version-specific settings saved</div>
         </div>
       </div>
-      <div class="versions__group">
-        <span class="versions__tag">Fabric</span>
-        <div class="chips">
-          <span class="chip">1.16.5</span><span class="chip">1.17.1</span>
-          <span class="chip">1.18.2</span><span class="chip">1.19.2</span>
-          <span class="chip">1.19.4</span><span class="chip">1.20.1</span>
-          <span class="chip">1.20.4</span><span class="chip">1.21</span>
-          <span class="chip">1.21.1</span><span class="chip">1.21.5</span>
-          <span class="chip">1.21.8</span><span class="chip">1.21.11</span>
+    </section>
+
+    <section class="section section--client" id="client" aria-labelledby="client-title">
+      <div class="section-heading section-heading--split reveal"><div><p class="eyebrow">02 / In-game control layer</p><h2 id="client-title">Right Shift.<br><em>Everything in reach.</em></h2></div><p>The in-game menu is built for fast scanning: four columns, clear status, search, and a direct path from each module to its own settings.</p></div>
+      <div class="mod-console reveal" aria-label="Origin in-game mod menu preview">
+        <div class="console-topbar"><div class="console-brand"><img src="assets/icons/brand-origin-mark.svg" alt="" width="21" height="21"><span>ORIGIN CONTROL</span></div><div class="console-shortcut"><kbd>RIGHT SHIFT</kbd><span>to close</span></div></div>
+        <div class="console-tabs" aria-label="Menu sections"><span class="active">MODS</span><span>PROFILES</span><span>SETTINGS</span><label><span class="sr-only">Search mods</span><input type="search" placeholder="Search mods" readonly tabindex="-1"></label></div>
+        <div class="console-subtabs"><span class="active">GENERAL</span><span>PERFORMANCE</span><span>MENU</span><small>21 MODULES</small></div>
+        <div class="mod-grid">
+          <article class="mod-card active"><img src="assets/icons/client-fps.svg" alt=""><div><strong>FPS</strong><small>Display frames per second</small></div><span class="mod-switch"></span></article>
+          <article class="mod-card active"><img src="assets/icons/client-keystrokes.svg" alt=""><div><strong>Key Strokes</strong><small>Live input display</small></div><span class="mod-switch"></span></article>
+          <article class="mod-card active"><img src="assets/icons/client-coords.svg" alt=""><div><strong>Coordinates</strong><small>Position and direction</small></div><span class="mod-switch"></span></article>
+          <article class="mod-card"><img src="assets/icons/client-cps.svg" alt=""><div><strong>CPS</strong><small>Click rate counter</small></div><span class="mod-switch"></span></article>
+          <article class="mod-card"><img src="assets/icons/client-zoom.svg" alt=""><div><strong>Zoom</strong><small>Focused field of view</small></div><span class="mod-switch"></span></article>
+          <article class="mod-card"><img src="assets/icons/client-freelook.svg" alt=""><div><strong>Freelook</strong><small>Independent camera look</small></div><span class="mod-switch"></span></article>
+          <article class="mod-card active"><img src="assets/icons/client-fullbright.svg" alt=""><div><strong>Lighting</strong><small>Visibility controls</small></div><span class="mod-switch"></span></article>
+          <article class="mod-card"><img src="assets/icons/client-motionblur.svg" alt=""><div><strong>Motion Blur</strong><small>Adjustable visual effect</small></div><span class="mod-switch"></span></article>
         </div>
+        <div class="console-footer"><span><b>4</b> column grid</span><span><b>64×64</b> source icons</span><span><b>Search</b> + per-mod settings</span></div>
       </div>
-    </div>
-  </section>
+    </section>
 
-</main>
+    <section class="section section--versions" id="versions" aria-labelledby="versions-title">
+      <div class="section-heading reveal"><p class="eyebrow">03 / Verified compatibility</p><h2 id="versions-title">No blanket claims.<br><em>Every port earns its place.</em></h2><p>Origin tracks each Minecraft line independently. The versions below are the builds currently exposed as playable in the launcher.</p></div>
+      <div class="version-matrix reveal">
+        <div class="version-family"><strong>1.16</strong><div><span>1.16.5</span></div></div><div class="version-family"><strong>1.17</strong><div><span>1.17.1</span></div></div><div class="version-family"><strong>1.18</strong><div><span>1.18.2</span></div></div><div class="version-family"><strong>1.19</strong><div><span>1.19.2</span><span>1.19.3</span><span>1.19.4</span></div></div><div class="version-family"><strong>1.20</strong><div><span>1.20</span><span>1.20.1</span><span>1.20.2</span><span>1.20.4</span></div></div><div class="version-family version-family--wide"><strong>1.21</strong><div><span>1.21</span><span>1.21.1</span><span>1.21.2</span><span>1.21.3</span><span>1.21.4</span><span>1.21.6</span><span>1.21.7</span><span>1.21.8</span><span>1.21.10</span><span>1.21.11</span></div></div>
+      </div>
+      <p class="matrix-note reveal"><span class="status-dot"></span> Current verified matrix · Fabric-based ports only</p>
+    </section>
 
-<footer class="footer">
-  <div class="footer__links">
-    <a href="terms.html">Terms</a>
-  </div>
-  <p class="footer__copy">Origin Client — not affiliated with Mojang or Microsoft.</p>
-</footer>
+    <section class="section section--roadmap" id="roadmap" aria-labelledby="roadmap-title">
+      <div class="roadmap-title reveal"><p class="eyebrow">04 / Product status</p><h2 id="roadmap-title">What exists.<br><em>What comes next.</em></h2></div>
+      <div class="roadmap-grid">
+        <article class="roadmap-column reveal"><header><span class="status-dot"></span><div><small>IMPLEMENTED</small><h3>Built in the current client</h3></div></header><ul><li><strong>Origin Launcher 1.0.39</strong><span>Windows launcher and self-update flow</span></li><li><strong>20 Fabric versions</strong><span>From 1.16.5 through 1.21.11</span></li><li><strong>Launcher controls</strong><span>Accounts, RAM, JVM, resolution, folders, personal mods</span></li><li><strong>Origin client UI</strong><span>Branded loading, main menu, mod menu, settings, and HUD editor</span></li></ul></article>
+        <article class="roadmap-column roadmap-column--next reveal"><header><span class="status-dot status-dot--amber"></span><div><small>PLANNED</small><h3>Minecraft 26.2</h3></div></header><p>The 26.2 port compiles and passes its boot smoke check. Its retained-mode Workbench interface is staged—not public—while the mod menu and HUD receive manual visual review and the normal release gate.</p><div class="progress-track"><i></i></div><div class="progress-labels"><span>Compile + boot</span><span>UI review</span><span>Release</span></div><small class="roadmap-footnote">Planned status reflects the current repository, not a promised date.</small></article>
+      </div>
+    </section>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <section class="final-cta" aria-labelledby="status-title"><div class="final-cta-grid" aria-hidden="true"></div><p class="eyebrow reveal">Origin Client</p><h2 id="status-title" class="reveal">Built as one system.<br><em>Available when it is ready.</em></h2><p class="reveal">Origin is not available for public download yet. Release access will appear here when the client is ready.</p><span class="button button--primary button--disabled reveal" aria-disabled="true"><span>Download coming soon</span><span aria-hidden="true">—</span></span><small class="reveal">No public installer is available yet.</small></section>
+  </main>
 
-<script src="js/main.js"></script>
+  <footer class="site-footer"><a class="brand" href="#top"><img src="assets/icons/brand-origin-mark.svg" alt="" width="24" height="24"><span>ORIGIN</span></a><p>An independent Minecraft launcher and client. Not affiliated with Mojang Studios or Microsoft.</p><div><a href="terms.html">Terms &amp; Privacy</a><span>© 2026 Origin Client</span></div></footer>
+  <script src="js/main.js?v=20260925" defer></script>
 </body>
 </html>

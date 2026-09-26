@@ -1,45 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terms of Service — Origin Client</title>
 <meta name="description" content="Terms of Service for Origin Client.">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=20260925e">
 </head>
 <body>
-
-<div class="grain" aria-hidden="true"></div>
-<div class="cursor-glow cursor-glow--halo" id="cursorGlowHalo" aria-hidden="true"></div>
-<div class="cursor-glow cursor-glow--core" id="cursorGlowCore" aria-hidden="true"></div>
-
-<header class="nav" id="nav">
-  <a href="index.html" class="nav__brand">
-    <svg class="mark" viewBox="0 0 200 200" aria-hidden="true">
-      <ellipse cx="100" cy="100" rx="90" ry="32"/>
-      <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
-      <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
-    </svg>
-    <span>Origin</span>
-  </a>
-  <div class="nav__actions">
-    <a href="index.html" class="link-underline">Back to home</a>
-  </div>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header" data-header>
+  <a class="brand" href="index.html" aria-label="Origin Client home"><img src="assets/icons/brand-origin-mark.svg" alt="" width="28" height="28"><span>ORIGIN</span></a>
+  <span></span>
+  <a class="button button--compact" href="index.html"><span>Back home</span><span aria-hidden="true">↖</span></a>
 </header>
 
-<main>
+<main id="main">
   <section class="legal">
-    <div class="legal__head reveal">
+    <div class="legal-header reveal">
       <p class="eyebrow">LEGAL</p>
       <h1>Terms of Service</h1>
       <p class="legal__updated">Last updated: July 6, 2026</p>
     </div>
 
-    <article class="legal__body reveal">
+    <article class="legal-body reveal">
       <p>
         These Terms of Service ("Terms") govern your download and use of
         Origin Client (the "Client"). By downloading, installing, or running
@@ -129,15 +114,7 @@
   </section>
 </main>
 
-<footer class="footer">
-  <div class="footer__links">
-    <a href="index.html">Home</a>
-  </div>
-  <p class="footer__copy">Origin Client — not affiliated with Mojang or Microsoft.</p>
-</footer>
-
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-<script src="js/main.js"></script>
+<footer class="site-footer"><a class="brand" href="index.html"><img src="assets/icons/brand-origin-mark.svg" alt="" width="24" height="24"><span>ORIGIN</span></a><p>Origin Client — not affiliated with Mojang or Microsoft.</p><div><a href="index.html">Home</a></div></footer>
+<script src="js/main.js?v=20260925" defer></script>
 </body>
 </html>
