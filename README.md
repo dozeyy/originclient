@@ -14,7 +14,11 @@ A premium Windows Minecraft launcher (Origin Launcher) + custom client mod
   API family: `shared/` (the canonical core every version copies from),
   `versions/` (shipped builds), `staged/` (work-in-progress builds that
   never ship). `src/mods/VERSIONS.md` is the live/staged registry.
-- `docs/RELEASING.md` — how shipping works and the rules of the channel.
+- `tools/` — asset generators, `shared-sync/` (copies the shared mod core
+  into every version), `release/` (release planning + notes) and `github/`
+  (the label set).
+- `docs/RELEASING.md` — how shipping works, the CI pipeline, release notes,
+  labels, and the rules of the channel.
 
 Day-to-day development happens on feature branches merged into `main`.
 `main` always reflects at least the latest release; nothing reaches players
