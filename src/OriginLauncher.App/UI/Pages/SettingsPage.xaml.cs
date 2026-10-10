@@ -5,6 +5,7 @@ using Microsoft.Win32;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
+using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.App.UI.Pages;
@@ -25,6 +26,9 @@ public partial class SettingsPage : UserControl
     {
         InitializeComponent();
         _settings = SettingsStore.Load();
+        LauncherVersionText.Text = UpdateService.IsDevBuild
+            ? "Origin Launcher · dev build"
+            : $"Origin Launcher {UpdateService.CurrentVersion.ToString(3)}";
 
         _ramSaveTimer = new DispatcherTimer(DispatcherPriority.Background)
         {

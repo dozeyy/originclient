@@ -180,6 +180,12 @@
                     </Grid>
                 </StackPanel>
             </Border>
+
+            <!-- Which build this is — what a bug report needs, and the one place
+                 the launcher states it (Windows' Installed apps list keeps the
+                 version first installed, not the self-updated one). -->
+            <TextBlock x:Name="LauncherVersionText" Style="{StaticResource Text.BodyDim}"
+                       HorizontalAlignment="Center" Margin="0,4,0,8"/>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
