@@ -22,17 +22,19 @@
             <controls:OriginMark x:Name="Mark" Width="72" Height="72" Margin="0,0,0,28"
                                   RenderTransformOrigin="0.5,0.5"/>
 
-            <TextBlock Text="STARTING" Style="{StaticResource Text.Eyebrow}"
+            <TextBlock x:Name="EyebrowText" Text="STARTING" Style="{StaticResource Text.Eyebrow}"
                        Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
             <TextBlock x:Name="VersionText" Style="{StaticResource Text.H1}"
                        HorizontalAlignment="Center" Margin="0,4,0,2"/>
             <TextBlock x:Name="LoaderCaptionText" Style="{StaticResource Text.Label}"
                        HorizontalAlignment="Center" Margin="0,0,0,22"/>
 
-            <!-- Indeterminate sliding bar: the install pipeline reports stage
-                 text, not a byte percentage, so an honest "working" bar beats a
-                 faked fill. A 70px accent block slides across a 240px track,
-                 animated from the code-behind (see Show/Hide). -->
+            <!-- Launch: an indeterminate sliding bar — the install pipeline
+                 reports stage text, not a byte percentage, so an honest
+                 "working" bar beats a faked fill. An 84px accent block slides
+                 across the 280px track, animated from the code-behind.
+                 Self-update: the same bar becomes a real left-to-right fill
+                 driven by downloaded bytes (ShowUpdate / ReportUpdate). -->
             <Border x:Name="ProgressTrack" Width="280" Height="4" CornerRadius="0"
                     Background="{StaticResource Brush.SoftStroke}" HorizontalAlignment="Center"
                     ClipToBounds="True" Margin="0,0,0,14">

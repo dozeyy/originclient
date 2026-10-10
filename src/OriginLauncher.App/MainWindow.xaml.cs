@@ -81,16 +81,33 @@ public partial class MainWindow : Window
 
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
     {
+        if (UpdateService.Available is not { } update) return;
+
         UpdateBadge.IsEnabled = false;
         UpdateBadge.ToolTip = "Updating...";
+
+        // Show the download on Home's full-page loading scene (a real
+        // percentage fill), unless a game launch is mid-flight there — then
+        // the button tooltip alone carries the progress.
+        if (_accountPanelOpen) SetAccountPanelOpen(false);
+        NavigateTo(LauncherPage.Home);
+        var onScene = _currentPage == LauncherPage.Home
+                      && _homePage.BeginUpdateScene(update.Version.ToString());
+        var progress = new Progress<UpdateService.UpdateProgress>(p =>
+        {
+            UpdateBadge.ToolTip = p.Describe();
+            if (onScene) _homePage.ReportUpdate(p);
+        });
+
         try
         {
             // Downloads + stages the new build, then shuts this process down;
             // the swap script relaunches the updated launcher.
-            await UpdateService.DownloadAndRestartAsync();
+            await UpdateService.DownloadAndRestartAsync(progress);
         }
         catch (Exception ex)
         {
+            if (onScene) _homePage.EndUpdateScene();
             UpdateBadge.IsEnabled = true;
             UpdateBadge.ToolTip = $"Update failed: {ex.Message} — click to retry";
         }
