@@ -36,14 +36,17 @@
     with everything else. VersionManager's OriginBuilds registry maps each MC
     version to the bundled filename here.
 
-    Each source filename is pinned to the exact mod_version in that module's
-    gradle.properties rather than a wildcard: a glob risks matching a stale jar
-    left behind from a prior version bump if build/libs isn't cleaned, which
-    would break the build with an ambiguous duplicate match. Bump these
-    alongside each module's mod_version.
+    Each entry globs originclient-<module>-*.jar (minus -sources/-dev) in its
+    module's build/libs, so a mod_version bump can never orphan the path
+    (launcher-v1.0.33 shipped-failed on exactly that when names were pinned).
+    The cost: a stale second jar in build/libs would collide on the same Link.
+    CI is immune — .github/actions/publish-launcher places exactly one jar per
+    module (built, or reused from the last release as
+    originclient-<module>-reused.jar) — but locally, clean build/libs after a
+    version bump.
 
-    Conditional on each jar existing so a fresh checkout (or a launcher-only
-    change) still builds before ./gradlew build has been run in that module —
+    A glob that matches nothing simply adds no item, so a fresh checkout (or a
+    launcher-only change) still builds before ./gradlew build has been run —
     the launcher already fail-softs at runtime when a bundled jar is absent
     (VersionManager falls back to the standalone perf-mod catalog for that
     version). A RELEASE build must still verify the jars are present.

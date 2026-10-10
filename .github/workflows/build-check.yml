@@ -1,10 +1,15 @@
 # Compile verification for every change — the counterpart to
-# launcher-release.yml, which only fires from launcher-v* tags. This one
-# runs on pushes to main and working branches and on PRs, builds the mods +
-# launcher exactly like a release would, and publishes NOTHING. It exists so
-# code written in environments that can't build (e.g. the remote dev sandbox,
-# where Gradle/Mojang downloads are blocked) is machine-verified before it
-# ever reaches the release channel.
+# launcher-release.yml, which only fires from launcher-v* tags. This one runs
+# on pushes to main and working branches and on PRs, builds every live mod +
+# the launcher exactly like a release would (same build-mods.yml, same
+# publish-launcher action, same bundled-jar assert), and publishes NOTHING.
+# It exists so code written in environments that can't build (e.g. the remote
+# dev sandbox, where Gradle/Mojang downloads are blocked) is machine-verified
+# before it ever reaches the release channel. Only tag commits that are green
+# here (docs/RELEASING.md).
+#
+# Shape: shared-core drift check + module list (Linux) -> every live mod in
+# parallel (Linux) -> launcher publish with all jars bundled (Windows).
 name: build-check
 
 on:
@@ -13,136 +18,71 @@ on:
     paths:
       - "src/**"
       - "tools/shared-sync/**"
+      - "tools/release/**"
       - ".github/workflows/build-check.yml"
+      - ".github/workflows/build-mods.yml"
+      - ".github/actions/**"
   pull_request:
     paths:
       - "src/**"
       - "tools/shared-sync/**"
+      - "tools/release/**"
+      - ".github/workflows/build-check.yml"
+      - ".github/workflows/build-mods.yml"
+      - ".github/actions/**"
 
 concurrency:
   group: build-check-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: windows-latest
+  plan:
+    name: Shared-core check + version list
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v7
 
       # Drift gate for the shared mod core: every module's copy of
       # src/mods/shared/ files must be byte-identical to shared/ (or listed in
       # that module's overrides.txt as a deliberate fork). Catches edits made
       # in a module that belong in shared/, and shared/ edits never synced.
       - name: Check shared-core sync
-        run: python tools/shared-sync/sync.py --check
+        run: python3 tools/shared-sync/sync.py --check
 
-      - uses: actions/setup-java@v4
+      - name: List live Minecraft versions
+        id: plan
+        run: python3 tools/release/plan.py --all
+
+  mods:
+    name: Mods
+    needs: plan
+    uses: ./.github/workflows/build-mods.yml
+    with:
+      modules: ${{ needs.plan.outputs.build }}
+      # Keep building the rest when one fails, so one push shows every
+      # broken version at once.
+      fail-fast: false
+
+  launcher:
+    name: Launcher (publish check)
+    needs: mods
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Download mod jars
+        uses: actions/download-artifact@v8
         with:
-          distribution: temurin
-          java-version: "21"
+          pattern: mod-*
+          path: modjars
+          merge-multiple: true
 
-      - name: Build Origin Client mod
-        working-directory: src/mods/versions/1.21.1
-        run: .\gradlew.bat build --no-daemon
-
-      - name: Build Origin Client mod (1.20)
-        working-directory: src/mods/versions/1.20
-        run: .\gradlew.bat build --no-daemon
-
-      - name: Build Origin Client mod (1.20.4)
-        working-directory: src/mods/versions/1.20.4
-        run: .\gradlew.bat build --no-daemon
-
-      # The 1.21 base release (src/mods/versions/1.21), bundled as
-      # Bundled/OriginClient/originclient-1.21.jar. Same source as 1.21.1 (shared
-      # pre-1.21.2 blit API), its own 1.21-mapped build. Real version, so the
-      # runner resolves + compiles it; Java 21 like the rest.
-      - name: Build Origin Client mod (1.21)
-        working-directory: src/mods/versions/1.21
-        run: .\gradlew.bat build --no-daemon
-
-      # 1.21.8 (src/mods/versions/1.21.8): the Matrix3x2fStack + no-setShaderColor
-      # sub-family (pre-1.21.9 input API). Own build, boot-verified.
-      - name: Build Origin Client mod (1.21.8)
-        working-directory: src/mods/versions/1.21.8
-        run: .\gradlew.bat build --no-daemon
-
-      # 1.20.2 (covers 1.20.2) — gap sub-family gone live 2026-07-14.
-      - name: Build Origin Client mod (1.20.2)
-        working-directory: src/mods/versions/1.20.2
-        run: .\gradlew.bat build --no-daemon
-
-      # 1.21.4 (covers 1.21.2/1.21.3/1.21.4) — gap sub-family gone live 2026-07-14.
-      - name: Build Origin Client mod (1.21.4)
-        working-directory: src/mods/versions/1.21.4
-        run: .\gradlew.bat build --no-daemon
-
-      # 1.21.6 (covers 1.21.6/1.21.7) — gap sub-family gone live 2026-07-14.
-      - name: Build Origin Client mod (1.21.6)
-        working-directory: src/mods/versions/1.21.6
-        run: .\gradlew.bat build --no-daemon
-
-      # 1.21.10 (own render-state sub-family, split from 1.21.11) — gap sub-family gone live 2026-07-14.
-      - name: Build Origin Client mod (1.21.10)
-        working-directory: src/mods/versions/1.21.10
-        run: .\gradlew.bat build --no-daemon
-
-      # 1.21.10 + 1.21.11 (src/mods/versions/1.21.11): ONE jar for the
-      # render-pipeline + world-event-v2 era. LIVE 2026-07-13. The lower 1.21.x
-      # versions are separate sub-family ports (see src/mods/VERSIONS.md).
-      - name: Build Origin Client mod (1.21.10–1.21.11)
-        working-directory: src/mods/versions/1.21.11
-        run: .\gradlew.bat build --no-daemon
-
-      # Pre-1.20 PoseStack modules (the pre-GuiGraphics render backend), LIVE
-      # 2026-07-15. Gradle runs on the Java 21 above and cross-compiles via
-      # `options.release` (17 / 16 / 8) — no extra setup-java needed.
-      - name: Build Origin Client mod (1.19.4)
-        working-directory: src/mods/versions/1.19.4
-        run: .\gradlew.bat build --no-daemon
-
-      - name: Build Origin Client mod (1.19.3)
-        working-directory: src/mods/versions/1.19.3
-        run: .\gradlew.bat build --no-daemon
-
-      - name: Build Origin Client mod (1.19–1.19.2)
-        working-directory: src/mods/versions/1.19.2
-        run: .\gradlew.bat build --no-daemon
-
-      - name: Build Origin Client mod (1.18–1.18.2)
-        working-directory: src/mods/versions/1.18.2
-        run: .\gradlew.bat build --no-daemon
-
-      - name: Build Origin Client mod (1.17.1)
-        working-directory: src/mods/versions/1.17.1
-        run: .\gradlew.bat build --no-daemon
-
-      - name: Build Origin Client mod (1.16.5)
-        working-directory: src/mods/versions/1.16.5
-        run: .\gradlew.bat build --no-daemon
-
-      # NOTE: 1.21.5, 1.8.9 and 1.12.2 were pulled from the lineup 2026-08-06.
-      # Their modules are still in src/mods/versions/ but are no longer built
-      # here or shipped, so CI does not gate on them.
-
-      # NOTE (26.2): src/mods/staged/26.2 is scaffolded and its toolchain is
-      # proven (Java 25 + unobfuscated Loom config — it resolves + compiles
-      # against MC 26.2), but the render layer is mid-port to 26.2's retained-mode
-      # GUI (GuiGraphicsExtractor / GuiRenderState) and does NOT compile yet, so
-      # it is intentionally NOT built here. Re-add this step (with JAVA_HOME set
-      # to ${{ env.JAVA_HOME_25_X64 }} and 25 added to setup-java) once the port
-      # compiles clean — see MEMORY.md 2026-07-11.
-
-      - uses: actions/setup-dotnet@v4
+      - name: Publish launcher with mod jars (verify only)
+        uses: ./.github/actions/publish-launcher
         with:
-          dotnet-version: "8.0.x"
-
-      # Same publish shape as a real release (single-file, self-contained)
-      # so anything that would break shipping breaks here first.
-      - name: Publish launcher (verify only)
-        run: >
-          dotnet publish src/OriginLauncher.App/OriginLauncher.App.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -o publish
+          jars-dir: modjars

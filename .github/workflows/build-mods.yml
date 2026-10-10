@@ -1,0 +1,87 @@
+# Builds Origin Client mod modules IN PARALLEL — one job per module.
+# Called by build-check.yml (every live module) and launcher-release.yml (only
+# the modules that changed since the last release; see tools/release/plan.py).
+#
+# Why parallel: the old pipeline compiled ~16 modules back to back on ONE
+# Windows runner, ~1.5 min each, so a release took 12-40 min. Each module is a
+# fully standalone Gradle build, so they run side by side here and the whole
+# set finishes in roughly the time of the slowest single module.
+#
+# Why Linux: Gradle + Loom start and run faster there, and the jar is plain
+# JVM bytecode — identical behaviour whichever OS compiled it. The Windows-only
+# work (WPF launcher publish, Inno Setup installer) stays in the calling
+# workflows. Every module cross-compiles from JDK 21 via `options.release`
+# (21 / 17 / 16 / 8), so one setup-java covers them all.
+#
+# No Gradle cache on purpose: GitHub scopes caches per branch/tag, so a cache
+# written by one release tag is invisible to the next — the old setup-java
+# gradle cache spent 2.5-4.5 min per release saving archives nothing could
+# ever restore. A cold module build is ~1.5-2 min, and they run in parallel.
+#
+# Each job uploads its jar as artifact `mod-<module>` laid out as
+# <module>/<jar>; the caller downloads them all (merge-multiple) and
+# .github/actions/publish-launcher places them for the csproj to bundle.
+name: build-mods
+
+on:
+  workflow_call:
+    inputs:
+      modules:
+        description: 'JSON array of {"module","covers"} from tools/release/plan.py'
+        type: string
+        required: true
+      fail-fast:
+        description: "Cancel the other builds as soon as one fails (releases: yes)"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Minecraft ${{ matrix.covers }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: ${{ inputs.fail-fast }}
+      matrix:
+        include: ${{ fromJson(inputs.modules) }}
+    defaults:
+      run:
+        working-directory: src/mods/versions/${{ matrix.module }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Through sh so the build never depends on gradlew's executable bit
+      # (Windows checkouts drop it; it is set in git as of this pipeline).
+      - name: Build mod (module ${{ matrix.module }})
+        run: sh ./gradlew build --no-daemon
+
+      # Exactly one shippable jar per module: build/libs also holds the
+      # -sources (and on some modules -dev) jars, which the csproj excludes too.
+      - name: Collect jar
+        shell: bash
+        run: |
+          mapfile -t jars < <(find build/libs -maxdepth 1 -name 'originclient-*.jar' \
+            ! -name '*-sources.jar' ! -name '*-dev.jar')
+          if [ "${#jars[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one shippable jar in build/libs, found ${#jars[@]}: ${jars[*]}"
+            exit 1
+          fi
+          out="$RUNNER_TEMP/mod-out/${{ matrix.module }}"
+          mkdir -p "$out"
+          cp "${jars[0]}" "$out/"
+          echo "Built ${jars[0]}"
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: mod-${{ matrix.module }}
+          path: ${{ runner.temp }}/mod-out
+          if-no-files-found: error
+          retention-days: 3

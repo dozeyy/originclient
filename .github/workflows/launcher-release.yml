@@ -2,414 +2,149 @@
 # pushed to main (Will: main always reflects at least the latest release;
 # shipping is one deliberate act). To ship, from a green main:
 #   git tag launcher-v1.0.N && git push origin launcher-v1.0.N
-# — see docs/RELEASING.md. The tag builds the whole client (each live Origin
-# Client mod jar via Gradle, then the WPF launcher with those jars bundled in)
-# and publishes a GitHub release under the same tag. Running launchers poll
-# the release feed (Core/Updates/UpdateService.cs), light the corner download
-# badge, and self-update from the OriginLauncher-win-x64.zip asset. Updates
-# are mandatory: a launcher older than the latest release refuses to launch
-# the game until updated.
+# — see docs/RELEASING.md. Running launchers poll the release feed
+# (Core/Updates/UpdateService.cs), light the corner download badge, and
+# self-update from the OriginLauncher-win-x64.zip asset. Updates are
+# mandatory: a launcher older than the latest release refuses to launch the
+# game until updated.
 #
 # COMPATIBILITY: installed launchers key on the launcher-v tag prefix and the
 # exact asset names (OriginLauncher-win-x64.zip / OriginLauncher-Setup.exe).
 # Never change those. New tags must be strictly greater than the last release.
+# The launcher polls this feed UNAUTHENTICATED, so the repository (or at least
+# its releases) must stay public.
 #
-# NOTE: the launcher polls this feed UNAUTHENTICATED, which requires the
-# repository (or at least its releases) to be public.
+# SHAPE (why a release takes minutes, not 12-40 of them):
+#   1. Plan       (Linux, ~30s)  which mod modules changed since the previous
+#                                published release (tools/release/plan.py);
+#                                unchanged ones get their jar copied out of
+#                                that release's zip; writes the release notes.
+#   2. Mods       (Linux, parallel, ~2 min) build-mods.yml — one job per
+#                                changed module, all at once.
+#   3. Release    (Windows, ~3 min) bundle every jar into the WPF launcher,
+#                                build the installer, publish the release.
+# The old single-job pipeline compiled every module back to back on one
+# Windows runner.
 #
-# INCREMENTAL BUILDS: rebuilding all ~19 mod modules from scratch on every tag
-# took 30-40min even when a release only touched one version. "Detect changed
-# mod versions" below diffs against the PREVIOUS release tag (not just the
-# last commit) and skips the gradlew step for any module whose own directory,
-# AND whose relevant shared/ files (per overrides.txt / .no-shared-sync), are
-# byte-identical to what that previous release shipped. Skipped modules have
-# their jar copied out of the previous release's own published zip instead
-# ("Reuse unchanged mod jars from previous release") — so a release always
-# ships all ~19 jars, it just doesn't recompile the ones nothing touched.
-# Fails safe: first release ever, or the pipeline/shared-sync tooling itself
-# changed, or a module is new since the last release, or its expected jar
-# isn't actually in the previous release zip -> that module builds fresh.
+# REHEARSAL: run it from the Actions tab (Run workflow) to do every step
+# against the latest published release — plan, reuse, build, notes,
+# installer, zip — WITHOUT publishing anything. The setup.exe, zip and notes
+# land as a downloadable "rehearsal-release" artifact on the run instead. The
+# rehearsal exe is an unstamped dev build (1.0.0.0), so it never blocks or
+# triggers updates. Any run not started by a launcher-v* tag is a rehearsal.
 name: launcher-release
 
 on:
   push:
     tags: ["launcher-v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+env:
+  REHEARSAL: ${{ !startsWith(github.ref, 'refs/tags/launcher-v') }}
+  # "next" tells plan.py to plan against the latest published release.
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && github.ref_name || 'next' }}
+
+# Real releases queue one at a time; rehearsals never hold one up.
 concurrency:
-  group: launcher-release
+  group: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'launcher-release' || format('launcher-rehearsal-{0}', github.ref) }}
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
-    runs-on: windows-latest
+  plan:
+    name: Plan release
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      prev_tag: ${{ steps.plan.outputs.prev_tag }}
     steps:
-      # fetch-depth: 0 — need full history (and all tags) to diff against the
-      # PREVIOUS release tag below, not just the last commit.
-      - uses: actions/checkout@v4
+      # Full history + tags: plan.py and notes.py diff against the previous
+      # release tag, not just the last commit.
+      - name: Check out code (full history)
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      # Find the release immediately before this one (by version, not just
-      # "second most recent tag" — protects against a tag ever being created
-      # out of numeric order). Empty output = this is the first release ever,
-      # and every module below builds fresh (nothing to diff or reuse against).
-      - name: Find previous release tag
-        id: prevtag
-        shell: pwsh
-        run: |
-          $current = "${{ github.ref_name }}"
-          $tags = git tag -l "launcher-v*" | Where-Object { $_ -ne $current }
-          $prev = $tags | Sort-Object { [version]($_ -replace '^launcher-v','') } | Select-Object -Last 1
-          if ($prev) {
-            Write-Host "Previous release: $prev"
-            echo "tag=$prev" >> $env:GITHUB_OUTPUT
-          } else {
-            Write-Host "No previous release found -- this is the first release, building everything."
-            echo "tag=" >> $env:GITHUB_OUTPUT
-          }
-
-      # Per-module true/false: does this module need a fresh gradlew build?
-      # A module is UNCHANGED (false) only if: its own directory is
-      # byte-identical to the previous release's commit, AND every src/mods/shared/
-      # file that changed since then is either irrelevant to it (listed in its
-      # overrides.txt) or it doesn't consume shared/ at all (.no-shared-sync).
-      # Anything ambiguous defaults to true (rebuild) -- never skip on a guess.
-      - name: Detect changed mod versions since last release
-        id: changed
-        shell: pwsh
-        run: |
-          # 1.21.5, 1.8.9 and 1.12.2 were pulled from the lineup 2026-08-06 and
-          # are no longer built or bundled.
-          $modules = @(
-            "1.21.1","1.20","1.20.4","1.21","1.21.8","1.20.2",
-            "1.21.4","1.21.6","1.21.10","1.21.11","1.19.4","1.19.3",
-            "1.19.2","1.18.2","1.17.1","1.16.5"
-          )
-          function ModKey($m) { "v_" + ($m -replace '\.', '_') }
-
-          try {
-            $prev = "${{ steps.prevtag.outputs.tag }}"
-            if (-not $prev) {
-              foreach ($m in $modules) { echo "$(ModKey $m)=true" >> $env:GITHUB_OUTPUT }
-              echo "any_reuse=false" >> $env:GITHUB_OUTPUT
-              exit 0
-            }
-
-            # The pipeline or the shared-sync tool's own rules changed --
-            # "unaffected" might not mean what it used to. Rebuild everything.
-            $pipelineChanged = @(git diff --name-only "$prev" HEAD -- .github/workflows/launcher-release.yml tools/shared-sync/sync.py).Count -gt 0
-
-            $changedFiles = @(git diff --name-only "$prev" HEAD -- src/mods)
-            $sharedPrefix = "src/mods/shared/src/"
-            $sharedChanged = @($changedFiles | Where-Object { $_.StartsWith($sharedPrefix) } | ForEach-Object { $_.Substring($sharedPrefix.Length) })
-
-            $anyReuse = $false
-            foreach ($m in $modules) {
-              $dir = "src/mods/versions/$m"
-              $key = ModKey $m
-
-              if ($pipelineChanged) {
-                echo "$key=true" >> $env:GITHUB_OUTPUT
-                continue
-              }
-
-              git cat-file -e "${prev}:${dir}" 2>$null
-              if ($LASTEXITCODE -ne 0) {
-                Write-Host "$m -> new since $prev, building fresh."
-                echo "$key=true" >> $env:GITHUB_OUTPUT
-                continue
-              }
-
-              $versionChanged = @($changedFiles | Where-Object { $_.StartsWith("$dir/") })
-              if ($versionChanged.Count -gt 0) {
-                Write-Host "$m -> own files changed, building."
-                echo "$key=true" >> $env:GITHUB_OUTPUT
-                continue
-              }
-
-              $sharedAffects = $false
-              if (-not (Test-Path "$dir/.no-shared-sync") -and $sharedChanged.Count -gt 0) {
-                $overrides = @()
-                if (Test-Path "$dir/overrides.txt") {
-                  $overrides = Get-Content "$dir/overrides.txt" |
-                    ForEach-Object { $_.Trim() } |
-                    Where-Object { $_ -and -not $_.StartsWith("#") } |
-                    ForEach-Object { $_ -replace '\\', '/' }
-                }
-                foreach ($sf in $sharedChanged) {
-                  if ($overrides -notcontains $sf) { $sharedAffects = $true; break }
-                }
-              }
-
-              if ($sharedAffects) {
-                Write-Host "$m -> shared/ change propagates to it, building."
-                echo "$key=true" >> $env:GITHUB_OUTPUT
-              } else {
-                Write-Host "$m -> unchanged since $prev, reusing its prior jar."
-                echo "$key=false" >> $env:GITHUB_OUTPUT
-                $anyReuse = $true
-              }
-            }
-            echo "any_reuse=$(if ($anyReuse) { 'true' } else { 'false' })" >> $env:GITHUB_OUTPUT
-          } catch {
-            Write-Warning "Change detection failed ($_) -- falling back to a full rebuild of every module."
-            foreach ($m in $modules) { echo "$(ModKey $m)=true" >> $env:GITHUB_OUTPUT }
-            echo "any_reuse=false" >> $env:GITHUB_OUTPUT
-          }
-
-      # Caches ~/.gradle/caches (both downloaded dependencies AND Gradle's
-      # own build-cache-1 task-output cache) across runs, keyed by the
-      # gradle-wrapper/build-file hashes under src/mods/. Paired with
-      # --build-cache on every gradlew invocation below: belt-and-suspenders
-      # alongside the skip-if-unchanged detection above (this still helps on
-      # first-ever releases and on modules that DID change).
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: gradle
-
-      # The in-game mod, built first so the launcher build below finds
-      # build/libs/originclient-0.1.0.jar and bundles it (the csproj Content
-      # item is conditional on it existing — a fresh runner always builds it
-      # here, so releases always ship the mod).
-      - name: Build Origin Client mod
-        if: steps.changed.outputs.v_1_21_1 == 'true'
-        working-directory: src/mods/versions/1.21.1
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # The 1.20 API-family mod (src/mods/versions/1.20, covers 1.20 + 1.20.1),
-      # so the launcher below bundles build/libs/originclient-1.20-0.4.1.jar as
-      # Bundled/OriginClient/originclient-1.20.jar (csproj Content, conditional on
-      # it existing). Same JDK 21 runner: the module targets Java 17 bytecode via
-      # `options.release = 17`, which javac 21 emits fine. libs/ (dev-only Iris/
-      # Sodium for runClient) is absent on the runner and build.gradle guards
-      # those file deps behind .exists(), so `build` runs without them.
-      - name: Build Origin Client mod (1.20)
-        if: steps.changed.outputs.v_1_20 == 'true'
-        working-directory: src/mods/versions/1.20
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # The 1.20.4 API-family mod (src/mods/versions/1.20.4), bundled as
-      # Bundled/OriginClient/originclient-1.20.4.jar. Same Java 17-via-JDK-21
-      # and absent-libs/ notes as the 1.20 module above.
-      - name: Build Origin Client mod (1.20.4)
-        if: steps.changed.outputs.v_1_20_4 == 'true'
-        working-directory: src/mods/versions/1.20.4
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # The 1.21 base release (src/mods/versions/1.21), bundled as
-      # Bundled/OriginClient/originclient-1.21.jar. Same source as 1.21.1, its
-      # own 1.21-mapped build; real version so the runner resolves + ships it.
-      - name: Build Origin Client mod (1.21)
-        if: steps.changed.outputs.v_1_21 == 'true'
-        working-directory: src/mods/versions/1.21
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # 1.21.8 (src/mods/versions/1.21.8): the Matrix3x2fStack + no-setShaderColor
-      # sub-family (pre-1.21.9 input API). Own build, boot-verified.
-      - name: Build Origin Client mod (1.21.8)
-        if: steps.changed.outputs.v_1_21_8 == 'true'
-        working-directory: src/mods/versions/1.21.8
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # 1.20.2 (covers 1.20.2) — gap sub-family gone live 2026-07-14.
-      - name: Build Origin Client mod (1.20.2)
-        if: steps.changed.outputs.v_1_20_2 == 'true'
-        working-directory: src/mods/versions/1.20.2
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # 1.21.4 (covers 1.21.2/1.21.3/1.21.4) — gap sub-family gone live 2026-07-14.
-      - name: Build Origin Client mod (1.21.4)
-        if: steps.changed.outputs.v_1_21_4 == 'true'
-        working-directory: src/mods/versions/1.21.4
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # 1.21.6 (covers 1.21.6/1.21.7) — gap sub-family gone live 2026-07-14.
-      - name: Build Origin Client mod (1.21.6)
-        if: steps.changed.outputs.v_1_21_6 == 'true'
-        working-directory: src/mods/versions/1.21.6
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # 1.21.10 (own render-state sub-family, split from 1.21.11) — gap sub-family gone live 2026-07-14.
-      - name: Build Origin Client mod (1.21.10)
-        if: steps.changed.outputs.v_1_21_10 == 'true'
-        working-directory: src/mods/versions/1.21.10
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # 1.21.10 + 1.21.11 (src/mods/versions/1.21.11): ONE jar for the
-      # render-pipeline + world-event-v2 era, bundled as
-      # Bundled/OriginClient/originclient-1.21.11.jar. LIVE 2026-07-13. Lower
-      # 1.21.x versions need separate sub-family ports (src/mods/VERSIONS.md).
-      - name: Build Origin Client mod (1.21.10–1.21.11)
-        if: steps.changed.outputs.v_1_21_11 == 'true'
-        working-directory: src/mods/versions/1.21.11
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # Pre-1.20 PoseStack modules (the pre-GuiGraphics render backend), LIVE
-      # 2026-07-15. Each is its own API family; all boot-verified. Gradle runs on
-      # the Java 21 above and cross-compiles via `options.release` (17 / 16 / 8),
-      # so no extra setup-java is needed. 1.17.1 and 1.16.5 predate the bundled
-      # server jar, so they use a single merged source set instead of Loom's
-      # splitEnvironmentSourceSets — a build-level detail, same command here.
-      - name: Build Origin Client mod (1.19.4)
-        if: steps.changed.outputs.v_1_19_4 == 'true'
-        working-directory: src/mods/versions/1.19.4
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      - name: Build Origin Client mod (1.19.3)
-        if: steps.changed.outputs.v_1_19_3 == 'true'
-        working-directory: src/mods/versions/1.19.3
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      - name: Build Origin Client mod (1.19–1.19.2)
-        if: steps.changed.outputs.v_1_19_2 == 'true'
-        working-directory: src/mods/versions/1.19.2
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      - name: Build Origin Client mod (1.18–1.18.2)
-        if: steps.changed.outputs.v_1_18_2 == 'true'
-        working-directory: src/mods/versions/1.18.2
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      - name: Build Origin Client mod (1.17.1)
-        if: steps.changed.outputs.v_1_17_1 == 'true'
-        working-directory: src/mods/versions/1.17.1
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      - name: Build Origin Client mod (1.16.5)
-        if: steps.changed.outputs.v_1_16_5 == 'true'
-        working-directory: src/mods/versions/1.16.5
-        run: .\gradlew.bat build --no-daemon --build-cache
-
-      # Modules the detect step marked unchanged skipped their gradlew build
-      # above entirely — pull their jar out of the PREVIOUS release's own
-      # published zip instead, so this release still ships all ~19 jars.
-      # Fails the whole job (not silently) if a reused jar can't be found;
-      # never ship a release quietly missing a version's mod.
-      - name: Reuse unchanged mod jars from previous release
-        if: steps.changed.outputs.any_reuse == 'true'
-        shell: pwsh
+      - name: Decide which Minecraft versions to rebuild
+        id: plan
         env:
           GH_TOKEN: ${{ github.token }}
-          CHANGED_JSON: ${{ toJson(steps.changed.outputs) }}
-        run: |
-          $prev = "${{ steps.prevtag.outputs.tag }}"
-          $changed = $env:CHANGED_JSON | ConvertFrom-Json
+        run: python3 tools/release/plan.py --release "$RELEASE_TAG" --reuse-dir "$RUNNER_TEMP/reused"
 
-          gh release download "$prev" -p "OriginLauncher-win-x64.zip" -D prevrelease --clobber
-          Expand-Archive "prevrelease\OriginLauncher-win-x64.zip" -DestinationPath prevrelease\extracted -Force
+      # A tag run describes the tag; a rehearsal describes this commit.
+      - name: Write release notes
+        run: >
+          python3 tools/release/notes.py
+          --head "${{ startsWith(github.ref, 'refs/tags/launcher-v') && github.ref_name || github.sha }}"
+          --prev "${{ steps.plan.outputs.prev_tag }}"
+          --out "$RUNNER_TEMP/release-notes.md"
 
-          # dir -> the EXACT build/libs filename OriginLauncher.App.csproj
-          # expects for that module (its own mod_version baked into the name).
-          # Keep this in sync with the Content Include= entries in
-          # src/OriginLauncher.App/OriginLauncher.App.csproj.
-          $expected = @{
-            "1.21.1"  = "originclient-0.4.2.jar"
-            "1.20"    = "originclient-1.20-0.4.1.jar"
-            "1.20.4"  = "originclient-1.20.4-0.4.1.jar"
-            "1.21"    = "originclient-1.21-0.4.1.jar"
-            "1.21.8"  = "originclient-1.21.8-0.4.1.jar"
-            "1.20.2"  = "originclient-1.20.2-0.4.1.jar"
-            "1.21.4"  = "originclient-1.21.4-0.4.1.jar"
-            "1.21.6"  = "originclient-1.21.6-0.4.1.jar"
-            "1.21.10" = "originclient-1.21.10-0.4.1.jar"
-            "1.21.11" = "originclient-1.21.11-0.4.1.jar"
-            "1.19.4"  = "originclient-1.19.4-0.4.1.jar"
-            "1.19.3"  = "originclient-1.19.3-0.4.1.jar"
-            "1.19.2"  = "originclient-1.19.2-0.4.1.jar"
-            "1.18.2"  = "originclient-1.18.2-0.4.1.jar"
-            "1.17.1"  = "originclient-1.17.1-0.4.1.jar"
-            "1.16.5"  = "originclient-1.16.5-0.4.1.jar"
-          }
-
-          foreach ($m in $expected.Keys) {
-            $key = "v_" + ($m -replace '\.', '_')
-            if ($changed.$key -eq 'true') { continue } # rebuilt above, nothing to reuse
-
-            $srcJar = "prevrelease\extracted\Bundled\OriginClient\originclient-$m.jar"
-            if (-not (Test-Path $srcJar)) {
-              Write-Error "Reuse failed: $srcJar not in previous release $prev -- module $m needs a real rebuild. Failing rather than shipping without it."
-              exit 1
-            }
-            $destDir = "src\mods\versions\$m\build\libs"
-            New-Item -ItemType Directory -Force -Path $destDir | Out-Null
-            Copy-Item $srcJar (Join-Path $destDir $expected[$m]) -Force
-            Write-Host "Reused $m from $prev (unchanged)."
-          }
-
-      # NOTE (26.2): src/mods/staged/26.2 is scaffolded with a proven Java 25 /
-      # unobfuscated-Loom toolchain, but its render layer is mid-port to 26.2's
-      # retained-mode GUI and does not compile yet, so it is intentionally NOT
-      # built or shipped here. Re-add this step (JAVA_HOME ${{ env.JAVA_HOME_25_X64 }},
-      # 25 added to setup-java) once the port compiles clean — see MEMORY.md
-      # 2026-07-11 and the OriginBuilds/csproj "26.2" entries (also staged out).
-
-      - uses: actions/setup-dotnet@v4
+      # Reused jars travel the same way built ones do (<module>/<jar>), so the
+      # release job can't tell them apart and needs no special case.
+      - name: Upload reused mod jars
+        uses: actions/upload-artifact@v7
         with:
-          dotnet-version: "8.0.x"
+          name: mod-reused
+          path: ${{ runner.temp }}/reused
+          if-no-files-found: ignore
+          retention-days: 3
 
-      # Version comes from the tag itself (launcher-v1.0.21 -> 1.0.21) so the
-      # release a player sees is exactly the version Will typed — no run#.
-      - name: Compute version
+      - name: Upload release notes
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/release-notes.md
+          retention-days: 3
+
+  mods:
+    name: Mods
+    needs: plan
+    if: needs.plan.outputs.build != '[]'
+    uses: ./.github/workflows/build-mods.yml
+    with:
+      modules: ${{ needs.plan.outputs.build }}
+      fail-fast: true
+
+  release:
+    name: ${{ startsWith(github.ref, 'refs/tags/launcher-v') && 'Build launcher + publish release' || 'Build launcher (rehearsal, publishes nothing)' }}
+    needs: [plan, mods]
+    # Runs when the mod builds succeeded OR were skipped (nothing changed).
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Download mod jars
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mod-*
+          path: modjars
+          merge-multiple: true
+
+      - name: Download release notes
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          path: notes
+
+      # The release a player sees is exactly the version Will typed — no run#.
+      # A rehearsal stays unstamped (empty -> dev build 1.0.0.0).
+      - name: Read version from tag
         id: ver
         shell: pwsh
         run: |
-          $v = "${{ github.ref_name }}".Substring("launcher-v".Length)
+          $v = if ($env:REHEARSAL -eq 'true') { "" } else { "$env:RELEASE_TAG".Substring("launcher-v".Length) }
           echo "version=$v" >> $env:GITHUB_OUTPUT
 
-      # Single-file, self-contained: the update zip swaps cleanly as one exe
-      # (plus a couple of native satellites) with no .NET install required
-      # on the player's machine. -p:Version stamps the assembly version the
-      # updater compares against the release tag.
-      - name: Publish launcher
-        run: >
-          dotnet publish src/OriginLauncher.App/OriginLauncher.App.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:Version=${{ steps.ver.outputs.version }}
-          -o publish
-
-      # Guard against the csproj's silent Exists() conditions: if a bundling
-      # path is ever wrong (e.g. after a module moves), the publish still goes
-      # green but ships WITHOUT mod jars and every instance falls back to the
-      # standalone catalog. Fail the release instead. Keep this list in sync
-      # with the live entries in VersionManager.OriginBuilds.
-      - name: Assert bundled mod jars present
-        shell: pwsh
-        run: |
-          $expected = @(
-            "originclient-1.21.1.jar",
-            "originclient-1.20.jar",
-            "originclient-1.20.4.jar",
-            "originclient-1.21.jar",
-            "originclient-1.21.8.jar",
-            "originclient-1.21.11.jar",
-            "originclient-1.20.2.jar",
-            "originclient-1.21.4.jar",
-            "originclient-1.21.6.jar",
-            "originclient-1.21.10.jar",
-            "originclient-1.19.4.jar",
-            "originclient-1.19.3.jar",
-            "originclient-1.19.2.jar",
-            "originclient-1.18.2.jar",
-            "originclient-1.17.1.jar",
-            "originclient-1.16.5.jar"
-          )
-          # The legacy Forge version JSONs are no longer bundled: 1.8.9 and 1.12.2
-          # were pulled from the lineup 2026-08-06, so there is no Forge install
-          # path left to assert.
-          $dir = "publish\Bundled\OriginClient"
-          $missing = $expected | Where-Object { -not (Test-Path (Join-Path $dir $_)) }
-          if ($missing) {
-            Write-Error "Missing bundled jars: $($missing -join ', ') — check the csproj Content paths."
-            exit 1
-          }
-          Write-Host "All expected bundled jars present."
+      - name: Publish launcher with mod jars
+        uses: ./.github/actions/publish-launcher
+        with:
+          jars-dir: modjars
+          version: ${{ steps.ver.outputs.version }}
 
       # Fresh-install path: a per-user setup.exe (install/uninstall via
       # Add/Remove Programs). The zip below stays the SELF-UPDATE path — an
@@ -418,20 +153,37 @@ jobs:
       - name: Build installer (Inno Setup)
         shell: pwsh
         run: |
-          choco install innosetup -y --no-progress
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.ver.outputs.version }} installer\OriginLauncher.iss
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          $defines = @()
+          if ("${{ steps.ver.outputs.version }}") { $defines += "/DMyAppVersion=${{ steps.ver.outputs.version }}" }
+          & $iscc @defines installer\OriginLauncher.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Package
+      - name: Zip self-update package
         shell: pwsh
         run: Compress-Archive -Path publish\* -DestinationPath OriginLauncher-win-x64.zip
 
-      - name: Release
+      - name: Keep rehearsal output as a run artifact
+        if: env.REHEARSAL == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: rehearsal-release
+          path: |
+            OriginLauncher-win-x64.zip
+            installer/Output/OriginLauncher-Setup.exe
+            notes/release-notes.md
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish GitHub release
+        if: env.REHEARSAL != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: >
-          gh release create "${{ github.ref_name }}"
+          gh release create "${{ env.RELEASE_TAG }}"
           OriginLauncher-win-x64.zip
           installer\Output\OriginLauncher-Setup.exe
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
-          --notes "Automated build of ${{ github.sha }}"
+          --notes-file notes\release-notes.md
