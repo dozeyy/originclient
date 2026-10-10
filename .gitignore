@@ -55,3 +55,5 @@ tools/loading-screen/out/
 src/mods/versions/*/run-*.log
 src/mods/versions/*/runboot.log
 src/mods/versions/*/runthick-*.log
+artifacts/
+graphify-out/
