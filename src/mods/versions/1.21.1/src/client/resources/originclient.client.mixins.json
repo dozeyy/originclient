@@ -12,6 +12,8 @@
 		"SpriteIconButtonAccessor",
 		"GameRendererMixin",
 		"GuiHudMixin",
+		"GuiCrosshairMixin",
+		"GuiFoodMixin",
 		"MouseHandlerMixin",
 		"ClientLevelTimeMixin",
 		"CameraMixin",

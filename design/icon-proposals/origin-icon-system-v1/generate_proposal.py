@@ -278,6 +278,62 @@ ICONS = [
       <rect x="6" y="15.7" width="4" height="2.3" rx=".7"/>
       <rect x="14" y="15.7" width="4" height="2.3" rx=".7"/>
     """, "JEI item/recipe browser"),
+
+    # Lunar-parity batch 1 (2026-10-11) — same grid, stroke and round caps.
+    icon("client.clock", "Clock", "HUD", """
+      <rect x="6" y="6" width="12" height="12" rx="3.5"/>
+      <path d="M9 6l.8-3.5h4.4L15 6M9 18l.8 3.5h4.4L15 18"/>
+      <path d="M12 9.2V12l1.9 1.3"/>
+    """, "Real-time clock HUD"),
+    icon("client.stopwatch", "Stopwatch", "HUD", """
+      <circle cx="12" cy="13.5" r="7.5"/>
+      <path d="M10 2.5h4M12 2.5V6M18.2 7.3l1.4-1.4"/>
+      <path d="M12 13.5l3-3"/>
+    """, "Stopwatch HUD"),
+    icon("client.daycounter", "Day Counter", "HUD", """
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/>
+      <path d="M3.5 9.5h17M8 3v4M16 3v4"/>
+      <circle cx="12" cy="15" r="2.3"/>
+    """, "In-game day HUD"),
+    icon("client.ping", "Ping", "HUD", """
+      <path d="M5 19.5v-3M9.5 19.5v-6.5M14 19.5v-10M18.5 19.5v-14"/>
+    """, "Connection latency HUD"),
+    icon("client.memory", "Memory Usage", "HUD", """
+      <rect x="3" y="6.5" width="18" height="10" rx="2"/>
+      <path d="M7.5 10v3M12 10v3M16.5 10v3M6 16.5V20M10 16.5V20M14 16.5V20M18 16.5V20"/>
+    """, "Memory usage HUD"),
+    icon("client.saturation", "Saturation", "HUD", """
+      <ellipse cx="14.3" cy="9.7" rx="6.4" ry="5" transform="rotate(-45 14.3 9.7)"/>
+      <path d="M9.8 14.2 7 17"/>
+      <circle cx="5.6" cy="16.9" r="1.5"/>
+      <circle cx="7.1" cy="18.4" r="1.5"/>
+      <path d="M12.2 7.4a3.2 3.2 0 0 1 2.9-1.1" opacity=".5"/>
+    """, "Hunger saturation"),
+    icon("client.packdisplay", "Pack Display", "HUD", """
+      <path d="m12 3 9 4.5-9 4.5-9-4.5Z"/>
+      <path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5"/>
+    """, "Active resource pack HUD"),
+    icon("client.itemcounter", "Item Counter", "HUD", """
+      <rect x="2.5" y="3.5" width="13" height="13" rx="2.5"/>
+      <path d="M6.2 9.2 9 6.4l2.8 2.8L9 13Z"/>
+      <path d="M18.2 13.5v7M21.2 13.5v7"/>
+    """, "Inventory item counts"),
+    icon("client.directionhud", "Direction HUD", "HUD", """
+      <circle cx="12" cy="12" r="9"/>
+      <path d="m15.6 8.4-2.3 4.9-4.9 2.3 2.3-4.9Z"/>
+    """, "Compass heading strip"),
+    icon("client.combo", "Combo Counter", "HUD", """
+      <path d="M4 4l9.5 9.5M20 4l-9.5 9.5"/>
+      <path d="M6.6 14.6l2.8 2.8M17.4 14.6l-2.8 2.8M4.5 19.5l3-3M19.5 19.5l-3-3"/>
+    """, "Hit combo HUD"),
+    icon("client.reach", "Reach Display", "HUD", """
+      <path d="M3 12h18M6 9l-3 3 3 3M18 9l3 3-3 3"/>
+      <path d="M9 9.5v5M12 8.5v7M15 9.5v5" opacity=".55"/>
+    """, "Hit distance HUD"),
+    icon("client.crosshair", "Crosshair", "VISUAL", """
+      <circle cx="12" cy="12" r="6.5"/>
+      <path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5"/>
+    """, "Custom crosshair"),
 ]
 
 

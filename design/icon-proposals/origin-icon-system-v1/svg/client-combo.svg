@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Combo Counter</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M4 4l9.5 9.5M20 4l-9.5 9.5"/>
+      <path d="M6.6 14.6l2.8 2.8M17.4 14.6l-2.8 2.8M4.5 19.5l3-3M19.5 19.5l-3-3"/>
+  </g>
+</svg>

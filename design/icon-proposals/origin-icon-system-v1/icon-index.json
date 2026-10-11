@@ -309,6 +309,78 @@
       "label": "Item Browser",
       "category": "GAMEPLAY",
       "use": "JEI item/recipe browser"
+    },
+    {
+      "id": "client.clock",
+      "label": "Clock",
+      "category": "HUD",
+      "use": "Real-time clock HUD"
+    },
+    {
+      "id": "client.stopwatch",
+      "label": "Stopwatch",
+      "category": "HUD",
+      "use": "Stopwatch HUD"
+    },
+    {
+      "id": "client.daycounter",
+      "label": "Day Counter",
+      "category": "HUD",
+      "use": "In-game day HUD"
+    },
+    {
+      "id": "client.ping",
+      "label": "Ping",
+      "category": "HUD",
+      "use": "Connection latency HUD"
+    },
+    {
+      "id": "client.memory",
+      "label": "Memory Usage",
+      "category": "HUD",
+      "use": "Memory usage HUD"
+    },
+    {
+      "id": "client.saturation",
+      "label": "Saturation",
+      "category": "HUD",
+      "use": "Hunger saturation"
+    },
+    {
+      "id": "client.packdisplay",
+      "label": "Pack Display",
+      "category": "HUD",
+      "use": "Active resource pack HUD"
+    },
+    {
+      "id": "client.itemcounter",
+      "label": "Item Counter",
+      "category": "HUD",
+      "use": "Inventory item counts"
+    },
+    {
+      "id": "client.directionhud",
+      "label": "Direction HUD",
+      "category": "HUD",
+      "use": "Compass heading strip"
+    },
+    {
+      "id": "client.combo",
+      "label": "Combo Counter",
+      "category": "HUD",
+      "use": "Hit combo HUD"
+    },
+    {
+      "id": "client.reach",
+      "label": "Reach Display",
+      "category": "HUD",
+      "use": "Hit distance HUD"
+    },
+    {
+      "id": "client.crosshair",
+      "label": "Crosshair",
+      "category": "VISUAL",
+      "use": "Custom crosshair"
     }
   ]
 }

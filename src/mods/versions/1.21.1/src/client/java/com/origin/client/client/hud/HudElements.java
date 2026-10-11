@@ -472,13 +472,17 @@ public final class HudElements {
 						com.origin.client.client.waypoints.WaypointHud.drawBar(g, mc, 0, 0, w, true);
 					}
 				});
+
+		// ---- Lunar-parity readouts (Clock, Ping, Direction HUD, ...) ----
+		Readouts.register();
 	}
 
 	private static boolean locatorBarActive() {
 		return Mods.bool("waypoints", "locatorBar") && Mods.bool("waypoints", "separateBar");
 	}
 
-	private static void add(String id, String modId, String label, HudPos def,
+	// Package-private so Readouts (the Lunar-parity readouts) registers into the same list.
+	static void add(String id, String modId, String label, HudPos def,
 							java.util.function.Function<Minecraft, int[]> measure, Renderer r) {
 		ALL.add(new Element(id, modId, label, def, measure, r));
 	}

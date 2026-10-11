@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Direction HUD</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="12" r="9"/>
+      <path d="m15.6 8.4-2.3 4.9-4.9 2.3 2.3-4.9Z"/>
+  </g>
+</svg>

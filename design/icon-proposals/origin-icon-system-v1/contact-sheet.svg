@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1798" height="1830" viewBox="0 0 1798 1830">
+<svg xmlns="http://www.w3.org/2000/svg" width="1798" height="2190" viewBox="0 0 1798 2190">
   <rect width="100%" height="100%" fill="#090D0C"/>
   <path d="M0 0H1798V5H0Z" fill="#4BC8AE"/>
   <text x="46" y="68" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="34" font-weight="700" letter-spacing="1">ORIGIN ICON SYSTEM</text>
   <text x="46" y="105" fill="#A7BBB5" font-family="Segoe UI, Inter, sans-serif" font-size="17">Proposal 05 · 24 px master grid · 1.55 px optical stroke · Coolicons-referenced discipline</text>
-  <text x="46" y="137" fill="#4BC8AE" font-family="Segoe UI, Inter, sans-serif" font-size="14" font-weight="600" letter-spacing="2">50 ORIGINAL MASTER SYMBOLS · EXTERNAL REVIEW ONLY</text>
+  <text x="46" y="137" fill="#4BC8AE" font-family="Segoe UI, Inter, sans-serif" font-size="14" font-weight="600" letter-spacing="2">62 ORIGINAL MASTER SYMBOLS · EXTERNAL REVIEW ONLY</text>
 
   <g>
     <rect x="46" y="174" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
@@ -650,5 +650,155 @@
     <text x="442" y="1689" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.jei</text>
     <rect x="348" y="1731" width="81.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
     <text x="361" y="1750" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">GAMEPLAY</text>
+  </g>
+  <g>
+    <rect x="618" y="1614" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="634" y="1632" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(643 1641) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<rect x="6" y="6" width="12" height="12" rx="3.5"/>
+      <path d="M9 6l.8-3.5h4.4L15 6M9 18l.8 3.5h4.4L15 18"/>
+      <path d="M12 9.2V12l1.9 1.3"/>
+    </g>
+    <text x="728" y="1662" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Clock</text>
+    <text x="728" y="1689" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.clock</text>
+    <rect x="634" y="1731" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="647" y="1750" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="904" y="1614" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="920" y="1632" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(929 1641) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="13.5" r="7.5"/>
+      <path d="M10 2.5h4M12 2.5V6M18.2 7.3l1.4-1.4"/>
+      <path d="M12 13.5l3-3"/>
+    </g>
+    <text x="1014" y="1662" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Stopwatch</text>
+    <text x="1014" y="1689" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.stopwatch</text>
+    <rect x="920" y="1731" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="933" y="1750" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="1190" y="1614" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="1206" y="1632" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(1215 1641) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/>
+      <path d="M3.5 9.5h17M8 3v4M16 3v4"/>
+      <circle cx="12" cy="15" r="2.3"/>
+    </g>
+    <text x="1300" y="1662" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Day Counter</text>
+    <text x="1300" y="1689" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.daycounter</text>
+    <rect x="1206" y="1731" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="1219" y="1750" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="1476" y="1614" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="1492" y="1632" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(1501 1641) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M5 19.5v-3M9.5 19.5v-6.5M14 19.5v-10M18.5 19.5v-14"/>
+    </g>
+    <text x="1586" y="1662" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Ping</text>
+    <text x="1586" y="1689" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.ping</text>
+    <rect x="1492" y="1731" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="1505" y="1750" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="46" y="1794" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="62" y="1812" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(71 1821) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3" y="6.5" width="18" height="10" rx="2"/>
+      <path d="M7.5 10v3M12 10v3M16.5 10v3M6 16.5V20M10 16.5V20M14 16.5V20M18 16.5V20"/>
+    </g>
+    <text x="156" y="1842" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Memory Usage</text>
+    <text x="156" y="1869" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.memory</text>
+    <rect x="62" y="1911" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="75" y="1930" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="332" y="1794" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="348" y="1812" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(357 1821) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<ellipse cx="14.3" cy="9.7" rx="6.4" ry="5" transform="rotate(-45 14.3 9.7)"/>
+      <path d="M9.8 14.2 7 17"/>
+      <circle cx="5.6" cy="16.9" r="1.5"/>
+      <circle cx="7.1" cy="18.4" r="1.5"/>
+      <path d="M12.2 7.4a3.2 3.2 0 0 1 2.9-1.1" opacity=".5"/>
+    </g>
+    <text x="442" y="1842" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Saturation</text>
+    <text x="442" y="1869" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.saturation</text>
+    <rect x="348" y="1911" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="361" y="1930" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="618" y="1794" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="634" y="1812" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(643 1821) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="m12 3 9 4.5-9 4.5-9-4.5Z"/>
+      <path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5"/>
+    </g>
+    <text x="728" y="1842" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Pack Display</text>
+    <text x="728" y="1869" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.packdisplay</text>
+    <rect x="634" y="1911" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="647" y="1930" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="904" y="1794" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="920" y="1812" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(929 1821) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<rect x="2.5" y="3.5" width="13" height="13" rx="2.5"/>
+      <path d="M6.2 9.2 9 6.4l2.8 2.8L9 13Z"/>
+      <path d="M18.2 13.5v7M21.2 13.5v7"/>
+    </g>
+    <text x="1014" y="1842" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Item Counter</text>
+    <text x="1014" y="1869" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.itemcounter</text>
+    <rect x="920" y="1911" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="933" y="1930" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="1190" y="1794" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="1206" y="1812" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(1215 1821) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="12" r="9"/>
+      <path d="m15.6 8.4-2.3 4.9-4.9 2.3 2.3-4.9Z"/>
+    </g>
+    <text x="1300" y="1842" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Direction HUD</text>
+    <text x="1300" y="1869" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.directionhud</text>
+    <rect x="1206" y="1911" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="1219" y="1930" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="1476" y="1794" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="1492" y="1812" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(1501 1821) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M4 4l9.5 9.5M20 4l-9.5 9.5"/>
+      <path d="M6.6 14.6l2.8 2.8M17.4 14.6l-2.8 2.8M4.5 19.5l3-3M19.5 19.5l-3-3"/>
+    </g>
+    <text x="1586" y="1842" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Combo Counter</text>
+    <text x="1586" y="1869" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.combo</text>
+    <rect x="1492" y="1911" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="1505" y="1930" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="46" y="1974" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="62" y="1992" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(71 2001) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M3 12h18M6 9l-3 3 3 3M18 9l3 3-3 3"/>
+      <path d="M9 9.5v5M12 8.5v7M15 9.5v5" opacity=".55"/>
+    </g>
+    <text x="156" y="2022" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Reach Display</text>
+    <text x="156" y="2049" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.reach</text>
+    <rect x="62" y="2091" width="45.6" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="75" y="2110" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">HUD</text>
+  </g>
+  <g>
+    <rect x="332" y="1974" width="276" height="170" rx="13" fill="#121918" stroke="#263732"/>
+    <rect x="348" y="1992" width="78" height="78" rx="12" fill="#192320" stroke="#3B524C"/>
+    <g transform="translate(357 2001) scale(2.5)" color="#EFF7F4" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="12" r="6.5"/>
+      <path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5"/>
+    </g>
+    <text x="442" y="2022" fill="#EFF7F4" font-family="Segoe UI, Inter, sans-serif" font-size="18" font-weight="600">Crosshair</text>
+    <text x="442" y="2049" fill="#6D817B" font-family="Consolas, monospace" font-size="12">client.crosshair</text>
+    <rect x="348" y="2091" width="67.2" height="28" rx="7" fill="#13231F" stroke="#28584E"/>
+    <text x="361" y="2110" fill="#79DEC9" font-family="Segoe UI, Inter, sans-serif" font-size="11" font-weight="700" letter-spacing="1.1">VISUAL</text>
   </g>
 </svg>

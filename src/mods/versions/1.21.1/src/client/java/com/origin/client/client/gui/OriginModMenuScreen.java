@@ -201,10 +201,12 @@ public class OriginModMenuScreen extends Screen {
 
 	static {
 		for (String id : new String[]{"fps", "cps", "armorhud", "keystrokes", "coords", "potionhud",
-				"serveraddress", "scoreboard", "tablist"}) {
+				"serveraddress", "scoreboard", "tablist",
+				"clock", "stopwatch", "daycounter", "ping", "memory", "saturation", "packdisplay",
+				"itemcounter", "directionhud", "combo", "reach"}) {
 			CATS.put(id, Cat.HUD);
 		}
-		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "chunkborders", "hitboxes", "nametags",
+		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "crosshair", "chunkborders", "hitboxes", "nametags",
 				"itemsize", "weather", "timechanger", "motionblur", "colorsaturation", "particles"}) {
 			CATS.put(id, Cat.VISUAL);
 		}

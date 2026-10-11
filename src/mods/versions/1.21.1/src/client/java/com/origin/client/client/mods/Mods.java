@@ -243,6 +243,125 @@ public final class Mods {
 				ModOption.color("headerColor", "Header Color", 0xFFFFFFFF),
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
 
+		// ---- Lunar-parity HUD readouts (batch 1, 2026-10-11) ----
+		// Each mirrors the option set of Lunar Client's mod of the same name
+		// (Lunar's Apollo docs list them per mod), in Origin's shape: the shared
+		// text block from textReadout() gives every readout the same Text Shadow /
+		// Brackets / Background / Border rows + colours, and HUD scale comes from
+		// the HUD editor like every other element. Backgrounds default transparent
+		// (Will's rule above). Defaults follow Lunar's where Lunar documents one
+		// (Saturation and Direction HUD ship ON in Lunar); everything else is off.
+		add("clock", "Clock", "Real-world time on your HUD.", false,
+				textReadout(
+						ModOption.toggle("militaryTime", "24-Hour Time", false),
+						ModOption.toggle("showAmPm", "Show AM/PM", true).tip("Only used with 24-Hour Time off."),
+						ModOption.toggle("showSeconds", "Show Seconds", false)));
+
+		add("stopwatch", "Stopwatch", "A start/stop timer on your HUD.", false,
+				textReadout(
+						ModOption.keybind("startKey", "Start / Stop Key", -1).tip("Press to start the stopwatch; press again to pause it."),
+						ModOption.keybind("resetKey", "Reset Key", -1).tip("Stops the stopwatch and sets it back to zero."),
+						ModOption.toggle("showMillis", "Show Hundredths", true).tip("Show the time to a hundredth of a second (0:12.34)."),
+						ModOption.toggle("hideWhenStopped", "Hide When Stopped", false).tip("Only show the stopwatch while it's running."),
+						ModOption.toggle("displayToggleMessage", "Display Toggle Message", true)));
+
+		add("daycounter", "Day Counter", "How many Minecraft days have passed.", false,
+				textReadout(
+						ModOption.toggle("useWorldTime", "Use World Day", false)
+								.tip("On: the world's own day (sleeping skips ahead). Off: days the world has actually been played.")));
+
+		add("ping", "Ping", "Your connection latency to the server.", false,
+				textReadout(
+						ModOption.slider("updateInterval", "Update Interval", 1, 120, 1, 20, "%.0fs").tip("How often a new ping sample is taken."),
+						ModOption.slider("samples", "Averaged Samples", 2, 20, 1, 3, "%.0f").tip("The readout shows the average of this many recent samples."),
+						ModOption.toggle("showMs", "Show ms", true),
+						ModOption.toggle("showPrefix", "Show \"Ping:\" Prefix", true),
+						ModOption.toggle("dynamicColor", "Dynamic Color", true).tip("Colour the number by how good your ping is."),
+						ModOption.color("lowColor", "Low Ping Color (0-50)", 0xFF55FF55).under("dynamicColor"),
+						ModOption.color("mediumColor", "Medium Ping Color (51-100)", 0xFFFFFF55).under("dynamicColor"),
+						ModOption.color("highColor", "High Ping Color (101-200)", 0xFFFFAA00).under("dynamicColor"),
+						ModOption.color("extremeColor", "Extreme Ping Color (200+)", 0xFFFF5555).under("dynamicColor"),
+						ModOption.toggle("spikeDetection", "Ping Spike Detection", false).tip("Flag a sample that jumps above your recent average."),
+						ModOption.slider("mediumSpike", "Medium Spike Threshold", 1, 200, 1, 20, "+%.0fms").under("spikeDetection"),
+						ModOption.color("mediumSpikeColor", "Medium Spike Color", 0xFFFFAA00).under("spikeDetection"),
+						ModOption.slider("largeSpike", "Large Spike Threshold", 1, 200, 1, 50, "+%.0fms").under("spikeDetection"),
+						ModOption.color("largeSpikeColor", "Large Spike Color", 0xFFFF5555).under("spikeDetection")));
+
+		add("memory", "Memory Usage", "How much of Minecraft's memory is in use.", false,
+				textReadout(
+						ModOption.dropdown("displayMode", "Display", "Percent", "Used / Max", "Both"),
+						ModOption.toggle("colorByUsage", "Color Based on Usage", false),
+						ModOption.color("lowColor", "Low Usage Color (under 50%)", 0xFF55FF55).under("colorByUsage"),
+						ModOption.color("mediumColor", "Medium Usage Color (50-80%)", 0xFFFFFF55).under("colorByUsage"),
+						ModOption.color("highColor", "High Usage Color (over 80%)", 0xFFFF5555).under("colorByUsage")));
+
+		// Saturation = Lunar's built-in AppleSkin: an overlay on the hunger bar, a
+		// preview of what the held food restores, and food tooltips. The optional
+		// text readout is the "HUD" Lunar's own posts mention; it measures 0x0 while
+		// off, which keeps it out of the HUD editor (see HudEditorScreen).
+		add("saturation", "Saturation", "See hidden hunger saturation and food values.", true,
+				ModOption.toggle("overlay", "Saturation Overlay", true).tip("Gold shanks over your hunger bar show your hidden saturation."),
+				ModOption.color("overlayColor", "Overlay Color", 0xCCFFC21C).under("overlay"),
+				ModOption.toggle("heldHunger", "Show Held Item Hunger", true).tip("Holding food flashes the hunger it would restore."),
+				ModOption.toggle("heldSaturation", "Show Held Item Saturation", true).tip("Holding food flashes the saturation it would add."),
+				ModOption.toggle("tooltip", "Food Tooltip", true).tip("Food tooltips list the hunger and saturation they restore."),
+				ModOption.header("Saturation HUD"),
+				ModOption.toggle("showHud", "Saturation HUD", false).tip("A movable \"Saturation: 4.8\" readout."),
+				ModOption.toggle("textShadow", "Text Shadow", true).under("showHud"),
+				ModOption.toggle("showBrackets", "Show Brackets", false).under("showHud"),
+				ModOption.toggle("showBackground", "Show Background", true).under("showHud"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF).under("showHud"),
+				ModOption.color("bgColor", "Background Color", 0x00000000).under("showHud"));
+
+		add("packdisplay", "Pack Display", "Shows your active resource pack.", false,
+				textReadout(
+						ModOption.toggle("packIcon", "Display Pack Icon", true),
+						ModOption.toggle("packDescription", "Pack Description", false),
+						ModOption.toggle("packExtension", "Pack Extension", false).tip("Keep the \".zip\" on the pack name."),
+						ModOption.toggle("showAllPacks", "Show All Packs", false).tip("List every enabled pack, not just the top one."),
+						ModOption.toggle("keepStrikethrough", "Keep Strikethrough", true),
+						ModOption.toggle("keepObfuscated", "Keep Obfuscated", true).tip("Off: scrambled letters in a pack name are shown plainly.")));
+
+		add("itemcounter", "Item Counter", "Counts chosen items in your inventory.", false,
+				ModOption.multiselect("items", "Items", ItemCounter.CHOICES)
+						.defaults("Arrows,Golden Apples,Ender Pearls"),
+				ModOption.toggle("grouped", "Grouped", false).tip("Merge the counters into one box instead of one box each."),
+				ModOption.dropdown("listMode", "List Mode", "Vertical", "Horizontal"),
+				ModOption.toggle("hideZero", "Hide Items You Don't Have", false),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.toggle("border", "Border", false),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
+				ModOption.header("Color"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x00000000));
+
+		add("directionhud", "Direction HUD", "A compass strip showing where you face.", true,
+				ModOption.slider("width", "Width", 100, 300, 10, 160, "%.0f"),
+				ModOption.toggle("boldDirections", "Bold Directions", false),
+				ModOption.toggle("showMarker", "Show Marker", true).tip("The centre notch marking exactly where you face."),
+				ModOption.toggle("showMarkerValue", "Show Marker Value", true).tip("Your exact heading in degrees under the marker."),
+				ModOption.toggle("showWaypoints", "Show Waypoints", true).tip("Your enabled waypoints appear as coloured dots on the strip."),
+				ModOption.toggle("showWithTab", "Show With Tab", false).tip("Keep the strip visible while the player list is open."),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.toggle("border", "Border", false),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
+				ModOption.header("Color"),
+				ModOption.color("directionColor", "Direction Color", 0xFFFFFFFF),
+				ModOption.color("markerColor", "Marker Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x00000000));
+
+		add("combo", "Combo Counter", "Hits landed in a row without being hit.", false,
+				textReadout(
+						ModOption.toggle("reverseOrder", "Reverse Order", false).tip("\"3 Combo\" instead of \"Combo: 3\"."),
+						ModOption.toggle("hideZero", "Hide When No Combo", false)));
+
+		add("reach", "Reach Display", "Distance of your last hit.", false,
+				textReadout(
+						ModOption.toggle("reverseOrder", "Reverse Order", false).tip("\"3.02 blocks\" instead of \"Reach: 3.02\"."),
+						ModOption.toggle("hideZero", "Hide Zero", false).tip("Hide the readout until you've landed a hit.")));
+
 		// ---- gameplay / camera ----
 		add("freelook", "Freelook", "Look around without turning.", true,
 				ModOption.dropdown("listMode", "List Mode", "Third Person", "First Person"),
@@ -268,6 +387,25 @@ public final class Mods {
 				ModOption.color("overlayColor", "Block Overlay Color", 0x55FFFFFF).under("overlay"),
 				ModOption.toggle("side", "Side", false),
 				ModOption.toggle("showHiddenFoliage", "Show Hidden Foliage", false));
+
+		// Crosshair replaces vanilla's crosshair sprite (GuiCrosshairMixin). Sizes
+		// are in real screen pixels, so it looks the same at every GUI scale.
+		add("crosshair", "Crosshair", "Design your own crosshair.", false,
+				ModOption.dropdown("style", "Style", "Cross", "Dot", "Circle", "Square", "Arrow", "T", "X"),
+				ModOption.slider("size", "Size", 1, 20, 1, 6, "%.0f").tip("Length of each arm (the radius for Circle)."),
+				ModOption.slider("thickness", "Thickness", 1, 8, 1, 2, "%.0f"),
+				ModOption.slider("gap", "Gap", 0, 15, 1, 3, "%.0f").tip("Empty space between the centre and each arm."),
+				ModOption.toggle("dot", "Center Dot", false),
+				ModOption.slider("dotSize", "Dot Size", 1, 8, 1, 2, "%.0f").under("dot"),
+				ModOption.toggle("outline", "Outline", true).tip("A dark edge keeps the crosshair readable on bright blocks."),
+				ModOption.slider("outlineThickness", "Outline Thickness", 1, 4, 1, 1, "%.0f").under("outline"),
+				ModOption.color("outlineColor", "Outline Color", 0xFF000000).under("outline"),
+				ModOption.toggle("showInF5", "Show In F5", true).tip("Keep the crosshair on screen in third person."),
+				ModOption.toggle("dynamicColor", "Dynamic Color", false).tip("Change colour when aiming at a mob or player."),
+				ModOption.color("enemyColor", "Enemy Color", 0xFFFF5555).under("dynamicColor"),
+				ModOption.color("friendlyColor", "Friendly Color", 0xFF55FF55).under("dynamicColor"),
+				ModOption.header("Color"),
+				ModOption.color("color", "Crosshair Color", 0xFFFFFFFF));
 
 		add("chunkborders", "Chunk Borders", "Visualize chunk boundaries.", false,
 				ModOption.keybind("key", "Toggle Chunk Borders", GLFW.GLFW_KEY_F9),
@@ -463,6 +601,24 @@ public final class Mods {
 		return o.toArray(new ModOption[0]);
 	}
 
+	// The shared text-readout block every Lunar-parity readout carries after its
+	// own rows: Text Shadow / Brackets / Background / Border plus their colours,
+	// keyed the way the FPS/CPS readouts are (color, bgColor, ...) so the HUD's
+	// one drawing helper (Readouts.textBox) reads them identically for every mod.
+	private static ModOption[] textReadout(ModOption... own) {
+		List<ModOption> o = new ArrayList<>(List.of(own));
+		o.add(ModOption.toggle("textShadow", "Text Shadow", true));
+		o.add(ModOption.toggle("showBrackets", "Show Brackets", false));
+		o.add(ModOption.color("bracketColor", "Bracket Color", 0xFFFFFFFF).under("showBrackets"));
+		o.add(ModOption.toggle("showBackground", "Show Background", true));
+		o.add(ModOption.toggle("border", "Border", false));
+		o.add(ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"));
+		o.add(ModOption.header("Color"));
+		o.add(ModOption.color("color", "Text Color", 0xFFFFFFFF));
+		o.add(ModOption.color("bgColor", "Background Color", 0x00000000));
+		return o.toArray(new ModOption[0]);
+	}
+
 	private static void add(String id, String name, boolean defaultOn, ModOption... options) {
 		add(id, name, "", defaultOn, options);
 	}
@@ -595,6 +751,9 @@ public final class Mods {
 		ModOption o = opt(modId, key);
 		if (v != null) {
 			return v.getAsString();
+		}
+		if (o != null && o.kind == ModOption.Kind.MULTISELECT && o.defText != null) {
+			return o.defText;
 		}
 		return o == null || o.modes == null || o.modes.length == 0 ? "" : o.modes[0];
 	}

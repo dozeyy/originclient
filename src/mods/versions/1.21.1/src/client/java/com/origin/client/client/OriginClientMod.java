@@ -82,6 +82,8 @@ public class OriginClientMod implements ClientModInitializer {
 		// menus. Fails soft — if they don't load, the UI uses the software path.
 		com.origin.client.client.gui.OriginShaders.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
+		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
+		com.origin.client.client.mods.SaturationOverlay.registerTooltip();
 		// Single authoritative autosave when the player leaves the game (quit to
 		// desktop / window close). Mod + HUD settings already save eagerly on
 		// every change; this flushes all three stores once on exit so nothing is
@@ -282,6 +284,16 @@ public class OriginClientMod implements ClientModInitializer {
 		applyTimeChanger(client);
 		GeneralSettings.tick(client);
 		MotionBlur.tick(client);
+		// Lunar-parity readouts' per-tick state (Stopwatch keys, Ping samples,
+		// Combo/Reach hit confirmation). Fail-soft: a HUD readout must never be
+		// able to throw out of the client tick.
+		try {
+			com.origin.client.client.mods.Stopwatch.tick(client);
+			com.origin.client.client.mods.PingSampler.tick(client);
+			com.origin.client.client.mods.CombatStats.tick(client);
+		} catch (Throwable t) {
+			// keep ticking; the readouts just hold their last value
+		}
 
 		LocalPlayer player = client.player;
 		if (player == null) {

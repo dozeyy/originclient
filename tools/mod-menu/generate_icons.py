@@ -35,6 +35,8 @@ SDF_RANGE = 16.0
 # Small-size optical correction: roughly +0.15 master-grid pixels across the
 # full stroke, enough to match Inter Semibold without returning to a heavy icon.
 SDF_WEIGHT_BIAS = 0.6
+# Extra browser-window height beyond the atlas (see the screenshot call).
+WINDOW_SLACK = 256
 
 # Stable public ids used by the Java UI. Title entries stay separate from the
 # intentionally separate from the existing mod/chrome ids.
@@ -79,6 +81,19 @@ PUBLIC_IDS = {
     "chat": "client.chat",
     "waypoints": "client.waypoints",
     "jei": "client.jei",
+    # Lunar-parity batch 1 — appended so every existing cell keeps its position.
+    "clock": "client.clock",
+    "stopwatch": "client.stopwatch",
+    "daycounter": "client.daycounter",
+    "ping": "client.ping",
+    "memory": "client.memory",
+    "saturation": "client.saturation",
+    "packdisplay": "client.packdisplay",
+    "itemcounter": "client.itemcounter",
+    "directionhud": "client.directionhud",
+    "combo": "client.combo",
+    "reach": "client.reach",
+    "crosshair": "client.crosshair",
 }
 
 
@@ -244,12 +259,16 @@ def build() -> None:
         args = [
             str(browser), "--headless=new", "--disable-gpu", "--hide-scrollbars",
             "--force-device-scale-factor=1", "--default-background-color=00000000",
-            f"--window-size={width},{height}", f"--user-data-dir={temp / 'browser'}",
+            # Window is taller than the atlas on purpose: headless Chromium on
+            # Linux leaves the bottom ~90 px of the window unpainted (browser
+            # chrome), which silently cut the last icon row in half once the
+            # atlas grew to 9 rows. The extra strip is cropped off below.
+            f"--window-size={width},{height + WINDOW_SLACK}", f"--user-data-dir={temp / 'browser'}",
             f"--screenshot={rendered}", source.as_uri(),
         ]
         subprocess.run(args, check=True, capture_output=True, text=True, timeout=45)
         with Image.open(rendered) as image:
-            atlas = image.convert("RGBA")
+            atlas = image.convert("RGBA").crop((0, 0, width, height))
         if atlas.size != (width, height):
             raise RuntimeError(f"Browser rendered {atlas.size}, expected {(width, height)}")
         if atlas.getchannel("A").getbbox() is None:

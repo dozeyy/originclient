@@ -166,6 +166,54 @@
     "jei": [
       0,
       0
+    ],
+    "clock": [
+      0,
+      0
+    ],
+    "stopwatch": [
+      0,
+      2
+    ],
+    "daycounter": [
+      0,
+      2
+    ],
+    "ping": [
+      2,
+      -4
+    ],
+    "memory": [
+      0,
+      -10
+    ],
+    "saturation": [
+      0,
+      0
+    ],
+    "packdisplay": [
+      0,
+      0
+    ],
+    "itemcounter": [
+      2,
+      0
+    ],
+    "directionhud": [
+      0,
+      0
+    ],
+    "combo": [
+      0,
+      2
+    ],
+    "reach": [
+      0,
+      0
+    ],
+    "crosshair": [
+      0,
+      0
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -329,6 +377,54 @@
     "jei": {
       "x": 576,
       "y": 1152
+    },
+    "clock": {
+      "x": 768,
+      "y": 1152
+    },
+    "stopwatch": {
+      "x": 960,
+      "y": 1152
+    },
+    "daycounter": {
+      "x": 0,
+      "y": 1344
+    },
+    "ping": {
+      "x": 192,
+      "y": 1344
+    },
+    "memory": {
+      "x": 384,
+      "y": 1344
+    },
+    "saturation": {
+      "x": 576,
+      "y": 1344
+    },
+    "packdisplay": {
+      "x": 768,
+      "y": 1344
+    },
+    "itemcounter": {
+      "x": 960,
+      "y": 1344
+    },
+    "directionhud": {
+      "x": 0,
+      "y": 1536
+    },
+    "combo": {
+      "x": 192,
+      "y": 1536
+    },
+    "reach": {
+      "x": 384,
+      "y": 1536
+    },
+    "crosshair": {
+      "x": 576,
+      "y": 1536
     }
   }
 }

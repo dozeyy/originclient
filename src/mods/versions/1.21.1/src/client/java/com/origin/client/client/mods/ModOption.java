@@ -26,6 +26,11 @@ public final class ModOption {
 	// be attached without threading a param through every factory.
 	public String tooltip = null;
 
+	// MULTISELECT only: the default selection as a comma-separated list (null =
+	// the first choice, the old behaviour). Set fluently via .defaults("a,b").
+	// Mods.mode() returns it while the player hasn't picked anything yet.
+	public String defText = null;
+
 	// key of the TOGGLE this row is nested under; null = top-level row.
 	public final String dependsOn;
 
@@ -120,7 +125,14 @@ public final class ModOption {
 		ModOption c = new ModOption(key, label, kind, parentKey, min, max, step, defNum, format,
 				defBool, defColor, defKey, modes);
 		c.tooltip = tooltip;
+		c.defText = defText;
 		return c;
+	}
+
+	/** MULTISELECT default selection (comma-separated); returns this for chaining. */
+	public ModOption defaults(String csv) {
+		this.defText = csv;
+		return this;
 	}
 
 	/** Attaches a hover description; returns this for fluent chaining. */
