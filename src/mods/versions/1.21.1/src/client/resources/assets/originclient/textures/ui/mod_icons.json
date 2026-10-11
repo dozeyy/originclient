@@ -262,6 +262,10 @@
     "itemphysics": [
       0,
       4
+    ],
+    "worldeditcui": [
+      0,
+      0
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -520,6 +524,10 @@
     },
     "itemphysics": {
       "x": 576,
+      "y": 1920
+    },
+    "worldeditcui": {
+      "x": 768,
       "y": 1920
     }
   }
