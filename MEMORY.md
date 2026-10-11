@@ -5,6 +5,57 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-10-11 — Custom Origin installer replaces Inno Setup
+
+Will: first-time install should be "a fully custom experience, interactive and
+themed, clean UI and buttons, easy way through with customization options".
+He picked: a custom Origin Setup app (not restyled Inno), payload bundled in
+setup.exe (not a downloader), Customize = install location + performance
+(memory, default version) + Start with Windows (shortcuts NOT a choice —
+always created), on its own branch/PR.
+
+- **Why .NET Framework 4.7.2:** ships in every Windows 10/11, so setup.exe
+  carries no runtime (app = 0.45 MB). A self-contained .NET 8 setup would add
+  ~60-70 MB on top of the launcher.
+- **Payload:** launcher publish dir laid end to end, cut into 32 MB chunks,
+  each an independent .lzma stream (parallel compress in CI ~28 s, parallel
+  decode at install ~7 s), CRC32 per chunk, appended after the PE image with
+  a 16-byte trailer. 85.0 MB vs Inno's 86 MB; plain zip/deflate would have
+  been 126 MB. The uninstaller = the first payloadOffset bytes (bare app).
+- **LZMA decoder** hand-ported from the SDK's LzmaSpec reference (net472 has
+  none). Verified locally against Python liblzma (presets 0/1/6/9, odd
+  lc/lp/pb, corrupt/truncated streams) and byte-for-byte on the real v1.0.39
+  launcher. The sandbox CAN build/test net472 code: `apt-get install
+  dotnet-sdk-8.0` + Microsoft.NETFramework.ReferenceAssemblies — but not WPF
+  (Ubuntu SDK lacks WindowsDesktop), so XAML only compiles in CI.
+- **Safety:** staging folder inside the install dir, moved into place only
+  after a full verified unpack (cancel/damage = untouched install); Origin
+  always gets its own folder (picking Documents -> Documents\OriginLauncher)
+  because uninstall deletes the folder; refuses Program Files/Windows (the
+  self-updater needs a user-writable folder); asInvoker manifest (Windows
+  auto-elevates exes named *setup* without one).
+- **Inno takeover:** same Add/Remove Programs key ({AppId}_is1) rewritten
+  clean; unins000.* and the old Start-menu group removed.
+- **Single-writer rule kept:** setup never writes settings.json; it drops
+  setup-choices.json, which the launcher applies via SettingsStore.Update.
+  Launcher also refreshes DisplayVersion after self-updates and gained a
+  Settings "Start with Windows" toggle. RAM rule now shared (RamAdvice):
+  half the PC's RAM in whole GB ("16 GB" PC = 8 GB, not 7.75).
+- **CI proof:** build-installer action builds + packs + smoke-tests a real
+  silent install (files byte-identical, registry, shortcuts, Run key) and
+  silent uninstall on windows-latest — green. `--render-tour` renders all 11
+  screens to PNGs (artifact installer-screens); two review rounds fixed: a
+  hidden Startup card below the fold, truncated title/footnote/combo, cut-off
+  uninstall buttons, odd 7.75 GB recommendation.
+- **Gotcha:** 16 parallel Gradle builds hitting maven.fabricmc.net at once got
+  "Connection reset" on 2 jobs once — build-mods now retries on download
+  errors only (never compile errors). Ported to PR #18 too.
+- **Sandbox trick:** artifact blob storage is blocked here; a throwaway
+  workflow pushed the PNGs to a hidden ref (refs/screens/installer) that git
+  can fetch. Deleted after review.
+- Not yet run by a human on a real PC: the first real look is the next
+  release's setup.exe.
+
 ## 2026-10-10 — Release pipeline rebuilt: parallel builds, real release notes, labels
 
 Will: "the auto update push takes so long … everything labeled and updated."

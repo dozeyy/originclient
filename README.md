@@ -10,6 +10,8 @@ A premium Windows Minecraft launcher (Origin Launcher) + custom client mod
 
 - `src/OriginLauncher.App/` — WPF launcher (.NET 8): accounts, versions,
   one-click Fabric provisioning, self-updates.
+- `src/OriginSetup/` — the custom installer + uninstaller
+  (`OriginLauncher-Setup.exe`), in the launcher's look.
 - `src/mods/` — the in-game Fabric mod, one standalone build per Minecraft
   API family: `shared/` (the canonical core every version copies from),
   `versions/` (shipped builds), `staged/` (work-in-progress builds that

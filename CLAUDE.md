@@ -49,6 +49,9 @@ application
 - **Origin Launcher** — premium Windows desktop Minecraft launcher (C# / .NET 8,
   WPF). Account management, version handling, performance tuning, launch.
   Lives in `src/OriginLauncher.App/`.
+- **Origin Setup** — the custom installer/uninstaller (`OriginLauncher-Setup.exe`),
+  .NET Framework 4.7.2 WPF in the launcher's look. Lives in `src/OriginSetup/`
+  (engine tests: `src/OriginSetup.Tests/`). See docs/RELEASING.md → The installer.
 - **Origin Client** — the in-game Fabric mod it installs: restyled title screen,
   loading screens, mod menu, HUD, and a curated set of QoL mods. Java, Fabric,
   Mojmap, Gradle + Loom. Lives under `src/mods/` — see layout below.
@@ -97,6 +100,8 @@ src/mods/
 tools/shared-sync/sync.py propagates shared/ into every module; --check is the
                           CI drift gate (build-check runs it on every push)
 tools/release/            plan.py (build vs reuse per version) + notes.py (release notes)
+                          + check_consistency.py (launcher vs installer copies agree)
+tools/installer/          pack_payload.py — appends the launcher to OriginSetup.exe
 tools/github/labels.py    GitHub label set + PR auto-label rules
 docs/RELEASING.md         how shipping works (tag flow, pipeline, labels)
 ```
@@ -186,6 +191,10 @@ floating corner controls. In-game menus match this exactly.
 
 ## Current state (2026-10-10)
 - **Latest release: `launcher-v1.0.39`** (mandatory auto-update; tag flow).
+- **Custom installer (2026-10-11):** Inno Setup replaced by Origin Setup —
+  themed Welcome/Customize/Installing/Done + uninstaller, smoke-tested
+  (silent install/uninstall) and screen-rendered on every CI run. Not yet
+  run by hand on a real PC — first real look is the next release's setup.exe.
 - **Release pipeline rebuilt 2026-10-10:** mod versions build in parallel on
   Linux (build-check ~2.5 min, release ~5-6 min, was 12-40); real release
   notes; GitHub labels + PR auto-labels; update download shows a full-screen
