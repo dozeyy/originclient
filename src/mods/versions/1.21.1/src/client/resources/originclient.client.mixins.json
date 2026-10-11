@@ -62,7 +62,12 @@
 		"ItemCooldownsMixin",
 		"SoundChangerMixin",
 		"ItemPhysicsMixin",
-		"LevelHeadMixin"
+		"LevelHeadMixin",
+		"NickHiderTextMixin",
+		"NickHiderCacheMixin",
+		"NickHiderSkinMixin",
+		"NickHiderLobbyMixin",
+		"ScreenshotKeyMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

@@ -159,6 +159,14 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		// WorldEdit CUI: its own plugin channel, tick and world-render hooks (fail-soft inside).
 		com.origin.client.client.worldedit.WorldEditCui.init();
+		// Lunar parity, batch 3a: Auto GG's chat listeners and the Screenshot
+		// pop-up's chat-screen click hook (both Fabric API events, fail-soft).
+		try {
+			com.origin.client.client.mods.AutoGG.register();
+			com.origin.client.client.mods.ScreenshotPopup.register();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
+		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {
@@ -167,6 +175,37 @@ public class OriginClientMod implements ClientModInitializer {
 				return true; // fail-soft: let vanilla draw its outline
 			}
 		});
+	}
+
+	// Lunar parity, batch 3a (chat / server): per-tick work. Each in its own
+	// try so one mod failing never stops the others or the client tick. Runs
+	// before the no-player return: Nick Hider and Screenshot work on menus too.
+	private static void tickLunarBatch3a(Minecraft client) {
+		try {
+			com.origin.client.client.mods.AutoTextHotkey.tick(client);
+		} catch (Throwable t) {
+			// hotkeys just don't fire this tick
+		}
+		try {
+			com.origin.client.client.mods.AutoGG.tick(client);
+		} catch (Throwable t) {
+			// a pending gg is dropped at worst
+		}
+		try {
+			com.origin.client.client.mods.NickHider.tick(client);
+		} catch (Throwable t) {
+			// names keep their last mapping
+		}
+		try {
+			com.origin.client.client.mods.Quickplay.tick(client);
+		} catch (Throwable t) {
+			// keys just don't fire this tick
+		}
+		try {
+			com.origin.client.client.mods.ScreenshotPopup.tick(client);
+		} catch (Throwable t) {
+			// key just doesn't fire this tick
+		}
 	}
 
 	// Flush everything to disk once, when Minecraft is shutting down. Each
@@ -303,6 +342,7 @@ public class OriginClientMod implements ClientModInitializer {
 		} catch (Throwable t) {
 			// keep ticking; the readouts just hold their last value
 		}
+		tickLunarBatch3a(client);
 
 		LocalPlayer player = client.player;
 		if (player == null) {

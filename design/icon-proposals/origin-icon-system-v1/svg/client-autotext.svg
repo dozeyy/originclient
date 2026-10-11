@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Auto Text Hotkey</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<rect x="2.8" y="10.5" width="9" height="9" rx="2"/>
+      <path d="M5.6 13.4h3.4M7.3 13.4v3.4"/>
+      <path d="M14.2 3.8h5.9a1.9 1.9 0 0 1 1.9 1.9v3.8a1.9 1.9 0 0 1-1.9 1.9h-2.4l-2.7 2.3v-2.3h-.8a1.9 1.9 0 0 1-1.9-1.9V5.7a1.9 1.9 0 0 1 1.9-1.9Z"/>
+  </g>
+</svg>

@@ -439,6 +439,36 @@ LUNAR_BATCH4A_ICONS = [
 ]
 ICONS += LUNAR_BATCH4A_ICONS
 
+# Lunar parity, batch 3a (2026-10-11): chat / server mods. Same 24-grid, 1.55
+# stroke, one concept per glyph. Its own list so it merges cleanly.
+LUNAR_BATCH3A_ICONS = [
+    icon("client.autotext", "Auto Text Hotkey", "GAMEPLAY", """
+      <rect x="2.8" y="10.5" width="9" height="9" rx="2"/>
+      <path d="M5.6 13.4h3.4M7.3 13.4v3.4"/>
+      <path d="M14.2 3.8h5.9a1.9 1.9 0 0 1 1.9 1.9v3.8a1.9 1.9 0 0 1-1.9 1.9h-2.4l-2.7 2.3v-2.3h-.8a1.9 1.9 0 0 1-1.9-1.9V5.7a1.9 1.9 0 0 1 1.9-1.9Z"/>
+    """, "Hotkey that sends chat"),
+    icon("client.autogg", "Auto GG", "GAMEPLAY", """
+      <path d="M8 3.8h8v5.4a4 4 0 0 1-8 0Z"/>
+      <path d="M8 5.8H5.4a2.7 2.7 0 0 0 2.8 3.5M16 5.8h2.6a2.7 2.7 0 0 1-2.8 3.5"/>
+      <path d="M12 13.2v3.8M8.5 20.2h7M10 17h4"/>
+    """, "Automatic good game"),
+    icon("client.nickhider", "Nick Hider", "VISUAL", """
+      <circle cx="12" cy="8.4" r="3.6"/>
+      <path d="M5 20c.8-3.6 3.5-5.6 7-5.6s6.2 2 7 5.6"/>
+      <path d="M3.6 3.6l16.8 16.8"/>
+    """, "Hidden names and skins"),
+    icon("client.quickplay", "Quickplay", "GAMEPLAY", """
+      <circle cx="14" cy="12" r="7.6"/>
+      <path d="M12 8.8v6.4l5-3.2Z"/>
+      <path d="M2.4 9h3M2 12h4M2.4 15h3"/>
+    """, "Join a game fast"),
+    icon("client.screenshot", "Screenshot", "GAMEPLAY", """
+      <path d="M4.6 7.5h2.9l1.6-2.5h5.8l1.6 2.5h2.9a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H4.6a1.8 1.8 0 0 1-1.8-1.8V9.3a1.8 1.8 0 0 1 1.8-1.8Z"/>
+      <circle cx="12" cy="13.2" r="3.5"/>
+    """, "Screenshot pop-up"),
+]
+ICONS += LUNAR_BATCH3A_ICONS
+
 
 def svg_document(entry: dict) -> str:
     title = html.escape(entry["label"])

@@ -282,6 +282,26 @@
     "minimap": [
       0,
       0
+    ],
+    "autotext": [
+      -4,
+      2
+    ],
+    "autogg": [
+      0,
+      0
+    ],
+    "nickhider": [
+      0,
+      0
+    ],
+    "quickplay": [
+      2,
+      0
+    ],
+    "screenshot": [
+      0,
+      -2
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -561,6 +581,26 @@
     "minimap": {
       "x": 384,
       "y": 2112
+    },
+    "autotext": {
+      "x": 576,
+      "y": 2112
+    },
+    "autogg": {
+      "x": 768,
+      "y": 2112
+    },
+    "nickhider": {
+      "x": 960,
+      "y": 2112
+    },
+    "quickplay": {
+      "x": 0,
+      "y": 2304
+    },
+    "screenshot": {
+      "x": 192,
+      "y": 2304
     }
   }
 }
