@@ -16,6 +16,16 @@ public static class OriginPaths
     // instances and game versions, maximising cache hits between sessions.
     public static string ShaderCache => Path.Combine(Root, "shader-cache");
 
+    // Home banner (UI/Controls/PromoBanner): the last good remote promo feed,
+    // so the banner shows Will's current promos even when offline.
+    public static string PromoFeedCache => Path.Combine(Root, "cache", "promos.json");
+
+    // The banner's ad-network WebView2 profile (cookies, storage, browser
+    // cache). Deliberately its OWN user-data folder: it never shares a
+    // browser process, cookie jar or lock with the Microsoft sign-in WebView2
+    // (MicrosoftSignInPanel, which uses WebView2's default folder).
+    public static string BannerWebViewData => Path.Combine(Root, "webview", "banner");
+
     // Read-only assets shipped alongside the exe (see the Content items in
     // OriginLauncher.App.csproj that copy them out of each src/mods module's
     // Gradle build output) — not user data, so they live next to the app

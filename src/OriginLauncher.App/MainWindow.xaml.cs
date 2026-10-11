@@ -44,6 +44,10 @@ public partial class MainWindow : Window
         _accountPanel.AddAccountRequested += (_, _) => OpenSignInPanel();
         AccountPanelHost.Content = _accountPanel;
 
+        // The scrim is up exactly while the account panel or the sign-in card
+        // is (including their exit animations): Home's banner pauses under it.
+        Scrim.IsVisibleChanged += (_, _) => _homePage.SetChromeOverlayOpen(Scrim.IsVisible);
+
         NavHome.IsChecked = true;
 
         // Push-to-update: light the corner badge whenever a newer release

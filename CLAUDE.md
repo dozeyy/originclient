@@ -90,6 +90,7 @@ application
 ## Repo layout (the boundaries that matter)
 ```
 src/OriginLauncher.App/   the WPF launcher
+src/OriginLauncher.Tests/ launcher pure-logic tests (links Core/Promos; CI build-check runs them)
 src/mods/
   shared/                 version-independent mod core — ONE copy, synced out
   versions/<mc>/          SHIPPED per-API-family builds (CI builds these)
@@ -104,6 +105,9 @@ tools/release/            plan.py (build vs reuse per version) + notes.py (relea
 tools/github/labels.py    GitHub label set + PR auto-label rules
 tools/website/build_assets.py  website textures/fonts/icons/three.js from their real sources
 website/                  originclient.org: island-in-the-sky page (DOWNLOAD.live switch in js/site.js)
+  launcher/promos.json    the launcher HOME BANNER's live feed (promos, Discord invite, ad-network
+                          switch) — edit + push to main; launchers pick it up within 30 min
+  ad/banner.html          the banner's ad-network page (placeholder until Nitro is approved)
 docs/RELEASING.md         how shipping works (tag flow, pipeline, labels)
 ```
 - **Shared fix** → edit `src/mods/shared/`, run `python tools/shared-sync/sync.py`.

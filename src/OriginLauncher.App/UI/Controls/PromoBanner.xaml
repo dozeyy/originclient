@@ -1,0 +1,100 @@
+<UserControl x:Class="OriginLauncher.App.UI.Controls.PromoBanner"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
+             mc:Ignorable="d" d:DesignWidth="400">
+
+    <!-- The home banner: one slim row under the Play card. How it decides
+         when it may run is documented at the top of PromoBanner.xaml.cs. -->
+
+    <UserControl.Resources>
+        <!-- Button.Secondary's surface and hover/press motion, but with the
+             content stretched edge to edge (the base template centres it). -->
+        <Style x:Key="Banner.Surface" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+            <Setter Property="Padding" Value="12,0,14,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource Radius.Card}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- Space is reserved from the first frame (Opacity 0 until content is
+         ready) so the Play card never jumps when the feed arrives; the row
+         collapses only if the feed leaves nothing to show. -->
+    <Grid x:Name="Root" Height="68" Opacity="0">
+
+        <!-- House promos (and the live Discord card). -->
+        <Button x:Name="HouseCard" Style="{StaticResource Banner.Surface}"
+                Click="HouseCard_Click" AutomationProperties.Name="Origin news">
+            <Grid x:Name="SlideContent" ClipToBounds="False">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="SlideTransform"/>
+                </Grid.RenderTransform>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Width="44" Height="44" Margin="0,0,12,0" VerticalAlignment="Center"
+                        Background="{StaticResource Brush.CardAlt}"
+                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True">
+                    <Grid>
+                        <controls:OriginMark x:Name="IconMark" Width="26" Height="26"/>
+                        <Image x:Name="IconImage" Stretch="UniformToFill"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock x:Name="LabelText" Style="{StaticResource Text.Eyebrow}"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="TitleText" Style="{StaticResource Text.Body}"
+                               FontWeight="Medium" Margin="0,1,0,0"/>
+                    <Grid Margin="0,1,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- Live "online" marker, Discord card only. -->
+                        <Rectangle x:Name="OnlineDot" Width="6" Height="6" Margin="0,0,7,0"
+                                   VerticalAlignment="Center" Fill="{StaticResource Brush.Success}"
+                                   Visibility="Collapsed"/>
+                        <TextBlock Grid.Column="1" x:Name="SubtitleText" Style="{StaticResource Text.Caption}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </Grid>
+                </StackPanel>
+
+                <Path Grid.Column="2" x:Name="ExternalIcon" Data="{StaticResource Icon.External}"
+                      Style="{StaticResource Icon.Base}" Width="12" Height="12" VerticalAlignment="Center"
+                      Stroke="{StaticResource Brush.TextDim}"/>
+            </Grid>
+        </Button>
+
+        <!-- Rotation position: blocky ticks, bottom-right, never clickable. -->
+        <StackPanel x:Name="Dots" Orientation="Horizontal" HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom" Margin="0,0,14,7" IsHitTestVisible="False"/>
+
+        <!-- Ad-network mode: BannerAdHost puts its WebView2 in here. A WebView2
+             is a native child window drawn above all WPF content (airspace),
+             which is why every launcher overlay counts as "covered" in the gate. -->
+        <Border x:Name="NetworkHost" Visibility="Collapsed"
+                Background="{StaticResource Brush.Card}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Card}"/>
+    </Grid>
+</UserControl>

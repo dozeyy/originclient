@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "rotateSeconds": 9,
+  "promos": [
+    { "id": "discord", "kind": "discord", "label": "DISCORD" },
+    {
+      "id": "website",
+      "kind": "link",
+      "label": "ORIGIN",
+      "title": "originclient.org",
+      "subtitle": "News, changelogs and every bundled mod",
+      "clickUrl": "https://originclient.org/"
+    },
+    {
+      "id": "menu-tip",
+      "kind": "link",
+      "label": "TIP",
+      "title": "Right Shift opens the Origin menu",
+      "subtitle": "Toggle mods and HUD pieces in-game"
+    }
+  ],
+  "discord": { "inviteCode": "REPLACE_ME", "refreshSeconds": 300 },
+  "network": {
+    "enabled": false,
+    "url": "https://originclient.org/ad/banner.html",
+    "refreshSeconds": 300
+  }
+}

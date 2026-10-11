@@ -31,6 +31,12 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+      # Every running launcher reads launcher/promos.json for its home banner.
+      # A broken file can't crash them (they fall back to their last good
+      # copy), but it would freeze the banner — so refuse to publish one.
+      - name: Check launcher banner feed
+        run: |
+          python3 -c "import json,sys; f=json.load(open('website/launcher/promos.json', encoding='utf-8')); sys.exit(0 if f.get('schema') == 1 else 'promos.json: schema must be 1')"
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
       - name: Upload website/

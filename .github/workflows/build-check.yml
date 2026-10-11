@@ -64,6 +64,12 @@ jobs:
           dotnet build src/OriginSetup.Tests -f net472
           dotnet test src/OriginSetup.Tests -f net8.0
 
+      # The launcher's pure logic (home banner feed + fallback chain, Discord
+      # invite, visibility gate, occlusion math). Also fails the push when
+      # website/launcher/promos.json stops parsing.
+      - name: Test launcher logic
+        run: dotnet test src/OriginLauncher.Tests
+
       - name: List live Minecraft versions
         id: plan
         run: python3 tools/release/plan.py --all
