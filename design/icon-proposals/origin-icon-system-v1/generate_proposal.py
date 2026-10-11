@@ -394,6 +394,17 @@ LUNAR_BATCH2_ICONS = [
 ]
 ICONS += LUNAR_BATCH2_ICONS
 
+# Lunar parity, batch 4a (2026-10-11): Minimap. A map frame with the player's
+# arrowhead and a terrain contour. Its own list so it merges cleanly.
+LUNAR_BATCH4A_ICONS = [
+    icon("client.minimap", "Minimap", "HUD", """
+      <rect x="3" y="3" width="18" height="18" rx="4"/>
+      <path d="m12 6.2 3 7-3-1.6-3 1.6Z"/>
+      <path d="M3.5 17c3-1.6 5.5-1.6 8.5 0s5.5 1.6 8.5 0" opacity=".55"/>
+    """, "Live area map"),
+]
+ICONS += LUNAR_BATCH4A_ICONS
+
 
 def svg_document(entry: dict) -> str:
     title = html.escape(entry["label"])

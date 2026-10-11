@@ -224,6 +224,8 @@ public class OriginModMenuScreen extends Screen {
 		for (String id : new String[]{"snaplook", "soundchanger"}) {
 			CATS.put(id, Cat.GAMEPLAY);
 		}
+		// Lunar parity, batch 4a.
+		CATS.put("minimap", Cat.HUD);
 	}
 
 	private static Cat catOf(Mods.Mod m) {

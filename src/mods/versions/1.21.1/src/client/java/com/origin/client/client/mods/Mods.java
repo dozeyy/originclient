@@ -574,6 +574,7 @@ public final class Mods {
 		add("jei", "JEI", "Item and recipe viewer.", false);
 
 		registerLunarBatch2();
+		registerLunarBatch4a();
 	}
 
 	// ---- Lunar parity, batch 2: visuals / feel (2026-10-11) ----
@@ -689,6 +690,78 @@ public final class Mods {
 		add("itemphysics", "Item Physics", "Dropped items tumble as they fall and lie flat.", false,
 				ModOption.slider("rotationSpeed", "Rotation Speed", 0.1, 4.0, 0.1, 0.5, "%.1fx")
 						.tip("How fast items spin while they're in the air."));
+	}
+
+	// ---- Lunar parity, batch 4a: Minimap (2026-10-11) ----
+	// Lunar's own schema (Apollo mods/impl/ModMinimap.java) gives Scale, Map Width /
+	// Height, Map Zoom, Rotate With Player, Fit Text To Width, Border (+colour,
+	// thickness), Compass (+colour, shadow), Player Marker colour/size, Entity Marker
+	// opacity/size/shadow, Show Coordinates / Biome (+Preset Biome Color) / Clock
+	// (+AM/PM, Military Time) and Show Distant Waypoints, with Lunar's defaults (off;
+	// blue player marker; 8x8). Lunar's minimap is Xaero's underneath, so the rows
+	// Xaero has that the schema doesn't list are added the way Xaero ships them:
+	// Shape, Cave Mode, Lighting, Terrain Shading, Biome Colors, Chunk Grid, the
+	// per-type entity radar, Show Waypoints, zoom keys and the full-screen map key.
+	// Map Zoom goes past Lunar's 1-2x range (0.5-4x) to cover Xaero's zoom levels.
+	// Everything is read live by minimap/MinimapHud.
+	private static void registerLunarBatch4a() {
+		add("minimap", "Minimap", "A live map of the area around you.", false,
+				ModOption.dropdown("shape", "Shape", "Square", "Circle"),
+				ModOption.slider("scale", "Scale", 0.25, 5.0, 0.05, 1.0, "%.2fx"),
+				ModOption.slider("mapWidth", "Map Width", 1, 16, 1, 8, "%.0f").tip("A round map uses Map Width for its size."),
+				ModOption.slider("mapHeight", "Map Height", 1, 16, 1, 8, "%.0f"),
+				ModOption.slider("zoom", "Map Zoom", 0.5, 4.0, 0.25, 1.0, "%.2fx")
+						.tip("1x = one block per pixel. Higher zooms in, lower shows more area."),
+				ModOption.keybind("zoomInKey", "Zoom In Key", -1),
+				ModOption.keybind("zoomOutKey", "Zoom Out Key", -1),
+				ModOption.toggle("rotate", "Rotate With Player", true).tip("Off = north is always up."),
+				ModOption.keybind("openMapKey", "Open Full Map", GLFW.GLFW_KEY_M)
+						.tip("A big map of everything mapped around you. Scroll to zoom, drag to move."),
+				ModOption.header("Terrain"),
+				ModOption.dropdown("caveMode", "Cave Mode", "Auto", "Off", "Always")
+						.tip("Auto maps the cave you're in whenever there's a roof over your head (and always in the Nether)."),
+				ModOption.toggle("lighting", "Lighting", true).tip("Darken the map at night; torches and other lights still glow."),
+				ModOption.toggle("terrainShading", "Terrain Shading", true).tip("Shade slopes so hills and drops are easy to read."),
+				ModOption.toggle("biomeColors", "Biome Colors", true).tip("Grass, leaves and water take their biome's colour."),
+				ModOption.toggle("chunkGrid", "Chunk Grid", false),
+				ModOption.color("gridColor", "Chunk Grid Color", 0x40FFFFFF).under("chunkGrid"),
+				ModOption.header("Markers"),
+				ModOption.color("playerMarkerColor", "Player Marker Color", 0xFF0000FF),
+				ModOption.slider("playerMarkerSize", "Player Marker Size", 1, 10, 0.5, 5, "%.1f"),
+				ModOption.toggle("showPlayers", "Show Players", true),
+				ModOption.toggle("playerHeads", "Player Heads", true).under("showPlayers").tip("Show each player's face instead of a dot."),
+				ModOption.color("playerColor", "Player Color", 0xFFFFFFFF).under("showPlayers"),
+				ModOption.toggle("showHostile", "Show Hostile Mobs", true),
+				ModOption.color("hostileColor", "Hostile Mob Color", 0xFFFF5555).under("showHostile"),
+				ModOption.toggle("showPassive", "Show Passive Mobs", true),
+				ModOption.color("passiveColor", "Passive Mob Color", 0xFF55FF55).under("showPassive"),
+				ModOption.toggle("showItems", "Show Items", false),
+				ModOption.color("itemColor", "Item Color", 0xFFFFD855).under("showItems"),
+				ModOption.toggle("showOther", "Show Other Entities", false).tip("Boats, minecarts, arrows, XP orbs..."),
+				ModOption.color("otherColor", "Other Entity Color", 0xFFB0B0B0).under("showOther"),
+				ModOption.slider("entityMarkerSize", "Entity Marker Size", 1, 10, 0.5, 1, "%.1f"),
+				ModOption.slider("entityMarkerOpacity", "Entity Marker Opacity", 0, 1, 0.05, 1.0, "%.0f%%"),
+				ModOption.toggle("entityMarkerShadow", "Entity Marker Shadow", true),
+				ModOption.toggle("showWaypoints", "Show Waypoints", true).tip("Your Waypoints mod waypoints, as diamonds in their colour."),
+				ModOption.toggle("showDistantWaypoints", "Show Distant Waypoints", true)
+						.under("showWaypoints").tip("Waypoints off the map sit on its edge, pointing the way."),
+				ModOption.header("Info"),
+				ModOption.toggle("showCoordinates", "Show Coordinates", true),
+				ModOption.toggle("showBiome", "Show Biome", false),
+				ModOption.toggle("presetBiomeColor", "Preset Biome Color", true).under("showBiome"),
+				ModOption.toggle("showClock", "Show Clock", false).tip("The world's time of day."),
+				ModOption.toggle("showAmPm", "Show AM/PM", true).under("showClock"),
+				ModOption.toggle("militaryTime", "Military Time", false).under("showClock"),
+				ModOption.toggle("fitTextToWidth", "Fit Text To Width", true).tip("Shrink long info lines to the map's width."),
+				ModOption.header("Style"),
+				ModOption.toggle("compass", "Compass", true),
+				ModOption.color("compassColor", "Compass Color", 0xFFFFFFFF).under("compass"),
+				ModOption.toggle("compassShadow", "Compass Shadow", true).under("compass"),
+				ModOption.toggle("border", "Border", true),
+				ModOption.color("borderColor", "Border Color", 0x9F000000).under("border"),
+				ModOption.slider("borderThickness", "Border Thickness", 1, 5, 0.5, 1, "%.1f").under("border"),
+				ModOption.toggle("showBackground", "Show Background", true).tip("Fills the parts of the map that aren't mapped yet."),
+				ModOption.color("bgColor", "Background Color", 0x00000000).under("showBackground"));
 	}
 
 	// Assembles the Particle Changer option list: global controls, then a

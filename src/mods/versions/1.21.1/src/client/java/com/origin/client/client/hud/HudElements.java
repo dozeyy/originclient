@@ -180,7 +180,8 @@ public final class HudElements {
 	// of each word, Will 2026-07-21); modded → the designer's translated name if
 	// they provide one, else the raw path — kept in the designer's own casing,
 	// never force-cased. Vanilla has no biome lang keys, hence the manual casing.
-	private static String biomeName(Holder<net.minecraft.world.level.biome.Biome> biome) {
+	// Public: the Minimap's biome line uses this and biomeColor too.
+	public static String biomeName(Holder<net.minecraft.world.level.biome.Biome> biome) {
 		var key = biome.unwrapKey();
 		if (key.isEmpty()) {
 			return "Unknown";
@@ -214,7 +215,7 @@ public final class HudElements {
 
 	// Intuitive colour per biome family, keyword-matched on the id. Oceans scale
 	// warm→cold (lighter→darker) and deepen for the deep_ variants.
-	static int biomeColor(Holder<net.minecraft.world.level.biome.Biome> biome) {
+	public static int biomeColor(Holder<net.minecraft.world.level.biome.Biome> biome) {
 		var key = biome.unwrapKey();
 		if (key.isEmpty()) {
 			return TEXT;
@@ -503,6 +504,14 @@ public final class HudElements {
 				});
 		add("cooldowns", "cooldowns", "Cooldowns", new HudPos(7, 0, -62, 1.0),
 				CooldownsHud::size, CooldownsHud::render);
+	}
+
+	// ---- Lunar parity, batch 4a (2026-10-11): Minimap ----
+	// Its own static block so it merges cleanly; the map, its terrain scan and its
+	// full-screen view live in the minimap package.
+	static {
+		add("minimap", "minimap", "Minimap", com.origin.client.client.minimap.MinimapHud.defaultPos(),
+				com.origin.client.client.minimap.MinimapHud::size, com.origin.client.client.minimap.MinimapHud::render);
 	}
 
 	// Package-private so Readouts (the Lunar-parity readouts) registers into the same list.
