@@ -7,10 +7,13 @@ import net.minecraft.resources.ResourceLocation;
 
 /**
  * Custom render pipelines for this module: the full-screen colour GRADE
- * (carried over from the 1.21.11 baseline) and the MSDF text pipeline (ported
- * 2026-08-02, Will: menu text needs to match 1.21.1's smoothness). The
- * rounded-box SDF panel pipeline is still not carried over — OriginUi's
- * baked-texture panel() already renders rounded corners without it.
+ * (carried over from the 1.21.11 baseline), the MSDF text pipeline (ported
+ * 2026-08-02, Will: menu text needs to match 1.21.1's smoothness) and the ICON
+ * pipeline for Origin's own mod-icon atlas (ported 2026-10-11 with the 1.21.1
+ * Command Deck menu: ModIcons draws mod_icons_sdf.png through it). The
+ * rounded-box SDF panel pipeline is deliberately NOT carried over — OriginUi's
+ * physical-resolution baked masks are this era's best-fit rounded path (the
+ * deferred GUI has no per-draw uniform channel for rect/radius/border).
  *
  * Built as a static field: constructing a RenderPipeline is cheap and lazy (the
  * GPU compiles it the first time something draws with it), so there is no
@@ -34,6 +37,18 @@ public final class OriginShaders {
 			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
 					.withLocation(ResourceLocation.fromNamespaceAndPath("originclient", "pipeline/origin_msdf"))
 					.withFragmentShader(ResourceLocation.fromNamespaceAndPath("originclient", "core/rendertype_origin_msdf"))
+					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
+					.build());
+
+	/** Origin's mod-icon atlas (mod_icons_sdf.png): a single-channel signed
+	 *  distance field per 192 px cell, reconstructed in SCREEN space so the glyphs
+	 *  stay crisp at every GUI scale -- 1.21.1's rendertype_origin_icon, rebuilt
+	 *  as a pipeline. Same vertex shape as MSDF (position + atlas UV + per-vertex
+	 *  tint); ModIcons submits the quads as a GuiElementRenderState. */
+	public static final RenderPipeline ICON = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+					.withLocation(ResourceLocation.fromNamespaceAndPath("originclient", "pipeline/origin_icon"))
+					.withFragmentShader(ResourceLocation.fromNamespaceAndPath("originclient", "core/rendertype_origin_icon"))
 					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
 					.build());
 

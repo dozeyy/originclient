@@ -8,30 +8,34 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Origin skin for the sprite-icon buttons — the Accessibility (person) and
-// Language (globe) buttons the 1.21.1 baseline keeps on the title screen.
+// Frost-style skin for the sprite-icon buttons -- the Accessibility (person) and
+// Language (globe) buttons on the title screen, plus any icon+text button.
 //
-// Era facts for THIS module, read off its own jar (an assumption cost a pass
-// here: the renderContents split does NOT happen at 1.21.6, it happens later):
-//   * SpriteIconButton.CenteredIcon overrides renderWidget, so that is the target
-//   * the `sprite` field is a plain ResourceLocation
-//   * blitSprite takes a RenderPipeline as its first argument
-// priority 2000: Origin's restyle wins over other UI mods.
+// These are SpriteIconButton.CenteredIcon / TextAndIcon, which OVERRIDE
+// renderWidget and (via their super call) keep drawing the vanilla stone button
+// sprite, so the plain AbstractButtonMixin never restyles them. This targets
+// their own renderWidget at HEAD, cancels it, and draws the Frost box + icon
+// (+ the subclass's own text) instead. The needed geometry lives in protected
+// fields on the shared SpriteIconButton superclass -- shadowed here and handed
+// to the renderer. priority 2000: Origin's restyle wins over other UI mods.
+//
+// Era facts for 1.21.6-1.21.8, read off this module's own jar (an assumption cost a
+// pass here: the renderContents split does NOT happen at 1.21.6, it happens at
+// 1.21.11): CenteredIcon/TextAndIcon override renderWidget, so that is the target,
+// and the `sprite` field is a plain ResourceLocation. AbstractButtonMixin excludes
+// SpriteIconButton so the two never both draw.
 @Mixin(value = {SpriteIconButton.CenteredIcon.class, SpriteIconButton.TextAndIcon.class}, priority = 2000)
 public abstract class SpriteIconButtonMixin {
 
 	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
 	private void originclient$originIcon(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		SpriteIconButton self = (SpriteIconButton) (Object) this;
+		// Icon geometry via the accessor on the declaring class (see
+		// SpriteIconButtonAccessor -- a @Shadow from these subclasses is rejected).
 		SpriteIconButtonAccessor acc = (SpriteIconButtonAccessor) (Object) this;
-		int iw = acc.originclient$spriteWidth();
-		int ih = acc.originclient$spriteHeight();
-		int ix = self.getX() + self.getWidth() / 2 - iw / 2;
-		int iy = self.getY() + self.getHeight() / 2 - ih / 2;
 		// Only cancel vanilla when Origin actually drew (fail-soft contract).
-		if (OriginButtonRenderer.renderIconButton(guiGraphics, self, iw, ih,
-				() -> guiGraphics.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
-						acc.originclient$sprite(), ix, iy, iw, ih))) {
+		if (OriginButtonRenderer.renderIconButton(guiGraphics, self,
+				acc.originclient$sprite(), acc.originclient$spriteWidth(), acc.originclient$spriteHeight())) {
 			ci.cancel();
 		}
 	}

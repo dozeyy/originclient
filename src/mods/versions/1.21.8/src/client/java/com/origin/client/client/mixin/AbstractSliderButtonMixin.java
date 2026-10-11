@@ -9,12 +9,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Restyles every slider (FOV, volumes, mouse sensitivity, ...) in the Origin
-// look, in place: vanilla's drag/click/keyboard logic is untouched, only the
-// drawing is replaced. `value` is a protected field declared directly on
-// AbstractSliderButton (javap-confirmed) -- a declared-field @Shadow, the safe
-// case, unlike the inherited-method shadow that failed before.
-// priority 2000: Origin's slider restyle wins over other UI mods.
+// Frost-style slider skin (FOV, volumes, mouse sensitivity, ...): vanilla's
+// drag/click/keyboard logic is untouched, only the drawing is replaced. `value`
+// is a protected field declared directly on AbstractSliderButton
+// (javap-confirmed for 1.21.1) -- a declared-field @Shadow, the safe case.
+// priority 2000: Origin's restyle wins over other UI mods.
 @Mixin(value = AbstractSliderButton.class, priority = 2000)
 public class AbstractSliderButtonMixin {
 

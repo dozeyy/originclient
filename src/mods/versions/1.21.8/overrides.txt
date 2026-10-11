@@ -25,3 +25,27 @@ client/java/com/origin/client/client/theme/OriginTheme.java
 # card set of the versions that don't have it. Same deliberate fork every other
 # 1.21.x module already carries.
 client/java/com/origin/client/client/mods/Mods.java
+
+# DESIGN PORT (2026-10-11) — brought onto the 1.21.1 design (Command Deck menu,
+# Workbench widgets, Ion Jade title, Waypoints / Item Size / Tab Editor / Nametag
+# styling). Each of these exists in shared/ in its pre-redesign form; 1.21.1 forks
+# it for the same reason and so does this module:
+#  - OriginKeyBindings + lang/en_us.json: the three Waypoints keybinds and labels.
+#  - OriginColorPicker: 1.21.1's draggable picker (Matrix3x2fStack pose here).
+#  - OriginWidgetOwnership: Mod Menu's pause-button subclass is skinned by Origin.
+#  - ModOption: the MULTISELECT kind the 1.21.1 menu draws.
+#  - ShaderDownloader: hardened downloads (sanitized names, .part cleanup, length check).
+#  - wordmark / mod_icons art + icon.png: 1.21.1's Inter ExtraBold mark, Origin's
+#    own 24-grid icon set (mod_icons_sdf.png is not in shared/ at all) and the
+#    high-resolution mod icon.
+client/java/com/origin/client/client/OriginKeyBindings.java
+client/resources/assets/originclient/lang/en_us.json
+client/java/com/origin/client/client/gui/OriginColorPicker.java
+client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
+client/java/com/origin/client/client/mods/ModOption.java
+client/java/com/origin/client/client/shaders/ShaderDownloader.java
+client/resources/assets/originclient/textures/ui/wordmark.png
+client/resources/assets/originclient/textures/ui/wordmark.json
+client/resources/assets/originclient/textures/ui/mod_icons.png
+client/resources/assets/originclient/textures/ui/mod_icons.json
+main/resources/assets/originclient/icon.png

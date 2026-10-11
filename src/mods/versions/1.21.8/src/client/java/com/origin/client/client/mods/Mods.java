@@ -118,7 +118,8 @@ public final class Mods {
 				ModOption.toggle("showBrackets", "Show Brackets", false),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("cps", "CPS", "Clicks per second.", false,
 				ModOption.toggle("rightClick", "Right Click CPS", false),
@@ -127,7 +128,8 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
@@ -158,7 +160,8 @@ public final class Mods {
 				ModOption.dropdown("damageThreshold", "Damage Threshold Type", "Percent", "Value").tip("Whether Damage Color kicks in by percent remaining (<25%) or raw durability left (<50)."),
 				ModOption.header("Color"),
 				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
-				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."));
+				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("keystrokes", "Key Strokes", "On-screen key display.", false,
 				ModOption.toggle("showClicks", "Show Clicks", true),
@@ -217,7 +220,8 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
-				ModOption.color("color", "Text Color", 0xFFFFFFFF));
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x99000000));
 
 		add("scoreboard", "Scoreboard", "Server scoreboard styling.", false,
 				ModOption.toggle("hideNumbers", "Hide Numbers", false),
@@ -283,7 +287,7 @@ public final class Mods {
 				ModOption.slider("lineWidth", "Line Width", 1, 6, 1, 1, "%.0f"),
 				ModOption.color("lineColor", "Line Color", 0xFFFFFFFF),
 				ModOption.toggle("showHittable", "Show Hittable Color", false).tip("Tint the hitbox of whatever your crosshair is on."),
-				ModOption.color("hittableColor", "Hittable Color", 0xFF7FA98F).under("showHittable"),
+				ModOption.color("hittableColor", "Hittable Color", 0xFF7ACF9E).under("showHittable"),
 				ModOption.toggle("showDamaged", "Show Damaged Color", false).tip("Tint an entity's hitbox while it's taking damage."),
 				ModOption.color("damagedColor", "Damaged Color", 0xFFE05555).under("showDamaged"),
 				// Not under("players") and not self-only: the look ray is drawn on
@@ -307,36 +311,29 @@ public final class Mods {
 				ModOption.toggle("monsters", "Monsters", true),
 				ModOption.toggle("other", "Other Entities", true));
 
-		add("nametags", "Nametags", "Name tag rendering tweaks.", false,
-				ModOption.toggle("textShadow", "Nametag Text Shadow", true),
+		add("nametags", "Nametags", "Customize name tag rendering.", false,
+				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("thirdPerson", "Third Person Nametag", true),
-				ModOption.toggle("displayToggleMessage", "Display Toggle Nametags Message", true),
+				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
+				ModOption.slider("opacity", "Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
+				ModOption.color("backgroundColor", "Background Color", 0x66000000)
+						.tip("The tint + opacity of the box behind every nametag."),
+				ModOption.toggle("overrideColor", "Custom Text Color", false)
+						.tip("Recolour every player nametag's text to a colour you pick."),
+				ModOption.color("textColor", "Text Color", 0xFFFFFFFF).under("overrideColor"),
+				ModOption.header("Your Nametag"),
+				ModOption.toggle("ownOverride", "Override Your Own Nametag", false)
+						.tip("Give your own tag a different colour from everyone else's."),
+				ModOption.color("ownTextColor", "Your Text Color", 0xFFFFFFFF).under("ownOverride"),
+				ModOption.color("ownBackgroundColor", "Your Background Color", 0x66000000).under("ownOverride"),
+				ModOption.header("Toggle Keybinds"),
 				ModOption.keybind("toggleAll", "Toggle All Nametags", -1),
 				ModOption.keybind("togglePlayers", "Toggle Player Nametags Only", -1),
-				ModOption.toggle("hideInF1", "Hide Nametags in F1", true),
-				ModOption.slider("opacity", "Nametag Opacity", 0.1, 1.0, 0.05, 1.0, "%.0f%%"),
-				ModOption.toggle("replaceOwnColor", "Replace Own Nametag Color", false));
+				ModOption.toggle("displayToggleMessage", "Show Toggle Message", true));
 
-		add("weather", "Weather Changer", "Force a client weather mode.", false,
-				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),
-				ModOption.toggle("thunder", "Thunder", false),
-				ModOption.toggle("playThunderSounds", "Play Thunder Sounds", true).under("thunder"));
-
-		add("timechanger", "Time Changer", "Set a fixed client time of day.", false,
-				ModOption.slider("time", "Time", 0, 24000, 100, 6000, "%.0f"),
-				ModOption.toggle("useRealTime", "Use Real Current Time", false),
-				ModOption.keybind("increaseKey", "Increase Time", GLFW.GLFW_KEY_RIGHT_BRACKET),
-				ModOption.keybind("decreaseKey", "Decrease Time", GLFW.GLFW_KEY_LEFT_BRACKET),
-				ModOption.toggle("timePassage", "Time Passage", false),
-				ModOption.slider("speed", "Speed", 0.1, 10, 0.1, 1.0, "%.1fx").under("timePassage"));
-
-		add("motionblur", "Motion Blur", "Frame-blend motion blur.", false,
-				ModOption.slider("amount", "Strength", 0, 10, 1, 3, "%.0f").tip("0 = off, 10 = maximum blur; smooth in between."));
-
-		add("colorsaturation", "Color Saturation", "Grade the whole screen's colour.", false,
-				ModOption.slider("saturation", "Saturation", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = greyer, up = more vivid."),
-				ModOption.slider("brightness", "Brightness", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = darker, up = brighter."),
-				ModOption.slider("contrast", "Contrast", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = flatter, up = punchier."));
+		// Item Size Customizer — the per-item scales live in ItemSizes (its own file);
+		// this entry is just the on/off switch + the card that opens the grid screen.
+		add("itemsize", "Item Size", "Set custom dropped-item render sizes per item.", false);
 
 		add("tablist", "Tab Editor", "Customize the player list overlay.", false,
 				ModOption.toggle("stickyToggle", "Sticky Tab", true)
@@ -370,6 +367,30 @@ public final class Mods {
 				ModOption.header("Background"),
 				ModOption.color("backgroundColor", "Background Color", 0x80000000));
 
+		add("weather", "Weather Changer", "Force a client weather mode.", false,
+				ModOption.dropdown("mode", "Weather Mode", "Clear", "Rain", "Thunder", "Snow"),
+				ModOption.toggle("thunder", "Thunder", false),
+				ModOption.toggle("playThunderSounds", "Play Thunder Sounds", true).under("thunder"));
+
+		add("timechanger", "Time Changer", "Set a fixed client time of day.", false,
+				ModOption.slider("time", "Time", 0, 24000, 100, 6000, "%.0f"),
+				ModOption.toggle("useRealTime", "Use Real Current Time", false),
+				ModOption.keybind("increaseKey", "Increase Time", GLFW.GLFW_KEY_RIGHT_BRACKET),
+				ModOption.keybind("decreaseKey", "Decrease Time", GLFW.GLFW_KEY_LEFT_BRACKET),
+				ModOption.toggle("timePassage", "Time Passage", false),
+				ModOption.slider("speed", "Speed", 0.1, 10, 0.1, 1.0, "%.1fx").under("timePassage"));
+
+		add("motionblur", "Motion Blur", "Frame-blend motion blur.", false,
+				ModOption.slider("amount", "Strength", 0, 10, 1, 3, "%.0f").tip("0 = off, 10 = maximum blur; smooth in between."));
+
+		// Color Saturation: a full-screen colour grade (ColorGrade + the
+		// origin_color_grade post shader). Each slider's MIDDLE (1.0x) is normal;
+		// down decreases, up increases. Applies to the whole rendered frame.
+		add("colorsaturation", "Color Saturation", "Grade the whole screen's colour.", false,
+				ModOption.slider("saturation", "Saturation", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = greyer, up = more vivid."),
+				ModOption.slider("brightness", "Brightness", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = darker, up = brighter."),
+				ModOption.slider("contrast", "Contrast", 0, 2, 0.05, 1.0, "%.2fx").tip("Middle = normal. Down = flatter, up = punchier."));
+
 		add("chat", "Chat", "Chat behavior and appearance.", false,
 				ModOption.toggle("unlimited", "Unlimited Chat", false).tip("Remove the limit on stored chat history length."),
 				ModOption.toggle("stackSpam", "Stack Spam Messages", true).tip("Collapse repeated messages into one line with a counter."),
@@ -382,6 +403,21 @@ public final class Mods {
 
 		add("particles", "Particle Changer", "Per-particle visibility and styling.", false,
 				buildParticleOptions());
+
+		// Waypoints: in-world markers (beam + label + distance). Its list + create/
+		// edit UI live in WaypointScreen (opened from the card or a keybind), so only
+		// the system-wide toggles live in the schema here. Death Waypoints / Confirm
+		// Before Delete are read live by Waypoints/WaypointScreen.
+		add("waypoints", "Waypoints", "In-world markers with beams, labels, and distance.", false,
+				ModOption.toggle("deathWaypoints", "Death Waypoints", true).tip("Auto-drop a waypoint where you die."),
+				ModOption.toggle("confirmDelete", "Confirm Before Delete", true).tip("Ask before removing a waypoint."),
+				ModOption.toggle("locatorBar", "Locator Bar", false)
+						.tip("A compass strip in the XP bar showing every waypoint's direction (max 2000 blocks)."),
+				ModOption.toggle("separateBar", "Separate Bar", false)
+						.tip("Detach the locator bar from the XP bar into a standalone, movable HUD element."));
+
+		// NO JEI card on 1.21.6-1.21.8: JEI never shipped a Fabric build for this
+		// range, so there is nothing to bundle and a card here would be a dead control.
 	}
 
 	// Assembles the Particle Changer option list: global controls, then a
@@ -422,13 +458,62 @@ public final class Mods {
 	private Mods() {
 	}
 
+	// O(1) lookup indexes, built once lazily. ALL and the two settings lists are
+	// fully populated at class-init and never mutated after, so a cached index is
+	// always valid. This matters a lot: the HUD reads hundreds of config options
+	// every frame, and every DEFAULT-valued read used to fall through to a linear
+	// scan over all mods (byId) + all of that mod's options (opt) — thousands of
+	// String.equals per frame at idle. Both are now HashMap gets. (Perf audit #1.)
+	private static volatile Map<String, Mod> BY_ID;
+	private static volatile Map<String, Map<String, ModOption>> OPT_IDX;
+
 	public static Mod byId(String id) {
-		for (Mod m : ALL) {
-			if (m.id().equals(id)) {
-				return m;
+		Map<String, Mod> idx = BY_ID;
+		if (idx == null) {
+			synchronized (Mods.class) {
+				idx = BY_ID;
+				if (idx == null) {
+					idx = new java.util.HashMap<>();
+					for (Mod m : ALL) {
+						idx.put(m.id(), m);
+					}
+					BY_ID = idx;
+				}
 			}
 		}
-		return null;
+		return idx.get(id);
+	}
+
+	/** The (key -> ModOption) map for a mod id or the GENERAL/PERFORMANCE pseudo-id;
+	 *  null for an unknown id. Backs {@link #opt} with an O(1) get. */
+	private static Map<String, ModOption> optsFor(String modId) {
+		Map<String, Map<String, ModOption>> idx = OPT_IDX;
+		if (idx == null) {
+			synchronized (Mods.class) {
+				idx = OPT_IDX;
+				if (idx == null) {
+					idx = new java.util.HashMap<>();
+					for (Mod m : ALL) {
+						idx.put(m.id(), indexOptions(m.options()));
+					}
+					// Pseudo-ids: the SETTINGS tab stores General/Performance options
+					// under ids that aren't in ALL — index them the same way so their
+					// schema defaults resolve (e.g. Entity Distance -> 100, not 0).
+					idx.put(GENERAL_ID, indexOptions(GENERAL_SETTINGS));
+					idx.put(PERFORMANCE_ID, indexOptions(PERFORMANCE_SETTINGS));
+					OPT_IDX = idx;
+				}
+			}
+		}
+		return idx.get(modId);
+	}
+
+	private static Map<String, ModOption> indexOptions(List<ModOption> opts) {
+		Map<String, ModOption> m = new java.util.HashMap<>(opts.size() * 2);
+		for (ModOption o : opts) {
+			m.put(o.key, o);
+		}
+		return m;
 	}
 
 	// ---- typed access (all read-through to ModsConfig with schema defaults) ----
@@ -563,28 +648,11 @@ public final class Mods {
 	}
 
 	private static ModOption opt(String modId, String key) {
-		// The SETTINGS tab stores under pseudo-ids that aren't in ALL, so resolve
-		// their schema (and thus their defaults) from the settings lists directly
-		// — otherwise every General/Performance option would fall back to 0/false
-		// before it's ever touched (e.g. Entity Distance -> 0 = cull everything).
-		List<ModOption> opts;
-		if (GENERAL_ID.equals(modId)) {
-			opts = GENERAL_SETTINGS;
-		} else if (PERFORMANCE_ID.equals(modId)) {
-			opts = PERFORMANCE_SETTINGS;
-		} else {
-			Mod m = byId(modId);
-			if (m == null) {
-				return null;
-			}
-			opts = m.options();
-		}
-		for (ModOption o : opts) {
-			if (o.key.equals(key)) {
-				return o;
-			}
-		}
-		return null;
+		// O(1) via the option index (see optsFor). The pseudo-id handling for the
+		// SETTINGS tab (General/Performance) is baked into the index so their schema
+		// defaults resolve (e.g. Entity Distance -> 100, not 0 = cull everything).
+		Map<String, ModOption> opts = optsFor(modId);
+		return opts == null ? null : opts.get(key);
 	}
 
 	// One-time seed from the legacy originclient.json flags so nobody loses

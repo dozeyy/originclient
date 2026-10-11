@@ -37,6 +37,13 @@ public final class OriginUi {
 
 	private static ResourceLocation trackTex, knobTex, glowTex, ringTex, logoTex, starTex;
 
+	// Theme-matched toggles: familiar state language without borrowing the
+	// operating system's exact colors (1.21.1's tokens).
+	private static final int IOS_ON = OriginTheme.SWITCH_ON;
+	private static final int IOS_OFF = OriginTheme.SWITCH_OFF;
+	private static final int IOS_ON_DISABLED = 0xFF3E5147;
+	private static final int IOS_OFF_DISABLED = 0xFF242A26;
+
 	// eased animation state keyed by arbitrary id (switch knobs, hovers)
 	private static final Map<String, double[]> ANIM = new HashMap<>(); // {value, lastNanos, target}
 
@@ -67,7 +74,11 @@ public final class OriginUi {
 	}
 
 	/**
-	 * A surface: rounded fill plus a 1px rounded border, anti-aliased.
+	 * The single block-surface primitive for the whole client: rounded fill plus a
+	 * 1px rounded border, anti-aliased per SCREEN pixel. Older screens may still
+	 * request pill-sized corner values, so every request is normalized to the
+	 * Workbench 1/2/3 px scale from the control's short edge (craftedRadius, as on
+	 * 1.21.1) -- a missed call site can never bring circular buttons back.
 	 *
 	 * Every Origin surface -- mod-menu cards, chips, tooltips, switches, the HUD
 	 * editor, the colour picker, and (through {@link #bevelPanel}) every menu
@@ -89,7 +100,7 @@ public final class OriginUi {
 		if (w <= 0 || h <= 0) {
 			return;
 		}
-		int r = Math.max(0, Math.min(corner, Math.min(w, h) / 2));
+		int r = craftedRadius(w, h, corner);
 		// SMALL, REPEATED panels (cards, cells, tabs, switches, chips) get the whole
 		// box baked once at their exact size and drawn as TWO tinted blits -- the
 		// same order of cost as 1.21.1's single SDF quad.
@@ -128,6 +139,19 @@ public final class OriginUi {
 	}
 
 	// ---- baked rounded-box masks (the anti-aliasing backend) ----
+
+	/** 1.21.1's Workbench radius scale: RADIUS_SM up to 24 px short edge,
+	 *  RADIUS_MD up to 56, RADIUS_LG above, never more than half the short edge. */
+	private static int craftedRadius(int w, int h, int requested) {
+		if (requested <= 0) {
+			return 0;
+		}
+		int shortEdge = Math.min(w, h);
+		int limit = shortEdge <= 24 ? OriginTheme.RADIUS_SM
+				: shortEdge <= 56 ? OriginTheme.RADIUS_MD
+				: OriginTheme.RADIUS_LG;
+		return Math.max(0, Math.min(Math.min(requested, limit), shortEdge / 2));
+	}
 
 	/** Largest side that gets a whole-box mask. Covers everything that repeats:
 	 *  mod-menu cards, grid cells, category tabs, switches and chips. */
@@ -341,26 +365,25 @@ public final class OriginUi {
 
 
 	/**
-	 * Rounded-box toggle (C4): a rectangular track with curved corners, a knob
-	 * that slides LEFT = off / RIGHT = on, green when on and red when off. Built
-	 * from the shared rounded-rect masks so it stays crisp at any size. Same
-	 * signature/geometry as before (wDisp x wDisp*8/15) so existing layouts and
-	 * hit-tests are unchanged. Returns knob progress 0..1.
+	 * Block switch (1.21.1's Workbench toggle): a crafted-radius track that eases
+	 * neutral (off) -> emerald (on), with a near-white square knob sliding LEFT =
+	 * off / RIGHT = on on the same 0..1 progress, so flipping it animates as one
+	 * motion. Same signature/geometry as before (wDisp x wDisp*8/15) so every
+	 * existing layout and hit-test is unchanged. Built from this era's baked
+	 * rounded-rect masks so it stays crisp at any size. Returns knob progress 0..1.
 	 */
 	public static float switchAt(GuiGraphics g, String id, int x, int y, int wDisp, boolean on, boolean enabled) {
 		int hDisp = wDisp * 8 / 15;
 		float k = anim("sw:" + id, on, 170.0);
 
-		// Track: red(off) -> green(on); disabled desaturates to gray so the whole
-		// control reads as unavailable without changing shape.
+		// Inventory-style block switch: neutral/off -> emerald/on.
 		int track = enabled
-				? OriginTheme.lerpColor(OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_ON, k)
-				: OriginTheme.lerpColor(0xFF3C3C3C, 0xFF565656, k);
-		// Block-built track; state changes color without changing geometry.
+				? OriginTheme.lerpColor(IOS_OFF, IOS_ON, k)
+				: OriginTheme.lerpColor(IOS_OFF_DISABLED, IOS_ON_DISABLED, k);
 		panel(g, x, y, wDisp, hDisp, OriginTheme.RADIUS_SM, track, OriginTheme.SWITCH_STROKE);
 
 		// Near-white square knob sliding between the track's inset ends.
-		int pad = Math.max(2, Math.round(hDisp * 0.15f));
+		int pad = Math.max(1, Math.round(hDisp * 0.12f));
 		int knob = hDisp - 2 * pad;
 		int travel = Math.max(0, wDisp - 2 * pad - knob);
 		int kx = x + pad + Math.round(k * travel);
@@ -370,23 +393,24 @@ public final class OriginUi {
 	}
 
 	/**
-	 * Mod icon. Now a real Minecraft item (or a baked Origin texture for the few
-	 * ideas no item expresses) -- see ModIcons. The old 96px line-icon atlas is
-	 * gone, so the `argb` tint no longer colours the art: a spyglass has to look
-	 * like a spyglass. Only the ALPHA is honoured, which is what callers actually
-	 * need it for -- the mod menu's open/close and page-swap fades.
+	 * Mod icon: Origin's own 24-grid line glyph from the mod_icons atlas (see
+	 * ModIcons), tinted with the FULL argb so icons follow the theme colour --
+	 * TEXT on a card, ACCENT when the mod is on, MUTED in a field. The alpha
+	 * carries the mod menu's open/close and page-swap fades.
 	 */
 	public static void icon(GuiGraphics g, String name, int x, int y, int size, int argb) {
-		ModIcons.draw(g, name, x, y, size, ((argb >>> 24) & 0xFF) / 255f);
+		ModIcons.draw(g, name, x, y, size, argb);
 	}
 
-	/** Soft radial glow centered at (cx,cy). */
+	/**
+	 * Cursor glow -- intentionally does nothing now (matches 1.21.1).
+	 *
+	 * A soft radial bloom is the opposite of the pixel grid: it's the one effect
+	 * that can't exist on Minecraft's grid at any size, because it IS the blur.
+	 * Kept as a no-op rather than deleted so the call sites (mod menu halo, HUD
+	 * editor) stay readable as "there was a glow here" and don't need touching.
+	 */
 	public static void glow(GuiGraphics g, double cx, double cy, int diameter, float alpha) {
-		ensureLoaded();
-		if (!ok) {
-			return;
-		}
-		g.blit(RenderPipelines.GUI_TEXTURED, glowTex, (int) (cx - diameter / 2.0), (int) (cy - diameter / 2.0), 0f, 0f, diameter, diameter, 512, 512, 512, 512, ARGB.white(alpha));
 	}
 
 	/** The 3-ring Origin mark (brand geometry: one ellipse at 0/60/120 deg). */
@@ -424,14 +448,18 @@ public final class OriginUi {
 	 *  radius). `y` is the pill top; value 0..1. Returns the knob center x. */
 	public static int slider(GuiGraphics g, int x, int y, int w, double value, boolean active) {
 		int h = 6;              // pill height
-		int r = 5;              // knob radius — travel is inset by r so the ball is flush at the ends
+		int r = 5;              // knob radius
 		double v = Math.max(0.0, Math.min(1.0, value));
 		int cy = y + h / 2;     // pill vertical center — the knob centers on this
 		panel(g, x, y, w, h, OriginTheme.RADIUS_SM, OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_STROKE);
-		int kx = x + r + (int) Math.round(v * (w - 2 * r));
+		// The knob CENTER travels the full track (x .. x+w) so it reaches both
+		// endpoints — at 0% its center sits on the left end, at 100% on the right
+		// end (the ball overhangs by its radius, like a standard slider). This
+		// also matches the drag hit-test, which maps the full track width to 0..1.
+		int kx = x + (int) Math.round(v * w);
 		int fw = kx - x;        // fill runs from the track start to the knob center
-		if (v > 0.001 && fw > 0) {
-			panel(g, x, y, Math.min(w, fw + r), h, OriginTheme.RADIUS_SM,
+		if (fw > 0) {
+			panel(g, x, y, Math.min(w, fw), h, OriginTheme.RADIUS_SM,
 					active ? OriginTheme.ACCENT_2 : OriginTheme.ACCENT, 0);
 		}
 		int kd = active ? r * 2 + 4 : r * 2 + 2;

@@ -15,4 +15,16 @@ public interface GameRendererAccessor {
 
 	@Invoker("clearPostEffect")
 	void originclient$clearPostEffect();
+
+	/**
+	 * The EFFECTIVE vertical fov in degrees -- the exact number vanilla builds this
+	 * frame's projection from, zoom included. Private here; WaypointHud needs it to
+	 * project world positions to the screen itself, because this era no longer
+	 * exposes the projection matrix through RenderSystem. Returns FLOAT from 1.21.2
+	 * (GameRendererMixin's CallbackInfoReturnable<Float> on the same method).
+	 * An invoker, not a value published from an inject, so it can never go stale
+	 * (the 1.21.11 "marker slides as I look around" lesson).
+	 */
+	@Invoker("getFov")
+	float originclient$getFov(net.minecraft.client.Camera camera, float partialTick, boolean usePerspective);
 }

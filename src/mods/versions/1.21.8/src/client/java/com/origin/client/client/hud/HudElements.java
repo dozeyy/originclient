@@ -8,9 +8,8 @@ import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -40,6 +39,11 @@ public final class HudElements {
 	// measure/hit-testing see the same preview the render shows.
 	public static volatile boolean editorPreview = false;
 
+	// The mod menu sets this while open: the scoreboard sample sits at the right
+	// edge and would stick out past the centered menu panel, so it's suppressed
+	// there (the menu is in front of everything). The HUD editor leaves it false.
+	public static volatile boolean suppressScoreboard = false;
+
 	public interface Renderer {
 		void render(GuiGraphics g, Minecraft mc, int w, int h);
 	}
@@ -68,16 +72,26 @@ public final class HudElements {
 		return mc.screen instanceof ChatScreen;
 	}
 
-	/** Standard text row backing, gated by the mod's Show Background toggle. */
+	/** Standard text row backing, gated by the mod's Show Background toggle. Uses
+	 *  the mod's OWN Background Color so the setting works identically on every HUD
+	 *  (Will 2026-07-21 — this was a hardcoded PANEL, so fps/cps/server ignored it).
+	 *  Every mod routed through here now carries a "bgColor" option (see Mods). */
 	private static void bg(GuiGraphics g, String modId, int w, int h) {
 		if (Mods.bool(modId, "showBackground")) {
-			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, PANEL, 0);
+			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, "bgColor"), 0);
 		}
 	}
 
 	private static void bgColored(GuiGraphics g, String modId, String colorKey, int w, int h) {
+		bgColored(g, modId, colorKey, null, w, h);
+	}
+
+	/** `borderKey` null = no outline. Passing one makes the mod's Border Color
+	 *  option real — Coordinates shipped that picker with nothing reading it. */
+	private static void bgColored(GuiGraphics g, String modId, String colorKey, String borderKey, int w, int h) {
 		if (Mods.bool(modId, "showBackground")) {
-			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, colorKey), 0);
+			int border = borderKey == null ? 0 : OriginColorPicker.liveColor(modId, borderKey);
+			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, colorKey), border);
 		}
 	}
 
@@ -154,10 +168,79 @@ public final class HudElements {
 					net.minecraft.util.Mth.wrapDegrees(pl.getYRot())));
 		}
 		if (Mods.bool("coords", "biome") && mc.level != null) {
-			var biome = mc.level.getBiome(BlockPos.containing(pl.position()));
-			lines.add("Biome: " + biome.unwrapKey().map(k -> k.location().getPath().replace('_', ' ')).orElse("unknown"));
+			lines.add("Biome: " + biomeName(mc.level.getBiome(BlockPos.containing(pl.position()))));
 		}
 		return lines;
+	}
+
+	// Biome display name: vanilla → Title Case ("Savanna Plateau" — first letter
+	// of each word, Will 2026-07-21); modded → the designer's translated name if
+	// they provide one, else the raw path — kept in the designer's own casing,
+	// never force-cased. Vanilla has no biome lang keys, hence the manual casing.
+	private static String biomeName(Holder<net.minecraft.world.level.biome.Biome> biome) {
+		var key = biome.unwrapKey();
+		if (key.isEmpty()) {
+			return "Unknown";
+		}
+		var loc = key.get().location();
+		String path = loc.getPath();
+		if (loc.getNamespace().equals("minecraft")) {
+			return titleCase(path.replace('_', ' '));
+		}
+		String tk = "biome." + loc.getNamespace() + "." + path;
+		String disp = net.minecraft.network.chat.Component.translatable(tk).getString();
+		return disp.equals(tk) ? path.replace('_', ' ') : disp;
+	}
+
+	private static String titleCase(String s) {
+		StringBuilder sb = new StringBuilder(s.length());
+		boolean cap = true;
+		for (char c : s.toCharArray()) {
+			if (c == ' ') {
+				cap = true;
+				sb.append(c);
+			} else if (cap) {
+				sb.append(Character.toUpperCase(c));
+				cap = false;
+			} else {
+				sb.append(c);
+			}
+		}
+		return sb.toString();
+	}
+
+	// Intuitive colour per biome family, keyword-matched on the id. Oceans scale
+	// warm→cold (lighter→darker) and deepen for the deep_ variants.
+	static int biomeColor(Holder<net.minecraft.world.level.biome.Biome> biome) {
+		var key = biome.unwrapKey();
+		if (key.isEmpty()) {
+			return TEXT;
+		}
+		String p = key.get().location().getPath().toLowerCase(java.util.Locale.ROOT);
+		if (p.contains("warm_ocean")) return 0xFF4FB6FF;
+		if (p.contains("lukewarm_ocean")) return p.contains("deep") ? 0xFF2A7FD6 : 0xFF3A97E6;
+		if (p.contains("frozen_ocean")) return p.contains("deep") ? 0xFF7FB0DD : 0xFF9FCBF0;
+		if (p.contains("cold_ocean")) return p.contains("deep") ? 0xFF163E86 : 0xFF1E56A8;
+		if (p.contains("ocean")) return p.contains("deep") ? 0xFF15408F : 0xFF2166CC;
+		if (p.contains("river")) return 0xFF3A97E6;
+		if (p.contains("swamp") || p.contains("mangrove")) return 0xFF3A6B2A;
+		if (p.contains("jungle")) return 0xFF2FA82F;
+		if (p.contains("forest") || p.contains("taiga") || p.contains("grove") || p.contains("wooded")) return 0xFF3FA34D;
+		if (p.contains("cherry")) return 0xFFFF9CC6;
+		if (p.contains("savanna")) return 0xFFC7B24A;
+		if (p.contains("plains") || p.contains("meadow") || p.contains("lush")) return 0xFF6FC24A;
+		if (p.contains("beach")) return 0xFFEAD9A0;
+		if (p.contains("desert")) return 0xFFE0C877;
+		if (p.contains("badlands") || p.contains("mesa")) return 0xFFD1662B;
+		if (p.contains("warped")) return 0xFF1FB6A6;
+		if (p.contains("crimson") || p.contains("nether") || p.contains("basalt") || p.contains("soul")) return 0xFFC0392B;
+		if (p.contains("frozen") || p.contains("snow") || p.contains("ice")) return 0xFFCFE6FF;
+		if (p.contains("end") || p.contains("void")) return 0xFFCBB0FF;
+		if (p.contains("mushroom")) return 0xFFC792E0;
+		if (p.contains("dripstone")) return 0xFFB07A55;
+		if (p.contains("deep_dark")) return 0xFF2A6E7A;
+		if (p.contains("stony") || p.contains("windswept") || p.contains("hills") || p.contains("peaks")) return 0xFFB8B8B8;
+		return TEXT;
 	}
 
 	/** Keystrokes vertical extent {top, bottom} of the currently-shown rows. */
@@ -189,7 +272,8 @@ public final class HudElements {
 	private static List<ItemStack> armorItems(Minecraft mc) {
 		List<ItemStack> items = new ArrayList<>();
 		if (mc.player != null) {
-			// 1.21.11: armor moved from an Inventory list to EntityEquipment slots.
+			// 1.21.6-1.21.8: armor moved from an Inventory list to EntityEquipment
+			// slots (1.21.5); read the four humanoid slots feet->head like the old list.
 			for (var slot : new net.minecraft.world.entity.EquipmentSlot[]{
 					net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.LEGS,
 					net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.HEAD}) {
@@ -260,11 +344,13 @@ public final class HudElements {
 			var p = g.pose();
 			p.pushMatrix();
 			p.scale(s, s);
-			bgColored(g, "coords", "bgColor", (int) (w / s), (int) (h / s));
+			bgColored(g, "coords", "bgColor", "borderColor", (int) (w / s), (int) (h / s));
 			boolean shadow = Mods.bool("coords", "textShadow");
+			var biomeH = mc.level != null ? mc.level.getBiome(BlockPos.containing(mc.player.position())) : null;
 			int y = 1;
 			for (String line : coordsLines(mc)) {
-				g.drawString(mc.font, line, 1, y, TEXT, shadow);
+				int col = (biomeH != null && line.startsWith("Biome:")) ? biomeColor(biomeH) : TEXT;
+				g.drawString(mc.font, line, 1, y, col, shadow);
 				y += 10;
 			}
 			p.popMatrix();
@@ -361,6 +447,37 @@ public final class HudElements {
 						g.drawString(mc.font, s, 0, 0, TEXT);
 					}
 				});
+
+		// ---- Scoreboard (movable + editable) ----
+		// A real draggable element: default at the right edge, centred (id "scoreboard",
+		// HudPos loaded by scoreboardPos()). In the editor it shows the sample; in-game
+		// it draws nothing here (the vanilla sidebar draws, repositioned by the mixin).
+		add("scoreboard", "scoreboard", "Scoreboard", new HudPos(5, -3, 0, 1.0),
+				mc -> sampleScoreboardSize(),
+				(g, mc, w, h) -> {
+					if (editorPreview && !suppressScoreboard) {
+						drawSampleScoreboard(g);
+					}
+				});
+
+		// ---- Locator Bar (Separate/movable mode) ----
+		// The draggable placement element for the separate locator bar. In normal
+		// gameplay the bar itself is drawn by WaypointHud.renderBars from the vanilla
+		// hotbar layer (same batch context as the XP bar — required so the gems land
+		// on top of the sprite); this element only draws the PREVIEW in the HUD
+		// editor / mod menu, and provides the drag target. Measuring 0×0 while off
+		// keeps it out of the editor until separate mode is enabled.
+		add("locatorbar", "waypoints", "Locator Bar", new HudPos(7, 0, -22, 1.0),
+				mc -> locatorBarActive() ? new int[]{182, 5} : new int[]{0, 0},
+				(g, mc, w, h) -> {
+					if (locatorBarActive() && (editorPreview || mc.screen instanceof HudEditorScreen)) {
+						com.origin.client.client.waypoints.WaypointHud.drawBar(g, mc, 0, 0, w, true);
+					}
+				});
+	}
+
+	private static boolean locatorBarActive() {
+		return Mods.bool("waypoints", "locatorBar") && Mods.bool("waypoints", "separateBar");
 	}
 
 	private static void add(String id, String modId, String label, HudPos def,
@@ -415,7 +532,7 @@ public final class HudElements {
 			return;
 		}
 		try {
-			// 1.21.11: effect icons come from Gui.getMobEffectSprite (an ResourceLocation,
+			// 1.21.6-1.21.8: effect icons come from Gui.getMobEffectSprite (a sprite id,
 			// not an atlas sprite) and blitSprite takes the RenderPipeline. Already
 			// fail-soft (the catch below falls back to a flat color swatch).
 			var sprite = mc.gui.getMobEffectSprite(effect);
@@ -473,7 +590,7 @@ public final class HudElements {
 			boolean dur = !durPos.equals("Hidden");
 			int wAct = vertical ? 19 + (dur ? 30 : 0) : items.size() * 19;
 			int hAct = vertical ? items.size() * 19 : 17 + (dur ? 10 : 0);
-			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, PANEL, 0);
+			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, OriginColorPicker.liveColor("armorhud", "bgColor"), 0);
 		}
 
 		int x = 0, y = 0;
@@ -525,7 +642,7 @@ public final class HudElements {
 		var p = g.pose();
 		p.pushMatrix();
 		p.scale(s, s);
-		p.translate(0, -ksBounds()[0]); // hug the topmost shown row
+		p.translate(0f, (float) -ksBounds()[0]); // hug the topmost shown row
 		var o = mc.options;
 		boolean movement = Mods.bool("keystrokes", "showMovement");
 		boolean arrows = Mods.bool("keystrokes", "arrows");
@@ -611,6 +728,67 @@ public final class HudElements {
 		}
 	}
 
+	// The Scoreboard is a real draggable HUD element ("scoreboard" in ALL). In the
+	// editor/menu it draws this SAMPLE at its HudPos; in-game it draws NOTHING here —
+	// the vanilla sidebar renders, repositioned to the same HudPos + scale by
+	// GuiScoreboardMixin. So dragging the sample moves the real scoreboard.
+	private static final String SB_TITLE = "Origin Network";
+	private static final String[][] SB_ROWS = {
+			{"Rank: ", "VIP"}, {"Coins: ", "1,234"}, {"Wins: ", "42"},
+			{"Map: ", "Skylands"}, {"Players: ", "12/16"}};
+
+	public static int[] sampleScoreboardSize() {
+		var font = Minecraft.getInstance().font;
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		int w = font.width(SB_TITLE);
+		for (String[] r : SB_ROWS) {
+			w = Math.max(w, font.width(r[0]) + (hideNums ? 0 : font.width(r[1]) + 10));
+		}
+		int lineH = font.lineHeight + 1;
+		return new int[]{w + 6, (SB_ROWS.length + 1) * lineH + 3};
+	}
+
+	/** The scoreboard element's placement — shared by the editor element AND the
+	 *  mixin that repositions the real sidebar. Default: right edge (inset 3), centred. */
+	public static HudPos scoreboardPos() {
+		return HudPos.load("scoreboard", new HudPos(5, -3, 0, 1.0));
+	}
+
+	// Draws the sample scoreboard at LOCAL (0,0) — the caller has already translated
+	// and scaled to the element's position.
+	private static void drawSampleScoreboard(GuiGraphics g) {
+		if (Mods.bool("scoreboard", "hideScoreboard")) {
+			return;
+		}
+		var font = Minecraft.getInstance().font;
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		boolean shadow = Mods.bool("scoreboard", "textShadow");
+		int headerColor = OriginColorPicker.liveColor("scoreboard", "headerColor");
+		int bg = OriginColorPicker.liveColor("scoreboard", "bgColor");
+		int[] sz = sampleScoreboardSize();
+		int boxW = sz[0], contentH = sz[1];
+		int lineH = font.lineHeight + 1;
+		OriginUi.panel(g, 0, 0, boxW, contentH, 0, bg, 0);
+		if (Mods.bool("scoreboard", "border")) {
+			int bt = (int) Math.max(1, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));
+			int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
+			g.fill(0, 0, boxW, bt, bc);
+			g.fill(0, contentH - bt, boxW, contentH, bc);
+			g.fill(0, 0, bt, contentH, bc);
+			g.fill(boxW - bt, 0, boxW, contentH, bc);
+		}
+		int ty = 2;
+		g.drawString(font, SB_TITLE, (boxW - font.width(SB_TITLE)) / 2, ty, headerColor, shadow);
+		ty += lineH + 1;
+		for (String[] r : SB_ROWS) {
+			g.drawString(font, r[0], 3, ty, TEXT, shadow);
+			if (!hideNums) {
+				g.drawString(font, r[1], boxW - 3 - font.width(r[1]), ty, 0xFFE05555, shadow);
+			}
+			ty += lineH;
+		}
+	}
+
 	/** Main in-game dispatcher: draws every enabled element at its anchored,
 	 *  scaled position. Skipped entirely while the HUD editor is open (the
 	 *  editor draws its own draggable versions). */
@@ -640,5 +818,19 @@ public final class HudElements {
 			}
 			p.popMatrix();
 		}
+		// Waypoint icon/name/distance overlay — screen-projected so it's always
+		// visible (through blocks) and untouched by world lighting/shaders.
+		try {
+			com.origin.client.client.waypoints.WaypointHud.render(g);
+		} catch (Throwable t) {
+			// must never take the HUD down — but log the FIRST failure so a broken
+			// overlay is visible in the log instead of silently absent on screen
+			if (!waypointHudWarned) {
+				waypointHudWarned = true;
+				com.origin.client.OriginClient.LOGGER.warn("Origin: waypoint HUD overlay failed", t);
+			}
+		}
 	}
+
+	private static boolean waypointHudWarned = false;
 }
