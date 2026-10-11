@@ -59,8 +59,32 @@ jobs:
 
       # Through sh so the build never depends on gradlew's executable bit
       # (Windows checkouts drop it; it is set in git as of this pipeline).
+      #
+      # Download hiccups: ~16 builds start at once and all fetch from Fabric's
+      # maven, which occasionally resets a connection ("Connection reset",
+      # "Could not GET ..."). Gradle then disables the repository for the rest
+      # of that run. So: more in-run retries, and if a run still fails on a
+      # DOWNLOAD error, start it again (what's already cached is kept). A
+      # compile error is never retried — it fails straight away.
       - name: Build mod (module ${{ matrix.module }})
-        run: sh ./gradlew build --no-daemon
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if sh ./gradlew build --no-daemon \
+                 -Dorg.gradle.internal.repository.max.retries=6 \
+                 -Dorg.gradle.internal.repository.initial.backoff=1500 2>&1 | tee gradle.log; then
+              exit 0
+            fi
+            if ! grep -qE "Could not (resolve|download|GET|HEAD|get resource)|Connection reset|Read timed out|Connect timed out|Remote host terminated" gradle.log; then
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "::warning::Download failure from a maven repository (attempt $attempt) — retrying in $((attempt * 20))s."
+              sleep $((attempt * 20))
+            fi
+          done
+          echo "::error::Dependency downloads kept failing after 3 attempts — the maven repository is likely down."
+          exit 1
 
       # Exactly one shippable jar per module: build/libs also holds the
       # -sources (and on some modules -dev) jars, which the csproj excludes too.
