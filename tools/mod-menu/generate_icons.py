@@ -111,6 +111,10 @@ PUBLIC_IDS.update({
     "soundchanger": "client.soundchanger",
     "itemphysics": "client.itemphysics",
 })
+# Lunar parity, batch 4b (2026-10-11) -- appended after every earlier cell.
+PUBLIC_IDS.update({
+    "worldeditcui": "client.worldeditcui",
+})
 
 
 def load_master():

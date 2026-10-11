@@ -394,6 +394,17 @@ LUNAR_BATCH2_ICONS = [
 ]
 ICONS += LUNAR_BATCH2_ICONS
 
+# Lunar parity, batch 4b (2026-10-11): WorldEdit CUI. Own list so it merges cleanly.
+LUNAR_BATCH4B_ICONS = [
+    icon("client.worldeditcui", "WorldEdit CUI", "VISUAL", """
+      <path d="M12 3.2l7.6 4.4v8.8L12 20.8l-7.6-4.4V7.6Z"/>
+      <path d="M4.4 7.6 12 12l7.6-4.4M12 12v8.8" opacity=".5"/>
+      <circle cx="4.4" cy="16.4" r="1.9" fill="currentColor" stroke="none"/>
+      <circle cx="19.6" cy="7.6" r="1.9" fill="currentColor" stroke="none"/>
+    """, "WorldEdit selection box"),
+]
+ICONS += LUNAR_BATCH4B_ICONS
+
 
 def svg_document(entry: dict) -> str:
     title = html.escape(entry["label"])

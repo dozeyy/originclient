@@ -155,6 +155,8 @@ public class OriginClientMod implements ClientModInitializer {
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
 		}
+		// WorldEdit CUI: its own plugin channel, tick and world-render hooks (fail-soft inside).
+		com.origin.client.client.worldedit.WorldEditCui.init();
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {

@@ -574,6 +574,29 @@ public final class Mods {
 		add("jei", "JEI", "Item and recipe viewer.", false);
 
 		registerLunarBatch2();
+		registerLunarBatch4b();
+	}
+
+	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----
+	// Lunar's published schema (Apollo mods/impl/ModWorldeditCui.java) has
+	// enabled=false, Position One (blue), Position Two (red) and Outline (green);
+	// those are Lunar's exactly. Show Grid / Grid Color / Line Thickness / See
+	// Through are Origin additions in the same spirit (WorldEditCUI's own
+	// renderer draws a grid and a dimmed see-through pass by default).
+	// Protocol + drawing: worldedit/WorldEditCui + worldedit/CuiRenderer.
+	private static void registerLunarBatch4b() {
+		add("worldeditcui", "WorldEdit CUI", "See your WorldEdit selection in the world.", false,
+				ModOption.toggle("grid", "Show Grid", true).tip("Draw a block grid across the selection's faces."),
+				ModOption.color("gridColor", "Grid Color", 0x8000FF00).under("grid"),
+				ModOption.slider("thickness", "Line Thickness", 1, 5, 1, 2, "%.0f"),
+				ModOption.toggle("seeThrough", "See Through Blocks", true)
+						.tip("Show the parts of the selection behind blocks, dimmed."),
+				ModOption.header("Color"),
+				ModOption.color("outlineColor", "Outline Color", 0xFF00FF00),
+				ModOption.color("pos1Color", "Position One Color", 0xFF0000FF)
+						.tip("The //pos1 corner (and a polygon's first point, or a sphere/cylinder's centre)."),
+				ModOption.color("pos2Color", "Position Two Color", 0xFFFF0000)
+						.tip("The //pos2 corner (and every later polygon point)."));
 	}
 
 	// ---- Lunar parity, batch 2: visuals / feel (2026-10-11) ----
