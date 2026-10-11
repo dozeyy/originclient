@@ -285,7 +285,6 @@ public class OriginModMenuScreen extends Screen {
 	private void vSetMulti(String id, String key, String csv) {
 		Mods.set(id, key, csv);
 	}
-	}
 
 	private int multiBtnW(int x0, int x1) {
 		return Math.min(180, Math.max(80, (x1 - x0) / 2));
