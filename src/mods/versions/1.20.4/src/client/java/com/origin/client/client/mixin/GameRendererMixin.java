@@ -8,19 +8,26 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin {
-	// Eased zoom progress + last-frame timestamp. getFov runs every FRAME, so
-	// easing here (frame-rate independent, time-based) makes Smooth Zoom glide
-	// instead of the old tick-side easing that only updated 20x/sec and looked
-	// choppy at high FPS.
+	// Eased zoom progress (0 = off, 1 = fully zoomed) + last-frame timestamp.
+	// Easing is time-based so Smooth Zoom glides at any frame rate instead of
+	// the old tick-side easing that only updated 20x/sec and looked choppy.
 	@Unique private static double originclient$zoomAnim = 0;
 	@Unique private static long originclient$lastNanos = 0;
 
-	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-	private void originclient$applyZoom(Camera camera, float partialTick, boolean usePerspective, CallbackInfoReturnable<Double> cir) {
+	// The ease advances ONCE per frame, here, and getFov below only READS it.
+	// It used to advance inside getFov, but getFov runs several times a frame
+	// (the world pass, the hand pass, Iris's passes), so each pass in the same
+	// frame saw a different FOV mid-ease -- the world and anything drawn with a
+	// later getFov call (block outline, hitboxes) disagreed for ~0.5s after
+	// every zoom in/out. `render` is matched by name with a CallbackInfo-only
+	// handler, so this binds on every era's GameRenderer.render signature.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$advanceZoom(CallbackInfo ci) {
 		boolean active = Mods.on("zoom") && OriginClientMod.zoomActive;
 		double target = active ? 1.0 : 0.0;
 
@@ -37,12 +44,19 @@ public class GameRendererMixin {
 		} else {
 			originclient$zoomAnim = target;
 		}
+	}
 
-		if (originclient$zoomAnim > 0.001) {
-			double vanilla = cir.getReturnValue();
-			double tfov = Mods.num("zoom", "fov") * OriginClientMod.zoomScrollFactor;
-			tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
-			cir.setReturnValue(vanilla + (tfov - vanilla) * originclient$zoomAnim);
+	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
+	private void originclient$applyZoom(Camera camera, float partialTick, boolean usePerspective, CallbackInfoReturnable<Double> cir) {
+		// usePerspective == false is the first-person HAND pass (renderItemInHand).
+		// Zoom never touches it: the held item stays its normal size, like
+		// OptiFine/Lunar zoom.
+		if (!usePerspective || originclient$zoomAnim <= 0.001) {
+			return;
 		}
+		double vanilla = cir.getReturnValue();
+		double tfov = Mods.num("zoom", "fov") * OriginClientMod.zoomScrollFactor;
+		tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
+		cir.setReturnValue(vanilla + (tfov - vanilla) * originclient$zoomAnim);
 	}
 }

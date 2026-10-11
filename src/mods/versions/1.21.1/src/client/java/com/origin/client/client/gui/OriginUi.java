@@ -309,6 +309,14 @@ public final class OriginUi {
 		pose.popPose();
 	}
 
+	/** Margin (GUI px) the SDF stroke quad extends past its shape so the shader's
+	 *  edge anti-aliasing has room to fade out. One device pixel is the most the
+	 *  ramp needs at GUI scale 1; 1.5 covers it with slack. Only rotated strokes
+	 *  need this: {@link #roundShader}'s panels are axis-aligned and pixel-snapped,
+	 *  so their quad edge IS a crisp pixel edge, and padding them would add a
+	 *  faint 1px halo around every panel in the menu. */
+	private static final float STROKE_AA_PAD = 1.5f;
+
 	/** Float-precise rounded box centred on the current pose origin (half-extents
 	 *  halfX×halfY, corner radius r). Same SDF path as {@link #roundShader} but
 	 *  without the integer quantisation, for crisp small vector icons. */
@@ -319,11 +327,20 @@ public final class OriginUi {
 		}
 		boolean hasBorder = ((border >>> 24) & 0xFF) > 0;
 		Matrix4f m = g.pose().last().pose();
+		// The quad is PADDED past the shape by STROKE_AA_PAD while RectHalf/Radius
+		// below stay the true shape. The fragment shader's anti-aliasing ramp,
+		// smoothstep(-aa, aa, d), needs pixels just OUTSIDE the shape (d > 0) to
+		// fade out over; a quad cut exactly at the shape's edge has none, so the
+		// outer half of the ramp was clipped and the edge came out as the quad's
+		// own rasterised staircase -- on rotated strokes (back chevron, pencil,
+		// close X) that read as jagged, low-res icons. UV carries the same local
+		// coordinates, so the padding is pure empty margin the shader discards.
+		float qx = halfX + STROKE_AA_PAD, qy = halfY + STROKE_AA_PAD;
 		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-		bb.addVertex(m, -halfX, -halfY, 0).setUv(-halfX, -halfY);
-		bb.addVertex(m, -halfX, halfY, 0).setUv(-halfX, halfY);
-		bb.addVertex(m, halfX, halfY, 0).setUv(halfX, halfY);
-		bb.addVertex(m, halfX, -halfY, 0).setUv(halfX, -halfY);
+		bb.addVertex(m, -qx, -qy, 0).setUv(-qx, -qy);
+		bb.addVertex(m, -qx, qy, 0).setUv(-qx, qy);
+		bb.addVertex(m, qx, qy, 0).setUv(qx, qy);
+		bb.addVertex(m, qx, -qy, 0).setUv(qx, -qy);
 		MeshData mesh = bb.build();
 		if (mesh == null) {
 			return;
