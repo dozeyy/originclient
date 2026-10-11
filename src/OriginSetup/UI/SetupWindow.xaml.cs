@@ -15,10 +15,19 @@ namespace OriginSetup.UI;
 // The installer: Welcome -> (Customize) -> Installing -> Done, plus a Problem
 // page that always says what to do next. All real work is in Engine/*; this
 // file only drives the pages.
+//
+// The launcher is downloaded, not carried: on open, the newest release is
+// looked up in the background so Welcome can name its version ("Update
+// 1.0.39 -> 1.0.40"); until that answers (or if it can't — offline), Welcome
+// reads without a version and the install looks the release up itself, so
+// any internet problem surfaces there, on the Problem page, with "Try again".
 public partial class SetupWindow : Window
 {
-    private readonly Payload? _payload;
     private readonly string _self;
+    private readonly string? _sourceZip; // --source: install this zip, no download
+    private LauncherRelease? _release;
+    private int _lookupGeneration;
+    private string? _footnoteOverride;
     private Registration.ExistingInstall? _existing;
     private readonly FrameworkElement[] _pages;
     private readonly int _recommendedRamMb;
@@ -33,18 +42,18 @@ public partial class SetupWindow : Window
 
     // Progress arrives from a worker thread; the UI samples it on a timer.
     private readonly DispatcherTimer _progressTimer;
-    private volatile int _stage;
-    private double _fraction;
+    private volatile InstallProgress _progress = new InstallProgress(InstallStage.Preparing, 0);
 
     private readonly DispatcherTimer _locationCheck;
 
-    public SetupWindow(Payload? payload, string self, string? startupProblem)
+    /// <param name="lookUpRelease">False for the CI screen tour, which must not touch the network.</param>
+    public SetupWindow(string self, string? sourceZip, bool lookUpRelease = true)
     {
         InitializeComponent();
-        _payload = payload;
         _self = self;
+        _sourceZip = sourceZip;
         _pages = new FrameworkElement[] { WelcomePage, CustomizePage, InstallingPage, DonePage, ProblemPage };
-        _existing = payload == null ? null : Registration.FindExisting();
+        _existing = Registration.FindExisting();
 
         _progressTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _progressTimer.Tick += (_, _) => RenderProgress();
@@ -66,14 +75,7 @@ public partial class SetupWindow : Window
 
         StartupToggle.IsChecked = SafeIsStartWithWindows();
 
-        if (startupProblem != null || payload == null)
-        {
-            ShowProblem("Setup can't continue", startupProblem ?? "This setup file doesn't contain Origin.", canRetry: false);
-            _loading = false;
-            return;
-        }
-
-        FillWelcome(payload);
+        FillWelcome();
         if (_existing != null)
         {
             LocationBox.Text = _existing.Directory;
@@ -87,6 +89,24 @@ public partial class SetupWindow : Window
         _loading = false;
         CheckLocation();
         ShowPage(WelcomePage, step: 1);
+        if (lookUpRelease && sourceZip == null) LookUpRelease();
+    }
+
+    // Best effort, in the background: only Welcome's wording depends on it.
+    private async void LookUpRelease()
+    {
+        int generation = ++_lookupGeneration;
+        try
+        {
+            var release = await Task.Run(() => ReleaseFeed.FindLatestAsync(Download.Shared, CancellationToken.None));
+            if (generation != _lookupGeneration || _installing) return;
+            _release = release;
+            FillWelcome();
+        }
+        catch (Exception ex)
+        {
+            SetupLog.Write("release lookup: " + ex.Message); // the install looks again, and words the problem
+        }
     }
 
     // A long path's useful part is its end ("...\OriginLauncher"), so show that.
@@ -100,45 +120,51 @@ public partial class SetupWindow : Window
 
     // ---------- Welcome ----------
 
-    private void FillWelcome(Payload payload)
+    private void FillWelcome()
     {
-        var newVersion = payload.AppVersion;
-        long sizeMb = payload.TotalSize / 1048576;
+        var newVersion = _release?.Version;
 
         if (_existing == null)
         {
-            WelcomeEyebrow.Text = $"ORIGIN LAUNCHER {newVersion}";
+            WelcomeEyebrow.Text = newVersion != null ? $"ORIGIN LAUNCHER {newVersion}" : "ORIGIN LAUNCHER";
             WelcomeTitle.Text = "Welcome to Origin";
-            WelcomeBody.Text = "Every Minecraft version, one clean launcher. Setup takes about a minute.";
+            WelcomeBody.Text = "Every Minecraft version, one clean launcher. Setup downloads the newest Origin — it takes about a minute.";
             InstallButton.Content = "Install";
             CustomizeInstallButton.Content = "Install";
-            WelcomeFootnote.Text = $"Installs to {InstallLocation.Default}  ·  {sizeMb} MB";
+            var size = _release?.Size is long bytes ? $"{bytes / 1048576} MB download" : "needs an internet connection";
+            WelcomeFootnote.Text = _footnoteOverride ?? $"Installs to {InstallLocation.Default}  ·  {size}";
             return;
         }
 
-        bool isUpdate = IsOlder(_existing.Version, newVersion);
-        WelcomeEyebrow.Text = isUpdate ? "UPDATE AVAILABLE" : "ALREADY INSTALLED";
-        WelcomeTitle.Text = isUpdate ? "Update Origin" : "Reinstall Origin";
-        WelcomeBody.Text = isUpdate
-            ? $"Version {_existing.Version} → {newVersion}. Your accounts, settings and worlds stay exactly as they are."
-            : $"Origin {newVersion} is ready to reinstall. It repairs the launcher — your accounts, settings and worlds stay exactly as they are.";
-        InstallButton.Content = isUpdate ? "Update" : "Reinstall";
+        // Without a version yet (still looking, or offline) the install fetches
+        // the newest one anyway, so "Update" is the honest word.
+        bool reinstall = newVersion != null && !IsOlder(_existing.Version, newVersion);
+        WelcomeEyebrow.Text = reinstall ? "ALREADY INSTALLED" : newVersion != null ? "UPDATE AVAILABLE" : "ALREADY INSTALLED";
+        WelcomeTitle.Text = reinstall ? "Reinstall Origin" : "Update Origin";
+        WelcomeBody.Text = reinstall
+            ? $"Origin {newVersion} is ready to reinstall. It repairs the launcher — your accounts, settings and worlds stay exactly as they are."
+            : newVersion != null && _existing.Version != null
+                ? $"Version {_existing.Version} → {newVersion}. Your accounts, settings and worlds stay exactly as they are."
+                : "Setup downloads the newest Origin and installs it over this one. Your accounts, settings and worlds stay exactly as they are.";
+        InstallButton.Content = reinstall ? "Reinstall" : "Update";
         CustomizeInstallButton.Content = InstallButton.Content;
-        WelcomeFootnote.Text = $"Installed in {_existing.Directory}";
+        WelcomeFootnote.Text = _footnoteOverride ?? $"Installed in {_existing.Directory}";
     }
 
-    private static bool IsOlder(string? installed, string incoming) =>
-        installed != null && Version.TryParse(installed, out var a) && Version.TryParse(incoming, out var b) && a < b;
+    private static bool IsOlder(string? installed, string? incoming) =>
+        installed != null && incoming != null && Version.TryParse(installed, out var a) && Version.TryParse(incoming, out var b) && a < b;
+
+    private static string TitleFor(string? version) => version != null ? $"Origin Launcher {version}" : "Origin Launcher";
 
     private void InstallButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_payload == null || _installing) return;
+        if (_installing) return;
 
         var dir = _existing?.Directory ?? ResolvedLocation();
         var problem = dir == null
             ? "Choose a folder."
             : InstallLocation.Problem(dir, InstallLocation.ProtectedRoots())
-              ?? InstallLocation.SpaceProblem(dir, _payload.TotalSize)
+              ?? InstallLocation.SpaceProblem(dir, Installer.SpaceEstimate)
               ?? InstallLocation.ProbeWritable(dir);
         if (problem != null)
         {
@@ -154,6 +180,7 @@ public partial class SetupWindow : Window
             StartWithWindows = StartupToggle.IsChecked == true,
             RamMb = _ramChanged ? (int)RamSlider.Value : (int?)null,
             DefaultVersion = (VersionCombo.SelectedItem as ComboBoxItem)?.Tag as string,
+            SourceZip = _sourceZip,
         };
 
         if (LauncherProcess.IsRunning())
@@ -190,7 +217,6 @@ public partial class SetupWindow : Window
 
     private void CheckLocation()
     {
-        if (_payload == null) return;
         if (_existing != null)
         {
             ShowLocationStatus("Origin is already installed here. To move it, uninstall it first.", isProblem: false);
@@ -199,7 +225,7 @@ public partial class SetupWindow : Window
         var dir = ResolvedLocation();
         var problem = dir == null
             ? "That folder name isn't valid."
-            : InstallLocation.Problem(dir, InstallLocation.ProtectedRoots()) ?? InstallLocation.SpaceProblem(dir, _payload.TotalSize);
+            : InstallLocation.Problem(dir, InstallLocation.ProtectedRoots()) ?? InstallLocation.SpaceProblem(dir, Installer.SpaceEstimate);
         if (problem != null)
         {
             ShowLocationStatus(problem, isProblem: true);
@@ -209,7 +235,7 @@ public partial class SetupWindow : Window
         // got its own subfolder); otherwise the box already says it.
         bool same = string.Equals(dir!.TrimEnd('\\'), LocationBox.Text.Trim().TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
         ShowLocationStatus(same
-            ? $"Ready — {_payload.TotalSize / 1048576} MB, in a folder of its own."
+            ? "Ready — Origin goes in a folder of its own."
             : $"Origin gets its own folder: {dir}", isProblem: false);
     }
 
@@ -275,18 +301,19 @@ public partial class SetupWindow : Window
     {
         _installing = true;
         _installedDir = options.Directory;
+        _footnoteOverride = null;
         _cts = new CancellationTokenSource();
         Bar.CanClose = false;
         CancelButton.Visibility = Visibility.Visible;
         CancelButton.IsEnabled = true;
         ProgressFill.BeginAnimation(WidthProperty, null);
         ProgressFill.Width = 0;
-        _fraction = 0;
-        _stage = (int)InstallStage.Preparing;
+        var release = _release;
+        _progress = new InstallProgress(InstallStage.Preparing, 0, version: release?.Version);
 
-        bool isUpdate = _existing != null && IsOlder(_existing.Version, _payload!.AppVersion);
-        InstallingEyebrow.Text = _existing == null ? "INSTALLING" : isUpdate ? "UPDATING" : "REINSTALLING";
-        InstallingTitle.Text = $"Origin Launcher {_payload!.AppVersion}";
+        bool reinstall = _existing != null && release != null && !IsOlder(_existing.Version, release.Version);
+        InstallingEyebrow.Text = _existing == null ? "INSTALLING" : reinstall ? "REINSTALLING" : "UPDATING";
+        InstallingTitle.Text = TitleFor(release?.Version);
         ShowPage(InstallingPage, step: 3);
         InstallingMark.SetSpeed(3.5);
         RenderProgress();
@@ -294,20 +321,16 @@ public partial class SetupWindow : Window
 
         try
         {
-            var payload = _payload!;
             var token = _cts.Token;
-            await Task.Run(() => Installer.Run(payload, _self, options, (stage, fraction) =>
-            {
-                _stage = (int)stage;
-                Interlocked.Exchange(ref _fraction, fraction);
-            }, token));
+            await Task.Run(() => Installer.Run(_self, options, release, p => _progress = p, token));
 
             _progressTimer.Stop();
-            _stage = (int)InstallStage.Done;
-            Interlocked.Exchange(ref _fraction, 1);
             RenderProgress();
             await Task.Delay(450); // let the bar land before the page changes
-            DoneTitle.Text = _existing == null ? "You're all set" : isUpdate ? "Origin is up to date" : "Origin is repaired";
+            var installed = _progress.Version;
+            DoneTitle.Text = _existing == null ? "You're all set"
+                : _existing.Version != null && installed != null && !IsOlder(_existing.Version, installed) ? "Origin is repaired"
+                : "Origin is up to date";
             ShowPage(DonePage, step: 4);
             DoneMark.SetSpeed(1);
         }
@@ -326,19 +349,25 @@ public partial class SetupWindow : Window
 
     private void RenderProgress()
     {
-        var stage = (InstallStage)_stage;
-        double f = Math.Max(0, Math.Min(1, Interlocked.CompareExchange(ref _fraction, 0, 0)));
+        var p = _progress;
+        double f = Math.Max(0, Math.Min(1, p.Fraction));
         PageMotion.Width(ProgressFill, ProgressTrack.ActualWidth > 0 ? ProgressTrack.ActualWidth * f : 380 * f);
         PercentText.Text = $"{f * 100:0}%";
-        StageText.Text = stage switch
+        StageText.Text = _cts?.IsCancellationRequested == true && p.Stage <= InstallStage.Unpacking ? "Cancelling" : p.Stage switch
         {
             InstallStage.Preparing => "Getting ready",
+            InstallStage.Downloading when p.Bytes > 0 && p.TotalBytes is long total =>
+                $"Downloading  ·  {p.Bytes / 1048576} of {total / 1048576} MB",
+            InstallStage.Downloading when p.Bytes > 0 => $"Downloading  ·  {p.Bytes / 1048576} MB",
+            InstallStage.Downloading => "Downloading Origin",
             InstallStage.Unpacking => "Unpacking Origin",
             InstallStage.Finishing => "Adding shortcuts",
             _ => "Done",
         };
+        // The version becomes known mid-install when Welcome couldn't look it up.
+        if (p.Version != null) InstallingTitle.Text = TitleFor(p.Version);
         // Past unpacking, files are being moved into place: no turning back.
-        if (stage >= InstallStage.Finishing) CancelButton.Visibility = Visibility.Hidden;
+        if (p.Stage >= InstallStage.Finishing) CancelButton.Visibility = Visibility.Hidden;
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -355,15 +384,25 @@ public partial class SetupWindow : Window
 
         if (all.Any(e => e is OperationCanceledException))
         {
-            WelcomeFootnote.Text = "Install cancelled — nothing was changed.";
+            _footnoteOverride = "Install cancelled — nothing was changed.";
+            FillWelcome();
             ShowPage(WelcomePage, step: 1);
             return;
         }
+        // Look the release up afresh, so "Try again" never retries a stale link.
+        if (_sourceZip == null)
+        {
+            _release = null;
+            LookUpRelease();
+        }
         var first = all[0];
-        if (first is SetupException se)
+        if (first is DownloadException de)
+            ShowProblem("Couldn't download Origin", de.Message, canRetry: true);
+        else if (first is SetupException se)
             ShowProblem("Origin wasn't installed", se.Message, canRetry: true);
         else if (first is InvalidDataException || first is EndOfStreamException)
-            ShowProblem("This setup file is damaged", "Part of the download is missing or corrupted. Download OriginLauncher-Setup.exe again and run the new copy.", canRetry: false);
+            // Only a local --source zip gets here; a damaged download is a DownloadException.
+            ShowProblem("This Origin package is damaged", "The launcher package Setup was given is incomplete or corrupted.", canRetry: false);
         else if (first is UnauthorizedAccessException || first is IOException)
             ShowProblem("Origin wasn't installed", "A file couldn't be written. Close anything that might be using Origin's folder (or pause your antivirus scan), then try again.", canRetry: true);
         else
@@ -392,6 +431,7 @@ public partial class SetupWindow : Window
     private void RetryButton_Click(object sender, RoutedEventArgs e)
     {
         CopyDetailsButton.Content = "Copy details";
+        FillWelcome();
         ShowPage(WelcomePage, step: 1);
     }
 
@@ -464,24 +504,26 @@ public partial class SetupWindow : Window
         if (_installing)
         {
             e.Cancel = true;
-            if ((InstallStage)_stage <= InstallStage.Unpacking) CancelButton_Click(this, new RoutedEventArgs());
+            if (_progress.Stage <= InstallStage.Unpacking) CancelButton_Click(this, new RoutedEventArgs());
         }
     }
 
     // ---------- CI screenshot tour (RenderTour.cs) — puts the window in each state without doing any work ----------
 
+    internal void TourRelease(LauncherRelease release) => _release = release;
+
     internal void TourWelcome(string? installedVersion)
     {
         _existing = installedVersion == null ? null
             : new Registration.ExistingInstall(InstallLocation.Default, installedVersion, isLegacyInno: false);
-        FillWelcome(_payload!);
+        FillWelcome();
         ShowPage(WelcomePage, step: 1);
     }
 
     internal void TourCustomize(string? problem)
     {
         _existing = null;
-        FillWelcome(_payload!);
+        FillWelcome();
         LocationBox.IsReadOnly = false;
         BrowseButton.IsEnabled = true;
         ShowPage(CustomizePage, step: 2);
@@ -489,13 +531,12 @@ public partial class SetupWindow : Window
         else CheckLocation();
     }
 
-    internal void TourInstalling(double fraction)
+    internal void TourInstalling(InstallProgress progress)
     {
         InstallingEyebrow.Text = "INSTALLING";
-        InstallingTitle.Text = $"Origin Launcher {_payload!.AppVersion}";
+        InstallingTitle.Text = TitleFor(progress.Version);
         ShowPage(InstallingPage, step: 3);
-        _stage = (int)InstallStage.Unpacking;
-        Interlocked.Exchange(ref _fraction, fraction);
+        _progress = progress;
         CancelButton.Visibility = Visibility.Visible;
         RenderProgress();
     }
@@ -507,7 +548,7 @@ public partial class SetupWindow : Window
     }
 
     internal void TourProblem() =>
-        ShowProblem("Origin wasn't installed", "Origin can't write to that folder. Choose one you have access to.", canRetry: true);
+        ShowProblem("Couldn't download Origin", DownloadException.CantConnect, canRetry: true);
 
     internal void TourOriginOpen()
     {

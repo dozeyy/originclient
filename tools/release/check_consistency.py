@@ -12,6 +12,10 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
 3. Typography — src/OriginSetup/Theme/Typography.xaml is the launcher's
    Theme/Typography.xaml with only the font resource path changed (a WPF
    resource path names its assembly).
+4. The release feed — the installer downloads the launcher from the same
+   GitHub release asset the launcher self-updates from: owner, repo, tag
+   prefix and zip name in src/OriginSetup/Engine/ReleaseFeed.cs must match
+   the launcher's Core/Updates/UpdateService.cs.
 
 Run from anywhere: python3 tools/release/check_consistency.py
 """
@@ -69,12 +73,24 @@ def check_typography() -> list[str]:
     return []
 
 
+def check_release_feed() -> list[str]:
+    def consts(path: Path) -> dict[str, str]:
+        return dict(re.findall(r'const string (Owner|Repo|TagPrefix|AssetName)\s*=\s*"([^"]*)"',
+                               path.read_text(encoding="utf-8")))
+    a = consts(SETUP / "Engine/ReleaseFeed.cs")
+    b = consts(LAUNCHER / "Core/Updates/UpdateService.cs")
+    names = ("Owner", "Repo", "TagPrefix", "AssetName")
+    if any(n not in a or n not in b for n in names):
+        return [f"release feed constants not found (installer {sorted(a)}, launcher {sorted(b)})"]
+    return [f"release feed {n}: installer {a[n]!r} vs launcher {b[n]!r}" for n in names if a[n] != b[n]]
+
+
 def main() -> int:
-    problems = check_versions() + check_handoff() + check_typography()
+    problems = check_versions() + check_handoff() + check_typography() + check_release_feed()
     for p in problems:
         print(f"::error::{p}")
     if not problems:
-        print("OK: version list, hand-off file name and typography agree across launcher and installer.")
+        print("OK: version list, hand-off file name, typography and release feed agree across launcher and installer.")
     return 1 if problems else 0
 
 

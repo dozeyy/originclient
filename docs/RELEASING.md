@@ -34,11 +34,13 @@ end to end):
    version **at the same time**, one job each ("Mods / Minecraft 1.21.1").
 3. **Build launcher + publish release** (Windows, ~4 min) — bundles all 16
    jars into the launcher (`.github/actions/publish-launcher`), **asserts
-   every live jar is really in it**, builds the Origin installer
-   `OriginLauncher-Setup.exe` (`.github/actions/build-installer`) and
-   **smoke-tests it**: a real silent install on the runner, every file
-   checked byte-for-byte plus shortcuts, Add/Remove Programs entry and
-   Start-with-Windows, then a silent uninstall checked to remove all of it.
+   every live jar is really in it**, zips it (`OriginLauncher-win-x64.zip`),
+   builds the small Origin installer `OriginLauncher-Setup.exe`
+   (`.github/actions/build-installer`) and **smoke-tests them**: a silent
+   install that downloads the newest published release for real, then a
+   silent install of this build's zip over it (every file checked
+   byte-for-byte plus shortcuts, Add/Remove Programs entry and
+   Start-with-Windows), then a silent uninstall checked to remove all of it.
    Only then does it publish the GitHub release with both the setup.exe and
    `OriginLauncher-win-x64.zip`, titled "Origin Launcher 1.0.N".
 
@@ -86,19 +88,37 @@ look (it links the launcher's theme files), Welcome → optional Customize
 Windows) → Installing → Done, and a matching uninstaller behind
 Add/Remove Programs.
 
-- **.NET Framework 4.7.2** (built into Windows 10/11), so the setup needs no
-  runtime: the app is ~0.5 MB and the launcher rides inside it as an LZMA
-  payload appended by `tools/installer/pack_payload.py` (~85 MB total, about
-  the same as the old Inno Setup exe).
-- **Safe by construction**: unpacks to a staging folder and checks every
-  chunk's checksum before touching the real install, so cancelling or a
-  damaged download never leaves a broken Origin. Takes over installs made by
-  the old Inno Setup installer in place (same Add/Remove Programs entry).
+- **Small, needs internet**: .NET Framework 4.7.2 (built into Windows
+  10/11), so the setup is ~1 MB and needs no runtime. It **downloads the
+  newest released launcher** — the latest release's
+  `OriginLauncher-win-x64.zip`, the same zip installed launchers self-update
+  from — on the Installing screen, with a real progress bar (MB and %).
+  So an old setup.exe still installs the newest Origin, and a release needs
+  no new setup.exe to reach new players.
+- **Finding the newest release** (`Engine/ReleaseFeed.cs`): the GitHub
+  releases API (gives size + SHA-256), falling back to the
+  `github.com/…/releases/latest` redirect when the API is rate-limited — no
+  API call, and still pinned to one version. Owner/repo/tag prefix/zip name
+  must match the launcher's `UpdateService` (`check_consistency.py` checks).
+- **Network trouble** (`Engine/Download.cs`): TLS 1.2 forced on; a dropped
+  or stalled (30 s) connection resumes where it stopped, up to 4 tries; then
+  a plain-words problem screen (no internet / connection dropped / server
+  trouble / damaged download) with **Try again**.
+- **Safe by construction**: downloads and unpacks into a staging folder
+  inside the install folder, verifying the download's size and SHA-256 and
+  every file's size and CRC-32, before touching the real install — so
+  cancelling, a dropped connection or a damaged download never leaves a
+  broken Origin. Takes over installs made by the old Inno Setup installer in
+  place (same Add/Remove Programs entry). The installed `uninstall.exe` is a
+  copy of the setup app.
+- `--source <zip>` installs from a local zip instead of downloading — CI's
+  smoke test uses it for the build it just made (not published yet).
 - Customize choices reach the launcher through a small hand-off file it
   applies on its next start (`Core/Install/SetupChoices.cs`).
 - **Every build-check renders every installer screen to pictures** (the
   "installer-screens" artifact on the run) — review UI changes there.
-- Engine tests: `dotnet test src/OriginSetup.Tests -f net8.0` (needs python3).
+- Engine tests: `dotnet test src/OriginSetup.Tests -f net8.0` (no network:
+  downloads run against an in-memory fake server).
 
 ## Labels
 
@@ -137,8 +157,8 @@ files touch. Issue forms (`.github/ISSUE_TEMPLATE/`) add `bug` /
 | `tools/release/notes.py` | release notes; `--backfill` rewrites past releases |
 | `.github/workflows/build-mods.yml` | builds a list of modules in parallel (shared by both workflows) |
 | `.github/actions/publish-launcher/` | bundle jars → `dotnet publish` → assert all jars present |
-| `.github/actions/build-installer/` | build OriginSetup, append payload, smoke-test install + uninstall (+ screen renders) |
-| `src/OriginSetup/` + `tools/installer/pack_payload.py` | the installer app and its payload packer |
+| `.github/actions/build-installer/` | zip the launcher, build OriginSetup, smoke-test download install + install of this build + uninstall (+ screen renders) |
+| `src/OriginSetup/` | the installer app (downloads the launcher zip from the newest release) |
 | `tools/release/check_consistency.py` | fails CI when launcher/installer copies of a fact drift apart |
 | `.github/workflows/build-check.yml` | every push: drift gate + all mods + launcher publish, ships nothing |
 | `.github/workflows/launcher-release.yml` | every `launcher-v*` tag: the release (Run workflow = rehearsal) |

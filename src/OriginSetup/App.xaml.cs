@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using OriginSetup.Engine;
 using OriginSetup.UI;
@@ -35,38 +36,25 @@ public partial class App : Application
     private void StartInstall(SetupArgs args, string self)
     {
         SetupLog.Start($"Origin Setup {string.Join(" ", Environment.GetCommandLineArgs().Skip(1))}");
-        Payload? payload = null;
-        string? problem = null;
-        try
-        {
-            payload = Payload.TryOpen(self);
-            if (payload == null)
-                problem = "This setup file doesn't contain Origin. Download OriginLauncher-Setup.exe again from the Origin website.";
-        }
-        catch (Exception ex) when (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException)
-        {
-            SetupLog.Write("payload: " + ex);
-            problem = "This setup file is damaged or incomplete. Download OriginLauncher-Setup.exe again.";
-        }
 
         if (args.Silent)
         {
-            Shutdown(problem == null ? RunSilentInstall(payload!, self, args) : 2);
+            Shutdown(RunSilentInstall(self, args));
             return;
         }
-        if (args.RenderTour != null && payload != null)
+        if (args.RenderTour != null)
         {
-            RenderTour.Run(args.RenderTour, payload, self);
+            RenderTour.Run(args.RenderTour, self);
             Shutdown(0);
             return;
         }
 
-        var window = new SetupWindow(payload, self, problem);
+        var window = new SetupWindow(self, args.Source);
         window.Closed += (_, _) => Shutdown();
         window.Show();
     }
 
-    private static int RunSilentInstall(Payload payload, string self, SetupArgs args)
+    private static int RunSilentInstall(string self, SetupArgs args)
     {
         try
         {
@@ -75,9 +63,11 @@ public partial class App : Application
             {
                 Directory = args.Dir != null ? InstallLocation.Resolve(args.Dir) : existing?.Directory ?? InstallLocation.Default,
                 StartWithWindows = args.StartWithWindows,
+                SourceZip = args.Source,
             };
             LauncherProcess.Close(TimeSpan.FromSeconds(5));
-            Installer.Run(payload, self, options, (stage, f) => { }, CancellationToken.None);
+            // Off the UI thread: the download is async underneath.
+            Task.Run(() => Installer.Run(self, options, null, _ => { }, CancellationToken.None)).GetAwaiter().GetResult();
             return 0;
         }
         catch (Exception ex)

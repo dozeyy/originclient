@@ -86,7 +86,7 @@ public class LocationTests
     [Fact]
     public void RealLiveModulesListParses()
     {
-        var versions = VersionChoices.Parse(File.ReadAllText(Path.Combine(Python.Repo, "src", "mods", "live-modules.json")));
+        var versions = VersionChoices.Parse(File.ReadAllText(Path.Combine(TestKit.Repo, "src", "mods", "live-modules.json")));
         Assert.Contains("1.21.1", versions);
         Assert.Equal(versions.Distinct().Count(), versions.Count);
         Assert.Equal("1.16.5", versions.Last()); // oldest last

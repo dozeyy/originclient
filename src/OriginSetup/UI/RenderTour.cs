@@ -12,29 +12,35 @@ namespace OriginSetup.UI;
 // every change — nothing is installed or removed. Rendered at 1.5x for detail.
 public static class RenderTour
 {
-    public static void Run(string outDir, Payload payload, string self)
+    public static void Run(string outDir, string self)
     {
         Directory.CreateDirectory(outDir);
         PageMotion.Instant = true;
 
-        var setup = new SetupWindow(payload, self, null) { ShowActivated = false };
+        // A stand-in release: the tour never touches the network.
+        const long mb = 1048576;
+        var setup = new SetupWindow(self, sourceZip: null, lookUpRelease: false) { ShowActivated = false };
+        setup.TourRelease(new LauncherRelease("1.0.40", "https://example.invalid/OriginLauncher-win-x64.zip", 126 * mb));
         setup.Show();
         setup.TourWelcome(null);              Snap(setup, outDir, "01-welcome");
         setup.TourWelcome("1.0.39");          Snap(setup, outDir, "02-welcome-update");
         setup.TourCustomize(null);            Snap(setup, outDir, "03-customize");
         setup.TourCustomize("Origin can't go in Program Files or Windows — it updates itself, which needs a folder you own.");
                                               Snap(setup, outDir, "04-customize-problem");
-        setup.TourInstalling(0.42);           Snap(setup, outDir, "05-installing");
-        setup.TourDone();                     Snap(setup, outDir, "06-done");
-        setup.TourProblem();                  Snap(setup, outDir, "07-problem");
-        setup.TourOriginOpen();               Snap(setup, outDir, "08-origin-open");
+        setup.TourInstalling(new InstallProgress(InstallStage.Downloading, 0.42, 53 * mb, 126 * mb, "1.0.40"));
+                                              Snap(setup, outDir, "05-downloading");
+        setup.TourInstalling(new InstallProgress(InstallStage.Unpacking, 0.88, version: "1.0.40"));
+                                              Snap(setup, outDir, "06-unpacking");
+        setup.TourDone();                     Snap(setup, outDir, "07-done");
+        setup.TourProblem();                  Snap(setup, outDir, "08-problem-offline");
+        setup.TourOriginOpen();               Snap(setup, outDir, "09-origin-open");
         setup.Close();
 
         var uninstall = new UninstallWindow(InstallLocation.Default) { ShowActivated = false };
         uninstall.Show();
-                                              Snap(uninstall, outDir, "09-uninstall-confirm");
-        uninstall.TourRemoving();             Snap(uninstall, outDir, "10-uninstall-removing");
-        uninstall.TourDone(keptData: true);   Snap(uninstall, outDir, "11-uninstall-done");
+                                              Snap(uninstall, outDir, "10-uninstall-confirm");
+        uninstall.TourRemoving();             Snap(uninstall, outDir, "11-uninstall-removing");
+        uninstall.TourDone(keptData: true);   Snap(uninstall, outDir, "12-uninstall-done");
         uninstall.Close();
     }
 

@@ -19,7 +19,6 @@ on:
       - "src/**"
       - "tools/shared-sync/**"
       - "tools/release/**"
-      - "tools/installer/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
       - ".github/actions/**"
@@ -28,7 +27,6 @@ on:
       - "src/**"
       - "tools/shared-sync/**"
       - "tools/release/**"
-      - "tools/installer/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
       - ".github/actions/**"
@@ -58,8 +56,9 @@ jobs:
       - name: Check launcher/installer consistency
         run: python3 tools/release/check_consistency.py
 
-      # The installer's engine: LZMA decoder, payload format, folder rules.
-      # Also compiles it for .NET Framework 4.7.2 (the API check).
+      # The installer's engine: release feed, download (resume, verify,
+      # failures — against a fake server), launcher zip, staging, folder
+      # rules. Also compiles it for .NET Framework 4.7.2 (the API check).
       - name: Test installer engine
         run: |
           dotnet build src/OriginSetup.Tests -f net472
@@ -100,10 +99,8 @@ jobs:
         with:
           jars-dir: modjars
 
-      # Same installer build + install/uninstall smoke test as a release, at
-      # fast compression.
+      # Same launcher zip + installer build and smoke test as a release.
       - name: Build + smoke-test installer
         uses: ./.github/actions/build-installer
         with:
-          level: "1"
           screenshots: "true"

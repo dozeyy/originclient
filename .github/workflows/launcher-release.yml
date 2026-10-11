@@ -22,8 +22,9 @@
 #   2. Mods       (Linux, parallel, ~2 min) build-mods.yml — one job per
 #                                changed module, all at once.
 #   3. Release    (Windows, ~4 min) bundle every jar into the WPF launcher,
-#                                build the Origin installer (src/OriginSetup)
-#                                and smoke-test it, publish the release.
+#                                zip it, build the small Origin installer
+#                                (src/OriginSetup, which downloads that zip)
+#                                and smoke-test both, publish the release.
 # The old single-job pipeline compiled every module back to back on one
 # Windows runner.
 #
@@ -147,19 +148,15 @@ jobs:
           jars-dir: modjars
           version: ${{ steps.ver.outputs.version }}
 
-      # Fresh-install path: the custom Origin installer (src/OriginSetup),
-      # smoke-tested here with a real silent install + uninstall before it
-      # can ship. The zip below stays the SELF-UPDATE path — an installed
-      # launcher swaps its own exe from it. Both ship on every release.
-      - name: Build + smoke-test installer
+      # Makes both release files. OriginLauncher-win-x64.zip is the launcher
+      # itself: installed launchers self-update from it, and the small
+      # OriginLauncher-Setup.exe (src/OriginSetup) downloads it from the
+      # newest release while it installs. Smoke-tested here (download
+      # install, install of this zip, uninstall) before either can ship.
+      - name: Build launcher zip + installer, smoke-test them
         uses: ./.github/actions/build-installer
         with:
           version: ${{ steps.ver.outputs.version }}
-          level: "6"
-
-      - name: Zip self-update package
-        shell: pwsh
-        run: Compress-Archive -Path publish\* -DestinationPath OriginLauncher-win-x64.zip
 
       - name: Keep rehearsal output as a run artifact
         if: env.REHEARSAL == 'true'

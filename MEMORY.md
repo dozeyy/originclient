@@ -123,6 +123,18 @@ always created), on its own branch/PR.
   clean; unins000.* and the old Start-menu group removed.
 - **Single-writer rule kept:** setup never writes settings.json; it drops
   setup-choices.json, which the launcher applies via SettingsStore.Update.
+- **SUPERSEDED same day (Will's call): setup now DOWNLOADS the launcher.**
+  The LZMA payload, decoder and pack_payload.py are gone; OriginLauncher-Setup.exe
+  is the bare ~1 MB app. On Installing it fetches the newest release's
+  OriginLauncher-win-x64.zip (the self-update zip — no new asset): releases API
+  first (size + SHA-256 "digest"), else the github.com/…/releases/latest
+  redirect (tag from the final URL, asset URL pinned to that tag). Download
+  resumes via HTTP Range on drops/30 s stalls (4 tries), then a Try-again
+  problem screen. Zip verified per file (CRC-32 read from the central
+  directory by hand — net472's ZipArchive never checks it). uninstall.exe =
+  a plain copy of setup. `--source <zip>` = install a local zip (CI smoke test
+  installs the zip it just built, after a real download install of the latest
+  published release). Engine tests use an in-memory FakeServer, no python.
   Launcher also refreshes DisplayVersion after self-updates and gained a
   Settings "Start with Windows" toggle. RAM rule now shared (RamAdvice):
   half the PC's RAM in whole GB ("16 GB" PC = 8 GB, not 7.75).

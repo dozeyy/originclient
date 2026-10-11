@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Tests for the installer's engine (src/OriginSetup/Engine) — the parts that
-    are pure logic and run anywhere: LZMA decoding, the payload format, folder
-    rules. Built for net472 too (never run there): that compile is what proves
-    the engine only uses APIs .NET Framework 4.7.2 has, on any OS. The tests
-    run on net8.0 (dotnet test -f net8.0) and need python3 on PATH — they
-    encode with Python's liblzma and tools/installer/pack_payload.py, the same
-    encoder CI ships with.
+    are pure logic and run anywhere: the release feed, the download (resume,
+    verification, failures — against a fake in-memory server, no network),
+    the launcher zip, staging, folder rules. Built for net472 too (never run
+    there): that compile is what proves the engine only uses APIs .NET
+    Framework 4.7.2 has, on any OS. The tests run on net8.0
+    (dotnet test -f net8.0).
   -->
   <PropertyGroup>
     <TargetFrameworks>net8.0;net472</TargetFrameworks>
@@ -30,6 +30,10 @@
   <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
     <Compile Remove="*.cs" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <!-- Same framework references as OriginSetup.csproj. -->
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.IO.Compression" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' != 'net472'">
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />

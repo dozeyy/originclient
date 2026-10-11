@@ -3,15 +3,15 @@
     Origin Setup — the custom installer (OriginLauncher-Setup.exe).
 
     Targets .NET Framework 4.7.2, which ships inside every supported Windows
-    10/11, so the installer needs no runtime and stays ~1 MB before the
-    launcher payload is appended (tools/installer/pack_payload.py). The
-    launcher itself is .NET 8; nothing here references it — the few files
-    both need are LINKED from the launcher (theme, RAM rule, registry names)
-    so the two can never drift apart.
+    10/11, so the installer needs no runtime and stays ~1 MB: it DOWNLOADS
+    the newest released launcher (OriginLauncher-win-x64.zip) while it
+    installs — see Engine/ReleaseFeed.cs. The launcher itself is .NET 8;
+    nothing here references it — the few files both need are LINKED from the
+    launcher (theme, RAM rule, registry names) so the two can never drift apart.
 
-    Build: dotnet build -c Release (Windows; CI's publish-launcher action
-    does it). The bare exe is useless on its own until the payload is
-    appended — it then runs as the uninstaller copy (no payload).
+    Build: dotnet build -c Release (Windows; CI's build-installer action does
+    it). The built OriginSetup.exe IS OriginLauncher-Setup.exe, and a copy of
+    it is the installed uninstall.exe (run with the uninstall switch).
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -38,6 +38,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <!-- In .NET Framework itself (nothing ships beside the exe), but not
+         referenced by default: the download (HttpClient), reading the release
+         feed's JSON, and unpacking the launcher zip. -->
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.IO.Compression" />
   </ItemGroup>
 
   <!-- The launcher's own theme, linked (not copied) so the installer looks

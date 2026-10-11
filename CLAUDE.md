@@ -101,7 +101,6 @@ tools/shared-sync/sync.py propagates shared/ into every module; --check is the
                           CI drift gate (build-check runs it on every push)
 tools/release/            plan.py (build vs reuse per version) + notes.py (release notes)
                           + check_consistency.py (launcher vs installer copies agree)
-tools/installer/          pack_payload.py — appends the launcher to OriginSetup.exe
 tools/github/labels.py    GitHub label set + PR auto-label rules
 tools/website/build_assets.py  website textures/fonts/icons/three.js from their real sources
 website/                  originclient.org: island-in-the-sky page (DOWNLOAD.live switch in js/site.js)
@@ -201,7 +200,10 @@ floating corner controls. In-game menus match this exactly.
 - **Custom installer (2026-10-11):** Inno Setup replaced by Origin Setup —
   themed Welcome/Customize/Installing/Done + uninstaller, smoke-tested
   (silent install/uninstall) and screen-rendered on every CI run. Not yet
-  run by hand on a real PC — first shipped in launcher-v1.0.40.
+  run by hand on a real PC — first shipped in launcher-v1.0.40. **Since
+  2026-10-11 (unreleased): a ~1 MB setup that DOWNLOADS the newest release's
+  launcher zip while installing** (needs internet; resume, verify, Try-again
+  screen) instead of carrying an 85 MB payload — docs/RELEASING.md → The installer.
 - **Release pipeline rebuilt 2026-10-10:** mod versions build in parallel on
   Linux (build-check ~2.5 min, release ~5-6 min, was 12-40); real release
   notes; GitHub labels + PR auto-labels; update download shows a full-screen
