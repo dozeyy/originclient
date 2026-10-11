@@ -123,6 +123,15 @@ PUBLIC_IDS.update({
     "hypixel": "client.hypixel",
 })
 
+# Lunar parity, batch 3a (2026-10-11) -- chat / server mods, appended after batch 3b.
+PUBLIC_IDS.update({
+    "autotext": "client.autotext",
+    "autogg": "client.autogg",
+    "nickhider": "client.nickhider",
+    "quickplay": "client.quickplay",
+    "screenshot": "client.screenshot",
+})
+
 
 def load_master():
     spec = importlib.util.spec_from_file_location("origin_icon_masters", MASTER)

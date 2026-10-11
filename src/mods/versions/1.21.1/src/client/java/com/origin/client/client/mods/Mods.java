@@ -576,6 +576,7 @@ public final class Mods {
 		registerLunarBatch2();
 		registerLunarBatch4b();
 		registerLunarBatch3b();
+		registerLunarBatch3a();
 	}
 
 	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----
@@ -793,6 +794,83 @@ public final class Mods {
 				ModOption.toggle("hideLeaveMessages", "Hide Friend/Guild Leave Messages", false),
 				ModOption.toggle("hideSoulWell", "Hide Soul Well Announcements", false),
 				ModOption.toggle("hideMysteryBox", "Hide Mystery Box Announcements", false));
+	}
+
+	// ---- Lunar parity, batch 3a: chat / server (2026-10-11) ----
+	// Lunar's published schema (github.com/LunarClient/Apollo, mods/impl/Mod*.java)
+	// only lists the server-controllable switches of these mods; the text fields,
+	// delays and keys below are the obvious set a Lunar player expects and are
+	// marked "inferred" in the batch notes. Defaults follow Lunar's where it
+	// publishes one (Nick Hider's hide-name/real-name/own-skin ON, Screenshot ON).
+	// Kept in its own method so it merges cleanly with other registry additions.
+	private static void registerLunarBatch3a() {
+		add("autotext", "Auto Text Hotkey", "Send a chat message or command with one key.", false,
+				AutoTextHotkey.options());
+
+		// Lunar keeps Auto GG inside its Hypixel mod; here it's its own card.
+		add("autogg", "Auto GG", "Say gg automatically when a game ends.", false,
+				ModOption.text("message", "Message", "gg")
+						.tip("Sent to all chat the moment a Hypixel game ends."),
+				ModOption.slider("delay", "Delay", 0, 5, 0.5, 1, "%.1fs")
+						.tip("Wait this long after the game ends before sending."),
+				ModOption.toggle("secondMessage", "Second Message", false)
+						.tip("Send a second line one second after the first."),
+				ModOption.text("secondText", "Second Message Text", "Have a good day!").under("secondMessage"),
+				// Anti GG lives in the Hypixel mod (batch 3b), next to Lunar's own row.
+				ModOption.header("Chat"),
+				ModOption.toggle("antiKarma", "Hide Karma Messages", false)
+						.tip("Hide Hypixel's \"+5 Karma!\" lines."));
+
+		add("nickhider", "Nick Hider", "Hide your name and skin, or everyone else's.", false,
+				ModOption.toggle("hideName", "Hide Your Name", true)
+						.tip("Show a name you pick wherever your in-game name appears: chat, tab, nametags, scoreboard."),
+				ModOption.text("name", "Your Name", "You").under("hideName"),
+				ModOption.toggle("customSuffix", "Custom Suffix", false)
+						.tip("Add a few characters after your replacement name."),
+				ModOption.text("suffix", "Suffix", "*").under("customSuffix"),
+				ModOption.toggle("hideRealName", "Hide Real Name", true)
+						.tip("Also hide your real account name -- it matters when you're nicked on a server."),
+				ModOption.toggle("hideOthersNames", "Hide Others' Names", false)
+						.tip("Every other player's name is shown as the name below."),
+				ModOption.text("othersName", "Others' Name", "Player").under("hideOthersNames"),
+				ModOption.toggle("hideLobbyId", "Hide Lobby ID", false)
+						.tip("Hide the server ID Hypixel shows next to the date on the scoreboard."),
+				ModOption.header("Skins"),
+				ModOption.toggle("hideOwnSkin", "Hide Your Skin", true)
+						.tip("You wear the default skin instead of your own."),
+				ModOption.toggle("useRealSkin", "Use Real Skin", true)
+						.tip("While you're nicked, see your real skin instead of the nick's. Only with Hide Your Skin off."),
+				ModOption.toggle("hideOthersSkin", "Hide Others' Skins", false)
+						.tip("Every other player wears a default skin."));
+
+		// G is unbound in vanilla 1.21.1 and unused elsewhere in Origin.
+		add("quickplay", "Quickplay", "Jump into any Hypixel game from one menu.", false,
+				ModOption.keybind("key", "Open Quickplay", GLFW.GLFW_KEY_G),
+				ModOption.keybind("requeueKey", "Play Again", -1)
+						.tip("Re-joins the last game you picked in Quickplay."),
+				ModOption.toggle("displayMessage", "Display Queue Message", true)
+						.tip("Show which game you're joining above the hotbar."));
+
+		// Will's design (2026-10-11): nothing is uploaded. Lunar's Upload / Tweet
+		// buttons are replaced by local actions -- copy the image, copy the file,
+		// open the folder -- and its Delete button is kept but off by default.
+		add("screenshot", "Screenshot", "A pop-up to copy or find each screenshot.", true,
+				ModOption.toggle("copyAutomatically", "Copy Automatically", false)
+						.tip("Put every new screenshot on the clipboard straight away."),
+				ModOption.slider("duration", "Pop-up Duration", 3, 15, 1, 6, "%.0fs")
+						.tip("How long the pop-up stays. It stays while you hover it with chat open."),
+				ModOption.toggle("chatMessage", "Chat Message", true)
+						.tip("Keep Minecraft's own \"Saved screenshot as...\" chat line."),
+				ModOption.keybind("copyKey", "Copy Last Screenshot", -1)
+						.tip("Copies the most recent screenshot's image to the clipboard."),
+				ModOption.header("Buttons"),
+				ModOption.toggle("copyImageButton", "Copy Image", true)
+						.tip("Copies the picture itself -- paste it straight into Discord."),
+				ModOption.toggle("copyFileButton", "Copy File", true)
+						.tip("Copies the file, like Ctrl+C in File Explorer."),
+				ModOption.toggle("openFolderButton", "Open Folder", true),
+				ModOption.toggle("deleteButton", "Delete", false)
+						.tip("Deletes the screenshot you just took."));
 	}
 
 	// Assembles the Particle Changer option list: global controls, then a
