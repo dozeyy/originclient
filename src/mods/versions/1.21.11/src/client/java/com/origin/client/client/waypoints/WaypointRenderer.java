@@ -7,8 +7,6 @@ import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.phys.Vec3;
 
 // The WORLD-SPACE half of waypoint rendering: the beam and the block highlight —
@@ -43,7 +41,7 @@ public final class WaypointRenderer {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || ctx.matrices() == null || ctx.consumers() == null) {
+		if (mc.player == null || mc.level == null || ctx.matrices() == null) {
 			return;
 		}
 		PoseStack pose = ctx.matrices();
@@ -52,7 +50,6 @@ public final class WaypointRenderer {
 
 		String dim = mc.level.dimension().identifier().toString();
 		Vec3 c = ctx.worldState().cameraRenderState.pos;
-		MultiBufferSource buf = ctx.consumers();
 		// Beam hard-cutoff distance (no fade): the player's render distance, in blocks.
 		double cutoff = mc.options.getEffectiveRenderDistance() * 16.0;
 
@@ -69,10 +66,10 @@ public final class WaypointRenderer {
 				drawBeam(pose, dx, dz, w.y - 3 - c.y, w.y + 160 - c.y, w.color);
 			}
 			if (w.highlightBlock) {
-				drawBlockOutline(pose, buf, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
+				drawBlockOutline(pose, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
 			}
 		}
-		OriginRenderTypes.draw();   // the beams
+		OriginRenderTypes.draw();   // the beams + highlight boxes, now
 	}
 
 	// The beam is REAL geometry (ThickLine.vertical), not a lines() segment:
@@ -93,9 +90,9 @@ public final class WaypointRenderer {
 	// "Highlight Block": a clean 12-edge box outline around the waypoint's block,
 	// in the waypoint's colour. Entirely self-contained — independent of the Block
 	// Outline mod (which only styles the crosshair-target block).
-	private static void drawBlockOutline(PoseStack pose, MultiBufferSource buf,
+	private static void drawBlockOutline(PoseStack pose,
 										 float x, float y, float z, int color) {
-		VertexConsumer vc = buf.getBuffer(RenderTypes.lines());
+		VertexConsumer vc = OriginRenderTypes.beginLines();
 		PoseStack.Pose last = pose.last();
 		int argb = opaque(color);
 		float x1 = x + 1f, y1 = y + 1f, z1 = z + 1f;

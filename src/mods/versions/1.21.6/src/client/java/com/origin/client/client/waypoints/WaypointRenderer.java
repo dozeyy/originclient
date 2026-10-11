@@ -7,8 +7,6 @@ import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.phys.Vec3;
 
 // The WORLD-SPACE half of waypoint rendering: the beam and the block highlight —
@@ -47,7 +45,6 @@ public final class WaypointRenderer {
 
 		String dim = mc.level.dimension().location().toString();
 		Vec3 c = ctx.camera().getPosition();
-		MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
 		// Beam hard-cutoff distance (no fade): the player's render distance, in blocks.
 		double cutoff = mc.options.getEffectiveRenderDistance() * 16.0;
 
@@ -64,11 +61,10 @@ public final class WaypointRenderer {
 				drawBeam(pose, dx, dz, w.y - 3 - c.y, w.y + 160 - c.y, w.color);
 			}
 			if (w.highlightBlock) {
-				drawBlockOutline(pose, buf, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
+				drawBlockOutline(pose, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
 			}
 		}
-		buf.endBatch();
-		OriginRenderTypes.draw();   // the beams
+		OriginRenderTypes.draw();   // the beams + highlight boxes, now
 	}
 
 	// The beam is REAL geometry (ThickLine.vertical), not a RenderType.lines()
@@ -89,9 +85,9 @@ public final class WaypointRenderer {
 	// "Highlight Block": a clean 12-edge box outline around the waypoint's block,
 	// in the waypoint's colour. Entirely self-contained — independent of the Block
 	// Outline mod (which only styles the crosshair-target block).
-	private static void drawBlockOutline(PoseStack pose, MultiBufferSource buf,
+	private static void drawBlockOutline(PoseStack pose,
 										 float x, float y, float z, int color) {
-		VertexConsumer vc = buf.getBuffer(RenderType.lines());
+		VertexConsumer vc = OriginRenderTypes.beginLines();
 		PoseStack.Pose last = pose.last();
 		int argb = (color >>> 24) == 0 ? (0xFF000000 | (color & 0xFFFFFF)) : color;
 		float x1 = x + 1f, y1 = y + 1f, z1 = z + 1f;

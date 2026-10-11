@@ -7,7 +7,6 @@ import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
@@ -21,6 +20,12 @@ import net.minecraft.world.phys.Vec3;
 // drawn on the spot) whose width IS the thickness; rings and the floor lattice
 // are short lines thickened with parallel offset passes (core-GL line width is
 // unreliable). Drawn from the world-render hook; colours carry their own alpha.
+// BOTH the posts and the lines go through OriginRenderTypes' private buffers and
+// are drawn before render() returns -- never the frame's shared buffer, which
+// Iris swaps for a deferred one that would draw them later under other matrices.
+// Coordinates are camera-relative (camera position subtracted once, here); the
+// pose is the context's identity stack and the camera rotation comes from
+// RenderSystem's model-view at draw time -- applied exactly once.
 public final class ChunkBorderRenderer {
 	private ChunkBorderRenderer() {
 	}
@@ -30,7 +35,7 @@ public final class ChunkBorderRenderer {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || context.consumers() == null || context.matrices() == null) {
+		if (mc.player == null || mc.level == null || context.matrices() == null) {
 			return;
 		}
 
@@ -44,7 +49,7 @@ public final class ChunkBorderRenderer {
 
 		PoseStack.Pose pose = context.matrices().last();
 		VertexConsumer posts = OriginRenderTypes.begin();
-		VertexConsumer buf = context.consumers().getBuffer(RenderType.lines());
+		VertexConsumer buf = OriginRenderTypes.beginLines();
 
 		if (Mods.bool("chunkborders", "grid")) {
 			int col = OriginColorPicker.liveColor("chunkborders", "color");
@@ -93,7 +98,7 @@ public final class ChunkBorderRenderer {
 			post(posts, pose, x0 - 16, z1 + 16, cy0, cy1, col, t);
 			post(posts, pose, x1 + 16, z1 + 16, cy0, cy1, col, t);
 		}
-		OriginRenderTypes.draw();   // the posts
+		OriginRenderTypes.draw();   // the posts + the ring/lattice lines, now
 	}
 
 	private static int thickness(String key) {

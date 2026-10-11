@@ -154,6 +154,10 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			}
 		});
+		// Vanilla's per-frame "draw the block outline?" flag, for the END_MAIN outline
+		// draw below (see BlockOverlayRenderer.outlineAllowedThisFrame).
+		WorldRenderEvents.END_EXTRACTION.register(context ->
+				com.origin.client.client.mods.BlockOverlayRenderer.outlineAllowedThisFrame = context.blockOutlines());
 		WorldRenderEvents.END_MAIN.register(context -> {
 			try {
 				ChunkBorderRenderer.render(context);

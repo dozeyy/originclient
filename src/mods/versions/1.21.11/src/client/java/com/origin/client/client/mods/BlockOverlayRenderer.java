@@ -21,8 +21,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 //   overlay  — a translucent fill over the block's shape (overlayColor).
 //   side     — with overlay on, fill ONLY the face the crosshair is on.
 // renderDirect returns TRUE when Origin drew. With the mod (or both sub-toggles)
-// off, wouldDraw() is false, the mixin leaves vanilla's own outline alone, and
-// nothing is drawn here.
+// off it draws the thin "hairline" version of vanilla's black outline, like every
+// other version; vanilla keeps only empty shapes (no outline on grass) and the
+// accessibility High Contrast outline. Only drawn on frames where vanilla itself
+// would outline (outlineAllowedThisFrame).
 //
 // Everything is drawn through OriginRenderTypes' private buffer and flushed
 // before returning, i.e. on the spot with the frame's matrices and depth --
@@ -47,6 +49,16 @@ public final class BlockOverlayRenderer {
 			loggedEvent = true;
 			com.origin.client.OriginClient.LOGGER.info("Origin[outline]: END_MAIN fired (matrices={}, consumers={})",
 					context.matrices() != null, context.consumers() != null);
+		}
+		// Vanilla's own per-frame "draw the outline?" decision (GameRenderer.
+		// shouldRenderBlockOutline: off with F1 / hidden GUI, in spectator without an
+		// interactable target, on blocks adventure mode can't touch...). The extracted
+		// outline state alone does NOT carry it -- extractBlockOutline fills it for any
+		// targeted block -- so without this check the outline showed through F1.
+		// Captured from END_EXTRACTION (outlineAllowedThisFrame), which fires earlier
+		// in the same renderLevel call.
+		if (!outlineAllowedThisFrame) {
+			return;
 		}
 		BlockOutlineRenderState octx = context.worldState().blockOutlineRenderState;
 		if (octx == null) {
@@ -74,32 +86,69 @@ public final class BlockOverlayRenderer {
 		}
 	}
 
+	/** Vanilla's renderLevel(..., renderBlockOutline, ...) flag for the current frame,
+	 *  published by OriginClientMod's END_EXTRACTION handler (Fabric's
+	 *  WorldExtractionContext.blockOutlines() is exactly that parameter). */
+	public static volatile boolean outlineAllowedThisFrame = true;
+
 	private static boolean loggedNoDraw = false;
 	private static boolean loggedThrow = false;
 
 	private static boolean loggedEvent = false;
 	private static boolean loggedTarget = false;
 
-	/** True when the mod would take over outline drawing for this target. */
+	/** True when Origin draws the outline for this target (and so cancels vanilla's):
+	 *  the custom outline/overlay when the mod is on, otherwise the hairline. */
 	public static boolean wouldDraw(BlockOutlineRenderState octx) {
-		return octx != null && Mods.on("blockoverlay")
-				&& (Mods.bool("blockoverlay", "outline") || Mods.bool("blockoverlay", "overlay"))
-				&& (octx.shape() != null || Mods.bool("blockoverlay", "showHiddenFoliage"));
+		if (octx == null) {
+			return false;
+		}
+		boolean modOn = Mods.on("blockoverlay");
+		boolean outline = modOn && Mods.bool("blockoverlay", "outline");
+		boolean overlay = modOn && Mods.bool("blockoverlay", "overlay");
+		boolean hasShape = octx.shape() != null && !octx.shape().isEmpty();
+		if (!outline && !overlay) {
+			// Hairline default (see renderDirect); High Contrast stays vanilla's.
+			return hasShape && !octx.highContrast();
+		}
+		return hasShape || Mods.bool("blockoverlay", "showHiddenFoliage");
 	}
 
 	/** Returns true when Origin drew the outline/overlay (caller cancels vanilla). */
 	public static boolean renderDirect(PoseStack poseStack, Vec3 cam, BlockOutlineRenderState octx) {
-		if (octx == null || !Mods.on("blockoverlay")) {
-			return false;
-		}
-		boolean outline = Mods.bool("blockoverlay", "outline");
-		boolean overlay = Mods.bool("blockoverlay", "overlay");
-		if (!outline && !overlay) {
+		if (!wouldDraw(octx)) {
 			return false;
 		}
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null) {
 			return false;
+		}
+		boolean modOn = Mods.on("blockoverlay");
+		boolean outline = modOn && Mods.bool("blockoverlay", "outline");
+		boolean overlay = modOn && Mods.bool("blockoverlay", "overlay");
+
+		// Mod off (or both sub-toggles off): the "normal" outline -- vanilla's black
+		// 40% look, but drawn as a HAIRLINE (Will: thinner than vanilla, whose GL
+		// line scales up to ~2.5px with resolution), exactly like every other
+		// version. Same ThickLine quads as the custom outline at a fixed tiny
+		// thickness, depth-tested like vanilla. wouldDraw() already excluded empty
+		// shapes (vanilla's "no outline on grass") and High Contrast.
+		if (!outline && !overlay) {
+			VoxelShape vs = octx.shape();
+			BlockPos hpPos = octx.pos();
+			double hx = hpPos.getX() - cam.x, hy = hpPos.getY() - cam.y, hz = hpPos.getZ() - cam.z;
+			net.minecraft.world.phys.AABB vb = vs.bounds();
+			double vcx = (vb.minX + vb.maxX) / 2.0 + hx;
+			double vcy = (vb.minY + vb.maxY) / 2.0 + hy;
+			double vcz = (vb.minZ + vb.maxZ) / 2.0 + hz;
+			PoseStack.Pose hp = poseStack.last();
+			VertexConsumer vq = OriginRenderTypes.begin();
+			vs.forAllEdges((x1, y1, z1, x2, y2, z2) ->
+					com.origin.client.client.render.ThickLine.edge(vq, hp,
+							x1 + hx, y1 + hy, z1 + hz, x2 + hx, y2 + hy, z2 + hz,
+							vcx, vcy, vcz, 0.002, 0f, 0f, 0f, 0.4f));
+			OriginRenderTypes.draw();
+			return true;
 		}
 		BlockPos pos = octx.pos();
 		// 1.21.11: the render state's 4-arg ctor only fills shape(); the other

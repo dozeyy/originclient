@@ -18,8 +18,11 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 //   outline  — custom-coloured selection outline; width 1..10 (ThickLine boxes).
 //   overlay  — a translucent fill over the block's shape (overlayColor).
 //   side     — with overlay on, fill ONLY the face the crosshair is on.
-// Returning false cancels vanilla's white outline so only ours shows; if both
-// sub-toggles are off (or the mod is off) we defer to vanilla.
+// Origin ALWAYS replaces vanilla's outline (returns false) whenever there is a
+// shape to outline: with the mod off it still draws, as the thin "hairline"
+// version of vanilla's black outline. Vanilla only draws where we return true
+// (empty shapes, so its "no outline on grass" behaviour is kept, and the
+// accessibility High Contrast outline).
 //
 // Everything is drawn through OriginRenderTypes' private buffer and flushed
 // before returning, i.e. at outline time with the right matrices and depth --
@@ -30,19 +33,41 @@ public final class BlockOverlayRenderer {
 	}
 
 	public static boolean onBlockOutline(WorldRenderContext wctx, BlockOutlineRenderState octx) {
-		if (!Mods.on("blockoverlay")) {
-			return true;
-		}
-		boolean outline = Mods.bool("blockoverlay", "outline");
-		boolean overlay = Mods.bool("blockoverlay", "overlay");
-		if (!outline && !overlay) {
-			return true;
-		}
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null || wctx.matrices() == null) {
 			return true;
 		}
+		boolean modOn = Mods.on("blockoverlay");
+		boolean outline = modOn && Mods.bool("blockoverlay", "outline");
+		boolean overlay = modOn && Mods.bool("blockoverlay", "overlay");
 		BlockPos pos = octx.pos();
+		var cam = wctx.worldState().cameraRenderState.pos;
+
+		// Mod off (or both sub-toggles off): the "normal" outline -- vanilla's black
+		// 40% look, but drawn as a HAIRLINE (Will: thinner than vanilla, whose GL
+		// line scales up to ~2.5px with resolution), exactly like every other
+		// version. Same ThickLine quads as the custom outline at a fixed tiny
+		// thickness, depth-tested like vanilla. Accessibility's High Contrast Block
+		// Outline is left to vanilla (its thick two-tone outline is the point).
+		if (!outline && !overlay) {
+			VoxelShape vs = octx.shape();
+			if (octx.highContrast() || vs == null || vs.isEmpty()) {
+				return true;   // grass/crops etc: vanilla draws nothing -- keep that
+			}
+			double hx = pos.getX() - cam.x, hy = pos.getY() - cam.y, hz = pos.getZ() - cam.z;
+			net.minecraft.world.phys.AABB vb = vs.bounds();
+			double vcx = (vb.minX + vb.maxX) / 2.0 + hx;
+			double vcy = (vb.minY + vb.maxY) / 2.0 + hy;
+			double vcz = (vb.minZ + vb.maxZ) / 2.0 + hz;
+			PoseStack.Pose hp = wctx.matrices().last();
+			VertexConsumer vq = OriginRenderTypes.begin();
+			vs.forAllEdges((x1, y1, z1, x2, y2, z2) ->
+					com.origin.client.client.render.ThickLine.edge(vq, hp,
+							x1 + hx, y1 + hy, z1 + hz, x2 + hx, y2 + hy, z2 + hz,
+							vcx, vcy, vcz, 0.002, 0f, 0f, 0f, 0.4f));
+			OriginRenderTypes.draw();
+			return false;
+		}
 		// 1.21.11 hands us the already-extracted interaction shape instead of
 		// the BlockState + entity collision context.
 		// Render state's short ctor only fills shape(); interactionShape() is NULL
@@ -57,7 +82,6 @@ public final class BlockOverlayRenderer {
 			}
 			shape = net.minecraft.world.phys.shapes.Shapes.block();
 		}
-		var cam = wctx.worldState().cameraRenderState.pos;
 		double ox = pos.getX() - cam.x;
 		double oy = pos.getY() - cam.y;
 		double oz = pos.getZ() - cam.z;

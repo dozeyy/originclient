@@ -77,9 +77,25 @@ public final class OriginRenderTypes {
 		return IMMEDIATE.getBuffer(OVERLAY_QUADS);
 	}
 
-	/** Draws everything emitted since begin(), NOW, with the current matrices
-	 *  and depth buffer. Call once at the end of each world-render callback. */
+	// Second private immediate buffer for vanilla's LINES type (chunk-border rings
+	// + floor lattice, the waypoint highlight box). A separate BufferSource, so
+	// lines and quads can be emitted interleaved: one immediate source holding two
+	// types would end -- and invalidate -- the first consumer when the second is
+	// requested. Same reason as IMMEDIATE: the frame's shared buffer (Iris swaps
+	// in its own) may flush later, under other matrices.
+	private static final MultiBufferSource.BufferSource LINES_IMMEDIATE =
+			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
+
+	/** The consumer to emit RenderType.lines() vertices into
+	 *  (addVertex + setColor + setNormal). Drawn by draw(). */
+	public static VertexConsumer beginLines() {
+		return LINES_IMMEDIATE.getBuffer(RenderType.lines());
+	}
+
+	/** Draws everything emitted since begin()/beginLines(), NOW, with the current
+	 *  matrices and depth buffer. Call once at the end of each world-render callback. */
 	public static void draw() {
 		IMMEDIATE.endBatch();
+		LINES_IMMEDIATE.endBatch();
 	}
 }
