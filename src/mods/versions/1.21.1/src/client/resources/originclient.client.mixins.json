@@ -67,7 +67,8 @@
 		"NickHiderCacheMixin",
 		"NickHiderSkinMixin",
 		"NickHiderLobbyMixin",
-		"ScreenshotKeyMixin"
+		"ScreenshotKeyMixin",
+		"SodiumOptionsRailMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
