@@ -83,7 +83,7 @@ public final class OriginTabList {
 		// The server's tab-list objective (health hearts or a number beside each name).
 		// Read straight from the scoreboard so it shows in both plain and custom modes.
 		Scoreboard scoreboard = mc.level != null ? mc.level.getScoreboard() : null;
-		Objective objective = scoreboard != null ? scoreboard.getDisplayObjective(Scoreboard.DISPLAY_SLOT_LIST) : null;
+		Objective objective = scoreboard != null ? scoreboard.getDisplayObjective(0) /* 1.16.5: slot 0 = player list (no named constant yet) */ : null;
 		boolean hearts = objective != null && objective.getRenderType() == ObjectiveCriteria.RenderType.HEARTS;
 
 		// Options only apply when customizing; otherwise use vanilla-like defaults.

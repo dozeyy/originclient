@@ -148,7 +148,7 @@ public final class OriginDevShots {
 		try {
 			switch (phase) {
 				case 0: {
-					mc.getWindow().setWindowed(s.w(), s.h());
+					org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), s.w(), s.h()); // 1.16.5: no Window.setWindowed
 					mc.options.guiScale = s.scale();
 					mc.resizeDisplay();
 					resizeRetries = 0;
@@ -171,7 +171,7 @@ public final class OriginDevShots {
 					int actualW = mc.getWindow().getWidth();
 					int actualH = mc.getWindow().getHeight();
 					if ((actualW != s.w() || actualH != s.h()) && resizeRetries++ < 8) {
-						mc.getWindow().setWindowed(s.w(), s.h());
+						org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), s.w(), s.h()); // 1.16.5: no Window.setWindowed
 						mc.resizeDisplay();
 						nextAt = now + 350;
 						return;

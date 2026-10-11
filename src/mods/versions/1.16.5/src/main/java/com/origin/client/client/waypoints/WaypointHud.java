@@ -25,8 +25,10 @@ public final class WaypointHud {
 	private WaypointHud() {
 	}
 
-	private static final Matrix4f VIEW = Matrix4f.createScaleMatrix(1f, 1f, 1f);
-	private static final Matrix4f PROJ = Matrix4f.createScaleMatrix(1f, 1f, 1f);
+	// 1.16.5's Matrix4f has no load(Matrix4f); each capture stores a copy() instead
+	// (the same call vanilla's PoseStack.pushPose uses on this version).
+	private static Matrix4f VIEW = Matrix4f.createScaleMatrix(1f, 1f, 1f);
+	private static Matrix4f PROJ = Matrix4f.createScaleMatrix(1f, 1f, 1f);
 	private static double camX, camY, camZ;
 	private static volatile boolean valid = false;
 
@@ -44,11 +46,11 @@ public final class WaypointHud {
 		// entirely by the PoseStack (camera rotation baked in) under the projection the
 		// world pass set, and Fabric hands both over in the context.
 		if (ctx.matrixStack() != null) {
-			VIEW.load(ctx.matrixStack().last().pose());
+			VIEW = ctx.matrixStack().last().pose().copy();
 		} else {
 			VIEW.setIdentity();
 		}
-		PROJ.load(ctx.projectionMatrix());
+		PROJ = ctx.projectionMatrix().copy();
 		net.minecraft.world.phys.Vec3 c = ctx.camera().getPosition();
 		camX = c.x;
 		camY = c.y;
