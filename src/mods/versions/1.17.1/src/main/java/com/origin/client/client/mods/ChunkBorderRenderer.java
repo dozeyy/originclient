@@ -7,6 +7,7 @@ import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
@@ -30,7 +31,7 @@ public final class ChunkBorderRenderer {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || context.consumers() == null || context.matrixStack() == null) {
+		if (mc.player == null || mc.level == null || context.matrixStack() == null) {
 			return;
 		}
 
@@ -43,7 +44,11 @@ public final class ChunkBorderRenderer {
 		double yMax = mc.level.getMaxBuildHeight() - cam.y;
 
 		PoseStack.Pose pose = context.matrixStack().last();
-		VertexConsumer buf = context.consumers().getBuffer(RenderType.lines());
+		// Rings + lattice: the frame's shared buffer, flushed WHOLE at the end of
+		// this method (see there). Fetched here rather than via
+		// context.consumers() so the flush is guaranteed to hit the same object.
+		MultiBufferSource.BufferSource shared = mc.renderBuffers().bufferSource();
+		VertexConsumer buf = shared.getBuffer(RenderType.lines());
 		VertexConsumer posts = OriginRenderTypes.begin();
 
 		if (Mods.bool("chunkborders", "grid")) {
@@ -94,6 +99,15 @@ public final class ChunkBorderRenderer {
 			post(posts, pose, x1 + 16, z1 + 16, cy0, cy1, col, t);
 		}
 		OriginRenderTypes.draw();   // the posts
+		// Flush the rings/lattice NOW, inside the LAST hook's identity-model-view
+		// window. Left in the shared buffer they were drawn by whoever ended it
+		// next (with the waypoints mod off: the hand pass, after a depth clear,
+		// under the hand projection). A full endBatch(), not endBatch(lines()):
+		// with Iris loaded this buffer is its batched source during the level
+		// pass, and its per-type endBatch is a deliberate no-op. Everything
+		// vanilla queued for the frame was already flushed in the translucent
+		// pass, so this only draws our lines.
+		shared.endBatch();
 	}
 
 	private static int thickness(String key) {

@@ -200,3 +200,22 @@ scoreboard, toasts, chat timestamps), shader browser + downloader + Iris bridge
    prone to.
 5. **Motion blur**: confirm the GLSL-110 program links and the blur actually shows
    (it's the one shader that was materially rewritten for the era).
+
+## World-render fixes (2026-10-11, round 2 — traced against real 1.16.4/1.16.5 source + Fabric API 0.42.0+1.16)
+- **WorldRenderEvents.LAST is inside a GL model-view push.** Fabric fires LAST before
+  `LevelRenderer.renderDebug(Camera)`, which sits in renderLevel's final
+  `RenderSystem.pushMatrix(); multMatrix(poseStack.last().pose())` (clouds/weather) block.
+  `context.matrixStack()` also carries the camera rotation, so anything posed by it was rotated
+  TWICE (waypoint beam/posts swung opposite to the camera). The LAST hook in OriginClientMod now
+  does `pushMatrix(); loadIdentity()` around our draws. BLOCK_OUTLINE is NOT inside a push (GL
+  model-view = identity there) — the outline was always rotated once.
+- **LAST-time lines use `OriginRenderTypes.WORLD_LINES`** (own state, MAIN target, private
+  buffer): the frame's shared buffer is Iris 1.4.5's batched source during the level pass
+  (`endBatch(RenderType)` is a no-op there), and vanilla `lines()` outputs to ITEM_ENTITY_TARGET,
+  which Fabulous composites before LAST.
+- **Zoom left chunks undrawn.** 1.16.5 builds the cull frustum from the frame's full projection
+  (zoom included; 1.17+ uses `max(fov, options.fov)`) and re-walks the visible-chunk list only on
+  camera move/turn, so zoom in → hold still → zoom out left everything outside the zoom cone
+  missing; a targeted block in a missing chunk showed all 12 outline edges ("back edges through
+  the block"). GameRendererMixin calls `LevelRenderer.needsUpdate()` (= yarn
+  scheduleTerrainUpdate, hooked by Sodium 0.2) whenever the zoom FOV widens.

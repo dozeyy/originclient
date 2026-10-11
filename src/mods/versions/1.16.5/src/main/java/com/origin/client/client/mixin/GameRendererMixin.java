@@ -66,17 +66,49 @@ public class GameRendererMixin {
 		}
 	}
 
+	// How far zoom pulled the world FOV in on the previous world pass (<= 0;
+	// 0 = not zoomed). See originclient$applyZoom for why it is tracked.
+	@Unique private static double originclient$lastZoomDelta = 0;
+
 	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
 	private void originclient$applyZoom(Camera camera, float partialTick, boolean usePerspective, CallbackInfoReturnable<Double> cir) {
 		// usePerspective == false is the first-person HAND pass (renderItemInHand).
 		// Zoom never touches it: the held item stays its normal size, like
 		// OptiFine/Lunar zoom.
-		if (!usePerspective || originclient$zoomAnim <= 0.001) {
+		if (!usePerspective) {
 			return;
 		}
-		double vanilla = cir.getReturnValue();
-		double tfov = Mods.num("zoom", "fov") * OriginClientMod.zoomScrollFactor;
-		tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
-		cir.setReturnValue(vanilla + (tfov - vanilla) * originclient$zoomAnim);
+		double delta = 0;
+		if (originclient$zoomAnim > 0.001) {
+			double vanilla = cir.getReturnValue();
+			double tfov = Mods.num("zoom", "fov") * OriginClientMod.zoomScrollFactor;
+			tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
+			delta = (tfov - vanilla) * originclient$zoomAnim;
+			cir.setReturnValue(vanilla + delta);
+		}
+		// 1.16.5 ONLY -- the "world is still broken after zooming" bug. This era
+		// culls terrain with the frame's FULL projection, zoom included
+		// (LevelRenderer.renderLevel: `new Frustum(pose, projection)`; 1.17+
+		// instead builds the cull frustum from max(fov, options.fov), which is why
+		// later versions never had this), and only re-walks the visible-chunk list
+		// (setupRender's BFS; Sodium 0.2's ChunkRenderManager the same) when the
+		// camera MOVES or TURNS. So zoom in, hold still, zoom out: the list stays
+		// the narrow zoomed cone and every chunk outside it is simply not drawn --
+		// and the Block Outline of a block in a missing chunk shows all 12 edges,
+		// its "hidden back edges", because the block itself isn't there to hide
+		// them. Whenever the zoom FOV WIDENS (easing out, zoom released, scroll
+		// out), ask for a re-walk exactly as vanilla's F5 key does:
+		// LevelRenderer.needsUpdate() (= yarn scheduleTerrainUpdate, which Sodium
+		// 0.2 hooks to mark its own graph dirty). getFov(.., true) runs BEFORE
+		// levelRenderer.renderLevel in GameRenderer.renderLevel, so the re-walk
+		// happens in this same frame. Narrowing needs nothing: a too-wide list
+		// only draws a few chunks that end up off-screen.
+		if (delta > originclient$lastZoomDelta + 1.0e-6) {
+			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+			if (mc.levelRenderer != null) {
+				mc.levelRenderer.needsUpdate();
+			}
+		}
+		originclient$lastZoomDelta = delta;
 	}
 }

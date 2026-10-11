@@ -189,3 +189,12 @@ fabric.mod.json bundled; twelvemonkeys webp jars jar-in-jar'd). Mixin annotation
 targets are remapped in-place to intermediary by Loom (verified: CameraMixin's
 `setRotation` redirect → `method_19325`), no separate refmap needed — production
 correct. NOT runClient-tested (orchestrator boot-sweeps staged modules later).
+
+## World-render fix (2026-10-11, round 2 — Fabric API 0.46.1+1.17 mixin read; vanilla block shape from 1.18.1 source)
+- Fabric fires WorldRenderEvents.LAST before `LevelRenderer.renderDebug(Camera)`, inside
+  renderLevel's final `getModelViewStack().pushPose(); mulPoseMatrix(pose); applyModelViewMatrix()`
+  block, so ModelViewMat already holds the camera rotation and `context.matrixStack()` added it
+  again (beam/posts swung opposite to the camera; WaypointHud.capture doubled it too). The LAST
+  hook now sets the model-view to identity around our draws (same fix as 1.18.2-1.19.4).
+  Chunk-border lines are flushed inside that window with a full `endBatch()`.
+- Zoom: 1.17+ culls with `max(fov, options.fov)`, so the 1.16.5 stale-chunk bug cannot happen here.

@@ -7,15 +7,17 @@ import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.phys.Vec3;
 import com.mojang.math.Matrix4f;
 
 // The WORLD-SPACE half of waypoint rendering: the beam and the block highlight —
 // the parts that belong in the world and are allowed to be hidden by terrain
 // (the beam is deliberately the ONLY occluded part; the highlight hugs a block
-// face so it shows whenever the block does). Runs on WorldRenderEvents.LAST.
+// face so it shows whenever the block does). Runs on WorldRenderEvents.LAST,
+// whose hook resets the GL model-view first (OriginClientMod): on 1.16.5 LAST
+// fires inside vanilla's pushMatrix/multMatrix(camera pose) block, so the
+// camera rotation in ctx.matrixStack() was applied twice and the beam swung
+// opposite to the camera.
 //
 // The icon + name + distance are NOT drawn here: they render as a HUD overlay
 // (WaypointHud) projected from world position to screen — always on top,
@@ -44,7 +46,6 @@ public final class WaypointRenderer {
 
 		String dim = mc.level.dimension().location().toString();
 		Vec3 c = ctx.camera().getPosition();
-		MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
 		// Beam hard-cutoff distance (no fade): the player's render distance, in blocks.
 		double cutoff = mc.options.renderDistance * 16.0;
 
@@ -61,11 +62,10 @@ public final class WaypointRenderer {
 				drawBeam(pose, dx, dz, w.y - 3 - c.y, w.y + 160 - c.y, w.color);
 			}
 			if (w.highlightBlock) {
-				drawBlockOutline(pose, buf, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
+				drawBlockOutline(pose, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
 			}
 		}
-		buf.endBatch();
-		OriginRenderTypes.draw();   // the beams
+		OriginRenderTypes.draw();   // the beams + highlight boxes
 	}
 
 	// The beam is REAL geometry (ThickLine.vertical), not a RenderType.lines()
@@ -73,7 +73,8 @@ public final class WaypointRenderer {
 	// space from its projected endpoints, and a 163-block segment with one end
 	// behind the camera projected sign-flipped -- the beam swung and bent as the
 	// camera turned. 1.16.5's fixed-function GL_LINES clip correctly, so that
-	// bug can't happen here; the beam is a quad anyway so it LOOKS the same as on
+	// bug can't happen here (1.16.5's swinging beam was the doubled camera
+	// rotation -- see the class doc); the beam is a quad anyway so it LOOKS the same as on
 	// every other version (mandate 2): its width grows with horizontal distance
 	// (~2.5px on screen) so it stays readable out to the render-distance cutoff,
 	// never thinner than 0.2 blocks up close. Depth-tested, so terrain still
@@ -89,9 +90,11 @@ public final class WaypointRenderer {
 	// "Highlight Block": a clean 12-edge box outline around the waypoint's block,
 	// in the waypoint's colour. Entirely self-contained — independent of the Block
 	// Outline mod (which only styles the crosshair-target block).
-	private static void drawBlockOutline(PoseStack pose, MultiBufferSource buf,
-										 float x, float y, float z, int color) {
-		VertexConsumer vc = buf.getBuffer(RenderType.lines());
+	// Through Origin's private LINES buffer (not the frame's shared buffer --
+	// Iris batches that during the level pass and draws it later under another
+	// matrix).
+	private static void drawBlockOutline(PoseStack pose, float x, float y, float z, int color) {
+		VertexConsumer vc = OriginRenderTypes.beginLines();
 		PoseStack.Pose last = pose.last();
 		Matrix4f m = last.pose();
 		int argb = (color >>> 24) == 0 ? (0xFF000000 | (color & 0xFFFFFF)) : color;

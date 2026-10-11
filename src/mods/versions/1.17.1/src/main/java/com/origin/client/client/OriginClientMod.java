@@ -149,16 +149,42 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			});
 		});
+		// Camera rotation exactly ONCE. Fabric API 0.46.1+1.17 fires LAST right
+		// before LevelRenderer.renderDebug(Camera), which sits INSIDE renderLevel's
+		// final clouds/weather block: RenderSystem.getModelViewStack().pushPose();
+		// mulPoseMatrix(poseStack.last().pose()); applyModelViewMatrix() -- so the
+		// shader's ModelViewMat already holds the camera rotation there. Our
+		// renderers bake context.matrixStack() (which ALSO holds it) into every
+		// vertex, so it was applied twice: the waypoint beam/chunk-border posts
+		// swung opposite to the camera, and WaypointHud.capture (ModelViewMat x
+		// pose) projected the labels with a doubled rotation. For our draws the
+		// model-view is set to IDENTITY -- the state vanilla flushes entities and
+		// the hit outline under -- and restored afterwards. Everything is flushed
+		// inside the window (OriginRenderTypes.draw / the shared buffer's endBatch
+		// in each renderer).
 		WorldRenderEvents.LAST.register(context -> {
+			com.mojang.blaze3d.vertex.PoseStack modelView = com.mojang.blaze3d.systems.RenderSystem.getModelViewStack();
+			modelView.pushPose();
+			// last().pose()/normal().setIdentity(): Matrix4f/Matrix3f.setIdentity
+			// exist on every era (1.16 GameRenderer uses them); PoseStack's own
+			// setIdentity() is not needed.
+			modelView.last().pose().setIdentity();
+			modelView.last().normal().setIdentity();
+			com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 			try {
-				ChunkBorderRenderer.render(context);
-			} catch (Throwable t) {
-				// overlay must never take the frame down
-			}
-			try {
-				com.origin.client.client.waypoints.WaypointRenderer.render(context);
-			} catch (Throwable t) {
-				// waypoints must never take the frame down
+				try {
+					ChunkBorderRenderer.render(context);
+				} catch (Throwable t) {
+					// overlay must never take the frame down
+				}
+				try {
+					com.origin.client.client.waypoints.WaypointRenderer.render(context);
+				} catch (Throwable t) {
+					// waypoints must never take the frame down
+				}
+			} finally {
+				modelView.popPose();
+				com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 			}
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a

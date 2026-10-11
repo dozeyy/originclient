@@ -146,16 +146,39 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			});
 		});
+		// Camera rotation exactly ONCE. Fabric API 0.42.0+1.16 fires LAST right
+		// before LevelRenderer.renderDebug(Camera), and on 1.16.5 that call sits
+		// INSIDE renderLevel's final clouds/weather block, which opens with
+		// RenderSystem.pushMatrix(); RenderSystem.multMatrix(poseStack.last().pose())
+		// -- the fixed-function GL model-view already holds the camera rotation
+		// there (vanilla's clouds/weather/renderDebug emit un-rotated vertices and
+		// rely on it). Our renderers transform by context.matrixStack(), which ALSO
+		// holds the rotation, so it was applied twice: the waypoint beam and
+		// chunk-border posts swung opposite to the camera (look up -> tilts away,
+		// look left -> moves right). Reset the GL model-view to the world-pass base
+		// (identity: every pose-transformed batch vanilla flushes during
+		// renderLevel, entities/outline/particles, draws under it) for our draws,
+		// and restore it after. Everything is flushed inside (OriginRenderTypes'
+		// private buffers), so nothing of ours is drawn later under another matrix.
 		WorldRenderEvents.LAST.register(context -> {
+			com.mojang.blaze3d.systems.RenderSystem.pushMatrix();
+			com.mojang.blaze3d.systems.RenderSystem.loadIdentity();
 			try {
-				ChunkBorderRenderer.render(context);
+				try {
+					ChunkBorderRenderer.render(context);
+				} catch (Throwable t) {
+					// overlay must never take the frame down
+				}
+				try {
+					com.origin.client.client.waypoints.WaypointRenderer.render(context);
+				} catch (Throwable t) {
+					// waypoints must never take the frame down
+				}
+				com.origin.client.client.render.OriginRenderTypes.draw();
 			} catch (Throwable t) {
-				// overlay must never take the frame down
-			}
-			try {
-				com.origin.client.client.waypoints.WaypointRenderer.render(context);
-			} catch (Throwable t) {
-				// waypoints must never take the frame down
+				// never take the frame down
+			} finally {
+				com.mojang.blaze3d.systems.RenderSystem.popMatrix();
 			}
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
