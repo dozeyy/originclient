@@ -123,6 +123,11 @@ PUBLIC_IDS.update({
     "hypixel": "client.hypixel",
 })
 
+# Lunar parity, batch 4a (2026-10-11) -- appended after every earlier cell.
+PUBLIC_IDS.update({
+    "minimap": "client.minimap",
+})
+
 
 def load_master():
     spec = importlib.util.spec_from_file_location("origin_icon_masters", MASTER)

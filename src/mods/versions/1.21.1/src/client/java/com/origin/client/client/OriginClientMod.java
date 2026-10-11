@@ -299,6 +299,7 @@ public class OriginClientMod implements ClientModInitializer {
 			com.origin.client.client.mods.Stopwatch.tick(client);
 			com.origin.client.client.mods.PingSampler.tick(client);
 			com.origin.client.client.mods.CombatStats.tick(client);
+			com.origin.client.client.minimap.MinimapHud.tick(client);   // zoom / full-map keys, auto cave mode
 		} catch (Throwable t) {
 			// keep ticking; the readouts just hold their last value
 		}

@@ -235,6 +235,8 @@ public class OriginModMenuScreen extends Screen {
 		CATS.put("teamview", Cat.VISUAL);
 		CATS.put("discord", Cat.GAMEPLAY);
 		CATS.put("hypixel", Cat.GAMEPLAY);
+		// Lunar parity, batch 4a.
+		CATS.put("minimap", Cat.HUD);
 	}
 
 	private static Cat catOf(Mods.Mod m) {

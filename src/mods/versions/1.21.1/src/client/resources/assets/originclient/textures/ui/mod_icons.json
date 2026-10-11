@@ -278,6 +278,10 @@
     "hypixel": [
       0,
       -6
+    ],
+    "minimap": [
+      0,
+      0
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -552,6 +556,10 @@
     },
     "hypixel": {
       "x": 192,
+      "y": 2112
+    },
+    "minimap": {
+      "x": 384,
       "y": 2112
     }
   }
