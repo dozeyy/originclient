@@ -3,7 +3,10 @@ package com.origin.client.client.render;
 import net.minecraft.client.renderer.RenderType;
 
 /**
- * The quad surface ThickLine and the block overlay draw into.
+ * The quad surface HitboxMixin's thick hitbox edges draw into (through the
+ * frame's shared buffer). The block outline/overlay, waypoint beams and
+ * chunk-border posts moved to render/OriginRenderTypes on 2026-10-11 -- they
+ * need explicit depth state and an on-the-spot flush this type doesn't give.
  *
  * 1.19.3 has no RenderType.debugQuads() (it arrived in 1.19.4), and the
  * package-private RenderType.create is unreachable, so this type is built on
@@ -14,8 +17,7 @@ import net.minecraft.client.renderer.RenderType;
  * Setup/clear delegate to the shards themselves so the GL state is vanilla's,
  * not a re-implementation.
  *
- * Lives in render/ (not inside BlockOverlayRenderer) because HitboxMixin needs
- * the same surface for its thick hitbox edges.
+ * Lives in render/ next to ThickLine, whose boxes it carries.
  */
 public final class FillQuads extends RenderType {
 	public static final RenderType INSTANCE = new FillQuads();
