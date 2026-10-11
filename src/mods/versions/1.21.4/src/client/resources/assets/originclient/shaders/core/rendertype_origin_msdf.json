@@ -1,18 +1,6 @@
 {
-    "blend": {
-        "func": "add",
-        "srcrgb": "srcalpha",
-        "dstrgb": "1-srcalpha",
-        "srcalpha": "one",
-        "dstalpha": "1-srcalpha"
-    },
-    "vertex": "originclient:rendertype_origin_msdf",
-    "fragment": "originclient:rendertype_origin_msdf",
-    "attributes": [
-        "Position",
-        "UV0",
-        "Color"
-    ],
+    "vertex": "originclient:core/rendertype_origin_msdf",
+    "fragment": "originclient:core/rendertype_origin_msdf",
     "samplers": [
         { "name": "Sampler0" }
     ],

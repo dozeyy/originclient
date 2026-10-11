@@ -1,0 +1,12 @@
+{
+    "vertex": "originclient:core/rendertype_origin_grade",
+    "fragment": "originclient:core/rendertype_origin_grade",
+    "samplers": [
+        { "name": "Sampler0" }
+    ],
+    "uniforms": [
+        { "name": "Saturation", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "Brightness", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "Contrast", "type": "float", "count": 1, "values": [ 1.0 ] }
+    ]
+}
