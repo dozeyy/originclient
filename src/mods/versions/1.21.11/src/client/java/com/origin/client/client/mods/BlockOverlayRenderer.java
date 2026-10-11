@@ -3,9 +3,8 @@ package com.origin.client.client.mods;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginColorPicker;
-import net.minecraft.client.renderer.MultiBufferSource;
+import com.origin.client.client.render.OriginRenderTypes;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.BlockOutlineRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -13,14 +12,22 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-// Block Outline + Block Overlay, drawn from LevelRendererMixin's direct hook on
-// vanilla's renderBlockOutline (the Lunar model: own the draw path; Fabric's
-// BEFORE_BLOCK_OUTLINE event proved fragile on 1.21.11).
-//   outline  — custom-coloured selection outline; width 1..10 via offset passes.
+// Block Outline + Block Overlay, drawn from the END_MAIN world event
+// (renderFromWorldEvent) off the extracted blockOutlineRenderState -- the path
+// proven to run under Sodium+Iris; Fabric's BEFORE_BLOCK_OUTLINE event proved
+// fragile on 1.21.11. LevelRendererMixin's renderBlockOutline hook only CANCELS
+// vanilla's outline whenever wouldDraw() says Origin is drawing it.
+//   outline  — custom-coloured selection outline; width 1..10 (ThickLine boxes).
 //   overlay  — a translucent fill over the block's shape (overlayColor).
 //   side     — with overlay on, fill ONLY the face the crosshair is on.
-// renderDirect returns TRUE when Origin drew (the mixin then cancels vanilla's
-// white outline); false defers to vanilla entirely.
+// renderDirect returns TRUE when Origin drew. With the mod (or both sub-toggles)
+// off, wouldDraw() is false, the mixin leaves vanilla's own outline alone, and
+// nothing is drawn here.
+//
+// Everything is drawn through OriginRenderTypes' private buffer and flushed
+// before returning, i.e. on the spot with the frame's matrices and depth --
+// see OriginRenderTypes for why the frame's shared buffer showed the hidden
+// back edges through the block.
 public final class BlockOverlayRenderer {
 	private BlockOverlayRenderer() {
 	}
@@ -49,11 +56,11 @@ public final class BlockOverlayRenderer {
 			loggedTarget = true;
 			com.origin.client.OriginClient.LOGGER.info("Origin[outline]: target state present at {}", octx.pos());
 		}
-		if (context.matrices() == null || context.consumers() == null) {
+		if (context.matrices() == null) {
 			return;
 		}
 		try {
-			boolean drew = renderDirect(context.matrices(), context.consumers(), context.worldState().cameraRenderState.pos, octx);
+			boolean drew = renderDirect(context.matrices(), context.worldState().cameraRenderState.pos, octx);
 			if (!drew && !loggedNoDraw) {
 				loggedNoDraw = true;
 				com.origin.client.OriginClient.LOGGER.info("Origin[outline]: renderDirect returned false (on={}, outline={}, overlay={})",
@@ -81,7 +88,7 @@ public final class BlockOverlayRenderer {
 	}
 
 	/** Returns true when Origin drew the outline/overlay (caller cancels vanilla). */
-	public static boolean renderDirect(PoseStack poseStack, MultiBufferSource consumers, Vec3 cam, BlockOutlineRenderState octx) {
+	public static boolean renderDirect(PoseStack poseStack, Vec3 cam, BlockOutlineRenderState octx) {
 		if (octx == null || !Mods.on("blockoverlay")) {
 			return false;
 		}
@@ -120,7 +127,7 @@ public final class BlockOverlayRenderer {
 					&& bhr.getBlockPos().equals(pos)) {
 				only = bhr.getDirection();
 			}
-			VertexConsumer q = consumers.getBuffer(RenderTypes.debugQuads());
+			VertexConsumer q = OriginRenderTypes.begin();
 			Direction faceOnly = only;
 			shape.forAllBoxes((minX, minY, minZ, maxX, maxY, maxZ) ->
 					fillBox(q, pose, minX + ox, minY + oy, minZ + oz, maxX + ox, maxY + oy, maxZ + oz, col, faceOnly));
@@ -140,8 +147,8 @@ public final class BlockOverlayRenderer {
 				a = 1f;
 			}
 			// ONE thick line per edge -- not a stack of thin ones. Each edge is a
-			// solid box (ThickLine) drawn into debugQuads (POSITION_COLOR -- no
-			// LineWidth element, so the 1.21.11 lines-format crash can't apply),
+			// solid box (ThickLine) drawn as POSITION_COLOR quads (no LineWidth
+			// element, so the 1.21.11 lines-format crash can't apply),
 			// sized by the slider and biased inward so its outer face stays on the
 			// block surface. The centre comes from the SHAPE's bounds, not the
 			// block's, so slabs/stairs/fences thicken instead of translating.
@@ -151,7 +158,7 @@ public final class BlockOverlayRenderer {
 			double cx = (bounds.minX + bounds.maxX) / 2.0 + ox;
 			double cy = (bounds.minY + bounds.maxY) / 2.0 + oy;
 			double cz = (bounds.minZ + bounds.maxZ) / 2.0 + oz;
-			VertexConsumer q = consumers.getBuffer(RenderTypes.debugQuads());
+			VertexConsumer q = OriginRenderTypes.begin();
 			// The alpha guard above reassigns `a`, so it can't be captured directly.
 			float fr = r, fg = g, fb = b, fa = a;
 			shape.forAllEdges((x1, y1, z1, x2, y2, z2) ->
@@ -159,6 +166,7 @@ public final class BlockOverlayRenderer {
 							x1 + ox, y1 + oy, z1 + oz, x2 + ox, y2 + oy, z2 + oz,
 							cx, cy, cz, t, fr, fg, fb, fa));
 		}
+		OriginRenderTypes.draw();
 		if (!loggedFirstDraw) {
 			loggedFirstDraw = true;
 			// One-time breadcrumb: proves in the log whether the outline draw path

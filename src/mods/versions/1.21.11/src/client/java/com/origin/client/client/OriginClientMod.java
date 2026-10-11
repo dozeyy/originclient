@@ -31,7 +31,8 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean fullbrightKeyWasDown = false;
 	private boolean zoomKeyWasDown = false;
 	private boolean timeIncWasDown = false, timeDecWasDown = false;
-	private double timePassageAccum = 0;
+	// static so previewTimeSlider (called from the mod menu) can fold it in too.
+	private static double timePassageAccum = 0;
 
 	// Live time-changer output, read by LevelTimeMixin every frame.
 	public static volatile double timeOverride = 6000;
@@ -181,20 +182,16 @@ public class OriginClientMod implements ClientModInitializer {
 				});
 			}
 		});
-		// The in-game HUD pass is skipped while ANY screen is open, so Origin's HUD
-		// vanishes when the mod menu opens -- a toggle flipped in the menu (Potion
-		// Effects, Armor Status, ...) then doesn't show until you close it. Draw the
-		// HUD over the Origin mod menu so changes preview live, like the inventory
-		// workaround above. renderAll already excludes the HUD editor.
-		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
-			if (screen instanceof com.origin.client.client.gui.OriginModMenuScreen) {
-				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) ->
-					com.origin.client.client.hud.HudElements.renderAll(g));
-			}
-		});
-		// Block Outline + Overlay draws from LevelRendererMixin's direct hook on
-		// renderBlockOutline (1.21.11) - the Fabric BEFORE_BLOCK_OUTLINE event
-		// proved fragile here, so there is deliberately no registration.
+		// NO HUD hook over the Origin mod menu (removed 2026-10-11). On 1.21.11
+		// GameRenderer.render still runs Gui.render (-> GuiHudMixin -> renderAll)
+		// every in-world frame BEFORE the open screen draws, so the HUD already
+		// sits behind the menu and live-previews toggles there. A second
+		// afterRender pass drew the whole HUD again ON TOP of the menu (Will's
+		// call: the HUD always stays behind menus, even hidden behind the card).
+		// Block Outline + Overlay draws from the END_MAIN hook above
+		// (BlockOverlayRenderer.renderFromWorldEvent); LevelRendererMixin only
+		// cancels vanilla's outline. The Fabric BEFORE_BLOCK_OUTLINE event proved
+		// fragile here, so there is deliberately no registration for it.
 	}
 
 	// Flush everything to disk once, when Minecraft is shutting down. Each
@@ -643,6 +640,19 @@ public class OriginClientMod implements ClientModInitializer {
 			timePassageAccum = 0;
 		}
 		timeOverride = (base + timePassageAccum) % 24000;
+	}
+
+	// Live sky while dragging the Time slider in the mod menu. applyTimeChanger
+	// only runs per client tick (20x/sec), so the sky visibly stepped behind the
+	// thumb; the menu calls this on every drag event instead. Same resolution as
+	// applyTimeChanger minus the +/- keys. Use Real Current Time ignores the
+	// slider there, so it ignores it here too (else the sky would flicker
+	// between the two every tick). Client-side only, like the rest of it.
+	public static void previewTimeSlider(double time) {
+		if (Mods.bool("timechanger", "useRealTime")) {
+			return;
+		}
+		timeOverride = (time + timePassageAccum) % 24000;
 	}
 
 	// Chat options ride the vanilla accessibility options. IMPORTANT mapping:

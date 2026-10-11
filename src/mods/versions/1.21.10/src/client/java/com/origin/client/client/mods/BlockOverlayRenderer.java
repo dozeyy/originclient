@@ -3,23 +3,28 @@ package com.origin.client.client.mods;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginColorPicker;
+import com.origin.client.client.render.OriginRenderTypes;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.state.BlockOutlineRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-// Block Outline + Block Overlay, via Fabric's BLOCK_OUTLINE event (which hands
-// us both the lines buffer AND the world matrix, so we can draw a filled
-// overlay the old renderHitOutline mixin couldn't).
-//   outline  — custom-coloured selection outline; width 1..10 via offset passes.
+// Block Outline + Block Overlay, via Fabric's BEFORE_BLOCK_OUTLINE event (which
+// hands us the world matrix and the extracted outline state, so we can draw a
+// filled overlay the old renderHitOutline mixin couldn't).
+//   outline  — custom-coloured selection outline; width 1..10 (ThickLine boxes).
 //   overlay  — a translucent fill over the block's shape (overlayColor).
 //   side     — with overlay on, fill ONLY the face the crosshair is on.
 // Returning false cancels vanilla's white outline so only ours shows; if both
-// sub-toggles are off we defer to vanilla.
+// sub-toggles are off (or the mod is off) we defer to vanilla.
+//
+// Everything is drawn through OriginRenderTypes' private buffer and flushed
+// before returning, i.e. at outline time with the right matrices and depth --
+// see OriginRenderTypes for why the frame's shared buffer showed the hidden
+// back edges through the block.
 public final class BlockOverlayRenderer {
 	private BlockOverlayRenderer() {
 	}
@@ -34,7 +39,7 @@ public final class BlockOverlayRenderer {
 			return true;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || wctx.matrices() == null || wctx.consumers() == null) {
+		if (mc.level == null || wctx.matrices() == null) {
 			return true;
 		}
 		BlockPos pos = octx.pos();
@@ -65,7 +70,7 @@ public final class BlockOverlayRenderer {
 					&& bhr.getBlockPos().equals(pos)) {
 				only = bhr.getDirection();
 			}
-			VertexConsumer q = wctx.consumers().getBuffer(RenderType.debugQuads());
+			VertexConsumer q = OriginRenderTypes.begin();
 			Direction faceOnly = only;
 			shape.forAllBoxes((minX, minY, minZ, maxX, maxY, maxZ) ->
 					fillBox(q, pose, minX + ox, minY + oy, minZ + oz, maxX + ox, maxY + oy, maxZ + oz, col, faceOnly));
@@ -106,7 +111,7 @@ public final class BlockOverlayRenderer {
 			double cx = (bounds.minX + bounds.maxX) / 2.0 + ox;
 			double cy = (bounds.minY + bounds.maxY) / 2.0 + oy;
 			double cz = (bounds.minZ + bounds.maxZ) / 2.0 + oz;
-			VertexConsumer q = wctx.consumers().getBuffer(RenderType.debugQuads());
+			VertexConsumer q = OriginRenderTypes.begin();
 			// The alpha guard above reassigns `a`, so it can't be captured directly.
 			float fr = r, fg = g, fb = b, fa = a;
 			shape.forAllEdges((x1, y1, z1, x2, y2, z2) ->
@@ -114,6 +119,7 @@ public final class BlockOverlayRenderer {
 							x1 + ox, y1 + oy, z1 + oz, x2 + ox, y2 + oy, z2 + oz,
 							cx, cy, cz, t, fr, fg, fb, fa));
 		}
+		OriginRenderTypes.draw();
 		return false;
 	}
 

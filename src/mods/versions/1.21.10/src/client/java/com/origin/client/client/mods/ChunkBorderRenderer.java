@@ -3,6 +3,8 @@ package com.origin.client.client.mods;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginColorPicker;
+import com.origin.client.client.render.OriginRenderTypes;
+import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderType;
@@ -15,7 +17,9 @@ import net.minecraft.world.phys.Vec3;
 //                   every `gridSize` blocks. Uses color + thickness.
 //   Inner Corners — tall posts at the current chunk's 4 corners (own colour/width).
 //   Outer Corners — posts at the 4 corners one chunk further out (own colour/width).
-// Thickness is emulated with parallel offset passes (core-GL line width is
+// Posts are real camera-facing quads (ThickLine.vertical, own render type,
+// drawn on the spot) whose width IS the thickness; rings and the floor lattice
+// are short lines thickened with parallel offset passes (core-GL line width is
 // unreliable). Drawn from the world-render hook; colours carry their own alpha.
 public final class ChunkBorderRenderer {
 	private ChunkBorderRenderer() {
@@ -39,16 +43,17 @@ public final class ChunkBorderRenderer {
 		double yMax = mc.level.getMaxY() - cam.y;
 
 		PoseStack.Pose pose = context.matrices().last();
+		VertexConsumer posts = OriginRenderTypes.begin();
 		VertexConsumer buf = context.consumers().getBuffer(RenderType.lines());
 
 		if (Mods.bool("chunkborders", "grid")) {
 			int col = OriginColorPicker.liveColor("chunkborders", "color");
 			int t = thickness("thickness");
 			// full-height edges of the chunk
-			post(buf, pose, x0, z0, yMin, yMax, col, t);
-			post(buf, pose, x1, z0, yMin, yMax, col, t);
-			post(buf, pose, x0, z1, yMin, yMax, col, t);
-			post(buf, pose, x1, z1, yMin, yMax, col, t);
+			post(posts, pose, x0, z0, yMin, yMax, col, t);
+			post(posts, pose, x1, z0, yMin, yMax, col, t);
+			post(posts, pose, x0, z1, yMin, yMax, col, t);
+			post(posts, pose, x1, z1, yMin, yMax, col, t);
 			// section ring at each 16-block Y boundary
 			int yBase = (Mth.floor(mc.player.getY() / 16.0)) * 16;
 			for (int i = -4; i <= 4; i++) {
@@ -72,10 +77,10 @@ public final class ChunkBorderRenderer {
 			int t = thickness("innerThickness");
 			double py = mc.player.getY();
 			double cy0 = Math.max(yMin, py - 48 - cam.y), cy1 = Math.min(yMax, py + 48 - cam.y);
-			post(buf, pose, x0, z0, cy0, cy1, col, t);
-			post(buf, pose, x1, z0, cy0, cy1, col, t);
-			post(buf, pose, x0, z1, cy0, cy1, col, t);
-			post(buf, pose, x1, z1, cy0, cy1, col, t);
+			post(posts, pose, x0, z0, cy0, cy1, col, t);
+			post(posts, pose, x1, z0, cy0, cy1, col, t);
+			post(posts, pose, x0, z1, cy0, cy1, col, t);
+			post(posts, pose, x1, z1, cy0, cy1, col, t);
 		}
 
 		if (Mods.bool("chunkborders", "outerCorners")) {
@@ -83,24 +88,35 @@ public final class ChunkBorderRenderer {
 			int t = thickness("outerThickness");
 			double py = mc.player.getY();
 			double cy0 = Math.max(yMin, py - 48 - cam.y), cy1 = Math.min(yMax, py + 48 - cam.y);
-			post(buf, pose, x0 - 16, z0 - 16, cy0, cy1, col, t);
-			post(buf, pose, x1 + 16, z0 - 16, cy0, cy1, col, t);
-			post(buf, pose, x0 - 16, z1 + 16, cy0, cy1, col, t);
-			post(buf, pose, x1 + 16, z1 + 16, cy0, cy1, col, t);
+			post(posts, pose, x0 - 16, z0 - 16, cy0, cy1, col, t);
+			post(posts, pose, x1 + 16, z0 - 16, cy0, cy1, col, t);
+			post(posts, pose, x0 - 16, z1 + 16, cy0, cy1, col, t);
+			post(posts, pose, x1 + 16, z1 + 16, cy0, cy1, col, t);
 		}
+		OriginRenderTypes.draw();   // the posts
 	}
 
 	private static int thickness(String key) {
 		return (int) Math.max(1, Math.min(3, Mods.num("chunkborders", key)));
 	}
 
-	// vertical post at (x,z) from y0..y1, thickened with parallel offset passes
-	private static void post(VertexConsumer buf, PoseStack.Pose pose, double x, double z,
-							 double y0, double y1, int color, int passes) {
-		for (int p = 0; p < passes; p++) {
-			double o = p * 0.03;
-			line(buf, pose, x + o, y0, z + o, x + o, y1, z + o, color);
+	// Vertical post at (x,z) from y0..y1. Real geometry, NOT a lines() segment:
+	// a full-height line has an end behind the camera, and the lines shader
+	// widens it in screen space from sign-flipped endpoints -- the post swung
+	// and bent as the camera turned (same bug as the waypoint beam). Width per
+	// thickness step is ~2px on screen at any distance (scaled by horizontal
+	// distance), never under 2cm up close.
+	private static void post(VertexConsumer q, PoseStack.Pose pose, double x, double z,
+							 double y0, double y1, int color, int thickness) {
+		float r = ((color >> 16) & 0xFF) / 255f;
+		float g = ((color >> 8) & 0xFF) / 255f;
+		float b = (color & 0xFF) / 255f;
+		float a = ((color >>> 24) & 0xFF) / 255f;
+		if (a <= 0f) {
+			a = 0.9f;   // same fallback as line()
 		}
+		double halfWidth = Math.max(0.01, Math.sqrt(x * x + z * z) * 0.0013) * thickness;
+		ThickLine.vertical(q, pose, x, z, y0, y1, halfWidth, r, g, b, a);
 	}
 
 	// horizontal rectangle ring at height y

@@ -3,6 +3,8 @@ package com.origin.client.client.waypoints;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.OriginRenderTypes;
+import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -62,21 +64,30 @@ public final class WaypointRenderer {
 			double dz = (w.z + 0.5) - c.z;
 			double dist = Math.sqrt(dx * dx + (w.y + 1 - c.y) * (w.y + 1 - c.y) + dz * dz);
 
-			// Half-height beam column (160 blocks), depth-tested lines.
+			// Beam column (y-3 .. y+160), depth-tested camera-facing quad.
 			if (w.showBeam && dist <= cutoff) {
-				drawBeam(pose, buf, (float) dx, (float) dz,
-						(float) (w.y - 3 - c.y), (float) (w.y + 160 - c.y), w.color);
+				drawBeam(pose, dx, dz, w.y - 3 - c.y, w.y + 160 - c.y, w.color);
 			}
 			if (w.highlightBlock) {
 				drawBlockOutline(pose, buf, (float) (w.x - c.x), (float) (w.y - c.y), (float) (w.z - c.z), w.color);
 			}
 		}
+		OriginRenderTypes.draw();   // the beams
 	}
 
-	private static void drawBeam(PoseStack pose, MultiBufferSource buf, float x, float z,
-								 float y0, float y1, int color) {
-		VertexConsumer vc = buf.getBuffer(RenderType.lines());
-		edge(vc, pose.last(), x, y0, z, x, y1, z, opaque(color));
+	// The beam is REAL geometry (ThickLine.vertical), not a lines() segment:
+	// lines are widened in screen space from their projected endpoints, and a
+	// 163-block segment with one end behind the camera projected sign-flipped --
+	// the beam swung and bent as the camera turned. Its width grows with
+	// horizontal distance (~2.5px on screen, like the old line) so it stays
+	// readable out to the render-distance cutoff, never thinner than 0.2 blocks
+	// up close. Depth-tested, so terrain still hides it.
+	private static void drawBeam(PoseStack pose, double x, double z, double y0, double y1, int color) {
+		int argb = opaque(color);
+		float r = ((argb >> 16) & 0xFF) / 255f, g = ((argb >> 8) & 0xFF) / 255f, b = (argb & 0xFF) / 255f;
+		float a = ((argb >>> 24) & 0xFF) / 255f;
+		double halfWidth = Math.max(0.1, Math.sqrt(x * x + z * z) * 0.0016);
+		ThickLine.vertical(OriginRenderTypes.begin(), pose.last(), x, z, y0, y1, halfWidth, r, g, b, a);
 	}
 
 	// "Highlight Block": a clean 12-edge box outline around the waypoint's block,
