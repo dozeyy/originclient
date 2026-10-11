@@ -8,28 +8,21 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Restyles every button in the Origin look, on every screen: cancels the
-// vanilla button drawing and draws the Origin style instead. Restyling
-// happens in-place (no widgets added/removed) -- buttons keep their
-// positions, actions, and clicks; only renderWidget is replaced.
+// Frost-style button skin on every screen (title, pause, options, ...): cancels
+// vanilla's button draw and draws the flat translucent-dark square instead.
+// In place -- buttons keep positions, actions, clicks; only renderWidget changes.
 //
-// Coverage is naturally scoped by the class hierarchy: this mixin applies to
-// AbstractButton.renderWidget, so subclasses with their OWN renderWidget
-// override (ImageButton, SpriteIconButton, Checkbox, sliders...) bypass it
-// and keep vanilla rendering until each gets its own styled pass. Plain
-// Button and CycleButton (the "Something: Value" toggles all over the
-// Options menus) don't override it, so they're covered here. Dynamic labels
-// with no baked Inter texture fall back to vanilla font inside the Origin
-// shell, per the settled font decision. Disabled buttons (active=false,
-// e.g. Telemetry Data) render the dimmed Origin style and skip hover.
-// priority 2000: Origin's widget restyle wins over other UI mods.
+// Coverage is scoped by the class hierarchy: this applies to
+// AbstractButton.renderWidget, so plain Button and CycleButton (the
+// "Setting: Value" toggles across the Options menus) are covered, while
+// subclasses with their OWN renderWidget (sliders, checkboxes) get their own
+// mixin. priority 2000: Origin's restyle wins over other UI mods.
 @Mixin(value = AbstractButton.class, priority = 2000)
 public class AbstractButtonMixin {
 
 	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
 	private void originclient$originStyle(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		// Only cancel vanilla when Origin actually drew -- if the styled draw
-		// ever fails (e.g. on a different game version), vanilla buttons return.
+		// Only cancel vanilla when Origin actually drew (fail-soft contract).
 		if (OriginButtonRenderer.render(guiGraphics, (AbstractButton) (Object) this)) {
 			ci.cancel();
 		}

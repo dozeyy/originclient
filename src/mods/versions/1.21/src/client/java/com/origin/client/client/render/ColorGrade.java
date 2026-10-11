@@ -99,6 +99,24 @@ public final class ColorGrade {
 		} catch (Throwable t) {
 			broken = true;
 			com.origin.client.OriginClient.LOGGER.warn("Color Saturation grade failed; disabling for this session", t);
+			// A throw between the two bindWrite passes could leave `swap` bound as the
+			// write target and depth/cull/blend disabled — which would render the rest
+			// of THIS frame (HUD + any open screen) into the off-screen texture or with
+			// depth off (black/garbage for one frame). Rebind main and restore every
+			// default the world/HUD pass assumes, so the corrupt frame self-heals now,
+			// not next frame. Guarded so recovery can't itself throw. (Bug-audit #3.)
+			try {
+				main.bindWrite(false);
+				RenderSystem.enableDepthTest();
+				RenderSystem.depthFunc(GL11.GL_LEQUAL);
+				RenderSystem.depthMask(true);
+				RenderSystem.enableCull();
+				RenderSystem.disableBlend();
+				RenderSystem.defaultBlendFunc();
+				RenderSystem.disableScissor();
+				RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			} catch (Throwable ignored) {
+			}
 		}
 	}
 

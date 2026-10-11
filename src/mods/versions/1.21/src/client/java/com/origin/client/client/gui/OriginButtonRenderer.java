@@ -1,67 +1,67 @@
 package com.origin.client.client.gui;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Checkbox;
-import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.gui.components.SpriteIconButton;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-import java.io.InputStream;
 import java.util.Map;
 import java.util.WeakHashMap;
 
 import com.origin.client.client.theme.OriginTheme;
 
-// Draws vanilla buttons/sliders/checkboxes in the Origin style: a 9-sliced
-// rounded-rect fill + hairline border (baked alpha masks tinted to theme
-// colors) and the label in the default Minecraft font. Hover is communicated by
-// the border brightening only -- no vertical lift (Will). Eased on wall-clock
-// time via OriginTheme. Called from the widget mixins, which cancel
-// the vanilla drawing on every screen, so no widgets are added or removed --
-// the existing widgets keep their positions, actions, and clicks. Per-widget
-// hover animation state is kept in a WeakHashMap keyed by the widget.
+// Ion Jade widget skin (2026-09 redesign): every vanilla button, slider, checkbox
+// and header tab is redrawn as Origin's premium GLASS control — a rounded,
+// cool-tinted translucent surface with a hairline frame and an Inter (SDF)
+// centred label. It reads as the exact same material as the mod-menu cards and
+// HUD panels by construction (all of them draw through OriginUi.panel + the
+// shared OriginTheme.BOX_* glass tokens). On hover the surface firms up, takes a
+// faint accent wash + accent-tinted border, and lifts 1px — restrained, one
+// element at a time, so the identity is felt without every button glowing.
+//
+// Restyling happens in place from the widget mixins (renderWidget cancelled):
+// widgets keep their positions, actions and clicks; only the drawing changes.
+// Fail-soft: if any Origin draw throws (e.g. a GUI API that changed shape),
+// `broken` latches and every widget reverts to vanilla for the rest of the
+// session instead of crashing -- the mixins only cancel vanilla when these
+// entry points return true.
 public final class OriginButtonRenderer {
-	private static final Gson GSON = new Gson();
 
-	private static final int FILL_NORMAL = 0x59161616;
-	private static final int FILL_HOVER = 0x99303030;
-	private static final int BORDER_NORMAL = 0xF00A0A0A;
-	// Hover brightens the outline to a MUCH lighter gray (A2) — one shared token
-	// so every hovered Origin box reads the same, here and in OriginUi panels.
-	private static final int BORDER_HOVER = 0xFF1A1A1A;
+	// Glass palette — one material with the rest of the Origin UI. Fill and border
+	// are the shared theme tokens so a token change re-skins buttons and cards
+	// together; hover firms both and adds a faint accent wash (see box()).
+	private static final int FILL_NORMAL = OriginTheme.BOX_FILL;
+	private static final int FILL_HOVER = OriginTheme.BOX_FILL_HOVER;
+	private static final int FILL_DISABLED = 0x40171C19;
+	private static final int BORDER_NORMAL = OriginTheme.BOX_BORDER;
+	private static final int BORDER_HOVER = OriginTheme.BOX_BORDER_HOVER;
+	private static final int BORDER_DISABLED = 0x99080B09;
 	private static final int LABEL_COLOR = OriginTheme.TEXT;
-	// Disabled (active=false, e.g. Telemetry Data): same shape, clearly dimmed.
-	private static final int FILL_DISABLED = 0x40101010;
-	private static final int BORDER_DISABLED = 0x99080808;
-	private static final int LABEL_DISABLED = 0xFFA0A0A0;
-	// Baseline corner radius: 1.21.1 and 1.21.11 both draw buttons at 3 GUI px.
-	private static final int CORNER_DISPLAY = 3;
-	// Short + eased = the website's snappy hover; no per-button glow (the
-	// cursor-follow glow in OriginScreenRenderer blooms on hover instead).
-	private static final double HOVER_MS = 90.0;
+	private static final int LABEL_DISABLED = OriginTheme.MUTED;
+	private static final int TITLE_FILL = OriginTheme.PANEL;
+	private static final int TITLE_FILL_HOVER = OriginTheme.PANEL_ALT;
+	private static final int TITLE_FILL_PRESSED = 0xFF294333;
+	// Slider handles / checkbox ticks read as the accent — the one place a
+	// control's "value" carries the brand hue; brightens toward full accent on hover.
+	private static final int HANDLE = OriginTheme.ACCENT_BORDER;
+	private static final int HANDLE_HOVER = OriginTheme.ACCENT;
+	// Corner radius for every widget — soft premium glass (matches RADIUS_SM cards).
+	private static final int RADIUS = OriginTheme.RADIUS_SM;
+	// Short + eased = a snappy, tactile hover.
+	private static final double HOVER_IN_MS = OriginTheme.HOVER_IN_MS;
+	private static final double HOVER_OUT_MS = OriginTheme.HOVER_OUT_MS;
 
-	// Fail-soft master switch, mirroring OriginScreenRenderer: if any Origin
-	// widget draw throws (e.g. a GUI API that changed shape in a different
-	// game version), widget rendering flips back to vanilla permanently for
-	// this session instead of crashing. The widget mixins only ci.cancel()
-	// the vanilla draw when these entry points return true.
+	// Fail-soft master switch: latches on the first draw failure and never
+	// resets for the session, so a broken GUI API can't spam-crash.
 	private static volatile boolean broken = false;
 
-	private static volatile boolean loaded = false;
-	private static boolean assetsOk = false;
-	private static int TEX, CORNER;
-	private static ResourceLocation fillTex, borderTex;
-
-	// Keyed by widget (buttons, sliders, checkboxes all share hover easing).
+	// Per-widget hover easing state (buttons, sliders, checkboxes, tabs).
 	private static final Map<Object, State> STATE = new WeakHashMap<>();
 
 	private static final class State {
@@ -72,21 +72,49 @@ public final class OriginButtonRenderer {
 	private OriginButtonRenderer() {
 	}
 
-	// Will, 2026-08-23: VANILLA MENUS KEEP VANILLA BUTTONS. The Origin widget
-	// skin used to apply on every screen in the game; it now applies only inside
-	// Origin's OWN screens -- the mod menu and its family. Title, pause, options,
-	// inventory and every other vanilla screen render stock Minecraft widgets.
+	// Will, 2026-08-23: VANILLA MENUS KEEP VANILLA BUTTONS. The Frost widget skin
+	// used to apply on every screen in the game; it now applies only inside
+	// Origin's OWN screens -- the mod menu and its family (HUD editor, shader
+	// browser, waypoints, item size). Title, pause, options, inventory and every
+	// other vanilla screen render stock Minecraft widgets again.
 	//
-	// The test is the screen's class package: com.origin.* is ours, anything else
-	// is not (so another mod's screen keeps its own look for free). Origin's
-	// title-screen BACKGROUND and wordmark are unaffected -- those are drawn by
-	// OriginScreenRenderer, not by this widget skin.
+	// The test is the screen's class package, the same rule
+	// OriginWidgetOwnership uses for widgets: com.origin.* is ours, anything else
+	// is not. That also means another mod's screen keeps its own look for free.
+	// Origin's title-screen BACKGROUND and wordmark are unaffected -- they are
+	// drawn by OriginScreenRenderer, not by this widget skin.
+	// Will, 2026-09-03: the Origin widget skin applies on EVERY screen again —
+	// title, pause, options, world/server lists — so the whole client reads as
+	// one design (the Lunar model). This lifts the 2026-08-23 "vanilla menus
+	// keep vanilla buttons" rule on Will's instruction. Another mod's own widget
+	// classes still keep their own art (OriginWidgetOwnership.isForeign).
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc == null || mc.screen == null) {
-			return false;
+		return mc != null && mc.screen != null;
+	}
+
+	// PRIMARY buttons (the one main action on a screen, e.g. Singleplayer on the
+	// title) draw with the accent: an accent wash fill + accent border at rest,
+	// firming to full accent on hover. Registered by the screen that owns the
+	// widget; weak so a rebuilt screen's widgets are collected normally.
+	private static final Map<Object, Boolean> PRIMARY = new WeakHashMap<>();
+	private static final Map<Object, TitlePresentation> TITLE = new WeakHashMap<>();
+
+	private record TitlePresentation(String icon, boolean iconOnly) {
+	}
+
+	public static void markPrimary(Object widget) {
+		if (widget != null) {
+			PRIMARY.put(widget, Boolean.TRUE);
 		}
-		return OriginWidgetOwnership.isOriginOwnClass(mc.screen);
+	}
+
+	/** Gives a title-screen action its approved Origin symbol. Icon-only is used
+	 * for the bottom utility dock; labelled actions keep a compact centred pair. */
+	public static void setTitlePresentation(Object widget, String icon, boolean iconOnly) {
+		if (widget != null && icon != null) {
+			TITLE.put(widget, new TitlePresentation(icon, iconOnly));
+		}
 	}
 
 	private static boolean fail(Throwable t) {
@@ -96,15 +124,24 @@ public final class OriginButtonRenderer {
 		return false;
 	}
 
-	/** Origin-styled button. Returns true only if it drew (callers cancel vanilla on true). */
-	public static boolean render(GuiGraphics guiGraphics, AbstractButton button) {
-		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
+	// ---- buttons (Button, CycleButton, ... -- anything AbstractButton) ----
+
+	/** Frost-styled button. Returns true only if it drew (callers cancel vanilla on true). */
+	public static boolean render(GuiGraphics g, AbstractButton button) {
+		// Vanilla screens get vanilla widgets (see originOwnsScreen).
 		if (!originOwnsScreen()) {
 			return false;
 		}
-		// Difficulty-lock padlock: vanilla draws it as a compact lock ICON, but the
-		// Origin pill restyle would print its full "Lock Difficulty" message text,
-		// oversized. Leave this one button vanilla so the icon shows.
+		// Another mod's own widget class: its art is drawn inside the method
+		// our mixins cancel, so restyling it leaves an empty Origin box. Return
+		// false -> the mixin does not cancel -> the mod draws itself, untouched.
+		if (OriginWidgetOwnership.isForeign(button)) {
+			return false;
+		}
+
+		// The difficulty padlock draws a compact lock ICON, not text -- our label
+		// restyle would print its full "Lock Difficulty" message oversized. Leave
+		// it vanilla so the icon shows.
 		if (button instanceof net.minecraft.client.gui.components.LockIconButton) {
 			return false;
 		}
@@ -112,338 +149,31 @@ public final class OriginButtonRenderer {
 			return false;
 		}
 		try {
-			render0(guiGraphics, button);
-			return true;
-		} catch (Throwable t) {
-			return fail(t);
-		}
-	}
-
-	private static void render0(GuiGraphics guiGraphics, AbstractButton button) {
-		ensureLoaded();
-		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
-		boolean enabled = button.active;
-		double hv = hoverEase(button, enabled && button.isHovered());
-
-		// No hover lift (Will): the box stays put; hover reads through the border
-		// brightening only.
-		int drawY = y;
-		double cx = x + w / 2.0;
-		double cy = drawY + h / 2.0;
-
-		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
-		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
-		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
-
-		if (!assetsOk) {
-			drawFallback(guiGraphics, x, drawY, w, h, fill, border, labelColor, button.getMessage());
-			return;
-		}
-
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-
-		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-		OriginUi.bevelPanel(guiGraphics, x, drawY, w, h, cd, fill, border);
-
-		drawLabel(guiGraphics, cx, cy, h, button.getMessage(), labelColor);
-	}
-
-	/**
-	 * Origin slider: the button shell, a faint fill up to the current value
-	 * (reads like the loading bar), a bright accent handle at the value
-	 * position, and the label ("FOV: 90") centered on top. Vanilla's
-	 * drag/click logic is untouched -- this only redraws, and reads `value`
-	 * live each frame, so dragging stays exactly as responsive as vanilla.
-	 */
-	public static boolean renderSlider(GuiGraphics guiGraphics, AbstractSliderButton slider, double value) {
-		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
-		if (!originOwnsScreen()) {
-			return false;
-		}
-		if (broken) {
-			return false;
-		}
-		try {
-			renderSlider0(guiGraphics, slider, value);
-			return true;
-		} catch (Throwable t) {
-			return fail(t);
-		}
-	}
-
-	private static void renderSlider0(GuiGraphics guiGraphics, AbstractSliderButton slider, double value) {
-		ensureLoaded();
-		int x = slider.getX(), y = slider.getY(), w = slider.getWidth(), h = slider.getHeight();
-		boolean enabled = slider.active;
-		double v = Math.max(0.0, Math.min(1.0, value));
-		double hv = hoverEase(slider, enabled && slider.isHovered());
-
-		// The shell always uses the RESTING gray-box look (identical to an
-		// un-hovered button) -- Will: the slider box must match the other gray
-		// boxes, with no bright/white outline even when it's the focused/hovered
-		// widget. All hover feedback lives on the handle instead.
-		int fill = enabled ? FILL_NORMAL : FILL_DISABLED;
-		int border = enabled ? BORDER_NORMAL : BORDER_DISABLED;
-		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
-
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-
-		// Shell -- identical to a resting button.
-		if (assetsOk) {
-			OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, fill, 0);
-		} else {
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			guiGraphics.fill(x, y, x + w, y + h, fill);
-		}
-		// CRITICAL: reset the shader tint before the handle's guiGraphics.fill(),
-		// or it gets multiplied by the shell's faint tint (near-invisible).
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-
-		// Just the draggable handle: a thin vertical gray bar at the value
-		// position -- no horizontal center groove line (Will). Gray, clearly
-		// visible on the dark shell, brightening a touch on hover.
-		int inset = 6;
-		int handleW = 4;
-		int handleH = Math.max(6, h - 8);
-		int handleY = y + (h - handleH) / 2;
-		int travel = Math.max(0, w - 2 * inset - handleW);
-		int handleX = x + inset + (int) Math.round(travel * v);
-		guiGraphics.fill(handleX, handleY, handleX + handleW, handleY + handleH,
-				enabled ? OriginTheme.lerpColor(0xFFB4B4B4, 0xFFD8D8D8, hv) : 0x66808080);
-
-		// Border on top -- resting gray, matching the other boxes.
-		// CRITICAL: fill() above flushes through a render type whose teardown
-		// DISABLES blending -- without re-enabling it, the border texture's
-		// alpha is ignored and it draws as a fully-opaque THICK WHITE RING
-		// (the exact bug Will saw on every slider box, and only on sliders,
-		// because only sliders fill() between the two texture passes).
-		if (assetsOk) {
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, 0, border);
-		}
-
-		drawLabel(guiGraphics, x + w / 2.0, y + h / 2.0, h, slider.getMessage(), labelColor);
-	}
-
-	/**
-	 * Origin checkbox: a small rounded shell with an accent inner square when
-	 * selected, label to the right in vanilla font. Click handling untouched.
-	 */
-	public static boolean renderCheckbox(GuiGraphics guiGraphics, Checkbox checkbox) {
-		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
-		if (!originOwnsScreen()) {
-			return false;
-		}
-		if (broken) {
-			return false;
-		}
-		try {
-			renderCheckbox0(guiGraphics, checkbox);
-			return true;
-		} catch (Throwable t) {
-			return fail(t);
-		}
-	}
-
-	private static void renderCheckbox0(GuiGraphics guiGraphics, Checkbox checkbox) {
-		ensureLoaded();
-		int x = checkbox.getX(), y = checkbox.getY(), h = checkbox.getHeight();
-		boolean enabled = checkbox.active;
-		double hv = hoverEase(checkbox, enabled && checkbox.isHovered());
-
-		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
-		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
-		int labelColor = enabled ? LABEL_COLOR : LABEL_DISABLED;
-
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		int box = h;
-		int cd = Math.min(4, box / 3);
-		if (assetsOk) {
-			OriginUi.bevelPanel(guiGraphics, x, y, box, box, cd, fill, border);
-		} else {
-			guiGraphics.fill(x, y, x + box, y + box, fill);
-		}
-
-		if (checkbox.selected()) {
-			int inset = Math.max(3, box / 5);
-			// Gray fill (not stark white), matching the slider knob, still
-			// clearly visible against the faint shell; brightens on hover.
-			guiGraphics.fill(x + inset, y + inset, x + box - inset, y + box - inset,
-					enabled ? OriginTheme.lerpColor(0xFFB4B4B4, 0xFFD8D8D8, hv) : 0x669A9A9A);
-		}
-
-		Font font = Minecraft.getInstance().font;
-		String text = cleanLabel(checkbox.getMessage().getString());
-		guiGraphics.drawString(font, text, x + box + 5, y + (box - 8) / 2 + 1, labelColor, false);
-	}
-
-	/** Shared eased hover progress (0..1) for any widget. */
-	private static double hoverEase(Object widget, boolean hovered) {
-		State st = STATE.computeIfAbsent(widget, k -> new State());
-		long now = System.nanoTime();
-		double dtMs = st.lastNanos == 0 ? 0 : (now - st.lastNanos) / 1_000_000.0;
-		st.lastNanos = now;
-		double target = hovered ? 1.0 : 0.0;
-		if (st.hover < target) {
-			st.hover = Math.min(target, st.hover + dtMs / HOVER_MS);
-		} else if (st.hover > target) {
-			st.hover = Math.max(target, st.hover - dtMs / HOVER_MS);
-		}
-		return OriginTheme.easeOut(st.hover);
-	}
-
-	private static void drawLabel(GuiGraphics guiGraphics, double cx, double cy, int h, Component message, int labelColor) {
-		// One text pipeline for EVERY label (Will: "every text needs to be the
-		// same"): the default game font, drawn without shadow. Baked label
-		// textures and the Inter TTF override were both tried and retired --
-		// Will settled on default Minecraft text everywhere, so consistency
-		// comes free. Trailing ellipsis/dots stripped (Will: no dots on
-		// "Options...").
-		String text = cleanLabel(message.getString());
-		Font font = Minecraft.getInstance().font;
-		int tw = font.width(text);
-		guiGraphics.drawString(font, text, (int) (cx - tw / 2.0), (int) (cy - 4), labelColor, false);
-	}
-
-	private static String cleanLabel(String raw) {
-		String s = raw.replace("…", "").trim();
-		while (s.endsWith(".")) {
-			s = s.substring(0, s.length() - 1);
-		}
-		return s.trim();
-	}
-
-	private static void drawFallback(GuiGraphics guiGraphics, int x, int y, int w, int h, int fill, int border, int labelColor, Component message) {
-		guiGraphics.fill(x, y, x + w, y + h, fill);
-		guiGraphics.fill(x, y, x + w, y + 1, border);
-		guiGraphics.fill(x, y + h - 1, x + w, y + h, border);
-		guiGraphics.fill(x, y, x + 1, y + h, border);
-		guiGraphics.fill(x + w - 1, y, x + w, y + h, border);
-		Font font = Minecraft.getInstance().font;
-		int tw = font.width(message);
-		guiGraphics.drawString(font, message, x + (w - tw) / 2, y + (h - 8) / 2, labelColor, false);
-	}
-
-	private static void shaderColor(int argb) {
-		float a = ((argb >>> 24) & 0xFF) / 255f;
-		float r = ((argb >> 16) & 0xFF) / 255f;
-		float g = ((argb >> 8) & 0xFF) / 255f;
-		float b = (argb & 0xFF) / 255f;
-		RenderSystem.setShaderColor(r, g, b, a);
-	}
-
-	// Volatile fast-path: this runs once per widget per frame, so the
-	// already-loaded case must avoid acquiring the class monitor.
-	private static void ensureLoaded() {
-		if (loaded) {
-			return;
-		}
-		ensureLoaded0();
-	}
-
-	private static synchronized void ensureLoaded0() {
-		if (loaded) {
-			return;
-		}
-		loaded = true;
-		try {
-			Minecraft mc = Minecraft.getInstance();
-			JsonObject btn;
-			try (InputStream in = open("/assets/originclient/textures/ui/buttons.json")) {
-				btn = GSON.fromJson(readAll(in), JsonObject.class);
-			}
-			TEX = btn.get("texSize").getAsInt();
-			CORNER = btn.get("corner").getAsInt();
-			fillTex = register(mc, "button_fill", "/assets/originclient/textures/ui/button_fill.png");
-			borderTex = register(mc, "button_border", "/assets/originclient/textures/ui/button_border.png");
-			assetsOk = true;
-		} catch (Exception e) {
-			assetsOk = false;
-			com.origin.client.OriginClient.LOGGER.warn("Origin button assets failed to load; using fallback drawing", e);
-		}
-	}
-
-	private static String readAll(InputStream in) throws Exception {
-		return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-	}
-
-	private static ResourceLocation register(Minecraft mc, String name, String path) throws Exception {
-		NativeImage image;
-		try (InputStream in = open(path)) {
-			image = NativeImage.read(in);
-		}
-		ResourceLocation id = ResourceLocation.fromNamespaceAndPath("originclient", name);
-		DynamicTexture texture = new DynamicTexture(image);
-		texture.setFilter(true, false);
-		mc.getTextureManager().register(id, texture);
-		return id;
-	}
-
-	private static InputStream open(String classpathResource) throws Exception {
-		InputStream in = OriginButtonRenderer.class.getResourceAsStream(classpathResource);
-		if (in == null) {
-			throw new java.io.FileNotFoundException("Missing Origin button asset: " + classpathResource);
-		}
-		return in;
-	}
-
-	/**
-	 * Origin skin for the sprite-icon buttons — the Accessibility (person) and
-	 * Language (globe) buttons the 1.21.1 baseline keeps on the title screen.
-	 * Drawn with this module's own nine-slice box so it matches every other
-	 * Origin button here exactly. Ported from the baseline 2026-08-01.
-	 */
-	public static boolean renderIconButton(GuiGraphics guiGraphics, SpriteIconButton button,
-										   int spriteWidth, int spriteHeight, Runnable drawIcon) {
-		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
-		if (!originOwnsScreen()) {
-			return false;
-		}
-		if (broken) {
-			return false;
-		}
-		try {
-			ensureLoaded();
 			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
 			boolean enabled = button.active;
 			double hv = hoverEase(button, enabled && button.isHovered());
-			int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
-			int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
-
-			if (!assetsOk) {
-				drawFallback(guiGraphics, x, y, w, h, fill, border,
-						enabled ? LABEL_COLOR : LABEL_DISABLED, button.getMessage());
+			TitlePresentation title = TITLE.get(button);
+			if (title != null) {
+				titleBox(g, button, enabled, hv);
+				drawTitlePresentation(g, button, title, enabled, hv);
 			} else {
-				// This era tints the nine-slice through the shader colour.
-				RenderSystem.enableBlend();
-				RenderSystem.defaultBlendFunc();
-				int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-				OriginUi.bevelPanel(guiGraphics, x, y, w, h, cd, fill, border);
+				box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
+				drawLabelCentered(g, x + w / 2.0, y + h / 2.0, button.getMessage(),
+						enabled ? LABEL_COLOR : LABEL_DISABLED);
 			}
-
-			// Only TextAndIcon carries a label; CenteredIcon is icon-only, exactly
-			// like vanilla. Drawing button.renderString() here instead printed
-			// "Language"/"Accessibility Settings" across the neighbouring buttons.
-			if (button instanceof net.minecraft.client.gui.components.SpriteIconButton.TextAndIcon) {
-				Font font = Minecraft.getInstance().font;
-				guiGraphics.drawString(font, button.getMessage(), x + 2, y + (h - 8) / 2,
-						enabled ? LABEL_COLOR : LABEL_DISABLED, false);
-			}
-			drawIcon.run();
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
 	}
 
+	// ---- header tabs (Game / World / More on Create World) ----
+
+	/** Frost-styled tab. Selected reads as a lit box with a bright bottom accent;
+	 *  unselected is the resting box with a muted label and brightens on hover. */
 	public static boolean renderTab(GuiGraphics g, Object key, int x, int y, int w, int h,
 									Component label, boolean selected, boolean hovered) {
-		// Vanilla screens keep vanilla widgets (see originOwnsScreen).
+		// Vanilla screens (Create World's header tabs) keep vanilla tabs.
 		if (!originOwnsScreen()) {
 			return false;
 		}
@@ -456,21 +186,272 @@ public final class OriginButtonRenderer {
 			double lit = selected ? 1.0 : hv;
 			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, lit);
 			int border = OriginTheme.lerpColor(BORDER_NORMAL, OriginTheme.STROKE_HOVER, lit);
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			int cd = Math.min(CORNER_DISPLAY, Math.min(w, h) / 2);
-			OriginUi.bevelPanel(g, x, y, w, h, cd, fill, border);
+			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 			if (selected) {
+				// Accent underline: the accent's own value ramp across the tab,
+				// one jade tone with a soft highlight. Drawn as a few segments so the
+				// hue drifts along its width without a shader.
 				int uw = Math.max(16, Math.min(w - 8, (int) Math.round(w * 0.55)));
 				int ux = x + (w - uw) / 2;
-				g.fill(ux, y + h - 2, ux + uw, y + h - 1, OriginTheme.TEXT);
+				int seg = 8;
+				for (int i = 0; i < seg; i++) {
+					int sx = ux + (int) Math.round(uw * (i / (double) seg));
+					int ex = ux + (int) Math.round(uw * ((i + 1) / (double) seg));
+					g.fill(sx, y + h - 2, ex, y + h - 1, OriginTheme.aurora(i / (double) (seg - 1)));
+				}
 			}
 			int labelColor = selected ? LABEL_COLOR
 					: OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, hv);
-			drawLabel(g, x + w / 2.0, y + h / 2.0, h, label, labelColor);
+			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, label, labelColor);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
+	}
+
+	// ---- icon buttons (Accessibility = person, Language = globe, ...) ----
+
+	/** Frost-styled sprite-icon button. These (SpriteIconButton.CenteredIcon /
+	 *  TextAndIcon) override renderWidget, so the plain AbstractButton skin never
+	 *  reaches them -- they'd otherwise keep the vanilla stone sprite. We draw the
+	 *  same Frost box, delegate to the widget's own renderString for any text
+	 *  (empty on the icon-only title buttons, the scrolling label on TextAndIcon),
+	 *  then blit the icon centered exactly where vanilla puts it. `sprite` /
+	 *  `spriteWidth` / `spriteHeight` are the widget's protected fields, passed in
+	 *  from the mixin. */
+	public static boolean renderIconButton(GuiGraphics g, SpriteIconButton button,
+										   ResourceLocation sprite, int spriteWidth, int spriteHeight) {
+		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
+		// Another mod's own widget class: its art is drawn inside the method
+		// our mixins cancel, so restyling it leaves an empty Origin box. Return
+		// false -> the mixin does not cancel -> the mod draws itself, untouched.
+		if (OriginWidgetOwnership.isForeign(button)) {
+			return false;
+		}
+
+		if (broken) {
+			return false;
+		}
+		try {
+			int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+			boolean enabled = button.active;
+			double hv = hoverEase(button, enabled && button.isHovered());
+			TitlePresentation title = TITLE.get(button);
+			if (title != null) {
+				titleBox(g, button, enabled, hv);
+				drawTitlePresentation(g, button, title, enabled, hv);
+				return true;
+			}
+			box(g, x, y, w, h, enabled, hv);
+
+			// Per-subclass text: CenteredIcon.renderString is empty (icon only);
+			// TextAndIcon.renderString draws its scrolling label at the vanilla
+			// position. Calling it keeps both correct without re-implementing layout.
+			button.renderString(g, Minecraft.getInstance().font, enabled ? LABEL_COLOR : LABEL_DISABLED);
+
+			// Icon centered, matching vanilla SpriteIconButton placement.
+			int ix = x + w / 2 - spriteWidth / 2;
+			int iy = y + h / 2 - spriteHeight / 2;
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			g.blitSprite(sprite, ix, iy, spriteWidth, spriteHeight);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	// ---- sliders (FOV, volumes, sensitivity, ...) ----
+
+	/** Frost-styled slider: the same box as a button plus a bright handle bar at
+	 *  the value position. Vanilla's drag/click logic is untouched -- `value` is
+	 *  read live each frame, so dragging stays exactly as responsive as vanilla. */
+	public static boolean renderSlider(GuiGraphics g, AbstractSliderButton slider, double value) {
+		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
+		// Another mod's own widget class: its art is drawn inside the method
+		// our mixins cancel, so restyling it leaves an empty Origin box. Return
+		// false -> the mixin does not cancel -> the mod draws itself, untouched.
+		if (OriginWidgetOwnership.isForeign(slider)) {
+			return false;
+		}
+
+		if (broken) {
+			return false;
+		}
+		try {
+			int x = slider.getX(), y = slider.getY(), w = slider.getWidth(), h = slider.getHeight();
+			boolean enabled = slider.active;
+			double v = Math.max(0.0, Math.min(1.0, value));
+			double hv = hoverEase(slider, enabled && slider.isHovered());
+			box(g, x, y, w, h, enabled, hv);
+
+			// Draggable handle: a thin vertical bar at the value position, inset so
+			// it stays inside the box at both ends.
+			int inset = 6, handleW = 4;
+			int handleH = Math.max(6, h - 8);
+			int handleY = y + (h - handleH) / 2;
+			int travel = Math.max(0, w - 2 * inset - handleW);
+			int handleX = x + inset + (int) Math.round(travel * v);
+			g.fill(handleX, handleY, handleX + handleW, handleY + handleH,
+					enabled ? OriginTheme.lerpColor(HANDLE, HANDLE_HOVER, hv) : 0x66808080);
+
+			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, slider.getMessage(),
+					enabled ? LABEL_COLOR : LABEL_DISABLED);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	// ---- checkboxes ----
+
+	/** Frost-styled checkbox: a square box (matching the buttons) with a bright
+	 *  inner square when selected, and the label to the right. Toggle logic
+	 *  untouched. */
+	public static boolean renderCheckbox(GuiGraphics g, Checkbox checkbox) {
+		// Vanilla screens get vanilla widgets (see originOwnsScreen).
+		if (!originOwnsScreen()) {
+			return false;
+		}
+		// Another mod's own widget class: its art is drawn inside the method
+		// our mixins cancel, so restyling it leaves an empty Origin box. Return
+		// false -> the mixin does not cancel -> the mod draws itself, untouched.
+		if (OriginWidgetOwnership.isForeign(checkbox)) {
+			return false;
+		}
+
+		if (broken) {
+			return false;
+		}
+		try {
+			int x = checkbox.getX(), y = checkbox.getY(), h = checkbox.getHeight();
+			int box = h;
+			boolean enabled = checkbox.active;
+			double hv = hoverEase(checkbox, enabled && checkbox.isHovered());
+			box(g, x, y, box, box, enabled, hv);
+			if (checkbox.selected()) {
+				int inset = Math.max(3, box / 5);
+				g.fill(x + inset, y + inset, x + box - inset, y + box - inset,
+						enabled ? OriginTheme.lerpColor(HANDLE, HANDLE_HOVER, hv) : 0x669A9A9A);
+			}
+			Font font = Minecraft.getInstance().font;
+			OriginText.draw(g, font, checkbox.getMessage().getString(), x + box + 5, y + (box - 8) / 2 + 1,
+					enabled ? LABEL_COLOR : LABEL_DISABLED, true);
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		}
+	}
+
+	// ---- shared drawing ----
+
+	/** The glass box: a rounded cool-tinted translucent fill + hairline frame,
+	 *  eased between resting and hover. On hover the fill firms up AND takes a
+	 *  faint accent wash (ACCENT_SOFT), and the border eases toward the
+	 *  accent-tinted BOX_BORDER_HOVER — so a hovered control reads "accent-lit"
+	 *  without any control ever glowing at rest. Rounded via OriginUi.panel. */
+	private static void box(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv) {
+		box(g, x, y, w, h, enabled, hv, false);
+	}
+
+	private static void box(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv, boolean primary) {
+		if (primary && enabled) {
+			// Accent-washed glass: the one accent moment on a screen.
+			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv);
+			int border = OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, hv);
+			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
+			int wash = OriginTheme.withAlpha(OriginTheme.ACCENT, (int) Math.round(0x2E + 0x1C * hv));
+			OriginUi.panel(g, x, y, w, h, RADIUS, wash, 0);
+			return;
+		}
+		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
+		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
+		// Accent wash: a translucent accent fill that fades in with hover only.
+		if (enabled && hv > 0.01) {
+			int wash = OriginTheme.withAlpha(OriginTheme.ACCENT, (int) Math.round(0x24 * hv));
+			OriginUi.panel(g, x, y, w, h, RADIUS, wash, 0);
+		}
+	}
+
+	/** Title controls are one opaque material at rest. Color appears only as
+	 * direct hover/press feedback; there are no stacked washes or idle outlines. */
+	private static void titleBox(GuiGraphics g, AbstractButton button, boolean enabled, double hover) {
+		boolean pressed = enabled && button.isHovered()
+				&& Minecraft.getInstance().mouseHandler.isLeftPressed();
+		int fill = enabled ? OriginTheme.lerpColor(TITLE_FILL, TITLE_FILL_HOVER, hover) : FILL_DISABLED;
+		if (pressed) fill = TITLE_FILL_PRESSED;
+		OriginUi.panel(g, button.getX(), button.getY(), button.getWidth(), button.getHeight(),
+				RADIUS, fill, 0);
+	}
+
+	/** Centered label in Origin's Inter (SDF) font — semibold, with a soft drop
+	 *  shadow — routed through OriginText so it matches every other menu label and
+	 *  the whole client reads in one typeface (no vanilla pixel glyphs on widgets).
+	 *  Raw label text is kept as-is (no dot-stripping) so "Options..." reads right. */
+	private static void drawLabelCentered(GuiGraphics g, double cx, double cy, Component message, int color) {
+		Font font = Minecraft.getInstance().font;
+		String s = message.getString();
+		int tw = OriginText.widthBold(font, s);
+		OriginText.drawBold(g, font, s, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
+	}
+
+	private static void drawTitlePresentation(GuiGraphics g, AbstractButton button, TitlePresentation title,
+										 boolean enabled, double hover) {
+		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
+		int color = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hover) : LABEL_DISABLED;
+		// Twelve logical pixels gives the SDF enough screen area to retain its
+		// hairline character while keeping every dock glyph centred on the same box.
+		int iconSize = Math.max(10, Math.min(12, h - 5));
+		if (title.iconOnly()) {
+			ModIcons.draw(g, title.icon(), x + (w - iconSize) / 2, y + (h - iconSize) / 2, iconSize, color);
+			return;
+		}
+		Font font = Minecraft.getInstance().font;
+		String label = button.getMessage().getString();
+		float textScale = 0.82f;
+		int textW = Math.round(OriginText.widthBold(font, label) * textScale);
+		int gap = 4;
+		int groupW = iconSize + gap + textW;
+		int iconX = x + (w - groupW) / 2;
+		int iconY = y + (h - iconSize) / 2;
+		ModIcons.draw(g, title.icon(), iconX, iconY, iconSize, color);
+		int textX = iconX + iconSize + gap;
+		int textY = y + (h - Math.round(8 * textScale)) / 2;
+		g.pose().pushPose();
+		g.pose().translate(textX, textY, 0);
+		g.pose().scale(textScale, textScale, 1f);
+		OriginText.drawBold(g, font, label, 0, 0, color, true);
+		g.pose().popPose();
+	}
+
+	/** Shared eased hover progress (0..1) for any widget, on wall-clock time. */
+	private static double hoverEase(Object widget, boolean hovered) {
+		long now = System.nanoTime();
+		State st = STATE.get(widget);
+		if (st == null) {
+			st = new State();
+			st.hover = hovered ? 1.0 : 0.0;
+			st.lastNanos = now;
+			STATE.put(widget, st);
+			return OriginTheme.easeOut(st.hover);
+		}
+		double dtMs = Math.min(50.0, (now - st.lastNanos) / 1_000_000.0);
+		st.lastNanos = now;
+		double target = hovered ? 1.0 : 0.0;
+		double duration = hovered ? HOVER_IN_MS : HOVER_OUT_MS;
+		if (st.hover < target) {
+			st.hover = Math.min(target, st.hover + dtMs / duration);
+		} else if (st.hover > target) {
+			st.hover = Math.max(target, st.hover - dtMs / duration);
+		}
+		return OriginTheme.easeOut(st.hover);
 	}
 }

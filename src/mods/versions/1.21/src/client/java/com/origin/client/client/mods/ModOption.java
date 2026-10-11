@@ -10,9 +10,10 @@ package com.origin.client.client.mods;
 //   dependsOn — a row nested under a TOGGLE: indented, and only shown while
 //               that toggle is on (Block Outline -> width/mode/color, etc.).
 public final class ModOption {
-	// MULTISELECT: an ORDERED subset of a fixed choice set (JEI sort stages), a
-	// comma-separated list whose membership AND order matter. Row opens the shared
-	// OriginMultiSelect overlay, like COLOR opens the color picker.
+	// MULTISELECT: an ORDERED subset of a fixed choice set (e.g. JEI's sort
+	// stages). Unlike DROPDOWN (pick exactly one), the value is a comma-separated
+	// list whose membership AND order both matter. The row opens the shared
+	// OriginMultiSelect overlay, the same way COLOR opens the color picker.
 	public enum Kind { HEADER, TOGGLE, SLIDER, DROPDOWN, KEYBIND, COLOR, MULTISELECT }
 
 	public final String key;
@@ -104,8 +105,12 @@ public final class ModOption {
 		return dropdown(key, label, choices);
 	}
 
-	/** Ordered multi-select over the given choice set; live value is an ordered
-	 *  subset stored comma-separated. `choices` (held in `modes`) is the full set. */
+	/**
+	 * An ordered multi-select over the given choice set. The live value is an
+	 * ordered subset stored as a comma-separated string; {@code choices} (held in
+	 * {@code modes}) is the full set the overlay offers. Used by the JEI settings
+	 * tab for sort-order / feature-list settings that have no single answer.
+	 */
 	public static ModOption multiselect(String key, String label, String... choices) {
 		return new ModOption(key, label, Kind.MULTISELECT, null, 0, 0, 0, 0, null, false, 0, -1, choices);
 	}
