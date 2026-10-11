@@ -97,7 +97,12 @@ jobs:
       - name: Check for mixins that bind nothing
         shell: bash
         run: |
-          dead=$(grep -E "Cannot remap .* does not exist in any of the targets \[(net/minecraft|com/mojang)/" gradle.log || true)
+          # Origin's sources use Mojang names, so its own lines name readable classes
+          # (net/minecraft/client/...). Bundled dependency jars (Sodium, Lithium...)
+          # are remapped from intermediary names (net/minecraft/class_2818); their
+          # lines are skipped -- they are those mods' own optional hooks, not Origin's.
+          dead=$(grep -E "Cannot remap .* does not exist in any of the targets \[(net/minecraft|com/mojang)/" gradle.log \
+                 | grep -vE "targets \[net/minecraft/class_[0-9]+" || true)
           if [ -n "$dead" ]; then
             echo "::error::Origin mixins target methods that don't exist on Minecraft ${{ matrix.covers }} (the feature behind each would silently do nothing):"
             echo "$dead"
