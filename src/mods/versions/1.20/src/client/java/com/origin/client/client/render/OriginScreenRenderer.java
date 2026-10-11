@@ -865,18 +865,112 @@ public final class OriginScreenRenderer {
 			return (int) Math.round(inkCenterY + (wmInkH * scale) / 2.0);
 		}
 
-		// Fallback (texture missing): vanilla font, centered on the point.
-		Font font = Minecraft.getInstance().font;
-		String mark = "ORIGIN";
+		// "ORIGIN" in Minecraft's own letters, centered on the point. Never
+		// through mc.font: see BOOT FONT below for why.
 		float scale = 4.0f;
+		if (ensureBootFont()) {
+			PoseStack pose = guiGraphics.pose();
+			pose.pushPose();
+			pose.translate(inkCenterX, inkCenterY, 0);
+			pose.scale(scale, scale, 1f);
+			drawBootText(guiGraphics, "ORIGIN", -4, OriginTheme.TEXT);
+			pose.popPose();
+		}
+		return (int) Math.round(inkCenterY + 5 * scale);
+	}
+
+	// ---- BOOT FONT ----
+	// The loading overlay first paints DURING the initial resource reload,
+	// before Minecraft has baked any font glyphs. Text drawn through mc.font in
+	// that window comes out as one missing-glyph box per letter -- the six
+	// boxes Will saw in place of "ORIGIN" while the game loaded, on every
+	// version. So the loading mark reads Minecraft's own ascii.png straight off
+	// the game jar (plain classpath read: there from the first frame, no
+	// resource manager involved) and blits the glyphs itself. Same pixels the
+	// vanilla font draws, so the mark looks identical before and after fonts
+	// finish loading. If the sheet can't be read, no text is drawn at all --
+	// an empty frame is better than boxes.
+	private static ResourceLocation bootFontId;
+	private static int bootFontTexW, bootFontTexH, bootFontCell;
+	private static int[] bootFontWidth; // per char code 0-255: glyph width in px, 0 = no glyph
+	private static boolean bootFontTried;
+
+	private static synchronized boolean ensureBootFont() {
+		if (bootFontTried) {
+			return bootFontId != null;
+		}
+		bootFontTried = true;
+		try {
+			NativeImage image;
+			try (InputStream in = open("/assets/minecraft/textures/font/ascii.png")) {
+				image = NativeImage.read(in);
+			}
+			int cell = image.getWidth() / 16;
+			int[] widths = new int[256];
+			// A glyph's width is its rightmost column with any opaque pixel --
+			// the same rule vanilla's bitmap font provider uses.
+			for (int c = 0; c < 256; c++) {
+				int cx = (c % 16) * cell;
+				int cy = (c / 16) * cell;
+				int w = 0;
+				for (int x = cell - 1; x >= 0 && w == 0; x--) {
+					for (int y = 0; y < cell; y++) {
+						if ((image.getPixelRGBA(cx + x, cy + y) >>> 24) != 0) {
+							w = x + 1;
+							break;
+						}
+					}
+				}
+				widths[c] = w;
+			}
+			bootFontTexW = image.getWidth();
+			bootFontTexH = image.getHeight();
+			bootFontCell = cell;
+			bootFontWidth = widths;
+			ResourceLocation id = new ResourceLocation("originclient", "origin_boot_font");
+			DynamicTexture texture = new DynamicTexture(image);
+			texture.setFilter(false, false); // nearest: pixel letters stay crisp at 4x
+			Minecraft.getInstance().getTextureManager().register(id, texture);
+			bootFontId = id;
+		} catch (Exception e) {
+			bootFontId = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin boot font (vanilla ascii.png) failed to load; loading screen draws no text", e);
+		}
+		return bootFontId != null;
+	}
+
+	/** Draws ASCII text from the boot font, horizontally centered on x=0, top at y, in the given ARGB color. */
+	private static void drawBootText(GuiGraphics guiGraphics, String text, int y, int argb) {
+		// Vanilla advances width + 1 per glyph, scaled by 8/cell for HD sheets.
+		float unit = 8f / bootFontCell;
+		int total = 0;
+		for (int i = 0; i < text.length(); i++) {
+			char ch = text.charAt(i);
+			total += ch < 256 ? bootFontWidth[ch] + 1 : 0;
+		}
+		total -= 1;
+		RenderSystem.enableBlend();
+		RenderSystem.setShaderColor(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
+				(argb & 0xFF) / 255f, ((argb >>> 24) & 0xFF) / 255f);
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
-		pose.translate(inkCenterX, inkCenterY, 0);
-		pose.scale(scale, scale, 1f);
-		int textW = font.width(mark);
-		guiGraphics.drawString(font, mark, -textW / 2, -4, OriginTheme.TEXT, false);
+		pose.scale(unit, unit, 1f);
+		int x = -total / 2;
+		int top = Math.round(y / unit);
+		for (int i = 0; i < text.length(); i++) {
+			char ch = text.charAt(i);
+			if (ch >= 256) {
+				continue;
+			}
+			int w = bootFontWidth[ch];
+			if (w > 0) {
+				guiGraphics.blit(bootFontId, x, top, (float) ((ch % 16) * bootFontCell), (float) ((ch / 16) * bootFontCell),
+						w, bootFontCell, bootFontTexW, bootFontTexH);
+			}
+			x += w + 1;
+		}
 		pose.popPose();
-		return (int) Math.round(inkCenterY + 5 * scale);
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 	}
 
 	/** Draws the progress bar centered on cx at barTop, with the given width/height. */
