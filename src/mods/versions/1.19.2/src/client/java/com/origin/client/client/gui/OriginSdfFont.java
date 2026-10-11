@@ -215,6 +215,8 @@ public final class OriginSdfFont {
 		Matrix4f m = g.pose().last().pose();
 		BufferBuilder bb = Tesselator.getInstance().getBuilder();
 		bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+		// This era's builder wants the attributes in FORMAT order (position, uv,
+		// colour) — a mismatched call is silently skipped and endVertex() throws.
 		float pen = x;
 		boolean any = false;
 		for (int i = 0; i < text.length(); i++) {
@@ -230,10 +232,10 @@ public final class OriginSdfFont {
 				float gy1 = gy0 + gl.h * s;
 				float u0 = gl.x / f.atlasW, v0 = gl.y / f.atlasH;
 				float u1 = (gl.x + gl.w) / f.atlasW, v1 = (gl.y + gl.h) / f.atlasH;
-				bb.vertex(m, gx0, gy0, 0).color(r, gg, b, a).uv(u0, v0).endVertex();
-				bb.vertex(m, gx0, gy1, 0).color(r, gg, b, a).uv(u0, v1).endVertex();
-				bb.vertex(m, gx1, gy1, 0).color(r, gg, b, a).uv(u1, v1).endVertex();
-				bb.vertex(m, gx1, gy0, 0).color(r, gg, b, a).uv(u1, v0).endVertex();
+				bb.vertex(m, gx0, gy0, 0).uv(u0, v0).color(r, gg, b, a).endVertex();
+				bb.vertex(m, gx0, gy1, 0).uv(u0, v1).color(r, gg, b, a).endVertex();
+				bb.vertex(m, gx1, gy1, 0).uv(u1, v1).color(r, gg, b, a).endVertex();
+				bb.vertex(m, gx1, gy0, 0).uv(u1, v0).color(r, gg, b, a).endVertex();
 				any = true;
 			}
 			pen += gl.adv * s;

@@ -171,3 +171,33 @@ by the range, not a shipped experience.
 `gradlew build` exit 0 (Loom 1.17-SNAPSHOT, Gradle wrapper, JDK 17
 auto-provisioned). Artifact: `build/libs/originclient-1.19.4-0.4.1.jar`.
 Not runClient-tested (orchestrator boot-sweeps staged modules later).
+
+## 2026-10 — ported onto the 1.21.1 design (redesign v6)
+
+Reproducible from the pristine module with the scratch script `port_1194.py`
+(3-way merge of 1.21.1 through a GuiGraphics->Gfx transform, then asserted era
+edits). Everything 1.21.1 has is here: Ion Jade title (compact stack + bottom
+icon dock + Origin "Mods" widget + account chip + entrance animation), blurred
+panorama backdrop on every out-of-world menu, Workbench widget skin, the
+Command Deck mod menu (26 cards incl. JEI, Waypoints + Locator Bar, Item Size,
+Tab Editor, Nametag styling, Color Saturation, movable Scoreboard), profiles,
+keybinds, SDF text/rounded panels/icon atlas.
+
+Era decisions (evidence = this module's own boot-verified code unless noted):
+- Menu blur: no processBlurEffect before 1.21 -> half-size TextureTarget panorama
+  halved 3x through GL_LINEAR targets and stretched back, drawn as a GUI-space
+  quad under the GUI ortho projection (no setProjectionMatrix call at all).
+- Title: ImageButton Language/Accessibility told apart by translation key
+  (`narrator.button.language` / `.accessibility`) and skinned by the new
+  ImageButtonMixin (renderWidget); setHeight via AbstractWidgetAccessor; the
+  panorama/overlay/splash/version suppressions are this module's own redirects;
+  wordmark replaces LogoRenderer.renderLogo(PoseStack;IF)V.
+- Hearts/XP strip from textures/gui/icons.png (no sprite atlas before 1.20.2);
+  int display slot + getOrCreatePlayerScore for the tab scores; tab faces via
+  setShaderTexture + PlayerFaceRenderer.draw(PoseStack,...).
+- Gui hooks: render(PoseStack;F), renderExperienceBar(PoseStack;I),
+  renderHotbar(F;PoseStack) (locator bar); GenericDirtMessageScreen shows the
+  loading scene; PlayerTabOverlay.render(PoseStack;I;Scoreboard;Objective)
+  suppression only while PlayerTabOverlayAccessor applied (fail-soft).
+- Gfx gained blit(tex,x,y,u,v,w,h) (static 9-arg underneath),
+  drawString(Font,Component,...), renderFakeItem, renderTooltip.

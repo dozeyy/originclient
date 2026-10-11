@@ -3,6 +3,7 @@ package com.origin.client.client.gui;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import com.origin.client.client.gui.Gfx;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -10,12 +11,18 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * The shared ordered multi-select overlay — pre-1.20 (Gfx/PoseStack) variant of
- * {@link OriginColorPicker}'s sibling. Identical to the GuiGraphics build except
- * it draws through {@link Gfx} (GuiGraphics does not exist before MC 1.20). A
- * value is an ORDERED subset of a fixed choice set (JEI's sort stages); the panel
- * shows the chosen items in order with up/down/remove, and the remaining choices
- * below to append. Every edit calls {@code onChange} with the live selection.
+ * The shared ordered multi-select overlay — the multi-value analogue of
+ * {@link OriginColorPicker}, built the same way: a modal with static working
+ * state that the mod menu draws last and feeds input to first.
+ *
+ * A value is an ORDERED subset of a fixed choice set (JEI's sort stages, tooltip
+ * features, ...). The panel shows the chosen items in order at the top — each with
+ * up/down to reorder and ✕ to remove — and the remaining choices below, each a
+ * click away from being appended. Every edit calls {@code onChange} with the live
+ * ordered selection, so the backing store (JEI) updates immediately, matching how
+ * the color picker commits live.
+ *
+ * Tokens are stored RAW (e.g. MOD_NAME); only the display is prettified.
  */
 public final class OriginMultiSelect {
 	private OriginMultiSelect() {
@@ -23,8 +30,8 @@ public final class OriginMultiSelect {
 
 	private static boolean open = false;
 	private static String title;
-	private static List<String> all = List.of();
-	private static final List<String> selected = new ArrayList<>();
+	private static List<String> all = List.of();          // full choice set, canonical order
+	private static final List<String> selected = new ArrayList<>(); // working ordered subset
 	private static Consumer<List<String>> onChange = c -> {
 	};
 
@@ -44,6 +51,7 @@ public final class OriginMultiSelect {
 		OriginMultiSelect.title = title;
 		OriginMultiSelect.all = new ArrayList<>(all);
 		OriginMultiSelect.selected.clear();
+		// keep only known tokens, preserving the caller's order
 		for (String s : selected) {
 			if (all.contains(s) && !OriginMultiSelect.selected.contains(s)) {
 				OriginMultiSelect.selected.add(s);
@@ -89,20 +97,24 @@ public final class OriginMultiSelect {
 		g.fill(0, 0, sw, sh, 0x66000000);
 		OriginUi.panel(g, px, py, PW, ph, 12, 0xF2101010, OriginTheme.STROKE_STRONG);
 
-		g.drawString(font, title == null ? "Select" : title, px + 12, py + 10, OriginTheme.TEXT, false);
+		OriginText.drawBold(g, font, title == null ? "Select" : title, px + 12, py + 10, OriginTheme.TEXT, false);
 		boolean closeHover = in(mx, my, px + PW - 26, py + 8, px + PW - 8, py + 24);
-		g.drawString(font, "✕", px + PW - 22, py + 10, closeHover ? OriginTheme.TEXT : OriginTheme.MUTED, false);
+		float closeHp = OriginUi.hover("multi-select:close", closeHover);
+		g.drawString(font, "✕", px + PW - 22, py + 10,
+				OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, closeHp), false);
 
 		int x0 = px + 10, x1 = px + PW - 10;
 		int y = py + HEADER_H;
 
+		// selected, in order — badge, label, [▲ ▼ ✕]
 		for (int i = 0; i < selected.size(); i++) {
 			String raw = selected.get(i);
 			boolean rowHover = in(mx, my, x0, y, x1, y + ROW - 2);
+			float rowHp = OriginUi.hover("multi-select:selected:" + raw, rowHover);
 			OriginUi.panel(g, x0, y, x1 - x0, ROW - 2, 6,
-					rowHover ? 0x1EFFFFFF : 0x12FFFFFF, OriginTheme.STROKE);
-			g.drawString(font, String.valueOf(i + 1), x0 + 6, y + 5, OriginTheme.MUTED, false);
-			g.drawString(font, JeiSettings.prettify(raw), x0 + 20, y + 5, OriginTheme.TEXT, false);
+					OriginTheme.lerpColor(0x12FFFFFF, 0x1EFFFFFF, rowHp), OriginTheme.STROKE);
+			OriginText.draw(g, font, String.valueOf(i + 1), x0 + 6, y + 5, OriginTheme.MUTED, false);
+			OriginText.draw(g, font, JeiSettings.prettify(raw), x0 + 20, y + 5, OriginTheme.TEXT, false);
 
 			int upX = x1 - 56, dnX = x1 - 38, rmX = x1 - 18;
 			drawGlyph(g, font, "▲", upX, y, mx, my, i > 0);
@@ -111,26 +123,32 @@ public final class OriginMultiSelect {
 			y += ROW;
 		}
 
-		g.drawString(font, selected.isEmpty() ? "PICK ONE OR MORE" : "ADD MORE",
+		// divider
+		OriginText.draw(g, font, selected.isEmpty() ? "PICK ONE OR MORE" : "ADD MORE",
 				x0 + 2, y + 4, OriginTheme.MUTED, false);
-		g.fill(x0 + 2 + font.width(selected.isEmpty() ? "PICK ONE OR MORE" : "ADD MORE") + 6, y + 8, x1, y + 9,
+		g.fill(x0 + 2 + OriginText.width(font, selected.isEmpty() ? "PICK ONE OR MORE" : "ADD MORE") + 6, y + 8, x1, y + 9,
 				OriginTheme.STROKE);
 		y += DIV_H;
 
+		// available — click to append
 		for (String raw : avail) {
 			boolean rowHover = in(mx, my, x0, y, x1, y + ROW - 2);
+			float rowHp = OriginUi.hover("multi-select:available:" + raw, rowHover);
 			OriginUi.panel(g, x0, y, x1 - x0, ROW - 2, 6,
-					rowHover ? 0x1EFFFFFF : 0x0AFFFFFF, OriginTheme.STROKE);
-			g.drawString(font, JeiSettings.prettify(raw), x0 + 8, y + 5,
-					rowHover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, false);
-			g.drawString(font, "+", x1 - 14, y + 5, rowHover ? OriginTheme.TEXT : OriginTheme.MUTED, false);
+					OriginTheme.lerpColor(0x0AFFFFFF, 0x1EFFFFFF, rowHp), OriginTheme.STROKE);
+			OriginText.draw(g, font, JeiSettings.prettify(raw), x0 + 8, y + 5,
+					OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, rowHp), false);
+			OriginText.draw(g, font, "+", x1 - 14, y + 5,
+					OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, rowHp), false);
 			y += ROW;
 		}
 	}
 
 	private static void drawGlyph(Gfx g, Font font, String s, int x, int y, int mx, int my, boolean enabled) {
 		boolean hover = enabled && in(mx, my, x - 2, y, x + 14, y + ROW - 2);
-		int color = !enabled ? OriginTheme.STROKE_HOVER : (hover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM);
+		float hp = OriginUi.hover("multi-select:glyph:" + s + ":" + x + ":" + y, hover);
+		int color = !enabled ? OriginTheme.STROKE_HOVER
+				: OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hp);
 		g.drawString(font, s, x, y + 5, color, false);
 	}
 
@@ -145,7 +163,7 @@ public final class OriginMultiSelect {
 			return true;
 		}
 		if (!in(mx, my, px, py, px + PW, py + ph)) {
-			close();
+			close(); // click outside dismisses
 			return true;
 		}
 
@@ -172,16 +190,16 @@ public final class OriginMultiSelect {
 			y += ROW;
 		}
 
-		y += DIV_H;
+		y += DIV_H; // skip the divider label row
 		for (String raw : available()) {
 			if (in(mx, my, x0, y, x1, y + ROW - 2)) {
-				selected.add(raw);
+				selected.add(raw); // append → becomes last in the order
 				fire();
 				return true;
 			}
 			y += ROW;
 		}
-		return true;
+		return true; // modal: swallow everything inside the panel
 	}
 
 	public static boolean keyPressed(int keyCode) {
@@ -191,7 +209,7 @@ public final class OriginMultiSelect {
 		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
 			close();
 		}
-		return true;
+		return true; // swallow keys while modal
 	}
 
 	private static boolean in(double mx, double my, int x0, int y0, int x1, int y1) {

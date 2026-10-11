@@ -158,3 +158,24 @@ tabbed CreateWorld/Experiments UI to restyle (vanilla never had it there).
 `gradlew build` exit 0 (Loom 1.17.14, Gradle wrapper, JDK 17). Artifact:
 `build/libs/originclient-1.19.3-0.4.1.jar`. Not runClient-tested
 (orchestrator boot-sweeps staged modules later).
+
+## 2026-10 — ported onto the 1.21.1 design (redesign v6)
+
+Reproducible from the pristine module with the scratch script `port_1193.py`
+(same method and feature set as the 1.19.4 module's 2026-10 section). 1.19.3
+deltas on top of the 1.19.4 port, each from this module's own code:
+- Widgets: AbstractWidgetMixin (renderButton + instanceof) keeps restyling buttons
+  and sliders; 1.21.1's AbstractButton/AbstractSliderButton/TabButton mixins are
+  not used (renderWidget and TabButton are 1.19.4+). Checkbox + ImageButton +
+  OriginShaderButton hook renderButton.
+- Hover: `OriginButtonRenderer.hovered(widget)` (no isHovered() before 1.19.4) in
+  the skin, the title spotlight and the menu backdrop.
+- Title wordmark: the module's own blitOutlineBlack redirect + same-frame latch
+  for the "Java Edition" strip (no LogoRenderer).
+- BlockOverlayRenderer's new "mod off = hairline outline" draws into FillQuads
+  (no RenderType.debugQuads before 1.19.4).
+- Font.drawInBatch(boolean seeThrough) for Nametag styling; blockPosition() for
+  the biome lookups; no infinite effects.
+- ScreenInvoker declares only the erased bound (GuiEventListener & NarratableEntry).
+- PlayerTabOverlayAccessor invokes getPlayerInfos() (reasoned, not javap'd here):
+  if it is absent the accessor fails to apply and vanilla's tab list stays.

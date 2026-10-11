@@ -201,3 +201,23 @@ PlayerFaceRenderer, all widget/screen/renderer descriptors. Full experience.
 loader 0.19.3). Artifact: `build/libs/originclient-1.19.2-0.4.1.jar`
 (83 classes; both mixin configs bundled). Not runClient-tested (orchestrator
 boot-sweeps staged modules later).
+
+## 2026-10 — ported onto the 1.21.1 design (redesign v6)
+
+Reproducible from the pristine module with the scratch script `port_1192.py`
+(same method and feature set as the 1.19.4 module's 2026-10 section). 1.19.2
+deltas, each from this module's own code:
+- Pre-JOML: com.mojang.math Matrix4f/Vector4f and Vector3f.ZP rotations (rings,
+  logo); the waypoint screen projection uses load/multiply/transform; nametag
+  redirect descriptor uses Lcom/mojang/math/Matrix4f;.
+- Widgets: the module's own AbstractButtonMixin / AbstractSliderButtonMixin
+  (@Mixin(AbstractWidget) renderButton + instanceof) and Checkbox.renderButton;
+  public x / y fields instead of getX/setX (skin, title layout, foreign-widget
+  avoidance, shader button); `new Button(...)` instead of Button.builder;
+  isHoveredOrFocused() in the skin, isMouseOver(mx, my) for the spotlight.
+- Registry.ITEM / Registry.PARTICLE_TYPE; FPS via MinecraftFpsAccessor.
+- Title wordmark: the module's own blitOutlineBlack (arg-capture) + edition
+  badge redirects. Account chip + tab faces: PlayerFaceRenderer (1.19.1+).
+- Tab list: no getPlayerInfos() -> OriginTabList.vanillaPlayerList rebuilds
+  vanilla's order (non-spectators, team, name ignoring case; 80 rows).
+- BlockOverlayRenderer's hairline outline draws into FillQuads.

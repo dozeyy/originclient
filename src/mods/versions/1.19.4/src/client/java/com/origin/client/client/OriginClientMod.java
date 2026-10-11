@@ -42,7 +42,19 @@ public class OriginClientMod implements ClientModInitializer {
 	public static volatile double zoomScrollFactor = 1.0;
 	// Nametag toggle latches, read by EntityNametagMixin.
 	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
+	// Whether the Tab Editor's custom player-list overlay should draw this frame. Set
+	// each tick; read by GuiHudMixin. We drive our own visibility (not vanilla's,
+	// which refuses to show the list on a solo local server) so it also previews in
+	// single-player and never double-draws with vanilla (PlayerTabOverlayMixin cancels).
+	public static volatile boolean tabListVisible = false;
 	private boolean nametagAllKeyWasDown = false, nametagPlayerKeyWasDown = false;
+
+	// Tab Editor: sticky tap-vs-hold state + two-way keybind sync bookkeeping.
+	private boolean tabKeyWasDown = false;
+	private boolean tabStickyOn = false;
+	private long tabPressAt = 0;
+	private boolean tabSyncInit = false;
+	private int lastOurTabKey = -1, lastMcTabKey = -1;
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
 	private boolean zoomSensApplied = false;
 	private double savedSensitivity = 0.5;
@@ -51,28 +63,23 @@ public class OriginClientMod implements ClientModInitializer {
 	// Fly Boost restore latch + thunder-sound cadence counter.
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
-
-	// JEI bundled here is jei-1.19.4-fabric-13.1.0.19. A foreign JEI jar shadows ours
-	// (Fabric loads the higher version) — detectForeignJei() catches that.
+	// JEI bundled here is jei-1.19.4-fabric-13.1.0.19 (see gradle.properties). A foreign
+	// JEI jar shadows ours (Fabric loads the higher version) — detectForeignJei() catches
+	// that; jeiNoticeShown gates the one-time in-world chat notice.
 	private static final String BUNDLED_JEI = "13.1.0.19";
 	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
+	// Edge-trigger for death waypoints: true while the player is alive, so a death
+	// drops exactly one waypoint on the alive→dead transition.
+	private boolean wasAlive = false;
 
 	@Override
 	public void onInitializeClient() {
-		// Register the scalable MSDF text shader for the menus. Fails soft —
-		// if it doesn't load, the UI uses the vanilla-font path.
-		com.origin.client.client.gui.OriginShaders.register();
 		OriginKeyBindings.register();
+		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
+		// menus. Fails soft — if they don't load, the UI uses the software path.
+		com.origin.client.client.gui.OriginShaders.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
-
-		// JEI fragility guards; wrapped so a check can never fail client init.
-		try {
-			detectForeignJei();
-			selfCheckJeiMixins();
-		} catch (Throwable t) {
-			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
-		}
 		// Single authoritative autosave when the player leaves the game (quit to
 		// desktop / window close). Mod + HUD settings already save eagerly on
 		// every change; this flushes all three stores once on exit so nothing is
@@ -110,16 +117,16 @@ public class OriginClientMod implements ClientModInitializer {
 		// drawn in beforeRender -- once, before ANY screen content -- so it clears
 		// the frame for EVERY screen, including list screens (SelectWorld,
 		// multiplayer, ...) that never call renderBackground and would otherwise
-		// show the previous screen bleeding through. Drawing it here (not in a
-		// per-widget hook) also means it can't erase mid-render content on
-		// multi-list screens. The title screen paints its own backdrop
-		// (TitleScreenMixin), so it's excluded to avoid a double pass. In-world
-		// screens (level != null) keep vanilla's blurred-world backdrop.
+		// show the previous screen bleeding through. The title screen paints its
+		// own backdrop (TitleScreenMixin), so it's excluded to avoid a double pass.
+		// In-world screens (level != null) keep vanilla's blurred-world backdrop.
+		// (1.21.1 draws this from Screen.renderBackground instead; pre-1.20 that
+		// method has no mouse args and list screens skip it, hence this hook.)
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen instanceof net.minecraft.client.gui.screens.TitleScreen) {
 				return;
 			}
-			// 1.19.4 Fabric's screen events hand us the PoseStack (GuiGraphics is
+			// Pre-1.20 Fabric screen events hand us the PoseStack (GuiGraphics is
 			// 1.20+); wrap it in the module's Gfx shim at the boundary.
 			net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.beforeRender(screen).register((s, poseStack, mx, my, tick) -> {
 				try {
@@ -130,6 +137,8 @@ public class OriginClientMod implements ClientModInitializer {
 					}
 					com.origin.client.client.gui.Gfx g = new com.origin.client.client.gui.Gfx(poseStack);
 					if (com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(g)) {
+						// Bloom the spotlight while any visible widget is hovered (1.21.1's
+						// ScreenBackgroundMixin hover test, spelled for this era).
 						boolean hovering = false;
 						for (var child : s.children()) {
 							if (child instanceof net.minecraft.client.gui.components.AbstractWidget w
@@ -151,6 +160,11 @@ public class OriginClientMod implements ClientModInitializer {
 			} catch (Throwable t) {
 				// overlay must never take the frame down
 			}
+			try {
+				com.origin.client.client.waypoints.WaypointRenderer.render(context);
+			} catch (Throwable t) {
+				// waypoints must never take the frame down
+			}
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
 		// container screen is open, so draw the potion element over it here.
@@ -164,17 +178,27 @@ public class OriginClientMod implements ClientModInitializer {
 				});
 			}
 		});
-		// The in-game HUD pass is skipped while ANY screen is open, so Origin's HUD
-		// vanishes when the mod menu opens -- a toggle flipped in the menu (Potion
-		// Effects, Armor Status, ...) then doesn't show until you close it. Draw the
-		// HUD over the Origin mod menu so changes preview live, like the inventory
-		// workaround above. renderAll already excludes the HUD editor.
+		// The in-game HUD pass (Gui.render) is skipped while ANY screen is open, so
+		// Origin's HUD vanishes the instant the mod menu opens -- a toggle you flip in
+		// the menu (Potion Effects, Armor Status, ...) then doesn't show until you
+		// close it. Draw the whole HUD over the Origin mod menu so changes preview
+		// live, exactly like the inventory workaround above draws the potion element
+		// over a container screen. renderAll already excludes the HUD editor.
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen instanceof com.origin.client.client.gui.OriginModMenuScreen) {
-				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) ->
-					com.origin.client.client.hud.HudElements.renderAll(new com.origin.client.client.gui.Gfx(g)));
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, poseStack, mx, my, tick) ->
+						com.origin.client.client.hud.HudElements.renderAll(new com.origin.client.client.gui.Gfx(poseStack)));
 			}
 		});
+		// Fragility guards for the bundled JEI: warn if a foreign JEI is overriding
+		// ours, and if the JEI internals the toggle mixins bind to have moved. Wrapped
+		// so a check can never fail client init.
+		try {
+			detectForeignJei();
+			selfCheckJeiMixins();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
+		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {
@@ -247,6 +271,10 @@ public class OriginClientMod implements ClientModInitializer {
 	}
 
 	private void onEndTick(Minecraft client) {
+		// Dev-only screenshot matrix (env ORIGIN_SHOTS) — see OriginDevShots.
+		if (OriginDevShots.enabled()) {
+			OriginDevShots.tick(client);
+		}
 		// Right Shift opens the mod menu (the screen itself closes on the
 		// same key or Esc, with the reversed slide).
 		// Right Shift opens the quick HUD-edit screen (drag/resize elements
@@ -268,6 +296,32 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 
+		// Waypoints — three activation paths (in addition to the mod-card ENABLED
+		// toggle and the in-menu toggle in WaypointScreen).
+		while (OriginKeyBindings.waypointToggle.consumeClick()) {
+			Mods.setOn("waypoints", !Mods.on("waypoints"));
+		}
+		while (OriginKeyBindings.waypointMenu.consumeClick()) {
+			if (client.screen == null) {
+				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+			}
+		}
+		while (OriginKeyBindings.waypointCreate.consumeClick()) {
+			// Opens the Waypoints screen straight into a fresh Create form.
+			if (client.screen == null) {
+				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen(true));
+			}
+		}
+		// Death waypoint: drop one on the alive→dead transition (edge-triggered).
+		LocalPlayer wp = client.player;
+		boolean dead = wp != null && (wp.isDeadOrDying() || wp.getHealth() <= 0f);
+		if (dead && wasAlive && Mods.on("waypoints") && Mods.bool("waypoints", "deathWaypoints")) {
+			var bp = wp.blockPosition();
+			com.origin.client.client.waypoints.Waypoints.onDeath(bp.getX(), bp.getY(), bp.getZ(),
+					com.origin.client.client.waypoints.Waypoints.currentDim());
+		}
+		wasAlive = wp != null && !dead;
+
 		applyChat(client);
 		applyHitboxes(client);
 		applyWeather(client);
@@ -280,6 +334,9 @@ public class OriginClientMod implements ClientModInitializer {
 			return;
 		}
 
+		// One-time JEI onboarding, now that a player exists to message: warn if a
+		// foreign JEI is overriding ours, otherwise point at the bundled one (it ships
+		// off, so it's easy to miss).
 		if (!jeiNoticeShown && client.screen == null) {
 			jeiNoticeShown = true;
 			if (foreignJei != null) {
@@ -335,6 +392,58 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 		nametagPlayerKeyWasDown = npDown;
+
+		// Tab list — Origin drives visibility itself so it shows even on a solo local
+		// server (vanilla refuses to). Holding the Player List key always shows it;
+		// the Tab Editor mod adds sticky tap-to-lock + two-way keybind sync on top.
+		int mcTab = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+				.getBoundKeyOf(client.options.keyPlayerList).getValue();
+		boolean rawTab = client.screen == null && isRawKeyDown(mcTab);
+		if (Mods.on("tablist")) {
+			int ourTab = Mods.keyCode("tablist", "tabKey");
+			if (!tabSyncInit) {
+				// On first tick, adopt Minecraft's Player List binding as the source
+				// of truth so the two always start in agreement.
+				tabSyncInit = true;
+				if (ourTab != mcTab) {
+					Mods.set("tablist", "tabKey", mcTab);
+					ourTab = mcTab;
+				}
+			} else if (ourTab != lastOurTabKey && ourTab != mcTab) {
+				// Rebound in the Origin menu → push to Minecraft's controls.
+				client.options.keyPlayerList.setKey(
+						com.mojang.blaze3d.platform.InputConstants.getKey(ourTab, -1));
+				net.minecraft.client.KeyMapping.resetMapping();
+				client.options.save();
+				mcTab = ourTab;
+			} else if (mcTab != lastMcTabKey && mcTab != ourTab) {
+				// Rebound in Minecraft's controls → pull into the Origin option.
+				Mods.set("tablist", "tabKey", mcTab);
+				ourTab = mcTab;
+			}
+			lastOurTabKey = ourTab;
+			lastMcTabKey = mcTab;
+
+			long now = System.currentTimeMillis();
+			if (rawTab && !tabKeyWasDown) {
+				tabPressAt = now;
+			}
+			if (!rawTab && tabKeyWasDown) {
+				// Quick tap → toggle the sticky lock; a longer hold-then-release just
+				// ends the vanilla peek (sticky stays off).
+				if (Mods.bool("tablist", "stickyToggle") && (now - tabPressAt) < 200) {
+					tabStickyOn = !tabStickyOn;
+				} else {
+					tabStickyOn = false;
+				}
+			}
+		} else {
+			tabStickyOn = false;
+			tabSyncInit = false;
+		}
+		tabKeyWasDown = rawTab;
+		// Held → always visible (even solo / mod off); sticky lock only with the mod on.
+		tabListVisible = rawTab || (Mods.on("tablist") && tabStickyOn);
 
 		// Toggle Zoom: in toggle mode the key latches instead of holding. The
 		// FOV easing itself lives in GameRendererMixin (frame-side); here we only
@@ -497,9 +606,14 @@ public class OriginClientMod implements ClientModInitializer {
 		if (!Mods.on("weather") || client.level == null) {
 			return;
 		}
-		// NOTE: no setRainLevel/setThunderLevel here any more — the values are now
-		// produced on READ by LevelWeatherMixin -> WeatherOverride (instant switch,
-		// nothing left behind, server weather untouched).
+		// NOTE: no setRainLevel/setThunderLevel here any more.
+		//
+		// Writing those every tick mutated real level state, so the mod wasn't
+		// purely visual, whatever it forced stayed stuck when you turned it off
+		// (nothing restored it), and vanilla's own updates fought the writes so
+		// switching lagged instead of snapping. The values are now produced on READ
+		// by LevelWeatherMixin -> WeatherOverride, which makes switching instant,
+		// leaves nothing behind, and never touches the server's weather.
 		String mode = Mods.mode("weather", "mode");
 		boolean thunder = mode.equals("Thunder") || Mods.bool("weather", "thunder");
 
@@ -584,6 +698,10 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 	}
 
+	// Foreign-JEI detection (rec #10). Origin bundles JEI nested; if a player drops
+	// their own JEI jar in, Fabric deduplicates the "jei" id and may load THEIRS.
+	// Our toggle mixins target 19.27.0.340 internals, so a different version breaks
+	// the integration silently. Detect the mismatch here; onEndTick surfaces it.
 	private static void detectForeignJei() {
 		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("jei").ifPresent(c -> {
 			String v = c.getMetadata().getVersion().getFriendlyString();
@@ -591,28 +709,41 @@ public class OriginClientMod implements ClientModInitializer {
 				foreignJei = v;
 				com.origin.client.OriginClient.LOGGER.warn(
 						"Origin bundles JEI {} but JEI {} is loaded -- a separate JEI jar is overriding "
-								+ "the bundled one; JEI integration may not work until it is removed.", BUNDLED_JEI, v);
+								+ "the bundled one; JEI integration may not work until it is removed.",
+						BUNDLED_JEI, v);
 			}
 		});
 	}
 
+	// Mixin self-check (rec #2): make fail-soft non-silent. Origin's JEI toggle
+	// mixins bind to JEI INTERNAL method names; a JEI update renaming one makes the
+	// mixin silently not apply (required:false) and the toggle quietly break. Verify
+	// the targets still exist and log loudly if not. Reflection-based, so it needs
+	// no build-specific handler names.
 	private static void selfCheckJeiMixins() {
-		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler", "onDrawScreenPost", "onDrawForeground", "renderCompactPotionIndicators");
-		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler", "onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
+		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler",
+				"onDrawScreenPost", "onDrawForeground", "renderCompactPotionIndicators");
+		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler",
+				"onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
 	}
 
 	private static void jeiMethodCheck(String className, String... methods) {
 		try {
 			Class<?> c = Class.forName(className);
 			java.util.Set<String> present = new java.util.HashSet<>();
-			for (java.lang.reflect.Method m : c.getDeclaredMethods()) { present.add(m.getName()); }
+			for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+				present.add(m.getName());
+			}
 			for (String m : methods) {
 				if (!present.contains(m)) {
 					com.origin.client.OriginClient.LOGGER.warn(
-							"Origin self-check: JEI method {}.{} is missing -- toggle mixin may not have applied.", className, m);
+							"Origin self-check: JEI method {}.{} is missing -- the JEI toggle mixin may "
+									+ "not have applied. JEI integration is likely broken with this JEI version; "
+									+ "re-verify the mixin targets.", className, m);
 				}
 			}
 		} catch (ClassNotFoundException e) {
+			// JEI not on the classpath at all -> nothing to integrate, not an error.
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin self-check for JEI mixins failed", t);
 		}
