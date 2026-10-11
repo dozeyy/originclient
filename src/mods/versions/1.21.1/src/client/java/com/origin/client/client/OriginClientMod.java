@@ -82,6 +82,8 @@ public class OriginClientMod implements ClientModInitializer {
 		// menus. Fails soft — if they don't load, the UI uses the software path.
 		com.origin.client.client.gui.OriginShaders.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
+		// Team View, Discord Status and Hypixel register their own events.
+		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
 		com.origin.client.client.mods.SaturationOverlay.registerTooltip();
 		// Single authoritative autosave when the player leaves the game (quit to

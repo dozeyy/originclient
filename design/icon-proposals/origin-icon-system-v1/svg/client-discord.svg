@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Discord Status</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<path d="M5 6h8a2.5 2.5 0 0 1 2.5 2.5v5.7A2.5 2.5 0 0 1 13 16.7H8.8l-3.6 3v-3H5a2.5 2.5 0 0 1-2.5-2.5V8.5A2.5 2.5 0 0 1 5 6Z"/>
+      <circle cx="19.2" cy="6.2" r="2.3"/>
+      <path d="M6.5 11.4h5"/>
+  </g>
+</svg>

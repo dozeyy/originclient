@@ -394,6 +394,29 @@ LUNAR_BATCH2_ICONS = [
 ]
 ICONS += LUNAR_BATCH2_ICONS
 
+# Lunar parity, batch 3b (2026-10-11): server integrations. Same 24-grid, 1.55
+# stroke, one concept per glyph; no third-party brand marks (Discord / Hypixel are
+# drawn as a status bubble and a Bed Wars bed). Kept as its own list so it merges cleanly.
+LUNAR_BATCH3B_ICONS = [
+    icon("client.teamview", "Team View", "VISUAL", """
+      <path d="M9.6 2.6h4.8L12 5.6Z"/>
+      <circle cx="8.3" cy="11" r="2.5"/>
+      <circle cx="15.7" cy="11" r="2.5"/>
+      <path d="M3.4 20.4c.5-2.9 2.3-4.5 4.9-4.5s4.4 1.6 4.9 4.5"/>
+      <path d="M13.9 16.3c.5-.3 1.1-.4 1.8-.4 2.6 0 4.4 1.6 4.9 4.5"/>
+    """, "Teammate markers"),
+    icon("client.discord", "Discord Status", "GAMEPLAY", """
+      <path d="M5 6h8a2.5 2.5 0 0 1 2.5 2.5v5.7A2.5 2.5 0 0 1 13 16.7H8.8l-3.6 3v-3H5a2.5 2.5 0 0 1-2.5-2.5V8.5A2.5 2.5 0 0 1 5 6Z"/>
+      <circle cx="19.2" cy="6.2" r="2.3"/>
+      <path d="M6.5 11.4h5"/>
+    """, "Rich presence status"),
+    icon("client.hypixel", "Hypixel", "GAMEPLAY", """
+      <path d="M3 18.5V7M3 14.5h18v4M21 14.5v-2a3 3 0 0 0-3-3h-7.5v5"/>
+      <circle cx="6.8" cy="11.3" r="1.8"/>
+    """, "Hypixel levels and Bed Wars stats"),
+]
+ICONS += LUNAR_BATCH3B_ICONS
+
 
 def svg_document(entry: dict) -> str:
     title = html.escape(entry["label"])
