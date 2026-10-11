@@ -31,8 +31,11 @@ public final class ModsConfig {
 	static final Map<String, Map<String, JsonElement>> VALUES = new HashMap<>();
 	// hud elementId -> [anchor, dx, dy, scale]
 	static final Map<String, double[]> HUD = new HashMap<>();
-	// menu-level extras (panel backing visible, etc.)
+	// menu-level extras (menu background opacity, etc.)
 	static final Map<String, JsonElement> META = new HashMap<>();
+	// named config profiles: profileName -> a frozen {mods, hud} snapshot. A
+	// LinkedHashMap so the list keeps the order profiles were created in.
+	static final java.util.LinkedHashMap<String, JsonObject> PROFILES = new java.util.LinkedHashMap<>();
 
 	private static boolean loaded = false;
 
@@ -92,11 +95,12 @@ public final class ModsConfig {
 	private static void parseInto(JsonObject root) {
 		JsonObject mods = root.getAsJsonObject("mods");
 		if (mods != null) {
-			for (var me : mods.entrySet()) {
-				String id = me.getKey();
+			// Gson 2.8.0 (1.17.1): no JsonObject.keySet() -- entrySet() everywhere below.
+			for (java.util.Map.Entry<String, JsonElement> modE : mods.entrySet()) {
+				String id = modE.getKey();
 				JsonObject o = mods.getAsJsonObject(id);
 				Map<String, JsonElement> m = new HashMap<>();
-				for (var ke : o.entrySet()) {
+				for (java.util.Map.Entry<String, JsonElement> ke : o.entrySet()) {
 					m.put(ke.getKey(), ke.getValue());
 				}
 				VALUES.put(id, m);
@@ -104,8 +108,8 @@ public final class ModsConfig {
 		}
 		JsonObject hud = root.getAsJsonObject("hud");
 		if (hud != null) {
-			for (var he : hud.entrySet()) {
-				String id = he.getKey();
+			for (java.util.Map.Entry<String, JsonElement> hudE : hud.entrySet()) {
+				String id = hudE.getKey();
 				var arr = hud.getAsJsonArray(id);
 				// save() writes 5 values [anchor, dx, dy, scale, bg]; pre-bg
 				// files have 4. Accept >= 4 and keep EVERY value (so bg
@@ -123,8 +127,19 @@ public final class ModsConfig {
 		}
 		JsonObject meta = root.getAsJsonObject("meta");
 		if (meta != null) {
-			for (var mze : meta.entrySet()) {
-				META.put(mze.getKey(), mze.getValue());
+			for (java.util.Map.Entry<String, JsonElement> metaE : meta.entrySet()) {
+				String k = metaE.getKey();
+				META.put(k, meta.get(k));
+			}
+		}
+		JsonObject profiles = root.getAsJsonObject("profiles");
+		if (profiles != null) {
+			for (java.util.Map.Entry<String, JsonElement> profE : profiles.entrySet()) {
+				String name = profE.getKey();
+				JsonElement snap = profiles.get(name);
+				if (snap != null && snap.isJsonObject()) {
+					PROFILES.put(name, snap.getAsJsonObject());
+				}
 			}
 		}
 	}
@@ -155,6 +170,11 @@ public final class ModsConfig {
 				meta.add(e.getKey(), e.getValue());
 			}
 			root.add("meta", meta);
+			JsonObject profiles = new JsonObject();
+			for (var e : PROFILES.entrySet()) {
+				profiles.add(e.getKey(), e.getValue());
+			}
+			root.add("profiles", profiles);
 
 			writeAtomically(PATH, root);
 		} catch (IOException | RuntimeException e) {
@@ -178,5 +198,80 @@ public final class ModsConfig {
 		} catch (AtomicMoveNotSupportedException e) {
 			Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
 		}
+	}
+
+	// ---- profiles ----
+	// A profile is a frozen {mods, hud} snapshot of the settings store — NOT the
+	// menu meta (background opacity etc.), which is a menu preference, not part of
+	// a gameplay loadout. Snapshots are deep JSON copies, so applying one and then
+	// editing settings can never mutate the stored profile.
+
+	static synchronized JsonObject snapshotCurrent() {
+		ensureLoaded();
+		JsonObject snap = new JsonObject();
+		JsonObject mods = new JsonObject();
+		for (var e : VALUES.entrySet()) {
+			JsonObject o = new JsonObject();
+			for (var v : e.getValue().entrySet()) {
+				o.add(v.getKey(), deepCopy(v.getValue()));
+			}
+			mods.add(e.getKey(), o);
+		}
+		snap.add("mods", mods);
+		JsonObject hud = new JsonObject();
+		for (var e : HUD.entrySet()) {
+			var arr = new com.google.gson.JsonArray();
+			for (double d : e.getValue()) {
+				arr.add(d);
+			}
+			hud.add(e.getKey(), arr);
+		}
+		snap.add("hud", hud);
+		return snap;
+	}
+
+	static synchronized void restoreFrom(JsonObject snap) {
+		ensureLoaded();
+		VALUES.clear();
+		HUD.clear();
+		if (snap != null) {
+			// parseInto only ever ADDS keys, so clearing first is what makes a
+			// profile an exact swap (a setting present in the old state but absent
+			// in the profile must not linger).
+			parseInto(snap);
+		}
+		save();
+	}
+
+	static synchronized void saveProfile(String name) {
+		PROFILES.put(name, snapshotCurrent());
+		save();
+	}
+
+	static synchronized boolean applyProfile(String name) {
+		JsonObject snap = PROFILES.get(name);
+		if (snap == null) {
+			return false;
+		}
+		restoreFrom(snap);
+		return true;
+	}
+
+	static synchronized void deleteProfile(String name) {
+		if (PROFILES.remove(name) != null) {
+			save();
+		}
+	}
+
+	static synchronized java.util.List<String> profileNames() {
+		ensureLoaded();
+		return new java.util.ArrayList<>(PROFILES.keySet());
+	}
+
+	// Gson JsonElements are mutable and shared by reference; a profile must own an
+	// independent copy so later edits to the live store can't reach into it.
+	private static JsonElement deepCopy(JsonElement e) {
+		// Gson 2.8.0 (1.17.1): JsonElement.deepCopy() is not public yet -- re-parse instead.
+		return e == null ? com.google.gson.JsonNull.INSTANCE : new com.google.gson.JsonParser().parse(e.toString());
 	}
 }

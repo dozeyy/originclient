@@ -65,7 +65,18 @@ public final class Gfx {
 	// ---- solid fills ----
 
 	public void fill(int x1, int y1, int x2, int y2, int argb) {
+		softAlpha();
 		GuiComponent.fill(pose, x1, y1, x2, y2, argb);
+		RenderSystem.defaultAlphaFunc();
+	}
+
+	// 1.16.5 fixed function: GuiComponent.blit force-enables the ALPHA TEST at its default
+	// GREATER 0.1 cut-off (and fills inherit it), which throws away every faint pixel --
+	// Origin's software anti-aliased corners, glows, hover washes and every panel mid-fade.
+	// Each Gfx draw runs with the cut-off at 0 (only fully transparent pixels dropped) and
+	// puts vanilla's default back afterwards.
+	private static void softAlpha() {
+		RenderSystem.alphaFunc(GL11.GL_GREATER, 0.0F);
 	}
 
 	/** Vertical gradient (colorFrom at the top, colorTo at the bottom) — the
@@ -107,13 +118,17 @@ public final class Gfx {
 	/** blit(tex, x, y, u, v, w, h, texW, texH) — drawn at w x h. */
 	public void blit(ResourceLocation tex, int x, int y, float u, float v, int w, int h, int texW, int texH) {
 		Minecraft.getInstance().getTextureManager().bind(tex);
+		softAlpha();
 		GuiComponent.blit(pose, x, y, u, v, w, h, texW, texH);
+		RenderSystem.defaultAlphaFunc();
 	}
 
 	/** blit(tex, x, y, w, h, u, v, uW, vH, texW, texH) — region uW x vH stretched to w x h. */
 	public void blit(ResourceLocation tex, int x, int y, int w, int h, float u, float v, int uW, int vH, int texW, int texH) {
 		Minecraft.getInstance().getTextureManager().bind(tex);
+		softAlpha();
 		GuiComponent.blit(pose, x, y, w, h, u, v, uW, vH, texW, texH);
+		RenderSystem.defaultAlphaFunc();
 	}
 
 	/** Atlas-sprite blit (potion effect icons); binds the sprite's own atlas.
@@ -198,6 +213,35 @@ public final class Gfx {
 			}
 		} catch (Throwable t) {
 			itemDrawBroken = true;
+		}
+	}
+
+	// ---- shapes 1.21.1's code calls that the first Gfx did not need ----
+
+	/** blit(tex, x, y, u, v, w, h) — the 256x256-sheet shorthand (vanilla's icons.png).
+	 *  GuiComponent's 7-arg blit is an INSTANCE method in this era (it reads the
+	 *  component's blitOffset), so the static 9-arg overload with the 256x256 sheet
+	 *  size spelled out is the callable equivalent. */
+	public void blit(ResourceLocation tex, int x, int y, int u, int v, int w, int h) {
+		blit(tex, x, y, (float) u, (float) v, w, h, 256, 256);
+	}
+
+	public int drawString(Font font, Component text, int x, int y, int color) {
+		return font.drawShadow(pose, text, x, y, color);
+	}
+
+	/** GuiGraphics.renderFakeItem: a GUI item with no owning entity. Pre-1.20 the plain
+	 *  item draw is the same call (the entity only seeds animated models), so one path. */
+	public void renderFakeItem(ItemStack stack, int x, int y) {
+		renderItem(stack, x, y);
+	}
+
+	/** GuiGraphics.renderTooltip(font, text, mx, my): before 1.20 the Screen draws its
+	 *  own tooltips, so the open screen is handed the call (no screen -> nothing). */
+	public void renderTooltip(Font font, Component text, int mouseX, int mouseY) {
+		net.minecraft.client.gui.screens.Screen s = Minecraft.getInstance().screen;
+		if (s != null) {
+			s.renderTooltip(pose, text, mouseX, mouseY);
 		}
 	}
 }

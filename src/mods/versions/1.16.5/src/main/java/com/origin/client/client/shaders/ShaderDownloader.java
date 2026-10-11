@@ -10,6 +10,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -112,7 +113,12 @@ public final class ShaderDownloader {
 				return;
 			}
 			String url = file.get("url").getAsString();
-			String name = file.get("filename").getAsString();
+			// Treat API metadata as untrusted input. Only the final path component
+			// may be written beneath shaderpacks/.
+			String name = java.nio.file.Paths.get(file.get("filename").getAsString()).getFileName().toString();
+			if (name.trim().isEmpty()) {
+				throw new IllegalArgumentException("Shader response contained an empty filename");
+			}
 
 			Path dir = IrisBridge.shaderpacksDir();
 			Files.createDirectories(dir);
@@ -132,12 +138,31 @@ public final class ShaderDownloader {
 				while ((n = in.read(buf)) > 0) {
 					out.write(buf, 0, n);
 					read += n;
-					if (total > 0) {
-						STATES.put(slug, new State(Status.WORKING, (float) ((double) read / total), "Downloading..."));
-					}
+					// Show progress even when the server sends no Content-Length: still
+					// flip the row to "Downloading…" (progress 0) so it never freezes on
+					// "Resolving…" (bug-audit #8). A known length drives the exact bar.
+					STATES.put(slug, new State(Status.WORKING,
+							total > 0 ? (float) ((double) read / total) : 0f, "Downloading..."));
 				}
+			} catch (Throwable t) {
+				// Never leave a half-written <pack>.part lingering in shaderpacks/ on a
+				// mid-stream failure (network drop) — delete it, then rethrow to the
+				// outer handler which reports ERROR. (Bug-audit #8.)
+				try {
+					Files.deleteIfExists(tmp);
+				} catch (Throwable ignored) {
+				}
+				throw t;
 			}
-			Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
+			if (total > 0 && read != total) {
+				Files.deleteIfExists(tmp);
+				throw new IllegalStateException("Incomplete shader download: " + read + " of " + total + " bytes");
+			}
+			try {
+				Files.move(tmp, dest, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			} catch (AtomicMoveNotSupportedException ignored) {
+				Files.move(tmp, dest, StandardCopyOption.REPLACE_EXISTING);
+			}
 			STATES.put(slug, new State(Status.DONE, 1, name));
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Shader download failed for {}", slug, t);

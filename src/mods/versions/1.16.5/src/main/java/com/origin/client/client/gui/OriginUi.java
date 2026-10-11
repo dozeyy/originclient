@@ -1,15 +1,17 @@
 package com.origin.client.client.gui;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
+import com.origin.client.client.gui.Gfx;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 // The premium drawing kit shared by the mod menu and HUD editor: baked
@@ -18,10 +20,19 @@ import java.util.Map;
 // ever pixelated. GL discipline as documented in CODE_REVIEW.md: blend +
 // default func before textured draws, shader color reset after tints.
 public final class OriginUi {
+	private static final Gson GSON = new Gson();
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
-	private static ResourceLocation trackTex, knobTex, glowTex, ringTex, logoTex, starTex;
+	private static ResourceLocation fillTex, borderTex, trackTex, knobTex, glowTex, ringTex, logoTex, starTex;
+	private static int panelTexSize = 96, panelCorner = 24;
+
+	// Theme-matched toggles: familiar state language without borrowing the
+	// operating system's exact colors.
+	private static final int IOS_ON = OriginTheme.SWITCH_ON;
+	private static final int IOS_OFF = OriginTheme.SWITCH_OFF;
+	private static final int IOS_ON_DISABLED = 0xFF3E5147;
+	private static final int IOS_OFF_DISABLED = 0xFF242A26;
 
 	// eased animation state keyed by arbitrary id (switch knobs, hovers)
 	private static final Map<String, double[]> ANIM = new HashMap<>(); // {value, lastNanos, target}
@@ -46,191 +57,54 @@ public final class OriginUi {
 		return (float) OriginTheme.easeOut(st[0]);
 	}
 
+	/** Shared fast hover response for every hand-rendered Origin control. */
+	public static float hover(String id, boolean target) {
+		return anim("hover:" + id, target,
+				target ? OriginTheme.HOVER_IN_MS : OriginTheme.HOVER_OUT_MS);
+	}
+
 	/**
-	 * A surface: rounded fill plus a 1px rounded border, anti-aliased.
-	 *
-	 * Every Origin surface -- mod-menu cards, chips, tooltips, switches, the HUD
-	 * editor, the colour picker, and (through {@link #bevelPanel}) every menu
-	 * button -- draws through here, so one implementation rounds all of them
-	 * consistently by construction.
-	 *
-	 * <p>WHY MASKS (2026-08-06). This used to 9-slice the baked button_fill /
-	 * button_border textures: a 24px source corner squeezed into a ~6px
-	 * destination through a non-interpolating sampler, so every corner in the
-	 * menu came out a hard staircase -- and then the GUI scale magnified that
-	 * staircase again. 1.21.1 avoids it with a rounded-box SDF shader that
-	 * resolves the curve per device pixel. This era has no such shader, so it
-	 * does the same thing the other way round: bake the exact coverage into a
-	 * texture AT PHYSICAL RESOLUTION and blit it back at 1:1, which puts one
-	 * texel on one screen pixel and yields the identical per-screen-pixel
-	 * anti-aliasing. See {@link #guiScale()}.
+	 * The single block-surface primitive for the whole client. Older screens may
+	 * still request pill-sized corner values, so the renderer normalizes every
+	 * request to the Workbench 1/2/3 px scale based on the control's short edge.
+	 * This prevents a missed call site from bringing circular buttons back.
 	 */
 	public static void panel(Gfx g, int x, int y, int w, int h, int corner, int fill, int border) {
 		if (w <= 0 || h <= 0) {
 			return;
 		}
-		int r = Math.max(0, Math.min(corner, Math.min(w, h) / 2));
-		// SMALL, REPEATED panels (cards, cells, tabs, switches, chips) get the whole
-		// box baked once at their exact size and drawn as TWO tinted blits -- the
-		// same order of cost as 1.21.1's single SDF quad.
-		if (w <= MASK_MAX && h <= MASK_MAX) {
-			ResourceLocation box = boxMask(w, h, r);
-			if (box != null) {
-				int s = guiScale();
-				int pw = w * s, ph = h * s;
-				RenderSystem.enableBlend();
-				RenderSystem.defaultBlendFunc();
-				// Destination stays in GUI px; the mask's UVs are physical px.
-				if (((fill >>> 24) & 0xFF) > 0) {
-					tint(fill);
-					g.blit(box, x, y, w, h, 0f, 0f, pw, ph, pw, ph * 2);
-				}
-				if (((border >>> 24) & 0xFF) > 0) {
-					tint(border);
-					g.blit(box, x, y, w, h, 0f, (float) ph, pw, ph, pw, ph * 2);
-				}
-				RenderSystem.color4f(1f, 1f, 1f, 1f);
-				return;
-			}
-		}
-		// Bigger one-off panels (the menu shell, settings rows) are few and rarely
-		// the same size twice, so they take the corner-blit path and never churn
-		// the whole-box cache.
+		int r = craftedRadius(w, h, corner);
+		// 1.16.5: fixed-function GL has no rounded-box SDF shader, so every panel is
+		// the software anti-aliased fill + stroke (Gfx keeps the faint AA pixels).
 		roundedFill(g, x, y, w, h, r, fill);
 		if (((border >>> 24) & 0xFF) > 0) {
 			roundedStroke(g, x, y, w, h, r, border);
 		}
 	}
 
+	private static int craftedRadius(int w, int h, int requested) {
+		if (requested <= 0) {
+			return 0;
+		}
+		int shortEdge = Math.min(w, h);
+		int limit = shortEdge <= 24 ? OriginTheme.RADIUS_SM
+				: shortEdge <= 56 ? OriginTheme.RADIUS_MD
+				: OriginTheme.RADIUS_LG;
+		return Math.max(0, Math.min(Math.min(requested, limit), shortEdge / 2));
+	}
+
 	/**
-	 * Kept in step with 1.21.1, where the menu's "bevel cut" buttons call this
-	 * with a small corner instead of the panel radius. The 45 degree chamfer is
-	 * gone -- buttons, cards and chips are rounded like everything else -- so this
-	 * just forwards with the cut used as the radius.
+	 * Kept for source compatibility with every existing button-shaped call site.
+	 * The supplied cut is normalized by {@link #panel}, so bevel and panel paths
+	 * cannot diverge into separate shape languages.
 	 */
 	public static void bevelPanel(Gfx g, int x, int y, int w, int h, int cut, int fill, int border) {
 		panel(g, x, y, w, h, cut, fill, border);
 	}
 
-	// ---- baked rounded-box masks (the anti-aliasing backend) ----
+	// ---- rounded-rect primitives (software anti-aliased) ----
 
-	/** Largest side that gets a whole-box mask. Covers everything that repeats:
-	 *  mod-menu cards, grid cells, category tabs, switches and chips. */
-	private static final int MASK_MAX = 96;
-
-	/** (w,h,r,guiScale) -> one texture holding the fill mask on top and the 1px
-	 *  border ring underneath, so a panel is two blits into the same texture.
-	 *  LRU-capped: a handful of sizes repeat constantly, anything rare is evicted. */
-	private static final int MASK_CACHE_MAX = 32;
-	private static final LinkedHashMap<Long, ResourceLocation> BOX_MASKS =
-			// Explicit type arguments, not the diamond: this module compiles at
-			// Java 8, where `<>` is illegal on an anonymous class.
-			new LinkedHashMap<Long, ResourceLocation>(16, 0.75f, true) {
-				@Override
-				protected boolean removeEldestEntry(Map.Entry<Long, ResourceLocation> eldest) {
-					if (size() <= MASK_CACHE_MAX) {
-						return false;
-					}
-					if (eldest.getValue() != null) {
-						try {
-							Minecraft.getInstance().getTextureManager().release(eldest.getValue());
-						} catch (Throwable ignored) {
-							// a texture we can't release is a leak, not a crash
-						}
-					}
-					return true;
-				}
-			};
-
-	/**
-	 * The GUI scale factor, i.e. how many PHYSICAL pixels one GUI pixel covers.
-	 *
-	 * <p>Masks are baked at physical resolution and blitted back down to their GUI
-	 * size, so one texel lands on exactly one screen pixel and the anti-aliasing is
-	 * computed per SCREEN pixel -- which is what 1.21.1's rounded-box SDF shader
-	 * does, and the reason its corners look smooth at any GUI scale.
-	 *
-	 * <p>Baking in GUI pixels instead means the mask is magnified by the GUI scale
-	 * on the way to the screen: at GUI scale 3 every corner step becomes a 3x3
-	 * block. The corner MATHS was never the problem -- the resolution it was
-	 * evaluated at was.
-	 */
-	private static int guiScale() {
-		try {
-			int s = (int) Math.ceil(Minecraft.getInstance().getWindow().getGuiScale());
-			return Math.max(1, Math.min(8, s));
-		} catch (Throwable t) {
-			return 1;
-		}
-	}
-
-	private static ResourceLocation boxMask(int w, int h, int r) {
-		int s = guiScale();
-		long key = ((long) w << 44) | ((long) h << 20) | ((long) r << 4) | s;
-		if (BOX_MASKS.containsKey(key)) {
-			return BOX_MASKS.get(key);   // may be null: a failed bake is remembered, not retried
-		}
-		ResourceLocation id = null;
-		try {
-			// Bake in physical pixels: the whole shape scales, radius included.
-			int pw = w * s, ph = h * s, pr = r * s;
-			NativeImage img = new NativeImage(NativeImage.Format.RGBA, pw, ph * 2, false);
-			for (int py = 0; py < ph; py++) {
-				for (int px = 0; px < pw; px++) {
-					double cov = boxCoverage(px, py, pw, ph, pr, 0);
-					// The border stays 1 GUI pixel thick, so it is `s` physical px.
-					double ring = boxCoverage(px, py, pw, ph, pr, s);
-					img.setPixelRGBA(px, py, alphaWhite(cov));
-					img.setPixelRGBA(px, py + ph, alphaWhite(ring));
-				}
-			}
-			// Path must stay [a-z0-9_./-] -- anything else is an illegal id.
-			String name = "textures/ui/origin_box_" + w + "x" + h + "_" + r + "_s" + s;
-			id = new ResourceLocation("originclient", name);
-			DynamicTexture tex = new DynamicTexture(img);
-			tex.setFilter(false, false);
-			Minecraft.getInstance().getTextureManager().register(id, tex);
-		} catch (Throwable t) {
-			com.origin.client.OriginClient.LOGGER.warn(
-					"Origin: box mask " + w + "x" + h + " r=" + r + " failed to bake", t);
-		}
-		BOX_MASKS.put(key, id);
-		return id;
-	}
-
-	/**
-	 * Coverage of pixel (px,py) by a rounded rect, from the signed distance to its
-	 * outline. Exact everywhere including the corners.
-	 *
-	 * @param inset 0 for the solid shape; >0 for a border ring that many px wide.
-	 */
-	private static double boxCoverage(int px, int py, int w, int h, int r, int inset) {
-		// Standard rounded-box signed distance, measured from the box centre:
-		//   q = |p| - (halfSize - r);  d = |max(q,0)| + min(max(q.x,q.y),0) - r
-		// Negative inside, positive outside.
-		double hw = w / 2.0, hh = h / 2.0;
-		double qx = Math.abs(px + 0.5 - hw) - (hw - r);
-		double qy = Math.abs(py + 0.5 - hh) - (hh - r);
-		double outX = Math.max(qx, 0), outY = Math.max(qy, 0);
-		double d = Math.sqrt(outX * outX + outY * outY) + Math.min(Math.max(qx, qy), 0) - r;
-
-		double outer = clamp01(0.5 - d);
-		if (inset <= 0) {
-			return outer;
-		}
-		// Ring = the shape minus the same shape shrunk by `inset` px.
-		return outer - clamp01(0.5 - (d + inset));
-	}
-
-	/** White texel whose ALPHA carries the coverage; the tint supplies the colour.
-	 *  White means the ARGB and the older ABGR packing are byte-identical, so this
-	 *  is correct for both NativeImage generations. */
-	private static int alphaWhite(double cov) {
-		int a = cov <= 0.001 ? 0 : (int) Math.round(255 * Math.min(1.0, cov));
-		return (a << 24) | 0xFFFFFF;
-	}
-
-	/** Solid rounded rectangle: straight interior as bulk fills, 4 mask corners. */
+	/** Solid rounded rectangle: straight interior as bulk fills, 4 AA disc corners. */
 	private static void roundedFill(Gfx g, int x, int y, int w, int h, int r, int color) {
 		if (((color >>> 24) & 0xFF) == 0) {
 			return;
@@ -242,10 +116,13 @@ public final class OriginUi {
 		g.fill(x + r, y, x + w - r, y + h, color);              // center column, full height
 		g.fill(x, y + r, x + r, y + h - r, color);              // left band
 		g.fill(x + w - r, y + r, x + w, y + h - r, color);      // right band
-		corners(g, x, y, w, h, r, false, color);
+		aaCorner(g, x, y, x + r, y + r, r, 0, color);                       // top-left
+		aaCorner(g, x + w - r, y, x + w - r, y + r, r, 0, color);           // top-right
+		aaCorner(g, x, y + h - r, x + r, y + h - r, r, 0, color);           // bottom-left
+		aaCorner(g, x + w - r, y + h - r, x + w - r, y + h - r, r, 0, color); // bottom-right
 	}
 
-	/** 1px rounded outline: straight edges (clear of the corners) + 4 mask corners. */
+	/** 1px rounded outline: straight edges (clear of the corners) + 4 AA ring corners. */
 	private static void roundedStroke(Gfx g, int x, int y, int w, int h, int r, int color) {
 		if (r <= 0) {
 			g.fill(x, y, x + w, y + 1, color);
@@ -258,138 +135,208 @@ public final class OriginUi {
 		g.fill(x + r, y + h - 1, x + w - r, y + h, color);      // bottom
 		g.fill(x, y + r, x + 1, y + h - r, color);              // left
 		g.fill(x + w - 1, y + r, x + w, y + h - r, color);      // right
-		corners(g, x, y, w, h, r, true, color);
+		aaCorner(g, x, y, x + r, y + r, r, r - 1, color);                       // top-left
+		aaCorner(g, x + w - r, y, x + w - r, y + r, r, r - 1, color);           // top-right
+		aaCorner(g, x, y + h - r, x + r, y + h - r, r, r - 1, color);           // bottom-left
+		aaCorner(g, x + w - r, y + h - r, x + w - r, y + h - r, r, r - 1, color); // bottom-right
 	}
 
 	/**
-	 * Draws the four rounded corners from a baked coverage mask. The mask is
-	 * 2r x 2r at physical resolution and holds all four corners, so these are UV
-	 * offsets into one texture at 1:1 scale -- no filtering, no resampling.
-	 *
-	 * <p>If baking failed we fall back to {@link #aaCorner}, which computes the
-	 * same coverage per GUI pixel. That reads a step lower-res at GUI scale > 1,
-	 * but it is a rounded corner rather than a square one -- the fail-soft ladder,
-	 * never the intended path.
+	 * Paints one r×r corner square at (rx,ry), arc-centered at (cx,cy). Each
+	 * pixel's alpha = its coverage of the annulus [rInner, rOuter] (rInner=0 →
+	 * solid quarter-disc for fills; rInner=rOuter-1 → a 1px ring for borders),
+	 * so the curve blends smoothly against whatever is already behind it.
 	 */
-	private static void corners(Gfx g, int x, int y, int w, int h, int r, boolean ring, int color) {
-		ResourceLocation mask = cornerMask(r, ring);
-		if (mask == null) {
-			int rInner = ring ? r - 1 : 0;
-			aaCorner(g, x, y, x + r, y + r, r, rInner, color);
-			aaCorner(g, x + w - r, y, x + w - r, y + r, r, rInner, color);
-			aaCorner(g, x, y + h - r, x + r, y + h - r, r, rInner, color);
-			aaCorner(g, x + w - r, y + h - r, x + w - r, y + h - r, r, rInner, color);
+	private static void aaCorner(Gfx g, int rx, int ry, double cx, double cy, int rOuter, int rInner, int color) {
+		int base = (color >>> 24) & 0xFF;
+		if (base == 0) {
 			return;
 		}
-		int s = guiScale();
-		int pr = r * s, t = pr * 2;
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		tint(color);
-		g.blit(mask, x, y, r, r, 0f, 0f, pr, pr, t, t);
-		g.blit(mask, x + w - r, y, r, r, (float) pr, 0f, pr, pr, t, t);
-		g.blit(mask, x, y + h - r, r, r, 0f, (float) pr, pr, pr, t, t);
-		g.blit(mask, x + w - r, y + h - r, r, r, (float) pr, (float) pr, pr, pr, t, t);
-		RenderSystem.color4f(1f, 1f, 1f, 1f);
-	}
-
-	// Baked corner masks, keyed by (radius, guiScale). `false` = filled quarter
-	// discs (panel fill), `true` = a 1px ring (panel stroke). Only a handful of
-	// radii are ever used, so this never grows.
-	private static final Map<Integer, ResourceLocation> FILL_MASKS = new HashMap<>();
-	private static final Map<Integer, ResourceLocation> STROKE_MASKS = new HashMap<>();
-
-	private static ResourceLocation cornerMask(int r, boolean ring) {
-		Map<Integer, ResourceLocation> cache = ring ? STROKE_MASKS : FILL_MASKS;
-		int s = guiScale();
-		int key = (r << 4) | s;
-		if (cache.containsKey(key)) {
-			return cache.get(key);   // may hold null: a failed bake is not retried every frame
-		}
-		ResourceLocation id = null;
-		try {
-			// Baked at PHYSICAL resolution -- see guiScale() for why.
-			int pr = r * s, t = pr * 2;
-			NativeImage img = new NativeImage(NativeImage.Format.RGBA, t, t, false);
-			double rInner = ring ? pr - s : 0;   // a 1 GUI px ring is s physical px
-			for (int py = 0; py < t; py++) {
-				for (int px = 0; px < t; px++) {
-					// Every corner is one quadrant of the same circle, which is why
-					// one mask serves all four.
-					double dx = px + 0.5 - pr, dy = py + 0.5 - pr;
+		int rgb = color & 0xFFFFFF;
+		// Batch consecutive same-alpha pixels in each row into one fill — the
+		// fully-covered interior of a corner collapses to a single run, so a
+		// rounded panel costs a handful of quads per corner instead of r² of them.
+		for (int py = ry; py < ry + rOuter; py++) {
+			int runStart = -1, runArgb = 0;
+			for (int px = rx; px <= rx + rOuter; px++) {
+				int argb = 0;
+				if (px < rx + rOuter) {
+					double dx = px + 0.5 - cx, dy = py + 0.5 - cy;
 					double dist = Math.sqrt(dx * dx + dy * dy);
-					double cov = clamp01(pr - dist + 0.5) - clamp01(rInner - dist + 0.5);
-					img.setPixelRGBA(px, py, alphaWhite(cov));
+					double cov = clamp01(rOuter - dist + 0.5) - clamp01(rInner - dist + 0.5);
+					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
+					argb = a <= 0 ? 0 : (a << 24) | rgb;
+				}
+				if (argb != runArgb) {
+					if (runStart >= 0 && runArgb != 0) {
+						g.fill(runStart, py, px, py + 1, runArgb);
+					}
+					runStart = px;
+					runArgb = argb;
 				}
 			}
-			String name = "textures/ui/origin_corner_" + (ring ? "ring" : "fill") + "_" + r + "_s" + s;
-			id = new ResourceLocation("originclient", name);
-			DynamicTexture tex = new DynamicTexture(img);
-			tex.setFilter(false, false);
-			Minecraft.getInstance().getTextureManager().register(id, tex);
-		} catch (Throwable t2) {
-			com.origin.client.OriginClient.LOGGER.warn(
-					"Origin: corner mask r=" + r + " failed to bake", t2);
 		}
-		cache.put(key, id);
-		return id;
 	}
 
+	private static double clamp01(double v) {
+		return v < 0 ? 0 : (v > 1 ? 1 : v);
+	}
+
+	// ---- anti-aliased vector icons ----
 
 	/**
-	 * Rounded-box toggle (C4): a rectangular track with curved corners, a knob
-	 * that slides LEFT = off / RIGHT = on, green when on and red when off. Built
-	 * from the shared rounded-rect masks so it stays crisp at any size. Same
-	 * signature/geometry as before (wDisp x wDisp*8/15) so existing layouts and
-	 * hit-tests are unchanged. Returns knob progress 0..1.
+	 * A smooth stroked line from (ax,ay) to (bx,by), `half` px to each side of
+	 * the centre. Per-pixel coverage = distance-to-segment, so the stroke is
+	 * anti-aliased and round-capped — the same coverage trick the rounded
+	 * corners use, reused for crisp little glyphs (the sidebar's edit/close
+	 * icons) instead of blocky diagonals.
+	 */
+	public static void aaLine(Gfx g, double ax, double ay, double bx, double by, double half, int color) {
+		int base = (color >>> 24) & 0xFF;
+		if (base == 0) {
+			return;
+		}
+		int rgb = color & 0xFFFFFF;
+		int x0 = (int) Math.floor(Math.min(ax, bx) - half - 1);
+		int x1 = (int) Math.ceil(Math.max(ax, bx) + half + 1);
+		int y0 = (int) Math.floor(Math.min(ay, by) - half - 1);
+		int y1 = (int) Math.ceil(Math.max(ay, by) + half + 1);
+		double abx = bx - ax, aby = by - ay;
+		double len2 = abx * abx + aby * aby;
+		for (int py = y0; py < y1; py++) {
+			int runStart = -1, runArgb = 0;
+			for (int px = x0; px <= x1; px++) {
+				int argb = 0;
+				if (px < x1) {
+					double dpx = px + 0.5 - ax, dpy = py + 0.5 - ay;
+					double t = len2 <= 1e-6 ? 0 : clamp01((dpx * abx + dpy * aby) / len2);
+					double cxp = ax + t * abx, cyp = ay + t * aby;
+					double dx = px + 0.5 - cxp, dy = py + 0.5 - cyp;
+					double dist = Math.sqrt(dx * dx + dy * dy);
+					double cov = clamp01(half - dist + 0.5);
+					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
+					argb = a <= 0 ? 0 : (a << 24) | rgb;
+				}
+				if (argb != runArgb) {
+					if (runStart >= 0 && runArgb != 0) {
+						g.fill(runStart, py, px, py + 1, runArgb);
+					}
+					runStart = px;
+					runArgb = argb;
+				}
+			}
+		}
+	}
+
+	/**
+	 * A stroke from (ax,ay)→(bx,by), `half` px to each side. 1.21.1 draws it as a
+	 * rounded-box SDF capsule; fixed-function 1.16.5 has no shader, so it is
+	 * {@link #aaLine}'s per-pixel coverage stroke (anti-aliased, round-capped).
+	 */
+	public static void capsule(Gfx g, double ax, double ay, double bx, double by, double half, int color) {
+		// 1.16.5: no SDF shader -- the per-pixel coverage stroke is the vector path.
+		aaLine(g, ax, ay, bx, by, half, color);
+	}
+
+	/** A clean × mark filling a size×size box at (x,y). */
+	public static void iconClose(Gfx g, int x, int y, int size, int color) {
+		double h = Math.max(0.9, size * 0.10);
+		double in = size * 0.22;
+		capsule(g, x + in, y + in, x + size - in, y + size - in, h, color);
+		capsule(g, x + size - in, y + in, x + in, y + size - in, h, color);
+	}
+
+	/** A pencil (edit) glyph filling a size×size box at (x,y): a tapered shaft
+	 *  from the eraser end down to a graphite point. */
+	public static void iconEdit(Gfx g, int x, int y, int size, int color) {
+		double s = size;
+		double ex = x + s * 0.80, ey = y + s * 0.20;   // eraser end (top-right)
+		double mx = x + s * 0.36, my = y + s * 0.64;   // where the shaft meets the tip
+		double tx = x + s * 0.16, ty = y + s * 0.84;   // graphite point (bottom-left)
+		capsule(g, ex, ey, mx, my, s * 0.12, color);   // shaft (thicker)
+		capsule(g, mx, my, tx, ty, s * 0.055, color);  // tip (tapers to a point)
+	}
+
+	/** A chevron ("<" when left, ">" when right) filling a size×size box at (x,y),
+	 *  drawn as two SDF-capsule strokes meeting at the point. Replaces the
+	 *  font-glyph back/dropdown/cycle arrows so all menu chrome is vector. */
+	public static void iconChevron(Gfx g, int x, int y, int size, int color, boolean left) {
+		double h = Math.max(0.9, size * 0.10);
+		double midY = y + size * 0.5;
+		double pointX = x + size * (left ? 0.34 : 0.66);   // the vertex
+		double armX = x + size * (left ? 0.66 : 0.34);     // the two open ends
+		double topY = y + size * 0.24, botY = y + size * 0.76;
+		capsule(g, pointX, midY, armX, topY, h, color);
+		capsule(g, pointX, midY, armX, botY, h, color);
+	}
+
+	/**
+	 * Apple iOS-style toggle (Will's redesign spec): a fully-rounded pill track
+	 * that is GREEN when on and RED when off, with a pure-white circular knob
+	 * that slides smoothly LEFT = off / RIGHT = on. The green↔red crossfade and
+	 * the knob's travel are both eased on the same 0..1 progress, so flipping it
+	 * animates as one motion. Same signature/geometry as before
+	 * (wDisp × wDisp*8/15) so every existing layout and hit-test is unchanged.
+	 * Returns knob progress 0..1.
 	 */
 	public static float switchAt(Gfx g, String id, int x, int y, int wDisp, boolean on, boolean enabled) {
 		int hDisp = wDisp * 8 / 15;
 		float k = anim("sw:" + id, on, 170.0);
 
-		// Track: red(off) -> green(on); disabled desaturates to gray so the whole
-		// control reads as unavailable without changing shape.
+		// Inventory-style block switch: neutral/off -> emerald/on.
 		int track = enabled
-				? OriginTheme.lerpColor(OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_ON, k)
-				: OriginTheme.lerpColor(0xFF3C3C3C, 0xFF565656, k);
-		// Rounded RECTANGLE (not a pill) — a modest corner so it reads clearly
-		// different from the old iOS-style switch.
-		int trackCorner = Math.max(3, Math.round(hDisp * 0.30f));
-		panel(g, x, y, wDisp, hDisp, trackCorner, track, OriginTheme.SWITCH_STROKE);
+				? OriginTheme.lerpColor(IOS_OFF, IOS_ON, k)
+				: OriginTheme.lerpColor(IOS_OFF_DISABLED, IOS_ON_DISABLED, k);
+		panel(g, x, y, wDisp, hDisp, OriginTheme.RADIUS_SM, track, OriginTheme.SWITCH_STROKE);
 
-		// Knob: a near-white rounded square sliding between the track's inset ends.
-		int pad = Math.max(2, Math.round(hDisp * 0.15f));
+		// Near-white square knob sliding between the track's inset ends.
+		int pad = Math.max(1, Math.round(hDisp * 0.12f));
 		int knob = hDisp - 2 * pad;
 		int travel = Math.max(0, wDisp - 2 * pad - knob);
 		int kx = x + pad + Math.round(k * travel);
-		int knobCorner = Math.max(2, Math.round(knob * 0.30f));
-		panel(g, kx, y + pad, knob, knob, knobCorner,
+		panel(g, kx, y + pad, knob, knob, OriginTheme.RADIUS_SM,
 				enabled ? OriginTheme.SWITCH_KNOB : 0xFFB8B8B8, OriginTheme.SWITCH_STROKE);
 		return k;
 	}
 
 	/**
-	 * Mod icon. Now a real Minecraft item (or a baked Origin texture for the few
-	 * ideas no item expresses) -- see ModIcons. The old 96px line-icon atlas is
-	 * gone, so the `argb` tint no longer colours the art: a spyglass has to look
-	 * like a spyglass. Only the ALPHA is honoured, which is what callers actually
-	 * need it for -- the mod menu's open/close and page-swap fades.
+	 * Mod icon: Origin's own 24-grid line glyph from the mod_icons atlas (see
+	 * ModIcons), tinted with the FULL argb so icons follow the theme colour --
+	 * TEXT on a card, ACCENT when the mod is on, MUTED in a field. The alpha
+	 * carries the mod menu's open/close and page-swap fades.
 	 */
 	public static void icon(Gfx g, String name, int x, int y, int size, int argb) {
-		ModIcons.draw(g, name, x, y, size, ((argb >>> 24) & 0xFF) / 255f);
+		ModIcons.draw(g, name, x, y, size, argb);
 	}
 
-	/** Soft radial glow centered at (cx,cy). */
-	public static void glow(Gfx g, double cx, double cy, int diameter, float alpha) {
+	/**
+	 * The favourite STAR — a baked, anti-aliased 5-point star blitted through
+	 * GL_LINEAR so it stays crisp at any size. Replaces the pixelated "★" font
+	 * glyph. Tinted by `argb`: gold when pinned, faint white otherwise. Only RGB
+	 * + alpha are used.
+	 */
+	public static void star(Gfx g, int x, int y, int size, int argb) {
 		ensureLoaded();
-		if (!ok) {
+		float a = ((argb >>> 24) & 0xFF) / 255f;
+		if (!ok || starTex == null || a <= 0f) {
 			return;
 		}
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
-		RenderSystem.color4f(1f, 1f, 1f, alpha);
-		g.blit(glowTex, (int) (cx - diameter / 2.0), (int) (cy - diameter / 2.0), diameter, diameter, 0f, 0f, 512, 512, 512, 512);
+		RenderSystem.color4f(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f, (argb & 0xFF) / 255f, a);
+		g.blit(starTex, x, y, size, size, 0f, 0f, 64, 64, 64, 64);
 		RenderSystem.color4f(1f, 1f, 1f, 1f);
+	}
+
+	/**
+	 * Cursor glow -- intentionally does nothing now.
+	 *
+	 * A soft radial bloom is the opposite of the pixel grid: it's the one effect
+	 * that can't exist on Minecraft's grid at any size, because it IS the blur.
+	 * Kept as a no-op rather than deleted so the call sites (mod menu halo, HUD
+	 * editor) stay readable as "there was a glow here" and don't need touching.
+	 */
+	public static void glow(Gfx g, double cx, double cy, int diameter, float alpha) {
 	}
 
 	/** The 3-ring Origin mark (brand geometry: one ellipse at 0/60/120 deg). */
@@ -435,24 +382,23 @@ public final class OriginUi {
 	 *  radius). `y` is the pill top; value 0..1. Returns the knob center x. */
 	public static int slider(Gfx g, int x, int y, int w, double value, boolean active) {
 		int h = 6;              // pill height
-		int r = 5;              // knob radius — travel is inset by r so the ball is flush at the ends
+		int r = 5;              // knob radius
 		double v = Math.max(0.0, Math.min(1.0, value));
 		int cy = y + h / 2;     // pill vertical center — the knob centers on this
-		panel(g, x, y, w, h, h / 2, 0x30FFFFFF, 0);
-		int kx = x + r + (int) Math.round(v * (w - 2 * r));
+		panel(g, x, y, w, h, OriginTheme.RADIUS_SM, OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_STROKE);
+		// The knob CENTER travels the full track (x .. x+w) so it reaches both
+		// endpoints — at 0% its center sits on the left end, at 100% on the right
+		// end (the ball overhangs by its radius, like a standard slider). This
+		// also matches the drag hit-test, which maps the full track width to 0..1.
+		int kx = x + (int) Math.round(v * w);
 		int fw = kx - x;        // fill runs from the track start to the knob center
-		if (v > 0.001 && fw > 0) {
-			panel(g, x, y, Math.min(w, fw + r), h, h / 2, active ? 0xE6E0E0E0 : 0xA8D8D8D8, 0);
+		if (fw > 0) {
+			panel(g, x, y, Math.min(w, fw), h, OriginTheme.RADIUS_SM,
+					active ? OriginTheme.ACCENT_2 : OriginTheme.ACCENT, 0);
 		}
-		ensureLoaded();
-		int kd = active ? r * 2 + 4 : r * 2 + 2;   // ball; grows slightly while dragging
-		if (ok) {
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			g.blit(knobTex, kx - kd / 2, cy - kd / 2, kd, kd, 0f, 0f, 72, 72, 72, 72);
-		} else {
-			g.fill(kx - kd / 2, cy - kd / 2, kx + kd / 2, cy + kd / 2, 0xFFE8E8E8);
-		}
+		int kd = active ? r * 2 + 4 : r * 2 + 2;
+		panel(g, kx - kd / 2, cy - kd / 2, kd, kd, OriginTheme.RADIUS_SM,
+				OriginTheme.TEXT, OriginTheme.BOX_BORDER);
 		return kx;
 	}
 
@@ -463,7 +409,24 @@ public final class OriginUi {
 				(argb & 0xFF) / 255f, ((argb >>> 24) & 0xFF) / 255f);
 	}
 
-
+	private static void nine(Gfx g, ResourceLocation tex, int x, int y, int w, int h, int cd) {
+		int c = panelCorner, t = panelTexSize, mid = t - 2 * c, mw = w - 2 * cd, mh = h - 2 * cd;
+		g.blit(tex, x, y, cd, cd, 0f, 0f, c, c, t, t);
+		g.blit(tex, x + w - cd, y, cd, cd, (float) (t - c), 0f, c, c, t, t);
+		g.blit(tex, x, y + h - cd, cd, cd, 0f, (float) (t - c), c, c, t, t);
+		g.blit(tex, x + w - cd, y + h - cd, cd, cd, (float) (t - c), (float) (t - c), c, c, t, t);
+		if (mw > 0) {
+			g.blit(tex, x + cd, y, mw, cd, (float) c, 0f, mid, c, t, t);
+			g.blit(tex, x + cd, y + h - cd, mw, cd, (float) c, (float) (t - c), mid, c, t, t);
+		}
+		if (mh > 0) {
+			g.blit(tex, x, y + cd, cd, mh, 0f, (float) c, c, mid, t, t);
+			g.blit(tex, x + w - cd, y + cd, cd, mh, (float) (t - c), (float) c, c, mid, t, t);
+		}
+		if (mw > 0 && mh > 0) {
+			g.blit(tex, x + cd, y + cd, mw, mh, (float) c, (float) c, mid, mid, t, t);
+		}
+	}
 
 	private static void ensureLoaded() {
 		if (loaded) {
@@ -479,6 +442,11 @@ public final class OriginUi {
 		loaded = true;
 		try {
 			Minecraft mc = Minecraft.getInstance();
+			JsonObject btn = readJson("/assets/originclient/textures/ui/buttons.json");
+			panelTexSize = btn.get("texSize").getAsInt();
+			panelCorner = btn.get("corner").getAsInt();
+			fillTex = reg(mc, "ui_fill", "/assets/originclient/textures/ui/button_fill.png");
+			borderTex = reg(mc, "ui_border", "/assets/originclient/textures/ui/button_border.png");
 			trackTex = reg(mc, "ui_switch_track", "/assets/originclient/textures/ui/switch_track.png");
 			knobTex = reg(mc, "ui_switch_knob", "/assets/originclient/textures/ui/switch_knob.png");
 			glowTex = reg(mc, "ui_glow", "/assets/originclient/textures/ui/radial_glow.png");
@@ -492,7 +460,11 @@ public final class OriginUi {
 		}
 	}
 
-
+	private static JsonObject readJson(String path) throws Exception {
+		try (InputStream in = OriginUi.class.getResourceAsStream(path)) {
+			return GSON.fromJson(new String(com.origin.client.client.IoCompat.readAllBytes(in), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
+		}
+	}
 
 	private static ResourceLocation reg(Minecraft mc, String name, String path) throws Exception {
 		NativeImage image;
@@ -504,254 +476,5 @@ public final class OriginUi {
 		tex.setFilter(true, false);
 		mc.getTextureManager().register(id, tex);
 		return id;
-	}
-
-	/**
-	 * Paints one r×r corner square at (rx,ry), arc-centered at (cx,cy). Each
-	 * pixel's alpha = its coverage of the annulus [rInner, rOuter] (rInner=0 →
-	 * solid quarter-disc for fills; rInner=rOuter-1 → a 1px ring for borders),
-	 * so the curve blends smoothly against whatever is already behind it.
-	 */
-	private static void aaCorner(Gfx g, int rx, int ry, double cx, double cy, int rOuter, int rInner, int color) {
-		int base = (color >>> 24) & 0xFF;
-		if (base == 0) {
-			return;
-		}
-		int rgb = color & 0xFFFFFF;
-		// Batch consecutive same-alpha pixels in each row into one fill — the
-		// fully-covered interior of a corner collapses to a single run, so a
-		// rounded panel costs a handful of quads per corner instead of r² of them.
-		for (int py = ry; py < ry + rOuter; py++) {
-			int runStart = -1, runArgb = 0;
-			for (int px = rx; px <= rx + rOuter; px++) {
-				int argb = 0;
-				if (px < rx + rOuter) {
-					double dx = px + 0.5 - cx, dy = py + 0.5 - cy;
-					double dist = Math.sqrt(dx * dx + dy * dy);
-					double cov = clamp01(rOuter - dist + 0.5) - clamp01(rInner - dist + 0.5);
-					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
-					argb = a <= 0 ? 0 : (a << 24) | rgb;
-				}
-				if (argb != runArgb) {
-					if (runStart >= 0 && runArgb != 0) {
-						g.fill(runStart, py, px, py + 1, runArgb);
-					}
-					runStart = px;
-					runArgb = argb;
-				}
-			}
-		}
-	}
-
-	private static double clamp01(double v) {
-		return v < 0 ? 0 : (v > 1 ? 1 : v);
-	}
-
-	/**
-	 * A smooth stroked line from (ax,ay) to (bx,by), `half` px to each side of
-	 * the centre. Per-pixel coverage = distance-to-segment, so the stroke is
-	 * anti-aliased and round-capped — the same coverage trick the rounded
-	 * corners use, reused for crisp little glyphs (the sidebar's edit/close
-	 * icons) instead of blocky diagonals.
-	 */
-	public static void aaLine(Gfx g, double ax, double ay, double bx, double by, double half, int color) {
-		int base = (color >>> 24) & 0xFF;
-		if (base == 0) {
-			return;
-		}
-		int rgb = color & 0xFFFFFF;
-		int x0 = (int) Math.floor(Math.min(ax, bx) - half - 1);
-		int x1 = (int) Math.ceil(Math.max(ax, bx) + half + 1);
-		int y0 = (int) Math.floor(Math.min(ay, by) - half - 1);
-		int y1 = (int) Math.ceil(Math.max(ay, by) + half + 1);
-		double abx = bx - ax, aby = by - ay;
-		double len2 = abx * abx + aby * aby;
-		for (int py = y0; py < y1; py++) {
-			int runStart = -1, runArgb = 0;
-			for (int px = x0; px <= x1; px++) {
-				int argb = 0;
-				if (px < x1) {
-					double dpx = px + 0.5 - ax, dpy = py + 0.5 - ay;
-					double t = len2 <= 1e-6 ? 0 : clamp01((dpx * abx + dpy * aby) / len2);
-					double cxp = ax + t * abx, cyp = ay + t * aby;
-					double dx = px + 0.5 - cxp, dy = py + 0.5 - cyp;
-					double dist = Math.sqrt(dx * dx + dy * dy);
-					double cov = clamp01(half - dist + 0.5);
-					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
-					argb = a <= 0 ? 0 : (a << 24) | rgb;
-				}
-				if (argb != runArgb) {
-					if (runStart >= 0 && runArgb != 0) {
-						g.fill(runStart, py, px, py + 1, runArgb);
-					}
-					runStart = px;
-					runArgb = argb;
-				}
-			}
-		}
-	}
-	/** A stroke from (ax,ay) to (bx,by), half px to each side, round-capped. */
-	public static void capsule(Gfx g, double ax, double ay, double bx, double by, double half, int color) {
-		aaLine(g, ax, ay, bx, by, half, color);
-	}
-
-
-
-
-
-
-
-	/**
-	 * The favourite STAR — a baked, anti-aliased 5-point star blitted through
-	 * GL_LINEAR so it stays crisp at any size. Replaces the pixelated "★" font
-	 * glyph. Tinted by `argb`: gold when pinned, faint white otherwise. Only RGB
-	 * + alpha are used.
-	 */
-	public static void star(Gfx g, int x, int y, int size, int argb) {
-		ensureLoaded();
-		float a = ((argb >>> 24) & 0xFF) / 255f;
-		if (!ok || starTex == null || a <= 0f) {
-			return;
-		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		RenderSystem.color4f(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f, (argb & 0xFF) / 255f, a);
-		g.blit(starTex, x, y, size, size, 0f, 0f, 64, 64, 64, 64);
-		RenderSystem.color4f(1f, 1f, 1f, 1f);
-	}
-
-	// ---- vector icon glyphs, baked at physical resolution ----
-
-	/**
-	 * The close / chevron / pencil glyphs are stroke geometry, so they get the
-	 * same treatment as the panel corners: their coverage is rasterised once at
-	 * SCREEN resolution and blitted back 1:1, instead of being computed per GUI
-	 * pixel by {@link #aaLine} and then magnified by the GUI scale.
-	 *
-	 * <p>Cached on (kind, size, guiScale). Only a handful of icon sizes are ever
-	 * drawn, so this stays tiny.
-	 */
-	private static final Map<String, ResourceLocation> ICON_MASKS = new HashMap<>();
-
-	/**
-	 * Stroke segments for one glyph, in PHYSICAL pixels: {ax, ay, bx, by, half}
-	 * per segment. Geometry matches 1.21.1's glyphs exactly, expressed as
-	 * fractions of the icon box so it scales cleanly.
-	 */
-	private static double[] iconSegments(String kind, int size, int s) {
-		double n = size * (double) s;
-		// A stroke never thins below ~0.9 GUI px, same floor 1.21.1 uses.
-		double h = Math.max(0.9, size * 0.10) * s;
-		switch (kind) {
-			case "close": {
-				double in = 0.22 * n, out = 0.78 * n;
-				return new double[]{in, in, out, out, h, out, in, in, out, h};
-			}
-			case "edit": {
-				// tapered pencil: thicker shaft, thin graphite tip
-				return new double[]{
-						0.80 * n, 0.20 * n, 0.36 * n, 0.64 * n, 0.12 * size * s,
-						0.36 * n, 0.64 * n, 0.16 * n, 0.84 * n, 0.055 * size * s};
-			}
-			case "chevron_left":
-			case "chevron_right": {
-				boolean left = kind.equals("chevron_left");
-				double point = (left ? 0.34 : 0.66) * n;
-				double arm = (left ? 0.66 : 0.34) * n;
-				double mid = 0.5 * n, top = 0.24 * n, bot = 0.76 * n;
-				return new double[]{point, mid, arm, top, h, point, mid, arm, bot, h};
-			}
-			default:
-				return new double[0];
-		}
-	}
-
-	/** Max coverage of (px,py) over every stroke segment: distance to the segment,
-	 *  softened across one pixel. Round caps fall out of the distance metric. */
-	private static double segCoverage(double px, double py, double[] segs) {
-		double best = 0;
-		for (int i = 0; i + 4 < segs.length; i += 5) {
-			double ax = segs[i], ay = segs[i + 1], bx = segs[i + 2], by = segs[i + 3], half = segs[i + 4];
-			double abx = bx - ax, aby = by - ay;
-			double len2 = abx * abx + aby * aby;
-			double t = len2 <= 1e-6 ? 0 : clamp01(((px - ax) * abx + (py - ay) * aby) / len2);
-			double dx = px - (ax + t * abx), dy = py - (ay + t * aby);
-			double cov = clamp01(half - Math.sqrt(dx * dx + dy * dy) + 0.5);
-			if (cov > best) {
-				best = cov;
-			}
-		}
-		return best;
-	}
-
-	private static ResourceLocation iconMask(String kind, int size) {
-		int s = guiScale();
-		String key = kind + ":" + size + ":" + s;
-		if (ICON_MASKS.containsKey(key)) {
-			return ICON_MASKS.get(key);   // may be null: a failed bake is not retried
-		}
-		ResourceLocation id = null;
-		try {
-			int n = size * s;
-			double[] segs = iconSegments(kind, size, s);
-			NativeImage img = new NativeImage(NativeImage.Format.RGBA, n, n, false);
-			for (int py = 0; py < n; py++) {
-				for (int px = 0; px < n; px++) {
-					img.setPixelRGBA(px, py, alphaWhite(segCoverage(px + 0.5, py + 0.5, segs)));
-				}
-			}
-			String name = "textures/ui/origin_icon_" + kind + "_" + size + "_s" + s;
-			id = new ResourceLocation("originclient", name);
-			DynamicTexture tex = new DynamicTexture(img);
-			tex.setFilter(false, false);
-			Minecraft.getInstance().getTextureManager().register(id, tex);
-		} catch (Throwable t) {
-			com.origin.client.OriginClient.LOGGER.warn(
-					"Origin: icon mask " + kind + " size=" + size + " failed to bake", t);
-		}
-		ICON_MASKS.put(key, id);
-		return id;
-	}
-
-	/** Blits a baked glyph, tinted. Falls back to the per-GUI-pixel stroke path if
-	 *  the bake failed — lower-res, but still the right glyph. */
-	private static void drawIcon(Gfx g, String kind, int x, int y, int size, int color) {
-		if (((color >>> 24) & 0xFF) == 0 || size <= 0) {
-			return;
-		}
-		ResourceLocation mask = iconMask(kind, size);
-		if (mask == null) {
-			strokeIcon(g, kind, x, y, size, color);
-			return;
-		}
-		int n = size * guiScale();
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		tint(color);
-		g.blit(mask, x, y, size, size, 0f, 0f, n, n, n, n);
-		RenderSystem.color4f(1f, 1f, 1f, 1f);
-	}
-
-	/** The software fallback: the same segments drawn with {@link #aaLine}. */
-	private static void strokeIcon(Gfx g, String kind, int x, int y, int size, int color) {
-		double[] segs = iconSegments(kind, size, 1);
-		for (int i = 0; i + 4 < segs.length; i += 5) {
-			aaLine(g, x + segs[i], y + segs[i + 1], x + segs[i + 2], y + segs[i + 3], segs[i + 4], color);
-		}
-	}
-
-	/** A clean x mark filling a size x size box at (x,y). */
-	public static void iconClose(Gfx g, int x, int y, int size, int color) {
-		drawIcon(g, "close", x, y, size, color);
-	}
-
-	/** A pencil (edit) glyph filling a size x size box at (x,y). */
-	public static void iconEdit(Gfx g, int x, int y, int size, int color) {
-		drawIcon(g, "edit", x, y, size, color);
-	}
-
-	/** A chevron ("<" when left, ">" when right) filling a size x size box. */
-	public static void iconChevron(Gfx g, int x, int y, int size, int color, boolean left) {
-		drawIcon(g, left ? "chevron_left" : "chevron_right", x, y, size, color);
 	}
 }

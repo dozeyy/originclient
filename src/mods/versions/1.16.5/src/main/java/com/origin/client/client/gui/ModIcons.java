@@ -1,178 +1,123 @@
 package com.origin.client.client.gui;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
+import com.origin.client.client.gui.Gfx;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Every mod-menu icon, drawn as a REAL Minecraft item wherever one fits.
+ * Origin's OWN icon set for the mod menu (2026-09 redesign, Will's call: no more
+ * Minecraft items as icons). One family built to the Design Assets / Icon
+ * Packs rules — 24-grid, 1.55 px stroke, round caps, one concept per glyph —
+ * baked by tools/mod-menu/generate_icons.py into matched alpha-mask and signed-
+ * distance atlases (192 px cells). Every icon is tinted at draw time, so the set
+ * follows the Ion Jade palette by construction (TEXT on a card, ACCENT when the
+ * mod is on, MUTED in a field), while screen-space SDF coverage keeps it crisp.
  *
- * This replaces the old 96px hand-drawn line-icon atlas (mod_icons.png) that
- * OriginUi used to blit. Rendering live ItemStacks means zero art to maintain,
- * and the icons automatically match whatever resource pack the player runs --
- * a spyglass here is the same spyglass they see in their hotbar. Items are
- * full-colour and 3D-lit, which is a deliberate, Will-approved break of the
- * theme's no-hue rule (see OriginTheme).
+ * The menu chrome (search, settings tabs, HUD editor, backing toggle) draws its
+ * glyphs from the same atlas under '@' ids so the whole menu is one weight.
  *
- * Pre-1.20 delta vs the 1.21.1 original: draws through this module's Gfx
- * wrapper (no GuiGraphics before 1.20). Gfx.renderItem multiplies the wrapped
- * pose onto the modelview stack, so the translate+scale trick below works the
- * same way GuiGraphics.pose() does on 1.20+.
- *
- * Only four ideas have no Minecraft item that says them, so they ship as baked
- * Origin textures under textures/ui/modicon/. Their pixel density is chosen to
- * match what they sit beside: the flat ones are 16x16 native, because a real
- * item icon is a 16x16 texture shown at 2x, and a 32x32 flat custom would read
- * as visibly sharper than every item next to it. blockoverlay is the one
- * exception at 32x32 -- it's an isometric block render, which is already how a
- * real block item looks at that size.
- *
- * "fps" is neither: it draws the live frame count as text, which is both the
- * clearest read and free on every version.
+ * Fails soft: if the atlas or its metrics are missing, {@link #draw} draws
+ * nothing and the menu keeps working — a card with no icon beats a crash.
  */
 public final class ModIcons {
+	private static final Gson GSON = new Gson();
+	private static final ResourceLocation ATLAS = new ResourceLocation("originclient", "ui_mod_icons");
 
-	/** Mod id -> the vanilla item that represents it. */
-	private static final Map<String, Item> ITEMS = new HashMap<>();
-
-	/** Mod id -> baked Origin texture, for the ideas no item expresses. */
-	private static final Map<String, ResourceLocation> CUSTOM = new HashMap<>();
-
-	/** Native size of each baked texture, so the blit's UV source is right. */
-	private static final Map<String, Integer> CUSTOM_SIZE = new HashMap<>();
-
-	/** Drawn as live text rather than any icon. */
-	public static final String FPS = "fps";
-
-	static {
-		ITEMS.put("togglesprint", Items.FEATHER);
-		// 1.16.5 predates the spyglass, so Zoom borrows the Target block --
-		// "aim at something far away" is the closest native idea. Will to confirm.
-		ITEMS.put("zoom", Items.TARGET);
-		ITEMS.put("armorhud", Items.DIAMOND_CHESTPLATE);
-		ITEMS.put("coords", Items.COMPASS);
-		ITEMS.put("potionhud", Items.POTION);
-		ITEMS.put("serveraddress", Items.COMMAND_BLOCK);
-		ITEMS.put("scoreboard", Items.OAK_SIGN);
-		ITEMS.put("freelook", Items.ENDER_EYE);
-		ITEMS.put("fullbright", Items.GLOWSTONE);
-		ITEMS.put("hitboxes", Items.ARMOR_STAND);
-		ITEMS.put("nametags", Items.NAME_TAG);
-		ITEMS.put("weather", Items.TRIDENT);
-		ITEMS.put("timechanger", Items.CLOCK);
-		ITEMS.put("motionblur", Items.PHANTOM_MEMBRANE);
-		ITEMS.put("chat", Items.WRITABLE_BOOK);
-		ITEMS.put("particles", Items.FIREWORK_STAR);
-		// JEI = look up an item's recipe. The Knowledge Book is vanilla's own
-		// "this teaches you a recipe" item, and nothing else in this table uses
-		// it. NOT part of the locked icon table (JEI postdates it) — Will's call
-		// to confirm.
-		ITEMS.put("jei", Items.KNOWLEDGE_BOOK);
-
-		// Settings tab pseudo-ids (Mods.GENERAL_ID / PERFORMANCE_ID) and the
-		// menu's own chrome. These aren't mods, but they draw through the same
-		// icon path, so they live in the same table.
-		ITEMS.put("@general", Items.COMPARATOR);
-		ITEMS.put("@performance", Items.REDSTONE);
-		ITEMS.put("@hudeditor", Items.ITEM_FRAME);
-		// Search field: no spyglass on 1.16.5 either -- the observer is the one
-		// block whose whole job is looking at things. Will to confirm.
-		ITEMS.put("@search", Items.OBSERVER);
-		// Panel-backing toggle: switches the menu panel between opaque and
-		// see-through, and glass is literally the transparency block.
-		ITEMS.put("@backing", Items.GLASS);
-
-		custom("cps", 16);
-		custom("keystrokes", 16);
-		custom("chunkborders", 16);
-		custom("blockoverlay", 32);
-	}
-
-	private static void custom(String id, int nativeSize) {
-		CUSTOM.put(id, new ResourceLocation("originclient", "textures/ui/modicon/" + id + ".png"));
-		CUSTOM_SIZE.put(id, nativeSize);
-	}
+	private static final Map<String, int[]> CELLS = new HashMap<>();
+	private static int cell = 192, atlasW = 1152, atlasH = 1344;
+	private static volatile boolean loaded = false;
+	private static boolean ok = false;
 
 	private ModIcons() {
 	}
 
-	/** Whether this id draws through the item/texture path at all. */
+	/** Whether this id has a glyph in the atlas. */
 	public static boolean has(String id) {
-		return ITEMS.containsKey(id) || CUSTOM.containsKey(id) || FPS.equals(id);
+		ensureLoaded();
+		return ok && CELLS.containsKey(id);
+	}
+
+	/** Compatibility overload: white icon at the given alpha (0..1). */
+	public static void draw(Gfx g, String id, int x, int y, int size, float alpha) {
+		int a = Math.max(0, Math.min(255, Math.round(alpha * 255f)));
+		draw(g, id, x, y, size, (a << 24) | 0xFFFFFF);
 	}
 
 	/**
-	 * Draws the icon for `id` in a size x size box at (x,y). `alpha` (0..1)
-	 * carries the mod menu's open/close fade.
+	 * Draws the glyph for `id` in a size x size box at (x,y), tinted with `argb`
+	 * (its alpha carries the mod menu's open/close fade). The signed-distance
+	 * path reconstructs coverage in screen space, keeping curves clean at every
+	 * Minecraft GUI scale. A linear-filtered mask remains as a fail-soft fallback.
 	 */
-	public static void draw(Gfx g, String id, int x, int y, int size, float alpha) {
-		if (alpha <= 0.01f) {
+	public static void draw(Gfx g, String id, int x, int y, int size, int argb) {
+		int a = (argb >>> 24) & 0xFF;
+		if (a <= 2) {
 			return;
 		}
-		if (FPS.equals(id)) {
-			drawFps(g, x, y, size, alpha);
+		ensureLoaded();
+		if (!ok) {
 			return;
 		}
-		ResourceLocation tex = CUSTOM.get(id);
-		if (tex != null) {
-			drawCustom(g, tex, CUSTOM_SIZE.get(id), x, y, size, alpha);
+		int[] c = CELLS.get(id);
+		if (c == null) {
 			return;
 		}
-		Item item = ITEMS.get(id);
-		if (item != null) {
-			drawItem(g, item, x, y, size, alpha);
-		}
-	}
-
-	private static void drawCustom(Gfx g, ResourceLocation tex, int nativeSize,
-			int x, int y, int size, float alpha) {
+		// 1.16.5 (fixed-function, no icon SDF shader): the linear-filtered mask atlas,
+		// tinted through the global GL colour.
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
-		RenderSystem.color4f(1f, 1f, 1f, alpha);
-		g.blit(tex, x, y, size, size, 0f, 0f, nativeSize, nativeSize, nativeSize, nativeSize);
+		RenderSystem.color4f(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
+				(argb & 0xFF) / 255f, a / 255f);
+		g.blit(ATLAS, x, y, size, size, c[0], c[1], cell, cell, atlasW, atlasH);
 		RenderSystem.color4f(1f, 1f, 1f, 1f);
 	}
 
-	private static void drawItem(Gfx g, Item item, int x, int y, int size, float alpha) {
-		// Gfx.renderItem always draws a 16x16 GUI item, so scale the pose to hit
-		// the requested box. Translate first, then scale, so the item lands at
-		// (x,y) rather than at a scaled-up offset.
-		PoseStack pose = g.pose();
-		pose.pushPose();
-		pose.translate(x, y, 0);
-		float s = size / 16f;
-		pose.scale(s, s, 1f);
-		RenderSystem.color4f(1f, 1f, 1f, alpha);
-		g.renderItem(new ItemStack(item), 0, 0);
-		RenderSystem.color4f(1f, 1f, 1f, 1f);
-		pose.popPose();
-	}
-
-	private static void drawFps(Gfx g, int x, int y, int size, float alpha) {
-		// The live frame count, capped at "999+" so the label can never grow wide
-		// enough to overflow the card and shove the title around.
-		// Minecraft.getFps() is 1.19.4+ — read the private static counter
-		// through the accessor mixin on this era (same as HudElements).
-		int fps = com.origin.client.client.mixin.MinecraftFpsAccessor.originclient$fps();
-		String text = fps > 999 ? "999+" : Integer.toString(fps);
-		Font font = Minecraft.getInstance().font;
-		// Scale so the text fills the icon box like an item would, rather than
-		// sitting tiny in the middle of it.
-		float s = size / 24f;
-		PoseStack pose = g.pose();
-		pose.pushPose();
-		pose.translate(x + size / 2.0, y + size / 2.0, 0);
-		pose.scale(s, s, 1f);
-		int a = Math.max(4, (int) (alpha * 255)) << 24;
-		g.drawString(font, text, -font.width(text) / 2, -4, a | 0xFFFFFF, false);
-		pose.popPose();
+	private static void ensureLoaded() {
+		if (loaded) {
+			return;
+		}
+		synchronized (ModIcons.class) {
+			if (loaded) {
+				return;
+			}
+			loaded = true;
+			try {
+				JsonObject j;
+				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.json")) {
+					j = GSON.fromJson(new String(com.origin.client.client.IoCompat.readAllBytes(in), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
+				}
+				cell = j.get("cell").getAsInt();
+				JsonObject icons = j.getAsJsonObject("icons");
+				// Gson 2.8.0 (1.16.5 / 1.17.1) has no JsonObject.keySet(): iterate the entries.
+				for (java.util.Map.Entry<String, com.google.gson.JsonElement> e : icons.entrySet()) {
+					String k = e.getKey();
+					JsonObject o = e.getValue().getAsJsonObject();
+					CELLS.put(k, new int[]{o.get("x").getAsInt(), o.get("y").getAsInt()});
+				}
+				NativeImage img;
+				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.png")) {
+					img = NativeImage.read(in);
+				}
+				atlasW = img.getWidth();
+				atlasH = img.getHeight();
+				// 1.16.5: no icon SDF shader, so the mask atlas is the one GPU atlas.
+				DynamicTexture tex = new DynamicTexture(img);
+				tex.setFilter(true, false);
+				Minecraft.getInstance().getTextureManager().register(ATLAS, tex);
+				ok = true;
+			} catch (Throwable t) {
+				ok = false;
+				com.origin.client.OriginClient.LOGGER.warn("Origin mod icons failed to load; cards draw without icons", t);
+			}
+		}
 	}
 }

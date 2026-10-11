@@ -198,4 +198,34 @@ public final class Gfx {
 			itemDrawBroken = true;
 		}
 	}
+
+	// ---- shapes 1.21.1's code calls that the first Gfx did not need ----
+
+	/** blit(tex, x, y, u, v, w, h) — the 256x256-sheet shorthand (vanilla's icons.png).
+	 *  GuiComponent's 7-arg blit is an INSTANCE method in this era (it reads the
+	 *  component's blitOffset), so the static 9-arg overload with the 256x256 sheet
+	 *  size spelled out is the callable equivalent. */
+	public void blit(ResourceLocation tex, int x, int y, int u, int v, int w, int h) {
+		RenderSystem.setShaderTexture(0, tex);
+		GuiComponent.blit(pose, x, y, (float) u, (float) v, w, h, 256, 256);
+	}
+
+	public int drawString(Font font, Component text, int x, int y, int color) {
+		return font.drawShadow(pose, text, x, y, color);
+	}
+
+	/** GuiGraphics.renderFakeItem: a GUI item with no owning entity. Pre-1.20 the plain
+	 *  item draw is the same call (the entity only seeds animated models), so one path. */
+	public void renderFakeItem(ItemStack stack, int x, int y) {
+		renderItem(stack, x, y);
+	}
+
+	/** GuiGraphics.renderTooltip(font, text, mx, my): before 1.20 the Screen draws its
+	 *  own tooltips, so the open screen is handed the call (no screen -> nothing). */
+	public void renderTooltip(Font font, Component text, int mouseX, int mouseY) {
+		net.minecraft.client.gui.screens.Screen s = Minecraft.getInstance().screen;
+		if (s != null) {
+			s.renderTooltip(pose, text, mouseX, mouseY);
+		}
+	}
 }

@@ -20,18 +20,20 @@ public class OriginShaderButton extends Button {
 		super(x, y, w, h, label, onPress);
 	}
 
-	// 1.19.2: the widget paint method is renderButton (renderWidget is 1.19.4+);
+	// 1.17.1: the widget paint method is renderButton (renderWidget is 1.19.4+);
 	// position is the public x/y fields (getX/getY are 1.19.3+).
 	@Override
 	public void renderButton(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
 		Gfx g = new Gfx(poseStack);
 		boolean hover = isHovered() || isFocused();
+		float hp = OriginUi.hover("shader-entry:" + System.identityHashCode(this), hover);
 		OriginUi.panel(g, this.x, this.y, getWidth(), getHeight(), 7,
-				hover ? 0xF0242424 : 0xF0161616,
-				hover ? OriginTheme.STROKE_STRONG : OriginTheme.STROKE);
+				OriginTheme.lerpColor(0xF0161616, 0xF0242424, hp),
+				OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_STRONG, hp));
 		Font font = Minecraft.getInstance().font;
 		int tw = font.width(getMessage());
 		g.drawString(font, getMessage(), this.x + (getWidth() - tw) / 2,
-				this.y + (getHeight() - 8) / 2, hover ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, false);
+				this.y + (getHeight() - 8) / 2,
+				OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hp), false);
 	}
 }

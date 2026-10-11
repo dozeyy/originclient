@@ -3,6 +3,7 @@
 	"package": "com.origin.client.client.mixin.loading",
 	"compatibilityLevel": "JAVA_16",
 	"client": [
+		"GenericDirtMessageScreenMixin",
 		"LevelLoadingScreenMixin",
 		"ReceivingLevelScreenMixin",
 		"ProgressScreenMixin",
