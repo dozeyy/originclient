@@ -15,7 +15,9 @@ import org.joml.Matrix4f;
 // The WORLD-SPACE half of waypoint rendering: the beam and the block highlight —
 // the parts that belong in the world and are allowed to be hidden by terrain
 // (the beam is deliberately the ONLY occluded part; the highlight hugs a block
-// face so it shows whenever the block does). Runs on WorldRenderEvents.LAST.
+// face so it shows whenever the block does). Runs on WorldRenderEvents.LAST,
+// inside OriginClientMod's identity-ModelViewMat window, so the camera rotation
+// in ctx.matrixStack() is the ONLY rotation the vertices get.
 //
 // The icon + name + distance are NOT drawn here: they render as a HUD overlay
 // (WaypointHud) projected from world position to screen — always on top,

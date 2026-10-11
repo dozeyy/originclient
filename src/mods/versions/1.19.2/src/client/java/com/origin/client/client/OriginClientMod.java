@@ -156,15 +156,37 @@ public class OriginClientMod implements ClientModInitializer {
 			});
 		});
 		WorldRenderEvents.LAST.register(context -> {
+			// The camera ROTATION must reach our world geometry exactly ONCE.
+			// Our renderers bake context.matrixStack() (= the camera rotation;
+			// GameRenderer.renderLevel mulPoses XRot/YRot onto it) into every
+			// vertex, and the shader then multiplies by RenderSystem's ModelViewMat.
+			// On 1.19.2, Fabric fires LAST just before
+			// LevelRenderer.renderDebug(Camera), which is INSIDE vanilla's
+			// clouds/weather block that pushed the camera pose onto the model-view
+			// stack -- so ModelViewMat held the rotation too and it was applied TWICE.
+			// So for the duration of our draws ModelViewMat is forced to IDENTITY
+			// -- the same state vanilla draws entities and the hit outline under
+			// -- and restored afterwards. (A doubled rotation is what made the
+			// waypoint beam tilt away when looking up and slide right when
+			// looking left: everything moved opposite to the camera.)
+			com.mojang.blaze3d.vertex.PoseStack modelView = com.mojang.blaze3d.systems.RenderSystem.getModelViewStack();
+			modelView.pushPose();
+			modelView.setIdentity();
+			com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 			try {
-				ChunkBorderRenderer.render(context);
-			} catch (Throwable t) {
-				// overlay must never take the frame down
-			}
-			try {
-				com.origin.client.client.waypoints.WaypointRenderer.render(context);
-			} catch (Throwable t) {
-				// waypoints must never take the frame down
+				try {
+					ChunkBorderRenderer.render(context);
+				} catch (Throwable t) {
+					// overlay must never take the frame down
+				}
+				try {
+					com.origin.client.client.waypoints.WaypointRenderer.render(context);
+				} catch (Throwable t) {
+					// waypoints must never take the frame down
+				}
+			} finally {
+				modelView.popPose();
+				com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 			}
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a

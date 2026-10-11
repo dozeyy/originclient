@@ -94,6 +94,14 @@ public final class ChunkBorderRenderer {
 			post(posts, pose, x1 + 16, z1 + 16, cy0, cy1, col, t);
 		}
 		OriginRenderTypes.draw();   // the posts
+		// Flush the rings/lattice NOW, while the LAST hook's matrices are current.
+		// Left in the frame's shared buffer they were drawn by whoever ended it
+		// next -- with the waypoints mod off, that is the first-person hand pass,
+		// which runs after a depth clear and with the HAND projection, so the
+		// rings showed through terrain at the wrong FOV.
+		if (context.consumers() instanceof net.minecraft.client.renderer.MultiBufferSource.BufferSource shared) {
+			shared.endBatch(RenderType.lines());
+		}
 	}
 
 	private static int thickness(String key) {
