@@ -9,7 +9,7 @@
 #
 # Why Linux: Gradle + Loom start and run faster there, and the jar is plain
 # JVM bytecode — identical behaviour whichever OS compiled it. The Windows-only
-# work (WPF launcher publish, Inno Setup installer) stays in the calling
+# work (WPF launcher publish, the Origin installer) stays in the calling
 # workflows. Every module cross-compiles from JDK 21 via `options.release`
 # (21 / 17 / 16 / 8), so one setup-java covers them all.
 #

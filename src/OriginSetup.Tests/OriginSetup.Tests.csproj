@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Tests for the installer's engine (src/OriginSetup/Engine) — the parts that
+    are pure logic and run anywhere: LZMA decoding, the payload format, folder
+    rules. Built for net472 too (never run there): that compile is what proves
+    the engine only uses APIs .NET Framework 4.7.2 has, on any OS. The tests
+    run on net8.0 (dotnet test -f net8.0) and need python3 on PATH — they
+    encode with Python's liblzma and tools/installer/pack_payload.py, the same
+    encoder CI ships with.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net472</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- The whole engine plus the launcher files the installer shares (same
+       links as OriginSetup.csproj), so a net472 API slip fails here too. -->
+  <ItemGroup>
+    <Compile Include="..\OriginSetup\Engine\**\*.cs" LinkBase="Engine" />
+    <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" Link="Shared\RamAdvice.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\SystemInfo.cs" Link="Shared\SystemInfo.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.cs" Link="Shared\InstallRegistry.cs" />
+  </ItemGroup>
+
+  <!-- net472 compiles ONLY the linked engine files (the API check); the
+       tests themselves use modern APIs and run on net8.0. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <Compile Remove="*.cs" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'net472'">
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

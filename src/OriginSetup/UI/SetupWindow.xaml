@@ -1,0 +1,275 @@
+<Window x:Class="OriginSetup.UI.SetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:ui="clr-namespace:OriginSetup.UI"
+        Title="Origin Setup"
+        Icon="/OriginSetup;component/Assets/origin.ico"
+        Width="860" Height="600"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanMinimize"
+        Background="{StaticResource Brush.Bg}"
+        FontFamily="{StaticResource Font.Primary}"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Closing="Window_Closing"
+        KeyDown="Window_KeyDown">
+
+    <!-- Chromeless like the launcher: no caption, no resize border. -->
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0"
+                            CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <!-- The launcher's backdrop: gradient + deepslate tiles. -->
+        <Grid Background="{StaticResource Brush.WindowBackdrop}" IsHitTestVisible="False">
+            <Rectangle Opacity="0.72" Fill="{StaticResource Brush.Deepslate}"/>
+        </Grid>
+
+        <!-- Drag anywhere that isn't a control. -->
+        <Grid Background="Transparent" MouseLeftButtonDown="Root_MouseLeftButtonDown">
+
+            <ui:TitleBar x:Name="Bar" Mode="SETUP"/>
+
+            <Grid Margin="0,56,0,56">
+
+                <!-- ============ WELCOME ============ -->
+                <Grid x:Name="WelcomePage">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="700">
+                        <ui:OrbitMark x:Name="WelcomeMark" Width="112" Height="112" Margin="0,0,0,26"/>
+                        <TextBlock x:Name="WelcomeEyebrow" Text="ORIGIN LAUNCHER" Style="{StaticResource Text.Eyebrow}"
+                                   Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="WelcomeTitle" Text="Welcome to Origin" Style="{StaticResource Text.Display}"
+                                   TextAlignment="Center" HorizontalAlignment="Center" Margin="0,8,0,10"/>
+                        <TextBlock x:Name="WelcomeBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
+                                   TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center" MaxWidth="520"
+                                   Text="Every Minecraft version, one clean launcher. Setup takes about a minute."/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,30,0,0">
+                            <Button x:Name="InstallButton" Style="{StaticResource Button.Primary}" MinWidth="168"
+                                    Content="Install" Click="InstallButton_Click" IsDefault="True"/>
+                            <Button x:Name="CustomizeButton" Content="Customize" MinWidth="128" Margin="14,0,0,0"
+                                    Click="CustomizeButton_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="WelcomeFootnote" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}"
+                                   TextAlignment="Center" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   Margin="0,18,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ============ CUSTOMIZE ============ -->
+                <Grid x:Name="CustomizePage" Visibility="Collapsed" Margin="44,4,40,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="270"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: what this page is, and the way forward. -->
+                    <DockPanel Grid.Column="0" Margin="0,8,28,0" LastChildFill="False">
+                        <StackPanel DockPanel.Dock="Top">
+                            <TextBlock Text="CUSTOMIZE" Style="{StaticResource Text.Eyebrow}"
+                                       Foreground="{StaticResource Brush.AccentHover}"/>
+                            <TextBlock Text="Make it yours" Style="{StaticResource Text.H1}" Margin="0,6,0,0"
+                                       TextTrimming="None" TextWrapping="Wrap"/>
+                            <Border Style="{StaticResource Setup.TitleRule}"/>
+                            <TextBlock Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"
+                                       Text="The defaults suit most players. You can change memory, version and startup any time in Origin's Settings."/>
+                        </StackPanel>
+                        <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,6">
+                            <Button x:Name="CustomizeInstallButton" Style="{StaticResource Button.Primary}"
+                                    Content="Install" HorizontalAlignment="Stretch" Click="InstallButton_Click"/>
+                            <Button Content="Back" HorizontalAlignment="Stretch" Margin="0,12,0,0" Click="BackButton_Click"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- Right: the three choices. -->
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Hidden" Margin="0,8,0,0">
+                        <StackPanel>
+                            <Border Style="{StaticResource Setup.Card}">
+                                <StackPanel>
+                                    <TextBlock Text="INSTALL LOCATION" Style="{StaticResource Setup.CardTitle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="LocationBox" Grid.Column="0" FontFamily="{StaticResource Font.Mono}"
+                                                 FontSize="{StaticResource FontSize.Caption}" VerticalContentAlignment="Center"
+                                                 TextChanged="LocationBox_TextChanged"/>
+                                        <Button x:Name="BrowseButton" Grid.Column="1" Content="Browse" Margin="10,0,0,0"
+                                                Padding="14,8" Click="BrowseButton_Click"/>
+                                    </Grid>
+                                    <TextBlock x:Name="LocationStatus" Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                               TextTrimming="None" Margin="0,7,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Setup.Card}">
+                                <StackPanel>
+                                    <TextBlock Text="PERFORMANCE" Style="{StaticResource Setup.CardTitle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Memory for Minecraft" Style="{StaticResource Text.Body}"/>
+                                        <TextBlock x:Name="RamValue" Grid.Column="1" Style="{StaticResource Text.Body}"
+                                                   Foreground="{StaticResource Brush.AccentHover}" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <Slider x:Name="RamSlider" Margin="0,8,0,2" SmallChange="256" LargeChange="1024"
+                                            TickFrequency="256" IsSnapToTickEnabled="True" ValueChanged="RamSlider_ValueChanged"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="RamHint" Style="{StaticResource Text.Caption}"
+                                                   VerticalAlignment="Center"/>
+                                        <Button x:Name="RamResetButton" Grid.Column="1" Style="{StaticResource Button.Chrome}"
+                                                Content="Use recommended" Padding="8,4" FontSize="{StaticResource FontSize.Caption}"
+                                                Click="RamResetButton_Click"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="230"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Default version" Style="{StaticResource Text.Body}" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="VersionCombo" Grid.Column="1"
+                                                  AutomationProperties.Name="Default Minecraft version"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Setup.Card}">
+                                <StackPanel>
+                                    <TextBlock Text="STARTUP" Style="{StaticResource Setup.CardTitle}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Open Origin when Windows starts" Style="{StaticResource Text.Body}"/>
+                                            <TextBlock Text="Ready the moment you sit down to play." Style="{StaticResource Text.Caption}"
+                                                       Foreground="{StaticResource Brush.TextMuted}"/>
+                                        </StackPanel>
+                                        <ToggleButton x:Name="StartupToggle" Grid.Column="1" Style="{StaticResource Toggle.Switch}"
+                                                      VerticalAlignment="Center"
+                                                      AutomationProperties.Name="Open Origin when Windows starts"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- ============ INSTALLING ============ -->
+                <Grid x:Name="InstallingPage" Visibility="Collapsed">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="460">
+                        <ui:OrbitMark x:Name="InstallingMark" Width="96" Height="96" Margin="0,0,0,28"/>
+                        <TextBlock x:Name="InstallingEyebrow" Text="INSTALLING" Style="{StaticResource Text.Eyebrow}"
+                                   Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="InstallingTitle" Style="{StaticResource Text.H1}" HorizontalAlignment="Center"
+                                   Margin="0,6,0,24"/>
+                        <Border x:Name="ProgressTrack" Style="{StaticResource Setup.ProgressTrack}" Width="380">
+                            <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="1"
+                                    Background="{StaticResource Brush.PrimaryGradient}"/>
+                        </Border>
+                        <Grid Width="380" Margin="0,12,0,0">
+                            <TextBlock x:Name="StageText" Style="{StaticResource Text.Caption}" HorizontalAlignment="Left"/>
+                            <TextBlock x:Name="PercentText" Style="{StaticResource Text.Caption}" HorizontalAlignment="Right"
+                                       Foreground="{StaticResource Brush.Text}"/>
+                        </Grid>
+                        <Button x:Name="CancelButton" Style="{StaticResource Button.Chrome}" Content="Cancel"
+                                Padding="18,6" Margin="0,26,0,0" HorizontalAlignment="Center" Click="CancelButton_Click"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ============ DONE ============ -->
+                <Grid x:Name="DonePage" Visibility="Collapsed">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="520">
+                        <ui:OrbitMark x:Name="DoneMark" Width="112" Height="112" Margin="0,0,0,26"/>
+                        <TextBlock Text="READY" Style="{StaticResource Text.Eyebrow}"
+                                   Foreground="{StaticResource Brush.Success}" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="DoneTitle" Text="You're all set" Style="{StaticResource Text.Display}"
+                                   HorizontalAlignment="Center" Margin="0,8,0,10"/>
+                        <TextBlock x:Name="DoneBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
+                                   TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center"
+                                   Text="Origin is on your desktop and in the Start menu."/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,30,0,0">
+                            <Button x:Name="LaunchButton" Style="{StaticResource Button.Primary}" MinWidth="188"
+                                    Content="Launch Origin" Click="LaunchButton_Click"/>
+                            <Button Content="Close" MinWidth="110" Margin="14,0,0,0" Click="CloseButton_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ============ PROBLEM ============ -->
+                <Grid x:Name="ProblemPage" Visibility="Collapsed">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="540">
+                        <Border Width="48" Height="48" CornerRadius="2" BorderThickness="2" HorizontalAlignment="Center"
+                                BorderBrush="{StaticResource Brush.Warning}" Margin="0,0,0,24">
+                            <TextBlock Text="!" FontFamily="{StaticResource Font.Display}" FontSize="24" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Warning}" HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="SETUP STOPPED" Style="{StaticResource Text.Eyebrow}"
+                                   Foreground="{StaticResource Brush.Warning}" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="ProblemTitle" Text="Origin wasn't installed" Style="{StaticResource Text.H1}"
+                                   HorizontalAlignment="Center" Margin="0,8,0,10"/>
+                        <TextBlock x:Name="ProblemBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
+                                   TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,28,0,0">
+                            <Button x:Name="RetryButton" Style="{StaticResource Button.Primary}" MinWidth="150"
+                                    Content="Try again" Click="RetryButton_Click"/>
+                            <Button x:Name="CopyDetailsButton" Content="Copy details" MinWidth="130" Margin="12,0,0,0"
+                                    Click="CopyDetailsButton_Click"/>
+                            <Button Content="Close" MinWidth="100" Margin="12,0,0,0" Click="CloseButton_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- Step rail. -->
+            <StackPanel x:Name="StepRail" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                        Margin="22,0,0,24" IsHitTestVisible="False">
+                <Border x:Name="Step1Marker" Style="{StaticResource Setup.StepMarker}"/>
+                <TextBlock x:Name="Step1Label" Text="WELCOME" Style="{StaticResource Setup.StepLabel}"/>
+                <Border x:Name="Step2Marker" Style="{StaticResource Setup.StepMarker}"/>
+                <TextBlock x:Name="Step2Label" Text="CUSTOMIZE" Style="{StaticResource Setup.StepLabel}"/>
+                <Border x:Name="Step3Marker" Style="{StaticResource Setup.StepMarker}"/>
+                <TextBlock x:Name="Step3Label" Text="INSTALL" Style="{StaticResource Setup.StepLabel}"/>
+                <Border x:Name="Step4Marker" Style="{StaticResource Setup.StepMarker}"/>
+                <TextBlock x:Name="Step4Label" Text="PLAY" Style="{StaticResource Setup.StepLabel}"/>
+            </StackPanel>
+
+            <!-- "Origin is open" — asked before installing over a running launcher. -->
+            <Grid x:Name="RunningOverlay" Visibility="Collapsed" Background="{StaticResource Brush.Scrim}">
+                <Border Style="{StaticResource Setup.Card}" Width="440" HorizontalAlignment="Center"
+                        VerticalAlignment="Center" Padding="26,24" Background="{StaticResource Brush.Panel}"
+                        Effect="{StaticResource Shadow.Card}">
+                    <StackPanel>
+                        <TextBlock Text="ORIGIN IS OPEN" Style="{StaticResource Text.Eyebrow}"
+                                   Foreground="{StaticResource Brush.Warning}"/>
+                        <TextBlock Text="Close Origin Launcher?" Style="{StaticResource Text.H2}" Margin="0,6,0,8"/>
+                        <TextBlock Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"
+                                   Text="It needs to close so setup can replace it. A game that's already running keeps going."/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                            <Button Content="Not now" Click="RunningCancel_Click" Margin="0,0,12,0"/>
+                            <Button x:Name="RunningCloseButton" Style="{StaticResource Button.Primary}"
+                                    Content="Close it and install" Click="RunningClose_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- Hairline frame so the chromeless window has an edge on any wallpaper. -->
+        <Border BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" IsHitTestVisible="False"/>
+    </Grid>
+</Window>

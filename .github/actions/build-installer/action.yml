@@ -1,0 +1,117 @@
+# Builds OriginLauncher-Setup.exe (the custom Origin installer, src/OriginSetup)
+# from the launcher in publish/, then PROVES it on this Windows runner:
+# a silent install into a fresh folder, a check of everything it should leave
+# (files byte-identical to publish/, uninstaller, Add/Remove Programs entry,
+# Start-menu + desktop shortcuts, Start-with-Windows), then a silent
+# uninstall and a check that all of it is gone again.
+#
+# Shared by build-check.yml (fast compression) and launcher-release.yml
+# (release compression), so a broken installer can never reach players.
+# Expects publish/ from .github/actions/publish-launcher. Output:
+# OriginLauncher-Setup.exe at the repo root.
+name: Build installer
+description: Build OriginSetup, append the launcher payload, smoke-test install + uninstall.
+
+inputs:
+  version:
+    description: Version shown by the installer and in Add/Remove Programs ("1.0.40"). Empty = 0.0.0.
+    default: ""
+  level:
+    description: LZMA level for the payload (release 6; checks use 1 to stay fast).
+    default: "6"
+  screenshots:
+    description: Also render every installer/uninstaller screen to PNGs (artifact "installer-screens").
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Build setup app (.NET Framework 4.7.2)
+      shell: pwsh
+      run: |
+        $v = if ("${{ inputs.version }}") { "${{ inputs.version }}" } else { "1.0.0" }
+        dotnet build src/OriginSetup/OriginSetup.csproj -c Release "-p:Version=$v" -o setup-bin
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    - name: Pack launcher into OriginLauncher-Setup.exe
+      shell: pwsh
+      run: |
+        $v = if ("${{ inputs.version }}") { "${{ inputs.version }}" } else { "0.0.0" }
+        python tools/installer/pack_payload.py --setup-exe setup-bin/OriginSetup.exe --source publish `
+          --version $v --out OriginLauncher-Setup.exe --level ${{ inputs.level }}
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    # Pictures of every screen (nothing is installed) — the UI review.
+    - name: Render installer screens
+      if: inputs.screenshots == 'true'
+      shell: pwsh
+      run: |
+        $p = Start-Process .\OriginLauncher-Setup.exe -ArgumentList '--render-tour installer-screens' -Wait -PassThru
+        $shots = @(Get-ChildItem installer-screens -Filter *.png -ErrorAction SilentlyContinue)
+        if ($p.ExitCode -ne 0 -or $shots.Count -lt 11) {
+          Write-Host "::error::Screen render failed (exit $($p.ExitCode), $($shots.Count) images)"
+          if (Test-Path "$env:TEMP\OriginSetup.log") { Get-Content "$env:TEMP\OriginSetup.log" }
+          exit 1
+        }
+        Write-Host "Rendered $($shots.Count) screens."
+
+    - name: Upload installer screens
+      if: inputs.screenshots == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: installer-screens
+        path: installer-screens
+        retention-days: 14
+
+    - name: Smoke test — silent install, check, silent uninstall
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        function Fail($why) {
+          Write-Host "::error::Installer smoke test: $why"
+          if (Test-Path "$env:TEMP\OriginSetup.log") { Get-Content "$env:TEMP\OriginSetup.log" }
+          exit 1
+        }
+        $dir = Join-Path $env:RUNNER_TEMP 'Origin Smoke Test'   # a space, to prove quoting
+        $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{7E9C1A54-2C3B-4E7A-9C1D-0A1B2C3D4E5F}_is1'
+        $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+        $startMenu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Origin Launcher.lnk'
+        $desktop = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Origin Launcher.lnk'
+
+        $p = Start-Process .\OriginLauncher-Setup.exe -ArgumentList "--silent --dir `"$dir`" --start-with-windows" -Wait -PassThru
+        if ($p.ExitCode -ne 0) { Fail "silent install exited $($p.ExitCode)" }
+
+        # Every published file landed, byte for byte (minus what the packer leaves out).
+        $published = Get-ChildItem publish -Recurse -File | Where-Object { $_.Extension -notin '.pdb', '.xml' }
+        foreach ($f in $published) {
+          $rel = $f.FullName.Substring((Resolve-Path publish).Path.Length).TrimStart('\')
+          $installed = Join-Path $dir $rel
+          if (-not (Test-Path $installed)) { Fail "missing after install: $rel" }
+          if ((Get-FileHash $installed).Hash -ne (Get-FileHash $f.FullName).Hash) { Fail "content differs: $rel" }
+        }
+        if (-not (Test-Path "$dir\uninstall.exe")) { Fail 'uninstall.exe missing' }
+        if ((Get-Item "$dir\uninstall.exe").Length -ge (Get-Item .\OriginLauncher-Setup.exe).Length / 4) { Fail 'uninstaller carries the payload' }
+        if (Test-Path "$dir\_setup-staging") { Fail 'staging folder left behind' }
+
+        $entry = Get-ItemProperty $uninstallKey -ErrorAction SilentlyContinue
+        if (-not $entry) { Fail 'no Add/Remove Programs entry' }
+        if ($entry.InstallLocation -ne "$dir\") { Fail "InstallLocation is '$($entry.InstallLocation)'" }
+        if ($entry.UninstallString -notlike '*uninstall.exe*--uninstall*') { Fail "UninstallString is '$($entry.UninstallString)'" }
+        if (-not ((Get-ItemProperty $runKey).'Origin Launcher' -like "*$dir*")) { Fail 'Start with Windows not set' }
+        if (-not (Test-Path $startMenu)) { Fail 'no Start menu shortcut' }
+        if (-not (Test-Path $desktop)) { Fail 'no desktop shortcut' }
+        Write-Host "Install verified: $($published.Count) files, registry entry, shortcuts, startup."
+
+        # Uninstall exactly the way Add/Remove Programs' quiet uninstall does.
+        Start-Process "$dir\uninstall.exe" -ArgumentList '--uninstall --silent' -Wait
+        # The uninstaller hands off to a %TEMP% copy (it can't delete its own folder) — wait for that.
+        $deadline = (Get-Date).AddSeconds(90)
+        while ((Test-Path $dir) -or (Test-Path $uninstallKey)) {
+          if ((Get-Date) -gt $deadline) { Fail 'uninstall did not finish within 90s' }
+          Start-Sleep -Milliseconds 500
+        }
+        if (Test-Path $startMenu) { Fail 'Start menu shortcut left behind' }
+        if (Test-Path $desktop) { Fail 'desktop shortcut left behind' }
+        if ((Get-ItemProperty $runKey).'Origin Launcher') { Fail 'Start with Windows left behind' }
+        Write-Host "Uninstall verified: folder, registry entry, shortcuts and startup entry removed."
+        Write-Host "OriginLauncher-Setup.exe: $([math]::Round((Get-Item .\OriginLauncher-Setup.exe).Length / 1MB, 1)) MB"
