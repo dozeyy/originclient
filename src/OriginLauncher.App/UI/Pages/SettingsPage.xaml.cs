@@ -5,6 +5,7 @@ using Microsoft.Win32;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
+using OriginLauncher.App.Core.Install;
 using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.Core.Versions;
 
@@ -37,8 +38,10 @@ public partial class SettingsPage : UserControl
         _ramSaveTimer.Tick += (_, _) => PersistPendingRam();
         Unloaded += (_, _) => PersistPendingRam();
 
-        var safeMaximum = Math.Max(2048, (SystemInfo.GetTotalPhysicalMemoryMb() - 2048) / 256 * 256);
-        var ramMb = Math.Clamp((int)Math.Round(_settings.RamMb / 256d) * 256, 1024, safeMaximum);
+        var safeMaximum = RamAdvice.MaximumMb(SystemInfo.GetTotalPhysicalMemoryMb());
+        var ramMb = Math.Clamp((int)Math.Round(_settings.RamMb / (double)RamAdvice.StepMb) * RamAdvice.StepMb,
+            RamAdvice.SliderMinimumMb, safeMaximum);
+        RamSlider.Minimum = RamAdvice.SliderMinimumMb;
         RamSlider.Maximum = safeMaximum;
         RamSlider.Value = ramMb;
         RamValueText.Text = FormatRam(ramMb);
@@ -54,10 +57,28 @@ public partial class SettingsPage : UserControl
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
         ShaderCacheToggle.IsChecked = _settings.ShaderCacheNvidia || _settings.ShaderCacheAmd;
         OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
+        StartWithWindowsToggle.IsChecked = InstallRegistry.IsStartWithWindows();
 
         InitializeJvmSection();
 
         _isLoading = false;
+    }
+
+    // Not a launcher setting — it's the Windows Run entry itself, so the
+    // toggle reads and writes the registry directly (no settings.json copy to
+    // drift from what Windows will actually do).
+    private void StartWithWindowsToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        var exe = Environment.ProcessPath ?? System.IO.Path.Combine(AppContext.BaseDirectory, "OriginLauncher.App.exe");
+        try
+        {
+            InstallRegistry.SetStartWithWindows(StartWithWindowsToggle.IsChecked == true, exe);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
+        {
+            StartWithWindowsToggle.IsChecked = InstallRegistry.IsStartWithWindows();
+        }
     }
 
     private void RamSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

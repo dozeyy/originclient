@@ -162,6 +162,26 @@
                 </StackPanel>
             </Border>
 
+            <!-- Startup — the installer offers the same choice; this is where a
+                 player turns it back off (one Run value, see InstallRegistry). -->
+            <Border Style="{StaticResource SectionCard}">
+                <StackPanel>
+                    <TextBlock Text="Startup" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Open Origin when Windows starts" Style="{StaticResource Text.BodyDim}"
+                                   VerticalAlignment="Center"/>
+                        <ToggleButton Grid.Column="1" x:Name="StartWithWindowsToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      Checked="StartWithWindowsToggle_Changed" Unchecked="StartWithWindowsToggle_Changed"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <!-- Developer (temporary: remove before public release) -->
             <Border Style="{StaticResource SectionCard}">
                 <StackPanel>
