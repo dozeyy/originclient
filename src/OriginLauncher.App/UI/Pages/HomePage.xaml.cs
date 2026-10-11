@@ -40,6 +40,10 @@ public partial class HomePage : UserControl
         LoadingOverlay.CancelRequested += (_, _) => _launchCts?.Cancel();
         VersionOverlay.VersionSelected += OnVersionSelected;
         VersionOverlay.LaunchRequested += OnLaunchRequested;
+        // The home banner pauses under either scene (and, in ad mode, its
+        // native WebView2 would otherwise draw on top of them).
+        VersionOverlay.IsVisibleChanged += (_, _) => PromoBanner.SetHomeSceneOpen(HasOpenScene);
+        LoadingOverlay.IsVisibleChanged += (_, _) => PromoBanner.SetHomeSceneOpen(HasOpenScene);
         InitVersionSelection();
         RefreshAccountState();
     }
@@ -51,6 +55,9 @@ public partial class HomePage : UserControl
 
     public bool HasOpenScene => VersionOverlay.IsOpen
         || LoadingOverlay.Visibility == Visibility.Visible;
+
+    /// <summary>MainWindow: the account panel / sign-in card covers Home — the banner pauses.</summary>
+    public void SetChromeOverlayOpen(bool open) => PromoBanner.SetChromeOverlayOpen(open);
 
     /// <summary>
     /// Covers Home with the loading scene in self-update mode (MainWindow's

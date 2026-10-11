@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="color-scheme" content="dark">
+  <title>Origin</title>
+  <!--
+    The Origin Launcher's home-banner page (ad-network mode).
+
+    The launcher loads this page into its home banner when website/launcher/
+    promos.json has "network": { "enabled": true, "url": ".../ad/banner.html" }.
+    The slot is the width of the Play card (up to ~400 x 66 CSS px), so a
+    320x50 unit fits. Until an ad network is approved this page is just an
+    Origin house banner, which is also what shows if an ad doesn't fill.
+
+    What the launcher guarantees around this page (UI/Controls/BannerAdHost.cs):
+    always muted; loaded/reloaded only while the banner is actually on screen
+    (hidden = suspended, document.visibilityState "hidden"); links that open a
+    new window go to the player's browser; the frame itself may only navigate
+    within THIS host (anything else is sent to the browser); no account data
+    is passed — the URL has no query string.
+
+    WHEN NITRO APPROVES THE SITE:
+      1. Paste Nitro's site tag (from the Nitro dashboard) where marked in
+         <head> below, and their ad call for a 320x50 unit targeting
+         #ad-slot where marked at the bottom of <body>. Keep #house as the
+         fallback (hide it once the ad renders, per Nitro's render callback).
+      2. Nitro's consent page goes at website/ad/cmp.html — same host as this
+         page, because the launcher blocks the frame from navigating to any
+         other host.
+      3. Their ads.txt goes at website/ads.txt (served at the site root).
+      4. Set "network.enabled": true in website/launcher/promos.json. Every
+         running launcher picks it up within 30 minutes; no launcher update.
+  -->
+
+  <!-- NITRO SITE TAG GOES HERE -->
+
+  <style>
+    @font-face { font-family: Monocraft; src: url(../assets/fonts/monocraft.woff2) format("woff2"); font-display: swap; }
+    /* Launcher tokens (src/OriginLauncher.App/Theme/Colors.xaml). */
+    :root {
+      --card: #1d2420; --card-alt: #27302a; --soft: #2e3b33;
+      --text: #f1e9d2; --dim: #b8b5a6; --muted: #7d8279; --acc: #5fd09b;
+    }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--card); }
+    body {
+      color: var(--text);
+      font: 13px/1.45 Monocraft, "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; user-select: none;
+    }
+    /* Once an ad renders into #ad-slot it covers the house banner. */
+    #ad-slot { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; background: var(--card); }
+    #ad-slot:empty { display: none; }
+    #house {
+      position: absolute; inset: 0; display: flex; align-items: center; gap: 12px;
+      padding: 0 14px 0 12px; color: inherit; text-decoration: none; transition: background .12s;
+    }
+    #house:hover { background: var(--card-alt); }
+    .icon {
+      flex: none; width: 44px; height: 44px; display: grid; place-items: center;
+      background: var(--card-alt); border: 1px solid var(--soft); border-radius: 2px;
+    }
+    .icon svg { width: 26px; height: 26px; color: var(--text); filter: drop-shadow(0 0 3px rgba(241, 233, 210, .35)); }
+    .copy { flex: 1; min-width: 0; }
+    .copy > * { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .eyebrow { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+    .title { font-weight: 500; }
+    .sub { font-size: 12px; color: var(--dim); }
+    .arrow { flex: none; width: 12px; height: 12px; color: var(--dim); }
+  </style>
+</head>
+<body>
+  <div id="ad-slot"></div>
+
+  <a id="house" href="https://originclient.org/" target="_blank" rel="noopener">
+    <span class="icon" aria-hidden="true">
+      <svg viewBox="0 0 200 200" fill="none" stroke="currentColor" stroke-width="7">
+        <ellipse cx="100" cy="100" rx="90" ry="32"/>
+        <ellipse cx="100" cy="100" rx="75" ry="27" transform="rotate(60 100 100)"/>
+        <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
+      </svg>
+    </span>
+    <span class="copy">
+      <span class="eyebrow">ORIGIN</span>
+      <span class="title">originclient.org</span>
+      <span class="sub">News, changelogs and every bundled mod</span>
+    </span>
+    <svg class="arrow" viewBox="4 4 16 16" fill="none" stroke="currentColor" stroke-width="1.55"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 5h10v10M18.5 5.5 5 19"/>
+    </svg>
+  </a>
+
+  <!-- NITRO AD CALL (targeting #ad-slot) GOES HERE -->
+</body>
+</html>

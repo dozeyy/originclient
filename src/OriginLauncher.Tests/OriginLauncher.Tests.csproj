@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Tests for the launcher's pure logic — the parts that need no WPF and run on
+    any OS (CI runs them on Linux in build-check). Each tested area is linked
+    in from src/OriginLauncher.App rather than referenced, because the app
+    itself is a net8.0-windows WPF exe that can't be built off Windows.
+
+    Linked today: Core/Promos (home banner feed parsing + fallback chain,
+    Discord invite handling, the visibility gate, occlusion math, rotation).
+    Network is never touched: every fetch goes through a fake HttpTextGet.
+    Run: dotnet test src/OriginLauncher.Tests
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\OriginLauncher.App\Core\Promos\*.cs" LinkBase="Promos" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
