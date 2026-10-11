@@ -575,6 +575,7 @@ public final class Mods {
 
 		registerLunarBatch2();
 		registerLunarBatch4b();
+		registerLunarBatch3b();
 	}
 
 	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----
@@ -712,6 +713,86 @@ public final class Mods {
 		add("itemphysics", "Item Physics", "Dropped items tumble as they fall and lie flat.", false,
 				ModOption.slider("rotationSpeed", "Rotation Speed", 0.1, 4.0, 0.1, 0.5, "%.1fx")
 						.tip("How fast items spin while they're in the air."));
+	}
+
+	// ---- Lunar parity, batch 3b: server integrations (2026-10-11) ----
+	// Team View and Hypixel mirror Lunar's option schemas (Apollo ModTeamView /
+	// ModHypixelMod); Discord Status mirrors Lunar's launcher Rich Presence switch
+	// plus the privacy rows a player would expect. All three default ON like
+	// Lunar's, and each only acts where it applies (Team View on team servers,
+	// Hypixel on *.hypixel.net, Discord when the Discord app is running).
+	// Kept in its own method so it merges cleanly with other registry additions.
+	private static void registerLunarBatch3b() {
+		// Lunar's "Apollo Teams" row (its own server plugin) becomes Scoreboard
+		// Teams: Origin can't speak Apollo, but every team server -- Hypixel included
+		// -- puts teammates on one vanilla scoreboard team, which is the same answer.
+		add("teamview", "Team View", "Marks where your teammates are, even through walls.", true,
+				ModOption.toggle("scoreboardTeams", "Scoreboard Teams", true)
+						.tip("Mark players on your scoreboard team (team games on any server)."),
+				ModOption.toggle("hypixel", "Hypixel Parties", true)
+						.tip("On Hypixel, also mark your party members while you're in a lobby or SkyBlock -- never in a game where it would be an unfair advantage."),
+				ModOption.header("Color"),
+				ModOption.color("teamColor", "Team Color", 0xFF2BFF41),
+				ModOption.color("partyColor", "Party Color", 0xFFF6C634));
+
+		// Discord Rich Presence over Discord's local IPC (DiscordPresence). Lunar only
+		// documents an on/off switch; the rows below are the privacy choices a player
+		// expects from it.
+		add("discord", "Discord Status", "Show Origin Client and what you're playing on your Discord profile.", true,
+				ModOption.toggle("showServer", "Show Server Address", true)
+						.tip("Off: Discord just says \"Multiplayer\" instead of naming the server."),
+				ModOption.toggle("showVersion", "Show Minecraft Version", true),
+				ModOption.toggle("showTime", "Show Elapsed Time", true)
+						.tip("How long you've been playing, shown under your status."));
+
+		// Hypixel: Lunar's Hypixel mod. Everything acts only while connected to
+		// *.hypixel.net. Levels and stats come from the Hypixel API with the player's
+		// OWN key (stored only in this PC's Origin config, masked on screen, never
+		// logged). Lunar's Auto GG row is the separate Auto GG mod in Origin; its
+		// Guild MOTD / Hypixel Autocomplete rows have no reliable client-side signal
+		// and are left out rather than shipped as switches that do nothing.
+		add("hypixel", "Hypixel", "Hypixel levels, Bed Wars stats and chat tools.", true,
+				ModOption.header("Hypixel API"),
+				ModOption.text("apiKey", "API Key", "").secret()
+						.tip("Your personal key from developer.hypixel.net. Click, then paste with Ctrl+V and press Enter. It stays on this PC and is only sent to Hypixel."),
+				ModOption.header("Levels & Stats"),
+				ModOption.toggle("levelHead", "Level Head", false)
+						.tip("Show each player's Hypixel level on their nametag."),
+				ModOption.toggle("levelAbove", "Level Above Name", false).under("levelHead")
+						.tip("Put the level on its own line above the name instead of after it."),
+				ModOption.color("levelColor", "Level Text Color", 0xFFFFFF55).under("levelHead"),
+				ModOption.color("levelNumberColor", "Level Number Color", 0xFF55FFFF).under("levelHead"),
+				ModOption.toggle("useBedwarsFormat", "Use Bed Wars Levels Format", true)
+						.tip("In Bed Wars, show each player's Bed Wars star (e.g. [245✫]) instead of their network level."),
+				ModOption.toggle("levelsInTab", "Show Levels in Tab", false)
+						.tip("Show each player's level beside their name in the player list."),
+				ModOption.toggle("bedwarsStats", "Bed Wars Stats in Tab", false)
+						.tip("In Bed Wars, show each player's final K/D (FKDR) and win/loss ratio in the player list."),
+				ModOption.header("Automation"),
+				ModOption.toggle("autoFriend", "Auto Friend", false)
+						.tip("Accept every friend request automatically."),
+				ModOption.toggle("autoTip", "Auto Tip", false)
+						.tip("Run /tip all every 15 minutes (tips the active boosters for free coins and XP)."),
+				ModOption.toggle("autoWho", "Auto Who", false)
+						.tip("Run /who when a game starts, so you see who's in it."),
+				ModOption.toggle("antiGg", "Anti GG", false)
+						.tip("Hide \"gg\" messages from other players at the end of a game."),
+				ModOption.header("Tab & Chat"),
+				ModOption.toggle("removeGuildOnTab", "Remove Guild Tags in Tab", true),
+				ModOption.toggle("shortChannelNames", "Short Channel Names", false)
+						.tip("\"Party >\" becomes \"P >\", \"Guild >\" becomes \"G >\", \"Officer >\" becomes \"O >\"."),
+				ModOption.toggle("hidePrivateMessages", "Hide Private Messages", false),
+				ModOption.toggle("hideTeamChat", "Hide Team Chat", false),
+				ModOption.toggle("hidePartyChat", "Hide Party Chat", false),
+				ModOption.toggle("hideGuildChat", "Hide Guild Chat", false),
+				ModOption.toggle("hideShout", "Hide Shouts", false),
+				ModOption.toggle("hideSpectatorChat", "Hide Spectator Chat", false),
+				ModOption.toggle("removeLobbyStatuses", "Remove Lobby Join Messages", false)
+						.tip("Hide \"[MVP+] Name joined the lobby!\" announcements."),
+				ModOption.toggle("hideJoinMessages", "Hide Friend/Guild Join Messages", false),
+				ModOption.toggle("hideLeaveMessages", "Hide Friend/Guild Leave Messages", false),
+				ModOption.toggle("hideSoulWell", "Hide Soul Well Announcements", false),
+				ModOption.toggle("hideMysteryBox", "Hide Mystery Box Announcements", false));
 	}
 
 	// Assembles the Particle Changer option list: global controls, then a
@@ -896,6 +977,20 @@ public final class Mods {
 			return o.defText;
 		}
 		return o == null || o.modes == null || o.modes.length == 0 ? "" : o.modes[0];
+	}
+
+	/** A TEXT option's value; its schema default ("" if none) until set. */
+	public static String text(String modId, String key) {
+		var v = raw(modId).get(key);
+		if (v != null) {
+			try {
+				return v.getAsString();
+			} catch (RuntimeException e) {
+				// a non-string landed here (hand-edited config): fall back to the default
+			}
+		}
+		ModOption o = opt(modId, key);
+		return o == null || o.defText == null ? "" : o.defText;
 	}
 
 	public static void set(String modId, String key, boolean v) {

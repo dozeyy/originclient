@@ -61,7 +61,8 @@
 		"TntCountdownMixin",
 		"ItemCooldownsMixin",
 		"SoundChangerMixin",
-		"ItemPhysicsMixin"
+		"ItemPhysicsMixin",
+		"LevelHeadMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

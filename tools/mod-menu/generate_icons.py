@@ -116,6 +116,13 @@ PUBLIC_IDS.update({
     "worldeditcui": "client.worldeditcui",
 })
 
+# Lunar parity, batch 3b (2026-10-11) -- server integrations, appended after batch 2.
+PUBLIC_IDS.update({
+    "teamview": "client.teamview",
+    "discord": "client.discord",
+    "hypixel": "client.hypixel",
+})
+
 
 def load_master():
     spec = importlib.util.spec_from_file_location("origin_icon_masters", MASTER)

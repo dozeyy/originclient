@@ -266,6 +266,18 @@
     "worldeditcui": [
       0,
       0
+    ],
+    "teamview": [
+      0,
+      4
+    ],
+    "discord": [
+      0,
+      2
+    ],
+    "hypixel": [
+      0,
+      -6
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -529,6 +541,18 @@
     "worldeditcui": {
       "x": 768,
       "y": 1920
+    },
+    "teamview": {
+      "x": 960,
+      "y": 1920
+    },
+    "discord": {
+      "x": 0,
+      "y": 2112
+    },
+    "hypixel": {
+      "x": 192,
+      "y": 2112
     }
   }
 }
