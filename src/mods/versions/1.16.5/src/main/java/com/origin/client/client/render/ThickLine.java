@@ -78,6 +78,39 @@ public final class ThickLine {
 		box(q, pose, lo[0], lo[1], lo[2], hi[0], hi[1], hi[2], r, g, b, a);
 	}
 
+	/**
+	 * Emits a tall vertical line (waypoint beam, chunk-border post) at (x, z),
+	 * from y0 to y1, as ONE quad that turns about the vertical axis to face the
+	 * camera -- a "cylindrical billboard", like a beacon beam seen side-on.
+	 *
+	 * Why not RenderType.lines(): on 1.17+ the core-profile lines shader widens
+	 * each segment in SCREEN space from the two projected endpoints; a 100+ block
+	 * segment almost always has an end behind the camera, which projects
+	 * sign-flipped, so the ribbon swung and bent as the camera turned. 1.16.5's
+	 * fixed-function GL_LINES don't have that bug, but a GL line is a fixed few
+	 * pixels wide, and the beam/posts must look the same as on every other
+	 * version -- so they use this quad here too. It is real world geometry: the
+	 * GPU clips it correctly, and its facing depends only on where the camera IS
+	 * (coords are camera-relative, so the camera is the origin), never on where
+	 * it looks.
+	 *
+	 * @param halfWidth half the quad's width in blocks. Callers usually scale it
+	 *                  with distance so the line keeps a steady on-screen width.
+	 */
+	public static void vertical(VertexConsumer q, PoseStack.Pose pose,
+			double x, double z, double y0, double y1, double halfWidth,
+			float r, float g, float b, float a) {
+		double len = Math.sqrt(x * x + z * z);
+		// Unit vector across the line, perpendicular to the camera->line direction
+		// in the horizontal plane. Standing exactly on the axis: any facing works.
+		double px = len < 1.0e-4 ? 1.0 : -z / len;
+		double pz = len < 1.0e-4 ? 0.0 : x / len;
+		float ax = (float) (x - px * halfWidth), az = (float) (z - pz * halfWidth);
+		float bx = (float) (x + px * halfWidth), bz = (float) (z + pz * halfWidth);
+		float lo = (float) y0, hi = (float) y1;
+		quad(q, pose, ax, lo, az, bx, lo, bz, bx, hi, bz, ax, hi, az, r, g, b, a);
+	}
+
 	/** Six quads, wound so every face is visible (the render type is NO_CULL). */
 	private static void box(VertexConsumer q, PoseStack.Pose pose,
 			double x0, double y0, double z0, double x1, double y1, double z1,

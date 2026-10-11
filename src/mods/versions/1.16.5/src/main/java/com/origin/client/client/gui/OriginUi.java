@@ -4,6 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.math.Matrix4f;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import com.origin.client.client.gui.Gfx;
@@ -13,6 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import org.lwjgl.opengl.GL11;
 
 // The premium drawing kit shared by the mod menu and HUD editor: baked
 // high-res assets (rounded panels, Apple-style switch, 96px icon atlas,
@@ -188,25 +193,53 @@ public final class OriginUi {
 	 * A smooth stroked line from (ax,ay) to (bx,by), `half` px to each side of
 	 * the centre. Per-pixel coverage = distance-to-segment, so the stroke is
 	 * anti-aliased and round-capped — the same coverage trick the rounded
-	 * corners use, reused for crisp little glyphs (the sidebar's edit/close
-	 * icons) instead of blocky diagonals.
+	 * corners use, reused for crisp little glyphs (the mod menu's back chevron,
+	 * Edit HUD pencil and close X).
+	 *
+	 * Coverage is evaluated per DEVICE pixel, not per GUI pixel. It used to run
+	 * on the GUI grid, so at GUI scale 2-4 every coverage cell was a 2x2..4x4
+	 * block of screen pixels and the rotated strokes came out as visibly
+	 * stair-stepped, low-res icons next to the crisp text -- 1.16.5's version of
+	 * the jagged-icon bug (newer versions had the SDF quad clipping its own
+	 * anti-aliasing; there is no SDF shader here). Now the loop runs in device
+	 * pixels under a 1/scale pose, so the AA ramp is one real pixel wide at any
+	 * GUI scale, and the bounds pad by half + 1 device px so the ramp is never
+	 * cut off. All runs go out as ONE fixed-function quad batch (texturing off,
+	 * blend on -- Gfx.fillGradient's state) instead of a GuiComponent.fill per
+	 * run, since device resolution means scale-times more runs.
 	 */
 	public static void aaLine(Gfx g, double ax, double ay, double bx, double by, double half, int color) {
 		int base = (color >>> 24) & 0xFF;
 		if (base == 0) {
 			return;
 		}
-		int rgb = color & 0xFFFFFF;
+		int cr = (color >> 16) & 0xFF, cg = (color >> 8) & 0xFF, cb = color & 0xFF;
+		// GUI scale is a whole number on this era; 1 = the old GUI-pixel grid.
+		int s = Math.max(1, (int) Math.round(Minecraft.getInstance().getWindow().getGuiScale()));
+		float inv = 1f / s;
+		ax *= s;
+		ay *= s;
+		bx *= s;
+		by *= s;
+		half *= s;
 		int x0 = (int) Math.floor(Math.min(ax, bx) - half - 1);
 		int x1 = (int) Math.ceil(Math.max(ax, bx) + half + 1);
 		int y0 = (int) Math.floor(Math.min(ay, by) - half - 1);
 		int y1 = (int) Math.ceil(Math.max(ay, by) + half + 1);
 		double abx = bx - ax, aby = by - ay;
 		double len2 = abx * abx + aby * aby;
+		Matrix4f m = g.pose().last().pose();
+		RenderSystem.disableTexture();
+		RenderSystem.enableBlend();
+		RenderSystem.disableAlphaTest();
+		RenderSystem.defaultBlendFunc();
+		BufferBuilder buf = Tesselator.getInstance().getBuilder();
+		// 1.16.5 BufferBuilder.begin takes an int GL mode (no VertexFormat.Mode enum).
+		buf.begin(GL11.GL_QUADS, DefaultVertexFormat.POSITION_COLOR);
 		for (int py = y0; py < y1; py++) {
-			int runStart = -1, runArgb = 0;
+			int runStart = -1, runA = 0;
 			for (int px = x0; px <= x1; px++) {
-				int argb = 0;
+				int a = 0;
 				if (px < x1) {
 					double dpx = px + 0.5 - ax, dpy = py + 0.5 - ay;
 					double t = len2 <= 1e-6 ? 0 : clamp01((dpx * abx + dpy * aby) / len2);
@@ -214,24 +247,34 @@ public final class OriginUi {
 					double dx = px + 0.5 - cxp, dy = py + 0.5 - cyp;
 					double dist = Math.sqrt(dx * dx + dy * dy);
 					double cov = clamp01(half - dist + 0.5);
-					int a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
-					argb = a <= 0 ? 0 : (a << 24) | rgb;
+					a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
 				}
-				if (argb != runArgb) {
-					if (runStart >= 0 && runArgb != 0) {
-						g.fill(runStart, py, px, py + 1, runArgb);
+				if (a != runA) {
+					if (runStart >= 0 && runA > 0) {
+						// one device-pixel-tall run, mapped back to GUI units
+						float qx0 = runStart * inv, qx1 = px * inv, qy0 = py * inv, qy1 = (py + 1) * inv;
+						buf.vertex(m, qx0, qy0, 0f).color(cr, cg, cb, runA).endVertex();
+						buf.vertex(m, qx0, qy1, 0f).color(cr, cg, cb, runA).endVertex();
+						buf.vertex(m, qx1, qy1, 0f).color(cr, cg, cb, runA).endVertex();
+						buf.vertex(m, qx1, qy0, 0f).color(cr, cg, cb, runA).endVertex();
 					}
 					runStart = px;
-					runArgb = argb;
+					runA = a;
 				}
 			}
 		}
+		// Tesselator.end() uploads and draws with the current fixed-function state.
+		Tesselator.getInstance().end();
+		RenderSystem.disableBlend();
+		RenderSystem.enableAlphaTest();
+		RenderSystem.enableTexture();
 	}
 
 	/**
 	 * A stroke from (ax,ay)→(bx,by), `half` px to each side. 1.21.1 draws it as a
 	 * rounded-box SDF capsule; fixed-function 1.16.5 has no shader, so it is
-	 * {@link #aaLine}'s per-pixel coverage stroke (anti-aliased, round-capped).
+	 * {@link #aaLine}'s per-DEVICE-pixel coverage stroke (anti-aliased,
+	 * round-capped) -- the same crisp vector look at any GUI scale.
 	 */
 	public static void capsule(Gfx g, double ax, double ay, double bx, double by, double half, int color) {
 		// 1.16.5: no SDF shader -- the per-pixel coverage stroke is the vector path.

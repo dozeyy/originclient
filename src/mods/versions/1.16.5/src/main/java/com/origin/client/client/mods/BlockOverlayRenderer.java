@@ -1,16 +1,12 @@
 package com.origin.client.client.mods;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginColorPicker;
+import com.origin.client.client.render.OriginRenderTypes;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import org.lwjgl.opengl.GL11;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -18,20 +14,29 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 // Block Outline + Block Overlay, via Fabric's BLOCK_OUTLINE event (which hands
-// us both the lines buffer AND the world matrix, so we can draw a filled
-// overlay the old renderHitOutline mixin couldn't).
-//   outline  — custom-coloured selection outline; width 1..10 via offset passes.
+// us the world matrix, so we can draw a filled overlay the old
+// renderHitOutline mixin couldn't).
+//   outline  — custom-coloured selection outline; width 1..10 (ThickLine boxes).
 //   overlay  — a translucent fill over the block's shape (overlayColor).
 //   side     — with overlay on, fill ONLY the face the crosshair is on.
-// Returning false cancels vanilla's white outline so only ours shows; if both
-// sub-toggles are off we defer to vanilla.
+// Origin ALWAYS replaces vanilla's outline (returns false) whenever there is a
+// shape to outline: with the mod off it still draws, as the thin "hairline"
+// version of vanilla's black outline. Vanilla only draws where we return true
+// (empty shapes, so its "no outline on grass" behaviour is kept).
+//
+// Everything is drawn through OriginRenderTypes' private buffer and flushed
+// before returning, i.e. at outline time with the right matrices and depth --
+// see OriginRenderTypes for why the frame's shared buffer showed the hidden
+// back edges through the block. (1.16.5 is fixed-function: that render type
+// carries the texturing-off / blend / no-cull / depth state the overlay used
+// to set by hand around a raw Tesselator draw.)
 public final class BlockOverlayRenderer {
 	private BlockOverlayRenderer() {
 	}
 
 	public static boolean onBlockOutline(WorldRenderContext wctx, WorldRenderContext.BlockOutlineContext octx) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null || wctx.matrixStack() == null || wctx.consumers() == null) {
+		if (mc.level == null || wctx.matrixStack() == null) {
 			return true;
 		}
 		boolean modOn = Mods.on("blockoverlay");
@@ -58,11 +63,12 @@ public final class BlockOverlayRenderer {
 			double vcx = (vb.minX + vb.maxX) / 2.0 + ox;
 			double vcy = (vb.minY + vb.maxY) / 2.0 + oy;
 			double vcz = (vb.minZ + vb.maxZ) / 2.0 + oz;
-			VertexConsumer vq = wctx.consumers().getBuffer(com.origin.client.client.render.FillQuads.INSTANCE);   // no debugQuads before 1.19.4
+			VertexConsumer vq = OriginRenderTypes.begin();
 			shape.forAllEdges((x1, y1, z1, x2, y2, z2) ->
 					com.origin.client.client.render.ThickLine.edge(vq, pose,
 							x1 + ox, y1 + oy, z1 + oz, x2 + ox, y2 + oy, z2 + oz,
 							vcx, vcy, vcz, 0.002, 0f, 0f, 0f, 0.4f));
+			OriginRenderTypes.draw();
 			return false;
 		}
 
@@ -83,28 +89,10 @@ public final class BlockOverlayRenderer {
 					&& ((BlockHitResult) mc.hitResult).getBlockPos().equals(pos)) {
 				only = ((BlockHitResult) mc.hitResult).getDirection();
 			}
-			// 1.16.5 has no RenderType.debugQuads() and no shader objects, so the
-			// fill draws immediate-mode through the Tesselator in FIXED FUNCTION
-			// (texturing off) — the same approach this era's own
-			// DebugRenderer.renderFilledBox uses: alpha blend, no cull (both face
-			// sides), depth writes off so the translucent fill can't punch holes.
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			RenderSystem.disableCull();
-			RenderSystem.depthMask(false);
-			RenderSystem.disableTexture();
-			BufferBuilder q = Tesselator.getInstance().getBuilder();
-			// 1.16.5 BufferBuilder.begin takes an int GL mode (no VertexFormat.Mode).
-			q.begin(GL11.GL_QUADS, DefaultVertexFormat.POSITION_COLOR);
+			VertexConsumer q = OriginRenderTypes.begin();
 			Direction faceOnly = only;
 			shape.forAllBoxes((minX, minY, minZ, maxX, maxY, maxZ) ->
 					fillBox(q, pose, minX + ox, minY + oy, minZ + oz, maxX + ox, maxY + oy, maxZ + oz, col, faceOnly));
-			// Tesselator.end() uploads and draws with the current fixed-function state.
-			Tesselator.getInstance().end();
-			RenderSystem.enableTexture();
-			RenderSystem.depthMask(true);
-			RenderSystem.enableCull();
-			RenderSystem.disableBlend();
 		}
 
 		// The overlay OVERRIDES the outline. The toggle stays on and keeps its
@@ -121,8 +109,8 @@ public final class BlockOverlayRenderer {
 				a = 1f;
 			}
 			// ONE thick line per edge -- not a stack of thin ones. Each edge is a
-			// solid box (ThickLine) drawn into FillQuads (the module's substitute
-			// for 1.19.4+'s debugQuads), sized by the slider and biased inward so
+			// solid box (ThickLine) drawn into OriginRenderTypes' surface, sized by
+			// the slider and biased inward so
 			// its outer face stays on the block surface. The centre comes from the
 			// SHAPE's bounds, not the block's, so slabs/stairs/fences thicken
 			// instead of translating.
@@ -132,7 +120,7 @@ public final class BlockOverlayRenderer {
 			double cx = (bounds.minX + bounds.maxX) / 2.0 + ox;
 			double cy = (bounds.minY + bounds.maxY) / 2.0 + oy;
 			double cz = (bounds.minZ + bounds.maxZ) / 2.0 + oz;
-			VertexConsumer q = wctx.consumers().getBuffer(com.origin.client.client.render.FillQuads.INSTANCE);
+			VertexConsumer q = OriginRenderTypes.begin();
 			// The alpha guard above reassigns `a`, so it can't be captured directly.
 			float fr = r, fg = g, fb = b, fa = a;
 			shape.forAllEdges((x1, y1, z1, x2, y2, z2) ->
@@ -140,6 +128,7 @@ public final class BlockOverlayRenderer {
 							x1 + ox, y1 + oy, z1 + oz, x2 + ox, y2 + oy, z2 + oz,
 							cx, cy, cz, t, fr, fg, fb, fa));
 		}
+		OriginRenderTypes.draw();
 		return false;
 	}
 

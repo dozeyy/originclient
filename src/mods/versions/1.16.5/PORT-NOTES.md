@@ -119,7 +119,7 @@ javap-verified against the 1.16.5 merged jar.
 | GameRendererMixin | OK — `getFov(Camera;FZ)D` double; `CallbackInfoReturnable<Double>`. |
 | GuiHudMixin | OK — `Gui.render(PoseStack;F)V`. |
 | MouseHandlerMixin | OK — `onPress(JIII)V`, `onScroll(JDD)V`, `turnPlayer()V`; `@Shadow accumulatedDX/DY:D`, `isMouseGrabbed()Z`. |
-| ClientLevelTimeMixin | OK (inert on 1.16.5) — adds `dayTime()` to ClientLevel, but no vanilla `LevelAccessor.dayTime()` exists this era to call it; the time-changer works through **LevelTimeMixin** (`getDayTime`). Method is harmless dead code; kept for shape parity. |
+| ClientLevelTimeMixin | **CORRECTED 2026-10-11** — this row used to call it inert ("the time-changer works through LevelTimeMixin"). Wrong for the sky: on 1.16.5 the sky/moon read `LevelTimeAccess.getTimeOfDay(F)`/`getMoonPhase()` (defaults over `dayTime()J`, intermediary class_5424 method_30271 — declared only on LevelTimeAccess this era), never `Level.getDayTime()`. The mixin now `implements LevelTimeAccess` with an `@Override dayTime()` so Loom remaps it (an un-annotated mixin method with no supertype shipped under its dev name and overrode nothing in production). Client-only: ClientLevel, never ServerLevel. |
 | CameraMixin | OK — `setup(BlockGetter;Entity;ZZF)V` contains exactly **3** `setRotation(FF)V` invokes (all redirected); `@Shadow setRotation(FF)V`. |
 | LoadingOverlayMixin | OK — `render(PoseStack;IIF)V`; `@Shadow currentProgress:F`. |
 | TitleScreenMixin | OK — full `render()` call census matches all six redirect shapes: `PanoramaRenderer.render(FF)V` (×1), `blit(PoseStack;IIIIFFIIII)V` (×1 overlay), `blitOutlineBlack(II;BiConsumer)V` (×2 logo/Minceraft — one redirect covers both), `blit(PoseStack;IIFFIIII)V` (×1 edition badge), `drawCenteredString(PoseStack;Font;String;III)V` (×1 splash), `drawString(PoseStack;Font;String;III)V` (**×2** on 1.16.5 = version **and** copyright — the redirect suppresses both, giving a clean Origin screen). `PlainTextButton` strip removed. |
@@ -186,9 +186,10 @@ scoreboard, toasts, chat timestamps), shader browser + downloader + Iris bridge
    to apply if they don't match (no crash; only the dev-watermark rename is
    skipped). Confirm the Origin watermark on the shader screen when Iris is loaded;
    if absent, re-derive the `@Shadow` names against `iris-mc1.16.5-1.4.5.jar`.
-2. **ClientLevelTimeMixin.dayTime()** is inert on 1.16.5 (nothing calls it);
-   the time-changer is carried entirely by LevelTimeMixin. Verify time override
-   still works in-world.
+2. **ClientLevelTimeMixin.dayTime()** carries the Time Changer's sky on 1.16.5
+   (see the corrected audit row; LevelTimeMixin only covers Level.getDayTime).
+   Verify in a PRODUCTION launch (not just runClient) that the slider moves the
+   sun/moon live while dragging.
 3. **TitleScreen drawString redirect suppresses BOTH the version and copyright**
    lines (2 call sites this era). Intended (clean Origin screen) — just confirm no
    stray vanilla text bleeds through.
