@@ -137,6 +137,11 @@ PUBLIC_IDS.update({
     "screenshot": "client.screenshot",
 })
 
+# Lunar parity (2026-10-11) -- Hypixel Bed Wars, appended after every earlier cell.
+PUBLIC_IDS.update({
+    "hypixelbedwars": "client.hypixelbedwars",
+})
+
 
 def load_master():
     spec = importlib.util.spec_from_file_location("origin_icon_masters", MASTER)

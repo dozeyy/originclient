@@ -260,6 +260,8 @@ public class OriginModMenuScreen extends Screen {
 			CATS.put(id, Cat.GAMEPLAY);
 		}
 		CATS.put("nickhider", Cat.VISUAL);
+		// Lunar parity: Hypixel Bed Wars.
+		CATS.put("hypixelbedwars", Cat.GAMEPLAY);
 	}
 
 	private static Cat catOf(Mods.Mod m) {

@@ -302,6 +302,10 @@
     "screenshot": [
       0,
       -2
+    ],
+    "hypixelbedwars": [
+      0,
+      0
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -600,6 +604,10 @@
     },
     "screenshot": {
       "x": 192,
+      "y": 2304
+    },
+    "hypixelbedwars": {
+      "x": 384,
       "y": 2304
     }
   }
