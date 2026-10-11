@@ -102,3 +102,10 @@ client/java/com/origin/client/client/mixin/GameRendererMixin.java
 # 1.21.2 renamed ToastComponent -> ToastManager: this module ships ToastManagerMixin
 # instead, so shared/'s ToastComponentMixin must never be copied in.
 client/java/com/origin/client/client/mixin/ToastComponentMixin.java
+
+# MinecraftFramerateMixin: DELETED from this module (the path is listed so sync
+# never copies shared/'s copy back). Minecraft.getFramerateLimit() is gone in the
+# 1.21.2+ render era; the value lives on FramerateLimitTracker, which
+# FramerateLimitTrackerMixin already hooks. The leftover copy bound nothing and
+# printed "Cannot remap getFramerateLimit" on every build. Removed 2026-10-11.
+client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java

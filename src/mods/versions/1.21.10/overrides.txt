@@ -53,3 +53,15 @@ client/resources/assets/originclient/textures/ui/wordmark.png
 client/resources/assets/originclient/textures/ui/wordmark.json
 client/resources/assets/originclient/textures/ui/mod_icons.png
 client/resources/assets/originclient/textures/ui/mod_icons.json
+
+# MinecraftFramerateMixin: DELETED from this module (the path is listed so sync
+# never copies shared/'s copy back). Minecraft.getFramerateLimit() is gone in the
+# 1.21.2+ render era; the value lives on FramerateLimitTracker, which
+# FramerateLimitTrackerMixin already hooks. The leftover copy bound nothing and
+# printed "Cannot remap getFramerateLimit" on every build. Removed 2026-10-11.
+client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java
+
+# ParticleEngineMixin: 1.21.10+ removed ParticleEngine.destroy()/crack(); block-break
+# and block-hit bursts go through ClientLevel and ClientLevelParticleMixin gates them
+# there. The two dead injects are deleted from this copy (same as 1.21.11). 2026-10-11.
+client/java/com/origin/client/client/mixin/ParticleEngineMixin.java

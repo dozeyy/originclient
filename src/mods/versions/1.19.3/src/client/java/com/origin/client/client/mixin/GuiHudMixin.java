@@ -35,7 +35,7 @@ public class GuiHudMixin {
 				Minecraft mc = Minecraft.getInstance();
 				var acc = (com.origin.client.client.mixin.PlayerTabOverlayAccessor) mc.gui.getTabList();
 				com.origin.client.client.hud.OriginTabList.render(guiGraphics, guiGraphics.guiWidth(),
-						acc.originclient$getPlayerInfos(), acc.originclient$getHeader(), acc.originclient$getFooter(),
+						com.origin.client.client.hud.OriginTabList.vanillaPlayerList(mc), acc.originclient$getHeader(), acc.originclient$getFooter(),
 						com.origin.client.client.mods.Mods.on("tablist"));
 			} catch (Throwable ignored) {
 				// never take the HUD down over the tab overlay

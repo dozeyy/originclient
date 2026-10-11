@@ -40,7 +40,6 @@
 		"GameRendererAccessor",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
-		"MinecraftFramerateMixin",
 		"FramerateLimitTrackerMixin",
 		"ToastManagerMixin",
 		"EntityRenderDispatcherMixin",

@@ -37,6 +37,32 @@ public final class OriginTabList {
 	}
 
 	private static final int ROW_H = 9;
+	/** The player list in vanilla's own tab order (PlayerTabOverlay.PLAYER_ORDERING:
+	 *  non-spectators first, then team name, then name ignoring case), capped at 80
+	 *  like vanilla. Up to and including 1.19.3 PlayerTabOverlay has no getPlayerInfos() — it sorts
+	 *  inline in render() — so the same list is built here. */
+	public static List<PlayerInfo> vanillaPlayerList(Minecraft mc) {
+		List<PlayerInfo> list = new ArrayList<PlayerInfo>();
+		if (mc.player == null || mc.player.connection == null) {
+			return list;
+		}
+		list.addAll(mc.player.connection.getOnlinePlayers());
+		list.sort(new java.util.Comparator<PlayerInfo>() {
+			@Override
+			public int compare(PlayerInfo a, PlayerInfo b) {
+				boolean sa = a.getGameMode() == net.minecraft.world.level.GameType.SPECTATOR;
+				boolean sb = b.getGameMode() == net.minecraft.world.level.GameType.SPECTATOR;
+				if (sa != sb) {
+					return sa ? 1 : -1;
+				}
+				String ta = a.getTeam() != null ? a.getTeam().getName() : "";
+				String tb = b.getTeam() != null ? b.getTeam().getName() : "";
+				int c = ta.compareTo(tb);
+				return c != 0 ? c : a.getProfile().getName().compareToIgnoreCase(b.getProfile().getName());
+			}
+		});
+		return list.size() > 80 ? new ArrayList<PlayerInfo>(list.subList(0, 80)) : list;
+	}
 	// Pre-1.20.2 there is no GUI sprite atlas: the hearts live on the classic icons sheet.
 	private static final ResourceLocation ICONS = new ResourceLocation("textures/gui/icons.png");
 

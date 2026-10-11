@@ -1,17 +1,14 @@
 package com.origin.client.client.mixin;
 
 import net.minecraft.client.gui.components.PlayerTabOverlay;
-import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
-import org.spongepowered.asm.mixin.gen.Invoker;
 
-import java.util.List;
-
-// Read-only access to the tab overlay's data (header/footer + the sorted, capped
-// player list vanilla already computes) so GuiHudMixin can hand it to our custom
-// renderer without recomputing it. Paired with PlayerTabOverlayMixin's suppression.
+// Read-only access to the tab overlay's header/footer so GuiHudMixin can hand them
+// to our custom renderer. Paired with PlayerTabOverlayMixin's suppression. Up to and including
+// 1.19.3 there is no getPlayerInfos() to invoke (vanilla sorts inline in render()),
+// so the player list comes from OriginTabList.vanillaPlayerList instead.
 @Mixin(PlayerTabOverlay.class)
 public interface PlayerTabOverlayAccessor {
 
@@ -20,7 +17,4 @@ public interface PlayerTabOverlayAccessor {
 
 	@Accessor("footer")
 	Component originclient$getFooter();
-
-	@Invoker("getPlayerInfos")
-	List<PlayerInfo> originclient$getPlayerInfos();
 }
