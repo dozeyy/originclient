@@ -29,7 +29,7 @@ const AO = [1, 0.8, 0.66, 0.54];
 // block type -> texture per face [+x, -x, +y, -y, +z, -z]
 const KINDS = {
   grass: ['grass_side', 'grass_side', 'grass_top', 'dirt', 'grass_side', 'grass_side'],
-  dirt: 'dirt', stone: 'stone', gravel: 'gravel', cobblestone: 'cobblestone', coarse_dirt: 'coarse_dirt',
+  dirt: 'dirt', stone: 'stone', gravel: 'gravel', cobblestone: 'cobblestone',
   diamond_ore: 'diamond_ore', emerald_ore: 'emerald_ore', glowstone: 'glowstone', oak_planks: 'oak_planks',
   oak_log: ['oak_log', 'oak_log', 'oak_log_top', 'oak_log_top', 'oak_log', 'oak_log'],
   crafting_table: ['crafting_table_side', 'crafting_table_side', 'crafting_table_top', 'oak_planks', 'crafting_table_front', 'crafting_table_front'],
@@ -42,14 +42,12 @@ const EMISSIVE = new Set(['glowstone', 'torch']);
 // Camera poses (island space; the island's top sits at y=1). shiftX/shiftY move
 // the whole picture by a fraction of the screen; orbit lets it drift around.
 const POSES = {
-  hero:     { pos: [31, 15, 39], target: [0.5, -2, 0.5], fov: 42, shiftX: 0.2, shiftY: 0.02, orbit: 1 },
-  heroMobile: { pos: [46, 24, 56], target: [0.5, -2, 0.5], fov: 54, shiftX: 0, shiftY: -0.3, orbit: 1 },
-  // the window replicas float in front of the island and its rings
-  install:  { pos: [26, 13, 31], target: [0.5, -2.5, 0.5], fov: 44, shiftX: 0.17, shiftY: 0.02, orbit: 1 },
-  launch:   { pos: [-26, 12, 31], target: [0.5, -2.5, 0.5], fov: 44, shiftX: -0.17, shiftY: 0.02, orbit: 1 },
-  versions: { pos: [-26, 14, 33], target: [0.5, -2, 0.5], fov: 44, shiftX: 0, shiftY: 0, orbit: 1 },
-  shaders:  { pos: [-25, 10, 31], target: [0.5, -2, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
-  get:      { pos: [0, 10, 60], target: [0.5, -2, 0.5], fov: 40, shiftX: 0, shiftY: -0.4, orbit: 1 },
+  hero:     { pos: [42, 19, 53], target: [0.5, -4, 0.5], fov: 42, shiftX: 0.2, shiftY: 0.02, orbit: 1 },
+  heroMobile: { pos: [70, 30, 88], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.3, orbit: 1 },   // above the headline
+  versions: { pos: [-36, 18, 46], target: [0.5, -4, 0.5], fov: 44, shiftX: 0, shiftY: 0, orbit: 1 },
+  shaders:  { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
+  // centred under "Ready when you are", whole island + rings in frame below the text
+  get:      { pos: [0, 17, 100], target: [0.5, -4, 0.5], fov: 42, shiftX: 0, shiftY: -0.21, orbit: 1 },
 };
 
 function rng(seed) {
@@ -76,7 +74,7 @@ function generateIsland() {
       const d = Math.hypot(x + 0.5, z + 0.5), a = Math.atan2(z + 0.5, x + 0.5), e = edge(a);
       if (d > e) continue;
       const h = (Math.hypot(x - 3, z + 3) < 3.7 ? 1 : 0) + (Math.hypot(x - 4, z + 4) < 1.9 ? 1 : 0);
-      const bottom = -Math.floor(2 + (e - d) * 1.25 + r() * 1.8);
+      const bottom = -Math.floor(2 + (e - d) * 0.95 + r() * 1.6);
       tops.set(`${x},${z}`, h);
       for (let y = bottom; y <= h; y++) {
         const k = h - y;
@@ -118,17 +116,13 @@ function generateIsland() {
       }
     }
   }
-  // crafting table + torch + a little path
+  // crafting table + torch (the top layer stays all grass)
   const ct = [-2, -5];
   const cth = tops.get(`${ct[0]},${ct[1]}`);
   if (cth !== undefined) set(ct[0], cth + 1, ct[1], 'crafting_table');
   const to = [-4, -4];
   const toh = tops.get(`${to[0]},${to[1]}`);
   if (toh !== undefined) set(to[0], toh + 1, to[1], 'torch');
-  for (const [x, z] of [[0, 1], [0, 2], [-1, 3], [1, 0], [2, -1]]) {
-    const h = tops.get(`${x},${z}`);
-    if (h !== undefined && get(x, h, z) === 'grass') set(x, h, z, 'coarse_dirt');
-  }
   // plants on free grass
   for (const [c, h] of tops) {
     const [x, z] = c.split(',').map(Number);
@@ -154,6 +148,7 @@ const VERT = /* glsl */`
 const FRAG = /* glsl */`
   uniform sampler2D map; uniform float uCut; uniform float uAlpha; uniform float uShaders;
   uniform vec3 uSun; uniform float uEmissive; uniform float uWater; uniform float uTime;
+  uniform vec3 uOrb[3]; uniform vec3 uOrbCol;
   varying vec2 vUv; varying float vAo; varying float vFace; varying vec3 vN; varying vec3 vW;
   void main() {
     vec2 uv = vUv;
@@ -167,8 +162,17 @@ const FRAG = /* glsl */`
     vec3 sun = vec3(1.12, 0.9, 0.68);
     vec3 sky = vec3(0.34, 0.38, 0.56);
     vec3 lit = t.rgb * vAo * (sky + sun * ndl);
+    // The Origin rings light the island: each orb riding a ring is a small
+    // ion-jade point light, plus a faint jade rim from the rings' glow.
+    vec3 v = normalize(cameraPosition - vW);
+    float orb = 0.0;
+    for (int i = 0; i < 3; i++) {
+      vec3 d = uOrb[i] - vW;
+      orb += max(dot(n, normalize(d)), 0.0) * 16.0 / (1.0 + dot(d, d) * 0.55);
+    }
+    float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.22;
+    lit += t.rgb * uOrbCol * (orb + rim);
     if (uWater > 0.5) {
-      vec3 v = normalize(cameraPosition - vW);
       float spec = pow(max(dot(reflect(-uSun, n), v), 0.0), 48.0);
       lit += vec3(1.0, 0.85, 0.6) * spec * 1.4;
     }
@@ -185,6 +189,7 @@ function blockMaterial(tex, uniforms, opts = {}) {
       map: { value: tex }, uCut: { value: opts.cut ?? 0.5 }, uAlpha: { value: opts.alpha ?? 1 },
       uEmissive: { value: opts.emissive ? 1 : 0 }, uWater: { value: opts.water ? 1 : 0 },
       uShaders: uniforms.uShaders, uSun: uniforms.uSun, uTime: uniforms.uTime,
+      uOrb: uniforms.uOrb, uOrbCol: uniforms.uOrbCol,
     },
     transparent: !!opts.water, depthWrite: !opts.water, side: opts.double ? THREE.DoubleSide : THREE.FrontSide,
   });
@@ -314,6 +319,9 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     t.minFilter = THREE.NearestMipmapLinearFilter;
     t.colorSpace = THREE.NoColorSpace;
     t.anisotropy = 4;
+    // repeat, not clamp: the water's scrolling UVs leave 0..1, and clamping
+    // smears the edge texels into lines across the surface
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
     textures[n] = t;
   }));
 
@@ -321,6 +329,8 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     uShaders: { value: shaders ? 1 : 0 },
     uSun: { value: new THREE.Vector3(-0.45, 0.72, 0.52).normalize() },
     uTime: { value: 0 },
+    uOrb: { value: [new THREE.Vector3(0, 999, 0), new THREE.Vector3(0, 999, 0), new THREE.Vector3(0, 999, 0)] },
+    uOrbCol: { value: new THREE.Vector3(0.36, 0.95, 0.78) },
   };
 
   // ---- island scene
@@ -342,28 +352,47 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   }
 
   // Origin's rings: the mark's three orbits (ellipse ratio 0.355 = a circle
-  // tilted ~69 deg) at 0/60/120 deg, circling the whole island and always
-  // turned to the camera so it reads as the logo from anywhere. Ion-jade glow,
-  // warm-white strokes; depth-tested, so they pass behind the island.
+  // tilted ~69 deg) at 0/60/120 deg, always turned to the camera so it reads
+  // as the logo from anywhere. They circle the island's bounding sphere, so no
+  // ring can ever pass through a block, whatever the camera angle.
+  const bounds = new THREE.Sphere().setFromPoints([...island.map.keys()].map(k => {
+    const [x, y, z] = k.split(',').map(Number);
+    return new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5);
+  }));
+  const inner = bounds.radius + 0.87 + 0.8;   // + half a block diagonal + clearance
   const rings = new THREE.Group();
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xf1e9d2, transparent: true, opacity: 0.95 });
   const ringGlow = new THREE.MeshBasicMaterial({ color: 0x4bc8ae, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
+  // Comet tail behind each orb: a short arc of ring that fades in toward the orb.
+  const TAIL = 1.1;
+  const tailMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'varying vec2 vUv; void main() { float a = pow(vUv.x, 2.4); gl_FragColor = vec4(mix(vec3(0.29, 0.78, 0.68), vec3(0.92, 1.0, 0.97), a) * a * 0.9, 1.0); }',
+  });
   const spinners = [];
-  [[14.4, 0], [12, 60], [9.6, 120]].forEach(([rad, deg], i) => {
+  [[1.5, 0], [1.25, 60], [1, 120]].forEach(([k, deg], i) => {
+    const rad = inner * k;
     const holder = new THREE.Group();
     holder.rotation.z = THREE.MathUtils.degToRad(deg);
     const tilt = new THREE.Group();
     tilt.rotation.x = Math.acos(0.355);
-    tilt.add(new THREE.Mesh(new THREE.TorusGeometry(rad, 0.07, 8, 200), ringMat));
-    tilt.add(new THREE.Mesh(new THREE.TorusGeometry(rad, 0.32, 8, 200), ringGlow));
-    const body = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xbff5e3, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    body.scale.setScalar(i === 0 ? 2.6 : 1.7);
+    tilt.add(new THREE.Mesh(new THREE.TorusGeometry(rad, 0.08, 8, 220), ringMat));
+    tilt.add(new THREE.Mesh(new THREE.TorusGeometry(rad, 0.36, 8, 220), ringGlow));
+    const tail = new THREE.Mesh(new THREE.TorusGeometry(rad, 0.16, 6, 64, TAIL), tailMat);
+    tilt.add(tail);
+    // the orb: a bright core inside a soft ion-jade halo
+    const body = new THREE.Group();
+    body.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), new THREE.MeshBasicMaterial({ color: 0xf4fffb })));
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x6fe3c4, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending }));
+    halo.scale.setScalar(2.4);
+    body.add(halo);
     tilt.add(body);
     holder.add(tilt);
     rings.add(holder);
-    spinners.push({ holder, body, rad, base: deg, period: [26, 34, 42][i], phase: i * 2.1 });
+    spinners.push({ holder, body, tail, rad, base: deg, period: [26, 34, 42][i], dir: [1, -1, 1][i], phase: i * 2.1 });
   });
-  rings.position.set(0.5, -1.5, 0.5);   // the island is the mark's nucleus
+  rings.position.copy(bounds.center);   // the island is the mark's nucleus
   scene.add(rings);
 
   // Dust motes drifting up through the void.
@@ -425,6 +454,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     pointer.sx += (pointer.x - pointer.sx) * (1 - Math.exp(-dt * 3));
     pointer.sy += (pointer.y - pointer.sy) * (1 - Math.exp(-dt * 3));
     // a slow orbit + pointer parallax swing the camera around the target
+    rings.updateMatrixWorld();
     const rel = tmpPos.clone().sub(tmpTarget);
     rel.applyAxisAngle(up, orbitAngle * orbit + pointer.sx * 0.12);
     rel.y += pointer.sy * -1.5;
@@ -444,11 +474,14 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     // rings face the camera and turn like the mark, a bright body riding each
     rings.quaternion.copy(camera.quaternion);
     ringGlow.opacity = 0.2 + 0.1 * uniforms.uShaders.value;
-    for (const sp of spinners) {
-      sp.holder.rotation.z = THREE.MathUtils.degToRad(sp.base) + (reducedMotion ? 0 : now * Math.PI * 2 / sp.period);
+    spinners.forEach((sp, i) => {
+      // rings turn like the installer's OrbitMark (26/34/42 s, middle backwards)
+      sp.holder.rotation.z = THREE.MathUtils.degToRad(sp.base) + (reducedMotion ? 0 : sp.dir * now * Math.PI * 2 / sp.period);
       const a = now * Math.PI * 2 / (sp.period * 0.4) + sp.phase;
       sp.body.position.set(Math.cos(a) * sp.rad, Math.sin(a) * sp.rad, 0);
-    }
+      sp.tail.rotation.z = a - TAIL;
+      sp.body.getWorldPosition(uniforms.uOrb.value[i]);
+    });
     const p = dust.geometry.attributes.position;
     for (let i = 0; i < dustN; i++) {
       let y = p.array[i * 3 + 1] + dt * 0.35;

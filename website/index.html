@@ -18,7 +18,7 @@
 </head>
 <body>
   <!-- Brand geometry, reused everywhere through <use>. Paths are the launcher's own
-       (Theme/Brand.xaml: Brand.OriginWordmark, Brand.PlayGlyphs; OriginMark). -->
+       (Theme/Brand.xaml: Brand.OriginWordmark; OriginMark). -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="mark" viewBox="0 0 200 200">
       <g fill="none" stroke="currentColor">
@@ -29,9 +29,6 @@
     </symbol>
     <symbol id="wordmark" viewBox="0 360 4440 840">
       <path fill="currentColor" d="M120 1080H0V480H120V360H480V480H600V1080H480V1200H120V1080H480V480H120ZM888 600H1248V720H1368V1200H1248V720H888V1200H768V360H1248V480H1368V600H1248V480H888ZM1656 1200V1080H1776V480H1656V360H2016V480H1896V1080H2016V1200ZM2424 1200V1080H2304V480H2424V360H2904V480H2424V1080H2784V720H2664V600H2904V1080H2784V1200ZM3192 1200V1080H3312V480H3192V360H3552V480H3432V1080H3552V1200ZM3840 1200V360H3960V480H4080V600H4200V720H4320V360H4440V1200H4320V840H4200V720H4080V600H3960V1200Z"/>
-    </symbol>
-    <symbol id="play-glyphs" viewBox="0 360 2976 840">
-      <path fill="currentColor" d="M120 600H480V720H120V1200H0V360H480V480H600V600H480V480H120ZM792 1200V360H912V1080H1392V1200ZM1704 600H2064V480H1704V360H2064V480H2184V1200H2064V720H1704V1200H1584V480H1704ZM2616 1200V600H2496V480H2376V360H2496V480H2616V600H2736V480H2856V360H2976V480H2856V600H2736V1200Z"/>
     </symbol>
   </svg>
 
@@ -48,19 +45,11 @@
       <svg class="brand__word"><use href="#wordmark"/></svg>
     </a>
     <nav class="top__nav" aria-label="Sections">
-      <a href="#install">Install</a>
-      <a href="#launch">Launch</a>
       <a href="#versions">Versions</a>
+      <a href="#shaders">Shaders</a>
     </nav>
     <a class="btn btn--primary btn--sm" data-download href="#get">Download</a>
   </header>
-
-  <!-- The download journey, as the installer's own step rail. -->
-  <ol class="journey" aria-label="Your way in" data-journey>
-    <li data-step="top"><i></i><span>Download</span></li>
-    <li data-step="install"><i></i><span>Install</span></li>
-    <li data-step="launch"><i></i><span>Launch</span></li>
-  </ol>
 
   <main id="main">
 
@@ -72,7 +61,7 @@
         <p class="hero__lede">Pick any Minecraft from 1.16.5 to 1.21.11. Origin installs the right Fabric, Sodium, Iris shaders and its own menus, HUD and mods for it, then gets out of your way.</p>
         <div class="hero__actions">
           <a class="btn btn--primary btn--lg" data-download href="#get">Download</a>
-          <a class="btn btn--ghost btn--lg" href="#install"><span>See how it works</span><span class="scroll-cue" aria-hidden="true"></span></a>
+          <a class="btn btn--ghost btn--lg" href="#versions"><span>See every version</span><span class="scroll-cue" aria-hidden="true"></span></a>
         </div>
         <ul class="facts" aria-label="At a glance">
           <li><b>20</b><span>versions</span></li>
@@ -80,120 +69,7 @@
           <li><b>Free</b><span>forever</span></li>
         </ul>
       </div>
-      <p class="hero__hint" aria-hidden="true">Scroll to install Origin</p>
-    </section>
-
-    <!-- ===================== 1 · INSTALL ===================== -->
-    <section class="chapter" id="install" data-scene="install" style="--len:5">
-      <div class="stage">
-        <div class="story" data-story>
-          <p class="eyebrow eyebrow--accent">Step 1 · Install</p>
-          <article data-beat="0"><h2>One window.<br>About a minute.</h2><p>Run <code>OriginLauncher-Setup.exe</code>. No wizard pages and nothing bundled you didn't ask for. Press Install and you're done.</p></article>
-          <article data-beat="1"><h2>Or make it yours.</h2><p>Customize picks where Origin lives, how much memory Minecraft gets, your default version, and whether Origin opens with Windows. Everything can change later.</p></article>
-          <article data-beat="2"><h2>Checked before it lands.</h2><p>Every file is unpacked to a safe spot and verified first. Cancel any time and nothing is left half-installed.</p></article>
-          <article data-beat="3"><h2>That's it.</h2><p>Origin is on your desktop and in the Start menu. Next: launch it.</p></article>
-        </div>
-        <div class="frame frame--setup" data-fit="860x600">
-          <div class="win setup" data-setup aria-label="Origin Setup, recreated">
-            <div class="win__backdrop"></div>
-            <div class="win__bar">
-              <div class="win__lockup"><svg class="m"><use href="#mark"/></svg><svg class="w"><use href="#wordmark"/></svg><i></i><span class="eb">SETUP</span></div>
-              <div class="win__ctl"><span class="chrome"><i class="ico" data-icon="launcher-minimize"></i></span><span class="chrome"><i class="ico" data-icon="launcher-close"></i></span></div>
-            </div>
-            <div class="setup__pages">
-              <div class="setup__page setup__welcome" data-page="0">
-                <div class="orbit orbit--112"><svg><use href="#mark"/></svg></div>
-                <span class="eb eb--acc">ORIGIN LAUNCHER</span>
-                <h3 class="t-display">Welcome to Origin</h3>
-                <p class="t-dim">Every Minecraft version, one clean launcher. Setup takes about a minute.</p>
-                <div class="row"><span class="b b--primary" data-press="install">Install</span><span class="b b--secondary" data-press="customize">Customize</span></div>
-                <span class="t-cap t-muted">Installs to %LocalAppData%\Programs\OriginLauncher  ·  85 MB</span>
-              </div>
-              <div class="setup__page setup__customize" data-page="1">
-                <div class="cz__left">
-                  <span class="eb eb--acc">CUSTOMIZE</span>
-                  <h3 class="t-h1">Make it yours</h3>
-                  <i class="rule"></i>
-                  <p class="t-dim">The defaults suit most players. You can change memory, version and startup any time in Origin's Settings.</p>
-                  <div class="cz__actions"><span class="b b--primary" data-press="cz-install">Install</span><span class="b b--secondary">Back</span></div>
-                </div>
-                <div class="cz__cards">
-                  <div class="card"><span class="eb">INSTALL LOCATION</span>
-                    <div class="row row--fill"><span class="field">C:\Users\Steve\AppData\Local\Programs\OriginLauncher</span><span class="b b--secondary b--sm">Browse</span></div>
-                    <span class="t-cap ok">Ready to install here.</span></div>
-                  <div class="card"><span class="eb">PERFORMANCE</span>
-                    <div class="row row--split"><span>Memory for Minecraft</span><b class="acc" data-ram>6 GB</b></div>
-                    <div class="slider"><i class="slider__fill" data-ram-fill></i><i class="slider__knob" data-ram-knob></i></div>
-                    <div class="row row--split"><span class="t-cap">Recommended for your PC: 6 GB of 16 GB</span><span class="chrome chrome--text">Use recommended</span></div>
-                    <div class="row row--split row--gap"><span>Default version</span><span class="combo">Newest (recommended)</span></div></div>
-                  <div class="card"><span class="eb">STARTUP</span>
-                    <div class="row row--split"><span><span>Open Origin when Windows starts</span><br><span class="t-cap t-muted">Ready the moment you sit down to play.</span></span><span class="toggle" data-startup></span></div></div>
-                </div>
-              </div>
-              <div class="setup__page setup__installing" data-page="2">
-                <div class="orbit orbit--96 orbit--spin"><svg><use href="#mark"/></svg></div>
-                <span class="eb eb--acc">INSTALLING</span>
-                <h3 class="t-h1">Origin Launcher 1.0.40</h3>
-                <div class="track"><i data-install-fill></i></div>
-                <div class="row row--split track__meta"><span class="t-cap" data-install-stage>Getting ready</span><span class="t-cap t-text" data-install-pct>0%</span></div>
-                <span class="chrome chrome--text">Cancel</span>
-              </div>
-              <div class="setup__page setup__done" data-page="3">
-                <div class="orbit orbit--112"><svg><use href="#mark"/></svg></div>
-                <span class="eb eb--ok">READY</span>
-                <h3 class="t-display">You're all set</h3>
-                <p class="t-dim">Origin is on your desktop and in the Start menu.</p>
-                <div class="row"><span class="b b--primary b--wide" data-press="launch">Launch Origin</span><span class="b b--secondary">Close</span></div>
-              </div>
-            </div>
-            <ol class="steps" data-steps><li><i></i>WELCOME</li><li><i></i>CUSTOMIZE</li><li><i></i>INSTALL</li><li><i></i>PLAY</li></ol>
-            <i class="cursor" data-cursor></i>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== 2 · LAUNCH ===================== -->
-    <section class="chapter" id="launch" data-scene="launch" style="--len:4.5">
-      <div class="stage stage--flip">
-        <div class="story" data-story>
-          <p class="eyebrow eyebrow--accent">Step 2 · Launch</p>
-          <article data-beat="0"><h2>Pick a version.<br>Any version.</h2><p>Twenty Minecraft versions, one list. Origin brings the right loader, performance mods and shaders for each, so jumping from 1.16.5 to 1.21.11 is one click.</p></article>
-          <article data-beat="1"><h2>Press Play.</h2><p>Your Microsoft account signs in once and stays encrypted on your PC. Personal mods? Drop your own .jars in and flip one switch.</p></article>
-          <article data-beat="2"><h2>Origin does the rest.</h2><p>Fabric, Sodium, Iris and the Origin client install themselves the first time, then launch straight in every time after.</p></article>
-        </div>
-        <div class="frame frame--launcher" data-fit="1180x740">
-          <div class="win launcher" data-launcher aria-label="Origin Launcher, recreated">
-            <div class="win__backdrop"></div>
-            <div class="win__lockup win__lockup--launcher"><svg class="m"><use href="#mark"/></svg><svg class="w"><use href="#wordmark"/></svg></div>
-            <div class="win__ctl win__ctl--launcher"><span class="chrome"><i class="ico ico--text" data-icon="launcher-account"></i></span><span class="chrome"><i class="ico" data-icon="launcher-minimize"></i></span><span class="chrome"><i class="ico" data-icon="launcher-close"></i></span></div>
-            <div class="rail"><span class="nav on"><i class="ico" data-icon="launcher-home"></i></span><span class="nav"><i class="ico" data-icon="launcher-mods"></i></span><span class="nav"><i class="ico" data-icon="launcher-settings"></i></span></div>
-            <div class="home">
-              <div class="home__brand">
-                <div class="orbit orbit--146"><svg><use href="#mark"/></svg></div>
-                <span class="eb eb--acc">MINECRAFT</span>
-                <svg class="home__word"><use href="#wordmark"/></svg>
-              </div>
-              <div class="home__card">
-                <div class="b b--secondary verbtn" data-press="version"><span class="eb">VERSION</span><span class="t-h2 ver" data-ver>1.21.11</span></div>
-                <div class="pmods"><span>Personal mods</span><span class="toggle"></span></div>
-                <div class="playbtn" data-press="play"><svg class="playbtn__glyph"><use href="#play-glyphs"/></svg></div>
-                <div class="status"><i></i><span class="t-cap">Steve</span></div>
-              </div>
-            </div>
-            <div class="lload" data-lload>
-              <div class="orbit orbit--72 orbit--spin"><svg><use href="#mark"/></svg></div>
-              <span class="eb eb--acc">STARTING</span>
-              <span class="t-h1">1.21.1</span>
-              <span class="t-label">Fabric</span>
-              <div class="sweep"><i></i></div>
-              <span class="t-dim" data-lstage>Preparing</span>
-              <span class="chrome chrome--text">Cancel</span>
-            </div>
-            <i class="cursor" data-cursor></i>
-          </div>
-        </div>
-      </div>
+      <p class="hero__hint" aria-hidden="true">Scroll</p>
     </section>
 
     <!-- ===================== VERSIONS + SHADERS ===================== -->
@@ -239,6 +115,5 @@
     <nav><a href="terms.html">Terms &amp; Privacy</a><span>© 2026 Origin Client</span></nav>
   </footer>
 
-  <noscript><style>.chapter{height:auto}.stage{position:relative;height:auto}</style></noscript>
 </body>
 </html>

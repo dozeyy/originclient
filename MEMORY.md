@@ -11,17 +11,22 @@ every session — read at session start alongside `./CLAUDE.md`.
   the game", real assets only, and an *optional* scroll-through "download
   journey" (or just press Download at the top). Download stays "coming soon":
   flip `DOWNLOAD.live` in `website/js/site.js` on release day (one line).
-- Shape: hero → Install (pinned; HTML replica of the real Origin Setup window,
-  860x600, stepping Welcome → Customize → Installing → Done on scroll) →
-  Launch (pinned; launcher Home replica 1180x740: version roll → Play → the
-  STARTING overlay with the real stage strings) → versions grid (the 20 live
-  versions, grouped like VersionCatalog) → Shaders section → Download.
-  Replica values (sizes, colours, strings) come from the XAML/C# — re-sync if
-  the installer or Home layout changes.
+- Shape (final, Will 2026-10-11): hero → versions grid (the 20 live versions,
+  grouped like VersionCatalog) → Shaders section → "Ready when you are" download.
+  Scrolling only moves the camera between scene poses.
+- REMOVED at Will's call, don't re-add without asking: the pinned scroll-through
+  Install (Origin Setup window replica) + Launch (launcher Home replica)
+  chapters ("takes too long"), and an in-game "Play" chapter (loading screen,
+  title screen, HUD, Right Shift menu) ("looks trash"). The site is the island
+  in the sky, not product replicas.
 - 3D (`website/js/world.js`, three.js 0.170.0 vendored): a floating island
   meshed from vanilla 1.21.1 block textures with Minecraft's face shading
-  (1/.8/.6/.5) + smooth-lighting corner AO; Origin's three rings orbit it
-  (island = the mark's nucleus), billboarded so it always reads as the logo.
+  (1/.8/.6/.5) + smooth-lighting corner AO; top layer is all grass (Will).
+  Origin's three rings orbit it (island = the mark's nucleus), billboarded so
+  it always reads as the logo, sized from the island's bounding sphere so a
+  ring can never cut through a block. Each ring carries an orb (core + halo +
+  fading comet tail) that is a jade point light on the island in shaders mode.
+  Water textures use RepeatWrapping (clamped scrolling UVs drew lines).
   Camera eases between named poses per scroll scene.
 - **Shaders are ON for the whole experience** (Will, 2026-10-11): golden-hour
   sky + warm sun shader by default; the Shaders switch lets players compare

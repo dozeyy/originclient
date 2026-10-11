@@ -3,8 +3,6 @@
 exactly like the launcher and the game and never drifts from them.
 
 Origin's own art (straight from this repo):
-  website/assets/icons/launcher-*.svg <- design/icon-proposals/origin-icon-system-v1/svg
-                                       (the launcher's own icon masters)
   website/assets/fonts/monocraft.woff2 <- tools/font-atlas/fonts/Monocraft.ttf (the launcher's face)
   website/assets/fonts/inter-*.woff2   <- tools/font-atlas/fonts/Inter-*.ttf (the site's body text; also Origin's in-game menu face)
 
@@ -24,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import io
-import re
 import shutil
 import subprocess
 import tarfile
@@ -36,7 +33,6 @@ from PIL import Image
 
 REPO = Path(__file__).resolve().parents[2]
 SITE = REPO / "website"
-ICON_MASTERS = REPO / "design" / "icon-proposals" / "origin-icon-system-v1" / "svg"
 FONTS = REPO / "tools" / "font-atlas" / "fonts"
 # Inter weights the in-game menus draw with (OriginText regular / semibold / bold).
 INTER_WEIGHTS = (400, 600, 700)
@@ -143,14 +139,6 @@ def build_textures(mc: Assets) -> None:
         "approved by or associated with Mojang or Microsoft.\n", encoding="utf-8")
 
 
-def build_icons() -> None:
-    out = fresh(SITE / "assets" / "icons")
-    for svg in sorted(ICON_MASTERS.glob("launcher-*.svg")):
-        # currentColor everywhere, so CSS tints them exactly like the game does.
-        text = re.sub(r'\scolor="#[0-9A-Fa-f]+"', "", svg.read_text(encoding="utf-8"))
-        (out / svg.name).write_text(text, encoding="utf-8")
-
-
 def build_fonts() -> None:
     from fontTools.ttLib import TTFont
     out = SITE / "assets" / "fonts"
@@ -180,7 +168,6 @@ def main() -> None:
     args = ap.parse_args()
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        build_icons()
         build_fonts()
         mc = Assets(work, args.client_jar)
         build_textures(mc)

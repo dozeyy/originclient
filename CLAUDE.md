@@ -104,7 +104,7 @@ tools/release/            plan.py (build vs reuse per version) + notes.py (relea
 tools/installer/          pack_payload.py — appends the launcher to OriginSetup.exe
 tools/github/labels.py    GitHub label set + PR auto-label rules
 tools/website/build_assets.py  website textures/fonts/icons/three.js from their real sources
-website/                  originclient.org (static; DOWNLOAD.live switch in js/site.js)
+website/                  originclient.org: island-in-the-sky page (DOWNLOAD.live switch in js/site.js)
 docs/RELEASING.md         how shipping works (tag flow, pipeline, labels)
 ```
 - **Shared fix** → edit `src/mods/shared/`, run `python tools/shared-sync/sync.py`.
