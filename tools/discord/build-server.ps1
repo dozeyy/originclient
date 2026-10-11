@@ -17,24 +17,34 @@
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$secure = Read-Host 'Paste the bot token (hidden)' -AsSecureString
-$token = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+# ORIGIN_DISCORD_API / ORIGIN_DISCORD_TOKEN only exist for a dry run against a
+# local fake Discord; on a normal run neither is set.
+$apiBase = if ($env:ORIGIN_DISCORD_API) { $env:ORIGIN_DISCORD_API } else { 'https://discord.com/api/v10' }
+if ($env:ORIGIN_DISCORD_TOKEN) { $token = $env:ORIGIN_DISCORD_TOKEN } else {
+    $secure = Read-Host 'Paste the bot token (hidden)' -AsSecureString
+    $token = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+}
 $headers = @{ Authorization = "Bot $token"; 'User-Agent' = 'DiscordBot (https://originclient.org, 1.0)' }
 
 # One request with Discord's rate limits honoured: on 429, wait the
 # retry_after Discord sends and try again. Bodies go out as UTF-8 bytes so
 # emoji in names survive Windows PowerShell 5.1's default encoding.
 function Api([string]$method, [string]$path, $body = $null) {
-    $uri = "https://discord.com/api/v10$path"
+    $uri = "$apiBase$path"
     while ($true) {
         try {
             if ($null -ne $body) {
                 $json = ConvertTo-Json -InputObject $body -Depth 10 -Compress
                 $bytes = [Text.Encoding]::UTF8.GetBytes($json)
-                return Invoke-RestMethod -Method $method -Uri $uri -Headers $headers -Body $bytes -ContentType 'application/json; charset=utf-8'
+                $res = Invoke-RestMethod -Method $method -Uri $uri -Headers $headers -Body $bytes -ContentType 'application/json; charset=utf-8'
+            } else {
+                $res = Invoke-RestMethod -Method $method -Uri $uri -Headers $headers
             }
-            return Invoke-RestMethod -Method $method -Uri $uri -Headers $headers
+            # Invoke-RestMethod hands a JSON list back as ONE object; returning
+            # the variable unrolls it so callers get separate items (and an
+            # empty list really is empty).
+            return $res
         } catch {
             $msg = $_.ErrorDetails.Message
             if ($msg -and $msg -match '"retry_after"') {
@@ -69,6 +79,44 @@ if ($guilds.Count -eq 1) { $guild = $guilds[0] } else {
 }
 $G = $guild.id
 Write-Host "Building into: $($guild.name)" -ForegroundColor Cyan
+
+# ---- Optional wipe: start from an empty server ----
+# Deleting is permanent (channels take their messages with them), so it only
+# runs if the exact server name is typed back. Enter = keep everything and
+# just add what's missing.
+Write-Host ''
+Write-Host 'WIPE FIRST? This permanently deletes EVERY channel (and its messages) and every role the bot can remove.' -ForegroundColor Yellow
+$confirm = if ($env:ORIGIN_DISCORD_WIPE) { $env:ORIGIN_DISCORD_WIPE } else { Read-Host "Type the server name exactly ($($guild.name)) to wipe, or press Enter to skip" }
+if ($confirm -ceq $guild.name) {
+    # Community's rules/updates channels can't be deleted while Community is
+    # on, and Community can't be turned off while Onboarding is on.
+    try { [void](Api PUT "/guilds/$G/onboarding" @{ prompts = @(); default_channel_ids = @(); enabled = $false; mode = 0 }) } catch { }
+    try {
+        $feats = @((Api GET "/guilds/$G").features | Where-Object { $_ -ne 'COMMUNITY' })
+        [void](Api PATCH "/guilds/$G" @{ features = $feats })
+    } catch { Write-Host "  (couldn't switch Community off: $_)" -ForegroundColor Yellow }
+    # Children before categories, so nothing gets orphaned mid-way.
+    $all = @(Api GET "/guilds/$G/channels") | Sort-Object { if ($_.type -eq 4) { 1 } else { 0 } }
+    foreach ($ch in $all) {
+        try { [void](Api DELETE "/channels/$($ch.id)"); Write-Host "  - #$($ch.name)" }
+        catch { Write-Host "  (couldn't delete #$($ch.name): $_)" -ForegroundColor Yellow }
+    }
+    $meW = Api GET '/users/@me'
+    $memW = Api GET "/guilds/$G/members/$($meW.id)"
+    $rolesW = @(Api GET "/guilds/$G/roles")
+    $botTopW = ($rolesW | Where-Object { $memW.roles -contains $_.id } | Measure-Object -Property position -Maximum).Maximum
+    foreach ($role in $rolesW) {
+        if ($role.id -eq $G -or $role.managed -or $role.position -ge $botTopW) {
+            if ($role.id -ne $G -and -not $role.managed) { Write-Host "  (kept role '$($role.name)': it sits above the bot's role)" -ForegroundColor Yellow }
+            continue
+        }
+        try { [void](Api DELETE "/guilds/$G/roles/$($role.id)"); Write-Host "  - role $($role.name)" }
+        catch { Write-Host "  (couldn't delete role '$($role.name)': $_)" -ForegroundColor Yellow }
+    }
+    Write-Host 'Wiped. Building fresh...' -ForegroundColor Cyan
+} elseif ($confirm) {
+    Write-Host 'Name did not match, so nothing was deleted. Adding what is missing instead.' -ForegroundColor Yellow
+}
 
 # ---- Roles: listed TOP to BOTTOM, the order they'll end up in ----
 # Staff/special first, then the self-pick groups, Member and Muted last.
@@ -108,7 +156,8 @@ $roleSpec = @(
 
 $existingRoles = @(Api GET "/guilds/$G/roles")
 $R = @{}
-foreach ($r in $existingRoles) { $R[$r.name] = $r.id }
+# (PowerShell variable names ignore case, so the loop variable must not be $r: it would overwrite $R.)
+foreach ($role in $existingRoles) { $R[$role.name] = $role.id }
 $everyone = ($existingRoles | Where-Object { $_.id -eq $G }).id
 
 foreach ($s in $roleSpec) {
