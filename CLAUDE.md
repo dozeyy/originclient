@@ -191,7 +191,7 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-10)
-- **Latest release: `launcher-v1.0.40`** (mandatory auto-update; tag flow).
+- **Latest release: `launcher-v1.0.41`** (mandatory auto-update; tag flow).
 - **Every live version on the 1.21.1 design (released 2026-10-11, launcher-v1.0.40):** all 16
   modules ported to the 1.21.1 title screen, menus, widget skin, mod menu and mod set,
   CI-compiled, awaiting Will's in-game pass. Differences by necessity: no JEI card on
@@ -201,9 +201,15 @@ floating corner controls. In-game menus match this exactly.
   themed Welcome/Customize/Installing/Done + uninstaller, smoke-tested
   (silent install/uninstall) and screen-rendered on every CI run. Not yet
   run by hand on a real PC — first shipped in launcher-v1.0.40. **Since
-  2026-10-11 (unreleased): a ~1 MB setup that DOWNLOADS the newest release's
+  launcher-v1.0.41: a ~1 MB setup that DOWNLOADS the newest release's
   launcher zip while installing** (needs internet; resume, verify, Try-again
   screen) instead of carrying an 85 MB payload — docs/RELEASING.md → The installer.
+- **In-game fix round (launcher-v1.0.41, 2026-10-11), all 16 modules:** block outline
+  drawn at outline time with its own depth state (no see-through edges after zoom), zoom
+  eases once per frame and never zooms the hand, HUD no longer redrawn over the mod menu,
+  HUD backgrounds default transparent (Keystrokes kept), Time Changer remapped so it works
+  in production + live slider, icon strokes padded for AA, waypoint beam/chunk posts as
+  real geometry. CI-green, awaiting Will's in-game pass.
 - **Release pipeline rebuilt 2026-10-10:** mod versions build in parallel on
   Linux (build-check ~2.5 min, release ~5-6 min, was 12-40); real release
   notes; GitHub labels + PR auto-labels; update download shows a full-screen
@@ -237,7 +243,7 @@ floating corner controls. In-game menus match this exactly.
   launcher bundle their jars. The legacy pair went live 2026-07-14 on Forge +
   OptiFine; with them gone the lineup is Fabric-only again and the legacy
   install path is unreachable (kept, not deleted — see VERSIONS.md).
-- Launcher shipping via tag flow (latest launcher-v1.0.40; auto-update).
+- Launcher shipping via tag flow (latest launcher-v1.0.41; auto-update).
   Auth chain: MSA→Xbox→XSTS confirmed; Minecraft `login_with_xbox` returns 403
   (leading theory: new-app-registration propagation) — `OfflineTestMode` in
   Settings→Developer is the test path until resolved.
