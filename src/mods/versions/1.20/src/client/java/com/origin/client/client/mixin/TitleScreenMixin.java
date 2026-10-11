@@ -22,6 +22,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -148,19 +149,28 @@ public class TitleScreenMixin {
 		}
 	}
 
-	// Both suppressions are gated on the renderer's health: if the Origin
-	// backdrop ever fails (fail-soft contract), vanilla's panorama comes back.
-	@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
-	private void originclient$suppressPanorama(GuiGraphics guiGraphics, float partialTick, CallbackInfo ci) {
-		if (originclient$origin() && OriginScreenRenderer.isActive()) {
-			ci.cancel();
+	// Vanilla's backdrop on this era: TitleScreen.render() calls the panorama
+	// renderer and then blits the PANORAMA_OVERLAY vignette inline (there is no
+	// renderPanorama method and renderBackground is empty here), so both are
+	// redirected rather than cancelled. Gated on the renderer's health: if the
+	// Origin backdrop ever fails (fail-soft contract), vanilla's panorama comes back.
+	// Descriptors as javap-confirmed on the 1.20.4 jar; 1.20.1's render() has the
+	// same two calls.
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/PanoramaRenderer;render(FF)V"))
+	private void originclient$suppressPanorama(net.minecraft.client.renderer.PanoramaRenderer instance, float deltaT, float alpha) {
+		if (!originclient$origin() || !OriginScreenRenderer.isActive()) {
+			instance.render(deltaT, alpha);
 		}
 	}
 
-	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
-	private void originclient$suppressBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		if (originclient$origin() && OriginScreenRenderer.isActive()) {
-			ci.cancel();
+	@Redirect(method = "render", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/GuiGraphics;blit(Lnet/minecraft/resources/ResourceLocation;IIIIFFIIII)V"))
+	private void originclient$suppressPanoramaOverlay(GuiGraphics instance, ResourceLocation texture,
+													  int x, int y, int width, int height, float uOffset, float vOffset,
+													  int uWidth, int vHeight, int textureWidth, int textureHeight) {
+		if (!originclient$origin() || !OriginScreenRenderer.isActive()) {
+			instance.blit(texture, x, y, width, height, uOffset, vOffset, uWidth, vHeight, textureWidth, textureHeight);
 		}
 	}
 

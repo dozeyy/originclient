@@ -8,10 +8,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Restyles every checkbox in the Origin look, in place: rounded shell, accent
-// inner square when selected, label to the right. Toggle logic untouched;
-// selected() is a public accessor (javap-confirmed).
-// priority 2000: Origin's checkbox restyle wins over other UI mods.
+// Frost-style checkbox skin: a square box matching the buttons, a bright inner
+// square when selected, label to the right. Toggle logic untouched; selected()
+// is a public accessor (javap-confirmed for 1.21.1).
+// priority 2000: Origin's restyle wins over other UI mods.
 @Mixin(value = Checkbox.class, priority = 2000)
 public class CheckboxMixin {
 
