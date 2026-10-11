@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#EEF0F2">
+  <title>Item Physics</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round">
+<rect x="9" y="3.2" width="7" height="7" rx="1.4" transform="rotate(28 12.5 6.7)"/>
+      <path d="M3 20.5h18M7.5 17.5h9"/>
+      <path d="M5 8.5c-.9 1.6-.9 3.4 0 5"/>
+  </g>
+</svg>

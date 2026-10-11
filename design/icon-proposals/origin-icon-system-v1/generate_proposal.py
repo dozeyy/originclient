@@ -336,6 +336,64 @@ ICONS = [
     """, "Custom crosshair"),
 ]
 
+# Lunar parity, batch 2 (2026-10-11): visuals / feel mods. Same 24-grid, 1.55
+# stroke, one concept per glyph. Kept as its own list so it merges cleanly.
+LUNAR_BATCH2_ICONS = [
+    icon("client.hurtcam", "Hurt Cam", "VISUAL", """
+      <rect x="5" y="6.5" width="14" height="11" rx="2.5" transform="rotate(-12 12 12)"/>
+      <path d="M2.4 9.6v4.8M21.6 9.6v4.8"/>
+      <path d="M10 11.2l2 1.6 2-1.6"/>
+    """, "Damage camera shake"),
+    icon("client.hitcolor", "Hit Color", "VISUAL", """
+      <path d="M12 20.2s-7.6-4.5-7.6-10A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7.6 2.6c0 5.5-7.6 10-7.6 10Z"/>
+      <path d="M18.6 2.8l-.9 2.2M21.6 5.6l-2.2.9"/>
+    """, "Damage flash colour"),
+    icon("client.glintcolorizer", "Glint Colorizer", "VISUAL", """
+      <path d="M20 4v3.4l-8.8 8.8-3.4-3.4L16.6 4Z"/>
+      <path d="M6.6 11.4l6 6M9.4 14.6l-4.9 4.9"/>
+      <path d="M6 2.8v3.4M4.3 4.5h3.4"/>
+    """, "Enchantment glint colour"),
+    icon("client.bossbar", "Boss Bar", "HUD", """
+      <rect x="2.8" y="12" width="18.4" height="5.2" rx="1.4"/>
+      <path d="M5.4 14.6h7.6M8 7.5h8"/>
+    """, "Boss health bar"),
+    icon("client.titles", "Titles", "HUD", """
+      <path d="M6 5h12M12 5v9.5M8.5 19h7"/>
+    """, "On-screen titles"),
+    icon("client.menublur", "Menu Blur", "VISUAL", """
+      <rect x="3" y="4" width="18" height="16" rx="3"/>
+      <path d="M7 10c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0M7 14.5c1.5-1.2 3-1.2 4.5 0s3 1.2 4.5 0"/>
+    """, "Blurred menu backdrop"),
+    icon("client.shinypots", "Shinypots", "VISUAL", """
+      <path d="M8.8 3h5M9.6 3v4.6a6.2 6.2 0 1 0 3.6 0V3"/>
+      <path d="M8.2 15.2h6.4"/>
+      <path d="M19.2 3.2v3.4M17.5 4.9h3.4"/>
+    """, "Shining potions"),
+    icon("client.tntcountdown", "TNT Countdown", "VISUAL", """
+      <rect x="3.5" y="9" width="12" height="12" rx="2"/>
+      <path d="M3.5 15h12M9.5 9c0-2.6 1.4-4.4 4.2-4.9"/>
+      <path d="M17.3 2.6l.8 1.6M20.6 5.2l-1.7.6M20.2 1.9l-1.2 1.4"/>
+    """, "TNT fuse timer"),
+    icon("client.snaplook", "Snaplook", "GAMEPLAY", """
+      <path d="M19 9H8.5a4.5 4.5 0 0 0 0 9H15"/>
+      <path d="m15.5 5.5 3.5 3.5-3.5 3.5"/>
+    """, "Look behind"),
+    icon("client.cooldowns", "Cooldowns", "HUD", """
+      <circle cx="12" cy="12" r="8.6"/>
+      <path d="M12 3.4V12l6.1 6.1"/>
+    """, "Item cooldown dials"),
+    icon("client.soundchanger", "Sound Changer", "GAMEPLAY", """
+      <path d="M3.5 9.3h3.6l4.6-4v13.4l-4.6-4H3.5Z"/>
+      <path d="M15.4 9.2a4 4 0 0 1 0 5.6M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/>
+    """, "Per-sound volume"),
+    icon("client.itemphysics", "Item Physics", "VISUAL", """
+      <rect x="9" y="3.2" width="7" height="7" rx="1.4" transform="rotate(28 12.5 6.7)"/>
+      <path d="M3 20.5h18M7.5 17.5h9"/>
+      <path d="M5 8.5c-.9 1.6-.9 3.4 0 5"/>
+    """, "Physics for dropped items"),
+]
+ICONS += LUNAR_BATCH2_ICONS
+
 
 def svg_document(entry: dict) -> str:
     title = html.escape(entry["label"])

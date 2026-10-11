@@ -213,6 +213,17 @@ public class OriginModMenuScreen extends Screen {
 		for (String id : new String[]{"togglesprint", "freelook", "chat", "waypoints", "jei"}) {
 			CATS.put(id, Cat.GAMEPLAY);
 		}
+		// Lunar parity, batch 2 (visuals / feel).
+		for (String id : new String[]{"bossbar", "titles", "cooldowns"}) {
+			CATS.put(id, Cat.HUD);
+		}
+		for (String id : new String[]{"hurtcam", "hitcolor", "glintcolorizer", "menublur", "shinypots",
+				"tntcountdown", "itemphysics"}) {
+			CATS.put(id, Cat.VISUAL);
+		}
+		for (String id : new String[]{"snaplook", "soundchanger"}) {
+			CATS.put(id, Cat.GAMEPLAY);
+		}
 	}
 
 	private static Cat catOf(Mods.Mod m) {
@@ -573,6 +584,10 @@ public class OriginModMenuScreen extends Screen {
 		// (otherwise the slide-in animation ghosts over stale frames).
 		if (Minecraft.getInstance().level == null) {
 			com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(g);
+		} else {
+			// Menu Blur's "Origin Menus" (off by default): this screen skips vanilla's
+			// backdrop, so it asks for the blur + tint itself. No-op unless enabled.
+			com.origin.client.client.mods.MenuBlur.renderBehind(g, this, partialTick);
 		}
 		layout();
 		hoverTip = null;

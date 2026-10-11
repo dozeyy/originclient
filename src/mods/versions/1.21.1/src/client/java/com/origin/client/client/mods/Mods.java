@@ -572,6 +572,123 @@ public final class Mods {
 		// / JeiClientInputHandlerMixin for why those two are the choke points.
 		// Default off, like every mod here except zoom/coords/freelook.
 		add("jei", "JEI", "Item and recipe viewer.", false);
+
+		registerLunarBatch2();
+	}
+
+	// ---- Lunar parity, batch 2: visuals / feel (2026-10-11) ----
+	// Each mod's option set mirrors Lunar Client's own, read from Lunar's
+	// published option schema (github.com/LunarClient/Apollo, mods/impl/Mod*.java).
+	// Defaults are Lunar's too -- including ON for Boss Bar, Titles, Menu Blur and
+	// Cooldowns -- except where a comment names a deliberate difference.
+	// Kept in its own method so it merges cleanly with other registry additions.
+	private static void registerLunarBatch2() {
+		add("hurtcam", "Hurt Cam", "Tune or remove the camera shake when you take damage.", false,
+				ModOption.toggle("disableHurtCam", "Disable Hurt Cam", false)
+						.tip("Remove the damage shake completely."),
+				ModOption.slider("intensity", "Hurt Shake Intensity", 0, 2, 0.05, 1.0, "%.2fx"),
+				ModOption.toggle("oldTilt", "Old Camera Tilt", false)
+						.tip("1.8-style: the camera always tilts the same way, whichever side the hit came from."));
+
+		// Lunar's default tint is a darker red at 40% strength (vanilla's is 30%).
+		add("hitcolor", "Hit Color", "Recolor the red damage flash on mobs and players.", false,
+				ModOption.color("color", "Hit Color", 0x66990000)
+						.tip("The colour a mob or player flashes when hurt. Its opacity is how strong the flash is."),
+				ModOption.toggle("colorArmor", "Color Armor", true)
+						.tip("Flash worn armor too, not just the body underneath."));
+
+		// Two colours per target, like Lunar: one used with Lunar Blending on, one
+		// with it off (vanilla's additive glint, which can only brighten).
+		add("glintcolorizer", "Glint Colorizer", "Recolor the enchantment glint.", false,
+				ModOption.toggle("showGlint", "Show Glint", true).tip("Turn off to hide the enchantment glint entirely."),
+				ModOption.toggle("lunarBlending", "Lunar Blending", true)
+						.tip("Blend the colour over the item instead of adding light, so dark colours (even black) show."),
+				ModOption.header("Items"),
+				ModOption.toggle("overrideItem", "Recolor Item Glint", true),
+				ModOption.color("itemColorLunar", "Item Color (Lunar Blending)", 0xCC6419FF).under("overrideItem"),
+				ModOption.color("itemColorVanilla", "Item Color (Vanilla Blending)", 0xFF8040CC).under("overrideItem"),
+				ModOption.header("Armor"),
+				ModOption.toggle("overrideArmor", "Recolor Armor Glint", true),
+				ModOption.color("armorColorLunar", "Armor Color (Lunar Blending)", 0xCC6419FF).under("overrideArmor"),
+				ModOption.color("armorColorVanilla", "Armor Color (Vanilla Blending)", 0xFF8040CC).under("overrideArmor"));
+
+		add("bossbar", "Boss Bar", "Hide, move, resize or recolor the boss bar.", true,
+				ModOption.slider("scale", "Scale", 0.5, 1.5, 0.05, 1.0, "%.2fx"),
+				ModOption.toggle("renderBar", "Show Bar", true),
+				ModOption.toggle("renderText", "Show Boss Name", true),
+				ModOption.toggle("customColor", "Custom Bar Color", false),
+				ModOption.color("barColor", "Bar Color", 0xFFF249F2).under("customColor"),
+				ModOption.toggle("useGuiScale", "Use Minecraft GUI Scale", true)
+						.tip("Off = the bar keeps one size whatever your GUI Scale is."));
+
+		// Title Color defaults to WHITE here (Lunar's is red, 0xFFFF5555): it tints
+		// only title text the server left uncoloured, which vanilla draws white, so
+		// white keeps every title looking exactly like vanilla until you pick one.
+		add("titles", "Titles", "Move, resize and recolor on-screen titles.", true,
+				ModOption.slider("scale", "Scale", 0.5, 1.5, 0.05, 1.0, "%.2fx"),
+				ModOption.toggle("showTitle", "Show Title", true),
+				ModOption.toggle("showSubtitle", "Show Subtitle", true),
+				ModOption.toggle("keepCentered", "Keep Title Centered", true)
+						.tip("Centre titles on the element; off = they start at its left edge."),
+				ModOption.toggle("showInHudEditor", "Show in HUD Editor", false)
+						.tip("Show a sample title in Edit HUD so you can drag and resize it."),
+				ModOption.toggle("useGuiScale", "Use Minecraft GUI Scale", true)
+						.tip("Off = titles keep one size whatever your GUI Scale is."),
+				ModOption.header("Color"),
+				ModOption.color("titleColor", "Title Color", 0xFFFFFFFF)
+						.tip("Colours title text the server didn't colour itself."),
+				ModOption.color("subtitleColor", "Subtitle Color", 0xFFFFFFFF)
+						.tip("Colours subtitle text the server didn't colour itself."));
+
+		// "Origin Menus" defaults OFF (Lunar's own-menu toggle defaults on): the
+		// mod menu is see-through on purpose so HUD changes preview live behind it.
+		add("menublur", "Menu Blur", "Blur the world behind menus.", true,
+				ModOption.slider("strength", "Blur Strength", 0, 20, 1, 4, "%.0f"),
+				ModOption.toggle("inventory", "Inventories", true).tip("Blur behind your inventory, chests and every other container."),
+				ModOption.color("inventoryBg", "Inventory Tint", 0x6F000000).under("inventory"),
+				ModOption.toggle("pause", "Pause & Game Menus", true).tip("Blur behind the pause menu and the in-game option screens."),
+				ModOption.color("pauseBg", "Pause Menu Tint", 0x6F000000).under("pause"),
+				ModOption.toggle("originMenus", "Origin Menus", false).tip("Blur behind Origin's own mod menu."),
+				ModOption.color("originMenusBg", "Origin Menu Tint", 0x00000000).under("originMenus"));
+
+		add("shinypots", "Shinypots", "Give potions the full-box enchantment shine.", false,
+				ModOption.toggle("coloredPotions", "Colored Potions", false).tip("Tint the shine with the potion's own colour."),
+				ModOption.toggle("behind", "Render Glint Behind Potion", false),
+				ModOption.toggle("entireSlot", "Render Entire Slot", false).tip("Shine the whole slot, not just the item's square."));
+
+		add("tntcountdown", "TNT Countdown", "Show the fuse countdown above lit TNT.", false,
+				ModOption.slider("fuseOffset", "Adjust Fuse Time", -80, 80, 1, 0, "%.0f ticks")
+						.tip("Shift the countdown for servers that change the fuse length. 20 ticks = 1 second."),
+				ModOption.toggle("background", "Background", true),
+				ModOption.toggle("textShadow", "Text Shadow", false),
+				ModOption.toggle("staticColor", "Static Countdown Color", false)
+						.tip("Keep one colour the whole time instead of fading to red."),
+				ModOption.header("Color"),
+				ModOption.color("color", "Countdown Color", 0xFF00FF00),
+				ModOption.color("prefixColor", "Prefix Color", 0xFFFFFFFF));
+
+		// The key isn't in Lunar's schema (keybinds live outside it); V is free in
+		// vanilla and nothing else in Origin uses it.
+		add("snaplook", "Snaplook", "Hold a key to look behind you.", false,
+				ModOption.keybind("key", "Snaplook Key", GLFW.GLFW_KEY_V),
+				ModOption.toggle("toggleMode", "Toggle Mode", false).tip("Press once to look behind, press again to look forward."),
+				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true)
+						.tip("Eases camera motion while you look behind you."));
+
+		add("cooldowns", "Cooldowns", "Item cooldowns (pearls, shields...) on the HUD.", true,
+				ModOption.slider("scale", "Scale", 0.25, 5.0, 0.05, 1.0, "%.2fx"),
+				ModOption.header("Color"),
+				ModOption.color("circleStart", "Circle Start Color", 0x99595959),
+				ModOption.color("circleEnd", "Circle End Color", 0xFFE5E5E5),
+				ModOption.color("edgeColor", "Edge Color", 0xFF404040),
+				ModOption.color("textColor", "Text Color", 0xFFFFFFFF));
+
+		add("soundchanger", "Sound Changer", "Change the volume of individual sounds.", false,
+				SoundChanger.options());
+
+		add("itemphysics", "Item Physics", "Dropped items tumble as they fall and lie flat.", false,
+				ModOption.slider("rotationSpeed", "Rotation Speed", 0.1, 4.0, 0.1, 0.5, "%.1fx")
+						.tip("How fast items spin while they're in the air."));
 	}
 
 	// Assembles the Particle Changer option list: global controls, then a
