@@ -45,7 +45,21 @@
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
 		"JeiGuiEventHandlerMixin",
-		"JeiClientInputHandlerMixin"
+		"JeiClientInputHandlerMixin",
+		"HurtCamMixin",
+		"GameRendererFrameMixin",
+		"OverlayTextureAccessor",
+		"HumanoidArmorLayerMixin",
+		"GlintColorizerMixin",
+		"BossBarMixin",
+		"TitlesMixin",
+		"GameRendererBlurAccessor",
+		"MenuBlurMixin",
+		"ShinyPotsMixin",
+		"TntCountdownMixin",
+		"ItemCooldownsMixin",
+		"SoundChangerMixin",
+		"ItemPhysicsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

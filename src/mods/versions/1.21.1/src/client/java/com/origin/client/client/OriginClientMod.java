@@ -282,6 +282,9 @@ public class OriginClientMod implements ClientModInitializer {
 		applyTimeChanger(client);
 		GeneralSettings.tick(client);
 		MotionBlur.tick(client);
+		// Snaplook ticks before the no-player return so leaving a world mid-look
+		// still restores the saved camera view.
+		com.origin.client.client.mods.Snaplook.tick(client);
 
 		LocalPlayer player = client.player;
 		if (player == null) {
@@ -537,11 +540,12 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		freelookWasDown = keyDown;
 
-		// Smooth Camera Movement (zoom / freelook): ride vanilla's cinematic
+		// Smooth Camera Movement (zoom / freelook / snaplook): ride vanilla's cinematic
 		// camera smoothing while either is engaged, then restore the player's own
 		// setting the moment both release.
 		boolean wantSmooth = (zoomActive && Mods.bool("zoom", "smoothCamera"))
-				|| (OriginFreelookState.active && Mods.on("freelook") && Mods.bool("freelook", "smoothCamera"));
+				|| (OriginFreelookState.active && Mods.on("freelook") && Mods.bool("freelook", "smoothCamera"))
+				|| com.origin.client.client.mods.Snaplook.wantsSmoothCamera();
 		if (wantSmooth && !smoothCamApplied) {
 			savedSmoothCam = client.options.smoothCamera;
 			client.options.smoothCamera = true;

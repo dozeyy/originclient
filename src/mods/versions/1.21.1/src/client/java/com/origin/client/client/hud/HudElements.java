@@ -478,6 +478,30 @@ public final class HudElements {
 		return Mods.bool("waypoints", "locatorBar") && Mods.bool("waypoints", "separateBar");
 	}
 
+	// ---- Lunar parity, batch 2 (2026-10-11): Boss Bar, Titles, Cooldowns ----
+	// A second static block, after the first, so ALL already holds the original
+	// elements. Boss Bar and Titles follow the Scoreboard split: the element is the
+	// drag target + editor sample, and their mixins draw the real thing from
+	// vanilla's own layer at this element's position. Cooldowns is a plain element.
+	static {
+		add("bossbar", "bossbar", "Boss Bar", BossBarHud.defaultPos(),
+				mc -> BossBarHud.size(),
+				(g, mc, w, h) -> {
+					if (editorPreview) {
+						BossBarHud.renderSample(g);
+					}
+				});
+		add("titles", "titles", "Titles", TitlesHud.defaultPos(),
+				mc -> TitlesHud.editorSize(),
+				(g, mc, w, h) -> {
+					if (editorPreview && Mods.bool("titles", "showInHudEditor")) {
+						TitlesHud.renderSample(g);
+					}
+				});
+		add("cooldowns", "cooldowns", "Cooldowns", new HudPos(7, 0, -62, 1.0),
+				CooldownsHud::size, CooldownsHud::render);
+	}
+
 	private static void add(String id, String modId, String label, HudPos def,
 							java.util.function.Function<Minecraft, int[]> measure, Renderer r) {
 		ALL.add(new Element(id, modId, label, def, measure, r));

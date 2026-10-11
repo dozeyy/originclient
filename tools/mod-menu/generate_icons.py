@@ -80,6 +80,22 @@ PUBLIC_IDS = {
     "waypoints": "client.waypoints",
     "jei": "client.jei",
 }
+# Lunar parity, batch 2 (2026-10-11) -- appended so every earlier cell keeps its
+# atlas position.
+PUBLIC_IDS.update({
+    "hurtcam": "client.hurtcam",
+    "hitcolor": "client.hitcolor",
+    "glintcolorizer": "client.glintcolorizer",
+    "bossbar": "client.bossbar",
+    "titles": "client.titles",
+    "menublur": "client.menublur",
+    "shinypots": "client.shinypots",
+    "tntcountdown": "client.tntcountdown",
+    "snaplook": "client.snaplook",
+    "cooldowns": "client.cooldowns",
+    "soundchanger": "client.soundchanger",
+    "itemphysics": "client.itemphysics",
+})
 
 
 def load_master():

@@ -166,6 +166,54 @@
     "jei": [
       0,
       0
+    ],
+    "hurtcam": [
+      0,
+      0
+    ],
+    "hitcolor": [
+      -8,
+      4
+    ],
+    "glintcolorizer": [
+      -2,
+      6
+    ],
+    "bossbar": [
+      0,
+      -2
+    ],
+    "titles": [
+      0,
+      0
+    ],
+    "menublur": [
+      0,
+      0
+    ],
+    "shinypots": [
+      -8,
+      5
+    ],
+    "tntcountdown": [
+      0,
+      4
+    ],
+    "snaplook": [
+      4,
+      2
+    ],
+    "cooldowns": [
+      0,
+      0
+    ],
+    "soundchanger": [
+      0,
+      0
+    ],
+    "itemphysics": [
+      0,
+      4
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -329,6 +377,54 @@
     "jei": {
       "x": 576,
       "y": 1152
+    },
+    "hurtcam": {
+      "x": 768,
+      "y": 1152
+    },
+    "hitcolor": {
+      "x": 960,
+      "y": 1152
+    },
+    "glintcolorizer": {
+      "x": 0,
+      "y": 1344
+    },
+    "bossbar": {
+      "x": 192,
+      "y": 1344
+    },
+    "titles": {
+      "x": 384,
+      "y": 1344
+    },
+    "menublur": {
+      "x": 576,
+      "y": 1344
+    },
+    "shinypots": {
+      "x": 768,
+      "y": 1344
+    },
+    "tntcountdown": {
+      "x": 960,
+      "y": 1344
+    },
+    "snaplook": {
+      "x": 0,
+      "y": 1536
+    },
+    "cooldowns": {
+      "x": 192,
+      "y": 1536
+    },
+    "soundchanger": {
+      "x": 384,
+      "y": 1536
+    },
+    "itemphysics": {
+      "x": 576,
+      "y": 1536
     }
   }
 }
