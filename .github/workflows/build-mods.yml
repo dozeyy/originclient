@@ -86,6 +86,25 @@ jobs:
           echo "::error::Dependency downloads kept failing after 3 attempts — the maven repository is likely down."
           exit 1
 
+      # Dead-hook gate. Loom's remap step prints "Cannot remap <method> because it
+      # does not exist in any of the targets [<class>]" for every mixin that names
+      # a method this Minecraft version doesn't have. Mixin configs are
+      # defaultRequire 0 (fail-soft), so such a hook compiles, boots and simply
+      # never runs: the feature behind it silently does nothing. That is how
+      # 1.21.10's nametag and tile-entity settings were dead for months. Only
+      # targets in Minecraft's own packages count; dependency jars print their own
+      # lines with intermediary (class_1234) names, which are not Origin's.
+      - name: Check for mixins that bind nothing
+        shell: bash
+        run: |
+          dead=$(grep -E "Cannot remap .* does not exist in any of the targets \[(net/minecraft|com/mojang)/" gradle.log || true)
+          if [ -n "$dead" ]; then
+            echo "::error::Origin mixins target methods that don't exist on Minecraft ${{ matrix.covers }} (the feature behind each would silently do nothing):"
+            echo "$dead"
+            exit 1
+          fi
+          echo "No dead mixin targets."
+
       # Exactly one shippable jar per module: build/libs also holds the
       # -sources (and on some modules -dev) jars, which the csproj excludes too.
       - name: Collect jar
