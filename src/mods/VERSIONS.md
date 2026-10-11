@@ -31,6 +31,8 @@ changes unless you change it or deliberately run the sync.
   the deliberate fork and sync never touches it again.
 - CI (`build-check.yml`) runs `sync.py --check` on every push: any silent
   drift between `shared/` and a module fails the build.
+- `live-modules.json` (next to this file) is the machine-readable list of
+  shipped modules that every CI workflow reads; this file is the human one.
 
 ## Live versions (in `versions/`)
 
@@ -192,14 +194,20 @@ lines):
 1. **`src/OriginLauncher.App/Core/Versions/VersionManager.cs`** — uncomment
    the version's `OriginBuilds` entry (that's what makes the launcher
    install the jar).
-2. **`.github/workflows/launcher-release.yml` AND `build-check.yml`** —
-   uncomment the module's gradle build step (and `git mv` the module from
-   `staged/` to `versions/`; update the step's `working-directory`).
+2. **`src/mods/live-modules.json`** — `git mv` the module from `staged/` to
+   `versions/` and add `{ "module": ..., "covers": ... }`. That one line is
+   what makes build-check AND the release build it (in parallel, via
+   `.github/workflows/build-mods.yml`), what the release's "every live jar is
+   bundled" assert checks, and what creates its `mc <module>` GitHub label.
+   Its Java level comes from the module's own `options.release`; CI runs every
+   module on JDK 21 (26.2 will need a JDK 25 runner — add a `java` field to
+   the list and to build-mods.yml then).
 3. **`src/OriginLauncher.App/OriginLauncher.App.csproj`** — the `<Content>`
-   bundle entry already exists for every module and is conditional on the
-   jar existing; verify its path points at `versions/<ver>` after the move.
-   Also add the jar name to the release workflow's
-   "Assert bundled mod jars present" list.
+   bundle entry already exists for every module (a glob over its
+   `build/libs`); verify its path points at `versions/<ver>` after the move.
+
+Pulling a version is the same three places in reverse (plus removing it from
+`VersionCatalog` if it should vanish from the picker).
 
 ## Porting method that works
 

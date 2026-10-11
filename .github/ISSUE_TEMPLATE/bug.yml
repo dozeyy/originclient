@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in the launcher or in-game is broken
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it happen?
+      options:
+        - Launcher (before the game starts)
+        - In game (menus, HUD, mods)
+        - Updating the launcher
+        - Installing (Setup.exe)
+    validations:
+      required: true
+  - type: input
+    id: mc-version
+    attributes:
+      label: Minecraft version picked
+      placeholder: "1.21.1"
+    validations:
+      required: true
+  - type: input
+    id: launcher-version
+    attributes:
+      label: Launcher version
+      description: Shown at the bottom of the launcher's Settings page.
+      placeholder: "1.0.39"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      placeholder: "I clicked Play and…"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: |
+        1. Pick 1.21.1
+        2. Press Right Shift
+        3. …
+  - type: checkboxes
+    id: crash
+    attributes:
+      label: Did it crash?
+      options:
+        - label: Yes — the game or launcher closed / showed the crash window
+  - type: textarea
+    id: logs
+    attributes:
+      label: Crash report or log (optional)
+      description: Paste the crash window text, or drag in latest.log.
+      render: text

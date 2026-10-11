@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Download Origin
+    url: https://github.com/dozeyy/originclient/releases/latest
+    about: The latest launcher installer (OriginLauncher-Setup.exe).

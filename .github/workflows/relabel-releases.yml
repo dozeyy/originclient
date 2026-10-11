@@ -1,0 +1,40 @@
+# Rewrites the title + notes of EVERY published release in the current format
+# (tools/release/notes.py): what's new, fixes, behind the scenes, which
+# Minecraft versions were updated. Releases before launcher-v1.0.40 only said
+# "Automated build of <sha>". New releases get these notes automatically from
+# launcher-release.yml; run this by hand (Actions -> relabel-releases -> Run
+# workflow) only when the notes format itself changes.
+#
+# Safe for installed launchers: the updater reads only tag_name and the asset
+# names, never a release's title or body. Tags and assets are not touched.
+name: relabel-releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only print the new notes (change nothing)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: launcher-release   # never edit releases while one is being published
+  cancel-in-progress: false
+
+jobs:
+  relabel:
+    name: Rewrite release notes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code (full history)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Rewrite every release's title + notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/release/notes.py --backfill ${{ inputs.dry_run && '--dry-run' || '' }}

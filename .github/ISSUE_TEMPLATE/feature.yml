@@ -1,0 +1,29 @@
+name: Idea or improvement
+description: A new mod, a feature, or a change to how something looks
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Origin?
+      options:
+        - Launcher
+        - In-game menus / HUD
+        - A mod in the mod menu
+        - Website
+        - Something else
+  - type: input
+    id: versions
+    attributes:
+      label: Minecraft version(s) it matters for
+      placeholder: "All, or e.g. 1.21.1"
+  - type: textarea
+    id: why
+    attributes:
+      label: Why — what would it make better?

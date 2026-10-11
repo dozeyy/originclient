@@ -93,9 +93,12 @@ src/mods/
   staged/<mc>/            WIP builds — never built by CI, can't reach players
   VERSIONS.md             THE registry: live/staged status, sharing rules, and
                           the 3 coupling points to flip a staged version live
+  live-modules.json       THE machine list of shipped modules every CI workflow reads
 tools/shared-sync/sync.py propagates shared/ into every module; --check is the
                           CI drift gate (build-check runs it on every push)
-docs/RELEASING.md         how shipping works (tag flow)
+tools/release/            plan.py (build vs reuse per version) + notes.py (release notes)
+tools/github/labels.py    GitHub label set + PR auto-label rules
+docs/RELEASING.md         how shipping works (tag flow, pipeline, labels)
 ```
 - **Shared fix** → edit `src/mods/shared/`, run `python tools/shared-sync/sync.py`.
 - **Version fix** → edit that module only; if the file exists in shared/, list
@@ -130,10 +133,12 @@ calling a version done.
 
 ## Releasing (main → tag)
 `main` always reflects at least the latest release. To ship, from a green main:
-`git tag launcher-v1.0.N && git push origin launcher-v1.0.N`. CI builds every
-live mod jar + the launcher, asserts the bundled jars are actually present,
-and publishes setup.exe + the self-update zip. Updates are mandatory for
-players. Full rules: `docs/RELEASING.md`.
+`git tag launcher-v1.0.N && git push origin launcher-v1.0.N`. CI (~5-6 min)
+builds the changed mod versions in parallel (reusing unchanged jars from the
+last release), bundles them into the launcher, asserts every live jar is
+present, and publishes setup.exe + the self-update zip with auto-written
+release notes (from commit titles — write them for players). Updates are
+mandatory for players. Full rules: `docs/RELEASING.md`.
 
 ## Stack
 - Launcher: C# / .NET 8, WPF. CmlLib.Core (Mojang manifest, downloads, Fabric
@@ -179,8 +184,12 @@ floating corner controls. In-game menus match this exactly.
 - Newest launch action cancels any in-flight one.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
-## Current state (2026-07-21)
-- **Latest release: `launcher-v1.0.29`** (mandatory auto-update; tag flow).
+## Current state (2026-10-10)
+- **Latest release: `launcher-v1.0.39`** (mandatory auto-update; tag flow).
+- **Release pipeline rebuilt 2026-10-10:** mod versions build in parallel on
+  Linux (build-check ~2.5 min, release ~5-6 min, was 12-40); real release
+  notes; GitHub labels + PR auto-labels; update download shows a full-screen
+  progress bar; Settings shows the launcher version. Detail in MEMORY.md.
 - **Since v1.0.24 (through v1.0.29):** JEI bundled + toggleable on all 11 Fabric
   versions that have a Fabric JEI; ThickLine hitboxes + real-item ModIcons
   propagated to every live version; Weather-changer rewrite + own-nametag fix
@@ -210,7 +219,7 @@ floating corner controls. In-game menus match this exactly.
   launcher bundle their jars. The legacy pair went live 2026-07-14 on Forge +
   OptiFine; with them gone the lineup is Fabric-only again and the legacy
   install path is unreachable (kept, not deleted — see VERSIONS.md).
-- Launcher shipping via tag flow (latest launcher-v1.0.29; auto-update).
+- Launcher shipping via tag flow (latest launcher-v1.0.39; auto-update).
   Auth chain: MSA→Xbox→XSTS confirmed; Minecraft `login_with_xbox` returns 403
   (leading theory: new-app-registration propagation) — `OfflineTestMode` in
   Settings→Developer is the test path until resolved.

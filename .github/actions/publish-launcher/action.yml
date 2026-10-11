@@ -1,0 +1,80 @@
+# Publishes the WPF launcher with every live mod jar bundled, then proves the
+# jars made it in. Shared by build-check.yml (verify only) and
+# launcher-release.yml (the real release) so both build the launcher exactly
+# the same way — anything that would break shipping breaks in build-check first.
+#
+# Expects the mod jars already downloaded (build-mods.yml artifacts, plus the
+# release's reused jars) into `jars-dir`, laid out as <module>/<jar>.
+name: Publish launcher
+description: Place mod jars, dotnet publish the launcher, assert every live jar is bundled.
+
+inputs:
+  jars-dir:
+    description: Folder holding <module>/<jar> for every live module
+    required: true
+  version:
+    description: Version to stamp (1.0.40). Empty = unstamped dev build (1.0.0.0).
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Set up .NET 8
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: "8.0.x"
+
+    # Put each jar where the csproj's <Content> glob for its module looks:
+    # src/mods/versions/<module>/build/libs/. Exactly one jar per live module —
+    # two would collide on the same Bundled\ path, zero would ship that version
+    # without Origin (the csproj silently skips a glob that matches nothing).
+    - name: Place mod jars for bundling
+      shell: pwsh
+      run: |
+        $live = (Get-Content src/mods/live-modules.json -Raw | ConvertFrom-Json).modules
+        $problems = @()
+        foreach ($m in $live) {
+          $name = $m.module
+          $jars = @(Get-ChildItem -Path (Join-Path "${{ inputs.jars-dir }}" $name) -Filter *.jar -ErrorAction SilentlyContinue)
+          if ($jars.Count -ne 1) { $problems += "$name ($($jars.Count) jars)"; continue }
+          $dest = "src/mods/versions/$name/build/libs"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item $jars[0].FullName $dest -Force
+          Write-Host "Minecraft $($m.covers): $($jars[0].Name)"
+        }
+        if ($problems) {
+          Write-Error "Need exactly one jar per live module; wrong for: $($problems -join ', ')"
+          exit 1
+        }
+
+    # Single-file, self-contained: the update zip swaps cleanly as one exe
+    # (plus the loose Bundled\ jars) with no .NET install needed on the
+    # player's machine. -p:Version stamps the assembly version the updater
+    # compares against the release tag.
+    - name: dotnet publish (win-x64, single file)
+      shell: pwsh
+      run: |
+        $publishArgs = @(
+          "publish", "src/OriginLauncher.App/OriginLauncher.App.csproj",
+          "-c", "Release", "-r", "win-x64", "--self-contained", "true",
+          "-p:PublishSingleFile=true",
+          "-p:IncludeNativeLibrariesForSelfExtract=true",
+          "-o", "publish"
+        )
+        if ("${{ inputs.version }}") { $publishArgs += "-p:Version=${{ inputs.version }}" }
+        dotnet @publishArgs
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    # Guard against a csproj <Content> path that stopped matching (it fails
+    # silently — launcher-v1.0.33 would have shipped without 15 of 16 jars).
+    - name: Assert every live mod jar is bundled
+      shell: pwsh
+      run: |
+        $live = (Get-Content src/mods/live-modules.json -Raw | ConvertFrom-Json).modules
+        $missing = $live | Where-Object { -not (Test-Path "publish/Bundled/OriginClient/originclient-$($_.module).jar") } |
+          ForEach-Object { $_.module }
+        if ($missing) {
+          Write-Error "Missing bundled jars for: $($missing -join ', ') - check the csproj <Content> entries."
+          exit 1
+        }
+        Write-Host "All $($live.Count) live mod jars are bundled."

@@ -1,0 +1,52 @@
+# Keeps GitHub labels organised (definitions + rules: tools/github/labels.py).
+#  - sync: creates/updates every label whenever the definitions or the list
+#    of Minecraft versions change on main (or by hand from the Actions tab).
+#  - pull-request: tags each PR with the areas and Minecraft builds its files
+#    touch ("area: launcher", "mc 1.21.1", ...). Only ever ADDS labels.
+#
+# pull_request_target runs this workflow from main with write access, which is
+# what lets it label PRs. That is safe here because it never checks out or
+# runs the PR's own code — it only reads the PR's changed-file list via the API.
+name: labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/github/labels.py"
+      - "src/mods/live-modules.json"
+      - ".github/workflows/labels.yml"
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Sync label definitions
+    if: github.event_name != 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+      - name: Create / update labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/github/labels.py sync
+
+  pull-request:
+    name: Label pull request
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      # The BASE branch (default for pull_request_target) — never the PR head.
+      - name: Check out code (base branch)
+        uses: actions/checkout@v7
+      - name: Add area + version labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/github/labels.py pr "${{ github.event.pull_request.number }}"

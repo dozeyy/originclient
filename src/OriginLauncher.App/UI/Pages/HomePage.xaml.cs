@@ -52,6 +52,25 @@ public partial class HomePage : UserControl
     public bool HasOpenScene => VersionOverlay.IsOpen
         || LoadingOverlay.Visibility == Visibility.Visible;
 
+    /// <summary>
+    /// Covers Home with the loading scene in self-update mode (MainWindow's
+    /// update button). Returns false — and shows nothing — while a launch is
+    /// using the scene; the caller then reports progress on the button alone.
+    /// No end call: success shuts the app down, failure calls EndUpdateScene.
+    /// </summary>
+    public bool BeginUpdateScene(string newVersion)
+    {
+        if (_isLaunching || LoadingOverlay.Visibility == Visibility.Visible)
+            return false;
+        LoadingOverlay.ShowUpdate(newVersion);
+        return true;
+    }
+
+    public void ReportUpdate(UpdateService.UpdateProgress progress) =>
+        LoadingOverlay.ReportUpdate(progress);
+
+    public void EndUpdateScene() => LoadingOverlay.Hide();
+
     // Keyboard/default-action hook owned by MainWindow. It refuses while a
     // picker or launch cover is open, so Enter can never click through a scene.
     public bool TryLaunchFromKeyboard()

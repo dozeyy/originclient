@@ -5,6 +5,67 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-10-10 — Release pipeline rebuilt: parallel builds, real release notes, labels
+
+Will: "the auto update push takes so long … everything labeled and updated."
+He picked: speed up the RELEASE BUILD (not the player download), release notes
++ GitHub labels + step names + rewrite old release notes, and only a progress
+bar on the player side.
+
+- **Root cause of the wait (measured from the Actions API):** all 16 mod
+  modules compiled back to back on one Windows runner, ~70-140 s each → 12-40
+  min per release. The setup-java `cache: gradle` added 2.5-4.5 min per run to
+  SAVE a cache that no later tag could ever restore (caches are scoped per
+  ref; a tag's cache is invisible to the next tag) — pure waste, dropped.
+- **New shape:** `src/mods/live-modules.json` (the one module list) →
+  `tools/release/plan.py` (build vs reuse; the old in-YAML PowerShell rules,
+  ported 1:1 and verified to reproduce v1.0.39's exact 6-built/10-reused
+  split) → `build-mods.yml` (one Linux job per module, all parallel) →
+  `.github/actions/publish-launcher` (place exactly one jar per module,
+  dotnet publish, assert all 16 bundled) — shared by build-check and the
+  release. First real build-check: **2 min 20 s total** (was ~25), every
+  module ~1 min, "All 16 live mod jars are bundled."
+- **Fixed on the way:** previous-release detection now comes from published
+  GitHub Releases, not git tags — the old logic would pick a FAILED tag
+  (v1.0.33 has no release zip) as the reuse source and die; a jar missing from
+  the zip now moves that module to "build" instead of failing the run.
+  `gradlew` lacked the exec bit on 17 of 19 modules (boot-smoke calls it
+  directly on Linux) — set in git. boot-smoke still listed pulled 1.21.5.
+- **Linux is safe for the mod builds:** jars are JVM bytecode; no build.gradle
+  references Windows paths; gradlew files are LF. (1.21.6 and 1.21.8 shipping
+  identical-size jars looked suspicious — different hashes, identical source.)
+- **Release notes:** `tools/release/notes.py` — What's new / Fixes / Behind the
+  scenes from commit titles (newest first), "Minecraft versions updated" from
+  the shipped modules whose code changed (reads the module list AT the tag, so
+  pulled versions only appear while they were live). relabel-releases.yml
+  rewrites every past release; dry-run checked over all 20 real tags locally.
+  The updater reads only tag_name + asset names, so notes can't break updates.
+- **Labels:** `tools/github/labels.py` — type/area/status/priority + one
+  `mc <module>` per live module (generated). labels.yml syncs on main and
+  auto-labels PRs via pull_request_target WITHOUT checking out PR code.
+- **Launcher:** update badge → Home's loading scene in "UPDATING" mode with a
+  real byte-driven fill + "Downloading — 42% · 53 of 126 MB"; download loop +
+  unzip moved off the UI thread (the unzip used to freeze the window).
+  Settings now shows "Origin Launcher 1.0.N" — it never showed its own version.
+  Gotcha caught in self-review: the overlay's ReportStage fades out/in on every
+  text change, so 10 percentage ticks/s would keep the line invisible — byte
+  ticks now swap the text in place; only stage changes fade.
+  Compiles on the Windows CI runner; NOT yet seen running — first real look is
+  the first update after this ships (the progress UI belongs to the NEW build,
+  so it shows on the update AFTER the one that installs it).
+- **Release rehearsal mode:** launcher-release has workflow_dispatch; any run
+  not started by a launcher-v* tag does everything but publish (artifact
+  "rehearsal-release" instead). Proven pre-merge from the branch: full
+  16-module rebuild rehearsal **4 min 33 s**, "Publish GitHub release" skipped.
+  The reuse path (gh release download of v1.0.39's zip → 16 jars) was proven
+  on a runner by a throwaway workflow. Notes ignore permission-only changes
+  (git diff --raw blob compare) — the gradlew chmod would otherwise have
+  claimed all 15 versions "updated" in v1.0.40's notes.
+- **Actions bumped** to current majors (v4 line = deprecated Node 20).
+- Sandbox notes: dot.net SDK downloads are 403'd here (can't compile the
+  launcher locally); PowerShell 7 from GitHub releases works for testing pwsh
+  steps; actionlint installs via `pip install actionlint-py`.
+
 ## 2026-09-25 — Website now mirrors the live Workbench palette; download paused
 
 - Replaced the redesign's cool cyan/light-section palette with the exact current `OriginTheme` roles: `#0E1110` base, `#121614` alternate, `#171C19`/`#202720` panels, `#F1E9D2` parchment text, and `#5FD09B`/`#83E2B5` emerald accents.

@@ -104,8 +104,10 @@ public static class UpdateService
     /// Downloads the available update, stages it, spawns the swap script, and
     /// shuts the app down; the script waits for this process to exit, copies
     /// the staged files over the install directory, and relaunches.
+    /// Progress is reported in bytes so the player sees a real fill, not a
+    /// spinner, through the ~126 MB download.
     /// </summary>
-    public static async Task DownloadAndRestartAsync(IProgress<string>? progress = null)
+    public static async Task DownloadAndRestartAsync(IProgress<UpdateProgress>? progress = null)
     {
         var update = Available ?? throw new InvalidOperationException("No update is available.");
 
@@ -116,18 +118,18 @@ public static class UpdateService
             Directory.Delete(stageDir, recursive: true);
         Directory.CreateDirectory(stageDir);
 
-        progress?.Report("Downloading update...");
+        progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
         var zipPath = Path.Combine(updatesRoot, AssetName);
-        using (var response = await Http.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead))
-        {
-            response.EnsureSuccessStatusCode();
-            await using var file = File.Create(zipPath);
-            await response.Content.CopyToAsync(file);
-        }
+        await DownloadToFileAsync(update.DownloadUrl, zipPath, progress);
 
-        progress?.Report("Installing update...");
-        ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
-        File.Delete(zipPath);
+        progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
+        // Off the UI thread so the loading scene keeps animating while ~126 MB
+        // unpacks; the continuation returns here (UI thread) for Shutdown().
+        await Task.Run(() =>
+        {
+            ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
+            File.Delete(zipPath);
+        });
 
         var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         var exePath = Environment.ProcessPath
@@ -160,7 +162,37 @@ endlocal
             WindowStyle = ProcessWindowStyle.Hidden,
             CreateNoWindow = true
         });
+        progress?.Report(new UpdateProgress(UpdateStage.Restarting, 0, null));
         Application.Current.Shutdown();
+    }
+
+    // The byte loop runs off the UI thread (ConfigureAwait(false)); progress
+    // still lands on the UI thread because Progress<T> captured it. Reports
+    // are capped at ~10/s — each one is a dispatcher hop.
+    private static async Task DownloadToFileAsync(string url, string path, IProgress<UpdateProgress>? progress)
+    {
+        using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        var total = response.Content.Headers.ContentLength;
+        await using var source = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+        await using var file = new FileStream(path, FileMode.Create, FileAccess.Write,
+            FileShare.None, bufferSize: 1 << 16, useAsync: true);
+
+        var buffer = new byte[1 << 16];
+        long received = 0;
+        var lastReport = Stopwatch.StartNew();
+        int read;
+        while ((read = await source.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        {
+            await file.WriteAsync(buffer.AsMemory(0, read)).ConfigureAwait(false);
+            received += read;
+            if (lastReport.ElapsedMilliseconds >= 100)
+            {
+                lastReport.Restart();
+                progress?.Report(new UpdateProgress(UpdateStage.Downloading, received, total));
+            }
+        }
+        progress?.Report(new UpdateProgress(UpdateStage.Downloading, received, total ?? received));
     }
 
     // System.Version treats unset components as -1, which makes "1.0.5" and
@@ -170,6 +202,31 @@ endlocal
         Math.Max(v.Build, 0), Math.Max(v.Revision, 0));
 
     public sealed record AvailableUpdate(Version Version, string DownloadUrl);
+
+    public enum UpdateStage { Downloading, Installing, Restarting }
+
+    /// <summary>One progress tick. TotalBytes is null when the server sent no
+    /// Content-Length (then only the byte count is known, not a fraction).</summary>
+    public sealed record UpdateProgress(UpdateStage Stage, long ReceivedBytes, long? TotalBytes)
+    {
+        /// <summary>0..1 while downloading with a known size; null otherwise.</summary>
+        public double? Fraction => Stage == UpdateStage.Downloading && TotalBytes is > 0
+            ? Math.Clamp((double)ReceivedBytes / TotalBytes.Value, 0, 1)
+            : null;
+
+        /// <summary>Player-facing line, e.g. "Downloading — 42% · 53 of 126 MB".</summary>
+        public string Describe() => Stage switch
+        {
+            UpdateStage.Downloading when Fraction is { } f =>
+                $"Downloading — {f * 100:0}% · {Mb(ReceivedBytes)} of {Mb(TotalBytes!.Value)} MB",
+            UpdateStage.Downloading when ReceivedBytes > 0 => $"Downloading — {Mb(ReceivedBytes)} MB",
+            UpdateStage.Downloading => "Downloading",
+            UpdateStage.Installing => "Installing",
+            _ => "Restarting"
+        };
+
+        private static string Mb(long bytes) => (bytes / 1_048_576d).ToString("0");
+    }
 
     private sealed record Release(
         [property: JsonPropertyName("tag_name")] string? TagName,
