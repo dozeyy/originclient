@@ -193,6 +193,11 @@ floating corner controls. In-game menus match this exactly.
 
 ## Current state (2026-10-10)
 - **Latest release: `launcher-v1.0.39`** (mandatory auto-update; tag flow).
+- **Every live version on the 1.21.1 design (2026-10-11, not yet released):** all 16
+  modules ported to the 1.21.1 title screen, menus, widget skin, mod menu and mod set,
+  CI-compiled, awaiting Will's in-game pass. Differences by necessity: no JEI card on
+  1.21.2-1.21.8 / 1.17.1 / 1.16.5, no Color Saturation on 1.16.5. Detail in MEMORY.md;
+  era notes in src/mods/docs/PORTING-ERA-NOTES.md.
 - **Custom installer (2026-10-11):** Inno Setup replaced by Origin Setup —
   themed Welcome/Customize/Installing/Done + uninstaller, smoke-tested
   (silent install/uninstall) and screen-rendered on every CI run. Not yet

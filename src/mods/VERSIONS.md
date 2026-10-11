@@ -36,6 +36,10 @@ changes unless you change it or deliberately run the sync.
 
 ## Live versions (in `versions/`)
 
+**2026-10-11:** every module below now carries the 1.21.1 design and mod set (see
+MEMORY.md and `docs/PORTING-ERA-NOTES.md`). JEI ships only where a Fabric JEI exists
+(not 1.21.2-1.21.8, 1.17.1, 1.16.5); Color Saturation is absent on 1.16.5 (no shaders).
+
 | Module | Covers | fabric.mod.json range | Install model | Java |
 |--------|--------|----------------------|---------------|------|
 | `1.21.1` | 1.21.1 | `~1.21.1` | **Bundles perf stack jar-in-jar** (Sodium/Indium/Iris/Lithium/…) | 21 |

@@ -5,6 +5,48 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-10-11 — Every live version brought onto the 1.21.1 design (Will: "make each version match 1.21.1")
+
+Will's ask: every version should act, play, feel and look exactly like 1.21.1 —
+all the mods, the vibe, the background — built however each version needs.
+
+**Done for all 16 live modules** (branch `claude/loving-goldberg-xs01x2`, one commit
+per module group): 1.21, 1.20 (+1.20.1), 1.20.2, 1.20.4, 1.21.4 (1.21.2-4), 1.21.6
+(1.21.6-7), 1.21.8, 1.21.10, 1.21.11, 1.19.4, 1.19.3, 1.19.2, 1.18.2, 1.17.1, 1.16.5.
+Each now has the 1.21.1 title screen (compact centred stack, Origin Mods button,
+icon dock, account chip), the blurred-panorama + Ion Jade grade backdrop on every
+menu, the Workbench widget skin and palette, the Command Deck mod menu, Origin's own
+icon atlas, and the 1.21.1 mod set (Waypoints + Locator Bar, Item Size, Tab Editor,
+nametag styling, Color Saturation, movable scoreboard, biome colours, profiles).
+
+**Per-version method (mandate 5), the big ones:**
+- Menu blur before 1.21 (no processBlurEffect): the panorama renders into a
+  half-size target, is halved 3x through linear targets and stretched back — a box
+  pyramid that reads like 1.21's gaussian. 1.16.5 does the same in fixed function.
+- 1.21.2+: shaders via ShaderProgram keys / RenderPipelines; rounded panels keep each
+  era's baked screen-resolution masks (batched GUI rendering would bury an immediate
+  SDF quad under everything drawn before it).
+- Pre-1.20: everything through each module's Gfx PoseStack wrapper.
+- 1.16.5: no shaders at all — software corners, mask icon atlas, Java 8 rewrite.
+
+**Not identical, by necessity:** JEI card only where a Fabric JEI exists (absent on
+1.21.2-1.21.8, 1.17.1, 1.16.5). Color Saturation absent on 1.16.5 (needs a shader).
+Motion blur stays stepped on 1.21.4 and 1.21.11 (era limits already in VERSIONS.md).
+
+**Bugs found and fixed on the way:** Tab showed no player list on 1.21.6/1.21.8/1.21.10
+(vanilla's list was cancelled, Origin's never drawn); 1.20's title cancel-injects bound
+nothing (vanilla's panorama overlay vignette blitted over the Origin backdrop — now
+@Redirects); the account head rebuilt a profile without textures (default head) on
+several versions — now Minecraft.getGameProfile() where it exists.
+**Known, not fixed:** 1.21.10's EntityNametagMixin + BlockEntityRenderDispatcherMixin
+target methods that moved (nametag scale/hide and Tile Entity Distance do nothing
+there) — 1.21.11's July fix needs porting with a javap check.
+
+**Verification:** CI build-check compiled every module (one stray-brace failure on
+1.21.6/1.21.8, fixed). Nothing is runClient-verified yet — Will's in-game pass is the
+apply-time check (zero `Mixin apply ... failed` lines per version).
+Era notes for future ports: `src/mods/docs/PORTING-ERA-NOTES.md`.
+
 ## 2026-10-11 — Website rebuilt: island in the sky + scroll-through download journey
 
 - Will's brief: professional + fun, 3D, "nothing should look different than in
