@@ -191,7 +191,7 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-10)
-- **Latest release: `launcher-v1.0.41`** (mandatory auto-update; tag flow).
+- **Latest release: `launcher-v1.0.42`** (mandatory auto-update; tag flow).
 - **Every live version on the 1.21.1 design (released 2026-10-11, launcher-v1.0.40):** all 16
   modules ported to the 1.21.1 title screen, menus, widget skin, mod menu and mod set,
   CI-compiled, awaiting Will's in-game pass. Differences by necessity: no JEI card on
@@ -210,6 +210,13 @@ floating corner controls. In-game menus match this exactly.
   HUD backgrounds default transparent (Keystrokes kept), Time Changer remapped so it works
   in production + live slider, icon strokes padded for AA, waypoint beam/chunk posts as
   real geometry. CI-green, awaiting Will's in-game pass.
+- **Source-verified fix round (launcher-v1.0.42, 2026-10-11):** every bug re-traced against
+  decompiled vanilla + the pinned Fabric API per version. Waypoint beam/labels/chunk borders
+  were rotated twice on 1.16.5-1.19.3 (WorldRenderEvents.LAST fires inside vanilla's
+  cloud/weather model-view push) -> identity model-view window in the LAST hook; 1.16.5 zoom
+  left chunks culled by the zoomed frustum -> needsUpdate() as FOV widens; loading screen
+  draws ORIGIN from vanilla ascii.png (fonts aren't baked yet); scoreboard bg fixed on
+  1.20.4-1.21.1 (fills inside drawManaged). Awaiting Will's in-game pass.
 - **Release pipeline rebuilt 2026-10-10:** mod versions build in parallel on
   Linux (build-check ~2.5 min, release ~5-6 min, was 12-40); real release
   notes; GitHub labels + PR auto-labels; update download shows a full-screen
@@ -243,7 +250,7 @@ floating corner controls. In-game menus match this exactly.
   launcher bundle their jars. The legacy pair went live 2026-07-14 on Forge +
   OptiFine; with them gone the lineup is Fabric-only again and the legacy
   install path is unreachable (kept, not deleted — see VERSIONS.md).
-- Launcher shipping via tag flow (latest launcher-v1.0.41; auto-update).
+- Launcher shipping via tag flow (latest launcher-v1.0.42; auto-update).
   Auth chain: MSA→Xbox→XSTS confirmed; Minecraft `login_with_xbox` returns 403
   (leading theory: new-app-registration propagation) — `OfflineTestMode` in
   Settings→Developer is the test path until resolved.
