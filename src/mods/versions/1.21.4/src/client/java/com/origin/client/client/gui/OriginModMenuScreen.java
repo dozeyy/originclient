@@ -64,6 +64,8 @@ public class OriginModMenuScreen extends Screen {
 
 	private String dragMod = null, dragKey = null;
 	private ModOption dragOpt = null;
+	// A slider drag left values in memory that aren't on disk yet (see vDragNum).
+	private boolean sliderUnsaved = false;
 	private int dragTrackX0, dragTrackX1;
 	private String capMod = null, capKey = null;
 
@@ -90,6 +92,7 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public void removed() {
+		flushSlider();   // a drag cut short by the screen closing still saves
 		HudElements.editorPreview = false;
 		HudElements.suppressScoreboard = false;
 		super.removed();
@@ -260,8 +263,25 @@ public class OriginModMenuScreen extends Screen {
 		return Mods.num(id, key);
 	}
 
-	private void vSetNum(String id, String key, double v) {
-		Mods.set(id, key, v);
+	// The slider-drag write path (press + every drag event). Unlike Mods.set it
+	// does NOT write the config file per event -- that was dozens of synchronous
+	// JSON writes a second -- the value goes to memory and flushSlider() saves it
+	// once on release. Time Changer's Time slider also pushes straight into the
+	// live sky so it follows the thumb smoothly (Will: the menu stays fully
+	// visible while dragging -- no fade).
+	private void vDragNum(String id, String key, double v) {
+		Mods.setUnsaved(id, key, v);
+		sliderUnsaved = true;
+		if ("timechanger".equals(id) && "time".equals(key)) {
+			com.origin.client.client.OriginClientMod.previewTimeSlider(v);
+		}
+	}
+
+	private void flushSlider() {
+		if (sliderUnsaved) {
+			sliderUnsaved = false;
+			Mods.save();
+		}
 	}
 
 	private String vMode(String id, String key) {
@@ -522,11 +542,11 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-		// NOTE: the live HUD preview over this menu is drawn ONCE, by the
-		// ScreenEvents.afterRender hook registered in OriginClientMod. Do NOT also
-		// call HudElements.renderAll(g) here — that double-drew every HUD element,
-		// so translucent backings and text shadows blended onto themselves and read
-		// darker/bolder than in-game (perf-audit + bug-audit finding).
+		// NOTE: do NOT draw the HUD from this screen. Gui.render (GuiHudMixin)
+		// already draws it once per frame BEHIND every screen, this one included,
+		// so toggles preview live under the menu. Drawing it here (or from a
+		// ScreenEvents.afterRender hook, as an older build did) put a second copy
+		// ON TOP of the menu -- Will's rule is the HUD always sits behind menus.
 		// Out of a world (opened from the title's Mods button) nothing else paints
 		// the frame behind this screen — draw the slate title backdrop so the menu
 		// sits on the same ground as the title and the buffer is fully repainted
@@ -1629,7 +1649,7 @@ public class OriginModMenuScreen extends Screen {
 	private void applySlider(ModOption o, double mx) {
 		double t = Math.max(0, Math.min(1, (mx - dragTrackX0) / (double) (dragTrackX1 - dragTrackX0)));
 		double v = o.min + t * (o.max - o.min);
-		vSetNum(dragMod, o.key, Math.round(v / o.step) * o.step);
+		vDragNum(dragMod, o.key, Math.round(v / o.step) * o.step);
 	}
 
 	@Override
@@ -1652,6 +1672,7 @@ public class OriginModMenuScreen extends Screen {
 		dragMod = null;
 		dragKey = null;
 		dragOpt = null;
+		flushSlider();
 		return super.mouseReleased(mx, my, button);
 	}
 

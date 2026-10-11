@@ -112,6 +112,13 @@ public final class Mods {
 
 	static {
 		// ---- HUD readouts ----
+		// Background defaults (Will, 2026-10-11): every HUD module's bgColor
+		// defaults to fully transparent (0x00000000) -- the player-facing
+		// "background opacity" is that alpha byte -- EXCEPT Key Strokes, whose
+		// keys read as blank boxes without a fill. Only the DEFAULT changed: a
+		// colour the player picked is a saved key and wins, so there is no
+		// migration. The starter config (default-mods-config.json) carries no
+		// bgColor for these modules, so it inherits this default as-is.
 		add("fps", "FPS", "Frames-per-second readout.", false,
 				ModOption.toggle("reverseOrder", "Reverse Order", false),
 				ModOption.toggle("textShadow", "Text Shadow", true),
@@ -119,7 +126,7 @@ public final class Mods {
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
 				ModOption.color("color", "Text Color", 0xFFFFFFFF),
-				ModOption.color("bgColor", "Background Color", 0x99000000));
+				ModOption.color("bgColor", "Background Color", 0x00000000));
 
 		add("cps", "CPS", "Clicks per second.", false,
 				ModOption.toggle("rightClick", "Right Click CPS", false),
@@ -129,7 +136,7 @@ public final class Mods {
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
 				ModOption.color("color", "Text Color", 0xFFFFFFFF),
-				ModOption.color("bgColor", "Background Color", 0x99000000));
+				ModOption.color("bgColor", "Background Color", 0x00000000));
 
 		add("togglesprint", "Toggle Sneak/Sprint", "Hands-free sprint and sneak.", false,
 				ModOption.toggle("hud", "Toggle Sneak/Sprint HUD", true),
@@ -161,7 +168,7 @@ public final class Mods {
 				ModOption.header("Color"),
 				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
 				ModOption.color("damageColor", "Damage Color", 0xFFE05555).tip("Colour the durability text turns once a piece is low."),
-				ModOption.color("bgColor", "Background Color", 0x99000000));
+				ModOption.color("bgColor", "Background Color", 0x00000000));
 
 		add("keystrokes", "Key Strokes", "On-screen key display.", false,
 				ModOption.toggle("showClicks", "Show Clicks", true),
@@ -194,7 +201,7 @@ public final class Mods {
 				ModOption.toggle("copyClipboard", "Copy Coords To Clipboard", true),
 				ModOption.toggle("decimal", "Decimal Coordinates", false),
 				ModOption.header("Color"),
-				ModOption.color("bgColor", "Background Color", 0x99000000),
+				ModOption.color("bgColor", "Background Color", 0x00000000),
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
 
 		add("potionhud", "Potion Effects", "Active status effects.", false,
@@ -210,7 +217,7 @@ public final class Mods {
 				ModOption.toggle("reversedText", "Reversed Text", false),
 				ModOption.toggle("excludePermanent", "Exclude Permanent Effects", false).tip("Hide effects with infinite duration (e.g. beacon buffs)."),
 				ModOption.header("Color"),
-				ModOption.color("bgColor", "Background Color", 0x99000000),
+				ModOption.color("bgColor", "Background Color", 0x00000000),
 				ModOption.toggle("colorByEffect", "Color Name Based on Effect", true),
 				ModOption.color("textColor", "Text Color", 0xFFFFFFFF),
 				ModOption.color("durationColor", "Duration Color", 0xFFB0B0B0));
@@ -221,7 +228,7 @@ public final class Mods {
 				ModOption.toggle("showBackground", "Show Background", true),
 				ModOption.header("Color"),
 				ModOption.color("color", "Text Color", 0xFFFFFFFF),
-				ModOption.color("bgColor", "Background Color", 0x99000000));
+				ModOption.color("bgColor", "Background Color", 0x00000000));
 
 		add("scoreboard", "Scoreboard", "Server scoreboard styling.", false,
 				ModOption.toggle("hideNumbers", "Hide Numbers", false),
@@ -232,7 +239,7 @@ public final class Mods {
 				ModOption.keybind("toggleKey", "Toggle Scoreboard", -1),
 				ModOption.toggle("displayToggleMessage", "Display Toggle Message", true),
 				ModOption.header("Color"),
-				ModOption.color("bgColor", "Background Color", 0x99000000),
+				ModOption.color("bgColor", "Background Color", 0x00000000),
 				ModOption.color("headerColor", "Header Color", 0xFFFFFFFF),
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF));
 
@@ -590,6 +597,17 @@ public final class Mods {
 
 	public static void set(String modId, String key, double v) {
 		raw(modId).put(key, new JsonPrimitive(v));
+		ModsConfig.save();
+	}
+
+	// Slider drags only: stores the value in memory WITHOUT writing the config
+	// file. A drag fires on every mouse move, and set() rewrites the whole JSON
+	// synchronously each call; the mod menu calls save() once on release.
+	public static void setUnsaved(String modId, String key, double v) {
+		raw(modId).put(key, new JsonPrimitive(v));
+	}
+
+	public static void save() {
 		ModsConfig.save();
 	}
 

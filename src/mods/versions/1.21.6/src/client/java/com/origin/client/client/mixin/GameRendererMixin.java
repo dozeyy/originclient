@@ -8,25 +8,34 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // 1.21.2+ : GameRenderer.getFov returns FLOAT (it was double on <=1.21.1). This
 // forked copy uses CallbackInfoReturnable<Float>; the shared copy stays the
 // <Double> version for 1.20.x / 1.21 / 1.21.1. Using the wrong box type makes the
 // mixin cast Float<->Double and throw ClassCastException the first time zoom fires.
+// Otherwise this mirrors shared/'s GameRendererMixin (2026-10-11 zoom fix).
 //
-// The whole handler is fail-soft: a zoom hiccup must never take the frame down.
-// This @Inject runs INSIDE vanilla's getFov, outside OriginScreenRenderer's
-// try/catch, so it needs its own guard (mandate: degrade to vanilla, never crash).
+// Both handlers are fail-soft: a zoom hiccup must never take the frame down.
+// They run INSIDE vanilla's render/getFov, outside OriginScreenRenderer's
+// try/catch, so each needs its own guard (mandate: degrade to vanilla, never crash).
 @Mixin(GameRenderer.class)
 public class GameRendererMixin {
-	// Eased zoom progress + last-frame timestamp. getFov runs every FRAME, so
-	// easing here (frame-rate independent, time-based) makes Smooth Zoom glide.
+	// Eased zoom progress (0 = off, 1 = fully zoomed) + last-frame timestamp.
+	// Easing is time-based so Smooth Zoom glides at any frame rate.
 	@Unique private static double originclient$zoomAnim = 0;
 	@Unique private static long originclient$lastNanos = 0;
 
-	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-	private void originclient$applyZoom(Camera camera, float partialTick, boolean usePerspective, CallbackInfoReturnable<Float> cir) {
+	// The ease advances ONCE per frame, here, and getFov below only READS it.
+	// It used to advance inside getFov, but getFov runs several times a frame
+	// (the world pass, the hand pass, Iris's passes), so each pass in the same
+	// frame saw a different FOV mid-ease -- the world and anything drawn with a
+	// later getFov call (block outline, hitboxes) disagreed for ~0.5s after
+	// every zoom in/out. `render` is matched by name with a CallbackInfo-only
+	// handler, so it binds whatever GameRenderer.render's parameters are.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$advanceZoom(CallbackInfo ci) {
 		try {
 			boolean active = Mods.on("zoom") && OriginClientMod.zoomActive;
 			double target = active ? 1.0 : 0.0;
@@ -44,15 +53,26 @@ public class GameRendererMixin {
 			} else {
 				originclient$zoomAnim = target;
 			}
-
-			if (originclient$zoomAnim > 0.001) {
-				double vanilla = cir.getReturnValue();
-				double tfov = Mods.num("zoom", "fov") * OriginClientMod.zoomScrollFactor;
-				tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
-				cir.setReturnValue((float) (vanilla + (tfov - vanilla) * originclient$zoomAnim));
-			}
 		} catch (Throwable t) {
-			// A zoom error must never crash the frame — just skip zoom this frame.
+			// A zoom error must never crash the frame -- the ease just holds this frame.
+		}
+	}
+
+	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
+	private void originclient$applyZoom(Camera camera, float partialTick, boolean usePerspective, CallbackInfoReturnable<Float> cir) {
+		// usePerspective == false is the first-person HAND pass (renderItemInHand).
+		// Zoom never touches it: the held item stays its normal size, like
+		// OptiFine/Lunar zoom.
+		if (!usePerspective || originclient$zoomAnim <= 0.001) {
+			return;
+		}
+		try {
+			double vanilla = cir.getReturnValue();
+			double tfov = Mods.num("zoom", "fov") * OriginClientMod.zoomScrollFactor;
+			tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
+			cir.setReturnValue((float) (vanilla + (tfov - vanilla) * originclient$zoomAnim));
+		} catch (Throwable t) {
+			// A zoom error must never crash the frame -- just skip zoom this frame.
 		}
 	}
 }
