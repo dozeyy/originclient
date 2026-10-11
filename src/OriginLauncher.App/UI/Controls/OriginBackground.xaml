@@ -10,46 +10,8 @@
          it feels Minecraft-built without competing with controls or costing
          animation work. -->
     <Grid Background="{StaticResource Brush.WindowBackdrop}" ClipToBounds="True">
-        <Rectangle Opacity="0.72">
-            <Rectangle.Fill>
-                <DrawingBrush TileMode="Tile" Viewport="0,0,64,64"
-                              ViewportUnits="Absolute" Stretch="None">
-                    <DrawingBrush.Drawing>
-                        <DrawingGroup>
-                            <GeometryDrawing Brush="#101D2420">
-                                <GeometryDrawing.Geometry>
-                                    <GeometryGroup>
-                                        <RectangleGeometry Rect="0,0,64,64"/>
-                                    </GeometryGroup>
-                                </GeometryDrawing.Geometry>
-                            </GeometryDrawing>
-                            <GeometryDrawing Brush="#1827302A">
-                                <GeometryDrawing.Geometry>
-                                    <GeometryGroup>
-                                        <RectangleGeometry Rect="5,9,18,2"/>
-                                        <RectangleGeometry Rect="38,5,13,2"/>
-                                        <RectangleGeometry Rect="47,25,11,2"/>
-                                        <RectangleGeometry Rect="12,42,16,2"/>
-                                        <RectangleGeometry Rect="33,53,20,2"/>
-                                        <RectangleGeometry Rect="23,17,2,10"/>
-                                        <RectangleGeometry Rect="56,34,2,13"/>
-                                    </GeometryGroup>
-                                </GeometryDrawing.Geometry>
-                            </GeometryDrawing>
-                            <GeometryDrawing Brush="#12000000">
-                                <GeometryDrawing.Geometry>
-                                    <GeometryGroup>
-                                        <RectangleGeometry Rect="1,30,14,1"/>
-                                        <RectangleGeometry Rect="29,34,18,1"/>
-                                        <RectangleGeometry Rect="8,58,12,1"/>
-                                    </GeometryGroup>
-                                </GeometryDrawing.Geometry>
-                            </GeometryDrawing>
-                        </DrawingGroup>
-                    </DrawingBrush.Drawing>
-                </DrawingBrush>
-            </Rectangle.Fill>
-        </Rectangle>
+        <!-- Brush.Deepslate (Theme/Brand.xaml) — shared with the installer. -->
+        <Rectangle Opacity="0.72" Fill="{StaticResource Brush.Deepslate}"/>
 
     </Grid>
 </UserControl>

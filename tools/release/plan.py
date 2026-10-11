@@ -215,7 +215,7 @@ def main() -> int:
                 shutil.rmtree(args.reuse_dir, ignore_errors=True)
             reasons = {m["module"]: "planning failed, full build" for m in modules}
 
-    build = [m for m in modules if reasons[m["module"]]]
+    build = [{"module": m["module"], "covers": m["covers"]} for m in modules if reasons[m["module"]]]
     emit("build", json.dumps(build, separators=(",", ":")))
     emit("prev_tag", prev)
 

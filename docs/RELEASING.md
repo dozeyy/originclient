@@ -32,10 +32,14 @@ end to end):
    table: each Minecraft version, built or reused, and why.
 2. **Mods** (Linux, ~1-2 min) — `build-mods.yml` builds every changed
    version **at the same time**, one job each ("Mods / Minecraft 1.21.1").
-3. **Build launcher + publish release** (Windows, ~3 min) — bundles all 16
+3. **Build launcher + publish release** (Windows, ~4 min) — bundles all 16
    jars into the launcher (`.github/actions/publish-launcher`), **asserts
-   every live jar is really in it**, builds the `OriginLauncher-Setup.exe`
-   installer, and publishes the GitHub release with both the setup.exe and
+   every live jar is really in it**, builds the Origin installer
+   `OriginLauncher-Setup.exe` (`.github/actions/build-installer`) and
+   **smoke-tests it**: a real silent install on the runner, every file
+   checked byte-for-byte plus shortcuts, Add/Remove Programs entry and
+   Start-with-Windows, then a silent uninstall checked to remove all of it.
+   Only then does it publish the GitHub release with both the setup.exe and
    `OriginLauncher-win-x64.zip`, titled "Origin Launcher 1.0.N".
 
 Before this pipeline (≤ v1.0.39) the same work ran one version after
@@ -74,6 +78,28 @@ To rewrite the notes of every past release (only needed if the format in
 "dry run" first to preview in the log). Safe — the launcher's updater never
 reads release titles or notes.
 
+## The installer (OriginLauncher-Setup.exe)
+
+Origin's own app (`src/OriginSetup`), not a generic wizard: the launcher's
+look (it links the launcher's theme files), Welcome → optional Customize
+(install location, memory for Minecraft, default version, Start with
+Windows) → Installing → Done, and a matching uninstaller behind
+Add/Remove Programs.
+
+- **.NET Framework 4.7.2** (built into Windows 10/11), so the setup needs no
+  runtime: the app is ~0.5 MB and the launcher rides inside it as an LZMA
+  payload appended by `tools/installer/pack_payload.py` (~85 MB total, about
+  the same as the old Inno Setup exe).
+- **Safe by construction**: unpacks to a staging folder and checks every
+  chunk's checksum before touching the real install, so cancelling or a
+  damaged download never leaves a broken Origin. Takes over installs made by
+  the old Inno Setup installer in place (same Add/Remove Programs entry).
+- Customize choices reach the launcher through a small hand-off file it
+  applies on its next start (`Core/Install/SetupChoices.cs`).
+- **Every build-check renders every installer screen to pictures** (the
+  "installer-screens" artifact on the run) — review UI changes there.
+- Engine tests: `dotnet test src/OriginSetup.Tests -f net8.0` (needs python3).
+
 ## Labels
 
 `tools/github/labels.py` is the label set (type, area, status, priority,
@@ -111,6 +137,9 @@ files touch. Issue forms (`.github/ISSUE_TEMPLATE/`) add `bug` /
 | `tools/release/notes.py` | release notes; `--backfill` rewrites past releases |
 | `.github/workflows/build-mods.yml` | builds a list of modules in parallel (shared by both workflows) |
 | `.github/actions/publish-launcher/` | bundle jars → `dotnet publish` → assert all jars present |
+| `.github/actions/build-installer/` | build OriginSetup, append payload, smoke-test install + uninstall (+ screen renders) |
+| `src/OriginSetup/` + `tools/installer/pack_payload.py` | the installer app and its payload packer |
+| `tools/release/check_consistency.py` | fails CI when launcher/installer copies of a fact drift apart |
 | `.github/workflows/build-check.yml` | every push: drift gate + all mods + launcher publish, ships nothing |
 | `.github/workflows/launcher-release.yml` | every `launcher-v*` tag: the release (Run workflow = rehearsal) |
 | `.github/workflows/relabel-releases.yml` | manual: rewrite every release's notes |

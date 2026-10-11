@@ -21,8 +21,9 @@
 #                                that release's zip; writes the release notes.
 #   2. Mods       (Linux, parallel, ~2 min) build-mods.yml — one job per
 #                                changed module, all at once.
-#   3. Release    (Windows, ~3 min) bundle every jar into the WPF launcher,
-#                                build the installer, publish the release.
+#   3. Release    (Windows, ~4 min) bundle every jar into the WPF launcher,
+#                                build the Origin installer (src/OriginSetup)
+#                                and smoke-test it, publish the release.
 # The old single-job pipeline compiled every module back to back on one
 # Windows runner.
 #
@@ -146,19 +147,15 @@ jobs:
           jars-dir: modjars
           version: ${{ steps.ver.outputs.version }}
 
-      # Fresh-install path: a per-user setup.exe (install/uninstall via
-      # Add/Remove Programs). The zip below stays the SELF-UPDATE path — an
-      # already-installed launcher swaps its own exe from it, so no reinstall
-      # is ever needed on a new release. Both ship on every release.
-      - name: Build installer (Inno Setup)
-        shell: pwsh
-        run: |
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
-          $defines = @()
-          if ("${{ steps.ver.outputs.version }}") { $defines += "/DMyAppVersion=${{ steps.ver.outputs.version }}" }
-          & $iscc @defines installer\OriginLauncher.iss
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      # Fresh-install path: the custom Origin installer (src/OriginSetup),
+      # smoke-tested here with a real silent install + uninstall before it
+      # can ship. The zip below stays the SELF-UPDATE path — an installed
+      # launcher swaps its own exe from it. Both ship on every release.
+      - name: Build + smoke-test installer
+        uses: ./.github/actions/build-installer
+        with:
+          version: ${{ steps.ver.outputs.version }}
+          level: "6"
 
       - name: Zip self-update package
         shell: pwsh
@@ -171,7 +168,7 @@ jobs:
           name: rehearsal-release
           path: |
             OriginLauncher-win-x64.zip
-            installer/Output/OriginLauncher-Setup.exe
+            OriginLauncher-Setup.exe
             notes/release-notes.md
           if-no-files-found: error
           retention-days: 7
@@ -184,6 +181,6 @@ jobs:
         run: >
           gh release create "${{ env.RELEASE_TAG }}"
           OriginLauncher-win-x64.zip
-          installer\Output\OriginLauncher-Setup.exe
+          OriginLauncher-Setup.exe
           --title "Origin Launcher ${{ steps.ver.outputs.version }}"
           --notes-file notes\release-notes.md

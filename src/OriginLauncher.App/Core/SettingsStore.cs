@@ -51,12 +51,10 @@ public static class SettingsStore
 
     // Half of total physical RAM, leaving headroom for the OS — scales with
     // real system specs instead of a fixed ceiling (a 32GB machine should get
-    // more than an 8GB one). Floor of 2048 covers low-memory systems.
-    private static int AutoDetectRamMb()
-    {
-        var totalMb = SystemInfo.GetTotalPhysicalMemoryMb();
-        return Math.Max(2048, totalMb / 2);
-    }
+    // more than an 8GB one). The rule lives in RamAdvice, shared with the
+    // installer's memory slider.
+    private static int AutoDetectRamMb() =>
+        RamAdvice.RecommendedMb(SystemInfo.GetTotalPhysicalMemoryMb());
 
     private static void Save(LauncherSettings settings)
     {

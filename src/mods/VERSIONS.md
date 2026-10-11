@@ -195,7 +195,10 @@ lines):
    the version's `OriginBuilds` entry (that's what makes the launcher
    install the jar).
 2. **`src/mods/live-modules.json`** — `git mv` the module from `staged/` to
-   `versions/` and add `{ "module": ..., "covers": ... }`. That one line is
+   `versions/` and add `{ "module": ..., "covers": ..., "versions": [...] }`
+   ("versions" = the exact OriginBuilds keys for that jar — CI's
+   check_consistency.py fails if they differ; the installer's default-version
+   picker reads them). That one line is
    what makes build-check AND the release build it (in parallel, via
    `.github/workflows/build-mods.yml`), what the release's "every live jar is
    bundled" assert checks, and what creates its `mc <module>` GitHub label.

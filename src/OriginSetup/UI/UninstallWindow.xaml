@@ -1,0 +1,98 @@
+<Window x:Class="OriginSetup.UI.UninstallWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:ui="clr-namespace:OriginSetup.UI"
+        Title="Uninstall Origin"
+        Icon="/OriginSetup;component/Assets/origin.ico"
+        Width="640" Height="520"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanMinimize"
+        Background="{StaticResource Brush.Bg}"
+        FontFamily="{StaticResource Font.Primary}"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Closing="Window_Closing">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0"
+                            CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid Background="{StaticResource Brush.WindowBackdrop}" IsHitTestVisible="False">
+            <Rectangle Opacity="0.72" Fill="{StaticResource Brush.Deepslate}"/>
+        </Grid>
+
+        <Grid Background="Transparent" MouseLeftButtonDown="Root_MouseLeftButtonDown">
+            <ui:TitleBar x:Name="Bar" Mode="UNINSTALL"/>
+
+            <Grid Margin="0,52,0,28">
+                <!-- ============ CONFIRM ============ -->
+                <StackPanel x:Name="ConfirmPage" HorizontalAlignment="Center" VerticalAlignment="Center" Width="480">
+                    <ui:OrbitMark Width="64" Height="64" Margin="0,0,0,18"/>
+                    <TextBlock Text="Uninstall Origin?" Style="{StaticResource Text.H1}" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="ConfirmBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
+                               TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center" Margin="0,10,0,20"
+                               Text="This removes Origin Launcher, its shortcuts and its startup entry from this PC."/>
+
+                    <Border Style="{StaticResource Setup.Card}" Margin="0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,14,0">
+                                <TextBlock Text="Also delete my Origin data" Style="{StaticResource Text.Body}"/>
+                                <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"
+                                           Foreground="{StaticResource Brush.TextMuted}"
+                                           Text="Accounts, settings and game installs — including the worlds saved inside them. Leave this off to keep everything for later."/>
+                            </StackPanel>
+                            <ToggleButton x:Name="RemoveDataToggle" Grid.Column="1" Style="{StaticResource Toggle.Switch}"
+                                          VerticalAlignment="Center" AutomationProperties.Name="Also delete my Origin data"
+                                          Checked="RemoveDataToggle_Changed" Unchecked="RemoveDataToggle_Changed"/>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
+                        <Button Style="{StaticResource Button.Primary}" Content="Keep Origin" MinWidth="150"
+                                Click="Keep_Click" IsDefault="True"/>
+                        <Button x:Name="UninstallButton" Content="Uninstall" MinWidth="130" Margin="14,0,0,0"
+                                Click="Uninstall_Click"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ============ REMOVING ============ -->
+                <StackPanel x:Name="RemovingPage" Visibility="Collapsed" HorizontalAlignment="Center"
+                            VerticalAlignment="Center" Width="380">
+                    <ui:OrbitMark x:Name="RemovingMark" Width="72" Height="72" Margin="0,0,0,24"/>
+                    <TextBlock Text="REMOVING" Style="{StaticResource Text.Eyebrow}"
+                               Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Uninstalling Origin" Style="{StaticResource Text.H1}" HorizontalAlignment="Center"
+                               Margin="0,6,0,22"/>
+                    <Border x:Name="ProgressTrack" Style="{StaticResource Setup.ProgressTrack}" Width="320">
+                        <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="1"
+                                Background="{StaticResource Brush.PrimaryGradient}"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- ============ DONE ============ -->
+                <StackPanel x:Name="DonePage" Visibility="Collapsed" HorizontalAlignment="Center"
+                            VerticalAlignment="Center" Width="460">
+                    <ui:OrbitMark Width="72" Height="72" Margin="0,0,0,22" Animated="False" Opacity="0.55"/>
+                    <TextBlock x:Name="DoneTitle" Text="Origin has been removed" Style="{StaticResource Text.H1}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="DoneBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
+                               TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center" Margin="0,10,0,26"/>
+                    <Button Style="{StaticResource Button.Primary}" Content="Close" MinWidth="140"
+                            HorizontalAlignment="Center" Click="Close_Click" x:Name="DoneCloseButton"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <Border BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" IsHitTestVisible="False"/>
+    </Grid>
+</Window>

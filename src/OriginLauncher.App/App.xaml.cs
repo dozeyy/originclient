@@ -60,6 +60,17 @@ public partial class App : Application
 
         OriginPaths.EnsureScaffold();
 
+        // Choices from the installer's Customize page (memory, default
+        // version) land in settings before the first window reads them.
+        Core.Install.SetupChoices.ApplyIfPresent();
+        // Self-updates swap files from a zip; keep Add/Remove Programs showing
+        // the version that is actually running. Best-effort, never blocks.
+        if (!Core.Updates.UpdateService.IsDevBuild)
+        {
+            try { Core.Install.InstallRegistry.RefreshDisplayVersion(Core.Updates.UpdateService.CurrentVersion.ToString(3)); }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException) { }
+        }
+
         // A single stray exception used to take the whole launcher down with
         // nothing to show for it. Route every unhandled failure through the
         // crash reporter (saved log + copy-paste dialog) instead.

@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Origin Setup — the custom installer (OriginLauncher-Setup.exe).
+
+    Targets .NET Framework 4.7.2, which ships inside every supported Windows
+    10/11, so the installer needs no runtime and stays ~1 MB before the
+    launcher payload is appended (tools/installer/pack_payload.py). The
+    launcher itself is .NET 8; nothing here references it — the few files
+    both need are LINKED from the launcher (theme, RAM rule, registry names)
+    so the two can never drift apart.
+
+    Build: dotnet build -c Release (Windows; CI's publish-launcher action
+    does it). The bare exe is useless on its own until the payload is
+    appended — it then runs as the uninstaller copy (no payload).
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>OriginSetup</AssemblyName>
+    <RootNamespace>OriginSetup</RootNamespace>
+    <ApplicationIcon>..\OriginLauncher.App\Assets\origin.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>Origin Launcher Setup</Product>
+    <Company>Will Henry</Company>
+    <Copyright>Will Henry</Copyright>
+    <Description>Origin Launcher Setup</Description>
+    <Version>1.0.0</Version>
+    <!-- One exe, nothing beside it: no .config, no .pdb next to the build. -->
+    <GenerateAppConfig>false</GenerateAppConfig>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <DebugType>embedded</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- The launcher's own theme, linked (not copied) so the installer looks
+       exactly like the launcher. Typography is the one exception — see
+       Theme/Typography.xaml. -->
+  <ItemGroup>
+    <Page Include="..\OriginLauncher.App\Theme\Colors.xaml" Link="Theme\Colors.xaml" />
+    <Page Include="..\OriginLauncher.App\Theme\Spacing.xaml" Link="Theme\Spacing.xaml" />
+    <Page Include="..\OriginLauncher.App\Theme\Buttons.xaml" Link="Theme\Buttons.xaml" />
+    <Page Include="..\OriginLauncher.App\Theme\Inputs.xaml" Link="Theme\Inputs.xaml" />
+    <Page Include="..\OriginLauncher.App\Theme\Brand.xaml" Link="Theme\Brand.xaml" />
+    <Page Include="..\OriginLauncher.App\Theme\Icons.xaml" Link="Theme\Icons.xaml" />
+    <Resource Include="..\..\tools\font-atlas\fonts\Monocraft.ttf" Link="Assets\Fonts\Monocraft.ttf" />
+    <Resource Include="..\OriginLauncher.App\Assets\origin.ico" Link="Assets\origin.ico" />
+    <EmbeddedResource Include="..\..\tools\font-atlas\fonts\Monocraft-LICENSE.txt" LogicalName="Monocraft-LICENSE.txt" />
+    <EmbeddedResource Include="..\mods\live-modules.json" LogicalName="live-modules.json" />
+  </ItemGroup>
+
+  <!-- Launcher code shared with the installer (written to compile on both). -->
+  <ItemGroup>
+    <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" Link="Shared\RamAdvice.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\SystemInfo.cs" Link="Shared\SystemInfo.cs" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.cs" Link="Shared\InstallRegistry.cs" />
+  </ItemGroup>
+</Project>
