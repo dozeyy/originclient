@@ -8,6 +8,9 @@ import net.minecraft.core.BlockPos;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -72,25 +75,41 @@ public final class Waypoints {
 		try {
 			Path f = file();
 			if (Files.exists(f)) {
-				Waypoint[] arr = GSON.fromJson(Files.readString(f), Waypoint[].class);
+				Waypoint[] arr = GSON.fromJson(Files.readString(f, StandardCharsets.UTF_8), Waypoint[].class);
 				if (arr != null) {
 					ALL.addAll(Arrays.asList(arr));
 				}
 			}
-		} catch (Exception ignored) {
-			// corrupt/missing file → start empty
+		} catch (Exception e) {
+			// Corrupt/unreadable data fails safe, but leave evidence in the log so
+			// a player's missing waypoint list can actually be diagnosed.
+			com.origin.client.OriginClient.LOGGER.warn("Could not load Origin waypoints", e);
 		}
 	}
 
 	public static synchronized void save() {
+		Path destination = file();
+		Path temp = destination.resolveSibling(destination.getFileName() + ".tmp");
 		try {
-			Files.writeString(file(), GSON.toJson(ALL));
-		} catch (Exception ignored) {
+			Files.createDirectories(destination.getParent());
+			Files.writeString(temp, GSON.toJson(ALL), StandardCharsets.UTF_8);
+			try {
+				Files.move(temp, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+			} catch (AtomicMoveNotSupportedException ignored) {
+				Files.move(temp, destination, StandardCopyOption.REPLACE_EXISTING);
+			}
+		} catch (Exception e) {
+			com.origin.client.OriginClient.LOGGER.warn("Could not save Origin waypoints", e);
+		} finally {
+			try {
+				Files.deleteIfExists(temp);
+			} catch (Exception ignored) {
+			}
 		}
 	}
 
 	/** Full create (from the create menu). Returns the new waypoint (already saved). */
-	public static Waypoint create(String name, int x, int y, int z, String dim, int color) {
+	public static synchronized Waypoint create(String name, int x, int y, int z, String dim, int color) {
 		ensureLoaded();
 		Waypoint w = new Waypoint();
 		w.name = name;
@@ -113,7 +132,7 @@ public final class Waypoints {
 	}
 
 	/** Next free "<base> N" name (N auto-increments past existing ones). */
-	public static String nextName(String base) {
+	public static synchronized String nextName(String base) {
 		ensureLoaded();
 		Set<String> names = new HashSet<>();
 		for (Waypoint w : ALL) {
@@ -126,7 +145,7 @@ public final class Waypoints {
 		return base + " " + n;
 	}
 
-	public static void remove(Waypoint w) {
+	public static synchronized void remove(Waypoint w) {
 		ensureLoaded();
 		ALL.remove(w);
 		save();
@@ -138,7 +157,7 @@ public final class Waypoints {
 	}
 
 	/** Death waypoint: a red, beam-on waypoint at the death spot. */
-	public static void onDeath(int x, int y, int z, String dim) {
+	public static synchronized void onDeath(int x, int y, int z, String dim) {
 		Waypoint w = create(nextName("Death"), x, y, z, dim, 0xFFE05555);
 		w.showBeam = true;
 		w.showText = true;

@@ -28,16 +28,50 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = Gui.class, priority = 2000)
 public class GuiHudMixin {
 
+	// Color Saturation: grade the finished WORLD frame before any HUD is drawn,
+	// so only world pixels are affected. HEAD of Gui.render is exactly that
+	// moment. Fail-soft inside ColorGrade itself, but guarded here too — a grade
+	// failure must never take the HUD down.
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$colorGrade(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+		try {
+			com.origin.client.client.render.ColorGrade.process(guiGraphics);
+		} catch (Throwable t) {
+			// never take the frame down over a colour grade
+		}
+	}
+
 	@Inject(method = "render", at = @At("RETURN"), order = 2000)
 	private void originclient$topHud(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		HudElements.renderAll(guiGraphics);
+
+		// Tab Editor's custom player-list overlay, drawn here (top of the HUD) on our
+		// own visibility schedule so it works even on a solo local server, where vanilla
+		// refuses to render it. Vanilla's own draw is suppressed by PlayerTabOverlayMixin,
+		// so there's never a double. Fail-soft — the HUD must never go down for this.
+		if (com.origin.client.client.OriginClientMod.tabListVisible) {
+			try {
+				net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+				var acc = (com.origin.client.client.mixin.PlayerTabOverlayAccessor) mc.gui.getTabList();
+				com.origin.client.client.hud.OriginTabList.render(guiGraphics, guiGraphics.guiWidth(),
+						acc.originclient$getPlayerInfos(), acc.originclient$getHeader(), acc.originclient$getFooter(),
+						com.origin.client.client.mods.Mods.on("tablist"));
+			} catch (Throwable ignored) {
+				// never take the HUD down over the tab overlay
+			}
+		}
 	}
 
-	// Color Saturation: grade the world at the HEAD of the HUD render — the world is
-	// fully drawn, the HUD and any open screen paint after this, so only the world is
-	// graded. Ported from the 1.21.11 baseline 2026-08-01.
-	@Inject(method = "render", at = @At("HEAD"))
-	private void originclient$colorGrade(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-		com.origin.client.client.render.ColorGrade.process(guiGraphics);
+	// Locator Bar. Drawn from the TAIL of the hotbar layer — the same layer vanilla
+	// draws the XP bar and its level number in — so the gems land over the bar
+	// sprite by plain call order. (Drawing from a later hook lets HUD batching
+	// reorder the sprite back over the gems; that was pixel-verified on 1.21.1.)
+	@Inject(method = "renderHotbarAndDecorations", at = @At("TAIL"))
+	private void originclient$locatorBar(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+		try {
+			com.origin.client.client.waypoints.WaypointHud.renderBars(guiGraphics);
+		} catch (Throwable t) {
+			// the locator bar must never take the HUD down
+		}
 	}
 }

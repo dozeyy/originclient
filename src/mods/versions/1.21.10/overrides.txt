@@ -34,3 +34,22 @@ client/java/com/origin/client/client/mods/ModOption.java
 # colour there without the matching buttons. Delete this line (and shared's old
 # values) once 1.20/1.20.2/1.20.4 ship the skin too.
 client/java/com/origin/client/client/theme/OriginTheme.java
+
+# DESIGN PORT (2026-10-11) — brought onto the 1.21.1 design (derived from the
+# 1.21.11 port with the rename wave mapped back). These exist in shared/ in
+# their pre-redesign form; 1.21.1 forks them and so does this module:
+#  - OriginWidgetOwnership: Mod Menu's pause-button subclass is skinned by Origin.
+#  - ShaderDownloader: hardened downloads (sanitized names, .part cleanup, length check).
+#  - lang/en_us.json: the three Waypoints keybind labels + the typed key-category
+#    label (OriginKeyBindings and GuiScoreboardMixin are already forked above).
+#  - OriginColorPicker: 1.21.1's draggable picker on this era's Matrix3x2fStack pose.
+#  - wordmark / mod_icons art: 1.21.1's Inter ExtraBold mark + Origin's own 24-grid
+#    icon set (mod_icons_sdf.png is not in shared/ at all).
+client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
+client/java/com/origin/client/client/shaders/ShaderDownloader.java
+client/resources/assets/originclient/lang/en_us.json
+client/java/com/origin/client/client/gui/OriginColorPicker.java
+client/resources/assets/originclient/textures/ui/wordmark.png
+client/resources/assets/originclient/textures/ui/wordmark.json
+client/resources/assets/originclient/textures/ui/mod_icons.png
+client/resources/assets/originclient/textures/ui/mod_icons.json

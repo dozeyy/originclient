@@ -72,3 +72,16 @@ client/java/com/origin/client/client/mixin/ParticleEngineMixin.java
 # binding nothing ("defaultRequire": 0) and printing a "Cannot remap
 # getFramerateLimit" warning on every build. Removed 2026-08-01.
 client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java
+
+# DESIGN PORT (2026-10-11) — brought onto the 1.21.1 design. These exist in
+# shared/ in their pre-redesign form; 1.21.1 forks them and so does this module:
+#  - OriginWidgetOwnership: Mod Menu's pause-button subclass is skinned by Origin.
+#  - ShaderDownloader: hardened downloads (sanitized names, .part cleanup, length check).
+#  - wordmark / mod_icons art: 1.21.1's Inter ExtraBold mark + Origin's own 24-grid
+#    icon set (mod_icons_sdf.png is not in shared/ at all).
+client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
+client/java/com/origin/client/client/shaders/ShaderDownloader.java
+client/resources/assets/originclient/textures/ui/wordmark.png
+client/resources/assets/originclient/textures/ui/wordmark.json
+client/resources/assets/originclient/textures/ui/mod_icons.png
+client/resources/assets/originclient/textures/ui/mod_icons.json

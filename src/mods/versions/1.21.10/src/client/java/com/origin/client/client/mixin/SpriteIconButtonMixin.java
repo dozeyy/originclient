@@ -8,30 +8,27 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Origin skin for the sprite-icon buttons — the Accessibility (person) and
-// Language (globe) buttons the 1.21.1 baseline keeps on the title screen.
+// Frost-style skin for the sprite-icon buttons -- the Accessibility (person) and
+// Language (globe) buttons on the title screen, plus any icon+text button.
 //
-// Era facts for THIS module, read off its own jar (an assumption cost a pass
-// here: the renderContents split does NOT happen at 1.21.6, it happens later):
-//   * SpriteIconButton.CenteredIcon overrides renderWidget, so that is the target
-//   * the `sprite` field is a WidgetSprites (resolve with .get(active, hovered))
-//   * blitSprite takes a RenderPipeline as its first argument
-// priority 2000: Origin's restyle wins over other UI mods.
+// PER-VERSION DELTA (1.21.10), read off this module's own jar (MEMORY.md
+// icon-button era table): CenteredIcon/TextAndIcon still override renderWidget
+// here (1.21.11 is the version that made it final and moved them to
+// renderContents), and the `sprite` field is a WidgetSprites bundle the renderer
+// resolves with .get(active, hoveredOrFocused). priority 2000: Origin's restyle
+// wins over other UI mods.
 @Mixin(value = {SpriteIconButton.CenteredIcon.class, SpriteIconButton.TextAndIcon.class}, priority = 2000)
 public abstract class SpriteIconButtonMixin {
 
 	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
 	private void originclient$originIcon(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		SpriteIconButton self = (SpriteIconButton) (Object) this;
+		// Icon geometry via the accessor on the declaring class (see
+		// SpriteIconButtonAccessor -- a @Shadow from these subclasses is rejected).
 		SpriteIconButtonAccessor acc = (SpriteIconButtonAccessor) (Object) this;
-		int iw = acc.originclient$spriteWidth();
-		int ih = acc.originclient$spriteHeight();
-		int ix = self.getX() + self.getWidth() / 2 - iw / 2;
-		int iy = self.getY() + self.getHeight() / 2 - ih / 2;
 		// Only cancel vanilla when Origin actually drew (fail-soft contract).
-		if (OriginButtonRenderer.renderIconButton(guiGraphics, self, iw, ih,
-				() -> guiGraphics.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
-						acc.originclient$sprite().get(self.active, self.isHoveredOrFocused()), ix, iy, iw, ih))) {
+		if (OriginButtonRenderer.renderIconButton(guiGraphics, self,
+				acc.originclient$sprite(), acc.originclient$spriteWidth(), acc.originclient$spriteHeight())) {
 			ci.cancel();
 		}
 	}

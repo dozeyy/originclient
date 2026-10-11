@@ -11,17 +11,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Scoreboard mod: read-only re-render — repositions and rescales the whole
-// sidebar around its right-center anchor. Never touches scoreboard data. push at
-// HEAD / pop at every RETURN so early exits can't unbalance the pose stack.
+// Scoreboard mod: read-only re-render — rescales the whole sidebar around
+// its right-center anchor. Never touches scoreboard data. push at HEAD /
+// pop at every RETURN so early exits can't unbalance the pose stack.
 // priority 2000: Origin's scoreboard rescale wins over other UI mods.
-//
-// FIXED 2026-07-26: this used to scale by Mods.num("scoreboard", "scale") — an
-// option that does not exist on this card. Mods.num() returns 0 for an unknown
-// key, so the sidebar was scaled to ZERO and vanished entirely the moment the
-// Scoreboard mod was switched on. Placement now comes from the scoreboard HUD
-// element's HudPos, matching 1.21.1, so dragging the sample in the HUD editor
-// moves the real sidebar.
+// 1.21.11: GuiGraphics.pose() is a Matrix3x2fStack (pushMatrix/popMatrix, 2-arg
+// float translate/scale) -- same maths as 1.21.1, different stack API.
 @Mixin(value = Gui.class, priority = 2000)
 public class GuiScoreboardMixin {
 
@@ -47,7 +42,11 @@ public class GuiScoreboardMixin {
 			pose.translate((float) (tx - vx), (float) (ty - vy));
 			float s = (float) p.scale;
 			if (s > 0.05f) {
-				float ax = guiGraphics.guiWidth(), ay = guiGraphics.guiHeight() / 2f;
+				// Pivot the scale about the board's OWN centre (in vanilla draw space),
+				// not the screen's right edge — otherwise a board dragged away from the
+				// right edge also slides sideways when scaled, landing off where the
+				// HUD-editor preview showed it. (Bug-audit #4.)
+				float ax = (float) (vx + sz[0] / 2.0), ay = (float) (vy + sz[1] / 2.0);
 				pose.translate(ax, ay);
 				pose.scale(s, s);
 				pose.translate(-ax, -ay);
@@ -60,11 +59,11 @@ public class GuiScoreboardMixin {
 		guiGraphics.pose().popMatrix();
 	}
 
-	// Background Color: vanilla fills the sidebar backgrounds itself, so the
-	// scoreboard's bgColor was a dead setting. Recolour every background fill in
-	// the sidebar to the mod's bgColor when it's on, so it behaves like every
-	// other HUD's Background Color. require = 0: if a future mapping renames or
-	// relocates the fill, this silently no-ops instead of crashing.
+	// Background Color (#8, universal — Will 2026-07-21): vanilla fills the sidebar
+	// backgrounds itself, so the scoreboard's bgColor was a dead setting. Recolor
+	// every background fill in the sidebar to the mod's bgColor when it's on, so it
+	// behaves like every other HUD's Background Color. require = 0: if a future
+	// mapping renames/relocates the fill, this silently no-ops instead of crashing.
 	@Redirect(method = "displayScoreboardSidebar",
 			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"),
 			require = 0)

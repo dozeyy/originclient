@@ -37,6 +37,20 @@ public final class OriginShaders {
 					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
 					.build());
 
+	/**
+	 * Single-channel SDF glyph pipeline for Origin's mod-icon atlas (ModIcons).
+	 * Added in the 2026-10 design port: the same Position+UV0+Color shape as MSDF
+	 * above, with a one-channel distance fragment shader (rendertype_origin_icon,
+	 * the 1.21.11 shader with this era's 5-member DynamicTransforms block).
+	 * ModIcons falls back to a LINEAR mask blit if this ever fails to load.
+	 */
+	public static final RenderPipeline ICON = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+					.withLocation(ResourceLocation.fromNamespaceAndPath("originclient", "pipeline/origin_icon"))
+					.withFragmentShader(ResourceLocation.fromNamespaceAndPath("originclient", "core/rendertype_origin_icon"))
+					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
+					.build());
+
 	/** Vector text is always attempted; OriginSdfFont.ready() gates whether the
 	 *  atlas + pipeline actually loaded, and every caller fails soft to vanilla. */
 	public static boolean enabled() {

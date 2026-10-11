@@ -20,13 +20,23 @@ import java.util.List;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
 
-// Shared Origin screen rendering, used by both the loading screen
-// (LoadingOverlayMixin) and the main menu (TitleScreenMixin): near-black
-// (#050505) background, the pre-rendered crisp orbital rings (mirroring the
-// launcher's OriginBackground), fine grain, and the "Origin" wordmark in the
-// website's Inter font (baked to a texture so it shows instantly and carries no
-// custom-glyph-rendering risk). Matches the original mockup
-// (tools/loading-screen/wordmark_preview.png).
+// Shared Origin screen rendering, used by the loading screen
+// (LoadingOverlayMixin), the main menu (TitleScreenMixin) and every out-of-world
+// menu (ScreenBackgroundMixin). The two surfaces deliberately differ:
+//
+//  - MENUS: the vanilla panorama, live-rotating, blurred, graded into Origin's
+//    Ion Jade palette (renderTitleBackground). No rings, grain, particles or
+//    cursor spotlight.
+//  - LOADING: still near-black + the pre-rendered orbital rings + grain +
+//    vignette + the progress bar, matching the original mock
+//    (tools/loading-screen/wordmark_preview.png). The panorama is NOT available
+//    this early — the cubemap's textures aren't loaded yet — so the ring
+//    background stays exactly where it belongs.
+//
+// 1.21.10: every textured draw is a RenderPipelines.GUI_TEXTURED blit carrying
+// its tint on the ARGB argument (no setShaderColor), the pose is a
+// Matrix3x2fStack, and the panorama/blur come from the engine's own
+// getPanorama().render(...) + blurBeforeThisStratum() (see renderTitleBackground).
 //
 // Textures load via the classloader (not the resource manager), so this is
 // safe during the earliest loading overlay while resources are still loading,
@@ -35,6 +45,10 @@ public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
+	// Ion Jade grade: the one jade highlight over the graded panorama is the radial
+	// glow tinted 0x4BC8AE at ~9% alpha (0x17). Carried on the per-blit ARGB tint
+	// because this era has no RenderSystem.setShaderColor.
+	private static final int GRADE_GLOW_TINT = 0x174BC8AE;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
@@ -44,11 +58,6 @@ public final class OriginScreenRenderer {
 	// must gate standalone suppressions on isActive(). This is the runtime
 	// half of the multi-version contract (see VERSIONS.md); the mixin
 	// configs' required:false is the load-time half.
-	// Origin's "Lighter grade" over the blurred panorama: charcoal at 55% alpha —
-	// mutes the world enough for white button labels to stay legible. Same value
-	// as the 1.21.1 baseline.
-	private static final int GRADE = 0x8C08080A;
-
 	private static volatile boolean broken = false;
 
 	private static volatile boolean loaded = false;
@@ -96,6 +105,8 @@ public final class OriginScreenRenderer {
 	// hovering a clickable. State is static: one cursor, one glow.
 	private static ResourceLocation radialGlowId;
 	private static final int RADIAL_TEX = 512;
+	// (the cursor-spotlight halo/hover state went with renderTitleCursorGlow --
+	// radialGlowId and drawRadial stay, the orbiting bodies still use them)
 
 	private record Ring(ResourceLocation texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {
@@ -177,10 +188,11 @@ public final class OriginScreenRenderer {
 		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
 		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
 
-		// Mono status caption below the bar (the "techy HUD" info layer) + the
-		// aerospace corner brackets on top of everything.
-		int captionY = barTop + barH + Math.max(8, (int) Math.round(h * 0.035));
-		drawCaption(guiGraphics, w / 2.0, captionY, elapsed);
+		// No text on this screen: it renders DURING the initial resource reload,
+		// before any font glyphs are baked, so font-drawn strings can only ever
+		// show missing-glyph boxes here (vanilla's overlay avoids text for the
+		// same reason). The animated wordmark + bar carry the scene — which is
+		// also the original mock's look. Corner brackets on top of everything.
 		drawCornerBrackets(guiGraphics, w, h);
 	}
 
@@ -284,9 +296,31 @@ public final class OriginScreenRenderer {
 	}
 
 	/**
-	 * Menu background: near-black + rotating rings + grain (behind vanilla's
-	 * logo/buttons). Returns true only if the Origin backdrop actually drew;
-	 * callers that cancel vanilla's own backdrop must key off this.
+	 * Menu background: the live-rotating vanilla panorama, blurred, under the
+	 * Origin Ion Jade grade (behind vanilla's logo/buttons). Returns true only
+	 * if the Origin backdrop actually drew; callers that cancel vanilla's own
+	 * backdrop must key off this.
+	 *
+	 * Ported from 1.21.1 (2026-07-26) so the main menu pans here too. This
+	 * replaced an 8-layer composite (flat fill + rings + grain + particles +
+	 * orbiting bodies + vignette + brackets); see 1.21.1's copy for the cost
+	 * note -- live rotation is deliberately the expensive option.
+	 *
+	 * Two era differences from 1.21.1, both because 1.21.10 renders the GUI
+	 * deferred rather than immediate:
+	 *   - the panorama comes from gameRenderer.getPanorama() (the shared
+	 *     instance vanilla itself spins) instead of a privately-built
+	 *     CubeMap/PanoramaRenderer pair, so spin state and the panoramaSpeed
+	 *     option stay consistent with vanilla. Its render() takes a
+	 *     "should spin" boolean and does its own delta timing -- 1.21.1's
+	 *     alpha + partialTick arguments are gone.
+	 *   - blur is guiGraphics.blurBeforeThisStratum(), which blurs everything
+	 *     queued before this point. 1.21.1's processBlurEffect +
+	 *     bindWrite(false) pair does not exist here and is NOT needed: nothing
+	 *     rebinds a framebuffer, so the widget pass after us is unaffected.
+	 * This mirrors vanilla's own Screen.renderBackground ordering exactly
+	 * (renderPanorama -> renderBlurredBackground), so the grade lands on top
+	 * of the blur rather than being blurred with it.
 	 */
 	public static boolean renderTitleBackground(GuiGraphics guiGraphics) {
 		if (broken) {
@@ -308,19 +342,44 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	public static void renderTitleCursorGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		// Retired (Will, 2026-08-02): the mouse-follow spotlight on the title
-		// screen. It was the website's two-layer cursor bloom ported over, and it
-		// never worked right on Minecraft's pixel grid -- the blur IS the effect,
-		// and blur doesn't exist at this resolution. Kept as an empty method
-		// rather than deleted: both call sites (ScreenBackgroundMixin's two
-		// mutually-exclusive paths, and TitleScreenMixin) stay wired for free,
-		// and the pairing between them is subtle enough to be worth leaving
-		// undisturbed. radialGlowId/RADIAL_TEX/drawRadial are NOT part of this --
-		// they're shared with the loading-screen orbiting bodies, which stay.
+	/**
+	 * The Origin grade over the blurred panorama. Alpha blends toward cool
+	 * mineral tones pull every channel together, so this darkens and mutes in
+	 * one pass (NOT a true desaturation -- that needs a post-process stage; the
+	 * world stays a quiet hint by design).
+	 */
+	private static void drawGrade(GuiGraphics guiGraphics, int w, int h) {
+		// Ion Jade grade: the world stays a quiet hint below cool mineral bands,
+		// followed by one restrained jade highlight and the edge vignette.
+		int a = 0xDC << 24;
+		int y1 = h * 40 / 100, y2 = h * 62 / 100;
+		guiGraphics.fillGradient(0, 0, w, y1, a | 0x0B1110, a | 0x0D1715);
+		guiGraphics.fillGradient(0, y1, w, y2, a | 0x0D1715, a | 0x091210);
+		guiGraphics.fillGradient(0, y2, w, h, a | 0x091210, a | 0x070B0B);
+		if (radialGlowId != null) {
+			int d = (int) Math.round(w * 1.1);
+			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, radialGlowId,
+					(int) Math.round(w * 0.70 - d / 2.0), (int) Math.round(h * 0.15 - d / 2.0),
+					0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, GRADE_GLOW_TINT);
+		}
+		drawVignette(guiGraphics, w, h);
 	}
 
-
+	/**
+	 * Main menu: the website's two-layer cursor spotlight, drawn over the ring
+	 * background but under the widgets/wordmark.
+	 */
+	public static void renderTitleCursorGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
+		// Retired here to match 1.21.1 -- deliberately empty.
+		//
+		// This was a two-layer mouse-follow spotlight ported from the website: a
+		// soft radial bloom trailing the cursor. It's the one effect that cannot
+		// exist on Minecraft's pixel grid at any size, because the blur IS the
+		// effect. Kept as an empty method rather than deleted: both call sites are
+		// ScreenBackgroundMixin's two mutually-exclusive paths (cancelled-HEAD for
+		// out-of-world menus, TAIL for in-world), and that pairing is subtle enough
+		// to be worth leaving undisturbed.
+	}
 
 	private static void drawRadial(GuiGraphics guiGraphics, double cx, double cy, double diameter, double alpha) {
 		int d = Math.max(2, (int) Math.round(diameter));
@@ -328,11 +387,15 @@ public final class OriginScreenRenderer {
 				0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, ARGB.white((float) alpha));
 	}
 
-	/**
-	 * Main menu: draw the "ORIGIN" wordmark centered between the top of the
-	 * screen and the Singleplayer button. Returns true only if it drew;
-	 * the title logo redirect falls back to vanilla's logo on false.
-	 */
+	/** Main menu: the approved Origin atom above the compact action stack. */
+	// When the title screen was (re)opened — drives the mark's entrance (scale +
+	// fade in). Set by TitleScreenMixin; 0 = no animation (draw the settled mark).
+	private static volatile long titleOpenedAt = 0;
+
+	public static void setTitleOpenedAt(long millis) {
+		titleOpenedAt = millis;
+	}
+
 	public static boolean renderTitleWordmark(GuiGraphics guiGraphics) {
 		if (broken) {
 			return false;
@@ -342,15 +405,12 @@ public final class OriginScreenRenderer {
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
-
-			int singleplayerTop = h / 4 + 48;        // vanilla TitleScreen first-button Y
-			double centerY = singleplayerTop / 2.0;  // midpoint between top of screen and that button
-			double inkH = fitInkHeight(h * 0.13, w, 0.82); // same size as the loading screen
-			// Breathing glow: a faint, slightly-larger extra pass whose alpha
-			// swells on a slow sine, so the bloom pulses under the crisp mark.
-			double pulse = 0.5 - 0.5 * Math.cos(System.currentTimeMillis() / BREATH_MS * 2.0 * Math.PI);
-			drawWordmarkGlow(guiGraphics, w / 2.0, centerY, inkH, 1.06, (float) (0.05 + 0.10 * pulse));
-			drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
+			TitleLayout L = TitleLayout.of(w, h);
+			long el = titleOpenedAt > 0 ? System.currentTimeMillis() - titleOpenedAt : Long.MAX_VALUE;
+			double t = el == Long.MAX_VALUE ? 1.0
+					: OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, (el - 40.0) / 420.0)));
+			int size = Math.max(1, (int) Math.round(L.markSize * (0.88 + 0.12 * t)));
+			OriginUi.logo(guiGraphics, L.markCenterX, L.markCenterY, size, (float) t);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -423,16 +483,19 @@ public final class OriginScreenRenderer {
 			int x = Math.max(10, (int) Math.round(w * 0.03));
 			int y = x;
 
-			// No background behind the head/username (Will 2026-07-21, ported from
-			// the 1.21.1 baseline 2026-08-01): the chip's translucent backing is
-			// removed so the head sits directly on the panorama. The username keeps
-			// its text shadow (below) so it stays legible without a panel.
-
+			// No background behind the head/username (Will 2026-07-21): the chip's
+			// translucent backing is removed so the head sits directly on the menu.
+			// The username keeps a text shadow (below) so it stays legible over the
+			// panorama without a panel. Brought in line with 1.21.1 on 2026-07-26 —
+			// this module still had the old backed version.
 			int hx = x + padX, hy = y + padY;
 			boolean drewHead = false;
 			try {
-				com.mojang.authlib.GameProfile profile = new com.mojang.authlib.GameProfile(user.getProfileId(), name);
-				// 1.21.11: getInsecureSkin -> createLookup supplier (secure=false).
+				// Minecraft's resolved profile carries the signed `textures` property.
+				// Rebuilding a GameProfile from only UUID + name discards it, so
+				// SkinManager could only ever return the generated default head.
+				com.mojang.authlib.GameProfile profile = mc.getGameProfile();
+				// 1.21.10: getInsecureSkin -> createLookup supplier (secure=false).
 				net.minecraft.world.entity.player.PlayerSkin skin = mc.getSkinManager().createLookup(profile, false).get();
 				net.minecraft.client.gui.components.PlayerFaceRenderer.draw(guiGraphics, skin, hx, hy, head);
 				drewHead = true;
@@ -443,8 +506,8 @@ public final class OriginScreenRenderer {
 				OriginUi.logo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
 			}
 
-			guiGraphics.drawString(font, name, hx + head + gap,
-					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, false);
+			com.origin.client.client.gui.OriginText.drawBold(guiGraphics, font, name, hx + head + gap,
+					y + (chipH - 8) / 2, OriginTheme.TEXT, true);
 		} catch (Throwable t) {
 			fail(t);
 		}
@@ -680,34 +743,6 @@ public final class OriginScreenRenderer {
 		pose.popMatrix();
 	}
 
-	/**
-	 * Mono status caption ("LOADING" + cycling dots) below the progress bar —
-	 * the small information layer that keeps the scene from reading empty. Muted
-	 * tone, manual letter-tracking for the techy look, three dot slots reserved
-	 * so the word never shifts as the dots animate.
-	 */
-	private static void drawCaption(GuiGraphics guiGraphics, double cx, int y, long elapsedMs) {
-		Font font = Minecraft.getInstance().font;
-		String base = "LOADING";
-		int tracking = 2;
-		int dots = (int) ((elapsedMs / 400L) % 4L);
-		int dotW = font.width(".") + tracking;
-		int textW = 0;
-		for (int i = 0; i < base.length(); i++) {
-			textW += font.width(String.valueOf(base.charAt(i))) + tracking;
-		}
-		double penX = cx - (textW + 3 * dotW) / 2.0;
-		for (int i = 0; i < base.length(); i++) {
-			String ch = String.valueOf(base.charAt(i));
-			guiGraphics.drawString(font, ch, (int) Math.round(penX), y, OriginTheme.MUTED, false);
-			penX += font.width(ch) + tracking;
-		}
-		for (int i = 0; i < dots; i++) {
-			guiGraphics.drawString(font, ".", (int) Math.round(penX), y, OriginTheme.MUTED, false);
-			penX += dotW;
-		}
-	}
-
 	/** Draws the wordmark with its ink box centered on (inkCenterX, inkCenterY), ink scaled to targetInkHeight. Returns ink bottom (screen Y). */
 	private static int drawWordmark(GuiGraphics guiGraphics, double inkCenterX, double inkCenterY, double targetInkHeight) {
 		if (wordmarkId != null) {
@@ -866,11 +901,8 @@ public final class OriginScreenRenderer {
 			image = NativeImage.read(in);
 		}
 		ResourceLocation id = ResourceLocation.fromNamespaceAndPath("originclient", name);
-		// 1.21.11: DynamicTexture lost setFilter — filtering now rides the texture's
-		// GpuSampler. GUI_TEXTURED's default samples NEAREST (choppy icons/font), so
-		// bind a LINEAR clamp sampler to match the smooth pre-1.21.6 look.
 		DynamicTexture texture = new DynamicTexture(() -> "originclient:" + name, image);
-		texture.setFilter(true, false); // GL_LINEAR smoothing (1.21.10 still has setFilter; gone at 1.21.11)
+		texture.setFilter(true, false); // GL_LINEAR (1.21.10 still has setFilter; gone at 1.21.11)
 		mc.getTextureManager().register(id, texture);
 		return id;
 	}
@@ -881,9 +913,5 @@ public final class OriginScreenRenderer {
 			throw new java.io.FileNotFoundException("Missing Origin asset: " + classpathResource);
 		}
 		return in;
-	}
-
-	private static void drawGrade(GuiGraphics guiGraphics, int w, int h) {
-		guiGraphics.fill(0, 0, w, h, GRADE);
 	}
 }

@@ -40,9 +40,27 @@ public class OriginClientMod implements ClientModInitializer {
 	public static volatile boolean zoomToggled = false;
 	public static volatile boolean zoomActive = false;
 	public static volatile double zoomScrollFactor = 1.0;
+	// Edge-trigger for death waypoints: true while the player is alive, so a death
+	// drops exactly one waypoint on the alive→dead transition.
+	private boolean wasAlive = false;
 	// Nametag toggle latches, read by EntityNametagMixin.
 	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
+	// Whether the Tab Editor's custom player-list overlay should draw this frame. Set
+	// each tick; read by GuiHudMixin. We drive our own visibility (not vanilla's,
+	// which refuses to show the list on a solo local server) so it also previews in
+	// single-player and never double-draws with vanilla (PlayerTabOverlayMixin cancels).
+	//
+	// 1.21.10 FIX (2026-10-11): PlayerTabOverlayMixin already cancelled vanilla's
+	// list here, but nothing drew Origin's -- the player list never showed at all.
+	// This flag + GuiHudMixin's overlay draw are the missing half.
+	public static volatile boolean tabListVisible = false;
 	private boolean nametagAllKeyWasDown = false, nametagPlayerKeyWasDown = false;
+	// Tab Editor: sticky tap-vs-hold state + two-way keybind sync bookkeeping.
+	private boolean tabKeyWasDown = false;
+	private boolean tabStickyOn = false;
+	private long tabPressAt = 0;
+	private boolean tabSyncInit = false;
+	private int lastOurTabKey = -1, lastMcTabKey = -1;
 	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
 	private boolean zoomSensApplied = false;
 	private double savedSensitivity = 0.5;
@@ -112,6 +130,11 @@ public class OriginClientMod implements ClientModInitializer {
 				ChunkBorderRenderer.render(context);
 			} catch (Throwable t) {
 				// overlay must never take the frame down
+			}
+			try {
+				com.origin.client.client.waypoints.WaypointRenderer.render(context);
+			} catch (Throwable t) {
+				// waypoints must never take the frame down
 			}
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
@@ -229,6 +252,32 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 
+		// Waypoints — three activation paths (in addition to the mod-card ENABLED
+		// toggle and the in-menu toggle in WaypointScreen).
+		while (OriginKeyBindings.waypointToggle.consumeClick()) {
+			Mods.setOn("waypoints", !Mods.on("waypoints"));
+		}
+		while (OriginKeyBindings.waypointMenu.consumeClick()) {
+			if (client.screen == null) {
+				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+			}
+		}
+		while (OriginKeyBindings.waypointCreate.consumeClick()) {
+			// Opens the Waypoints screen straight into a fresh Create form.
+			if (client.screen == null) {
+				client.setScreen(new com.origin.client.client.waypoints.WaypointScreen(true));
+			}
+		}
+		// Death waypoint: drop one on the alive→dead transition (edge-triggered).
+		LocalPlayer wp = client.player;
+		boolean dead = wp != null && (wp.isDeadOrDying() || wp.getHealth() <= 0f);
+		if (dead && wasAlive && Mods.on("waypoints") && Mods.bool("waypoints", "deathWaypoints")) {
+			var bp = wp.blockPosition();
+			com.origin.client.client.waypoints.Waypoints.onDeath(bp.getX(), bp.getY(), bp.getZ(),
+					com.origin.client.client.waypoints.Waypoints.currentDim());
+		}
+		wasAlive = wp != null && !dead;
+
 		applyChat(client);
 		applyHitboxes(client);
 		applyWeather(client);
@@ -296,6 +345,61 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		}
 		nametagPlayerKeyWasDown = npDown;
+
+		// Tab list — Origin drives visibility itself so it shows even on a solo local
+		// server (vanilla refuses to). Holding the Player List key always shows it;
+		// the Tab Editor mod adds sticky tap-to-lock + two-way keybind sync on top.
+		int mcTab = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+				.getBoundKeyOf(client.options.keyPlayerList).getValue();
+		boolean rawTab = client.screen == null && isRawKeyDown(mcTab);
+		if (Mods.on("tablist")) {
+			int ourTab = Mods.keyCode("tablist", "tabKey");
+			if (!tabSyncInit) {
+				// On first tick, adopt Minecraft's Player List binding as the source
+				// of truth so the two always start in agreement.
+				tabSyncInit = true;
+				if (ourTab != mcTab) {
+					Mods.set("tablist", "tabKey", mcTab);
+					ourTab = mcTab;
+				}
+			} else if (ourTab != lastOurTabKey && ourTab != mcTab) {
+				// Rebound in the Origin menu → push to Minecraft's controls.
+				// Build the Key from the raw GLFW code via Type.KEYSYM (1.21.11 removed
+				// InputConstants.getKey(int,int); KEYSYM.getOrCreate exists on every era,
+				// and OriginModMenuScreen's keyName() helper already uses it).
+				client.options.keyPlayerList.setKey(
+						com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(ourTab));
+				net.minecraft.client.KeyMapping.resetMapping();
+				client.options.save();
+				mcTab = ourTab;
+			} else if (mcTab != lastMcTabKey && mcTab != ourTab) {
+				// Rebound in Minecraft's controls → pull into the Origin option.
+				Mods.set("tablist", "tabKey", mcTab);
+				ourTab = mcTab;
+			}
+			lastOurTabKey = ourTab;
+			lastMcTabKey = mcTab;
+
+			long now = System.currentTimeMillis();
+			if (rawTab && !tabKeyWasDown) {
+				tabPressAt = now;
+			}
+			if (!rawTab && tabKeyWasDown) {
+				// Quick tap → toggle the sticky lock; a longer hold-then-release just
+				// ends the vanilla peek (sticky stays off).
+				if (Mods.bool("tablist", "stickyToggle") && (now - tabPressAt) < 200) {
+					tabStickyOn = !tabStickyOn;
+				} else {
+					tabStickyOn = false;
+				}
+			}
+		} else {
+			tabStickyOn = false;
+			tabSyncInit = false;
+		}
+		tabKeyWasDown = rawTab;
+		// Held → always visible (even solo / mod off); sticky lock only with the mod on.
+		tabListVisible = rawTab || (Mods.on("tablist") && tabStickyOn);
 
 		// Toggle Zoom: in toggle mode the key latches instead of holding. The
 		// FOV easing itself lives in GameRendererMixin (frame-side); here we only
