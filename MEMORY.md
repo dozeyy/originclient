@@ -5,6 +5,49 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-10-11 — Website rebuilt: island in the sky + scroll-through download journey
+
+- Will's brief: professional + fun, 3D, "nothing should look different than in
+  the game", real assets only, and an *optional* scroll-through "download
+  journey" (or just press Download at the top). Download stays "coming soon":
+  flip `DOWNLOAD.live` in `website/js/site.js` on release day (one line).
+- Shape (final, Will 2026-10-11): hero → versions grid (the 20 live versions,
+  grouped like VersionCatalog) → Shaders section → "Ready when you are" download.
+  Scrolling only moves the camera between scene poses.
+- REMOVED at Will's call, don't re-add without asking: the pinned scroll-through
+  Install (Origin Setup window replica) + Launch (launcher Home replica)
+  chapters ("takes too long"), and an in-game "Play" chapter (loading screen,
+  title screen, HUD, Right Shift menu) ("looks trash"). The site is the island
+  in the sky, not product replicas.
+- 3D (`website/js/world.js`, three.js 0.170.0 vendored): a floating island
+  meshed from vanilla 1.21.1 block textures with Minecraft's face shading
+  (1/.8/.6/.5) + smooth-lighting corner AO; top layer is all grass (Will).
+  Origin's three rings orbit it (island = the mark's nucleus), billboarded so
+  it always reads as the logo, sized from the island's bounding sphere so a
+  ring can never cut through a block. Each ring carries an orb (core + halo +
+  fading comet tail) that is a jade point light on the island in shaders mode.
+  Water textures use RepeatWrapping (clamped scrolling UVs drew lines).
+  Camera eases between named poses per scroll scene.
+- **Shaders are ON for the whole experience** (Will, 2026-10-11): golden-hour
+  sky + warm sun shader by default; the Shaders switch lets players compare
+  against plain Minecraft.
+- **Textures = default Minecraft Java textures** (Will overrode the earlier
+  "no Mojang textures" plan: "use default minecraft textures"). Source:
+  `tools/website/build_assets.py` reads them from the official 1.21.1 client
+  jar (`--client-jar`) or a pinned verbatim mirror (InventivetalentDev/
+  minecraft-assets@aef047f — cross-checked byte-identical to misode/mcmeta's
+  1.21.1 assets, 1,721/1,721 PNGs). Footer credits Mojang; not-affiliated line kept.
+- Built then REMOVED at Will's call ("remove step 3 it looks trash"): a full
+  in-game "Play" chapter (Origin loading screen, title screen over the real
+  panorama, live HUD with keystrokes/CPS/coords, working Right Shift menu,
+  first-person walking). Don't re-add without asking.
+- Sandbox gotchas: Mojang hosts are proxy-blocked (use the mirror); a relative
+  `url()` inside a CSS custom property resolves against the *stylesheet* in
+  Chrome (icons are set to absolute URLs from JS); an SVG `<symbol id="play">`
+  collided with the `#play` section — ids are global.
+- QA: Playwright-core + /opt/pw-browsers chromium with SwiftShader WebGL,
+  desktop 1440x900 + phone 390x844 screenshots across every scene; no console errors.
+
 ## 2026-10-11 — Custom Origin installer replaces Inno Setup
 
 Will: first-time install should be "a fully custom experience, interactive and
