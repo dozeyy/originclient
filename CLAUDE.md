@@ -192,8 +192,8 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-10)
-- **Latest release: `launcher-v1.0.39`** (mandatory auto-update; tag flow).
-- **Every live version on the 1.21.1 design (2026-10-11, not yet released):** all 16
+- **Latest release: `launcher-v1.0.40`** (mandatory auto-update; tag flow).
+- **Every live version on the 1.21.1 design (released 2026-10-11, launcher-v1.0.40):** all 16
   modules ported to the 1.21.1 title screen, menus, widget skin, mod menu and mod set,
   CI-compiled, awaiting Will's in-game pass. Differences by necessity: no JEI card on
   1.21.2-1.21.8 / 1.17.1 / 1.16.5, no Color Saturation on 1.16.5. Detail in MEMORY.md;
@@ -201,7 +201,7 @@ floating corner controls. In-game menus match this exactly.
 - **Custom installer (2026-10-11):** Inno Setup replaced by Origin Setup —
   themed Welcome/Customize/Installing/Done + uninstaller, smoke-tested
   (silent install/uninstall) and screen-rendered on every CI run. Not yet
-  run by hand on a real PC — first real look is the next release's setup.exe.
+  run by hand on a real PC — first shipped in launcher-v1.0.40.
 - **Release pipeline rebuilt 2026-10-10:** mod versions build in parallel on
   Linux (build-check ~2.5 min, release ~5-6 min, was 12-40); real release
   notes; GitHub labels + PR auto-labels; update download shows a full-screen
@@ -235,7 +235,7 @@ floating corner controls. In-game menus match this exactly.
   launcher bundle their jars. The legacy pair went live 2026-07-14 on Forge +
   OptiFine; with them gone the lineup is Fabric-only again and the legacy
   install path is unreachable (kept, not deleted — see VERSIONS.md).
-- Launcher shipping via tag flow (latest launcher-v1.0.39; auto-update).
+- Launcher shipping via tag flow (latest launcher-v1.0.40; auto-update).
   Auth chain: MSA→Xbox→XSTS confirmed; Minecraft `login_with_xbox` returns 403
   (leading theory: new-app-registration propagation) — `OfflineTestMode` in
   Settings→Developer is the test path until resolved.
