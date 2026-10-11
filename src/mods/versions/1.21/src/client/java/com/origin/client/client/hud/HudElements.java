@@ -42,6 +42,10 @@ public final class HudElements {
 	// edge and would stick out past the centered menu panel, so it's suppressed
 	// there (the menu is in front of everything). The HUD editor leaves it false.
 	public static volatile boolean suppressScoreboard = false;
+	/** True only while vanilla's scoreboard sidebar runs its drawManaged block
+	 *  (set/cleared around that one call by GuiScoreboardMixin); GuiGraphicsFillMixin
+	 *  then recolours the sidebar's background fills to the Scoreboard mod's bgColor. */
+	public static boolean sidebarBgActive = false;
 
 	public interface Renderer {
 		void render(GuiGraphics g, Minecraft mc, int w, int h);

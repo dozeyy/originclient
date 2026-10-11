@@ -36,6 +36,7 @@
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
+		"GuiGraphicsFillMixin",
 		"GameRendererAccessor",
 		"MinecraftFramerateMixin",
 		"ToastComponentMixin",

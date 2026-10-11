@@ -42,6 +42,7 @@
 		"ChatTimestampMixin",
 		"GuiEffectsMixin",
 		"GuiScoreboardMixin",
+		"GuiGraphicsFillMixin",
 		"GameRendererAccessor",
 		"PostChainAccessor",
 		"MinecraftFramerateMixin",

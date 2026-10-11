@@ -1,6 +1,5 @@
 package com.origin.client.client.mixin;
 
-import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
@@ -8,7 +7,6 @@ import net.minecraft.world.scores.Objective;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Scoreboard mod: read-only re-render — rescales the whole sidebar around
@@ -58,17 +56,25 @@ public class GuiScoreboardMixin {
 	}
 
 	// Background Color (#8, universal — Will 2026-07-21): vanilla fills the sidebar
-	// backgrounds itself, so the scoreboard's bgColor was a dead setting. Recolor
-	// every background fill in the sidebar to the mod's bgColor when it's on, so it
-	// behaves like every other HUD's Background Color. require = 0: if a future
-	// mapping renames/relocates the fill, this silently no-ops instead of crashing.
-	@Redirect(method = "displayScoreboardSidebar",
-			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"),
-			require = 0)
-	private void originclient$scoreboardBg(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
-		if (Mods.on("scoreboard")) {
-			color = OriginColorPicker.liveColor("scoreboard", "bgColor");
-		}
-		g.fill(x1, y1, x2, y2, color);
+	// backgrounds itself, so the scoreboard's bgColor was a dead setting.
+	//
+	// 1.20.3+ shape: the sidebar's fills sit inside a GuiGraphics.drawManaged(() -> ...)
+	// LAMBDA, i.e. a separate synthetic method, so a @Redirect of fill() scoped to
+	// displayScoreboardSidebar matches nothing (it silently no-op'd here -- the
+	// 1.20/1.20.2 Redirect only works because their fills are inline). Instead the
+	// flag below is raised for exactly the duration of that drawManaged call, and
+	// GuiGraphicsFillMixin recolours fill(IIIII) while it is up. The sidebar's only
+	// fill() calls are its two background bands, so nothing else is touched.
+	@Inject(method = "displayScoreboardSidebar",
+			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;drawManaged(Ljava/lang/Runnable;)V"))
+	private void originclient$sidebarBgOn(GuiGraphics guiGraphics, Objective objective, CallbackInfo ci) {
+		com.origin.client.client.hud.HudElements.sidebarBgActive = Mods.on("scoreboard");
+	}
+
+	@Inject(method = "displayScoreboardSidebar",
+			at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;drawManaged(Ljava/lang/Runnable;)V",
+					shift = At.Shift.AFTER))
+	private void originclient$sidebarBgOff(GuiGraphics guiGraphics, Objective objective, CallbackInfo ci) {
+		com.origin.client.client.hud.HudElements.sidebarBgActive = false;
 	}
 }
