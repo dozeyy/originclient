@@ -61,5 +61,27 @@ public final class ServerMods {
 				// fail-soft
 			}
 		});
+
+		registerLunarBedwars();
+	}
+
+	// Hypixel Bed Wars (Lunar parity): its own listeners, registered after the
+	// ones above so Hypixel.tick has already refreshed onHypixel / inBedwars when
+	// HypixelBedwars.tick reads them.
+	private static void registerLunarBedwars() {
+		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+			try {
+				HypixelBedwars.tick(mc);
+			} catch (Throwable t) {
+				// fail-soft
+			}
+		});
+		ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+			try {
+				HypixelBedwars.onMessage(message, overlay);
+			} catch (Throwable t) {
+				// fail-soft
+			}
+		});
 	}
 }
