@@ -202,7 +202,7 @@ final class MinimapScreen extends Screen {
 			x += d.textMid("Z", x, y + 16, 11, true, CAPS_TRACK, MUTE) + 8;
 			d.textMid(zs, x, y + 16, 13, true, 0, TEXT);
 		}
-		String hint = "Scroll to zoom  ·  Drag to move  ·  Right-click to re-centre";
+		String hint = "Scroll to zoom  •  Drag to move  •  Right-click to re-centre";
 		d.textRight(hint, dw - M, y + 16, 12, false, 0, MUTE);
 	}
 

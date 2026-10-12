@@ -102,7 +102,7 @@ public class ItemCounterPickerScreen extends OriginItemGridScreen {
 
 		float chipX0 = x + 132;
 		if (p.isEmpty()) {
-			d.textMid("Nothing yet — click items above.", chipX0, y + h / 2, 13, false, 0, MUTE);
+			d.textMid("Nothing yet. Click items above.", chipX0, y + h / 2, 13, false, 0, MUTE);
 			return;
 		}
 		// how many chips fit before the Clear button (leaving room for "+N")

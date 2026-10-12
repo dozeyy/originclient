@@ -24,10 +24,6 @@ public class OriginItemSizeScreen extends OriginItemGridScreen {
 
 	public OriginItemSizeScreen() {
 		this(new OriginModMenuScreen());
-		// TEMP (dev-shots check of the size bar; reverted next commit)
-		if (System.getenv("ORIGIN_SHOTS") != null) {
-			selected = ResourceLocation.withDefaultNamespace("diamond_sword");
-		}
 	}
 
 	public OriginItemSizeScreen(Screen returnTo) {

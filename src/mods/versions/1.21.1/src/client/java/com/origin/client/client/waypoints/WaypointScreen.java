@@ -28,6 +28,8 @@ import static com.origin.client.client.gui.OriginDeck.*;
 // NOT in the list and NOT rendered in-world; it only becomes real when the
 // player clicks Done. Esc (or closing, or Cancel) discards an uncommitted draft.
 //
+// Separators are "•": the MSDF Inter atlas has no "·" or "—" glyph.
+//
 // Layout (design px, see OriginWindow):
 //   header   waypoints icon, "Waypoints", count | [Cancel] Create / Done  [x]
 //   toolbar  the mod's global switches: Death waypoints, Locator bar, Separate bar
@@ -79,20 +81,6 @@ public class WaypointScreen extends OriginWindow {
 
 	public WaypointScreen() {
 		this(false);
-		// TEMP (dev-shots check of the restyle; reverted next commit): samples + editor open
-		if (System.getenv("ORIGIN_SHOTS") != null) {
-			if (Waypoints.all().isEmpty()) {
-				Waypoints.create("Home base", 120, 64, -340, "minecraft:overworld", 0xFF5FD09B);
-				Waypoints.create("Nether portal", 88, 70, -301, "minecraft:overworld", 0xFFB06CF0);
-				Waypoints.Waypoint a = Waypoints.create("Diamond cave", -812, -54, 1290, "minecraft:overworld", 0xFF57C7E8);
-				a.group = "Mining";
-				Waypoints.Waypoint b = Waypoints.create("Ancient debris", 40, 15, -38, "minecraft:the_nether", 0xFFE9C46A);
-				b.group = "Mining";
-				b.enabled = false;
-				Waypoints.save();
-			}
-			this.openToCreate = true;
-		}
 	}
 
 	/** Opens the manager; if startCreating, opens the editor on a fresh DRAFT
@@ -319,11 +307,11 @@ public class WaypointScreen extends OriginWindow {
 	@Override
 	protected String subheading() {
 		if (editing != null && isNew) {
-			return "New waypoint · Done adds it, Esc discards it";
+			return "New waypoint • Done adds it, Esc discards it";
 		}
 		if (editing != null) {
 			String n = editing.name.length() > 24 ? editing.name.substring(0, 23) + "…" : editing.name;
-			return "Editing " + n + " · changes save as you go";
+			return "Editing " + n + " • changes save as you go";
 		}
 		int total = Waypoints.all().size();
 		return total == 0 ? "No waypoints yet" : total + (total == 1 ? " waypoint" : " waypoints");
@@ -486,7 +474,7 @@ public class WaypointScreen extends OriginWindow {
 		d.rect(x + 14, y + ROW_H / 2 - 6, 12, 12, 3, wp.color | 0xFF000000, 0x40FFFFFF);
 		float textMax = w - 38 - 12 - 36 - 12 - 28 - 8;
 		d.textMid(d.fit(wp.name, textMax, 13.5f, true, 0), x + 38, y + 16, 13.5f, true, 0, wp.enabled ? TEXT : DIM);
-		String sub = wp.x + ", " + wp.y + ", " + wp.z + "  ·  " + dimDisplay(wp.dimension);
+		String sub = wp.x + ", " + wp.y + ", " + wp.z + "  •  " + dimDisplay(wp.dimension);
 		d.textMid(d.fit(sub, textMax, 11.5f, false, 0), x + 38, y + 31, 11.5f, false, 0, MUTE);
 
 		// trash (far right), then the on/off switch to its left
