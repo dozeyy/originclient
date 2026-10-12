@@ -6,6 +6,23 @@ every session — read at session start alongside `./CLAUDE.md`.
 ---
 
 
+## 2026-10-12 — v1.0.46 released; Will's fix round on all 16 versions (13 agents)
+
+- v1.0.46 (#26 squash) released. Will's first tag hit an unpushed local commit (0b146ab) -> release run
+  cancelled before publishing; re-tagged origin/main. Give tag commands as `git tag X origin/main`.
+- Fix round (Will's list after testing v1.0.46): 7 parallel agents on 1.21.1 (+ icons and the Color Saturation
+  bug on every affected version), then 6 era agents ported to the other 15. Coordination that worked: one rules
+  file (scratchpad agent-rules.md), path-scoped commits only, a dev-shots `label` per agent so runs never
+  overwrite/cancel each other, gui/OriginWindow written first so restyles share one frame. Hiccup: a
+  `git commit -- <shared docs file>` carries another agent's uncommitted lines of that file (harmless here).
+- Color Saturation root cause (1.17.1-1.20.4): the opaque grade shader left BlendMode's static lastApplied =
+  opaque; the vignette's position_tex then "flipped" to translucent and reset blendFunc, so the opaque vignette
+  texture was pasted over the world (black in daylight, white ring when dim). Fix: re-apply a translucent
+  BlendMode after the grade. Iris hides it. 1.20.5+ has no per-shader BlendMode.
+- 1.19.3's pause menu never had the Cosmetics button (GridWidget container) — fixed in the port.
+- Open for Will: TNT Countdown icon redrawn as an even 3-ray burst (design call); real-account skin in the
+  title-screen Cosmetics preview only provable on his account; FPS Coach result/testing faces need a real test.
+
 ## 2026-10-12 — Cosmetics + every 1.21.1-only mod ported to all 16 versions
 
 Will: "add the cosmetics to any version also port all the mods for every version". Ported from
