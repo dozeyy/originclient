@@ -99,6 +99,148 @@ public final class OriginUi {
 	}
 
 	/**
+	 * A rounded rect at an EXACT radius -- no Workbench radius normalisation.
+	 * Used by OriginDeck (the 2026-10 menu redesign), which draws in physical
+	 * pixels and sizes every corner itself. 1.21.1 draws this as a rounded-box
+	 * SDF quad; fixed-function 1.16.5 has no shader, so it is the software path
+	 * with a FLOAT radius: the box edges are whole pixels (OriginDeck snaps them),
+	 * the interior is a few bulk quads, and only the corner squares are shaded
+	 * per pixel by their exact coverage of the rounded shape. Everything goes out
+	 * as ONE fixed-function quad batch (aaLine's state), not a fill per run.
+	 * `border` (if any) is a 1px ring just inside the edge, drawn OVER the fill
+	 * -- a translucent border composites onto the fill, as the mock's do.
+	 */
+	public static void roundRect(Gfx g, float x, float y, float w, float h, float r, int fill, int border) {
+		int x0 = Math.round(x), y0 = Math.round(y);
+		int wi = Math.round(x + w) - x0, hi = Math.round(y + h) - y0;
+		if (wi <= 0 || hi <= 0) {
+			return;
+		}
+		boolean hasFill = ((fill >>> 24) & 0xFF) > 0, hasBorder = ((border >>> 24) & 0xFF) > 0;
+		if (!hasFill && !hasBorder) {
+			return;
+		}
+		float rad = Math.max(0f, Math.min(r, Math.min(wi, hi) / 2f));
+		Matrix4f m = g.pose().last().pose();
+		RenderSystem.disableTexture();
+		RenderSystem.enableBlend();
+		RenderSystem.disableAlphaTest();
+		RenderSystem.defaultBlendFunc();
+		BufferBuilder buf = Tesselator.getInstance().getBuilder();
+		// 1.16.5 BufferBuilder.begin takes an int GL mode (no VertexFormat.Mode enum).
+		buf.begin(GL11.GL_QUADS, DefaultVertexFormat.POSITION_COLOR);
+		if (hasFill) {
+			roundShape(buf, m, x0, y0, wi, hi, rad, false, fill);
+		}
+		if (hasBorder) {
+			roundShape(buf, m, x0, y0, wi, hi, rad, true, border);
+		}
+		// Tesselator.end() uploads and draws with the current fixed-function state.
+		Tesselator.getInstance().end();
+		RenderSystem.disableBlend();
+		RenderSystem.enableAlphaTest();
+		RenderSystem.enableTexture();
+	}
+
+	/** Emits a rounded box (ring=false) or its 1px inside ring (ring=true). */
+	private static void roundShape(BufferBuilder buf, Matrix4f m, int x, int y, int w, int h, float rad,
+								   boolean ring, int color) {
+		int K = (int) Math.ceil(rad);
+		if (ring && rad < 1f) {
+			K = 0;
+		}
+		// Corner squares; clamped so opposite corners never overlap (odd sizes).
+		int kl = Math.min(K, w / 2), kr = Math.min(K, w - kl);
+		int kt = Math.min(K, h / 2), kb = Math.min(K, h - kt);
+		if (!ring) {
+			quad(buf, m, x + kl, y, x + w - kr, y + h, color);              // centre column
+			quad(buf, m, x, y + kt, x + kl, y + h - kb, color);             // left band
+			quad(buf, m, x + w - kr, y + kt, x + w, y + h - kb, color);     // right band
+		} else {
+			quad(buf, m, x + kl, y, x + w - kr, y + 1, color);              // top
+			quad(buf, m, x + kl, y + h - 1, x + w - kr, y + h, color);      // bottom
+			quad(buf, m, x, y + kt, x + 1, y + h - kb, color);              // left
+			quad(buf, m, x + w - 1, y + kt, x + w, y + h - kb, color);      // right
+		}
+		if (K == 0) {
+			return;
+		}
+		// arc centres sit `rad` in from each edge
+		cornerRuns(buf, m, x, y, kl, kt, x + rad, y + rad, -1, -1, rad, ring, color);
+		cornerRuns(buf, m, x + w - kr, y, kr, kt, x + w - rad, y + rad, 1, -1, rad, ring, color);
+		cornerRuns(buf, m, x, y + h - kb, kl, kb, x + rad, y + h - rad, -1, 1, rad, ring, color);
+		cornerRuns(buf, m, x + w - kr, y + h - kb, kr, kb, x + w - rad, y + h - rad, 1, 1, rad, ring, color);
+	}
+
+	/**
+	 * Shades one corner square (sw x sh at sx,sy) per pixel. Distance is measured
+	 * only OUTWARD from the arc centre (sx/sy = -1 left/top, +1 right/bottom), so
+	 * pixels level with the straight edges get the edge's plain coverage and the
+	 * square may be any size around the arc. Same-alpha runs batch into one quad.
+	 */
+	private static void cornerRuns(BufferBuilder buf, Matrix4f m, int sx0, int sy0, int sw, int sh,
+								   float acx, float acy, int dirX, int dirY, float rad, boolean ring, int color) {
+		int base = (color >>> 24) & 0xFF;
+		int cr = (color >> 16) & 0xFF, cg = (color >> 8) & 0xFF, cb = color & 0xFF;
+		for (int py = sy0; py < sy0 + sh; py++) {
+			int runStart = -1, runA = 0;
+			for (int px = sx0; px <= sx0 + sw; px++) {
+				int a = 0;
+				if (px < sx0 + sw) {
+					double dx = Math.max(0.0, (px + 0.5 - acx) * dirX);
+					double dy = Math.max(0.0, (py + 0.5 - acy) * dirY);
+					double dist = Math.sqrt(dx * dx + dy * dy);
+					double cov = clamp01(rad - dist + 0.5);
+					if (ring) {
+						cov -= clamp01(rad - 1 - dist + 0.5);
+					}
+					a = cov <= 0.001 ? 0 : (int) Math.round(base * cov);
+				}
+				if (a != runA) {
+					if (runStart >= 0 && runA > 0) {
+						buf.vertex(m, runStart, py, 0f).color(cr, cg, cb, runA).endVertex();
+						buf.vertex(m, runStart, py + 1, 0f).color(cr, cg, cb, runA).endVertex();
+						buf.vertex(m, px, py + 1, 0f).color(cr, cg, cb, runA).endVertex();
+						buf.vertex(m, px, py, 0f).color(cr, cg, cb, runA).endVertex();
+					}
+					runStart = px;
+					runA = a;
+				}
+			}
+		}
+	}
+
+	private static void quad(BufferBuilder buf, Matrix4f m, int x0, int y0, int x1, int y1, int color) {
+		if (x1 <= x0 || y1 <= y0) {
+			return;
+		}
+		int a = (color >>> 24) & 0xFF, cr = (color >> 16) & 0xFF, cg = (color >> 8) & 0xFF, cb = color & 0xFF;
+		buf.vertex(m, x0, y0, 0f).color(cr, cg, cb, a).endVertex();
+		buf.vertex(m, x0, y1, 0f).color(cr, cg, cb, a).endVertex();
+		buf.vertex(m, x1, y1, 0f).color(cr, cg, cb, a).endVertex();
+		buf.vertex(m, x1, y0, 0f).color(cr, cg, cb, a).endVertex();
+	}
+
+	/** A soft radial glow (the baked radial_glow texture) centred on (cx,cy). */
+	public static void softGlow(Gfx g, float cx, float cy, float size, int argb) {
+		ensureLoaded();
+		float a = ((argb >>> 24) & 0xFF) / 255f;
+		if (!ok || glowTex == null || a <= 0f) {
+			return;
+		}
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		tint(argb);
+		com.mojang.blaze3d.vertex.PoseStack pose = g.pose();
+		pose.pushPose();
+		pose.translate(cx - size / 2f, cy - size / 2f, 0);
+		pose.scale(size / 512f, size / 512f, 1f);
+		g.blit(glowTex, 0, 0, 0f, 0f, 512, 512, 512, 512);
+		pose.popPose();
+		RenderSystem.color4f(1f, 1f, 1f, 1f);
+	}
+
+	/**
 	 * Kept for source compatibility with every existing button-shaped call site.
 	 * The supplied cut is normalized by {@link #panel}, so bevel and panel paths
 	 * cannot diverge into separate shape languages.

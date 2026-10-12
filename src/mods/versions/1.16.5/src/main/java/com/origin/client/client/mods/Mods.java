@@ -1215,6 +1215,38 @@ public final class Mods {
 		ModsConfig.save();
 	}
 
+	/** Back to the schema default: drops the stored value (and a colour's chroma
+	 *  extras) so every reader falls through to the ModOption default. The mod
+	 *  menu's reset arrow. */
+	public static void reset(String modId, String key) {
+		java.util.Map<String, JsonElement> m = raw(modId);
+		m.remove(key);
+		m.remove(key + "#chroma");
+		m.remove(key + "#speed");
+		m.remove(key + "#type");
+		ModsConfig.save();
+	}
+
+	public static String metaText(String key, String def) {
+		ModsConfig.ensureLoaded();
+		JsonElement v = ModsConfig.META.get(key);
+		try {
+			return v == null ? def : v.getAsString();
+		} catch (RuntimeException e) {
+			return def;
+		}
+	}
+
+	public static void setMetaText(String key, String v) {
+		ModsConfig.ensureLoaded();
+		if (v == null) {
+			ModsConfig.META.remove(key);
+		} else {
+			ModsConfig.META.put(key, new JsonPrimitive(v));
+		}
+		ModsConfig.save();
+	}
+
 	public static boolean metaBool(String key, boolean def) {
 		ModsConfig.ensureLoaded();
 		com.google.gson.JsonElement v = ModsConfig.META.get(key);
