@@ -199,9 +199,19 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-12)
-- **Latest release: `launcher-v1.0.46`** (2026-10-12; mandatory auto-update; tag flow). Tag `origin/main`
+- **Latest release: `launcher-v1.0.47`** (2026-10-12; mandatory auto-update; tag flow). Tag `origin/main`
   directly (`git tag launcher-v1.0.N origin/main`) — Will's local main once carried an unpushed commit and
   his first v1.0.46 tag landed on it (run cancelled before publishing).
+- **Origin social (2026-10-12, branch claude/fervent-feynman-u4xm34, CI-green, untagged — next release):**
+  docs/SOCIAL.md is THE contract. Service: services/cosmetics (social.js/party.js, migration 0002_social.sql;
+  deploys + migrates when main changes). Launcher: status pill left + "<n> playing Origin" pill right (5 min),
+  Friends drawer (chat, party, Join → launches the friend's version straight into their server),
+  Core/Social + Core/Auth/MinecraftSessionBroker; CI screen render `launcher-shots.yml` → claude/dev-shots/launcher.
+  Game, ALL 16 versions: social/ + gui/FriendsScreen (FRIENDS tab, Right Shift group Settings·Waypoints·MODS·
+  Cosmetics·Friends), toasts, party chat `/originpc` (client-only), Party HUD, markers/pings/minimap dots ONLY in
+  LAN worlds (Will: positions banned on all multiplayer servers — social/FairPlay). Free Cloudflare plan by Will's
+  choice: adaptive polling (4/20/30/60 s), friendsEtag, wantState; ~30 all-day players fit. Untested live until
+  merged (service not deployed before that).
 - **Will's 2026-10-12 fix round, ALL 16 versions (branch claude/fervent-feynman-u4xm34, CI-green, untagged
   — next release):** every Origin window (Cosmetics, FPS Coach, Quickplay, shader browser, Waypoints, Item
   Size, Item Counter picker, full-screen map) rebuilt on gui/OriginWindow (the mod menu's panel/header/widgets
