@@ -52,12 +52,11 @@ public abstract class JeiGuiEventHandlerMixin {
 	 * button all draw from here (IngredientListOverlay.drawScreen +
 	 * BookmarkOverlay.drawScreen). Cancelling is what makes the screen look stock.
 	 *
-	 * JEI 26/27 RENAME: this was {@code onDrawScreenPost} through JEI 19.x; JEI 26
-	 * (MC 1.21.10) / 27 (MC 1.21.11) renamed it to {@code drawForScreen} — same
-	 * signature (Screen, GuiGraphicsExtractor, int, int). Verified with javap against
-	 * jei-1.21.11-fabric-27.17.0.50 and jei-1.21.10-fabric-26.3.0.31.
+	 * JEI 30 (MC 26.2) split it in two: drawForScreenBackground(Screen, GGE) and
+	 * drawForScreenForeground(Screen, GGE, int, int) (javap, jei 30.42.0.236). The
+	 * foreground pass is the overlay; the background pass is cancelled below too.
 	 */
-	@Inject(method = "drawForScreen", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "drawForScreenForeground", at = @At("HEAD"), cancellable = true)
 	private void originclient$hideJeiOverlay(Screen screen, GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY,
 			CallbackInfo ci) {
 		if (!Mods.on("jei")) {
@@ -65,14 +64,9 @@ public abstract class JeiGuiEventHandlerMixin {
 		}
 	}
 
-	/**
-	 * The foreground pass over container screens (drawOnForeground on both overlays).
-	 * JEI 26/27 RENAME: was {@code onDrawForeground} ≤19.x, now
-	 * {@code drawForContainerScreen} — same signature.
-	 */
-	@Inject(method = "drawForContainerScreen", at = @At("HEAD"), cancellable = true)
-	private void originclient$hideJeiForeground(AbstractContainerScreen<?> screen, GuiGraphicsExtractor guiGraphics,
-			int mouseX, int mouseY, CallbackInfo ci) {
+	/** The overlay's background pass (JEI 30: drawForScreenBackground). */
+	@Inject(method = "drawForScreenBackground", at = @At("HEAD"), cancellable = true)
+	private void originclient$hideJeiBackground(Screen screen, GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
 		if (!Mods.on("jei")) {
 			ci.cancel();
 		}

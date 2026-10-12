@@ -28,7 +28,7 @@ public class LoadingOverlayMixin {
 	@Shadow
 	private float currentProgress;
 
-	@Inject(method = "render", at = @At("TAIL"))
+	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void originclient$drawOriginLoading(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		OriginScreenRenderer.renderLoading(guiGraphics, this.currentProgress);
 	}

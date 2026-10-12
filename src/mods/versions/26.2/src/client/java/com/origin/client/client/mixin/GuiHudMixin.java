@@ -2,7 +2,7 @@ package com.origin.client.client.mixin;
 
 import com.origin.client.client.hud.HudElements;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,14 +25,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // injectors. Honest limit: a mod that itself injects at RETURN with a still
 // higher order could draw over us — that's the ceiling of what mixins can
 // guarantee.
-@Mixin(value = Gui.class, priority = 2000)
+@Mixin(value = Hud.class, priority = 2000)
 public class GuiHudMixin {
 
 	// Color Saturation: grade the finished WORLD frame before any HUD is drawn,
 	// so only world pixels are affected. HEAD of Gui.render is exactly that
 	// moment. Fail-soft inside ColorGrade itself, but guarded here too — a grade
 	// failure must never take the HUD down.
-	@Inject(method = "render", at = @At("HEAD"))
+	@Inject(method = "extractRenderState", at = @At("HEAD"))
 	private void originclient$colorGrade(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		try {
 			com.origin.client.client.render.ColorGrade.process(guiGraphics);
@@ -41,7 +41,7 @@ public class GuiHudMixin {
 		}
 	}
 
-	@Inject(method = "render", at = @At("RETURN"), order = 2000)
+	@Inject(method = "extractRenderState", at = @At("RETURN"), order = 2000)
 	private void originclient$topHud(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		HudElements.renderAll(guiGraphics);
 
@@ -66,7 +66,7 @@ public class GuiHudMixin {
 	// draws the XP bar and its level number in — so the gems land over the bar
 	// sprite by plain call order. (Drawing from a later hook lets HUD batching
 	// reorder the sprite back over the gems; that was pixel-verified on 1.21.1.)
-	@Inject(method = "renderHotbarAndDecorations", at = @At("TAIL"))
+	@Inject(method = "extractHotbarAndDecorations", at = @At("TAIL"))
 	private void originclient$locatorBar(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		try {
 			com.origin.client.client.waypoints.WaypointHud.renderBars(guiGraphics);

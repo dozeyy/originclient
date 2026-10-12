@@ -130,7 +130,7 @@ public final class CooldownsHud {
 		return new int[]{(int) Math.ceil(n * CELL * s), (int) Math.ceil(HEIGHT * s)};
 	}
 
-	public static void extractRenderState(GuiGraphicsExtractor g, Minecraft mc, int w, int h) {
+	public static void render(GuiGraphicsExtractor g, Minecraft mc, int w, int h) {
 		List<Entry> list = entries(mc);
 		if (list.isEmpty()) {
 			return;   // nothing cooling down: draw nothing at all

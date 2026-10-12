@@ -1,8 +1,8 @@
 package com.origin.client.client.mods;
 
 import com.origin.client.client.OriginClientMod;
-import net.fabricmc.fabric.api.client.gui.screen().v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.gui.screen().v1.ScreenMouseEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ActiveTextCollector;

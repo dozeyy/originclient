@@ -42,6 +42,9 @@ public class OriginClientMod implements ClientModInitializer {
 	public static volatile boolean zoomToggled = false;
 	public static volatile boolean zoomActive = false;
 	public static volatile double zoomScrollFactor = 1.0;
+	// Eased zoom progress (0 = off, 1 = fully zoomed): advanced once per frame by
+	// GameRendererMixin, read by CameraMixin's calculateFov hook.
+	public static volatile double zoomAnim = 0;
 	// Edge-trigger for death waypoints: true while the player is alive, so a death
 	// drops exactly one waypoint on the alive→dead transition.
 	private boolean wasAlive = false;
@@ -68,11 +71,11 @@ public class OriginClientMod implements ClientModInitializer {
 	private boolean flyBoostApplied = false;
 	private int thunderSoundTicks = 0;
 
-	// JEI bundled here is jei-1.21.11-fabric-27.17.0.50 (see gradle.properties). If
+	// JEI bundled here is jei 30.42.0.236 for 26.2 (see gradle.properties). If
 	// a player drops a different JEI in, Fabric loads the higher version and ours is
 	// shadowed — detectForeignJei() catches that. jeiNoticeShown gates the one-time
 	// in-world chat notice.
-	private static final String BUNDLED_JEI = "27.17.0.50";
+	private static final String BUNDLED_JEI = "30.42.0.236";
 	private static String foreignJei = null;
 	private boolean jeiNoticeShown = false;
 
@@ -180,9 +183,9 @@ public class OriginClientMod implements ClientModInitializer {
 		// whole shader flow lives where Sodium/Iris users already look — no tab
 		// in the mod menu. Detected by class name (no compile dep on Iris),
 		// added via Fabric's screen API (no Iris mixin to break on updates).
-		net.fabricmc.fabric.api.client.gui.screen().v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen.getClass().getName().contains("ShaderPackScreen")) {
-				var buttons = net.fabricmc.fabric.api.client.gui.screen().v1.Screens.getButtons(screen);
+				var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen);
 				// Iris re-inits its screen on resize and every time we return from
 				// the browser — guard so our button is added exactly once and never
 				// stacks. This is the ONLY shader-download entry point (Iris ships
@@ -221,9 +224,9 @@ public class OriginClientMod implements ClientModInitializer {
 		});
 		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
 		// container screen is open, so draw the potion element over it here.
-		net.fabricmc.fabric.api.client.gui.screen().v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen) {
-				net.fabricmc.fabric.api.client.gui.screen().v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) -> {
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) -> {
 					if (Mods.on("potionhud") && Mods.bool("potionhud", "showInInventory")) {
 						com.origin.client.client.hud.HudElements.renderInInventory(g);
 					}
@@ -804,11 +807,11 @@ public class OriginClientMod implements ClientModInitializer {
 		});
 	}
 
-	// JEI 26/27 renamed the render hooks (drawForScreen / drawForContainerScreen);
+	// JEI 30 (26.2) splits the overlay draw into drawForScreenBackground / drawForScreenForeground;
 	// the input names below are unchanged. Names only — no signatures — so this stays
 	// valid across the char-typed CharacterEvent change.
 	private static void selfCheckJeiMixins() {
-		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler", "drawForScreen", "drawForContainerScreen", "renderCompactPotionIndicators");
+		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler", "drawForScreenBackground", "drawForScreenForeground", "renderCompactPotionIndicators");
 		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler", "onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
 	}
 

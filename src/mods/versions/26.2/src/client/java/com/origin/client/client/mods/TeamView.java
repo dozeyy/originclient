@@ -75,8 +75,7 @@ public final class TeamView {
 
 		// Same view-projection WaypointHud uses (see the class note).
 		var camState = ctx.levelState().cameraRenderState;
-		float fov = ((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
-				.originclient$getFov(mc.gameRenderer.mainCamera(), 1.0f, true);
+		float fov = mc.gameRenderer.mainCamera().getFov();
 		Matrix4f viewProj = mc.gameRenderer.getProjectionMatrix(fov);
 		viewProj.rotate(new Quaternionf(camState.orientation).conjugate());
 		Vec3 cam = camState.pos;
@@ -115,7 +114,7 @@ public final class TeamView {
 
 	/** HUD pass (HudElements.renderAll on 1.21.11): a down-pointing marker over
 	 *  each teammate, smaller with distance. */
-	public static void extractRenderState(GuiGraphicsExtractor g) {
+	public static void render(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
 		if (!Mods.on(MOD) || mc.options.hideGui || mc.player == null) {
 			return;

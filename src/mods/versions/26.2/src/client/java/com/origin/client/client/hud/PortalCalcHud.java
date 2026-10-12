@@ -100,7 +100,7 @@ final class PortalCalcHud {
 		return new int[]{w + 2, lines.size() * LINE_H + 1};
 	}
 
-	private static void extractRenderState(GuiGraphicsExtractor g, Minecraft mc, int w, int h) {
+	private static void render(GuiGraphicsExtractor g, Minecraft mc, int w, int h) {
 		List<List<Seg>> lines = lines();
 		if (lines.isEmpty()) {
 			return;

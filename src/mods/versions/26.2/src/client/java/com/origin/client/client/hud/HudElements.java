@@ -45,7 +45,7 @@ public final class HudElements {
 	public static volatile boolean suppressScoreboard = false;
 
 	public interface Renderer {
-		void extractRenderState(GuiGraphicsExtractor g, Minecraft mc, int w, int h);
+		void render(GuiGraphicsExtractor g, Minecraft mc, int w, int h);
 	}
 
 	public record Element(String id, String modId, String label, HudPos defaults,

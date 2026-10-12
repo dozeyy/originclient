@@ -81,7 +81,7 @@ public final class OriginMultiSelect {
 
 	// ---- render ----
 
-	public static void extractRenderState(GuiGraphicsExtractor g, int mx, int my) {
+	public static void render(GuiGraphicsExtractor g, int mx, int my) {
 		if (!open) {
 			return;
 		}

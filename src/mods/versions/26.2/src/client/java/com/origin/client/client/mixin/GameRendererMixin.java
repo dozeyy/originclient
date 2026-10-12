@@ -23,7 +23,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class GameRendererMixin {
 	// Eased zoom progress (0 = off, 1 = fully zoomed) + last-frame timestamp.
 	// Easing is time-based so Smooth Zoom glides at any frame rate.
-	@Unique private static double originclient$zoomAnim = 0;
 	@Unique private static long originclient$lastNanos = 0;
 
 	// The ease advances ONCE per frame, here, and getFov below only READS it.
@@ -46,33 +45,18 @@ public class GameRendererMixin {
 
 			if (Mods.on("zoom") && Mods.bool("zoom", "smoothZoom")) {
 				double rate = 1.0 - Math.exp(-dt / 70.0);   // ~70ms time constant, per-frame
-				originclient$zoomAnim += (target - originclient$zoomAnim) * rate;
-				if (Math.abs(target - originclient$zoomAnim) < 0.0015) {
-					originclient$zoomAnim = target;
+				OriginClientMod.zoomAnim += (target - OriginClientMod.zoomAnim) * rate;
+				if (Math.abs(target - OriginClientMod.zoomAnim) < 0.0015) {
+					OriginClientMod.zoomAnim = target;
 				}
 			} else {
-				originclient$zoomAnim = target;
+				OriginClientMod.zoomAnim = target;
 			}
 		} catch (Throwable t) {
 			// A zoom error must never crash the frame — the ease just holds still.
 		}
 	}
 
-	@Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-	private void originclient$applyZoom(Camera camera, float partialTick, boolean usePerspective, CallbackInfoReturnable<Float> cir) {
-		try {
-			// usePerspective == false is the first-person HAND pass (renderItemInHand).
-			// Zoom never touches it: the held item stays its normal size, like
-			// OptiFine/Lunar zoom.
-			if (!usePerspective || originclient$zoomAnim <= 0.001) {
-				return;
-			}
-			double vanilla = cir.getReturnValue();
-			double tfov = Mods.num("zoom", "fov") * OriginClientMod.zoomScrollFactor;
-			tfov = Math.max(1.0, Math.min(vanilla, tfov));   // zoom only narrows the FOV
-			cir.setReturnValue((float) (vanilla + (tfov - vanilla) * originclient$zoomAnim));
-		} catch (Throwable t) {
-			// A zoom error must never crash the frame — just skip zoom this frame.
-		}
-	}
+	// 26.2: the FOV moved to Camera (calculateFov = world, calculateHudFov = the
+	// hand pass), so the zoom itself is applied in CameraMixin; the hand never zooms.
 }

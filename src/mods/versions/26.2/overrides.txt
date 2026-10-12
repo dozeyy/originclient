@@ -15,6 +15,8 @@ client/java/com/origin/client/client/OriginKeyBindings.java
 client/java/com/origin/client/client/gui/OriginColorPicker.java
 client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
 client/java/com/origin/client/client/mixin/BlockEntityRenderDispatcherMixin.java
+client/java/com/origin/client/client/mixin/CameraMixin.java
+client/java/com/origin/client/client/mixin/ClientLevelTimeMixin.java
 client/java/com/origin/client/client/mixin/GameRendererAccessor.java
 client/java/com/origin/client/client/mixin/GameRendererMixin.java
 client/java/com/origin/client/client/mixin/GuiScoreboardMixin.java

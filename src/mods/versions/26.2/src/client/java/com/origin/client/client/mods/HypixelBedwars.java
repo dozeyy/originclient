@@ -17,7 +17,6 @@ import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.block.entity.BedBlockEntity;
 import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerScoreEntry;
@@ -233,11 +232,11 @@ public final class HypixelBedwars {
 	}
 
 	/** The team colour to draw this bed in, or null to leave it as it is. */
-	public static DyeColor bedColor(BedBlockEntity bed) {
+	public static DyeColor bedColor(BlockPos bedPos) {
 		if (!active() || !Mods.bool(MOD, "coloredBeds") || (practice && !Mods.bool(MOD, "practiceColor"))) {
 			return null;
 		}
-		BlockPos pos = bed.getBlockPos();
+		BlockPos pos = bedPos;
 		Optional<DyeColor> cached = BED_TEAM.get(pos.asLong());
 		if (cached == null) {
 			cached = Optional.ofNullable(nearestSpawn(pos));

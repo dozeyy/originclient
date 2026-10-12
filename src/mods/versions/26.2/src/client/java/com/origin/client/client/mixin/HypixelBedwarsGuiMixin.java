@@ -1,7 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.mods.HypixelBedwars;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
@@ -27,12 +27,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //    title packets; `subtitle` is the private field the title layer reads.
 // Cancelling renderFood at HEAD also skips the Saturation overlay that
 // GuiFoodMixin draws at its TAIL, which is right: no food bar, nothing over it.
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public class HypixelBedwarsGuiMixin {
 	@Shadow
 	private Component subtitle;
 
-	@Inject(method = "renderArmor", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractArmor", at = @At("HEAD"), cancellable = true)
 	private static void originclient$bwHideArmor(GuiGraphicsExtractor guiGraphics, Player player, int y, int heartRows,
 			int rowHeight, int left, CallbackInfo ci) {
 		try {
@@ -44,7 +44,7 @@ public class HypixelBedwarsGuiMixin {
 		}
 	}
 
-	@Inject(method = "renderFood", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractFood", at = @At("HEAD"), cancellable = true)
 	private void originclient$bwHideFood(GuiGraphicsExtractor guiGraphics, Player player, int y, int right, CallbackInfo ci) {
 		try {
 			if (HypixelBedwars.hideFood()) {
@@ -55,7 +55,7 @@ public class HypixelBedwarsGuiMixin {
 		}
 	}
 
-	@ModifyVariable(method = "renderHeart", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+	@ModifyVariable(method = "extractHeart", at = @At("HEAD"), argsOnly = true, ordinal = 0)
 	private boolean originclient$bwHardcoreHearts(boolean hardcore) {
 		try {
 			return hardcore || HypixelBedwars.hardcoreHearts();

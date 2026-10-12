@@ -71,7 +71,7 @@ public final class BossBarHud {
 	}
 
 	/** Draws every live boss bar at the element's position (BossBarMixin). */
-	public static void extractRenderState(GuiGraphicsExtractor g, Collection<LerpingBossEvent> events) {
+	public static void render(GuiGraphicsExtractor g, Collection<LerpingBossEvent> events) {
 		if (events.isEmpty()) {
 			return;
 		}

@@ -3,7 +3,7 @@ package com.origin.client.client.mixin;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginCrosshair;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,10 +17,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // -- plus vanilla's attack indicator, which lives in this same method. The one
 // view left to vanilla is the F3 3D-axes crosshair (render() returns false).
 // Fail-soft: any error falls through to the vanilla crosshair.
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public class GuiCrosshairMixin {
 
-	@Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractCrosshair", at = @At("HEAD"), cancellable = true)
 	private void originclient$customCrosshair(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
 		if (!Mods.on("crosshair")) {
 			return;

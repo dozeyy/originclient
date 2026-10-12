@@ -5,8 +5,8 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.render.LunarPipelines;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.entity.ItemRenderer;
-import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.feature.ItemFeatureRenderer;
+import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -14,6 +14,8 @@ import net.minecraft.server.packs.resources.Resource;
 
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -29,8 +31,8 @@ import java.util.Optional;
  * additively (SRC_COLOR, ONE). Every one of them is finally drawn by
  * RenderType.draw(MeshData), which binds the pipeline and then the textures
  * RenderSetup.getTextures() hands back -- the single choke point
- * GlintColorizerMixin hooks:
- *   - Show Glint off: the glint draw is skipped (its mesh closed unused);
+ * GlintColorizerMixin hooks (26.2: RenderType.prepare(), see prepare()):
+ *   - Show Glint off: the glint pass samples a transparent texture;
  *   - the Sampler0 texture is swapped for a recoloured copy (built here);
  *   - Lunar Blending: the pipeline is swapped for LunarPipelines.GLINT_BLENDED,
  *     vanilla's glint pipeline with a normal alpha blend -- additive light can
@@ -83,8 +85,8 @@ public final class GlintColorizer {
 			return;
 		}
 		try {
-			item = paint(item, ITEM_TEX, intensity(ItemRenderer.ENCHANTED_GLINT_ITEM), itemColor());
-			armor = paint(armor, ARMOR_TEX, intensity(ItemRenderer.ENCHANTED_GLINT_ARMOR), armorColor());
+			item = paint(item, ITEM_TEX, intensity(ItemFeatureRenderer.ENCHANTED_GLINT_ITEM), itemColor());
+			armor = paint(armor, ARMOR_TEX, intensity(ItemFeatureRenderer.ENCHANTED_GLINT_ARMOR), armorColor());
 			builtKey = key;
 		} catch (Throwable t) {
 			broken = true;
@@ -114,32 +116,51 @@ public final class GlintColorizer {
 		return kind == 2 ? Mods.bool(MOD, "overrideArmor") : Mods.bool(MOD, "overrideItem");
 	}
 
-	/** Show Glint off: skip every glint draw. */
-	public static boolean hide(Object renderType) {
-		return active() && kind(renderType) != 0 && !Mods.bool(MOD, "showGlint");
-	}
+	// A 1x1 fully transparent texture: "Show Glint" off draws the glint pass with
+	// it (additive black / alpha 0 = nothing), since 26.2 offers no draw to skip.
+	private static DynamicTexture clear;
 
-	/** The pipeline a glint draw should bind (vanilla's unless Lunar Blending applies). */
-	public static RenderPipeline pipeline(Object renderType, RenderPipeline vanilla) {
+	/**
+	 * 26.2 (GlintColorizerMixin, RenderType.prepare() RETURN): a render type
+	 * resolves its pipeline + textures into a PreparedRenderType right before it
+	 * draws. For the four glint types this returns a copy with the recoloured (or
+	 * transparent) Sampler0 and, for Lunar Blending, the alpha-blended pipeline.
+	 * Any other render type -- or any failure -- returns the vanilla record.
+	 */
+	public static PreparedRenderType prepare(Object renderType, PreparedRenderType vanilla) {
 		int k = kind(renderType);
-		if (k == 0 || !active() || builtKey == null || !lunar() || !overridden(k)) {
+		if (k == 0 || !active() || vanilla == null) {
 			return vanilla;
 		}
-		return LunarPipelines.GLINT_BLENDED;
-	}
-
-	/** Swaps Sampler0 of a glint draw's texture map for the recoloured copy. */
-	public static void swapTexture(Object renderType, Map<String, RenderSetup.TextureAndSampler> textures) {
-		int k = kind(renderType);
-		if (k == 0 || !active() || builtKey == null || !overridden(k) || textures == null) {
-			return;
+		DynamicTexture tex = null;
+		if (!Mods.bool(MOD, "showGlint")) {
+			if (clear == null) {
+				NativeImage px = new NativeImage(NativeImage.Format.RGBA, 1, 1, true);
+				clear = new DynamicTexture(() -> "Origin glint (hidden)", px);
+				Minecraft.getInstance().getTextureManager().register(Identifier.fromNamespaceAndPath("originclient", "glint/clear"), clear);
+			}
+			tex = clear;
+		} else if (builtKey != null && overridden(k)) {
+			tex = k == 2 ? armor : item;
 		}
-		DynamicTexture tex = k == 2 ? armor : item;
-		RenderSetup.TextureAndSampler vanilla = textures.get("Sampler0");
-		if (tex == null || vanilla == null) {
-			return;
+		RenderPipeline pipeline = vanilla.pipeline();
+		if (Mods.bool(MOD, "showGlint") && builtKey != null && lunar() && overridden(k) && LunarPipelines.GLINT_BLENDED != null) {
+			pipeline = LunarPipelines.GLINT_BLENDED;
 		}
-		textures.put("Sampler0", new RenderSetup.TextureAndSampler(tex.getTextureView(), vanilla.sampler()));
+		if (tex == null && pipeline == vanilla.pipeline()) {
+			return vanilla;
+		}
+		List<PreparedRenderType.Texture> textures = new ArrayList<>(vanilla.textures());
+		if (tex != null) {
+			for (int i = 0; i < textures.size(); i++) {
+				PreparedRenderType.Texture v = textures.get(i);
+				if ("Sampler0".equals(v.name())) {
+					textures.set(i, new PreparedRenderType.Texture(v.name(), tex.getTextureView(), v.sampler()));
+				}
+			}
+		}
+		return new PreparedRenderType(pipeline, vanilla.outputTarget(), vanilla.dynamicTransforms(),
+				vanilla.scissorState(), textures);
 	}
 
 	// Decoded brightness per glint texture, re-read only when a different resource

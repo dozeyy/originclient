@@ -38,7 +38,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = Screen.class, priority = 2000)
 public class ScreenBackgroundMixin {
 
-	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackdrop(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		// Cancel vanilla's backdrop only when the Origin one actually drew
 		// (fail-soft contract): a failed draw releases the vanilla backdrop
@@ -52,12 +52,12 @@ public class ScreenBackgroundMixin {
 
 	// In-world menus (pause, in-game options): vanilla's blurred-world backdrop
 	// stays, the spotlight draws on top of it.
-	@Inject(method = "renderBackground", at = @At("TAIL"))
+	@Inject(method = "extractBackground", at = @At("TAIL"))
 	private void originclient$inWorldGlow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, originclient$hoveringClickable());
 	}
 
-	@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractPanorama", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressTitlePanorama(GuiGraphicsExtractor guiGraphics, float partialTick, CallbackInfo ci) {
 		// 1.21.6+: renderPanorama moved TitleScreen -> Screen, so TitleScreenMixin
 		// can no longer bind it. Suppress it ONLY on the title screen (the sole
@@ -69,7 +69,7 @@ public class ScreenBackgroundMixin {
 		}
 	}
 
-	@Inject(method = "renderMenuBackgroundTexture", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractMenuBackgroundTexture", at = @At("HEAD"), cancellable = true)
 	private static void originclient$noListTexture(GuiGraphicsExtractor guiGraphics, Identifier texture, int x, int y, float uOffset, float vOffset, int width, int height, CallbackInfo ci) {
 		// Gated on renderer health: if the Origin backdrop is broken, lists
 		// get their vanilla strip back along with the vanilla background.

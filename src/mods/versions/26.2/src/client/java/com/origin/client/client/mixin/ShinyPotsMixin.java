@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // breaks an item draw.
 @Mixin(GuiGraphicsExtractor.class)
 public class ShinyPotsMixin {
-	@Inject(method = "renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;III)V",
+	@Inject(method = "item(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;III)V",
 			at = @At("HEAD"))
 	private void originclient$shineBehind(LivingEntity entity, Level level, ItemStack stack, int x, int y, int seed,
 										  CallbackInfo ci) {
@@ -28,7 +28,7 @@ public class ShinyPotsMixin {
 		}
 	}
 
-	@Inject(method = "renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;III)V",
+	@Inject(method = "item(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;III)V",
 			at = @At("TAIL"))
 	private void originclient$shineOver(LivingEntity entity, Level level, ItemStack stack, int x, int y, int seed,
 										CallbackInfo ci) {

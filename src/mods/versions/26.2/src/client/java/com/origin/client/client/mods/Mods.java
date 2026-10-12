@@ -1045,11 +1045,10 @@ public final class Mods {
 	// Bed Wars game on *.hypixel.net (mods/HypixelBedwars, hud/BedwarsHud).
 	// Kept in its own method so it merges cleanly with other registry additions.
 	private static void registerLunarBedwars() {
-		add("hypixelbedwars", "Hypixel Bed Wars", "Team-coloured beds, hardcore hearts and trap alerts in Bed Wars.", true,
-				ModOption.toggle("coloredBeds", "Colored Beds", true)
-						.tip("Recolor the beds in-game according to the team's color."),
-				ModOption.toggle("practiceColor", "Enable Practice Color", false).under("coloredBeds")
-						.tip("Recolor the beds in Bed Wars practice mode too."),
+		// 26.2: no Colored Beds -- beds stopped being block entities in 26.x (they
+		// are plain block models drawn with the chunk), so there is no per-bed
+		// render state left to recolour. The other rows work as on 1.21.11.
+		add("hypixelbedwars", "Hypixel Bed Wars", "Hardcore hearts, trap alerts and Bed Wars HUDs.", true,
 				ModOption.toggle("hardcoreHearts", "Hardcore Hearts", true)
 						.tip("Replace normal hearts with hardcore hearts once your bed is lost."),
 				ModOption.toggle("hideFoodBar", "Hide Food Bar", false)

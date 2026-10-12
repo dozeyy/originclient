@@ -100,12 +100,20 @@ public class TitleScreenMixin {
 				&& "mods".equalsIgnoreCase(b.getMessage().getString());
 	}
 
-	@Inject(method = "render", at = @At("HEAD"))
+	// 26.2: TitleScreen overrides extractBackground (panorama + overlay), and
+	// Screen.extractRenderStateWithTooltipAndSubtitles calls it before
+	// extractRenderState, so the Origin backdrop replaces it there: drawn at HEAD,
+	// vanilla's cancelled only when the Origin one actually drew (fail-soft).
+	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$background(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		if (!originclient$origin()) {
 			return;
 		}
-		OriginScreenRenderer.renderTitleBackground(guiGraphics);
+		if (!OriginScreenRenderer.renderTitleBackground(guiGraphics)) {
+			originclient$applyPositions();
+			return;
+		}
+		ci.cancel();
 		boolean hoveringClickable = false;
 		Screen self = (Screen) (Object) this;
 		for (GuiEventListener child : self.children()) {
@@ -148,34 +156,30 @@ public class TitleScreenMixin {
 		}
 	}
 
-	// NOTE (1.21.11): the backdrop suppressions do NOT live here any more, and
-	// must not come back. renderPanorama moved TitleScreen -> Screen in 1.21.6,
-	// so an @Inject on it from a TitleScreen mixin binds nothing and is skipped
-	// in silence ("defaultRequire": 0) — it only LOOKED like it was working.
-	// TitleScreen.renderBackground is an empty override here, so cancelling that
-	// achieved nothing either. ScreenBackgroundMixin (@Mixin(Screen.class)) does
-	// both for real, gated on the same Origin-style + renderer-health checks.
+	// NOTE (26.2): the panorama lives in TitleScreen.extractBackground, which the
+	// HEAD hook above replaces wholesale; ScreenBackgroundMixin keeps a
+	// title-only extractPanorama guard as a second line (other mods may call it).
 
-	@Redirect(method = "render", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IF)V"))
+	@Redirect(method = "extractRenderState", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/components/LogoRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IF)V"))
 	private void originclient$logo(LogoRenderer instance, GuiGraphicsExtractor guiGraphics, int screenWidth, float alpha) {
 		if (!originclient$origin() || !OriginScreenRenderer.renderTitleWordmark(guiGraphics)) {
-			instance.renderLogo(guiGraphics, screenWidth, alpha);
+			instance.extractRenderState(guiGraphics, screenWidth, alpha);
 		}
 	}
 
 	// No yellow splash text (Origin style only).
-	@Redirect(method = "render", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/components/SplashRenderer;render(Lnet/minecraft/client/gui/GuiGraphicsExtractor;ILnet/minecraft/client/gui/Font;F)V"))
+	@Redirect(method = "extractRenderState", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/components/SplashRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;ILnet/minecraft/client/gui/Font;F)V"))
 	private void originclient$noSplash(SplashRenderer instance, GuiGraphicsExtractor guiGraphics, int screenWidth, Font font, float color) {
 		if (!originclient$origin()) {
-			instance.render(guiGraphics, screenWidth, font, color);
+			instance.extractRenderState(guiGraphics, screenWidth, font, color);
 		}
 	}
 
 	// No bottom version line.
-	@Redirect(method = "render", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;drawString(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"))
+	@Redirect(method = "extractRenderState", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;text(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V"))
 	private void originclient$noVersion(GuiGraphicsExtractor instance, Font font, String text, int x, int y, int color) {
 		if (!originclient$origin()) {
 			instance.text(font, text, x, y, color);

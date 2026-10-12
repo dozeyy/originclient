@@ -49,7 +49,7 @@ public final class OriginTabList {
 	 *                  no filters/reorder/recolour — so the tab still works and looks
 	 *                  normal without the mod. When true, every option is applied.
 	 */
-	public static void extractRenderState(GuiGraphicsExtractor g, int screenWidth, List<PlayerInfo> allInfos,
+	public static void render(GuiGraphicsExtractor g, int screenWidth, List<PlayerInfo> allInfos,
 							  Component header, Component footer, boolean customize) {
 		Minecraft mc = Minecraft.getInstance();
 		Font font = mc.font;

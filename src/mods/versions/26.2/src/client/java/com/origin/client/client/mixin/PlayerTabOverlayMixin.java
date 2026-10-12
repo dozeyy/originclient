@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(PlayerTabOverlay.class)
 public class PlayerTabOverlayMixin {
 
-	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressVanilla(GuiGraphicsExtractor guiGraphics, int width, Scoreboard scoreboard,
 											  Objective objective, CallbackInfo ci) {
 		ci.cancel();

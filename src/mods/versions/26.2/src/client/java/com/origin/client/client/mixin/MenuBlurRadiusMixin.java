@@ -16,9 +16,11 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 // otherwise the player's own option passes through untouched.
 @Mixin(GameRenderer.class)
 public class MenuBlurRadiusMixin {
-	@ModifyArg(method = "render(Lnet/minecraft/client/DeltaTracker;Z)V",
+	// 26.2: the camera argument became its position (Vec3); the frame is split into
+	// extract() + render(), so both are named and whichever calls update() binds.
+	@ModifyArg(method = {"render(Lnet/minecraft/client/DeltaTracker;Z)V", "extract(Lnet/minecraft/client/DeltaTracker;Z)V"},
 			at = @At(value = "INVOKE",
-					target = "Lnet/minecraft/client/renderer/GlobalSettingsUniform;update(IIDJLnet/minecraft/client/DeltaTracker;ILnet/minecraft/client/Camera;Z)V"),
+					target = "Lnet/minecraft/client/renderer/GlobalSettingsUniform;update(IIDJLnet/minecraft/client/DeltaTracker;ILnet/minecraft/world/phys/Vec3;Z)V"),
 			index = 5)
 	private int originclient$menuBlurRadius(int vanilla) {
 		try {

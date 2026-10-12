@@ -6,7 +6,7 @@ import com.origin.client.client.render.GuiTris;
 import com.origin.client.client.render.LunarPipelines;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.entity.ItemRenderer;
+
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.util.Util;
 import net.minecraft.world.item.ItemStack;
@@ -61,7 +61,7 @@ public final class ShinyPots {
 		float cos = (float) Math.cos(0.17453292F), sin = (float) Math.sin(0.17453292F);
 		float k = size * UV_PER_PX;
 
-		var view = Minecraft.getInstance().getTextureManager().getTexture(ItemRenderer.ENCHANTED_GLINT_ITEM).getTextureView();
+		var view = Minecraft.getInstance().getTextureManager().getTexture(net.minecraft.client.renderer.feature.ItemFeatureRenderer.ENCHANTED_GLINT_ITEM).getTextureView();
 		GuiTris shine = GuiTris.textured(LunarPipelines.GUI_GLINT, view,
 				RenderSystem.getSamplerCache().getRepeat(FilterMode.LINEAR));
 		float[] c00 = uv(0, 0, a, b, k, cos, sin), c01 = uv(0, 1, a, b, k, cos, sin);

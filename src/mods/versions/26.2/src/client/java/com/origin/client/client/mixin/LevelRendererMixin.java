@@ -37,25 +37,20 @@ public class LevelRendererMixin {
 		}
 	}
 
-	// Block Outline + Overlay: direct hook on vanilla's own outline draw (the
-	// Lunar model — own the draw path instead of riding Fabric's
-	// BEFORE_BLOCK_OUTLINE event, which proved fragile on 1.21.11). Vanilla
-	// calls renderBlockOutline twice per frame (solid pass, then the
-	// translucent sort layer); Origin draws once in the solid pass and cancels
-	// both so exactly one outline ever shows. Fail-soft: any throw leaves
-	// vanilla's outline untouched.
-	@Inject(method = "renderBlockOutline", at = @At("HEAD"), cancellable = true)
-	private void originclient$blockOutline(net.minecraft.client.renderer.MultiBufferSource.BufferSource bufferSource,
-			com.mojang.blaze3d.vertex.PoseStack poseStack, boolean translucentPass,
+	// Block Outline + Overlay: cancel vanilla's own outline submit when Origin
+	// draws it (26.2: LevelRenderer.submitBlockOutline(PoseStack,
+	// SubmitNodeCollector, LevelRenderState), javap). The Origin outline/overlay
+	// itself is submitted from the level-render event (BlockOverlayRenderer).
+	// Fail-soft: any throw leaves vanilla's outline untouched.
+	@Inject(method = "submitBlockOutline", at = @At("HEAD"), cancellable = true)
+	private void originclient$blockOutline(com.mojang.blaze3d.vertex.PoseStack poseStack,
+			net.minecraft.client.renderer.SubmitNodeCollector collector,
 			net.minecraft.client.renderer.state.level.LevelRenderState levelRenderState, CallbackInfo ci) {
 		try {
 			var outline = levelRenderState.blockOutlineRenderState;
 			if (outline == null || !com.origin.client.client.mods.BlockOverlayRenderer.wouldDraw(outline)) {
 				return;
 			}
-			// Cancel-ONLY: the actual Origin outline/overlay draws from the
-			// END_MAIN world event (the path proven to run under Sodium+Iris);
-			// this hook just suppresses vanilla's white outline when it runs.
 			ci.cancel();
 		} catch (Throwable t) {
 			// fail-soft: let vanilla draw its own outline

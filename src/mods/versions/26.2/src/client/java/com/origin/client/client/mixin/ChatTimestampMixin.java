@@ -4,7 +4,7 @@ import com.origin.client.client.ext.ChatTextState;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Util;
-import net.minecraft.client.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
@@ -75,7 +75,8 @@ public abstract class ChatTimestampMixin {
 	}
 
 	@ModifyVariable(method = "addMessage(Lnet/minecraft/network/chat/Component;"
-			+ "Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
+			+ "Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;"
+			+ "Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
 			at = @At("HEAD"), argsOnly = true)
 	private Component originclient$transform(Component message) {
 		originclient$lastMessageMs = Util.getMillis();
@@ -131,12 +132,12 @@ public abstract class ChatTimestampMixin {
 		}
 	}
 
-	// ---- Smooth Chat + Text Shadow, both scoped to the public render() ----
+	// ---- Smooth Chat + Text Shadow, both scoped to the public extractRenderState() (26.2) ----
 
-	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIIZZ)V",
+	@Inject(method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V",
 			at = @At("HEAD"), require = 1)
 	private void originclient$renderStart(GuiGraphicsExtractor guiGraphics, Font font, int tickCount, int mouseX, int mouseY,
-										  boolean focused, boolean changeCursor, CallbackInfo ci) {
+										  ChatComponent.DisplayMode displayMode, boolean changeCursor, CallbackInfo ci) {
 		ChatTextState.suppressShadow = Mods.on("chat") && !Mods.bool("chat", "textShadow");
 
 		originclient$slid = false;
@@ -156,10 +157,10 @@ public abstract class ChatTimestampMixin {
 		originclient$slid = true;
 	}
 
-	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIIZZ)V",
+	@Inject(method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V",
 			at = @At("RETURN"), require = 1)
 	private void originclient$renderEnd(GuiGraphicsExtractor guiGraphics, Font font, int tickCount, int mouseX, int mouseY,
-										boolean focused, boolean changeCursor, CallbackInfo ci) {
+										ChatComponent.DisplayMode displayMode, boolean changeCursor, CallbackInfo ci) {
 		if (originclient$slid) {
 			guiGraphics.pose().popMatrix();
 			originclient$slid = false;

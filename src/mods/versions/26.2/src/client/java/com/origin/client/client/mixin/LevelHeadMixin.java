@@ -65,7 +65,7 @@ public abstract class LevelHeadMixin {
 		}
 	}
 
-	@Inject(method = "submitNameTag(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+	@Inject(method = "submitNameDisplay(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
 			at = @At("TAIL"), require = 0)
 	private void originclient$levelAbove(AvatarRenderState state, PoseStack pose, SubmitNodeCollector collector,
 										 CameraRenderState camera, CallbackInfo ci) {

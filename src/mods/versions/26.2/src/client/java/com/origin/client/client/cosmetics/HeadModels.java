@@ -3,7 +3,7 @@ package com.origin.client.client.cosmetics;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -94,8 +94,8 @@ final class HeadModels {
 		m.pose.mulPose(Axis.XP.rotation(w * t));
 		m.pose.mulPose(Axis.YP.rotation(2 * w * t));
 		float pulse = 1 + 0.15f * (float) Math.sin(4 * w * t);
-		m.box(0, 0, 0, 0.9f * pulse, 0.9f * pulse, 0.9f * pulse, 0xFFFFFFFF, LightTexture.FULL_BRIGHT, Pass.SOLID);
-		m.box(0, 0, 0, 2f * pulse, 2f * pulse, 2f * pulse, WHITE_GLOW, LightTexture.FULL_BRIGHT, Pass.GLOW);
+		m.box(0, 0, 0, 0.9f * pulse, 0.9f * pulse, 0.9f * pulse, 0xFFFFFFFF, LightCoordsUtil.FULL_BRIGHT, Pass.SOLID);
+		m.box(0, 0, 0, 2f * pulse, 2f * pulse, 2f * pulse, WHITE_GLOW, LightCoordsUtil.FULL_BRIGHT, Pass.GLOW);
 		m.pose.popPose();
 
 		for (float[] o : ORBIT_RINGS) {
@@ -103,18 +103,18 @@ final class HeadModels {
 			m.pose.pushPose();
 			m.pose.mulPose(Axis.YP.rotation(o[5] + o[2] * w * t));
 			m.pose.mulPose(Axis.XP.rotation(o[1] + 0.12f * (float) Math.sin(o[3] * w * t)));
-			m.ring(r, 0.26f, MINT, LightTexture.FULL_BRIGHT, Pass.SOLID);
-			m.ring(r, 0.68f, MINT_GLOW, LightTexture.FULL_BRIGHT, Pass.GLOW);
+			m.ring(r, 0.26f, MINT, LightCoordsUtil.FULL_BRIGHT, Pass.SOLID);
+			m.ring(r, 0.68f, MINT_GLOW, LightCoordsUtil.FULL_BRIGHT, Pass.GLOW);
 			float spin = o[4] * w * t;
 			for (int k = 0; k < BEADS.length; k++) {
 				float a = spin - dir * k * 0.2f, s = BEADS[k];
 				float x = r * (float) Math.cos(a), z = -r * (float) Math.sin(a);
 				if (k == 0) {
-					m.box(x, 0, z, s, s, s, 0xFFFFFFFF, LightTexture.FULL_BRIGHT, Pass.SOLID);
-					m.box(x, 0, z, s * 2.2f, s * 2.2f, s * 2.2f, MINT_GLOW, LightTexture.FULL_BRIGHT, Pass.GLOW);
+					m.box(x, 0, z, s, s, s, 0xFFFFFFFF, LightCoordsUtil.FULL_BRIGHT, Pass.SOLID);
+					m.box(x, 0, z, s * 2.2f, s * 2.2f, s * 2.2f, MINT_GLOW, LightCoordsUtil.FULL_BRIGHT, Pass.GLOW);
 				} else {
 					int fade = 0xFF & (int) (0x83 * (1 - k * 0.18f));
-					m.box(x, 0, z, s, s, s, 0xFF000000 | (fade / 3) << 16 | fade << 8 | (fade * 3 / 4), LightTexture.FULL_BRIGHT, Pass.GLOW);
+					m.box(x, 0, z, s, s, s, 0xFF000000 | (fade / 3) << 16 | fade << 8 | (fade * 3 / 4), LightCoordsUtil.FULL_BRIGHT, Pass.GLOW);
 				}
 			}
 			m.pose.popPose();
@@ -126,8 +126,8 @@ final class HeadModels {
 	private static void goldHalo(Mesh m, float t) {
 		m.pose.pushPose();
 		m.pose.translate(0, 35.2f + 0.35f * (float) Math.sin(t * 2), 0);
-		m.ring(4.4f, 0.5f, 0xFFFFD56B, LightTexture.FULL_BRIGHT, Pass.SOLID);
-		m.ring(4.4f, 1.3f, 0xFF4A3410, LightTexture.FULL_BRIGHT, Pass.GLOW);
+		m.ring(4.4f, 0.5f, 0xFFFFD56B, LightCoordsUtil.FULL_BRIGHT, Pass.SOLID);
+		m.ring(4.4f, 1.3f, 0xFF4A3410, LightCoordsUtil.FULL_BRIGHT, Pass.GLOW);
 		m.pose.popPose();
 	}
 
@@ -151,7 +151,7 @@ final class HeadModels {
 			m.box(0, 32.9f, R, 2 * R + 0.9f, 0.4f, 0.9f, DEEP, light, Pass.SOLID);
 			m.box(0, 31.8f, R + 0.4f, 1.9f, 1.9f, 0.3f, DEEP, light, Pass.SOLID);                         // gem setting
 			m.box(0, 31.8f, R + 0.55f, 1.2f, 1.2f, 0.5f, GEMS[side], light, Pass.SOLID);                  // gem
-			m.box(-0.3f, 32.1f, R + 0.85f, 0.4f, 0.4f, 0.1f, 0xFFFFFFFF, LightTexture.FULL_BRIGHT, Pass.SOLID);
+			m.box(-0.3f, 32.1f, R + 0.85f, 0.4f, 0.4f, 0.1f, 0xFFFFFFFF, LightCoordsUtil.FULL_BRIGHT, Pass.SOLID);
 			for (float x : new float[]{-2.6f, 2.6f}) {
 				m.box(x, 31.8f, R + 0.4f, 0.6f, 0.6f, 0.3f, PEARL, light, Pass.SOLID);
 			}

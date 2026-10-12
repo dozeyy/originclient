@@ -53,7 +53,7 @@ public class EntityNametagMixin {
 		}
 	}
 
-	@Inject(method = "submitNameTag", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "submitNameDisplay", at = @At("HEAD"), cancellable = true)
 	private void originclient$scaleTagPush(EntityRenderState state, PoseStack poseStack,
 										   SubmitNodeCollector collector, CameraRenderState cameraRenderState,
 										   CallbackInfo ci) {
@@ -77,7 +77,7 @@ public class EntityNametagMixin {
 		}
 	}
 
-	@Inject(method = "submitNameTag", at = @At("RETURN"))
+	@Inject(method = "submitNameDisplay", at = @At("RETURN"))
 	private void originclient$scaleTagPop(EntityRenderState state, PoseStack poseStack,
 										  SubmitNodeCollector collector, CameraRenderState cameraRenderState,
 										  CallbackInfo ci) {

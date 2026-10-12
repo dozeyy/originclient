@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class MenuBlurMixin {
 
 	// Pause + in-game menus: Origin's blur marker (and strength) instead of the vanilla option.
-	@Inject(method = "renderBlurredBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractBlurredBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$menuBlur(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
 		if (MenuBlur.handles(self)) {
@@ -33,7 +33,7 @@ public class MenuBlurMixin {
 	}
 
 	// ...and the kind's tint instead of vanilla's in-world menu texture.
-	@Inject(method = "renderMenuBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractMenuBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$menuTint(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
 		if (MenuBlur.handles(self)) {
@@ -44,7 +44,7 @@ public class MenuBlurMixin {
 
 	// Inventories/containers: vanilla never blurs these, only darkens with a
 	// gradient. Replace that gradient with blur + the inventory tint.
-	@Inject(method = "renderTransparentBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractTransparentBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$inventoryBlur(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
 		if (self instanceof AbstractContainerScreen<?> && MenuBlur.handles(self)) {

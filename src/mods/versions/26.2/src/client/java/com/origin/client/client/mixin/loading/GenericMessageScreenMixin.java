@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GenericMessageScreen.class)
 public class GenericMessageScreenMixin {
 
-	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		// null title -> Origin draws its backdrop + indeterminate bar only; the
 		// screen's own "Preparing Resources..." label renders over it as usual.

@@ -65,7 +65,7 @@ public final class TitlesHud {
 	}
 
 	/** In-game draw from TitlesMixin; alpha is vanilla's fade (0-255). */
-	public static void extractRenderState(GuiGraphicsExtractor g, Component title, Component subtitle, int alpha) {
+	public static void render(GuiGraphicsExtractor g, Component title, Component subtitle, int alpha) {
 		HudPos p = pos();
 		int[] sz = boxSize();
 		double w = sz[0] * p.scale, h = sz[1] * p.scale;

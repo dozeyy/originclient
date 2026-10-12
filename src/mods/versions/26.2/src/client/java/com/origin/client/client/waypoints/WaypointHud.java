@@ -77,8 +77,7 @@ public final class WaypointHud {
 
 	/** The view-projection vanilla draws this frame's world with (see render()). */
 	private static Matrix4f viewProj(Minecraft mc) {
-		float fov = ((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
-				.originclient$getFov(mc.gameRenderer.mainCamera(), 1.0f, true);
+		float fov = mc.gameRenderer.mainCamera().getFov();
 		Matrix4f viewProj = mc.gameRenderer.getProjectionMatrix(fov);
 		viewProj.rotate(new Quaternionf(ORIENT).conjugate());
 		return viewProj;
@@ -106,7 +105,7 @@ public final class WaypointHud {
 		return new int[]{sx, sy};
 	}
 
-	public static void extractRenderState(GuiGraphicsExtractor g) {
+	public static void render(GuiGraphicsExtractor g) {
 		if (!valid || !Mods.on("waypoints")) {
 			return;
 		}
@@ -254,8 +253,7 @@ public final class WaypointHud {
 		// the cone hard-clamps to the exact end (left/right by which side it's on),
 		// no matter how far behind it is — 45° past the edge and directly behind
 		// land on the same end pixel.
-		double vFov = Math.toRadians(((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
-				.originclient$getFov(mc.gameRenderer.mainCamera(), 1.0f, true));
+		double vFov = Math.toRadians(mc.gameRenderer.mainCamera().getFov());
 		double aspect = (double) Math.max(1, mc.getWindow().getWidth()) / Math.max(1, mc.getWindow().getHeight());
 		double halfCone = Math.toDegrees(Math.atan(Math.tan(vFov / 2.0) * aspect));
 

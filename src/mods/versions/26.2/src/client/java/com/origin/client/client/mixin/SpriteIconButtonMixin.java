@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = {SpriteIconButton.CenteredIcon.class, SpriteIconButton.TextAndIcon.class}, priority = 2000)
 public abstract class SpriteIconButtonMixin {
 
-	@Inject(method = "renderContents", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractContents", at = @At("HEAD"), cancellable = true)
 	private void originclient$originIcon(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		SpriteIconButton self = (SpriteIconButton) (Object) this;
 		// Icon geometry via the accessor on the declaring class (see

@@ -28,7 +28,7 @@ public class BossBarMixin {
 	@Final
 	Map<UUID, LerpingBossEvent> events;
 
-	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
 	private void originclient$bossBar(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
 		if (!Mods.on("bossbar")) {
 			return;

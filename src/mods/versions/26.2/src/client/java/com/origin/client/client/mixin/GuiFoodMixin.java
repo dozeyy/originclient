@@ -1,7 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.mods.SaturationOverlay;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,10 +14,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // against decompiled 1.21.11 Gui; it is only called when no ridden mount shows
 // its own health). Drawing at its TAIL puts the overlay on exactly vanilla's
 // shank positions with no layout of our own to drift out of sync.
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public class GuiFoodMixin {
 
-	@Inject(method = "renderFood", at = @At("TAIL"))
+	@Inject(method = "extractFood", at = @At("TAIL"))
 	private void originclient$saturationOverlay(GuiGraphicsExtractor guiGraphics, Player player, int y, int right, CallbackInfo ci) {
 		try {
 			SaturationOverlay.render(guiGraphics, player, y, right);

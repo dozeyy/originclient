@@ -60,7 +60,7 @@ public final class SaturationOverlay {
 	}
 
 	/** Draws over the hunger row vanilla just drew. y = row top, right = bar's right edge. */
-	public static void extractRenderState(GuiGraphicsExtractor g, Player player, int y, int right) {
+	public static void render(GuiGraphicsExtractor g, Player player, int y, int right) {
 		if (!Mods.on("saturation")) {
 			return;
 		}

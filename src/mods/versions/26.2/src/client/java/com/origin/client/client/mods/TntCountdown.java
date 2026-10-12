@@ -5,7 +5,7 @@ import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.state.TntRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
@@ -73,7 +73,7 @@ public final class TntCountdown {
 			float x = -font.width(text) / 2f;
 			int bg = Mods.bool(MOD, "background")
 					? (int) (mc.options.getBackgroundOpacity(0.25F) * 255.0F) << 24 : 0;
-			int light = LightTexture.FULL_BRIGHT;
+			int light = LightCoordsUtil.FULL_BRIGHT;
 			collector.submitText(pose, x, 0, seq, false, Font.DisplayMode.SEE_THROUGH, light, 0x20FFFFFF, bg, 0);
 			collector.submitText(pose, x, 0, seq, Mods.bool(MOD, "textShadow"), Font.DisplayMode.NORMAL, light, 0xFFFFFFFF, 0, 0);
 		} finally {

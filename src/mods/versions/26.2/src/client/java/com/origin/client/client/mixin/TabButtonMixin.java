@@ -14,16 +14,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // clicks/selection logic untouched. Fail-soft: if the Origin draw throws,
 // vanilla tabs return (renderTab returns false).
 //
-// PER-VERSION DELTA (1.21.11): TabButton extends AbstractWidget.WithInactiveMessage,
-// NOT AbstractButton -- it still declares its own directly-overridable
-// renderWidget(...) (unlike SpriteIconButton's CenteredIcon/TextAndIcon, which
-// route through AbstractButton's now-final renderWidget -> renderContents).
-// So this injection point is unchanged from 1.21.1.
+// PER-VERSION DELTA (26.2): TabButton moved to gui.components and became
+// abstract; the header tab is MenuTabBar.MenuTabButton, which owns the
+// extractWidgetRenderState this hooks (javap, 26.2).
 // priority 2000: Origin's restyle wins over other UI mods.
-@Mixin(value = TabButton.class, priority = 2000)
+@Mixin(targets = "net.minecraft.client.gui.components.tabs.MenuTabBar$MenuTabButton", priority = 2000)
 public class TabButtonMixin {
 
-	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "extractWidgetRenderState", at = @At("HEAD"), cancellable = true)
 	private void originclient$originTab(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		TabButton self = (TabButton) (Object) this;
 		if (OriginButtonRenderer.renderTab(guiGraphics, self, self.getX(), self.getY(),

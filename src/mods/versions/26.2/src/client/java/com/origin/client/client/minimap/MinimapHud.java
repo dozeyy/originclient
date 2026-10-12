@@ -260,7 +260,7 @@ public final class MinimapHud {
 
 	// ---- render ----
 
-	public static void extractRenderState(GuiGraphicsExtractor g, Minecraft mc, int w, int h) {
+	public static void render(GuiGraphicsExtractor g, Minecraft mc, int w, int h) {
 		if (mc.level != null && !allowed(mc)) {
 			return;
 		}

@@ -8,7 +8,7 @@ public final class OriginHud {
 	private OriginHud() {
 	}
 
-	public static void extractRenderState(GuiGraphicsExtractor guiGraphics) {
+	public static void render(GuiGraphicsExtractor guiGraphics) {
 		com.origin.client.client.hud.HudElements.renderAll(guiGraphics);
 	}
 }
