@@ -14,7 +14,6 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ConnectScreen;
-import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -40,7 +39,7 @@ import java.util.Locale;
  * PER-VERSION DELTA (1.21.10, 1.21.9+ era): the world hook is Fabric's
  * WorldRenderEvents.END_MAIN (LAST is gone); Fabric's allowMouseClick hands a
  * MouseButtonEvent; the version name is WorldVersion.name(); leaving a world
- * goes through PauseScreen.disconnectFromWorld
+ * goes through Minecraft.disconnectFromWorld
  * (vanilla's own Disconnect button path) before ConnectScreen.startConnecting.
  */
 public final class Social {
@@ -343,8 +342,9 @@ public final class Social {
 		Minecraft mc = Minecraft.getInstance();
 		try {
 			if (mc.level != null) {
-				// vanilla's Disconnect / Save and Quit path (saves a local world first)
-				PauseScreen.disconnectFromWorld(mc, ClientLevel.DEFAULT_QUIT_MESSAGE);
+				// vanilla's Disconnect / Save and Quit path (saves a local world first);
+				// 1.21.10 moved it from PauseScreen (1.21.6-1.21.8) onto Minecraft
+				mc.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE);
 			}
 			ServerData data = new ServerData(server, server, ServerData.Type.OTHER);
 			ConnectScreen.startConnecting(new JoinMultiplayerScreen(new TitleScreen()), mc,
