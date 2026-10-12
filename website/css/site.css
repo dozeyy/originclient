@@ -173,8 +173,8 @@ h2 span, h1 span { color: var(--acc-h); }
 
 /* ---------- small screens ---------- */
 @media (max-width: 900px) {
-  .top__nav { display: none; }
-  .top .btn { margin-left: auto; }
+  /* Phones keep only the Store link; the brand mark leads home. */
+  .top__nav a:not(.nav-store) { display: none; }
   .hero { align-items: flex-end; padding-bottom: 48px; }
   .hero__hint { display: none; }
   .facts { gap: 24px; }

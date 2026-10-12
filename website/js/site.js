@@ -104,7 +104,7 @@ function frame() {
   if (y > lastY + 1 && y > H) top.classList.add('is-hidden');
   else if (y < lastY - 1 || y <= H) top.classList.remove('is-hidden');
   lastY = y;
-  for (const a of $$('.top__nav a')) {
+  for (const a of $$('.top__nav a[href^="#"]')) {
     const r = document.querySelector(a.getAttribute('href')).getBoundingClientRect();
     a.classList.toggle('is-on', r.top < H * 0.5 && r.bottom > H * 0.5);
   }
