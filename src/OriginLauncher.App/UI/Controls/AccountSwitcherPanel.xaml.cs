@@ -31,7 +31,8 @@ public partial class AccountSwitcherPanel : UserControl
                 Id = a.Id,
                 Gamertag = a.Gamertag,
                 LastUsedUtc = a.LastUsedUtc,
-                IsSelected = a.IsSelected
+                IsSelected = a.IsSelected && !a.PendingMinecraftSignIn,
+                IsPending = a.PendingMinecraftSignIn
             })
             .ToList();
 
@@ -48,6 +49,11 @@ public partial class AccountSwitcherPanel : UserControl
     private void AccountRow_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (((FrameworkElement)sender).DataContext is not MinecraftAccount account) return;
+        if (account.IsPending)
+        {
+            FinishPendingSignIn(account.Id);
+            return;
+        }
 
         try
         {
@@ -72,29 +78,86 @@ public partial class AccountSwitcherPanel : UserControl
         AddAccountRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>What the sign-in card shows after the Microsoft window (null = done, close it).</summary>
+    public sealed record SignInOutcome(string Title, string Message);
+
     // Called by MainWindow once the embedded sign-in page (see
-    // MicrosoftSignInPanel) completes the MSA -> Xbox Live -> XSTS ->
-    // Minecraft chain successfully.
-    public bool CompleteSignIn(AuthResult result)
+    // MicrosoftSignInPanel) completes the Microsoft window. Through the broker:
+    // a full sign-in is stored WITH its Minecraft session (the first Play
+    // reuses it — no second sign-in); one whose Minecraft step hit Microsoft's
+    // rate limit is kept as a pending account holding its Microsoft sign-in,
+    // finished later by clicking it here.
+    public SignInOutcome? CompleteSignIn(AuthResult result)
     {
         try
         {
-            var stored = new StoredAccount
-            {
-                Id = result.Session.UUID ?? "",
-                Gamertag = result.Session.Username ?? "",
-                LastUsedUtc = DateTimeOffset.UtcNow,
-                ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken)
-            };
-            _accounts = AccountStore.Update(accounts => AccountStore.Upsert(accounts, stored));
+            MinecraftSessionBroker.AddSignedIn(result);
+            _accounts = AccountStore.Load();
             RefreshList();
+            if (result.Session == null)
+            {
+                const string later =
+                    "Microsoft is limiting sign-ins right now. Your account is saved: in a few minutes, click it in Accounts to finish signing in.";
+                ShowSignInError(later);
+                return new SignInOutcome("Almost there", later);
+            }
             AccountsChanged?.Invoke(this, EventArgs.Empty);
-            return true;
+            return null;
         }
         catch (Exception)
         {
             ShowSignInError("Couldn't save this account.");
-            return false;
+            return new SignInOutcome("Couldn't add this account", "Couldn't save this account. Please try again.");
+        }
+    }
+
+    // A pending account (added while Microsoft was rate-limiting): finish its
+    // Minecraft step now. The broker refuses at once, without calling
+    // Microsoft, while that account is still waiting out a 429.
+    private async void FinishPendingSignIn(string pendingId)
+    {
+        ErrorText.Visibility = Visibility.Collapsed;
+        AccountList.IsEnabled = false;
+        SetAddAccountEnabled(false);
+        try
+        {
+            var session = await MinecraftSessionBroker.FinishPendingAsync(pendingId);
+            if (session == null)
+            {
+                MinecraftSessionBroker.RemovePending(pendingId);
+                ShowSignInError("This sign-in can't be finished. Please add the account again.");
+            }
+            _accounts = AccountStore.Load();
+            RefreshList();
+            if (session != null)
+            {
+                AccountsChanged?.Invoke(this, EventArgs.Empty);
+                AccountSelected?.Invoke(this, EventArgs.Empty);
+            }
+        }
+        catch (MicrosoftAuthException ex) when (ex.RateLimited)
+        {
+            ShowSignInError(MicrosoftAuthException.RateLimitedMessage);
+        }
+        catch (MicrosoftAuthException ex) when (ex.Stage == "token_refresh")
+        {
+            MinecraftSessionBroker.RemovePending(pendingId);
+            _accounts = AccountStore.Load();
+            RefreshList();
+            ShowSignInError("This sign-in expired. Please add the account again.");
+        }
+        catch (MicrosoftAuthException ex)
+        {
+            ShowSignInError(ex.Message);
+        }
+        catch (Exception)
+        {
+            ShowSignInError("Couldn't reach Microsoft. Check your internet connection and try again.");
+        }
+        finally
+        {
+            AccountList.IsEnabled = true;
+            SetAddAccountEnabled(true);
         }
     }
 

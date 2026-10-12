@@ -32,8 +32,22 @@
         <Grid Grid.Row="1" Margin="1,0,1,1" ClipToBounds="True">
             <wv2:WebView2 x:Name="WebView" DefaultBackgroundColor="#121918"/>
             <Border x:Name="LoadingOverlay" Background="{StaticResource Brush.Panel}">
-                <TextBlock x:Name="LoadingText" Text="Loading sign-in..." Style="{StaticResource Text.BodyDim}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Grid>
+                    <TextBlock x:Name="LoadingText" Text="Loading sign-in..." Style="{StaticResource Text.BodyDim}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <!-- The card's outcome when sign-in can't finish here (ShowMessage):
+                         it stays open with a plain sentence instead of vanishing. -->
+                    <StackPanel x:Name="MessagePanel" Visibility="Collapsed" MaxWidth="380"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.H2}"
+                                   TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        <TextBlock x:Name="MessageText" Style="{StaticResource Text.BodyDim}"
+                                   TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                        <Button Content="OK" Style="{StaticResource Button.Primary}" MinWidth="140"
+                                HorizontalAlignment="Center" HorizontalContentAlignment="Center"
+                                Click="CancelButton_Click"/>
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
     </Grid>

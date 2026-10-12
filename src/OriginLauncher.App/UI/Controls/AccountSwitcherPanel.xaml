@@ -91,7 +91,7 @@
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Gamertag}" Style="{StaticResource Text.Body}"/>
-                                    <TextBlock Text="{Binding LastUsedUtc, StringFormat='Last used {0:MMM d, yyyy}'}"
+                                    <TextBlock Text="{Binding Subtitle}"
                                                Style="{StaticResource Text.Label}" FontSize="11"/>
                                 </StackPanel>
                                 <TextBlock Grid.Column="2" Text="ACTIVE" Style="{StaticResource Text.Eyebrow}"
