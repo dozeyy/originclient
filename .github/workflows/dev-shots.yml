@@ -12,7 +12,8 @@
 #   [shots:1.20,1.21.4]    -> those modules
 #   [shots:all]            -> every live module (src/mods/live-modules.json)
 # or run it by hand (Run workflow) with the same list in `modules`; `set: world`
-# captures inside a fresh world instead (modules with OriginDevWorld).
+# captures inside a fresh world instead (modules with OriginDevWorld); `label`
+# names the output folders (<module>[-world]-<label>) so parallel runs stay apart.
 # Software GL limits (Xvfb + llvmpipe, Sodium's GL 4.6 spoofed) are the same
 # as boot-smoke.yml -- see the notes there.
 name: dev-shots
@@ -29,6 +30,9 @@ on:
       set:
         description: "design (Origin screens) or world (inside a fresh world: OriginDevWorld)"
         default: "design"
+      label:
+        description: "Optional name for this run's output (folder <module>[-world]-<label>), so parallel sessions don't overwrite each other"
+        default: ""
 
 permissions:
   contents: write
@@ -39,7 +43,7 @@ permissions:
 # module list + set, so parallel sessions/agents shooting different modules
 # never cancel each other.
 concurrency:
-  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.event.inputs.modules, github.event.inputs.set) || contains(github.event.head_commit.message, '[shots') }}
+  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}', github.event.inputs.modules, github.event.inputs.set, github.event.inputs.label) || contains(github.event.head_commit.message, '[shots') }}
   cancel-in-progress: true
 
 jobs:
@@ -147,6 +151,7 @@ jobs:
       - name: Publish to the claude/dev-shots branch
         env:
           SET: ${{ github.event.inputs.set || 'design' }}
+          LABEL: ${{ github.event.inputs.label }}
         run: |
           pub="$RUNNER_TEMP/pub"
           mkdir -p "$pub"
@@ -155,6 +160,7 @@ jobs:
           # set, <module>-world for the world set; SOURCE.txt inside each says which
           # commit + run made it.
           suffix=""; [ "$SET" = "world" ] && suffix="-world"
+          [ -n "$LABEL" ] && suffix="$suffix-$(printf '%s' "$LABEL" | tr -c 'A-Za-z0-9._-' '_')"
           url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
           for attempt in 1 2 3 4 5; do
             rm -rf "$RUNNER_TEMP/site"
