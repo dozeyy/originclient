@@ -4782,3 +4782,48 @@ live module (1.21.1, 1.21.4, 1.21.6, 1.21.8, 1.21.10, and 1.21.11). The 1.21.1
 visual harness produced all 16 size/GUI-scale captures, and a real quick-play
 world confirmed the Escape-menu Mods button matches its neighboring buttons.
 The user approved the result for GitHub release.
+
+## 2026-10-11 — video-settings-mod-rail: 1.21.1 build (Sodium 0.6.13 GUI mixin)
+
+The Video Settings mod rail is built on **1.21.1 only** (mandate 5: 1.21.1 ships
+stable Sodium 0.6.13, which has NO Config API; the 1.21.8/1.21.10/1.21.11 line
+will use Sodium 0.8's Config API natively — not built yet).
+
+What the player sees in Options → Video Settings (Sodium's screen): Sodium's top
+row of page tabs is replaced by a left Origin rail (dark glass panel, Origin mark
++ ORIGIN wordmark, mod-menu rail pills with the accent wash + aurora bar), and
+Sodium's option column slides right to clear it. The open page's name sits over
+the options ("Video › Quality"). Rows:
+- VIDEO — Sodium's General / Quality / Performance / Advanced (+ any other mod's
+  extra Sodium tab).
+- MODS — Origin Mods (Right Shift menu; Close now returns to Video Settings),
+  Iris Shaders (Iris's own "Shader Packs..." page, which Iris 1.8.x appends to
+  Sodium's page list and intercepts in setPage), Voice Chat (its Mod Menu config
+  screen), JEI (Origin's own JEI settings page), Mod Menu (full mods list).
+- OPTIMIZATION — ModernFix, ImmediatelyFast, Lithium, FerriteCore, Indium: opens
+  the mod's Mod Menu config screen when it registers one, else a dimmed "auto"
+  row with a hover note. Rows for mods that aren't loaded are omitted.
+
+Files: `gui/SodiumModRail.java` (widget + row model + fail-soft bridge),
+`mixin/SodiumOptionsRailMixin.java` (@Pseudo, remap=false, require=0),
+`OriginModMenuScreen(Screen returnTo, String startPage)` constructor.
+
+Sodium 0.6.13 facts (verified at tag `mc1.21.1-0.6.13`, SodiumOptionsGUI.java):
+`rebuildGUI()` = clearWidgets → `rebuildGUIPages()` (tabs at x=6,y=6) →
+`rebuildGUIOptions()` (`Control.createElement(new Dim2i(6, y, 240, 18))` per
+option, y from 28) → Undo/Apply/Done at width-211/-142/-73, height-30 + Donate at
+width-128,6. `pages` / `currentPage` are private (read by reflection, once);
+`setPage(OptionPage)` is public. Iris 1.8.8's `MixinSodiumOptionsGUI` adds an
+empty page named `options.iris.shaderPackSelection` at `<init>` RETURN.
+Mod Menu 11.0.4: `ModMenu.hasConfigScreen(id)` / `getConfigScreen(id, parent)`
+public static; `new ModsScreen(parent)`.
+
+Fail-soft chain: no Sodium → mixin never applies; screen < 400 GUI px wide, field
+mismatch or any error → Sodium's own tabs; rail up but the option-shift
+ModifyArg didn't fire → rail switched off for the session and the screen rebuilt
+with Sodium's tabs; a throwing third-party config screen is caught + logged.
+
+Verification so far: stub-compiled (javac 21) against signatures copied from
+the real Sodium 0.6.13 / MC 1.21.1 / Mod Menu 11.0.4 sources. NOT yet built with
+Gradle nor runClient-smoke-tested (sandbox can't reach Fabric maven) — needs
+`gradlew runClient`, open Video Settings, confirm zero `Mixin apply ... failed`.

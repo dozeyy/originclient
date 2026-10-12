@@ -469,6 +469,20 @@ LUNAR_BATCH3A_ICONS = [
 ]
 ICONS += LUNAR_BATCH3A_ICONS
 
+# Lunar parity (2026-10-11): Hypixel Bed Wars. A bed seen from above -- pillow at
+# the head, folded blanket -- with a heart on the blanket (team beds + hardcore
+# hearts). The Hypixel mod's glyph is the side-on bed; this one reads apart from
+# it at a glance. Its own list so it merges cleanly.
+LUNAR_BEDWARS_ICONS = [
+    icon("client.hypixelbedwars", "Hypixel Bed Wars", "GAMEPLAY", """
+      <rect x="5.5" y="2.8" width="13" height="18.4" rx="2.2"/>
+      <rect x="8" y="5.2" width="8" height="3.4" rx="1.1"/>
+      <path d="M5.5 11h13"/>
+      <path d="M12 18.2l-2.3-2.2a1.45 1.45 0 0 1 2.3-1.8 1.45 1.45 0 0 1 2.3 1.8Z"/>
+    """, "Bed Wars beds, hearts and trap alerts"),
+]
+ICONS += LUNAR_BEDWARS_ICONS
+
 
 def svg_document(entry: dict) -> str:
     title = html.escape(entry["label"])

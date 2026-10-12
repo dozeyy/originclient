@@ -67,7 +67,11 @@
 		"NickHiderCacheMixin",
 		"NickHiderSkinMixin",
 		"NickHiderLobbyMixin",
-		"ScreenshotKeyMixin"
+		"ScreenshotKeyMixin",
+		"SodiumOptionsRailMixin",
+		"HypixelBedwarsGuiMixin",
+		"HypixelBedwarsBedMixin",
+		"HypixelBedwarsSoundMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
