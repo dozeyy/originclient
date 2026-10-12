@@ -36,12 +36,6 @@
                         <ImageBrush ImageSource="{Binding ImagePath}" Stretch="UniformToFill"/>
                     </Border.Background>
                 </Border>
-                <!-- Neutral-gray wash used to "gray out" coming-soon cards. -->
-                <Border x:Name="GrayVeil" CornerRadius="{StaticResource Radius.Card}" Opacity="0">
-                    <Border.Background>
-                        <SolidColorBrush Color="#B36D817B"/>
-                    </Border.Background>
-                </Border>
                 <Border CornerRadius="{StaticResource Radius.Card}">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -56,22 +50,10 @@
                         BorderBrush="{StaticResource Brush.SoftStroke}"/>
                 <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H2}"
                            VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="14,0,14,12"/>
-                <Border x:Name="Chip" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="10"
-                        Padding="8,4" Visibility="Collapsed" Background="{StaticResource Brush.PanelGlass}"
-                        CornerRadius="{StaticResource Radius.Chip}" BorderThickness="1" BorderBrush="{StaticResource Brush.Stroke}">
-                    <TextBlock Text="COMING SOON" Style="{StaticResource Text.Eyebrow}"/>
-                </Border>
             </Grid>
             <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding AnySupported}" Value="False">
-                    <Setter TargetName="Chip" Property="Visibility" Value="Visible"/>
-                    <!-- Gray out coming-soon cards so they read as unavailable. -->
-                    <Setter TargetName="GrayVeil" Property="Opacity" Value="0.45"/>
-                    <Setter TargetName="CardRoot" Property="Opacity" Value="0.72"/>
-                </DataTrigger>
                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
                     <Setter TargetName="Ring" Property="Opacity" Value="0.6"/>
-                    <Setter TargetName="CardRoot" Property="Opacity" Value="1"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -84,30 +66,15 @@
                         <ImageBrush ImageSource="{Binding ImagePath}" Stretch="UniformToFill"/>
                     </Border.Background>
                 </Border>
-                <Border x:Name="StackGray" CornerRadius="{StaticResource Radius.NavItem}" Opacity="0">
-                    <Border.Background>
-                        <SolidColorBrush Color="#B36D817B"/>
-                    </Border.Background>
-                </Border>
                 <Border CornerRadius="{StaticResource Radius.NavItem}" Background="#D9090D0C"/>
                 <Border x:Name="SelRing" CornerRadius="{StaticResource Radius.NavItem}" BorderThickness="2"
                         BorderBrush="{StaticResource Brush.Accent}" Opacity="0"/>
                 <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="12,0"/>
-                <Border x:Name="MiniChip" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0"
-                        Visibility="Collapsed">
-                    <TextBlock Text="SOON" Style="{StaticResource Text.Eyebrow}"/>
-                </Border>
             </Grid>
             <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding AnySupported}" Value="False">
-                    <Setter TargetName="MiniChip" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="StackGray" Property="Opacity" Value="0.4"/>
-                    <Setter TargetName="StackRoot" Property="Opacity" Value="0.72"/>
-                </DataTrigger>
                 <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
                     <Setter TargetName="SelRing" Property="Opacity" Value="1"/>
-                    <Setter TargetName="StackRoot" Property="Opacity" Value="1"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
                     <Setter TargetName="SelRing" Property="Opacity" Value="0.5"/>
@@ -125,30 +92,9 @@
             <Setter Property="Margin" Value="0,0,7,0"/>
         </Style>
 
-        <!-- Version dropdown: unsupported entries disabled + tagged -->
-        <Style x:Key="VersionItemContainer" TargetType="ComboBoxItem" BasedOn="{StaticResource Input.ComboBoxItem}">
-            <Setter Property="IsEnabled" Value="{Binding Supported}"/>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.5"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+        <!-- Version dropdown entry: the plain version string ("1.20.4"). -->
         <DataTemplate x:Key="VersionItemTemplate">
-            <Grid MinWidth="200">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding Id}" Style="{StaticResource Text.Body}"/>
-                <TextBlock x:Name="SoonTag" Grid.Column="1" Text="COMING SOON" Style="{StaticResource Text.Eyebrow}"
-                           VerticalAlignment="Center" Visibility="Collapsed"/>
-            </Grid>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding Supported}" Value="False">
-                    <Setter TargetName="SoonTag" Property="Visibility" Value="Visible"/>
-                </DataTrigger>
-            </DataTemplate.Triggers>
+            <TextBlock Text="{Binding}" Style="{StaticResource Text.Body}" MinWidth="200"/>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -198,8 +144,8 @@
                         <ItemsPanelTemplate>
                             <!-- Columns fixed at 3, rows left to UniformGrid so the
                                  grid follows the catalog instead of a hardcoded 9.
-                                 Pulling 1.12 and 1.8 took it to 7 cards (3/3/1);
-                                 hardcoding Rows="3" would have left two dead cells. -->
+                                 Six cards today (3/3) since the never-shipping
+                                 versions and the 26 card left on 2026-10-12. -->
                             <UniformGrid Columns="3"/>
                         </ItemsPanelTemplate>
                     </ListBox.ItemsPanel>
@@ -263,7 +209,7 @@
                                        Foreground="{StaticResource Brush.TextDim}"/>
                             <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H1}" Margin="0,2,0,0"/>
                             <TextBlock x:Name="FactsText" Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                            <StackPanel x:Name="ChipsPanel" Orientation="Horizontal" Margin="0,14,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="ORIGIN UI" Style="{StaticResource Text.Eyebrow}"/></Border>
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="PERFORMANCE" Style="{StaticResource Text.Eyebrow}"/></Border>
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="SHADERS" Style="{StaticResource Text.Eyebrow}"/></Border>
@@ -285,9 +231,6 @@
 
                     <!-- Actions -->
                     <StackPanel Grid.Row="2" Margin="0,20,0,0">
-                        <TextBlock x:Name="ComingSoonNote" Text="Coming soon"
-                                   Style="{StaticResource Text.Body}" Foreground="{StaticResource Brush.TextMuted}"
-                                   Margin="0,0,0,12" Visibility="Collapsed"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -296,7 +239,7 @@
                             <StackPanel Grid.Column="0" Margin="0,0,20,0" VerticalAlignment="Bottom">
                                 <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}" Margin="0,0,0,6"/>
                                 <ComboBox x:Name="VersionDropdown" MinWidth="190" MinHeight="46" FontSize="15"
-                                          ItemContainerStyle="{StaticResource VersionItemContainer}"
+                                          ItemContainerStyle="{StaticResource Input.ComboBoxItem}"
                                           ItemTemplate="{StaticResource VersionItemTemplate}"
                                           SelectionChanged="VersionDropdown_SelectionChanged"/>
                             </StackPanel>

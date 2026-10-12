@@ -16,6 +16,11 @@ runtimes), so instead of pretending there is one copy, this checks they agree:
    GitHub release asset the launcher self-updates from: owner, repo, tag
    prefix and zip name in src/OriginSetup/Engine/ReleaseFeed.cs must match
    the launcher's Core/Updates/UpdateService.cs.
+5. The version picker — every version in the launcher's Core/Versions/
+   VersionCatalog.cs grid must be in VersionManager.OriginBuilds and vice
+   versa (both C#, but hand-authored separately). A version without a build
+   must never be shown (no greyed "Coming Soon" entries — Will, 2026-10-12),
+   and a shipped version must never be missing from the picker.
 
 Run from anywhere: python3 tools/release/check_consistency.py
 """
@@ -31,8 +36,8 @@ LAUNCHER = REPO / "src" / "OriginLauncher.App"
 SETUP = REPO / "src" / "OriginSetup"
 
 
-def check_versions() -> list[str]:
-    live = json.loads((REPO / "src/mods/live-modules.json").read_text(encoding="utf-8"))["modules"]
+def origin_builds() -> dict[str, set[str]]:
+    """VersionManager.OriginBuilds as {jar module: {Minecraft versions}}, commented-out entries skipped."""
     source = (LAUNCHER / "Core/Versions/VersionManager.cs").read_text(encoding="utf-8")
     builds: dict[str, set[str]] = {}
     for line in source.splitlines():
@@ -41,6 +46,12 @@ def check_versions() -> list[str]:
         m = re.search(r'\["([^"]+)"\]\s*=\s*new\("originclient-([^"]+)\.jar"', line)
         if m:
             builds.setdefault(m.group(2), set()).add(m.group(1))
+    return builds
+
+
+def check_versions() -> list[str]:
+    live = json.loads((REPO / "src/mods/live-modules.json").read_text(encoding="utf-8"))["modules"]
+    builds = origin_builds()
 
     problems = []
     listed = {m["module"]: set(m.get("versions", [])) for m in live}
@@ -85,12 +96,34 @@ def check_release_feed() -> list[str]:
     return [f"release feed {n}: installer {a[n]!r} vs launcher {b[n]!r}" for n in names if a[n] != b[n]]
 
 
+def check_picker() -> list[str]:
+    # Each card is Group("key", "title", "tagline", "description", "ver", "ver", ...):
+    # the versions are every string literal after the first four.
+    source = (LAUNCHER / "Core/Versions/VersionCatalog.cs").read_text(encoding="utf-8-sig")
+    code = "\n".join(l for l in source.splitlines() if not l.strip().startswith("//"))
+    body = code[code.index("Build() =>"):]
+    picker: list[str] = []
+    for call in re.findall(r'\bGroup\((.*?)\),\s*$', body, flags=re.S | re.M):
+        picker += re.findall(r'"((?:[^"\\]|\\.)*)"', call)[4:]
+    built = set().union(*origin_builds().values())
+    if not picker:
+        return ["version picker: no Group(...) versions found in VersionCatalog.cs (did its shape change?)"]
+    problems = [f"version picker lists {v} twice" for v in sorted({v for v in picker if picker.count(v) > 1})]
+    problems += [f"version picker shows {v}, which has no VersionManager.OriginBuilds entry "
+                 f"(an unplayable version must not appear in the picker)" for v in picker if v not in built]
+    problems += [f"VersionManager.OriginBuilds ships {v}, but VersionCatalog's picker does not list it"
+                 for v in sorted(built - set(picker))]
+    return problems
+
+
 def main() -> int:
-    problems = check_versions() + check_handoff() + check_typography() + check_release_feed()
+    problems = (check_versions() + check_handoff() + check_typography() + check_release_feed()
+                + check_picker())
     for p in problems:
         print(f"::error::{p}")
     if not problems:
-        print("OK: version list, hand-off file name, typography and release feed agree across launcher and installer.")
+        print("OK: version list, version picker, hand-off file name, typography and release feed agree "
+              "across launcher and installer.")
     return 1 if problems else 0
 
 

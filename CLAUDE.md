@@ -96,7 +96,7 @@ src/mods/
   versions/<mc>/          SHIPPED per-API-family builds (CI builds these)
   staged/<mc>/            WIP builds — never built by CI, can't reach players
   VERSIONS.md             THE registry: live/staged status, sharing rules, and
-                          the 3 coupling points to flip a staged version live
+                          the 4 coupling points to flip a staged version live
   live-modules.json       THE machine list of shipped modules every CI workflow reads
 tools/shared-sync/sync.py propagates shared/ into every module; --check is the
                           CI drift gate (build-check runs it on every push)
@@ -133,8 +133,11 @@ method shapes (1.16.5 additionally is Java 8 + fixed-function GL). They are
 `.no-shared-sync` for that reason. 1.18.1 is deliberately NOT offered (its
 only Sodium is an alpha, its only Iris a pre-release). The 1.21.x line is NOT
 one build — Minecraft rewrote its render/GUI/input system in stages, so each
-sub-family is its own port. Greyed "Coming Soon" in the picker: 1.21.2, 1.21.3,
-1.21.7. Per-
+sub-family is its own port. **No "Coming Soon" entries (Will, 2026-10-12):**
+the picker shows ONLY the versions above — every unbuilt version (all of 26.x,
+1.20.6/1.20.5/1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, 1.16–1.16.4) was removed
+because Will says they will never ship; CI's check_consistency.py fails if the
+picker (`VersionCatalog`) and `OriginBuilds` ever disagree. Per-
 version status, API boundaries, install models, and the promotion checklist
 live in `src/mods/VERSIONS.md` — keep that file the single source of truth, not this
 one.
