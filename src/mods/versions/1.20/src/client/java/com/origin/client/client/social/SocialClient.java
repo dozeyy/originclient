@@ -833,19 +833,26 @@ public final class SocialClient {
 		if (user == null || user.getProfileId() == null) {
 			throw new SignedOut(null, false);
 		}
-		JsonObject b;
-		try {
-			b = MojangProof.authBody(user.getProfileId(), user.getName(), user.getAccessToken());
-		} catch (MojangProof.Refused e) {
-			throw e.noOnlinePlay ? new SignedOut(NO_ONLINE_PLAY, true) : new SignedOut(null, false);
+		Reply r = null;
+		// A refused proof is retried once with a freshly fetched certificate (rules out a
+		// stale/expired cached one); a second refusal is the service's final word.
+		for (int attempt = 0; attempt < 2; attempt++) {
+			JsonObject b;
+			try {
+				b = MojangProof.authBody(user.getProfileId(), user.getName(), user.getAccessToken());
+			} catch (MojangProof.Refused e) {
+				throw e.noOnlinePlay ? new SignedOut(NO_ONLINE_PLAY, true) : new SignedOut(null, false);
+			}
+			r = post(api + "/v1/auth", b, null);
+			if (r.status() != 401 && r.status() != 403) {
+				break;
+			}
+			MojangProof.forget();
 		}
-		Reply r = post(api + "/v1/auth", b, null);
 		if (r.status() == 404) {
 			throw new Missing();
 		}
 		if (r.status() == 401 || r.status() == 403) {
-			// a check failed; a fresh certificate next time rules out a stale one
-			MojangProof.forget();
 			String why = str(r.body(), "error");
 			throw new SignedOut(why != null && !why.isBlank() ? why : null, false);
 		}
