@@ -730,3 +730,26 @@ first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG 
   then `getInsecureSkinInformation` + `registerTexture` (downloads in the background); default is
   `DefaultPlayerSkin.getDefaultSkin(uuid)`; `PlayerFaceRenderer.draw(g, ResourceLocation, ...)`. Renders
   in the dev shots (demo skips lookups); the real-skin lookup itself is unproven offline.
+
+## Social port (2026-10-12) — 1.18.2, 1.19.2, 1.19.3, 1.19.4 (pre-1.20 Gfx era; agent sp-e)
+- Method: 1.19.4 generated from 1.21.1 HEAD (asserted replacements), the other three derived from it; the
+  edited existing files took 1.21.1's social commit (5b5baeb) by 3-way merge onto each module's copy (all
+  clean except NametagStyleMixin / WaypointHud, done by hand: same hunks, era Matrix4f/Vector4f).
+- Identity: User.getGameProfile() and joinServer(GameProfile, token, serverId) (authlib before 1.20.2), as
+  each module's CosmeticsService already did. No ServerData.isRealm: Minecraft.isConnectedToRealms().
+- Skins: no PlayerSkin -> SocialSkins returns the skin ResourceLocation (PlayerInfo.getSkinLocation for
+  players on your server; else SkinManager.registerSkins(new GameProfile(uuid, null), cb, true), which
+  fetches the textures off-thread itself) and draws through Gfx.face (PlayerFaceRenderer 1.19.x, manual
+  face+hat blit 1.18.2).
+- Toasts: Toast.render(PoseStack, ...); the slide-in translation lives on RenderSystem's model-view stack
+  on this era, so click positions come from Era.guiOrigin(pose) (model-view x pose), time multiplier via
+  Era.toastTimeMultiplier.
+- Joining: mc.clearLevel(GenericDirtMessageScreen) / clearLevel() (no Minecraft.disconnect yet),
+  ServerData(name, ip, false), 4-arg ConnectScreen.startConnecting (no quick play / transfer state).
+- World pass: NO separate WorldRenderEvents.LAST hook. Projection capture + ping beams run from
+  OriginClientMod's existing LAST hook INSIDE its identity model-view window (1.18.2-1.19.3 fire LAST inside
+  vanilla's clouds/weather camera push; a capture outside it would project with the rotation twice).
+- Commands: 1.18.2 = fabric-command-api v1 (ClientCommandManager.DISPATCHER.register), TextComponent /
+  TranslatableComponent; 1.19.x = v2 ClientCommandRegistrationCallback + Component.literal.
+- FriendsScreen: 3-arg mouseScrolled, SharedConstants.isAllowedChatCharacter; arrow in the Party HUD via
+  Era.rotZ. SocialDemo uses Social.version() for the demo friends so the shot reads "Join" like 1.21.1.
