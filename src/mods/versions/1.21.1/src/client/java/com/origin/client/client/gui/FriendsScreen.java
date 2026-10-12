@@ -637,17 +637,20 @@ public class FriendsScreen extends OriginWindow {
 		face(d, m.uuid(), x + 6, y + 10, 24, m.online());
 		float nx = x + 40;
 		boolean actions = leader && !me && hov;
-		float nameMax = MEM_W - 48 - (actions ? 100 : 0) - (isLeader ? 16 : 0);
-		float adv = d.text(d.fit(nz(m.name()) + (me ? " (you)" : ""), nameMax, 13, true, 0), nx, y + 20, 13, true, 0,
+		// the leader's mark: a small gold tag after the name (the ★ glyph renders badly at this size)
+		float tagW = isLeader ? d.textW("LEADER", 9, true, 1.2f) + 10 : 0;
+		float nameMax = MEM_W - 48 - (actions ? 100 : 0) - (isLeader ? tagW + 6 : 0);
+		float adv = d.text(d.fit(nz(m.name()), nameMax, 13, true, 0), nx, y + 20, 13, true, 0,
 				m.online() ? TEXT : DIM);
 		if (isLeader) {
-			d.text("★", nx + adv + 5, y + 20, 12, true, 0, GOLD);
+			d.rect(nx + adv + 6, y + 7, tagW, 16, 4, GOLD_BG);
+			d.textMid("LEADER", nx + adv + 11, y + 15, 9, true, 1.2f, GOLD);
 		}
 		String sub;
 		if (!m.online()) {
 			sub = "Offline";
 		} else if (me) {
-			sub = isLeader ? "Leader" : "Member";
+			sub = "You";
 		} else if (m.state() != null && here != null && here.equals(Social.normalize(nz(m.state().server())))) {
 			sub = "In your world";
 		} else if (SocialClient.state().friend(m.uuid()) != null) {
@@ -655,7 +658,7 @@ public class FriendsScreen extends OriginWindow {
 		} else {
 			sub = "Online";
 		}
-		d.text(d.fit(sub, nameMax + (isLeader ? 16 : 0), 11.5f, false, 0), nx, y + 35, 11.5f, false, 0, MUTE);
+		d.text(d.fit(sub, MEM_W - 48 - (actions ? 100 : 0), 11.5f, false, 0), nx, y + 35, 11.5f, false, 0, MUTE);
 		if (actions) {
 			miniButton(d, "Kick", x + MEM_W - 46, y + 11, 42, Style.DANGER,
 					() -> run(SocialClient.kick(m.uuid()), m.name() + " was removed from the party."));
