@@ -437,7 +437,14 @@ public class OriginModMenuScreen extends Screen {
 
 		// Lay the cards out ONCE per frame into `items`; render + click both read it.
 		int gridW = gridRight() - cx0();
-		rowCols = Math.max(1, Math.min(4, (gridW + GAP) / (MIN_CARD_W + GAP)));
+		// The Mod Menu Layout setting caps the row: Auto fits up to four across.
+		String layout = Mods.mode(Mods.GENERAL_ID, "menuLayout");
+		int maxCols = layout == null ? 4 : switch (layout) {
+			case "3 across (compact)" -> 3;
+			case "2 across (large)" -> 2;
+			default -> 4;
+		};
+		rowCols = Math.max(1, Math.min(maxCols, (gridW + GAP) / (MIN_CARD_W + GAP)));
 		rowW = (gridW - (rowCols - 1) * GAP) / rowCols;
 		items.clear();
 		int y = 0, col = 0;
@@ -967,7 +974,7 @@ public class OriginModMenuScreen extends Screen {
 			int y = railY(RAIL_CATS.length + i);
 			if (in(mx, my, x, y, x + w, y + RAIL_H)) {
 				if (RAIL_NAV_VALUES[i] == null) {
-					Minecraft.getInstance().setScreen(new CosmeticsScreen());
+					Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
 					return true;
 				}
 				nav = RAIL_NAV_VALUES[i];
