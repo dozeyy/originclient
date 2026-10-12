@@ -275,6 +275,8 @@ public final class Social {
 		switch (SocialClient.status()) {
 			case SIGNED_OUT:
 				return "Sign in with Microsoft to use friends.";
+			case REFUSED:
+				return SocialClient.refusal();
 			case COMING_SOON:
 				return "Friends are coming soon.";
 			case UNREACHABLE:

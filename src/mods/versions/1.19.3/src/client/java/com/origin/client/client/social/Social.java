@@ -254,6 +254,7 @@ public final class Social {
 	public static String statusSentence() {
 		return switch (SocialClient.status()) {
 			case SIGNED_OUT -> "Sign in with Microsoft to use friends.";
+			case REFUSED -> SocialClient.refusal();
 			case COMING_SOON -> "Friends are coming soon.";
 			case UNREACHABLE -> "Couldn't reach Origin. Check your connection.";
 			case STARTING -> "Connecting to Origin...";
