@@ -6,12 +6,12 @@ const SECOND = 1000, MINUTE = 60 * SECOND, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
 
 export const L = {
   TOKEN_TTL_MS: DAY,               // a sign-in lasts 24 h
-  ONLINE_MS: 90 * SECOND,          // "online" = synced in the last 90 s
+  ONLINE_MS: 150 * SECOND,         // "online" = seen in the last 150 s (2.5 heartbeats)
   STATS_WINDOW_MS: 5 * MINUTE,     // players-online counts the last 5 minutes
   STATS_CACHE_MS: MINUTE,          // ...recounted at most once a minute
   ETAG_REFRESH_MS: 10 * MINUTE,    // friendsEtag also changes every 10 minutes (safety net)
   SWEEP_MS: MINUTE,                // the cron's "who just went offline" window (it runs every minute)
-  PRESENCE_WRITE_MS: 30 * SECOND,  // presence row rewritten at most every 30 s...
+  PRESENCE_WRITE_MS: 60 * SECOND,  // presence row rewritten at most every 60 s...
   PRESENCE_CHANGE_MS: 5 * SECOND,  // ...or after 5 s when server/activity/version changed
   STATE_WRITE_MS: 30 * SECOND,     // party position rewritten every 30 s when standing still...
   STATE_CHANGE_MS: 5 * SECOND,     // ...or after 5 s when it changed

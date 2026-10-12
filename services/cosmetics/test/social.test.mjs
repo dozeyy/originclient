@@ -298,23 +298,27 @@ test('presence: friends see where you play; appear offline hides it; strangers s
   await call(will.token, '/v1/settings', { appearOffline: false });
   assert.equal((await sync(alex)).friends[0].server, 'mc.example.org');
 
-  // Online = seen in the last 90 s.
-  tick(91_000);
+  // Online = seen in the last 150 s.
+  tick(140_000);                                                // a few calls already passed since Will's write
+  assert.equal((await sync(alex)).friends[0].online, true);
+  tick(10_000);
   f = (await sync(alex)).friends[0];
   assert.equal(f.online, false);
   assert.equal(f.server, null);
 });
 
-test('presence: written at most every 30 s, sooner (5 s) only when it changed', async () => {
+test('presence: written at most every 60 s, sooner (5 s) only when it changed', async () => {
   const will = await signIn('Will');
   step = 0;
   const atNow = () => rows('SELECT at FROM presence')[0].at;
   await sync(will, onServer('a.net'));
   const t0 = atNow();
-  tick(10_000); await sync(will, onServer('a.net'));
-  assert.equal(atNow(), t0);                                    // same place, 10 s later: no write
-  tick(20_000); await sync(will, onServer('a.net'));
-  assert.equal(atNow(), t0 + 30_000);                           // 30 s: heartbeat write
+  tick(30_000); await sync(will, onServer('a.net'));
+  assert.equal(atNow(), t0);                                    // same place, 30 s later: no write
+  tick(29_000); await sync(will, onServer('a.net'));
+  assert.equal(atNow(), t0);                                    // 59 s: still no write
+  tick(1_000); await sync(will, onServer('a.net'));
+  assert.equal(atNow(), t0 + 60_000);                           // 60 s: heartbeat write
   tick(2_000); await sync(will, onServer('b.net'));
   assert.equal(rows('SELECT server FROM presence')[0].server, 'a.net');   // changed, but < 5 s
   tick(4_000); await sync(will, onServer('b.net'));
@@ -603,12 +607,12 @@ test('friendsEtag: an unchanged friends list is skipped; every kind of change br
   assert.equal((await poll()).got, false);                          // nothing changed
   assert.equal((await poll(onServer('a.net'))).got, false);         // my own presence isn't in my list
 
-  // Alex comes online -> refresh; her 30 s heartbeat -> no refresh; she changes server -> refresh.
+  // Alex comes online -> refresh; her 60 s heartbeat -> no refresh; she changes server -> refresh.
   await sync(alex, onServer('b.net'));
   let p = await poll();
   assert.equal(p.got, true);
   assert.equal(p.x.friends[0].server, 'b.net');
-  tick(30_000);
+  tick(60_000);
   await sync(alex, onServer('b.net'));
   assert.equal((await poll()).got, false);
   tick(6_000);
@@ -654,7 +658,7 @@ test('friendsEtag: a friend going offline (no write at all) is caught by the cro
   const etag = r.friendsEtag;
 
   // Alex quits. The minute-sweep whose window holds seenAt + 90 s bumps Will.
-  const sweepMinute = Math.ceil((seenAt + 90_000) / 60_000) * 60_000;
+  const sweepMinute = Math.ceil((seenAt + 150_000) / 60_000) * 60_000;
   await presenceSweep(env, sweepMinute - 60_000);                     // window ends before she went stale
   clock = sweepMinute - 60_000 + 1;
   assert.equal('friends' in (await sync(will, { friendsEtag: etag })), false);
@@ -668,7 +672,7 @@ test('friendsEtag: a friend going offline (no write at all) is caught by the cro
   const before = rows(`SELECT friends_rev FROM names WHERE uuid = '${will.uuid}'`)[0].friends_rev;
   await sync(alex, onServer('b.net'));                                // back online...
   const back = clock;
-  await scheduled({ scheduledTime: Math.ceil((back + 90_000) / 60_000) * 60_000 }, env, clock);
+  await scheduled({ scheduledTime: Math.ceil((back + 150_000) / 60_000) * 60_000 }, env, clock);
   // +1 for coming back online, +1 for the sweep seeing her go stale again.
   assert.equal(rows(`SELECT friends_rev FROM names WHERE uuid = '${will.uuid}'`)[0].friends_rev, before + 2);
 });
@@ -701,8 +705,8 @@ test('wantState: true only when another online party member is on my server', as
   await sync(will, { ...host, partyState: at('lan.only') });
   assert.equal(rows(`SELECT state_server FROM party_members WHERE uuid = '${will.uuid}'`)[0].state_server, 'lan.only');
 
-  // Alex quits: 90 s later nobody wants Will's position.
-  tick(91_000);
+  // Alex quits: once she counts as offline (150 s), nobody wants Will's position.
+  tick(151_000);
   assert.equal((await sync(will, { ...host, stateServer: '192.168.1.5:41000' })).wantState, false);
 });
 

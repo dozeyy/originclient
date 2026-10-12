@@ -6,7 +6,7 @@
 // Cloudflare's free plan has no WebSockets, so clients poll /v1/sync. That
 // call does all of its reads and writes in ONE D1 batch (one round trip, one
 // consistent snapshot) and writes as little as it can: presence at most every
-// 30 s per (account, client), a party position only when it moved. Two more
+// 60 s per (account, client), a party position only when it moved. Two more
 // free-plan savings: the friends list (+ requests, blocked) is skipped while
 // the client's friendsEtag is current, and `wantState` tells the game when
 // nobody on its server would see its position, so it stops sending it.
@@ -479,8 +479,8 @@ export async function handleSocial(request, env, url, now = Date.now()) {
 // ------------------------------------------------------------ offline sweep
 // Run by the cron every minute with its scheduled minute `t`. Going offline
 // is the one friends-list change with no write behind it (the client just
-// stops syncing), so this finds presence rows that crossed the 90 s line in
-// the last minute, (t - 150 s, t - 90 s], and bumps their friends' etags.
+// stops syncing), so this finds presence rows that crossed the 150 s line in
+// the last minute, (t - 210 s, t - 150 s], and bumps their friends' etags.
 // Consecutive minutes tile exactly; a skipped run is caught by the 10-minute
 // etag refresh. It reads only the rows in that window (presence_at index).
 export async function presenceSweep(env, t = Date.now()) {

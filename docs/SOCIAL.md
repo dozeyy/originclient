@@ -81,8 +81,8 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
   `partyState.server`, e.g. the LAN world's address) so the service can tell it when someone joined. Every party
   member must use the identical key for the same world. A `partyState` sent anyway is still accepted.
 - `friendsEtag` (free-plan saving): opaque string; it changes whenever anything in `friends`, `requests` or
-  `blocked` changes, and at least every 10 minutes. With it, a friend going offline shows after 90–150 s (the
-  service notices on its once-a-minute sweep) instead of exactly 90 s.
+  `blocked` changes, and at least every 10 minutes. With it, a friend going offline shows after 150–210 s (the
+  service notices on its once-a-minute sweep) instead of exactly 150 s.
 
 ## Actions (all POST, all Bearer, JSON body, 200 → { ok: true, ... } unless noted)
     /v1/settings              { appearOffline: bool }
@@ -117,13 +117,13 @@ Writes: presence is written at most once per 60 s per (account, client) even if 
 server/activity/version still writes after 5 s); "online" = seen in the last 150 s. A moving party position at
 most every 5 s (only in LAN worlds, see Fair-play guard).
 
-Measured cost per call (D1's own rows_read / rows_written on a local D1, 2026-10-12; D1 counts each index entry
-touched, so a write is usually 2+ rows):
+Measured cost per call (D1's own rows_read / rows_written on a local D1, re-measured 2026-10-12 with the 60 s /
+150 s rules; D1 counts each index entry touched, so a write is usually 2+ rows):
 
 | call | rows read | rows written |
 |---|---|---|
 | sync, friendsEtag current, not in a party | 12 | 0 |
-| ...plus the 30 s presence heartbeat | +0 | +2 |
+| ...plus the 60 s presence heartbeat | +0 | +2 |
 | sync with the full list (no/old etag), 20 friends | ~80 | 0 |
 | a visible presence change (online, server switch): every friend's etag bumped | ~5 per friend | 1 per friend |
 | sync in a party of 4 | ~46 | 0 |
@@ -133,23 +133,30 @@ touched, so a write is usually 2+ rows):
 | cron each minute (offline sweep) | ~4 + 5 per friend of anyone who went offline | same per friend |
 
 **N idle players, ~20 friends each, one client open all day (30 s polls + the launcher's 5-minute count):**
-- requests: 2,880 syncs + 288 counts = ~3,170 per player → **~31 players** fill the free plan;
+- requests: 2,880 syncs + 288 counts ≈ 3,170 per player → **~31 players** fill the free plan (the tightest limit);
 - rows read: 2,880 × 12 + full-list refreshes (every 10 min: 144 × 80; friends' changes: ~80 × 80) ≈ 53,000
   per player → ~94 players (it was ~230,000 per player, ~21 players, before friendsEtag);
-- rows written: a heartbeat on nearly every 30 s poll, 2,880 × 2 ≈ 5,800 per player → **~17 players**. This is
-  the tightest free limit for idle players. Halving it needs a contract change (e.g. heartbeat every 60 s with
-  "online" = seen in the last 150 s) or the paid plan.
+- rows written: a heartbeat every 60 s, 1,440 × 2 + own visible changes ≈ 3,000 per player → ~33 players
+  (it was ~5,800, ~17 players, with the 30 s heartbeat).
+- Unfocused game (60 s polls): ~1,440 + 288 requests, the same ~3,000 rows written.
 
-**A party of 4 in one LAN world, moving all day (everyone polls every 4 s while in a party):**
-- requests: 4 × 21,600 = **86,400** — the whole free plan on its own;
-- rows read: 4 × 21,600 × ~46 ≈ **4.0 M** (80% of the free plan);
-- rows written: positions 4 × 17,280 (every 5 s) ≈ 69,000 + heartbeats 4 × 5,800 ≈ 23,000 → **~92,000** (92%).
-- The same party on ordinary multiplayer servers (Will's rule: positions never leave the game there, so
-  `partyState` is null and wantState stays false): position writes ≈ 0, total ≈ 23,000 rows written, but still
-  ~86,400 requests and ~4 M rows read, because of the 4 s party polling. Polling every 4 s only while a chat
-  window is open or `wantState` is true (15–30 s otherwise in a party) would cut that 4–7×.
+**A party of 4 on an ordinary multiplayer server all day, no chat window open (20 s polls, wantState false):**
+- requests: 4 × 4,320 = **~17,300** (17% of the free plan);
+- rows read: 4 × 4,320 × ~46 ≈ **~800,000** (16%);
+- rows written: positions 0 (Will's rule: positions never leave the game on multiplayer servers), heartbeats
+  4 × 2,880 ≈ **~11,500** (12%).
 
-So the free plan carries a handful of players, not a community: the $5 Workers Paid plan (10 M requests and
+**A party of 4 in one LAN world, moving all day (wantState true, so 4 s polls):**
+- requests: 4 × 21,600 = **86,400** — almost the whole free plan on its own;
+- rows read: 4 × 21,600 × ~46 ≈ **4.0 M** (80%);
+- rows written: positions 4 × 17,280 (every 5 s) ≈ 69,000 + heartbeats ≈ 11,500 → **~80,500** (81%).
+  This is the extreme case; a few LAN hours a day cost a few hours' share of it.
+
+For scale: ~25 players idle all day plus one 4-player server party all day ≈ 96,000 requests, ~2.1 M rows read,
+~87,000 rows written. Players who play a few hours a day cost that fraction, so the daily-active count the free
+plan carries is several times the all-day figures.
+
+So the free plan carries a few dozen all-day players (more who play a few hours), not a big community: the $5 Workers Paid plan (10 M requests and
 50 M rows written per month, 25 B rows read) removes every ceiling above with no code change.
 
 ## Clients
@@ -223,8 +230,8 @@ never gets positions.
 Party member `state` is also dropped once it is older than 90 s. Pings are filtered the same way as positions: only
 pings on the caller's current server are returned.
 
-**Writes.** Presence is rewritten every 30 s per (account, client), or after 5 s when activity/server/version
-changed. A party position is rewritten after 5 s when it changed, at once when the server changed, else every 30 s.
+**Writes.** Presence is rewritten every 60 s per (account, client), or after 5 s when activity/server/version
+changed; "online" = seen in the last 150 s. A party position is rewritten after 5 s when it changed, at once when the server changed, else every 30 s.
 
 **Actions.** Responses: `/v1/friends/request` → `{ ok, uuid, name, friends }` (`friends: true` = an opposite request
 was waiting and you are now friends; repeating a pending request is a harmless 200). `/v1/friends/respond` →
