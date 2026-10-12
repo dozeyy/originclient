@@ -12,6 +12,6 @@ crons = ["* * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "origin-cosmetics"
-# Filled in once Will creates the database (Cloudflare -> Storage & Databases -> D1).
-database_id = "00000000-0000-0000-0000-000000000000"
+# Will's D1 database (Cloudflare -> Storage & Databases -> D1), created 2026-10-12.
+database_id = "4f1a0bc1-cdc3-48c9-bd86-e628f03ccb8d"
 migrations_dir = "migrations"
