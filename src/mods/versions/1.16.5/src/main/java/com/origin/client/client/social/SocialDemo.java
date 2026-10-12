@@ -56,10 +56,12 @@ public final class SocialDemo {
 		String myName = mc.getUser() != null ? mc.getUser().getName() : "You";
 		long now = System.currentTimeMillis();
 
+		// this game's own version, so the demo friends read "Join" as on 1.21.1
+		String v = Social.version();
 		List<Friend> friends = Arrays.asList(
-				new Friend(EMBER, "Ember_Fox", true, "game", "server", "play.originsmp.net", "1.21.1", now),
-				new Friend(KESTREL, "Kestrel", true, "game", "server", "mc.hypixel.net", "1.21.1", now),
-				new Friend(MOSS, "MossyCobble", true, "launcher", "menu", null, "1.21.1", now),
+				new Friend(EMBER, "Ember_Fox", true, "game", "server", "play.originsmp.net", v, now),
+				new Friend(KESTREL, "Kestrel", true, "game", "server", "mc.hypixel.net", v, now),
+				new Friend(MOSS, "MossyCobble", true, "launcher", "menu", null, v, now),
 				new Friend(TIDE, "Tidewalker", true, "game", "singleplayer", null, "1.20.4", now),
 				new Friend(LUMEN, "Lumen", false, null, null, null, null, now - 3_600_000),
 				new Friend(RAVEN, "Ravenmoor", false, null, null, null, null, now - 86_400_000));
