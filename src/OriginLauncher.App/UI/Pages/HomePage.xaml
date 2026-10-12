@@ -109,9 +109,10 @@
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Ellipse x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.Accent}"
-                                         VerticalAlignment="Top" Margin="0,6,7,0"/>
+                                         VerticalAlignment="Top" Margin="0,5,7,0"/>
                                 <TextBlock Grid.Column="1" x:Name="StatusText" Text="Sign in to play"
-                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"/>
+                                           Style="{StaticResource Text.Caption}" FontSize="11" LineHeight="16"
+                                           TextWrapping="Wrap" TextTrimming="None"/>
                             </Grid>
                         </Border>
                         <Border Grid.Column="1" x:Name="PlayersPill" Style="{StaticResource Home.Pill}" Margin="8,0,0,0"
@@ -119,8 +120,8 @@
                                 ToolTip="People with the Origin launcher or game open right now">
                             <StackPanel Orientation="Horizontal">
                                 <Ellipse Width="6" Height="6" Fill="{StaticResource Brush.Success}"
-                                         VerticalAlignment="Top" Margin="0,6,7,0"/>
-                                <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Caption}"/>
+                                         VerticalAlignment="Top" Margin="0,5,7,0"/>
+                                <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Caption}" FontSize="11" LineHeight="16"/>
                             </StackPanel>
                         </Border>
                     </Grid>
