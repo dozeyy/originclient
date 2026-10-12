@@ -5,6 +5,39 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-10-12 — Store cosmetics: delivery service + in-game (1.21.1), not yet switched on
+
+Will: "make it so" = in-game cosmetics + Microsoft login on the store; Cloudflare
+for hosting; real launcher sign-in works.
+- **Store Microsoft login: blocked, not built.** Launcher sign-in only works via the
+  borrowed client ID `00000000402b5328` (MicrosoftAuthenticator.IsTestMode, legacy
+  login.live.com endpoints); a website can't use it, and Origin's own Azure app
+  (de37d9e5-...) still needs Mojang's Minecraft-API approval (aka.ms/mce-reviewappid)
+  — the July "Invalid app registration" 403. Told Will to submit the form.
+- **Tebex delivery = game-server commands** to a stand-in server "Origin Cosmetics"
+  (Tebex requires a deliverable per package; its plugin type needs no real server):
+  `origin-grant {username} {id} <item>` / `origin-revoke ...`. Tebex `{id}` = the
+  Minecraft UUID (player.uuid in the queue API).
+- `services/cosmetics`: Worker + **D1** (not KV: KV free tier = 1k writes/day and
+  lost-update risk between grant and equip). Cron each minute, writes Tebex
+  next_check BEFORE processing (Tebex revokes keys that poll early), never under 60s.
+  Unreadable commands stay queued (never lost). Equip verified via Mojang
+  joinServer/hasJoined with one-use serverIds. 9 tests on node:sqlite (Node 22),
+  CI workflow `cosmetics-service` (deploy only from main once secrets + D1 id exist).
+- 1.21.1 mod: CosmeticCapeMixin (AbstractClientPlayer#getSkin RETURN -> PlayerSkin
+  with cape swapped, elytra kept default), CosmeticHeadLayer via Fabric
+  LivingEntityFeatureRendererRegistrationCallback, HeadModels (website geometry
+  ported; SOLID pass then GLOW pass, never interleaved buffers), CosmeticsScreen
+  (rail entry "Cosmetics", null nav value = opens its own screen). Off until
+  website/cosmetics/service.json has "api". Cape PNGs exported from cosmetics.js
+  by tools/cosmetics/export-capes.mjs (4x MC cape layout, 24-frame strips).
+- Will saw the Tebex game-server secret in a screenshot shared in chat: regenerate it
+  before putting it in Cloudflare (STORE.md step 5).
+- NOT runtime-verified: written without the MC jar (sandbox), CI compile is the check;
+  Will must runClient and confirm zero `Mixin apply ... failed` + see items.
+
+---
+
 ## 2026-10-12 — Website cosmetics store (showroom; payments off until in-game cosmetics exist)
 
 Will's ask: a store on the website to buy in-game cosmetics, easy to pay, delivered

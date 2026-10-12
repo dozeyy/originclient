@@ -16,7 +16,7 @@ const STORE = {
   // Tebex → Integrations → Headless API → the webstore's PUBLIC token.
   // Public by design (it only lets a browser build baskets); never put the
   // private key here.
-  webstore: '',
+  webstore: '14xjc-4976f2503dc526c3e4f544a29aeb5b5e2c5e7476',
 };
 
 // Everything for sale. `tebex` = that item's Tebex package id (0 = not set up
@@ -24,20 +24,20 @@ const STORE = {
 // prices load; Tebex is the source of truth for what is charged.
 const ITEMS = [
   // Animated capes: the art moves and they give off particles.
-  { id: 'cape-orbit', name: 'Orbit Cape', blurb: 'Sparks race round the Origin rings while the glow breathes.', price: 9.99, tebex: 0 },
-  { id: 'cape-glitch', name: 'Glitch Cape', blurb: 'The Origin mark, split and glitching on a dark screen.', price: 9.99, tebex: 0 },
-  { id: 'cape-inferno', name: 'Inferno Cape', blurb: 'Living flames with embers rising off them.', price: 8.99, tebex: 0 },
-  { id: 'cape-aurora', name: 'Aurora Cape', blurb: 'Northern lights that ripple under twinkling stars.', price: 8.99, tebex: 0 },
-  { id: 'cape-starfall', name: 'Starfall Cape', blurb: 'Shooting stars across a moonlit sky.', price: 8.99, tebex: 0 },
+  { id: 'cape-orbit', name: 'Orbit Cape', blurb: 'Sparks race round the Origin rings while the glow breathes.', price: 9.99, tebex: 7733585 },
+  { id: 'cape-glitch', name: 'Glitch Cape', blurb: 'The Origin mark, split and glitching on a dark screen.', price: 9.99, tebex: 7733633 },
+  { id: 'cape-inferno', name: 'Inferno Cape', blurb: 'Living flames with embers rising off them.', price: 8.99, tebex: 7733637 },
+  { id: 'cape-aurora', name: 'Aurora Cape', blurb: 'Northern lights that ripple under twinkling stars.', price: 8.99, tebex: 7733638 },
+  { id: 'cape-starfall', name: 'Starfall Cape', blurb: 'Shooting stars across a moonlit sky.', price: 8.99, tebex: 7733639 },
   // Still capes.
-  { id: 'cape-origin', name: 'Origin Cape', blurb: 'The three rings, glowing on deepslate.', price: 5.99, tebex: 0 },
-  { id: 'cape-golden', name: 'Golden Hour Cape', blurb: 'The sunset over the Origin island.', price: 5.99, tebex: 0 },
-  { id: 'cape-frost', name: 'Frost Cape', blurb: 'Ice blue with falling snow.', price: 5.99, tebex: 0 },
-  { id: 'cape-void', name: 'Void Cape', blurb: 'An ender eye in the dark.', price: 5.99, tebex: 0 },
+  { id: 'cape-origin', name: 'Origin Cape', blurb: 'The three rings, glowing on deepslate.', price: 5.99, tebex: 7733641 },
+  { id: 'cape-golden', name: 'Golden Hour Cape', blurb: 'The sunset over the Origin island.', price: 5.99, tebex: 7733643 },
+  { id: 'cape-frost', name: 'Frost Cape', blurb: 'Ice blue with falling snow.', price: 5.99, tebex: 7733645 },
+  { id: 'cape-void', name: 'Void Cape', blurb: 'An ender eye in the dark.', price: 5.99, tebex: 7733647 },
   // Head.
-  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Three rings orbiting a glowing core, each at its own speed.', price: 7.99, tebex: 0 },
-  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'Gold band, jewels, pearls and a velvet cap.', price: 6.99, tebex: 0 },
-  { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99, tebex: 0 },
+  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Three rings orbiting a glowing core, each at its own speed.', price: 7.99, tebex: 7733648 },
+  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'Gold band, jewels, pearls and a velvet cap.', price: 6.99, tebex: 7733650 },
+  { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99, tebex: 7733652 },
 ];
 const DEFAULT_CURRENCY = 'USD';
 // Every price stays between $5 and $10 (Will, 2026-10-12): still items at the
