@@ -40,6 +40,9 @@ BEHIND_THE_SCENES = {
     "ci", "docs", "doc", "chore", "build", "refactor", "test", "tests", "style",
     "memory", "claude.md", "release", "website", "tools", "tooling",
 }
+# Mid-work checkpoints ("WIP: ...") — the finished commit that follows says
+# what shipped, so these are left out of the notes entirely.
+CHECKPOINT = {"wip"}
 FIX_WORDS = {"fix", "fixes", "hotfix", "bugfix"}
 NEW_WORDS = {"feat", "feature", "perf"}
 # "<label>: <text>" where label is a short prefix — a conventional type
@@ -59,6 +62,8 @@ def classify(subject: str) -> tuple[str, str]:
         return ("fixes" if STARTS_WITH_FIX.match(subject) else "new"), subject
     label, rest = m.group("label").strip(), m.group("rest")
     kind = label.lower()
+    if kind in CHECKPOINT:
+        return "skip", subject
     if kind in BEHIND_THE_SCENES or kind.split()[0] in BEHIND_THE_SCENES:
         return "behind", subject
     if kind in FIX_WORDS:
@@ -106,7 +111,7 @@ def render(head: str, prev: str) -> str:
     if not prev:  # the first release: its "changes" are the whole project
         return ("First public release of Origin Launcher.\n\n"
                 "Download `OriginLauncher-Setup.exe` below and run it.\n")
-    sections = {"new": [], "fixes": [], "behind": []}
+    sections = {"new": [], "fixes": [], "behind": [], "skip": []}
     for subject in commit_titles(prev, head):
         section, text = classify(subject)
         sections[section].append(text)
@@ -115,7 +120,7 @@ def render(head: str, prev: str) -> str:
     for key, heading in (("new", "What's new"), ("fixes", "Fixes"), ("behind", "Behind the scenes")):
         if sections[key]:
             out += [f"## {heading}", *(f"- {t}" for t in sections[key]), ""]
-    if not any(sections.values()):
+    if not any(sections[k] for k in ("new", "fixes", "behind")):
         out += ["Re-release of the previous build with no code changes.", ""]
 
     updated = versions_updated(prev, head)
