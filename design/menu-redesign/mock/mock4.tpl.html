@@ -26,28 +26,28 @@ svg.i{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.2;stro
 /* ---- shell ---- */
 .shell{position:absolute;left:500px;top:250px;width:920px;height:580px;background:var(--panel);border-radius:8px;
   box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.07) inset;overflow:hidden}
-.head{position:absolute;left:0;right:0;top:0;height:60px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:10px;font-size:20px;letter-spacing:.5px}
+.head{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;padding:0 24px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-size:18px;line-height:24px;letter-spacing:.4px}
 .brand b{font-weight:700}.brand span{font-weight:400;color:var(--dim)}
-.brand .mk{width:26px;height:26px}
+.brand .mk{width:24px;height:24px;flex:none}
 .tabs{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:6px}
 .tab{height:30px;padding:0 16px;border-radius:6px;display:flex;align-items:center;color:var(--mute)}
 .tab.on{background:rgba(255,255,255,.07);color:var(--text)}
-.close{margin-left:auto;width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--dim);background:rgba(255,255,255,.04)}
+.close{margin-left:8px;width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--dim);background:rgba(255,255,255,.04)}
 .close svg{width:14px;height:14px}
-.side{position:absolute;left:0;top:60px;bottom:0;width:206px;border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column}
-.side .lbl{color:var(--mute);margin:0 8px 8px}
-.prof{height:36px;border-radius:6px;display:flex;align-items:center;gap:10px;padding:0 10px;font-size:13.5px;font-weight:600;color:var(--dim)}
-.prof .pi{width:15px;height:15px;color:var(--mute)}
-.prof .ed{margin-left:auto;width:13px;height:13px;color:var(--mute);opacity:0}
-.prof.on{background:rgba(255,255,255,.06);color:var(--text)}.prof.on .ed{opacity:1}
-.prof.on .pi{color:var(--acc)}
 .ghost{height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--dim);border:1px solid var(--line2);margin-top:8px}
+.hedit{margin-left:auto;height:32px;padding:0 14px;border-radius:6px;display:flex;align-items:center;gap:8px;background:var(--acc);color:#0A1710;font-size:11px}
+.hedit svg{width:14px;height:14px}
 .primary{height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--acc);color:#0A1710;margin-top:14px}
 .primary svg{width:15px;height:15px}
-.main{position:absolute;left:206px;right:0;top:60px;bottom:0;padding:16px 22px 0}
+.main{position:absolute;left:0;right:0;top:64px;bottom:0;padding:16px 24px 0}
 .bar{display:flex;align-items:center;gap:8px;height:32px}
-.chip{height:28px;padding:0 11px;border-radius:6px;display:flex;align-items:center;gap:7px;color:var(--dim);background:rgba(255,255,255,.04)}
+.tool{width:32px;height:32px}
+.search{height:32px}
+.prof-dd{height:32px;padding:0 10px 0 12px;border-radius:6px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:var(--text)}
+.prof-dd svg{width:14px;height:14px;color:var(--mute)}
+.vdiv{width:1px;height:20px;background:var(--line2);margin:0 4px}
+.chip{height:32px;padding:0 12px;border-radius:6px;display:flex;align-items:center;gap:7px;color:var(--dim);background:rgba(255,255,255,.04)}
 .chip i{font-style:normal;font-weight:600;letter-spacing:0;font-size:11px;color:var(--mute)}
 .chip.on{background:var(--acc-soft);color:var(--acc)}.chip.on i{color:var(--acc);opacity:.8}
 .chip.new{color:#E9C46A}
@@ -58,56 +58,55 @@ svg.i{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.2;stro
 .search svg{width:14px;height:14px}
 .search kbd{margin-left:auto;font-family:Inter;font-size:11px;font-weight:600;border:1px solid var(--line2);border-radius:4px;padding:1px 5px;color:var(--mute)}
 /* ---- grid view ---- */
-.grid{position:absolute;left:22px;right:30px;top:64px;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-content:start;overflow:hidden;padding-bottom:20px}
-.card{height:178px;border-radius:8px;background:var(--card);position:relative;overflow:hidden;box-shadow:0 0 0 1px var(--line) inset}
-.card .ic{position:absolute;left:50%;top:26px;width:40px;height:40px;margin-left:-20px;color:var(--text)}
-.card .nm{position:absolute;left:0;right:0;top:80px;text-align:center;font-size:15px;font-weight:600}
-.card .opt{position:absolute;left:10px;right:10px;bottom:46px;height:30px;border-radius:5px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;gap:8px;color:var(--dim)}
+.grid{position:absolute;left:24px;right:24px;top:64px;bottom:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-content:start;overflow:hidden;padding-bottom:20px}
+.card{height:184px;border-radius:8px;background:var(--card);position:relative;overflow:hidden;box-shadow:0 0 0 1px var(--line) inset}
+.card .ic{position:absolute;left:50%;top:24px;width:40px;height:40px;margin-left:-20px;color:var(--text)}
+.card .nm{position:absolute;left:0;right:0;top:76px;line-height:20px;text-align:center;font-size:15px;font-weight:600}
+.card .opt{position:absolute;left:8px;right:8px;bottom:48px;height:30px;border-radius:5px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;gap:8px;color:var(--dim)}
 .card .opt svg{width:13px;height:13px}
-.card .st{position:absolute;left:10px;right:10px;bottom:10px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center}
+.card .st{position:absolute;left:8px;right:8px;bottom:8px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center}
 .card.on .st{background:var(--acc-d);color:#DFF7EA}
 .card.off .st{background:rgba(217,103,90,.16);color:var(--red)}
 .card.off .ic,.card.off .nm{opacity:.55}
-.card .pin{position:absolute;right:12px;top:12px;width:14px;height:14px;color:var(--dim)}
-.card .badge{position:absolute;left:12px;top:12px;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#E9C46A}
+.card .pin{position:absolute;right:8px;top:8px;width:14px;height:14px;color:var(--dim)}
+.card .badge{position:absolute;left:8px;top:8px;height:16px;padding:0 6px;border-radius:4px;background:#3A3220;display:flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#E9C46A}
 .card.hover{background:var(--card-h);box-shadow:0 0 0 1px rgba(241,233,210,.16) inset}
 .card.hover .opt{background:rgba(255,255,255,.08);color:var(--text)}
-.fade{position:absolute;left:206px;right:0;bottom:0;height:46px;background:linear-gradient(transparent,rgba(20,24,22,.98))}
+.fade{position:absolute;left:0;right:0;bottom:0;height:48px;background:linear-gradient(transparent,rgba(20,24,22,.98))}
 .sbar{position:absolute;right:12px;top:140px;width:4px;height:150px;border-radius:2px;background:rgba(241,233,210,.22)}
 /* ---- list view ---- */
-.list{position:absolute;left:22px;right:30px;top:64px;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);gap:10px 12px;align-content:start}
-.lrow{height:44px;border-radius:7px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;font-size:13.5px;font-weight:600;position:relative}
-.lrow .ic{width:18px;height:18px}
+.list{position:absolute;left:24px;right:24px;top:64px;bottom:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 16px;align-content:start}
+.lrow{height:44px;border-radius:7px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 12px;white-space:nowrap;font-size:13.5px;font-weight:600;position:relative}
+.lrow .ic{width:18px;height:18px;flex-shrink:0}
 .lrow .sw{margin-left:auto}
 .lrow.off{color:var(--dim)}.lrow.off .ic{opacity:.6}
-.lrow .new{position:absolute;left:12px;top:-6px;height:13px;padding:0 5px;border-radius:3px;background:#3A3220;font-size:8.5px;font-weight:700;letter-spacing:1px;color:#E9C46A;display:flex;align-items:center}
+.lrow .new{width:6px;height:6px;border-radius:50%;background:#E9C46A;flex-shrink:0;margin-left:-2px}
+.lrow .nm{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.lrow .sw{flex-shrink:0}
 /* ---- toggles ---- */
-.sw{width:50px;height:22px;border-radius:5px;position:relative;font-size:10px;font-weight:700;letter-spacing:.6px;flex:none}
-.sw.on{background:var(--acc-d);color:#DFF7EA}.sw.off{background:var(--red-soft);color:var(--red)}
-.sw::before{position:absolute;top:0;bottom:0;display:flex;align-items:center}
-.sw.on::before{content:"ON";left:9px}.sw.off::before{content:"OFF";right:6px}
-.sw::after{content:"";position:absolute;top:3px;width:16px;height:16px;border-radius:4px;background:var(--text)}
-.sw.on::after{right:3px}.sw.off::after{left:3px;background:rgba(241,233,210,.75)}
+.sw{width:36px;height:20px;border-radius:10px;position:relative;flex:none}
+.sw.on{background:var(--acc)}.sw.off{background:rgba(255,255,255,.12)}
+.sw::after{content:"";position:absolute;top:3px;width:14px;height:14px;border-radius:50%;background:#fff}
+.sw.on::after{right:3px}.sw.off::after{left:3px;background:rgba(241,233,210,.7)}
 /* ---- mod page ---- */
-.mhead{display:flex;align-items:center;gap:12px;height:36px}
+.mhead{display:flex;align-items:center;gap:12px;height:32px}
 .backb{width:32px;height:32px;border-radius:6px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;color:var(--dim)}
 .backb svg{width:15px;height:15px}
 .mhead .ic{width:22px;height:22px}
 .mhead .t{font-size:17px;font-weight:700;letter-spacing:.3px}
 .mhead .crumb{font-size:12px;color:var(--mute);margin-top:2px}
-.desc{font-size:13px;line-height:1.55;color:var(--dim);margin:12px 0 0;max-width:560px}
-.preview{margin-top:14px;height:126px;border-radius:8px;overflow:hidden;position:relative;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.18.png) center/cover}
+.desc{font-size:13px;line-height:20px;color:var(--dim);margin:12px 0 0}
+.preview{margin-top:16px;height:128px;border-radius:8px;overflow:hidden;position:relative;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.18.png) center/cover}
 .preview::before{content:"";position:absolute;inset:0;background:rgba(10,14,12,.45)}
 .preview .pv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
 .preview .ep{position:absolute;right:10px;bottom:10px;height:30px;padding:0 14px;border-radius:6px;background:rgba(14,17,16,.82);display:flex;align-items:center;gap:8px;color:var(--text);box-shadow:0 0 0 1px var(--line2) inset}
 .preview .ep svg{width:14px;height:14px}
-.sec{color:var(--mute);margin:18px 0 8px}
-.opts{display:grid;grid-template-columns:1fr 1fr;gap:6px 28px}
-.orow{height:36px;border-radius:6px;display:flex;align-items:center;gap:12px;padding:0 10px;font-size:14px;color:var(--text)}
+.sec{color:var(--mute);margin:24px 0 8px;line-height:16px}
+.opts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 48px}
+.orow{height:40px;border-radius:6px;display:flex;align-items:center;gap:12px;padding:0 12px;margin:0 -12px;font-size:14px;color:var(--text)}
 .orow:hover,.orow.h{background:rgba(255,255,255,.04)}
 .orow .r{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--dim);font-size:13px}
 .orow .cog{width:15px;height:15px;color:var(--mute)}
-.orow.ch{box-shadow:inset 2px 0 0 var(--acc)}
 .sel{display:flex;align-items:center;gap:10px;color:var(--text);font-size:13px}
 .sel svg{width:12px;height:12px;color:var(--mute)}
 .slider{width:110px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);position:relative}
@@ -139,30 +138,27 @@ const COG=SVG(ICONS.cog), CLOSE=SVG('<path d="M18 6 6 18M6 6l12 12"/>'), BACK=SV
 
 function shell(content, tab='Mods'){
   const tabs=['Mods','Settings','Waypoints','Cosmetics'].map(t=>`<span class="tab caps ${t==tab?'on':''}">${t}</span>`).join('');
-  const profs=[['Default',USER,1],['Bed Wars',SWORD],['Survival',CUBE],['Recording',EYE]].map(([n,i,on])=>`<div class="prof ${on?'on':''}"><span class="pi">${i}</span>${n}<span class="ed">${PEN}</span></div>`).join('');
   return `<div class="world"></div><div class="shell">
-  <div class="head"><div class="brand"><span class="mk">${MARK}</span><b>ORIGIN</b><span>CLIENT</span></div><div class="tabs">${tabs}</div><span class="close">${CLOSE}</span></div>
-  <div class="side"><div class="lbl caps" style="font-size:10px">Profiles</div>${profs}
-    <div style="margin-top:auto"></div><div class="ghost caps" style="font-size:10px">+ Save as new profile</div>
-    <div class="primary caps" style="font-size:11px">${ic('@hudeditor')}Edit HUD layout</div></div>
+  <div class="head"><div class="brand"><span class="mk">${MARK}</span><b>ORIGIN</b><span>CLIENT</span></div><div class="tabs">${tabs}</div>
+    <span class="hedit caps">${ic('@hudeditor')}Edit HUD</span><span class="close">${CLOSE}</span></div>
   <div class="main">${content}</div></div>`;
 }
 const MODS=[['keystrokes','Keystrokes',1,1],['zoom','Zoom',1,1],['armorhud','Armor Status',1],['clock','Clock',0],['combo','Combo',0,0,1],['coords','Coordinates',1],
   ['cps','CPS',0],['crosshair','Crosshair',1],['directionhud','Direction HUD',0,0,1],['fps','FPS',1],['freelook','Freelook',0],['itemcounter','Item Counter',0]];
-function bar(view='grid'){return `<div class="bar"><span class="chip caps on">All <i>63</i></span><span class="chip caps new">New</span><span class="chip caps">HUD</span><span class="chip caps">Visual</span><span class="chip caps">Gameplay</span><span class="chip caps">Server</span>
+function bar(view='grid'){return `<div class="bar"><span class="prof-dd"><span>${USER}</span>Default<span>${SVG('<polyline points="6 9 12 15 18 9"/>')}</span></span><span class="vdiv"></span><span class="chip caps on">All <i>63</i></span><span class="chip caps new">New</span><span class="chip caps">HUD</span><span class="chip caps">Visual</span><span class="chip caps">Gameplay</span><span class="chip caps">Server</span>
   <span style="margin-left:auto;display:flex;gap:2px"><span class="tool ${view=='grid'?'on':''}">${GRID}</span><span class="tool ${view=='list'?'on':''}">${LIST}</span></span>
-  <span class="search" style="margin-left:6px;width:124px">${SEARCH}Search<kbd>/</kbd></span></div>`}
+  <span class="search" style="margin-left:8px;width:176px">${SEARCH}Search mods<kbd>/</kbd></span></div>`}
 function bar2(view){return `<div class="abs" style="right:22px;top:16px;display:flex;gap:4px"></div>`}
 function menu(){
-  const cards=MODS.slice(0,9).map(([id,n,on,pin,nw],i)=>`<div class="card ${on?'on':'off'} ${i==1?'hover':''}">${pin?`<span class="pin">${PIN}</span>`:''}${nw?'<span class="badge">NEW</span>':''}
+  const cards=MODS.slice(0,12).map(([id,n,on,pin,nw],i)=>`<div class="card ${on?'on':'off'} ${i==1?'hover':''}">${pin?`<span class="pin">${PIN}</span>`:''}${nw?'<span class="badge">NEW</span>':''}
     <span class="ic">${ic(id)}</span><span class="nm">${n}</span><span class="opt caps" style="font-size:10.5px">${COG}Options</span><span class="st caps">${on?'Enabled':'Disabled'}</span></div>`).join('');
   return shell(`${bar()}<div class="abs" style="left:22px;top:52px;display:flex;gap:2px;"></div>
    <div class="abs" style="right:248px;top:18px;display:flex;gap:2px;display:none"></div>
-   <div class="grid">${cards}</div>`)+`<div class="abs" style="left:1390px;top:400px;width:4px;height:150px;border-radius:2px;background:rgba(241,233,210,.22)"></div>`;
+   <div class="grid">${cards}</div><div class="fade"></div>`)+`<div class="abs" style="left:1411px;top:394px;width:3px;height:140px;border-radius:2px;background:rgba(241,233,210,.22)"></div>`;
 }
 function list(){
   const rows=[...MODS,['minimap','Minimap',0,0,1],['nametags','Nametags',1],['ping','Ping',1],['potionhud','Potion Effects',0],['reach','Reach',0],['saturation','Saturation',1],['screenshot','Screenshot',1],['togglesprint','Toggle Sprint',1],['waypoints','Waypoints',1]]
-    .map(([id,n,on,pin,nw])=>`<div class="lrow ${on?'':'off'}"><span class="ic">${ic(id)}</span>${n}${nw?'<span class="new">NEW</span>':''}<span class="sw ${on?'on':'off'}"></span></div>`).join('');
+    .map(([id,n,on,pin,nw])=>`<div class="lrow ${on?'':'off'}"><span class="ic">${ic(id)}</span><span class="nm">${n}</span>${nw?'<span class="new" title="New"></span>':''}<span class="sw ${on?'on':'off'}"></span></div>`).join('');
   return shell(`${bar('list')}<div class="list">${rows}</div>`);
 }
 function ks(scale=1){const k=(l,w=26,d)=>`<span style="display:inline-flex;width:${w}px;height:26px;margin:1.5px;align-items:center;justify-content:center;background:${d?'rgba(255,255,255,.8)':'rgba(0,0,0,.5)'};color:${d?'#111':'#fff'};font-family:Mono;font-size:13px">${l}</span>`;
@@ -171,7 +167,7 @@ function mod(){
   const row=(l,r,cls='')=>`<div class="orow ${cls}">${l}<span class="r">${r}</span></div>`;
   return shell(`<div class="mhead"><span class="backb">${BACK}</span><span class="ic">${ic('keystrokes')}</span><div><div class="t">Keystrokes</div></div>
      <span class="crumb">Mods · HUD</span>
-     <span class="search" style="width:180px">${SEARCH}Search options</span><span class="sw on"></span></div>
+     <span class="search" style="width:176px">${SEARCH}Search options</span><span class="sw on" style="margin-left:8px"></span></div>
    <div class="desc">Shows the movement keys and mouse buttons you're pressing, live on screen.</div>
    <div class="preview">${ks(1.25)}<span class="ep caps" style="font-size:10.5px">${ic('@hudeditor')}Edit position</span></div>
    <div class="sec caps" style="font-size:10px">Layout</div>
@@ -187,8 +183,8 @@ function mod(){
 }
 function settings(){
   const row=(l,r)=>`<div class="orow">${l}<span class="r">${r}</span></div>`;
-  return shell(`<div class="bar"><span class="chip caps on">General</span><span class="chip caps">Performance</span><span class="chip caps">Controls</span><span class="search" style="width:180px">${SEARCH}Search settings</span></div>
-   <div class="sec caps" style="font-size:10px;margin-top:16px">General</div>
+  return shell(`<div class="bar"><span class="chip caps on">General</span><span class="chip caps">Performance</span><span class="chip caps">Controls</span><span class="search" style="width:176px">${SEARCH}Search settings</span></div>
+   <div class="sec caps" style="font-size:10px">General</div>
    <div class="opts">${row('Borderless Fullscreen','<span class="sw off"></span>')}${row('Raw Mouse Input','<span class="sw on"></span>')}
      ${row('Smart Disconnect','<span class="sw on"></span>')}${row('Auto Reconnect','<span class="sw off"></span>')}
      ${row('Disable Hotbar Scrolling','<span class="sw off"></span>')}${row('Main Menu Style',`<span class="sel"><span>${CHEVL}</span>Origin<span>${CHEV}</span></span>`)}
