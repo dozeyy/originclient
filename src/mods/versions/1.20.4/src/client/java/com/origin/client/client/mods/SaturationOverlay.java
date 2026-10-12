@@ -16,7 +16,8 @@ import net.minecraft.world.item.TooltipFlag;
 import java.util.Locale;
 
 // Saturation mod (Lunar's built-in AppleSkin), drawn on top of vanilla's own
-// hunger bar from GuiFoodMixin (Gui.renderFood TAIL, so the shank positions are
+// hunger bar from GuiFoodMixin (Gui.renderPlayerHealth TAIL -- no renderFood before
+// 1.20.5 -- so the shank positions are
 // exactly vanilla's: right edge `right`, one shank every 8 px leftward, row y).
 //
 //   Saturation Overlay       -- your hidden saturation as glowing shanks

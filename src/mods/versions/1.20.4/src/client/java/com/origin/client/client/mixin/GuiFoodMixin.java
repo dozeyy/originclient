@@ -43,6 +43,9 @@ public abstract class GuiFoodMixin {
 			if (player == null || getVehicleMaxHearts(getPlayerVehicleWithHealth()) != 0) {
 				return;   // vanilla drew no hunger row this frame
 			}
+			if (com.origin.client.client.mods.HypixelBedwars.hideFood()) {
+				return;   // Hypixel Bed Wars hid the food row (HypixelBedwarsGuiMixin): nothing to draw over
+			}
 			SaturationOverlay.render(guiGraphics, player, screenHeight - 39, screenWidth / 2 + 91);
 		} catch (Throwable t) {
 			// the hunger bar must never go down over an overlay

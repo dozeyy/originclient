@@ -18,12 +18,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.entity.BedBlockEntity;
-import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.PlayerScoreEntry;
 import net.minecraft.world.scores.PlayerTeam;
-import net.minecraft.world.scores.ReadOnlyScoreInfo;
-import net.minecraft.world.scores.ScoreHolder;
+import net.minecraft.world.scores.Score;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
@@ -95,7 +92,7 @@ public final class HypixelBedwars {
 			return;
 		}
 		Scoreboard sb = mc.level.getScoreboard();
-		Objective side = sb.getDisplayObjective(DisplaySlot.SIDEBAR);
+		Objective side = sb.getDisplayObjective(Scoreboard.DISPLAY_SLOT_SIDEBAR);
 		if (side == null) {
 			inGame = practice = false;
 			return;
@@ -104,11 +101,15 @@ public final class HypixelBedwars {
 		int teams = 0;
 		boolean ownKnown = false, ownAlive = true, practiceLine = false;
 		ChatFormatting ownColor = null;
-		for (PlayerScoreEntry e : sb.listPlayerScores(side)) {
-			if (e.isHidden()) {
+		// Pre-1.20.3 scoreboard API (verified against decompiled 1.20): a sidebar row
+		// is a Score whose owner string is the row text, drawn by vanilla's sidebar
+		// as formatNameForTeam(owner's team, owner); "#"-prefixed owners are hidden.
+		for (Score e : sb.getPlayerScores(side)) {
+			String owner = e.getOwner();
+			if (owner == null || owner.startsWith("#")) {
 				continue;
 			}
-			String line = cleanLine(PlayerTeam.formatNameForTeam(sb.getPlayersTeam(e.owner()), e.ownerName()).getString());
+			String line = cleanLine(PlayerTeam.formatNameForTeam(sb.getPlayersTeam(owner), Component.literal(owner)).getString());
 			if (line.toUpperCase(Locale.ROOT).contains("PRACTICE")) {
 				practiceLine = true;
 			}
@@ -268,7 +269,7 @@ public final class HypixelBedwars {
 	// Sound drops the sound that comes with it. Any other title is left alone.
 
 	private static final long ALERT_SOUND_WINDOW_MS = 3000;
-	private static final ResourceLocation ALERT_SOUND = ResourceLocation.withDefaultNamespace("entity.enderman.teleport");
+	private static final ResourceLocation ALERT_SOUND = new ResourceLocation("entity.enderman.teleport");
 	private static long trapAtMs = Long.MIN_VALUE / 2;
 
 	private static boolean isTrapTitle(Component title) {
@@ -375,7 +376,8 @@ public final class HypixelBedwars {
 	 *  under nametags / in the tab list (scores reach the client for every player,
 	 *  near or far), else the entity's own health if it's loaded; -1 = unknown. */
 	private static int health(Minecraft mc, Scoreboard sb, String name, UUID id) {
-		for (DisplaySlot slot : new DisplaySlot[]{DisplaySlot.BELOW_NAME, DisplaySlot.LIST}) {
+		// 1.20 / 1.20.1 display slots are plain ints (the DisplaySlot enum is 1.20.2+).
+		for (int slot : new int[]{Scoreboard.DISPLAY_SLOT_BELOW_NAME, Scoreboard.DISPLAY_SLOT_LIST}) {
 			Objective o = sb.getDisplayObjective(slot);
 			if (o == null) {
 				continue;
@@ -385,9 +387,10 @@ public final class HypixelBedwars {
 			if (!isHealth) {
 				continue;
 			}
-			ReadOnlyScoreInfo s = sb.getPlayerScoreInfo(ScoreHolder.forNameOnly(name), o);
-			if (s != null) {
-				return s.value();
+			// hasPlayerScore first: getOrCreatePlayerScore would add an empty score
+			// to the client's scoreboard for a player the server never scored.
+			if (sb.hasPlayerScore(name, o)) {
+				return sb.getOrCreatePlayerScore(name, o).getScore();
 			}
 		}
 		Player p = mc.level.getPlayerByUUID(id);

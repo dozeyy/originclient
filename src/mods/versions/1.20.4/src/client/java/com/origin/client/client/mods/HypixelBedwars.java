@@ -268,7 +268,7 @@ public final class HypixelBedwars {
 	// Sound drops the sound that comes with it. Any other title is left alone.
 
 	private static final long ALERT_SOUND_WINDOW_MS = 3000;
-	private static final ResourceLocation ALERT_SOUND = ResourceLocation.withDefaultNamespace("entity.enderman.teleport");
+	private static final ResourceLocation ALERT_SOUND = new ResourceLocation("entity.enderman.teleport");
 	private static long trapAtMs = Long.MIN_VALUE / 2;
 
 	private static boolean isTrapTitle(Component title) {

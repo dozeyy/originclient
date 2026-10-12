@@ -8,7 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.resources.DefaultPlayerSkin;
-import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -112,7 +112,9 @@ final class BedwarsHud {
 	private static final int LINE = 11, FACE = 8;
 	private static final int HEALTH_COLOR = 0xFFFF5555, OUT_COLOR = 0xFF8A8A8A;
 
-	private record Row(PlayerSkin skin, String name, int nameColor, String status, int statusColor) {
+	// 1.20 / 1.20.1: a skin is just its texture (PlayerSkin is 1.20.2+), and
+	// PlayerFaceRenderer.draw takes that ResourceLocation.
+	private record Row(ResourceLocation skin, String name, int nameColor, String status, int statusColor) {
 	}
 
 	private static List<Row> rows(Minecraft mc) {
@@ -121,7 +123,7 @@ final class BedwarsHud {
 			return out;
 		}
 		for (HypixelBedwars.Teammate t : HypixelBedwars.teammates(mc)) {
-			PlayerSkin skin = t.info() != null ? t.info().getSkin() : DefaultPlayerSkin.get(t.id());
+			ResourceLocation skin = t.info() != null ? t.info().getSkinLocation() : DefaultPlayerSkin.getDefaultSkin(t.id());
 			String status;
 			int statusColor;
 			if (!t.online()) {
@@ -137,7 +139,7 @@ final class BedwarsHud {
 			out.add(new Row(skin, t.name(), t.color(), status, statusColor));
 		}
 		if (out.isEmpty() && HudElements.editorPreview && mc.player != null) {
-			PlayerSkin skin = mc.player.getSkin();
+			ResourceLocation skin = mc.player.getSkinTextureLocation();
 			out.add(new Row(skin, "Teammate", 0xFFFF5555, "20❤", HEALTH_COLOR));
 			out.add(new Row(skin, "Teammate", 0xFFFF5555, "OUT", OUT_COLOR));
 		}
