@@ -54,7 +54,7 @@
 		"GlintColorizerMixin",
 		"BossBarMixin",
 		"TitlesMixin",
-		"GameRendererBlurAccessor",
+		"MenuBlurRadiusMixin",
 		"MenuBlurMixin",
 		"ShinyPotsMixin",
 		"TntCountdownMixin",
@@ -69,7 +69,9 @@
 		"ScreenshotKeyMixin",
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsBedMixin",
-		"HypixelBedwarsSoundMixin"
+		"HypixelBedwarsSoundMixin",
+		"EquipmentLayerTintMixin",
+		"ItemPhysicsStateMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

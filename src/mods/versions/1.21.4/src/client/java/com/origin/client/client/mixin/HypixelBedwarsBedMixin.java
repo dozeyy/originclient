@@ -14,10 +14,11 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 // Hypixel Bed Wars > Colored Beds: draws each bed in its team's colour.
 //
-// 1.21.1 BedRenderer.render(BedBlockEntity, float, PoseStack, MultiBufferSource,
-// int light, int overlay) (verified against decompiled 1.21.1 client source)
-// opens with `Material material = Sheets.BED_TEXTURES[bed.getColor().getId()];`
-// -- its only Material local -- and draws both halves with it. Swapping that
+// 1.21.4 BedRenderer.render(BedBlockEntity, float, PoseStack, MultiBufferSource,
+// int light, int overlay) (verified against decompiled 1.21.4 client source)
+// opens with `Material material = Sheets.getBedMaterial(bed.getColor());`
+// -- its only Material local -- and draws both halves with it. (1.21.2+ made
+// Sheets.BED_TEXTURES private; getBedMaterial(DyeColor) is the public door.) Swapping that
 // one local at its STORE swaps the bed's texture and nothing else: the block,
 // its drops and what the server thinks are untouched. The full descriptor keeps
 // the injector off the synthetic render(BlockEntity, ...) bridge.
@@ -30,7 +31,7 @@ public class HypixelBedwarsBedMixin {
 			PoseStack poseStack, MultiBufferSource buffers, int light, int overlay) {
 		try {
 			DyeColor team = HypixelBedwars.bedColor(bed);
-			return team != null ? Sheets.BED_TEXTURES[team.getId()] : material;
+			return team != null ? Sheets.getBedMaterial(team) : material;
 		} catch (Throwable t) {
 			return material;
 		}

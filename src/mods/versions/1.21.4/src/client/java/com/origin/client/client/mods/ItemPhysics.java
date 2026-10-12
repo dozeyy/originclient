@@ -2,12 +2,11 @@ package com.origin.client.client.mods;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import net.minecraft.client.Minecraft;
+import com.origin.client.client.ext.ItemPhysicsState;
 import net.minecraft.client.renderer.block.model.ItemTransform;
-import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.ItemDisplayContext;
 
 /**
  * Item Physics (Lunar parity): dropped items stop floating and spinning in place.
@@ -22,6 +21,11 @@ import net.minecraft.world.item.ItemDisplayContext;
  * first UNDOES exactly those two vanilla transforms (same maths as 1.21.1's
  * render, source-verified), then applies the physics pose. Items keep their
  * GROUND model transform (size, the per-model offset), applied later by vanilla.
+ *
+ * PER-VERSION (1.21.2-1.21.4): works from the item's render state instead of the
+ * live entity -- ageInTicks (age + partial tick), bobOffset, count and the baked
+ * GROUND transform are vanilla's own state fields; the resting flag is recorded
+ * at extraction by ItemPhysicsMixin. The maths is 1.21.1's, input for input.
  */
 public final class ItemPhysics {
 	private static final String MOD = "itemphysics";
@@ -31,37 +35,36 @@ public final class ItemPhysics {
 	private ItemPhysics() {
 	}
 
-	public static void apply(ItemEntity e, float partialTick, PoseStack pose) {
+	public static void apply(ItemEntityRenderState s, PoseStack pose) {
 		if (!Mods.on(MOD)) {
 			return;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		BakedModel model = mc.getItemRenderer().getModel(e.getItem(), e.level(), null, e.getId());
-		ItemTransform ground = model.getTransforms().getTransform(ItemDisplayContext.GROUND);
+		ItemTransform ground = s.item.transform();
 		float scaleY = ground.scale.y();
 
 		// 1) undo vanilla: rotate(spin) was applied last, so it comes off first.
-		float bob = Mth.sin(((float) e.getAge() + partialTick) / 10.0F + e.bobOffs) * 0.1F + 0.1F;
-		pose.mulPose(Axis.YP.rotation(-e.getSpin(partialTick)));
+		float bob = Mth.sin(s.ageInTicks / 10.0F + s.bobOffset) * 0.1F + 0.1F;
+		pose.mulPose(Axis.YP.rotation(-ItemEntity.getSpin(s.ageInTicks, s.bobOffset)));
 		pose.translate(0.0F, -(bob + 0.25F * scaleY), 0.0F);
 
-		// 2) physics pose. bobOffs is a per-entity random angle: a stable heading.
-		boolean resting = e.onGround() || e.isInWater();
-		pose.mulPose(Axis.YP.rotation(e.bobOffs));
+		// 2) physics pose. bobOffset is a per-entity random angle: a stable heading.
+		boolean resting = ((ItemPhysicsState) s).originclient$isResting();
+		pose.mulPose(Axis.YP.rotation(s.bobOffset));
 		if (!resting) {
 			// airborne: vanilla's resting height without the bob, tumbling
 			pose.translate(0.0F, 0.25F * scaleY, 0.0F);
-			float deg = ((float) e.getAge() + partialTick) * DEG_PER_TICK * (float) Mods.num(MOD, "rotationSpeed");
+			float deg = s.ageInTicks * DEG_PER_TICK * (float) Mods.num(MOD, "rotationSpeed");
 			pose.mulPose(Axis.XP.rotationDegrees(deg % 360f));
-		} else if (model.isGui3d()) {
+		} else if (s.item.isGui3d()) {
 			// blocks: drop the model so its bottom face (ground offset - half its
 			// scaled unit cube) touches the ground
 			pose.translate(0.0F, -(ground.translation.y() - 0.5F * scaleY), 0.0F);
 		} else {
 			// flat items: tip the sprite onto its back (local +Z -> world up, so
 			// vanilla's stacked copies pile upward) and lift it by the stack's
-			// half-depth + the sprite's own thickness so nothing sinks into the floor
-			int copies = renderedCopies(e.getItem().getCount());
+			// half-depth + the sprite's own thickness so nothing sinks into the floor.
+			// s.count is vanilla's rendered-copies count (getRenderedAmount).
+			int copies = Math.max(1, s.count);
 			float halfStack = 0.09375F * (copies - 1) * 0.5F * ground.scale.z();
 			float lift = halfStack + ground.scale.z() / 32F + 0.01F;
 			pose.translate(0.0F, lift, 0.0F);
@@ -69,17 +72,5 @@ public final class ItemPhysics {
 			// cancel the GROUND transform's upward offset, which now points sideways
 			pose.translate(0.0F, -ground.translation.y(), 0.0F);
 		}
-	}
-
-	/** Vanilla's ItemEntityRenderer.getRenderedAmount (package-private there). */
-	private static int renderedCopies(int count) {
-		if (count <= 1) {
-			return 1;
-		} else if (count <= 16) {
-			return 2;
-		} else if (count <= 32) {
-			return 3;
-		}
-		return count <= 48 ? 4 : 5;
 	}
 }

@@ -11,7 +11,7 @@ import org.lwjgl.opengl.GL13;
 /**
  * Hit Color (Lunar parity): recolours the damage flash.
  *
- * How vanilla 1.21.1 does the flash (source-verified): OverlayTexture is a 16x16
+ * How vanilla does the flash (1.21.1 source-verified; unchanged in 1.21.4): OverlayTexture is a 16x16
  * texture whose top 8 rows hold one pixel colour -- red, alpha 0xB2 -- and the
  * entity shaders mix it in as  colour = mix(overlay.rgb, colour, overlay.a)  for
  * any entity with hurtTime > 0. So the texture alpha is how much of the ORIGINAL
@@ -24,14 +24,20 @@ import org.lwjgl.opengl.GL13;
  *
  * Color Armor: vanilla's armor shader has no overlay sampler at all, so worn
  * armor never flashed in 1.21.1. While a hurt entity's armor draws, its vertex
- * colour is pulled toward the hit colour instead (HumanoidArmorLayerMixin).
+ * colour is pulled toward the hit colour instead (HumanoidArmorLayerMixin +
+ * EquipmentLayerTintMixin).
+ *
+ * PER-VERSION (1.21.2-1.21.4): NativeImage pixels are ARGB (setPixel) rather than
+ * 1.21.1's ABGR, and NativeImage.upload lost its blur/clamp/mipmap flags (the
+ * texture keeps them) -- the upload otherwise mirrors vanilla 1.21.4's
+ * OverlayTexture constructor exactly.
  */
 public final class HitColor {
 	private static final String MOD = "hitcolor";
-	/** Vanilla's pixel, as NativeImage stores it (ABGR): red, alpha 0xB2. */
-	private static final int VANILLA_ABGR = 0xB20000FF;
+	/** Vanilla's pixel (ARGB, as 1.21.4's OverlayTexture writes it): red, alpha 0xB2. */
+	private static final int VANILLA_ARGB = 0xB2FF0000;
 
-	private static int applied = VANILLA_ABGR;
+	private static int applied = VANILLA_ARGB;
 	private static boolean broken = false;
 
 	/** Set by HumanoidArmorLayerMixin for the armor piece being drawn. */
@@ -44,12 +50,12 @@ public final class HitColor {
 		if (broken) {
 			return;
 		}
-		int want = VANILLA_ABGR;
+		int want = VANILLA_ARGB;
 		if (Mods.on(MOD)) {
 			int c = OriginColorPicker.liveColor(MOD, "color");
 			int strength = (c >>> 24) & 0xFF;
 			int r = (c >> 16) & 0xFF, gr = (c >> 8) & 0xFF, b = c & 0xFF;
-			want = ((255 - strength) << 24) | (b << 16) | (gr << 8) | r;
+			want = ((255 - strength) << 24) | (r << 16) | (gr << 8) | b;
 		}
 		if (want == applied) {
 			return;
@@ -63,14 +69,14 @@ public final class HitColor {
 			}
 			for (int y = 0; y < 8; y++) {
 				for (int x = 0; x < 16; x++) {
-					px.setPixelRGBA(x, y, want);
+					px.setPixel(x, y, want);
 				}
 			}
 			// Same upload vanilla's constructor does: texture unit 1 (the overlay
-			// sampler's unit), no blur, clamped, then back to unit 0.
+			// sampler's unit), level 0, the whole image, then back to unit 0.
 			RenderSystem.activeTexture(GL13.GL_TEXTURE1);
 			tex.bind();
-			px.upload(0, 0, 0, 0, 0, px.getWidth(), px.getHeight(), false, true, false, false);
+			px.upload(0, 0, 0, 0, 0, px.getWidth(), px.getHeight(), false);
 			RenderSystem.activeTexture(GL13.GL_TEXTURE0);
 			applied = want;
 		} catch (Throwable t) {

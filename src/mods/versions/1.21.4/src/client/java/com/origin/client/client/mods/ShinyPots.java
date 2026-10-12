@@ -11,7 +11,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.CoreShaders;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
@@ -31,6 +31,11 @@ import org.joml.Matrix4f;
  * vanilla's glint -- so it honours the Glint Speed accessibility option.
  *   Colored Potions -- tint the shine with the potion's own colour
  *   Render Entire Slot -- the full 18x18 slot instead of the 16x16 item square
+ *
+ * PER-VERSION (1.21.2-1.21.4): drawn immediate-mode exactly as on 1.21.1 -- this
+ * era's GuiGraphics.renderItem (source-verified, 1.21.4) still flushes and draws
+ * each item on the spot, so a flush before the shine keeps the layering 1.21.1
+ * had. Only the shader spelling moved (CoreShaders key, not a GameRenderer getter).
  */
 public final class ShinyPots {
 	private static final String MOD = "shinypots";
@@ -75,7 +80,7 @@ public final class ShinyPots {
 		}
 		var tm = Minecraft.getInstance().getTextureManager();
 		tm.getTexture(ItemRenderer.ENCHANTED_GLINT_ITEM).setFilter(true, false);
-		RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+		RenderSystem.setShader(CoreShaders.POSITION_TEX_COLOR);
 		RenderSystem.setShaderTexture(0, ItemRenderer.ENCHANTED_GLINT_ITEM);
 		RenderSystem.enableBlend();
 		RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_COLOR, GlStateManager.DestFactor.ONE,

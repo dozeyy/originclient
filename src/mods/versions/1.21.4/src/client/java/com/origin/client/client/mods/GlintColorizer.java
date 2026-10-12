@@ -5,7 +5,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.gui.OriginColorPicker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.CoreShaders;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -41,6 +41,13 @@ import java.util.Optional;
  * Armor vs item is told apart by the active shader (rendertype_armor_entity_glint
  * is used only by worn armor + elytra); item models use the 8x-scaled item
  * texturing, everything else (tridents, shields in hand) the entity one.
+ *
+ * PER-VERSION (1.21.2-1.21.4, verified against the decompiled 1.21.4 RenderType /
+ * RenderStateShard): the glint render types and their shard order are 1.21.1's
+ * (texture, shader, GLINT_TRANSPARENCY, ..., texturing last), so the hook works
+ * unchanged; only the spellings moved -- shaders are CoreShaders keys compiled by
+ * the ShaderManager (the armour check compares the bound program with that key's),
+ * and NativeImage pixels are ARGB (getPixel/setPixel) instead of ABGR.
  */
 public final class GlintColorizer {
 	private static final String MOD = "glintcolorizer";
@@ -103,7 +110,9 @@ public final class GlintColorizer {
 					GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
 			return;
 		}
-		boolean armorPass = RenderSystem.getShader() == GameRenderer.getRendertypeArmorEntityGlintShader();
+		var bound = RenderSystem.getShader();
+		boolean armorPass = bound != null
+				&& bound == Minecraft.getInstance().getShaderManager().getProgram(CoreShaders.RENDERTYPE_ARMOR_ENTITY_GLINT);
 		if (armorPass ? !Mods.bool(MOD, "overrideArmor") : !Mods.bool(MOD, "overrideItem")) {
 			return;
 		}
@@ -143,8 +152,8 @@ public final class GlintColorizer {
 			float[][] out = new float[img.getWidth()][img.getHeight()];
 			for (int x = 0; x < img.getWidth(); x++) {
 				for (int y = 0; y < img.getHeight(); y++) {
-					int abgr = img.getPixelRGBA(x, y);
-					int max = Math.max(abgr & 0xFF, Math.max((abgr >> 8) & 0xFF, (abgr >> 16) & 0xFF));
+					int argb = img.getPixel(x, y);
+					int max = Math.max(argb & 0xFF, Math.max((argb >> 8) & 0xFF, (argb >> 16) & 0xFF));
 					out[x][y] = max / 255f;
 				}
 			}
@@ -184,7 +193,7 @@ public final class GlintColorizer {
 					pb = Math.min(255, Math.round(i * b * VANILLA_GAIN));
 					pa = 255;
 				}
-				px.setPixelRGBA(x, y, (pa << 24) | (pb << 16) | (pg << 8) | pr);
+				px.setPixel(x, y, (pa << 24) | (pr << 16) | (pg << 8) | pb);
 			}
 		}
 		tex.upload();
