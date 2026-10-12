@@ -118,17 +118,21 @@ Writes: presence is written at most once per 30 s per (account, client) even if 
   Right Shift centre group; same content as the launcher drawer (list, requests, add, chat, party, appear offline).
 - Toasts (Origin style) for DMs, friend requests, party invites, warps; click opens the Friends window.
 - Party chat: shown in vanilla chat as "[Party] <name>: <text>" (client-side only, the server never sees it);
-  sent from the Friends window or the client-only command `/pc <text>` (never `/p`: servers own it).
+  sent from the Friends window or the client-only command `/originpc <text>` (Will, 2026-10-12: a name no
+  server uses — `/pc` and `/p` belong to server plugins).
   DMs are sent from the Friends window only.
 - B: party members' nametags tinted + a marker (diamond + name + distance) visible through walls, C: a movable
   Party HUD element (name, health, distance, direction arrow), D: party members on the minimap and locator bar,
   F: a "Ping party" key (unbound by default, set in Controls) that pings the looked-at block for the party
   (marker for 60 s), E: leader's "Warp party here" button; members get a toast
   with Join (connects if same Minecraft version, else "Join from the launcher").
-- Fair-play guard: B, C, D and F positions are OFF on competitive networks where showing other players'
-  positions is against the rules (start with hypixel.net and its subdomains; list in one place in the mod),
-  and positions are only exchanged between members on the same server. Party chat, warp and the rest still
-  work there.
+- Fair-play guard (Will, 2026-10-12: "ban them overall on all multiplayer as a good baseline"): everything
+  that reveals where a party member is or how they're doing — B markers/tinted nametags, C's health/distance/
+  direction, D minimap/locator dots, F pings — works ONLY in a world hosted by a party member's own game
+  (singleplayer opened to LAN, the host and players joined over a private LAN address: 10.x, 172.16-31.x,
+  192.168.x, 127.x, or the integrated server). On every other multiplayer server none of it is sent
+  (`partyState` is null) or drawn; the Party HUD shows names + online status only. One central check in the mod
+  (`social/FairPlay`). Party chat, warp, friends, DMs and join still work everywhere.
 
 ## Service notes (what the Worker actually does; services/cosmetics/src/social.js + party.js)
 Everything here is additive to the contract above; client authors rely on these details. Limits live in one
