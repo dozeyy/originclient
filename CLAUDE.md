@@ -256,6 +256,8 @@ floating corner controls. In-game menus match this exactly.
   everywhere; batched-gui tint fix (TV-static backgrounds) on 1.21.4/1.21.5;
   Add-Microsoft-Account WebView2-dispose fix; CI Gradle cross-release caching;
   **1.21.1 menu buttons reskinned to the Origin look (v1.0.29).**
+- **No recipe viewer where Fabric JEI doesn't exist (Will, 2026-10-12: "nah it's fine"):**
+  1.16.5, 1.17.1, 1.21.2-1.21.8 keep no JEI card; don't add REI or another substitute.
 - **Video-Settings mod rail REMOVED (Will, 2026-10-12):** he didn't like the mod list on the
   left of Video Settings; 1.21.1's SodiumOptionsRailMixin + gui/SodiumModRail are deleted and
   Video Settings is plain Sodium again. Don't port it to other versions.
