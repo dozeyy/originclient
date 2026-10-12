@@ -1,0 +1,215 @@
+<!doctype html>
+<!-- Redesign v4 (2026-10-12): Lunar's layout, Origin's look, smooth font.
+     Will: "copy the layout but make it even better and cleaner"; no pixel font.
+     Drawn in physical pixels at 1920x1080 (the smooth font renders at screen
+     resolution in-game via the Inter MSDF/TTF already in the mod).
+     ?scene=rshift | menu | list | mod | settings -->
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-400.woff2);font-weight:400}
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-600.woff2);font-weight:600}
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-700.woff2);font-weight:700}
+@font-face{font-family:Mono;src:url(../../../website/assets/fonts/monocraft.woff2)}
+:root{
+  --panel:rgba(20,24,22,.94); --panel2:rgba(28,33,30,.96); --card:#1D2320; --card-h:#232A26; --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.10);
+  --text:#F1E9D2; --dim:rgba(241,233,210,.68); --mute:rgba(241,233,210,.42);
+  --acc:#5FD09B; --acc-d:#2E7A57; --acc-soft:rgba(95,208,155,.14); --red:#D9675A; --red-d:#7E3A33; --red-soft:rgba(217,103,90,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#000}
+body{font-family:Inter,sans-serif;color:var(--text);position:relative;-webkit-font-smoothing:antialiased}
+.abs{position:absolute}
+svg.i{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.world{position:absolute;inset:-30px;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.18.png) center/cover;filter:blur(14px) brightness(.62) saturate(.9)}
+.world.sharp{filter:none;inset:0}
+.caps{text-transform:uppercase;letter-spacing:2.4px;font-weight:700;font-size:11px}
+/* ---- shell ---- */
+.shell{position:absolute;left:500px;top:250px;width:920px;height:580px;background:var(--panel);border-radius:8px;
+  box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.07) inset;overflow:hidden}
+.head{position:absolute;left:0;right:0;top:0;height:60px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-size:20px;letter-spacing:.5px}
+.brand b{font-weight:700}.brand span{font-weight:400;color:var(--dim)}
+.brand .mk{width:26px;height:26px}
+.tabs{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:6px}
+.tab{height:30px;padding:0 16px;border-radius:6px;display:flex;align-items:center;color:var(--mute)}
+.tab.on{background:rgba(255,255,255,.07);color:var(--text)}
+.close{margin-left:auto;width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--dim);background:rgba(255,255,255,.04)}
+.close svg{width:14px;height:14px}
+.side{position:absolute;left:0;top:60px;bottom:0;width:206px;border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column}
+.side .lbl{color:var(--mute);margin:0 8px 8px}
+.prof{height:36px;border-radius:6px;display:flex;align-items:center;gap:10px;padding:0 10px;font-size:13.5px;font-weight:600;color:var(--dim)}
+.prof .pi{width:15px;height:15px;color:var(--mute)}
+.prof .ed{margin-left:auto;width:13px;height:13px;color:var(--mute);opacity:0}
+.prof.on{background:rgba(255,255,255,.06);color:var(--text)}.prof.on .ed{opacity:1}
+.prof.on .pi{color:var(--acc)}
+.ghost{height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--dim);border:1px solid var(--line2);margin-top:8px}
+.primary{height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--acc);color:#0A1710;margin-top:14px}
+.primary svg{width:15px;height:15px}
+.main{position:absolute;left:206px;right:0;top:60px;bottom:0;padding:16px 22px 0}
+.bar{display:flex;align-items:center;gap:8px;height:32px}
+.chip{height:28px;padding:0 11px;border-radius:6px;display:flex;align-items:center;gap:7px;color:var(--dim);background:rgba(255,255,255,.04)}
+.chip i{font-style:normal;font-weight:600;letter-spacing:0;font-size:11px;color:var(--mute)}
+.chip.on{background:var(--acc-soft);color:var(--acc)}.chip.on i{color:var(--acc);opacity:.8}
+.chip.new{color:#E9C46A}
+.tool{width:30px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--mute)}
+.tool.on{color:var(--text);background:rgba(255,255,255,.06)}
+.tool svg{width:15px;height:15px}
+.search{margin-left:auto;width:200px;height:30px;border-radius:6px;background:rgba(0,0,0,.28);border:1px solid var(--line2);display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--mute);font-size:13px}
+.search svg{width:14px;height:14px}
+.search kbd{margin-left:auto;font-family:Inter;font-size:11px;font-weight:600;border:1px solid var(--line2);border-radius:4px;padding:1px 5px;color:var(--mute)}
+/* ---- grid view ---- */
+.grid{position:absolute;left:22px;right:30px;top:64px;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-content:start;overflow:hidden;padding-bottom:20px}
+.card{height:178px;border-radius:8px;background:var(--card);position:relative;overflow:hidden;box-shadow:0 0 0 1px var(--line) inset}
+.card .ic{position:absolute;left:50%;top:26px;width:40px;height:40px;margin-left:-20px;color:var(--text)}
+.card .nm{position:absolute;left:0;right:0;top:80px;text-align:center;font-size:15px;font-weight:600}
+.card .opt{position:absolute;left:10px;right:10px;bottom:46px;height:30px;border-radius:5px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;gap:8px;color:var(--dim)}
+.card .opt svg{width:13px;height:13px}
+.card .st{position:absolute;left:10px;right:10px;bottom:10px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center}
+.card.on .st{background:var(--acc-d);color:#DFF7EA}
+.card.off .st{background:rgba(217,103,90,.16);color:var(--red)}
+.card.off .ic,.card.off .nm{opacity:.55}
+.card .pin{position:absolute;right:12px;top:12px;width:14px;height:14px;color:var(--dim)}
+.card .badge{position:absolute;left:12px;top:12px;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#E9C46A}
+.card.hover{background:var(--card-h);box-shadow:0 0 0 1px rgba(241,233,210,.16) inset}
+.card.hover .opt{background:rgba(255,255,255,.08);color:var(--text)}
+.fade{position:absolute;left:206px;right:0;bottom:0;height:46px;background:linear-gradient(transparent,rgba(20,24,22,.98))}
+.sbar{position:absolute;right:12px;top:140px;width:4px;height:150px;border-radius:2px;background:rgba(241,233,210,.22)}
+/* ---- list view ---- */
+.list{position:absolute;left:22px;right:30px;top:64px;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);gap:10px 12px;align-content:start}
+.lrow{height:44px;border-radius:7px;background:var(--card);display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;font-size:13.5px;font-weight:600;position:relative}
+.lrow .ic{width:18px;height:18px}
+.lrow .sw{margin-left:auto}
+.lrow.off{color:var(--dim)}.lrow.off .ic{opacity:.6}
+.lrow .new{position:absolute;left:12px;top:-6px;height:13px;padding:0 5px;border-radius:3px;background:#3A3220;font-size:8.5px;font-weight:700;letter-spacing:1px;color:#E9C46A;display:flex;align-items:center}
+/* ---- toggles ---- */
+.sw{width:50px;height:22px;border-radius:5px;position:relative;font-size:10px;font-weight:700;letter-spacing:.6px;flex:none}
+.sw.on{background:var(--acc-d);color:#DFF7EA}.sw.off{background:var(--red-soft);color:var(--red)}
+.sw::before{position:absolute;top:0;bottom:0;display:flex;align-items:center}
+.sw.on::before{content:"ON";left:9px}.sw.off::before{content:"OFF";right:6px}
+.sw::after{content:"";position:absolute;top:3px;width:16px;height:16px;border-radius:4px;background:var(--text)}
+.sw.on::after{right:3px}.sw.off::after{left:3px;background:rgba(241,233,210,.75)}
+/* ---- mod page ---- */
+.mhead{display:flex;align-items:center;gap:12px;height:36px}
+.backb{width:32px;height:32px;border-radius:6px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;color:var(--dim)}
+.backb svg{width:15px;height:15px}
+.mhead .ic{width:22px;height:22px}
+.mhead .t{font-size:17px;font-weight:700;letter-spacing:.3px}
+.mhead .crumb{font-size:12px;color:var(--mute);margin-top:2px}
+.desc{font-size:13px;line-height:1.55;color:var(--dim);margin:12px 0 0;max-width:560px}
+.preview{margin-top:14px;height:126px;border-radius:8px;overflow:hidden;position:relative;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.18.png) center/cover}
+.preview::before{content:"";position:absolute;inset:0;background:rgba(10,14,12,.45)}
+.preview .pv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.preview .ep{position:absolute;right:10px;bottom:10px;height:30px;padding:0 14px;border-radius:6px;background:rgba(14,17,16,.82);display:flex;align-items:center;gap:8px;color:var(--text);box-shadow:0 0 0 1px var(--line2) inset}
+.preview .ep svg{width:14px;height:14px}
+.sec{color:var(--mute);margin:18px 0 8px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:6px 28px}
+.orow{height:36px;border-radius:6px;display:flex;align-items:center;gap:12px;padding:0 10px;font-size:14px;color:var(--text)}
+.orow:hover,.orow.h{background:rgba(255,255,255,.04)}
+.orow .r{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--dim);font-size:13px}
+.orow .cog{width:15px;height:15px;color:var(--mute)}
+.orow.ch{box-shadow:inset 2px 0 0 var(--acc)}
+.sel{display:flex;align-items:center;gap:10px;color:var(--text);font-size:13px}
+.sel svg{width:12px;height:12px;color:var(--mute)}
+.slider{width:110px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);position:relative}
+.slider i{position:absolute;left:0;top:0;bottom:0;width:40%;border-radius:2px;background:var(--acc)}
+.slider b{position:absolute;left:40%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--text)}
+.swatch{width:20px;height:20px;border-radius:4px;box-shadow:0 0 0 1px var(--line2) inset}
+.reset{width:14px;height:14px;color:var(--mute)}
+/* ---- right shift ---- */
+.hud{position:absolute;font-family:Mono;font-size:18px;color:#fff;text-shadow:2px 2px 0 #3f3f3f;line-height:22px}
+.hbtn{height:44px;border-radius:7px;background:rgba(20,24,22,.78);display:flex;align-items:center;justify-content:center;color:var(--text);box-shadow:0 0 0 1px rgba(255,255,255,.10) inset}
+.hbtn svg{width:19px;height:19px}
+.hotbar{position:absolute;left:776px;top:1016px;width:368px;height:44px;display:flex;opacity:.92}
+.hotbar span{width:40px;height:44px;margin-right:1px;background:rgba(0,0,0,.45);box-shadow:0 0 0 2px rgba(150,150,150,.55) inset}
+.hotbar span:first-child{box-shadow:0 0 0 3px #fff inset}
+</style></head><body>
+<script>
+const ICONS=/*ICONS*/{};
+const ic=id=>`<svg class="i" viewBox="0 0 24 24">${ICONS[id]||''}</svg>`;
+const SVG=d=>`<svg class="i" viewBox="0 0 24 24">${d}</svg>`;
+const MARK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="12" rx="9" ry="3.8"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>`;
+const COG=SVG(ICONS.cog), CLOSE=SVG('<path d="M18 6 6 18M6 6l12 12"/>'), BACK=SVG('<polyline points="15 18 9 12 15 6"/>'),
+  PEN=SVG('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'), GRID=SVG('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'),
+  LIST=SVG('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'), SORT=SVG('<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>'),
+  SEARCH=SVG('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'), PIN=SVG('<path d="M9 3h6l-1 6 4 4H6l4-4z" fill="currentColor"/><path d="M12 13v8"/>'),
+  CHEV=SVG('<polyline points="9 18 15 12 9 6"/>'), CHEVL=SVG('<polyline points="15 18 9 12 15 6"/>'), RESET=SVG('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/>'),
+  SHIRT=SVG('<path d="M20.4 6.6 16 4l-1.5 2a3.2 3.2 0 0 1-5 0L8 4 3.6 6.6l1.8 4.2L7 10v10h10V10l1.6.8z"/>'),
+  USER=SVG('<circle cx="12" cy="7" r="4"/><path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/>'), SWORD=SVG('<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>'),
+  CUBE=SVG('<path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z"/><path d="M3.5 7 12 11.5 20.5 7M12 11.5v10"/>'), EYE=SVG('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>');
+
+function shell(content, tab='Mods'){
+  const tabs=['Mods','Settings','Waypoints','Cosmetics'].map(t=>`<span class="tab caps ${t==tab?'on':''}">${t}</span>`).join('');
+  const profs=[['Default',USER,1],['Bed Wars',SWORD],['Survival',CUBE],['Recording',EYE]].map(([n,i,on])=>`<div class="prof ${on?'on':''}"><span class="pi">${i}</span>${n}<span class="ed">${PEN}</span></div>`).join('');
+  return `<div class="world"></div><div class="shell">
+  <div class="head"><div class="brand"><span class="mk">${MARK}</span><b>ORIGIN</b><span>CLIENT</span></div><div class="tabs">${tabs}</div><span class="close">${CLOSE}</span></div>
+  <div class="side"><div class="lbl caps" style="font-size:10px">Profiles</div>${profs}
+    <div style="margin-top:auto"></div><div class="ghost caps" style="font-size:10px">+ Save as new profile</div>
+    <div class="primary caps" style="font-size:11px">${ic('@hudeditor')}Edit HUD layout</div></div>
+  <div class="main">${content}</div></div>`;
+}
+const MODS=[['keystrokes','Keystrokes',1,1],['zoom','Zoom',1,1],['armorhud','Armor Status',1],['clock','Clock',0],['combo','Combo',0,0,1],['coords','Coordinates',1],
+  ['cps','CPS',0],['crosshair','Crosshair',1],['directionhud','Direction HUD',0,0,1],['fps','FPS',1],['freelook','Freelook',0],['itemcounter','Item Counter',0]];
+function bar(view='grid'){return `<div class="bar"><span class="chip caps on">All <i>63</i></span><span class="chip caps new">New</span><span class="chip caps">HUD</span><span class="chip caps">Visual</span><span class="chip caps">Gameplay</span><span class="chip caps">Server</span>
+  <span style="margin-left:auto;display:flex;gap:2px"><span class="tool ${view=='grid'?'on':''}">${GRID}</span><span class="tool ${view=='list'?'on':''}">${LIST}</span></span>
+  <span class="search" style="margin-left:6px;width:124px">${SEARCH}Search<kbd>/</kbd></span></div>`}
+function bar2(view){return `<div class="abs" style="right:22px;top:16px;display:flex;gap:4px"></div>`}
+function menu(){
+  const cards=MODS.slice(0,9).map(([id,n,on,pin,nw],i)=>`<div class="card ${on?'on':'off'} ${i==1?'hover':''}">${pin?`<span class="pin">${PIN}</span>`:''}${nw?'<span class="badge">NEW</span>':''}
+    <span class="ic">${ic(id)}</span><span class="nm">${n}</span><span class="opt caps" style="font-size:10.5px">${COG}Options</span><span class="st caps">${on?'Enabled':'Disabled'}</span></div>`).join('');
+  return shell(`${bar()}<div class="abs" style="left:22px;top:52px;display:flex;gap:2px;"></div>
+   <div class="abs" style="right:248px;top:18px;display:flex;gap:2px;display:none"></div>
+   <div class="grid">${cards}</div>`)+`<div class="abs" style="left:1390px;top:400px;width:4px;height:150px;border-radius:2px;background:rgba(241,233,210,.22)"></div>`;
+}
+function list(){
+  const rows=[...MODS,['minimap','Minimap',0,0,1],['nametags','Nametags',1],['ping','Ping',1],['potionhud','Potion Effects',0],['reach','Reach',0],['saturation','Saturation',1],['screenshot','Screenshot',1],['togglesprint','Toggle Sprint',1],['waypoints','Waypoints',1]]
+    .map(([id,n,on,pin,nw])=>`<div class="lrow ${on?'':'off'}"><span class="ic">${ic(id)}</span>${n}${nw?'<span class="new">NEW</span>':''}<span class="sw ${on?'on':'off'}"></span></div>`).join('');
+  return shell(`${bar('list')}<div class="list">${rows}</div>`);
+}
+function ks(scale=1){const k=(l,w=26,d)=>`<span style="display:inline-flex;width:${w}px;height:26px;margin:1.5px;align-items:center;justify-content:center;background:${d?'rgba(255,255,255,.8)':'rgba(0,0,0,.5)'};color:${d?'#111':'#fff'};font-family:Mono;font-size:13px">${l}</span>`;
+  return `<div class="pv" style="width:90px;text-align:center;transform:translate(-50%,-50%) scale(${scale})"><div>${k('W',26,1)}</div><div>${k('A')}${k('S')}${k('D')}</div><div>${k('LMB',41.5,1)}${k('RMB',41.5)}</div></div>`}
+function mod(){
+  const row=(l,r,cls='')=>`<div class="orow ${cls}">${l}<span class="r">${r}</span></div>`;
+  return shell(`<div class="mhead"><span class="backb">${BACK}</span><span class="ic">${ic('keystrokes')}</span><div><div class="t">Keystrokes</div></div>
+     <span class="crumb">Mods · HUD</span>
+     <span class="search" style="width:180px">${SEARCH}Search options</span><span class="sw on"></span></div>
+   <div class="desc">Shows the movement keys and mouse buttons you're pressing, live on screen.</div>
+   <div class="preview">${ks(1.25)}<span class="ep caps" style="font-size:10.5px">${ic('@hudeditor')}Edit position</span></div>
+   <div class="sec caps" style="font-size:10px">Layout</div>
+   <div class="opts">
+     ${row('Show Mouse Buttons','<span class="sw on"></span>')}${row('Show Space Bar',`<span class="reset">${RESET}</span><span class="sw on"></span>`,'ch')}
+     ${row('Show CPS','<span class="sw off"></span>')}${row('Scale',`<span class="reset">${RESET}</span><span class="slider"><i></i><b></b></span>1.2x`,'ch h')}
+   </div>
+   <div class="sec caps" style="font-size:10px">Style</div>
+   <div class="opts">
+     ${row('Pressed Color','<span class="swatch" style="background:#F1E9D2"></span>')}${row('Background Color','<span class="swatch" style="background:rgba(0,0,0,.6)"></span>')}
+     ${row('Text Shadow','<span class="sw on"></span>')}${row('Font',`<span class="sel"><span>${CHEVL}</span>Minecraft<span>${CHEV}</span></span>`)}
+   </div>`);
+}
+function settings(){
+  const row=(l,r)=>`<div class="orow">${l}<span class="r">${r}</span></div>`;
+  return shell(`<div class="bar"><span class="chip caps on">General</span><span class="chip caps">Performance</span><span class="chip caps">Controls</span><span class="search" style="width:180px">${SEARCH}Search settings</span></div>
+   <div class="sec caps" style="font-size:10px;margin-top:16px">General</div>
+   <div class="opts">${row('Borderless Fullscreen','<span class="sw off"></span>')}${row('Raw Mouse Input','<span class="sw on"></span>')}
+     ${row('Smart Disconnect','<span class="sw on"></span>')}${row('Auto Reconnect','<span class="sw off"></span>')}
+     ${row('Disable Hotbar Scrolling','<span class="sw off"></span>')}${row('Main Menu Style',`<span class="sel"><span>${CHEVL}</span>Origin<span>${CHEV}</span></span>`)}
+     ${row('Mod Menu Layout',`<span class="sel"><span>${CHEVL}</span>Auto<span>${CHEV}</span></span>`)}${row('Show Achievements','<span class="sw on"></span>')}</div>
+   <div class="sec caps" style="font-size:10px">HUD</div>
+   <div class="opts">${row('Show HUD in F3','<span class="sw off"></span>')}${row('Crosshair in Third Person','<span class="sw on"></span>')}
+     ${row('HUD Backgrounds','<span class="sw off"></span>')}${row('GUI Scale',`<span class="sel"><span>${CHEVL}</span>Auto<span>${CHEV}</span></span>`)}</div>`,'Settings');
+}
+function rshift(){
+  return `<div class="world" style="filter:blur(10px) brightness(.72)"></div>
+  <div class="hud" style="left:12px;top:10px">X: 128<br>Y: 64<br>Z: -42<br>Biome: Plains</div>
+  <div class="hud" style="left:12px;top:480px">Speed II  1:00<br>Strength  0:42</div>
+  <div class="abs" style="left:50%;top:400px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center">
+    <span style="width:84px;height:84px;color:var(--text);filter:drop-shadow(0 4px 18px rgba(0,0,0,.5))">${MARK}</span>
+    <div style="margin-top:12px;font-size:22px;letter-spacing:1px"><b style="font-weight:700">ORIGIN</b> <span style="font-weight:400;color:var(--dim)">CLIENT</span></div>
+    <div style="margin-top:22px;display:flex;gap:8px"><span class="hbtn" style="width:44px">${ic('waypoints')}</span><span class="hbtn caps" style="width:156px;font-size:12.5px;letter-spacing:3px">Mods</span><span class="hbtn" style="width:44px">${SHIRT}</span></div>
+  </div>
+  <div class="abs" style="left:16px;bottom:16px;display:flex;gap:8px"><span class="hbtn" style="width:40px;height:40px;font-weight:700">?</span><span class="hbtn" style="width:40px;height:40px;color:var(--acc);box-shadow:0 0 0 1px rgba(95,208,155,.5) inset">${EYE}</span></div>
+  <div class="hotbar">${'<span></span>'.repeat(9)}</div>`;
+}
+const s=new URLSearchParams(location.search).get('scene')||'menu';
+document.body.innerHTML=({rshift,menu,list,mod,settings})[s]();
+window.ready=document.fonts.ready.then(()=>true);
+</script></body></html>
