@@ -23,11 +23,34 @@ public static class SocialJson
         return JsonSerializer.Serialize(map);
     }
 
-    public static string MojangJoinBody(string accessToken, string uuid, string serverId) =>
-        Body(("accessToken", accessToken), ("selectedProfile", Ids.Norm(uuid)), ("serverId", serverId));
-
-    public static string AuthBody(string name, string serverId, string client) =>
-        Body(("name", name), ("serverId", serverId), ("client", client));
+    /// <summary>
+    /// The Identity v2 /v1/auth body (docs/SOCIAL.md): the signed proof, the
+    /// certificate's public half with Mojang's signature on it, and the signed
+    /// textures. Never the private key, never a Minecraft token.
+    /// </summary>
+    public static string AuthBody(string client, string uuid, string name, long atMs, string sig,
+        PlayerCertificate certificate, SignedTextures textures)
+    {
+        using var buffer = new MemoryStream();
+        using (var w = new Utf8JsonWriter(buffer))
+        {
+            w.WriteStartObject();
+            w.WriteString("client", client);
+            w.WriteString("uuid", Ids.Norm(uuid));
+            w.WriteString("name", name);
+            w.WriteNumber("at", atMs);
+            w.WriteString("sig", sig);
+            w.WriteString("publicKey", Convert.ToBase64String(certificate.PublicKeySpki));
+            w.WriteNumber("keyExpiresAt", certificate.ExpiresAtMs);
+            w.WriteString("keySignature", certificate.PublicKeySignatureV2);
+            w.WriteStartObject("textures");
+            w.WriteString("value", textures.Value);
+            w.WriteString("signature", textures.Signature);
+            w.WriteEndObject();
+            w.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(buffer.ToArray());
+    }
 
     /// <summary>
     /// The launcher's /v1/sync body: presence "launcher" / "menu" with the

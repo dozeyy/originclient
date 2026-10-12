@@ -69,7 +69,10 @@
                     </Rectangle.Fill>
                 </Rectangle>
 
-                <Grid x:Name="SlideContent" Margin="14,0,14,6" ClipToBounds="False">
+                <!-- Text box: kept clear of the progress bar along the bottom edge.
+                     The text is wrapped and sized to fit this box in code
+                     (FitText, ladder in Core/Promos/BannerCard) — never cut off. -->
+                <Grid x:Name="SlideContent" Margin="14,6,14,11" ClipToBounds="False">
                     <Grid.RenderTransform>
                         <TranslateTransform x:Name="SlideTransform"/>
                     </Grid.RenderTransform>
@@ -88,27 +91,31 @@
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                     </Border>
 
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MaxWidth="250"
+                    <StackPanel Grid.Column="1" x:Name="TextStack" VerticalAlignment="Center" Margin="0,0,10,0"
                                 HorizontalAlignment="Left">
+                        <!-- Width cap (TextMaxWidth) is set in code with the text size. -->
                         <!-- Eyebrow as a chip, so each card says what it is at a glance. -->
                         <Border HorizontalAlignment="Left" Padding="6,2" Background="{StaticResource Brush.AccentSoft}"
                                 CornerRadius="{StaticResource Radius.Chip}">
                             <TextBlock x:Name="LabelText" Style="{StaticResource Text.Eyebrow}"
-                                       Foreground="{StaticResource Brush.Accent}" TextTrimming="CharacterEllipsis"/>
+                                       Foreground="{StaticResource Brush.Accent}"/>
                         </Border>
-                        <TextBlock x:Name="TitleText" Style="{StaticResource Text.Body}" FontSize="15"
-                                   FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis"/>
-                        <Grid Margin="0,2,0,0">
+                        <!-- Sizes + line heights come from BannerCard.TextSteps (FitText). -->
+                        <TextBlock x:Name="TitleText" Style="{StaticResource Text.Body}" FontSize="15" LineHeight="18"
+                                   LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" Margin="0,6,0,0"
+                                   TextWrapping="Wrap" TextTrimming="None"/>
+                        <Grid x:Name="SubtitleRow" Margin="0,2,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <!-- Live "online" marker, Discord card only. -->
-                            <Rectangle x:Name="OnlineDot" Width="6" Height="6" Margin="0,0,7,0"
-                                       VerticalAlignment="Center" Fill="{StaticResource Brush.Success}"
+                            <Rectangle x:Name="OnlineDot" Width="6" Height="6" Margin="0,4,7,0"
+                                       VerticalAlignment="Top" Fill="{StaticResource Brush.Success}"
                                        Visibility="Collapsed"/>
                             <TextBlock Grid.Column="1" x:Name="SubtitleText" Style="{StaticResource Text.Caption}"
-                                       TextTrimming="CharacterEllipsis"/>
+                                       LineHeight="14" LineStackingStrategy="BlockLineHeight"
+                                       TextWrapping="Wrap" TextTrimming="None"/>
                         </Grid>
                     </StackPanel>
 

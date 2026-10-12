@@ -47,6 +47,9 @@ public partial class MainWindow : Window
         _accountPanel.AccountsChanged += (_, _) =>
         {
             _homePage.RefreshAccountState();
+            // Every account has its own game folders, mods included: the Mods
+            // page follows the selected account.
+            if (_currentPage == LauncherPage.Mods) _modsPage.ShowVersion(_homePage.CurrentVersion);
             // Friends belong to the selected account: sign in again as it.
             SocialHub.Service.ResetAccount();
         };
@@ -287,6 +290,8 @@ public partial class MainWindow : Window
     internal void TourShowToast(SocialToast toast) => Toasts.Show(toast);
 
     internal void TourClearToasts() => Toasts.Clear();
+
+    internal void TourShowRunning(string playerName) => _homePage.TourShowRunning(playerName);
 
     private void OpenSignInPanel()
     {

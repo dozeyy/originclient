@@ -6,6 +6,7 @@ using CmlLib.Core;
 using CmlLib.Core.Installers;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
+using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
 
@@ -16,7 +17,7 @@ public sealed class VersionManager
     // Only used for GetReleaseVersionsAsync, which just queries Mojang's
     // global manifest — the path is irrelevant there, so one shared launcher
     // is fine. InstallAndBuildProcessAsync below builds its own
-    // per-version-rooted launcher instead (see BuildInstancePath), because
+    // per-version-rooted launcher instead (see GameFolderPath), because
     // mods/saves/config must stay isolated per Minecraft version.
     private static readonly MinecraftLauncher ManifestLauncher = new(new MinecraftPath(OriginPaths.Instances));
 
@@ -228,23 +229,79 @@ public sealed class VersionManager
         return releases.Select(v => v.Name).ToList();
     }
 
-    // Every version gets its own root under /instances/{version}/ — hard
-    // requirement (see CLAUDE.md): mods, saves, and configs must not leak
-    // between versions.
-    private static MinecraftPath BuildInstancePath(string version) =>
-        new(Path.Combine(OriginPaths.Instances, version));
+    // Every version gets its own root under /instances/{version}/ and every
+    // account its own game folder inside it — hard requirement (see CLAUDE.md):
+    // mods, saves, and configs must not leak between versions, and (since
+    // 2026-10-12, several games at once) not between accounts either. The
+    // heavy shared files (game jars, libraries, assets, Java) stay in the
+    // version root, downloaded once; only --gameDir (BasePath) and the natives
+    // folder are per account. Core/GameFolders/InstanceLayout.cs has the layout.
+    private sealed class GameFolderPath : MinecraftPath
+    {
+        private readonly string _accountKey;
+
+        public GameFolderPath(string version, string accountKey)
+            : base(OriginPaths.VersionRoot(version))
+        {
+            _accountKey = accountKey;
+            // After base(): Library/Versions/Assets/Runtime stay on the shared root.
+            BasePath = NormalizePath(OriginPaths.GameDir(version, accountKey));
+        }
+
+        // CmlLib wipes + re-extracts natives on every launch; a game already
+        // running from a shared folder holds those DLLs open.
+        public override string GetNativePath(string id) =>
+            NormalizePath(InstanceLayout.NativesDir(Versions, id, _accountKey));
+    }
+
+    // Two accounts preparing the SAME version at once would both write its
+    // shared files (loader profile, libraries, assets). One provisioning pass
+    // per version at a time; the second waits a few seconds, then finds
+    // everything in place. Running games are unaffected (they only read).
+    private static readonly Dictionary<string, SemaphoreSlim> VersionGates = new(StringComparer.Ordinal);
+
+    private static SemaphoreSlim GateFor(string version)
+    {
+        lock (VersionGates)
+        {
+            if (!VersionGates.TryGetValue(version, out var gate))
+                VersionGates[version] = gate = new SemaphoreSlim(1, 1);
+            return gate;
+        }
+    }
 
     // Every launch installs its loader quietly (the Lunar/Feather model — no
     // loader choice exists anywhere): Fabric + the Origin build + the
     // perf/shader stack for modern versions, Forge + OptiFine + the legacy
     // stack for 1.8.9/1.12.2. Caller still has to call Process.Start().
     // progress reports human-readable stage text — drives LaunchLoadingOverlay.
+    // accountKey picks the game folder (InstanceLayout.KeyFor); the caller
+    // prepares it first (AccountFolders.PrepareGameDir: migration + seeding).
     public async Task<Process> InstallAndBuildProcessAsync(
-        string version, MLaunchOption option,
+        string version, string accountKey, MLaunchOption option,
         bool externalMods = true,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
-        var path = BuildInstancePath(version);
+        var gate = GateFor(version);
+        await gate.WaitAsync(ct);
+        try
+        {
+            return await InstallAndBuildCoreAsync(version, accountKey, option, externalMods, progress, ct);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task<Process> InstallAndBuildCoreAsync(
+        string version, string accountKey, MLaunchOption option,
+        bool externalMods,
+        IProgress<string>? progress, CancellationToken ct)
+    {
+        var path = new GameFolderPath(version, accountKey);
+        // The shared root: where the install stamp and the loader profile live.
+        var sharedRoot = OriginPaths.VersionRoot(version);
         var modsFolder = Path.Combine(path.BasePath, "mods");
         var configFolder = Path.Combine(path.BasePath, "config");
 
@@ -313,7 +370,7 @@ public sealed class VersionManager
             // Same stamp policy as the Fabric path — the legacy instances carry
             // the same multi-hundred-MB asset + JRE rehash, so they get the same
             // skip once they have proven clean under this launcher build.
-            var legacyDecision = InstallVerification.Evaluate(path.BasePath, version);
+            var legacyDecision = InstallVerification.Evaluate(sharedRoot, version);
             var legacyLauncher = BuildLauncher(path, legacyDecision.FullVerify);
 
             progress?.Report(legacyDecision.FullVerify ? "Verifying game files..." : "Preparing game files...");
@@ -322,7 +379,7 @@ public sealed class VersionManager
 
             var legacyBuilt = await legacyLauncher.InstallAndBuildProcessAsync(
                 forgeVersionName, option, legacyFileProgress, null, ct);
-            InstallVerification.MarkVerified(path.BasePath, version, forgeVersionName);
+            InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
             return legacyBuilt;
         }
 
@@ -331,7 +388,7 @@ public sealed class VersionManager
         // Fabric meta round-trips and the whole-install rehash are skipped. Any
         // doubt returns Full and behaves exactly like it always did. See
         // InstallVerification for the safety contract.
-        var decision = InstallVerification.Evaluate(path.BasePath, version);
+        var decision = InstallVerification.Evaluate(sharedRoot, version);
 
         string versionName;
         if (decision.CachedVersionName is { } cached)
@@ -582,7 +639,7 @@ public sealed class VersionManager
         // Only stamp after provisioning came back clean. The stamp is what lets
         // the NEXT launch skip the rehash, so writing it on a failed pass would
         // be exactly the wrong thing.
-        InstallVerification.MarkVerified(path.BasePath, version, versionName);
+        InstallVerification.MarkVerified(sharedRoot, version, versionName);
         return built;
     }
 

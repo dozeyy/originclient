@@ -20,10 +20,17 @@ public partial class CrashReportWindow : Window
     /// The caller (HomePage) flips the setting and relaunches.</summary>
     public bool RetryWithoutExternalMods { get; private set; }
 
-    public CrashReportWindow(CrashAnalysis analysis, string? logPath)
+    /// <param name="who">Which game crashed, e.g. "Steve · Minecraft 1.21.1" (several can run at once).</param>
+    public CrashReportWindow(CrashAnalysis analysis, string? logPath, string? who = null)
     {
         InitializeComponent();
         _logPath = logPath;
+        if (!string.IsNullOrEmpty(who))
+        {
+            WhoText.Text = who;
+            WhoText.Visibility = Visibility.Visible;
+            Title = $"Origin — Minecraft crashed ({who})";
+        }
 
         ReasonText.Text = analysis.Culprits.Count > 0
             ? analysis.Reason + " The mod(s) below caused the crash:"

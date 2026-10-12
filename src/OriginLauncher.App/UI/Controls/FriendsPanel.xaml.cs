@@ -159,7 +159,7 @@ public partial class FriendsPanel : UserControl
             SocialStatus.SignInFailed => ("Couldn't sign in to friends",
                 s.StatusMessage ?? "Origin couldn't confirm your Minecraft account.", "TRY AGAIN"),
             SocialStatus.Unreachable => ("Friends are offline right now",
-                "Origin can't reach its friends service. It keeps trying in the background.", "TRY AGAIN"),
+                s.StatusMessage ?? "Origin can't reach its friends service. It keeps trying in the background.", "TRY AGAIN"),
             _ => ("Connecting…", "Signing in to Origin friends.", null),
         };
         MessageTitle.Text = title;

@@ -25,9 +25,9 @@ public sealed record CrashAnalysis(
 // accusation would send the player deleting the wrong mod.
 public static class CrashAnalyzer
 {
-    public static CrashAnalysis Analyze(string version, string? launchLogPath)
+    /// <param name="instanceDir">The crashed game's folder (one account's game folder for the version).</param>
+    public static CrashAnalysis Analyze(string instanceDir, string? launchLogPath)
     {
-        var instanceDir = Path.Combine(OriginPaths.Instances, version);
         var modIndex = BuildModIndex(Path.Combine(instanceDir, "mods"));
 
         var logText = TryRead(launchLogPath);

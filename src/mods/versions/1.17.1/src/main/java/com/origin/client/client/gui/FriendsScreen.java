@@ -237,6 +237,13 @@ public class FriendsScreen extends OriginWindow {
 				title = "Sign in with Microsoft to use friends";
 				sub = "Friends, chat and parties need a Microsoft account. Switch accounts in the Origin launcher.";
 			}
+			case REFUSED -> {
+				// Mojang won't give this account a player certificate, or Origin's
+				// sign-in check turned it down (its own sentence, shown as is)
+				boolean off = SocialClient.onlinePlayOff();
+				title = off ? "Online play is off for this account" : "Origin couldn't confirm your account";
+				sub = off ? SocialClient.refusal() + " Allow multiplayer in the account's Xbox privacy or family settings, then restart Minecraft." : SocialClient.refusal();
+			}
 			case COMING_SOON -> {
 				title = "Friends are coming soon";
 				sub = "Add friends, chat and party up on any server. Hang tight.";

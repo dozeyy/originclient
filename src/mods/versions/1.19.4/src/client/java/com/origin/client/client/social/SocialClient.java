@@ -6,8 +6,6 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
-import com.mojang.authlib.exceptions.AuthenticationException;
-import com.mojang.authlib.exceptions.AuthenticationUnavailableException;
 import com.origin.client.OriginClient;
 import com.origin.client.client.OriginDevShots;
 import com.origin.client.client.cosmetics.CosmeticsService;
@@ -29,7 +27,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,9 +49,12 @@ import java.util.concurrent.TimeUnit;
  * contract; the service is services/cosmetics). Rules:
  *  - never on the game thread: ONE background thread does every request, in
  *    order, so a sync and an action can never race each other;
- *  - identity is Minecraft's own server-join proof (Mojang joinServer here,
- *    hasJoined on the service, exactly like cosmetics' /v1/equip). The access
- *    token only ever goes to Mojang; Origin's bearer token lives in memory only;
+ *  - identity is Mojang's own signatures (docs/SOCIAL.md "Identity v2",
+ *    social/MojangProof): the player certificate + signed profile, which the
+ *    service checks offline (Mojang refuses Cloudflare Workers, so it can't
+ *    ask Mojang). The access token only ever goes to Mojang; Origin's bearer
+ *    token lives in memory only, and cosmetics' /v1/equip shares it
+ *    ({@link #tokenFor});
  *  - the client thread only READS snapshots ({@link #state()}, chats) and
  *    writes plain presence values ({@link #setPresence}); toasts and chat lines
  *    reach it through {@link #EVENTS}, drained in Social.tick;
@@ -75,6 +75,8 @@ public final class SocialClient {
 		STARTING,
 		/** offline / cracked / test account: Mojang won't vouch for it */
 		SIGNED_OUT,
+		/** Mojang or Origin turned this account down; {@link #refusal()} says why */
+		REFUSED,
 		/** the service has no friends endpoints yet (or the store pointer is off) */
 		COMING_SOON,
 		/** no network / service down, and nothing loaded yet */
@@ -139,8 +141,16 @@ public final class SocialClient {
 	private static volatile boolean wake = false;
 
 	// ---- worker-only ----
+	/** Origin's bearer token; read and written only under AUTH_LOCK (cosmetics' worker shares it). */
+	private static final Object AUTH_LOCK = new Object();
 	private static String token = null;
 	private static long tokenUntil = 0;
+	/** What the Friends window says while status is REFUSED. */
+	private static volatile String refusal = null;
+	private static volatile boolean onlinePlayOff = false;
+
+	/** The certificate refusal sentence (docs/SOCIAL.md: shown as is). */
+	static final String NO_ONLINE_PLAY = "Your Microsoft account doesn't allow online play, so friends can't be used.";
 	private static JsonElement cursor = new JsonPrimitive(0);
 	/** The friends list's version; when the service says it's unchanged it leaves the list out. */
 	private static JsonElement friendsEtag = null;
@@ -173,6 +183,17 @@ public final class SocialClient {
 
 	public static boolean stale() {
 		return stale;
+	}
+
+	/** Why the account was turned down (status REFUSED): a sentence to show as is. */
+	public static String refusal() {
+		String r = refusal;
+		return r != null ? r : NO_ONLINE_PLAY;
+	}
+
+	/** REFUSED because Mojang won't issue a player certificate: online play is off on the Microsoft account. */
+	public static boolean onlinePlayOff() {
+		return onlinePlayOff;
 	}
 
 	public static SocialState state() {
@@ -405,7 +426,7 @@ public final class SocialClient {
 	private static void tick() {
 		try {
 			long now = System.currentTimeMillis();
-			boolean down = status == Status.SIGNED_OUT || status == Status.COMING_SOON || status == Status.UNREACHABLE;
+			boolean down = status == Status.SIGNED_OUT || status == Status.REFUSED || status == Status.COMING_SOON || status == Status.UNREACHABLE;
 			boolean woke = wake && (!down || now - lastAttemptAt > WAKE_FLOOR_WHEN_DOWN_MS);
 			if (now < nextSyncAt && !woke) {
 				return;
@@ -433,6 +454,9 @@ public final class SocialClient {
 				nextSyncAt = now + MISSING_RETRY_MS;
 			} catch (SignedOut e) {
 				status = Status.SIGNED_OUT;
+				nextSyncAt = now + SIGNED_OUT_RETRY_MS;
+			} catch (Refused e) {
+				refuse(e);
 				nextSyncAt = now + SIGNED_OUT_RETRY_MS;
 			} catch (Exception e) {
 				failures++;
@@ -727,6 +751,47 @@ public final class SocialClient {
 	private static final class SignedOut extends Exception {
 	}
 
+	/** Mojang (no certificate) or the service (/v1/auth 400/401/403) turned the account down. */
+	private static final class Refused extends Exception {
+		final String sentence;
+		final boolean onlinePlay;
+
+		Refused(String sentence, boolean onlinePlay) {
+			this.sentence = sentence;
+			this.onlinePlay = onlinePlay;
+		}
+	}
+
+	/** Why {@link #tokenFor} has no token for cosmetics. */
+	public static final class NoToken extends Exception {
+		public enum Why {
+			/** offline / test account */
+			SIGNED_OUT,
+			/** Mojang won't issue a certificate: online play is off on the account */
+			NO_ONLINE_PLAY,
+			/** the service turned the sign-in down; {@link #sentence} says why */
+			REFUSED,
+			/** the service has no sign-in yet / isn't switched on */
+			UNAVAILABLE,
+			/** Mojang or Origin couldn't be reached */
+			NETWORK
+		}
+
+		public final Why why;
+		public final String sentence;
+
+		NoToken(Why why, String sentence) {
+			this.why = why;
+			this.sentence = sentence;
+		}
+	}
+
+	private static void refuse(Refused e) {
+		refusal = e.sentence;
+		onlinePlayOff = e.onlinePlay;
+		status = Status.REFUSED;
+	}
+
 	private record Reply(int status, JsonObject body) {
 	}
 
@@ -781,6 +846,9 @@ public final class SocialClient {
 		} catch (SignedOut e) {
 			status = Status.SIGNED_OUT;
 			return "Sign in with Microsoft to use friends.";
+		} catch (Refused e) {
+			refuse(e);
+			return e.sentence;
 		} catch (Missing e) {
 			status = Status.COMING_SOON;
 			return "Friends aren't available yet.";
@@ -791,19 +859,58 @@ public final class SocialClient {
 
 	/** POST with the bearer token; a 401 signs in again once and retries. */
 	private static Reply authed(String api, String path, JsonObject body) throws Exception {
-		if (token == null || System.currentTimeMillis() > tokenUntil) {
-			signIn(api);
-		}
-		Reply r = post(api + path, body, token);
+		String t = token(api, null);
+		Reply r = post(api + path, body, t);
 		if (r.status() == 401) {
-			token = null;
-			signIn(api);
-			r = post(api + path, body, token);
+			r = post(api + path, body, token(api, t));
 		}
 		return r;
 	}
 
-	/** Mojang joinServer proof -> /v1/auth. Throws SignedOut / Missing / IOException. */
+	/**
+	 * A current Origin token, signing in first when there is none, it ran out,
+	 * or it is `refused` (the service just answered 401 to it). Locked because
+	 * cosmetics' worker shares the sign-in: a second caller holding the same
+	 * refused token picks up the new one instead of signing in twice.
+	 */
+	private static String token(String api, String refused) throws Exception {
+		synchronized (AUTH_LOCK) {
+			if (token == null || System.currentTimeMillis() > tokenUntil || token.equals(refused)) {
+				token = null;
+				signIn(api);
+			}
+			return token;
+		}
+	}
+
+	/**
+	 * Cosmetics' /v1/equip takes the same Bearer token as the social calls
+	 * (docs/SOCIAL.md). Call on CosmeticsService's worker, never the game
+	 * thread; pass the token /v1/equip just answered 401 to as `refused`
+	 * (else null) to sign in afresh.
+	 */
+	public static String tokenFor(String api, String refused) throws NoToken {
+		if (DEMO) {
+			throw new NoToken(NoToken.Why.SIGNED_OUT, null);
+		}
+		try {
+			return token(api, refused);
+		} catch (SignedOut e) {
+			throw new NoToken(NoToken.Why.SIGNED_OUT, null);
+		} catch (Refused e) {
+			throw new NoToken(e.onlinePlay ? NoToken.Why.NO_ONLINE_PLAY : NoToken.Why.REFUSED, e.sentence);
+		} catch (Missing e) {
+			throw new NoToken(NoToken.Why.UNAVAILABLE, null);
+		} catch (Exception e) {
+			throw new NoToken(NoToken.Why.NETWORK, null);
+		}
+	}
+
+	/**
+	 * Identity v2 (MojangProof: certificate + signed profile + our signature)
+	 * -> /v1/auth. Caller holds AUTH_LOCK. Throws SignedOut / Refused / Missing,
+	 * or IOException / IllegalStateException for "try again later".
+	 */
 	private static void signIn(String api) throws Exception {
 		Minecraft mc = Minecraft.getInstance();
 		User user = mc.getUser();
@@ -812,31 +919,38 @@ public final class SocialClient {
 		}
 		String access = user.getAccessToken();
 		// Dev / offline launches carry a placeholder token Mojang can never accept;
-		// skip the round trip (and Mojang's rate limit) for those.
+		// skip the round trips (and Mojang's rate limits) for those.
 		if (access == null || access.length() < 20 || "FabricMC".equals(access)) {
 			throw new SignedOut();
 		}
-		byte[] raw = new byte[16];
-		new SecureRandom().nextBytes(raw);
-		String serverId = java.util.HexFormat.of().formatHex(raw);
-		try {
-			// authlib before 1.20.2 takes the whole profile (as CosmeticsService does)
-			mc.getMinecraftSessionService().joinServer(user.getGameProfile(), access, serverId);
-		} catch (AuthenticationUnavailableException e) {
-			throw new java.io.IOException("Mojang unreachable", e);
-		} catch (AuthenticationException e) {
-			throw new SignedOut();
+		Reply r = null;
+		// A 401 can mean our cached certificate ran out on the service's clock:
+		// drop it and try once more with a fresh one before giving up.
+		for (int attempt = 0; attempt < 2; attempt++) {
+			JsonObject b;
+			try {
+				b = MojangProof.authBody(access, user.getGameProfile().getId().toString(), user.getName(), "game");
+			} catch (MojangProof.NoProfile e) {
+				throw new SignedOut();
+			} catch (MojangProof.NoOnlinePlay e) {
+				throw new Refused(NO_ONLINE_PLAY, true);
+			}
+			r = post(api + "/v1/auth", b, null);
+			if (r.status() != 401) {
+				break;
+			}
+			MojangProof.forget();
 		}
-		JsonObject b = new JsonObject();
-		b.addProperty("name", user.getName());
-		b.addProperty("serverId", serverId);
-		b.addProperty("client", "game");
-		Reply r = post(api + "/v1/auth", b, null);
 		if (r.status() == 404) {
 			throw new Missing();
 		}
-		if (r.status() == 401 || r.status() == 403) {
-			throw new SignedOut();
+		if (r.status() == 400 || r.status() == 401 || r.status() == 403) {
+			// The service's own sentence ("update Origin", "your clock looks wrong", ...).
+			// Fetch a fresh certificate next time in case ours was the problem.
+			MojangProof.forget();
+			String msg = str(r.body(), "error");
+			throw new Refused(msg != null && !msg.trim().isEmpty() ? msg
+					: "Couldn't confirm your Minecraft account. Please restart Origin and try again.", false);
 		}
 		String t = str(r.body(), "token");
 		if (r.status() != 200 || t == null) {

@@ -4,8 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mojang.authlib.exceptions.AuthenticationException;
 import com.origin.client.OriginClient;
+import com.origin.client.client.social.SocialClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 
@@ -13,7 +13,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -34,9 +33,10 @@ import java.util.concurrent.TimeUnit;
  *    lookup for players not seen yet, batched up to 100 per request;
  *  - what someone wears is cached for 5 minutes (a failed lookup retries
  *    after 1), so a full server costs a few requests, not one per frame;
- *  - changing what YOU wear is proven with Minecraft's own server-join check
- *    (Mojang joinServer here, hasJoined on the service): the access token
- *    only ever goes to Mojang, as when joining any server;
+ *  - changing what YOU wear uses Origin's sign-in, shared with friends
+ *    (social/SocialClient#tokenFor, docs/SOCIAL.md "Identity v2"): a Bearer
+ *    token from Mojang-signed proofs; no Mojang or Microsoft token ever
+ *    reaches Origin;
  *  - everything fails soft: no service, no network or an offline account
  *    just means no cosmetics, never an error in game.
  */
@@ -260,29 +260,17 @@ public final class CosmeticsService {
 		if (status != Status.READY) {
 			return "Cosmetics aren't available right now.";
 		}
-		Minecraft mc = Minecraft.getInstance();
-		User user = mc.getUser();
-		// A fresh random "server id" proves this request comes from whoever is
-		// signed in: we tell Mojang we're joining it, the service asks Mojang
-		// who did. Offline/test accounts can't do this.
-		byte[] raw = new byte[20];
-		new SecureRandom().nextBytes(raw);
-		String serverId = hex(raw);
-		try {
-			// authlib of this era takes the GameProfile (the UUID overload is 1.20.2+).
-			mc.getMinecraftSessionService().joinServer(user.getGameProfile(), user.getAccessToken(), serverId);
-		} catch (AuthenticationException e) {
-			return "Sign in with a Microsoft account to wear cosmetics.";
-		} catch (Exception e) {
-			return "Couldn't check your account with Minecraft. Try again.";
-		}
 		JsonObject body = new JsonObject();
-		body.addProperty("name", user.getName());
-		body.addProperty("serverId", serverId);
 		body.addProperty("cape", look.cape());
 		body.addProperty("head", look.head());
 		try {
-			Reply r = postJson(api + "/v1/equip", body);
+			// Origin's own sign-in, the one friends use (it signs in first if needed).
+			String token = SocialClient.tokenFor(api, null);
+			Reply r = postJson(api + "/v1/equip", body, token);
+			if (r.status() == 401) {
+				// the token ran out on the service's side: sign in again, once
+				r = postJson(api + "/v1/equip", body, SocialClient.tokenFor(api, token));
+			}
 			if (r.status() == 200) {
 				JsonObject o = r.response();
 				Mine m = mine;
@@ -293,7 +281,24 @@ public final class CosmeticsService {
 			if (r.status() == 403) {
 				return "You don't own that one yet.";
 			}
+			JsonElement err = r.response().get("error");
+			if (r.status() == 400 && err != null && err.isJsonPrimitive()) {
+				return err.getAsString();
+			}
 			return "Couldn't save. Try again.";
+		} catch (SocialClient.NoToken e) {
+			switch (e.why) {
+				case SIGNED_OUT:
+					return "Sign in with a Microsoft account to wear cosmetics.";
+				case NO_ONLINE_PLAY:
+					return "Your Microsoft account doesn't allow online play, so cosmetics can't be changed.";
+				case REFUSED:
+					return e.sentence != null ? e.sentence : "Couldn't check your account. Try again.";
+				case UNAVAILABLE:
+					return "Cosmetics aren't available right now.";
+				default:
+					return "Couldn't check your account with Minecraft. Try again.";
+			}
 		} catch (Exception e) {
 			return "Couldn't reach Origin. Check your connection.";
 		}
@@ -328,10 +333,18 @@ public final class CosmeticsService {
 	}
 
 	private static Reply postJson(String url, JsonObject body) throws Exception {
-		HttpResponse<String> r = HTTP.send(request(url)
+		return postJson(url, body, null);
+	}
+
+	/** `bearer` = Origin's sign-in token (only /v1/equip needs one), else null. */
+	private static Reply postJson(String url, JsonObject body, String bearer) throws Exception {
+		HttpRequest.Builder rb = request(url)
 				.header("Content-Type", "application/json")
-				.POST(HttpRequest.BodyPublishers.ofString(body.toString()))
-				.build(), HttpResponse.BodyHandlers.ofString());
+				.POST(HttpRequest.BodyPublishers.ofString(body.toString()));
+		if (bearer != null) {
+			rb.header("Authorization", "Bearer " + bearer);
+		}
+		HttpResponse<String> r = HTTP.send(rb.build(), HttpResponse.BodyHandlers.ofString());
 		JsonObject o = null;
 		try {
 			o = new JsonParser().parse(r.body()).getAsJsonObject();
@@ -346,15 +359,6 @@ public final class CosmeticsService {
 				.timeout(Duration.ofSeconds(10))
 				.header("User-Agent", "OriginClient (will@willhenry.me)")
 				.header("Accept", "application/json");
-	}
-
-	// HexFormat is Java 17; this module runs on Java 16.
-	private static String hex(byte[] raw) {
-		StringBuilder sb = new StringBuilder(raw.length * 2);
-		for (byte b : raw) {
-			sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
-		}
-		return sb.toString();
 	}
 
 	private static String undashed(UUID u) {

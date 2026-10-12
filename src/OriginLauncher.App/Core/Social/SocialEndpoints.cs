@@ -11,8 +11,12 @@ public static class SocialEndpoints
 
     public static Uri BaseUrl { get; } = Resolve(Environment.GetEnvironmentVariable("ORIGIN_COSMETICS_API"));
 
-    /// <summary>Mojang's "I'm joining this server" call — the identity proof (no token reaches Origin).</summary>
-    public static readonly Uri MojangJoin = new("https://sessionserver.mojang.com/session/minecraft/join");
+    /// <summary>The player's Mojang certificate (Bearer = the Minecraft token; the token goes to Mojang only).</summary>
+    public static readonly Uri PlayerCertificates = new("https://api.minecraftservices.com/player/certificates");
+
+    /// <summary>The player's profile with Mojang's signature on its "textures" property.</summary>
+    public static Uri SignedProfile(string uuid) =>
+        new($"https://sessionserver.mojang.com/session/minecraft/profile/{Ids.Norm(uuid)}?unsigned=false");
 
     public static Uri Resolve(string? overrideUrl)
     {

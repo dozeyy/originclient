@@ -1,10 +1,11 @@
 // Runs the real Worker code against a real SQLite database (Node's built-in
-// node:sqlite, wrapped to look like Cloudflare D1), with Tebex and Mojang
-// faked. `npm test` (node --test) — no packages to install.
+// node:sqlite, wrapped to look like Cloudflare D1), with Tebex faked and
+// Mojang's signatures made by test/mojang.mjs. `npm test` (node --test) — no packages to install.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { handle, collect, parseCommand, slotOf } from '../src/index.js';
 import { d1 } from './d1.mjs';   // D1 stand-in with every migration applied
+import { authBody, seedKeys } from './mojang.mjs';
 
 const UUID = '069a79f444e94726a5befca90e38aaf5';
 const DASHED = '069a79f4-44e9-4726-a5be-fca90e38aaf5';
@@ -26,6 +27,7 @@ function fakeFetch() {
 
 beforeEach(() => {
   env = { DB: d1(), TEBEX_SECRET: 'test-secret' };
+  seedKeys(env);
   calls = [];
   routes = [];
   fakeFetch();
@@ -36,8 +38,9 @@ const tebexQueue = (offline, players = [], nextCheck = 120) => {
   routes.push(['https://plugin.tebex.io/queue?', { status: 204 }]);
   routes.push(['https://plugin.tebex.io/queue', { body: { meta: { execute_offline: true, next_check: nextCheck, more: false }, players } }]);
 };
-const api = (method, path, body) => handle(new Request(`https://svc.test${path}`, {
-  method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body),
+const api = (method, path, body, token) => handle(new Request(`https://svc.test${path}`, {
+  method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  body: body && JSON.stringify(body),
 }), env);
 const deletes = () => calls.filter(c => c.method === 'DELETE');
 
@@ -93,42 +96,53 @@ test('delivery: commands wrongly set to "player must be online" still deliver', 
   assert.deepEqual(view.owned, ['crown-pixel']);
 });
 
-// Mojang's server-join check: 200 + profile when the player really joined.
-const joined = (ok = true) => routes.push(['https://sessionserver.mojang.com/', ok ? { body: { id: UUID, name: 'Will' } } : { status: 204 }]);
+// Origin sign-in (identity v2): the token /v1/equip takes as `Bearer`.
+async function signIn() {
+  const r = await api('POST', '/v1/auth', authBody({ name: 'Will', uuid: UUID, now: Date.now() }));
+  assert.equal(r.status, 200);
+  return (await r.json()).token;
+}
 async function own(...items) {
   tebexQueue(items.map((item, i) => ({ id: i + 1, command: `origin-grant Will ${UUID} ${item}`, player: { uuid: UUID } })));
   await collect(env, 1);
   routes = [];
 }
 
-test('equip: wear owned items, verified through Mojang', async () => {
+test('equip: wear owned items, signed in with an Origin token', async () => {
   await own('cape-orbit', 'halo-gold');
-  joined();
-  const r = await api('POST', '/v1/equip', { name: 'Will', serverId: 'a'.repeat(40), cape: 'cape-orbit', head: 'halo-gold' });
+  const token = await signIn();
+  const r = await api('POST', '/v1/equip', { cape: 'cape-orbit', head: 'halo-gold' }, token);
   assert.equal(r.status, 200);
   assert.deepEqual((await r.json()).equipped, { cape: 'cape-orbit', head: 'halo-gold' });
 
   const batch = await (await api('POST', '/v1/players/equipped', { uuids: [DASHED, 'not-a-uuid', 'f'.repeat(32)] })).json();
   assert.deepEqual(batch.players, { [UUID]: { cape: 'cape-orbit', head: 'halo-gold' } });
+  assert.ok(calls.every(c => c.url.startsWith('https://plugin.tebex.io/')));   // only the Tebex delivery; nothing asked of Mojang
 });
 
-test('equip: refuses items you do not own, wrong slots, failed checks and reused checks', async () => {
+test('equip: refuses items you do not own, wrong slots, missing/bad tokens and old mods', async () => {
   await own('cape-orbit');
-  joined();
-  assert.equal((await api('POST', '/v1/equip', { name: 'Will', serverId: 'b'.repeat(40), cape: 'cape-void', head: null })).status, 403);
-  assert.equal((await api('POST', '/v1/equip', { name: 'Will', serverId: 'c'.repeat(40), cape: null, head: 'cape-orbit' })).status, 403);
-  assert.equal((await api('POST', '/v1/equip', { name: 'Will', serverId: 'd'.repeat(40), cape: 'cape-orbit', head: null })).status, 200);
-  assert.equal((await api('POST', '/v1/equip', { name: 'Will', serverId: 'd'.repeat(40), cape: 'cape-orbit', head: null })).status, 401);
-  assert.equal((await api('POST', '/v1/equip', { name: 'Will!', serverId: 'e'.repeat(40) })).status, 400);
-  routes = [];
-  joined(false);
-  assert.equal((await api('POST', '/v1/equip', { name: 'Will', serverId: 'f'.repeat(40), cape: null, head: null })).status, 401);
+  const token = await signIn();
+  assert.equal((await api('POST', '/v1/equip', { cape: 'cape-void', head: null }, token)).status, 403);
+  assert.equal((await api('POST', '/v1/equip', { cape: null, head: 'cape-orbit' }, token)).status, 403);
+  assert.equal((await api('POST', '/v1/equip', { cape: 'cape-orbit', head: null }, token)).status, 200);
+  assert.equal((await api('POST', '/v1/equip', { cape: 'cape-orbit', head: null }, token)).status, 200);   // repeatable
+
+  let r = await api('POST', '/v1/equip', { cape: null, head: null });                     // no token
+  assert.equal(r.status, 401);
+  assert.ok((await r.json()).error.length > 0);
+  assert.equal((await api('POST', '/v1/equip', { cape: null, head: null }, 'f'.repeat(64))).status, 401);
+
+  // A mod from before identity v2 still sends Mojang's server-join proof.
+  r = await api('POST', '/v1/equip', { name: 'Will', serverId: 'a'.repeat(40), cape: null, head: null });
+  assert.equal(r.status, 400);
+  assert.match((await r.json()).error, /update Origin to change cosmetics/);
+  assert.equal((await api('POST', '/v1/equip', { serverId: 'a'.repeat(40), cape: null, head: null }, token)).status, 400);
 });
 
 test('refund: revoking an item removes it and takes it off', async () => {
   await own('cape-orbit');
-  joined();
-  await api('POST', '/v1/equip', { name: 'Will', serverId: '1'.repeat(40), cape: 'cape-orbit', head: null });
+  await api('POST', '/v1/equip', { cape: 'cape-orbit', head: null }, await signIn());
   tebexQueue([{ id: 5, command: `origin-revoke Will ${UUID} cape-orbit`, player: { uuid: UUID } }]);
   await collect(env, 10_000_000);
   const view = await (await api('GET', `/v1/players/${UUID}`)).json();

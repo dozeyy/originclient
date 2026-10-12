@@ -11,9 +11,10 @@
 //  2. API for the Origin mod:
 //       GET  /v1/players/<uuid>      what a player owns + is wearing
 //       POST /v1/players/equipped    { uuids: [...] } -> who's wearing what
-//       POST /v1/equip               change what you wear; proven with
-//            Minecraft's own server-join check (Mojang hasJoined), the same
-//            way a Minecraft server verifies a player. No tokens reach us.
+//       POST /v1/equip               change what you wear; `Authorization:
+//            Bearer <token>` from Origin sign-in (/v1/auth, identity v2:
+//            Mojang-signed proofs checked offline, mojang.js). No Microsoft
+//            or Mojang token ever reaches us.
 //  3. Origin social (friends, chat, parties, players online): social.js and
 //     party.js, contract in docs/SOCIAL.md. Its cleanup rides on the same cron.
 //
@@ -21,15 +22,16 @@
 //   DB            the D1 database (schema in migrations/)
 //   TEBEX_SECRET  the "Origin Cosmetics" game server's secret key
 
-import { CORS, json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin, MOJANG_HAS_JOINED, MOJANG_HEADERS } from './common.js';
-import { handleSocial, socialCleanup, presenceSweep } from './social.js';
+import { CORS, json, fail, normUuid } from './common.js';
+import { handleSocial, socialCleanup, presenceSweep, session } from './social.js';
+import { keysDiag } from './mojang.js';
 
 export { normUuid };
 
 const TEBEX = 'https://plugin.tebex.io';
 const MIN_CHECK_SECONDS = 60;            // Tebex's next_check is obeyed, never undercut
 const MAX_BATCH = 100;                   // players per /equipped lookup
-const JOIN_TTL_MS = 24 * 3600 * 1000;    // how long a used serverId is remembered
+const JOIN_TTL_MS = 24 * 3600 * 1000;    // how long a used sign-in proof is remembered
 
 // ------------------------------------------------------------------- items
 // Which slot an item id wears in. The id is the contract shared with the
@@ -124,18 +126,16 @@ async function equippedBatch(env, body) {
   return json({ players: out });
 }
 
-// The mod picks a random serverId, tells Mojang "I'm joining serverId" with
-// the player's own session (client side), then sends us name + serverId.
-// Mojang confirms which account did that. Each serverId works once.
-async function equip(env, body, now = Date.now()) {
-  const name = String(body?.name || '');
-  const serverId = String(body?.serverId || '');
-  if (!NAME_RE.test(name) || !SERVER_ID_RE.test(serverId)) return fail(400, 'bad request');
-
-  const who = await verifyMojangJoin(env, name, serverId, now);
-  if (who.error === 'reused') return fail(401, 'this check was already used');
-  if (who.error) return fail(401, 'could not verify this Minecraft account');
-  const uuid = who.uuid;
+// The same Origin sign-in as the social calls: `Authorization: Bearer
+// <token>`. Mods from before identity v2 send { name, serverId } (a Mojang
+// check the Worker can no longer make) and are told to update.
+async function equip(request, env, body, now = Date.now()) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || 'serverId' in body) {
+    return fail(400, 'Please update Origin to change cosmetics.');
+  }
+  const me = await session(request, env, now);
+  if (!me) return fail(401, 'Your Origin sign-in ran out. Signing you in again...');
+  const uuid = me.uuid;
 
   const owned = new Set((await env.DB.prepare('SELECT item FROM owned WHERE uuid = ?').bind(uuid).all()).results.map(x => x.item));
   const want = {};
@@ -149,29 +149,6 @@ async function equip(env, body, now = Date.now()) {
   return json(await playerView(env, uuid));
 }
 
-// Can this Worker reach Mojang's sign-in check? A join nobody made must come
-// back 204 ("no such join"); 403/429 means Mojang is refusing the Worker. Run
-// after every deploy by cosmetics-service.yml. Answers at most once a minute
-// per Worker instance, so it can't be used to hammer Mojang.
-let lastDiag = null;
-export async function mojangDiag(now = Date.now()) {
-  if (lastDiag && now - lastDiag.at < 60_000) return json(lastDiag);
-  const probe = async (url) => {
-    try {
-      const r = await fetch(url, { headers: MOJANG_HEADERS });
-      return { status: r.status, body: (await r.text()).slice(0, 160) };
-    } catch (err) {
-      return { status: 0, body: String(err).slice(0, 160) };
-    }
-  };
-  lastDiag = {
-    at: now,
-    hasJoined: await probe(`${MOJANG_HAS_JOINED}?username=Notch&serverId=${'0'.repeat(32)}`),
-    profile: await probe('https://api.mojang.com/users/profiles/minecraft/Notch'),
-  };
-  return json(lastDiag);
-}
-
 export async function handle(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const url = new URL(request.url);
@@ -182,9 +159,10 @@ export async function handle(request, env) {
       return uuid ? json(await playerView(env, uuid)) : fail(400, 'bad uuid');
     }
     if (request.method === 'POST' && url.pathname === '/v1/players/equipped') return equippedBatch(env, await request.json().catch(() => null));
-    if (request.method === 'POST' && url.pathname === '/v1/equip') return equip(env, await request.json().catch(() => null));
+    if (request.method === 'POST' && url.pathname === '/v1/equip') return equip(request, env, await request.json().catch(() => null));
     if (request.method === 'GET' && url.pathname === '/') return json({ service: 'origin-cosmetics', ok: true });
-    if (request.method === 'GET' && url.pathname === '/v1/diag/mojang') return mojangDiag();
+    // How many of Mojang's keys the service holds (counts only), checked after every deploy.
+    if (request.method === 'GET' && url.pathname === '/v1/diag/keys') return json(await keysDiag(env));
     const social = await handleSocial(request, env, url);
     if (social) return social;
     return fail(404, 'not found');

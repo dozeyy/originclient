@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using OriginLauncher.App.Core.Promos;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
 
@@ -11,7 +12,7 @@ namespace OriginLauncher.App.UI;
 /// <summary>
 /// CI-only: `OriginLauncher.App.exe --render-shots &lt;folder&gt;` opens the real
 /// main window with made-up social data (Core/Social/SocialDemo) and saves
-/// pictures of Home and the Friends drawer, so launcher UI changes are looked
+/// pictures of Home (also its Play button in the "Running" state) and the Friends drawer, so launcher UI changes are looked
 /// at before they ship (.github/workflows/launcher-shots.yml). Nothing is
 /// signed in to and the social service never touches the network.
 /// </summary>
@@ -65,7 +66,92 @@ public static class RenderShots
         Pump(600);
         Snap(window, outDir, "06-signed-out");
 
+        // The selected account's game is already open: Play reads "Running"
+        // and brings that window forward (one game per account).
+        window.TourSetFriendsOpen(false);
+        window.TourShowRunning("Steve");
+        Pump(600);
+        Snap(window, outDir, "07-play-running");
+
+        SnapBanners(window, outDir);
+
         window.Close();
+    }
+
+    /// <summary>
+    /// The home banner card by card at 2x — every tip, the feed's own cards,
+    /// and a card at the feed's longest allowed title/subtitle — to show that
+    /// card text always fits whole. A failure here is written to
+    /// banner-error.txt and doesn't cost the other screens.
+    /// </summary>
+    private static void SnapBanners(Window window, string dir)
+    {
+        try
+        {
+            var banner = FindVisual<Controls.PromoBanner>(window)
+                         ?? throw new InvalidOperationException("home banner not found");
+            var slides = PromoRotation.Playable(PromoFeedLoader.BuiltIn().Feed, discordReady: false).ToList();
+            var tips = slides.FindIndex(p => p.Kind == PromoKind.Tips);
+            for (var t = 0; t < PromoTips.All.Count && tips >= 0; t++)
+            {
+                banner.TourShowCard(slides, tips, t);
+                Pump(500);
+                SnapElement(window, banner, dir, $"07-banner-tip-{PromoTips.All[t].Id}");
+            }
+            for (var i = 0; i < slides.Count; i++)
+            {
+                if (slides[i].Kind != PromoKind.Link) continue;
+                banner.TourShowCard(slides, i, 0);
+                Pump(500);
+                SnapElement(window, banner, dir, $"07-banner-{slides[i].Id}");
+            }
+
+            var longest = new HousePromo("longest", PromoKind.Link, "ANNOUNCEMENT",
+                // Exactly PromoFeedParser.MaxTitleLength / MaxSubtitleLength characters.
+                "Origin 2.0 is here with brand new menus, maps and more cosmetics",
+                "Everything you asked for in one update: smoother shaders, a faster launcher and new capes to get",
+                null, new Uri("https://originclient.org/"));
+            banner.TourShowCard(slides.Append(longest).ToList(), slides.Count, 0);
+            Pump(500);
+            SnapElement(window, banner, dir, "07-banner-longest-allowed");
+        }
+        catch (Exception ex)
+        {
+            File.WriteAllText(Path.Combine(dir, "banner-error.txt"), ex.ToString());
+        }
+    }
+
+    private static T? FindVisual<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match) return match;
+            if (FindVisual<T>(child) is { } found) return found;
+        }
+        return null;
+    }
+
+    // One element at 2x on the window's background. Drawn through a
+    // VisualBrush so its position in the window doesn't offset the picture.
+    private static void SnapElement(Window window, FrameworkElement element, string dir, string name)
+    {
+        window.UpdateLayout();
+        var size = new Rect(0, 0, element.ActualWidth, element.ActualHeight);
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle(window.Background, null, size);
+            dc.DrawRectangle(new VisualBrush(element) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top },
+                null, size);
+        }
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(size.Width * 2), (int)Math.Ceiling(size.Height * 2),
+            192, 192, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var file = File.Create(Path.Combine(dir, name + ".png"));
+        encoder.Save(file);
     }
 
     /// <summary>Runs the dispatcher for a while so layout, bindings and animations settle.</summary>

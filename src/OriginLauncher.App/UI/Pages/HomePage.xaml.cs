@@ -10,6 +10,8 @@ using CmlLib.Core.ProcessBuilder;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
+using OriginLauncher.App.Core.GameFolders;
+using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
 using OriginLauncher.App.Core.Social;
@@ -23,7 +25,6 @@ public partial class HomePage : UserControl
 {
     private readonly LauncherSettings _settings;
     private readonly VersionManager _versionManager = new();
-    private bool _isLaunching;
     private bool _syncingToggles;
     private StoredAccount? _selectedAccount;
 
@@ -32,14 +33,38 @@ public partial class HomePage : UserControl
     // change. Coerced to a version Origin actually ships if a stale one is read.
     private string? _selectedVersion;
 
-    // In-flight launch provisioning. The newest launch action always wins
-    // (CLAUDE.md hard requirement): the overlay's Cancel aborts this token,
-    // and starting a new launch replaces it.
-    private CancellationTokenSource? _launchCts;
+    // Several games at once, one per account (Core/GameFolders/AccountLaunchBook):
+    // every account's launch is preparing, starting, running or idle on its
+    // own. The newest launch action wins PER ACCOUNT (CLAUDE.md hard
+    // requirement, now per account): a new launch cancels only the same
+    // account's preparation, never another account's preparation or game.
+    private readonly AccountLaunchBook _launches = new();
 
-    // A launch that goes straight into a server (Friends → Join, party warp).
-    // Version may differ from the selected one; it is NOT saved as the pick.
-    private sealed record LaunchTarget(string Version, string Server);
+    // The launch the loading scene is showing (the newest one started); its
+    // Cancel aborts exactly that launch. Null while the scene is down.
+    private LaunchTicket? _overlayTicket;
+
+    // A launch for a given version, optionally straight into a server
+    // (Friends → Join, party warp) and/or for a given account (the crash
+    // window's retry relaunches the account that crashed, whoever is selected
+    // now). Version may differ from the selected one; it is NOT saved as the pick.
+    private sealed record LaunchTarget(string Version, string? Server = null, string? AccountKey = null);
+
+    // One started game. Several can be alive at once — one per account.
+    private sealed class RunningGame
+    {
+        public required string Key { get; init; }
+        public required string Version { get; init; }
+        public required string AccountName { get; init; }
+        public required string GameDir { get; init; }
+        public required System.Diagnostics.Process Process { get; init; }
+        public string? LogPath { get; set; }
+        // The last "joined a server / opened a world" line from its output, so
+        // the friends drawer's party warp can follow whichever account is selected.
+        public string? LastWhereLine { get; set; }
+        // Its id in SocialHub.Game while it is the mirrored (selected account's) game.
+        public int MirrorId { get; set; }
+    }
 
     // The players-online pill: fetched once the first frame is up, then every 5 min.
     private readonly DispatcherTimer _playersTimer = new(DispatcherPriority.Background) { Interval = PlayersOnline.Refresh };
@@ -49,7 +74,7 @@ public partial class HomePage : UserControl
     {
         InitializeComponent();
         _settings = SettingsStore.Load();
-        LoadingOverlay.CancelRequested += (_, _) => _launchCts?.Cancel();
+        LoadingOverlay.CancelRequested += (_, _) => _overlayTicket?.Source.Cancel();
         VersionOverlay.VersionSelected += OnVersionSelected;
         VersionOverlay.LaunchRequested += OnLaunchRequested;
         // The home banner pauses under either scene (and, in ad mode, its
@@ -100,20 +125,19 @@ public partial class HomePage : UserControl
 
     /// <summary>
     /// Friends → Join / party warp: launch <paramref name="version"/> straight
-    /// into <paramref name="server"/>. The newest launch action wins, so a
-    /// launch still being prepared is cancelled first; a game that is already
-    /// starting can't be, so that one is reported instead.
+    /// into <paramref name="server"/> on the selected account. The newest
+    /// launch action wins, so that account's launch still being prepared is
+    /// replaced; its game that is already open can't be (one game per
+    /// account), so that one is brought forward and explained instead.
     /// </summary>
     public async Task JoinServerAsync(string version, string server)
     {
-        if (_launchCts is { } inFlight)
+        if (SelectedKey() is { } key && _launches.PhaseOf(key) is GamePhase.Starting or GamePhase.Running)
         {
-            inFlight.Cancel();
-            for (var i = 0; i < 100 && _launchCts != null; i++) await Task.Delay(100);
-        }
-        if (_isLaunching)
-        {
-            SetStatus("Minecraft is still starting — try Join again in a moment", StatusTone.Warning);
+            Note(key, _launches.PhaseOf(key) == GamePhase.Starting
+                ? "Minecraft is still starting on this account — try Join again in a moment"
+                : "Minecraft is already open on this account — close it to join, or switch accounts", LaunchTone.Warning);
+            FocusGame(key);
             return;
         }
         await LaunchAsync(new LaunchTarget(version, server));
@@ -138,7 +162,7 @@ public partial class HomePage : UserControl
     /// </summary>
     public bool BeginUpdateScene(string newVersion)
     {
-        if (_isLaunching || LoadingOverlay.Visibility == Visibility.Visible)
+        if (_overlayTicket != null || LoadingOverlay.Visibility == Visibility.Visible)
             return false;
         LoadingOverlay.ShowUpdate(newVersion);
         return true;
@@ -166,45 +190,96 @@ public partial class HomePage : UserControl
     public void RefreshAccountState()
     {
         _selectedAccount = AccountStore.GetSelected(AccountStore.Load());
+        // The first account ever selected inherits the old one-folder-per-
+        // version game data (a no-op once that is done — see AccountFolders).
+        AccountFolders.EnsureMigrated(SelectedKey());
         UpdatePlayState();
+        SyncSocialMirror();
     }
 
     /// <summary>Called by MainWindow when the update badge lights up, so the
     /// status line explains why Play is about to refuse.</summary>
     public void RefreshUpdateGate()
     {
-        if (UpdateService.UpdateRequired && !_isLaunching)
+        if (UpdateService.UpdateRequired && SelectedPhase() == GamePhase.Idle)
         {
             SetStatus("Update required", StatusTone.Warning);
         }
     }
 
+    // The selected account's folder key (offline test mode's when nobody is
+    // signed in and it is on), or null when nobody can play. Read fresh (not
+    // the cached _settings): the offline toggle lives on the Settings page,
+    // which persists to disk; a page switch must pick the change up.
+    private string? SelectedKey() =>
+        _selectedAccount != null
+            ? InstanceLayout.KeyFor(_selectedAccount.Id)
+            : SettingsStore.Load().OfflineTestMode ? InstanceLayout.OfflineKey : null;
+
+    private GamePhase SelectedPhase() =>
+        SelectedKey() is { } key ? _launches.PhaseOf(key) : GamePhase.Idle;
+
+    // The Play button AND the status pill for the selected account: its own
+    // game state ("Running · Steve" while its game is open), or the plain
+    // signed-in line when it has none.
     private void UpdatePlayState()
     {
-        var hasAccount = _selectedAccount != null;
-        var hasVersion = _selectedVersion != null;
-        // Read fresh (not the cached _settings): the toggle lives on the
-        // Settings page, which persists to disk; a page switch must pick the
-        // change up without app-restart plumbing.
-        var offlineTest = SettingsStore.Load().OfflineTestMode;
-        var canPlay = hasAccount || offlineTest;
+        RefreshPlayButton();
+        var key = SelectedKey();
+        if (key != null && _launches.PhaseOf(key) != GamePhase.Idle && _launches.NoteOf(key) is { } note)
+            SetStatus(note.Text, ToneOf(note.Tone));
+        else if (_selectedAccount != null)
+            SetStatus(_selectedAccount.Gamertag, StatusTone.Success);
+        else if (key != null)
+            SetStatus("Offline", StatusTone.Warning);
+        else
+            SetStatus("Sign in to play", StatusTone.Neutral);
+    }
 
-        PlayButton.IsEnabled = canPlay && hasVersion && !_isLaunching;
-        PlayButton.ToolTip = _isLaunching
-            ? null
-            : canPlay
-                ? (hasVersion ? null : "Select a version to play")
-                : "Sign in to play";
+    // Only the button: Play / spinner / Running for the selected account's
+    // phase (AccountLaunchBook.ButtonFor). Leaves the status line alone, so a
+    // specific message a launch just set isn't clobbered.
+    private void RefreshPlayButton()
+    {
+        var key = SelectedKey();
+        var phase = key != null ? _launches.PhaseOf(key) : GamePhase.Idle;
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: _selectedVersion != null));
+    }
 
-        if (!_isLaunching)
-        {
-            if (hasAccount)
-                SetStatus(_selectedAccount!.Gamertag, StatusTone.Success);
-            else if (offlineTest)
-                SetStatus("Offline", StatusTone.Warning);
-            else
-                SetStatus("Sign in to play", StatusTone.Neutral);
-        }
+    private void ApplyPlayButton(PlayButtonView view)
+    {
+        PlayButton.IsEnabled = view.Enabled;
+        PlayButton.ToolTip = view.ToolTip;
+        System.Windows.Automation.AutomationProperties.SetName(PlayButton,
+            view.ShowsRunning ? "Switch to Minecraft" : "Play Minecraft");
+        SetPlayLaunching(view.Spinner);
+        PlayLabel.Visibility = !view.Spinner && !view.ShowsRunning ? Visibility.Visible : Visibility.Collapsed;
+        RunningLabel.Visibility = !view.Spinner && view.ShowsRunning ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // A status line for one account: remembered for it (switching back shows
+    // it again) and shown now when that account is the selected one.
+    private void Note(string key, string text, LaunchTone tone)
+    {
+        _launches.SetNote(key, new LaunchNote(text, tone));
+        if (SelectedKey() == key)
+            SetStatus(text, ToneOf(tone));
+    }
+
+    private static StatusTone ToneOf(LaunchTone tone) => tone switch
+    {
+        LaunchTone.Success => StatusTone.Success,
+        LaunchTone.Warning => StatusTone.Warning,
+        LaunchTone.Error => StatusTone.Error,
+        _ => StatusTone.Neutral,
+    };
+
+    // The Play button's "Running" click: that account's game window comes to
+    // the front (restored if minimised).
+    private void FocusGame(string key)
+    {
+        if (_launches.GameOf(key) is RunningGame game)
+            UI.GameWindow.BringToFront(game.Process);
     }
 
     // No network round-trip anymore: the grid is a fixed catalog of the versions
@@ -290,14 +365,52 @@ public partial class HomePage : UserControl
         var freshSettings = SettingsStore.Load();
         var offlineTest = freshSettings.OfflineTestMode;
         var externalMods = freshSettings.PlayWithExternalMods;
-        if (_isLaunching || (_selectedAccount == null && !offlineTest)) return;
+
+        // Whose game: the selected account, or the one the target names (the
+        // crash window's retry relaunches the account that crashed).
+        StoredAccount? account;
+        string key;
+        if (target?.AccountKey is { } wanted)
+        {
+            account = wanted == InstanceLayout.OfflineKey
+                ? null
+                : AccountStore.Load().FirstOrDefault(a => InstanceLayout.KeyFor(a.Id) == wanted);
+            if (account == null && !(wanted == InstanceLayout.OfflineKey && offlineTest)) return;
+            key = wanted;
+        }
+        else
+        {
+            account = _selectedAccount;
+            if (account == null && !offlineTest) return;
+            key = InstanceLayout.KeyFor(account?.Id);
+        }
         if ((target?.Version ?? _selectedVersion) is not { } version) return;
+        var accountName = account?.Gamertag ?? "Offline";
+
+        // One game per account: an open game is brought forward instead of a
+        // second copy (the same Microsoft session can't play twice anyway).
+        switch (AccountLaunchBook.ActionFor(_launches.PhaseOf(key)))
+        {
+            case PlayAction.FocusGame:
+                if (_launches.VersionOf(key) is { } playing && playing != version)
+                    Note(key, $"{accountName} is already playing {playing} — close it first to play {version}", LaunchTone.Warning);
+                FocusGame(key);
+                return;
+            case PlayAction.None when _launches.PhaseOf(key) == GamePhase.Starting:
+                return; // its window is about to appear
+        }
+        // Still one game per account when this launcher didn't start it (it
+        // was restarted while the game kept running): a second copy would
+        // share that game's folder.
+        if (_launches.PhaseOf(key) == GamePhase.Idle
+            && AccountFolders.VersionPlayingOutsideLauncher(key) is { } openVersion)
+        {
+            Note(key, $"Minecraft {openVersion} is still open on {accountName} — close it first", LaunchTone.Warning);
+            return;
+        }
 
         // Mandatory updates (Will's rule): a launcher older than the latest
-        // published release must update before it can launch the game. The
-        // feed is re-checked right here so a just-pushed release blocks
-        // immediately rather than after the next poll; an unreachable feed
-        // fails open (see UpdateService's policy note).
+        // published release must update before it can launch the game.
         // Use the result the background poller already has rather than blocking
         // the click on a fresh GitHub round-trip. MainWindow re-checks the feed
         // every 2 minutes and on window focus, so this is at most ~2 minutes
@@ -307,42 +420,46 @@ public partial class HomePage : UserControl
         // enforced, just not with a network wait in front of it.
         if (UpdateService.UpdateRequired)
         {
-            SetStatus("Update required", StatusTone.Warning);
+            Note(key, "Update required", LaunchTone.Warning);
             return;
         }
 
-        // Newest launch action wins: replace (and cancel) any stale token
-        // before starting. The overlay's Cancel button aborts this one.
-        _launchCts?.Cancel();
-        var cts = new CancellationTokenSource();
-        _launchCts = cts;
-
-        _isLaunching = true;
-        PlayButton.IsEnabled = false;
-        SetPlayLaunching(true);
+        // Newest launch action wins, per account: this cancels only this
+        // account's earlier preparation (if any). The loading scene's Cancel
+        // aborts this one.
+        if (_launches.BeginPrepare(key, version) is not { } ticket) return;
+        _overlayTicket = ticket;
+        RefreshPlayButton();
         // Loader label only — the player never chooses one; the legacy
         // versions (1.8.9/1.12.2) quietly run Forge+OptiFine, everything
         // else Fabric.
         LoadingOverlay.Show(version, Core.Loaders.LegacyForgeInstaller.IsLegacy(version) ? "Forge" : "Fabric");
 
-        // Set true once the game process has actually started: from that point
-        // WatchBootAsync owns the launching state (spinner + _isLaunching) and
-        // the finally below must not reset it.
-        var bootWatchStarted = false;
+        // Only the launch the scene is showing reports into it — an older
+        // launch still finishing for another account stays quiet.
+        void Stage(string text)
+        {
+            if (ReferenceEquals(_overlayTicket, ticket)) LoadingOverlay.ReportStage(text);
+        }
+
+        // Set once the game process has actually started: from then on the
+        // account's phase belongs to the game (WatchBootAsync, the Exited
+        // handler) and the finally below must not reset it.
+        var gameStarted = false;
 
         try
         {
             MSession session;
-            if (_selectedAccount != null)
+            if (account != null)
             {
-                LoadingOverlay.ReportStage("Signing in");
+                Stage("Signing in");
                 // Through the broker: it serialises silent sign-ins with Origin
                 // social's (one rotating refresh token, never raced), persists
                 // the rotated token and bumps last-used.
-                var signedIn = await MinecraftSessionBroker.RefreshAsync(_selectedAccount.Id, markUsed: true);
+                var signedIn = await MinecraftSessionBroker.RefreshAsync(account.Id, markUsed: true);
                 if (signedIn == null)
                 {
-                    SetStatus("Session expired", StatusTone.Error);
+                    Note(key, "Session expired", LaunchTone.Error);
                     return;
                 }
                 session = signedIn;
@@ -353,11 +470,11 @@ public partial class HomePage : UserControl
                 // app-registration approval is pending, so real sign-in is
                 // unavailable — a local session lets every other part of the
                 // pipeline (provisioning, loaders, the in-game UI) be tested.
-                LoadingOverlay.ReportStage("Offline session");
+                Stage("Offline session");
                 session = MSession.CreateOfflineSession("OriginTester");
             }
 
-            cts.Token.ThrowIfCancellationRequested();
+            ticket.Token.ThrowIfCancellationRequested();
 
             // freshSettings, NOT the cached _settings: _settings is loaded once when
             // this page is constructed (launcher start) and is only good for initial
@@ -368,16 +485,22 @@ public partial class HomePage : UserControl
             // "Multiple garbage collectors selected" no matter what the player
             // changed. Same read the external-mods/offline switches already use.
             var launchOption = LaunchProfileBuilder.Build(freshSettings, session, version);
-            if (target != null)
+            if (target?.Server is { } server)
             {
                 // Straight into the friend's server: Quick Play on 1.20+, the
                 // old --server/--port pair before it (JoinArguments).
-                var join = JoinArguments.Build(version, target.Server);
+                var join = JoinArguments.Build(version, server);
                 if (join.Count > 0)
                     launchOption.ExtraGameArguments = launchOption.ExtraGameArguments
                         .Append(new MArgument(join.ToArray())).ToList();
             }
-            var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
+
+            // This account's own game folder for the version: migrated from the
+            // old layout, or — its first time on this version — created with
+            // the settings of the account that played it last (AccountFolders).
+            var gameDir = await Task.Run(() => AccountFolders.PrepareGameDir(version, key), ticket.Token);
+
+            var installProgress = new Progress<string>(Stage);
             // Run provisioning on a worker thread. Everything inside it that is
             // synchronous — the mods-folder sweeps, the corrupt-config scan, the
             // jar copies, CmlLib's file-queueing loop and its natives unzip —
@@ -388,8 +511,8 @@ public partial class HomePage : UserControl
             // still marshals every stage update back correctly.
             var process = await Task.Run(
                 () => _versionManager.InstallAndBuildProcessAsync(
-                    version, launchOption, externalMods, installProgress, cts.Token),
-                cts.Token);
+                    version, key, launchOption, externalMods, installProgress, ticket.Token),
+                ticket.Token);
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
             // that the Graphics/Performance launch-mode toggle is gone — the
@@ -400,96 +523,98 @@ public partial class HomePage : UserControl
             // shader cache so Iris packs don't recompile (and hitch) each launch.
             ShaderCache.Apply(process.StartInfo, freshSettings.ShaderCacheNvidia, freshSettings.ShaderCacheAmd);
 
-            // Settings Sync: bring in what the player changed in every other
-            // version, then write it into this one. After provisioning (which
-            // seeds/sanitizes config files) and before the game reads them.
-            // Never throws — a sync problem just means an unsynced launch.
+            // Settings Sync: bring in what the player changed in this account's
+            // other versions, then write it into this one. After provisioning
+            // (which seeds/sanitizes config files) and before the game reads
+            // them. Never throws — a sync problem just means an unsynced launch.
             if (freshSettings.SettingsSyncEnabled)
             {
-                LoadingOverlay.ReportStage("Syncing settings");
-                await Task.Run(() => SettingsSync.BeforeLaunch(version));
+                Stage("Syncing settings");
+                await Task.Run(() => SettingsSync.BeforeLaunch(key, version));
             }
 
             // Last gate before the game actually starts — a cancel that
             // landed after provisioning finished must not still launch.
-            cts.Token.ThrowIfCancellationRequested();
+            ticket.Token.ThrowIfCancellationRequested();
 
-            LoadingOverlay.ReportStage("Launching");
-            var logPath = StartWithLifecycleCapture(process, version);
+            Stage("Launching");
+            var game = new RunningGame
+            {
+                Key = key,
+                Version = version,
+                AccountName = accountName,
+                GameDir = gameDir,
+                Process = process,
+            };
+            StartWithLifecycleCapture(game);
+            // Synchronous since the cancellation check above, so the ticket is
+            // still this account's newest action.
+            gameStarted = _launches.GameStarted(ticket, game);
+            SyncSocialMirror();
 
             // The process is up but the game window isn't — the Play button
             // keeps spinning (via WatchBootAsync) until Minecraft's window
             // actually appears, or the boot dies early, which restores the
             // button and surfaces the crash.
-            SetStatus($"Starting {version}", StatusTone.Neutral);
-            var runningMessage = target != null
-                ? $"Playing on {SocialText.DisplayServer(target.Server)} · {version}"
-                : _selectedAccount != null
-                    ? $"Running · {session.Username}"
-                    : "Running · Offline";
-            bootWatchStarted = true;
-            _ = WatchBootAsync(process, version, logPath, runningMessage);
+            Note(key, $"Starting {version}", LaunchTone.Neutral);
+            var runningMessage = target?.Server is { } joined
+                ? $"Playing on {SocialText.DisplayServer(joined)} · {version}"
+                : $"Running · {session.Username}";
+            _ = WatchBootAsync(game, runningMessage);
         }
         catch (OperationCanceledException)
         {
-            // Player hit Cancel on the overlay (or a newer launch superseded
-            // this one) — not an error, just back to the Home state.
-            SetStatus("Cancelled", StatusTone.Neutral);
+            // Player hit Cancel on the scene (or a newer launch for this
+            // account superseded this one) — not an error, just back to Home.
+            Note(key, "Cancelled", LaunchTone.Neutral);
         }
         catch (MicrosoftAuthException ex)
         {
             var upToDateMessage = ex.Stage == "token_refresh"
                 ? "Your session expired — remove and re-add this account in the account switcher."
                 : ex.Message;
-            SetStatus(await LaunchFailureTextAsync(ex, upToDateMessage), StatusTone.Error);
+            Note(key, await LaunchFailureTextAsync(ex, upToDateMessage), LaunchTone.Error);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed (auth): {ex}");
             WriteLaunchErrorLog(ex);
         }
         catch (Exception ex)
         {
-            SetStatus(await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}"), StatusTone.Error);
+            Note(key, await LaunchFailureTextAsync(ex, $"Launch failed: {DescribeError(ex)}"), LaunchTone.Error);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed: {ex}");
             WriteLaunchErrorLog(ex);
         }
         finally
         {
-            // Only the launch that still owns the token resets the shared UI —
-            // if a newer launch has already replaced it, that one drives.
-            if (ReferenceEquals(_launchCts, cts))
+            // A preparation that never started a game hands the account back
+            // to idle — unless a newer launch for it already took over.
+            if (!gameStarted) _launches.EndPrepare(ticket);
+            // The scene belongs to the newest launch; only that one lowers it.
+            if (ReferenceEquals(_overlayTicket, ticket))
             {
-                // Release ownership BEFORE disposing. _launchCts must never be
-                // left pointing at a disposed source: the next launch's
-                // "_launchCts?.Cancel()" (and the overlay's Cancel handler)
-                // would throw ObjectDisposedException — this was the "Play
-                // crashes/does nothing on every launch after the first" bug
-                // (see crash_20260712_113213.log).
-                _launchCts = null;
+                _overlayTicket = null;
                 LoadingOverlay.Hide();
-                if (!bootWatchStarted)
-                {
-                    _isLaunching = false;
-                    SetPlayLaunching(false);
-                    // Not the full UpdatePlayState() — that unconditionally overwrites
-                    // StatusText with "Signed in as X", clobbering whatever specific
-                    // message the try/catch above just set. Only re-sync IsEnabled here.
-                    PlayButton.IsEnabled =
-                        (_selectedAccount != null || SettingsStore.Load().OfflineTestMode)
-                        && _selectedVersion != null;
-                }
             }
-            cts.Dispose();
+            // The book no longer holds this ticket (EndPrepare/GameStarted or a
+            // newer BeginPrepare released it), and the scene's Cancel can't
+            // reach it any more — nothing can call Cancel on a disposed source.
+            // (That was the old "Play does nothing after the first launch" bug,
+            // crash_20260712_113213.log.)
+            ticket.Source.Dispose();
+            // Not the full UpdatePlayState() — that would overwrite the status
+            // line the try/catch above just set. Only re-sync the button.
+            RefreshPlayButton();
         }
     }
 
-    // Owns the tail of the launching state: keeps the Play button spinning
-    // after the game process starts, until Minecraft's window actually exists
-    // (launch finished) or the process dies during boot (crash — surface it
-    // and return the button to normal). Runs on the UI context; the polls are
-    // cheap and non-blocking. The 90s ceiling is a fail-open safety net for a
-    // machine where window detection misbehaves — the button must never spin
-    // forever.
-    private async Task WatchBootAsync(System.Diagnostics.Process process, string version, string? logPath, string runningMessage)
+    // Owns the tail of one game's launch: keeps the Play button spinning after
+    // the game process starts, until Minecraft's window actually exists (the
+    // account goes Running) or the process dies during boot (crash — surface
+    // it). Runs on the UI context; the polls are cheap and non-blocking. The
+    // 90s ceiling is a fail-open safety net for a machine where window
+    // detection misbehaves — the button must never spin forever.
+    private async Task WatchBootAsync(RunningGame game, string runningMessage)
     {
+        var process = game.Process;
         try
         {
             var deadline = DateTime.UtcNow.AddSeconds(90);
@@ -503,24 +628,27 @@ public partial class HomePage : UserControl
                 {
                     int exitCode;
                     try { exitCode = process.ExitCode; } catch { exitCode = -1; }
+                    // Back to Play right away (the Exited handler, arriving
+                    // later, then finds nothing left to do).
+                    _launches.Exited(game.Key, game);
+                    SyncSocialMirror();
                     if (exitCode == 0)
                     {
-                        SetStatus("Ready", StatusTone.Neutral);
+                        Note(game.Key, "Ready", LaunchTone.Neutral);
                         return;
                     }
-                    SetStatus(logPath != null
-                        ? $"Minecraft crashed while starting (exit code {exitCode}) — log saved to {logPath}"
-                        : $"Minecraft crashed while starting (exit code {exitCode}).", StatusTone.Error);
+                    Note(game.Key, game.LogPath != null
+                        ? $"Minecraft crashed while starting (exit code {exitCode}) — log saved to {game.LogPath}"
+                        : $"Minecraft crashed while starting (exit code {exitCode}).", LaunchTone.Error);
                     // A boot crash is the one case where a bad file on disk is a
                     // live suspect, so drop the "already verified" stamp and make
                     // the next launch re-hash the whole install. This is the
                     // safety net that lets normal launches skip verification.
-                    Core.Versions.InstallVerification.Invalidate(
-                        System.IO.Path.Combine(OriginPaths.Instances, version));
-                    // Queued (not awaited) so this method's finally releases the
-                    // launching state first — the crash window's "retry" path
-                    // calls LaunchAsync, which refuses while _isLaunching is set.
-                    _ = Dispatcher.BeginInvoke(async () => await ShowCrashReportAsync(version, logPath));
+                    Core.Versions.InstallVerification.Invalidate(OriginPaths.VersionRoot(game.Version));
+                    // Queued (not awaited) so this watch finishes (button
+                    // restored) first — the crash window's "retry" path
+                    // launches the account again.
+                    _ = Dispatcher.BeginInvoke(async () => await ShowCrashReportAsync(game), DispatcherPriority.Background);
                     return;
                 }
 
@@ -529,7 +657,8 @@ public partial class HomePage : UserControl
                     process.Refresh();
                     if (process.MainWindowHandle != IntPtr.Zero)
                     {
-                        SetStatus(runningMessage, StatusTone.Success);
+                        if (_launches.WindowShown(game.Key, game))
+                            Note(game.Key, runningMessage, LaunchTone.Success);
                         return;
                     }
                 }
@@ -540,27 +669,66 @@ public partial class HomePage : UserControl
             // Timed out without seeing a window — assume the game is running
             // (headless/odd window setups) rather than reporting a failure
             // that didn't happen.
-            SetStatus(runningMessage, StatusTone.Success);
+            if (_launches.WindowShown(game.Key, game))
+                Note(game.Key, runningMessage, LaunchTone.Success);
         }
         finally
         {
-            _isLaunching = false;
-            SetPlayLaunching(false);
-            PlayButton.IsEnabled =
-                (_selectedAccount != null || SettingsStore.Load().OfflineTestMode)
-                && _selectedVersion != null;
+            RefreshPlayButton();
         }
+    }
+
+    // ---- the friends drawer's view of "the game" (SocialHub.Game) -------------
+    //
+    // Core/Social's RunningGameTracker follows ONE game: the party leader's warp
+    // needs the server that game is on. With several games open it follows the
+    // SELECTED account's game — the account the friends drawer is signed in as.
+    // Switching accounts re-points it (and replays where that game is), so the
+    // tracker itself never needs to know about accounts.
+    private RunningGame? _mirrored;
+
+    private void SyncSocialMirror()
+    {
+        var key = SelectedKey();
+        var want = key != null && _launches.PhaseOf(key) is GamePhase.Starting or GamePhase.Running
+            ? _launches.GameOf(key) as RunningGame
+            : null;
+        if (ReferenceEquals(want, _mirrored)) return;
+
+        if (_mirrored is { MirrorId: > 0 } previous)
+        {
+            SocialHub.Game.Exited(previous.MirrorId);
+            previous.MirrorId = 0;
+        }
+        _mirrored = want;
+        if (want != null)
+        {
+            want.MirrorId = SocialHub.Game.Started(want.Version);
+            if (want.LastWhereLine is { } line)
+                SocialHub.Game.Observe(want.MirrorId, line);
+        }
+    }
+
+    // A game joined a server or opened a world (UI thread).
+    private void OnGameWhere(RunningGame game, string line)
+    {
+        game.LastWhereLine = line;
+        if (ReferenceEquals(_mirrored, game) && game.MirrorId > 0)
+            SocialHub.Game.Observe(game.MirrorId, line);
     }
 
     // Post-mortem for a boot-time crash: name the culprit mod(s) when the
     // evidence supports it, offer "retry with only Origin's mods". Analysis
-    // reads files + jars, so it runs off the UI thread.
-    private async Task ShowCrashReportAsync(string version, string? logPath)
+    // reads files + jars, so it runs off the UI thread. Several games can be
+    // open, so the window says whose game (account + version) crashed, and the
+    // retry relaunches exactly that one.
+    private async Task ShowCrashReportAsync(RunningGame game)
     {
         try
         {
-            var analysis = await Task.Run(() => CrashAnalyzer.Analyze(version, logPath));
-            var window = new UI.Windows.CrashReportWindow(analysis, logPath)
+            var analysis = await Task.Run(() => CrashAnalyzer.Analyze(game.GameDir, game.LogPath));
+            var window = new UI.Windows.CrashReportWindow(analysis, game.LogPath,
+                $"{game.AccountName} · Minecraft {game.Version}")
             {
                 Owner = Window.GetWindow(this)
             };
@@ -569,7 +737,7 @@ public partial class HomePage : UserControl
             {
                 SaveExternalMods(false);
                 SyncExternalModsToggle();
-                await LaunchAsync();
+                await LaunchAsync(new LaunchTarget(game.Version, AccountKey: game.Key));
             }
         }
         catch (Exception ex)
@@ -637,15 +805,18 @@ public partial class HomePage : UserControl
         return $"{detail} [{code}]";
     }
 
-    // Redirects the launched instance's stdout/stderr to a per-launch log file
-    // and reports the exit code back to Home once the game closes — this is
-    // the crash-diagnostics foundation Phase 3 builds on, not full crash
-    // parsing yet. Returns the log path so the boot watcher can point at it
-    // when the game dies during startup.
-    private string StartWithLifecycleCapture(System.Diagnostics.Process process, string version)
+    // Starts one game: redirects its stdout/stderr to a per-launch log file
+    // (named for the version AND the account — several games can run at once)
+    // and reports its exit back to Home — the crash-diagnostics foundation the
+    // boot watcher and CrashAnalyzer build on. Sets game.LogPath.
+    private void StartWithLifecycleCapture(RunningGame game)
     {
+        var process = game.Process;
+        var version = game.Version;
         OriginPaths.EnsureScaffold();
-        var logPath = Path.Combine(OriginPaths.Logs, $"{version}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+        var logPath = Path.Combine(OriginPaths.Logs,
+            $"{version}_{SafeFileName(game.AccountName)}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+        game.LogPath = logPath;
 
         StreamWriter? logWriter = null;
         try { logWriter = new StreamWriter(logPath, append: false) { AutoFlush = true }; }
@@ -668,9 +839,6 @@ public partial class HomePage : UserControl
         // escape onto a background thread.
         var gate = new object();
         var openStreams = 2;
-        // Origin social: the party leader's warp needs the server this game is
-        // on, which only its own console output says (RunningGameTracker).
-        var gameId = 0;
 
         void OnData(string? data)
         {
@@ -683,7 +851,11 @@ public partial class HomePage : UserControl
                         lock (gate) { logWriter?.Dispose(); logWriter = null; }
                     return;
                 }
-                SocialHub.Game.Observe(Volatile.Read(ref gameId), data);
+                // Origin social: the party leader's warp needs the server this
+                // game is on, which only its own console output says. Only the
+                // rare matching lines cross over to the UI thread.
+                if (RunningGameTracker.ParseConnect(data) != null || RunningGameTracker.IsSingleplayerStart(data))
+                    Dispatcher.BeginInvoke(() => OnGameWhere(game, data));
                 lock (gate) { logWriter?.WriteLine(data); }
             }
             catch { /* best-effort logging; never surface onto this thread */ }
@@ -703,22 +875,13 @@ public partial class HomePage : UserControl
             {
                 int exitCode;
                 try { exitCode = process.ExitCode; } catch { exitCode = -1; }
-                SocialHub.Game.Exited(Volatile.Read(ref gameId));
 
-                Dispatcher.BeginInvoke(() =>
-                {
-                    // A newer launch may already be in flight (Play clicked again
-                    // while this instance was running); don't clobber its status.
-                    if (_isLaunching) return;
-                    SetStatus(
-                        exitCode == 0 ? "Ready" : $"Minecraft exited with code {exitCode}",
-                        exitCode == 0 ? StatusTone.Neutral : StatusTone.Error);
-                });
+                Dispatcher.BeginInvoke(() => OnGameExited(game, exitCode));
 
                 // Settings Sync: take in what the player changed this session.
                 // Checks the switch itself and never throws; already on a pool
                 // thread, so its file work never touches the UI.
-                SettingsSync.AfterExit(version);
+                SettingsSync.AfterExit(game.Key, version);
             }
             catch { /* the game's exit must never crash the launcher */ }
         };
@@ -726,8 +889,7 @@ public partial class HomePage : UserControl
         try
         {
             process.Start();
-            Volatile.Write(ref gameId, SocialHub.Game.Started(version));
-            SettingsSync.TrackGame(version, process);
+            SettingsSync.TrackGame(game.Key, version, process);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
         }
@@ -738,15 +900,47 @@ public partial class HomePage : UserControl
             lock (gate) { logWriter?.Dispose(); logWriter = null; }
             throw;
         }
-
-        return logPath;
     }
 
-    // Swaps the Play button between its label and the spinning launch arc.
-    // Same clock pattern as LaunchLoadingOverlay: a fresh RotateTransform +
+    // A game process ended (UI thread). The account goes back to Play; an
+    // exit after the game was up is reported (a boot crash is the boot
+    // watcher's to report — it has the details).
+    private void OnGameExited(RunningGame game, int exitCode)
+    {
+        var wasRunning = _launches.PhaseOf(game.Key) == GamePhase.Running
+                         && ReferenceEquals(_launches.GameOf(game.Key), game);
+        if (_launches.Exited(game.Key, game) && wasRunning)
+        {
+            Note(game.Key,
+                exitCode == 0 ? "Ready" : $"Minecraft exited with code {exitCode}",
+                exitCode == 0 ? LaunchTone.Neutral : LaunchTone.Error);
+        }
+        SyncSocialMirror();
+        RefreshPlayButton();
+    }
+
+    private static string SafeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var safe = new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
+        return safe.Length == 0 ? "player" : safe;
+    }
+
+    // Starts/stops the Play button's spinning launch arc (which label shows
+    // around it is ApplyPlayButton's call). Same clock pattern as LaunchLoadingOverlay: a fresh RotateTransform +
     // AnimationClock per run, stopped and dropped on restore so nothing keeps
     // ticking behind a static button.
     private AnimationClock? _playSpinClock;
+
+    /// <summary>
+    /// Render mode only (UI/RenderShots.cs): show the Play button the way it
+    /// looks while the selected account's game is open, without a game.
+    /// </summary>
+    internal void TourShowRunning(string playerName)
+    {
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, canPlay: true, hasVersion: true));
+        SetStatus($"Running · {playerName}", StatusTone.Success);
+    }
 
     private enum StatusTone
     {
@@ -773,7 +967,6 @@ public partial class HomePage : UserControl
     {
         if (launching && _playSpinClock != null) return; // already spinning
 
-        PlayLabel.Visibility = launching ? Visibility.Collapsed : Visibility.Visible;
         PlaySpinner.Visibility = launching ? Visibility.Visible : Visibility.Collapsed;
 
         if (launching)

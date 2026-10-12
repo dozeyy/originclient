@@ -4,8 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mojang.authlib.exceptions.AuthenticationException;
 import com.origin.client.OriginClient;
+import com.origin.client.client.social.SocialClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 
@@ -13,10 +13,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +33,9 @@ import java.util.concurrent.TimeUnit;
  *    lookup for players not seen yet, batched up to 100 per request;
  *  - what someone wears is cached for 5 minutes (a failed lookup retries
  *    after 1), so a full server costs a few requests, not one per frame;
- *  - changing what YOU wear is proven with Minecraft's own server-join check
- *    (Mojang joinServer here, hasJoined on the service): the access token
- *    only ever goes to Mojang, as when joining any server;
+ *  - changing what YOU wear sends Origin's bearer token from the one shared
+ *    sign-in (social/SocialClient + MojangProof, docs/SOCIAL.md "Identity v2"):
+ *    the Minecraft access token only ever goes to Mojang;
  *  - everything fails soft: no service, no network or an offline account
  *    just means no cosmetics, never an error in game.
  */
@@ -261,31 +259,23 @@ public final class CosmeticsService {
 		if (status != Status.READY) {
 			return "Cosmetics aren't available right now.";
 		}
-		Minecraft mc = Minecraft.getInstance();
-		User user = mc.getUser();
-		// A fresh random "server id" proves this request comes from whoever is
-		// signed in: we tell Mojang we're joining it, the service asks Mojang
-		// who did. Offline/test accounts can't do this.
-		byte[] raw = new byte[20];
-		new SecureRandom().nextBytes(raw);
-		String serverId = HexFormat.of().formatHex(raw);
-		try {
-			// 1.21.10: the session service hangs off Minecraft.services() (1.21.9+;
-			// getMinecraftSessionService() is gone) -- the one line that differs
-			// from 1.21.1's copy of this file.
-			mc.services().sessionService().joinServer(user.getProfileId(), user.getAccessToken(), serverId);
-		} catch (AuthenticationException e) {
-			return "Sign in with a Microsoft account to wear cosmetics.";
-		} catch (Exception e) {
-			return "Couldn't check your account with Minecraft. Try again.";
-		}
 		JsonObject body = new JsonObject();
-		body.addProperty("name", user.getName());
-		body.addProperty("serverId", serverId);
 		body.addProperty("cape", look.cape());
 		body.addProperty("head", look.head());
 		try {
-			Reply r = postJson(api + "/v1/equip", body);
+			SocialClient.SignIn s = SocialClient.signInForService(null);
+			if (s.token() == null) {
+				return signInSentence(s);
+			}
+			Reply r = postJson(api + "/v1/equip", body, s.token());
+			if (r.status() == 401) {
+				// the token expired or the service restarted: sign in afresh once
+				s = SocialClient.signInForService(s.token());
+				if (s.token() == null) {
+					return signInSentence(s);
+				}
+				r = postJson(api + "/v1/equip", body, s.token());
+			}
 			if (r.status() == 200) {
 				JsonObject o = r.response();
 				Mine m = mine;
@@ -296,10 +286,23 @@ public final class CosmeticsService {
 			if (r.status() == 403) {
 				return "You don't own that one yet.";
 			}
-			return "Couldn't save. Try again.";
+			String why = r.response().has("error") && r.response().get("error").isJsonPrimitive()
+					? r.response().get("error").getAsString() : null;
+			return why != null && !why.isBlank() ? why : "Couldn't save. Try again.";
 		} catch (Exception e) {
 			return "Couldn't reach Origin. Check your connection.";
 		}
+	}
+
+	private static String signInSentence(SocialClient.SignIn s) {
+		SocialClient.SignInFailure f = s.failure() != null ? s.failure() : SocialClient.SignInFailure.UNREACHABLE;
+		return switch (f) {
+			case NO_ACCOUNT -> "Sign in with a Microsoft account to wear cosmetics.";
+			case NO_ONLINE_PLAY -> "Your Microsoft account doesn't allow online play, so cosmetics can't be changed.";
+			case REFUSED -> s.sentence() != null ? s.sentence() : "Couldn't check your account. Try again.";
+			case MISSING -> "Cosmetics aren't available right now.";
+			case UNREACHABLE -> "Couldn't reach Origin. Check your connection.";
+		};
 	}
 
 	private static Look lookFrom(JsonObject o) {
@@ -331,15 +334,22 @@ public final class CosmeticsService {
 	}
 
 	private static Reply postJson(String url, JsonObject body) throws Exception {
-		HttpResponse<String> r = HTTP.send(request(url)
+		return postJson(url, body, null);
+	}
+
+	private static Reply postJson(String url, JsonObject body, String bearer) throws Exception {
+		HttpRequest.Builder rb = request(url)
 				.header("Content-Type", "application/json")
-				.POST(HttpRequest.BodyPublishers.ofString(body.toString()))
-				.build(), HttpResponse.BodyHandlers.ofString());
+				.POST(HttpRequest.BodyPublishers.ofString(body.toString()));
+		if (bearer != null) {
+			rb.header("Authorization", "Bearer " + bearer);
+		}
+		HttpResponse<String> r = HTTP.send(rb.build(), HttpResponse.BodyHandlers.ofString());
 		JsonObject o = null;
 		try {
 			o = JsonParser.parseString(r.body()).getAsJsonObject();
 		} catch (Exception ignored) {
-			// error bodies aren't needed beyond the status code
+			// a non-JSON error body is just "no body"
 		}
 		return new Reply(r.statusCode(), o != null ? o : new JsonObject());
 	}

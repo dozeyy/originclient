@@ -22,7 +22,8 @@ public readonly record struct ModActionResult(bool Ok, string? Error)
 
 /// <summary>
 /// Manages the user-facing mod set for a single Minecraft version, over that
-/// version's isolated <c>/instances/{version}/mods/</c> folder (the same folder
+/// version's isolated <c>/instances/{version}/accounts/{account}/mods/</c> folder
+/// (the selected account's; the same folder
 /// <see cref="Versions.VersionManager"/> provisions on launch).
 ///
 /// On/off is the loader-standard extension rename: an enabled mod is
@@ -41,8 +42,10 @@ public static class ModManager
     public const string JarSuffix = ".jar";
     private const string DownloadSuffix = ".jar.download";
 
+    // The SELECTED account's mods folder for the version: every account has
+    // its own game folder (Core/GameFolders), mods included.
     public static string ModsFolder(string version) =>
-        Path.Combine(OriginPaths.Instances, version, "mods");
+        Path.Combine(GameFolders.Launcher.AccountFolders.SelectedGameDir(version), "mods");
 
     /// <summary>Every mod in the version's folder, enabled and disabled, sorted
     /// by display name. User (unmanaged) entries first so they lead the list.
