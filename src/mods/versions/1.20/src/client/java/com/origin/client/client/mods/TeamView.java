@@ -56,7 +56,9 @@ public final class TeamView {
 		}
 		boolean teams = Mods.bool(MOD, "scoreboardTeams");
 		boolean party = Mods.bool(MOD, "hypixel") && Hypixel.inSafeArea();
-		PlayerTeam myTeam = mc.player.getTeam();
+		// Entity.getTeam() returns the abstract Team before 1.20.3; this is the
+		// lookup it makes, typed as the PlayerTeam the member list lives on.
+		PlayerTeam myTeam = mc.level.getScoreboard().getPlayersTeam(mc.player.getScoreboardName());
 		if (myTeam != null && myTeam.getPlayers().size() > MAX_TEAM) {
 			myTeam = null;
 		}

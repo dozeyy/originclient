@@ -101,6 +101,10 @@ public class QuickplayScreen extends Screen {
 	// ---- render ----
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+		// 1.20's Screen.render draws no backdrop of its own (from 1.20.2 it calls
+		// renderBackground first), so draw vanilla's in-world dim -- or Menu Blur --
+		// here, behind the panel, as 1.21.1's super.render does.
+		renderBackground(g);
 		super.render(g, mouseX, mouseY, partialTick);
 		int x = px(), y = py(), w = pw(), h = ph();
 		OriginUi.panel(g, x, y, w, h, 10, 0xC80E0E0E, OriginTheme.STROKE);
@@ -198,8 +202,9 @@ public class QuickplayScreen extends Screen {
 		return super.mouseClicked(mx, my, button);
 	}
 
+	// 1.20 / 1.20.1: one vertical scroll delta (the horizontal one arrived in 1.20.2).
 	@Override
-	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+	public boolean mouseScrolled(double mx, double my, double sy) {
 		if (mx <= listX1()) {
 			double max = Math.max(0, Quickplay.GAMES.size() * ROW_H - (bottom() - top()));
 			listScroll = Math.max(0, Math.min(max, listScroll - sy * ROW_H * 2));

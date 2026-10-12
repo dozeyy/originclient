@@ -8,7 +8,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.Objective;
 
 import java.util.ArrayList;
@@ -144,7 +144,7 @@ public final class Hypixel {
 	}
 
 	private static String sidebarTitle(Minecraft mc) {
-		Objective o = mc.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
+		Objective o = mc.level.getScoreboard().getDisplayObjective(Scoreboard.DISPLAY_SLOT_SIDEBAR);
 		if (o == null) {
 			return "";
 		}

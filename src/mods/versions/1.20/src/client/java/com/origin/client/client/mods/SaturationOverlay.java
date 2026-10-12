@@ -16,8 +16,9 @@ import net.minecraft.world.item.TooltipFlag;
 import java.util.Locale;
 
 // Saturation mod (Lunar's built-in AppleSkin), drawn on top of vanilla's own
-// hunger bar from GuiFoodMixin (Gui.renderFood TAIL, so the shank positions are
-// exactly vanilla's: right edge `right`, one shank every 8 px leftward, row y).
+// hunger bar from GuiFoodMixin (Gui.renderPlayerHealth TAIL on 1.20 -- no
+// renderFood before 1.20.5 -- with vanilla's own shank positions: right edge
+// `right`, one shank every 8 px leftward, row y).
 //
 //   Saturation Overlay       -- your hidden saturation as glowing shanks
 //   Held Item Hunger         -- holding food pulses the shanks it would refill
@@ -30,10 +31,16 @@ public final class SaturationOverlay {
 	private SaturationOverlay() {
 	}
 
-	private static final ResourceLocation FULL = new ResourceLocation("hud/food_full");
-	private static final ResourceLocation HALF = new ResourceLocation("hud/food_half");
-	private static final ResourceLocation FULL_HUNGER = new ResourceLocation("hud/food_full_hunger");
-	private static final ResourceLocation HALF_HUNGER = new ResourceLocation("hud/food_half_hunger");
+	// 1.20 / 1.20.1 predate GUI sprites (1.20.2): the shanks are cells of
+	// textures/gui/icons.png on row v=27 (verified against decompiled 1.20
+	// Gui.renderPlayerHealth): full u=52, half u=61, and the Hunger-effect
+	// (green) pair 36 further right.
+	private static final ResourceLocation ICONS = new ResourceLocation("textures/gui/icons.png");
+	private static final int FULL = 52, HALF = 61, FULL_HUNGER = 88, HALF_HUNGER = 97, ROW_V = 27;
+
+	private static void shank(GuiGraphics g, int u, int x, int y) {
+		g.blit(ICONS, x, y, u, ROW_V, 9, 9);
+	}
 
 	public static void registerTooltip() {
 		net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback.EVENT.register((ItemStack stack, TooltipFlag context, java.util.List<Component> lines) -> {
@@ -88,8 +95,8 @@ public final class SaturationOverlay {
 				for (int i = 0; i < 10; i++) {
 					int before = clampUnit(food - i * 2), after = clampUnit(newFood - i * 2);
 					if (after > before) {
-						g.blitSprite(after == 2 ? (hungerFx ? FULL_HUNGER : FULL) : (hungerFx ? HALF_HUNGER : HALF),
-								right - i * 8 - 9, y, 9, 9);
+						shank(g, after == 2 ? (hungerFx ? FULL_HUNGER : FULL) : (hungerFx ? HALF_HUNGER : HALF),
+								right - i * 8 - 9, y);
 					}
 				}
 			}
@@ -121,7 +128,7 @@ public final class SaturationOverlay {
 			int before = clampUnit((int) Math.floor(from) - i * 2);
 			int after = clampUnit((int) Math.floor(to) - i * 2);
 			if (after > before) {
-				g.blitSprite(after == 2 ? FULL : HALF, right - i * 8 - 9, y, 9, 9);
+				shank(g, after == 2 ? FULL : HALF, right - i * 8 - 9, y);
 			}
 		}
 	}

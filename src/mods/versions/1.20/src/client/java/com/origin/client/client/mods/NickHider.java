@@ -7,16 +7,15 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.resources.DefaultPlayerSkin;
-import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -52,7 +51,11 @@ public final class NickHider {
 	private static final int CACHE_MAX = 4096;
 	private static String lastOwnSig = "";
 	private static int ticks = 0;
-	private static Supplier<PlayerSkin> realSkin = null;
+	// Your real account skin (texture, "default"/"slim", cape) for Use Real Skin,
+	// fetched once in the background by registerSkins; null until it lands.
+	private static volatile boolean realSkinRequested = false;
+	private static volatile ResourceLocation realSkin = null, realCape = null;
+	private static volatile String realModel = null;
 
 	// Hypixel's scoreboard date line: "10/11/26 m215AH" -> the trailing server ID.
 	private static final Pattern LOBBY_LINE = Pattern.compile("^\\s*(\\d{1,2}/\\d{1,2}/\\d{2,4})\\s+[A-Za-z0-9]{2,12}\\s*$");
@@ -202,31 +205,79 @@ public final class NickHider {
 		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 	}
 
-	/**
-	 * The skin to show for this tab-list entry instead of its own, or null to
-	 * keep it. Every player model and tab-list head reads its skin from here.
-	 */
-	public static PlayerSkin skinFor(GameProfile profile) {
+	// Which skin a profile shows: KEEP its own, DEFAULT (the UUID's default skin,
+	// no cape) or REAL (your account's own skin while you're nicked).
+	private enum Skin { KEEP, DEFAULT, REAL }
+
+	private static Skin choice(GameProfile profile) {
 		if (!Mods.on(ID) || profile == null) {
-			return null;
+			return Skin.KEEP;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (!mc.isLocalPlayer(profile.getId())) {
-			return Mods.bool(ID, "hideOthersSkin") ? DefaultPlayerSkin.get(profile) : null;
+		if (!profile.getId().equals(mc.getUser().getProfileId())) {
+			return Mods.bool(ID, "hideOthersSkin") ? Skin.DEFAULT : Skin.KEEP;
 		}
 		if (Mods.bool(ID, "hideOwnSkin")) {
-			return DefaultPlayerSkin.get(profile);
+			return Skin.DEFAULT;
 		}
 		boolean nicked = !profile.getName().equalsIgnoreCase(mc.getUser().getName());
 		if (nicked && Mods.bool(ID, "useRealSkin")) {
-			if (realSkin == null) {
-				// Your real account profile (with its skin) as Minecraft fetched it at
-				// startup; the skin manager loads + caches the texture once.
-				realSkin = mc.getSkinManager().lookupInsecure(mc.getGameProfile());
-			}
-			return realSkin.get();
+			requestRealSkin(mc);
+			return realSkin != null ? Skin.REAL : Skin.KEEP;
 		}
-		return null;
+		return Skin.KEEP;
+	}
+
+	// 1.20 has no PlayerSkin / SkinManager.lookupInsecure (1.20.2+). Its
+	// registerSkins does the same job: for your own profile it reads the textures
+	// property Minecraft fetched for your account (filling it on the background
+	// executor if empty -- never on the render thread), registers the textures and
+	// calls back on the render thread with each one.
+	private static void requestRealSkin(Minecraft mc) {
+		if (realSkinRequested) {
+			return;
+		}
+		realSkinRequested = true;
+		GameProfile own = new GameProfile(mc.getUser().getProfileId(), mc.getUser().getName());
+		mc.getSkinManager().registerSkins(own, (type, location, texture) -> {
+			if (type == com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN) {
+				String model = texture.getMetadata("model");
+				realModel = "slim".equals(model) ? "slim" : "default";
+				realSkin = location;
+			} else if (type == com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.CAPE) {
+				realCape = location;
+			}
+		}, false);
+	}
+
+	/**
+	 * The skin texture to show for this tab-list entry instead of its own, or null
+	 * to keep it. Every player model and tab-list head reads its skin from here.
+	 */
+	public static ResourceLocation skinFor(GameProfile profile) {
+		return switch (choice(profile)) {
+			case DEFAULT -> DefaultPlayerSkin.getDefaultSkin(profile.getId());
+			case REAL -> realSkin;
+			default -> null;
+		};
+	}
+
+	/** The arm model ("default" / "slim") matching skinFor, or null to keep it. */
+	public static String modelFor(GameProfile profile) {
+		return switch (choice(profile)) {
+			case DEFAULT -> DefaultPlayerSkin.getSkinModelName(profile.getId());
+			case REAL -> realModel;
+			default -> null;
+		};
+	}
+
+	/** The cape matching skinFor as a one-slot array (slot null = no cape), or null to keep it. */
+	public static ResourceLocation[] capeFor(GameProfile profile) {
+		return switch (choice(profile)) {
+			case DEFAULT -> new ResourceLocation[]{null};
+			case REAL -> new ResourceLocation[]{realCape};
+			default -> null;
+		};
 	}
 
 	/**

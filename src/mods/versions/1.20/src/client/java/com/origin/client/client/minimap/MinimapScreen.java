@@ -35,13 +35,16 @@ final class MinimapScreen extends Screen {
 		return false;
 	}
 
+	// 1.20 / 1.20.1: renderBackground(GuiGraphics) has no mouse/tick arguments and
+	// Screen.render never calls it (from 1.20.2 it does), so render() draws it.
 	@Override
-	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+	public void renderBackground(GuiGraphics g) {
 		g.fill(0, 0, width, height, 0xD80E1110);
 	}
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+		renderBackground(g);
 		super.render(g, mouseX, mouseY, partialTick);
 		var mc = minecraft;
 		if (mc == null || mc.player == null || mc.level == null) {
@@ -120,13 +123,14 @@ final class MinimapScreen extends Screen {
 		}
 	}
 
+	// 1.20 / 1.20.1: one vertical scroll delta (the horizontal one arrived in 1.20.2).
 	@Override
-	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+	public boolean mouseScrolled(double mx, double my, double sy) {
 		if (sy != 0) {
 			zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * (sy > 0 ? 1.25f : 0.8f)));
 			return true;
 		}
-		return super.mouseScrolled(mx, my, sx, sy);
+		return super.mouseScrolled(mx, my, sy);
 	}
 
 	@Override

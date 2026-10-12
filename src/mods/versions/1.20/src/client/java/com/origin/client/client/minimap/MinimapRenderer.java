@@ -351,7 +351,7 @@ final class MinimapRenderer {
 			int x = Math.round(p[0] - headPx / 2f), y = Math.round(p[1] - headPx / 2f);
 			RenderSystem.setShaderColor(1f, 1f, 1f, r.opacity());
 			RenderSystem.enableBlend();
-			PlayerFaceRenderer.draw(g, headPlayers.get(i).getSkin(), x, y, headPx);
+			PlayerFaceRenderer.draw(g, headPlayers.get(i).getSkinTextureLocation(), x, y, headPx);
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
 	}

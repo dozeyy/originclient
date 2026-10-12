@@ -8,7 +8,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.LerpingBossEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
 
 import java.util.Collection;
@@ -20,7 +19,7 @@ import java.util.Collection;
  * Same split as the Scoreboard: the "bossbar" HUD element is only the drag
  * target + sample in the editor; the real bars are drawn by BossBarMixin, from
  * vanilla's own layer (same z-order as vanilla) at this element's HudPos.
- * The layout is vanilla's, verbatim (1.21.1 BossHealthOverlay): name 9px above
+ * The layout is vanilla's, verbatim (1.20 BossHealthOverlay): name 9px above
  * a 182x5 bar, 19px per boss, and no new rows past a third of the screen.
  */
 public final class BossBarHud {
@@ -115,20 +114,27 @@ public final class BossBarHud {
 		}
 	}
 
-	// Vanilla's drawBar, plus Custom Bar Color: the WHITE sprites tinted to the
+	// Vanilla's drawBar, plus Custom Bar Color: the WHITE bar tinted to the
 	// chosen colour through the shader colour (reset right after).
+	// 1.20 / 1.20.1 predate GUI sprites (1.20.2): every bar is a row of
+	// textures/gui/bars.png (verified against decompiled 1.20 BossHealthOverlay):
+	// colour rows at v = colour.ordinal() * 10, notch overlays at
+	// v = 80 + (overlay.ordinal() - 1) * 10, +5 for the progress half; the fill is
+	// (int) (progress * 183).
+	private static final ResourceLocation BARS = new ResourceLocation("textures/gui/bars.png");
+
 	private static void drawBar(GuiGraphics g, int y, BossEvent e) {
 		boolean custom = Mods.bool(MOD, "customColor");
-		String color = custom ? BossEvent.BossBarColor.WHITE.getName() : e.getColor().getName();
+		BossEvent.BossBarColor color = custom ? BossEvent.BossBarColor.WHITE : e.getColor();
 		if (custom) {
 			int c = OriginColorPicker.liveColor(MOD, "barColor");
 			RenderSystem.setShaderColor(((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f, 1f);
 		}
 		try {
-			bar(g, y, W, color, "background", e.getOverlay());
-			int filled = Mth.lerpDiscrete(e.getProgress(), 0, W);
+			bar(g, y, W, color, 0, e.getOverlay());
+			int filled = (int) (e.getProgress() * 183.0F);
 			if (filled > 0) {
-				bar(g, y, filled, color, "progress", e.getOverlay());
+				bar(g, y, filled, color, 5, e.getOverlay());
 			}
 		} finally {
 			if (custom) {
@@ -137,11 +143,12 @@ public final class BossBarHud {
 		}
 	}
 
-	private static void bar(GuiGraphics g, int y, int width, String color, String part, BossEvent.BossBarOverlay overlay) {
+	private static void bar(GuiGraphics g, int y, int width, BossEvent.BossBarColor color, int part,
+							BossEvent.BossBarOverlay overlay) {
 		RenderSystem.enableBlend();
-		g.blitSprite(new ResourceLocation("boss_bar/" + color + "_" + part), W, 5, 0, 0, 0, y, width, 5);
+		g.blit(BARS, 0, y, 0, color.ordinal() * 5 * 2 + part, width, 5);
 		if (overlay != BossEvent.BossBarOverlay.PROGRESS) {
-			g.blitSprite(new ResourceLocation("boss_bar/" + overlay.getName() + "_" + part), W, 5, 0, 0, 0, y, width, 5);
+			g.blit(BARS, 0, y, 0, 80 + (overlay.ordinal() - 1) * 5 * 2 + part, width, 5);
 		}
 		RenderSystem.disableBlend();
 	}

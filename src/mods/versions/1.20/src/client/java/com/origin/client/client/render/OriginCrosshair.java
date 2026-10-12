@@ -28,9 +28,11 @@ public final class OriginCrosshair {
 	private OriginCrosshair() {
 	}
 
-	private static final ResourceLocation ATTACK_FULL = new ResourceLocation("hud/crosshair_attack_indicator_full");
-	private static final ResourceLocation ATTACK_BG = new ResourceLocation("hud/crosshair_attack_indicator_background");
-	private static final ResourceLocation ATTACK_PROGRESS = new ResourceLocation("hud/crosshair_attack_indicator_progress");
+	// 1.20 / 1.20.1 predate GUI sprites (1.20.2): the attack indicator lives in
+	// textures/gui/icons.png at the UVs vanilla's own renderCrosshair blits from
+	// (verified against decompiled 1.20 Gui): full 68,94 16x16; background
+	// 36,94 16x4; progress 52,94 (w)x4.
+	private static final ResourceLocation ICONS = new ResourceLocation("textures/gui/icons.png");
 
 	private static String cachedKey = null;
 	private static boolean[][] fillMask, outlineMask;   // [y][x], centre at (ext, ext)
@@ -47,7 +49,9 @@ public final class OriginCrosshair {
 			return true;
 		}
 		boolean firstPerson = mc.options.getCameraType().isFirstPerson();
-		if (firstPerson && mc.getDebugOverlay().showDebugScreen() && !mc.player.isReducedDebugInfo()
+		// 1.20: the F3 screen is the options.renderDebug flag (DebugScreenOverlay
+		// owns it only from 1.20.2), and vanilla also requires !hideGui.
+		if (firstPerson && mc.options.renderDebug && !mc.options.hideGui && !mc.player.isReducedDebugInfo()
 				&& !mc.options.reducedDebugInfo().get()) {
 			return false;   // vanilla's 3D debug axes replace any crosshair
 		}
@@ -212,11 +216,11 @@ public final class OriginCrosshair {
 		RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE_MINUS_DST_COLOR, GlStateManager.DestFactor.ONE_MINUS_SRC_COLOR,
 				GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
 		if (full) {
-			g.blitSprite(ATTACK_FULL, x, y, 16, 16);
+			g.blit(ICONS, x, y, 68, 94, 16, 16);
 		} else if (strength < 1.0F) {
 			int w = (int) (strength * 17.0F);
-			g.blitSprite(ATTACK_BG, x, y, 16, 4);
-			g.blitSprite(ATTACK_PROGRESS, 16, 4, 0, 0, x, y, w, 4);
+			g.blit(ICONS, x, y, 36, 94, 16, 4);
+			g.blit(ICONS, x, y, 52, 94, w, 4);
 		}
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableBlend();
