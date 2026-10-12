@@ -423,12 +423,11 @@ public class CosmeticsScreen extends Screen {
 			// Drawn centred in the box; 1.21.1 put the feet 14 px lower than that
 			// (offset is in model units, before the scale).
 			Vector3f offset = new Vector3f(0, player.getBbHeight() / 2 + 14f / size, 0);
-			// What 1.21.10's renderEntityInInventory did: full light, no shadow,
-			// hitboxes or outline in the picture.
+			// What 1.21.10's renderEntityInInventory did: full light, no shadow
+			// or outline in the picture (hitboxes aren't on the state any more).
 			EntityRenderState state = Minecraft.getInstance().getEntityRenderDispatcher()
 					.getRenderer(player).createRenderState(player, 1.0f);
 			state.lightCoords = 15728880;
-			state.hitboxesRenderState = null;
 			state.shadowPieces.clear();
 			state.outlineColor = 0;
 			g.submitEntityRenderState(state, size, offset, pose, camera, bx0, by0, bx1, by1);

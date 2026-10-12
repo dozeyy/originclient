@@ -6,6 +6,25 @@ every session — read at session start alongside `./CLAUDE.md`.
 ---
 
 
+## 2026-10-12 — Cosmetics + every 1.21.1-only mod ported to all 16 versions
+
+Will: "add the cosmetics to any version also port all the mods for every version". Ported from
+1.21.1 to the other 15 live modules, one era per commit (f8c6407 1.20-1.21, d28f9ab+6629b14
+1.21.4, b1e8f30 1.21.6/1.21.8, 5b368c7 1.18.2-1.19.4, efe3af2 1.16.5/1.17.1, 922f0e6
+1.21.10/1.21.11):
+- Cosmetics (capes, halos, crown; Cosmetics screen; title/pause/menu-tab/Right Shift shirt
+  buttons), Portal Calculator, FPS Coach, the feedback round (Item Counter picker, Combo Players
+  Only + Reset After, Item Physics fix, singleplayer-only Minimap, trimmed Nick Hider,
+  screenshot buttons in chat), Mod Menu Layout. Color Saturation added to 1.16.5 (own PostChain).
+- JEI: Will said no substitute where Fabric JEI doesn't exist ("nah it's fine").
+- Dev shots of every module show the Cosmetics screen, the menu's Cosmetics tab and the Right
+  Shift shirt button matching 1.21.1 with zero mixin failures. In-world parts (capes on players,
+  halos, Item Physics, chat buttons) can't be seen by dev shots -> Will's in-game pass.
+- Dev shots caught the one compile break (1.21.4 ParticleStatus moved package). Era findings in
+  src/mods/docs/PORTING-ERA-NOTES.md -> "Findings from the feature port".
+- The Cosmetics screen itself is still the pre-redesign style (pixel font, small panel) on every
+  version including 1.21.1 -- offered to Will as a follow-up restyle.
+
 ## 2026-10-12 — Mod menu + Right Shift redesign, built and ported to every version
 
 Will's brief: combine Lunar and Origin, "100x better, cleaner", smooth font, then "use real

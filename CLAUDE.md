@@ -206,8 +206,12 @@ floating corner controls. In-game menus match this exactly.
   drawing), Will's v3 icon pack (design/icon-proposals/origin-icon-system-v3; generate_icons.py
   writes every live module). Dev shots of all 16 match 1.21.1 (`[shots:all]` or `[shots:a,b]` in a
   commit message). Per-era methods in src/mods/docs/PORTING-ERA-NOTES.md; 1.16.5 text = OriginTtfFont.
-  Cosmetics tab/button only on 1.21.1 (others have no CosmeticsScreen). HUD-editor drag mode itself
-  unchanged. Awaiting Will's in-game pass.
+  HUD-editor drag mode itself unchanged. Awaiting Will's in-game pass.
+- **Cosmetics + every 1.21.1-only mod on ALL 16 versions (2026-10-12, same branch, untagged):**
+  capes/halos/crown + Cosmetics screen and its buttons, Portal Calculator, FPS Coach, the feedback
+  round below, Mod Menu Layout; Color Saturation now on 1.16.5 too. Dev shots match 1.21.1 on all 16;
+  in-world parts await Will's in-game pass. Era findings in PORTING-ERA-NOTES.md. The Cosmetics
+  screen is still the old style everywhere (restyle offered).
 - **Lunar-parity mods on all 16 modules (2026-10-12, CI-green, not yet tagged — v1.0.43):**
   Lunar's mod set (Minimap, Direction HUD, Ping, Reach, Combo, Crosshair, Cooldowns, Item
   Physics, Boss Bar, Titles, Menu Blur, Nick Hider, Auto GG, Quickplay, Discord status,
@@ -216,15 +220,15 @@ floating corner controls. In-game menus match this exactly.
   own Menu Blur post chain below 1.20.5; Hurt Cam tilt / Shinypots speed / toast time sliders
   are no-ops below 1.19.4; no Wind Charge counter below 1.21. Mumble Link skipped (Will).
   Awaiting Will's in-game pass.
-- **Origin originals (2026-10-12, CI-green, untagged):** Portal Calculator + FPS Coach on 1.21.1
-  only (port after Will's pass); **Settings Sync** in the launcher (Core/Sync + Core/SettingsSync.cs,
+- **Origin originals (2026-10-12, CI-green, untagged):** Portal Calculator + FPS Coach (now on
+  all 16); **Settings Sync** in the launcher (Core/Sync + Core/SettingsSync.cs,
   off by default, Settings → Origin Client card) carries options.txt, originclient*.json, Sodium/Iris
   settings and servers.dat across every version's instance — three-way per-key merge, era value
   translations, resource packs + `version` never synced. Will chose these and said "that's it".
 - **Every live version on the 1.21.1 design (released 2026-10-11, launcher-v1.0.40):** all 16
   modules ported to the 1.21.1 title screen, menus, widget skin, mod menu and mod set,
   CI-compiled, awaiting Will's in-game pass. Differences by necessity: no JEI card on
-  1.21.2-1.21.8 / 1.17.1 / 1.16.5, no Color Saturation on 1.16.5. Detail in MEMORY.md;
+  1.21.2-1.21.8 / 1.17.1 / 1.16.5 (Will: no substitute). Detail in MEMORY.md;
   era notes in src/mods/docs/PORTING-ERA-NOTES.md.
 - **Custom installer (2026-10-11):** Inno Setup replaced by Origin Setup —
   themed Welcome/Customize/Installing/Done + uninstaller, smoke-tested
@@ -261,7 +265,7 @@ floating corner controls. In-game menus match this exactly.
 - **Video-Settings mod rail REMOVED (Will, 2026-10-12):** he didn't like the mod list on the
   left of Video Settings; 1.21.1's SodiumOptionsRailMixin + gui/SodiumModRail are deleted and
   Video Settings is plain Sodium again. Don't port it to other versions.
-- **Will's 2026-10-12 feedback round (1.21.1 only, CI-green, untagged; port after his pass):**
+- **Will's 2026-10-12 feedback round (now on all 16, untagged):**
   Item Counter picks any item in the Item Size grid (shared gui/OriginItemGridScreen); Combo
   gets Players Only + Reset After; Item Physics tumbles about the item centre and eases flat;
   Minimap is singleplayer-only; Screenshot pop-up replaced by buttons on the chat line

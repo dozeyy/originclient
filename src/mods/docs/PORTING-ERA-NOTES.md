@@ -71,6 +71,27 @@ What carries over from the October port (sections below are the evidence):
 - dev-shots.yml: put the module list in the tag, `[shots:a,b]`; a listed tag wins over any bare
   `[shots]` mentioned in prose, and runs without a tag never cancel a capture in progress.
 
+### Findings from the feature port (2026-10-12: cosmetics + Portal Calculator, FPS Coach, feedback round)
+- Capes by era: before 1.20.2 there is no PlayerSkin, so hook AbstractClientPlayer's four
+  getters (isCapeLoaded, getCloakTextureLocation, isElytraLoaded, getElytraTextureLocation);
+  1.20.2+ swap the cape inside getSkin's PlayerSkin; 1.21.2+ the elytra fallback texture is
+  textures/entity/equipment/wings/elytra.png; 1.21.11 wraps textures in ClientAsset.ResourceTexture.
+- Halos/crown head layer: 1.21.2+ draws from PlayerRenderState (look the wearer up by state id);
+  1.21.10+ submits custom geometry from an AvatarRenderState layer. 1.16.5's Fabric API has no
+  feature-renderer registration callback -> add the layer from the PlayerRenderer constructor.
+- Cosmetics preview (spinning player): renderEntityInInventory has a different shape in nearly
+  every era. Before 1.20 it can't take a yaw -> a mixin at its head sets the body/head rotation;
+  1.21.6+ uses the boxed (x0,y0,x1,y1) form; 1.21.10+ draws picture-in-picture.
+- Item Physics: from 1.21.2 one ItemEntityRenderState object is reused for every dropped item,
+  so per-item easing must be keyed off the state's entity id, never stored on the state alone.
+- FPS Coach: ParticleStatus moved package in the 1.21.2 line -> don't name the type; match the
+  option's value by name() and pick a sibling constant. 1.21.11 has no Fabulous graphics mode;
+  the tip turns off Improved Transparency instead. 1.18.2 writes the plain Options fields and
+  then runs vanilla's own reactions (no OptionInstance yet).
+- Screenshot chat buttons: 1.21.5+ ClickEvent/HoverEvent are records (ClickEvent.OpenFile etc.).
+- Networking: 1.16.5 is Java 8 -> HttpURLConnection, no java.net.http.
+- Color Saturation on 1.16.5: no core shaders, so it's its own vanilla PostChain.
+
 ## GuiGraphics era, pre-1.21 — ALL CONFIRMED by CI: 1.20 built green first try (build-check run 131)
 - ResourceLocation: `new ResourceLocation(ns, path)` / `new ResourceLocation("textures/...")`.
 - Immediate-mode quads: `BufferBuilder bb = Tesselator.getInstance().getBuilder();
