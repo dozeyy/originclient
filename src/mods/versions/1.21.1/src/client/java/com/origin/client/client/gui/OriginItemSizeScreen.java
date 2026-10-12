@@ -1,25 +1,33 @@
 package com.origin.client.client.gui;
 
 import com.origin.client.client.mods.ItemSizes;
-import com.origin.client.client.theme.OriginTheme;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.resources.ResourceLocation;
+
+import java.util.Locale;
+
+import static com.origin.client.client.gui.OriginDeck.*;
 
 /**
  * The Item Size Customizer — set a custom dropped-item render size per item.
  *
  * The shared item grid (OriginItemGridScreen); click an item to select it, then
- * drag the size slider (0.25x–3.0x) at the bottom. Sizes persist immediately via
- * {@link ItemSizes} and apply live to dropped items in-world (ItemEntityScaleMixin).
+ * drag the size slider (0.25x–3.0x) in the footer bar. Sizes persist immediately
+ * via {@link ItemSizes} and apply live to dropped items in-world
+ * (ItemEntityScaleMixin). Back / Esc / close return to the mod menu.
  */
 public class OriginItemSizeScreen extends OriginItemGridScreen {
 
 	private ResourceLocation selected = null;
 	private boolean draggingSlider = false;
+	private float sliderX0, sliderX1;   // the track, recorded while drawing (design px)
 
 	public OriginItemSizeScreen() {
-		super("Item Size", "Set dropped-item render sizes per item.", "item-size");
+		this(new OriginModMenuScreen());
+	}
+
+	public OriginItemSizeScreen(Screen returnTo) {
+		super("Item Size", "Set dropped-item render sizes per item.", "item-size", "itemsize", returnTo);
 	}
 
 	@Override
@@ -38,52 +46,42 @@ public class OriginItemSizeScreen extends OriginItemGridScreen {
 	}
 
 	@Override
-	protected int footerSpace() {
-		return selected != null ? 44 : 12;
+	protected float footerH() {
+		return selected != null ? 56 : 0;
 	}
 
+	// The selected item's bar: icon + name | size slider | value | Reset.
 	@Override
-	protected void renderFooter(GuiGraphics g, int mx, int my) {
-		if (selected != null) {
-			renderSizeBar(g, mx, my);
-		}
-	}
-
-	private void renderSizeBar(GuiGraphics g, int mx, int my) {
+	protected void drawFooter(OriginDeck d, float x, float y, float w, float h) {
 		Entry e = entryById(selected);
 		if (e == null) {
 			selected = null;
 			return;
 		}
-		int by = py() + ph() - 38;
-		int bx0 = gridLeft(), bx1 = gridRight();
-		OriginUi.panel(g, bx0, by, bx1 - bx0, 30, 8, OriginTheme.BOX_FILL, OriginTheme.BOX_BORDER);
-		drawItemIcon(g, e.stack(), bx0 + 6, by + 7, 16);
-		String name = OriginText.ellipsize(font, e.name(), 130);
-		OriginText.draw(g, font, name, bx0 + 28, by + 11, OriginTheme.TEXT, false);
+		d.rect(x, y, w, h, 8, CARD, LINE);
+		d.rect(x + 8, y + 8, 40, 40, 6, 0x0AFFFFFF);
+		drawItem(d, e.stack(), x + 8, y + 8, 40, 32);
+		d.textMid(d.fit(e.name(), 200, 14, true, 0), x + 60, y + h / 2, 14, true, 0, TEXT);
 
 		float size = ItemSizes.get(e.id());
-		// Reset button (right)
-		int rW = 46, rX = bx1 - 8 - rW;
-		boolean rHover = in(mx, my, rX, by + 6, rX + rW, by + 24);
-		float resetHp = OriginUi.hover("item-size:reset", rHover);
-		OriginUi.panel(g, rX, by + 6, rW, 18, 6,
-				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, resetHp),
-				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, resetHp));
-		OriginText.draw(g, font, "Reset", rX + (rW - OriginText.width(font, "Reset")) / 2, by + 11, OriginTheme.TEXT_DIM, false);
+		float rw = buttonW(d, "Reset", "@reset");
+		float rx = x + w - 12 - rw;
+		boolean custom = ItemSizes.isCustom(e.id());
+		button(d, "Reset", "@reset", rx, y + 12, rw, 32, Style.SECONDARY, custom, () -> ItemSizes.reset(selected));
 
-		// value label
-		String val = String.format("%.2fx", size);
-		int vW = OriginText.width(font, val);
-		int vX = rX - 8 - vW;
-		OriginText.draw(g, font, val, vX, by + 11, OriginTheme.TEXT, false);
+		String val = String.format(Locale.ROOT, "%.2fx", size);
+		float valW = d.textW("9.99x", 14, true, 0);
+		d.textRight(val, rx - 20, y + h / 2, 14, true, 0, TEXT);
 
-		// slider track (between name and value)
-		int trackX = bx0 + 170;
-		int trackW = vX - 10 - trackX;
-		if (trackW > 20) {
+		float tx = x + 280, tw = rx - 20 - valW - 20 - tx;
+		if (tw > 40) {
 			double t = (size - ItemSizes.MIN) / (ItemSizes.MAX - ItemSizes.MIN);
-			OriginUi.slider(g, trackX, by + 12, trackW, t, draggingSlider);
+			d.slider(tx, y + h / 2, tw, (float) t, draggingSlider);
+			d.hit(tx - 8, y + 8, tw + 16, h - 16, () -> {
+				draggingSlider = true;
+				sliderX0 = tx;
+				sliderX1 = tx + tw;
+			});
 		}
 	}
 
@@ -105,47 +103,25 @@ public class OriginItemSizeScreen extends OriginItemGridScreen {
 		return BY_ID.get(id);
 	}
 
-	// ---- slider math ----
-	private int[] sliderBounds() {
-		int by = py() + ph() - 38;
-		int bx0 = gridLeft(), bx1 = gridRight();
-		int rW = 46, rX = bx1 - 8 - rW;
-		String val = "9.99x";
-		int vX = rX - 8 - OriginText.width(font, val);
-		int trackX = bx0 + 170;
-		int trackW = vX - 10 - trackX;
-		return new int[]{trackX, by + 12, trackW};
-	}
+	// ---- slider ----
 
-	private void applySlider(double mx) {
-		int[] s = sliderBounds();
-		if (s[2] <= 0) {
+	private void applySlider(double guiMx) {
+		if (selected == null || sliderX1 <= sliderX0) {
 			return;
 		}
-		double t = Math.max(0, Math.min(1, (mx - s[0]) / (double) s[2]));
+		double t = Math.max(0, Math.min(1, (dX(guiMx) - sliderX0) / (double) (sliderX1 - sliderX0)));
 		double v = ItemSizes.MIN + t * (ItemSizes.MAX - ItemSizes.MIN);
 		v = Math.round(v * 20) / 20.0; // 0.05 steps
 		ItemSizes.set(selected, (float) v);
 	}
 
 	@Override
-	protected boolean footerClicked(double mx, double my) {
-		// selected size bar (slider + reset)
-		if (selected != null) {
-			int by = py() + ph() - 38;
-			int rW = 46, rX = gridRight() - 8 - rW;
-			if (in(mx, my, rX, by + 6, rX + rW, by + 24)) {
-				ItemSizes.reset(selected);
-				return true;
-			}
-			int[] s = sliderBounds();
-			if (my >= by && my <= by + 30 && mx >= s[0] - 4 && mx <= s[0] + s[2] + 4) {
-				draggingSlider = true;
-				applySlider(mx);
-				return true;
-			}
+	public boolean mouseClicked(double mx, double my, int button) {
+		boolean used = super.mouseClicked(mx, my, button);
+		if (draggingSlider) {   // a press on the track jumps the thumb there
+			applySlider(mx);
 		}
-		return false;
+		return used;
 	}
 
 	@Override
@@ -161,10 +137,5 @@ public class OriginItemSizeScreen extends OriginItemGridScreen {
 	public boolean mouseReleased(double mx, double my, int button) {
 		draggingSlider = false;
 		return super.mouseReleased(mx, my, button);
-	}
-
-	@Override
-	public void onClose() {
-		Minecraft.getInstance().setScreen(new OriginModMenuScreen());
 	}
 }

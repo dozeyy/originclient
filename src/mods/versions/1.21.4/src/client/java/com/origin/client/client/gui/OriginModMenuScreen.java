@@ -416,6 +416,8 @@ public class OriginModMenuScreen extends Screen {
 		lastOy = oy;
 		OriginDeck d = new OriginDeck(g, s, ox, oy, mouseX, mouseY, hits);
 		d.alpha = p;
+		// "Solid Menu Background" off: no panel, so the kit lifts the text over the world
+		d.seeThrough = OriginDeck.menuSeeThrough();
 		tip = null;
 
 		drawShell(d);

@@ -21,6 +21,8 @@ import net.minecraft.world.entity.Entity;
  * float, float)), which has no UUID - the state's entity id is looked up in
  * the client level, the same way LevelHeadMixin finds the tagged player. The
  * animation clock is the state's ageInTicks. PlayerModel is no longer generic.
+ * The Cosmetics screen's no-world preview submits a state with no entity
+ * behind it; it is told apart by MenuPlayerPreview.STATE_ID.
  */
 public final class CosmeticHeadLayer extends RenderLayer<PlayerRenderState, PlayerModel> {
 	private static boolean warned = false;
@@ -34,15 +36,21 @@ public final class CosmeticHeadLayer extends RenderLayer<PlayerRenderState, Play
 		if (state.isInvisible) {
 			return;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null) {
-			return;
+		String id;
+		if (state.id == MenuPlayerPreview.STATE_ID) {
+			// The Cosmetics screen's title-screen preview: a state with no entity.
+			id = MenuPlayerPreview.head();
+		} else {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.level == null) {
+				return;
+			}
+			Entity player = mc.level.getEntity(state.id);
+			if (player == null) {
+				return;
+			}
+			id = CosmeticsService.lookOf(player.getUUID()).head();
 		}
-		Entity player = mc.level.getEntity(state.id);
-		if (player == null) {
-			return;
-		}
-		String id = CosmeticsService.lookOf(player.getUUID()).head();
 		if (id == null) {
 			return;
 		}

@@ -199,8 +199,19 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-12)
-- **Latest release: `launcher-v1.0.45`; `launcher-v1.0.46` = the merge of claude/fervent-feynman-u4xm34**
-  (Will 2026-10-12: "just release it all and then ill test it all") (mandatory auto-update; tag flow).
+- **Latest release: `launcher-v1.0.46`** (2026-10-12; mandatory auto-update; tag flow). Tag `origin/main`
+  directly (`git tag launcher-v1.0.N origin/main`) — Will's local main once carried an unpushed commit and
+  his first v1.0.46 tag landed on it (run cancelled before publishing).
+- **Will's 2026-10-12 fix round, ALL 16 versions (branch claude/fervent-feynman-u4xm34, CI-green, untagged
+  — next release):** every Origin window (Cosmetics, FPS Coach, Quickplay, shader browser, Waypoints, Item
+  Size, Item Counter picker, full-screen map) rebuilt on gui/OriginWindow (the mod menu's panel/header/widgets
+  as a base class); see-through menu text readable (OriginDeck.seeThrough: legible() colours + soft halo);
+  Cosmetics: character shown from the title screen (cosmetics/MenuPlayerPreview, per era), drag spins the
+  other way; title + pause Cosmetics buttons identical to their neighbours (1.19.3 pause had none before);
+  icons fixed (Shinypots, Glint Colorizer, TNT Countdown, title Accessibility/Language); Color Saturation
+  black world / white vignette on 1.17.1-1.20.4 fixed (pre-1.20.5 BlendMode cache — see PORTING-ERA-NOTES).
+  Dev shots: `set: world` (OriginDevWorld creates a world: world_off/sat/bright, pause, cosmetics_world) and
+  `label` (parallel runs keep separate folders <module>[-world]-<label>). Awaiting Will's in-game pass.
 - **New mod menu + Right Shift screen on ALL 16 versions (2026-10-12, branch
   claude/fervent-feynman-u4xm34, merged for v1.0.46):** Will's approved mock (design/menu-redesign
   v5) built 1:1 on gui/OriginDeck (design-px kit, smooth Inter, click targets recorded while

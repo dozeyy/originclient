@@ -464,3 +464,229 @@ Module-evidenced (from the module's own boot-verified HEAD code) unless marked R
   with t.index('\t}\n') also matches the inner '\t\t}\n' of a nested block. Search '\n\t}\n'.
   Cheap local guard that would have caught it: `javac -proc:none -d /tmp/x $(find <module>/src
   -name '*.java')` and look for parse-level errors only (ignore cannot-find-symbol etc.).
+
+## Color Saturation black world / white vignette on 1.17.1-1.20.4 (satbug, 2026-10-12)
+- Symptom: Color Saturation on, no shader pack -> world black (daylight) or a white ring round the
+  screen edges (dim light); HUD fine. 1.21.x fine; an Iris pack hid it.
+- Root cause: before 1.20.5 every ShaderInstance applies its json "blend" through BlendMode.apply(),
+  which caches the last mode in a static and only touches GL when the mode CHANGES. Our grade shader
+  is opaque, so it left the cache on "opaque". Gui.render then draws the vignette with
+  blendFuncSeparate(ZERO, ONE_MINUS_SRC_COLOR) and blits via position_tex, whose json blend is
+  srcalpha/1-srcalpha: apply() saw opaque -> translucent and re-set blendFunc(SRC_ALPHA,
+  ONE_MINUS_SRC_ALPHA), wiping the vignette's multiply. The opaque vignette texture (black centre,
+  light edges, tinted by vignetteBrightness) got pasted over the world. 1.20.5+ has no BlendMode.
+- Fix (render/ColorGrade, 1.17.1-1.20.4): after the grade passes, apply a
+  BlendMode(SRC_ALPHA, ONE_MINUS_SRC_ALPHA, ADD) (GUI_BLEND) so the cache holds the mode vanilla's GUI
+  shaders declare, then reset GL blend as before. 1.16.5 is unaffected (fixed-function HUD; its
+  grade is a PostChain whose EffectInstances re-apply their own blend).
+- Rule for any custom core shader drawn mid-frame on 1.17-1.20.4: leave BlendMode's cache in the mode
+  vanilla's next draw expects, not just the raw GL blend state.
+
+## Fix-round port (2026-10-12) — 1.21.4 (covers 1.21.2-1.21.4; agent port-b)
+- 1.21.4's copies of every fix-round file except OriginDeck/CosmeticsScreen/Shader browser/Minimap
+  were BYTE-IDENTICAL to 1.21.1's pre-round copies (d0b50d6), so a 3-way merge (base = d0b50d6
+  1.21.1, ours = 1.21.4, theirs = 1.21.1 HEAD) took them clean. Dev shots design + world matched
+  1.21.1-final on the first CI run (run 38283734918 / 38283738772), zero mixin failures.
+- Blits in the new windows (Cosmetics cape tiles, shader previews): `g.blit(RenderType::guiTextured,
+  id, x, y, u, v, dstW, dstH, srcW, srcH, texW, texH, ARGB.white(alpha))` — the fade rides the
+  trailing ARGB, never setShaderColor. The deck's raw-scissor clip already flushes on enter/exit, so
+  queued blits inside the shader list stay clipped.
+- See-through halos: OriginDeck.halo snaps each pill to whole physical px before OriginUi.roundRect,
+  so the baked-mask renderer bakes one cap mask per pill HEIGHT (shared by every label that size)
+  instead of a whole-shape mask per label per ring, which would churn the 160-entry mask LRU.
+- MenuPlayerPreview (title-screen character): this era has no model-only path worth copying
+  (no renderCloak; cape is PlayerCapeModel) and no EntityRenderDispatcher.getSkinMap (gone by 1.21.2,
+  checked against yarn 1.21.4 mappings). Instead: OriginClientMod's
+  LivingEntityFeatureRendererRegistrationCallback hands its EntityRendererProvider.Context to
+  MenuPlayerPreview.onRenderersCreated (refreshed every reload); the preview builds its own
+  `new PlayerRenderer(ctx, slim)` (anonymous subclass whose initializer calls addLayer(new
+  CosmeticHeadLayer(this)), since Fabric's callback only runs for the game's renderers), fills a
+  PlayerRenderState by hand (skin with the Origin cape swapped in, bodyRot = 180 + yaw, show* parts
+  from options, id = STATE_ID) and draws it with `g.flush(); g.drawSpecial(buf -> renderer.render(st,
+  pose, buf, LIGHT))` under Lighting.setupForEntityInInventory. GuiGraphics has no bufferSource()
+  getter here. CosmeticHeadLayer reads the head item from MenuPlayerPreview.headId() when
+  state.id == STATE_ID (no level needed). Proven by dev shots: cape + halo on the title preview.
+- MinimapScreen: 1.21.1's restyle with the map as GuiMesh geometry (MinimapRenderer takes g; GuiMesh
+  flushes the batch itself), so the deck's well lands under it and the chrome over it.
+- CosmeticsPauseMixin: 1.21.2-1.21.4 createPauseMenu is still the GridLayout + alignInRectangle(0.5,
+  0.25) shape, so 1.21.1's TAIL logic applies verbatim (pause shot: Cosmetics row identical to its
+  neighbours, stack lifted like vanilla).
+
+## Fix-round port (2026-10-12) — 1.20, 1.20.2, 1.20.4, 1.21 (GuiGraphics, pre-1.21.2; agent port-a)
+- Same method as port-b: 3-way merge (base = d0b50d6 1.21.1, ours = module, theirs = 1.21.1 HEAD).
+  1.21 was byte-identical to the base for every file (wholesale copy; only CosmeticsPauseMixin's
+  comment differed). 1.20.2/1.20.4 conflicted only where they already carried era deltas; the
+  merged trees for the two are identical. Dev shots design + world (label port-a, runs 38283557661 /
+  38283561618) matched 1.21.1-final on the first run on all four, zero mixin failures.
+- 1.20 (1.20.1) era edits on the 1.21.1 windows: 3-arg `mouseScrolled(mx, my, amount)` (OriginWindow
+  and every window that overrides it), `renderBackground(GuiGraphics)` one-arg (OriginWindow keeps it
+  as an empty override; Screen.render never calls it before 1.20.2, so MinimapScreen.render calls
+  its own), `mc.getFrameTime()` for the map's partial tick (1.20.2/1.20.4 too). The 1.20 windows'
+  old explicit `renderBackground(g)` calls are gone: OriginWindow.render paints the backdrop itself.
+- In-world Cosmetics preview: renderEntityInInventory takes an INT scale before 1.20.5 (round it);
+  1.20.2-1.20.4 have float x/y + the Vector3f centring offset; 1.20.1 has int x/y and no offset
+  ((x, y) = feet) -> push, translate to the exact feet point (y + bbHeight/2 * scale), draw at 0,0.
+- MenuPlayerPreview: `renderToBuffer(..., 1f, 1f, 1f, 1f)` (the int-colour form is 1.21+).
+  1.20.2/1.20.4: `getSkinManager().getInsecureSkin(mc.getGameProfile())` -> PlayerSkin each frame
+  (SkinManager caches; module-evidenced in the title chip) instead of 1.21.1's lookupInsecure.
+  1.20.1 has no PlayerSkin: a private Skin(texture, slim, cape) record, NickHider's three getters
+  (skinFor/modelFor/capeFor), and the session profile's signed textures fetched ONCE off-thread with
+  `getMinecraftSessionService().fillProfileProperties(profile, false)` on Util.backgroundExecutor()
+  (a bare UUID+name profile always yields the default skin there), then getInsecureSkinInformation
+  + registerTexture for skin/cape and the "model" metadata for slim. Compiles + renders (dev shot);
+  the real-skin path itself is unproven offline. NOTE: the 1.20 title-screen head chip still builds
+  a bare profile, so it shows the default head for real accounts — candidate for the same fix.
+- Pause menu: 1.20.1-1.21 createPauseMenu is the GridLayout + alignInRectangle(0.5, 0.25) shape;
+  1.21.1's TAIL logic applies verbatim (pause shots: Cosmetics row identical to its neighbours).
+- Title: the merge put `setTitlePresentation(cosmeticsNav, "@shirt", false)` into each module's own
+  Cosmetics block (1.20/1.20.2/1.20.4 keep their AbstractWidgetAccessor height setter + redirects).
+
+## Fix-round port (2026-10-12) — 1.21.6 / 1.21.8 (deferred GuiRenderState era; agent port-c)
+Dev shots `1.21.{6,8}-port-c` + `1.21.{6,8}-world-port-c` (commit 05d23fb) compiled and ran clean on the
+first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG matches 1.21.1-final.
+- Method: 3-way `git merge-file` per file (base = 1.21.1 @ d0b50d6, ours = module, theirs = 1.21.1 HEAD);
+  files 1.21.1 rewrote (Cosmetics, FPS Coach, item grid, shader browser, map) take theirs whole + era
+  edits. The two src/ trees were byte-identical, so 1.21.8 was ported and copied to 1.21.6.
+- OriginWindow: never draws the title backdrop from render() (double-blur trap); renderBackground calls
+  super only out of a world (ScreenBackgroundMixin = the one blur), and in a world render() asks
+  MenuBlur.renderBehind. Subclasses drop their own renderBackground overrides.
+- No z in the deferred GUI: OriginItemGridScreen.inFront just runs the draws (later + overlapping =
+  higher layer); drawItem is translate/scale(k,k) on the Matrix3x2fStack.
+- Pipeline blits with the fade in the trailing ARGB (cape art, shader previews):
+  `blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, uW, vH, texW, texH, argb)`, u/v before size.
+- Cosmetics preview = picture-in-picture. The PiP box is GUI px (the deck's 1/guiScale pose is ignored),
+  so the card's inside is converted and rounded inward; the box centre is the entity anchor, so 1.21.1's
+  placement rides the translation: offset = (shiftX/scale, bbH/2 + shiftY/scale, 0) with shift = wanted
+  centre - box centre in GUI px. In a world: the boxed renderEntityInInventory (pin the *O rotations too).
+- MenuPlayerPreview (no world): fills a `new PlayerRenderState()` itself (entityType PLAYER, sentinel id,
+  ageInTicks, skin with the Origin cape swapped in, show* from Skin Customization, capeFlap = sway,
+  bodyRot = 180 + yaw) and calls `g.submitEntityRenderState(state, size, offset, rotation, camera,
+  x0, y0, x1, y1)`; vanilla's PlayerRenderer draws body + CapeLayer. CosmeticHeadLayer recognises the
+  sentinel id (MenuPlayerPreview.STATE_ID) and wears MenuPlayerPreview.head() — no entity to look up.
+  All those PlayerRenderState fields compile on 1.21.6 and 1.21.8.
+- OriginDevWorld: Screenshot.grab is the 3-arg dated-file form here; it reuses OriginDevShots.renameShot
+  (now package-private) and waits 2.5 s after the last capture so the async PNG lands before stop().
+- Pause menu: 1.21.6/1.21.8 createPauseMenu is still GridLayout + alignInRectangle(0.5, 0.25); 1.21.1's
+  TAIL logic applies verbatim (pause shot: Cosmetics row identical width/height/gap, stack lifted).
+- Harness note: the first shaders_1920x1080 capture on 1.21.8 caught the window mid-fade (first open
+  stalls on the preview fetch); the 1366 shot and 1.21.6's are settled with previews. Timing, not code.
+
+## Fix-round port (2026-10-12) — 1.18.2, 1.19.2, 1.19.3, 1.19.4 (pre-1.20 Gfx era; agent port-e)
+- Method: the four modules' copies of every touched file were near-identical (diffs = TextComponent on
+  1.18.2, Registry/com.mojang.math on <=1.19.2, the inventory-entity steps on <=1.19.3), so 1.19.4 was
+  generated from 1.21.1 HEAD (GuiGraphics -> Gfx, PoseStack render, 3-arg mouseScrolled, asserted edits)
+  and the other three DERIVED from that with only those deltas. Light-touch files (OriginDeck, OMMS,
+  HudEditorScreen, TitleScreenMixin, OriginDevShots) took 1.21.1's change by 3-way merge onto each
+  module's own copy (only comment conflicts). Design + world dev shots matched 1.21.1-final on all four
+  first run (label port-e); runClient clean, no Mixin apply failures.
+- OriginWindow: render(PoseStack) wraps Gfx; the no-op override is renderBackground(PoseStack). The
+  backdrop (renderTitleBackground / MenuBlur.renderBehind) is drawn by render() itself, as on 1.21.1.
+- MenuPlayerPreview without PlayerSkin: skin + "slim" metadata + the account's own cape come from
+  SkinManager.registerSkins(profile, (type, location, texture) -> ..., true) (default skin until the
+  callback lands, same as the account chip); renderToBuffer takes four colour floats; draw with
+  mc.renderBuffers().bufferSource() + endBatch() (no GuiGraphics.flush). Profile =
+  mc.getUser().getGameProfile(). Pre-JOML (<=1.19.2): Vector3f.ZP.rotation(PI).mul(XP.rotation(-0.12))
+  and Vector3f.YP/XP.rotationDegrees instead of Quaternionf / Axis (1.19.3 already has both).
+- In-world Cosmetics preview: 1.19.4 replays renderEntityInInventory on the GUI PoseStack, so it follows
+  the deck pose like 1.21.1; <=1.19.3 positions through RenderSystem's model-view stack and IGNORES the
+  GUI PoseStack -- pass GUI-px coordinates (1.21.1's gx/gy) and the feet point (centre + scale*height/2).
+- Item icons in the grid: <=1.19.3 Gfx.renderItem folds the pose into the model-view, so the deck's
+  physical-px pose + 16px snapping works unchanged. Z_OVER is 900 here, not 1000: the pre-1.20 GUI depth
+  range ends at z 1000 (ortho near 1000 under a -2000 model-view), so 1000 sits on the clip plane.
+- Pause menu: 1.19.3's createPauseMenu adds ONE GridWidget holding the buttons (1.19.4's GridLayout hands
+  them to the screen via visitWidgets), so the old children()-scan found no buttons and 1.19.3 had NO
+  Cosmetics button. CosmeticsPauseMixin now walks ContainerEventHandler children recursively.
+  <=1.19.2 has no grid: rows sit at fixed offsets from height/4 (top-anchored), so the row is appended
+  without the 1.19.4+ quarter-row lift; Button constructor, public x/y fields.
+- MinimapScreen: the dark fill is the first draw in render(PoseStack) (no renderBackground stratum),
+  getFrameTime() for partial ticks, no flush; Matrix4f is com.mojang.math on <=1.19.2.
+- OriginDevWorld: 1.21.1's file applies verbatim on all four (PauseScreen(true), Screenshot.grab(File,
+  String, RenderTarget, Consumer) and I18n button pressing exist back to 1.18.2).
+
+## Fix-round port (2026-10-12) — 1.21.10 / 1.21.11 (1.21.9+ input + submit/extract era; agent port-d)
+- Method: 1.21.1 HEAD copies into 1.21.11 + scripted, count-asserted era edits, then 1.21.10 derived from
+  the finished 1.21.11 by the back-map (Identifier -> ResourceLocation, net.minecraft.util.Util ->
+  net.minecraft.Util, model.player.PlayerModel -> model.PlayerModel, InventoryScreen's 10-arg
+  renderEntityInInventory). Design + world dev shots (runs 38284298361 / 38284302120) compiled and matched
+  1.21.1-final on the first run; zero mixin failures.
+- OriginWindow: deferred GUI -> the backdrop lives in renderBackground (level == null: super, i.e. the
+  ScreenBackgroundMixin Origin backdrop; in a world: MenuBlur.renderBehind + renderDeferredSubtitles), the
+  OMMS pattern; render() draws none (double-blur trap). Input overrides take MouseButtonEvent / KeyEvent /
+  CharacterEvent; every subclass unpacks x/y/button at the top and passes the same event to super.
+- OriginDeck see-through: 1.21.1's hunks apply as-is; halo pills are OriginUi.roundRect render states
+  submitted before the text, so they layer under it. The deck-corner mask cache is keyed by radius in 1/8 px
+  (unbounded but small: halo radii are text-height sized).
+- Item grids: no pose z on Matrix3x2fStack. inFront() just runs the draws: a box submitted after items it
+  overlaps lands in a higher GuiRenderState layer, which is all 1.21.1's Z_OVER lift did. Items keep the
+  16*k physical-px snap via pose.scale(k, k) + renderFakeItem (item atlas, nearest = crisp).
+- Blits (cape tiles, shader previews): g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, uW, vH,
+  texW, texH, argb) with the fade in the trailing ARGB; the deck clip is on GuiGraphics' scissor stack,
+  which the blit state captures.
+- Cosmetics preview = picture-in-picture: submitEntityRenderState(state, scale, offset, rotation, camera,
+  x0, y0, x1, y1) ignores the pose, so the box is the card's inside in whole GUI px and the offset moves the
+  model's middle off the box centre: offset = ((cx - boxCx)/scale, bbH/2 + (cy - boxCy)/scale, 0).
+- MenuPlayerPreview (no world): a hand-filled `new AvatarRenderState()` (entityType PLAYER, id = STATE_ID,
+  skin from SkinManager.createLookup(profile, false) with the Origin cape swapped in as a
+  ClientAsset.ResourceTexture like CosmeticCapeMixin, show* parts from options, bodyRot = 180 + yaw,
+  capeFlap for the sway) submitted the same way. EntityRenderDispatcher.getRenderer(state) picks the
+  player renderer from state.skin.model(), so vanilla's layers (cape) and Fabric-registered ones run.
+  CosmeticHeadLayer reads the head item from MenuPlayerPreview.headFor(state) when state.id == STATE_ID
+  (no level entity). Proven by dev shots: skin + cape + halo on the title-screen preview, both modules.
+- MinimapScreen: MinimapRenderer takes the GuiGraphics here (no flush / depth toggles); the two deck passes
+  layer around the map by submission order.
+- OriginDevWorld: GLFW.glfwSetWindowSize(window.handle()) + resizeDisplay(); buttons pressed with
+  b.onPress(new KeyEvent(GLFW_KEY_ENTER, 0, 0)); every capture waits for the dated PNG and renames it
+  before the next phase (an extra phase keeps mc.stop() until the last rename lands).
+- CosmeticsPauseMixin: 1.21.10/1.21.11 createPauseMenu is still the GridLayout + alignInRectangle(0.5, 0.25)
+  shape, so 1.21.1's TAIL logic applies verbatim (pause shot: Cosmetics row identical, stack lifted).
+- Removed a stray tracked javac.*.args from the 1.21.11 module root.
+
+## Fix-round port (2026-10-12) — 1.17.1 / 1.16.5 (pre-1.20 Gfx era, 1.16.5 fixed function; agent port-f)
+- Method: every new 1.21.1 window taken WHOLE from 1.21.1 HEAD and run through one mechanical pass
+  (GuiGraphics -> Gfx, Component.literal -> new TextComponent, render(PoseStack) + `Gfx g = new
+  Gfx(poseStack)`, 3-arg mouseScrolled) plus a few asserted era edits per file; 1.16.5 is then
+  derived from the PORTED 1.17.1 file (Java 8: records -> value classes, switch rules/expressions ->
+  classic switch, `var` -> explicit types, List.of/Set.of -> Collections/Arrays). The old modules'
+  window files were the pre-redesign generation, so merging hunks would have been slower than this.
+  Dev shots design + world matched 1.21.1-final on the first CI run for both modules (1.17.1 runs
+  38284056654 / 38284060812; 1.16.5 world 38284374367, design 38284757200 after one Loom
+  downloadAssets hiccup); zero mixin failures.
+- OriginWindow: no renderBackground override (Screen.render never paints one before 1.20.2;
+  render() draws the title backdrop / MenuBlur itself like the mod menu). OriginDeck's see-through
+  code is 1.21.1's verbatim apart from each module's own text path (1.17.1 OriginSdfFont, 1.16.5
+  OriginTtfFont) and OriginUi.roundRect arity (1.16.5's software path takes no aaPad).
+- Cosmetics preview, both previews in GUI px through the era's GLOBAL matrix stack (the deck's
+  PoseStack never reaches them): in-world = the module's own renderEntityInInventory(x, feetY,
+  intScale, 0, -14.31, player) + CosmeticsPreviewMixin yaw (feet = centre + bbHeight*scale/2).
+  MenuPlayerPreview replays renderEntityInInventory + LivingEntityRenderer by hand: 1.17.1
+  RenderSystem.getModelViewStack()/applyModelViewMatrix + Lighting.setupForEntityInInventory +
+  `new PlayerModel<>(getEntityModels().bakeLayer(ModelLayers.PLAYER[_SLIM]), slim)` +
+  Options.isModelPartEnabled; 1.16.5 RenderSystem.pushMatrix/translatef/scalef, NO Lighting call
+  (the GUI already runs under setupFor3DItems, as the vanilla inventory preview does),
+  `new PlayerModel<>(0f, slim)`, Options.getModelParts().contains(part). Both: renderToBuffer
+  8-arg float-colour form, pre-JOML Vector3f.XP/YP/ZP quaternions, and the skin/arm model/cape from
+  SkinManager.registerSkins(profile, callback, true) (the title chip's call; for YOUR profile it
+  fills the textures from Minecraft.getProfileProperties()), default skin until it arrives.
+  Proven by dev shots: default Alex/Steve with Orbit cape + halo on the title preview.
+- Cape tiles / shader thumbnails: Gfx's 11-arg blit; tint = RenderSystem.setShaderColor on 1.17.1,
+  RenderSystem.color4f on 1.16.5 (fixed function multiplies by the GL colour).
+- Item grid: renderFakeItem goes through Gfx (model-view stack on 1.17.1, legacy GL stack on
+  1.16.5), so the pose's (k, k, k/gs) scale applies unchanged. Z_OVER is 600, not 1000: the pre-1.20
+  GUI projection keeps z only in (-1000, 1000) (ortho 1000..3000 around a -2000 shift), so 1000
+  sits on the clip plane. 1.16.5's inFront also switches the depth test off around the lifted draws
+  (belt and braces; shots look the same with it). No DataComponents/MaceItem/BuiltInRegistries:
+  Registry.ITEM, `instanceof DiggerItem`, `item.isEdible()`.
+- Minimap: backdrop filled at the top of render(), mc.getFrameTime(), no g.flush(); 1.16.5 has no
+  Entity.getBlockX/Z -> Mth.floor(getX()). Waypoints: 1.16.5 ground search floor is y=0.
+- Pause menu: not a GridLayout before 1.19.4 (fixed rows from height/4), but 1.21.1's TAIL logic is
+  generic over the buttons it finds, so it ports with public x/y fields (`b.y -= lift`), the plain
+  Button constructor, and addButton on 1.16.5. Pause shots: Cosmetics row identical to its
+  neighbours, stack lifted a quarter row.
+- OriginDevWorld: 1.17.1 = 1.21.1's verbatim (setWindowed, 4-arg Screenshot.grab, "selectWorld.create"
+  on both world screens). 1.16.5: GLFW.glfwSetWindowSize + resizeDisplay, the 6-arg grab with the
+  framebuffer size, Java 8 loop. Both create a world and capture all five shots.
+- 1.17.1 Color Saturation, first in-world check: world_sat/world_bright grade correctly (mean HSV
+  saturation 151 -> 197, value 93 -> 103; 1.21.1: 138 -> 177, 117 -> 129), no black world, no white
+  vignette, so render/ColorGrade.java is unchanged. 1.16.5's PostChain grade also behaves (174 -> 233).
+- Dev-shot timing: a 1.16.5 window caught mid open-slide once (panel 3 px low) under the software
+  rasteriser; the rerun was exact. Compare panel edges before calling a layout off by a few px.

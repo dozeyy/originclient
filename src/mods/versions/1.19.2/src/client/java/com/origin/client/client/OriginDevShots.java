@@ -31,9 +31,18 @@ public final class OriginDevShots {
 
 	/** What a shot opens before capturing. */
 	private enum Kind {
-		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS;
+		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS,
+		// every other Origin window (the 2026-10-12 restyle onto gui/OriginWindow)
+		FPSCOACH, WAYPOINTS, ITEMSIZE, ITEMCOUNTER, QUICKPLAY, SHADERS,
+		// the mod menu with "Solid Menu Background" off (the see-through mode)
+		MENU_CLEAR;
 
 		Screen open() {
+			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
+			if (savedBgOpacity < 0) {
+				savedBgOpacity = com.origin.client.client.mods.Mods.metaNum("menuBgOpacity", 1.0);
+			}
+			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", this == MENU_CLEAR ? 0.0 : 1.0);
 			return switch (this) {
 				case TITLE -> new TitleScreen();
 				case MENU -> new OriginModMenuScreen().preview(false, false);
@@ -45,6 +54,13 @@ public final class OriginDevShots {
 				case RSHIFT -> new HudEditorScreen(true);
 				// The cosmetics locker, opened from the menu's Cosmetics tab.
 				case COSMETICS -> new com.origin.client.client.gui.CosmeticsScreen(null);
+				case FPSCOACH -> new com.origin.client.client.gui.FpsCoachScreen(null);
+				case WAYPOINTS -> new com.origin.client.client.waypoints.WaypointScreen();
+				case ITEMSIZE -> new com.origin.client.client.gui.OriginItemSizeScreen();
+				case ITEMCOUNTER -> new com.origin.client.client.gui.ItemCounterPickerScreen();
+				case QUICKPLAY -> new com.origin.client.client.gui.QuickplayScreen();
+				case SHADERS -> new com.origin.client.client.shaders.ShaderBrowserScreen(null);
+				case MENU_CLEAR -> new OriginModMenuScreen().preview(false, false);
 			};
 		}
 	}
@@ -56,16 +72,18 @@ public final class OriginDevShots {
 	}
 
 	private static final List<Shot> SHOTS = new ArrayList<>();
+	private static double savedBgOpacity = -1;
+	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
+	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
 
 	static {
-		if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+		if (WORLD) {
+			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review (the menu / HUD-editor redesign loop): every screen at
 			// the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
 				for (Kind k : Kind.values()) {
-					if (k == Kind.TITLE) {
-						continue;   // the title isn't part of this redesign
-					}
 					SHOTS.add(new Shot(s[0], s[1], 0, k));
 				}
 			}
@@ -135,6 +153,10 @@ public final class OriginDevShots {
 			}
 			return;
 		}
+		if (WORLD) {
+			OriginDevWorld.tick(mc, DIR);
+			return;
+		}
 		if (now < nextAt) {
 			return;
 		}
@@ -195,6 +217,9 @@ public final class OriginDevShots {
 
 	private static void finish(Minecraft mc) {
 		done = true;
+		if (savedBgOpacity >= 0) {
+			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", savedBgOpacity);
+		}
 		try {
 			if (savedScale >= 0) {
 				mc.options.guiScale().set(savedScale);

@@ -251,6 +251,10 @@ public class HudEditorScreen extends Screen {
 		deckOy = win.getHeight() / 2f;
 		OriginDeck d = new OriginDeck(g, deckS, deckOx, deckOy, mouseX, mouseY, hits);
 		d.alpha = in;
+		// the wordmark sits straight on the game world (this screen never has a
+		// panel), so it always gets the kit's see-through legibility; the buttons'
+		// own opaque fills keep their labels as they were drawn
+		d.seeThrough = true;
 
 		float logoY = (float) OriginTheme.lerp(-40, -92, in);
 		d.logo(0, logoY, 96, 0.2f);

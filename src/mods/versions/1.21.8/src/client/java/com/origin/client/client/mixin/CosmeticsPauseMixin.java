@@ -11,16 +11,29 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Adds a "Cosmetics" button under the pause menu's own buttons, so a player
- * can change what they wear without leaving the world. Kept separate from
+ * Adds a "Cosmetics" row under the pause menu's own buttons, so a player can
+ * change what they wear without leaving the world. Kept separate from
  * PauseScreenMixin (which is shared across versions) because cosmetics don't
- * ship on every version yet. Fail-soft: if the layout can't be read, the menu
- * is left exactly as vanilla draws it.
+ * ship on every version yet.
+ *
+ * It must be indistinguishable from its neighbours, so nothing about it is
+ * hand-tuned: it is a plain vanilla Button (skinned by OriginButtonRenderer
+ * exactly like every other pause button), and its bounds are COPIED from the
+ * menu's own full-width row (Back to Game / Save and Quit) with the menu's own
+ * row gap. Vanilla's grid sits a quarter of the way down the free space
+ * (FrameLayout.alignInRectangle(..., 0.5F, 0.25F)), so a grid one row taller
+ * would sit a quarter-row higher: the stack is lifted by that much, exactly as
+ * if the row had been in vanilla's grid, and never above the title's 50px
+ * clearance. Fail-soft: if the layout can't be read, the menu stays vanilla.
  */
 @Mixin(PauseScreen.class)
 public abstract class CosmeticsPauseMixin extends Screen {
-	private static final int WIDTH = 204, HEIGHT = 20, GAP = 4;
+	/** Vanilla's first-row top padding (room for the "Game Menu" title). */
+	private static final int TITLE_CLEARANCE = 50;
 
 	protected CosmeticsPauseMixin(Component title) {
 		super(title);
@@ -29,21 +42,42 @@ public abstract class CosmeticsPauseMixin extends Screen {
 	@Inject(method = "createPauseMenu", at = @At("TAIL"))
 	private void originclient$cosmeticsButton(CallbackInfo ci) {
 		try {
-			int bottom = Integer.MIN_VALUE;
-			int left = 0;
+			List<Button> buttons = new ArrayList<>();
 			for (GuiEventListener child : this.children()) {
 				if (child instanceof Button b) {
-					bottom = Math.max(bottom, b.getY() + b.getHeight());
-					left = b.getX();
+					buttons.add(b);
 				}
 			}
-			if (bottom == Integer.MIN_VALUE) {
+			if (buttons.isEmpty()) {
 				return;
+			}
+			// The full-width row template: the widest button (Save and Quit / Back
+			// to Game), and the lowest one for the bottom edge.
+			Button wide = buttons.get(0);
+			Button low = buttons.get(0);
+			int top = Integer.MAX_VALUE;
+			for (Button b : buttons) {
+				if (b.getWidth() > wide.getWidth()) wide = b;
+				if (b.getY() + b.getHeight() > low.getY() + low.getHeight()) low = b;
+				top = Math.min(top, b.getY());
+			}
+			// The menu's own row gap: distance from the lowest row to the row above it.
+			int gap = 4;
+			int above = Integer.MIN_VALUE;
+			for (Button b : buttons) {
+				int bottom = b.getY() + b.getHeight();
+				if (bottom <= low.getY()) above = Math.max(above, bottom);
+			}
+			if (above != Integer.MIN_VALUE) gap = low.getY() - above;
+			int h = wide.getHeight();
+			int lift = Math.max(0, Math.min((h + gap) / 4, top - TITLE_CLEARANCE));
+			for (Button b : buttons) {
+				b.setY(b.getY() - lift);
 			}
 			final Screen self = this;
 			this.addRenderableWidget(Button.builder(Component.literal("Cosmetics"),
 					b -> this.minecraft.setScreen(new CosmeticsScreen(self)))
-					.bounds(left, bottom + GAP, WIDTH, HEIGHT).build());
+					.bounds(wide.getX(), low.getY() + low.getHeight() + gap, wide.getWidth(), h).build());
 		} catch (Throwable ignored) {
 			// fail-soft: the pause menu stays vanilla
 		}

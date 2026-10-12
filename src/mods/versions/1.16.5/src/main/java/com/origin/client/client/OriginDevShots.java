@@ -17,9 +17,10 @@ import java.util.List;
  * boots to the title screen, then walks a matrix of window sizes × GUI scales,
  * capturing the TITLE (after its entrance animation) and the MOD MENU at each,
  * into {@code $ORIGIN_SHOTS/screenshots/}, and finally quits. With
- * {@code ORIGIN_SHOTS_SET=design} it instead captures the mod menu (grid + list),
- * a mod's settings page, the Settings tab, the Right Shift screen and the
- * Cosmetics screen at two sizes
+ * {@code ORIGIN_SHOTS_SET=design} it instead captures the title, the mod menu
+ * (grid + list + see-through), a mod's settings page, the Settings tab, the
+ * Right Shift screen and every Origin window at two sizes; with
+ * {@code ORIGIN_SHOTS_SET=world} OriginDevWorld captures inside a fresh world
  * (.github/workflows/dev-shots.yml). This is how a
  * layout change gets LOOKED AT on every aspect ratio before it reaches Will —
  * no more "compiles, ships, looks wrong".
@@ -33,9 +34,18 @@ public final class OriginDevShots {
 
 	/** What a shot opens before capturing. */
 	private enum Kind {
-		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS;
+		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS,
+		// every other Origin window (the 2026-10-12 restyle onto gui/OriginWindow)
+		FPSCOACH, WAYPOINTS, ITEMSIZE, ITEMCOUNTER, QUICKPLAY, SHADERS,
+		// the mod menu with "Solid Menu Background" off (the see-through mode)
+		MENU_CLEAR;
 
 		Screen open() {
+			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
+			if (savedBgOpacity < 0) {
+				savedBgOpacity = com.origin.client.client.mods.Mods.metaNum("menuBgOpacity", 1.0);
+			}
+			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", this == MENU_CLEAR ? 0.0 : 1.0);
 			switch (this) {
 				case TITLE:
 					return new TitleScreen();
@@ -51,6 +61,20 @@ public final class OriginDevShots {
 				case COSMETICS:
 					// The cosmetics locker, opened from the menu's Cosmetics tab.
 					return new com.origin.client.client.gui.CosmeticsScreen(null);
+				case FPSCOACH:
+					return new com.origin.client.client.gui.FpsCoachScreen(null);
+				case WAYPOINTS:
+					return new com.origin.client.client.waypoints.WaypointScreen();
+				case ITEMSIZE:
+					return new com.origin.client.client.gui.OriginItemSizeScreen();
+				case ITEMCOUNTER:
+					return new com.origin.client.client.gui.ItemCounterPickerScreen();
+				case QUICKPLAY:
+					return new com.origin.client.client.gui.QuickplayScreen();
+				case SHADERS:
+					return new com.origin.client.client.shaders.ShaderBrowserScreen(null);
+				case MENU_CLEAR:
+					return new OriginModMenuScreen().preview(false, false);
 				default:
 					// RSHIFT: the Right Shift screen (HUD editor + the Origin centre group).
 					return new HudEditorScreen(true);
@@ -115,16 +139,18 @@ public final class OriginDevShots {
 	}
 
 	private static final List<Shot> SHOTS = new ArrayList<>();
+	private static double savedBgOpacity = -1;
+	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
+	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
 
 	static {
-		if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+		if (WORLD) {
+			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review (the menu / HUD-editor redesign loop): every screen at
 			// the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
 				for (Kind k : Kind.values()) {
-					if (k == Kind.TITLE) {
-						continue;   // the title isn't part of this redesign
-					}
 					SHOTS.add(new Shot(s[0], s[1], 0, k));
 				}
 			}
@@ -183,6 +209,10 @@ public final class OriginDevShots {
 					nextAt = 0;
 				}
 			}
+			return;
+		}
+		if (WORLD) {
+			OriginDevWorld.tick(mc, DIR);
 			return;
 		}
 		if (now < nextAt) {
@@ -249,6 +279,9 @@ public final class OriginDevShots {
 
 	private static void finish(Minecraft mc) {
 		done = true;
+		if (savedBgOpacity >= 0) {
+			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", savedBgOpacity);
+		}
 		try {
 			if (savedScale >= 0) {
 				mc.options.guiScale = savedScale;

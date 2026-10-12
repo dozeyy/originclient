@@ -167,6 +167,8 @@ public class OriginClientMod implements ClientModInitializer {
 					(type, renderer, helper, ctx) -> {
 						if (renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer player) {
 							helper.register(new com.origin.client.client.cosmetics.CosmeticHeadLayer(player));
+							// the Cosmetics window's title-screen preview builds its renderers from this
+							com.origin.client.client.cosmetics.MenuPlayerPreview.onRenderersCreated(ctx);
 						}
 					});
 		} catch (Throwable t) {

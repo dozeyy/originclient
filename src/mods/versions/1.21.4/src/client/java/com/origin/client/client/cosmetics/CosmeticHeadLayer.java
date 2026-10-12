@@ -20,7 +20,8 @@ import net.minecraft.world.entity.Entity;
  * PlayerRenderState (render(PoseStack, MultiBufferSource, int, S, float, float)),
  * which carries no UUID -- the state's entity id (PlayerRenderState.id) is looked
  * up in the client level, the way this module's LevelHeadMixin finds the tagged
- * player. The animation clock is the state's ageInTicks, invisibility the
+ * player (the menu preview's state carries MenuPlayerPreview.STATE_ID instead
+ * and names its head item itself). The animation clock is the state's ageInTicks, invisibility the
  * state's isInvisible, and PlayerModel is no longer generic. The head part is
  * already posed by the model's setupAnim(state) when layers run.
  */
@@ -36,15 +37,21 @@ public final class CosmeticHeadLayer extends RenderLayer<PlayerRenderState, Play
 		if (state.isInvisible) {
 			return;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.level == null) {
-			return;
+		String id;
+		if (state.id == MenuPlayerPreview.STATE_ID) {
+			// the Cosmetics window's title-screen preview (no entity, maybe no level)
+			id = MenuPlayerPreview.headId();
+		} else {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.level == null) {
+				return;
+			}
+			Entity player = mc.level.getEntity(state.id);
+			if (player == null) {
+				return;
+			}
+			id = CosmeticsService.lookOf(player.getUUID()).head();
 		}
-		Entity player = mc.level.getEntity(state.id);
-		if (player == null) {
-			return;
-		}
-		String id = CosmeticsService.lookOf(player.getUUID()).head();
 		if (id == null) {
 			return;
 		}

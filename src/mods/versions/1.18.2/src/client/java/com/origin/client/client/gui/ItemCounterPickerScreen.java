@@ -2,14 +2,13 @@ package com.origin.client.client.gui;
 
 import com.origin.client.client.mods.ItemCounter;
 import com.origin.client.client.mods.Mods;
-import com.origin.client.client.theme.OriginTheme;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.origin.client.client.gui.OriginDeck.*;
 
 /**
  * Item Counter's "Items" picker -- the shared item grid (same layout as Item
@@ -17,16 +16,22 @@ import java.util.List;
  * the top of the All tab count several items at once (every arrow, every food).
  * The footer strip shows what's counted, in HUD order; click an icon there to
  * remove it. Saved straight to the mod's "items" option (see ItemCounter for
- * the stored tokens), so the HUD updates live.
+ * the stored tokens), so the HUD updates live. Back / Esc / close return to
+ * Item Counter's page in the mod menu.
  */
 public class ItemCounterPickerScreen extends OriginItemGridScreen {
 	private static final String MOD = "itemcounter", KEY = "items";
-	private static final int CHIP = 20;
+	private static final float CHIP = 44, CHIP_GAP = 6;
 
 	private static List<Entry> PINNED;
 
 	public ItemCounterPickerScreen() {
-		super("Item Counter", "Pick the items to count. Click again to remove.", "item-counter");
+		this(new OriginModMenuScreen(null, MOD));
+	}
+
+	public ItemCounterPickerScreen(Screen returnTo) {
+		super("Item Counter", "Pick the items to count. Click again to remove.", "item-counter", "itemcounter",
+				returnTo);
 	}
 
 	// isSelected runs for every visible cell every frame: re-parse only on change.
@@ -78,96 +83,59 @@ public class ItemCounterPickerScreen extends OriginItemGridScreen {
 	}
 
 	@Override
-	protected int footerSpace() {
-		return 44;
+	protected float footerH() {
+		return 56;
 	}
 
-	// ---- footer: the counted items, in HUD order ----
-
-	private int barY() {
-		return py() + ph() - 38;
-	}
-
-	private int clearX() {
-		return gridRight() - 8 - 46;
-	}
-
-	private int chipX0() {
-		return gridLeft() + 70;
-	}
-
-	/** How many chips fit between the label and the Clear button. */
-	private int chipRoom() {
-		return Math.max(0, (clearX() - 8 - chipX0()) / CHIP);
-	}
+	// ---- footer: COUNTING | the counted items, in HUD order | Clear ----
 
 	@Override
-	protected void renderFooter(Gfx g, int mx, int my) {
-		int by = barY();
-		int bx0 = gridLeft(), bx1 = gridRight();
-		OriginUi.panel(g, bx0, by, bx1 - bx0, 30, 8, OriginTheme.BOX_FILL, OriginTheme.BOX_BORDER);
-		OriginText.drawBold(g, font, "Counting", bx0 + 10, by + 11, OriginTheme.TEXT, false);
+	protected void drawFooter(OriginDeck d, float x, float y, float w, float h) {
+		d.rect(x, y, w, h, 8, CARD, LINE);
+		label(d, "Counting", x + 16, y + h / 2 + capH(d));
 
 		List<String> p = picks();
+		float cw = buttonW(d, "Clear", "@trash");
+		float clearX = x + w - 12 - cw;
+		button(d, "Clear", "@trash", clearX, y + 12, cw, 32, Style.SECONDARY, !p.isEmpty(),
+				() -> save(new ArrayList<>()));
+
+		float chipX0 = x + 132;
 		if (p.isEmpty()) {
-			OriginText.draw(g, font, "Nothing yet -- click items above.", chipX0(), by + 11, OriginTheme.MUTED, false);
+			d.textMid("Nothing yet. Click items above.", chipX0, y + h / 2, 13, false, 0, MUTE);
+			return;
 		}
-		int room = chipRoom();
-		String hoverName = null;
+		// how many chips fit before the Clear button (leaving room for "+N")
+		int room = Math.max(0, (int) ((clearX - 16 - 36 - chipX0 + CHIP_GAP) / (CHIP + CHIP_GAP)));
 		for (int i = 0; i < p.size() && i < room; i++) {
 			ItemCounter.Entry e = ItemCounter.resolve(p.get(i));
 			if (e == null) {
 				continue;
 			}
-			int x = chipX0() + i * CHIP;
-			boolean hover = in(mx, my, x, by + 5, x + CHIP - 2, by + 25);
-			float hp = OriginUi.hover("item-counter:chip:" + e.key(), hover);
-			OriginUi.panel(g, x, by + 5, CHIP - 2, 20, 6,
-					OriginTheme.lerpColor(OriginTheme.withAlpha(OriginTheme.SUCCESS, 0x40), 0x40FF5555, hp), 0);
-			drawItemIcon(g, new ItemStack(e.icon()), x + 1, by + 7, 16);
-			if (hover) {
-				hoverName = e.label();
+			float cx = chipX0 + i * (CHIP + CHIP_GAP), cy = y + (h - CHIP) / 2;
+			boolean hov = d.over(cx, cy, CHIP, CHIP);
+			float hp = OriginUi.hover("item-counter:chip:" + e.key(), hov);
+			d.rect(cx, cy, CHIP, CHIP, 6, lerp(ACC_SOFT, RED_SOFT, hp), lerp(mul(ACC, 0.45f), mul(RED, 0.6f), hp));
+			drawItem(d, new ItemStack(e.icon()), cx, cy, CHIP, 32);
+			final int idx = i;
+			d.hit(cx, cy, CHIP, CHIP, () -> {
+				List<String> cur = picks();
+				if (idx < cur.size()) {
+					cur.remove(idx);
+					save(cur);
+				}
+			});
+			if (hov) {
+				tooltip(e.label(), "Click to remove");
 			}
 		}
 		if (p.size() > room && room > 0) {
-			OriginText.draw(g, font, "+" + (p.size() - room), chipX0() + room * CHIP, by + 11, OriginTheme.MUTED, false);
-		}
-
-		int rX = clearX(), rW = 46;
-		boolean rHover = in(mx, my, rX, by + 6, rX + rW, by + 24);
-		float hp = OriginUi.hover("item-counter:clear", rHover);
-		OriginUi.panel(g, rX, by + 6, rW, 18, 6,
-				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp),
-				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, hp));
-		OriginText.draw(g, font, "Clear", rX + (rW - OriginText.width(font, "Clear")) / 2, by + 11, OriginTheme.TEXT_DIM, false);
-
-		if (hoverName != null) {
-			g.renderComponentTooltip(font, List.of(new TextComponent(hoverName),
-					new TextComponent("Click to remove").withStyle(net.minecraft.ChatFormatting.GRAY)), mx, my);
+			d.textMid("+" + (p.size() - room), chipX0 + room * (CHIP + CHIP_GAP), y + h / 2, 13, true, 0, MUTE);
 		}
 	}
 
-	@Override
-	protected boolean footerClicked(double mx, double my) {
-		int by = barY();
-		if (in(mx, my, clearX(), by + 6, clearX() + 46, by + 24)) {
-			save(new ArrayList<>());
-			return true;
-		}
-		List<String> p = picks();
-		for (int i = 0; i < p.size() && i < chipRoom(); i++) {
-			int x = chipX0() + i * CHIP;
-			if (in(mx, my, x, by + 5, x + CHIP - 2, by + 25)) {
-				p.remove(i);
-				save(p);
-				return true;
-			}
-		}
-		return false;
-	}
-
-	@Override
-	public void onClose() {
-		Minecraft.getInstance().setScreen(new OriginModMenuScreen(null, MOD));
+	/** Half the cap height of the 11px caps label, to cap-centre it like textMid. */
+	private static float capH(OriginDeck d) {
+		return d.capH(11, true) / 2f;
 	}
 }

@@ -39,11 +39,15 @@ public final class CosmeticHeadLayer extends RenderLayer<AvatarRenderState, Play
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		Entity player = mc.level == null ? null : mc.level.getEntity(state.id);
-		if (player == null) {
-			return;
+		// The Cosmetics screen's title-screen preview has no entity: it says what it wears.
+		String id = MenuPlayerPreview.headFor(state);
+		if (id == null) {
+			Entity player = mc.level == null ? null : mc.level.getEntity(state.id);
+			if (player == null) {
+				return;
+			}
+			id = CosmeticsService.lookOf(player.getUUID()).head();
 		}
-		String id = CosmeticsService.lookOf(player.getUUID()).head();
 		if (id == null) {
 			return;
 		}

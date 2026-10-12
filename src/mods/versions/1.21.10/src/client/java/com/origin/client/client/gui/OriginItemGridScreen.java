@@ -1,8 +1,6 @@
 package com.origin.client.client.gui;
 
-import com.origin.client.client.theme.OriginTheme;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.origin.client.client.mods.Mods;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
@@ -25,37 +23,42 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+
+import static com.origin.client.client.gui.OriginDeck.*;
 
 /**
  * The searchable, category-tabbed grid of every item -- ONE layout shared by
  * every "pick items" screen (Item Size, Item Counter), so they look and behave
  * the same (Will, 2026-10-12: "use the same layout as item size").
  *
- * The base owns the catalogue, header, search, tabs, the scrolling grid and the
- * hover tooltip. A subclass says what a cell click does, which cells are lit,
- * and draws its own footer bar (the size slider / the picked-items strip) in the
- * space footerSpace() reserves at the bottom. Styled with the shared Origin kit
- * (rounded SDF panels, Inter text) to match the mod menu it opens from.
+ * Built on the shared Origin window frame (OriginWindow: the redesigned mod
+ * menu's panel, header with back + close, design-px OriginDeck drawing). The
+ * base owns the catalogue, the toolbar (category chips + search), the scrolling
+ * grid and the hover tooltip. A subclass says what a cell click does, which
+ * cells are lit, and draws its own footer bar (the size slider / the picked-items
+ * strip) in the footerH() design px it reserves at the bottom of the body.
  *
- * PER-VERSION DELTA (1.21.10; the deltas this module's Item Size screen already
- * carried before the grid was shared):
+ * Items are drawn at whole multiples of 16 physical px (crisp texels at every
+ * window size) and in front of the deck's z, so anything drawn over them (the
+ * tooltip, the bottom fade) is lifted to {@link #Z_OVER}.
+ *
+ * PER-VERSION DELTA (1.21.10):
  * - ResourceLocation names items (the Entry record, BuiltInRegistries.ITEM.getKey).
  * - Input callbacks take event objects: mouseClicked(MouseButtonEvent, boolean),
  *   keyPressed(KeyEvent), charTyped(CharacterEvent); subclasses get the same
  *   events in mouseDragged/mouseReleased. mouseScrolled still takes raw doubles.
- * - GuiGraphics.pose() is a Matrix3x2fStack: pushMatrix()/popMatrix() and 2-arg
- *   translate/scale, used by drawItemIcon.
- * - Tooltips are deferred: setTooltipForNextFrame(Font, Component, x, y) and
- *   setComponentTooltipForNextFrame(Font, List<Component>, x, y).
- * - Deferred GUI: vanilla runs renderBackground before render(). Out of a world
- *   super paints the Origin backdrop; in a world nothing is drawn, as on 1.21.1
- *   (the live world shows under the 0x88 dim).
+ * - GuiGraphics.pose() is a 2D Matrix3x2fStack (pushMatrix / 2-arg translate +
+ *   scale) with no z: the deferred GUI layers by submission order instead (a
+ *   box drawn after an item that overlaps it lands in a higher layer), so
+ *   inFront() just runs its draws after the items -- the same result as
+ *   1.21.1's Z_OVER lift.
  * - SwordItem and ArmorItem no longer exist (1.21.2 folded swords into plain Items
  *   with tool/weapon components; 1.21.5 folded armour into the `equippable`
  *   component). categorize() takes the registry id and uses the "_sword" path
  *   suffix + the equippable component instead -- see isSword/isArmorPiece.
  */
-public abstract class OriginItemGridScreen extends Screen {
+public abstract class OriginItemGridScreen extends OriginWindow {
 
 	protected enum Cat {
 		ALL("All"), COMBAT("Combat"), TOOLS("Tools"), ARMOR("Armor"),
@@ -79,20 +82,32 @@ public abstract class OriginItemGridScreen extends Screen {
 	// Built once — every non-air item, pre-categorised with a cached stack + name.
 	private static List<Entry> ALL_ITEMS;
 
+	// ---- layout (design px; 24px grid) ----
+	protected static final float TOOL_Y = BODY_Y;            // chips + search row, 32 tall
+	protected static final float GRID_Y = BODY_Y + 32 + 16;  // first row of cells
+	private static final int COLS = 14;
+	private static final float GAP = 8;
+	private static final float CELL = (BODY_W - (COLS - 1) * GAP) / COLS;
+	private static final float ITEM = 36;                    // item icon, before snapping to 16px multiples
+	/** Pose z for deck draws that must sit over item icons (items render at z ~150+). */
+	protected static final float Z_OVER = 1000;
+
 	private String search = "";
 	private boolean searchFocused = false;
 	private Cat cat = Cat.ALL;
-	private double scroll = 0, scrollTarget = 0;
-	private long lastNanos = 0;
 
 	private final List<Entry> filtered = new ArrayList<>();
-	private final String heading, subheading, hoverKey;
+	private final String heading, subheading, hoverKey, icon;
 
-	protected OriginItemGridScreen(String heading, String subheading, String hoverKey) {
-		super(Component.literal(heading));
+	// this frame's tooltip (title + optional grey line), drawn last
+	private String tipTitle, tipExtra;
+
+	protected OriginItemGridScreen(String heading, String subheading, String hoverKey, String icon, Screen returnTo) {
+		super(Component.literal(heading), returnTo);
 		this.heading = heading;
 		this.subheading = subheading;
 		this.hoverKey = hoverKey;
+		this.icon = icon;
 	}
 
 	// ---- what a subclass decides ----
@@ -108,18 +123,13 @@ public abstract class OriginItemGridScreen extends Screen {
 		return false;
 	}
 
-	/** Bottom space kept clear of the grid for the footer bar (12 = none). */
-	protected int footerSpace() {
-		return 12;
+	/** Design px kept clear of the grid at the bottom of the body for the footer bar (0 = none). */
+	protected float footerH() {
+		return 0;
 	}
 
-	/** Draws the footer bar into the space footerSpace() keeps clear. */
-	protected void renderFooter(GuiGraphics g, int mx, int my) {
-	}
-
-	/** A click outside the header/search/tabs/grid; true if the footer used it. */
-	protected boolean footerClicked(double mx, double my) {
-		return false;
+	/** Draws the footer bar into the box footerH() keeps clear (design px). */
+	protected void drawFooter(OriginDeck d, float x, float y, float w, float h) {
 	}
 
 	/** Entries listed before the items on the All tab (e.g. item groups). */
@@ -130,11 +140,6 @@ public abstract class OriginItemGridScreen extends Screen {
 	/** Extra tooltip line for a cell, or null. */
 	protected String tooltipExtra(Entry e) {
 		return null;
-	}
-
-	@Override
-	public boolean isPauseScreen() {
-		return false;
 	}
 
 	protected static List<Entry> allItems() {
@@ -277,53 +282,13 @@ public abstract class OriginItemGridScreen extends Screen {
 		return eq != null && eq.slot().isArmor();
 	}
 
-	// ---- geometry ----
-	protected int px() {
-		return (width - pw()) / 2;
-	}
-
-	protected int py() {
-		return (height - ph()) / 2;
-	}
-
-	protected int pw() {
-		return (int) (width * 0.78);
-	}
-
-	protected int ph() {
-		return (int) (height * 0.80);
-	}
-
-	protected int gridLeft() {
-		return px() + 14;
-	}
-
-	protected int gridRight() {
-		return px() + pw() - 14;
-	}
-
-	private int gridTop() {
-		// Below the category tab row (tabs sit at py+62, 16 tall → bottom py+78);
-		// a clear gap so the first row of items never clips into the tabs.
-		return py() + 86;
-	}
-
-	private int gridBottom() {
-		return py() + ph() - footerSpace();
-	}
-
-	private static final int CELL = 26;
-
-	private int cols() {
-		return Math.max(1, (gridRight() - gridLeft()) / CELL);
-	}
+	// ---- filtering ----
 
 	// What `filtered` was last built for. Rebuilding is O(all items) plus a sort,
-	// and render() calls filter() unconditionally on its first line — so without
+	// and drawBody() calls filter() on its first line every frame — so without
 	// this the screen re-filtered and re-SORTED the entire ~1300-item registry
 	// every frame, allocating two lowercase Strings per item as it went. Found on
-	// 1.21.11 (Will reported heavy lag in this screen) and fixed here at the same
-	// time: the code is identical, so the bug was identical.
+	// 1.21.11 (Will reported heavy lag in this screen).
 	private String lastQuery = null;
 	private Cat lastCat = null;
 
@@ -335,12 +300,12 @@ public abstract class OriginItemGridScreen extends Screen {
 		lastCat = cat;
 
 		filtered.clear();
-		String q = search.toLowerCase();
+		String q = search.toLowerCase(Locale.ROOT);
 		for (Entry e : allItems()) {
 			if (cat != Cat.ALL && e.cat != cat) {
 				continue;
 			}
-			if (!q.isEmpty() && !e.name.toLowerCase().contains(q) && !e.id.toString().contains(q)) {
+			if (!q.isEmpty() && !e.name.toLowerCase(Locale.ROOT).contains(q) && !e.id.toString().contains(q)) {
 				continue;
 			}
 			filtered.add(e);
@@ -354,207 +319,216 @@ public abstract class OriginItemGridScreen extends Screen {
 		if (cat == Cat.ALL) {
 			int at = 0;
 			for (Entry e : pinned()) {
-				if (q.isEmpty() || e.name.toLowerCase().contains(q)) {
+				if (q.isEmpty() || e.name.toLowerCase(Locale.ROOT).contains(q)) {
 					filtered.add(at++, e);
 				}
 			}
 		}
 	}
 
-	private double maxScroll() {
-		int rows = (filtered.size() + cols() - 1) / cols();
-		return Math.max(0, rows * CELL - (gridBottom() - gridTop()));
+	// ---- the frame's slots ----
+
+	@Override
+	protected String heading() {
+		return heading;
 	}
 
 	@Override
-	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-		if (Minecraft.getInstance().level == null) {
-			super.renderBackground(g, mouseX, mouseY, partialTick);
-		} else {
-			Minecraft.getInstance().gui.renderDeferredSubtitles();   // vanilla's tail call
-		}
+	protected String subheading() {
+		return subheading;
 	}
 
 	@Override
-	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+	protected String headingIcon() {
+		return icon;
+	}
+
+	private float gridBottom() {
+		float f = footerH();
+		return H - M - (f > 0 ? f + 16 : 0);
+	}
+
+	@Override
+	protected void drawBody(OriginDeck d) {
 		filter();
-		long now = System.nanoTime();
-		double dt = lastNanos == 0 ? 16.7 : Math.min(50.0, (now - lastNanos) / 1_000_000.0);
-		lastNanos = now;
-		scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget));
-		scroll += (scrollTarget - scroll) * Math.min(1.0, dt / 60.0);
-
-		// backdrop + panel
-		g.fill(0, 0, width, height, 0x88000000);
-		OriginUi.panel(g, px(), py(), pw(), ph(), 12, 0xF00E0E0E, OriginTheme.STROKE);
-
-		// header: back + title
-		int hy = py() + 16;
-		boolean backHover = in(mouseX, mouseY, px() + 14, hy, px() + 38, hy + 20);
-		float backHp = OriginUi.hover(hoverKey + ":back", backHover);
-		OriginUi.panel(g, px() + 14, hy, 24, 20, 6,
-				OriginTheme.lerpColor(0x16FFFFFF, 0x2EFFFFFF, backHp),
-				OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_HOVER, backHp));
-		OriginUi.iconChevron(g, px() + 21, hy + 5, 10, OriginTheme.TEXT, true);
-		OriginText.drawBold(g, font, heading, px() + 46, hy + 2, OriginTheme.TEXT, false);
-		OriginText.draw(g, font, subheading, px() + 46, hy + 13, OriginTheme.MUTED, false);
-
-		// search bar
-		int sy = py() + 40;
-		int sx = gridLeft();
-		int sw = gridRight() - gridLeft();
-		OriginUi.panel(g, sx, sy, sw, 20, 8, searchFocused ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL,
-				searchFocused ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER);
-		OriginUi.icon(g, "@search", sx + 5, sy + 3, 14, OriginTheme.MUTED);
-		if (search.isEmpty() && !searchFocused) {
-			OriginText.draw(g, font, "Search items", sx + 24, sy + 6, OriginTheme.MUTED, false);
-		} else {
-			OriginText.draw(g, font, search, sx + 24, sy + 6, OriginTheme.TEXT, false);
+		tipTitle = null;
+		tipExtra = null;
+		drawToolbar(d);
+		drawGrid(d);
+		float f = footerH();
+		if (f > 0) {
+			drawFooter(d, M, H - M - f, BODY_W, f);
 		}
+		if (tipTitle != null) {
+			drawTip(d);
+		}
+	}
 
-		// category tabs
-		int tx = gridLeft();
-		int ty = py() + 62;
+	// ---- toolbar: category chips | search ----
+
+	private void drawToolbar(OriginDeck d) {
+		float x = M;
 		for (Cat c : Cat.values()) {
-			int tw = OriginText.widthBold(font, c.label) + 16;
-			boolean active = cat == c;
-			boolean hover = in(mouseX, mouseY, tx, ty, tx + tw, ty + 16);
-			float hp = OriginUi.hover(hoverKey + ":tab:" + c.name(), hover);
-			OriginUi.panel(g, tx, ty, tw, 16, 6,
-					active ? OriginTheme.BOX_FILL_HOVER
-							: OriginTheme.lerpColor(0x00000000, OriginTheme.BOX_FILL, hp),
-					active ? OriginTheme.STROKE_STRONG : 0);
-			OriginText.drawBold(g, font, c.label, tx + 8, ty + 4,
-					active ? OriginTheme.TEXT : OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT_DIM, hp), false);
-			tx += tw + 4;
+			String label = c.label.toUpperCase(Locale.ROOT);
+			boolean on = cat == c;
+			String count = on ? Integer.toString(filtered.size()) : null;
+			float w = 24 + d.textW(label, 11, true, CAPS_TRACK) + (count == null ? 0 : 7 + d.textW(count, 11, true, 0));
+			boolean hov = d.over(x, TOOL_Y, w, 32);
+			float hp = OriginUi.hover(hoverKey + ":chip:" + c, hov);
+			d.rect(x, TOOL_Y, w, 32, 6, on ? ACC_SOFT : lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
+			float lw = d.textMid(label, x + 12, TOOL_Y + 16, 11, true, CAPS_TRACK, on ? ACC : lerp(DIM, TEXT, hp));
+			if (count != null) {
+				d.textMid(count, x + 12 + lw + 7, TOOL_Y + 16, 11, true, 0, mul(ACC, 0.8f));
+			}
+			d.hit(x, TOOL_Y, w, 32, () -> {
+				cat = c;
+				scroll = scrollTarget = 0;
+			});
+			x += w + 8;
 		}
+		float sw = Math.max(140, Math.min(240, W - M - (x + 4)));
+		float sx = W - M - sw;
+		field(d, sx, TOOL_Y, sw, 32, search, "Search items", searchFocused, "@find");
+		d.hit(sx, TOOL_Y, sw, 32, () -> searchFocused = true);
+	}
 
-		// grid
-		int top = gridTop(), bottom = gridBottom();
-		g.enableScissor(px(), top, px() + pw(), bottom);
-		int cols = cols();
-		int gx0 = gridLeft();
-		// Only walk the rows that are actually on screen. This used to iterate the
-		// whole filtered list and `continue` past everything off-screen, so the
-		// per-frame cost scaled with the LIST, not the view.
-		int firstRow = Math.max(0, (int) scroll / CELL);
-		int lastRow = (int) (scroll + (bottom - top)) / CELL + 1;
-		int first = firstRow * cols;
-		int last = Math.min(filtered.size(), (lastRow + 1) * cols);
-		for (int i = first; i < last; i++) {
-			int col = i % cols, row = i / cols;
-			int x = gx0 + col * CELL;
-			int y = top + row * CELL - (int) scroll;
+	// ---- the grid ----
+
+	private void drawGrid(OriginDeck d) {
+		float top = GRID_Y, bottom = gridBottom();
+		float pitch = CELL + GAP;
+		int rows = (filtered.size() + COLS - 1) / COLS;
+		float contentH = rows == 0 ? 0 : rows * pitch - GAP;
+		maxScroll = Math.max(0, contentH - (bottom - top));
+		scrollTarget = Math.min(scrollTarget, maxScroll);
+		scroll = Math.min(scroll, maxScroll);
+
+		if (filtered.isEmpty()) {
+			d.textCenter("No items match \"" + search + "\"", W / 2, top + 60, 14, false, 0, MUTE);
+			return;
+		}
+		d.clip(M - 4, top, BODY_W + 8, bottom - top);
+		// Only walk the rows that are actually on screen: per-frame cost scales
+		// with the view, not the ~1300-item list.
+		int firstRow = Math.max(0, (int) (scroll / pitch));
+		int lastRow = (int) ((scroll + (bottom - top)) / pitch) + 1;
+		int last = Math.min(filtered.size(), (lastRow + 1) * COLS);
+		for (int i = firstRow * COLS; i < last; i++) {
+			float x = M + (i % COLS) * pitch;
+			float y = top + (i / COLS) * pitch - (float) scroll;
 			if (y + CELL < top || y > bottom) {
 				continue;
 			}
 			Entry e = filtered.get(i);
-			boolean cellHover = in(mouseX, mouseY, x, y, x + CELL - 2, y + CELL - 2) && mouseY >= top && mouseY < bottom;
-			boolean isSel = isSelected(e);
-			boolean custom = isMarked(e);
-			float cellHp = OriginUi.hover(hoverKey + ":cell:" + e.key, cellHover);
-			OriginUi.panel(g, x, y, CELL - 2, CELL - 2, 6,
-					isSel ? OriginTheme.withAlpha(OriginTheme.SUCCESS, 0x55)
-							: OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, cellHp),
-					isSel ? 0xB37ACF9E : (custom ? 0x807ACF9E : OriginTheme.BOX_BORDER));
-			drawItemIcon(g, e.stack, x + 4, y + 4, 16);
-		}
-		g.disableScissor();
-
-		renderFooter(g, mouseX, mouseY);
-
-		// hover tooltip (item name)
-		if (mouseY >= top && mouseY < bottom) {
-			Entry h = cellAt(mouseX, mouseY);
-			if (h != null) {
-				String extra = tooltipExtra(h);
-				if (extra == null) {
-					g.setTooltipForNextFrame(font, Component.literal(h.name), mouseX, mouseY);
-				} else {
-					g.setComponentTooltipForNextFrame(font, List.of(Component.literal(h.name),
-							Component.literal(extra).withStyle(net.minecraft.ChatFormatting.GRAY)), mouseX, mouseY);
-				}
+			boolean hov = d.over(x, y, CELL, CELL);
+			boolean sel = isSelected(e);
+			boolean marked = !sel && isMarked(e);
+			float hp = OriginUi.hover(hoverKey + ":cell:" + e.key, hov);
+			int fill = sel ? lerp(ACC_SOFT, 0x385FD09B, hp) : lerp(CARD, OriginDeck.CARD_H, hp);
+			int border = sel ? mul(ACC, 0.7f) : marked ? mul(ACC, 0.45f) : lerp(LINE, 0x29F1E9D2, hp);
+			d.rect(x, y, CELL, CELL, 6, fill, border);
+			drawItem(d, e.stack, x, y, CELL, ITEM);
+			d.hit(x, y, CELL, CELL, () -> cellClicked(e));
+			if (hov) {
+				tooltip(e.name, tooltipExtra(e));
 			}
 		}
+		d.unclip();
+
+		// soft fade where the grid is cut off (lifted over the item icons)
+		if (Mods.metaNum("menuBgOpacity", 1.0) > 0.02 && maxScroll > 0 && scroll < maxScroll - 1) {
+			float a = (float) Mods.metaNum("menuBgOpacity", 1.0);
+			inFront(d, () -> d.gradient(1, bottom - 32, W - 2, 32, mul(PANEL, 0), mul(PANEL, a)));
+		}
+		// thin scrollbar at the panel's right edge
+		if (maxScroll > 0) {
+			float track = bottom - top;
+			float thumb = Math.max(28, track * track / (float) (track + maxScroll));
+			float ty = top + (track - thumb) * (float) (scroll / maxScroll);
+			d.rect(W - 10, ty, 3, thumb, 1.5f, 0x38F1E9D2);
+		}
 	}
 
-	protected void drawItemIcon(GuiGraphics g, ItemStack stack, int x, int y, int size) {
-		var pose = g.pose();
+	// ---- shared helpers for subclasses ----
+
+	/**
+	 * An item icon centred in a box (design px). The icon is `size` design px
+	 * rounded to a whole multiple of 16 PHYSICAL px (so every texel is the same
+	 * width), never larger than the box.
+	 */
+	protected void drawItem(OriginDeck d, ItemStack stack, float boxX, float boxY, float box, float size) {
+		if (stack == null || stack.isEmpty() || (d.fa(0xFF000000) >>> 24) < 8) {
+			return;
+		}
+		int k = Math.max(1, Math.round(size * d.s / 16f));
+		while (k > 1 && 16 * k > box * d.s) {
+			k--;
+		}
+		int phys = 16 * k;
+		float px = Math.round(d.ox + (boxX + box / 2f) * d.s - phys / 2f);
+		float py = Math.round(d.oy + (boxY + box / 2f) * d.s - phys / 2f);
+		var pose = d.g.pose();
 		pose.pushMatrix();
-		pose.translate(x, y);
-		float s = size / 16f;
-		pose.scale(s, s);
-		g.renderFakeItem(stack, 0, 0);
-		pose.popMatrix();
+		try {
+			pose.translate(px, py);
+			// 16 GUI px -> 16*k physical px (the deck pose is 1/guiScale); the item
+			// is rendered into this era's item atlas and blitted through this pose
+			pose.scale(k, k);
+			d.g.renderFakeItem(stack, 0, 0);
+		} catch (RuntimeException ex) {
+			// fail soft: a broken item model draws nothing
+		} finally {
+			pose.popMatrix();
+		}
 	}
 
-	/** The cell under the cursor, found by arithmetic rather than by scanning the
-	 *  whole list — this runs every frame (hover highlight + tooltip). */
-	private Entry cellAt(double mx, double my) {
-		int top = gridTop(), bottom = gridBottom();
-		if (my < top || my >= bottom) {
-			return null;
-		}
-		int gx0 = gridLeft();
-		int cols = cols();
-		int col = (int) ((mx - gx0) / CELL);
-		int row = (int) ((my - top + scroll) / CELL);
-		if (col < 0 || col >= cols || row < 0 || mx < gx0) {
-			return null;
-		}
-		int i = row * cols + col;
-		if (i < 0 || i >= filtered.size()) {
-			return null;
-		}
-		// Reject the 2px gutter between cells so hover matches what was drawn.
-		int x = gx0 + col * CELL;
-		int y = top + row * CELL - (int) scroll;
-		return in(mx, my, x, y, x + CELL - 2, y + CELL - 2) ? filtered.get(i) : null;
+	/**
+	 * Runs deck draws in front of item icons. 1.21.10: no pose z -- a box
+	 * submitted after the items it overlaps goes to a higher GUI layer, so
+	 * running the draws after the items is the whole lift (see the class doc).
+	 */
+	protected static void inFront(OriginDeck d, Runnable draws) {
+		draws.run();
 	}
+
+	/** Shows a tooltip at the mouse this frame (title + optional grey line). */
+	protected void tooltip(String title, String extra) {
+		tipTitle = title;
+		tipExtra = extra;
+	}
+
+	private void drawTip(OriginDeck d) {
+		var win = net.minecraft.client.Minecraft.getInstance().getWindow();
+		inFront(d, () -> {
+			float tw = d.textW(tipTitle, 13, true, 0);
+			if (tipExtra != null) {
+				tw = Math.max(tw, d.textW(tipExtra, 12, false, 0));
+			}
+			float w = tw + 20, h = tipExtra == null ? 30 : 48;
+			float x = d.mx + 14, y = d.my + 18;
+			float maxX = (win.getWidth() - d.ox) / d.s - 8, maxY = (win.getHeight() - d.oy) / d.s - 8;
+			if (x + w > maxX) {
+				x = d.mx - 14 - w;
+			}
+			if (y + h > maxY) {
+				y = d.my - 10 - h;
+			}
+			d.rect(x, y, w, h, 6, 0xF50E1110, LINE2);
+			d.textMid(tipTitle, x + 10, y + 15, 13, true, 0, TEXT);
+			if (tipExtra != null) {
+				d.textMid(tipExtra, x + 10, y + 33, 12, false, 0, DIM);
+			}
+		});
+	}
+
+	// ---- input ----
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
-		double mx = event.x(), my = event.y();
-		if (event.button() != 0) {
-			return super.mouseClicked(event, doubled);
-		}
-		int hy = py() + 16;
-		if (in(mx, my, px() + 14, hy, px() + 38, hy + 20)) {
-			onClose();
-			return true;
-		}
-		// search
-		int sy = py() + 40;
-		searchFocused = in(mx, my, gridLeft(), sy, gridRight(), sy + 20);
-		if (searchFocused) {
-			return true;
-		}
-		// category tabs
-		int tx = gridLeft(), ty = py() + 62;
-		for (Cat c : Cat.values()) {
-			int tw = OriginText.widthBold(font, c.label) + 16;
-			if (in(mx, my, tx, ty, tx + tw, ty + 16)) {
-				cat = c;
-				scrollTarget = scroll = 0;
-				return true;
-			}
-			tx += tw + 4;
-		}
-		if (footerClicked(mx, my)) {
-			return true;
-		}
-		Entry e = cellAt(mx, my);
-		if (e != null) {
-			cellClicked(e);
-			return true;
+		if (event.button() == 0) {
+			searchFocused = false;   // the search field's own hit turns it back on
 		}
 		return super.mouseClicked(event, doubled);
-	}
-
-	@Override
-	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
-		scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget - sy * CELL));
-		return true;
 	}
 
 	@Override
@@ -570,24 +544,11 @@ public abstract class OriginItemGridScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		int key = event.key();
-		if (key == GLFW.GLFW_KEY_ESCAPE) {
-			onClose();
-			return true;
-		}
-		if (key == GLFW.GLFW_KEY_BACKSPACE && searchFocused && !search.isEmpty()) {
+		if (event.key() == GLFW.GLFW_KEY_BACKSPACE && searchFocused && !search.isEmpty()) {
 			search = search.substring(0, search.length() - 1);
 			scrollTarget = scroll = 0;
 			return true;
 		}
-		return super.keyPressed(event);
-	}
-
-	/** Back arrow / Esc: where this screen returns to. */
-	@Override
-	public abstract void onClose();
-
-	protected static boolean in(double mx, double my, int x0, int y0, int x1, int y1) {
-		return mx >= x0 && mx < x1 && my >= y0 && my < y1;
+		return super.keyPressed(event);   // Esc → back() → returnTo
 	}
 }
