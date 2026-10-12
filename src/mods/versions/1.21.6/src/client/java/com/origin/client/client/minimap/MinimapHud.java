@@ -1,6 +1,5 @@
 package com.origin.client.client.minimap;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.hud.HudElements;
@@ -12,7 +11,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.levelgen.Heightmap;
-import org.joml.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -257,15 +255,15 @@ public final class MinimapHud {
 		int mw = mapW(), mh = mapH();
 		boolean circle = circle();
 		var pose = g.pose();
-		pose.pushPose();
-		pose.scale(s, s, 1f);
-		// Anything batched by earlier HUD elements goes down first, under the map.
-		g.flush();
+		pose.pushMatrix();
+		pose.scale(s, s);
+		// (1.21.6+: no flush -- the deferred GUI layers the map over earlier HUD
+		// elements by submission order and bounds.)
 
 		float cx = b[0] / 2f, cy = mh / 2f;
 		var player = mc.player;
 		boolean world = player != null && mc.level != null;
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(true);
+		float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		double px = 0, pz = 0;
 		float yaw = 180f;
 		if (world) {
@@ -289,15 +287,9 @@ public final class MinimapHud {
 			}
 		}
 
-		// The map is immediate-mode geometry. Like GuiGraphics' own batched flush, it
-		// draws with the depth test off: the vanilla HUD layers above it in z have
-		// already written depth (hotbar items, effect icons) and would hide it.
-		RenderSystem.disableDepthTest();
-		try {
-			drawMap(g, mc, v, world, partial, yawRad);
-		} finally {
-			RenderSystem.enableDepthTest();
-		}
+		// The map is GuiMesh geometry (see GuiMesh for how this era layers it with
+		// the rest of the HUD; 1.21.1 drew it immediate-mode with the depth test off).
+		drawMap(g, mc, v, world, partial, yawRad);
 
 		// Info lines, centred under the map; Fit Text To Width shrinks a long line
 		// to the map's width instead of letting it hang over the sides.
@@ -306,23 +298,22 @@ public final class MinimapHud {
 		for (Info l : lines) {
 			int tw = mc.font.width(l.text());
 			float ts = fit && tw > mw ? mw / (float) tw : 1f;
-			pose.pushPose();
-			pose.translate(cx, y + (10 - 9 * ts) / 2f, 0);
-			pose.scale(ts, ts, 1f);
+			pose.pushMatrix();
+			pose.translate(cx, y + (10 - 9 * ts) / 2f);
+			pose.scale(ts, ts);
 			g.drawString(mc.font, l.text(), -tw / 2, 0, l.color(), true);
-			pose.popPose();
+			pose.popMatrix();
 			y += 10;
 		}
-		pose.popPose();
+		pose.popMatrix();
 	}
 
 	private static void drawMap(GuiGraphics g, Minecraft mc, MinimapRenderer.View v, boolean world, float partial, double yawRad) {
-		Matrix4f m = g.pose().last().pose();
 		if (Mods.bool(MOD, "showBackground")) {
-			MinimapRenderer.background(m, v, OriginColorPicker.liveColor(MOD, "bgColor"));
+			MinimapRenderer.background(g, v, OriginColorPicker.liveColor(MOD, "bgColor"));
 		}
 		if (world) {
-			MinimapRenderer.terrain(m, v);
+			MinimapRenderer.terrain(g, v);
 			MinimapRenderer.entities(g, mc, v, radar(), partial);
 			if (Mods.bool(MOD, "showWaypoints") && Mods.on("waypoints")) {
 				MinimapRenderer.waypoints(g, v, Mods.bool(MOD, "showDistantWaypoints"), 2.5f);
@@ -331,10 +322,10 @@ public final class MinimapHud {
 		// The arrow points where you face: straight up when the map turns with you.
 		double fx = -Math.sin(yawRad), fz = Math.cos(yawRad);
 		float dx = (float) (fx * v.cos - fz * v.sin), dy = (float) (fx * v.sin + fz * v.cos);
-		MinimapRenderer.playerArrow(m, v.cx, v.cy, (float) Math.atan2(dx, -dy),
+		MinimapRenderer.playerArrow(g, v.cx, v.cy, (float) Math.atan2(dx, -dy),
 				(float) Mods.num(MOD, "playerMarkerSize"), OriginColorPicker.liveColor(MOD, "playerMarkerColor"));
 		if (Mods.bool(MOD, "border")) {
-			MinimapRenderer.border(m, v, (float) Mods.num(MOD, "borderThickness"), OriginColorPicker.liveColor(MOD, "borderColor"));
+			MinimapRenderer.border(g, v, (float) Mods.num(MOD, "borderThickness"), OriginColorPicker.liveColor(MOD, "borderColor"));
 		}
 		if (Mods.bool(MOD, "compass")) {
 			MinimapRenderer.compass(g, mc, v, OriginColorPicker.liveColor(MOD, "compassColor"), Mods.bool(MOD, "compassShadow"));

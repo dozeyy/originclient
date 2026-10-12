@@ -71,7 +71,7 @@ public final class DiscordPresence {
 
 	private static Wanted build(Minecraft mc) {
 		String details = Mods.bool(MOD, "showVersion")
-				? "Minecraft " + SharedConstants.getCurrentVersion().getName() : "Minecraft";
+				? "Minecraft " + SharedConstants.getCurrentVersion().name() : "Minecraft";
 		String state;
 		if (mc.level == null || mc.player == null) {
 			state = "In the menus";

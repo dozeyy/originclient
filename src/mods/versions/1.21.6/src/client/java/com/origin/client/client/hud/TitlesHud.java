@@ -18,6 +18,9 @@ import net.minecraft.network.chat.Component;
  * their own scaled space, i.e. the title spans -40..-4 and the subtitle 10..28
  * around the origin. The element box covers that span for the sample text;
  * the origin sits 40px (x scale) below the box top, horizontally centred.
+ *
+ * PER-VERSION (1.21.6-1.21.8): the GUI pose is a 2D Matrix3x2fStack
+ * (pushMatrix/translate(x, y)/scale(x, y)); the layout is unchanged.
  */
 public final class TitlesHud {
 	private static final String MOD = "titles";
@@ -68,13 +71,13 @@ public final class TitlesHud {
 		double x = p.x(g.guiWidth(), w), y = p.y(g.guiHeight(), h);
 		float s = (float) (scale() * p.scale);
 		var pose = g.pose();
-		pose.pushPose();
+		pose.pushMatrix();
 		try {
-			pose.translate(x, y, 0);
-			pose.scale(s, s, 1f);
+			pose.translate((float) x, (float) y);
+			pose.scale(s, s);
 			draw(g, title, subtitle, alpha);
 		} finally {
-			pose.popPose();
+			pose.popMatrix();
 		}
 	}
 
@@ -82,10 +85,10 @@ public final class TitlesHud {
 	static void renderSample(GuiGraphics g) {
 		float s = scale();
 		var pose = g.pose();
-		pose.pushPose();
-		pose.scale(s, s, 1f);
+		pose.pushMatrix();
+		pose.scale(s, s);
 		draw(g, SAMPLE_TITLE, SAMPLE_SUBTITLE, 255);
-		pose.popPose();
+		pose.popMatrix();
 	}
 
 	// Box-local, unscaled: origin at (baseWidth/2, ORIGIN_Y). Keep Title Centered
@@ -95,25 +98,25 @@ public final class TitlesHud {
 		int bw = baseWidth(font);
 		boolean centered = Mods.bool(MOD, "keepCentered");
 		var pose = g.pose();
-		pose.pushPose();
-		pose.translate(bw / 2f, ORIGIN_Y, 0);
+		pose.pushMatrix();
+		pose.translate(bw / 2f, ORIGIN_Y);
 		if (title != null && Mods.bool(MOD, "showTitle")) {
-			pose.pushPose();
-			pose.scale(4f, 4f, 4f);
+			pose.pushMatrix();
+			pose.scale(4f, 4f);
 			int tw = font.width(title);
 			int tx = centered ? -tw / 2 : -bw / 8;
 			g.drawStringWithBackdrop(font, title, tx, -10, tw, color("titleColor", alpha));
-			pose.popPose();
+			pose.popMatrix();
 		}
 		if (subtitle != null && Mods.bool(MOD, "showSubtitle")) {
-			pose.pushPose();
-			pose.scale(2f, 2f, 2f);
+			pose.pushMatrix();
+			pose.scale(2f, 2f);
 			int sw = font.width(subtitle);
 			int sx = centered ? -sw / 2 : -bw / 4;
 			g.drawStringWithBackdrop(font, subtitle, sx, 5, sw, color("subtitleColor", alpha));
-			pose.popPose();
+			pose.popMatrix();
 		}
-		pose.popPose();
+		pose.popMatrix();
 	}
 
 	// The option colour's RGB with vanilla's fade alpha. Text the server coloured

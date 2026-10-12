@@ -7,6 +7,7 @@ import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import org.joml.Vector4f;
 
 import java.util.ArrayList;
@@ -32,6 +33,11 @@ import java.util.Set;
  *
  * Only players the server already sends to the client can be marked (vanilla
  * entity tracking range); nothing is requested from the server.
+ *
+ * PER-VERSION (1.21.6-1.21.8): RenderSystem has no model-view/projection getters
+ * here, so the view-projection is rebuilt the way this module's WaypointHud does
+ * (and vanilla's renderLevel): perspective(effective fov, window aspect) times
+ * the conjugated camera rotation, on camera-relative positions.
  */
 public final class TeamView {
 	private static final String MOD = "teamview";
@@ -65,12 +71,15 @@ public final class TeamView {
 			return;
 		}
 
-		// Same composition WaypointHud uses: ModelViewMat x the pass's pose.
-		Matrix4f view = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix());
-		view.mul(ctx.matrixStack().last().pose());
-		Matrix4f proj = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix());
-		Vec3 cam = ctx.camera().getPosition();
+		// Same composition WaypointHud uses on this era: perspective(effective fov,
+		// aspect) x conjugate(camera rotation), applied to camera-relative coords.
 		float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+		float fov = ((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
+				.originclient$getFov(ctx.camera(), pt, true);
+		float aspect = (float) mc.getWindow().getWidth() / Math.max(1, mc.getWindow().getHeight());
+		Matrix4f viewProj = new Matrix4f().perspective((float) Math.toRadians(fov), aspect, 0.05f, 1024f);
+		viewProj.rotate(new Quaternionf(ctx.camera().rotation()).conjugate());
+		Vec3 cam = ctx.camera().getPosition();
 		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
 		int teamColor = Mods.color(MOD, "teamColor");
 		int partyColor = Mods.color(MOD, "partyColor");
@@ -90,8 +99,7 @@ public final class TeamView {
 			Vec3 pos = p.getPosition(pt);
 			double wx = pos.x - cam.x, wy = pos.y + p.getBbHeight() + 0.75 - cam.y, wz = pos.z - cam.z;
 			Vector4f v = new Vector4f((float) wx, (float) wy, (float) wz, 1f);
-			view.transform(v);
-			proj.transform(v);
+			viewProj.transform(v);
 			if (v.w <= 0.05f) {
 				continue;   // behind the camera
 			}

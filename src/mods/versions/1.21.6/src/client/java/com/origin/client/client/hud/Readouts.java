@@ -318,7 +318,8 @@ final class Readouts {
 					NativeImage img = NativeImage.read(in);
 					String safe = Integer.toHexString(p.getId().hashCode());
 					loc = ResourceLocation.fromNamespaceAndPath("originclient", "pack_display/" + safe);
-					mc.getTextureManager().register(loc, new DynamicTexture(img));
+					// 1.21.5+: a DynamicTexture is constructed with a debug label.
+					mc.getTextureManager().register(loc, new DynamicTexture(() -> "Origin pack icon", img));
 				}
 			}
 		} catch (Throwable t) {
@@ -355,7 +356,8 @@ final class Readouts {
 			int rh = packRowHeight(r);
 			int x = 0;
 			if (r.icon() != null) {
-				g.blit(r.icon(), 0, y + (rh - 16) / 2, 0f, 0f, 16, 16, 16, 16);
+				// 1.21.6+ blit: the render pipeline first (deferred GUI).
+				g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, r.icon(), 0, y + (rh - 16) / 2, 0f, 0f, 16, 16, 16, 16);
 				x = 20;
 			}
 			int textH = 10 + r.desc().size() * 9;
@@ -363,10 +365,10 @@ final class Readouts {
 			// The pack name goes through the same bracket/colour path as every
 			// readout; its own legacy codes (colours, bold, ...) still apply.
 			var p = g.pose();
-			p.pushPose();
-			p.translate(x, ty - 1, 0);
+			p.pushMatrix();
+			p.translate(x, ty - 1);
 			textBoxNoPanel(g, mc, "packdisplay", r.name());
-			p.popPose();
+			p.popMatrix();
 			int dy = ty + 10;
 			for (FormattedCharSequence d : r.desc()) {
 				g.drawString(mc.font, d, x + 1, dy, color, shadow);
@@ -456,10 +458,10 @@ final class Readouts {
 			int cw = vertical ? w : cellWidth(mc, c);
 			if (!grouped) {
 				var p = g.pose();
-				p.pushPose();
-				p.translate(x, y, 0);
+				p.pushMatrix();
+				p.translate(x, y);
 				panel(g, "itemcounter", cw, 16);
-				p.popPose();
+				p.popMatrix();
 			}
 			g.renderItem(c.icon(), x, y);
 			g.drawString(mc.font, c.text(), x + 18, y + 4, color, shadow);

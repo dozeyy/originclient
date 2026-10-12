@@ -1,17 +1,19 @@
 package com.origin.client.client.worldedit;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginRenderTypes;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.BlockHitResult;
@@ -52,6 +54,10 @@ import java.util.List;
 // RELATIVE world coords passed through matrixStack().last() -- the same contract
 // WaypointRenderer and ChunkBorderRenderer use here. Never multiply the rotation
 // in again (that double rotation is what broke waypoints on 1.16.5-1.19.3).
+// 1.21.6-1.21.8 keep this contract (this module's WaypointRenderer and
+// ChunkBorderRenderer draw the same way on LAST); only the see-through pass's
+// render type changed shape (a RenderPipeline, below) and the partial-tick
+// getter is renamed (getTimer -> getDeltaTracker).
 //
 // SEE THROUGH: first a pass that ONLY draws where something is in front
 // (GREATER depth test), dimmed to 75% colour / 25% opacity -- WorldEditCUI's
@@ -91,31 +97,22 @@ final class CuiRenderer {
 	 * Origin's overlay quads (OriginRenderTypes.OVERLAY_QUADS) with the depth test
 	 * flipped to GREATER: fragments draw ONLY where terrain is in front of them.
 	 * No depth write, no view offset (nothing here should win a depth tie).
-	 * Same constructor + vanilla shard technique as OriginRenderTypes; same
-	 * 1.20.5-1.21.1-only ERA NOTE applies when porting.
+	 * PER-VERSION (1.21.6-1.21.8): the GL state lives in a RenderPipeline -- the
+	 * same DEBUG_FILLED_SNIPPET base (POSITION_COLOR quads, translucent) as this
+	 * module's OriginRenderTypes, with GREATER instead of LEQUAL -- wrapped in a
+	 * RenderType through RenderType.create, exactly as OriginRenderTypes does.
 	 */
-	private static final class HiddenQuads extends RenderType {
-		private HiddenQuads() {
-			super("originclient_cui_hidden_quads", DefaultVertexFormat.POSITION_COLOR,
-					VertexFormat.Mode.QUADS, 1 << 16, false, false,
-					() -> {
-						POSITION_COLOR_SHADER.setupRenderState();
-						TRANSLUCENT_TRANSPARENCY.setupRenderState();
-						GREATER_DEPTH_TEST.setupRenderState();
-						NO_CULL.setupRenderState();
-						COLOR_WRITE.setupRenderState();
-					},
-					() -> {
-						COLOR_WRITE.clearRenderState();
-						NO_CULL.clearRenderState();
-						GREATER_DEPTH_TEST.clearRenderState();
-						TRANSLUCENT_TRANSPARENCY.clearRenderState();
-						POSITION_COLOR_SHADER.clearRenderState();
-					});
-		}
-	}
+	private static final RenderPipeline HIDDEN_PIPELINE = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+					.withLocation(ResourceLocation.fromNamespaceAndPath("originclient", "pipeline/cui_hidden_quads"))
+					.withCull(false)
+					.withDepthTestFunction(DepthTestFunction.GREATER_DEPTH_TEST)
+					.withDepthWrite(false)
+					.build());
 
-	private static final RenderType HIDDEN = new HiddenQuads();
+	private static final RenderType HIDDEN = RenderType.create("originclient_cui_hidden_quads",
+			1536, false, false, HIDDEN_PIPELINE,
+			RenderType.CompositeState.builder().createCompositeState(false));
 	// Private immediate buffer, drawn on the spot (see OriginRenderTypes for why
 	// nothing here goes through the frame's shared, Iris-deferred buffer).
 	private static final MultiBufferSource.BufferSource HIDDEN_BUFFER =
@@ -195,7 +192,7 @@ final class CuiRenderer {
 		if (eye == null) {
 			return;
 		}
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
+		float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		for (CuiRegion r : regions) {
 			for (int id = 0; id < r.latches.size(); id++) {
 				Double dist = r.latches.get(id);

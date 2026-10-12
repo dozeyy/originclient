@@ -8,12 +8,12 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Sound Changer: scales a sound's volume by its slider (SoundChanger.factor).
 //
-// 1.21.1 SoundEngine (source-verified) works a volume out in two places, both
+// SoundEngine (1.21.1 source-verified; same shape in 1.21.6/1.21.8 except that
+// play now returns a SoundEngine.PlayResult) works a volume out in two places, both
 // through the private calculateVolume(float volume, SoundSource) helper:
 //  - play(SoundInstance): when a sound starts. A result of 0 makes vanilla skip
 //    the sound outright, so a 0% slider truly mutes it.
@@ -30,7 +30,7 @@ public class SoundChangerMixin {
 	private SoundInstance originclient$current;
 
 	@Inject(method = "play", at = @At("HEAD"))
-	private void originclient$capturePlay(SoundInstance sound, CallbackInfo ci) {
+	private void originclient$capturePlay(SoundInstance sound, CallbackInfoReturnable<SoundEngine.PlayResult> cir) {
 		originclient$current = sound;
 	}
 

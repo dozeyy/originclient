@@ -23,11 +23,16 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
  * A kind whose toggle is off, the main menu (no world) and the mod being off all
  * leave vanilla's behaviour exactly as it was.
  *
- * PER-VERSION (1.21.2-1.21.4): the blur chain lives in the ShaderManager and
- * GameRenderer.processBlurEffect() reads its radius from the option itself, so
- * blur() runs vanilla's own processBlurEffect with radiusOverride set for that
- * one call (MenuBlurRadiusMixin swaps the radius in). The GUI is batched here:
- * blur() flushes what the screen already submitted so it lands under the blur.
+ * PER-VERSION (1.21.6-1.21.8, verified against the decompiled 1.21.6 and 1.21.8
+ * GameRenderer / GuiRenderer / GuiRenderState / Screen): the GUI is deferred and
+ * the blur is a marker, not a draw -- GuiGraphics.blurBeforeThisStratum() makes
+ * GuiRenderer run GameRenderer.processBlurEffect() between the strata, at most
+ * ONCE per frame (a second request throws). Its radius is not an argument: the
+ * "blur" post chain reads it from the frame's Globals uniform, which
+ * GameRenderer.render fills at the top of the frame from the Menu Background
+ * Blurriness option. So the strength is applied there (MenuBlurRadiusMixin asks
+ * radiusFor(vanilla) with the screen about to render), and blur() only asks for
+ * the frame's one blur.
  */
 public final class MenuBlur {
 	private static final String MOD = "menublur";
@@ -51,34 +56,30 @@ public final class MenuBlur {
 				&& Mods.on(MOD) && Mods.bool(MOD, kind(screen));
 	}
 
-	// Origin's radius while blur() is running vanilla's processBlurEffect, else -1.
-	private static float override = -1f;
-
-	/** From MenuBlurRadiusMixin: the radius processBlurEffect should use. */
-	public static float radiusOverride(float vanilla) {
-		return override >= 0f ? override : vanilla;
+	/** From MenuBlurRadiusMixin, once per frame: the radius the frame's blur
+	 *  uses -- Origin's strength while it draws the current screen's backdrop,
+	 *  vanilla's option everywhere else. */
+	public static int radiusFor(int vanilla) {
+		Screen screen = Minecraft.getInstance().screen;
+		if (!handles(screen)) {
+			return vanilla;
+		}
+		return Math.max(0, (int) Math.round(Mods.num(MOD, "strength")));
 	}
 
-	/** Blurs whatever is in the main framebuffer (the world + HUD) at the mod's
-	 *  strength. Strength 0 = no blur (the tint still draws). Like vanilla's own
-	 *  renderBlurredBackground, the main target is rebound afterwards -- the blur
-	 *  leaves its own framebuffer bound, and everything after must draw to main.
-	 *  `g` (may be null) is flushed first so its batch lands under the blur. */
+	/** Asks for the frame's blur behind everything drawn so far (the world +
+	 *  HUD), at the mod's strength (radiusFor). Strength 0 = no blur (the tint
+	 *  still draws). This era blurs at most once a frame: a second request is
+	 *  dropped, never thrown into the screen. */
 	public static void blur(GuiGraphics g) {
-		Minecraft mc = Minecraft.getInstance();
-		int radius = (int) Math.round(Mods.num(MOD, "strength"));
-		if (radius >= 1) {
-			if (g != null) {
-				g.flush();
-			}
-			override = radius;
-			try {
-				mc.gameRenderer.processBlurEffect();
-			} finally {
-				override = -1f;
-			}
+		if (g == null || (int) Math.round(Mods.num(MOD, "strength")) < 1) {
+			return;
 		}
-		mc.getMainRenderTarget().bindWrite(false);
+		try {
+			g.blurBeforeThisStratum();
+		} catch (IllegalStateException alreadyBlurred) {
+			// the frame's one blur is already placed
+		}
 	}
 
 	/** The kind's tint over the whole screen (transparent = none). */

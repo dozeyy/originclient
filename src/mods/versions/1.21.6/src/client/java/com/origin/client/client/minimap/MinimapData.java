@@ -1,7 +1,7 @@
 package com.origin.client.client.minimap;
 
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.BiomeColors;
@@ -15,7 +15,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.MapColor;
-import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -126,14 +125,13 @@ public final class MinimapData {
 			return true;
 		}
 		try {
-			texture = new DynamicTexture(SIZE, SIZE, true);   // calloc'd = fully transparent
+			texture = new DynamicTexture(() -> "Origin minimap", SIZE, SIZE, true);   // calloc'd = fully transparent
 			image = texture.getPixels();
 			texture.upload();
-			texture.setFilter(false, false);                  // nearest: crisp block pixels (binds it)
+			texture.setFilter(false, false);                  // nearest: crisp block pixels
 			// The ring buffer relies on wrapping UVs; set it explicitly rather than
-			// trusting the GL default.
-			GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
-			GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
+			// trusting the default (setClamp(false) = REPEAT on both axes).
+			texture.setClamp(false);
 			mc.getTextureManager().register(TEXTURE, texture);
 			return true;
 		} catch (Throwable t) {
@@ -234,17 +232,19 @@ public final class MinimapData {
 	}
 
 	private static void uploadRegion(int ox, int oz) {
-		texture.bind();
-		// level 0, dest (ox,oz), source skip (ox,oz), 16x16, no blur, no clamp, no mipmap, keep the image
-		image.upload(0, ox, oz, ox, oz, 16, 16, false, false, false, false);
+		// 1.21.5+: textures are written through the GPU device's command encoder
+		// (NativeImage.upload is gone): mip 0, layer 0, dest (ox,oz), 16x16, source
+		// (ox,oz) -- the same sub-rectangle 1.21.1's image.upload sent.
+		RenderSystem.getDevice().createCommandEncoder()
+				.writeToTexture(texture.getTexture(), image, 0, 0, ox, oz, 16, 16, ox, oz);
 	}
 
 	// ---- one chunk -> 16x16 pixels ----
 
 	private static void scan(Minecraft mc, ClientLevel level, LevelChunk chunk, int cx, int cz,
 							 Look look, int sig, long now) {
-		int minY = level.getMinBuildHeight();
-		int maxY = level.getMaxBuildHeight() - 1;
+		int minY = level.getMinY();
+		int maxY = level.getMaxY();   // 1.21.2+: inclusive top (was getMaxBuildHeight() - 1)
 		int bx = cx << 4, bz = cz << 4;
 		for (int lz = 0; lz < 16; lz++) {
 			for (int lx = 0; lx < 16; lx++) {
@@ -302,7 +302,7 @@ public final class MinimapData {
 				if (look.grid() && (lx == 0 || lz == 0)) {
 					argb = blend(argb, look.gridColor());
 				}
-				image.setPixelRGBA(ox + lx, oz + lz, toAbgr(argb));
+				image.setPixel(ox + lx, oz + lz, argb);   // ARGB since 1.21.2
 			}
 		}
 		uploadRegion(ox, oz);
@@ -433,10 +433,6 @@ public final class MinimapData {
 		int b = (int) ((argb & 0xFF) * (1 - a) + (over & 0xFF) * a);
 		int outA = Math.max(baseA, (int) (a * 255));
 		return (outA << 24) | (r << 16) | (g << 8) | b;
-	}
-
-	private static int toAbgr(int argb) {
-		return (argb & 0xFF00FF00) | ((argb >> 16) & 0xFF) | ((argb & 0xFF) << 16);
 	}
 
 	private static int[] buildSpiral() {

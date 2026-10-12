@@ -1,11 +1,11 @@
 package com.origin.client.client.hud;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.LerpingBossEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -22,6 +22,12 @@ import java.util.Collection;
  * vanilla's own layer (same z-order as vanilla) at this element's HudPos.
  * The layout is vanilla's, verbatim (1.21.1 BossHealthOverlay): name 9px above
  * a 182x5 bar, 19px per boss, and no new rows past a third of the screen.
+ *
+ * PER-VERSION (1.21.6-1.21.8, deferred GUI): the custom colour rides the
+ * sprite blit's own ARGB (there is no shader colour on this era), blitSprite
+ * takes RenderPipelines.GUI_TEXTURED first, and the pose is a Matrix3x2fStack.
+ * The partial-width bar uses this era's tinted partial-sprite overload -- the
+ * exact call vanilla 1.21.8 BossHealthOverlay.drawBar makes, plus the tint.
  */
 public final class BossBarHud {
 	private static final String MOD = "bossbar";
@@ -77,10 +83,10 @@ public final class BossBarHud {
 		double x = p.x(sw, w), y = p.y(sh, h);
 		float s = (float) (scale() * p.scale);
 		var pose = g.pose();
-		pose.pushPose();
+		pose.pushMatrix();
 		try {
-			pose.translate(x, y, 0);
-			pose.scale(s, s, 1f);
+			pose.translate((float) x, (float) y);
+			pose.scale(s, s);
 			int row = 0;
 			for (LerpingBossEvent e : events) {
 				drawOne(g, e.getName(), e, row);
@@ -90,7 +96,7 @@ public final class BossBarHud {
 				}
 			}
 		} finally {
-			pose.popPose();
+			pose.popMatrix();
 		}
 	}
 
@@ -98,17 +104,17 @@ public final class BossBarHud {
 	static void renderSample(GuiGraphics g) {
 		float s = scale();
 		var pose = g.pose();
-		pose.pushPose();
-		pose.scale(s, s, 1f);
+		pose.pushMatrix();
+		pose.scale(s, s);
 		drawOne(g, SAMPLE.getName(), SAMPLE, 0);
-		pose.popPose();
+		pose.popMatrix();
 	}
 
 	private static void drawOne(GuiGraphics g, Component name, BossEvent e, int top) {
 		Minecraft mc = Minecraft.getInstance();
 		if (Mods.bool(MOD, "renderText")) {
 			int tw = mc.font.width(name);
-			g.drawString(mc.font, name, (W - tw) / 2, top, 0xFFFFFF);
+			g.drawString(mc.font, name, (W - tw) / 2, top, 0xFFFFFFFF);
 		}
 		if (Mods.bool(MOD, "renderBar")) {
 			drawBar(g, top + 9, e);
@@ -116,33 +122,24 @@ public final class BossBarHud {
 	}
 
 	// Vanilla's drawBar, plus Custom Bar Color: the WHITE sprites tinted to the
-	// chosen colour through the shader colour (reset right after).
+	// chosen colour through the blit's ARGB (opaque, like vanilla's bars).
 	private static void drawBar(GuiGraphics g, int y, BossEvent e) {
 		boolean custom = Mods.bool(MOD, "customColor");
 		String color = custom ? BossEvent.BossBarColor.WHITE.getName() : e.getColor().getName();
-		if (custom) {
-			int c = OriginColorPicker.liveColor(MOD, "barColor");
-			RenderSystem.setShaderColor(((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f, 1f);
-		}
-		try {
-			bar(g, y, W, color, "background", e.getOverlay());
-			int filled = Mth.lerpDiscrete(e.getProgress(), 0, W);
-			if (filled > 0) {
-				bar(g, y, filled, color, "progress", e.getOverlay());
-			}
-		} finally {
-			if (custom) {
-				RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			}
+		int tint = custom ? 0xFF000000 | (OriginColorPicker.liveColor(MOD, "barColor") & 0xFFFFFF) : 0xFFFFFFFF;
+		bar(g, y, W, color, "background", e.getOverlay(), tint);
+		int filled = Mth.lerpDiscrete(e.getProgress(), 0, W);
+		if (filled > 0) {
+			bar(g, y, filled, color, "progress", e.getOverlay(), tint);
 		}
 	}
 
-	private static void bar(GuiGraphics g, int y, int width, String color, String part, BossEvent.BossBarOverlay overlay) {
-		RenderSystem.enableBlend();
-		g.blitSprite(ResourceLocation.withDefaultNamespace("boss_bar/" + color + "_" + part), W, 5, 0, 0, 0, y, width, 5);
+	private static void bar(GuiGraphics g, int y, int width, String color, String part, BossEvent.BossBarOverlay overlay, int tint) {
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, ResourceLocation.withDefaultNamespace("boss_bar/" + color + "_" + part),
+				W, 5, 0, 0, 0, y, width, 5, tint);
 		if (overlay != BossEvent.BossBarOverlay.PROGRESS) {
-			g.blitSprite(ResourceLocation.withDefaultNamespace("boss_bar/" + overlay.getName() + "_" + part), W, 5, 0, 0, 0, y, width, 5);
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, ResourceLocation.withDefaultNamespace("boss_bar/" + overlay.getName() + "_" + part),
+					W, 5, 0, 0, 0, y, width, 5, tint);
 		}
-		RenderSystem.disableBlend();
 	}
 }
