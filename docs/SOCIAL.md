@@ -23,19 +23,50 @@ The existing Worker `services/cosmetics` (live: https://origin-cosmetics.will-f1
 first). Social tables arrive in a new migration. Same base URL for every client; the mod already resolves it
 (`-Dorigin.cosmetics.api=<url>` overrides it in dev); the launcher gets one constant next to its other URLs.
 
-## Identity (no Microsoft/Mojang token ever reaches Origin)
-Same proof as cosmetics `/v1/equip`: the client picks a random hex `serverId` (32 chars), tells Mojang
-"I'm joining serverId" with the player's own session (game: `MinecraftSessionService.joinServer`; launcher:
-`POST https://sessionserver.mojang.com/session/minecraft/join {accessToken, selectedProfile, serverId}`), then:
+## Identity v2 (2026-10-12): Mojang-signed proofs, verified offline — no Mojang call from the service
+v1 (Mojang hasJoined from the Worker) never worked live: Mojang answers every request from Cloudflare Workers
+with 403 (proven by /v1/diag/mojang after deploy). The api.mojang.com name lookup is blocked the same way.
+So the client brings two things Mojang already signs for every player, and the Worker checks Mojang's
+signatures itself with Mojang's published keys. Still no Microsoft/Mojang token ever reaches Origin.
 
-    POST /v1/auth            { name, serverId, client: "game" | "launcher" }
-    200 { token, uuid, name, expiresAt }      // uuid undashed lowercase; token valid 24 h
-    401 { error }                             // Mojang didn't confirm / serverId reused
+The client (launcher and game, every version) fetches, with the player's own Minecraft access token:
+1. its PLAYER CERTIFICATE — `POST https://api.minecraftservices.com/player/certificates` (Bearer <MC access
+   token>, empty body) → `{ keyPair: { privateKey, publicKey }, publicKeySignatureV2, expiresAt, ... }`.
+   privateKey is PKCS#8 and publicKey is X.509 SubjectPublicKeyInfo, both base64 inside "-----BEGIN RSA ...
+   KEY-----" PEM headers (Minecraft's own Crypt strips the headers the same way). The private key never
+   leaves the client. Cache it until `refreshedAfter`/`expiresAt`.
+2. its SIGNED PROFILE — `GET https://sessionserver.mojang.com/session/minecraft/profile/<uuid>?unsigned=false`
+   → `properties[name=="textures"] { value, signature }` (value = base64 JSON with profileId, profileName,
+   timestamp).
+Then it signs `origin-auth|<uuid undashed>|<client>|<now ms>` (UTF-8) with the certificate's private key,
+RSASSA-PKCS1-v1_5 + SHA-256, and sends:
 
-Every social call sends `Authorization: Bearer <token>`. A 401 on any call → the client re-runs /v1/auth once,
-then retries. Tokens are stored hashed (SHA-256) server side. Offline/cracked accounts can't pass, so they get
-no social features (the launcher's OfflineTestMode included) — the UI says "Sign in with Microsoft to use
-friends" instead of erroring.
+    POST /v1/auth   { client: "game"|"launcher", uuid, name, at: <ms used in the signed string>,
+                      sig: <base64>, publicKey: <base64 SPKI DER>, keyExpiresAt: <ms from certificate>,
+                      keySignature: <base64 publicKeySignatureV2>,
+                      textures: { value, signature } }
+    200 { token, uuid, name, expiresAt }      // token valid 24 h, as before
+    401 { error }                             // a check failed (player-facing sentence, no internals)
+
+The service verifies, all offline:
+- the certificate: Mojang's `publicKeySignatureV2` (RSASSA-PKCS1-v1_5 + SHA-1) over the bytes
+  uuid-most-significant-64 ‖ uuid-least-significant-64 ‖ keyExpiresAt (int64 big-endian) ‖ publicKey DER,
+  against any of Mojang's `playerCertificateKeys`; keyExpiresAt in the future;
+- possession: `sig` over the signed string with that publicKey; `at` within ±5 min of now; each sig used once
+  (reuse the `joins` table keyed by the sig's hash);
+- the name: Mojang's `textures.signature` (RSASSA-PKCS1-v1_5 + SHA-1) over the raw `textures.value` string,
+  against any of Mojang's `profilePropertyKeys`; decoded profileId == uuid; profileName == name (exact);
+  timestamp no older than 24 h.
+Mojang's public keys come from https://api.minecraftservices.com/publickeys, fetched by GitHub Actions (not
+the Worker — blocked) on every deploy and by a weekly scheduled workflow, and stored where the Worker reads them
+(D1 `meta`). Accounts that can't get a certificate (multiplayer disabled on the Microsoft account) get "Your
+Microsoft account doesn't allow online play, so friends can't be used."
+
+Every social call sends `Authorization: Bearer <token>`; a 401 → re-run /v1/auth once, then retry. Tokens
+stored hashed. Offline accounts (and OfflineTestMode) get no social features — the UI says so.
+Friend requests by name look the name up in Origin's own `names` table (only verified Origin players, kept
+current by every /v1/auth) — never api.mojang.com. `/v1/equip` (cosmetics) takes the same Bearer token instead
+of its old serverId proof (the old body is refused with an "update Origin" sentence).
 
 ## Players online (no auth)
     GET /v1/stats/online     200 { online: <int>, at: <ms> }
