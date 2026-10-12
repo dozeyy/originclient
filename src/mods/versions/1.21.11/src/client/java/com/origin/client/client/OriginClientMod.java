@@ -80,7 +80,13 @@ public class OriginClientMod implements ClientModInitializer {
 	public void onInitializeClient() {
 		OriginKeyBindings.register();
 		OriginShaders.register();
+		// Lunar-parity mods' own pipelines (saturation glow, shine, glint, CUI).
+		com.origin.client.client.render.LunarPipelines.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
+		// Team View, Discord Status and Hypixel register their own events.
+		com.origin.client.client.mods.ServerMods.register();
+		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
+		com.origin.client.client.mods.SaturationOverlay.registerTooltip();
 
 		// Fragility guards for the bundled JEI: warn if a foreign JEI overrides ours
 		// and if the JEI internals the toggle mixins bind to have moved. Wrapped so a
@@ -90,6 +96,16 @@ public class OriginClientMod implements ClientModInitializer {
 			selfCheckJeiMixins();
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
+		}
+		// WorldEdit CUI: its own plugin channel, tick and world-render hooks (fail-soft inside).
+		com.origin.client.client.worldedit.WorldEditCui.init();
+		// Lunar parity, batch 3a: Auto GG's chat listeners and the Screenshot
+		// pop-up's chat-screen click hook (both Fabric API events, fail-soft).
+		try {
+			com.origin.client.client.mods.AutoGG.register();
+			com.origin.client.client.mods.ScreenshotPopup.register();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
 		}
 		// Single authoritative autosave when the player leaves the game (quit to
 		// desktop / window close). Mod + HUD settings already save eagerly on
@@ -196,6 +212,37 @@ public class OriginClientMod implements ClientModInitializer {
 		// (BlockOverlayRenderer.renderFromWorldEvent); LevelRendererMixin only
 		// cancels vanilla's outline. The Fabric BEFORE_BLOCK_OUTLINE event proved
 		// fragile here, so there is deliberately no registration for it.
+	}
+
+	// Lunar parity, batch 3a (chat / server): per-tick work. Each in its own
+	// try so one mod failing never stops the others or the client tick. Runs
+	// before the no-player return: Nick Hider and Screenshot work on menus too.
+	private static void tickLunarBatch3a(Minecraft client) {
+		try {
+			com.origin.client.client.mods.AutoTextHotkey.tick(client);
+		} catch (Throwable t) {
+			// hotkeys just don't fire this tick
+		}
+		try {
+			com.origin.client.client.mods.AutoGG.tick(client);
+		} catch (Throwable t) {
+			// a pending gg is dropped at worst
+		}
+		try {
+			com.origin.client.client.mods.NickHider.tick(client);
+		} catch (Throwable t) {
+			// names keep their last mapping
+		}
+		try {
+			com.origin.client.client.mods.Quickplay.tick(client);
+		} catch (Throwable t) {
+			// keys just don't fire this tick
+		}
+		try {
+			com.origin.client.client.mods.ScreenshotPopup.tick(client);
+		} catch (Throwable t) {
+			// key just doesn't fire this tick
+		}
 	}
 
 	// Flush everything to disk once, when Minecraft is shutting down. Each
@@ -313,6 +360,22 @@ public class OriginClientMod implements ClientModInitializer {
 		applyTimeChanger(client);
 		GeneralSettings.tick(client);
 		MotionBlur.tick(client);
+		// Snaplook ticks before the no-player return so leaving a world mid-look
+		// still restores the saved camera view.
+		com.origin.client.client.mods.Snaplook.tick(client);
+
+		// Lunar-parity readouts' per-tick state (Stopwatch keys, Ping samples,
+		// Combo/Reach hit confirmation). Fail-soft: a HUD readout must never be
+		// able to throw out of the client tick.
+		try {
+			com.origin.client.client.mods.Stopwatch.tick(client);
+			com.origin.client.client.mods.PingSampler.tick(client);
+			com.origin.client.client.mods.CombatStats.tick(client);
+			com.origin.client.client.minimap.MinimapHud.tick(client);   // zoom / full-map keys, auto cave mode
+		} catch (Throwable t) {
+			// keep ticking; the readouts just hold their last value
+		}
+		tickLunarBatch3a(client);
 
 		LocalPlayer player = client.player;
 		if (player == null) {
@@ -568,11 +631,12 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		freelookWasDown = keyDown;
 
-		// Smooth Camera Movement (zoom / freelook): ride vanilla's cinematic
+		// Smooth Camera Movement (zoom / freelook / snaplook): ride vanilla's cinematic
 		// camera smoothing while either is engaged, then restore the player's own
 		// setting the moment both release.
 		boolean wantSmooth = (zoomActive && Mods.bool("zoom", "smoothCamera"))
-				|| (OriginFreelookState.active && Mods.on("freelook") && Mods.bool("freelook", "smoothCamera"));
+				|| (OriginFreelookState.active && Mods.on("freelook") && Mods.bool("freelook", "smoothCamera"))
+				|| com.origin.client.client.mods.Snaplook.wantsSmoothCamera();
 		if (wantSmooth && !smoothCamApplied) {
 			savedSmoothCam = client.options.smoothCamera;
 			client.options.smoothCamera = true;
