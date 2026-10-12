@@ -110,7 +110,9 @@ charged. An item without a package id shows "Soon" and can't be bought.
    then Cloudflare → Workers & Pages → `origin-cosmetics` → Settings →
    Variables and Secrets → add **Secret** `TEBEX_SECRET`. Never in the repo
    or chat.
-6. Give Claude the Worker's address (`https://origin-cosmetics.<name>.workers.dev`);
+6. **Live 2026-10-12: `https://origin-cosmetics.will-f11.workers.dev`** (deploy
+   needed token permissions Account → Workers Scripts Edit + D1 Edit + Account
+   Settings Read). Give Claude the Worker's address;
    it goes in `website/cosmetics/service.json` (`"api"`), which switches the
    in-game side on with no mod release. Empty `"api"` = cosmetics off.
 
