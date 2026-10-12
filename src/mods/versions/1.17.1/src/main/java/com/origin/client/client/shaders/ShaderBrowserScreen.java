@@ -1,41 +1,41 @@
 package com.origin.client.client.shaders;
 
-import com.origin.client.client.gui.OriginUi;
-import com.origin.client.client.gui.OriginText;
-import com.origin.client.client.theme.OriginTheme;
-import net.minecraft.SharedConstants;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.origin.client.client.gui.Gfx;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.origin.client.client.gui.OriginDeck;
+import com.origin.client.client.gui.OriginWindow;
+import net.minecraft.SharedConstants;
+import net.minecraft.client.gui.screens.Screen;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-// The in-client shader store: a curated set of the most-downloaded shaderpacks
-// (live Modrinth download ranking, 2026-07-09), each with its real preview
-// image and a short description. Every listed pack is verified to have a native
-// Iris build for the current game version. A Download button fills 0→100%, then
-// becomes "✓ Installed" (hover → Remove, which deletes it from shaderpacks/).
-// Type anywhere to filter by name/description. Downloads land in shaderpacks/
-// for the RUNNING game version, so on return to Iris's shader menu (re-init
-// rescans the folder) the pack is there, ready to select. This is the only
-// shader-download entry point — Iris ships none.
-public class ShaderBrowserScreen extends Screen {
-	private final Screen parent;
+import static com.origin.client.client.gui.OriginDeck.*;
 
-	private double scroll = 0, scrollTarget = 0;
-	private int maxScroll = 0;
-	private long lastNanos = 0;
+// The in-client shader store, on the shared OriginWindow frame (Will, 2026-10-12:
+// every Origin window in the mod menu's style). A curated set of the
+// most-downloaded shaderpacks (live Modrinth download ranking, 2026-07-09), each
+// with its real preview image and a short description. Every listed pack is
+// verified to have a native Iris build for the current game version. Download
+// shows a progress bar, then "Installed" (hover -> Remove, which deletes it from
+// shaderpacks/). Type anywhere to filter by name/description; Esc clears the
+// search first, then closes. Downloads land in shaderpacks/ for the RUNNING game
+// version, so on return to Iris's shader menu (its re-init rescans the folder)
+// the pack is there, ready to select. This is the only shader-download entry
+// point -- Iris ships none. Opened from the "Download Shaders" button Origin adds
+// to Iris's shader menu (OriginClientMod); closing returns there.
+public class ShaderBrowserScreen extends OriginWindow {
+	private static final float SEARCH_H = 36;
+	private static final float LIST_TOP = BODY_Y + SEARCH_H + 16;
+	private static final float LIST_BOTTOM = BODY_Y + BODY_H;
+	private static final float ROW_H = 76, ROW_GAP = 8;
+	private static final float PREV_W = 100, PREV_H = 56;   // 16:9, like Modrinth's gallery images
+	private static final float CTRL_W = 148, CTRL_H = 32;
 
 	private String query = "";
 	private final List<Integer> view = new ArrayList<>();
-
-	private static final int ROW_H = 46;
-	private static final int PREV_W = 72, PREV_H = 40;
 
 	// {display name, modrinth slug, short description}. Ordered by Modrinth
 	// download rank so the most popular packs sit up top. Slugs are verified
@@ -108,9 +108,9 @@ public class ShaderBrowserScreen extends Screen {
 			{"AstralCore", "astralcore", "Pink-themed dreamy Complementary edit"},
 	};
 
+	/** parent = Iris's shader menu (null in the dev shots: back to the game). */
 	public ShaderBrowserScreen(Screen parent) {
-		super(new TextComponent("Download Shaders"));
-		this.parent = parent;
+		super(new TextComponent("Download Shaders"), parent);
 	}
 
 	@Override
@@ -136,219 +136,164 @@ public class ShaderBrowserScreen extends Screen {
 		scrollTarget = 0;
 	}
 
+	private static String gameVersion() {
+		return SharedConstants.getCurrentVersion().getName();
+	}
+
+	// ---- header ----
+
 	@Override
-	public void onClose() {
-		// back to Iris's shader menu — its re-init rescans shaderpacks/ so any
-		// pack downloaded here now shows up in the list
-		minecraft.setScreen(parent);
-	}
-
-	private int pw() {
-		return Math.min(460, width - 40);
-	}
-
-	private int ph() {
-		return Math.min(height - 40, 340);
-	}
-
-	private int px() {
-		return (width - pw()) / 2;
-	}
-
-	private int py() {
-		return (height - ph()) / 2;
-	}
-
-	private int searchX() {
-		return px() + 12;
-	}
-
-	private int searchY() {
-		return py() + 40;
-	}
-
-	private int searchW() {
-		return pw() - 24;
-	}
-
-	private static final int SEARCH_H = 20;
-
-	private int listTop() {
-		return searchY() + SEARCH_H + 10;
-	}
-
-	private int listBottom() {
-		return py() + ph() - 12;
+	protected String heading() {
+		return "Shaders";
 	}
 
 	@Override
-	public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-		super.render(poseStack, mouseX, mouseY, partialTick);
-		Gfx g = new Gfx(poseStack);
+	protected String subheading() {
+		return "Popular shader packs for Minecraft " + gameVersion();
+	}
 
-		long nanos = System.nanoTime();
-		double dt = lastNanos == 0 ? 16.7 : Math.min(50.0, (nanos - lastNanos) / 1_000_000.0);
-		lastNanos = nanos;
-		scroll += (scrollTarget - scroll) * Math.min(1.0, dt / 60.0);
+	@Override
+	protected String headingIcon() {
+		return "fullbright";
+	}
 
-		OriginUi.panel(g, px(), py(), pw(), ph(), 12, 0xF2101010, OriginTheme.STROKE_STRONG);
-		OriginUi.logo(g, px() + 18, py() + 18, 20, 1f);
-		OriginText.drawBold(g, font, "Shaders", px() + 34, py() + 13, OriginTheme.TEXT, false);
-		String ver = SharedConstants.getCurrentVersion().getName();
-		String sub = ver;
-		OriginText.draw(g, font, sub, px() + pw() - 12 - OriginText.width(font, sub), py() + 14, OriginTheme.MUTED, false);
+	// ---- body ----
 
-		// search field
-		OriginUi.panel(g, searchX(), searchY(), searchW(), SEARCH_H, 7, 0x1AFFFFFF, 0x55FFFFFF);
-		int textY = searchY() + (SEARCH_H - font.lineHeight) / 2 + 1;
-		// This box is always focused (type anywhere): a flashing caret replaces
-		// the placeholder text.
-		int tx = searchX() + 8;
-		String shown = query;
-		if (!shown.isEmpty()) {
-			int maxW = searchW() - 16 - 10;
-			if (OriginText.width(font, shown) > maxW) {
-				shown = "…" + trimLeft(shown, maxW - OriginText.width(font, "…"));
-			}
-			OriginText.draw(g, font, shown, tx, textY, OriginTheme.TEXT, false);
+	@Override
+	protected void drawBody(OriginDeck d) {
+		try {
+			drawSearch(d);
+			drawList(d);
+		} catch (Throwable t) {
+			// a draw failure leaves the bare frame; Esc / close still work
 		}
-		float caretPulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(System.currentTimeMillis() / 350.0));
-		int caretX = tx + OriginText.width(font, shown);
-		int caretCol = ((int) (0xE0 * caretPulse) << 24) | 0xE0E0E0;
-		g.fill(caretX + 1, searchY() + 4, caretX + 2, searchY() + SEARCH_H - 4, caretCol);
-		// result count (right of the field)
-		String count = view.size() + (view.size() == 1 ? " pack" : " packs");
-		OriginText.draw(g, font, count, searchX() + searchW() - OriginText.width(font, count) - 8, textY, OriginTheme.MUTED, false);
+	}
 
-		int x0 = px() + 12, x1 = px() + pw() - 12;
-		int top = listTop(), bottom = listBottom();
-		maxScroll = Math.max(0, view.size() * ROW_H - (bottom - top));
+	private void drawSearch(OriginDeck d) {
+		// Always focused: typing anywhere filters (there is nothing else to type into).
+		field(d, BODY_X, BODY_Y, BODY_W, SEARCH_H, query, "Search shader packs", true, "@find");
+		String count = view.size() + (view.size() == 1 ? " pack" : " packs");
+		d.textRight(count, BODY_X + BODY_W - 14, BODY_Y + SEARCH_H / 2, 12, false, 0, MUTE);
+	}
+
+	private void drawList(OriginDeck d) {
+		float contentH = view.isEmpty() ? 0 : view.size() * (ROW_H + ROW_GAP) - ROW_GAP;
+		maxScroll = Math.max(0, contentH - (LIST_BOTTOM - LIST_TOP));
+		scrollTarget = Math.min(scrollTarget, maxScroll);
+		scroll = Math.min(scroll, maxScroll);
 
 		if (view.isEmpty()) {
-			String msg = "No shaders match \"" + query + "\"";
-			OriginText.draw(g, font, msg, px() + (pw() - OriginText.width(font, msg)) / 2, top + 24, OriginTheme.MUTED, false);
+			d.textCenter(d.fit("No shaders match \"" + query + "\"", BODY_W - 48, 14, false, 0),
+					W / 2, LIST_TOP + 48, 14, false, 0, MUTE);
 			return;
 		}
-
-		g.enableScissor(px(), top, px() + pw(), bottom);
-		int y = top - (int) Math.round(scroll);
+		d.clip(0, LIST_TOP, W, LIST_BOTTOM - LIST_TOP);
 		for (int vi = 0; vi < view.size(); vi++) {
-			if (y + ROW_H >= top && y <= bottom) {
-				drawRow(g, view.get(vi), x0, x1, y, mouseX, mouseY);
+			float y = LIST_TOP + vi * (ROW_H + ROW_GAP) - (float) scroll;
+			if (y + ROW_H < LIST_TOP || y > LIST_BOTTOM) {
+				continue;
 			}
-			y += ROW_H;
+			drawRow(d, view.get(vi), y);
 		}
-		g.disableScissor();
+		d.unclip();
+		scrollbar(d, LIST_TOP, LIST_BOTTOM);
 	}
 
-	private void drawRow(Gfx g, int i, int x0, int x1, int y, int mx, int my) {
+	private void drawRow(OriginDeck d, int i, float y) {
 		String name = DIR[i][0], slug = DIR[i][1], desc = DIR[i][2];
-		OriginUi.panel(g, x0, y, x1 - x0, ROW_H - 6, 8, 0x12FFFFFF, OriginTheme.STROKE);
+		float x = BODY_X, w = BODY_W;
+		card(d, x, y, w, ROW_H, d.over(x, y, w, ROW_H));
 
-		// preview thumbnail (or a placeholder tile while it loads)
-		int ix = x0 + 8, iy = y + (ROW_H - 6 - PREV_H) / 2;
-		OriginUi.panel(g, ix - 1, iy - 1, PREV_W + 2, PREV_H + 2, 4, 0xFF000000, OriginTheme.STROKE);
+		// preview thumbnail (or the Origin mark on a dark tile while it loads)
+		float ix = x + 12, iy = y + (ROW_H - PREV_H) / 2;
+		d.rect(ix, iy, PREV_W, PREV_H, 4, 0xFF0B0E0C, LINE);
 		var prev = ShaderPreviews.get(slug);
 		if (prev != null) {
-			g.blit(prev.id(), ix, iy, PREV_W, PREV_H, 0f, 0f, prev.w(), prev.h(), prev.w(), prev.h());
+			blitPreview(d, prev, ix, iy);
 		} else {
-			OriginUi.mark(g, ix + PREV_W / 2.0, iy + PREV_H / 2.0, 20, 0.25f);
+			d.icon("@origin-mark", ix + PREV_W / 2 - 12, iy + PREV_H / 2 - 12, 24, 0x40F1E9D2);
 		}
 
-		// download control (right) — position first so the description knows its edge
-		int bw = 92;
-		int bx = x1 - 10 - bw;
-		int by = y + (ROW_H - 6 - 18) / 2;
+		// download control (right) -- placed first so the text knows its edge
+		float bx = x + w - 16 - CTRL_W, by = y + (ROW_H - CTRL_H) / 2;
+		drawControl(d, slug, bx, by);
 
-		int textX = ix + PREV_W + 12;
-		OriginText.drawBold(g, font, name, textX, y + 11, OriginTheme.TEXT, false);
-		OriginText.draw(g, font, trimRight(desc, bx - 8 - textX), textX, y + 23, OriginTheme.MUTED, false);
+		float tx = ix + PREV_W + 20, tw = bx - 24 - tx;
+		d.text(d.fit(name, tw, 15, true, 0), tx, y + 33, 15, true, 0, TEXT);
+		d.text(d.fit(desc, tw, 13, false, 0), tx, y + 53, 13, false, 0, DIM);
+	}
 
+	/**
+	 * The preview image, drawn in the deck's physical-pixel space (the deck pose is
+	 * 1/guiScale, so these coordinates are window pixels). Gfx.blit draws
+	 * immediately (GuiComponent.blit through the position_tex shader, tinted by
+	 * the shader colour), so the list's scissor clip covers it.
+	 */
+	private static void blitPreview(OriginDeck d, ShaderPreviews.Preview prev, float x, float y) {
+		int x0 = Math.round(d.ox + x * d.s), y0 = Math.round(d.oy + y * d.s);
+		int x1 = Math.round(d.ox + (x + PREV_W) * d.s), y1 = Math.round(d.oy + (y + PREV_H) * d.s);
+		// cover-crop to the 16:9 tile (gallery images are mostly, not always, 16:9)
+		float want = PREV_W / PREV_H, have = prev.w() / (float) prev.h();
+		int uw = prev.w(), vh = prev.h();
+		float u = 0, v = 0;
+		if (have > want) {
+			uw = Math.round(prev.h() * want);
+			u = (prev.w() - uw) / 2f;
+		} else if (have < want) {
+			vh = Math.round(prev.w() / want);
+			v = (prev.h() - vh) / 2f;
+		}
+		RenderSystem.enableBlend();
+		RenderSystem.setShaderColor(1f, 1f, 1f, d.alpha);
+		d.g.blit(prev.id(), x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2, u, v, uw, vh, prev.w(), prev.h());
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+	}
+
+	private void drawControl(OriginDeck d, String slug, float bx, float by) {
 		var st = ShaderDownloader.state(slug);
 		switch (st.status()) {
 			case WORKING -> {
-				OriginUi.panel(g, bx, by + 4, bw, 10, 5, 0x30FFFFFF, OriginTheme.STROKE);
-				int fill = (int) (bw * Math.max(0.04, st.progress()));
-				OriginUi.panel(g, bx, by + 4, fill, 10, 5, 0xE6E0E0E0, 0);
+				float cy = by + CTRL_H / 2;
 				String pct = Math.round(st.progress() * 100) + "%";
-				OriginText.draw(g, font, pct, bx + (bw - OriginText.width(font, pct)) / 2, by - 6, OriginTheme.TEXT_DIM, false);
+				d.text("DOWNLOADING", bx, cy - 3, 10.5f, true, CAPS_TRACK, MUTE);
+				d.text(pct, bx + CTRL_W - d.textW(pct, 12, true, 0), cy - 3, 12, true, 0, DIM);
+				d.rect(bx, cy + 5, CTRL_W, 4, 2, 0x1FFFFFFF);
+				d.rect(bx, cy + 5, CTRL_W * (float) Math.max(0.04, Math.min(1, st.progress())), 4, 2, ACC);
 			}
 			case DONE -> {
-				// Installed → a click here removes the pack from shaderpacks/.
-				boolean hover = in(mx, my, bx, by, bx + bw, by + 18);
-				float hp = OriginUi.hover("shader:installed:" + slug, hover);
-				OriginUi.panel(g, bx, by, bw, 18, 7,
-						OriginTheme.lerpColor(0x1ED4474F, 0x33D4474F, hp),
-						OriginTheme.lerpColor(0x66D4474F, 0x99D4474F, hp));
-				String t = hover ? "Remove" : "✓ Installed";
-				OriginText.draw(g, font, t, bx + (bw - OriginText.width(font, t)) / 2, by + 5,
-						OriginTheme.lerpColor(0xFF7ACF9E, 0xFFF08A90, hp), false);
-			}
-			case ERROR -> {
-				OriginUi.panel(g, bx, by, bw, 18, 7, 0x1ED4474F, 0x66D4474F);
-				String t = "Unavailable";
-				OriginText.draw(g, font, t, bx + (bw - OriginText.width(font, t)) / 2, by + 5, OriginTheme.DANGER, false);
-			}
-			default -> {
-				boolean hover = in(mx, my, bx, by, bx + bw, by + 18);
-				float hp = OriginUi.hover("shader:download:" + slug, hover);
-				OriginUi.panel(g, bx, by, bw, 18, 7,
-						OriginTheme.lerpColor(0x22FFFFFF, 0x3EFFFFFF, hp),
-						OriginTheme.lerpColor(OriginTheme.STROKE, 0x66FFFFFF, hp));
-				String t = "Download";
-				OriginText.draw(g, font, t, bx + (bw - OriginText.width(font, t)) / 2, by + 5, OriginTheme.TEXT, false);
-			}
-		}
-	}
-
-	/** Truncates s to fit width w, appending an ellipsis when clipped. */
-	private String trimRight(String s, int w) {
-		return OriginText.ellipsize(font, s, w);
-	}
-
-	/** Keeps the trailing part of s that fits width w (for the search field). */
-	private String trimLeft(String s, int w) {
-		int i = 0;
-		while (i < s.length() && OriginText.width(font, s.substring(i)) > w) {
-			i++;
-		}
-		return s.substring(i);
-	}
-
-	@Override
-	public boolean mouseClicked(double mx, double my, int button) {
-		if (button == 0) {
-			int x1 = px() + pw() - 12;
-			int top = listTop(), bottom = listBottom();
-			if (my >= top && my <= bottom && !view.isEmpty()) {
-				String ver = SharedConstants.getCurrentVersion().getName();
-				int y = top - (int) Math.round(scroll);
-				int bw = 92, bx = x1 - 10 - bw;
-				for (int vi = 0; vi < view.size(); vi++) {
-					int by = y + (ROW_H - 6 - 18) / 2;
-					int i = view.get(vi);
-					if (in(mx, my, bx, by, bx + bw, by + 18)) {
-						var status = ShaderDownloader.state(DIR[i][1]).status();
-						if (status == ShaderDownloader.Status.IDLE) {
-							ShaderDownloader.start(DIR[i][1], ver);
-							return true;
-						}
-						if (status == ShaderDownloader.Status.DONE) {
-							ShaderDownloader.remove(DIR[i][1]);
-							return true;
-						}
-					}
-					y += ROW_H;
+				// Installed -> hovering offers Remove (deletes it from shaderpacks/).
+				if (d.over(bx, by, CTRL_W, CTRL_H)) {
+					button(d, "Remove", "@trash", bx, by, CTRL_W, CTRL_H, Style.DANGER, true,
+							() -> ShaderDownloader.remove(slug));
+				} else {
+					d.rect(bx, by, CTRL_W, CTRL_H, 6, ACC_SOFT);
+					String t = "INSTALLED";
+					float tw = 14 + 8 + d.textW(t, 11, true, CAPS_TRACK);
+					float tx = bx + (CTRL_W - tw) / 2;
+					d.icon("@check", tx, by + CTRL_H / 2 - 7, 14, ACC);
+					d.textMid(t, tx + 22, by + CTRL_H / 2, 11, true, CAPS_TRACK, ACC);
 				}
 			}
+			case ERROR -> {
+				d.rect(bx, by, CTRL_W, CTRL_H, 6, RED_SOFT);
+				d.textCenter("UNAVAILABLE", bx + CTRL_W / 2, by + CTRL_H / 2, 11, true, CAPS_TRACK, RED);
+			}
+			default -> button(d, "Download", null, bx, by, CTRL_W, CTRL_H, Style.SECONDARY, true,
+					() -> ShaderDownloader.start(slug, gameVersion()));
 		}
-		return super.mouseClicked(mx, my, button);
 	}
 
+	// ---- input ----
+
+	/** Esc / back chevron: clear the search first, then close (back to Iris's shader menu). */
 	@Override
-	public boolean mouseScrolled(double mx, double my, double amount) {
-		scrollTarget = Math.max(0, Math.min(maxScroll, scrollTarget - amount * 30));
-		return true;
+	protected void back() {
+		if (!query.isEmpty()) {
+			query = "";
+			rebuildView();
+		} else {
+			beginClose();
+		}
 	}
 
 	@Override
@@ -363,15 +308,6 @@ public class ShaderBrowserScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-			if (!query.isEmpty()) {
-				query = "";
-				rebuildView();
-			} else {
-				onClose();
-			}
-			return true;
-		}
 		if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !query.isEmpty()) {
 			query = query.substring(0, query.length() - 1);
 			rebuildView();
@@ -380,7 +316,8 @@ public class ShaderBrowserScreen extends Screen {
 		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
-	private static boolean in(double mx, double my, int x0, int y0, int x1, int y1) {
-		return mx >= x0 && mx < x1 && my >= y0 && my < y1;
+	@Override
+	public void onClose() {
+		beginClose();
 	}
 }
