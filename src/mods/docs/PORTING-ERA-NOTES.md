@@ -540,3 +540,33 @@ Module-evidenced (from the module's own boot-verified HEAD code) unless marked R
   1.21.1's TAIL logic applies verbatim (pause shots: Cosmetics row identical to its neighbours).
 - Title: the merge put `setTitlePresentation(cosmeticsNav, "@shirt", false)` into each module's own
   Cosmetics block (1.20/1.20.2/1.20.4 keep their AbstractWidgetAccessor height setter + redirects).
+
+## Fix-round port (2026-10-12) — 1.21.6 / 1.21.8 (deferred GuiRenderState era; agent port-c)
+Dev shots `1.21.{6,8}-port-c` + `1.21.{6,8}-world-port-c` (commit 05d23fb) compiled and ran clean on the
+first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG matches 1.21.1-final.
+- Method: 3-way `git merge-file` per file (base = 1.21.1 @ d0b50d6, ours = module, theirs = 1.21.1 HEAD);
+  files 1.21.1 rewrote (Cosmetics, FPS Coach, item grid, shader browser, map) take theirs whole + era
+  edits. The two src/ trees were byte-identical, so 1.21.8 was ported and copied to 1.21.6.
+- OriginWindow: never draws the title backdrop from render() (double-blur trap); renderBackground calls
+  super only out of a world (ScreenBackgroundMixin = the one blur), and in a world render() asks
+  MenuBlur.renderBehind. Subclasses drop their own renderBackground overrides.
+- No z in the deferred GUI: OriginItemGridScreen.inFront just runs the draws (later + overlapping =
+  higher layer); drawItem is translate/scale(k,k) on the Matrix3x2fStack.
+- Pipeline blits with the fade in the trailing ARGB (cape art, shader previews):
+  `blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, uW, vH, texW, texH, argb)`, u/v before size.
+- Cosmetics preview = picture-in-picture. The PiP box is GUI px (the deck's 1/guiScale pose is ignored),
+  so the card's inside is converted and rounded inward; the box centre is the entity anchor, so 1.21.1's
+  placement rides the translation: offset = (shiftX/scale, bbH/2 + shiftY/scale, 0) with shift = wanted
+  centre - box centre in GUI px. In a world: the boxed renderEntityInInventory (pin the *O rotations too).
+- MenuPlayerPreview (no world): fills a `new PlayerRenderState()` itself (entityType PLAYER, sentinel id,
+  ageInTicks, skin with the Origin cape swapped in, show* from Skin Customization, capeFlap = sway,
+  bodyRot = 180 + yaw) and calls `g.submitEntityRenderState(state, size, offset, rotation, camera,
+  x0, y0, x1, y1)`; vanilla's PlayerRenderer draws body + CapeLayer. CosmeticHeadLayer recognises the
+  sentinel id (MenuPlayerPreview.STATE_ID) and wears MenuPlayerPreview.head() — no entity to look up.
+  All those PlayerRenderState fields compile on 1.21.6 and 1.21.8.
+- OriginDevWorld: Screenshot.grab is the 3-arg dated-file form here; it reuses OriginDevShots.renameShot
+  (now package-private) and waits 2.5 s after the last capture so the async PNG lands before stop().
+- Pause menu: 1.21.6/1.21.8 createPauseMenu is still GridLayout + alignInRectangle(0.5, 0.25); 1.21.1's
+  TAIL logic applies verbatim (pause shot: Cosmetics row identical width/height/gap, stack lifted).
+- Harness note: the first shaders_1920x1080 capture on 1.21.8 caught the window mid-fade (first open
+  stalls on the preview fetch); the 1366 shot and 1.21.6's are settled with previews. Timing, not code.
