@@ -355,7 +355,8 @@ final class Readouts {
 			int rh = packRowHeight(r);
 			int x = 0;
 			if (r.icon() != null) {
-				g.blit(r.icon(), 0, y + (rh - 16) / 2, 0f, 0f, 16, 16, 16, 16);
+				// 1.21.2+ blit: RenderType first (the GUI batches by render type).
+				g.blit(net.minecraft.client.renderer.RenderType::guiTextured, r.icon(), 0, y + (rh - 16) / 2, 0f, 0f, 16, 16, 16, 16);
 				x = 20;
 			}
 			int textH = 10 + r.desc().size() * 9;

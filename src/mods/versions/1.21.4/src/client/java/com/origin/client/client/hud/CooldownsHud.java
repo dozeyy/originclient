@@ -1,25 +1,19 @@
 package com.origin.client.client.hud;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.GuiMesh;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.world.item.Item;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemCooldowns;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.joml.Matrix4f;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,6 +30,12 @@ import java.util.Map;
  * vanilla's own getCooldownPercent, so the dial matches the hotbar's white
  * cooldown overlay exactly.
  *
+ * PER-VERSION (1.21.2+): cooldowns are kept per cooldown GROUP (a
+ * ResourceLocation -- the item's id unless its use_cooldown component names a
+ * shared group), not per Item. The packet path only knows the group, so the
+ * icon is the stack that last started that group (addCooldown(ItemStack, int)),
+ * or the item registered under the group's id. Dials are drawn with GuiMesh.
+ *
  * Colours (Lunar's four): the sweep fades from Circle Start to Circle End as
  * the cooldown runs down, Edge rings the dial, Text is the seconds label.
  */
@@ -44,48 +44,70 @@ public final class CooldownsHud {
 	private static final int CELL = 24;     // one dial's column width
 	private static final int DIAL = 20;     // dial diameter
 	private static final int HEIGHT = 32;   // dial + seconds label
-
-	// item -> total cooldown length in ticks, insertion-ordered (oldest first).
-	// Touched only on the client thread: onCooldownAdded drops every other caller.
-	private static final Map<Item, Integer> TOTALS = new LinkedHashMap<>();
+	// group -> total cooldown length in ticks, insertion-ordered (oldest first).
+	// Touched only on the client thread: the hooks drop every other caller.
+	private static final Map<ResourceLocation, Integer> TOTALS = new LinkedHashMap<>();
+	// group -> the stack drawn for it (and asked for its remaining fraction)
+	private static final Map<ResourceLocation, ItemStack> ICONS = new HashMap<>();
 
 	private CooldownsHud() {
 	}
 
-	/** From ItemCooldownsMixin -- only the local player's own cooldowns count. */
-	public static void onCooldownAdded(ItemCooldowns cooldowns, Item item, int ticks) {
+	private static boolean mine(ItemCooldowns cooldowns) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || cooldowns != mc.player.getCooldowns() || ticks <= 0) {
-			return;
-		}
-		TOTALS.remove(item);   // re-adding moves it to the end of the row
-		TOTALS.put(item, ticks);
+		return mc.player != null && cooldowns == mc.player.getCooldowns() && mc.isSameThread();
 	}
 
-	private record Entry(Item item, float fraction, float secondsLeft) {
+	/** From ItemCooldownsMixin: addCooldown(ItemStack, int) -- remembers the icon. */
+	public static void onStackCooldown(ItemCooldowns cooldowns, ItemStack stack) {
+		if (stack == null || stack.isEmpty() || !mine(cooldowns)) {
+			return;
+		}
+		ICONS.put(cooldowns.getCooldownGroup(stack), stack.copyWithCount(1));
+	}
+
+	/** From ItemCooldownsMixin: addCooldown(ResourceLocation, int) -- every cooldown lands here. */
+	public static void onCooldownAdded(ItemCooldowns cooldowns, ResourceLocation group, int ticks) {
+		if (group == null || ticks <= 0 || !mine(cooldowns)) {
+			return;
+		}
+		if (!ICONS.containsKey(group)) {
+			var item = BuiltInRegistries.ITEM.getOptional(group);
+			if (item.isEmpty()) {
+				return;   // a custom group we have no picture for
+			}
+			ICONS.put(group, new ItemStack(item.get()));
+		}
+		TOTALS.remove(group);   // re-adding moves it to the end of the row
+		TOTALS.put(group, ticks);
+	}
+
+	private record Entry(ItemStack icon, float fraction, float secondsLeft) {
 	}
 
 	private static List<Entry> entries(Minecraft mc) {
 		List<Entry> out = new ArrayList<>();
 		if (mc.player != null) {
 			ItemCooldowns cd = mc.player.getCooldowns();
-			float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
-			Iterator<Map.Entry<Item, Integer>> it = TOTALS.entrySet().iterator();
+			float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+			Iterator<Map.Entry<ResourceLocation, Integer>> it = TOTALS.entrySet().iterator();
 			while (it.hasNext()) {
-				Map.Entry<Item, Integer> e = it.next();
-				float f = cd.getCooldownPercent(e.getKey(), partial);
+				Map.Entry<ResourceLocation, Integer> e = it.next();
+				ItemStack icon = ICONS.get(e.getKey());
+				float f = icon == null ? 0f : cd.getCooldownPercent(icon, partial);
 				if (f <= 0f) {
 					it.remove();   // finished (or a new world/player): forget it
 					continue;
 				}
-				out.add(new Entry(e.getKey(), f, f * e.getValue() / 20f));
+				out.add(new Entry(icon, f, f * e.getValue() / 20f));
 			}
 		} else {
 			TOTALS.clear();
+			ICONS.clear();
 		}
 		if (out.isEmpty() && HudElements.editorPreview) {
-			out.add(new Entry(Items.ENDER_PEARL, 0.65f, 0.65f));
-			out.add(new Entry(Items.SHIELD, 0.3f, 1.5f));
+			out.add(new Entry(new ItemStack(Items.ENDER_PEARL), 0.65f, 0.65f));
+			out.add(new Entry(new ItemStack(Items.SHIELD), 0.3f, 1.5f));
 		}
 		return out;
 	}
@@ -121,10 +143,11 @@ public final class CooldownsHud {
 			// Sweep = the time still left, clockwise from 12 o'clock; it shades from
 			// Start toward End as the cooldown runs out.
 			int sweep = OriginTheme.lerpColor(end, start, e.fraction());
-			Matrix4f m = pose.last().pose();
-			pie(m, cx, cy, DIAL / 2f - 1, e.fraction(), sweep);
-			ring(m, cx, cy, DIAL / 2f, DIAL / 2f - 1.2f, edge);
-			g.renderItem(new ItemStack(e.item()), (int) (cx - 8), (int) (cy - 8));
+			GuiMesh mesh = GuiMesh.colors();
+			pie(mesh, cx, cy, DIAL / 2f - 1, e.fraction(), sweep);
+			ring(mesh, cx, cy, DIAL / 2f, DIAL / 2f - 1.2f, edge);
+			mesh.draw(g);
+			g.renderItem(e.icon(), (int) (cx - 8), (int) (cy - 8));
 			String label = e.secondsLeft() >= 10 ? String.format("%.0f", e.secondsLeft())
 					: String.format("%.1f", e.secondsLeft());
 			g.drawString(mc.font, label, (int) (cx - mc.font.width(label) / 2f), DIAL + 3, text, true);
@@ -133,66 +156,36 @@ public final class CooldownsHud {
 		pose.popPose();
 	}
 
-	// ---- immediate-mode dial geometry (plain coloured triangles) ----
+	// ---- dial geometry (plain coloured triangles) ----
 
-	private static void pie(Matrix4f m, float cx, float cy, float r, float fraction, int argb) {
+	private static void pie(GuiMesh mesh, float cx, float cy, float r, float fraction, int argb) {
 		if (fraction <= 0f || ((argb >>> 24) & 0xFF) == 0) {
 			return;
 		}
 		int segs = Math.max(2, (int) Math.ceil(48 * fraction));
-		BufferBuilder b = begin();
 		for (int i = 0; i < segs; i++) {
 			double a0 = angle(fraction * i / segs), a1 = angle(fraction * (i + 1) / segs);
-			vertex(b, m, cx, cy, argb);
-			vertex(b, m, cx + (float) Math.cos(a0) * r, cy + (float) Math.sin(a0) * r, argb);
-			vertex(b, m, cx + (float) Math.cos(a1) * r, cy + (float) Math.sin(a1) * r, argb);
+			mesh.tri(cx, cy,
+					cx + (float) Math.cos(a0) * r, cy + (float) Math.sin(a0) * r,
+					cx + (float) Math.cos(a1) * r, cy + (float) Math.sin(a1) * r, argb);
 		}
-		draw(b);
 	}
 
-	private static void ring(Matrix4f m, float cx, float cy, float rOut, float rIn, int argb) {
+	private static void ring(GuiMesh mesh, float cx, float cy, float rOut, float rIn, int argb) {
 		if (((argb >>> 24) & 0xFF) == 0) {
 			return;
 		}
 		int segs = 48;
-		BufferBuilder b = begin();
 		for (int i = 0; i < segs; i++) {
 			double a0 = angle(i / (double) segs), a1 = angle((i + 1) / (double) segs);
 			float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
-			vertex(b, m, cx + c0 * rOut, cy + s0 * rOut, argb);
-			vertex(b, m, cx + c1 * rOut, cy + s1 * rOut, argb);
-			vertex(b, m, cx + c1 * rIn, cy + s1 * rIn, argb);
-			vertex(b, m, cx + c0 * rOut, cy + s0 * rOut, argb);
-			vertex(b, m, cx + c1 * rIn, cy + s1 * rIn, argb);
-			vertex(b, m, cx + c0 * rIn, cy + s0 * rIn, argb);
+			mesh.quad(cx + c0 * rOut, cy + s0 * rOut, cx + c1 * rOut, cy + s1 * rOut,
+					cx + c1 * rIn, cy + s1 * rIn, cx + c0 * rIn, cy + s0 * rIn, argb);
 		}
-		draw(b);
 	}
 
 	/** 0 = 12 o'clock, increasing clockwise on screen (GUI y points down). */
 	private static double angle(double turns) {
 		return -Math.PI / 2 + turns * Math.PI * 2;
-	}
-
-	private static BufferBuilder begin() {
-		return Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-	}
-
-	private static void vertex(BufferBuilder b, Matrix4f m, float x, float y, int argb) {
-		b.addVertex(m, x, y, 0).setColor((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, (argb >>> 24) & 0xFF);
-	}
-
-	private static void draw(BufferBuilder b) {
-		MeshData mesh = b.build();
-		if (mesh == null) {
-			return;
-		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		RenderSystem.disableCull();   // winding-agnostic: the fan's triangles face either way
-		RenderSystem.setShader(GameRenderer::getPositionColorShader);
-		BufferUploader.drawWithShader(mesh);
-		RenderSystem.enableCull();
-		RenderSystem.disableBlend();
 	}
 }

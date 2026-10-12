@@ -1,10 +1,13 @@
 package com.origin.client.client.mods;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.gui.OriginColorPicker;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderStateShard;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.util.TriState;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -79,49 +82,64 @@ public final class SaturationOverlay {
 		}
 		float pulse = 0.35f + 0.3f * (float) Math.sin(System.currentTimeMillis() / 160.0);
 
-		RenderSystem.enableBlend();
-		try {
-			// 1) held-item hunger: the shanks eating would refill, pulsing
-			if (held != null && Mods.bool("saturation", "heldHunger") && newFood > food) {
-				RenderSystem.defaultBlendFunc();
-				RenderSystem.setShaderColor(1f, 1f, 1f, pulse);
-				for (int i = 0; i < 10; i++) {
-					int before = clampUnit(food - i * 2), after = clampUnit(newFood - i * 2);
-					if (after > before) {
-						g.blitSprite(after == 2 ? (hungerFx ? FULL_HUNGER : FULL) : (hungerFx ? HALF_HUNGER : HALF),
-								right - i * 8 - 9, y, 9, 9);
-					}
+		// 1) held-item hunger: the shanks eating would refill, pulsing
+		if (held != null && Mods.bool("saturation", "heldHunger") && newFood > food) {
+			int tint = (Math.round(Math.max(0f, Math.min(1f, pulse)) * 255) << 24) | 0xFFFFFF;
+			for (int i = 0; i < 10; i++) {
+				int before = clampUnit(food - i * 2), after = clampUnit(newFood - i * 2);
+				if (after > before) {
+					sprite(g, false, after == 2 ? (hungerFx ? FULL_HUNGER : FULL) : (hungerFx ? HALF_HUNGER : HALF),
+							right - i * 8 - 9, y, tint);
 				}
 			}
-			// 2) saturation (current, then the held item's gain, pulsing): the
-			// shank sprite added on top in the overlay colour, so it glows
-			// without hiding the hunger state underneath.
-			int c = OriginColorPicker.liveColor("saturation", "overlayColor");
-			float r = ((c >> 16) & 0xFF) / 255f, gr = ((c >> 8) & 0xFF) / 255f, b = (c & 0xFF) / 255f;
-			float a = ((c >>> 24) & 0xFF) / 255f;
-			RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
-			if (Mods.bool("saturation", "overlay")) {
-				RenderSystem.setShaderColor(r, gr, b, a);
-				drawSaturation(g, 0f, sat, y, right);
-			}
-			if (held != null && Mods.bool("saturation", "heldSaturation") && newSat > sat) {
-				RenderSystem.setShaderColor(r, gr, b, a * pulse * 1.6f);
-				drawSaturation(g, sat, newSat, y, right);
-			}
-		} finally {
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-			RenderSystem.defaultBlendFunc();
-			RenderSystem.disableBlend();
+		}
+		// 2) saturation (current, then the held item's gain, pulsing): the
+		// shank sprite added on top in the overlay colour, so it glows
+		// without hiding the hunger state underneath.
+		int c = OriginColorPicker.liveColor("saturation", "overlayColor");
+		float a = ((c >>> 24) & 0xFF) / 255f;
+		if (Mods.bool("saturation", "overlay")) {
+			drawSaturation(g, 0f, sat, y, right, withAlpha(c, a));
+		}
+		if (held != null && Mods.bool("saturation", "heldSaturation") && newSat > sat) {
+			drawSaturation(g, sat, newSat, y, right, withAlpha(c, a * pulse * 1.6f));
 		}
 	}
 
+	private static int withAlpha(int rgb, float a) {
+		return (Math.round(Math.max(0f, Math.min(1f, a)) * 255) << 24) | (rgb & 0xFFFFFF);
+	}
+
+	// PER-VERSION (1.21.2-1.21.4): the GUI is batched, so neither the pulse alpha nor
+	// the additive blend can be RenderSystem state as on 1.21.1 -- the alpha/tint
+	// ride the blit's own ARGB, and the additive glow is its own render type:
+	// vanilla's gui_textured with LIGHTNING_TRANSPARENCY (SRC_ALPHA, ONE -- the
+	// exact blend 1.21.1 set here). Built once per sprite atlas location.
+	private static final java.util.Map<ResourceLocation, RenderType> ADDITIVE = new java.util.HashMap<>();
+
+	private static RenderType additive(ResourceLocation atlas) {
+		return ADDITIVE.computeIfAbsent(atlas, loc -> RenderType.create("originclient_gui_additive",
+				DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS, 786432,
+				RenderType.CompositeState.builder()
+						.setTextureState(new RenderStateShard.TextureStateShard(loc, TriState.FALSE, false))
+						.setShaderState(RenderStateShard.POSITION_TEXTURE_COLOR_SHADER)
+						.setTransparencyState(RenderStateShard.LIGHTNING_TRANSPARENCY)
+						.setDepthTestState(RenderStateShard.LEQUAL_DEPTH_TEST)
+						.createCompositeState(false)));
+	}
+
+	private static void sprite(GuiGraphics g, boolean add, ResourceLocation id, int x, int y, int argb) {
+		java.util.function.Function<ResourceLocation, RenderType> type = add ? SaturationOverlay::additive : RenderType::guiTextured;
+		g.blitSprite(type, id, x, y, 9, 9, argb);
+	}
+
 	/** Saturation between `from` and `to` (in half-shank points) as full/half shanks. */
-	private static void drawSaturation(GuiGraphics g, float from, float to, int y, int right) {
+	private static void drawSaturation(GuiGraphics g, float from, float to, int y, int right, int argb) {
 		for (int i = 0; i < 10; i++) {
 			int before = clampUnit((int) Math.floor(from) - i * 2);
 			int after = clampUnit((int) Math.floor(to) - i * 2);
 			if (after > before) {
-				g.blitSprite(after == 2 ? FULL : HALF, right - i * 8 - 9, y, 9, 9);
+				sprite(g, true, after == 2 ? FULL : HALF, right - i * 8 - 9, y, argb);
 			}
 		}
 	}

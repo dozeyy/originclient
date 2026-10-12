@@ -1,24 +1,16 @@
 package com.origin.client.client.minimap;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.origin.client.client.render.GuiMesh;
 import com.origin.client.client.waypoints.Waypoints;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
-import org.joml.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,9 +18,14 @@ import java.util.List;
 /**
  * Draws one map view -- terrain, background, border, entity radar, waypoints, the
  * player arrow and compass letters -- for both the HUD minimap and the full-screen
- * map. Everything is immediate-mode geometry (like the Cooldowns dials), so a round
- * map is simply a textured triangle fan: no stencil, no scissor, and rotation is free
- * because only the texture coordinates turn.
+ * map. Everything is free-form triangles (render/GuiMesh, like the Cooldowns dials),
+ * so a round map is simply a textured triangle fan: no stencil, no scissor, and
+ * rotation is free because only the texture coordinates turn.
+ *
+ * PER-VERSION: 1.21.1 drew through Tesselator + RenderSystem here; this module
+ * routes the same triangles through GuiMesh, this era's way of putting free-form
+ * geometry into the GUI (see GuiMesh's note). Shapes, colours and layering order
+ * are 1.21.1's; marker opacity on player heads rides the face blit's ARGB.
  */
 final class MinimapRenderer {
 	private static final int CIRCLE_SEGMENTS = 72;
@@ -118,17 +115,17 @@ final class MinimapRenderer {
 
 	// ---- shape: background, terrain, border ----
 
-	static void background(Matrix4f m, View v, int argb) {
+	static void background(GuiGraphics g, View v, int argb) {
 		if (alpha(argb) == 0) {
 			return;
 		}
-		BufferBuilder b = colorTris();
-		shape(b, m, v, 0, argb);
-		drawColor(b);
+		GuiMesh b = GuiMesh.colors();
+		shape(b, v, 0, argb);
+		b.draw(g);
 	}
 
 	/** The terrain texture sampled under the view's rotation (REPEAT-wrapped ring buffer). */
-	static void terrain(Matrix4f m, View v) {
+	static void terrain(GuiGraphics g, View v) {
 		if (!MinimapData.ready()) {
 			return;
 		}
@@ -136,24 +133,24 @@ final class MinimapRenderer {
 		// the texture size so float precision holds even 30 million blocks out.
 		double baseX = Math.floorMod((long) Math.floor(v.wx), MinimapData.SIZE) + (v.wx - Math.floor(v.wx));
 		double baseZ = Math.floorMod((long) Math.floor(v.wz), MinimapData.SIZE) + (v.wz - Math.floor(v.wz));
-		BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+		GuiMesh b = GuiMesh.textured(MinimapData.TEXTURE);
 		if (v.circle) {
 			for (int i = 0; i < CIRCLE_SEGMENTS; i++) {
 				double a0 = Math.PI * 2 * i / CIRCLE_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / CIRCLE_SEGMENTS;
-				texVertex(b, m, v, baseX, baseZ, v.cx, v.cy);
-				texVertex(b, m, v, baseX, baseZ, v.cx + (float) Math.cos(a0) * v.halfW, v.cy + (float) Math.sin(a0) * v.halfW);
-				texVertex(b, m, v, baseX, baseZ, v.cx + (float) Math.cos(a1) * v.halfW, v.cy + (float) Math.sin(a1) * v.halfW);
+				texVertex(b, v, baseX, baseZ, v.cx, v.cy);
+				texVertex(b, v, baseX, baseZ, v.cx + (float) Math.cos(a0) * v.halfW, v.cy + (float) Math.sin(a0) * v.halfW);
+				texVertex(b, v, baseX, baseZ, v.cx + (float) Math.cos(a1) * v.halfW, v.cy + (float) Math.sin(a1) * v.halfW);
 			}
 		} else {
 			float x0 = v.cx - v.halfW, x1 = v.cx + v.halfW, y0 = v.cy - v.halfH, y1 = v.cy + v.halfH;
-			texVertex(b, m, v, baseX, baseZ, x0, y0);
-			texVertex(b, m, v, baseX, baseZ, x0, y1);
-			texVertex(b, m, v, baseX, baseZ, x1, y1);
-			texVertex(b, m, v, baseX, baseZ, x0, y0);
-			texVertex(b, m, v, baseX, baseZ, x1, y1);
-			texVertex(b, m, v, baseX, baseZ, x1, y0);
+			texVertex(b, v, baseX, baseZ, x0, y0);
+			texVertex(b, v, baseX, baseZ, x0, y1);
+			texVertex(b, v, baseX, baseZ, x1, y1);
+			texVertex(b, v, baseX, baseZ, x0, y0);
+			texVertex(b, v, baseX, baseZ, x1, y1);
+			texVertex(b, v, baseX, baseZ, x1, y0);
 		}
-		drawTex(b);
+		b.draw(g);
 	}
 
 	/**
@@ -161,81 +158,66 @@ final class MinimapRenderer {
 	 * clip to the scanned window: outside it, a ring-buffer slot may still hold some
 	 * other place's pixels.
 	 */
-	static void terrainRect(Matrix4f m, View v, double x0, double z0, double x1, double z1) {
+	static void terrainRect(GuiGraphics g, View v, double x0, double z0, double x1, double z1) {
 		if (!MinimapData.ready() || x1 <= x0 || z1 <= z0) {
 			return;
 		}
 		double baseX = Math.floorMod((long) Math.floor(v.wx), MinimapData.SIZE) + (v.wx - Math.floor(v.wx));
 		double baseZ = Math.floorMod((long) Math.floor(v.wz), MinimapData.SIZE) + (v.wz - Math.floor(v.wz));
-		BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+		GuiMesh b = GuiMesh.textured(MinimapData.TEXTURE);
 		double[][] c = {{x0, z0}, {x0, z1}, {x1, z1}, {x0, z0}, {x1, z1}, {x1, z0}};
 		for (double[] p : c) {
 			float u = (float) ((baseX + p[0] - v.wx) / MinimapData.SIZE);
 			float t = (float) ((baseZ + p[1] - v.wz) / MinimapData.SIZE);
-			b.addVertex(m, v.sx(p[0], p[1]), v.sy(p[0], p[1]), 0).setUv(u, t).setColor(255, 255, 255, 255);
+			b.vertex(v.sx(p[0], p[1]), v.sy(p[0], p[1]), u, t, 0xFFFFFFFF);
 		}
-		drawTex(b);
+		b.draw(g);
 	}
 
-	private static void drawTex(BufferBuilder b) {
-		MeshData mesh = b.build();
-		if (mesh == null) {
-			return;
-		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		RenderSystem.disableCull();
-		RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-		RenderSystem.setShaderTexture(0, MinimapData.TEXTURE);
-		BufferUploader.drawWithShader(mesh);
-		RenderSystem.enableCull();
-		RenderSystem.disableBlend();
-	}
-
-	private static void texVertex(BufferBuilder b, Matrix4f m, View v, double baseX, double baseZ, float sx, float sy) {
+	private static void texVertex(GuiMesh b, View v, double baseX, double baseZ, float sx, float sy) {
 		float dx = sx - v.cx, dy = sy - v.cy;
 		double ox = (dx * v.cos + dy * v.sin) / v.ppb;
 		double oz = (-dx * v.sin + dy * v.cos) / v.ppb;
 		float u = (float) ((baseX + ox) / MinimapData.SIZE);
 		float t = (float) ((baseZ + oz) / MinimapData.SIZE);
-		b.addVertex(m, sx, sy, 0).setUv(u, t).setColor(255, 255, 255, 255);
+		b.vertex(sx, sy, u, t, 0xFFFFFFFF);
 	}
 
 	/** Border drawn INSIDE the map edge, so the element's box is exactly the map. */
-	static void border(Matrix4f m, View v, float thickness, int argb) {
+	static void border(GuiGraphics g, View v, float thickness, int argb) {
 		if (alpha(argb) == 0 || thickness <= 0) {
 			return;
 		}
-		BufferBuilder b = colorTris();
+		GuiMesh b = GuiMesh.colors();
 		if (v.circle) {
 			float ro = v.halfW, ri = Math.max(0, v.halfW - thickness);
 			for (int i = 0; i < CIRCLE_SEGMENTS; i++) {
 				double a0 = Math.PI * 2 * i / CIRCLE_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / CIRCLE_SEGMENTS;
 				float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
-				quad(b, m, v.cx + c0 * ro, v.cy + s0 * ro, v.cx + c1 * ro, v.cy + s1 * ro,
+				b.quad(v.cx + c0 * ro, v.cy + s0 * ro, v.cx + c1 * ro, v.cy + s1 * ro,
 						v.cx + c1 * ri, v.cy + s1 * ri, v.cx + c0 * ri, v.cy + s0 * ri, argb);
 			}
 		} else {
 			float x0 = v.cx - v.halfW, x1 = v.cx + v.halfW, y0 = v.cy - v.halfH, y1 = v.cy + v.halfH, t = thickness;
-			rect(b, m, x0, y0, x1, y0 + t, argb);                 // top + bottom span the full width;
-			rect(b, m, x0, y1 - t, x1, y1, argb);
-			rect(b, m, x0, y0 + t, x0 + t, y1 - t, argb);         // the sides fill only the gap, so the
-			rect(b, m, x1 - t, y0 + t, x1, y1 - t, argb);         // corners are never drawn twice
+			b.rect(x0, y0, x1, y0 + t, argb);                 // top + bottom span the full width;
+			b.rect(x0, y1 - t, x1, y1, argb);
+			b.rect(x0, y0 + t, x0 + t, y1 - t, argb);         // the sides fill only the gap, so the
+			b.rect(x1 - t, y0 + t, x1, y1 - t, argb);         // corners are never drawn twice
 		}
-		drawColor(b);
+		b.draw(g);
 	}
 
 	/** Fills the map's shape (inset by `inset`) -- used for the background. */
-	private static void shape(BufferBuilder b, Matrix4f m, View v, float inset, int argb) {
+	private static void shape(GuiMesh b, View v, float inset, int argb) {
 		if (v.circle) {
 			float r = v.halfW - inset;
 			for (int i = 0; i < CIRCLE_SEGMENTS; i++) {
 				double a0 = Math.PI * 2 * i / CIRCLE_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / CIRCLE_SEGMENTS;
-				tri(b, m, v.cx, v.cy, v.cx + (float) Math.cos(a0) * r, v.cy + (float) Math.sin(a0) * r,
+				b.tri(v.cx, v.cy, v.cx + (float) Math.cos(a0) * r, v.cy + (float) Math.sin(a0) * r,
 						v.cx + (float) Math.cos(a1) * r, v.cy + (float) Math.sin(a1) * r, argb);
 			}
 		} else {
-			rect(b, m, v.cx - v.halfW + inset, v.cy - v.halfH + inset, v.cx + v.halfW - inset, v.cy + v.halfH - inset, argb);
+			b.rect(v.cx - v.halfW + inset, v.cy - v.halfH + inset, v.cx + v.halfW - inset, v.cy + v.halfH - inset, argb);
 		}
 	}
 
@@ -251,13 +233,11 @@ final class MinimapRenderer {
 		if (mc.level == null || mc.player == null) {
 			return;
 		}
-		Matrix4f m = g.pose().last().pose();
 		double reach = v.radiusBlocks() + 2;
 		double reachSq = reach * reach;
 		float half = 0.75f + r.size() * 0.5f;
 		int headPx = Math.round(6 + r.size() * 2);
-		BufferBuilder b = colorTris();
-		boolean any = false;
+		GuiMesh b = GuiMesh.colors();
 		List<float[]> heads = new ArrayList<>();
 		List<AbstractClientPlayer> headPlayers = new ArrayList<>();
 		int count = 0;
@@ -320,17 +300,12 @@ final class MinimapRenderer {
 			}
 			int a = Math.round(alpha(color) * r.opacity());
 			if (r.shadow()) {
-				rect(b, m, sx - half - 0.6f, sy - half - 0.6f, sx + half + 0.6f, sy + half + 0.6f, (a * 3 / 5) << 24);
+				b.rect(sx - half - 0.6f, sy - half - 0.6f, sx + half + 0.6f, sy + half + 0.6f, (a * 3 / 5) << 24);
 			}
-			rect(b, m, sx - half, sy - half, sx + half, sy + half, withAlpha(color, a));
-			any = true;
+			b.rect(sx - half, sy - half, sx + half, sy + half, withAlpha(color, a));
 			count++;
 		}
-		if (any) {
-			drawColor(b);
-		} else {
-			discard(b);
-		}
+		b.draw(g);
 		// Player heads: vanilla's own face renderer (face + hat layer), drawn after the
 		// dots so a player is never hidden under a mob marker.
 		if (heads.isEmpty()) {
@@ -338,20 +313,20 @@ final class MinimapRenderer {
 		}
 		if (r.shadow()) {
 			int a = Math.round(255 * r.opacity());
-			BufferBuilder sb = colorTris();
+			GuiMesh sb = GuiMesh.colors();
 			for (float[] p : heads) {
 				float x = Math.round(p[0] - headPx / 2f), y = Math.round(p[1] - headPx / 2f);
-				rect(sb, m, x - 1, y - 1, x + headPx + 1, y + headPx + 1, (a * 3 / 5) << 24);
+				sb.rect(x - 1, y - 1, x + headPx + 1, y + headPx + 1, (a * 3 / 5) << 24);
 			}
-			drawColor(sb);
+			sb.draw(g);
 		}
+		// The marker opacity rides the face blit's own ARGB (this era's GUI never
+		// sees RenderSystem's shader colour).
+		int faceTint = withAlpha(0xFFFFFF, Math.round(255 * r.opacity()));
 		for (int i = 0; i < heads.size(); i++) {
 			float[] p = heads.get(i);
 			int x = Math.round(p[0] - headPx / 2f), y = Math.round(p[1] - headPx / 2f);
-			RenderSystem.setShaderColor(1f, 1f, 1f, r.opacity());
-			RenderSystem.enableBlend();
-			PlayerFaceRenderer.draw(g, headPlayers.get(i).getSkin(), x, y, headPx);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			PlayerFaceRenderer.draw(g, headPlayers.get(i).getSkin(), x, y, headPx, faceTint);
 		}
 	}
 
@@ -360,11 +335,9 @@ final class MinimapRenderer {
 	/** Every enabled waypoint in this dimension as the Waypoints mod's diamond, in its
 	 *  own colour; ones beyond the edge sit ON the edge (dimmer) if `distant`. */
 	static void waypoints(GuiGraphics g, View v, boolean distant, float size) {
-		Matrix4f m = g.pose().last().pose();
 		String dim = Waypoints.currentDim();
 		float r = size;
-		BufferBuilder b = colorTris();
-		boolean any = false;
+		GuiMesh b = GuiMesh.colors();
 		for (Waypoints.Waypoint wp : Waypoints.all()) {
 			if (!wp.enabled || !dim.equals(wp.dimension)) {
 				continue;
@@ -380,29 +353,24 @@ final class MinimapRenderer {
 				sy = e[1];
 				alpha = 170;
 			}
-			diamond(b, m, sx, sy, r + 1, alpha << 24);
-			diamond(b, m, sx, sy, r, withAlpha(wp.color, alpha));
-			any = true;
+			diamond(b, sx, sy, r + 1, alpha << 24);
+			diamond(b, sx, sy, r, withAlpha(wp.color, alpha));
 		}
-		if (any) {
-			drawColor(b);
-		} else {
-			discard(b);
-		}
+		b.draw(g);
 	}
 
 	// ---- the player ----
 
 	/** An arrowhead at the centre pointing where the player faces (screen angle). */
-	static void playerArrow(Matrix4f m, float x, float y, float screenAngle, float size, int argb) {
+	static void playerArrow(GuiGraphics g, float x, float y, float screenAngle, float size, int argb) {
 		float len = 1.5f + size * 0.7f;
-		BufferBuilder b = colorTris();
-		arrow(b, m, x, y, screenAngle, len + 1.1f, (alpha(argb) * 3 / 4) << 24);   // dark outline
-		arrow(b, m, x, y, screenAngle, len, argb);
-		drawColor(b);
+		GuiMesh b = GuiMesh.colors();
+		arrow(b, x, y, screenAngle, len + 1.1f, (alpha(argb) * 3 / 4) << 24);   // dark outline
+		arrow(b, x, y, screenAngle, len, argb);
+		b.draw(g);
 	}
 
-	private static void arrow(BufferBuilder b, Matrix4f m, float x, float y, float ang, float len, int argb) {
+	private static void arrow(GuiMesh b, float x, float y, float ang, float len, int argb) {
 		float c = (float) Math.cos(ang), s = (float) Math.sin(ang);
 		// local shape pointing up (-y): tip, back-left, notch, back-right
 		float[][] p = {{0, -len}, {-len * 0.75f, len * 0.75f}, {0, len * 0.3f}, {len * 0.75f, len * 0.75f}};
@@ -411,8 +379,8 @@ final class MinimapRenderer {
 			q[i][0] = x + p[i][0] * c - p[i][1] * s;
 			q[i][1] = y + p[i][0] * s + p[i][1] * c;
 		}
-		tri(b, m, q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1], argb);
-		tri(b, m, q[0][0], q[0][1], q[2][0], q[2][1], q[3][0], q[3][1], argb);
+		b.tri(q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1], argb);
+		b.tri(q[0][0], q[0][1], q[2][0], q[2][1], q[3][0], q[3][1], argb);
 	}
 
 	/** N / E / S / W just inside the edge, following the map's rotation. */
@@ -428,56 +396,8 @@ final class MinimapRenderer {
 		}
 	}
 
-	// ---- geometry helpers (POSITION_COLOR triangles) ----
-
-	private static BufferBuilder colorTris() {
-		return Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-	}
-
-	private static void tri(BufferBuilder b, Matrix4f m, float x0, float y0, float x1, float y1, float x2, float y2, int argb) {
-		vtx(b, m, x0, y0, argb);
-		vtx(b, m, x1, y1, argb);
-		vtx(b, m, x2, y2, argb);
-	}
-
-	private static void quad(BufferBuilder b, Matrix4f m, float x0, float y0, float x1, float y1,
-							 float x2, float y2, float x3, float y3, int argb) {
-		tri(b, m, x0, y0, x1, y1, x2, y2, argb);
-		tri(b, m, x0, y0, x2, y2, x3, y3, argb);
-	}
-
-	private static void rect(BufferBuilder b, Matrix4f m, float x0, float y0, float x1, float y1, int argb) {
-		quad(b, m, x0, y0, x0, y1, x1, y1, x1, y0, argb);
-	}
-
-	private static void diamond(BufferBuilder b, Matrix4f m, float x, float y, float r, int argb) {
-		quad(b, m, x, y - r, x - r, y, x, y + r, x + r, y, argb);
-	}
-
-	private static void vtx(BufferBuilder b, Matrix4f m, float x, float y, int argb) {
-		b.addVertex(m, x, y, 0).setColor((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, alpha(argb));
-	}
-
-	private static void drawColor(BufferBuilder b) {
-		MeshData mesh = b.build();
-		if (mesh == null) {
-			return;
-		}
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-		RenderSystem.disableCull();   // winding-agnostic: fans and rotated quads face either way
-		RenderSystem.setShader(GameRenderer::getPositionColorShader);
-		BufferUploader.drawWithShader(mesh);
-		RenderSystem.enableCull();
-		RenderSystem.disableBlend();
-	}
-
-	/** Ends a builder that got no vertices (build() returns null and resets it). */
-	private static void discard(BufferBuilder b) {
-		MeshData mesh = b.build();
-		if (mesh != null) {
-			mesh.close();
-		}
+	private static void diamond(GuiMesh b, float x, float y, float r, int argb) {
+		b.quad(x, y - r, x - r, y, x, y + r, x + r, y, argb);
 	}
 
 	static int alpha(int argb) {

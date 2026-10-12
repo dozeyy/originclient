@@ -1,12 +1,11 @@
 package com.origin.client.client.render;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -208,17 +207,14 @@ public final class OriginCrosshair {
 		}
 		int y = g.guiHeight() / 2 - 7 + 16;
 		int x = g.guiWidth() / 2 - 8;
-		RenderSystem.enableBlend();
-		RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE_MINUS_DST_COLOR, GlStateManager.DestFactor.ONE_MINUS_SRC_COLOR,
-				GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
+		// The invert blend vanilla uses here is carried by RenderType::crosshair (vanilla 1.21.4 Gui.renderCrosshair),
+		// not by RenderSystem state (that never reaches this era's GUI renderer).
 		if (full) {
-			g.blitSprite(ATTACK_FULL, x, y, 16, 16);
+			g.blitSprite(RenderType::crosshair, ATTACK_FULL, x, y, 16, 16);
 		} else if (strength < 1.0F) {
 			int w = (int) (strength * 17.0F);
-			g.blitSprite(ATTACK_BG, x, y, 16, 4);
-			g.blitSprite(ATTACK_PROGRESS, 16, 4, 0, 0, x, y, w, 4);
+			g.blitSprite(RenderType::crosshair, ATTACK_BG, x, y, 16, 4);
+			g.blitSprite(RenderType::crosshair, ATTACK_PROGRESS, 16, 4, 0, 0, x, y, w, 4);
 		}
-		RenderSystem.defaultBlendFunc();
-		RenderSystem.disableBlend();
 	}
 }
