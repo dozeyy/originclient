@@ -159,6 +159,8 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		// WorldEdit CUI: its own plugin channel, tick and world-render hooks (fail-soft inside).
 		com.origin.client.client.worldedit.WorldEditCui.init();
+		// Origin originals: Portal Calculator hooks its own client tick (fail-soft inside).
+		com.origin.client.client.mods.PortalCalc.init();
 		// Lunar parity, batch 3a: Auto GG's chat listeners and the Screenshot
 		// pop-up's chat-screen click hook (both Fabric API events, fail-soft).
 		try {

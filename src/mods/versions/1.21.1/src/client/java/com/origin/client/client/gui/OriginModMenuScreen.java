@@ -262,6 +262,8 @@ public class OriginModMenuScreen extends Screen {
 		CATS.put("nickhider", Cat.VISUAL);
 		// Lunar parity: Hypixel Bed Wars.
 		CATS.put("hypixelbedwars", Cat.GAMEPLAY);
+		// Origin originals: Portal Calculator is a coordinate readout, like Coordinates.
+		CATS.put("portalcalc", Cat.HUD);
 	}
 
 	private static Cat catOf(Mods.Mod m) {
