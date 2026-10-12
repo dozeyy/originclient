@@ -4,12 +4,16 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using CmlLib.Core.Auth;
+using CmlLib.Core.ProcessBuilder;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
+using OriginLauncher.App.Core.Social;
+using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.Core.Versions;
 
@@ -33,6 +37,14 @@ public partial class HomePage : UserControl
     // and starting a new launch replaces it.
     private CancellationTokenSource? _launchCts;
 
+    // A launch that goes straight into a server (Friends → Join, party warp).
+    // Version may differ from the selected one; it is NOT saved as the pick.
+    private sealed record LaunchTarget(string Version, string Server);
+
+    // The players-online pill: fetched once the first frame is up, then every 5 min.
+    private readonly DispatcherTimer _playersTimer = new(DispatcherPriority.Background) { Interval = PlayersOnline.Refresh };
+    private bool _playersStarted;
+
     public HomePage()
     {
         InitializeComponent();
@@ -46,6 +58,65 @@ public partial class HomePage : UserControl
         LoadingOverlay.IsVisibleChanged += (_, _) => PromoBanner.SetHomeSceneOpen(HasOpenScene);
         InitVersionSelection();
         RefreshAccountState();
+        Loaded += (_, _) => StartPlayersOnline();
+    }
+
+    private void StartPlayersOnline()
+    {
+        if (_playersStarted) return;
+        _playersStarted = true;
+        _playersTimer.Tick += async (_, _) => await RefreshPlayersOnlineAsync();
+        _playersTimer.Start();
+        Dispatcher.InvokeAsync(() => _ = RefreshPlayersOnlineAsync(), DispatcherPriority.ApplicationIdle);
+    }
+
+    // Network off the UI thread; any failure just hides the pill until the next try.
+    private async Task RefreshPlayersOnlineAsync()
+    {
+        int? count = SocialHub.OnlineCountOverride;
+        if (count == null)
+        {
+            try
+            {
+                count = await Task.Run(() =>
+                    PlayersOnline.FetchAsync(SocialHttp.SendAsync, SocialEndpoints.BaseUrl, CancellationToken.None));
+            }
+            catch
+            {
+                count = null;
+            }
+        }
+
+        if (count is { } n)
+        {
+            PlayersText.Text = SocialText.PlayersOnline(n);
+            PlayersPill.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            PlayersPill.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>
+    /// Friends → Join / party warp: launch <paramref name="version"/> straight
+    /// into <paramref name="server"/>. The newest launch action wins, so a
+    /// launch still being prepared is cancelled first; a game that is already
+    /// starting can't be, so that one is reported instead.
+    /// </summary>
+    public async Task JoinServerAsync(string version, string server)
+    {
+        if (_launchCts is { } inFlight)
+        {
+            inFlight.Cancel();
+            for (var i = 0; i < 100 && _launchCts != null; i++) await Task.Delay(100);
+        }
+        if (_isLaunching)
+        {
+            SetStatus("Minecraft is still starting — try Join again in a moment", StatusTone.Warning);
+            return;
+        }
+        await LaunchAsync(new LaunchTarget(version, server));
     }
 
     // The version the player currently has selected. Held in memory (and mirrored
@@ -145,6 +216,7 @@ public partial class HomePage : UserControl
             ? _settings.SelectedVersion
             : VersionCatalog.DefaultVersion;
         SetVersionButtonText(_selectedVersion);
+        SocialHub.PresenceVersion = _selectedVersion;
         SyncExternalModsToggle();
         UpdatePlayState();
     }
@@ -157,6 +229,7 @@ public partial class HomePage : UserControl
         _settings.SelectedVersion = version;
         SettingsStore.Update(s => s.SelectedVersion = version);
         SetVersionButtonText(version);
+        SocialHub.PresenceVersion = version;
         UpdatePlayState();
     }
 
@@ -209,7 +282,7 @@ public partial class HomePage : UserControl
         await LaunchAsync();
     }
 
-    private async Task LaunchAsync()
+    private async Task LaunchAsync(LaunchTarget? target = null)
     {
         // One fresh read for every launch-gating setting: offline test mode
         // and the external-mods switch can both change on other pages between
@@ -218,7 +291,7 @@ public partial class HomePage : UserControl
         var offlineTest = freshSettings.OfflineTestMode;
         var externalMods = freshSettings.PlayWithExternalMods;
         if (_isLaunching || (_selectedAccount == null && !offlineTest)) return;
-        if (_selectedVersion is not { } version) return;
+        if ((target?.Version ?? _selectedVersion) is not { } version) return;
 
         // Mandatory updates (Will's rule): a launcher older than the latest
         // published release must update before it can launch the game. The
@@ -263,28 +336,16 @@ public partial class HomePage : UserControl
             if (_selectedAccount != null)
             {
                 LoadingOverlay.ReportStage("Signing in");
-                var refreshToken = AccountStore.TryUnprotectRefreshToken(_selectedAccount.ProtectedRefreshToken);
-                if (refreshToken == null)
+                // Through the broker: it serialises silent sign-ins with Origin
+                // social's (one rotating refresh token, never raced), persists
+                // the rotated token and bumps last-used.
+                var signedIn = await MinecraftSessionBroker.RefreshAsync(_selectedAccount.Id, markUsed: true);
+                if (signedIn == null)
                 {
                     SetStatus("Session expired", StatusTone.Error);
                     return;
                 }
-
-                var result = await new MicrosoftAuthenticator().SignInSilentlyAsync(refreshToken);
-
-                // Microsoft rotates refresh tokens on use — persist the new one
-                // immediately, and bump last-used, so the account list stays accurate.
-                AccountStore.Update(accounts =>
-                {
-                    var stored = accounts.FirstOrDefault(a => a.Id == _selectedAccount.Id);
-                    if (stored != null)
-                    {
-                        stored.ProtectedRefreshToken = AccountStore.ProtectRefreshToken(result.MsaRefreshToken);
-                        stored.LastUsedUtc = DateTimeOffset.UtcNow;
-                    }
-                    return accounts;
-                });
-                session = result.Session;
+                session = signedIn;
             }
             else
             {
@@ -307,6 +368,15 @@ public partial class HomePage : UserControl
             // "Multiple garbage collectors selected" no matter what the player
             // changed. Same read the external-mods/offline switches already use.
             var launchOption = LaunchProfileBuilder.Build(freshSettings, session, version);
+            if (target != null)
+            {
+                // Straight into the friend's server: Quick Play on 1.20+, the
+                // old --server/--port pair before it (JoinArguments).
+                var join = JoinArguments.Build(version, target.Server);
+                if (join.Count > 0)
+                    launchOption.ExtraGameArguments = launchOption.ExtraGameArguments
+                        .Append(new MArgument(join.ToArray())).ToList();
+            }
             var installProgress = new Progress<string>(LoadingOverlay.ReportStage);
             // Run provisioning on a worker thread. Everything inside it that is
             // synchronous — the mods-folder sweeps, the corrupt-config scan, the
@@ -352,9 +422,11 @@ public partial class HomePage : UserControl
             // actually appears, or the boot dies early, which restores the
             // button and surfaces the crash.
             SetStatus($"Starting {version}", StatusTone.Neutral);
-            var runningMessage = _selectedAccount != null
-                ? $"Running · {session.Username}"
-                : "Running · Offline";
+            var runningMessage = target != null
+                ? $"Playing on {SocialText.DisplayServer(target.Server)} · {version}"
+                : _selectedAccount != null
+                    ? $"Running · {session.Username}"
+                    : "Running · Offline";
             bootWatchStarted = true;
             _ = WatchBootAsync(process, version, logPath, runningMessage);
         }
@@ -596,6 +668,9 @@ public partial class HomePage : UserControl
         // escape onto a background thread.
         var gate = new object();
         var openStreams = 2;
+        // Origin social: the party leader's warp needs the server this game is
+        // on, which only its own console output says (RunningGameTracker).
+        var gameId = 0;
 
         void OnData(string? data)
         {
@@ -608,6 +683,7 @@ public partial class HomePage : UserControl
                         lock (gate) { logWriter?.Dispose(); logWriter = null; }
                     return;
                 }
+                SocialHub.Game.Observe(Volatile.Read(ref gameId), data);
                 lock (gate) { logWriter?.WriteLine(data); }
             }
             catch { /* best-effort logging; never surface onto this thread */ }
@@ -627,6 +703,7 @@ public partial class HomePage : UserControl
             {
                 int exitCode;
                 try { exitCode = process.ExitCode; } catch { exitCode = -1; }
+                SocialHub.Game.Exited(Volatile.Read(ref gameId));
 
                 Dispatcher.BeginInvoke(() =>
                 {
@@ -649,6 +726,7 @@ public partial class HomePage : UserControl
         try
         {
             process.Start();
+            Volatile.Write(ref gameId, SocialHub.Game.Started(version));
             SettingsSync.TrackGame(version, process);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();

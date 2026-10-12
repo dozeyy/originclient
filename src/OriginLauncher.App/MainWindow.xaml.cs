@@ -5,7 +5,10 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using OriginLauncher.App.Core.Auth;
+using OriginLauncher.App.Core.Social;
+using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.Core.Updates;
+using OriginLauncher.App.Core.Versions;
 using OriginLauncher.App.UI.Controls;
 using OriginLauncher.App.UI.Pages;
 
@@ -17,8 +20,10 @@ public partial class MainWindow : Window
     private readonly SettingsPage _settingsPage = new();
     private readonly ModsPage _modsPage = new();
     private readonly AccountSwitcherPanel _accountPanel = new();
+    private readonly FriendsPanel _friendsPanel = new();
     private bool _accountPanelOpen;
     private bool _signInPanelOpen;
+    private bool _friendsOpen;
     private bool _syncingNavigation;
     private LauncherPage _currentPage = LauncherPage.Home;
 
@@ -39,7 +44,12 @@ public partial class MainWindow : Window
         PageHost.Content = _homePage;
 
         _accountPanel.CloseRequested += (_, _) => SetAccountPanelOpen(false);
-        _accountPanel.AccountsChanged += (_, _) => _homePage.RefreshAccountState();
+        _accountPanel.AccountsChanged += (_, _) =>
+        {
+            _homePage.RefreshAccountState();
+            // Friends belong to the selected account: sign in again as it.
+            SocialHub.Service.ResetAccount();
+        };
         _accountPanel.AccountSelected += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AddAccountRequested += (_, _) => OpenSignInPanel();
         AccountPanelHost.Content = _accountPanel;
@@ -49,6 +59,8 @@ public partial class MainWindow : Window
         Scrim.IsVisibleChanged += (_, _) => _homePage.SetChromeOverlayOpen(Scrim.IsVisible);
 
         NavHome.IsChecked = true;
+
+        InitSocial();
 
         // Push-to-update: light the corner badge whenever a newer release
         // appears, and start the poll loop (startup + every 10 minutes).
@@ -116,6 +128,165 @@ public partial class MainWindow : Window
             UpdateBadge.ToolTip = $"Update failed: {ex.Message} — click to retry";
         }
     }
+
+    // ---- Origin social (docs/SOCIAL.md) ---------------------------------------
+
+    private void InitSocial()
+    {
+        _friendsPanel.CloseRequested += (_, _) => SetFriendsOpen(false);
+        _friendsPanel.AddAccountRequested += (_, _) =>
+        {
+            SetFriendsOpen(false);
+            SetAccountPanelOpen(true);
+        };
+        _friendsPanel.JoinRequested += request => _ = JoinAsync(request);
+        FriendsPanelHost.Content = _friendsPanel;
+
+        Toasts.Opened += OnToastOpened;
+        Toasts.ActionClicked += toast => _ = OnToastActionAsync(toast);
+
+        var social = SocialHub.Service;
+        social.Changed += snapshot => Dispatcher.BeginInvoke(() => ApplySocial(snapshot));
+        social.ToastRaised += toast => Dispatcher.BeginInvoke(() => ShowSocialToast(toast));
+        ApplySocial(social.Snapshot);
+
+        // Sign-in and the first sync start once the first frame is on screen,
+        // all on the thread pool — never on the cold-start path.
+        ContentRendered += (_, _) => social.Start();
+
+        // The sync slows to once a minute after 5 minutes in the background.
+        Activated += (_, _) => social.SetAppActive(true);
+        Deactivated += (_, _) => social.SetAppActive(false);
+        StateChanged += (_, _) =>
+        {
+            if (WindowState == WindowState.Minimized) social.SetAppActive(false);
+        };
+    }
+
+    private void ApplySocial(SocialSnapshot snapshot)
+    {
+        _friendsPanel.Apply(snapshot);
+        var attention = snapshot.AttentionCount;
+        FriendsBadge.Visibility = attention > 0 ? Visibility.Visible : Visibility.Collapsed;
+        FriendsButton.ToolTip = attention > 0 ? $"Friends — {attention} new" : "Friends";
+    }
+
+    private void ShowSocialToast(SocialToast toast)
+    {
+        // Requests and invites are right there in an open drawer.
+        if (_friendsOpen && toast.Kind is SocialToastKind.FriendRequest or SocialToastKind.PartyInvite) return;
+        Toasts.Show(toast);
+    }
+
+    private void OnToastOpened(SocialToast toast)
+    {
+        SetFriendsOpen(true);
+        if (toast.Kind == SocialToastKind.Message && toast.Uuid != null)
+            _friendsPanel.OpenConversation(toast.Uuid);
+    }
+
+    private async Task OnToastActionAsync(SocialToast toast)
+    {
+        var social = SocialHub.Service;
+        switch (toast.Kind)
+        {
+            case SocialToastKind.Warp:
+                var leader = toast.Uuid != null ? social.Snapshot.NameOf(toast.Uuid) : "your party leader";
+                await JoinAsync(new JoinRequest(leader, toast.Version, toast.Server));
+                break;
+            case SocialToastKind.PartyInvite when toast.PartyId != null:
+                ReportToastAction(await social.AcceptPartyAsync(toast.PartyId));
+                break;
+            case SocialToastKind.FriendRequest when toast.Uuid != null:
+                ReportToastAction(await social.RespondAsync(toast.Uuid, true));
+                break;
+        }
+    }
+
+    private void ReportToastAction(SocialActionResult result)
+    {
+        if (result.Ok || string.IsNullOrEmpty(result.Error)) return;
+        SetFriendsOpen(true);
+        _friendsPanel.ShowNotice(result.Error, error: true);
+    }
+
+    /// <summary>
+    /// Join a friend's (or the party leader's) server: launch THEIR Minecraft
+    /// version straight into it, through Home's normal launch path. A version
+    /// Origin doesn't ship is explained instead.
+    /// </summary>
+    private async Task JoinAsync(JoinRequest request)
+    {
+        var block = JoinArguments.Check(request.Version, request.Server, VersionCatalog.IsSupported);
+        if (block != JoinBlock.None)
+        {
+            var why = JoinArguments.Explain(block, request.Who, request.Version);
+            if (_friendsOpen) _friendsPanel.ShowNotice(why, error: true);
+            else Toasts.Show(new SocialToast(SocialToastKind.Notice, "Can't join", why));
+            return;
+        }
+
+        if (_signInPanelOpen) CloseSignInPanel();
+        if (_accountPanelOpen) SetAccountPanelOpen(false);
+        if (_friendsOpen) SetFriendsOpen(false);
+        NavigateTo(LauncherPage.Home);
+        if (_currentPage != LauncherPage.Home) return;
+        await _homePage.JoinServerAsync(request.Version!, request.Server!);
+    }
+
+    private void FriendsButton_Click(object sender, RoutedEventArgs e) => SetFriendsOpen(!_friendsOpen);
+
+    private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen;
+
+    private void SetFriendsOpen(bool open)
+    {
+        if (open == _friendsOpen) return;
+        if (open && _signInPanelOpen) return; // finish (or cancel) signing in first
+        if (open && _accountPanelOpen) SetAccountPanelOpen(false);
+
+        _friendsOpen = open;
+        SocialHub.Service.SetDrawerOpen(open);
+        _friendsPanel.SetShown(open);
+        Toasts.Margin = new Thickness(0, 0, open ? FriendsDrawer.Width + 20 : 20, 20);
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
+
+        if (open)
+        {
+            Scrim.Visibility = Visibility.Visible;
+            FriendsDrawer.Visibility = Visibility.Visible;
+        }
+        FriendsDrawer.IsHitTestVisible = open;
+
+        var slide = new DoubleAnimation(open ? 0 : FriendsDrawer.Width, duration) { EasingFunction = ease };
+        slide.Completed += (_, _) =>
+        {
+            if (!_friendsOpen)
+            {
+                FriendsDrawer.Visibility = Visibility.Collapsed;
+                if (!AnyDrawerOpen) Scrim.Visibility = Visibility.Collapsed;
+            }
+        };
+        FriendsDrawerTransform.BeginAnimation(TranslateTransform.XProperty, slide, HandoffBehavior.SnapshotAndReplace);
+
+        Scrim.IsHitTestVisible = open;
+        Scrim.BeginAnimation(OpacityProperty, new DoubleAnimation(open ? 0.5 : 0.0, duration),
+            HandoffBehavior.SnapshotAndReplace);
+
+        if (open)
+            Dispatcher.BeginInvoke(() => FriendsPanelHost.MoveFocus(new TraversalRequest(FocusNavigationDirection.First)));
+    }
+
+    // ---- render mode (CI screenshots, UI/RenderShots.cs) ----------------------------
+
+    internal FriendsPanel TourFriendsPanel => _friendsPanel;
+
+    internal void TourSetFriendsOpen(bool open) => SetFriendsOpen(open);
+
+    internal void TourShowToast(SocialToast toast) => Toasts.Show(toast);
+
+    internal void TourClearToasts() => Toasts.Clear();
 
     private void OpenSignInPanel()
     {
@@ -258,12 +429,14 @@ public partial class MainWindow : Window
 
     private void AccountButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!_accountPanelOpen && _friendsOpen) SetFriendsOpen(false);
         SetAccountPanelOpen(!_accountPanelOpen);
     }
 
     private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_signInPanelOpen) CloseSignInPanel();
+        else if (_friendsOpen) SetFriendsOpen(false);
         else SetAccountPanelOpen(false);
     }
 
@@ -290,7 +463,7 @@ public partial class MainWindow : Window
             if (!_accountPanelOpen)
             {
                 AccountPanel.Visibility = Visibility.Collapsed;
-                if (!_signInPanelOpen) Scrim.Visibility = Visibility.Collapsed;
+                if (!AnyDrawerOpen) Scrim.Visibility = Visibility.Collapsed;
             }
         };
         AccountPanelTransform.BeginAnimation(TranslateTransform.XProperty, panelAnimation,
@@ -326,7 +499,7 @@ public partial class MainWindow : Window
             if (!_signInPanelOpen)
             {
                 SignInPanel.Visibility = Visibility.Collapsed;
-                if (!_accountPanelOpen) Scrim.Visibility = Visibility.Collapsed;
+                if (!AnyDrawerOpen) Scrim.Visibility = Visibility.Collapsed;
             }
         };
         SignInPanel.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
@@ -346,6 +519,10 @@ public partial class MainWindow : Window
         {
             if (_signInPanelOpen) CloseSignInPanel();
             else if (_accountPanelOpen) SetAccountPanelOpen(false);
+            else if (_friendsOpen)
+            {
+                if (!_friendsPanel.HandleEscape()) SetFriendsOpen(false);
+            }
             else return;
             e.Handled = true;
             return;
@@ -375,7 +552,7 @@ public partial class MainWindow : Window
         }
 
         if (e.Key == Key.Enter && _currentPage == LauncherPage.Home
-            && !_accountPanelOpen && !_signInPanelOpen
+            && !_accountPanelOpen && !_signInPanelOpen && !_friendsOpen
             && Keyboard.FocusedElement is not TextBoxBase
             && Keyboard.FocusedElement is not Selector
             && Keyboard.FocusedElement is not ButtonBase)

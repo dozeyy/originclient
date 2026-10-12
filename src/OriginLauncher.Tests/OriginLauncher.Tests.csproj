@@ -7,8 +7,9 @@
 
     Linked today: Core/Promos (home banner feed parsing + fallback chain,
     Discord invite handling, the visibility gate, occlusion math, rotation)
-    and Core/Sync (Settings Sync's merge rules + file formats, exercised on
-    real files in temp folders).
+    Core/Sync (Settings Sync's merge rules + file formats, exercised on
+    real files in temp folders) and Core/Social (Origin social: sign-in,
+    sync parsing/merging, polling budget, status lines, join arguments).
     Network is never touched: every fetch goes through a fake HttpTextGet.
     Run: dotnet test src/OriginLauncher.Tests
   -->
@@ -22,6 +23,8 @@
   <ItemGroup>
     <Compile Include="..\OriginLauncher.App\Core\Promos\*.cs" LinkBase="Promos" />
     <Compile Include="..\OriginLauncher.App\Core\Sync\*.cs" LinkBase="Sync" />
+    <!-- Only the top folder: Core/Social/Launcher is the WPF/account glue. -->
+    <Compile Include="..\OriginLauncher.App\Core\Social\*.cs" LinkBase="Social" />
   </ItemGroup>
 
   <ItemGroup>

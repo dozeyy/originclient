@@ -6,6 +6,18 @@
              xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d">
 
+    <UserControl.Resources>
+        <!-- Shared by the status pill and the players-online pill so they always match. -->
+        <Style x:Key="Home.Pill" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+    </UserControl.Resources>
+
     <Grid Margin="36,12,40,40">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1.06*"/>
@@ -84,13 +96,33 @@
                         </Grid>
                     </Button>
 
-                    <Grid Margin="0,17,0,0" HorizontalAlignment="Center" MaxWidth="352">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <Ellipse x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.Accent}"
-                                 VerticalAlignment="Center" Margin="0,0,9,0"/>
-                        <TextBlock Grid.Column="1" x:Name="StatusText" Text="Sign in to play"
-                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"
-                                   TextAlignment="Center"/>
+                    <!-- Two matching pills under Play: the launch status on the
+                         LEFT ("Ready", "Sign in to play", errors), and on the
+                         RIGHT how many people are on Origin right now (hidden
+                         until the count arrives, and whenever it can't). -->
+                    <Grid Margin="0,17,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Style="{StaticResource Home.Pill}" HorizontalAlignment="Left">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Ellipse x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.Accent}"
+                                         VerticalAlignment="Top" Margin="0,6,8,0"/>
+                                <TextBlock Grid.Column="1" x:Name="StatusText" Text="Sign in to play"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"/>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Column="1" x:Name="PlayersPill" Style="{StaticResource Home.Pill}" Margin="10,0,0,0"
+                                Visibility="Collapsed"
+                                ToolTip="People with the Origin launcher or game open right now">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="6" Height="6" Fill="{StaticResource Brush.Success}"
+                                         VerticalAlignment="Top" Margin="0,6,8,0"/>
+                                <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Caption}"/>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </StackPanel>
             </Border>

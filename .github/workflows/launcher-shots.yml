@@ -1,0 +1,101 @@
+# Launcher shots: open the real launcher window in render mode
+# (`OriginLauncher.App.exe --render-shots <folder>`, src/OriginLauncher.App/UI/RenderShots.cs)
+# with made-up social data and save pictures of Home and the Friends drawer.
+#
+# Why: the cloud sandbox Claude works in can't run WPF, so this is how a
+# launcher UI change gets LOOKED AT before it reaches Will. Same delivery as
+# dev-shots.yml: the PNGs land in the `claude/dev-shots` branch, folder
+# `launcher` (or `launcher-<label>`), with SOURCE.txt naming the commit; also
+# kept as the "launcher-shots" artifact.
+#
+# Runs on pushes to claude/** that touch the launcher, or by hand (Run workflow).
+# No mod jars are built: the launcher compiles without them (csproj globs match
+# nothing) and render mode never launches the game.
+name: launcher-shots
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["src/OriginLauncher.App/**", ".github/workflows/launcher-shots.yml"]
+  workflow_dispatch:
+    inputs:
+      label:
+        description: "Optional name for this run's folder (launcher-<label>)"
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: launcher-shots-${{ github.ref }}-${{ github.event.inputs.label }}
+  cancel-in-progress: true
+
+jobs:
+  shots:
+    name: Render launcher screens
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build launcher
+        shell: pwsh
+        run: |
+          dotnet build src/OriginLauncher.App/OriginLauncher.App.csproj -c Release -o lbin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Render screens
+        shell: pwsh
+        run: |
+          $p = Start-Process .\lbin\OriginLauncher.App.exe -ArgumentList '--render-shots launcher-shots' -Wait -PassThru
+          $shots = @(Get-ChildItem launcher-shots -Filter *.png -ErrorAction SilentlyContinue)
+          if (Test-Path launcher-shots\render-error.txt) { Get-Content launcher-shots\render-error.txt }
+          if ($p.ExitCode -ne 0 -or $shots.Count -lt 6) {
+            Write-Host "::error::Launcher render failed (exit $($p.ExitCode), $($shots.Count) images)"
+            exit 1
+          }
+          Write-Host "Rendered $($shots.Count) screens."
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: launcher-shots
+          path: launcher-shots
+          retention-days: 14
+
+  publish:
+    needs: shots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: launcher-shots
+          path: ${{ runner.temp }}/pub
+
+      - name: Publish to the claude/dev-shots branch
+        env:
+          LABEL: ${{ github.event.inputs.label }}
+        run: |
+          folder="launcher"
+          [ -n "$LABEL" ] && folder="launcher-$(printf '%s' "$LABEL" | tr -c 'A-Za-z0-9._-' '_')"
+          url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+          for attempt in 1 2 3 4 5; do
+            rm -rf "$RUNNER_TEMP/site"
+            if git clone -q --depth 1 --branch claude/dev-shots "$url" "$RUNNER_TEMP/site" 2>/dev/null; then :; else
+              mkdir -p "$RUNNER_TEMP/site" && git -C "$RUNNER_TEMP/site" init -q && git -C "$RUNNER_TEMP/site" checkout -q -b claude/dev-shots
+            fi
+            cd "$RUNNER_TEMP/site"
+            git config user.name "origin-dev-shots"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            rm -rf "$folder"; cp -r "$RUNNER_TEMP/pub" "$folder"
+            printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$folder/SOURCE.txt"
+            git add -A
+            git commit -qm "launcher shots for ${GITHUB_SHA::7}" || true
+            if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then exit 0; fi
+            cd "$RUNNER_TEMP"; sleep $((attempt * 5))
+          done
+          exit 1

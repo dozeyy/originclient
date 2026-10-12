@@ -1,0 +1,510 @@
+<UserControl x:Class="OriginLauncher.App.UI.Controls.FriendsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
+             mc:Ignorable="d">
+
+    <!-- The Friends drawer (docs/SOCIAL.md → Launcher). Three views in one
+         control: a message (signed out / connecting / service unreachable),
+         the friends list, and a chat pane (one friend, or the party). The
+         ConfirmOverlay covers the drawer for Remove / Block / Kick. -->
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <Style x:Key="Friends.Row" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Same hover as the account switcher's rows. -->
+        <Style x:Key="Friends.ClickRow" TargetType="Border" BasedOn="{StaticResource Friends.Row}">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                                To="{StaticResource Color.CardAlt}"
+                                                Duration="{StaticResource Motion.Base}"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation Storyboard.TargetProperty="Background.Color"
+                                                To="{StaticResource Color.Card}"
+                                                Duration="{StaticResource Motion.Base}"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="Friends.Small" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+            <Setter Property="Padding" Value="9,4"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="Friends.SmallPrimary" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+            <Setter Property="Padding" Value="9,4"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Effect" Value="{x:Null}"/>
+        </Style>
+
+        <Style x:Key="Friends.Section" TargetType="TextBlock" BasedOn="{StaticResource Text.Eyebrow}">
+            <Setter Property="Margin" Value="2,14,0,8"/>
+        </Style>
+
+        <Style x:Key="Friends.IconButton" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+            <Setter Property="Width" Value="28"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="6"/>
+        </Style>
+
+        <Style x:Key="Friends.Name" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+
+        <Style x:Key="Friends.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="LineHeight" Value="16"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <!-- Avatar: the name's first letter on a raised block (no skin fetch —
+             the launcher talks to no third-party image service). -->
+        <Style x:Key="Friends.Avatar" TargetType="Border">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+            <Setter Property="CornerRadius" Value="1"/>
+        </Style>
+
+        <Style x:Key="Friends.Initial" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        </Style>
+
+        <Style x:Key="Friends.OnlineDot" TargetType="Ellipse">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Margin" Value="0,0,-3,-3"/>
+            <Setter Property="Fill" Value="{StaticResource Brush.Success}"/>
+            <Setter Property="Stroke" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+        </Style>
+
+        <!-- Placeholder text over an empty TextBox (Input.TextBox has none). -->
+        <Style x:Key="Friends.Hint" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+            <Setter Property="Margin" Value="13,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+
+        <DataTemplate x:Key="FriendRowTemplate" DataType="{x:Type controls:FriendRowVm}">
+            <Border Style="{StaticResource Friends.ClickRow}" Opacity="{Binding RowOpacity}"
+                    MouseLeftButtonUp="FriendRow_Click" ToolTip="Open chat">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Margin="0,0,10,0" VerticalAlignment="Center">
+                        <Border Style="{StaticResource Friends.Avatar}">
+                            <TextBlock Text="{Binding Initial}" Style="{StaticResource Friends.Initial}"/>
+                        </Border>
+                        <Ellipse Style="{StaticResource Friends.OnlineDot}"
+                                 Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}"/>
+                    </Grid>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource Friends.Name}"/>
+                        <TextBlock Text="{Binding StatusLine}" Style="{StaticResource Friends.Caption}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
+                                Background="{StaticResource Brush.Accent}" CornerRadius="1" Padding="5,1"
+                                Margin="6,0,0,0" VerticalAlignment="Center" ToolTip="Unread messages">
+                            <TextBlock Text="{Binding UnreadText}" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.TextOnAccent}"/>
+                        </Border>
+                        <Button Content="JOIN" Style="{StaticResource Friends.SmallPrimary}"
+                                Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Launch their Minecraft version and join their server"
+                                Click="FriendJoin_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="RequestRowTemplate" DataType="{x:Type controls:RequestRowVm}">
+            <Border Style="{StaticResource Friends.Row}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource Friends.Avatar}" Margin="0,0,10,0">
+                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Friends.Initial}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource Friends.Name}"/>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Friends.Caption}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="ACCEPT" Style="{StaticResource Friends.SmallPrimary}"
+                                Visibility="{Binding IsIncoming, Converter={StaticResource BoolToVis}}"
+                                Click="RequestAccept_Click"/>
+                        <Button Content="DECLINE" Style="{StaticResource Friends.Small}"
+                                Visibility="{Binding IsIncoming, Converter={StaticResource BoolToVis}}"
+                                Click="RequestDecline_Click"/>
+                        <Button Content="CANCEL" Style="{StaticResource Friends.Small}"
+                                Visibility="{Binding IsOutgoing, Converter={StaticResource BoolToVis}}"
+                                ToolTip="Cancel your friend request" Click="RequestCancel_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="InviteRowTemplate" DataType="{x:Type controls:PartyInviteVm}">
+            <Border Style="{StaticResource Friends.Row}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource Friends.Avatar}" Margin="0,0,10,0">
+                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Friends.Initial}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource Friends.Name}"/>
+                        <TextBlock Text="Invited you to their party" Style="{StaticResource Friends.Caption}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="JOIN" Style="{StaticResource Friends.SmallPrimary}"
+                                ToolTip="Join their party (you leave your current one)" Click="InviteAccept_Click"/>
+                        <Button Content="DECLINE" Style="{StaticResource Friends.Small}" Click="InviteDecline_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MemberRowTemplate" DataType="{x:Type controls:PartyMemberVm}">
+            <Border Style="{StaticResource Friends.Row}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Margin="0,0,10,0" VerticalAlignment="Center">
+                        <Border Style="{StaticResource Friends.Avatar}">
+                            <TextBlock Text="{Binding Initial}" Style="{StaticResource Friends.Initial}"/>
+                        </Border>
+                        <Ellipse Style="{StaticResource Friends.OnlineDot}"
+                                 Visibility="{Binding IsOnline, Converter={StaticResource BoolToVis}}"/>
+                    </Grid>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource Friends.Name}"/>
+                            <Path Data="{StaticResource Icon.Crown}" Style="{StaticResource Icon.Base}"
+                                  Width="13" Height="13" Margin="6,0,0,1" VerticalAlignment="Center"
+                                  Stroke="{StaticResource Brush.Warning}" ToolTip="Party leader"
+                                  Visibility="{Binding IsLeader, Converter={StaticResource BoolToVis}}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Friends.Caption}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                                Visibility="{Binding CanManage, Converter={StaticResource BoolToVis}}">
+                        <Button Content="LEAD" Style="{StaticResource Friends.Small}"
+                                ToolTip="Make them the party leader" Click="MemberPromote_Click"/>
+                        <Button Content="KICK" Style="{StaticResource Friends.Small}"
+                                ToolTip="Remove them from the party" Click="MemberKick_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="BlockedRowTemplate" DataType="{x:Type controls:BlockedRowVm}">
+            <Border Style="{StaticResource Friends.Row}" Opacity="0.75">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource Friends.Avatar}" Margin="0,0,10,0">
+                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Friends.Initial}"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource Friends.Name}"/>
+                        <TextBlock Text="Blocked" Style="{StaticResource Friends.Caption}"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="UNBLOCK" Style="{StaticResource Friends.Small}"
+                            Click="Unblock_Click"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ChatLineTemplate" DataType="{x:Type controls:ChatLineVm}">
+            <StackPanel Margin="0,0,0,8" MaxWidth="250" HorizontalAlignment="{Binding Align}">
+                <TextBlock Text="{Binding Author}" Style="{StaticResource Friends.Caption}" Margin="2,0,0,2"
+                           Visibility="{Binding ShowAuthor, Converter={StaticResource BoolToVis}}"/>
+                <Border x:Name="Bubble" Padding="10,6" CornerRadius="{StaticResource Radius.Row}"
+                        Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                        BorderThickness="1" HorizontalAlignment="{Binding Align}">
+                    <TextBlock Text="{Binding Text}" Style="{StaticResource Text.Body}"
+                               TextWrapping="Wrap" TextTrimming="None"/>
+                </Border>
+                <TextBlock Text="{Binding Time}" FontSize="10" Foreground="{StaticResource Brush.TextMuted}"
+                           Margin="2,2,2,0" HorizontalAlignment="{Binding Align}"/>
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsMine}" Value="True">
+                    <Setter TargetName="Bubble" Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
+                    <Setter TargetName="Bubble" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header: back (chat only), title + subtitle, close. -->
+        <Grid Grid.Row="0" Margin="16,18,16,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button x:Name="BackButton" Style="{StaticResource Friends.IconButton}" Margin="0,0,8,0"
+                    Visibility="Collapsed" Click="Back_Click" ToolTip="Back to friends"
+                    AutomationProperties.Name="Back">
+                <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}"
+                      Width="14" Height="14" Stroke="{StaticResource Brush.TextDim}"/>
+            </Button>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock x:Name="HeaderTitle" Text="Friends" Style="{StaticResource Text.H2}"/>
+                <TextBlock x:Name="HeaderSubtitle" Style="{StaticResource Friends.Caption}" Visibility="Collapsed"/>
+            </StackPanel>
+            <Button Grid.Column="2" Style="{StaticResource Friends.IconButton}" Click="Close_Click"
+                    ToolTip="Close" AutomationProperties.Name="Close friends">
+                <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
+                      Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
+            </Button>
+        </Grid>
+
+        <!-- Signed out / connecting / unreachable. -->
+        <StackPanel x:Name="MessagePane" Grid.Row="1" Margin="24,28,24,24" VerticalAlignment="Top"
+                    Visibility="Collapsed">
+            <Border Width="56" Height="56" HorizontalAlignment="Left" Background="{StaticResource Brush.Card}"
+                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Row}">
+                <Path Data="{StaticResource Icon.Friends}" Style="{StaticResource Icon.Base}"
+                      Width="24" Height="24" Stroke="{StaticResource Brush.TextDim}"/>
+            </Border>
+            <TextBlock x:Name="MessageTitle" Style="{StaticResource Text.H2}" Margin="0,18,0,0"
+                       TextWrapping="Wrap" TextTrimming="None"/>
+            <TextBlock x:Name="MessageBody" Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0"
+                       TextWrapping="Wrap" TextTrimming="None"/>
+            <Button x:Name="MessageAction" Style="{StaticResource Button.Primary}" Margin="0,22,0,0"
+                    Padding="16,8" HorizontalAlignment="Left" Click="MessageAction_Click"/>
+        </StackPanel>
+
+        <!-- The friends list. -->
+        <Grid x:Name="ListPane" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="16,0,16,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="AddFriendBox" MaxLength="16"
+                             KeyDown="AddFriendBox_KeyDown" TextChanged="AddFriendBox_TextChanged"
+                             AutomationProperties.Name="Friend's Minecraft username"/>
+                    <TextBlock x:Name="AddFriendHint" Text="Add friend by username" Style="{StaticResource Friends.Hint}"/>
+                    <Button Grid.Column="1" x:Name="AddFriendButton" Style="{StaticResource Button.Primary}"
+                            Padding="12,0" Margin="8,0,0,0" Effect="{x:Null}" Click="AddFriend_Click"
+                            ToolTip="Send a friend request" AutomationProperties.Name="Send friend request">
+                        <Path Data="{StaticResource Icon.UserPlus}" Style="{StaticResource Icon.Base}"
+                              Width="16" Height="16" Stroke="{StaticResource Brush.TextOnAccent}"/>
+                    </Button>
+                </Grid>
+                <TextBlock x:Name="NoticeText" Style="{StaticResource Text.Caption}" Margin="2,8,0,0"
+                           TextWrapping="Wrap" TextTrimming="None" Visibility="Collapsed"/>
+
+                <Border Margin="0,10,0,0" Padding="12,8" Background="{StaticResource Brush.Card}"
+                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius.Row}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Appear offline" Style="{StaticResource Text.Body}"/>
+                            <TextBlock Text="Friends see you as offline" Style="{StaticResource Friends.Caption}"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" x:Name="AppearOfflineToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center" AutomationProperties.Name="Appear offline"
+                                      Checked="AppearOffline_Changed" Unchecked="AppearOffline_Changed"/>
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" x:Name="ListScroll" Margin="16,4,6,12" Padding="0,0,10,0"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer.Resources>
+                    <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
+                </ScrollViewer.Resources>
+                <StackPanel>
+                    <TextBlock x:Name="StaleText" Text="Reconnecting — showing what Origin last saw."
+                               Style="{StaticResource Friends.Caption}" Foreground="{StaticResource Brush.Warning}"
+                               Margin="2,10,0,0" Visibility="Collapsed"/>
+
+                    <!-- The party leader asked everyone to join them. -->
+                    <Border x:Name="WarpCard" Margin="0,12,0,0" Padding="12,10" Visibility="Collapsed"
+                            Background="{StaticResource Brush.AccentSoft}" BorderBrush="{StaticResource Brush.AccentBorder}"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Row}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="WarpText" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
+                                       TextTrimming="None" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="JOIN" Style="{StaticResource Friends.SmallPrimary}"
+                                    Margin="10,0,0,0" Click="WarpJoin_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel x:Name="PartySection" Visibility="Collapsed">
+                        <TextBlock x:Name="PartyHeader" Text="PARTY" Style="{StaticResource Friends.Section}"/>
+                        <ItemsControl x:Name="PartyList" ItemTemplate="{StaticResource MemberRowTemplate}"/>
+                        <WrapPanel Margin="0,2,0,0">
+                            <Button x:Name="PartyChatButton" Content="PARTY CHAT" Style="{StaticResource Friends.Small}"
+                                    Margin="0,0,6,6" Click="PartyChat_Click"/>
+                            <Button x:Name="WarpButton" Content="WARP PARTY" Style="{StaticResource Friends.Small}"
+                                    Margin="0,0,6,6" Click="Warp_Click" ToolTipService.ShowOnDisabled="True"/>
+                            <Button x:Name="LeavePartyButton" Content="LEAVE" Style="{StaticResource Friends.Small}"
+                                    Margin="0,0,6,6" Click="LeaveParty_Click"/>
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <StackPanel x:Name="InvitesSection" Visibility="Collapsed">
+                        <TextBlock Text="PARTY INVITES" Style="{StaticResource Friends.Section}"/>
+                        <ItemsControl x:Name="InviteList" ItemTemplate="{StaticResource InviteRowTemplate}"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="RequestsSection" Visibility="Collapsed">
+                        <TextBlock Text="REQUESTS" Style="{StaticResource Friends.Section}"/>
+                        <ItemsControl x:Name="RequestList" ItemTemplate="{StaticResource RequestRowTemplate}"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="OnlineHeader" Style="{StaticResource Friends.Section}"/>
+                    <ItemsControl x:Name="OnlineList" ItemTemplate="{StaticResource FriendRowTemplate}"/>
+                    <TextBlock x:Name="OfflineHeader" Style="{StaticResource Friends.Section}"/>
+                    <ItemsControl x:Name="OfflineList" ItemTemplate="{StaticResource FriendRowTemplate}"/>
+
+                    <TextBlock x:Name="EmptyText" Style="{StaticResource Text.BodyDim}" Margin="2,16,0,0"
+                               TextWrapping="Wrap" TextTrimming="None" Visibility="Collapsed"
+                               Text="No friends yet. Add someone by their Minecraft username — they need Origin too."/>
+
+                    <StackPanel x:Name="BlockedSection" Visibility="Collapsed">
+                        <TextBlock x:Name="BlockedHeader" Text="BLOCKED" Style="{StaticResource Friends.Section}"/>
+                        <ItemsControl x:Name="BlockedList" ItemTemplate="{StaticResource BlockedRowTemplate}"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- One conversation: a friend, or the party. -->
+        <Grid x:Name="ChatPane" Grid.Row="1" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <WrapPanel x:Name="ChatActions" Grid.Row="0" Margin="16,0,16,6">
+                <Button x:Name="ChatJoinButton" Content="JOIN" Style="{StaticResource Friends.SmallPrimary}"
+                        Margin="0,0,6,6" Click="ChatJoin_Click"
+                        ToolTip="Launch their Minecraft version and join their server"/>
+                <Button x:Name="ChatInviteButton" Content="INVITE TO PARTY" Style="{StaticResource Friends.Small}"
+                        Margin="0,0,6,6" Click="ChatInvite_Click"/>
+                <Button x:Name="ChatRemoveButton" Content="REMOVE" Style="{StaticResource Friends.Small}"
+                        Margin="0,0,6,6" Click="ChatRemove_Click"/>
+                <Button x:Name="ChatBlockButton" Content="BLOCK" Style="{StaticResource Friends.Small}"
+                        Margin="0,0,6,6" Click="ChatBlock_Click"/>
+            </WrapPanel>
+
+            <Border Grid.Row="1" Margin="16,0,16,8" Background="{StaticResource Brush.BgAlt}"
+                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Row}">
+                <Grid>
+                    <ScrollViewer x:Name="ChatScroll" Padding="10,10,6,4"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ScrollViewer.Resources>
+                            <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
+                        </ScrollViewer.Resources>
+                        <ItemsControl x:Name="ChatList" ItemTemplate="{StaticResource ChatLineTemplate}" Margin="0,0,4,0"/>
+                    </ScrollViewer>
+                    <TextBlock x:Name="ChatEmpty" Text="No messages yet — say hi!" Style="{StaticResource Text.Caption}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <TextBlock x:Name="ChatError" Grid.Row="2" Style="{StaticResource Text.Caption}"
+                       Foreground="{StaticResource Brush.Danger}" Margin="18,0,16,6"
+                       TextWrapping="Wrap" TextTrimming="None" Visibility="Collapsed"/>
+
+            <Grid Grid.Row="3" Margin="16,0,16,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="ChatInput" MaxLength="256" KeyDown="ChatInput_KeyDown"
+                         TextChanged="ChatInput_TextChanged" AutomationProperties.Name="Message"/>
+                <TextBlock x:Name="ChatHint" Text="Message" Style="{StaticResource Friends.Hint}"/>
+                <Button Grid.Column="1" x:Name="ChatSendButton" Style="{StaticResource Button.Primary}"
+                        Padding="12,0" Margin="8,0,0,0" Effect="{x:Null}" Click="ChatSend_Click"
+                        ToolTip="Send (Enter)" AutomationProperties.Name="Send message">
+                    <Path Data="{StaticResource Icon.Send}" Style="{StaticResource Icon.Base}"
+                          Width="15" Height="15" Stroke="{StaticResource Brush.TextOnAccent}"/>
+                </Button>
+            </Grid>
+        </Grid>
+
+        <controls:ConfirmOverlay x:Name="Confirm" Grid.RowSpan="2"/>
+    </Grid>
+</UserControl>
