@@ -55,8 +55,8 @@ origin/main and why; blank = glyph unchanged, only the weight class and pixel fi
 | title-mods | thin | 1.65 | 105 | 1.069 | 32% | The four squares had radius 0; small tiles use 1. |
 | title-options | thin | 1.65 | 102 | 0.900 | 26% |  |
 | title-quit | thin | 1.65 | 54 | 1.069 | 17% | pair group @title-singleplayer..: thinnest member's class |
-| title-language | thin | 1.65 | 93 | 1.069 | 30% | Small-size variant (<= 24 px): two text lines instead of four (four merged into the bubble). |
-| title-accessibility | thin | 1.65 | 97 | 1.069 | 29% |  |
+| title-language | thin | 1.65 | 93 | 1.069 | 30% | Small-size variant (<= 24 px): two text lines instead of four (four merged into the bubble). 2026-10-12 (Will): the four lines moved up one unit so the gaps above the first and below the last line are equal (3 units) and the last line no longer crowds the bubble's bottom edge. |
+| title-accessibility | thin | 1.65 | 97 | 1.069 | 29% | 2026-10-12 (Will): the legs ran outside the ring; head, arms and legs re-spaced so the whole figure sits inside with the same 1.2-unit clearance at the head and the feet. |
 | fps | bold | 2.20 | 45 | 1.082 | 21% | Redrawn: arc, needle pivot and hub share one centre; 270 deg arc open evenly at the bottom; nothing outside the arc (main had the arc centre 3 units below the pivot and loose ticks). |
 | cps | bold | 2.20 | 48 | 0.968 | 20% |  |
 | keystrokes | thin | 1.65 | 102 | 0.927 | 23% |  |
@@ -97,12 +97,12 @@ origin/main and why; blank = glyph unchanged, only the weight class and pixel fi
 | crosshair | regular | 1.90 | 79 | 0.959 | 25% |  |
 | hurt-cam | regular | 1.90 | 76 | 0.996 | 25% | Now a camera (body, viewfinder bump, round lens) tilted atan(1/3) = -18.4 deg: every edge climbs exactly 1 px per 3 at any size. The lens is an un-rotated true circle so it snaps. |
 | hit-color | thin | 1.65 | 92 | 0.970 | 25% | The check touched the star's inner points; smaller check, clear of the star. |
-| glint-colorizer | thin | 1.65 | 96 | 1.027 | 24% | The sparkle was 3.5 units from the gem and fused with it; gem scaled to 0.85. |
+| glint-colorizer | thin | 1.65 | 96 | 1.027 | 24% | The sparkle was 3.5 units from the gem and fused with it; gem scaled to 0.85. 2026-10-12 (Will): the sparkle was lopsided and left open; now a closed, mirror-symmetric four-point star. |
 | boss-bar | regular | 1.90 | 74 | 0.900 | 21% |  |
 | titles | bold | 2.20 | 44 | 1.120 | 19% |  |
 | menu-blur | thin | 1.65 | 132 | 0.970 | 33% |  |
-| shiny-pots | thin | 1.65 | 87 | 1.017 | 25% |  |
-| tnt-countdown | thin | 1.65 | 68 | 1.023 | 21% | lightened: details merged at a key size |
+| shiny-pots | thin | 1.65 | 87 | 1.017 | 25% | 2026-10-12 (Will): the sparkle touched the bottle's neck; smaller sparkle moved up and right, about 1.9 units of clear air to the neck and lip. |
+| tnt-countdown | thin | 1.65 | 68 | 1.023 | 21% | lightened: details merged at a key size. 2026-10-12 (Will): the two mismatched zig-zags on top replaced by an even three-ray burst (centre ray plus mirrored side rays) over a narrower dial opening; the hand pivots on the dial centre. |
 | snap-look | bold | 2.20 | 64 | 1.120 | 30% |  |
 | cooldowns | bold | 2.20 | 65 | 0.946 | 24% |  |
 | sound-changer | bold | 2.20 | 64 | 0.946 | 24% |  |
