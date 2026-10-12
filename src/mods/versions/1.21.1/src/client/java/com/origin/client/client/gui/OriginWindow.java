@@ -32,7 +32,8 @@ import static com.origin.client.client.gui.OriginDeck.*;
  * using the OriginDeck kit, recording click targets with d.hit(...) while it
  * draws -- the base replays them on click, so render and input share one
  * geometry. Esc / the back chevron / the close button all go to {@code returnTo}.
- * The panel honours the menu's "Solid Menu Background" setting like the mod menu.
+ * The panel honours the menu's "Solid Menu Background" setting like the mod menu;
+ * with it off, OriginDeck's see-through mode keeps every word readable over the world.
  */
 public abstract class OriginWindow extends Screen {
 	public static final float W = 920, H = 580, M = 24;
@@ -112,6 +113,8 @@ public abstract class OriginWindow extends Screen {
 		lastOy = oy;
 		OriginDeck d = new OriginDeck(g, s, ox, oy, mouseX, mouseY, hits);
 		d.alpha = p;
+		// "Solid Menu Background" off: no panel, so the kit lifts the text over the world
+		d.seeThrough = OriginDeck.menuSeeThrough();
 		drawShell(d);
 		drawBody(d);
 		d.end();
