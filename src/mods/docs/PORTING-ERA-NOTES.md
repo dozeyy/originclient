@@ -753,3 +753,33 @@ first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG 
   TranslatableComponent; 1.19.x = v2 ClientCommandRegistrationCallback + Component.literal.
 - FriendsScreen: 3-arg mouseScrolled, SharedConstants.isAllowedChatCharacter; arrow in the Party HUD via
   Era.rotZ. SocialDemo uses Social.version() for the demo friends so the shot reads "Join" like 1.21.1.
+
+## Social port (2026-10-12) — 1.21.6 / 1.21.8 (deferred GuiRenderState era; agent sp-c)
+Friends / chat / parties from 1.21.1 (5b5baeb, d037954, b15a952). The two src/ trees stayed byte-identical:
+ported on 1.21.8, copied to 1.21.6. 3-way `git merge-file` per edited file (base 5b5baeb^, theirs b15a952);
+"clean" merges still needed era edits (MinimapRenderer's party dots came in as 1.21.1's BufferBuilder code).
+- social/SocialClient, SocialState, FairPlay, SocialDemo, OriginModMenuScreen tabs, HudEditorScreen, Mods,
+  HudElements, MinimapHud/Screen, keys, lang: 1.21.1 verbatim (demo friends report Social.version() so the
+  JOIN button looks as on 1.21.1).
+- Social.version(): SharedConstants.getCurrentVersion().name() (1.21.6+). Joining a friend from a world:
+  `PauseScreen.disconnectFromWorld(mc, ClientLevel.DEFAULT_QUIT_MESSAGE)` (vanilla's own Disconnect routine,
+  1.21.6+) then the 6-arg ConnectScreen.startConnecting.
+- SocialToast: ToastManager API like FpsCoachToast (render(g, font, t) draws; update(manager, t) decides
+  visibility; mc.getToastManager()). The toast's place for click hit-tests is g.pose().m20()/m21()
+  (Matrix3x2fStack), not m30/m31.
+- SocialSkins: the background lookup fetches only the profile (authlib 6 fetchProfile); each frame asks
+  getSkinManager().getInsecureSkin(profile) (module-evidenced, returns the default until loaded) instead of
+  1.21.1's getOrLoad future (its result type changed in the 1.21.2 line). Faces fade through
+  PlayerFaceRenderer.draw(..., argb) — no setShaderColor in the deferred GUI.
+- PartyWorld: arrow on the Matrix3x2fStack (pushMatrix/translate(x,y)/rotate(rad)); ping beams use the
+  module's ThickLine.vertical + OriginRenderTypes unchanged (same signatures as 1.21.1).
+- WaypointHud: capture() public (Social's LAST hook keeps it fresh with Waypoints off); project() rebuilds the
+  same view-projection as render() (perspective from GameRendererAccessor fov × conjugated camera rotation —
+  no RenderSystem matrices in this era), factored into viewProj(mc). Party gems drawn inside drawBar, so both
+  locator-bar modes get them.
+- NametagStyleMixin: the redirects also capture renderNameTag's own params (EntityRenderState, Component,
+  PoseStack, MultiBufferSource, int); the party member is `mc.level.getEntity(((PlayerRenderState) s).id)`
+  (LevelHeadMixin's lookup). Both drawInBatch shapes (V and I) carry the capture.
+- OriginDevWorld: party phase added before the 2.5 s async-PNG wait (phases 6 grab party, 7 wait/stop).
+- Verified: dev shots `1.21.{6,8}-sp-c` + `1.21.{6,8}-world-sp-c` (commit 9d2c118) compiled and ran clean first push;
+  friends / friends_party / rshift / menu match 1.21.1-social, party_world matches 1.21.1-world-social.
