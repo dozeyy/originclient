@@ -306,6 +306,14 @@
     "hypixelbedwars": [
       0,
       0
+    ],
+    "portalcalc": [
+      2,
+      3
+    ],
+    "fpscoach": [
+      0,
+      -6
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -608,6 +616,14 @@
     },
     "hypixelbedwars": {
       "x": 384,
+      "y": 2304
+    },
+    "portalcalc": {
+      "x": 576,
+      "y": 2304
+    },
+    "fpscoach": {
+      "x": 768,
       "y": 2304
     }
   }

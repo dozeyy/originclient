@@ -236,6 +236,30 @@ public final class Gfx {
 		renderItem(stack, x, y);
 	}
 
+	public int drawString(Font font, net.minecraft.util.FormattedCharSequence text, int x, int y, int color, boolean shadow) {
+		return shadow ? font.drawShadow(pose, text, x, y, color) : font.draw(pose, text, x, y, color);
+	}
+
+	/** GuiGraphics.drawStringWithBackdrop: the chat-opacity backdrop (vanilla's
+	 *  Gui.drawBackdrop maths, multiplied by the text colour so it fades with it)
+	 *  behind shadowed text. Pre-1.20 vanilla only has the private Gui helper. */
+	public void drawStringWithBackdrop(Font font, Component text, int x, int y, int width, int color) {
+		int bg = Minecraft.getInstance().options.getBackgroundColor(0.0F);
+		if (bg != 0) {
+			fill(x - 2, y - 2, x + width + 2, y + 9 + 2, multiply(bg, color));
+		}
+		drawString(font, text, x, y, color, true);
+	}
+
+	// Per-channel ARGB multiply (FastColor.ARGB32.multiply, spelled out here).
+	private static int multiply(int a, int b) {
+		int al = ((a >>> 24) * (b >>> 24)) / 255;
+		int r = (((a >> 16) & 0xFF) * ((b >> 16) & 0xFF)) / 255;
+		int g = (((a >> 8) & 0xFF) * ((b >> 8) & 0xFF)) / 255;
+		int bl = ((a & 0xFF) * (b & 0xFF)) / 255;
+		return (al << 24) | (r << 16) | (g << 8) | bl;
+	}
+
 	/** GuiGraphics.renderTooltip(font, text, mx, my): before 1.20 the Screen draws its
 	 *  own tooltips, so the open screen is handed the call (no screen -> nothing). */
 	public void renderTooltip(Font font, Component text, int mouseX, int mouseY) {

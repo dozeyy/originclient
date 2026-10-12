@@ -1,0 +1,187 @@
+package com.origin.client.client.mods;
+
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.client.Minecraft;
+import com.origin.client.client.gui.Gfx;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.PlayerTeam;
+import com.mojang.math.Matrix4f;
+import com.mojang.math.Vector4f;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
+/**
+ * Team View (Lunar parity): a marker over each teammate's head, drawn on the HUD
+ * so it shows through walls -- the same screen-projection approach as the
+ * waypoint labels (WaypointHud): the world pass projects each head to gui
+ * pixels, the HUD pass draws the markers. Being a HUD draw, world lighting and
+ * shaderpacks can't hide or tint it.
+ *
+ * Who counts:
+ *  - Scoreboard Teams: players on YOUR scoreboard team (how every team server,
+ *    Hypixel included, groups teammates). Teams bigger than 8 are ignored -- a
+ *    server that puts every player on one team (or a rank team) has no teammates
+ *    to show.
+ *  - Hypixel Parties: your Hypixel party (the roster Hypixel tracks from party
+ *    chat lines), but only in a lobby or SkyBlock -- in a game, a party member on
+ *    the other team would be an unfair wallhack, exactly why Lunar limits it too.
+ *
+ * Only players the server already sends to the client can be marked (vanilla
+ * entity tracking range); nothing is requested from the server.
+ */
+public final class TeamView {
+	private static final String MOD = "teamview";
+	private static final int MAX_TEAM = 8;
+
+	private TeamView() {
+	}
+
+	// Java 8 has no records: a final value class with the same canonical
+	// constructor, accessors and equals/hashCode the record had.
+	private static final class Marker {
+		private final float x;
+		private final float y;
+		private final float dist;
+		private final int color;
+
+		private Marker(float x, float y, float dist, int color) {
+			this.x = x;
+			this.y = y;
+			this.dist = dist;
+			this.color = color;
+		}
+
+		public float x() {
+			return x;
+		}
+
+		public float y() {
+			return y;
+		}
+
+		public float dist() {
+			return dist;
+		}
+
+		public int color() {
+			return color;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (!(obj instanceof Marker)) {
+				return false;
+			}
+			Marker other = (Marker) obj;
+			return Float.compare(this.x, other.x) == 0
+					&& Float.compare(this.y, other.y) == 0
+					&& Float.compare(this.dist, other.dist) == 0
+					&& this.color == other.color;
+		}
+
+		@Override
+		public int hashCode() {
+			return java.util.Objects.hash(x, y, dist, color);
+		}
+	}
+
+	// Written by the world pass, read by the HUD pass -- both on the render thread.
+	private static List<Marker> markers = new ArrayList<>();
+
+	/** World pass (WorldRenderEvents.LAST): project each marked player's head. */
+	static void capture(WorldRenderContext ctx) {
+		List<Marker> out = new ArrayList<>();
+		markers = out;
+		Minecraft mc = Minecraft.getInstance();
+		if (!Mods.on(MOD) || mc.player == null || mc.level == null || ctx.matrixStack() == null) {
+			return;
+		}
+		boolean teams = Mods.bool(MOD, "scoreboardTeams");
+		boolean party = Mods.bool(MOD, "hypixel") && Hypixel.inSafeArea();
+		// getTeam() returns the base Team type before 1.18; every real team is a PlayerTeam.
+		PlayerTeam myTeam = mc.player.getTeam() instanceof PlayerTeam ? (PlayerTeam) mc.player.getTeam() : null;
+		if (myTeam != null && myTeam.getPlayers().size() > MAX_TEAM) {
+			myTeam = null;
+		}
+		Set<String> partyNames = party ? Hypixel.partyMembers() : java.util.Collections.<String>emptySet();
+		if ((!teams || myTeam == null) && partyNames.isEmpty()) {
+			return;
+		}
+
+		// Camera rotation exactly ONCE. 1.16.5 keeps no model-view/projection in
+		// RenderSystem (fixed-function GL): world geometry is posed entirely by the
+		// pass's PoseStack (camera rotation baked in) under the projection Fabric
+		// hands over in the context -- the same pair WaypointHud.capture uses.
+		Matrix4f view = ctx.matrixStack().last().pose().copy();
+		Matrix4f proj = ctx.projectionMatrix().copy();
+		Vec3 cam = ctx.camera().getPosition();
+		float pt = ctx.tickDelta();
+		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
+		int teamColor = Mods.color(MOD, "teamColor");
+		int partyColor = Mods.color(MOD, "partyColor");
+
+		for (AbstractClientPlayer p : mc.level.players()) {
+			if (p == mc.player || p.isSpectator()) {
+				continue;
+			}
+			int color;
+			if (teams && myTeam != null && p.getTeam() == myTeam) {
+				color = teamColor;
+			} else if (partyNames.contains(p.getGameProfile().getName().toLowerCase(Locale.ROOT))) {
+				color = partyColor;
+			} else {
+				continue;
+			}
+			Vec3 pos = p.getPosition(pt);
+			double wx = pos.x - cam.x, wy = pos.y + p.getBbHeight() + 0.75 - cam.y, wz = pos.z - cam.z;
+			Vector4f v = new Vector4f((float) wx, (float) wy, (float) wz, 1f);
+			v.transform(view);
+			v.transform(proj);
+			if (v.w() <= 0.05f) {
+				continue;   // behind the camera
+			}
+			float sx = (v.x() / v.w() * 0.5f + 0.5f) * sw;
+			float sy = (0.5f - v.y() / v.w() * 0.5f) * sh;
+			if (sx < -20 || sx > sw + 20 || sy < -20 || sy > sh + 20) {
+				continue;
+			}
+			out.add(new Marker(sx, sy, (float) Math.sqrt(wx * wx + wy * wy + wz * wz), color));
+		}
+	}
+
+	/** HUD pass: a down-pointing marker over each teammate, smaller with distance. */
+	static void render(Gfx g) {
+		Minecraft mc = Minecraft.getInstance();
+		if (!Mods.on(MOD) || mc.options.hideGui || mc.player == null) {
+			return;
+		}
+		for (Marker m : markers) {
+			// 5 px half-width up close, easing to 3 px by ~64 blocks.
+			int r = Math.max(3, Math.round(5f - Math.min(2f, m.dist() / 32f)));
+			triangle(g, Math.round(m.x()), Math.round(m.y()), r, m.color());
+		}
+	}
+
+	// A filled downward triangle with a 1 px dark rim (readable on sky and snow),
+	// tip at (cx, cy + r).
+	private static void triangle(Gfx g, int cx, int cy, int r, int color) {
+		int fill = (color >>> 24) == 0 ? (0xFF000000 | color) : color;
+		int rim = 0xC0000000;
+		// rim: the same shape two steps bigger, one row higher and one row lower
+		for (int i = 0; i <= r + 2; i++) {
+			int half = r + 2 - i;
+			g.fill(cx - half, cy - r - 1 + i, cx + half + 1, cy - r + i, rim);
+		}
+		for (int i = 0; i <= r; i++) {
+			int half = r - i;
+			g.fill(cx - half, cy - r + i, cx + half + 1, cy - r + i + 1, fill);
+		}
+	}
+}

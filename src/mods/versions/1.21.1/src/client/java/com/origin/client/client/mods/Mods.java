@@ -579,6 +579,8 @@ public final class Mods {
 		registerLunarBatch4a();
 		registerLunarBatch3a();
 		registerLunarBedwars();
+		registerOriginalsPortalCalc();
+		registerOriginalsFpsCoach();
 	}
 
 	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----
@@ -947,6 +949,30 @@ public final class Mods {
 						.tip("Deletes the screenshot you just took."));
 	}
 
+	// ---- Origin originals: FPS Coach (2026-10-12) ----
+	// Origin's own mod (no other client has it): watches frame time while you
+	// play and, after ~20 s below the target, offers measured setting tips
+	// (mods/FpsCoach, mods/FpsCoachTips, gui/FpsCoachScreen). The mod card opens
+	// the coach itself (OriginModMenuScreen.openMod); its Settings button lands
+	// here. Default ON, like the other quiet background helpers that only speak
+	// up when useful (Screenshot pop-up, Saturation, Menu Blur); it stays silent
+	// until FPS is actually low. Category: Gameplay (the menu's default bucket
+	// for tools, next to Quickplay and Screenshot), so no CATS entry is needed.
+	// "Reset Hidden Tips" is a switch that acts as a button: FpsCoach.tick
+	// brings every hidden tip back and switches it off again.
+	private static void registerOriginalsFpsCoach() {
+		add("fpscoach", "FPS Coach", "Finds the settings costing you FPS and tests each fix.", true,
+				ModOption.slider("targetFps", "Target FPS", 30, 240, 10, 60, "%.0f")
+						.tip("Tips show up after you stay below this for about 20 seconds."),
+				ModOption.keybind("key", "Open FPS Coach", GLFW.GLFW_KEY_K),
+				ModOption.toggle("showToast", "Show Tips Pop-up", true)
+						.tip("A small pop-up when there are tips. Never during a fight or with a menu open."),
+				ModOption.slider("cooldown", "Pop-up Cooldown", 1, 60, 1, 10, "%.0f min").under("showToast")
+						.tip("The shortest time between two pop-ups."),
+				ModOption.toggle("resetHidden", "Reset Hidden Tips", false)
+						.tip("Brings back every tip you hid with \"Hide\". Switches itself back off."));
+	}
+
 	// Assembles the Particle Changer option list: global controls, then a
 	// collapsible block per vanilla particle type (spec §5 — full coverage).
 	private static ModOption[] buildParticleOptions() {
@@ -1011,6 +1037,39 @@ public final class Mods {
 				ModOption.toggle("border", "Border", false),
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
 				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x00000000));
+	}
+
+	// ---- Origin originals: Portal Calculator (2026-10-12) ----
+	// Origin's own mod -- no other client has one, so there is no Lunar schema to
+	// mirror; the rows are Will's brief. Off by default, like every utility mod
+	// with no Lunar default (Waypoints too). The mark key is unbound by default,
+	// as the Waypoints keys are. Logic: PortalCalc + PortalMemory; HUD:
+	// hud/PortalCalcHud. Kept in its own method so it merges cleanly.
+	private static void registerOriginalsPortalCalc() {
+		add(PortalCalc.ID, "Portal Calculator", "Where your nether portal leads, and where to build its match.", false,
+				ModOption.toggle("showHud", "Show HUD Readout", true)
+						.tip("Show the spot in the other dimension that matches where you stand."),
+				ModOption.toggle("showLinkCheck", "Show Link Check", true)
+						.tip("At a nether portal, show which of your known portals it will take you to."),
+				ModOption.toggle("rememberPortals", "Remember Portals", true)
+						.tip("Remember every nether portal you stand in or next to, for each world. The link check uses them."),
+				ModOption.toggle("autoWaypoint", "Auto Waypoint For New Portals", false).under("rememberPortals")
+						.tip("The first time you step into a portal, mark its matching spot in the other dimension."),
+				ModOption.toggle("decimal", "Decimal Coordinates", false)
+						.tip("Show the matching spot to one decimal place."),
+				ModOption.keybind("markKey", "Mark Matching Spot", -1)
+						.tip("Drops a \"Portal link\" waypoint at the matching spot in the other dimension."),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.toggle("border", "Border", false),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
+				ModOption.header("Color"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("accentColor", "Accent Color", 0xFFB57CFF)
+						.tip("The dimension name, the tick, and the colour of Portal link waypoints."),
+				ModOption.color("warnColor", "Warning Color", 0xFFFFC857)
+						.tip("Used when a portal won't link the way you'd expect."),
 				ModOption.color("bgColor", "Background Color", 0x00000000));
 	}
 

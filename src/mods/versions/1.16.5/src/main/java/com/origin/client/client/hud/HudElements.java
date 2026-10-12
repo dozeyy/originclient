@@ -246,7 +246,8 @@ public final class HudElements {
 				: mc.level.registryAccess().registryOrThrow(net.minecraft.core.Registry.BIOME_REGISTRY).getKey(biome);
 	}
 
-	private static String biomeName(net.minecraft.world.level.biome.Biome biome) {
+	// Public: the Minimap's biome line uses this and biomeColor too.
+	public static String biomeName(net.minecraft.world.level.biome.Biome biome) {
 		net.minecraft.resources.ResourceLocation loc = biomeId(biome);
 		if (loc == null) {
 			return "Unknown";
@@ -279,7 +280,7 @@ public final class HudElements {
 
 	// Intuitive colour per biome family, keyword-matched on the id. Oceans scale
 	// warm→cold (lighter→darker) and deepen for the deep_ variants.
-	static int biomeColor(net.minecraft.world.level.biome.Biome biome) {
+	public static int biomeColor(net.minecraft.world.level.biome.Biome biome) {
 		net.minecraft.resources.ResourceLocation loc = biomeId(biome);
 		if (loc == null) {
 			return TEXT;
@@ -537,13 +538,55 @@ public final class HudElements {
 						com.origin.client.client.waypoints.WaypointHud.drawBar(g, mc, 0, 0, w, true);
 					}
 				});
+
+		// ---- Lunar-parity readouts (Clock, Ping, Direction HUD, ...) ----
+		Readouts.register();
 	}
 
 	private static boolean locatorBarActive() {
 		return Mods.bool("waypoints", "locatorBar") && Mods.bool("waypoints", "separateBar");
 	}
 
-	private static void add(String id, String modId, String label, HudPos def,
+	// ---- Lunar parity, batch 2 (2026-10-11): Boss Bar, Titles, Cooldowns ----
+	// A second static block, after the first, so ALL already holds the original
+	// elements. Boss Bar and Titles follow the Scoreboard split: the element is the
+	// drag target + editor sample, and their mixins draw the real thing from
+	// vanilla's own layer at this element's position. Cooldowns is a plain element.
+	static {
+		add("bossbar", "bossbar", "Boss Bar", BossBarHud.defaultPos(),
+				mc -> BossBarHud.size(),
+				(g, mc, w, h) -> {
+					if (editorPreview) {
+						BossBarHud.renderSample(g);
+					}
+				});
+		add("titles", "titles", "Titles", TitlesHud.defaultPos(),
+				mc -> TitlesHud.editorSize(),
+				(g, mc, w, h) -> {
+					if (editorPreview && Mods.bool("titles", "showInHudEditor")) {
+						TitlesHud.renderSample(g);
+					}
+				});
+		add("cooldowns", "cooldowns", "Cooldowns", new HudPos(7, 0, -62, 1.0),
+				CooldownsHud::size, CooldownsHud::render);
+	}
+
+	// ---- Lunar parity, batch 4a (2026-10-11): Minimap ----
+	// Its own static block so it merges cleanly; the map, its terrain scan and its
+	// full-screen view live in the minimap package.
+	static {
+		add("minimap", "minimap", "Minimap", com.origin.client.client.minimap.MinimapHud.defaultPos(),
+				com.origin.client.client.minimap.MinimapHud::size, com.origin.client.client.minimap.MinimapHud::render);
+	}
+
+	// ---- Lunar parity: Hypixel Bed Wars (2026-10-11) ----
+	// Its own static block so it merges cleanly: Resource Counter + Teammates.
+	static {
+		BedwarsHud.register();
+	}
+
+	// Package-private so Readouts (the Lunar-parity readouts) registers into the same list.
+	static void add(String id, String modId, String label, HudPos def,
 							java.util.function.Function<Minecraft, int[]> measure, Renderer r) {
 		ALL.add(new Element(id, modId, label, def, measure, r));
 	}

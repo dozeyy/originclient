@@ -78,6 +78,10 @@ public class OriginModMenuScreen extends Screen {
 	private boolean sliderUnsaved = false;
 	private int dragTrackX0, dragTrackX1;
 	private String capMod = null, capKey = null;
+	// TEXT rows: the one field being typed into (textMod == null = none). The
+	// buffer is saved on Enter, on any click, or when the screen closes; Esc drops it.
+	private String textMod = null, textKey = null;
+	private String textBuf = "";
 
 	// Profiles tab: the name currently being typed into the "new profile" field.
 	private String profileInput = "";
@@ -103,6 +107,7 @@ public class OriginModMenuScreen extends Screen {
 	@Override
 	public void removed() {
 		flushSlider();   // a drag cut short by the screen closing still saves
+		commitText();    // so does a half-typed text field
 		HudElements.editorPreview = false;
 		HudElements.suppressScoreboard = false;
 		super.removed();
@@ -111,6 +116,22 @@ public class OriginModMenuScreen extends Screen {
 	@Override
 	public boolean isPauseScreen() {
 		return false;
+	}
+
+	// 1.21.11 (deferred GUI): vanilla runs renderBackground as its own stratum
+	// before render(). Out of a world, super paints the Origin title backdrop
+	// (ScreenBackgroundMixin -- the frame's one blur). In a world, 1.21.1 draws NO
+	// backdrop here (the menu is see-through so HUD changes preview live behind
+	// it), so vanilla's blur + in-world menu texture are skipped; only Menu Blur's
+	// "Origin Menus" (off by default) adds its blur + tint.
+	@Override
+	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+		if (Minecraft.getInstance().level == null) {
+			super.renderBackground(g, mouseX, mouseY, partialTick);
+		} else {
+			com.origin.client.client.mods.MenuBlur.renderBehind(g, this, partialTick);
+			Minecraft.getInstance().gui.renderDeferredSubtitles();   // vanilla's tail call
+		}
 	}
 
 	@Override
@@ -211,16 +232,44 @@ public class OriginModMenuScreen extends Screen {
 
 	static {
 		for (String id : new String[]{"fps", "cps", "armorhud", "keystrokes", "coords", "potionhud",
-				"serveraddress", "scoreboard", "tablist"}) {
+				"serveraddress", "scoreboard", "tablist",
+				"clock", "stopwatch", "daycounter", "ping", "memory", "saturation", "packdisplay",
+				"itemcounter", "directionhud", "combo", "reach"}) {
 			CATS.put(id, Cat.HUD);
 		}
-		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "chunkborders", "hitboxes", "nametags",
+		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "crosshair", "chunkborders", "hitboxes", "nametags",
 				"itemsize", "weather", "timechanger", "motionblur", "colorsaturation", "particles"}) {
 			CATS.put(id, Cat.VISUAL);
 		}
 		for (String id : new String[]{"togglesprint", "freelook", "chat", "waypoints", "jei"}) {
 			CATS.put(id, Cat.GAMEPLAY);
 		}
+		// Lunar parity, batch 2 (visuals / feel).
+		for (String id : new String[]{"bossbar", "titles", "cooldowns"}) {
+			CATS.put(id, Cat.HUD);
+		}
+		for (String id : new String[]{"hurtcam", "hitcolor", "glintcolorizer", "menublur", "shinypots",
+				"tntcountdown", "itemphysics"}) {
+			CATS.put(id, Cat.VISUAL);
+		}
+		for (String id : new String[]{"snaplook", "soundchanger"}) {
+			CATS.put(id, Cat.GAMEPLAY);
+		}
+		// Lunar parity, batch 4b.
+		CATS.put("worldeditcui", Cat.VISUAL);
+		// Lunar parity, batch 3b (server integrations).
+		CATS.put("teamview", Cat.VISUAL);
+		CATS.put("discord", Cat.GAMEPLAY);
+		CATS.put("hypixel", Cat.GAMEPLAY);
+		// Lunar parity, batch 4a.
+		CATS.put("minimap", Cat.HUD);
+		// Lunar parity, batch 3a (chat / server).
+		for (String id : new String[]{"autotext", "autogg", "quickplay", "screenshot"}) {
+			CATS.put(id, Cat.GAMEPLAY);
+		}
+		CATS.put("nickhider", Cat.VISUAL);
+		// Lunar parity: Hypixel Bed Wars.
+		CATS.put("hypixelbedwars", Cat.GAMEPLAY);
 	}
 
 	private static Cat catOf(Mods.Mod m) {
@@ -1459,6 +1508,7 @@ public class OriginModMenuScreen extends Screen {
 				String shown = OriginText.ellipsize(font, summary, bw - 16);
 				OriginText.draw(g, font, shown, bx + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
 			}
+			case TEXT -> renderTextField(g, modId, o, x0, x1, y, mx, my, alpha);
 		}
 	}
 
@@ -1482,6 +1532,7 @@ public class OriginModMenuScreen extends Screen {
 			}
 			return true;
 		}
+		commitText();   // any click ends typing (clicking the field again re-opens it)
 		if (button != 0 || closingAt > 0) {
 			return super.mouseClicked(event, doubled);
 		}
@@ -1674,6 +1725,15 @@ public class OriginModMenuScreen extends Screen {
 					return true;
 				}
 			}
+			case TEXT -> {
+				int bx = x1 - 10 - textBoxW(x0, x1);
+				if (mx >= bx && mx <= x1 - 10) {
+					textMod = modId;
+					textKey = o.key;
+					textBuf = Mods.text(modId, o.key);
+					return true;
+				}
+			}
 		}
 		return false;
 	}
@@ -1734,6 +1794,9 @@ public class OriginModMenuScreen extends Screen {
 		if (OriginColorPicker.isOpen()) {
 			return OriginColorPicker.keyPressed(keyCode);
 		}
+		if (textMod != null) {
+			return textKeyPressed(event);
+		}
 		if (capMod != null) {
 			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
 			capMod = null;
@@ -1788,6 +1851,12 @@ public class OriginModMenuScreen extends Screen {
 		if (capMod != null) {
 			return true;
 		}
+		if (textMod != null) {
+			if (chr >= 32 && chr != 127 && textBuf.length() < TEXT_MAX) {
+				textBuf += chr;
+			}
+			return true;
+		}
 		if (page == null && nav == Nav.MODS && chr >= 32 && search.length() < 24) {
 			search += chr;
 			searchFocused = true;
@@ -1804,6 +1873,97 @@ public class OriginModMenuScreen extends Screen {
 			return true;
 		}
 		return super.charTyped(event);
+	}
+
+	// ---- TEXT rows (free-text fields, e.g. the Hypixel API key) ----
+
+	private static final int TEXT_MAX = 128;
+
+	private int textBoxW(int x0, int x1) {
+		return Math.min(200, Math.max(90, (x1 - x0) / 2));
+	}
+
+	private void renderTextField(GuiGraphics g, String modId, ModOption o, int x0, int x1, int y,
+								 int mx, int my, float alpha) {
+		boolean editing = modId.equals(textMod) && o.key.equals(textKey);
+		String v = editing ? textBuf : Mods.text(modId, o.key);
+		int bw = textBoxW(x0, x1);
+		int bx = x1 - 10 - bw;
+		boolean hover = in(mx, my, bx, y + 4, bx + bw, y + 22);
+		float h = OriginUi.hover("setting:text:" + modId + ":" + o.key, hover || editing);
+		OriginUi.panel(g, bx, y + 4, bw, 18, 6,
+				withAlpha(OriginTheme.lerpColor(0x1EFFFFFF, 0x2EFFFFFF, h), alpha),
+				withAlpha(editing ? OriginTheme.ACCENT_BORDER
+						: OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.STROKE_HOVER, h), alpha));
+		int inner = bw - 16;
+		if (v.isEmpty() && !editing) {
+			OriginText.draw(g, font, o.secret ? "Not set" : "Click to type", bx + 8, y + 9,
+					withAlpha(OriginTheme.MUTED, alpha), false);
+			return;
+		}
+		String shown = o.secret ? maskSecret(v) : v;
+		if (editing) {
+			// While typing, keep the END of the text (where the caret is) in view.
+			while (shown.length() > 1 && OriginText.width(font, shown) > inner - 3) {
+				shown = shown.substring(1);
+			}
+		} else {
+			shown = OriginText.ellipsize(font, shown, inner);
+		}
+		OriginText.draw(g, font, shown, bx + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
+		if (editing) {
+			float pulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(System.currentTimeMillis() / 350.0));
+			int cx = bx + 8 + OriginText.width(font, shown);
+			g.fill(cx + 1, y + 8, cx + 2, y + 18, withAlpha(OriginTheme.TEXT, alpha * pulse));
+		}
+	}
+
+	// A secret is never drawn in clear: stars, plus the last 4 characters once it's
+	// long enough that those alone can't give it away (so the player can tell
+	// which key is saved).
+	private static String maskSecret(String v) {
+		if (v.length() <= 8) {
+			return "*".repeat(v.length());
+		}
+		return "*".repeat(Math.min(16, v.length() - 4)) + v.substring(v.length() - 4);
+	}
+
+	// 1.21.11: the KeyEvent carries the modifier state (hasControlDown / isPaste),
+	// which were static Screen helpers on 1.21.1.
+	private boolean textKeyPressed(KeyEvent event) {
+		int keyCode = event.key();
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+			textMod = null;      // cancel: the saved value stays as it was
+			textKey = null;
+			textBuf = "";
+		} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+			commitText();
+		} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+			if (!textBuf.isEmpty()) {
+				textBuf = event.hasControlDown() ? "" : textBuf.substring(0, textBuf.length() - 1);
+			}
+		} else if (event.isPaste()) {
+			String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
+			if (clip != null) {
+				// one line only; control characters (newlines from a copied block) dropped
+				String clean = clip.replaceAll("[\\p{Cntrl}]", "").trim();
+				textBuf = (textBuf + clean).substring(0, Math.min(TEXT_MAX, textBuf.length() + clean.length()));
+			}
+		}
+		return true;   // every other key is swallowed while a field has focus
+	}
+
+	private void commitText() {
+		if (textMod == null) {
+			return;
+		}
+		String mod = textMod, key = textKey, v = textBuf.trim();
+		textMod = null;
+		textKey = null;
+		textBuf = "";
+		if (!v.equals(Mods.text(mod, key))) {
+			Mods.set(mod, key, v);
+		}
 	}
 
 	public void beginClose() {

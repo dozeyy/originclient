@@ -198,8 +198,16 @@ floating corner controls. In-game menus match this exactly.
 - Newest launch action cancels any in-flight one.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
-## Current state (2026-10-10)
+## Current state (2026-10-12)
 - **Latest release: `launcher-v1.0.42`** (mandatory auto-update; tag flow).
+- **Lunar-parity mods on all 16 modules (2026-10-12, CI-green, not yet tagged — v1.0.43):**
+  Lunar's mod set (Minimap, Direction HUD, Ping, Reach, Combo, Crosshair, Cooldowns, Item
+  Physics, Boss Bar, Titles, Menu Blur, Nick Hider, Auto GG, Quickplay, Discord status,
+  Hypixel/Level Head, Team View, WorldEdit CUI, screenshot pop-up, ...) + Hypixel Bed Wars,
+  built on 1.21.1 then ported per era (registerLunarBatch* in each Mods.java). Era stand-ins:
+  own Menu Blur post chain below 1.20.5; Hurt Cam tilt / Shinypots speed / toast time sliders
+  are no-ops below 1.19.4; no Wind Charge counter below 1.21. Mumble Link skipped (Will).
+  The Sodium Video-Settings rail stays 1.21.1-only for now. Awaiting Will's in-game pass.
 - **Every live version on the 1.21.1 design (released 2026-10-11, launcher-v1.0.40):** all 16
   modules ported to the 1.21.1 title screen, menus, widget skin, mod menu and mod set,
   CI-compiled, awaiting Will's in-game pass. Differences by necessity: no JEI card on

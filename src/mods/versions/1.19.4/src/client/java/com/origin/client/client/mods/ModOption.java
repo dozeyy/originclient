@@ -14,7 +14,10 @@ public final class ModOption {
 	// stages). Unlike DROPDOWN (pick exactly one), the value is a comma-separated
 	// list whose membership AND order both matter. The row opens the shared
 	// OriginMultiSelect overlay, the same way COLOR opens the color picker.
-	public enum Kind { HEADER, TOGGLE, SLIDER, DROPDOWN, KEYBIND, COLOR, MULTISELECT }
+	//
+	// TEXT: a free-text field (an API key, a message). Its default lives in
+	// defText; .secret() masks the value on screen (the Hypixel API key).
+	public enum Kind { HEADER, TOGGLE, SLIDER, DROPDOWN, KEYBIND, COLOR, MULTISELECT, TEXT }
 
 	public final String key;
 	public final String label;
@@ -25,6 +28,15 @@ public final class ModOption {
 	// purpose. Set fluently via .tip("...") after any factory. Mutable so it can
 	// be attached without threading a param through every factory.
 	public String tooltip = null;
+
+	// MULTISELECT only: the default selection as a comma-separated list (null =
+	// the first choice, the old behaviour). Set fluently via .defaults("a,b").
+	// Mods.mode() returns it while the player hasn't picked anything yet.
+	public String defText = null;
+
+	// TEXT only: draw the value masked (never shown in clear on screen). Set
+	// fluently via .secret().
+	public boolean secret = false;
 
 	// key of the TOGGLE this row is nested under; null = top-level row.
 	public final String dependsOn;
@@ -115,12 +127,33 @@ public final class ModOption {
 		return new ModOption(key, label, Kind.MULTISELECT, null, 0, 0, 0, 0, null, false, 0, -1, choices);
 	}
 
+	/** A free-text field; the live value is a String (read with Mods.text). */
+	public static ModOption text(String key, String label, String def) {
+		ModOption o = new ModOption(key, label, Kind.TEXT, null, 0, 0, 0, 0, null, false, 0, -1, null);
+		o.defText = def;
+		return o;
+	}
+
+	/** TEXT only: mask the value on screen; returns this for chaining. */
+	public ModOption secret() {
+		this.secret = true;
+		return this;
+	}
+
 	/** Returns a copy of this row nested under the given TOGGLE key. */
 	public ModOption under(String parentKey) {
 		ModOption c = new ModOption(key, label, kind, parentKey, min, max, step, defNum, format,
 				defBool, defColor, defKey, modes);
 		c.tooltip = tooltip;
+		c.defText = defText;
+		c.secret = secret;
 		return c;
+	}
+
+	/** MULTISELECT default selection (comma-separated); returns this for chaining. */
+	public ModOption defaults(String csv) {
+		this.defText = csv;
+		return this;
 	}
 
 	/** Attaches a hover description; returns this for fluent chaining. */
