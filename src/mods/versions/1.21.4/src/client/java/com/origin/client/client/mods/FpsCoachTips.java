@@ -6,7 +6,6 @@ import net.minecraft.client.GraphicsStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
-import net.minecraft.client.ParticleStatus;
 
 import java.io.Reader;
 import java.nio.file.Files;
@@ -175,10 +174,13 @@ public final class FpsCoachTips {
 					"Clouds Fancy → Fast", option(o.cloudStatus(), CloudStatus.FAST), 1000));
 		}
 
-		if (o.particles().get() == ParticleStatus.ALL) {
+		// PER-VERSION: the ParticleStatus enum moved package in the 1.21.2+ line, so
+		// it is reached through the option's own value instead of by name.
+		var particles = o.particles();
+		if (particles.get().name().equals("ALL")) {
 			out.add(new Tip("particles", 15, "Particles are set to All",
 					"Decreased drops some of the smoke, splashes and potion swirls.",
-					"Particles All → Decreased", option(o.particles(), ParticleStatus.DECREASED), 1000));
+					"Particles All → Decreased", option(particles, sibling(particles.get(), "DECREASED")), 1000));
 		}
 
 		int blend = o.biomeBlendRadius().get();
@@ -199,6 +201,11 @@ public final class FpsCoachTips {
 		out.removeIf(t -> hidden(t.id()));
 		out.sort(Comparator.comparingInt(Tip::weight).reversed());
 		return out;
+	}
+
+	/** Another constant of the same enum as `sample`, by name. */
+	private static <E extends Enum<E>> E sibling(E sample, String name) {
+		return Enum.valueOf(sample.getDeclaringClass(), name);
 	}
 
 	// ---- changes ----
