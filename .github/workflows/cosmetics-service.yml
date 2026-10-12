@@ -38,6 +38,18 @@ jobs:
         working-directory: services/cosmetics
         run: npm test
 
+  # Mojang refuses requests from Cloudflare Workers (403), so the keys the
+  # service checks Mojang's signatures with are fetched here, on GitHub.
+  mojang-keys:
+    name: Mojang public keys reachable from GitHub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Mojang's published keys
+        run: |
+          code=$(curl -sS -o keys.json -w '%{http_code}' --max-time 20 https://api.minecraftservices.com/publickeys)
+          echo "status $code"
+          python3 -c "import json;d=json.load(open('keys.json'));print({k:len(v) for k,v in d.items()})"
+
   deploy:
     name: Deploy to Cloudflare
     needs: test
