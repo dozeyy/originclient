@@ -587,6 +587,8 @@ public class OriginModMenuScreen extends Screen {
 			Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
 		} else if (mod.id().equals("itemsize")) {
 			Minecraft.getInstance().setScreen(new OriginItemSizeScreen());
+		} else if (mod.id().equals("fpscoach")) {
+			Minecraft.getInstance().setScreen(new FpsCoachScreen(this));   // its Settings button opens the page
 		} else {
 			page = mod.id();
 			pageChangedAt = System.currentTimeMillis();
