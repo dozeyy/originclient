@@ -481,3 +481,33 @@ Module-evidenced (from the module's own boot-verified HEAD code) unless marked R
   grade is a PostChain whose EffectInstances re-apply their own blend).
 - Rule for any custom core shader drawn mid-frame on 1.17-1.20.4: leave BlendMode's cache in the mode
   vanilla's next draw expects, not just the raw GL blend state.
+
+## Fix-round port (2026-10-12) — 1.21.4 (covers 1.21.2-1.21.4; agent port-b)
+- 1.21.4's copies of every fix-round file except OriginDeck/CosmeticsScreen/Shader browser/Minimap
+  were BYTE-IDENTICAL to 1.21.1's pre-round copies (d0b50d6), so a 3-way merge (base = d0b50d6
+  1.21.1, ours = 1.21.4, theirs = 1.21.1 HEAD) took them clean. Dev shots design + world matched
+  1.21.1-final on the first CI run (run 38283734918 / 38283738772), zero mixin failures.
+- Blits in the new windows (Cosmetics cape tiles, shader previews): `g.blit(RenderType::guiTextured,
+  id, x, y, u, v, dstW, dstH, srcW, srcH, texW, texH, ARGB.white(alpha))` — the fade rides the
+  trailing ARGB, never setShaderColor. The deck's raw-scissor clip already flushes on enter/exit, so
+  queued blits inside the shader list stay clipped.
+- See-through halos: OriginDeck.halo snaps each pill to whole physical px before OriginUi.roundRect,
+  so the baked-mask renderer bakes one cap mask per pill HEIGHT (shared by every label that size)
+  instead of a whole-shape mask per label per ring, which would churn the 160-entry mask LRU.
+- MenuPlayerPreview (title-screen character): this era has no model-only path worth copying
+  (no renderCloak; cape is PlayerCapeModel) and no EntityRenderDispatcher.getSkinMap (gone by 1.21.2,
+  checked against yarn 1.21.4 mappings). Instead: OriginClientMod's
+  LivingEntityFeatureRendererRegistrationCallback hands its EntityRendererProvider.Context to
+  MenuPlayerPreview.onRenderersCreated (refreshed every reload); the preview builds its own
+  `new PlayerRenderer(ctx, slim)` (anonymous subclass whose initializer calls addLayer(new
+  CosmeticHeadLayer(this)), since Fabric's callback only runs for the game's renderers), fills a
+  PlayerRenderState by hand (skin with the Origin cape swapped in, bodyRot = 180 + yaw, show* parts
+  from options, id = STATE_ID) and draws it with `g.flush(); g.drawSpecial(buf -> renderer.render(st,
+  pose, buf, LIGHT))` under Lighting.setupForEntityInInventory. GuiGraphics has no bufferSource()
+  getter here. CosmeticHeadLayer reads the head item from MenuPlayerPreview.headId() when
+  state.id == STATE_ID (no level needed). Proven by dev shots: cape + halo on the title preview.
+- MinimapScreen: 1.21.1's restyle with the map as GuiMesh geometry (MinimapRenderer takes g; GuiMesh
+  flushes the batch itself), so the deck's well lands under it and the chrome over it.
+- CosmeticsPauseMixin: 1.21.2-1.21.4 createPauseMenu is still the GridLayout + alignInRectangle(0.5,
+  0.25) shape, so 1.21.1's TAIL logic applies verbatim (pause shot: Cosmetics row identical to its
+  neighbours, stack lifted like vanilla).
