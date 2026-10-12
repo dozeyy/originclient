@@ -1,4 +1,6 @@
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using OriginLauncher.App.Core.Social;
 using Xunit;
@@ -364,57 +366,282 @@ public class SocialMergeTests
     }
 }
 
+/// <summary>
+/// Stands in for Mojang in the sign-in tests: a real RSA key pair acting as
+/// the player certificate, answered in Mojang's own shapes (PEM labelled
+/// "RSA ... KEY" around PKCS#8 / SPKI bodies, ISO times with 9 fraction digits).
+/// </summary>
+internal static class FakeMojang
+{
+    public static readonly RSA Key = RSA.Create(2048);
+    public static readonly byte[] Spki = Key.ExportSubjectPublicKeyInfo();
+    public const string Uuid = "069A79F4-44E9-4726-A5BE-FCA90E38AAF5";
+    public const string UuidNorm = "069a79f444e94726a5befca90e38aaf5";
+    public const string ExpiresAtIso = "2026-10-14T12:00:00.123456789Z";
+    public const string RefreshedAfterIso = "2026-10-14T04:00:00.987654Z";
+    public static readonly long ExpiresAtMs = new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds() + 123;
+    public static readonly long RefreshedAfterMs = new DateTimeOffset(2026, 10, 14, 4, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds() + 987;
+    public const string KeySignature = "bW9qYW5nLXYyLXNpZ25hdHVyZQ==";
+    public const string TexturesValue = "eyJwcm9maWxlSWQiOiIwNjlhNzlmNDQ0ZTk0NzI2YTViZWZjYTkwZTM4YWFmNSJ9";
+    public const string TexturesSignature = "dGV4dHVyZXMtc2lnbmF0dXJl";
+
+    public static string Pem(string label, byte[] der, string newline = "\n")
+    {
+        var b64 = Convert.ToBase64String(der);
+        var lines = Enumerable.Range(0, (b64.Length + 75) / 76).Select(i => b64.Substring(i * 76, Math.Min(76, b64.Length - i * 76)));
+        return $"-----BEGIN {label}-----{newline}{string.Join(newline, lines)}{newline}-----END {label}-----{newline}";
+    }
+
+    public static string CertificateJson(byte[]? privateDer = null, byte[]? publicDer = null) => JsonSerializer.Serialize(new
+    {
+        keyPair = new
+        {
+            privateKey = Pem("RSA PRIVATE KEY", privateDer ?? Key.ExportPkcs8PrivateKey()),
+            publicKey = Pem("RSA PUBLIC KEY", publicDer ?? Spki),
+        },
+        publicKeySignature = "old-v1",
+        publicKeySignatureV2 = KeySignature,
+        expiresAt = ExpiresAtIso,
+        refreshedAfter = RefreshedAfterIso,
+    });
+
+    public static string ProfileJson(string name = "Notch") => JsonSerializer.Serialize(new
+    {
+        id = UuidNorm,
+        name,
+        properties = new[] { new { name = "textures", value = TexturesValue, signature = TexturesSignature } },
+    });
+
+    /// <summary>A network that answers Mojang like Mojang and everything else with <paramref name="origin"/>.</summary>
+    public static SocialHttpSend Net(Func<Uri, SocialHttpResponse> origin) => (_, url, _, _, _) => Task.FromResult(
+        url == SocialEndpoints.PlayerCertificates ? new SocialHttpResponse(200, CertificateJson())
+        : url.Host == "sessionserver.mojang.com" ? new SocialHttpResponse(200, ProfileJson())
+        : origin(url));
+}
+
+public class MojangProofTests
+{
+    [Fact]
+    public void TheSignedStringIsExact()
+    {
+        Assert.Equal("origin-auth|069a79f444e94726a5befca90e38aaf5|launcher|1760270400000",
+            MojangProof.SignedString(FakeMojang.Uuid, "launcher", 1760270400000));
+    }
+
+    [Fact]
+    public void PemBodiesIgnoreTheLabelAndLineBreaks()
+    {
+        var der = new byte[] { 1, 2, 3, 250, 251, 252 };
+        Assert.Equal(der, MojangProof.PemBody(FakeMojang.Pem("RSA PRIVATE KEY", der, "\r\n")));
+        Assert.Equal(der, MojangProof.PemBody("  " + Convert.ToBase64String(der) + "\n"));
+        Assert.Null(MojangProof.PemBody("-----BEGIN RSA PRIVATE KEY-----\n***\n-----END RSA PRIVATE KEY-----"));
+        Assert.Null(MojangProof.PemBody(null));
+    }
+
+    [Fact]
+    public void ACertificateParsesAndSignsVerifiably()
+    {
+        var cert = MojangProof.ParseCertificate(FakeMojang.CertificateJson());
+        Assert.NotNull(cert);
+        Assert.Equal(FakeMojang.Spki, cert!.PublicKeySpki);
+        Assert.Equal(FakeMojang.KeySignature, cert.PublicKeySignatureV2);
+        Assert.Equal(FakeMojang.ExpiresAtMs, cert.ExpiresAtMs);
+        Assert.Equal(FakeMojang.RefreshedAfterMs, cert.RefreshedAfterMs);
+
+        var sig = MojangProof.Sign(cert, "hello");
+        Assert.True(FakeMojang.Key.VerifyData(Encoding.UTF8.GetBytes("hello"), Convert.FromBase64String(sig),
+            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+    }
+
+    [Fact]
+    public void PkcsOneBodiesAreConvertedSoSigningStillWorks()
+    {
+        var cert = MojangProof.ParseCertificate(FakeMojang.CertificateJson(
+            FakeMojang.Key.ExportRSAPrivateKey(), FakeMojang.Key.ExportRSAPublicKey()));
+        Assert.NotNull(cert);
+        Assert.Equal(FakeMojang.Spki, cert!.PublicKeySpki);
+        var sig = MojangProof.Sign(cert, "x");
+        Assert.True(FakeMojang.Key.VerifyData(Encoding.UTF8.GetBytes("x"), Convert.FromBase64String(sig),
+            HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+    }
+
+    [Fact]
+    public void ABrokenCertificateIsNull()
+    {
+        Assert.Null(MojangProof.ParseCertificate(null));
+        Assert.Null(MojangProof.ParseCertificate("{}"));
+        Assert.Null(MojangProof.ParseCertificate("""{"keyPair":{"privateKey":"-----BEGIN RSA PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----","publicKey":"x"},"publicKeySignatureV2":"s","expiresAt":"2026-10-14T12:00:00Z"}"""));
+        var noExpiry = FakeMojang.CertificateJson().Replace(FakeMojang.ExpiresAtIso, "soon");
+        Assert.Null(MojangProof.ParseCertificate(noExpiry));
+    }
+
+    [Fact]
+    public void IsoTimesTruncateToMillisecondsLikeJava()
+    {
+        var baseMs = new DateTimeOffset(2026, 10, 14, 12, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+        Assert.Equal(baseMs, MojangProof.IsoToEpochMs("2026-10-14T12:00:00Z"));
+        Assert.Equal(baseMs + 999, MojangProof.IsoToEpochMs("2026-10-14T12:00:00.999999999Z"));
+        Assert.Equal(baseMs + 5, MojangProof.IsoToEpochMs("2026-10-14T12:00:00.0059Z"));
+        Assert.Equal(baseMs, MojangProof.IsoToEpochMs("2026-10-14T14:00:00+02:00"));
+        Assert.Null(MojangProof.IsoToEpochMs("not a time"));
+    }
+
+    [Fact]
+    public void TheSignedProfileGivesTexturesAndName()
+    {
+        var profile = MojangProof.ParseProfile(FakeMojang.ProfileJson());
+        Assert.NotNull(profile);
+        Assert.Equal("Notch", profile!.Value.Name);
+        Assert.Equal(new SignedTextures(FakeMojang.TexturesValue, FakeMojang.TexturesSignature), profile.Value.Textures);
+        Assert.Null(MojangProof.ParseProfile("""{"id":"x","name":"n","properties":[{"name":"textures","value":"v"}]}"""));
+        Assert.Null(MojangProof.ParseProfile("""{"id":"x","name":"n","properties":[]}"""));
+    }
+
+    [Fact]
+    public void TheCertificateNeverPrintsItsKey()
+    {
+        var cert = MojangProof.ParseCertificate(FakeMojang.CertificateJson())!;
+        var text = cert.ToString();
+        Assert.DoesNotContain(Convert.ToBase64String(FakeMojang.Key.ExportPkcs8PrivateKey())[..40], text);
+        Assert.DoesNotContain("Private", text);
+    }
+
+    [Fact]
+    public void MultiplayerRefusalsAreRecognised()
+    {
+        Assert.True(MojangProof.SaysMultiplayerDisabled("""{"errorMessage":"Multiplayer is disabled for this account"}"""));
+        Assert.True(MojangProof.SaysMultiplayerDisabled("""{"error":"INSUFFICIENT_PRIVILEGES"}"""));
+        Assert.False(MojangProof.SaysMultiplayerDisabled("""{"error":"FORBIDDEN"}"""));
+        Assert.False(MojangProof.SaysMultiplayerDisabled(null));
+    }
+}
+
 public class SocialClientTests
 {
     private sealed class FakeNet
     {
-        public readonly List<(string Url, string? Body, string? Bearer)> Calls = new();
-        public Func<string, int> MojangStatus = _ => 204;
-        public Func<int, SocialHttpResponse> Auth = n => new(200, $$"""{"token":"t{{n}}","uuid":"ME","name":"Me","expiresAt":1}""");
+        public readonly List<(HttpMethod Method, string Url, string? Body, string? Bearer)> Calls = new();
+        public Func<string?, SocialHttpResponse> Certificates = _ => new(200, FakeMojang.CertificateJson());
+        public Func<SocialHttpResponse> Profile = () => new(200, FakeMojang.ProfileJson());
+        public Func<int, SocialHttpResponse> Auth = n => new(200, $$"""{"token":"t{{n}}","uuid":"{{FakeMojang.Uuid}}","name":"Notch","expiresAt":1}""");
         public Func<string?, SocialHttpResponse> Call = _ => new(200, """{"ok":true}""");
         private int _auths;
 
         public Task<SocialHttpResponse> Send(HttpMethod method, Uri url, string? body, string? bearer, CancellationToken ct)
         {
-            Calls.Add((url.ToString(), body, bearer));
-            if (url == SocialEndpoints.MojangJoin)
-                return Task.FromResult(new SocialHttpResponse(MojangStatus(body!), null));
-            if (url.AbsolutePath == "/v1/auth")
-                return Task.FromResult(Auth(++_auths));
+            Calls.Add((method, url.ToString(), body, bearer));
+            if (url == SocialEndpoints.PlayerCertificates) return Task.FromResult(Certificates(bearer));
+            if (url.Host == "sessionserver.mojang.com") return Task.FromResult(Profile());
+            if (url.AbsolutePath == "/v1/auth") return Task.FromResult(Auth(++_auths));
             return Task.FromResult(Call(bearer));
         }
+
+        public int Count(string what) => Calls.Count(c => c.Url.Contains(what, StringComparison.Ordinal));
     }
 
     private static readonly Uri Base = new("https://social.test");
+    private static readonly DateTimeOffset Now = new(2026, 10, 12, 12, 0, 0, TimeSpan.Zero);
 
     private static IdentitySource Identity(List<bool>? forced = null) => (force, _) =>
     {
         forced?.Add(force);
-        return Task.FromResult(IdentityResult.Ok(new MinecraftIdentity("Me", "0000-ME", force ? "fresh-mc" : "cached-mc")));
+        return Task.FromResult(IdentityResult.Ok(new MinecraftIdentity("notch", FakeMojang.Uuid, force ? "fresh-mc" : "cached-mc")));
     };
 
+    private static SocialClient Client(FakeNet net, IdentitySource? identity = null, Func<DateTimeOffset>? clock = null) =>
+        new(Base, net.Send, identity ?? Identity(), clock ?? (() => Now));
+
     [Fact]
-    public async Task SignsInThroughMojangThenOrigin()
+    public async Task SignsInWithTheMojangCertificateAndSignedProfile()
     {
         var net = new FakeNet();
-        var client = new SocialClient(Base, net.Send, Identity(), () => "abcd");
+        var client = Client(net);
         var result = await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
 
         Assert.True(result.Ok);
-        Assert.Equal(3, net.Calls.Count);
-        using var join = JsonDocument.Parse(net.Calls[0].Body!);
-        Assert.Equal("cached-mc", join.RootElement.GetProperty("accessToken").GetString());
-        Assert.Equal("0000me", join.RootElement.GetProperty("selectedProfile").GetString());
-        Assert.Equal("abcd", join.RootElement.GetProperty("serverId").GetString());
-        Assert.Null(net.Calls[0].Bearer);
+        Assert.Equal(4, net.Calls.Count);
 
-        using var auth = JsonDocument.Parse(net.Calls[1].Body!);
-        Assert.Equal("launcher", auth.RootElement.GetProperty("client").GetString());
-        Assert.Equal("abcd", auth.RootElement.GetProperty("serverId").GetString());
-        Assert.DoesNotContain("cached-mc", net.Calls[1].Body); // no Minecraft token ever reaches Origin
+        // 1. certificate: POST, the Minecraft token as Bearer, no body.
+        Assert.Equal(HttpMethod.Post, net.Calls[0].Method);
+        Assert.Equal("https://api.minecraftservices.com/player/certificates", net.Calls[0].Url);
+        Assert.Equal("cached-mc", net.Calls[0].Bearer);
+        Assert.Null(net.Calls[0].Body);
 
-        Assert.Equal("t1", net.Calls[2].Bearer);
-        Assert.Equal("me", client.MyUuid);
+        // 2. signed profile: GET, undashed uuid, unsigned=false, no token.
+        Assert.Equal(HttpMethod.Get, net.Calls[1].Method);
+        Assert.Equal($"https://sessionserver.mojang.com/session/minecraft/profile/{FakeMojang.UuidNorm}?unsigned=false", net.Calls[1].Url);
+        Assert.Null(net.Calls[1].Bearer);
+
+        // 3. /v1/auth with the v2 body.
+        Assert.Equal("https://social.test/v1/auth", net.Calls[2].Url);
+        Assert.Null(net.Calls[2].Bearer);
+        var body = net.Calls[2].Body!;
+        using var auth = JsonDocument.Parse(body);
+        var r = auth.RootElement;
+        var at = Now.ToUnixTimeMilliseconds();
+        Assert.Equal("launcher", r.GetProperty("client").GetString());
+        Assert.Equal(FakeMojang.UuidNorm, r.GetProperty("uuid").GetString());
+        Assert.Equal("Notch", r.GetProperty("name").GetString()); // Mojang's spelling, not the account's "notch"
+        Assert.Equal(at, r.GetProperty("at").GetInt64());
+        Assert.Equal(Convert.ToBase64String(FakeMojang.Spki), r.GetProperty("publicKey").GetString());
+        Assert.Equal(FakeMojang.ExpiresAtMs, r.GetProperty("keyExpiresAt").GetInt64());
+        Assert.Equal(FakeMojang.KeySignature, r.GetProperty("keySignature").GetString());
+        Assert.Equal(FakeMojang.TexturesValue, r.GetProperty("textures").GetProperty("value").GetString());
+        Assert.Equal(FakeMojang.TexturesSignature, r.GetProperty("textures").GetProperty("signature").GetString());
+        Assert.Equal(["client", "uuid", "name", "at", "sig", "publicKey", "keyExpiresAt", "keySignature", "textures"],
+            r.EnumerateObject().Select(p => p.Name).ToArray());
+
+        var signed = $"origin-auth|{FakeMojang.UuidNorm}|launcher|{at}";
+        Assert.True(FakeMojang.Key.VerifyData(Encoding.UTF8.GetBytes(signed),
+            Convert.FromBase64String(r.GetProperty("sig").GetString()!), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+
+        // Neither the Minecraft token nor the private key ever reaches Origin.
+        Assert.DoesNotContain("cached-mc", body);
+        Assert.DoesNotContain(Convert.ToBase64String(FakeMojang.Key.ExportPkcs8PrivateKey())[..40], body);
+
+        // 4. the call itself, with the Origin token.
+        Assert.Equal("t1", net.Calls[3].Bearer);
+        Assert.Equal(FakeMojang.UuidNorm, client.MyUuid);
+    }
+
+    [Fact]
+    public async Task TheCertificateIsCachedUntilMojangSaysRefresh()
+    {
+        var net = new FakeNet();
+        var now = Now;
+        var client = Client(net, clock: () => now);
+        await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
+
+        // Origin token expires → re-auth reuses the certificate, re-fetches the profile.
+        net.Call = bearer => bearer == "t1" ? new(401, null) : new(200, "{}");
+        await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
+        Assert.Equal(1, net.Count("/player/certificates"));
+        Assert.Equal(2, net.Count("sessionserver"));
+
+        // Past refreshedAfter → a new certificate.
+        now = DateTimeOffset.FromUnixTimeMilliseconds(FakeMojang.RefreshedAfterMs);
+        net.Call = bearer => bearer == "t2" ? new(401, null) : new(200, "{}");
+        await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
+        Assert.Equal(2, net.Count("/player/certificates"));
+
+        // Account switched → the certificate is dropped with the token.
+        client.Forget();
+        await client.EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(3, net.Count("/player/certificates"));
+    }
+
+    [Fact]
+    public async Task ACertificateCloseToExpiryIsNotReused()
+    {
+        var net = new FakeNet();
+        var now = Now;
+        net.Certificates = _ => new(200, FakeMojang.CertificateJson().Replace(FakeMojang.RefreshedAfterIso, "2099-01-01T00:00:00Z"));
+        var client = Client(net, clock: () => now);
+        await client.EnsureAuthAsync(CancellationToken.None);
+        client.Forget();
+        now = DateTimeOffset.FromUnixTimeMilliseconds(FakeMojang.ExpiresAtMs - 60_000);
+        await client.EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(2, net.Count("/player/certificates"));
     }
 
     [Fact]
@@ -422,7 +649,7 @@ public class SocialClientTests
     {
         var net = new FakeNet();
         net.Call = bearer => bearer == "t1" ? new(401, null) : new(200, "{}");
-        var client = new SocialClient(Base, net.Send, Identity(), () => "abcd");
+        var client = Client(net);
         var result = await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
 
         Assert.True(result.Ok);
@@ -434,22 +661,101 @@ public class SocialClientTests
     {
         var net = new FakeNet();
         net.Call = _ => new(401, null);
-        var client = new SocialClient(Base, net.Send, Identity(), () => "abcd");
+        var client = Client(net);
         var result = await client.PostAsync("/v1/sync", "{}", CancellationToken.None);
         Assert.Equal(401, result.Status);
-        Assert.True(net.Calls.Count <= 6);
+        Assert.True(net.Calls.Count <= 8);
     }
 
     [Fact]
     public async Task ARefusedMinecraftTokenIsRefreshedOnce()
     {
         var net = new FakeNet();
-        net.MojangStatus = body => body.Contains("fresh-mc") ? 204 : 403;
+        net.Certificates = bearer => bearer == "fresh-mc" ? new(200, FakeMojang.CertificateJson()) : new(401, null);
         var forced = new List<bool>();
-        var client = new SocialClient(Base, net.Send, Identity(forced), () => "abcd");
+        var client = Client(net, Identity(forced));
         var auth = await client.EnsureAuthAsync(CancellationToken.None);
         Assert.Equal(SocialAuthState.Ok, auth.State);
         Assert.Equal([false, true], forced.ToArray());
+    }
+
+    [Fact]
+    public async Task AMinecraftTokenRefusedTwiceGivesUp()
+    {
+        var net = new FakeNet();
+        net.Certificates = _ => new(401, null);
+        var forced = new List<bool>();
+        var client = Client(net, Identity(forced));
+        var auth = await client.EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(SocialAuthState.SignInFailed, auth.State);
+        Assert.Equal("Couldn't sign in to friends. Try removing and re-adding your account.", auth.Message);
+        Assert.Equal([false, true], forced.ToArray());
+        Assert.Equal(0, net.Count("/v1/auth"));
+    }
+
+    [Theory]
+    [InlineData("""{"path":"/player/certificates","errorMessage":"Multiplayer is disabled for this account"}""",
+        "Your Microsoft account doesn't allow online play, so friends can't be used.")]
+    [InlineData("""{"path":"/player/certificates","error":"FORBIDDEN"}""", "Couldn't sign in to friends right now.")]
+    [InlineData(null, "Couldn't sign in to friends right now.")]
+    public async Task ACertificateRefusalSaysWhy(string? mojangBody, string expected)
+    {
+        var net = new FakeNet { Certificates = _ => new(403, mojangBody) };
+        var forced = new List<bool>();
+        var auth = await Client(net, Identity(forced)).EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(SocialAuthState.SignInFailed, auth.State);
+        Assert.Equal(expected, auth.Message);
+        Assert.Equal([false], forced.ToArray()); // a 403 isn't an expired token: no refresh
+        Assert.Equal(0, net.Count("/v1/auth"));
+    }
+
+    [Fact]
+    public async Task AnUnreadableCertificateIsAPlainFailure()
+    {
+        var net = new FakeNet { Certificates = _ => new(200, """{"keyPair":{}}""") };
+        var auth = await Client(net).EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(SocialAuthState.SignInFailed, auth.State);
+        Assert.Equal("Couldn't sign in to friends right now.", auth.Message);
+    }
+
+    [Theory]
+    [InlineData(0, 200)]
+    [InlineData(503, 200)]
+    [InlineData(429, 200)]
+    [InlineData(200, 0)]
+    [InlineData(200, 502)]
+    public async Task MojangUnreachableIsUnreachable(int certificates, int profile)
+    {
+        var net = new FakeNet
+        {
+            Certificates = _ => certificates == 200 ? new(200, FakeMojang.CertificateJson()) : new(certificates, null),
+            Profile = () => profile == 200 ? new(200, FakeMojang.ProfileJson()) : new(profile, null),
+        };
+        var auth = await Client(net).EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(SocialAuthState.Unreachable, auth.State);
+        Assert.Equal(0, net.Count("/v1/auth"));
+    }
+
+    [Fact]
+    public async Task AProfileWithoutSignedTexturesFails()
+    {
+        var net = new FakeNet { Profile = () => new(200, """{"id":"x","name":"Notch","properties":[]}""") };
+        var auth = await Client(net).EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(SocialAuthState.SignInFailed, auth.State);
+        Assert.Equal("Couldn't sign in to friends right now.", auth.Message);
+    }
+
+    [Fact]
+    public async Task TheServicesRefusalIsShownAsIsAndDropsTheCertificate()
+    {
+        var net = new FakeNet { Auth = _ => new(401, """{"error":"Your Minecraft profile couldn't be checked. Try again in a moment."}""") };
+        var client = Client(net);
+        var auth = await client.EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(SocialAuthState.SignInFailed, auth.State);
+        Assert.Equal("Your Minecraft profile couldn't be checked. Try again in a moment.", auth.Message);
+
+        await client.EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(2, net.Count("/player/certificates"));
     }
 
     [Fact]
@@ -471,17 +777,8 @@ public class SocialClientTests
     public async Task AnUndeployedOrDownServiceIsUnreachable(int status)
     {
         var net = new FakeNet { Auth = _ => new(status, null) };
-        var client = new SocialClient(Base, net.Send, Identity(), () => "abcd");
-        var auth = await client.EnsureAuthAsync(CancellationToken.None);
+        var auth = await Client(net).EnsureAuthAsync(CancellationToken.None);
         Assert.Equal(SocialAuthState.Unreachable, auth.State);
-    }
-
-    [Fact]
-    public void ServerIdsAre32LowercaseHex()
-    {
-        var id = SocialClient.NewServerId();
-        Assert.Matches("^[0-9a-f]{32}$", id);
-        Assert.NotEqual(id, SocialClient.NewServerId());
     }
 
     [Fact]
@@ -518,13 +815,13 @@ public class SocialServiceTests
     public async Task ASyncBecomesAnOnlineSnapshot()
     {
         var client = new SocialClient(new Uri("https://social.test"),
-            (_, url, _, _, _) => Task.FromResult(url.AbsolutePath switch
+            FakeMojang.Net(url => url.AbsolutePath switch
             {
                 "/v1/auth" => new SocialHttpResponse(200, """{"token":"t","uuid":"me","name":"Me"}"""),
                 "/v1/sync" => new SocialHttpResponse(200, """{"cursor":5,"me":{"uuid":"me","name":"Me"},"friends":[{"uuid":"b","name":"Steve","online":true,"client":"launcher"}]}"""),
                 _ => new SocialHttpResponse(204, null),
             }),
-            (_, _) => Task.FromResult(IdentityResult.Ok(new MinecraftIdentity("Me", "me", "mc"))));
+            (_, _) => Task.FromResult(IdentityResult.Ok(new MinecraftIdentity("Me", FakeMojang.Uuid, "mc"))));
         using var service = new SocialService(client, () => "1.21.1");
         var online = new TaskCompletionSource<SocialSnapshot>();
         service.Changed += s => { if (s.Status == SocialStatus.Online) online.TrySetResult(s); };
