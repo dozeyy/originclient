@@ -16,7 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // Item Physics: re-poses a dropped item right before vanilla submits its copies.
 // 1.21.10 ItemEntityRenderer (source-verified):
 //   extractRenderState(ItemEntity, ItemEntityRenderState, float) -- has the entity;
-//     here we record whether it rests (on the ground or floating on water);
+//     here ItemPhysics advances the item's own easing state (resting on the
+//     ground / floating on water vs airborne) and stores the resulting pose on
+//     the state (ItemPhysicsState duck);
 //   submit(state, PoseStack, SubmitNodeCollector, CameraRenderState): push,
 //     translate(bob + model-box lift), rotate(spin), submitMultipleFromCount(...,
 //     AABB), pop, super.submit.
@@ -27,9 +29,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ItemPhysicsMixin {
 	@Inject(method = "extractRenderState(Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;F)V",
 			at = @At("TAIL"))
-	private void originclient$captureResting(ItemEntity entity, ItemEntityRenderState state, float partialTick,
-											 CallbackInfo ci) {
-		((ItemPhysicsState) state).originclient$setResting(entity.onGround() || entity.isInWater());
+	private void originclient$capturePose(ItemEntity entity, ItemEntityRenderState state, float partialTick,
+										  CallbackInfo ci) {
+		try {
+			ItemPhysics.extract(entity, state, (ItemPhysicsState) state);
+		} catch (Throwable ignored) {
+			((ItemPhysicsState) state).originclient$setPose(false, 0f, 0f, 0f);   // vanilla this frame
+		}
 	}
 
 	@Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
@@ -38,7 +44,7 @@ public class ItemPhysicsMixin {
 	private void originclient$physics(ItemEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector,
 									  CameraRenderState camera, CallbackInfo ci) {
 		try {
-			ItemPhysics.apply(state, ((ItemPhysicsState) state).originclient$isResting(), poseStack);
+			ItemPhysics.apply(state, (ItemPhysicsState) state, poseStack);
 		} catch (Throwable ignored) {
 			// worst case the item keeps vanilla's float + spin this frame
 		}

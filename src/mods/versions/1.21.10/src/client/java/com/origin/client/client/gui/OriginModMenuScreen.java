@@ -52,11 +52,7 @@ import static com.origin.client.client.gui.OriginDeck.*;
  *     scale(x,y)) -- the HUD preview below;
  *   * input arrives as MouseButtonEvent / KeyEvent / CharacterEvent objects
  *     (1.21.9 input rework; mouseScrolled keeps raw doubles), and the Ctrl /
- *     paste checks come from the KeyEvent (no static Screen helpers);
- *   * features this module doesn't have are left out rather than shown dead:
- *     no Cosmetics tab (no CosmeticsScreen here), no FPS Coach / Portal
- *     Calculator, no Item Counter item-grid picker (its Items row opens the
- *     list popup as before), no Mod Menu Layout setting (always 4 across).
+ *     paste checks come from the KeyEvent (no static Screen helpers).
  */
 public class OriginModMenuScreen extends Screen {
 	// ---- the design grid (design px; see the class comment) ----
@@ -225,8 +221,6 @@ public class OriginModMenuScreen extends Screen {
 
 	// The NEW filter + badge: this release's additions. The badge clears once the
 	// player has opened that mod's page (meta "seen:<id>").
-	// Same set as 1.21.1; portalcalc / fpscoach don't exist on 1.21.10, so NEW
-	// shows Hypixel Bed Wars alone here.
 	private static final Set<String> NEW_IDS = Set.of("portalcalc", "fpscoach", "hypixelbedwars");
 
 	private static Cat catOf(Mods.Mod m) {
@@ -333,6 +327,22 @@ public class OriginModMenuScreen extends Screen {
 		};
 	}
 
+	// Item Counter's "Items" row opens the shared item grid (Item Size's layout).
+	private static boolean isItemPicker(String modId, String key) {
+		return modId.equals("itemcounter") && key.equals("items");
+	}
+
+	private static String itemPickerSummary(String csv) {
+		List<String> names = new ArrayList<>();
+		for (String t : com.origin.client.client.mods.ItemCounter.tokens(csv)) {
+			var e = com.origin.client.client.mods.ItemCounter.resolve(t);
+			if (e != null) {
+				names.add(e.label());
+			}
+		}
+		return names.isEmpty() ? "None" : String.join(", ", names);
+	}
+
 	private static List<String> splitCsv(String csv) {
 		List<String> out = new ArrayList<>();
 		if (csv != null) {
@@ -353,6 +363,7 @@ public class OriginModMenuScreen extends Screen {
 		switch (mod.id()) {
 			case "waypoints" -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
 			case "itemsize" -> Minecraft.getInstance().setScreen(new OriginItemSizeScreen());
+			case "fpscoach" -> Minecraft.getInstance().setScreen(new FpsCoachScreen(this));
 			default -> goPage(mod.id());
 		}
 	}
@@ -495,8 +506,7 @@ public class OriginModMenuScreen extends Screen {
 		d.textMid("CLIENT", bx + 7, HEAD_H / 2, 18, false, 0.4f, DIM);
 
 		// centred tabs
-		// 1.21.10: no Cosmetics tab -- this module has no CosmeticsScreen.
-		String[] tabs = {"Mods", "Settings", "Waypoints"};
+		String[] tabs = {"Mods", "Settings", "Waypoints", "Cosmetics"};
 		float[] tw = new float[tabs.length];
 		float total = 6 * (tabs.length - 1);
 		for (int i = 0; i < tabs.length; i++) {
@@ -520,7 +530,8 @@ public class OriginModMenuScreen extends Screen {
 				switch (idx) {
 					case 0 -> goTab(Tab.MODS);
 					case 1 -> goTab(Tab.SETTINGS);
-					default -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+					case 2 -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+					default -> Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
 				}
 			});
 			tx += tw[i] + 6;
@@ -581,9 +592,16 @@ public class OriginModMenuScreen extends Screen {
 		return false;
 	}
 
-	// 1.21.10 has no Mod Menu Layout setting (1.21.1's 4 / 3 / 2 across): always 4.
 	private int columns() {
-		return 4;
+		String layout = Mods.mode(Mods.GENERAL_ID, "menuLayout");
+		if (layout == null) {
+			return 4;
+		}
+		return switch (layout) {
+			case "3 across (compact)" -> 3;
+			case "2 across (large)" -> 2;
+			default -> 4;
+		};
 	}
 
 	private void drawLibrary(OriginDeck d, long now) {
@@ -1109,14 +1127,20 @@ public class OriginModMenuScreen extends Screen {
 			case MULTISELECT -> {
 				String csv = vMulti(id, o.key);
 				List<String> sel = splitCsv(csv);
-				String summary = sel.isEmpty() ? "None"
+				String summary = sel.isEmpty() ? "None" : isItemPicker(id, o.key) ? itemPickerSummary(csv)
 						: String.join(", ", sel.stream().map(JeiSettings::prettify).toList());
 				float bw = Math.min(200, rowW / 2);
 				d.rect(right - bw, cy - 13, bw, 26, 6, 0x0DFFFFFF, LINE2);
 				d.textMid(d.fit(summary, bw - 40, 13, false, 0), right - bw + 10, cy, 13, false, 0, TEXT);
 				d.icon("@chev-down", right - 22, cy - 6, 12, MUTE);
-				d.hit(right - bw, cy - 13, bw, 26, () -> OriginMultiSelect.open(o.label,
-						java.util.Arrays.asList(o.modes), sel, chosen -> vSetMulti(id, o.key, String.join(", ", chosen))));
+				d.hit(right - bw, cy - 13, bw, 26, () -> {
+					if (isItemPicker(id, o.key)) {
+						Minecraft.getInstance().setScreen(new ItemCounterPickerScreen());
+					} else {
+						OriginMultiSelect.open(o.label, java.util.Arrays.asList(o.modes), sel,
+								chosen -> vSetMulti(id, o.key, String.join(", ", chosen)));
+					}
+				});
 				return right - bw;
 			}
 			case TEXT -> {
