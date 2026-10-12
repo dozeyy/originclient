@@ -27,11 +27,15 @@ public partial class App : Application
         var render = Array.IndexOf(e.Args, "--render-shots");
         if (render >= 0 && render + 1 < e.Args.Length)
         {
+            var outDir = e.Args[render + 1];
             StartupUri = null;
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            // Any failure, on any thread, leaves its stack trace for the CI log.
+            AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+                WriteRenderError(outDir, args.ExceptionObject?.ToString());
+            DispatcherUnhandledException += (_, args) => WriteRenderError(outDir, args.Exception.ToString());
             base.OnStartup(e);
             DisableMotion();
-            var outDir = e.Args[render + 1];
             try
             {
                 OriginPaths.EnsureScaffold();
@@ -40,12 +44,7 @@ public partial class App : Application
             }
             catch (Exception ex)
             {
-                try
-                {
-                    System.IO.Directory.CreateDirectory(outDir);
-                    System.IO.File.WriteAllText(System.IO.Path.Combine(outDir, "render-error.txt"), ex.ToString());
-                }
-                catch { /* nothing more to do */ }
+                WriteRenderError(outDir, ex.ToString());
                 Shutdown(1);
             }
             return;
@@ -99,6 +98,16 @@ public partial class App : Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
+    }
+
+    private static void WriteRenderError(string outDir, string? error)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(outDir);
+            System.IO.File.AppendAllText(System.IO.Path.Combine(outDir, "render-error.txt"), error + Environment.NewLine);
+        }
+        catch { /* nothing more to do */ }
     }
 
     private void DisableMotion()

@@ -55,6 +55,10 @@ jobs:
           $shots = @(Get-ChildItem launcher-shots -Filter *.png -ErrorAction SilentlyContinue)
           if (Test-Path launcher-shots\render-error.txt) { Get-Content launcher-shots\render-error.txt }
           if ($p.ExitCode -ne 0 -or $shots.Count -lt 6) {
+            # A crash the app couldn't report itself (.NET writes it to the event log).
+            Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
+              Where-Object { $_.ProviderName -in '.NET Runtime', 'Application Error' } |
+              Select-Object -First 3 | ForEach-Object { Write-Host $_.Message }
             Write-Host "::error::Launcher render failed (exit $($p.ExitCode), $($shots.Count) images)"
             exit 1
           }
