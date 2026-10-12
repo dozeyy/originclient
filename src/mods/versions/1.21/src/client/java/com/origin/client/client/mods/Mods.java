@@ -578,6 +578,7 @@ public final class Mods {
 		registerLunarBatch3b();
 		registerLunarBatch4a();
 		registerLunarBatch3a();
+		registerLunarBedwars();
 	}
 
 	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----
@@ -971,6 +972,46 @@ public final class Mods {
 			o.add(ModOption.toggle("p_" + id + "_hide", "Hide Particle", false).under("p_" + id));
 		}
 		return o.toArray(new ModOption[0]);
+	}
+
+	// ---- Lunar parity: Hypixel Bed Wars (2026-10-11) ----
+	// Lunar's separate "Hypixel Bedwars" mod. The first nine rows are Lunar's
+	// published schema exactly (Apollo mods/impl/ModHypixelBedwars.java), with
+	// Lunar's defaults: mod ON, Colored Beds ON, Hardcore Hearts ON, the rest off,
+	// both alert colours white. Resource Counter and Teammates are the two HUDs
+	// Lunar's own posts list with the mod (Patch Notes #15, May 2025 recap); Lunar
+	// doesn't publish their defaults, so they start off. Everything acts only in a
+	// Bed Wars game on *.hypixel.net (mods/HypixelBedwars, hud/BedwarsHud).
+	// Kept in its own method so it merges cleanly with other registry additions.
+	private static void registerLunarBedwars() {
+		add("hypixelbedwars", "Hypixel Bed Wars", "Team-coloured beds, hardcore hearts and trap alerts in Bed Wars.", true,
+				ModOption.toggle("coloredBeds", "Colored Beds", true)
+						.tip("Recolor the beds in-game according to the team's color."),
+				ModOption.toggle("practiceColor", "Enable Practice Color", false).under("coloredBeds")
+						.tip("Recolor the beds in Bed Wars practice mode too."),
+				ModOption.toggle("hardcoreHearts", "Hardcore Hearts", true)
+						.tip("Replace normal hearts with hardcore hearts once your bed is lost."),
+				ModOption.toggle("hideFoodBar", "Hide Food Bar", false)
+						.tip("Hunger is off in Bed Wars, so the food bar never changes."),
+				ModOption.toggle("hideArmorBar", "Hide Armor Bar", false),
+				ModOption.header("Trap Alerts"),
+				ModOption.toggle("customTrapAlert", "Custom Trap Alert", false)
+						.tip("Show the \"TRAP TRIGGERED!\" alert in your own colors."),
+				ModOption.color("alertPrimaryColor", "Alert Primary Color", 0xFFFFFFFF).under("customTrapAlert"),
+				ModOption.color("alertSubColor", "Alert Sub Color", 0xFFFFFFFF).under("customTrapAlert"),
+				ModOption.toggle("muteAlertSound", "Mute Alert Sound", false)
+						.tip("Silence the sound Hypixel plays when one of your traps goes off."),
+				ModOption.header("HUD"),
+				ModOption.toggle("resourceCounter", "Resource Counter", false)
+						.tip("How much iron, gold, diamond and emerald you're carrying."),
+				ModOption.toggle("teammatesHud", "Teammates", false)
+						.tip("Your teammates' health, and who's out, on screen all game."),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.toggle("border", "Border", false),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x00000000));
 	}
 
 	// The shared text-readout block every Lunar-parity readout carries after its
