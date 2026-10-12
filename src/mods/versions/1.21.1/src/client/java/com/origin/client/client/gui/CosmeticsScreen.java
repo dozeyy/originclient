@@ -101,14 +101,49 @@ public class CosmeticsScreen extends Screen {
 	private record Tile(Cosmetics.Slot slot, String id, String label) {
 	}
 
-	private List<Tile> tiles(Cosmetics.Slot slot, CosmeticsService.Mine mine) {
+	/** The four type tabs across the top of the list. */
+	private enum Tab {
+		ALL("All"), CAPES("Capes"), ANIMATED("Animated"), HEAD("Hats & halos");
+
+		final String label;
+
+		Tab(String label) {
+			this.label = label;
+		}
+	}
+
+	private static final int COLS = 3, TABS_H = 16, TAB_GAP = 4;
+	private Tab tab = Tab.ALL;
+	private double scroll = 0, scrollTarget = 0;
+
+	/** What a tab lists: the "take it off" tiles first, then your owned items for that tab. */
+	private List<Tile> tilesFor(Tab tab, CosmeticsService.Mine mine) {
 		List<Tile> out = new ArrayList<>();
-		out.add(new Tile(slot, null, "None"));
+		if (mine == null) {
+			return out;
+		}
+		if (tab == Tab.ALL) {
+			out.add(new Tile(Cosmetics.Slot.CAPE, null, "No cape"));
+			out.add(new Tile(Cosmetics.Slot.HEAD, null, "No hat"));
+		} else if (tab == Tab.CAPES) {
+			out.add(new Tile(Cosmetics.Slot.CAPE, null, "None"));
+		} else if (tab == Tab.HEAD) {
+			out.add(new Tile(Cosmetics.Slot.HEAD, null, "None"));
+		}
 		for (String id : mine.owned()) {
 			Cosmetics.Item item = Cosmetics.get(id);
-			if (item != null && item.slot() == slot) {
-				// The row already says "Capes": "Orbit Cape" reads as "Orbit".
-				out.add(new Tile(slot, id, item.name().replace(" Cape", "")));
+			if (item == null) {
+				continue;
+			}
+			boolean inTab = switch (tab) {
+				case ALL -> true;
+				case CAPES -> item.slot() == Cosmetics.Slot.CAPE;
+				case HEAD -> item.slot() == Cosmetics.Slot.HEAD;
+				case ANIMATED -> Cosmetics.isAnimated(id);
+			};
+			// The tabs already say "Capes": "Orbit Cape" reads as "Orbit".
+			if (inTab) {
+				out.add(new Tile(item.slot(), id, item.name().replace(" Cape", "")));
 			}
 		}
 		return out;
@@ -160,9 +195,8 @@ public class CosmeticsScreen extends Screen {
 			OriginText.drawBold(g, font, "You don't own any cosmetics yet.", x, y + 4, OriginTheme.TEXT, false);
 			OriginText.draw(g, font, "Capes, halos and crowns are in the Origin Store.", x, y + 16, OriginTheme.TEXT_DIM, false);
 		} else {
-			Look look = wearing();
-			y = renderRow(g, "Capes", tiles(Cosmetics.Slot.CAPE, mine), look.cape(), x, y, mouseX, mouseY);
-			renderRow(g, "Hats & halos", tiles(Cosmetics.Slot.HEAD, mine), look.head(), x, y + 10, mouseX, mouseY);
+			renderTabs(g, mouseX, mouseY);
+			renderGrid(g, mine, wearing(), mouseX, mouseY, dt);
 		}
 
 		// foot: status message + store button
@@ -182,30 +216,122 @@ public class CosmeticsScreen extends Screen {
 		OriginText.drawBold(g, font, label, bx + (bw - OriginText.widthBold(font, label)) / 2, fy + 6, OriginTheme.TEXT, false);
 	}
 
-	/** One slot's row: a label, then its tiles (wrapping). Returns the y below it. */
-	private int renderRow(GuiGraphics g, String title, List<Tile> tiles, String worn, int x, int y, int mx, int my) {
-		OriginText.drawBold(g, font, title, x, y, OriginTheme.TEXT_DIM, false);
-		y += 12;
-		int cx = x;
-		for (Tile t : tiles) {
-			if (cx + TILE_W > listRight()) {
-				cx = x;
-				y += TILE_H + GAP;
-			}
-			boolean selected = t.id() == null ? worn == null : t.id().equals(worn);
-			boolean hover = in(mx, my, cx, y, cx + TILE_W, y + TILE_H) && !saving;
-			float hp = OriginUi.hover("cosmetics:tile:" + t.slot() + ":" + t.id(), hover);
-			OriginUi.panel(g, cx, y, TILE_W, TILE_H, 6,
-					selected ? OriginTheme.withAlpha(OriginTheme.SUCCESS, 0x55)
-							: OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp),
-					selected ? 0xB37ACF9E : OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, hp));
-			drawIcon(g, t, cx + TILE_W / 2, y + 22);
-			String name = OriginText.ellipsize(font, t.label(), TILE_W - 8);
-			OriginText.draw(g, font, name, cx + (TILE_W - OriginText.width(font, name)) / 2, y + TILE_H - 13,
-					selected ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, false);
-			cx += TILE_W + GAP;
+	// ---- list geometry: shared by drawing and clicking ----
+	private int gridTop() {
+		return bodyTop() + TABS_H + 10;
+	}
+
+	private int gridBottom() {
+		return bodyBottom();
+	}
+
+	private int gridLeft() {
+		return listX();
+	}
+
+	private int gridRight() {
+		return listRight();
+	}
+
+	private int tileW() {
+		return (gridRight() - gridLeft() - (COLS - 1) * GAP) / COLS;
+	}
+
+	private int rowStep() {
+		return TILE_H + GAP;
+	}
+
+	private int maxScroll() {
+		CosmeticsService.Mine mine = CosmeticsService.mine();
+		int rows = (tilesFor(tab, mine).size() + COLS - 1) / COLS;
+		return Math.max(0, rows * rowStep() - (gridBottom() - gridTop()));
+	}
+
+	private void renderTabs(GuiGraphics g, int mx, int my) {
+		int tx = listX(), ty = bodyTop();
+		for (Tab t : Tab.values()) {
+			int tw = OriginText.widthBold(font, t.label) + 16;
+			boolean active = tab == t;
+			boolean hover = in(mx, my, tx, ty, tx + tw, ty + TABS_H);
+			float hp = OriginUi.hover("cosmetics:tab:" + t.name(), hover);
+			OriginUi.panel(g, tx, ty, tw, TABS_H, 6,
+					active ? OriginTheme.BOX_FILL_HOVER
+							: OriginTheme.lerpColor(0x00000000, OriginTheme.BOX_FILL, hp),
+					active ? OriginTheme.STROKE_STRONG : 0);
+			OriginText.drawBold(g, font, t.label, tx + 8, ty + 4,
+					active ? OriginTheme.TEXT : OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT_DIM, hp), false);
+			tx += tw + TAB_GAP;
 		}
-		return y + TILE_H + GAP;
+	}
+
+	private Tab tabAt(double mx, double my) {
+		int tx = listX(), ty = bodyTop();
+		for (Tab t : Tab.values()) {
+			int tw = OriginText.widthBold(font, t.label) + 16;
+			if (in(mx, my, tx, ty, tx + tw, ty + TABS_H)) {
+				return t;
+			}
+			tx += tw + TAB_GAP;
+		}
+		return null;
+	}
+
+	/** Three across, scrolling down. Tiles outside the grid are clipped. */
+	private void renderGrid(GuiGraphics g, CosmeticsService.Mine mine, Look look, int mx, int my, float dt) {
+		scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget));
+		scroll += (scrollTarget - scroll) * Math.min(1.0, dt * 14);
+		List<Tile> tiles = tilesFor(tab, mine);
+		if (tiles.isEmpty()) {
+			OriginText.draw(g, font, "Nothing here yet.", gridLeft(), gridTop() + 4, OriginTheme.TEXT_DIM, false);
+			return;
+		}
+		int tw = tileW();
+		g.enableScissor(gridLeft(), gridTop(), gridRight(), gridBottom());
+		try {
+			for (int i = 0; i < tiles.size(); i++) {
+				Tile t = tiles.get(i);
+				int x = gridLeft() + (i % COLS) * (tw + GAP);
+				int y = gridTop() + (i / COLS) * rowStep() - (int) scroll;
+				if (y + TILE_H < gridTop() || y > gridBottom()) {
+					continue;
+				}
+				String worn = t.slot() == Cosmetics.Slot.CAPE ? look.cape() : look.head();
+				boolean selected = t.id() == null ? worn == null : t.id().equals(worn);
+				boolean hover = !saving && in(mx, my, x, y, x + tw, y + TILE_H)
+						&& my >= gridTop() && my < gridBottom();
+				float hp = OriginUi.hover("cosmetics:tile:" + t.slot() + ":" + t.id(), hover);
+				OriginUi.panel(g, x, y, tw, TILE_H, 6,
+						selected ? OriginTheme.withAlpha(OriginTheme.SUCCESS, 0x55)
+								: OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp),
+						selected ? 0xB37ACF9E : OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, hp));
+				drawIcon(g, t, x + tw / 2, y + 22);
+				String name = OriginText.ellipsize(font, t.label(), tw - 8);
+				OriginText.draw(g, font, name, x + (tw - OriginText.width(font, name)) / 2, y + TILE_H - 13,
+						selected ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, false);
+			}
+		} finally {
+			g.disableScissor();
+		}
+	}
+
+	private Tile gridTileAt(double mx, double my) {
+		CosmeticsService.Mine mine = CosmeticsService.mine();
+		if (CosmeticsService.status() != CosmeticsService.Status.READY || mine == null) {
+			return null;
+		}
+		if (mx < gridLeft() || mx >= gridRight() || my < gridTop() || my >= gridBottom()) {
+			return null;
+		}
+		List<Tile> tiles = tilesFor(tab, mine);
+		int tw = tileW();
+		for (int i = 0; i < tiles.size(); i++) {
+			int x = gridLeft() + (i % COLS) * (tw + GAP);
+			int y = gridTop() + (i / COLS) * rowStep() - (int) scroll;
+			if (in(mx, my, x, y, x + tw, y + TILE_H)) {
+				return tiles.get(i);
+			}
+		}
+		return null;
 	}
 
 	/** A small picture for a tile, centred on (cx, cy). */
@@ -301,12 +427,27 @@ public class CosmeticsScreen extends Screen {
 			dragYaw = yaw;
 			return true;
 		}
-		Tile hit = tileAt(mx, my);
+		Tab clicked = tabAt(mx, my);
+		if (clicked != null) {
+			tab = clicked;
+			scrollTarget = scroll = 0;
+			return true;
+		}
+		Tile hit = gridTileAt(mx, my);
 		if (hit != null && !saving) {
 			pick(hit);
 			return true;
 		}
 		return super.mouseClicked(mx, my, button);
+	}
+
+	@Override
+	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+		if (mx >= gridLeft() && mx < gridRight() && my >= gridTop() && my < gridBottom()) {
+			scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget - sy * rowStep()));
+			return true;
+		}
+		return super.mouseScrolled(mx, my, sx, sy);
 	}
 
 	@Override
@@ -326,31 +467,6 @@ public class CosmeticsScreen extends Screen {
 			return true;
 		}
 		return super.mouseReleased(mx, my, button);
-	}
-
-	/** Which tile is under the mouse - walks the same layout as renderRow. */
-	private Tile tileAt(double mx, double my) {
-		CosmeticsService.Mine mine = CosmeticsService.mine();
-		if (CosmeticsService.status() != CosmeticsService.Status.READY || mine == null || mine.owned().isEmpty()) {
-			return null;
-		}
-		int y = bodyTop();
-		for (Cosmetics.Slot slot : Cosmetics.Slot.values()) {
-			y += 12;
-			int cx = listX();
-			for (Tile t : tiles(slot, mine)) {
-				if (cx + TILE_W > listRight()) {
-					cx = listX();
-					y += TILE_H + GAP;
-				}
-				if (in(mx, my, cx, y, cx + TILE_W, y + TILE_H)) {
-					return t;
-				}
-				cx += TILE_W + GAP;
-			}
-			y += TILE_H + GAP + 10;
-		}
-		return null;
 	}
 
 	private void pick(Tile t) {

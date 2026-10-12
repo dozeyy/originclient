@@ -3,6 +3,7 @@ package com.origin.client.client.cosmetics;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Every cosmetic the mod can draw. The ids are the contract shared with the
@@ -46,6 +47,14 @@ public final class Cosmetics {
 	 *  item added to the store after this release): such ids are ignored. */
 	public static Item get(String id) {
 		return id == null ? null : BY_ID.get(id);
+	}
+
+	/** Items that move on their own (website + in game); the Animated tab shows these. */
+	private static final Set<String> ANIMATED = Set.of(
+			"cape-orbit", "cape-glitch", "cape-inferno", "cape-aurora", "cape-starfall", "halo-orbit");
+
+	public static boolean isAnimated(String id) {
+		return ANIMATED.contains(id);
 	}
 
 	public static final String STORE_URL = "https://originclient.org/store.html";

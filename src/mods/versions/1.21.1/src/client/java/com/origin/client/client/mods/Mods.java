@@ -44,6 +44,8 @@ public final class Mods {
 			ModOption.toggle("smartDisconnect", "Smart Disconnect", true).tip("Ask for confirmation before leaving a world or server."),
 			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),
 			ModOption.dropdown("mainMenuStyle", "Main Menu Style", "Origin", "Vanilla"),
+			ModOption.dropdown("menuLayout", "Mod Menu Layout", "Auto", "3 across (compact)", "2 across (large)")
+					.tip("How many mod cards fit in a row. Auto fits the screen (up to four). Compact and large scroll down."),
 			ModOption.toggle("showAchievements", "Show Achievements", true).tip("Show the advancement toast pop-ups."));
 
 	// Entity/Tile Entity Distance are a percentage of your render distance: at
