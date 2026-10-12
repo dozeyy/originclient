@@ -826,3 +826,32 @@ ported on 1.21.8, copied to 1.21.6. 3-way `git merge-file` per edited file (base
 - OriginDevWorld: party phase added before the 2.5 s async-PNG wait (phases 6 grab party, 7 wait/stop).
 - Verified: dev shots `1.21.{6,8}-sp-c` + `1.21.{6,8}-world-sp-c` (commit 9d2c118) compiled and ran clean first push;
   friends / friends_party / rshift / menu match 1.21.1-social, party_world matches 1.21.1-world-social.
+
+## Social port (2026-10-12) — 1.21.10 / 1.21.11 (1.21.9+ input + submit/extract era; agent sp-d)
+- Method: 1.21.1's social/ + gui/FriendsScreen copied into 1.21.11 with scripted era edits, edited files
+  3-way merged (base 5b5baeb~1, theirs = 1.21.1 head), then 1.21.10 derived by the back-map
+  (dimension().identifier() -> location()). Both modules' versions of every shared hook are identical.
+- World hook: Fabric 1.21.9+ WorldRenderEvents.END_MAIN (LAST is gone), ctx.matrices(),
+  camera = ctx.worldState().cameraRenderState.pos. Social's hook calls WaypointHud.capture so party
+  markers project with Waypoints off.
+- WaypointHud has no engine matrices here: project() rebuilds the same view-projection render() uses
+  (getProjectionMatrix(fov) * conjugate camera orientation, now one viewProj() helper); Camera.getPosition()
+  / getYRot() are gone, so PartyWorld reads WaypointHud.camera() / cameraYaw(mc) (captured per frame).
+- Nametag tint: NameTagFeatureRenderer draws NameTagSubmit records with no entity or state id, so
+  PartyWorld.nametagTint(Component) matches the tag text against party members' names (only members
+  whose player is loaded here, never you) -- the same text match NametagStyleMixin already uses for
+  "your own tag". Party colour wins over the global custom colour, as on 1.21.1.
+- Toasts: the ToastManager contract (update(ToastManager, long) + getWantedVisibility(), render(g, font,
+  time) only draws), Minecraft.getToastManager(); the click position is the pose's Matrix3x2f m20/m21.
+- Skins: Minecraft.services().sessionService().fetchProfile -> SkinManager.createLookup(profile, false)
+  (MenuPlayerPreview's call), cached as the Supplier (default skin until loaded). PlayerSkin is
+  world.entity.player.PlayerSkin. Faces fade via PlayerFaceRenderer.draw(..., argb) -- no setShaderColor.
+- Leaving a world to join a friend: Minecraft.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE) on
+  1.21.10+ (1.21.6-1.21.8 had it as PauseScreen.disconnectFromWorld(mc, msg); CI caught that), then the
+  6-arg ConnectScreen.startConnecting as on 1.21.1.
+- Input: allowMouseClick hands a MouseButtonEvent; FriendsScreen takes MouseButtonEvent / KeyEvent /
+  CharacterEvent, Ctrl + paste come off the KeyEvent, pasted text runs through a private typed(char).
+- Small ones: SharedConstants.getCurrentVersion().name(); minimap party dots via the module's GuiTris
+  (no immediate BufferBuilder); OriginDevWorld's party capture is two extra phases (grab, then wait for
+  the dated-PNG rename before mc.stop()); SocialDemo's friends report Social.version() so the demo's
+  JOIN reads like 1.21.1's.
