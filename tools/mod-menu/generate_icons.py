@@ -142,6 +142,11 @@ PUBLIC_IDS.update({
     "hypixelbedwars": "client.hypixelbedwars",
 })
 
+# Origin originals (2026-10-12) -- Portal Calculator, appended after every earlier cell.
+PUBLIC_IDS.update({
+    "portalcalc": "client.portalcalc",
+})
+
 
 def load_master():
     spec = importlib.util.spec_from_file_location("origin_icon_masters", MASTER)

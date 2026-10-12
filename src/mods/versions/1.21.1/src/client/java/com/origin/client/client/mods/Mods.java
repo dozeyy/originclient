@@ -579,6 +579,7 @@ public final class Mods {
 		registerLunarBatch4a();
 		registerLunarBatch3a();
 		registerLunarBedwars();
+		registerOriginalsPortalCalc();
 	}
 
 	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----
@@ -1011,6 +1012,39 @@ public final class Mods {
 				ModOption.toggle("border", "Border", false),
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
 				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x00000000));
+	}
+
+	// ---- Origin originals: Portal Calculator (2026-10-12) ----
+	// Origin's own mod -- no other client has one, so there is no Lunar schema to
+	// mirror; the rows are Will's brief. Off by default, like every utility mod
+	// with no Lunar default (Waypoints too). The mark key is unbound by default,
+	// as the Waypoints keys are. Logic: PortalCalc + PortalMemory; HUD:
+	// hud/PortalCalcHud. Kept in its own method so it merges cleanly.
+	private static void registerOriginalsPortalCalc() {
+		add(PortalCalc.ID, "Portal Calculator", "Where your nether portal leads, and where to build its match.", false,
+				ModOption.toggle("showHud", "Show HUD Readout", true)
+						.tip("Show the spot in the other dimension that matches where you stand."),
+				ModOption.toggle("showLinkCheck", "Show Link Check", true)
+						.tip("At a nether portal, show which of your known portals it will take you to."),
+				ModOption.toggle("rememberPortals", "Remember Portals", true)
+						.tip("Remember every nether portal you stand in or next to, for each world. The link check uses them."),
+				ModOption.toggle("autoWaypoint", "Auto Waypoint For New Portals", false).under("rememberPortals")
+						.tip("The first time you step into a portal, mark its matching spot in the other dimension."),
+				ModOption.toggle("decimal", "Decimal Coordinates", false)
+						.tip("Show the matching spot to one decimal place."),
+				ModOption.keybind("markKey", "Mark Matching Spot", -1)
+						.tip("Drops a \"Portal link\" waypoint at the matching spot in the other dimension."),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.toggle("border", "Border", false),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
+				ModOption.header("Color"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("accentColor", "Accent Color", 0xFFB57CFF)
+						.tip("The dimension name, the tick, and the colour of Portal link waypoints."),
+				ModOption.color("warnColor", "Warning Color", 0xFFFFC857)
+						.tip("Used when a portal won't link the way you'd expect."),
 				ModOption.color("bgColor", "Background Color", 0x00000000));
 	}
 

@@ -483,6 +483,20 @@ LUNAR_BEDWARS_ICONS = [
 ]
 ICONS += LUNAR_BEDWARS_ICONS
 
+# Origin originals (2026-10-12): Portal Calculator. A tall portal frame and a
+# smaller one (the Nether's 1/8 scale) joined by a linking arrow -- "this portal
+# leads to that one". Its own list so it merges cleanly.
+ORIGINALS_PORTALCALC_ICONS = [
+    icon("client.portalcalc", "Portal Calculator", "HUD", """
+      <rect x="2.8" y="6.5" width="8" height="14" rx="1.6"/>
+      <path d="M5.4 12.2c1-.9 1.9.9 2.9 0M5.4 15.6c1-.9 1.9.9 2.9 0" opacity=".55"/>
+      <rect x="15.2" y="13.3" width="5.6" height="7.2" rx="1.2"/>
+      <path d="M6.8 4.2C9.6 1.6 16.4 2 18 9.6"/>
+      <path d="m16 8.2 2 1.6 1.4-2.2"/>
+    """, "Matching portal coordinates and link check"),
+]
+ICONS += ORIGINALS_PORTALCALC_ICONS
+
 
 def svg_document(entry: dict) -> str:
     title = html.escape(entry["label"])
