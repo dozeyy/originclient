@@ -173,6 +173,10 @@ public final class ModIcons {
 					JsonObject o = icons.getAsJsonObject(k);
 					CELLS.put(k, new int[]{o.get("x").getAsInt(), o.get("y").getAsInt()});
 				}
+				// Friends & Party has no glyph of its own yet: its card borrows the user mark.
+				if (!CELLS.containsKey("friends") && CELLS.containsKey("@user")) {
+					CELLS.put("friends", CELLS.get("@user"));
+				}
 				NativeImage img;
 				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.png")) {
 					img = NativeImage.read(in);

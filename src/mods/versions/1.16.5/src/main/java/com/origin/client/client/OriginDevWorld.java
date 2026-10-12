@@ -18,7 +18,8 @@ import java.io.File;
  * the game's own screens -- Select World -> "Create New World" -> "Create New
  * World" -- by pressing the buttons by their translated label (the same keys
  * on every version), waits for the world to draw, then captures it with Color
- * Saturation off and on, then the pause menu and the Cosmetics window, and quits.
+ * Saturation off and on, then the pause menu, the Cosmetics window and a demo
+ * party (Party HUD, markers, a ping), and quits.
  *
  * 1.16.5: no Window.setWindowed (GLFW sets the size, then resizeDisplay), the
  * 6-arg Screenshot.grab that still takes the framebuffer size, and Java 8 (no
@@ -105,13 +106,25 @@ final class OriginDevWorld {
 			}
 			if (phase == 5) {
 				grab(mc, dir, "cosmetics_world_1920x1080.png");
-				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				// Friends & Party: a demo party standing in front of the camera, with a ping
+				mc.setScreen(null);
+				com.origin.client.client.social.SocialDemo.install(true);
 				phase = 6;
+				nextAt = now + 2500;
+				return;
+			}
+			if (phase == 6) {
+				if (mc.screen instanceof PauseScreen) {
+					mc.setScreen(null);
+				}
+				grab(mc, dir, "party_world_1920x1080.png");
+				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				phase = 7;
 				mc.stop();
 			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] world step {} failed", phase, t);
-			phase = 6;
+			phase = 7;
 			mc.stop();
 		}
 	}

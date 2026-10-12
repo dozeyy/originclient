@@ -22,6 +22,33 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // CI screen render (UI/RenderShots.cs): no single-instance guard, no
+        // main window of its own, no motion; pictures, then exit (1 = failed).
+        var render = Array.IndexOf(e.Args, "--render-shots");
+        if (render >= 0 && render + 1 < e.Args.Length)
+        {
+            var outDir = e.Args[render + 1];
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            // Any failure, on any thread, leaves its stack trace for the CI log.
+            AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+                WriteRenderError(outDir, args.ExceptionObject?.ToString());
+            DispatcherUnhandledException += (_, args) => WriteRenderError(outDir, args.Exception.ToString());
+            base.OnStartup(e);
+            DisableMotion();
+            try
+            {
+                OriginPaths.EnsureScaffold();
+                UI.RenderShots.Run(outDir);
+                Shutdown(0);
+            }
+            catch (Exception ex)
+            {
+                WriteRenderError(outDir, ex.ToString());
+                Shutdown(1);
+            }
+            return;
+        }
+
 		var mutexName = @"Local\OriginLauncher.SingleInstance";
 #if DEBUG
 		// A locally built launcher must not hand focus to an older installed
@@ -49,14 +76,7 @@ public partial class App : Application
         // keys drive page, panel, hover and loading transitions, so one user
         // setting removes motion without branching every control template.
         if (!SystemParameters.ClientAreaAnimation)
-        {
-            var none = new Duration(TimeSpan.Zero);
-            Resources["Motion.Base"] = none;
-            Resources["Motion.Press"] = none;
-            Resources["Motion.Release"] = none;
-            Resources["Motion.Scene"] = none;
-            Resources["Motion.Exit"] = none;
-        }
+            DisableMotion();
 
         OriginPaths.EnsureScaffold();
 
@@ -77,6 +97,28 @@ public partial class App : Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
+
+        new MainWindow().Show();
+    }
+
+    private static void WriteRenderError(string outDir, string? error)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(outDir);
+            System.IO.File.AppendAllText(System.IO.Path.Combine(outDir, "render-error.txt"), error + Environment.NewLine);
+        }
+        catch { /* nothing more to do */ }
+    }
+
+    private void DisableMotion()
+    {
+        var none = new Duration(TimeSpan.Zero);
+        Resources["Motion.Base"] = none;
+        Resources["Motion.Press"] = none;
+        Resources["Motion.Release"] = none;
+        Resources["Motion.Scene"] = none;
+        Resources["Motion.Exit"] = none;
     }
 
     // Best-effort: bring the already-running launcher's window forward so the

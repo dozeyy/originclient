@@ -690,3 +690,168 @@ first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG 
   vignette, so render/ColorGrade.java is unchanged. 1.16.5's PostChain grade also behaves (174 -> 233).
 - Dev-shot timing: a 1.16.5 window caught mid open-slide once (panel 3 px low) under the software
   rasteriser; the rerun was exact. Compare panel edges before calling a layout off by a few px.
+
+## Social port (2026-10-12) — 1.21.4 (covers 1.21.2-1.21.4; agent sp-b)
+- Every 1.21.1 file the social change edited merged clean 3-way (base 5b5baeb^ 1.21.1, ours 1.21.4,
+  theirs 1.21.1 HEAD) except OriginModMenuScreen (NEW_IDS comment only) and NametagStyleMixin. Dev shots
+  (design + world, label sp-b, run 38302062938 / 38302066093) match 1.21.1-social / 1.21.1-world-social
+  first try, zero mixin failures. JOIN shows "(1.21.1)" here: the demo friends play 1.21.1 (correct).
+- Nametag tint: renderNameTag gets an EntityRenderState, so the tint looks the player up by
+  PlayerRenderState.id through mc.level.getEntity (the LevelHeadMixin pattern) before nametagTint(Entity).
+- SocialToast on the 1.21.2+ Toast API (FpsCoachToast's shape): update(ToastManager, t) decides
+  getWantedVisibility() and drops the toast from the click list; render(g, font, t) only draws and records
+  its pose translation. Minecraft.getToastManager(), not getToasts().
+- Friend faces: batched GUI, so the window's fade rides PlayerFaceRenderer.draw(..., size, argb)
+  (SocialSkins.face overload) instead of setShaderColor. Skins: the background job fetches only the
+  profile; SkinManager.getInsecureSkin(profile) (module-evidenced) serves default-then-real, so
+  getOrLoad's return type in this line never matters.
+- Minimap party dots use the module's GuiMesh.colors() (it flushes the batch itself), not 1.21.1's
+  immediate BufferBuilder helpers. Everything else (ConnectScreen.startConnecting 6 args,
+  level.disconnect + mc.disconnect(Screen)/(), StringUtil.isAllowedChatCharacter, client command v2,
+  WorldRenderEvents.LAST ctx.matrixStack()/camera(), ThickLine + OriginRenderTypes) is 1.21.1's code as is.
+
+## Social port (2026-10-12) — 1.20, 1.20.2, 1.20.4, 1.21 (GuiGraphics, pre-1.21.2; agent sp-a)
+- Method: the 1.21.1 social diff (5b5baeb + d037954 + b15a952, 1.21.1 paths) applied with `git apply`
+  path-rewritten per module; every hunk applied except NametagStyleMixin on 1.20.x (captured params end
+  at `int packedLight` — no partialTick before 1.21), where the tint block is inserted by hand. 1.21 is
+  1.21.1's code verbatim. CI-proven (dev shots sp-a / world-sp-a, runs on d0b8bf1): all four compile,
+  zero mixin failures, friends / friends_party / menu (FRIENDS tab) / rshift (Friends button) /
+  party_world match 1.21.1-social.
+- 1.20.x (all three): `SharedConstants.isAllowedChatCharacter` (StringUtil's is 1.20.5+);
+  `ConnectScreen.startConnecting(parent, mc, addr, data, false)` 5 args (TransferState 1.20.5+);
+  `GenericDirtMessageScreen` for "Saving world" (GenericMessageScreen is 1.20.5+).
+- 1.20.2 / 1.20.4: `mc.disconnect(Screen)` / `mc.disconnect()`, `ServerData.Type.OTHER`, `isRealm()`,
+  authlib-5 `fetchProfile` + `SkinManager.getOrLoad` -> PlayerSkin all as 1.21.1 (compile-proven).
+- 1.20 (1.20.1): `mc.clearLevel(Screen)` / `mc.clearLevel()` (compile-proven: the disconnect rename is
+  1.20.2); `new ServerData(name, ip, false)` (3rd arg = lan); realms check is `mc.isConnectedToRealms()`
+  (no ServerData.isRealm); 3-arg `mouseScrolled(mx, my, amount)`; authlib-4 `joinServer(GameProfile, ...)`
+  (`user.getGameProfile()`). SocialSkins has no PlayerSkin: it caches a skin ResourceLocation, fills the
+  bare UUID profile off-thread with `fillProfileProperties(profile, false)` on Util.backgroundExecutor(),
+  then `getInsecureSkinInformation` + `registerTexture` (downloads in the background); default is
+  `DefaultPlayerSkin.getDefaultSkin(uuid)`; `PlayerFaceRenderer.draw(g, ResourceLocation, ...)`. Renders
+  in the dev shots (demo skips lookups); the real-skin lookup itself is unproven offline.
+
+## Social port (2026-10-12) — 1.18.2, 1.19.2, 1.19.3, 1.19.4 (pre-1.20 Gfx era; agent sp-e)
+- Method: 1.19.4 generated from 1.21.1 HEAD (asserted replacements), the other three derived from it; the
+  edited existing files took 1.21.1's social commit (5b5baeb) by 3-way merge onto each module's copy (all
+  clean except NametagStyleMixin / WaypointHud, done by hand: same hunks, era Matrix4f/Vector4f).
+- Identity: User.getGameProfile() and joinServer(GameProfile, token, serverId) (authlib before 1.20.2), as
+  each module's CosmeticsService already did. No ServerData.isRealm: Minecraft.isConnectedToRealms().
+- Skins: no PlayerSkin -> SocialSkins returns the skin ResourceLocation (PlayerInfo.getSkinLocation for
+  players on your server; else SkinManager.registerSkins(new GameProfile(uuid, null), cb, true), which
+  fetches the textures off-thread itself) and draws through Gfx.face (PlayerFaceRenderer 1.19.x, manual
+  face+hat blit 1.18.2).
+- Toasts: Toast.render(PoseStack, ...); the slide-in translation lives on RenderSystem's model-view stack
+  on this era, so click positions come from Era.guiOrigin(pose) (model-view x pose), time multiplier via
+  Era.toastTimeMultiplier.
+- Joining: mc.clearLevel(GenericDirtMessageScreen) / clearLevel() (no Minecraft.disconnect yet),
+  ServerData(name, ip, false), 4-arg ConnectScreen.startConnecting (no quick play / transfer state).
+- World pass: NO separate WorldRenderEvents.LAST hook. Projection capture + ping beams run from
+  OriginClientMod's existing LAST hook INSIDE its identity model-view window (1.18.2-1.19.3 fire LAST inside
+  vanilla's clouds/weather camera push; a capture outside it would project with the rotation twice).
+- Commands: 1.18.2 = fabric-command-api v1 (ClientCommandManager.DISPATCHER.register), TextComponent /
+  TranslatableComponent; 1.19.x = v2 ClientCommandRegistrationCallback + Component.literal.
+- FriendsScreen: 3-arg mouseScrolled, SharedConstants.isAllowedChatCharacter; arrow in the Party HUD via
+  Era.rotZ. SocialDemo uses Social.version() for the demo friends so the shot reads "Join" like 1.21.1.
+
+## Social port (2026-10-12) — 1.17.1 / 1.16.5 (pre-1.20 Gfx era, 1.16.5 fixed function; agent sp-f)
+- Method: the 1.21.1 social/ files + gui/FriendsScreen taken WHOLE, era edits asserted by script
+  (1.17.1), then 1.16.5 derived from the PORTED 1.17.1 files (records -> value classes by a script,
+  switch rules/expressions -> classic switch, `var` / pattern instanceof / List.of / copyOf / toList /
+  isBlank / strip -> Java 8 forms). Edits to existing files (mod menu tab, Right Shift group, HUD
+  element, minimap / locator dots, nametag tint, keybind, dev shots) are the same 1.21.1 hunks on both.
+- Client command: both pinned Fabric APIs (0.46.1+1.17, 0.42.0+1.16) ship fabric-command-api-v1 WITH
+  client commands (ClientCommandManager.DISPATCHER, checked in the tagged sources); no chat-intercept
+  mixin needed. v1 forwards only unknown/unparsable commands to the server, so the bare /originpc has
+  its own executor like on 1.21.1.
+- World pass: NOT a WorldRenderEvents.LAST hook of its own. On both versions LAST fires inside
+  vanilla's model-view push, which is why OriginClientMod's LAST hook sets an identity model-view
+  window (1.17.1 RenderSystem model-view stack, 1.16.5 RenderSystem.pushMatrix/loadIdentity).
+  Social.renderWorld (WaypointHud.capture + ping beams) is called from inside that window; a separate
+  hook would rotate the beams and the marker projection by the camera twice.
+- Skins: no PlayerSkin / PlayerFaceRenderer / getOrLoad. PlayerInfo.getSkinLocation() for players on
+  the current server, else MinecraftSessionService.fillProfileProperties(new GameProfile(id, null),
+  false) on a background thread -> SkinManager.registerSkins(profile, cb, false) -> ResourceLocation
+  cached; the face is face (8,8) + hat (40,8) blitted from the 64x64 skin through Gfx's 11-arg blit.
+  The Friends window tints it with setShaderColor (1.17.1) / color4f (1.16.5) for the fade.
+- Toast click positions: ToastComponent moves each toast through the model-view, not the PoseStack it
+  hands render(). 1.17.1: origin = Vector4f(0,0,0,1) x pose x RenderSystem.getModelViewMatrix();
+  1.16.5: the same with GL11.glGetFloatv(GL_MODELVIEW_MATRIX) (translatef on the fixed-function
+  stack; column-major, translation at [12],[13]). No notification-time multiplier (1.20.2+): x1.
+- Joining a server: 1.17.1 = the pause menu's disconnect (level.disconnect + clearLevel(
+  GenericDirtMessageScreen) / clearLevel()), ServerData(name, ip, false), 4-arg
+  ConnectScreen.startConnecting(parent, mc, ServerAddress, data). 1.16.5: no resolver.ServerAddress /
+  startConnecting -> mc.setScreen(new ConnectScreen(parent, mc, data)); the address check is "no
+  spaces" (no isValidAddress). No ServerData.isRealm() on either (1.20.2+).
+- Identity: User.getGameProfile() (no getProfileId), joinServer(GameProfile, token, serverId), no
+  HexFormat (hand hex), Gson 2.8.0 `new JsonParser().parse`. 1.16.5 transport = HttpURLConnection with
+  the error stream read for 4xx bodies (the service's sentences live there).
+- Text: TextComponent / TranslatableComponent; FriendsScreen typing check is
+  SharedConstants.isAllowedChatCharacter; 3-arg mouseScrolled. Party HUD arrow rotates with the
+  pre-JOML Vector3f.ZP quaternion.
+- 1.16.5 icons: "@plus" from the mask atlas (linear filter, no mipmaps, no SDF shader) loses its two thin
+  strokes at 14 px -- only the centre pixel survived in the dev shots. FriendsScreen draws that one glyph
+  as two bars (vertical in halves so a translucent colour isn't doubled) and its "Start a party" button
+  goes without the icon (OriginWindow.button draws from the atlas). Other atlas icons read fine.
+- Dev shots: SocialDemo's friends play Social.version(), so the demo reads "Join" as on 1.21.1. Design
+  + world sets match 1.21.1-social / 1.21.1-world-social on both modules (party_world: tinted markers,
+  straight gold ping beam, Party HUD with arrows + health), zero mixin failures.
+
+## Social port (2026-10-12) — 1.21.6 / 1.21.8 (deferred GuiRenderState era; agent sp-c)
+Friends / chat / parties from 1.21.1 (5b5baeb, d037954, b15a952). The two src/ trees stayed byte-identical:
+ported on 1.21.8, copied to 1.21.6. 3-way `git merge-file` per edited file (base 5b5baeb^, theirs b15a952);
+"clean" merges still needed era edits (MinimapRenderer's party dots came in as 1.21.1's BufferBuilder code).
+- social/SocialClient, SocialState, FairPlay, SocialDemo, OriginModMenuScreen tabs, HudEditorScreen, Mods,
+  HudElements, MinimapHud/Screen, keys, lang: 1.21.1 verbatim (demo friends report Social.version() so the
+  JOIN button looks as on 1.21.1).
+- Social.version(): SharedConstants.getCurrentVersion().name() (1.21.6+). Joining a friend from a world:
+  `PauseScreen.disconnectFromWorld(mc, ClientLevel.DEFAULT_QUIT_MESSAGE)` (vanilla's own Disconnect routine,
+  1.21.6+) then the 6-arg ConnectScreen.startConnecting.
+- SocialToast: ToastManager API like FpsCoachToast (render(g, font, t) draws; update(manager, t) decides
+  visibility; mc.getToastManager()). The toast's place for click hit-tests is g.pose().m20()/m21()
+  (Matrix3x2fStack), not m30/m31.
+- SocialSkins: the background lookup fetches only the profile (authlib 6 fetchProfile); each frame asks
+  getSkinManager().getInsecureSkin(profile) (module-evidenced, returns the default until loaded) instead of
+  1.21.1's getOrLoad future (its result type changed in the 1.21.2 line). Faces fade through
+  PlayerFaceRenderer.draw(..., argb) — no setShaderColor in the deferred GUI.
+- PartyWorld: arrow on the Matrix3x2fStack (pushMatrix/translate(x,y)/rotate(rad)); ping beams use the
+  module's ThickLine.vertical + OriginRenderTypes unchanged (same signatures as 1.21.1).
+- WaypointHud: capture() public (Social's LAST hook keeps it fresh with Waypoints off); project() rebuilds the
+  same view-projection as render() (perspective from GameRendererAccessor fov × conjugated camera rotation —
+  no RenderSystem matrices in this era), factored into viewProj(mc). Party gems drawn inside drawBar, so both
+  locator-bar modes get them.
+- NametagStyleMixin: the redirects also capture renderNameTag's own params (EntityRenderState, Component,
+  PoseStack, MultiBufferSource, int); the party member is `mc.level.getEntity(((PlayerRenderState) s).id)`
+  (LevelHeadMixin's lookup). Both drawInBatch shapes (V and I) carry the capture.
+- OriginDevWorld: party phase added before the 2.5 s async-PNG wait (phases 6 grab party, 7 wait/stop).
+- Verified: dev shots `1.21.{6,8}-sp-c` + `1.21.{6,8}-world-sp-c` (commit 9d2c118) compiled and ran clean first push;
+  friends / friends_party / rshift / menu match 1.21.1-social, party_world matches 1.21.1-world-social.
+
+## Social port (2026-10-12) — 1.21.10 / 1.21.11 (1.21.9+ input + submit/extract era; agent sp-d)
+- Method: 1.21.1's social/ + gui/FriendsScreen copied into 1.21.11 with scripted era edits, edited files
+  3-way merged (base 5b5baeb~1, theirs = 1.21.1 head), then 1.21.10 derived by the back-map
+  (dimension().identifier() -> location()). Both modules' versions of every shared hook are identical.
+- World hook: Fabric 1.21.9+ WorldRenderEvents.END_MAIN (LAST is gone), ctx.matrices(),
+  camera = ctx.worldState().cameraRenderState.pos. Social's hook calls WaypointHud.capture so party
+  markers project with Waypoints off.
+- WaypointHud has no engine matrices here: project() rebuilds the same view-projection render() uses
+  (getProjectionMatrix(fov) * conjugate camera orientation, now one viewProj() helper); Camera.getPosition()
+  / getYRot() are gone, so PartyWorld reads WaypointHud.camera() / cameraYaw(mc) (captured per frame).
+- Nametag tint: NameTagFeatureRenderer draws NameTagSubmit records with no entity or state id, so
+  PartyWorld.nametagTint(Component) matches the tag text against party members' names (only members
+  whose player is loaded here, never you) -- the same text match NametagStyleMixin already uses for
+  "your own tag". Party colour wins over the global custom colour, as on 1.21.1.
+- Toasts: the ToastManager contract (update(ToastManager, long) + getWantedVisibility(), render(g, font,
+  time) only draws), Minecraft.getToastManager(); the click position is the pose's Matrix3x2f m20/m21.
+- Skins: Minecraft.services().sessionService().fetchProfile -> SkinManager.createLookup(profile, false)
+  (MenuPlayerPreview's call), cached as the Supplier (default skin until loaded). PlayerSkin is
+  world.entity.player.PlayerSkin. Faces fade via PlayerFaceRenderer.draw(..., argb) -- no setShaderColor.
+- Leaving a world to join a friend: Minecraft.disconnectFromWorld(ClientLevel.DEFAULT_QUIT_MESSAGE) on
+  1.21.10+ (1.21.6-1.21.8 had it as PauseScreen.disconnectFromWorld(mc, msg); CI caught that), then the
+  6-arg ConnectScreen.startConnecting as on 1.21.1.
+- Input: allowMouseClick hands a MouseButtonEvent; FriendsScreen takes MouseButtonEvent / KeyEvent /
+  CharacterEvent, Ctrl + paste come off the KeyEvent, pasted text runs through a private typed(char).
+- Small ones: SharedConstants.getCurrentVersion().name(); minimap party dots via the module's GuiTris
+  (no immediate BufferBuilder); OriginDevWorld's party capture is two extra phases (grab, then wait for
+  the dated-PNG rename before mc.stop()); SocialDemo's friends report Social.version() so the demo's
+  JOIN reads like 1.21.1's.

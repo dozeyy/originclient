@@ -6,6 +6,21 @@ every session — read at session start alongside `./CLAUDE.md`.
 ---
 
 
+## 2026-10-12 — v1.0.47 released; menu polish; Origin social (friends/chat/parties) everywhere
+
+- v1.0.47 = the fix round (#27). Then Will: no halo behind see-through text (plain bright text, his pick C),
+  no shadow around the Right Shift logo, centred panel shadow, slider fill stopping at the knob (batched GUIs
+  drew the fill over the knob) — all 16 (ab53d88).
+- Social: contract-first (docs/SOCIAL.md) so service, launcher and game agents built in parallel. Will's calls:
+  friends in launcher + game; requests by username; appear offline; all party features; free Cloudflare plan
+  ("is there a free forever version" — yes, Workers Free never expires, daily caps); players-online counts
+  launcher OR game; party chat `/originpc` (no server owns it); positions/markers/pings/minimap/HUD health ONLY in
+  LAN worlds ("ban them overall on all multiplayer as a good baseline").
+- Free-plan budget work: friendsEtag (lists only when changed), wantState/stateServer (positions only when a
+  teammate can see them), presence write once/60 s, online = 150 s, adaptive polling. Measured on local D1.
+- Agents hit the usage limit mid-task once; resuming them with SendMessage kept their context and on-disk work.
+- Open: real Microsoft-account sign-in and live service only testable after merge (deploy from main).
+
 ## 2026-10-12 — v1.0.46 released; Will's fix round on all 16 versions (13 agents)
 
 - v1.0.46 (#26 squash) released. Will's first tag hit an unpushed local commit (0b146ab) -> release run

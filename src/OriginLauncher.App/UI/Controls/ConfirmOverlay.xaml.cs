@@ -43,6 +43,12 @@ public partial class ConfirmOverlay : UserControl
         _tcs = null;
     }
 
+    /// <summary>Closes an open prompt as "no" (Esc handled by the window before it reaches here).</summary>
+    public void Dismiss()
+    {
+        if (Visibility == Visibility.Visible) Resolve(false);
+    }
+
     private void PrimaryButton_Click(object sender, RoutedEventArgs e) => Resolve(true);
 
     private void SecondaryButton_Click(object sender, RoutedEventArgs e) => Resolve(false);

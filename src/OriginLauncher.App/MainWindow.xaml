@@ -74,6 +74,20 @@
                     <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
                           Width="16" Height="16" Stroke="{StaticResource Brush.Text}"/>
                 </Button>
+                <!-- Friends (docs/SOCIAL.md): opens the Friends drawer. The dot
+                     lights for unread messages, requests and party invites. -->
+                <Grid Margin="0,0,4,0">
+                    <Button x:Name="FriendsButton" Click="FriendsButton_Click"
+                            Style="{StaticResource Button.Chrome}"
+                            Padding="9" Width="36" Height="36"
+                            ToolTip="Friends" AutomationProperties.Name="Friends">
+                        <Path Data="{StaticResource Icon.Friends}" Style="{StaticResource Icon.Base}"
+                              Width="16" Height="16" Stroke="{StaticResource Brush.Text}"/>
+                    </Button>
+                    <Ellipse x:Name="FriendsBadge" Width="8" Height="8" Fill="{StaticResource Brush.Accent}"
+                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                             IsHitTestVisible="False" Visibility="Collapsed"/>
+                </Grid>
                 <Button x:Name="AccountButton" Click="AccountButton_Click"
                         Style="{StaticResource Button.Chrome}"
                         Padding="9" Margin="0,0,4,0" Width="36" Height="36"
@@ -141,6 +155,18 @@
             <ContentControl x:Name="AccountPanelHost"/>
         </Border>
 
+        <!-- Friends drawer: same slide-out as the account panel, a little wider
+             for the chat pane. Shares the Scrim; only one drawer is open at once. -->
+        <Border x:Name="FriendsDrawer" Width="380" HorizontalAlignment="Right"
+                Background="{StaticResource Brush.PanelElevated}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
+                Visibility="Collapsed" IsHitTestVisible="False">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="FriendsDrawerTransform" X="380"/>
+            </Border.RenderTransform>
+            <ContentControl x:Name="FriendsPanelHost"/>
+        </Border>
+
         <!-- Embedded Microsoft sign-in: a locked-in-place card over the rest of
              the app (not a separate OS window) so the whole OAuth flow stays
              inside the launcher. Only ever shown while AccountPanel is already
@@ -158,5 +184,9 @@
             </Border.RenderTransform>
             <ContentControl x:Name="SignInPanelHost"/>
         </Border>
+
+        <!-- Social toasts, above everything. Moves left of the Friends drawer while it's open. -->
+        <controls:SocialToastHost x:Name="Toasts" Width="320"
+                                  HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"/>
     </Grid>
 </Window>

@@ -14,22 +14,22 @@
 //       POST /v1/equip               change what you wear; proven with
 //            Minecraft's own server-join check (Mojang hasJoined), the same
 //            way a Minecraft server verifies a player. No tokens reach us.
+//  3. Origin social (friends, chat, parties, players online): social.js and
+//     party.js, contract in docs/SOCIAL.md. Its cleanup rides on the same cron.
 //
 // Secrets/bindings (wrangler.toml + Cloudflare dashboard, never the repo):
 //   DB            the D1 database (schema in migrations/)
 //   TEBEX_SECRET  the "Origin Cosmetics" game server's secret key
 
+import { CORS, json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin } from './common.js';
+import { handleSocial, socialCleanup, presenceSweep } from './social.js';
+
+export { normUuid };
+
 const TEBEX = 'https://plugin.tebex.io';
-const MOJANG_HAS_JOINED = 'https://sessionserver.mojang.com/session/minecraft/hasJoined';
 const MIN_CHECK_SECONDS = 60;            // Tebex's next_check is obeyed, never undercut
 const MAX_BATCH = 100;                   // players per /equipped lookup
 const JOIN_TTL_MS = 24 * 3600 * 1000;    // how long a used serverId is remembered
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
 
 // ------------------------------------------------------------------- items
 // Which slot an item id wears in. The id is the contract shared with the
@@ -38,12 +38,6 @@ export function slotOf(item) {
   if (/^cape-[a-z0-9-]+$/.test(item)) return 'cape';
   if (/^(halo|crown|hat)-[a-z0-9-]+$/.test(item)) return 'head';
   return null;
-}
-
-// Minecraft UUIDs arrive dashed or not, any case; store one form.
-export function normUuid(raw) {
-  const u = String(raw || '').replace(/-/g, '').toLowerCase();
-  return /^[0-9a-f]{32}$/.test(u) ? u : null;
 }
 
 // `origin-grant <name> <uuid> <item>` / `origin-revoke ...` after Tebex has
@@ -114,11 +108,6 @@ export async function collect(env, now = Date.now()) {
 }
 
 // --------------------------------------------------------------------- API
-const json = (body, status = 200) => new Response(JSON.stringify(body), {
-  status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS },
-});
-const fail = (status, error) => json({ error }, status);
-
 async function playerView(env, uuid) {
   const owned = await env.DB.prepare('SELECT item FROM owned WHERE uuid = ? ORDER BY at').bind(uuid).all();
   const eq = await env.DB.prepare('SELECT cape, head FROM equipped WHERE uuid = ?').bind(uuid).first();
@@ -141,15 +130,12 @@ async function equippedBatch(env, body) {
 async function equip(env, body, now = Date.now()) {
   const name = String(body?.name || '');
   const serverId = String(body?.serverId || '');
-  if (!/^[A-Za-z0-9_]{1,16}$/.test(name) || !/^[0-9a-f]{16,64}$/.test(serverId)) return fail(400, 'bad request');
+  if (!NAME_RE.test(name) || !SERVER_ID_RE.test(serverId)) return fail(400, 'bad request');
 
-  const r = await fetch(`${MOJANG_HAS_JOINED}?username=${encodeURIComponent(name)}&serverId=${encodeURIComponent(serverId)}`);
-  if (r.status !== 200) return fail(401, 'could not verify this Minecraft account');
-  const uuid = normUuid((await r.json())?.id);
-  if (!uuid) return fail(401, 'could not verify this Minecraft account');
-
-  const fresh = await env.DB.prepare('INSERT OR IGNORE INTO joins (server_id, at) VALUES (?, ?)').bind(serverId, now).run();
-  if (!fresh.meta?.changes) return fail(401, 'this check was already used');
+  const who = await verifyMojangJoin(env, name, serverId, now);
+  if (who.error === 'reused') return fail(401, 'this check was already used');
+  if (who.error) return fail(401, 'could not verify this Minecraft account');
+  const uuid = who.uuid;
 
   const owned = new Set((await env.DB.prepare('SELECT item FROM owned WHERE uuid = ?').bind(uuid).all()).results.map(x => x.item));
   const want = {};
@@ -175,6 +161,8 @@ export async function handle(request, env) {
     if (request.method === 'POST' && url.pathname === '/v1/players/equipped') return equippedBatch(env, await request.json().catch(() => null));
     if (request.method === 'POST' && url.pathname === '/v1/equip') return equip(env, await request.json().catch(() => null));
     if (request.method === 'GET' && url.pathname === '/') return json({ service: 'origin-cosmetics', ok: true });
+    const social = await handleSocial(request, env, url);
+    if (social) return social;
     return fail(404, 'not found');
   } catch (err) {
     console.error('origin-cosmetics:', err);
@@ -182,7 +170,21 @@ export async function handle(request, env) {
   }
 }
 
+// Cron, every minute. Delivery runs every time (it waits for Tebex itself),
+// so does the friends "who went offline" sweep; social cleanup every 10th
+// minute, which is plenty since every read already ignores expired rows.
+// They fail independently: a Tebex outage never stops the social jobs.
+export async function scheduled(event, env, now = Date.now()) {
+  const t = event?.scheduledTime ?? now;
+  const minute = Math.floor(t / 60_000);
+  await Promise.all([
+    collect(env, now).catch(err => console.error('origin-cosmetics: delivery failed', err)),
+    presenceSweep(env, minute * 60_000).catch(err => console.error('origin-cosmetics: offline sweep failed', err)),
+    minute % 10 === 0 ? socialCleanup(env, now).catch(err => console.error('origin-cosmetics: social cleanup failed', err)) : null,
+  ]);
+}
+
 export default {
   fetch: (request, env) => handle(request, env),
-  scheduled: (event, env, ctx) => ctx.waitUntil(collect(env).catch(err => console.error('origin-cosmetics: delivery failed', err))),
+  scheduled: (event, env, ctx) => ctx.waitUntil(scheduled(event, env)),
 };

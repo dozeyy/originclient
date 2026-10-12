@@ -29,7 +29,8 @@ import static com.origin.client.client.gui.OriginDeck.*;
  * v5: mock4.tpl.html is the spec; the PNGs in design/menu-redesign/v5 are what
  * he signed off). One centred 920x580 panel in design px (OriginDeck scales it):
  *
- *   header   brand | MODS SETTINGS WAYPOINTS COSMETICS (centred) | Edit HUD  x
+ *   header   brand | MODS SETTINGS WAYPOINTS COSMETICS FRIENDS | Edit HUD  x
+ *            (the tabs centred in the space between the brand and Edit HUD)
  *   toolbar  profile dropdown | category chips | grid/list | search
  *   body     4-across mod cards (or a 4-across list), or a mod's own page
  *            (back, title, description, live HUD preview, two-column options),
@@ -144,6 +145,12 @@ public class OriginModMenuScreen extends Screen {
 		}
 	}
 
+	/** Opens on the Settings tab (the Right Shift screen's gear). */
+	public OriginModMenuScreen settingsTab() {
+		tab = Tab.SETTINGS;
+		return this;
+	}
+
 	/** Dev-shots only: open on the list view or the Settings tab. */
 	public OriginModMenuScreen preview(boolean list, boolean settings) {
 		Mods.setMetaBool("menuListView", list);
@@ -203,14 +210,14 @@ public class OriginModMenuScreen extends Screen {
 		}
 		// Things that only matter on a server (Hypixel, lobbies, teams, chat macros).
 		for (String id : new String[]{"serveraddress", "hypixel", "hypixelbedwars", "teamview", "autogg",
-				"quickplay", "nickhider", "discord", "autotext"}) {
+				"quickplay", "nickhider", "discord", "autotext", "friends"}) {
 			CATS.put(id, Cat.SERVER);
 		}
 	}
 
 	// The NEW filter + badge: this release's additions. The badge clears once the
 	// player has opened that mod's page (meta "seen:<id>").
-	private static final Set<String> NEW_IDS = Set.of("portalcalc", "fpscoach", "hypixelbedwars");
+	private static final Set<String> NEW_IDS = Set.of("portalcalc", "fpscoach", "hypixelbedwars", "friends");
 
 	private static Cat catOf(Mods.Mod m) {
 		return CATS.getOrDefault(m.id(), Cat.GAMEPLAY);
@@ -484,17 +491,27 @@ public class OriginModMenuScreen extends Screen {
 		d.logo(M + 16, HEAD_H / 2, 32, 0.12f);
 		float bx = M + 32 + 10;
 		bx += d.textMid("ORIGIN", bx, HEAD_H / 2, 18, true, 0.4f, TEXT);
-		d.textMid("CLIENT", bx + 7, HEAD_H / 2, 18, false, 0.4f, DIM);
+		float brandEnd = bx + 7 + d.textMid("CLIENT", bx + 7, HEAD_H / 2, 18, false, 0.4f, DIM);
 
-		// centred tabs
-		String[] tabs = {"Mods", "Settings", "Waypoints", "Cosmetics"};
+		// close, then Edit HUD to its left (measured first: the tabs centre between it and the brand)
+		float cx = W - M - 32;
+		String eh = "EDIT HUD";
+		float ew = 14 + 14 + 8 + d.textW(eh, 11, true, CAPS_TRACK) + 14;
+		float ex = cx - 8 - ew;
+
+		// Five tabs (Friends joined 2026-10-12): 12 px padding each side and a 4 px
+		// gap so the row fits between the brand and Edit HUD with equal room on
+		// both sides -- centred in that free space, not on the panel, which would
+		// leave a cramped left gap and a wide right one.
+		String[] tabs = {"Mods", "Settings", "Waypoints", "Cosmetics", "Friends"};
 		float[] tw = new float[tabs.length];
-		float total = 6 * (tabs.length - 1);
+		float total = 4 * (tabs.length - 1);
 		for (int i = 0; i < tabs.length; i++) {
-			tw[i] = d.textW(tabs[i].toUpperCase(Locale.ROOT), 11, true, CAPS_TRACK) + 32;
+			tw[i] = d.textW(tabs[i].toUpperCase(Locale.ROOT), 11, true, CAPS_TRACK) + 24;
 			total += tw[i];
 		}
-		float tx = (W - total) / 2f;
+		float tx = (brandEnd + ex) / 2f - total / 2f;
+		int attention = com.origin.client.client.social.SocialClient.attention();
 		for (int i = 0; i < tabs.length; i++) {
 			boolean active = (i == 0 && tab == Tab.MODS) || (i == 1 && tab == Tab.SETTINGS);
 			boolean hov = d.over(tx, 17, tw[i], 30);
@@ -506,28 +523,28 @@ public class OriginModMenuScreen extends Screen {
 			}
 			d.textCenter(tabs[i].toUpperCase(Locale.ROOT), tx + tw[i] / 2, 32, 11, true, CAPS_TRACK,
 					active ? TEXT : lerp(MUTE, DIM, hp));
+			if (i == 4 && attention > 0) {
+				// unread messages / requests / invites waiting
+				d.circle(tx + tw[i] - 6, 22, 3.5f, ACC);
+			}
 			final int idx = i;
 			d.hit(tx, 17, tw[i], 30, () -> {
 				switch (idx) {
 					case 0 -> goTab(Tab.MODS);
 					case 1 -> goTab(Tab.SETTINGS);
 					case 2 -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
-					default -> Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
+					case 3 -> Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
+					default -> Minecraft.getInstance().setScreen(new FriendsScreen(this));
 				}
 			});
-			tx += tw[i] + 6;
+			tx += tw[i] + 4;
 		}
 
-		// close, then Edit HUD to its left
-		float cx = W - M - 32;
 		boolean ch = d.over(cx, 16, 32, 32);
 		d.rect(cx, 16, 32, 32, 6, ch ? 0x1AFFFFFF : 0x0AFFFFFF);
 		d.icon("@close", cx + 9, 25, 14, ch ? TEXT : DIM);
 		d.hit(cx, 16, 32, 32, this::beginClose);
 
-		String eh = "EDIT HUD";
-		float ew = 14 + 14 + 8 + d.textW(eh, 11, true, CAPS_TRACK) + 14;
-		float ex = cx - 8 - ew;
 		boolean ehov = d.over(ex, 16, ew, 32);
 		d.rect(ex, 16, ew, 32, 6, ehov ? 0xFF83E2B5 : ACC);
 		d.icon("@hudeditor", ex + 14, 25, 14, ON_ACC);

@@ -5,7 +5,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.entity.state.PlayerRenderState;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -34,6 +38,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  *     redirected. Exactly one exists in the jar; the other finds no target and is
  *     skipped ("defaultRequire": 0). The int-shaped handler returns 0 because
  *     renderNameTag discards the value.</li>
+ * <li>Friends &amp; Party tint: both handlers also capture renderNameTag's own
+ *     parameters (as 1.21.1 does); the party member is found from the
+ *     PlayerRenderState's entity id through the client level (LevelHeadMixin's
+ *     lookup), since the state carries no Entity.</li>
  * </ul>
  */
 @Mixin(EntityRenderer.class)
@@ -44,8 +52,11 @@ public class NametagStyleMixin {
 					target = "Lnet/minecraft/client/gui/Font;drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V"))
 	private void originclient$styleNameTag(Font font, Component text, float x, float y, int color, boolean shadow,
 										   Matrix4f matrix, MultiBufferSource buffer, Font.DisplayMode mode,
-										   int bgColor, int light) {
-		originclient$draw(font, text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
+										   int bgColor, int light,
+										   // captured params of renderNameTag (the state names the entity):
+										   EntityRenderState state, Component displayName, PoseStack poseStack,
+										   MultiBufferSource bufferSource, int packedLight) {
+		originclient$draw(font, text, x, y, color, shadow, matrix, buffer, mode, bgColor, light, state);
 	}
 
 	@Redirect(method = "renderNameTag",
@@ -53,14 +64,27 @@ public class NametagStyleMixin {
 					target = "Lnet/minecraft/client/gui/Font;drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)I"))
 	private int originclient$styleNameTagInt(Font font, Component text, float x, float y, int color, boolean shadow,
 											 Matrix4f matrix, MultiBufferSource buffer, Font.DisplayMode mode,
-											 int bgColor, int light) {
-		originclient$draw(font, text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
+											 int bgColor, int light,
+											 EntityRenderState state, Component displayName, PoseStack poseStack,
+											 MultiBufferSource bufferSource, int packedLight) {
+		originclient$draw(font, text, x, y, color, shadow, matrix, buffer, mode, bgColor, light, state);
 		return 0;
 	}
 
 	private static void originclient$draw(Font font, Component text, float x, float y, int color, boolean shadow,
 										  Matrix4f matrix, MultiBufferSource buffer, Font.DisplayMode mode,
-										  int bgColor, int light) {
+										  int bgColor, int light, EntityRenderState state) {
+		// Friends & Party: a party member's tag in the party colour (LAN worlds only;
+		// PartyWorld decides). Keeps vanilla's per-pass alpha like the colours below.
+		Integer party = null;
+		try {
+			party = com.origin.client.client.social.PartyWorld.nametagTint(originclient$entity(state));
+		} catch (Throwable ignored) {
+			// no tint
+		}
+		if (party != null) {
+			color = (color & 0xFF000000) | (party & 0xFFFFFF);
+		}
 		if (!Mods.on("nametags")) {
 			font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
 			return;
@@ -79,6 +103,8 @@ public class NametagStyleMixin {
 		int rgb = color & 0xFFFFFF;
 		if (over) {
 			rgb = Mods.color("nametags", "ownTextColor") & 0xFFFFFF;
+		} else if (party != null) {
+			// the party colour wins over the global custom colour
 		} else if (Mods.bool("nametags", "overrideColor")) {
 			rgb = Mods.color("nametags", "textColor") & 0xFFFFFF;
 		}
@@ -92,6 +118,15 @@ public class NametagStyleMixin {
 			newBg = originclient$scaleAlpha(bg, op);
 		}
 		font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+	}
+
+	/** The player a render state was extracted from (null for anything else). */
+	private static Entity originclient$entity(EntityRenderState state) {
+		Minecraft mc = Minecraft.getInstance();
+		if (!(state instanceof PlayerRenderState ps) || mc.level == null) {
+			return null;
+		}
+		return mc.level.getEntity(ps.id);
 	}
 
 	private static boolean originclient$isSelf(Component text) {

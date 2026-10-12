@@ -130,6 +130,13 @@ public class OriginClientMod implements ClientModInitializer {
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
 		}
+		// Friends, chat and parties (docs/SOCIAL.md): the service client (background
+		// thread, fail-soft), its tick / world / toast-click hooks and /originpc.
+		try {
+			com.origin.client.client.social.Social.init();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: friends failed to start", t);
+		}
 		// Single authoritative autosave when the player leaves the game (quit to
 		// desktop / window close). Mod + HUD settings already save eagerly on
 		// every change; this flushes all three stores once on exit so nothing is

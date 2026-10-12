@@ -189,6 +189,15 @@ public class OriginClientMod implements ClientModInitializer {
 				} catch (Throwable t) {
 					// waypoints must never take the frame down
 				}
+				try {
+					// Friends & Party: keep the projection captured for the party markers
+					// even with Waypoints off, then the ping beams -- inside this identity
+					// model-view window, like the waypoint beams (docs/SOCIAL.md F).
+					com.origin.client.client.waypoints.WaypointHud.capture(context);
+					com.origin.client.client.social.PartyWorld.renderWorld(context);
+				} catch (Throwable t) {
+					// pings just don't draw this frame
+				}
 			} finally {
 				modelView.popPose();
 				com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
@@ -249,6 +258,13 @@ public class OriginClientMod implements ClientModInitializer {
 					});
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
+		}
+		// Friends, chat and parties (docs/SOCIAL.md): the service client (background
+		// thread, fail-soft), its tick / world / toast-click hooks and /originpc.
+		try {
+			com.origin.client.client.social.Social.init();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: friends failed to start", t);
 		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {

@@ -18,6 +18,7 @@ public final class OriginKeyBindings {
 	public static KeyMapping waypointMenu;
 	public static KeyMapping waypointCreate;
 	public static KeyMapping waypointToggle;
+	public static KeyMapping partyPing;
 
 	private OriginKeyBindings() {
 	}
@@ -56,5 +57,10 @@ public final class OriginKeyBindings {
 				"key.originclient.waypoint_create", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
 		waypointToggle = KeyBindingHelper.registerKeyBinding(new KeyMapping(
 				"key.originclient.waypoint_toggle", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+
+		// Friends & Party: ping the block you look at for your party (docs/SOCIAL.md F).
+		// Unbound by default, like the Waypoints keys; handled in social/Social.
+		partyPing = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+				"key.originclient.party_ping", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
 	}
 }

@@ -393,6 +393,36 @@ final class MinimapRenderer {
 		b.submit(g);   // no-op when nothing was added
 	}
 
+	// ---- party (Friends & Party, LAN worlds only -- PartyWorld decides) ----
+
+	/** Party members as round-ish dots in the party colour; beyond the edge they sit on it. */
+	static void party(GuiGraphics g, View v, float size) {
+		java.util.List<double[]> pts;
+		try {
+			pts = com.origin.client.client.social.PartyWorld.mapPoints(net.minecraft.client.Minecraft.getInstance());
+		} catch (Throwable t) {
+			return;
+		}
+		if (pts.isEmpty()) {
+			return;
+		}
+		int tint = com.origin.client.client.social.PartyWorld.color();
+		GuiTris b = GuiTris.color();
+		for (double[] p : pts) {
+			float sx = v.sx(p[0], p[1]), sy = v.sy(p[0], p[1]);
+			int alpha = 255;
+			if (!v.contains(sx, sy, size + 1)) {
+				float[] e = v.clampToEdge(sx, sy, size + 1);
+				sx = e[0];
+				sy = e[1];
+				alpha = 170;
+			}
+			b.rect(sx - size - 1, sy - size - 1, sx + size + 1, sy + size + 1, alpha << 24);
+			b.rect(sx - size, sy - size, sx + size, sy + size, withAlpha(tint, alpha));
+		}
+		b.submit(g);   // no-op when nothing was added
+	}
+
 	// ---- the player ----
 
 	/** An arrowhead at the centre pointing where the player faces (screen angle). */

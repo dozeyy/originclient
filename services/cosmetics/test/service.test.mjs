@@ -3,25 +3,8 @@
 // faked. `npm test` (node --test) — no packages to install.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
 import { handle, collect, parseCommand, slotOf } from '../src/index.js';
-
-// --- a D1-shaped wrapper over node:sqlite (just the calls the Worker uses)
-function d1() {
-  const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0001_init.sql', import.meta.url), 'utf8'));
-  const stmt = (sql, args = []) => ({
-    bind: (...a) => stmt(sql, a),
-    first: col => { const row = db.prepare(sql).get(...args); return row ? (col ? row[col] : { ...row }) : null; },
-    all: () => ({ results: db.prepare(sql).all(...args).map(r => ({ ...r })) }),
-    run: () => { const r = db.prepare(sql).run(...args); return { meta: { changes: Number(r.changes) } }; },
-  });
-  return {
-    prepare: sql => stmt(sql),
-    batch: list => { db.exec('BEGIN'); try { const out = list.map(s => s.run()); db.exec('COMMIT'); return out; } catch (e) { db.exec('ROLLBACK'); throw e; } },
-  };
-}
+import { d1 } from './d1.mjs';   // D1 stand-in with every migration applied
 
 const UUID = '069a79f444e94726a5befca90e38aaf5';
 const DASHED = '069a79f4-44e9-4726-a5be-fca90e38aaf5';
