@@ -159,6 +159,8 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		// WorldEdit CUI: its own plugin channel, tick and world-render hooks (fail-soft inside).
 		com.origin.client.client.worldedit.WorldEditCui.init();
+		// FPS Coach (Origin original): its own tick + per-frame hooks (fail-soft inside).
+		com.origin.client.client.mods.FpsCoach.register();
 		// Lunar parity, batch 3a: Auto GG's chat listeners and the Screenshot
 		// pop-up's chat-screen click hook (both Fabric API events, fail-soft).
 		try {

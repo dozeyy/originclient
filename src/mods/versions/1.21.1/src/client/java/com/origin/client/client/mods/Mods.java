@@ -579,6 +579,7 @@ public final class Mods {
 		registerLunarBatch4a();
 		registerLunarBatch3a();
 		registerLunarBedwars();
+		registerOriginalsFpsCoach();
 	}
 
 	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----
@@ -945,6 +946,30 @@ public final class Mods {
 				ModOption.toggle("openFolderButton", "Open Folder", true),
 				ModOption.toggle("deleteButton", "Delete", false)
 						.tip("Deletes the screenshot you just took."));
+	}
+
+	// ---- Origin originals: FPS Coach (2026-10-12) ----
+	// Origin's own mod (no other client has it): watches frame time while you
+	// play and, after ~20 s below the target, offers measured setting tips
+	// (mods/FpsCoach, mods/FpsCoachTips, gui/FpsCoachScreen). The mod card opens
+	// the coach itself (OriginModMenuScreen.openMod); its Settings button lands
+	// here. Default ON, like the other quiet background helpers that only speak
+	// up when useful (Screenshot pop-up, Saturation, Menu Blur); it stays silent
+	// until FPS is actually low. Category: Gameplay (the menu's default bucket
+	// for tools, next to Quickplay and Screenshot), so no CATS entry is needed.
+	// "Reset Hidden Tips" is a switch that acts as a button: FpsCoach.tick
+	// brings every hidden tip back and switches it off again.
+	private static void registerOriginalsFpsCoach() {
+		add("fpscoach", "FPS Coach", "Finds the settings costing you FPS and tests each fix.", true,
+				ModOption.slider("targetFps", "Target FPS", 30, 240, 10, 60, "%.0f")
+						.tip("Tips show up after you stay below this for about 20 seconds."),
+				ModOption.keybind("key", "Open FPS Coach", GLFW.GLFW_KEY_K),
+				ModOption.toggle("showToast", "Show Tips Pop-up", true)
+						.tip("A small pop-up when there are tips. Never during a fight or with a menu open."),
+				ModOption.slider("cooldown", "Pop-up Cooldown", 1, 60, 1, 10, "%.0f min").under("showToast")
+						.tip("The shortest time between two pop-ups."),
+				ModOption.toggle("resetHidden", "Reset Hidden Tips", false)
+						.tip("Brings back every tip you hid with \"Hide\". Switches itself back off."));
 	}
 
 	// Assembles the Particle Changer option list: global controls, then a
