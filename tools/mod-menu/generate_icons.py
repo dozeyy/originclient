@@ -435,6 +435,21 @@ def build() -> None:
     preview.convert("RGB").save(HERE / "icons_preview.png", optimize=True)
     print(f"{len(entries)} approved icons -> {OUT / 'mod_icons.png'} ({width}x{height})")
 
+    # Every other LIVE module ships the same atlas (one icon set across every
+    # version, mandate 2): copy the three files wherever a module has one.
+    copied = []
+    live = {m["module"] for m in json.loads((PROJECT / "src" / "mods" / "live-modules.json").read_text())["modules"]}
+    for module in sorted((PROJECT / "src" / "mods" / "versions").iterdir()):
+        if module.name not in live:
+            continue   # pulled versions stay as they were
+        for ui in module.glob("src/*/resources/assets/originclient/textures/ui"):
+            if ui.resolve() == OUT.resolve() or not (ui / "mod_icons.json").exists():
+                continue
+            for name in ("mod_icons.png", "mod_icons.json", "mod_icons_sdf.png"):
+                shutil.copyfile(OUT / name, ui / name)
+            copied.append(module.name)
+    print("copied to: " + ", ".join(copied))
+
 
 if __name__ == "__main__":
     build()

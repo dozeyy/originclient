@@ -2,10 +2,10 @@
   "cell": 192,
   "cols": 6,
   "grid": 24,
-  "style": "approved-origin-outline-1.55",
+  "style": "origin-outline-2.2",
   "rendering": "screen-space-sdf",
   "distanceRange": 16.0,
-  "opticalWeightBias": 0.6,
+  "opticalWeightBias": 0.0,
   "centerOffsets": {
     "@backing": [
       0,
@@ -25,7 +25,7 @@
     ],
     "@performance": [
       0,
-      8
+      0
     ],
     "@search": [
       0,
@@ -33,14 +33,14 @@
     ],
     "@title-singleplayer": [
       0,
-      -2
+      0
     ],
     "@title-multiplayer": [
-      -2,
+      0,
       0
     ],
     "@title-realms": [
-      8,
+      0,
       0
     ],
     "@title-mods": [
@@ -49,7 +49,7 @@
     ],
     "@title-options": [
       0,
-      4
+      0
     ],
     "@title-quit": [
       0,
@@ -61,11 +61,11 @@
     ],
     "@title-accessibility": [
       0,
-      4
+      0
     ],
     "fps": [
       0,
-      -8
+      0
     ],
     "cps": [
       0,
@@ -76,8 +76,8 @@
       0
     ],
     "coords": [
-      8,
-      -8
+      0,
+      0
     ],
     "armorhud": [
       0,
@@ -125,15 +125,15 @@
     ],
     "nametags": [
       0,
-      2
+      0
     ],
     "itemsize": [
       0,
       0
     ],
     "weather": [
-      5,
-      5
+      0,
+      0
     ],
     "timechanger": [
       0,
@@ -148,20 +148,20 @@
       0
     ],
     "particles": [
-      -4,
-      4
+      0,
+      0
     ],
     "togglesprint": [
-      6,
-      3
+      0,
+      0
     ],
     "chat": [
       0,
-      -4
+      0
     ],
     "waypoints": [
       0,
-      -4
+      0
     ],
     "jei": [
       0,
@@ -173,19 +173,19 @@
     ],
     "stopwatch": [
       0,
-      2
+      0
     ],
     "daycounter": [
       0,
-      2
+      0
     ],
     "ping": [
-      2,
-      -4
+      0,
+      0
     ],
     "memory": [
       0,
-      -10
+      0
     ],
     "saturation": [
       0,
@@ -196,7 +196,7 @@
       0
     ],
     "itemcounter": [
-      2,
+      0,
       0
     ],
     "directionhud": [
@@ -205,7 +205,7 @@
     ],
     "combo": [
       0,
-      2
+      0
     ],
     "reach": [
       0,
@@ -220,16 +220,16 @@
       0
     ],
     "hitcolor": [
-      -8,
-      4
+      0,
+      0
     ],
     "glintcolorizer": [
-      -2,
-      6
+      0,
+      0
     ],
     "bossbar": [
       0,
-      -2
+      0
     ],
     "titles": [
       0,
@@ -240,16 +240,16 @@
       0
     ],
     "shinypots": [
-      -8,
-      5
+      0,
+      0
     ],
     "tntcountdown": [
       0,
-      4
+      0
     ],
     "snaplook": [
-      4,
-      2
+      0,
+      0
     ],
     "cooldowns": [
       0,
@@ -261,7 +261,7 @@
     ],
     "itemphysics": [
       0,
-      4
+      0
     ],
     "worldeditcui": [
       0,
@@ -269,23 +269,23 @@
     ],
     "teamview": [
       0,
-      4
+      0
     ],
     "discord": [
       0,
-      2
+      0
     ],
     "hypixel": [
       0,
-      -6
+      0
     ],
     "minimap": [
       0,
       0
     ],
     "autotext": [
-      -4,
-      2
+      0,
+      0
     ],
     "autogg": [
       0,
@@ -296,19 +296,83 @@
       0
     ],
     "quickplay": [
-      2,
+      0,
       0
     ],
     "screenshot": [
       0,
-      -2
+      0
     ],
     "hypixelbedwars": [
       0,
       0
+    ],
+    "portalcalc": [
+      0,
+      0
+    ],
+    "fpscoach": [
+      0,
+      0
+    ],
+    "@grid": [
+      0,
+      0
+    ],
+    "@list": [
+      0,
+      0
+    ],
+    "@pin": [
+      0,
+      0
+    ],
+    "@reset": [
+      0,
+      0
+    ],
+    "@shirt": [
+      0,
+      0
+    ],
+    "@user": [
+      0,
+      0
+    ],
+    "@chev-down": [
+      0,
+      0
+    ],
+    "@chev-left": [
+      0,
+      0
+    ],
+    "@chev-right": [
+      0,
+      0
+    ],
+    "@close": [
+      0,
+      0
+    ],
+    "@plus": [
+      0,
+      0
+    ],
+    "@trash": [
+      0,
+      0
+    ],
+    "@check": [
+      0,
+      4
+    ],
+    "@find": [
+      0,
+      0
     ]
   },
-  "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
+  "source": "design/icon-proposals/origin-icon-system-v2/generate_proposal.py",
   "icons": {
     "@backing": {
       "x": 0,
@@ -609,6 +673,70 @@
     "hypixelbedwars": {
       "x": 384,
       "y": 2304
+    },
+    "portalcalc": {
+      "x": 576,
+      "y": 2304
+    },
+    "fpscoach": {
+      "x": 768,
+      "y": 2304
+    },
+    "@grid": {
+      "x": 960,
+      "y": 2304
+    },
+    "@list": {
+      "x": 0,
+      "y": 2496
+    },
+    "@pin": {
+      "x": 192,
+      "y": 2496
+    },
+    "@reset": {
+      "x": 384,
+      "y": 2496
+    },
+    "@shirt": {
+      "x": 576,
+      "y": 2496
+    },
+    "@user": {
+      "x": 768,
+      "y": 2496
+    },
+    "@chev-down": {
+      "x": 960,
+      "y": 2496
+    },
+    "@chev-left": {
+      "x": 0,
+      "y": 2688
+    },
+    "@chev-right": {
+      "x": 192,
+      "y": 2688
+    },
+    "@close": {
+      "x": 384,
+      "y": 2688
+    },
+    "@plus": {
+      "x": 576,
+      "y": 2688
+    },
+    "@trash": {
+      "x": 768,
+      "y": 2688
+    },
+    "@check": {
+      "x": 960,
+      "y": 2688
+    },
+    "@find": {
+      "x": 0,
+      "y": 2880
     }
   }
 }

@@ -1,22 +1,30 @@
-# Dev shots: boot the real 1.21.1 client headlessly and capture the Origin
-# screens (title, mod menu, a mod's settings page, HUD editor) at two window
-# sizes, via the in-mod harness OriginDevShots (ORIGIN_SHOTS_SET=design).
+# Dev shots: boot the real client headlessly and capture the Origin screens
+# (mod menu grid + list, a mod's page, Settings, the Right Shift screen) via
+# each module's in-mod harness OriginDevShots (ORIGIN_SHOTS_SET=design).
 #
 # Why: the cloud sandbox Claude works in can't run Minecraft, so this is how a
 # UI change gets LOOKED AT before it reaches Will. The PNGs are force-pushed to
-# the `claude/dev-shots` branch (one orphan commit, latest run only) so a
-# session can `git fetch` them, and attached to the run as an artifact.
+# the `claude/dev-shots` branch (one orphan commit, latest run only), one
+# folder per module, so a session can `git fetch` them; also kept as artifacts.
 #
-# Runs on a push to a claude/** branch whose commit message contains [shots],
-# or by hand (Run workflow). Software GL limits (Xvfb + llvmpipe, Sodium's GL
-# 4.6 spoofed) are the same as boot-smoke.yml -- see the notes there.
+# Which modules: put a tag in the commit message on a claude/** branch --
+#   [shots]                -> 1.21.1
+#   [shots:1.20,1.21.4]    -> those modules
+#   [shots:all]            -> every live module (src/mods/live-modules.json)
+# or run it by hand (Run workflow) with the same list in `modules`.
+# Software GL limits (Xvfb + llvmpipe, Sodium's GL 4.6 spoofed) are the same
+# as boot-smoke.yml -- see the notes there.
 name: dev-shots
 
 on:
   push:
     branches: ["claude/**"]
-    paths: ["src/mods/versions/1.21.1/**", ".github/workflows/dev-shots.yml"]
+    paths: ["src/mods/versions/**", ".github/workflows/dev-shots.yml"]
   workflow_dispatch:
+    inputs:
+      modules:
+        description: "Comma-separated modules, or 'all'"
+        default: "1.21.1"
 
 permissions:
   contents: write
@@ -26,10 +34,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  plan:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[shots')
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.pick.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: pick
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+          INPUT: ${{ github.event.inputs.modules }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os, re
+          live = [m["module"] for m in json.load(open("src/mods/live-modules.json"))["modules"]]
+          raw = os.environ.get("INPUT") or ""
+          if not raw:
+              m = re.search(r"\[shots(?::([^\]]+))?\]", os.environ.get("MSG", ""))
+              raw = (m.group(1) if m and m.group(1) else "1.21.1")
+          raw = raw.strip()
+          picked = live if raw == "all" else [x.strip() for x in raw.split(",") if x.strip() in live]
+          print("modules=" + json.dumps(picked or ["1.21.1"]))
+          EOF
+
   shots:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[shots]')
+    needs: plan
+    name: Shots ${{ matrix.module }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.plan.outputs.modules) }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -45,8 +82,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa
 
-      - name: Boot 1.21.1 and capture the Origin screens
-        working-directory: src/mods/versions/1.21.1
+      - name: Boot ${{ matrix.module }} and capture the Origin screens
+        working-directory: src/mods/versions/${{ matrix.module }}
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
@@ -72,28 +109,37 @@ jobs:
           grep -F "[dev-shots]" run.log || echo "no dev-shots lines"
           echo "--- mixin failures (should be none) ---"
           grep -iE "Mixin apply(ing)? .*failed|Critical injection failure" run.log || echo "none"
+          mkdir -p "$ORIGIN_SHOTS/screenshots"
+          cp run.log "$ORIGIN_SHOTS/screenshots/run.log" || true
           ls -la "$ORIGIN_SHOTS/screenshots" || true
 
       - name: Keep the shots as a run artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dev-shots
-          path: ${{ runner.temp }}/shots/screenshots/*.png
+          name: shots-${{ matrix.module }}
+          path: ${{ runner.temp }}/shots/screenshots/
           if-no-files-found: warn
 
-      - name: Publish the shots to the claude/dev-shots branch
-        if: always()
-        env:
-          SHOTS: ${{ runner.temp }}/shots/screenshots
+  publish:
+    needs: shots
+    if: always() && needs.shots.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect every module's shots
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shots-*
+          path: ${{ runner.temp }}/pub
+
+      - name: Publish to the claude/dev-shots branch
         run: |
-          # Publish the log even with no shots: it's how a failed run gets diagnosed.
           pub="$RUNNER_TEMP/pub"
           mkdir -p "$pub"
-          cp "$SHOTS"/*.png "$pub"/ 2>/dev/null || echo "no shots captured"
-          cp src/mods/versions/1.21.1/run.log "$pub"/run.log 2>/dev/null || true
-          printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$pub/SOURCE.txt"
           cd "$pub"
+          # artifact folders are shots-<module>; name them by module
+          for d in shots-*; do [ -d "$d" ] && mv "$d" "${d#shots-}"; done
+          printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > SOURCE.txt
           git init -q
           git config user.name "origin-dev-shots"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
