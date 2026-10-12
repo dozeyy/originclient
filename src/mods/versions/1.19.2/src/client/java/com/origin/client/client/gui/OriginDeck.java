@@ -30,6 +30,14 @@ import java.util.List;
  * Pre-1.20 port: 1.21.1's kit draws on GuiGraphics; this era has none, so it
  * draws through the module's Gfx shim (same method shapes over a PoseStack).
  * Nothing else changes -- the layout, colours and hit logic are 1.21.1's.
+ *
+ * See-through mode ({@link #seeThrough}): with no panel behind it, the mock's
+ * dim cream text washes out over the world (Will, 2026-10-12: "the words
+ * should be way more visible"). The text and icon paths then lift every light
+ * colour toward opaque white -- keeping title > body > secondary order -- and,
+ * where the text is NOT on an opaque surface this frame (a card, a popover),
+ * put a soft dark halo and a 1px drop shadow under it. Screens only set the
+ * flag; every widget drawn through the kit gets it.
  */
 public final class OriginDeck {
 	// ---- the mock's palette (design/menu-redesign/mock/mock4.tpl.html :root) ----
@@ -62,7 +70,19 @@ public final class OriginDeck {
 	public final float mx, my; // the mouse, in design px
 	public float alpha = 1f;   // global fade (open / close / page swap)
 
+	/**
+	 * The screen has no panel behind its content (see the class comment). Set it
+	 * right after opening the frame, before drawing; off = the approved look,
+	 * byte for byte.
+	 */
+	public boolean seeThrough = false;
+
+	/** Fill alpha from which a box counts as an opaque surface text can sit on unaided. */
+	private static final int SOLID_A = 0xC0;
+
 	private final ArrayDeque<float[]> clips = new ArrayDeque<>();
+	// opaque boxes drawn so far this frame (design px x0,y0,x1,y1); see-through mode only
+	private final List<float[]> solids = new ArrayList<>();
 	private final List<Hit> hits;
 
 	/** A click target recorded at draw time; see the class comment. */
@@ -184,6 +204,9 @@ public final class OriginDeck {
 		// card), so composite the border onto the fill first.
 		int bd = ((border >>> 24) & 0xFF) == 0 ? 0 : over(border, fill);
 		OriginUi.roundRect(g, b[0], b[1], b[2], b[3], r * s, fa(fill), fa(bd), 0f);
+		if (seeThrough && ((fill >>> 24) & 0xFF) >= SOLID_A) {
+			solids.add(new float[]{x, y, x + w, y + h});
+		}
 	}
 
 	/** A filled circle (switch knobs, slider thumbs, the "new" dot). */
@@ -232,24 +255,43 @@ public final class OriginDeck {
 		if (str == null || str.isEmpty()) {
 			return 0;
 		}
+		float adv = textW(str, size, bold, tracking);
 		if ((fa(color) >>> 24) < 4) {
 			// vanilla Font treats alpha < 4 as opaque; a faded-out label must vanish
-			return textW(str, size, bold, tracking);
+			return adv;
+		}
+		if (seeThrough && isLight(color)) {
+			color = legible(color);
+			float top = baseline - capH(size, bold), bottom = baseline + size * 0.18f;
+			if (!onSolid(x + adv / 2f, (top + bottom) / 2f)) {
+				float k = ((color >>> 24) & 0xFF) / 255f;
+				halo(x, top, x + adv, bottom, Math.min(adv, bottom - top), k);
+				float d = dropPx();
+				rawText(str, px(x), py(baseline) + d, size, bold, tracking, fa(mul(0xFF000000, 0.6f * k)));
+			}
+		}
+		rawText(str, px(x), py(baseline), size, bold, tracking, fa(color));
+		return adv;
+	}
+
+	/** One text draw at a PHYSICAL-px baseline position, colour already final. */
+	private void rawText(String str, float physX, float physBaseline, float size, boolean bold, float tracking, int argb) {
+		if ((argb >>> 24) < 4) {
+			return; // vanilla Font would draw alpha < 4 as opaque
 		}
 		if (OriginSdfFont.ready()) {
-			OriginSdfFont.drawEm(g, str, px(x), py(baseline), size * s, tracking * s, fa(color), bold);
+			OriginSdfFont.drawEm(g, str, physX, physBaseline, size * s, tracking * s, argb, bold);
 		} else {
 			// Fail-soft: vanilla glyphs scaled so their caps match Inter's.
 			var font = Minecraft.getInstance().font;
 			float k = vanillaK(size);
 			var pose = g.pose();
 			pose.pushPose();
-			pose.translate(px(x), py(baseline) - 7 * k, 0);
+			pose.translate(physX, physBaseline - 7 * k, 0);
 			pose.scale(k, k, 1f);
-			g.drawString(font, str, 0, 0, fa(color), false);
+			g.drawString(font, str, 0, 0, argb, false);
 			pose.popPose();
 		}
-		return textW(str, size, bold, tracking);
 	}
 
 	private float vanillaK(float size) {
@@ -307,7 +349,16 @@ public final class OriginDeck {
 	/** An atlas glyph (ModIcons id) in a size x size box at (x,y). */
 	public void icon(String id, float x, float y, float size, int color) {
 		int sz = Math.round(size * s);
-		ModIcons.draw(g, id, Math.round(px(x + size / 2f) - sz / 2f), Math.round(py(y + size / 2f) - sz / 2f), sz, fa(color));
+		int ix = Math.round(px(x + size / 2f) - sz / 2f), iy = Math.round(py(y + size / 2f) - sz / 2f);
+		if (seeThrough && isLight(color) && (fa(color) >>> 24) > 2) {
+			color = legible(color);
+			if (!onSolid(x + size / 2f, y + size / 2f)) {
+				float k = ((color >>> 24) & 0xFF) / 255f;
+				halo(x, y, x + size, y + size, size * 0.8f, k);
+				ModIcons.draw(g, id, ix, iy + Math.round(dropPx()), sz, fa(mul(0xFF000000, 0.6f * k)));
+			}
+		}
+		ModIcons.draw(g, id, ix, iy, sz, fa(color));
 	}
 
 	/** The Origin mark (textures/ui/origin_logo.png) with its soft white glow. */
@@ -316,6 +367,68 @@ public final class OriginDeck {
 			OriginUi.softGlow(g, px(cx), py(cy), size * s * 1.6f, mul(0xFFFFFFFF, glow * alpha));
 		}
 		OriginUi.logo(g, px(cx), py(cy), Math.round(size * s), alpha);
+	}
+
+	// ---- see-through legibility (see the class comment) ----
+
+	/** The mod menu's "Solid Menu Background" is off (the menu and every OriginWindow honour it). */
+	public static boolean menuSeeThrough() {
+		return com.origin.client.client.mods.Mods.metaNum("menuBgOpacity", 1.0) <= 0.5;
+	}
+
+	/** A light colour (cream / white / accent / gold / red): one that relies on a dark panel behind it. */
+	private static boolean isLight(int argb) {
+		int r = (argb >> 16) & 0xFF, gr = (argb >> 8) & 0xFF, b = argb & 0xFF;
+		return 0.2126f * r + 0.7152f * gr + 0.0722f * b >= 0.4f * 255;
+	}
+
+	/**
+	 * `argb` lifted for see-through mode: alpha raised on a curve (a^0.3: TEXT
+	 * 1.0 stays 1.0, DIM .68 -> .89, MUTE .42 -> .77; still 0 at 0, so fades
+	 * keep working and the hierarchy keeps its order), and neutral creams moved
+	 * most of the way to white. Coloured text (accent, gold, red) keeps its hue.
+	 */
+	public static int legible(int argb) {
+		float a = ((argb >>> 24) & 0xFF) / 255f;
+		int na = Math.round((float) Math.pow(a, 0.3) * 255f);
+		int r = (argb >> 16) & 0xFF, gr = (argb >> 8) & 0xFF, b = argb & 0xFF;
+		int rgb = argb & 0xFFFFFF;
+		if (Math.max(r, Math.max(gr, b)) - Math.min(r, Math.min(gr, b)) < 48) {
+			rgb = lerp(0xFF000000 | rgb, 0xFFFFFFFF, 0.6f) & 0xFFFFFF;
+		}
+		return (na << 24) | rgb;
+	}
+
+	/** Is design point (x,y) on an opaque box drawn earlier this frame? */
+	private boolean onSolid(float x, float y) {
+		for (float[] r : solids) {
+			if (x >= r[0] && x < r[2] && y >= r[1] && y < r[3]) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Drop-shadow offset in physical px: one design px, never under one screen px. */
+	private float dropPx() {
+		return Math.max(1f, Math.round(s));
+	}
+
+	/**
+	 * Soft dark backing behind a glyph run: four stacked pills, each larger
+	 * and fainter (core ~48% black), so the edge fades out instead of reading
+	 * as a box. Over a dark world it all but vanishes; over snow or sky it is
+	 * what keeps the words legible. `unit` scales the spread (the text's height).
+	 */
+	private void halo(float x0, float y0, float x1, float y1, float unit, float k) {
+		float[] grow = {0.15f, 0.4f, 0.7f, 1.0f};
+		int[] al = {0x40, 0x2C, 0x1C, 0x0E};
+		for (int i = 0; i < grow.length; i++) {
+			float gy = unit * grow[i], gx = gy + unit * 0.25f;
+			float[] b = {px(x0 - gx), py(y0 - gy), (x1 - x0 + 2 * gx) * s, (y1 - y0 + 2 * gy) * s};
+			float r = Math.min(b[2], b[3]) / 2f;
+			OriginUi.roundRect(g, b[0], b[1], b[2], b[3], r, fa(mul(al[i] << 24, k)), 0, 0f);
+		}
 	}
 
 	// ---- controls ----

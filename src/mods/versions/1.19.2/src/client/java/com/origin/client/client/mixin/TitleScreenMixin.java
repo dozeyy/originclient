@@ -326,7 +326,11 @@ public class TitleScreenMixin {
 				OriginButtonRenderer.setTitlePresentation(w, titleIcons[i], false);
 			}
 
-			// Cosmetics gets its own full-width row under the Realms/Mods pair.
+			// Cosmetics gets its own full-width row under the Realms/Mods pair, and
+			// the SAME title presentation as the rows above it (icon + compact
+			// label on the opaque title material). Without it the button fell back
+			// to the generic glass skin: a different fill, full-size text, no icon.
+			// "@shirt" is the cosmetics symbol the Right Shift screen already uses.
 			if (originclient$cosmeticsNav != null) {
 				int cy = L.mainTop + 3 * L.rowStep;
 				originclient$cosmeticsNav.x = L.mainX;
@@ -335,6 +339,7 @@ public class TitleScreenMixin {
 				((AbstractWidgetAccessor) originclient$cosmeticsNav).originclient$setHeight(L.buttonH);
 				originclient$nav.add(originclient$cosmeticsNav);
 				originclient$navPos.add(new int[]{L.mainX, cy});
+				OriginButtonRenderer.setTitlePresentation(originclient$cosmeticsNav, "@shirt", false);
 			}
 
 			List<AbstractWidget> dock = new ArrayList<>();

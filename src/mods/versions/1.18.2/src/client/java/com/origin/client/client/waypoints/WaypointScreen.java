@@ -1,43 +1,48 @@
 package com.origin.client.client.waypoints;
 
-import net.minecraft.network.chat.TextComponent;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-
 import com.origin.client.client.gui.OriginColorPicker;
-import com.origin.client.client.gui.OriginText;
+import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginUi;
+import com.origin.client.client.gui.OriginWindow;
 import com.origin.client.client.mods.Mods;
-import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
-import com.origin.client.client.gui.Gfx;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-// The Waypoints manager + editor.
+import static com.origin.client.client.gui.OriginDeck.*;
+
+// The Waypoints manager + editor, on the shared Origin window frame (gui/OriginWindow,
+// the redesigned mod menu's panel/header/widgets; Will 2026-10-12).
 //
 // SAVE MODEL (Will): editing an EXISTING waypoint auto-saves live — every
 // keystroke/toggle/colour/slider change persists immediately. CREATING is a
-// draft: "＋ Create Waypoint" opens the editor on a detached waypoint that is
+// draft: "Create waypoint" opens the editor on a detached waypoint that is
 // NOT in the list and NOT rendered in-world; it only becomes real when the
-// player clicks Done. ESC (or closing) discards an uncommitted draft.
+// player clicks Done. Esc (or closing, or Cancel) discards an uncommitted draft.
 //
-// The editor is organised into labelled sections — name/group, LOCATION (pos +
-// dimension), STYLE (waypoint/text/background colours + scale), DISPLAY (icon /
-// text / beam / distance / highlight) — with a Done button at the bottom.
+// Separators are "•": the MSDF Inter atlas has no "·" or "—" glyph.
+//
+// Layout (design px, see OriginWindow):
+//   header   waypoints icon, "Waypoints", count | [Cancel] Create / Done  [x]
+//   toolbar  the mod's global switches: Death waypoints, Locator bar, Separate bar
+//   body     the list (full width), or — while editing — the list as a left column
+//            and the editor card on the right: NAME/GROUP, LOCATION (X Y Z, Use
+//            current, dimension), STYLE (four colours, three size sliders),
+//            DISPLAY (icon / text / beam / distance / highlight).
 //
 // List: ungrouped waypoints at top level; each group is a collapsible header row
-// (big filled triangle, click to expand/collapse) with its waypoints nested.
-// The list scrolls SMOOTHLY (eased toward a scroll target, like the mod menu).
-public class WaypointScreen extends Screen {
+// with its waypoints nested under it. The list scrolls smoothly (the frame's
+// eased scroll). Esc closes the whole screen (to the game), as it always has.
+public class WaypointScreen extends OriginWindow {
 	private static final String[] DIMS = {"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"};
 	// scratch mod-option keys the shared colour picker edits (one per colour target)
 	private static final String KEY_COLOR = "editColor";
@@ -47,14 +52,16 @@ public class WaypointScreen extends Screen {
 	// Collapsed group names — static so the collapse state survives reopening the menu.
 	private static final Set<String> COLLAPSED = new HashSet<>();
 
-	// form layout (offsets from the form panel's top edge)
-	private static final int ROW_NAME = 6, EB_LOC = 26, ROW_POS = 36, ROW_DIM = 54,
-			EB_STYLE = 74, ROW_COLOR = 84, ROW_SCALE = 102, EB_DISP = 122, ROW_TOG = 132, ROW_DONE = 152;
-	private static final int FORM_H = 180;
-
-	// smooth scroll: target moves on wheel input, the drawn offset eases toward it
-	private double scroll = 0, scrollTarget = 0;
-	private long lastFrameNanos = 0;
+	// ---- layout (design px; 24px grid) ----
+	private static final float TOOL_Y = BODY_Y;                 // global switches row, 32 tall
+	private static final float LIST_Y = BODY_Y + 32 + 16;       // list / editor top
+	private static final float LIST_BOTTOM = H - M;
+	private static final float ROW_H = 44, ROW_GAP = 8, NEST = 16;
+	private static final float LIST_W_EDITING = 312;            // list column while the editor is open
+	private static final float ED_X = M + LIST_W_EDITING + 24;  // editor card
+	private static final float ED_W = W - M - ED_X;
+	private static final float PAD = 20;                        // editor card inner padding
+	private static final float IN_X = ED_X + PAD, IN_W = ED_W - 2 * PAD;
 
 	private Waypoints.Waypoint editing = null;   // non-null → the editor is open on this waypoint
 	private boolean isNew = false;               // true → `editing` is an uncommitted draft
@@ -63,6 +70,7 @@ public class WaypointScreen extends Screen {
 	private String nameStr = "", groupStr = "", xStr = "", yStr = "", zStr = "";
 	// which scale bar is being dragged: -1 none, 0 icon, 1 text, 2 distance
 	private int dragSlider = -1;
+	private float dragX0, dragX1;
 	// focused text field: 0 name, 1 group, 2 X, 3 Y, 4 Z, -1 none
 	private int focus = -1;
 	private Waypoints.Waypoint pendingDelete = null;
@@ -73,13 +81,14 @@ public class WaypointScreen extends Screen {
 	}
 
 	public WaypointScreen() {
-		super(new TextComponent("Waypoints"));
+		this(false);
 	}
 
 	/** Opens the manager; if startCreating, opens the editor on a fresh DRAFT
 	 *  (committed only when the player clicks Done) — the create keybind. */
 	public WaypointScreen(boolean startCreating) {
-		super(new TextComponent("Waypoints"));
+		// returnTo null: closing always went straight back to the game.
+		super(new TextComponent("Waypoints"), null);
 		this.openToCreate = startCreating;
 	}
 
@@ -102,11 +111,6 @@ public class WaypointScreen extends Screen {
 		super.removed();
 	}
 
-	@Override
-	public boolean isPauseScreen() {
-		return false;
-	}
-
 	// ---- current position ----
 	private int standX() {
 		var p = Minecraft.getInstance().player;
@@ -123,7 +127,7 @@ public class WaypointScreen extends Screen {
 		return p != null ? p.blockPosition().getZ() : 0;
 	}
 
-	// Ground snap for "Use Current": the block the player is STANDING ON — i.e. the
+	// Ground snap for "Use current": the block the player is STANDING ON — i.e. the
 	// first solid ground at/below the feet. blockPosition() is the feet cell (air),
 	// so this starts there and walks DOWN, skipping leaves/logs and passing through
 	// water/lava, and lands on the first block with a real collision shape (grass,
@@ -158,35 +162,6 @@ public class WaypointScreen extends Screen {
 			return false;   // don't land on a tree
 		}
 		return !st.getCollisionShape(level, p).isEmpty();   // solid ground only
-	}
-
-	// ---- geometry ----
-	private int px() {
-		return (width - pw()) / 2;
-	}
-
-	private int py() {
-		return (height - ph()) / 2;
-	}
-
-	private int pw() {
-		return Math.min(430, (int) (width * 0.72));
-	}
-
-	private int ph() {
-		return (int) (height * 0.84);
-	}
-
-	private int formY() {
-		return py() + 60;
-	}
-
-	private int listTop() {
-		return py() + (editing != null ? 60 + FORM_H + 8 : 62);
-	}
-
-	private int listBottom() {
-		return py() + ph() - 12;
 	}
 
 	// The visible list rows: ungrouped waypoints first, then each group as a header
@@ -258,8 +233,18 @@ public class WaypointScreen extends Screen {
 			Waypoints.add(editing);
 			isNew = false;
 		}
+		closeEditor();
+	}
+
+	/** Leaves the editor; an uncommitted draft is simply dropped. */
+	private void closeEditor() {
+		if (OriginColorPicker.isOpen()) {
+			OriginColorPicker.close();
+		}
 		editing = null;
+		isNew = false;
 		focus = -1;
+		dragSlider = -1;
 	}
 
 	// Push the text buffers onto the live waypoint (called on every keystroke).
@@ -313,185 +298,155 @@ public class WaypointScreen extends Screen {
 		}
 	}
 
-	// ---- render ----
+	// ---- the frame's slots ----
+
 	@Override
-	public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
-		super.render(poseStack, mouseX, mouseY, partialTick);
-		Gfx g = new Gfx(poseStack);
-		syncPicker();
-		// smooth scroll: ease the drawn offset toward the wheel target
-		long now = System.nanoTime();
-		double dt = lastFrameNanos == 0 ? 16.7 : Math.min(64.0, (now - lastFrameNanos) / 1_000_000.0);
-		lastFrameNanos = now;
-		scroll += (scrollTarget - scroll) * Math.min(1.0, dt / 60.0);
+	protected String heading() {
+		return "Waypoints";
+	}
 
-		int x = px(), y = py(), w = pw(), h = ph();
-		OriginUi.panel(g, x, y, w, h, 10, 0xC80E0E0E, OriginTheme.STROKE);
-		OriginUi.logo(g, x + 22, y + 20, 22, 1f);
-		OriginText.drawBold(g, font, "Waypoints", x + 42, y + 10, OriginTheme.TEXT, true);
-		int total = Waypoints.all().size();
-		OriginText.draw(g, font, total + (total == 1 ? " waypoint" : " waypoints"), x + 42, y + 22, OriginTheme.TEXT_DIM, true);
-
-		int by = y + 36;
-		button(g, x + 12, by, 90, 18, editing != null ? "Done" : "＋ Create", mouseX, mouseY);
-		// right-aligned global-toggle switches: Deaths · Locator Bar · (Separate Bar
-		// appears only when Locator Bar is on).
-		for (Tog t : globalToggles()) {
-			OriginText.draw(g, font, t.label(), t.x0(), by + 5, OriginTheme.TEXT, true);
-			OriginUi.switchAt(g, "gt:" + t.key(), t.x0() + OriginText.width(font, t.label()) + 4, by + 1, 22, t.on(), true);
+	@Override
+	protected String subheading() {
+		if (editing != null && isNew) {
+			return "New waypoint • Done adds it, Esc discards it";
 		}
-
 		if (editing != null) {
-			renderForm(g, x, formY(), w, mouseX, mouseY);
+			String n = editing.name.length() > 24 ? editing.name.substring(0, 23) + "…" : editing.name;
+			return "Editing " + n + " • changes save as you go";
 		}
+		int total = Waypoints.all().size();
+		return total == 0 ? "No waypoints yet" : total + (total == 1 ? " waypoint" : " waypoints");
+	}
 
-		int top = listTop(), bottom = listBottom();
-		g.enableScissor(x, top, x + w, bottom);
-		int ry = top - (int) Math.round(scroll);
-		for (Row row : rows()) {
-			if (ry + 24 >= top && ry <= bottom) {
-				if (row.group() != null) {
-					renderGroupRow(g, row.group(), x + 12, ry, w - 24, mouseX, mouseY);
-				} else {
-					boolean nested = row.wp().group != null && !row.wp().group.isEmpty();
-					int indent = nested ? 14 : 0;
-					renderRow(g, row.wp(), x + 12 + indent, ry, w - 24 - indent, mouseX, mouseY);
-				}
+	@Override
+	protected String headingIcon() {
+		return "waypoints";
+	}
+
+	@Override
+	protected void drawHeaderActions(OriginDeck d, float right) {
+		if (editing == null) {
+			float w = buttonW(d, "Create waypoint", "@plus");
+			button(d, "Create waypoint", "@plus", right - w, 16, w, 32, Style.PRIMARY, true, this::createDraft);
+			return;
+		}
+		float w = buttonW(d, "Done", "@check");
+		float x = right - w;
+		button(d, "Done", "@check", x, 16, w, 32, Style.PRIMARY, true, this::commitDone);
+		if (isNew) {
+			float cw = buttonW(d, "Cancel", null);
+			button(d, "Cancel", null, x - 8 - cw, 16, cw, 32, Style.SECONDARY, true, this::closeEditor);
+		}
+	}
+
+	@Override
+	protected void drawBody(OriginDeck d) {
+		syncPicker();
+		drawToolbar(d);
+		drawList(d);
+		if (editing != null) {
+			try {
+				drawEditor(d);
+			} catch (RuntimeException e) {
+				// fail soft: a bad waypoint value must never take the screen down
+				closeEditor();
 			}
-			ry += 28;
 		}
-		g.disableScissor();
-		if (Waypoints.all().isEmpty() && editing == null) {
-			OriginText.draw(g, font, "No waypoints", x + 14, top + 6, OriginTheme.TEXT_DIM, true);
-		}
-
 		if (pendingDelete != null) {
-			renderConfirm(g, mouseX, mouseY);
+			drawConfirm(d);
 		}
-		String hint = editing != null && isNew ? "Done · Esc" : "Esc";
-		OriginText.draw(g, font, hint, x + w - 10 - OriginText.width(font, hint), y + h - 12, OriginTheme.MUTED, true);
+	}
 
-		// The colour picker draws last so it floats over everything.
+	@Override
+	protected void renderOverlays(com.origin.client.client.gui.Gfx g, int mouseX, int mouseY, float partialTick) {
+		// The colour picker draws in plain GUI px, last, so it floats over everything.
 		OriginColorPicker.render(g, mouseX, mouseY);
 	}
 
-	private void eyebrow(Gfx g, int x, int y, String label) {
-		OriginText.drawBold(g, font, label, x, y, OriginTheme.MUTED, true);
-	}
+	// ---- toolbar: the mod's global switches ----
 
-	// A right-aligned header toggle switch (label + switch), computed once and shared
-	// by render + click so their hit-boxes always match.
-	private record Tog(int x0, int x1, String key, boolean on, String label) {
-	}
-
-	private java.util.List<Tog> globalToggles() {
-		java.util.List<Tog> out = new java.util.ArrayList<>();
-		int rx = px() + pw() - 12;
-		rx = addTog(out, rx, "deathWaypoints", "Deaths");
-		rx = addTog(out, rx, "locatorBar", "Locator");
+	private void drawToolbar(OriginDeck d) {
+		float x = M;
+		x += switchChip(d, "Death waypoints", "deathWaypoints", x) + 8;
+		x += switchChip(d, "Locator bar", "locatorBar", x) + 8;
+		// Separate Bar only means something while the Locator Bar is on.
 		if (Mods.bool("waypoints", "locatorBar")) {
-			addTog(out, rx, "separateBar", "Separate");
-		}
-		return out;
-	}
-
-	private int addTog(java.util.List<Tog> out, int rx, String key, String label) {
-		int total = OriginText.width(font, label) + 4 + 22;
-		int x0 = rx - total;
-		out.add(new Tog(x0, rx, key, Mods.bool("waypoints", key), label));
-		return x0 - 8;   // gap before the next toggle (to the left)
-	}
-
-	// Small "1.3x" readout centered under a scale bar.
-	private void scaleValue(Gfx g, int sliderX, int formTop, double v) {
-		// 2 decimals when the 0.05 steps need it (e.g. 0.25x), else 1.
-		String s = (Math.round(v * 100) % 10 == 0 ? String.format("%.1fx", v) : String.format("%.2fx", v));
-		OriginText.draw(g, font, s, sliderX + (64 - OriginText.width(font, s)) / 2, formTop + ROW_SCALE + 9, OriginTheme.MUTED, true);
-	}
-
-	// The editor, organised into sections: name/group → LOCATION → STYLE → DISPLAY.
-	private void renderForm(Gfx g, int x, int y, int w, int mx, int my) {
-		OriginUi.panel(g, x + 12, y, w - 24, FORM_H, 8, 0xD8101010, OriginTheme.STROKE_STRONG);
-		// name + group (one row)
-		OriginText.draw(g, font, "Name", x + 20, y + ROW_NAME + 3, OriginTheme.TEXT, true);
-		field(g, x + 56, y + ROW_NAME, 118, 14, nameStr, focus == 0, "name");
-		OriginText.draw(g, font, "Group", x + 184, y + ROW_NAME + 3, OriginTheme.TEXT, true);
-		field(g, x + 222, y + ROW_NAME, 88, 14, groupStr, focus == 1, "(none)");
-		// LOCATION
-		eyebrow(g, x + 20, y + EB_LOC, "LOCATION");
-		OriginText.draw(g, font, "Pos", x + 20, y + ROW_POS + 3, OriginTheme.TEXT, true);
-		field(g, x + 44, y + ROW_POS, 56, 14, xStr, focus == 2, "X");
-		field(g, x + 104, y + ROW_POS, 56, 14, yStr, focus == 3, "Y");
-		field(g, x + 164, y + ROW_POS, 56, 14, zStr, focus == 4, "Z");
-		button(g, x + 226, y + ROW_POS, 84, 14, "Use Current", mx, my);
-		OriginText.draw(g, font, "Dim", x + 20, y + ROW_DIM + 3, OriginTheme.TEXT, true);
-		button(g, x + 44, y + ROW_DIM, 130, 14, "< " + dimDisplay(editing.dimension) + " >", mx, my);
-		// STYLE — a colour per part (beam/highlight, icon, text, label background)
-		// and a scale bar per part (icon, text, distance).
-		eyebrow(g, x + 20, y + EB_STYLE, "STYLE");
-		OriginText.draw(g, font, "Color", x + 20, y + ROW_COLOR + 3, OriginTheme.TEXT, true);
-		OriginUi.panel(g, x + 56, y + ROW_COLOR, 30, 14, 5, editing.color, OriginTheme.STROKE_HOVER);
-		OriginText.draw(g, font, "Icon", x + 94, y + ROW_COLOR + 3, OriginTheme.TEXT, true);
-		OriginUi.panel(g, x + 122, y + ROW_COLOR, 30, 14, 5, editing.iconColor, OriginTheme.STROKE_HOVER);
-		OriginText.draw(g, font, "Text", x + 160, y + ROW_COLOR + 3, OriginTheme.TEXT, true);
-		OriginUi.panel(g, x + 188, y + ROW_COLOR, 30, 14, 5, editing.textColor, OriginTheme.STROKE_HOVER);
-		OriginText.draw(g, font, "BG", x + 226, y + ROW_COLOR + 3, OriginTheme.TEXT, true);
-		OriginUi.panel(g, x + 246, y + ROW_COLOR, 30, 14, 5, editing.textBgColor, OriginTheme.STROKE_HOVER);
-		// scale bars: 0.5x .. 2.0x each, with a live value readout under each bar
-		OriginText.draw(g, font, "Icon", x + 20, y + ROW_SCALE + 2, OriginTheme.TEXT, true);
-		OriginUi.slider(g, x + 48, y + ROW_SCALE, 64, fracFromScale(editing.iconScale), dragSlider == 0);
-		OriginText.draw(g, font, "Text", x + 124, y + ROW_SCALE + 2, OriginTheme.TEXT, true);
-		OriginUi.slider(g, x + 152, y + ROW_SCALE, 64, fracFromScale(editing.textScale), dragSlider == 1);
-		OriginText.draw(g, font, "Dist", x + 228, y + ROW_SCALE + 2, OriginTheme.TEXT, true);
-		OriginUi.slider(g, x + 256, y + ROW_SCALE, 64, fracFromScale(editing.distScale), dragSlider == 2);
-		scaleValue(g, x + 48, y, editing.iconScale);
-		scaleValue(g, x + 152, y, editing.textScale);
-		scaleValue(g, x + 256, y, editing.distScale);
-		// DISPLAY
-		eyebrow(g, x + 20, y + EB_DISP, "DISPLAY");
-		toggle(g, x + 20, y + ROW_TOG, "Icon", editing.showIcon);
-		toggle(g, x + 80, y + ROW_TOG, "Text", editing.showText);
-		toggle(g, x + 140, y + ROW_TOG, "Beam", editing.showBeam);
-		toggle(g, x + 204, y + ROW_TOG, "Distance", editing.showDistance);
-		toggle(g, x + 286, y + ROW_TOG, "Highlight", editing.highlightBlock);
-		// Done
-		button(g, x + 20, y + ROW_DONE, 130, 20, "Done", mx, my);
-	}
-
-	private void field(Gfx g, int x, int y, int w, int h, String val, boolean focused, String placeholder) {
-		OriginUi.panel(g, x, y, w, h, 5, focused ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL,
-				focused ? 0xFFFFFFFF : OriginTheme.BOX_BORDER);
-		if (val.isEmpty() && !focused) {
-			OriginText.draw(g, font, placeholder, x + 4, y + (h - 8) / 2, OriginTheme.MUTED, true);
-		} else {
-			OriginText.draw(g, font, focused ? val + "_" : val, x + 4, y + (h - 8) / 2, OriginTheme.TEXT, true);
+			switchChip(d, "Separate bar", "separateBar", x);
 		}
 	}
 
-	// Big filled expand/collapse triangle (Will: the old glyph arrow was too small).
-	private void triangle(Gfx g, int x, int y, boolean open, int color) {
-		if (open) {
-			// down-pointing: 11 wide tapering over 6 rows
-			for (int i = 0; i < 6; i++) {
-				g.fill(x + i, y + i, x + 11 - i, y + i + 1, color);
+	/** A caps label + switch in one 32-tall chip; the whole chip flips it. Returns its width. */
+	private float switchChip(OriginDeck d, String label, String key, float x) {
+		boolean on = Mods.bool("waypoints", key);
+		String caps = label.toUpperCase(Locale.ROOT);
+		float w = 12 + d.textW(caps, 11, true, CAPS_TRACK) + 12 + 36 + 8;
+		boolean hov = d.over(x, TOOL_Y, w, 32);
+		float hp = OriginUi.hover("wp-gt:" + key, hov);
+		d.rect(x, TOOL_Y, w, 32, 6, lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
+		d.textMid(caps, x + 12, TOOL_Y + 16, 11, true, CAPS_TRACK, lerp(DIM, TEXT, hp));
+		d.toggle("wp-gt:" + key, x + w - 8 - 36, TOOL_Y + 6, on);
+		d.hit(x, TOOL_Y, w, 32, () -> Mods.set("waypoints", key, !on));
+		return w;
+	}
+
+	// ---- the list ----
+
+	private float listW() {
+		return editing != null ? LIST_W_EDITING : BODY_W;
+	}
+
+	private void drawList(OriginDeck d) {
+		float lw = listW();
+		List<Row> rows = rows();
+		float contentH = rows.isEmpty() ? 0 : rows.size() * (ROW_H + ROW_GAP) - ROW_GAP;
+		maxScroll = Math.max(0, contentH - (LIST_BOTTOM - LIST_Y));
+		scrollTarget = Math.min(scrollTarget, maxScroll);
+		scroll = Math.min(scroll, maxScroll);
+
+		if (Waypoints.all().isEmpty()) {
+			drawEmpty(d, lw);
+			return;
+		}
+		d.clip(M - 4, LIST_Y, lw + 8, LIST_BOTTOM - LIST_Y);
+		float ry = LIST_Y - (float) scroll;
+		for (Row row : rows) {
+			if (ry + ROW_H >= LIST_Y && ry <= LIST_BOTTOM) {
+				if (row.group() != null) {
+					drawGroupRow(d, row.group(), M, ry, lw);
+				} else {
+					boolean nested = row.wp().group != null && !row.wp().group.isEmpty();
+					float indent = nested ? NEST : 0;
+					drawRow(d, row.wp(), M + indent, ry, lw - indent);
+				}
 			}
-		} else {
-			// right-pointing: 6 columns tapering from 11 tall
-			for (int i = 0; i < 6; i++) {
-				g.fill(x + i, y + i, x + i + 1, y + 11 - i, color);
-			}
+			ry += ROW_H + ROW_GAP;
+		}
+		d.unclip();
+		// thin scrollbar just right of the list column (the gutter before the editor)
+		if (maxScroll > 0) {
+			float sx = editing != null ? M + lw + 10 : W - 10;
+			float track = LIST_BOTTOM - LIST_Y;
+			float thumb = Math.max(28, track * track / (float) (track + maxScroll));
+			float ty = LIST_Y + (track - thumb) * (float) (scroll / maxScroll);
+			d.rect(sx, ty, 3, thumb, 1.5f, 0x38F1E9D2);
 		}
 	}
 
-	private void renderGroupRow(Gfx g, String group, int x, int y, int w, int mx, int my) {
-		boolean hover = mx >= x && mx <= x + w && my >= y && my < y + 24;
-		float hp = OriginUi.hover("waypoint-group:" + group, hover);
-		OriginUi.panel(g, x, y, w, 24, 8,
-				OriginTheme.lerpColor(0x40101010, OriginTheme.BOX_FILL_HOVER, hp),
-				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, 0xFFFFFFFF, hp));
+	private void drawEmpty(OriginDeck d, float lw) {
+		float cx = M + lw / 2, cy = LIST_Y + 96;
+		d.icon("waypoints", cx - 20, cy - 52, 40, MUTE);
+		d.textCenter("No waypoints yet", cx, cy + 4, 15, true, 0, DIM);
+		if (editing == null) {
+			d.textCenter("Create one and it is placed where you are standing.", cx, cy + 30, 13, false, 0, MUTE);
+		}
+	}
+
+	private void drawGroupRow(OriginDeck d, String group, float x, float y, float w) {
+		boolean hov = d.over(x, y, w, ROW_H);
+		float hp = OriginUi.hover("wp-group:" + group, hov);
+		d.rect(x, y, w, ROW_H, 7, lerp(0x08FFFFFF, 0x12FFFFFF, hp), LINE);
 		boolean open = !COLLAPSED.contains(group);
-		triangle(g, x + 8, y + (open ? 9 : 7), open, 0xFFFFFFFF);
-		OriginText.drawBold(g, font, group, x + 26, y + 8, OriginTheme.TEXT, true);
+		d.icon(open ? "@chev-down" : "@chev-right", x + 14, y + ROW_H / 2 - 7, 14, lerp(DIM, TEXT, hp));
 		int count = 0;
 		for (Waypoints.Waypoint wp : Waypoints.all()) {
 			if (group.equals(wp.group)) {
@@ -499,50 +454,236 @@ public class WaypointScreen extends Screen {
 			}
 		}
 		String n = count + (count == 1 ? " waypoint" : " waypoints");
-		OriginText.draw(g, font, n, x + w - 10 - OriginText.width(font, n), y + 8, OriginTheme.MUTED, true);
+		float nw = d.textW(n, 12, false, 0);
+		d.textMid(d.fit(group, w - 40 - nw - 28, 13.5f, true, 0), x + 38, y + ROW_H / 2, 13.5f, true, 0, TEXT);
+		d.textRight(n, x + w - 14, y + ROW_H / 2, 12, false, 0, MUTE);
+		d.hit(x, y, w, ROW_H, () -> {
+			if (!COLLAPSED.remove(group)) {
+				COLLAPSED.add(group);
+			}
+		});
 	}
 
-	private void renderRow(Gfx g, Waypoints.Waypoint wp, int x, int y, int w, int mx, int my) {
-		boolean hover = mx >= x && mx <= x + w && my >= y && my < y + 24;
+	private void drawRow(OriginDeck d, Waypoints.Waypoint wp, float x, float y, float w) {
 		boolean isEditing = wp == editing;
-		float hp = isEditing ? 1f : OriginUi.hover("waypoint-row:" + wp.id, hover);
-		OriginUi.panel(g, x, y, w, 24, 8,
-				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp),
-				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, 0xFFFFFFFF, hp));
-		OriginUi.panel(g, x + 6, y + 7, 10, 10, 3, wp.color, 0x40FFFFFF);
-		OriginText.drawBold(g, font, wp.name, x + 22, y + 3, wp.enabled ? OriginTheme.TEXT : OriginTheme.MUTED, true);
-		String sub = wp.x + ", " + wp.y + ", " + wp.z + "  ·  " + dimDisplay(wp.dimension);
-		OriginText.draw(g, font, sub, x + 22, y + 13, OriginTheme.MUTED, true);
-		OriginUi.switchAt(g, "wp:" + wp.id, x + w - 74, y + 4, 30, wp.enabled, true);
-		boolean dh = mx >= x + w - 22 && mx <= x + w - 6 && my >= y + 6 && my <= y + 20;
-		g.drawString(font, "✕", x + w - 18, y + 8, dh ? 0xFFF08A90 : 0x99F08A90, false);
+		boolean hov = d.over(x, y, w, ROW_H);
+		float hp = isEditing ? 1f : OriginUi.hover("wp-row:" + wp.id, hov);
+		d.rect(x, y, w, ROW_H, 7, lerp(CARD, OriginDeck.CARD_H, hp),
+				isEditing ? mul(ACC, 0.55f) : lerp(LINE, 0x29F1E9D2, hp));
+		d.hit(x, y, w, ROW_H, () -> beginEdit(wp));   // row body → edit (live-save)
+
+		d.rect(x + 14, y + ROW_H / 2 - 6, 12, 12, 3, wp.color | 0xFF000000, 0x40FFFFFF);
+		float textMax = w - 38 - 12 - 36 - 12 - 28 - 8;
+		d.textMid(d.fit(wp.name, textMax, 13.5f, true, 0), x + 38, y + 16, 13.5f, true, 0, wp.enabled ? TEXT : DIM);
+		String sub = wp.x + ", " + wp.y + ", " + wp.z + "  •  " + dimDisplay(wp.dimension);
+		d.textMid(d.fit(sub, textMax, 11.5f, false, 0), x + 38, y + 31, 11.5f, false, 0, MUTE);
+
+		// trash (far right), then the on/off switch to its left
+		float tx = x + w - 12 - 20;
+		boolean th = d.over(tx - 4, y + 8, 28, 28);
+		d.icon("@trash", tx + 2, y + ROW_H / 2 - 8, 16, th ? RED : mul(RED, 0.55f));
+		d.hit(tx - 4, y + 8, 28, 28, () -> deleteRequested(wp));
+		float sx = tx - 12 - 36;
+		d.toggle("wp:" + wp.id, sx, y + ROW_H / 2 - 10, wp.enabled);
+		d.hit(sx - 4, y + 6, 44, 32, () -> {
+			wp.enabled = !wp.enabled;
+			Waypoints.save();
+		});
 	}
 
-	private void renderConfirm(Gfx g, int mx, int my) {
-		int cw = 240, ch = 80;
-		int x = (width - cw) / 2, y = (height - ch) / 2;
-		g.fill(0, 0, width, height, 0x88000000);
-		OriginUi.panel(g, x, y, cw, ch, 10, 0xF01A1A1A, OriginTheme.STROKE_STRONG);
-		OriginText.drawBold(g, font, "Delete \"" + pendingDelete.name + "\"?", x + 12, y + 14, OriginTheme.TEXT, true);
-		button(g, x + 12, y + 46, 100, 20, "Delete", mx, my);
-		button(g, x + cw - 112, y + 46, 100, 20, "Cancel", mx, my);
+	private void deleteRequested(Waypoints.Waypoint wp) {
+		if (Mods.bool("waypoints", "confirmDelete")) {
+			pendingDelete = wp;
+		} else {
+			deleteNow(wp);
+		}
 	}
 
-	private void button(Gfx g, int x, int y, int w, int h, String label, int mx, int my) {
-		boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + h;
-		float hp = OriginUi.hover("waypoint-button:" + label + ":" + x + ":" + y, hover);
-		OriginUi.bevelPanel(g, x, y, w, h, 3,
-				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hp),
-				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, 0xFFFFFFFF, hp));
-		OriginText.draw(g, font, label, x + (w - OriginText.width(font, label)) / 2, y + (h - 8) / 2, OriginTheme.TEXT, true);
+	private void deleteNow(Waypoints.Waypoint wp) {
+		if (wp == editing) {
+			closeEditor();
+		}
+		Waypoints.remove(wp);
 	}
 
-	private void toggle(Gfx g, int x, int y, String label, boolean on) {
-		OriginText.draw(g, font, label, x, y + 2, OriginTheme.TEXT, true);
-		OriginUi.switchAt(g, "cf:" + label, x + OriginText.width(font, label) + 4, y - 1, 22, on, true);
+	// ---- the editor card ----
+
+	private void drawEditor(OriginDeck d) {
+		float top = LIST_Y;
+		d.rect(ED_X, top, ED_W, LIST_BOTTOM - top, 8, CARD, LINE);
+		// swallow clicks on the card's empty space (they'd otherwise fall through to nothing)
+		d.hit(ED_X, top, ED_W, LIST_BOTTOM - top, () -> {
+		});
+
+		// NAME + GROUP
+		float nameW = Math.round(IN_W * 0.6f), groupX = IN_X + nameW + 12, groupW = IN_X + IN_W - groupX;
+		label(d, "Name", IN_X, top + 28);
+		label(d, "Group", groupX, top + 28);
+		textField(d, 0, IN_X, top + 36, nameW, nameStr, "Waypoint name", null);
+		textField(d, 1, groupX, top + 36, groupW, groupStr, "No group", null);
+
+		// LOCATION: X Y Z + Use current, then the dimension
+		label(d, "Location", IN_X, top + 100);
+		float fy = top + 108, cw = 96;
+		textField(d, 2, IN_X, fy, cw, xStr, "", "X");
+		textField(d, 3, IN_X + cw + 8, fy, cw, yStr, "", "Y");
+		textField(d, 4, IN_X + 2 * (cw + 8), fy, cw, zStr, "", "Z");
+		float ux = IN_X + 3 * (cw + 8) + 4;
+		button(d, "Use current", "@user", ux, fy, IN_X + IN_W - ux, 32, Style.SECONDARY, true, () -> {
+			xStr = String.valueOf(standX());
+			yStr = String.valueOf(groundY());
+			zStr = String.valueOf(standZ());
+			applyBuffers();
+			focus = -1;
+		});
+		dimensionPicker(d, IN_X, top + 148);
+
+		// STYLE: a colour per part (beam/highlight, icon, text, label background),
+		// then a size slider per part (icon, text, distance).
+		label(d, "Style", IN_X, top + 212);
+		float sx = IN_X, sy = top + 220;
+		sx += swatch(d, "Waypoint", sx, sy, editing.color, KEY_COLOR, "Waypoint Color") + 8;
+		sx += swatch(d, "Icon", sx, sy, editing.iconColor, KEY_ICON, "Icon Color") + 8;
+		sx += swatch(d, "Text", sx, sy, editing.textColor, KEY_TEXT, "Text Color") + 8;
+		swatch(d, "Label background", sx, sy, editing.textBgColor, KEY_TEXTBG, "Text Background");
+
+		float colW = (IN_W - 2 * 24) / 3f, ly = top + 274;
+		scaleSlider(d, 0, "Icon size", IN_X, ly, colW, editing.iconScale);
+		scaleSlider(d, 1, "Text size", IN_X + colW + 24, ly, colW, editing.textScale);
+		scaleSlider(d, 2, "Distance size", IN_X + 2 * (colW + 24), ly, colW, editing.distScale);
+
+		// DISPLAY
+		label(d, "Display", IN_X, top + 340);
+		float cx = IN_X, cy = top + 348;
+		Waypoints.Waypoint w = editing;
+		cx += flagChip(d, "Icon", cx, cy, w.showIcon, () -> w.showIcon = !w.showIcon) + 8;
+		cx += flagChip(d, "Text", cx, cy, w.showText, () -> w.showText = !w.showText) + 8;
+		cx += flagChip(d, "Beam", cx, cy, w.showBeam, () -> w.showBeam = !w.showBeam) + 8;
+		cx += flagChip(d, "Distance", cx, cy, w.showDistance, () -> w.showDistance = !w.showDistance) + 8;
+		flagChip(d, "Highlight", cx, cy, w.highlightBlock, () -> w.highlightBlock = !w.highlightBlock);
+	}
+
+	/** A text field bound to focus slot `slot`; `axis` (X/Y/Z) is shown at its right edge. */
+	private void textField(OriginDeck d, int slot, float x, float y, float w, String value, String placeholder,
+			String axis) {
+		field(d, x, y, w, 32, value, placeholder, focus == slot, null);
+		if (axis != null) {
+			d.textRight(axis, x + w - 12, y + 16, 11, true, 0, MUTE);
+		}
+		d.hit(x, y, w, 32, () -> focus = slot);
+	}
+
+	/** Overworld / Nether / End as one segmented control (plus the waypoint's own
+	 *  dimension when it's a modded one, shown selected). */
+	private void dimensionPicker(OriginDeck d, float x, float y) {
+		List<String> dims = new ArrayList<>(List.of(DIMS));
+		if (!dims.contains(editing.dimension)) {
+			dims.add(editing.dimension);
+		}
+		float total = 0;
+		float[] ws = new float[dims.size()];
+		for (int i = 0; i < dims.size(); i++) {
+			ws[i] = 28 + d.textW(dimDisplay(dims.get(i)).toUpperCase(Locale.ROOT), 11, true, CAPS_TRACK);
+			total += ws[i];
+		}
+		d.rect(x, y, total + 8, 32, 6, 0x0AFFFFFF, LINE);
+		float sx = x + 4;
+		for (int i = 0; i < dims.size(); i++) {
+			String dim = dims.get(i);
+			boolean on = dim.equals(editing.dimension);
+			boolean hov = d.over(sx, y + 4, ws[i], 24);
+			if (on) {
+				d.rect(sx, y + 4, ws[i], 24, 5, 0x1AFFFFFF);
+			} else if (hov) {
+				d.rect(sx, y + 4, ws[i], 24, 5, 0x0AFFFFFF);
+			}
+			d.textCenter(dimDisplay(dim).toUpperCase(Locale.ROOT), sx + ws[i] / 2, y + 16, 11, true, CAPS_TRACK,
+					on ? TEXT : hov ? DIM : MUTE);
+			d.hit(sx, y + 4, ws[i], 24, () -> {
+				editing.dimension = dim;
+				persist();
+			});
+			sx += ws[i];
+		}
+	}
+
+	/** A colour swatch + its name in one chip; click opens the shared picker. Returns its width. */
+	private float swatch(OriginDeck d, String label, float x, float y, int color, String key, String pickerTitle) {
+		float w = 8 + 20 + 10 + d.textW(label, 13, false, 0) + 12;
+		boolean hov = d.over(x, y, w, 32);
+		boolean open = ("waypoints:" + key).equals(OriginColorPicker.openKey());
+		d.rect(x, y, w, 32, 6, open || hov ? 0x14FFFFFF : 0x0AFFFFFF, open ? 0x40FFFFFF : 0);
+		d.rect(x + 8, y + 6, 20, 20, 4, color | 0xFF000000, LINE2);
+		d.textMid(label, x + 38, y + 16, 13, false, 0, hov || open ? TEXT : DIM);
+		d.hit(x, y, w, 32, () -> {
+			if (open) {
+				OriginColorPicker.close();
+			} else {
+				Mods.set("waypoints", key, color);
+				OriginColorPicker.open("waypoints", key, pickerTitle, d.guiX(x), d.guiY(y + 36));
+			}
+			focus = -1;
+		});
+		return w;
+	}
+
+	/** One size slider column: name + value on top, the mock's slider under it. */
+	private void scaleSlider(OriginDeck d, int idx, String label, float x, float y, float w, double v) {
+		d.textMid(label, x, y + 8, 13, false, 0, DIM);
+		// 2 decimals when the 0.05 steps need it (e.g. 0.25x), else 1.
+		String val = Math.round(v * 100) % 10 == 0 ? String.format(Locale.ROOT, "%.1fx", v)
+				: String.format(Locale.ROOT, "%.2fx", v);
+		d.textRight(val, x + w, y + 8, 13, false, 0, TEXT);
+		float tx = x + 7, tw = w - 14;
+		d.slider(tx, y + 30, tw, (float) fracFromScale(v), dragSlider == idx);
+		d.hit(x, y + 18, w, 24, () -> {
+			dragSlider = idx;
+			dragX0 = tx;
+			dragX1 = tx + tw;
+			focus = -1;
+		});
+	}
+
+	/** An on/off chip in the filter-chip style (accent when on). Returns its width. */
+	private float flagChip(OriginDeck d, String label, float x, float y, boolean on, Runnable flip) {
+		String caps = label.toUpperCase(Locale.ROOT);
+		float w = 24 + d.textW(caps, 11, true, CAPS_TRACK);
+		boolean hov = d.over(x, y, w, 32);
+		float hp = OriginUi.hover("wp-flag:" + label, hov);
+		d.rect(x, y, w, 32, 6, on ? lerp(ACC_SOFT, 0x385FD09B, hp) : lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
+		d.textMid(caps, x + 12, y + 16, 11, true, CAPS_TRACK, on ? ACC : lerp(MUTE, DIM, hp));
+		d.hit(x, y, w, 32, () -> {
+			flip.run();
+			persist();
+		});
+		return w;
+	}
+
+	// ---- delete confirmation (the mod menu's dialog) ----
+
+	private void drawConfirm(OriginDeck d) {
+		d.hit(-10000, -10000, 20000, 20000, () -> pendingDelete = null);
+		d.rect(0, 0, W, H, 8, 0x8C000000);
+		float w = 340, h = 148, x = (W - w) / 2, y = (H - h) / 2;
+		d.rect(x, y, w, h, 8, 0xFA181D1A, LINE2);
+		d.hit(x, y, w, h, () -> {
+		});
+		d.textMid("Delete this waypoint?", x + 20, y + 30, 15, true, 0, TEXT);
+		d.textMid(d.fit("\"" + pendingDelete.name + "\" will be removed for good.", w - 40, 13, false, 0),
+				x + 20, y + 56, 13, false, 0, DIM);
+		float bw = (w - 40 - 12) / 2, by = y + h - 20 - 34;
+		button(d, "Cancel", null, x + 20, by, bw, 34, Style.SECONDARY, true, () -> pendingDelete = null);
+		button(d, "Delete", null, x + 20 + bw + 12, by, bw, 34, Style.DANGER, true, () -> {
+			Waypoints.Waypoint wp = pendingDelete;
+			pendingDelete = null;
+			if (wp != null) {
+				deleteNow(wp);
+			}
+		});
 	}
 
 	// ---- input ----
+
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
 		if (OriginColorPicker.isOpen()) {
@@ -551,188 +692,14 @@ public class WaypointScreen extends Screen {
 			persist();
 			return true;
 		}
-		int x = px(), y = py(), w = pw();
-		if (pendingDelete != null) {
-			int cw = 240, ch = 80, dx = (width - cw) / 2, dy = (height - ch) / 2;
-			if (in(mx, my, dx + 12, dy + 46, dx + 112, dy + 66)) {
-				if (pendingDelete == editing) {
-					editing = null;
-				}
-				Waypoints.remove(pendingDelete);
-				pendingDelete = null;
-			} else if (in(mx, my, dx + cw - 112, dy + 46, dx + cw - 12, dy + 66)) {
-				pendingDelete = null;
-			}
-			return true;
+		if (button == 0) {
+			focus = -1;   // a click on a field's hit focuses it again
 		}
-		int by = y + 36;
-		if (in(mx, my, x + 12, by, x + 102, by + 18)) {          // Create / Done
-			if (editing != null) {
-				commitDone();
-			} else {
-				createDraft();
-			}
-			return true;
-		}
-		for (Tog t : globalToggles()) {
-			if (in(mx, my, t.x0(), by, t.x1(), by + 18)) {
-				Mods.set("waypoints", t.key(), !t.on());
-				return true;
-			}
-		}
-		if (editing != null && clickForm(mx, my, x, formY(), button)) {
-			return true;
-		}
-		focus = -1;
-		int top = listTop(), bottom = listBottom();
-		if (my >= top && my <= bottom) {
-			int ry = top - (int) Math.round(scroll);
-			for (Row row : rows()) {
-				if (my >= ry && my < ry + 24) {
-					if (row.group() != null) {
-						if (in(mx, my, x + 12, ry, x + w - 12, ry + 24)) {
-							if (!COLLAPSED.remove(row.group())) {
-								COLLAPSED.add(row.group());
-							}
-							return true;
-						}
-					} else {
-						Waypoints.Waypoint wp = row.wp();
-						boolean nested = wp.group != null && !wp.group.isEmpty();
-						int rx = x + 12 + (nested ? 14 : 0), rw = w - 24 - (nested ? 14 : 0);
-						if (in(mx, my, rx + rw - 74, ry + 4, rx + rw - 44, ry + 20)) {
-							wp.enabled = !wp.enabled;
-							Waypoints.save();
-							return true;
-						}
-						if (in(mx, my, rx + rw - 22, ry + 6, rx + rw - 6, ry + 20)) {
-							if (Mods.bool("waypoints", "confirmDelete")) {
-								pendingDelete = wp;
-							} else {
-								if (wp == editing) {
-									editing = null;
-								}
-								Waypoints.remove(wp);
-							}
-							return true;
-						}
-						if (in(mx, my, rx, ry, rx + rw, ry + 24)) {
-							beginEdit(wp);   // row body → edit (live-save)
-							return true;
-						}
-					}
-				}
-				ry += 28;
-			}
-		}
-		return super.mouseClicked(mx, my, button);
-	}
-
-	private boolean clickForm(double mx, double my, int x, int y, int button) {
-		if (in(mx, my, x + 56, y + ROW_NAME, x + 174, y + ROW_NAME + 14)) {
-			focus = 0;
-			return true;
-		}
-		if (in(mx, my, x + 222, y + ROW_NAME, x + 310, y + ROW_NAME + 14)) {
-			focus = 1;
-			return true;
-		}
-		if (in(mx, my, x + 44, y + ROW_POS, x + 100, y + ROW_POS + 14)) {
-			focus = 2;
-			return true;
-		}
-		if (in(mx, my, x + 104, y + ROW_POS, x + 160, y + ROW_POS + 14)) {
-			focus = 3;
-			return true;
-		}
-		if (in(mx, my, x + 164, y + ROW_POS, x + 220, y + ROW_POS + 14)) {
-			focus = 4;
-			return true;
-		}
-		if (in(mx, my, x + 226, y + ROW_POS, x + 310, y + ROW_POS + 14)) {   // Use Current
-			xStr = String.valueOf(standX());
-			yStr = String.valueOf(groundY());
-			zStr = String.valueOf(standZ());
-			applyBuffers();
-			focus = -1;
-			return true;
-		}
-		if (in(mx, my, x + 44, y + ROW_DIM, x + 174, y + ROW_DIM + 14)) {    // dimension cycle
-			cycleDim(button == 1 ? -1 : 1);
-			persist();
-			return true;
-		}
-		// STYLE: the four colour swatches open the full shared picker
-		if (in(mx, my, x + 56, y + ROW_COLOR, x + 86, y + ROW_COLOR + 14)) {
-			openPicker(KEY_COLOR, editing.color, "Waypoint Color", x + 56, y + ROW_COLOR + 16);
-			return true;
-		}
-		if (in(mx, my, x + 122, y + ROW_COLOR, x + 152, y + ROW_COLOR + 14)) {
-			openPicker(KEY_ICON, editing.iconColor, "Icon Color", x + 122, y + ROW_COLOR + 16);
-			return true;
-		}
-		if (in(mx, my, x + 188, y + ROW_COLOR, x + 218, y + ROW_COLOR + 14)) {
-			openPicker(KEY_TEXT, editing.textColor, "Text Color", x + 188, y + ROW_COLOR + 16);
-			return true;
-		}
-		if (in(mx, my, x + 246, y + ROW_COLOR, x + 276, y + ROW_COLOR + 14)) {
-			openPicker(KEY_TEXTBG, editing.textBgColor, "Text Background", x + 246, y + ROW_COLOR + 16);
-			return true;
-		}
-		// scale bars
-		if (in(mx, my, x + 48, y + ROW_SCALE - 3, x + 112, y + ROW_SCALE + 12)) {
-			dragSlider = 0;
+		boolean used = super.mouseClicked(mx, my, button);
+		if (dragSlider >= 0 && editing != null) {   // a press on a track jumps the thumb there
 			applyScale(mx);
-			return true;
 		}
-		if (in(mx, my, x + 152, y + ROW_SCALE - 3, x + 216, y + ROW_SCALE + 12)) {
-			dragSlider = 1;
-			applyScale(mx);
-			return true;
-		}
-		if (in(mx, my, x + 256, y + ROW_SCALE - 3, x + 320, y + ROW_SCALE + 12)) {
-			dragSlider = 2;
-			applyScale(mx);
-			return true;
-		}
-		// DISPLAY toggles
-		if (in(mx, my, x + 20, y + ROW_TOG, x + 74, y + ROW_TOG + 14)) {
-			editing.showIcon = !editing.showIcon;
-			persist();
-			return true;
-		}
-		if (in(mx, my, x + 80, y + ROW_TOG, x + 134, y + ROW_TOG + 14)) {
-			editing.showText = !editing.showText;
-			persist();
-			return true;
-		}
-		if (in(mx, my, x + 140, y + ROW_TOG, x + 198, y + ROW_TOG + 14)) {
-			editing.showBeam = !editing.showBeam;
-			persist();
-			return true;
-		}
-		if (in(mx, my, x + 204, y + ROW_TOG, x + 280, y + ROW_TOG + 14)) {
-			editing.showDistance = !editing.showDistance;
-			persist();
-			return true;
-		}
-		if (in(mx, my, x + 286, y + ROW_TOG, x + 364, y + ROW_TOG + 14)) {
-			editing.highlightBlock = !editing.highlightBlock;
-			persist();
-			return true;
-		}
-		if (in(mx, my, x + 20, y + ROW_DONE, x + 150, y + ROW_DONE + 20)) {  // Done
-			commitDone();
-			return true;
-		}
-		focus = -1;
-		return false;
-	}
-
-	private void openPicker(String key, int current, String label, int ax, int ay) {
-		Mods.set("waypoints", key, current);
-		OriginColorPicker.open("waypoints", key, label, ax, ay);
-		focus = -1;
+		return used;
 	}
 
 	@Override
@@ -763,19 +730,27 @@ public class WaypointScreen extends Screen {
 		return super.mouseReleased(mx, my, button);
 	}
 
-	// Each scale bar is 64px wide (see renderForm), mapping to 0.5x .. 2.0x.
-	private void applyScale(double mx) {
-		int sliderX = px() + switch (dragSlider) {
-			case 0 -> 48;
-			case 1 -> 152;
-			default -> 256;
-		};
-		double t = clamp01((mx - sliderX) / 64.0);
+	@Override
+	public boolean mouseScrolled(double mx, double my, double sy) {
+		if (OriginColorPicker.isOpen() || pendingDelete != null) {
+			return true;
+		}
+		return super.mouseScrolled(mx, my, sy);
+	}
+
+	// Each scale bar maps its track (recorded when it was pressed) to 0.25x .. 2.0x.
+	private void applyScale(double guiMx) {
+		if (dragX1 <= dragX0) {
+			return;
+		}
+		double t = clamp01((dX(guiMx) - dragX0) / (double) (dragX1 - dragX0));
 		double v = Math.round(scaleFromFrac(t) * 20) / 20.0;   // snap to 0.05
 		switch (dragSlider) {
 			case 0 -> editing.iconScale = v;
 			case 1 -> editing.textScale = v;
 			case 2 -> editing.distScale = v;
+			default -> {
+			}
 		}
 	}
 
@@ -800,16 +775,6 @@ public class WaypointScreen extends Screen {
 				yield p.replace('_', ' ');
 			}
 		};
-	}
-
-	private void cycleDim(int dir) {
-		int idx = -1;
-		for (int i = 0; i < DIMS.length; i++) {
-			if (DIMS[i].equals(editing.dimension)) {
-				idx = i;
-			}
-		}
-		editing.dimension = idx < 0 ? DIMS[0] : DIMS[(idx + dir + DIMS.length) % DIMS.length];
 	}
 
 	// ---- typing ----
@@ -876,30 +841,22 @@ public class WaypointScreen extends Screen {
 			focus = focus >= 4 ? 0 : focus + 1;
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-			// ESC: existing edits are already saved; an uncommitted create-draft is
-			// DISCARDED (creating requires Done). Then exit.
-			if (isNew) {
-				editing = null;
-				isNew = false;
-			}
-			Waypoints.save();
-			Minecraft.getInstance().setScreen(null);
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE && pendingDelete != null) {
+			pendingDelete = null;   // Esc first dismisses the delete dialog
 			return true;
 		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
+		return super.keyPressed(keyCode, scanCode, modifiers);   // Esc → back()
 	}
 
+	/** Esc / back chevron: an uncommitted create-draft is DISCARDED (creating
+	 *  requires Done), existing edits are already saved; then back to the game. */
 	@Override
-	public boolean mouseScrolled(double mx, double my, double amount) {
-		int content = rows().size() * 28;
-		int maxScroll = Math.max(0, content - (listBottom() - listTop()));
-		scrollTarget = Math.max(0, Math.min(maxScroll, scrollTarget - amount * 28));
-		return true;
-	}
-
-	private static boolean in(double mx, double my, double x0, double y0, double x1, double y1) {
-		return mx >= x0 && mx < x1 && my >= y0 && my < y1;
+	protected void back() {
+		if (isNew) {
+			closeEditor();
+		}
+		Waypoints.save();
+		beginClose();
 	}
 
 	private static double clamp01(double v) {

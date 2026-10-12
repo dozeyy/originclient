@@ -18,7 +18,7 @@ import java.io.File;
  * the game's own screens -- Select World -> "Create New World" -> "Create New
  * World" -- by pressing the buttons by their translated label (the same keys
  * on every version), waits for the world to draw, then captures it with Color
- * Saturation off and on, and quits.
+ * Saturation off and on, then the pause menu and the Cosmetics window, and quits.
  */
 final class OriginDevWorld {
 	private OriginDevWorld() {
@@ -84,13 +84,29 @@ final class OriginDevWorld {
 			if (phase == 3) {
 				grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
-				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				// The pause menu (its Cosmetics button sits among vanilla's buttons).
+				mc.setScreen(new PauseScreen(true));
 				phase = 4;
+				nextAt = now + 1500;
+				return;
+			}
+			if (phase == 4) {
+				grab(mc, dir, "pause_1920x1080.png");
+				// The Cosmetics window over the world: its preview is the real player here.
+				mc.setScreen(new com.origin.client.client.gui.CosmeticsScreen(null));
+				phase = 5;
+				nextAt = now + 2500;
+				return;
+			}
+			if (phase == 5) {
+				grab(mc, dir, "cosmetics_world_1920x1080.png");
+				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				phase = 6;
 				mc.stop();
 			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] world step {} failed", phase, t);
-			phase = 4;
+			phase = 6;
 			mc.stop();
 		}
 	}
