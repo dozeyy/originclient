@@ -235,7 +235,8 @@ floating corner controls. In-game menus match this exactly.
   as tabs inside Video Settings. It's Sodium's Config API — present only on stable
   Sodium 0.8 (the 1.21.8/1.21.10/1.21.11 line), so those versions will use it
   natively; **1.21.1 stays on stable Sodium 0.6.13** (its 0.8 is a shader-breaking
-  alpha) and gets the same look via a Sodium 0.6.13 GUI mixin. Not yet built. Full
+  alpha) and gets the same look via a Sodium 0.6.13 GUI mixin. **1.21.1 built 2026-10-11**
+  (SodiumOptionsRailMixin + gui/SodiumModRail, CI-compiled, awaiting in-game pass). Full
   findings in MEMORY.md → video-settings-mod-rail.
 - **1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4 went LIVE 2026-07-15**
   (`launcher-v1.0.24`) — Will's order: 1.16.5 and everything above it, skipping
