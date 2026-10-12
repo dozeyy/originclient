@@ -138,6 +138,12 @@ public class HudEditorScreen extends Screen {
 			}
 			HudPos pos = e.pos();
 			int[] size = e.measure().apply(mc);
+			if (size[0] <= 0 && size[1] <= 0) {
+				// 0x0 = nothing to place right now (an off sub-feature, e.g. the
+				// Saturation HUD or a non-separate Locator Bar): no box, no X button
+				// -- the X would switch off the whole owning mod.
+				continue;
+			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = e.id().equals(draggingId) ? dragX : pos.x(width, w);
 			double y = e.id().equals(draggingId) ? dragY : pos.y(height, h);
@@ -276,6 +282,12 @@ public class HudEditorScreen extends Screen {
 			}
 			HudPos pos = e.pos();
 			int[] size = e.measure().apply(mc);
+			if (size[0] <= 0 && size[1] <= 0) {
+				// 0x0 = nothing to place right now (an off sub-feature, e.g. the
+				// Saturation HUD or a non-separate Locator Bar): no box, no X button
+				// -- the X would switch off the whole owning mod.
+				continue;
+			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(width, w), y = pos.y(height, h);
 			int ox0 = (int) x - 4, oy0 = (int) y - 4, ox1 = (int) (x + w) + 4, oy1 = (int) (y + h) + 4;
