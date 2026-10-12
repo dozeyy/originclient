@@ -84,7 +84,9 @@ function per item.
 3. Tebex → Integrations → **Headless API**: copy the webstore's **public token**
    (never the private key).
 4. Give Claude the token and the package ids. Claude puts them in `STORE.webstore`
-   and each item's `tebex` field.
+   and each item's `tebex` field. **Done 2026-10-12** (all 12 packages; ids in
+   `website/js/store.js`). Check anytime in a browser:
+   `https://headless.tebex.io/api/accounts/<STORE.webstore>/categories?includePackages=1`.
 5. Once in-game cosmetics exist, Claude flips `STORE.live = true`. Then make one
    real test purchase to your own Minecraft name and refund it from Tebex.
 
