@@ -521,6 +521,15 @@ public final class HudElements {
 		PortalCalcHud.register();
 	}
 
+	// ---- Origin originals: Friends & Party (2026-10-12) ----
+	// The Party HUD (docs/SOCIAL.md C): name, health, distance, direction per
+	// member in a LAN world, names + online status elsewhere. Left edge under
+	// Combo / Reach; shown in the editor only while you're in a party.
+	static {
+		add("party", com.origin.client.client.social.Social.MOD, "Party", new HudPos(3, 6, 56, 1.0),
+				com.origin.client.client.social.PartyWorld::hudSize, com.origin.client.client.social.PartyWorld::hudRender);
+	}
+
 	// Package-private so Readouts (the Lunar-parity readouts) registers into the same list.
 	static void add(String id, String modId, String label, HudPos def,
 							java.util.function.Function<Minecraft, int[]> measure, Renderer r) {
@@ -856,6 +865,12 @@ public final class HudElements {
 				// One bad element must never take the HUD down.
 			}
 			p.popPose();
+		}
+		// Party markers + pings (Friends & Party): the same screen-projected overlay.
+		try {
+			com.origin.client.client.social.PartyWorld.renderMarkers(g);
+		} catch (Throwable t) {
+			// never takes the HUD down
 		}
 		// Waypoint icon/name/distance overlay — screen-projected so it's always
 		// visible (through blocks) and untouched by world lighting/shaders.

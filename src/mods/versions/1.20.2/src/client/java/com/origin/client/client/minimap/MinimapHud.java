@@ -342,6 +342,7 @@ public final class MinimapHud {
 			if (Mods.bool(MOD, "showWaypoints") && Mods.on("waypoints")) {
 				MinimapRenderer.waypoints(g, v, Mods.bool(MOD, "showDistantWaypoints"), 2.5f);
 			}
+			MinimapRenderer.party(g, v, 2f);
 		}
 		// The arrow points where you face: straight up when the map turns with you.
 		double fx = -Math.sin(yawRad), fz = Math.cos(yawRad);

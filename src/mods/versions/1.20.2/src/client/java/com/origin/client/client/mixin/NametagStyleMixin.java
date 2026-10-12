@@ -35,6 +35,17 @@ public class NametagStyleMixin {
 										  // captured params of renderNameTag (entity is the one we need):
 										  Entity entity, Component displayName, PoseStack poseStack,
 										  MultiBufferSource bufferSource, int packedLight) {
+		// Friends & Party: a party member's tag in the party colour (LAN worlds only;
+		// PartyWorld decides). Keeps vanilla's per-pass alpha like the colours below.
+		Integer party = null;
+		try {
+			party = com.origin.client.client.social.PartyWorld.nametagTint(entity);
+		} catch (Throwable ignored) {
+			// no tint
+		}
+		if (party != null) {
+			color = (color & 0xFF000000) | (party & 0xFFFFFF);
+		}
 		if (!Mods.on("nametags")) {
 			return font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
 		}
@@ -52,6 +63,8 @@ public class NametagStyleMixin {
 		int rgb = color & 0xFFFFFF;
 		if (over) {
 			rgb = Mods.color("nametags", "ownTextColor") & 0xFFFFFF;
+		} else if (party != null) {
+			// the party colour wins over the global custom colour
 		} else if (Mods.bool("nametags", "overrideColor")) {
 			rgb = Mods.color("nametags", "textColor") & 0xFFFFFF;
 		}

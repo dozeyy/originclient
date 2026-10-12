@@ -185,6 +185,13 @@ public class OriginClientMod implements ClientModInitializer {
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
 		}
+		// Friends, chat and parties (docs/SOCIAL.md): the service client (background
+		// thread, fail-soft), its tick / world / toast-click hooks and /originpc.
+		try {
+			com.origin.client.client.social.Social.init();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: friends failed to start", t);
+		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {
