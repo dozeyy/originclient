@@ -228,4 +228,20 @@ public final class Gfx {
 			s.renderTooltip(pose, text, mouseX, mouseY);
 		}
 	}
+
+	// ---- shapes the Lunar-parity mods call ----
+
+	/** drawString for already laid-out text (a wrapped line of a pack description). */
+	public int drawString(Font font, net.minecraft.util.FormattedCharSequence text, int x, int y, int color, boolean shadow) {
+		return shadow ? font.drawShadow(pose, text, x, y, color) : font.draw(pose, text, x, y, color);
+	}
+
+	/** A player head from a 64x64 skin: face (8,8) + hat layer (40,8). No
+	 *  PlayerFaceRenderer before 1.19, so the two layers are blitted directly,
+	 *  the way this era's own PlayerTabOverlay draws heads. */
+	public void face(ResourceLocation skin, int x, int y, int size) {
+		RenderSystem.enableBlend();
+		blit(skin, x, y, size, size, 8f, 8f, 8, 8, 64, 64);
+		blit(skin, x, y, size, size, 40f, 8f, 8, 8, 64, 64);
+	}
 }

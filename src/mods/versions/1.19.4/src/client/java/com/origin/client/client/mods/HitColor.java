@@ -1,0 +1,97 @@
+package com.origin.client.client.mods;
+
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.origin.client.client.gui.OriginColorPicker;
+import com.origin.client.client.mixin.OverlayTextureAccessor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import org.lwjgl.opengl.GL13;
+
+/**
+ * Hit Color (Lunar parity): recolours the damage flash.
+ *
+ * How vanilla does the flash (same on 1.18.1-1.21.1, decompiled 1.19.4 / 1.18.1
+ * OverlayTexture verified): OverlayTexture is a 16x16
+ * texture whose top 8 rows hold one pixel colour -- red, alpha 0xB2 -- and the
+ * entity shaders mix it in as  colour = mix(overlay.rgb, colour, overlay.a)  for
+ * any entity with hurtTime > 0. So the texture alpha is how much of the ORIGINAL
+ * colour survives. Origin repaints those rows: the player's colour, with the
+ * picker's opacity meaning "how strong the flash is" (alpha = 255 - opacity).
+ * Turning the mod off paints vanilla's pixel back.
+ *
+ * sync() runs once a frame (GameRendererFrameMixin) and re-uploads only when the
+ * wanted colour changed, so a steady colour costs one int compare per frame.
+ *
+ * Color Armor: worn armor never flashes in vanilla (pre-1.20 HumanoidArmorLayer
+ * draws it with OverlayTexture.NO_OVERLAY). While a hurt entity's armor draws,
+ * its red/green/blue tint is pulled toward the hit colour instead
+ * (HumanoidArmorLayerMixin; pre-1.21 renderModel takes the tint as three
+ * floats rather than one ARGB int).
+ */
+public final class HitColor {
+	private static final String MOD = "hitcolor";
+	/** Vanilla's pixel, as NativeImage stores it (ABGR): red, alpha 0xB2. */
+	private static final int VANILLA_ABGR = 0xB20000FF;
+
+	private static int applied = VANILLA_ABGR;
+	private static boolean broken = false;
+
+	/** Set by HumanoidArmorLayerMixin for the armor piece being drawn. */
+	public static boolean armorHurt = false;
+
+	private HitColor() {
+	}
+
+	public static void sync() {
+		if (broken) {
+			return;
+		}
+		int want = VANILLA_ABGR;
+		if (Mods.on(MOD)) {
+			int c = OriginColorPicker.liveColor(MOD, "color");
+			int strength = (c >>> 24) & 0xFF;
+			int r = (c >> 16) & 0xFF, gr = (c >> 8) & 0xFF, b = c & 0xFF;
+			want = ((255 - strength) << 24) | (b << 16) | (gr << 8) | r;
+		}
+		if (want == applied) {
+			return;
+		}
+		try {
+			DynamicTexture tex = ((OverlayTextureAccessor) Minecraft.getInstance().gameRenderer.overlayTexture())
+					.originclient$texture();
+			NativeImage px = tex.getPixels();
+			if (px == null) {
+				return;
+			}
+			for (int y = 0; y < 8; y++) {
+				for (int x = 0; x < 16; x++) {
+					px.setPixelRGBA(x, y, want);
+				}
+			}
+			// Same upload vanilla's constructor does: texture unit 1 (the overlay
+			// sampler's unit), no blur, clamped, then back to unit 0.
+			RenderSystem.activeTexture(GL13.GL_TEXTURE1);
+			tex.bind();
+			px.upload(0, 0, 0, 0, 0, px.getWidth(), px.getHeight(), false, true, false, false);
+			RenderSystem.activeTexture(GL13.GL_TEXTURE0);
+			applied = want;
+		} catch (Throwable t) {
+			broken = true;
+			com.origin.client.OriginClient.LOGGER.warn("Origin: Hit Color could not repaint the overlay texture", t);
+		}
+	}
+
+	/** Color Armor: one channel (0 red, 1 green, 2 blue) of the armor layer's
+	 *  tint, pulled toward the hit colour by its opacity while the wearer is
+	 *  hurt. Untouched otherwise. */
+	public static float tintArmor(float channel, int index) {
+		if (!armorHurt || !Mods.on(MOD) || !Mods.bool(MOD, "colorArmor")) {
+			return channel;
+		}
+		int c = OriginColorPicker.liveColor(MOD, "color");
+		float s = ((c >>> 24) & 0xFF) / 255f;
+		int target = (c >> (16 - 8 * index)) & 0xFF;
+		return channel * (1 - s + s * target / 255f);
+	}
+}
