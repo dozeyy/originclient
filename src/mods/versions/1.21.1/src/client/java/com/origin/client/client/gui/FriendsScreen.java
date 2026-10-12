@@ -12,7 +12,6 @@ import com.origin.client.client.social.SocialState.Message;
 import com.origin.client.client.social.SocialState.PartyInvite;
 import com.origin.client.client.social.SocialState.PartyMessage;
 import com.origin.client.client.social.SocialState.Request;
-import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -196,8 +195,14 @@ public class FriendsScreen extends OriginWindow {
 			}
 		} catch (Throwable t) {
 			// a draw failure leaves the bare frame; Esc / close still work
+			if (!drawWarned) {
+				drawWarned = true;
+				com.origin.client.OriginClient.LOGGER.warn("Origin: Friends window draw failed", t);
+			}
 		}
 	}
+
+	private static boolean drawWarned = false;
 
 	private boolean friendSelected() {
 		return sel != null && !PARTY.equals(sel);
@@ -865,7 +870,7 @@ public class FriendsScreen extends OriginWindow {
 
 	@Override
 	public boolean charTyped(char chr, int modifiers) {
-		if (!SharedConstants.isAllowedChatCharacter(chr)) {
+		if (!net.minecraft.util.StringUtil.isAllowedChatCharacter(chr)) {
 			return super.charTyped(chr, modifiers);
 		}
 		if (focus == Focus.NONE && sel != null && SocialClient.status() == SocialClient.Status.READY

@@ -58,8 +58,10 @@ import java.util.concurrent.TimeUnit;
  *  - the client thread only READS snapshots ({@link #state()}, chats) and
  *    writes plain presence values ({@link #setPresence}); toasts and chat lines
  *    reach it through {@link #EVENTS}, drained in Social.tick;
- *  - adaptive polling inside the contract's request budget (4 s while live,
- *    30 s idle, 60 s once the window has been unfocused 5 minutes);
+ *  - adaptive polling inside the contract's request budget (4 s while the
+ *    Friends window is open, the party shares your LAN world or a DM/invite
+ *    just arrived; 20 s in a party; 30 s idle; 60 s once the game window has
+ *    been unfocused 5 minutes);
  *  - everything fails soft: no service, no endpoints yet, no network or an
  *    offline account just means a calm message in the Friends window, never an
  *    error in game. Failures back off (15 s doubling to 5 min).
@@ -84,7 +86,7 @@ public final class SocialClient {
 	static final boolean DEMO = OriginDevShots.enabled();
 
 	// ---- the contract's request budget ----
-	private static final long LIVE_MS = 4_000, IDLE_MS = 30_000, AWAY_MS = 60_000;
+	private static final long LIVE_MS = 4_000, PARTY_MS = 20_000, IDLE_MS = 30_000, AWAY_MS = 60_000;
 	private static final long AWAY_AFTER_MS = 5 * 60_000, HOT_MS = 2 * 60_000;
 	private static final long MISSING_RETRY_MS = 5 * 60_000, SIGNED_OUT_RETRY_MS = 10 * 60_000;
 	private static final long WAKE_FLOOR_WHEN_DOWN_MS = 60_000;
@@ -144,7 +146,6 @@ public final class SocialClient {
 	private static JsonElement friendsEtag = null;
 	/** The last sync asked for our position (another online member is on our server). */
 	private static boolean wantState = true;
-	private static long stateSentAt = 0;
 	private static boolean firstSync = true;
 	private static long nextSyncAt = 0, lastAttemptAt = 0;
 	private static int failures = 0;
@@ -451,8 +452,8 @@ public final class SocialClient {
 	}
 
 	private static long interval(long now) {
-		boolean live = windowOpen || state.party() != null || now < hotUntil;
-		long base = live ? LIVE_MS : IDLE_MS;
+		boolean live = windowOpen || (state.party() != null && wantState) || now < hotUntil;
+		long base = live ? LIVE_MS : state.party() != null ? PARTY_MS : IDLE_MS;
 		long away = unfocusedSince;
 		if (away > 0 && now - away > AWAY_AFTER_MS) {
 			base = AWAY_MS;
@@ -477,12 +478,13 @@ public final class SocialClient {
 		}
 		pres.addProperty("version", p.version());
 		body.add("presence", pres);
-		// Every sync while the service wants it (another member is in our LAN world),
-		// else a 30 s heartbeat so it can tell when someone joins us.
-		long now = System.currentTimeMillis();
-		PartyStateOut ps = state.party() != null && (wantState || now - stateSentAt > 30_000) ? p.party() : null;
-		if (ps != null) {
-			stateSentAt = now;
+		// The position only while the service wants it (another member is in our LAN
+		// world); otherwise just the world's key (`stateServer`), so it can tell us
+		// when someone joins. Both off unless FairPlay allows positions here.
+		PartyStateOut here = state.party() != null ? p.party() : null;
+		PartyStateOut ps = here != null && wantState ? here : null;
+		if (here != null && !wantState) {
+			body.addProperty("stateServer", here.server());
 		}
 		if (ps != null) {
 			JsonObject o = new JsonObject();
