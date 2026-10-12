@@ -1,0 +1,71 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.5.1-bin.zip
+.............10%.............20%..............30%.............40%.............50%..............60%.............70%..............80%.............90%.............100%
+
+Welcome to Gradle 9.5.1!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.17.21
+
+> Task :compileJava
+> Task :processResources
+> Task :classes
+> Task :originApiDump
+[api-dump] wrote 6912 classes to /home/runner/work/_temp/shots/screenshots/api
+
+> Task :compileClientJava
+> Task :processClientResources
+> Task :clientClasses
+> Task :generateLog4jConfig
+> Task :generateDLIConfig
+> Task :configureLaunch
+> Task :downloadAssets
+> Task :configureClientLaunch
+
+> Task :runClient
+[22:03:42] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.2 with Fabric Loader 0.19.3
+[22:03:42] [main/INFO] (FabricLoader/Mappings) Mappings not present!
+[22:03:43] [main/WARN] (FabricLoader/Resolution) Mod resolution failed
+[22:03:43] [main/INFO] (FabricLoader/Resolution) Immediate reason: [HARD_DEP_NO_CANDIDATE jei 30.42.0.236 {depends fabric-api @ [>=0.155.0+26.2]}, ROOT_FORCELOAD_SINGLE jei 30.42.0.236]
+[22:03:43] [main/INFO] (FabricLoader/Resolution) Reason: [HARD_DEP jei 30.42.0.236 {depends fabric-api @ [>=0.155.0+26.2]}, HARD_DEP mezz_config 0.6.6 {depends fabric-api @ [>=0.155.0+26.2]}]
+[22:03:43] [main/INFO] (FabricLoader/Resolution) Fix: add [], remove [], replace [[fabric-api 0.154.2+26.2] -> add:fabric-api 0.155.0+26.2 ([[0.155.0+26.2,∞)])]
+[22:03:43] [main/ERROR] (FabricLoader) Incompatible mods found!
+
+net.fabricmc.loader.impl.FormattedException: Some of your mods are incompatible with the game or each other!
+A potential solution has been determined, this may resolve your problem:
+	 - Replace mod 'Fabric API' (fabric-api) 0.154.2+26.2 with version 0.155.0+26.2 or later.
+More details:
+	 - Mod 'Just Enough Items' (jei) 30.42.0.236 requires version 0.155.0+26.2 or later of mod 'Fabric API' (fabric-api), but only the wrong version is present: 0.154.2+26.2!
+	 - Mod 'MezzConfig' (mezz_config) 0.6.6 requires version 0.155.0+26.2 or later of mod 'Fabric API' (fabric-api), but only the wrong version is present: 0.154.2+26.2!
+	at net.fabricmc.loader.impl.FormattedException.ofLocalized(FormattedException.java:51)
+	at net.fabricmc.loader.impl.FabricLoaderImpl.load(FabricLoaderImpl.java:202)
+	at net.fabricmc.loader.impl.launch.knot.Knot.init(Knot.java:142)
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:66)
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
+
+> Task :runClient FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':runClient' (registered by plugin 'fabric-loom').
+> Process 'command 'xvfb-run'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2m 17s
+9 actionable tasks: 9 executed
