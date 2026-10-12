@@ -4,6 +4,9 @@
 name: version-scout
 
 on:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/version-scout.yml"]
   workflow_dispatch:
     inputs:
       prefix:
@@ -16,7 +19,7 @@ jobs:
     steps:
       - name: Scout upstream versions
         env:
-          PREFIX: ${{ github.event.inputs.prefix }}
+          PREFIX: ${{ github.event.inputs.prefix || '26.' }}
         run: |
           python3 - <<'PY'
           import json, os, urllib.request
