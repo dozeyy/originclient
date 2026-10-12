@@ -6,14 +6,14 @@
              xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d" d:DesignWidth="400">
 
-    <!-- The home banner: one slim row under the Play card. How it decides
-         when it may run is documented at the top of PromoBanner.xaml.cs. -->
+    <!-- The home banner: one card under the Play card. How it decides when it
+         may run is documented at the top of PromoBanner.xaml.cs. -->
 
     <UserControl.Resources>
         <!-- Button.Secondary's surface and hover/press motion, but with the
              content stretched edge to edge (the base template centres it). -->
         <Style x:Key="Banner.Surface" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
-            <Setter Property="Padding" Value="12,0,14,0"/>
+            <Setter Property="Padding" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -34,60 +34,95 @@
     <!-- Space is reserved from the first frame (Opacity 0 until content is
          ready) so the Play card never jumps when the feed arrives; the row
          collapses only if the feed leaves nothing to show. -->
-    <Grid x:Name="Root" Height="68" Opacity="0">
+    <Grid x:Name="Root" Height="96" Opacity="0">
 
-        <!-- House promos (and the live Discord card). -->
+        <!-- House promos (the live Discord card and the tips slot included). -->
         <Button x:Name="HouseCard" Style="{StaticResource Banner.Surface}"
                 Click="HouseCard_Click" AutomationProperties.Name="Origin news">
-            <Grid x:Name="SlideContent" ClipToBounds="False">
-                <Grid.RenderTransform>
-                    <TranslateTransform x:Name="SlideTransform"/>
-                </Grid.RenderTransform>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <!-- Layers is clipped to the card's rounded rect in code (SizeChanged),
+                 so the zooming preview art never spills past the corners. -->
+            <Grid x:Name="Layers" Margin="1">
 
-                <Border Grid.Column="0" Width="44" Height="44" Margin="0,0,12,0" VerticalAlignment="Center"
-                        Background="{StaticResource Brush.CardAlt}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True">
-                    <Grid>
-                        <controls:OriginMark x:Name="IconMark" Width="26" Height="26"/>
+                <!-- No preview art: the Origin mark, large and faint, off the right edge. -->
+                <controls:OriginMark x:Name="AmbientMark" Width="140" Height="140" Opacity="0.10"
+                                     HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-30,-26,-30"/>
+
+                <!-- Preview art: fills the card, slow zoom while it's up (Ken Burns). -->
+                <Image x:Name="PreviewImage" Stretch="UniformToFill" HorizontalAlignment="Right"
+                       VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"
+                       RenderTransformOrigin="0.75,0.5" Opacity="0">
+                    <Image.RenderTransform>
+                        <ScaleTransform x:Name="PreviewZoom"/>
+                    </Image.RenderTransform>
+                </Image>
+
+                <!-- Legibility: the card colour solid behind the text, fading out
+                     across the art so the right half shows through. -->
+                <Rectangle IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#F21D2420" Offset="0"/>
+                            <GradientStop Color="#E61D2420" Offset="0.36"/>
+                            <GradientStop Color="#7A1D2420" Offset="0.58"/>
+                            <GradientStop Color="#001D2420" Offset="0.82"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+
+                <Grid x:Name="SlideContent" Margin="14,0,14,6" ClipToBounds="False">
+                    <Grid.RenderTransform>
+                        <TranslateTransform x:Name="SlideTransform"/>
+                    </Grid.RenderTransform>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Small square icon: Discord's server icon or a feed imageUrl only. -->
+                    <Border Grid.Column="0" x:Name="IconBox" Width="44" Height="44" Margin="0,0,12,0" VerticalAlignment="Center"
+                            Background="{StaticResource Brush.CardAlt}"
+                            BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True" Visibility="Collapsed">
                         <Image x:Name="IconImage" Stretch="UniformToFill"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
-                    </Grid>
-                </Border>
+                    </Border>
 
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
-                    <TextBlock x:Name="LabelText" Style="{StaticResource Text.Eyebrow}"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="TitleText" Style="{StaticResource Text.Body}"
-                               FontWeight="Medium" Margin="0,1,0,0"/>
-                    <Grid Margin="0,1,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <!-- Live "online" marker, Discord card only. -->
-                        <Rectangle x:Name="OnlineDot" Width="6" Height="6" Margin="0,0,7,0"
-                                   VerticalAlignment="Center" Fill="{StaticResource Brush.Success}"
-                                   Visibility="Collapsed"/>
-                        <TextBlock Grid.Column="1" x:Name="SubtitleText" Style="{StaticResource Text.Caption}"
-                                   TextTrimming="CharacterEllipsis"/>
-                    </Grid>
-                </StackPanel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MaxWidth="250"
+                                HorizontalAlignment="Left">
+                        <!-- Eyebrow as a chip, so each card says what it is at a glance. -->
+                        <Border HorizontalAlignment="Left" Padding="6,2" Background="{StaticResource Brush.AccentSoft}"
+                                CornerRadius="{StaticResource Radius.Chip}">
+                            <TextBlock x:Name="LabelText" Style="{StaticResource Text.Eyebrow}"
+                                       Foreground="{StaticResource Brush.Accent}" TextTrimming="CharacterEllipsis"/>
+                        </Border>
+                        <TextBlock x:Name="TitleText" Style="{StaticResource Text.Body}" FontSize="15"
+                                   FontWeight="SemiBold" Margin="0,6,0,0" TextTrimming="CharacterEllipsis"/>
+                        <Grid Margin="0,2,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Live "online" marker, Discord card only. -->
+                            <Rectangle x:Name="OnlineDot" Width="6" Height="6" Margin="0,0,7,0"
+                                       VerticalAlignment="Center" Fill="{StaticResource Brush.Success}"
+                                       Visibility="Collapsed"/>
+                            <TextBlock Grid.Column="1" x:Name="SubtitleText" Style="{StaticResource Text.Caption}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                    </StackPanel>
 
-                <Path Grid.Column="2" x:Name="ExternalIcon" Data="{StaticResource Icon.External}"
-                      Style="{StaticResource Icon.Base}" Width="12" Height="12" VerticalAlignment="Center"
-                      Stroke="{StaticResource Brush.TextDim}"/>
+                    <Path Grid.Column="2" x:Name="ExternalIcon" Data="{StaticResource Icon.External}"
+                          Style="{StaticResource Icon.Base}" Width="12" Height="12" VerticalAlignment="Top"
+                          Margin="0,12,0,0" Stroke="{StaticResource Brush.Text}"/>
+                </Grid>
             </Grid>
         </Button>
 
-        <!-- Rotation position: blocky ticks, bottom-right, never clickable. -->
-        <StackPanel x:Name="Dots" Orientation="Horizontal" HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom" Margin="0,0,14,7" IsHitTestVisible="False"/>
+        <!-- Rotation progress: one segment per card along the bottom edge; the
+             current one fills over the rotation time. Click a segment to jump. -->
+        <StackPanel x:Name="Dots" Orientation="Horizontal" HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom" Margin="14,0,0,4"/>
 
         <!-- Ad-network mode: BannerAdHost puts its WebView2 in here. A WebView2
              is a native child window drawn above all WPF content (airspace),

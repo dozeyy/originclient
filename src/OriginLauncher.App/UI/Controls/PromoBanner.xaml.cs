@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -15,13 +16,19 @@ using OriginLauncher.App.Core.Promos;
 namespace OriginLauncher.App.UI.Controls;
 
 // ============================================================================
-// HOME BANNER — the slim row under the Play card.
+// HOME BANNER — the card under the Play card.
 //
 // Content: the remote promo feed (Core/Promos/PromoFeedLoader: live site →
 // raw GitHub → on-disk cache → built-in), refreshed at startup and every 30
 // minutes. Two modes:
-//   - House promos: Will's own cards plus a live Discord card (server name,
-//     icon, online/member counts), rotating every "rotateSeconds".
+//   - House promos: Will's own cards, a live Discord card (server name,
+//     icon, online/member counts) and the tips slot (Core/Promos/PromoTips,
+//     the next tip each visit), rotating every "rotateSeconds". Each card
+//     shows wide preview art behind its text — the feed's previewUrl, else
+//     the launcher's bundled art (Assets/Promos), Discord's own icon blurred
+//     — zooming slowly while it's up. A progress bar along the bottom fills
+//     over the rotation time; hovering the card pauses it, and clicking a
+//     segment jumps to that card.
 //   - Ad network ("network.enabled" in the feed): the feed's page hosted in a
 //     dedicated, always-muted WebView2 (BannerAdHost). Falls back to house
 //     promos on any failure, retrying after 10 minutes.
@@ -53,15 +60,20 @@ public partial class PromoBanner : UserControl
     private const int MaxImageBytes = 512 * 1024;
     // Slide travel during rotation, matching the page-switch nudge in MainWindow.
     private const double SlideOffset = 10;
+    // How far the preview art zooms in over one card's time on screen.
+    private const double PreviewZoomTo = 1.07;
+    private const double SegmentWidth = 18;
 
     private readonly BannerVisibilityGate _gate = new();
     private readonly PromoFeedLoader _loader = new(PromoHttp.GetTextAsync, OriginPaths.PromoFeedCache);
     private readonly DispatcherTimer _occlusionTimer;
-    private readonly DispatcherTimer _rotateTimer;
     private readonly DispatcherTimer _discordTimer;
     private readonly DispatcherTimer _feedTimer;
     // Decoded promo images by URL; null = that URL failed (retried after the next feed refresh).
     private readonly Dictionary<Uri, ImageSource?> _images = new();
+    private readonly Dictionary<Uri, ImageSource?> _previews = new();
+    // Bundled preview art by name; loaded once, kept for the session.
+    private readonly Dictionary<string, ImageSource?> _bundled = new();
 
     private Window? _window;
     private IntPtr _hwnd;
@@ -74,6 +86,13 @@ public partial class PromoBanner : UserControl
     private int _index = -1;
     private long _slideRevision;
     private long _iconRevision;
+    private long _previewRevision;
+    // Rotation clock: the current segment's fill animation. Its Completed moves
+    // to the next card, so pausing it (hover) pauses the rotation too.
+    private Storyboard? _progress;
+    private Rectangle? _activeFill;
+    // Which tip the tips slot shows; advanced each time the slot comes round.
+    private int _tipTurn = -1;
 
     private string? _discordCode;
     private DiscordServerInfo? _discordInfo;
@@ -90,8 +109,6 @@ public partial class PromoBanner : UserControl
 
         _occlusionTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = OcclusionPollInterval };
         _occlusionTimer.Tick += (_, _) => CheckOcclusion();
-        _rotateTimer = new DispatcherTimer(DispatcherPriority.Normal);
-        _rotateTimer.Tick += (_, _) => RotateNext();
         _discordTimer = new DispatcherTimer(DispatcherPriority.Background);
         _discordTimer.Tick += (_, _) => _ = RefreshDiscordAsync();
         _feedTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = FeedRefreshInterval };
@@ -100,6 +117,12 @@ public partial class PromoBanner : UserControl
         _gate.ActiveChanged += OnActiveChanged;
         IsVisibleChanged += (_, _) => UpdateGate(() => _gate.OnHomePage = IsVisible);
         Loaded += OnLoaded;
+        Layers.SizeChanged += (_, _) => ClipLayers();
+        // Hover holds the current card: never yank a promo out from under the
+        // pointer. (Not keyboard focus — a click leaves focus on the card, and
+        // rotation must not stay frozen after the player comes back.)
+        Root.MouseEnter += (_, _) => _progress?.Pause(this);
+        Root.MouseLeave += (_, _) => _progress?.Resume(this);
         Dispatcher.ShutdownStarted += OnShutdown;
     }
 
@@ -144,7 +167,7 @@ public partial class PromoBanner : UserControl
         SystemEvents.SessionSwitch -= OnSessionSwitch;
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         _occlusionTimer.Stop();
-        _rotateTimer.Stop();
+        StopProgress();
         _discordTimer.Stop();
         _feedTimer.Stop();
         _adHost?.Dispose();
@@ -242,7 +265,7 @@ public partial class PromoBanner : UserControl
         }
         else
         {
-            _rotateTimer.Stop();
+            StopProgress();
             _discordTimer.Stop();
             _adHost?.SetActive(false);
         }
@@ -276,8 +299,8 @@ public partial class PromoBanner : UserControl
         _feedJson = result.Json;
         _feed = result.Feed;
         _images.Clear();
+        _previews.Clear();
 
-        _rotateTimer.Interval = _feed.RotateInterval;
         _discordTimer.Interval = _feed.Discord.RefreshInterval;
 
         if (_feed.Discord.InviteCode != _discordCode)
@@ -384,30 +407,59 @@ public partial class PromoBanner : UserControl
         {
             // Same promo still showing → refresh its text in place (e.g. new
             // Discord counts); a different one → swap without animation.
+            if (_slides[_index].Kind == PromoKind.Tips && _tipTurn < 0) _tipTurn = 0;
             Populate(_slides[_index]);
         }
-        RenderDots();
         UpdateRootVisibility();
-        if (_slides.Count < 2) _rotateTimer.Stop();
+        // The segments are rebuilt, so the clock restarts on the new ones.
+        RestartRotation();
     }
 
     private void RestartRotation()
     {
-        _rotateTimer.Stop();
-        if (_gate.IsActive && _adHost == null && _slides.Count > 1) _rotateTimer.Start();
+        StopProgress();
+        RenderDots();
+        if (_gate.IsActive && _adHost == null && _slides.Count > 1 && _feed != null) StartProgress(_feed.RotateInterval);
+    }
+
+    private void StartProgress(TimeSpan duration)
+    {
+        if (_activeFill == null) return;
+        var fill = new DoubleAnimation(0, 1, duration);
+        Storyboard.SetTarget(fill, _activeFill);
+        Storyboard.SetTargetProperty(fill, new PropertyPath("RenderTransform.ScaleX"));
+        var clock = new Storyboard();
+        clock.Children.Add(fill);
+        clock.Completed += (_, _) =>
+        {
+            if (ReferenceEquals(clock, _progress)) RotateNext();
+        };
+        _progress = clock;
+        clock.Begin(this, isControllable: true);
+        if (Root.IsMouseOver) clock.Pause(this);
+    }
+
+    private void StopProgress()
+    {
+        var clock = _progress;
+        _progress = null;
+        clock?.Stop(this);
     }
 
     private void RotateNext()
     {
-        // Hover holds the current card: never yank a promo out from under the
-        // pointer. (Not keyboard focus — a click leaves focus on the card, and
-        // rotation must not stay frozen after the player comes back.)
-        if (!_gate.IsActive || _adHost != null || _slides.Count < 2 || IsMouseOver)
+        if (!_gate.IsActive || _adHost != null || _slides.Count < 2)
             return;
+        ShowSlide(PromoRotation.Next(_index, _slides.Count));
+    }
 
-        _index = PromoRotation.Next(_index, _slides.Count);
+    // Moves to slide `index` with the slide-out/slide-in, and restarts the clock.
+    private void ShowSlide(int index)
+    {
+        _index = index;
         var promo = _slides[_index];
-        RenderDots();
+        if (promo.Kind == PromoKind.Tips) _tipTurn++;
+        RestartRotation();
 
         var revision = ++_slideRevision;
         var exit = (Duration)FindResource("Motion.Exit");
@@ -435,6 +487,8 @@ public partial class PromoBanner : UserControl
         SlideTransform.BeginAnimation(TranslateTransform.XProperty,
             new DoubleAnimation(-SlideOffset, exit) { EasingFunction = easeIn },
             HandoffBehavior.SnapshotAndReplace);
+        PreviewImage.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(0, exit) { EasingFunction = easeIn }, HandoffBehavior.SnapshotAndReplace);
     }
 
     private void Populate(HousePromo promo)
@@ -451,6 +505,25 @@ public partial class PromoBanner : UserControl
             HouseCard.ToolTip = "Join on Discord";
             AutomationProperties.SetName(HouseCard, $"Join {info.Name} on Discord");
             SetIcon(info.IconUrl);
+            // The server's own icon, blown up and blurred, is the Discord card's art.
+            SetPreview(info.IconUrl, null, blurred: true);
+            return;
+        }
+
+        if (promo.Kind == PromoKind.Tips)
+        {
+            var tip = PromoTips.At(Math.Max(_tipTurn, 0));
+            LabelText.Text = promo.Label;
+            TitleText.Text = tip.Title;
+            SubtitleText.Text = tip.Subtitle;
+            SubtitleText.Visibility = Visibility.Visible;
+            OnlineDot.Visibility = Visibility.Collapsed;
+            ExternalIcon.Visibility = Visibility.Collapsed;
+            HouseCard.Cursor = System.Windows.Input.Cursors.Arrow;
+            HouseCard.ToolTip = null;
+            AutomationProperties.SetName(HouseCard, $"Tip: {tip.Title}");
+            SetIcon(null);
+            SetPreview(null, tip.Preview, blurred: false);
             return;
         }
 
@@ -465,23 +538,58 @@ public partial class PromoBanner : UserControl
         HouseCard.ToolTip = clickable ? promo.ClickUrl!.Host : null;
         AutomationProperties.SetName(HouseCard, promo.Title);
         SetIcon(promo.ImageUrl);
+        SetPreview(promo.PreviewUrl, PromoTips.BundledPreviewFor(promo.Id), blurred: false);
     }
 
+    // One segment per slide; the current one holds a fill that the rotation
+    // clock scales from 0 to 1. Segments are click targets (taller than drawn).
     private void RenderDots()
     {
         Dots.Children.Clear();
-        if (_slides.Count < 2) return;
+        _activeFill = null;
+        if (_slides.Count < 2 || _adHost != null) return;
         for (var i = 0; i < _slides.Count; i++)
         {
-            Dots.Children.Add(new Rectangle
+            var track = new Grid { Width = SegmentWidth, Height = 2, VerticalAlignment = VerticalAlignment.Bottom };
+            track.Children.Add(new Rectangle
             {
-                Width = i == _index ? 10 : 4,
-                Height = 2,
-                Margin = new Thickness(3, 0, 0, 0),
-                Fill = (Brush)FindResource(i == _index ? "Brush.Accent" : "Brush.SoftStroke"),
+                Fill = (Brush)FindResource(i < _index ? "Brush.TextDim" : "Brush.SoftStroke"),
             });
+            if (i == _index)
+            {
+                _activeFill = new Rectangle
+                {
+                    Fill = (Brush)FindResource("Brush.Accent"),
+                    RenderTransform = new ScaleTransform(_gate.IsActive ? 0 : 1, 1),
+                };
+                track.Children.Add(_activeFill);
+            }
+            var target = i;
+            var hit = new Border
+            {
+                Background = Brushes.Transparent,
+                Padding = new Thickness(0, 8, 0, 3),
+                Margin = new Thickness(0, 0, 4, 0),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                Child = track,
+                ToolTip = SlideName(_slides[i]),
+            };
+            AutomationProperties.SetName(hit, $"Show {SlideName(_slides[i])}");
+            hit.MouseLeftButtonUp += (_, e) =>
+            {
+                e.Handled = true;
+                if (target != _index && target < _slides.Count) ShowSlide(target);
+            };
+            Dots.Children.Add(hit);
         }
     }
+
+    private string SlideName(HousePromo promo) => promo.Kind switch
+    {
+        PromoKind.Discord => _discordInfo?.Name ?? "Discord",
+        PromoKind.Tips => "Tips",
+        _ => promo.Title,
+    };
 
     private void UpdateRootVisibility()
     {
@@ -518,7 +626,86 @@ public partial class PromoBanner : UserControl
         ExternalLink.Open(promo.ClickUrl);
     }
 
+    // The card's rounded rect (inside its 1 px border), so zoomed art stays inside.
+    private void ClipLayers()
+    {
+        var r = ((CornerRadius)FindResource("Radius.Card")).TopLeft;
+        Layers.Clip = new RectangleGeometry(new Rect(Layers.RenderSize), r, r);
+    }
+
     // ---- Images ----------------------------------------------------------------
+
+    // The card's wide art: a remote previewUrl first, else the bundled art by
+    // name, else none (the faint Origin mark shows). Fades in, then zooms
+    // slowly for as long as the card is up.
+    private async void SetPreview(Uri? url, string? bundled, bool blurred)
+    {
+        var revision = ++_previewRevision;
+        ImageSource? image = null;
+        if (url != null)
+        {
+            if (!_previews.TryGetValue(url, out image))
+            {
+                ShowPreview(null, blurred);
+                image = await LoadImageAsync(url, blurred ? 96 : 800);
+                _previews[url] = image;
+                if (revision != _previewRevision) return;
+            }
+        }
+        if (image == null && bundled != null) image = BundledPreview(bundled);
+        ShowPreview(image, blurred);
+    }
+
+    private void ShowPreview(ImageSource? image, bool blurred)
+    {
+        PreviewImage.Source = image;
+        PreviewImage.Effect = blurred && image != null ? new BlurEffect { Radius = 28 } : null;
+        AmbientMark.Visibility = image == null ? Visibility.Visible : Visibility.Collapsed;
+
+        var target = image == null ? 0 : blurred ? 0.45 : 1;
+        var enter = (Duration)FindResource("Motion.Scene");
+        if (enter.TimeSpan == TimeSpan.Zero || image == null)
+        {
+            PreviewImage.BeginAnimation(OpacityProperty, null);
+            PreviewImage.Opacity = target;
+            PreviewZoom.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            PreviewZoom.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            PreviewZoom.ScaleX = PreviewZoom.ScaleY = 1;
+            return;
+        }
+        PreviewImage.BeginAnimation(OpacityProperty, new DoubleAnimation(target, TimeSpan.FromMilliseconds(420))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        });
+        // Ken Burns: a slow, linear push-in over the card's time on screen.
+        var span = (_feed?.RotateInterval ?? PromoFeedParser.DefaultRotate) + TimeSpan.FromSeconds(1);
+        var zoom = new DoubleAnimation(1, PreviewZoomTo, span);
+        PreviewZoom.BeginAnimation(ScaleTransform.ScaleXProperty, zoom);
+        PreviewZoom.BeginAnimation(ScaleTransform.ScaleYProperty, zoom);
+    }
+
+    private ImageSource? BundledPreview(string name)
+    {
+        if (_bundled.TryGetValue(name, out var cached)) return cached;
+        ImageSource? image = null;
+        try
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri($"pack://application:,,,/Assets/Promos/{name}.jpg", UriKind.Absolute);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            image = bitmap;
+        }
+        catch (Exception ex) when (ex is IOException or NotSupportedException or InvalidOperationException
+                                       or ArgumentException)
+        {
+            image = null;   // a missing resource just means no art
+        }
+        _bundled[name] = image;
+        return image;
+    }
 
     private async void SetIcon(Uri? url)
     {
@@ -537,14 +724,14 @@ public partial class PromoBanner : UserControl
         if (revision == _iconRevision) ShowIcon(image);
     }
 
-    // No image (none given, still loading, or failed) → the Origin mark.
+    // The small square only shows when there's an icon to put in it.
     private void ShowIcon(ImageSource? image)
     {
         IconImage.Source = image;
-        IconMark.Visibility = image == null ? Visibility.Visible : Visibility.Collapsed;
+        IconBox.Visibility = image == null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private static async Task<ImageSource?> LoadImageAsync(Uri url)
+    private static async Task<ImageSource?> LoadImageAsync(Uri url, int decodeWidth = 96)
     {
         var bytes = await PromoHttp.GetBytesAsync(url, MaxImageBytes, ImageTimeout, CancellationToken.None);
         if (bytes == null) return null;
@@ -557,7 +744,7 @@ public partial class PromoBanner : UserControl
                 var bitmap = new BitmapImage();
                 bitmap.BeginInit();
                 bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                bitmap.DecodePixelWidth = 96; // 44 px slot at up to 2x DPI
+                bitmap.DecodePixelWidth = decodeWidth; // icon: 44 px slot at up to 2x DPI; preview: the card
                 bitmap.StreamSource = new MemoryStream(bytes);
                 bitmap.EndInit();
                 bitmap.Freeze();

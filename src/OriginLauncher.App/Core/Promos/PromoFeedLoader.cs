@@ -47,11 +47,7 @@ public sealed class PromoFeedLoader
               "subtitle": "News, changelogs and every bundled mod",
               "clickUrl": "https://originclient.org/"
             },
-            {
-              "id": "menu-tip", "kind": "link", "label": "Tip",
-              "title": "Right Shift opens the Origin menu",
-              "subtitle": "Toggle mods and HUD pieces in-game"
-            }
+            { "id": "tips", "kind": "tips", "label": "Tip" }
           ],
           "discord": { "inviteCode": "REPLACE_ME", "refreshSeconds": 300 },
           "network": { "enabled": false, "url": "https://originclient.org/ad/banner.html", "refreshSeconds": 300 }

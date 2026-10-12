@@ -13,7 +13,10 @@ namespace OriginLauncher.App.Core.Promos;
 //       { "id": "discord", "kind": "discord" },
 //       { "id": "site", "kind": "link", "label": "ORIGIN",
 //         "title": "...", "subtitle": "...",
-//         "imageUrl": "https://... (optional)", "clickUrl": "https://..." }
+//         "imageUrl": "https://... (optional, the small square icon)",
+//         "previewUrl": "https://... (optional, the wide art behind the card)",
+//         "clickUrl": "https://..." },
+//       { "id": "tips", "kind": "tips", "label": "TIP" }
 //     ],
 //     "discord": { "inviteCode": "abc123", "refreshSeconds": 300 },
 //     "network": { "enabled": false, "url": "https://originclient.org/ad/banner.html",
@@ -23,6 +26,8 @@ namespace OriginLauncher.App.Core.Promos;
 // "kind": "discord" is a SLOT: its card is filled from Discord's live invite
 // API (server name, icon, online/member counts) and silently left out of the
 // rotation while the invite code is missing/invalid or Discord is unreachable.
+// "kind": "tips" is a SLOT too: each time it comes round it shows the next of
+// the launcher's own tips (PromoTips), each with bundled preview art.
 // Unknown kinds and malformed promos are skipped (an older launcher keeps
 // working on a newer feed); a different "schema" number is rejected whole, so
 // a breaking change falls back to the cached copy or the built-in default.
@@ -35,6 +40,7 @@ public enum PromoKind
 {
     Link,
     Discord,
+    Tips,
 }
 
 public sealed record HousePromo(
@@ -44,7 +50,8 @@ public sealed record HousePromo(
     string Title,
     string Subtitle,
     Uri? ImageUrl,
-    Uri? ClickUrl);
+    Uri? ClickUrl,
+    Uri? PreviewUrl = null);
 
 public sealed record DiscordBlock(string? InviteCode, TimeSpan RefreshInterval)
 {
@@ -156,6 +163,7 @@ public static class PromoFeedParser
         {
             "link" => PromoKind.Link,
             "discord" => PromoKind.Discord,
+            "tips" => PromoKind.Tips,
             _ => (PromoKind?)null,
         };
         if (kind == null) return null;
@@ -169,6 +177,13 @@ public static class PromoFeedParser
                 (Text(item, "label", MaxLabelLength) ?? "DISCORD").ToUpperInvariant(), "", "", null, null);
         }
 
+        if (kind == PromoKind.Tips)
+        {
+            // Title/subtitle/art come from PromoTips at display time.
+            return new HousePromo(id, PromoKind.Tips,
+                (Text(item, "label", MaxLabelLength) ?? "TIP").ToUpperInvariant(), "", "", null, null);
+        }
+
         var title = Text(item, "title", MaxTitleLength);
         if (title == null) return null;
 
@@ -179,7 +194,8 @@ public static class PromoFeedParser
             title,
             Text(item, "subtitle", MaxSubtitleLength) ?? "",
             HttpsUrl(item, "imageUrl"),
-            HttpsUrl(item, "clickUrl"));
+            HttpsUrl(item, "clickUrl"),
+            HttpsUrl(item, "previewUrl"));
     }
 
     private static string? Text(JsonElement obj, string name, int maxLength)

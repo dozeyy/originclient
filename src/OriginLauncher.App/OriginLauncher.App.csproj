@@ -19,6 +19,8 @@
     <Resource Include="Assets\origin.ico" />
     <!-- Version-select grid card artwork (one per version family). -->
     <Resource Include="Assets\Versions\*.png" />
+    <!-- Home banner preview art (tools/launcher-previews renders these). -->
+    <Resource Include="Assets\Promos\*.jpg" />
     <!-- The launcher uses one openly licensed Minecraft-style face. In-game
          UI uses Minecraft's own Font renderer and does not bundle this file. -->
     <Resource Include="..\..\tools\font-atlas\fonts\Monocraft.ttf" Link="Assets\Fonts\Monocraft.ttf" />

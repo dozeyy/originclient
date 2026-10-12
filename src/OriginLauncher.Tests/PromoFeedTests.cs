@@ -129,4 +129,51 @@ public class PromoFeedTests
         // Even if Discord info were somehow present, no invite → no card.
         Assert.Equal(new[] { "x" }, PromoRotation.Playable(feed, discordReady: true).Select(p => p.Id));
     }
+
+    [Fact]
+    public void TipsSlotParsesAndCyclesThroughEveryTip()
+    {
+        var feed = PromoFeedParser.TryParse("""
+            { "schema": 1, "promos": [ { "id": "tips", "kind": "tips" }, { "id": "x", "title": "X" } ] }
+            """)!;
+
+        Assert.Equal(PromoKind.Tips, feed.Promos[0].Kind);
+        Assert.Equal("TIP", feed.Promos[0].Label);
+        Assert.Equal(new[] { "tips", "x" }, PromoRotation.Playable(feed, discordReady: false).Select(p => p.Id));
+
+        var seen = Enumerable.Range(0, PromoTips.All.Count).Select(t => PromoTips.At(t).Id).ToHashSet();
+        Assert.Equal(PromoTips.All.Count, seen.Count);
+        Assert.Equal(PromoTips.At(0), PromoTips.At(PromoTips.All.Count));
+        Assert.Equal(PromoTips.At(PromoTips.All.Count - 1), PromoTips.At(-1));
+    }
+
+    [Fact]
+    public void TipsFitTheCardAndHaveBundledArt()
+    {
+        var art = Path.Combine(Repo, "src", "OriginLauncher.App", "Assets", "Promos");
+        foreach (var tip in PromoTips.All)
+        {
+            Assert.InRange(tip.Title.Length, 1, PromoFeedParser.MaxTitleLength);
+            Assert.InRange(tip.Subtitle.Length, 0, PromoFeedParser.MaxSubtitleLength);
+            Assert.True(File.Exists(Path.Combine(art, tip.Preview + ".jpg")), $"missing preview art for tip '{tip.Id}'");
+        }
+        foreach (var id in new[] { "website", "menu-tip" })
+            Assert.True(File.Exists(Path.Combine(art, PromoTips.BundledPreviewFor(id) + ".jpg")), $"missing art for '{id}'");
+    }
+
+    [Fact]
+    public void PreviewUrlIsOptionalAndHttpsOnly()
+    {
+        var feed = PromoFeedParser.TryParse("""
+            { "schema": 1, "promos": [
+                { "id": "a", "title": "A", "previewUrl": "https://example.com/a.jpg" },
+                { "id": "b", "title": "B", "previewUrl": "http://example.com/b.jpg" },
+                { "id": "c", "title": "C" }
+            ] }
+            """)!;
+
+        Assert.Equal("https://example.com/a.jpg", feed.Promos[0].PreviewUrl!.AbsoluteUri);
+        Assert.Null(feed.Promos[1].PreviewUrl);
+        Assert.Null(feed.Promos[2].PreviewUrl);
+    }
 }

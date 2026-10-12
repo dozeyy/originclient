@@ -207,7 +207,7 @@ floating corner controls. In-game menus match this exactly.
   built on 1.21.1 then ported per era (registerLunarBatch* in each Mods.java). Era stand-ins:
   own Menu Blur post chain below 1.20.5; Hurt Cam tilt / Shinypots speed / toast time sliders
   are no-ops below 1.19.4; no Wind Charge counter below 1.21. Mumble Link skipped (Will).
-  The Sodium Video-Settings rail stays 1.21.1-only for now. Awaiting Will's in-game pass.
+  Awaiting Will's in-game pass.
 - **Origin originals (2026-10-12, CI-green, untagged):** Portal Calculator + FPS Coach on 1.21.1
   only (port after Will's pass); **Settings Sync** in the launcher (Core/Sync + Core/SettingsSync.cs,
   off by default, Settings → Origin Client card) carries options.txt, originclient*.json, Sodium/Iris
@@ -248,13 +248,16 @@ floating corner controls. In-game menus match this exactly.
   everywhere; batched-gui tint fix (TV-static backgrounds) on 1.21.4/1.21.5;
   Add-Microsoft-Account WebView2-dispose fix; CI Gradle cross-release caching;
   **1.21.1 menu buttons reskinned to the Origin look (v1.0.29).**
-- **Video-Settings mod rail (in progress, per mandate 5):** list the bundled mods
-  as tabs inside Video Settings. It's Sodium's Config API — present only on stable
-  Sodium 0.8 (the 1.21.8/1.21.10/1.21.11 line), so those versions will use it
-  natively; **1.21.1 stays on stable Sodium 0.6.13** (its 0.8 is a shader-breaking
-  alpha) and gets the same look via a Sodium 0.6.13 GUI mixin. **1.21.1 built 2026-10-11**
-  (SodiumOptionsRailMixin + gui/SodiumModRail, CI-compiled, awaiting in-game pass). Full
-  findings in MEMORY.md → video-settings-mod-rail.
+- **Video-Settings mod rail REMOVED (Will, 2026-10-12):** he didn't like the mod list on the
+  left of Video Settings; 1.21.1's SodiumOptionsRailMixin + gui/SodiumModRail are deleted and
+  Video Settings is plain Sodium again. Don't port it to other versions.
+- **Will's 2026-10-12 feedback round (1.21.1 only, CI-green, untagged; port after his pass):**
+  Item Counter picks any item in the Item Size grid (shared gui/OriginItemGridScreen); Combo
+  gets Players Only + Reset After; Item Physics tumbles about the item centre and eases flat;
+  Minimap is singleplayer-only; Screenshot pop-up replaced by buttons on the chat line
+  (mods/ScreenshotChat); Nick Hider trimmed to your own name/skin + lobby ID. Launcher home
+  banner: preview art (Assets/Promos, from tools/launcher-previews), a "tips" feed slot
+  (Core/Promos/PromoTips), progress-bar rotation.
 - **1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4 went LIVE 2026-07-15**
   (`launcher-v1.0.24`) — Will's order: 1.16.5 and everything above it, skipping
   the unfinished 1.21.x gaps, Lunar-parity coverage. The pre-`GuiGraphics`
