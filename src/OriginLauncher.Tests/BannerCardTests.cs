@@ -68,17 +68,19 @@ public class BannerCardTests
 
     // ---- Every shipped string fits the real card ---------------------------
     // A model of PromoBanner's text box, in the launcher's font. Monocraft is
-    // monospaced (every glyph advances 2/3 em), so wrapping is predictable.
+    // monospaced (every glyph advances 2/3 em), so wrapping is predictable;
+    // the SemiBold title is Windows' simulated bold, ~1 px wider per glyph
+    // (measured on the CI render), modelled as size/14 to stay on the safe side.
     // The numbers mirror PromoBanner.xaml: card 96 px tall, 1 px border,
     // SlideContent margin 6 top / 11 bottom → 77 px of height; text column
-    // capped at 250 px (TextMaxWidth); the chip is ~19 px with 6 px below it,
+    // capped at 250 px (TextMaxWidth); the chip is ~15 px (17 here for margin) with 6 px below it,
     // and 2 px sit between title and subtitle. The CI launcher render
     // (RenderShots, banner-*.png) is the picture that confirms it.
-    private const double BoxHeight = 77, ColumnWidth = 250, Chip = 19, Gaps = 6 + 2;
+    private const double BoxHeight = 77, ColumnWidth = 250, Chip = 17, Gaps = 6 + 2;
 
-    private static int Lines(string text, double fontSize)
+    private static int Lines(string text, double fontSize, bool bold = false)
     {
-        var perLine = (int)Math.Floor(ColumnWidth / (fontSize * 2 / 3));
+        var perLine = (int)Math.Floor(ColumnWidth / (fontSize * 2 / 3 + (bold ? fontSize / 14 : 0)));
         var lines = 1;
         var used = 0;
         foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
@@ -94,7 +96,7 @@ public class BannerCardTests
     }
 
     private static bool Fits(BannerTextStep step, string title, string subtitle) =>
-        Chip + Gaps + Lines(title, step.TitleSize) * step.TitleLineHeight
+        Chip + Gaps + Lines(title, step.TitleSize, bold: true) * step.TitleLineHeight
                     + (subtitle.Length == 0 ? 0 : Lines(subtitle, step.SubtitleSize) * step.SubtitleLineHeight)
         <= BoxHeight;
 

@@ -579,6 +579,13 @@ public partial class PromoBanner : UserControl
         var step = BannerCard.ChooseTextStep(candidate =>
         {
             ApplyTextStep(candidate);
+            // A font change only dirties the TextBlock itself until the next
+            // layout pass; the panels around it would hand back their old
+            // (cached) size. Dirty the whole chain so this measure is real.
+            TitleText.InvalidateMeasure();
+            SubtitleText.InvalidateMeasure();
+            SubtitleRow.InvalidateMeasure();
+            TextStack.InvalidateMeasure();
             TextStack.Measure(constraint);
             return TextStack.DesiredSize.Height <= box.Height;
         });

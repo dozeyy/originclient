@@ -104,7 +104,7 @@
                         <TextBlock x:Name="TitleText" Style="{StaticResource Text.Body}" FontSize="15" LineHeight="18"
                                    LineStackingStrategy="BlockLineHeight" FontWeight="SemiBold" Margin="0,6,0,0"
                                    TextWrapping="Wrap" TextTrimming="None"/>
-                        <Grid Margin="0,2,0,0">
+                        <Grid x:Name="SubtitleRow" Margin="0,2,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
