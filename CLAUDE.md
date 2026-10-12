@@ -257,7 +257,10 @@ floating corner controls. In-game menus match this exactly.
   Minimap is singleplayer-only; Screenshot pop-up replaced by buttons on the chat line
   (mods/ScreenshotChat); Nick Hider trimmed to your own name/skin + lobby ID. Launcher home
   banner: preview art (Assets/Promos, from tools/launcher-previews), a "tips" feed slot
-  (Core/Promos/PromoTips), progress-bar rotation.
+  (Core/Promos/PromoTips), progress-bar rotation. **Icons v2:** Will's 2.2 px set
+  (design/icon-proposals/origin-icon-system-v2, Feather/MIT) now feeds the 1.21.1 atlas
+  (tools/mod-menu/generate_icons.py) and launcher Theme/Icons.xaml. Never ship the pack's
+  lunar-originals PNGs (Lunar's art); Origin redrew those 7 in REDRAWN.
 - **1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4 went LIVE 2026-07-15**
   (`launcher-v1.0.24`) — Will's order: 1.16.5 and everything above it, skipping
   the unfinished 1.21.x gaps, Lunar-parity coverage. The pre-`GuiGraphics`
