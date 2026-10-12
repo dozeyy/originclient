@@ -364,11 +364,12 @@ public class CosmeticsScreen extends OriginWindow {
 		d.textMid(hint, hx, hy, 10, true, 1.6f, MUTE);
 		d.icon("@chev-right", hx + hw + 8, hy - 6, 12, MUTE);
 
-		// the player: body centred between the name and the hint, ~58% of the card tall
-		float top = y + 60, bottom = y + h - 52;
-		float cx = x + w / 2, cy = (top + bottom) / 2 + 10;
-		float tall = Math.min(w * 0.95f, h * 0.58f);
-		float feet = cy + tall / 2;
+		// the player: feet a little above the hint, ~half the card tall, so a halo
+		// (it rises ~1.4x the body height off the floor) stays clear of the name
+		float cx = x + w / 2;
+		float tall = Math.min(w * 0.9f, h * 0.5f);
+		float feet = y + h - 76;
+		float cy = feet - tall / 2;
 		d.rect(cx - 52, feet - 4, 104, 10, 5, mul(0xFF000000, 0.35f));   // floor shadow
 		OriginUi.softGlow(d.g, d.ox + cx * d.s, d.oy + cy * d.s, 340 * d.s, mul(0xFFFFFFFF, 0.06f * d.alpha));
 
