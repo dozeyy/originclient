@@ -438,7 +438,7 @@ public class OriginModMenuScreen extends Screen {
 		// Lay the cards out ONCE per frame into `items`; render + click both read it.
 		int gridW = gridRight() - cx0();
 		// The Mod Menu Layout setting caps the row: Auto fits up to four across.
-		String layout = Mods.text(Mods.GENERAL_ID, "menuLayout");
+		String layout = Mods.mode(Mods.GENERAL_ID, "menuLayout");
 		int maxCols = layout == null ? 4 : switch (layout) {
 			case "3 across (compact)" -> 3;
 			case "2 across (large)" -> 2;
