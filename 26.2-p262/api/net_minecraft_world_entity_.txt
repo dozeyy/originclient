@@ -680,7 +680,7 @@ public class net.minecraft.world.entity.ElytraAnimationState {
   public float getRotZ(float);
 }
 Compiled from "Entity.java"
-public abstract class net.minecraft.world.entity.Entity implements net.minecraft.world.Nameable, net.minecraft.world.level.entity.EntityAccess, net.minecraft.world.scores.ScoreHolder, net.minecraft.network.syncher.SyncedDataHolder, net.minecraft.core.component.DataComponentGetter, net.minecraft.world.entity.ItemOwner, net.minecraft.world.entity.SlotProvider, net.minecraft.util.debug.DebugValueSource, net.minecraft.core.TypedInstance<net.minecraft.world.entity.EntityType<?>>, net.fabricmc.fabric.api.attachment.v1.AttachmentTarget, net.fabricmc.fabric.api.event.lifecycle.v1.EntityLoadData, net.fabricmc.fabric.api.permission.v1.PermissionContextOwner {
+public abstract class net.minecraft.world.entity.Entity implements net.minecraft.world.Nameable, net.minecraft.world.level.entity.EntityAccess, net.minecraft.world.scores.ScoreHolder, net.minecraft.network.syncher.SyncedDataHolder, net.minecraft.core.component.DataComponentGetter, net.minecraft.world.entity.ItemOwner, net.minecraft.world.entity.SlotProvider, net.minecraft.util.debug.DebugValueSource, net.minecraft.core.TypedInstance<net.minecraft.world.entity.EntityType<?>>, net.fabricmc.fabric.api.registry.fluid.EntityFluidExtension, net.fabricmc.fabric.api.attachment.v1.AttachmentTarget, net.fabricmc.fabric.api.event.lifecycle.v1.EntityLoadData, net.fabricmc.fabric.api.permission.v1.PermissionContextOwner {
   private static final org.slf4j.Logger LOGGER;
   public static final java.lang.String TAG_ID;
   public static final java.lang.String TAG_UUID;
