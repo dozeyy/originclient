@@ -25,14 +25,14 @@
     ],
     "@performance": [
       0,
-      -8
+      0
     ],
     "@search": [
       0,
       0
     ],
     "@title-singleplayer": [
-      -12,
+      0,
       0
     ],
     "@title-multiplayer": [
@@ -40,11 +40,11 @@
       0
     ],
     "@title-realms": [
-      4,
+      0,
       0
     ],
     "@title-mods": [
-      -8,
+      0,
       0
     ],
     "@title-options": [
@@ -52,8 +52,8 @@
       0
     ],
     "@title-quit": [
-      8,
-      -8
+      0,
+      0
     ],
     "@title-language": [
       0,
@@ -61,7 +61,7 @@
     ],
     "@title-accessibility": [
       0,
-      -8
+      0
     ],
     "fps": [
       0,
@@ -73,7 +73,7 @@
     ],
     "keystrokes": [
       0,
-      24
+      20
     ],
     "coords": [
       0,
@@ -101,10 +101,10 @@
     ],
     "zoom": [
       4,
-      12
+      4
     ],
     "freelook": [
-      -10,
+      0,
       0
     ],
     "fullbright": [
@@ -112,7 +112,7 @@
       0
     ],
     "blockoverlay": [
-      8,
+      0,
       0
     ],
     "chunkborders": [
@@ -128,20 +128,20 @@
       3
     ],
     "itemsize": [
-      -8,
+      0,
       0
     ],
     "weather": [
       0,
-      6
+      0
     ],
     "timechanger": [
       0,
       0
     ],
     "motionblur": [
-      4,
-      -6
+      0,
+      0
     ],
     "colorsaturation": [
       0,
@@ -149,7 +149,7 @@
     ],
     "particles": [
       6,
-      -9
+      0
     ],
     "togglesprint": [
       4,
@@ -161,7 +161,7 @@
     ],
     "waypoints": [
       0,
-      -4
+      0
     ],
     "jei": [
       -4,
@@ -180,7 +180,7 @@
       0
     ],
     "ping": [
-      -4,
+      0,
       0
     ],
     "memory": [
@@ -188,7 +188,7 @@
       0
     ],
     "saturation": [
-      12,
+      0,
       -2
     ],
     "packdisplay": [
@@ -197,7 +197,7 @@
     ],
     "itemcounter": [
       0,
-      4
+      0
     ],
     "directionhud": [
       0,
@@ -205,11 +205,11 @@
     ],
     "combo": [
       0,
-      -4
+      0
     ],
     "reach": [
       0,
-      14
+      0
     ],
     "crosshair": [
       0,
@@ -253,11 +253,11 @@
     ],
     "cooldowns": [
       -8,
-      8
+      0
     ],
     "soundchanger": [
       0,
-      1
+      0
     ],
     "itemphysics": [
       4,
@@ -276,27 +276,27 @@
       0
     ],
     "hypixel": [
-      -20,
-      -6
+      0,
+      0
     ],
     "minimap": [
       0,
       0
     ],
     "autotext": [
-      8,
-      4
+      0,
+      0
     ],
     "autogg": [
-      -16,
-      -2
+      0,
+      0
     ],
     "nickhider": [
       0,
       0
     ],
     "quickplay": [
-      -8,
+      0,
       0
     ],
     "screenshot": [
@@ -304,16 +304,68 @@
       0
     ],
     "hypixelbedwars": [
-      8,
+      0,
       -12
     ],
     "portalcalc": [
-      -16,
+      0,
       0
     ],
     "fpscoach": [
       0,
       0
+    ],
+    "@grid": [
+      0,
+      0
+    ],
+    "@list": [
+      0,
+      0
+    ],
+    "@pin": [
+      0,
+      0
+    ],
+    "@reset": [
+      0,
+      0
+    ],
+    "@shirt": [
+      0,
+      0
+    ],
+    "@user": [
+      0,
+      0
+    ],
+    "@chev-down": [
+      0,
+      0
+    ],
+    "@chev-left": [
+      0,
+      0
+    ],
+    "@chev-right": [
+      0,
+      0
+    ],
+    "@close": [
+      0,
+      0
+    ],
+    "@plus": [
+      0,
+      0
+    ],
+    "@trash": [
+      0,
+      0
+    ],
+    "@check": [
+      0,
+      4
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v2/generate_proposal.py",
@@ -625,6 +677,58 @@
     "fpscoach": {
       "x": 768,
       "y": 2304
+    },
+    "@grid": {
+      "x": 960,
+      "y": 2304
+    },
+    "@list": {
+      "x": 0,
+      "y": 2496
+    },
+    "@pin": {
+      "x": 192,
+      "y": 2496
+    },
+    "@reset": {
+      "x": 384,
+      "y": 2496
+    },
+    "@shirt": {
+      "x": 576,
+      "y": 2496
+    },
+    "@user": {
+      "x": 768,
+      "y": 2496
+    },
+    "@chev-down": {
+      "x": 960,
+      "y": 2496
+    },
+    "@chev-left": {
+      "x": 0,
+      "y": 2688
+    },
+    "@chev-right": {
+      "x": 192,
+      "y": 2688
+    },
+    "@close": {
+      "x": 384,
+      "y": 2688
+    },
+    "@plus": {
+      "x": 576,
+      "y": 2688
+    },
+    "@trash": {
+      "x": 768,
+      "y": 2688
+    },
+    "@check": {
+      "x": 960,
+      "y": 2688
     }
   }
 }

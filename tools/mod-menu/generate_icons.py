@@ -154,6 +154,26 @@ PUBLIC_IDS.update({
     "fpscoach": "client.fpscoach",
 })
 
+# Menu chrome added by the 2026-10 mod-menu redesign (design/menu-redesign).
+# Same 24-grid + stroke as the rest of the set; drawn here because they are
+# plain UI symbols, not mod concepts, so they don't belong in the icon masters.
+CHROME = {
+    "@grid": '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>'
+             '<rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+    "@list": '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    "@pin": '<path d="M9 3h6l-1 6 4 4H6l4-4z" fill="currentColor"/><path d="M12 13v8"/>',
+    "@reset": '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/>',
+    "@shirt": '<path d="M20.4 6.6 16 4l-1.5 2a3.2 3.2 0 0 1-5 0L8 4 3.6 6.6l1.8 4.2L7 10v10h10V10l1.6.8z"/>',
+    "@user": '<circle cx="12" cy="7" r="4"/><path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/>',
+    "@chev-down": '<polyline points="6 9 12 15 18 9"/>',
+    "@chev-left": '<polyline points="15 18 9 12 15 6"/>',
+    "@chev-right": '<polyline points="9 18 15 12 9 6"/>',
+    "@close": '<path d="M18 6 6 18M6 6l12 12"/>',
+    "@plus": '<path d="M12 5v14M5 12h14"/>',
+    "@trash": '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+    "@check": '<polyline points="20 6 9 17 4 12"/>',
+}
+
 
 def load_master():
     spec = importlib.util.spec_from_file_location("origin_icon_masters", MASTER)
@@ -194,7 +214,11 @@ def atlas_svg(entries: list[tuple[str, dict]], stroke: str, width: int, height: 
         # 24 -> CELL px. Keeping the authored viewBox intact preserves the
         # approved spacing and optical stroke across every glyph.
         # An entry may carry its own stroke (the brand mark keeps v1's weight).
-        parts.append(f'<g transform="translate({x} {y}) scale({CELL / 24:g})" {entry.get("stroke", stroke)}>{entry["body"]}</g>')
+        # Clipped to its own cell: a stroke on the grid's outer edge would
+        # otherwise spill a sliver into the neighbouring cell.
+        parts.append(f'<clipPath id="c{index}"><rect x="{x}" y="{y}" width="{CELL}" height="{CELL}"/></clipPath>')
+        parts.append(f'<g clip-path="url(#c{index})"><g transform="translate({x} {y}) scale({CELL / 24:g})" '
+                     f'{entry.get("stroke", stroke)}>{entry["body"]}</g></g>')
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -294,7 +318,12 @@ def center_cells(atlas: Image.Image, entries: list[tuple[str, dict]]) -> tuple[I
         left, top, right, bottom = bounds
         dx = round((CELL - left - right) / 2.0)
         dy = round((CELL - top - bottom) / 2.0)
-        centered.alpha_composite(glyph, (x + dx, y + dy))
+        # Shift inside a cell-sized canvas so the moved glyph is cropped to its
+        # own cell. Compositing straight into the atlas let a shifted glyph
+        # (Bed Wars moves 12 px up) draw into the cell above it.
+        shifted = Image.new("RGBA", (CELL, CELL), (0, 0, 0, 0))
+        shifted.paste(glyph, (dx, dy), glyph)   # paste (not alpha_composite) accepts negative offsets
+        centered.alpha_composite(shifted, (x, y))
         offsets[public_id] = [dx, dy]
     return centered, offsets
 
@@ -307,6 +336,7 @@ def build() -> None:
         raise RuntimeError(f"Approved master icons missing: {', '.join(missing)}")
 
     entries = [(public_id, by_id[master_id]) for public_id, master_id in PUBLIC_IDS.items()]
+    entries += [(public_id, {"id": public_id, "body": body}) for public_id, body in CHROME.items()]
     rows = (len(entries) + COLS - 1) // COLS
     width, height = COLS * CELL, rows * CELL
     svg = atlas_svg(entries, master.STROKE, width, height)

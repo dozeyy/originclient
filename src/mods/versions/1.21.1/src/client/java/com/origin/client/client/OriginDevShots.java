@@ -31,15 +31,18 @@ public final class OriginDevShots {
 
 	/** What a shot opens before capturing. */
 	private enum Kind {
-		TITLE, MENU, MOD_SETTINGS, HUD_EDITOR;
+		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT;
 
 		Screen open() {
 			return switch (this) {
 				case TITLE -> new TitleScreen();
-				case MENU -> new OriginModMenuScreen();
+				case MENU -> new OriginModMenuScreen().preview(false, false);
+				case MENU_LIST -> new OriginModMenuScreen().preview(true, false);
 				// A HUD mod's own page: the settings layout the redesign is judged on.
-				case MOD_SETTINGS -> new OriginModMenuScreen(null, "keystrokes");
-				case HUD_EDITOR -> new HudEditorScreen();
+				case MOD_SETTINGS -> new OriginModMenuScreen(null, "keystrokes").preview(false, false);
+				case SETTINGS -> new OriginModMenuScreen().preview(false, true);
+				// The Right Shift screen (HUD editor + the Origin centre group).
+				case RSHIFT -> new HudEditorScreen(true);
 			};
 		}
 	}
@@ -58,9 +61,14 @@ public final class OriginDevShots {
 			// the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
 				for (Kind k : Kind.values()) {
+					if (k == Kind.TITLE) {
+						continue;   // the title isn't part of this redesign
+					}
 					SHOTS.add(new Shot(s[0], s[1], 0, k));
 				}
 			}
+			// Same menu at a forced GUI scale: the redesign must not change size with it.
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.MENU));
 		} else {
 			// Common desktop ratios at auto GUI scale (0 = Minecraft's own choice),
 			// then the two extremes of GUI scale at 1080p.
