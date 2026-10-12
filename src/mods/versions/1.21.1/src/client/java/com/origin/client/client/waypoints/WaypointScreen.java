@@ -79,6 +79,20 @@ public class WaypointScreen extends OriginWindow {
 
 	public WaypointScreen() {
 		this(false);
+		// TEMP (dev-shots check of the restyle; reverted next commit): samples + editor open
+		if (System.getenv("ORIGIN_SHOTS") != null) {
+			if (Waypoints.all().isEmpty()) {
+				Waypoints.create("Home base", 120, 64, -340, "minecraft:overworld", 0xFF5FD09B);
+				Waypoints.create("Nether portal", 88, 70, -301, "minecraft:overworld", 0xFFB06CF0);
+				Waypoints.Waypoint a = Waypoints.create("Diamond cave", -812, -54, 1290, "minecraft:overworld", 0xFF57C7E8);
+				a.group = "Mining";
+				Waypoints.Waypoint b = Waypoints.create("Ancient debris", 40, 15, -38, "minecraft:the_nether", 0xFFE9C46A);
+				b.group = "Mining";
+				b.enabled = false;
+				Waypoints.save();
+			}
+			this.openToCreate = true;
+		}
 	}
 
 	/** Opens the manager; if startCreating, opens the editor on a fresh DRAFT
