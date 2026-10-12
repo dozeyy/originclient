@@ -412,14 +412,14 @@ public final class OriginDeck {
 	}
 
 	/**
-	 * Soft dark backing behind a glyph run: three stacked pills, each larger
+	 * Soft dark backing behind a glyph run: four stacked pills, each larger
 	 * and fainter (core ~48% black), so the edge fades out instead of reading
 	 * as a box. Over a dark world it all but vanishes; over snow or sky it is
 	 * what keeps the words legible. `unit` scales the spread (the text's height).
 	 */
 	private void halo(float x0, float y0, float x1, float y1, float unit, float k) {
-		float[] grow = {0.15f, 0.4f, 0.7f};
-		int[] al = {0x48, 0x30, 0x1C};
+		float[] grow = {0.15f, 0.4f, 0.7f, 1.0f};
+		int[] al = {0x40, 0x2C, 0x1C, 0x0E};
 		for (int i = 0; i < grow.length; i++) {
 			float gy = unit * grow[i], gx = gy + unit * 0.25f;
 			float[] b = {px(x0 - gx), py(y0 - gy), (x1 - x0 + 2 * gx) * s, (y1 - y0 + 2 * gy) * s};
