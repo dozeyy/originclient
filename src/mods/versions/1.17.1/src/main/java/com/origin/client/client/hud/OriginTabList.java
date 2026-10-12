@@ -238,7 +238,9 @@ public final class OriginTabList {
 
 	private static Component displayName(PlayerInfo info) {
 		Component c = info.getTabListDisplayName();
-		return c != null ? c : new TextComponent(info.getProfile().getName());
+		// Hypixel mod: guild-tag removal + level / Bed Wars stats (no-op elsewhere).
+		return com.origin.client.client.mods.Hypixel.decorateTabName(info,
+				c != null ? c : new TextComponent(info.getProfile().getName()));
 	}
 
 	/**
