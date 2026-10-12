@@ -2,6 +2,7 @@ package com.origin.client.client.render;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
+import com.mojang.blaze3d.shaders.BlendMode;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -12,6 +13,7 @@ import com.origin.client.client.gui.OriginShaders;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 
 /**
  * The Color Saturation mod's renderer: a full-screen grade over the rendered
@@ -40,6 +42,32 @@ public final class ColorGrade {
 
 	private static TextureTarget swap;
 	private static boolean broken = false;
+
+	/**
+	 * The blend mode every vanilla GUI core shader of this era declares in its json
+	 * (position_tex, position_color, position_tex_color: add, srcalpha, 1-srcalpha).
+	 *
+	 * <p>WHY: before 1.20.5 each ShaderInstance applies its json "blend" through
+	 * {@link BlendMode#apply()}, which caches the last mode in a static and only
+	 * touches GL when the mode CHANGES. Our grade shader is opaque (blend one/zero
+	 * parses as opaque), so drawing it leaves that cache on "opaque". Gui.render then
+	 * draws the vignette: enableBlend + blendFuncSeparate(ZERO, ONE_MINUS_SRC_COLOR),
+	 * then blits with position_tex — whose apply() sees opaque -> translucent and
+	 * re-sets blendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA), wiping the vignette's
+	 * multiply. The fully opaque vignette texture (black centre, light edges) is then
+	 * pasted over the world, tinted by the vignette brightness: in daylight the whole
+	 * world goes black, in dimmer light a white/grey ring shows round the edges.
+	 * Vanilla never hits this because the cache already holds this translucent mode
+	 * when the HUD starts. Applying it here (blend is reset right after) puts the cache
+	 * back where vanilla expects it, so the vignette's own blend func survives.
+	 * 1.20.5+ dropped per-shader BlendMode, which is why 1.21.x never had the bug.
+	 */
+	private static final BlendMode GUI_BLEND =
+			new BlendMode(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL14.GL_FUNC_ADD);
+
+	private static void resyncBlendCache() {
+		GUI_BLEND.apply();
+	}
 
 	public static void process(float partialTick) {
 		if (broken || !Mods.on("colorsaturation")) {
@@ -89,6 +117,7 @@ public final class ColorGrade {
 			// Pass 2: copy the graded image back to main (neutral = passthrough).
 			main.bindWrite(true);
 			blit(swap.getColorTextureId(), 1f, 1f, 1f);
+			resyncBlendCache();
 
 			// Restore every default the world/sky pass relies on at frame start.
 			RenderSystem.enableDepthTest();
@@ -110,6 +139,7 @@ public final class ColorGrade {
 			// not next frame. Guarded so recovery can't itself throw. (Bug-audit #3.)
 			try {
 				main.bindWrite(false);
+				resyncBlendCache();
 				RenderSystem.enableDepthTest();
 				RenderSystem.depthFunc(GL11.GL_LEQUAL);
 				RenderSystem.depthMask(true);

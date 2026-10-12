@@ -464,3 +464,20 @@ Module-evidenced (from the module's own boot-verified HEAD code) unless marked R
   with t.index('\t}\n') also matches the inner '\t\t}\n' of a nested block. Search '\n\t}\n'.
   Cheap local guard that would have caught it: `javac -proc:none -d /tmp/x $(find <module>/src
   -name '*.java')` and look for parse-level errors only (ignore cannot-find-symbol etc.).
+
+## Color Saturation black world / white vignette on 1.17.1-1.20.4 (satbug, 2026-10-12)
+- Symptom: Color Saturation on, no shader pack -> world black (daylight) or a white ring round the
+  screen edges (dim light); HUD fine. 1.21.x fine; an Iris pack hid it.
+- Root cause: before 1.20.5 every ShaderInstance applies its json "blend" through BlendMode.apply(),
+  which caches the last mode in a static and only touches GL when the mode CHANGES. Our grade shader
+  is opaque, so it left the cache on "opaque". Gui.render then draws the vignette with
+  blendFuncSeparate(ZERO, ONE_MINUS_SRC_COLOR) and blits via position_tex, whose json blend is
+  srcalpha/1-srcalpha: apply() saw opaque -> translucent and re-set blendFunc(SRC_ALPHA,
+  ONE_MINUS_SRC_ALPHA), wiping the vignette's multiply. The opaque vignette texture (black centre,
+  light edges, tinted by vignetteBrightness) got pasted over the world. 1.20.5+ has no BlendMode.
+- Fix (render/ColorGrade, 1.17.1-1.20.4): after the grade passes, apply a
+  BlendMode(SRC_ALPHA, ONE_MINUS_SRC_ALPHA, ADD) (GUI_BLEND) so the cache holds the mode vanilla's GUI
+  shaders declare, then reset GL blend as before. 1.16.5 is unaffected (fixed-function HUD; its
+  grade is a PostChain whose EffectInstances re-apply their own blend).
+- Rule for any custom core shader drawn mid-frame on 1.17-1.20.4: leave BlendMode's cache in the mode
+  vanilla's next draw expects, not just the raw GL blend state.
