@@ -71,7 +71,7 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
       warp: null | { server, version, at, from }         // leader asked the party to join them (last 2 min)
     }
 - Presence is per (account, client): launcher and game both open = one online account. Online = synced in
-  the last 90 s. A friend who set appearOffline shows `online:false`, no activity, to friends (party members
+  the last 150 s. A friend who set appearOffline shows `online:false`, no activity, to friends (party members
   still get its party state, since they're in a party together).
 - `server` is only shown to friends (never to strangers), and `activity/server` are null while appearOffline.
 - Party member `state` is returned only to members of that party, and only for members whose `partyState.server`
@@ -108,11 +108,14 @@ Retention: DMs and party chat kept 30 days, pings 60 s, joins/sessions pruned by
 
 ## Request budget (Cloudflare free plan, per day: 100,000 Worker requests, D1 5,000,000 rows read, 100,000 rows written)
 Clients poll `/v1/sync` adaptively:
-- every 4 s while: a chat/friends window is open, the player is in a party, or a DM/invite arrived < 2 min ago;
-- every 30 s otherwise (game and launcher alike); never while the game window has been unfocused > 5 min
-  (then 60 s).
-Writes: presence is written at most once per 30 s per (account, client) even if synced faster; a moving party
-position at most every 5 s (only in LAN worlds, see Fair-play guard).
+- every 4 s while: a chat/friends window is open, the last sync said `wantState: true`, or a DM/invite arrived
+  < 2 min ago;
+- every 20 s while in a party otherwise;
+- every 30 s otherwise (game and launcher alike); every 60 s once the game window has been unfocused > 5 min.
+(Will chose the free plan to stay free; the 2026-10-12 cadence revision above cuts party polling 4-5x.)
+Writes: presence is written at most once per 60 s per (account, client) even if synced faster (a change of
+server/activity/version still writes after 5 s); "online" = seen in the last 150 s. A moving party position at
+most every 5 s (only in LAN worlds, see Fair-play guard).
 
 Measured cost per call (D1's own rows_read / rows_written on a local D1, 2026-10-12; D1 counts each index entry
 touched, so a write is usually 2+ rows):
