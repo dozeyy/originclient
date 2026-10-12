@@ -105,6 +105,7 @@ tools/release/            plan.py (build vs reuse per version) + notes.py (relea
 tools/github/labels.py    GitHub label set + PR auto-label rules
 tools/website/build_assets.py  website textures/fonts/icons/three.js from their real sources
 website/                  originclient.org: island-in-the-sky page (DOWNLOAD.live switch in js/site.js)
+  store.html              cosmetics store (Tebex checkout, STORE.live switch in js/store.js) — docs/STORE.md
   launcher/promos.json    the launcher HOME BANNER's live feed (promos, Discord invite, ad-network
                           switch) — edit + push to main; launchers pick it up within 30 min
   ad/banner.html          the banner's ad-network page (placeholder until Nitro is approved)
