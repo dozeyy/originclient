@@ -5,6 +5,32 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+
+## 2026-10-12 — Mod menu + Right Shift redesign, built and ported to every version
+
+Will's brief: combine Lunar and Origin, "100x better, cleaner", smooth font, then "use real
+design principles" (one alignment grid). Mock v5 approved ("much much much better") after he
+rejected the pixel-font rounds (3/10) and v4's big profile sidebar.
+
+- 1.21.1 first: gui/OriginDeck lays out in the mock's own pixels (920x580 panel at 1080p, scale
+  from window height, never GUI scale), draws in physical pixels with snapped boxes and
+  baseline-placed MSDF text, and records click targets while drawing (render and input share one
+  geometry). OriginModMenuScreen rewritten on it; HudEditorScreen's Right Shift group too.
+  Translucent borders are composited onto the fill (the ROUND shader replaces, not overlays).
+- Will's v3 icon pack (refined v2: weight classes, redraws) is the atlas source; generate_icons
+  now clips each glyph to its cell (fixes neighbour slivers) and copies the atlas to every live
+  module. New chrome glyphs (@grid @list @pin @reset @shirt @user @chev-* @close @plus @trash
+  @check @find).
+- Ported to all 15 other modules by six parallel agents, one per era, briefed with the October
+  port's era notes. Real bugs found on the way: MSDF text had never run outside 1.21.1 (1.20.x
+  vertex order, 1.21.10 shader uniform block, NEAREST atlas on 1.21.6-1.21.10, 1.17.1 dev runs
+  never loaded Origin's resource pack). 1.16.5 (no shaders) gets OriginTtfFont: stb_truetype at
+  exact pixel size, verified on dev shots (the old hand-rolled-glyph ban's cause was having no
+  way to see the client; dev shots remove it).
+- dev-shots.yml is now a matrix over any modules; every module has the design shot set. Final
+  run: all 16 boot, 11 shots each, zero mixin failures, all visually matching 1.21.1.
+- An hourly auto-resume routine ("Origin redesign: auto-resume") was set up at Will's request.
+
 ## 2026-10-12 — Store cosmetics: delivery service + in-game (1.21.1), not yet switched on
 
 Will: "make it so" = in-game cosmetics + Microsoft login on the store; Cloudflare
