@@ -5,7 +5,7 @@
 // the page builds a Tebex basket with the typed Minecraft name on it, adds the
 // packages and sends the player to Tebex's own checkout page. The name rides
 // on the order, so the purchase belongs to that player. Setup: docs/STORE.md.
-import { createFittingRoom, createThumbnailer, loadSkin, flatArt, kindOf, isAnimated, LOOP } from './cosmetics.js';
+import { createFittingRoom, createThumbnailer, loadSkin, flatArt, kindOf, isAnimated, loopOf, LOOP } from './cosmetics.js';
 
 // ---------------------------------------------------------------------------
 // THE ONE SWITCH. While `live` is false the store is a showroom: everything
@@ -35,8 +35,8 @@ const ITEMS = [
   { id: 'cape-frost', name: 'Frost Cape', blurb: 'Ice blue with falling snow.', price: 5.99, tebex: 0 },
   { id: 'cape-void', name: 'Void Cape', blurb: 'An ender eye in the dark.', price: 5.99, tebex: 0 },
   // Head.
-  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'The Origin mark, spinning over your head.', price: 7.99, tebex: 0 },
-  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'Solid gold, three gems.', price: 6.99, tebex: 0 },
+  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Three rings orbiting a glowing core, each at its own speed.', price: 7.99, tebex: 0 },
+  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'Gold band, jewels, pearls and a velvet cap.', price: 6.99, tebex: 0 },
   { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99, tebex: 0 },
 ];
 const DEFAULT_CURRENCY = 'USD';
@@ -165,7 +165,7 @@ function onName(value) {
       state.player = result.player || null;
       renderName();
       renderBag();
-      const skin = state.player ? await loadSkin(state.player.uuid) : null;
+      const skin = state.player ? await loadSkin(state.player) : null;
       if (room && seq === lookupSeq) room.setSkin(skin);
     }, 450);
   }
@@ -179,11 +179,29 @@ async function lookupName(name) {
     const r = await fetch(`https://playerdb.co/api/player/minecraft/${encodeURIComponent(name)}`);
     const j = await r.json();
     const p = j?.data?.player;
-    if (j?.success && p) return { state: 'ok', player: { name: p.username, uuid: (p.raw_id || p.id || '').replace(/-/g, '') } };
+    if (j?.success && p) {
+      const uuid = (p.raw_id || p.id || '').replace(/-/g, '');
+      return { state: 'ok', player: { name: p.username, uuid, avatar: p.avatar, ...skinOf(p) } };
+    }
     return { state: 'missing' };
   } catch {
     return { state: 'unknown' };
   }
+}
+
+// The skin file and arm model straight from the Mojang profile, when the
+// lookup includes it (either as skin_texture or the raw textures property).
+function skinOf(p) {
+  const out = { skinUrl: p.skin_texture || null, slim: undefined };
+  const prop = (p.properties || []).find(x => x.name === 'textures');
+  if (prop) {
+    try {
+      const skin = JSON.parse(atob(prop.value)).textures?.SKIN;
+      if (skin?.url) out.skinUrl = skin.url;
+      if (skin) out.slim = skin.metadata?.model === 'slim';
+    } catch { /* keep what we have */ }
+  }
+  return out;
 }
 
 const canCheckout = () => ['ok', 'unknown'].includes(state.nameState);
@@ -194,7 +212,7 @@ function renderName() {
   const head = $('[data-name-head]'), note = $('[data-name-note]'), box = $('[data-name]');
   box.dataset.state = state.nameState;
   if (state.player) {
-    head.src = `https://mc-heads.net/avatar/${state.player.uuid}/48`;
+    head.src = state.player.avatar || `https://crafthead.net/avatar/${state.player.uuid}/48`;
     head.hidden = false;
   } else {
     head.hidden = true;
@@ -244,13 +262,16 @@ function paintArt() {
 // ready its card shows the still.
 const FRAMES = 20;
 function animateCards(thumber) {
-  const todo = ITEMS.filter(i => isAnimated(i.id)).flatMap(i => Array.from({ length: FRAMES }, (_, n) => [i.id, n]));
+  // A slower item (the Orbit Halo loops over 3x LOOP) gets 3x the frames, so
+  // every card plays at the same frame rate.
+  const count = id => Math.round((FRAMES * loopOf(id)) / LOOP);
+  const todo = ITEMS.filter(i => isAnimated(i.id)).flatMap(i => Array.from({ length: count(i.id) }, (_, n) => [i.id, n]));
   const step = () => {
     const until = performance.now() + 12;
     while (todo.length && performance.now() < until) {
       const [id, n] = todo.shift();
       if (!frames.has(id)) frames.set(id, []);
-      frames.get(id)[n] = thumber.frame(id, n, FRAMES);
+      frames.get(id)[n] = thumber.frame(id, n, count(id));
     }
     if (todo.length) setTimeout(step, 16);
     else thumber.dispose();
@@ -261,8 +282,8 @@ function animateCards(thumber) {
     if (document.hidden) return;
     tick++;
     for (const img of $$('img[data-anim]')) {
-      const f = frames.get(img.dataset.anim);
-      if (f?.length === FRAMES) img.src = f[tick % FRAMES];
+      const id = img.dataset.anim, f = frames.get(id);
+      if (f?.length === count(id)) img.src = f[tick % f.length];
     }
   }, (LOOP * 1000) / FRAMES);
 }

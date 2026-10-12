@@ -18,6 +18,7 @@ import * as THREE from './vendor/three.module.min.js';
 THREE.ColorManagement.enabled = false;
 
 export const LOOP = 2.4;              // seconds; every animation repeats on this
+const ORBIT_LOOP = 3 * LOOP;          // the Orbit Halo's slower, longer cycle
 const STILL_T = 0.15 * LOOP;          // the frame used when nothing may move
 const TAU = Math.PI * 2;
 
@@ -297,12 +298,14 @@ const ART = {
   'wings-ember': { kind: 'wings', animated: true, palette: { lead: '#fff1a8', mid: '#ff8a2b', tip: '#7a1608', bone: '#ffcf6b' }, sparks: ['#ffb23e', '#ff6a2b'], rise: true },
   'wings-void': { kind: 'wings', animated: true, palette: { lead: '#e6c4ff', mid: '#7a3cd0', tip: '#160826', bone: '#b07aff' }, sparks: ['#c86bff', '#7a2cff'] },
   'wings-frost': { kind: 'wings', animated: true, palette: { lead: '#ffffff', mid: '#cdeeff', tip: '#4f93c9', bone: '#ffffff' }, sparks: ['#ffffff', '#cdeeff'] },
-  'halo-orbit': { kind: 'head', build: buildOrbitHalo },
+  'halo-orbit': { kind: 'head', build: buildOrbitHalo, animated: true, loop: ORBIT_LOOP },
   'halo-gold': { kind: 'head', build: buildGoldHalo },
   'crown-pixel': { kind: 'head', build: buildCrown },
 };
 export const kindOf = id => ART[id]?.kind;
 export const isAnimated = id => !!ART[id]?.animated;
+// Seconds before an item's animation repeats (a whole number of LOOPs).
+export const loopOf = id => ART[id]?.loop || LOOP;
 
 // Live art canvases, one per item (and per wing panel). Animated capes are
 // repainted into the same canvas each frame.
@@ -417,20 +420,61 @@ function sparks(colors, count, spawn, drift) {
 }
 
 // ------------------------------------------------------------ head cosmetics
+// The Orbit Halo is an atom over the head: a glowing nucleus and three rings,
+// each tumbling on its own tilt at its own speed with a bright bead (plus a
+// fading trail) racing round it. Every speed is a whole number of turns per
+// ORBIT_LOOP (declared at the top), so the shop card's loop has no seam.
+const ORBIT_RINGS = [
+  // radius, tilt from flat, precession / wobble / bead turns per loop, start angle
+  { r: 4.8, tilt: 0.4, prec: 1, wob: 2, bead: 4, start: 0 },
+  { r: 4.1, tilt: 0.85, prec: -2, wob: 3, bead: -5, start: TAU / 3 },
+  { r: 3.4, tilt: 1.2, prec: 3, wob: 1, bead: 6, start: (2 * TAU) / 3 },
+];
+function glowCube(size, hex, glowHex) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshBasicMaterial({ color: hex })));
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(size * 2.2, size * 2.2, size * 2.2), new THREE.MeshBasicMaterial({
+    color: glowHex, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false,
+  })));
+  return g;
+}
 function buildOrbitHalo(g) {
-  // The Origin mark as an atom over the head: three rings 60 degrees apart.
+  const w = TAU / ORBIT_LOOP;
   const atom = new THREE.Group();
-  atom.position.set(0, 36, 0);
-  [5.4, 4.7, 4.0].forEach((radius, i) => {
-    const pivot = new THREE.Group();
-    pivot.rotation.y = i * Math.PI / 3;
-    const ring = glowRing(radius, 0.28, '#83e2b5', '#4bc8ae');
-    ring.rotation.x = Math.PI / 2 - 0.42;
-    pivot.add(ring);
-    atom.add(pivot);
+  atom.position.set(0, 37, 0);
+  const core = glowCube(0.9, '#ffffff', '#4bc8ae');
+  atom.add(core);
+  const rings = ORBIT_RINGS.map(o => {
+    const prec = new THREE.Group();             // the ring's plane swings round
+    const tilt = new THREE.Group();             // ...tipped at its own angle
+    const spin = new THREE.Group();             // ...while the bead laps it
+    const ring = glowRing(o.r, 0.26, '#83e2b5', '#4bc8ae');
+    ring.rotation.x = Math.PI / 2;
+    tilt.add(ring, spin);
+    prec.add(tilt);
+    atom.add(prec);
+    const dir = Math.sign(o.bead);
+    [0.95, 0.75, 0.6, 0.45, 0.32].forEach((size, k) => {
+      const bead = k === 0 ? glowCube(size, '#ffffff', '#83e2b5') : new THREE.Mesh(
+        new THREE.BoxGeometry(size, size, size),
+        new THREE.MeshBasicMaterial({ color: '#83e2b5', transparent: true, opacity: 0.85 - k * 0.15, blending: THREE.AdditiveBlending, depthWrite: false }),
+      );
+      const a = -dir * k * 0.2;                 // trail sits behind the bead
+      bead.position.set(o.r * Math.cos(a), 0, -o.r * Math.sin(a));
+      spin.add(bead);
+    });
+    return { o, prec, tilt, spin };
   });
   g.add(atom);
-  return (t, still) => { atom.rotation.y = still ? 0.3 : t * 0.7; };
+  return t => {
+    for (const { o, prec, tilt, spin } of rings) {
+      prec.rotation.y = o.start + o.prec * w * t;
+      tilt.rotation.x = o.tilt + 0.12 * Math.sin(o.wob * w * t);
+      spin.rotation.y = o.bead * w * t;
+    }
+    core.rotation.set(w * t, 2 * w * t, 0);
+    core.scale.setScalar(1 + 0.15 * Math.sin(4 * w * t));
+  };
 }
 function buildGoldHalo(g) {
   const ring = glowRing(4.4, 0.5, '#ffd56b', '#ffb23e');
@@ -438,23 +482,54 @@ function buildGoldHalo(g) {
   g.add(ring);
   return (t, still) => { ring.position.set(0, 35.2 + (still ? 0 : 0.35 * Math.sin(t * 2)), 0); };
 }
+// The Pixel Crown: a jewelled gold band worn level and centred on the head,
+// clear of the skin's hat layer, with corner and centre points topped by
+// pearls and gems, a velvet cap and a gold orb and cross on top.
 function buildCrown(g) {
-  const gold = '#f2c14e', dark = '#c9932c';
+  const gold = '#f2c14e', deep = '#c9932c', pearl = '#f4efe4', velvet = '#a3203a';
+  const R = 4.85;                               // band centre line: the hat layer reaches 4.5
+  const gems = ['#e0485b', '#5b8be0', '#5fd09b', '#5b8be0'];   // front, left, back, right
   const crown = new THREE.Group();
-  crown.add(block(9, 2, 0.8, gold, 0, 32, 4.3), block(9, 2, 0.8, gold, 0, 32, -4.3));
-  crown.add(block(0.8, 2, 9, dark, 4.3, 32, 0), block(0.8, 2, 9, dark, -4.3, 32, 0));
-  for (const p of [-4, 0, 4]) {
-    const tall = p === 0 ? 3 : 2;
-    crown.add(block(1.2, tall, 1.2, gold, p, 33 + tall / 2, 4.3), block(1.2, tall, 1.2, gold, p, 33 + tall / 2, -4.3));
-    if (p !== 0) continue;
-    crown.add(block(1.2, 2, 1.2, dark, 4.3, 34, p), block(1.2, 2, 1.2, dark, -4.3, 34, p));
+  const put = (...a) => { const m = block(...a); crown.add(m); return m; };
+  // Each side of the band in its own frame: +x along the side, +z outward.
+  for (let side = 0; side < 4; side++) {
+    const f = new THREE.Group();
+    f.rotation.y = side * Math.PI / 2;
+    const add = (w, h, d, hex, x, y, z) => f.add(block(w, h, d, hex, x, y, z));
+    add(2 * R + 0.6, 2.4, 0.6, side % 2 ? deep : gold, 0, 31.8, R);          // band
+    add(2 * R + 0.9, 0.4, 0.9, deep, 0, 30.8, R);                            // bottom rim
+    add(2 * R + 0.9, 0.4, 0.9, deep, 0, 32.9, R);                            // top rim
+    add(1.9, 1.9, 0.3, deep, 0, 31.8, R + 0.4);                              // gem setting
+    add(1.2, 1.2, 0.5, gems[side], 0, 31.8, R + 0.55);                       // gem
+    add(0.4, 0.4, 0.1, '#ffffff', -0.3, 32.1, R + 0.85);                     // gem glint
+    for (const x of [-2.6, 2.6]) add(0.6, 0.6, 0.3, pearl, x, 31.8, R + 0.4);  // pearls
+    for (const x of [-2.5, 2.5]) {                                           // small points
+      add(0.8, 1.6, 0.6, gold, x, 33.9, R);
+      add(0.7, 0.7, 0.7, pearl, x, 35, R);
+    }
+    add(1, 2.8, 0.6, gold, 0, 34.5, R);                                      // centre point
+    const tip = block(0.8, 0.8, 0.8, gems[side], 0, 36.3, R);
+    tip.rotation.z = Math.PI / 4;
+    f.add(tip);
+    crown.add(f);
   }
-  crown.add(block(1.4, 1.4, 0.5, '#e0485b', 0, 32, 4.85));
-  crown.add(block(0.5, 1.4, 1.4, '#5b8be0', 4.85, 32, 0), block(0.5, 1.4, 1.4, '#5b8be0', -4.85, 32, 0));
-  crown.add(block(1.4, 1.4, 0.5, '#5fd09b', 0, 32, -4.85));
-  crown.rotation.z = 0.05;
+  for (const [x, z] of [[R, R], [-R, R], [R, -R], [-R, -R]]) {             // corner points
+    put(1, 2.2, 1, gold, x, 34.1, z);
+    put(0.8, 0.8, 0.8, pearl, x, 35.6, z);
+  }
+  put(2 * R - 0.6, 1.3, 2 * R - 0.6, velvet, 0, 33.4, 0);                   // velvet cap
+  put(6.2, 1, 6.2, velvet, 0, 34.5, 0);
+  put(1.4, 1.4, 1.4, gold, 0, 35.7, 0);                                     // orb
+  put(0.5, 1.8, 0.5, gold, 0, 37.3, 0);                                     // cross
+  put(1.4, 0.5, 0.5, gold, 0, 37.5, 0);
   g.add(crown);
-  return () => {};
+
+  // A few twinkles off the gold and gems.
+  const fx = sparks(['#ffffff', '#fff1b8'], 10,
+    i => { const a = (i % 4) * Math.PI / 2, x = (hash(i + 5) - 0.5) * 9; return [x * Math.cos(a) + R * Math.sin(a), 31 + hash(i + 9) * 5, R * Math.cos(a) - x * Math.sin(a)]; },
+    life => [0, life * 1.2, 0]);
+  crown.add(fx);
+  return t => fx.userData.update(fract(t / LOOP));
 }
 
 // --------------------------------------------------------------- the cape
@@ -590,6 +665,9 @@ const PARTS = [
   { name: 'legL', size: [4, 12, 4], at: [2, 12, 0], pivot: -6, uv: [16, 48], over: [0, 48], grow: 0.5, legacy: [0, 16] },
 ];
 
+// Slim (Alex-style) skins: arms 3 pixels wide, sitting tight to the body.
+const SLIM_PARTS = PARTS.map(p => (p.name.startsWith('arm') ? { ...p, size: [3, 12, 4], at: [Math.sign(p.at[0]) * 5.5, 22, 0] } : p));
+
 // The six face rectangles of a box in Minecraft's skin layout, in BoxGeometry
 // face order (+x = the player's left side, +z = the front).
 function skinFaces(u, v, w, h, d) {
@@ -639,13 +717,13 @@ function buildPlayer() {
   root.add(body, slot);
   const limbs = {};
 
-  function setSkin(tex) {
+  function setSkin(tex, slim = false) {
     disposeTree(body);
     body.clear();
     const img = tex.image, W = img.width || 64, H = img.height || 64;
     const legacy = H === W / 2;       // pre-1.8 64x32 skins: no overlays, mirrored limbs
     const s = W / 64;                 // HD skins scale the whole layout
-    for (const p of PARTS) {
+    for (const p of slim && !legacy ? SLIM_PARTS : PARTS) {
       const uv = legacy && p.legacy ? p.legacy : p.uv;
       const holder = new THREE.Group();
       holder.position.set(...p.at);
@@ -690,12 +768,12 @@ const VIEWS = {
   none: { yaw: 0.5, look: 18, dist: 80, lift: 6 },
   cape: { yaw: Math.PI - 0.6, look: 18, dist: 80, lift: 6 },
   wings: { yaw: Math.PI - 0.5, look: 20, dist: 92, lift: 10 },
-  head: { yaw: 0.5, look: 21, dist: 80, lift: 8 },
+  head: { yaw: 0.5, look: 24, dist: 80, lift: 8 },
 };
 const THUMBS = {
   cape: { yaw: Math.PI - 0.55, look: 18, dist: 56, lift: 4 },
   wings: { yaw: Math.PI - 0.45, look: 21, dist: 82, lift: 8 },
-  head: { yaw: 0.55, look: 31, dist: 38, lift: 14 },
+  head: { yaw: 0.55, look: 33, dist: 44, lift: 14 },
 };
 
 function aim(camera, v) {
@@ -784,25 +862,46 @@ export function createFittingRoom(canvas, { reducedMotion = false } = {}) {
       holdUntil = performance.now() + 4500;
       wake();
     },
-    setSkin(tex) { player.setSkin(tex || mannequinSkin()); wake(); },
+    // skin: { tex, slim } from loadSkin, or null for the mannequin
+    setSkin(skin) { player.setSkin(skin?.tex || mannequinSkin(), skin?.slim); wake(); },
   };
 }
 
-// Loads a player's real skin by UUID. Resolves null on any failure, and the
-// caller keeps the mannequin. The skin hosts must send CORS headers (WebGL
-// can't read an image without them), so try two.
-export async function loadSkin(uuid) {
+// Loads a player's real skin. player: { uuid, skinUrl?, slim? } from the name
+// lookup. Resolves { tex, slim }, or null (the caller keeps the mannequin).
+// WebGL can only use images served with CORS headers, so this tries, in order:
+// the skin file on Mojang's own texture server, then two skin mirrors.
+// (Crafatar was dropped 2026-10-12: when it can't reach Mojang it answers
+// with a default Steve instead of an error, so players saw Steve.)
+export async function loadSkin(player) {
   const loader = new THREE.TextureLoader().setCrossOrigin('anonymous');
-  for (const url of [`https://crafatar.com/skins/${uuid}`, `https://mc-heads.net/skin/${uuid}`]) {
+  const urls = [
+    player.skinUrl && player.skinUrl.replace(/^http:/, 'https:'),
+    `https://crafthead.net/skin/${player.uuid}`,
+    `https://mc-heads.net/skin/${player.uuid}`,
+  ].filter(Boolean);
+  for (const url of urls) {
     try {
-      const tex = await loader.loadAsync(url);
+      const tex = await Promise.race([
+        loader.loadAsync(url),
+        new Promise((_, no) => setTimeout(() => no(new Error('timed out')), 7000)),
+      ]);
       tex.magFilter = THREE.NearestFilter;
       tex.minFilter = THREE.NearestFilter;
       tex.generateMipmaps = false;
-      return tex;
-    } catch { /* try the next host */ }
+      return { tex, slim: player.slim ?? looksSlim(tex.image) };
+    } catch { /* try the next source */ }
   }
   return null;
+}
+// When the profile didn't say: slim arms are 3px wide, which leaves the last
+// two columns of the right arm's back face (x 54-55, row 20) empty.
+function looksSlim(img) {
+  if (!img.width || img.height !== img.width) return false;
+  const c = makeCanvas(img.width, img.height), ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  const s = img.width / 64;
+  return ctx.getImageData(Math.floor(54 * s), Math.floor(20 * s), 1, 1).data[3] === 0;
 }
 
 // Renders shop-card pictures of each item on the mannequin: a still for every
@@ -823,7 +922,7 @@ export function createThumbnailer(size = 320) {
   };
   return {
     still: id => shot(id, STILL_T, true, 'image/png'),
-    frame: (id, i, n) => shot(id, (i / n) * LOOP, false, 'image/webp'),
+    frame: (id, i, n) => shot(id, (i / n) * loopOf(id), false, 'image/webp'),
     dispose() { player.wear(null); renderer.dispose(); renderer.forceContextLoss(); },
   };
 }

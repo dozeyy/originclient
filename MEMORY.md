@@ -30,6 +30,18 @@ for now"** (articulated flapping wings were built, kept in cosmetics.js, unliste
   skin load / Tebex paths were exercised only for their fail-soft branches.
 - Homepage: Store link in the nav (kept on phones) and footer; site.js nav
   highlighting now only tracks `#` links (a page link would have thrown).
+- Round 2 (Will's in-browser test): typed name showed **Steve**, root cause:
+  Crafatar serves a default Steve (not an error) when it can't reach Mojang, so
+  the fallback never ran. Now the skin comes from the Mojang texture URL in the
+  lookup's profile (skin_texture or the base64 textures property, forced https),
+  then crafthead, then mc-heads; slim (3px) arms from the profile model or a
+  pixel check. Verified with a mocked lookup + test skin. Crown rebuilt (jewelled
+  band clear of the hat layer, points, pearls, velvet cap, orb + cross, centred,
+  twinkles); Orbit Halo rebuilt (nucleus + 3 rings each precessing/wobbling with
+  a bead and trail at its own speed, 7.2 s loop, card animates). Page copy
+  plainer: no free-badge box, no 1-2-3 steps, heading "Capes & hats". Will's
+  local folder had many uncommitted mod-file changes blocking checkout; gave him
+  a `git worktree` preview folder instead of stashing.
 
 ---
 

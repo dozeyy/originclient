@@ -24,8 +24,8 @@ nobody can see would be wrong.
 | `website/js/cosmetics.js` | **how each item looks**: procedural art per id, the 3D player + fitting room, card thumbnails, animation loop |
 
 Item ids are shared between the two JS files. Everything that moves repeats
-every `LOOP` seconds (whole-number cycles only), which is what lets cards play
-a seamless pre-rendered loop.
+every `LOOP` seconds (whole-number cycles only; the Orbit Halo uses 3x LOOP),
+which is what lets cards play a seamless pre-rendered loop.
 
 ## Lineup and prices (Will: every price $5–$10)
 
@@ -33,8 +33,6 @@ a seamless pre-rendered loop.
   Inferno $8.99, Aurora $8.99, Starfall $8.99
 - Still capes $5.99: Origin, Golden Hour, Frost, Void
 - Head: Orbit Halo $7.99, Pixel Crown $6.99, Golden Halo $5.99
-- The Origin badge next to a player's name is **free for everyone**. It's not
-  sold, only shown on the page.
 - **Wings: not on sale** (Will, 2026-10-12: "no wings for now"). Their art and
   flap animation are still in `cosmetics.js`. To bring them back, add their
   ids (`wings-ember`, `wings-void`, `wings-frost`) to `ITEMS` and a Wings tab
@@ -64,7 +62,11 @@ charged. An item without a package id shows "Soon" and can't be bought.
 - `headless.tebex.io`: baskets and checkout (only when live).
 - `playerdb.co`: checks the typed name exists and gets the UUID. If it can't
   be reached, checkout is still allowed and Tebex checks the name instead.
-- `mc-heads.net`: the player-head image next to the name.
-- `crafatar.com`, falling back to `mc-heads.net`: the real skin for the 3D preview.
-  Unreachable means the neutral mannequin stays.
+- The real skin for the 3D preview, in order: the skin file on Mojang's
+  `textures.minecraft.net` (its address and arm model, slim or classic, come
+  from the lookup), then `crafthead.net`, then `mc-heads.net`. If none
+  answer, the neutral mannequin stays. **Not Crafatar:** when it can't reach
+  Mojang it quietly serves a default Steve, which is what players saw before
+  2026-10-12.
+- `crafthead.net`: the player-head image next to the name (unless the lookup supplies one).
 - No WebGL: cards and preview fall back to flat 2D art.
