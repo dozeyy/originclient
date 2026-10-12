@@ -35,17 +35,29 @@ jobs:
           fab = get("https://meta.fabricmc.net/v2/versions/game")
           print("== Fabric game versions:", [g["version"] for g in fab if g["version"].startswith(P)][:40])
           print("== Fabric loader latest:", get("https://meta.fabricmc.net/v2/versions/loader")[0]["version"])
-          for proj in ["fabric-api", "sodium", "iris", "jei", "lithium", "ferrite-core", "modmenu"]:
+          # Newest RELEASE file per exact release version (no snapshot/pre/rc), with
+          # its Modrinth CDN url -- what PerformanceModCatalog.Data.cs pins.
+          files = []
+          for proj in ["fabric-api", "sodium", "iris", "jei", "lithium", "ferrite-core", "modmenu", "immediatelyfast", "krypton"]:
               try:
                   vs = get(f"https://api.modrinth.com/v2/project/{proj}/version?loaders=%5B%22fabric%22%5D")
               except Exception as e:
                   print(f"== {proj}: error {e}"); continue
               by = {}
+              newest = {}
               for v in vs:
                   for g in v["game_versions"]:
                       if g.startswith(P):
                           by.setdefault(g, []).append(f'{v["version_number"]}({v["version_type"][0]})')
+                          if v["version_type"] == "release" and "-" not in g and g not in newest:
+                              f = next((f for f in v["files"] if f["primary"]), v["files"][0])
+                              newest[g] = (v["version_number"], f["url"], f["filename"])
               print(f"== {proj}:")
               for g in sorted(by):
                   print(f"    {g}: {', '.join(by[g][:4])}")
+              for g in sorted(newest):
+                  files.append(f"{proj:<15} {g:<8} {newest[g][0]:<28} {newest[g][1]}  {newest[g][2]}")
+          print("== newest release files per version:")
+          for line in files:
+              print("    " + line)
           PY
