@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Sound Changer: scales a sound's volume by its slider (SoundChanger.factor).
 //
-// 1.21.1 SoundEngine (source-verified) works a volume out in two places, both
+// SoundEngine (decompiled 1.19.3; same shape as 1.21.1) works a volume out in two places, both
 // through the private calculateVolume(float volume, SoundSource) helper:
 //  - play(SoundInstance): when a sound starts. A result of 0 makes vanilla skip
 //    the sound outright, so a 0% slider truly mutes it.

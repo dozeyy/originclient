@@ -10,8 +10,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// TNT Countdown: after vanilla draws a lit TNT (1.21.1 TntRenderer.render,
-// source-verified; full descriptor so the synthetic Entity bridge isn't matched),
+// TNT Countdown: after vanilla draws a lit TNT (TntRenderer.render, decompiled
+// 1.18.1 (the 1.18.2 code base); full descriptor so the synthetic Entity bridge isn't matched),
 // draw the fuse label above it. The pose is back at the entity origin by then
 // (vanilla pops its block transform before calling super.render).
 @Mixin(TntRenderer.class)

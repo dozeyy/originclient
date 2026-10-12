@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 // The Screenshot pop-up's clipboard work, done by the operating system's own
 // tools because Minecraft runs Java's AWT headless (Main sets
-// java.awt.headless=true, 1.21.1 source-verified), so Java's clipboard can't
+// java.awt.headless=true -- decompiled 1.18.1-1.21.1 Main), so Java's clipboard can't
 // hold an image there. Windows -- what Origin ships for -- uses the built-in
 // Windows PowerShell + .NET clipboard; macOS osascript; Linux wl-copy / xclip.
 //

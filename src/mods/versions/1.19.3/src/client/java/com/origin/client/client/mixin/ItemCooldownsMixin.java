@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //
 // ItemCooldowns keeps its entries in a private map of a private inner class, so
 // the HUD can't list them; vanilla only answers "how far through is item X".
-// addCooldown(Item, int) is the single entry point (1.21.1 source-verified):
+// addCooldown(Item, int) is the single entry point (decompiled 1.19.3):
 // the server's cooldown packet and the client's own prediction (ender pearl,
 // chorus fruit, shield disable) both land here. Read-only -- the call proceeds.
 // CooldownsHud ignores every ItemCooldowns that isn't the local player's (the

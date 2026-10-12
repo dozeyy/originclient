@@ -9,8 +9,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Hypixel Bed Wars > Mute Alert Sound: drops the sound Hypixel plays with a
-// "TRAP TRIGGERED!" alert. 1.21.1 SoundManager.play(SoundInstance) (verified
-// against decompiled 1.21.1 client source) is the one door every sound -- a
+// "TRAP TRIGGERED!" alert. SoundManager.play(SoundInstance) (verified
+// against decompiled 1.19.3 client source) is the one door every sound -- a
 // server sound packet included -- goes through before the SoundEngine;
 // cancelling at its HEAD means the sound never starts. HypixelBedwars.muteSound
 // is false for every other sound, and everywhere outside a Bed Wars game.

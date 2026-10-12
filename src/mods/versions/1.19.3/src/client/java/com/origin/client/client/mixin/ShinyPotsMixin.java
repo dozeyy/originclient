@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Shinypots: hooks the private tryRenderGuiItem that every GUI slot item draw
-// funnels into (decompiled 1.19.3 / 1.19.1 / 1.18.1 ItemRenderer: the 6-arg
+// funnels into (decompiled 1.19.3 ItemRenderer: the 6-arg
 // tryRenderGuiItem(LivingEntity, ItemStack, x, y, seed, guiOffset), reached from
 // every renderAndDecorateItem / renderAndDecorateFakeItem -- hotbar,
 // inventories, HUD). HEAD = the "behind" shine, TAIL = the normal one;
