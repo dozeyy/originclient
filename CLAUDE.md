@@ -194,14 +194,21 @@ floating corner controls. In-game menus match this exactly.
 - App installs per-user to `%LocalAppData%\Programs\OriginLauncher`; ALL user
   data lives under `%LocalAppData%\OriginLauncher` (`Core/OriginPaths.cs` is
   the single path authority — never write user data anywhere else).
-- Instances isolated per version under `%LocalAppData%/OriginLauncher/instances/`.
-- Newest launch action cancels any in-flight one.
+- Instances isolated per version AND per account: `instances/<version>/` holds the shared heavy files,
+  `instances/<version>/accounts/<uuid|offline>/` is each account's own game folder (Core/GameFolders;
+  Will 2026-10-12: one game window per account, several at once).
+- Newest launch action cancels any in-flight one FOR THE SAME ACCOUNT (other accounts' games keep running).
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-12)
-- **Latest release: `launcher-v1.0.47`** (2026-10-12; mandatory auto-update; tag flow). Tag `origin/main`
+- **Latest release: `launcher-v1.0.48`** (2026-10-12; mandatory auto-update; tag flow). Tag `origin/main`
   directly (`git tag launcher-v1.0.N origin/main`) — Will's local main once carried an unpushed commit and
   his first v1.0.46 tag landed on it (run cancelled before publishing).
+- **v1.0.49 round (2026-10-12):** friends sign-in v2 — Mojang 403s every Cloudflare Worker request, so
+  clients send their Mojang player certificate + signed profile + a possession signature and the service
+  verifies Mojang's signatures offline (keys from api.minecraftservices.com/publickeys, fetched by GitHub
+  Actions into D1 meta; docs/SOCIAL.md "Identity v2"); cosmetics equip uses the same Bearer token. Multiple
+  game windows (one per account, "Running" focuses it). Home banner: click a tip → next card, text always fits.
 - **Origin social (2026-10-12, branch claude/fervent-feynman-u4xm34, CI-green, untagged — next release):**
   docs/SOCIAL.md is THE contract. Service: services/cosmetics (social.js/party.js, migration 0002_social.sql;
   deploys + migrates when main changes). Launcher: status pill left + "<n> playing Origin" pill right (5 min),
