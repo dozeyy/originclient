@@ -1,10 +1,11 @@
 package com.origin.client.client.worldedit;
 
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.math.Matrix4f;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginRenderTypes;
@@ -44,14 +45,15 @@ import java.util.List;
 // camera, so a line keeps one steady on-screen width ("Line Thickness" ~= pixels
 // at 1080p) from your feet to the far end of a 500-block selection.
 //
-// CAMERA ROTATION IS APPLIED EXACTLY ONCE. On 1.21.1, LevelRenderer.renderLevel
-// pushes the camera rotation onto RenderSystem's model-view stack at its top and
-// pops it only after renderDebug -- and Fabric fires LAST just before
-// renderDebug, so the shader's ModelViewMat already rotates. ctx.matrixStack()
-// is the method's own `new PoseStack()` (identity). So vertices are camera-
-// RELATIVE world coords passed through matrixStack().last() -- the same contract
-// WaypointRenderer and ChunkBorderRenderer use here. Never multiply the rotation
-// in again (that double rotation is what broke waypoints on 1.16.5-1.19.3).
+// CAMERA ROTATION IS APPLIED EXACTLY ONCE. On 1.17.1 Fabric fires LAST inside
+// renderLevel's clouds/weather block, after vanilla pushed the pass's pose (which
+// holds the camera rotation) onto the global model-view, and ctx.matrixStack()
+// holds that same rotation. WorldEditCui's LAST hook therefore sets the
+// model-view to IDENTITY around this draw -- the same window OriginClientMod
+// opens for WaypointRenderer / ChunkBorderRenderer -- and vertices are camera-
+// RELATIVE world coords passed through matrixStack().last(), so the rotation
+// comes from the pose alone. Never let both carry it (that double rotation is
+// what broke waypoints on 1.16.5-1.19.3).
 //
 // SEE THROUGH: first a pass that ONLY draws where something is in front
 // (GREATER depth test), dimmed to 75% colour / 25% opacity -- WorldEditCUI's
@@ -91,10 +93,14 @@ final class CuiRenderer {
 	 * Origin's overlay quads (OriginRenderTypes.OVERLAY_QUADS) with the depth test
 	 * flipped to GREATER: fragments draw ONLY where terrain is in front of them.
 	 * No depth write, no view offset (nothing here should win a depth tie).
-	 * Same constructor + vanilla shard technique as OriginRenderTypes; same
-	 * 1.20.5-1.21.1-only ERA NOTE applies when porting.
+	 * Same constructor + vanilla shard technique as OriginRenderTypes. 1.17.1
+	 * has no GREATER_DEPTH_TEST shard (only always / == / <=), so this subclass
+	 * builds one from vanilla's own DepthTestStateShard (protected nested class,
+	 * public constructor) with GL_GREATER (516).
 	 */
 	private static final class HiddenQuads extends RenderType {
+		private static final DepthTestStateShard GREATER_DEPTH_TEST = new DepthTestStateShard(">", 516);
+
 		private HiddenQuads() {
 			super("originclient_cui_hidden_quads", DefaultVertexFormat.POSITION_COLOR,
 					VertexFormat.Mode.QUADS, 1 << 16, false, false,
@@ -119,7 +125,7 @@ final class CuiRenderer {
 	// Private immediate buffer, drawn on the spot (see OriginRenderTypes for why
 	// nothing here goes through the frame's shared, Iris-deferred buffer).
 	private static final MultiBufferSource.BufferSource HIDDEN_BUFFER =
-			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
+			MultiBufferSource.immediate(new BufferBuilder(1 << 16));   // no ByteBufferBuilder before 1.20.5
 
 	// ---- per-frame draw state (render thread only) ----
 	private static VertexConsumer out;
@@ -195,7 +201,7 @@ final class CuiRenderer {
 		if (eye == null) {
 			return;
 		}
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
+		float partial = mc.getFrameTime();
 		for (CuiRegion r : regions) {
 			for (int id = 0; id < r.latches.size(); id++) {
 				Double dist = r.latches.get(id);
@@ -623,10 +629,11 @@ final class CuiRenderer {
 
 	private static void quad(float x0, float y0, float z0, float x1, float y1, float z1,
 							 float x2, float y2, float z2, float x3, float y3, float z3) {
-		out.addVertex(pose, x0, y0, z0).setColor(cr, cg, cb, ca);
-		out.addVertex(pose, x1, y1, z1).setColor(cr, cg, cb, ca);
-		out.addVertex(pose, x2, y2, z2).setColor(cr, cg, cb, ca);
-		out.addVertex(pose, x3, y3, z3).setColor(cr, cg, cb, ca);
+		Matrix4f m = pose.pose();
+		out.vertex(m, x0, y0, z0).color(cr, cg, cb, ca).endVertex();
+		out.vertex(m, x1, y1, z1).color(cr, cg, cb, ca).endVertex();
+		out.vertex(m, x2, y2, z2).color(cr, cg, cb, ca).endVertex();
+		out.vertex(m, x3, y3, z3).color(cr, cg, cb, ca).endVertex();
 	}
 
 	/**

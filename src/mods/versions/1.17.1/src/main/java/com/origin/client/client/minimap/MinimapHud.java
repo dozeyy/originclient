@@ -13,7 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.levelgen.Heightmap;
-import org.joml.Matrix4f;
+import com.mojang.math.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -136,7 +136,7 @@ public final class MinimapHud {
 		if (mc.level.dimensionType().hasCeiling()) {
 			want = true;
 		} else {
-			BlockPos head = BlockPos.containing(mc.player.getEyePosition());
+			BlockPos head = new BlockPos(mc.player.getX(), mc.player.getEyeY(), mc.player.getZ());
 			int surface = mc.level.getHeight(Heightmap.Types.WORLD_SURFACE, head.getX(), head.getZ());
 			want = surface > head.getY() + 1 && mc.level.getBrightness(LightLayer.SKY, head) < 8;
 		}
@@ -260,13 +260,13 @@ public final class MinimapHud {
 		var pose = g.pose();
 		pose.pushPose();
 		pose.scale(s, s, 1f);
-		// Anything batched by earlier HUD elements goes down first, under the map.
-		g.flush();
+		// (1.21.1 flushes GuiGraphics' batch here; pre-1.20 every earlier HUD draw has
+		// already been drawn on the spot, so there is nothing to flush.)
 
 		float cx = b[0] / 2f, cy = mh / 2f;
 		var player = mc.player;
 		boolean world = player != null && mc.level != null;
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(true);
+		float partial = mc.getFrameTime();   // pause-aware partial tick (no DeltaTracker before 1.21)
 		double px = 0, pz = 0;
 		float yaw = 180f;
 		if (world) {
@@ -290,7 +290,7 @@ public final class MinimapHud {
 			}
 		}
 
-		// The map is immediate-mode geometry. Like Gfx' own batched flush, it
+		// The map is immediate-mode geometry. Like GuiGraphics' batched flush on 1.21.1, it
 		// draws with the depth test off: the vanilla HUD layers above it in z have
 		// already written depth (hotbar items, effect icons) and would hide it.
 		RenderSystem.disableDepthTest();

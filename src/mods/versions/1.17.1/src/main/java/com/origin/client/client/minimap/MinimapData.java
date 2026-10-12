@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.MaterialColor;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
@@ -36,7 +36,7 @@ import java.util.List;
  * first. Each scanned chunk uploads only its own 16x16 region (glTexSubImage2D), so a
  * frame never re-uploads the whole texture.
  *
- * Colours follow vanilla's map item (block MapColor, water depth, slope shading against
+ * Colours follow vanilla's map item (block MaterialColor, water depth, slope shading against
  * the neighbouring column), optionally biome-tinted grass/foliage/water like Xaero's.
  */
 public final class MinimapData {
@@ -329,14 +329,14 @@ public final class MinimapData {
 		}
 		POS.set(x, y, z);
 		BlockState state = chunk.getBlockState(POS);
-		MapColor color = state.getMapColor(level, POS);
-		while (color == MapColor.NONE && y > minY) {
+		MaterialColor color = state.getMapColor(level, POS);
+		while (color == MaterialColor.NONE && y > minY) {
 			POS.setY(--y);
 			state = chunk.getBlockState(POS);
 			color = state.getMapColor(level, POS);
 		}
 		colHeight[i] = y;
-		if (color == MapColor.NONE) {
+		if (color == MaterialColor.NONE) {
 			colArgb[i] = 0;
 			return;
 		}
@@ -351,7 +351,7 @@ public final class MinimapData {
 			}
 			POS.setY(y);
 			colDepth[i] = depth;
-			colWater[i] = color == MapColor.WATER;
+			colWater[i] = color == MaterialColor.WATER;
 		}
 		colArgb[i] = 0xFF000000 | baseRgb(level, state, color, look);
 	}
@@ -376,12 +376,12 @@ public final class MinimapData {
 			if (!sawAir) {
 				continue;    // still inside the ceiling
 			}
-			MapColor color = state.getMapColor(level, POS);
-			if (color == MapColor.NONE) {
+			MaterialColor color = state.getMapColor(level, POS);
+			if (color == MaterialColor.NONE) {
 				continue;
 			}
 			colHeight[i] = y;
-			colWater[i] = color == MapColor.WATER;
+			colWater[i] = color == MaterialColor.WATER;
 			colArgb[i] = 0xFF000000 | baseRgb(level, state, color, look);
 			return;
 		}
@@ -391,16 +391,16 @@ public final class MinimapData {
 
 	/** The column's colour before shading: the block's map colour, or -- with Biome
 	 *  Colors on -- the biome's own grass / foliage / water tint for those blocks. */
-	private static int baseRgb(ClientLevel level, BlockState state, MapColor color, Look look) {
+	private static int baseRgb(ClientLevel level, BlockState state, MaterialColor color, Look look) {
 		if (look.biomeColors()) {
 			try {
-				if (color == MapColor.WATER) {
+				if (color == MaterialColor.WATER) {
 					return BiomeColors.getAverageWaterColor(level, POS) & 0xFFFFFF;
 				}
-				if (color == MapColor.GRASS) {
+				if (color == MaterialColor.GRASS) {
 					return scaleRgb(BiomeColors.getAverageGrassColor(level, POS), 0.9f) & 0xFFFFFF;
 				}
-				if (color == MapColor.PLANT) {
+				if (color == MaterialColor.PLANT) {
 					int tint = Minecraft.getInstance().getBlockColors().getColor(state, level, POS, 0);
 					if (tint != -1) {
 						return scaleRgb(tint, state.getBlock() instanceof LeavesBlock ? 0.72f : 0.85f) & 0xFFFFFF;

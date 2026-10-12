@@ -5,14 +5,12 @@ import com.origin.client.client.mods.Mods;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 import java.nio.charset.StandardCharsets;
@@ -22,7 +20,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.BiConsumer;
 
 // WorldEdit CUI (Lunar parity, batch 4): shows the player's WorldEdit selection
 // in the world. This class is the PROTOCOL half -- the handshake, the plugin
@@ -53,11 +50,15 @@ import java.util.function.BiConsumer;
 // Coexistence (never broken):
 //   * the real WorldEditCUI mod installed -> we stay dormant; it owns the channel
 //     and the drawing, and two overlays on one selection would just fight.
-//   * WorldEdit itself installed (singleplayer) ships the shared protocol library
-//     (mod id worldeditcui_protocol), which already registers `worldedit:cui`
-//     with its own payload class. Registering it again would throw, so we join
-//     that library's handler list instead, by reflection (no compile dep).
-//   * anything else already owns the id -> log once and stay dormant.
+//   * anything else already registered a client receiver for `worldedit:cui`
+//     (registerGlobalReceiver answers false) -> log once and stay dormant.
+//
+// 1.17.1 networking: before 1.20.5 there are no CustomPacketPayload types or a
+// payload registry -- a plugin channel is a ResourceLocation plus a raw
+// FriendlyByteBuf (Fabric API 0.46.1 ClientPlayNetworking). The receiver runs on
+// the NETTY thread here, so the text is copied out of the buffer and the state
+// change hops to the client thread. WorldEdit's shared protocol library
+// (worldeditcui_protocol) only exists for 1.20.5+, so there is nothing to join.
 public final class WorldEditCui {
 	public static final String ID = "worldeditcui";
 
@@ -89,16 +90,27 @@ public final class WorldEditCui {
 				OriginClient.LOGGER.info("Origin: WorldEditCUI is installed; Origin's WorldEdit CUI stays off");
 				return;
 			}
-			sender = loader.isModLoaded("worldeditcui_protocol") ? joinProtocolLibrary() : registerOwnChannel();
+			sender = registerOwnChannel();
 			if (sender == null) {
 				return;
 			}
 			ClientTickEvents.END_CLIENT_TICK.register(WorldEditCui::tick);
+			// Identity model-view window around the draw: camera rotation exactly
+			// once (CuiRenderer's class comment; OriginClientMod's LAST hook does the
+			// same for waypoints and chunk borders).
 			WorldRenderEvents.LAST.register(ctx -> {
+				com.mojang.blaze3d.vertex.PoseStack modelView = com.mojang.blaze3d.systems.RenderSystem.getModelViewStack();
+				modelView.pushPose();
+				modelView.last().pose().setIdentity();
+				modelView.last().normal().setIdentity();
+				com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 				try {
 					CuiRenderer.render(ctx);
 				} catch (Throwable t) {
 					// the overlay must never take the frame down
+				} finally {
+					modelView.popPose();
+					com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
 				}
 			});
 		} catch (Throwable t) {
@@ -114,81 +126,29 @@ public final class WorldEditCui {
 		void send(String event, String... args) throws Exception;
 	}
 
-	/** The `worldedit:cui` payload: the whole packet body is one UTF-8 string. */
-	record CuiPayload(String text) implements CustomPacketPayload {
-		static final Type<CuiPayload> TYPE =
-				new Type<>(new ResourceLocation("worldedit", "cui"));
-		static final StreamCodec<FriendlyByteBuf, CuiPayload> CODEC =
-				CustomPacketPayload.codec(CuiPayload::write, CuiPayload::read);
-
-		private static CuiPayload read(FriendlyByteBuf buf) {
-			String s = buf.toString(StandardCharsets.UTF_8);
-			buf.skipBytes(buf.readableBytes());
-			return new CuiPayload(s);
-		}
-
-		private void write(FriendlyByteBuf buf) {
-			buf.writeBytes(text.getBytes(StandardCharsets.UTF_8));
-		}
-
-		@Override
-		public Type<? extends CustomPacketPayload> type() {
-			return TYPE;
-		}
-	}
+	/** The `worldedit:cui` channel: the whole packet body is one UTF-8 string. */
+	private static final ResourceLocation CHANNEL = new ResourceLocation("worldedit", "cui");
 
 	private static Sender registerOwnChannel() {
-		try {
-			// Both directions: S2C to receive selections, C2S so the hello can be
-			// encoded at all (Fabric refuses to send an unregistered payload type).
-			PayloadTypeRegistry.playS2C().register(CuiPayload.TYPE, CuiPayload.CODEC);
-			PayloadTypeRegistry.playC2S().register(CuiPayload.TYPE, CuiPayload.CODEC);
-		} catch (IllegalArgumentException alreadyRegistered) {
+		boolean registered = ClientPlayNetworking.registerGlobalReceiver(CHANNEL, (client, handler, buf, responseSender) -> {
+			String text = readText(buf);
+			client.execute(() -> onMessage(text));
+		});
+		if (!registered) {
 			OriginClient.LOGGER.warn("Origin: another mod already owns worldedit:cui; Origin's WorldEdit CUI stays off");
 			return null;
 		}
-		// Fabric runs play receivers on the client thread (1.20.5+), so state is
-		// safe to touch directly here.
-		ClientPlayNetworking.registerGlobalReceiver(CuiPayload.TYPE, (payload, context) -> onMessage(payload.text()));
-		return (event, args) -> ClientPlayNetworking.send(new CuiPayload(join(false, event, Arrays.asList(args))));
+		return (event, args) -> {
+			FriendlyByteBuf buf = PacketByteBufs.create();
+			buf.writeBytes(join(false, event, Arrays.asList(args)).getBytes(StandardCharsets.UTF_8));
+			ClientPlayNetworking.send(CHANNEL, buf);
+		};
 	}
 
-	/**
-	 * WorldEdit's protocol library owns the channel: register as one of its
-	 * clientbound handlers and send its own CUIPacket record. Reflection only --
-	 * the library is absent from almost every install, so no compile dependency.
-	 * API (1.21.1 build): CUIPacketHandler.instance().registerClientboundHandler(
-	 * BiConsumer<CUIPacket, PacketContext>); CUIPacket(String type, String... args)
-	 * with record accessors multi() / eventType() / args().
-	 */
-	private static Sender joinProtocolLibrary() {
-		try {
-			Class<?> packet = Class.forName("org.enginehub.worldeditcui.protocol.CUIPacket");
-			Class<?> handlerApi = Class.forName("org.enginehub.worldeditcui.protocol.CUIPacketHandler");
-			Object handler = handlerApi.getMethod("instance").invoke(null);
-			var multiOf = packet.getMethod("multi");
-			var typeOf = packet.getMethod("eventType");
-			var argsOf = packet.getMethod("args");
-			BiConsumer<Object, Object> receiver = (pkt, ctx) -> {
-				try {
-					boolean m = (Boolean) multiOf.invoke(pkt);
-					String type = (String) typeOf.invoke(pkt);
-					@SuppressWarnings("unchecked")
-					List<String> args = (List<String>) argsOf.invoke(pkt);
-					String text = join(m, type, args);
-					Minecraft.getInstance().execute(() -> onMessage(text));
-				} catch (Throwable t) {
-					// a malformed packet is dropped, never thrown into the network thread
-				}
-			};
-			handlerApi.getMethod("registerClientboundHandler", BiConsumer.class).invoke(handler, receiver);
-			var ctor = packet.getConstructor(String.class, String[].class);
-			OriginClient.LOGGER.info("Origin: WorldEdit CUI using WorldEdit's own protocol library");
-			return (event, args) -> ClientPlayNetworking.send((CustomPacketPayload) ctor.newInstance(event, args));
-		} catch (Throwable t) {
-			OriginClient.LOGGER.warn("Origin: WorldEdit's CUI protocol library has an unexpected shape; Origin's WorldEdit CUI stays off", t);
-			return null;
-		}
+	private static String readText(FriendlyByteBuf buf) {
+		String s = buf.toString(StandardCharsets.UTF_8);
+		buf.skipBytes(buf.readableBytes());
+		return s;
 	}
 
 	private static String join(boolean isMulti, String event, List<String> args) {
@@ -378,8 +338,8 @@ public final class WorldEditCui {
 		if (isMulti && cuboid && "~".equals(a[1]) && "~".equals(a[2]) && "~".equals(a[3])) {
 			double reach = 4.5;
 			Minecraft mc = Minecraft.getInstance();
-			if (mc.player != null) {
-				reach = mc.player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.BLOCK_INTERACTION_RANGE);
+			if (mc.gameMode != null) {
+				reach = mc.gameMode.getPickRange();   // 1.17.1's reach (no interaction-range attribute before 1.20.5)
 			}
 			double dist = a.length > 4 ? d(a[4]) : reach;
 			CuiRegion.put(r.latches, id, Math.min(Math.max(dist, reach), 256.0));

@@ -11,13 +11,18 @@ import com.origin.client.client.gui.Gfx;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
-import org.joml.Matrix4f;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Matrix4f;
 
 /**
  * The full-screen map (the Minimap's "Open Map" key, M by default): the same terrain,
  * radar and waypoints as the HUD map, north-up and big, with scroll-to-zoom and
  * drag-to-pan. It shows what the minimap has already mapped around you -- the loaded
  * area, up to MinimapData.MAX_RADIUS chunks out -- not a saved whole-world atlas.
+ *
+ * 1.17.1: Screen.render(PoseStack, ...) draws only the widgets and the backdrop is
+ * the screen's own job (no 4-arg renderBackground before 1.20.2), so render() fills
+ * it first; mouseScrolled is the 3-arg form (two-axis scrolling is 1.20.2+).
  */
 final class MinimapScreen extends Screen {
 	private static final int MARGIN = 20;
@@ -37,20 +42,17 @@ final class MinimapScreen extends Screen {
 	}
 
 	@Override
-	public void renderBackground(Gfx g, int mouseX, int mouseY, float partialTick) {
+	public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+		Gfx g = new Gfx(poseStack);
 		g.fill(0, 0, width, height, 0xD80E1110);
-	}
-
-	@Override
-	public void render(Gfx g, int mouseX, int mouseY, float partialTick) {
-		super.render(g, mouseX, mouseY, partialTick);
+		super.render(poseStack, mouseX, mouseY, partialTick);
 		var mc = minecraft;
 		if (mc == null || mc.player == null || mc.level == null) {
 			return;
 		}
 		float halfW = (width - MARGIN * 2) / 2f, halfH = (height - MARGIN * 2 - 14) / 2f;
 		float cx = width / 2f, cy = MARGIN + halfH;
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(true);
+		float partial = mc.getFrameTime();   // pause-aware partial tick (no DeltaTracker before 1.21)
 		var p = mc.player;
 		double px = p.xo + (p.getX() - p.xo) * partial, pz = p.zo + (p.getZ() - p.zo) * partial;
 		MinimapRenderer.View v = new MinimapRenderer.View(cx, cy, halfW, halfH, false,
@@ -61,12 +63,11 @@ final class MinimapScreen extends Screen {
 			// terrain just stops updating this frame
 		}
 
-		g.flush();
 		Matrix4f m = g.pose().last().pose();
 		OriginUi.panel(g, (int) (cx - halfW) - 1, (int) (cy - halfH) - 1, (int) (halfW * 2) + 2, (int) (halfH * 2) + 2,
 				4, OriginTheme.BG, OriginTheme.STROKE_STRONG);
-		g.flush();
-		// Immediate-mode map geometry draws with the depth test off, like Gfx' own flush.
+		// Immediate-mode map geometry draws with the depth test off (as 1.21.1's
+		// GuiGraphics flush does); pre-1.20 the panel above is already drawn.
 		RenderSystem.disableDepthTest();
 		try {
 			// Terrain only inside the scanned window (whole chunks around the player's chunk),
@@ -122,12 +123,12 @@ final class MinimapScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+	public boolean mouseScrolled(double mx, double my, double sy) {   // 3-arg before 1.20.2
 		if (sy != 0) {
 			zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * (sy > 0 ? 1.25f : 0.8f)));
 			return true;
 		}
-		return super.mouseScrolled(mx, my, sx, sy);
+		return super.mouseScrolled(mx, my, sy);
 	}
 
 	@Override

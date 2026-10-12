@@ -4,13 +4,11 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.client.waypoints.Waypoints;
 import net.minecraft.client.Minecraft;
 import com.origin.client.client.gui.Gfx;
-import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.world.entity.Entity;
@@ -18,7 +16,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
-import org.joml.Matrix4f;
+import com.mojang.math.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +27,11 @@ import java.util.List;
  * map. Everything is immediate-mode geometry (like the Cooldowns dials), so a round
  * map is simply a textured triangle fan: no stencil, no scissor, and rotation is free
  * because only the texture coordinates turn.
+ *
+ * 1.17.1 immediate mode (this module's own idiom, see CooldownsHud / Gfx):
+ * Tesselator.getBuilder().begin(mode, format), vertex(m, x, y, z).uv().color()
+ * .endVertex(), then void end() + BufferUploader.end(builder) with the shader set
+ * first. Player heads are the skin's face + hat cells (no PlayerFaceRenderer).
  */
 final class MinimapRenderer {
 	private static final int CIRCLE_SEGMENTS = 72;
@@ -136,7 +139,7 @@ final class MinimapRenderer {
 		// the texture size so float precision holds even 30 million blocks out.
 		double baseX = Math.floorMod((long) Math.floor(v.wx), MinimapData.SIZE) + (v.wx - Math.floor(v.wx));
 		double baseZ = Math.floorMod((long) Math.floor(v.wz), MinimapData.SIZE) + (v.wz - Math.floor(v.wz));
-		BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+		BufferBuilder b = texTris();
 		if (v.circle) {
 			for (int i = 0; i < CIRCLE_SEGMENTS; i++) {
 				double a0 = Math.PI * 2 * i / CIRCLE_SEGMENTS, a1 = Math.PI * 2 * (i + 1) / CIRCLE_SEGMENTS;
@@ -167,27 +170,30 @@ final class MinimapRenderer {
 		}
 		double baseX = Math.floorMod((long) Math.floor(v.wx), MinimapData.SIZE) + (v.wx - Math.floor(v.wx));
 		double baseZ = Math.floorMod((long) Math.floor(v.wz), MinimapData.SIZE) + (v.wz - Math.floor(v.wz));
-		BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+		BufferBuilder b = texTris();
 		double[][] c = {{x0, z0}, {x0, z1}, {x1, z1}, {x0, z0}, {x1, z1}, {x1, z0}};
 		for (double[] p : c) {
 			float u = (float) ((baseX + p[0] - v.wx) / MinimapData.SIZE);
 			float t = (float) ((baseZ + p[1] - v.wz) / MinimapData.SIZE);
-			b.addVertex(m, v.sx(p[0], p[1]), v.sy(p[0], p[1]), 0).setUv(u, t).setColor(255, 255, 255, 255);
+			b.vertex(m, v.sx(p[0], p[1]), v.sy(p[0], p[1]), 0).uv(u, t).color(255, 255, 255, 255).endVertex();
 		}
 		drawTex(b);
 	}
 
+	private static BufferBuilder texTris() {
+		BufferBuilder b = Tesselator.getInstance().getBuilder();
+		b.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+		return b;
+	}
+
 	private static void drawTex(BufferBuilder b) {
-		MeshData mesh = b.build();
-		if (mesh == null) {
-			return;
-		}
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableCull();
 		RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
 		RenderSystem.setShaderTexture(0, MinimapData.TEXTURE);
-		BufferUploader.drawWithShader(mesh);
+		b.end();
+		BufferUploader.end(b);
 		RenderSystem.enableCull();
 		RenderSystem.disableBlend();
 	}
@@ -198,7 +204,7 @@ final class MinimapRenderer {
 		double oz = (-dx * v.sin + dy * v.cos) / v.ppb;
 		float u = (float) ((baseX + ox) / MinimapData.SIZE);
 		float t = (float) ((baseZ + oz) / MinimapData.SIZE);
-		b.addVertex(m, sx, sy, 0).setUv(u, t).setColor(255, 255, 255, 255);
+		b.vertex(m, sx, sy, 0).uv(u, t).color(255, 255, 255, 255).endVertex();
 	}
 
 	/** Border drawn INSIDE the map edge, so the element's box is exactly the map. */
@@ -331,8 +337,8 @@ final class MinimapRenderer {
 		} else {
 			discard(b);
 		}
-		// Player heads: vanilla's own face renderer (face + hat layer), drawn after the
-		// dots so a player is never hidden under a mob marker.
+		// Player heads: the skin's face + hat layer, drawn after the dots so a player
+		// is never hidden under a mob marker.
 		if (heads.isEmpty()) {
 			return;
 		}
@@ -348,9 +354,11 @@ final class MinimapRenderer {
 		for (int i = 0; i < heads.size(); i++) {
 			float[] p = heads.get(i);
 			int x = Math.round(p[0] - headPx / 2f), y = Math.round(p[1] - headPx / 2f);
+			net.minecraft.resources.ResourceLocation skin = headPlayers.get(i).getSkinTextureLocation();
 			RenderSystem.setShaderColor(1f, 1f, 1f, r.opacity());
 			RenderSystem.enableBlend();
-			PlayerFaceRenderer.draw(g, headPlayers.get(i).getSkin(), x, y, headPx);
+			g.blit(skin, x, y, headPx, headPx, 8f, 8f, 8, 8, 64, 64);
+			g.blit(skin, x, y, headPx, headPx, 40f, 8f, 8, 8, 64, 64);
 			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
 	}
@@ -431,7 +439,9 @@ final class MinimapRenderer {
 	// ---- geometry helpers (POSITION_COLOR triangles) ----
 
 	private static BufferBuilder colorTris() {
-		return Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+		BufferBuilder b = Tesselator.getInstance().getBuilder();
+		b.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+		return b;
 	}
 
 	private static void tri(BufferBuilder b, Matrix4f m, float x0, float y0, float x1, float y1, float x2, float y2, int argb) {
@@ -455,29 +465,25 @@ final class MinimapRenderer {
 	}
 
 	private static void vtx(BufferBuilder b, Matrix4f m, float x, float y, int argb) {
-		b.addVertex(m, x, y, 0).setColor((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, alpha(argb));
+		b.vertex(m, x, y, 0).color((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, alpha(argb)).endVertex();
 	}
 
 	private static void drawColor(BufferBuilder b) {
-		MeshData mesh = b.build();
-		if (mesh == null) {
-			return;
-		}
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableCull();   // winding-agnostic: fans and rotated quads face either way
 		RenderSystem.setShader(GameRenderer::getPositionColorShader);
-		BufferUploader.drawWithShader(mesh);
+		b.end();
+		BufferUploader.end(b);
 		RenderSystem.enableCull();
 		RenderSystem.disableBlend();
 	}
 
-	/** Ends a builder that got no vertices (build() returns null and resets it). */
+	/** Ends a builder that got no vertices: end() + upload of nothing (BufferUploader
+	 *  skips a zero-vertex buffer), which leaves the shared Tesselator ready again. */
 	private static void discard(BufferBuilder b) {
-		MeshData mesh = b.build();
-		if (mesh != null) {
-			mesh.close();
-		}
+		b.end();
+		BufferUploader.end(b);
 	}
 
 	static int alpha(int argb) {
