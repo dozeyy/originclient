@@ -102,6 +102,15 @@ dependencies {
 	include "com.twelvemonkeys.common:common-image:3.12.0"
 }
 
+// Dev runs only (the shipped jar holds classes and resources together either way).
+// This era's Fabric API resource loader builds a mod's resource pack from its FIRST
+// root path. Under runClient that is build/classes/java/main, which has no assets,
+// so "Origin Client" never joined the resource packs and every
+// assets/minecraft/shaders/core program failed with "File not found" (dev shots
+// showed the menu on the pixel font). Writing processed resources into the
+// classes folder gives runClient the single root a jar has.
+sourceSets.main.output.resourcesDir = layout.buildDirectory.dir("classes/java/main").get().asFile
+
 processResources {
 	def version = project.version
 	inputs.property "version", version
