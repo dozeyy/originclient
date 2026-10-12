@@ -1,12 +1,13 @@
 package com.origin.client.client.mods;
 
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import org.joml.Vector4f;
 
 import java.util.ArrayList;
@@ -32,6 +33,13 @@ import java.util.Set;
  *
  * Only players the server already sends to the client can be marked (vanilla
  * entity tracking range); nothing is requested from the server.
+ *
+ * 1.21.11: the world pass is WorldRenderEvents.END_MAIN (LAST is gone) and
+ * RenderSystem no longer exposes the model-view/projection matrices, so the
+ * view-projection is built exactly as this module's WaypointHud does it: the
+ * projection vanilla draws with (GameRenderer.getProjectionMatrix at the
+ * effective fov, no view bobbing -- a marker should sit still) times the inverse
+ * camera orientation from CameraRenderState. GameProfile is a record (name()).
  */
 public final class TeamView {
 	private static final String MOD = "teamview";
@@ -46,12 +54,12 @@ public final class TeamView {
 	// Written by the world pass, read by the HUD pass -- both on the render thread.
 	private static List<Marker> markers = new ArrayList<>();
 
-	/** World pass (WorldRenderEvents.LAST): project each marked player's head. */
+	/** World pass (WorldRenderEvents.END_MAIN): project each marked player's head. */
 	static void capture(WorldRenderContext ctx) {
 		List<Marker> out = new ArrayList<>();
 		markers = out;
 		Minecraft mc = Minecraft.getInstance();
-		if (!Mods.on(MOD) || mc.player == null || mc.level == null || ctx.matrixStack() == null) {
+		if (!Mods.on(MOD) || mc.player == null || mc.level == null) {
 			return;
 		}
 		boolean teams = Mods.bool(MOD, "scoreboardTeams");
@@ -65,12 +73,14 @@ public final class TeamView {
 			return;
 		}
 
-		// Same composition WaypointHud uses: ModelViewMat x the pass's pose.
-		Matrix4f view = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix());
-		view.mul(ctx.matrixStack().last().pose());
-		Matrix4f proj = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix());
-		Vec3 cam = ctx.camera().getPosition();
-		float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+		// Same view-projection WaypointHud uses (see the class note).
+		var camState = ctx.worldState().cameraRenderState;
+		float fov = ((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
+				.originclient$getFov(mc.gameRenderer.getMainCamera(), 1.0f, true);
+		Matrix4f viewProj = mc.gameRenderer.getProjectionMatrix(fov);
+		viewProj.rotate(new Quaternionf(camState.orientation).conjugate());
+		Vec3 cam = camState.pos;
+		float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
 		int teamColor = Mods.color(MOD, "teamColor");
 		int partyColor = Mods.color(MOD, "partyColor");
@@ -82,7 +92,7 @@ public final class TeamView {
 			int color;
 			if (teams && myTeam != null && p.getTeam() == myTeam) {
 				color = teamColor;
-			} else if (partyNames.contains(p.getGameProfile().getName().toLowerCase(Locale.ROOT))) {
+			} else if (partyNames.contains(p.getGameProfile().name().toLowerCase(Locale.ROOT))) {
 				color = partyColor;
 			} else {
 				continue;
@@ -90,8 +100,7 @@ public final class TeamView {
 			Vec3 pos = p.getPosition(pt);
 			double wx = pos.x - cam.x, wy = pos.y + p.getBbHeight() + 0.75 - cam.y, wz = pos.z - cam.z;
 			Vector4f v = new Vector4f((float) wx, (float) wy, (float) wz, 1f);
-			view.transform(v);
-			proj.transform(v);
+			viewProj.transform(v);
 			if (v.w <= 0.05f) {
 				continue;   // behind the camera
 			}
@@ -104,8 +113,9 @@ public final class TeamView {
 		}
 	}
 
-	/** HUD pass: a down-pointing marker over each teammate, smaller with distance. */
-	static void render(GuiGraphics g) {
+	/** HUD pass (HudElements.renderAll on 1.21.11): a down-pointing marker over
+	 *  each teammate, smaller with distance. */
+	public static void render(GuiGraphics g) {
 		Minecraft mc = Minecraft.getInstance();
 		if (!Mods.on(MOD) || mc.options.hideGui || mc.player == null) {
 			return;

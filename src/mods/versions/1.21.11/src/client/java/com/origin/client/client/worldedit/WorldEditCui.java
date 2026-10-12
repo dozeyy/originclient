@@ -4,7 +4,7 @@ import com.origin.client.OriginClient;
 import com.origin.client.client.mods.Mods;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -13,7 +13,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -94,7 +94,8 @@ public final class WorldEditCui {
 				return;
 			}
 			ClientTickEvents.END_CLIENT_TICK.register(WorldEditCui::tick);
-			WorldRenderEvents.LAST.register(ctx -> {
+			// 1.21.11: END_MAIN (Fabric's 1.21.9+ world events have no LAST).
+			WorldRenderEvents.END_MAIN.register(ctx -> {
 				try {
 					CuiRenderer.render(ctx);
 				} catch (Throwable t) {
@@ -117,7 +118,7 @@ public final class WorldEditCui {
 	/** The `worldedit:cui` payload: the whole packet body is one UTF-8 string. */
 	record CuiPayload(String text) implements CustomPacketPayload {
 		static final Type<CuiPayload> TYPE =
-				new Type<>(ResourceLocation.fromNamespaceAndPath("worldedit", "cui"));
+				new Type<>(Identifier.fromNamespaceAndPath("worldedit", "cui"));
 		static final StreamCodec<FriendlyByteBuf, CuiPayload> CODEC =
 				CustomPacketPayload.codec(CuiPayload::write, CuiPayload::read);
 

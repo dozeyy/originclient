@@ -5,6 +5,7 @@ import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -163,10 +164,13 @@ public class QuickplayScreen extends Screen {
 	}
 
 	// ---- input ----
+	// 1.21.9+: clicks arrive as a MouseButtonEvent (+ double-click flag); the
+	// x/y/button are unpacked here so the body is the 1.21.1 logic unchanged.
 	@Override
-	public boolean mouseClicked(double mx, double my, int button) {
-		if (button != 0) {
-			return super.mouseClicked(mx, my, button);
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
+		double mx = event.x(), my = event.y();
+		if (event.button() != 0) {
+			return super.mouseClicked(event, doubled);
 		}
 		int top = top(), bottom = bottom();
 		if (my >= top && my <= bottom && mx >= listX0() && mx <= listX1()) {
@@ -195,7 +199,7 @@ public class QuickplayScreen extends Screen {
 			Quickplay.lobby(Minecraft.getInstance(), game);
 			return true;
 		}
-		return super.mouseClicked(mx, my, button);
+		return super.mouseClicked(event, doubled);
 	}
 
 	@Override

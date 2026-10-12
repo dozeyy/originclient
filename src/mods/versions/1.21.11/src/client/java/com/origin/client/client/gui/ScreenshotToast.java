@@ -4,14 +4,14 @@ import com.mojang.blaze3d.platform.Window;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.mods.ScreenshotPopup;
 import com.origin.client.client.theme.OriginTheme;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.toasts.Toast;
-import net.minecraft.client.gui.components.toasts.ToastComponent;
+import net.minecraft.client.gui.components.toasts.ToastManager;
 import net.minecraft.client.gui.screens.ChatScreen;
-import org.joml.Matrix4f;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.util.Util;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -26,6 +26,11 @@ import java.util.List;
 // from the pose ToastComponent translated it by (1.21.1 ToastInstance.render
 // translates to the slot, source-verified); the chat-screen click hook hit-tests
 // against that same origin, so drawn and clickable buttons always line up.
+//
+// 1.21.11 Toast contract (source-verified, ToastManager.ToastInstance): the
+// visibility decision moved out of render into update(ToastManager, long) +
+// getWantedVisibility(), and render(GuiGraphics, Font, long) only draws, with
+// the slot translation on the Matrix3x2f pose (m20/m21 = its origin).
 public class ScreenshotToast implements Toast {
 	public static final Object TOKEN = new Object();
 	private static final int W = 236, H = 64;
@@ -96,14 +101,28 @@ public class ScreenshotToast implements Toast {
 		return H;
 	}
 
+	// The time-out (1.21.1 did this at the end of render). Runs every frame,
+	// before render, from ToastManager.update.
 	@Override
-	public Visibility render(GuiGraphics g, ToastComponent toasts, long timeSinceVisible) {
-		Minecraft mc = toasts.getMinecraft();
-		Font font = mc.font;
+	public void update(ToastManager toasts, long timeSinceVisible) {
+		long durationMs = (long) (Mods.num("screenshot", "duration") * 1000
+				* toasts.getNotificationDisplayTimeMultiplier());
+		boolean show = current == this && Mods.on("screenshot")
+				&& Util.getMillis() - Math.max(shownAt, heldAt) < durationMs;
+		hidden = !show;
+	}
+
+	@Override
+	public Visibility getWantedVisibility() {
+		return hidden ? Visibility.HIDE : Visibility.SHOW;
+	}
+
+	@Override
+	public void render(GuiGraphics g, Font font, long timeSinceVisible) {
+		Minecraft mc = Minecraft.getInstance();
 		long now = Util.getMillis();
-		Matrix4f pose = g.pose().last().pose();
-		originX = pose.m30();
-		originY = pose.m31();
+		originX = g.pose().m20();
+		originY = g.pose().m21();
 		boolean chat = mc.screen instanceof ChatScreen;
 		double[] m = mouse(mc);
 		boolean over = chat && m[0] >= originX && m[0] < originX + W && m[1] >= originY && m[1] < originY + H;
@@ -116,7 +135,7 @@ public class ScreenshotToast implements Toast {
 			// picture
 			OriginUi.panel(g, PAD - 1, PAD - 1, THUMB_W + 2, THUMB_H + 2, 3, 0xFF000000, OriginTheme.STROKE);
 			if (texW > 0 && texH > 0) {
-				g.blit(ScreenshotPopup.THUMB, PAD, PAD, THUMB_W, THUMB_H, 0f, 0f, texW, texH, texW, texH);
+				g.blit(RenderPipelines.GUI_TEXTURED, ScreenshotPopup.THUMB, PAD, PAD, 0f, 0f, THUMB_W, THUMB_H, texW, texH, texW, texH);
 			}
 			// text
 			int tx = PAD + THUMB_W + 8, tw = W - tx - PAD;
@@ -145,12 +164,6 @@ public class ScreenshotToast implements Toast {
 		} catch (Throwable t) {
 			// a broken draw just leaves the toast plain; it still times out
 		}
-
-		long durationMs = (long) (Mods.num("screenshot", "duration") * 1000
-				* toasts.getNotificationDisplayTimeMultiplier());
-		boolean show = current == this && Mods.on("screenshot") && now - Math.max(shownAt, heldAt) < durationMs;
-		hidden = !show;
-		return show ? Visibility.SHOW : Visibility.HIDE;
 	}
 
 	private static List<Action> actions() {

@@ -1,18 +1,20 @@
 package com.origin.client.client.mods;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.FilterMode;
 import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.gui.ScreenshotToast;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Util;
 
 import java.io.File;
 import java.io.InputStream;
@@ -34,12 +36,18 @@ import java.util.function.Consumer;
 // Clicking: the mouse is captured in game, so the toast's buttons work while
 // chat is open (it says so). ScreenMouseEvents on the ChatScreen routes clicks
 // inside the toast to it before chat sees them.
+//
+// 1.21.11 deltas (source-verified): Util moved to net.minecraft.util; the
+// OPEN_FILE click event is the ClickEvent.OpenFile record (path()); NativeImage
+// reads/writes ARGB through getPixel/setPixel; DynamicTexture takes a debug
+// label and filtering is the texture's GpuSampler; the toast queue is
+// Minecraft.getToastManager(); Fabric's allowMouseClick hands a MouseButtonEvent.
 public final class ScreenshotPopup {
 	private ScreenshotPopup() {
 	}
 
 	private static final String ID = "screenshot";
-	public static final ResourceLocation THUMB = ResourceLocation.fromNamespaceAndPath("originclient", "screenshot_preview");
+	public static final Identifier THUMB = Identifier.fromNamespaceAndPath("originclient", "screenshot_preview");
 	private static final int THUMB_W = 192;
 
 	private static volatile File last = null;
@@ -95,11 +103,10 @@ public final class ScreenshotPopup {
 		if (args.length == 0 || !(args[0] instanceof Component name)) {
 			return null;
 		}
-		ClickEvent click = name.getStyle().getClickEvent();
-		if (click == null || click.getAction() != ClickEvent.Action.OPEN_FILE) {
+		if (!(name.getStyle().getClickEvent() instanceof ClickEvent.OpenFile open)) {
 			return null;
 		}
-		File f = new File(click.getValue());
+		File f = new File(open.path());
 		return f.isFile() ? f : null;
 	}
 
@@ -118,15 +125,15 @@ public final class ScreenshotPopup {
 					for (int sx = 0; sx < 3; sx++) {
 						int px = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 3.0) * sw / tw));
 						int py = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 3.0) * sh / th));
-						int c = full.getPixelRGBA(px, py);
+						int c = full.getPixel(px, py);   // ARGB
 						a += (c >>> 24) & 0xFF;
-						b += (c >>> 16) & 0xFF;
+						r += (c >>> 16) & 0xFF;
 						g += (c >>> 8) & 0xFF;
-						r += c & 0xFF;
+						b += c & 0xFF;
 						n++;
 					}
 				}
-				out.setPixelRGBA(x, y, (int) ((a / n) << 24 | (b / n) << 16 | (g / n) << 8 | (r / n)));
+				out.setPixel(x, y, (int) ((a / n) << 24 | (r / n) << 16 | (g / n) << 8 | (b / n)));
 			}
 		}
 		return out;
@@ -137,8 +144,13 @@ public final class ScreenshotPopup {
 		int tw = 0, th = 0;
 		if (thumb != null) {
 			try {
-				DynamicTexture tex = new DynamicTexture(thumb);
-				tex.setFilter(true, false);
+				// Linear filtering (1.21.1's setFilter(true, false)): the sampler is a
+				// protected field of the texture on this version, set at construction.
+				DynamicTexture tex = new DynamicTexture(() -> "Origin screenshot preview", thumb) {
+					{
+						this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+					}
+				};
 				mc.getTextureManager().register(THUMB, tex);   // replaces (and frees) the previous one
 				tw = thumb.getWidth();
 				th = thumb.getHeight();
@@ -146,20 +158,20 @@ public final class ScreenshotPopup {
 				thumb.close();
 			}
 		}
-		ScreenshotToast toast = mc.getToasts().getToast(ScreenshotToast.class, ScreenshotToast.TOKEN);
+		ScreenshotToast toast = mc.getToastManager().getToast(ScreenshotToast.class, ScreenshotToast.TOKEN);
 		if (toast != null) {
 			toast.retarget(file, tw, th);
 		} else {
-			mc.getToasts().addToast(new ScreenshotToast(file, tw, th));
+			mc.getToastManager().addToast(new ScreenshotToast(file, tw, th));
 		}
 	}
 
 	public static void register() {
 		ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen instanceof ChatScreen) {
-				ScreenMouseEvents.allowMouseClick(screen).register((s, mx, my, button) -> {
+				ScreenMouseEvents.allowMouseClick(screen).register((s, click) -> {
 					try {
-						return !ScreenshotToast.mouseClicked(mx, my, button);
+						return !ScreenshotToast.mouseClicked(click.x(), click.y(), click.button());
 					} catch (Throwable t) {
 						return true;
 					}

@@ -1,6 +1,5 @@
 package com.origin.client.client.minimap;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.gui.OriginUi;
@@ -9,14 +8,18 @@ import com.origin.client.client.theme.OriginTheme;
 import com.origin.client.client.waypoints.Waypoints;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.joml.Matrix4f;
 
 /**
  * The full-screen map (the Minimap's "Open Map" key, M by default): the same terrain,
  * radar and waypoints as the HUD map, north-up and big, with scroll-to-zoom and
  * drag-to-pan. It shows what the minimap has already mapped around you -- the loaded
  * area, up to MinimapData.MAX_RADIUS chunks out -- not a saved whole-world atlas.
+ *
+ * 1.21.11: the map is recorded into the deferred GUI (no flush / depth-test
+ * toggling), and mouse callbacks take a MouseButtonEvent (x/y/button unpacked at
+ * the top so the bodies are 1.21.1's).
  */
 final class MinimapScreen extends Screen {
 	private static final int MARGIN = 20;
@@ -49,7 +52,7 @@ final class MinimapScreen extends Screen {
 		}
 		float halfW = (width - MARGIN * 2) / 2f, halfH = (height - MARGIN * 2 - 14) / 2f;
 		float cx = width / 2f, cy = MARGIN + halfH;
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(true);
+		float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		var p = mc.player;
 		double px = p.xo + (p.getX() - p.xo) * partial, pz = p.zo + (p.getZ() - p.zo) * partial;
 		MinimapRenderer.View v = new MinimapRenderer.View(cx, cy, halfW, halfH, false,
@@ -60,13 +63,8 @@ final class MinimapScreen extends Screen {
 			// terrain just stops updating this frame
 		}
 
-		g.flush();
-		Matrix4f m = g.pose().last().pose();
 		OriginUi.panel(g, (int) (cx - halfW) - 1, (int) (cy - halfH) - 1, (int) (halfW * 2) + 2, (int) (halfH * 2) + 2,
 				4, OriginTheme.BG, OriginTheme.STROKE_STRONG);
-		g.flush();
-		// Immediate-mode map geometry draws with the depth test off, like GuiGraphics' own flush.
-		RenderSystem.disableDepthTest();
 		try {
 			// Terrain only inside the scanned window (whole chunks around the player's chunk),
 			// clipped to the visible area.
@@ -75,7 +73,7 @@ final class MinimapScreen extends Screen {
 			double wx1 = ((p.getBlockX() >> 4) + r + 1) * 16.0, wz1 = ((p.getBlockZ() >> 4) + r + 1) * 16.0;
 			double vx0 = v.worldX(cx - halfW, cy), vx1 = v.worldX(cx + halfW, cy);
 			double vz0 = v.worldZ(cx, cy - halfH), vz1 = v.worldZ(cx, cy + halfH);
-			MinimapRenderer.terrainRect(m, v, Math.max(wx0, vx0), Math.max(wz0, vz0), Math.min(wx1, vx1), Math.min(wz1, vz1));
+			MinimapRenderer.terrainRect(g, v, Math.max(wx0, vx0), Math.max(wz0, vz0), Math.min(wx1, vx1), Math.min(wz1, vz1));
 			MinimapRenderer.entities(g, mc, v, MinimapHud.radar(), partial);
 			boolean showWp = Mods.bool(MinimapHud.MOD, "showWaypoints") && Mods.on("waypoints");
 			if (showWp) {
@@ -85,13 +83,13 @@ final class MinimapScreen extends Screen {
 			float sx = v.sx(px, pz), sy = v.sy(px, pz);
 			if (v.contains(sx, sy, 4)) {
 				double yawRad = Math.toRadians(p.getViewYRot(partial));
-				MinimapRenderer.playerArrow(m, sx, sy, (float) Math.atan2(-Math.sin(yawRad), -Math.cos(yawRad)),
+				MinimapRenderer.playerArrow(g, sx, sy, (float) Math.atan2(-Math.sin(yawRad), -Math.cos(yawRad)),
 						(float) Mods.num(MinimapHud.MOD, "playerMarkerSize") + 1,
 						OriginColorPicker.liveColor(MinimapHud.MOD, "playerMarkerColor"));
 			}
 			MinimapRenderer.compass(g, mc, v, OriginTheme.TEXT, true);
-		} finally {
-			RenderSystem.enableDepthTest();
+		} catch (Throwable t) {
+			// a broken map draw leaves the panel empty; the screen stays usable
 		}
 
 		// footer: what's under the cursor + how to use it
@@ -130,7 +128,8 @@ final class MinimapScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseClicked(double mx, double my, int button) {
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
+		int button = event.button();
 		if (button == 0) {
 			dragging = true;
 			return true;
@@ -139,26 +138,26 @@ final class MinimapScreen extends Screen {
 			panX = panZ = 0;
 			return true;
 		}
-		return super.mouseClicked(mx, my, button);
+		return super.mouseClicked(event, doubled);
 	}
 
 	@Override
-	public boolean mouseReleased(double mx, double my, int button) {
-		if (button == 0) {
+	public boolean mouseReleased(MouseButtonEvent event) {
+		if (event.button() == 0) {
 			dragging = false;
 		}
-		return super.mouseReleased(mx, my, button);
+		return super.mouseReleased(event);
 	}
 
 	@Override
-	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-		if (dragging && button == 0) {
+	public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+		if (dragging && event.button() == 0) {
 			double limit = MinimapData.MAX_RADIUS * 16.0;
 			panX = Math.max(-limit, Math.min(limit, panX - dx / zoom));
 			panZ = Math.max(-limit, Math.min(limit, panZ - dy / zoom));
 			return true;
 		}
-		return super.mouseDragged(mx, my, button, dx, dy);
+		return super.mouseDragged(event, dx, dy);
 	}
 
 	@Override

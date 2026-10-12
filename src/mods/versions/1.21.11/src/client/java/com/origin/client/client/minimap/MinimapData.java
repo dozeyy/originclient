@@ -1,13 +1,13 @@
 package com.origin.client.client.minimap;
 
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.LeavesBlock;
@@ -15,7 +15,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.MapColor;
-import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,6 +37,14 @@ import java.util.List;
  *
  * Colours follow vanilla's map item (block MapColor, water depth, slope shading against
  * the neighbouring column), optionally biome-tinted grass/foliage/water like Xaero's.
+ *
+ * 1.21.11 (source-verified): textures are GpuTextures. DynamicTexture's own sampler
+ * is already REPEAT + NEAREST (exactly the ring buffer's wrap and crisp pixels, set
+ * by GL calls on 1.21.1), and the 16x16 sub-upload is CommandEncoder.writeToTexture
+ * (texture, image, mip, layer, destX, destY, w, h, srcX, srcY). Height bounds are
+ * getMinY()/getMaxY() (inclusive), NativeImage writes ABGR via setPixelABGR, and
+ * the day/night factor reads Level.getSkyDarken() (0 at noon .. 11 at midnight,
+ * 15 - the sky light level) instead of 1.21.1's ClientLevel.getSkyDarken(float).
  */
 public final class MinimapData {
 	static final int SIZE = 512;                 // texels (= blocks) per side
@@ -45,7 +52,7 @@ public final class MinimapData {
 	/** Chunks scanned around the player's chunk -- (2R+1) must stay < SLOTS so two
 	 *  chunks in the window never share a slot. 14 -> 29x29 chunks, 464 blocks. */
 	public static final int MAX_RADIUS = 14;
-	public static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("originclient", "minimap");
+	public static final Identifier TEXTURE = Identifier.fromNamespaceAndPath("originclient", "minimap");
 
 	// Per-frame caps: the scan budget is checked before each chunk, so a frame spends at
 	// most BUDGET_NS plus one chunk's scan (~0.1-0.4 ms) on terrain, whatever happens.
@@ -126,14 +133,11 @@ public final class MinimapData {
 			return true;
 		}
 		try {
-			texture = new DynamicTexture(SIZE, SIZE, true);   // calloc'd = fully transparent
+			// calloc'd = fully transparent. Its sampler is REPEAT + NEAREST: the ring
+			// buffer's wrapping UVs and crisp block pixels.
+			texture = new DynamicTexture(() -> "Origin minimap", SIZE, SIZE, true);
 			image = texture.getPixels();
 			texture.upload();
-			texture.setFilter(false, false);                  // nearest: crisp block pixels (binds it)
-			// The ring buffer relies on wrapping UVs; set it explicitly rather than
-			// trusting the GL default.
-			GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
-			GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
 			mc.getTextureManager().register(TEXTURE, texture);
 			return true;
 		} catch (Throwable t) {
@@ -234,17 +238,17 @@ public final class MinimapData {
 	}
 
 	private static void uploadRegion(int ox, int oz) {
-		texture.bind();
-		// level 0, dest (ox,oz), source skip (ox,oz), 16x16, no blur, no clamp, no mipmap, keep the image
-		image.upload(0, ox, oz, ox, oz, 16, 16, false, false, false, false);
+		// mip 0, layer 0, dest (ox,oz), 16x16, from the same (ox,oz) of the image
+		RenderSystem.getDevice().createCommandEncoder()
+				.writeToTexture(texture.getTexture(), image, 0, 0, ox, oz, 16, 16, ox, oz);
 	}
 
 	// ---- one chunk -> 16x16 pixels ----
 
 	private static void scan(Minecraft mc, ClientLevel level, LevelChunk chunk, int cx, int cz,
 							 Look look, int sig, long now) {
-		int minY = level.getMinBuildHeight();
-		int maxY = level.getMaxBuildHeight() - 1;
+		int minY = level.getMinY();
+		int maxY = level.getMaxY();
 		int bx = cx << 4, bz = cz << 4;
 		for (int lz = 0; lz < 16; lz++) {
 			for (int lx = 0; lx < 16; lx++) {
@@ -265,8 +269,9 @@ public final class MinimapData {
 			if (look.cave() || level.dimensionType().hasCeiling()) {
 				ambient = 0.5f;
 			} else {
-				// 0.2 (midnight) .. 1.0 (noon) -> 0.35 .. 1.0, so night is dark but readable
-				float sky = level.getSkyDarken(1f);
+				// 0.2 (midnight) .. 1.0 (noon) -> 0.35 .. 1.0, so night is dark but readable.
+				// getSkyDarken() is 0 at noon .. 11 at midnight here (15 - sky light).
+				float sky = 1f - Math.max(0, Math.min(15, level.getSkyDarken())) / 15f;
 				ambient = 0.35f + 0.65f * Math.max(0f, (sky - 0.2f) / 0.8f);
 			}
 		}
@@ -302,7 +307,7 @@ public final class MinimapData {
 				if (look.grid() && (lx == 0 || lz == 0)) {
 					argb = blend(argb, look.gridColor());
 				}
-				image.setPixelRGBA(ox + lx, oz + lz, toAbgr(argb));
+				image.setPixelABGR(ox + lx, oz + lz, toAbgr(argb));
 			}
 		}
 		uploadRegion(ox, oz);

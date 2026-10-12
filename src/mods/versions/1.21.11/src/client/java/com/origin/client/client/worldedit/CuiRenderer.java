@@ -1,17 +1,16 @@
 package com.origin.client.client.worldedit;
 
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.LunarPipelines;
 import com.origin.client.client.render.OriginRenderTypes;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.BlockHitResult;
@@ -21,7 +20,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.List;
 
 // The DRAWING half of WorldEdit CUI: turns each CuiRegion into lines every frame,
-// on WorldRenderEvents.LAST. Shapes and their offsets follow WorldEditCUI
+// on WorldRenderEvents.END_MAIN (1.21.1: LAST). Shapes and their offsets follow WorldEditCUI
 // (render/shapes/*.java) so a selection lands exactly where players expect:
 //   cuboid     -- the box (corners grown 0.02 past the blocks), a grid over all
 //                 six faces at the server's spacing, and a cube on each corner.
@@ -52,6 +51,10 @@ import java.util.List;
 // RELATIVE world coords passed through matrixStack().last() -- the same contract
 // WaypointRenderer and ChunkBorderRenderer use here. Never multiply the rotation
 // in again (that double rotation is what broke waypoints on 1.16.5-1.19.3).
+// 1.21.11: the hook is END_MAIN (Fabric's 1.21.9+ world events have no LAST)
+// and the contract is the same one OriginRenderTypes documents for it: the
+// model-view holds the camera rotation, ctx.matrices() is identity, camera
+// position comes from worldState().cameraRenderState.
 //
 // SEE THROUGH: first a pass that ONLY draws where something is in front
 // (GREATER depth test), dimmed to 75% colour / 25% opacity -- WorldEditCUI's
@@ -91,31 +94,11 @@ final class CuiRenderer {
 	 * Origin's overlay quads (OriginRenderTypes.OVERLAY_QUADS) with the depth test
 	 * flipped to GREATER: fragments draw ONLY where terrain is in front of them.
 	 * No depth write, no view offset (nothing here should win a depth tie).
-	 * Same constructor + vanilla shard technique as OriginRenderTypes; same
-	 * 1.20.5-1.21.1-only ERA NOTE applies when porting.
+	 * 1.21.11: render state lives in the RenderPipeline, so this is
+	 * LunarPipelines.CUI_HIDDEN (built from the same DEBUG_FILLED_SNIPPET as
+	 * OriginRenderTypes' pipeline, with GREATER_DEPTH_TEST).
 	 */
-	private static final class HiddenQuads extends RenderType {
-		private HiddenQuads() {
-			super("originclient_cui_hidden_quads", DefaultVertexFormat.POSITION_COLOR,
-					VertexFormat.Mode.QUADS, 1 << 16, false, false,
-					() -> {
-						POSITION_COLOR_SHADER.setupRenderState();
-						TRANSLUCENT_TRANSPARENCY.setupRenderState();
-						GREATER_DEPTH_TEST.setupRenderState();
-						NO_CULL.setupRenderState();
-						COLOR_WRITE.setupRenderState();
-					},
-					() -> {
-						COLOR_WRITE.clearRenderState();
-						NO_CULL.clearRenderState();
-						GREATER_DEPTH_TEST.clearRenderState();
-						TRANSLUCENT_TRANSPARENCY.clearRenderState();
-						POSITION_COLOR_SHADER.clearRenderState();
-					});
-		}
-	}
-
-	private static final RenderType HIDDEN = new HiddenQuads();
+	private static final RenderType HIDDEN = LunarPipelines.CUI_HIDDEN;
 	// Private immediate buffer, drawn on the spot (see OriginRenderTypes for why
 	// nothing here goes through the frame's shared, Iris-deferred buffer).
 	private static final MultiBufferSource.BufferSource HIDDEN_BUFFER =
@@ -140,18 +123,18 @@ final class CuiRenderer {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || ctx.matrixStack() == null) {
+		if (mc.player == null || mc.level == null || ctx.matrices() == null) {
 			return;
 		}
 		List<CuiRegion> regions = WorldEditCui.regions();
 		if (regions.isEmpty()) {
 			return;
 		}
-		Vec3 cam = ctx.camera().getPosition();
+		Vec3 cam = ctx.worldState().cameraRenderState.pos;
 		camX = cam.x;
 		camY = cam.y;
 		camZ = cam.z;
-		pose = ctx.matrixStack().last();
+		pose = ctx.matrices().last();
 		showGrid = Mods.bool(M, "grid");
 		halfPerBlock = HALF_WIDTH_PER_STEP * Math.max(1, Math.min(5, Mods.num(M, "thickness")));
 		colOutline = OriginColorPicker.liveColor(M, "outlineColor");
@@ -195,7 +178,7 @@ final class CuiRenderer {
 		if (eye == null) {
 			return;
 		}
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
+		float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		for (CuiRegion r : regions) {
 			for (int id = 0; id < r.latches.size(); id++) {
 				Double dist = r.latches.get(id);

@@ -5,17 +5,15 @@ import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.mods.Hypixel;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.entity.player.PlayerRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.player.AvatarRenderer;
+import net.minecraft.client.renderer.entity.state.AvatarRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.EntityAttachment;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.scores.DisplaySlot;
-import org.joml.Matrix4f;
+import net.minecraft.world.entity.Avatar;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,103 +21,79 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Hypixel "Level Head": each player's Hypixel level (or Bed Wars star) on their
- * nametag. PlayerRenderer.renderNameTag is the one place every player's tag is
- * drawn (and only when vanilla decided the tag shows at all -- sneaking,
+ * nametag -- only when vanilla decided the tag shows at all (sneaking,
  * invisibility and team visibility rules all still apply).
  *
  *  - Level Above Name OFF (Lunar's default): the level is appended to the name
- *    on the same line. Done by re-running this very method with the longer name
- *    (guarded against re-entry), so vanilla's centring, the below-name score and
- *    every Nametags-mod style still apply to it.
- *  - Level Above Name ON: the tag draws as normal, then the level is drawn one
- *    line higher -- above the below-name score line too, when the server shows
- *    one -- with vanilla's own nametag transform (replicated from
- *    EntityRenderer.renderNameTag, 1.21.1).
+ *    on the same line, so vanilla's centring and every Nametags-mod style still
+ *    apply to it.
+ *  - Level Above Name ON: the tag draws as normal, then the level is submitted
+ *    one line higher -- above the below-name score line too, when the server
+ *    shows one -- through vanilla's own name-tag submit.
+ *
+ * 1.21.11 (source-verified): player rendering is extract-then-submit and the
+ * player renderer is AvatarRenderer. 1.21.1 re-ran PlayerRenderer.renderNameTag
+ * with the longer name; that method is gone, so the inline level goes into the
+ * extracted AvatarRenderState.nameTag at the end of extractRenderState (the one
+ * place the live player is in hand), and the "above" line is one more
+ * SubmitNodeCollector.submitNameTag at the end of AvatarRenderer.submitNameTag,
+ * stacked exactly the way vanilla stacks the name over the score (translate by
+ * one line, same attachment / ear offset / see-through / light / distance).
  *
  * Everything is fail-soft: no key, no stats yet, or any error = the vanilla tag.
  */
-@Mixin(PlayerRenderer.class)
+@Mixin(AvatarRenderer.class)
 public abstract class LevelHeadMixin {
 	// One nametag line in entity space: vanilla's own 9 * 1.15 * 0.025.
 	@Unique
 	private static final float originclient$LINE = 9.0F * 1.15F * 0.025F;
-	@Unique
-	private static boolean originclient$reentry = false;
 
-	@Shadow
-	protected abstract void renderNameTag(AbstractClientPlayer player, Component name, PoseStack pose,
-										  MultiBufferSource buffers, int light, float partialTick);
-
-	@Inject(method = "renderNameTag(Lnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
-			at = @At("HEAD"), cancellable = true)
-	private void originclient$levelInline(AbstractClientPlayer player, Component name, PoseStack pose,
-										  MultiBufferSource buffers, int light, float partialTick, CallbackInfo ci) {
-		if (originclient$reentry || originclient$hidden(player) || Mods.bool("hypixel", "levelAbove")) {
+	@Inject(method = "extractRenderState(Lnet/minecraft/world/entity/Avatar;Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;F)V",
+			at = @At("TAIL"), require = 0)
+	private void originclient$levelInline(Avatar entity, AvatarRenderState state, float partialTick, CallbackInfo ci) {
+		if (state.nameTag == null || !(entity instanceof AbstractClientPlayer)
+				|| originclient$hidden() || Mods.bool("hypixel", "levelAbove")) {
 			return;
 		}
-		Component level;
 		try {
-			level = Hypixel.levelHeadText(player.getUUID());
+			Component level = Hypixel.levelHeadText(entity.getUUID());
+			if (level != null) {
+				state.nameTag = Component.empty().append(state.nameTag).append(Component.literal(" ")).append(level);
+			}
 		} catch (Throwable t) {
-			return;
-		}
-		if (level == null) {
-			return;
-		}
-		originclient$reentry = true;
-		try {
-			renderNameTag(player, Component.empty().append(name).append(Component.literal(" ")).append(level),
-					pose, buffers, light, partialTick);
-			ci.cancel();
-		} catch (Throwable t) {
-			// fall through: vanilla draws the plain tag
-		} finally {
-			originclient$reentry = false;
+			// keep the plain tag
 		}
 	}
 
-	@Inject(method = "renderNameTag(Lnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
-			at = @At("TAIL"))
-	private void originclient$levelAbove(AbstractClientPlayer player, Component name, PoseStack pose,
-										 MultiBufferSource buffers, int light, float partialTick, CallbackInfo ci) {
-		if (originclient$reentry || originclient$hidden(player) || !Mods.bool("hypixel", "levelAbove")) {
+	@Inject(method = "submitNameTag(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+			at = @At("TAIL"), require = 0)
+	private void originclient$levelAbove(AvatarRenderState state, PoseStack pose, SubmitNodeCollector collector,
+										 CameraRenderState camera, CallbackInfo ci) {
+		if (state.nameTag == null || state.nameTagAttachment == null
+				|| originclient$hidden() || !Mods.bool("hypixel", "levelAbove")) {
 			return;
 		}
 		try {
+			if (state.distanceToCameraSq > 4096.0) {
+				return;   // vanilla's own nametag cut-off
+			}
+			Minecraft mc = Minecraft.getInstance();
+			Entity e = mc.level == null ? null : mc.level.getEntity(state.id);
+			if (!(e instanceof AbstractClientPlayer player)) {
+				return;
+			}
 			Component level = Hypixel.levelHeadText(player.getUUID());
 			if (level == null) {
 				return;
 			}
-			Minecraft mc = Minecraft.getInstance();
-			var dispatcher = mc.getEntityRenderDispatcher();
-			double distSq = dispatcher.distanceToSqr(player);
-			if (distSq > 4096.0) {
-				return;   // vanilla's own nametag cut-off
-			}
-			Vec3 at = player.getAttachments().getNullable(EntityAttachment.NAME_TAG, 0, player.getViewYRot(partialTick));
-			if (at == null) {
-				return;
-			}
 			// Lines already drawn above the attachment: the name, plus the
-			// below-name score when vanilla showed it (within 10 blocks).
-			int lines = 1;
-			if (distSq < 100.0 && player.getScoreboard().getDisplayObjective(DisplaySlot.BELOW_NAME) != null) {
-				lines = 2;
-			}
-			boolean solid = !player.isDiscrete();
-			Font font = mc.font;
+			// below-name score when vanilla extracted one.
+			int lines = state.scoreText != null ? 2 : 1;
+			int earOffset = state.showExtraEars ? -10 : 0;
 			pose.pushPose();
-			pose.translate(at.x, at.y + 0.5 + lines * originclient$LINE, at.z);
-			pose.mulPose(dispatcher.cameraOrientation());
-			pose.scale(0.025F, -0.025F, 0.025F);
-			Matrix4f m = pose.last().pose();
-			int bg = (int) (mc.options.getBackgroundOpacity(0.25F) * 255.0F) << 24;
-			float x = -font.width(level) / 2f;
-			font.drawInBatch(level, x, 0, 0x20FFFFFF, false, m, buffers,
-					solid ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL, bg, light);
-			if (solid) {
-				font.drawInBatch(level, x, 0, 0xFFFFFFFF, false, m, buffers, Font.DisplayMode.NORMAL, 0, light);
-			}
+			pose.translate(0.0F, lines * originclient$LINE, 0.0F);
+			collector.submitNameTag(pose, state.nameTagAttachment, earOffset, level, !state.isDiscrete,
+					state.lightCoords, state.distanceToCameraSq, camera);
 			pose.popPose();
 		} catch (Throwable t) {
 			// never take a frame down over a level label
@@ -129,7 +103,7 @@ public abstract class LevelHeadMixin {
 	// The Nametags mod's hide toggles (Toggle All / Toggle Players / Hide in F1)
 	// hide the level with the tag.
 	@Unique
-	private static boolean originclient$hidden(AbstractClientPlayer player) {
+	private static boolean originclient$hidden() {
 		if (!Mods.on("hypixel") || !Mods.bool("hypixel", "levelHead")) {
 			return true;
 		}
