@@ -5,6 +5,34 @@ every session — read at session start alongside `./CLAUDE.md`.
 
 ---
 
+## 2026-10-12 — Website cosmetics store (showroom; payments off until in-game cosmetics exist)
+
+Will's ask: a store on the website to buy in-game cosmetics, easy to pay, delivered
+to the Minecraft name the buyer types. Decisions (asked first): **Tebex** checkout
+(card/PayPal/Apple Pay/Google Pay; Tebex handles tax/refunds and takes the username),
+capes + hats/halos, **the Origin name-tag icon is free for everyone** (shown, never
+sold), **website only this round**, Claude-made placeholder art. Follow-ups the same
+day: some capes animated and priced higher, **every price $5–$10**; then **"no wings
+for now"** (articulated flapping wings were built, kept in cosmetics.js, unlisted).
+
+- `website/store.html` + `css/store.css` + `js/store.js` (what's sold, checkout) +
+  `js/cosmetics.js` (procedural art, three.js try-on room with real-skin loading,
+  card thumbnails). Full notes + Will's Tebex setup steps: `docs/STORE.md`.
+- Checkout = Tebex Headless API straight from the browser (public token only):
+  create basket with `username` → add packages → redirect to `links.checkout`;
+  returns to `store.html?purchase=done|cancelled`.
+- `STORE.live = false`: browse/try on/bag work, Checkout says Soon, no Tebex calls.
+  Don't flip it until the mod shows cosmetics in game (that side isn't built).
+- Animation rule: everything moving is periodic in `LOOP` (2.4 s, whole cycles), so
+  cards play a seamless 20-frame webp loop rendered in the background after load.
+- Verified in headless Chromium (swiftshader WebGL) at desktop + phone widths, no
+  console errors; external calls blocked in the sandbox, so the name lookup /
+  skin load / Tebex paths were exercised only for their fail-soft branches.
+- Homepage: Store link in the nav (kept on phones) and footer; site.js nav
+  highlighting now only tracks `#` links (a page link would have thrown).
+
+---
+
 ## 2026-10-11 — Every live version brought onto the 1.21.1 design (Will: "make each version match 1.21.1")
 
 Will's ask: every version should act, play, feel and look exactly like 1.21.1 —
