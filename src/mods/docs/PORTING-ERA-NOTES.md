@@ -640,3 +640,53 @@ first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG 
 - CosmeticsPauseMixin: 1.21.10/1.21.11 createPauseMenu is still the GridLayout + alignInRectangle(0.5, 0.25)
   shape, so 1.21.1's TAIL logic applies verbatim (pause shot: Cosmetics row identical, stack lifted).
 - Removed a stray tracked javac.*.args from the 1.21.11 module root.
+
+## Fix-round port (2026-10-12) — 1.17.1 / 1.16.5 (pre-1.20 Gfx era, 1.16.5 fixed function; agent port-f)
+- Method: every new 1.21.1 window taken WHOLE from 1.21.1 HEAD and run through one mechanical pass
+  (GuiGraphics -> Gfx, Component.literal -> new TextComponent, render(PoseStack) + `Gfx g = new
+  Gfx(poseStack)`, 3-arg mouseScrolled) plus a few asserted era edits per file; 1.16.5 is then
+  derived from the PORTED 1.17.1 file (Java 8: records -> value classes, switch rules/expressions ->
+  classic switch, `var` -> explicit types, List.of/Set.of -> Collections/Arrays). The old modules'
+  window files were the pre-redesign generation, so merging hunks would have been slower than this.
+  Dev shots design + world matched 1.21.1-final on the first CI run for both modules (1.17.1 runs
+  38284056654 / 38284060812; 1.16.5 world 38284374367, design 38284757200 after one Loom
+  downloadAssets hiccup); zero mixin failures.
+- OriginWindow: no renderBackground override (Screen.render never paints one before 1.20.2;
+  render() draws the title backdrop / MenuBlur itself like the mod menu). OriginDeck's see-through
+  code is 1.21.1's verbatim apart from each module's own text path (1.17.1 OriginSdfFont, 1.16.5
+  OriginTtfFont) and OriginUi.roundRect arity (1.16.5's software path takes no aaPad).
+- Cosmetics preview, both previews in GUI px through the era's GLOBAL matrix stack (the deck's
+  PoseStack never reaches them): in-world = the module's own renderEntityInInventory(x, feetY,
+  intScale, 0, -14.31, player) + CosmeticsPreviewMixin yaw (feet = centre + bbHeight*scale/2).
+  MenuPlayerPreview replays renderEntityInInventory + LivingEntityRenderer by hand: 1.17.1
+  RenderSystem.getModelViewStack()/applyModelViewMatrix + Lighting.setupForEntityInInventory +
+  `new PlayerModel<>(getEntityModels().bakeLayer(ModelLayers.PLAYER[_SLIM]), slim)` +
+  Options.isModelPartEnabled; 1.16.5 RenderSystem.pushMatrix/translatef/scalef, NO Lighting call
+  (the GUI already runs under setupFor3DItems, as the vanilla inventory preview does),
+  `new PlayerModel<>(0f, slim)`, Options.getModelParts().contains(part). Both: renderToBuffer
+  8-arg float-colour form, pre-JOML Vector3f.XP/YP/ZP quaternions, and the skin/arm model/cape from
+  SkinManager.registerSkins(profile, callback, true) (the title chip's call; for YOUR profile it
+  fills the textures from Minecraft.getProfileProperties()), default skin until it arrives.
+  Proven by dev shots: default Alex/Steve with Orbit cape + halo on the title preview.
+- Cape tiles / shader thumbnails: Gfx's 11-arg blit; tint = RenderSystem.setShaderColor on 1.17.1,
+  RenderSystem.color4f on 1.16.5 (fixed function multiplies by the GL colour).
+- Item grid: renderFakeItem goes through Gfx (model-view stack on 1.17.1, legacy GL stack on
+  1.16.5), so the pose's (k, k, k/gs) scale applies unchanged. Z_OVER is 600, not 1000: the pre-1.20
+  GUI projection keeps z only in (-1000, 1000) (ortho 1000..3000 around a -2000 shift), so 1000
+  sits on the clip plane. 1.16.5's inFront also switches the depth test off around the lifted draws
+  (belt and braces; shots look the same with it). No DataComponents/MaceItem/BuiltInRegistries:
+  Registry.ITEM, `instanceof DiggerItem`, `item.isEdible()`.
+- Minimap: backdrop filled at the top of render(), mc.getFrameTime(), no g.flush(); 1.16.5 has no
+  Entity.getBlockX/Z -> Mth.floor(getX()). Waypoints: 1.16.5 ground search floor is y=0.
+- Pause menu: not a GridLayout before 1.19.4 (fixed rows from height/4), but 1.21.1's TAIL logic is
+  generic over the buttons it finds, so it ports with public x/y fields (`b.y -= lift`), the plain
+  Button constructor, and addButton on 1.16.5. Pause shots: Cosmetics row identical to its
+  neighbours, stack lifted a quarter row.
+- OriginDevWorld: 1.17.1 = 1.21.1's verbatim (setWindowed, 4-arg Screenshot.grab, "selectWorld.create"
+  on both world screens). 1.16.5: GLFW.glfwSetWindowSize + resizeDisplay, the 6-arg grab with the
+  framebuffer size, Java 8 loop. Both create a world and capture all five shots.
+- 1.17.1 Color Saturation, first in-world check: world_sat/world_bright grade correctly (mean HSV
+  saturation 151 -> 197, value 93 -> 103; 1.21.1: 138 -> 177, 117 -> 129), no black world, no white
+  vignette, so render/ColorGrade.java is unchanged. 1.16.5's PostChain grade also behaves (174 -> 233).
+- Dev-shot timing: a 1.16.5 window caught mid open-slide once (panel 3 px low) under the software
+  rasteriser; the rerun was exact. Compare panel edges before calling a layout off by a few px.
