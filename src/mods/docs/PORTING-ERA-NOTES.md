@@ -44,6 +44,33 @@ What carries over from the October port (sections below are the evidence):
 - Gate before every push: `javac -proc:none --release N` over the module (parse + language level),
   then CI build-check, then `[shots:<modules>]` dev shots compared against 1.21.1's.
 
+### Findings from the redesign port (2026-10-12, six agents, one per era)
+- The smooth (MSDF) text path had never run outside 1.21.1, and was broken in three places:
+  1.20.x wrote each vertex's colour before its UV (POSITION_TEX_COLOR needs format order; the
+  builder skips the attribute and endVertex throws); 1.21.10's msdf.fsh lacked the `float
+  LineWidth;` DynamicTransforms member (link failure = no text); 1.21.6-1.21.10 registered the
+  atlas without setFilter(true,false) (NEAREST sampling = jagged glyphs; 1.21.11 picks the
+  sampler per draw instead). 1.21.6/1.21.8 also gave glyph quads z=0 instead of the state's depth.
+- Pre-1.19 (1.18.2/1.17.1): a buffer that is begun and ended but never drawn shifts every later
+  draw by one. OriginSdfFont.emit now returns BEFORE begin() when nothing is drawable.
+- Batched GUIs: an immediate-mode draw that must sit above earlier batched draws needs
+  g.flush() first (1.21.4), and a raw GL scissor must flush on enter and exit. 1.21.6+ clips go
+  through GuiGraphics.enableScissor under the screen's BASE pose (saved before the deck's
+  1/guiScale scale), box converted to GUI px rounded inward.
+- Rounded boxes without a ROUND shader (1.21.4+): bake corner masks at physical-pixel size and
+  blit 1:1; never use OriginUi.panel's 32-entry whole-box LRU for the menu (>32 sizes a frame
+  evicts textures this frame's queued blits still use).
+- 1.21.9+ dev shots: Screenshot.grab is the 3-arg (dated file) form there, so the harness waits
+  for the PNG and renames it; windows resize via GLFW.glfwSetWindowSize(window.handle(), w, h).
+- 1.16.5 has no shaders, and its text render type samples font textures NEAREST, so a ttf
+  provider drawn at window-dependent sizes would be jagged. OriginTtfFont rasterises each glyph
+  with LWJGL's stb_truetype at the exact on-screen pixel size (4 horizontal sub-pixel phases,
+  LRU-capped atlas pages), blitted 1:1. This is a hand-rolled glyph path, which the font history
+  above banned after three blind failures; the ban's stated cause was having no way to SEE the
+  client, which dev shots now provide. Verify it on every change with [shots:1.16.5].
+- dev-shots.yml: put the module list in the tag, `[shots:a,b]`; a listed tag wins over any bare
+  `[shots]` mentioned in prose, and runs without a tag never cancel a capture in progress.
+
 ## GuiGraphics era, pre-1.21 — ALL CONFIRMED by CI: 1.20 built green first try (build-check run 131)
 - ResourceLocation: `new ResourceLocation(ns, path)` / `new ResourceLocation("textures/...")`.
 - Immediate-mode quads: `BufferBuilder bb = Tesselator.getInstance().getBuilder();
