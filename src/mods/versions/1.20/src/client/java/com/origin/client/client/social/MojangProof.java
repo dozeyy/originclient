@@ -33,7 +33,9 @@ import java.util.UUID;
  *  2. the SIGNED PROFILE: sessionserver's textures property, which Mojang signs
  *     and which carries the uuid + exact name.
  * Then it signs "origin-auth|uuid|game|now" with the certificate's private key
- * (proof we hold it) and builds the /v1/auth body.
+ * (proof we hold it) and builds the /v1/auth body. Byte-exact formats: docs/SOCIAL.md
+ * "Identity v2: exact formats" (reference encoder: services/cosmetics/test/mojang.mjs
+ * authBody()) - keys and Mojang's signatures go out as the exact bytes Mojang sent.
  *
  * Rules: the access token only ever goes to Mojang; the private key lives in
  * memory only (never on disk, never sent). Blocking network calls - call from a
@@ -229,7 +231,10 @@ public final class MojangProof {
 		return Base64.getDecoder().decode(b64);
 	}
 
-	/** Mojang's ISO-8601 time ("2026-10-14T21:13:22.123456Z") -> epoch ms. */
+	/**
+	 * Mojang's ISO-8601 time ("2026-10-14T21:13:22.123456Z") -> epoch ms, TRUNCATED
+	 * (Instant.toEpochMilli): keyExpiresAt is part of what Mojang signed, so rounding breaks it.
+	 */
 	private static long instant(String s) throws IOException {
 		if (s == null) {
 			throw new IOException("missing time");

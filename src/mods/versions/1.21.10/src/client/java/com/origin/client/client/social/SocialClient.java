@@ -849,6 +849,12 @@ public final class SocialClient {
 			String why = str(r.body(), "error");
 			throw new SignedOut(why != null && !why.isBlank() ? why : null, false);
 		}
+		if (r.status() == 400) {
+			// the service doesn't understand this sign-in: its sentence says to update Origin
+			String why = str(r.body(), "error");
+			throw new SignedOut(why != null && !why.isBlank() ? why : "Please update Origin to use friends.", false);
+		}
+		// anything else (503 = the service's Mojang keys aren't loaded yet) is a calm retry later
 		String t = str(r.body(), "token");
 		if (r.status() != 200 || t == null) {
 			throw new IllegalStateException("auth HTTP " + r.status());
