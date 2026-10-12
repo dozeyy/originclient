@@ -56,13 +56,26 @@ jobs:
           ORIGIN_SHOTS_SET: design
         run: |
           chmod +x gradlew
-          # The harness quits the game itself once every shot is taken.
-          timeout 1200 xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClient --no-daemon 2>&1 | tee run.log || true
+          # The harness quits the game itself once every shot is taken. The whole
+          # gradle + java tree runs in its own process group so a hang is killed
+          # outright after 15 minutes (a plain `timeout` only reached xvfb-run and
+          # left the game holding the log pipe open).
+          setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClient --no-daemon > run.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 900); do kill -0 $pid 2>/dev/null || break; sleep 1; done
+          kill -- -$pid 2>/dev/null || true
+          sleep 3
+          kill -9 -- -$pid 2>/dev/null || true
+          echo "--- last 120 log lines ---"
+          tail -n 120 run.log
+          echo "--- dev-shots lines ---"
+          grep -F "[dev-shots]" run.log || echo "no dev-shots lines"
           echo "--- mixin failures (should be none) ---"
           grep -iE "Mixin apply(ing)? .*failed|Critical injection failure" run.log || echo "none"
           ls -la "$ORIGIN_SHOTS/screenshots" || true
 
       - name: Keep the shots as a run artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dev-shots
@@ -70,13 +83,14 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish the shots to the claude/dev-shots branch
+        if: always()
         env:
           SHOTS: ${{ runner.temp }}/shots/screenshots
         run: |
-          [ -d "$SHOTS" ] && ls "$SHOTS"/*.png >/dev/null 2>&1 || { echo "no shots to publish"; exit 0; }
+          # Publish the log even with no shots: it's how a failed run gets diagnosed.
           pub="$RUNNER_TEMP/pub"
           mkdir -p "$pub"
-          cp "$SHOTS"/*.png "$pub"/
+          cp "$SHOTS"/*.png "$pub"/ 2>/dev/null || echo "no shots captured"
           cp src/mods/versions/1.21.1/run.log "$pub"/run.log 2>/dev/null || true
           printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$pub/SOURCE.txt"
           cd "$pub"
