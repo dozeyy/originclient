@@ -96,6 +96,15 @@ public final class OriginDevShots {
 		}
 		long now = System.currentTimeMillis();
 		if (step < 0) {
+			// A fresh game directory (CI) opens vanilla's one-time accessibility
+			// onboarding screen instead of the title; skip it, or the harness would
+			// wait for a title screen that never comes.
+			if (mc.getOverlay() == null && mc.screen != null && !(mc.screen instanceof TitleScreen)
+					&& !(mc.screen instanceof OriginModMenuScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+				return;
+			}
 			if (mc.getOverlay() == null && mc.screen instanceof TitleScreen) {
 				if (nextAt == 0) {
 					nextAt = now + 1500;
