@@ -522,9 +522,18 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 		com.mojang.blaze3d.vertex.PoseStack pose = d.g.pose();
 		pose.pushPose();
 		pose.translate(0, 0, Z_OVER);
+		// 1.16.5 (fixed function): dev shots showed the lifted fade still landing
+		// UNDER the item icons, so the depth test is also switched off for these
+		// draws -- they are always the last thing over the grid, so painting over
+		// whatever is there is exactly the intent. The previous state is restored.
+		boolean depth = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_DEPTH_TEST);
+		com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
 		try {
 			draws.run();
 		} finally {
+			if (depth) {
+				com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
+			}
 			pose.popPose();
 		}
 	}
