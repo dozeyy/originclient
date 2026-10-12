@@ -94,6 +94,9 @@ public final class OriginSdfFont {
 		final ResourceLocation atlas;
 		final Map<Character, Glyph> glyphs = new HashMap<>();
 		float size = 42, atlasW = 512, atlasH = 256, spaceAdv = 9;
+		// baseline (from the line top) and cap-top, in bake units -- what the
+		// sized API below positions text by, so labels centre on their caps.
+		float base = 41, capTop = 10;
 		boolean ok = false;
 
 		Face(String texName) {
@@ -144,6 +147,10 @@ public final class OriginSdfFont {
 			f.size = j.get("size").getAsFloat();
 			f.atlasW = j.get("atlasW").getAsFloat();
 			f.atlasH = j.get("atlasH").getAsFloat();
+			if (j.has("base")) {
+				f.base = j.get("base").getAsFloat();
+			}
+			float range = j.has("distanceRange") ? j.get("distanceRange").getAsFloat() : 4f;
 			JsonObject g = j.getAsJsonObject("glyphs");
 			for (String k : g.keySet()) {
 				if (k.isEmpty()) {
@@ -156,6 +163,10 @@ public final class OriginSdfFont {
 			}
 			if (f.glyphs.containsKey(' ')) {
 				f.spaceAdv = f.glyphs.get(' ').adv;
+			}
+			if (f.glyphs.containsKey('H')) {
+				// glyph boxes carry half the distance range as padding on each side
+				f.capTop = f.glyphs.get('H').oy + range / 2f;
 			}
 			// MSDF REQUIRES linear filtering — register our own DynamicTexture with
 			// setFilter(true, false) rather than a nearest-sampled SimpleTexture.
@@ -201,13 +212,13 @@ public final class OriginSdfFont {
 		if (shadow) {
 			int sa = (argb >>> 24) & 0xFF;
 			int sc = (sa << 24) | ((argb >>> 2) & 0x3F3F3F); // ~25% brightness, same alpha
-			emit(g, f, text, x + 0.6f, y + 0.6f, sc);
+			emit(g, f, text, x + 0.6f, y + 0.6f, sc, EM_PX / f.size, 0f, MATCH_DY);
 		}
-		emit(g, f, text, x, y, argb);
+		emit(g, f, text, x, y, argb, EM_PX / f.size, 0f, MATCH_DY);
 	}
 
-	private static void emit(GuiGraphics g, Face f, String text, float x, float y, int argb) {
-		float s = EM_PX / f.size;
+	private static void emit(GuiGraphics g, Face f, String text, float x, float y, int argb,
+							 float s, float tracking, float dy) {
 		int r = (argb >> 16) & 0xFF, gg = (argb >> 8) & 0xFF, b = argb & 0xFF;
 		int a = (argb >>> 24) & 0xFF;
 		if (a == 0) {
@@ -216,28 +227,30 @@ public final class OriginSdfFont {
 		Matrix4f m = g.pose().last().pose();
 		BufferBuilder bb = Tesselator.getInstance().getBuilder();
 		bb.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+		// This era's builder wants the attributes in FORMAT order (position, uv,
+		// colour) — a mismatched call is silently skipped and endVertex() throws.
 		float pen = x;
 		boolean any = false;
 		for (int i = 0; i < text.length(); i++) {
 			Glyph gl = f.glyphs.get(text.charAt(i));
 			if (gl == null) {
-				pen += f.spaceAdv * s;
+				pen += f.spaceAdv * s + tracking;
 				continue;
 			}
 			if (gl.w > 0 && gl.h > 0) {
 				float gx0 = pen + gl.ox * s;
-				float gy0 = y + gl.oy * s + MATCH_DY;
+				float gy0 = y + gl.oy * s + dy;
 				float gx1 = gx0 + gl.w * s;
 				float gy1 = gy0 + gl.h * s;
 				float u0 = gl.x / f.atlasW, v0 = gl.y / f.atlasH;
 				float u1 = (gl.x + gl.w) / f.atlasW, v1 = (gl.y + gl.h) / f.atlasH;
-				bb.vertex(m, gx0, gy0, 0).color(r, gg, b, a).uv(u0, v0).endVertex();
-				bb.vertex(m, gx0, gy1, 0).color(r, gg, b, a).uv(u0, v1).endVertex();
-				bb.vertex(m, gx1, gy1, 0).color(r, gg, b, a).uv(u1, v1).endVertex();
-				bb.vertex(m, gx1, gy0, 0).color(r, gg, b, a).uv(u1, v0).endVertex();
+				bb.vertex(m, gx0, gy0, 0).uv(u0, v0).color(r, gg, b, a).endVertex();
+				bb.vertex(m, gx0, gy1, 0).uv(u0, v1).color(r, gg, b, a).endVertex();
+				bb.vertex(m, gx1, gy1, 0).uv(u1, v1).color(r, gg, b, a).endVertex();
+				bb.vertex(m, gx1, gy0, 0).uv(u1, v0).color(r, gg, b, a).endVertex();
 				any = true;
 			}
-			pen += gl.adv * s;
+			pen += gl.adv * s + tracking;
 		}
 		if (!any) {
 			bb.end();
@@ -252,5 +265,44 @@ public final class OriginSdfFont {
 		// CRITICAL: restore state so this immediate-mode draw can't leak into the
 		// next GUI element or, once the menu closes, into world/sky rendering.
 		OriginShaders.restoreState();
+	}
+
+	// ---- sized API (the 2026-10 menu redesign, OriginDeck) ----
+	// Em size and position are in the CALLER's units (OriginDeck draws in
+	// physical pixels), and text is placed by its BASELINE, not a box top --
+	// so labels sit exactly where the design puts them at every size.
+
+	/** Cap height of a face at em size `em` (what optical centring uses). */
+	public static float capHeight(float em, boolean bold) {
+		ensureLoaded();
+		Face f = face(bold);
+		return (f.base - f.capTop) * em / f.size;
+	}
+
+	/** Advance width at em size `em`, with `tracking` added between glyphs. */
+	public static float widthEm(String text, float em, float tracking, boolean bold) {
+		ensureLoaded();
+		text = normalize(text);
+		Face f = face(bold);
+		float k = em / f.size, w = 0;
+		for (int i = 0; i < text.length(); i++) {
+			Glyph gl = f.glyphs.get(text.charAt(i));
+			w += (gl == null ? f.spaceAdv : gl.adv) * k;
+		}
+		return text.isEmpty() ? 0 : w + tracking * (text.length() - 1);
+	}
+
+	/** Draws `text` with its baseline at `baseline`. */
+	public static void drawEm(GuiGraphics g, String text, float x, float baseline, float em, float tracking,
+							  int argb, boolean bold) {
+		// alpha 0 means invisible here (a fade's first frame); emit() treats 0 as
+		// "opaque" for legacy RGB-only callers, so stop before it gets the chance.
+		if (!ready() || text.isEmpty() || (argb >>> 24) == 0) {
+			return;
+		}
+		text = normalize(text);
+		Face f = face(bold);
+		float k = em / f.size;
+		emit(g, f, text, x, baseline - f.base * k, argb, k, tracking, 0f);
 	}
 }
