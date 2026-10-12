@@ -950,7 +950,7 @@ public class OriginModMenuScreen extends Screen {
 			int y = railY(RAIL_CATS.length + i);
 			if (in(mx, my, x, y, x + w, y + RAIL_H)) {
 				if (RAIL_NAV_VALUES[i] == null) {
-					Minecraft.getInstance().setScreen(new CosmeticsScreen());
+					Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
 					return true;
 				}
 				nav = RAIL_NAV_VALUES[i];

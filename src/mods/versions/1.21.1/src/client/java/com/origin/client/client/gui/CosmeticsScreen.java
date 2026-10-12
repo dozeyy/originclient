@@ -42,8 +42,12 @@ public class CosmeticsScreen extends Screen {
 	private volatile String message = null;
 	private volatile boolean messageIsError = false;
 
-	public CosmeticsScreen() {
+	/** Where Esc / Back return to: the title screen, the pause menu, or the mod menu. */
+	private final Screen parent;
+
+	public CosmeticsScreen(Screen parent) {
 		super(Component.literal("Cosmetics"));
+		this.parent = parent;
 	}
 
 	@Override
@@ -375,7 +379,7 @@ public class CosmeticsScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		Minecraft.getInstance().setScreen(new OriginModMenuScreen());
+		Minecraft.getInstance().setScreen(parent);
 	}
 
 	private static boolean in(double mx, double my, int x0, int y0, int x1, int y1) {
