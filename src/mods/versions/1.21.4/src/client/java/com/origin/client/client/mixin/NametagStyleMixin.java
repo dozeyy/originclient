@@ -42,6 +42,22 @@ public class NametagStyleMixin {
 										  // captured params of renderNameTag (the state + its name are what we need):
 										  EntityRenderState state, Component displayName, PoseStack poseStack,
 										  MultiBufferSource bufferSource, int packedLight) {
+		// Friends & Party: a party member's tag in the party colour (LAN worlds only;
+		// PartyWorld decides). Keeps vanilla's per-pass alpha like the colours below.
+		// 1.21.2+: the hook gets a render state, so the player is looked up by the
+		// state's entity id (PlayerRenderState.id), as LevelHeadMixin does.
+		Integer party = null;
+		try {
+			Minecraft pmc = Minecraft.getInstance();
+			if (state instanceof PlayerRenderState prs && pmc.level != null) {
+				party = com.origin.client.client.social.PartyWorld.nametagTint(pmc.level.getEntity(prs.id));
+			}
+		} catch (Throwable ignored) {
+			// no tint
+		}
+		if (party != null) {
+			color = (color & 0xFF000000) | (party & 0xFFFFFF);
+		}
 		if (!Mods.on("nametags")) {
 			return font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
 		}
@@ -59,6 +75,8 @@ public class NametagStyleMixin {
 		int rgb = color & 0xFFFFFF;
 		if (over) {
 			rgb = Mods.color("nametags", "ownTextColor") & 0xFFFFFF;
+		} else if (party != null) {
+			// the party colour wins over the global custom colour
 		} else if (Mods.bool("nametags", "overrideColor")) {
 			rgb = Mods.color("nametags", "textColor") & 0xFFFFFF;
 		}
