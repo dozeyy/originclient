@@ -248,7 +248,7 @@
                                         FontSize="16" Padding="52,15" Margin="0,0,12,0" Click="Launch_Click"/>
                                 <Button x:Name="ModsButton" Content="MODS" Style="{StaticResource Button.Secondary}"
                                         FontSize="16" Padding="36,15" Click="Mods_Click"
-                                        ToolTip="Open this version's mods folder to add your own mods"/>
+                                        ToolTip="Open this version's mods folder to add your own mods (shared by all your accounts)"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>

@@ -8,10 +8,11 @@ using OriginLauncher.App.Core.Mods;
 
 namespace OriginLauncher.App.UI.Pages;
 
-// Per-version external-mod manager. Reads/writes the selected account's
-// /instances/{version}/accounts/{account}/mods/ folder VersionManager
-// provisions on launch (each account has its own game folder), so a
-// mod toggled here is exactly what the game does (or doesn't) load. The version
+// Per-version external-mod manager. Reads/writes the version's
+// /instances/{version}/mods/ folder — one per version, shared by every account
+// (Core/GameFolders/SharedMods.cs) — the same folder VersionManager provisions
+// and every account's game loads, so a mod toggled here is exactly what the
+// game does (or doesn't) load, whichever account plays. The version
 // is pushed in by MainWindow from HomePage's live selection (see ShowVersion),
 // so switching versions on Home swaps this whole list to match.
 public partial class ModsPage : UserControl

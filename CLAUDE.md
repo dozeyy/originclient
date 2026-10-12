@@ -197,9 +197,12 @@ floating corner controls. In-game menus match this exactly.
 - App installs per-user to `%LocalAppData%\Programs\OriginLauncher`; ALL user
   data lives under `%LocalAppData%\OriginLauncher` (`Core/OriginPaths.cs` is
   the single path authority — never write user data anywhere else).
-- Instances isolated per version AND per account: `instances/<version>/` holds the shared heavy files,
-  `instances/<version>/accounts/<uuid|offline>/` is each account's own game folder (Core/GameFolders;
-  Will 2026-10-12: one game window per account, several at once).
+- Instances isolated per version AND per account: `instances/<version>/` holds the shared heavy files
+  AND the version's ONE `mods/` folder (shared by every account, loaded via Fabric's `fabric.modsFolder`;
+  Core/GameFolders/SharedMods.cs), `instances/<version>/accounts/<uuid|offline>/` is each account's own
+  game folder — settings, worlds, servers, configs (Core/GameFolders; Will 2026-10-12: one game window
+  per account, several at once; mods shared per version). Never rewrite a jar in the shared mods/ in
+  place — a running game of another account may hold it (add / delete / rename-swap only).
 - Newest launch action cancels any in-flight one FOR THE SAME ACCOUNT (other accounts' games keep running).
 - One control, one job: no UI handler may mutate a setting other than its own.
 
