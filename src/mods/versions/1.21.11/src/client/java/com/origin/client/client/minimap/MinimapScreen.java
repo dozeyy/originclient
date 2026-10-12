@@ -2,14 +2,19 @@ package com.origin.client.client.minimap;
 
 import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.gui.OriginColorPicker;
-import com.origin.client.client.gui.OriginUi;
+import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.mods.Mods;
-import com.origin.client.client.theme.OriginTheme;
 import com.origin.client.client.waypoints.Waypoints;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+import static com.origin.client.client.gui.OriginDeck.*;
 
 /**
  * The full-screen map (the Minimap's "Open Map" key, M by default): the same terrain,
@@ -17,17 +22,29 @@ import net.minecraft.network.chat.Component;
  * drag-to-pan. It shows what the minimap has already mapped around you -- the loaded
  * area, up to MinimapData.MAX_RADIUS chunks out -- not a saved whole-world atlas.
  *
- * 1.21.11: the map is recorded into the deferred GUI (no flush / depth-test
- * toggling), and mouse callbacks take a MouseButtonEvent (x/y/button unpacked at
- * the top so the bodies are 1.21.1's).
+ * The map stays full-screen (it needs every pixel), so instead of the OriginWindow
+ * panel its chrome is drawn with OriginDeck in the same language: the window header
+ * (icon, title, subtitle, close) across the top, zoom / re-centre buttons, a rounded
+ * frame around the map, smooth labels, and a footer with the cursor's coordinates.
+ * Layout is in design px over the whole window (origin top-left, no panel), and the
+ * map itself is placed in GUI px from that layout (MinimapRenderer works in GUI px).
+ *
+ * PER-VERSION DELTA (1.21.11): the map is recorded into the deferred GUI like
+ * everything else (MinimapRenderer takes the GuiGraphics; no flush / depth-test
+ * toggling), so the two deck passes layer around it by submission order; mouse
+ * callbacks take a MouseButtonEvent (x/y/button unpacked so the bodies are 1.21.1's).
  */
 final class MinimapScreen extends Screen {
-	private static final int MARGIN = 20;
+	private static final float M = 24, HEAD_H = 64, FOOT_H = 32;
 	private static final float MIN_ZOOM = 0.5f, MAX_ZOOM = 8f;
 	private static float zoom = 2f;          // GUI px per block; kept between openings
 	private double panX = 0, panZ = 0;       // map centre's offset from the player, in blocks
 	private boolean dragging = false;
 	private boolean openKeyHeld = true;      // the open key is down as we open; ignore it until released
+
+	private final List<OriginDeck.Hit> hits = new ArrayList<>();
+	private final List<OriginDeck.Hit> scratch = new ArrayList<>();
+	private float lastS = 1;
 
 	MinimapScreen() {
 		super(Component.literal("Map"));
@@ -43,6 +60,11 @@ final class MinimapScreen extends Screen {
 		g.fill(0, 0, width, height, 0xD80E1110);
 	}
 
+	/** Physical px per design px: the menus' 1080p size, never below 75%. */
+	private static float deckScale(int winW, int winH) {
+		return OriginDeck.scale(winW, winH, 640, 400);
+	}
+
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
 		super.render(g, mouseX, mouseY, partialTick);
@@ -50,8 +72,23 @@ final class MinimapScreen extends Screen {
 		if (mc == null || mc.player == null || mc.level == null) {
 			return;
 		}
-		float halfW = (width - MARGIN * 2) / 2f, halfH = (height - MARGIN * 2 - 14) / 2f;
-		float cx = width / 2f, cy = MARGIN + halfH;
+		var win = mc.getWindow();
+		float s = deckScale(win.getWidth(), win.getHeight());
+		lastS = s;
+		double gs = win.getGuiScale();
+		float dw = win.getWidth() / s, dh = win.getHeight() / s;     // the window in design px
+		float mapX = M, mapY = HEAD_H, mapW = dw - 2 * M, mapH = dh - HEAD_H - M - FOOT_H - 16;
+
+		// pass 1: the map's well (under the terrain)
+		OriginDeck d0 = new OriginDeck(g, s, 0, 0, mouseX, mouseY, scratch);
+		d0.rect(mapX, mapY, mapW, mapH, 6, 0xFF101412);
+		d0.end();
+
+		// the map itself, in GUI px, inset 1 design px inside the frame
+		float k = (float) (s / gs);   // design px -> GUI px
+		float gx0 = (mapX + 1) * k, gy0 = (mapY + 1) * k, gx1 = (mapX + mapW - 1) * k, gy1 = (mapY + mapH - 1) * k;
+		float halfW = (gx1 - gx0) / 2f, halfH = (gy1 - gy0) / 2f;
+		float cx = gx0 + halfW, cy = gy0 + halfH;
 		float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		var p = mc.player;
 		double px = p.xo + (p.getX() - p.xo) * partial, pz = p.zo + (p.getZ() - p.zo) * partial;
@@ -62,9 +99,8 @@ final class MinimapScreen extends Screen {
 		} catch (Throwable t) {
 			// terrain just stops updating this frame
 		}
+		boolean showWp = Mods.bool(MinimapHud.MOD, "showWaypoints") && Mods.on("waypoints");
 
-		OriginUi.panel(g, (int) (cx - halfW) - 1, (int) (cy - halfH) - 1, (int) (halfW * 2) + 2, (int) (halfH * 2) + 2,
-				4, OriginTheme.BG, OriginTheme.STROKE_STRONG);
 		try {
 			// Terrain only inside the scanned window (whole chunks around the player's chunk),
 			// clipped to the visible area.
@@ -75,10 +111,8 @@ final class MinimapScreen extends Screen {
 			double vz0 = v.worldZ(cx, cy - halfH), vz1 = v.worldZ(cx, cy + halfH);
 			MinimapRenderer.terrainRect(g, v, Math.max(wx0, vx0), Math.max(wz0, vz0), Math.min(wx1, vx1), Math.min(wz1, vz1));
 			MinimapRenderer.entities(g, mc, v, MinimapHud.radar(), partial);
-			boolean showWp = Mods.bool(MinimapHud.MOD, "showWaypoints") && Mods.on("waypoints");
 			if (showWp) {
 				MinimapRenderer.waypoints(g, v, true, 3.5f);
-				waypointNames(g, v);
 			}
 			float sx = v.sx(px, pz), sy = v.sy(px, pz);
 			if (v.contains(sx, sy, 4)) {
@@ -87,23 +121,105 @@ final class MinimapScreen extends Screen {
 						(float) Mods.num(MinimapHud.MOD, "playerMarkerSize") + 1,
 						OriginColorPicker.liveColor(MinimapHud.MOD, "playerMarkerColor"));
 			}
-			MinimapRenderer.compass(g, mc, v, OriginTheme.TEXT, true);
 		} catch (Throwable t) {
-			// a broken map draw leaves the panel empty; the screen stays usable
+			// a broken map draw leaves the well empty; the screen stays usable
 		}
 
-		// footer: what's under the cursor + how to use it
-		String hint = "Scroll: zoom  ·  Drag: move  ·  Right-click: back to you";
-		int fy = height - MARGIN + 2;
-		if (v.contains(mouseX, mouseY, 0)) {
-			int mx = (int) Math.floor(v.worldX(mouseX, mouseY)), mz = (int) Math.floor(v.worldZ(mouseX, mouseY));
-			g.drawString(font, "X " + mx + "   Z " + mz, MARGIN, fy, OriginTheme.TEXT, true);
+		// pass 2: the chrome, over the map
+		OriginDeck d = new OriginDeck(g, s, 0, 0, mouseX, mouseY, hits);
+		try {
+			d.rect(mapX, mapY, mapW, mapH, 6, 0, LINE2);   // the frame (border only)
+			compass(d, v, k);
+			if (showWp) {
+				waypointNames(d, v, k);
+			}
+			drawHeader(d, dw);
+			drawFooter(d, v, k, dw, dh, mouseX, mouseY);
+		} catch (RuntimeException e) {
+			// fail soft: the chrome is decoration; the map stays usable
+		} finally {
+			d.end();
 		}
-		g.drawString(font, hint, width - MARGIN - font.width(hint), fy, OriginTheme.MUTED, true);
 	}
 
-	/** Each waypoint's name above its diamond (only the ones on the map). */
-	private void waypointNames(GuiGraphics g, MinimapRenderer.View v) {
+	// ---- chrome ----
+
+	private void drawHeader(OriginDeck d, float dw) {
+		d.icon(MinimapHud.MOD, M, HEAD_H / 2 - 12, 24, TEXT);
+		float tx = M + 24 + 12;
+		d.text("Map", tx, 30, 17, true, 0.3f, TEXT);
+		d.text("The area your minimap has explored around you", tx, 48, 12, false, 0, DIM);
+
+		// right to left: close | re-centre | zoom out, zoom readout, zoom in
+		float x = dw - M - 32;
+		boolean ch = d.over(x, 16, 32, 32);
+		d.rect(x, 16, 32, 32, 6, ch ? 0x1AFFFFFF : 0x0AFFFFFF);
+		d.icon("@close", x + 9, 25, 14, ch ? TEXT : DIM);
+		d.hit(x, 16, 32, 32, () -> onClose());
+
+		boolean panned = Math.abs(panX) > 0.5 || Math.abs(panZ) > 0.5;
+		String rc = "RE-CENTRE";
+		float rw = 14 + 22 + d.textW(rc, 11, true, CAPS_TRACK) + 14;
+		x -= 8 + rw;
+		boolean rh = panned && d.over(x, 16, rw, 32);
+		d.rect(x, 16, rw, 32, 6, !panned ? 0x0AFFFFFF : rh ? 0x1AFFFFFF : 0x0FFFFFFF);
+		int rfg = !panned ? MUTE : rh ? TEXT : DIM;
+		d.icon("@user", x + 14, 25, 14, rfg);
+		d.textMid(rc, x + 36, 32, 11, true, CAPS_TRACK, rfg);
+		if (panned) {
+			d.hit(x, 16, rw, 32, () -> panX = panZ = 0);
+		}
+
+		// zoom: [ - ]  2.0x  [ + ] in one control
+		float zw = 32 + 56 + 32;
+		x -= 8 + zw;
+		d.rect(x, 16, zw, 32, 6, 0x0AFFFFFF, LINE);
+		boolean mh = d.over(x, 16, 32, 32), ph = d.over(x + zw - 32, 16, 32, 32);
+		if (mh) {
+			d.rect(x, 16, 32, 32, 6, 0x0FFFFFFF);
+		}
+		if (ph) {
+			d.rect(x + zw - 32, 16, 32, 32, 6, 0x0FFFFFFF);
+		}
+		d.fill(x + 10, 31.25f, 12, 1.5f, zoom > MIN_ZOOM ? (mh ? TEXT : DIM) : MUTE);   // minus
+		d.icon("@plus", x + zw - 32 + 9, 25, 14, zoom < MAX_ZOOM ? (ph ? TEXT : DIM) : MUTE);
+		d.textCenter(String.format(Locale.ROOT, "%.1fx", zoom), x + zw / 2, 32, 13, true, 0, TEXT);
+		d.hit(x, 16, 32, 32, () -> zoomBy(-1));
+		d.hit(x + zw - 32, 16, 32, 32, () -> zoomBy(1));
+	}
+
+	private void drawFooter(OriginDeck d, MinimapRenderer.View v, float k, float dw, float dh, int mouseX, int mouseY) {
+		float y = dh - M - FOOT_H;
+		if (v.contains(mouseX, mouseY, 0)) {
+			int mx = (int) Math.floor(v.worldX(mouseX, mouseY)), mz = (int) Math.floor(v.worldZ(mouseX, mouseY));
+			String xs = Integer.toString(mx), zs = Integer.toString(mz);
+			float w = 14 + d.textW("X", 11, true, CAPS_TRACK) + 8 + d.textW(xs, 13, true, 0) + 18
+					+ d.textW("Z", 11, true, CAPS_TRACK) + 8 + d.textW(zs, 13, true, 0) + 14;
+			d.rect(M, y, w, FOOT_H, 6, 0xC7141816, LINE);
+			float x = M + 14;
+			x += d.textMid("X", x, y + 16, 11, true, CAPS_TRACK, MUTE) + 8;
+			x += d.textMid(xs, x, y + 16, 13, true, 0, TEXT) + 18;
+			x += d.textMid("Z", x, y + 16, 11, true, CAPS_TRACK, MUTE) + 8;
+			d.textMid(zs, x, y + 16, 13, true, 0, TEXT);
+		}
+		String hint = "Scroll to zoom  •  Drag to move  •  Right-click to re-centre";
+		d.textRight(hint, dw - M, y + 16, 12, false, 0, MUTE);
+	}
+
+	/** N / E / S / W just inside the map's edge (north-up), in the smooth font. */
+	private void compass(OriginDeck d, MinimapRenderer.View v, float k) {
+		String[] letters = {"N", "E", "S", "W"};
+		float[][] dirs = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+		for (int i = 0; i < 4; i++) {
+			float[] e = v.clampToEdge(v.cx + dirs[i][0] * 10000f, v.cy + dirs[i][1] * 10000f, 16 * k);
+			float ex = e[0] / k, ey = e[1] / k;
+			d.circle(ex, ey, 11, 0xB30E1110);
+			d.textCenter(letters[i], ex, ey, 12, true, 0, i == 0 ? ACC : TEXT);
+		}
+	}
+
+	/** Each waypoint's name above its diamond (only the ones on the map), on a dark pill. */
+	private void waypointNames(OriginDeck d, MinimapRenderer.View v, float k) {
 		String dim = Waypoints.currentDim();
 		for (Waypoints.Waypoint wp : Waypoints.all()) {
 			if (!wp.enabled || !dim.equals(wp.dimension)) {
@@ -113,15 +229,23 @@ final class MinimapScreen extends Screen {
 			if (!v.contains(x, y, 6)) {
 				continue;
 			}
-			int tw = font.width(wp.name);
-			g.drawString(font, wp.name, Math.round(x - tw / 2f), Math.round(y - 15), 0xFFFFFFFF, true);
+			float dx = x / k, dy = (y - 3.5f) / k - 14;   // pill just above the 3.5 GUI px diamond
+			float tw = d.textW(wp.name, 12, true, 0);
+			d.rect(dx - tw / 2 - 7, dy - 10, tw + 14, 20, 5, 0xB30E1110);
+			d.textCenter(wp.name, dx, dy, 12, true, 0, TEXT);
 		}
 	}
+
+	private void zoomBy(int dir) {
+		zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * (dir > 0 ? 1.25f : 0.8f)));
+	}
+
+	// ---- input ----
 
 	@Override
 	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
 		if (sy != 0) {
-			zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * (sy > 0 ? 1.25f : 0.8f)));
+			zoomBy(sy > 0 ? 1 : -1);
 			return true;
 		}
 		return super.mouseScrolled(mx, my, sx, sy);
@@ -129,8 +253,13 @@ final class MinimapScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
+		double mx = event.x(), my = event.y();
 		int button = event.button();
 		if (button == 0) {
+			double gs = minecraft != null ? minecraft.getWindow().getGuiScale() : 1;
+			if (OriginDeck.click(hits, OriginDeck.toDesign(mx, gs, 0, lastS), OriginDeck.toDesign(my, gs, 0, lastS))) {
+				return true;
+			}
 			dragging = true;
 			return true;
 		}

@@ -1,8 +1,0 @@
--proc:none
---release
-21
--d
-/tmp/claude-0/-home-user-originclient/a108451a-b273-5449-bc99-7688f33b2089/scratchpad/lp2/jout
--Xmaxerrs
-1000
-src/client/java/com/origin/client/client/mods/HypixelBedwars.java
