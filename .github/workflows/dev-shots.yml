@@ -29,8 +29,11 @@ on:
 permissions:
   contents: write
 
+# Only runs that will actually take shots share a group: a push WITHOUT a
+# [shots] tag still starts a (skipped) run, and in the shared group it would
+# cancel the real run in progress.
 concurrency:
-  group: dev-shots
+  group: dev-shots-${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[shots') }}
   cancel-in-progress: true
 
 jobs:
