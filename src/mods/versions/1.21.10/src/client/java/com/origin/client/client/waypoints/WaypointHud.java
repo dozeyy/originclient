@@ -50,7 +50,7 @@ public final class WaypointHud {
 	private static volatile boolean valid = false;
 
 	/** Called from the world pass each frame with the live camera state. */
-	static void capture(WorldRenderContext ctx) {
+	public static void capture(WorldRenderContext ctx) {
 		var cam = ctx.worldState().cameraRenderState;
 		Vec3 p = cam.pos;
 		camX = p.x;
@@ -63,6 +63,47 @@ public final class WaypointHud {
 		Vector3f fwd = ORIENT.transform(new Vector3f(0f, 0f, -1f));
 		camYawDeg = Math.toDegrees(Math.atan2(-fwd.x, fwd.z));
 		valid = true;
+	}
+
+	/** The camera position from the last world frame, or null before the first one. */
+	public static Vec3 camera() {
+		return valid ? new Vec3(camX, camY, camZ) : null;
+	}
+
+	/** The camera yaw (Minecraft's convention), the player's before the first world frame. */
+	public static double cameraYaw(Minecraft mc) {
+		return valid ? camYawDeg : mc.player != null ? mc.player.getYRot() : 0.0;
+	}
+
+	/** The view-projection vanilla draws this frame's world with (see render()). */
+	private static Matrix4f viewProj(Minecraft mc) {
+		float fov = ((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
+				.originclient$getFov(mc.gameRenderer.getMainCamera(), 1.0f, true);
+		Matrix4f viewProj = mc.gameRenderer.getProjectionMatrix(fov);
+		viewProj.rotate(new Quaternionf(ORIENT).conjugate());
+		return viewProj;
+	}
+
+	/**
+	 * A world point -> GUI px {x, y}, or null when it's behind the camera or no
+	 * frame has been captured. Shared with the party markers (social/PartyWorld),
+	 * which Social's own world hook keeps captured even with Waypoints off.
+	 */
+	public static int[] project(double x, double y, double z, int sw, int sh) {
+		if (!valid) {
+			return null;
+		}
+		Vector4f p = new Vector4f((float) (x - camX), (float) (y - camY), (float) (z - camZ), 1f);
+		viewProj(Minecraft.getInstance()).transform(p);
+		if (p.w <= 0.05f) {
+			return null;
+		}
+		int sx = Math.round((p.x / p.w * 0.5f + 0.5f) * sw);
+		int sy = Math.round((0.5f - p.y / p.w * 0.5f) * sh);
+		if (sx < -60 || sx > sw + 60 || sy < -60 || sy > sh + 60) {
+			return null;
+		}
+		return new int[]{sx, sy};
 	}
 
 	public static void render(GuiGraphics g) {
@@ -92,10 +133,7 @@ public final class WaypointHud {
 		// increasingly wrong toward the edges, i.e. sliding off the waypoint as
 		// you looked around. View bobbing is deliberately NOT applied: a world
 		// marker should sit still, not bob with the walk cycle.
-		float fov = ((com.origin.client.client.mixin.GameRendererAccessor) mc.gameRenderer)
-				.originclient$getFov(mc.gameRenderer.getMainCamera(), 1.0f, true);
-		Matrix4f viewProj = mc.gameRenderer.getProjectionMatrix(fov);
-		viewProj.rotate(new Quaternionf(ORIENT).conjugate());
+		Matrix4f viewProj = viewProj(mc);
 
 		for (Waypoints.Waypoint w : Waypoints.all()) {
 			if (!w.enabled || !dim.equals(w.dimension)) {
@@ -256,6 +294,22 @@ public final class WaypointHud {
 			double dotX = cxBar + t * (barW / 2.0 - halfW);
 			barGem(g, dotX, cy, s, opaque(w.iconColor), alpha);
 		}
+		// Party members (Friends & Party, LAN worlds only -- PartyWorld decides),
+		// in the party colour, by the same direction mapping.
+		try {
+			int tint = com.origin.client.client.social.PartyWorld.color();
+			for (double[] m : com.origin.client.client.social.PartyWorld.mapPoints(mc)) {
+				double dx = m[0] - px, dz = m[1] - pz;
+				double relYaw = Mth.wrapDegrees(Math.toDegrees(Math.atan2(-dx, dz)) - viewYaw);
+				boolean outsideView = Math.abs(relYaw) > halfCone;
+				float s = outsideView ? 0.85f : 1f;
+				double halfW = 4.5 * s + 1;
+				double t = outsideView ? Math.signum(relYaw) : relYaw / halfCone;
+				barGem(g, cxBar + t * (barW / 2.0 - halfW), cy, s, tint, outsideView ? 170 : 255);
+			}
+		} catch (Throwable ignored) {
+			// party gems are extra; the bar never fails because of them
+		}
 	}
 
 	// The locator gem: a flattened diamond (9 wide × 5 tall at full scale — exactly
@@ -294,7 +348,7 @@ public final class WaypointHud {
 	// background (so it reads on the green/dark XP bar) and a colour fill. Used for
 	// BOTH the in-world icon and the locator dots so they match. R is the OUTER radius
 	// incl. the outline; `alpha` scales the whole marker.
-	static void marker(GuiGraphics g, int cx, int cy, int r, int color, int alpha) {
+	public static void marker(GuiGraphics g, int cx, int cy, int r, int color, int alpha) {
 		int a = Math.max(0, Math.min(255, alpha));
 		int outline = a << 24;                                        // black @ alpha
 		int fill = (a << 24) | (color & 0xFFFFFF);
@@ -314,7 +368,7 @@ public final class WaypointHud {
 
 	// Centered text on a background pill, scaled about its top-center anchor.
 	// Returns the vertical space consumed (for stacking), in gui pixels.
-	private static int pillText(GuiGraphics g, Font font, int cx, int y, String text,
+	public static int pillText(GuiGraphics g, Font font, int cx, int y, String text,
 								float scale, int color, int bg) {
 		float s = Math.max(0.5f, scale);
 		var pose = g.pose();

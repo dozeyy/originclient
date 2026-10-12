@@ -111,6 +111,15 @@ public final class CosmeticsService {
 		return mine;
 	}
 
+	/**
+	 * The service's base URL once found (null while starting, switched off or
+	 * unreachable). Friends / parties (social/SocialClient) live on the same
+	 * Worker, so they share this one resolution, -Dorigin.cosmetics.api included.
+	 */
+	public static String api() {
+		return status == Status.READY ? api : null;
+	}
+
 	/** What a player is wearing, for rendering. Render thread; never blocks. */
 	public static Look lookOf(UUID uuid) {
 		if (uuid == null || status != Status.READY) {
