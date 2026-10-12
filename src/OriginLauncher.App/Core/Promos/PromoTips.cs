@@ -12,16 +12,18 @@ public sealed record PromoTip(string Id, string Title, string Subtitle, string P
 /// </summary>
 public static class PromoTips
 {
+    // Every tip must fit the banner card whole (BannerCardTests checks it):
+    // about 25 characters of title and 60 of subtitle at most.
     public static readonly IReadOnlyList<PromoTip> All = new[]
     {
-        new PromoTip("menu", "Right Shift opens the Origin menu",
-            "Turn mods on or off and tune every one of them", "menu"),
+        new PromoTip("menu", "Right Shift opens Origin",
+            "The menu to turn mods on or off and tune each one", "menu"),
         new PromoTip("hud", "Drag your HUD anywhere",
             "In the Origin menu, Edit HUD moves FPS, keystrokes and more", "hud"),
         new PromoTip("map", "Press M for the full map",
             "The Minimap charts your singleplayer worlds as you explore", "map"),
-        new PromoTip("screenshot", "Press F2, then copy it from chat",
-            "Copy Image puts the screenshot on your clipboard for Discord", "chat"),
+        new PromoTip("screenshot", "Copy screenshots from chat",
+            "After F2, Copy Image puts it on your clipboard", "chat"),
         new PromoTip("shaders", "Shaders come built in",
             "Iris + Sodium on every version. Pick a pack in Video Settings", "shaders"),
     };
