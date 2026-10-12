@@ -199,15 +199,16 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-12)
-- **Latest release: `launcher-v1.0.42`** (mandatory auto-update; tag flow).
+- **Latest release: `launcher-v1.0.45`; `launcher-v1.0.46` = the merge of claude/fervent-feynman-u4xm34**
+  (Will 2026-10-12: "just release it all and then ill test it all") (mandatory auto-update; tag flow).
 - **New mod menu + Right Shift screen on ALL 16 versions (2026-10-12, branch
-  claude/fervent-feynman-u4xm34, not merged/tagged):** Will's approved mock (design/menu-redesign
+  claude/fervent-feynman-u4xm34, merged for v1.0.46):** Will's approved mock (design/menu-redesign
   v5) built 1:1 on gui/OriginDeck (design-px kit, smooth Inter, click targets recorded while
   drawing), Will's v3 icon pack (design/icon-proposals/origin-icon-system-v3; generate_icons.py
   writes every live module). Dev shots of all 16 match 1.21.1 (`[shots:all]` or `[shots:a,b]` in a
   commit message). Per-era methods in src/mods/docs/PORTING-ERA-NOTES.md; 1.16.5 text = OriginTtfFont.
   HUD-editor drag mode itself unchanged. Awaiting Will's in-game pass.
-- **Cosmetics + every 1.21.1-only mod on ALL 16 versions (2026-10-12, same branch, untagged):**
+- **Cosmetics + every 1.21.1-only mod on ALL 16 versions (2026-10-12, merged for v1.0.46):**
   capes/halos/crown + Cosmetics screen and its buttons, Portal Calculator, FPS Coach, the feedback
   round below, Mod Menu Layout; Color Saturation now on 1.16.5 too. Dev shots match 1.21.1 on all 16;
   in-world parts await Will's in-game pass. Era findings in PORTING-ERA-NOTES.md. The Cosmetics
