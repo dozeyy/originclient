@@ -95,11 +95,12 @@ public final class ScreenshotPopup {
 		if (args.length == 0 || !(args[0] instanceof Component name)) {
 			return null;
 		}
-		ClickEvent click = name.getStyle().getClickEvent();
-		if (click == null || click.getAction() != ClickEvent.Action.OPEN_FILE) {
+		// 1.21.5+: ClickEvent is a sealed interface of records; vanilla 1.21.8's
+		// Screenshot.grab attaches a ClickEvent.OpenFile carrying the absolute file.
+		if (!(name.getStyle().getClickEvent() instanceof ClickEvent.OpenFile open)) {
 			return null;
 		}
-		File f = new File(click.getValue());
+		File f = open.file();
 		return f.isFile() ? f : null;
 	}
 
@@ -118,7 +119,7 @@ public final class ScreenshotPopup {
 					for (int sx = 0; sx < 3; sx++) {
 						int px = Math.min(sw - 1, (int) ((x + (sx + 0.5) / 3.0) * sw / tw));
 						int py = Math.min(sh - 1, (int) ((y + (sy + 0.5) / 3.0) * sh / th));
-						int c = full.getPixelRGBA(px, py);
+						int c = full.getPixel(px, py);   // ARGB since 1.21.2 (any order works for a mean)
 						a += (c >>> 24) & 0xFF;
 						b += (c >>> 16) & 0xFF;
 						g += (c >>> 8) & 0xFF;
@@ -126,7 +127,7 @@ public final class ScreenshotPopup {
 						n++;
 					}
 				}
-				out.setPixelRGBA(x, y, (int) ((a / n) << 24 | (b / n) << 16 | (g / n) << 8 | (r / n)));
+				out.setPixel(x, y, (int) ((a / n) << 24 | (b / n) << 16 | (g / n) << 8 | (r / n)));
 			}
 		}
 		return out;
@@ -137,7 +138,7 @@ public final class ScreenshotPopup {
 		int tw = 0, th = 0;
 		if (thumb != null) {
 			try {
-				DynamicTexture tex = new DynamicTexture(thumb);
+				DynamicTexture tex = new DynamicTexture(() -> "Origin screenshot preview", thumb);
 				tex.setFilter(true, false);
 				mc.getTextureManager().register(THUMB, tex);   // replaces (and frees) the previous one
 				tw = thumb.getWidth();
@@ -146,11 +147,12 @@ public final class ScreenshotPopup {
 				thumb.close();
 			}
 		}
-		ScreenshotToast toast = mc.getToasts().getToast(ScreenshotToast.class, ScreenshotToast.TOKEN);
+		// 1.21.2+: the toast stack is Minecraft.getToastManager() (was getToasts()).
+		ScreenshotToast toast = mc.getToastManager().getToast(ScreenshotToast.class, ScreenshotToast.TOKEN);
 		if (toast != null) {
 			toast.retarget(file, tw, th);
 		} else {
-			mc.getToasts().addToast(new ScreenshotToast(file, tw, th));
+			mc.getToastManager().addToast(new ScreenshotToast(file, tw, th));
 		}
 	}
 

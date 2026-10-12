@@ -1,12 +1,11 @@
 package com.origin.client.client.render;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -24,6 +23,11 @@ import net.minecraft.world.phys.HitResult;
 // the outline thickness, so every style -- including the circle and diagonals
 // -- gets an exact, even edge. The grid is rebuilt only when an option that
 // shapes it changes; per frame it is just a few dozen fills.
+//
+// PER-VERSION (1.21.6-1.21.8, deferred GUI): like vanilla 1.21.8's
+// Gui.renderCrosshair, the crosshair opens a new GUI stratum first (so the
+// attack indicator's invert blend sits over everything drawn before it), the
+// pose is a 2D Matrix3x2fStack, and the invert blend is the CROSSHAIR pipeline.
 public final class OriginCrosshair {
 	private OriginCrosshair() {
 	}
@@ -68,17 +72,18 @@ public final class OriginCrosshair {
 				color = OriginColorPicker.liveColor("crosshair", hostile ? "enemyColor" : "friendlyColor");
 			}
 		}
+		g.nextStratum();   // vanilla 1.21.8 does the same before its crosshair
 		double gs = mc.getWindow().getGuiScale();
 		int cx = mc.getWindow().getWidth() / 2;
 		int cy = mc.getWindow().getHeight() / 2;
 		var p = g.pose();
-		p.pushPose();
-		p.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
+		p.pushMatrix();
+		p.scale((float) (1.0 / gs), (float) (1.0 / gs));
 		if (Mods.bool("crosshair", "outline")) {
 			drawMask(g, outlineMask, cx, cy, OriginColorPicker.liveColor("crosshair", "outlineColor"));
 		}
 		drawMask(g, fillMask, cx, cy, color);
-		p.popPose();
+		p.popMatrix();
 
 		if (firstPerson) {
 			drawAttackIndicator(g, mc);
@@ -208,17 +213,14 @@ public final class OriginCrosshair {
 		}
 		int y = g.guiHeight() / 2 - 7 + 16;
 		int x = g.guiWidth() / 2 - 8;
-		RenderSystem.enableBlend();
-		RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE_MINUS_DST_COLOR, GlStateManager.DestFactor.ONE_MINUS_SRC_COLOR,
-				GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
+		// The invert blend vanilla uses here is the CROSSHAIR pipeline (vanilla 1.21.8
+		// Gui.renderCrosshair); this era has no RenderSystem blend state for the GUI.
 		if (full) {
-			g.blitSprite(ATTACK_FULL, x, y, 16, 16);
+			g.blitSprite(RenderPipelines.CROSSHAIR, ATTACK_FULL, x, y, 16, 16);
 		} else if (strength < 1.0F) {
 			int w = (int) (strength * 17.0F);
-			g.blitSprite(ATTACK_BG, x, y, 16, 4);
-			g.blitSprite(ATTACK_PROGRESS, 16, 4, 0, 0, x, y, w, 4);
+			g.blitSprite(RenderPipelines.CROSSHAIR, ATTACK_BG, x, y, 16, 4);
+			g.blitSprite(RenderPipelines.CROSSHAIR, ATTACK_PROGRESS, 16, 4, 0, 0, x, y, w, 4);
 		}
-		RenderSystem.defaultBlendFunc();
-		RenderSystem.disableBlend();
 	}
 }

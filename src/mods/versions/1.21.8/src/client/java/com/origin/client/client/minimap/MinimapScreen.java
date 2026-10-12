@@ -1,6 +1,5 @@
 package com.origin.client.client.minimap;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.gui.OriginUi;
@@ -10,7 +9,6 @@ import com.origin.client.client.waypoints.Waypoints;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import org.joml.Matrix4f;
 
 /**
  * The full-screen map (the Minimap's "Open Map" key, M by default): the same terrain,
@@ -49,7 +47,7 @@ final class MinimapScreen extends Screen {
 		}
 		float halfW = (width - MARGIN * 2) / 2f, halfH = (height - MARGIN * 2 - 14) / 2f;
 		float cx = width / 2f, cy = MARGIN + halfH;
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(true);
+		float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
 		var p = mc.player;
 		double px = p.xo + (p.getX() - p.xo) * partial, pz = p.zo + (p.getZ() - p.zo) * partial;
 		MinimapRenderer.View v = new MinimapRenderer.View(cx, cy, halfW, halfH, false,
@@ -60,14 +58,11 @@ final class MinimapScreen extends Screen {
 			// terrain just stops updating this frame
 		}
 
-		g.flush();
-		Matrix4f m = g.pose().last().pose();
+		// (1.21.6+: no flushes -- submission order + bounds put the panel under the map.)
 		OriginUi.panel(g, (int) (cx - halfW) - 1, (int) (cy - halfH) - 1, (int) (halfW * 2) + 2, (int) (halfH * 2) + 2,
 				4, OriginTheme.BG, OriginTheme.STROKE_STRONG);
-		g.flush();
-		// Immediate-mode map geometry draws with the depth test off, like GuiGraphics' own flush.
-		RenderSystem.disableDepthTest();
-		try {
+		// The map is GuiMesh geometry (layered per this era -- see GuiMesh).
+		{
 			// Terrain only inside the scanned window (whole chunks around the player's chunk),
 			// clipped to the visible area.
 			int r = MinimapData.MAX_RADIUS;
@@ -75,7 +70,7 @@ final class MinimapScreen extends Screen {
 			double wx1 = ((p.getBlockX() >> 4) + r + 1) * 16.0, wz1 = ((p.getBlockZ() >> 4) + r + 1) * 16.0;
 			double vx0 = v.worldX(cx - halfW, cy), vx1 = v.worldX(cx + halfW, cy);
 			double vz0 = v.worldZ(cx, cy - halfH), vz1 = v.worldZ(cx, cy + halfH);
-			MinimapRenderer.terrainRect(m, v, Math.max(wx0, vx0), Math.max(wz0, vz0), Math.min(wx1, vx1), Math.min(wz1, vz1));
+			MinimapRenderer.terrainRect(g, v, Math.max(wx0, vx0), Math.max(wz0, vz0), Math.min(wx1, vx1), Math.min(wz1, vz1));
 			MinimapRenderer.entities(g, mc, v, MinimapHud.radar(), partial);
 			boolean showWp = Mods.bool(MinimapHud.MOD, "showWaypoints") && Mods.on("waypoints");
 			if (showWp) {
@@ -85,13 +80,11 @@ final class MinimapScreen extends Screen {
 			float sx = v.sx(px, pz), sy = v.sy(px, pz);
 			if (v.contains(sx, sy, 4)) {
 				double yawRad = Math.toRadians(p.getViewYRot(partial));
-				MinimapRenderer.playerArrow(m, sx, sy, (float) Math.atan2(-Math.sin(yawRad), -Math.cos(yawRad)),
+				MinimapRenderer.playerArrow(g, sx, sy, (float) Math.atan2(-Math.sin(yawRad), -Math.cos(yawRad)),
 						(float) Mods.num(MinimapHud.MOD, "playerMarkerSize") + 1,
 						OriginColorPicker.liveColor(MinimapHud.MOD, "playerMarkerColor"));
 			}
 			MinimapRenderer.compass(g, mc, v, OriginTheme.TEXT, true);
-		} finally {
-			RenderSystem.enableDepthTest();
 		}
 
 		// footer: what's under the cursor + how to use it

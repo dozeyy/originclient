@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.client.renderer.entity.state.TntRenderState;
 import org.joml.Matrix4f;
 
 /**
@@ -27,6 +27,11 @@ import org.joml.Matrix4f;
  * at nametag scale, a faint see-through pass with the optional backdrop, then the
  * solid text. Full-bright so it stays readable at night; 64-block range like
  * name tags. Called from TntCountdownMixin at the end of TntRenderer.render.
+ *
+ * PER-VERSION (1.21.2+ render-state era): reads vanilla's TntRenderState instead
+ * of the entity. Its fuseRemainingInTicks is getFuse() - partialTick + 1
+ * (TntRenderer.extractRenderState), so the extra tick comes back off to show
+ * exactly 1.21.1's number; the camera distance and box height are state fields.
  */
 public final class TntCountdown {
 	private static final String MOD = "tntcountdown";
@@ -35,16 +40,16 @@ public final class TntCountdown {
 	private TntCountdown() {
 	}
 
-	public static void render(PrimedTnt tnt, float partialTick, PoseStack pose, MultiBufferSource buffers) {
+	public static void render(TntRenderState tnt, PoseStack pose, MultiBufferSource buffers) {
 		if (!Mods.on(MOD)) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
 		var dispatcher = mc.getEntityRenderDispatcher();
-		if (dispatcher.distanceToSqr(tnt) > 4096.0) {
+		if (tnt.distanceToCameraSq > 4096.0) {
 			return;
 		}
-		float ticks = Math.max(0f, tnt.getFuse() - partialTick + (float) Mods.num(MOD, "fuseOffset"));
+		float ticks = Math.max(0f, tnt.fuseRemainingInTicks - 1.0F + (float) Mods.num(MOD, "fuseOffset"));
 		int numColor = OriginColorPicker.liveColor(MOD, "color");
 		if (!Mods.bool(MOD, "staticColor")) {
 			float r = Math.min(1f, ticks / FULL_FUSE_TICKS);
@@ -60,7 +65,7 @@ public final class TntCountdown {
 		Font font = mc.font;
 		pose.pushPose();
 		try {
-			pose.translate(0.0, tnt.getBbHeight() + 0.5, 0.0);
+			pose.translate(0.0, tnt.boundingBoxHeight + 0.5, 0.0);
 			pose.mulPose(dispatcher.cameraOrientation());
 			pose.scale(0.025F, -0.025F, 0.025F);
 			Matrix4f m = pose.last().pose();

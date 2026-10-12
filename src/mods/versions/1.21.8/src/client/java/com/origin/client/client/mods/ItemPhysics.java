@@ -2,12 +2,11 @@ package com.origin.client.client.mods;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.model.ItemTransform;
-import net.minecraft.client.resources.model.BakedModel;
+import com.origin.client.client.ext.ItemPhysicsState;
+import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.phys.AABB;
 
 /**
  * Item Physics (Lunar parity): dropped items stop floating and spinning in place.
@@ -22,6 +21,16 @@ import net.minecraft.world.item.ItemDisplayContext;
  * first UNDOES exactly those two vanilla transforms (same maths as 1.21.1's
  * render, source-verified), then applies the physics pose. Items keep their
  * GROUND model transform (size, the per-model offset), applied later by vanilla.
+ *
+ * PER-VERSION (1.21.6-1.21.8): works from the item's render state instead of the
+ * live entity (ageInTicks, bobOffset, count; the resting flag is recorded at
+ * extraction by ItemPhysicsMixin). This era places a dropped item by its MODEL
+ * BOUNDING BOX (ItemStackRenderState.getModelBoundingBox, already in GROUND
+ * space) instead of 1.21.1's "0.25 x ground scale" -- vanilla lifts it by
+ * -minY + 1/16, and stacks flat copies along Z by 1.5 x the box depth -- so the
+ * undo and the resting poses use the box the same way: the same looks as 1.21.1
+ * (blocks sit on the ground, flat items lie on their back, airborne items tumble),
+ * from this era's geometry.
  */
 public final class ItemPhysics {
 	private static final String MOD = "itemphysics";
@@ -31,55 +40,41 @@ public final class ItemPhysics {
 	private ItemPhysics() {
 	}
 
-	public static void apply(ItemEntity e, float partialTick, PoseStack pose) {
+	public static void apply(ItemEntityRenderState s, PoseStack pose) {
 		if (!Mods.on(MOD)) {
 			return;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		BakedModel model = mc.getItemRenderer().getModel(e.getItem(), e.level(), null, e.getId());
-		ItemTransform ground = model.getTransforms().getTransform(ItemDisplayContext.GROUND);
-		float scaleY = ground.scale.y();
+		AABB box = s.item.getModelBoundingBox();
+		float lift = -(float) box.minY + 0.0625F;   // vanilla 1.21.8's resting lift
 
 		// 1) undo vanilla: rotate(spin) was applied last, so it comes off first.
-		float bob = Mth.sin(((float) e.getAge() + partialTick) / 10.0F + e.bobOffs) * 0.1F + 0.1F;
-		pose.mulPose(Axis.YP.rotation(-e.getSpin(partialTick)));
-		pose.translate(0.0F, -(bob + 0.25F * scaleY), 0.0F);
+		float bob = Mth.sin(s.ageInTicks / 10.0F + s.bobOffset) * 0.1F + 0.1F;
+		pose.mulPose(Axis.YP.rotation(-ItemEntity.getSpin(s.ageInTicks, s.bobOffset)));
+		pose.translate(0.0F, -(bob + lift), 0.0F);
 
-		// 2) physics pose. bobOffs is a per-entity random angle: a stable heading.
-		boolean resting = e.onGround() || e.isInWater();
-		pose.mulPose(Axis.YP.rotation(e.bobOffs));
+		// 2) physics pose. bobOffset is a per-entity random angle: a stable heading.
+		boolean resting = ((ItemPhysicsState) s).originclient$isResting();
+		pose.mulPose(Axis.YP.rotation(s.bobOffset));
+		float depth = (float) box.getZsize();
 		if (!resting) {
 			// airborne: vanilla's resting height without the bob, tumbling
-			pose.translate(0.0F, 0.25F * scaleY, 0.0F);
-			float deg = ((float) e.getAge() + partialTick) * DEG_PER_TICK * (float) Mods.num(MOD, "rotationSpeed");
+			pose.translate(0.0F, lift, 0.0F);
+			float deg = s.ageInTicks * DEG_PER_TICK * (float) Mods.num(MOD, "rotationSpeed");
 			pose.mulPose(Axis.XP.rotationDegrees(deg % 360f));
-		} else if (model.isGui3d()) {
-			// blocks: drop the model so its bottom face (ground offset - half its
-			// scaled unit cube) touches the ground
-			pose.translate(0.0F, -(ground.translation.y() - 0.5F * scaleY), 0.0F);
+		} else if (depth > 0.0625F) {
+			// blocks (vanilla's own "thick model" test): the model's bottom face on the ground
+			pose.translate(0.0F, -(float) box.minY, 0.0F);
 		} else {
 			// flat items: tip the sprite onto its back (local +Z -> world up, so
-			// vanilla's stacked copies pile upward) and lift it by the stack's
-			// half-depth + the sprite's own thickness so nothing sinks into the floor
-			int copies = renderedCopies(e.getItem().getCount());
-			float halfStack = 0.09375F * (copies - 1) * 0.5F * ground.scale.z();
-			float lift = halfStack + ground.scale.z() / 32F + 0.01F;
-			pose.translate(0.0F, lift, 0.0F);
+			// vanilla's stacked copies -- 1.5 x the box depth apart, centred on the
+			// origin -- pile upward) and lift the bottom copy's lower face onto the
+			// ground. s.count is vanilla's rendered-copies count.
+			int copies = Math.max(1, s.count);
+			float halfStack = depth * 1.5F * (copies - 1) / 2.0F;
+			pose.translate(0.0F, halfStack - (float) box.minZ + 0.01F, 0.0F);
 			pose.mulPose(Axis.XP.rotationDegrees(-90.0F));
-			// cancel the GROUND transform's upward offset, which now points sideways
-			pose.translate(0.0F, -ground.translation.y(), 0.0F);
+			// centre the sprite on the spot (its local Y now points sideways)
+			pose.translate(0.0F, -(float) (box.minY + box.maxY) / 2.0F, 0.0F);
 		}
-	}
-
-	/** Vanilla's ItemEntityRenderer.getRenderedAmount (package-private there). */
-	private static int renderedCopies(int count) {
-		if (count <= 1) {
-			return 1;
-		} else if (count <= 16) {
-			return 2;
-		} else if (count <= 32) {
-			return 3;
-		}
-		return count <= 48 ? 4 : 5;
 	}
 }

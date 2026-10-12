@@ -52,6 +52,10 @@ import java.util.List;
 // RELATIVE world coords passed through matrixStack().last() -- the same contract
 // WaypointRenderer and ChunkBorderRenderer use here. Never multiply the rotation
 // in again (that double rotation is what broke waypoints on 1.16.5-1.19.3).
+// 1.21.4 keeps this exact contract (decompiled 1.21.4 LevelRenderer.renderLevel:
+// the same getModelViewStack push/pop around the frame), and the HiddenQuads
+// constructor + shards below are unchanged from 1.21.1 -- only the partial-tick
+// getter is renamed (getTimer -> getDeltaTracker).
 //
 // SEE THROUGH: first a pass that ONLY draws where something is in front
 // (GREATER depth test), dimmed to 75% colour / 25% opacity -- WorldEditCUI's
@@ -195,7 +199,7 @@ final class CuiRenderer {
 		if (eye == null) {
 			return;
 		}
-		float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
+		float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		for (CuiRegion r : regions) {
 			for (int id = 0; id < r.latches.size(); id++) {
 				Double dist = r.latches.get(id);
