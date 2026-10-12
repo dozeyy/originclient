@@ -186,6 +186,9 @@ public class OriginClientMod implements ClientModInitializer {
 				} catch (Throwable t) {
 					// waypoints must never take the frame down
 				}
+				// Friends & Party: ping beams + the camera capture for the party markers
+				// (also with Waypoints off). Fail-soft inside.
+				com.origin.client.client.social.Social.renderWorld(context);
 			} finally {
 				modelView.popPose();
 				com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
@@ -239,6 +242,14 @@ public class OriginClientMod implements ClientModInitializer {
 					});
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
+		}
+		// Friends, chat and parties (docs/SOCIAL.md): the service client (background
+		// thread, fail-soft), its tick / toast-click hooks and /originpc. Its world
+		// pass runs from the LAST hook above (inside the identity model-view window).
+		try {
+			com.origin.client.client.social.Social.init();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: friends failed to start", t);
 		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {

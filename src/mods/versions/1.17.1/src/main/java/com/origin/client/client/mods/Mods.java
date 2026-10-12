@@ -581,6 +581,45 @@ public final class Mods {
 		registerLunarBedwars();
 		registerOriginalsPortalCalc();
 		registerOriginalsFpsCoach();
+		registerOriginalsFriends();
+	}
+
+	// ---- Origin originals: Friends & Party (2026-10-12, docs/SOCIAL.md) ----
+	// The Friends window itself (friends, chat, party) always works; this mod
+	// switches what Friends does in the world and on screen: pop-ups, party chat
+	// lines in chat, and the party features. Markers / health / map dots / pings
+	// only ever work in LAN worlds (social/FairPlay, Will's fair-play baseline).
+	// On by default: a party you join should show up without a trip to the menu.
+	private static void registerOriginalsFriends() {
+		add("friends", "Friends & Party", "Pop-ups from friends, party chat, and your party in LAN worlds.", true,
+				ModOption.header("Pop-ups"),
+				ModOption.toggle("toastMessages", "Messages", true)
+						.tip("A pop-up when a friend messages you. Click it to reply."),
+				ModOption.toggle("toastRequests", "Friend Requests", true),
+				ModOption.toggle("toastInvites", "Party Invites", true),
+				ModOption.toggle("toastWarps", "Party Warps", true)
+						.tip("When your party leader warps the party, a pop-up with a Join button."),
+				ModOption.header("Party"),
+				ModOption.toggle("partyChatInChat", "Party Chat In Chat", true)
+						.tip("Show party messages in chat as [Party]. Send your own with /originpc <message>."),
+				ModOption.toggle("highlightNames", "Highlight Party Names", true)
+						.tip("Party members' name tags in the party colour. LAN worlds only."),
+				ModOption.toggle("markers", "Party Markers", true)
+						.tip("A marker with name and distance over each party member, even through walls. LAN worlds only."),
+				ModOption.toggle("partyHud", "Party HUD", true)
+						.tip("Your party on screen: health, distance and direction in LAN worlds, who's online everywhere else."),
+				ModOption.toggle("mapMarkers", "On Minimap And Locator Bar", true)
+						.tip("Party members on the minimap and the locator bar. LAN worlds only."),
+				ModOption.toggle("showPings", "Pings", true)
+						.tip("Show pings from your party for 60 seconds. Set the Ping Party key in Controls. LAN worlds only."),
+				ModOption.color("partyColor", "Party Color", 0xFF5FD09B),
+				ModOption.header("Party HUD"),
+				ModOption.toggle("textShadow", "Text Shadow", true),
+				ModOption.toggle("showBackground", "Show Background", true),
+				ModOption.toggle("border", "Border", false),
+				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
+				ModOption.color("color", "Text Color", 0xFFFFFFFF),
+				ModOption.color("bgColor", "Background Color", 0x00000000));
 	}
 
 	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----
