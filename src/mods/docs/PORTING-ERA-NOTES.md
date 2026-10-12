@@ -709,3 +709,24 @@ first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG 
   immediate BufferBuilder helpers. Everything else (ConnectScreen.startConnecting 6 args,
   level.disconnect + mc.disconnect(Screen)/(), StringUtil.isAllowedChatCharacter, client command v2,
   WorldRenderEvents.LAST ctx.matrixStack()/camera(), ThickLine + OriginRenderTypes) is 1.21.1's code as is.
+
+## Social port (2026-10-12) — 1.20, 1.20.2, 1.20.4, 1.21 (GuiGraphics, pre-1.21.2; agent sp-a)
+- Method: the 1.21.1 social diff (5b5baeb + d037954 + b15a952, 1.21.1 paths) applied with `git apply`
+  path-rewritten per module; every hunk applied except NametagStyleMixin on 1.20.x (captured params end
+  at `int packedLight` — no partialTick before 1.21), where the tint block is inserted by hand. 1.21 is
+  1.21.1's code verbatim. CI-proven (dev shots sp-a / world-sp-a, runs on d0b8bf1): all four compile,
+  zero mixin failures, friends / friends_party / menu (FRIENDS tab) / rshift (Friends button) /
+  party_world match 1.21.1-social.
+- 1.20.x (all three): `SharedConstants.isAllowedChatCharacter` (StringUtil's is 1.20.5+);
+  `ConnectScreen.startConnecting(parent, mc, addr, data, false)` 5 args (TransferState 1.20.5+);
+  `GenericDirtMessageScreen` for "Saving world" (GenericMessageScreen is 1.20.5+).
+- 1.20.2 / 1.20.4: `mc.disconnect(Screen)` / `mc.disconnect()`, `ServerData.Type.OTHER`, `isRealm()`,
+  authlib-5 `fetchProfile` + `SkinManager.getOrLoad` -> PlayerSkin all as 1.21.1 (compile-proven).
+- 1.20 (1.20.1): `mc.clearLevel(Screen)` / `mc.clearLevel()` (compile-proven: the disconnect rename is
+  1.20.2); `new ServerData(name, ip, false)` (3rd arg = lan); realms check is `mc.isConnectedToRealms()`
+  (no ServerData.isRealm); 3-arg `mouseScrolled(mx, my, amount)`; authlib-4 `joinServer(GameProfile, ...)`
+  (`user.getGameProfile()`). SocialSkins has no PlayerSkin: it caches a skin ResourceLocation, fills the
+  bare UUID profile off-thread with `fillProfileProperties(profile, false)` on Util.backgroundExecutor(),
+  then `getInsecureSkinInformation` + `registerTexture` (downloads in the background); default is
+  `DefaultPlayerSkin.getDefaultSkin(uuid)`; `PlayerFaceRenderer.draw(g, ResourceLocation, ...)`. Renders
+  in the dev shots (demo skips lookups); the real-skin lookup itself is unproven offline.
