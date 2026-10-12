@@ -36,7 +36,7 @@ import java.util.List;
  * F2 path ScreenshotKeyMixin targets), which names the file by timestamp. So a
  * shot is grabbed with that, and its callback renames the written file to the
  * shot's name -- the same file vanilla's success message links to (the
- * ClickEvent.OpenFile ScreenshotPopup reads). The dev-shots workflow sees the
+ * ClickEvent.OpenFile ScreenshotChat reads). The dev-shots workflow sees the
  * same $ORIGIN_SHOTS/screenshots/<kind>_<w>x<h>_s<scale>.png names as 1.21.1.
  */
 public final class OriginDevShots {
@@ -44,7 +44,7 @@ public final class OriginDevShots {
 
 	/** What a shot opens before capturing. */
 	private enum Kind {
-		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT;
+		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS;
 
 		Screen open() {
 			return switch (this) {
@@ -56,6 +56,8 @@ public final class OriginDevShots {
 				case SETTINGS -> new OriginModMenuScreen().preview(false, true);
 				// The Right Shift screen (HUD editor + the Origin centre group).
 				case RSHIFT -> new HudEditorScreen(true);
+				// The cosmetics locker, opened from the menu's Cosmetics tab.
+				case COSMETICS -> new com.origin.client.client.gui.CosmeticsScreen(null);
 			};
 		}
 	}

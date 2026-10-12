@@ -16,8 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // PER-VERSION (1.21.6-1.21.8, verified against the decompiled 1.21.6 and 1.21.8
 // ItemEntityRenderer): rendering is split into
 //   extractRenderState(ItemEntity, ItemEntityRenderState, float) -- has the entity:
-//       records whether it is resting (ItemPhysicsState), the one input the
-//       state lacks (it already carries ageInTicks, bobOffset, count, the model);
+//       records whether it is resting and which item it is (ItemPhysicsState):
+//       the inputs the state lacks (it already carries ageInTicks, bobOffset,
+//       count, the model); the item keys Item Physics' per-item easing;
 //   render(ItemEntityRenderState, PoseStack, MultiBufferSource, int) -- push,
 //       translate(bob + model-box lift), rotate(spin),
 //       renderMultipleFromCount(..., AABB modelBox), pop.
@@ -33,6 +34,7 @@ public class ItemPhysicsMixin {
 	private void originclient$captureResting(ItemEntity entity, ItemEntityRenderState state, float partialTick,
 											 CallbackInfo ci) {
 		((ItemPhysicsState) state).originclient$setResting(entity.onGround() || entity.isInWater());
+		((ItemPhysicsState) state).originclient$setEntity(entity);
 	}
 
 	@Inject(method = "render(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
