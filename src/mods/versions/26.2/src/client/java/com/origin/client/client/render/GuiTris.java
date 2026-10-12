@@ -140,7 +140,7 @@ public final class GuiTris {
 			return;   // wholly scissored away
 		}
 		TextureSetup tex = textured ? TextureSetup.singleTexture(view, sampler) : TextureSetup.noTexture();
-		g.guiRenderState.submitGuiElement(new TrisRenderState(pipeline, tex, pose,
+		g.guiRenderState.addGuiElement(new TrisRenderState(pipeline, tex, pose,
 				Arrays.copyOf(data, floats), Arrays.copyOf(colors, verts), textured, scissor, bounds));
 	}
 

@@ -415,7 +415,7 @@ public final class FpsCoach {
 
 	private static void notice(Minecraft mc, String text) {
 		if (mc.player != null) {
-			mc.player.displayClientMessage(Component.literal(text), true);
+			mc.player.sendOverlayMessage(Component.literal(text));
 		}
 	}
 

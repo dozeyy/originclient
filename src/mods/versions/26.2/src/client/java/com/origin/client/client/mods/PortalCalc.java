@@ -502,7 +502,7 @@ public final class PortalCalc {
 	private static void markMatchingSpot(LocalPlayer player, Side side, boolean fromKey) {
 		if (side == null) {
 			if (fromKey) {
-				player.displayClientMessage(Component.literal("Portal Calculator works in the Overworld and the Nether"), true);
+				player.sendOverlayMessage(Component.literal("Portal Calculator works in the Overworld and the Nether"));
 			}
 			return;
 		}
@@ -513,7 +513,7 @@ public final class PortalCalc {
 		for (Waypoints.Waypoint w : Waypoints.all()) {
 			if (w.name.equals(WAYPOINT_NAME) && w.dimension.equals(side.targetDim()) && w.x == x && w.y == y && w.z == z) {
 				if (fromKey) {
-					player.displayClientMessage(Component.literal("Already marked: " + where), true);
+					player.sendOverlayMessage(Component.literal("Already marked: " + where));
 				}
 				return;
 			}
@@ -523,7 +523,7 @@ public final class PortalCalc {
 		if (!Mods.on("waypoints")) {
 			msg += " - turn on Waypoints to see it";
 		}
-		player.displayClientMessage(Component.literal(msg), true);
+		player.sendOverlayMessage(Component.literal(msg));
 	}
 
 	private static final String WAYPOINT_NAME = "Portal link";

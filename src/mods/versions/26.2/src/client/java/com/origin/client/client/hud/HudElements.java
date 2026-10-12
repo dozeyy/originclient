@@ -155,7 +155,7 @@ public final class HudElements {
 		if (Mods.bool("coords", "renderers")) {
 			int c;
 			try {
-				c = mc.levelRenderer.countRenderedSections();
+				c = mc.levelRenderer.visibleSections().size();
 			} catch (Throwable t) {
 				c = -1;
 			}
@@ -850,7 +850,7 @@ public final class HudElements {
 	 *  editor draws its own draggable versions). */
 	public static void renderAll(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.options.hideGui || mc.gui.screen() instanceof HudEditorScreen) {
+		if (mc.player == null || mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudEditorScreen) {
 			return;
 		}
 		int sw = g.guiWidth(), sh = g.guiHeight();

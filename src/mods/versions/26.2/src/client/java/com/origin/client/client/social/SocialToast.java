@@ -196,7 +196,7 @@ public final class SocialToast implements Toast {
 		if (why == null) {
 			Social.join(w.server());
 		} else if (mc.player != null) {
-			mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(why), false);
+			mc.player.sendSystemMessage(net.minecraft.network.chat.Component.literal(why));
 		} else {
 			Social.openFriends(FriendsScreen.PARTY);
 		}

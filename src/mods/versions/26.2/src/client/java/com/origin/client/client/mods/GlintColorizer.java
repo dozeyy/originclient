@@ -144,8 +144,8 @@ public final class GlintColorizer {
 			tex = k == 2 ? armor : item;
 		}
 		RenderPipeline pipeline = vanilla.pipeline();
-		if (Mods.bool(MOD, "showGlint") && builtKey != null && lunar() && overridden(k) && LunarPipelines.GLINT_BLENDED != null) {
-			pipeline = LunarPipelines.GLINT_BLENDED;
+		if (Mods.bool(MOD, "showGlint") && builtKey != null && lunar() && overridden(k) && LunarPipelines.glintBlended() != null) {
+			pipeline = LunarPipelines.glintBlended();
 		}
 		if (tex == null && pipeline == vanilla.pipeline()) {
 			return vanilla;

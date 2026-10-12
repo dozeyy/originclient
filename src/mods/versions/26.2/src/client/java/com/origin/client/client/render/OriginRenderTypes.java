@@ -1,108 +1,237 @@
 package com.origin.client.client.render;
 
+import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.MultiBufferSource;
+import com.origin.client.client.gui.OriginShaders;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.LayeringTransform;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.resources.Identifier;
 
 /**
- * Origin's own world-overlay quad surface + the private buffers it is drawn
- * through. Used by the block outline/overlay, waypoint beams and chunk-border
- * posts -- anything that paints translucent, depth-tested quads into the world
- * -- plus a private LINES buffer for the chunk-border rings and the waypoint
- * highlight box.
+ * Origin's world-overlay quad surface + the way it reaches the screen. Used by
+ * the block outline/overlay, waypoint beams, chunk-border posts, party ping
+ * beams and the WorldEdit CUI -- translucent, depth-tested quads in the world --
+ * plus vanilla's LINES type for chunk-border rings and waypoint boxes.
  *
- * Why not RenderTypes.debugQuads()/lines() through the frame's shared buffer:
- * Iris swaps the level's buffer source for its own fully-buffered one during
- * level rendering even with shaders OFF, so vertices handed to it are drawn
- * LATER, in Iris's flush, under whatever matrices/state are current then. The
- * outline then disagreed with the depth buffer it was meant to be tested
- * against -- worst right after a zoom -- and its hidden back edges showed
- * through the block. So: our own state, and our own buffers that are drawn on
- * the spot (begin()/beginLines() ... draw()), while the world matrices and
- * depth are the ones the frame is using.
+ * <p>PER-VERSION DELTA (26.x): there is no MultiBufferSource / immediate buffer
+ * any more. The level is drawn from SUBMITS collected during the frame
+ * (SubmitNodeCollector), so the 1.21.11 contract is kept as
+ * <em>record, then submit</em>:
+ * <ul>
+ *   <li>{@link #begin()} / {@link #beginLines()} hand back a recording
+ *       VertexConsumer -- callers emit vertices exactly as on 1.21.11
+ *       (camera-relative positions through the context's PoseStack);</li>
+ *   <li>{@link #draw()} submits what was recorded as custom geometry to the
+ *       frame's collector (one submit per type), replaying the vertices into
+ *       vanilla's buffer when the frame is drawn.</li>
+ * </ul>
+ * The collector comes from {@link #beginFrame}, which OriginClientMod registers
+ * FIRST on Fabric's LevelRenderEvents.COLLECT_SUBMITS -- the event every Origin
+ * world overlay draws from on 26.2. Submitted through the vanilla collector,
+ * the geometry is drawn in the frame's own pass with the frame's matrices and
+ * depth (also what Iris intercepts), so the 1.21.11 Iris deferral problem
+ * doesn't arise. Outside a frame (no collector) draw() just discards.
  *
- * Matrix contract (verified against decompiled 1.21.11 LevelRenderer +
- * Fabric API 0.141.4 LevelRendererMixin): our callbacks run inside the main
- * frame pass, where RenderSystem's model-view stack holds the camera ROTATION
- * (renderLevel pushes it before the frame graph executes) and the context's
- * PoseStack is a fresh identity stack. Vertices are camera-RELATIVE (world pos
- * minus camera pos, subtracted once by the caller), so the rotation is applied
- * exactly once -- by the model-view the draw reads here.
- *
- * 1.21.11 shape: RenderType moved to ...renderer.rendertype and is built from a
- * RenderSetup instead of a CompositeState.
- *   DEBUG_FILLED_SNIPPET -- vanilla debugQuads' base: core/position_color,
- *     POSITION_COLOR QUADS, TRANSLUCENT blend, no depth WRITE (the snippet
- *     itself sets withDepthWrite(false) on this version; restated below),
- *   withCull(false) -- quads wound either way,
- *   LEQUAL depth TEST -- terrain in front hides it,
- *   LayeringTransform.VIEW_OFFSET_Z_LAYERING -- vanilla's own outline nudge
- *     (exactly what RenderTypes.lines() uses) so faces lying ON a block surface
- *     win the depth tie instead of z-fighting it.
- *
- * Access: RenderType.create(String, RenderSetup) (package-private),
- * RenderPipelines.DEBUG_FILLED_SNIPPET and RenderPipelines.register (private)
- * are opened by Fabric API 0.141.4's fabric-transitive-access-wideners-v1 (all
- * three are listed there by their Mojang names); RenderSetup, its builder and
- * LayeringTransform are public. So this is a plain direct call (it used to be
- * a reflective lookup by parameter shape, which was unnecessary and could
- * silently fall back to debugQuads).
+ * <p>OVERLAY_QUADS = vanilla DEBUG_QUADS (POSITION_COLOR quads, translucent) with
+ * no culling, a LEQUAL depth test, no depth write, and the view-offset layering
+ * vanilla's outline uses, so faces lying ON a block win the depth tie.
  */
 public final class OriginRenderTypes {
 	private OriginRenderTypes() {
 	}
 
-	/** Translucent, LEQUAL-tested, non-depth-writing, unculled POSITION_COLOR quads. */
-	public static final RenderPipeline OVERLAY_QUADS_PIPELINE = RenderPipelines.register(
-			RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
-					.withLocation(Identifier.fromNamespaceAndPath("originclient", "pipeline/overlay_quads"))
-					.withCull(false)
-					.withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
-					.withDepthWrite(false)
-					.build());
+	private static RenderType overlay;
+	private static boolean overlayBroken;
 
-	/** The render type the world overlays draw through (see class doc). */
-	public static final RenderType OVERLAY_QUADS = RenderType.create("originclient_overlay_quads",
-			RenderSetup.builder(OVERLAY_QUADS_PIPELINE)
-					.setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
-					.createRenderSetup());
+	/** Translucent, LEQUAL-tested, non-depth-writing, unculled POSITION_COLOR quads (null if unavailable). */
+	public static RenderType overlayQuads() {
+		if (overlay == null && !overlayBroken && RenderPipelines.DEBUG_QUADS != null) {
+			try {
+				RenderPipeline p = OriginShaders.derive(RenderPipelines.DEBUG_QUADS, "pipeline/overlay_quads", null,
+						b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false)));
+				overlay = RenderType.create("originclient_overlay_quads",
+						RenderSetup.builder(p).setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING).createRenderSetup());
+			} catch (Throwable t) {
+				overlayBroken = true;
+				com.origin.client.OriginClient.LOGGER.warn("Origin: overlay quad type failed; using debug quads", t);
+			}
+		}
+		return overlay != null ? overlay : RenderTypes.debugQuads();
+	}
 
-	// Private immediate buffer. 64 KiB start; ByteBufferBuilder grows on demand.
-	// Never shared with vanilla/Iris, so nothing else ever flushes or defers it.
-	private static final MultiBufferSource.BufferSource IMMEDIATE =
-			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
+	// ---- per-frame submit target ----
 
-	// Second private immediate buffer for vanilla's LINES type. A separate
-	// BufferSource, so lines and quads can be emitted interleaved: one immediate
-	// source holding two types would end -- and invalidate -- the first consumer
-	// when the second is requested.
-	private static final MultiBufferSource.BufferSource LINES_IMMEDIATE =
-			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
+	private static LevelRenderContext frame;
+
+	/** COLLECT_SUBMITS, registered first: remembers this frame's collector. */
+	public static void beginFrame(LevelRenderContext context) {
+		frame = context;
+	}
+
+	/** The current frame's context (null outside COLLECT_SUBMITS). */
+	public static LevelRenderContext frame() {
+		return frame;
+	}
+
+	private static final Recorder QUADS = new Recorder();
+	private static final Recorder LINES = new Recorder();
 
 	/** The consumer to emit OVERLAY_QUADS vertices into (addVertex + setColor). */
 	public static VertexConsumer begin() {
-		return IMMEDIATE.getBuffer(OVERLAY_QUADS);
+		return QUADS;
 	}
 
 	/** The consumer to emit RenderTypes.lines() vertices into (addVertex +
-	 *  setColor + setNormal + setLineWidth -- the 1.21.11 lines format REQUIRES
-	 *  the per-vertex LineWidth element). Drawn by draw(). */
+	 *  setColor + setNormal + setLineWidth). */
 	public static VertexConsumer beginLines() {
-		return LINES_IMMEDIATE.getBuffer(RenderTypes.lines());
+		return LINES;
 	}
 
-	/** Draws everything emitted since begin()/beginLines(), NOW, with the current
-	 *  matrices and depth buffer. Call once at the end of each world-render callback. */
+	private static final Recorder EXTRA = new Recorder();
+
+	/** A third recorder for one caller-chosen quad type (the WorldEdit CUI's
+	 *  see-through pass); submitted by {@link #drawExtra}. */
+	public static VertexConsumer beginExtra() {
+		return EXTRA;
+	}
+
+	/** Submits the {@link #beginExtra} vertices as {@code type} (quads). */
+	public static void drawExtra(RenderType type) {
+		LevelRenderContext ctx = frame;
+		try {
+			if (ctx != null) {
+				EXTRA.submit(ctx, type, false);
+			}
+		} finally {
+			EXTRA.clear();
+		}
+	}
+
+	/** Submits everything recorded since the last draw() to this frame. */
 	public static void draw() {
-		IMMEDIATE.endBatch();
-		LINES_IMMEDIATE.endBatch();
+		LevelRenderContext ctx = frame;
+		try {
+			if (ctx != null) {
+				QUADS.submit(ctx, overlayQuads(), false);
+				LINES.submit(ctx, RenderTypes.lines(), true);
+			}
+		} finally {
+			QUADS.clear();
+			LINES.clear();
+		}
+	}
+
+	/**
+	 * Records vertices (positions already through the caller's matrix -- the
+	 * VertexConsumer defaults transform, then call addVertex(x, y, z)) and
+	 * replays them into a custom-geometry submit.
+	 */
+	private static final class Recorder implements VertexConsumer {
+		// per vertex: x, y, z, nx, ny, nz, lineWidth ; color separately
+		private float[] f = new float[7 * 256];
+		private int[] c = new int[256];
+		private int n = 0;
+
+		private int cur() {
+			return n - 1;
+		}
+
+		@Override
+		public VertexConsumer addVertex(float x, float y, float z) {
+			if (n == c.length) {
+				f = java.util.Arrays.copyOf(f, f.length * 2);
+				c = java.util.Arrays.copyOf(c, c.length * 2);
+			}
+			int o = n * 7;
+			f[o] = x;
+			f[o + 1] = y;
+			f[o + 2] = z;
+			f[o + 3] = 0;
+			f[o + 4] = 1;
+			f[o + 5] = 0;
+			f[o + 6] = 1;
+			c[n] = 0xFFFFFFFF;
+			n++;
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setColor(int r, int g, int b, int a) {
+			if (n > 0) {
+				c[cur()] = (a & 0xFF) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF);
+			}
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setColor(int argb) {
+			if (n > 0) {
+				c[cur()] = argb;
+			}
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv(float u, float v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv1(int u, int v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setUv2(int u, int v) {
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setNormal(float x, float y, float z) {
+			if (n > 0) {
+				int o = cur() * 7;
+				f[o + 3] = x;
+				f[o + 4] = y;
+				f[o + 5] = z;
+			}
+			return this;
+		}
+
+		@Override
+		public VertexConsumer setLineWidth(float w) {
+			if (n > 0) {
+				f[cur() * 7 + 6] = w;
+			}
+			return this;
+		}
+
+		void clear() {
+			n = 0;
+		}
+
+		void submit(LevelRenderContext ctx, RenderType type, boolean lines) {
+			if (n == 0 || type == null) {
+				return;
+			}
+			final float[] fs = java.util.Arrays.copyOf(f, n * 7);
+			final int[] cs = java.util.Arrays.copyOf(c, n);
+			final int count = n;
+			// Identity pose: the recorded positions already carry the caller's matrix.
+			ctx.submitNodeCollector().submitCustomGeometry(new PoseStack(), type, (pose, vc) -> {
+				for (int i = 0; i < count; i++) {
+					int o = i * 7;
+					VertexConsumer v = vc.addVertex(fs[o], fs[o + 1], fs[o + 2]).setColor(cs[i]);
+					if (lines) {
+						v.setNormal(fs[o + 3], fs[o + 4], fs[o + 5]).setLineWidth(fs[o + 6]);
+					}
+				}
+			});
+		}
 	}
 }

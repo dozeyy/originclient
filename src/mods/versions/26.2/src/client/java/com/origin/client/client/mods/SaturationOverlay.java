@@ -117,7 +117,7 @@ public final class SaturationOverlay {
 			int before = clampUnit((int) Math.floor(from) - i * 2);
 			int after = clampUnit((int) Math.floor(to) - i * 2);
 			if (after > before) {
-				g.blitSprite(LunarPipelines.GUI_ADDITIVE, after == 2 ? FULL : HALF, right - i * 8 - 9, y, 9, 9, argb);
+				g.blitSprite(LunarPipelines.guiAdditive(), after == 2 ? FULL : HALF, right - i * 8 - 9, y, 9, 9, argb);
 			}
 		}
 	}

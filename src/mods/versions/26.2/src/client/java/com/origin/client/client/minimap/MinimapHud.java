@@ -111,7 +111,7 @@ public final class MinimapHud {
 			Mods.set(MOD, "zoom", next);
 		}
 		if (mc.player != null) {
-			mc.player.displayClientMessage(Component.literal("Minimap zoom: " + fmtZoom(next) + "x"), true);
+			mc.player.sendOverlayMessage(Component.literal("Minimap zoom: " + fmtZoom(next) + "x"));
 		}
 	}
 
@@ -223,7 +223,7 @@ public final class MinimapHud {
 	/** The world's time of day as a clock (6:00 AM = day tick 0). Read from the level
 	 *  data, not Level.getDayTime(), so the Time Changer mod doesn't move it. */
 	private static String clock(Minecraft mc) {
-		long t = mc.level != null ? Math.floorMod(mc.level.getLevelData().getDayTime(), 24000L) : 6000L;
+		long t = mc.level != null ? Math.floorMod(com.origin.client.client.OriginClientMod.realDayTime(mc.level), 24000L) : 6000L;
 		int hour = (int) ((t / 1000 + 6) % 24);
 		int minute = (int) (t % 1000 * 60 / 1000);
 		if (Mods.bool(MOD, "militaryTime")) {

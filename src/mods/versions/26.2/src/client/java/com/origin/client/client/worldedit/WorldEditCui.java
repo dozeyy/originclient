@@ -94,8 +94,8 @@ public final class WorldEditCui {
 				return;
 			}
 			ClientTickEvents.END_CLIENT_TICK.register(WorldEditCui::tick);
-			// 1.21.11: END_MAIN (Fabric's 1.21.9+ world events have no LAST).
-			LevelRenderEvents.END_MAIN.register(ctx -> {
+			// 26.2: COLLECT_SUBMITS -- world overlays are submits collected for the frame (see OriginRenderTypes).
+			LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
 				try {
 					CuiRenderer.render(ctx);
 				} catch (Throwable t) {
@@ -142,8 +142,8 @@ public final class WorldEditCui {
 		try {
 			// Both directions: S2C to receive selections, C2S so the hello can be
 			// encoded at all (Fabric refuses to send an unregistered payload type).
-			PayloadTypeRegistry.playS2C().register(CuiPayload.TYPE, CuiPayload.CODEC);
-			PayloadTypeRegistry.playC2S().register(CuiPayload.TYPE, CuiPayload.CODEC);
+			PayloadTypeRegistry.clientboundPlay().register(CuiPayload.TYPE, CuiPayload.CODEC);
+			PayloadTypeRegistry.serverboundPlay().register(CuiPayload.TYPE, CuiPayload.CODEC);
 		} catch (IllegalArgumentException alreadyRegistered) {
 			OriginClient.LOGGER.warn("Origin: another mod already owns worldedit:cui; Origin's WorldEdit CUI stays off");
 			return null;

@@ -47,8 +47,8 @@ public final class BlockOverlayRenderer {
 		// session pinpoints exactly where this path dies (Sodium/Iris debugging).
 		if (!loggedEvent) {
 			loggedEvent = true;
-			com.origin.client.OriginClient.LOGGER.info("Origin[outline]: END_MAIN fired (matrices={}, consumers={})",
-					context.poseStack() != null, context.consumers() != null);
+			com.origin.client.OriginClient.LOGGER.info("Origin[outline]: COLLECT_SUBMITS fired (poseStack={}, collector={})",
+					context.poseStack() != null, context.submitNodeCollector() != null);
 		}
 		// Vanilla's own per-frame "draw the outline?" decision (GameRenderer.
 		// shouldRenderBlockOutline: off with F1 / hidden GUI, in spectator without an

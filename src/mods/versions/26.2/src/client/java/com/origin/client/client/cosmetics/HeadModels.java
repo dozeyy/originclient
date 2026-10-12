@@ -49,7 +49,7 @@ final class HeadModels {
 				continue;   // the crown has no glow parts: don't submit an empty node
 			}
 			collector.submitCustomGeometry(pose, pass == Pass.SOLID
-					? RenderTypes.entityCutoutNoCull(WHITE)
+					? RenderTypes.entityCutout(WHITE)
 					: RenderTypes.eyes(WHITE), (p, vc) -> {
 				// Replayed later by the feature renderer: rebuild a stack on the
 				// pose captured at submit time, then emit exactly as 1.21.1 does.

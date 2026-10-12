@@ -62,7 +62,7 @@ public final class ShinyPots {
 		float k = size * UV_PER_PX;
 
 		var view = Minecraft.getInstance().getTextureManager().getTexture(net.minecraft.client.renderer.feature.ItemFeatureRenderer.ENCHANTED_GLINT_ITEM).getTextureView();
-		GuiTris shine = GuiTris.textured(LunarPipelines.GUI_GLINT, view,
+		GuiTris shine = GuiTris.textured(LunarPipelines.guiGlint(), view,
 				RenderSystem.getSamplerCache().getRepeat(FilterMode.LINEAR));
 		float[] c00 = uv(0, 0, a, b, k, cos, sin), c01 = uv(0, 1, a, b, k, cos, sin);
 		float[] c11 = uv(1, 1, a, b, k, cos, sin), c10 = uv(1, 0, a, b, k, cos, sin);

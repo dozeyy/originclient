@@ -100,7 +100,7 @@ public final class Quickplay {
 			if (lastId != null) {
 				run(mc, "play " + lastId, lastLabel);
 			} else if (mc.player != null) {
-				mc.player.displayClientMessage(Component.literal("Pick a game in Quickplay first"), true);
+				mc.player.sendOverlayMessage(Component.literal("Pick a game in Quickplay first"));
 			}
 		}
 		openWasDown = open;
@@ -129,7 +129,7 @@ public final class Quickplay {
 		}
 		conn.sendCommand(command);
 		if (mc.player != null && Mods.bool(ID, "displayMessage")) {
-			mc.player.displayClientMessage(Component.literal("Joining " + label + "..."), true);
+			mc.player.sendOverlayMessage(Component.literal("Joining " + label + "..."));
 		}
 	}
 

@@ -1,6 +1,5 @@
 package com.origin.client.client.worldedit;
 
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginColorPicker;
@@ -9,7 +8,6 @@ import com.origin.client.client.render.LunarPipelines;
 import com.origin.client.client.render.OriginRenderTypes;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -98,11 +96,8 @@ final class CuiRenderer {
 	 * LunarPipelines.CUI_HIDDEN (built from the same DEBUG_FILLED_SNIPPET as
 	 * OriginRenderTypes' pipeline, with GREATER_DEPTH_TEST).
 	 */
-	private static final RenderType HIDDEN = LunarPipelines.CUI_HIDDEN;
-	// Private immediate buffer, drawn on the spot (see OriginRenderTypes for why
-	// nothing here goes through the frame's shared, Iris-deferred buffer).
-	private static final MultiBufferSource.BufferSource HIDDEN_BUFFER =
-			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
+	// 26.2: recorded and submitted to the frame like OriginRenderTypes' quads
+	// (OriginRenderTypes.beginExtra / drawExtra), as LunarPipelines.cuiHidden().
 
 	// ---- per-frame draw state (render thread only) ----
 	private static VertexConsumer out;
@@ -148,7 +143,7 @@ final class CuiRenderer {
 		// batch in the buffer to be drawn under some later frame's matrices.
 		if (Mods.bool(M, "seeThrough")) {
 			hiddenPass = true;
-			out = HIDDEN_BUFFER.getBuffer(HIDDEN);
+			out = OriginRenderTypes.beginExtra();
 			try {
 				for (CuiRegion r : regions) {
 					if (!r.visibleOnly) {
@@ -156,7 +151,7 @@ final class CuiRenderer {
 					}
 				}
 			} finally {
-				HIDDEN_BUFFER.endBatch();
+				OriginRenderTypes.drawExtra(LunarPipelines.cuiHidden());
 			}
 		}
 		hiddenPass = false;

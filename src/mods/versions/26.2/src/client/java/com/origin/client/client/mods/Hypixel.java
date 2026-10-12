@@ -119,8 +119,8 @@ public final class Hypixel {
 		if (!keyHintShown && HypixelApi.optionKey.isEmpty()
 				&& (Mods.bool(MOD, "levelHead") || Mods.bool(MOD, "levelsInTab") || Mods.bool(MOD, "bedwarsStats"))) {
 			keyHintShown = true;
-			mc.player.displayClientMessage(Component.literal(
-					"Hypixel levels and stats need your Hypixel API key: Right Shift > Mods > Hypixel > API Key."), false);
+			mc.player.sendSystemMessage(Component.literal(
+					"Hypixel levels and stats need your Hypixel API key: Right Shift > Mods > Hypixel > API Key."));
 		}
 		if (Mods.bool(MOD, "autoTip") && System.currentTimeMillis() >= nextTipAt) {
 			nextTipAt = System.currentTimeMillis() + TIP_EVERY_MS;

@@ -54,13 +54,13 @@ public final class Stopwatch {
 		if (start && !startWasDown) {
 			toggle();
 			if (msg) {
-				mc.player.displayClientMessage(Component.literal(running() ? "Stopwatch started" : "Stopwatch stopped"), true);
+				mc.player.sendOverlayMessage(Component.literal(running() ? "Stopwatch started" : "Stopwatch stopped"));
 			}
 		}
 		if (reset && !resetWasDown) {
 			reset();
 			if (msg) {
-				mc.player.displayClientMessage(Component.literal("Stopwatch reset"), true);
+				mc.player.sendOverlayMessage(Component.literal("Stopwatch reset"));
 			}
 		}
 		startWasDown = start;

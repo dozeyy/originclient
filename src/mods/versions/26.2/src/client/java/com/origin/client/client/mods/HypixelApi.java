@@ -224,7 +224,7 @@ public final class HypixelApi {
 		Minecraft mc = Minecraft.getInstance();
 		mc.execute(() -> {
 			if (mc.player != null) {
-				mc.player.displayClientMessage(Component.literal(msg), false);
+				mc.player.sendSystemMessage(Component.literal(msg));
 			}
 		});
 	}

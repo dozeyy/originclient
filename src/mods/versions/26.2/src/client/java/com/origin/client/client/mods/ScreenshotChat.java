@@ -152,7 +152,8 @@ public final class ScreenshotChat {
 	// Runs the button under the mouse, if it's one of ours. True = handled.
 	private static boolean clicked(Minecraft mc, double mx, double my) {
 		ActiveTextCollector.ClickableStyleFinder finder = new ActiveTextCollector.ClickableStyleFinder(mc.font, (int) mx, (int) my);
-		mc.gui.hud.getChat().captureClickableText(finder, mc.getWindow().getGuiScaledHeight(), mc.gui.hud.getGuiTicks(), true);
+		mc.gui.hud.getChat().captureClickableText(finder, mc.getWindow().getGuiScaledHeight(), mc.gui.hud.getGuiTicks(),
+				net.minecraft.client.gui.components.ChatComponent.DisplayMode.FOREGROUND);
 		Style style = finder.result();
 		String path = style == null ? null : pathOf(style.getClickEvent());
 		if (style == null || style.getInsertion() == null || !style.getInsertion().startsWith(ACTION_PREFIX)

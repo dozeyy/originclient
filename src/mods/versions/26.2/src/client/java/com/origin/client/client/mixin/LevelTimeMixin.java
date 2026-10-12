@@ -22,7 +22,7 @@ public class LevelTimeMixin {
 	@Inject(method = "getTotalTicks", at = @At("RETURN"), cancellable = true)
 	private void originclient$lockClientTime(Holder<WorldClock> clock, CallbackInfoReturnable<Long> cir) {
 		try {
-			if (!Mods.on("timechanger")) {
+			if (!Mods.on("timechanger") || com.origin.client.client.OriginClientMod.readingRealTime) {
 				return;
 			}
 			long total = cir.getReturnValueJ();

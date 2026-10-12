@@ -192,8 +192,10 @@ final class Readouts {
 		}
 		// Read the level DATA, not Level.getDayTime(): the Time Changer mod
 		// overrides the latter client-side, and the day must not follow it.
-		var data = mc.level.getLevelData();
-		long ticks = Mods.bool("daycounter", "useWorldTime") ? data.getDayTime() : data.getGameTime();
+		// 26.x: the time of day is the world clock (OriginClientMod.realDayTime
+		// reads it past the Time Changer's override).
+		long ticks = Mods.bool("daycounter", "useWorldTime")
+				? com.origin.client.client.OriginClientMod.realDayTime(mc.level) : mc.level.getGameTime();
 		return Line.of("Day " + Math.max(0, ticks / 24000L));
 	}
 

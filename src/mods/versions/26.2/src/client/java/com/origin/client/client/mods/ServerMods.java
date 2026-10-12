@@ -53,7 +53,7 @@ public final class ServerMods {
 
 		// Team View: project heads in the world pass; the HUD pass (markers) is
 		// TeamView.render, called from HudElements.renderAll.
-		LevelRenderEvents.END_MAIN.register(ctx -> {
+		LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
 			try {
 				TeamView.capture(ctx);
 			} catch (Throwable t) {

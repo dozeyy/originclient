@@ -646,7 +646,7 @@ public final class OriginUi {
 	// Vector-quality icon glyphs (close X, chevrons, edit pencil), baked offline
 	// (tools/.../gen_icon_sdf.py) into a single-channel SDF texture from the
 	// EXACT SAME capsule-stroke geometry the old software path drew at runtime.
-	// Rendered through OriginShaders.ICON — the identical Position+UV0+Color
+	// Rendered through OriginShaders.icon() — the identical Position+UV0+Color
 	// pipeline shape as OriginSdfFont's MSDF text (proven working end-to-end).
 	//
 	// Order must match ICONS in gen_icon_sdf.py.
@@ -703,7 +703,7 @@ public final class OriginUi {
 
 		@Override
 		public RenderPipeline pipeline() {
-			return OriginShaders.ICON;
+			return OriginShaders.icon();
 		}
 
 		@Override
@@ -740,7 +740,7 @@ public final class OriginUi {
 		ScreenRectangle scissor = g.scissorStack.peek();
 		ScreenRectangle localRect = new ScreenRectangle(x, y, size, size).transformMaxBounds(pose);
 		ScreenRectangle bounds = scissor != null ? scissor.intersection(localRect) : localRect;
-		g.guiRenderState.submitGuiElement(new IconSdfRenderState(
+		g.guiRenderState.addGuiElement(new IconSdfRenderState(
 				atlasView, pose, x, y, x + size, y + size, u0, 0f, u1, 1f, argb, scissor, bounds));
 	}
 

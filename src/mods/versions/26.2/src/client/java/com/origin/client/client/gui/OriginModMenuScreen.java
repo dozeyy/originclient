@@ -1199,8 +1199,8 @@ public class OriginModMenuScreen extends Screen {
 				&& com.origin.client.client.shaders.IrisBridge.currentPack() != null) {
 			Minecraft mc = Minecraft.getInstance();
 			if (mc.player != null) {
-				mc.player.displayClientMessage(Component.literal(
-						"Full Bright needs shaders OFF — your shaderpack does its own lighting."), false);
+				mc.player.sendSystemMessage(Component.literal(
+						"Full Bright needs shaders OFF — your shaderpack does its own lighting."));
 			}
 		}
 	}

@@ -1,89 +1,96 @@
 package com.origin.client.client.render;
 
 import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.DepthTestFunction;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.platform.CompareOp;
+import com.origin.client.client.gui.OriginShaders;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.resources.Identifier;
+
+import java.util.function.Supplier;
 
 /**
- * The render pipelines the Lunar-parity mods need on this era, in one place.
+ * The Lunar-parity mods' own pipelines: Saturation's additive heart overlay,
+ * Shinypots' GUI glint, Glint Colorizer's alpha-blended glint and the WorldEdit
+ * CUI's see-through pass.
  *
- * 1.21.1 set blend / depth state on RenderSystem around an immediate draw. From
- * 1.21.5 that state lives IN the RenderPipeline, so each distinct state is its
- * own registered pipeline. All are built from vanilla snippets (verified
- * against decompiled 1.21.11 RenderPipelines) and opened to us by Fabric API
- * 0.141.4's transitive access wideners (RenderPipelines.register, the *_SNIPPET
- * fields, RenderType.create are all listed there by their Mojang names).
- *
- *   GUI_ADDITIVE  -- GUI textured quads added as light (SRC_ALPHA, ONE): the
- *                    Saturation overlay's glowing shanks (1.21.1 used exactly
- *                    that blendFunc).
- *   GUI_GLINT     -- GUI textured quads with vanilla's glint blend
- *                    (SRC_COLOR, ONE): the Shinypots shine.
- *   GLINT_BLENDED -- vanilla's world glint pipeline (core/glint, EQUAL depth,
- *                    no depth write) with a normal alpha blend that leaves dst
- *                    alpha alone: Glint Colorizer's "Lunar Blending" (additive
- *                    light can only brighten, so dark colours would vanish).
- *   CUI_HIDDEN    -- WorldEdit CUI's see-through pass: Origin's overlay quads
- *                    with the depth test flipped to GREATER, so they draw ONLY
- *                    where terrain is in front.
- *
- * register() is called once at client init so every pipeline exists before the
- * first resource reload precompiles the registered set.
+ * PER-VERSION DELTA (26.x): pipelines are DERIVED from the vanilla ones
+ * (OriginShaders.derive -- the 26.x builder has no withBlend/withVertexFormat/
+ * withSampler) and built lazily on first use; each getter returns null if its
+ * build failed, and every caller then keeps vanilla's look.
  */
 public final class LunarPipelines {
 	private LunarPipelines() {
 	}
 
-	private static Identifier id(String path) {
-		return Identifier.fromNamespaceAndPath("originclient", "pipeline/" + path);
+	private static final class Lazy<T> {
+		private final Supplier<T> make;
+		private T value;
+		private boolean broken;
+
+		Lazy(Supplier<T> make) {
+			this.make = make;
+		}
+
+		T get() {
+			if (value == null && !broken) {
+				try {
+					value = make.get();
+				} catch (Throwable t) {
+					broken = true;
+					com.origin.client.OriginClient.LOGGER.warn("Origin: a Lunar-parity pipeline failed to build", t);
+				}
+			}
+			return value;
+		}
 	}
 
-	public static final RenderPipeline GUI_ADDITIVE = RenderPipelines.register(
-			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
-					.withLocation(id("gui_textured_additive"))
-					.withBlend(BlendFunction.LIGHTNING)
-					.build());
+	private static final Lazy<RenderPipeline> GUI_ADDITIVE = new Lazy<>(() ->
+			OriginShaders.derive(RenderPipelines.GUI_TEXTURED, "pipeline/gui_textured_additive", null,
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))));
 
-	public static final RenderPipeline GUI_GLINT = RenderPipelines.register(
-			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
-					.withLocation(id("gui_glint"))
-					.withBlend(BlendFunction.GLINT)
-					.build());
+	private static final Lazy<RenderPipeline> GUI_GLINT = new Lazy<>(() ->
+			OriginShaders.derive(RenderPipelines.GUI_TEXTURED, "pipeline/gui_glint", null,
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.GLINT))));
 
 	// Vanilla GLINT verbatim except the blend (ENTITY_OUTLINE_BLIT = SRC_ALPHA,
-	// ONE_MINUS_SRC_ALPHA for colour, ZERO/ONE for alpha -- 1.21.1's Lunar blend).
-	public static final RenderPipeline GLINT_BLENDED = RenderPipelines.register(
-			RenderPipeline.builder(RenderPipelines.MATRICES_PROJECTION_SNIPPET, RenderPipelines.FOG_SNIPPET,
-							RenderPipelines.GLOBALS_SNIPPET)
-					.withLocation(id("glint_blended"))
-					.withVertexShader("core/glint")
-					.withFragmentShader("core/glint")
-					.withSampler("Sampler0")
-					.withDepthWrite(false)
-					.withCull(false)
-					.withDepthTestFunction(DepthTestFunction.EQUAL_DEPTH_TEST)
-					.withBlend(BlendFunction.ENTITY_OUTLINE_BLIT)
-					.withVertexFormat(DefaultVertexFormat.POSITION_TEX, VertexFormat.Mode.QUADS)
-					.build());
+	// ONE_MINUS_SRC_ALPHA for colour -- 1.21.1's Lunar blend).
+	private static final Lazy<RenderPipeline> GLINT_BLENDED = new Lazy<>(() ->
+			OriginShaders.derive(RenderPipelines.GLINT, "pipeline/glint_blended", null,
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.ENTITY_OUTLINE_BLIT))));
 
-	public static final RenderPipeline CUI_HIDDEN_PIPELINE = RenderPipelines.register(
-			RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
-					.withLocation(id("cui_hidden_quads"))
-					.withCull(false)
-					.withDepthTestFunction(DepthTestFunction.GREATER_DEPTH_TEST)
-					.withDepthWrite(false)
-					.build());
+	// Overlay quads with the depth test flipped to GREATER: fragments draw only
+	// where terrain is in front of them (the CUI's see-through pass).
+	private static final Lazy<RenderType> CUI_HIDDEN = new Lazy<>(() -> RenderType.create("originclient_cui_hidden_quads",
+			RenderSetup.builder(OriginShaders.derive(RenderPipelines.DEBUG_QUADS, "pipeline/cui_hidden_quads", null,
+					b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN, false))))
+					.createRenderSetup()));
 
-	public static final RenderType CUI_HIDDEN = RenderType.create("originclient_cui_hidden_quads",
-			RenderSetup.builder(CUI_HIDDEN_PIPELINE).createRenderSetup());
+	/** Additive GUI blit (Saturation's overlay), or GUI_TEXTURED if unavailable. */
+	public static RenderPipeline guiAdditive() {
+		RenderPipeline p = GUI_ADDITIVE.get();
+		return p != null ? p : RenderPipelines.GUI_TEXTURED;
+	}
 
-	/** Class-load trigger (the fields above do the work). */
+	/** Glint-blended GUI pipeline (Shinypots), or null. */
+	public static RenderPipeline guiGlint() {
+		return GUI_GLINT.get();
+	}
+
+	/** Vanilla glint with an alpha blend (Glint Colorizer's Lunar Blending), or null. */
+	public static RenderPipeline glintBlended() {
+		return GLINT_BLENDED.get();
+	}
+
+	/** The WorldEdit CUI's see-through quads, or null. */
+	public static RenderType cuiHidden() {
+		return CUI_HIDDEN.get();
+	}
+
+	/** Kept for the 1.21.x init call shape (everything builds on first use). */
 	public static void register() {
 	}
 }

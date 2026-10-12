@@ -333,7 +333,7 @@ public final class OriginScreenRenderer {
 
 			// true = keep spinning; vanilla passes panoramaShouldSpin(), which is
 			// only false while a screen is fading in.
-			mc.gameRenderer.panorama().render(guiGraphics, w, h, true);
+			mc.gameRenderer.panorama().extractRenderState(guiGraphics, w, h);
 			guiGraphics.blurBeforeThisStratum();
 			drawGrade(guiGraphics, w, h);
 			return true;

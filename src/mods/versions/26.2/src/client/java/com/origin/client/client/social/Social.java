@@ -62,7 +62,7 @@ public final class Social {
 				// a bad tick drops this tick's presence/toasts, never the game
 			}
 		});
-		LevelRenderEvents.END_MAIN.register(ctx -> {
+		LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
 			try {
 				com.origin.client.client.waypoints.WaypointHud.capture(ctx);
 				PartyWorld.renderWorld(ctx);
@@ -207,11 +207,11 @@ public final class Social {
 				.withStyle(s -> s.withColor(TextColor.fromRgb(tint)))
 				.append(Component.literal(name == null ? "?" : name).withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFFFF))))
 				.append(Component.literal(": " + text).withStyle(s -> s.withColor(TextColor.fromRgb(0xE0E0E0))));
-		mc.gui.hud.getChat().addMessage(line);
+		mc.gui.hud.getChat().addClientSystemMessage(line);
 	}
 
 	private static void note(Minecraft mc, String text, boolean red) {
-		mc.gui.hud.getChat().addMessage(Component.literal(text)
+		mc.gui.hud.getChat().addClientSystemMessage(Component.literal(text)
 				.withStyle(s -> s.withColor(TextColor.fromRgb(red ? 0xFF7066 : 0xB0B0B0))));
 	}
 
@@ -286,21 +286,21 @@ public final class Social {
 			return;
 		}
 		if (!SocialClient.state().inParty()) {
-			mc.player.displayClientMessage(Component.literal("Join a party to ping"), true);
+			mc.player.sendOverlayMessage(Component.literal("Join a party to ping"));
 			return;
 		}
 		String server = FairPlay.positionKey(mc);
 		if (server == null) {
-			mc.player.displayClientMessage(Component.literal("Pings work in LAN worlds only (fair play)"), true);
+			mc.player.sendOverlayMessage(Component.literal("Pings work in LAN worlds only (fair play)"));
 			return;
 		}
 		if (!on("showPings")) {
-			mc.player.displayClientMessage(Component.literal("Turn on Pings in Friends & Party"), true);
+			mc.player.sendOverlayMessage(Component.literal("Turn on Pings in Friends & Party"));
 			return;
 		}
 		HitResult hit = mc.player.pick(PING_RANGE, 1f, false);
 		if (!(hit instanceof BlockHitResult bh) || hit.getType() != HitResult.Type.BLOCK) {
-			mc.player.displayClientMessage(Component.literal("Nothing to ping there"), true);
+			mc.player.sendOverlayMessage(Component.literal("Nothing to ping there"));
 			return;
 		}
 		lastPingAt = now;
@@ -311,12 +311,12 @@ public final class Social {
 					if (err != null) {
 						mc.execute(() -> {
 							if (mc.player != null) {
-								mc.player.displayClientMessage(Component.literal(err), true);
+								mc.player.sendOverlayMessage(Component.literal(err));
 							}
 						});
 					}
 				});
-		mc.player.displayClientMessage(Component.literal("Pinged " + label), true);
+		mc.player.sendOverlayMessage(Component.literal("Pinged " + label));
 	}
 
 	// ---- E: joining a friend / the party leader ----

@@ -61,7 +61,7 @@ final class OriginDevWorld {
 			if (phase == 0) {
 				// Title is up (OriginDevShots waited for it): open Select World.
 				GLFW.glfwSetWindowSize(mc.getWindow().handle(), 1920, 1080);
-				mc.resizeDisplay();
+				mc.framebufferSizeChanged();
 				mc.setScreenAndShow(new SelectWorldScreen(new TitleScreen()));
 				phase = 1;
 				return;
@@ -169,7 +169,7 @@ final class OriginDevWorld {
 		before = OriginDevShots.pngs();
 		renameTries = 0;
 		pending = name;
-		Screenshot.grab(new File(dir), mc.getMainRenderTarget(), c -> {
+		Screenshot.grab(new File(dir), mc.gameRenderer.mainRenderTarget(), c -> {
 		});
 	}
 

@@ -81,6 +81,10 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		// FIRST world-render registration: every later COLLECT_SUBMITS listener
+		// (Origin's overlays, Social, WorldEdit CUI, Team View) records into
+		// OriginRenderTypes, which submits to the collector remembered here.
+		LevelRenderEvents.COLLECT_SUBMITS.register(com.origin.client.client.render.OriginRenderTypes::beginFrame);
 		OriginKeyBindings.register();
 		OriginShaders.register();
 		// Lunar-parity mods' own pipelines (saturation glow, shine, glint, CUI).
@@ -117,9 +121,8 @@ public class OriginClientMod implements ClientModInitializer {
 		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
 		// client (background thread, fail-soft) and the head-cosmetic layer on
 		// every player model. Capes ride vanilla's cape slot (CosmeticCapeMixin).
-		// 1.21.11: the player renderer is AvatarRenderer (Fabric fires this
-		// callback for it from EntityRenderers.createAvatarRenderers -- the shape
-		// of Fabric API's own 1.21.11 FeatureRendererTest).
+		// The player renderer is AvatarRenderer (1.21.11+); 26.2's Fabric API names
+		// the callback LivingEntityRenderLayerRegistrationCallback.
 		try {
 			com.origin.client.client.cosmetics.CosmeticsService.start();
 			net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback.EVENT.register(
@@ -185,7 +188,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// added via Fabric's screen API (no Iris mixin to break on updates).
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen.getClass().getName().contains("ShaderPackScreen")) {
-				var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen);
+				var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(screen);
 				// Iris re-inits its screen on resize and every time we return from
 				// the browser — guard so our button is added exactly once and never
 				// stacks. This is the ONLY shader-download entry point (Iris ships
@@ -201,11 +204,16 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			}
 		});
-		// Vanilla's per-frame "draw the block outline?" flag, for the END_MAIN outline
-		// draw below (see BlockOverlayRenderer.outlineAllowedThisFrame).
+		// Vanilla's per-frame "draw the block outline?" flag, for the outline draw
+		// below (see BlockOverlayRenderer.outlineAllowedThisFrame). 26.2: the
+		// extraction context has no blockOutlines(); vanilla extracts an outline
+		// state only when it will draw one.
 		LevelRenderEvents.END_EXTRACTION.register(context ->
-				com.origin.client.client.mods.BlockOverlayRenderer.outlineAllowedThisFrame = context.blockOutlines());
-		LevelRenderEvents.END_MAIN.register(context -> {
+				com.origin.client.client.mods.BlockOverlayRenderer.outlineAllowedThisFrame =
+						context.levelState().blockOutlineRenderState != null);
+		// 26.2: every Origin world overlay is SUBMITTED for the frame from
+		// COLLECT_SUBMITS (OriginRenderTypes records, then submits custom geometry).
+		LevelRenderEvents.COLLECT_SUBMITS.register(context -> {
 			try {
 				ChunkBorderRenderer.render(context);
 			} catch (Throwable t) {
@@ -226,7 +234,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// container screen is open, so draw the potion element over it here.
 		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
 			if (screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen) {
-				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterRender(screen).register((s, g, mx, my, tick) -> {
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterExtract(screen).register((s, g, mx, my, tick) -> {
 					if (Mods.on("potionhud") && Mods.bool("potionhud", "showInInventory")) {
 						com.origin.client.client.hud.HudElements.renderInInventory(g);
 					}
@@ -239,7 +247,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// sits behind the menu and live-previews toggles there. A second
 		// afterRender pass drew the whole HUD again ON TOP of the menu (Will's
 		// call: the HUD always stays behind menus, even hidden behind the card).
-		// Block Outline + Overlay draws from the END_MAIN hook above
+		// Block Outline + Overlay draws from the COLLECT_SUBMITS hook above
 		// (BlockOverlayRenderer.renderFromWorldEvent); LevelRendererMixin only
 		// cancels vanilla's outline. The Fabric BEFORE_BLOCK_OUTLINE event proved
 		// fragile here, so there is deliberately no registration for it.
@@ -296,6 +304,19 @@ public class OriginClientMod implements ClientModInitializer {
 			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save game options on exit", t);
+		}
+	}
+
+	/** True while realDayTime reads the clock: LevelTimeMixin then leaves it alone. */
+	public static volatile boolean readingRealTime = false;
+
+	/** The world's real time-of-day ticks (overworld clock), past the Time Changer. */
+	public static long realDayTime(net.minecraft.world.level.Level level) {
+		readingRealTime = true;
+		try {
+			return level.getOverworldClockTime();
+		} finally {
+			readingRealTime = false;
 		}
 	}
 
@@ -359,7 +380,7 @@ public class OriginClientMod implements ClientModInitializer {
 			if (p != null && Mods.on("coords") && Mods.bool("coords", "copyClipboard")) {
 				String c = p.blockPosition().getX() + ", " + p.blockPosition().getY() + ", " + p.blockPosition().getZ();
 				client.keyboardHandler.setClipboard(c);
-				p.displayClientMessage(net.minecraft.network.chat.Component.literal("Copied coordinates: " + c), true);
+				p.sendOverlayMessage(net.minecraft.network.chat.Component.literal("Copied coordinates: " + c));
 			}
 		}
 
@@ -420,15 +441,15 @@ public class OriginClientMod implements ClientModInitializer {
 		if (!jeiNoticeShown && client.gui.screen() == null) {
 			jeiNoticeShown = true;
 			if (foreignJei != null) {
-				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+				player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
 						"§eOrigin already includes JEI (" + BUNDLED_JEI + "). A separate JEI ("
 								+ foreignJei + ") in your mods folder is overriding it — remove that jar so"
-								+ " Origin's JEI and its toggle work."), false);
+								+ " Origin's JEI and its toggle work."));
 			} else if (!Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
 				Mods.setMetaBool("jeiHintShown", true);
-				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+				player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
 						"§7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the"
-								+ " Origin menu: §fRight Shift → Mods → JEI§7."), false);
+								+ " Origin menu: §fRight Shift → Mods → JEI§7."));
 			}
 		}
 
@@ -438,8 +459,8 @@ public class OriginClientMod implements ClientModInitializer {
 			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
 			Mods.set("scoreboard", "hideScoreboard", hidden);
 			if (Mods.bool("scoreboard", "displayToggleMessage")) {
-				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-						hidden ? "Scoreboard hidden" : "Scoreboard shown"), true);
+				player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
+						hidden ? "Scoreboard hidden" : "Scoreboard shown"));
 			}
 		}
 		scoreboardKeyWasDown = sbDown;
@@ -457,8 +478,8 @@ public class OriginClientMod implements ClientModInitializer {
 		if (naDown && !nametagAllKeyWasDown) {
 			nametagsHidden = !nametagsHidden;
 			if (Mods.bool("nametags", "displayToggleMessage")) {
-				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-						nametagsHidden ? "Nametags hidden" : "Nametags shown"), true);
+				player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
+						nametagsHidden ? "Nametags hidden" : "Nametags shown"));
 			}
 		}
 		nametagAllKeyWasDown = naDown;
@@ -467,8 +488,8 @@ public class OriginClientMod implements ClientModInitializer {
 		if (npDown && !nametagPlayerKeyWasDown) {
 			playerNametagsHidden = !playerNametagsHidden;
 			if (Mods.bool("nametags", "displayToggleMessage")) {
-				player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-						playerNametagsHidden ? "Player nametags hidden" : "Player nametags shown"), true);
+				player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
+						playerNametagsHidden ? "Player nametags hidden" : "Player nametags shown"));
 			}
 		}
 		nametagPlayerKeyWasDown = npDown;

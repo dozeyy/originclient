@@ -56,7 +56,7 @@ public final class ColorGrade {
 	private static boolean broken = false;
 
 	public static void process(GuiGraphicsExtractor guiGraphics) {
-		if (broken || OriginShaders.GRADE == null || !Mods.on("colorsaturation")) {
+		if (broken || OriginShaders.grade() == null || !Mods.on("colorsaturation")) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
@@ -75,7 +75,7 @@ public final class ColorGrade {
 			return;
 		}
 		try {
-			RenderTarget main = mc.getMainRenderTarget();
+			RenderTarget main = mc.gameRenderer.mainRenderTarget();
 			if (main == null || main.getColorTexture() == null) {
 				return;
 			}
@@ -84,7 +84,7 @@ public final class ColorGrade {
 				if (swap != null) {
 					swap.destroyBuffers();
 				}
-				swap = new TextureTarget("origin_grade", main.width, main.height, false);
+				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.blaze3d.GpuFormat.RGBA8_UNORM);
 			}
 			// Snapshot the finished world frame. The graded quad below samples THIS,
 			// not the live target it is about to overwrite.
@@ -97,7 +97,7 @@ public final class ColorGrade {
 				return;
 			}
 			int w = guiGraphics.guiWidth(), h = guiGraphics.guiHeight();
-			guiGraphics.guiRenderState.submitGuiElement(new GradeRenderState(
+			guiGraphics.guiRenderState.addGuiElement(new GradeRenderState(
 					new Matrix3x2f(guiGraphics.pose()), w, h, pack(sat, bri, con), view,
 					new ScreenRectangle(0, 0, w, h)));
 		} catch (Throwable t) {
@@ -139,7 +139,7 @@ public final class ColorGrade {
 
 		@Override
 		public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
-			return OriginShaders.GRADE;
+			return OriginShaders.grade();
 		}
 
 		@Override

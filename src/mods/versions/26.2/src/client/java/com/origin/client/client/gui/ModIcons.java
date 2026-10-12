@@ -40,7 +40,7 @@ import java.util.Map;
  *
  * PER-VERSION DELTA (1.21.11): the GUI is deferred here, so the SDF quad is not
  * an immediate BufferBuilder draw under RenderSystem.setShader — it is a
- * GuiElementRenderState naming OriginShaders.ICON (the same RenderPipeline the
+ * GuiElementRenderState naming OriginShaders.icon() (the same RenderPipeline the
  * close/chevron/edit glyphs in OriginUi already draw with) submitted into
  * guiGraphics.guiRenderState, with an explicit LINEAR sampler. The mask
  * fallback blit carries its tint on the per-blit ARGB (no setShaderColor), and
@@ -91,7 +91,7 @@ public final class ModIcons {
 		if (c == null) {
 			return;
 		}
-		if (sdfOk && OriginShaders.ICON != null) {
+		if (sdfOk && OriginShaders.icon() != null) {
 			drawSdf(g, c, x, y, size, argb);
 			return;
 		}
@@ -119,7 +119,7 @@ public final class ModIcons {
 
 		@Override
 		public RenderPipeline pipeline() {
-			return OriginShaders.ICON;
+			return OriginShaders.icon();
 		}
 
 		@Override
@@ -149,7 +149,7 @@ public final class ModIcons {
 		ScreenRectangle scissor = g.scissorStack.peek();
 		ScreenRectangle localRect = new ScreenRectangle(x, y, size, size).transformMaxBounds(pose);
 		ScreenRectangle bounds = scissor != null ? scissor.intersection(localRect) : localRect;
-		g.guiRenderState.submitGuiElement(new IconGlyphRenderState(
+		g.guiRenderState.addGuiElement(new IconGlyphRenderState(
 				atlasView, pose, x, y, x + size, y + size, u0, v0, u1, v1, argb, scissor, bounds));
 	}
 
@@ -186,7 +186,7 @@ public final class ModIcons {
 				// Keep only one GPU atlas resident. The high-range SDF is the normal
 				// path; the alpha mask is registered only if the icon shader did not
 				// compile, preserving a usable fail-soft UI without doubling VRAM.
-				if (OriginShaders.ICON != null) {
+				if (OriginShaders.icon() != null) {
 					try {
 						NativeImage sdfImage;
 						try (InputStream in = ModIcons.class.getResourceAsStream(

@@ -77,10 +77,9 @@ public final class WaypointHud {
 
 	/** The view-projection vanilla draws this frame's world with (see render()). */
 	private static Matrix4f viewProj(Minecraft mc) {
-		float fov = mc.gameRenderer.mainCamera().getFov();
-		Matrix4f viewProj = mc.gameRenderer.getProjectionMatrix(fov);
-		viewProj.rotate(new Quaternionf(ORIENT).conjugate());
-		return viewProj;
+		// 26.2: the camera hands out this frame's projection x view rotation itself
+		// (the same matrix vanilla culls and draws the level with, zoom included).
+		return mc.gameRenderer.mainCamera().getViewRotationProjectionMatrix(new Matrix4f());
 	}
 
 	/**
@@ -178,7 +177,7 @@ public final class WaypointHud {
 	// sprite over the gems — pixel-verified).
 	public static void renderBars(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || mc.options.hideGui
+		if (mc.player == null || mc.level == null || mc.gui.hud.isHidden()
 				|| !Mods.on("waypoints") || !Mods.bool("waypoints", "locatorBar")) {
 			return;
 		}

@@ -33,7 +33,7 @@ import java.util.Map;
  * (Inter-400) and bold (Inter-600).
  *
  * PER-VERSION DELTA (1.21.11): 1.21.1/1.21.4 build a BufferBuilder, bind
- * {@code OriginShaders.MSDF} via {@code RenderSystem.setShader}, and issue one
+ * {@code OriginShaders.msdf()} via {@code RenderSystem.setShader}, and issue one
  * immediate {@code BufferUploader.drawWithShader} call, then manually restore GL
  * state. 1.21.11's GuiGraphicsExtractor has no immediate-draw path at all — it queues a
  * {@link GuiElementRenderState} into {@code g.guiRenderState}, and the deferred
@@ -115,7 +115,7 @@ public final class OriginSdfFont {
 	/** True when at least the regular face + the pipeline are live. */
 	public static boolean ready() {
 		ensureLoaded();
-		return REGULAR.ok && OriginShaders.MSDF != null;
+		return REGULAR.ok && OriginShaders.msdf() != null;
 	}
 
 	/** Whether menus should route text through this renderer right now. */
@@ -222,7 +222,7 @@ public final class OriginSdfFont {
 	}
 
 	// One GuiElementRenderState for the whole string — the deferred renderer
-	// batches all our quads under OriginShaders.MSDF into one draw once it's
+	// batches all our quads under OriginShaders.msdf() into one draw once it's
 	// ready to render, same as vanilla's own GlyphRenderState per Font.drawInBatch.
 	private record MsdfTextRenderState(
 			Matrix3x2fc pose, List<GlyphVertex> quads, GpuTextureView atlasView,
@@ -255,7 +255,7 @@ public final class OriginSdfFont {
 
 		@Override
 		public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
-			return OriginShaders.MSDF;
+			return OriginShaders.msdf();
 		}
 
 		@Override
@@ -359,9 +359,9 @@ public final class OriginSdfFont {
 			GlyphVertex v0 = quads.get(0);
 			com.origin.client.OriginClient.LOGGER.info(
 					"Origin MSDF DEBUG: first emit('{}') -> {} quads, pipeline={}, atlasView={}, v0=({},{} uv {},{}), bounds={}",
-					text, quads.size() / 4, OriginShaders.MSDF, atlasView, v0.x(), v0.y(), v0.u(), v0.v(), bounds);
+					text, quads.size() / 4, OriginShaders.msdf(), atlasView, v0.x(), v0.y(), v0.u(), v0.v(), bounds);
 		}
-		g.guiRenderState.submitGuiElement(new MsdfTextRenderState(pose, quads, atlasView, scissor, bounds));
+		g.guiRenderState.addGuiElement(new MsdfTextRenderState(pose, quads, atlasView, scissor, bounds));
 	}
 
 	// ---- sized API (the 2026-10 menu redesign, OriginDeck) ----
