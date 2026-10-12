@@ -11,7 +11,7 @@
 // the client's friendsEtag is current, and `wantState` tells the game when
 // nobody on its server would see its position, so it stops sending it.
 
-import { json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin } from './common.js';
+import { json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin, MOJANG_HEADERS } from './common.js';
 import {
   L, MSG, CLIENTS, ACTIVITIES, randomHex, sha256Hex, cleanText, normServer, normVersion, normDim, coord, num,
   allow, areFriends, addChat, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf,
@@ -31,7 +31,8 @@ async function signIn(env, body, now) {
   }
   const who = await verifyMojangJoin(env, name, serverId, now);
   if (who.error === 'reused') return fail(401, 'That sign-in check was already used. Please try again.');
-  if (who.error) return fail(401, "Couldn't confirm your Minecraft account. Sign in with Microsoft to use friends.");
+  // The Mojang status rides along so a screenshot of the message tells us which side refused.
+  if (who.error) return fail(401, `Couldn't confirm your Minecraft account (code ${who.status ?? 0}). Please try again in a minute.`);
 
   const token = randomHex(32);
   const expiresAt = now + L.TOKEN_TTL_MS;
@@ -314,7 +315,7 @@ async function settings(env, me, body, now) {
 // If Mojang is down or rate-limits us, names Origin already knows still work.
 async function lookupName(env, name) {
   try {
-    const r = await fetch(MOJANG_PROFILE + encodeURIComponent(name));
+    const r = await fetch(MOJANG_PROFILE + encodeURIComponent(name), { headers: MOJANG_HEADERS });
     if (r.status === 204 || r.status === 404) return null;
     if (r.ok) {
       const p = await r.json();

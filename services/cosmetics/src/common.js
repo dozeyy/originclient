@@ -2,6 +2,9 @@
 // (social.js, party.js): responses, UUIDs, Mojang's server-join check.
 
 export const MOJANG_HAS_JOINED = 'https://sessionserver.mojang.com/session/minecraft/hasJoined';
+// Mojang's APIs sit behind bot protection that can refuse anonymous requests,
+// and a Worker's fetch sends no User-Agent of its own: always say who we are.
+export const MOJANG_HEADERS = { 'User-Agent': 'OriginClient-Service/1.0 (+https://originclient.org)', Accept: 'application/json' };
 
 export const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -29,10 +32,15 @@ export const SERVER_ID_RE = /^[0-9a-f]{16,64}$/;
 // the client told Mojang "I'm joining <serverId>" with its own session, so
 // hasJoined names the account that did it. Each serverId is accepted once
 // (the `joins` table, pruned by the cron after a day).
-// Returns { uuid, name } or { error: 'unverified' | 'reused' }.
+// Returns { uuid, name } or { error: 'unverified' | 'reused', status? }.
 export async function verifyMojangJoin(env, name, serverId, now = Date.now()) {
-  const r = await fetch(`${MOJANG_HAS_JOINED}?username=${encodeURIComponent(name)}&serverId=${encodeURIComponent(serverId)}`);
-  if (r.status !== 200) return { error: 'unverified' };
+  const r = await fetch(`${MOJANG_HAS_JOINED}?username=${encodeURIComponent(name)}&serverId=${encodeURIComponent(serverId)}`,
+    { headers: MOJANG_HEADERS });
+  if (r.status !== 200) {
+    // 204 = Mojang has no such join (wrong name/session); 403/429 = Mojang refused us.
+    console.warn('origin: hasJoined', r.status, 'for', name);
+    return { error: 'unverified', status: r.status };
+  }
   const profile = await r.json().catch(() => null);
   const uuid = normUuid(profile?.id);
   if (!uuid) return { error: 'unverified' };

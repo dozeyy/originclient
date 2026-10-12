@@ -21,7 +21,7 @@
 //   DB            the D1 database (schema in migrations/)
 //   TEBEX_SECRET  the "Origin Cosmetics" game server's secret key
 
-import { CORS, json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin } from './common.js';
+import { CORS, json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin, MOJANG_HAS_JOINED, MOJANG_HEADERS } from './common.js';
 import { handleSocial, socialCleanup, presenceSweep } from './social.js';
 
 export { normUuid };
@@ -149,6 +149,29 @@ async function equip(env, body, now = Date.now()) {
   return json(await playerView(env, uuid));
 }
 
+// Can this Worker reach Mojang's sign-in check? A join nobody made must come
+// back 204 ("no such join"); 403/429 means Mojang is refusing the Worker. Run
+// after every deploy by cosmetics-service.yml. Answers at most once a minute
+// per Worker instance, so it can't be used to hammer Mojang.
+let lastDiag = null;
+export async function mojangDiag(now = Date.now()) {
+  if (lastDiag && now - lastDiag.at < 60_000) return json(lastDiag);
+  const probe = async (url) => {
+    try {
+      const r = await fetch(url, { headers: MOJANG_HEADERS });
+      return { status: r.status, body: (await r.text()).slice(0, 160) };
+    } catch (err) {
+      return { status: 0, body: String(err).slice(0, 160) };
+    }
+  };
+  lastDiag = {
+    at: now,
+    hasJoined: await probe(`${MOJANG_HAS_JOINED}?username=Notch&serverId=${'0'.repeat(32)}`),
+    profile: await probe('https://api.mojang.com/users/profiles/minecraft/Notch'),
+  };
+  return json(lastDiag);
+}
+
 export async function handle(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const url = new URL(request.url);
@@ -161,6 +184,7 @@ export async function handle(request, env) {
     if (request.method === 'POST' && url.pathname === '/v1/players/equipped') return equippedBatch(env, await request.json().catch(() => null));
     if (request.method === 'POST' && url.pathname === '/v1/equip') return equip(env, await request.json().catch(() => null));
     if (request.method === 'GET' && url.pathname === '/') return json({ service: 'origin-cosmetics', ok: true });
+    if (request.method === 'GET' && url.pathname === '/v1/diag/mojang') return mojangDiag();
     const social = await handleSocial(request, env, url);
     if (social) return social;
     return fail(404, 'not found');
