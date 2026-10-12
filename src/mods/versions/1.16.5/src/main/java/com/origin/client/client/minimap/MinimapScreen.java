@@ -9,6 +9,7 @@ import com.origin.client.client.theme.OriginTheme;
 import com.origin.client.client.waypoints.Waypoints;
 import com.origin.client.client.gui.Gfx;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.util.Mth;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -73,8 +74,8 @@ final class MinimapScreen extends Screen {
 			// Terrain only inside the scanned window (whole chunks around the player's chunk),
 			// clipped to the visible area.
 			int r = MinimapData.MAX_RADIUS;
-			double wx0 = ((p.getBlockX() >> 4) - r) * 16.0, wz0 = ((p.getBlockZ() >> 4) - r) * 16.0;
-			double wx1 = ((p.getBlockX() >> 4) + r + 1) * 16.0, wz1 = ((p.getBlockZ() >> 4) + r + 1) * 16.0;
+			double wx0 = ((Mth.floor(p.getX()) >> 4) - r) * 16.0, wz0 = ((Mth.floor(p.getZ()) >> 4) - r) * 16.0;
+			double wx1 = ((Mth.floor(p.getX()) >> 4) + r + 1) * 16.0, wz1 = ((Mth.floor(p.getZ()) >> 4) + r + 1) * 16.0;
 			double vx0 = v.worldX(cx - halfW, cy), vx1 = v.worldX(cx + halfW, cy);
 			double vz0 = v.worldZ(cx, cy - halfH), vz1 = v.worldZ(cx, cy + halfH);
 			MinimapRenderer.terrainRect(m, v, Math.max(wx0, vx0), Math.max(wz0, vz0), Math.min(wx1, vx1), Math.min(wz1, vz1));

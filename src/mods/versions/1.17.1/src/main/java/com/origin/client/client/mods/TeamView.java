@@ -56,7 +56,8 @@ public final class TeamView {
 		}
 		boolean teams = Mods.bool(MOD, "scoreboardTeams");
 		boolean party = Mods.bool(MOD, "hypixel") && Hypixel.inSafeArea();
-		PlayerTeam myTeam = mc.player.getTeam();
+		// getTeam() returns the base Team type before 1.18; every real team is a PlayerTeam.
+		PlayerTeam myTeam = mc.player.getTeam() instanceof PlayerTeam ? (PlayerTeam) mc.player.getTeam() : null;
 		if (myTeam != null && myTeam.getPlayers().size() > MAX_TEAM) {
 			myTeam = null;
 		}

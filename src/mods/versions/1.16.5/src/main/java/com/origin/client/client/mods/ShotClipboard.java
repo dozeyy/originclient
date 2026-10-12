@@ -84,7 +84,9 @@ public final class ShotClipboard {
 	private static boolean finish(ProcessBuilder pb, File stdin) {
 		try {
 			pb.redirectErrorStream(true);
-			pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+			// Java 8 has no Redirect.DISCARD (added in 9); this is what it does internally.
+			pb.redirectOutput(ProcessBuilder.Redirect.to(new File(
+					System.getProperty("os.name", "").toLowerCase().contains("win") ? "NUL" : "/dev/null")));
 			if (stdin != null) {
 				pb.redirectInput(stdin);
 			}

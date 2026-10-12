@@ -3,6 +3,7 @@ package com.origin.client.client.minimap;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.BiomeColors;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -230,7 +231,7 @@ public final class MinimapData {
 		}
 		int r = Math.max(1, Math.min(MAX_RADIUS, (int) Math.ceil(radiusBlocks / 16.0) + 1));
 		int n = (2 * r + 1) * (2 * r + 1);
-		int pcx = mc.player.getBlockX() >> 4, pcz = mc.player.getBlockZ() >> 4;
+		int pcx = Mth.floor(mc.player.getX()) >> 4, pcz = Mth.floor(mc.player.getZ()) >> 4;
 		long now = System.currentTimeMillis();
 		long deadline = System.nanoTime() + BUDGET_NS;
 		int sig = look.signature();

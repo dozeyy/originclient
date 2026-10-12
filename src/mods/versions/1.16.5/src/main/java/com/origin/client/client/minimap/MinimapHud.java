@@ -7,6 +7,7 @@ import com.origin.client.client.hud.HudElements;
 import com.origin.client.client.hud.HudPos;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import com.origin.client.client.gui.Gfx;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -150,7 +151,7 @@ public final class MinimapHud {
 
 	/** The look the terrain scan bakes in, from the current options. */
 	static MinimapData.Look look(Minecraft mc) {
-		int top = mc.player != null ? mc.player.getBlockY() + 2 : 0;
+		int top = mc.player != null ? Mth.floor(mc.player.getY()) + 2 : 0;
 		return new MinimapData.Look(caveActive, top,
 				Mods.bool(MOD, "lighting"), Mods.bool(MOD, "terrainShading"), Mods.bool(MOD, "biomeColors"),
 				Mods.bool(MOD, "chunkGrid"), OriginColorPicker.liveColor(MOD, "gridColor"));
@@ -232,7 +233,7 @@ public final class MinimapHud {
 		List<Info> out = new ArrayList<>();
 		net.minecraft.client.player.LocalPlayer p = mc.player;
 		if (Mods.bool(MOD, "showCoordinates")) {
-			out.add(new Info(p == null ? "0, 64, 0" : p.getBlockX() + ", " + p.getBlockY() + ", " + p.getBlockZ(), 0xFFFFFFFF));
+			out.add(new Info(p == null ? "0, 64, 0" : Mth.floor(p.getX()) + ", " + Mth.floor(p.getY()) + ", " + Mth.floor(p.getZ()), 0xFFFFFFFF));
 		}
 		if (Mods.bool(MOD, "showBiome")) {
 			if (p != null && mc.level != null) {
