@@ -1,0 +1,113 @@
+package com.origin.client.client.mods;
+
+import com.origin.client.client.gui.Gfx;
+import com.origin.client.client.gui.OriginColorPicker;
+import com.origin.client.client.mixin.PostChainAccessor;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.resources.ResourceLocation;
+
+import java.util.List;
+
+/**
+ * Menu Blur (Lunar parity): blurs the world behind in-game menus at the mod's
+ * own strength, with a tint per kind of menu.
+ *
+ * Pre-1.20.5 best fit: vanilla has no menu blur at all -- every in-world screen
+ * (pause, options AND containers) just darkens the world with one flat gradient
+ * in Screen.renderBackground (MenuBlurMixin swaps that gradient). So Origin
+ * runs its own post chain, originclient:shaders/post/menu_blur.json: vanilla's
+ * own separable "blur" program (the one behind the old blur.json effect), two
+ * rounds -- at the strength radius, then half of it -- the same two-round box
+ * blur 1.20.5+'s menu blur does. Strength is that radius, as on 1.21.1.
+ * Three kinds of screen:
+ *   inventory   -- every AbstractContainerScreen (inventory, chests, furnaces...)
+ *   originMenus -- Origin's own screens (the mod menu draws no vanilla backdrop,
+ *                  so OriginModMenuScreen calls renderBehind itself)
+ *   pause       -- everything else in-world (pause menu, in-game options...)
+ * A kind whose toggle is off, the main menu (no world) and the mod being off all
+ * leave vanilla's behaviour exactly as it was. If the chain can't load, the mod
+ * goes quiet for the session (broken) and vanilla's gradient comes back.
+ */
+public final class MenuBlur {
+	private static final String MOD = "menublur";
+	private static final ResourceLocation CHAIN = new ResourceLocation("originclient", "shaders/post/menu_blur.json");
+
+	private static PostChain chain;
+	private static int chainW = -1, chainH = -1;
+	private static boolean broken = false;
+
+	private MenuBlur() {
+	}
+
+	private static String kind(Screen screen) {
+		if (screen instanceof AbstractContainerScreen<?>) {
+			return "inventory";
+		}
+		if (screen.getClass().getName().startsWith("com.origin.client.")) {
+			return "originMenus";
+		}
+		return "pause";
+	}
+
+	/** Whether Menu Blur (rather than vanilla) draws this screen's backdrop. */
+	public static boolean handles(Screen screen) {
+		return screen != null && !broken && Minecraft.getInstance().level != null
+				&& Mods.on(MOD) && Mods.bool(MOD, kind(screen));
+	}
+
+	/** Blurs whatever is in the main framebuffer (the world + HUD) at the mod's
+	 *  strength. Strength 0 = no blur (the tint still draws). The main target is
+	 *  bound again afterwards (with its viewport), so the screen draws on top. */
+	public static void blur(float partialTick) {
+		Minecraft mc = Minecraft.getInstance();
+		int radius = (int) Math.round(Mods.num(MOD, "strength"));
+		if (radius < 1) {
+			return;
+		}
+		RenderTarget main = mc.getMainRenderTarget();
+		try {
+			if (chain == null) {
+				chain = new PostChain(mc.getTextureManager(), mc.getResourceManager(), main, CHAIN);
+				chainW = chainH = -1;
+			}
+			if (chainW != main.width || chainH != main.height) {
+				chain.resize(main.width, main.height);
+				chainW = main.width;
+				chainH = main.height;
+			}
+			// Passes 0-1: the full radius; passes 2-3: half of it (1.20.5+'s second round).
+			List<PostPass> passes = ((PostChainAccessor) chain).originclient$passes();
+			for (int i = 0; i < passes.size(); i++) {
+				float r = i < 2 ? radius : Math.max(1, Math.round(radius * 0.5f));
+				passes.get(i).getEffect().safeGetUniform("Radius").set(r);
+			}
+			chain.process(partialTick);
+		} catch (Throwable t) {
+			broken = true;   // vanilla's darkened backdrop from the next frame on
+			com.origin.client.OriginClient.LOGGER.warn("Origin: Menu Blur failed; using vanilla's menu backdrop", t);
+		} finally {
+			main.bindWrite(true);
+		}
+	}
+
+	/** The kind's tint over the whole screen (transparent = none). */
+	public static void tint(Gfx g, Screen screen) {
+		int c = OriginColorPicker.liveColor(MOD, kind(screen) + "Bg");
+		if (((c >>> 24) & 0xFF) != 0) {
+			g.fill(0, 0, g.guiWidth(), g.guiHeight(), c);
+		}
+	}
+
+	/** Blur + tint in one go, for screens that draw their own backdrop. */
+	public static void renderBehind(Gfx g, Screen screen, float partialTick) {
+		if (handles(screen)) {
+			blur(partialTick);
+			tint(g, screen);
+		}
+	}
+}

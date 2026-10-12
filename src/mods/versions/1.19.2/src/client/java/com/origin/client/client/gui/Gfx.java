@@ -226,4 +226,18 @@ public final class Gfx {
 			s.renderTooltip(pose, text, mouseX, mouseY);
 		}
 	}
+
+	// ---- shapes the Lunar-parity mods call ----
+
+	/** drawString for already laid-out text (a wrapped line of a pack description). */
+	public int drawString(Font font, net.minecraft.util.FormattedCharSequence text, int x, int y, int color, boolean shadow) {
+		return shadow ? font.drawShadow(pose, text, x, y, color) : font.draw(pose, text, x, y, color);
+	}
+
+	/** A player head from a skin texture (face + hat layer). 1.19.x
+	 *  PlayerFaceRenderer draws the BOUND texture, so bind it first. */
+	public void face(ResourceLocation skin, int x, int y, int size) {
+		RenderSystem.setShaderTexture(0, skin);
+		net.minecraft.client.gui.components.PlayerFaceRenderer.draw(pose, x, y, size);
+	}
 }
