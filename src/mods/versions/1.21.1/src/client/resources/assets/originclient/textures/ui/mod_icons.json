@@ -2,10 +2,10 @@
   "cell": 192,
   "cols": 6,
   "grid": 24,
-  "style": "approved-origin-outline-1.55",
+  "style": "origin-outline-2.2",
   "rendering": "screen-space-sdf",
   "distanceRange": 16.0,
-  "opticalWeightBias": 0.6,
+  "opticalWeightBias": 0.0,
   "centerOffsets": {
     "@backing": [
       0,
@@ -25,66 +25,66 @@
     ],
     "@performance": [
       0,
-      8
+      -8
     ],
     "@search": [
       0,
       0
     ],
     "@title-singleplayer": [
-      0,
-      -2
+      -12,
+      0
     ],
     "@title-multiplayer": [
-      -2,
+      0,
       0
     ],
     "@title-realms": [
-      8,
+      4,
       0
     ],
     "@title-mods": [
-      0,
+      -8,
       0
     ],
     "@title-options": [
       0,
-      4
+      0
     ],
     "@title-quit": [
-      0,
-      0
+      8,
+      -8
     ],
     "@title-language": [
       0,
-      0
+      -8
     ],
     "@title-accessibility": [
       0,
-      4
+      -8
     ],
     "fps": [
       0,
-      -8
+      4
     ],
     "cps": [
       0,
-      0
+      -2
     ],
     "keystrokes": [
       0,
-      0
+      24
     ],
     "coords": [
-      8,
-      -8
+      0,
+      0
     ],
     "armorhud": [
       0,
       0
     ],
     "potionhud": [
-      0,
+      4,
       0
     ],
     "serveraddress": [
@@ -100,11 +100,11 @@
       0
     ],
     "zoom": [
-      0,
-      0
+      4,
+      12
     ],
     "freelook": [
-      0,
+      -10,
       0
     ],
     "fullbright": [
@@ -112,7 +112,7 @@
       0
     ],
     "blockoverlay": [
-      0,
+      8,
       0
     ],
     "chunkborders": [
@@ -124,48 +124,48 @@
       0
     ],
     "nametags": [
-      0,
-      2
+      3,
+      3
     ],
     "itemsize": [
-      0,
+      -8,
       0
     ],
     "weather": [
-      5,
-      5
+      0,
+      6
     ],
     "timechanger": [
       0,
       0
     ],
     "motionblur": [
-      0,
-      0
+      4,
+      -6
     ],
     "colorsaturation": [
       0,
       0
     ],
     "particles": [
-      -4,
-      4
+      6,
+      -9
     ],
     "togglesprint": [
-      6,
-      3
+      4,
+      0
     ],
     "chat": [
       0,
-      -4
+      0
     ],
     "waypoints": [
       0,
       -4
     ],
     "jei": [
-      0,
-      0
+      -4,
+      -4
     ],
     "clock": [
       0,
@@ -173,31 +173,31 @@
     ],
     "stopwatch": [
       0,
-      2
+      0
     ],
     "daycounter": [
       0,
-      2
+      0
     ],
     "ping": [
-      2,
-      -4
+      -4,
+      0
     ],
     "memory": [
       0,
-      -10
+      0
     ],
     "saturation": [
-      0,
-      0
+      12,
+      -2
     ],
     "packdisplay": [
       0,
       0
     ],
     "itemcounter": [
-      2,
-      0
+      0,
+      4
     ],
     "directionhud": [
       0,
@@ -205,11 +205,11 @@
     ],
     "combo": [
       0,
-      2
+      -4
     ],
     "reach": [
       0,
-      0
+      14
     ],
     "crosshair": [
       0,
@@ -220,16 +220,16 @@
       0
     ],
     "hitcolor": [
-      -8,
-      4
+      0,
+      0
     ],
     "glintcolorizer": [
-      -2,
-      6
+      -4,
+      0
     ],
     "bossbar": [
       0,
-      -2
+      0
     ],
     "titles": [
       0,
@@ -240,43 +240,43 @@
       0
     ],
     "shinypots": [
-      -8,
-      5
+      -12,
+      -4
     ],
     "tntcountdown": [
       0,
       4
     ],
     "snaplook": [
-      4,
-      2
-    ],
-    "cooldowns": [
       0,
       0
+    ],
+    "cooldowns": [
+      -8,
+      8
     ],
     "soundchanger": [
       0,
-      0
+      1
     ],
     "itemphysics": [
-      0,
-      4
+      4,
+      12
     ],
     "worldeditcui": [
       0,
-      0
+      4
     ],
     "teamview": [
       0,
-      4
+      0
     ],
     "discord": [
       0,
-      2
+      0
     ],
     "hypixel": [
-      0,
+      -20,
       -6
     ],
     "minimap": [
@@ -284,39 +284,39 @@
       0
     ],
     "autotext": [
-      -4,
-      2
+      8,
+      4
     ],
     "autogg": [
-      0,
-      0
+      -16,
+      -2
     ],
     "nickhider": [
       0,
       0
     ],
     "quickplay": [
-      2,
+      -8,
       0
     ],
     "screenshot": [
       0,
-      -2
-    ],
-    "hypixelbedwars": [
-      0,
       0
     ],
+    "hypixelbedwars": [
+      8,
+      -12
+    ],
     "portalcalc": [
-      2,
-      3
+      -16,
+      0
     ],
     "fpscoach": [
       0,
-      -6
+      0
     ]
   },
-  "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
+  "source": "design/icon-proposals/origin-icon-system-v2/generate_proposal.py",
   "icons": {
     "@backing": {
       "x": 0,

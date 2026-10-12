@@ -26,6 +26,9 @@
     <Resource Include="..\..\tools\font-atlas\fonts\Monocraft.ttf" Link="Assets\Fonts\Monocraft.ttf" />
     <Content Include="..\..\tools\font-atlas\fonts\Monocraft-LICENSE.txt" Link="ThirdParty\Monocraft-LICENSE.txt"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- The icon set (Theme/Icons.xaml) is Feather-based; MIT asks its notice ship along. -->
+    <Content Include="..\..\design\icon-proposals\origin-icon-system-v2\LICENSE-Feather.txt" Link="ThirdParty\Feather-LICENSE.txt"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!--
