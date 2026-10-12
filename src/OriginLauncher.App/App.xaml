@@ -1,8 +1,9 @@
 ﻿<Application x:Class="OriginLauncher.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:OriginLauncher.App"
-             StartupUri="MainWindow.xaml">
+             xmlns:local="clr-namespace:OriginLauncher.App">
+    <!-- No StartupUri: OnStartup opens MainWindow itself, so the CI screen
+         render (render-shots mode) can run without a second window. -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

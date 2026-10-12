@@ -23,12 +23,11 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         // CI screen render (UI/RenderShots.cs): no single-instance guard, no
-        // startup window, no motion; pictures, then exit (1 = failed).
+        // main window of its own, no motion; pictures, then exit (1 = failed).
         var render = Array.IndexOf(e.Args, "--render-shots");
         if (render >= 0 && render + 1 < e.Args.Length)
         {
             var outDir = e.Args[render + 1];
-            StartupUri = null;
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             // Any failure, on any thread, leaves its stack trace for the CI log.
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
@@ -98,6 +97,8 @@ public partial class App : Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
+
+        new MainWindow().Show();
     }
 
     private static void WriteRenderError(string outDir, string? error)
