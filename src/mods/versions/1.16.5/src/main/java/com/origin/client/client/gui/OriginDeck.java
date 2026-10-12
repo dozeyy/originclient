@@ -42,11 +42,10 @@ import java.util.List;
  *
  * See-through mode ({@link #seeThrough}): with no panel behind it, the mock's
  * dim cream text washes out over the world (Will, 2026-10-12: "the words
- * should be way more visible"). The text and icon paths then lift every light
- * colour toward opaque white -- keeping title > body > secondary order -- and,
- * where the text is NOT on an opaque surface this frame (a card, a popover),
- * put a soft dark halo and a 1px drop shadow under it. Screens only set the
- * flag; every widget drawn through the kit gets it.
+ * should be way more visible"; then "the shadowing around the words ... looks
+ * stupid", pick plain bright text). Light text and icons are lifted toward
+ * opaque white ({@link #legible}) and nothing is drawn behind them. Screens
+ * only set the flag; every widget drawn through the kit gets it.
  */
 public final class OriginDeck {
 	// ---- the mock's palette (design/menu-redesign/mock/mock4.tpl.html :root) ----
@@ -86,12 +85,7 @@ public final class OriginDeck {
 	 */
 	public boolean seeThrough = false;
 
-	/** Fill alpha from which a box counts as an opaque surface text can sit on unaided. */
-	private static final int SOLID_A = 0xC0;
-
 	private final ArrayDeque<float[]> clips = new ArrayDeque<>();
-	// opaque boxes drawn so far this frame (design px x0,y0,x1,y1); see-through mode only
-	private final List<float[]> solids = new ArrayList<>();
 	private final List<Hit> hits;
 
 	/** A click target recorded at draw time; see the class comment. (Java 8:
@@ -229,9 +223,6 @@ public final class OriginDeck {
 		// the ring OVER the fill, which composites the translucent border (white
 		// .06 over the card) by itself -- so the raw border goes in.
 		OriginUi.roundRect(g, b[0], b[1], b[2], b[3], r * s, fa(fill), fa(border));
-		if (seeThrough && ((fill >>> 24) & 0xFF) >= SOLID_A) {
-			solids.add(new float[]{x, y, x + w, y + h});
-		}
 	}
 
 	/** A filled circle (switch knobs, slider thumbs, the "new" dot). */
@@ -257,7 +248,7 @@ public final class OriginDeck {
 		int[] alphas = {0x1A, 0x10, 0x08};
 		for (int i = 0; i < alphas.length; i++) {
 			float grow = 10 * (i + 1);
-			rect(x - grow, y - grow + 14, w + grow * 2, h + grow * 2, r + grow, alphas[i] << 24);
+			rect(x - grow, y - grow, w + grow * 2, h + grow * 2, r + grow, alphas[i] << 24);
 		}
 	}
 
@@ -289,13 +280,6 @@ public final class OriginDeck {
 		}
 		if (seeThrough && isLight(color)) {
 			color = legible(color);
-			float top = baseline - capH(size, bold), bottom = baseline + size * 0.18f;
-			if (!onSolid(x + adv / 2f, (top + bottom) / 2f)) {
-				float k = ((color >>> 24) & 0xFF) / 255f;
-				halo(x, top, x + adv, bottom, Math.min(adv, bottom - top), k);
-				float d = dropPx();
-				rawText(str, px(x), py(baseline) + d, size, bold, tracking, fa(mul(0xFF000000, 0.6f * k)));
-			}
 		}
 		rawText(str, px(x), py(baseline), size, bold, tracking, fa(color));
 		return adv;
@@ -384,11 +368,6 @@ public final class OriginDeck {
 		int ix = Math.round(px(x + size / 2f) - sz / 2f), iy = Math.round(py(y + size / 2f) - sz / 2f);
 		if (seeThrough && isLight(color) && (fa(color) >>> 24) > 2) {
 			color = legible(color);
-			if (!onSolid(x + size / 2f, y + size / 2f)) {
-				float k = ((color >>> 24) & 0xFF) / 255f;
-				halo(x, y, x + size, y + size, size * 0.8f, k);
-				ModIcons.draw(g, id, ix, iy + Math.round(dropPx()), sz, fa(mul(0xFF000000, 0.6f * k)));
-			}
 		}
 		ModIcons.draw(g, id, ix, iy, sz, fa(color));
 	}
@@ -431,38 +410,6 @@ public final class OriginDeck {
 		return (na << 24) | rgb;
 	}
 
-	/** Is design point (x,y) on an opaque box drawn earlier this frame? */
-	private boolean onSolid(float x, float y) {
-		for (float[] r : solids) {
-			if (x >= r[0] && x < r[2] && y >= r[1] && y < r[3]) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/** Drop-shadow offset in physical px: one design px, never under one screen px. */
-	private float dropPx() {
-		return Math.max(1f, Math.round(s));
-	}
-
-	/**
-	 * Soft dark backing behind a glyph run: four stacked pills, each larger
-	 * and fainter (core ~48% black), so the edge fades out instead of reading
-	 * as a box. Over a dark world it all but vanishes; over snow or sky it is
-	 * what keeps the words legible. `unit` scales the spread (the text's height).
-	 */
-	private void halo(float x0, float y0, float x1, float y1, float unit, float k) {
-		float[] grow = {0.15f, 0.4f, 0.7f, 1.0f};
-		int[] al = {0x40, 0x2C, 0x1C, 0x0E};
-		for (int i = 0; i < grow.length; i++) {
-			float gy = unit * grow[i], gx = gy + unit * 0.25f;
-			float[] b = {px(x0 - gx), py(y0 - gy), (x1 - x0 + 2 * gx) * s, (y1 - y0 + 2 * gy) * s};
-			float r = Math.min(b[2], b[3]) / 2f;
-			OriginUi.roundRect(g, b[0], b[1], b[2], b[3], r, fa(mul(al[i] << 24, k)), 0);
-		}
-	}
-
 	// ---- controls ----
 
 	/** The mock's toggle: 36x20 pill, accent when on, knob slides (eased). */
@@ -475,11 +422,19 @@ public final class OriginDeck {
 	/** The mock's slider: a 4px track, accent fill, 14px thumb. `t` in 0..1. */
 	public void slider(float x, float cy, float w, float t, boolean active) {
 		t = Math.max(0f, Math.min(1f, t));
-		rect(x, cy - 2, w, 4, 2, 0x1FFFFFFF);
-		if (t > 0) {
-			rect(x, cy - 2, w * t, 4, 2, ACC);
+		float kx = x + w * t, kr = active ? 8 : 7;
+		// Nothing is drawn under the knob: batched GUIs (1.21.2+) may reorder
+		// the fill above it, which showed as green poking into the knob.
+		// the fill ends square exactly where the knob's edge crosses the track
+		float edge = kx - (float) Math.sqrt(Math.max(0f, kr * kr - 4f));
+		if (edge - x > 4) {
+			rect(x, cy - 2, edge - x - 2, 4, 2, ACC);
+			fill(edge - 4, cy - 2, 4, 4, ACC);
 		}
-		circle(x + w * t, cy, active ? 8 : 7, TEXT);
+		if (x + w > kx + kr) {
+			rect(kx + kr, cy - 2, x + w - kx - kr, 4, 2, 0x1FFFFFFF);
+		}
+		circle(kx, cy, kr, TEXT);
 	}
 
 	// ---- clipping (scroll regions) ----
