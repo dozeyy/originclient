@@ -1018,7 +1018,7 @@ public final class Mods {
 	// keyed the way the FPS/CPS readouts are (color, bgColor, ...) so the HUD's
 	// one drawing helper (Readouts.textBox) reads them identically for every mod.
 	private static ModOption[] textReadout(ModOption... own) {
-		List<ModOption> o = new ArrayList<>(List.of(own));
+		List<ModOption> o = new ArrayList<>(java.util.Arrays.asList(own));
 		o.add(ModOption.toggle("textShadow", "Text Shadow", true));
 		o.add(ModOption.toggle("showBrackets", "Show Brackets", false));
 		o.add(ModOption.color("bracketColor", "Bracket Color", 0xFFFFFFFF).under("showBrackets"));
@@ -1172,7 +1172,7 @@ public final class Mods {
 
 	/** A TEXT option's value; its schema default ("" if none) until set. */
 	public static String text(String modId, String key) {
-		var v = raw(modId).get(key);
+		JsonElement v = raw(modId).get(key);
 		if (v != null) {
 			try {
 				return v.getAsString();
