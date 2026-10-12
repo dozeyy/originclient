@@ -115,6 +115,7 @@ final class MinimapScreen extends Screen {
 			if (showWp) {
 				MinimapRenderer.waypoints(g, v, true, 3.5f);
 			}
+			MinimapRenderer.party(g, v, 3f);
 			float sx = v.sx(px, pz), sy = v.sy(px, pz);
 			if (v.contains(sx, sy, 4)) {
 				double yawRad = Math.toRadians(p.getViewYRot(partial));
