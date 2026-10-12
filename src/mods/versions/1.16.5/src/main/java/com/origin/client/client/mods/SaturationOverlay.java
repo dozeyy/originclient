@@ -26,7 +26,7 @@ import java.util.Locale;
 // Every number comes from the item's own FoodProperties and the player's
 // FoodData, which the client already holds. Nothing is sent anywhere.
 //
-// 1.17.1 port: no GUI sprite atlas (1.20.2+), so the shanks are vanilla's own
+// 1.16.5 port: no GUI sprite atlas (1.20.2+), so the shanks are vanilla's own
 // cells on textures/gui/icons.png (the ones Gui.renderPlayerHealth blits: full
 // 52,27 / half 61,27, Hunger-effect full 88,27 / half 97,27). No FOOD data
 // component (1.20.5+): food is Item.getFoodProperties(), and the saturation a

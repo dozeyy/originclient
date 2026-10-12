@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 //
 // HOW names are replaced: every piece of literal text Minecraft draws (chat,
 // nametags, tab list, scoreboard, titles) is a TextComponent whose getContents()
-// hands its string to whoever visits it (Component.visitSelf, 1.17.1);
+// hands its string to whoever visits it (Component.visitSelf, 1.16.5);
 // NickHiderTextMixin passes that string through replace(). Replacing at the visit -- not inside the glyph loop --
 // matters: line wrapping and width maths visit the same text, so every caller
 // sees one consistent, already-replaced string and no cut index can land past

@@ -114,14 +114,12 @@ public final class TeamView {
 			return;
 		}
 
-		// Camera rotation exactly ONCE. On 1.17.1 Fabric fires LAST inside
-		// renderLevel's clouds/weather block, after vanilla pushed the pass's pose
-		// onto the global model-view (OriginClientMod's LAST hook explains it), so
-		// ModelViewMat x pose would rotate twice. The pass's pose alone holds the
-		// camera rotation -- the same view WaypointHud.capture ends up with inside
-		// OriginClientMod's identity model-view window.
+		// Camera rotation exactly ONCE. 1.16.5 keeps no model-view/projection in
+		// RenderSystem (fixed-function GL): world geometry is posed entirely by the
+		// pass's PoseStack (camera rotation baked in) under the projection Fabric
+		// hands over in the context -- the same pair WaypointHud.capture uses.
 		Matrix4f view = ctx.matrixStack().last().pose().copy();
-		Matrix4f proj = com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix().copy();
+		Matrix4f proj = ctx.projectionMatrix().copy();
 		Vec3 cam = ctx.camera().getPosition();
 		float pt = ctx.tickDelta();
 		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();

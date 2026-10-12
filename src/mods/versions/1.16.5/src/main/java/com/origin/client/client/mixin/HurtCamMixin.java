@@ -13,11 +13,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Hurt Cam: replaces GameRenderer.bobHurt(PoseStack, float) while the mod is on.
-// The body below is vanilla's (1.16.4 and 1.18.1 decompiled source are identical
-// here, so 1.17.1 is too) with Lunar's three knobs:
+// The body below is vanilla's (decompiled 1.16.4, the same code as
+//  1.16.5) with Lunar's three knobs:
 //   Disable Hurt Cam     -- skip the damage shake (the death roll stays: that's
 //                           how vanilla shows you died, not a hit effect)
-//   Hurt Shake Intensity -- scales the 14-degree tilt (1.17.1 has no Damage Tilt
+//   Hurt Shake Intensity -- scales the 14-degree tilt (1.16.5 has no Damage Tilt
 //                           accessibility slider to stack it on; that's 1.19.4+)
 //   Old Camera Tilt      -- 1.8 behaviour: a fixed direction (hurt dir 0)
 //                           instead of tilting away from the attacker

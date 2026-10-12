@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 // further summary lines within COOLDOWN_MS (the rest of the same summary) are
 // ignored.
 //
-// 1.17.1: incoming lines come from ChatEvents (Gui.handleChat; Fabric's
+// 1.16.5: incoming lines come from ChatEvents (Gui.handleChat; Fabric's
 // ClientReceiveMessageEvents is 1.19+), and lines are sent the pre-1.19 way --
 // LocalPlayer.chat(text), where a leading "/" makes it a command.
 public final class AutoGG {
@@ -50,7 +50,7 @@ public final class AutoGG {
 	private static long sendFirstAt = 0;      // 0 = nothing pending
 	private static long sendSecondAt = 0;
 
-	/** Nothing to register on 1.17.1: ChatReceiveMixin -> ChatEvents calls in. */
+	/** Nothing to register on 1.16.5: ChatReceiveMixin -> ChatEvents calls in. */
 	public static void register() {
 	}
 

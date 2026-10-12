@@ -11,9 +11,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // tab list, scoreboard, titles) is a TextComponent, and both of Component's
 // visit paths hand its string on through getContents() -- Component.visitSelf
 // (styled and plain) is `consumer.accept(style, this.getContents())`, and
-// TextComponent.getContents() returns the literal (decompiled 1.16.4 and 1.18.1
-// agree, so 1.17.1 does too). Swapping the string there means the width maths,
-// line wrapping and drawing all see the same replaced text -- the 1.17.1 spot
+// TextComponent.getContents() returns the literal (decompiled 1.16.4).
+// Swapping the string there means the width maths,
+// line wrapping and drawing all see the same replaced text -- the 1.16.5 spot
 // for 1.21.1's LiteralContents.visit hook. getText() (equality, copies) keeps
 // the real string. NickHider.replace is a no-op returning the same string
 // while the mod is off.

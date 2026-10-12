@@ -33,7 +33,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *  - Level Above Name ON: the tag draws as normal, then the level is drawn one
  *    line higher -- above the below-name score line too, when the server shows
  *    one -- with vanilla's own nametag transform (replicated from
- *    EntityRenderer.renderNameTag, decompiled 1.16.4 / 1.18.1).
+ *    EntityRenderer.renderNameTag, decompiled 1.16.4).
  *
  * Everything is fail-soft: no key, no stats yet, or any error = the vanilla tag.
  */
@@ -45,7 +45,7 @@ public abstract class LevelHeadMixin {
 	@Unique
 	private static boolean originclient$reentry = false;
 
-	// 1.17.1 shape (decompiled 1.16.4 and 1.18.1 agree): no partial-tick argument;
+	// 1.16.5 shape (decompiled 1.16.4): no partial-tick argument;
 	// the full descriptor keeps the synthetic Entity bridge from matching.
 	@Shadow
 	protected abstract void renderNameTag(AbstractClientPlayer player, Component name, PoseStack pose,
@@ -106,7 +106,7 @@ public abstract class LevelHeadMixin {
 			}
 			boolean solid = !player.isDiscrete();
 			Font font = mc.font;
-			// EntityRenderer.renderNameTag's own transform (1.17.1): bbHeight + 0.5
+			// EntityRenderer.renderNameTag's own transform (1.16.5): bbHeight + 0.5
 			// up, face the camera, scale(-0.025, -0.025, 0.025) -- then one line
 			// higher per line already drawn.
 			pose.pushPose();

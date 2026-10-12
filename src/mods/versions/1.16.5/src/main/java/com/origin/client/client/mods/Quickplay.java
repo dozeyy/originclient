@@ -203,7 +203,7 @@ public final class Quickplay {
 		if (mc.getConnection() == null || mc.player == null) {
 			return;
 		}
-		mc.player.chat("/" + command);   // 1.17.1: commands go out as "/" chat
+		mc.player.chat("/" + command);   // 1.16.5: commands go out as "/" chat
 		if (mc.player != null && Mods.bool(ID, "displayMessage")) {
 			mc.player.displayClientMessage(new TextComponent("Joining " + label + "..."), true);
 		}

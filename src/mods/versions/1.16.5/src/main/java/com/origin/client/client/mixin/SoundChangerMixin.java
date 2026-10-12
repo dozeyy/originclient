@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Sound Changer: scales a sound's volume by its slider (SoundChanger.factor).
 //
-// 1.17.1 SoundEngine (decompiled 1.16.4 and 1.18.1 agree) works every sound's
+// 1.16.5 SoundEngine (decompiled 1.16.4) works every sound's
 // volume out in ONE private helper, calculateVolume(SoundInstance) =
 // clamp(volume x category volume, 0, 1), called both by play(SoundInstance) --
 // where a result of 0 makes vanilla skip the sound outright, so a 0% slider truly

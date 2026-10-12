@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Menu Blur. 1.17.1 Screen (decompiled 1.16.4 and 1.18.1 agree):
+// Menu Blur. 1.16.5 Screen (decompiled 1.16.4):
 //   renderBackground(PoseStack)      -> renderBackground(PoseStack, 0)
 //   renderBackground(PoseStack, int) -> in a world: fillGradient(dark); else dirt
 // Every in-world screen -- pause, options AND every container screen -- gets its

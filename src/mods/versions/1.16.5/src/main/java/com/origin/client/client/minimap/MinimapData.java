@@ -313,7 +313,7 @@ public final class MinimapData {
 
 	private static void scan(Minecraft mc, ClientLevel level, LevelChunk chunk, int cx, int cz,
 							 Look look, int sig, long now) {
-		int minY = level.getMinBuildHeight();
+		int minY = 0;   // 1.16.5 world floor is 0 (getMinBuildHeight is 1.17+)
 		int maxY = level.getMaxBuildHeight() - 1;
 		int bx = cx << 4, bz = cz << 4;
 		for (int lz = 0; lz < 16; lz++) {

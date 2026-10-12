@@ -11,8 +11,7 @@ import org.lwjgl.opengl.GL13;
 /**
  * Hit Color (Lunar parity): recolours the damage flash.
  *
- * How vanilla does the flash (1.16.4 / 1.18.1 decompiled; 1.17.1 sits between
- * and matches both): OverlayTexture is a 16x16
+ * How vanilla does the flash (1.16.4 decompiled, the same code as 1.16.5): OverlayTexture is a 16x16
  * texture whose top 8 rows hold one pixel colour -- red, alpha 0xB2 -- and the
  * entity shaders mix it in as  colour = mix(overlay.rgb, colour, overlay.a)  for
  * any entity with hurtTime > 0. So the texture alpha is how much of the ORIGINAL
@@ -25,7 +24,7 @@ import org.lwjgl.opengl.GL13;
  *
  * Color Armor: vanilla draws worn armor with NO_OVERLAY, so armor never
  * flashes. While a hurt entity's armor draws, its r/g/b tint (renderModel's
- * three float arguments on 1.17.1) is pulled toward the hit colour instead
+ * three float arguments on 1.16.5) is pulled toward the hit colour instead
  * (HumanoidArmorLayerMixin).
  */
 public final class HitColor {

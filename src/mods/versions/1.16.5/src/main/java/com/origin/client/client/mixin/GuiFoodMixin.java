@@ -13,11 +13,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Saturation mod. 1.17.1 has no Gui.renderFood (that split is 1.20+): the 10
+// Saturation mod. 1.16.5 has no Gui.renderFood (that split is 1.20+): the 10
 // hunger shanks are drawn inline in Gui.renderPlayerHealth(PoseStack), right-to-
 // left from screenWidth/2 + 91 on row screenHeight - 39, and only when the
-// player isn't riding a mount that shows its own health (decompiled 1.16.4 and
-// 1.18.1 are identical here, so 1.17.1 is too). Drawing at the method's TAIL with
+// player isn't riding a mount that shows its own health (decompiled 1.16.4). Drawing at the method's TAIL with
 // those same numbers puts the overlay on exactly vanilla's shank positions.
 @Mixin(Gui.class)
 public class GuiFoodMixin {

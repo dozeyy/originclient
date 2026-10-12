@@ -5,12 +5,11 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.client.waypoints.Waypoints;
 import net.minecraft.client.Minecraft;
 import com.origin.client.client.gui.Gfx;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.GameRenderer;
+import org.lwjgl.opengl.GL11;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -28,10 +27,12 @@ import java.util.List;
  * map is simply a textured triangle fan: no stencil, no scissor, and rotation is free
  * because only the texture coordinates turn.
  *
- * 1.17.1 immediate mode (this module's own idiom, see CooldownsHud / Gfx):
- * Tesselator.getBuilder().begin(mode, format), vertex(m, x, y, z).uv().color()
- * .endVertex(), then void end() + BufferUploader.end(builder) with the shader set
- * first. Player heads are the skin's face + hat cells (no PlayerFaceRenderer).
+ * 1.16.5 immediate mode (this module's own idiom, see CooldownsHud / Gfx):
+ * Tesselator.getBuilder().begin(GL mode int, format), vertex(m, x, y, z).uv()
+ * .color().endVertex(), then void end() + BufferUploader.end(builder) under
+ * FIXED-FUNCTION state (no shaders: texturing on/off, the alpha test off so
+ * faint alpha survives, the terrain texture bound through the TextureManager).
+ * Player heads are the skin's face + hat cells (no PlayerFaceRenderer).
  */
 final class MinimapRenderer {
 	private static final int CIRCLE_SEGMENTS = 72;
@@ -182,7 +183,7 @@ final class MinimapRenderer {
 
 	private static BufferBuilder texTris() {
 		BufferBuilder b = Tesselator.getInstance().getBuilder();
-		b.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
+		b.begin(GL11.GL_TRIANGLES, DefaultVertexFormat.POSITION_TEX_COLOR);
 		return b;
 	}
 
@@ -190,10 +191,12 @@ final class MinimapRenderer {
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableCull();
-		RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-		RenderSystem.setShaderTexture(0, MinimapData.TEXTURE);
+		RenderSystem.disableAlphaTest();
+		RenderSystem.enableTexture();
+		net.minecraft.client.Minecraft.getInstance().getTextureManager().bind(MinimapData.TEXTURE);
 		b.end();
 		BufferUploader.end(b);
+		RenderSystem.enableAlphaTest();
 		RenderSystem.enableCull();
 		RenderSystem.disableBlend();
 	}
@@ -480,11 +483,11 @@ final class MinimapRenderer {
 			float[] p = heads.get(i);
 			int x = Math.round(p[0] - headPx / 2f), y = Math.round(p[1] - headPx / 2f);
 			net.minecraft.resources.ResourceLocation skin = headPlayers.get(i).getSkinTextureLocation();
-			RenderSystem.setShaderColor(1f, 1f, 1f, r.opacity());
+			RenderSystem.color4f(1f, 1f, 1f, r.opacity());
 			RenderSystem.enableBlend();
 			g.blit(skin, x, y, headPx, headPx, 8f, 8f, 8, 8, 64, 64);
 			g.blit(skin, x, y, headPx, headPx, 40f, 8f, 8, 8, 64, 64);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			RenderSystem.color4f(1f, 1f, 1f, 1f);
 		}
 	}
 
@@ -565,7 +568,7 @@ final class MinimapRenderer {
 
 	private static BufferBuilder colorTris() {
 		BufferBuilder b = Tesselator.getInstance().getBuilder();
-		b.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+		b.begin(GL11.GL_TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
 		return b;
 	}
 
@@ -597,9 +600,14 @@ final class MinimapRenderer {
 		RenderSystem.enableBlend();
 		RenderSystem.defaultBlendFunc();
 		RenderSystem.disableCull();   // winding-agnostic: fans and rotated quads face either way
-		RenderSystem.setShader(GameRenderer::getPositionColorShader);
+		RenderSystem.disableTexture();   // vertex colours only
+		RenderSystem.disableAlphaTest();
+		RenderSystem.shadeModel(GL11.GL_SMOOTH);
 		b.end();
 		BufferUploader.end(b);
+		RenderSystem.shadeModel(GL11.GL_FLAT);
+		RenderSystem.enableAlphaTest();
+		RenderSystem.enableTexture();
 		RenderSystem.enableCull();
 		RenderSystem.disableBlend();
 	}

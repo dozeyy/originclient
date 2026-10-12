@@ -24,11 +24,11 @@ import java.util.List;
 // picture, fresh timer) instead of stacking.
 //
 // The toast never learns where it sits, so render() reads its on-screen origin
-// from the transform ToastComponent translated it by -- on 1.17.1 that is the
-// GLOBAL model-view stack, not the PoseStack it passes (ToastInstance.render:
-// getModelViewStack().translate(slot) + applyModelViewMatrix; decompiled 1.18.1),
-// so the origin is that matrix times the toast's (0,0) plus the pose's own
-// offset; the chat-screen click hook hit-tests
+// from the transform ToastComponent translated it by -- on 1.16.5 that is the
+// legacy GL model-view matrix, not the PoseStack it passes (ToastInstance.render:
+// RenderSystem.pushMatrix + translatef(slot); decompiled 1.16.4), so the origin
+// is the GL_MODELVIEW_MATRIX's translation plus the pose's own offset; the
+// chat-screen click hook hit-tests
 // against that same origin, so drawn and clickable buttons always line up.
 public class ScreenshotToast implements Toast {
 	public static final Object TOKEN = new Object();
@@ -108,9 +108,12 @@ public class ScreenshotToast implements Toast {
 		long now = Util.getMillis();
 		Vector4f origin = new Vector4f(0f, 0f, 0f, 1f);
 		origin.transform(g.pose().last().pose());
-		origin.transform(RenderSystem.getModelViewStack().last().pose());
-		originX = origin.x();
-		originY = origin.y();
+		java.nio.FloatBuffer mv = org.lwjgl.BufferUtils.createFloatBuffer(16);
+		org.lwjgl.opengl.GL11.glGetFloatv(org.lwjgl.opengl.GL11.GL_MODELVIEW_MATRIX, mv);
+		// column-major: elements 12/13 are the x/y translation (the GUI model-view
+		// is translate-only here, so the pose offset adds on directly)
+		originX = origin.x() + mv.get(12);
+		originY = origin.y() + mv.get(13);
 		boolean chat = mc.screen instanceof ChatScreen;
 		double[] m = mouse(mc);
 		boolean over = chat && m[0] >= originX && m[0] < originX + W && m[1] >= originY && m[1] < originY + H;
@@ -153,7 +156,7 @@ public class ScreenshotToast implements Toast {
 			// a broken draw just leaves the toast plain; it still times out
 		}
 
-		// 1.17.1 has no Notification Time accessibility option (1.20.2+): x1.
+		// 1.16.5 has no Notification Time accessibility option (1.20.2+): x1.
 		long durationMs = (long) (Mods.num("screenshot", "duration") * 1000);
 		boolean show = current == this && Mods.on("screenshot") && now - Math.max(shownAt, heldAt) < durationMs;
 		hidden = !show;

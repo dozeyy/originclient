@@ -10,10 +10,10 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 import java.util.function.Consumer;
 
 // Screenshot pop-up: F2 is handled in KeyboardHandler.keyPress, which calls
-// Screenshot.grab(File, RenderTarget, Consumer<Component>) with a callback that
-// posts the "Saved screenshot as ..." chat line (decompiled 1.18.1; 1.17.1
-// has the same 3-arg grab -- the module's OriginDevShots calls its 4-arg
-// sibling -- and it is the only grab call in keyPress). Wrapping that callback lets ScreenshotPopup see
+// Screenshot.grab(File, int width, int height, RenderTarget, Consumer<Component>)
+// with a callback that posts the "Saved screenshot as ..." chat line (decompiled
+// 1.16.4; the window size arguments go away in 1.17 -- the module's
+// OriginDevShots calls the 6-arg sibling -- and it is the only grab call in keyPress). Wrapping that callback lets ScreenshotPopup see
 // the saved file and show its toast; the chat line still posts unless the
 // player turned it off. Only the F2 path is wrapped -- other grab callers
 // (dev screenshot tooling) are untouched.
@@ -21,8 +21,8 @@ import java.util.function.Consumer;
 public class ScreenshotKeyMixin {
 	@ModifyArg(method = "keyPress",
 			at = @At(value = "INVOKE",
-					target = "Lnet/minecraft/client/Screenshot;grab(Ljava/io/File;Lcom/mojang/blaze3d/pipeline/RenderTarget;Ljava/util/function/Consumer;)V"),
-			index = 2)
+					target = "Lnet/minecraft/client/Screenshot;grab(Ljava/io/File;IILcom/mojang/blaze3d/pipeline/RenderTarget;Ljava/util/function/Consumer;)V"),
+			index = 4)
 	private Consumer<Component> originclient$screenshotPopup(Consumer<Component> vanilla) {
 		try {
 			return ScreenshotPopup.wrap(vanilla);

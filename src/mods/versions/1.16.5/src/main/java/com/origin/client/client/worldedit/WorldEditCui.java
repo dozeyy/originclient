@@ -53,9 +53,9 @@ import java.util.UUID;
 //   * anything else already registered a client receiver for `worldedit:cui`
 //     (registerGlobalReceiver answers false) -> log once and stay dormant.
 //
-// 1.17.1 networking: before 1.20.5 there are no CustomPacketPayload types or a
+// 1.16.5 networking: before 1.20.5 there are no CustomPacketPayload types or a
 // payload registry -- a plugin channel is a ResourceLocation plus a raw
-// FriendlyByteBuf (Fabric API 0.46.1 ClientPlayNetworking). The receiver runs on
+// FriendlyByteBuf (Fabric API 0.42.0 ClientPlayNetworking). The receiver runs on
 // the NETTY thread here, so the text is copied out of the buffer and the state
 // change hops to the client thread. WorldEdit's shared protocol library
 // (worldeditcui_protocol) only exists for 1.20.5+, so there is nothing to join.
@@ -99,18 +99,15 @@ public final class WorldEditCui {
 			// once (CuiRenderer's class comment; OriginClientMod's LAST hook does the
 			// same for waypoints and chunk borders).
 			WorldRenderEvents.LAST.register(ctx -> {
-				com.mojang.blaze3d.vertex.PoseStack modelView = com.mojang.blaze3d.systems.RenderSystem.getModelViewStack();
-				modelView.pushPose();
-				modelView.last().pose().setIdentity();
-				modelView.last().normal().setIdentity();
-				com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
+				// 1.16.5: the legacy GL matrix stack (no RenderSystem model-view stack).
+				com.mojang.blaze3d.systems.RenderSystem.pushMatrix();
+				com.mojang.blaze3d.systems.RenderSystem.loadIdentity();
 				try {
 					CuiRenderer.render(ctx);
 				} catch (Throwable t) {
 					// the overlay must never take the frame down
 				} finally {
-					modelView.popPose();
-					com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
+					com.mojang.blaze3d.systems.RenderSystem.popMatrix();
 				}
 			});
 		} catch (Throwable t) {
@@ -347,7 +344,7 @@ public final class WorldEditCui {
 			double reach = 4.5;
 			Minecraft mc = Minecraft.getInstance();
 			if (mc.gameMode != null) {
-				reach = mc.gameMode.getPickRange();   // 1.17.1's reach (no interaction-range attribute before 1.20.5)
+				reach = mc.gameMode.getPickRange();   // 1.16.5's reach (no interaction-range attribute before 1.20.5)
 			}
 			double dist = a.length > 4 ? d(a[4]) : reach;
 			CuiRegion.put(r.latches, id, Math.min(Math.max(dist, reach), 256.0));

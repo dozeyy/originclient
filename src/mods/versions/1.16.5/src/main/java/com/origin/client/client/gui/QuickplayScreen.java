@@ -17,7 +17,7 @@ import java.util.List;
 // computed by the same helpers for drawing and clicking so hit-boxes always
 // match what is drawn.
 //
-// 1.17.1: Screen.render(PoseStack, ...) draws only widgets (1.20.2+ draws the
+// 1.16.5: Screen.render(PoseStack, ...) draws only widgets (1.20.2+ draws the
 // backdrop inside super.render), so the in-world backdrop is requested first
 // with renderBackground -- the same backdrop 1.21.1 gets from super.render.
 public class QuickplayScreen extends Screen {

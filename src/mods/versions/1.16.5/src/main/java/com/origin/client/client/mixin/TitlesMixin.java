@@ -18,10 +18,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // (TitlesHud) at the "titles" HUD element's position, scale and colours, and
 // vanilla's draw is skipped. Mod off = vanilla untouched.
 //
-// 1.17.1 has no Gui.renderTitle (that layer is 1.20.5+): the title block sits
+// 1.16.5 has no Gui.renderTitle (that layer is 1.20.5+): the title block sits
 // inline in Gui.render(PoseStack, float), guarded by
 // `if (this.title != null && this.titleTime > 0)` -- the FIRST read of `title`
-// in render (decompiled 1.16.4 and 1.18.1 agree, so 1.17.1 does too). So:
+// in render (decompiled 1.16.4, the same code as 1.16.5). So:
 //  - that one read answers null while the mod is on -> vanilla skips its block;
 //  - Origin's titles draw just before the next thing vanilla draws after that
 //    block, the subtitle overlay -- the same place in the HUD's z-order.

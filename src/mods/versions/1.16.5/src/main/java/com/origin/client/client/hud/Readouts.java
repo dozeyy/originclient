@@ -43,7 +43,7 @@ import java.util.Map;
 // textReadout() option block from Mods (shadow / brackets / background /
 // border + colours) is honoured, so all of them behave the same.
 //
-// 1.17.1 port: drawn through the Gfx PoseStack shim; literal text is a
+// 1.16.5 port: drawn through the Gfx PoseStack shim; literal text is a
 // TextComponent (Component.literal is 1.19+); resource-pack icons are read with
 // PackResources.getRootResource -> InputStream (the IoSupplier form is 1.19.3+).
 final class Readouts {
@@ -525,7 +525,7 @@ final class Readouts {
 		List<Counted> out = new ArrayList<>();
 		boolean hideZero = Mods.bool("itemcounter", "hideZero") && !HudElements.editorPreview;
 		for (ItemCounter.Entry e : ItemCounter.selected()) {
-			int n = mc.player != null ? ItemCounter.count(mc.player.getInventory(), e) : 0;
+			int n = mc.player != null ? ItemCounter.count(mc.player.inventory, e) : 0;
 			if (n == 0 && hideZero) {
 				continue;
 			}
@@ -619,7 +619,7 @@ final class Readouts {
 		boolean bold = Mods.bool("directionhud", "boldDirections");
 		int dirColor = OriginColorPicker.liveColor("directionhud", "directionColor");
 		int markerColor = OriginColorPicker.liveColor("directionhud", "markerColor");
-		double heading = Mth.positiveModulo(mc.player.getYRot() + 180.0, 360.0);
+		double heading = Mth.positiveModulo(mc.player.yRot + 180.0, 360.0);
 		double ppd = w / DIR_FOV;
 		double mid = w / 2.0;
 

@@ -28,7 +28,7 @@ public final class OriginCrosshair {
 	private OriginCrosshair() {
 	}
 
-	// 1.17.1 has no GUI sprite atlas (1.20.2+): the attack indicator lives on
+	// 1.16.5 has no GUI sprite atlas (1.20.2+): the attack indicator lives on
 	// textures/gui/icons.png at the cells vanilla's own renderCrosshair blits.
 	private static final ResourceLocation ICONS = new ResourceLocation("textures/gui/icons.png");
 

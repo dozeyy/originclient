@@ -26,10 +26,10 @@ import java.util.WeakHashMap;
  * from Countdown Color through yellow to red as the fuse burns (vanilla's 80-tick
  * fuse as the full scale), unless Static Countdown Color pins it.
  *
- * 1.17.1: which PrimedTnt getter counts down moved inside this era -- 1.16 keeps
- * the synced fuse fixed and counts a separate `life` (getLife), 1.18 counts the
- * synced fuse itself (getFuse; getLife is gone) -- and no 1.17.1 source is to
- * hand. So remaining() watches getFuse(), which exists on both: if it ever moves,
+ * 1.16.5: which PrimedTnt getter counts down moved after this era -- 1.16 keeps
+ * the synced fuse fixed and counts a separate `life` (getLife; decompiled 1.16.4),
+ * 1.18 counts the synced fuse itself (getFuse; getLife is gone). remaining()
+ * watches getFuse(), which exists on both (kept the same as 1.17.1's): if it moves,
  * it IS the countdown; if it sits still while the entity ages, the countdown is
  * fuse - age (exactly 1.16's life, which starts at the fuse and drops once a tick).
  *

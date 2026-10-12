@@ -12,10 +12,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.UUID;
 
-// Incoming chat for Auto GG + Hypixel (ChatEvents). 1.17.1:
+// Incoming chat for Auto GG + Hypixel (ChatEvents). 1.16.5:
 // ClientPacketListener.handleChat hands every server line to
-// Gui.handleChat(ChatType, Component, UUID) (public; same shape in decompiled
-// 1.16.4 and 1.18.1), which passes it to the chat / action-bar listeners.
+// Gui.handleChat(ChatType, Component, UUID) (public; decompiled 1.16.4), which passes it to the chat / action-bar listeners.
 // A hidden line is cancelled here; a rewritten one is re-delivered once through
 // the same method (guarded so the rewrite isn't processed twice), so vanilla's
 // own blocking rules and listeners still see it exactly as they would.

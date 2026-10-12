@@ -7,7 +7,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 // Hit Color repaints the red rows of vanilla's 16x16 overlay texture -- the
 // texture every entity shader samples for the hurt flash (OverlayTexture.texture,
-// private final; same in decompiled 1.16.4 and 1.18.1).
+// private final; same in decompiled 1.16.4).
 @Mixin(OverlayTexture.class)
 public interface OverlayTextureAccessor {
 	@Accessor("texture")

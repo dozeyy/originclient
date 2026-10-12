@@ -8,11 +8,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-// Nick Hider skins. 1.17.1 has no PlayerSkin record: a PlayerInfo hands out its
+// Nick Hider skins. 1.16.5 has no PlayerSkin record: a PlayerInfo hands out its
 // skin as getSkinLocation() (the texture) + getModelName() ("default"/"slim"),
 // and both the player model (AbstractClientPlayer.getSkinTextureLocation /
 // getModelName read their PlayerInfo) and the tab-list heads ask it there
-// (decompiled 1.16.4 and 1.18.1 agree). Both answers are swapped together so
+// (decompiled 1.16.4). Both answers are swapped together so
 // the arms match the texture. NickHider returns null to keep the real one.
 @Mixin(PlayerInfo.class)
 public abstract class NickHiderSkinMixin {

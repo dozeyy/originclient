@@ -53,7 +53,7 @@ import java.util.regex.Pattern;
  * Purely client side: it reads the sidebar, the tab list, the scoreboard teams
  * and Hypixel's own chat / title lines, and never sends anything.
  *
- * 1.17.1: scoreboard display slots are ints (0 list, 1 sidebar, 2 below name;
+ * 1.16.5: scoreboard display slots are ints (0 list, 1 sidebar, 2 below name;
  * the DisplaySlot enum and PlayerScoreEntry/ScoreHolder are 1.20.2+), a sidebar
  * row is a Score whose owner is its text (rows starting with '#' are hidden, as
  * vanilla's sidebar skips them), and chat arrives through ChatEvents.

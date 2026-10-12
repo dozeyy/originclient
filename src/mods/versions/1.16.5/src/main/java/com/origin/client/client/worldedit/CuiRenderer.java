@@ -4,7 +4,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import org.lwjgl.opengl.GL11;
 import com.mojang.math.Matrix4f;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
@@ -45,11 +45,11 @@ import java.util.List;
 // camera, so a line keeps one steady on-screen width ("Line Thickness" ~= pixels
 // at 1080p) from your feet to the far end of a 500-block selection.
 //
-// CAMERA ROTATION IS APPLIED EXACTLY ONCE. On 1.17.1 Fabric fires LAST inside
-// renderLevel's clouds/weather block, after vanilla pushed the pass's pose (which
-// holds the camera rotation) onto the global model-view, and ctx.matrixStack()
-// holds that same rotation. WorldEditCui's LAST hook therefore sets the
-// model-view to IDENTITY around this draw -- the same window OriginClientMod
+// CAMERA ROTATION IS APPLIED EXACTLY ONCE. On 1.16.5 Fabric fires LAST inside
+// renderLevel's clouds/weather block, after vanilla multiplied the pass's pose
+// (which holds the camera rotation) into the legacy GL model-view matrix, and
+// ctx.matrixStack() holds that same rotation. WorldEditCui's LAST hook therefore
+// loads an IDENTITY GL model-view around this draw -- the same window OriginClientMod
 // opens for WaypointRenderer / ChunkBorderRenderer -- and vertices are camera-
 // RELATIVE world coords passed through matrixStack().last(), so the rotation
 // comes from the pose alone. Never let both carry it (that double rotation is
@@ -93,8 +93,9 @@ final class CuiRenderer {
 	 * Origin's overlay quads (OriginRenderTypes.OVERLAY_QUADS) with the depth test
 	 * flipped to GREATER: fragments draw ONLY where terrain is in front of them.
 	 * No depth write, no view offset (nothing here should win a depth tie).
-	 * Same constructor + vanilla shard technique as OriginRenderTypes. 1.17.1
-	 * has no GREATER_DEPTH_TEST shard (only always / == / <=), so this subclass
+	 * Same constructor + vanilla shard technique as OriginRenderTypes (1.16.5:
+	 * fixed function, so NO_TEXTURE instead of a shader shard, and a raw GL mode
+	 * int). 1.16.5 has no GREATER_DEPTH_TEST shard (only always / == / <=), so this subclass
 	 * builds one from vanilla's own DepthTestStateShard (protected nested class,
 	 * public constructor) with GL_GREATER (516).
 	 */
@@ -103,9 +104,9 @@ final class CuiRenderer {
 
 		private HiddenQuads() {
 			super("originclient_cui_hidden_quads", DefaultVertexFormat.POSITION_COLOR,
-					VertexFormat.Mode.QUADS, 1 << 16, false, false,
+					GL11.GL_QUADS, 1 << 16, false, false,
 					() -> {
-						POSITION_COLOR_SHADER.setupRenderState();
+						NO_TEXTURE.setupRenderState();
 						TRANSLUCENT_TRANSPARENCY.setupRenderState();
 						GREATER_DEPTH_TEST.setupRenderState();
 						NO_CULL.setupRenderState();
@@ -116,7 +117,7 @@ final class CuiRenderer {
 						NO_CULL.clearRenderState();
 						GREATER_DEPTH_TEST.clearRenderState();
 						TRANSLUCENT_TRANSPARENCY.clearRenderState();
-						POSITION_COLOR_SHADER.clearRenderState();
+						NO_TEXTURE.clearRenderState();
 					});
 		}
 	}

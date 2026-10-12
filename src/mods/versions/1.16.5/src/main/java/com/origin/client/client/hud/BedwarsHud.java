@@ -30,7 +30,7 @@ import java.util.List;
  * placed before a game. Background / border / text colour come from the mod's
  * shared HUD rows, background transparent by default like every Origin HUD.
  *
- * 1.17.1: no PlayerFaceRenderer / PlayerSkin -- a face is the skin texture's
+ * 1.16.5: no PlayerFaceRenderer / PlayerSkin -- a face is the skin texture's
  * face (8,8) + hat (40,8) cells blitted from the 64x64 skin, like this era's own
  * PlayerTabOverlay (and OriginTabList here); items are matched by getItem().
  */
@@ -74,7 +74,7 @@ final class BedwarsHud {
 		if (mc.player == null) {
 			return 0;
 		}
-		Inventory inv = mc.player.getInventory();
+		Inventory inv = mc.player.inventory;
 		int n = 0;
 		for (int i = 0; i < inv.getContainerSize(); i++) {
 			ItemStack s = inv.getItem(i);

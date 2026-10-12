@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Hit Color -> Color Armor. 1.17.1 shape (identical in decompiled 1.16.4 and 1.18.1):
+// Hit Color -> Color Armor. 1.16.5 shape (decompiled 1.16.4):
 //   renderArmorPiece(PoseStack, MultiBufferSource, T entity, EquipmentSlot, int light, A model)
 //     -> renderModel(PoseStack, MultiBufferSource, int light, ArmorItem, boolean foil,
 //                    A model, boolean inner, float r, float g, float b, String overlay)

@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Item Physics: re-poses a dropped item right before vanilla draws its copies.
-// 1.17.1 ItemEntityRenderer.render (decompiled 1.16.4 and 1.18.1 agree): push,
+// 1.16.5 ItemEntityRenderer.render (decompiled 1.16.4): push,
 // translate(bob), mulPose(spin) -- its ONLY mulPose -- then the flat-stack offset
 // and the copy loop, pop, super.render. Injecting right after that mulPose sees
 // vanilla's bob + spin on the pose, which ItemPhysics undoes and replaces.

@@ -77,7 +77,7 @@ public final class AutoTextHotkey {
 	}
 
 	/** Sends a configured line: "/..." as a command, anything else as chat.
-	 *  1.17.1: LocalPlayer.chat(text) is the one send path (a leading "/" makes it
+	 *  1.16.5: LocalPlayer.chat(text) is the one send path (a leading "/" makes it
 	 *  a command); sendChat/sendCommand are 1.19+. */
 	public static void send(Minecraft mc, String msg) {
 		long now = System.currentTimeMillis();

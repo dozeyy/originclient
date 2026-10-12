@@ -16,7 +16,7 @@ import java.util.function.Predicate;
 // own inventory (main + hotbar + armour + offhand) -- purely client-side, the
 // same data the inventory screen shows.
 //
-// 1.17.1: no Wind Charges group (the item arrived in 1.21); stacks are matched by
+// 1.16.5: no Wind Charges group (the item arrived in 1.21); stacks are matched by
 // getItem() == (ItemStack.is(Item) is not on every pre-1.20 version) and food by
 // Item.isEdible() (the FOOD data component is 1.20.5+).
 public final class ItemCounter {

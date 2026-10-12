@@ -9,10 +9,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Shinypots: hooks the one GUI item draw every GUI item funnels into on 1.17.1
+// Shinypots: hooks the one GUI item draw every GUI item funnels into on 1.16.5
 // (no GuiGraphics before 1.20): ItemRenderer.renderGuiItem(ItemStack, x, y,
 // BakedModel), reached from renderAndDecorateItem / renderGuiItem / the hotbar
-// alike (decompiled 1.16.4 and 1.18.1 agree). It positions through the GLOBAL
+// alike (decompiled 1.16.4). It positions through the GLOBAL
 // model-view stack, which is still the GUI's at HEAD and again at TAIL, so the
 // shine draws in the same GUI space. HEAD = the "behind" shine, TAIL = the
 // normal one. Fail-soft: a shine error never breaks an item draw.

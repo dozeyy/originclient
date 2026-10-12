@@ -12,7 +12,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
  * one of these mods can never break a tick, a frame or an incoming chat line --
  * it just leaves that mod quiet.
  *
- * 1.17.1: Fabric API 0.46.1 has no ClientReceiveMessageEvents (1.19+), so the
+ * 1.16.5: Fabric API 0.42.0 has no ClientReceiveMessageEvents (1.19+), so the
  * chat side (Hypixel's hide/rewrite, Bed Wars' trap lines) runs from
  * ChatReceiveMixin -> ChatEvents instead. HudRenderCallback hands a PoseStack
  * here (GuiGraphics is 1.20+); it is wrapped in the module's Gfx shim.

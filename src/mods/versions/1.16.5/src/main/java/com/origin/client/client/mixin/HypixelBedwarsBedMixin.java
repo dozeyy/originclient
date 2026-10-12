@@ -14,9 +14,9 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 // Hypixel Bed Wars > Colored Beds: draws each bed in its team's colour.
 //
-// 1.17.1 BedRenderer.render(BedBlockEntity, float, PoseStack, MultiBufferSource,
-// int light, int overlay) (decompiled 1.16.4 and 1.18.1 are identical here, so
-// 1.17.1 is too)
+// 1.16.5 BedRenderer.render(BedBlockEntity, float, PoseStack, MultiBufferSource,
+// int light, int overlay) (decompiled 1.16.4, the same code as
+//  1.16.5)
 // opens with `Material material = Sheets.BED_TEXTURES[bed.getColor().getId()];`
 // -- its only Material local -- and draws both halves with it. Swapping that
 // one local at its STORE swaps the bed's texture and nothing else: the block,

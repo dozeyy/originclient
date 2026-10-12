@@ -155,7 +155,7 @@ public final class Hypixel {
 
 	private static boolean hotbarHas(Minecraft mc, String name) {
 		for (int i = 0; i < 9; i++) {
-			ItemStack st = mc.player.getInventory().getItem(i);
+			ItemStack st = mc.player.inventory.getItem(i);
 			if (!st.isEmpty()) {
 				String n = ChatFormatting.stripFormatting(st.getHoverName().getString());
 				if (n != null && n.contains(name)) {
@@ -168,7 +168,7 @@ public final class Hypixel {
 
 	private static void command(Minecraft mc, String cmd) {
 		if (mc.player != null && mc.getConnection() != null) {
-			mc.player.chat("/" + cmd);   // 1.17.1: commands go out as "/" chat (sendCommand is 1.19+)
+			mc.player.chat("/" + cmd);   // 1.16.5: commands go out as "/" chat (sendCommand is 1.19+)
 		}
 	}
 

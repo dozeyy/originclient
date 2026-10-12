@@ -21,7 +21,7 @@ import java.util.UUID;
 // -- vanilla's own drawBar, at the "bossbar" HUD element's position and scale --
 // and vanilla's own loop is skipped. Called from vanilla's HUD, so z-order is
 // unchanged. Mod off = vanilla untouched.
-// 1.17.1 shape (decompiled 1.16.4 and 1.18.1 agree): render(PoseStack) iterates
+// 1.16.5 shape (decompiled 1.16.4): render(PoseStack) iterates
 // the `events` map (a LinkedHashMap, insertion = display order) and draws each
 // bar through private drawBar(PoseStack, int, int, BossEvent). If either shadow
 // failed to bind, this whole mixin is skipped (config "required": false) and

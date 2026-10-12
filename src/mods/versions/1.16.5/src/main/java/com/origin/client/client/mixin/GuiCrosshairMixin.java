@@ -10,8 +10,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Crosshair mod. Gui.renderCrosshair(PoseStack) is the crosshair draw on 1.17.1
-// (private; same shape in decompiled 1.16.4 and 1.18.1, so 1.17.1's too). While the
+// Crosshair mod. Gui.renderCrosshair(PoseStack) is the crosshair draw on 1.16.5
+// (private; same shape in decompiled 1.16.4). While the
 // mod is on, the whole method is replaced: OriginCrosshair draws the custom
 // shape -- also in third person when Show In F5 is on, which vanilla never does
 // -- plus vanilla's attack indicator, which lives in this same method. The one

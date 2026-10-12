@@ -24,7 +24,7 @@ import java.util.Collection;
  * The layout is vanilla's (BossHealthOverlay): name 9px above a 182x5 bar,
  * 19px per boss, and no new rows past a third of the screen.
  *
- * 1.17.1 port: no boss_bar/* sprites (1.20.2+) -- bars come from
+ * 1.16.5 port: no boss_bar/* sprites (1.20.2+) -- bars come from
  * textures/gui/bars.png. Live bars are drawn by VANILLA's own drawBar (handed in
  * by BossBarMixin), because the progress getter was renamed inside this era
  * (getPercent on 1.16, getProgress on 1.18) and drawBar reads it itself; Custom

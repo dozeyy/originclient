@@ -20,7 +20,7 @@ import com.mojang.math.Matrix4f;
  * drag-to-pan. It shows what the minimap has already mapped around you -- the loaded
  * area, up to MinimapData.MAX_RADIUS chunks out -- not a saved whole-world atlas.
  *
- * 1.17.1: Screen.render(PoseStack, ...) draws only the widgets and the backdrop is
+ * 1.16.5: Screen.render(PoseStack, ...) draws only the widgets and the backdrop is
  * the screen's own job (no 4-arg renderBackground before 1.20.2), so render() fills
  * it first; mouseScrolled is the 3-arg form (two-axis scrolling is 1.20.2+).
  */

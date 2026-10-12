@@ -17,11 +17,10 @@ import net.minecraft.client.renderer.block.model.ItemTransforms;
  * are untouched.
  *
  * Hooked by ItemPhysicsMixin right after ItemEntityRenderer.render applies its
- * spin (1.17.1 has no renderMultipleFromCount: the copies are drawn by a loop
+ * spin (1.16.5 has no renderMultipleFromCount: the copies are drawn by a loop
  * inline in render, after the spin) -- i.e. after vanilla's bob (translate up by
  * bob + 0.25 x ground scale) and spin (rotate about Y). This first UNDOES exactly
- * those two transforms (same maths as vanilla's render; decompiled 1.16.4 and
- * 1.18.1 agree), then applies the physics pose. Items keep their GROUND model
+ * those two transforms (same maths as vanilla's render; decompiled 1.16.4), then applies the physics pose. Items keep their GROUND model
  * transform (size, the per-model offset), applied later by vanilla.
  * The model is read from the ItemModelShaper (its base model): ItemRenderer's
  * getModel gained a seed argument inside this era, and only the ground transform

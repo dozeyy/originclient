@@ -19,20 +19,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // HypixelBedwars first, which says no unless the mod is on and we're in a Bed
 // Wars game on Hypixel -- everywhere else these are no-ops.
 //
-// 1.17.1 has no renderArmor / renderFood (that split is 1.20+): armour, food and
-// air are drawn inline in Gui.renderPlayerHealth(PoseStack) (decompiled 1.16.4
-// and 1.18.1 agree), so each is reached through that method's own calls:
+// 1.16.5 has no renderArmor / renderFood / renderHearts (those splits are 1.17+
+// and 1.20+): armour, hearts, food and air are all drawn inline in
+// Gui.renderPlayerHealth(PoseStack) (decompiled 1.16.4), so each is reached
+// through that method's own calls:
 //  - Hide Armor Bar: the armour row is drawn only while player.getArmorValue()
 //    > 0 -- that one read answers 0 while hiding.
 //  - Hide Food Bar: the shanks are the blits between the profiler's "food" and
 //    "air" sections; a flag raised at popPush("food") and dropped at
 //    popPush("air") skips exactly those blits (armour, air untouched). The
 //    Saturation overlay (GuiFoodMixin, at the TAIL) checks hideFood() too.
-//  - Hardcore Hearts: renderHearts picks the hardcore heart row from
-//    level.getLevelData().isHardcore() (1.17's HeartType hearts, same in
-//    1.18.1) -- that read answers true.
-//  - setTitle(Component) / setSubtitle(Component), fed by the 1.17 split title
-//    packets; `subtitle` is the private field the title block reads.
+//  - Hardcore Hearts: each heart picks the hardcore row from
+//    level.getLevelData().isHardcore(), read inline in renderPlayerHealth --
+//    that read answers true.
+//  - Titles: 1.16.5 has ONE setTitles(title, subtitle, fadeIn, stay, fadeOut)
+//    (the title packet sets either the title or the subtitle per call; the
+//    split setTitle / setSubtitle are 1.17+). Both arguments are passed through
+//    HypixelBedwars; `subtitle` is the private field the title block reads.
 @Mixin(Gui.class)
 public class HypixelBedwarsGuiMixin {
 	@Shadow
@@ -80,7 +83,7 @@ public class HypixelBedwarsGuiMixin {
 		}
 	}
 
-	@Redirect(method = "renderHearts",
+	@Redirect(method = "renderPlayerHealth",
 			at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/storage/LevelData;isHardcore()Z"))
 	private boolean originclient$bwHardcoreHearts(LevelData data) {
 		boolean hardcore = data.isHardcore();
@@ -91,8 +94,11 @@ public class HypixelBedwarsGuiMixin {
 		}
 	}
 
-	@ModifyVariable(method = "setTitle", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+	@ModifyVariable(method = "setTitles", at = @At("HEAD"), argsOnly = true, ordinal = 0)
 	private Component originclient$bwTrapTitle(Component title) {
+		if (title == null) {
+			return null;
+		}
 		try {
 			Component out = HypixelBedwars.onTitle(title);
 			if (out != title && subtitle != null) {
@@ -105,8 +111,11 @@ public class HypixelBedwarsGuiMixin {
 		}
 	}
 
-	@ModifyVariable(method = "setSubtitle", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+	@ModifyVariable(method = "setTitles", at = @At("HEAD"), argsOnly = true, ordinal = 1)
 	private Component originclient$bwTrapSubtitle(Component subtitle) {
+		if (subtitle == null) {
+			return null;
+		}
 		try {
 			return HypixelBedwars.onSubtitle(subtitle);
 		} catch (Throwable t) {

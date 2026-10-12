@@ -5,8 +5,8 @@ import net.minecraft.network.chat.Component;
 /**
  * Incoming-chat dispatch for the Lunar-parity chat mods (Auto GG, Hypixel,
  * Hypixel Bed Wars) on
- * 1.17.1, standing in for Fabric API's ClientReceiveMessageEvents (1.19+; not in
- * Fabric API 0.46.1+1.17). ChatReceiveMixin calls in from Gui.handleChat, the one
+ * 1.16.5, standing in for Fabric API's ClientReceiveMessageEvents (1.19+; not in
+ * Fabric API 0.42.0+1.17). ChatReceiveMixin calls in from Gui.handleChat, the one
  * place every chat / system / action-bar line from the server is delivered.
  *
  * Before 1.19 there is no signed-player-chat vs system split: Hypixel's lines

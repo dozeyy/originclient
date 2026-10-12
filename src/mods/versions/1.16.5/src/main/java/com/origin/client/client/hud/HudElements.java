@@ -579,6 +579,12 @@ public final class HudElements {
 				com.origin.client.client.minimap.MinimapHud::size, com.origin.client.client.minimap.MinimapHud::render);
 	}
 
+	// ---- Lunar parity: Hypixel Bed Wars (2026-10-11) ----
+	// Its own static block so it merges cleanly: Resource Counter + Teammates.
+	static {
+		BedwarsHud.register();
+	}
+
 	// Package-private so Readouts (the Lunar-parity readouts) registers into the same list.
 	static void add(String id, String modId, String label, HudPos def,
 							java.util.function.Function<Minecraft, int[]> measure, Renderer r) {
