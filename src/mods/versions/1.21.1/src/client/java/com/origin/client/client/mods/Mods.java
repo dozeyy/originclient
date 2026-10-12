@@ -323,8 +323,10 @@ public final class Mods {
 						ModOption.toggle("keepObfuscated", "Keep Obfuscated", true).tip("Off: scrambled letters in a pack name are shown plainly.")));
 
 		add("itemcounter", "Item Counter", "Counts chosen items in your inventory.", false,
-				ModOption.multiselect("items", "Items", ItemCounter.CHOICES)
-						.defaults("Arrows,Golden Apples,Ender Pearls"),
+				// Picked in the shared item grid (ItemCounterPickerScreen), not a list
+				// popup, so it has no fixed choice set -- see ItemCounter for the tokens.
+				ModOption.multiselect("items", "Items")
+						.defaults(ItemCounter.DEFAULTS),
 				ModOption.toggle("grouped", "Grouped", false).tip("Merge the counters into one box instead of one box each."),
 				ModOption.dropdown("listMode", "List Mode", "Vertical", "Horizontal"),
 				ModOption.toggle("hideZero", "Hide Items You Don't Have", false),
@@ -355,7 +357,11 @@ public final class Mods {
 		add("combo", "Combo Counter", "Hits landed in a row without being hit.", false,
 				textReadout(
 						ModOption.toggle("reverseOrder", "Reverse Order", false).tip("\"3 Combo\" instead of \"Combo: 3\"."),
-						ModOption.toggle("hideZero", "Hide When No Combo", false)));
+						ModOption.toggle("hideZero", "Hide When No Combo", false),
+				ModOption.toggle("playersOnly", "Players Only", false)
+						.tip("Only hits on players count. Hitting mobs is ignored."),
+				ModOption.slider("resetAfter", "Reset After", 1, 10, 0.5, 2, "%.1fs")
+						.tip("The combo ends if you go this long without landing a hit. Getting hit always ends it.")));
 
 		add("reach", "Reach Display", "Distance of your last hit.", false,
 				textReadout(
@@ -813,7 +819,7 @@ public final class Mods {
 	// Map Zoom goes past Lunar's 1-2x range (0.5-4x) to cover Xaero's zoom levels.
 	// Everything is read live by minimap/MinimapHud.
 	private static void registerLunarBatch4a() {
-		add("minimap", "Minimap", "A live map of the area around you.", false,
+		add("minimap", "Minimap", "A live map of the area around you. Singleplayer only.", false,
 				ModOption.dropdown("shape", "Shape", "Square", "Circle"),
 				ModOption.slider("scale", "Scale", 0.25, 5.0, 0.05, 1.0, "%.2fx"),
 				ModOption.slider("mapWidth", "Map Width", 1, 16, 1, 8, "%.0f").tip("A round map uses Map Width for its size."),
@@ -877,7 +883,7 @@ public final class Mods {
 	// only lists the server-controllable switches of these mods; the text fields,
 	// delays and keys below are the obvious set a Lunar player expects and are
 	// marked "inferred" in the batch notes. Defaults follow Lunar's where it
-	// publishes one (Nick Hider's hide-name/real-name/own-skin ON, Screenshot ON).
+	// publishes one (Nick Hider's hide-name/own-skin ON, Screenshot ON).
 	// Kept in its own method so it merges cleanly with other registry additions.
 	private static void registerLunarBatch3a() {
 		add("autotext", "Auto Text Hotkey", "Send a chat message or command with one key.", false,
@@ -897,27 +903,19 @@ public final class Mods {
 				ModOption.toggle("antiKarma", "Hide Karma Messages", false)
 						.tip("Hide Hypixel's \"+5 Karma!\" lines."));
 
-		add("nickhider", "Nick Hider", "Hide your name and skin, or everyone else's.", false,
+		// Will (2026-10-12): only the "hide it from my own screen" rows. Everything
+		// here changes what YOU see -- other players still see your real name -- so
+		// the nick-workaround rows (suffix, real name, real skin) and the hide-
+		// everyone-else rows were cut as looking like cheats.
+		add("nickhider", "Nick Hider", "Hide your name and skin on your own screen (for streaming).", false,
 				ModOption.toggle("hideName", "Hide Your Name", true)
-						.tip("Show a name you pick wherever your in-game name appears: chat, tab, nametags, scoreboard."),
+						.tip("You see this name instead of yours in chat, tab, nametags and the scoreboard. Only on your screen -- other players still see your real name."),
 				ModOption.text("name", "Your Name", "You").under("hideName"),
-				ModOption.toggle("customSuffix", "Custom Suffix", false)
-						.tip("Add a few characters after your replacement name."),
-				ModOption.text("suffix", "Suffix", "*").under("customSuffix"),
-				ModOption.toggle("hideRealName", "Hide Real Name", true)
-						.tip("Also hide your real account name -- it matters when you're nicked on a server."),
-				ModOption.toggle("hideOthersNames", "Hide Others' Names", false)
-						.tip("Every other player's name is shown as the name below."),
-				ModOption.text("othersName", "Others' Name", "Player").under("hideOthersNames"),
 				ModOption.toggle("hideLobbyId", "Hide Lobby ID", false)
-						.tip("Hide the server ID Hypixel shows next to the date on the scoreboard."),
+						.tip("Hide the server ID Hypixel shows next to the date on the scoreboard, so stream viewers can't find your lobby."),
 				ModOption.header("Skins"),
 				ModOption.toggle("hideOwnSkin", "Hide Your Skin", true)
-						.tip("You wear the default skin instead of your own."),
-				ModOption.toggle("useRealSkin", "Use Real Skin", true)
-						.tip("While you're nicked, see your real skin instead of the nick's. Only with Hide Your Skin off."),
-				ModOption.toggle("hideOthersSkin", "Hide Others' Skins", false)
-						.tip("Every other player wears a default skin."));
+						.tip("You see yourself in the default skin. Only on your screen."));
 
 		// G is unbound in vanilla 1.21.1 and unused elsewhere in Origin.
 		add("quickplay", "Quickplay", "Jump into any Hypixel game from one menu.", false,
@@ -929,24 +927,20 @@ public final class Mods {
 
 		// Will's design (2026-10-11): nothing is uploaded. Lunar's Upload / Tweet
 		// buttons are replaced by local actions -- copy the image, copy the file,
-		// open the folder -- and its Delete button is kept but off by default.
-		add("screenshot", "Screenshot", "A pop-up to copy or find each screenshot.", true,
+		// open the folder. Since 2026-10-12 they're buttons on Minecraft's own
+		// "Saved screenshot" chat line instead of a pop-up (Will: less in the way).
+		add("screenshot", "Screenshot", "Copy or find each screenshot right from chat.", true,
 				ModOption.toggle("copyAutomatically", "Copy Automatically", false)
 						.tip("Put every new screenshot on the clipboard straight away."),
-				ModOption.slider("duration", "Pop-up Duration", 3, 15, 1, 6, "%.0fs")
-						.tip("How long the pop-up stays. It stays while you hover it with chat open."),
-				ModOption.toggle("chatMessage", "Chat Message", true)
-						.tip("Keep Minecraft's own \"Saved screenshot as...\" chat line."),
 				ModOption.keybind("copyKey", "Copy Last Screenshot", -1)
 						.tip("Copies the most recent screenshot's image to the clipboard."),
-				ModOption.header("Buttons"),
+				ModOption.header("Chat Buttons"),
 				ModOption.toggle("copyImageButton", "Copy Image", true)
-						.tip("Copies the picture itself -- paste it straight into Discord."),
+						.tip("Copies the picture itself -- paste it straight into Discord. Open chat (T) to click."),
 				ModOption.toggle("copyFileButton", "Copy File", true)
-						.tip("Copies the file, like Ctrl+C in File Explorer."),
-				ModOption.toggle("openFolderButton", "Open Folder", true),
-				ModOption.toggle("deleteButton", "Delete", false)
-						.tip("Deletes the screenshot you just took."));
+						.tip("Copies the file, like Ctrl+C in File Explorer. Open chat (T) to click."),
+				ModOption.toggle("openFolderButton", "Open Folder", true)
+						.tip("Opens your screenshots folder. Open chat (T) to click."));
 	}
 
 	// ---- Origin originals: FPS Coach (2026-10-12) ----
@@ -955,7 +949,7 @@ public final class Mods {
 	// (mods/FpsCoach, mods/FpsCoachTips, gui/FpsCoachScreen). The mod card opens
 	// the coach itself (OriginModMenuScreen.openMod); its Settings button lands
 	// here. Default ON, like the other quiet background helpers that only speak
-	// up when useful (Screenshot pop-up, Saturation, Menu Blur); it stays silent
+	// up when useful (Screenshot buttons, Saturation, Menu Blur); it stays silent
 	// until FPS is actually low. Category: Gameplay (the menu's default bucket
 	// for tools, next to Quickplay and Screenshot), so no CATS entry is needed.
 	// "Reset Hidden Tips" is a switch that acts as a button: FpsCoach.tick

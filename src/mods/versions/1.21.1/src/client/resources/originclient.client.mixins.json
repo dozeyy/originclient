@@ -69,7 +69,6 @@
 		"NickHiderSkinMixin",
 		"NickHiderLobbyMixin",
 		"ScreenshotKeyMixin",
-		"SodiumOptionsRailMixin",
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin"
