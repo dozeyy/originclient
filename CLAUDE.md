@@ -205,6 +205,11 @@ floating corner controls. In-game menus match this exactly.
   own Menu Blur post chain below 1.20.5; Hurt Cam tilt / Shinypots speed / toast time sliders
   are no-ops below 1.19.4; no Wind Charge counter below 1.21. Mumble Link skipped (Will).
   The Sodium Video-Settings rail stays 1.21.1-only for now. Awaiting Will's in-game pass.
+- **Origin originals (2026-10-12, CI-green, untagged):** Portal Calculator + FPS Coach on 1.21.1
+  only (port after Will's pass); **Settings Sync** in the launcher (Core/Sync + Core/SettingsSync.cs,
+  off by default, Settings → Origin Client card) carries options.txt, originclient*.json, Sodium/Iris
+  settings and servers.dat across every version's instance — three-way per-key merge, era value
+  translations, resource packs + `version` never synced. Will chose these and said "that's it".
 - **Every live version on the 1.21.1 design (released 2026-10-11, launcher-v1.0.40):** all 16
   modules ported to the 1.21.1 title screen, menus, widget skin, mod menu and mod set,
   CI-compiled, awaiting Will's in-game pass. Differences by necessity: no JEI card on
