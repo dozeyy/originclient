@@ -18,7 +18,8 @@ import java.io.File;
  * the game's own screens -- Select World -> "Create New World" -> "Create New
  * World" -- by pressing the buttons by their translated label (the same keys
  * on every version), waits for the world to draw, then captures it with Color
- * Saturation off and on, then the pause menu and the Cosmetics window, and quits.
+ * Saturation off and on, then the pause menu, the Cosmetics window and a demo
+ * party (Party HUD, markers, a ping), and quits.
  *
  * PER-VERSION DELTA (1.21.6-1.21.8): Screenshot.grab is the 3-arg dated-file
  * form here, written asynchronously; OriginDevShots.renameShot moves each file
@@ -104,18 +105,30 @@ final class OriginDevWorld {
 			}
 			if (phase == 5) {
 				grab(mc, dir, "cosmetics_world_1920x1080.png");
+				// Friends & Party: a demo party standing in front of the camera, with a ping
+				mc.setScreen(null);
+				com.origin.client.client.social.SocialDemo.install(true);
 				phase = 6;
-				nextAt = now + 2500;   // the PNG is written (and renamed) off-thread
+				nextAt = now + 2500;
 				return;
 			}
 			if (phase == 6) {
-				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				if (mc.screen instanceof PauseScreen) {
+					mc.setScreen(null);
+				}
+				grab(mc, dir, "party_world_1920x1080.png");
 				phase = 7;
+				nextAt = now + 2500;   // the PNG is written (and renamed) off-thread
+				return;
+			}
+			if (phase == 7) {
+				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				phase = 8;
 				mc.stop();
 			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] world step {} failed", phase, t);
-			phase = 7;
+			phase = 8;
 			mc.stop();
 		}
 	}
