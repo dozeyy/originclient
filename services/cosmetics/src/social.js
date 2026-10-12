@@ -6,12 +6,15 @@
 // Cloudflare's free plan has no WebSockets, so clients poll /v1/sync. That
 // call does all of its reads and writes in ONE D1 batch (one round trip, one
 // consistent snapshot) and writes as little as it can: presence at most every
-// 30 s per (account, client), a party position only when it moved.
+// 30 s per (account, client), a party position only when it moved. Two more
+// free-plan savings: the friends list (+ requests, blocked) is skipped while
+// the client's friendsEtag is current, and `wantState` tells the game when
+// nobody on its server would see its position, so it stops sending it.
 
 import { json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin } from './common.js';
 import {
   L, MSG, CLIENTS, ACTIVITIES, randomHex, sha256Hex, cleanText, normServer, normVersion, normDim, coord, num,
-  allow, areFriends, addChat, partyOut, MEMBER_COLUMNS,
+  allow, areFriends, addChat, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf,
 } from './social-shared.js';
 import { PARTY_ROUTES, leaveParty } from './party.js';
 
@@ -35,6 +38,11 @@ async function signIn(env, body, now) {
   await env.DB.batch([
     env.DB.prepare('INSERT INTO sessions (token_hash, uuid, client, created, expires) VALUES (?, ?, ?, ?, ?)')
       .bind(await sha256Hex(token), who.uuid, client, now, expiresAt),
+    // A renamed player: everyone who lists them (friends, requests) refreshes.
+    env.DB.prepare(`UPDATE names SET friends_rev = friends_rev + 1
+        WHERE EXISTS (SELECT 1 FROM names WHERE uuid = ?1 AND name IS NOT ?2)
+          AND uuid IN (SELECT b FROM friends WHERE a = ?1 UNION SELECT to_uuid FROM friend_requests WHERE from_uuid = ?1
+                       UNION SELECT from_uuid FROM friend_requests WHERE to_uuid = ?1)`).bind(who.uuid, who.name),
     env.DB.prepare(`INSERT INTO names (uuid, name, name_lower, updated) VALUES (?1, ?2, ?3, ?4)
         ON CONFLICT (uuid) DO UPDATE SET name = excluded.name, name_lower = excluded.name_lower, updated = excluded.updated`)
       .bind(who.uuid, who.name, who.name.toLowerCase(), now),
@@ -42,14 +50,14 @@ async function signIn(env, body, now) {
   return json({ token, uuid: who.uuid, name: who.name, expiresAt });
 }
 
-// `Authorization: Bearer <token>` -> { uuid, name, client } or null.
+// `Authorization: Bearer <token>` -> { uuid, name, client, friendsRev } or null.
 async function session(request, env, now) {
   const m = /^Bearer\s+([0-9a-f]{64})$/i.exec(request.headers.get('Authorization') || '');
   if (!m) return null;
-  const row = await env.DB.prepare(`SELECT s.uuid, s.client, n.name FROM sessions s
+  const row = await env.DB.prepare(`SELECT s.uuid, s.client, n.name, n.friends_rev FROM sessions s
       LEFT JOIN names n ON n.uuid = s.uuid WHERE s.token_hash = ? AND s.expires > ?`)
     .bind(await sha256Hex(m[1].toLowerCase()), now).first();
-  return row ? { uuid: row.uuid, client: row.client, name: row.name ?? '' } : null;
+  return row ? { uuid: row.uuid, client: row.client, name: row.name ?? '', friendsRev: Number(row.friends_rev) || 0 } : null;
 }
 
 // ----------------------------------------------------------- players online
@@ -143,13 +151,25 @@ async function sync(env, me, body, now) {
   const state = readPartyState(body.partyState);
   // Where the caller is right now: party positions and pings are only shared
   // between members on the same server.
-  const myServer = state?.server ?? (pres?.activity === 'server' ? pres.server : null);
+  // `stateServer` is where the game WOULD share positions (the LAN world it is
+  // in) while it holds partyState back because wantState was false; without
+  // it a LAN host (activity "singleplayer") could never learn to start again.
+  const myServer = state?.server ?? normServer(body.stateServer) ?? (pres?.activity === 'server' ? pres.server : null);
+  // The friends list, requests and blocked list only change when this
+  // account's friends_rev is bumped (or the 10-minute bucket rolls over).
+  // `me.friendsRev` was read with the session, before anything below, so a
+  // change racing this sync can only make the next sync refetch, never hide.
+  const friendsEtag = `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`;
+  const wantLists = body.friendsEtag !== friendsEtag;
 
   const keys = [], stmts = [];
   const add = (key, stmt) => { keys.push(key); stmts.push(stmt); };
 
   // Writes first, so the reads below already see them.
   if (pres) {
+    // What friends saw before this write (to tell a heartbeat from a change).
+    add('prevPresence', env.DB.prepare('SELECT activity, server, version, at FROM presence WHERE uuid = ? AND client = ?')
+      .bind(me.uuid, pres.client));
     add('presence', env.DB.prepare(`INSERT INTO presence (uuid, client, activity, server, version, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
         ON CONFLICT (uuid, client) DO UPDATE SET activity = excluded.activity, server = excluded.server,
           version = excluded.version, at = excluded.at
@@ -167,20 +187,25 @@ async function sync(env, me, body, now) {
 
   add('maxId', env.DB.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM chat'));
   add('settings', env.DB.prepare('SELECT appear_offline FROM settings WHERE uuid = ?').bind(me.uuid));
-  add('friends', env.DB.prepare(`SELECT f.b AS uuid, n.name, s.appear_offline, s.offline_since,
-        p.client, p.activity, p.server, p.version, p.at
-      FROM friends f LEFT JOIN names n ON n.uuid = f.b LEFT JOIN settings s ON s.uuid = f.b
-      LEFT JOIN presence p ON p.uuid = f.b WHERE f.a = ?`).bind(me.uuid));
-  add('incoming', env.DB.prepare(`SELECT r.from_uuid AS uuid, n.name, r.at FROM friend_requests r
-      LEFT JOIN names n ON n.uuid = r.from_uuid WHERE r.to_uuid = ? ORDER BY r.at`).bind(me.uuid));
-  add('outgoing', env.DB.prepare(`SELECT r.to_uuid AS uuid, n.name, r.at FROM friend_requests r
-      LEFT JOIN names n ON n.uuid = r.to_uuid WHERE r.from_uuid = ? ORDER BY r.at`).bind(me.uuid));
-  add('blocked', env.DB.prepare(`SELECT b.blocked AS uuid, n.name FROM blocks b
-      LEFT JOIN names n ON n.uuid = b.blocked WHERE b.blocker = ? ORDER BY b.at`).bind(me.uuid));
+  if (wantLists) {
+    add('friends', env.DB.prepare(`SELECT f.b AS uuid, n.name, s.appear_offline, s.offline_since,
+          p.client, p.activity, p.server, p.version, p.at
+        FROM friends f LEFT JOIN names n ON n.uuid = f.b LEFT JOIN settings s ON s.uuid = f.b
+        LEFT JOIN presence p ON p.uuid = f.b WHERE f.a = ?`).bind(me.uuid));
+    add('incoming', env.DB.prepare(`SELECT r.from_uuid AS uuid, n.name, r.at FROM friend_requests r
+        LEFT JOIN names n ON n.uuid = r.from_uuid WHERE r.to_uuid = ? ORDER BY r.at`).bind(me.uuid));
+    add('outgoing', env.DB.prepare(`SELECT r.to_uuid AS uuid, n.name, r.at FROM friend_requests r
+        LEFT JOIN names n ON n.uuid = r.to_uuid WHERE r.from_uuid = ? ORDER BY r.at`).bind(me.uuid));
+    add('blocked', env.DB.prepare(`SELECT b.blocked AS uuid, n.name FROM blocks b
+        LEFT JOIN names n ON n.uuid = b.blocked WHERE b.blocker = ? ORDER BY b.at`).bind(me.uuid));
+  }
   add('dms', dmQuery(env, me.uuid, since, first ? 'DESC' : 'ASC', first ? L.DM_HISTORY : L.DM_PAGE + 1));
   add('party', env.DB.prepare(`SELECT p.id, p.leader FROM party_members me JOIN parties p ON p.id = me.party_id
       WHERE me.uuid = ?`).bind(me.uuid));
-  add('members', env.DB.prepare(`SELECT ${MEMBER_COLUMNS} FROM party_members me
+  add('members', env.DB.prepare(`SELECT ${MEMBER_COLUMNS},
+        (SELECT server FROM presence p WHERE p.uuid = m.uuid AND p.client = 'game') AS game_server,
+        (SELECT at FROM presence p WHERE p.uuid = m.uuid AND p.client = 'game') AS game_at
+      FROM party_members me
       JOIN party_members m ON m.party_id = me.party_id
       LEFT JOIN names n ON n.uuid = m.uuid LEFT JOIN settings s ON s.uuid = m.uuid
       WHERE me.uuid = ? ORDER BY m.joined, m.uuid`).bind(me.uuid));
@@ -197,8 +222,19 @@ async function sync(env, me, body, now) {
       JOIN warps w ON w.party_id = me.party_id LEFT JOIN names n ON n.uuid = w.from_uuid
       WHERE me.uuid = ?1 AND w.at > ?2 AND w.from_uuid != ?1`).bind(me.uuid, now - L.WARP_TTL_MS));
 
-  const res = {};
-  (await env.DB.batch(stmts)).forEach((r, i) => { res[keys[i]] = r.results || []; });
+  const res = {}, meta = {};
+  (await env.DB.batch(stmts)).forEach((r, i) => { res[keys[i]] = r.results || []; meta[keys[i]] = r.meta || {}; });
+
+  // A presence write friends can see (came online, changed server/activity/
+  // version) refreshes their friends lists. Heartbeats don't; going offline
+  // is noticed by the cron (presenceSweep), since no write happens then.
+  if (pres && meta.presence.changes) {
+    const prev = res.prevPresence[0];
+    if (!prev || prev.at <= now - L.ONLINE_MS || prev.activity !== pres.activity
+        || prev.server !== pres.server || prev.version !== pres.version) {
+      await bumpFriendsOf(env, me.uuid).run();
+    }
+  }
 
   // ---- chat + cursor. The cursor is the newest chat id this answer covers.
   // First sync: the latest history, cursor = newest id overall. Later syncs:
@@ -218,7 +254,7 @@ async function sync(env, me, body, now) {
 
   // ---- friends: full list, online first, then by name.
   const byUuid = new Map();
-  for (const r of res.friends) {
+  for (const r of res.friends || []) {
     let f = byUuid.get(r.uuid);
     if (!f) byUuid.set(r.uuid, f = { uuid: r.uuid, name: r.name ?? '', appearOffline: !!r.appear_offline, offlineSince: r.offline_since, rows: [] });
     if (r.client) f.rows.push(r);
@@ -228,12 +264,23 @@ async function sync(env, me, body, now) {
 
   const party = res.party[0];
   const warp = res.warp[0];
-  return json({
-    cursor,
-    me: { uuid: me.uuid, name: me.name, appearOffline: !!res.settings[0]?.appear_offline },
+  // wantState: is anyone else in the party on my server right now (by their
+  // game presence or a recent position)? If not, my position helps nobody and
+  // the game stops sending partyState until this turns true again.
+  const wantState = !!party && !!myServer && res.members.some(m => m.uuid !== me.uuid && (
+    (m.game_server === myServer && m.game_at > now - L.ONLINE_MS)
+    || (m.state_server === myServer && m.state_at > now - L.STATE_FRESH_MS)));
+  const lists = wantLists ? {
     friends,
     requests: { incoming: res.incoming, outgoing: res.outgoing },
     blocked: res.blocked,
+  } : {};
+  return json({
+    cursor,
+    me: { uuid: me.uuid, name: me.name, appearOffline: !!res.settings[0]?.appear_offline },
+    friendsEtag,
+    ...lists,
+    wantState,
     messages: dms.map(m => ({ id: m.id, from: m.from_uuid, to: m.to_uuid, text: m.text, at: m.at })),
     party: party ? partyOut(party.id, party.leader, res.members, now, myServer) : null,
     partyMessages: pcs.map(m => ({ id: m.id, from: m.from_uuid, name: m.name ?? '', text: m.text, at: m.at })),
@@ -257,6 +304,7 @@ async function settings(env, me, body, now) {
         offline_since = CASE WHEN excluded.appear_offline = 1
           THEN COALESCE(CASE WHEN settings.appear_offline = 1 THEN settings.offline_since END, excluded.at) END,
         at = excluded.at`).bind(me.uuid, on, now).run();
+  await bumpFriendsOf(env, me.uuid).run();
   return json({ ok: true, appearOffline: !!on });
 }
 
@@ -280,10 +328,12 @@ async function lookupName(env, name) {
 }
 
 // Friendship both ways; any pending request either way is used up.
+// Every friend action ends with bumpRev(both) so both lists refresh.
 const befriend = (env, a, b, now) => env.DB.batch([
   env.DB.prepare('INSERT OR IGNORE INTO friends (a, b, at) VALUES (?, ?, ?)').bind(a, b, now),
   env.DB.prepare('INSERT OR IGNORE INTO friends (a, b, at) VALUES (?, ?, ?)').bind(b, a, now),
   env.DB.prepare('DELETE FROM friend_requests WHERE (from_uuid = ?1 AND to_uuid = ?2) OR (from_uuid = ?2 AND to_uuid = ?1)').bind(a, b),
+  bumpRev(env, a, b),
 ]);
 
 async function friendRequest(env, me, body, now) {
@@ -322,7 +372,10 @@ async function friendRequest(env, me, body, now) {
   }
   if (!counts.mine) {
     if (counts.outgoing >= L.OUTGOING_MAX) return fail(400, 'You have too many friend requests waiting. Cancel some first.');
-    await env.DB.prepare('INSERT OR IGNORE INTO friend_requests (from_uuid, to_uuid, at) VALUES (?, ?, ?)').bind(me.uuid, them, now).run();
+    await env.DB.batch([
+      env.DB.prepare('INSERT OR IGNORE INTO friend_requests (from_uuid, to_uuid, at) VALUES (?, ?, ?)').bind(me.uuid, them, now),
+      bumpRev(env, me.uuid, them),
+    ]);
   }
   return json({ ok: true, uuid: them, name: found.name, friends: false });
 }
@@ -333,7 +386,10 @@ async function friendRespond(env, me, body, now) {
   const req = await env.DB.prepare('SELECT 1 AS x FROM friend_requests WHERE from_uuid = ? AND to_uuid = ?').bind(them, me.uuid).first();
   if (!req) return fail(404, "That friend request isn't there any more.");
   if (!body.accept) {
-    await env.DB.prepare('DELETE FROM friend_requests WHERE from_uuid = ? AND to_uuid = ?').bind(them, me.uuid).run();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM friend_requests WHERE from_uuid = ? AND to_uuid = ?').bind(them, me.uuid),
+      bumpRev(env, me.uuid, them),
+    ]);
     return json({ ok: true, friends: false });
   }
   const count = await env.DB.prepare('SELECT COUNT(*) AS n FROM friends WHERE a = ?').bind(me.uuid).first('n');
@@ -349,6 +405,7 @@ async function friendRemove(env, me, body) {
   await env.DB.batch([
     env.DB.prepare('DELETE FROM friends WHERE (a = ?1 AND b = ?2) OR (a = ?2 AND b = ?1)').bind(me.uuid, them),
     env.DB.prepare('DELETE FROM friend_requests WHERE (from_uuid = ?1 AND to_uuid = ?2) OR (from_uuid = ?2 AND to_uuid = ?1)').bind(me.uuid, them),
+    bumpRev(env, me.uuid, them),
   ]);
   return json({ ok: true });
 }
@@ -362,6 +419,7 @@ async function friendBlock(env, me, body, now) {
     env.DB.prepare('DELETE FROM friends WHERE (a = ?1 AND b = ?2) OR (a = ?2 AND b = ?1)').bind(me.uuid, them),
     env.DB.prepare('DELETE FROM friend_requests WHERE (from_uuid = ?1 AND to_uuid = ?2) OR (from_uuid = ?2 AND to_uuid = ?1)').bind(me.uuid, them),
     env.DB.prepare('DELETE FROM party_invites WHERE (from_uuid = ?1 AND to_uuid = ?2) OR (from_uuid = ?2 AND to_uuid = ?1)').bind(me.uuid, them),
+    bumpRev(env, me.uuid, them),
   ]);
   return json({ ok: true });
 }
@@ -369,7 +427,10 @@ async function friendBlock(env, me, body, now) {
 async function friendUnblock(env, me, body) {
   const them = normUuid(body.uuid);
   if (!them) return fail(400, 'Pick a player to unblock.');
-  await env.DB.prepare('DELETE FROM blocks WHERE blocker = ? AND blocked = ?').bind(me.uuid, them).run();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM blocks WHERE blocker = ? AND blocked = ?').bind(me.uuid, them),
+    bumpRev(env, me.uuid),
+  ]);
   return json({ ok: true });
 }
 
@@ -413,6 +474,20 @@ export async function handleSocial(request, env, url, now = Date.now()) {
   const me = await session(request, env, now);
   if (!me) return fail(401, 'Your Origin sign-in ran out. Signing you in again...');
   return ROUTES[path](env, me, body, now);
+}
+
+// ------------------------------------------------------------ offline sweep
+// Run by the cron every minute with its scheduled minute `t`. Going offline
+// is the one friends-list change with no write behind it (the client just
+// stops syncing), so this finds presence rows that crossed the 90 s line in
+// the last minute, (t - 150 s, t - 90 s], and bumps their friends' etags.
+// Consecutive minutes tile exactly; a skipped run is caught by the 10-minute
+// etag refresh. It reads only the rows in that window (presence_at index).
+export async function presenceSweep(env, t = Date.now()) {
+  const to = t - L.ONLINE_MS;
+  return env.DB.prepare(`UPDATE names SET friends_rev = friends_rev + 1 WHERE uuid IN
+      (SELECT f.b FROM friends f WHERE f.a IN (SELECT uuid FROM presence WHERE at > ?1 AND at <= ?2))`)
+    .bind(to - L.SWEEP_MS, to).run();
 }
 
 // ------------------------------------------------------------------ cleanup

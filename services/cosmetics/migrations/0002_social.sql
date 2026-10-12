@@ -16,10 +16,14 @@ CREATE INDEX IF NOT EXISTS sessions_expires ON sessions (expires);
 -- Everyone who ever signed in to Origin social, with their current name.
 -- "Not on Origin" = no row here.
 CREATE TABLE IF NOT EXISTS names (
-  uuid       TEXT PRIMARY KEY,
-  name       TEXT NOT NULL,
-  name_lower TEXT NOT NULL,           -- fallback lookup when Mojang's API is down
-  updated    INTEGER NOT NULL
+  uuid        TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  name_lower  TEXT NOT NULL,          -- fallback lookup when Mojang's API is down
+  updated     INTEGER NOT NULL,
+  -- Bumped whenever what this account's friends list shows changes (a friend
+  -- comes online / goes offline / changes server, a request, a block...).
+  -- It is the friendsEtag: an unchanged list costs a sync no reads at all.
+  friends_rev INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS names_lower ON names (name_lower);
 

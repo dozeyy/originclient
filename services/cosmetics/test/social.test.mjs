@@ -5,7 +5,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { handle, scheduled } from '../src/index.js';
-import { socialCleanup } from '../src/social.js';
+import { socialCleanup, presenceSweep } from '../src/social.js';
 import { d1 } from './d1.mjs';
 
 // ------------------------------------------------------------- the harness
@@ -583,4 +583,144 @@ test('cron: social cleanup runs every 10th minute next to delivery, never instea
   await scheduled({ scheduledTime: 600_000 * 5 }, env, clock);                // minute 500
   assert.equal(rows('SELECT * FROM sessions').length, 0);
   assert.equal(calls.filter(c => c.includes('tebex')).length, 0);             // delivery still obeyed its own wait
+});
+
+// ------------------------------------------------- free-plan savings (etag)
+test('friendsEtag: an unchanged friends list is skipped; every kind of change brings it back', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex'), sam = await signIn('Sam');
+  await befriend(will, alex);
+  const lists = r => ['friends', 'requests', 'blocked'].filter(k => k in r);
+
+  // Old clients (no etag) always get everything.
+  let r = await sync(will);
+  assert.deepEqual(lists(r), ['friends', 'requests', 'blocked']);
+  assert.equal(typeof r.friendsEtag, 'string');
+  r = await sync(will);
+  assert.deepEqual(lists(r), ['friends', 'requests', 'blocked']);
+
+  let etag = r.friendsEtag;
+  const poll = async (body = {}) => { const x = await sync(will, { friendsEtag: etag, ...body }); const got = lists(x).length > 0; etag = x.friendsEtag; return { got, x }; };
+  assert.equal((await poll()).got, false);                          // nothing changed
+  assert.equal((await poll(onServer('a.net'))).got, false);         // my own presence isn't in my list
+
+  // Alex comes online -> refresh; her 30 s heartbeat -> no refresh; she changes server -> refresh.
+  await sync(alex, onServer('b.net'));
+  let p = await poll();
+  assert.equal(p.got, true);
+  assert.equal(p.x.friends[0].server, 'b.net');
+  tick(30_000);
+  await sync(alex, onServer('b.net'));
+  assert.equal((await poll()).got, false);
+  tick(6_000);
+  await sync(alex, onServer('c.net'));
+  assert.equal((await poll()).x.friends[0].server, 'c.net');
+
+  // Appear offline -> refresh.
+  await call(alex.token, '/v1/settings', { appearOffline: true });
+  p = await poll();
+  assert.equal(p.x.friends[0].online, false);
+  await call(alex.token, '/v1/settings', { appearOffline: false });
+  assert.equal((await poll()).got, true);
+
+  // Requests in, decline, block/unblock, remove -> refresh each time.
+  await call(sam.token, '/v1/friends/request', { name: 'Will' });
+  p = await poll();
+  assert.deepEqual(p.x.requests.incoming.map(q => q.name), ['Sam']);
+  assert.equal((await poll()).got, false);
+  await call(will.token, '/v1/friends/respond', { uuid: sam.uuid, accept: false });
+  assert.equal((await poll()).x.requests.incoming.length, 0);
+  await call(will.token, '/v1/friends/block', { uuid: sam.uuid });
+  assert.deepEqual((await poll()).x.blocked.map(b => b.name), ['Sam']);
+  await call(will.token, '/v1/friends/unblock', { uuid: sam.uuid });
+  assert.equal((await poll()).x.blocked.length, 0);
+  await call(alex.token, '/v1/friends/remove', { uuid: will.uuid });
+  assert.equal((await poll()).x.friends.length, 0);
+  assert.equal((await poll()).got, false);
+
+  // The 10-minute safety refresh.
+  tick(10 * 60_000);
+  assert.equal((await poll()).got, true);
+});
+
+test('friendsEtag: a friend going offline (no write at all) is caught by the cron sweep', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex');
+  await befriend(will, alex);
+  step = 0;
+  clock = Math.ceil(clock / 600_000) * 600_000 + 10_000;             // just after a minute (and 10-min) boundary
+  await sync(alex, onServer('b.net'));
+  const seenAt = clock;
+  let r = await sync(will);
+  assert.equal(r.friends[0].online, true);
+  const etag = r.friendsEtag;
+
+  // Alex quits. The minute-sweep whose window holds seenAt + 90 s bumps Will.
+  const sweepMinute = Math.ceil((seenAt + 90_000) / 60_000) * 60_000;
+  await presenceSweep(env, sweepMinute - 60_000);                     // window ends before she went stale
+  clock = sweepMinute - 60_000 + 1;
+  assert.equal('friends' in (await sync(will, { friendsEtag: etag })), false);
+  await presenceSweep(env, sweepMinute);
+  clock = sweepMinute + 1;
+  r = await sync(will, { friendsEtag: etag });
+  assert.equal(r.friends[0].online, false);
+
+  // The cron runs the sweep every minute.
+  env.DB.raw.prepare("INSERT INTO meta (k, v) VALUES ('tebex_next_check', ?)").run(String(clock + 3600_000));
+  const before = rows(`SELECT friends_rev FROM names WHERE uuid = '${will.uuid}'`)[0].friends_rev;
+  await sync(alex, onServer('b.net'));                                // back online...
+  const back = clock;
+  await scheduled({ scheduledTime: Math.ceil((back + 90_000) / 60_000) * 60_000 }, env, clock);
+  // +1 for coming back online, +1 for the sweep seeing her go stale again.
+  assert.equal(rows(`SELECT friends_rev FROM names WHERE uuid = '${will.uuid}'`)[0].friends_rev, before + 2);
+});
+
+test('wantState: true only when another online party member is on my server', async () => {
+  const will = await signIn('Will'), alex = await signIn('Alex');
+  await befriend(will, alex);
+  assert.equal((await sync(will, onServer('a.net'))).wantState, false);            // no party
+  const pid = (await call(will.token, '/v1/party/create', {})).body.party.id;
+  assert.equal((await sync(will, onServer('a.net'))).wantState, false);            // alone
+  await call(will.token, '/v1/party/invite', { uuid: alex.uuid });
+  await call(alex.token, '/v1/party/accept', { partyId: pid });
+  assert.equal((await sync(will, onServer('a.net'))).wantState, false);            // Alex not in game
+
+  await sync(alex, onServer('b.net'));
+  assert.equal((await sync(will, onServer('a.net'))).wantState, false);            // other server
+  tick(6_000);                                                        // past the 5 s change throttle
+  await sync(alex, onServer('A.net:25565'));
+  assert.equal((await sync(will, onServer('a.net'))).wantState, true);             // same (normalised) server
+  assert.equal((await sync(will, { presence: { client: 'launcher', activity: 'menu' } })).wantState, false);
+
+  // LAN: the host plays "singleplayer" and holds positions back; stateServer
+  // says where it would share them, so it learns when a member joined.
+  tick(6_000);
+  await sync(alex, onServer('192.168.1.5:41000'));
+  const host = { presence: { client: 'game', activity: 'singleplayer', version: '1.21.1' } };
+  assert.equal((await sync(will, host)).wantState, false);
+  assert.equal((await sync(will, { ...host, stateServer: '192.168.1.5:41000' })).wantState, true);
+  // Sent anyway while wantState is false: still accepted and stored.
+  await sync(will, { ...host, partyState: at('lan.only') });
+  assert.equal(rows(`SELECT state_server FROM party_members WHERE uuid = '${will.uuid}'`)[0].state_server, 'lan.only');
+
+  // Alex quits: 90 s later nobody wants Will's position.
+  tick(91_000);
+  assert.equal((await sync(will, { ...host, stateServer: '192.168.1.5:41000' })).wantState, false);
+});
+
+test('party state: a moving position is rewritten at most every 5 s, a still one every 30 s', async () => {
+  const will = await signIn('Will');
+  await call(will.token, '/v1/party/create', {});
+  step = 0;
+  const stored = () => rows(`SELECT state, state_at FROM party_members WHERE uuid = '${will.uuid}'`)[0];
+  await sync(will, { partyState: at('a.net', 1) });
+  const t0 = stored().state_at;
+  tick(4_000); await sync(will, { partyState: at('a.net', 2) });
+  assert.equal(stored().state_at, t0);                                // moved, but < 5 s
+  tick(1_000); await sync(will, { partyState: at('a.net', 3) });
+  assert.equal(JSON.parse(stored().state).x, 3);                      // 5 s: written
+  tick(20_000); await sync(will, { partyState: at('a.net', 3) });
+  assert.equal(stored().state_at, t0 + 5_000);                        // standing still
+  tick(10_000); await sync(will, { partyState: at('a.net', 3) });
+  assert.equal(stored().state_at, t0 + 35_000);                       // 30 s heartbeat
+  tick(1_000); await sync(will, { partyState: at('b.net', 3) });
+  assert.equal(stored().state_at, t0 + 36_000);                       // new server: at once
 });

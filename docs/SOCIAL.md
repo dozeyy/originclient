@@ -45,16 +45,24 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
 ## The one polling call
     POST /v1/sync
     { since: <cursor or 0>,
+      friendsEtag: "<last friendsEtag>" | absent,         // optional (2026-10-12): skip an unchanged friends list
       presence: { client: "game"|"launcher",
                   activity: "menu" | "singleplayer" | "server",
                   server: "host[:port]" | null,          // only when activity == "server"
                   version: "1.21.1" },                   // Minecraft version being played / selected
-      partyState: null | { server, dim: "minecraft:overworld", x, y, z, health, maxHealth } }  // game only, only in a party
+      partyState: null | { server, dim: "minecraft:overworld", x, y, z, health, maxHealth },  // game only, only in a party,
+                                                         // only while the last answer said wantState: true
+      stateServer: "host[:port]" | absent }              // optional: where partyState WOULD be shared while held back
     200 {
       cursor,                                            // pass back as `since`
       me: { uuid, name, appearOffline },
+      friendsEtag: "<string>",                           // always; send back as `friendsEtag`
       friends: [ { uuid, name, online, client, activity, server, version, lastSeen } ],   // full list, online first
       requests: { incoming: [ { uuid, name, at } ], outgoing: [ { uuid, name, at } ] },
+      blocked: [ { uuid, name } ],
+                                   // friends, requests and blocked are OMITTED when the sent friendsEtag is current:
+                                   // keep the copy you have. Clients that never send friendsEtag always get them.
+      wantState: true | false,     // true only when you're in a party and another online member is on your server
       messages: [ { id, from, to, text, at } ],          // DMs to/from me newer than `since`
       party: null | { id, leader, members: [ { uuid, name, online, state, stateAt } ] },   // state as partyState
       partyMessages: [ { id, from, name, text, at } ],   // newer than `since`
@@ -68,6 +76,13 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
 - `server` is only shown to friends (never to strangers), and `activity/server` are null while appearOffline.
 - Party member `state` is returned only to members of that party, and only for members whose `partyState.server`
   equals the caller's own current server (positions are meaningless across servers).
+- `wantState` (free-plan saving): the game sends `partyState` only while the previous sync answered
+  `wantState: true`; while it is false it sends `stateServer` instead (the same normalised key it would put in
+  `partyState.server`, e.g. the LAN world's address) so the service can tell it when someone joined. Every party
+  member must use the identical key for the same world. A `partyState` sent anyway is still accepted.
+- `friendsEtag` (free-plan saving): opaque string; it changes whenever anything in `friends`, `requests` or
+  `blocked` changes, and at least every 10 minutes. With it, a friend going offline shows after 90–150 s (the
+  service notices on its once-a-minute sweep) instead of exactly 90 s.
 
 ## Actions (all POST, all Bearer, JSON body, 200 → { ok: true, ... } unless noted)
     /v1/settings              { appearOffline: bool }
@@ -91,14 +106,48 @@ Errors: `{ error: "<player-facing sentence>" }` with 400/401/403/404/429. Client
 
 Retention: DMs and party chat kept 30 days, pings 60 s, joins/sessions pruned by the existing cron.
 
-## Request budget (Cloudflare free: 100,000 Worker requests/day, D1 100,000 row writes/day)
+## Request budget (Cloudflare free plan, per day: 100,000 Worker requests, D1 5,000,000 rows read, 100,000 rows written)
 Clients poll `/v1/sync` adaptively:
 - every 4 s while: a chat/friends window is open, the player is in a party, or a DM/invite arrived < 2 min ago;
 - every 30 s otherwise (game and launcher alike); never while the game window has been unfocused > 5 min
   (then 60 s).
-At ~30 s idle that is ~2,900 requests per online player per day; ~35 players online all day fill the free plan.
-When the count grows, the $5 Workers Paid plan (10 M requests/month) removes the ceiling with no code change.
-Writes: presence is written at most once per 30 s per (account, client) even if synced faster.
+Writes: presence is written at most once per 30 s per (account, client) even if synced faster; a moving party
+position at most every 5 s (only in LAN worlds, see Fair-play guard).
+
+Measured cost per call (D1's own rows_read / rows_written on a local D1, 2026-10-12; D1 counts each index entry
+touched, so a write is usually 2+ rows):
+
+| call | rows read | rows written |
+|---|---|---|
+| sync, friendsEtag current, not in a party | 12 | 0 |
+| ...plus the 30 s presence heartbeat | +0 | +2 |
+| sync with the full list (no/old etag), 20 friends | ~80 | 0 |
+| a visible presence change (online, server switch): every friend's etag bumped | ~5 per friend | 1 per friend |
+| sync in a party of 4 | ~46 | 0 |
+| ...plus a moved position | +1 | +1 |
+| DM / party chat line | 8 / 12 | 9 |
+| /v1/stats/online (recount once a minute, else cached) | ~19 + online players / 1 | 2 / 0 |
+| cron each minute (offline sweep) | ~4 + 5 per friend of anyone who went offline | same per friend |
+
+**N idle players, ~20 friends each, one client open all day (30 s polls + the launcher's 5-minute count):**
+- requests: 2,880 syncs + 288 counts = ~3,170 per player → **~31 players** fill the free plan;
+- rows read: 2,880 × 12 + full-list refreshes (every 10 min: 144 × 80; friends' changes: ~80 × 80) ≈ 53,000
+  per player → ~94 players (it was ~230,000 per player, ~21 players, before friendsEtag);
+- rows written: a heartbeat on nearly every 30 s poll, 2,880 × 2 ≈ 5,800 per player → **~17 players**. This is
+  the tightest free limit for idle players. Halving it needs a contract change (e.g. heartbeat every 60 s with
+  "online" = seen in the last 150 s) or the paid plan.
+
+**A party of 4 in one LAN world, moving all day (everyone polls every 4 s while in a party):**
+- requests: 4 × 21,600 = **86,400** — the whole free plan on its own;
+- rows read: 4 × 21,600 × ~46 ≈ **4.0 M** (80% of the free plan);
+- rows written: positions 4 × 17,280 (every 5 s) ≈ 69,000 + heartbeats 4 × 5,800 ≈ 23,000 → **~92,000** (92%).
+- The same party on ordinary multiplayer servers (Will's rule: positions never leave the game there, so
+  `partyState` is null and wantState stays false): position writes ≈ 0, total ≈ 23,000 rows written, but still
+  ~86,400 requests and ~4 M rows read, because of the 4 s party polling. Polling every 4 s only while a chat
+  window is open or `wantState` is true (15–30 s otherwise in a party) would cut that 4–7×.
+
+So the free plan carries a handful of players, not a community: the $5 Workers Paid plan (10 M requests and
+50 M rows written per month, 25 B rows read) removes every ceiling above with no code change.
 
 ## Clients
 ### Launcher (src/OriginLauncher.App)
@@ -162,14 +211,17 @@ backwards in id order. A new party member never sees party chat from before they
 `party`, `pings`, `partyInvites` and `warp` are full current state on every sync, not deltas.
 
 **Sync extras.** `blocked: [ { uuid, name } ]` (players you blocked, for an Unblock list) and `warp.name` (the leader's
-name) are added. `presence` and `partyState` may be null/omitted (pure poll, no write). A malformed `partyState` or
+name) are added. `friendsEtag` is a string like `"12.2933568"`: compare it only for equality, never parse it. When
+it matches, the `friends`, `requests` and `blocked` keys are absent (not empty): keep your copy. `wantState` is
+always a boolean; the caller's server for it is `partyState.server`, else `stateServer`, else `presence.server`. `presence` and `partyState` may be null/omitted (pure poll, no write). A malformed `partyState` or
 presence field is ignored, never an error. The caller's own server (for party positions and pings) is
-`partyState.server`, else `presence.server` when `activity == "server"`; the launcher therefore never gets positions.
+`partyState.server`, else `stateServer`, else `presence.server` when `activity == "server"`; the launcher therefore
+never gets positions.
 Party member `state` is also dropped once it is older than 90 s. Pings are filtered the same way as positions: only
 pings on the caller's current server are returned.
 
 **Writes.** Presence is rewritten every 30 s per (account, client), or after 5 s when activity/server/version
-changed. A party position is rewritten after 3 s when it changed, at once when the server changed, else every 30 s.
+changed. A party position is rewritten after 5 s when it changed, at once when the server changed, else every 30 s.
 
 **Actions.** Responses: `/v1/friends/request` → `{ ok, uuid, name, friends }` (`friends: true` = an opposite request
 was waiting and you are now friends; repeating a pending request is a harmless 200). `/v1/friends/respond` →

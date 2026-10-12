@@ -9,10 +9,12 @@ export const L = {
   ONLINE_MS: 90 * SECOND,          // "online" = synced in the last 90 s
   STATS_WINDOW_MS: 5 * MINUTE,     // players-online counts the last 5 minutes
   STATS_CACHE_MS: MINUTE,          // ...recounted at most once a minute
+  ETAG_REFRESH_MS: 10 * MINUTE,    // friendsEtag also changes every 10 minutes (safety net)
+  SWEEP_MS: MINUTE,                // the cron's "who just went offline" window (it runs every minute)
   PRESENCE_WRITE_MS: 30 * SECOND,  // presence row rewritten at most every 30 s...
   PRESENCE_CHANGE_MS: 5 * SECOND,  // ...or after 5 s when server/activity/version changed
   STATE_WRITE_MS: 30 * SECOND,     // party position rewritten every 30 s when standing still...
-  STATE_CHANGE_MS: 3 * SECOND,     // ...or after 3 s when it changed
+  STATE_CHANGE_MS: 5 * SECOND,     // ...or after 5 s when it changed
   STATE_FRESH_MS: 90 * SECOND,     // older positions are not shown
   TEXT_MAX: 256,                   // DM / party chat length (UTF-16 units, like Java/C# strings)
   LABEL_MAX: 32,                   // ping label length
@@ -99,6 +101,14 @@ export async function allow(env, uuid, kind, now) {
     .bind(uuid, kind, now).run();
   return !!r.meta?.changes;
 }
+
+// friendsEtag bumps (see names.friends_rev). Statements, so callers can put
+// them in the same batch as the change itself.
+export const bumpRev = (env, ...uuids) => env.DB.prepare(
+  `UPDATE names SET friends_rev = friends_rev + 1 WHERE uuid IN (${uuids.map(() => '?').join(', ')})`).bind(...uuids);
+// Everyone whose friends list shows `uuid` (its friends).
+export const bumpFriendsOf = (env, uuid) => env.DB.prepare(
+  'UPDATE names SET friends_rev = friends_rev + 1 WHERE uuid IN (SELECT b FROM friends WHERE a = ?)').bind(uuid);
 
 export async function areFriends(env, a, b) {
   return !!(await env.DB.prepare('SELECT 1 AS x FROM friends WHERE a = ? AND b = ?').bind(a, b).first());

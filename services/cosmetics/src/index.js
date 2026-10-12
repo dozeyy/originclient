@@ -22,7 +22,7 @@
 //   TEBEX_SECRET  the "Origin Cosmetics" game server's secret key
 
 import { CORS, json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin } from './common.js';
-import { handleSocial, socialCleanup } from './social.js';
+import { handleSocial, socialCleanup, presenceSweep } from './social.js';
 
 export { normUuid };
 
@@ -170,14 +170,16 @@ export async function handle(request, env) {
   }
 }
 
-// Cron, every minute. Delivery runs every time (it waits for Tebex itself);
-// social cleanup every 10th minute, which is plenty since every read already
-// ignores expired rows. They fail independently: a Tebex outage never stops
-// the cleanup, and the other way round.
+// Cron, every minute. Delivery runs every time (it waits for Tebex itself),
+// so does the friends "who went offline" sweep; social cleanup every 10th
+// minute, which is plenty since every read already ignores expired rows.
+// They fail independently: a Tebex outage never stops the social jobs.
 export async function scheduled(event, env, now = Date.now()) {
-  const minute = Math.floor((event?.scheduledTime ?? now) / 60_000);
+  const t = event?.scheduledTime ?? now;
+  const minute = Math.floor(t / 60_000);
   await Promise.all([
     collect(env, now).catch(err => console.error('origin-cosmetics: delivery failed', err)),
+    presenceSweep(env, minute * 60_000).catch(err => console.error('origin-cosmetics: offline sweep failed', err)),
     minute % 10 === 0 ? socialCleanup(env, now).catch(err => console.error('origin-cosmetics: social cleanup failed', err)) : null,
   ]);
 }
