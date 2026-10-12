@@ -12,26 +12,37 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Origin background (charcoal + rings + grain) behind every out-of-world menu,
-// plus the website's mouse-follow spotlight, so the whole menu tree reads as one
-// interface with the main menu.
+// Origin background (charcoal + rings + grain) behind every out-of-world
+// menu -- options, world select, server list, create world, etc. -- so the
+// whole menu tree reads as one interface with the main menu. The website's
+// mouse-follow spotlight is drawn on EVERY menu (Will), right after the
+// backdrop so it sits over the background but under the widgets that render
+// afterward.
 //
-// 26.2 retained-mode GUI: the immediate-mode hooks are gone, so this retargets to
-// the extraction methods (all javap-confirmed on the 26.2 Screen):
-//  - renderBackground(GuiGraphics,...)        -> extractBackground(GuiGraphicsExtractor,...)
-//  - renderMenuBackgroundTexture(...)         -> extractMenuBackgroundTexture(GuiGraphicsExtractor,...)
-// extractBackground is background-only (widgets extract separately), so cancelling
-// it replaces just the backdrop, exactly as the old renderBackground cancel did.
+// Background replacement is gated on Minecraft.level == null: in-game screens
+// (pause, in-game options) keep vanilla's blurred-world backdrop -- replacing
+// that would hide the world the player is standing in. The cursor glow is NOT
+// gated: out-of-world it draws inside the cancel path, in-world via the TAIL
+// hook over vanilla's blur (TAIL never runs when HEAD cancelled, so the two
+// paths are exclusive and the glow draws exactly once either way).
 //
-// Background replacement is gated on Minecraft.level == null: in-game screens keep
-// vanilla's blurred-world backdrop. The cursor glow is not gated (out-of-world in
-// the cancel path, in-world at TAIL — mutually exclusive).
+// Two hooks (both javap-confirmed against the mapped 1.21.1 Screen):
+//  - renderBackground(GuiGraphicsExtractor,int,int,float): the screen-level backdrop
+//    (panorama + blur + menu texture). Cancelled and replaced wholesale.
+//    TitleScreen overrides this method, so its own mixin path (which already
+//    draws the glow) is unaffected -- no double glow there.
+//  - renderMenuBackgroundTexture(...): the static helper option/selection
+//    LISTS use to tile their darker strip behind rows. Cancelled so lists sit
+//    transparently on the Origin background instead of vanilla's texture.
 // priority 2000: Origin's shared-screen background wins over other UI mods.
 @Mixin(value = Screen.class, priority = 2000)
 public class ScreenBackgroundMixin {
 
-	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackdrop(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		// Cancel vanilla's backdrop only when the Origin one actually drew
+		// (fail-soft contract): a failed draw releases the vanilla backdrop
+		// instead of leaving the screen black.
 		if (Minecraft.getInstance().level == null
 				&& OriginScreenRenderer.renderTitleBackground(guiGraphics)) {
 			OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, originclient$hoveringClickable());
@@ -41,29 +52,34 @@ public class ScreenBackgroundMixin {
 
 	// In-world menus (pause, in-game options): vanilla's blurred-world backdrop
 	// stays, the spotlight draws on top of it.
-	@Inject(method = "extractBackground", at = @At("TAIL"))
+	@Inject(method = "renderBackground", at = @At("TAIL"))
 	private void originclient$inWorldGlow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, originclient$hoveringClickable());
 	}
 
-	@Inject(method = "extractMenuBackgroundTexture", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
+	private void originclient$suppressTitlePanorama(GuiGraphicsExtractor guiGraphics, float partialTick, CallbackInfo ci) {
+		// 1.21.6+: renderPanorama moved TitleScreen -> Screen, so TitleScreenMixin
+		// can no longer bind it. Suppress it ONLY on the title screen (the sole
+		// screen with a panorama) when Origin's main-menu style is active + healthy.
+		if ((Object) this instanceof net.minecraft.client.gui.screens.TitleScreen
+				&& com.origin.client.client.mods.Mods.mode(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle").equals("Origin")
+				&& OriginScreenRenderer.isActive()) {
+			ci.cancel();
+		}
+	}
+
+	@Inject(method = "renderMenuBackgroundTexture", at = @At("HEAD"), cancellable = true)
 	private static void originclient$noListTexture(GuiGraphicsExtractor guiGraphics, Identifier texture, int x, int y, float uOffset, float vOffset, int width, int height, CallbackInfo ci) {
+		// Gated on renderer health: if the Origin backdrop is broken, lists
+		// get their vanilla strip back along with the vanilla background.
 		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()) {
 			ci.cancel();
 		}
 	}
 
-	// 26.2 blurs everything drawn behind a screen's content (a blur stratum). On
-	// out-of-world Origin menus that blurs the Origin backdrop into a grey haze
-	// that shows through the translucent Origin widgets — so suppress it and keep
-	// the crisp Origin look. In-world (pause/options) keeps vanilla's world blur.
-	@Inject(method = "extractBlurredBackground", at = @At("HEAD"), cancellable = true)
-	private void originclient$noBlur(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
-		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()) {
-			ci.cancel();
-		}
-	}
-
+	// Same hover test the title screen uses: bloom the spotlight while any
+	// visible widget is hovered, matching the website's hover targets.
 	private boolean originclient$hoveringClickable() {
 		Screen self = (Screen) (Object) this;
 		for (GuiEventListener child : self.children()) {

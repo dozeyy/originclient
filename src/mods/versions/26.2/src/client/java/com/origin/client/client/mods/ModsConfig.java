@@ -16,8 +16,8 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 // Persistence for the whole mod system: per-mod enabled flags + option
 // values, HUD element layout (anchor/offset/scale), and menu meta (panel
@@ -28,18 +28,14 @@ public final class ModsConfig {
 	private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("originclient-mods.json");
 
 	// modId -> (optionKey -> value). "enabled" is reserved for the mod flag.
-	// Concurrent: the HUD renders on the render thread (reading these every frame,
-	// and computeIfAbsent'ing new mod ids) while the client thread writes on tick
-	// and on menu toggles. A plain HashMap raced here — a read landing during
-	// another thread's put/resize returned a null "enabled", so Mods.on() fell
-	// back to the schema default and default-off HUD mods silently vanished until
-	// a toggle forced a clean write. The inner per-mod maps are concurrent for the
-	// same reason (Mods.raw() hands them straight to get/put on both threads).
-	static final Map<String, Map<String, JsonElement>> VALUES = new ConcurrentHashMap<>();
+	static final Map<String, Map<String, JsonElement>> VALUES = new HashMap<>();
 	// hud elementId -> [anchor, dx, dy, scale]
-	static final Map<String, double[]> HUD = new ConcurrentHashMap<>();
-	// menu-level extras (panel backing visible, etc.)
-	static final Map<String, JsonElement> META = new ConcurrentHashMap<>();
+	static final Map<String, double[]> HUD = new HashMap<>();
+	// menu-level extras (menu background opacity, etc.)
+	static final Map<String, JsonElement> META = new HashMap<>();
+	// named config profiles: profileName -> a frozen {mods, hud} snapshot. A
+	// LinkedHashMap so the list keeps the order profiles were created in.
+	static final java.util.LinkedHashMap<String, JsonObject> PROFILES = new java.util.LinkedHashMap<>();
 
 	private static boolean loaded = false;
 
@@ -101,7 +97,7 @@ public final class ModsConfig {
 		if (mods != null) {
 			for (String id : mods.keySet()) {
 				JsonObject o = mods.getAsJsonObject(id);
-				Map<String, JsonElement> m = new ConcurrentHashMap<>();
+				Map<String, JsonElement> m = new HashMap<>();
 				for (String k : o.keySet()) {
 					m.put(k, o.get(k));
 				}
@@ -199,13 +195,11 @@ public final class ModsConfig {
 		}
 	}
 
-	// ---- Profiles (named config loadouts) ----
-	// A profile is a deep JSON snapshot of every mod value + HUD placement. It does
-	// NOT include menu meta (a menu preference, not part of a gameplay loadout).
-	// Snapshots are deep copies, so applying one and then editing settings can never
-	// mutate the stored profile.
-
-	static final java.util.LinkedHashMap<String, JsonObject> PROFILES = new java.util.LinkedHashMap<>();
+	// ---- profiles ----
+	// A profile is a frozen {mods, hud} snapshot of the settings store — NOT the
+	// menu meta (background opacity etc.), which is a menu preference, not part of
+	// a gameplay loadout. Snapshots are deep JSON copies, so applying one and then
+	// editing settings can never mutate the stored profile.
 
 	static synchronized JsonObject snapshotCurrent() {
 		ensureLoaded();
@@ -236,9 +230,9 @@ public final class ModsConfig {
 		VALUES.clear();
 		HUD.clear();
 		if (snap != null) {
-			// parseInto only ever ADDS keys, so clearing first is what makes a profile
-			// an exact swap (a setting present before but absent in the profile must
-			// not linger).
+			// parseInto only ever ADDS keys, so clearing first is what makes a
+			// profile an exact swap (a setting present in the old state but absent
+			// in the profile must not linger).
 			parseInto(snap);
 		}
 		save();
@@ -270,9 +264,8 @@ public final class ModsConfig {
 	}
 
 	// Gson JsonElements are mutable and shared by reference; a profile must own an
-	// independent copy so later edits to the live store cannot reach into it.
+	// independent copy so later edits to the live store can't reach into it.
 	private static JsonElement deepCopy(JsonElement e) {
 		return e == null ? com.google.gson.JsonNull.INSTANCE : e.deepCopy();
 	}
-
 }

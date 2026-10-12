@@ -1,38 +1,41 @@
 package com.origin.client.client.mixin;
 
-import com.origin.client.client.mods.Mods;
+import com.origin.client.client.mods.WeatherOverride;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-// Weather Changer. Forcing the client rain/thunder level from the tick loop lost
-// a fight with the server's per-tick weather sync, so the override now lives on
-// the read side: getRainLevel/getThunderLevel are what the precipitation render,
-// sky darkening, and sound all consult, and we override them CLIENT-SIDE only.
-// The server's real weather/gameplay is untouched (nothing is sent). Snow renders
-// as snowfall in cold biomes (rain level 1 is how MC draws snow); Clear zeroes
-// both so the sky stays bright.
+/**
+ * Weather Changer, as a read-time override of the weather getters.
+ *
+ * ClientLevel does NOT override these, so Level is the only place to hook them.
+ * WeatherOverride restricts the effect to the client's own level, so the
+ * integrated server's ServerLevel -- same JVM in singleplayer, same class -- is
+ * never affected and real weather is untouched.
+ *
+ * Every consumer reads through these getters (precipitation rendering, sky
+ * darkening, rain/thunder ambience), so visuals AND sound follow the setting
+ * with no state written anywhere. See WeatherOverride for why the old
+ * setRainLevel() approach couldn't be instant or purely visual.
+ */
 @Mixin(Level.class)
 public class LevelWeatherMixin {
 
-	@Inject(method = "getRainLevel", at = @At("RETURN"), cancellable = true)
-	private void originclient$rain(float partialTick, CallbackInfoReturnable<Float> cir) {
-		if (!((Level) (Object) this).isClientSide() || !Mods.on("weather")) {
-			return;
+	@Inject(method = "getRainLevel", at = @At("HEAD"), cancellable = true)
+	private void originclient$rainLevel(float partialTick, CallbackInfoReturnable<Float> cir) {
+		Float forced = WeatherOverride.rain((Level) (Object) this);
+		if (forced != null) {
+			cir.setReturnValue(forced);
 		}
-		String mode = Mods.mode("weather", "mode");
-		cir.setReturnValue(mode.equals("Clear") ? 0f : 1f);
 	}
 
-	@Inject(method = "getThunderLevel", at = @At("RETURN"), cancellable = true)
-	private void originclient$thunder(float partialTick, CallbackInfoReturnable<Float> cir) {
-		if (!((Level) (Object) this).isClientSide() || !Mods.on("weather")) {
-			return;
+	@Inject(method = "getThunderLevel", at = @At("HEAD"), cancellable = true)
+	private void originclient$thunderLevel(float partialTick, CallbackInfoReturnable<Float> cir) {
+		Float forced = WeatherOverride.thunder((Level) (Object) this);
+		if (forced != null) {
+			cir.setReturnValue(forced);
 		}
-		String mode = Mods.mode("weather", "mode");
-		boolean thunder = !mode.equals("Clear") && (mode.equals("Thunder") || Mods.bool("weather", "thunder"));
-		cir.setReturnValue(thunder ? 1f : 0f);
 	}
 }

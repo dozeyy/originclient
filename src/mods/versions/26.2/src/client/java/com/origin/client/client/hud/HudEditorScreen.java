@@ -1,16 +1,15 @@
 package com.origin.client.client.hud;
 
+import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginModMenuScreen;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.Mods;
-import com.origin.client.client.render.OriginScreenRenderer;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
@@ -22,10 +21,19 @@ import org.lwjgl.glfw.GLFW;
 // anchored corner fixed and expands away from it — the same way the element
 // grows in-game, so what you see here matches what you get.
 //
-// quick=true IS the Right Shift screen: the editable surface plus the real
-// ORIGIN logo (baked nav-mark geometry) and a screen-centered MODS button.
+// 1.21.11: input callbacks take event objects (MouseButtonEvent / KeyEvent) and
+// GuiGraphicsExtractor.pose() is a Matrix3x2fStack; the bodies are 1.21.1's unchanged.
+// quick=true IS the Right Shift screen: the editable surface plus the centre
+// group from the 2026-10 redesign (design/menu-redesign, scene "rshift"): the
+// real Origin mark, ORIGIN CLIENT, and [Waypoints] [MODS] [Cosmetics], drawn
+// with OriginDeck so it matches the mod menu exactly.
 public class HudEditorScreen extends Screen {
 	private final boolean quick;
+	// Where Esc lands: null = the game; the mod menu passes itself ("Edit HUD" /
+	// "Edit position") so the player comes straight back to where they were.
+	private final Screen returnTo;
+	private final java.util.List<OriginDeck.Hit> hits = new java.util.ArrayList<>();
+	private float deckS = 1, deckOx, deckOy;
 	private final long openedAt = System.currentTimeMillis();
 
 	private String draggingId = null;
@@ -45,6 +53,7 @@ public class HudEditorScreen extends Screen {
 
 	private static final int HANDLE_VIS = 5; // drawn square side (small, tucked into the corner)
 	private static final int HANDLE_HIT = 6; // extra click tolerance around it
+	private static final int XBTN = 10;      // the hover "turn off" X button, opposite the resize handle
 	// Resize feel: cursor must move this far from the grab distance before the
 	// element starts scaling (forgiving grab), per B2.
 	private static final double RESIZE_DEADZONE = 3.0;
@@ -52,15 +61,23 @@ public class HudEditorScreen extends Screen {
 	// snaps to it; dragging further than this pulls it back off (B1).
 	private static final double SNAP = 6.0;
 
-	private static final int BTN_W = 132, BTN_H = 28;
-
 	public HudEditorScreen() {
 		this(false);
 	}
 
 	public HudEditorScreen(boolean quick) {
+		this(quick, null);
+	}
+
+	public HudEditorScreen(boolean quick, Screen returnTo) {
 		super(Component.literal(quick ? "Origin" : "HUD Editor"));
 		this.quick = quick;
+		this.returnTo = returnTo;
+	}
+
+	@Override
+	public void onClose() {
+		Minecraft.getInstance().setScreenAndShow(returnTo);
 	}
 
 	@Override
@@ -84,18 +101,17 @@ public class HudEditorScreen extends Screen {
 		super.removed();
 	}
 
-	// 26.2: Screen.renderBackground -> extractBackground. Override to draw nothing
-	// so the game stays perfectly visible behind the HUD editor.
+	// Nothing in a world: the game stays perfectly visible. Outside one (only the
+	// dev-shots harness gets here) super paints the Origin title backdrop
+	// (ScreenBackgroundMixin) instead of leaving the last frame behind.
+	// 1.21.11 (deferred GUI): vanilla already calls this BEFORE render(), so --
+	// unlike 1.21.1 -- render() must not call it again (a second backdrop blur in
+	// one frame throws and switches Origin backdrops off for the session).
 	@Override
 	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
-	}
-
-	private int btnX() {
-		return (width - BTN_W) / 2;
-	}
-
-	private int btnY() {
-		return (height - BTN_H) / 2; // perfectly centered in the screen
+		if (Minecraft.getInstance().level == null) {
+			super.extractBackground(g, mouseX, mouseY, partialTick);
+		}
 	}
 
 	// The element is anchored to one screen corner; that corner stays fixed and
@@ -108,6 +124,21 @@ public class HudEditorScreen extends Screen {
 
 	private static boolean freeTop(int anchor) {
 		return anchor / 3 == 2;
+	}
+
+	// The hover "turn off" X: sits INSIDE the box at the anchored corner (opposite
+	// the resize handle) and its size scales with the BOX (smaller box → smaller X,
+	// bigger box → bigger X). Shared by render + click so they always agree.
+	private int xBtn(double boxMin) {
+		return (int) Math.max(6, Math.min(18, Math.round(boxMin * 0.35)));
+	}
+
+	private int xBtnX(int anchor, int ox0, int ox1, int xs) {
+		return freeLeft(anchor) ? ox1 - xs : ox0; // inside, at the anchored corner
+	}
+
+	private int xBtnY(int anchor, int oy0, int oy1, int xs) {
+		return freeTop(anchor) ? oy1 - xs : oy0;
 	}
 
 	@Override
@@ -124,6 +155,12 @@ public class HudEditorScreen extends Screen {
 			}
 			HudPos pos = e.pos();
 			int[] size = e.measure().apply(mc);
+			if (size[0] <= 0 && size[1] <= 0) {
+				// 0x0 = nothing to place right now (an off sub-feature, e.g. the
+				// Saturation HUD or a non-separate Locator Bar): no box, no X button
+				// -- the X would switch off the whole owning mod.
+				continue;
+			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = e.id().equals(draggingId) ? dragX : pos.x(width, w);
 			double y = e.id().equals(draggingId) ? dragY : pos.y(height, h);
@@ -135,14 +172,16 @@ public class HudEditorScreen extends Screen {
 			boolean active = hover || e.id().equals(selectedId) || e.id().equals(draggingId) || e.id().equals(resizingId);
 
 			HudElements.drawBacking(g, (int) x, (int) y, (int) w, (int) h, pos.bg);
-			// dark translucent hover highlight — content stays legible through it
-			if (active) {
-				g.fill((int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, 0x40303030);
+			float hv = OriginUi.hover("hud:" + e.id(), active);
+			// The backing and the one-pixel selection edge share the same fast curve;
+			// there is no delayed second outline or line through the element.
+			if (hv > 0.001f) {
+				int shade = ((int) Math.round(0x40 * hv) << 24) | 0x303030;
+				g.fill((int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, shade);
 			}
 
 			// SQUARE outline on the backing bounds — thin (1px) always; hover
 			// state is communicated by brightness, not thickness
-			float hv = OriginUi.anim("hud:" + e.id(), active, 120.0);
 			int edge = OriginTheme.lerpColor(OriginTheme.STROKE_STRONG, 0xF0FFFFFF, hv);
 			squareOutline(g, (int) x - 4, (int) y - 4, (int) (x + w) + 4, (int) (y + h) + 4, 1, edge);
 
@@ -166,6 +205,26 @@ public class HudEditorScreen extends Screen {
 						&& mouseY >= hy0 - HANDLE_HIT && mouseY <= hy0 + HANDLE_VIS + HANDLE_HIT;
 				g.fill(hx0 - 1, hy0 - 1, hx0 + HANDLE_VIS + 1, hy0 + HANDLE_VIS + 1, 0xC0000000);
 				g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
+
+				// X toggle in the corner OPPOSITE the resize handle (the anchored
+				// corner). Placed just OUTSIDE the element's box so it never covers the
+				// content/text, and scaled with the element so it grows/shrinks as you
+				// resize. Clamped to stay on screen.
+				int xs = xBtn(Math.min(w, h));
+				int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
+				int xby = xBtnY(pos.anchor, oy0, oy1, xs);
+				boolean xh = mouseX >= xbx && mouseX <= xbx + xs && mouseY >= xby && mouseY <= xby + xs;
+				// Invisible until the element is hovered (we're inside `if (active)`);
+				// a soft 60% red ✕ with NO box, firming to full red when pointed at.
+				// Scaled to the box so it never crowds the letters.
+				int xcol = xh ? 0xFFF08A90 : 0x99F08A90;
+				float gs = xs / (float) XBTN;
+				var xp = g.pose();
+				xp.pushMatrix();
+				xp.translate(xbx + xs / 2f, xby + xs / 2f);
+				xp.scale(gs, gs);
+				g.text(font, "✕", -font.width("✕") / 2, -4, xcol, false);
+				xp.popMatrix();
 			}
 
 			// center guides while dragging: they light up exactly when the element
@@ -183,28 +242,61 @@ public class HudEditorScreen extends Screen {
 		this.hoveredId = hovered;
 
 		if (quick) {
-			int cx = width / 2;
-			int bt = btnY();
-			// Header stack above the centered button: the ring mark on top, then
-			// the "ORIGIN" wordmark (same baked Michroma as the main menu), then a
-			// clear gap to the MODS button — nothing overlaps. The mark is lifted
-			// well above the button to make room for the wordmark beneath it.
-			OriginUi.glow(g, cx, bt - 76, 104, 0.16f * in);
-			OriginUi.logo(g, cx, bt - 76, 46, in);
-			if (!OriginScreenRenderer.renderWordmarkAt(g, cx, bt - 44, 13, in)) {
-				String o = "ORIGIN";
-				g.text(font, o, cx - font.width(o) / 2, bt - 48, withAlpha(OriginTheme.TEXT, in), false);
-			}
-
-			// dark, clean MODS button — perfectly centered, no hover lift. Label
-			// stays the default Minecraft font (Will: revert the baked-font MODS).
-			boolean hoverBtn = in(mouseX, mouseY, btnX(), bt, btnX() + BTN_W, bt + BTN_H);
-			OriginUi.panel(g, btnX(), bt, BTN_W, BTN_H, 9,
-					withAlpha(hoverBtn ? 0xE6181818 : 0xD0101010, in),
-					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE_STRONG, in));
-			g.text(font, "MODS", cx - font.width("MODS") / 2, bt + 10,
-					withAlpha(OriginTheme.TEXT, in), false);
+			renderQuickGroup(g, mouseX, mouseY, in);
 		}
+	}
+
+	/**
+	 * The Right Shift centre group, in design px around the screen centre (the
+	 * mock's 1080p numbers): the mark rises out from behind the wordmark on open.
+	 */
+	private void renderQuickGroup(GuiGraphicsExtractor g, int mouseX, int mouseY, float in) {
+		var win = Minecraft.getInstance().getWindow();
+		deckS = OriginDeck.scale(win.getWidth(), win.getHeight(), 920, 580);
+		deckOx = win.getWidth() / 2f;
+		deckOy = win.getHeight() / 2f;
+		OriginDeck d = new OriginDeck(g, deckS, deckOx, deckOy, mouseX, mouseY, hits);
+		d.alpha = in;
+		// the wordmark sits straight on the game world (this screen never has a
+		// panel), so it always gets the kit's see-through legibility; the buttons'
+		// own opaque fills keep their labels as they were drawn
+		d.seeThrough = true;
+
+		float logoY = (float) OriginTheme.lerp(-40, -92, in);
+		d.logo(0, logoY, 96, 0.2f);
+		float ow = d.textW("ORIGIN", 22, true, 1f), gap = 8, cw = d.textW("CLIENT", 22, false, 1f);
+		float wx = -(ow + gap + cw) / 2f;
+		d.textMid("ORIGIN", wx, -19, 22, true, 1f, OriginDeck.TEXT);
+		d.textMid("CLIENT", wx + ow + gap, -19, 22, false, 1f, OriginDeck.DIM);
+
+		// Two icons either side of MODS so the group stays centred under the mark
+		// (Friends joined 2026-10-12; Settings balances it on the left).
+		quickButton(d, "@title-options", null, -182, 44, () -> Minecraft.getInstance().setScreenAndShow(
+				new OriginModMenuScreen().settingsTab()));
+		quickButton(d, "waypoints", null, -130, 44, () -> Minecraft.getInstance().setScreenAndShow(
+				new com.origin.client.client.waypoints.WaypointScreen()));
+		quickButton(d, null, "MODS", -78, 156, () -> Minecraft.getInstance().setScreenAndShow(new OriginModMenuScreen()));
+		quickButton(d, "@shirt", null, 86, 44, () -> Minecraft.getInstance().setScreenAndShow(
+				new com.origin.client.client.gui.CosmeticsScreen(this)));
+		quickButton(d, "@user", null, 138, 44, () -> Minecraft.getInstance().setScreenAndShow(
+				new com.origin.client.client.gui.FriendsScreen(this)));
+		if (com.origin.client.client.social.SocialClient.attention() > 0) {
+			d.circle(138 + 44 - 7, 17 + 7, 3.5f, OriginDeck.ACC);   // something waiting in Friends
+		}
+		d.end();
+	}
+
+	private void quickButton(OriginDeck d, String icon, String label, float x, float w, Runnable action) {
+		float y = 17, h = 44;
+		boolean hov = d.over(x, y, w, h);
+		float hp = OriginUi.hover("rshift:" + (label != null ? label : icon), hov);
+		d.rect(x, y, w, h, 7, OriginDeck.lerp(0xC7141816, 0xE6232A26, hp), OriginDeck.lerp(0x1AFFFFFF, 0x38FFFFFF, hp));
+		if (icon != null) {
+			d.icon(icon, x + (w - 19) / 2f, y + (h - 19) / 2f, 19, OriginDeck.TEXT);
+		} else {
+			d.textCenter(label, x + w / 2f, y + h / 2f, 12.5f, true, 3f, OriginDeck.TEXT);
+		}
+		d.hit(x, y, w, h, action);
 	}
 
 	private static void squareOutline(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, int t, int color) {
@@ -215,15 +307,17 @@ public class HudEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
 		double mx = event.x(), my = event.y();
 		int button = event.button();
 		if (button != 0) {
-			return super.mouseClicked(event, doubleClick);
+			return super.mouseClicked(event, doubled);
 		}
-		if (quick && in(mx, my, btnX(), btnY(), btnX() + BTN_W, btnY() + BTN_H)) {
-			Minecraft.getInstance().setScreenAndShow(new OriginModMenuScreen());
-			return true;
+		if (quick) {
+			double gs = Minecraft.getInstance().getWindow().getGuiScale();
+			if (OriginDeck.click(hits, OriginDeck.toDesign(mx, gs, deckOx, deckS), OriginDeck.toDesign(my, gs, deckOy, deckS))) {
+				return true;
+			}
 		}
 
 		Minecraft mc = Minecraft.getInstance();
@@ -234,11 +328,29 @@ public class HudEditorScreen extends Screen {
 			}
 			HudPos pos = e.pos();
 			int[] size = e.measure().apply(mc);
+			if (size[0] <= 0 && size[1] <= 0) {
+				// 0x0 = nothing to place right now (an off sub-feature, e.g. the
+				// Saturation HUD or a non-separate Locator Bar): no box, no X button
+				// -- the X would switch off the whole owning mod.
+				continue;
+			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
 			double x = pos.x(width, w), y = pos.y(height, h);
 			int ox0 = (int) x - 4, oy0 = (int) y - 4, ox1 = (int) (x + w) + 4, oy1 = (int) (y + h) + 4;
 			int hx0 = freeLeft(pos.anchor) ? ox0 : ox1 - HANDLE_VIS;
 			int hy0 = freeTop(pos.anchor) ? oy0 : oy1 - HANDLE_VIS;
+			// X toggle in the anchored corner (opposite the handle): turn the mod
+			// off and drop it from the overlay. Tested before handle/body.
+			int xs = xBtn(Math.min(w, h));
+			int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
+			int xby = xBtnY(pos.anchor, oy0, oy1, xs);
+			if (mx >= xbx && mx <= xbx + xs && my >= xby && my <= xby + xs) {
+				Mods.setOn(e.modId(), false);
+				if (e.id().equals(selectedId)) {
+					selectedId = null;
+				}
+				return true;
+			}
 			// free-corner handle first, so it wins over the body
 			if (mx >= hx0 - HANDLE_HIT && mx <= hx0 + HANDLE_VIS + HANDLE_HIT
 					&& my >= hy0 - HANDLE_HIT && my <= hy0 + HANDLE_VIS + HANDLE_HIT) {
@@ -269,7 +381,7 @@ public class HudEditorScreen extends Screen {
 			}
 		}
 		selectedId = null;
-		return super.mouseClicked(event, doubleClick);
+		return super.mouseClicked(event, doubled);
 	}
 
 	@Override
@@ -385,14 +497,5 @@ public class HudEditorScreen extends Screen {
 			}
 		}
 		return null;
-	}
-
-	private static boolean in(double mx, double my, int x0, int y0, int x1, int y1) {
-		return mx >= x0 && mx < x1 && my >= y0 && my < y1;
-	}
-
-	private static int withAlpha(int argb, float alpha) {
-		int a = (int) (((argb >>> 24) & 0xFF) * alpha);
-		return (a << 24) | (argb & 0xFFFFFF);
 	}
 }

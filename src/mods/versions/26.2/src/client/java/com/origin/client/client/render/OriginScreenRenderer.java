@@ -3,13 +3,15 @@ package com.origin.client.client.render;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
+import org.joml.Matrix3x2fStack;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.ARGB;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
-import org.joml.Matrix3x2fStack;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -18,41 +20,44 @@ import java.util.List;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
 
-// Shared Origin screen rendering, used by both the loading screen
-// (LoadingOverlayMixin) and the main menu (TitleScreenMixin): near-black
-// (#050505) background, the pre-rendered crisp orbital rings (mirroring the
-// launcher's OriginBackground), fine grain, and the "Origin" wordmark in the
-// website's Inter font (baked to a texture so it shows instantly and carries no
-// custom-glyph-rendering risk).
+// Shared Origin screen rendering, used by the loading screen
+// (LoadingOverlayMixin), the main menu (TitleScreenMixin) and every out-of-world
+// menu (ScreenBackgroundMixin). The two surfaces deliberately differ:
 //
-// 26.2 render port: immediate-mode GuiGraphics -> retained-mode
-// GuiGraphicsExtractor; texture tint folds into the blit color arg (no
-// RenderSystem.setShaderColor), blend is per-RenderPipeline, and pose() is the 2D
-// org.joml.Matrix3x2fStack. Textures load via the classloader (not the resource
-// manager), so this is safe during the earliest loading overlay, and degrades
-// gracefully if any asset fails rather than crashing.
+//  - MENUS: the vanilla panorama, live-rotating, blurred, graded into Origin's
+//    Ion Jade palette (renderTitleBackground). No rings, grain, particles or
+//    cursor spotlight.
+//  - LOADING: still near-black + the pre-rendered orbital rings + grain +
+//    vignette + the progress bar, matching the original mock
+//    (tools/loading-screen/wordmark_preview.png). The panorama is NOT available
+//    this early — the cubemap's textures aren't loaded yet — so the ring
+//    background stays exactly where it belongs.
+//
+// 1.21.11: every textured draw is a RenderPipelines.GUI_TEXTURED blit carrying
+// its tint on the ARGB argument (no setShaderColor), the pose is a
+// Matrix3x2fStack, and the panorama/blur come from the engine's own
+// getPanorama().render(...) + blurBeforeThisStratum() (see renderTitleBackground).
+//
+// Textures load via the classloader (not the resource manager), so this is
+// safe during the earliest loading overlay while resources are still loading,
+// and degrades gracefully if any asset fails rather than crashing.
 public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
-	// Charcoal grade laid over the blurred, live-rotating panorama on the title
-	// screen — a light alpha blend toward near-black. Kept VERY light (~12% over
-	// 0x08080A) so the panorama reads bright and saturated; this is the Origin theme
-	// on 26.x's menu, matching every 1.21.x version.
-	private static final int GRADE = 0x2008080A;
-
-	// Untinted draw = full white; alpha-only tint packs onto white.
-	private static final int WHITE = 0xFFFFFFFF;
-
-	private static int alpha(double a) {
-		int ai = Math.max(0, Math.min(255, (int) Math.round(a * 255.0)));
-		return (ai << 24) | 0x00FFFFFF;
-	}
+	// Ion Jade grade: the one jade highlight over the graded panorama is the radial
+	// glow tinted 0x4BC8AE at ~9% alpha (0x17). Carried on the per-blit ARGB tint
+	// because this era has no RenderSystem.setShaderColor.
+	private static final int GRADE_GLOW_TINT = 0x174BC8AE;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
 	// version), rendering flips to vanilla permanently for this session
-	// instead of crashing.
+	// instead of crashing. Callers that cancel vanilla drawing must only
+	// cancel when the boolean-returning entry points report success, and
+	// must gate standalone suppressions on isActive(). This is the runtime
+	// half of the multi-version contract (see VERSIONS.md); the mixin
+	// configs' required:false is the load-time half.
 	private static volatile boolean broken = false;
 
 	private static volatile boolean loaded = false;
@@ -60,31 +65,48 @@ public final class OriginScreenRenderer {
 	private static final List<Ring> rings = new ArrayList<>();
 	private static Identifier grainId;
 
-	// Edge vignette (transparent core -> soft black corners).
+	// Edge vignette (transparent core -> soft black corners). Blitted full-screen
+	// to darken the frame edges so the centered wordmark reads as the focal
+	// point -- depth from lightness only, no hue. Null -> skip (no crash).
 	private static Identifier vignetteId;
 	private static final int VIGNETTE_TEX = 1024;
 
-	// Baked "ORIGIN" wordmark. Null -> fall back to vanilla drawString.
+	// Baked "ORIGIN" wordmark (Michroma, all-caps + glow bloom). Null -> fall
+	// back to vanilla drawString.
 	private static Identifier wordmarkId;
 	private static int wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH;
-	// Per-letter reveal bands: [x0,x1] texture-px columns, one per glyph.
+	// Per-letter reveal bands: [x0,x1] texture-px columns, one per glyph, from
+	// wordmark.json. Null -> the loading screen draws the whole mark at once
+	// (no staggered reveal) instead of failing.
 	private static int[] wmLetterX0, wmLetterX1;
 
-	// Loading-screen animation clock.
+	// Loading-screen animation clock: millis at the first loading frame, so the
+	// per-letter reveal and the caption's cycling dots are time-driven.
 	private static long loadStartMs = 0L;
 
 	// ---- Main-menu ambient layer ----
+	// Ellipse height:width of the ring textures (generate_textures HEIGHT_RATIO),
+	// needed to place a body on a ring's path.
 	private static final double RING_HEIGHT_RATIO = 0.37;
+	// Wordmark breathing-glow period (ms) on the title screen.
 	private static final double BREATH_MS = 3200.0;
+	// Orbiting bodies riding the rings: {ringIndex, periodSeconds, phase, coreFrac(of w), alpha}.
+	// One bright body on the front ring, one fainter/slower on a back ring.
 	private static final double[][] BODIES = {
 			{0, 26.0, 0.0, 0.010, 0.85},
 			{2, 40.0, 0.5, 0.008, 0.55},
 	};
+	// Sparse drifting background dust.
 	private static final int PARTICLE_COUNT = 28;
 
-	// Cursor-follow glow (the website's two-layer spotlight).
+	// Cursor-follow glow (the website's two-layer spotlight): one radial
+	// gradient texture drawn twice -- a tight core that snaps to the cursor
+	// and a soft halo that trails it with lerped physics, both blooming when
+	// hovering a clickable. State is static: one cursor, one glow.
 	private static Identifier radialGlowId;
 	private static final int RADIAL_TEX = 512;
+	// (the cursor-spotlight halo/hover state went with renderTitleCursorGlow --
+	// radialGlowId and drawRadial stay, the orbiting bodies still use them)
 
 	private record Ring(Identifier texture, double widthFrac, float opacity,
 						double angle0, double periodSeconds, boolean reverse) {
@@ -107,7 +129,17 @@ public final class OriginScreenRenderer {
 
 	// ---- Public entry points ----
 
+	/**
+	 * Startup resource-load screen — the original mockup
+	 * (tools/loading-screen/wordmark_preview.png): near-black + crisp orbital
+	 * rings + fine grain + the "Origin" wordmark with its glow bloom, and a thin
+	 * word-width progress bar sitting just beneath it (the mock's underline).
+	 * No percentage caption: the mock has none, and the clean logo-over-bar
+	 * reads more premium.
+	 */
 	public static void renderLoading(GuiGraphicsExtractor guiGraphics, float progress) {
+		// Drawn at TAIL over vanilla's overlay, so skipping when broken simply
+		// reveals the vanilla loading screen -- no cancel to unwind.
 		if (broken) {
 			return;
 		}
@@ -135,8 +167,17 @@ public final class OriginScreenRenderer {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);
 		}
+		// Vignette above the rings/grain, under the wordmark: darkens the edges
+		// so the mark is the focal point.
 		drawVignette(guiGraphics, w, h);
 
+		// Wordmark nudged slightly above center so the logo+bar group stays
+		// balanced. All-caps "ORIGIN" has no descender, so its ink height IS the
+		// cap height: 0.135h gives the right cap size (Will's chosen "middle"
+		// size). The bar sits well below the logo with a clear gap and is a
+		// chunky full-word-width bar (Will: "farther down and bigger"). All
+		// verified in-sandbox against the ring background. On the startup screen
+		// the mark builds in letter by letter (staggered fade + rise).
 		double markInkH = fitInkHeight(h * 0.135, w, 0.82);
 		double markCenterY = h * 0.48;
 		drawWordmarkReveal(guiGraphics, w / 2.0, markCenterY, markInkH, elapsed);
@@ -147,12 +188,27 @@ public final class OriginScreenRenderer {
 		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
 		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
 
-		int captionY = barTop + barH + Math.max(8, (int) Math.round(h * 0.035));
-		drawCaption(guiGraphics, w / 2.0, captionY, elapsed);
+		// No text on this screen: it renders DURING the initial resource reload,
+		// before any font glyphs are baked, so font-drawn strings can only ever
+		// show missing-glyph boxes here (vanilla's overlay avoids text for the
+		// same reason). The animated wordmark + bar carry the scene — which is
+		// also the original mock's look. Corner brackets on top of everything.
 		drawCornerBrackets(guiGraphics, w, h);
 	}
 
+	/**
+	 * Full-screen loading/progress scene for the world-load screens
+	 * (LevelLoadingScreen, ReceivingLevelScreen, ProgressScreen): the same
+	 * charcoal + rings + grain background as the menus, the screen's title in
+	 * the default font, and a smooth indeterminate bar. Drawn as a HEAD-cancel
+	 * takeover, so it replaces vanilla's chunk map / dirt / progress clutter
+	 * with one clean Origin scene. Indeterminate (not tied to a real percent):
+	 * reading each screen's internal progress field would need an unverifiable
+	 * @Shadow, and a calm sweeping bar reads as premium regardless.
+	 */
 	public static boolean renderLoadingScene(GuiGraphicsExtractor guiGraphics, net.minecraft.network.chat.Component title) {
+		// HEAD-cancel takeover: callers must only ci.cancel() when this
+		// returns true, so a failure mid-draw falls back to the vanilla screen.
 		if (broken) {
 			return false;
 		}
@@ -201,7 +257,14 @@ public final class OriginScreenRenderer {
 		drawIndeterminateBar(guiGraphics, w / 2.0, barTop, barW, barH);
 	}
 
+	/**
+	 * Just the indeterminate bar, placed just below screen center -- for
+	 * screens kept on their vanilla render (ConnectScreen: its Cancel button
+	 * and status text stay, the Origin menu background comes from
+	 * ScreenBackgroundMixin, and this adds the bar on top).
+	 */
 	public static void renderConnectingBar(GuiGraphicsExtractor guiGraphics) {
+		// TAIL-additive over the vanilla connect screen; skip when broken.
 		if (broken) {
 			return;
 		}
@@ -218,6 +281,7 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/** A calm sweeping segment (smooth ping-pong) over the standard track. */
 	private static void drawIndeterminateBar(GuiGraphicsExtractor guiGraphics, double cx, int barTop, int barW, int barH) {
 		int bx = (int) Math.round(cx - barW / 2.0);
 		int by = barTop;
@@ -225,12 +289,39 @@ public final class OriginScreenRenderer {
 		int segW = Math.max(8, (int) (barW * 0.32));
 		int travel = Math.max(1, barW - segW);
 		double t = (System.currentTimeMillis() % 1800L) / 1800.0;
-		double eased = 0.5 - 0.5 * Math.cos(t * 2.0 * Math.PI);
+		double eased = 0.5 - 0.5 * Math.cos(t * 2.0 * Math.PI); // smooth 0->1->0
 		int segX = bx + (int) Math.round(eased * travel);
 		guiGraphics.fill(segX - 1, by - 1, segX + segW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW);
 		guiGraphics.fill(segX, by, segX + segW, by + barH, OriginTheme.ACCENT);
 	}
 
+	/**
+	 * Menu background: the live-rotating vanilla panorama, blurred, under the
+	 * Origin Ion Jade grade (behind vanilla's logo/buttons). Returns true only
+	 * if the Origin backdrop actually drew; callers that cancel vanilla's own
+	 * backdrop must key off this.
+	 *
+	 * Ported from 1.21.1 (2026-07-26) so the main menu pans here too. This
+	 * replaced an 8-layer composite (flat fill + rings + grain + particles +
+	 * orbiting bodies + vignette + brackets); see 1.21.1's copy for the cost
+	 * note -- live rotation is deliberately the expensive option.
+	 *
+	 * Two era differences from 1.21.1, both because 1.21.11 renders the GUI
+	 * deferred rather than immediate:
+	 *   - the panorama comes from gameRenderer.panorama() (the shared
+	 *     instance vanilla itself spins) instead of a privately-built
+	 *     CubeMap/PanoramaRenderer pair, so spin state and the panoramaSpeed
+	 *     option stay consistent with vanilla. Its render() takes a
+	 *     "should spin" boolean and does its own delta timing -- 1.21.1's
+	 *     alpha + partialTick arguments are gone.
+	 *   - blur is guiGraphics.blurBeforeThisStratum(), which blurs everything
+	 *     queued before this point. 1.21.1's processBlurEffect +
+	 *     bindWrite(false) pair does not exist here and is NOT needed: nothing
+	 *     rebinds a framebuffer, so the widget pass after us is unaffected.
+	 * This mirrors vanilla's own Screen.renderBackground ordering exactly
+	 * (renderPanorama -> renderBlurredBackground), so the grade lands on top
+	 * of the blur rather than being blurred with it.
+	 */
 	public static boolean renderTitleBackground(GuiGraphicsExtractor guiGraphics) {
 		if (broken) {
 			return false;
@@ -240,41 +331,69 @@ public final class OriginScreenRenderer {
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
 
-			// The live-rotating vanilla panorama (the shared instance vanilla itself
-			// spins, so spin state + the panoramaSpeed option stay consistent), blurred,
-			// under the Origin charcoal grade — the SAME themed menu as every 1.21.x
-			// version. This replaces 26.2's old static composite (flat fill + rings +
-			// grain + particles + orbiting bodies + frame) so the main menu pans here too.
-			// 26.2 rename: Panorama.render(g,w,h,spin) → extractRenderState(g,w,h).
-			mc.gameRenderer.panorama().extractRenderState(guiGraphics, w, h);
+			// true = keep spinning; vanilla passes panoramaShouldSpin(), which is
+			// only false while a screen is fading in.
+			mc.gameRenderer.panorama().render(guiGraphics, w, h, true);
 			guiGraphics.blurBeforeThisStratum();
-			guiGraphics.fill(0, 0, w, h, GRADE);
+			drawGrade(guiGraphics, w, h);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
 	}
 
-	public static void renderTitleCursorGlow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
-		// Retired (Will, 2026-08-02): the mouse-follow spotlight on the title
-		// screen. It was the website's two-layer cursor bloom ported over, and it
-		// never worked right on Minecraft's pixel grid -- the blur IS the effect,
-		// and blur doesn't exist at this resolution. Kept as an empty method
-		// rather than deleted: both call sites (ScreenBackgroundMixin's two
-		// mutually-exclusive paths, and TitleScreenMixin) stay wired for free,
-		// and the pairing between them is subtle enough to be worth leaving
-		// undisturbed. radialGlowId/RADIAL_TEX/drawRadial are NOT part of this --
-		// they're shared with the loading-screen orbiting bodies, which stay.
+	/**
+	 * The Origin grade over the blurred panorama. Alpha blends toward cool
+	 * mineral tones pull every channel together, so this darkens and mutes in
+	 * one pass (NOT a true desaturation -- that needs a post-process stage; the
+	 * world stays a quiet hint by design).
+	 */
+	private static void drawGrade(GuiGraphicsExtractor guiGraphics, int w, int h) {
+		// Ion Jade grade: the world stays a quiet hint below cool mineral bands,
+		// followed by one restrained jade highlight and the edge vignette.
+		int a = 0xDC << 24;
+		int y1 = h * 40 / 100, y2 = h * 62 / 100;
+		guiGraphics.fillGradient(0, 0, w, y1, a | 0x0B1110, a | 0x0D1715);
+		guiGraphics.fillGradient(0, y1, w, y2, a | 0x0D1715, a | 0x091210);
+		guiGraphics.fillGradient(0, y2, w, h, a | 0x091210, a | 0x070B0B);
+		if (radialGlowId != null) {
+			int d = (int) Math.round(w * 1.1);
+			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, radialGlowId,
+					(int) Math.round(w * 0.70 - d / 2.0), (int) Math.round(h * 0.15 - d / 2.0),
+					0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, GRADE_GLOW_TINT);
+		}
+		drawVignette(guiGraphics, w, h);
 	}
 
+	/**
+	 * Main menu: the website's two-layer cursor spotlight, drawn over the ring
+	 * background but under the widgets/wordmark.
+	 */
+	public static void renderTitleCursorGlow(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, boolean hoveringClickable) {
+		// Retired here to match 1.21.1 -- deliberately empty.
+		//
+		// This was a two-layer mouse-follow spotlight ported from the website: a
+		// soft radial bloom trailing the cursor. It's the one effect that cannot
+		// exist on Minecraft's pixel grid at any size, because the blur IS the
+		// effect. Kept as an empty method rather than deleted: both call sites are
+		// ScreenBackgroundMixin's two mutually-exclusive paths (cancelled-HEAD for
+		// out-of-world menus, TAIL for in-world), and that pairing is subtle enough
+		// to be worth leaving undisturbed.
+	}
 
-
-	private static void drawRadial(GuiGraphicsExtractor guiGraphics, double cx, double cy, double diameter, double a) {
+	private static void drawRadial(GuiGraphicsExtractor guiGraphics, double cx, double cy, double diameter, double alpha) {
 		int d = Math.max(2, (int) Math.round(diameter));
-		// region 512x512 -> dest d x d, alpha-only tint.
-		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, radialGlowId,
-				(int) Math.round(cx - d / 2.0), (int) Math.round(cy - d / 2.0),
-				0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, alpha(a));
+		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, radialGlowId, (int) Math.round(cx - d / 2.0), (int) Math.round(cy - d / 2.0),
+				0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, ARGB.white((float) alpha));
+	}
+
+	/** Main menu: the approved Origin atom above the compact action stack. */
+	// When the title screen was (re)opened — drives the mark's entrance (scale +
+	// fade in). Set by TitleScreenMixin; 0 = no animation (draw the settled mark).
+	private static volatile long titleOpenedAt = 0;
+
+	public static void setTitleOpenedAt(long millis) {
+		titleOpenedAt = millis;
 	}
 
 	public static boolean renderTitleWordmark(GuiGraphicsExtractor guiGraphics) {
@@ -286,20 +405,25 @@ public final class OriginScreenRenderer {
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
-
-			int singleplayerTop = h / 4 + 48;
-			double centerY = singleplayerTop / 2.0;
-			double inkH = fitInkHeight(h * 0.13, w, 0.82);
-			double pulse = 0.5 - 0.5 * Math.cos(System.currentTimeMillis() / BREATH_MS * 2.0 * Math.PI);
-			drawWordmarkGlow(guiGraphics, w / 2.0, centerY, inkH, 1.06, (float) (0.05 + 0.10 * pulse));
-			drawWordmark(guiGraphics, w / 2.0, centerY, inkH);
+			TitleLayout L = TitleLayout.of(w, h);
+			long el = titleOpenedAt > 0 ? System.currentTimeMillis() - titleOpenedAt : Long.MAX_VALUE;
+			double t = el == Long.MAX_VALUE ? 1.0
+					: OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, (el - 40.0) / 420.0)));
+			int size = Math.max(1, (int) Math.round(L.markSize * (0.88 + 0.12 * t)));
+			OriginUi.logo(guiGraphics, L.markCenterX, L.markCenterY, size, (float) t);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
 	}
 
-	public static boolean renderWordmarkAt(GuiGraphicsExtractor guiGraphics, double cx, double cy, double targetInkHeight, float a) {
+	/**
+	 * Draw the baked "ORIGIN" wordmark centered on (cx, cy) at the given ink
+	 * height, anywhere. Used by the HUD editor's Right-Shift header. Returns
+	 * false (caller falls back to the vanilla font) if the texture is missing or
+	 * Origin rendering has failed for the session.
+	 */
+	public static boolean renderWordmarkAt(GuiGraphicsExtractor guiGraphics, double cx, double cy, double targetInkHeight, float alpha) {
 		if (broken) {
 			return false;
 		}
@@ -308,15 +432,16 @@ public final class OriginScreenRenderer {
 			if (wordmarkId == null || wmInkH <= 0) {
 				return false;
 			}
-			drawBakedInk(guiGraphics, wordmarkId, wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH, cx, cy, targetInkHeight, a);
+			drawBakedInk(guiGraphics, wordmarkId, wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH, cx, cy, targetInkHeight, alpha);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
 	}
 
+	/** Shared: blit a baked-text texture so its ink box centers on (cx, cy), ink scaled to targetInkHeight. */
 	private static void drawBakedInk(GuiGraphicsExtractor guiGraphics, Identifier tex, int texW, int texH,
-									 int inkX, int inkY, int inkW, int inkH, double cx, double cy, double targetInkHeight, float a) {
+									 int inkX, int inkY, int inkW, int inkH, double cx, double cy, double targetInkHeight, float alpha) {
 		float scale = (float) (targetInkHeight / inkH);
 		double icx = (inkX + inkW / 2.0) * scale;
 		double icy = (inkY + inkH / 2.0) * scale;
@@ -324,14 +449,17 @@ public final class OriginScreenRenderer {
 		pose.pushMatrix();
 		pose.translate((float) (cx - icx), (float) (cy - icy));
 		pose.scale(scale, scale);
-		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, tex, 0, 0, 0f, 0f, texW, texH, texW, texH, alpha(a));
+		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, tex, 0, 0, 0f, 0f, texW, texH, texW, texH, ARGB.white(alpha));
 		pose.popMatrix();
 	}
 
-	// Main menu: account chip (Origin ring mark + username) in the top-left. The
-	// 26.2 player-face API (PlayerFaceRenderer.draw / SkinManager.getInsecureSkin)
-	// was removed in the retained-mode overhaul, so the head uses the Origin mark
-	// (the chip's existing fallback) rather than the player's skin.
+	/**
+	 * Main menu: a small account chip (player head + username) in the top-left,
+	 * inside the frame. Identity presence, like premium launchers. Head via the
+	 * skin manager (default skin shows first, the real one pops in async); if the
+	 * head can't be resolved the chip falls back to the Origin ring mark, and if
+	 * the whole chip throws it flips the renderer to vanilla like any Origin draw.
+	 */
 	public static void renderTitleAccountChip(GuiGraphicsExtractor guiGraphics) {
 		if (broken) {
 			return;
@@ -355,20 +483,37 @@ public final class OriginScreenRenderer {
 			int x = Math.max(10, (int) Math.round(w * 0.03));
 			int y = x;
 
-			// No panel/border behind the name (Will) — just the Origin mark + username
-			// sit directly on the panorama.
+			// No background behind the head/username (Will 2026-07-21): the chip's
+			// translucent backing is removed so the head sits directly on the menu.
+			// The username keeps a text shadow (below) so it stays legible over the
+			// panorama without a panel. Brought in line with 1.21.1 on 2026-07-26 —
+			// this module still had the old backed version.
 			int hx = x + padX, hy = y + padY;
-			OriginUi.logo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
+			boolean drewHead = false;
+			try {
+				// Minecraft's resolved profile carries the signed `textures` property.
+				// Rebuilding a GameProfile from only UUID + name discards it, so
+				// SkinManager could only ever return the generated default head.
+				com.mojang.authlib.GameProfile profile = mc.getGameProfile();
+				// 1.21.11: getInsecureSkin -> createLookup supplier (secure=false).
+				net.minecraft.world.entity.player.PlayerSkin skin = mc.getSkinManager().createLookup(profile, false).get();
+				net.minecraft.client.gui.components.PlayerFaceExtractor.extractRenderState(guiGraphics, skin, hx, hy, head);
+				drewHead = true;
+			} catch (Throwable ignored) {
+				// fall back to the ring mark below
+			}
+			if (!drewHead) {
+				OriginUi.logo(guiGraphics, hx + head / 2.0, hy + head / 2.0, head, 1f);
+			}
 
-			// Text shadow keeps the name legible over the panorama now that there is
-			// no panel behind it.
-			guiGraphics.text(font, name, hx + head + gap,
-					y + (chipH - font.lineHeight) / 2, OriginTheme.TEXT, true);
+			com.origin.client.client.gui.OriginText.drawBold(guiGraphics, font, name, hx + head + gap,
+					y + (chipH - 8) / 2, OriginTheme.TEXT, true);
 		} catch (Throwable t) {
 			fail(t);
 		}
 	}
 
+	/** Clamps a target ink height so the wordmark's displayed width stays within maxWidthFrac of the screen. */
 	private static double fitInkHeight(double targetInkHeight, int w, double maxWidthFrac) {
 		if (wordmarkId == null || wmInkW <= 0) {
 			return targetInkHeight;
@@ -391,15 +536,19 @@ public final class OriginScreenRenderer {
 
 		for (Ring ring : rings) {
 			double revs = (now / 1000.0) / ring.periodSeconds();
+			// Wrap to [0,360) in double BEFORE the float cast: the absolute
+			// angle grows to ~1e10 degrees over time, which a 32-bit float
+			// quantizes to ~1000-degree steps -> rings freeze then jump every
+			// several seconds. Modulo keeps it small and precise.
 			double angle = (ring.angle0() + (ring.reverse() ? -revs : revs) * 360.0) % 360.0;
-			float scale = (float) (ring.widthFrac() * w * 1.1 / TEX);
+			float scale = (float) (ring.widthFrac() * w * 1.1 / TEX); // *1.1: ellipse fills 0.9 of its square texture
 
 			pose.pushMatrix();
 			pose.translate((float) cx, (float) cy);
 			pose.rotate((float) Math.toRadians(angle));
 			pose.scale(scale, scale);
 			pose.translate(-TEX / 2f, -TEX / 2f);
-			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, ring.texture(), 0, 0, 0f, 0f, TEX, TEX, TEX, TEX, alpha(ring.opacity()));
+			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, ring.texture(), 0, 0, 0f, 0f, TEX, TEX, TEX, TEX, ARGB.white(ring.opacity()));
 			pose.popMatrix();
 		}
 	}
@@ -408,16 +557,21 @@ public final class OriginScreenRenderer {
 		if (grainId == null) {
 			return;
 		}
+		// Tile in REAL pixels (pose-scale 1/guiScale): drawn in GUI units the
+		// 1px noise texels become guiScale-sized blocks -- the "low res" grain
+		// Will flagged. At 1:1 each noise grain is a single screen pixel,
+		// like the website's.
 		double gs = Math.max(1.0, Minecraft.getInstance().getWindow().getGuiScale());
 		int realW = (int) Math.ceil(w * gs);
 		int realH = (int) Math.ceil(h * gs);
-		int tile = 256;
+		int tile = 256; // matches grain.png; larger tile -> ~3x fewer blits/frame
 		Matrix3x2fStack pose = guiGraphics.pose();
 		pose.pushMatrix();
 		pose.scale((float) (1.0 / gs), (float) (1.0 / gs));
+		int grainTint = ARGB.white(0.028f);
 		for (int y = 0; y < realH; y += tile) {
 			for (int x = 0; x < realW; x += tile) {
-				guiGraphics.blit(RenderPipelines.GUI_TEXTURED, grainId, x, y, 0f, 0f, tile, tile, tile, tile, alpha(0.028));
+				guiGraphics.blit(RenderPipelines.GUI_TEXTURED, grainId, x, y, 0f, 0f, tile, tile, tile, tile, grainTint);
 			}
 		}
 		pose.popMatrix();
@@ -427,6 +581,11 @@ public final class OriginScreenRenderer {
 		return v - Math.floor(v);
 	}
 
+	/**
+	 * Sparse drifting background dust: fixed pseudo-random particles (seeded from
+	 * the index, no stored state) that slowly drift and twinkle. Monochrome, very
+	 * low alpha -- depth and life without pulling focus.
+	 */
 	private static void drawParticles(GuiGraphicsExtractor guiGraphics, int w, int h) {
 		double t = System.currentTimeMillis() / 1000.0;
 		for (int i = 0; i < PARTICLE_COUNT; i++) {
@@ -448,6 +607,13 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/**
+	 * Bodies orbiting the rings: each body's parametric point on a ring's ellipse
+	 * (a, a*heightRatio) advances on its own period, then is rotated by that
+	 * ring's live rotation so it visually rides the tilted ellipse -- a small
+	 * glowing "planet on its orbit" that plays the Origin identity. Drawn with the
+	 * radial-glow texture (halo + core). Skipped if the rings/glow aren't loaded.
+	 */
 	private static void drawOrbitingBodies(GuiGraphicsExtractor guiGraphics, int w, int h) {
 		if (ringsFailed || rings.isEmpty() || radialGlowId == null) {
 			return;
@@ -475,9 +641,10 @@ public final class OriginScreenRenderer {
 		}
 	}
 
+	/** Extra wordmark pass at a scale multiplier and alpha -- used for the breathing glow. */
 	private static void drawWordmarkGlow(GuiGraphicsExtractor guiGraphics, double inkCenterX, double inkCenterY,
-										 double targetInkHeight, double scaleMul, float a) {
-		if (wordmarkId == null || wmInkH <= 0 || a <= 0.001f) {
+										 double targetInkHeight, double scaleMul, float alpha) {
+		if (wordmarkId == null || wmInkH <= 0 || alpha <= 0.001f) {
 			return;
 		}
 		float scale = (float) (targetInkHeight / wmInkH * scaleMul);
@@ -487,15 +654,17 @@ public final class OriginScreenRenderer {
 		pose.pushMatrix();
 		pose.translate((float) (inkCenterX - icx), (float) (inkCenterY - icy));
 		pose.scale(scale, scale);
-		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH, alpha(a));
+		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH, ARGB.white(alpha));
 		pose.popMatrix();
 	}
 
+	/** Shared frame dressing for the ring backdrop: edge vignette + corner brackets. */
 	private static void drawFrame(GuiGraphicsExtractor guiGraphics, int w, int h) {
 		drawVignette(guiGraphics, w, h);
 		drawCornerBrackets(guiGraphics, w, h);
 	}
 
+	/** Full-screen edge vignette (the 1024px texture stretched to the GUI size). */
 	private static void drawVignette(GuiGraphicsExtractor guiGraphics, int w, int h) {
 		if (vignetteId == null) {
 			return;
@@ -503,25 +672,42 @@ public final class OriginScreenRenderer {
 		Matrix3x2fStack pose = guiGraphics.pose();
 		pose.pushMatrix();
 		pose.scale((float) w / VIGNETTE_TEX, (float) h / VIGNETTE_TEX);
-		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, WHITE);
+		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX);
 		pose.popMatrix();
 	}
 
+	/**
+	 * Thin L-brackets inset from each screen corner — an aerospace/instrument
+	 * framing cue that matches the Michroma wordmark and adds "designed" edges
+	 * without a hue. Drawn in the soft-strong stroke tone so they read as quiet
+	 * registration marks, not a hard border.
+	 */
 	private static void drawCornerBrackets(GuiGraphicsExtractor guiGraphics, int w, int h) {
 		int inset = Math.max(10, (int) Math.round(w * 0.022));
 		int len = Math.max(10, (int) Math.round(w * 0.018));
 		int th = Math.max(1, (int) Math.round(w * 0.0015));
 		int c = OriginTheme.STROKE_STRONG;
+		// top-left
 		guiGraphics.fill(inset, inset, inset + len, inset + th, c);
 		guiGraphics.fill(inset, inset, inset + th, inset + len, c);
+		// top-right
 		guiGraphics.fill(w - inset - len, inset, w - inset, inset + th, c);
 		guiGraphics.fill(w - inset - th, inset, w - inset, inset + len, c);
+		// bottom-left
 		guiGraphics.fill(inset, h - inset - th, inset + len, h - inset, c);
 		guiGraphics.fill(inset, h - inset - len, inset + th, h - inset, c);
+		// bottom-right
 		guiGraphics.fill(w - inset - len, h - inset - th, w - inset, h - inset, c);
 		guiGraphics.fill(w - inset - th, h - inset - len, w - inset, h - inset, c);
 	}
 
+	/**
+	 * Wordmark with a per-letter staggered reveal: each glyph band (from
+	 * wordmark.json) fades in and rises into place, offset by index, so the mark
+	 * assembles left-to-right instead of popping in whole. Once every letter has
+	 * finished (alpha 1, no offset) the bands tile seamlessly back into the full
+	 * wordmark. Falls back to the plain whole-mark draw if the bands are missing.
+	 */
 	private static void drawWordmarkReveal(GuiGraphicsExtractor guiGraphics, double inkCenterX, double inkCenterY,
 										   double targetInkHeight, long elapsedMs) {
 		if (wordmarkId == null || wmLetterX0 == null || wmInkH <= 0) {
@@ -531,9 +717,9 @@ public final class OriginScreenRenderer {
 		float scale = (float) (targetInkHeight / wmInkH);
 		double icx = (wmInkX + wmInkW / 2.0) * scale;
 		double icy = (wmInkY + wmInkH / 2.0) * scale;
-		double rise = wmInkH * 0.10;
-		double stagger = 55.0;
-		double dur = 300.0;
+		double rise = wmInkH * 0.10;   // texture-px the letters drop in from
+		double stagger = 55.0;         // ms between successive letters
+		double dur = 300.0;            // ms per-letter fade/rise
 
 		Matrix3x2fStack pose = guiGraphics.pose();
 		pose.pushMatrix();
@@ -552,33 +738,12 @@ public final class OriginScreenRenderer {
 				continue;
 			}
 			int yoff = (int) Math.round((1.0 - eased) * rise);
-			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, bw, wmTexH, wmTexW, wmTexH, alpha(eased));
+			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH, ARGB.white((float) eased));
 		}
 		pose.popMatrix();
 	}
 
-	private static void drawCaption(GuiGraphicsExtractor guiGraphics, double cx, int y, long elapsedMs) {
-		Font font = Minecraft.getInstance().font;
-		String base = "LOADING";
-		int tracking = 2;
-		int dots = (int) ((elapsedMs / 400L) % 4L);
-		int dotW = font.width(".") + tracking;
-		int textW = 0;
-		for (int i = 0; i < base.length(); i++) {
-			textW += font.width(String.valueOf(base.charAt(i))) + tracking;
-		}
-		double penX = cx - (textW + 3 * dotW) / 2.0;
-		for (int i = 0; i < base.length(); i++) {
-			String ch = String.valueOf(base.charAt(i));
-			guiGraphics.text(font, ch, (int) Math.round(penX), y, OriginTheme.MUTED, false);
-			penX += font.width(ch) + tracking;
-		}
-		for (int i = 0; i < dots; i++) {
-			guiGraphics.text(font, ".", (int) Math.round(penX), y, OriginTheme.MUTED, false);
-			penX += dotW;
-		}
-	}
-
+	/** Draws the wordmark with its ink box centered on (inkCenterX, inkCenterY), ink scaled to targetInkHeight. Returns ink bottom (screen Y). */
 	private static int drawWordmark(GuiGraphicsExtractor guiGraphics, double inkCenterX, double inkCenterY, double targetInkHeight) {
 		if (wordmarkId != null) {
 			float scale = (float) (targetInkHeight / wmInkH);
@@ -589,28 +754,128 @@ public final class OriginScreenRenderer {
 			pose.pushMatrix();
 			pose.translate((float) (inkCenterX - icx), (float) (inkCenterY - icy));
 			pose.scale(scale, scale);
-			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH, WHITE);
+			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH);
 			pose.popMatrix();
 
 			return (int) Math.round(inkCenterY + (wmInkH * scale) / 2.0);
 		}
 
-		Font font = Minecraft.getInstance().font;
-		String mark = "ORIGIN";
+		// "ORIGIN" in Minecraft's own letters, centered on the point. Never
+		// through mc.font: see BOOT FONT below for why.
 		float scale = 4.0f;
-		Matrix3x2fStack pose = guiGraphics.pose();
-		pose.pushMatrix();
-		pose.translate((float) inkCenterX, (float) inkCenterY);
-		pose.scale(scale, scale);
-		int textW = font.width(mark);
-		guiGraphics.text(font, mark, -textW / 2, -4, OriginTheme.TEXT, false);
-		pose.popMatrix();
+		if (ensureBootFont()) {
+			Matrix3x2fStack pose = guiGraphics.pose();
+			pose.pushMatrix();
+			pose.translate((float) inkCenterX, (float) inkCenterY);
+			pose.scale(scale, scale);
+			drawBootText(guiGraphics, "ORIGIN", -4, OriginTheme.TEXT);
+			pose.popMatrix();
+		}
 		return (int) Math.round(inkCenterY + 5 * scale);
 	}
 
+	// ---- BOOT FONT ----
+	// The loading overlay first paints DURING the initial resource reload,
+	// before Minecraft has baked any font glyphs. Text drawn through mc.font in
+	// that window comes out as one missing-glyph box per letter -- the six
+	// boxes Will saw in place of "ORIGIN" while the game loaded, on every
+	// version. So the loading mark reads Minecraft's own ascii.png straight off
+	// the game jar (plain classpath read: there from the first frame, no
+	// resource manager involved) and blits the glyphs itself. Same pixels the
+	// vanilla font draws, so the mark looks identical before and after fonts
+	// finish loading. If the sheet can't be read, no text is drawn at all --
+	// an empty frame is better than boxes.
+	private static Identifier bootFontId;
+	private static int bootFontTexW, bootFontTexH, bootFontCell;
+	private static int[] bootFontWidth; // per char code 0-255: glyph width in px, 0 = no glyph
+	private static boolean bootFontTried;
+
+	private static synchronized boolean ensureBootFont() {
+		if (bootFontTried) {
+			return bootFontId != null;
+		}
+		bootFontTried = true;
+		try {
+			NativeImage image;
+			try (InputStream in = open("/assets/minecraft/textures/font/ascii.png")) {
+				image = NativeImage.read(in);
+			}
+			int cell = image.getWidth() / 16;
+			int[] widths = new int[256];
+			// A glyph's width is its rightmost column with any opaque pixel --
+			// the same rule vanilla's bitmap font provider uses.
+			for (int c = 0; c < 256; c++) {
+				int cx = (c % 16) * cell;
+				int cy = (c / 16) * cell;
+				int w = 0;
+				for (int x = cell - 1; x >= 0 && w == 0; x--) {
+					for (int y = 0; y < cell; y++) {
+						// getPixel returns ARGB in this era (1.21.2+): alpha is the top byte.
+						if ((image.getPixel(cx + x, cy + y) >>> 24) != 0) {
+							w = x + 1;
+							break;
+						}
+					}
+				}
+				widths[c] = w;
+			}
+			bootFontTexW = image.getWidth();
+			bootFontTexH = image.getHeight();
+			bootFontCell = cell;
+			bootFontWidth = widths;
+			Identifier id = Identifier.fromNamespaceAndPath("originclient", "origin_boot_font");
+			// 1.21.11: no setFilter -- a DynamicTexture's default sampler is already
+			// NEAREST, which is what keeps the pixel letters crisp at 4x.
+			DynamicTexture texture = new DynamicTexture(() -> "originclient:origin_boot_font", image);
+			Minecraft.getInstance().getTextureManager().register(id, texture);
+			bootFontId = id;
+		} catch (Exception e) {
+			bootFontId = null;
+			com.origin.client.OriginClient.LOGGER.warn("Origin boot font (vanilla ascii.png) failed to load; loading screen draws no text", e);
+		}
+		return bootFontId != null;
+	}
+
+	/** Draws ASCII text from the boot font, horizontally centered on x=0, top at y, in the given ARGB color. */
+	private static void drawBootText(GuiGraphicsExtractor guiGraphics, String text, int y, int argb) {
+		// Vanilla advances width + 1 per glyph, scaled by 8/cell for HD sheets.
+		float unit = 8f / bootFontCell;
+		int total = 0;
+		for (int i = 0; i < text.length(); i++) {
+			char ch = text.charAt(i);
+			total += ch < 256 ? bootFontWidth[ch] + 1 : 0;
+		}
+		total -= 1;
+		// Batched-gui era: the tint rides the per-blit ARGB (setShaderColor has no effect here).
+		Matrix3x2fStack pose = guiGraphics.pose();
+		pose.pushMatrix();
+		pose.scale(unit, unit);
+		int x = -total / 2;
+		int top = Math.round(y / unit);
+		for (int i = 0; i < text.length(); i++) {
+			char ch = text.charAt(i);
+			if (ch >= 256) {
+				continue;
+			}
+			int w = bootFontWidth[ch];
+			if (w > 0) {
+				guiGraphics.blit(RenderPipelines.GUI_TEXTURED, bootFontId, x, top, (float) ((ch % 16) * bootFontCell), (float) ((ch / 16) * bootFontCell),
+						w, bootFontCell, bootFontTexW, bootFontTexH, argb);
+			}
+			x += w + 1;
+		}
+		pose.popMatrix();
+	}
+
+	/** Draws the progress bar centered on cx at barTop, with the given width/height. */
 	private static void drawBar(GuiGraphicsExtractor guiGraphics, double cx, int barTop, int barW, int barH, float progress) {
 		int bx = (int) Math.round(cx - barW / 2.0);
 		int by = barTop;
+
+		// Track brighter than the hairline stroke: at 8% white on the near-black
+		// background the unfilled track was invisible in-game, so only the fill
+		// showed and the bar read as the wrong (too small) size. ~16% matches how
+		// the mockup's track actually reads on screen.
 		guiGraphics.fill(bx, by, bx + barW, by + barH, 0x29FFFFFF);              // track
 		int fillW = Math.round(barW * progress);
 		if (fillW > 0) {
@@ -621,6 +886,8 @@ public final class OriginScreenRenderer {
 
 	// ---- Loading ----
 
+	// Volatile fast-path so the common (already-loaded) case is a plain field
+	// read with no monitor -- ensureLoaded() runs several times per frame.
 	private static void ensureLoaded() {
 		if (loaded) {
 			return;
@@ -658,6 +925,8 @@ public final class OriginScreenRenderer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin screen ring/grain textures failed to load; using plain background", e);
 		}
 
+		// Vignette loads independently of the rings: a failure just skips the
+		// edge darkening, it doesn't disable the backdrop.
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			vignetteId = registerTexture(mc, "origin_vignette", "/assets/originclient/textures/ui/vignette.png");
@@ -666,6 +935,8 @@ public final class OriginScreenRenderer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin vignette failed to load; skipping edge vignette", e);
 		}
 
+		// Wordmark loads separately: a failure here falls back to vanilla-font
+		// text without disabling the ring/grain background.
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			JsonObject wm;
@@ -678,6 +949,7 @@ public final class OriginScreenRenderer {
 			wmInkY = wm.get("inkY").getAsInt();
 			wmInkW = wm.get("inkWidth").getAsInt();
 			wmInkH = wm.get("inkHeight").getAsInt();
+			// Per-letter reveal bands (optional): [[x0,x1],...] texture columns.
 			if (wm.has("letters")) {
 				var la = wm.getAsJsonArray("letters");
 				int[] x0 = new int[la.size()];
@@ -706,6 +978,7 @@ public final class OriginScreenRenderer {
 		wmLetterX0 = null;
 		wmLetterX1 = null;
 
+		// Cursor-follow glow texture. Optional; skipped entirely on failure.
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			radialGlowId = registerTexture(mc, "origin_radial_glow", "/assets/originclient/textures/ui/radial_glow.png");
@@ -721,7 +994,15 @@ public final class OriginScreenRenderer {
 			image = NativeImage.read(in);
 		}
 		Identifier id = Identifier.fromNamespaceAndPath("originclient", name);
-		DynamicTexture texture = new DynamicTexture(() -> name, image);
+		// 1.21.11: DynamicTexture lost setFilter — filtering now rides the texture's
+		// GpuSampler. GUI_TEXTURED's default samples NEAREST (choppy icons/font), so
+		// bind a LINEAR clamp sampler to match the smooth pre-1.21.6 look.
+		DynamicTexture texture = new DynamicTexture(() -> "originclient:" + name, image) {
+			{
+				// 1.21.11 dropped setFilter; bind a LINEAR clamp sampler for smooth icons/font.
+				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+			}
+		};
 		mc.getTextureManager().register(id, texture);
 		return id;
 	}

@@ -16,8 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ProgressScreen.class)
 public class ProgressScreenMixin {
 
-	// 26.2: Screen.render -> extractRenderState.
-	@Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void originclient$originLoadingScene(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		// Only cancel vanilla when the Origin scene actually drew (fail-soft).
 		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, ((Screen) (Object) this).getTitle())) {

@@ -9,17 +9,24 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-// Particle Changer spawn filter. Every rule lives in ParticleFilter (shared) so
-// this hook can't drift from the other versions:
-//   HEAD   — drop the spawn when the filter says hidden ("Off"/"Hide All", the
-//            per-type rows, Show on Self/Players/Entities, Multiplier<1).
-//            Returning null is the vanilla "didn't spawn" path.
+// Particles mod, spawn side. Every rule lives in ParticleFilter so this hook and
+// FireworkStarterMixin can't drift apart; here we only wire it in:
+//   HEAD   — drop the spawn when the filter says hidden. Returning null is the
+//            vanilla "didn't spawn" path, and every vanilla caller ignores the
+//            return EXCEPT FireworkParticles$Starter, which dereferences it
+//            unchecked — FireworkStarterMixin keeps that caller from ever
+//            reaching this method when the spark is filtered (fixed 2026-08-01).
 //   RETURN — per-type Scale, Play Sound, and Multiplier>1 extra copies.
 //
-// 26.2 note: ParticleEngine.destroy(BlockPos,BlockState)/crack(BlockPos,Direction)
-// — the old block-break-burst hooks — were removed here (that spawn path moved),
-// so "Hide Block-Breaking Particle" only covers block particles that route
-// through createParticle for now; the break-burst hook is a follow-up.
+// NOTE (1.21.11): the old destroy()/crack() injects that gated block-breaking
+// and block-hit bursts USED to live here. Both methods were removed from
+// ParticleEngine in this era — the bursts now spawn through
+// ClientLevel.addDestroyBlockEffect / addBreakingBlockEffect, and
+// ClientLevelParticleMixin already gates them there with the same rules. The
+// injects were left behind pointing at names that no longer exist, so (with
+// "defaultRequire": 0) they were silently skipped dead weight. Removed
+// 2026-07-26. Do not re-add them here; the ClientLevel hooks are the ones
+// that work on this version.
 @Mixin(ParticleEngine.class)
 public class ParticleEngineMixin {
 

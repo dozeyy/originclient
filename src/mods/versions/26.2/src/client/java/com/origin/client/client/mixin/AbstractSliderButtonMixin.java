@@ -21,8 +21,7 @@ public class AbstractSliderButtonMixin {
 	@Shadow
 	protected double value;
 
-	// 26.2: renderWidget -> extractWidgetRenderState (retained-mode GUI).
-	@Inject(method = "extractWidgetRenderState", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
 	private void originclient$originStyle(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		// Only cancel vanilla when Origin actually drew (fail-soft contract).
 		if (OriginButtonRenderer.renderSlider(guiGraphics, (AbstractSliderButton) (Object) this, this.value)) {

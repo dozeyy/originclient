@@ -16,8 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ConnectScreen.class)
 public class ConnectScreenMixin {
 
-	// 26.2: Screen.render -> extractRenderState.
-	@Inject(method = "extractRenderState", at = @At("TAIL"))
+	@Inject(method = "render", at = @At("TAIL"))
 	private void originclient$originBar(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		OriginScreenRenderer.renderConnectingBar(guiGraphics);
 	}

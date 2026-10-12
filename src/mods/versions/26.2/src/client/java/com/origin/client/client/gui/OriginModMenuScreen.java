@@ -8,85 +8,167 @@ import com.origin.client.client.mods.Mods;
 import com.origin.client.client.mods.Profiles;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
-// The Right Shift panel — 2026-07 redesign to Will's OneConfig-style spec:
-//
-//   * a left SIDEBAR of sections (Mods / Profiles / Settings) with Edit HUD +
-//     Close pinned at the bottom, and the content to its right;
-//   * COMPACT mod cards, exactly 4 per row: icon on top, a colored name bar
-//     under it, a favourite star in the bottom-right corner;
-//   * everything drawn with subtle, smooth, anti-aliased ROUNDED corners
-//     (OriginUi.panel) — no more pixel-grid squares;
-//   * every on/off control is an Apple-style iOS toggle (OriginUi.switchAt);
-//   * all MENU text is Inter (OriginText) — in-world/HUD text stays vanilla;
-//   * the menu background is a solid colour whose opacity the player controls
-//     (Settings → Menu), from fully solid to fully clear.
-//
-// Word text goes through OriginText (Inter). Pure UI GLYPHS (star, arrows,
-// close ×) stay on the vanilla font — the bundled Inter face doesn't carry
-// those codepoints, and a missing-glyph box would look worse than a clean
-// vanilla symbol next to Inter words.
-//
-// PER-VERSION DELTA (1.21.11): GuiGraphics.pose() is a Matrix3x2fStack here (2D:
-// pushMatrix()/popMatrix(), translate(x,y)/scale(x,y) — no z component), not the
-// old 3D PoseStack's pushPose()/popPose()/translate(x,y,z)/scale(x,y,z). Input
-// callbacks take event objects (MouseButtonEvent/KeyEvent/CharacterEvent), not
-// raw (x,y,button)/(keyCode,scanCode,modifiers) params — mouseScrolled is the
-// one holdout still using raw doubles. The Item Size / Waypoints special-case
-// screens from 1.21.1's card-click handler are omitted here — those mods
-// aren't ported to 1.21.11 yet (Phase 2); their ids just won't appear in
-// Mods.ALL until then, so the branches would be unreachable anyway.
+import static com.origin.client.client.gui.OriginDeck.*;
+
+/**
+ * The Right Shift mod menu -- 2026-10 redesign: Lunar's layout, Origin's look,
+ * the smooth font. Built 1:1 from Will's approved mock (design/menu-redesign,
+ * v5: mock4.tpl.html is the spec; the PNGs in design/menu-redesign/v5 are what
+ * he signed off). One centred 920x580 panel in design px (OriginDeck scales it):
+ *
+ *   header   brand | MODS SETTINGS WAYPOINTS COSMETICS FRIENDS | Edit HUD  x
+ *            (the tabs centred in the space between the brand and Edit HUD)
+ *   toolbar  profile dropdown | category chips | grid/list | search
+ *   body     4-across mod cards (or a 4-across list), or a mod's own page
+ *            (back, title, description, live HUD preview, two-column options),
+ *            or the Settings tab (General / Performance / Menu).
+ *
+ * Alignment rule (Will: "line up the words with the lines"): everything sits
+ * on ONE 24px content margin and the 16px gap; labels are cap-centred in their
+ * rows. Click targets are recorded while drawing (OriginDeck.hit), so render
+ * and input share one geometry. Esc always goes up exactly one level.
+ *
+ * PER-VERSION DELTA (1.21.11): the layout and behaviour are 1.21.1's; the era's
+ * differences are --
+ *   * deferred GUI: vanilla runs renderBackground BEFORE render() for every
+ *     screen, so the backdrop lives in renderBackground (below) and render()
+ *     never draws one (a second title backdrop = a second blur in one frame,
+ *     which throws and switches Origin backdrops off for the session);
+ *   * GuiGraphicsExtractor.pose() is a 2D Matrix3x2fStack (pushMatrix / translate(x,y) /
+ *     scale(x,y)) -- the HUD preview below;
+ *   * input arrives as MouseButtonEvent / KeyEvent / CharacterEvent objects
+ *     (1.21.9 input rework; mouseScrolled keeps raw doubles), and the Ctrl /
+ *     paste checks come from the KeyEvent (no static Screen helpers).
+ */
 public class OriginModMenuScreen extends Screen {
-	private static final long SLIDE_MS = 180;
-	private static final long PAGE_MS = 170;
+	// ---- the design grid (design px; see the class comment) ----
+	private static final float W = 920, H = 580;
+	private static final float M = 24;               // the one content margin
+	private static final float CW = W - 2 * M;       // content width (872)
+	private static final float HEAD_H = 64;
+	private static final float BAR_Y = 80;           // toolbar row, 32 tall
+	private static final float BODY_Y = 128;         // first card / row
+	private static final float BOTTOM = 572;         // content stops 8 above the panel foot
+	private static final float GAP = 16;
+	private static final float CARD_H = 184, ROW_H = 44, OPT_H = 40;
+	private static final float SEARCH_W = 176;
 
+	private static final long OPEN_MS = 180, PAGE_MS = 150;
+
+	private enum Tab {MODS, SETTINGS}
+
+	private enum Cat {
+		ALL("All"), NEW("New"), HUD("HUD"), VISUAL("Visual"), GAMEPLAY("Gameplay"), SERVER("Server");
+
+		final String label;
+
+		Cat(String label) {
+			this.label = label;
+		}
+	}
+
+	private enum SubTab {
+		GENERAL("General"), PERFORMANCE("Performance"), MENU("Menu");
+
+		final String label;
+
+		SubTab(String label) {
+			this.label = label;
+		}
+	}
+
+	private final Screen returnTo;
 	private final long openedAt = System.currentTimeMillis();
 	private long closingAt = -1;
 
-	// page navigation: null = the section grid/list, otherwise the open mod's id
-	private String page = null;
+	private Tab tab = Tab.MODS;
+	private Cat cat = Cat.ALL;
+	private SubTab subTab = SubTab.GENERAL;
+	private String page = null;                       // open mod's id, null = the library
 	private long pageChangedAt = 0;
 
 	private String search = "";
-	private double scroll = 0, scrollTarget = 0;
+	private boolean searchFocused = false;
+	private String optSearch = "";                    // mod page / settings tab filter
+	private double scroll, scrollTarget, pageScroll, pageScrollTarget;
+	private float maxScroll, maxPageScroll;
 	private long lastFrameNanos = 0;
 
-	// settings-page (per-mod) scroll + search
-	private String settingsSearch = "";
-	private double settingsScroll = 0, settingsScrollTarget = 0;
-	private int settingsMaxScroll = 0;
-	private final java.util.List<SRow> srows = new java.util.ArrayList<>();
+	// slider drag / keybind capture / text field (the proven machinery, ported)
+	private String dragMod, dragKey;
+	private ModOption dragOpt;
+	private float dragX0, dragX1;
+	private boolean sliderUnsaved = false;
+	private String capMod, capKey;
+	private String textMod, textKey, textBuf = "";
+	private static final int TEXT_MAX = 128;
 
-	private record SRow(ModOption o, int y, int h, boolean indent) {
-	}
-
-	private String dragMod = null, dragKey = null;
-	private ModOption dragOpt = null;
-	private int dragTrackX0, dragTrackX1;
-	private String capMod = null, capKey = null;
-
-	// Profiles tab: the name currently being typed into the "new profile" field.
+	// profiles: the dropdown, its name field, the delete confirmation, the toast
+	private boolean profOpen = false;
 	private String profileInput = "";
 	private boolean profileFocused = false;
+	private String confirmDelete = null;
+	private long toastAt = -1;
+	private String toastText = "";
 
-	// Profiles feedback: a transient bottom-right "Profile changed" toast that
-	// fades after ~1s (set on Apply), and the profile name currently awaiting a
-	// delete confirmation ("Are you sure?" dialog). Both null/‑1 when idle.
-	private long profileToastAt = -1;
-	private String confirmDeleteName = null;
+	// tooltip for this frame + the card-hover delay
+	private String tip;
+	private String hoverCard;
+	private long hoverCardSince;
+
+	// entrance stagger whenever the visible set changes
+	private String lastLayoutKey = "";
+	private long rowsChangedAt = 0;
+
+	// last frame's mapping, for input between frames
+	private final List<OriginDeck.Hit> hits = new ArrayList<>();
+	private float lastS = 1, lastOx, lastOy;
 
 	public OriginModMenuScreen() {
+		this(null, null);
+	}
+
+	/**
+	 * Opens the menu from another screen. `returnTo` is where Close lands;
+	 * `startPage` (a Mods id, or null for the library) opens straight onto that
+	 * mod's page -- ignored if this build has no such mod.
+	 */
+	public OriginModMenuScreen(Screen returnTo, String startPage) {
 		super(Component.literal("Origin Mods"));
+		this.returnTo = returnTo;
+		if (startPage != null && Mods.byId(startPage) != null) {
+			this.page = startPage;
+		}
+	}
+
+	/** Opens on the Settings tab (the Right Shift screen's gear). */
+	public OriginModMenuScreen settingsTab() {
+		tab = Tab.SETTINGS;
+		return this;
+	}
+
+	/** Dev-shots only: open on the list view or the Settings tab. */
+	public OriginModMenuScreen preview(boolean list, boolean settings) {
+		Mods.setMetaBool("menuListView", list);
+		if (settings) {
+			tab = Tab.SETTINGS;
+		}
+		return this;
 	}
 
 	@Override
@@ -98,6 +180,8 @@ public class OriginModMenuScreen extends Screen {
 
 	@Override
 	public void removed() {
+		flushSlider();
+		commitText();
 		HudElements.editorPreview = false;
 		HudElements.suppressScoreboard = false;
 		super.removed();
@@ -113,133 +197,161 @@ public class OriginModMenuScreen extends Screen {
 		return false;
 	}
 
-	// ---- geometry ----
+	// ---- categories ----
+	// Static by id: the registry has no category field, and this is a design
+	// call about how a PLAYER thinks of each mod. Unmapped ids land in Gameplay
+	// so a new mod never disappears.
+	private static final Map<String, Cat> CATS = new HashMap<>();
 
-	private int px() {
-		return (width - pw()) / 2;
+	static {
+		for (String id : new String[]{"fps", "cps", "armorhud", "keystrokes", "coords", "potionhud", "scoreboard",
+				"tablist", "clock", "stopwatch", "daycounter", "ping", "memory", "saturation", "packdisplay",
+				"itemcounter", "directionhud", "combo", "reach", "bossbar", "titles", "cooldowns", "minimap", "portalcalc"}) {
+			CATS.put(id, Cat.HUD);
+		}
+		for (String id : new String[]{"zoom", "fullbright", "blockoverlay", "crosshair", "chunkborders", "hitboxes",
+				"nametags", "itemsize", "weather", "timechanger", "motionblur", "colorsaturation", "particles",
+				"hurtcam", "hitcolor", "glintcolorizer", "menublur", "shinypots", "tntcountdown", "itemphysics",
+				"worldeditcui"}) {
+			CATS.put(id, Cat.VISUAL);
+		}
+		for (String id : new String[]{"togglesprint", "freelook", "chat", "waypoints", "jei", "snaplook",
+				"soundchanger", "screenshot", "fpscoach"}) {
+			CATS.put(id, Cat.GAMEPLAY);
+		}
+		// Things that only matter on a server (Hypixel, lobbies, teams, chat macros).
+		for (String id : new String[]{"serveraddress", "hypixel", "hypixelbedwars", "teamview", "autogg",
+				"quickplay", "nickhider", "discord", "autotext", "friends"}) {
+			CATS.put(id, Cat.SERVER);
+		}
 	}
 
-	private int py() {
-		return (height - ph()) / 2;
+	// The NEW filter + badge: this release's additions. The badge clears once the
+	// player has opened that mod's page (meta "seen:<id>").
+	private static final Set<String> NEW_IDS = Set.of("portalcalc", "fpscoach", "hypixelbedwars", "friends");
+
+	private static Cat catOf(Mods.Mod m) {
+		return CATS.getOrDefault(m.id(), Cat.GAMEPLAY);
 	}
 
-	private int pw() {
-		return (int) (width * 0.78);
+	private static boolean showNewBadge(String id) {
+		return NEW_IDS.contains(id) && !Mods.metaBool("seen:" + id, false);
 	}
 
-	private int ph() {
-		return (int) (height * 0.76);
+	private static boolean inCat(Cat c, Mods.Mod m) {
+		return switch (c) {
+			case ALL -> true;
+			case NEW -> NEW_IDS.contains(m.id());
+			default -> catOf(m) == c;
+		};
 	}
 
-	/** Sidebar width — HALVED from the old 104–150px rail (Will: "make the left
-	 *  part 50% smaller"). Still clamped so it never eats content on small windows;
-	 *  the 3 nav labels stay centered in the narrower rail (drawNavItem). */
-	private int sbW() {
-		return Math.max(52, Math.min(76, pw() * 15 / 100));
-	}
+	// ---- value backing (JEI keeps its own store) ----
 
-	/** Content-region left edge (the divider sits here). */
-	private int contentX() {
-		return px() + sbW();
-	}
-
-	private int cx0() {
-		return contentX() + 14;
-	}
-
-	private int cx1() {
-		return px() + pw() - 14;
-	}
-
-	private static final int COLS = 4, GAP = 8, CELL_H = 74, BAR_H = 17;
-	private int cellW = 100;
-	private final List<Mods.Mod> filtered = new ArrayList<>();
-
-	// section state
-	enum Nav {MODS, PROFILES, SETTINGS}
-
-	private Nav nav = Nav.MODS;
-
-	enum SubTab {GENERAL, PERFORMANCE, MENU}
-
-	private SubTab subTab = SubTab.GENERAL;
-	private double settingsTabScroll = 0, settingsTabScrollTarget = 0;
-	private int settingsTabMaxScroll = 0;
-
-	// transparent-menu mode (opacity ~0): content switches to dark translucent
-	// fills so it stays legible with no panel behind it.
-	private boolean clear = false;
-
-	// Dark scrim laid over the blurred world behind the menu (Lunar-style): dark
-	// enough to read against, translucent enough that the world still shows through.
-	private static final int MENU_SCRIM = 0x99101014;
-
-	private int chipFill(boolean hover) {
-		return clear ? (hover ? 0xE0181818 : 0xC8101010) : (hover ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL);
-	}
-
-	// Card name-bar tones: sage when the mod is ON, neutral gray when OFF (the
-	// theme's sanctioned enabled/disabled colour language, kept subtle).
-	private static final int BAR_ON = OriginTheme.SUCCESS, BAR_ON_HOVER = OriginTheme.ACCENT_2;
-	private static final int BAR_OFF = OriginTheme.PANEL_ALT, BAR_OFF_HOVER = OriginTheme.BOX_FILL_HOVER;
-
-	private java.util.List<ModOption> subOpts() {
-		return subTab == SubTab.GENERAL ? Mods.GENERAL_SETTINGS : Mods.PERFORMANCE_SETTINGS;
-	}
-
-	private String subId() {
-		return subTab == SubTab.GENERAL ? Mods.GENERAL_ID : Mods.PERFORMANCE_ID;
-	}
-
-	// ---- value backing dispatch ----
-	// 26.2 does NOT bundle JEI, so every option reads/writes the normal Mods store.
-	// (1.21.x routes "jei" through JeiSettings here; that whole branch is dropped.)
 	private static boolean isJei(String id) {
-		return false;
+		return "jei".equals(id);
 	}
 
-	private java.util.List<ModOption> optionsFor(Mods.Mod mod) {
-		return mod.options();
+	private List<ModOption> optionsFor(Mods.Mod mod) {
+		return isJei(mod.id()) ? JeiSettings.options() : mod.options();
 	}
 
 	private boolean vBool(String id, String key) {
-		return Mods.bool(id, key);
+		return isJei(id) ? JeiSettings.getBool(key) : Mods.bool(id, key);
 	}
 
 	private void vSetBool(String id, String key, boolean v) {
-		Mods.set(id, key, v);
+		if (isJei(id)) {
+			JeiSettings.setBool(key, v);
+		} else {
+			Mods.set(id, key, v);
+		}
 	}
 
 	private double vNum(String id, String key) {
-		return Mods.num(id, key);
+		return isJei(id) ? JeiSettings.getNum(key) : Mods.num(id, key);
 	}
 
-	private void vSetNum(String id, String key, double v) {
-		Mods.set(id, key, v);
+	// Slider drags write memory only; flushSlider() saves once on release (a
+	// per-event JSON write was dozens of synchronous writes a second). Time
+	// Changer's slider also pushes straight into the live sky.
+	private void vDragNum(String id, String key, double v) {
+		if (isJei(id)) {
+			JeiSettings.setNum(key, v);
+			return;
+		}
+		Mods.setUnsaved(id, key, v);
+		sliderUnsaved = true;
+		if ("timechanger".equals(id) && "time".equals(key)) {
+			com.origin.client.client.OriginClientMod.previewTimeSlider(v);
+		}
+	}
+
+	private void flushSlider() {
+		if (sliderUnsaved) {
+			sliderUnsaved = false;
+			Mods.save();
+		}
 	}
 
 	private String vMode(String id, String key) {
-		return Mods.mode(id, key);
+		return isJei(id) ? JeiSettings.getMode(key) : Mods.mode(id, key);
 	}
 
 	private void vSetMode(String id, String key, String v) {
-		Mods.set(id, key, v);
+		if (isJei(id)) {
+			JeiSettings.setMode(key, v);
+		} else {
+			Mods.set(id, key, v);
+		}
 	}
 
 	private String vMulti(String id, String key) {
-		return Mods.mode(id, key);
+		return isJei(id) ? JeiSettings.getMulti(key) : Mods.mode(id, key);
 	}
 
 	private void vSetMulti(String id, String key, String csv) {
-		Mods.set(id, key, csv);
+		if (isJei(id)) {
+			JeiSettings.setMulti(key, csv);
+		} else {
+			Mods.set(id, key, csv);
+		}
 	}
 
-	private int multiBtnW(int x0, int x1) {
-		return Math.min(180, Math.max(80, (x1 - x0) / 2));
+	/** Differs from its schema default? (drives the reset arrow; JEI has none) */
+	private boolean changed(String id, ModOption o) {
+		if (isJei(id)) {
+			return false;
+		}
+		return switch (o.kind) {
+			case TOGGLE -> Mods.bool(id, o.key) != o.defBool;
+			case SLIDER -> Math.abs(Mods.num(id, o.key) - o.defNum) > Math.max(1e-6, o.step / 2);
+			case COLOR -> Mods.color(id, o.key) != o.defColor || OriginColorPicker.chromaOn(id, o.key);
+			case KEYBIND -> Mods.keyCode(id, o.key) != o.defKey;
+			case DROPDOWN -> o.modes != null && o.modes.length > 0 && !Mods.mode(id, o.key).equals(o.modes[0]);
+			case TEXT -> !Mods.text(id, o.key).equals(o.defText == null ? "" : o.defText);
+			default -> false;
+		};
 	}
 
-	private static java.util.List<String> splitCsv(String csv) {
-		java.util.List<String> out = new java.util.ArrayList<>();
+	// Item Counter's "Items" row opens the shared item grid (Item Size's layout).
+	private static boolean isItemPicker(String modId, String key) {
+		return modId.equals("itemcounter") && key.equals("items");
+	}
+
+	private static String itemPickerSummary(String csv) {
+		List<String> names = new ArrayList<>();
+		for (String t : com.origin.client.client.mods.ItemCounter.tokens(csv)) {
+			var e = com.origin.client.client.mods.ItemCounter.resolve(t);
+			if (e != null) {
+				names.add(e.label());
+			}
+		}
+		return names.isEmpty() ? "None" : String.join(", ", names);
+	}
+
+	private static List<String> splitCsv(String csv) {
+		List<String> out = new ArrayList<>();
 		if (csv != null) {
 			for (String p : csv.split(",")) {
 				String t = p.trim();
@@ -251,831 +363,1074 @@ public class OriginModMenuScreen extends Screen {
 		return out;
 	}
 
-	private static String joinCsv(java.util.List<String> tokens) {
-		return String.join(", ", tokens);
-	}
+	// ---- navigation ----
 
-	// ---- mods grid layout ----
-
-	private void layout() {
-		int gridW = cx1() - cx0();
-		cellW = Math.max(48, (gridW - (COLS - 1) * GAP) / COLS);
-		filtered.clear();
-		String q = search.toLowerCase();
-		for (Mods.Mod m : Mods.ALL) {
-			if (q.isEmpty() || m.name().toLowerCase().contains(q)) {
-				filtered.add(m);
-			}
+	private void openMod(Mods.Mod mod) {
+		Mods.setMetaBool("seen:" + mod.id(), true);
+		switch (mod.id()) {
+			case "waypoints" -> Minecraft.getInstance().setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
+			case "itemsize" -> Minecraft.getInstance().setScreenAndShow(new OriginItemSizeScreen());
+			case "fpscoach" -> Minecraft.getInstance().setScreenAndShow(new FpsCoachScreen(this));
+			default -> goPage(mod.id());
 		}
-		filtered.sort((a, b) -> Boolean.compare(
-				Mods.metaBool("fav:" + b.id(), false), Mods.metaBool("fav:" + a.id(), false)));
 	}
 
-	private int gridTop() {
-		return py() + 52;
+	private void goPage(String id) {
+		commitText();
+		page = id;
+		pageChangedAt = System.currentTimeMillis();
+		optSearch = "";
+		pageScroll = pageScrollTarget = 0;
+		profOpen = false;
 	}
 
-	private int gridLeft() {
-		return cx0();
+	private void goTab(Tab t) {
+		commitText();
+		tab = t;
+		page = null;
+		pageChangedAt = System.currentTimeMillis();
+		optSearch = "";
+		pageScroll = pageScrollTarget = 0;
+		searchFocused = false;
+		profOpen = false;
 	}
 
-	private int[] cellRect(int i) {
-		int col = i % COLS, row = i / COLS;
-		int x = gridLeft() + col * (cellW + GAP);
-		int y = gridTop() + row * (CELL_H + GAP) - (int) scroll;
-		return new int[]{x, y, x + cellW, y + CELL_H};
+	public void beginClose() {
+		if (closingAt < 0) {
+			closingAt = System.currentTimeMillis();
+		}
 	}
 
-	private double maxScroll() {
-		int rows = (filtered.size() + COLS - 1) / COLS;
-		return Math.max(0, rows * (CELL_H + GAP) - GAP - (py() + ph() - 14 - gridTop()));
+	private static String activeProfile() {
+		String p = Mods.metaText("activeProfile", "");
+		return p.isEmpty() || !Profiles.exists(p) ? "Default" : p;
+	}
+
+	private void toast(String text) {
+		toastText = text;
+		toastAt = System.currentTimeMillis();
 	}
 
 	// ---- render ----
 
+	// 1.21.11 (deferred GUI): vanilla runs renderBackground as its own stratum
+	// before render(). Out of a world, super paints the Origin title backdrop
+	// (ScreenBackgroundMixin -- the frame's one blur). In a world, 1.21.1 draws NO
+	// backdrop (the menu is see-through so HUD changes preview live behind it),
+	// so vanilla's blur + in-world menu texture are skipped; only Menu Blur's
+	// "Origin Menus" (off by default) adds its blur + tint.
+	@Override
+	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+		if (Minecraft.getInstance().level == null) {
+			super.extractBackground(g, mouseX, mouseY, partialTick);
+		} else {
+			com.origin.client.client.mods.MenuBlur.renderBehind(g, this, partialTick);
+			Minecraft.getInstance().gui.hud.extractDeferredSubtitles();   // vanilla's tail call
+		}
+	}
+
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
-		// (26.2 draws the Origin HUD via HudElementRegistry, not from the screen.)
-		layout();
-		hoverTip = null;
+		// The HUD is drawn once per frame BEHIND every screen (GuiHudMixin), so
+		// toggles preview live under the menu -- never draw it from here (Will's
+		// rule: the HUD always sits behind menus). NO backdrop call here either:
+		// renderBackground above already ran for this frame (see the class doc).
 		long now = System.currentTimeMillis();
-
 		long nanos = System.nanoTime();
 		double dt = lastFrameNanos == 0 ? 16.7 : Math.min(50.0, (nanos - lastFrameNanos) / 1_000_000.0);
 		lastFrameNanos = nanos;
-		scroll += (scrollTarget - scroll) * Math.min(1.0, dt / 60.0);
-		settingsScroll += (settingsScrollTarget - settingsScroll) * Math.min(1.0, dt / 60.0);
-		settingsTabScroll += (settingsTabScrollTarget - settingsTabScroll) * Math.min(1.0, dt / 60.0);
+		double ease = Math.min(1.0, dt / 60.0);
+		scroll += (scrollTarget - scroll) * ease;
+		pageScroll += (pageScrollTarget - pageScroll) * ease;
 
-		double p = OriginTheme.easeOut(Math.min(1.0, (now - openedAt) / (double) SLIDE_MS));
+		float p = (float) OriginTheme.easeOut(Math.min(1.0, (now - openedAt) / (double) OPEN_MS));
 		if (closingAt > 0) {
-			double cp = Math.min(1.0, (now - closingAt) / (double) SLIDE_MS);
-			p = OriginTheme.easeOut(1.0 - cp);
+			double cp = Math.min(1.0, (now - closingAt) / (double) OPEN_MS);
+			p = (float) OriginTheme.easeOut(1.0 - cp);
 			if (cp >= 1.0) {
-				Minecraft.getInstance().setScreenAndShow(null);
+				Minecraft.getInstance().setScreenAndShow(returnTo);
 				return;
 			}
 		}
 
-		// Lunar-style backdrop: a dark scrim over the world behind the menu.
-		//
-		// Do NOT call blurBeforeThisStratum() here: this era allows exactly ONE blur
-		// per frame and vanilla ALREADY blurs the world behind an in-world screen, so
-		// a second call throws "Can only blur once per frame" every frame (proven on
-		// 26.2 — it made the menu un-openable). The blur is already there; this scrim
-		// just darkens it.
-		g.fill(0, 0, width, height, MENU_SCRIM);
+		var win = Minecraft.getInstance().getWindow();
+		float s = OriginDeck.scale(win.getWidth(), win.getHeight(), W, H);
+		float ox = (win.getWidth() - W * s) / 2f;
+		float oy = (win.getHeight() - H * s) / 2f + (1 - p) * 12 * s;
+		lastS = s;
+		lastOx = ox;
+		lastOy = oy;
+		OriginDeck d = new OriginDeck(g, s, ox, oy, mouseX, mouseY, hits);
+		d.alpha = p;
+		// "Solid Menu Background" off: no panel, so the kit lifts the text over the world
+		d.seeThrough = OriginDeck.menuSeeThrough();
+		tip = null;
 
-		var pose = g.pose();
-		pose.pushMatrix();
-		pose.translate(0f, (float) ((1.0 - p) * (height - py())));
-
-		// Solid menu background, on/off (Settings → Menu): 1 = solid, 0 = clear.
-		double op = Mods.metaNum("menuBgOpacity", 1.0);
-		clear = op <= 0.02;
-		if (!clear) {
-			int a = (int) Math.round(op * 255);
-			OriginUi.panel(g, px(), py(), pw(), ph(), OriginTheme.RADIUS_LG,
-					(a << 24) | (OriginTheme.PANEL & 0xFFFFFF), OriginTheme.STROKE);
+		drawShell(d);
+		float t = pageChangedAt == 0 ? 1f
+				: (float) OriginTheme.easeOut(Math.min(1.0, (now - pageChangedAt) / (double) PAGE_MS));
+		d.alpha = p * t;
+		Mods.Mod mod = page == null ? null : Mods.byId(page);
+		if (page != null && mod == null) {
+			page = null;
 		}
-
-		float t = (float) OriginTheme.easeOut(Math.min(1.0, (now - pageChangedAt) / (double) PAGE_MS));
-		if (pageChangedAt == 0) {
-			t = 1f;
-		}
-
-		// Sidebar is always present; its own subtle scale-in rides the same page t.
-		renderSidebar(g, mouseX, mouseY, (float) p);
-
-		pose.pushMatrix();
-		float s = 0.985f + 0.015f * t;
-		pose.translate((float) (contentX() + (pw() - sbW()) / 2.0), (float) (py() + ph() / 2.0));
-		pose.scale(s, s);
-		pose.translate((float) -(contentX() + (pw() - sbW()) / 2.0), (float) -(py() + ph() / 2.0));
-
-		if (page != null) {
-			renderSettings(g, mouseX, mouseY, now, t, Mods.byId(page));
+		if (mod != null) {
+			drawModPage(d, mod);
+		} else if (tab == Tab.SETTINGS) {
+			drawSettingsTab(d);
 		} else {
-			switch (nav) {
-				case MODS -> renderMods(g, mouseX, mouseY, now, t);
-				case PROFILES -> renderProfiles(g, mouseX, mouseY, now, t);
-				case SETTINGS -> renderSettingsPage(g, mouseX, mouseY, now, t);
-			}
+			drawLibrary(d, now);
 		}
-		pose.popMatrix();
-
-		// version stamp
-		String ver = "Origin Client " + VERSION;
-		OriginText.draw(g, font, ver, cx1() - OriginText.width(font, ver), py() + ph() - 12,
-				withAlpha(OriginTheme.MUTED, (float) p * 0.8f), false);
-
-		pose.popMatrix();
-
-		if (hoverTip != null && !OriginColorPicker.isOpen() && !OriginMultiSelect.isOpen() && closingAt < 0) {
-			drawTooltip(g, hoverTipX, hoverTipY, hoverTip);
+		d.alpha = p;
+		if (profOpen && tab == Tab.MODS && page == null) {
+			drawProfiles(d);
 		}
+		if (confirmDelete != null) {
+			drawConfirm(d);
+		}
+		drawToast(d, now);
+		if (tip != null && confirmDelete == null && !OriginColorPicker.isOpen() && !OriginMultiSelect.isOpen()) {
+			drawTip(d, tip, win.getWidth(), win.getHeight());
+		}
+		d.end();
 
 		OriginMultiSelect.render(g, mouseX, mouseY);
 		OriginColorPicker.render(g, mouseX, mouseY);
-
-		// Profiles feedback overlays, drawn last so nothing paints over them.
-		drawProfileToast(g, now);
-		drawDeleteConfirm(g, mouseX, mouseY);
 	}
 
-	// Bottom-right "Profile changed" toast — fades in fast, holds, then fades out
-	// over the last 300ms of its ~1s life. Positioned clear of the version stamp.
-	private void drawProfileToast(GuiGraphicsExtractor g, long now) {
-		if (profileToastAt < 0) {
-			return;
+	// ---- the shell: panel, header, tabs ----
+
+	private void drawShell(OriginDeck d) {
+		double op = Mods.metaNum("menuBgOpacity", 1.0);
+		if (op > 0.02) {
+			d.shadow(0, 0, W, H, 8);
+			d.rect(0, 0, W, H, 8, mul(PANEL, (float) op), 0x12FFFFFF);
 		}
-		long dt = now - profileToastAt;
-		long life = 1000;
-		if (dt >= life) {
-			profileToastAt = -1;
-			return;
+		d.fill(1, HEAD_H, W - 2, 1, LINE);
+
+		// brand: the real Origin mark + ORIGIN (bold) CLIENT (light)
+		d.logo(M + 16, HEAD_H / 2, 32, 0.12f);
+		float bx = M + 32 + 10;
+		bx += d.textMid("ORIGIN", bx, HEAD_H / 2, 18, true, 0.4f, TEXT);
+		float brandEnd = bx + 7 + d.textMid("CLIENT", bx + 7, HEAD_H / 2, 18, false, 0.4f, DIM);
+
+		// close, then Edit HUD to its left (measured first: the tabs centre between it and the brand)
+		float cx = W - M - 32;
+		String eh = "EDIT HUD";
+		float ew = 14 + 14 + 8 + d.textW(eh, 11, true, CAPS_TRACK) + 14;
+		float ex = cx - 8 - ew;
+
+		// Five tabs (Friends joined 2026-10-12): 12 px padding each side and a 4 px
+		// gap so the row fits between the brand and Edit HUD with equal room on
+		// both sides -- centred in that free space, not on the panel, which would
+		// leave a cramped left gap and a wide right one.
+		String[] tabs = {"Mods", "Settings", "Waypoints", "Cosmetics", "Friends"};
+		float[] tw = new float[tabs.length];
+		float total = 4 * (tabs.length - 1);
+		for (int i = 0; i < tabs.length; i++) {
+			tw[i] = d.textW(tabs[i].toUpperCase(Locale.ROOT), 11, true, CAPS_TRACK) + 24;
+			total += tw[i];
 		}
-		float a = dt < 120 ? dt / 120f : (dt > life - 300 ? (life - dt) / 300f : 1f);
-		a = Math.max(0f, Math.min(1f, a));
-		String msg = "Profile changed";
-		int tw = OriginText.width(font, msg);
-		int w = tw + 30, h = 26;
-		int x = width - w - 14, y = height - h - 14;
-		OriginUi.panel(g, x, y, w, h, 8, withAlpha(0xF01A1A1A, a), withAlpha(OriginTheme.STROKE_STRONG, a));
-		OriginUi.star(g, x + 9, y + 8, 10, withAlpha(0xFF7FA98F, a)); // small confirmation mark
-		OriginText.draw(g, font, msg, x + 24, y + 9, withAlpha(0xFFDDE7E0, a), false);
-	}
-
-	// Centered "Are you sure?" modal for profile deletion. Geometry is shared with
-	// clickDeleteConfirm so the hit boxes match exactly.
-	private int[] confirmRect() {
-		int w = 264, h = 98;
-		return new int[]{(width - w) / 2, (height - h) / 2, w, h};
-	}
-
-	private void drawDeleteConfirm(GuiGraphicsExtractor g, int mx, int my) {
-		if (confirmDeleteName == null) {
-			return;
+		float tx = (brandEnd + ex) / 2f - total / 2f;
+		int attention = com.origin.client.client.social.SocialClient.attention();
+		for (int i = 0; i < tabs.length; i++) {
+			boolean active = (i == 0 && tab == Tab.MODS) || (i == 1 && tab == Tab.SETTINGS);
+			boolean hov = d.over(tx, 17, tw[i], 30);
+			float hp = OriginUi.hover("deck-tab:" + i, hov);
+			if (active) {
+				d.rect(tx, 17, tw[i], 30, 6, 0x12FFFFFF);
+			} else if (hp > 0.01f) {
+				d.rect(tx, 17, tw[i], 30, 6, mul(0x0AFFFFFF, hp));
+			}
+			d.textCenter(tabs[i].toUpperCase(Locale.ROOT), tx + tw[i] / 2, 32, 11, true, CAPS_TRACK,
+					active ? TEXT : lerp(MUTE, DIM, hp));
+			if (i == 4 && attention > 0) {
+				// unread messages / requests / invites waiting
+				d.circle(tx + tw[i] - 6, 22, 3.5f, ACC);
+			}
+			final int idx = i;
+			d.hit(tx, 17, tw[i], 30, () -> {
+				switch (idx) {
+					case 0 -> goTab(Tab.MODS);
+					case 1 -> goTab(Tab.SETTINGS);
+					case 2 -> Minecraft.getInstance().setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
+					case 3 -> Minecraft.getInstance().setScreenAndShow(new CosmeticsScreen(this));
+					default -> Minecraft.getInstance().setScreenAndShow(new FriendsScreen(this));
+				}
+			});
+			tx += tw[i] + 4;
 		}
-		g.fill(0, 0, width, height, 0x99000000); // scrim
-		int[] r = confirmRect();
-		int x = r[0], y = r[1], w = r[2], h = r[3];
-		OriginUi.panel(g, x, y, w, h, 10, 0xF0121212, OriginTheme.STROKE_STRONG);
-		OriginText.drawBold(g, font, "Delete this profile?", x + 16, y + 16, OriginTheme.TEXT, false);
-		String sub = OriginText.ellipsize(font, "\"" + confirmDeleteName + "\" will be removed permanently.", w - 32);
-		OriginText.draw(g, font, sub, x + 16, y + 36, OriginTheme.MUTED, false);
 
-		int bw = 96, bh = 26, by = y + h - bh - 14;
-		int cancelX = x + 16, delX = x + w - bw - 16;
-		boolean cH = in(mx, my, cancelX, by, cancelX + bw, by + bh);
-		boolean dH = in(mx, my, delX, by, delX + bw, by + bh);
-		float cancelHp = OriginUi.hover("profile-confirm:cancel", cH);
-		float deleteHp = OriginUi.hover("profile-confirm:delete", dH);
-		OriginUi.panel(g, cancelX, by, bw, bh, OriginTheme.RADIUS_SM,
-				OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, cancelHp),
-				OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.BOX_BORDER_HOVER, cancelHp));
-		OriginText.draw(g, font, "Cancel", cancelX + (bw - OriginText.width(font, "Cancel")) / 2, by + 9, OriginTheme.TEXT, false);
-		OriginUi.panel(g, delX, by, bw, bh, OriginTheme.RADIUS_SM,
-				OriginTheme.lerpColor(0x33E06B5B, 0x66E06B5B, deleteHp),
-				OriginTheme.lerpColor(0x99E06B5B, OriginTheme.DANGER, deleteHp));
-		OriginText.draw(g, font, "Delete", delX + (bw - OriginText.width(font, "Delete")) / 2, by + 9, 0xFFC77A73, false);
+		boolean ch = d.over(cx, 16, 32, 32);
+		d.rect(cx, 16, 32, 32, 6, ch ? 0x1AFFFFFF : 0x0AFFFFFF);
+		d.icon("@close", cx + 9, 25, 14, ch ? TEXT : DIM);
+		d.hit(cx, 16, 32, 32, this::beginClose);
+
+		boolean ehov = d.over(ex, 16, ew, 32);
+		d.rect(ex, 16, ew, 32, 6, ehov ? 0xFF83E2B5 : ACC);
+		d.icon("@hudeditor", ex + 14, 25, 14, ON_ACC);
+		d.textMid(eh, ex + 36, 32, 11, true, CAPS_TRACK, ON_ACC);
+		d.hit(ex, 16, ew, 32, () -> Minecraft.getInstance().setScreenAndShow(new HudEditorScreen(false, this)));
 	}
 
-	private boolean clickDeleteConfirm(double mx, double my) {
-		int[] r = confirmRect();
-		int x = r[0], y = r[1], w = r[2], h = r[3];
-		int bw = 96, bh = 26, by = y + h - bh - 14;
-		int cancelX = x + 16, delX = x + w - bw - 16;
-		if (in(mx, my, delX, by, delX + bw, by + bh)) {
-			Profiles.delete(confirmDeleteName);
-			confirmDeleteName = null;
+	// ---- the library: toolbar + cards / list ----
+
+	private final List<Mods.Mod> visible = new ArrayList<>();
+
+	private void filter() {
+		visible.clear();
+		String q = search.toLowerCase(Locale.ROOT).trim();
+		for (Mods.Mod m : Mods.ALL) {
+			if (inCat(cat, m) && (q.isEmpty() || matches(m, q))) {
+				visible.add(m);
+			}
+		}
+		// pinned first, then A-Z (an alphabetical library is the fastest to scan)
+		visible.sort((a, b) -> {
+			int f = Boolean.compare(Mods.metaBool("fav:" + b.id(), false), Mods.metaBool("fav:" + a.id(), false));
+			return f != 0 ? f : a.name().compareToIgnoreCase(b.name());
+		});
+		String key = cat + "|" + q + "|" + Mods.metaBool("menuListView", false);
+		if (!key.equals(lastLayoutKey)) {
+			lastLayoutKey = key;
+			rowsChangedAt = System.currentTimeMillis();
+		}
+	}
+
+	/** Search hits the name, the description AND every option label. */
+	private static boolean matches(Mods.Mod m, String q) {
+		String desc = m.description() == null ? "" : m.description();
+		if (m.name().toLowerCase(Locale.ROOT).contains(q) || desc.toLowerCase(Locale.ROOT).contains(q)) {
 			return true;
 		}
-		if (in(mx, my, cancelX, by, cancelX + bw, by + bh)) {
-			confirmDeleteName = null;
-			return true;
-		}
-		if (in(mx, my, x, y, x + w, y + h)) {
-			return true; // click inside the dialog but off the buttons — keep it open
-		}
-		confirmDeleteName = null; // click outside cancels
-		return true;
-	}
-
-	// ---- sidebar ----
-
-	private void renderSidebar(GuiGraphicsExtractor g, int mx, int my, float alpha) {
-		int x = px() + 14;
-		int w = sbW() - 28;
-
-		// brand: Origin mark + wordmark, CENTERED at the top of the narrow rail
-		// (the old left-anchored logo + "ORIGIN" no longer fits the halved width).
-		int railCx = x + w / 2;
-		OriginUi.logo(g, railCx, py() + 24, 20, alpha);
-		int brandW = OriginText.widthBold(font, "ORIGIN");
-		OriginText.drawBold(g, font, "ORIGIN", x + (w - brandW) / 2, py() + 38, withAlpha(OriginTheme.TEXT, alpha), clear);
-
-		// divider between sidebar and content
-		g.fill(contentX(), py() + 10, contentX() + 1, py() + ph() - 10, withAlpha(OriginTheme.STROKE, alpha));
-
-		// nav items
-		String[] labels = {"Mods", "Profiles", "Settings"};
-		Nav[] navs = {Nav.MODS, Nav.PROFILES, Nav.SETTINGS};
-		int y = py() + 64;
-		for (int i = 0; i < labels.length; i++) {
-			boolean active = nav == navs[i] && page == null || (navs[i] == Nav.MODS && page != null);
-			boolean hover = in(mx, my, x, y, x + w, y + NAV_H);
-			drawNavItem(g, x, y, w, labels[i], active, hover, alpha);
-			y += NAV_STEP;
-		}
-
-		// bottom actions: Edit + Close, pinned bottom with a TIGHT gap (Will). "Edit"
-		// (not "Edit HUD") so the label fits the halved rail without clipping.
-		int by2 = py() + ph() - 26;
-		int by1 = by2 - 20;
-		drawSidebarButton(g, x, by1, w, "Edit", in(mx, my, x, by1, x + w, by1 + 18), alpha, false);
-		drawSidebarButton(g, x, by2, w, "Close", in(mx, my, x, by2, x + w, by2 + 18), alpha, true);
-	}
-
-	// Sidebar nav rows: a short box that HUGS the label (text ~8px + small padding)
-	// rather than a tall block (Will). NAV_STEP leaves a slim gap between rows.
-	private static final int NAV_H = 20, NAV_STEP = 24;
-
-	private void drawNavItem(GuiGraphicsExtractor g, int x, int y, int w, String label, boolean active, boolean hover, float alpha) {
-		// Faint hover feedback only; the active state now reads through the UNDERLINE
-		// (Will), not a filled selection panel.
-		float hp = OriginUi.hover("nav:" + label, hover && !active);
-		if (hp > 0.001f) {
-			OriginUi.panel(g, x, y, w, NAV_H, OriginTheme.RADIUS_SM,
-					withAlpha(clear ? 0xB0181818 : OriginTheme.BOX_FILL, alpha * hp), 0);
-		}
-		// Text is always WHITE (matching the Origin mark) — selection is shown by the
-		// underline, never by colour. Label centered both ways in the short button.
-		int tw = OriginText.widthBold(font, label);
-		int lx = x + (w - tw) / 2;
-		OriginText.drawBold(g, font, label, lx, y + NAV_H / 2 - 4, withAlpha(0xFFFFFFFF, alpha), clear);
-		// Underline placeholder: ALWAYS present under the label — bright white when
-		// this is the active section, dimmed grey otherwise.
-		int uy = y + NAV_H - 2;
-		int uCol = active ? OriginTheme.ACCENT
-				: OriginTheme.lerpColor(0x407D8279, 0x995FD09B, hp);
-		g.fill(lx, uy, lx + tw, uy + 1, withAlpha(uCol, alpha));
-	}
-
-	private void drawSidebarButton(GuiGraphicsExtractor g, int x, int y, int w, String label, boolean hover, float alpha, boolean danger) {
-		// No box (Will): a small vector icon + label. The icon is LEFT-anchored at a
-		// fixed x so Edit's pencil and Close's × stack in a clean vertical line (labels
-		// may differ in length); each icon is vertically CENTERED on its own label's
-		// mid-line. WHITE like the rest of the menu (Will), brightening on hover.
-		float hp = OriginUi.hover("sidebar:" + label, hover);
-		int col = OriginTheme.lerpColor(OriginTheme.TEXT_DIM, danger ? OriginTheme.DANGER : OriginTheme.TEXT, hp);
-		int icon = 11, gap = 6;
-		int iconX = x + 4;                               // same x for both buttons
-		int textX = iconX + icon + gap;
-		// label optical centre sits ~4px below its draw-top (after the MATCH_DY
-		// re-centre); centre the icon box on that so the × no longer rides high.
-		int iconY = y + 4 - icon / 2;
-		if (danger) {
-			OriginUi.iconClose(g, iconX, iconY, icon, withAlpha(col, alpha));
-		} else {
-			OriginUi.iconEdit(g, iconX, iconY, icon, withAlpha(col, alpha));
-		}
-		OriginText.draw(g, font, label, textX, y, withAlpha(col, alpha), clear);
-	}
-
-	private boolean clickSidebar(double mx, double my) {
-		int x = px() + 14;
-		int w = sbW() - 28;
-		String[] labels = {"Mods", "Profiles", "Settings"};
-		Nav[] navs = {Nav.MODS, Nav.PROFILES, Nav.SETTINGS};
-		int y = py() + 64;
-		for (int i = 0; i < labels.length; i++) {
-			if (in(mx, my, x, y, x + w, y + NAV_H)) {
-				nav = navs[i];
-				page = null;
-				pageChangedAt = System.currentTimeMillis();
-				searchFocused = false;
-				profileFocused = false;
-				scrollTarget = scroll = 0;
+		for (ModOption o : m.options()) {
+			if (o.kind != ModOption.Kind.HEADER && o.label.toLowerCase(Locale.ROOT).contains(q)) {
 				return true;
 			}
-			y += NAV_STEP;
-		}
-		int by2 = py() + ph() - 26;
-		int by1 = by2 - 20;
-		if (in(mx, my, x, by1, x + w, by1 + 18)) {
-			Minecraft.getInstance().setScreenAndShow(new HudEditorScreen());
-			return true;
-		}
-		if (in(mx, my, x, by2, x + w, by2 + 18)) {
-			beginClose();
-			return true;
 		}
 		return false;
 	}
 
-	// ---- MODS page ----
-
-	private boolean searchFocused = false;
-
-	private void renderMods(GuiGraphicsExtractor g, int mouseX, int mouseY, long now, float alpha) {
-		// search bar (content top)
-		int sy = py() + 18;
-		int sx = cx0();
-		int sw = cx1() - cx0();
-		OriginUi.panel(g, sx, sy, sw, 22, 8,
-				withAlpha(clear ? 0xC8101010 : (searchFocused ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
-				withAlpha(searchFocused ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
-		OriginUi.icon(g, "@search", sx + 5, sy + 3, 15, withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha));
-		if (search.isEmpty() && !searchFocused) {
-			OriginText.draw(g, font, "Search mods", sx + 24, sy + 7,
-					withAlpha(clear ? OriginTheme.TEXT_DIM : OriginTheme.MUTED, alpha), clear);
-		} else {
-			OriginText.draw(g, font, search, sx + 24, sy + 7, withAlpha(OriginTheme.TEXT, alpha), clear);
+	private int columns() {
+		String layout = Mods.mode(Mods.GENERAL_ID, "menuLayout");
+		if (layout == null) {
+			return 4;
 		}
-		if (searchFocused) {
-			float pulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(now / 350.0));
-			int cw = OriginText.width(font, search);
-			g.fill(sx + 24 + cw + 1, sy + 6, sx + 24 + cw + 2, sy + 16, withAlpha(OriginTheme.TEXT, alpha * pulse));
+		return switch (layout) {
+			case "3 across (compact)" -> 3;
+			case "2 across (large)" -> 2;
+			default -> 4;
+		};
+	}
+
+	private void drawLibrary(OriginDeck d, long now) {
+		filter();
+		boolean list = Mods.metaBool("menuListView", false);
+
+		// toolbar: profile dropdown | chips ... grid/list | search
+		float x = M;
+		String pn = activeProfile();
+		float pw = 12 + 14 + 8 + d.textW(pn, 13, true, 0) + 8 + 14 + 10;
+		boolean ph = d.over(x, BAR_Y, pw, 32);
+		d.rect(x, BAR_Y, pw, 32, 6, profOpen || ph ? 0x14FFFFFF : 0x0DFFFFFF);
+		d.icon("@user", x + 12, BAR_Y + 9, 14, MUTE);
+		d.textMid(pn, x + 34, BAR_Y + 16, 13, true, 0, TEXT);
+		d.icon("@chev-down", x + pw - 24, BAR_Y + 9, 14, MUTE);
+		d.hit(x, BAR_Y, pw, 32, () -> {
+			profOpen = !profOpen;
+			profileFocused = profOpen;
+			searchFocused = false;
+		});
+		x += pw + 12;
+		d.fill(x, BAR_Y + 6, 1, 20, LINE2);
+		x += 13;
+
+		for (Cat c : Cat.values()) {
+			String label = c.label.toUpperCase(Locale.ROOT);
+			String count = c == Cat.ALL ? Integer.toString(Mods.ALL.size()) : null;
+			float w = 24 + d.textW(label, 11, true, CAPS_TRACK) + (count == null ? 0 : 7 + d.textW(count, 11, true, 0));
+			boolean on = cat == c;
+			boolean hov = d.over(x, BAR_Y, w, 32);
+			float hp = OriginUi.hover("deck-chip:" + c, hov);
+			d.rect(x, BAR_Y, w, 32, 6, on ? ACC_SOFT : lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
+			int col = on ? ACC : c == Cat.NEW ? GOLD : lerp(DIM, TEXT, hp);
+			float lw = d.textMid(label, x + 12, BAR_Y + 16, 11, true, CAPS_TRACK, col);
+			if (count != null) {
+				d.textMid(count, x + 12 + lw + 7, BAR_Y + 16, 11, true, 0, on ? mul(ACC, 0.8f) : MUTE);
+			}
+			d.hit(x, BAR_Y, w, 32, () -> {
+				cat = c;
+				scroll = scrollTarget = 0;
+			});
+			x += w + 8;
 		}
 
-		g.enableScissor(contentX(), gridTop(), px() + pw(), py() + ph() - 12);
-		for (int i = 0; i < filtered.size(); i++) {
-			int[] r = cellRect(i);
-			if (r[3] < gridTop() - CELL_H || r[1] > py() + ph()) {
+		// search box: 176 wide, shrunk only if the chips need the room
+		float toolsW = 30 + 2 + 30;
+		float searchW = Math.max(120, Math.min(SEARCH_W, W - M - (x - 8 + 12 + toolsW + 8)));
+		float sx = W - M - searchW;
+		float tx = sx - 8 - toolsW;
+		drawTool(d, "@grid", tx, !list, () -> Mods.setMetaBool("menuListView", false));
+		drawTool(d, "@list", tx + 32, list, () -> Mods.setMetaBool("menuListView", true));
+		drawSearch(d, sx, BAR_Y + 1, searchW, search, "Search mods", searchFocused, true, () -> {
+			searchFocused = true;
+			profOpen = false;
+		});
+
+		// body
+		int cols = columns();
+		float colW = (CW - (cols - 1) * GAP) / cols;
+		float itemH = list ? ROW_H : CARD_H;
+		float rowGap = list ? 8 : GAP;
+		int rows = (visible.size() + cols - 1) / cols;
+		float contentH = rows == 0 ? 0 : rows * itemH + (rows - 1) * rowGap + 24;
+		maxScroll = Math.max(0, contentH - (BOTTOM - BODY_Y));
+		scrollTarget = Math.min(scrollTarget, maxScroll);
+		scroll = Math.min(scroll, maxScroll);
+
+		d.clip(0, BODY_Y - 8, W, BOTTOM - BODY_Y + 8);
+		String hovered = null;
+		for (int i = 0; i < visible.size(); i++) {
+			Mods.Mod m = visible.get(i);
+			float cx = M + (i % cols) * (colW + GAP);
+			float cy = BODY_Y + (i / cols) * (itemH + rowGap) - (float) scroll;
+			if (cy + itemH < BODY_Y - 8 || cy > BOTTOM) {
 				continue;
 			}
-			renderCard(g, filtered.get(i), r, mouseX, mouseY, alpha);
+			// entrance stagger: each item fades + rises a beat after the previous
+			float rt = (float) OriginTheme.easeOut(Math.max(0, Math.min(1, (now - rowsChangedAt - i * 14) / 170.0)));
+			float base = d.alpha;
+			d.alpha = base * rt;
+			cy += (1 - rt) * 6;
+			if (list) {
+				drawRow(d, m, cx, cy, colW);
+			} else {
+				drawCard(d, m, cx, cy, colW);
+			}
+			if (d.over(cx, cy, colW, itemH)) {
+				hovered = m.id();
+			}
+			d.alpha = base;
 		}
-		g.disableScissor();
+		if (visible.isEmpty()) {
+			d.textCenter("No mods match \"" + search + "\"", W / 2, BODY_Y + 60, 14, false, 0, MUTE);
+		}
+		d.unclip();
+
+		// a card hovered for a moment explains itself (its description)
+		if (hovered == null || !hovered.equals(hoverCard)) {
+			hoverCard = hovered;
+			hoverCardSince = now;
+		} else if (now - hoverCardSince > 650 && !profOpen) {
+			Mods.Mod m = Mods.byId(hovered);
+			if (m != null && m.description() != null && !m.description().isEmpty()) {
+				tip = m.description();
+			}
+		}
+
+		if (Mods.metaNum("menuBgOpacity", 1.0) > 0.02) {
+			float a = (float) Mods.metaNum("menuBgOpacity", 1.0);
+			d.gradient(1, BOTTOM - 40, W - 2, 40, mul(PANEL, 0), mul(PANEL, a));
+		}
+		drawScrollbar(d, scroll, maxScroll, BODY_Y, BOTTOM);
 	}
 
-	// Compact 4-per-row card: icon on top, colored name bar below, favourite
-	// star in the bottom-right corner of the bar.
-	private void renderCard(GuiGraphicsExtractor g, Mods.Mod mod, int[] r, int mx, int my, float alpha) {
-		boolean inBand = my >= gridTop() && my < py() + ph() - 12;
-		int cx = r[0], cy = r[1], x2 = r[2], y2 = r[3];
-		boolean cardHover = inBand && in(mx, my, cx, cy, x2, y2);
-		int barY = y2 - BAR_H;
-		boolean iconHover = cardHover && my < barY;
-		boolean on = Mods.on(mod.id());
-		float cardHp = OriginUi.hover("mod-card:" + mod.id(), cardHover);
-		float iconHp = OriginUi.hover("mod-icon:" + mod.id(), iconHover);
-
-		// card body
-		OriginUi.panel(g, cx, cy, cellW, CELL_H, OriginTheme.RADIUS_MD,
-				withAlpha(clear ? OriginTheme.lerpColor(0xC8101010, 0xD8141414, iconHp)
-						: OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, iconHp), alpha),
-				withAlpha(OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.BOX_BORDER_HOVER, cardHp), alpha));
-
-		// icon centered in the upper area
-		int iconSize = 30;
-		int iconAreaH = CELL_H - BAR_H;
-		OriginUi.icon(g, mod.id(), cx + (cellW - iconSize) / 2, cy + (iconAreaH - iconSize) / 2 - 1, iconSize,
-				withAlpha(OriginTheme.TEXT, alpha));
-
-		// name bar (bottom) — sage when enabled, gray when disabled; click toggles.
-		// INSET 1px inside the card so its rounded bottom corners nest INSIDE the
-		// card's radius-7 corners (concentric, radius 6) instead of poking past the
-		// card outline — that overhang was the "bulging" corners. The card's 1px
-		// border then frames the bar cleanly on every side.
-		boolean barHover = inBand && in(mx, my, cx, barY, x2, y2);
-		float barHp = OriginUi.hover("mod-toggle:" + mod.id(), barHover);
-		int barFill = OriginTheme.lerpColor(on ? BAR_ON : BAR_OFF, on ? BAR_ON_HOVER : BAR_OFF_HOVER, barHp);
-		int inX = cx + 1, inW = cellW - 2;
-		OriginUi.panel(g, inX, barY, inW, BAR_H - 1, OriginTheme.RADIUS_SM, withAlpha(barFill, alpha), 0);
-		// square off the bar's TOP corners so it reads as a bar seated in the card,
-		// not a floating pill — redraw the top strip flat over the rounded fill.
-		g.fill(inX, barY, inX + inW, barY + 6, withAlpha(barFill, alpha));
-
-		String name = OriginText.ellipsize(font, mod.name(), cellW - 20);
-		OriginText.draw(g, font, name, cx + 6, barY + (BAR_H - 8) / 2,
-				withAlpha(on ? 0xFFFFFFFF : OriginTheme.TEXT_DIM, alpha), false);
-
-		// favourite star, bottom-right corner of the bar — a baked HQ texture, not
-		// the pixelated font glyph. Hit box (star click) matches sx/sy below.
-		boolean fav = Mods.metaBool("fav:" + mod.id(), false);
-		int starSize = 10;
-		int sx = x2 - starSize - 4, sy = y2 - starSize - 3;
-		boolean sHover = cardHover && in(mx, my, sx - 2, sy - 2, sx + starSize + 2, sy + starSize + 2);
-		if (fav || cardHover) {
-			float starHp = OriginUi.hover("mod-favorite:" + mod.id(), sHover);
-			int starCol = fav ? OriginTheme.WARNING
-					: OriginTheme.lerpColor(0xAAFFFFFF, OriginTheme.TEXT, starHp);
-			OriginUi.star(g, sx, sy, starSize, withAlpha(starCol, alpha));
+	private void drawTool(OriginDeck d, String icon, float x, boolean on, Runnable action) {
+		boolean hov = d.over(x, BAR_Y + 2, 30, 28);
+		if (on || hov) {
+			d.rect(x, BAR_Y + 2, 30, 28, 6, on ? 0x0FFFFFFF : 0x0AFFFFFF);
 		}
+		d.icon(icon, x + 7.5f, BAR_Y + 8.5f, 15, on ? TEXT : hov ? DIM : MUTE);
+		d.hit(x, BAR_Y + 2, 30, 28, action);
 	}
 
-	// ---- PROFILES page ----
-
-	private void renderProfiles(GuiGraphicsExtractor g, int mouseX, int mouseY, long now, float alpha) {
-		int x0 = cx0(), x1 = cx1();
-		int y = py() + 18;
-
-		OriginText.drawBold(g, font, "PROFILES", x0, y - 1, withAlpha(OriginTheme.MUTED, alpha), clear);
-		y += 14;
-		OriginText.draw(g, font, "Save the whole current loadout under a name, then switch instantly.",
-				x0, y, withAlpha(OriginTheme.MUTED, alpha), clear);
-		y += 16;
-
-		// new-profile name field + Save button
-		int btnW = 70;
-		int fieldW = x1 - x0 - btnW - 8;
-		OriginUi.panel(g, x0, y, fieldW, 22, 8,
-				withAlpha(clear ? 0xC8101010 : (profileFocused ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL), alpha),
-				withAlpha(profileFocused ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, alpha));
-		if (profileInput.isEmpty() && !profileFocused) {
-			OriginText.draw(g, font, "New profile name…", x0 + 8, y + 7, withAlpha(OriginTheme.MUTED, alpha), clear);
+	/** The search field (also used on the mod page and the Settings tab). */
+	private void drawSearch(OriginDeck d, float x, float y, float w, String value, String placeholder,
+							boolean focused, boolean slashHint, Runnable onClick) {
+		d.rect(x, y, w, 30, 6, FIELD, focused ? mul(ACC, 0.6f) : LINE2);
+		d.icon("@find", x + 10, y + 8, 14, MUTE);
+		float tx = x + 32;
+		if (value.isEmpty()) {
+			d.textMid(placeholder, tx, y + 15, 13, false, 0, MUTE);
 		} else {
-			OriginText.draw(g, font, profileInput, x0 + 8, y + 7, withAlpha(OriginTheme.TEXT, alpha), clear);
-			if (profileFocused) {
-				float pulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(now / 350.0));
-				int cw = OriginText.width(font, profileInput);
-				g.fill(x0 + 8 + cw + 1, y + 6, x0 + 8 + cw + 2, y + 16, withAlpha(OriginTheme.TEXT, alpha * pulse));
-			}
+			value = fitTail(d, value, w - 44);
+			tx += d.textMid(value, tx, y + 15, 13, false, 0, TEXT);
 		}
-		boolean canSave = !profileInput.trim().isEmpty();
-		int saveX = x1 - btnW;
-		boolean saveHover = canSave && in(mouseX, mouseY, saveX, y, saveX + btnW, y + 22);
-		float saveHp = OriginUi.hover("profile:save", saveHover);
-		OriginUi.panel(g, saveX, y, btnW, 22, OriginTheme.RADIUS_SM,
-				withAlpha(OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, saveHp), alpha),
-				withAlpha(OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.BOX_BORDER_HOVER, saveHp), alpha));
-		OriginText.draw(g, font, "Save", saveX + (btnW - OriginText.width(font, "Save")) / 2, y + 7,
-				withAlpha(canSave ? OriginTheme.TEXT : OriginTheme.MUTED, alpha), clear);
-		y += 34;
-
-		OriginText.drawBold(g, font, "SAVED", x0, y, withAlpha(OriginTheme.MUTED, alpha), clear);
-		g.fill(x0 + OriginText.widthBold(font, "SAVED") + 8, y + 4, x1, y + 5, withAlpha(OriginTheme.STROKE, alpha));
-		y += 14;
-
-		java.util.List<String> names = Profiles.names();
-		int top = y;
-		int bottom = py() + ph() - 14;
-		g.enableScissor(contentX(), top, px() + pw(), bottom);
-		int ry = top - (int) settingsTabScroll;
-		if (names.isEmpty()) {
-			OriginText.draw(g, font, "No profiles yet — type a name above and hit Save.", x0, ry + 4,
-					withAlpha(OriginTheme.MUTED, alpha), clear);
+		if (focused) {
+			caret(d, value.isEmpty() ? x + 32 : tx + 1, y + 8, 14);
+		} else if (slashHint && value.isEmpty()) {
+			d.rect(x + w - 26, y + 7, 16, 16, 4, 0, LINE2);
+			d.textCenter("/", x + w - 18, y + 15, 11, true, 0, MUTE);
 		}
-		for (String nm : names) {
-			if (ry + 30 >= top && ry <= bottom) {
-				renderProfileRow(g, nm, x0, x1, ry, mouseX, mouseY, alpha);
-			}
-			ry += 34;
-		}
-		g.disableScissor();
-		settingsTabMaxScroll = Math.max(0, names.size() * 34 - (bottom - top));
+		d.hit(x, y, w, 30, onClick);
 	}
 
-	private void renderProfileRow(GuiGraphicsExtractor g, String name, int x0, int x1, int y, int mx, int my, float alpha) {
-		OriginUi.panel(g, x0, y, x1 - x0, 30, 8, withAlpha(clear ? 0xC0101010 : OriginTheme.BOX_FILL, alpha),
-				withAlpha(OriginTheme.BOX_BORDER, alpha));
-		OriginText.drawBold(g, font, OriginText.ellipsize(font, name, x1 - x0 - 150), x0 + 10, y + 11,
-				withAlpha(OriginTheme.TEXT, alpha), clear);
-
-		int delW = 58, appW = 60;
-		int delX = x1 - 8 - delW;
-		int appX = delX - 6 - appW;
-		boolean appHover = in(mx, my, appX, y + 5, appX + appW, y + 25);
-		boolean delHover = in(mx, my, delX, y + 5, delX + delW, y + 25);
-		float appHp = OriginUi.hover("profile:apply:" + name, appHover);
-		float delHp = OriginUi.hover("profile:delete:" + name, delHover);
-		OriginUi.panel(g, appX, y + 5, appW, 20, OriginTheme.RADIUS_SM,
-				withAlpha(OriginTheme.lerpColor(0x245FD09B, 0x465FD09B, appHp), alpha),
-				withAlpha(OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, appHp), alpha));
-		OriginText.draw(g, font, "Apply", appX + (appW - OriginText.width(font, "Apply")) / 2, y + 11, withAlpha(OriginTheme.SUCCESS, alpha), false);
-		OriginUi.panel(g, delX, y + 5, delW, 20, OriginTheme.RADIUS_SM,
-				withAlpha(OriginTheme.lerpColor(0x24E06B5B, 0x46E06B5B, delHp), alpha),
-				withAlpha(OriginTheme.lerpColor(0x99E06B5B, OriginTheme.DANGER, delHp), alpha));
-		OriginText.draw(g, font, "Delete", delX + (delW - OriginText.width(font, "Delete")) / 2, y + 11, withAlpha(OriginTheme.DANGER, alpha), false);
+	private static String fitTail(OriginDeck d, String v, float maxW) {
+		while (v.length() > 1 && d.textW(v, 13, false, 0) > maxW) {
+			v = v.substring(1);
+		}
+		return v;
 	}
 
-	private boolean clickProfiles(double mx, double my) {
-		int x0 = cx0(), x1 = cx1();
-		int y = py() + 18 + 14 + 16;
-		int btnW = 70;
-		int fieldW = x1 - x0 - btnW - 8;
-		// name field focus
-		profileFocused = in(mx, my, x0, y, x0 + fieldW, y + 22);
-		if (profileFocused) {
-			return true;
-		}
-		// save
-		int saveX = x1 - btnW;
-		if (in(mx, my, saveX, y, saveX + btnW, y + 22) && !profileInput.trim().isEmpty()) {
-			Profiles.save(profileInput);
-			profileInput = "";
-			return true;
-		}
-		// list
-		int top = y + 34 + 14;
-		int bottom = py() + ph() - 14;
-		if (my >= top && my <= bottom) {
-			java.util.List<String> names = Profiles.names();
-			int ry = top - (int) settingsTabScroll;
-			for (String nm : names) {
-				if (my >= ry && my < ry + 30) {
-					int delW = 58, appW = 60;
-					int delX = x1 - 8 - delW;
-					int appX = delX - 6 - appW;
-					if (in(mx, my, appX, ry + 5, appX + appW, ry + 25)) {
-						Profiles.apply(nm);
-						profileToastAt = System.currentTimeMillis(); // "Profile changed" toast
-						return true;
-					}
-					if (in(mx, my, delX, ry + 5, delX + delW, ry + 25)) {
-						confirmDeleteName = nm; // opens the "Are you sure?" dialog
-						return true;
-					}
-					return true;
-				}
-				ry += 34;
-			}
-		}
-		return true; // profiles clicks never fall through to cards
+	private void caret(OriginDeck d, float x, float y, float h) {
+		float pulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(System.currentTimeMillis() / 350.0));
+		d.fill(x, y, 1, h, mul(TEXT, pulse));
 	}
 
-	// ---- SETTINGS page ----
+	private void drawCard(OriginDeck d, Mods.Mod m, float x, float y, float w) {
+		String id = m.id();
+		boolean on = Mods.on(id);
+		boolean hov = d.over(x, y, w, CARD_H);
+		float hp = OriginUi.hover("deck-card:" + id, hov);
+		d.rect(x, y, w, CARD_H, 8, lerp(CARD, CARD_H_FILL, hp), lerp(LINE, 0x29F1E9D2, hp));
+		d.hit(x, y, w, CARD_H, () -> openMod(m));
 
-	private void renderSettingsPage(GuiGraphicsExtractor g, int mx, int my, long now, float alpha) {
-		int x0 = cx0(), x1 = cx1();
-		int sty = py() + 18;
-		String[] labels = {"GENERAL", "PERFORMANCE", "MENU"};
-		SubTab[] subs = {SubTab.GENERAL, SubTab.PERFORMANCE, SubTab.MENU};
-		int tx = x0;
-		for (int i = 0; i < labels.length; i++) {
-			int w = OriginText.widthBold(font, labels[i]) + 24;
-			boolean active = subTab == subs[i];
-			boolean hover = in(mx, my, tx, sty, tx + w, sty + 20);
-			drawTab(g, tx, sty, w, 20, labels[i], active, hover, alpha);
-			tx += w + 8;
+		float k = on ? 1f : 0.55f;
+		d.icon(id, x + w / 2 - 20, y + 24, 40, mul(TEXT, k));
+		d.textCenter(d.fit(m.name(), w - 24, 15, true, 0), x + w / 2, y + 86, 15, true, 0, mul(TEXT, k));
+
+		// OPTIONS bar
+		float oy = y + CARD_H - 48 - 30;
+		boolean oh = d.over(x + 8, oy, w - 16, 30);
+		d.rect(x + 8, oy, w - 16, 30, 5, oh ? 0x1AFFFFFF : lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
+		String ol = "OPTIONS";
+		float olw = 13 + 8 + d.textW(ol, 10.5f, true, CAPS_TRACK);
+		float olx = x + (w - olw) / 2;
+		int oc = lerp(DIM, TEXT, Math.max(hp, oh ? 1 : 0));
+		d.icon("@title-options", olx, oy + 8.5f, 13, oc);
+		d.textMid(ol, olx + 21, oy + 15, 10.5f, true, CAPS_TRACK, oc);
+		d.hit(x + 8, oy, w - 16, 30, () -> openMod(m));
+
+		// ENABLED / DISABLED bar -- the toggle
+		float sy = y + CARD_H - 8 - 30;
+		boolean sh = d.over(x + 8, sy, w - 16, 30);
+		float sk = OriginUi.anim("deck-state:" + id, on, 140.0);
+		int fillOff = sh ? 0x3DD9675A : RED_SOFT, fillOn = sh ? 0xFF35895F : ACC_D;
+		d.rect(x + 8, sy, w - 16, 30, 5, lerp(fillOff, fillOn, sk));
+		d.textCenter(on ? "ENABLED" : "DISABLED", x + w / 2, sy + 15, 11, true, CAPS_TRACK, on ? ON_TEXT : RED);
+		d.hit(x + 8, sy, w - 16, 30, () -> Mods.setOn(id, !on));
+
+		// pin (shown when pinned, offered on hover) + NEW badge
+		boolean fav = Mods.metaBool("fav:" + id, false);
+		float px = x + w - 8 - 14, py = y + 8;
+		if (fav || hov) {
+			boolean pinHov = d.over(px - 4, py - 4, 22, 22);
+			d.icon("@pin", px, py, 14, pinHov ? TEXT : fav ? DIM : 0x40F1E9D2);
+			d.hit(px - 4, py - 4, 22, 22, () -> Mods.setMetaBool("fav:" + id, !fav));
 		}
+		if (showNewBadge(id)) {
+			float bw = 12 + d.textW("NEW", 10, true, 1.4f);
+			d.rect(x + 8, y + 8, bw, 16, 4, GOLD_BG);
+			d.textMid("NEW", x + 14, y + 16, 10, true, 1.4f, GOLD);
+		}
+	}
 
-		int top = py() + 46;
-		int bottom = py() + ph() - 12;
-		if (subTab == SubTab.MENU) {
-			renderMenuSettings(g, x0, x1, top, mx, my, now, alpha);
+	private static final int CARD_H_FILL = OriginDeck.CARD_H;
+
+	private void drawRow(OriginDeck d, Mods.Mod m, float x, float y, float w) {
+		String id = m.id();
+		boolean on = Mods.on(id);
+		boolean hov = d.over(x, y, w, ROW_H);
+		float hp = OriginUi.hover("deck-row:" + id, hov);
+		d.rect(x, y, w, ROW_H, 7, lerp(CARD, CARD_H_FILL, hp), mul(0x29F1E9D2, hp));
+		d.hit(x, y, w, ROW_H, () -> openMod(m));
+		d.icon(id, x + 12, y + 13, 18, on ? TEXT : mul(TEXT, 0.6f));
+		boolean isNew = showNewBadge(id);
+		float nameMax = w - 40 - 12 - 36 - 10 - (isNew ? 14 : 0);
+		float nw = d.textMid(d.fit(m.name(), nameMax, 13.5f, true, 0), x + 40, y + ROW_H / 2, 13.5f, true, 0, on ? TEXT : DIM);
+		if (isNew) {
+			d.circle(x + 40 + nw + 9, y + ROW_H / 2, 3, GOLD);
+		}
+		d.toggle(id, x + w - 12 - 36, y + 12, on);
+		d.hit(x + w - 12 - 40, y + 6, 44, 32, () -> Mods.setOn(id, !on));
+	}
+
+	private void drawScrollbar(OriginDeck d, double sc, float max, float top, float bottom) {
+		if (max <= 0) {
 			return;
 		}
-		settingsTabMaxScroll = layoutRows(subOpts(), subId(), top, settingsTabScroll, "");
-		g.enableScissor(contentX(), top, px() + pw(), bottom);
-		drawRows(g, subId(), x0, x1, top, bottom, mx, my, alpha);
-		g.disableScissor();
+		float view = bottom - top;
+		float thumb = Math.max(40, view * view / (view + max));
+		float ty = top + (float) (sc / max) * (view - thumb);
+		d.rect(W - 9 - 3, ty, 3, thumb, 1.5f, 0x38F1E9D2);
 	}
 
-	// The MENU appearance sub-tab: a single on/off toggle for the solid background.
-	// (The old opacity slider and the "Smooth Text & Curves" toggle are gone — the
-	// background is simply solid-or-clear, and vector text/curves are always on.)
-	private void renderMenuSettings(GuiGraphicsExtractor g, int x0, int x1, int top, int mx, int my, long now, float alpha) {
-		int y = top + 4;
-		OriginUi.panel(g, x0, y, x1 - x0, 26, 8, withAlpha(clear ? 0xC0101010 : OriginTheme.BOX_FILL, alpha),
-				withAlpha(OriginTheme.BOX_BORDER, alpha));
-		OriginText.draw(g, font, "Solid Menu Background", x0 + 10, y + 9,
-				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
-		boolean solid = Mods.metaNum("menuBgOpacity", 1.0) > 0.5;
-		OriginUi.switchAt(g, "@bgop", x1 - 40, y + 5, 30, solid, true);
-		OriginText.draw(g, font, solid ? "On — a solid backdrop behind the menu." : "Off — a fully see-through menu.",
-				x0 + 2, y + 30, withAlpha(OriginTheme.MUTED, alpha), clear);
-	}
+	// ---- a mod's own page ----
 
-	private void drawTab(GuiGraphicsExtractor g, int tx, int ty, int w, int h, String label, boolean active, boolean hover, float alpha) {
-		// White text always; the underline is the sole active indicator — white when
-		// active, a dimmed grey placeholder otherwise (always present).
-		OriginText.drawBold(g, font, label, tx + (w - OriginText.widthBold(font, label)) / 2, ty + (h - 8) / 2,
-				withAlpha(0xFFFFFFFF, alpha), clear);
-		int underY = ty + h - 2;
-		int under = active ? 0xFFFFFFFF : (hover ? 0x80FFFFFF : 0x40FFFFFF);
-		g.fill(tx + 4, underY, tx + w - 4, underY + 2, withAlpha(under, alpha));
-	}
+	private void drawModPage(OriginDeck d, Mods.Mod mod) {
+		String id = mod.id();
+		// header row: back | icon title > crumb ............ search  switch
+		boolean bh = d.over(M, BAR_Y, 32, 32);
+		d.rect(M, BAR_Y, 32, 32, 6, bh ? 0x17FFFFFF : 0x0DFFFFFF);
+		d.icon("@chev-left", M + 8.5f, BAR_Y + 8.5f, 15, bh ? TEXT : DIM);
+		d.hit(M, BAR_Y, 32, 32, this::back);
 
-	private boolean clickSettingsPage(double mx, double my) {
-		int x0 = cx0(), x1 = cx1();
-		int sty = py() + 18;
-		String[] labels = {"GENERAL", "PERFORMANCE", "MENU"};
-		SubTab[] subs = {SubTab.GENERAL, SubTab.PERFORMANCE, SubTab.MENU};
-		int tx = x0;
-		for (int i = 0; i < labels.length; i++) {
-			int w = OriginText.widthBold(font, labels[i]) + 24;
-			if (in(mx, my, tx, sty, tx + w, sty + 20)) {
-				subTab = subs[i];
-				settingsTabScroll = settingsTabScrollTarget = 0;
-				return true;
+		d.icon(id, M + 44, BAR_Y + 5, 22, TEXT);
+		float tx = M + 78;
+		float tw = d.textMid(mod.name(), tx, BAR_Y + 16, 17, true, 0.3f, TEXT);
+		d.textMid("Mods  ›  " + catOf(mod).label, tx + tw + 12, BAR_Y + 17, 12, false, 0, MUTE);
+
+		float swx = W - M - 36;
+		boolean on = Mods.on(id);
+		d.toggle("page:" + id, swx, BAR_Y + 6, on);
+		d.hit(swx - 4, BAR_Y, 44, 32, () -> Mods.setOn(id, !on));
+		drawSearch(d, swx - 8 - SEARCH_W, BAR_Y + 1, SEARCH_W, optSearch, "Search options", !optSearch.isEmpty(), false, () -> {
+		});
+
+		// scrolling body: description, live preview, options
+		float top = BAR_Y + 32 + 12;
+		d.clip(0, top - 4, W, BOTTOM - top + 4);
+		float y = top - (float) pageScroll;
+		String desc = mod.description() == null || mod.description().isEmpty() ? null : mod.description();
+		if (desc != null) {
+			for (String line : d.wrap(desc, CW, 13, false)) {
+				d.textMid(line, M, y + 10, 13, false, 0, DIM);
+				y += 20;
 			}
-			tx += w + 8;
 		}
-		int top = py() + 46, bottom = py() + ph() - 12;
-		if (subTab == SubTab.MENU) {
-			int y = top + 4;
-			// Solid-background on/off toggle (drawn at x1-40, y+5, 30 wide, 16 tall):
-			// on = fully solid, off = fully clear.
-			if (in(mx, my, x1 - 40, y + 5, x1 - 10, y + 21)) {
-				boolean solid = Mods.metaNum("menuBgOpacity", 1.0) > 0.5;
-				Mods.setMetaNum("menuBgOpacity", solid ? 0.0 : 1.0);
-			}
-			return true;
+		List<HudElements.Element> els = previewElements(id);
+		if (!els.isEmpty()) {
+			y += 16;
+			drawPreview(d, els, y);
+			y += 128;
 		}
-		settingsTabMaxScroll = layoutRows(subOpts(), subId(), top, settingsTabScroll, "");
-		if (my >= top && my <= bottom) {
-			clickRows(subId(), x0, x1, mx, my);
-		}
-		return true;
-	}
-
-	// ---- per-mod settings page ----
-
-	private void renderSettings(GuiGraphicsExtractor g, int mouseX, int mouseY, long now, float alpha, Mods.Mod mod) {
-		if (mod == null) {
-			page = null;
-			return;
-		}
-		int x0 = cx0(), x1 = cx1();
-		int hy = py() + 16;
-
-		boolean backHover = in(mouseX, mouseY, x0, hy, x0 + 24, hy + 20);
-		float backHp = OriginUi.hover("mod-settings:back", backHover);
-		OriginUi.panel(g, x0, hy, 24, 20, OriginTheme.RADIUS_SM,
-				withAlpha(OriginTheme.lerpColor(0x161D2420, OriginTheme.BOX_FILL_HOVER, backHp), alpha),
-				withAlpha(OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.BOX_BORDER_HOVER, backHp), alpha));
-		OriginUi.iconChevron(g, x0 + 7, hy + 5, 10, withAlpha(OriginTheme.TEXT, alpha), true);
-
-		OriginUi.icon(g, mod.id(), x0 + 32, hy - 3, 26, withAlpha(OriginTheme.TEXT, alpha));
-		OriginText.drawBold(g, font, mod.name(), x0 + 64, hy + 2, withAlpha(OriginTheme.TEXT, alpha), false);
-		if (!mod.description().isEmpty()) {
-			OriginText.draw(g, font, mod.description(), x0 + 64, hy + 13, withAlpha(OriginTheme.MUTED, alpha), false);
-		}
-
-		OriginUi.switchAt(g, mod.id(), x1 - 34, hy + 1, 34, Mods.on(mod.id()), true);
-
-		int sby = hy + 34;
-		int sbw = Math.min(240, x1 - x0);
-		OriginUi.panel(g, x0, sby, sbw, 20, 8, withAlpha(0x66000000, alpha), withAlpha(OriginTheme.STROKE, alpha));
-		OriginUi.icon(g, "@search", x0 + 4, sby + 2, 14, withAlpha(OriginTheme.MUTED, alpha));
-		float sPulse = 0.35f + 0.65f * (float) Math.abs(Math.sin(now / 350.0));
-		int caretX = x0 + 22 + OriginText.width(font, settingsSearch);
-		if (!settingsSearch.isEmpty()) {
-			OriginText.draw(g, font, settingsSearch, x0 + 22, sby + 6, withAlpha(OriginTheme.TEXT, alpha), false);
-		}
-		g.fill(caretX + 1, sby + 5, caretX + 2, sby + 15, withAlpha(OriginTheme.TEXT, alpha * sPulse));
-
-		java.util.List<ModOption> opts = optionsFor(mod);
-		int top = hy + 62;
-		int bottom = py() + ph() - 10;
-		settingsMaxScroll = layoutRows(opts, mod.id(), top, settingsScroll, settingsSearch);
-		g.enableScissor(contentX(), top, px() + pw(), bottom);
-		drawRows(g, mod.id(), x0, x1, top, bottom, mouseX, mouseY, alpha);
-		g.disableScissor();
-
+		List<ModOption> opts = optionsFor(mod);
 		if (opts.isEmpty()) {
-			String empty = isJei(mod.id())
-					? "JEI settings load once you're in a world."
-					: "No additional settings — the switch is everything.";
-			OriginText.draw(g, font, empty, x0, top + 6, withAlpha(OriginTheme.MUTED, alpha), false);
+			y += 24;
+			d.textMid(isJei(id) ? "JEI settings load once you're in a world."
+					: "No extra settings: the switch is everything.", M, y + 8, 13, false, 0, MUTE);
+			y += 16;
+		} else {
+			y = drawOptions(d, id, opts, y);
 		}
+		d.unclip();
+		float contentH = y + (float) pageScroll - top + 16;
+		maxPageScroll = Math.max(0, contentH - (BOTTOM - top));
+		pageScrollTarget = Math.min(pageScrollTarget, maxPageScroll);
+		drawScrollbar(d, pageScroll, maxPageScroll, top, BOTTOM);
 	}
 
-	// ---- shared row machinery (layout / draw / click) ----
+	private static List<HudElements.Element> previewElements(String modId) {
+		List<HudElements.Element> out = new ArrayList<>();
+		if (Minecraft.getInstance().player == null) {
+			return out;   // element renderers read the player; no world, no preview
+		}
+		for (HudElements.Element e : HudElements.ALL) {
+			if (e.modId().equals(modId)) {
+				try {
+					int[] sz = e.measure().apply(Minecraft.getInstance());
+					if (sz[0] > 0 && sz[1] > 0) {
+						out.add(e);
+					}
+				} catch (Throwable ignored) {
+				}
+			}
+		}
+		return out;
+	}
 
-	private int layoutRows(java.util.List<ModOption> opts, String id, int top, double scroll, String search) {
-		srows.clear();
-		int bottom = py() + ph() - 10;
-		int y = top + 6 - (int) Math.round(scroll);
-		String q = search.toLowerCase(java.util.Locale.ROOT);
-		boolean searching = !q.isEmpty();
-		boolean first = true;
+	/** The live HUD element, drawn at a readable size in a 128-tall strip. */
+	private void drawPreview(OriginDeck d, List<HudElements.Element> els, float y) {
+		d.rect(M, y, CW, 128, 8, 0x59000000, LINE);
+		Minecraft mc = Minecraft.getInstance();
+		int totalW = 0, maxH = 0;
+		List<int[]> sizes = new ArrayList<>();
+		for (HudElements.Element e : els) {
+			int[] sz;
+			try {
+				sz = e.measure().apply(mc);
+			} catch (Throwable t) {
+				sz = new int[]{0, 0};
+			}
+			sizes.add(sz);
+			totalW += sz[0];
+			maxH = Math.max(maxH, Math.max(1, sz[1]));
+		}
+		float gapGui = 12;
+		totalW += (int) (gapGui * (els.size() - 1));
+		// k = element GUI px -> physical px; fit the strip with room for the button
+		float physPerGui = (float) d.gs;
+		float k = Math.min(2.0f * physPerGui, Math.min(80 * d.s / maxH, (CW - 64) * d.s / Math.max(1, totalW)));
+		float startX = d.ox + (M + CW / 2f) * d.s - totalW * k / 2f;
+		float midY = d.oy + (y + 64) * d.s;
+		d.clip(M, y, CW, 128);
+		var pose = d.g.pose();
+		float cx = startX;
+		for (int i = 0; i < els.size(); i++) {
+			int[] sz = sizes.get(i);
+			pose.pushMatrix();
+			pose.translate(cx, midY - sz[1] * k / 2f);
+			pose.scale(k, k);
+			try {
+				els.get(i).renderer().render(d.g, mc, sz[0], sz[1]);
+			} catch (Throwable ignored) {
+				// a preview must never take the menu down
+			}
+			pose.popMatrix();
+			cx += (sz[0] + gapGui) * k;
+		}
+		d.unclip();
+
+		String l = "EDIT POSITION";
+		float bw = 14 + 14 + 8 + d.textW(l, 10.5f, true, CAPS_TRACK) + 14;
+		float bx = M + CW - 10 - bw, by = y + 128 - 10 - 30;
+		boolean hov = d.over(bx, by, bw, 30);
+		d.rect(bx, by, bw, 30, 6, hov ? 0xF0232A26 : 0xD10E1110, LINE2);
+		d.icon("@hudeditor", bx + 14, by + 8, 14, TEXT);
+		d.textMid(l, bx + 36, by + 15, 10.5f, true, CAPS_TRACK, TEXT);
+		d.hit(bx, by, bw, 30, () -> Minecraft.getInstance().setScreenAndShow(new HudEditorScreen(false, this)));
+	}
+
+	// ---- the two-column option grid (mod page + Settings tab) ----
+
+	/** One section: an optional header + its visible rows. */
+	private record Section(String header, List<ModOption> rows) {
+	}
+
+	private List<Section> sections(String id, List<ModOption> opts, String fallbackHeader) {
+		List<Section> out = new ArrayList<>();
+		String q = optSearch.toLowerCase(Locale.ROOT).trim();
+		Section cur = new Section(fallbackHeader, new ArrayList<>());
 		for (ModOption o : opts) {
 			if (o.kind == ModOption.Kind.HEADER) {
-				if (searching) {
-					continue;
+				if (!q.isEmpty()) {
+					continue;     // search results read as one flat list
 				}
-				if (!first) {
-					y += 10;
+				if (!cur.rows().isEmpty()) {
+					out.add(cur);
 				}
-				srows.add(new SRow(o, y, 18, false));
-				y += 22;
-				first = false;
+				cur = new Section(o.label, new ArrayList<>());
 				continue;
 			}
 			if (o.dependsOn != null && !vBool(id, o.dependsOn)) {
 				continue;
 			}
-			if (searching && !o.label.toLowerCase(java.util.Locale.ROOT).contains(q)) {
+			if (!q.isEmpty() && !o.label.toLowerCase(Locale.ROOT).contains(q)) {
 				continue;
 			}
-			srows.add(new SRow(o, y, 26, o.dependsOn != null));
-			y += 30;
-			first = false;
+			cur.rows().add(o);
 		}
-		int content = y + (int) Math.round(scroll) - (top + 6);
-		return Math.max(0, content - (bottom - top));
+		out.add(cur);
+		out.removeIf(sec -> sec.rows().isEmpty());
+		return out;
 	}
 
-	private void drawRows(GuiGraphicsExtractor g, String id, int x0, int x1, int top, int bottom, int mouseX, int mouseY, float alpha) {
-		for (SRow r : srows) {
-			if (r.y() + r.h() < top - 6 || r.y() > bottom) {
-				continue;
-			}
-			if (r.o().kind == ModOption.Kind.HEADER) {
-				OriginText.drawBold(g, font, r.o().label.toUpperCase(java.util.Locale.ROOT), x0 + 2, r.y() + 5,
-						withAlpha(OriginTheme.MUTED, alpha), false);
-				g.fill(x0 + 2, r.y() + 16, x1, r.y() + 17, withAlpha(OriginTheme.STROKE, alpha));
+	/** Draws the sections from `y`; returns the y below the last row. */
+	private float drawOptions(OriginDeck d, String id, List<ModOption> opts, float y) {
+		return drawOptions(d, id, opts, y, null);
+	}
+
+	private float drawOptions(OriginDeck d, String id, List<ModOption> opts, float y, String fallbackHeader) {
+		float colW = (CW - 48) / 2f;
+		List<Section> secs = sections(id, opts, fallbackHeader);
+		if (secs.isEmpty()) {
+			y += 24;
+			d.textMid("No settings match \"" + optSearch + "\"", M, y + 8, 13, false, 0, MUTE);
+			return y + 16;
+		}
+		for (Section sec : secs) {
+			if (sec.header() != null) {
+				y += 24;
+				d.textMid(sec.header().toUpperCase(Locale.ROOT), M, y + 8, 10, true, CAPS_TRACK, MUTE);
+				y += 16 + 8;
 			} else {
-				int rx0 = r.indent() ? x0 + 16 : x0;
-				renderRow(g, id, r.o(), rx0, x1, r.y(), mouseX, mouseY, alpha);
+				y += 16;
 			}
+			List<ModOption> rows = sec.rows();
+			for (int i = 0; i < rows.size(); i++) {
+				float rx = M + (i % 2) * (colW + 48);
+				float ry = y + (i / 2) * OPT_H;
+				drawOption(d, id, rows.get(i), rx, ry, colW);
+			}
+			y += ((rows.size() + 1) / 2) * OPT_H;
+		}
+		return y;
+	}
+
+	private void drawOption(OriginDeck d, String id, ModOption o, float x, float y, float w) {
+		boolean hov = d.over(x - 12, y, w + 24, OPT_H);
+		if (hov) {
+			d.rect(x - 12, y, w + 24, OPT_H, 6, 0x0AFFFFFF);
+			if (o.tooltip != null) {
+				tip = o.tooltip;
+			}
+		}
+		float cy = y + OPT_H / 2;
+		float indent = o.dependsOn != null ? 14 : 0;
+		if (indent > 0) {
+			d.fill(x + 3, cy - 7, 1, 14, LINE2);
+		}
+		float right = x + w;
+		float left = drawControl(d, id, o, right, cy, x, y, w);
+		boolean changed = changed(id, o);
+		float labelMax = left - (changed ? 24 : 0) - 16 - x - indent;
+		d.textMid(d.fit(o.label, labelMax, 14, false, 0), x + indent, cy, 14, false, 0, TEXT);
+		if (changed) {
+			float rx = left - 10 - 14;
+			boolean rh = d.over(rx - 4, cy - 11, 22, 22);
+			d.icon("@reset", rx, cy - 7, 14, rh ? TEXT : MUTE);
+			d.hit(rx - 4, cy - 11, 22, 22, () -> {
+				Mods.reset(id, o.key);
+				if ("timechanger".equals(id) && "time".equals(o.key)) {
+					com.origin.client.client.OriginClientMod.previewTimeSlider(Mods.num(id, o.key));
+				}
+			});
 		}
 	}
 
-	private boolean clickRows(String id, int x0, int x1, double mx, double my) {
-		for (SRow r : srows) {
-			if (r.o().kind == ModOption.Kind.HEADER) {
-				continue;
-			}
-			int rx0 = r.indent() ? x0 + 16 : x0;
-			if (my >= r.y() && my < r.y() + r.h() && clickRow(id, r.o(), rx0, x1, r.y(), mx, my)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private void renderRow(GuiGraphicsExtractor g, String modId, ModOption o, int x0, int x1, int y, int mx, int my, float alpha) {
-		OriginUi.panel(g, x0, y, x1 - x0, 26, OriginTheme.RADIUS_MD,
-				withAlpha(clear ? 0xC0101010 : OriginTheme.BOX_FILL, alpha), withAlpha(OriginTheme.BOX_BORDER, alpha));
-		OriginText.draw(g, font, o.label, x0 + 10, y + 9,
-				withAlpha(clear ? OriginTheme.TEXT : OriginTheme.TEXT_DIM, alpha), clear);
-
-		if (o.tooltip != null && in(mx, my, x0, y, x1, y + 26)) {
-			hoverTip = o.tooltip;
-			hoverTipX = mx;
-			hoverTipY = my;
-		}
-
+	/** Draws the row's control right-aligned to `right`; returns its left edge. */
+	private float drawControl(OriginDeck d, String id, ModOption o, float right, float cy, float rowX, float rowY, float rowW) {
 		switch (o.kind) {
-			case TOGGLE -> OriginUi.switchAt(g, modId + ":" + o.key, x1 - 40, y + 5, 30, vBool(modId, o.key), true);
+			case TOGGLE -> {
+				boolean v = vBool(id, o.key);
+				d.toggle(id + ":" + o.key, right - 36, cy - 10, v);
+				// the whole row flips a toggle
+				d.hit(rowX - 12, rowY, rowW + 24, OPT_H, () -> flipToggle(id, o));
+				return right - 36;
+			}
 			case SLIDER -> {
-				double v = vNum(modId, o.key);
-				double tt = (v - o.min) / (o.max - o.min);
-				int tw = Math.min(140, (x1 - x0) / 3);
-				int tx = x1 - 10 - tw;
-				// pill top y+10 → knob centers on the row mid-line (y+13), matching
-				// the toggle / swatch / dropdown controls for one consistent baseline.
-				OriginUi.slider(g, tx, y + 10, tw, tt, modId.equals(dragMod) && o.key.equals(dragKey));
+				double v = vNum(id, o.key);
 				boolean pctOfFraction = o.format.contains("%%") && o.max <= 1.0;
 				String val = pctOfFraction ? String.format(o.format, v * 100) : String.format(o.format, v);
-				OriginText.draw(g, font, val, tx - OriginText.width(font, val) - 10, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
+				d.textRight(val, right, cy, 13, false, 0, DIM);
+				float valCol = Math.max(40, d.textW(val, 13, false, 0));
+				float tx = right - valCol - 12 - 110;
+				boolean active = id.equals(dragMod) && o.key.equals(dragKey);
+				d.slider(tx, cy, 110, (float) ((v - o.min) / (o.max - o.min)), active);
+				d.hit(tx - 8, cy - 12, 126, 24, () -> {
+					dragMod = id;
+					dragKey = o.key;
+					dragOpt = o;
+					dragX0 = tx;
+					dragX1 = tx + 110;
+				});
+				return tx - 8;
 			}
 			case COLOR -> {
-				int cur = Mods.color(modId, o.key);
-				String hex = String.format("#%06X", cur & 0xFFFFFF);
-				int sw = 16, cx = x1 - 10 - sw;
-				OriginUi.panel(g, cx, y + 5, sw, sw, 5, cur, 0x40FFFFFF);
-				OriginText.draw(g, font, hex, cx - 8 - OriginText.width(font, hex), y + 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
-			}
-			case HEADER -> {
+				int cur = Mods.color(id, o.key);
+				d.rect(right - 20, cy - 10, 20, 20, 4, cur | 0xFF000000, LINE2);
+				d.hit(rowX - 12, rowY, rowW + 24, OPT_H, () -> {
+					String k = id + ":" + o.key;
+					if (OriginColorPicker.isOpen() && k.equals(OriginColorPicker.openKey())) {
+						OriginColorPicker.close();
+					} else {
+						OriginColorPicker.open(id, o.key, o.label, d.guiX(rowX), d.guiY(rowY + OPT_H));
+					}
+				});
+				return right - 20;
 			}
 			case KEYBIND -> {
-				boolean capturing = modId.equals(capMod) && o.key.equals(capKey);
-				String name = capturing ? "press a key" : keyName(Mods.keyCode(modId, o.key));
-				int bw = Math.max(40, OriginText.width(font, name) + 16);
-				boolean kHover = in(mx, my, x1 - 10 - bw, y + 4, x1 - 10, y + 22);
-				float keyHp = OriginUi.hover("setting:key:" + modId + ":" + o.key, kHover || capturing);
-				OriginUi.panel(g, x1 - 10 - bw, y + 4, bw, 18, OriginTheme.RADIUS_SM,
-						withAlpha(capturing ? OriginTheme.ACCENT_SOFT
-								: OriginTheme.lerpColor(0x1E1D2420, OriginTheme.BOX_FILL_HOVER, keyHp), alpha),
-						withAlpha(OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.BOX_BORDER_HOVER, keyHp), alpha));
-				OriginText.draw(g, font, name, x1 - 10 - bw + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
+				boolean capturing = id.equals(capMod) && o.key.equals(capKey);
+				String name = capturing ? "Press a key" : keyName(Mods.keyCode(id, o.key));
+				float bw = Math.max(56, d.textW(name, 13, false, 0) + 20);
+				d.rect(right - bw, cy - 13, bw, 26, 6, 0x0DFFFFFF, capturing ? ACC : LINE2);
+				d.textCenter(name, right - bw / 2, cy, 13, false, 0, capturing ? ACC : TEXT);
+				d.hit(right - bw, cy - 13, bw, 26, () -> {
+					capMod = id;
+					capKey = o.key;
+				});
+				return right - bw;
 			}
 			case DROPDOWN -> {
-				String v = vMode(modId, o.key);
-				int bw = Math.max(70, OriginText.width(font, v) + 34);
-				int bx = x1 - 10 - bw;
-				boolean dHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
-				float dropHp = OriginUi.hover("setting:dropdown:" + modId + ":" + o.key, dHover);
-				OriginUi.panel(g, bx, y + 4, bw, 18, OriginTheme.RADIUS_SM,
-						withAlpha(OriginTheme.lerpColor(0x1E1D2420, OriginTheme.BOX_FILL_HOVER, dropHp), alpha),
-						withAlpha(OriginTheme.lerpColor(OriginTheme.STROKE, OriginTheme.BOX_BORDER_HOVER, dropHp), alpha));
-				OriginUi.iconChevron(g, bx + 5, y + 8, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), true);
-				OriginText.draw(g, font, v, bx + (bw - OriginText.width(font, v)) / 2, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
-				OriginUi.iconChevron(g, bx + bw - 14, y + 8, 9, withAlpha(OriginTheme.TEXT_DIM, alpha), false);
+				String v = vMode(id, o.key);
+				float vw = d.textW(v, 13, false, 0);
+				d.icon("@chev-right", right - 12, cy - 6, 12, MUTE);
+				d.textMid(v, right - 12 - 10 - vw, cy, 13, false, 0, TEXT);
+				float left = right - 12 - 10 - vw - 10 - 12;
+				d.icon("@chev-left", left, cy - 6, 12, MUTE);
+				float mid = left + (right - left) / 2;
+				d.hit(left - 6, cy - 13, mid - left + 6, 26, () -> cycle(id, o, -1));
+				d.hit(mid, cy - 13, right - mid + 6, 26, () -> cycle(id, o, 1));
+				return left;
 			}
 			case MULTISELECT -> {
-				java.util.List<String> sel = splitCsv(vMulti(modId, o.key));
-				String summary = sel.isEmpty() ? "None"
-						: String.join(", ", sel);
-				int bw = multiBtnW(x0, x1);
-				int bx = x1 - 10 - bw;
-				boolean bHover = in(mx, my, bx, y + 4, bx + bw, y + 22);
-				OriginUi.panel(g, bx, y + 4, bw, 18, 6,
-						withAlpha(bHover ? 0x2EFFFFFF : 0x1EFFFFFF, alpha),
-						withAlpha(bHover ? OriginTheme.STROKE_HOVER : OriginTheme.STROKE, alpha));
-				String shown = OriginText.ellipsize(font, summary, bw - 16);
-				OriginText.draw(g, font, shown, bx + 8, y + 9, withAlpha(OriginTheme.TEXT, alpha), false);
+				String csv = vMulti(id, o.key);
+				List<String> sel = splitCsv(csv);
+				String summary = sel.isEmpty() ? "None" : isItemPicker(id, o.key) ? itemPickerSummary(csv)
+						: String.join(", ", sel.stream().map(JeiSettings::prettify).toList());
+				float bw = Math.min(200, rowW / 2);
+				d.rect(right - bw, cy - 13, bw, 26, 6, 0x0DFFFFFF, LINE2);
+				d.textMid(d.fit(summary, bw - 40, 13, false, 0), right - bw + 10, cy, 13, false, 0, TEXT);
+				d.icon("@chev-down", right - 22, cy - 6, 12, MUTE);
+				d.hit(right - bw, cy - 13, bw, 26, () -> {
+					if (isItemPicker(id, o.key)) {
+						Minecraft.getInstance().setScreenAndShow(new ItemCounterPickerScreen());
+					} else {
+						OriginMultiSelect.open(o.label, java.util.Arrays.asList(o.modes), sel,
+								chosen -> vSetMulti(id, o.key, String.join(", ", chosen)));
+					}
+				});
+				return right - bw;
 			}
+			case TEXT -> {
+				boolean editing = id.equals(textMod) && o.key.equals(textKey);
+				String v = editing ? textBuf : Mods.text(id, o.key);
+				float bw = Math.min(200, rowW / 2);
+				d.rect(right - bw, cy - 13, bw, 26, 6, FIELD, editing ? mul(ACC, 0.6f) : LINE2);
+				if (v.isEmpty() && !editing) {
+					d.textMid(o.secret ? "Not set" : "Click to type", right - bw + 10, cy, 13, false, 0, MUTE);
+				} else {
+					String shown = o.secret ? maskSecret(v) : v;
+					shown = editing ? fitTail(d, shown, bw - 24) : d.fit(shown, bw - 20, 13, false, 0);
+					float w = d.textMid(shown, right - bw + 10, cy, 13, false, 0, TEXT);
+					if (editing) {
+						caret(d, right - bw + 11 + w, cy - 7, 14);
+					}
+				}
+				d.hit(right - bw, cy - 13, bw, 26, () -> {
+					textMod = id;
+					textKey = o.key;
+					textBuf = Mods.text(id, o.key);
+				});
+				return right - bw;
+			}
+			default -> {
+				return right;
+			}
+		}
+	}
+
+	private void flipToggle(String id, ModOption o) {
+		vSetBool(id, o.key, !vBool(id, o.key));
+		if (Mods.PERFORMANCE_ID.equals(id) && "shaderPerformanceMode".equals(o.key)) {
+			com.origin.client.client.shaders.IrisBridge.reloadIfPackActive();
+		}
+		if ("fullbright".equals(id) && "fullBright".equals(o.key) && Mods.bool(id, o.key)
+				&& com.origin.client.client.shaders.IrisBridge.currentPack() != null) {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.player != null) {
+				mc.player.displayClientMessage(Component.literal(
+						"Full Bright needs shaders OFF — your shaderpack does its own lighting."), false);
+			}
+		}
+	}
+
+	private void cycle(String id, ModOption o, int dir) {
+		String cur = vMode(id, o.key);
+		int idx = 0;
+		for (int i = 0; i < o.modes.length; i++) {
+			if (o.modes[i].equals(cur)) {
+				idx = i;
+			}
+		}
+		vSetMode(id, o.key, o.modes[(idx + dir + o.modes.length) % o.modes.length]);
+	}
+
+	// ---- the Settings tab ----
+
+	private void drawSettingsTab(OriginDeck d) {
+		float x = M;
+		for (SubTab st : SubTab.values()) {
+			String label = st.label.toUpperCase(Locale.ROOT);
+			float w = 24 + d.textW(label, 11, true, CAPS_TRACK);
+			boolean on = subTab == st;
+			boolean hov = d.over(x, BAR_Y, w, 32);
+			float hp = OriginUi.hover("deck-sub:" + st, hov);
+			d.rect(x, BAR_Y, w, 32, 6, on ? ACC_SOFT : lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
+			d.textMid(label, x + 12, BAR_Y + 16, 11, true, CAPS_TRACK, on ? ACC : lerp(DIM, TEXT, hp));
+			d.hit(x, BAR_Y, w, 32, () -> {
+				subTab = st;
+				optSearch = "";
+				pageScroll = pageScrollTarget = 0;
+			});
+			x += w + 8;
+		}
+		drawSearch(d, W - M - SEARCH_W, BAR_Y + 1, SEARCH_W, optSearch, "Search settings", !optSearch.isEmpty(), false, () -> {
+		});
+
+		float top = BAR_Y + 32 + 8;
+		d.clip(0, top, W, BOTTOM - top);
+		float y = BAR_Y + 32 - (float) pageScroll;
+		if (subTab == SubTab.MENU) {
+			y += 24;
+			d.textMid("MENU", M, y + 8, 10, true, CAPS_TRACK, MUTE);
+			y += 24;
+			float colW = (CW - 48) / 2f;
+			boolean solid = Mods.metaNum("menuBgOpacity", 1.0) > 0.5;
+			boolean hov = d.over(M - 12, y, colW + 24, OPT_H);
+			if (hov) {
+				d.rect(M - 12, y, colW + 24, OPT_H, 6, 0x0AFFFFFF);
+				tip = "On: a solid panel behind the menu. Off: see-through.";
+			}
+			d.textMid("Solid Menu Background", M, y + 20, 14, false, 0, TEXT);
+			d.toggle("@bgop", M + colW - 36, y + 10, solid);
+			d.hit(M - 12, y, colW + 24, OPT_H, () -> Mods.setMetaNum("menuBgOpacity", solid ? 0.0 : 1.0));
+			y += OPT_H;
+		} else {
+			String sid = subTab == SubTab.GENERAL ? Mods.GENERAL_ID : Mods.PERFORMANCE_ID;
+			List<ModOption> opts = subTab == SubTab.GENERAL ? Mods.GENERAL_SETTINGS : Mods.PERFORMANCE_SETTINGS;
+			y = drawOptions(d, sid, opts, y, subTab.label);
+		}
+		d.unclip();
+		float contentH = y + (float) pageScroll - (BAR_Y + 32) + 16;
+		maxPageScroll = Math.max(0, contentH - (BOTTOM - top));
+		pageScrollTarget = Math.min(pageScrollTarget, maxPageScroll);
+		drawScrollbar(d, pageScroll, maxPageScroll, top, BOTTOM);
+	}
+
+	// ---- profiles dropdown + confirm + toast ----
+
+	private void drawProfiles(OriginDeck d) {
+		// a click anywhere outside closes it
+		d.hit(-10000, -10000, 20000, 20000, () -> {
+			profOpen = false;
+			profileFocused = false;
+		});
+		List<String> names = Profiles.names();
+		float x = M, y = BAR_Y + 32 + 6, w = 264;
+		float listH = names.isEmpty() ? 34 : names.size() * 34;
+		float h = 12 + 16 + 8 + listH + 8 + 1 + 8 + 30 + 10;
+		d.rect(x - 4, y + 4, w + 8, h + 8, 12, 0x33000000);
+		d.rect(x, y, w, h, 8, 0xFA181D1A, LINE2);
+		d.hit(x, y, w, h, () -> profileFocused = false);
+		d.textMid("PROFILES", x + 14, y + 20, 10, true, CAPS_TRACK, MUTE);
+		float ry = y + 36;
+		String active = activeProfile();
+		if (names.isEmpty()) {
+			d.textMid("No saved profiles yet", x + 14, ry + 17, 13, false, 0, MUTE);
+		}
+		for (String nm : names) {
+			boolean hov = d.over(x + 6, ry, w - 12, 34);
+			if (hov) {
+				d.rect(x + 6, ry, w - 12, 34, 6, 0x0DFFFFFF);
+			}
+			if (nm.equals(active)) {
+				d.icon("@check", x + 14, ry + 10, 14, ACC);
+			}
+			d.textMid(d.fit(nm, w - 80, 13, false, 0), x + 36, ry + 17, 13, false, 0, TEXT);
+			d.hit(x + 6, ry, w - 12, 34, () -> {
+				if (Profiles.apply(nm)) {
+					Mods.setMetaText("activeProfile", nm);
+					toast("Profile loaded: " + nm);
+				}
+				profOpen = false;
+			});
+			float tx = x + w - 14 - 14;
+			boolean th = d.over(tx - 5, ry + 5, 24, 24);
+			if (hov) {
+				d.icon("@trash", tx, ry + 10, 14, th ? RED : MUTE);
+			}
+			d.hit(tx - 5, ry + 5, 24, 24, () -> confirmDelete = nm);
+			ry += 34;
+		}
+		if (names.isEmpty()) {
+			ry += 34;
+		}
+		ry += 8;
+		d.fill(x + 1, ry, w - 2, 1, LINE);
+		ry += 9;
+		float fw = w - 16 - 38;
+		d.rect(x + 8, ry, fw, 30, 6, FIELD, profileFocused ? mul(ACC, 0.6f) : LINE2);
+		if (profileInput.isEmpty()) {
+			d.textMid("Save current as…", x + 18, ry + 15, 13, false, 0, MUTE);
+			if (profileFocused) {
+				caret(d, x + 18, ry + 8, 14);
+			}
+		} else {
+			String shown = fitTail(d, profileInput, fw - 20);
+			float tw = d.textMid(shown, x + 18, ry + 15, 13, false, 0, TEXT);
+			if (profileFocused) {
+				caret(d, x + 19 + tw, ry + 8, 14);
+			}
+		}
+		final float fy = ry;
+		d.hit(x + 8, ry, fw, 30, () -> profileFocused = true);
+		boolean can = !profileInput.trim().isEmpty();
+		boolean ph = can && d.over(x + w - 8 - 30, ry, 30, 30);
+		d.rect(x + w - 8 - 30, ry, 30, 30, 6, can ? (ph ? 0xFF83E2B5 : ACC) : 0x14FFFFFF);
+		d.icon("@plus", x + w - 8 - 30 + 8, fy + 8, 14, can ? ON_ACC : MUTE);
+		d.hit(x + w - 8 - 30, ry, 30, 30, this::saveProfile);
+	}
+
+	private void saveProfile() {
+		String nm = profileInput.trim();
+		if (nm.isEmpty()) {
+			return;
+		}
+		Profiles.save(nm);
+		Mods.setMetaText("activeProfile", nm);
+		profileInput = "";
+		toast("Profile saved: " + nm);
+	}
+
+	private void drawConfirm(OriginDeck d) {
+		d.hit(-10000, -10000, 20000, 20000, () -> confirmDelete = null);
+		d.rect(0, 0, W, H, 8, 0x8C000000);
+		float w = 340, h = 148, x = (W - w) / 2, y = (H - h) / 2;
+		d.rect(x, y, w, h, 8, 0xFA181D1A, LINE2);
+		d.hit(x, y, w, h, () -> {
+		});
+		d.textMid("Delete this profile?", x + 20, y + 30, 15, true, 0, TEXT);
+		d.textMid(d.fit("\"" + confirmDelete + "\" will be removed for good.", w - 40, 13, false, 0),
+				x + 20, y + 56, 13, false, 0, DIM);
+		float bw = (w - 40 - 12) / 2, by = y + h - 20 - 34;
+		boolean ch = d.over(x + 20, by, bw, 34), dh = d.over(x + 20 + bw + 12, by, bw, 34);
+		d.rect(x + 20, by, bw, 34, 6, ch ? 0x1AFFFFFF : 0x0FFFFFFF);
+		d.textCenter("CANCEL", x + 20 + bw / 2, by + 17, 11, true, CAPS_TRACK, TEXT);
+		d.hit(x + 20, by, bw, 34, () -> confirmDelete = null);
+		d.rect(x + 20 + bw + 12, by, bw, 34, 6, dh ? 0x47D9675A : RED_SOFT);
+		d.textCenter("DELETE", x + 20 + bw + 12 + bw / 2, by + 17, 11, true, CAPS_TRACK, RED);
+		d.hit(x + 20 + bw + 12, by, bw, 34, () -> {
+			if (confirmDelete.equals(Mods.metaText("activeProfile", ""))) {
+				Mods.setMetaText("activeProfile", null);
+			}
+			Profiles.delete(confirmDelete);
+			confirmDelete = null;
+		});
+	}
+
+	private void drawToast(OriginDeck d, long now) {
+		if (toastAt < 0) {
+			return;
+		}
+		long dt = now - toastAt, life = 1400;
+		if (dt >= life) {
+			toastAt = -1;
+			return;
+		}
+		float a = dt < 120 ? dt / 120f : dt > life - 300 ? (life - dt) / 300f : 1f;
+		float base = d.alpha;
+		d.alpha = base * a;
+		float w = 14 + 14 + 8 + d.textW(toastText, 13, false, 0) + 16;
+		float x = (W - w) / 2, y = H - 24 - 36;
+		d.rect(x, y, w, 36, 8, 0xFA181D1A, LINE2);
+		d.icon("@check", x + 14, y + 11, 14, ACC);
+		d.textMid(toastText, x + 36, y + 18, 13, false, 0, TEXT);
+		d.alpha = base;
+	}
+
+	private void drawTip(OriginDeck d, String text, int winW, int winH) {
+		List<String> lines = d.wrap(text, 260, 12, false);
+		float tw = 0;
+		for (String l : lines) {
+			tw = Math.max(tw, d.textW(l, 12, false, 0));
+		}
+		float w = tw + 20, h = lines.size() * 17 + 14;
+		float x = d.mx + 14, y = d.my + 18;
+		float maxX = (winW - d.ox) / d.s - 8, maxY = (winH - d.oy) / d.s - 8;
+		if (x + w > maxX) {
+			x = d.mx - 14 - w;
+		}
+		if (y + h > maxY) {
+			y = d.my - 10 - h;
+		}
+		d.rect(x, y, w, h, 6, 0xF50E1110, LINE2);
+		float ly = y + 7;
+		for (String l : lines) {
+			d.textMid(l, x + 10, ly + 8.5f, 12, false, 0, DIM);
+			ly += 17;
 		}
 	}
 
 	// ---- input ----
+
+	private float dX(double gui) {
+		return OriginDeck.toDesign(gui, Minecraft.getInstance().getWindow().getGuiScale(), lastOx, lastS);
+	}
+
+	private float dY(double gui) {
+		return OriginDeck.toDesign(gui, Minecraft.getInstance().getWindow().getGuiScale(), lastOy, lastS);
+	}
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
@@ -1087,206 +1442,28 @@ public class OriginModMenuScreen extends Screen {
 		if (OriginColorPicker.isOpen()) {
 			return OriginColorPicker.mouseClicked(mx, my, button);
 		}
-		// The delete-confirmation dialog is modal: it swallows every click until
-		// the player picks Delete or Cancel (a click outside cancels).
-		if (confirmDeleteName != null) {
-			if (button == 0) {
-				return clickDeleteConfirm(mx, my);
-			}
+		commitText();     // any click ends typing (clicking the field re-opens it)
+		capMod = null;    // and any click abandons a half-done key capture
+		capKey = null;
+		if (closingAt > 0) {
 			return true;
 		}
-		if (button != 0 || closingAt > 0) {
+		if (button != 0) {
 			return super.mouseClicked(event, doubled);
 		}
-		layout();
-
-		// sidebar clicks first (always present)
-		if (clickSidebar(mx, my)) {
-			return true;
-		}
-
-		if (page != null) {
-			return clickModPage(mx, my);
-		}
-
-		switch (nav) {
-			case MODS -> {
-				return clickMods(mx, my);
-			}
-			case PROFILES -> {
-				searchFocused = false;
-				return clickProfiles(mx, my);
-			}
-			case SETTINGS -> {
-				searchFocused = false;
-				profileFocused = false;
-				return clickSettingsPage(mx, my);
-			}
-		}
-		return super.mouseClicked(event, doubled);
-	}
-
-	private boolean clickMods(double mx, double my) {
-		int sy = py() + 18;
-		int sx = cx0();
-		int sw = cx1() - cx0();
-		searchFocused = in(mx, my, sx, sy, sx + sw, sy + 22);
-		if (searchFocused) {
-			return true;
-		}
-		int gTop = gridTop(), gBot = py() + ph() - 12;
-		if (my >= gTop && my < gBot) {
-			for (int i = 0; i < filtered.size(); i++) {
-				int[] r = cellRect(i);
-				if (!in(mx, my, r[0], r[1], r[2], r[3])) {
-					continue;
-				}
-				Mods.Mod mod = filtered.get(i);
-				int x2 = r[2], y2 = r[3];
-				int barY = y2 - BAR_H;
-				// star (bottom-right)
-				if (in(mx, my, x2 - 14, y2 - 14, x2 - 1, y2 - 1)) {
-					Mods.setMetaBool("fav:" + mod.id(), !Mods.metaBool("fav:" + mod.id(), false));
-					return true;
-				}
-				// name bar → toggle enable
-				if (my >= barY) {
-					Mods.setOn(mod.id(), !Mods.on(mod.id()));
-					return true;
-				}
-				// icon area → open the mod's page. Two mods are whole screens of
-				// their own rather than an option list (matching 1.21.1).
-				// (Waypoints is not ported on 26.2 — no waypoints screen branch here.)
-				if (mod.id().equals("itemsize")) {
-					Minecraft.getInstance().setScreenAndShow(new OriginItemSizeScreen());
-				} else {
-					page = mod.id();
-					pageChangedAt = System.currentTimeMillis();
-					settingsSearch = "";
-					settingsScroll = settingsScrollTarget = 0;
-				}
-				return true;
-			}
+		searchFocused = false;   // the search box's own hit turns it back on
+		OriginDeck.click(hits, dX(mx), dY(my));
+		if (dragOpt != null) {     // a press on a slider track jumps the thumb there
+			applySlider(mx);
 		}
 		return true;
 	}
 
-	private boolean clickModPage(double mx, double my) {
-		Mods.Mod mod = Mods.byId(page);
-		if (mod == null) {
-			page = null;
-			return true;
-		}
-		int x0 = cx0(), x1 = cx1();
-		int hy = py() + 16;
-		if (in(mx, my, x0, hy, x0 + 24, hy + 20)) { // back
-			page = null;
-			pageChangedAt = System.currentTimeMillis();
-			return true;
-		}
-		if (in(mx, my, x1 - 34, hy + 1, x1, hy + 19)) { // master switch
-			Mods.setOn(mod.id(), !Mods.on(mod.id()));
-			return true;
-		}
-		int top = hy + 62;
-		int bottom = py() + ph() - 10;
-		settingsMaxScroll = layoutRows(optionsFor(mod), mod.id(), top, settingsScroll, settingsSearch);
-		if (my >= top && my <= bottom && clickRows(mod.id(), x0, x1, mx, my)) {
-			return true;
-		}
-		return true;
-	}
-
-	private boolean clickRow(String modId, ModOption o, int x0, int x1, int y, double mx, double my) {
-		switch (o.kind) {
-			case TOGGLE -> {
-				if (in(mx, my, x1 - 40, y + 5, x1 - 10, y + 21)) {
-					vSetBool(modId, o.key, !vBool(modId, o.key));
-					if (Mods.PERFORMANCE_ID.equals(modId) && "shaderPerformanceMode".equals(o.key)) {
-						com.origin.client.client.shaders.IrisBridge.reloadIfPackActive();
-					}
-					if ("fullbright".equals(modId) && "fullBright".equals(o.key)
-							&& Mods.bool(modId, o.key)
-							&& com.origin.client.client.shaders.IrisBridge.currentPack() != null) {
-						Minecraft mc = Minecraft.getInstance();
-						if (mc.player != null) {
-							mc.player.sendSystemMessage(Component.literal(
-								"Full Bright needs shaders OFF — your shaderpack does its own lighting."));
-						}
-					}
-					return true;
-				}
-			}
-			case SLIDER -> {
-				int tw = Math.min(140, (x1 - x0) / 3);
-				int tx = x1 - 10 - tw;
-				if (mx >= tx && mx <= tx + tw) {
-					dragMod = modId;
-					dragKey = o.key;
-					dragOpt = o;
-					dragTrackX0 = tx;
-					dragTrackX1 = tx + tw;
-					applySlider(o, mx);
-					return true;
-				}
-			}
-			case COLOR -> {
-				if (mx >= x1 - 90) {
-					String k = modId + ":" + o.key;
-					if (OriginColorPicker.isOpen()) {
-						OriginColorPicker.close();
-					} else {
-						OriginColorPicker.open(modId, o.key, o.label);
-					}
-					return true;
-				}
-			}
-			case HEADER -> {
-			}
-			case KEYBIND -> {
-				if (mx >= x1 - 90) {
-					capMod = modId;
-					capKey = o.key;
-					return true;
-				}
-			}
-			case DROPDOWN -> {
-				int bw = Math.max(70, OriginText.width(font, vMode(modId, o.key)) + 34);
-				int bx = x1 - 10 - bw;
-				if (mx >= bx && mx <= x1 - 10) {
-					int dir = mx < bx + bw / 2.0 ? -1 : 1;
-					String cur = vMode(modId, o.key);
-					int idx = 0;
-					for (int i = 0; i < o.modes.length; i++) {
-						if (o.modes[i].equals(cur)) {
-							idx = i;
-						}
-					}
-					vSetMode(modId, o.key, o.modes[(idx + dir + o.modes.length) % o.modes.length]);
-					return true;
-				}
-			}
-			case MULTISELECT -> {
-				int bw = multiBtnW(x0, x1);
-				int bx = x1 - 10 - bw;
-				if (mx >= bx && mx <= x1 - 10) {
-					java.util.List<String> allChoices = java.util.Arrays.asList(o.modes);
-					java.util.List<String> sel = splitCsv(vMulti(modId, o.key));
-					String mid = modId;
-					String mkey = o.key;
-					OriginMultiSelect.open(o.label, allChoices, sel,
-							chosen -> vSetMulti(mid, mkey, joinCsv(chosen)));
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-	private void applySlider(ModOption o, double mx) {
-		double t = Math.max(0, Math.min(1, (mx - dragTrackX0) / (double) (dragTrackX1 - dragTrackX0)));
-		double v = o.min + t * (o.max - o.min);
-		vSetNum(dragMod, o.key, Math.round(v / o.step) * o.step);
+	private void applySlider(double guiMx) {
+		float x = dX(guiMx);
+		double t = Math.max(0, Math.min(1, (x - dragX0) / (dragX1 - dragX0)));
+		double v = dragOpt.min + t * (dragOpt.max - dragOpt.min);
+		vDragNum(dragMod, dragOpt.key, Math.round(v / dragOpt.step) * dragOpt.step);
 	}
 
 	@Override
@@ -1296,8 +1473,8 @@ public class OriginModMenuScreen extends Screen {
 		if (OriginColorPicker.mouseDragged(mx, my, button)) {
 			return true;
 		}
-		if (dragMod != null && dragOpt != null) {
-			applySlider(dragOpt, mx);
+		if (dragOpt != null) {
+			applySlider(mx);
 			return true;
 		}
 		return super.mouseDragged(event, dx, dy);
@@ -1311,32 +1488,48 @@ public class OriginModMenuScreen extends Screen {
 		dragMod = null;
 		dragKey = null;
 		dragOpt = null;
+		flushSlider();
 		return super.mouseReleased(event);
 	}
 
 	@Override
 	public boolean mouseScrolled(double mx, double my, double sx, double sy) {
-		if (OriginColorPicker.isOpen() || OriginMultiSelect.isOpen()) {
+		if (OriginColorPicker.isOpen() || OriginMultiSelect.isOpen() || profOpen || confirmDelete != null) {
 			return true;
 		}
-		if (page != null) {
-			settingsScrollTarget = Math.max(0, Math.min(settingsMaxScroll, settingsScrollTarget - sy * 30));
-		} else if (nav == Nav.MODS) {
-			scrollTarget = Math.max(0, Math.min(maxScroll(), scrollTarget - sy * 30));
+		if (page != null || tab == Tab.SETTINGS) {
+			pageScrollTarget = Math.max(0, Math.min(maxPageScroll, pageScrollTarget - sy * 48));
 		} else {
-			settingsTabScrollTarget = Math.max(0, Math.min(settingsTabMaxScroll, settingsTabScrollTarget - sy * 30));
+			scrollTarget = Math.max(0, Math.min(maxScroll, scrollTarget - sy * 48));
 		}
 		return true;
 	}
 
+	/** Esc / Back: exactly one level up. */
+	private void back() {
+		if (page != null) {
+			commitText();
+			page = null;
+			pageChangedAt = System.currentTimeMillis();
+			optSearch = "";
+			pageScroll = pageScrollTarget = 0;
+		} else {
+			beginClose();
+		}
+	}
+
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+		int keyCode = event.key();
+		boolean ctrl = event.hasControlDown();
 		if (OriginMultiSelect.isOpen()) {
 			return OriginMultiSelect.keyPressed(keyCode);
 		}
 		if (OriginColorPicker.isOpen()) {
 			return OriginColorPicker.keyPressed(keyCode);
+		}
+		if (textMod != null) {
+			return textKeyPressed(event);
 		}
 		if (capMod != null) {
 			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
@@ -1344,16 +1537,29 @@ public class OriginModMenuScreen extends Screen {
 			capKey = null;
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-			if (confirmDeleteName != null) { // ESC cancels the delete dialog first
-				confirmDeleteName = null;
-				return true;
+		boolean esc = keyCode == GLFW.GLFW_KEY_ESCAPE;
+		if (confirmDelete != null) {
+			if (esc) {
+				confirmDelete = null;
 			}
-			if (page != null) {
-				page = null;
-				pageChangedAt = System.currentTimeMillis();
+			return true;
+		}
+		if (profOpen) {
+			if (esc) {
+				profOpen = false;
+				profileFocused = false;
+			} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+				saveProfile();
+			} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !profileInput.isEmpty()) {
+				profileInput = ctrl ? "" : profileInput.substring(0, profileInput.length() - 1);
+			}
+			return true;
+		}
+		if (esc) {
+			if (searchFocused) {
+				searchFocused = false;
 			} else {
-				beginClose();
+				back();
 			}
 			return true;
 		}
@@ -1361,24 +1567,19 @@ public class OriginModMenuScreen extends Screen {
 			beginClose();
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_ENTER && profileFocused && !profileInput.trim().isEmpty()) {
-			Profiles.save(profileInput);
-			profileInput = "";
+		if (keyCode == GLFW.GLFW_KEY_F && ctrl && page == null && tab == Tab.MODS) {
+			searchFocused = true;
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-			if (page == null && nav == Nav.MODS && !search.isEmpty()) {
-				search = search.substring(0, search.length() - 1);
+			if (page == null && tab == Tab.MODS && !search.isEmpty()) {
+				search = ctrl ? "" : search.substring(0, search.length() - 1);
 				scrollTarget = 0;
 				return true;
 			}
-			if (page == null && nav == Nav.PROFILES && profileFocused && !profileInput.isEmpty()) {
-				profileInput = profileInput.substring(0, profileInput.length() - 1);
-				return true;
-			}
-			if (page != null && !settingsSearch.isEmpty()) {
-				settingsSearch = settingsSearch.substring(0, settingsSearch.length() - 1);
-				settingsScrollTarget = 0;
+			if ((page != null || tab == Tab.SETTINGS) && !optSearch.isEmpty()) {
+				optSearch = ctrl ? "" : optSearch.substring(0, optSearch.length() - 1);
+				pageScrollTarget = 0;
 				return true;
 			}
 		}
@@ -1391,84 +1592,89 @@ public class OriginModMenuScreen extends Screen {
 		if (capMod != null) {
 			return true;
 		}
-		if (page == null && nav == Nav.MODS && chr >= 32 && search.length() < 24) {
+		if (chr < 32 || chr == 127) {
+			return super.charTyped(event);
+		}
+		if (textMod != null) {
+			if (textBuf.length() < TEXT_MAX) {
+				textBuf += chr;
+			}
+			return true;
+		}
+		if (profOpen) {
+			if (profileInput.length() < 28) {
+				profileInput += chr;
+				profileFocused = true;
+			}
+			return true;
+		}
+		if (page != null || tab == Tab.SETTINGS) {
+			if (optSearch.length() < 24) {
+				optSearch += chr;
+				pageScrollTarget = 0;
+			}
+			return true;
+		}
+		// Library: typing anywhere searches; "/" just focuses the box (the hint on it).
+		if (chr == '/' && !searchFocused) {
+			searchFocused = true;
+			return true;
+		}
+		if (search.length() < 24) {
 			search += chr;
 			searchFocused = true;
 			scrollTarget = 0;
-			return true;
 		}
-		if (page == null && nav == Nav.PROFILES && profileFocused && chr >= 32 && profileInput.length() < 28) {
-			profileInput += chr;
-			return true;
-		}
-		if (page != null && chr >= 32 && settingsSearch.length() < 24) {
-			settingsSearch += chr;
-			settingsScrollTarget = 0;
-			return true;
-		}
-		return super.charTyped(event);
+		return true;
 	}
 
-	public void beginClose() {
-		if (closingAt < 0) {
-			closingAt = System.currentTimeMillis();
+	// ---- TEXT rows (free-text fields, e.g. the Hypixel API key) ----
+
+	// A secret is never drawn in clear: stars, plus the last 4 characters once
+	// it's long enough that those alone can't give it away.
+	private static String maskSecret(String v) {
+		if (v.length() <= 8) {
+			return "*".repeat(v.length());
 		}
+		return "*".repeat(Math.min(16, v.length() - 4)) + v.substring(v.length() - 4);
 	}
 
-	// ---- tooltip + helpers ----
-
-	private String hoverTip;
-	private int hoverTipX, hoverTipY;
-
-	private void drawTooltip(GuiGraphicsExtractor g, int mx, int my, String text) {
-		int maxW = 190;
-		List<String> lines = wrapText(text, maxW);
-		int tw = 0;
-		for (String l : lines) {
-			tw = Math.max(tw, OriginText.width(font, l));
-		}
-		int lh = font.lineHeight + 1;
-		int th = lines.size() * lh + 7;
-		int bx = mx + 12, by = my + 10;
-		if (bx + tw + 12 > width) {
-			bx = Math.max(4, width - tw - 12);
-		}
-		if (by + th > height) {
-			by = Math.max(4, height - th - 2);
-		}
-		OriginUi.panel(g, bx, by, tw + 12, th, 6, 0xF01A1A1A, OriginTheme.STROKE_STRONG);
-		int ty = by + 5;
-		for (String l : lines) {
-			OriginText.draw(g, font, l, bx + 6, ty, OriginTheme.TEXT, false);
-			ty += lh;
-		}
-	}
-
-	private List<String> wrapText(String s, int maxW) {
-		List<String> out = new ArrayList<>();
-		StringBuilder cur = new StringBuilder();
-		for (String word : s.split(" ")) {
-			String test = cur.length() == 0 ? word : cur + " " + word;
-			if (OriginText.width(font, test) > maxW && cur.length() > 0) {
-				out.add(cur.toString());
-				cur = new StringBuilder(word);
-			} else {
-				cur = new StringBuilder(test);
+	// 1.21.11: the KeyEvent carries the modifier state (hasControlDown / isPaste),
+	// which were static Screen helpers on 1.21.1.
+	private boolean textKeyPressed(KeyEvent event) {
+		int keyCode = event.key();
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+			textMod = null;      // cancel: the saved value stays as it was
+			textKey = null;
+			textBuf = "";
+		} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+			commitText();
+		} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+			if (!textBuf.isEmpty()) {
+				textBuf = event.hasControlDown() ? "" : textBuf.substring(0, textBuf.length() - 1);
+			}
+		} else if (event.isPaste()) {
+			String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
+			if (clip != null) {
+				// one line only; control characters (newlines from a copied block) dropped
+				String clean = clip.replaceAll("[\\p{Cntrl}]", "").trim();
+				textBuf = (textBuf + clean).substring(0, Math.min(TEXT_MAX, textBuf.length() + clean.length()));
 			}
 		}
-		if (cur.length() > 0) {
-			out.add(cur.toString());
+		return true;   // every other key is swallowed while a field has focus
+	}
+
+	private void commitText() {
+		if (textMod == null) {
+			return;
 		}
-		return out;
-	}
-
-	private static boolean in(double mx, double my, int x0, int y0, int x1, int y1) {
-		return mx >= x0 && mx < x1 && my >= y0 && my < y1;
-	}
-
-	private static int withAlpha(int argb, float alpha) {
-		int a = (int) (((argb >>> 24) & 0xFF) * alpha);
-		return (a << 24) | (argb & 0xFFFFFF);
+		String mod = textMod, key = textKey, v = textBuf.trim();
+		textMod = null;
+		textKey = null;
+		textBuf = "";
+		if (!v.equals(Mods.text(mod, key))) {
+			Mods.set(mod, key, v);
+		}
 	}
 
 	private static String keyName(int code) {
@@ -1481,9 +1687,4 @@ public class OriginModMenuScreen extends Screen {
 			return "Key " + code;
 		}
 	}
-
-	private static final String VERSION = net.fabricmc.loader.api.FabricLoader.getInstance()
-			.getModContainer("originclient")
-			.map(c -> c.getMetadata().getVersion().getFriendlyString())
-			.orElse("dev");
 }

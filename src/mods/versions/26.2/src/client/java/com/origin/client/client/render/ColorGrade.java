@@ -1,6 +1,5 @@
 package com.origin.client.client.render;
 
-import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -8,7 +7,6 @@ import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginShaders;
-import com.origin.client.client.mixin.GuiGraphicsExtractorAccessor;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -20,31 +18,34 @@ import org.joml.Matrix3x2fc;
 
 /**
  * The Color Saturation mod's renderer: a full-screen grade over the rendered
- * WORLD (Saturation / Brightness / Contrast). Registered as a Fabric HUD element
- * with {@code addFirst} in OriginClientMod, so it runs BEFORE any vanilla HUD
- * element draws — after the world is fully in the main target, so only the game
- * world is graded, never the HUD, menu, or title screen.
+ * WORLD (Saturation / Brightness / Contrast). Driven per-frame from GuiHudMixin at
+ * the HEAD of Gui.render — after the world is fully drawn but BEFORE the HUD/menu —
+ * so only the game world is graded, never the HUD, the menu, or the title screen.
  *
- * <p>PER-VERSION DELTA (26.2) — this mirrors the 1.21.11 mechanism (same render
- * era: no immediate-mode draw, no per-draw uniforms), with the 26.2 API renames:
+ * <p>PER-VERSION DELTA (1.21.11) — this is a different mechanism from 1.21.1's,
+ * because none of 1.21.1's pieces exist here:
+ *
  * <ul>
- * <li>The three amounts ride the per-vertex COLOR channel (see
- *     {@code rendertype_origin_grade.fsh}); the draw is a {@link GuiElementRenderState}
- *     submitted through {@code guiRenderState.addGuiElement} (was {@code submitGuiElement}).</li>
- * <li>The world snapshot is a GPU texture-to-texture copy through the command
- *     encoder; the graded quad samples that copy (a shader can't sample the target
- *     it writes to). The main target is now {@code gameRenderer.mainRenderTarget()}
- *     (was {@code Minecraft.getMainRenderTarget()}), and {@link TextureTarget} now
- *     needs an explicit {@link GpuFormat}.</li>
- * <li>{@code GuiGraphicsExtractor.guiRenderState} went private → reached via
- *     {@link GuiGraphicsExtractorAccessor}.</li>
+ * <li>1.21.1 bound a shader with {@code RenderSystem.setShader}, set three real
+ *     uniforms, and issued an immediate {@code BufferUploader.drawWithShader}.
+ *     There is no immediate-draw path on 1.21.11 at all, and no per-draw uniform
+ *     hook — so the draw is a {@link GuiElementRenderState} submitted into
+ *     {@code guiGraphics.guiRenderState} (exactly like OriginSdfFont's text), and
+ *     the three amounts ride the per-vertex COLOR channel. See
+ *     {@code rendertype_origin_grade.fsh} for the packing.</li>
+ * <li>1.21.1 ping-ponged between the main target and a swap target with
+ *     {@code bindWrite}. Here the copy is a straight GPU texture-to-texture blit
+ *     through the command encoder, and the graded quad is then drawn back over
+ *     the main target sampling that copy. A shader cannot sample the target it is
+ *     writing to, which is the whole reason the copy exists.</li>
  * </ul>
  *
- * <p>Carried over unchanged: the pre-HUD timing (world pixels only), halving the
- * deviation from neutral so the sliders are gentle, the exact-neutral early-out
- * (free when unchanged), and the fail-soft latch — if anything throws, {@code broken}
- * latches and the grade never runs again this session; the game keeps rendering
- * normally, never crashes. See MEMORY colorgrade-sky-fix for why a self-managed
+ * <p>What carried over unchanged from 1.21.1: the pre-HUD timing (so only world
+ * pixels are graded), halving the deviation from neutral so the sliders are
+ * gentle, the exact-neutral early-out that makes the mod free when unchanged,
+ * and the fail-soft contract — if anything throws, {@code broken} latches and the
+ * grade never runs again this session. The game keeps rendering normally; it
+ * never crashes. See MEMORY's colorgrade-sky-fix for why a self-managed
  * PostChain is deliberately NOT used.
  */
 public final class ColorGrade {
@@ -53,16 +54,9 @@ public final class ColorGrade {
 
 	private static TextureTarget swap;
 	private static boolean broken = false;
-	// Set by process() (GUI extraction) when a grade element is submitted this frame;
-	// read+cleared by captureWorld() (GuiRenderer.render HEAD) which does the actual
-	// GPU snapshot. The two are split because the texture copy MUST run at a real GPU
-	// point (the start of the GUI flush, world in the main target, GUI not yet drawn),
-	// NOT during extraction — issuing the copy in extraction captured a stale/empty
-	// frame (the "ghost of the last menu + black elsewhere" bug, 2026-07-30).
-	private static volatile boolean pendingCapture = false;
 
-	public static void process(GuiGraphicsExtractor g) {
-		if (broken || OriginShaders.grade() == null || !Mods.on("colorsaturation")) {
+	public static void process(GuiGraphicsExtractor guiGraphics) {
+		if (broken || OriginShaders.GRADE == null || !Mods.on("colorsaturation")) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
@@ -81,16 +75,30 @@ public final class ColorGrade {
 			return;
 		}
 		try {
-			// Arm the snapshot; captureWorld() (GuiRenderer.render HEAD) sizes `swap`
-			// to the REAL framebuffer texture and fills it with the live world frame
-			// just before this element draws. The element fetches swap's view LIVE at
-			// draw time (textureSetup below), so it never holds a stale/wrong-sized
-			// reference — the quad covers the screen via UV 0..1 regardless of the
-			// swap's pixel resolution.
-			pendingCapture = true;
-			int w = g.guiWidth(), h = g.guiHeight();
-			((GuiGraphicsExtractorAccessor) g).originclient$guiRenderState().addGuiElement(new GradeRenderState(
-					new Matrix3x2f(g.pose()), w, h, pack(sat, bri, con),
+			RenderTarget main = mc.getMainRenderTarget();
+			if (main == null || main.getColorTexture() == null) {
+				return;
+			}
+			// Keep a colour-only swap target matched to the main framebuffer size.
+			if (swap == null || swap.width != main.width || swap.height != main.height) {
+				if (swap != null) {
+					swap.destroyBuffers();
+				}
+				swap = new TextureTarget("origin_grade", main.width, main.height, false);
+			}
+			// Snapshot the finished world frame. The graded quad below samples THIS,
+			// not the live target it is about to overwrite.
+			RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(
+					main.getColorTexture(), swap.getColorTexture(), 0,
+					0, 0, 0, 0, main.width, main.height);
+
+			GpuTextureView view = swap.getColorTextureView();
+			if (view == null) {
+				return;
+			}
+			int w = guiGraphics.guiWidth(), h = guiGraphics.guiHeight();
+			guiGraphics.guiRenderState.submitGuiElement(new GradeRenderState(
+					new Matrix3x2f(guiGraphics.pose()), w, h, pack(sat, bri, con), view,
 					new ScreenRectangle(0, 0, w, h)));
 		} catch (Throwable t) {
 			broken = true;
@@ -98,58 +106,12 @@ public final class ColorGrade {
 		}
 	}
 
-	/**
-	 * GPU snapshot of the finished world frame into {@code swap}, called from
-	 * GuiRendererMixin at {@code GuiRenderer.render()} HEAD — the moment the world is
-	 * in the main target and the GUI has not drawn yet. The graded quad (submitted in
-	 * {@link #process}) samples this copy; a shader can't sample the target it writes
-	 * to, which is why the copy exists. Only runs when process() armed it this frame.
-	 */
-	public static void captureWorld() {
-		if (broken || !pendingCapture) {
-			return;
-		}
-		pendingCapture = false;
-		try {
-			RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
-			if (main == null || main.getColorTexture() == null) {
-				return;
-			}
-			// Use the REAL texture dimensions, not RenderTarget.width/height — on a
-			// high-DPI display those differ (the target reports a logical 854x480 while
-			// the actual colour texture is e.g. 2560x1369). Sizing the swap or the copy
-			// rectangle to the logical size copies only a corner (the ghost/black bug)
-			// or throws "dest not large enough".
-			var srcTex = main.getColorTexture();
-			int tw = srcTex.getWidth(0), th = srcTex.getHeight(0);
-			if (tw <= 0 || th <= 0) {
-				return;
-			}
-			if (swap == null || swap.width != tw || swap.height != th) {
-				if (swap != null) {
-					swap.destroyBuffers();
-				}
-				swap = new TextureTarget("origin_grade", tw, th, false, GpuFormat.RGBA8_UNORM);
-			}
-			RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(
-					srcTex, swap.getColorTexture(), 0, 0, 0, 0, 0, tw, th);
-		} catch (Throwable t) {
-			broken = true;
-			com.origin.client.OriginClient.LOGGER.warn("Color Saturation snapshot failed; disabling for this session", t);
-		}
-	}
-
-	/** The current world snapshot's texture view (or null before the first capture). */
-	private static GpuTextureView swapView() {
-		return swap == null ? null : swap.getColorTextureView();
-	}
-
 	/** Packs the three 0..2 amounts into one ARGB int, each as value/2 in a byte. */
 	private static int pack(float sat, float bri, float con) {
 		int r = clamp255(Math.round(sat / 2f * 255f));
-		int gg = clamp255(Math.round(bri / 2f * 255f));
+		int g = clamp255(Math.round(bri / 2f * 255f));
 		int b = clamp255(Math.round(con / 2f * 255f));
-		return 0xFF000000 | (r << 16) | (gg << 8) | b;
+		return 0xFF000000 | (r << 16) | (g << 8) | b;
 	}
 
 	private static int clamp255(int v) {
@@ -160,10 +122,10 @@ public final class ColorGrade {
 	 * One full-screen quad through {@link OriginShaders#GRADE}. Deliberately
 	 * reports the whole screen as its bounds: the deferred renderer culls on
 	 * bounds(), and a null there is read as "zero visible area" and silently
-	 * dropped before buildVertices ever runs (the invisible-element trap).
+	 * dropped before buildVertices ever runs (the invisible-MSDF-text bug).
 	 */
 	private record GradeRenderState(Matrix3x2fc pose, int w, int h, int color,
-									ScreenRectangle bounds) implements GuiElementRenderState {
+									GpuTextureView source, ScreenRectangle bounds) implements GuiElementRenderState {
 		@Override
 		public void buildVertices(VertexConsumer vc) {
 			// UVs are flipped vertically: the framebuffer's origin is bottom-left
@@ -177,19 +139,12 @@ public final class ColorGrade {
 
 		@Override
 		public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
-			return OriginShaders.grade();
+			return OriginShaders.GRADE;
 		}
 
 		@Override
 		public TextureSetup textureSetup() {
-			// Fetch the swap view LIVE — this runs during the GUI flush, AFTER
-			// captureWorld() (GuiRenderer.render HEAD) has sized + filled swap this
-			// frame, so it's always the current world snapshot at the right resolution.
-			GpuTextureView view = swapView();
-			if (view == null) {
-				return TextureSetup.noTexture();
-			}
-			return TextureSetup.singleTexture(view,
+			return TextureSetup.singleTexture(source,
 					RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
 		}
 

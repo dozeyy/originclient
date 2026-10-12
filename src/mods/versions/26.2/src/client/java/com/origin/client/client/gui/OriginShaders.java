@@ -1,121 +1,130 @@
 package com.origin.client.client.gui;
 
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.origin.client.OriginClient;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
 /**
- * Origin's custom GUI render pipelines for 26.2. Right now this holds only
- * {@link #GRADE} (the Color Saturation full-screen grade); the MSDF text / icon
- * pipelines from the 1.21.x modules are NOT ported yet and are intentionally left
- * out — registering a pipeline whose shader assets don't exist would fail at first
- * use, and the SDF text feature is a separate later port.
+ * The scalable (SDF/MSDF) rendering backend for the Origin menus.
  *
- * <p>PER-VERSION DELTA (26.2): the 1.21.x builder path is gone here —
- * {@code RenderPipelines.register} and {@code GUI_TEXTURED_SNIPPET} both went
- * private, and {@code RenderPipeline} has no {@code toBuilder()}. So GRADE is
- * DERIVED from the public {@link RenderPipelines#GUI_TEXTURED} pipeline: every
- * config value is read back off it through its public getters and copied into a
- * fresh builder, overriding ONLY the location and the fragment shader. Copying the
- * bind-group layouts is the critical part — they declare the {@code DynamicTransforms}
- * UBO and {@code Sampler0} the GUI vertex shader needs; an empty builder omits them
- * and the driver reports "unknown and unsupported uniform DynamicTransforms" (caught
- * in a runClient boot 2026-07-30). No central registration is needed — the GPU
- * device compiles the pipeline on demand the first time the grade element is drawn.
+ * PER-VERSION DELTA (1.21.11): unlike 1.21.1/1.21.4 (which compile a named
+ * {@code ShaderInstance}/{@code CompiledShaderProgram} up front and bind it for
+ * an immediate-mode {@code BufferUploader.drawWithShader} call), 1.21.11's GUI
+ * renders through a fully DEFERRED model — {@link net.minecraft.client.gui.GuiGraphicsExtractor}
+ * queues {@link net.minecraft.client.renderer.state.gui.GuiElementRenderState}
+ * instances into {@code guiGraphics.guiRenderState}, and the real renderer
+ * batches/draws them later. There is no {@code ShaderManager.getProgram(key)}
+ * returning a bindable program anymore — custom shaders are declared as a
+ * {@link RenderPipeline} (vertex/fragment shader identifiers + vertex format +
+ * blend/depth state), and a draw is just "build a {@code GuiElementRenderState}
+ * naming this pipeline and submit it" (see {@link OriginSdfFont}). The pipeline
+ * itself doesn't get "compiled" synchronously the way the old ShaderInstance did
+ * — GLSL compilation happens lazily inside the renderer the first time the
+ * pipeline is actually drawn with, so unlike 1.21.1/1.21.4 there is no
+ * null-checkable "did it compile" signal here; MSDF is considered available the
+ * moment the pipeline object is built without throwing.
+ *
+ * {@code rendertype_origin_msdf} reuses vanilla's own {@code core/position_tex_color}
+ * vertex shader verbatim (identical math: project Position, pass UV0 + Color
+ * through) — only the fragment shader (the MSDF median/coverage calculation) is
+ * ours.
+ *
+ * NOT YET PORTED on 1.21.11: the rounded-box SDF PANEL ({@code rendertype_origin_round})
+ * and the fullscreen color-grade ({@code rendertype_origin_grade}). Both need more
+ * than a retarget — ROUND's old shader took per-draw uniforms (RectHalf/Radius/
+ * Border/FillColor/BorderColor) that have no equivalent hook in the new deferred
+ * model (confirmed: {@link com.mojang.blaze3d.vertex.VertexConsumer} only exposes
+ * Position/Color/UV0/UV1/UV2/Normal/LineWidth setters — there is no generic
+ * per-vertex channel to carry arbitrary shader params through, so a custom
+ * VertexFormat can't actually receive them either); GRADE needs an actual
+ * render-target texture copy, a different problem than drawing a GUI element.
+ * Both stay null here — every call site already fails soft to the existing
+ * software path (OriginUi's software rounded-panel, no color grade). Tracked as
+ * follow-up work.
+ *
+ * The vector ICON glyphs (close/chevron/edit), by contrast, ARE ported: instead
+ * of a per-vertex-parameterized procedural shader (which hit the same
+ * VertexConsumer wall as ROUND), they're a small baked SDF texture atlas
+ * (tools/.../gen_icon_sdf.py bakes the exact same capsule-stroke geometry
+ * offline), sampled through the identical Position+UV0+Color pipeline shape as
+ * MSDF text — see {@link #ICON}.
  */
 public final class OriginShaders {
+	/** Custom MSDF-text render pipeline. Vertex format matches the atlas quads
+	 *  OriginSdfFont builds: screen position + atlas UV + per-vertex tint. */
+	public static final RenderPipeline MSDF = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+					.withLocation(Identifier.fromNamespaceAndPath("originclient", "pipeline/origin_msdf"))
+					.withFragmentShader(Identifier.fromNamespaceAndPath("originclient", "core/rendertype_origin_msdf"))
+					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
+					.build());
 
-	// The colour-grade pipeline, built LAZILY on first use. It must NOT be built at
-	// class-load: OriginShaders is first touched from onInitializeClient (mod init),
-	// and RenderPipelines.GUI_TEXTURED — the base we clone — is still null that early
-	// (the vanilla GUI pipelines are populated later in client startup). Referencing
-	// it then NPEs the static initializer and aborts the whole mod (caught in a
-	// runClient boot 2026-07-30). By the first in-world draw, GUI_TEXTURED is set.
-	private static RenderPipeline grade;
-	private static boolean gradeBroken = false;
+	/** Custom icon-glyph SDF pipeline (close/chevron/edit) — same vertex shape as
+	 *  MSDF, single-channel SDF fragment shader instead of multi-channel median. */
+	public static final RenderPipeline ICON = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+					.withLocation(Identifier.fromNamespaceAndPath("originclient", "pipeline/origin_icon"))
+					.withFragmentShader(Identifier.fromNamespaceAndPath("originclient", "core/rendertype_origin_icon"))
+					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
+					.build());
 
-	// MSDF text pipeline (Inter menu font). Same lazy + derive-from-GUI_TEXTURED shape
-	// as GRADE — see grade() for why it can't be built at class-load.
-	private static RenderPipeline msdf;
-	private static boolean msdfBroken = false;
+	/**
+	 * Full-screen colour-grade pipeline for the Color Saturation mod. Same vertex
+	 * shape as MSDF/ICON — the amounts it needs (saturation / brightness /
+	 * contrast) ride the per-vertex COLOR channel precisely because this era has
+	 * no per-draw uniform hook; see the fragment shader's header for the packing.
+	 *
+	 * <p>NO BLEND: the grade REPLACES the pixels it covers (it is drawing back a
+	 * graded copy of the same image), so a blending pipeline would double-expose
+	 * the frame. GUI_TEXTURED_SNIPPET's own blend state is overridden below.
+	 */
+	public static final RenderPipeline GRADE = RenderPipelines.register(
+			RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+					.withLocation(Identifier.fromNamespaceAndPath("originclient", "pipeline/origin_grade"))
+					.withFragmentShader(Identifier.fromNamespaceAndPath("originclient", "core/rendertype_origin_grade"))
+					.withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS)
+					.withoutBlend()
+					.build());
 
-	/** The MSDF text pipeline, or null if it isn't ready (caller falls back to the
-	 *  vanilla font). Built once, then cached. */
-	public static RenderPipeline msdf() {
-		if (msdf == null && !msdfBroken && RenderPipelines.GUI_TEXTURED != null) {
-			try {
-				msdf = derive(Identifier.fromNamespaceAndPath("originclient", "pipeline/origin_msdf"),
-						Identifier.fromNamespaceAndPath("originclient", "core/rendertype_origin_msdf"));
-			} catch (Throwable t) {
-				msdfBroken = true;
-				OriginClient.LOGGER.warn("Origin: MSDF text pipeline build failed; menus use the vanilla font", t);
-			}
-		}
-		return msdf;
-	}
+	/** Rounded-box SDF panel pipeline — not ported, and no longer needed: every
+	 *  caller checks {@link #roundActive()} first (permanently false while this
+	 *  is null) and OriginUi's software path now computes corner coverage per
+	 *  pixel, which is exact at any radius. */
+	public static final RenderPipeline ROUND = null;
 
 	private static boolean registered = false;
+	private static boolean warnedRoundFallback = false;
 
 	private OriginShaders() {
 	}
 
-	/** The grade pipeline, or null if the base GUI pipeline isn't ready yet (the
-	 *  caller — ColorGrade — skips grading for that frame). Retries until the base
-	 *  is populated, then builds once and caches. In practice the first in-world
-	 *  call succeeds, since GUI_TEXTURED is set well before any world renders. */
-	public static RenderPipeline grade() {
-		if (grade == null && !gradeBroken && RenderPipelines.GUI_TEXTURED != null) {
-			try {
-				grade = derive(Identifier.fromNamespaceAndPath("originclient", "pipeline/origin_grade"),
-						Identifier.fromNamespaceAndPath("originclient", "core/rendertype_origin_grade"));
-			} catch (Throwable t) {
-				// Fail-soft (mandate: degrade to vanilla, never crash). grade() is
-				// called from ColorGrade's guard, OUTSIDE its try/catch, so a build
-				// failure here would take the frame down — latch it off instead.
-				gradeBroken = true;
-				OriginClient.LOGGER.warn("Origin: colour-grade pipeline build failed; Color Saturation disabled this session", t);
-			}
-		}
-		return grade;
-	}
-
-	// Clone GUI_TEXTURED's whole configuration, swapping in Origin's location +
-	// fragment shader. Reading vertex shader / vertex bindings / topology / blend /
-	// depth / cull / bind-group layouts off the base guarantees the quad binds
-	// exactly what the vanilla GUI textured path binds. Shared by GRADE and MSDF.
-	private static RenderPipeline derive(Identifier location, Identifier fragmentShader) {
-		RenderPipeline base = RenderPipelines.GUI_TEXTURED;
-		RenderPipeline.Builder b = RenderPipeline.builder()
-				.withLocation(location)
-				.withVertexShader(base.getVertexShader())
-				.withFragmentShader(fragmentShader)
-				.withPrimitiveTopology(base.getPrimitiveTopology())
-				.withColorTargetState(base.getColorTargetState())
-				// GUI_TEXTURED has NO depth-stencil state (GUI doesn't depth-test), so
-				// getDepthStencilState() is null; the non-Optional overload NPEs on
-				// null (Optional.of), so route through the Optional overload.
-				.withDepthStencilState(java.util.Optional.ofNullable(base.getDepthStencilState()))
-				.withCull(base.isCull());
-		VertexFormat[] bindings = base.getVertexFormatBindings();
-		for (int i = 0; i < bindings.length; i++) {
-			b.withVertexBinding(i, bindings[i]);
-		}
-		for (BindGroupLayout layout : base.getBindGroupLayouts()) {
-			b.withBindGroupLayout(layout);
-		}
-		return b.build();
-	}
-
-	/** Building the pipeline above is cheap object assembly (not a GL compile), so
-	 *  this just logs readiness — kept for call-shape parity with the 1.21.x modules. */
+	/** Kept for parity with 1.21.1/1.21.4's init call shape — the pipelines above
+	 *  are already built as static fields (constructing a RenderPipeline is cheap
+	 *  object assembly, not a GL compile), so this just logs readiness. */
 	public static void register() {
 		if (registered) {
 			return;
 		}
 		registered = true;
-		OriginClient.LOGGER.info("Origin: colour-grade render pipeline ready (26.2).");
+		OriginClient.LOGGER.info("Origin: MSDF text + icon-glyph SDF + colour-grade render pipelines registered "
+				+ "(rounded-box SDF panel uses the software per-pixel path on 1.21.11).");
+	}
+
+	/** Vector text is always on (matches 1.21.1/1.21.4 — the user-facing toggle
+	 *  was removed there); the round-panel path still fails soft via ROUND==null. */
+	public static boolean enabled() {
+		return true;
+	}
+
+	/** Rounded-box SDF path is usable. Permanently false until ROUND is ported. */
+	public static boolean roundActive() {
+		if (enabled() && ROUND == null && !warnedRoundFallback) {
+			warnedRoundFallback = true;
+			OriginClient.LOGGER.info("Origin: rounded-box SDF panel not yet ported on 1.21.11 — "
+					+ "using the software rounded-rect fallback.");
+		}
+		return false;
 	}
 }

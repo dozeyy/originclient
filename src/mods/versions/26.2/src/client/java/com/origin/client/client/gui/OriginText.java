@@ -2,7 +2,6 @@ package com.origin.client.client.gui;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.network.chat.Component;
 
 /** Minecraft-native text bridge for every Origin-owned screen. */
 public final class OriginText {
@@ -10,12 +9,12 @@ public final class OriginText {
 	}
 
 	public static int draw(GuiGraphicsExtractor g, Font font, String s, int x, int y, int color, boolean shadow) {
-		g.text(font, Component.literal(s), x, y, color, shadow);
+		g.text(font, s, x, y, color, shadow);
 		return x + font.width(s);
 	}
 
 	public static int drawBold(GuiGraphicsExtractor g, Font font, String s, int x, int y, int color, boolean shadow) {
-		g.text(font, Component.literal(s), x, y, color, shadow);
+		g.text(font, s, x, y, color, shadow);
 		return x + font.width(s);
 	}
 
