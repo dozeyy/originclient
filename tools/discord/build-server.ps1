@@ -129,6 +129,7 @@ $roleSpec = @(
     @{ n = 'Partner';         c = '#4ED6A7'; h = $true;  p = @() }
     @{ n = 'Content Creator'; c = '#FF4FA3'; h = $true;  p = @() }
     @{ n = 'Tester';          c = '#3BA9FF'; h = $true;  p = @() }
+    @{ n = 'Bots';            c = '#95A5A6'; h = $true;  p = @() }
     # colour roles
     @{ n = "🔴 Crimson";   c = '#DC143C' }; @{ n = "🟠 Sunset";  c = '#FF7F50' }
     @{ n = "🟡 Lemon";     c = '#FFF44F' }; @{ n = "🟢 Mint";    c = '#98FF98' }
@@ -181,6 +182,19 @@ foreach ($s in $roleSpec) {
 }
 try { [void](Api PATCH "/guilds/$G/roles" $moves.ToArray()); Write-Host '  roles ordered' }
 catch { Write-Host "  (couldn't reorder roles: drag the Origin Client bot role to the very top, then re-run) $_" -ForegroundColor Yellow }
+
+# ---- Bots role: every bot in the server (this one included) goes under it ----
+# Listing members needs "Server Members Intent" on the bot page; if that's off,
+# at least this bot gets the role and the rest can be added by hand.
+$botIds = @($me.id)
+try {
+    $members = @(Api GET "/guilds/$G/members?limit=1000")
+    $botIds = @($members | Where-Object { $_.user.bot } | ForEach-Object { $_.user.id })
+} catch { Write-Host "  (couldn't list members -- turn on Server Members Intent to auto-tag other bots)" -ForegroundColor Yellow }
+foreach ($bid in $botIds) {
+    try { [void](Api PUT "/guilds/$G/members/$bid/roles/$($R['Bots'])"); Write-Host "  bot $bid -> Bots role" }
+    catch { Write-Host "  (couldn't give bot $bid the Bots role: $_)" -ForegroundColor Yellow }
+}
 
 # ---- Channels ----
 $existingCh = @(Api GET "/guilds/$G/channels")
