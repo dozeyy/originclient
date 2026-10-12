@@ -84,13 +84,21 @@ final class OriginDevWorld {
 			if (phase == 3) {
 				grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
-				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				// The pause menu (its Cosmetics button sits among vanilla's buttons).
+				mc.setScreen(new PauseScreen(true));
 				phase = 4;
+				nextAt = now + 1500;
+				return;
+			}
+			if (phase == 4) {
+				grab(mc, dir, "pause_1920x1080.png");
+				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				phase = 5;
 				mc.stop();
 			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] world step {} failed", phase, t);
-			phase = 4;
+			phase = 5;
 			mc.stop();
 		}
 	}
