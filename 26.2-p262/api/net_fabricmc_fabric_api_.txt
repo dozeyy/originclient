@@ -1,3 +1,61 @@
+Compiled from "AdvancementEvents.java"
+public final class net.fabricmc.fabric.api.advancement.v1.AdvancementEvents {
+  public static final net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Replace> REPLACE;
+  public static final net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Modify> MODIFY;
+  public static final net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Loaded> ALL_LOADED;
+  private net.fabricmc.fabric.api.advancement.v1.AdvancementEvents();
+  private static net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Loaded lambda$static$4(net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Loaded[]);
+  private static void lambda$static$5(net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Loaded[], net.minecraft.server.packs.resources.ResourceManager, java.util.Map, net.minecraft.core.HolderLookup$Provider);
+  private static net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Modify lambda$static$2(net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Modify[]);
+  private static void lambda$static$3(net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Modify[], net.minecraft.resources.Identifier, net.minecraft.advancements.Advancement$Builder, net.fabricmc.fabric.api.advancement.v1.AdvancementSource, net.minecraft.core.HolderLookup$Provider);
+  private static net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Replace lambda$static$0(net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Replace[]);
+  private static net.minecraft.advancements.Advancement lambda$static$1(net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Replace[], net.minecraft.resources.Identifier, net.minecraft.advancements.Advancement, net.fabricmc.fabric.api.advancement.v1.AdvancementSource, net.minecraft.core.HolderLookup$Provider);
+  static {};
+}
+Compiled from "AdvancementEvents.java"
+public interface net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Loaded {
+  public abstract void onAdvancementsLoaded(net.minecraft.server.packs.resources.ResourceManager, java.util.Map<net.minecraft.resources.Identifier, net.minecraft.advancements.Advancement>, net.minecraft.core.HolderLookup$Provider);
+}
+Compiled from "AdvancementEvents.java"
+public interface net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Modify {
+  public abstract void modifyAdvancement(net.minecraft.resources.Identifier, net.minecraft.advancements.Advancement$Builder, net.fabricmc.fabric.api.advancement.v1.AdvancementSource, net.minecraft.core.HolderLookup$Provider);
+}
+Compiled from "AdvancementEvents.java"
+public interface net.fabricmc.fabric.api.advancement.v1.AdvancementEvents$Replace {
+  public abstract net.minecraft.advancements.Advancement replaceAdvancement(net.minecraft.resources.Identifier, net.minecraft.advancements.Advancement, net.fabricmc.fabric.api.advancement.v1.AdvancementSource, net.minecraft.core.HolderLookup$Provider);
+}
+Compiled from "AdvancementSource.java"
+public final class net.fabricmc.fabric.api.advancement.v1.AdvancementSource extends java.lang.Enum<net.fabricmc.fabric.api.advancement.v1.AdvancementSource> {
+  public static final net.fabricmc.fabric.api.advancement.v1.AdvancementSource VANILLA;
+  public static final net.fabricmc.fabric.api.advancement.v1.AdvancementSource MOD;
+  public static final net.fabricmc.fabric.api.advancement.v1.AdvancementSource DATA_PACK;
+  public static final net.fabricmc.fabric.api.advancement.v1.AdvancementSource REPLACED;
+  private final boolean builtin;
+  private static final net.fabricmc.fabric.api.advancement.v1.AdvancementSource[] $VALUES;
+  public static net.fabricmc.fabric.api.advancement.v1.AdvancementSource[] values();
+  public static net.fabricmc.fabric.api.advancement.v1.AdvancementSource valueOf(java.lang.String);
+  private net.fabricmc.fabric.api.advancement.v1.AdvancementSource(boolean);
+  public boolean isBuiltin();
+  private static net.fabricmc.fabric.api.advancement.v1.AdvancementSource[] $values();
+  static {};
+}
+Compiled from "FabricAdvancementBuilder.java"
+public interface net.fabricmc.fabric.api.advancement.v1.FabricAdvancementBuilder {
+  public default java.util.Map<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>> getCriteria();
+  public default net.minecraft.advancements.Advancement$Builder updateCriteria(java.util.Map<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>>);
+  public default net.minecraft.advancements.Advancement$Builder removeCriterion(java.lang.String);
+  public default net.minecraft.advancements.Advancement$Builder requireCriterion(java.lang.String);
+  public default net.minecraft.advancements.Advancement$Builder requireCriteria(java.util.List<java.lang.String>);
+  public default net.minecraft.advancements.AdvancementRequirements getRequirements();
+  public default java.util.Optional<net.minecraft.resources.Identifier> getParent();
+  public default java.util.Optional<net.minecraft.advancements.DisplayInfo> getDisplay();
+  public default net.minecraft.advancements.AdvancementRewards getRewards();
+  public default boolean isSendsTelemetryEvent();
+  public static net.minecraft.advancements.Advancement$Builder copyOf(net.minecraft.advancements.Advancement);
+}
+Compiled from "package-info.java"
+interface net.fabricmc.fabric.api.advancement.v1.package-info {
+}
 Compiled from "AttachmentRegistry.java"
 public final class net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry {
   private net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry();
@@ -240,6 +298,7 @@ public final class net.fabricmc.fabric.api.block.v1.BlockFunctionalityTags {
 Compiled from "FabricBlock.java"
 public interface net.fabricmc.fabric.api.block.v1.FabricBlock {
   public default net.minecraft.world.level.block.state.BlockState getAppearance(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.BlockAndLightGetter, net.minecraft.core.BlockPos, net.minecraft.core.Direction, net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos);
+  public default float getProvidedEnchantmentPower(net.minecraft.world.level.block.state.BlockState, net.minecraft.world.level.BlockGetter, net.minecraft.core.BlockPos);
 }
 Compiled from "FabricBlock.java"
 public interface net.fabricmc.fabric.api.block.v1.FabricBlock$FabricProperties {
@@ -249,6 +308,19 @@ public interface net.fabricmc.fabric.api.block.v1.FabricBlock$FabricProperties {
 Compiled from "FabricBlockState.java"
 public interface net.fabricmc.fabric.api.block.v1.FabricBlockState {
   public default net.minecraft.world.level.block.state.BlockState getAppearance(net.minecraft.world.level.BlockAndLightGetter, net.minecraft.core.BlockPos, net.minecraft.core.Direction, net.minecraft.world.level.block.state.BlockState, net.minecraft.core.BlockPos);
+  public default float getProvidedEnchantmentPower(net.minecraft.world.level.BlockGetter, net.minecraft.core.BlockPos);
+}
+Compiled from "FluidFlowEvents.java"
+public final class net.fabricmc.fabric.api.block.v1.FluidFlowEvents {
+  public static final net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.block.v1.FluidFlowEvents$Allow> ALLOW;
+  private net.fabricmc.fabric.api.block.v1.FluidFlowEvents();
+  private static net.fabricmc.fabric.api.block.v1.FluidFlowEvents$Allow lambda$static$0(net.fabricmc.fabric.api.block.v1.FluidFlowEvents$Allow[]);
+  private static boolean lambda$static$1(net.fabricmc.fabric.api.block.v1.FluidFlowEvents$Allow[], net.minecraft.world.level.material.FluidState, net.minecraft.world.level.LevelAccessor, net.minecraft.core.BlockPos);
+  static {};
+}
+Compiled from "FluidFlowEvents.java"
+public interface net.fabricmc.fabric.api.block.v1.FluidFlowEvents$Allow {
+  public abstract boolean allowFlow(net.minecraft.world.level.material.FluidState, net.minecraft.world.level.LevelAccessor, net.minecraft.core.BlockPos);
 }
 Compiled from "package-info.java"
 interface net.fabricmc.fabric.api.block.v1.package-info {
@@ -601,8 +673,17 @@ public interface net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTe
   public abstract <E extends java.lang.Throwable> void runOnClient(org.apache.commons.lang3.function.FailableConsumer<net.minecraft.client.Minecraft, E>) throws E;
   public abstract <T, E extends java.lang.Throwable> T computeOnClient(org.apache.commons.lang3.function.FailableFunction<net.minecraft.client.Minecraft, T, E>) throws E;
 }
-Compiled from "TestClientLevelContext.java"
-public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext {
+Compiled from "TestDedicatedServerConnection.java"
+public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection extends net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection,java.lang.AutoCloseable {
+  public abstract void close();
+}
+Compiled from "TestDedicatedServerContext.java"
+public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext extends net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext,java.lang.AutoCloseable {
+  public abstract net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection connect();
+  public abstract void close();
+}
+Compiled from "TestServerConnection.java"
+public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection {
   public static final int DEFAULT_CHUNK_LOAD_TIMEOUT;
   public default int waitForChunksDownload();
   public abstract int waitForChunksDownload(int);
@@ -610,27 +691,26 @@ public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLe
   public default int waitForChunksRender(int);
   public default int waitForChunksRender(boolean);
   public abstract int waitForChunksRender(boolean, int);
-}
-Compiled from "TestDedicatedServerContext.java"
-public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext extends net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext,java.lang.AutoCloseable {
-  public abstract net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection connect();
-  public abstract void close();
-}
-Compiled from "TestServerConnection.java"
-public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection extends java.lang.AutoCloseable {
-  public abstract net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext getClientLevel();
-  public abstract void close();
+  public abstract void waitForClientboundPackets();
+  public abstract void waitForServerboundPackets();
+  public abstract void waitForClientboundEntityUpdates(net.minecraft.world.entity.EntityType<?>, net.minecraft.world.entity.EntityType<?>...);
+  public abstract net.minecraft.client.player.LocalPlayer getClientPlayer();
+  public abstract net.minecraft.server.level.ServerPlayer getServerPlayer();
+  public abstract net.minecraft.client.multiplayer.ClientLevel getClientLevel();
+  public abstract net.minecraft.server.level.ServerLevel getServerLevel();
 }
 Compiled from "TestServerContext.java"
 public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext {
   public abstract void runCommand(java.lang.String);
   public abstract <E extends java.lang.Throwable> void runOnServer(org.apache.commons.lang3.function.FailableConsumer<net.minecraft.server.MinecraftServer, E>) throws E;
   public abstract <T, E extends java.lang.Throwable> T computeOnServer(org.apache.commons.lang3.function.FailableFunction<net.minecraft.server.MinecraftServer, T, E>) throws E;
+  public abstract int waitFor(java.util.function.Predicate<net.minecraft.server.MinecraftServer>);
+  public abstract int waitFor(java.util.function.Predicate<net.minecraft.server.MinecraftServer>, int);
 }
 Compiled from "TestSingleplayerContext.java"
 public interface net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext extends java.lang.AutoCloseable {
   public abstract net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave getWorldSave();
-  public abstract net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext getClientLevel();
+  public abstract net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection getConnection();
   public abstract net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext getServer();
   public abstract void close();
 }
@@ -2260,6 +2340,7 @@ public final class net.fabricmc.fabric.api.client.screen.v1.ScreenEvents {
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$Remove> remove(net.minecraft.client.gui.screens.Screen);
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> beforeExtract(net.minecraft.client.gui.screens.Screen);
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBackground> afterBackground(net.minecraft.client.gui.screens.Screen);
+  public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground> afterForeground(net.minecraft.client.gui.screens.Screen);
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> afterExtract(net.minecraft.client.gui.screens.Screen);
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeTick> beforeTick(net.minecraft.client.gui.screens.Screen);
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterTick> afterTick(net.minecraft.client.gui.screens.Screen);
@@ -2277,6 +2358,10 @@ public interface net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBack
 Compiled from "ScreenEvents.java"
 public interface net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract {
   public abstract void afterExtract(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
+}
+Compiled from "ScreenEvents.java"
+public interface net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground {
+  public abstract void afterForeground(net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
 }
 Compiled from "ScreenEvents.java"
 public interface net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterInit {
@@ -2645,9 +2730,12 @@ public abstract class net.fabricmc.fabric.api.datagen.v1.provider.FabricCodecDat
   private final net.minecraft.data.PackOutput$PathProvider pathProvider;
   private final java.util.concurrent.CompletableFuture<net.minecraft.core.HolderLookup$Provider> registriesFuture;
   private final com.mojang.serialization.Codec<T> codec;
-  private net.fabricmc.fabric.api.datagen.v1.provider.FabricCodecDataProvider(net.minecraft.data.PackOutput$PathProvider, java.util.concurrent.CompletableFuture<net.minecraft.core.HolderLookup$Provider>, com.mojang.serialization.Codec<T>);
+  private final java.lang.String extension;
+  private net.fabricmc.fabric.api.datagen.v1.provider.FabricCodecDataProvider(net.minecraft.data.PackOutput$PathProvider, java.util.concurrent.CompletableFuture<net.minecraft.core.HolderLookup$Provider>, com.mojang.serialization.Codec<T>, java.lang.String);
   protected net.fabricmc.fabric.api.datagen.v1.provider.FabricCodecDataProvider(net.fabricmc.fabric.api.datagen.v1.FabricPackOutput, java.util.concurrent.CompletableFuture<net.minecraft.core.HolderLookup$Provider>, net.minecraft.data.PackOutput$Target, java.lang.String, com.mojang.serialization.Codec<T>);
+  protected net.fabricmc.fabric.api.datagen.v1.provider.FabricCodecDataProvider(net.fabricmc.fabric.api.datagen.v1.FabricPackOutput, java.util.concurrent.CompletableFuture<net.minecraft.core.HolderLookup$Provider>, net.minecraft.data.PackOutput$Target, java.lang.String, com.mojang.serialization.Codec<T>, java.lang.String);
   protected net.fabricmc.fabric.api.datagen.v1.provider.FabricCodecDataProvider(net.fabricmc.fabric.api.datagen.v1.FabricPackOutput, java.util.concurrent.CompletableFuture<net.minecraft.core.HolderLookup$Provider>, net.minecraft.resources.ResourceKey<? extends net.minecraft.core.Registry<?>>, com.mojang.serialization.Codec<T>);
+  protected net.fabricmc.fabric.api.datagen.v1.provider.FabricCodecDataProvider(net.fabricmc.fabric.api.datagen.v1.FabricPackOutput, java.util.concurrent.CompletableFuture<net.minecraft.core.HolderLookup$Provider>, net.minecraft.resources.ResourceKey<? extends net.minecraft.core.Registry<?>>, com.mojang.serialization.Codec<T>, java.lang.String);
   public java.util.concurrent.CompletableFuture<?> run(net.minecraft.data.CachedOutput);
   protected abstract void configure(java.util.function.BiConsumer<net.minecraft.resources.Identifier, T>, net.minecraft.core.HolderLookup$Provider);
   private com.google.gson.JsonElement convert(net.minecraft.resources.Identifier, T, com.mojang.serialization.DynamicOps<com.google.gson.JsonElement>);
@@ -3995,6 +4083,7 @@ public interface net.fabricmc.fabric.api.item.v1.EquipmentSlotProvider {
 }
 Compiled from "FabricComponentMapBuilder.java"
 public interface net.fabricmc.fabric.api.item.v1.FabricComponentMapBuilder {
+  public default <T> T get(net.minecraft.core.component.DataComponentType<T>);
   public default <T> T getOrCreate(net.minecraft.core.component.DataComponentType<T>, java.util.function.Supplier<T>);
   public default <T> T getOrDefault(net.minecraft.core.component.DataComponentType<T>, T);
   public default <T> java.util.List<T> getOrEmpty(net.minecraft.core.component.DataComponentType<java.util.List<T>>);
@@ -4011,10 +4100,13 @@ public interface net.fabricmc.fabric.api.item.v1.FabricItem {
 }
 Compiled from "FabricItem.java"
 public interface net.fabricmc.fabric.api.item.v1.FabricItem$Properties {
+  public default <T> net.minecraft.world.item.Item$Properties modifyComponent(net.minecraft.core.component.DataComponentType<T>, org.apache.commons.lang3.function.TriFunction<T, net.minecraft.core.HolderLookup$Provider, net.minecraft.resources.ResourceKey<net.minecraft.world.item.Item>, T>);
+  public default net.minecraft.world.item.Item$Properties modifyComponents(net.minecraft.core.component.DataComponentInitializers$Initializer<net.minecraft.world.item.Item>);
   public default net.minecraft.world.item.Item$Properties equipmentSlot(net.fabricmc.fabric.api.item.v1.EquipmentSlotProvider);
   public default net.minecraft.world.item.Item$Properties customDamage(net.fabricmc.fabric.api.item.v1.CustomDamageHandler);
   public default net.minecraft.world.item.Item$Properties modelId(net.minecraft.resources.Identifier);
   public default net.minecraft.resources.ResourceKey<net.minecraft.world.item.Item> itemId();
+  private static void lambda$modifyComponent$0(net.minecraft.core.component.DataComponentType, org.apache.commons.lang3.function.TriFunction, net.minecraft.core.component.DataComponentMap$Builder, net.minecraft.core.HolderLookup$Provider, net.minecraft.resources.ResourceKey);
 }
 Compiled from "FabricItemStack.java"
 public interface net.fabricmc.fabric.api.item.v1.FabricItemStack {
@@ -4026,6 +4118,14 @@ public interface net.fabricmc.fabric.api.item.v1.FabricItemStack {
 Compiled from "FabricTooltipFlag.java"
 public interface net.fabricmc.fabric.api.item.v1.FabricTooltipFlag {
   public default boolean shouldDisplayAllInformation();
+}
+Compiled from "ItemClickBehaviorCallback.java"
+public interface net.fabricmc.fabric.api.item.v1.ItemClickBehaviorCallback {
+  public static final net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.item.v1.ItemClickBehaviorCallback> EVENT;
+  public abstract net.fabricmc.fabric.api.util.EventResult onItemClickBehavior(net.minecraft.world.item.ItemStack, net.minecraft.world.inventory.Slot, net.minecraft.world.item.ItemStack, net.minecraft.world.entity.SlotAccess, net.minecraft.world.inventory.ClickAction, net.minecraft.world.entity.player.Player);
+  private static net.fabricmc.fabric.api.item.v1.ItemClickBehaviorCallback lambda$static$0(net.fabricmc.fabric.api.item.v1.ItemClickBehaviorCallback[]);
+  private static net.fabricmc.fabric.api.util.EventResult lambda$static$1(net.fabricmc.fabric.api.item.v1.ItemClickBehaviorCallback[], net.minecraft.world.item.ItemStack, net.minecraft.world.inventory.Slot, net.minecraft.world.item.ItemStack, net.minecraft.world.entity.SlotAccess, net.minecraft.world.inventory.ClickAction, net.minecraft.world.entity.player.Player);
+  static {};
 }
 Compiled from "ItemComponentTooltipProviderRegistry.java"
 public interface net.fabricmc.fabric.api.item.v1.ItemComponentTooltipProviderRegistry {

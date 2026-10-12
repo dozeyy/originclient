@@ -2850,11 +2850,11 @@ public class net.minecraft.client.data.models.BlockModelGenerators {
   private static final java.util.function.Function<net.minecraft.client.data.models.blockstates.ConditionBuilder, net.minecraft.client.data.models.blockstates.ConditionBuilder> LEAF_LITTER_MODEL_4_SEGMENT_CONDITION;
   private static final com.mojang.math.Transformation SKULL_TRANSFORM;
   private static final java.util.Map<net.minecraft.world.level.block.Block, net.minecraft.client.data.models.BlockModelGenerators$BlockStateGeneratorSupplier> FULL_BLOCK_MODEL_CUSTOM_GENERATORS;
-  private static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATION_FACING;
-  private static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATIONS_COLUMN_WITH_FACING;
-  private static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATION_TORCH;
-  private static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATION_HORIZONTAL_FACING_ALT;
-  private static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATION_HORIZONTAL_FACING;
+  public static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATION_FACING;
+  public static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATIONS_COLUMN_WITH_FACING;
+  public static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATION_TORCH;
+  public static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATION_HORIZONTAL_FACING_ALT;
+  public static final net.minecraft.client.data.models.blockstates.PropertyDispatch<net.minecraft.client.renderer.block.dispatch.VariantMutator> ROTATION_HORIZONTAL_FACING;
   private static final java.util.Map<net.minecraft.world.level.block.Block, net.minecraft.client.data.models.model.TexturedModel> TEXTURED_MODELS;
   private static final java.util.Map<net.minecraft.data.BlockFamily$Variant, java.util.function.BiConsumer<net.minecraft.client.data.models.BlockModelGenerators$BlockFamilyProvider, net.minecraft.world.level.block.Block>> SHAPE_CONSUMERS;
   private static final java.util.Map<net.minecraft.core.Direction, net.minecraft.client.renderer.block.dispatch.VariantMutator> MULTIFACE_GENERATOR;

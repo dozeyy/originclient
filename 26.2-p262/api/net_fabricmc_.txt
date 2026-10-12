@@ -34,6 +34,19 @@ Compiled from "ModInitializer.java"
 public interface net.fabricmc.api.ModInitializer {
   public abstract void onInitialize();
 }
+Compiled from "AdvancementSourceTracker.java"
+public final class net.fabricmc.fabric.impl.advancement.AdvancementSourceTracker {
+  private static final java.util.Map<java.util.Map<?, ?>, java.util.Map<net.minecraft.resources.Identifier, net.fabricmc.fabric.api.advancement.v1.AdvancementSource>> SOURCES;
+  private net.fabricmc.fabric.impl.advancement.AdvancementSourceTracker();
+  public static void put(java.util.Map<?, ?>, net.minecraft.resources.Identifier, net.fabricmc.fabric.api.advancement.v1.AdvancementSource);
+  public static java.util.Map<net.minecraft.resources.Identifier, net.fabricmc.fabric.api.advancement.v1.AdvancementSource> remove(java.util.Map<?, ?>);
+  public static net.fabricmc.fabric.api.advancement.v1.AdvancementSource determineSource(net.minecraft.server.packs.resources.Resource);
+  private static java.util.Map lambda$put$0(java.util.Map);
+  static {};
+}
+Compiled from "package-info.java"
+interface net.fabricmc.fabric.impl.advancement.package-info {
+}
 Compiled from "AttachmentEntrypoint.java"
 public class net.fabricmc.fabric.impl.attachment.AttachmentEntrypoint implements net.fabricmc.api.ModInitializer {
   public static final org.slf4j.Logger LOGGER;
@@ -803,6 +816,14 @@ public class net.fabricmc.fabric.impl.client.gametest.ClientGameTestMixinConfigP
   public void postApply(java.lang.String, org.objectweb.asm.tree.ClassNode, java.lang.String, org.spongepowered.asm.mixin.extensibility.IMixinInfo);
   static {};
 }
+Compiled from "FabricClientGameTestImpl.java"
+public class net.fabricmc.fabric.impl.client.gametest.FabricClientGameTestImpl implements net.fabricmc.api.ClientModInitializer {
+  public static final java.lang.String MOD_ID;
+  public net.fabricmc.fabric.impl.client.gametest.FabricClientGameTestImpl();
+  public void onInitializeClient();
+  private static void lambda$onInitializeClient$1(net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload, net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking$Context);
+  private static void lambda$onInitializeClient$0(net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload, net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking$Context);
+}
 Compiled from "FabricClientGameTestRunner.java"
 public class net.fabricmc.fabric.impl.client.gametest.FabricClientGameTestRunner {
   private static final java.lang.String ENTRYPOINT_KEY;
@@ -892,7 +913,6 @@ Compiled from "TestSystemProperties.java"
 public final class net.fabricmc.fabric.impl.client.gametest.TestSystemProperties {
   public static final boolean ENABLED;
   public static final java.lang.String TEST_MOD_RESOURCES_PATH;
-  public static final boolean DISABLE_NETWORK_SYNCHRONIZER;
   public static final boolean DISABLE_JOIN_ASYNC_STACK_TRACES;
   public static final java.lang.String MOD_ID_FILTER_PROPERTY;
   private net.fabricmc.fabric.impl.client.gametest.TestSystemProperties();
@@ -971,21 +991,18 @@ class net.fabricmc.fabric.impl.client.gametest.context.ClientGameTestContextImpl
   public <T> T process(java.lang.String, T, java.util.function.Function<java.lang.String, T>, java.util.function.Function<T, java.lang.String>);
   public <T> void process(java.lang.String, net.minecraft.client.OptionInstance<T>);
 }
-Compiled from "TestClientLevelContextImpl.java"
-public class net.fabricmc.fabric.impl.client.gametest.context.TestClientLevelContextImpl implements net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext {
-  private final net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext context;
-  public net.fabricmc.fabric.impl.client.gametest.context.TestClientLevelContextImpl(net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext);
-  public int waitForChunksDownload(int);
-  public int waitForChunksRender(boolean, int);
-  private static boolean areChunksLoaded(net.minecraft.client.Minecraft);
-  private static boolean areChunksRendered(net.minecraft.client.Minecraft);
-  private static boolean lambda$waitForChunksRender$0(boolean, net.minecraft.client.Minecraft);
+Compiled from "TestDedicatedServerConnectionImpl.java"
+public class net.fabricmc.fabric.impl.client.gametest.context.TestDedicatedServerConnectionImpl extends net.fabricmc.fabric.impl.client.gametest.context.TestServerConnectionImpl implements net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection {
+  public net.fabricmc.fabric.impl.client.gametest.context.TestDedicatedServerConnectionImpl(net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext, net.fabricmc.fabric.impl.client.gametest.context.TestServerContextImpl);
+  public void close();
+  private static boolean lambda$close$1(net.minecraft.client.Minecraft);
+  private static void lambda$close$0(net.minecraft.client.Minecraft) throws java.lang.RuntimeException;
 }
 Compiled from "TestDedicatedServerContextImpl.java"
 public class net.fabricmc.fabric.impl.client.gametest.context.TestDedicatedServerContextImpl extends net.fabricmc.fabric.impl.client.gametest.context.TestServerContextImpl implements net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext {
   private final net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext context;
   public net.fabricmc.fabric.impl.client.gametest.context.TestDedicatedServerContextImpl(net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext, net.minecraft.server.dedicated.DedicatedServer);
-  public net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection connect();
+  public net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection connect();
   private java.lang.String getConnectionAddress();
   public void close();
   private boolean lambda$close$0(net.minecraft.client.Minecraft);
@@ -993,13 +1010,25 @@ public class net.fabricmc.fabric.impl.client.gametest.context.TestDedicatedServe
 }
 Compiled from "TestServerConnectionImpl.java"
 public class net.fabricmc.fabric.impl.client.gametest.context.TestServerConnectionImpl implements net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection {
-  private final net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext context;
-  private final net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext clientLevel;
-  public net.fabricmc.fabric.impl.client.gametest.context.TestServerConnectionImpl(net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext, net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext);
-  public net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext getClientLevel();
-  public void close();
-  private static boolean lambda$close$1(net.minecraft.client.Minecraft);
-  private static void lambda$close$0(net.minecraft.client.Minecraft) throws java.lang.RuntimeException;
+  protected final net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext context;
+  private final net.fabricmc.fabric.impl.client.gametest.context.TestServerContextImpl serverContext;
+  public net.fabricmc.fabric.impl.client.gametest.context.TestServerConnectionImpl(net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext, net.fabricmc.fabric.impl.client.gametest.context.TestServerContextImpl);
+  public int waitForChunksDownload(int);
+  public int waitForChunksRender(boolean, int);
+  private static boolean areChunksLoaded(net.minecraft.client.Minecraft);
+  private static boolean areChunksRendered(net.minecraft.client.Minecraft);
+  public void waitForClientboundPackets();
+  public void waitForServerboundPackets();
+  public void waitForClientboundEntityUpdates(net.minecraft.world.entity.EntityType<?>, net.minecraft.world.entity.EntityType<?>...);
+  public net.minecraft.client.player.LocalPlayer getClientPlayer();
+  public net.minecraft.client.multiplayer.ClientLevel getClientLevel();
+  public net.minecraft.server.level.ServerPlayer getServerPlayer();
+  public net.minecraft.server.level.ServerLevel getServerLevel();
+  private static boolean lambda$waitForServerboundPackets$1(net.minecraft.server.MinecraftServer);
+  private static void lambda$waitForServerboundPackets$0(net.minecraft.client.Minecraft) throws java.lang.RuntimeException;
+  private static boolean lambda$waitForClientboundPackets$1(net.minecraft.client.Minecraft);
+  private void lambda$waitForClientboundPackets$0(net.minecraft.server.MinecraftServer) throws java.lang.RuntimeException;
+  private static boolean lambda$waitForChunksRender$0(boolean, net.minecraft.client.Minecraft);
 }
 Compiled from "TestServerContextImpl.java"
 public class net.fabricmc.fabric.impl.client.gametest.context.TestServerContextImpl implements net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext {
@@ -1008,6 +1037,8 @@ public class net.fabricmc.fabric.impl.client.gametest.context.TestServerContextI
   public void runCommand(java.lang.String);
   public <E extends java.lang.Throwable> void runOnServer(org.apache.commons.lang3.function.FailableConsumer<net.minecraft.server.MinecraftServer, E>) throws E;
   public <T, E extends java.lang.Throwable> T computeOnServer(org.apache.commons.lang3.function.FailableFunction<net.minecraft.server.MinecraftServer, T, E>) throws E;
+  public int waitFor(java.util.function.Predicate<net.minecraft.server.MinecraftServer>);
+  public int waitFor(java.util.function.Predicate<net.minecraft.server.MinecraftServer>, int);
   private void lambda$computeOnServer$0(org.apache.commons.lang3.mutable.MutableObject, org.apache.commons.lang3.function.FailableFunction) throws java.lang.Throwable;
   private void lambda$runOnServer$0(org.apache.commons.lang3.function.FailableConsumer) throws java.lang.Throwable;
   private static void lambda$runCommand$0(java.lang.String, net.minecraft.server.MinecraftServer) throws java.lang.RuntimeException;
@@ -1016,11 +1047,11 @@ Compiled from "TestSingleplayerContextImpl.java"
 public class net.fabricmc.fabric.impl.client.gametest.context.TestSingleplayerContextImpl implements net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext {
   private final net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext context;
   private final net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave worldSave;
-  private final net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext clientLevel;
-  private final net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext server;
+  private final net.fabricmc.fabric.impl.client.gametest.context.TestServerContextImpl server;
+  private final net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection connection;
   public net.fabricmc.fabric.impl.client.gametest.context.TestSingleplayerContextImpl(net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext, net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave, net.minecraft.server.MinecraftServer);
   public net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave getWorldSave();
-  public net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext getClientLevel();
+  public net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection getConnection();
   public net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext getServer();
   public void close();
   private static boolean lambda$close$1(net.minecraft.client.Minecraft);
@@ -1139,42 +1170,6 @@ public final class net.fabricmc.fabric.impl.client.gametest.screenshot.TestScree
 Compiled from "package-info.java"
 interface net.fabricmc.fabric.impl.client.gametest.screenshot.package-info {
 }
-Compiled from "NetworkSynchronizer.java"
-public final class net.fabricmc.fabric.impl.client.gametest.threading.NetworkSynchronizer {
-  private static final org.slf4j.Logger LOGGER;
-  public static final net.fabricmc.fabric.impl.client.gametest.threading.NetworkSynchronizer CLIENTBOUND;
-  public static final net.fabricmc.fabric.impl.client.gametest.threading.NetworkSynchronizer SERVERBOUND;
-  private final java.lang.ThreadLocal<net.minecraft.util.Unit> isNettyThread;
-  private final java.util.concurrent.atomic.AtomicInteger inFlightPackets;
-  private final com.google.common.collect.ConcurrentHashMultiset<net.fabricmc.fabric.impl.client.gametest.threading.NetworkSynchronizer$RunnableBox> mainThreadPacketHandlers;
-  private final java.util.concurrent.locks.Lock morePacketsLock;
-  private final java.util.concurrent.locks.Condition morePacketsCondition;
-  private final java.util.concurrent.atomic.AtomicBoolean invalid;
-  private boolean isRunningNetworkTasks;
-  public net.fabricmc.fabric.impl.client.gametest.threading.NetworkSynchronizer();
-  public void preSendPacket();
-  public void preNettyHandlePacket();
-  public void postNettyHandlePacket();
-  public void preTaskAdded(java.lang.Runnable);
-  public void postTaskRun(java.lang.Runnable);
-  public void waitForPacketHandlers(net.minecraft.util.thread.BlockableEventLoop<?>);
-  public void reset();
-  public boolean isRunningNetworkTasks();
-  private void signalMorePackets();
-  private void markInvalid();
-  private void checkInvalid();
-  private boolean lambda$waitForPacketHandlers$0(long);
-  static {};
-}
-Compiled from "NetworkSynchronizer.java"
-final class net.fabricmc.fabric.impl.client.gametest.threading.NetworkSynchronizer$RunnableBox extends java.lang.Record {
-  private final java.lang.Runnable runnable;
-  private net.fabricmc.fabric.impl.client.gametest.threading.NetworkSynchronizer$RunnableBox(java.lang.Runnable);
-  public boolean equals(java.lang.Object);
-  public int hashCode();
-  public final java.lang.String toString();
-  public java.lang.Runnable runnable();
-}
 Compiled from "ThreadingImpl.java"
 public final class net.fabricmc.fabric.impl.client.gametest.threading.ThreadingImpl {
   private static final org.slf4j.Logger LOGGER;
@@ -1182,8 +1177,6 @@ public final class net.fabricmc.fabric.impl.client.gametest.threading.ThreadingI
   private static final java.lang.String TASK_ON_THIS_THREAD_METHOD_NAME;
   private static final java.lang.String TASK_ON_OTHER_THREAD_METHOD_NAME;
   public static final int PHASE_TICK;
-  public static final int PHASE_SERVER_TASKS;
-  public static final int PHASE_CLIENT_TASKS;
   public static final int PHASE_TEST;
   private static final int PHASE_MASK;
   public static final java.util.concurrent.Phaser PHASER;
@@ -1199,6 +1192,8 @@ public final class net.fabricmc.fabric.impl.client.gametest.threading.ThreadingI
   public static java.lang.Throwable testFailureException;
   public static java.lang.Runnable taskToRun;
   private static volatile boolean gameCrashed;
+  public static volatile boolean networkSyncReceived;
+  public static net.minecraft.client.Minecraft unsafeClientInstance;
   private net.fabricmc.fabric.impl.client.gametest.threading.ThreadingImpl();
   public static void enterPhase(int);
   public static int getCurrentPhase();
@@ -1208,6 +1203,10 @@ public final class net.fabricmc.fabric.impl.client.gametest.threading.ThreadingI
   public static void runTestThread(java.lang.Runnable);
   private static void deregisterTestThread();
   public static void checkOnGametestThread(java.lang.String);
+  public static void checkOnClientThread(java.lang.String);
+  public static void checkOnGametestOrClientThread(java.lang.String);
+  public static void checkOnServerThread(java.lang.String, net.minecraft.server.MinecraftServer);
+  public static void checkOnGametestOrServerThread(java.lang.String, net.minecraft.server.MinecraftServer);
   public static <E extends java.lang.Throwable> void runOnClient(org.apache.commons.lang3.function.FailableRunnable<E>) throws E;
   public static <E extends java.lang.Throwable> void runOnServer(org.apache.commons.lang3.function.FailableRunnable<E>) throws E;
   private static <E extends java.lang.Throwable> void runTaskOnOtherThread(org.apache.commons.lang3.function.FailableRunnable<E>, java.util.concurrent.Semaphore) throws E;
@@ -1245,6 +1244,19 @@ public final class net.fabricmc.fabric.impl.client.gametest.util.DedicatedServer
   private static boolean lambda$start$1(net.minecraft.client.Minecraft);
   private static void lambda$start$0();
   private static void lambda$static$0(java.util.Properties);
+  static {};
+}
+Compiled from "GameTestSyncPayload.java"
+public final class net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload extends java.lang.Enum<net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload> implements net.minecraft.network.protocol.common.custom.CustomPacketPayload {
+  public static final net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload INSTANCE;
+  public static final net.minecraft.network.protocol.common.custom.CustomPacketPayload$Type<net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload> TYPE;
+  public static final net.minecraft.network.codec.StreamCodec<io.netty.buffer.ByteBuf, net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload> CODEC;
+  private static final net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload[] $VALUES;
+  public static net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload[] values();
+  public static net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload valueOf(java.lang.String);
+  private net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload();
+  public net.minecraft.network.protocol.common.custom.CustomPacketPayload$Type<? extends net.minecraft.network.protocol.common.custom.CustomPacketPayload> type();
+  private static net.fabricmc.fabric.impl.client.gametest.util.GameTestSyncPayload[] $values();
   static {};
 }
 Compiled from "WindowHooks.java"
@@ -2998,9 +3010,10 @@ public interface net.fabricmc.fabric.impl.client.screen.GuiExtensions {
 Compiled from "ScreenEventFactory.java"
 public final class net.fabricmc.fabric.impl.client.screen.ScreenEventFactory {
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$Remove> createRemoveEvent();
-  public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> createBeforeRenderEvent();
+  public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> createBeforeExtractEvent();
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBackground> createAfterBackgroundEvent();
-  public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> createAfterRenderEvent();
+  public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground> createAfterForegroundEvent();
+  public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> createAfterExtractEvent();
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeTick> createBeforeTickEvent();
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterTick> createAfterTickEvent();
   public static net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress> createAllowKeyPressEvent();
@@ -3071,12 +3084,14 @@ public final class net.fabricmc.fabric.impl.client.screen.ScreenEventFactory {
   private static void lambda$createAfterTickEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterTick[], net.minecraft.client.gui.screens.Screen);
   private static net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeTick lambda$createBeforeTickEvent$0(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeTick[]);
   private static void lambda$createBeforeTickEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeTick[], net.minecraft.client.gui.screens.Screen);
-  private static net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract lambda$createAfterRenderEvent$0(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract[]);
-  private static void lambda$createAfterRenderEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract[], net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
+  private static net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract lambda$createAfterExtractEvent$0(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract[]);
+  private static void lambda$createAfterExtractEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract[], net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
+  private static net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground lambda$createAfterForegroundEvent$0(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground[]);
+  private static void lambda$createAfterForegroundEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground[], net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
   private static net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBackground lambda$createAfterBackgroundEvent$0(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBackground[]);
   private static void lambda$createAfterBackgroundEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBackground[], net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
-  private static net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract lambda$createBeforeRenderEvent$0(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract[]);
-  private static void lambda$createBeforeRenderEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract[], net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
+  private static net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract lambda$createBeforeExtractEvent$0(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract[]);
+  private static void lambda$createBeforeExtractEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract[], net.minecraft.client.gui.screens.Screen, net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float);
   private static net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$Remove lambda$createRemoveEvent$0(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$Remove[]);
   private static void lambda$createRemoveEvent$1(net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$Remove[], net.minecraft.client.gui.screens.Screen);
 }
@@ -3087,9 +3102,10 @@ public interface net.fabricmc.fabric.impl.client.screen.ScreenExtensions {
   public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$Remove> fabric_getRemoveEvent();
   public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeTick> fabric_getBeforeTickEvent();
   public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterTick> fabric_getAfterTickEvent();
-  public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> fabric_getBeforeRenderEvent();
+  public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> fabric_getBeforeExtractEvent();
   public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBackground> fabric_getAfterBackgroundEvent();
-  public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> fabric_getAfterRenderEvent();
+  public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground> fabric_getAfterForegroundEvent();
+  public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> fabric_getAfterExtractEvent();
   public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress> fabric_getAllowKeyPressEvent();
   public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$BeforeKeyPress> fabric_getBeforeKeyPressEvent();
   public abstract net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AfterKeyPress> fabric_getAfterKeyPressEvent();
@@ -7113,6 +7129,57 @@ class net.fabricmc.fabric.impl.transfer.transaction.TransactionManagerImpl$Trans
 Compiled from "package-info.java"
 interface net.fabricmc.fabric.impl.transfer.transaction.package-info {
 }
+Compiled from "AdvancementBuilderMixin.java"
+public abstract class net.fabricmc.fabric.mixin.advancement.AdvancementBuilderMixin implements net.fabricmc.fabric.api.advancement.v1.FabricAdvancementBuilder {
+  private com.google.common.collect.ImmutableMap$Builder<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>> criteria;
+  private java.util.Optional<net.minecraft.resources.Identifier> parent;
+  private java.util.Optional<net.minecraft.advancements.DisplayInfo> display;
+  private net.minecraft.advancements.AdvancementRewards rewards;
+  private java.util.Optional<net.minecraft.advancements.AdvancementRequirements> requirements;
+  private boolean sendsTelemetryEvent;
+  private java.util.Map<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>> modifiedCriteria;
+  public net.fabricmc.fabric.mixin.advancement.AdvancementBuilderMixin();
+  private net.minecraft.advancements.Advancement$Builder self();
+  private java.util.Map<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>> mutableCriteria();
+  private void pureRequirements();
+  public java.util.Map<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>> getCriteria();
+  public net.minecraft.advancements.Advancement$Builder updateCriteria(java.util.Map<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>>);
+  public net.minecraft.advancements.Advancement$Builder removeCriterion(java.lang.String);
+  public net.minecraft.advancements.Advancement$Builder requireCriterion(java.lang.String);
+  public net.minecraft.advancements.Advancement$Builder requireCriteria(java.util.List<java.lang.String>);
+  public net.minecraft.advancements.AdvancementRequirements getRequirements();
+  public java.util.Optional<net.minecraft.resources.Identifier> getParent();
+  public java.util.Optional<net.minecraft.advancements.DisplayInfo> getDisplay();
+  public net.minecraft.advancements.AdvancementRewards getRewards();
+  public boolean isSendsTelemetryEvent();
+  private void addModifiedCriterion(java.lang.String, net.minecraft.advancements.triggers.Criterion<?>, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<net.minecraft.advancements.Advancement$Builder>);
+  private com.google.common.collect.ImmutableMap$Builder<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>> useModifiedCriteria(com.google.common.collect.ImmutableMap$Builder<java.lang.String, net.minecraft.advancements.triggers.Criterion<?>>);
+  private static void lambda$requireCriteria$0(java.util.List, net.minecraft.advancements.AdvancementRequirements);
+}
+Compiled from "ServerAdvancementManagerMixin.java"
+abstract class net.fabricmc.fabric.mixin.advancement.ServerAdvancementManagerMixin {
+  private net.minecraft.core.HolderLookup$Provider registries;
+  net.fabricmc.fabric.mixin.advancement.ServerAdvancementManagerMixin();
+  private void onApply(java.util.Map<net.minecraft.resources.Identifier, net.minecraft.advancements.Advancement>, net.minecraft.server.packs.resources.ResourceManager, net.minecraft.util.profiling.ProfilerFiller, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private void onLoaded(java.util.Map<net.minecraft.resources.Identifier, net.minecraft.advancements.Advancement>, net.minecraft.server.packs.resources.ResourceManager, net.minecraft.util.profiling.ProfilerFiller, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  private void lambda$onApply$0(java.util.Map, java.util.Map, net.minecraft.resources.Identifier, net.minecraft.advancements.Advancement);
+}
+Compiled from "SimpleJsonResourceReloadListenerMixin.java"
+public abstract class net.fabricmc.fabric.mixin.advancement.SimpleJsonResourceReloadListenerMixin {
+  public net.fabricmc.fabric.mixin.advancement.SimpleJsonResourceReloadListenerMixin();
+  private static net.minecraft.resources.Identifier fillSourceMap(net.minecraft.resources.Identifier, net.minecraft.server.packs.resources.ResourceManager, net.minecraft.resources.FileToIdConverter, com.mojang.serialization.DynamicOps<com.google.gson.JsonElement>, com.mojang.serialization.Codec<?>, java.util.Map<net.minecraft.resources.Identifier, ?>, java.util.Map$Entry<net.minecraft.resources.Identifier, net.minecraft.server.packs.resources.Resource>);
+  private static void discardSourcesOnFailure(net.minecraft.server.packs.resources.ResourceManager, net.minecraft.resources.FileToIdConverter, com.mojang.serialization.DynamicOps<com.google.gson.JsonElement>, com.mojang.serialization.Codec<?>, java.util.Map<net.minecraft.resources.Identifier, ?>, com.llamalad7.mixinextras.injector.wrapoperation.Operation<java.lang.Void>);
+}
+Compiled from "SimplePreparableReloadListenerMixin.java"
+public class net.fabricmc.fabric.mixin.advancement.SimplePreparableReloadListenerMixin {
+  public net.fabricmc.fabric.mixin.advancement.SimplePreparableReloadListenerMixin();
+  private java.util.concurrent.CompletableFuture<java.lang.Object> discardAdvancementSourcesOnReloadFailure(java.util.concurrent.CompletableFuture<java.lang.Object>, java.util.function.Function<java.lang.Object, java.util.concurrent.CompletionStage<java.lang.Object>>, com.llamalad7.mixinextras.injector.wrapoperation.Operation<java.util.concurrent.CompletableFuture<java.lang.Object>>);
+  private static java.util.concurrent.CompletionStage lambda$discardAdvancementSourcesOnReloadFailure$0(java.util.function.Function, java.lang.Object);
+  private static void lambda$discardAdvancementSourcesOnReloadFailure$1(java.util.Map, java.lang.Object, java.lang.Throwable);
+}
+Compiled from "package-info.java"
+interface net.fabricmc.fabric.mixin.advancement.package-info {
+}
 Compiled from "AttachmentTargetsMixin.java"
 abstract class net.fabricmc.fabric.mixin.attachment.AttachmentTargetsMixin implements net.fabricmc.fabric.impl.attachment.AttachmentTargetImpl {
   private java.util.IdentityHashMap<net.fabricmc.fabric.api.attachment.v1.AttachmentType<?>, java.lang.Object> dataAttachments;
@@ -7409,10 +7476,31 @@ public class net.fabricmc.fabric.mixin.block.ChunkSectionBlockStateCounterMixin 
   public net.fabricmc.fabric.mixin.block.ChunkSectionBlockStateCounterMixin();
   private boolean modifyAirCheck(net.minecraft.world.level.block.state.BlockState);
 }
+Compiled from "EnchantmentMenuMixin.java"
+public class net.fabricmc.fabric.mixin.block.EnchantmentMenuMixin {
+  public net.fabricmc.fabric.mixin.block.EnchantmentMenuMixin();
+  private boolean addEnchantingPower(net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.core.BlockPos, com.llamalad7.mixinextras.injector.wrapoperation.Operation<java.lang.Boolean>, com.llamalad7.mixinextras.sugar.ref.LocalFloatRef);
+  int replaceBookcasesWithPower(int, com.llamalad7.mixinextras.sugar.ref.LocalFloatRef);
+}
+Compiled from "FlowingFluidMixin.java"
+public abstract class net.fabricmc.fabric.mixin.block.FlowingFluidMixin extends net.minecraft.world.level.material.Fluid {
+  public net.fabricmc.fabric.mixin.block.FlowingFluidMixin();
+  private void shouldSpreadLiquid(net.minecraft.world.level.LevelAccessor, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState, net.minecraft.core.Direction, net.minecraft.world.level.material.FluidState, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+}
+Compiled from "LavaFluidMixin.java"
+public abstract class net.fabricmc.fabric.mixin.block.LavaFluidMixin extends net.minecraft.world.level.material.Fluid {
+  public net.fabricmc.fabric.mixin.block.LavaFluidMixin();
+  private void shouldSpreadLiquid(net.minecraft.world.level.LevelAccessor, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState, net.minecraft.core.Direction, net.minecraft.world.level.material.FluidState, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+}
 Compiled from "LevelChunkSectionMixin.java"
 public class net.fabricmc.fabric.mixin.block.LevelChunkSectionMixin {
   public net.fabricmc.fabric.mixin.block.LevelChunkSectionMixin();
   private boolean modifyAirCheck(net.minecraft.world.level.block.state.BlockState);
+}
+Compiled from "LiquidBlockMixin.java"
+public abstract class net.fabricmc.fabric.mixin.block.LiquidBlockMixin extends net.minecraft.world.level.block.Block {
+  public net.fabricmc.fabric.mixin.block.LiquidBlockMixin(net.minecraft.world.level.block.state.BlockBehaviour$Properties);
+  private void shouldSpreadLiquid(net.minecraft.world.level.Level, net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<java.lang.Boolean>);
 }
 Compiled from "LivingEntityMixin.java"
 abstract class net.fabricmc.fabric.mixin.block.LivingEntityMixin {
@@ -7631,19 +7719,6 @@ class net.fabricmc.fabric.mixin.client.gametest.screenshot.NativeImageMixin$1 {
 Compiled from "package-info.java"
 interface net.fabricmc.fabric.mixin.client.gametest.screenshot.package-info {
 }
-Compiled from "BlockableEventLoopMixin.java"
-public class net.fabricmc.fabric.mixin.client.gametest.threading.BlockableEventLoopMixin {
-  public net.fabricmc.fabric.mixin.client.gametest.threading.BlockableEventLoopMixin();
-  private void onPacketHandlerSchedule(java.lang.Runnable, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
-  private void onPacketHandlerRun(java.lang.Runnable, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
-}
-Compiled from "ConnectionMixin.java"
-public class net.fabricmc.fabric.mixin.client.gametest.threading.ConnectionMixin {
-  private net.minecraft.network.protocol.PacketFlow receiving;
-  public net.fabricmc.fabric.mixin.client.gametest.threading.ConnectionMixin();
-  private void onNettyReceivePacket(io.netty.channel.ChannelHandlerContext, net.minecraft.network.protocol.Packet<?>, com.llamalad7.mixinextras.injector.wrapoperation.Operation<java.lang.Void>);
-  private void onSendPacket(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
-}
 Compiled from "MainMixin.java"
 public class net.fabricmc.fabric.mixin.client.gametest.threading.MainMixin {
   public net.fabricmc.fabric.mixin.client.gametest.threading.MainMixin();
@@ -7651,20 +7726,16 @@ public class net.fabricmc.fabric.mixin.client.gametest.threading.MainMixin {
 }
 Compiled from "MinecraftMixin.java"
 public class net.fabricmc.fabric.mixin.client.gametest.threading.MinecraftMixin {
-  private boolean inMergedRunTasksLoop;
   private java.lang.Runnable deferredTask;
   public net.fabricmc.fabric.mixin.client.gametest.threading.MinecraftMixin();
   private void onRun(com.llamalad7.mixinextras.injector.wrapoperation.Operation<java.lang.Void>) throws java.lang.Throwable;
   private void deregisterAfterCrash(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private int captureTicksPerFrame(int, com.llamalad7.mixinextras.sugar.ref.LocalIntRef);
-  private void preRunTasksHook(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void postRunTasksHook(org.spongepowered.asm.mixin.injection.callback.CallbackInfo, com.llamalad7.mixinextras.sugar.ref.LocalIntRef);
   private void deferStartIntegratedServer(net.minecraft.world.level.storage.LevelStorageSource$LevelStorageAccess, net.minecraft.server.packs.repository.PackRepository, net.minecraft.server.WorldStem, java.util.Optional<net.minecraft.world.level.gamerules.GameRules>, boolean, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void onStartIntegratedServerBusyWait(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void deferDisconnect(net.minecraft.client.gui.screens.Screen, boolean, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
-  private void onDisconnectCancelTasks(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void onDisconnectBusyWait(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
-  private void preRunTasks();
   private void postRunTasks();
   private static void checkThreadOnGetInstance(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<net.minecraft.client.Minecraft>);
   private static void deregisterClient();
@@ -7676,9 +7747,7 @@ public class net.fabricmc.fabric.mixin.client.gametest.threading.MinecraftServer
   public net.fabricmc.fabric.mixin.client.gametest.threading.MinecraftServerMixin();
   private void onRunServer(com.llamalad7.mixinextras.injector.wrapoperation.Operation<java.lang.Void>);
   protected void onCrash(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
-  private void preRunTasks(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void postRunTasks(org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
-  private void alwaysExecuteNetworkTask(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<java.lang.Boolean>);
   private void deregisterServer();
 }
 Compiled from "package-info.java"
@@ -9396,7 +9465,7 @@ abstract class net.fabricmc.fabric.mixin.event.lifecycle.EntityMixin implements 
 Compiled from "EntityTypeMixin.java"
 public class net.fabricmc.fabric.mixin.event.lifecycle.EntityTypeMixin {
   public net.fabricmc.fabric.mixin.event.lifecycle.EntityTypeMixin();
-  private <T extends net.minecraft.world.entity.Entity> void setSpawnReason(net.minecraft.world.level.Level, net.minecraft.world.entity.EntitySpawnReason, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<T>);
+  private <T extends net.minecraft.world.entity.Entity> void setSpawnReason(net.minecraft.world.level.Level, net.minecraft.world.entity.EntitySpawnRequest, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<T>);
 }
 Compiled from "LevelMixin.java"
 public abstract class net.fabricmc.fabric.mixin.event.lifecycle.LevelMixin implements net.fabricmc.fabric.impl.event.lifecycle.LoadedChunksCache {
@@ -9668,6 +9737,12 @@ public class net.fabricmc.fabric.mixin.gametest.server.MainMixin {
 Compiled from "package-info.java"
 interface net.fabricmc.fabric.mixin.gametest.server.package-info {
 }
+Compiled from "AbstractContainerMenuMixin.java"
+abstract class net.fabricmc.fabric.mixin.item.AbstractContainerMenuMixin {
+  net.fabricmc.fabric.mixin.item.AbstractContainerMenuMixin();
+  private void overrideContainerMenuItemClickBehaviour(net.minecraft.world.entity.player.Player, net.minecraft.world.inventory.ClickAction, net.minecraft.world.inventory.Slot, net.minecraft.world.item.ItemStack, net.minecraft.world.item.ItemStack, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<java.lang.Boolean>);
+  private net.minecraft.world.entity.SlotAccess createCarriedSlotAccess();
+}
 Compiled from "AbstractFurnaceBlockEntityMixin.java"
 public abstract class net.fabricmc.fabric.mixin.item.AbstractFurnaceBlockEntityMixin {
   public net.fabricmc.fabric.mixin.item.AbstractFurnaceBlockEntityMixin();
@@ -9713,6 +9788,7 @@ abstract class net.fabricmc.fabric.mixin.item.DataComponentMapBuilderMixin imple
   private it.unimi.dsi.fastutil.objects.Reference2ObjectMap<net.minecraft.core.component.DataComponentType<?>, java.lang.Object> map;
   net.fabricmc.fabric.mixin.item.DataComponentMapBuilderMixin();
   public abstract <T> net.minecraft.core.component.DataComponentMap$Builder set(net.minecraft.core.component.DataComponentType<T>, T);
+  public <T> T get(net.minecraft.core.component.DataComponentType<T>);
   public <T> T getOrCreate(net.minecraft.core.component.DataComponentType<T>, java.util.function.Supplier<T>);
   public <T> java.util.List<T> getOrEmpty(net.minecraft.core.component.DataComponentType<java.util.List<T>>);
   public boolean contains(net.minecraft.core.component.DataComponentType<?>);
@@ -10016,6 +10092,8 @@ Compiled from "IdDispatchCodecMixin.java"
 public abstract class net.fabricmc.fabric.mixin.networking.IdDispatchCodecMixin<B extends io.netty.buffer.ByteBuf, V, T> implements net.minecraft.network.codec.StreamCodec<B, V> {
   public net.fabricmc.fabric.mixin.networking.IdDispatchCodecMixin();
   public void encode(B, V, org.spongepowered.asm.mixin.injection.callback.CallbackInfo, T, java.lang.Exception);
+  public void decode(B, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<V>, com.llamalad7.mixinextras.sugar.ref.LocalRef<io.netty.buffer.ByteBuf>);
+  public void decode(B, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<V>, net.minecraft.network.codec.IdDispatchCodec$Entry<B, V, T>, java.lang.Exception, com.llamalad7.mixinextras.sugar.ref.LocalRef<io.netty.buffer.ByteBuf>);
 }
 Compiled from "PacketDecoderMixin.java"
 public class net.fabricmc.fabric.mixin.networking.PacketDecoderMixin implements net.fabricmc.fabric.impl.networking.context.PacketContextSetter {
@@ -10908,8 +10986,14 @@ interface net.fabricmc.fabric.mixin.resource.server.package-info {
 Compiled from "AbstractContainerScreenMixin.java"
 public abstract class net.fabricmc.fabric.mixin.screen.AbstractContainerScreenMixin extends net.minecraft.client.gui.screens.Screen {
   private net.fabricmc.fabric.mixin.screen.AbstractContainerScreenMixin(net.minecraft.network.chat.Component);
+  public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void callSuperMouseReleased(net.minecraft.client.input.MouseButtonEvent, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<java.lang.Boolean>);
   private void callSuperMouseReleased(net.minecraft.client.input.MouseButtonEvent, double, double, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<java.lang.Boolean>);
+}
+Compiled from "AbstractRecipeBookScreenMixin.java"
+abstract class net.fabricmc.fabric.mixin.screen.AbstractRecipeBookScreenMixin<T extends net.minecraft.world.inventory.RecipeBookMenu> extends net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<T> {
+  private net.fabricmc.fabric.mixin.screen.AbstractRecipeBookScreenMixin(T, net.minecraft.world.entity.player.Inventory, net.minecraft.network.chat.Component);
+  public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
 }
 Compiled from "GuiMixin.java"
 public class net.fabricmc.fabric.mixin.screen.GuiMixin implements net.fabricmc.fabric.impl.client.screen.GuiExtensions {
@@ -10966,9 +11050,10 @@ abstract class net.fabricmc.fabric.mixin.screen.ScreenMixin implements net.fabri
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$Remove> removeEvent;
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeTick> beforeTickEvent;
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterTick> afterTickEvent;
-  private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> beforeRenderEvent;
+  private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> beforeExtractEvent;
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBackground> afterBackgroundEvent;
-  private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> afterRenderEvent;
+  private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground> afterForegroundEvent;
+  private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> afterExtractEvent;
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress> allowKeyPressEvent;
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$BeforeKeyPress> beforeKeyPressEvent;
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AfterKeyPress> afterKeyPressEvent;
@@ -10991,7 +11076,8 @@ abstract class net.fabricmc.fabric.mixin.screen.ScreenMixin implements net.fabri
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents$BeforeMouseScroll> beforeMouseScrollEvent;
   private net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents$AfterMouseScroll> afterMouseScrollEvent;
   net.fabricmc.fabric.mixin.screen.ScreenMixin();
-  public final void extractWithTooltip(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  public final void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
+  public final void extractForeground(net.minecraft.client.gui.GuiGraphicsExtractor, int, int, float, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void beforeInitScreen(int, int, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void afterInitScreen(int, int, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
   private void beforeResizeScreen(int, int, org.spongepowered.asm.mixin.injection.callback.CallbackInfo);
@@ -11003,9 +11089,10 @@ abstract class net.fabricmc.fabric.mixin.screen.ScreenMixin implements net.fabri
   public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$Remove> fabric_getRemoveEvent();
   public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeTick> fabric_getBeforeTickEvent();
   public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterTick> fabric_getAfterTickEvent();
-  public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> fabric_getBeforeRenderEvent();
+  public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$BeforeExtract> fabric_getBeforeExtractEvent();
   public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterBackground> fabric_getAfterBackgroundEvent();
-  public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> fabric_getAfterRenderEvent();
+  public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterForeground> fabric_getAfterForegroundEvent();
+  public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterExtract> fabric_getAfterExtractEvent();
   public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AllowKeyPress> fabric_getAllowKeyPressEvent();
   public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$BeforeKeyPress> fabric_getBeforeKeyPressEvent();
   public net.fabricmc.fabric.api.event.Event<net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents$AfterKeyPress> fabric_getAfterKeyPressEvent();
