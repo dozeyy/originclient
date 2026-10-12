@@ -206,13 +206,27 @@ public class OriginClientMod implements ClientModInitializer {
 		// behind menus, even hidden behind the card).
 		// WorldEdit CUI: its own plugin channel, tick and world-render hooks (fail-soft inside).
 		com.origin.client.client.worldedit.WorldEditCui.init();
+		// Origin originals: Portal Calculator hooks its own client tick (fail-soft inside).
+		com.origin.client.client.mods.PortalCalc.init();
+		// FPS Coach (Origin original): its own tick + per-frame hooks (fail-soft inside).
+		com.origin.client.client.mods.FpsCoach.register();
 		// Lunar parity, batch 3a: Auto GG's chat listeners and the Screenshot
-		// pop-up's chat-screen click hook (both Fabric API events, fail-soft).
+		// chat buttons' click hook (both Fabric API events, fail-soft).
 		try {
 			com.origin.client.client.mods.AutoGG.register();
-			com.origin.client.client.mods.ScreenshotPopup.register();
+			com.origin.client.client.mods.ScreenshotChat.register();
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
+		}
+		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
+		// client (background thread, fail-soft). Capes ride vanilla's cape slot
+		// (CosmeticCapeMixin); the head-cosmetic layer is added to every player
+		// renderer by CosmeticHeadLayerMixin -- Fabric API 0.42.0+1.16 has no
+		// LivingEntityFeatureRendererRegistrationCallback (it arrived with 1.17).
+		try {
+			com.origin.client.client.cosmetics.CosmeticsService.start();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
 		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
@@ -249,7 +263,7 @@ public class OriginClientMod implements ClientModInitializer {
 			// keys just don't fire this tick
 		}
 		try {
-			com.origin.client.client.mods.ScreenshotPopup.tick(client);
+			com.origin.client.client.mods.ScreenshotChat.tick(client);
 		} catch (Throwable t) {
 			// key just doesn't fire this tick
 		}

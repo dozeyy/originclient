@@ -268,4 +268,13 @@ public final class Gfx {
 			s.renderTooltip(pose, text, mouseX, mouseY);
 		}
 	}
+
+	/** GuiGraphics.renderComponentTooltip(font, lines, mx, my): a multi-line tooltip,
+	 *  drawn by the open Screen like renderTooltip above. */
+	public void renderComponentTooltip(Font font, java.util.List<Component> lines, int mouseX, int mouseY) {
+		net.minecraft.client.gui.screens.Screen s = Minecraft.getInstance().screen;
+		if (s != null) {
+			s.renderComponentTooltip(pose, lines, mouseX, mouseY);
+		}
+	}
 }

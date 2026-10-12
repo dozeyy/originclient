@@ -18,7 +18,8 @@ import java.util.List;
  * capturing the TITLE (after its entrance animation) and the MOD MENU at each,
  * into {@code $ORIGIN_SHOTS/screenshots/}, and finally quits. With
  * {@code ORIGIN_SHOTS_SET=design} it instead captures the mod menu (grid + list),
- * a mod's settings page, the Settings tab and the Right Shift screen at two sizes
+ * a mod's settings page, the Settings tab, the Right Shift screen and the
+ * Cosmetics screen at two sizes
  * (.github/workflows/dev-shots.yml). This is how a
  * layout change gets LOOKED AT on every aspect ratio before it reaches Will —
  * no more "compiles, ships, looks wrong".
@@ -32,7 +33,7 @@ public final class OriginDevShots {
 
 	/** What a shot opens before capturing. */
 	private enum Kind {
-		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT;
+		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS;
 
 		Screen open() {
 			switch (this) {
@@ -47,6 +48,9 @@ public final class OriginDevShots {
 					return new OriginModMenuScreen(null, "keystrokes").preview(false, false);
 				case SETTINGS:
 					return new OriginModMenuScreen().preview(false, true);
+				case COSMETICS:
+					// The cosmetics locker, opened from the menu's Cosmetics tab.
+					return new com.origin.client.client.gui.CosmeticsScreen(null);
 				default:
 					// RSHIFT: the Right Shift screen (HUD editor + the Origin centre group).
 					return new HudEditorScreen(true);

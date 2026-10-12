@@ -20,9 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// Nick Hider (Lunar parity): show a name you pick in place of yours -- and
-// optionally a stand-in for everyone else's -- everywhere text is drawn, and
-// swap skins for the default ones.
+// Nick Hider (Lunar parity, trimmed by Will 2026-10-12): show a name you pick
+// in place of yours everywhere text is drawn, and wear the default skin -- on
+// YOUR screen only. The server and other players never see any of this; it's
+// for streaming/recording (and Hide Lobby ID stops stream sniping). Other
+// players' names and skins are deliberately left alone.
 //
 // HOW names are replaced: every piece of literal text Minecraft draws (chat,
 // nametags, tab list, scoreboard, titles) is a TextComponent whose getContents()
@@ -52,10 +54,6 @@ public final class NickHider {
 	private static final int CACHE_MAX = 4096;
 	private static String lastOwnSig = "";
 	private static int ticks = 0;
-	// Your real account skin, fetched once through SkinManager.registerSkins (the
-	// pre-1.20.2 skin lookup; there is no PlayerSkin record in this era).
-	private static volatile Skin realSkin = null;
-	private static boolean realSkinRequested = false;
 
 	/** A skin as PlayerInfo hands it out in this era: texture + model ("default"/"slim"). */
 	// Java 8 has no records: a final value class with the same canonical
@@ -116,31 +114,13 @@ public final class NickHider {
 			if (own.isEmpty()) {
 				own = "You";
 			}
-			if (Mods.bool(ID, "customSuffix")) {
-				own = own + cap(Mods.text(ID, "suffix"), 8);
-			}
-			ClientPacketListener conn = mc.getConnection();
-			UUID self = mc.getUser().getGameProfile().getId();
-			if (Mods.bool(ID, "hideOthersNames") && conn != null) {
-				String other = cap(Mods.text(ID, "othersName"), 16);
-				if (other.isEmpty()) {
-					other = "Player";
-				}
-				for (PlayerInfo info : conn.getOnlinePlayers()) {
-					if (!info.getProfile().getId().equals(self)) {
-						putName(next, info.getProfile().getName(), other);
-					}
-				}
-			}
-			// Your own names go in last so they win over an "others" entry.
+			// Both of your names: the one this server shows (a server nick, when
+			// nicked) and your account name, so neither ever slips through.
 			if (Mods.bool(ID, "hideName")) {
 				putName(next, inGameName(mc), own);
-			}
-			if (Mods.bool(ID, "hideRealName")) {
 				putName(next, mc.getUser().getName(), own);
 			}
-			ownSig = own + "|" + Mods.bool(ID, "hideName") + "|" + Mods.bool(ID, "hideRealName")
-					+ "|" + inGameName(mc) + "|" + Mods.bool(ID, "hideOthersNames");
+			ownSig = own + "|" + Mods.bool(ID, "hideName") + "|" + inGameName(mc);
 		}
 		if (!next.equals(names)) {
 			names = java.util.Collections.unmodifiableMap(next);   // next is a fresh map every pass
@@ -247,50 +227,19 @@ public final class NickHider {
 	/**
 	 * The skin to show for this tab-list entry instead of its own, or null to
 	 * keep it. Every player model and tab-list head reads its skin from its
-	 * PlayerInfo (getSkinLocation + getModelName, NickHiderSkinMixin).
+	 * PlayerInfo (getSkinLocation + getModelName, NickHiderSkinMixin); only YOUR
+	 * entry is ever changed.
 	 */
 	public static Skin skinFor(GameProfile profile) {
-		if (!Mods.on(ID) || profile == null || profile.getId() == null) {
+		if (!Mods.on(ID) || profile == null || profile.getId() == null || !Mods.bool(ID, "hideOwnSkin")) {
 			return null;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		GameProfile account = mc.getUser().getGameProfile();
-		if (!profile.getId().equals(account.getId())) {
-			return Mods.bool(ID, "hideOthersSkin") ? defaultSkin(profile.getId()) : null;
-		}
-		if (Mods.bool(ID, "hideOwnSkin")) {
-			return defaultSkin(profile.getId());
-		}
-		boolean nicked = !profile.getName().equalsIgnoreCase(mc.getUser().getName());
-		if (nicked && Mods.bool(ID, "useRealSkin")) {
-			requestRealSkin(mc, account);
-			Skin real = realSkin;
-			return real != null ? real : defaultSkin(profile.getId());
-		}
-		return null;
+		GameProfile account = Minecraft.getInstance().getUser().getGameProfile();
+		return profile.getId().equals(account.getId()) ? defaultSkin(profile.getId()) : null;
 	}
 
 	private static Skin defaultSkin(UUID id) {
 		return new Skin(DefaultPlayerSkin.getDefaultSkin(id), DefaultPlayerSkin.getSkinModelName(id));
-	}
-
-	// Your real account profile (with its skin), loaded + cached once by the skin
-	// manager; the callback lands on the render thread when the texture is ready.
-	private static void requestRealSkin(Minecraft mc, GameProfile account) {
-		if (realSkinRequested) {
-			return;
-		}
-		realSkinRequested = true;
-		try {
-			mc.getSkinManager().registerSkins(account, (type, location, texture) -> {
-				if (type == com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN) {
-					String model = texture.getMetadata("model");
-					realSkin = new Skin(location, model == null ? "default" : model);
-				}
-			}, true);
-		} catch (Throwable t) {
-			// stay on the default skin
-		}
 	}
 
 	/**

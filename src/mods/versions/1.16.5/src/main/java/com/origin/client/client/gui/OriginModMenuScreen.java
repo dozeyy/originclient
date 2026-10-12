@@ -43,12 +43,9 @@ import static com.origin.client.client.gui.OriginDeck.*;
  *
  * 1.16.5 port: identical layout and behaviour on this module's fixed-function
  * backend (Gfx instead of GuiGraphics, via OriginDeck -- whose text and boxes
- * have shader-free stand-ins), written at the Java 8 language level. What
- * 1.21.1 has and this version doesn't is left out rather than shown dead: no
- * Cosmetics tab (no CosmeticsScreen here), no JEI card (no Fabric JEI for
- * 1.16), no FPS
- * Coach / Portal Calculator pages, no Item Counter grid picker (its Items row
- * is the plain multi-select), and no Mod Menu Layout option (always 4 across).
+ * have shader-free stand-ins), written at the Java 8 language level. The one
+ * thing 1.21.1 has and this version doesn't is the JEI card (no Fabric JEI for
+ * 1.16).
  */
 public class OriginModMenuScreen extends Screen {
 	// ---- the design grid (design px; see the class comment) ----
@@ -313,6 +310,22 @@ public class OriginModMenuScreen extends Screen {
 		}
 	}
 
+	// Item Counter's "Items" row opens the shared item grid (Item Size's layout).
+	private static boolean isItemPicker(String modId, String key) {
+		return modId.equals("itemcounter") && key.equals("items");
+	}
+
+	private static String itemPickerSummary(String csv) {
+		List<String> names = new ArrayList<>();
+		for (String t : com.origin.client.client.mods.ItemCounter.tokens(csv)) {
+			com.origin.client.client.mods.ItemCounter.Entry e = com.origin.client.client.mods.ItemCounter.resolve(t);
+			if (e != null) {
+				names.add(e.label());
+			}
+		}
+		return names.isEmpty() ? "None" : String.join(", ", names);
+	}
+
 	private static List<String> splitCsv(String csv) {
 		List<String> out = new ArrayList<>();
 		if (csv != null) {
@@ -336,6 +349,9 @@ public class OriginModMenuScreen extends Screen {
 				break;
 			case "itemsize":
 				Minecraft.getInstance().setScreen(new OriginItemSizeScreen());
+				break;
+			case "fpscoach":
+				Minecraft.getInstance().setScreen(new FpsCoachScreen(this));
 				break;
 			default:
 				goPage(mod.id());
@@ -470,8 +486,7 @@ public class OriginModMenuScreen extends Screen {
 		d.textMid("CLIENT", bx + 7, HEAD_H / 2, 18, false, 0.4f, DIM);
 
 		// centred tabs
-		// 1.21.1's fourth tab, Cosmetics, has no screen on this version: left out.
-		String[] tabs = {"Mods", "Settings", "Waypoints"};
+		String[] tabs = {"Mods", "Settings", "Waypoints", "Cosmetics"};
 		float[] tw = new float[tabs.length];
 		float total = 6 * (tabs.length - 1);
 		for (int i = 0; i < tabs.length; i++) {
@@ -496,8 +511,10 @@ public class OriginModMenuScreen extends Screen {
 					goTab(Tab.MODS);
 				} else if (idx == 1) {
 					goTab(Tab.SETTINGS);
-				} else {
+				} else if (idx == 2) {
 					Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+				} else {
+					Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
 				}
 			});
 			tx += tw[i] + 6;
@@ -558,10 +575,19 @@ public class OriginModMenuScreen extends Screen {
 		return false;
 	}
 
-	// 1.21.1's "Mod Menu Layout" setting (3 / 2 across) isn't on this version:
-	// always the approved 4 across.
 	private int columns() {
-		return 4;
+		String layout = Mods.mode(Mods.GENERAL_ID, "menuLayout");
+		if (layout == null) {
+			return 4;
+		}
+		switch (layout) {
+			case "3 across (compact)":
+				return 3;
+			case "2 across (large)":
+				return 2;
+			default:
+				return 4;
+		}
 	}
 
 	private void drawLibrary(OriginDeck d, long now) {
@@ -1103,15 +1129,21 @@ public class OriginModMenuScreen extends Screen {
 			case MULTISELECT: {
 				String csv = vMulti(id, o.key);
 				List<String> sel = splitCsv(csv);
-				String summary = sel.isEmpty() ? "None"
+				String summary = sel.isEmpty() ? "None" : isItemPicker(id, o.key) ? itemPickerSummary(csv)
 						: String.join(", ", sel.stream().map(OriginMultiSelect::prettify)
 								.collect(java.util.stream.Collectors.toList()));
 				float bw = Math.min(200, rowW / 2);
 				d.rect(right - bw, cy - 13, bw, 26, 6, 0x0DFFFFFF, LINE2);
 				d.textMid(d.fit(summary, bw - 40, 13, false, 0), right - bw + 10, cy, 13, false, 0, TEXT);
 				d.icon("@chev-down", right - 22, cy - 6, 12, MUTE);
-				d.hit(right - bw, cy - 13, bw, 26, () -> OriginMultiSelect.open(o.label, java.util.Arrays.asList(o.modes), sel,
-						chosen -> vSetMulti(id, o.key, String.join(", ", chosen))));
+				d.hit(right - bw, cy - 13, bw, 26, () -> {
+					if (isItemPicker(id, o.key)) {
+						Minecraft.getInstance().setScreen(new ItemCounterPickerScreen());
+					} else {
+						OriginMultiSelect.open(o.label, java.util.Arrays.asList(o.modes), sel,
+								chosen -> vSetMulti(id, o.key, String.join(", ", chosen)));
+					}
+				});
 				return right - bw;
 			}
 			case TEXT: {

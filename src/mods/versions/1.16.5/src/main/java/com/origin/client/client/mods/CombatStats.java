@@ -3,6 +3,7 @@ package com.origin.client.client.mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 
@@ -18,8 +19,8 @@ public final class CombatStats {
 
 	/** How long after a swing the target's hurt flash may still confirm it. */
 	private static final long CONFIRM_WINDOW_MS = 500;
-	/** No confirmed hit for this long ends the combo (Lunar's "time window"). */
-	private static final long COMBO_EXPIRE_MS = 2000;
+	// No confirmed hit for the Combo mod's "Reset After" seconds ends the combo
+	// (Lunar's "time window"). Taking a hit always ends it too -- not a setting.
 	/** The reach readout falls back to zero this long after the last hit. */
 	private static final long REACH_EXPIRE_MS = 3000;
 
@@ -30,8 +31,10 @@ public final class CombatStats {
 	private static int pendingHurtSeen = 0;
 	private static double pendingReach = 0;
 	private static long pendingAt = 0;
+	private static boolean pendingCountsForCombo = true;
 
 	private static long lastHitAt = 0;
+	private static long lastComboHitAt = 0;
 	private static int selfHurtSeen = 0;
 
 	/** Called from the attack mixin for every entity the player swings at. */
@@ -53,7 +56,11 @@ public final class CombatStats {
 		} else {
 			reach = mc.player.getEyePosition(1.0F).distanceTo(target.getBoundingBox().getCenter());
 		}
+		// Players Only: a swing at a mob neither counts nor breaks the combo. Reach
+		// still shows every hit -- the option belongs to the Combo mod.
+		boolean countsForCombo = !(Mods.bool("combo", "playersOnly") && !(target instanceof Player));
 		pendingTargetId = target.getId();
+		pendingCountsForCombo = countsForCombo;
 		pendingHurtSeen = living.hurtTime;
 		pendingReach = reach;
 		pendingAt = System.currentTimeMillis();
@@ -81,7 +88,10 @@ public final class CombatStats {
 				pendingTargetId = -1;
 			} else if (((LivingEntity) e).hurtTime > pendingHurtSeen) {
 				// hurtTime only ever rises when a fresh hurt starts -> our hit landed
-				combo++;
+				if (pendingCountsForCombo) {
+					combo++;
+					lastComboHitAt = now;
+				}
 				lastReach = pendingReach;
 				lastHitAt = now;
 				pendingTargetId = -1;
@@ -89,7 +99,8 @@ public final class CombatStats {
 				pendingHurtSeen = ((LivingEntity) e).hurtTime;
 			}
 		}
-		if (combo > 0 && now - lastHitAt > COMBO_EXPIRE_MS) {
+		long comboExpireMs = (long) (Mods.num("combo", "resetAfter") * 1000);
+		if (combo > 0 && now - lastComboHitAt > comboExpireMs) {
 			combo = 0;
 		}
 		if (lastReach > 0 && now - lastHitAt > REACH_EXPIRE_MS) {

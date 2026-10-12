@@ -23,10 +23,8 @@ import org.lwjgl.glfw.GLFW;
 //
 // quick=true IS the Right Shift screen: the editable surface plus the centre
 // group from the 2026-10 redesign (design/menu-redesign, scene "rshift"): the
-// real Origin mark, ORIGIN CLIENT, and [Waypoints] [MODS], drawn with
-// OriginDeck so it matches the mod menu exactly. (1.21.1 adds a Cosmetics
-// button on the right; this version has no Cosmetics screen, so the group is
-// the two buttons that do something, re-centred.)
+// real Origin mark, ORIGIN CLIENT, and [Waypoints] [MODS] [Cosmetics], drawn
+// with OriginDeck so it matches the mod menu exactly.
 public class HudEditorScreen extends Screen {
 	private final boolean quick;
 	// Where Esc lands: null = the game; the mod menu passes itself ("Edit HUD" /
@@ -264,11 +262,11 @@ public class HudEditorScreen extends Screen {
 		d.textMid("ORIGIN", wx, -19, 22, true, 1f, OriginDeck.TEXT);
 		d.textMid("CLIENT", wx + ow + gap, -19, 22, false, 1f, OriginDeck.DIM);
 
-		// [waypoints 44][8][MODS 156] centred on x = 0 (1.21.1's -130..130 row
-		// minus its Cosmetics button).
-		quickButton(d, "waypoints", null, -104, 44, () -> Minecraft.getInstance().setScreen(
+		quickButton(d, "waypoints", null, -130, 44, () -> Minecraft.getInstance().setScreen(
 				new com.origin.client.client.waypoints.WaypointScreen()));
-		quickButton(d, null, "MODS", -52, 156, () -> Minecraft.getInstance().setScreen(new OriginModMenuScreen()));
+		quickButton(d, null, "MODS", -78, 156, () -> Minecraft.getInstance().setScreen(new OriginModMenuScreen()));
+		quickButton(d, "@shirt", null, 86, 44, () -> Minecraft.getInstance().setScreen(
+				new com.origin.client.client.gui.CosmeticsScreen(this)));
 		d.end();
 	}
 
@@ -442,18 +440,18 @@ public class HudEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseScrolled(double mx, double my, double amount) {
+	public boolean mouseScrolled(double mx, double my, double sy) {
 		String target = hoveredId != null ? hoveredId : selectedId;
 		if (target != null) {
 			HudElements.Element e = byId(target);
 			if (e != null) {
 				HudPos pos = e.pos();
-				pos.scale = Math.max(0.5, Math.min(2.5, pos.scale + amount * 0.05));
+				pos.scale = Math.max(0.5, Math.min(2.5, pos.scale + sy * 0.05));
 				pos.save(e.id());
 				return true;
 			}
 		}
-		return super.mouseScrolled(mx, my, amount);
+		return super.mouseScrolled(mx, my, sy);
 	}
 
 	@Override
@@ -477,5 +475,6 @@ public class HudEditorScreen extends Screen {
 		}
 		return null;
 	}
+
 
 }
