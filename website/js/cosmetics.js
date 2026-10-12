@@ -331,6 +331,16 @@ function wingCanvas(id, panel) {
   return canvases.get(key);
 }
 
+// For tools/cosmetics/export-capes.mjs, which turns these same paintings
+// into the in-game cape textures (so the store and the game always match).
+export const CAPE_IDS = Object.keys(ART).filter(id => ART[id].kind === 'cape');
+export const capeEdge = id => ART[id].edge;
+export function capeArt(id, ph) {
+  const c = makeCanvas(CAPE_W, CAPE_H);
+  c.getContext('2d').drawImage(capeCanvas(id, ph), 0, 0);
+  return c;
+}
+
 // The item's 2D artwork as a canvas, for the no-WebGL fallback: a cape's
 // still frame, a wing pair laid flat, or null for head items (pure geometry).
 export function flatArt(id) {

@@ -167,6 +167,20 @@ public class OriginClientMod implements ClientModInitializer {
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
 		}
+		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
+		// client (background thread, fail-soft) and the head-cosmetic layer on
+		// every player model. Capes ride vanilla's cape slot (CosmeticCapeMixin).
+		try {
+			com.origin.client.client.cosmetics.CosmeticsService.start();
+			net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
+					(type, renderer, helper, ctx) -> {
+						if (renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer player) {
+							helper.register(new com.origin.client.client.cosmetics.CosmeticHeadLayer(player));
+						}
+					});
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
+		}
 		// Block Outline + Overlay (own colour/width + translucent fill).
 		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BLOCK_OUTLINE.register((wctx, octx) -> {
 			try {

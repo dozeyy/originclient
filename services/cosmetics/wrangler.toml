@@ -1,0 +1,17 @@
+# Origin cosmetics service. Deployed by .github/workflows/cosmetics-service.yml
+# (setup steps: docs/STORE.md -> Delivery service). Secrets are set in the
+# Cloudflare dashboard, never here: TEBEX_SECRET.
+name = "origin-cosmetics"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Every minute; the code itself waits as long as Tebex asks between checks.
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "origin-cosmetics"
+# Filled in once Will creates the database (Cloudflare -> Storage & Databases -> D1).
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
