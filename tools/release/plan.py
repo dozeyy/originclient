@@ -24,7 +24,7 @@ The previous release is taken from GitHub Releases, not from git tags: a tag
 whose release run failed (e.g. launcher-v1.0.33) has no zip to reuse from.
 
 Outputs (written to $GITHUB_OUTPUT when set, else printed):
-  build     JSON array of {"module", "covers"} — the build matrix
+  build     JSON array of {"module", "covers", "java"} — the build matrix
   prev_tag  the previous published release tag ("" if none)
 Reused jars land in <reuse-dir>/<module>/originclient-<module>-reused.jar,
 the same <module>/<jar> layout the build jobs upload, so the release job
@@ -215,7 +215,10 @@ def main() -> int:
                 shutil.rmtree(args.reuse_dir, ignore_errors=True)
             reasons = {m["module"]: "planning failed, full build" for m in modules}
 
-    build = [{"module": m["module"], "covers": m["covers"]} for m in modules if reasons[m["module"]]]
+    # "java" = the JDK the module's Gradle build runs on (26.x needs 25; every 1.x
+    # module cross-compiles from 21 via options.release).
+    build = [{"module": m["module"], "covers": m["covers"], "java": m.get("java", "21")}
+             for m in modules if reasons[m["module"]]]
     emit("build", json.dumps(build, separators=(",", ":")))
     emit("prev_tag", prev)
 
