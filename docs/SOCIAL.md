@@ -129,3 +129,60 @@ Writes: presence is written at most once per 30 s per (account, client) even if 
   positions is against the rules (start with hypixel.net and its subdomains; list in one place in the mod),
   and positions are only exchanged between members on the same server. Party chat, warp and the rest still
   work there.
+
+## Service notes (what the Worker actually does; services/cosmetics/src/social.js + party.js)
+Everything here is additive to the contract above; client authors rely on these details. Limits live in one
+place: `L` in services/cosmetics/src/social-shared.js. Schema: migrations/0002_social.sql.
+
+**Types.** uuids are 32 lowercase hex, no dashes (requests accept dashed/any case). Every time (`at`, `lastSeen`,
+`expiresAt`, `stateAt`) is ms since epoch (JSON number). Ids (`message.id`, `ping.id`) are integers; `partyId` is a
+hex string. `server` values come back normalised: lower case, no trailing dot, `:25565` dropped
+(`Play.Hypixel.net:25565` → `play.hypixel.net`); compare servers in that form. Positions are rounded to 0.1 block,
+health to half a heart.
+
+**Status codes.** 200 success · 400 bad input or a rule ("You're already in a party.") · 401 no/expired/unknown token
+(re-run /v1/auth once, retry) or a failed/reused Mojang check on /v1/auth · 403 not allowed (not friends, not the
+leader) · 404 not found (no such player / not on Origin / invite gone / not in your party) · 405 GET on a POST route ·
+429 more than one per second · 503 only /v1/friends/request when Mojang's name lookup is down and Origin doesn't know
+the name. Every error body is `{ error: "<sentence>" }`; show it as is. 500 = server bug.
+
+**Auth.** `serverId` must be 16–64 lowercase hex (32 recommended) and is single-use, shared with /v1/equip. The token is
+64 hex characters; send exactly `Authorization: Bearer <token>`. The `name` returned is Mojang's spelling.
+
+**Cursor.** `cursor` is an integer; treat it as opaque and send it back as `since`. `since: 0` (first sync after start)
+returns recent history: the newest 100 DMs and the newest 50 party lines since you joined the party, oldest first.
+After that each sync returns everything newer than `since`, oldest first, at most 200 DMs and 200 party lines; if a
+page is cut short the cursor stops at the last line returned and the next sync continues from there. DMs and party
+chat share one id sequence, so one cursor covers both; nothing is skipped or repeated, and `at` never goes
+backwards in id order. A new party member never sees party chat from before they joined. `friends`, `requests`,
+`party`, `pings`, `partyInvites` and `warp` are full current state on every sync, not deltas.
+
+**Sync extras.** `blocked: [ { uuid, name } ]` (players you blocked, for an Unblock list) and `warp.name` (the leader's
+name) are added. `presence` and `partyState` may be null/omitted (pure poll, no write). A malformed `partyState` or
+presence field is ignored, never an error. The caller's own server (for party positions and pings) is
+`partyState.server`, else `presence.server` when `activity == "server"`; the launcher therefore never gets positions.
+Party member `state` is also dropped once it is older than 90 s. Pings are filtered the same way as positions: only
+pings on the caller's current server are returned.
+
+**Writes.** Presence is rewritten every 30 s per (account, client), or after 5 s when activity/server/version
+changed. A party position is rewritten after 3 s when it changed, at once when the server changed, else every 30 s.
+
+**Actions.** Responses: `/v1/friends/request` → `{ ok, uuid, name, friends }` (`friends: true` = an opposite request
+was waiting and you are now friends; repeating a pending request is a harmless 200). `/v1/friends/respond` →
+`{ ok, friends }`. `/v1/messages/send` → `{ ok, message: { id, from, to, text, at } }`. `/v1/party/create|invite|accept|
+kick|promote` → `{ ok, party }` (positions left out: `state` null). `/v1/party/chat` → `{ ok, message: { id, from, name,
+text, at } }`. `/v1/party/ping` → `{ ok, ping }`. `/v1/settings` → `{ ok, appearOffline }`.
+Rules beyond the list above:
+- Text (DMs, party chat, ping labels) is cleaned before the length check: line breaks become spaces; control
+  characters, `§` colour codes and invisible direction marks are removed; length counts UTF-16 units (Java/C#
+  `String.length`). The text in the response is the cleaned text.
+- One per second per account applies to DMs, party chat, pings, party invites and friend requests (each its own
+  counter).
+- Friend requests: someone who blocked you gets the same 404 as "not on Origin"; requesting someone you blocked is a
+  400 ("Unblock them first"). At most 200 friends and 50 pending outgoing requests. `/v1/friends/remove` also cancels a
+  pending request either way (use it for "Cancel request").
+- `/v1/party/create` while in a party is a 400. `/v1/party/invite` while not in a party starts one (you lead), so
+  "Invite to party" works straight from the friends list. Party invites expire after 10 minutes. Re-inviting refreshes
+  the invite. The leader can't kick or promote themself (400).
+- The cron (every 10 minutes) also takes anyone who has been seen by neither launcher nor game for an hour out of
+  their party (leader passes on as with /v1/party/leave).
