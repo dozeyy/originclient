@@ -330,6 +330,16 @@ public partial class HomePage : UserControl
             // shader cache so Iris packs don't recompile (and hitch) each launch.
             ShaderCache.Apply(process.StartInfo, freshSettings.ShaderCacheNvidia, freshSettings.ShaderCacheAmd);
 
+            // Settings Sync: bring in what the player changed in every other
+            // version, then write it into this one. After provisioning (which
+            // seeds/sanitizes config files) and before the game reads them.
+            // Never throws — a sync problem just means an unsynced launch.
+            if (freshSettings.SettingsSyncEnabled)
+            {
+                LoadingOverlay.ReportStage("Syncing settings");
+                await Task.Run(() => SettingsSync.BeforeLaunch(version));
+            }
+
             // Last gate before the game actually starts — a cancel that
             // landed after provisioning finished must not still launch.
             cts.Token.ThrowIfCancellationRequested();
@@ -627,6 +637,11 @@ public partial class HomePage : UserControl
                         exitCode == 0 ? "Ready" : $"Minecraft exited with code {exitCode}",
                         exitCode == 0 ? StatusTone.Neutral : StatusTone.Error);
                 });
+
+                // Settings Sync: take in what the player changed this session.
+                // Checks the switch itself and never throws; already on a pool
+                // thread, so its file work never touches the UI.
+                SettingsSync.AfterExit(version);
             }
             catch { /* the game's exit must never crash the launcher */ }
         };
@@ -634,6 +649,7 @@ public partial class HomePage : UserControl
         try
         {
             process.Start();
+            SettingsSync.TrackGame(version, process);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
         }

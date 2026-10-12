@@ -20,6 +20,12 @@ public static class OriginPaths
     // so the banner shows Will's current promos even when offline.
     public static string PromoFeedCache => Path.Combine(Root, "cache", "promos.json");
 
+    // Settings Sync (Core/SettingsSync.cs): every synced setting with when it
+    // last changed, plus what each instance last had — so the player's
+    // settings follow them across versions. Rebuilt from the instances
+    // whenever it is missing, so deleting it never loses a setting.
+    public static string SettingsSyncStore => Path.Combine(Root, "settings-sync.json");
+
     // The banner's ad-network WebView2 profile (cookies, storage, browser
     // cache). Deliberately its OWN user-data folder: it never shares a
     // browser process, cookie jar or lock with the Microsoft sign-in WebView2
