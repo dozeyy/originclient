@@ -242,8 +242,11 @@ public class FriendsScreen extends OriginWindow {
 		boolean retry = false;
 		switch (SocialClient.status()) {
 			case SIGNED_OUT -> {
-				title = "Sign in with Microsoft to use friends";
-				sub = "Friends, chat and parties need a Microsoft account. Switch accounts in the Origin launcher.";
+				// a reason = signed in with Microsoft, but online play is off or the check failed
+				String why = SocialClient.signedOutReason();
+				title = why != null ? "Couldn't sign in to friends" : "Sign in with Microsoft to use friends";
+				sub = why != null ? why
+						: "Friends, chat and parties need a Microsoft account. Switch accounts in the Origin launcher.";
 			}
 			case COMING_SOON -> {
 				title = "Friends are coming soon";
