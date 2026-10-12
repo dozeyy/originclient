@@ -83,8 +83,26 @@ public class OriginModMenuScreen extends Screen {
 	private long profileToastAt = -1;
 	private String confirmDeleteName = null;
 
+	// Where closing the menu lands. null = back to the game (Right Shift / title
+	// Mods button). The Video Settings mod rail (SodiumModRail) passes its own
+	// screen so Close returns the player to Video Settings, not into the world.
+	private final Screen returnTo;
+
 	public OriginModMenuScreen() {
+		this(null, null);
+	}
+
+	/**
+	 * Opens the menu from another screen. `returnTo` is where Close lands;
+	 * `startPage` (a Mods id, or null for the mod list) opens straight onto that
+	 * mod's settings page -- ignored if this build has no such mod.
+	 */
+	public OriginModMenuScreen(Screen returnTo, String startPage) {
 		super(Component.literal("Origin Mods"));
+		this.returnTo = returnTo;
+		if (startPage != null && Mods.byId(startPage) != null) {
+			this.page = startPage;
+		}
 	}
 
 	@Override
@@ -242,6 +260,8 @@ public class OriginModMenuScreen extends Screen {
 			CATS.put(id, Cat.GAMEPLAY);
 		}
 		CATS.put("nickhider", Cat.VISUAL);
+		// Lunar parity: Hypixel Bed Wars.
+		CATS.put("hypixelbedwars", Cat.GAMEPLAY);
 	}
 
 	private static Cat catOf(Mods.Mod m) {
@@ -624,7 +644,7 @@ public class OriginModMenuScreen extends Screen {
 			double cp = Math.min(1.0, (now - closingAt) / (double) SLIDE_MS);
 			p = OriginTheme.easeOut(1.0 - cp);
 			if (cp >= 1.0) {
-				Minecraft.getInstance().setScreen(null);
+				Minecraft.getInstance().setScreen(returnTo);
 				return;
 			}
 		}
