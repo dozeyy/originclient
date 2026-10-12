@@ -1,0 +1,20 @@
+# TEMPORARY porting aid (see build.gradle "PORTING AID"): package/class prefixes
+# whose javap signatures the dev-shots run writes to <shots>/api/. Delete when done.
+net/minecraft/client/
+net/minecraft/world/entity/
+net/minecraft/world/level/Level
+net/minecraft/world/clock/
+net/minecraft/world/item/Item
+net/minecraft/world/effect/
+net/minecraft/network/chat/
+net/minecraft/util/
+net/minecraft/resources/
+net/minecraft/SharedConstants
+net/minecraft/Util
+net/minecraft/core/component/DataComponents
+net/fabricmc/fabric/api/
+com/mojang/blaze3d/
+com/mojang/authlib/
+mezz/jei/gui/
+mezz/jei/fabric/
+mezz/jei/api/runtime/config/
