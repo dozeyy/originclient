@@ -20,9 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// Nick Hider (Lunar parity): show a name you pick in place of yours -- and
-// optionally a stand-in for everyone else's -- everywhere text is drawn, and
-// swap skins for the default ones.
+// Nick Hider (Lunar parity, trimmed by Will 2026-10-12): show a name you pick
+// in place of yours everywhere text is drawn, and wear the default skin -- on
+// YOUR screen only. The server and other players never see any of this; it's
+// for streaming/recording (and Hide Lobby ID stops stream sniping). Other
+// players' names and skins are deliberately left alone.
 //
 // HOW names are replaced: every piece of literal text Minecraft draws (chat,
 // nametags, tab list, scoreboard, titles) is a TextComponent (1.18.2; a
@@ -53,10 +55,6 @@ public final class NickHider {
 	private static final int CACHE_MAX = 4096;
 	private static String lastOwnSig = "";
 	private static int ticks = 0;
-	// Your real account skin (texture + "slim"/"default" model), fetched once.
-	private static volatile ResourceLocation realSkin = null;
-	private static volatile String realModel = "default";
-	private static boolean realSkinRequested = false;
 
 	// Hypixel's scoreboard date line: "10/11/26 m215AH" -> the trailing server ID.
 	private static final Pattern LOBBY_LINE = Pattern.compile("^\\s*(\\d{1,2}/\\d{1,2}/\\d{2,4})\\s+[A-Za-z0-9]{2,12}\\s*$");
@@ -78,31 +76,13 @@ public final class NickHider {
 			if (own.isEmpty()) {
 				own = "You";
 			}
-			if (Mods.bool(ID, "customSuffix")) {
-				own = own + cap(Mods.text(ID, "suffix"), 8);
-			}
-			ClientPacketListener conn = mc.getConnection();
-			UUID self = selfId(mc);
-			if (Mods.bool(ID, "hideOthersNames") && conn != null) {
-				String other = cap(Mods.text(ID, "othersName"), 16);
-				if (other.isEmpty()) {
-					other = "Player";
-				}
-				for (PlayerInfo info : conn.getOnlinePlayers()) {
-					if (!info.getProfile().getId().equals(self)) {
-						putName(next, info.getProfile().getName(), other);
-					}
-				}
-			}
-			// Your own names go in last so they win over an "others" entry.
+			// Both of your names: the one this server shows (a server nick, when
+			// nicked) and your account name, so neither ever slips through.
 			if (Mods.bool(ID, "hideName")) {
 				putName(next, inGameName(mc), own);
-			}
-			if (Mods.bool(ID, "hideRealName")) {
 				putName(next, mc.getUser().getName(), own);
 			}
-			ownSig = own + "|" + Mods.bool(ID, "hideName") + "|" + Mods.bool(ID, "hideRealName")
-					+ "|" + inGameName(mc) + "|" + Mods.bool(ID, "hideOthersNames");
+			ownSig = own + "|" + Mods.bool(ID, "hideName") + "|" + inGameName(mc);
 		}
 		if (!next.equals(names)) {
 			names = Map.copyOf(next);
@@ -210,71 +190,28 @@ public final class NickHider {
 		return mc.getUser().getGameProfile().getId();
 	}
 
-	// What to show instead of a player's own skin: 0 = keep it, 1 = the default
-	// skin for their UUID, 2 = your real account skin. Pre-1.20.2 a skin is two
-	// separate reads -- PlayerInfo.getSkinLocation() and getModelName() -- so
-	// NickHiderSkinMixin asks both of these, and they must always agree.
-	private static int skinChoice(GameProfile profile) {
-		if (!Mods.on(ID) || profile == null || profile.getId() == null) {
-			return 0;
-		}
-		Minecraft mc = Minecraft.getInstance();
-		if (!profile.getId().equals(selfId(mc))) {
-			return Mods.bool(ID, "hideOthersSkin") ? 1 : 0;
-		}
-		if (Mods.bool(ID, "hideOwnSkin")) {
-			return 1;
-		}
-		boolean nicked = !profile.getName().equalsIgnoreCase(mc.getUser().getName());
-		if (nicked && Mods.bool(ID, "useRealSkin")) {
-			requestRealSkin(mc);
-			return realSkin != null ? 2 : 0;
-		}
-		return 0;
+	// Whether to show the default skin instead of this entry's own. Only YOUR
+	// entry is ever changed. Pre-1.20.2 a skin is two separate reads --
+	// PlayerInfo.getSkinLocation() and getModelName() -- so NickHiderSkinMixin
+	// asks both of these, and they must always agree.
+	private static boolean hideSkin(GameProfile profile) {
+		return Mods.on(ID) && profile != null && profile.getId() != null && Mods.bool(ID, "hideOwnSkin")
+				&& profile.getId().equals(selfId(Minecraft.getInstance()));
 	}
 
 	/**
 	 * The skin texture to show for this tab-list entry instead of its own, or
 	 * null to keep it. Every player model and tab-list head reads its skin
-	 * through PlayerInfo.getSkinLocation (NickHiderSkinMixin).
+	 * through PlayerInfo.getSkinLocation (NickHiderSkinMixin); only YOUR entry
+	 * is ever changed.
 	 */
 	public static ResourceLocation skinFor(GameProfile profile) {
-		return switch (skinChoice(profile)) {
-			case 1 -> DefaultPlayerSkin.getDefaultSkin(profile.getId());
-			case 2 -> realSkin;
-			default -> null;
-		};
+		return hideSkin(profile) ? DefaultPlayerSkin.getDefaultSkin(profile.getId()) : null;
 	}
 
 	/** The arm model ("default" / "slim") matching skinFor, or null to keep it. */
 	public static String modelFor(GameProfile profile) {
-		return switch (skinChoice(profile)) {
-			case 1 -> DefaultPlayerSkin.getSkinModelName(profile.getId());
-			case 2 -> realModel;
-			default -> null;
-		};
-	}
-
-	// Your real account profile carries no skin until it is filled from the
-	// session service; SkinManager.registerSkins does that (once, async) and
-	// hands back the registered texture plus its model metadata. Until it
-	// arrives the server's skin simply stays.
-	private static void requestRealSkin(Minecraft mc) {
-		if (realSkinRequested) {
-			return;
-		}
-		realSkinRequested = true;
-		try {
-			mc.getSkinManager().registerSkins(mc.getUser().getGameProfile(), (type, location, texture) -> {
-				if (type == com.mojang.authlib.minecraft.MinecraftProfileTexture.Type.SKIN) {
-					String model = texture.getMetadata("model");
-					realModel = model == null ? "default" : model;
-					realSkin = location;
-				}
-			}, true);
-		} catch (Throwable t) {
-			// keep the server's skin
-		}
+		return hideSkin(profile) ? DefaultPlayerSkin.getSkinModelName(profile.getId()) : null;
 	}
 
 	/**

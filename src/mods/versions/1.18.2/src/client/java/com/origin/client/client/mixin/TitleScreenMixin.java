@@ -2,6 +2,7 @@ package com.origin.client.client.mixin;
 
 import com.origin.client.client.gui.OriginButtonRenderer;
 import com.origin.client.client.gui.OriginForeignWidgets;
+import com.origin.client.client.gui.CosmeticsScreen;
 import com.origin.client.client.gui.OriginModMenuScreen;
 import com.origin.client.client.gui.OriginWidgetOwnership;
 import com.origin.client.client.mods.Mods;
@@ -73,6 +74,8 @@ public class TitleScreenMixin {
 
 	@Unique
 	private Button originclient$modsNav;
+	@Unique
+	private Button originclient$cosmeticsNav;
 	@Unique
 	private long originclient$openedAt = 0;
 	@Unique
@@ -257,8 +260,12 @@ public class TitleScreenMixin {
 			originclient$modsNav = new Button(0, 0, 150, 20, new TextComponent("Mods"),
 					b -> mc.setScreen(new OriginModMenuScreen()));
 			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$modsNav);
+			originclient$cosmeticsNav = new Button(0, 0, 150, 20, new TextComponent("Cosmetics"),
+					b -> mc.setScreen(new CosmeticsScreen(self)));
+			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$cosmeticsNav);
 		} catch (Throwable ignored) {
 			originclient$modsNav = null;
+			originclient$cosmeticsNav = null;
 		}
 		originclient$layoutCentered(self);
 		OriginForeignWidgets.avoidOverlap(self);
@@ -290,6 +297,7 @@ public class TitleScreenMixin {
 				return;
 			}
 			main.remove(originclient$modsNav);
+			main.remove(originclient$cosmeticsNav);
 			main.sort(java.util.Comparator.comparingInt((AbstractWidget w) -> w.y).thenComparingInt(w -> w.x));
 			if (originclient$modsNav != null) {
 				main.add(Math.min(3, main.size()), originclient$modsNav);   // after Realms, before Options
@@ -320,6 +328,17 @@ public class TitleScreenMixin {
 				originclient$nav.add(w);
 				originclient$navPos.add(new int[]{x, y});
 				OriginButtonRenderer.setTitlePresentation(w, titleIcons[i], false);
+			}
+
+			// Cosmetics gets its own full-width row under the Realms/Mods pair.
+			if (originclient$cosmeticsNav != null) {
+				int cy = L.mainTop + 3 * L.rowStep;
+				originclient$cosmeticsNav.x = L.mainX;
+				originclient$cosmeticsNav.y = cy;
+				originclient$cosmeticsNav.setWidth(L.mainW);
+				((AbstractWidgetAccessor) originclient$cosmeticsNav).originclient$setHeight(L.buttonH);
+				originclient$nav.add(originclient$cosmeticsNav);
+				originclient$navPos.add(new int[]{L.mainX, cy});
 			}
 
 			List<AbstractWidget> dock = new ArrayList<>();

@@ -515,6 +515,11 @@ public final class HudElements {
 		BedwarsHud.register();
 	}
 
+	// ---- Origin originals: Portal Calculator (2026-10-12) ----
+	static {
+		PortalCalcHud.register();
+	}
+
 	// Package-private so Readouts (the Lunar-parity readouts) registers into the same list.
 	static void add(String id, String modId, String label, HudPos def,
 							java.util.function.Function<Minecraft, int[]> measure, Renderer r) {

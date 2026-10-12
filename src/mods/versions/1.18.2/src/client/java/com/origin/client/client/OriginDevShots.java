@@ -31,7 +31,7 @@ public final class OriginDevShots {
 
 	/** What a shot opens before capturing. */
 	private enum Kind {
-		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT;
+		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS;
 
 		Screen open() {
 			return switch (this) {
@@ -43,6 +43,8 @@ public final class OriginDevShots {
 				case SETTINGS -> new OriginModMenuScreen().preview(false, true);
 				// The Right Shift screen (HUD editor + the Origin centre group).
 				case RSHIFT -> new HudEditorScreen(true);
+				// The cosmetics locker, opened from the menu's Cosmetics tab.
+				case COSMETICS -> new com.origin.client.client.gui.CosmeticsScreen(null);
 			};
 		}
 	}
