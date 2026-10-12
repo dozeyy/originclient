@@ -109,6 +109,9 @@ website/                  originclient.org: island-in-the-sky page (DOWNLOAD.liv
   launcher/promos.json    the launcher HOME BANNER's live feed (promos, Discord invite, ad-network
                           switch) — edit + push to main; launchers pick it up within 30 min
   ad/banner.html          the banner's ad-network page (placeholder until Nitro is approved)
+services/cosmetics/       store delivery service (Cloudflare Worker + D1): Tebex purchases ->
+                          who owns/wears what; the mod reads it. docs/STORE.md
+tools/cosmetics/          export-capes.mjs: store cape art -> in-game cape textures
 docs/RELEASING.md         how shipping works (tag flow, pipeline, labels)
 ```
 - **Shared fix** → edit `src/mods/shared/`, run `python tools/shared-sync/sync.py`.

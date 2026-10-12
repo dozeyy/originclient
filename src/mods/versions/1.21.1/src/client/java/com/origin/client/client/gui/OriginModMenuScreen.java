@@ -790,10 +790,12 @@ public class OriginModMenuScreen extends Screen {
 	// non-mod sections. railY(i) is THE geometry for both drawing and clicking.
 	private static final String[] RAIL_CATS = {"All", "HUD", "Visual", "Gameplay"};
 	private static final Cat[] RAIL_CAT_VALUES = {Cat.ALL, Cat.HUD, Cat.VISUAL, Cat.GAMEPLAY};
-	private static final String[] RAIL_NAVS = {"Profiles", "Settings"};
-	private static final Nav[] RAIL_NAV_VALUES = {Nav.PROFILES, Nav.SETTINGS};
+	// A null value opens its own full screen instead of a page in this menu
+	// (Cosmetics has a player preview, so it gets the whole panel).
+	private static final String[] RAIL_NAVS = {"Profiles", "Settings", "Cosmetics"};
+	private static final Nav[] RAIL_NAV_VALUES = {Nav.PROFILES, Nav.SETTINGS, null};
 
-	/** y of rail row `i` (0–3 categories, 4–5 Profiles/Settings, with a divider gap). */
+	/** y of rail row `i` (0–3 categories, then Profiles/Settings/Cosmetics, with a divider gap). */
 	private int railY(int i) {
 		return py() + railHeaderH() + i * railStep() + (i >= RAIL_CATS.length ? 12 : 0);
 	}
@@ -947,6 +949,10 @@ public class OriginModMenuScreen extends Screen {
 		for (int i = 0; i < RAIL_NAVS.length; i++) {
 			int y = railY(RAIL_CATS.length + i);
 			if (in(mx, my, x, y, x + w, y + RAIL_H)) {
+				if (RAIL_NAV_VALUES[i] == null) {
+					Minecraft.getInstance().setScreen(new CosmeticsScreen());
+					return true;
+				}
 				nav = RAIL_NAV_VALUES[i];
 				page = null;
 				pageChangedAt = System.currentTimeMillis();
