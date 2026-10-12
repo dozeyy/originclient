@@ -13,7 +13,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
-            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Padding" Value="8,4"/>
             <Setter Property="VerticalAlignment" Value="Top"/>
         </Style>
     </UserControl.Resources>
@@ -109,17 +109,17 @@
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Ellipse x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.Accent}"
-                                         VerticalAlignment="Top" Margin="0,6,8,0"/>
+                                         VerticalAlignment="Top" Margin="0,6,7,0"/>
                                 <TextBlock Grid.Column="1" x:Name="StatusText" Text="Sign in to play"
                                            Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"/>
                             </Grid>
                         </Border>
-                        <Border Grid.Column="1" x:Name="PlayersPill" Style="{StaticResource Home.Pill}" Margin="10,0,0,0"
+                        <Border Grid.Column="1" x:Name="PlayersPill" Style="{StaticResource Home.Pill}" Margin="8,0,0,0"
                                 Visibility="Collapsed"
                                 ToolTip="People with the Origin launcher or game open right now">
                             <StackPanel Orientation="Horizontal">
                                 <Ellipse Width="6" Height="6" Fill="{StaticResource Brush.Success}"
-                                         VerticalAlignment="Top" Margin="0,6,8,0"/>
+                                         VerticalAlignment="Top" Margin="0,6,7,0"/>
                                 <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Caption}"/>
                             </StackPanel>
                         </Border>
