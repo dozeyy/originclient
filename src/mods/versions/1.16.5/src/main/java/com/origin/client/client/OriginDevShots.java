@@ -38,7 +38,9 @@ public final class OriginDevShots {
 		// every other Origin window (the 2026-10-12 restyle onto gui/OriginWindow)
 		FPSCOACH, WAYPOINTS, ITEMSIZE, ITEMCOUNTER, QUICKPLAY, SHADERS,
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
-		MENU_CLEAR;
+		MENU_CLEAR,
+		// Friends (social/SocialDemo fills it): a chat, then the party
+		FRIENDS, FRIENDS_PARTY;
 
 		Screen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -46,6 +48,8 @@ public final class OriginDevShots {
 				savedBgOpacity = com.origin.client.client.mods.Mods.metaNum("menuBgOpacity", 1.0);
 			}
 			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", this == MENU_CLEAR ? 0.0 : 1.0);
+			// The friends demo only on its own shots, so every other shot looks the same in both passes.
+			com.origin.client.client.social.SocialDemo.clear();
 			switch (this) {
 				case TITLE:
 					return new TitleScreen();
@@ -75,6 +79,14 @@ public final class OriginDevShots {
 					return new com.origin.client.client.shaders.ShaderBrowserScreen(null);
 				case MENU_CLEAR:
 					return new OriginModMenuScreen().preview(false, false);
+				case FRIENDS:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL);
+				case FRIENDS_PARTY:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY);
 				default:
 					// RSHIFT: the Right Shift screen (HUD editor + the Origin centre group).
 					return new HudEditorScreen(true);
