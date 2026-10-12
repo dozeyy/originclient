@@ -84,8 +84,8 @@ public class OriginModMenuScreen extends Screen {
 	private String confirmDeleteName = null;
 
 	// Where closing the menu lands. null = back to the game (Right Shift / title
-	// Mods button). The Video Settings mod rail (SodiumModRail) passes its own
-	// screen so Close returns the player to Video Settings, not into the world.
+	// Mods button). A caller opening the menu from another screen passes that
+	// screen so Close returns the player there, not into the world.
 	private final Screen returnTo;
 
 	public OriginModMenuScreen() {
@@ -369,6 +369,23 @@ public class OriginModMenuScreen extends Screen {
 		} else {
 			Mods.set(id, key, csv);
 		}
+	}
+
+	// Item Counter's "Items" row opens the shared item grid (same layout as Item
+	// Size) instead of the list popup -- any item can be counted, not a fixed set.
+	private static boolean isItemPicker(String modId, String key) {
+		return modId.equals("itemcounter") && key.equals("items");
+	}
+
+	private static String itemPickerSummary(String csv) {
+		java.util.List<String> names = new java.util.ArrayList<>();
+		for (String t : com.origin.client.client.mods.ItemCounter.tokens(csv)) {
+			var e = com.origin.client.client.mods.ItemCounter.resolve(t);
+			if (e != null) {
+				names.add(e.label());
+			}
+		}
+		return names.isEmpty() ? "None" : String.join(", ", names);
 	}
 
 	private int multiBtnW(int x0, int x1) {
@@ -1503,6 +1520,7 @@ public class OriginModMenuScreen extends Screen {
 			case MULTISELECT -> {
 				java.util.List<String> sel = splitCsv(vMulti(modId, o.key));
 				String summary = sel.isEmpty() ? "None"
+						: isItemPicker(modId, o.key) ? itemPickerSummary(vMulti(modId, o.key))
 						: String.join(", ", sel.stream().map(JeiSettings::prettify).toList());
 				int bw = multiBtnW(x0, x1);
 				int bx = x1 - 10 - bw;
@@ -1719,6 +1737,10 @@ public class OriginModMenuScreen extends Screen {
 			case MULTISELECT -> {
 				int bw = multiBtnW(x0, x1);
 				int bx = x1 - 10 - bw;
+				if (mx >= bx && mx <= x1 - 10 && isItemPicker(modId, o.key)) {
+					Minecraft.getInstance().setScreen(new ItemCounterPickerScreen());
+					return true;
+				}
 				if (mx >= bx && mx <= x1 - 10) {
 					java.util.List<String> allChoices = java.util.Arrays.asList(o.modes);
 					java.util.List<String> sel = splitCsv(vMulti(modId, o.key));

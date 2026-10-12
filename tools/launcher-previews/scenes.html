@@ -1,0 +1,175 @@
+<!doctype html>
+<!--
+  Home-banner preview art (tools/launcher-previews/render.mjs renders each
+  scene to src/OriginLauncher.App/Assets/Promos/<scene>.jpg). One scene per
+  ?scene=<id>. The canvas is the banner card's own size (400x100 CSS px, rendered
+  at 2x); the launcher lays the card's text over the LEFT half, so each
+  scene keeps its subject on the RIGHT. The UI mock-ups mirror the in-game
+  Origin look (monochrome panels, green switches, Monocraft for game text);
+  backdrops are the launcher's own bundled Minecraft update art.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Inter; src: url(../../website/assets/fonts/inter-400.woff2); font-weight: 400; }
+  @font-face { font-family: Inter; src: url(../../website/assets/fonts/inter-600.woff2); font-weight: 600; }
+  @font-face { font-family: Inter; src: url(../../website/assets/fonts/inter-700.woff2); font-weight: 700; }
+  @font-face { font-family: Mono; src: url(../../website/assets/fonts/monocraft.woff2); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 400px; height: 100px; overflow: hidden; background: #0e1110; }
+  body { font-family: Inter, sans-serif; color: #f1f1f1; position: relative; }
+  .scene { display: none; position: absolute; inset: 0; }
+  .scene.on { display: block; }
+  .bg { position: absolute; inset: -6px; background-size: cover; background-position: center;
+        filter: blur(1.2px) brightness(.62) saturate(1.05); }
+  .px { image-rendering: pixelated; }
+  .panel { position: absolute; background: rgba(14,14,14,.94); border: 1px solid rgba(255,255,255,.09);
+           border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+  .mono { font-family: Mono, monospace; }
+
+  /* menu */
+  .rail { position: absolute; left: 0; top: 0; bottom: 0; width: 50px; border-right: 1px solid rgba(255,255,255,.07); padding: 7px 5px; }
+  .rail .item { font-size: 5.5px; font-weight: 700; color: #8a8a8a; padding: 3px 5px; border-radius: 3px; margin-bottom: 2px; }
+  .rail .item.on { color: #f1f1f1; background: rgba(255,255,255,.10); box-shadow: inset 2px 0 0 #e0e0e0; }
+  .rings { display: block; margin: 0 auto 6px; }
+  .cards { position: absolute; left: 56px; right: 6px; top: 7px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .card { height: 33px; min-width: 0; border-radius: 5px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07);
+          display: flex; align-items: center; padding: 0 5px; gap: 5px; }
+  .card img { width: 13px; height: 13px; }
+  .card .name { font-size: 5.6px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; }
+  .sw { width: 13px; height: 7px; border-radius: 4px; background: #68c490; position: relative; }
+  .sw::after { content: ""; position: absolute; right: 1px; top: 1px; width: 5px; height: 5px; border-radius: 50%; background: #fff; }
+  .sw.off { background: rgba(255,255,255,.18); }
+  .sw.off::after { right: auto; left: 1px; }
+  .key { position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 4px;
+         background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.12); font-family: Mono, monospace; font-size: 8px; }
+  .key.down { background: rgba(240,240,240,.92); color: #111; }
+
+  /* map */
+  .map { position: absolute; width: 78px; height: 78px; right: 22px; top: 8px; border-radius: 6px; overflow: hidden;
+         border: 1.5px solid rgba(0,0,0,.7); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+  .map canvas { width: 78px; height: 78px; display: block; }
+  .arrow { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform: translate(-50%,-60%);
+           border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 9px solid #3b6cff;
+           filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff); }
+  .compass { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-family: Mono; font-size: 6px;
+             text-shadow: 0 1px 0 #000; }
+  .coords { position: absolute; right: 22px; top: 88px; width: 78px; text-align: center; font-family: Mono; font-size: 5.5px;
+            color: #fff; text-shadow: 0 1px 0 #000; }
+
+  /* chat */
+  .chat { position: absolute; left: 150px; right: 6px; bottom: 10px; font-family: Mono, monospace; font-size: 6.2px; }
+  .chat .line { background: rgba(0,0,0,.55); padding: 2px 4px; white-space: nowrap; }
+  .chat .dim { color: #aaa; }
+  .chat .btn { color: #fff; text-decoration: underline; }
+  .chat .br { color: #555; }
+  .chat .hover { background: rgba(255,255,255,.18); }
+  .cursor { position: absolute; width: 0; height: 0; border-left: 5px solid #fff; border-top: 0 solid transparent;
+            border-bottom: 8px solid transparent; filter: drop-shadow(0 1px 1px #000); }
+  .tip { position: absolute; background: rgba(16,0,16,.94); border: 1px solid #2a0a5e; color: #fff; font-family: Mono;
+         font-size: 5.5px; padding: 2px 4px; border-radius: 2px; white-space: nowrap; }
+
+  /* shaders */
+  .half { position: absolute; top: -6px; bottom: -6px; background-size: 520px auto; background-position: right center; }
+  .pill { position: absolute; font-size: 6px; font-weight: 700; letter-spacing: .5px; padding: 3px 6px; border-radius: 10px;
+          background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.15); }
+</style>
+</head>
+<body>
+
+<!-- Right Shift opens the Origin menu -->
+<section class="scene" id="menu">
+  <div class="bg" style="background-image:url(../../src/OriginLauncher.App/Assets/Versions/1.20.png)"></div>
+  <div class="key" style="left:112px; top:36px; width:36px; height:22px; font-size:6.5px; background:rgba(240,240,240,.92); color:#111">R-SHIFT</div>
+  <div class="panel" style="left:158px; top:9px; width:234px; height:82px;">
+    <div class="rail">
+      <svg class="rings" width="16" height="16" viewBox="-12 -12 24 24" fill="none" stroke="#e0e0e0" stroke-width="1.3">
+        <ellipse rx="10" ry="4"/><ellipse rx="10" ry="4" transform="rotate(60)"/><ellipse rx="10" ry="4" transform="rotate(120)"/>
+      </svg>
+      <div class="item on">All</div><div class="item">HUD</div><div class="item">Visual</div><div class="item">Gameplay</div>
+    </div>
+    <div class="cards">
+      <div class="card"><img class="px" src="../../website/assets/blocks/grass_top.png"><span class="name">Minimap</span><span class="sw"></span></div>
+      <div class="card"><img class="px" src="../../website/assets/blocks/glowstone.png"><span class="name">Lighting</span><span class="sw"></span></div>
+      <div class="card"><img class="px" src="../../website/assets/blocks/diamond_ore.png"><span class="name">Item Physics</span><span class="sw off"></span></div>
+      <div class="card"><img class="px" src="../../website/assets/blocks/crafting_table_front.png"><span class="name">Keystrokes</span><span class="sw"></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- Press M for the full map -->
+<section class="scene" id="map">
+  <div class="bg" style="background-image:url(../../src/OriginLauncher.App/Assets/Versions/1.18.png)"></div>
+  <div class="key" style="left:262px; top:36px; width:22px; height:22px; font-size:10px">M</div>
+  <div class="map"><canvas id="mapc" width="78" height="78"></canvas><div class="compass">N</div><div class="arrow"></div></div>
+  <div class="coords">128, 64, -42</div>
+</section>
+
+<!-- Edit HUD -->
+<section class="scene" id="hud">
+  <div class="bg" style="background-image:url(../../src/OriginLauncher.App/Assets/Versions/1.21.png)"></div>
+  <div class="key down" style="left:322px; top:12px; width:20px; height:20px">W</div>
+  <div class="key" style="left:300px; top:34px; width:20px; height:20px">A</div>
+  <div class="key" style="left:322px; top:34px; width:20px; height:20px">S</div>
+  <div class="key" style="left:344px; top:34px; width:20px; height:20px">D</div>
+  <div class="key down" style="left:300px; top:56px; width:31px; height:16px; font-size:6px">LMB</div>
+  <div class="key" style="left:333px; top:56px; width:31px; height:16px; font-size:6px">RMB</div>
+  <div class="key" style="left:300px; top:74px; width:64px; height:12px; font-size:6px">───</div>
+  <div class="key" style="left:224px; top:12px; width:60px; height:14px; font-size:6.5px; justify-content:flex-start; padding-left:5px">144 FPS</div>
+  <div class="key" style="left:224px; top:29px; width:60px; height:14px; font-size:6.5px; justify-content:flex-start; padding-left:5px">11 CPS</div>
+  <div class="key" style="left:224px; top:46px; width:60px; height:14px; font-size:6.5px; justify-content:flex-start; padding-left:5px">3 Combo</div>
+  <div style="position:absolute; left:220px; top:8px; width:148px; height:82px; border:1px dashed rgba(255,255,255,.35); border-radius:4px"></div>
+</section>
+
+<!-- Screenshots in chat -->
+<section class="scene" id="chat">
+  <div class="bg" style="background-image:url(../../src/OriginLauncher.App/Assets/Versions/26.png)"></div>
+  <div class="key" style="left:342px; top:10px; width:22px; height:18px; font-size:8px">F2</div>
+  <div class="chat">
+    <div class="line"><span class="dim">&lt;Alex&gt;</span> that view is insane</div>
+    <div class="line">Saved screenshot as <u>2026-10-12_18.42.png</u></div>
+    <div class="line">&nbsp;<span class="br">[</span><span class="btn hover">Copy Image</span><span class="br">]</span> <span class="br">[</span><span class="btn">Copy File</span><span class="br">]</span> <span class="br">[</span><span class="btn">Open Folder</span><span class="br">]</span></div>
+  </div>
+  <div class="cursor" style="left:182px; top:86px"></div>
+  <div class="tip" style="left:188px; top:40px">Copy the picture -- paste it into Discord</div>
+</section>
+
+<!-- Shaders -->
+<section class="scene" id="shaders">
+  <!-- one picture, two looks: the right of the divider is the "shaders on" grade -->
+  <div class="half" style="left:-6px; right:-6px; background-image:url(../../src/OriginLauncher.App/Assets/Versions/1.19.png); filter: saturate(.35) brightness(.55)"></div>
+  <div class="half" style="left:-6px; right:-6px; clip-path: inset(0 0 0 281px); background-image:url(../../src/OriginLauncher.App/Assets/Versions/1.19.png); filter: saturate(1.35) brightness(.95) contrast(1.08)"></div>
+  <div style="position:absolute; left:275px; right:0; top:0; bottom:0; background: radial-gradient(circle at 85% 10%, rgba(255,200,120,.55), transparent 60%)"></div>
+  <div style="position:absolute; left:274px; top:0; bottom:0; width:2px; background:#f1f1f1; box-shadow:0 0 6px rgba(255,255,255,.7)"></div>
+  <div class="pill" style="left:200px; top:78px">OFF</div>
+  <div class="pill" style="left:322px; top:78px; background:rgba(95,208,155,.85); color:#0a1710; border-color:transparent">SHADERS</div>
+</section>
+
+<script>
+  // The minimap: real 1.21.1 block textures, one texel per pixel, laid out as a
+  // little island so it reads as "a map" at a glance.
+  const tex = name => new Promise(ok => { const i = new Image(); i.onload = () => ok(i); i.src = `../../website/assets/blocks/${name}.png`; });
+  async function drawMap() {
+    const c = document.getElementById('mapc'), g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    const [grass, water, sand, leaves, stone, log] = await Promise.all(
+      ['grass_top', 'water', 'gravel', 'oak_leaves', 'stone', 'oak_log_top'].map(tex));
+    const T = 13, n = 6;   // 6x6 tiles of 13 px
+    const lay = [
+      'wwwwgg',
+      'wwsggl',
+      'wsgglg',
+      'sggggg',
+      'ggltgr',
+      'glgggr'];
+    const pick = { w: water, g: grass, s: sand, l: leaves, r: stone, t: log };
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) g.drawImage(pick[lay[y][x]], x * T, y * T, T, T);
+    g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(0, 0, 78, 78);
+  }
+  const id = new URLSearchParams(location.search).get('scene') || 'menu';
+  document.getElementById(id).classList.add('on');
+  window.ready = (id === 'map' ? drawMap() : Promise.resolve()).then(() => document.fonts.ready).then(() => true);
+</script>
+</body>
+</html>

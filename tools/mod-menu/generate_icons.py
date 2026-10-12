@@ -2,7 +2,8 @@
 """Bake the approved Origin Icon System into Minecraft's icon atlases.
 
 The editable 24 px vector masters live in
-design/icon-proposals/origin-icon-system-v1/generate_proposal.py. This script
+design/icon-proposals/origin-icon-system-v2/generate_proposal.py (v2 = the
+2.2 px set Will supplied 2026-10-12; v1 is kept as the brand mark's source). This script
 does not keep a second copy of any geometry: it imports those masters, maps the
 public Minecraft ids, renders a transparent review/fallback atlas with Chromium,
 then derives a signed-distance atlas for resolution-independent in-game edges.
@@ -25,16 +26,17 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
-MASTER = PROJECT / "design" / "icon-proposals" / "origin-icon-system-v1" / "generate_proposal.py"
+MASTER = PROJECT / "design" / "icon-proposals" / "origin-icon-system-v2" / "generate_proposal.py"
 OUT = (PROJECT / "src" / "mods" / "versions" / "1.21.1" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui")
 
 CELL = 192
 COLS = 6
 SDF_RANGE = 16.0
-# Small-size optical correction: roughly +0.15 master-grid pixels across the
-# full stroke, enough to match Inter Semibold without returning to a heavy icon.
-SDF_WEIGHT_BIAS = 0.6
+# Small-size optical correction (SDF distance, in atlas px). v1's thin 1.55 px
+# stroke needed +0.6 to hold up next to Inter Semibold; v2's 2.2 px stroke is
+# already that heavy, so it bakes true to the master.
+SDF_WEIGHT_BIAS = 0.0
 # Extra browser-window height beyond the atlas (see the screenshot call).
 WINDOW_SLACK = 256
 
@@ -171,6 +173,9 @@ def find_browser() -> Path:
     for candidate in candidates:
         if candidate.is_file():
             return candidate
+    # Playwright's bundled Chromium (cloud sandboxes).
+    for bundled in sorted(Path("/opt/pw-browsers").glob("chromium-*/chrome-linux/chrome")):
+        return bundled
     for name in ("chrome", "msedge", "chromium"):
         found = shutil.which(name)
         if found:
@@ -188,7 +193,8 @@ def atlas_svg(entries: list[tuple[str, dict]], stroke: str, width: int, height: 
         y = (index // COLS) * CELL
         # 24 -> CELL px. Keeping the authored viewBox intact preserves the
         # approved spacing and optical stroke across every glyph.
-        parts.append(f'<g transform="translate({x} {y}) scale({CELL / 24:g})" {stroke}>{entry["body"]}</g>')
+        # An entry may carry its own stroke (the brand mark keeps v1's weight).
+        parts.append(f'<g transform="translate({x} {y}) scale({CELL / 24:g})" {entry.get("stroke", stroke)}>{entry["body"]}</g>')
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -322,6 +328,8 @@ def build() -> None:
             f"--window-size={width},{height + WINDOW_SLACK}", f"--user-data-dir={temp / 'browser'}",
             f"--screenshot={rendered}", source.as_uri(),
         ]
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            args.insert(1, "--no-sandbox")   # Chromium refuses to run as root otherwise (containers)
         subprocess.run(args, check=True, capture_output=True, text=True, timeout=45)
         with Image.open(rendered) as image:
             atlas = image.convert("RGBA").crop((0, 0, width, height))
@@ -348,7 +356,7 @@ def build() -> None:
         "cell": CELL,
         "cols": COLS,
         "grid": 24,
-        "style": "approved-origin-outline-1.55",
+        "style": "origin-outline-2.2",
         "rendering": "screen-space-sdf",
         "distanceRange": SDF_RANGE,
         "opticalWeightBias": SDF_WEIGHT_BIAS,
