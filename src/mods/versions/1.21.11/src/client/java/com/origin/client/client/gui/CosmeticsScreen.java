@@ -8,11 +8,11 @@ import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
@@ -35,10 +35,12 @@ import java.util.List;
  *   * vanilla runs renderBackground as its own stratum before render(): out
  *     of a world super paints the Origin backdrop (the frame's one blur); in
  *     a world nothing is drawn, as on 1.21.1 (the live world under the dim);
- *   * the preview goes through InventoryScreen.renderEntityInInventory(g, x0,
- *     y0, x1, y1, scale, offset, rotation, camera, entity): the player is
- *     extracted now and drawn later as a picture-in-picture, centred in that
- *     box -- 1.21.1's 14 px drop is folded into the offset;
+ *   * 1.21.11 dropped InventoryScreen's 10-argument renderEntityInInventory,
+ *     so the preview does its steps itself: the player's render state is
+ *     extracted now and handed to g.submitEntityRenderState(state, scale,
+ *     offset, rotation, camera, x0, y0, x1, y1), drawn later as a
+ *     picture-in-picture centred in that box -- 1.21.1's 14 px drop is folded
+ *     into the offset;
  *   * blits name their pipeline (RenderPipelines.GUI_TEXTURED, u/v before
  *     size); input arrives as MouseButtonEvent / KeyEvent objects.
  */
@@ -421,7 +423,15 @@ public class CosmeticsScreen extends Screen {
 			// Drawn centred in the box; 1.21.1 put the feet 14 px lower than that
 			// (offset is in model units, before the scale).
 			Vector3f offset = new Vector3f(0, player.getBbHeight() / 2 + 14f / size, 0);
-			InventoryScreen.renderEntityInInventory(g, bx0, by0, bx1, by1, size, offset, pose, camera, player);
+			// What 1.21.10's renderEntityInInventory did: full light, no shadow,
+			// hitboxes or outline in the picture.
+			EntityRenderState state = Minecraft.getInstance().getEntityRenderDispatcher()
+					.getRenderer(player).createRenderState(player, 1.0f);
+			state.lightCoords = 15728880;
+			state.hitboxesRenderState = null;
+			state.shadowPieces.clear();
+			state.outlineColor = 0;
+			g.submitEntityRenderState(state, size, offset, pose, camera, bx0, by0, bx1, by1);
 		} finally {
 			player.yBodyRot = bodyRot;
 			player.setYRot(yRot);

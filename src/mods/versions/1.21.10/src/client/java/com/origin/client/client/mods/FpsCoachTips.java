@@ -36,9 +36,8 @@ import java.util.Properties;
 // PER-VERSION DELTA (1.21.10; options as Sodium 0.7 for 1.21.10 binds them):
 //   * ParticleStatus moved to net.minecraft.server.level;
 //   * F3 is the 1.21.9 debug-entries overlay: Minecraft.debugEntries
-//     isOverlayVisible() / setOverlayVisible(boolean). Those are the 1.21.11
-//     names; the method is the same one on 1.21.10 (same intermediary in both
-//     versions' Yarn mappings), so the name is reasoned, not module-evidenced.
+//     isF3Visible() / setF3Visible(boolean). 1.21.11 renamed the same two
+//     methods isOverlayVisible / setOverlayVisible (CI rejected those here).
 public final class FpsCoachTips {
 	private FpsCoachTips() {
 	}
@@ -158,7 +157,7 @@ public final class FpsCoachTips {
 			}
 		}
 
-		if (mc.debugEntries.isOverlayVisible()) {
+		if (mc.debugEntries.isF3Visible()) {
 			out.add(new Tip("debug", 40, "The F3 screen is open",
 					"Its text and charts cost FPS. F3 closes it any time.",
 					"F3 screen open → closed", m -> toggleDebug(m), 1000));
@@ -256,11 +255,11 @@ public final class FpsCoachTips {
 	}
 
 	private static Runnable toggleDebug(Minecraft mc) {
-		if (!mc.debugEntries.isOverlayVisible()) {
+		if (!mc.debugEntries.isF3Visible()) {
 			return null;
 		}
-		mc.debugEntries.setOverlayVisible(false);
-		return () -> mc.debugEntries.setOverlayVisible(true);
+		mc.debugEntries.setF3Visible(false);
+		return () -> mc.debugEntries.setF3Visible(true);
 	}
 
 	private static int refreshRate(Minecraft mc) {
