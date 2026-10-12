@@ -6,8 +6,9 @@ namespace OriginLauncher.App.Core.GameFolders;
 // seeded with another account's SETTINGS for that version — keybinds, video
 // settings, the server list, mod configs (Origin's originclient*.json, Sodium,
 // Iris, ...) — so it doesn't start bare. Worlds, screenshots, logs, resource and
-// shader packs and mods are NOT copied: those stay with the account that has
-// them (the launcher provisions Origin's own mods into every folder at launch).
+// shader packs are NOT copied: those stay with the account that has them. Mods
+// are never copied either — there is nothing to copy: every account of a
+// version loads the same shared instances/<version>/mods/ (SharedMods).
 //
 // Crash-safe: the copy is built in a temporary sibling folder and renamed into
 // place in one step, so a game folder is either fully seeded or absent.

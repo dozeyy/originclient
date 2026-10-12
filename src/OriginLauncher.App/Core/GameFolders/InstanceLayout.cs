@@ -10,17 +10,25 @@ namespace OriginLauncher.App.Core.GameFolders;
 //     versions/ libraries/ assets/ runtime/      libraries, assets and Java, downloaded
 //     resources/ origin-verified.json            once per version (InstallVerification's
 //                                                stamp lives here too)
+//     mods/                                      the version's ONE mods folder, shared by
+//                                                every account (Will, 2026-10-12) — the
+//                                                game loads it via fabric.modsFolder
+//                                                (SharedMods has the why and the merge)
 //     accounts/<account>/                       one ACCOUNT's game folder (--gameDir):
-//       options.txt servers.dat saves/ config/   its own settings, worlds, servers,
-//       mods/ logs/ screenshots/ ...             mod configs and mods folder
+//       options.txt servers.dat saves/ config/   its own settings, worlds, servers and
+//       logs/ screenshots/ ...                   mod configs
 //
 // <account> is the Minecraft profile UUID, lower-case without dashes (stable —
 // a gamertag can change), or "offline" for Settings -> Developer -> offline test
-// mode. Each account folder is a complete .minecraft, so a game launched there
-// never touches another account's files, and two accounts can play at once.
+// mode. Each account folder is a complete .minecraft apart from mods/, so a game
+// launched there never touches another account's settings or worlds, and two
+// accounts can play at once (on the same version too: they share the mods).
 public static class InstanceLayout
 {
     public const string AccountsFolder = "accounts";
+
+    /// <summary>The version's shared mods folder, directly in its root.</summary>
+    public const string ModsFolder = "mods";
 
     /// <summary>The game folder used by offline test mode (no account signed in).</summary>
     public const string OfflineKey = "offline";
@@ -31,7 +39,7 @@ public static class InstanceLayout
     private static readonly HashSet<string> Shared = new(StringComparer.OrdinalIgnoreCase)
     {
         "versions", "libraries", "assets", "runtime", "resources",
-        AccountsFolder, "origin-verified.json",
+        AccountsFolder, ModsFolder, "origin-verified.json",
     };
 
     public static bool IsSharedEntry(string name) => Shared.Contains(name);
@@ -44,6 +52,18 @@ public static class InstanceLayout
 
     public static string GameDir(string instancesRoot, string version, string accountKey) =>
         Path.Combine(AccountsDir(instancesRoot, version), accountKey);
+
+    /// <summary>The mods folder every account's game of this version loads.</summary>
+    public static string ModsDir(string instancesRoot, string version) =>
+        Path.Combine(VersionRoot(instancesRoot, version), ModsFolder);
+
+    /// <summary>The shared mods folder for an account game folder (instances/&lt;version&gt;/accounts/&lt;account&gt;).</summary>
+    public static string ModsDirForGameDir(string gameDir)
+    {
+        var accountDir = Path.TrimEndingDirectorySeparator(gameDir);
+        var versionRoot = Path.GetDirectoryName(Path.GetDirectoryName(accountDir)) ?? accountDir;
+        return Path.Combine(versionRoot, ModsFolder);
+    }
 
     /// <summary>
     /// The folder key for an account id (a Minecraft profile UUID, with or

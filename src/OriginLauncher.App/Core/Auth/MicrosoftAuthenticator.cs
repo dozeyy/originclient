@@ -74,8 +74,25 @@ public sealed class MicrosoftAuthenticator
         var code = await GetAuthorizationCodeAsync(redirectUri, port, codeChallenge, state, presentAuthorizationUrl, ct);
         var (msaToken, refreshToken) = await ExchangeCodeForTokenAsync(code, redirectUri, codeVerifier, ct);
 
-        var session = await CompleteMinecraftAuthAsync(msaToken, ct);
-        return new AuthResult { Session = session, MsaRefreshToken = refreshToken };
+        return await CompleteInteractiveAsync(msaToken, refreshToken, ct);
+    }
+
+    // After the Microsoft window: the Microsoft part is done and its refresh
+    // token is valuable. If only the Minecraft step is rate-limited (429), hand
+    // the refresh token back anyway (Session = null, Deferred = the 429) so the
+    // account can be kept and its Minecraft step finished later — the player
+    // must not have to redo the Microsoft window because Mojang said "slow down".
+    private static async Task<AuthResult> CompleteInteractiveAsync(string msaToken, string refreshToken, CancellationToken ct)
+    {
+        try
+        {
+            var (session, expiresAt) = await CompleteMinecraftAuthAsync(msaToken, ct);
+            return new AuthResult { Session = session, MsaRefreshToken = refreshToken, ExpiresAt = expiresAt };
+        }
+        catch (MicrosoftAuthException ex) when (ex.RateLimited)
+        {
+            return new AuthResult { Session = null, MsaRefreshToken = refreshToken, Deferred = ex };
+        }
     }
 
     // TEMPORARY — testing only, paired with the ClientId swap above. This is
@@ -120,28 +137,61 @@ public sealed class MicrosoftAuthenticator
     public async Task<AuthResult> CompleteTestSignInAsync(string code, string codeVerifier, CancellationToken ct = default)
     {
         var (msaToken, refreshToken) = await ExchangeCodeForTokenAsync(code, TestRedirectUri, codeVerifier, ct, TestTokenEndpoint);
-        var session = await CompleteMinecraftAuthAsync(msaToken, ct);
-        return new AuthResult { Session = session, MsaRefreshToken = refreshToken };
+        return await CompleteInteractiveAsync(msaToken, refreshToken, ct);
     }
 
     // Silent re-authentication using a previously stored MSA refresh token —
-    // no browser, no user interaction. Used on every launch so a signed-in
-    // account doesn't need a fresh browser login each time.
+    // no browser, no user interaction. Only MinecraftSessionBroker calls this,
+    // and only when there is no cached Minecraft session left to reuse
+    // (Mojang rate-limits login_with_xbox). Always returns a Session; a 429
+    // throws (MicrosoftAuthException.RateLimited).
     public async Task<AuthResult> SignInSilentlyAsync(string refreshToken, CancellationToken ct = default)
     {
         var (msaToken, newRefreshToken) = await RefreshMsaTokenAsync(refreshToken, ct);
-        var session = await CompleteMinecraftAuthAsync(msaToken, ct);
-        return new AuthResult { Session = session, MsaRefreshToken = newRefreshToken };
+        var (session, expiresAt) = await CompleteMinecraftAuthAsync(msaToken, ct);
+        return new AuthResult { Session = session, MsaRefreshToken = newRefreshToken, ExpiresAt = expiresAt };
     }
 
-    private static async Task<MSession> CompleteMinecraftAuthAsync(string msaAccessToken, CancellationToken ct)
+    /// <summary>
+    /// Does Mojang still accept this cached Minecraft token? One profile call
+    /// (not login_with_xbox, so it doesn't spend the sign-in rate limit).
+    /// Never throws except on the caller's own cancel: anything but a clear
+    /// 200/401 is Unknown.
+    /// </summary>
+    public static async Task<Sessions.TokenCheck> CheckMinecraftTokenAsync(string minecraftAccessToken, CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, McProfileEndpoint);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", minecraftAccessToken);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            using var response = await Http.SendAsync(request, timeout.Token);
+            return response.StatusCode switch
+            {
+                HttpStatusCode.OK => Sessions.TokenCheck.Valid,
+                HttpStatusCode.Unauthorized => Sessions.TokenCheck.Rejected,
+                _ => Sessions.TokenCheck.Unknown,
+            };
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return Sessions.TokenCheck.Unknown;
+        }
+    }
+
+    private static async Task<(MSession Session, DateTimeOffset ExpiresAt)> CompleteMinecraftAuthAsync(string msaAccessToken, CancellationToken ct)
     {
         var xbl = await AuthenticateWithXboxLiveAsync(msaAccessToken, ct);
         var xsts = await AuthenticateWithXstsAsync(xbl.Token, ct);
-        var mcToken = await AuthenticateWithMinecraftAsync(xsts.UserHash, xsts.Token, ct);
+        var (mcToken, expiresAt) = await AuthenticateWithMinecraftAsync(xsts.UserHash, xsts.Token, ct);
         var profile = await GetMinecraftProfileAsync(mcToken, ct);
 
-        return new MSession
+        var session = new MSession
         {
             Username = profile.Name,
             UUID = profile.Id,
@@ -149,6 +199,7 @@ public sealed class MicrosoftAuthenticator
             UserType = "msa",
             Xuid = xsts.Xuid
         };
+        return (session, expiresAt);
     }
 
     // --- Step 1 + 2: open the browser, listen on the loopback redirect ---
@@ -204,7 +255,8 @@ public sealed class MicrosoftAuthenticator
         listener.Stop();
 
         if (error != null || code == null)
-            throw new MicrosoftAuthException("login", $"Microsoft sign-in did not return an authorization code ({error ?? "unknown error"}).");
+            throw new MicrosoftAuthException("login", "Microsoft sign-in didn't finish. Please try again.",
+                $"no authorization code ({error ?? "unknown error"})");
 
         return code;
     }
@@ -218,6 +270,34 @@ public sealed class MicrosoftAuthenticator
         string.IsNullOrWhiteSpace(body)
             ? $"HTTP {(int)response.StatusCode} {response.StatusCode} (empty response body)"
             : $"HTTP {(int)response.StatusCode} {response.StatusCode}: {body}";
+
+    // Every HTTP failure goes through here: 429 becomes the friendly
+    // rate-limited error (with the server's Retry-After), a 5xx says
+    // Microsoft is down (never "re-add your account"), and anything else
+    // becomes `playerMessage` — the raw status/body only ever goes in Detail
+    // (the error log), never on screen.
+    private static MicrosoftAuthException Failure(string stage, HttpResponseMessage response, string body, string playerMessage)
+    {
+        var detail = DescribeFailure(response, body);
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            return MicrosoftAuthException.Limited(stage, RetryAfterOf(response), detail);
+        if ((int)response.StatusCode >= 500)
+            return new MicrosoftAuthException(stage + "_unavailable",
+                "Microsoft's sign-in service isn't answering right now. Please try again in a few minutes.", detail);
+        return new MicrosoftAuthException(stage, playerMessage, detail);
+    }
+
+    private static TimeSpan? RetryAfterOf(HttpResponseMessage response)
+    {
+        var header = response.Headers.RetryAfter;
+        if (header?.Delta is { } delta) return delta;
+        if (header?.Date is { } date)
+        {
+            var wait = date - DateTimeOffset.UtcNow;
+            return wait > TimeSpan.Zero ? wait : TimeSpan.Zero;
+        }
+        return null;
+    }
 
     private static int GetFreeLoopbackPort()
     {
@@ -246,10 +326,10 @@ public sealed class MicrosoftAuthenticator
         using var response = await Http.PostAsync(tokenEndpoint, new FormUrlEncodedContent(form), ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
-            throw new MicrosoftAuthException("token_exchange", $"Microsoft token exchange failed: {DescribeFailure(response, json)}");
+            throw Failure("token_exchange", response, json, "Microsoft sign-in didn't finish. Please try again.");
 
         var token = JsonSerializer.Deserialize<MsaTokenResponse>(json)
-            ?? throw new MicrosoftAuthException("token_exchange", "Microsoft token exchange returned an empty response.");
+            ?? throw new MicrosoftAuthException("token_exchange", "Microsoft sign-in didn't finish. Please try again.", "empty token response");
         return (token.AccessToken, token.RefreshToken);
     }
 
@@ -275,10 +355,10 @@ public sealed class MicrosoftAuthenticator
         using var response = await Http.PostAsync(endpoint, new FormUrlEncodedContent(form), ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
-            throw new MicrosoftAuthException("token_refresh", $"Silent sign-in failed, a fresh login is needed: {DescribeFailure(response, json)}");
+            throw Failure("token_refresh", response, json, "Your Microsoft sign-in expired. Remove and re-add this account in the account switcher.");
 
         var token = JsonSerializer.Deserialize<MsaTokenResponse>(json)
-            ?? throw new MicrosoftAuthException("token_refresh", "Microsoft token refresh returned an empty response.");
+            ?? throw new MicrosoftAuthException("token_refresh", "Your Microsoft sign-in expired. Remove and re-add this account in the account switcher.", "empty refresh response");
         // Microsoft rotates refresh tokens on use — always persist the new one.
         return (token.AccessToken, token.RefreshToken);
     }
@@ -302,12 +382,12 @@ public sealed class MicrosoftAuthenticator
         using var response = await Http.PostAsJsonAsync(XblAuthEndpoint, payload, RequestJsonOptions, ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
-            throw new MicrosoftAuthException("xbox_live", $"Xbox Live authentication failed: {DescribeFailure(response, json)}");
+            throw Failure("xbox_live", response, json, "Couldn't sign in to Xbox Live. Please try again in a moment.");
 
         var xbl = JsonSerializer.Deserialize<XboxLiveTokenResponse>(json)
-            ?? throw new MicrosoftAuthException("xbox_live", "Xbox Live authentication returned an empty response.");
+            ?? throw new MicrosoftAuthException("xbox_live", "Couldn't sign in to Xbox Live. Please try again in a moment.", "empty response");
         var uhs = xbl.DisplayClaims.Xui.FirstOrDefault()?.Uhs
-            ?? throw new MicrosoftAuthException("xbox_live", "Xbox Live response was missing a user hash.");
+            ?? throw new MicrosoftAuthException("xbox_live", "Couldn't sign in to Xbox Live. Please try again in a moment.", "missing user hash");
         return (xbl.Token, uhs);
     }
 
@@ -340,35 +420,42 @@ public sealed class MicrosoftAuthenticator
                 2148916233 => "This Microsoft account has no Xbox Live profile. Sign in at xbox.com once, then try again.",
                 2148916238 => "This account is a child account and needs to be added to a Microsoft Family group first.",
                 2148916235 => "Xbox Live is not available in this account's region.",
-                null => $"XSTS authentication was rejected: {DescribeFailure(response, json)}",
-                _ => $"XSTS authentication was rejected ({xErr.XErr})."
+                null => "Xbox Live refused this sign-in. Please try again in a moment.",
+                _ => $"Xbox Live refused this sign-in (code {xErr.XErr})."
             };
-            throw new MicrosoftAuthException("xsts", message);
+            throw new MicrosoftAuthException("xsts", message, DescribeFailure(response, json));
         }
         if (!response.IsSuccessStatusCode)
-            throw new MicrosoftAuthException("xsts", $"XSTS authentication failed: {DescribeFailure(response, json)}");
+            throw Failure("xsts", response, json, "Xbox Live refused this sign-in. Please try again in a moment.");
 
         var xsts = JsonSerializer.Deserialize<XboxLiveTokenResponse>(json)
-            ?? throw new MicrosoftAuthException("xsts", "XSTS authentication returned an empty response.");
+            ?? throw new MicrosoftAuthException("xsts", "Xbox Live refused this sign-in. Please try again in a moment.", "empty response");
         var claims = xsts.DisplayClaims.Xui.FirstOrDefault()
-            ?? throw new MicrosoftAuthException("xsts", "XSTS response was missing user claims.");
+            ?? throw new MicrosoftAuthException("xsts", "Xbox Live refused this sign-in. Please try again in a moment.", "missing user claims");
         return (xsts.Token, claims.Uhs, claims.Xid ?? string.Empty);
     }
 
     // --- Step 5: Minecraft access token ---
+    // The call Mojang rate-limits (429): reached only when no cached session
+    // is left to reuse (MinecraftSessionBroker).
 
-    private static async Task<string> AuthenticateWithMinecraftAsync(string userHash, string xstsToken, CancellationToken ct)
+    // When login_with_xbox doesn't say (expires_in missing), Mojang's documented 24 h.
+    private const int DefaultMinecraftTokenSeconds = 86400;
+
+    private static async Task<(string Token, DateTimeOffset ExpiresAt)> AuthenticateWithMinecraftAsync(
+        string userHash, string xstsToken, CancellationToken ct)
     {
         var payload = new { identityToken = $"XBL3.0 x={userHash};{xstsToken}" };
 
         using var response = await Http.PostAsJsonAsync(McLoginEndpoint, payload, RequestJsonOptions, ct);
         var json = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
-            throw new MicrosoftAuthException("minecraft_login", $"Minecraft authentication failed: {DescribeFailure(response, json)}");
+            throw Failure("minecraft_login", response, json, "Couldn't sign in to Minecraft. Please try again in a moment.");
 
         var mc = JsonSerializer.Deserialize<MinecraftAuthResponse>(json)
-            ?? throw new MicrosoftAuthException("minecraft_login", "Minecraft authentication returned an empty response.");
-        return mc.AccessToken;
+            ?? throw new MicrosoftAuthException("minecraft_login", "Couldn't sign in to Minecraft. Please try again in a moment.", "empty response");
+        var seconds = mc.ExpiresIn > 0 ? mc.ExpiresIn : DefaultMinecraftTokenSeconds;
+        return (mc.AccessToken, DateTimeOffset.UtcNow.AddSeconds(seconds));
     }
 
     // --- Step 6: profile (username + UUID) ---
@@ -384,10 +471,10 @@ public sealed class MicrosoftAuthenticator
         if (response.StatusCode == HttpStatusCode.NotFound)
             throw new MicrosoftAuthException("profile", "This Microsoft account does not own a copy of Minecraft.");
         if (!response.IsSuccessStatusCode)
-            throw new MicrosoftAuthException("profile", $"Fetching the Minecraft profile failed: {DescribeFailure(response, json)}");
+            throw Failure("profile", response, json, "Couldn't load your Minecraft profile. Please try again in a moment.");
 
         return JsonSerializer.Deserialize<MinecraftProfileResponse>(json)
-            ?? throw new MicrosoftAuthException("profile", "Minecraft profile response was empty.");
+            ?? throw new MicrosoftAuthException("profile", "Couldn't load your Minecraft profile. Please try again in a moment.", "empty response");
     }
 
     // --- DTOs for the JSON responses above ---
@@ -435,6 +522,10 @@ public sealed class MicrosoftAuthenticator
     {
         [JsonPropertyName("access_token")]
         public string AccessToken { get; set; } = "";
+
+        // Seconds until the Minecraft token stops working (normally 86400).
+        [JsonPropertyName("expires_in")]
+        public long ExpiresIn { get; set; }
     }
 
     private sealed class MinecraftProfileResponse

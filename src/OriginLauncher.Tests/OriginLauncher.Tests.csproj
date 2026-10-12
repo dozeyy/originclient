@@ -9,8 +9,11 @@
     Discord invite handling, the visibility gate, occlusion math, rotation)
     Core/Sync (Settings Sync's merge rules + file formats, exercised on
     real files in temp folders), Core/GameFolders (per-account game folders:
-    layout, migration, seeding, the per-account launch state machine) and Core/Social (Origin social: sign-in,
-    sync parsing/merging, polling budget, status lines, join arguments).
+    layout, migration, seeding, the shared per-version mods folder + its merge,
+    the per-account launch state machine) and Core/Social (Origin social: sign-in,
+    sync parsing/merging, polling budget, status lines, join arguments) and
+    Core/Auth/Sessions (when the launcher signs in to Minecraft: per-account
+    session reuse until expiry, 429 back-off, pending accounts).
     Network is never touched: every fetch goes through a fake HttpTextGet.
     Run: dotnet test src/OriginLauncher.Tests
   -->
@@ -28,6 +31,10 @@
     <Compile Include="..\OriginLauncher.App\Core\Social\*.cs" LinkBase="Social" />
     <!-- Only the top folder: Core/GameFolders/Launcher is the account/settings glue. -->
     <Compile Include="..\OriginLauncher.App\Core\GameFolders\*.cs" LinkBase="GameFolders" />
+    <!-- When the launcher signs in to Minecraft: per-account session reuse, expiry,
+         429 back-off (Core/Auth/Sessions is pure; the broker glue stays out). -->
+    <Compile Include="..\OriginLauncher.App\Core\Auth\Sessions\*.cs" LinkBase="Auth" />
+    <Compile Include="..\OriginLauncher.App\Core\Auth\MicrosoftAuthException.cs" LinkBase="Auth" />
   </ItemGroup>
 
   <ItemGroup>

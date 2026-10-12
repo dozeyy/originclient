@@ -16,9 +16,12 @@ public static class OriginPaths
     /// <summary>A version's shared root (game jars, libraries, assets, Java).</summary>
     public static string VersionRoot(string version) => InstanceLayout.VersionRoot(Instances, version);
 
-    /// <summary>One account's game folder for a version (its options, worlds, servers, configs, mods).</summary>
+    /// <summary>One account's game folder for a version (its options, worlds, servers, configs).</summary>
     public static string GameDir(string version, string accountKey) =>
         InstanceLayout.GameDir(Instances, version, accountKey);
+
+    /// <summary>A version's mods folder, shared by every account (Core/GameFolders/SharedMods.cs).</summary>
+    public static string ModsDir(string version) => InstanceLayout.ModsDir(Instances, version);
 
     // Which account inherited the old one-folder-per-version game data
     // (Core/GameFolders/InstanceMigration.cs).

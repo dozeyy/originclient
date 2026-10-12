@@ -60,7 +60,7 @@ All are boot-verified with zero mixin-apply failures and full shader
 integration (Iris + Sodium from the catalog pins). Each module's
 overrides.txt lists exactly what it forks from `shared/` for its API era.
 
-### Why 1.21.2–1.21.9 aren't here yet (the hard truth about the 1.21.x line)
+### Why the 1.21.x line is several builds (the hard truth about it)
 
 "1.21.2–1.21.11 is one build like 1.21.1" turned out to be false. Across
 that range Minecraft rewrote its render/GUI/input system in **stages**, and
@@ -79,10 +79,9 @@ launcher). The verified runtime boundaries:
 
 So each 1.21.x sub-family needs its **own** Origin build (a real port with
 its own mixin-descriptor work + boot verification), not a config flip.
-**Shipped:** 1.21.4, 1.21.6, 1.21.8, 1.21.10, 1.21.11. **Not built:** 1.21.2,
-1.21.3, 1.21.7 — each stays out of `OriginBuilds`, so the picker greys it
-"Coming Soon" (shipping a vanilla-menu version would violate mandate #2).
-**PULLED (removed from the picker entirely, not greyed):** 1.21.5 and 1.21.9.
+**Shipped:** 1.21.2/1.21.3/1.21.4 (the `1.21.4` jar), 1.21.6/1.21.7 (the `1.21.6`
+jar), 1.21.8, 1.21.10, 1.21.11. **PULLED (not in the picker at all):** 1.21.5 and
+1.21.9.
 The 1.21.4 and 1.21.8 modules are the templates for the sub-families around
 them; the 1.21.11 module covers 1.21.9 once its Fabric-API `.world` path is
 reverted. The 1.21.5 module is still on disk and remains the reference for the
@@ -157,6 +156,18 @@ screen and every loading/connecting/working screen.
 input-event-boundary + fabric-API-gap hybrid; not worth carrying). Its analysis
 lives in memory if ever revisited.
 
+## The version picker shows only shipped versions — no "Coming Soon"
+
+**Will, 2026-10-12:** versions Origin doesn't have will never ship, so the
+launcher's picker no longer lists them greyed out. `VersionCatalog` lists
+exactly the `OriginBuilds` versions — nothing else — and
+`tools/release/check_consistency.py` fails CI if the two ever disagree. Removed
+that day: the whole 26.x card (26.1, 26.1.1, 26.1.2, 26.2), 1.20.6, 1.20.5,
+1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, and 1.16–1.16.4 (the 26 card's art went
+with it; re-adding a version means re-adding it to its card). A player whose
+saved version is no longer listed starts on the newest version (1.21.11) — the
+launcher already drops any saved version the picker doesn't offer.
+
 ### The pre-1.20 PoseStack backend (1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4)
 
 **LIVE 2026-07-15** (launcher-v1.0.24) — Will's order: "1.16.5 and every version
@@ -189,7 +200,7 @@ Sodium↔Iris pins, e.g. Iris `mc1.16.5-1.4.5` with Sodium `0.2.0`). **1.18.1 is
 deliberately NOT offered** — its only Sodium is an alpha and its only Iris a
 pre-release; "never broken" outranks coverage.
 
-## Flipping a staged version live — the 3 coupling points
+## Flipping a staged version live — the 4 coupling points
 
 Promote in ONE commit, after javap-verifying every mixin descriptor against
 the mapped jar and a clean `./gradlew runClient` (zero `Mixin apply ... failed`
@@ -212,9 +223,13 @@ lines):
 3. **`src/OriginLauncher.App/OriginLauncher.App.csproj`** — the `<Content>`
    bundle entry already exists for every module (a glob over its
    `build/libs`); verify its path points at `versions/<ver>` after the move.
+4. **`src/OriginLauncher.App/Core/Versions/VersionCatalog.cs`** — add the
+   version to its card (or a new card + `Assets/Versions/<key>.png`). The
+   picker lists only what's here; check_consistency.py fails CI if it differs
+   from `OriginBuilds`.
 
-Pulling a version is the same three places in reverse (plus removing it from
-`VersionCatalog` if it should vanish from the picker).
+Pulling a version is the same four places in reverse — it leaves the picker
+entirely (never greyed).
 
 ## Porting method that works
 

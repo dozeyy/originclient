@@ -113,7 +113,8 @@ public class GameFoldersTests
             "versions", "libraries", "assets", "runtime", "resources", "origin-verified.json", "accounts",
             "options.txt", "saves", "mods", "config", "logs", ".fabric", "mods-origin-only",
         });
-        Assert.Equal(new[] { ".fabric", "config", "logs", "mods", "mods-origin-only", "options.txt", "saves" }, plan);
+        // mods/ stays: it becomes the version's shared mods folder.
+        Assert.Equal(new[] { ".fabric", "config", "logs", "mods-origin-only", "options.txt", "saves" }, plan);
     }
 
     [Fact]
@@ -134,9 +135,12 @@ public class GameFoldersTests
         Assert.Equal("fov:0.5\nguiScale:2\n", Read($"{game}/options.txt"));
         Assert.Equal("servers", Read($"{game}/servers.dat"));
         Assert.Equal("world", Read($"{game}/saves/My World/level.dat"));
-        Assert.Equal("mine", Read($"{game}/mods/my-mod.jar"));
         Assert.Equal("{\"hud\":1}", Read($"{game}/config/originclient-mods.json"));
         Assert.Equal("log", Read($"{game}/logs/latest.log"));
+        // The old mods folder stays put as the version's shared one.
+        Assert.Equal("mine", Read("1.21.1/mods/my-mod.jar"));
+        Assert.Equal("origin", Read("1.21.1/mods/originclient.jar"));
+        Assert.False(Exists($"{game}/mods"));
         // The heavy shared files stay where every account's launch finds them.
         Assert.Equal("game", Read("1.21.1/versions/1.21.1/1.21.1.jar"));
         Assert.Equal("lib", Read("1.21.1/libraries/org/lwjgl/lwjgl.jar"));

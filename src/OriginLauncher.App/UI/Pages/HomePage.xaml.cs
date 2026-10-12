@@ -453,10 +453,11 @@ public partial class HomePage : UserControl
             if (account != null)
             {
                 Stage("Signing in");
-                // Through the broker: it serialises silent sign-ins with Origin
-                // social's (one rotating refresh token, never raced), persists
-                // the rotated token and bumps last-used.
-                var signedIn = await MinecraftSessionBroker.RefreshAsync(account.Id, markUsed: true);
+                // Through the broker: it reuses this account's saved Minecraft
+                // session until shortly before it expires (Mojang rate-limits
+                // sign-ins), signs in only when there is none or Mojang refuses
+                // it, serialises sign-ins with Origin social's and bumps last-used.
+                var signedIn = await MinecraftSessionBroker.ForPlayAsync(account.Id, ticket.Token);
                 if (signedIn == null)
                 {
                     Note(key, "Session expired", LaunchTone.Error);
@@ -568,8 +569,16 @@ public partial class HomePage : UserControl
             // account superseded this one) — not an error, just back to Home.
             Note(key, "Cancelled", LaunchTone.Neutral);
         }
+        catch (MicrosoftAuthException ex) when (ex.RateLimited)
+        {
+            // Microsoft said "slow down" (429): the broker already holds this
+            // account's sign-ins off; no update check, no raw HTTP text.
+            Note(key, MicrosoftAuthException.RateLimitedMessage, LaunchTone.Warning);
+            WriteLaunchErrorLog(ex);
+        }
         catch (MicrosoftAuthException ex)
         {
+            // ex.Message is always a plain sentence (raw HTTP detail only goes to the log).
             var upToDateMessage = ex.Stage == "token_refresh"
                 ? "Your session expired — remove and re-add this account in the account switcher."
                 : ex.Message;

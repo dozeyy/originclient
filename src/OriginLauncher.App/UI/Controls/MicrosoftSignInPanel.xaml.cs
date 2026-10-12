@@ -18,6 +18,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
 
     private readonly CancellationTokenSource _cts = new();
     private bool _disposed;
+    private bool _holdOverlay; // the overlay now shows "Finishing sign-in..." or an outcome
 
     public MicrosoftSignInPanel()
     {
@@ -30,7 +31,12 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         try
         {
             await WebView.EnsureCoreWebView2Async();
-            WebView.CoreWebView2.NavigationCompleted += (_, _) => LoadingOverlay.Visibility = Visibility.Collapsed;
+            WebView.CoreWebView2.NavigationCompleted += (_, _) =>
+            {
+                // The cancelled redirect also "completes": keep covering the
+                // page once it's finishing or showing an outcome.
+                if (!_holdOverlay) LoadingOverlay.Visibility = Visibility.Collapsed;
+            };
 
             var result = MicrosoftAuthenticator.IsTestMode
                 ? await SignInViaPrismTestAsync(_cts.Token)
@@ -48,12 +54,35 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         }
         catch (MicrosoftAuthException ex)
         {
+            // Always a plain sentence (RateLimited = the friendly "Microsoft is
+            // limiting sign-ins" line); raw HTTP detail never reaches the screen.
             SignInFailed?.Invoke(this, ex.Message);
         }
-        catch (Exception ex)
+        catch (System.Net.Http.HttpRequestException)
         {
-            SignInFailed?.Invoke(this, $"Sign-in failed: {ex.Message}");
+            SignInFailed?.Invoke(this, "Couldn't reach Microsoft. Check your internet connection and try again.");
         }
+        catch (Exception)
+        {
+            SignInFailed?.Invoke(this, "Sign-in didn't finish. Please try again.");
+        }
+    }
+
+    /// <summary>
+    /// Replace the Microsoft page with an outcome the player must read (a
+    /// failed or deferred sign-in). The card stays open until they press OK
+    /// or close it, which raises <see cref="Cancelled"/>.
+    /// </summary>
+    public void ShowMessage(string title, string text)
+    {
+        if (_disposed) return;
+        _cts.Cancel();
+        _holdOverlay = true;
+        MessageTitle.Text = title;
+        MessageText.Text = text;
+        LoadingText.Visibility = Visibility.Collapsed;
+        MessagePanel.Visibility = Visibility.Visible;
+        LoadingOverlay.Visibility = Visibility.Visible;
     }
 
     // TEMPORARY — testing only. Prism's client ID expects a custom URI scheme
@@ -80,7 +109,8 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
                 codeSource.TrySetResult(code);
             else
                 codeSource.TrySetException(new MicrosoftAuthException("login",
-                    $"Microsoft sign-in did not return an authorization code ({(query.TryGetValue("error", out var err) ? err : "unknown error")})."));
+                    "Microsoft sign-in didn't finish. Please try again.",
+                    $"no authorization code ({(query.TryGetValue("error", out var err) ? err : "unknown error")})"));
         }
 
         WebView.CoreWebView2.NavigationStarting += OnNavigationStarting;
@@ -95,6 +125,11 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             WebView.CoreWebView2.NavigationStarting -= OnNavigationStarting;
         }
 
+        // The Microsoft page is done; cover its blank redirect while Xbox and
+        // Minecraft finish (a few seconds) so the card never looks stuck.
+        _holdOverlay = true;
+        LoadingText.Text = "Finishing sign-in...";
+        LoadingOverlay.Visibility = Visibility.Visible;
         return await authenticator.CompleteTestSignInAsync(authCode, codeVerifier, ct);
     }
 

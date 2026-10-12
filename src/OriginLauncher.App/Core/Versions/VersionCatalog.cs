@@ -1,104 +1,88 @@
 ﻿namespace OriginLauncher.App.Core.Versions;
 
-// One selectable Minecraft version inside a group (e.g. "1.20.4"). Supported =
-// Origin ships a full build for it (the mandate: only versions that get the
-// complete Origin experience are playable); everything else shows as
-// "Coming Soon" and can't be launched from the grid.
-public sealed record VersionEntry(string Id, bool Supported);
-
-// One card in the 3x3 version-selection grid: a version family + its artwork.
+// One card in the version-selection grid: a version family + its artwork.
+// Every version a card lists is playable — the picker only ever shows versions
+// Origin ships (Will, 2026-10-12: no greyed "Coming Soon" entries; versions
+// without an Origin build are left out entirely because they will never ship).
 public sealed class VersionGroup
 {
     public required string Key { get; init; }        // "1.20"
-    public required string Title { get; init; }       // "1.20 – 1.20.6"
+    public required string Title { get; init; }       // "1.20 – 1.20.4"
     public required string Tagline { get; init; }     // "Trails & Tales"
     public required string Description { get; init; }  // what these versions added
     public required string ImagePath { get; init; }   // "/Assets/Versions/1.20.png"
-    public required IReadOnlyList<VersionEntry> Versions { get; init; }
+    public required IReadOnlyList<string> Versions { get; init; }  // newest first
 
-    // The card is playable (clickable) only when at least one version in it has
-    // an Origin build; otherwise the whole card is a disabled "Coming Soon".
-    public bool AnySupported => Versions.Any(v => v.Supported);
-
-    // Default selection when the card's side panel opens: the newest supported
-    // version (Versions is authored newest-first).
-    public string? NewestSupported => Versions.FirstOrDefault(v => v.Supported)?.Id;
+    // Default selection when the card's side panel opens.
+    public string Newest => Versions[0];
 }
 
-// The fixed set of grid groups, newest at the top-left, oldest at the bottom-
-// right. "Supported" is derived from VersionManager.OriginSupportedVersions so
-// there is exactly one source of truth for which versions Origin actually ships
-// — adding a version to OriginBuilds automatically un-greys it here.
+// The fixed set of grid groups, newest at the top-left. Lists EXACTLY the
+// versions in VersionManager.OriginBuilds — tools/release/check_consistency.py
+// fails CI if a version is in one and not the other, so a shipped version can't
+// be missing from the picker and an unbuilt one can't appear in it. Shipping a
+// new version = add it to OriginBuilds AND to its card here.
 public static class VersionCatalog
 {
     public static IReadOnlyList<VersionGroup> Groups { get; } = Build();
 
-    private static VersionGroup Group(string key, string title, string tagline, string description, params string[] versions)
-    {
-        var supported = VersionManager.OriginSupportedVersions;
-        return new VersionGroup
+    private static VersionGroup Group(string key, string title, string tagline, string description, params string[] versions) =>
+        new()
         {
             Key = key,
             Title = title,
             Tagline = tagline,
             Description = description,
             ImagePath = $"/Assets/Versions/{key}.png",
-            Versions = versions.Select(v => new VersionEntry(v, supported.Contains(v))).ToList(),
+            Versions = versions,
         };
-    }
 
-    // Grid reading order: index 0 = top-left (newest), index 8 = bottom-right
+    // Grid reading order: index 0 = top-left (newest), last = bottom-right
     // (oldest). Each group lists its member versions newest-first. Descriptions
     // are the real headline features of each update era.
+    //
+    // Left out ON PURPOSE (Will, 2026-10-12: they will never ship, so they are
+    // not shown greyed either): every 26.x release (the whole "26" card),
+    // 1.20.6, 1.20.5, 1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, and 1.16 – 1.16.4.
+    // Pulled earlier and likewise absent: 1.21.5, 1.21.9 (2026-08-06) and the
+    // Forge pair 1.12.2 / 1.8.9 (whose 1.12 and 1.8 cards went with them).
     private static IReadOnlyList<VersionGroup> Build() =>
     [
-        Group("26",   "26.1 – 26.2",    "The Latest Releases",
-            "The newest Minecraft releases, bringing the freshest content, mobs, and blocks alongside the latest performance and stability improvements. This is the cutting edge of the game — expect the most up-to-date features and the best modern optimizations.",
-            "26.2", "26.1.2", "26.1.1", "26.1"),
         Group("1.21", "1.21 – 1.21.11", "Tricky Trials",
             "Explore the new trial chambers and outsmart their spawners for loot from ominous vaults. Battle the wind-charging Breeze and the crossbow-wielding Bogged, forge the powerful Mace for devastating smash attacks, and automate builds with the new crafter block and expanded copper and tuff sets.",
-            // 1.21.5 and 1.21.9 are deliberately absent: both were pulled from the
-            // lineup, and a pulled version is removed from the grid entirely rather
-            // than left greyed (see VersionManager.OriginBuilds).
             "1.21.11", "1.21.10", "1.21.8", "1.21.7",
             "1.21.6", "1.21.4", "1.21.3", "1.21.2", "1.21.1", "1.21"),
-        Group("1.20", "1.20 – 1.20.6",  "Trails & Tales",
+        Group("1.20", "1.20 – 1.20.4",  "Trails & Tales",
             "Wander pink cherry groves, brush suspicious sand and gravel to uncover archaeology finds, and hatch the ancient sniffer from a rediscovered egg. Ride camels across the desert, craft bamboo rafts and hanging signs, and personalize your gear with the reworked smithing table and decorative armor trims.",
-            "1.20.6", "1.20.5", "1.20.4", "1.20.3", "1.20.2", "1.20.1", "1.20"),
-        Group("1.19", "1.19 – 1.19.4",  "The Wild Update",
+            "1.20.4", "1.20.2", "1.20.1", "1.20"),
+        Group("1.19", "1.19.2 – 1.19.4", "The Wild Update",
             "Descend into the pitch-black deep dark and creep through ancient cities without waking the blind, unstoppable Warden. Explore lush mangrove swamps, collect mud and froglights, and befriend the item-fetching allay in one of Minecraft's most atmospheric updates.",
-            "1.19.4", "1.19.3", "1.19.2", "1.19.1", "1.19"),
-        Group("1.18", "1.18.1 – 1.18.2","Caves & Cliffs II",
+            "1.19.4", "1.19.3", "1.19.2"),
+        Group("1.18", "1.18.2",         "Caves & Cliffs II",
             "The update that completely reshaped the world: mountains now soar and caves plunge to a much deeper build limit. Discover glowing lush caves full of axolotls and glow berries, towering dripstone caverns, and dramatic new terrain generation across every biome.",
-            "1.18.2", "1.18.1"),
+            "1.18.2"),
         Group("1.17", "1.17.1",         "Caves & Cliffs I",
             "The first half of the great cave overhaul introduces sparkling amethyst geodes, oxidizing copper for new builds, and a wave of new mobs — playful axolotls, mountain goats, and the ethereal glow squid — plus powder snow to sink into.",
-            "1.17.1", "1.17"),
+            "1.17.1"),
         Group("1.16", "1.16.5",         "The Nether Update",
             "The Nether finally comes alive with crimson and warped forests, soul sand valleys, and basalt deltas to explore. Trade with piglins, ride striders across lava, mine ancient debris to craft top-tier netherite gear, and set your spawn with a respawn anchor.",
-            "1.16.5", "1.16.4", "1.16.3", "1.16.2", "1.16.1", "1.16"),
-        // The 1.12 and 1.8 cards were REMOVED 2026-08-06 (Will's call): 1.12.2 and
-        // 1.8.9 are dropped from the supported lineup, and a pulled version leaves
-        // the grid rather than sitting greyed. They were the only pre-Fabric
-        // (Forge + OptiFine) entries, so the grid is now Fabric-only.
+            "1.16.5"),
     ];
 
-    // Newest playable version overall (1.21.1 today) — the launcher's default
-    // when no valid version is persisted.
-    public static string? DefaultVersion =>
-        Groups.SelectMany(g => g.Versions).FirstOrDefault(v => v.Supported)?.Id;
-
-    // True when a version string is one Origin actually ships (i.e. selectable
-    // from the grid) — used to reject a stale persisted selection.
-    public static bool IsSupported(string? version) =>
-        version != null && Groups.SelectMany(g => g.Versions).Any(v => v.Id == version && v.Supported);
-
-    // Every version Origin actually ships, newest first — the JVM arguments
-    // picker lists these rather than Mojang's full release manifest, since args
-    // can only ever apply to a version the launcher can start.
+    // Every version Origin ships, newest first — the grid's versions in reading
+    // order. The JVM arguments picker lists these rather than Mojang's full
+    // release manifest, since args can only ever apply to a version the
+    // launcher can start.
     public static IReadOnlyList<string> SupportedVersions { get; } =
-        Groups.SelectMany(g => g.Versions).Where(v => v.Supported).Select(v => v.Id).ToList();
+        Groups.SelectMany(g => g.Versions).ToList();
 
-    public static VersionGroup? GroupContaining(string version) =>
-        Groups.FirstOrDefault(g => g.Versions.Any(v => v.Id == version));
+    // The newest version (the first card's first entry, 1.21.11 today) — the
+    // launcher's default when no valid version is saved.
+    public static string DefaultVersion => SupportedVersions[0];
+
+    // True when a version string is one Origin ships (i.e. selectable from the
+    // grid). Used to drop a stale saved selection — e.g. a version that was
+    // pulled — so the launcher falls back to DefaultVersion instead.
+    public static bool IsSupported(string? version) =>
+        version != null && SupportedVersions.Contains(version);
 }

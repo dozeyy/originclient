@@ -28,11 +28,11 @@ public partial class VersionSelectOverlay : UserControl
         StackList.ItemsSource = VersionCatalog.Groups;
     }
 
-    /// <summary>Raised when the player picks a supported specific version (keeps
-    /// Home's current selection in sync as they browse).</summary>
+    /// <summary>Raised when the player picks a specific version (keeps Home's
+    /// current selection in sync as they browse).</summary>
     public event Action<string>? VersionSelected;
 
-    /// <summary>Raised when the player clicks Launch on a supported version.</summary>
+    /// <summary>Raised when the player clicks Launch on a version.</summary>
     public event Action<string>? LaunchRequested;
 
     public bool IsOpen => Visibility == Visibility.Visible;
@@ -138,37 +138,30 @@ public partial class VersionSelectOverlay : UserControl
         DetailSlide.BeginAnimation(TranslateTransform.XProperty, slide, HandoffBehavior.SnapshotAndReplace);
     }
 
-    // Populate the right-hand detail for a family.
+    // Populate the right-hand detail for a family. Every version in the catalog
+    // is playable (no "Coming Soon" entries), so Launch is always available.
     private void ShowGroupDetail(VersionGroup group)
     {
         DetailPanel.DataContext = group;
         VersionDropdown.ItemsSource = group.Versions;
-        VersionDropdown.SelectedItem =
-            group.Versions.FirstOrDefault(v => v.Id == group.NewestSupported)
-            ?? group.Versions.FirstOrDefault();
+        VersionDropdown.SelectedItem = group.Newest;
 
-        var playable = group.Versions.Count(v => v.Supported);
         // Legacy families run the pre-Fabric stack — the facts line is the one
         // place the stack is even named, and it must not lie about the loader.
-        var legacy = group.Versions.Any(v => v.Supported && Core.Loaders.LegacyForgeInstaller.IsLegacy(v.Id));
+        var legacy = group.Versions.Any(Core.Loaders.LegacyForgeInstaller.IsLegacy);
         var stackText = legacy ? "Forge · OptiFine" : "Fabric · Sodium · Iris";
-        FactsText.Text = group.AnySupported
-            ? $"{playable} playable · {stackText}"
-            : "Coming soon";
-
-        ChipsPanel.Visibility = group.AnySupported ? Visibility.Visible : Visibility.Collapsed;
-        ComingSoonNote.Visibility = group.AnySupported ? Visibility.Collapsed : Visibility.Visible;
+        FactsText.Text = $"{group.Versions.Count} playable · {stackText}";
         UpdateActionState();
     }
 
     private void UpdateActionState()
     {
-        var entry = VersionDropdown.SelectedItem as VersionEntry;
-        LaunchButton.IsEnabled = entry is { Supported: true };
-        ModsButton.IsEnabled = entry != null;
-        // Keep Home's selection in step with a supported pick as the user browses.
-        if (entry is { Supported: true })
-            VersionSelected?.Invoke(entry.Id);
+        var version = VersionDropdown.SelectedItem as string;
+        LaunchButton.IsEnabled = version != null;
+        ModsButton.IsEnabled = version != null;
+        // Keep Home's selection in step with the pick as the user browses.
+        if (version != null)
+            VersionSelected?.Invoke(version);
     }
 
     // ---- events ----
@@ -197,17 +190,17 @@ public partial class VersionSelectOverlay : UserControl
 
     private void Launch_Click(object sender, RoutedEventArgs e)
     {
-        if (VersionDropdown.SelectedItem is VersionEntry { Supported: true } entry)
+        if (VersionDropdown.SelectedItem is string version)
         {
-            LaunchRequested?.Invoke(entry.Id);
+            LaunchRequested?.Invoke(version);
             CloseOverlay();
         }
     }
 
     private void Mods_Click(object sender, RoutedEventArgs e)
     {
-        var version = (VersionDropdown.SelectedItem as VersionEntry)?.Id
-                      ?? (DetailPanel.DataContext as VersionGroup)?.NewestSupported;
+        var version = VersionDropdown.SelectedItem as string
+                      ?? (DetailPanel.DataContext as VersionGroup)?.Newest;
         if (version == null) return;
         try
         {

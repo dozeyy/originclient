@@ -28,7 +28,8 @@ public static class CrashAnalyzer
     /// <param name="instanceDir">The crashed game's folder (one account's game folder for the version).</param>
     public static CrashAnalysis Analyze(string instanceDir, string? launchLogPath)
     {
-        var modIndex = BuildModIndex(Path.Combine(instanceDir, "mods"));
+        // Mods live in the version's shared folder, not the account's (SharedMods).
+        var modIndex = BuildModIndex(GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir));
 
         var logText = TryRead(launchLogPath);
         var crashReportText = TryRead(NewestCrashReport(instanceDir));

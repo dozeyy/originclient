@@ -232,10 +232,11 @@ public sealed class VersionManager
     // Every version gets its own root under /instances/{version}/ and every
     // account its own game folder inside it — hard requirement (see CLAUDE.md):
     // mods, saves, and configs must not leak between versions, and (since
-    // 2026-10-12, several games at once) not between accounts either. The
-    // heavy shared files (game jars, libraries, assets, Java) stay in the
-    // version root, downloaded once; only --gameDir (BasePath) and the natives
-    // folder are per account. Core/GameFolders/InstanceLayout.cs has the layout.
+    // 2026-10-12, several games at once) saves, settings and configs not
+    // between accounts either. The heavy shared files (game jars, libraries,
+    // assets, Java) and the version's ONE mods folder stay in the version root;
+    // only --gameDir (BasePath) and the natives folder are per account.
+    // Core/GameFolders/InstanceLayout.cs has the layout, SharedMods.cs the mods.
     private sealed class GameFolderPath : MinecraftPath
     {
         private readonly string _accountKey;
@@ -302,7 +303,13 @@ public sealed class VersionManager
         var path = new GameFolderPath(version, accountKey);
         // The shared root: where the install stamp and the loader profile live.
         var sharedRoot = OriginPaths.VersionRoot(version);
-        var modsFolder = Path.Combine(path.BasePath, "mods");
+        // ONE mods folder per version, shared by every account (Will,
+        // 2026-10-12). The game is pointed at it with Fabric's fabric.modsFolder
+        // property below, so nothing lives in the account's own mods/. Several
+        // games of this version can be open at once and each holds these jars
+        // open: every write below adds a new name, deletes, or swaps a file in
+        // with one rename — never rewrites a jar in place (SharedMods.cs).
+        var modsFolder = OriginPaths.ModsDir(version);
         var configFolder = Path.Combine(path.BasePath, "config");
 
         // Provisioned unconditionally, not just when a perf profile happens to
@@ -331,6 +338,10 @@ public sealed class VersionManager
         // returns — the code after it is the Fabric path.
         if (LegacyForgeInstaller.IsLegacy(version))
         {
+            // Forge has no fabric.modsFolder: it loads <gameDir>/mods, so the
+            // (currently unreachable) legacy pair keeps a per-account folder.
+            modsFolder = Path.Combine(path.BasePath, "mods");
+            Directory.CreateDirectory(modsFolder);
             var forgeVersionName = await LegacyForgeInstaller.InstallAsync(version, path, progress, ct);
 
             if (OriginBuilds.TryGetValue(version, out var legacyBuild)
@@ -390,8 +401,11 @@ public sealed class VersionManager
         // InstallVerification for the safety contract.
         var decision = InstallVerification.Evaluate(sharedRoot, version);
 
+        // The cached loader must also read fabric.modsFolder (Loader 0.15.0+),
+        // or the game would look in the account's empty mods/ — an older one
+        // is replaced by a fresh install, which is always the newest loader.
         string versionName;
-        if (decision.CachedVersionName is { } cached)
+        if (decision.CachedVersionName is { } cached && SharedMods.LoaderReadsModsFolderProperty(cached))
         {
             versionName = cached;
         }
@@ -401,6 +415,9 @@ public sealed class VersionManager
             var fabricInstaller = new FabricInstaller(SharedHttp);
             versionName = await fabricInstaller.Install(version, path);
         }
+        if (!SharedMods.LoaderReadsModsFolderProperty(versionName))
+            throw new InvalidOperationException(
+                $"{versionName} is too old to load the shared mods folder (needs Fabric Loader {SharedMods.FirstLoaderWithModsFolder}+).");
 
         var launcher = BuildLauncher(path, decision.FullVerify);
 
@@ -437,20 +454,18 @@ public sealed class VersionManager
             // jar, which changes both.
             if (!IsSameFile(bundledJar, installedJar))
             {
+                // Other names only: originclient.jar itself is swapped below.
                 foreach (var file in Directory.EnumerateFiles(modsFolder))
                 {
                     var fn = Path.GetFileName(file);
                     if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
-                        && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+                        && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
+                        && !fn.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
                     {
                         try { File.Delete(file); } catch { /* locked/removed already */ }
                     }
                 }
-                File.Copy(bundledJar, installedJar, overwrite: true);
-                // Stamp the copy with the source's write time so the next launch
-                // can recognise it as current.
-                try { File.SetLastWriteTimeUtc(installedJar, File.GetLastWriteTimeUtc(bundledJar)); }
-                catch { /* non-fatal: worst case we copy again next launch */ }
+                ReplaceOriginJar(bundledJar, installedJar);
             }
             originBundlesPerfStack = originBuild.BundlesPerfStack;
 
@@ -562,6 +577,21 @@ public sealed class VersionManager
             {
                 try { File.Delete(stale); } catch { /* locked/removed already */ }
             }
+
+            // A twin that would not go is held open by another account's game
+            // of this version (the mods folder is shared) — e.g. a catalog bump
+            // added the new pin while that game still runs the old one. Two
+            // copies would stop THIS game booting, so keep the one in use and
+            // drop the rest; the next launch after that game closes swaps them.
+            var left = family.Where(File.Exists).ToList();
+            if (left.Count > 1)
+            {
+                var inUse = left.First(f => !ReferenceEquals(f, keep));
+                foreach (var other in left.Where(f => !ReferenceEquals(f, inUse)))
+                {
+                    try { File.Delete(other); } catch { /* locked/removed already */ }
+                }
+            }
         }
 
         // "Play with external mods" OFF: the game must load ONLY the
@@ -573,9 +603,12 @@ public sealed class VersionManager
         // the switch back on restores their setup exactly. Rebuilding
         // from scratch each launch means the folder can never drift
         // stale relative to what a normal launch would install.
+        var gameModsFolder = modsFolder; // the shared folder, unless Origin-only
         if (!externalMods)
         {
             progress?.Report("Preparing Origin-only mod set...");
+            // Per account (not shared): rebuilt each launch and held open by
+            // that account's game only.
             var originOnlyFolder = Path.Combine(path.BasePath, "mods-origin-only");
             Directory.CreateDirectory(originOnlyFolder);
 
@@ -622,10 +655,14 @@ public sealed class VersionManager
                 }
             }
 
-            var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
-            extraJvm.Add(new MArgument($"-Dfabric.modsFolder={originOnlyFolder}"));
-            option.ExtraJvmArguments = extraJvm;
+            gameModsFolder = originOnlyFolder;
         }
+
+        // Fabric Loader's own supported switch for the folder it loads mods
+        // from (checked above: the installed loader reads it).
+        var extraJvm = (option.ExtraJvmArguments ?? Enumerable.Empty<MArgument>()).ToList();
+        extraJvm.Add(new MArgument(SharedMods.JvmArgument(gameModsFolder)));
+        option.ExtraJvmArguments = extraJvm;
 
         // On the fast path the installer only stats files, so it finishes almost
         // immediately and "Verifying" would flash by; say what is actually
@@ -679,6 +716,28 @@ public sealed class VersionManager
     }
 
     private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
+
+    // Puts the launcher's bundled Origin jar in place as originclient.jar with
+    // one rename, never by rewriting the file: another account's game of this
+    // version may be running from it. When that game holds it, the swap fails
+    // and this launch uses the jar already there (the same build that game
+    // runs); the next launch after it closes installs the new one.
+    private static void ReplaceOriginJar(string bundledJar, string installedJar)
+    {
+        var temp = installedJar + ".download";
+        try
+        {
+            File.Copy(bundledJar, temp, overwrite: true);
+            // Stamp the copy with the source's write time so the next launch
+            // can recognise it as current (IsSameFile).
+            File.SetLastWriteTimeUtc(temp, File.GetLastWriteTimeUtc(bundledJar));
+            File.Move(temp, installedJar, overwrite: true);
+        }
+        catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && File.Exists(installedJar))
+        {
+            try { File.Delete(temp); } catch { /* best-effort cleanup of our own copy */ }
+        }
+    }
 
     // Cheap "is this already the same file" test: length plus last-write time,
     // no hashing. Used to skip redundant multi-MB copies. Any doubt (missing

@@ -5,9 +5,10 @@ using OriginLauncher.App.Core.Versions;
 namespace OriginLauncher.App.Core.GameFolders.Launcher;
 
 // The launcher side of per-account game folders: which account is selected,
-// running the one-time migration, and creating (seeding) an account's folder
-// the first time it plays a version. The rules themselves are the pure classes
-// one folder up (InstanceLayout / InstanceMigration / AccountSeed), which the
+// running the one-time migration, creating (seeding) an account's folder the
+// first time it plays a version, and merging the accounts' own mods folders
+// into the version's shared one. The rules themselves are the pure classes one
+// folder up (InstanceLayout / InstanceMigration / AccountSeed / SharedMods), which the
 // tests cover; this class only wires them to the launcher's real state.
 public static class AccountFolders
 {
@@ -24,13 +25,6 @@ public static class AccountFolders
         if (account != null) return InstanceLayout.KeyFor(account.Id);
         return SettingsStore.Load().OfflineTestMode ? InstanceLayout.OfflineKey : null;
     }
-
-    /// <summary>
-    /// The game folder pages like Mods show for a version: the selected
-    /// account's (offline test mode's when nobody is signed in).
-    /// </summary>
-    public static string SelectedGameDir(string version) =>
-        OriginPaths.GameDir(version, SelectedKey() ?? InstanceLayout.OfflineKey);
 
     /// <summary>Every account game folder that exists for a version.</summary>
     public static IReadOnlyList<(string Key, string Dir)> GameDirs(string version)
@@ -75,9 +69,17 @@ public static class AccountFolders
     /// inherits it: the one recorded in the marker, or — the first time —
     /// <paramref name="candidateKey"/> (the account selected right now). With
     /// no marker and no candidate (nobody signed in yet) it waits for the first
-    /// account. Fast after the first complete pass; never throws.
+    /// account. Fast after the first complete pass; never throws. Also starts
+    /// merging the accounts' old mods folders into the shared ones (once per
+    /// launcher run, in the background).
     /// </summary>
     public static void EnsureMigrated(string? candidateKey)
+    {
+        MigrateOldLayout(candidateKey);
+        MergeSharedModsInBackground();
+    }
+
+    private static void MigrateOldLayout(string? candidateKey)
     {
         lock (Gate)
         {
@@ -131,45 +133,45 @@ public static class AccountFolders
                 AccountSeed.Seed(dir, source, Log);
                 Directory.CreateDirectory(dir);
                 OriginClientConfigBridge.ApplyToNewFolder(dir);
-                if (source != null) CopyOriginsOwnMods(source, dir);
             }
-            return dir;
         }
+        // Mods are shared per version: anything still in an account's own
+        // mods/ (an older launcher's layout, or a jar Mod Menu's drag-and-drop
+        // put there) joins the shared folder before the game loads it.
+        MergeSharedMods(version);
+        return OriginPaths.GameDir(version, accountKey);
     }
 
-    // Origin's own jars (Fabric API and the perf/shader stack — never the
-    // Origin client jar, which comes from the launcher itself, and never
-    // the player's own mods) are copied from the seed source so a second
-    // account's first launch needn't download them again. Launch provisioning
-    // still checks and heals the set exactly as for any folder.
-    private static void CopyOriginsOwnMods(string sourceGameDir, string gameDir)
+    // ---- the shared mods folder (one per version, SharedMods) ------------------
+
+    private static int _modsMergeStarted;
+
+    /// <summary>
+    /// Merges every account's old mods folder into its version's shared one,
+    /// on a worker thread (it may compare jars byte for byte, too slow for the
+    /// launcher's start). Once per launcher run; a launch re-runs it for its
+    /// own version first anyway (PrepareGameDir), so nothing waits on this.
+    /// </summary>
+    private static void MergeSharedModsInBackground()
+    {
+        if (Interlocked.Exchange(ref _modsMergeStarted, 1) != 0) return;
+        Task.Run(() =>
+        {
+            foreach (var version in VersionManager.OriginSupportedVersions)
+                MergeSharedMods(version);
+        });
+    }
+
+    /// <summary>Merges the version's account mods folders into its shared one. Never throws.</summary>
+    private static void MergeSharedMods(string version)
     {
         try
         {
-            var sourceMods = Path.Combine(sourceGameDir, "mods");
-            if (!Directory.Exists(sourceMods)) return;
-            var targetMods = Path.Combine(gameDir, "mods");
-            Directory.CreateDirectory(targetMods);
-            foreach (var jar in Directory.EnumerateFiles(sourceMods))
-            {
-                var name = Path.GetFileName(jar);
-                if (!name.EndsWith(Mods.ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)) continue;
-                if (!Mods.ModManager.IsManaged(name)
-                    || name.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)) continue;
-                var target = Path.Combine(targetMods, name);
-                try
-                {
-                    if (!File.Exists(target)) File.Copy(jar, target);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    // the launch downloads it instead
-                }
-            }
+            lock (Gate) SharedMods.MergeVersion(OriginPaths.VersionRoot(version), log: Log);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex)
         {
-            Log($"mods not copied: {ex.Message}");
+            Log($"{version}: mods merge paused: {ex.Message}");
         }
     }
 

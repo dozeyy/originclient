@@ -302,14 +302,21 @@ public partial class MainWindow : Window
         var signIn = new MicrosoftSignInPanel();
         signIn.SignInSucceeded += (_, result) =>
         {
+            // Done: close the card and the switcher. Otherwise (saved for
+            // later, or couldn't save) the card stays up with the reason until
+            // the player presses OK — it never just vanishes.
+            if (_accountPanel.CompleteSignIn(result) is { } outcome)
+            {
+                signIn.ShowMessage(outcome.Title, outcome.Message);
+                return;
+            }
             CloseSignInPanel();
-            if (_accountPanel.CompleteSignIn(result))
-                SetAccountPanelOpen(false);
+            SetAccountPanelOpen(false);
         };
         signIn.SignInFailed += (_, message) =>
         {
             _accountPanel.ShowSignInError(message);
-            CloseSignInPanel();
+            signIn.ShowMessage("Couldn't add this account", message);
         };
         signIn.Cancelled += (_, _) => CloseSignInPanel();
 

@@ -2,6 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using OriginLauncher.App.Core.Auth.Sessions;
 
 namespace OriginLauncher.App.Core.Accounts;
 
@@ -114,14 +115,40 @@ public static class AccountStore
             a.IsSelected = a.Id == accountId;
     }
 
+    // A pending account (still finishing its Minecraft sign-in) is never the
+    // selected one: nothing may play, migrate folders or sign in to friends
+    // as a placeholder id.
     public static StoredAccount? GetSelected(List<StoredAccount> accounts) =>
-        accounts.FirstOrDefault(a => a.IsSelected);
+        accounts.FirstOrDefault(a => a.IsSelected && !a.PendingMinecraftSignIn);
 
     public static string ProtectRefreshToken(string refreshToken)
     {
         var bytes = Encoding.UTF8.GetBytes(refreshToken);
         var protectedBytes = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
         return Convert.ToBase64String(protectedBytes);
+    }
+
+    // The cached Minecraft session gets the same DPAPI protection as the
+    // refresh token — it is a bearer token, never written in plaintext.
+    public static string ProtectSession(MinecraftSession session) =>
+        ProtectRefreshToken(JsonSerializer.Serialize(session));
+
+    // Null when missing, unreadable or malformed: "no saved session", so the
+    // broker simply signs in when it next needs one.
+    public static MinecraftSession? TryUnprotectSession(string? protectedSession)
+    {
+        if (string.IsNullOrEmpty(protectedSession)) return null;
+        var json = TryUnprotectRefreshToken(protectedSession);
+        if (json == null) return null;
+        try
+        {
+            var session = JsonSerializer.Deserialize<MinecraftSession>(json);
+            return session is { AccessToken.Length: > 0, Uuid.Length: > 0 } ? session : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     // Returns null (rather than throwing) if the blob is corrupt or was

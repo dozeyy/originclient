@@ -134,7 +134,7 @@ $posts['updates'] = @(
 $posts['faq'] = @(
     (Card 'Frequently asked questions' '' $ORIGIN @(
         @('Is Origin free?', 'Yes. Origin is free to download and use.'),
-        @('Which versions are supported?', '1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4, 1.20, 1.20.1, 1.20.2, 1.20.4, 1.21, 1.21.1, 1.21.4, 1.21.6, 1.21.8, 1.21.10 and 1.21.11. Versions marked "Coming soon" in the launcher are being worked on.'),
+        @('Which versions are supported?', '1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4, 1.20, 1.20.1, 1.20.2, 1.20.4, 1.21, 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.6, 1.21.7, 1.21.8, 1.21.10 and 1.21.11. Every version in the launcher''s picker gets the full Origin experience.'),
         @('How do I open the mod menu?', 'Press **Right Shift** in game. Click any card to turn a mod on, the gear for its settings, and **Edit HUD** to drag things around the screen.'),
         @('How do I turn on shaders?', 'Options → Video Settings → Shader Packs. Drop a shader pack in the folder, then pick it. Iris and Sodium are already installed for you.'),
         @('Is Origin allowed on servers like Hypixel?', 'Origin has no cheats, hacks or unfair advantages. It is a cosmetic and quality-of-life client like other popular clients. Every server has its own rules, so check the server you play on.'),

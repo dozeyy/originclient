@@ -48,6 +48,9 @@
                                Style="{StaticResource Text.Body}" HorizontalAlignment="Center"/>
                     <TextBlock Text="or open the folder"
                                Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    <TextBlock Text="Shared by all your accounts on this version"
+                               Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center" Margin="0,10,0,0"
+                               Opacity="0.7"/>
                 </StackPanel>
             </Border>
 

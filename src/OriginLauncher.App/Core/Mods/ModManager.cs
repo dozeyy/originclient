@@ -22,9 +22,10 @@ public readonly record struct ModActionResult(bool Ok, string? Error)
 
 /// <summary>
 /// Manages the user-facing mod set for a single Minecraft version, over that
-/// version's isolated <c>/instances/{version}/accounts/{account}/mods/</c> folder
-/// (the selected account's; the same folder
-/// <see cref="Versions.VersionManager"/> provisions on launch).
+/// version's <c>/instances/{version}/mods/</c> folder — ONE folder per version,
+/// shared by every account (GameFolders/SharedMods.cs): the same folder
+/// <see cref="Versions.VersionManager"/> provisions and points every account's
+/// game at on launch. Settings, worlds and configs stay per account.
 ///
 /// On/off is the loader-standard extension rename: an enabled mod is
 /// <c>foo.jar</c>, a disabled one is <c>foo.jar.disabled</c> — Fabric/Forge only
@@ -42,10 +43,12 @@ public static class ModManager
     public const string JarSuffix = ".jar";
     private const string DownloadSuffix = ".jar.download";
 
-    // The SELECTED account's mods folder for the version: every account has
-    // its own game folder (Core/GameFolders), mods included.
-    public static string ModsFolder(string version) =>
-        Path.Combine(GameFolders.Launcher.AccountFolders.SelectedGameDir(version), "mods");
+    // The version's mods folder, the same for every account.
+    public static string ModsFolder(string version) => OriginPaths.ModsDir(version);
+
+    // Another account may be playing this version right now (the folder is
+    // shared), so the blocker is "a game", not "your game".
+    private const string CloseGameHint = "close Minecraft (on every account playing this version) and try again.";
 
     /// <summary>Every mod in the version's folder, enabled and disabled, sorted
     /// by display name. User (unmanaged) entries first so they lead the list.
@@ -131,11 +134,11 @@ public static class ModManager
         }
         catch (IOException)
         {
-            return ModActionResult.Fail("Couldn't change that mod — close Minecraft and try again.");
+            return ModActionResult.Fail("Couldn't change that mod — " + CloseGameHint);
         }
         catch (UnauthorizedAccessException)
         {
-            return ModActionResult.Fail("Couldn't change that mod — close Minecraft and try again.");
+            return ModActionResult.Fail("Couldn't change that mod — " + CloseGameHint);
         }
     }
 
@@ -166,21 +169,24 @@ public static class ModManager
 
             var name = Path.GetFileName(src);
             var dest = Path.Combine(folder, name);
+            var temp = dest + ".download"; // a *.jar.download is never listed or loaded
             try
             {
-                File.Copy(src, dest, overwrite: true);
+                // Copy beside it, then swap in with one rename: a game holding
+                // the old jar open (any account's — the folder is shared) must
+                // never have it rewritten under it. The swap either fails
+                // cleanly or leaves that game reading its open copy.
+                File.Copy(src, temp, overwrite: true);
+                File.Move(temp, dest, overwrite: true);
                 var disabledTwin = dest + ".disabled";
                 if (File.Exists(disabledTwin))
                     File.Delete(disabledTwin);
                 imported++;
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                return ModActionResult.Fail("Couldn't add that mod — close Minecraft and try again.");
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return ModActionResult.Fail("Couldn't add that mod — close Minecraft and try again.");
+                try { File.Delete(temp); } catch { /* our own half-copy; best-effort */ }
+                return ModActionResult.Fail("Couldn't add that mod — " + CloseGameHint);
             }
         }
 
@@ -204,11 +210,11 @@ public static class ModManager
         }
         catch (IOException)
         {
-            return ModActionResult.Fail("Couldn't remove that mod — close Minecraft and try again.");
+            return ModActionResult.Fail("Couldn't remove that mod — " + CloseGameHint);
         }
         catch (UnauthorizedAccessException)
         {
-            return ModActionResult.Fail("Couldn't remove that mod — close Minecraft and try again.");
+            return ModActionResult.Fail("Couldn't remove that mod — " + CloseGameHint);
         }
     }
 

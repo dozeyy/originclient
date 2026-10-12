@@ -61,7 +61,9 @@ jobs:
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
           import json, os, re
-          live = [m["module"] for m in json.load(open("src/mods/live-modules.json"))["modules"]]
+          entries = json.load(open("src/mods/live-modules.json"))["modules"]
+          live = [m["module"] for m in entries]
+          java = {m["module"]: m.get("java", "21") for m in entries}
           raw = os.environ.get("INPUT") or ""
           if not raw:
               # A tag WITH a module list wins over a bare one wherever it sits: a
@@ -70,8 +72,19 @@ jobs:
               listed = [t for t in tags if t]
               raw = listed[-1] if listed else "1.21.1"
           raw = raw.strip()
-          picked = live if raw == "all" else [x.strip() for x in raw.split(",") if x.strip() in live]
-          print("modules=" + json.dumps(picked or ["1.21.1"]))
+          # A module being ported can be shot before it goes live: any folder under
+          # src/mods/versions/ is accepted by name (its Java = the module's own
+          # options.release when it isn't in live-modules.json yet).
+          def known(x):
+              return x in live or os.path.isfile(f"src/mods/versions/{x}/build.gradle")
+          def java_of(x):
+              if x in java:
+                  return java[x]
+              m = re.search(r"options\.release\s*=\s*(\d+)", open(f"src/mods/versions/{x}/build.gradle").read())
+              return "25" if m and int(m.group(1)) > 21 else "21"
+          picked = live if raw == "all" else [x.strip() for x in raw.split(",") if known(x.strip())]
+          picked = picked or ["1.21.1"]
+          print("modules=" + json.dumps([{"module": x, "java": java_of(x)} for x in picked]))
           EOF
 
   shots:
@@ -82,16 +95,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ${{ fromJson(needs.plan.outputs.modules) }}
+        include: ${{ fromJson(needs.plan.outputs.modules) }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7
 
-      - name: Set up Java 21
+      # Java 21 runs Gradle for every 1.x module (each cross-compiles via
+      # options.release); 26.x needs a JDK 25 ("java" in live-modules.json).
+      - name: Set up Java ${{ matrix.java }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: ${{ matrix.java }}
 
       - name: Headless GL deps (Xvfb + Mesa software rasterizer)
         run: |

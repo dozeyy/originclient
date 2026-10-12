@@ -8,7 +8,9 @@ namespace OriginLauncher.App.Core.GameFolders;
 // The old folder becomes the game folder of the account that was selected when
 // the launcher first ran this code — that choice is written to a marker file
 // BEFORE anything moves, so every later pass (after a crash, a locked file, a
-// launcher restart) finishes the job for the SAME account.
+// launcher restart) finishes the job for the SAME account. The old mods/ is the
+// exception: it stays where it is and simply becomes the version's shared mods
+// folder (InstanceLayout.ModsFolder; SharedMods merges the accounts' into it).
 //
 // Safety rules:
 //  * user data is only ever renamed, never deleted (the one delete is of a
