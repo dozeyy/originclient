@@ -8,8 +8,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
 
 import java.util.ArrayList;
@@ -145,7 +145,7 @@ public final class Hypixel {
 	}
 
 	private static String sidebarTitle(Minecraft mc) {
-		Objective o = mc.level.getScoreboard().getDisplayObjective(DisplaySlot.SIDEBAR);
+		Objective o = mc.level.getScoreboard().getDisplayObjective(1);   // 1 = sidebar (no DisplaySlot enum before 1.20.2)
 		if (o == null) {
 			return "";
 		}
@@ -168,7 +168,7 @@ public final class Hypixel {
 
 	private static void command(Minecraft mc, String cmd) {
 		if (mc.player != null && mc.getConnection() != null) {
-			mc.getConnection().sendCommand(cmd);
+			mc.player.chat("/" + cmd);   // 1.17.1: commands go out as "/" chat (sendCommand is 1.19+)
 		}
 	}
 
@@ -392,9 +392,9 @@ public final class Hypixel {
 		if (Mods.bool(MOD, "useBedwarsFormat") && inBedwars()) {
 			return star(s.bedwarsStar());
 		}
-		return new TextComponent("Level: ").withStyle(Style.EMPTY.withColor(Mods.color(MOD, "levelColor") & 0xFFFFFF))
+		return new TextComponent("Level: ").withStyle(Style.EMPTY.withColor(TextColor.fromRgb(Mods.color(MOD, "levelColor") & 0xFFFFFF)))
 				.append(new TextComponent(Integer.toString(s.networkLevel()))
-						.withStyle(Style.EMPTY.withColor(Mods.color(MOD, "levelNumberColor") & 0xFFFFFF)));
+						.withStyle(Style.EMPTY.withColor(TextColor.fromRgb(Mods.color(MOD, "levelNumberColor") & 0xFFFFFF))));
 	}
 
 	private static Component levelBadge(HypixelApi.Stats s) {
@@ -402,7 +402,7 @@ public final class Hypixel {
 			return star(s.bedwarsStar());
 		}
 		return new TextComponent(Integer.toString(s.networkLevel()))
-				.withStyle(Style.EMPTY.withColor(Mods.color(MOD, "levelNumberColor") & 0xFFFFFF));
+				.withStyle(Style.EMPTY.withColor(TextColor.fromRgb(Mods.color(MOD, "levelNumberColor") & 0xFFFFFF)));
 	}
 
 	// Bed Wars prestige colours, one per hundred stars (1000+ stays gold).

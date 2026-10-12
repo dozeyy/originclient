@@ -7,11 +7,12 @@ import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import com.origin.client.client.gui.Gfx;
 import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.client.gui.components.toasts.ToastComponent;
 import net.minecraft.client.gui.screens.ChatScreen;
-import org.joml.Matrix4f;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Vector4f;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -23,8 +24,11 @@ import java.util.List;
 // picture, fresh timer) instead of stacking.
 //
 // The toast never learns where it sits, so render() reads its on-screen origin
-// from the pose ToastComponent translated it by (1.21.1 ToastInstance.render
-// translates to the slot, source-verified); the chat-screen click hook hit-tests
+// from the transform ToastComponent translated it by -- on 1.17.1 that is the
+// GLOBAL model-view stack, not the PoseStack it passes (ToastInstance.render:
+// getModelViewStack().translate(slot) + applyModelViewMatrix; decompiled 1.18.1),
+// so the origin is that matrix times the toast's (0,0) plus the pose's own
+// offset; the chat-screen click hook hit-tests
 // against that same origin, so drawn and clickable buttons always line up.
 public class ScreenshotToast implements Toast {
 	public static final Object TOKEN = new Object();
@@ -97,13 +101,16 @@ public class ScreenshotToast implements Toast {
 	}
 
 	@Override
-	public Visibility render(Gfx g, ToastComponent toasts, long timeSinceVisible) {
+	public Visibility render(PoseStack poseStack, ToastComponent toasts, long timeSinceVisible) {
+		Gfx g = new Gfx(poseStack);
 		Minecraft mc = toasts.getMinecraft();
 		Font font = mc.font;
 		long now = Util.getMillis();
-		Matrix4f pose = g.pose().last().pose();
-		originX = pose.m30();
-		originY = pose.m31();
+		Vector4f origin = new Vector4f(0f, 0f, 0f, 1f);
+		origin.transform(g.pose().last().pose());
+		origin.transform(RenderSystem.getModelViewStack().last().pose());
+		originX = origin.x();
+		originY = origin.y();
 		boolean chat = mc.screen instanceof ChatScreen;
 		double[] m = mouse(mc);
 		boolean over = chat && m[0] >= originX && m[0] < originX + W && m[1] >= originY && m[1] < originY + H;
@@ -146,8 +153,8 @@ public class ScreenshotToast implements Toast {
 			// a broken draw just leaves the toast plain; it still times out
 		}
 
-		long durationMs = (long) (Mods.num("screenshot", "duration") * 1000
-				* toasts.getNotificationDisplayTimeMultiplier());
+		// 1.17.1 has no Notification Time accessibility option (1.20.2+): x1.
+		long durationMs = (long) (Mods.num("screenshot", "duration") * 1000);
 		boolean show = current == this && Mods.on("screenshot") && now - Math.max(shownAt, heldAt) < durationMs;
 		hidden = !show;
 		return show ? Visibility.SHOW : Visibility.HIDE;

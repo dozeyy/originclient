@@ -182,7 +182,7 @@ public final class HypixelApi {
 	}
 
 	private static Stats parse(String body) {
-		JsonObject root = JsonParser.parseString(body).getAsJsonObject();
+		JsonObject root = new JsonParser().parse(body).getAsJsonObject();   // Gson 2.8.0 here: no static parseString
 		JsonElement pe = root.get("player");
 		if (pe == null || !pe.isJsonObject()) {
 			return null;   // never joined Hypixel (or a nick)

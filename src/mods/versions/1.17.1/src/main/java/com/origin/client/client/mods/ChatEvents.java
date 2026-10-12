@@ -3,7 +3,8 @@ package com.origin.client.client.mods;
 import net.minecraft.network.chat.Component;
 
 /**
- * Incoming-chat dispatch for the Lunar-parity chat mods (Auto GG, Hypixel) on
+ * Incoming-chat dispatch for the Lunar-parity chat mods (Auto GG, Hypixel,
+ * Hypixel Bed Wars) on
  * 1.17.1, standing in for Fabric API's ClientReceiveMessageEvents (1.19+; not in
  * Fabric API 0.46.1+1.17). ChatReceiveMixin calls in from Gui.handleChat, the one
  * place every chat / system / action-bar line from the server is delivered.
@@ -44,8 +45,13 @@ public final class ChatEvents {
 		return ok;
 	}
 
-	/** GAME: a line that is being shown. */
+	/** GAME: a line that is being shown (chat and action bar alike). */
 	public static void received(Component message, boolean overlay) {
+		try {
+			HypixelBedwars.onMessage(message, overlay);
+		} catch (Throwable t) {
+			// fail-soft
+		}
 		if (overlay) {
 			return;
 		}

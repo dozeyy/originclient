@@ -6,8 +6,8 @@ import com.origin.client.client.gui.Gfx;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
-import org.joml.Matrix4f;
-import org.joml.Vector4f;
+import com.mojang.math.Matrix4f;
+import com.mojang.math.Vector4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,12 +65,16 @@ public final class TeamView {
 			return;
 		}
 
-		// Same composition WaypointHud uses: ModelViewMat x the pass's pose.
-		Matrix4f view = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix());
-		view.mul(ctx.matrixStack().last().pose());
-		Matrix4f proj = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix());
+		// Camera rotation exactly ONCE. On 1.17.1 Fabric fires LAST inside
+		// renderLevel's clouds/weather block, after vanilla pushed the pass's pose
+		// onto the global model-view (OriginClientMod's LAST hook explains it), so
+		// ModelViewMat x pose would rotate twice. The pass's pose alone holds the
+		// camera rotation -- the same view WaypointHud.capture ends up with inside
+		// OriginClientMod's identity model-view window.
+		Matrix4f view = ctx.matrixStack().last().pose().copy();
+		Matrix4f proj = com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix().copy();
 		Vec3 cam = ctx.camera().getPosition();
-		float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+		float pt = ctx.tickDelta();
 		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
 		int teamColor = Mods.color(MOD, "teamColor");
 		int partyColor = Mods.color(MOD, "partyColor");
@@ -90,13 +94,13 @@ public final class TeamView {
 			Vec3 pos = p.getPosition(pt);
 			double wx = pos.x - cam.x, wy = pos.y + p.getBbHeight() + 0.75 - cam.y, wz = pos.z - cam.z;
 			Vector4f v = new Vector4f((float) wx, (float) wy, (float) wz, 1f);
-			view.transform(v);
-			proj.transform(v);
-			if (v.w <= 0.05f) {
+			v.transform(view);
+			v.transform(proj);
+			if (v.w() <= 0.05f) {
 				continue;   // behind the camera
 			}
-			float sx = (v.x / v.w * 0.5f + 0.5f) * sw;
-			float sy = (0.5f - v.y / v.w * 0.5f) * sh;
+			float sx = (v.x() / v.w() * 0.5f + 0.5f) * sw;
+			float sy = (0.5f - v.y() / v.w() * 0.5f) * sh;
 			if (sx < -20 || sx > sw + 20 || sy < -20 || sy > sh + 20) {
 				continue;
 			}

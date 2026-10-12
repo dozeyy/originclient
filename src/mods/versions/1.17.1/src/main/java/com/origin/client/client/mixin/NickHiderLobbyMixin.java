@@ -12,7 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Nick Hider > Hide Lobby ID: each scoreboard sidebar line is built by the
 // static PlayerTeam.formatNameForTeam(Team, Component) -- team prefix + entry +
-// suffix (1.21.1 Gui.displayScoreboardSidebar, source-verified). Hypixel can
+// suffix (Gui.displayScoreboardSidebar; decompiled 1.16.4 and 1.18.1 agree,
+// so 1.17.1 does too). Hypixel can
 // split one line across prefix and suffix, so the check runs on the finished
 // line: a "date serverID" line comes back as just the date. Every other line
 // is returned untouched.

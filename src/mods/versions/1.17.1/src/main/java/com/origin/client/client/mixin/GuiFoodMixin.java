@@ -25,6 +25,11 @@ public class GuiFoodMixin {
 	@Inject(method = "renderPlayerHealth", at = @At("TAIL"))
 	private void originclient$saturationOverlay(PoseStack poseStack, CallbackInfo ci) {
 		try {
+			// Bed Wars' Hide Food Bar skips the shanks (HypixelBedwarsGuiMixin): no
+			// food bar, nothing over it -- 1.21.1 gets this from cancelling renderFood.
+			if (com.origin.client.client.mods.HypixelBedwars.hideFood()) {
+				return;
+			}
 			Minecraft mc = Minecraft.getInstance();
 			if (!(mc.getCameraEntity() instanceof Player player)) {
 				return;

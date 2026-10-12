@@ -11,8 +11,9 @@ import java.util.function.Consumer;
 
 // Screenshot pop-up: F2 is handled in KeyboardHandler.keyPress, which calls
 // Screenshot.grab(File, RenderTarget, Consumer<Component>) with a callback that
-// posts the "Saved screenshot as ..." chat line (1.21.1 source-verified, the
-// only grab call in keyPress). Wrapping that callback lets ScreenshotPopup see
+// posts the "Saved screenshot as ..." chat line (decompiled 1.18.1; 1.17.1
+// has the same 3-arg grab -- the module's OriginDevShots calls its 4-arg
+// sibling -- and it is the only grab call in keyPress). Wrapping that callback lets ScreenshotPopup see
 // the saved file and show its toast; the chat line still posts unless the
 // player turned it off. Only the F2 path is wrapped -- other grab callers
 // (dev screenshot tooling) are untouched.

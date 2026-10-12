@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.File;
@@ -88,7 +88,8 @@ public final class ScreenshotPopup {
 	}
 
 	private static File savedFile(Component msg) {
-		if (!(msg.getContents() instanceof TranslatableContents tc) || !"screenshot.success".equals(tc.getKey())) {
+		// 1.17.1: the message itself is the TranslatableComponent (no contents split before 1.19).
+		if (!(msg instanceof TranslatableComponent tc) || !"screenshot.success".equals(tc.getKey())) {
 			return null;
 		}
 		Object[] args = tc.getArgs();

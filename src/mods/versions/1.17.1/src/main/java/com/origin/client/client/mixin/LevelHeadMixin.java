@@ -11,10 +11,8 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
-import net.minecraft.world.entity.EntityAttachment;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.scores.DisplaySlot;
-import org.joml.Matrix4f;
+import com.mojang.math.Matrix4f;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -35,7 +33,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *  - Level Above Name ON: the tag draws as normal, then the level is drawn one
  *    line higher -- above the below-name score line too, when the server shows
  *    one -- with vanilla's own nametag transform (replicated from
- *    EntityRenderer.renderNameTag, 1.21.1).
+ *    EntityRenderer.renderNameTag, decompiled 1.16.4 / 1.18.1).
  *
  * Everything is fail-soft: no key, no stats yet, or any error = the vanilla tag.
  */
@@ -47,14 +45,16 @@ public abstract class LevelHeadMixin {
 	@Unique
 	private static boolean originclient$reentry = false;
 
+	// 1.17.1 shape (decompiled 1.16.4 and 1.18.1 agree): no partial-tick argument;
+	// the full descriptor keeps the synthetic Entity bridge from matching.
 	@Shadow
 	protected abstract void renderNameTag(AbstractClientPlayer player, Component name, PoseStack pose,
-										  MultiBufferSource buffers, int light, float partialTick);
+										  MultiBufferSource buffers, int light);
 
-	@Inject(method = "renderNameTag(Lnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
+	@Inject(method = "renderNameTag(Lnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
 			at = @At("HEAD"), cancellable = true)
 	private void originclient$levelInline(AbstractClientPlayer player, Component name, PoseStack pose,
-										  MultiBufferSource buffers, int light, float partialTick, CallbackInfo ci) {
+										  MultiBufferSource buffers, int light, CallbackInfo ci) {
 		if (originclient$reentry || originclient$hidden(player) || Mods.bool("hypixel", "levelAbove")) {
 			return;
 		}
@@ -70,7 +70,7 @@ public abstract class LevelHeadMixin {
 		originclient$reentry = true;
 		try {
 			renderNameTag(player, new TextComponent("").append(name).append(new TextComponent(" ")).append(level),
-					pose, buffers, light, partialTick);
+					pose, buffers, light);
 			ci.cancel();
 		} catch (Throwable t) {
 			// fall through: vanilla draws the plain tag
@@ -79,10 +79,10 @@ public abstract class LevelHeadMixin {
 		}
 	}
 
-	@Inject(method = "renderNameTag(Lnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
+	@Inject(method = "renderNameTag(Lnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
 			at = @At("TAIL"))
 	private void originclient$levelAbove(AbstractClientPlayer player, Component name, PoseStack pose,
-										 MultiBufferSource buffers, int light, float partialTick, CallbackInfo ci) {
+										 MultiBufferSource buffers, int light, CallbackInfo ci) {
 		if (originclient$reentry || originclient$hidden(player) || !Mods.bool("hypixel", "levelAbove")) {
 			return;
 		}
@@ -92,34 +92,33 @@ public abstract class LevelHeadMixin {
 				return;
 			}
 			Minecraft mc = Minecraft.getInstance();
-			var dispatcher = mc.getEntityRenderDispatcher();
+			EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
 			double distSq = dispatcher.distanceToSqr(player);
 			if (distSq > 4096.0) {
 				return;   // vanilla's own nametag cut-off
 			}
-			Vec3 at = player.getAttachments().getNullable(EntityAttachment.NAME_TAG, 0, player.getViewYRot(partialTick));
-			if (at == null) {
-				return;
-			}
-			// Lines already drawn above the attachment: the name, plus the
-			// below-name score when vanilla showed it (within 10 blocks).
+			// Lines already drawn above the tag anchor: the name, plus the
+			// below-name score (display slot 2 in this era) when vanilla showed it
+			// (within 10 blocks).
 			int lines = 1;
-			if (distSq < 100.0 && player.getScoreboard().getDisplayObjective(DisplaySlot.BELOW_NAME) != null) {
+			if (distSq < 100.0 && player.getScoreboard().getDisplayObjective(2) != null) {
 				lines = 2;
 			}
 			boolean solid = !player.isDiscrete();
 			Font font = mc.font;
+			// EntityRenderer.renderNameTag's own transform (1.17.1): bbHeight + 0.5
+			// up, face the camera, scale(-0.025, -0.025, 0.025) -- then one line
+			// higher per line already drawn.
 			pose.pushPose();
-			pose.translate(at.x, at.y + 0.5 + lines * originclient$LINE, at.z);
+			pose.translate(0.0, player.getBbHeight() + 0.5F + lines * originclient$LINE, 0.0);
 			pose.mulPose(dispatcher.cameraOrientation());
-			pose.scale(0.025F, -0.025F, 0.025F);
+			pose.scale(-0.025F, -0.025F, 0.025F);
 			Matrix4f m = pose.last().pose();
 			int bg = (int) (mc.options.getBackgroundOpacity(0.25F) * 255.0F) << 24;
 			float x = -font.width(level) / 2f;
-			font.drawInBatch(level, x, 0, 0x20FFFFFF, false, m, buffers,
-					solid ? Font.DisplayMode.SEE_THROUGH : Font.DisplayMode.NORMAL, bg, light);
+			font.drawInBatch(level, x, 0, 0x20FFFFFF, false, m, buffers, solid, bg, light);
 			if (solid) {
-				font.drawInBatch(level, x, 0, 0xFFFFFFFF, false, m, buffers, Font.DisplayMode.NORMAL, 0, light);
+				font.drawInBatch(level, x, 0, 0xFFFFFFFF, false, m, buffers, false, 0, light);
 			}
 			pose.popPose();
 		} catch (Throwable t) {
