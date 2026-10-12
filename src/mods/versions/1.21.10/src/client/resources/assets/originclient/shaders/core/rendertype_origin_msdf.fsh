@@ -6,9 +6,14 @@
 // so the edge is one screen-pixel soft no matter how large or small the text is
 // drawn — vector-like scaling instead of a bitmap.
 //
-// PER-VERSION DELTA (1.21.11): the render-pipeline rewrite moved shader
+// PER-VERSION DELTA (1.21.10): the render-pipeline rewrite moved shader
 // uniforms into std140 blocks (ColorModulator now lives in DynamicTransforms,
-// not a bare `uniform vec4`) — mirrors vanilla's own core/position_tex_color.fsh.
+// not a bare `uniform vec4`). On 1.21.6 - 1.21.10 the block ends with a fifth
+// member, LineWidth (1.21.11 dropped it). A std140 block must be declared
+// IDENTICALLY in both stages or the program fails to link and the text silently
+// never draws -- same declaration as this module's rendertype_origin_icon.fsh
+// and rendertype_origin_grade.fsh (this file had been copied from 1.21.11's
+// 4-member block; it never ran before the 2026-10 menu port).
 // The MSDF math itself is unchanged from 1.21.1/1.21.4.
 
 layout(std140) uniform DynamicTransforms {
@@ -16,6 +21,7 @@ layout(std140) uniform DynamicTransforms {
     vec4 ColorModulator;
     vec3 ModelOffset;
     mat4 TextureMat;
+    float LineWidth;
 };
 
 uniform sampler2D Sampler0;

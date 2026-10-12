@@ -138,6 +138,62 @@ public final class OriginUi {
 		panel(g, x, y, w, h, cut, fill, border);
 	}
 
+	/**
+	 * A rounded rect at EXACT geometry and radius -- no Workbench radius
+	 * normalisation. Used by OriginDeck (the 2026-10 menu redesign), which draws
+	 * in PHYSICAL pixels (its pose is scaled by 1/guiScale) and sizes every corner
+	 * itself, so coordinates here are physical px and land 1:1 on the screen.
+	 *
+	 * <p>1.21.1 draws this with its rounded-box SDF shader; this era has none (see
+	 * OriginShaders), so it uses the same baked coverage masks as {@link #panel},
+	 * baked at ONE texel per pose unit -- since the pose is already physical, that
+	 * is one texel per screen pixel, the same per-pixel anti-aliasing. Always the
+	 * corner path (bulk fills + four corner blits), never a whole-box mask: the
+	 * menu draws dozens of distinct box sizes a frame (chips, tabs and tooltips
+	 * vary with their text), which would thrash the LRU whole-box cache -- and an
+	 * evicted texture is released while this frame's deferred blits still name it.
+	 * Corner masks are keyed by radius only, so they stay a handful.
+	 *
+	 * <p>Border semantics match 1.21.1's shader: the 1px ring REPLACES the fill
+	 * (the inner fill is the shape shrunk by 1px, whose rounded edge is exactly the
+	 * ring's inner edge), so a translucent fill is never doubled under its border.
+	 * Geometry is rounded to whole pixels (callers pass snapped boxes; circles
+	 * land within half a pixel). `aaPad` is accepted for source parity with
+	 * 1.21.1, where it pads the SDF quad; the masks carry their own AA ramp
+	 * inside the box, so it is unused here.
+	 */
+	public static void roundRect(GuiGraphics g, float x, float y, float w, float h, float r, int fill, int border, float aaPad) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		int x0 = Math.round(x), y0 = Math.round(y);
+		int iw = Math.max(1, Math.round(x + w) - x0), ih = Math.max(1, Math.round(y + h) - y0);
+		int ri = Math.max(0, Math.min(Math.round(r), Math.min(iw, ih) / 2));
+		if (((border >>> 24) & 0xFF) == 0) {
+			roundedFill(g, x0, y0, iw, ih, ri, fill, 1);
+			return;
+		}
+		if (iw > 2 && ih > 2) {
+			roundedFill(g, x0 + 1, y0 + 1, iw - 2, ih - 2, Math.max(0, ri - 1), fill, 1);
+		}
+		roundedStroke(g, x0, y0, iw, ih, ri, border, 1);
+	}
+
+	/** A soft radial glow (the baked radial_glow texture) centred on (cx,cy).
+	 *  The tint rides the blit's ARGB (no setShaderColor on this era). */
+	public static void softGlow(GuiGraphics g, float cx, float cy, float size, int argb) {
+		ensureLoaded();
+		if (!ok || glowTex == null || ((argb >>> 24) & 0xFF) == 0 || size <= 0) {
+			return;
+		}
+		var pose = g.pose();
+		pose.pushMatrix();
+		pose.translate(cx - size / 2f, cy - size / 2f);
+		pose.scale(size / 512f, size / 512f);
+		g.blit(RenderPipelines.GUI_TEXTURED, glowTex, 0, 0, 0f, 0f, 512, 512, 512, 512, 512, 512, argb);
+		pose.popMatrix();
+	}
+
 	// ---- baked rounded-box masks (the anti-aliasing backend) ----
 
 	/** 1.21.1's Workbench radius scale: RADIUS_SM up to 24 px short edge,
@@ -269,6 +325,13 @@ public final class OriginUi {
 
 	/** Solid rounded rectangle: straight interior as bulk fills, 4 mask corners. */
 	private static void roundedFill(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
+		roundedFill(g, x, y, w, h, r, color, guiScale());
+	}
+
+	/** {@link #roundedFill} with the corner masks baked at `s` texels per pose
+	 *  unit: guiScale() for GUI-px callers, 1 for {@link #roundRect} (which draws
+	 *  in physical pixels already). */
+	private static void roundedFill(GuiGraphics g, int x, int y, int w, int h, int r, int color, int s) {
 		if (((color >>> 24) & 0xFF) == 0) {
 			return;
 		}
@@ -279,11 +342,17 @@ public final class OriginUi {
 		g.fill(x + r, y, x + w - r, y + h, color);              // center column, full height
 		g.fill(x, y + r, x + r, y + h - r, color);              // left band
 		g.fill(x + w - r, y + r, x + w, y + h - r, color);      // right band
-		corners(g, x, y, w, h, r, false, color);
+		corners(g, x, y, w, h, r, false, color, s);
 	}
 
 	/** 1px rounded outline: straight edges (clear of the corners) + 4 mask corners. */
 	private static void roundedStroke(GuiGraphics g, int x, int y, int w, int h, int r, int color) {
+		roundedStroke(g, x, y, w, h, r, color, guiScale());
+	}
+
+	/** {@link #roundedStroke} at bake scale `s` (see roundedFill); the ring is
+	 *  one pose unit thick, i.e. one physical pixel when s == 1. */
+	private static void roundedStroke(GuiGraphics g, int x, int y, int w, int h, int r, int color, int s) {
 		if (r <= 0) {
 			g.fill(x, y, x + w, y + 1, color);
 			g.fill(x, y + h - 1, x + w, y + h, color);
@@ -295,7 +364,7 @@ public final class OriginUi {
 		g.fill(x + r, y + h - 1, x + w - r, y + h, color);      // bottom
 		g.fill(x, y + r, x + 1, y + h - r, color);              // left
 		g.fill(x + w - 1, y + r, x + w, y + h - r, color);      // right
-		corners(g, x, y, w, h, r, true, color);
+		corners(g, x, y, w, h, r, true, color, s);
 	}
 
 	/**
@@ -308,12 +377,11 @@ public final class OriginUi {
 	 * but it is a rounded corner rather than a square one -- the fail-soft ladder,
 	 * never the intended path.
 	 */
-	private static void corners(GuiGraphics g, int x, int y, int w, int h, int r, boolean ring, int color) {
-		ResourceLocation mask = cornerMask(r, ring);
+	private static void corners(GuiGraphics g, int x, int y, int w, int h, int r, boolean ring, int color, int s) {
+		ResourceLocation mask = cornerMask(r, ring, s);
 		if (mask == null) {
 			return;   // the straight bands above still drew a square box
 		}
-		int s = guiScale();
 		int pr = r * s, t = pr * 2;
 		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y, 0f, 0f, r, r, pr, pr, t, t, color);
 		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - r, y, (float) pr, 0f, r, r, pr, pr, t, t, color);
@@ -327,9 +395,10 @@ public final class OriginUi {
 	private static final Map<Integer, ResourceLocation> FILL_MASKS = new HashMap<>();
 	private static final Map<Integer, ResourceLocation> STROKE_MASKS = new HashMap<>();
 
-	private static ResourceLocation cornerMask(int r, boolean ring) {
+	private static ResourceLocation cornerMask(int r, boolean ring, int s) {
 		Map<Integer, ResourceLocation> cache = ring ? STROKE_MASKS : FILL_MASKS;
-		int s = guiScale();
+		// (r, s=1) bakes the same texels as a GUI-scale-1 mask of radius r, so the
+		// two kinds of caller share entries and the texture name below.
 		int key = (r << 4) | s;
 		if (cache.containsKey(key)) {
 			return cache.get(key);   // may hold null: a failed bake is not retried every frame
