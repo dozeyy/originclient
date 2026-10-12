@@ -511,3 +511,32 @@ Module-evidenced (from the module's own boot-verified HEAD code) unless marked R
 - CosmeticsPauseMixin: 1.21.2-1.21.4 createPauseMenu is still the GridLayout + alignInRectangle(0.5,
   0.25) shape, so 1.21.1's TAIL logic applies verbatim (pause shot: Cosmetics row identical to its
   neighbours, stack lifted like vanilla).
+
+## Fix-round port (2026-10-12) — 1.20, 1.20.2, 1.20.4, 1.21 (GuiGraphics, pre-1.21.2; agent port-a)
+- Same method as port-b: 3-way merge (base = d0b50d6 1.21.1, ours = module, theirs = 1.21.1 HEAD).
+  1.21 was byte-identical to the base for every file (wholesale copy; only CosmeticsPauseMixin's
+  comment differed). 1.20.2/1.20.4 conflicted only where they already carried era deltas; the
+  merged trees for the two are identical. Dev shots design + world (label port-a, runs 38283557661 /
+  38283561618) matched 1.21.1-final on the first run on all four, zero mixin failures.
+- 1.20 (1.20.1) era edits on the 1.21.1 windows: 3-arg `mouseScrolled(mx, my, amount)` (OriginWindow
+  and every window that overrides it), `renderBackground(GuiGraphics)` one-arg (OriginWindow keeps it
+  as an empty override; Screen.render never calls it before 1.20.2, so MinimapScreen.render calls
+  its own), `mc.getFrameTime()` for the map's partial tick (1.20.2/1.20.4 too). The 1.20 windows'
+  old explicit `renderBackground(g)` calls are gone: OriginWindow.render paints the backdrop itself.
+- In-world Cosmetics preview: renderEntityInInventory takes an INT scale before 1.20.5 (round it);
+  1.20.2-1.20.4 have float x/y + the Vector3f centring offset; 1.20.1 has int x/y and no offset
+  ((x, y) = feet) -> push, translate to the exact feet point (y + bbHeight/2 * scale), draw at 0,0.
+- MenuPlayerPreview: `renderToBuffer(..., 1f, 1f, 1f, 1f)` (the int-colour form is 1.21+).
+  1.20.2/1.20.4: `getSkinManager().getInsecureSkin(mc.getGameProfile())` -> PlayerSkin each frame
+  (SkinManager caches; module-evidenced in the title chip) instead of 1.21.1's lookupInsecure.
+  1.20.1 has no PlayerSkin: a private Skin(texture, slim, cape) record, NickHider's three getters
+  (skinFor/modelFor/capeFor), and the session profile's signed textures fetched ONCE off-thread with
+  `getMinecraftSessionService().fillProfileProperties(profile, false)` on Util.backgroundExecutor()
+  (a bare UUID+name profile always yields the default skin there), then getInsecureSkinInformation
+  + registerTexture for skin/cape and the "model" metadata for slim. Compiles + renders (dev shot);
+  the real-skin path itself is unproven offline. NOTE: the 1.20 title-screen head chip still builds
+  a bare profile, so it shows the default head for real accounts — candidate for the same fix.
+- Pause menu: 1.20.1-1.21 createPauseMenu is the GridLayout + alignInRectangle(0.5, 0.25) shape;
+  1.21.1's TAIL logic applies verbatim (pause shots: Cosmetics row identical to its neighbours).
+- Title: the merge put `setTitlePresentation(cosmeticsNav, "@shirt", false)` into each module's own
+  Cosmetics block (1.20/1.20.2/1.20.4 keep their AbstractWidgetAccessor height setter + redirects).
