@@ -754,6 +754,49 @@ first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG 
 - FriendsScreen: 3-arg mouseScrolled, SharedConstants.isAllowedChatCharacter; arrow in the Party HUD via
   Era.rotZ. SocialDemo uses Social.version() for the demo friends so the shot reads "Join" like 1.21.1.
 
+## Social port (2026-10-12) — 1.17.1 / 1.16.5 (pre-1.20 Gfx era, 1.16.5 fixed function; agent sp-f)
+- Method: the 1.21.1 social/ files + gui/FriendsScreen taken WHOLE, era edits asserted by script
+  (1.17.1), then 1.16.5 derived from the PORTED 1.17.1 files (records -> value classes by a script,
+  switch rules/expressions -> classic switch, `var` / pattern instanceof / List.of / copyOf / toList /
+  isBlank / strip -> Java 8 forms). Edits to existing files (mod menu tab, Right Shift group, HUD
+  element, minimap / locator dots, nametag tint, keybind, dev shots) are the same 1.21.1 hunks on both.
+- Client command: both pinned Fabric APIs (0.46.1+1.17, 0.42.0+1.16) ship fabric-command-api-v1 WITH
+  client commands (ClientCommandManager.DISPATCHER, checked in the tagged sources); no chat-intercept
+  mixin needed. v1 forwards only unknown/unparsable commands to the server, so the bare /originpc has
+  its own executor like on 1.21.1.
+- World pass: NOT a WorldRenderEvents.LAST hook of its own. On both versions LAST fires inside
+  vanilla's model-view push, which is why OriginClientMod's LAST hook sets an identity model-view
+  window (1.17.1 RenderSystem model-view stack, 1.16.5 RenderSystem.pushMatrix/loadIdentity).
+  Social.renderWorld (WaypointHud.capture + ping beams) is called from inside that window; a separate
+  hook would rotate the beams and the marker projection by the camera twice.
+- Skins: no PlayerSkin / PlayerFaceRenderer / getOrLoad. PlayerInfo.getSkinLocation() for players on
+  the current server, else MinecraftSessionService.fillProfileProperties(new GameProfile(id, null),
+  false) on a background thread -> SkinManager.registerSkins(profile, cb, false) -> ResourceLocation
+  cached; the face is face (8,8) + hat (40,8) blitted from the 64x64 skin through Gfx's 11-arg blit.
+  The Friends window tints it with setShaderColor (1.17.1) / color4f (1.16.5) for the fade.
+- Toast click positions: ToastComponent moves each toast through the model-view, not the PoseStack it
+  hands render(). 1.17.1: origin = Vector4f(0,0,0,1) x pose x RenderSystem.getModelViewMatrix();
+  1.16.5: the same with GL11.glGetFloatv(GL_MODELVIEW_MATRIX) (translatef on the fixed-function
+  stack; column-major, translation at [12],[13]). No notification-time multiplier (1.20.2+): x1.
+- Joining a server: 1.17.1 = the pause menu's disconnect (level.disconnect + clearLevel(
+  GenericDirtMessageScreen) / clearLevel()), ServerData(name, ip, false), 4-arg
+  ConnectScreen.startConnecting(parent, mc, ServerAddress, data). 1.16.5: no resolver.ServerAddress /
+  startConnecting -> mc.setScreen(new ConnectScreen(parent, mc, data)); the address check is "no
+  spaces" (no isValidAddress). No ServerData.isRealm() on either (1.20.2+).
+- Identity: User.getGameProfile() (no getProfileId), joinServer(GameProfile, token, serverId), no
+  HexFormat (hand hex), Gson 2.8.0 `new JsonParser().parse`. 1.16.5 transport = HttpURLConnection with
+  the error stream read for 4xx bodies (the service's sentences live there).
+- Text: TextComponent / TranslatableComponent; FriendsScreen typing check is
+  SharedConstants.isAllowedChatCharacter; 3-arg mouseScrolled. Party HUD arrow rotates with the
+  pre-JOML Vector3f.ZP quaternion.
+- 1.16.5 icons: "@plus" from the mask atlas (linear filter, no mipmaps, no SDF shader) loses its two thin
+  strokes at 14 px -- only the centre pixel survived in the dev shots. FriendsScreen draws that one glyph
+  as two bars (vertical in halves so a translucent colour isn't doubled) and its "Start a party" button
+  goes without the icon (OriginWindow.button draws from the atlas). Other atlas icons read fine.
+- Dev shots: SocialDemo's friends play Social.version(), so the demo reads "Join" as on 1.21.1. Design
+  + world sets match 1.21.1-social / 1.21.1-world-social on both modules (party_world: tinted markers,
+  straight gold ping beam, Party HUD with arrows + health), zero mixin failures.
+
 ## Social port (2026-10-12) — 1.21.6 / 1.21.8 (deferred GuiRenderState era; agent sp-c)
 Friends / chat / parties from 1.21.1 (5b5baeb, d037954, b15a952). The two src/ trees stayed byte-identical:
 ported on 1.21.8, copied to 1.21.6. 3-way `git merge-file` per edited file (base 5b5baeb^, theirs b15a952);
