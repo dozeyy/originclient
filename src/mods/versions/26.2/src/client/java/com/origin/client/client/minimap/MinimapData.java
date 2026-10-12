@@ -175,7 +175,7 @@ public final class MinimapData {
 		for (int i = 0; i < n; i++) {
 			int cx = pcx + SPIRAL[2 * i], cz = pcz + SPIRAL[2 * i + 1];
 			int slot = slot(cx, cz);
-			long key = ChunkPos.asLong(cx, cz);
+			long key = ChunkPos.pack(cx, cz);
 			if (slotKey[slot] != key) {
 				if (slotHasData[slot]) {
 					if (clears >= MAX_CLEARS) {
@@ -225,6 +225,7 @@ public final class MinimapData {
 				}
 			}
 		}
+		flushUpload();
 	}
 
 	private static int slot(int cx, int cz) {
@@ -237,10 +238,22 @@ public final class MinimapData {
 		uploadRegion(ox, oz);
 	}
 
+	// 26.2: CommandEncoder.writeToTexture has no source-region form for a
+	// NativeImage any more, so changed chunks only mark the image dirty and the
+	// whole 512x512 map is uploaded once at the end of update() -- at most once
+	// per client tick, however many chunks changed.
+	private static boolean uploadPending = false;
+
 	private static void uploadRegion(int ox, int oz) {
-		// mip 0, layer 0, dest (ox,oz), 16x16, from the same (ox,oz) of the image
-		RenderSystem.getDevice().createCommandEncoder()
-				.writeToTexture(texture.getTexture(), image, 0, 0, ox, oz, 16, 16, ox, oz);
+		uploadPending = true;
+	}
+
+	private static void flushUpload() {
+		if (!uploadPending || texture == null) {
+			return;
+		}
+		uploadPending = false;
+		RenderSystem.getDevice().createCommandEncoder().writeToTexture(texture.getTexture(), image);
 	}
 
 	// ---- one chunk -> 16x16 pixels ----
@@ -312,7 +325,7 @@ public final class MinimapData {
 		}
 		uploadRegion(ox, oz);
 		int slot = slot(cx, cz);
-		slotKey[slot] = ChunkPos.asLong(cx, cz);
+		slotKey[slot] = ChunkPos.pack(cx, cz);
 		slotHasData[slot] = true;
 		slotScannedAt[slot] = now;
 		slotSig[slot] = sig;
@@ -406,7 +419,9 @@ public final class MinimapData {
 					return scaleRgb(BiomeColors.getAverageGrassColor(level, POS), 0.9f) & 0xFFFFFF;
 				}
 				if (color == MapColor.PLANT) {
-					int tint = Minecraft.getInstance().getBlockColors().getColor(state, level, POS, 0);
+					// 26.2: block tints are BlockTintSources (index 0 = the leaf/plant tint).
+					var source = Minecraft.getInstance().getBlockColors().getTintSource(state, 0);
+					int tint = source == null ? -1 : source.colorInWorld(state, level, POS);
 					if (tint != -1) {
 						return scaleRgb(tint, state.getBlock() instanceof LeavesBlock ? 0.72f : 0.85f) & 0xFFFFFF;
 					}
