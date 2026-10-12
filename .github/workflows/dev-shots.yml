@@ -54,9 +54,11 @@ jobs:
           live = [m["module"] for m in json.load(open("src/mods/live-modules.json"))["modules"]]
           raw = os.environ.get("INPUT") or ""
           if not raw:
-              # the LAST tag wins: a message may mention "[shots]" in its prose first
+              # A tag WITH a module list wins over a bare one wherever it sits: a
+              # message may mention the bare tag in its prose too.
               tags = re.findall(r"\[shots(?::([^\]]+))?\]", os.environ.get("MSG", ""))
-              raw = tags[-1] if tags and tags[-1] else "1.21.1"
+              listed = [t for t in tags if t]
+              raw = listed[-1] if listed else "1.21.1"
           raw = raw.strip()
           picked = live if raw == "all" else [x.strip() for x in raw.split(",") if x.strip() in live]
           print("modules=" + json.dumps(picked or ["1.21.1"]))
