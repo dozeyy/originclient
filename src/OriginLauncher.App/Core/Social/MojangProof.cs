@@ -96,8 +96,9 @@ public static class MojangProof
 
     /// <summary>
     /// The /player/certificates answer as a usable certificate, or null when
-    /// any part is missing or a key doesn't load. A PKCS#1 body (should Mojang
-    /// ever send what its label says) is converted, so signing always works.
+    /// any part is missing or a key doesn't load. A PKCS#1 private key (should
+    /// Mojang ever send what its label says) is converted — it never leaves this
+    /// PC — but the public key is only ever passed on byte for byte.
     /// </summary>
     public static PlayerCertificate? ParseCertificate(string? body)
     {
@@ -198,22 +199,19 @@ public static class MojangProof
         }
     }
 
+    /// <summary>
+    /// The public key's DER exactly as Mojang sent it, once it loads as
+    /// SubjectPublicKeyInfo. Never re-encoded: publicKeySignatureV2 covers
+    /// these exact bytes, so a converted key would fail the service's check.
+    /// </summary>
     private static byte[]? PublicKeySpki(byte[]? der)
     {
         if (der == null) return null;
         try
         {
             using var rsa = RSA.Create();
-            try
-            {
-                rsa.ImportSubjectPublicKeyInfo(der, out _);
-                return der; // the original bytes: exactly what Mojang signed
-            }
-            catch (CryptographicException)
-            {
-                rsa.ImportRSAPublicKey(der, out _);
-                return rsa.ExportSubjectPublicKeyInfo();
-            }
+            rsa.ImportSubjectPublicKeyInfo(der, out var read);
+            return read == der.Length ? der : null;
         }
         catch (CryptographicException)
         {

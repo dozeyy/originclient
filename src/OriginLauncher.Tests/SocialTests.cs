@@ -454,15 +454,16 @@ public class MojangProofTests
     }
 
     [Fact]
-    public void PkcsOneBodiesAreConvertedSoSigningStillWorks()
+    public void APkcsOnePrivateKeyStillSignsButThePublicKeyIsNeverReencoded()
     {
-        var cert = MojangProof.ParseCertificate(FakeMojang.CertificateJson(
-            FakeMojang.Key.ExportRSAPrivateKey(), FakeMojang.Key.ExportRSAPublicKey()));
+        var cert = MojangProof.ParseCertificate(FakeMojang.CertificateJson(privateDer: FakeMojang.Key.ExportRSAPrivateKey()));
         Assert.NotNull(cert);
-        Assert.Equal(FakeMojang.Spki, cert!.PublicKeySpki);
-        var sig = MojangProof.Sign(cert, "x");
+        var sig = MojangProof.Sign(cert!, "x");
         Assert.True(FakeMojang.Key.VerifyData(Encoding.UTF8.GetBytes("x"), Convert.FromBase64String(sig),
             HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+
+        // A PKCS#1 public key isn't what Mojang signed: refuse rather than convert.
+        Assert.Null(MojangProof.ParseCertificate(FakeMojang.CertificateJson(publicDer: FakeMojang.Key.ExportRSAPublicKey())));
     }
 
     [Fact]
@@ -756,6 +757,40 @@ public class SocialClientTests
 
         await client.EnsureAuthAsync(CancellationToken.None);
         Assert.Equal(2, net.Count("/player/certificates"));
+    }
+
+    [Fact]
+    public async Task AnOutdatedClientIsToldToUpdate()
+    {
+        var net = new FakeNet { Auth = _ => new(400, """{"error":"Couldn't sign in to Origin. Please update Origin and try again."}""") };
+        var auth = await Client(net).EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(SocialAuthState.SignInFailed, auth.State);
+        Assert.Equal("Couldn't sign in to Origin. Please update Origin and try again.", auth.Message);
+    }
+
+    [Fact]
+    public async Task AServiceNotReadyIsRetriedLaterWithItsSentence()
+    {
+        var net = new FakeNet { Auth = _ => new(503, """{"error":"Friends are starting up. Try again in a few minutes."}""") };
+        var auth = await Client(net).EnsureAuthAsync(CancellationToken.None);
+        Assert.Equal(SocialAuthState.Unreachable, auth.State);
+        Assert.Equal("Friends are starting up. Try again in a few minutes.", auth.Message);
+    }
+
+    [Fact]
+    public async Task EveryAuthIsSignedAfresh()
+    {
+        var net = new FakeNet();
+        var now = Now;
+        var client = Client(net, clock: () => now);
+        await client.EnsureAuthAsync(CancellationToken.None);
+        client.Forget();
+        now = now.AddMilliseconds(1);
+        await client.EnsureAuthAsync(CancellationToken.None);
+        var sigs = net.Calls.Where(c => c.Url.EndsWith("/v1/auth", StringComparison.Ordinal))
+            .Select(c => JsonDocument.Parse(c.Body!).RootElement.GetProperty("sig").GetString()).ToList();
+        Assert.Equal(2, sigs.Count);
+        Assert.NotEqual(sigs[0], sigs[1]);
     }
 
     [Fact]

@@ -197,10 +197,14 @@ public sealed class SocialClient
                 return SocialAuthOutcome.Success;
             }
             var result = new SocialCallResult(auth.Status, auth.Body);
+            // 503 with a sentence = the service is up but not ready (Mojang's
+            // keys missing): show it, keep retrying on the backoff.
             if (result.Unreachable)
-                return new SocialAuthOutcome(SocialAuthState.Unreachable, null);
-            // Refused: don't keep offering the same certificate; the next try
-            // (after the backoff) fetches a fresh one.
+                return new SocialAuthOutcome(SocialAuthState.Unreachable, SocialJson.ErrorSentence(auth.Body));
+            // 401 = a check failed (e.g. "Your Minecraft sign-in ran out"):
+            // don't offer the same certificate again; the next try (after the
+            // backoff) fetches a fresh one. 400 = "update Origin". Both
+            // sentences are player-facing and shown as is.
             if (auth.Status == 401) Volatile.Write(ref _certificate, null);
             return new SocialAuthOutcome(SocialAuthState.SignInFailed,
                 SocialJson.ErrorSentence(auth.Body) ?? "Origin couldn't confirm your Minecraft account.");
