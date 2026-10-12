@@ -73,3 +73,17 @@ jobs:
         if: steps.ready.outputs.ready == 'true'
         working-directory: services/cosmetics
         run: npx --yes wrangler@4 deploy
+      # Smoke test the live Worker (docs/STORE.md has the URL): the service answers,
+      # the players-online count works, and Mojang's sign-in check is reachable
+      # FROM the Worker (hasJoined must say 204 for a join nobody made; 403/429
+      # means Mojang refuses the Worker and friends sign-in will fail).
+      - name: Smoke test the live service
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          base=https://origin-cosmetics.will-f11.workers.dev
+          sleep 10
+          for p in / /v1/stats/online /v1/diag/mojang; do
+            echo "== GET $p"; curl -sS --max-time 20 "$base$p"; echo
+          done
+          curl -sS --max-time 20 "$base/v1/diag/mojang" | grep -q '"hasJoined":{"status":204' \
+            || echo "::warning::Mojang's sign-in check is not answering the Worker normally — friends sign-in will fail (see the diag output above)."
