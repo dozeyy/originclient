@@ -570,3 +570,73 @@ first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG 
   TAIL logic applies verbatim (pause shot: Cosmetics row identical width/height/gap, stack lifted).
 - Harness note: the first shaders_1920x1080 capture on 1.21.8 caught the window mid-fade (first open
   stalls on the preview fetch); the 1366 shot and 1.21.6's are settled with previews. Timing, not code.
+
+## Fix-round port (2026-10-12) — 1.18.2, 1.19.2, 1.19.3, 1.19.4 (pre-1.20 Gfx era; agent port-e)
+- Method: the four modules' copies of every touched file were near-identical (diffs = TextComponent on
+  1.18.2, Registry/com.mojang.math on <=1.19.2, the inventory-entity steps on <=1.19.3), so 1.19.4 was
+  generated from 1.21.1 HEAD (GuiGraphics -> Gfx, PoseStack render, 3-arg mouseScrolled, asserted edits)
+  and the other three DERIVED from that with only those deltas. Light-touch files (OriginDeck, OMMS,
+  HudEditorScreen, TitleScreenMixin, OriginDevShots) took 1.21.1's change by 3-way merge onto each
+  module's own copy (only comment conflicts). Design + world dev shots matched 1.21.1-final on all four
+  first run (label port-e); runClient clean, no Mixin apply failures.
+- OriginWindow: render(PoseStack) wraps Gfx; the no-op override is renderBackground(PoseStack). The
+  backdrop (renderTitleBackground / MenuBlur.renderBehind) is drawn by render() itself, as on 1.21.1.
+- MenuPlayerPreview without PlayerSkin: skin + "slim" metadata + the account's own cape come from
+  SkinManager.registerSkins(profile, (type, location, texture) -> ..., true) (default skin until the
+  callback lands, same as the account chip); renderToBuffer takes four colour floats; draw with
+  mc.renderBuffers().bufferSource() + endBatch() (no GuiGraphics.flush). Profile =
+  mc.getUser().getGameProfile(). Pre-JOML (<=1.19.2): Vector3f.ZP.rotation(PI).mul(XP.rotation(-0.12))
+  and Vector3f.YP/XP.rotationDegrees instead of Quaternionf / Axis (1.19.3 already has both).
+- In-world Cosmetics preview: 1.19.4 replays renderEntityInInventory on the GUI PoseStack, so it follows
+  the deck pose like 1.21.1; <=1.19.3 positions through RenderSystem's model-view stack and IGNORES the
+  GUI PoseStack -- pass GUI-px coordinates (1.21.1's gx/gy) and the feet point (centre + scale*height/2).
+- Item icons in the grid: <=1.19.3 Gfx.renderItem folds the pose into the model-view, so the deck's
+  physical-px pose + 16px snapping works unchanged. Z_OVER is 900 here, not 1000: the pre-1.20 GUI depth
+  range ends at z 1000 (ortho near 1000 under a -2000 model-view), so 1000 sits on the clip plane.
+- Pause menu: 1.19.3's createPauseMenu adds ONE GridWidget holding the buttons (1.19.4's GridLayout hands
+  them to the screen via visitWidgets), so the old children()-scan found no buttons and 1.19.3 had NO
+  Cosmetics button. CosmeticsPauseMixin now walks ContainerEventHandler children recursively.
+  <=1.19.2 has no grid: rows sit at fixed offsets from height/4 (top-anchored), so the row is appended
+  without the 1.19.4+ quarter-row lift; Button constructor, public x/y fields.
+- MinimapScreen: the dark fill is the first draw in render(PoseStack) (no renderBackground stratum),
+  getFrameTime() for partial ticks, no flush; Matrix4f is com.mojang.math on <=1.19.2.
+- OriginDevWorld: 1.21.1's file applies verbatim on all four (PauseScreen(true), Screenshot.grab(File,
+  String, RenderTarget, Consumer) and I18n button pressing exist back to 1.18.2).
+
+## Fix-round port (2026-10-12) — 1.21.10 / 1.21.11 (1.21.9+ input + submit/extract era; agent port-d)
+- Method: 1.21.1 HEAD copies into 1.21.11 + scripted, count-asserted era edits, then 1.21.10 derived from
+  the finished 1.21.11 by the back-map (Identifier -> ResourceLocation, net.minecraft.util.Util ->
+  net.minecraft.Util, model.player.PlayerModel -> model.PlayerModel, InventoryScreen's 10-arg
+  renderEntityInInventory). Design + world dev shots (runs 38284298361 / 38284302120) compiled and matched
+  1.21.1-final on the first run; zero mixin failures.
+- OriginWindow: deferred GUI -> the backdrop lives in renderBackground (level == null: super, i.e. the
+  ScreenBackgroundMixin Origin backdrop; in a world: MenuBlur.renderBehind + renderDeferredSubtitles), the
+  OMMS pattern; render() draws none (double-blur trap). Input overrides take MouseButtonEvent / KeyEvent /
+  CharacterEvent; every subclass unpacks x/y/button at the top and passes the same event to super.
+- OriginDeck see-through: 1.21.1's hunks apply as-is; halo pills are OriginUi.roundRect render states
+  submitted before the text, so they layer under it. The deck-corner mask cache is keyed by radius in 1/8 px
+  (unbounded but small: halo radii are text-height sized).
+- Item grids: no pose z on Matrix3x2fStack. inFront() just runs the draws: a box submitted after items it
+  overlaps lands in a higher GuiRenderState layer, which is all 1.21.1's Z_OVER lift did. Items keep the
+  16*k physical-px snap via pose.scale(k, k) + renderFakeItem (item atlas, nearest = crisp).
+- Blits (cape tiles, shader previews): g.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, uW, vH,
+  texW, texH, argb) with the fade in the trailing ARGB; the deck clip is on GuiGraphics' scissor stack,
+  which the blit state captures.
+- Cosmetics preview = picture-in-picture: submitEntityRenderState(state, scale, offset, rotation, camera,
+  x0, y0, x1, y1) ignores the pose, so the box is the card's inside in whole GUI px and the offset moves the
+  model's middle off the box centre: offset = ((cx - boxCx)/scale, bbH/2 + (cy - boxCy)/scale, 0).
+- MenuPlayerPreview (no world): a hand-filled `new AvatarRenderState()` (entityType PLAYER, id = STATE_ID,
+  skin from SkinManager.createLookup(profile, false) with the Origin cape swapped in as a
+  ClientAsset.ResourceTexture like CosmeticCapeMixin, show* parts from options, bodyRot = 180 + yaw,
+  capeFlap for the sway) submitted the same way. EntityRenderDispatcher.getRenderer(state) picks the
+  player renderer from state.skin.model(), so vanilla's layers (cape) and Fabric-registered ones run.
+  CosmeticHeadLayer reads the head item from MenuPlayerPreview.headFor(state) when state.id == STATE_ID
+  (no level entity). Proven by dev shots: skin + cape + halo on the title-screen preview, both modules.
+- MinimapScreen: MinimapRenderer takes the GuiGraphics here (no flush / depth toggles); the two deck passes
+  layer around the map by submission order.
+- OriginDevWorld: GLFW.glfwSetWindowSize(window.handle()) + resizeDisplay(); buttons pressed with
+  b.onPress(new KeyEvent(GLFW_KEY_ENTER, 0, 0)); every capture waits for the dated PNG and renames it
+  before the next phase (an extra phase keeps mc.stop() until the last rename lands).
+- CosmeticsPauseMixin: 1.21.10/1.21.11 createPauseMenu is still the GridLayout + alignInRectangle(0.5, 0.25)
+  shape, so 1.21.1's TAIL logic applies verbatim (pause shot: Cosmetics row identical, stack lifted).
+- Removed a stray tracked javac.*.args from the 1.21.11 module root.
