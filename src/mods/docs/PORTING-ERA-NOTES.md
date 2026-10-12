@@ -26,6 +26,24 @@ language-level mistakes (add `--release 8` for 1.16.5).
 - 1.21 transplant: identical API era -> wholesale copy of 1.21.1/src, keep own
   fabric.mod.json + FireworkStarterMixin (+ its mixins.json line). CI green first try.
 
+## 2026-10-12 — porting the mod-menu redesign (OriginDeck) — plan from the October port
+The redesign (design/menu-redesign; reference = 1.21.1, `git diff 27b5c3e..HEAD -- src/mods/versions/1.21.1/src`)
+adds gui/OriginDeck (design-px kit, physical-pixel pose, click targets recorded while drawing),
+rewrites OriginModMenuScreen, adds a sized MSDF API to OriginSdfFont, OriginUi.roundRect/softGlow,
+the Right Shift centre group in HudEditorScreen, Mods.reset/metaText, and the dev-shots design set.
+What carries over from the October port (sections below are the evidence):
+- Order: 1.21 = wholesale copy; 1.20.2/1.20.4 near-verbatim; 1.20 = buffer API + 3-arg scroll;
+  1.21.8 then 1.21.6 (byte-identical trees); 1.21.11 then 1.21.10 via the back-map; 1.19.4 ->
+  1.19.3/1.19.2/1.18.2; 1.17.1 -> 1.16.5 (Java 8, no shaders).
+- Layering: 1.21.2+ GUIs are batched — no immediate SDF panels (1.21.4 keeps baked masks; 1.21.6+
+  submits GuiElementRenderStates); immediate custom-shader draws need g.flush() first on 1.21.4.
+- Deferred-GUI double-blur trap (1.21.6+): never call renderTitleBackground() from render().
+- The smooth font had only ever run on 1.21.1 — every other module's MSDF path must be proven
+  (1.21.4's old program json used a dead id form; 1.17.1 compiles shaders on demand from
+  assets/minecraft; 1.16.5 has no shaders at all -> Minecraft's own ttf font provider).
+- Gate before every push: `javac -proc:none --release N` over the module (parse + language level),
+  then CI build-check, then `[shots:<modules>]` dev shots compared against 1.21.1's.
+
 ## GuiGraphics era, pre-1.21 — ALL CONFIRMED by CI: 1.20 built green first try (build-check run 131)
 - ResourceLocation: `new ResourceLocation(ns, path)` / `new ResourceLocation("textures/...")`.
 - Immediate-mode quads: `BufferBuilder bb = Tesselator.getInstance().getBuilder();
