@@ -1139,15 +1139,24 @@ public final class SocialClient {
 		if (access == null || access.length() < 20 || "FabricMC".equals(access)) {
 			throw new SignedOut();
 		}
-		JsonObject b;
-		try {
-			b = MojangProof.authBody(access, user.getGameProfile().getId().toString(), user.getName(), "game");
-		} catch (MojangProof.NoProfile e) {
-			throw new SignedOut();
-		} catch (MojangProof.NoOnlinePlay e) {
-			throw new Refused(NO_ONLINE_PLAY, true);
+		Reply r = null;
+		// A 401 can mean our cached certificate ran out on the service's clock:
+		// drop it and try once more with a fresh one before giving up.
+		for (int attempt = 0; attempt < 2; attempt++) {
+			JsonObject b;
+			try {
+				b = MojangProof.authBody(access, user.getGameProfile().getId().toString(), user.getName(), "game");
+			} catch (MojangProof.NoProfile e) {
+				throw new SignedOut();
+			} catch (MojangProof.NoOnlinePlay e) {
+				throw new Refused(NO_ONLINE_PLAY, true);
+			}
+			r = post(api + "/v1/auth", b, null);
+			if (r.status() != 401) {
+				break;
+			}
+			MojangProof.forget();
 		}
-		Reply r = post(api + "/v1/auth", b, null);
 		if (r.status() == 404) {
 			throw new Missing();
 		}
