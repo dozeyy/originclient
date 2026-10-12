@@ -11,7 +11,8 @@
 #   [shots]                -> 1.21.1
 #   [shots:1.20,1.21.4]    -> those modules
 #   [shots:all]            -> every live module (src/mods/live-modules.json)
-# or run it by hand (Run workflow) with the same list in `modules`.
+# or run it by hand (Run workflow) with the same list in `modules`; `set: world`
+# captures inside a fresh world instead (modules with OriginDevWorld).
 # Software GL limits (Xvfb + llvmpipe, Sodium's GL 4.6 spoofed) are the same
 # as boot-smoke.yml -- see the notes there.
 name: dev-shots
@@ -25,15 +26,20 @@ on:
       modules:
         description: "Comma-separated modules, or 'all'"
         default: "1.21.1"
+      set:
+        description: "design (Origin screens) or world (inside a fresh world: OriginDevWorld)"
+        default: "design"
 
 permissions:
   contents: write
 
 # Only runs that will actually take shots share a group: a push WITHOUT a
 # [shots] tag still starts a (skipped) run, and in the shared group it would
-# cancel the real run in progress.
+# cancel the real run in progress. Hand-started runs are grouped by their own
+# module list + set, so parallel sessions/agents shooting different modules
+# never cancel each other.
 concurrency:
-  group: dev-shots-${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[shots') }}
+  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}', github.event.inputs.modules, github.event.inputs.set) || contains(github.event.head_commit.message, '[shots') }}
   cancel-in-progress: true
 
 jobs:
@@ -96,7 +102,7 @@ jobs:
           MESA_GL_VERSION_OVERRIDE: "4.6"
           MESA_GLSL_VERSION_OVERRIDE: "460"
           ORIGIN_SHOTS: ${{ runner.temp }}/shots
-          ORIGIN_SHOTS_SET: design
+          ORIGIN_SHOTS_SET: ${{ github.event.inputs.set || 'design' }}
         run: |
           chmod +x gradlew
           # The harness quits the game itself once every shot is taken. The whole
@@ -139,16 +145,35 @@ jobs:
           path: ${{ runner.temp }}/pub
 
       - name: Publish to the claude/dev-shots branch
+        env:
+          SET: ${{ github.event.inputs.set || 'design' }}
         run: |
           pub="$RUNNER_TEMP/pub"
           mkdir -p "$pub"
-          cd "$pub"
-          # artifact folders are shots-<module>; name them by module
-          for d in shots-*; do [ -d "$d" ] && mv "$d" "${d#shots-}"; done
-          printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > SOURCE.txt
-          git init -q
-          git config user.name "origin-dev-shots"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -qm "dev shots for ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/claude/dev-shots
+          # Only THIS run's folders are replaced; every other module's latest shots
+          # stay (several runs publish in parallel). Folder = module for the design
+          # set, <module>-world for the world set; SOURCE.txt inside each says which
+          # commit + run made it.
+          suffix=""; [ "$SET" = "world" ] && suffix="-world"
+          url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+          for attempt in 1 2 3 4 5; do
+            rm -rf "$RUNNER_TEMP/site"
+            if git clone -q --depth 1 --branch claude/dev-shots "$url" "$RUNNER_TEMP/site" 2>/dev/null; then :; else
+              mkdir -p "$RUNNER_TEMP/site" && git -C "$RUNNER_TEMP/site" init -q && git -C "$RUNNER_TEMP/site" checkout -q -b claude/dev-shots
+            fi
+            cd "$RUNNER_TEMP/site"
+            git config user.name "origin-dev-shots"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            for d in "$pub"/shots-*; do
+              [ -d "$d" ] || continue
+              m="$(basename "$d")"; m="${m#shots-}$suffix"
+              rm -rf "$m"; cp -r "$d" "$m"
+              printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$m/SOURCE.txt"
+            done
+            printf 'last run: %s/%s/actions/runs/%s (%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_SHA" > SOURCE.txt
+            git add -A
+            git commit -qm "dev shots ($SET) for ${GITHUB_SHA::7}" || true
+            if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then exit 0; fi
+            cd "$RUNNER_TEMP"; sleep $((attempt * 5))
+          done
+          exit 1

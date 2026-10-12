@@ -56,9 +56,13 @@ public final class OriginDevShots {
 	}
 
 	private static final List<Shot> SHOTS = new ArrayList<>();
+	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
+	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
 
 	static {
-		if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+		if (WORLD) {
+			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review (the menu / HUD-editor redesign loop): every screen at
 			// the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
@@ -133,6 +137,10 @@ public final class OriginDevShots {
 					nextAt = 0;
 				}
 			}
+			return;
+		}
+		if (WORLD) {
+			OriginDevWorld.tick(mc, DIR);
 			return;
 		}
 		if (now < nextAt) {
