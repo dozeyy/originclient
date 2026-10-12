@@ -1,2 +1,2 @@
-source: b6e6f123da76502693e187cb898ee4caa37d76ad
-run: https://github.com/dozeyy/originclient/actions/runs/38284757200
+source: 12436be1e45cf891a947bf9e3a29c24250243879
+run: https://github.com/dozeyy/originclient/actions/runs/38285523258
