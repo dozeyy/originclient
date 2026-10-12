@@ -253,7 +253,7 @@ public class HudEditorScreen extends Screen {
 		d.alpha = in;
 
 		float logoY = (float) OriginTheme.lerp(-40, -92, in);
-		d.logo(0, logoY, 96, 0.45f);
+		d.logo(0, logoY, 96, 0.2f);
 		float ow = d.textW("ORIGIN", 22, true, 1f), gap = 8, cw = d.textW("CLIENT", 22, false, 1f);
 		float wx = -(ow + gap + cw) / 2f;
 		d.textMid("ORIGIN", wx, -19, 22, true, 1f, OriginDeck.TEXT);

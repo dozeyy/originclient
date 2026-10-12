@@ -129,6 +129,21 @@ public final class OriginDeck {
 		return (a << 24) | (argb & 0xFFFFFF);
 	}
 
+	/** `top` composited over `bottom` (source-over), as one ARGB colour. */
+	public static int over(int top, int bottom) {
+		float ta = ((top >>> 24) & 0xFF) / 255f, ba = ((bottom >>> 24) & 0xFF) / 255f;
+		float a = ta + ba * (1 - ta);
+		if (a <= 0f) {
+			return 0;
+		}
+		int out = Math.round(a * 255) << 24;
+		for (int sh = 0; sh <= 16; sh += 8) {
+			float tc = ((top >> sh) & 0xFF), bc = ((bottom >> sh) & 0xFF);
+			out |= Math.round((tc * ta + bc * ba * (1 - ta)) / a) << sh;
+		}
+		return out;
+	}
+
 	public static int lerp(int a, int b, float t) {
 		return com.origin.client.client.theme.OriginTheme.lerpColor(a, b, t);
 	}
@@ -161,7 +176,11 @@ public final class OriginDeck {
 			return;
 		}
 		float[] b = snap(x, y, w, h);
-		OriginUi.roundRect(g, b[0], b[1], b[2], b[3], r * s, fa(fill), fa(border), 0f);
+		// The SDF shader REPLACES the fill with the border colour in the border
+		// ring; the mock's borders are translucent overlays (white .06 over the
+		// card), so composite the border onto the fill first.
+		int bd = ((border >>> 24) & 0xFF) == 0 ? 0 : over(border, fill);
+		OriginUi.roundRect(g, b[0], b[1], b[2], b[3], r * s, fa(fill), fa(bd), 0f);
 	}
 
 	/** A filled circle (switch knobs, slider thumbs, the "new" dot). */
@@ -291,7 +310,7 @@ public final class OriginDeck {
 	/** The Origin mark (textures/ui/origin_logo.png) with its soft white glow. */
 	public void logo(float cx, float cy, float size, float glow) {
 		if (glow > 0) {
-			OriginUi.softGlow(g, px(cx), py(cy), size * s * 1.9f, mul(0xFFFFFFFF, glow * alpha));
+			OriginUi.softGlow(g, px(cx), py(cy), size * s * 1.6f, mul(0xFFFFFFFF, glow * alpha));
 		}
 		OriginUi.logo(g, px(cx), py(cy), Math.round(size * s), alpha);
 	}

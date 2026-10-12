@@ -474,7 +474,7 @@ public class OriginModMenuScreen extends Screen {
 		d.fill(1, HEAD_H, W - 2, 1, LINE);
 
 		// brand: the real Origin mark + ORIGIN (bold) CLIENT (light)
-		d.logo(M + 16, HEAD_H / 2, 32, 0.30f);
+		d.logo(M + 16, HEAD_H / 2, 32, 0.12f);
 		float bx = M + 32 + 10;
 		bx += d.textMid("ORIGIN", bx, HEAD_H / 2, 18, true, 0.4f, TEXT);
 		d.textMid("CLIENT", bx + 7, HEAD_H / 2, 18, false, 0.4f, DIM);
@@ -703,7 +703,7 @@ public class OriginModMenuScreen extends Screen {
 	private void drawSearch(OriginDeck d, float x, float y, float w, String value, String placeholder,
 							boolean focused, boolean slashHint, Runnable onClick) {
 		d.rect(x, y, w, 30, 6, FIELD, focused ? mul(ACC, 0.6f) : LINE2);
-		d.icon("@search", x + 10, y + 8, 14, MUTE);
+		d.icon("@find", x + 10, y + 8, 14, MUTE);
 		float tx = x + 32;
 		if (value.isEmpty()) {
 			d.textMid(placeholder, tx, y + 15, 13, false, 0, MUTE);

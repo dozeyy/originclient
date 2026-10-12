@@ -57,7 +57,7 @@
     ],
     "@title-language": [
       0,
-      -8
+      0
     ],
     "@title-accessibility": [
       0,
@@ -65,15 +65,15 @@
     ],
     "fps": [
       0,
-      4
+      0
     ],
     "cps": [
       0,
-      -2
+      0
     ],
     "keystrokes": [
       0,
-      20
+      0
     ],
     "coords": [
       0,
@@ -84,7 +84,7 @@
       0
     ],
     "potionhud": [
-      4,
+      0,
       0
     ],
     "serveraddress": [
@@ -100,8 +100,8 @@
       0
     ],
     "zoom": [
-      4,
-      4
+      0,
+      0
     ],
     "freelook": [
       0,
@@ -124,8 +124,8 @@
       0
     ],
     "nametags": [
-      3,
-      3
+      0,
+      0
     ],
     "itemsize": [
       0,
@@ -148,11 +148,11 @@
       0
     ],
     "particles": [
-      6,
+      0,
       0
     ],
     "togglesprint": [
-      4,
+      0,
       0
     ],
     "chat": [
@@ -164,8 +164,8 @@
       0
     ],
     "jei": [
-      -4,
-      -4
+      0,
+      0
     ],
     "clock": [
       0,
@@ -189,7 +189,7 @@
     ],
     "saturation": [
       0,
-      -2
+      0
     ],
     "packdisplay": [
       0,
@@ -224,7 +224,7 @@
       0
     ],
     "glintcolorizer": [
-      -4,
+      0,
       0
     ],
     "bossbar": [
@@ -240,19 +240,19 @@
       0
     ],
     "shinypots": [
-      -12,
-      -4
+      0,
+      0
     ],
     "tntcountdown": [
       0,
-      4
+      0
     ],
     "snaplook": [
       0,
       0
     ],
     "cooldowns": [
-      -8,
+      0,
       0
     ],
     "soundchanger": [
@@ -260,12 +260,12 @@
       0
     ],
     "itemphysics": [
-      4,
-      12
+      0,
+      0
     ],
     "worldeditcui": [
       0,
-      4
+      0
     ],
     "teamview": [
       0,
@@ -305,7 +305,7 @@
     ],
     "hypixelbedwars": [
       0,
-      -12
+      0
     ],
     "portalcalc": [
       0,
@@ -366,6 +366,10 @@
     "@check": [
       0,
       4
+    ],
+    "@find": [
+      0,
+      0
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v2/generate_proposal.py",
@@ -729,6 +733,10 @@
     "@check": {
       "x": 960,
       "y": 2688
+    },
+    "@find": {
+      "x": 0,
+      "y": 2880
     }
   }
 }

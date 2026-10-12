@@ -27,6 +27,11 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
 MASTER = PROJECT / "design" / "icon-proposals" / "origin-icon-system-v2" / "generate_proposal.py"
+# v3 (Will, 2026-10-12): the refined export of the v2 family -- weight classes,
+# optical sizes and the redraws listed in its README. Its SVGs are FINAL masters
+# (stroke width + optical scale already inside each file), so they are baked
+# as-is; v2's generate_proposal.py still supplies the PUBLIC_IDS catalogue.
+PACK = PROJECT / "design" / "icon-proposals" / "origin-icon-system-v3" / "svg"
 OUT = (PROJECT / "src" / "mods" / "versions" / "1.21.1" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui")
 
@@ -172,7 +177,30 @@ CHROME = {
     "@plus": '<path d="M12 5v14M5 12h14"/>',
     "@trash": '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
     "@check": '<polyline points="20 6 9 17 4 12"/>',
+    # A plain magnifier for search FIELDS (the pack's "search" is a find-in-page card).
+    "@find": '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
 }
+
+
+def _norm(name: str) -> str:
+    return name.replace("@", "").replace("-", "").lower()
+
+
+_PACK_ROOT = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"'
+
+
+def pack_entry(public_id: str):
+    """The v3 pack's glyph for a public id (pack names are the ids with dashes:
+    'freelook' -> free-look.svg, '@hudeditor' -> hud-editor.svg), or None."""
+    if not PACK.is_dir():
+        return None
+    want = _norm(public_id)
+    for path in PACK.glob("*.svg"):
+        if _norm(path.stem) == want:
+            text = path.read_text(encoding="utf-8")
+            inner = text[text.index(">", text.index("<svg")) + 1: text.rindex("</svg>")].strip()
+            return {"id": public_id, "body": inner, "stroke": _PACK_ROOT}
+    return None
 
 
 def load_master():
@@ -335,8 +363,10 @@ def build() -> None:
     if missing:
         raise RuntimeError(f"Approved master icons missing: {', '.join(missing)}")
 
-    entries = [(public_id, by_id[master_id]) for public_id, master_id in PUBLIC_IDS.items()]
-    entries += [(public_id, {"id": public_id, "body": body}) for public_id, body in CHROME.items()]
+    entries = [(public_id, pack_entry(public_id) or by_id[master_id]) for public_id, master_id in PUBLIC_IDS.items()]
+    # Drawn at the v3 pack's thin class (1.65) so they sit with its menu glyphs.
+    thin = _PACK_ROOT + ' stroke-width="1.65"'
+    entries += [(public_id, {"id": public_id, "body": body, "stroke": thin}) for public_id, body in CHROME.items()]
     rows = (len(entries) + COLS - 1) // COLS
     width, height = COLS * CELL, rows * CELL
     svg = atlas_svg(entries, master.STROKE, width, height)
