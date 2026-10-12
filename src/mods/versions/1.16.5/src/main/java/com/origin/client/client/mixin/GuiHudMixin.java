@@ -43,6 +43,16 @@ public class GuiHudMixin {
 		}
 	}
 
+	// Color Saturation: grade the world at the HEAD of the HUD render — the world is
+	// fully drawn by now, but the HUD and any open screen/menu paint AFTER this, so
+	// only the game world is graded. Gui.render runs every in-game frame (the HUD
+	// draws behind any open screen), so the grade stays live even behind the mod menu.
+	// 1.16.5 grades through a vanilla post chain (render/ColorGrade).
+	@Inject(method = "render", at = @At("HEAD"))
+	private void originclient$colorGrade(PoseStack poseStack, float partialTick, CallbackInfo ci) {
+		com.origin.client.client.render.ColorGrade.process(partialTick);
+	}
+
 	// Waypoint Locator Bar. In Survival the gems go on right after vanilla's own XP
 	// bar + level number, inside the same method, so plain call order puts them on
 	// top of the bar sprite (drawing from render RETURN let HUD batching reorder the

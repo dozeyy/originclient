@@ -227,6 +227,15 @@ public final class Gfx {
 		}
 	}
 
+	/** GuiGraphics.renderComponentTooltip(font, lines, mx, my): handed to the open
+	 *  screen like renderTooltip above (Screen.renderComponentTooltip draws it). */
+	public void renderComponentTooltip(Font font, java.util.List<Component> lines, int mouseX, int mouseY) {
+		net.minecraft.client.gui.screens.Screen s = Minecraft.getInstance().screen;
+		if (s != null) {
+			s.renderComponentTooltip(pose, lines, mouseX, mouseY);
+		}
+	}
+
 	// ---- shapes the Lunar-parity mods call ----
 
 	/** drawString for already laid-out text (a wrapped line of a pack description). */

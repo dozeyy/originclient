@@ -1,0 +1,264 @@
+<!doctype html>
+<!-- Redesign mock-up, v1. ?scene=menu | settings | hud. 640x360 CSS px = one
+     1920x1080 Minecraft GUI at scale 3. Colors are OriginTheme's tokens. -->
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-400.woff2);font-weight:400}
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-600.woff2);font-weight:600}
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-700.woff2);font-weight:700}
+@font-face{font-family:Mono;src:url(../../../website/assets/fonts/monocraft.woff2)}
+:root{
+  --bg:#0E1110; --panel:rgba(23,28,25,.93); --panel-alt:#202720; --card:rgba(29,36,32,.70); --card-h:rgba(39,48,42,.82);
+  --stroke:rgba(111,121,111,.14); --stroke-strong:rgba(125,137,126,.32); --stroke-h:#4E705C;
+  --text:#F1E9D2; --dim:#B8B5A6; --muted:#7D8279;
+  --accent:#5FD09B; --accent-soft:rgba(95,208,155,.14); --accent-border:rgba(95,208,155,.6);
+  --danger:#E06B5B; --off:#303732;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:640px;height:360px;overflow:hidden;background:#000}
+body{font-family:Inter,sans-serif;color:var(--text);position:relative;font-size:6px;-webkit-font-smoothing:antialiased}
+.scene{display:none;position:absolute;inset:0}.scene.on{display:block}
+.world{position:absolute;inset:-8px;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.20.png) center/cover}
+.world.blur{filter:blur(4px) brightness(.45) saturate(.9)}
+.world.live{filter:brightness(.9)}
+svg.i{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- menu shell ---------- */
+.shell{position:absolute;left:40px;top:24px;width:560px;height:312px;background:var(--panel);border:1px solid var(--stroke-strong);
+  border-radius:3px;box-shadow:0 10px 30px rgba(0,0,0,.55);overflow:hidden}
+.head{height:30px;display:flex;align-items:center;padding:0 10px;gap:10px;border-bottom:1px solid var(--stroke)}
+.brand{display:flex;align-items:center;gap:5px;font-weight:700;font-size:7px;letter-spacing:1.6px}
+.brand svg{width:13px;height:13px}
+.tabs{display:flex;gap:2px;margin-left:6px}
+.tab{padding:5px 8px;border-radius:2px;font-weight:600;font-size:6.2px;color:var(--muted)}
+.tab.on{color:var(--text);background:rgba(255,255,255,.06);box-shadow:inset 0 -1.5px 0 var(--accent)}
+.search{margin-left:auto;width:130px;height:16px;border-radius:2px;background:rgba(0,0,0,.28);border:1px solid var(--stroke-strong);
+  display:flex;align-items:center;gap:4px;padding:0 5px;color:var(--muted);font-size:5.8px}
+.search .ic{width:8px;height:8px}
+.kbd{margin-left:auto;font-family:Mono;font-size:5px;color:var(--muted);border:1px solid var(--stroke-strong);border-radius:1px;padding:0 2px}
+.x{width:16px;height:16px;border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--dim)}
+.x svg{width:8px;height:8px}
+.chips{height:24px;display:flex;align-items:center;gap:4px;padding:0 10px}
+.chip{height:14px;padding:0 6px;border-radius:2px;display:flex;align-items:center;gap:3px;font-weight:600;font-size:5.6px;color:var(--dim);
+  background:rgba(255,255,255,.03);border:1px solid var(--stroke)}
+.chip b{font-weight:600;color:var(--muted);font-size:5px}
+.chip.on{background:var(--accent-soft);border-color:var(--accent-border);color:var(--text)}
+.chip.on b{color:var(--accent)}
+.btn{height:14px;padding:0 7px;border-radius:2px;display:flex;align-items:center;gap:4px;font-weight:600;font-size:5.8px;
+  border:1px solid var(--stroke-strong);color:var(--text);background:rgba(255,255,255,.04)}
+.btn svg{width:7px;height:7px}
+.btn.primary{background:var(--accent);color:#0A1710;border-color:transparent}
+.grid{position:absolute;left:10px;right:10px;top:56px;bottom:20px;overflow:hidden;display:grid;grid-template-columns:repeat(5,1fr);gap:5px;align-content:start}
+.card{height:58px;border-radius:3px;background:var(--card);border:1px solid var(--stroke);position:relative;display:flex;flex-direction:column;
+  align-items:center;overflow:hidden}
+.card .ic{width:15px;height:15px;margin-top:9px;color:var(--text)}
+.card .nm{margin-top:5px;font-weight:600;font-size:5.8px}
+.card .state{position:absolute;left:0;right:0;bottom:0;height:12px;display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:4.8px;letter-spacing:.8px;border-top:1px solid var(--stroke)}
+.card.on .state{background:rgba(95,208,155,.16);color:var(--accent)}
+.card.off .state{background:rgba(0,0,0,.18);color:var(--muted)}
+.card.off .ic,.card.off .nm{opacity:.62}
+.card .gear{position:absolute;right:3px;top:3px;width:8px;height:8px;color:var(--muted);opacity:0}
+.card .pin{position:absolute;left:3px;top:3px;width:3px;height:3px;border-radius:50%;background:var(--accent)}
+.card.hover{background:var(--card-h);border-color:var(--stroke-h)}
+.card.hover .gear{opacity:1;color:var(--dim)}
+.foot{position:absolute;left:0;right:0;bottom:0;height:18px;border-top:1px solid var(--stroke);display:flex;align-items:center;gap:10px;
+  padding:0 10px;color:var(--muted);font-size:5.2px}
+.foot .kk{font-family:Mono;color:var(--dim)}
+.foot .r{margin-left:auto}
+
+/* ---------- settings ---------- */
+.crumb{display:flex;align-items:center;gap:6px;font-weight:600;font-size:7px}
+.back{width:16px;height:16px;border-radius:2px;border:1px solid var(--stroke-strong);display:flex;align-items:center;justify-content:center}
+.back svg{width:8px;height:8px}
+.crumb .ic{width:11px;height:11px}
+.crumb .sub{font-weight:400;color:var(--muted);font-size:5.8px}
+.sw{width:18px;height:9px;border-radius:5px;background:var(--accent);position:relative}
+.sw::after{content:"";position:absolute;right:1px;top:1px;width:7px;height:7px;border-radius:50%;background:var(--text)}
+.sw.off{background:var(--off)}.sw.off::after{right:auto;left:1px}
+.cols{position:absolute;left:10px;right:10px;top:38px;bottom:24px;display:grid;grid-template-columns:1fr 208px;gap:10px}
+.opts{overflow:hidden}
+.sec{font-weight:700;font-size:5px;letter-spacing:1.2px;color:var(--muted);margin:5px 0 3px}
+.row{height:20px;display:flex;align-items:center;gap:6px;padding:0 7px;border-radius:2px;background:rgba(255,255,255,.025);margin-bottom:2px;
+  border:1px solid transparent}
+.row .l{font-size:6px;font-weight:600}
+.row .v{margin-left:auto;display:flex;align-items:center;gap:5px;color:var(--dim);font-size:5.6px}
+.row.hover{border-color:var(--stroke-strong);background:rgba(255,255,255,.045)}
+.reset{width:7px;height:7px;color:var(--muted)}
+.slider{width:70px;height:3px;border-radius:2px;background:var(--off);position:relative}
+.slider i{position:absolute;left:0;top:0;bottom:0;width:45%;background:var(--accent);border-radius:2px}
+.slider b{position:absolute;left:45%;top:-2.5px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--text)}
+.swatch{width:10px;height:10px;border-radius:2px;border:1px solid var(--stroke-strong)}
+.dd{height:13px;padding:0 6px;border-radius:2px;border:1px solid var(--stroke-strong);display:flex;align-items:center;gap:6px;color:var(--text)}
+.preview{border-radius:3px;border:1px solid var(--stroke-strong);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.preview .stage{flex:1;position:relative;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.21.png) center/cover}
+.preview .stage::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.preview .cap{height:22px;display:flex;align-items:center;gap:5px;padding:0 7px;border-top:1px solid var(--stroke);background:rgba(0,0,0,.25)}
+.preview .cap .t{font-size:5.4px;color:var(--muted)}
+.ks{position:absolute;z-index:2;left:50%;top:50%;transform:translate(-50%,-50%) scale(1.5);display:grid;grid-template-columns:repeat(3,16px);gap:2px}
+.k{height:16px;border-radius:1.5px;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-family:Mono;font-size:6px;color:#fff}
+.k.d{background:rgba(255,255,255,.85);color:#111}
+.k.w{grid-column:span 3}.k.h{grid-column:span 1}
+
+/* ---------- HUD editor ---------- */
+.hud{position:absolute;font-family:Mono;color:#fff;font-size:6.2px;text-shadow:1px 1px 0 rgba(0,0,0,.6)}
+.box{position:absolute;border:1px solid rgba(255,255,255,.22);border-radius:1px}
+.box.sel{border:1px solid var(--accent);box-shadow:0 0 0 1px rgba(95,208,155,.25)}
+.tag{position:absolute;top:-10px;left:-1px;height:9px;padding:0 4px;border-radius:1px;background:var(--accent);color:#0A1710;font-family:Inter;
+  font-weight:700;font-size:4.8px;display:flex;align-items:center;white-space:nowrap;text-shadow:none}
+.handle{position:absolute;width:5px;height:5px;background:var(--accent);border-radius:1px}
+.guide{position:absolute;background:var(--accent);opacity:.85}
+.gdot{position:absolute;width:3px;height:3px;border-radius:50%;background:var(--accent)}
+.center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px}
+.center .mark{width:34px;height:34px;color:var(--text)}
+.center .btn{height:20px;padding:0 16px;font-size:7px;letter-spacing:1.4px}
+.hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);height:16px;padding:0 9px;border-radius:2px;background:rgba(14,17,16,.82);
+  border:1px solid var(--stroke-strong);display:flex;align-items:center;gap:9px;font-size:5.2px;color:var(--dim);white-space:nowrap}
+.hint .kk{font-family:Mono;color:var(--text)}
+.toolbar{position:absolute;right:8px;top:8px;display:flex;gap:4px}
+
+/* ---- round 2 ---- */
+:root{--sec:rgba(241,233,210,.55)}
+.chip b{color:var(--sec);font-size:5.4px}
+.card{height:50px}
+.card .ic{margin-top:7px;width:14px;height:14px}
+.card .nm{margin-top:4px;font-size:6px}
+.card .state{right:16px;height:13px;font-size:5.4px;letter-spacing:.4px;justify-content:flex-start;padding-left:7px;border-right:1px solid rgba(14,17,16,.8)}
+.card .gearseg{position:absolute;right:0;bottom:0;width:16px;height:13px;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--stroke);color:var(--sec);background:rgba(0,0,0,.12)}
+.card .gearseg svg{width:8px;height:8px}
+.card .pinic{position:absolute;left:4px;top:4px;width:7px;height:7px;color:var(--accent)}
+.card.hover{border-color:rgba(241,233,210,.25);background:var(--card-h)}
+.card.hover .gearseg{color:var(--text)}
+.grid{grid-template-columns:repeat(5,1fr);gap:5px;bottom:19px}
+.fade{position:absolute;left:10px;right:14px;bottom:19px;height:12px;background:linear-gradient(transparent,rgba(23,28,25,.98));pointer-events:none}
+.scroll{position:absolute;right:4px;top:58px;bottom:22px;width:2px;border-radius:1px;background:rgba(255,255,255,.06)}
+.scroll i{position:absolute;left:0;right:0;top:0;height:42%;border-radius:1px;background:rgba(241,233,210,.35)}
+.foot{color:var(--sec);font-size:5.6px}
+.foot .kk{font-family:Inter;font-weight:700;color:var(--text)}
+.sec{font-size:5.6px;letter-spacing:.5px;color:var(--sec);margin:12px 0 4px}
+.sec:first-child{margin-top:2px}
+.row.changed{box-shadow:inset 2px 0 0 var(--accent)}
+.title-sw{display:flex;align-items:center;gap:4px;margin-left:8px;font-size:5.6px;color:var(--sec);font-weight:600}
+.cols{grid-template-columns:1fr 190px}
+.side{display:flex;flex-direction:column;gap:6px}
+.preview{height:150px;flex:none}
+.preview .stage{background:#000}
+.preview .stage::before{content:"";position:absolute;inset:-6px;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.21.png) center/cover;filter:blur(3px) brightness(.45)}
+.preview .stage::after{display:none}
+.bgtog{position:absolute;right:5px;top:5px;z-index:3;display:flex;border:1px solid var(--stroke-strong);border-radius:2px;overflow:hidden}
+.bgtog span{font-size:4.8px;font-weight:600;padding:2px 4px;color:var(--sec);background:rgba(14,17,16,.7)}
+.bgtog span.on{color:var(--text);background:rgba(95,208,155,.25)}
+.desc{font-size:5.6px;line-height:1.5;color:var(--sec)}
+.ks2{position:absolute;z-index:2;left:50%;top:50%;transform:translate(-50%,-50%) scale(1.35);display:grid;grid-template-columns:repeat(6,8px);gap:2px}
+.ks2 .k{height:16px;font-size:6px}
+.ks2 .c2{grid-column:span 2}.ks2 .c3{grid-column:span 3}.ks2 .c6{grid-column:span 6;height:8px}
+.ks2 .skip{grid-column:span 2;visibility:hidden}
+.ks2 .sp{height:6px}
+.box{border:1px solid rgba(241,233,210,.35);box-shadow:0 0 0 1px rgba(0,0,0,.45)}
+.box.sel{border-color:var(--accent);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.guide{background:var(--accent);opacity:.9;box-shadow:1px 1px 0 rgba(14,17,16,.6)}
+.dist{position:absolute;height:9px;padding:0 3px;border-radius:1px;background:#0E1110;color:var(--accent);font-family:Inter;font-weight:700;font-size:5px;display:flex;align-items:center}
+.scrim{position:absolute;left:50%;top:50%;width:200px;height:150px;transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(14,17,16,.55),transparent)}
+.center{top:46%}
+.hint{bottom:auto;top:calc(46% + 34px);font-family:Inter}
+.hint .kk{font-family:Inter;font-weight:700;color:var(--text);border:1px solid rgba(241,233,210,.45);border-radius:1.5px;padding:0 2px;margin-right:2px}
+.tool{position:absolute;top:8px;right:8px;display:flex;gap:4px}
+.backchip{position:absolute;left:50%;top:6px;transform:translateX(-50%);height:15px;padding:0 8px;border-radius:2px;background:rgba(14,17,16,.88);
+  border:1px solid var(--accent-border);display:flex;align-items:center;gap:4px;font-weight:600;font-size:6px}
+.backchip svg{width:7px;height:7px}
+.ghost{position:absolute;border:1px dashed rgba(241,233,210,.35)}
+</style></head><body>
+<script>
+const ICONS=/*ICONS*/{};
+const ic=(id,cls='i')=>`<svg class="${cls}" viewBox="0 0 24 24">${ICONS[id]||''}</svg>`;
+const MARK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="12" rx="9" ry="3.8"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>`;
+const BACK=`<svg viewBox="0 0 24 24" class="i"><polyline points="15 18 9 12 15 6"/></svg>`;
+const CLOSE=`<svg viewBox="0 0 24 24" class="i"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+const RESET=`<svg viewBox="0 0 24 24" class="i"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/></svg>`;
+const GEAR=`<svg viewBox="0 0 24 24" class="i"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 4.6 19.4l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 1.6 13H1a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 4.6"/></svg>`;
+const COG=`<svg viewBox="0 0 24 24" class="i"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/><circle cx="12" cy="12" r="6.5"/></svg>`;
+const PIN=`<svg viewBox="0 0 24 24" class="i"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg>`;
+const MODS=[['keystrokes','Keystrokes',1,1],['zoom','Zoom',1,1],['coords','Coordinates',1,0],['armorhud','Armor HUD',1,0],['potionhud','Potion HUD',0,0],
+ ['freelook','Freelook',0,0],['fullbright','Lighting',1,0],['minimap','Minimap',0,0],['combo','Combo',0,0],['reach','Reach',0,0],
+ ['crosshair','Crosshair',1,0],['itemcounter','Item Counter',0,0],['saturation','Saturation',1,0],['clock','Clock',0,0],['ping','Ping',1,0],
+ ['directionhud','Direction',0,0],['waypoints','Waypoints',1,0],['nametags','Nametags',1,0],['itemphysics','Item Physics',0,0],['hitcolor','Hit Color',0,0],
+ ['weather','Weather',0,0],['particles','Particles',1,0],['menublur','Menu Blur',1,0],['togglesprint','Toggle Sprint',1,0],['screenshot','Screenshot',1,0]];
+function menu(){
+  const cards=MODS.map(([id,n,on,pin],i)=>`<div class="card ${on?'on':'off'} ${i==6?'hover':''}">${pin?`<span class="pinic">${PIN}</span>`:''}
+    <span class="ic">${ic(id)}</span><span class="nm">${n}</span><span class="state">${on?'ENABLED':'DISABLED'}</span><span class="gearseg">${COG}</span></div>`).join('');
+  return `<div class="world blur"></div><div class="shell">
+  <div class="head"><div class="brand">${MARK}ORIGIN</div>
+    <div class="tabs"><span class="tab on">Mods</span><span class="tab">Profiles</span><span class="tab">Cosmetics</span><span class="tab">Settings</span></div>
+    <div class="search"><span class="ic">${ic('@search')}</span>Search mods and settings<span class="kbd">/</span></div>
+    <div class="x" title="Close to game">${CLOSE}</div></div>
+  <div class="chips"><span class="chip on">All <b>64</b></span><span class="chip">Pinned <b>2</b></span><span class="chip">HUD <b>24</b></span>
+    <span class="chip">Visual <b>19</b></span><span class="chip">Gameplay <b>14</b></span><span class="chip">Server <b>7</b></span>
+    <span style="margin-left:auto" class="btn">${ic('@hudeditor')}Edit HUD</span></div>
+  <div class="grid">${cards}</div><div class="fade"></div><div class="scroll"><i></i></div>
+  <div class="foot"><span><span class="kk">Click</span> turn on/off</span><span><span class="kk">Right-click</span> or ${'⚙'} settings</span><span><span class="kk">/</span> search</span><span class="r"><span class="kk">Esc</span> back to HUD editor · <span class="kk">X</span> close</span></div>
+  </div>`;
+}
+function ks(){return `<div class="ks2"><span class="k skip"></span><span class="k c2 d">W</span><span class="k skip"></span>
+  <span class="k c2">A</span><span class="k c2">S</span><span class="k c2">D</span><span class="k c3">LMB</span><span class="k c3">RMB</span><span class="k c6 sp"></span></div>`}
+function settings(){
+  const row=(l,v,cls='')=>`<div class="row ${cls}"><span class="l">${l}</span><span class="v">${v}</span></div>`;
+  const rs=`<span class="reset">${RESET}</span>`;
+  return `<div class="world blur"></div><div class="shell">
+  <div class="head"><div class="crumb"><span class="back">${BACK}</span><span class="ic">${ic('keystrokes')}</span>Keystrokes<span class="sub">Mods › HUD</span></div>
+    <div class="title-sw"><span class="sw"></span>Enabled</div>
+    <div class="search" style="width:110px"><span class="ic">${ic('@search')}</span>Search settings</div>
+    <div class="x">${CLOSE}</div></div>
+  <div class="cols"><div class="opts">
+    <div class="sec">LAYOUT</div>
+    ${row('Show Mouse Buttons','<span class="sw"></span>')}
+    ${row('Show Space Bar',rs+'<span class="sw"></span>','changed')}
+    ${row('Show CPS','<span class="sw off"></span>')}
+    ${row('Scale',`${rs}<span class="slider"><i></i><b></b></span>1.2x`,'changed hover')}
+    <div class="sec">STYLE</div>
+    ${row('Pressed Color','<span class="swatch" style="background:#F1E9D2"></span>')}
+    ${row('Background Color','<span class="swatch" style="background:rgba(0,0,0,.5)"></span>')}
+    ${row('Font','<span class="dd">Minecraft ▾</span>')}
+  </div>
+  <div class="side"><div class="preview"><div class="stage"><div class="bgtog"><span class="on">World</span><span>Dark</span><span>Light</span></div>${ks()}</div>
+    <div class="cap"><span class="t">Live preview</span><span style="margin-left:auto" class="btn">${ic('@hudeditor')}Edit position</span></div></div>
+    <div class="desc">Shows your movement keys and mouse buttons on screen as you press them.</div></div>
+  </div>
+  <div class="foot"><span><span class="kk">Esc</span> back to Mods</span><span class="r">2 changed · <span style="color:var(--accent)">Reset all</span></span></div>
+  </div>`;
+}
+function hudBase(sel){
+  return `<div class="world live"></div>
+  <div class="box" style="left:6px;top:6px;width:62px;height:22px"></div><div class="hud" style="left:9px;top:9px">144 FPS<br>X 128 Y 64 Z -42</div>
+  <div class="box" style="left:560px;top:6px;width:74px;height:74px"></div>
+  <div class="hud" style="left:563px;top:9px;width:68px;height:68px;background:url(../../../website/assets/blocks/grass_top.png) 0 0/17px;image-rendering:pixelated;border-radius:2px"></div>`;
+}
+function ksHud(x,y){return `<div class="hud" style="left:${x}px;top:${y}px;display:grid;grid-template-columns:repeat(6,7px);gap:1px">
+  <span class="k" style="grid-column:span 2;visibility:hidden"></span><span class="k d" style="grid-column:span 2;height:14px">W</span><span class="k" style="grid-column:span 2;visibility:hidden"></span>
+  <span class="k" style="grid-column:span 2;height:14px">A</span><span class="k" style="grid-column:span 2;height:14px">S</span><span class="k" style="grid-column:span 2;height:14px">D</span>
+  <span class="k" style="grid-column:span 3;height:10px;font-size:4.6px">LMB</span><span class="k" style="grid-column:span 3;height:10px;font-size:4.6px">RMB</span>
+  <span class="k" style="grid-column:span 6;height:5px"></span></div>`}
+function hud(){
+  // Mid-drag: Keystrokes snapped to the left edge of Coordinates and 8 px below it.
+  return hudBase()+`
+  <div class="ghost" style="left:6px;top:268px;width:47px;height:52px"></div>
+  <div class="box sel" style="left:6px;top:36px;width:45px;height:50px"><span class="tag" style="top:auto;bottom:-11px">Keystrokes · 1.0x</span><span class="handle" style="right:-3px;bottom:-3px"></span></div>
+  ${ksHud(8,38)}
+  <div class="guide" style="left:6px;top:0;width:1px;height:360px"></div>
+  <div class="guide" style="left:20px;top:28px;width:1px;height:8px;box-shadow:none"></div><div class="dist" style="left:24px;top:27.5px">8 px</div>
+  <div class="scrim"></div>
+  <div class="center"><span class="mark">${MARK}</span><span class="btn primary">MODS</span></div>
+  <div class="hint"><span><span class="kk">Drag</span>move</span><span><span class="kk">Corner</span>resize</span><span><span class="kk">Right-click</span>settings</span><span><span class="kk">Arrows</span>nudge</span><span><span class="kk">Ctrl+Z</span>undo</span></div>
+  <div class="tool" style="right:auto;left:50%;transform:translateX(-50%)"><span class="btn" style="background:rgba(14,17,16,.85)">Hidden mods <b style="color:var(--sec);font-weight:600">3</b></span><span class="btn" style="background:rgba(14,17,16,.85)">Reset layout</span></div>`;
+}
+function hudfrom(){
+  // Entered from Keystrokes' settings via "Edit position": Esc / the chip go back there.
+  return hudBase()+`
+  <div class="box sel" style="left:6px;top:268px;width:45px;height:50px"><span class="tag">Keystrokes · 1.0x</span><span class="handle" style="right:-3px;top:-3px"></span></div>
+  ${ksHud(8,270)}
+  <div class="backchip">${BACK}Back to Keystrokes settings <span style="color:var(--sec);font-weight:400">Esc</span></div>
+  <div class="hint" style="top:auto;bottom:60px"><span><span class="kk">Drag</span>move Keystrokes</span><span><span class="kk">Corner</span>resize</span><span><span class="kk">Arrows</span>nudge</span></div>`;
+}
+const s=new URLSearchParams(location.search).get('scene')||'menu';
+document.body.innerHTML=`<div class="scene on">${({menu,settings,hud,hudfrom})[s]()}</div>`;
+window.ready=document.fonts.ready.then(()=>true);
+</script></body></html>

@@ -1,10 +1,9 @@
 package com.origin.client.client.hud;
 
+import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginModMenuScreen;
-import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.mods.Mods;
-import com.origin.client.client.render.OriginScreenRenderer;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -21,10 +20,17 @@ import org.lwjgl.glfw.GLFW;
 // anchored corner fixed and expands away from it — the same way the element
 // grows in-game, so what you see here matches what you get.
 //
-// quick=true IS the Right Shift screen: the editable surface plus the real
-// ORIGIN logo (baked nav-mark geometry) and a screen-centered MODS button.
+// quick=true IS the Right Shift screen: the editable surface plus the centre
+// group from the 2026-10 redesign (design/menu-redesign, scene "rshift"): the
+// real Origin mark, ORIGIN CLIENT, and [Waypoints] [MODS] [Cosmetics], drawn
+// with OriginDeck so it matches the mod menu exactly.
 public class HudEditorScreen extends Screen {
 	private final boolean quick;
+	// Where Esc lands: null = the game; the mod menu passes itself ("Edit HUD" /
+	// "Edit position") so the player comes straight back to where they were.
+	private final Screen returnTo;
+	private final java.util.List<OriginDeck.Hit> hits = new java.util.ArrayList<>();
+	private float deckS = 1, deckOx, deckOy;
 	private final long openedAt = System.currentTimeMillis();
 
 	private String draggingId = null;
@@ -52,15 +58,23 @@ public class HudEditorScreen extends Screen {
 	// snaps to it; dragging further than this pulls it back off (B1).
 	private static final double SNAP = 6.0;
 
-	private static final int BTN_W = 132, BTN_H = 28;
-
 	public HudEditorScreen() {
 		this(false);
 	}
 
 	public HudEditorScreen(boolean quick) {
+		this(quick, null);
+	}
+
+	public HudEditorScreen(boolean quick, Screen returnTo) {
 		super(Component.literal(quick ? "Origin" : "HUD Editor"));
 		this.quick = quick;
+		this.returnTo = returnTo;
+	}
+
+	@Override
+	public void onClose() {
+		Minecraft.getInstance().setScreen(returnTo);
 	}
 
 	@Override
@@ -86,15 +100,12 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public void renderBackground(PoseStack poseStack) {
-		// Intentionally nothing: the game stays perfectly visible.
-	}
-
-	private int btnX() {
-		return (width - BTN_W) / 2;
-	}
-
-	private int btnY() {
-		return (height - BTN_H) / 2; // perfectly centered in the screen
+		// Nothing in a world: the game stays perfectly visible. Outside one (only
+		// the dev-shots harness gets here) paint the title backdrop instead of
+		// leaving the last frame behind.
+		if (Minecraft.getInstance().level == null) {
+			com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(new Gfx(poseStack));
+		}
 	}
 
 	// The element is anchored to one screen corner; that corner stays fixed and
@@ -126,6 +137,8 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+		// Pre-1.20 Screen.render never paints a background itself: ask for it.
+		renderBackground(poseStack);
 		Gfx g = new Gfx(poseStack);
 		Minecraft mc = Minecraft.getInstance();
 		float in = (float) OriginTheme.easeOut(Math.min(1.0, (System.currentTimeMillis() - openedAt) / 160.0));
@@ -226,36 +239,48 @@ public class HudEditorScreen extends Screen {
 		this.hoveredId = hovered;
 
 		if (quick) {
-			int cx = width / 2;
-			int bt = btnY();
-			// Header stack above the centered button: the ring mark on top, then
-			// the "ORIGIN" wordmark (same baked Michroma as the main menu), then a
-			// clear gap to the MODS button — nothing overlaps. The mark is lifted
-			// well above the button to make room for the wordmark beneath it.
-			// Wordmark sits just above the button; the ring mark ANIMATES up from
-			// BEHIND the wordmark on open (rises out of the name). Both lowered to sit
-			// ~60% closer to the button than before (not touching).
-			int wordY = bt - 22;
-			int logoFinalY = bt - 54;
-			int logoY = (int) Math.round(OriginTheme.lerp(wordY, logoFinalY, in));
-			OriginUi.glow(g, cx, logoY, 104, 0.16f * in);
-			OriginUi.logo(g, cx, logoY, 46, in);
-			// wordmark drawn AFTER the logo, so the logo emerges from behind it
-			if (!OriginScreenRenderer.renderWordmarkAt(g, cx, wordY, 13, in)) {
-				String o = "ORIGIN";
-				OriginText.drawBold(g, font, o, cx - OriginText.widthBold(font, o) / 2, wordY - 4, withAlpha(OriginTheme.TEXT, in), false);
-			}
-
-			// MODS button — the SAME style as every other menu button (Will): the
-			// shared 3px bevel cut, the standard button fill/border tokens, bright
-			// white border on hover. Centered, no hover lift.
-			boolean hoverBtn = in(mouseX, mouseY, btnX(), bt, btnX() + BTN_W, bt + BTN_H);
-			OriginUi.bevelPanel(g, btnX(), bt, BTN_W, BTN_H, 3,
-					withAlpha(hoverBtn ? OriginTheme.BOX_FILL_HOVER : OriginTheme.BOX_FILL, in),
-					withAlpha(hoverBtn ? OriginTheme.STROKE_HOVER : OriginTheme.BOX_BORDER, in));
-			OriginText.drawBold(g, font, "MODS", cx - OriginText.widthBold(font, "MODS") / 2, bt + 10,
-					withAlpha(OriginTheme.TEXT, in), false);
+			renderQuickGroup(g, mouseX, mouseY, in);
 		}
+	}
+
+	/**
+	 * The Right Shift centre group, in design px around the screen centre (the
+	 * mock's 1080p numbers): the mark rises out from behind the wordmark on open.
+	 */
+	private void renderQuickGroup(Gfx g, int mouseX, int mouseY, float in) {
+		var win = Minecraft.getInstance().getWindow();
+		deckS = OriginDeck.scale(win.getWidth(), win.getHeight(), 920, 580);
+		deckOx = win.getWidth() / 2f;
+		deckOy = win.getHeight() / 2f;
+		OriginDeck d = new OriginDeck(g, deckS, deckOx, deckOy, mouseX, mouseY, hits);
+		d.alpha = in;
+
+		float logoY = (float) OriginTheme.lerp(-40, -92, in);
+		d.logo(0, logoY, 96, 0.2f);
+		float ow = d.textW("ORIGIN", 22, true, 1f), gap = 8, cw = d.textW("CLIENT", 22, false, 1f);
+		float wx = -(ow + gap + cw) / 2f;
+		d.textMid("ORIGIN", wx, -19, 22, true, 1f, OriginDeck.TEXT);
+		d.textMid("CLIENT", wx + ow + gap, -19, 22, false, 1f, OriginDeck.DIM);
+
+		quickButton(d, "waypoints", null, -130, 44, () -> Minecraft.getInstance().setScreen(
+				new com.origin.client.client.waypoints.WaypointScreen()));
+		quickButton(d, null, "MODS", -78, 156, () -> Minecraft.getInstance().setScreen(new OriginModMenuScreen()));
+		quickButton(d, "@shirt", null, 86, 44, () -> Minecraft.getInstance().setScreen(
+				new com.origin.client.client.gui.CosmeticsScreen(this)));
+		d.end();
+	}
+
+	private void quickButton(OriginDeck d, String icon, String label, float x, float w, Runnable action) {
+		float y = 17, h = 44;
+		boolean hov = d.over(x, y, w, h);
+		float hp = OriginUi.hover("rshift:" + (label != null ? label : icon), hov);
+		d.rect(x, y, w, h, 7, OriginDeck.lerp(0xC7141816, 0xE6232A26, hp), OriginDeck.lerp(0x1AFFFFFF, 0x38FFFFFF, hp));
+		if (icon != null) {
+			d.icon(icon, x + (w - 19) / 2f, y + (h - 19) / 2f, 19, OriginDeck.TEXT);
+		} else {
+			d.textCenter(label, x + w / 2f, y + h / 2f, 12.5f, true, 3f, OriginDeck.TEXT);
+		}
+		d.hit(x, y, w, h, action);
 	}
 
 	private static void squareOutline(Gfx g, int x0, int y0, int x1, int y1, int t, int color) {
@@ -270,9 +295,11 @@ public class HudEditorScreen extends Screen {
 		if (button != 0) {
 			return super.mouseClicked(mx, my, button);
 		}
-		if (quick && in(mx, my, btnX(), btnY(), btnX() + BTN_W, btnY() + BTN_H)) {
-			Minecraft.getInstance().setScreen(new OriginModMenuScreen());
-			return true;
+		if (quick) {
+			double gs = Minecraft.getInstance().getWindow().getGuiScale();
+			if (OriginDeck.click(hits, OriginDeck.toDesign(mx, gs, deckOx, deckS), OriginDeck.toDesign(my, gs, deckOy, deckS))) {
+				return true;
+			}
 		}
 
 		Minecraft mc = Minecraft.getInstance();
@@ -449,12 +476,5 @@ public class HudEditorScreen extends Screen {
 		return null;
 	}
 
-	private static boolean in(double mx, double my, int x0, int y0, int x1, int y1) {
-		return mx >= x0 && mx < x1 && my >= y0 && my < y1;
-	}
 
-	private static int withAlpha(int argb, float alpha) {
-		int a = (int) (((argb >>> 24) & 0xFF) * alpha);
-		return (a << 24) | (argb & 0xFFFFFF);
-	}
 }

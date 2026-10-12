@@ -26,6 +26,72 @@ language-level mistakes (add `--release 8` for 1.16.5).
 - 1.21 transplant: identical API era -> wholesale copy of 1.21.1/src, keep own
   fabric.mod.json + FireworkStarterMixin (+ its mixins.json line). CI green first try.
 
+## 2026-10-12 — porting the mod-menu redesign (OriginDeck) — plan from the October port
+The redesign (design/menu-redesign; reference = 1.21.1, `git diff 27b5c3e..HEAD -- src/mods/versions/1.21.1/src`)
+adds gui/OriginDeck (design-px kit, physical-pixel pose, click targets recorded while drawing),
+rewrites OriginModMenuScreen, adds a sized MSDF API to OriginSdfFont, OriginUi.roundRect/softGlow,
+the Right Shift centre group in HudEditorScreen, Mods.reset/metaText, and the dev-shots design set.
+What carries over from the October port (sections below are the evidence):
+- Order: 1.21 = wholesale copy; 1.20.2/1.20.4 near-verbatim; 1.20 = buffer API + 3-arg scroll;
+  1.21.8 then 1.21.6 (byte-identical trees); 1.21.11 then 1.21.10 via the back-map; 1.19.4 ->
+  1.19.3/1.19.2/1.18.2; 1.17.1 -> 1.16.5 (Java 8, no shaders).
+- Layering: 1.21.2+ GUIs are batched — no immediate SDF panels (1.21.4 keeps baked masks; 1.21.6+
+  submits GuiElementRenderStates); immediate custom-shader draws need g.flush() first on 1.21.4.
+- Deferred-GUI double-blur trap (1.21.6+): never call renderTitleBackground() from render().
+- The smooth font had only ever run on 1.21.1 — every other module's MSDF path must be proven
+  (1.21.4's old program json used a dead id form; 1.17.1 compiles shaders on demand from
+  assets/minecraft; 1.16.5 has no shaders at all -> Minecraft's own ttf font provider).
+- Gate before every push: `javac -proc:none --release N` over the module (parse + language level),
+  then CI build-check, then `[shots:<modules>]` dev shots compared against 1.21.1's.
+
+### Findings from the redesign port (2026-10-12, six agents, one per era)
+- The smooth (MSDF) text path had never run outside 1.21.1, and was broken in three places:
+  1.20.x wrote each vertex's colour before its UV (POSITION_TEX_COLOR needs format order; the
+  builder skips the attribute and endVertex throws); 1.21.10's msdf.fsh lacked the `float
+  LineWidth;` DynamicTransforms member (link failure = no text); 1.21.6-1.21.10 registered the
+  atlas without setFilter(true,false) (NEAREST sampling = jagged glyphs; 1.21.11 picks the
+  sampler per draw instead). 1.21.6/1.21.8 also gave glyph quads z=0 instead of the state's depth.
+- Pre-1.19 (1.18.2/1.17.1): a buffer that is begun and ended but never drawn shifts every later
+  draw by one. OriginSdfFont.emit now returns BEFORE begin() when nothing is drawable.
+- Batched GUIs: an immediate-mode draw that must sit above earlier batched draws needs
+  g.flush() first (1.21.4), and a raw GL scissor must flush on enter and exit. 1.21.6+ clips go
+  through GuiGraphics.enableScissor under the screen's BASE pose (saved before the deck's
+  1/guiScale scale), box converted to GUI px rounded inward.
+- Rounded boxes without a ROUND shader (1.21.4+): bake corner masks at physical-pixel size and
+  blit 1:1; never use OriginUi.panel's 32-entry whole-box LRU for the menu (>32 sizes a frame
+  evicts textures this frame's queued blits still use).
+- 1.21.9+ dev shots: Screenshot.grab is the 3-arg (dated file) form there, so the harness waits
+  for the PNG and renames it; windows resize via GLFW.glfwSetWindowSize(window.handle(), w, h).
+- 1.16.5 has no shaders, and its text render type samples font textures NEAREST, so a ttf
+  provider drawn at window-dependent sizes would be jagged. OriginTtfFont rasterises each glyph
+  with LWJGL's stb_truetype at the exact on-screen pixel size (4 horizontal sub-pixel phases,
+  LRU-capped atlas pages), blitted 1:1. This is a hand-rolled glyph path, which the font history
+  above banned after three blind failures; the ban's stated cause was having no way to SEE the
+  client, which dev shots now provide. Verify it on every change with [shots:1.16.5].
+- dev-shots.yml: put the module list in the tag, `[shots:a,b]`; a listed tag wins over any bare
+  `[shots]` mentioned in prose, and runs without a tag never cancel a capture in progress.
+
+### Findings from the feature port (2026-10-12: cosmetics + Portal Calculator, FPS Coach, feedback round)
+- Capes by era: before 1.20.2 there is no PlayerSkin, so hook AbstractClientPlayer's four
+  getters (isCapeLoaded, getCloakTextureLocation, isElytraLoaded, getElytraTextureLocation);
+  1.20.2+ swap the cape inside getSkin's PlayerSkin; 1.21.2+ the elytra fallback texture is
+  textures/entity/equipment/wings/elytra.png; 1.21.11 wraps textures in ClientAsset.ResourceTexture.
+- Halos/crown head layer: 1.21.2+ draws from PlayerRenderState (look the wearer up by state id);
+  1.21.10+ submits custom geometry from an AvatarRenderState layer. 1.16.5's Fabric API has no
+  feature-renderer registration callback -> add the layer from the PlayerRenderer constructor.
+- Cosmetics preview (spinning player): renderEntityInInventory has a different shape in nearly
+  every era. Before 1.20 it can't take a yaw -> a mixin at its head sets the body/head rotation;
+  1.21.6+ uses the boxed (x0,y0,x1,y1) form; 1.21.10+ draws picture-in-picture.
+- Item Physics: from 1.21.2 one ItemEntityRenderState object is reused for every dropped item,
+  so per-item easing must be keyed off the state's entity id, never stored on the state alone.
+- FPS Coach: ParticleStatus moved package in the 1.21.2 line -> don't name the type; match the
+  option's value by name() and pick a sibling constant. 1.21.11 has no Fabulous graphics mode;
+  the tip turns off Improved Transparency instead. 1.18.2 writes the plain Options fields and
+  then runs vanilla's own reactions (no OptionInstance yet).
+- Screenshot chat buttons: 1.21.5+ ClickEvent/HoverEvent are records (ClickEvent.OpenFile etc.).
+- Networking: 1.16.5 is Java 8 -> HttpURLConnection, no java.net.http.
+- Color Saturation on 1.16.5: no core shaders, so it's its own vanilla PostChain.
+
 ## GuiGraphics era, pre-1.21 — ALL CONFIRMED by CI: 1.20 built green first try (build-check run 131)
 - ResourceLocation: `new ResourceLocation(ns, path)` / `new ResourceLocation("textures/...")`.
 - Immediate-mode quads: `BufferBuilder bb = Tesselator.getInstance().getBuilder();

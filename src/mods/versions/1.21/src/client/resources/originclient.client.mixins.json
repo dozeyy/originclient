@@ -4,6 +4,8 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"AbstractButtonMixin",
+    "CosmeticCapeMixin",
+    "CosmeticsPauseMixin",
 		"SprintKeyMixin",
 		"AbstractSliderButtonMixin",
 		"CheckboxMixin",

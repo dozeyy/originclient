@@ -18,7 +18,8 @@ import net.minecraft.resources.ResourceLocation;
  *   * {@code rendertype_origin_grade} -- the fullscreen Saturation / Brightness /
  *     Contrast grade (see {@code render.ColorGrade}).
  *   * {@code rendertype_origin_msdf}  -- MSDF text for {@link OriginSdfFont}
- *     (kept compiled for it; the menus draw through vanilla's font, OriginText).
+ *     (the 2026-10 mod menu / Right Shift redesign draws its Inter through it,
+ *     via {@link OriginDeck}; older Origin screens still use vanilla's font).
  *
  * PER-VERSION DELTA (1.21.4, covers 1.21.2-1.21.4): 1.21.1 registers these through
  * Fabric's CoreShaderRegistrationCallback, which Fabric removed after 1.21.1. This
@@ -33,6 +34,9 @@ import net.minecraft.resources.ResourceLocation;
  * Rounded panels have NO shader on this era (1.21.1's ROUND): GUI draws are batched,
  * so OriginUi bakes coverage masks at physical resolution and blits them in order
  * instead -- the same per-screen-pixel anti-aliasing, without immediate-mode quads.
+ * The redesign kit's exact-radius shapes (OriginUi.roundRect) use the same masks.
+ * MSDF text and SDF icons DO draw immediately: each flushes GuiGraphics' batch
+ * first, so everything drawn earlier in the frame lands underneath them.
  *
  * Fails soft (mandate 4): a program that does not compile comes back null and every
  * caller takes its software path (mask atlas for icons, no grade). The public fields
@@ -86,9 +90,15 @@ public final class OriginShaders {
 		return GRADE;
 	}
 
-	/** Refreshes every field at once (OriginSdfFont's entry point). */
-	public static void ensureCompiled() {
+	/** The MSDF text program, or null (OriginSdfFont reports not-ready). */
+	public static CompiledShaderProgram msdf() {
 		MSDF = fetch(MSDF_KEY, "MSDF text");
+		return MSDF;
+	}
+
+	/** Refreshes every field at once. */
+	public static void ensureCompiled() {
+		msdf();
 		icon();
 		grade();
 	}

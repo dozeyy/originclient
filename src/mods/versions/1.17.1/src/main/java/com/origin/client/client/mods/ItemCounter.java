@@ -1,5 +1,7 @@
 package com.origin.client.client.mods;
 
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -7,77 +9,125 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
-// Item Counter's catalogue: the item groups a player can pick in the mod's
-// "Items" multi-select, each with the predicate that decides which stacks count
-// toward it and the item drawn as its icon. Counting walks the local player's
-// own inventory (main + hotbar + armour + offhand) -- purely client-side, the
-// same data the inventory screen shows.
+// Item Counter's catalogue. The player picks what to count in the shared item
+// grid (gui/ItemCounterPickerScreen, the same layout as Item Size): any single
+// item, or one of the GROUPS pinned at the top of it -- the picks that cover
+// several items at once (every kind of arrow, both golden apples, ...).
 //
-// 1.17.1: no Wind Charges group (the item arrived in 1.21); stacks are matched by
-// getItem() == (ItemStack.is(Item) is not on every pre-1.20 version) and food by
-// Item.isEdible() (the FOOD data component is 1.20.5+).
+// Stored in the "items" option as CSV tokens, in the order picked: a group's
+// key ("Arrows") or an item's registry id ("minecraft:ender_pearl"). Before
+// 2026-10-12 the picker was a fixed list of named groups; the single-item names
+// from then are mapped to their item id (LEGACY) so old picks keep counting.
+//
+// Counting walks the local player's own inventory (main + hotbar + armour +
+// offhand) -- purely client-side, the same data the inventory screen shows.
+//
+// 1.17.1: stacks are matched by getItem() == (ItemStack.is(Item) is not on every
+// pre-1.20 version), food by Item.isEdible() (the FOOD data component is 1.20.5+),
+// and the item registry is Registry.ITEM. An old "Wind Charges" pick (that item
+// arrived in 1.21) resolves to nothing and is skipped.
 public final class ItemCounter {
 	private ItemCounter() {
 	}
 
-	/** One countable group: its menu label, its HUD icon, and what matches it. */
-	public record Entry(String label, Item icon, Predicate<ItemStack> matches) {
+	/** One counter: its name, its HUD icon, and what matches it. */
+	public record Entry(String key, String label, Item icon, Predicate<ItemStack> matches) {
 	}
 
-	private static final List<Entry> ENTRIES = List.of(
-			new Entry("Arrows", Items.ARROW,
+	/** Multi-item picks, pinned first in the picker. key = what's stored. */
+	public static final List<Entry> GROUPS = List.of(
+			new Entry("Arrows", "All Arrows", Items.ARROW,
 					s -> s.getItem() == Items.ARROW || s.getItem() == Items.SPECTRAL_ARROW || s.getItem() == Items.TIPPED_ARROW),
-			new Entry("Golden Apples", Items.GOLDEN_APPLE,
+			new Entry("Golden Apples", "All Golden Apples", Items.GOLDEN_APPLE,
 					s -> s.getItem() == Items.GOLDEN_APPLE || s.getItem() == Items.ENCHANTED_GOLDEN_APPLE),
-			new Entry("Ender Pearls", Items.ENDER_PEARL, s -> s.getItem() == Items.ENDER_PEARL),
-			new Entry("Totems", Items.TOTEM_OF_UNDYING, s -> s.getItem() == Items.TOTEM_OF_UNDYING),
-			new Entry("Splash Potions", Items.SPLASH_POTION,
+			new Entry("Splash Potions", "Splash + Lingering Potions", Items.SPLASH_POTION,
 					s -> s.getItem() == Items.SPLASH_POTION || s.getItem() == Items.LINGERING_POTION),
-			new Entry("Potions", Items.POTION, s -> s.getItem() == Items.POTION),
-			new Entry("Blocks", Items.COBBLESTONE, s -> s.getItem() instanceof BlockItem),
-			new Entry("Food", Items.COOKED_BEEF, s -> s.getItem().isEdible()),
-			new Entry("TNT", Items.TNT, s -> s.getItem() == Items.TNT),
-			new Entry("Snowballs", Items.SNOWBALL, s -> s.getItem() == Items.SNOWBALL),
-			new Entry("Eggs", Items.EGG, s -> s.getItem() == Items.EGG),
-			new Entry("Fireworks", Items.FIREWORK_ROCKET, s -> s.getItem() == Items.FIREWORK_ROCKET),
-			new Entry("XP Bottles", Items.EXPERIENCE_BOTTLE, s -> s.getItem() == Items.EXPERIENCE_BOTTLE),
-			new Entry("Cobwebs", Items.COBWEB, s -> s.getItem() == Items.COBWEB),
-			new Entry("Water Buckets", Items.WATER_BUCKET, s -> s.getItem() == Items.WATER_BUCKET),
-			new Entry("Lava Buckets", Items.LAVA_BUCKET, s -> s.getItem() == Items.LAVA_BUCKET),
-			new Entry("Obsidian", Items.OBSIDIAN, s -> s.getItem() == Items.OBSIDIAN),
-			new Entry("Iron Ingots", Items.IRON_INGOT, s -> s.getItem() == Items.IRON_INGOT),
-			new Entry("Gold Ingots", Items.GOLD_INGOT, s -> s.getItem() == Items.GOLD_INGOT),
-			new Entry("Diamonds", Items.DIAMOND, s -> s.getItem() == Items.DIAMOND),
-			new Entry("Emeralds", Items.EMERALD, s -> s.getItem() == Items.EMERALD));
+			new Entry("Blocks", "All Blocks", Items.COBBLESTONE, s -> s.getItem() instanceof BlockItem),
+			new Entry("Food", "All Food", Items.COOKED_BEEF, s -> s.getItem().isEdible()));
 
-	/** The multi-select's choice set, in catalogue order. Plain strings only, so
-	 *  Mods' static registry can reference it without touching item classes. */
-	public static final String[] CHOICES = {
-			"Arrows", "Golden Apples", "Ender Pearls", "Totems", "Splash Potions", "Potions",
-			"Blocks", "Food", "TNT", "Snowballs", "Eggs", "Fireworks",
-			"XP Bottles", "Cobwebs", "Water Buckets", "Lava Buckets", "Obsidian",
-			"Iron Ingots", "Gold Ingots", "Diamonds", "Emeralds"};
+	/** What each group covers, for the picker's tooltip. */
+	public static final Map<String, String> GROUP_HINTS = Map.of(
+			"Arrows", "Arrows, spectral and tipped arrows",
+			"Golden Apples", "Golden and enchanted golden apples",
+			"Splash Potions", "Every splash and lingering potion",
+			"Blocks", "Every placeable block",
+			"Food", "Everything you can eat");
 
-	/** The groups the player picked, in the order they picked them. */
-	public static List<Entry> selected() {
-		List<Entry> out = new ArrayList<>();
-		String csv = Mods.mode("itemcounter", "items");
-		if (csv == null || csv.isEmpty()) {
-			return out;
-		}
-		for (String raw : csv.split(",")) {
-			String label = raw.trim();
-			for (Entry e : ENTRIES) {
-				if (e.label().equals(label)) {
-					out.add(e);
-					break;
+	// The old fixed list's single-item names -> the item they meant.
+	private static final Map<String, String> LEGACY = Map.ofEntries(
+			Map.entry("Ender Pearls", "minecraft:ender_pearl"),
+			Map.entry("Totems", "minecraft:totem_of_undying"),
+			Map.entry("Potions", "minecraft:potion"),
+			Map.entry("TNT", "minecraft:tnt"),
+			Map.entry("Snowballs", "minecraft:snowball"),
+			Map.entry("Eggs", "minecraft:egg"),
+			Map.entry("Wind Charges", "minecraft:wind_charge"),
+			Map.entry("Fireworks", "minecraft:firework_rocket"),
+			Map.entry("XP Bottles", "minecraft:experience_bottle"),
+			Map.entry("Cobwebs", "minecraft:cobweb"),
+			Map.entry("Water Buckets", "minecraft:water_bucket"),
+			Map.entry("Lava Buckets", "minecraft:lava_bucket"),
+			Map.entry("Obsidian", "minecraft:obsidian"),
+			Map.entry("Iron Ingots", "minecraft:iron_ingot"),
+			Map.entry("Gold Ingots", "minecraft:gold_ingot"),
+			Map.entry("Diamonds", "minecraft:diamond"),
+			Map.entry("Emeralds", "minecraft:emerald"));
+
+	public static final String DEFAULTS = "Arrows,Golden Apples,minecraft:ender_pearl";
+
+	// selected() runs every frame (HUD size + draw): parse only when the CSV changes.
+	private static String cachedCsv = null;
+	private static List<Entry> cached = List.of();
+
+	/** The stored picks as tokens, legacy names upgraded, duplicates dropped. */
+	public static List<String> tokens(String csv) {
+		LinkedHashSet<String> out = new LinkedHashSet<>();
+		if (csv != null) {
+			for (String raw : csv.split(",")) {
+				String t = raw.trim();
+				if (!t.isEmpty()) {
+					out.add(LEGACY.getOrDefault(t, t));
 				}
 			}
 		}
-		return out;
+		return new ArrayList<>(out);
+	}
+
+	/** The token's counter, or null if it names nothing (e.g. an item a mod removed). */
+	public static Entry resolve(String token) {
+		for (Entry g : GROUPS) {
+			if (g.key().equals(token)) {
+				return g;
+			}
+		}
+		ResourceLocation id = ResourceLocation.tryParse(token);
+		if (id == null || !Registry.ITEM.containsKey(id)) {
+			return null;
+		}
+		Item item = Registry.ITEM.get(id);
+		return new Entry(token, new ItemStack(item).getHoverName().getString(), item, s -> s.getItem() == item);
+	}
+
+	/** The picks, in the order the player picked them. */
+	public static List<Entry> selected() {
+		String csv = Mods.mode("itemcounter", "items");
+		if (!csv.equals(cachedCsv)) {
+			List<Entry> out = new ArrayList<>();
+			for (String t : tokens(csv)) {
+				Entry e = resolve(t);
+				if (e != null) {
+					out.add(e);
+				}
+			}
+			cached = out;
+			cachedCsv = csv;
+		}
+		return cached;
 	}
 
 	/** Total matching items across the whole inventory, armour and offhand included. */

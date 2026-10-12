@@ -42,7 +42,8 @@ public final class TitleLayout {
 		int markSize = clamp(sh / 9, 40, 54);
 		int markGap = 14;
 		int minTop = 48 + markSize + markGap;
-		int stackH = buttonH * 3 + (rowStep - buttonH) * 2;
+		// Four rows: singleplayer, multiplayer, Realms/Mods pair, Cosmetics.
+		int stackH = buttonH + 3 * rowStep;
 		int maxTop = Math.max(minTop, dockY - stackH - 18);
 		int mainTop = clamp((int) Math.round(sh * 0.42), minTop, maxTop);
 		int markCenterY = mainTop - markGap - markSize / 2;

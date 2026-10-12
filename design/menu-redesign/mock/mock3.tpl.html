@@ -1,0 +1,201 @@
+<!doctype html>
+<!-- Redesign mock-up, round 3+: TRUE SIZE. 1 CSS px = 1 GUI px; 480x270 is a
+     1920x1080 window at GUI scale 4 (Minecraft's auto scale there), rendered
+     4x. All text is Minecraft's font (Monocraft at 9px = 6px advance, 7px
+     caps, one size only), because Origin's menus draw with vanilla's font.
+     ?scene=menu | settings | hud | hudfrom -->
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Mono;src:url(../../../website/assets/fonts/monocraft.woff2)}
+:root{--bg:#0E1110;--panel:rgba(23,28,25,.95);--card:rgba(29,36,32,.75);--card-h:rgba(39,48,42,.9);
+  --stroke:rgba(111,121,111,.16);--stroke2:rgba(125,137,126,.34);--text:#F1E9D2;--sec:rgba(241,233,210,.62);
+  --accent:#5FD09B;--accent-f:rgba(95,208,155,.15);--off:#303732;--dark:#0E1110}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100vw;height:100vh;overflow:hidden;background:#000}
+body{font:9px/9px Mono,monospace;color:var(--text);position:relative;-webkit-font-smoothing:none}
+.abs{position:absolute}
+svg.i{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.world{position:absolute;inset:-6px;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.20.png) center/cover}
+.world.menu{filter:blur(3px) brightness(.42)}
+.scrim{position:absolute;inset:0;background:rgba(14,17,16,.30)}
+.panel{position:absolute;left:10px;top:8px;width:calc(100vw - 20px);height:calc(100vh - 16px);background:var(--panel);border:1px solid var(--stroke2);border-radius:2px;overflow:hidden}
+.hline{position:absolute;left:0;right:0;height:1px;background:var(--stroke)}
+.t{position:absolute;white-space:nowrap}
+.sec{color:var(--sec)}
+.acc{color:var(--accent)}
+.tab{position:absolute;top:6px;height:14px;padding:2px 6px 0;color:var(--sec)}
+.tab.on{color:var(--text);box-shadow:inset 0 -1px 0 var(--accent)}
+.field{position:absolute;height:14px;border:1px solid var(--stroke2);background:rgba(0,0,0,.3);border-radius:1px;padding:2px 3px 0 15px;color:var(--sec)}
+.field .ic{position:absolute;left:3px;top:2px;width:9px;height:9px}
+.iconbtn{position:absolute;width:14px;height:14px;display:flex;align-items:center;justify-content:center;color:var(--sec)}
+.iconbtn svg{width:8px;height:8px}
+.chip{position:absolute;top:26px;height:14px;padding:3px 5px 0;border-radius:1px;color:var(--sec)}
+.chip b{font-weight:normal;color:rgba(241,233,210,.5)}
+.chip.on{background:rgba(241,233,210,.12);color:var(--text)}
+.chip.on b{color:rgba(241,233,210,.5)}
+.btn{position:absolute;height:14px;padding:3px 5px 0;border:1px solid var(--stroke2);border-radius:1px;color:var(--text);background:rgba(255,255,255,.04);white-space:nowrap}
+.btn .ic{display:inline-block;width:8px;height:8px;vertical-align:-1px;margin-right:3px}
+.btn.accent{color:var(--accent);border-color:rgba(95,208,155,.45)}
+.btn.primary{background:var(--accent);border-color:transparent;color:#0A1710}
+.card{position:absolute;height:48px;border-radius:2px;background:var(--card);border:1px solid var(--stroke);overflow:hidden}
+.card .ic{position:absolute;left:50%;margin-left:-8px;top:4px;width:16px;height:16px}
+.card .nm{position:absolute;left:0;right:0;top:23px;text-align:center}
+.card .strip{position:absolute;left:0;right:14px;bottom:0;height:12px;padding:2px 0 0 5px;border-top:1px solid var(--stroke)}
+.card .gear{position:absolute;right:0;bottom:0;width:14px;height:12px;border-top:1px solid var(--stroke);border-left:1px solid rgba(14,17,16,.9);display:flex;align-items:center;justify-content:center;color:var(--sec)}
+.card .gear svg{width:7px;height:7px}
+.card.on .strip{background:rgba(241,233,210,.06);color:rgba(241,233,210,.7);box-shadow:inset 2px 0 0 var(--accent)}
+.card.off .strip{background:rgba(0,0,0,.2);color:#6E756F}
+.card.off .ic,.card.off .nm{opacity:.6}
+.card .pin{position:absolute;right:3px;top:3px;width:7px;height:8px;color:rgba(241,233,210,.6)}
+.card.hover{background:var(--card-h);border-color:rgba(241,233,210,.28)}
+.card.hover .gear{color:var(--text)}
+.fade{position:absolute;left:8px;right:8px;height:10px;background:linear-gradient(transparent,rgba(23,28,25,.98))}
+.sbar{position:absolute;width:2px;border-radius:1px;background:rgba(255,255,255,.07)}
+.sbar i{position:absolute;left:0;right:0;border-radius:1px;background:rgba(241,233,210,.35)}
+.row{position:absolute;left:8px;width:calc(100vw - 228px);height:18px;border-radius:1px;background:rgba(255,255,255,.03);padding:5px 0 0 6px}
+.row.hover{background:rgba(255,255,255,.06)}
+.row.changed::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent)}
+.row .ctl{position:absolute;right:16px;top:4px;display:flex;align-items:center;gap:4px}
+.row .rs{position:absolute;right:4px;top:4px;width:8px;height:8px;color:var(--sec)}
+.sw{width:16px;height:9px;border-radius:1px;background:#2F6B50;position:relative}
+.sw::after{content:"";position:absolute;right:1px;top:1px;width:7px;height:7px;border-radius:1px;background:var(--text)}
+.sw.off{background:var(--off)}.sw.off::after{right:auto;left:1px}
+.reset{width:8px;height:8px;color:var(--sec)}
+.slider{width:56px;height:3px;background:var(--off);position:relative;border-radius:1px}
+.slider i{position:absolute;left:0;top:0;bottom:0;width:40%;background:var(--accent)}
+.slider b{position:absolute;left:40%;top:-3px;width:4px;height:9px;margin-left:-2px;background:var(--text);border-radius:1px}
+.swatch{width:9px;height:9px;border:1px solid var(--stroke2);border-radius:1px}
+.dd{height:11px;padding:1px 4px 0;border:1px solid var(--stroke2);border-radius:1px}
+.stage{position:absolute;overflow:hidden;border:1px solid var(--stroke2);border-radius:1px;background:#000}
+.stage .art{position:absolute;inset:-6px;background:url(../../../src/OriginLauncher.App/Assets/Versions/1.20.png) 30% center/cover;filter:blur(2px) brightness(.6)}
+.seg{position:absolute;display:flex;border:1px solid var(--stroke2);border-radius:1px;overflow:hidden;background:rgba(14,17,16,.85)}
+.seg span{width:34px;text-align:center;padding:1px 0 0;height:11px;color:var(--sec)}
+.seg span+span{border-left:1px solid var(--stroke2)}
+.seg span.on{background:var(--accent-f);color:var(--accent)}
+/* in-game HUD pieces */
+.mc{position:absolute;color:#fff;text-shadow:1px 1px 0 #3f3f3f}
+.key{position:absolute;background:rgba(0,0,0,.45);color:#fff;text-align:center;text-shadow:1px 1px 0 #3f3f3f}
+.key.dn{background:rgba(255,255,255,.75);color:#111;text-shadow:none}
+.box{position:absolute;border:1px solid rgba(241,233,210,.25);background:rgba(0,0,0,.15)}
+.box.sel{border-color:var(--accent);outline-color:rgba(14,17,16,.7)}
+.ghost{position:absolute;border:1px dashed rgba(241,233,210,.7);background:rgba(241,233,210,.08)}
+.handle{position:absolute;width:3px;height:3px;background:var(--accent)}
+.label{position:absolute;height:11px;padding:1px 3px 0;background:var(--accent);color:#0A1710;border-radius:1px;white-space:nowrap}
+.guide{position:absolute;background:var(--accent);box-shadow:1px 0 0 rgba(14,17,16,.7),0 1px 0 rgba(14,17,16,.7)}
+.badge{position:absolute;height:11px;padding:1px 3px 0;background:var(--dark);color:var(--accent);border:1px solid rgba(95,208,155,.5);border-radius:1px}
+.hint{position:absolute;height:13px;padding:2px 5px 0;background:rgba(14,17,16,.85);border:1px solid var(--stroke2);border-radius:1px;color:var(--sec);white-space:nowrap}
+.hint b{font-weight:normal;color:var(--text)}
+.hint{color:rgba(241,233,210,.6)}
+.dim{opacity:.35}
+.handle4{position:absolute;width:4px;height:4px;background:var(--accent);outline:1px solid rgba(14,17,16,.7)}
+.box.hov{border-color:var(--accent);background:rgba(0,0,0,.15)}
+.box.partner{border-color:rgba(95,208,155,.5)}
+.label.hovl{background:rgba(14,17,16,.9);color:var(--text);border:1px solid var(--stroke2)}
+</style></head><body>
+<script>
+const ICONS=/*ICONS*/{};
+const ic=id=>`<svg class="i" viewBox="0 0 24 24">${ICONS[id]||''}</svg>`;
+const MARK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="12" rx="9" ry="3.8"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.8" transform="rotate(-60 12 12)"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>`;
+const SVG=d=>`<svg class="i" viewBox="0 0 24 24">${d}</svg>`;
+const BACK=SVG('<polyline points="15 18 9 12 15 6"/>'), CLOSE=SVG('<path d="M18 6 6 18M6 6l12 12"/>'),
+  RESET=SVG('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/>'),
+  COG=SVG(ICONS.cog),
+  PIN=SVG('<path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/>'),
+  PINF=`<svg class="i" viewBox="0 0 24 24"><path d="M9 3h6l-1 6 4 4H6l4-4z" fill="currentColor"/><path d="M12 13v8"/></svg>`,
+  EYE=SVG('<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>');
+const t=(x,y,s,cls='')=>`<span class="t ${cls}" style="left:${x}px;top:${y}px">${s}</span>`;
+const W6=s=>s.length*6;
+const VW=innerWidth, VH=innerHeight, PW=VW-20, PH=VH-16, CX=VW/2;
+
+function head(content){return `<div class="world menu"></div><div class="panel">${content}</div>`}
+function menu(){
+  let h=`<span class="abs" style="left:8px;top:6px;width:12px;height:12px">${MARK}</span>${t(24,8,'ORIGIN')}`;
+  let x=70; for(const [n,on] of [['Mods',1],['Profiles',0],['Cosmetics',0],['Settings',0]]){h+=`<span class="tab ${on?'on':''}" style="left:${x}px">${n}</span>`;x+=W6(n)+12+2}
+  h+=`<span class="field" style="left:306px;top:5px;width:${PW-26-306}px"><span class="ic">${ic('@search')}</span>Search mods<span class="abs" style="right:2px;top:1px;width:10px;height:10px;border:1px solid var(--stroke2);border-radius:1px;color:var(--sec);text-align:center;line-height:9px">/</span></span>`;
+  h+=`<span class="iconbtn" style="left:${PW-20}px;top:5px">${CLOSE}</span><div class="hline" style="top:22px"></div>`;
+  x=8; for(const [n,c,on] of [['All',63,1],['HUD',24],['Visual',19],['Gameplay',14],['Server',6]]){h+=`<span class="chip ${on?'on':''}" style="left:${x}px">${n} <b>${c}</b></span>`;x+=W6(n)+6+W6(String(c))+10+3}
+  h+=`<span class="btn accent" style="right:8px;top:26px;padding-top:2px;background:transparent"><span class="ic">${ic('@hudeditor')}</span>Edit HUD</span>`;
+  // Pinned first, then alphabetical.
+  const mods=[['keystrokes','Keystrokes',1,1],['zoom','Zoom',1,1],['armorhud','Armor Status',1],['clock','Clock',0],['combo','Combo',0],['coords','Coordinates',1],
+    ['cps','CPS',0],['crosshair','Crosshair',1],['directionhud','Direction',0],['fps','FPS',1],['freelook','Freelook',0],['itemcounter','Item Counter',0],
+    ['fullbright','Lighting',1],['minimap','Minimap',0],['nametags','Nametags',1],['ping','Ping',1],['potionhud','Potion Effects',0],['reach','Reach',0],['saturation','Saturation',1],['waypoints','Waypoints',1]];
+  const CW=Math.floor((PW-16-12-6)/4);
+  const avail=PH-48, full=Math.floor((avail-2+4)/52), rest=avail-(2+full*52);
+  const gridH = rest>=29 ? avail : 2+full*52-4;   // a partial row only if >=60% of it shows
+  h+=`<div class="abs" style="left:0;top:44px;width:${PW}px;height:${gridH}px;overflow:hidden">`;
+  mods.forEach(([id,n,on,pin],i)=>{const cx=8+(i%4)*(CW+4), cy=2+Math.floor(i/4)*52;
+    h+=`<div class="card ${on?'on':'off'} ${i==12?'hover':''}" style="left:${cx}px;top:${cy}px;width:${CW}px">${pin?`<span class="pin" style="color:var(--text)">${PINF}</span>`:(i==12?`<span class="pin" style="color:rgba(241,233,210,.35)">${PIN}</span>`:'')}<span class="ic">${ic(id)}</span><span class="nm">${n}</span><span class="strip">${on?'Enabled':'Disabled'}</span><span class="gear">${COG}</span></div>`});
+  h+=`</div>${rest>=29?`<div class="fade" style="top:${44+gridH-10}px;height:10px"></div>`:''}<div class="sbar" style="right:4px;top:46px;height:${PH-60}px"><i style="top:0;height:58px"></i></div>`;
+  return head(h);
+}
+function keystrokes(x,y,s=1){ // Origin's keystrokes, 18px keys, 2px gaps; s = scale
+  const k=(kx,ky,w,h,l,d)=>`<span class="key ${d?'dn':''}" style="left:${kx}px;top:${ky}px;width:${w}px;height:${h}px;line-height:${h}px">${l}</span>`;
+  return `<div class="abs" style="left:${x}px;top:${y}px;transform:scale(${s});transform-origin:0 0">${k(20,0,18,18,'W',1)}${k(0,20,18,18,'A')}${k(20,20,18,18,'S')}${k(40,20,18,18,'D')}${k(0,40,28,14,'LMB',1)}${k(30,40,28,14,'RMB')}${k(0,56,58,9,'<span style="display:block;width:16px;height:1px;background:#fff;margin:4px auto 0"></span>')}</div>`;
+}
+function settings(){
+  let h=`<span class="btn" style="left:8px;top:8px;padding-top:2px"><span class="ic">${BACK}</span>Mods</span>`;
+  h+=`<span class="abs" style="left:56px;top:7px;width:16px;height:16px">${ic('keystrokes')}</span>${t(78,6,'Keystrokes')}${(()=>{const d='Shows your keys and clicks as you press them.';const max=Math.floor((PW-84-8-78)/6);return t(78,17,d.length>max?d.slice(0,max-1)+'…':d,'sec')})()}`;
+  h+=`${t(PW-84,10,'Enabled','sec')}<span class="sw" style="position:absolute;left:${PW-40}px;top:10px"></span><span class="iconbtn" style="left:${PW-20}px;top:7px">${CLOSE}</span><div class="hline" style="top:30px"></div>`;
+  const row=(y,l,ctl,cls='')=>`<div class="row ${cls}" style="top:${y}px">${l}<span class="ctl">${ctl}</span>${cls.includes('changed')?`<span class="rs">${RESET}</span>`:''}</div>`;
+  const rs='';
+  h+=t(8,47,'LAYOUT','sec');
+  h+=row(58,'Show Mouse Buttons','<span class="sw"></span>')+row(77,'Show Space Bar',rs+'<span class="sw"></span>','changed')+row(96,'Show CPS','<span class="sw off"></span>')+row(115,'Scale',rs+'<span class="slider"><i></i><b></b></span>1.2x','changed');
+  h+=t(8,137,'STYLE','sec');
+  h+=row(147,'Pressed Color',`<span class="dd" style="width:86px;display:flex;align-items:center;gap:3px"><span class="swatch" style="flex:none;width:7px;height:7px;background:#F1E9D2"></span>Parchment<span style="margin-left:auto"><span style="display:inline-block;width:5px;height:4px;vertical-align:1px">${SVG('<polyline points="4 8 12 16 20 8"/>')}</span></span></span>`)+row(166,'Background',`<span class="dd" style="width:86px;display:flex;align-items:center;gap:3px"><span class="swatch" style="flex:none;width:7px;height:7px;background:rgba(0,0,0,.45)"></span>Black 45%<span style="margin-left:auto"><span style="display:inline-block;width:5px;height:4px;vertical-align:1px">${SVG('<polyline points="4 8 12 16 20 8"/>')}</span></span></span>`,'hover')+row(185,'Text Shadow','<span class="sw"></span>')+row(204,'Font',`<span class="dd" style="width:86px;display:flex;align-items:center;gap:3px"><span style="flex:none;width:7px"></span>Minecraft<span style="margin-left:auto"><span style="display:inline-block;width:5px;height:4px;vertical-align:1px">${SVG('<polyline points="4 8 12 16 20 8"/>')}</span></span></span>`);
+  // preview fills the right column
+  h+=`<div class="stage" style="left:${PW-194}px;top:36px;width:186px;height:${PH-62}px"><div class="art"></div>${keystrokes(58,48,1.2)}
+      <div class="seg" style="right:2px;bottom:2px"><span class="on">World</span><span>Dark</span><span>Light</span></div></div>`;
+  h+=`<span class="btn primary" style="left:${PW-194}px;top:${PH-22}px;width:186px;text-align:center"><span class="ic">${ic('@hudeditor')}</span>Edit position</span>`;
+  h+=`<span class="t sec" style="left:${PW-212-W6('2 changed · Reset all')+4}px;top:35px">2 changed · <span class="acc">Reset all</span></span>`;
+  return head(h);
+}
+// One outline per HUD element. FPS and Coordinates are separate mods.
+function hudCommon(o={}){
+  const d=o.dim?'dim':'', ob=o.dim?'':'box';
+  const fpsCls=o.snapTo==='coords'?'box partner':ob;
+  return `<div class="world"></div><div class="scrim"></div>
+  <div class="${d}"><div class="${ob}" style="position:absolute;left:4px;top:4px;width:46px;height:11px"></div><span class="mc" style="left:6px;top:5px">144 FPS</span></div>
+  <div class="${d}"><div class="${fpsCls}" style="position:absolute;left:4px;top:17px;width:76px;height:11px"></div><span class="mc" style="left:6px;top:18px">128, 64, -42</span></div>
+  <div class="${d}"><div class="${o.hoverMap?'box hov':ob}" style="position:absolute;left:412px;top:4px;width:64px;height:64px"></div><div class="abs" style="left:413px;top:5px;width:62px;height:62px;background:url(../../../website/assets/blocks/grass_top.png) 0 0/16px;image-rendering:pixelated"></div>
+    ${o.hoverMap?`<span class="label hovl" style="left:${476-W6('Minimap')-8}px;top:70px">Minimap</span>${['left:410px;top:2px','left:474px;top:2px','left:410px;top:66px','left:474px;top:66px'].map(p=>`<span class="handle4" style="${p}"></span>`).join('')}`:''}</div>
+  <div class="abs" style="left:149px;top:248px;width:182px;height:22px;opacity:.6;display:flex;background:rgba(0,0,0,.6);border:1px solid #9a9a9a">${Array.from({length:9},(_, i)=>`<span style="width:20px;height:20px;border:1px solid ${i==0?'#fff':'#5a5a5a'};margin:0 0 0 ${i?0:0}px"></span>`).join('')}</div>
+  <div class="mc" style="left:150px;top:237px;color:#e33">❤❤❤❤❤❤❤❤❤❤</div>
+  <span class="mc" style="left:238px;top:131px;color:#fff;opacity:.9">+</span>`;
+}
+function centre(fade){ // logo, MODS, then the two editor actions; well above the crosshair (y135)
+  return `<div style="opacity:${fade?0.2:1}">
+  <span class="abs" style="left:230px;top:48px;width:20px;height:20px;filter:drop-shadow(0 0 2px rgba(14,17,16,.9)) drop-shadow(0 0 1px rgba(14,17,16,.9))">${MARK}</span>
+  <span class="btn primary" style="left:213px;top:72px;width:54px;text-align:center">MODS</span>
+  <span class="btn" style="left:${240-75}px;top:90px"><span class="ic">${EYE}</span>3 hidden</span>
+  <span class="btn" style="left:243px;top:90px">Reset layout</span>${fade?'':`<span class="hint" style="left:${240-W6('Drag move · Corner scale · Right-click settings')/2-5}px;top:108px"><b>Drag</b> move&nbsp;·&nbsp;<b>Corner</b> scale&nbsp;·&nbsp;<b>Right-click</b> settings</span>`}</div>`;
+}
+const topHint=s=>`<span class="hint" style="left:${240-W6(s.replace(/<[^>]+>/g,''))/2-5}px;top:4px">${s}</span>`;
+function hud(){ // mid-drag: Keystrokes snapped to Coordinates' left edge, 8px below it
+  return hudCommon({snapTo:'coords'})+centre(true)+`
+  <div class="ghost" style="left:4px;top:160px;width:72px;height:80px"></div>
+  ${keystrokes(6,38,1.2)}
+  <div class="box sel" style="left:4px;top:36px;width:74px;height:80px"></div>
+  <span class="label" style="left:4px;top:118px">Keystrokes  1.2x</span>
+  <div class="guide" style="left:4px;top:0;width:1px;height:17px;opacity:.4"></div>
+  <div class="guide" style="left:4px;top:17px;width:1px;height:99px"></div>
+  <div class="guide" style="left:4px;top:116px;width:1px;height:154px;opacity:.4"></div>
+  <div class="guide" style="left:84px;top:28px;width:1px;height:8px;box-shadow:none"></div>
+  <div class="guide" style="left:82px;top:28px;width:5px;height:1px;box-shadow:none"></div><div class="guide" style="left:82px;top:35px;width:5px;height:1px;box-shadow:none"></div>
+  <span class="badge" style="left:88px;top:27px">8</span>`;
+}
+function hudidle(){ // just opened; hovering the minimap
+  return hudCommon({hoverMap:1})+centre(false)+`
+  ${keystrokes(6,162,1.2)}<div class="box" style="left:4px;top:160px;width:74px;height:80px"></div>
+`;
+}
+function hudfrom(){ // opened from Keystrokes settings: focus mode
+  return hudCommon({dim:1})+`
+  ${keystrokes(6,162,1.2)}<div class="box sel" style="left:4px;top:160px;width:74px;height:80px">${['left:-2px;top:-2px','right:-2px;top:-2px','left:-2px;bottom:-2px','right:-2px;bottom:-2px'].map(p=>`<span class="handle4" style="${p}"></span>`).join('')}</div>
+  <span class="label" style="left:4px;top:147px">Keystrokes  1.2x</span>
+  <span class="btn" style="left:${240-(W6('Back to Keystrokes settings  Esc')+18+4+W6('Reset position')+12)/2}px;top:4px;background:rgba(14,17,16,.9);border-color:rgba(95,208,155,.5)"><span class="ic">${BACK}</span>Back to Keystrokes settings  <span class="sec">Esc</span></span>
+  <span class="btn" style="left:${240-(W6('Back to Keystrokes settings  Esc')+18+4+W6('Reset position')+12)/2+W6('Back to Keystrokes settings  Esc')+18+4}px;top:4px;background:rgba(14,17,16,.9)">Reset position</span>`;
+}
+const s=new URLSearchParams(location.search).get('scene')||'menu';
+document.body.innerHTML=({menu,settings,hud,hudidle,hudfrom})[s]();
+window.ready=document.fonts.ready.then(()=>true);
+</script></body></html>

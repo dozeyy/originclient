@@ -72,7 +72,10 @@
 		"ScreenshotKeyMixin",
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsBedMixin",
-		"HypixelBedwarsSoundMixin"
+		"HypixelBedwarsSoundMixin",
+		"CosmeticCapeMixin",
+		"CosmeticsPauseMixin",
+		"CosmeticsPreviewMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

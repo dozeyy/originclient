@@ -134,6 +134,273 @@ public final class OriginUi {
 		panel(g, x, y, w, h, cut, fill, border);
 	}
 
+	// ---- exact-geometry rounded shapes (the 2026-10 menu redesign, OriginDeck) ----
+
+	/**
+	 * A rounded rect at EXACT float geometry and radius -- no Workbench radius
+	 * normalisation. Used by OriginDeck (the 2026-10 menu redesign), which draws
+	 * in PHYSICAL pixels (its pose is scaled by 1/guiScale) and sizes every
+	 * corner itself. Same contract as 1.21.1's roundRect: a 1-physical-px border
+	 * ring that REPLACES the fill under it (OriginDeck composites translucent
+	 * borders onto the fill first), and `aaPad` > 0 for shapes at fractional
+	 * positions (circles, knobs) whose whole outline needs an anti-aliasing ramp.
+	 *
+	 * <p>1.21.4: 1.21.1 draws this with its immediate-mode rounded-box SDF shader.
+	 * This era keeps the module's physical-resolution coverage masks instead (the
+	 * batched GUI; see the class comment): the exact coverage the shader computes
+	 * per screen pixel is baked into a small texture once and blitted back 1:1
+	 * under OriginDeck's physical-pixel pose, so one texel lands on one screen
+	 * pixel. Box edges OriginDeck snaps to whole pixels are crisp lines by
+	 * construction, so only the curved parts need a mask:
+	 *   * a box with room for its corners: 4 corner quadrants from one 2n x 2n
+	 *     mask (n = ceil(radius)) + plain fills for the straight bands;
+	 *   * a pill (no room across one axis): its two caps from one mask + fills;
+	 *   * anything smaller, or at a fractional position: one whole-shape mask.
+	 * Masks are keyed on their exact (1/16 px) geometry and LRU-cached, so the
+	 * steady-state cost is a handful of batched blits + fills per shape.
+	 */
+	public static void roundRect(GuiGraphics g, float x, float y, float w, float h, float r, int fill, int border, float aaPad) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		boolean hasFill = ((fill >>> 24) & 0xFF) > 0;
+		boolean hasBorder = ((border >>> 24) & 0xFF) > 0;
+		if (!hasFill && !hasBorder) {
+			return;
+		}
+		r = Math.max(0f, Math.min(r, Math.min(w, h) / 2f));
+		boolean whole = x == Math.rint(x) && y == Math.rint(y) && w == Math.rint(w) && h == Math.rint(h);
+		if (whole && aaPad <= 0f) {
+			if (snappedRoundRect(g, (int) x, (int) y, (int) w, (int) h, r, fill, border, hasBorder)) {
+				return;
+			}
+		} else if (floatRoundRect(g, x, y, w, h, r, fill, border, hasBorder)) {
+			return;
+		}
+		// Fail-soft: a mask that couldn't bake -> the integer corner path.
+		int ri = Math.round(r);
+		roundedFill(g, Math.round(x), Math.round(y), Math.round(w), Math.round(h), ri, fill);
+		if (hasBorder) {
+			roundedStroke(g, Math.round(x), Math.round(y), Math.round(w), Math.round(h), ri, border);
+		}
+	}
+
+	/** Whole-pixel box (OriginDeck.rect). False only if a mask failed to bake. */
+	private static boolean snappedRoundRect(GuiGraphics g, int x, int y, int w, int h, float r, int fill, int border, boolean hasBorder) {
+		int n = r < 1e-3f ? 0 : (int) Math.ceil(r - 1e-3f);
+		if (n == 0) {
+			// Square corners: the fill, and the 1px ring as four lines.
+			if (hasBorder) {
+				g.fill(x, y, x + w, y + 1, border);
+				if (h > 1) {
+					g.fill(x, y + h - 1, x + w, y + h, border);
+				}
+				if (h > 2) {
+					g.fill(x, y + 1, x + 1, y + h - 1, border);
+					if (w > 1) {
+						g.fill(x + w - 1, y + 1, x + w, y + h - 1, border);
+					}
+				}
+				if (w > 2 && h > 2) {
+					g.fill(x + 1, y + 1, x + w - 1, y + h - 1, fill);
+				}
+			} else {
+				g.fill(x, y, x + w, y + h, fill);
+			}
+			return true;
+		}
+		boolean fitX = 2 * n <= w, fitY = 2 * n <= h;
+		if (!fitX && !fitY) {
+			return floatRoundRect(g, x, y, w, h, r, fill, border, hasBorder);
+		}
+		int mw = fitX ? 2 * n : w, mh = fitY ? 2 * n : h;
+		ShapeMask m = shapeMask(mw * 16, mh * 16, 0, 0, mw * 16, mh * 16, Math.round(r * 16));
+		if (m == null) {
+			return false;
+		}
+		if (fitX && fitY) {
+			// 9-slice: the four corner quadrants of the 2n x 2n mask...
+			for (int qy = 0; qy < 2; qy++) {
+				for (int qx = 0; qx < 2; qx++) {
+					int dx = qx == 0 ? x : x + w - n, dy = qy == 0 ? y : y + h - n;
+					maskRegion(g, m, dx, dy, qx * n, qy * n, n, n, fill, border, hasBorder);
+				}
+			}
+			// ...and the straight bands between them. On whole-pixel edges the
+			// coverage is exact: the outermost pixel row/column is the ring, the
+			// rest is fill.
+			if (hasBorder) {
+				g.fill(x + n, y, x + w - n, y + 1, border);
+				g.fill(x + n, y + h - 1, x + w - n, y + h, border);
+				g.fill(x, y + n, x + 1, y + h - n, border);
+				g.fill(x + w - 1, y + n, x + w, y + h - n, border);
+				g.fill(x + n, y + 1, x + w - n, y + n, fill);
+				g.fill(x + n, y + h - n, x + w - n, y + h - 1, fill);
+				g.fill(x + 1, y + n, x + w - 1, y + h - n, fill);
+			} else {
+				g.fill(x + n, y, x + w - n, y + n, fill);
+				g.fill(x + n, y + h - n, x + w - n, y + h, fill);
+				g.fill(x, y + n, x + w, y + h - n, fill);
+			}
+		} else if (fitX) {
+			// Wide pill (toggles, slider tracks): left + right cap from a 2n x h mask.
+			maskRegion(g, m, x, y, 0, 0, n, h, fill, border, hasBorder);
+			maskRegion(g, m, x + w - n, y, n, 0, n, h, fill, border, hasBorder);
+			if (hasBorder) {
+				g.fill(x + n, y, x + w - n, y + 1, border);
+				if (h > 1) {
+					g.fill(x + n, y + h - 1, x + w - n, y + h, border);
+				}
+				if (h > 2) {
+					g.fill(x + n, y + 1, x + w - n, y + h - 1, fill);
+				}
+			} else {
+				g.fill(x + n, y, x + w - n, y + h, fill);
+			}
+		} else {
+			// Tall pill (the scrollbar thumb): top + bottom cap from a w x 2n mask.
+			maskRegion(g, m, x, y, 0, 0, w, n, fill, border, hasBorder);
+			maskRegion(g, m, x, y + h - n, 0, n, w, n, fill, border, hasBorder);
+			if (hasBorder) {
+				g.fill(x, y + n, x + 1, y + h - n, border);
+				if (w > 1) {
+					g.fill(x + w - 1, y + n, x + w, y + h - n, border);
+				}
+				if (w > 2) {
+					g.fill(x + 1, y + n, x + w - 1, y + h - n, fill);
+				}
+			} else {
+				g.fill(x, y + n, x + w, y + h - n, fill);
+			}
+		}
+		return true;
+	}
+
+	/** One whole-shape mask, placed at sub-pixel precision (circles, small boxes). */
+	private static boolean floatRoundRect(GuiGraphics g, float x, float y, float w, float h, float r, int fill, int border, boolean hasBorder) {
+		// The mask starts a pixel left/above the shape so its outer AA ramp has room.
+		int bx = (int) Math.floor(x) - 1, by = (int) Math.floor(y) - 1;
+		// Position snaps to 1/4 px (invisible) so a knob sliding or a list scrolling
+		// reuses a few masks instead of baking one per frame; size + radius stay 1/16.
+		int sx = Math.round((x - bx) * 4) * 4, sy = Math.round((y - by) * 4) * 4;
+		int sw = Math.round(w * 16), sh = Math.round(h * 16);
+		int mw = (sx + sw + 15) / 16 + 1, mh = (sy + sh + 15) / 16 + 1;
+		if ((long) mw * mh > 512 * 512) {
+			return false;    // never expected (the redesign's free shapes are small)
+		}
+		ShapeMask m = shapeMask(mw * 16, mh * 16, sx, sy, sw, sh, Math.round(r * 16));
+		if (m == null) {
+			return false;
+		}
+		maskRegion(g, m, bx, by, 0, 0, mw, mh, fill, border, hasBorder);
+		return true;
+	}
+
+	/** Blits one region of a shape mask 1:1: fill on the inner plane + border on
+	 *  the ring plane, or (no border) fill on the whole-shape plane. Tints ride the
+	 *  per-blit ARGB -- setShaderColor never reaches this era's batched blits. */
+	private static void maskRegion(GuiGraphics g, ShapeMask m, int dx, int dy, int u, int v, int w, int h,
+								   int fill, int border, boolean hasBorder) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		int texH = m.h() * 3;
+		if (hasBorder) {
+			if (((fill >>> 24) & 0xFF) > 0) {
+				g.blit(RenderType::guiTextured, m.id(), dx, dy, (float) u, (float) (v + m.h()), w, h, w, h, m.w(), texH, fill);
+			}
+			g.blit(RenderType::guiTextured, m.id(), dx, dy, (float) u, (float) (v + 2 * m.h()), w, h, w, h, m.w(), texH, border);
+		} else {
+			g.blit(RenderType::guiTextured, m.id(), dx, dy, (float) u, (float) v, w, h, w, h, m.w(), texH, fill);
+		}
+	}
+
+	/** A baked shape: w x h physical px, three planes stacked vertically --
+	 *  0 = whole shape, 1 = inside the 1px ring, 2 = the ring. */
+	private record ShapeMask(ResourceLocation id, int w, int h) {
+	}
+
+	private static final int SHAPE_CACHE_MAX = 160;
+	private static final LinkedHashMap<String, ShapeMask> SHAPE_MASKS =
+			new LinkedHashMap<>(32, 0.75f, true) {
+				@Override
+				protected boolean removeEldestEntry(Map.Entry<String, ShapeMask> eldest) {
+					if (size() <= SHAPE_CACHE_MAX) {
+						return false;
+					}
+					if (eldest.getValue() != null) {
+						try {
+							Minecraft.getInstance().getTextureManager().release(eldest.getValue().id());
+						} catch (Throwable ignored) {
+							// a texture we can't release is a leak, not a crash
+						}
+					}
+					return true;
+				}
+			};
+	private static int shapeSeq = 0;
+
+	/**
+	 * Bakes (or fetches) a mask of mw16/16 x mh16/16 physical px holding a rounded
+	 * box at (sx16, sy16) of size sw16 x sh16 with radius r16 -- every argument in
+	 * 1/16 px, so the key fully determines the pixels. Coverage is the same
+	 * rounded-box signed distance 1.21.1's shader evaluates, resolved per pixel.
+	 */
+	private static ShapeMask shapeMask(int mw16, int mh16, int sx16, int sy16, int sw16, int sh16, int r16) {
+		String key = mw16 + "," + mh16 + "," + sx16 + "," + sy16 + "," + sw16 + "," + sh16 + "," + r16;
+		if (SHAPE_MASKS.containsKey(key)) {
+			return SHAPE_MASKS.get(key);   // may be null: a failed bake is remembered, not retried
+		}
+		ShapeMask out = null;
+		try {
+			int mw = mw16 / 16, mh = mh16 / 16;
+			double sx = sx16 / 16.0, sy = sy16 / 16.0, hw = sw16 / 32.0, hh = sh16 / 32.0;
+			double r = Math.min(r16 / 16.0, Math.min(hw, hh));
+			NativeImage img = new NativeImage(NativeImage.Format.RGBA, mw, mh * 3, false);
+			for (int py = 0; py < mh; py++) {
+				for (int px = 0; px < mw; px++) {
+					double qx = Math.abs(px + 0.5 - sx - hw) - (hw - r);
+					double qy = Math.abs(py + 0.5 - sy - hh) - (hh - r);
+					double ox = Math.max(qx, 0), oy = Math.max(qy, 0);
+					double d = Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0) - r;
+					double outer = clamp01(0.5 - d);
+					double inner = clamp01(-0.5 - d);   // inside the 1px ring
+					img.setPixel(px, py, alphaWhite(outer));
+					img.setPixel(px, py + mh, alphaWhite(inner));
+					img.setPixel(px, py + 2 * mh, alphaWhite(outer - inner));
+				}
+			}
+			// Path must stay [a-z0-9_./-]; a sequence number keeps ids unique.
+			ResourceLocation id = ResourceLocation.fromNamespaceAndPath("originclient",
+					"textures/ui/origin_shape_" + (shapeSeq++));
+			DynamicTexture tex = new DynamicTexture(img);
+			tex.setFilter(false, false);
+			Minecraft.getInstance().getTextureManager().register(id, tex);
+			out = new ShapeMask(id, mw, mh);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: shape mask " + key + " failed to bake", t);
+		}
+		SHAPE_MASKS.put(key, out);
+		return out;
+	}
+
+	/**
+	 * A soft radial glow (the baked radial_glow texture) centred on (cx,cy),
+	 * `size` across, tinted by `argb`. 1.21.4: the tint rides the blit's ARGB.
+	 */
+	public static void softGlow(GuiGraphics g, float cx, float cy, float size, int argb) {
+		ensureLoaded();
+		if (!ok || glowTex == null || ((argb >>> 24) & 0xFF) == 0) {
+			return;
+		}
+		var pose = g.pose();
+		pose.pushPose();
+		pose.translate(cx - size / 2f, cy - size / 2f, 0);
+		pose.scale(size / 512f, size / 512f, 1f);
+		g.blit(RenderType::guiTextured, glowTex, 0, 0, 0f, 0f, 512, 512, 512, 512, 512, 512, argb);
+		pose.popPose();
+	}
+
 	private static int craftedRadius(int w, int h, int requested) {
 		if (requested <= 0) {
 			return 0;
@@ -429,6 +696,54 @@ public final class OriginUi {
 			pose.translate(-384f, -384f, 0);
 			g.blit(RenderType::guiTextured, ringTex, 0, 0, 0f, 0f, 768, 768, 768, 768, ARGB.white(alpha));
 			pose.popPose();
+		}
+	}
+
+	/**
+	 * The brand mark at float position/size for OriginDeck (the 2026-10 redesign
+	 * draws it in physical px, up to ~100px across from the 256px bake). 1.21.1
+	 * samples it linearly; this era's batched guiTextured blit may switch the
+	 * texture to nearest sampling, which turns the thin rings ragged when
+	 * minified. So this draws one immediate POSITION_TEX_COLOR quad (GuiMesh's
+	 * shader) with the texture's linear filter re-applied -- flushing the batch
+	 * first so everything drawn earlier stays underneath. Falls back to
+	 * {@link #logo} if anything here throws.
+	 */
+	public static void logoSmooth(GuiGraphics g, float cx, float cy, float size, float alpha) {
+		ensureLoaded();
+		int a = Math.max(0, Math.min(255, Math.round(alpha * 255f)));
+		if (a == 0) {
+			return;
+		}
+		if (!ok || logoTex == null) {
+			logo(g, cx, cy, Math.round(size), alpha);
+			return;
+		}
+		try {
+			g.flush();
+			Minecraft.getInstance().getTextureManager().getTexture(logoTex).setFilter(true, false);
+			org.joml.Matrix4f m = g.pose().last().pose();
+			float x0 = cx - size / 2f, y0 = cy - size / 2f, x1 = x0 + size, y1 = y0 + size;
+			com.mojang.blaze3d.vertex.BufferBuilder bb = com.mojang.blaze3d.vertex.Tesselator.getInstance().begin(
+					com.mojang.blaze3d.vertex.VertexFormat.Mode.QUADS,
+					com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_TEX_COLOR);
+			bb.addVertex(m, x0, y0, 0).setColor(255, 255, 255, a).setUv(0f, 0f);
+			bb.addVertex(m, x0, y1, 0).setColor(255, 255, 255, a).setUv(0f, 1f);
+			bb.addVertex(m, x1, y1, 0).setColor(255, 255, 255, a).setUv(1f, 1f);
+			bb.addVertex(m, x1, y0, 0).setColor(255, 255, 255, a).setUv(1f, 0f);
+			com.mojang.blaze3d.vertex.MeshData mesh = bb.build();
+			if (mesh == null) {
+				return;
+			}
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			RenderSystem.setShader(net.minecraft.client.renderer.CoreShaders.POSITION_TEX_COLOR);
+			RenderSystem.setShaderTexture(0, logoTex);
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			com.mojang.blaze3d.vertex.BufferUploader.drawWithShader(mesh);
+			OriginShaders.restoreState();
+		} catch (Throwable t) {
+			logo(g, cx, cy, Math.round(size), alpha);
 		}
 	}
 

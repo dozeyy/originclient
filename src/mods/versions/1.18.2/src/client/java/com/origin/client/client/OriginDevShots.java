@@ -3,7 +3,9 @@ package com.origin.client.client;
 import com.origin.client.client.gui.OriginModMenuScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import com.origin.client.client.hud.HudEditorScreen;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -14,7 +16,9 @@ import java.util.List;
  * variable {@code ORIGIN_SHOTS} names a directory. When it does, the client
  * boots to the title screen, then walks a matrix of window sizes × GUI scales,
  * capturing the TITLE (after its entrance animation) and the MOD MENU at each,
- * into {@code $ORIGIN_SHOTS/screenshots/}, and finally quits. This is how a
+ * into {@code $ORIGIN_SHOTS/screenshots/}, and finally quits. With
+ * {@code ORIGIN_SHOTS_SET=design} it instead captures title, mod menu, a mod's
+ * settings page and the HUD editor at two sizes (.github/workflows/dev-shots.yml). This is how a
  * layout change gets LOOKED AT on every aspect ratio before it reaches Will —
  * no more "compiles, ships, looks wrong".
  *
@@ -25,25 +29,60 @@ import java.util.List;
 public final class OriginDevShots {
 	private static final String DIR = System.getenv("ORIGIN_SHOTS");
 
-	private record Shot(int w, int h, int scale, boolean menu) {
+	/** What a shot opens before capturing. */
+	private enum Kind {
+		TITLE, MENU, MENU_LIST, MOD_SETTINGS, SETTINGS, RSHIFT, COSMETICS;
+
+		Screen open() {
+			return switch (this) {
+				case TITLE -> new TitleScreen();
+				case MENU -> new OriginModMenuScreen().preview(false, false);
+				case MENU_LIST -> new OriginModMenuScreen().preview(true, false);
+				// A HUD mod's own page: the settings layout the redesign is judged on.
+				case MOD_SETTINGS -> new OriginModMenuScreen(null, "keystrokes").preview(false, false);
+				case SETTINGS -> new OriginModMenuScreen().preview(false, true);
+				// The Right Shift screen (HUD editor + the Origin centre group).
+				case RSHIFT -> new HudEditorScreen(true);
+				// The cosmetics locker, opened from the menu's Cosmetics tab.
+				case COSMETICS -> new com.origin.client.client.gui.CosmeticsScreen(null);
+			};
+		}
+	}
+
+	private record Shot(int w, int h, int scale, Kind kind) {
 		String name() {
-			return (menu ? "menu" : "title") + "_" + w + "x" + h + "_s" + scale + ".png";
+			return kind.name().toLowerCase(java.util.Locale.ROOT) + "_" + w + "x" + h + "_s" + scale + ".png";
 		}
 	}
 
 	private static final List<Shot> SHOTS = new ArrayList<>();
 
 	static {
-		// Common desktop ratios at auto GUI scale (0 = Minecraft's own choice),
-		// then the two extremes of GUI scale at 1080p.
-		int[][] sizes = {{1920, 1080}, {2560, 1080}, {1280, 720}, {1024, 768}, {1366, 768}, {1600, 900}};
-		for (int[] s : sizes) {
-			SHOTS.add(new Shot(s[0], s[1], 0, false));
-			SHOTS.add(new Shot(s[0], s[1], 0, true));
-		}
-		for (int sc : new int[]{2, 4}) {
-			SHOTS.add(new Shot(1920, 1080, sc, false));
-			SHOTS.add(new Shot(1920, 1080, sc, true));
+		if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// Design review (the menu / HUD-editor redesign loop): every screen at
+			// the two most common desktop sizes, auto GUI scale.
+			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
+				for (Kind k : Kind.values()) {
+					if (k == Kind.TITLE) {
+						continue;   // the title isn't part of this redesign
+					}
+					SHOTS.add(new Shot(s[0], s[1], 0, k));
+				}
+			}
+			// Same menu at a forced GUI scale: the redesign must not change size with it.
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.MENU));
+		} else {
+			// Common desktop ratios at auto GUI scale (0 = Minecraft's own choice),
+			// then the two extremes of GUI scale at 1080p.
+			int[][] sizes = {{1920, 1080}, {2560, 1080}, {1280, 720}, {1024, 768}, {1366, 768}, {1600, 900}};
+			for (int[] s : sizes) {
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.TITLE));
+				SHOTS.add(new Shot(s[0], s[1], 0, Kind.MENU));
+			}
+			for (int sc : new int[]{2, 4}) {
+				SHOTS.add(new Shot(1920, 1080, sc, Kind.TITLE));
+				SHOTS.add(new Shot(1920, 1080, sc, Kind.MENU));
+			}
 		}
 	}
 
@@ -67,6 +106,15 @@ public final class OriginDevShots {
 		}
 		long now = System.currentTimeMillis();
 		if (step < 0) {
+			// A fresh game directory (CI) can open some first-run screen instead of
+			// the title (1.21.1 skips vanilla's accessibility onboarding by name;
+			// that option isn't confirmed on this version, so no option is touched):
+			// just put the title up, or the harness would wait for it forever.
+			if (mc.getOverlay() == null && mc.screen != null && !(mc.screen instanceof TitleScreen)
+					&& !(mc.screen instanceof OriginModMenuScreen)) {
+				mc.setScreen(new TitleScreen());
+				return;
+			}
 			if (mc.getOverlay() == null && mc.screen instanceof TitleScreen) {
 				if (nextAt == 0) {
 					nextAt = now + 1500;
@@ -107,10 +155,10 @@ public final class OriginDevShots {
 				}
 				case 1 -> {
 					// Fresh screens so entrance animations replay and get captured settled.
-					mc.setScreen(s.menu() ? new OriginModMenuScreen() : new TitleScreen());
+					mc.setScreen(s.kind().open());
 					mc.resizeDisplay();
 					phase = 2;
-					nextAt = now + (s.menu() ? 900 : 1900);
+					nextAt = now + (s.kind() == Kind.TITLE ? 1900 : 900);
 				}
 				case 2 -> {
 					// Windows may apply a resize one message-loop later (especially

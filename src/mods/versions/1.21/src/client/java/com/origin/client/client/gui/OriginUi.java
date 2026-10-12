@@ -139,6 +139,53 @@ public final class OriginUi {
 	}
 
 	/**
+	 * A rounded rect at EXACT float geometry and radius -- no Workbench radius
+	 * normalisation. Used by OriginDeck (the 2026-10 menu redesign), which draws
+	 * in physical pixels and sizes every corner itself. `aaPad` grows the quad
+	 * past the shape so a curved outline (a circle, a pill end) gets its full
+	 * anti-aliasing ramp; snapped straight-edged boxes pass 0 so they stay crisp.
+	 * Falls back to the software fill when the SDF shader isn't loaded.
+	 */
+	public static void roundRect(GuiGraphics g, float x, float y, float w, float h, float r, int fill, int border, float aaPad) {
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		if (!OriginShaders.roundActive()) {
+			int ri = Math.round(Math.min(r, Math.min(w, h) / 2f));
+			roundedFill(g, Math.round(x), Math.round(y), Math.round(w), Math.round(h), ri, fill);
+			if (((border >>> 24) & 0xFF) > 0) {
+				roundedStroke(g, Math.round(x), Math.round(y), Math.round(w), Math.round(h), ri, border);
+			}
+			return;
+		}
+		float hw = w / 2f, hh = h / 2f;
+		var pose = g.pose();
+		pose.pushPose();
+		pose.translate(x + hw, y + hh, 0);
+		roundBox(g, hw, hh, r, fill, border, aaPad);
+		pose.popPose();
+	}
+
+	/** A soft radial glow (the baked radial_glow texture) centred on (cx,cy). */
+	public static void softGlow(GuiGraphics g, float cx, float cy, float size, int argb) {
+		ensureLoaded();
+		float a = ((argb >>> 24) & 0xFF) / 255f;
+		if (!ok || glowTex == null || a <= 0f) {
+			return;
+		}
+		RenderSystem.enableBlend();
+		RenderSystem.defaultBlendFunc();
+		tint(argb);
+		var pose = g.pose();
+		pose.pushPose();
+		pose.translate(cx - size / 2f, cy - size / 2f, 0);
+		pose.scale(size / 512f, size / 512f, 1f);
+		g.blit(glowTex, 0, 0, 0f, 0f, 512, 512, 512, 512);
+		pose.popPose();
+		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+	}
+
+	/**
 	 * Kept for source compatibility with every existing button-shaped call site.
 	 * The supplied cut is normalized by {@link #panel}, so bevel and panel paths
 	 * cannot diverge into separate shape languages.
@@ -321,6 +368,10 @@ public final class OriginUi {
 	 *  halfX×halfY, corner radius r). Same SDF path as {@link #roundShader} but
 	 *  without the integer quantisation, for crisp small vector icons. */
 	private static void roundShaderF(GuiGraphics g, float halfX, float halfY, float r, int fill, int border) {
+		roundBox(g, halfX, halfY, r, fill, border, STROKE_AA_PAD);
+	}
+
+	private static void roundBox(GuiGraphics g, float halfX, float halfY, float r, int fill, int border, float pad) {
 		var sh = OriginShaders.ROUND;
 		if (sh == null) {
 			return;
@@ -335,7 +386,7 @@ public final class OriginUi {
 		// own rasterised staircase -- on rotated strokes (back chevron, pencil,
 		// close X) that read as jagged, low-res icons. UV carries the same local
 		// coordinates, so the padding is pure empty margin the shader discards.
-		float qx = halfX + STROKE_AA_PAD, qy = halfY + STROKE_AA_PAD;
+		float qx = halfX + pad, qy = halfY + pad;
 		BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
 		bb.addVertex(m, -qx, -qy, 0).setUv(-qx, -qy);
 		bb.addVertex(m, -qx, qy, 0).setUv(-qx, qy);

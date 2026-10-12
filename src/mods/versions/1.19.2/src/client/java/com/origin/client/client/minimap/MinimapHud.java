@@ -52,13 +52,22 @@ public final class MinimapHud {
 		return new HudPos(2, -6, 6, 1.0);
 	}
 
+	/**
+	 * Singleplayer only (Will, 2026-10-12): on any server or Realm the map is
+	 * neither drawn nor openable. A LAN world you host yourself still counts as
+	 * singleplayer -- it runs on this PC's own integrated server.
+	 */
+	public static boolean allowed(Minecraft mc) {
+		return mc.hasSingleplayerServer();
+	}
+
 	// ---- tick: keys + automatic cave mode ----
 
 	public static void tick(Minecraft mc) {
 		if (mc.level == null) {
 			MinimapData.leftWorld();
 		}
-		if (!Mods.on(MOD)) {
+		if (!Mods.on(MOD) || !allowed(mc)) {
 			zoomInWasDown = zoomOutWasDown = mapKeyWasDown = false;
 			return;
 		}
@@ -244,6 +253,9 @@ public final class MinimapHud {
 	}
 
 	public static int[] size(Minecraft mc) {
+		if (mc.level != null && !allowed(mc)) {
+			return new int[]{0, 0};   // measures empty on servers, like any hidden HUD piece
+		}
 		float s = scale();
 		int[] b = box(mc, info(mc));
 		return new int[]{(int) Math.ceil(b[0] * s), (int) Math.ceil(b[1] * s)};
@@ -252,6 +264,9 @@ public final class MinimapHud {
 	// ---- render ----
 
 	public static void render(Gfx g, Minecraft mc, int w, int h) {
+		if (mc.level != null && !allowed(mc)) {
+			return;
+		}
 		float s = scale();
 		List<Info> lines = info(mc);
 		int[] b = box(mc, lines);

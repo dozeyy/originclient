@@ -1,0 +1,154 @@
+# Dev shots: boot the real client headlessly and capture the Origin screens
+# (mod menu grid + list, a mod's page, Settings, the Right Shift screen) via
+# each module's in-mod harness OriginDevShots (ORIGIN_SHOTS_SET=design).
+#
+# Why: the cloud sandbox Claude works in can't run Minecraft, so this is how a
+# UI change gets LOOKED AT before it reaches Will. The PNGs are force-pushed to
+# the `claude/dev-shots` branch (one orphan commit, latest run only), one
+# folder per module, so a session can `git fetch` them; also kept as artifacts.
+#
+# Which modules: put a tag in the commit message on a claude/** branch --
+#   [shots]                -> 1.21.1
+#   [shots:1.20,1.21.4]    -> those modules
+#   [shots:all]            -> every live module (src/mods/live-modules.json)
+# or run it by hand (Run workflow) with the same list in `modules`.
+# Software GL limits (Xvfb + llvmpipe, Sodium's GL 4.6 spoofed) are the same
+# as boot-smoke.yml -- see the notes there.
+name: dev-shots
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["src/mods/versions/**", ".github/workflows/dev-shots.yml"]
+  workflow_dispatch:
+    inputs:
+      modules:
+        description: "Comma-separated modules, or 'all'"
+        default: "1.21.1"
+
+permissions:
+  contents: write
+
+# Only runs that will actually take shots share a group: a push WITHOUT a
+# [shots] tag still starts a (skipped) run, and in the shared group it would
+# cancel the real run in progress.
+concurrency:
+  group: dev-shots-${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[shots') }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[shots')
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.pick.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: pick
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+          INPUT: ${{ github.event.inputs.modules }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os, re
+          live = [m["module"] for m in json.load(open("src/mods/live-modules.json"))["modules"]]
+          raw = os.environ.get("INPUT") or ""
+          if not raw:
+              # A tag WITH a module list wins over a bare one wherever it sits: a
+              # message may mention the bare tag in its prose too.
+              tags = re.findall(r"\[shots(?::([^\]]+))?\]", os.environ.get("MSG", ""))
+              listed = [t for t in tags if t]
+              raw = listed[-1] if listed else "1.21.1"
+          raw = raw.strip()
+          picked = live if raw == "all" else [x.strip() for x in raw.split(",") if x.strip() in live]
+          print("modules=" + json.dumps(picked or ["1.21.1"]))
+          EOF
+
+  shots:
+    needs: plan
+    name: Shots ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.plan.outputs.modules) }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Headless GL deps (Xvfb + Mesa software rasterizer)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa
+
+      - name: Boot ${{ matrix.module }} and capture the Origin screens
+        working-directory: src/mods/versions/${{ matrix.module }}
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+          MESA_GL_VERSION_OVERRIDE: "4.6"
+          MESA_GLSL_VERSION_OVERRIDE: "460"
+          ORIGIN_SHOTS: ${{ runner.temp }}/shots
+          ORIGIN_SHOTS_SET: design
+        run: |
+          chmod +x gradlew
+          # The harness quits the game itself once every shot is taken. The whole
+          # gradle + java tree runs in its own process group so a hang is killed
+          # outright after 15 minutes (a plain `timeout` only reached xvfb-run and
+          # left the game holding the log pipe open).
+          setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClient --no-daemon > run.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 900); do kill -0 $pid 2>/dev/null || break; sleep 1; done
+          kill -- -$pid 2>/dev/null || true
+          sleep 3
+          kill -9 -- -$pid 2>/dev/null || true
+          echo "--- last 120 log lines ---"
+          tail -n 120 run.log
+          echo "--- dev-shots lines ---"
+          grep -F "[dev-shots]" run.log || echo "no dev-shots lines"
+          echo "--- mixin failures (should be none) ---"
+          grep -iE "Mixin apply(ing)? .*failed|Critical injection failure" run.log || echo "none"
+          mkdir -p "$ORIGIN_SHOTS/screenshots"
+          cp run.log "$ORIGIN_SHOTS/screenshots/run.log" || true
+          ls -la "$ORIGIN_SHOTS/screenshots" || true
+
+      - name: Keep the shots as a run artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shots-${{ matrix.module }}
+          path: ${{ runner.temp }}/shots/screenshots/
+          if-no-files-found: warn
+
+  publish:
+    needs: shots
+    if: always() && needs.shots.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect every module's shots
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shots-*
+          path: ${{ runner.temp }}/pub
+
+      - name: Publish to the claude/dev-shots branch
+        run: |
+          pub="$RUNNER_TEMP/pub"
+          mkdir -p "$pub"
+          cd "$pub"
+          # artifact folders are shots-<module>; name them by module
+          for d in shots-*; do [ -d "$d" ] && mv "$d" "${d#shots-}"; done
+          printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > SOURCE.txt
+          git init -q
+          git config user.name "origin-dev-shots"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "dev shots for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/claude/dev-shots

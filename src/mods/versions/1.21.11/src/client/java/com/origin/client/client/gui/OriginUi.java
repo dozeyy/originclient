@@ -375,6 +375,159 @@ public final class OriginUi {
 		return id;
 	}
 
+	// ---- exact-geometry primitives for the 2026-10 menu redesign (OriginDeck) ----
+
+	/**
+	 * A rounded rect at EXACT geometry and radius -- no Workbench radius
+	 * normalisation. Used by OriginDeck (the 2026-10 menu redesign), which draws
+	 * in PHYSICAL pixels (its pose is scaled by 1/guiScale) and sizes every
+	 * corner itself.
+	 *
+	 * <p>PER-VERSION DELTA (1.21.11): 1.21.1 draws this as one quad through the
+	 * rounded-box SDF shader. This era has no per-draw uniform channel to carry a
+	 * rect/radius into a shader (see OriginShaders), so -- like {@link #panel} --
+	 * the same per-screen-pixel coverage is BAKED: one corner mask per radius
+	 * (keyed in 1/8 px), blitted 1:1 at the four corners (the caller's units ARE
+	 * screen pixels, so one texel lands on one pixel), with the straight runs as
+	 * plain fills. Everything goes through g.fill / g.blit, i.e. the batched
+	 * GUI's own render states, so layering against text and icons follows
+	 * submission order like every other Origin surface on this era.
+	 *
+	 * <p>Geometry is rounded to whole pixels (OriginDeck already snaps boxes;
+	 * circles lose only their sub-pixel offset). `aaPad` is a shader notion
+	 * (quad overdraw for the AA ramp) and is unused here: the mask carries the
+	 * whole ramp inside the box. As in 1.21.1's shader, a visible `border`
+	 * REPLACES the fill in a 1px ring (the fill is drawn inset by 1px with the
+	 * radius shrunk by 1px -- the exact inner edge of the ring) rather than
+	 * being painted over it.
+	 */
+	public static void roundRect(GuiGraphics g, float x, float y, float w, float h, float r, int fill, int border, float aaPad) {
+		int x0 = Math.round(x), y0 = Math.round(y);
+		int iw = Math.round(x + w) - x0, ih = Math.round(y + h) - y0;
+		if (iw <= 0 || ih <= 0) {
+			return;
+		}
+		float rr = Math.max(0f, Math.min(r, Math.min(iw, ih) / 2f));
+		boolean hasBorder = ((border >>> 24) & 0xFF) > 0;
+		if (hasBorder && iw > 2 && ih > 2) {
+			deckShape(g, x0 + 1, y0 + 1, iw - 2, ih - 2, Math.max(0f, rr - 1f), false, fill);
+			deckShape(g, x0, y0, iw, ih, rr, true, border);
+		} else {
+			deckShape(g, x0, y0, iw, ih, rr, false, hasBorder ? border : fill);
+		}
+	}
+
+	/** A soft radial glow (the baked radial_glow texture, 512 px) centred on (cx,cy). */
+	public static void softGlow(GuiGraphics g, float cx, float cy, float size, int argb) {
+		ensureLoaded();
+		if (!ok || glowTex == null || ((argb >>> 24) & 0xFF) == 0 || size <= 0) {
+			return;
+		}
+		// The tint rides the blit's ARGB (no setShaderColor on this era); the
+		// texture is registered LINEAR by reg(), so the scaled glow stays smooth.
+		var pose = g.pose();
+		pose.pushMatrix();
+		pose.translate(cx - size / 2f, cy - size / 2f);
+		pose.scale(size / 512f, size / 512f);
+		g.blit(RenderPipelines.GUI_TEXTURED, glowTex, 0, 0, 0f, 0f, 512, 512, 512, 512, 512, 512, argb);
+		pose.popMatrix();
+	}
+
+	/** Fill (ring=false) or 1px outline (ring=true) of a rounded box, whole-pixel
+	 *  geometry in the CALLER's units (physical px under OriginDeck's pose). */
+	private static void deckShape(GuiGraphics g, int x, int y, int w, int h, float r, boolean ring, int color) {
+		if (((color >>> 24) & 0xFF) == 0 || w <= 0 || h <= 0) {
+			return;
+		}
+		int q = Math.round(r * 8f);               // the radius in 1/8 px: the mask key
+		Identifier mask = q >= 4 ? deckCorner(q, ring) : null;
+		int big = (q + 7) / 8;                    // ceil(r): one quadrant of the mask
+		// A corner cell never exceeds half the box; with r <= min(w,h)/2 the part
+		// cut off by an odd side is the arc's flat extreme (coverage ~1), which the
+		// one-pixel middle band below draws as solid.
+		int cw = mask == null ? 0 : Math.min(big, w / 2);
+		int ch = mask == null ? 0 : Math.min(big, h / 2);
+		if (ring) {
+			if (mask == null) {
+				deckFill(g, x, y, x + w, y + 1, color);
+				deckFill(g, x, y + h - 1, x + w, y + h, color);
+				deckFill(g, x, y + 1, x + 1, y + h - 1, color);
+				deckFill(g, x + w - 1, y + 1, x + w, y + h - 1, color);
+				return;
+			}
+			deckFill(g, x + cw, y, x + w - cw, y + 1, color);              // top
+			deckFill(g, x + cw, y + h - 1, x + w - cw, y + h, color);      // bottom
+			deckFill(g, x, y + ch, x + 1, y + h - ch, color);              // left
+			deckFill(g, x + w - 1, y + ch, x + w, y + h - ch, color);      // right
+		} else {
+			deckFill(g, x + cw, y, x + w - cw, y + h, color);              // centre column
+			deckFill(g, x, y + ch, x + cw, y + h - ch, color);             // left band
+			deckFill(g, x + w - cw, y + ch, x + w, y + h - ch, color);     // right band
+		}
+		if (cw <= 0 || ch <= 0) {
+			return;
+		}
+		// The mask is 2*big square and holds all four corners (mirrored); crop
+		// each blit to the cw x ch cell that touches its own corner.
+		int t = big * 2;
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y, 0f, 0f, cw, ch, cw, ch, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - cw, y, (float) (t - cw), 0f, cw, ch, cw, ch, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x, y + h - ch, 0f, (float) (t - ch), cw, ch, cw, ch, t, t, color);
+		g.blit(RenderPipelines.GUI_TEXTURED, mask, x + w - cw, y + h - ch, (float) (t - cw), (float) (t - ch), cw, ch, cw, ch, t, t, color);
+	}
+
+	private static void deckFill(GuiGraphics g, int x0, int y0, int x1, int y1, int color) {
+		if (x1 > x0 && y1 > y0) {
+			g.fill(x0, y0, x1, y1, color);
+		}
+	}
+
+	// Corner masks for roundRect, keyed by radius in 1/8 px. Baked at the size
+	// they are drawn (no guiScale factor: OriginDeck's units are already screen
+	// pixels). Only the menu's handful of radii x the current window scale ever
+	// occur, each mask at most a few dozen px square, so this stays tiny.
+	private static final Map<Integer, Identifier> DECK_FILL = new HashMap<>();
+	private static final Map<Integer, Identifier> DECK_RING = new HashMap<>();
+
+	private static Identifier deckCorner(int q, boolean ring) {
+		Map<Integer, Identifier> cache = ring ? DECK_RING : DECK_FILL;
+		if (cache.containsKey(q)) {
+			return cache.get(q);   // may hold null: a failed bake is remembered, not retried
+		}
+		Identifier id = null;
+		try {
+			double r = q / 8.0;
+			int big = (q + 7) / 8, t = big * 2;
+			NativeImage img = new NativeImage(NativeImage.Format.RGBA, t, t, false);
+			for (int py = 0; py < t; py++) {
+				for (int px = 0; px < t; px++) {
+					// Mirror into the top-left quadrant: box edges at x=0 / y=0, the
+					// arc centred at (r, r). Rounded-box signed distance:
+					//   q = r - p;  d = |max(q,0)| + min(max(q.x,q.y),0) - r
+					int lx = px < big ? px : t - 1 - px;
+					int ly = py < big ? py : t - 1 - py;
+					double qx = r - (lx + 0.5), qy = r - (ly + 0.5);
+					double ox = Math.max(qx, 0), oy = Math.max(qy, 0);
+					double d = Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0) - r;
+					double cov = clamp01(0.5 - d);
+					if (ring) {
+						cov -= clamp01(0.5 - (d + 1));   // minus the shape shrunk by 1px
+					}
+					int a = cov <= 0.001 ? 0 : (int) Math.round(255 * Math.min(1.0, cov));
+					img.setPixel(px, py, (a << 24) | 0xFFFFFF);   // white, tinted at blit time
+				}
+			}
+			String name = "origin_deck_" + (ring ? "ring_" : "fill_") + q;
+			id = Identifier.fromNamespaceAndPath("originclient", "textures/ui/" + name);
+			// Drawn 1:1, so GUI_TEXTURED's default (NEAREST) sampling is exact.
+			Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> name, img));
+		} catch (Throwable e) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: deck corner mask q=" + q + " failed to bake", e);
+		}
+		cache.put(q, id);
+		return id;
+	}
+
 	/**
 	 * Apple iOS-style toggle (Will's redesign spec): a fully-rounded pill track
 	 * that is GREEN when on and RED when off, with a pure-white circular knob

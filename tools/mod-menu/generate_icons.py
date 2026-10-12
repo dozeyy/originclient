@@ -27,6 +27,11 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
 MASTER = PROJECT / "design" / "icon-proposals" / "origin-icon-system-v2" / "generate_proposal.py"
+# v3 (Will, 2026-10-12): the refined export of the v2 family -- weight classes,
+# optical sizes and the redraws listed in its README. Its SVGs are FINAL masters
+# (stroke width + optical scale already inside each file), so they are baked
+# as-is; v2's generate_proposal.py still supplies the PUBLIC_IDS catalogue.
+PACK = PROJECT / "design" / "icon-proposals" / "origin-icon-system-v3" / "svg"
 OUT = (PROJECT / "src" / "mods" / "versions" / "1.21.1" / "src" / "client" /
        "resources" / "assets" / "originclient" / "textures" / "ui")
 
@@ -154,6 +159,49 @@ PUBLIC_IDS.update({
     "fpscoach": "client.fpscoach",
 })
 
+# Menu chrome added by the 2026-10 mod-menu redesign (design/menu-redesign).
+# Same 24-grid + stroke as the rest of the set; drawn here because they are
+# plain UI symbols, not mod concepts, so they don't belong in the icon masters.
+CHROME = {
+    "@grid": '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>'
+             '<rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+    "@list": '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    "@pin": '<path d="M9 3h6l-1 6 4 4H6l4-4z" fill="currentColor"/><path d="M12 13v8"/>',
+    "@reset": '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/>',
+    "@shirt": '<path d="M20.4 6.6 16 4l-1.5 2a3.2 3.2 0 0 1-5 0L8 4 3.6 6.6l1.8 4.2L7 10v10h10V10l1.6.8z"/>',
+    "@user": '<circle cx="12" cy="7" r="4"/><path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/>',
+    "@chev-down": '<polyline points="6 9 12 15 18 9"/>',
+    "@chev-left": '<polyline points="15 18 9 12 15 6"/>',
+    "@chev-right": '<polyline points="9 18 15 12 9 6"/>',
+    "@close": '<path d="M18 6 6 18M6 6l12 12"/>',
+    "@plus": '<path d="M12 5v14M5 12h14"/>',
+    "@trash": '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+    "@check": '<polyline points="20 6 9 17 4 12"/>',
+    # A plain magnifier for search FIELDS (the pack's "search" is a find-in-page card).
+    "@find": '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+}
+
+
+def _norm(name: str) -> str:
+    return name.replace("@", "").replace("-", "").lower()
+
+
+_PACK_ROOT = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"'
+
+
+def pack_entry(public_id: str):
+    """The v3 pack's glyph for a public id (pack names are the ids with dashes:
+    'freelook' -> free-look.svg, '@hudeditor' -> hud-editor.svg), or None."""
+    if not PACK.is_dir():
+        return None
+    want = _norm(public_id)
+    for path in PACK.glob("*.svg"):
+        if _norm(path.stem) == want:
+            text = path.read_text(encoding="utf-8")
+            inner = text[text.index(">", text.index("<svg")) + 1: text.rindex("</svg>")].strip()
+            return {"id": public_id, "body": inner, "stroke": _PACK_ROOT}
+    return None
+
 
 def load_master():
     spec = importlib.util.spec_from_file_location("origin_icon_masters", MASTER)
@@ -194,7 +242,11 @@ def atlas_svg(entries: list[tuple[str, dict]], stroke: str, width: int, height: 
         # 24 -> CELL px. Keeping the authored viewBox intact preserves the
         # approved spacing and optical stroke across every glyph.
         # An entry may carry its own stroke (the brand mark keeps v1's weight).
-        parts.append(f'<g transform="translate({x} {y}) scale({CELL / 24:g})" {entry.get("stroke", stroke)}>{entry["body"]}</g>')
+        # Clipped to its own cell: a stroke on the grid's outer edge would
+        # otherwise spill a sliver into the neighbouring cell.
+        parts.append(f'<clipPath id="c{index}"><rect x="{x}" y="{y}" width="{CELL}" height="{CELL}"/></clipPath>')
+        parts.append(f'<g clip-path="url(#c{index})"><g transform="translate({x} {y}) scale({CELL / 24:g})" '
+                     f'{entry.get("stroke", stroke)}>{entry["body"]}</g></g>')
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -294,7 +346,12 @@ def center_cells(atlas: Image.Image, entries: list[tuple[str, dict]]) -> tuple[I
         left, top, right, bottom = bounds
         dx = round((CELL - left - right) / 2.0)
         dy = round((CELL - top - bottom) / 2.0)
-        centered.alpha_composite(glyph, (x + dx, y + dy))
+        # Shift inside a cell-sized canvas so the moved glyph is cropped to its
+        # own cell. Compositing straight into the atlas let a shifted glyph
+        # (Bed Wars moves 12 px up) draw into the cell above it.
+        shifted = Image.new("RGBA", (CELL, CELL), (0, 0, 0, 0))
+        shifted.paste(glyph, (dx, dy), glyph)   # paste (not alpha_composite) accepts negative offsets
+        centered.alpha_composite(shifted, (x, y))
         offsets[public_id] = [dx, dy]
     return centered, offsets
 
@@ -306,7 +363,10 @@ def build() -> None:
     if missing:
         raise RuntimeError(f"Approved master icons missing: {', '.join(missing)}")
 
-    entries = [(public_id, by_id[master_id]) for public_id, master_id in PUBLIC_IDS.items()]
+    entries = [(public_id, pack_entry(public_id) or by_id[master_id]) for public_id, master_id in PUBLIC_IDS.items()]
+    # Drawn at the v3 pack's thin class (1.65) so they sit with its menu glyphs.
+    thin = _PACK_ROOT + ' stroke-width="1.65"'
+    entries += [(public_id, {"id": public_id, "body": body, "stroke": thin}) for public_id, body in CHROME.items()]
     rows = (len(entries) + COLS - 1) // COLS
     width, height = COLS * CELL, rows * CELL
     svg = atlas_svg(entries, master.STROKE, width, height)
@@ -374,6 +434,21 @@ def build() -> None:
     preview.alpha_composite(atlas)
     preview.convert("RGB").save(HERE / "icons_preview.png", optimize=True)
     print(f"{len(entries)} approved icons -> {OUT / 'mod_icons.png'} ({width}x{height})")
+
+    # Every other LIVE module ships the same atlas (one icon set across every
+    # version, mandate 2): copy the three files wherever a module has one.
+    copied = []
+    live = {m["module"] for m in json.loads((PROJECT / "src" / "mods" / "live-modules.json").read_text())["modules"]}
+    for module in sorted((PROJECT / "src" / "mods" / "versions").iterdir()):
+        if module.name not in live:
+            continue   # pulled versions stay as they were
+        for ui in module.glob("src/*/resources/assets/originclient/textures/ui"):
+            if ui.resolve() == OUT.resolve() or not (ui / "mod_icons.json").exists():
+                continue
+            for name in ("mod_icons.png", "mod_icons.json", "mod_icons_sdf.png"):
+                shutil.copyfile(OUT / name, ui / name)
+            copied.append(module.name)
+    print("copied to: " + ", ".join(copied))
 
 
 if __name__ == "__main__":

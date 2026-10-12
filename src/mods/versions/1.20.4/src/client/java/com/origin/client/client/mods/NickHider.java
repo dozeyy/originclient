@@ -14,15 +14,15 @@ import net.minecraft.network.chat.MutableComponent;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// Nick Hider (Lunar parity): show a name you pick in place of yours -- and
-// optionally a stand-in for everyone else's -- everywhere text is drawn, and
-// swap skins for the default ones.
+// Nick Hider (Lunar parity, trimmed by Will 2026-10-12): show a name you pick
+// in place of yours everywhere text is drawn, and wear the default skin -- on
+// YOUR screen only. The server and other players never see any of this; it's
+// for streaming/recording (and Hide Lobby ID stops stream sniping). Other
+// players' names and skins are deliberately left alone.
 //
 // HOW names are replaced: every piece of literal text Minecraft draws (chat,
 // nametags, tab list, scoreboard, titles) is a PlainTextContents.LiteralContents
@@ -52,7 +52,6 @@ public final class NickHider {
 	private static final int CACHE_MAX = 4096;
 	private static String lastOwnSig = "";
 	private static int ticks = 0;
-	private static Supplier<PlayerSkin> realSkin = null;
 
 	// Hypixel's scoreboard date line: "10/11/26 m215AH" -> the trailing server ID.
 	private static final Pattern LOBBY_LINE = Pattern.compile("^\\s*(\\d{1,2}/\\d{1,2}/\\d{2,4})\\s+[A-Za-z0-9]{2,12}\\s*$");
@@ -74,31 +73,13 @@ public final class NickHider {
 			if (own.isEmpty()) {
 				own = "You";
 			}
-			if (Mods.bool(ID, "customSuffix")) {
-				own = own + cap(Mods.text(ID, "suffix"), 8);
-			}
-			ClientPacketListener conn = mc.getConnection();
-			UUID self = mc.getUser().getProfileId();
-			if (Mods.bool(ID, "hideOthersNames") && conn != null) {
-				String other = cap(Mods.text(ID, "othersName"), 16);
-				if (other.isEmpty()) {
-					other = "Player";
-				}
-				for (PlayerInfo info : conn.getOnlinePlayers()) {
-					if (!info.getProfile().getId().equals(self)) {
-						putName(next, info.getProfile().getName(), other);
-					}
-				}
-			}
-			// Your own names go in last so they win over an "others" entry.
+			// Both of your names: the one this server shows (a server nick, when
+			// nicked) and your account name, so neither ever slips through.
 			if (Mods.bool(ID, "hideName")) {
 				putName(next, inGameName(mc), own);
-			}
-			if (Mods.bool(ID, "hideRealName")) {
 				putName(next, mc.getUser().getName(), own);
 			}
-			ownSig = own + "|" + Mods.bool(ID, "hideName") + "|" + Mods.bool(ID, "hideRealName")
-					+ "|" + inGameName(mc) + "|" + Mods.bool(ID, "hideOthersNames");
+			ownSig = own + "|" + Mods.bool(ID, "hideName") + "|" + inGameName(mc);
 		}
 		if (!next.equals(names)) {
 			names = Map.copyOf(next);
@@ -204,29 +185,14 @@ public final class NickHider {
 
 	/**
 	 * The skin to show for this tab-list entry instead of its own, or null to
-	 * keep it. Every player model and tab-list head reads its skin from here.
+	 * keep it. Every player model and tab-list head reads its skin from here;
+	 * only YOUR entry is ever changed.
 	 */
 	public static PlayerSkin skinFor(GameProfile profile) {
-		if (!Mods.on(ID) || profile == null) {
+		if (!Mods.on(ID) || profile == null || !Mods.bool(ID, "hideOwnSkin")) {
 			return null;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		if (!mc.isLocalPlayer(profile.getId())) {
-			return Mods.bool(ID, "hideOthersSkin") ? DefaultPlayerSkin.get(profile) : null;
-		}
-		if (Mods.bool(ID, "hideOwnSkin")) {
-			return DefaultPlayerSkin.get(profile);
-		}
-		boolean nicked = !profile.getName().equalsIgnoreCase(mc.getUser().getName());
-		if (nicked && Mods.bool(ID, "useRealSkin")) {
-			if (realSkin == null) {
-				// Your real account profile (with its skin) as Minecraft fetched it at
-				// startup; the skin manager loads + caches the texture once.
-				realSkin = mc.getSkinManager().lookupInsecure(mc.getGameProfile());
-			}
-			return realSkin.get();
-		}
-		return null;
+		return Minecraft.getInstance().isLocalPlayer(profile.getId()) ? DefaultPlayerSkin.get(profile) : null;
 	}
 
 	/**

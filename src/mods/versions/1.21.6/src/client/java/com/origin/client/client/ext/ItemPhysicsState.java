@@ -15,4 +15,10 @@ public interface ItemPhysicsState {
 	boolean originclient$isResting();
 
 	void originclient$setResting(boolean resting);
+
+	/** The item this state was last extracted from: Item Physics' per-item
+	 *  easing key (vanilla reuses one state object for every dropped item). */
+	net.minecraft.world.entity.item.ItemEntity originclient$entity();
+
+	void originclient$setEntity(net.minecraft.world.entity.item.ItemEntity entity);
 }
