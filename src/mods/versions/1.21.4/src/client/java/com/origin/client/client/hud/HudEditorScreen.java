@@ -21,12 +21,8 @@ import org.lwjgl.glfw.GLFW;
 //
 // quick=true IS the Right Shift screen: the editable surface plus the centre
 // group from the 2026-10 redesign (design/menu-redesign, scene "rshift"): the
-// real Origin mark, ORIGIN CLIENT, and [Waypoints] [MODS], drawn with
-// OriginDeck so it matches the mod menu exactly.
-//
-// 1.21.4: no Cosmetics screen exists in this module (1.21.1 only so far), so the
-// group drops 1.21.1's shirt button rather than show one that does nothing, and
-// the two remaining buttons are re-centred as a pair (same 8px gap).
+// real Origin mark, ORIGIN CLIENT, and [Waypoints] [MODS] [Cosmetics], drawn
+// with OriginDeck so it matches the mod menu exactly.
 public class HudEditorScreen extends Screen {
 	private final boolean quick;
 	// Where Esc lands: null = the game; the mod menu passes itself ("Edit HUD" /
@@ -263,10 +259,11 @@ public class HudEditorScreen extends Screen {
 		d.textMid("ORIGIN", wx, -19, 22, true, 1f, OriginDeck.TEXT);
 		d.textMid("CLIENT", wx + ow + gap, -19, 22, false, 1f, OriginDeck.DIM);
 
-		// 44 + 8 + 156 = 208 wide, centred: x from -104.
-		quickButton(d, "waypoints", null, -104, 44, () -> Minecraft.getInstance().setScreen(
+		quickButton(d, "waypoints", null, -130, 44, () -> Minecraft.getInstance().setScreen(
 				new com.origin.client.client.waypoints.WaypointScreen()));
-		quickButton(d, null, "MODS", -52, 156, () -> Minecraft.getInstance().setScreen(new OriginModMenuScreen()));
+		quickButton(d, null, "MODS", -78, 156, () -> Minecraft.getInstance().setScreen(new OriginModMenuScreen()));
+		quickButton(d, "@shirt", null, 86, 44, () -> Minecraft.getInstance().setScreen(
+				new com.origin.client.client.gui.CosmeticsScreen(this)));
 		d.end();
 	}
 

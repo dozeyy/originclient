@@ -19,6 +19,8 @@
 		"CameraMixin",
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
+		"CosmeticCapeMixin",
+		"CosmeticsPauseMixin",
 		"ScreenInvoker",
 		"ScreenBackgroundMixin",
 		"LevelRendererMixin",

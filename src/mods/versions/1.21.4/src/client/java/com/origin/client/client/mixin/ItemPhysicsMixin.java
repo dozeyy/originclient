@@ -16,8 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // PER-VERSION (1.21.2-1.21.4, verified against the decompiled 1.21.4
 // ItemEntityRenderer): rendering is split into
 //   extractRenderState(ItemEntity, ItemEntityRenderState, float) -- has the entity:
-//       records whether it is resting (ItemPhysicsState), the one input the
-//       state lacks (it already carries ageInTicks, bobOffset, count, the model);
+//       records whether it is resting and the item's easing memory
+//       (ItemPhysicsState), the inputs the state lacks (it already carries
+//       ageInTicks, bobOffset, count, the model);
 //   render(ItemEntityRenderState, PoseStack, MultiBufferSource, int) -- push,
 //       translate(bob), rotate(spin), renderMultipleFromCount(...), pop.
 // Injecting before that static call sees vanilla's bob + spin on the pose, which
@@ -31,7 +32,15 @@ public class ItemPhysicsMixin {
 			at = @At("TAIL"))
 	private void originclient$captureResting(ItemEntity entity, ItemEntityRenderState state, float partialTick,
 											 CallbackInfo ci) {
-		((ItemPhysicsState) state).originclient$setResting(entity.onGround() || entity.isInWater());
+		ItemPhysicsState ext = (ItemPhysicsState) state;
+		ext.originclient$setResting(entity.onGround() || entity.isInWater());
+		// The state object is reused for every dropped item, so the item's own
+		// easing memory rides along with it from here to render().
+		try {
+			ext.originclient$setAnim(ItemPhysics.animFor(entity));
+		} catch (Throwable t) {
+			ext.originclient$setAnim(null);   // vanilla float + spin this frame
+		}
 	}
 
 	@Inject(method = "render(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",

@@ -28,7 +28,7 @@ import static com.origin.client.client.gui.OriginDeck.*;
  * v5: mock4.tpl.html is the spec; the PNGs in design/menu-redesign/v5 are what
  * he signed off). One centred 920x580 panel in design px (OriginDeck scales it):
  *
- *   header   brand | MODS SETTINGS WAYPOINTS (centred) | Edit HUD  x
+ *   header   brand | MODS SETTINGS WAYPOINTS COSMETICS (centred) | Edit HUD  x
  *   toolbar  profile dropdown | category chips | grid/list | search
  *   body     4-across mod cards (or a 4-across list), or a mod's own page
  *            (back, title, description, live HUD preview, two-column options),
@@ -41,11 +41,9 @@ import static com.origin.client.client.gui.OriginDeck.*;
  *
  * PER-VERSION (1.21.4, covers 1.21.2-1.21.4): the screen body is 1.21.1's; the
  * era lives in OriginDeck / OriginUi / OriginSdfFont (batched GUI). Left out
- * because this module doesn't have them (never a control that does nothing):
- * the COSMETICS tab (no CosmeticsScreen), the "jei" card and its settings bridge
- * (no Fabric JEI for 1.21.2-1.21.4), FPS Coach and Item Counter's item-grid
- * picker (1.21.1-only so far), and the Mod Menu Layout option (not in this
- * module's General settings, so the grid is always 4 across).
+ * because this module doesn't have it (never a control that does nothing): the
+ * "jei" card and its settings bridge (no Fabric JEI for 1.21.2-1.21.4), so every
+ * value below is a plain Mods value.
  */
 public class OriginModMenuScreen extends Screen {
 	// ---- the design grid (design px; see the class comment) ----
@@ -301,6 +299,22 @@ public class OriginModMenuScreen extends Screen {
 		};
 	}
 
+	// Item Counter's "Items" row opens the shared item grid (Item Size's layout).
+	private static boolean isItemPicker(String modId, String key) {
+		return modId.equals("itemcounter") && key.equals("items");
+	}
+
+	private static String itemPickerSummary(String csv) {
+		List<String> names = new ArrayList<>();
+		for (String t : com.origin.client.client.mods.ItemCounter.tokens(csv)) {
+			var e = com.origin.client.client.mods.ItemCounter.resolve(t);
+			if (e != null) {
+				names.add(e.label());
+			}
+		}
+		return names.isEmpty() ? "None" : String.join(", ", names);
+	}
+
 	private static List<String> splitCsv(String csv) {
 		List<String> out = new ArrayList<>();
 		if (csv != null) {
@@ -321,6 +335,7 @@ public class OriginModMenuScreen extends Screen {
 		switch (mod.id()) {
 			case "waypoints" -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
 			case "itemsize" -> Minecraft.getInstance().setScreen(new OriginItemSizeScreen());
+			case "fpscoach" -> Minecraft.getInstance().setScreen(new FpsCoachScreen(this));
 			default -> goPage(mod.id());
 		}
 	}
@@ -451,9 +466,8 @@ public class OriginModMenuScreen extends Screen {
 		bx += d.textMid("ORIGIN", bx, HEAD_H / 2, 18, true, 0.4f, TEXT);
 		d.textMid("CLIENT", bx + 7, HEAD_H / 2, 18, false, 0.4f, DIM);
 
-		// centred tabs (1.21.4: no Cosmetics tab -- this module has no CosmeticsScreen;
-		// the row re-centres itself on whatever tabs it holds)
-		String[] tabs = {"Mods", "Settings", "Waypoints"};
+		// centred tabs
+		String[] tabs = {"Mods", "Settings", "Waypoints", "Cosmetics"};
 		float[] tw = new float[tabs.length];
 		float total = 6 * (tabs.length - 1);
 		for (int i = 0; i < tabs.length; i++) {
@@ -477,7 +491,8 @@ public class OriginModMenuScreen extends Screen {
 				switch (idx) {
 					case 0 -> goTab(Tab.MODS);
 					case 1 -> goTab(Tab.SETTINGS);
-					default -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+					case 2 -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+					default -> Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
 				}
 			});
 			tx += tw[i] + 6;
@@ -538,10 +553,16 @@ public class OriginModMenuScreen extends Screen {
 		return false;
 	}
 
-	// 1.21.1 reads its Mod Menu Layout setting here; this module's General
-	// settings have no such option, so the library is always the design's 4 across.
 	private int columns() {
-		return 4;
+		String layout = Mods.mode(Mods.GENERAL_ID, "menuLayout");
+		if (layout == null) {
+			return 4;
+		}
+		return switch (layout) {
+			case "3 across (compact)" -> 3;
+			case "2 across (large)" -> 2;
+			default -> 4;
+		};
 	}
 
 	private void drawLibrary(OriginDeck d, long now) {
@@ -1066,14 +1087,20 @@ public class OriginModMenuScreen extends Screen {
 			case MULTISELECT -> {
 				String csv = vMulti(id, o.key);
 				List<String> sel = splitCsv(csv);
-				String summary = sel.isEmpty() ? "None"
+				String summary = sel.isEmpty() ? "None" : isItemPicker(id, o.key) ? itemPickerSummary(csv)
 						: String.join(", ", sel.stream().map(OriginMultiSelect::prettify).toList());
 				float bw = Math.min(200, rowW / 2);
 				d.rect(right - bw, cy - 13, bw, 26, 6, 0x0DFFFFFF, LINE2);
 				d.textMid(d.fit(summary, bw - 40, 13, false, 0), right - bw + 10, cy, 13, false, 0, TEXT);
 				d.icon("@chev-down", right - 22, cy - 6, 12, MUTE);
-				d.hit(right - bw, cy - 13, bw, 26, () -> OriginMultiSelect.open(o.label, java.util.Arrays.asList(o.modes), sel,
-						chosen -> vSetMulti(id, o.key, String.join(", ", chosen))));
+				d.hit(right - bw, cy - 13, bw, 26, () -> {
+					if (isItemPicker(id, o.key)) {
+						Minecraft.getInstance().setScreen(new ItemCounterPickerScreen());
+					} else {
+						OriginMultiSelect.open(o.label, java.util.Arrays.asList(o.modes), sel,
+								chosen -> vSetMulti(id, o.key, String.join(", ", chosen)));
+					}
+				});
 				return right - bw;
 			}
 			case TEXT -> {
