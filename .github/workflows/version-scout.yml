@@ -1,0 +1,48 @@
+# What exists upstream for a Minecraft version line, before porting Origin to it:
+# Mojang releases, Fabric support, and the Fabric API / Sodium / Iris / JEI builds
+# (Origin needs Sodium + Iris on every version — mandate 3). Run by hand.
+name: version-scout
+
+on:
+  workflow_dispatch:
+    inputs:
+      prefix:
+        description: "Version prefix to scout, e.g. 26."
+        default: "26."
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scout upstream versions
+        env:
+          PREFIX: ${{ github.event.inputs.prefix }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          P = os.environ["PREFIX"]
+          def get(u):
+              r = urllib.request.Request(u, headers={"User-Agent": "origin-version-scout (originclient.org)"})
+              return json.load(urllib.request.urlopen(r, timeout=30))
+          man = get("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
+          print("== Mojang", {k: v for k, v in man["latest"].items()})
+          for v in man["versions"]:
+              if v["id"].startswith(P):
+                  print(f'  {v["id"]:<22} {v["type"]:<9} {v["releaseTime"][:10]}')
+          fab = get("https://meta.fabricmc.net/v2/versions/game")
+          print("== Fabric game versions:", [g["version"] for g in fab if g["version"].startswith(P)][:40])
+          print("== Fabric loader latest:", get("https://meta.fabricmc.net/v2/versions/loader")[0]["version"])
+          for proj in ["fabric-api", "sodium", "iris", "jei", "lithium", "ferrite-core", "modmenu"]:
+              try:
+                  vs = get(f"https://api.modrinth.com/v2/project/{proj}/version?loaders=%5B%22fabric%22%5D")
+              except Exception as e:
+                  print(f"== {proj}: error {e}"); continue
+              by = {}
+              for v in vs:
+                  for g in v["game_versions"]:
+                      if g.startswith(P):
+                          by.setdefault(g, []).append(f'{v["version_number"]}({v["version_type"][0]})')
+              print(f"== {proj}:")
+              for g in sorted(by):
+                  print(f"    {g}: {', '.join(by[g][:4])}")
+          PY
