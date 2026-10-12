@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-400.woff2);font-weight:400}
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-600.woff2);font-weight:600}
+@font-face{font-family:Inter;src:url(../../../website/assets/fonts/inter-700.woff2);font-weight:700}
+body{margin:0;background:#0E1110;color:#F1E9D2;font-family:Inter;padding:48px}
+h1{font-size:28px;font-weight:700;margin:0 0 8px}
+p{color:#7D8279;font-size:15px;margin:0 0 32px}
+.g{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:16px}
+.c{background:#1D2420;border-radius:8px;height:156px;display:flex;flex-direction:column;align-items:center;position:relative}
+.c svg{width:44px;height:44px;margin-top:32px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.n{margin-top:20px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90%}
+.d{margin-top:4px;font-size:11px;color:#7D8279}
+.t{position:absolute;top:8px;left:8px;font-size:9px;font-weight:700;letter-spacing:1px;color:#5FD09B;text-transform:uppercase}
+.t.miss{color:#E06B5B}
+</style></head><body>
+<h1>Origin mod icons</h1>
+<p id="sub"></p>
+<div class="g" id="g"></div>
+<script>
+const CARDS=/*CARDS*/[];
+document.getElementById('sub').textContent=`All ${CARDS.length} mods, drawn exactly as the redesign mock-ups draw them. A green tag marks icons Origin redrew itself.`;
+document.getElementById('g').innerHTML=CARDS.map(c=>`<div class="c">${c.note?`<span class="t ${c.note=='MISSING'?'miss':''}">${c.note}</span>`:''}<svg viewBox="0 0 24 24">${c.svg}</svg><div class="n">${c.name}</div><div class="d">${c.id}</div></div>`).join('');
+window.ready=document.fonts.ready;
+</script></body></html>
