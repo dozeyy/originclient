@@ -12,7 +12,7 @@ namespace OriginLauncher.App.UI;
 /// <summary>
 /// CI-only: `OriginLauncher.App.exe --render-shots &lt;folder&gt;` opens the real
 /// main window with made-up social data (Core/Social/SocialDemo) and saves
-/// pictures of Home and the Friends drawer, so launcher UI changes are looked
+/// pictures of Home (also its Play button in the "Running" state) and the Friends drawer, so launcher UI changes are looked
 /// at before they ship (.github/workflows/launcher-shots.yml). Nothing is
 /// signed in to and the social service never touches the network.
 /// </summary>
@@ -65,6 +65,13 @@ public static class RenderShots
         window.TourSetFriendsOpen(true);
         Pump(600);
         Snap(window, outDir, "06-signed-out");
+
+        // The selected account's game is already open: Play reads "Running"
+        // and brings that window forward (one game per account).
+        window.TourSetFriendsOpen(false);
+        window.TourShowRunning("Steve");
+        Pump(600);
+        Snap(window, outDir, "07-play-running");
 
         SnapBanners(window, outDir);
 

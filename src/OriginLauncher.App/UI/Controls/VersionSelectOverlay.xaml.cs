@@ -211,7 +211,7 @@ public partial class VersionSelectOverlay : UserControl
         if (version == null) return;
         try
         {
-            var mods = Path.Combine(OriginPaths.Instances, version, "mods");
+            var mods = Core.Mods.ModManager.ModsFolder(version);
             Directory.CreateDirectory(mods);
             Process.Start(new ProcessStartInfo { FileName = mods, UseShellExecute = true });
         }

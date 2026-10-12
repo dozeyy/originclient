@@ -87,6 +87,14 @@
                         <Grid>
                             <Path x:Name="PlayLabel" Style="{StaticResource Brand.PlayWordmark}"
                                   Width="72" Height="20" AutomationProperties.Name="Play"/>
+                            <!-- The selected account's game is already open: Play
+                                 becomes "Running" and clicking it brings that window
+                                 to the front (one game per account). -->
+                            <TextBlock x:Name="RunningLabel" Text="RUNNING" Visibility="Collapsed"
+                                       FontFamily="{StaticResource Font.Display}" FontSize="20"
+                                       Foreground="{StaticResource Brush.TextOnAccent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       AutomationProperties.Name="Running"/>
                             <Path x:Name="PlaySpinner" Visibility="Collapsed"
                                   Width="24" Height="24"
                                   Data="{StaticResource Icon.Loading}"

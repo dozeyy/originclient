@@ -1,4 +1,5 @@
 using System.IO;
+using OriginLauncher.App.Core.GameFolders;
 
 namespace OriginLauncher.App.Core;
 
@@ -7,7 +8,21 @@ public static class OriginPaths
     public static string Root { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OriginLauncher");
 
+    // Game folders: instances/<version>/ holds the version's shared game files,
+    // instances/<version>/accounts/<account>/ is one account's own game folder
+    // (Core/GameFolders/InstanceLayout.cs has the full layout and why).
     public static string Instances => Path.Combine(Root, "instances");
+
+    /// <summary>A version's shared root (game jars, libraries, assets, Java).</summary>
+    public static string VersionRoot(string version) => InstanceLayout.VersionRoot(Instances, version);
+
+    /// <summary>One account's game folder for a version (its options, worlds, servers, configs, mods).</summary>
+    public static string GameDir(string version, string accountKey) =>
+        InstanceLayout.GameDir(Instances, version, accountKey);
+
+    // Which account inherited the old one-folder-per-version game data
+    // (Core/GameFolders/InstanceMigration.cs).
+    public static string AccountMigrationMarker => Path.Combine(Instances, "account-migration.json");
     public static string Accounts => Path.Combine(Root, "accounts");
     public static string Logs => Path.Combine(Root, "logs");
 
@@ -24,7 +39,13 @@ public static class OriginPaths
     // last changed, plus what each instance last had — so the player's
     // settings follow them across versions. Rebuilt from the instances
     // whenever it is missing, so deleting it never loses a setting.
-    public static string SettingsSyncStore => Path.Combine(Root, "settings-sync.json");
+    // One store per account (each account's game folders sync among
+    // themselves). settings-sync.json is the pre-accounts single store, moved
+    // to the inheriting account's file by the game-folder migration.
+    public static string SettingsSyncStoreFor(string accountKey) =>
+        Path.Combine(Root, "settings-sync", accountKey + ".json");
+
+    public static string LegacySettingsSyncStore => Path.Combine(Root, "settings-sync.json");
 
     // The banner's ad-network WebView2 profile (cookies, storage, browser
     // cache). Deliberately its OWN user-data folder: it never shares a

@@ -80,6 +80,13 @@ public partial class App : Application
 
         OriginPaths.EnsureScaffold();
 
+        // Per-account game folders (Core/GameFolders): the first run of this
+        // code moves each version's old single game folder into the selected
+        // account's — before any page reads a game folder. Renames only, so it
+        // is quick; never throws; resumes on a later start if a file was busy.
+        Core.GameFolders.Launcher.AccountFolders.EnsureMigrated(
+            Core.GameFolders.Launcher.AccountFolders.SelectedKey());
+
         // Choices from the installer's Customize page (memory, default
         // version) land in settings before the first window reads them.
         Core.Install.SetupChoices.ApplyIfPresent();

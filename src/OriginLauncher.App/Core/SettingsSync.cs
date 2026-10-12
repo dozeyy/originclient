@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
+using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Sync;
 using OriginLauncher.App.Core.Versions;
 
@@ -12,6 +13,11 @@ namespace OriginLauncher.App.Core;
 // every Minecraft version. Every version already has its own isolated instance,
 // so the launcher simply carries the settings files between instances around
 // each launch — all versions get it with zero mod changes.
+//
+// Per ACCOUNT (2026-10-12): each account has its own game folder per version
+// (Core/GameFolders), and its own store (OriginPaths.SettingsSyncStoreFor) — an
+// account's folders sync among themselves and never with another account's.
+// Inside one store everything is exactly as before: one instance per version.
 //
 // This class is the WHEN and WHERE; the merge rules are in
 // Core/Sync/SettingsSyncEngine.cs and what syncs is in Core/Sync/SyncedFiles.cs.
@@ -27,28 +33,34 @@ public static class SettingsSync
 {
     private static readonly object Gate = new();
 
-    // Games this launcher started, by version. Also backed by a file-lock probe
-    // (IsGameRunning) for a game started before the launcher was restarted.
-    private static readonly ConcurrentDictionary<string, Process> RunningGames = new(StringComparer.Ordinal);
+    // Games this launcher started, by game folder. Also backed by a file-lock
+    // probe (IsGameRunning) for a game started before the launcher was restarted.
+    private static readonly ConcurrentDictionary<string, Process> RunningGames = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The switch was turned on: rebuild the store from every instance (newest file wins per key).</summary>
-    public static void Seed() => Run("seed", () =>
+    /// <summary>The switch was turned on: rebuild every account's store from its instances (newest file wins per key).</summary>
+    public static void Seed()
     {
-        var engine = new SettingsSyncEngine(new SyncStoreData(), Log);
-        engine.Seed(Instances(skipRunning: true));
-        SyncStoreFile.Save(OriginPaths.SettingsSyncStore, engine.Store);
-        Log("seeded the store from every instance");
-    });
+        foreach (var account in AccountFolders.AllKeys())
+            Run($"seed {account}", () =>
+            {
+                var engine = new SettingsSyncEngine(new SyncStoreData(), Log);
+                engine.Seed(Instances(account, skipRunning: true));
+                SyncStoreFile.Save(OriginPaths.SettingsSyncStoreFor(account), engine.Store);
+                Log($"{account}: seeded the store from every instance");
+            });
+    }
 
     /// <summary>
-    /// Just before <paramref name="version"/>'s game starts: take in what the
-    /// player changed in every other version, then write it all into this one.
+    /// Just before <paramref name="account"/>'s <paramref name="version"/> game
+    /// starts: take in what the player changed in that account's other
+    /// versions, then write it all into this one.
     /// </summary>
-    public static void BeforeLaunch(string version) => Run($"launch {version}", () =>
+    public static void BeforeLaunch(string account, string version) => Run($"launch {account} {version}", () =>
     {
-        var store = SyncStoreFile.Load(OriginPaths.SettingsSyncStore);
+        var storePath = OriginPaths.SettingsSyncStoreFor(account);
+        var store = SyncStoreFile.Load(storePath);
         var engine = new SettingsSyncEngine(store ?? new SyncStoreData(), Log);
-        var instances = Instances(skipRunning: true);
+        var instances = Instances(account, skipRunning: true);
         if (store == null)
         {
             // No store (first launch after the switch went on raced the seed,
@@ -67,37 +79,39 @@ public static class SettingsSync
         else
             Log($"{version}: not pushed (its game is already running, or the instance is missing)");
 
-        SyncStoreFile.Save(OriginPaths.SettingsSyncStore, engine.Store);
+        SyncStoreFile.Save(storePath, engine.Store);
     });
 
     /// <summary>The launched game process started: remember it so its instance is left alone until it exits.</summary>
-    public static void TrackGame(string version, Process process) => RunningGames[version] = process;
+    public static void TrackGame(string account, string version, Process process) =>
+        RunningGames[OriginPaths.GameDir(version, account)] = process;
 
     /// <summary>The game exited: take in what the player changed during that session.</summary>
-    public static void AfterExit(string version) => Run($"exit {version}", () =>
+    public static void AfterExit(string account, string version) => Run($"exit {account} {version}", () =>
     {
-        RunningGames.TryRemove(version, out _);
+        RunningGames.TryRemove(OriginPaths.GameDir(version, account), out _);
         if (!SettingsStore.Load().SettingsSyncEnabled) return;
-        var store = SyncStoreFile.Load(OriginPaths.SettingsSyncStore);
+        var storePath = OriginPaths.SettingsSyncStoreFor(account);
+        var store = SyncStoreFile.Load(storePath);
         if (store == null) return; // the next launch seeds
-        var instance = Instances(skipRunning: true).FirstOrDefault(i => i.Version == version);
+        var instance = Instances(account, skipRunning: true).FirstOrDefault(i => i.Version == version);
         if (instance == null) return;
         var engine = new SettingsSyncEngine(store, Log);
         engine.Harvest(instance);
-        SyncStoreFile.Save(OriginPaths.SettingsSyncStore, engine.Store);
+        SyncStoreFile.Save(storePath, engine.Store);
     });
 
-    // Every Origin-supported version that has an instance folder.
-    private static List<SyncInstance> Instances(bool skipRunning)
+    // Every Origin-supported version for which this account has a game folder.
+    private static List<SyncInstance> Instances(string account, bool skipRunning)
     {
         var instances = new List<SyncInstance>();
         foreach (var version in VersionManager.OriginSupportedVersions)
         {
-            var directory = Path.Combine(OriginPaths.Instances, version);
+            var directory = OriginPaths.GameDir(version, account);
             if (!Directory.Exists(directory)) continue;
-            if (skipRunning && IsGameRunning(version, directory))
+            if (skipRunning && IsGameRunning(directory))
             {
-                Log($"{version}: game is running — left alone");
+                Log($"{account} {version}: game is running — left alone");
                 continue;
             }
             instances.Add(new SyncInstance(version, directory));
@@ -105,9 +119,9 @@ public static class SettingsSync
         return instances;
     }
 
-    private static bool IsGameRunning(string version, string instanceDirectory)
+    private static bool IsGameRunning(string instanceDirectory)
     {
-        if (RunningGames.TryGetValue(version, out var process))
+        if (RunningGames.TryGetValue(instanceDirectory, out var process))
         {
             try
             {
@@ -117,7 +131,7 @@ public static class SettingsSync
             {
                 // handle gone: fall through to the lock probe
             }
-            RunningGames.TryRemove(version, out _);
+            RunningGames.TryRemove(instanceDirectory, out _);
         }
 
         // A running game keeps logs/latest.log open; asking for it with no

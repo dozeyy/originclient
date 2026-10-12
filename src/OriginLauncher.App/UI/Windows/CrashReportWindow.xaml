@@ -66,8 +66,14 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Minecraft crashed while starting"
-                   Foreground="#FFEFF7F4" FontSize="26" FontWeight="SemiBold"/>
+        <!-- Several games can run at once (one per account), so the window
+             names which one crashed: "<account> · Minecraft <version>". -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Minecraft crashed while starting"
+                       Foreground="#FFEFF7F4" FontSize="26" FontWeight="SemiBold"/>
+            <TextBlock x:Name="WhoText" Foreground="#FF4BC8AE" FontSize="13.5" FontWeight="SemiBold"
+                       Margin="0,6,0,0" Visibility="Collapsed"/>
+        </StackPanel>
 
         <TextBlock Grid.Row="1" x:Name="ReasonText" Foreground="#FFA7BBB5" FontSize="13.5" LineHeight="20"
                    TextWrapping="Wrap" Margin="0,8,0,0"/>
