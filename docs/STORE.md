@@ -47,6 +47,15 @@ function per item.
    **Minecraft: Java Edition** (so Tebex checks the name the buyer types).
 2. In Tebex, add one **package** per item, using the same names and prices as
    `ITEMS` in `website/js/store.js`. Note each package's numeric id.
+   - **Deliverable (Tebex requires one per package):** a game-server command
+     to a stand-in server named **Origin Cosmetics** (plugin type, nothing
+     installed). On purchase: `origin-grant {username} {id} <item-id>`; on
+     refund/chargeback: `origin-revoke {username} {id} <item-id>`; "player must
+     be online" OFF. `<item-id>` is the item's id in `ITEMS` (e.g. `cape-orbit`).
+     **This is the delivery contract:** the future ownership service plays that
+     server, pulling these commands from Tebex's plugin API (with the stand-in
+     server's secret key, kept out of chat and out of the repo) to record who
+     owns what, then marking them done.
 3. Tebex → Integrations → **Headless API**: copy the webstore's **public token**
    (never the private key).
 4. Give Claude the token and the package ids. Claude puts them in `STORE.webstore`
