@@ -47,6 +47,8 @@ RSASSA-PKCS1-v1_5 + SHA-256, and sends:
                       textures: { value, signature } }
     200 { token, uuid, name, expiresAt }      // token valid 24 h, as before
     401 { error }                             // a check failed (player-facing sentence, no internals)
+    400 { error }                             // malformed body: "Please update Origin and try again."
+    503 { error }                             // the service holds no Mojang keys yet: try again later
 
 The service verifies, all offline:
 - the certificate: Mojang's `publicKeySignatureV2` (RSASSA-PKCS1-v1_5 + SHA-1) over the bytes
@@ -117,7 +119,7 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
 
 ## Actions (all POST, all Bearer, JSON body, 200 → { ok: true, ... } unless noted)
     /v1/settings              { appearOffline: bool }
-    /v1/friends/request       { name }        // Mojang name→uuid; 404 "not on Origin" if that account never used it;
+    /v1/friends/request       { name }        // Origin's own names table, any case; 404 "not on Origin" if nobody of that name signed in;
                                               // an opposite pending request auto-accepts; blocked → same 404
     /v1/friends/respond       { uuid, accept }
     /v1/friends/remove        { uuid }
@@ -235,13 +237,13 @@ hex string. `server` values come back normalised: lower case, no trailing dot, `
 health to half a heart.
 
 **Status codes.** 200 success · 400 bad input or a rule ("You're already in a party.") · 401 no/expired/unknown token
-(re-run /v1/auth once, retry) or a failed/reused Mojang check on /v1/auth · 403 not allowed (not friends, not the
-leader) · 404 not found (no such player / not on Origin / invite gone / not in your party) · 405 GET on a POST route ·
-429 more than one per second · 503 only /v1/friends/request when Mojang's name lookup is down and Origin doesn't know
-the name. Every error body is `{ error: "<sentence>" }`; show it as is. 500 = server bug.
+(re-run /v1/auth once, retry) or a failed/reused proof on /v1/auth · 403 not allowed (not friends, not the
+leader) · 404 not found (not on Origin / invite gone / not in your party) · 405 GET on a POST route ·
+429 more than one per second · 503 only /v1/auth while the service holds no Mojang keys yet ("try again in a few
+minutes"). Every error body is `{ error: "<sentence>" }`; show it as is. 500 = server bug.
 
-**Auth.** `serverId` must be 16–64 lowercase hex (32 recommended) and is single-use, shared with /v1/equip. The token is
-64 hex characters; send exactly `Authorization: Bearer <token>`. The `name` returned is Mojang's spelling.
+**Auth.** The token is 64 hex characters; send exactly `Authorization: Bearer <token>` (social calls and /v1/equip).
+The `name` returned is the Mojang-signed `profileName`. Byte-exact v2 formats: "Identity v2: exact formats" below.
 
 **Cursor.** `cursor` is an integer; treat it as opaque and send it back as `since`. `since: 0` (first sync after start)
 returns recent history: the newest 100 DMs and the newest 50 party lines since you joined the party, oldest first.
@@ -275,7 +277,9 @@ Rules beyond the list above:
   `String.length`). The text in the response is the cleaned text.
 - One per second per account applies to DMs, party chat, pings, party invites and friend requests (each its own
   counter).
-- Friend requests: someone who blocked you gets the same 404 as "not on Origin"; requesting someone you blocked is a
+- Friend requests: the name is looked up in `names` case-insensitively (no Mojang call); if a renamed player's old
+  name was taken by someone else, the account that signed in with it most recently wins. Anyone who never signed in
+  to Origin gets `404 "<name as typed> isn't on Origin yet."`. Someone who blocked you gets the same 404; requesting someone you blocked is a
   400 ("Unblock them first"). At most 200 friends and 50 pending outgoing requests. `/v1/friends/remove` also cancels a
   pending request either way (use it for "Cancel request").
 - `/v1/party/create` while in a party is a 400. `/v1/party/invite` while not in a party starts one (you lead), so
@@ -283,3 +287,47 @@ Rules beyond the list above:
   the invite. The leader can't kick or promote themself (400).
 - The cron (every 10 minutes) also takes anyone who has been seen by neither launcher nor game for an hour out of
   their party (leader passes on as with /v1/party/leave).
+
+**Identity v2: exact formats (services/cosmetics/src/mojang.js; tests: test/mojang.mjs signs like Mojang).**
+- Body field types: `client` "game"|"launcher"; `uuid` 32 hex, dashes and case optional (normalised to lowercase,
+  no dashes); `name` 1–16 of `[A-Za-z0-9_]`, exactly Mojang's spelling; `at` and `keyExpiresAt` JSON integers (ms
+  since epoch, not strings); `sig`, `publicKey`, `keySignature`, `textures.value`, `textures.signature` strings.
+  Anything missing or of the wrong type (including a v1 `{ name, serverId, client }` body) → 400 "Couldn't sign in
+  to Origin. Please update Origin and try again."
+- Base64: every binary field accepts standard (`+/`) or URL-safe (`-_`) alphabet, with or without `=` padding, line
+  breaks ignored. Send standard base64 as Mojang gives it.
+- `publicKey`: X.509 SubjectPublicKeyInfo DER, as base64 or as Mojang's PEM exactly as received
+  (`-----BEGIN RSA PUBLIC KEY-----` ... `-----END RSA PUBLIC KEY-----` with `\n` line breaks; any BEGIN/END label is
+  stripped). The decoded bytes are used as-is in the certificate check, so never re-encode the key (no PKCS#1
+  conversion): send the bytes Mojang signed.
+- `keyExpiresAt`: the certificate's `expiresAt` (ISO-8601, often with microseconds, e.g.
+  `2026-10-14T09:12:33.123456Z`) as epoch ms TRUNCATED, exactly Java's `Instant.toEpochMilli()` (C#:
+  `DateTimeOffset.Parse(s).ToUnixTimeMilliseconds()`; Java: `Instant.parse(s).toEpochMilli()`). Rounding up breaks
+  the check.
+- `keySignature`: the certificate's `publicKeySignatureV2` (NOT the older `publicKeySignature`). The service checks
+  SHA1withRSA over 16 bytes of uuid (the 32 hex digits as raw bytes = msb then lsb, big-endian) ‖ keyExpiresAt as
+  8-byte big-endian signed int ‖ the decoded publicKey bytes, against any `playerCertificateKeys` entry.
+- `sig`: SHA256withRSA (RSASSA-PKCS1-v1_5; Java `Signature.getInstance("SHA256withRSA")`, C#
+  `RSA.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)`) with the certificate's private key over
+  the UTF-8 bytes of `origin-auth|<uuid>|<client>|<at>`: uuid 32 lowercase hex without dashes (whatever form the body
+  uses), client exactly as in the body, at = the same integer as the body's `at` in plain decimal (no exponent,
+  no padding). `at` must be within ±5 minutes of the service's clock (401 "...your computer's clock looks wrong...").
+  Each `sig` works once (401 "That sign-in check was already used..."): sign afresh for every /v1/auth.
+- `textures`: the `textures` property of `GET https://sessionserver.mojang.com/session/minecraft/profile/<uuid>
+  ?unsigned=false`, `value` and `signature` copied byte for byte (do not decode/re-encode `value`: the signature
+  covers that exact string). The service checks SHA1withRSA over the UTF-8 bytes of `value` against any
+  `profilePropertyKeys` entry, then base64-decodes it: `profileId` must equal the uuid (dashes/case ignored),
+  `profileName` must equal `name` exactly, `timestamp` (ms) must be at most 24 h old and at most 5 min in the
+  future. Mojang rate-limits this endpoint: fetch it once per sign-in (not per retry loop).
+- Checks run in this order: body shape (400) → keys present (503) → `at` window → certificate signature → key not
+  expired (`keyExpiresAt` > now; 401 "Your Minecraft sign-in ran out...": fetch a new certificate) → `sig` → textures
+  → single use. 401 sentences never name the failing check beyond that; for a failing build, compare against
+  test/mojang.mjs `authBody()`, which is the reference encoder.
+- Mojang's keys live in D1 `meta` row `mojang_keys` = `{ profilePropertyKeys: [base64 SPKI], playerCertificateKeys:
+  [base64 SPKI], at: <ms fetched> }`, written by services/cosmetics/scripts/store-mojang-keys.sh (every deploy +
+  weekly .github/workflows/mojang-keys.yml), re-read by each Worker machine every 10 minutes.
+  `GET /v1/diag/keys` → `{ profile: <usable keys>, certificate: <usable keys>, at }` (counts only; checked by the
+  post-deploy smoke test). /v1/diag/mojang is gone: the Worker never calls Mojang.
+- `/v1/equip`: `Authorization: Bearer <token>` + `{ cape, head }` (item id or null each). A body containing
+  `serverId` → 400 "Please update Origin to change cosmetics."; no/expired token → 401 (sign in again, retry once).
+  GET /v1/players/<uuid> and POST /v1/players/equipped are unchanged (no auth).

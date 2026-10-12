@@ -37,18 +37,12 @@ jobs:
       - name: Run tests
         working-directory: services/cosmetics
         run: npm test
-
-  # Mojang refuses requests from Cloudflare Workers (403), so the keys the
-  # service checks Mojang's signatures with are fetched here, on GitHub.
-  mojang-keys:
-    name: Mojang public keys reachable from GitHub
-    runs-on: ubuntu-latest
-    steps:
-      - name: Fetch Mojang's published keys
-        run: |
-          code=$(curl -sS -o keys.json -w '%{http_code}' --max-time 20 https://api.minecraftservices.com/publickeys)
-          echo "status $code"
-          python3 -c "import json;d=json.load(open('keys.json'));print({k:len(v) for k,v in d.items()})"
+      # The tests sign with their own stand-in keys; this proves the same code
+      # accepts REAL Mojang keys and a real Mojang-signed profile (GitHub can
+      # reach Mojang, the Worker can't). Mojang being down only warns.
+      - name: Check against real Mojang data
+        working-directory: services/cosmetics
+        run: node scripts/check-real-mojang.mjs
 
   deploy:
     name: Deploy to Cloudflare
@@ -81,21 +75,36 @@ jobs:
         if: steps.ready.outputs.ready == 'true'
         working-directory: services/cosmetics
         run: npx --yes wrangler@4 d1 migrations apply origin-cosmetics --remote
+      # Mojang's public keys, which sign-in checks signatures with (the Worker
+      # can't fetch them: Mojang refuses Workers). Also refreshed weekly by
+      # mojang-keys.yml. A failure keeps the keys already stored, so it warns
+      # instead of blocking the deploy; the smoke test below shows the counts.
+      - name: Store Mojang's public keys
+        if: steps.ready.outputs.ready == 'true'
+        continue-on-error: true
+        working-directory: services/cosmetics
+        run: bash scripts/store-mojang-keys.sh
       - name: Deploy Worker
         if: steps.ready.outputs.ready == 'true'
         working-directory: services/cosmetics
         run: npx --yes wrangler@4 deploy
       # Smoke test the live Worker (docs/STORE.md has the URL): the service answers,
-      # the players-online count works, and Mojang's sign-in check is reachable
-      # FROM the Worker (hasJoined must say 204 for a join nobody made; 403/429
-      # means Mojang refuses the Worker and friends sign-in will fail).
+      # the players-online count works, and the Worker holds Mojang's keys
+      # (counts only); 0 keys means every friends sign-in gets "try again later".
       - name: Smoke test the live service
         if: steps.ready.outputs.ready == 'true'
         run: |
           base=https://origin-cosmetics.will-f11.workers.dev
           sleep 10
-          for p in / /v1/stats/online /v1/diag/mojang; do
+          for p in / /v1/stats/online /v1/diag/keys; do
             echo "== GET $p"; curl -sS --max-time 20 "$base$p"; echo
           done
-          curl -sS --max-time 20 "$base/v1/diag/mojang" | grep -q '"hasJoined":{"status":204' \
-            || echo "::warning::Mojang's sign-in check is not answering the Worker normally — friends sign-in will fail (see the diag output above)."
+          curl -sS --max-time 20 "$base/v1/diag/keys" | python3 -c '
+          import json, sys
+          try:
+              d = json.load(sys.stdin)
+          except Exception:
+              d = {}
+          if not d.get("profile") or not d.get("certificate"):
+              print("::warning::The service holds no Mojang keys (%s): friends sign-in will fail until the Store Mojang public keys step succeeds (re-run this workflow or mojang-keys.yml)." % d)
+          '

@@ -11,28 +11,23 @@
 // the client's friendsEtag is current, and `wantState` tells the game when
 // nobody on its server would see its position, so it stops sending it.
 
-import { json, fail, normUuid, NAME_RE, SERVER_ID_RE, verifyMojangJoin, MOJANG_HEADERS } from './common.js';
+import { json, fail, normUuid, NAME_RE } from './common.js';
+import { verifyIdentity } from './mojang.js';
 import {
   L, MSG, CLIENTS, ACTIVITIES, randomHex, sha256Hex, cleanText, normServer, normVersion, normDim, coord, num,
   allow, areFriends, addChat, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf,
 } from './social-shared.js';
 import { PARTY_ROUTES, leaveParty } from './party.js';
 
-const MOJANG_PROFILE = 'https://api.mojang.com/users/profiles/minecraft/';
-
 // ------------------------------------------------------------------ sign-in
-// Same Mojang proof as /v1/equip. The token is shown once; only its SHA-256
-// is stored, and it lasts 24 h. The account's current name is remembered:
-// a row in `names` is what "on Origin" means.
+// Identity v2 (mojang.js checks Mojang's signatures offline). The token is
+// shown once; only its SHA-256 is stored, and it lasts 24 h. The account's
+// current name (Mojang-signed) is remembered: a row in `names` is what "on
+// Origin" means, and it is how friend requests find players by name.
 async function signIn(env, body, now) {
-  const name = String(body.name || ''), serverId = String(body.serverId || ''), client = body.client;
-  if (!NAME_RE.test(name) || !SERVER_ID_RE.test(serverId) || !CLIENTS.has(client)) {
-    return fail(400, "Couldn't sign in to Origin. Please update Origin and try again.");
-  }
-  const who = await verifyMojangJoin(env, name, serverId, now);
-  if (who.error === 'reused') return fail(401, 'That sign-in check was already used. Please try again.');
-  // The Mojang status rides along so a screenshot of the message tells us which side refused.
-  if (who.error) return fail(401, `Couldn't confirm your Minecraft account (code ${who.status ?? 0}). Please try again in a minute.`);
+  const who = await verifyIdentity(env, body, CLIENTS, now);
+  if (who.error) return fail(who.status, who.error);
+  const client = who.client;
 
   const token = randomHex(32);
   const expiresAt = now + L.TOKEN_TTL_MS;
@@ -52,7 +47,8 @@ async function signIn(env, body, now) {
 }
 
 // `Authorization: Bearer <token>` -> { uuid, name, client, friendsRev } or null.
-async function session(request, env, now) {
+// Also used by /v1/equip (index.js).
+export async function session(request, env, now) {
   const m = /^Bearer\s+([0-9a-f]{64})$/i.exec(request.headers.get('Authorization') || '');
   if (!m) return null;
   const row = await env.DB.prepare(`SELECT s.uuid, s.client, n.name, n.friends_rev FROM sessions s
@@ -310,22 +306,14 @@ async function settings(env, me, body, now) {
 }
 
 // ------------------------------------------------------------------ friends
-// Minecraft name -> { uuid, name } (Mojang's spelling), null = no such
-// player, 'down' = couldn't tell. Mojang answers 204/404 for unknown names.
-// If Mojang is down or rate-limits us, names Origin already knows still work.
+// Minecraft name -> { uuid, name } from Origin's own `names` table (every
+// verified sign-in keeps it current; Mojang can't be asked from a Worker),
+// any case. null = nobody of that name has used Origin. If two accounts ever
+// held the name (a rename), the one that signed in most recently wins.
 async function lookupName(env, name) {
-  try {
-    const r = await fetch(MOJANG_PROFILE + encodeURIComponent(name), { headers: MOJANG_HEADERS });
-    if (r.status === 204 || r.status === 404) return null;
-    if (r.ok) {
-      const p = await r.json();
-      const uuid = normUuid(p?.id);
-      if (uuid) return { uuid, name: NAME_RE.test(p?.name || '') ? p.name : name };
-    }
-  } catch { /* fall through to what we know */ }
   const row = await env.DB.prepare('SELECT uuid, name FROM names WHERE name_lower = ? ORDER BY updated DESC LIMIT 1')
     .bind(name.toLowerCase()).first();
-  return row ? { uuid: row.uuid, name: row.name } : 'down';
+  return row ? { uuid: row.uuid, name: row.name } : null;
 }
 
 // Friendship both ways; any pending request either way is used up.
@@ -341,12 +329,11 @@ async function friendRequest(env, me, body, now) {
   const name = String(body.name || '').trim();
   if (!NAME_RE.test(name)) return fail(400, "That isn't a Minecraft username.");
   if (name.toLowerCase() === me.name.toLowerCase()) return fail(400, "You can't add yourself.");
-  // Before the Mojang lookup, so nobody can use us to hammer Mojang.
+  // Before the lookup, so nobody can use it to list who is on Origin quickly.
   if (!(await allow(env, me.uuid, 'friend', now))) return fail(429, MSG.slowDown);
 
   const found = await lookupName(env, name);
-  if (found === 'down') return fail(503, "Couldn't look that player up right now. Try again in a minute.");
-  if (!found) return fail(404, `There's no Minecraft player called ${name}.`);
+  if (!found) return fail(404, `${name} isn't on Origin yet.`);
   const them = found.uuid;
   if (them === me.uuid) return fail(400, "You can't add yourself.");
 

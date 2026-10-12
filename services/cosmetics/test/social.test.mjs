@@ -1,5 +1,6 @@
 // Origin social (docs/SOCIAL.md) against the real Worker code and a real
-// SQLite database, with Mojang faked and the clock under the test's control.
+// SQLite database, with Mojang played by test/mojang.mjs (real RSA keys,
+// signed like Mojang signs) and the clock under the test's control.
 // `npm test` (node --test) — no packages to install.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,9 +8,10 @@ import { createHash } from 'node:crypto';
 import { handle, scheduled } from '../src/index.js';
 import { socialCleanup, presenceSweep } from '../src/social.js';
 import { d1 } from './d1.mjs';
+import { authBody, seedKeys, b64, spki, MOJANG_CERT, MOJANG_PROFILE, NOT_MOJANG, PLAYER_KEY, OTHER_PLAYER_KEY } from './mojang.mjs';
 
 // ------------------------------------------------------------- the harness
-let env, clock, step, players, badJoins, mojangDown, calls;
+let env, clock, step, calls;
 
 // Every API call moves the clock on by `step` ms (default just over the
 // 1-per-second limits) so ordinary flows never trip them; tests about
@@ -18,29 +20,17 @@ const tick = ms => { clock += ms; };
 Date.now = () => clock;
 
 function uuidFor(name) { return createHash('md5').update(name).digest('hex'); }
-function player(name) { players.set(name.toLowerCase(), { id: uuidFor(name), name }); return uuidFor(name); }
 
 beforeEach(() => {
   env = { DB: d1(), TEBEX_SECRET: 'test-secret' };
+  seedKeys(env);
   clock = 1_800_000_000_000;
   step = 1001;
-  players = new Map();
-  badJoins = new Set();
-  mojangDown = false;
   calls = [];
+  // The service must never call out for sign-in or friends (Mojang blocks
+  // Workers); only the store delivery talks to Tebex.
   globalThis.fetch = async url => {
-    const u = new URL(String(url));
-    calls.push(u.href);
-    const reply = (status, body) => new Response(body === undefined ? null : JSON.stringify(body), { status });
-    if (u.href.startsWith('https://sessionserver.mojang.com/session/minecraft/hasJoined')) {
-      const p = players.get(u.searchParams.get('username').toLowerCase());
-      return p && !badJoins.has(u.searchParams.get('serverId')) ? reply(200, { id: p.id, name: p.name }) : reply(204);
-    }
-    if (u.href.startsWith('https://api.mojang.com/users/profiles/minecraft/')) {
-      if (mojangDown) return reply(503);
-      const p = players.get(decodeURIComponent(u.pathname.split('/').pop()).toLowerCase());
-      return p ? reply(200, { id: p.id, name: p.name }) : reply(204);
-    }
+    calls.push(String(url));
     throw new Error(`unexpected fetch ${url}`);
   };
 });
@@ -52,11 +42,10 @@ async function call(token, path, body, method = 'POST') {
   tick(step);
   return { status: r.status, body: await r.json().catch(() => null), headers: r.headers };
 }
-const serverIdOf = n => n.toString(16).padStart(32, '0');
-let nextServerId = 1;
+// A /v1/auth body for `name`, valid now unless `opts` breaks it.
+const proof = (name, opts = {}) => authBody({ name, uuid: uuidFor(name), now: clock, ...opts });
 async function signIn(name, client = 'game') {
-  player(name);
-  const r = await call(null, '/v1/auth', { name: name.toLowerCase(), serverId: serverIdOf(nextServerId++), client });
+  const r = await call(null, '/v1/auth', proof(name, { client }));
   assert.equal(r.status, 200, JSON.stringify(r.body));
   return { token: r.body.token, uuid: r.body.uuid, name: r.body.name };
 }
@@ -70,36 +59,137 @@ const at = (server, x = 0) => ({ server, dim: 'minecraft:overworld', x, y: 64, z
 const rows = sql => env.DB.raw.prepare(sql).all();
 
 // -------------------------------------------------------------------- auth
-test('auth: a verified account gets a 24 h token, stored only as its SHA-256', async () => {
-  player('Will');
-  const r = await call(null, '/v1/auth', { name: 'will', serverId: 'ab'.repeat(16), client: 'launcher' });
-  assert.equal(r.status, 200);
+test('auth: Mojang-signed certificate + profile get a 24 h token, stored only as its SHA-256', async () => {
+  const body = proof('Will', { client: 'launcher' });
+  const u = body.uuid;
+  body.uuid = `${u.slice(0, 8)}-${u.slice(8, 12)}-${u.slice(12, 16)}-${u.slice(16, 20)}-${u.slice(20)}`.toUpperCase();
+  const r = await call(null, '/v1/auth', body);                 // dashed upper-case uuid is fine
+  assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.match(r.body.token, /^[0-9a-f]{64}$/);
   assert.equal(r.body.uuid, uuidFor('Will'));
-  assert.equal(r.body.name, 'Will');                         // Mojang's spelling, not what was typed
+  assert.equal(r.body.name, 'Will');
   assert.equal(r.body.expiresAt, clock - step + 24 * 3600_000);
   const [s] = rows('SELECT * FROM sessions');
   assert.equal(s.token_hash, createHash('sha256').update(r.body.token).digest('hex'));
+  assert.equal(s.client, 'launcher');
   assert.ok(!JSON.stringify(rows('SELECT * FROM sessions')).includes(r.body.token));
-  assert.equal(rows('SELECT name FROM names')[0].name, 'Will');
+  assert.deepEqual(rows('SELECT name, name_lower FROM names').map(r => ({ ...r })), [{ name: 'Will', name_lower: 'will' }]);
   assert.equal((await call(r.body.token, '/v1/sync', { since: 0 })).status, 200);
+  assert.equal(calls.length, 0);                                 // nothing asked of Mojang
 });
 
-test('auth: refuses failed checks, reused serverIds, bad input and bad or expired tokens', async () => {
-  player('Will');
-  badJoins.add('cd'.repeat(16));
-  assert.equal((await call(null, '/v1/auth', { name: 'Will', serverId: 'cd'.repeat(16), client: 'game' })).status, 401);
-  assert.equal((await call(null, '/v1/auth', { name: 'Nobody', serverId: 'ce'.repeat(16), client: 'game' })).status, 401);
-  assert.equal((await call(null, '/v1/auth', { name: 'Will', serverId: 'ef'.repeat(16), client: 'game' })).status, 200);
-  const reused = await call(null, '/v1/auth', { name: 'Will', serverId: 'ef'.repeat(16), client: 'game' });
-  assert.equal(reused.status, 401);
-  assert.match(reused.body.error, /already used/);
-  assert.equal((await call(null, '/v1/auth', { name: 'Will', serverId: 'ab'.repeat(16), client: 'phone' })).status, 400);
-  assert.equal((await call(null, '/v1/auth', { name: 'Will!', serverId: 'ab'.repeat(16), client: 'game' })).status, 400);
-  // A serverId spent on /v1/equip can't sign in either (one shared joins table).
-  await call(null, '/v1/equip', { name: 'Will', serverId: '12'.repeat(16), cape: null, head: null });
-  assert.equal((await call(null, '/v1/auth', { name: 'Will', serverId: '12'.repeat(16), client: 'game' })).status, 401);
+test('auth: accepts PEM keys (Mojang\'s "RSA PUBLIC KEY" armour), URL-safe base64 and missing padding', async () => {
+  const der = b64(spki(PLAYER_KEY));
+  const pem = `-----BEGIN RSA PUBLIC KEY-----\n${der.match(/.{1,76}/g).join('\n')}\n-----END RSA PUBLIC KEY-----\n`;
+  assert.equal((await call(null, '/v1/auth', proof('Will', { publicKeyText: pem }))).status, 200);
+  const urlSafe = s => s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const body = proof('Alex');
+  body.sig = urlSafe(body.sig);
+  body.keySignature = urlSafe(body.keySignature);
+  body.textures.signature = urlSafe(body.textures.signature);
+  assert.equal((await call(null, '/v1/auth', body)).status, 200);
+});
 
+test('auth: the certificate must be Mojang\'s, for this uuid, and unexpired', async () => {
+  const expectFail = async (opts, status, re) => {
+    const r = await call(null, '/v1/auth', proof('Will', opts));
+    assert.equal(r.status, status, JSON.stringify([opts, r.body]));
+    assert.match(r.body.error, re);
+    assert.ok(!/sha|rsa|signature|certificate|key/i.test(r.body.error), r.body.error);   // no internals
+  };
+  await expectFail({ certSigner: NOT_MOJANG }, 401, /Minecraft account/);              // signed by a stranger
+  await expectFail({ certSigner: MOJANG_PROFILE }, 401, /Minecraft account/);          // Mojang's other key doesn't vouch for certificates
+  await expectFail({ certUuid: uuidFor('Alex') }, 401, /Minecraft account/);           // someone else's certificate
+  await expectFail({ keyExpiresAt: clock - 1 }, 401, /ran out/);                       // expired
+  const tampered = proof('Will');
+  tampered.keyExpiresAt += 1000;                                                       // expiry not what Mojang signed
+  assert.equal((await call(null, '/v1/auth', tampered)).status, 401);
+  // A real certificate for Will, but the request names Alex: the uuid is part of what Mojang signed.
+  const stolen = proof('Will');
+  stolen.uuid = uuidFor('Alex');
+  assert.equal((await call(null, '/v1/auth', stolen)).status, 401);
+  assert.equal(rows('SELECT * FROM sessions').length, 0);
+});
+
+test('auth: the sender must hold the certificate key, recently, once', async () => {
+  let r = await call(null, '/v1/auth', proof('Will', { signingKey: OTHER_PLAYER_KEY }));
+  assert.equal(r.status, 401);
+  assert.match(r.body.error, /Minecraft account/);
+  const forged = proof('Will');
+  forged.client = 'launcher';                                    // signed as "game"
+  assert.equal((await call(null, '/v1/auth', forged)).status, 401);
+
+  r = await call(null, '/v1/auth', proof('Will', { at: clock - 5 * 60_000 - 1 }));
+  assert.equal(r.status, 401);
+  assert.match(r.body.error, /clock/);
+  assert.equal((await call(null, '/v1/auth', proof('Will', { at: clock + 5 * 60_000 + 10_000 }))).status, 401);
+  assert.equal((await call(null, '/v1/auth', proof('Will', { at: clock - 4 * 60_000 }))).status, 200);   // inside ±5 min
+
+  const once = proof('Will');
+  assert.equal((await call(null, '/v1/auth', once)).status, 200);
+  r = await call(null, '/v1/auth', once);                        // replayed within the 5 minutes
+  assert.equal(r.status, 401);
+  assert.match(r.body.error, /already used/);
+  tick(10 * 60_000);
+  assert.equal((await call(null, '/v1/auth', once)).status, 401); // ...and stale after them
+});
+
+test('auth: the name must be Mojang-signed, for this uuid, exact, and from the last 24 h', async () => {
+  const expectName = async (opts, re = /Minecraft name/) => {
+    const r = await call(null, '/v1/auth', proof('Will', opts));
+    assert.equal(r.status, 401, JSON.stringify(opts));
+    assert.match(r.body.error, re);
+  };
+  await expectName({ profileSigner: NOT_MOJANG });
+  await expectName({ profileSigner: MOJANG_CERT });
+  await expectName({ profileName: 'will' });                    // exact spelling
+  await expectName({ profileName: 'Notch' });
+  await expectName({ profileId: uuidFor('Notch') });
+  await expectName({ timestamp: clock - 24 * 3600_000 - 1 });
+  await expectName({ timestamp: clock + 10 * 60_000 });
+  const edited = proof('Will');
+  edited.textures.value = edited.textures.value.replace(/=*$/, '') + ' ';   // not the bytes Mojang signed
+  assert.equal((await call(null, '/v1/auth', edited)).status, 401);
+  const renamed = proof('Will');
+  renamed.name = 'Notch';                                        // claims another name than the signed one
+  assert.equal((await call(null, '/v1/auth', renamed)).status, 401);
+  assert.equal((await call(null, '/v1/auth', proof('Will', { timestamp: clock - 23 * 3600_000 }))).status, 200);
+});
+
+test('auth: malformed bodies are a 400 "update Origin"; no Mojang keys yet is a friendly 503', async () => {
+  const good = proof('Will');
+  const broken = [
+    {}, { ...good, client: 'phone' }, { ...good, name: 'Will!' }, { ...good, uuid: 'abc' }, { ...good, at: '123' },
+    { ...good, keyExpiresAt: 1.5 }, { ...good, sig: '' }, { ...good, sig: 'not base64!' }, { ...good, publicKey: 'AAAA' },
+    { ...good, textures: null }, { ...good, textures: { value: good.textures.value } },
+    // The v1 body (Mojang server-join check) is refused the same way.
+    { name: 'Will', serverId: 'ab'.repeat(16), client: 'game' },
+  ];
+  for (const b of broken) {
+    const r = await call(null, '/v1/auth', b);
+    assert.equal(r.status, 400, JSON.stringify(b).slice(0, 120));
+    assert.match(r.body.error, /update Origin/);
+  }
+
+  env.DB.raw.prepare("DELETE FROM meta WHERE k = 'mojang_keys'").run();
+  let r = await call(null, '/v1/auth', proof('Will'));
+  assert.equal(r.status, 503);
+  assert.match(r.body.error, /try again/i);
+  seedKeys(env, { profile: [], certificate: [MOJANG_CERT] });   // an empty list counts as missing
+  assert.equal((await call(null, '/v1/auth', proof('Will'))).status, 503);
+  seedKeys(env);                                                 // keys arrive: works at once (misses aren't cached)
+  assert.equal((await call(null, '/v1/auth', proof('Will'))).status, 200);
+});
+
+test('diag: /v1/diag/keys reports only how many usable keys are stored', async () => {
+  let r = await call(null, '/v1/diag/keys', undefined, 'GET');
+  assert.deepEqual(r.body, { profile: 2, certificate: 2, at: 1 });
+  env.DB.raw.prepare("DELETE FROM meta WHERE k = 'mojang_keys'").run();
+  r = await call(null, '/v1/diag/keys', undefined, 'GET');
+  assert.deepEqual(r.body, { profile: 0, certificate: 0, at: null });
+});
+
+test('auth: bad or expired tokens are refused', async () => {
   assert.equal((await call(null, '/v1/sync', {})).status, 401);
   assert.equal((await call('f'.repeat(64), '/v1/sync', {})).status, 401);
   const will = await signIn('Will');
@@ -121,14 +211,11 @@ test('api: social routes answer CORS preflight with Authorization allowed; GET o
 // ----------------------------------------------------------------- friends
 test('friends: request -> accept, both sides see it; mistakes get clear errors', async () => {
   const will = await signIn('Will'), alex = await signIn('Alex');
-  player('Steve');                                             // a real player who never used Origin
 
-  let r = await call(will.token, '/v1/friends/request', { name: 'Nobody_Real' });
+  // Anyone who never signed in to Origin (real Minecraft player or not) is "not on Origin".
+  let r = await call(will.token, '/v1/friends/request', { name: 'steve' });
   assert.equal(r.status, 404);
-  assert.match(r.body.error, /no Minecraft player/);
-  r = await call(will.token, '/v1/friends/request', { name: 'steve' });
-  assert.equal(r.status, 404);
-  assert.match(r.body.error, /Steve isn't on Origin/);
+  assert.match(r.body.error, /steve isn't on Origin/);
   assert.equal((await call(will.token, '/v1/friends/request', { name: 'WILL' })).status, 400);
   assert.equal((await call(will.token, '/v1/friends/request', { name: 'two words' })).status, 400);
 
@@ -175,13 +262,23 @@ test('friends: opposite requests auto-accept; decline and remove cancel requests
   assert.equal((await sync(will)).requests.incoming.length, 0);
 });
 
-test('friends: Mojang lookup down -> names Origin knows still work, others get a try-again', async () => {
+test('friends: names are found in Origin\'s own names table, any case; after a rename the newest sign-in wins', async () => {
   const will = await signIn('Will'), alex = await signIn('Alex');
-  mojangDown = true;
-  assert.equal((await call(will.token, '/v1/friends/request', { name: 'ALEX' })).body.uuid, alex.uuid);
-  const r = await call(will.token, '/v1/friends/request', { name: 'Stranger' });
-  assert.equal(r.status, 503);
-  assert.match(r.body.error, /Try again/);
+  let r = await call(will.token, '/v1/friends/request', { name: 'ALEX' });
+  assert.deepEqual(r.body, { ok: true, uuid: alex.uuid, name: 'Alex', friends: false });
+  // Alex renames to Alexis; a new account takes the name Alex and signs in later.
+  const signInAs = async (name, uuid) => {
+    const res = await call(null, '/v1/auth', authBody({ name, uuid, now: clock }));
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return res.body;
+  };
+  await signInAs('Alexis', alex.uuid);
+  r = await call(will.token, '/v1/friends/request', { name: 'alexis' });
+  assert.equal(r.body.uuid, alex.uuid);
+  assert.equal((await call(will.token, '/v1/friends/request', { name: 'Alex' })).status, 404);
+  const newAlex = await signInAs('Alex', uuidFor('NewAlex'));
+  assert.equal((await call(will.token, '/v1/friends/request', { name: 'alex' })).body.uuid, newAlex.uuid);
+  assert.equal(calls.length, 0);                                 // no Mojang lookup
 });
 
 test('blocks: a blocker looks "not on Origin", blocking ends everything between you, unblock restores requests', async () => {
