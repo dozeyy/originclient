@@ -690,3 +690,22 @@ first push (no BUILD FAILED, no Mixin apply failures); every design + world PNG 
   vignette, so render/ColorGrade.java is unchanged. 1.16.5's PostChain grade also behaves (174 -> 233).
 - Dev-shot timing: a 1.16.5 window caught mid open-slide once (panel 3 px low) under the software
   rasteriser; the rerun was exact. Compare panel edges before calling a layout off by a few px.
+
+## Social port (2026-10-12) — 1.21.4 (covers 1.21.2-1.21.4; agent sp-b)
+- Every 1.21.1 file the social change edited merged clean 3-way (base 5b5baeb^ 1.21.1, ours 1.21.4,
+  theirs 1.21.1 HEAD) except OriginModMenuScreen (NEW_IDS comment only) and NametagStyleMixin. Dev shots
+  (design + world, label sp-b, run 38302062938 / 38302066093) match 1.21.1-social / 1.21.1-world-social
+  first try, zero mixin failures. JOIN shows "(1.21.1)" here: the demo friends play 1.21.1 (correct).
+- Nametag tint: renderNameTag gets an EntityRenderState, so the tint looks the player up by
+  PlayerRenderState.id through mc.level.getEntity (the LevelHeadMixin pattern) before nametagTint(Entity).
+- SocialToast on the 1.21.2+ Toast API (FpsCoachToast's shape): update(ToastManager, t) decides
+  getWantedVisibility() and drops the toast from the click list; render(g, font, t) only draws and records
+  its pose translation. Minecraft.getToastManager(), not getToasts().
+- Friend faces: batched GUI, so the window's fade rides PlayerFaceRenderer.draw(..., size, argb)
+  (SocialSkins.face overload) instead of setShaderColor. Skins: the background job fetches only the
+  profile; SkinManager.getInsecureSkin(profile) (module-evidenced) serves default-then-real, so
+  getOrLoad's return type in this line never matters.
+- Minimap party dots use the module's GuiMesh.colors() (it flushes the batch itself), not 1.21.1's
+  immediate BufferBuilder helpers. Everything else (ConnectScreen.startConnecting 6 args,
+  level.disconnect + mc.disconnect(Screen)/(), StringUtil.isAllowedChatCharacter, client command v2,
+  WorldRenderEvents.LAST ctx.matrixStack()/camera(), ThickLine + OriginRenderTypes) is 1.21.1's code as is.
