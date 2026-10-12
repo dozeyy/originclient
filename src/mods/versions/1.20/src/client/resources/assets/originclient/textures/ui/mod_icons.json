@@ -166,6 +166,142 @@
     "jei": [
       0,
       0
+    ],
+    "clock": [
+      0,
+      0
+    ],
+    "stopwatch": [
+      0,
+      2
+    ],
+    "daycounter": [
+      0,
+      2
+    ],
+    "ping": [
+      2,
+      -4
+    ],
+    "memory": [
+      0,
+      -10
+    ],
+    "saturation": [
+      0,
+      0
+    ],
+    "packdisplay": [
+      0,
+      0
+    ],
+    "itemcounter": [
+      2,
+      0
+    ],
+    "directionhud": [
+      0,
+      0
+    ],
+    "combo": [
+      0,
+      2
+    ],
+    "reach": [
+      0,
+      0
+    ],
+    "crosshair": [
+      0,
+      0
+    ],
+    "hurtcam": [
+      0,
+      0
+    ],
+    "hitcolor": [
+      -8,
+      4
+    ],
+    "glintcolorizer": [
+      -2,
+      6
+    ],
+    "bossbar": [
+      0,
+      -2
+    ],
+    "titles": [
+      0,
+      0
+    ],
+    "menublur": [
+      0,
+      0
+    ],
+    "shinypots": [
+      -8,
+      5
+    ],
+    "tntcountdown": [
+      0,
+      4
+    ],
+    "snaplook": [
+      4,
+      2
+    ],
+    "cooldowns": [
+      0,
+      0
+    ],
+    "soundchanger": [
+      0,
+      0
+    ],
+    "itemphysics": [
+      0,
+      4
+    ],
+    "worldeditcui": [
+      0,
+      0
+    ],
+    "teamview": [
+      0,
+      4
+    ],
+    "discord": [
+      0,
+      2
+    ],
+    "hypixel": [
+      0,
+      -6
+    ],
+    "minimap": [
+      0,
+      0
+    ],
+    "autotext": [
+      -4,
+      2
+    ],
+    "autogg": [
+      0,
+      0
+    ],
+    "nickhider": [
+      0,
+      0
+    ],
+    "quickplay": [
+      2,
+      0
+    ],
+    "screenshot": [
+      0,
+      -2
     ]
   },
   "source": "design/icon-proposals/origin-icon-system-v1/generate_proposal.py",
@@ -329,6 +465,142 @@
     "jei": {
       "x": 576,
       "y": 1152
+    },
+    "clock": {
+      "x": 768,
+      "y": 1152
+    },
+    "stopwatch": {
+      "x": 960,
+      "y": 1152
+    },
+    "daycounter": {
+      "x": 0,
+      "y": 1344
+    },
+    "ping": {
+      "x": 192,
+      "y": 1344
+    },
+    "memory": {
+      "x": 384,
+      "y": 1344
+    },
+    "saturation": {
+      "x": 576,
+      "y": 1344
+    },
+    "packdisplay": {
+      "x": 768,
+      "y": 1344
+    },
+    "itemcounter": {
+      "x": 960,
+      "y": 1344
+    },
+    "directionhud": {
+      "x": 0,
+      "y": 1536
+    },
+    "combo": {
+      "x": 192,
+      "y": 1536
+    },
+    "reach": {
+      "x": 384,
+      "y": 1536
+    },
+    "crosshair": {
+      "x": 576,
+      "y": 1536
+    },
+    "hurtcam": {
+      "x": 768,
+      "y": 1536
+    },
+    "hitcolor": {
+      "x": 960,
+      "y": 1536
+    },
+    "glintcolorizer": {
+      "x": 0,
+      "y": 1728
+    },
+    "bossbar": {
+      "x": 192,
+      "y": 1728
+    },
+    "titles": {
+      "x": 384,
+      "y": 1728
+    },
+    "menublur": {
+      "x": 576,
+      "y": 1728
+    },
+    "shinypots": {
+      "x": 768,
+      "y": 1728
+    },
+    "tntcountdown": {
+      "x": 960,
+      "y": 1728
+    },
+    "snaplook": {
+      "x": 0,
+      "y": 1920
+    },
+    "cooldowns": {
+      "x": 192,
+      "y": 1920
+    },
+    "soundchanger": {
+      "x": 384,
+      "y": 1920
+    },
+    "itemphysics": {
+      "x": 576,
+      "y": 1920
+    },
+    "worldeditcui": {
+      "x": 768,
+      "y": 1920
+    },
+    "teamview": {
+      "x": 960,
+      "y": 1920
+    },
+    "discord": {
+      "x": 0,
+      "y": 2112
+    },
+    "hypixel": {
+      "x": 192,
+      "y": 2112
+    },
+    "minimap": {
+      "x": 384,
+      "y": 2112
+    },
+    "autotext": {
+      "x": 576,
+      "y": 2112
+    },
+    "autogg": {
+      "x": 768,
+      "y": 2112
+    },
+    "nickhider": {
+      "x": 960,
+      "y": 2112
+    },
+    "quickplay": {
+      "x": 0,
+      "y": 2304
+    },
+    "screenshot": {
+      "x": 192,
+      "y": 2304
     }
   }
 }
