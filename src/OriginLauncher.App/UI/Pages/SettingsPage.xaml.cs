@@ -57,6 +57,7 @@ public partial class SettingsPage : UserControl
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
         ShaderCacheToggle.IsChecked = _settings.ShaderCacheNvidia || _settings.ShaderCacheAmd;
         OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
+        SettingsSyncToggle.IsChecked = _settings.SettingsSyncEnabled;
         StartWithWindowsToggle.IsChecked = InstallRegistry.IsStartWithWindows();
 
         InitializeJvmSection();
@@ -134,6 +135,25 @@ public partial class SettingsPage : UserControl
     {
         if (_isLoading) return;
         OriginClientConfigBridge.SetOriginUiEnabled(false);
+    }
+
+    // Turning Settings Sync on also builds its store from every installed
+    // version (newest file wins per setting, so nothing the player set is
+    // lost) — on a worker thread, since it reads every instance. Turning it off
+    // only stops syncing: every version keeps exactly what it has.
+    private void SettingsSyncToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.SettingsSyncEnabled = true;
+        SettingsStore.Update(s => s.SettingsSyncEnabled = true);
+        _ = Task.Run(SettingsSync.Seed);
+    }
+
+    private void SettingsSyncToggle_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.SettingsSyncEnabled = false;
+        SettingsStore.Update(s => s.SettingsSyncEnabled = false);
     }
 
     private void ShaderCacheToggle_Checked(object sender, RoutedEventArgs e)

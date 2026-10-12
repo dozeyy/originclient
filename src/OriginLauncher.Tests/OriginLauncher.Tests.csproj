@@ -6,7 +6,9 @@
     itself is a net8.0-windows WPF exe that can't be built off Windows.
 
     Linked today: Core/Promos (home banner feed parsing + fallback chain,
-    Discord invite handling, the visibility gate, occlusion math, rotation).
+    Discord invite handling, the visibility gate, occlusion math, rotation)
+    and Core/Sync (Settings Sync's merge rules + file formats, exercised on
+    real files in temp folders).
     Network is never touched: every fetch goes through a fake HttpTextGet.
     Run: dotnet test src/OriginLauncher.Tests
   -->
@@ -19,6 +21,7 @@
 
   <ItemGroup>
     <Compile Include="..\OriginLauncher.App\Core\Promos\*.cs" LinkBase="Promos" />
+    <Compile Include="..\OriginLauncher.App\Core\Sync\*.cs" LinkBase="Sync" />
   </ItemGroup>
 
   <ItemGroup>

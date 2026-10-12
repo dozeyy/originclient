@@ -159,6 +159,23 @@
                                       Checked="OriginUiToggle_Checked" Unchecked="OriginUiToggle_Unchecked"/>
                     </Grid>
 
+                    <!-- Settings Sync (Core/SettingsSync.cs): off by default. -->
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock Text="Sync settings across versions" Style="{StaticResource Text.BodyDim}"/>
+                            <TextBlock Text="Your keybinds, video settings, HUD layout and server list follow you to every version."
+                                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Switch}"
+                                      VerticalAlignment="Center"
+                                      Checked="SettingsSyncToggle_Checked" Unchecked="SettingsSyncToggle_Unchecked"/>
+                    </Grid>
+
                 </StackPanel>
             </Border>
 
