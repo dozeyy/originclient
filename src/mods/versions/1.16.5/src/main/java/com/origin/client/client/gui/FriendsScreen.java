@@ -422,7 +422,7 @@ public class FriendsScreen extends OriginWindow {
 		float hp = rowBack(d, "start", y, false);
 		d.rect(BODY_X, y, LIST_W, ROW_H, 6, 0x00000000, lerp(LINE2, 0x29F1E9D2, hp));
 		d.circle(BODY_X + 24, y + ROW_H / 2, 14, 0x0FFFFFFF);
-		d.icon("@plus", BODY_X + 17, y + ROW_H / 2 - 7, 14, lerp(DIM, ACC, hp));
+		glyph(d, "@plus", BODY_X + 17, y + ROW_H / 2 - 7, 14, lerp(DIM, ACC, hp));
 		d.text("Start a party", BODY_X + 48, y + 21, 13.5f, true, 0, lerp(DIM, TEXT, hp));
 		d.text("Then invite friends to it", BODY_X + 48, y + 37, 11.5f, false, 0, MUTE);
 		d.hit(BODY_X, y, LIST_W, ROW_H, () -> {
@@ -535,8 +535,10 @@ public class FriendsScreen extends OriginWindow {
 	private void drawParty(OriginDeck d, SocialState s) {
 		if (!s.inParty()) {
 			emptyState(d, RX, RW, "You're not in a party", "Start one, then invite friends. Party chat and warps work on any server.");
-			float bw = buttonW(d, "Start a party", "@plus");
-			button(d, "Start a party", "@plus", RX + (RW - bw) / 2, TOP + BODY_H / 2 + 56, bw, 32, Style.PRIMARY, true,
+			// no "+" on this button on 1.16.5: OriginWindow draws button icons from the mask
+			// atlas, where the thin plus all but vanishes at this size (see glyph below)
+			float bw = buttonW(d, "Start a party", null);
+			button(d, "Start a party", null, RX + (RW - bw) / 2, TOP + BODY_H / 2 + 56, bw, 32, Style.PRIMARY, true,
 					() -> run(SocialClient.createParty(), "Party started. Invite your friends."));
 			return;
 		}
@@ -830,10 +832,30 @@ public class FriendsScreen extends OriginWindow {
 		int fg = accent ? ON_ACC : enabled ? (hov ? TEXT : DIM) : MUTE;
 		d.rect(x, y, size, size, 6, fill);
 		float is = 14;
-		d.icon(icon, x + (size - is) / 2, y + (size - is) / 2, is, fg);
+		glyph(d, icon, x + (size - is) / 2, y + (size - is) / 2, is, fg);
 		if (enabled && action != null) {
 			d.hit(x, y, size, size, action);
 		}
+	}
+
+	/**
+	 * d.icon, except "@plus" is drawn as two bars. 1.16.5 has no icon SDF shader: icons
+	 * are the linear-filtered mask atlas shrunk with no mipmaps, and the plus is two
+	 * thin strokes through the cell's centre that the sparse samples at 14 px miss
+	 * (dev shots: only its centre pixel showed). Same size and stroke as the glyph.
+	 */
+	private static void glyph(OriginDeck d, String icon, float x, float y, float size, int color) {
+		if (!"@plus".equals(icon)) {
+			d.icon(icon, x, y, size, color);
+			return;
+		}
+		float arm = size * 0.72f, stroke = Math.max(1.5f, size * 0.13f);
+		float cx = x + size / 2f, cy = y + size / 2f;
+		// the vertical bar in two halves, so a translucent colour isn't doubled where they cross
+		float h = (arm - stroke) / 2f;
+		d.fill(cx - arm / 2f, cy - stroke / 2f, arm, stroke, color);
+		d.fill(cx - stroke / 2f, cy - arm / 2f, stroke, h, color);
+		d.fill(cx - stroke / 2f, cy + stroke / 2f, stroke, h, color);
 	}
 
 	private void miniButton(OriginDeck d, String label, float x, float y, float w, Style style, Runnable action) {
