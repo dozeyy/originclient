@@ -124,6 +124,14 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <!-- 26.1 – 26.1.2 — one jar (+ JEI jar-in-jar); perf/shader stack installed standalone. Java 25. -->
+    <Content Include="..\mods\versions\26.1\build\libs\originclient-26.1-*.jar"
+             Exclude="..\mods\versions\26.1\build\libs\originclient-26.1-*-sources.jar;..\mods\versions\26.1\build\libs\originclient-26.1-*-dev.jar">
+      <Link>Bundled\OriginClient\originclient-26.1.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
     <!-- Gap sub-families staged 2026-07-13 — compile-verified, bundled for local
          boot-testing. 1.21.4 jar covers 1.21.2/3/4; 1.21.6 jar covers 1.21.6/7. -->
     <Content Include="..\mods\versions\1.20.2\build\libs\originclient-1.20.2-*.jar"

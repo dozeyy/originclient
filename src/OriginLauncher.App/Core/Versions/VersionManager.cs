@@ -178,6 +178,13 @@ public sealed class VersionManager
             // Mojang's version JSON asks for a Java 25 runtime, which CmlLib
             // downloads like every other version's.
             ["26.2"] = new("originclient-26.2.jar", BundlesPerfStack: false),
+            // 26.1 – 26.1.2 — ONE jar (src/mods/versions/26.1, derived from 26.2
+            // 2026-10-13): the three releases share one API (version-scout API diff:
+            // no class or public signature changed). Perf/shader stack standalone;
+            // the Sodium/Iris pair differs per patch (PerformanceModCatalog).
+            ["26.1.2"] = new("originclient-26.1.jar", BundlesPerfStack: false),
+            ["26.1.1"] = new("originclient-26.1.jar", BundlesPerfStack: false),
+            ["26.1"]   = new("originclient-26.1.jar", BundlesPerfStack: false),
         };
 
     // Every Minecraft version that ships an Origin Client build (i.e. gets the

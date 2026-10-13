@@ -44,14 +44,14 @@ public static class VersionCatalog
     // Left out ON PURPOSE (Will, 2026-10-12: they will never ship, so they are
     // not shown greyed either): 1.20.6, 1.20.5, 1.20.3, 1.19.1, 1.19, 1.18.1,
     // 1.17, and 1.16 – 1.16.4. The "26" card lists only the 26.x versions with an
-    // Origin build (26.2 since 2026-10-13; 26.1.x / 26.3 join it as they are ported).
+    // Origin build (26.2 and 26.1 – 26.1.2 since 2026-10-13; 26.3 joins it once ported).
     // Pulled earlier and likewise absent: 1.21.5, 1.21.9 (2026-08-06) and the
     // Forge pair 1.12.2 / 1.8.9 (whose 1.12 and 1.8 cards went with them).
     private static IReadOnlyList<VersionGroup> Build() =>
     [
-        Group("26",   "26.2",           "The Latest Releases",
+        Group("26",   "26.1 – 26.2",    "The Latest Releases",
             "The newest Minecraft releases, bringing the freshest content, mobs, and blocks alongside the latest performance and stability improvements. This is the cutting edge of the game — expect the most up-to-date features and the best modern optimizations.",
-            "26.2"),
+            "26.2", "26.1.2", "26.1.1", "26.1"),
         Group("1.21", "1.21 – 1.21.11", "Tricky Trials",
             "Explore the new trial chambers and outsmart their spawners for loot from ominous vaults. Battle the wind-charging Breeze and the crossbow-wielding Bogged, forge the powerful Mace for devastating smash attacks, and automate builds with the new crafter block and expanded copper and tuff sets.",
             "1.21.11", "1.21.10", "1.21.8", "1.21.7",
