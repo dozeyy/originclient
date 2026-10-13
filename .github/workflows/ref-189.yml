@@ -65,6 +65,42 @@ jobs:
           grep -o ' error: .*' "$RUNNER_TEMP/compile.log" | sort | uniq -c | sort -rn | head -40
           echo "javac errors: $n (exit $rc)"
           exit $rc
+      # The shipped jar must carry Mixin, the manifest tweaker and a refmap
+      # that maps every Origin mixin target to its SRG name — without the
+      # refmap, mixins work in dev (MCP names) and bind nothing for players.
+      - name: Inspect the shipped jar (Mixin, manifest, refmap)
+        shell: bash
+        run: |
+          sh ./gradlew build --no-daemon -q > "$RUNNER_TEMP/build.log" 2>&1 || { tail -60 "$RUNNER_TEMP/build.log"; exit 1; }
+          jar=$(ls build/libs/originclient-*.jar | grep -v sources | head -1)
+          echo "jar: $jar ($(stat -c %s "$jar") bytes)"
+          unzip -p "$jar" META-INF/MANIFEST.MF
+          echo "mixin runtime classes: $(unzip -l "$jar" | grep -c 'org/spongepowered/asm/')"
+          unzip -l "$jar" | grep -E 'mixins\.json|refmap' || echo "NO mixin configs / refmap in jar"
+          python3 - "$jar" <<'PY'
+          import json, sys, zipfile
+          z = zipfile.ZipFile(sys.argv[1])
+          names = [n for n in z.namelist() if n.endswith("refmap.json")]
+          if not names:
+              print("REFMAP MISSING"); sys.exit(1)
+          for n in names:
+              data = json.loads(z.read(n))
+              mappings = data.get("mappings", {})
+              print(f"{n}: {len(mappings)} mixin classes mapped")
+              for cls, m in sorted(mappings.items()):
+                  print(f"  {cls.split('/')[-1]}: {len(m)} targets")
+          configs = [n for n in z.namelist() if n.endswith(".mixins.json")]
+          listed = set()
+          for c in configs:
+              cfg = json.loads(z.read(c))
+              for k in ("mixins", "client"):
+                  for m in cfg.get(k, []):
+                      listed.add(cfg["package"].replace(".", "/") + "/" + m.replace(".", "/"))
+          mapped = set().union(*[json.loads(z.read(n)).get("mappings", {}).keys() for n in names])
+          missing = sorted(listed - mapped)
+          print(f"{len(listed)} mixins listed, {len(missing)} with no refmap entry (accessor-only or unmapped):")
+          for m in missing: print("  " + m)
+          PY
 
   lookup:
     needs: plan
