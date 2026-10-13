@@ -20,7 +20,7 @@ Fabric Loom: 1.17.21
 > Task :processResources
 > Task :classes
 > Task :originApiDump
-[api-dump] wrote 13371 classes to /home/runner/work/_temp/shots/screenshots/api
+[api-dump] wrote 13634 classes to /home/runner/work/_temp/shots/screenshots/api
 
 > Task :compileClientJava
 /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:13: error: package org.lwjgl.glfw does not exist
@@ -2360,5 +2360,5 @@ Execution failed for task ':compileClientJava' (registered by plugin class 'org.
 > Check your code and dependencies to fix the compilation error(s)
 > Run with --scan to get full insights from a Build Scan (powered by Develocity).
 
-BUILD FAILED in 2m 23s
+BUILD FAILED in 2m 36s
 4 actionable tasks: 4 executed
