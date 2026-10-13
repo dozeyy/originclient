@@ -90,16 +90,27 @@ jobs:
               r = urllib.request.Request(u, headers={"User-Agent": "origin-version-scout (originclient.org)"})
               return urllib.request.urlopen(r, timeout=120).read()
           get = lambda u: json.loads(raw(u))
+          def meta(z):
+              m = json.loads(z.read("fabric.mod.json").decode("utf-8", "replace"), strict=False)
+              return {k: m.get(k) for k in ("id", "version", "depends", "breaks", "conflicts", "recommends", "provides") if m.get(k)}
+          # project:version_number, or project:@<game version> = every fabric build listing it.
           for item in os.environ["INSPECT"].split():
               proj, ver = item.split(":", 1)
               try:
                   vs = get(f"https://api.modrinth.com/v2/project/{proj}/version?loaders=%5B%22fabric%22%5D")
-                  v = next(v for v in vs if v["version_number"] == ver)
-                  f = next((f for f in v["files"] if f["primary"]), v["files"][0])
-                  z = zipfile.ZipFile(io.BytesIO(raw(f["url"])))
-                  m = json.loads(z.read("fabric.mod.json").decode("utf-8", "replace"), strict=False)
-                  keep = {k: m.get(k) for k in ("id", "version", "depends", "breaks", "conflicts", "recommends", "provides") if m.get(k)}
-                  print(f"== {item}  {f['url']}  sha1={f['hashes'].get('sha1')}\n   game_versions={v['game_versions']}\n   {json.dumps(keep)}")
+                  picked = [v for v in vs if (ver[1:] in v["game_versions"] if ver.startswith("@") else v["version_number"] == ver)][:40]
+                  if not picked: print(f"== {item}: not found")
+                  for v in picked:
+                      f = next((f for f in v["files"] if f["primary"]), v["files"][0])
+                      z = zipfile.ZipFile(io.BytesIO(raw(f["url"])))
+                      print(f"== {proj}:{v['version_number']} ({v['version_type']})  {f['url']}  sha1={f['hashes'].get('sha1')}\n   game_versions={v['game_versions']}\n   {json.dumps(meta(z))}")
+                      # jar-in-jar mods ship inside and must resolve too
+                      for n in z.namelist():
+                          if n.startswith("META-INF/jars/") and n.endswith(".jar"):
+                              try:
+                                  print(f"   nested {n[14:]}: {json.dumps(meta(zipfile.ZipFile(io.BytesIO(z.read(n)))))}")
+                              except Exception:
+                                  pass
               except Exception as e:
                   print(f"== {item}: error {e!r}")
           vers = os.environ["DIFF"].split()
