@@ -855,3 +855,121 @@ ported on 1.21.8, copied to 1.21.6. 3-way `git merge-file` per edited file (base
   (no immediate BufferBuilder); OriginDevWorld's party capture is two extra phases (grab, then wait for
   the dated-PNG rename before mc.stop()); SocialDemo's friends report Social.version() so the demo's
   JOIN reads like 1.21.1's.
+
+## 26.x era (2026-10-13) — 26.2 ported from 1.21.11 (agent p262). READ THIS before 26.1 / 26.3
+26.2 (src/mods/versions/26.2) = the current 1.21.11 module + the deltas below. It compiled, booted and
+matched 1.21.1 in dev shots (design + world, label p262, commit 5654472/b3b3ed9) with zero Mixin apply
+failures. 26.1 / 26.3 should be DERIVED FROM 26.2 (copy versions/26.2, re-pin, then fix the deltas a
+compile + the mixin check show), not from 1.21.11.
+
+### Toolchain
+- Unobfuscated: no `mappings` line, plugin `net.fabricmc.fabric-loom`, plain `implementation`, no refmap.
+  Consequence: build-mods' "Cannot remap" dead-hook gate can't see 26.x — use the static mixin check below.
+- Java 25: `options.release = 25`, foojay toolchain 25; CI runs Gradle on JDK 25 via the `"java": "25"`
+  field in live-modules.json (plan.py, build-mods.yml, dev-shots.yml read it; boot-smoke lists it).
+- Dev runs pass the launcher's Aikar flags as vmArgs (build.gradle) — JDK 25 accepted all of them.
+- Fabric API: pin the newest RELEASE (0.161.0+26.2). JEI 30.42.0.236 needs >= 0.155.0. Find pins/URLs with
+  version-scout (push its file or run it): it prints every version's newest release file + Modrinth url.
+
+### Reading the 26.x API without a local Minecraft (the sandbox can't download it)
+- build.gradle "PORTING AID": put an `api-dump.txt` (package prefixes, one per line) in the module and run
+  dev shots; the run publishes `javap -p` SIGNATURES of those classes + a class index to
+  claude/dev-shots `<module>-<label>/api/`. Index them with a tiny parser and query by class (inert without
+  the file — 26.2 deleted its copy; the prefixes that covered the whole port: net/minecraft/client/,
+  net/minecraft/world/, net/minecraft/core/, net/minecraft/network/, net/minecraft/util/,
+  net/minecraft/resources/, net/minecraft/ChatFormatting, com/mojang/blaze3d/, com/mojang/authlib/,
+  net/fabricmc/, mezz/jei/).
+- With the dump, check every mixin statically: target class exists, every `method = "..."` exists (with
+  its descriptor when given), every INVOKE target exists, handler params match an overload. That caught
+  ~80 dead hooks before CI ever ran. Compile errors come from a dev-shots run (gradle output in run.log,
+  -Xmaxerrs 100000 in build.gradle so one run lists everything); a failed compile ends the run in ~3 min.
+- get_job_logs (GitHub MCP) works once a job has finished — that is how version-scout output is read.
+
+### GUI (retained mode: extract now, render later)
+- `GuiGraphics` -> `GuiGraphicsExtractor`; drawString->text, drawCenteredString->centeredText,
+  drawWordWrap->textWithWordWrap, drawStringWithBackdrop->textWithBackdrop, renderItem->item,
+  renderFakeItem->fakeItem, renderItemDecorations->itemDecorations, submitEntityRenderState->entity,
+  renderOutline->outline, hLine/vLine->horizontalLine/verticalLine; fill/blit/blitSprite/pose()/
+  enableScissor/blurBeforeThisStratum/nextStratum/setTooltipForNextFrame unchanged.
+  `guiRenderState.submitGuiElement` -> `addGuiElement`; GuiElementRenderState moved to
+  net.minecraft.client.renderer.state.gui (buildVertices(VertexConsumer) + addVertexWith2DPose as 1.21.11).
+- Screens/widgets: render->extractRenderState, renderBackground->extractBackground (also renderPanorama/
+  renderBlurredBackground/renderMenuBackground(Texture)/renderTransparentBackground -> extract*),
+  renderWidget->extractWidgetRenderState, renderContents->extractContents. Toast.render -> extractRenderState.
+  Only rename INSTANCE overrides — Origin's own static `render(GuiGraphics...)` helpers keep their name.
+- TitleScreen overrides extractBackground (panorama): the Origin backdrop is drawn there at HEAD and
+  vanilla's cancelled. Logo/Splash: LogoRenderer.extractRenderState(GGE;IF)V,
+  SplashRenderer.extractRenderState(GGE;ILFont;F)V. Panorama: gameRenderer.panorama().extractRenderState(g, w, h).
+- The title screen has Mojang's own Friends button (FriendsButton, a SpriteIconButton.CenteredIcon) —
+  kept, shown in the Origin dock with the "@user" icon.
+- Header tabs: TabButton moved to gui.components and is abstract; hook MenuTabBar$MenuTabButton.
+- EXTRACT RUNS BEFORE THE WORLD IS DRAWN. Anything that reads the framebuffer during extraction sees LAST
+  frame (the Color Saturation grade copied its own output and re-graded it every frame -> runaway
+  colours). Take such snapshots at render time: ColorGrade copies the main target inside its
+  GuiElementRenderState.buildVertices (the GUI renderer builds vertices after world + hand, before GUI).
+- Custom pipelines: the 26.x builder has no withVertexFormat/withBlend/withSampler/withDepthTestFunction.
+  Build every Origin pipeline by DERIVING a vanilla one (OriginShaders.derive copies shaders, topology,
+  colour targets, depth-stencil, cull, vertex bindings, bind-group layouts, defines) and override only what
+  differs (fragment shader; ColorTargetState(BlendFunction) for blend; ColorTargetState.DEFAULT = no blend;
+  DepthStencilState(CompareOp, write)). Build lazily (getters), never in static init. No register() needed.
+  The 1.21.11 .fsh files (DynamicTransforms UBO) work unchanged.
+- Item stacks can't be built before a world loads ("Components not bound yet"): gui/ItemStacks.of()
+  returns EMPTY; the Item Size / Item Counter grids say "Items appear here once you are in a world" on the
+  title screen; HUD-editor item previews are blank there.
+
+### Minecraft / HUD / input
+- Minecraft.screen is gone: `mc.gui.screen()`; open screens with `mc.setScreenAndShow(s)`.
+  `Gui` is now the screen/overlay manager; the HUD is `net.minecraft.client.gui.Hud` = `mc.gui.hud`
+  (getChat, getTabList, getBossOverlay, isHidden() replaces options.hideGui, extractDeferredSubtitles).
+  Toasts: `mc.gui.toastManager()`. Overlay: `mc.gui.overlay()`.
+- HUD mixins move Gui -> Hud with extract names: render->extractRenderState(GGE, DeltaTracker),
+  renderHotbarAndDecorations->extractHotbarAndDecorations, renderCrosshair/Effects/Food/Title/Armor/Heart ->
+  extract*; displayScoreboardSidebar, setTitle/setSubtitle unchanged. Hud.extractRenderState still takes the
+  extractor, so 1.21.11's "draw on top at RETURN, order 2000" HUD hook carries over.
+- Chat: ChatComponent.extractRenderState(GGE, Font, I, I, I, DisplayMode, Z); addMessage is private with a
+  GuiMessageSource -> client code uses addClientSystemMessage; GuiMessage/GuiMessageTag moved to
+  client.multiplayer.chat; captureClickableText takes a DisplayMode.
+- player.displayClientMessage(c, true/false) -> sendOverlayMessage(c) / sendSystemMessage(c).
+- Camera: FOV lives on Camera — calculateFov(F) = world (zoom hooks here), calculateHudFov = hand;
+  getFov() public; getViewRotationProjectionMatrix(new Matrix4f()) = this frame's proj x view (WaypointHud,
+  Team View). Freelook: Camera.alignWithEntity's setRotation. GameRenderer: mainCamera(), panorama(),
+  mainRenderTarget(); bobHurt(CameraRenderState, PoseStack) reads CameraEntityRenderState.
+- Time of day: world clocks. The client reads ClientClockManager.getTotalTicks(Holder<WorldClock>) —
+  Time Changer overrides it there (keeps the day count); Level.getOverworldClockTime() for the real time.
+- Fullbright: LightmapRenderStateExtractor.extract TAIL (LightTexture is gone; FULL_BRIGHT is
+  util.LightCoordsUtil.FULL_BRIGHT).
+- Beds are no longer block entities (no BedRenderer): Bed Wars' Colored Beds has no hook -> card row dropped.
+- ChatFormatting lost isColor()/getColor(); colours live on world.scores.TeamColor (same names, rgb());
+  PlayerTeam.getColor() returns Optional<TeamColor>.
+- ChunkPos.asLong(x, z) -> ChunkPos.pack(x, z). BlockColors.getColor -> getTintSource(state, i).colorInWorld.
+  CommandEncoder.writeToTexture has no source-rect NativeImage form -> minimap uploads the whole map once
+  per tick when dirty. TextureTarget(name, w, h, depth, GpuFormat.RGBA8_UNORM).
+- EntityType.PLAYER -> EntityTypes.PLAYER. RenderTypes.entityCutoutNoCull -> entityCutout.
+- Glint: RenderType.draw is gone; RenderType.prepare() returns a PreparedRenderType (pipeline + texture
+  list) — Glint Colorizer swaps that record at RETURN (hide = transparent Sampler0).
+- Name tags: NameTagFeatureRenderer$Submit records are turned into glyphs by static prepareText(Font, Submit);
+  NametagStyleMixin swaps the record there (no per-tag shadow flag on this path — Text Shadow follows vanilla).
+  EntityRenderer.submitNameTag -> submitNameDisplay; collector.submitNameTag lost the distance argument.
+- JEI 30: GuiEventHandler.drawForScreen split into drawForScreenBackground(Screen, GGE) +
+  drawForScreenForeground(Screen, GGE, I, I); UserInput moved to mezz.jei.common.input.
+
+### Fabric API 0.16x+26.2
+- KeyBindingHelper -> keymapping.v1.KeyMappingHelper.registerKeyMapping; ClientCommandManager ->
+  ClientCommands; LivingEntityFeatureRendererRegistrationCallback -> LivingEntityRenderLayerRegistrationCallback;
+  Screens.getButtons -> getWidgets; ScreenEvents.afterRender -> afterExtract;
+  PayloadTypeRegistry.playS2C/playC2S -> clientboundPlay/serverboundPlay.
+- World render: rendering.v1.level.LevelRenderEvents/LevelRenderContext (poseStack(), levelState(),
+  submitNodeCollector(); no consumers()). There is no MultiBufferSource: world overlays are SUBMITS.
+  OriginRenderTypes keeps 1.21.11's begin()/beginLines()/draw() shape but RECORDS vertices and submits them
+  as custom geometry (submitCustomGeometry) to the collector of the current COLLECT_SUBMITS event
+  (OriginClientMod registers OriginRenderTypes::beginFrame FIRST). Every world overlay (chunk borders,
+  waypoints, block outline, party pings, WorldEdit CUI, Team View capture) runs on COLLECT_SUBMITS.
+  Proven by the overlays_world shot (chunk-border lines + block overlay) and the party ping beam.
+  END_EXTRACTION has no blockOutlines(): use levelState().blockOutlineRenderState != null. Vanilla's outline
+  is cancelled at LevelRenderer.submitBlockOutline HEAD.
+
+### Launcher / CI coupling for a 26.x version
+- live-modules.json entry with "java": "25"; OriginBuilds entry; the "26" VersionCatalog card (picker =
+  OriginBuilds, check_consistency check 5); csproj bundle glob; PerformanceModCatalog pins (Sodium 0.9.x
+  ships its own Fabric Rendering API — no Indium). CmlLib downloads Mojang's Java 25 runtime from the
+  version JSON like any other version's; no launcher change was needed for that.
