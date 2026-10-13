@@ -81,7 +81,9 @@ public final class KeyCodes {
 		map(92, Keyboard.KEY_BACKSLASH);
 		map(93, Keyboard.KEY_RBRACKET);
 		map(96, Keyboard.KEY_GRAVE);
-		map(162, Keyboard.KEY_OEM_102);      // GLFW_KEY_WORLD_2: the ISO "<>" key (GLFW's win32 table)
+		// GLFW_KEY_WORLD_2: the ISO "<>" key. LWJGL 2 names no constant for it, but
+		// reports its DirectInput scancode DIK_OEM_102 (0x56) as the key code.
+		map(162, 0x56);
 		// function / editing
 		map(256, Keyboard.KEY_ESCAPE);
 		map(257, Keyboard.KEY_RETURN);

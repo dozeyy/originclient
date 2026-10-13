@@ -185,7 +185,7 @@ public final class WorldHooks {
 				ofZoomField = Reflect.field(GameSettings.class, "ofKeyBindZoom");   // OptiFine's own (unobfuscated) field
 			}
 		}
-		Object kb = ofZoomField == null ? null : Reflect.get(ofZoomField, gs, null);
+		Object kb = ofZoomField == null ? null : Reflect.get(ofZoomField, gs, (Object) null);
 		return kb instanceof KeyBinding ? (KeyBinding) kb : null;
 	}
 
