@@ -42,6 +42,17 @@ public static class LegacyStackInstaller
 
     public static bool Supports(string version) => Stacks.ContainsKey(version);
 
+    /// <summary>
+    /// True for a jar this catalog installs (exact pinned file names — the
+    /// pins have never changed, so no drifted leftovers exist). ModManager
+    /// counts these as Origin-provisioned, so the Mods page shows them
+    /// read-only and an Origin-only launch keeps them.
+    /// </summary>
+    public static bool IsStackJar(string jarName) =>
+        Stacks.Values.Any(mods => mods.Any(m => m.FileName.Equals(jarName, StringComparison.OrdinalIgnoreCase)));
+
+    // Into the version's SHARED mods folder (SharedMods): new names only, each
+    // downloaded beside and renamed in, so a running game is never disturbed.
     public static async Task InstallAsync(
         string version, string modsFolder, IProgress<string>? progress = null, CancellationToken ct = default)
     {
@@ -77,7 +88,9 @@ public static class LegacyStackInstaller
     // FML's boot splash (the earliest thing a player sees) is configurable via
     // config/splash.properties — seed it themed to the Origin palette so even
     // the Forge load screen is charcoal + white instead of the default red.
-    // Only written when absent: the file is player-ownable config.
+    // Only written when absent: the file is player-ownable config. FML reads
+    // it from <gameDir>/config, i.e. the ACCOUNT's own game folder, so every
+    // account gets its own copy the first time it plays.
     public static void SeedSplashTheme(string configFolder)
     {
         try

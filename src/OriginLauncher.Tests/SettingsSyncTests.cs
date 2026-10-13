@@ -172,6 +172,61 @@ public class SettingsSyncTests
     }
 
     [Fact]
+    public void KeybindsAndLanguageCrossThe189Cliff()
+    {
+        var legacy = Instance("1.8.9");
+        var modern = Instance("1.21.1");
+        // 1.8.9 stores LWJGL 2 key codes (and has no version line).
+        Write(legacy, "options.txt", Options("key_key.forward:17", "key_key.attack:-100", "key_key.sprint:29", "lang:en_US", "fov:0.0"), 1);
+        Write(modern, "options.txt", Options("version:3955", "key_key.forward:key.keyboard.w", "key_key.attack:key.mouse.left",
+            "key_key.sprint:key.keyboard.left.control", "lang:en_us", "fov:0.0"), 1);
+        var engine = Engine();
+        engine.Seed(new[] { legacy, modern });
+
+        // The player rebinds sprint to R and switches to German in 1.21.1...
+        Write(modern, "options.txt", Options("version:3955", "key_key.forward:key.keyboard.w", "key_key.attack:key.mouse.left",
+            "key_key.sprint:key.keyboard.r", "key_key.drop:scancode.86", "lang:de_de", "fov:0.0"), 30);
+        engine.Harvest(modern);
+        engine.Harvest(legacy);
+        engine.Push(legacy);
+
+        var after = OptionsOf(legacy);
+        Assert.Equal("19", after["key_key.sprint"]);      // R as an LWJGL 2 code
+        Assert.Equal("17", after["key_key.forward"]);     // the same key in both eras: untouched
+        Assert.Equal("-100", after["key_key.attack"]);
+        Assert.False(after.ContainsKey("key_key.drop"));  // a raw scancode has no 1.8.9 code
+        Assert.Equal("de_DE", after["lang"]);
+        Assert.False(after.ContainsKey("version"));       // 1.8.9 has no data version
+
+        // ...and back: a rebind made in 1.8.9 reaches 1.21.1 as a GLFW name.
+        Write(legacy, "options.txt", Options("key_key.forward:17", "key_key.attack:-100", "key_key.sprint:42",
+            "key_key.jump:-98", "lang:de_DE", "fov:0.0"), 120);
+        engine.Harvest(legacy);
+        engine.Harvest(modern);
+        engine.Push(modern);
+        var modernAfter = OptionsOf(modern);
+        Assert.Equal("key.keyboard.left.shift", modernAfter["key_key.sprint"]);
+        Assert.Equal("key.mouse.middle", modernAfter["key_key.jump"]);
+        Assert.Equal("de_de", modernAfter["lang"]);
+    }
+
+    [Fact]
+    public void ABrandNew189OptionsFileHasNoVersionLine()
+    {
+        var modern = Instance("1.21.1");
+        var fresh = Instance("1.8.9");
+        Write(modern, "options.txt", Options("version:3955", "fov:0.25", "key_key.jump:key.keyboard.space"), 10);
+        var engine = Engine();
+        engine.Seed(new[] { modern, fresh });
+        engine.Push(fresh);
+
+        var created = File.ReadAllLines(Path.Combine(fresh.Directory, "options.txt"));
+        Assert.DoesNotContain(created, l => l.StartsWith("version:", StringComparison.Ordinal));
+        Assert.Contains("fov:0.25", created);
+        Assert.Contains("key_key.jump:57", created);
+    }
+
+    [Fact]
     public void SoundDeviceIsRawIn118AndQuotedFrom119()
     {
         var old = Instance("1.18.2");

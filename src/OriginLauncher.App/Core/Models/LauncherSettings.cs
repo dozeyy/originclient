@@ -1,7 +1,8 @@
 ﻿namespace OriginLauncher.App.Core.Models;
 
-// Origin is Fabric-only (CLAUDE.md mandate): there is no loader choice, no
-// Forge/OptiFine path, and no Graphics/Performance mode. Old settings.json
+// There is no loader choice (CLAUDE.md mandate): every version is Fabric
+// except 1.8.9, which the launcher quietly runs on Forge + OptiFine — nothing
+// here selects it. No Graphics/Performance mode either. Old settings.json
 // files that still carry those removed keys deserialize fine — System.Text.Json
 // ignores unknown properties.
 public sealed class LauncherSettings
@@ -34,8 +35,9 @@ public sealed class LauncherSettings
     // behavior every existing install already has): the instance's mods/
     // folder loads as-is, the player's own jars included. OFF: the game is
     // pointed at a launcher-owned folder containing only the jars Origin
-    // itself provisions (via Fabric's fabric.modsFolder property — see
-    // VersionManager), so a broken third-party mod can never break a launch.
+    // itself provisions (via Fabric's fabric.modsFolder property; on Forge
+    // 1.8.9 via the account's mods mirror — see VersionManager), so a broken
+    // third-party mod can never break a launch.
     // The player's mods/ folder is never modified by this — flip it back on
     // and everything loads exactly as before.
     public bool PlayWithExternalMods { get; set; } = true;

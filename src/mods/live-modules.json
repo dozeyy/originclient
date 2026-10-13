@@ -30,6 +30,7 @@
     { "module": "1.19.2",  "covers": "1.19.2",           "versions": ["1.19.2"] },
     { "module": "1.18.2",  "covers": "1.18.2",           "versions": ["1.18.2"] },
     { "module": "1.17.1",  "covers": "1.17.1",           "versions": ["1.17.1"] },
-    { "module": "1.16.5",  "covers": "1.16.5",           "versions": ["1.16.5"] }
+    { "module": "1.16.5",  "covers": "1.16.5",           "versions": ["1.16.5"] },
+    { "module": "1.8.9",   "covers": "1.8.9",            "versions": ["1.8.9"] }
   ]
 }

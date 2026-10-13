@@ -6,6 +6,9 @@ plugins {
 	// 14, so loom needs an explicit provider or setup dies with
 	// "No provider for Pack200 has been found".
 	id 'dev.architectury.architectury-pack200' version '0.1.3'
+	// Mixin 0.7.11 has to travel INSIDE the Origin jar (1.8.9 Forge has no
+	// Mixin of its own) -> shadow it in, then remap the shadowed jar.
+	id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 version = project.mod_version
@@ -16,10 +19,36 @@ base {
 	archivesName = "originclient-${project.minecraft_version}"
 }
 
+// Origin hooks on 1.8.9: Forge events where Forge has one (GUI open/draw,
+// HUD overlay elements, world-render-last, chat, ticks, input), Mixin 0.7.11
+// for everything else — the setup Patcher/Skytils/NEU ship next to OptiFine.
+// Mixin is loaded by its own tweaker (manifest TweakClass below); one config
+// per area so the hooks of one area can never break another's. Every config
+// is defaultRequire 0: a hook whose target moved (or that OptiFine rewrote)
+// silently does nothing instead of crashing the game.
+def mixinConfigs = [
+	'originclient.core.mixins.json',
+	'originclient.menus.mixins.json',
+	'originclient.hud.mixins.json',
+	'originclient.world.mixins.json',
+	'originclient.social.mixins.json',
+	'originclient.server.mixins.json',
+]
+
 loom {
 	forge {
-		// No mixins in the legacy modules — everything is Forge-event driven.
 		pack200Provider = new dev.architectury.pack200.java.Pack200Adapter()
+		mixinConfigs.each { mixinConfig it }
+	}
+	mixin {
+		defaultRefmapName = 'mixins.originclient.refmap.json'
+	}
+	runs {
+		client {
+			// Dev runs load the classes dir, not the jar, so the manifest's
+			// TweakClass isn't seen there — pass the tweaker explicitly.
+			programArgs '--tweakClass', 'org.spongepowered.asm.launch.MixinTweaker'
+		}
 	}
 }
 
@@ -27,12 +56,31 @@ repositories {
 	mavenCentral()
 	maven { url = 'https://maven.minecraftforge.net' }
 	maven { url = 'https://repo.essential.gg/repository/maven-public' }
+	maven { url = 'https://repo.spongepowered.org/maven/' }
+}
+
+configurations {
+	// Bundled into the shipped jar (and on the compile classpath).
+	shadowImpl
+	implementation.extendsFrom shadowImpl
 }
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings project.mcp_mappings
 	forge "net.minecraftforge:forge:${project.forge_version}"
+
+	// Runtime: the last Mixin that runs on Java 8 + LaunchWrapper (1.8.9).
+	shadowImpl('org.spongepowered:mixin:0.7.11-SNAPSHOT') { transitive = false }
+	// Build time only: the newer annotation processor writes the refmap that
+	// maps Origin's MCP names to the SRG names production Forge runs with.
+	annotationProcessor 'org.spongepowered:mixin:0.8.5-SNAPSHOT'
+	// The processor's own runtime (not on javac's processor path by default).
+	annotationProcessor 'com.google.code.gson:gson:2.8.9'
+	annotationProcessor 'com.google.guava:guava:31.1-jre'
+	['asm', 'asm-tree', 'asm-commons', 'asm-util', 'asm-analysis'].each {
+		annotationProcessor "org.ow2.asm:${it}:9.6"
+	}
 }
 
 java {
@@ -50,6 +98,9 @@ sourceSets.main.output.resourcesDir = sourceSets.main.java.classesDirectory
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
+	// Report every error in one CI run (default stops at 100): the sandbox can't
+	// compile 1.8.9, so CI is the compiler and each round trip should show all.
+	options.compilerArgs += ['-Xmaxerrs', '5000']
 }
 
 // Loom's run tasks don't inherit the java{} toolchain — left alone they launch
@@ -61,9 +112,51 @@ tasks.withType(JavaExec).configureEach {
 	}
 }
 
+// Jar pipeline: jar (Origin classes) -> shadowJar (+ Mixin) -> remapJar
+// (MCP -> SRG). Only the remapped jar lands in build/libs, which is what CI's
+// "exactly one shippable jar" step collects.
+tasks.named('jar') {
+	archiveClassifier = 'without-deps'
+	destinationDirectory = layout.buildDirectory.dir('intermediates')
+}
+
+shadowJar {
+	archiveClassifier = 'all-dev'
+	destinationDirectory = layout.buildDirectory.dir('intermediates')
+	configurations = [project.configurations.shadowImpl]
+	// Mixin's own copies of these ship with Minecraft 1.8.9 already.
+	exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+}
+
+remapJar {
+	archiveClassifier = ''
+	inputFile = shadowJar.archiveFile
+	dependsOn shadowJar
+}
+
+tasks.withType(Jar).configureEach {
+	manifest.attributes(
+		// LaunchWrapper loads Mixin first; ForceLoadAsMod keeps the @Mod class
+		// loading as a normal mod from the same jar.
+		'TweakClass': 'org.spongepowered.asm.launch.MixinTweaker',
+		'TweakOrder': '0',
+		'MixinConfigs': mixinConfigs.join(','),
+		'ForceLoadAsMod': 'true',
+		'FMLCorePluginContainsFMLMod': 'true',
+	)
+}
+
 processResources {
 	inputs.property 'version', project.version
 	filesMatching('mcmod.info') {
 		expand 'version': project.version, 'mcversion': project.minecraft_version
+	}
+}
+
+// Prints the compile classpath (MCP-named Minecraft + Forge + libraries) for
+// .github/workflows/ref-189.yml, the CI-side API lookup the sandbox relies on.
+tasks.register('originPrintClasspath') {
+	doLast {
+		sourceSets.main.compileClasspath.each { println "CP " + it }
 	}
 }

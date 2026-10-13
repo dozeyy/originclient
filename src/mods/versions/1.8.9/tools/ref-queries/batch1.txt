@@ -1,0 +1,17 @@
+# ref-189 lookup group: batch1 — names the porting agents flagged unverified
+class net.minecraft.util.RegistryNamespaced
+class net.minecraft.util.RegistrySimple
+class net.minecraft.util.ResourceLocation
+class DefaultPlayerSkin
+class net.minecraft.command.CommandBase
+class net.minecraft.command.ICommand
+class net.minecraft.command.CommandHandler
+class net.minecraftforge.client.ClientCommandHandler
+class net.minecraft.client.resources.IResource
+class SkinManager$SkinAvailableCallback
+class EnumPlayerModelParts
+class ItemArmor
+class ItemSword
+class ItemTool
+class CreativeTabs
+member getLocalizedName

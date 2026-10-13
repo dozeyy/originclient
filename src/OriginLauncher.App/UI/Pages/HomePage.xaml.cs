@@ -430,9 +430,8 @@ public partial class HomePage : UserControl
         if (_launches.BeginPrepare(key, version) is not { } ticket) return;
         _overlayTicket = ticket;
         RefreshPlayButton();
-        // Loader label only — the player never chooses one; the legacy
-        // versions (1.8.9/1.12.2) quietly run Forge+OptiFine, everything
-        // else Fabric.
+        // Loader label only — the player never chooses one; 1.8.9 quietly
+        // runs Forge+OptiFine, everything else Fabric.
         LoadingOverlay.Show(version, Core.Loaders.LegacyForgeInstaller.IsLegacy(version) ? "Forge" : "Fabric");
 
         // Only the launch the scene is showing reports into it — an older

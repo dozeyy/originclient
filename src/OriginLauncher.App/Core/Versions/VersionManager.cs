@@ -159,19 +159,19 @@ public sealed class VersionManager
             // 1.16.5 — Java 8 bytecode, fixed-function GL era (no RenderSystem
             // shader API): the oldest Fabric version Origin ships.
             ["1.16.5"] = new("originclient-1.16.5.jar", BundlesPerfStack: false),
-            // --- LEGACY (Forge + OptiFine) — REMOVED 2026-08-06 ---
-            // 1.8.9 and 1.12.2 were the only pre-Fabric versions Origin shipped
-            // (Forge + OptiFine, since Fabric never supported them). They were
-            // greyed out 2026-07-16 and are now dropped from the lineup entirely:
-            // both are gone from VersionCatalog, so their cards no longer appear
-            // in the picker, and CI no longer builds or bundles their jars.
-            //
-            // Consequence: no supported version uses Forge any more, so the legacy
-            // install path (LegacyForgeInstaller / OptiFineInstaller /
-            // LegacyStackInstaller and the LEGACY BRANCH in Prepare below) is now
-            // unreachable. It is left in place rather than deleted — the modules
-            // (src/mods/versions/1.8.9, /1.12.2) are still on disk, so re-adding
-            // both versions is a catalog + CI change, not a rewrite.
+            // --- LEGACY (Forge + OptiFine) ---
+            // 1.8.9 (src/mods/versions/1.8.9) — LIVE again (Will, 2026-10-13):
+            // the PvP-era version, on Forge 11.15.1.2318 + OptiFine HD_U_M5 —
+            // Fabric never supported it and OptiFine is its only shader layer.
+            // The player still never picks a loader: InstallAndBuildCoreAsync
+            // takes the LEGACY BRANCH for it quietly. BundlesPerfStack is
+            // meaningless there (the legacy branch never installs the Fabric
+            // catalog; LegacyStackInstaller is its perf stack).
+            ["1.8.9"] = new("originclient-1.8.9.jar", BundlesPerfStack: false),
+            // 1.12.2 stays PULLED (2026-08-06, Will's call): out of
+            // VersionCatalog and CI. Its module and its LegacyForgeInstaller /
+            // OptiFineInstaller / LegacyStackInstaller entries are kept, so it
+            // could return the same way 1.8.9 did.
             // --- 26.x (unobfuscated, Java 25, extract/submit GUI) ---
             // 26.3 — derived from the 26.2 module 2026-10-13 (src/mods/versions/26.3):
             // SDL3 window/input and the com.mojang.renderpearl render API. 26.3 has no
@@ -281,7 +281,7 @@ public sealed class VersionManager
     // Every launch installs its loader quietly (the Lunar/Feather model — no
     // loader choice exists anywhere): Fabric + the Origin build + the
     // perf/shader stack for modern versions, Forge + OptiFine + the legacy
-    // stack for 1.8.9/1.12.2. Caller still has to call Process.Start().
+    // stack for 1.8.9. Caller still has to call Process.Start().
     // progress reports human-readable stage text — drives LaunchLoadingOverlay.
     // accountKey picks the game folder (InstanceLayout.KeyFor); the caller
     // prepares it first (AccountFolders.PrepareGameDir: migration + seeding).
@@ -312,7 +312,8 @@ public sealed class VersionManager
         var sharedRoot = OriginPaths.VersionRoot(version);
         // ONE mods folder per version, shared by every account (Will,
         // 2026-10-12). The game is pointed at it with Fabric's fabric.modsFolder
-        // property below, so nothing lives in the account's own mods/. Several
+        // property below, so nothing lives in the account's own mods/ (1.8.9's
+        // Forge can't be pointed elsewhere: InstallLegacyAsync mirrors). Several
         // games of this version can be open at once and each holds these jars
         // open: every write below adds a new name, deletes, or swaps a file in
         // with one rename — never rewrites a jar in place (SharedMods.cs).
@@ -337,69 +338,12 @@ public sealed class VersionManager
         Directory.CreateDirectory(modsFolder);
         Directory.CreateDirectory(configFolder);
 
-        // LEGACY BRANCH (1.8.9 / 1.12.2): Forge + OptiFine + the era's perf
-        // stack instead of Fabric + Sodium/Iris — the pre-Fabric versions have
-        // no Fabric option and OptiFine is their only shader layer. Quiet and
-        // choiceless exactly like the Fabric path below. Self-contained: the
-        // branch finishes with its own game-file download + process build and
-        // returns — the code after it is the Fabric path.
+        // LEGACY BRANCH (1.8.9): Forge + OptiFine + the era's perf stack
+        // instead of Fabric + Sodium/Iris — see InstallLegacyAsync. Quiet and
+        // choiceless exactly like the Fabric path below, which is everything
+        // after this line.
         if (LegacyForgeInstaller.IsLegacy(version))
-        {
-            // Forge has no fabric.modsFolder: it loads <gameDir>/mods, so the
-            // (currently unreachable) legacy pair keeps a per-account folder.
-            modsFolder = Path.Combine(path.BasePath, "mods");
-            Directory.CreateDirectory(modsFolder);
-            var forgeVersionName = await LegacyForgeInstaller.InstallAsync(version, path, progress, ct);
-
-            if (OriginBuilds.TryGetValue(version, out var legacyBuild)
-                && File.Exists(OriginPaths.BundledOriginClientJar(legacyBuild.JarFileName)))
-            {
-                progress?.Report("Installing Origin Client...");
-                // Same stale-jar sweep as the Fabric path: always ship the
-                // launcher's own bundled build, whatever an older launcher left.
-                foreach (var file in Directory.EnumerateFiles(modsFolder))
-                {
-                    var fn = Path.GetFileName(file);
-                    if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
-                        && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        try { File.Delete(file); } catch { /* locked/removed already */ }
-                    }
-                }
-                File.Copy(OriginPaths.BundledOriginClientJar(legacyBuild.JarFileName),
-                          Path.Combine(modsFolder, "originclient.jar"), overwrite: true);
-            }
-
-            // OptiFine is the shader mandate on legacy. Non-fatal on failure —
-            // the game still boots (vanilla renderer), and the next launch
-            // retries the download.
-            var optifineOk = await OptiFineInstaller.InstallAsync(version, modsFolder, progress, ct);
-            if (!optifineOk)
-                progress?.Report("OptiFine unavailable right now — launching without shaders");
-
-            await LegacyStackInstaller.InstallAsync(version, modsFolder, progress, ct);
-            LegacyStackInstaller.SeedSplashTheme(configFolder);
-            SanitizeCorruptConfigs(configFolder);
-
-            // NOTE: the Fabric-only conveniences don't apply here — the
-            // fabric.modsFolder Origin-only launch and the Fabric-family
-            // dedupe both key on Fabric loader semantics. "Play with external
-            // mods" is treated as always-on for legacy instances.
-            // Same stamp policy as the Fabric path — the legacy instances carry
-            // the same multi-hundred-MB asset + JRE rehash, so they get the same
-            // skip once they have proven clean under this launcher build.
-            var legacyDecision = InstallVerification.Evaluate(sharedRoot, version);
-            var legacyLauncher = BuildLauncher(path, legacyDecision.FullVerify);
-
-            progress?.Report(legacyDecision.FullVerify ? "Verifying game files..." : "Preparing game files...");
-            var legacyFileProgress = new InstallProgressThrottle(
-                progress, legacyDecision.FullVerify ? "Verifying game files" : "Preparing game files").Progress;
-
-            var legacyBuilt = await legacyLauncher.InstallAndBuildProcessAsync(
-                forgeVersionName, option, legacyFileProgress, null, ct);
-            InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
-            return legacyBuilt;
-        }
+            return await InstallLegacyAsync(version, path, option, externalMods, progress, ct);
 
         // Fast path: a stamped instance already resolved this loader and passed
         // a full integrity check under this same launcher build, so both the
@@ -436,44 +380,8 @@ public sealed class VersionManager
 
         bool originBundlesPerfStack = false;
         if (OriginBuilds.TryGetValue(version, out var originBuild)
-            && File.Exists(OriginPaths.BundledOriginClientJar(originBuild.JarFileName)))
+            && InstallOriginJar(originBuild, modsFolder, progress))
         {
-            progress?.Report("Installing Origin Client...");
-            // Remove ANY previously-installed Origin Client jar first,
-            // whatever its filename — a stale jar left by an older
-            // launcher build (e.g. a pre-mod-system release) would
-            // otherwise keep loading in-game even after the launcher
-            // updated. This is exactly the "old client through the
-            // launcher" symptom: the launcher was new, the instance
-            // jar was old. Always ship the launcher's own bundled jar.
-            //
-            // Enumerate ALL files and filter by EndsWith rather than a
-            // Win32 "originclient*.jar" glob — the legacy 3-char-ext
-            // match is ambiguous. Enabled ".jar" only; a user's own
-            // ".jar.disabled" is never touched.
-            var bundledJar = OriginPaths.BundledOriginClientJar(originBuild.JarFileName);
-            var installedJar = Path.Combine(modsFolder, "originclient.jar");
-
-            // The jar is up to ~14 MB and was byte-copied on EVERY launch. Skip
-            // the whole sweep when the installed copy already matches the
-            // bundled one on length and write time — the stale-jar problem this
-            // guards against only arises when the launcher ships a DIFFERENT
-            // jar, which changes both.
-            if (!IsSameFile(bundledJar, installedJar))
-            {
-                // Other names only: originclient.jar itself is swapped below.
-                foreach (var file in Directory.EnumerateFiles(modsFolder))
-                {
-                    var fn = Path.GetFileName(file);
-                    if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
-                        && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
-                        && !fn.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
-                    {
-                        try { File.Delete(file); } catch { /* locked/removed already */ }
-                    }
-                }
-                ReplaceOriginJar(bundledJar, installedJar);
-            }
             originBundlesPerfStack = originBuild.BundlesPerfStack;
 
             // Only when THIS build carries its own perf stack jar-in-jar
@@ -685,6 +593,121 @@ public sealed class VersionManager
         // be exactly the wrong thing.
         InstallVerification.MarkVerified(sharedRoot, version, versionName);
         return built;
+    }
+
+    // The legacy (Forge) launch for 1.8.9 — today's model, the same rules as
+    // the Fabric path wherever Forge allows it:
+    //  * ONE shared mods folder per version (instances/1.8.9/mods/) is where
+    //    the launcher installs Origin, OptiFine and the era perf mods, and what
+    //    the Mods page edits — exactly like every Fabric version.
+    //  * The game folder (--gameDir) is the account's own, so settings, worlds,
+    //    servers and configs are per account (config/splash.properties too).
+    //  * FML 8.0.x (Forge 11.15) has no fabric.modsFolder: it only loads
+    //    <gameDir>/mods. So the shared folder is MIRRORED into the account's
+    //    mods/ just before launch (SharedMods.Mirror) — chosen over FML's
+    //    --mods / --modListFile launch arguments because those are resolved
+    //    relative to the game folder, and whether coremods / tweakers (which is
+    //    how OptiFine loads on Forge) are discovered through them in this exact
+    //    Forge build can't be verified without booting it; a plain mods/ folder
+    //    is what every 1.8.9 Forge setup in the wild uses. The mirror only adds,
+    //    deletes or swaps whole files in by rename, and a jar the player drops
+    //    into the account's mods/ joins the shared folder instead of being lost.
+    //  * "Play with external mods" OFF mirrors only the jars Origin provisions
+    //    (ModManager.IsManaged), so the crash window's Origin-only retry works
+    //    here too — same contract as the Fabric path's mods-origin-only folder.
+    // Self-contained: ends with its own game-file download + process build.
+    private async Task<Process> InstallLegacyAsync(
+        string version, GameFolderPath path, MLaunchOption option, bool externalMods,
+        IProgress<string>? progress, CancellationToken ct)
+    {
+        var sharedRoot = OriginPaths.VersionRoot(version);
+        var modsFolder = OriginPaths.ModsDir(version);
+        var configFolder = Path.Combine(path.BasePath, "config");
+
+        // The Forge version JSON (bundled) + universal jar, in the shared root.
+        var forgeVersionName = await LegacyForgeInstaller.InstallAsync(version, path, progress, ct);
+
+        if (OriginBuilds.TryGetValue(version, out var legacyBuild))
+            InstallOriginJar(legacyBuild, modsFolder, progress);
+
+        // OptiFine is the shader mandate on legacy. Non-fatal on failure —
+        // the game still boots (vanilla renderer), and the next launch
+        // retries the download.
+        var optifineOk = await OptiFineInstaller.InstallAsync(version, modsFolder, progress, ct);
+        if (!optifineOk)
+            progress?.Report("OptiFine unavailable right now — launching without shaders");
+
+        await LegacyStackInstaller.InstallAsync(version, modsFolder, progress, ct);
+        LegacyStackInstaller.SeedSplashTheme(configFolder);
+        SanitizeCorruptConfigs(configFolder);
+
+        progress?.Report(externalMods ? "Preparing mods..." : "Preparing Origin-only mod set...");
+        Func<string, bool> include = externalMods ? static _ => true : static name => ModManager.IsManaged(name);
+        SharedMods.Mirror(modsFolder, Path.Combine(path.BasePath, InstanceLayout.ModsFolder), include);
+
+        // Same stamp policy as the Fabric path — the legacy instance carries
+        // the same multi-hundred-MB asset + JRE rehash, so it gets the same
+        // skip once it has proven clean under this launcher build.
+        var decision = InstallVerification.Evaluate(sharedRoot, version);
+        var launcher = BuildLauncher(path, decision.FullVerify);
+
+        progress?.Report(decision.FullVerify ? "Verifying game files..." : "Preparing game files...");
+        var fileProgress = new InstallProgressThrottle(
+            progress, decision.FullVerify ? "Verifying game files" : "Preparing game files").Progress;
+
+        // CmlLib resolves the Forge JSON like any custom version: inheritsFrom
+        // 1.8.9 (libraries, LWJGL 2 natives, Mojang's jre-legacy Java 8) and
+        // its legacy "minecraftArguments" string, plus option's extra game
+        // arguments (a friend's server: --server/--port, JoinArguments).
+        var built = await launcher.InstallAndBuildProcessAsync(forgeVersionName, option, fileProgress, null, ct);
+        InstallVerification.MarkVerified(sharedRoot, version, forgeVersionName);
+        return built;
+    }
+
+    // Puts the launcher's bundled Origin jar for this build into a mods folder
+    // as originclient.jar, removing any other originclient*.jar first. False
+    // when this launcher has no bundled jar for the build (a dev build without
+    // the module's Gradle output) — the version then plays without Origin.
+    private static bool InstallOriginJar(OriginBuild build, string modsFolder, IProgress<string>? progress)
+    {
+        var bundledJar = OriginPaths.BundledOriginClientJar(build.JarFileName);
+        if (!File.Exists(bundledJar)) return false;
+
+        progress?.Report("Installing Origin Client...");
+        // Remove ANY previously-installed Origin Client jar first,
+        // whatever its filename — a stale jar left by an older
+        // launcher build (e.g. a pre-mod-system release) would
+        // otherwise keep loading in-game even after the launcher
+        // updated. This is exactly the "old client through the
+        // launcher" symptom: the launcher was new, the instance
+        // jar was old. Always ship the launcher's own bundled jar.
+        //
+        // Enumerate ALL files and filter by EndsWith rather than a
+        // Win32 "originclient*.jar" glob — the legacy 3-char-ext
+        // match is ambiguous. Enabled ".jar" only; a user's own
+        // ".jar.disabled" is never touched.
+        var installedJar = Path.Combine(modsFolder, "originclient.jar");
+
+        // The jar is up to ~14 MB and was byte-copied on EVERY launch. Skip
+        // the whole sweep when the installed copy already matches the
+        // bundled one on length and write time — the stale-jar problem this
+        // guards against only arises when the launcher ships a DIFFERENT
+        // jar, which changes both.
+        if (IsSameFile(bundledJar, installedJar)) return true;
+
+        // Other names only: originclient.jar itself is swapped below.
+        foreach (var file in Directory.EnumerateFiles(modsFolder))
+        {
+            var fn = Path.GetFileName(file);
+            if (fn.StartsWith("originclient", StringComparison.OrdinalIgnoreCase)
+                && fn.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
+                && !fn.Equals("originclient.jar", StringComparison.OrdinalIgnoreCase))
+            {
+                try { File.Delete(file); } catch { /* locked/removed already */ }
+            }
+        }
+        ReplaceOriginJar(bundledJar, installedJar);
+        return true;
     }
 
     // One client for the whole process. The Fabric installer used to get a

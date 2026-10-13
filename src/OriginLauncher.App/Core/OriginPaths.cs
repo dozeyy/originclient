@@ -77,8 +77,8 @@ public static class OriginPaths
         Directory.CreateDirectory(Instances);
         Directory.CreateDirectory(Accounts);
         Directory.CreateDirectory(Logs);
-        // optifine-cache under Root is live again — the legacy versions
-        // (1.8.9/1.12.2, Forge + OptiFine) returned 2026-07-14. It's owned by
-        // Core/Loaders/OptiFineInstaller.cs.
+        // optifine-cache under Root holds OptiFine for 1.8.9 (Forge +
+        // OptiFine, live again 2026-10-13), downloaded once per machine. It's
+        // owned by Core/Loaders/OptiFineInstaller.cs, which creates it.
     }
 }

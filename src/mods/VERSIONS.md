@@ -58,6 +58,7 @@ MEMORY.md and `docs/PORTING-ERA-NOTES.md`). JEI ships only where a Fabric JEI ex
 | `1.18.2` | 1.18–1.18.2 | `>=1.18- <1.19-` | standalone stack (TextComponent era, no OptionInstance) | 17 |
 | `1.17.1` | 1.17–1.17.1 | `>=1.17- <1.18-` | standalone stack (merged source set — no bundled server jar) | 16 |
 | `1.16.5` | 1.16.5 | `>=1.16.5- <1.17-` | standalone stack (**fixed-function GL**, no `setShader*`) | 8 |
+| `1.8.9` | 1.8.9 | — (**Forge** 11.15.1.2318, `mcmod.info`) | Origin jar + OptiFine HD_U_M5 (downloaded at install) + TexFix/BetterFps — see "Legacy versions" below | 8 |
 
 All are boot-verified with zero mixin-apply failures and full shader
 integration (Iris + Sodium from the catalog pins). Each module's
@@ -107,30 +108,56 @@ the blur pass's UBO every frame (per-frame GPU-buffer churn racing the private
 `addToFrame` map) — not worth the stability risk; the baked variants are the
 best-fit stable method for this render era.
 
-## Legacy versions (1.8.9 / 1.12.2, Forge) — PULLED 2026-08-06
+## Legacy versions (Forge) — 1.8.9 LIVE again 2026-10-13, 1.12.2 still PULLED
 
-**Both are removed from the supported lineup** (Will's call). They are gone from
-`VersionCatalog`, so their grid cards no longer appear at all — the picker is
-Fabric-only now — and neither workflow builds them nor does the launcher bundle
-their jars or the Forge version JSONs.
+**1.8.9 is back in the lineup** (Will, 2026-10-13) on Forge 11.15.1.2318 +
+OptiFine HD_U_M5 — the only stack that gives 1.8.9 shaders. The player still
+never picks a loader: `VersionManager`'s legacy branch (`InstallLegacyAsync`)
+installs it quietly. **1.12.2 stays pulled** (2026-08-06): out of
+`VersionCatalog` and CI; its module and installer entries are kept.
 
-The modules (`versions/1.8.9`, `versions/1.12.2`) and the launcher-side install
-path (`LegacyForgeInstaller` / `OptiFineInstaller` / `LegacyStackInstaller`, plus
-the LEGACY BRANCH in `VersionManager.Prepare`) are still in the repo but are now
-**unreachable code** — no supported version uses Forge. Kept rather than deleted
-so re-adding either version is a catalog + CI change rather than a rewrite; if
-they are not coming back, that subsystem is a clean deletion.
+Coupling points for 1.8.9 are the usual four (OriginBuilds entry,
+`live-modules.json`, the csproj `<Content>` glob — `archivesName` is
+`originclient-1.8.9`, so the glob has the same shape as every Fabric module —
+and its own `1.8` card in `VersionCatalog`) **plus one**: the csproj also
+bundles `Assets/Forge/forge-1.8.9.json` as `Bundled/Forge/forge-1.8.9.json`,
+which `LegacyForgeInstaller` copies into the instance.
 
-Their original toolchain, for reference if revived:
+How the launcher runs it, on today's model (per-account game folders, one
+shared mods folder per version, several games at once):
+
+- `LegacyForgeInstaller`: the bundled Forge version JSON + the universal jar
+  from Forge's maven, in the version's shared root; CmlLib resolves the rest
+  (inheritsFrom 1.8.9, LWJGL 2 natives per account, Mojang's `jre-legacy`
+  Java 8, the legacy `minecraftArguments`).
+- Origin jar, `OptiFineInstaller` (download-at-install, SHA-1-pinned, never
+  redistributed) and `LegacyStackInstaller` (TexFix + BetterFps) all install
+  into the shared `instances/1.8.9/mods/` — the folder the Mods page edits.
+- **FML 8.0.x only loads `<gameDir>/mods`** (no `fabric.modsFolder`), so the
+  shared folder is **mirrored** into the launching account's own `mods/`
+  (`SharedMods.Mirror`): add / delete / rename-swap only, a manifest
+  (`.origin-mirror`) marks the launcher's copies, a jar the player drops into
+  the mirror joins the shared folder, and the shared-mods merge skips mirrors.
+  "Play with external mods" OFF mirrors only Origin's own jars
+  (`ModManager.IsManaged`), so the crash window's Origin-only retry works.
+- FML's splash theme (`config/splash.properties`) is per account.
+- Friends "Join": `--server/--port` (no Quick Play before 1.20).
+- Settings Sync: options.txt keybinds are translated between LWJGL 2 codes and
+  GLFW names, `lang` between `en_US` and `en_us` (OptionsTxtFormat); servers.dat
+  and Origin's `originclient*.json` sync as on every version.
+- CrashAnalyzer reads FML's mod state table (errored = `E`), its duplicate /
+  missing-dependency lines, and indexes Forge mods by `mcmod.info`.
+
+Toolchains (1.12.2 for reference if revived):
 
 | Module | Loader | Toolchain | Java | Install model |
 |--------|--------|-----------|------|---------------|
 | `1.8.9` | Forge 11.15.1.2318 | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_22 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_M5 + TexFix/BetterFps |
 | `1.12.2` | Forge 14.23.5.2860 runtime / 2847 dev | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_39-1.12 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_G5 + FoamFix/Phosphor/VanillaFix/TexFix/BetterFps |
 
-These two versions predate Fabric entirely — Forge + OptiFine was the only
+These two versions predate Fabric entirely — Forge + OptiFine is the only
 loader/shader stack that exists there (the call Lunar/Feather made too). OptiFine
-was never redistributed: it downloaded at install time (official site first,
+is never redistributed: it downloads at install time (official site first,
 mirrors after) with every source SHA-1-pinned.
 
 **These modules do NOT consume `shared/`.** The shared core is Mojmap/modern-

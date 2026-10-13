@@ -2,7 +2,7 @@
 {
   "modid": "originclient",
   "name": "Origin Client",
-  "description": "The Origin Client experience: restyled title screen, loading screens, mods menu and HUD.",
+  "description": "The Origin Client experience for 1.8.9: the Origin title, loading and pause screens, the Origin mod menu and HUD editor, the full Origin mod set (HUD readouts, zoom, freelook, Lunar-style mods, Hypixel tools), cosmetics, and Friends & Party.",
   "version": "${version}",
   "mcversion": "${mcversion}",
   "url": "",

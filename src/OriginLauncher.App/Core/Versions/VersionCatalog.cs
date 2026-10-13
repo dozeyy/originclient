@@ -45,8 +45,12 @@ public static class VersionCatalog
     // not shown greyed either): 1.20.6, 1.20.5, 1.20.3, 1.19.1, 1.19, 1.18.1,
     // 1.17, and 1.16 – 1.16.4. The "26" card lists only the 26.x versions with an
     // Origin build (26.3, 26.2 and 26.1 – 26.1.2, all since 2026-10-13).
-    // Pulled earlier and likewise absent: 1.21.5, 1.21.9 (2026-08-06) and the
-    // Forge pair 1.12.2 / 1.8.9 (whose 1.12 and 1.8 cards went with them).
+    // Pulled earlier and likewise absent: 1.21.5, 1.21.9 (2026-08-06) and
+    // 1.12.2 (Forge; its 1.12 card went with it).
+    //
+    // 1.8.9 came BACK 2026-10-13 (Will): the one Forge + OptiFine version
+    // (the launcher installs that stack quietly — VersionManager's legacy
+    // branch); the picker's facts line names the stack per card.
     private static IReadOnlyList<VersionGroup> Build() =>
     [
         Group("26",   "26.1 – 26.3",    "The Latest Releases",
@@ -71,6 +75,9 @@ public static class VersionCatalog
         Group("1.16", "1.16.5",         "The Nether Update",
             "The Nether finally comes alive with crimson and warped forests, soul sand valleys, and basalt deltas to explore. Trade with piglins, ride striders across lava, mine ancient debris to craft top-tier netherite gear, and set your spawn with a respawn anchor.",
             "1.16.5"),
+        Group("1.8", "1.8.9",          "The Bountiful Update",
+            "The classic PvP version, still the home of competitive Minecraft. Bring slime blocks, banners and armor stands into your builds, sneak through ocean monuments past elder guardians, and fight in the fast, click-driven combat that minigame servers like Hypixel were built around.",
+            "1.8.9"),
     ];
 
     // Every version Origin ships, newest first — the grid's versions in reading
@@ -80,7 +87,7 @@ public static class VersionCatalog
     public static IReadOnlyList<string> SupportedVersions { get; } =
         Groups.SelectMany(g => g.Versions).ToList();
 
-    // The newest version (the first card's first entry, 1.21.11 today) — the
+    // The newest version (the first card's first entry, 26.3 today) — the
     // launcher's default when no valid version is saved.
     public static string DefaultVersion => SupportedVersions[0];
 
