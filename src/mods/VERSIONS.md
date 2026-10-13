@@ -42,6 +42,7 @@ MEMORY.md and `docs/PORTING-ERA-NOTES.md`). JEI ships only where a Fabric JEI ex
 
 | Module | Covers | fabric.mod.json range | Install model | Java |
 |--------|--------|----------------------|---------------|------|
+| `26.2` | 26.2 | `~26.2` | standalone stack (Sodium 0.9.2 + Iris 1.11.4 …) + JEI jar-in-jar. **26.x era**: unobfuscated (no mappings), extract/submit GUI — ported from 1.21.11 on 2026-10-13, see `docs/PORTING-ERA-NOTES.md` "26.x era" | 25 (CI runs Gradle on JDK 25: `"java": "25"` in live-modules.json) |
 | `1.21.1` | 1.21.1 | `~1.21.1` | **Bundles perf stack jar-in-jar** (Sodium/Indium/Iris/Lithium/…) | 21 |
 | `1.20` | 1.20, 1.20.1 | `>=1.20- <1.20.2` | Origin jar + standalone catalog stack | 17 (via JDK 21) |
 | `1.20.4` | 1.20.3, 1.20.4 | `>=1.20.3- <1.20.5` | standalone stack | 17 (via JDK 21) |
@@ -150,7 +151,7 @@ screen and every loading/connecting/working screen.
 
 | Module | Covers | fabric.mod.json range | Java | Status | Blocking / next step |
 |--------|--------|----------------------|------|--------|----------------------|
-| `26.2` | 26.2 | — | 25 | compiles + boot-smoke passes (staged) | retained-mode client reaches renderer initialization with the Workbench UI. Keep staged until manual retained-mode screen/HUD review and the normal release gate are explicitly approved. `staged/26.2/PORT-262.md` |
+| — | | | | | (none — 26.2 went live 2026-10-13; 26.1.x / 26.3 are to be derived from `versions/26.2`) |
 
 **1.21.9 was pulled entirely** (removed from `VersionCatalog` — it was the hard
 input-event-boundary + fabric-API-gap hybrid; not worth carrying). Its analysis
@@ -164,7 +165,9 @@ exactly the `OriginBuilds` versions — nothing else — and
 `tools/release/check_consistency.py` fails CI if the two ever disagree. Removed
 that day: the whole 26.x card (26.1, 26.1.1, 26.1.2, 26.2), 1.20.6, 1.20.5,
 1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, and 1.16–1.16.4 (the 26 card's art went
-with it; re-adding a version means re-adding it to its card). A player whose
+with it; re-adding a version means re-adding it to its card). The 26 card came
+back on 2026-10-13 listing 26.2 (its art restored from history); 26.1.x / 26.3
+join it as they are ported. A player whose
 saved version is no longer listed starts on the newest version (1.21.11) — the
 launcher already drops any saved version the picker doesn't offer.
 
@@ -217,9 +220,9 @@ lines):
    what makes build-check AND the release build it (in parallel, via
    `.github/workflows/build-mods.yml`), what the release's "every live jar is
    bundled" assert checks, and what creates its `mc <module>` GitHub label.
-   Its Java level comes from the module's own `options.release`; CI runs every
-   module on JDK 21 (26.2 will need a JDK 25 runner — add a `java` field to
-   the list and to build-mods.yml then).
+   Its Java level comes from the module's own `options.release`; CI runs
+   Gradle on JDK 21 unless the entry says `"java": "25"` (every 26.x module:
+   plan.py, build-mods.yml and dev-shots.yml read it; boot-smoke.yml lists it).
 3. **`src/OriginLauncher.App/OriginLauncher.App.csproj`** — the `<Content>`
    bundle entry already exists for every module (a glob over its
    `build/libs`); verify its path points at `versions/<ver>` after the move.
