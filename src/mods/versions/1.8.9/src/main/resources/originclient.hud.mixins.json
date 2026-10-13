@@ -8,5 +8,9 @@
 		"defaultRequire": 0
 	},
 	"client": [
+		"GuiIngameTitleAccessor",
+		"GuiIngameForgeTitlesMixin",
+		"GuiIngameScoreboardMixin",
+		"GuiPlayerTabOverlayAccessor"
 	]
 }
