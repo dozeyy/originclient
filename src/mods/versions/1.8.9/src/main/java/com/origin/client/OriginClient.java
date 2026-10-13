@@ -90,12 +90,21 @@ public class OriginClient {
 
 	private static volatile Boolean optifine;
 
-	/** OptiFine is a tweaker/coremod, not a @Mod: detect it by its Config class. */
+	/** OptiFine is a tweaker/coremod, not a @Mod: Forge's own FMLClientHandler.hasOptifine(),
+	 *  else its Config class (the default package on 1.8.9 OptiFine). */
 	public static boolean isOptiFineLoaded() {
 		Boolean v = optifine;
 		if (v == null) {
 			boolean found = false;
+			try {
+				found = net.minecraftforge.fml.client.FMLClientHandler.instance().hasOptifine();
+			} catch (Throwable ignored) {
+				// fall back to the class probe
+			}
 			for (String n : new String[]{"Config", "net.optifine.Config", "optifine.OptiFineForgeTweaker"}) {
+				if (found) {
+					break;
+				}
 				try {
 					Class.forName(n, false, OriginClient.class.getClassLoader());
 					found = true;

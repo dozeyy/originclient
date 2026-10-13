@@ -50,27 +50,48 @@ public final class Social {
 	private static final double PING_RANGE = 128.0;
 	private static long lastPingAt = 0;
 
-	/** Called once from client init; every hook is fail-soft. */
-	public static void init() {
+	private static boolean initDone = false;
+
+	/** Called once from client init (and SocialHooks; idempotent); every hook is fail-soft. */
+	public static synchronized void init() {
+		if (initDone) {
+			return;
+		}
+		initDone = true;
 		SocialClient.start();
 		try {
-			ClientCommandHandler.instance.registerCommand(new PartyCommand());
+			ClientCommandHandler.instance.registerCommand(new PartyCommand());   // 1.8.9 NAME UNVERIFIED (CommandHandler.registerCommand)
 		} catch (Throwable t) {
 			OriginClient.LOGGER.warn("Origin: /" + COMMAND + " command failed to register", t);
 		}
 	}
 
 	/**
-	 * The world pass (ping beams). 1.8.9: from SocialHooks' RenderWorldLastEvent,
+	 * The world pass (ping beams + the camera the markers project with, kept
+	 * captured even with Waypoints off). 1.8.9: from SocialHooks' RenderWorldLastEvent,
 	 * where the GL matrix is the camera's and world coordinates are drawn
-	 * relative to the camera position (RenderManager's renderPos).
+	 * relative to the camera position (RenderManager.viewerPos).
 	 */
 	public static void renderWorld(float partialTicks) {
+		// once per frame, whoever calls (SocialHooks, or a client init that wires
+		// the world pass itself as 1.16.5's did)
+		if (renderedFrame == frame) {
+			return;
+		}
+		renderedFrame = frame;
 		try {
+			com.origin.client.client.waypoints.WaypointHud.capture(partialTicks);
 			PartyWorld.renderWorld(partialTicks);
 		} catch (Throwable t) {
 			// pings just don't draw this frame
 		}
+	}
+
+	private static long frame = 0, renderedFrame = -1;
+
+	/** SocialHooks, at the start of every render tick: a new frame begins. */
+	public static void newFrame() {
+		frame++;
 	}
 
 	/** A "Friends & Party" switch: the mod is on AND its own row is on. */
@@ -265,6 +286,8 @@ public final class Social {
 	 * command -- GuiChat hands every "/..." line to ClientCommandHandler first and
 	 * sends nothing when it is handled, the bare "/originpc" included.
 	 */
+	// 1.8.9 NAME UNVERIFIED: CommandBase's getCommandName / getCommandUsage /
+	// canCommandSenderUseCommand / getRequiredPermissionLevel / processCommand
 	private static final class PartyCommand extends CommandBase {
 		@Override
 		public String getCommandName() {
@@ -372,7 +395,7 @@ public final class Social {
 		}
 		lastPingAt = now;
 		BlockPos pos = hit.getBlockPos();
-		String label = mc.theWorld.getBlockState(pos).getBlock().getLocalizedName();
+		String label = mc.theWorld.getBlockState(pos).getBlock().getLocalizedName();   // 1.8.9 NAME UNVERIFIED
 		SocialClient.ping(server, dim(mc), pos.getX(), pos.getY(), pos.getZ(), label)
 				.thenAccept(err -> {
 					if (err != null) {

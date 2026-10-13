@@ -202,8 +202,17 @@ public final class CosmeticsService {
 	/** What you just picked, shown straight away while the save is in flight. */
 	private static volatile Look picked = null;
 
-	/** Called once from client init. */
+	private static final java.util.concurrent.atomic.AtomicBoolean STARTED = new java.util.concurrent.atomic.AtomicBoolean();
+
+	/**
+	 * Called once from client init. 1.8.9: idempotent -- both the foundation's
+	 * init and SocialHooks may start it, and a second tick loop would double
+	 * every request.
+	 */
 	public static void start() {
+		if (!STARTED.compareAndSet(false, true)) {
+			return;
+		}
 		WORKER.execute(() -> {
 			discover();
 			refreshMineNow();

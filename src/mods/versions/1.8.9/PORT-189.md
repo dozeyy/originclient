@@ -233,3 +233,137 @@ Don't guess an SRG name.
 - Report: files written, per-feature 1.8.9 mechanism (event / mixin / reflect),
   features dropped or stood in for and why, LOOKUPS NEEDED, SRG NEEDED, and any
   API you were unsure of.
+
+## Foundation API (as built) — read this before calling foundation classes
+Everything below matches the 1.16.5 class of the same name unless listed.
+Package root `com.origin.client.client` unless noted.
+
+**Entry / hub**
+- `com.origin.client.OriginClient`: `LOGGER`, `MOD_ID` as 1.16.5, plus the
+  FabricLoader stand-ins `OriginClient.configDir()` / `gameDir()` (both `Path`),
+  `isModLoaded(String)` (Forge modid) and `isOptiFineLoaded()`.
+- `OriginClientMod`: no `onInitializeClient` (Forge calls `init()`); keeps
+  `FEATURES`, `timeOverride`, `zoomToggled/zoomActive/zoomScrollFactor`,
+  `nametagsHidden/playerNametagsHidden`, `tabListVisible`, `previewTimeSlider`,
+  `sprintKeyHeldByToggle(KeyBinding)`; adds `sneakKeyHeldByToggle(KeyBinding)`
+  (toggle sneak = the vanilla sneak key reads held, mixin/core/KeyBindingMixin).
+  `isRawKeyDown(int)` takes an **LWJGL2** code (what `Mods.keyCode` returns;
+  mouse = -100+button; -1 = unbound -> false).
+  **The hub does NOT tick or init other areas** (1.16.5's hub called
+  ServerMods.register, Snaplook.tick, Stopwatch.tick, MinimapHud.tick,
+  WorldEditCui.init, Social.init, CosmeticsService.start, PortalCalc.init,
+  FpsCoach.register, AutoGG/ScreenshotChat, the WorldRenderEvents.LAST pass,
+  block outline, potion-in-inventory, out-of-world backdrop, Iris shader
+  button ...). Each area does its own from its `hooks/<Area>Hooks` (constructor
+  for init, `TickEvent.ClientTickEvent` END for ticks, `RenderWorldLastEvent`
+  for world passes). The hub keeps only its own list from the brief, plus the
+  waypoint keybinds (open `WaypointScreen()` / `WaypointScreen(true)`, toggle
+  "waypoints") and the death-waypoint edge (`Waypoints.onDeath(x,y,z,dim)`,
+  `Waypoints.currentDim()`), as 1.16.5.
+- `OriginKeyBindings`: same field names, type `KeyBinding` (`consumeClick()` ->
+  `isPressed()`, `isDown()` -> `isKeyDown()`). `openModMenu` is consumed by
+  **ModMenuHooks** (the hub does not open the Right Shift screen on 1.8.9).
+- `hooks/OriginHooks.registerAll()` (called by the hub) loads `MenuHooks,
+  ModMenuHooks, HudHooks, WorldHooks, SocialHooks, ServerHooks` by name, public
+  no-arg constructor, registers on both buses. A missing class is skipped.
+
+**Drawing**
+- `gui/Pose` = PoseStack stand-in (GL matrix stack): `pushPose/popPose/
+  translate(d,d,d)/scale(f,f,f)/mulPose(Pose.Axis.ZP.rotationDegrees(deg))`
+  (+ `XP/YP/XN/YN/ZN`, `.rotation(rad)`), `popAll()`, `depth()`. A Pose ignores
+  pops it never pushed. No `last()`.
+- `gui/Gfx`: every 1.16.5 method, `Font` -> `FontRenderer`, `Component` ->
+  `IChatComponent`, `PoseStack` -> `Pose`. Constructors `new Gfx()` (fresh Pose)
+  and `new Gfx(Pose)`. Extras: `fillF(float..)`, `drawStringF(font,s,float x,
+  float y,color,shadow)`, `drawString/drawStringWithBackdrop/renderTooltip`
+  String overloads, `drawTooltip(font, List<String>, mx, my)`,
+  `blitBound(x,y,w,h,u0,v0,u1,v1)` (bound texture, float geometry).
+  Statics (use these instead of Window/RenderSystem):
+  `Gfx.guiScale()` (int), `windowWidth()/windowHeight()` (framebuffer px),
+  `defaultBlend()` (enableBlend + defaultBlendFunc), `color(argb)` (color4f),
+  `resetColor()` (white + GlStateManager colour cache resync — call after any
+  POSITION_COLOR draw of your own), `softAlpha()/defaultAlpha()` (alpha test at
+  0 / back to vanilla's 0.1), `bind(ResourceLocation)`,
+  `scissorWindow(x,y,w,h)` (window px, bottom-left), `readImage("/assets/...")`
+  (-> BufferedImage, NativeImage.read stand-in), `registerTexture(id, img,
+  linear[, mipmap])` (-> DynamicTexture; NativeImage+DynamicTexture+register).
+- `gui/OriginScreen` (NEW, 1.8.9 only): the base for Origin screens. A
+  `GuiScreen` that dispatches to the 1.16.5 handler shapes: `init()`,
+  `render(Gfx, mx, my, pt)` (default = vanilla buttonList), `tick()`,
+  `removed()`, `onClose()` (default `displayGuiScreen(null)`),
+  `shouldCloseOnEsc()`, `isPauseScreen()`, and boolean `mouseClicked(double,
+  double,int)`, `mouseReleased(..)`, `mouseDragged(mx,my,btn,dx,dy)`,
+  `mouseScrolled(mx,my,notches)` (+ = scroll up), `keyPressed(key, 0, mods)`,
+  `charTyped(char, mods)`. Mouse coords are double GUI px; **key codes are
+  LWJGL2** (`Keyboard.KEY_*`); mods are GLFW-style bits (`MOD_SHIFT 1,
+  MOD_CONTROL 2, MOD_ALT 4`); `hasShiftDown()/hasControlDown()/hasAltDown()`.
+  Fields `title` (IChatComponent), `minecraft`, `font` mirror Screen's.
+  The 1.8.9 overrides (initGui/drawScreen/mouseClicked(int..)/keyTyped/...)
+  are `final` — override the modern ones. A modern handler returning false
+  falls through to vanilla (buttonList, Esc -> onClose). Any throw closes the
+  screen and latches the class: `OriginScreen.isBroken(SomeScreen.class)` —
+  check it before replacing a vanilla screen with an Origin one.
+- `gui/OriginWindow extends OriginScreen`: constructors `(IChatComponent,
+  GuiScreen returnTo)` and `(String, GuiScreen)`; `render(Gfx,...)` instead of
+  `render(PoseStack,...)`; otherwise 1.16.5's API (heading/subheading/
+  headingIcon/drawBody/drawHeaderActions/renderOverlays/button/buttonW/card/
+  label/field/scrollbar/dX/dY/back/beginClose, Style enum). Esc compares
+  `Keyboard.KEY_ESCAPE`.
+- `gui/OriginDeck`, `gui/OriginUi`, `gui/ModIcons`, `gui/OriginText`,
+  `gui/OriginTtfFont`, `gui/OriginWidgetOwnership`, `theme/OriginTheme`: 1.16.5
+  API unchanged (Font -> FontRenderer in OriginText). OriginTtfFont rasterises
+  Inter with java.awt. Icons/glow/logo are mipmapped (thin strokes survive).
+  OriginWidgetOwnership also owns `net.minecraftforge.*` widgets.
+
+**Mods / config**
+- `mods/Mods`: same ids/keys/defaults (config byte-compatible). Keybind
+  defaults are LWJGL2; `Mods.keyCode()` returns LWJGL2; `Mods.set(mod, key,
+  int)` on a KEYBIND row takes LWJGL2 and stores GLFW. A KEYBIND row's
+  `ModOption.defKey` is LWJGL2 (so `keyCode(..) != o.defKey` still works).
+  New: `Mods.unavailable(id)` (cards hidden on 1.8.9: `cooldowns`; `on()` is
+  false for them), `Mods.LEGACY_PARTICLE_IDS` (1.8.9 EnumParticleTypes name ->
+  Origin particle id; the Particle Changer only lists those ids on 1.8.9).
+  Settings rows removed on 1.8.9: General "rawMouseInput", Performance
+  "shaderPerformanceMode" (Iris-only) — reads return the stored value/false.
+- `mods/ModsConfig`, `ModsConfigAccess`, `ModOption`, `Profiles`, `hud/HudPos`:
+  1.16.5 API unchanged.
+- `IoCompat`: 1.16.5's `readAllBytes`, `keys` + gson 2.2.4 gaps: `size(JsonObject)`,
+  `parse(String)`, `deepCopy(JsonElement)`, `isEmpty(JsonArray)`,
+  `without(JsonArray, index)`. NOTE gson 2.2.4: `gson.fromJson(x,
+  JsonObject.class)` is NOT safe (no JsonObject adapter before 2.3) — use
+  `new JsonParser().parse(x).getAsJsonObject()`; `JsonArray.add(String/Number/
+  Boolean)` don't exist (wrap in `new JsonPrimitive(..)`).
+
+**Utilities (new, 1.8.9 only)**
+- `util/Reflect`: `field(Class, String... names)`, `method(Class, Class<?>[]
+  params, String... names)`, `constructor(Class, Class<?>...)`, `type(String...
+  classNames)` — cached, superclass walk, null on failure; `get(Field, target,
+  fallback)`, `get(target, fallback, names...)`, `getInt/getFloat/getBoolean(Field,
+  target, fallback)`, `set(Field, target, value)` -> boolean, `call(Method,
+  target, fallback, args...)`, `run(Method, target, args...)` -> boolean,
+  `create(Constructor, args...)`. Pass MCP name first, then SRG.
+- `util/KeyCodes`: `glfwToLwjgl(int)`, `lwjglToGlfw(int)`, `isMouse(int)`,
+  `isDown(int lwjgl)` (keys + mouse, never throws), `name(int lwjgl)`
+  (GameSettings.getKeyDisplayString), `UNBOUND = -1`, `MOUSE_OFFSET = -100`.
+  File format: GLFW keyboard codes; mouse button b stored as b.
+- `net/OriginHttp`: `open(String|URL)` -> HttpURLConnection with Origin's trust
+  store (JDK roots + bundled ISRG/GTS/DigiCert/Baltimore) over TLS 1.2 — swap
+  `(HttpURLConnection) new URL(u).openConnection()` -> `OriginHttp.open(u)`;
+  `get(url, timeoutMs, userAgent)` -> body or null; `readBody(InputStream)`;
+  `socketFactory()`.
+
+**World-render helpers** (render/, immediate, under the current GL matrix)
+- `render/OriginRenderTypes`: `begin()` -> `WorldRenderer` (translucent
+  depth-tested no-depth-write quads, POSITION_COLOR), `beginLines()` ->
+  `WorldRenderer` (GL_LINES, POSITION_COLOR), `draw()` flushes both NOW with
+  their state. Emit `wr.pos(x,y,z).color(r,g,b,a).endVertex()`. Two private
+  Tessellators, so quads and lines can interleave. Call from
+  `RenderWorldLastEvent` with camera-relative coords (subtract
+  `RenderManager.viewerPosX/Y/Z`).
+- `render/FillQuads`: `FillQuads.begin()` / `FillQuads.draw()` (translucent,
+  no-cull quads, depth test as current) — 1.16.5's RenderType INSTANCE has no
+  1.8.9 meaning.
+- `render/ThickLine`: `edge(WorldRenderer q, Pose pose, ax..cz, t, r,g,b,a)`
+  and `vertical(WorldRenderer q, Pose pose, x, z, y0, y1, halfWidth, r,g,b,a)`
+  — `pose` is accepted and ignored (the GL matrix applies); overloads without
+  it exist too.

@@ -8,5 +8,11 @@
 		"defaultRequire": 0
 	},
 	"client": [
+		"ChatTimestampMixin",
+		"HypixelBedwarsGuiMixin",
+		"NickHiderLobbyMixin",
+		"NickHiderSkinMixin",
+		"NickHiderTextMixin",
+		"ScreenshotKeyMixin"
 	]
 }

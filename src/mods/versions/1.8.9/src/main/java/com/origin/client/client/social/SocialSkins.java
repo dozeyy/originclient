@@ -5,7 +5,7 @@ import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import com.origin.client.client.gui.Gfx;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.NetworkPlayerInfo;
-import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.DefaultPlayerSkin;   // 1.8.9 NAME UNVERIFIED (getDefaultSkin(UUID))
 import net.minecraft.util.ResourceLocation;
 
 import java.util.Map;

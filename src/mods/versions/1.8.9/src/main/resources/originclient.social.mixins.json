@@ -8,5 +8,7 @@
 		"defaultRequire": 0
 	},
 	"client": [
+		"CosmeticCapeMixin",
+		"IntegratedServerLanMixin"
 	]
 }

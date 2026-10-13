@@ -64,7 +64,7 @@ public final class CapeTextures {
 			// 1.8.9: getResource throws (FileNotFoundException) for a missing file,
 			// and IResource itself is not Closeable -- its stream is.
 			IResource res = mc.getResourceManager().getResource(file);
-			InputStream in = res.getInputStream();
+			InputStream in = res.getInputStream();   // 1.8.9 NAME UNVERIFIED (IResource.getInputStream)
 			try {
 				sheet = TextureUtil.readBufferedImage(in);
 			} finally {

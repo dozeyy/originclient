@@ -352,8 +352,17 @@ public final class SocialClient {
 	/** Party lines this game already printed in chat (sent with /pc), so the echo isn't printed twice. */
 	private static final List<String> ECHOED = new CopyOnWriteArrayList<>();
 
-	/** Called once from client init. */
+	private static final java.util.concurrent.atomic.AtomicBoolean STARTED = new java.util.concurrent.atomic.AtomicBoolean();
+
+	/**
+	 * Called once from client init. 1.8.9: idempotent -- both the foundation's
+	 * init and SocialHooks may start it, and a second worker loop would double
+	 * every request.
+	 */
 	public static void start() {
+		if (!STARTED.compareAndSet(false, true)) {
+			return;
+		}
 		if (DEMO) {
 			status = Status.READY;
 			return;
