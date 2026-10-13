@@ -1,0 +1,2364 @@
+Fetching distribution.
+Downloading https://services.gradle.org/distributions/gradle-9.5.1-bin.zip
+.............10%.............20%..............30%.............40%.............50%..............60%.............70%..............80%.............90%.............100%
+
+Welcome to Gradle 9.5.1!
+
+Here are the highlights of this release:
+ - Task provenance in reports and failure messages
+ - Type-safe accessors for precompiled Kotlin Settings plugins
+
+For more details see https://docs.gradle.org/9.5.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.5.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.17.21
+
+> Task :compileJava
+> Task :processResources
+> Task :classes
+> Task :originApiDump
+[api-dump] wrote 13371 classes to /home/runner/work/_temp/shots/screenshots/api
+
+> Task :compileClientJava
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:13: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginWindow.java:11: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/HudEditorScreen.java:14: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:3: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:4: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.GpuSampler;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:5: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.GpuTextureView;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:40: error: cannot find symbol
+	private final RenderPipeline pipeline;
+	              ^
+  symbol:   class RenderPipeline
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:41: error: cannot find symbol
+	private final GpuTextureView view;
+	              ^
+  symbol:   class GpuTextureView
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:42: error: cannot find symbol
+	private final GpuSampler sampler;
+	              ^
+  symbol:   class GpuSampler
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:52: error: cannot find symbol
+	private GuiTris(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+	                ^
+  symbol:   class RenderPipeline
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:52: error: cannot find symbol
+	private GuiTris(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+	                                         ^
+  symbol:   class GpuTextureView
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:52: error: cannot find symbol
+	private GuiTris(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+	                                                              ^
+  symbol:   class GpuSampler
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:65: error: cannot find symbol
+	public static GuiTris textured(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+	                               ^
+  symbol:   class RenderPipeline
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:65: error: cannot find symbol
+	public static GuiTris textured(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+	                                                        ^
+  symbol:   class GpuTextureView
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:65: error: cannot find symbol
+	public static GuiTris textured(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+	                                                                             ^
+  symbol:   class GpuSampler
+  location: class GuiTris
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/dev/PanoramaCapture.java:6: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ShinyPots.java:4: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.FilterMode;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:3: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:7: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:10: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:3: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.BlendFunction;
+                                  ^
+  symbol:   class BlendFunction
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:4: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+                                  ^
+  symbol:   class ColorTargetState
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:5: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.DepthStencilState;
+                                  ^
+  symbol:   class DepthStencilState
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:6: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:7: error: cannot find symbol
+import com.mojang.blaze3d.platform.CompareOp;
+                                  ^
+  symbol:   class CompareOp
+  location: package com.mojang.blaze3d.platform
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:51: error: cannot find symbol
+	private static final Lazy<RenderPipeline> GUI_ADDITIVE = new Lazy<>(() ->
+	                          ^
+  symbol:   class RenderPipeline
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:55: error: cannot find symbol
+	private static final Lazy<RenderPipeline> GUI_GLINT = new Lazy<>(() ->
+	                          ^
+  symbol:   class RenderPipeline
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:61: error: cannot find symbol
+	private static final Lazy<RenderPipeline> GLINT_BLENDED = new Lazy<>(() ->
+	                          ^
+  symbol:   class RenderPipeline
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:73: error: cannot find symbol
+	public static RenderPipeline guiAdditive() {
+	              ^
+  symbol:   class RenderPipeline
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:79: error: cannot find symbol
+	public static RenderPipeline guiGlint() {
+	              ^
+  symbol:   class RenderPipeline
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:84: error: cannot find symbol
+	public static RenderPipeline glintBlended() {
+	              ^
+  symbol:   class RenderPipeline
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:147: error: cannot find symbol
+	private record TrisRenderState(RenderPipeline pipeline, TextureSetup textureSetup, Matrix3x2fc pose,
+	                               ^
+  symbol:   class RenderPipeline
+  location: class TrisRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:3: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.DepthStencilState;
+                                  ^
+  symbol:   class DepthStencilState
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:4: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:5: error: cannot find symbol
+import com.mojang.blaze3d.platform.CompareOp;
+                                  ^
+  symbol:   class CompareOp
+  location: package com.mojang.blaze3d.platform
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:6: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.FilterMode;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:7: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.GpuTextureView;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:147: error: cannot find symbol
+									GpuTextureView source, ScreenRectangle bounds) implements GuiElementRenderState {
+									^
+  symbol:   class GpuTextureView
+  location: class GradeRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:165: error: cannot find symbol
+		public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+		                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevWorld.java:12: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginMultiSelect.java:7: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:20: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginItemGridScreen.java:22: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginButtonRenderer.java:14: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:7: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.FilterMode;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:8: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.GpuTextureView;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:228: error: cannot find symbol
+			Matrix3x2fc pose, List<GlyphVertex> quads, GpuTextureView atlasView,
+			                                           ^
+  symbol:   class GpuTextureView
+  location: class MsdfTextRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:257: error: cannot find symbol
+		public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+		                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:5: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:8: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.FilterMode;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:9: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.GpuTextureView;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:109: error: cannot find symbol
+			GpuTextureView atlasView, Matrix3x2fc pose, int x0, int y0, int x1, int y1,
+			^
+  symbol:   class GpuTextureView
+  location: class IconGlyphRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:121: error: cannot find symbol
+		public RenderPipeline pipeline() {
+		       ^
+  symbol:   class RenderPipeline
+  location: class IconGlyphRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginColorPicker.java:8: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:17: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:5: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:8: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.FilterMode;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:9: error: package com.mojang.blaze3d.textures does not exist
+import com.mojang.blaze3d.textures.GpuTextureView;
+                                  ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:693: error: cannot find symbol
+			GpuTextureView atlasView, Matrix3x2fc pose, int x0, int y0, int x1, int y1,
+			^
+  symbol:   class GpuTextureView
+  location: class IconSdfRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:705: error: cannot find symbol
+		public RenderPipeline pipeline() {
+		       ^
+  symbol:   class RenderPipeline
+  location: class IconSdfRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:3: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.BindGroupLayout;
+                                  ^
+  symbol:   class BindGroupLayout
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:4: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.ColorTargetState;
+                                  ^
+  symbol:   class ColorTargetState
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:5: error: cannot find symbol
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                  ^
+  symbol:   class RenderPipeline
+  location: package com.mojang.blaze3d.pipeline
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:6: error: cannot find symbol
+import com.mojang.blaze3d.vertex.VertexFormat;
+                                ^
+  symbol:   class VertexFormat
+  location: package com.mojang.blaze3d.vertex
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:42: error: cannot find symbol
+	private static RenderPipeline msdf, icon, grade;
+	               ^
+  symbol:   class RenderPipeline
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:50: error: cannot find symbol
+	public static RenderPipeline msdf() {
+	              ^
+  symbol:   class RenderPipeline
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:63: error: cannot find symbol
+	public static RenderPipeline icon() {
+	              ^
+  symbol:   class RenderPipeline
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:80: error: cannot find symbol
+	public static RenderPipeline grade() {
+	              ^
+  symbol:   class RenderPipeline
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:99: error: cannot find symbol
+	public static RenderPipeline derive(RenderPipeline base, String location, String fragmentShader,
+	                                    ^
+  symbol:   class RenderPipeline
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:100: error: package RenderPipeline does not exist
+			UnaryOperator<RenderPipeline.Builder> tweak) {
+			                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:99: error: cannot find symbol
+	public static RenderPipeline derive(RenderPipeline base, String location, String fragmentShader,
+	              ^
+  symbol:   class RenderPipeline
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:5: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:6: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFWVidMode;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:6: error: cannot find symbol
+import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
+                                            ^
+  symbol:   class NameTagFeatureRenderer
+  location: package net.minecraft.client.renderer.feature
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:46: error: package NameTagFeatureRenderer does not exist
+	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
+	                                                                                             ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:46: error: package NameTagFeatureRenderer does not exist
+	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
+	                                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:96: error: package NameTagFeatureRenderer does not exist
+	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
+	                                                                                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:96: error: package NameTagFeatureRenderer does not exist
+	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
+	                                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/shaders/ShaderBrowserScreen.java:11: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevShots.java:9: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:6: error: package org.lwjgl.glfw does not exist
+import org.lwjgl.glfw.GLFW;
+                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:37: error: cannot find symbol
+@Mixin(NameTagFeatureRenderer.class)
+       ^
+  symbol: class NameTagFeatureRenderer
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginWindow.java:303: error: cannot find symbol
+		if (event.key() == GLFW.GLFW_KEY_ESCAPE) {
+		                   ^
+  symbol:   variable GLFW
+  location: class OriginWindow
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:848: error: cannot find symbol
+		if (focus >= 0 && keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+		                             ^
+  symbol:   variable GLFW
+  location: class WaypointScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:856: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_TAB && focus >= 0) {
+		               ^
+  symbol:   variable GLFW
+  location: class WaypointScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:860: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE && pendingDelete != null) {
+		               ^
+  symbol:   variable GLFW
+  location: class WaypointScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/Readouts.java:322: error: incompatible types: Stream<PackResources> cannot be converted to PackResources
+		try (PackResources res = p.open()) {
+		                               ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/HudEditorScreen.java:481: error: cannot find symbol
+		int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+		                                           ^
+  symbol:   method scancode()
+  location: variable event of type KeyEvent
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/HudEditorScreen.java:482: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		               ^
+  symbol:   variable GLFW
+  location: class HudEditorScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/HudEditorScreen.java:486: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_R && hoveredId != null) {
+		               ^
+  symbol:   variable GLFW
+  location: class HudEditorScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/dev/PanoramaCapture.java:37: error: cannot find symbol
+	private static final int CAPTURE_KEY = GLFW.GLFW_KEY_F8;
+	                                       ^
+  symbol:   variable GLFW
+  location: class PanoramaCapture
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ShinyPots.java:66: error: cannot find symbol
+				RenderSystem.getSamplerCache().getRepeat(FilterMode.LINEAR));
+				                                         ^
+  symbol:   variable FilterMode
+  location: class ShinyPots
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ItemPhysics.java:132: error: no suitable method found for mulPose(Quaternionf)
+		pose.mulPose(Axis.YP.rotation(-ItemEntity.getSpin(s.ageInTicks, s.bobOffset)));
+		    ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ItemPhysics.java:136: error: no suitable method found for mulPose(Quaternionf)
+		pose.mulPose(Axis.YP.rotation(s.bobOffset));
+		    ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ItemPhysics.java:138: error: no suitable method found for mulPose(Quaternionf)
+		pose.mulPose(Axis.ZP.rotationDegrees(ps.originclient$tilt()));
+		    ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ItemPhysics.java:139: error: no suitable method found for mulPose(Quaternionf)
+		pose.mulPose(Axis.XP.rotationDegrees(ps.originclient$tumble()));
+		    ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ScreenshotChat.java:167: error: cannot find symbol
+			case "folder" -> Util.getPlatform().openFile(target);
+			                                   ^
+  symbol:   method openFile(File)
+  location: class OS
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:101: error: cannot find symbol
+		if (renderType == RenderTypes.armorEntityGlint()) {
+		                             ^
+  symbol:   method armorEntityGlint()
+  location: class RenderTypes
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:104: error: cannot find symbol
+		if (renderType == RenderTypes.glint() || renderType == RenderTypes.glintTranslucent()
+		                             ^
+  symbol:   method glint()
+  location: class RenderTypes
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:104: error: cannot find symbol
+		if (renderType == RenderTypes.glint() || renderType == RenderTypes.glintTranslucent()
+		                                                                  ^
+  symbol:   method glintTranslucent()
+  location: class RenderTypes
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:105: error: cannot find symbol
+				|| renderType == RenderTypes.entityGlint()) {
+				                            ^
+  symbol:   method entityGlint()
+  location: class RenderTypes
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:146: error: cannot find symbol
+		RenderPipeline pipeline = vanilla.pipeline();
+		^
+  symbol:   class RenderPipeline
+  location: class GlintColorizer
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:162: error: cannot find symbol
+		return new PreparedRenderType(pipeline, vanilla.outputTarget(), vanilla.dynamicTransforms(),
+		                                               ^
+  symbol:   method outputTarget()
+  location: variable vanilla of type PreparedRenderType
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:187: error: no suitable method found for read(Format,InputStream)
+		try (InputStream in = res.open(); NativeImage img = NativeImage.read(NativeImage.Format.RGBA, in)) {
+		                                                               ^
+    method NativeImage.read(InputStream) is not applicable
+      (actual and formal argument lists differ in length)
+    method NativeImage.read(byte[]) is not applicable
+      (actual and formal argument lists differ in length)
+    method NativeImage.read(ByteBuffer) is not applicable
+      (actual and formal argument lists differ in length)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:65: error: cannot find symbol
+		boolean ctrl = held(GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
+		                    ^
+  symbol:   variable GLFW
+  location: class AutoTextHotkey
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:65: error: cannot find symbol
+		boolean ctrl = held(GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
+		                                                ^
+  symbol:   variable GLFW
+  location: class AutoTextHotkey
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:66: error: cannot find symbol
+		boolean shift = held(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT);
+		                     ^
+  symbol:   variable GLFW
+  location: class AutoTextHotkey
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:66: error: cannot find symbol
+		boolean shift = held(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT);
+		                                               ^
+  symbol:   variable GLFW
+  location: class AutoTextHotkey
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:67: error: cannot find symbol
+		boolean alt = held(GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT);
+		                   ^
+  symbol:   variable GLFW
+  location: class AutoTextHotkey
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:67: error: cannot find symbol
+		boolean alt = held(GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT);
+		                                           ^
+  symbol:   variable GLFW
+  location: class AutoTextHotkey
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/TntCountdown.java:71: error: no suitable method found for mulPose(Quaternionf)
+			pose.mulPose(camera.orientation);
+			    ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/FpsCoach.java:516: error: cannot find symbol
+			return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+			                          ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/FpsCoachTips.java:268: error: cannot find symbol
+			return mc.getWindow().getRefreshRate();
+			                     ^
+  symbol:   method getRefreshRate()
+  location: class Window
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:153: error: cannot find symbol
+				ModOption.keybind("key", "Zoom Key", GLFW.GLFW_KEY_C),
+				                                     ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:380: error: cannot find symbol
+				ModOption.keybind("key", "Freelook Key", GLFW.GLFW_KEY_LEFT_ALT));
+				                                         ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:419: error: cannot find symbol
+				ModOption.keybind("key", "Toggle Chunk Borders", GLFW.GLFW_KEY_F9),
+				                                                 ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:494: error: cannot find symbol
+				ModOption.keybind("tabKey", "Tab Keybind", GLFW.GLFW_KEY_TAB)
+				                                           ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:531: error: cannot find symbol
+				ModOption.keybind("increaseKey", "Increase Time", GLFW.GLFW_KEY_RIGHT_BRACKET),
+				                                                  ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:532: error: cannot find symbol
+				ModOption.keybind("decreaseKey", "Decrease Time", GLFW.GLFW_KEY_LEFT_BRACKET),
+				                                                  ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:749: error: cannot find symbol
+				ModOption.keybind("key", "Snaplook Key", GLFW.GLFW_KEY_V),
+				                                         ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:873: error: cannot find symbol
+				ModOption.keybind("openMapKey", "Open Full Map", GLFW.GLFW_KEY_M)
+				                                                 ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:963: error: cannot find symbol
+				ModOption.keybind("key", "Open Quickplay", GLFW.GLFW_KEY_G),
+				                                           ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:1002: error: cannot find symbol
+				ModOption.keybind("key", "Open FPS Coach", GLFW.GLFW_KEY_K),
+				                                           ^
+  symbol:   variable GLFW
+  location: class Mods
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:94: error: no suitable method found for mulPose(Quaternionf)
+		m.pose.mulPose(Axis.XP.rotation(w * t));
+		      ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:95: error: no suitable method found for mulPose(Quaternionf)
+		m.pose.mulPose(Axis.YP.rotation(2 * w * t));
+		      ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:104: error: no suitable method found for mulPose(Quaternionf)
+			m.pose.mulPose(Axis.YP.rotation(o[5] + o[2] * w * t));
+			      ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:105: error: no suitable method found for mulPose(Quaternionf)
+			m.pose.mulPose(Axis.XP.rotation(o[1] + 0.12f * (float) Math.sin(o[3] * w * t)));
+			      ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:148: error: no suitable method found for mulPose(Quaternionf)
+			m.pose.mulPose(Axis.YP.rotation(side * TAU / 4));
+			      ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:165: error: no suitable method found for mulPose(Quaternionf)
+			m.pose.mulPose(Axis.ZP.rotation(TAU / 8));
+			      ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:53: error: cannot find symbol
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))));
+					                                ^
+  symbol:   class ColorTargetState
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:53: error: cannot find symbol
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))));
+					                                                 ^
+  symbol:   variable BlendFunction
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:57: error: cannot find symbol
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.GLINT))));
+					                                ^
+  symbol:   class ColorTargetState
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:57: error: cannot find symbol
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.GLINT))));
+					                                                 ^
+  symbol:   variable BlendFunction
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:63: error: cannot find symbol
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.ENTITY_OUTLINE_BLIT))));
+					                                ^
+  symbol:   class ColorTargetState
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:63: error: cannot find symbol
+					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.ENTITY_OUTLINE_BLIT))));
+					                                                 ^
+  symbol:   variable BlendFunction
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:69: error: cannot find symbol
+					b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN, false))))
+					                                                 ^
+  symbol:   class DepthStencilState
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:69: error: cannot find symbol
+					b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN, false))))
+					                                                                   ^
+  symbol:   variable CompareOp
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:74: error: cannot find symbol
+		RenderPipeline p = GUI_ADDITIVE.get();
+		^
+  symbol:   class RenderPipeline
+  location: class LunarPipelines
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginScreenRenderer.java:1003: error: package com.mojang.blaze3d.textures does not exist
+				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+				                                                                                                                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:56: error: cannot find symbol
+				RenderPipeline p = OriginShaders.derive(RenderPipelines.DEBUG_QUADS, "pipeline/overlay_quads", null,
+				^
+  symbol:   class RenderPipeline
+  location: class OriginRenderTypes
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:57: error: cannot find symbol
+						b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false)));
+						                                                 ^
+  symbol:   class DepthStencilState
+  location: class OriginRenderTypes
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:57: error: cannot find symbol
+						b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false)));
+						                                                                   ^
+  symbol:   variable CompareOp
+  location: class OriginRenderTypes
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:135: error: Recorder is not abstract and does not override abstract method setUv3(float,float) in VertexConsumer
+	private static final class Recorder implements VertexConsumer {
+	                     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:103: error: cannot find symbol
+				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.blaze3d.GpuFormat.RGBA8_UNORM);
+				                                                                                           ^
+  symbol:   class GpuFormat
+  location: package com.mojang.blaze3d
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:114: error: cannot find symbol
+			GpuTextureView view = swap.getColorTextureView();
+			^
+  symbol:   class GpuTextureView
+  location: class ColorGrade
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:172: error: cannot find symbol
+					RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+					                                              ^
+  symbol:   variable FilterMode
+  location: class GradeRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevWorld.java:63: error: cannot find symbol
+				GLFW.glfwSetWindowSize(mc.getWindow().handle(), 1920, 1080);
+				^
+  symbol:   variable GLFW
+  location: class OriginDevWorld
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevWorld.java:183: error: cannot find symbol
+				b.onPress(new KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
+				                       ^
+  symbol:   variable GLFW
+  location: class OriginDevWorld
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
+	                                 ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] getConfigManager() in IJeiRuntime has been deprecated and marked for removal
+			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+			                             ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+			     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:118: warning: [removal] IJeiConfigCategory in mezz.jei.api.runtime.config has been deprecated and marked for removal
+				for (IJeiConfigCategory cat : file.getCategories()) {
+				     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:120: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+					for (IJeiConfigValue<?> v : cat.getConfigValues()) {
+					     ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:141: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static ModOption build(String category, IJeiConfigValue<?> v) {
+	                                                ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:144: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			IJeiConfigValueSerializer<?> ser = v.getSerializer();
+			^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:148: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
+			                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:184: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:200: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:217: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:242: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValue<?> v = HANDLES.get(key);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:255: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> String readTyped(IJeiConfigValue<T> v) {
+	                                    ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:259: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> void writeTyped(IJeiConfigValue<T> v, String s) {
+	                                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:260: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+		IJeiConfigValueSerializer.IDeserializeResult<T> r = v.getSerializer().deserialize(s);
+		^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:269: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <T> List<String> validTokens(IJeiConfigValueSerializer<T> ser) {
+	                                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:281: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
+	                                               ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:287: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static double[] bounds(String key, IJeiConfigValueSerializer<?> ser, int pivot) {
+	                                           ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:314: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static int probeMin(IJeiConfigValueSerializer<?> ser, int pivot) {
+	                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:330: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static int probeMax(IJeiConfigValueSerializer<?> ser, int pivot) {
+	                            ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:346: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static boolean validInt(IJeiConfigValueSerializer<?> ser, int x) {
+	                                ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+	private static String fileName(IJeiConfigFile file) {
+	                               ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginMultiSelect.java:209: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+		               ^
+  symbol:   variable GLFW
+  location: class OriginMultiSelect
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:917: error: cannot find symbol
+			if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+			               ^
+  symbol:   variable GLFW
+  location: class FriendsScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:917: error: cannot find symbol
+			if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+			                                                 ^
+  symbol:   variable GLFW
+  location: class FriendsScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:925: error: cannot find symbol
+			if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+			               ^
+  symbol:   variable GLFW
+  location: class FriendsScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:942: error: cannot find symbol
+			if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+			               ^
+  symbol:   variable GLFW
+  location: class FriendsScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginItemGridScreen.java:552: error: cannot find symbol
+		if (event.key() == GLFW.GLFW_KEY_BACKSPACE && searchFocused && !search.isEmpty()) {
+		                   ^
+  symbol:   variable GLFW
+  location: class OriginItemGridScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginButtonRenderer.java:402: error: cannot find symbol
+				&& GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+				                                                                         ^
+  symbol:   variable GLFW
+  location: class OriginButtonRenderer
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginButtonRenderer.java:402: error: cannot find symbol
+				&& GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+				   ^
+  symbol:   variable GLFW
+  location: class OriginButtonRenderer
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginButtonRenderer.java:402: error: cannot find symbol
+				&& GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+				                                                                                                         ^
+  symbol:   variable GLFW
+  location: class OriginButtonRenderer
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:264: error: cannot find symbol
+				return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+				                                                                                           ^
+  symbol:   variable FilterMode
+  location: class MsdfTextRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:343: error: cannot find symbol
+		GpuTextureView atlasView = Minecraft.getInstance().getTextureManager().getTexture(f.atlas).getTextureView();
+		^
+  symbol:   class GpuTextureView
+  location: class OriginSdfFont
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:128: error: cannot find symbol
+			return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+			                                                                                           ^
+  symbol:   variable FilterMode
+  location: class IconGlyphRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:147: error: cannot find symbol
+		GpuTextureView atlasView = Minecraft.getInstance().getTextureManager().getTexture(SDF_ATLAS).getTextureView();
+		^
+  symbol:   class GpuTextureView
+  location: class ModIcons
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:218: error: cannot find symbol
+							this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+							                                                             ^
+  symbol: variable FilterMode
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginColorPicker.java:363: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+		               ^
+  symbol:   variable GLFW
+  location: class OriginColorPicker
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1535: error: cannot find symbol
+			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
+			                                    ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1540: error: cannot find symbol
+		boolean esc = keyCode == GLFW.GLFW_KEY_ESCAPE;
+		                         ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1551: error: cannot find symbol
+			} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+			                      ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1551: error: cannot find symbol
+			} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+			                                                        ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1553: error: cannot find symbol
+			} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !profileInput.isEmpty()) {
+			                      ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1566: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		               ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1570: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_F && ctrl && page == null && tab == Tab.MODS) {
+		               ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1574: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+		               ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1646: error: cannot find symbol
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+		               ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1650: error: cannot find symbol
+		} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+		                      ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1650: error: cannot find symbol
+		} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+		                                                        ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1652: error: cannot find symbol
+		} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+		                      ^
+  symbol:   variable GLFW
+  location: class OriginModMenuScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1685: error: cannot find symbol
+			return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+			                          ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/CosmeticsScreen.java:116: error: cannot find symbol
+				() -> Util.getPlatform().openUri(Cosmetics.STORE_URL));
+				                        ^
+  symbol:   method openUri(String)
+  location: class OS
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:711: error: cannot find symbol
+			return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+			                                                                                           ^
+  symbol:   variable FilterMode
+  location: class IconSdfRenderState
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:737: error: cannot find symbol
+		GpuTextureView atlasView = Minecraft.getInstance().getTextureManager().getTexture(iconSdfAtlas).getTextureView();
+		^
+  symbol:   class GpuTextureView
+  location: class OriginUi
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:925: error: package com.mojang.blaze3d.textures does not exist
+				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+				                                                                                                                   ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:84: error: cannot find symbol
+						b -> b.withColorTargetState(ColorTargetState.DEFAULT));
+						                            ^
+  symbol:   variable ColorTargetState
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:101: error: package RenderPipeline does not exist
+		RenderPipeline.Builder b = RenderPipeline.builder()
+		              ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:101: error: cannot find symbol
+		RenderPipeline.Builder b = RenderPipeline.builder()
+		                           ^
+  symbol:   variable RenderPipeline
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:112: error: cannot find symbol
+		ColorTargetState[] targets = base.getColorTargetStates();
+		^
+  symbol:   class ColorTargetState
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:118: error: cannot find symbol
+		VertexFormat[] bindings = base.getVertexFormatBindings();
+		^
+  symbol:   class VertexFormat
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:124: error: cannot find symbol
+		for (BindGroupLayout layout : base.getBindGroupLayouts()) {
+		     ^
+  symbol:   class BindGroupLayout
+  location: class OriginShaders
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:48: error: cannot find symbol
+				GLFW.glfwGetWindowPos(win, x, y);
+				^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:49: error: cannot find symbol
+				GLFW.glfwGetWindowSize(win, w, h);
+				^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:54: error: cannot find symbol
+				long monitor = GLFW.glfwGetPrimaryMonitor();
+				               ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:55: error: cannot find symbol
+				GLFWVidMode mode = GLFW.glfwGetVideoMode(monitor);
+				^
+  symbol:   class GLFWVidMode
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:55: error: cannot find symbol
+				GLFWVidMode mode = GLFW.glfwGetVideoMode(monitor);
+				                   ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:60: error: cannot find symbol
+				GLFW.glfwGetMonitorPos(monitor, mx, my);
+				^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:61: error: cannot find symbol
+				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_FALSE);
+				                              ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:61: error: cannot find symbol
+				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_FALSE);
+				                                                   ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:61: error: cannot find symbol
+				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_FALSE);
+				^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:62: error: cannot find symbol
+				GLFW.glfwSetWindowMonitor(win, 0L, mx[0], my[0], mode.width(), mode.height(), GLFW.GLFW_DONT_CARE);
+				                                                                              ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:62: error: cannot find symbol
+				GLFW.glfwSetWindowMonitor(win, 0L, mx[0], my[0], mode.width(), mode.height(), GLFW.GLFW_DONT_CARE);
+				^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:69: error: cannot find symbol
+				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_TRUE);
+				                              ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:69: error: cannot find symbol
+				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_TRUE);
+				                                                   ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:69: error: cannot find symbol
+				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_TRUE);
+				^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:71: error: cannot find symbol
+						Math.max(320, savedW), Math.max(240, savedH), GLFW.GLFW_DONT_CARE);
+						                                              ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:70: error: cannot find symbol
+				GLFW.glfwSetWindowMonitor(win, 0L, savedX, savedY,
+				^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:81: error: cannot find symbol
+			if (!GLFW.glfwRawMouseMotionSupported() || !mc.mouseHandler.isMouseGrabbed()) {
+			     ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:85: error: cannot find symbol
+			GLFW.glfwSetInputMode(mc.getWindow().handle(), GLFW.GLFW_RAW_MOUSE_MOTION,
+			                                               ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:85: error: cannot find symbol
+			GLFW.glfwSetInputMode(mc.getWindow().handle(), GLFW.GLFW_RAW_MOUSE_MOTION,
+			^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:86: error: cannot find symbol
+					on ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
+					     ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:86: error: cannot find symbol
+					on ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
+					                      ^
+  symbol:   variable GLFW
+  location: class GeneralSettings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/HurtCamMixin.java:45: error: no suitable method found for mulPose(Quaternionf)
+			poseStack.mulPose(Axis.ZP.rotationDegrees(40.0F - 8000.0F / (death + 200.0F)));
+			         ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/HurtCamMixin.java:54: error: no suitable method found for mulPose(Quaternionf)
+		poseStack.mulPose(Axis.YP.rotationDegrees(-dir));
+		         ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/HurtCamMixin.java:56: error: no suitable method found for mulPose(Quaternionf)
+		poseStack.mulPose(Axis.ZP.rotationDegrees((float) (-hurt * 14.0 * strength)));
+		         ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/HurtCamMixin.java:57: error: no suitable method found for mulPose(Quaternionf)
+		poseStack.mulPose(Axis.YP.rotationDegrees(dir));
+		         ^
+    method PoseStack.mulPose(Matrix4fc) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+    method PoseStack.mulPose(Transformation) is not applicable
+      (argument mismatch; Quaternionf cannot be converted to Transformation)
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:97: error: package NameTagFeatureRenderer does not exist
+		return new NameTagFeatureRenderer.Submit(s.pose(), s.x(), s.y(), s.text(), s.lightCoords(), color, bg, s.displayMode());
+		                                 ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/MouseHandlerMixin.java:37: error: package org.lwjgl.glfw does not exist
+		com.origin.client.client.mods.ClickStats.onButton(info.button(), action == org.lwjgl.glfw.GLFW.GLFW_PRESS, counts);
+		                                                                                         ^
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/shaders/ShaderBrowserScreen.java:317: error: cannot find symbol
+		if (event.key() == GLFW.GLFW_KEY_BACKSPACE && !query.isEmpty()) {
+		                   ^
+  symbol:   variable GLFW
+  location: class ShaderBrowserScreen
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java:329: error: method isKeyDown in class InputConstants cannot be applied to given types;
+			return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), glfwKey);
+			                     ^
+  required: int
+  found:    Window,int
+  reason: actual and formal argument lists differ in length
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java:519: error: cannot find symbol
+						com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(ourTab));
+						                                               ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevShots.java:205: error: cannot find symbol
+					GLFW.glfwSetWindowSize(mc.getWindow().handle(), s.w(), s.h());
+					^
+  symbol:   variable GLFW
+  location: class OriginDevShots
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevShots.java:226: error: cannot find symbol
+						GLFW.glfwSetWindowSize(mc.getWindow().handle(), s.w(), s.h());
+						^
+  symbol:   variable GLFW
+  location: class OriginDevShots
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:29: error: cannot find symbol
+				InputConstants.Type.KEYSYM,
+				                   ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:30: error: cannot find symbol
+				GLFW.GLFW_KEY_RIGHT_SHIFT,
+				^
+  symbol:   variable GLFW
+  location: class OriginKeyBindings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:35: error: cannot find symbol
+				InputConstants.Type.KEYSYM,
+				                   ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:36: error: cannot find symbol
+				GLFW.GLFW_KEY_C,
+				^
+  symbol:   variable GLFW
+  location: class OriginKeyBindings
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:41: error: cannot find symbol
+				InputConstants.Type.KEYSYM,
+				                   ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:47: error: cannot find symbol
+				InputConstants.Type.KEYSYM,
+				                   ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:55: error: cannot find symbol
+				"key.originclient.waypoint_menu", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+				                                                     ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:57: error: cannot find symbol
+				"key.originclient.waypoint_create", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+				                                                       ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:59: error: cannot find symbol
+				"key.originclient.waypoint_toggle", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+				                                                       ^
+  symbol:   variable KEYSYM
+  location: class Type
+/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:64: error: cannot find symbol
+				"key.originclient.party_ping", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+				                                                  ^
+  symbol:   variable KEYSYM
+  location: class Type
+Note: /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+228 errors
+22 warnings
+
+> Task :compileClientJava FAILED
+
+[Incubating] Problems report is available at: file:///home/runner/work/originclient/originclient/src/mods/versions/26.3/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileClientJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  Note: /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java uses or overrides a deprecated API.
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java:329: error: method isKeyDown in class InputConstants cannot be applied to given types;
+  			return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), glfwKey);
+  			                     ^
+    required: int
+    found:    Window,int
+    reason: actual and formal argument lists differ in length
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ItemPhysics.java:132: error: no suitable method found for mulPose(Quaternionf)
+  		pose.mulPose(Axis.YP.rotation(-ItemEntity.getSpin(s.ageInTicks, s.bobOffset)));
+  		    ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ItemPhysics.java:136: error: no suitable method found for mulPose(Quaternionf)
+  		pose.mulPose(Axis.YP.rotation(s.bobOffset));
+  		    ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ItemPhysics.java:138: error: no suitable method found for mulPose(Quaternionf)
+  		pose.mulPose(Axis.ZP.rotationDegrees(ps.originclient$tilt()));
+  		    ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ItemPhysics.java:139: error: no suitable method found for mulPose(Quaternionf)
+  		pose.mulPose(Axis.XP.rotationDegrees(ps.originclient$tumble()));
+  		    ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:187: error: no suitable method found for read(Format,InputStream)
+  		try (InputStream in = res.open(); NativeImage img = NativeImage.read(NativeImage.Format.RGBA, in)) {
+  		                                                               ^
+      method NativeImage.read(InputStream) is not applicable
+        (actual and formal argument lists differ in length)
+      method NativeImage.read(byte[]) is not applicable
+        (actual and formal argument lists differ in length)
+      method NativeImage.read(ByteBuffer) is not applicable
+        (actual and formal argument lists differ in length)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/TntCountdown.java:71: error: no suitable method found for mulPose(Quaternionf)
+  			pose.mulPose(camera.orientation);
+  			    ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:94: error: no suitable method found for mulPose(Quaternionf)
+  		m.pose.mulPose(Axis.XP.rotation(w * t));
+  		      ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:95: error: no suitable method found for mulPose(Quaternionf)
+  		m.pose.mulPose(Axis.YP.rotation(2 * w * t));
+  		      ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:104: error: no suitable method found for mulPose(Quaternionf)
+  			m.pose.mulPose(Axis.YP.rotation(o[5] + o[2] * w * t));
+  			      ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:105: error: no suitable method found for mulPose(Quaternionf)
+  			m.pose.mulPose(Axis.XP.rotation(o[1] + 0.12f * (float) Math.sin(o[3] * w * t)));
+  			      ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:148: error: no suitable method found for mulPose(Quaternionf)
+  			m.pose.mulPose(Axis.YP.rotation(side * TAU / 4));
+  			      ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/cosmetics/HeadModels.java:165: error: no suitable method found for mulPose(Quaternionf)
+  			m.pose.mulPose(Axis.ZP.rotation(TAU / 8));
+  			      ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/HurtCamMixin.java:45: error: no suitable method found for mulPose(Quaternionf)
+  			poseStack.mulPose(Axis.ZP.rotationDegrees(40.0F - 8000.0F / (death + 200.0F)));
+  			         ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/HurtCamMixin.java:54: error: no suitable method found for mulPose(Quaternionf)
+  		poseStack.mulPose(Axis.YP.rotationDegrees(-dir));
+  		         ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/HurtCamMixin.java:56: error: no suitable method found for mulPose(Quaternionf)
+  		poseStack.mulPose(Axis.ZP.rotationDegrees((float) (-hurt * 14.0 * strength)));
+  		         ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/HurtCamMixin.java:57: error: no suitable method found for mulPose(Quaternionf)
+  		poseStack.mulPose(Axis.YP.rotationDegrees(dir));
+  		         ^
+      method PoseStack.mulPose(Matrix4fc) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Matrix4fc)
+      method PoseStack.mulPose(Transformation) is not applicable
+        (argument mismatch; Quaternionf cannot be converted to Transformation)
+  Note: Recompile with -Xlint:deprecation for details.
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:135: error: Recorder is not abstract and does not override abstract method setUv3(float,float) in VertexConsumer
+  	private static final class Recorder implements VertexConsumer {
+  	                     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/Readouts.java:322: error: incompatible types: Stream<PackResources> cannot be converted to PackResources
+  		try (PackResources res = p.open()) {
+  		                               ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:3: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                    ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:40: error: cannot find symbol
+  	private final RenderPipeline pipeline;
+  	              ^
+    symbol:   class RenderPipeline
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:41: error: cannot find symbol
+  	private final GpuTextureView view;
+  	              ^
+    symbol:   class GpuTextureView
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:42: error: cannot find symbol
+  	private final GpuSampler sampler;
+  	              ^
+    symbol:   class GpuSampler
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:52: error: cannot find symbol
+  	private GuiTris(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+  	                ^
+    symbol:   class RenderPipeline
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:52: error: cannot find symbol
+  	private GuiTris(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+  	                                         ^
+    symbol:   class GpuTextureView
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:52: error: cannot find symbol
+  	private GuiTris(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+  	                                                              ^
+    symbol:   class GpuSampler
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:65: error: cannot find symbol
+  	public static GuiTris textured(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+  	                               ^
+    symbol:   class RenderPipeline
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:65: error: cannot find symbol
+  	public static GuiTris textured(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+  	                                                        ^
+    symbol:   class GpuTextureView
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:65: error: cannot find symbol
+  	public static GuiTris textured(RenderPipeline pipeline, GpuTextureView view, GpuSampler sampler) {
+  	                                                                             ^
+    symbol:   class GpuSampler
+    location: class GuiTris
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:3: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                    ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:3: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.BlendFunction;
+                                    ^
+    symbol:   class BlendFunction
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:4: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.ColorTargetState;
+                                    ^
+    symbol:   class ColorTargetState
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:5: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.DepthStencilState;
+                                    ^
+    symbol:   class DepthStencilState
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:6: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                    ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:7: error: cannot find symbol
+  import com.mojang.blaze3d.platform.CompareOp;
+                                    ^
+    symbol:   class CompareOp
+    location: package com.mojang.blaze3d.platform
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:51: error: cannot find symbol
+  	private static final Lazy<RenderPipeline> GUI_ADDITIVE = new Lazy<>(() ->
+  	                          ^
+    symbol:   class RenderPipeline
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:55: error: cannot find symbol
+  	private static final Lazy<RenderPipeline> GUI_GLINT = new Lazy<>(() ->
+  	                          ^
+    symbol:   class RenderPipeline
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:61: error: cannot find symbol
+  	private static final Lazy<RenderPipeline> GLINT_BLENDED = new Lazy<>(() ->
+  	                          ^
+    symbol:   class RenderPipeline
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:73: error: cannot find symbol
+  	public static RenderPipeline guiAdditive() {
+  	              ^
+    symbol:   class RenderPipeline
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:79: error: cannot find symbol
+  	public static RenderPipeline guiGlint() {
+  	              ^
+    symbol:   class RenderPipeline
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:84: error: cannot find symbol
+  	public static RenderPipeline glintBlended() {
+  	              ^
+    symbol:   class RenderPipeline
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:147: error: cannot find symbol
+  	private record TrisRenderState(RenderPipeline pipeline, TextureSetup textureSetup, Matrix3x2fc pose,
+  	                               ^
+    symbol:   class RenderPipeline
+    location: class TrisRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:3: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.DepthStencilState;
+                                    ^
+    symbol:   class DepthStencilState
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:4: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                    ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:5: error: cannot find symbol
+  import com.mojang.blaze3d.platform.CompareOp;
+                                    ^
+    symbol:   class CompareOp
+    location: package com.mojang.blaze3d.platform
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:147: error: cannot find symbol
+  									GpuTextureView source, ScreenRectangle bounds) implements GuiElementRenderState {
+  									^
+    symbol:   class GpuTextureView
+    location: class GradeRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:165: error: cannot find symbol
+  		public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+  		                                  ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:228: error: cannot find symbol
+  			Matrix3x2fc pose, List<GlyphVertex> quads, GpuTextureView atlasView,
+  			                                           ^
+    symbol:   class GpuTextureView
+    location: class MsdfTextRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:257: error: cannot find symbol
+  		public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+  		                                  ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:5: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                    ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:109: error: cannot find symbol
+  			GpuTextureView atlasView, Matrix3x2fc pose, int x0, int y0, int x1, int y1,
+  			^
+    symbol:   class GpuTextureView
+    location: class IconGlyphRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:121: error: cannot find symbol
+  		public RenderPipeline pipeline() {
+  		       ^
+    symbol:   class RenderPipeline
+    location: class IconGlyphRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:5: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                    ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:693: error: cannot find symbol
+  			GpuTextureView atlasView, Matrix3x2fc pose, int x0, int y0, int x1, int y1,
+  			^
+    symbol:   class GpuTextureView
+    location: class IconSdfRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:705: error: cannot find symbol
+  		public RenderPipeline pipeline() {
+  		       ^
+    symbol:   class RenderPipeline
+    location: class IconSdfRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:3: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.BindGroupLayout;
+                                    ^
+    symbol:   class BindGroupLayout
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:4: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.ColorTargetState;
+                                    ^
+    symbol:   class ColorTargetState
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:5: error: cannot find symbol
+  import com.mojang.blaze3d.pipeline.RenderPipeline;
+                                    ^
+    symbol:   class RenderPipeline
+    location: package com.mojang.blaze3d.pipeline
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:6: error: cannot find symbol
+  import com.mojang.blaze3d.vertex.VertexFormat;
+                                  ^
+    symbol:   class VertexFormat
+    location: package com.mojang.blaze3d.vertex
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:42: error: cannot find symbol
+  	private static RenderPipeline msdf, icon, grade;
+  	               ^
+    symbol:   class RenderPipeline
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:50: error: cannot find symbol
+  	public static RenderPipeline msdf() {
+  	              ^
+    symbol:   class RenderPipeline
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:63: error: cannot find symbol
+  	public static RenderPipeline icon() {
+  	              ^
+    symbol:   class RenderPipeline
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:80: error: cannot find symbol
+  	public static RenderPipeline grade() {
+  	              ^
+    symbol:   class RenderPipeline
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:99: error: cannot find symbol
+  	public static RenderPipeline derive(RenderPipeline base, String location, String fragmentShader,
+  	                                    ^
+    symbol:   class RenderPipeline
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:99: error: cannot find symbol
+  	public static RenderPipeline derive(RenderPipeline base, String location, String fragmentShader,
+  	              ^
+    symbol:   class RenderPipeline
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:6: error: cannot find symbol
+  import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
+                                              ^
+    symbol:   class NameTagFeatureRenderer
+    location: package net.minecraft.client.renderer.feature
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginWindow.java:303: error: cannot find symbol
+  		if (event.key() == GLFW.GLFW_KEY_ESCAPE) {
+  		                   ^
+    symbol:   variable GLFW
+    location: class OriginWindow
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:848: error: cannot find symbol
+  		if (focus >= 0 && keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+  		                             ^
+    symbol:   variable GLFW
+    location: class WaypointScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:856: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_TAB && focus >= 0) {
+  		               ^
+    symbol:   variable GLFW
+    location: class WaypointScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:860: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_ESCAPE && pendingDelete != null) {
+  		               ^
+    symbol:   variable GLFW
+    location: class WaypointScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/HudEditorScreen.java:482: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+  		               ^
+    symbol:   variable GLFW
+    location: class HudEditorScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/HudEditorScreen.java:486: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_R && hoveredId != null) {
+  		               ^
+    symbol:   variable GLFW
+    location: class HudEditorScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/dev/PanoramaCapture.java:37: error: cannot find symbol
+  	private static final int CAPTURE_KEY = GLFW.GLFW_KEY_F8;
+  	                                       ^
+    symbol:   variable GLFW
+    location: class PanoramaCapture
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ShinyPots.java:66: error: cannot find symbol
+  				RenderSystem.getSamplerCache().getRepeat(FilterMode.LINEAR));
+  				                                         ^
+    symbol:   variable FilterMode
+    location: class ShinyPots
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:146: error: cannot find symbol
+  		RenderPipeline pipeline = vanilla.pipeline();
+  		^
+    symbol:   class RenderPipeline
+    location: class GlintColorizer
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:65: error: cannot find symbol
+  		boolean ctrl = held(GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
+  		                    ^
+    symbol:   variable GLFW
+    location: class AutoTextHotkey
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:65: error: cannot find symbol
+  		boolean ctrl = held(GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
+  		                                                ^
+    symbol:   variable GLFW
+    location: class AutoTextHotkey
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:66: error: cannot find symbol
+  		boolean shift = held(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT);
+  		                     ^
+    symbol:   variable GLFW
+    location: class AutoTextHotkey
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:66: error: cannot find symbol
+  		boolean shift = held(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT);
+  		                                               ^
+    symbol:   variable GLFW
+    location: class AutoTextHotkey
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:67: error: cannot find symbol
+  		boolean alt = held(GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT);
+  		                   ^
+    symbol:   variable GLFW
+    location: class AutoTextHotkey
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:67: error: cannot find symbol
+  		boolean alt = held(GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT);
+  		                                           ^
+    symbol:   variable GLFW
+    location: class AutoTextHotkey
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/FpsCoach.java:516: error: cannot find symbol
+  			return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+  			                          ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:153: error: cannot find symbol
+  				ModOption.keybind("key", "Zoom Key", GLFW.GLFW_KEY_C),
+  				                                     ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:380: error: cannot find symbol
+  				ModOption.keybind("key", "Freelook Key", GLFW.GLFW_KEY_LEFT_ALT));
+  				                                         ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:419: error: cannot find symbol
+  				ModOption.keybind("key", "Toggle Chunk Borders", GLFW.GLFW_KEY_F9),
+  				                                                 ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:494: error: cannot find symbol
+  				ModOption.keybind("tabKey", "Tab Keybind", GLFW.GLFW_KEY_TAB)
+  				                                           ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:531: error: cannot find symbol
+  				ModOption.keybind("increaseKey", "Increase Time", GLFW.GLFW_KEY_RIGHT_BRACKET),
+  				                                                  ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:532: error: cannot find symbol
+  				ModOption.keybind("decreaseKey", "Decrease Time", GLFW.GLFW_KEY_LEFT_BRACKET),
+  				                                                  ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:749: error: cannot find symbol
+  				ModOption.keybind("key", "Snaplook Key", GLFW.GLFW_KEY_V),
+  				                                         ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:873: error: cannot find symbol
+  				ModOption.keybind("openMapKey", "Open Full Map", GLFW.GLFW_KEY_M)
+  				                                                 ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:963: error: cannot find symbol
+  				ModOption.keybind("key", "Open Quickplay", GLFW.GLFW_KEY_G),
+  				                                           ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:1002: error: cannot find symbol
+  				ModOption.keybind("key", "Open FPS Coach", GLFW.GLFW_KEY_K),
+  				                                           ^
+    symbol:   variable GLFW
+    location: class Mods
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:53: error: cannot find symbol
+  					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))));
+  					                                ^
+    symbol:   class ColorTargetState
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:53: error: cannot find symbol
+  					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))));
+  					                                                 ^
+    symbol:   variable BlendFunction
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:57: error: cannot find symbol
+  					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.GLINT))));
+  					                                ^
+    symbol:   class ColorTargetState
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:57: error: cannot find symbol
+  					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.GLINT))));
+  					                                                 ^
+    symbol:   variable BlendFunction
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:63: error: cannot find symbol
+  					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.ENTITY_OUTLINE_BLIT))));
+  					                                ^
+    symbol:   class ColorTargetState
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:63: error: cannot find symbol
+  					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.ENTITY_OUTLINE_BLIT))));
+  					                                                 ^
+    symbol:   variable BlendFunction
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:69: error: cannot find symbol
+  					b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN, false))))
+  					                                                 ^
+    symbol:   class DepthStencilState
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:69: error: cannot find symbol
+  					b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN, false))))
+  					                                                                   ^
+    symbol:   variable CompareOp
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/LunarPipelines.java:74: error: cannot find symbol
+  		RenderPipeline p = GUI_ADDITIVE.get();
+  		^
+    symbol:   class RenderPipeline
+    location: class LunarPipelines
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:56: error: cannot find symbol
+  				RenderPipeline p = OriginShaders.derive(RenderPipelines.DEBUG_QUADS, "pipeline/overlay_quads", null,
+  				^
+    symbol:   class RenderPipeline
+    location: class OriginRenderTypes
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:57: error: cannot find symbol
+  						b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false)));
+  						                                                 ^
+    symbol:   class DepthStencilState
+    location: class OriginRenderTypes
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:57: error: cannot find symbol
+  						b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false)));
+  						                                                                   ^
+    symbol:   variable CompareOp
+    location: class OriginRenderTypes
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:103: error: cannot find symbol
+  				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.blaze3d.GpuFormat.RGBA8_UNORM);
+  				                                                                                           ^
+    symbol:   class GpuFormat
+    location: package com.mojang.blaze3d
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:114: error: cannot find symbol
+  			GpuTextureView view = swap.getColorTextureView();
+  			^
+    symbol:   class GpuTextureView
+    location: class ColorGrade
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:172: error: cannot find symbol
+  					RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+  					                                              ^
+    symbol:   variable FilterMode
+    location: class GradeRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevWorld.java:63: error: cannot find symbol
+  				GLFW.glfwSetWindowSize(mc.getWindow().handle(), 1920, 1080);
+  				^
+    symbol:   variable GLFW
+    location: class OriginDevWorld
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevWorld.java:183: error: cannot find symbol
+  				b.onPress(new KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
+  				                       ^
+    symbol:   variable GLFW
+    location: class OriginDevWorld
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginMultiSelect.java:209: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+  		               ^
+    symbol:   variable GLFW
+    location: class OriginMultiSelect
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:917: error: cannot find symbol
+  			if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+  			               ^
+    symbol:   variable GLFW
+    location: class FriendsScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:917: error: cannot find symbol
+  			if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+  			                                                 ^
+    symbol:   variable GLFW
+    location: class FriendsScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:925: error: cannot find symbol
+  			if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+  			               ^
+    symbol:   variable GLFW
+    location: class FriendsScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:942: error: cannot find symbol
+  			if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+  			               ^
+    symbol:   variable GLFW
+    location: class FriendsScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginItemGridScreen.java:552: error: cannot find symbol
+  		if (event.key() == GLFW.GLFW_KEY_BACKSPACE && searchFocused && !search.isEmpty()) {
+  		                   ^
+    symbol:   variable GLFW
+    location: class OriginItemGridScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginButtonRenderer.java:402: error: cannot find symbol
+  				&& GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+  				                                                                         ^
+    symbol:   variable GLFW
+    location: class OriginButtonRenderer
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginButtonRenderer.java:402: error: cannot find symbol
+  				&& GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+  				   ^
+    symbol:   variable GLFW
+    location: class OriginButtonRenderer
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginButtonRenderer.java:402: error: cannot find symbol
+  				&& GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+  				                                                                                                         ^
+    symbol:   variable GLFW
+    location: class OriginButtonRenderer
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:264: error: cannot find symbol
+  				return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+  				                                                                                           ^
+    symbol:   variable FilterMode
+    location: class MsdfTextRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:343: error: cannot find symbol
+  		GpuTextureView atlasView = Minecraft.getInstance().getTextureManager().getTexture(f.atlas).getTextureView();
+  		^
+    symbol:   class GpuTextureView
+    location: class OriginSdfFont
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:128: error: cannot find symbol
+  			return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+  			                                                                                           ^
+    symbol:   variable FilterMode
+    location: class IconGlyphRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:147: error: cannot find symbol
+  		GpuTextureView atlasView = Minecraft.getInstance().getTextureManager().getTexture(SDF_ATLAS).getTextureView();
+  		^
+    symbol:   class GpuTextureView
+    location: class ModIcons
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginColorPicker.java:363: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+  		               ^
+    symbol:   variable GLFW
+    location: class OriginColorPicker
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1535: error: cannot find symbol
+  			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
+  			                                    ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1540: error: cannot find symbol
+  		boolean esc = keyCode == GLFW.GLFW_KEY_ESCAPE;
+  		                         ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1551: error: cannot find symbol
+  			} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+  			                      ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1551: error: cannot find symbol
+  			} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+  			                                                        ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1553: error: cannot find symbol
+  			} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !profileInput.isEmpty()) {
+  			                      ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1566: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+  		               ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1570: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_F && ctrl && page == null && tab == Tab.MODS) {
+  		               ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1574: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+  		               ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1646: error: cannot find symbol
+  		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+  		               ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1650: error: cannot find symbol
+  		} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+  		                      ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1650: error: cannot find symbol
+  		} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+  		                                                        ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1652: error: cannot find symbol
+  		} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+  		                      ^
+    symbol:   variable GLFW
+    location: class OriginModMenuScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:1685: error: cannot find symbol
+  			return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+  			                          ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:711: error: cannot find symbol
+  			return TextureSetup.singleTexture(atlasView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+  			                                                                                           ^
+    symbol:   variable FilterMode
+    location: class IconSdfRenderState
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:737: error: cannot find symbol
+  		GpuTextureView atlasView = Minecraft.getInstance().getTextureManager().getTexture(iconSdfAtlas).getTextureView();
+  		^
+    symbol:   class GpuTextureView
+    location: class OriginUi
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:84: error: cannot find symbol
+  						b -> b.withColorTargetState(ColorTargetState.DEFAULT));
+  						                            ^
+    symbol:   variable ColorTargetState
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:101: error: cannot find symbol
+  		RenderPipeline.Builder b = RenderPipeline.builder()
+  		                           ^
+    symbol:   variable RenderPipeline
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:112: error: cannot find symbol
+  		ColorTargetState[] targets = base.getColorTargetStates();
+  		^
+    symbol:   class ColorTargetState
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:118: error: cannot find symbol
+  		VertexFormat[] bindings = base.getVertexFormatBindings();
+  		^
+    symbol:   class VertexFormat
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:124: error: cannot find symbol
+  		for (BindGroupLayout layout : base.getBindGroupLayouts()) {
+  		     ^
+    symbol:   class BindGroupLayout
+    location: class OriginShaders
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:48: error: cannot find symbol
+  				GLFW.glfwGetWindowPos(win, x, y);
+  				^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:49: error: cannot find symbol
+  				GLFW.glfwGetWindowSize(win, w, h);
+  				^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:54: error: cannot find symbol
+  				long monitor = GLFW.glfwGetPrimaryMonitor();
+  				               ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:55: error: cannot find symbol
+  				GLFWVidMode mode = GLFW.glfwGetVideoMode(monitor);
+  				^
+    symbol:   class GLFWVidMode
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:55: error: cannot find symbol
+  				GLFWVidMode mode = GLFW.glfwGetVideoMode(monitor);
+  				                   ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:60: error: cannot find symbol
+  				GLFW.glfwGetMonitorPos(monitor, mx, my);
+  				^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:61: error: cannot find symbol
+  				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_FALSE);
+  				                              ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:61: error: cannot find symbol
+  				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_FALSE);
+  				                                                   ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:61: error: cannot find symbol
+  				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_FALSE);
+  				^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:62: error: cannot find symbol
+  				GLFW.glfwSetWindowMonitor(win, 0L, mx[0], my[0], mode.width(), mode.height(), GLFW.GLFW_DONT_CARE);
+  				                                                                              ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:62: error: cannot find symbol
+  				GLFW.glfwSetWindowMonitor(win, 0L, mx[0], my[0], mode.width(), mode.height(), GLFW.GLFW_DONT_CARE);
+  				^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:69: error: cannot find symbol
+  				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_TRUE);
+  				                              ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:69: error: cannot find symbol
+  				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_TRUE);
+  				                                                   ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:69: error: cannot find symbol
+  				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_TRUE);
+  				^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:71: error: cannot find symbol
+  						Math.max(320, savedW), Math.max(240, savedH), GLFW.GLFW_DONT_CARE);
+  						                                              ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:70: error: cannot find symbol
+  				GLFW.glfwSetWindowMonitor(win, 0L, savedX, savedY,
+  				^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:81: error: cannot find symbol
+  			if (!GLFW.glfwRawMouseMotionSupported() || !mc.mouseHandler.isMouseGrabbed()) {
+  			     ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:85: error: cannot find symbol
+  			GLFW.glfwSetInputMode(mc.getWindow().handle(), GLFW.GLFW_RAW_MOUSE_MOTION,
+  			                                               ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:85: error: cannot find symbol
+  			GLFW.glfwSetInputMode(mc.getWindow().handle(), GLFW.GLFW_RAW_MOUSE_MOTION,
+  			^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:86: error: cannot find symbol
+  					on ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
+  					     ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:86: error: cannot find symbol
+  					on ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
+  					                      ^
+    symbol:   variable GLFW
+    location: class GeneralSettings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/shaders/ShaderBrowserScreen.java:317: error: cannot find symbol
+  		if (event.key() == GLFW.GLFW_KEY_BACKSPACE && !query.isEmpty()) {
+  		                   ^
+    symbol:   variable GLFW
+    location: class ShaderBrowserScreen
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java:519: error: cannot find symbol
+  						com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(ourTab));
+  						                                               ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevShots.java:205: error: cannot find symbol
+  					GLFW.glfwSetWindowSize(mc.getWindow().handle(), s.w(), s.h());
+  					^
+    symbol:   variable GLFW
+    location: class OriginDevShots
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevShots.java:226: error: cannot find symbol
+  						GLFW.glfwSetWindowSize(mc.getWindow().handle(), s.w(), s.h());
+  						^
+    symbol:   variable GLFW
+    location: class OriginDevShots
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:29: error: cannot find symbol
+  				InputConstants.Type.KEYSYM,
+  				                   ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:30: error: cannot find symbol
+  				GLFW.GLFW_KEY_RIGHT_SHIFT,
+  				^
+    symbol:   variable GLFW
+    location: class OriginKeyBindings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:35: error: cannot find symbol
+  				InputConstants.Type.KEYSYM,
+  				                   ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:36: error: cannot find symbol
+  				GLFW.GLFW_KEY_C,
+  				^
+    symbol:   variable GLFW
+    location: class OriginKeyBindings
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:41: error: cannot find symbol
+  				InputConstants.Type.KEYSYM,
+  				                   ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:47: error: cannot find symbol
+  				InputConstants.Type.KEYSYM,
+  				                   ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:55: error: cannot find symbol
+  				"key.originclient.waypoint_menu", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+  				                                                     ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:57: error: cannot find symbol
+  				"key.originclient.waypoint_create", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+  				                                                       ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:59: error: cannot find symbol
+  				"key.originclient.waypoint_toggle", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+  				                                                       ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:64: error: cannot find symbol
+  				"key.originclient.party_ping", InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY));
+  				                                                  ^
+    symbol:   variable KEYSYM
+    location: class Type
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
+  	                                 ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] getConfigManager() in IJeiRuntime has been deprecated and marked for removal
+  			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+  			                             ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
+  			     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:118: warning: [removal] IJeiConfigCategory in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  				for (IJeiConfigCategory cat : file.getCategories()) {
+  				     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:120: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  					for (IJeiConfigValue<?> v : cat.getConfigValues()) {
+  					     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:141: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static ModOption build(String category, IJeiConfigValue<?> v) {
+  	                                                ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:144: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  			IJeiConfigValueSerializer<?> ser = v.getSerializer();
+  			^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:148: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
+  			                   ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:184: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValue<?> v = HANDLES.get(key);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:200: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValue<?> v = HANDLES.get(key);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:217: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValue<?> v = HANDLES.get(key);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:242: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValue<?> v = HANDLES.get(key);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:255: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static <T> String readTyped(IJeiConfigValue<T> v) {
+  	                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:259: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static <T> void writeTyped(IJeiConfigValue<T> v, String s) {
+  	                                   ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:260: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  		IJeiConfigValueSerializer.IDeserializeResult<T> r = v.getSerializer().deserialize(s);
+  		^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:269: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static <T> List<String> validTokens(IJeiConfigValueSerializer<T> ser) {
+  	                                            ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:281: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
+  	                                               ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:287: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static double[] bounds(String key, IJeiConfigValueSerializer<?> ser, int pivot) {
+  	                                           ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:314: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static int probeMin(IJeiConfigValueSerializer<?> ser, int pivot) {
+  	                            ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:330: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static int probeMax(IJeiConfigValueSerializer<?> ser, int pivot) {
+  	                            ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:346: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static boolean validInt(IJeiConfigValueSerializer<?> ser, int x) {
+  	                                ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
+  	private static String fileName(IJeiConfigFile file) {
+  	                               ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:37: error: cannot find symbol
+  @Mixin(NameTagFeatureRenderer.class)
+         ^
+    symbol: class NameTagFeatureRenderer
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:218: error: cannot find symbol
+  							this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+  							                                                             ^
+    symbol: variable FilterMode
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/HudEditorScreen.java:481: error: cannot find symbol
+  		int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
+  		                                           ^
+    symbol:   method scancode()
+    location: variable event of type KeyEvent
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ScreenshotChat.java:167: error: cannot find symbol
+  			case "folder" -> Util.getPlatform().openFile(target);
+  			                                   ^
+    symbol:   method openFile(File)
+    location: class OS
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:101: error: cannot find symbol
+  		if (renderType == RenderTypes.armorEntityGlint()) {
+  		                             ^
+    symbol:   method armorEntityGlint()
+    location: class RenderTypes
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:104: error: cannot find symbol
+  		if (renderType == RenderTypes.glint() || renderType == RenderTypes.glintTranslucent()
+  		                             ^
+    symbol:   method glint()
+    location: class RenderTypes
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:104: error: cannot find symbol
+  		if (renderType == RenderTypes.glint() || renderType == RenderTypes.glintTranslucent()
+  		                                                                  ^
+    symbol:   method glintTranslucent()
+    location: class RenderTypes
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:105: error: cannot find symbol
+  				|| renderType == RenderTypes.entityGlint()) {
+  				                            ^
+    symbol:   method entityGlint()
+    location: class RenderTypes
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/GlintColorizer.java:162: error: cannot find symbol
+  		return new PreparedRenderType(pipeline, vanilla.outputTarget(), vanilla.dynamicTransforms(),
+  		                                               ^
+    symbol:   method outputTarget()
+    location: variable vanilla of type PreparedRenderType
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/FpsCoachTips.java:268: error: cannot find symbol
+  			return mc.getWindow().getRefreshRate();
+  			                     ^
+    symbol:   method getRefreshRate()
+    location: class Window
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/CosmeticsScreen.java:116: error: cannot find symbol
+  				() -> Util.getPlatform().openUri(Cosmetics.STORE_URL));
+  				                        ^
+    symbol:   method openUri(String)
+    location: class OS
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/waypoints/WaypointScreen.java:13: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginWindow.java:11: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/HudEditorScreen.java:14: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:4: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.GpuSampler;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/GuiTris.java:5: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.GpuTextureView;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/dev/PanoramaCapture.java:6: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/ShinyPots.java:4: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.FilterMode;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/AutoTextHotkey.java:7: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mods/Mods.java:10: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:6: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.FilterMode;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:7: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.GpuTextureView;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevWorld.java:12: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginMultiSelect.java:7: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java:20: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginItemGridScreen.java:22: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginButtonRenderer.java:14: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:7: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.FilterMode;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginSdfFont.java:8: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.GpuTextureView;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:8: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.FilterMode;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java:9: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.GpuTextureView;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginColorPicker.java:8: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginModMenuScreen.java:17: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:8: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.FilterMode;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:9: error: package com.mojang.blaze3d.textures does not exist
+  import com.mojang.blaze3d.textures.GpuTextureView;
+                                    ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:100: error: package RenderPipeline does not exist
+  			UnaryOperator<RenderPipeline.Builder> tweak) {
+  			                            ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:5: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/GeneralSettings.java:6: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFWVidMode;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:46: error: package NameTagFeatureRenderer does not exist
+  	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
+  	                                                                                             ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:46: error: package NameTagFeatureRenderer does not exist
+  	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
+  	                                     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:96: error: package NameTagFeatureRenderer does not exist
+  	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
+  	                                                                                     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:96: error: package NameTagFeatureRenderer does not exist
+  	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
+  	                                     ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/shaders/ShaderBrowserScreen.java:11: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevShots.java:9: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginKeyBindings.java:6: error: package org.lwjgl.glfw does not exist
+  import org.lwjgl.glfw.GLFW;
+                       ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginScreenRenderer.java:1003: error: package com.mojang.blaze3d.textures does not exist
+  				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+  				                                                                                                                   ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginUi.java:925: error: package com.mojang.blaze3d.textures does not exist
+  				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+  				                                                                                                                   ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java:101: error: package RenderPipeline does not exist
+  		RenderPipeline.Builder b = RenderPipeline.builder()
+  		              ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:97: error: package NameTagFeatureRenderer does not exist
+  		return new NameTagFeatureRenderer.Submit(s.pose(), s.x(), s.y(), s.text(), s.lightCoords(), color, bg, s.displayMode());
+  		                                 ^
+  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/MouseHandlerMixin.java:37: error: package org.lwjgl.glfw does not exist
+  		com.origin.client.client.mods.ClickStats.onButton(info.button(), action == org.lwjgl.glfw.GLFW.GLFW_PRESS, counts);
+  		                                                                                         ^
+  228 errors
+  22 warnings
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 2m 23s
+4 actionable tasks: 4 executed
