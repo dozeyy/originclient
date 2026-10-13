@@ -172,16 +172,12 @@ public sealed class VersionManager
             // unreachable. It is left in place rather than deleted — the modules
             // (src/mods/versions/1.8.9, /1.12.2) are still on disk, so re-adding
             // both versions is a catalog + CI change, not a rewrite.
-            // 26.2 (src/mods/staged/26.2) — STAGED, not yet active. The module
-            // is scaffolded and its Java 25 / unobfuscated-Loom toolchain is
-            // proven, but the render layer is mid-port to 26.2's retained-mode GUI
-            // and no originclient-26.2.jar builds yet. Listing it here would make
-            // the launcher offer an Origin build with no jar to install (broken),
-            // so it stays commented until the port compiles + runClient-verifies.
-            // The 26.2 perf/shader stack IS live in PerformanceModCatalog, so 26.2
-            // is already offered as a Fabric+shaders version (vanilla menus) via
-            // HasShaderStack. Re-enable this line to add the Origin menus:
-            //   ["26.2"] = new("originclient-26.2.jar", BundlesPerfStack: false),
+            // --- 26.x (unobfuscated, Java 25, extract/submit GUI) ---
+            // 26.2 — ported from the 1.21.11 module 2026-10-12 (src/mods/versions/26.2);
+            // perf/shader stack installed standalone from PerformanceModCatalog.
+            // Mojang's version JSON asks for a Java 25 runtime, which CmlLib
+            // downloads like every other version's.
+            ["26.2"] = new("originclient-26.2.jar", BundlesPerfStack: false),
         };
 
     // Every Minecraft version that ships an Origin Client build (i.e. gets the

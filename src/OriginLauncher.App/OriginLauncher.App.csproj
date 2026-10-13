@@ -116,9 +116,9 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <!-- 26.2 — Origin client only; perf/shader stack installed standalone. -->
-    <Content Include="..\mods\staged\26.2\build\libs\originclient-26.2-*.jar"
-             Exclude="..\mods\staged\26.2\build\libs\originclient-26.2-*-sources.jar;..\mods\staged\26.2\build\libs\originclient-26.2-*-dev.jar">
+    <!-- 26.2 — Origin client (+ JEI jar-in-jar); perf/shader stack installed standalone. Java 25. -->
+    <Content Include="..\mods\versions\26.2\build\libs\originclient-26.2-*.jar"
+             Exclude="..\mods\versions\26.2\build\libs\originclient-26.2-*-sources.jar;..\mods\versions\26.2\build\libs\originclient-26.2-*-dev.jar">
       <Link>Bundled\OriginClient\originclient-26.2.jar</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
