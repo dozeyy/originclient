@@ -53,7 +53,7 @@ use it as a name reference (render/OriginLoadingRenderer.java replaced
   (`gui/OriginTtfFont`, same role as 1.16.5's stb version); vanilla text is
   `FontRenderer` (`mc.fontRendererObj`).
 
-## Hooks: Forge event first, Mixin second, reflection last
+## Hooks: Forge event first, Mixin second, accessors over reflection
 1. **Forge event** when Forge fires one at the right moment (GuiOpenEvent,
    GuiScreenEvent.InitGuiEvent/DrawScreenEvent/ActionPerformedEvent/
    MouseInputEvent/KeyboardInputEvent, RenderGameOverlayEvent.Pre/Post per
@@ -78,7 +78,15 @@ use it as a name reference (render/OriginLoadingRenderer.java replaced
    HEAD/RETURN (+cancel) in OptiFine-replaced classes and say in a comment
    when a hook is INVOKE-based in one of them. @Shadow only fields/methods that
    are vanilla API (OptiFine keeps those).
-3. **Reflection** (private fields with no event/mixin route): ALWAYS through
+3. **Private members**: prefer a Mixin `@Accessor` / `@Invoker` interface in
+   your area's mixin package — the refmap translates its MCP name to SRG at
+   build time, so it is correct in production with no SRG bookkeeping. Cast
+   the instance to the accessor (`((GuiIngameAccessor) mc.ingameGUI).origin$getDisplayedTitle()`)
+   and guard with `instanceof` so a failed accessor = feature off, not a
+   ClassCastException. Forge's own classes (GuiIngameForge, net.minecraftforge.*)
+   are not obfuscated: mixins/accessors into Forge-added members need
+   `remap = false`.
+4. **Reflection** (last resort, e.g. classes from other mods like OptiFine): ALWAYS through
    `com.origin.client.client.util.Reflect` with BOTH names — the MCP name
    (dev/runClient) and the SRG name (players' production Forge runs SRG-named):
    `Reflect.field(GuiIngame.class, "displayedTitle", "field_175201_x")`.
@@ -102,7 +110,7 @@ crash (mandate 4). Same volatile-latch pattern the other versions use.
 | `Screen.init()` / `render(PoseStack,mx,my,pt)` / `mouseClicked(mx,my,btn)` → bool / `keyPressed` / `charTyped` / `mouseScrolled` / `onClose` / `removed` | `initGui()` / `drawScreen(mx,my,pt)` / `mouseClicked(mx,my,btn)` void throws IOException / `keyTyped(char,int)` throws IOException / — / `handleMouseInput()` + `Mouse.getEventDWheel()` / — / `onGuiClosed()`; plus `mouseReleased(mx,my,state)`, `mouseClickMove(mx,my,btn,timeSinceClick)`, `updateScreen()`, `doesGuiPauseGame()` |
 | `Font` / `font.width(s)` / `font.lineHeight` / `font.draw` / `drawShadow` | `FontRenderer` / `getStringWidth(s)` / `FONT_HEIGHT` / `drawString(s,x,y,c)` / `drawStringWithShadow(s,x,y,c)` |
 | `Component` / `TextComponent` / `TranslatableComponent` / `Style` / `ChatFormatting` / `FormattedCharSequence` | `IChatComponent` / `ChatComponentText` / `ChatComponentTranslation` / `ChatStyle` / `EnumChatFormatting` / `String` |
-| `PoseStack` | the foundation's `com.origin.client.client.gui.Pose` (GL-matrix-backed: `pushPose/popPose/translate/scale/mulPoseZ(deg)` ...) — `Gfx.pose()` returns it |
+| `PoseStack` | the foundation's `com.origin.client.client.gui.Pose` — a thin face over the fixed-function GL matrix stack (1.8.9 has no matrix objects): `pushPose()`, `popPose()`, `translate(double,double,double)`, `scale(float,float,float)`, `mulPose(Pose.Axis.ZP.rotationDegrees(deg))` (also `XP`/`YP`, `.rotation(radians)`). `Gfx.pose()` returns it; `new Pose()` works anywhere (world rendering too). There is NO `last().pose()` matrix: vertices are emitted with `wr.pos(x,y,z)` and the current GL matrix applies, so drop the matrix argument of 1.16.5's `vertex(matrix, x, y, z)` |
 | `RenderSystem` | `GlStateManager` (+ `GL11` for what it lacks: scissor, line width, `glColorMask`...) |
 | `Tesselator` / `BufferBuilder` / `DefaultVertexFormat` / `.vertex(m,x,y,z).color(..).endVertex()` | `Tessellator.getInstance()` / `WorldRenderer` (`tess.getWorldRenderer()`) / `DefaultVertexFormats` / `wr.begin(GL11.GL_QUADS, POSITION_COLOR); wr.pos(x,y,z).tex(u,v).color(r,g,b,a).endVertex(); tess.draw();` (vertex element order must match the format) |
 | `RenderTarget` / `PostChain` | `Framebuffer` / `ShaderGroup` |

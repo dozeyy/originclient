@@ -75,6 +75,12 @@ dependencies {
 	// Build time only: the newer annotation processor writes the refmap that
 	// maps Origin's MCP names to the SRG names production Forge runs with.
 	annotationProcessor 'org.spongepowered:mixin:0.8.5-SNAPSHOT'
+	// The processor's own runtime (not on javac's processor path by default).
+	annotationProcessor 'com.google.code.gson:gson:2.8.9'
+	annotationProcessor 'com.google.guava:guava:31.1-jre'
+	['asm', 'asm-tree', 'asm-commons', 'asm-util', 'asm-analysis'].each {
+		annotationProcessor "org.ow2.asm:${it}:9.6"
+	}
 }
 
 java {
