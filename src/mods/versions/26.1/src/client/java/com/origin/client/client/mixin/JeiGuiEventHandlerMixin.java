@@ -53,7 +53,7 @@ public abstract class JeiGuiEventHandlerMixin {
 	 * BookmarkOverlay.drawScreen). Cancelling is what makes the screen look stock.
 	 *
 	 * JEI 30 (MC 26.2) split it in two: drawForScreenBackground(Screen, GGE) and
-	 * drawForScreenForeground(Screen, GGE, int, int) (javap, jei 30.42.0.236). The
+	 * drawForScreenForeground(Screen, GGE, int, int) (javap, jei 30.42.0.236; JEI 29.37 for 26.1.x has the same split). The
 	 * foreground pass is the overlay; the background pass is cancelled below too.
 	 */
 	@Inject(method = "drawForScreenForeground", at = @At("HEAD"), cancellable = true)
