@@ -979,8 +979,13 @@ ONE module, `versions/26.1` (jar originclient-26.1.jar, fabric.mod.json `>=26.1-
 26.1.2 and picked for all three. version-scout's API diff (the `inspect` job: javap of every changed class
 between neighbouring releases) found no added/removed class and no public signature change from 26.1 to
 26.1.2 — only method bodies (DetectedVersion, PlayerEntry, Checkbox gained a private row limit,
-AbstractReportScreen, ServerGamePacketListenerImpl). Fabric API 0.155.3+26.1.2, JEI 29.47.0.109 and every
-perf mod declare all three. Dev shots design + world (label p261) matched 1.21.1 with zero mixin failures.
+AbstractReportScreen, ServerGamePacketListenerImpl). Fabric API 0.155.3+26.1.2 and every perf mod declare all
+three. JEI is pinned to 29.37.0.100: every JEI from 29.40 on nests mezz_config, whose fabric.mod.json says
+"minecraft": "26.1.2" EXACTLY -- the jar refused to boot on 26.1 ("Incompatible mods found! MezzConfig requires
+26.1.2", dev shots label p261-mc261). JEI <= 29.37 has no Minecraft range; its UserInput is mezz.jei.gui.input
+(JEI 30 moved it to mezz.jei.common.input). ALWAYS boot a multi-version jar on its OLDEST version too (set
+minecraft_version in gradle.properties for one dev-shots run): a nested jar's exact pin is invisible until then.
+Dev shots design + world matched 1.21.1 with zero mixin failures on 26.1.2 (label p261) and on 26.1 (p261-mc261).
 
 26.1 is a MIDDLE era: 26.2's extract GUI is already there (GuiGraphicsExtractor, extract* names, LevelRenderEvents
 with COLLECT_SUBMITS + submitCustomGeometry, ColorTargetState/DepthStencilState, world clocks,
