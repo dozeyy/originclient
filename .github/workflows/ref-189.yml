@@ -58,6 +58,12 @@ jobs:
           # Each error with its source line + caret + symbol/location lines.
           grep -A4 ' error: ' "$RUNNER_TEMP/compile.log" | sed "s#$PWD/src/main/java/##" | grep -v '^--$' | head -6000
           if [ "$rc" -ne 0 ] && [ "$n" -eq 0 ]; then tail -80 "$RUNNER_TEMP/compile.log"; fi
+          # Summary LAST, so a short log tail shows where the errors are.
+          echo "===== errors per file ====="
+          grep ' error: ' "$RUNNER_TEMP/compile.log" | sed "s#$PWD/src/main/java/##; s#:[0-9]*: error:.*##" | sort | uniq -c | sort -rn | head -150
+          echo "===== most common messages ====="
+          grep -o ' error: .*' "$RUNNER_TEMP/compile.log" | sort | uniq -c | sort -rn | head -40
+          echo "javac errors: $n (exit $rc)"
           exit $rc
 
   lookup:
