@@ -37,10 +37,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // filter as three blank squares, the filter's hidden "Showing All" label
 // sprawling out of it).
 //
-// Plain Button and CycleButton (the "Something: Value" toggles all over the
-// Options menus) are covered here. Dynamic labels with no baked Inter texture
-// fall back to vanilla font inside the Origin shell, per the settled font
-// decision. Disabled buttons (active=false, e.g. Telemetry Data) render the
+// Plain Button and text CycleButtons (the "Something: Value" toggles all over
+// the Options menus) are covered here; a CycleButton counts as text exactly
+// when vanilla would draw its label instead of a sprite (originclient$
+// drawsSprite). If that test breaks, Options toggles silently go vanilla grey
+// again (the 2026-10-13 Controls-screen report) -- nothing crashes.
+// Dynamic labels with no baked Inter texture fall back to vanilla font inside
+// the Origin shell, per the settled font decision. Disabled buttons (active=false, e.g. Telemetry Data) render the
 // dimmed Origin style and skip hover.
 // priority 2000: Origin's widget restyle wins over other UI mods.
 @Mixin(value = AbstractButton.class, priority = 2000)
@@ -75,13 +78,29 @@ public class AbstractButtonMixin {
 		if (widget instanceof PlainTextButton) {
 			return false;
 		}
-		if (widget instanceof CycleButton<?>) {
+		if (widget instanceof CycleButton<?> cycle) {
 			// Text cycle buttons = Origin look; sprite ones (recipe filter) = vanilla.
-			return ((CycleButtonSpriteAccessor) widget).originclient$spriteSupplier() == null;
+			return !originclient$drawsSprite(cycle);
 		}
 		// Plain vanilla Buttons and Origin's own Button subclasses. Everything
 		// that is an AbstractButton but not a Button -- Checkbox (CheckboxMixin
 		// draws it), the beacon screen's custom buttons -- stays vanilla.
 		return widget instanceof Button;
+	}
+
+	// Asks the exact question vanilla's CycleButton.extractContents asks before
+	// it draws: `spriteSupplier.apply(this, getValue())` -- non-null = blit that
+	// sprite, null = draw the text label (javap, extractContents offsets 0-18).
+	// Testing the supplier field itself for null is WRONG on 1.21.11 and 26.x:
+	// every CycleButton.Builder installs a default supplier that returns null
+	// (Builder.<init> 14-19), so the field is never null and every Options
+	// toggle (Sneak: Hold, Auto-Jump: OFF, Chat: Shown...) fell through to
+	// vanilla grey. Only a builder given withSprite(...) -- the recipe book's
+	// craftable filter, whose supplier always returns a WidgetSprites id --
+	// answers non-null and keeps its vanilla art.
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static boolean originclient$drawsSprite(CycleButton cycle) {
+		CycleButton.SpriteSupplier supplier = ((CycleButtonSpriteAccessor) cycle).originclient$spriteSupplier();
+		return supplier != null && supplier.apply(cycle, cycle.getValue()) != null;
 	}
 }
