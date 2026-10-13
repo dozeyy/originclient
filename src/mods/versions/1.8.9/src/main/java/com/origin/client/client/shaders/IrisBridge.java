@@ -8,6 +8,7 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -63,15 +64,15 @@ public final class IrisBridge {
 	}
 
 	/** OptiFine reads packs from <gameDir>/shaderpacks (Shaders.shaderpacksdir). */
-	public static File shaderpacksDir() {
-		return new File(Minecraft.getMinecraft().mcDataDir, "shaderpacks");
+	public static Path shaderpacksDir() {
+		return Minecraft.getMinecraft().mcDataDir.toPath().resolve("shaderpacks");
 	}
 
 	/** Shaderpack candidates: .zip files and directories in shaderpacks/. */
 	public static List<String> listPacks() {
 		List<String> packs = new ArrayList<>();
 		try {
-			File[] files = shaderpacksDir().listFiles();
+			File[] files = shaderpacksDir().toFile().listFiles();
 			if (files != null) {
 				Arrays.sort(files);
 				for (File f : files) {
