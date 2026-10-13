@@ -102,9 +102,9 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :configureClientLaunch
 
 > Task :runClient
-[00:47:18] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.2 with Fabric Loader 0.19.3
-[00:47:18] [main/INFO] (FabricLoader/Mappings) Mappings not present!
-[00:47:18] [main/INFO] (FabricLoader) Loading 54 mods:
+[00:58:25] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.2 with Fabric Loader 0.19.3
+[00:58:25] [main/INFO] (FabricLoader/Mappings) Mappings not present!
+[00:58:25] [main/INFO] (FabricLoader) Loading 54 mods:
 	- fabric-advancement-api-v1 1.0.0+58719a3b9e
 	- fabric-api 0.161.0+26.2
 	- fabric-api-base 2.0.4+ece063239e
@@ -159,26 +159,26 @@ Note: Recompile with -Xlint:deprecation for details.
 	- minecraft 26.2
 	- mixinextras 0.5.4
 	- originclient 0.4.2
-[00:47:18] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
-[00:47:18] [main/INFO] (FabricLoader/Mixin) Compatibility level set to JAVA_25
-[00:47:19] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
-[00:47:19] [main/WARN] (FabricLoader/Mixin) Error loading class: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit (java.lang.ClassNotFoundException: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit)
-[00:47:19] [main/WARN] (FabricLoader/Mixin) @Mixin target de.siphalor.amecs.key_modifiers.impl.AmecsKeyModifiersEarlyInit was not found jei.mixins.json:AmecsKeyModifiersEarlyInitMixin from mod jei
-[00:47:19] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.4).
-[00:47:21] [Datafixer Bootstrap #0/INFO] (Minecraft) 295 Datafixer optimizations took 591 milliseconds
-[00:47:27] [Render thread/INFO] (Minecraft) Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, profilesHost=https://api.mojang.com, name=PROD]
-[00:47:27] [Render thread/INFO] (Minecraft) Setting user: Player21
-[00:47:27] [Render thread/INFO] (originclient) Origin Client initializing
-[00:47:28] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
-[00:47:28] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
-[00:47:28] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.204 milliseconds
-[00:47:28] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
-[00:47:28] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.1-snapshot
-[00:47:29] [Render thread/INFO] (Minecraft) Using graphics backend OpenGL, using drivers: 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
-[00:47:29] [Render thread/INFO] (Minecraft) Using graphics device: llvmpipe (LLVM 20.1.2, 256 bits) (Mesa)
-[00:47:29] [Render thread/INFO] (Minecraft) Using graphics device extensions: GL_ARB_multi_draw_indirect, GL_ARB_buffer_storage, GL_ARB_shader_draw_parameters, GL_ARB_base_instance, GL_KHR_debug, GL_ARB_draw_indirect, GL_ARB_clip_control, GL_ARB_vertex_attrib_binding, GL_ARB_direct_state_access, GL_EXT_texture_filter_anisotropic
-[00:47:30] [Download-1/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
-[00:47:30] [Render thread/ERROR] (Minecraft) Error while loading the narrator
+[00:58:25] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[00:58:25] [main/INFO] (FabricLoader/Mixin) Compatibility level set to JAVA_25
+[00:58:26] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
+[00:58:26] [main/WARN] (FabricLoader/Mixin) Error loading class: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit (java.lang.ClassNotFoundException: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit)
+[00:58:26] [main/WARN] (FabricLoader/Mixin) @Mixin target de.siphalor.amecs.key_modifiers.impl.AmecsKeyModifiersEarlyInit was not found jei.mixins.json:AmecsKeyModifiersEarlyInitMixin from mod jei
+[00:58:26] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.4).
+[00:58:29] [Datafixer Bootstrap #0/INFO] (Minecraft) 295 Datafixer optimizations took 653 milliseconds
+[00:58:35] [Render thread/INFO] (Minecraft) Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, profilesHost=https://api.mojang.com, name=PROD]
+[00:58:35] [Render thread/INFO] (Minecraft) Setting user: Player112
+[00:58:35] [Render thread/INFO] (originclient) Origin Client initializing
+[00:58:35] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
+[00:58:35] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
+[00:58:36] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
+[00:58:36] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.325 milliseconds
+[00:58:36] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.1-snapshot
+[00:58:36] [Render thread/INFO] (Minecraft) Using graphics backend OpenGL, using drivers: 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
+[00:58:36] [Render thread/INFO] (Minecraft) Using graphics device: llvmpipe (LLVM 20.1.2, 256 bits) (Mesa)
+[00:58:36] [Render thread/INFO] (Minecraft) Using graphics device extensions: GL_ARB_multi_draw_indirect, GL_ARB_buffer_storage, GL_ARB_shader_draw_parameters, GL_ARB_base_instance, GL_KHR_debug, GL_ARB_draw_indirect, GL_ARB_clip_control, GL_ARB_vertex_attrib_binding, GL_ARB_direct_state_access, GL_EXT_texture_filter_anisotropic
+[00:58:37] [Download-2/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[00:58:37] [Render thread/ERROR] (Minecraft) Error while loading the narrator
 
 com.mojang.text2speech.Narrator$InitializeException: Failed to load library flite
 	at knot//com.mojang.text2speech.NarratorLinux$FliteLibrary.loadNative(NarratorLinux.java:82)
@@ -212,11 +212,11 @@ Native library (linux-x86-64/libflite.so) not found in resource path (/home/runn
 		at knot//com.sun.jna.Native.extractFromResourcePath(Native.java:1141)
 		at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:297)
 		... 12 more
-[00:47:30] [Render thread/INFO] (Minecraft) Reloading ResourceManager: vanilla, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-client-gametest-api-v1, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-gametest-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, jei, mezz_config, originclient
-[00:47:30] [Render thread/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
-[00:47:31] [Worker-Main-3/INFO] (Minecraft) Found unifont_all_no_pua-17.0.01.hex, loading
-[00:47:31] [Worker-Main-1/INFO] (Minecraft) Found unifont_pua-17.0.01.hex, loading
-[00:47:31] [Worker-Main-3/INFO] (Minecraft) Found unifont_jp_patch-17.0.01.hex, loading
+[00:58:37] [Render thread/INFO] (Minecraft) Reloading ResourceManager: vanilla, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-client-gametest-api-v1, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-gametest-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, jei, mezz_config, originclient
+[00:58:37] [Render thread/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
+[00:58:38] [Worker-Main-3/INFO] (Minecraft) Found unifont_all_no_pua-17.0.01.hex, loading
+[00:58:38] [Worker-Main-2/INFO] (Minecraft) Found unifont_pua-17.0.01.hex, loading
+[00:58:38] [Worker-Main-3/INFO] (Minecraft) Found unifont_jp_patch-17.0.01.hex, loading
 ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
 ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
 ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
@@ -233,7 +233,7 @@ ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
 ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
 ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
 ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
-[00:47:33] [Render thread/ERROR] (Minecraft) Error starting SoundSystem. Turning off sounds & music
+[00:58:40] [Render thread/ERROR] (Minecraft) Error starting SoundSystem. Turning off sounds & music
 
 java.lang.IllegalStateException: Failed to open OpenAL device
 	at knot//com.mojang.blaze3d.audio.Library.openDeviceOrFallback(Library.java:275)
@@ -257,80 +257,85 @@ java.lang.IllegalStateException: Failed to open OpenAL device
 	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
 	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
 	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[00:47:33] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
-[00:47:33] [Render thread/INFO] (Minecraft) Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
-[00:47:33] [Render thread/INFO] (Minecraft) Created: 2048x1024x0 minecraft:textures/atlas/armor_trims.png-atlas
-[00:47:33] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
-[00:47:33] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
-[00:47:33] [Render thread/INFO] (Minecraft) Created: 2048x2048x4 minecraft:textures/atlas/blocks.png-atlas
-[00:47:34] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
-[00:47:34] [Render thread/INFO] (Minecraft) Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
-[00:47:34] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
-[00:47:34] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
-[00:47:34] [Render thread/INFO] (Minecraft) Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
-[00:47:34] [Render thread/INFO] (Minecraft) Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
-[00:47:34] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
-[00:47:36] [Download-1/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
-[00:47:40] [Render thread/INFO] (Minecraft) Loaded 1585 recipes
-[00:47:40] [Render thread/INFO] (Minecraft) Loaded 1688 advancements
-[00:47:40] [Render thread/ERROR] (Minecraft) ########## GL ERROR ##########
-[00:47:40] [Render thread/ERROR] (Minecraft) @ Pre render
-[00:47:40] [Render thread/ERROR] (Minecraft) 65547: X11: Standard cursor shape unavailable
-[00:47:40] [Render thread/INFO] (BiomeModificationImpl) Applied 0 biome modifications to 0 of 66 new biomes in 1.328 ms
-[00:47:40] [Server thread/INFO] (Minecraft) Starting integrated minecraft server version 26.2
-[00:47:40] [Server thread/INFO] (Minecraft) Generating keypair
-[00:47:41] [Server thread/INFO] (Minecraft) Selecting global world spawn...
-[00:47:48] [Server thread/INFO] (Minecraft) Loading 0 persistent chunks...
-[00:47:48] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:48] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
-[00:47:48] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
-[00:47:48] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
-[00:47:48] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (world): All chunks are saved
-[00:47:48] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
-[00:47:48] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (DIM1): All chunks are saved
-[00:47:48] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage: All dimensions are saved
-[00:47:49] [Render thread/INFO] (originclient) [dev-shots] pressed Create New World on LevelLoadingScreen
-[00:47:50] [Server thread/INFO] (Minecraft) Loading 47 chunks for player spawn...
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:50] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:51] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:51] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
-[00:47:51] [Server thread/INFO] (Minecraft) Preparing spawn area: 29%
-[00:47:52] [Server thread/INFO] (Minecraft) Preparing spawn area: 29%
-[00:47:52] [Server thread/INFO] (Minecraft) Preparing spawn area: 29%
-[00:47:53] [Server thread/INFO] (Minecraft) Preparing spawn area: 57%
-[00:47:53] [Server thread/INFO] (Minecraft) Preparing spawn area: 57%
-[00:47:54] [Server thread/INFO] (Minecraft) Preparing spawn area: 57%
-[00:47:54] [Server thread/INFO] (Minecraft) Time elapsed: 13254 ms
-[00:47:55] [Server thread/INFO] (Minecraft) Player21[local:E:d9452f0a] logged in with entity id 15 at (348.5, 63.0, -554.5)
-[00:47:55] [Server thread/INFO] (Minecraft) Player21 joined the game
-[00:47:55] [Server thread/INFO] (Minecraft) Changing view distance to 16, from 10
-[00:47:55] [Server thread/INFO] (Minecraft) Changing simulation distance to 12, from 0
-[00:47:55] [Render thread/INFO] (LoggedTimer) Starting JEI...
-[00:47:55] [Render thread/INFO] (PluginCaller) Configuring JEI...
-[00:47:55] [Render thread/INFO] (PluginCaller) Configuring JEI took 652.4 microseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering item subtypes...
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering item subtypes took 11.72 milliseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering fluid subtypes...
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering fluid subtypes took 2.581 milliseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering ingredients...
-[00:47:55] [Download-1/ERROR] (Minecraft) Failed to retrieve profile key pair
+[00:58:40] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
+[00:58:40] [Render thread/INFO] (Minecraft) Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
+[00:58:40] [Render thread/INFO] (Minecraft) Created: 2048x1024x0 minecraft:textures/atlas/armor_trims.png-atlas
+[00:58:40] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[00:58:40] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
+[00:58:40] [Render thread/INFO] (Minecraft) Created: 2048x2048x4 minecraft:textures/atlas/blocks.png-atlas
+[00:58:41] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
+[00:58:41] [Render thread/INFO] (Minecraft) Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
+[00:58:41] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
+[00:58:41] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
+[00:58:41] [Render thread/INFO] (Minecraft) Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
+[00:58:41] [Render thread/INFO] (Minecraft) Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
+[00:58:41] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
+[00:58:43] [Download-2/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[00:58:47] [Render thread/INFO] (Minecraft) Loaded 1585 recipes
+[00:58:47] [Render thread/INFO] (Minecraft) Loaded 1688 advancements
+[00:58:47] [Render thread/ERROR] (Minecraft) ########## GL ERROR ##########
+[00:58:47] [Render thread/ERROR] (Minecraft) @ Pre render
+[00:58:47] [Render thread/ERROR] (Minecraft) 65547: X11: Standard cursor shape unavailable
+[00:58:48] [Render thread/INFO] (BiomeModificationImpl) Applied 0 biome modifications to 0 of 66 new biomes in 1.539 ms
+[00:58:48] [Server thread/INFO] (Minecraft) Starting integrated minecraft server version 26.2
+[00:58:48] [Server thread/INFO] (Minecraft) Generating keypair
+[00:58:49] [Server thread/INFO] (Minecraft) Selecting global world spawn...
+[00:58:56] [Server thread/INFO] (Minecraft) Loading 0 persistent chunks...
+[00:58:56] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:56] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
+[00:58:56] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
+[00:58:56] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
+[00:58:56] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (world): All chunks are saved
+[00:58:56] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[00:58:56] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[00:58:56] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage: All dimensions are saved
+[00:58:57] [Render thread/INFO] (originclient) [dev-shots] pressed Create New World on LevelLoadingScreen
+[00:58:57] [Server thread/INFO] (Minecraft) Loading 48 chunks for player spawn...
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:57] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:58] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:58] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:58] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:58] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:58] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:58] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:58] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:59] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:58:59] [Server thread/INFO] (Minecraft) Preparing spawn area: 16%
+[00:59:00] [Server thread/INFO] (Minecraft) Preparing spawn area: 30%
+[00:59:00] [Server thread/INFO] (Minecraft) Preparing spawn area: 30%
+[00:59:01] [Server thread/INFO] (Minecraft) Preparing spawn area: 30%
+[00:59:01] [Server thread/INFO] (Minecraft) Preparing spawn area: 34%
+[00:59:02] [Server thread/INFO] (Minecraft) Preparing spawn area: 34%
+[00:59:02] [Server thread/INFO] (Minecraft) Preparing spawn area: 58%
+[00:59:03] [Server thread/INFO] (Minecraft) Preparing spawn area: 58%
+[00:59:03] [Server thread/INFO] (Minecraft) Preparing spawn area: 58%
+[00:59:04] [Server thread/INFO] (Minecraft) Preparing spawn area: 58%
+[00:59:04] [Server thread/INFO] (Minecraft) Preparing spawn area: 100%
+[00:59:04] [Server thread/INFO] (Minecraft) Time elapsed: 15509 ms
+[00:59:04] [Server thread/INFO] (Minecraft) Player112[local:E:dd671ffd] logged in with entity id 46 at (66.5, 74.0, 10.5)
+[00:59:05] [Server thread/INFO] (Minecraft) Player112 joined the game
+[00:59:05] [Server thread/INFO] (Minecraft) Changing view distance to 16, from 10
+[00:59:05] [Server thread/INFO] (Minecraft) Changing simulation distance to 12, from 0
+[00:59:05] [Render thread/INFO] (LoggedTimer) Starting JEI...
+[00:59:05] [Render thread/INFO] (PluginCaller) Configuring JEI...
+[00:59:05] [Render thread/INFO] (PluginCaller) Configuring JEI took 693.5 microseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering item subtypes...
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering item subtypes took 4.259 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering fluid subtypes...
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering fluid subtypes took 1.553 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering ingredients...
+[00:59:05] [Download-2/ERROR] (Minecraft) Failed to retrieve profile key pair
 
 MinecraftClientHttpException[type=HTTP_ERROR, status=401, response=ErrorResponse[path=/player/certificates, error=null, errorMessage=null, details=null]]
 	at knot//com.mojang.authlib.minecraft.client.MinecraftClient.buildHttpException(MinecraftClient.java:170)
@@ -343,104 +348,109 @@ MinecraftClientHttpException[type=HTTP_ERROR, status=401, response=ErrorResponse
 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1090)
 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:614)
 	at java.base/java.lang.Thread.run(Thread.java:1474)
-[00:47:55] [Render thread/INFO] (PluginCallerTimerRunnable) Registering ingredients: jei:minecraft took 250.6 milliseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering ingredients took 261.3 milliseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering extra ingredients...
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering extra ingredients took 250.3 microseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering search ingredient aliases...
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering search ingredient aliases took 4.004 milliseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering slot display interpreters...
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering slot display interpreters took 8.344 milliseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering Mod Info...
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering Mod Info took 341.4 microseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering advanced search...
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering advanced search took 1.498 milliseconds
-[00:47:55] [Render thread/INFO] (PluginCaller) Registering categories...
-[00:47:55] [Render thread/INFO] (PluginCallerTimerRunnable) Registering categories: jei:minecraft took 15.17 milliseconds
-[00:47:56] [Render thread/INFO] (PluginCaller) Registering categories took 23.15 milliseconds
-[00:47:56] [Render thread/INFO] (PluginCaller) Registering vanilla category extensions...
-[00:47:56] [Render thread/INFO] (PluginCaller) Registering vanilla category extensions took 5.674 milliseconds
-[00:47:56] [Render thread/INFO] (PluginCaller) Registering recipe catalysts...
-[00:47:56] [Render thread/INFO] (PluginCaller) Registering recipe catalysts took 9.480 milliseconds
-[00:47:56] [Render thread/INFO] (LoggedTimer) Building recipe registry...
-[00:47:56] [Render thread/INFO] (LoggedTimer) Building recipe registry took 26.58 milliseconds
-[00:47:56] [Render thread/INFO] (PluginCaller) Registering advanced plugins...
-[00:47:56] [Render thread/INFO] (AdvancedRegistration) Added typed recipe manager plugin: class mezz.jei.library.plugins.vanilla.crafting.FireworkStarRecipeManagerPlugin
-[00:47:56] [Render thread/INFO] (PluginCallerTimerRunnable) Registering advanced plugins: jei:minecraft took 30.19 milliseconds
-[00:47:56] [Render thread/INFO] (PluginCaller) Registering advanced plugins took 35.86 milliseconds
-[00:47:56] [Render thread/INFO] (PluginCaller) Registering recipes...
-[00:47:57] [Render thread/INFO] (PluginCallerTimerRunnable) Registering recipes: jei:minecraft took 983.5 milliseconds
-[00:47:57] [Render thread/INFO] (PluginCallerTimerRunnable) Registering recipes: jei:internal took 295.9 milliseconds
-[00:47:57] [Render thread/INFO] (PluginCaller) Registering recipes took 1.281 seconds
-[00:47:57] [Render thread/INFO] (PluginCaller) Registering recipes transfer handlers...
-[00:47:57] [Render thread/INFO] (PluginCaller) Registering recipes transfer handlers took 6.157 milliseconds
-[00:47:57] [Render thread/INFO] (LoggedTimer) Building runtime...
-[00:47:57] [Render thread/INFO] (PluginCaller) Registering gui handlers...
-[00:47:57] [Render thread/INFO] (PluginCallerTimerRunnable) Registering gui handlers: jei:minecraft took 15.34 milliseconds
-[00:47:57] [Render thread/INFO] (PluginCaller) Registering gui handlers took 29.38 milliseconds
-[00:47:57] [Render thread/INFO] (PluginCaller) Registering Runtime...
-[00:47:57] [Render thread/INFO] (JeiGuiStarter) Starting JEI GUI
-[00:47:57] [Render thread/INFO] (LoggedTimer) Building ingredient list...
-[00:47:57] [Render thread/INFO] (LoggedTimer) Building ingredient list took 67.22 milliseconds
-[00:47:57] [Render thread/INFO] (LoggedTimer) Building ingredient filter...
-[00:47:57] [Render thread/INFO] (IngredientFilter) Adding 1907 ingredients
-[00:47:57] [Render thread/INFO] (IngredientFilter) Added 1907 ingredients
-[00:47:57] [Render thread/INFO] (LoggedTimer) Building ingredient filter took 321.8 milliseconds
-[00:47:58] [Render thread/INFO] (PluginCallerTimerRunnable) Registering Runtime: jei:fabric_gui took 607.4 milliseconds
-[00:47:58] [Render thread/INFO] (PluginCaller) Registering Runtime took 608.4 milliseconds
-[00:47:58] [Render thread/INFO] (LoggedTimer) Building runtime took 669.1 milliseconds
-[00:47:58] [Render thread/INFO] (PluginCaller) Sending Runtime...
-[00:47:58] [Render thread/INFO] (PluginCaller) Sending Runtime took 274.9 microseconds
-[00:47:58] [Render thread/INFO] (LoggedTimer) Starting JEI took 2.466 seconds
-[00:47:58] [Render thread/INFO] (Minecraft) Loaded 2 advancements
-[00:47:58] [Render thread/INFO] (originclient) Origin[outline]: COLLECT_SUBMITS fired (poseStack=true, collector=true)
-[00:47:59] [Render thread/INFO] (Minecraft) Resizing Dynamic Transforms UBO, capacity limit of 2 reached during a single frame. New capacity will be 4.
-[00:47:59] [Render thread/INFO] (Minecraft) Resizing Dynamic Transforms UBO, capacity limit of 4 reached during a single frame. New capacity will be 8.
-[00:48:00] [Render thread/INFO] (Minecraft) [System] [CHAT] §7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the Origin menu: §fRight Shift → Mods → JEI§7.
-[00:48:00] [Render thread/INFO] (Minecraft) Resizing Dynamic Transforms UBO, capacity limit of 8 reached during a single frame. New capacity will be 16.
-[00:48:01] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 2 reached during a single frame. New capacity will be 8.
-[00:48:02] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 8 reached during a single frame. New capacity will be 16.
-[00:48:02] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 16 reached during a single frame. New capacity will be 32.
-[00:48:03] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 32 reached during a single frame. New capacity will be 64.
-[00:48:04] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 64 reached during a single frame. New capacity will be 128.
-[00:48:09] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 128 reached during a single frame. New capacity will be 256.
-[00:48:22] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 256 reached during a single frame. New capacity will be 512.
-[00:48:23] [Render thread/INFO] (originclient) [dev-shots] captured world_off_1920x1080.png
-[00:48:25] [Render thread/INFO] (originclient) [dev-shots] captured world_sat_1920x1080.png
-[00:48:26] [Server thread/INFO] (Minecraft) Saving and pausing game...
-[00:48:26] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
-[00:48:26] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
-[00:48:26] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
-[00:48:27] [Render thread/INFO] (originclient) [dev-shots] captured world_bright_1920x1080.png
-[00:48:27] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas
-[00:48:27] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf_bold' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas_bold
-[00:48:27] [Render thread/INFO] (originclient) Origin MSDF DEBUG: first emit('Cosmetics') -> 9 quads, pipeline=originclient:pipeline/origin_msdf, atlasView=com.mojang.blaze3d.opengl.GlTextureView@737ad991, v0=(606.0,278.23047 uv 0.111328125,0.64453125), bounds=ScreenRectangle[position=ScreenPosition[x=151, y=69], width=23, height=4]
-[00:48:27] [Render thread/INFO] (originclient) Origin MSDF DEBUG: buildVertices() completed OK, wrote 45 quads
-[00:48:30] [Render thread/INFO] (originclient) [dev-shots] captured pause_1920x1080.png
-[00:48:31] [Render thread/INFO] (originclient) [dev-shots] captured cosmetics_world_1920x1080.png
-[00:48:35] [Render thread/INFO] (originclient) [dev-shots] captured party_world_1920x1080.png
-[00:48:35] [Render thread/INFO] (originclient) [dev-shots] done — world set in /home/runner/work/_temp/shots
-[00:48:35] [Render thread/INFO] (Minecraft) Stopping!
-[00:48:35] [Server thread/INFO] (Minecraft) Player21 lost connection: Disconnected
-[00:48:35] [Server thread/INFO] (Minecraft) Player21 left the game
-[00:48:35] [Server thread/INFO] (Minecraft) Stopping singleplayer server as player logged out
-[00:48:35] [Server thread/INFO] (Minecraft) Stopping server
-[00:48:35] [Server thread/INFO] (Minecraft) Saving players
-[00:48:35] [Server thread/INFO] (Minecraft) Saving worlds
-[00:48:36] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
-[00:48:38] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
-[00:48:38] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
-[00:48:38] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (world): All chunks are saved
-[00:48:38] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
-[00:48:38] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (DIM1): All chunks are saved
-[00:48:38] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage: All dimensions are saved
-[00:48:38] [Render thread/INFO] (ClientLifecycleHandler) Stopping JEI
-[00:48:38] [Render thread/INFO] (JeiStarter) Stopping JEI
-[00:48:38] [Render thread/INFO] (PluginCaller) Sending Runtime Unavailable...
-[00:48:38] [Render thread/INFO] (FabricGuiPlugin) Stopping JEI GUI
-[00:48:38] [Render thread/INFO] (PluginCaller) Sending Runtime Unavailable took 611.0 microseconds
+[00:59:05] [Render thread/INFO] (PluginCallerTimerRunnable) Registering ingredients: jei:minecraft took 215.4 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering ingredients took 216.0 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering extra ingredients...
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering extra ingredients took 4.984 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering search ingredient aliases...
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering search ingredient aliases took 299.4 microseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering slot display interpreters...
+[00:59:05] [Render thread/INFO] (PluginCallerTimerRunnable) Registering slot display interpreters: jei:minecraft took 37.79 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering slot display interpreters took 41.55 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering Mod Info...
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering Mod Info took 3.408 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering advanced search...
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering advanced search took 6.576 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering categories...
+[00:59:05] [Render thread/INFO] (PluginCallerTimerRunnable) Registering categories: jei:minecraft took 31.87 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering categories took 43.57 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering vanilla category extensions...
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering vanilla category extensions took 8.681 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering recipe catalysts...
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering recipe catalysts took 5.701 milliseconds
+[00:59:05] [Render thread/INFO] (LoggedTimer) Building recipe registry...
+[00:59:05] [Render thread/INFO] (LoggedTimer) Building recipe registry took 26.78 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering advanced plugins...
+[00:59:05] [Render thread/INFO] (AdvancedRegistration) Added typed recipe manager plugin: class mezz.jei.library.plugins.vanilla.crafting.FireworkStarRecipeManagerPlugin
+[00:59:05] [Render thread/INFO] (PluginCallerTimerRunnable) Registering advanced plugins: jei:minecraft took 32.57 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering advanced plugins took 34.90 milliseconds
+[00:59:05] [Render thread/INFO] (PluginCaller) Registering recipes...
+[00:59:07] [Render thread/INFO] (PluginCallerTimerRunnable) Registering recipes: jei:minecraft took 1.236 seconds
+[00:59:07] [Render thread/INFO] (PluginCallerTimerRunnable) Registering recipes: jei:internal took 361.4 milliseconds
+[00:59:07] [Render thread/INFO] (PluginCaller) Registering recipes took 1.600 seconds
+[00:59:07] [Render thread/INFO] (PluginCaller) Registering recipes transfer handlers...
+[00:59:07] [Render thread/INFO] (PluginCaller) Registering recipes transfer handlers took 3.139 milliseconds
+[00:59:07] [Render thread/INFO] (LoggedTimer) Building runtime...
+[00:59:07] [Render thread/INFO] (PluginCaller) Registering gui handlers...
+[00:59:07] [Render thread/INFO] (PluginCaller) Registering gui handlers took 10.35 milliseconds
+[00:59:07] [Render thread/INFO] (PluginCaller) Registering Runtime...
+[00:59:07] [Render thread/INFO] (JeiGuiStarter) Starting JEI GUI
+[00:59:07] [Render thread/INFO] (LoggedTimer) Building ingredient list...
+[00:59:07] [Render thread/INFO] (LoggedTimer) Building ingredient list took 102.2 milliseconds
+[00:59:07] [Render thread/INFO] (LoggedTimer) Building ingredient filter...
+[00:59:07] [Render thread/INFO] (IngredientFilter) Adding 1907 ingredients
+[00:59:08] [Render thread/INFO] (IngredientFilter) Added 1907 ingredients
+[00:59:08] [Render thread/INFO] (LoggedTimer) Building ingredient filter took 397.4 milliseconds
+[00:59:08] [Render thread/INFO] (PluginCallerTimerRunnable) Registering Runtime: jei:fabric_gui took 776.6 milliseconds
+[00:59:08] [Render thread/INFO] (PluginCaller) Registering Runtime took 780.8 milliseconds
+[00:59:08] [Render thread/INFO] (LoggedTimer) Building runtime took 816.3 milliseconds
+[00:59:08] [Render thread/INFO] (PluginCaller) Sending Runtime...
+[00:59:08] [Render thread/INFO] (PluginCaller) Sending Runtime took 411.8 microseconds
+[00:59:08] [Render thread/INFO] (LoggedTimer) Starting JEI took 2.936 seconds
+[00:59:08] [Render thread/INFO] (Minecraft) Loaded 2 advancements
+[00:59:08] [Render thread/INFO] (originclient) Origin[outline]: COLLECT_SUBMITS fired (poseStack=true, collector=true)
+[00:59:08] [Render thread/INFO] (originclient) Origin[outline]: target state present at MutableBlockPos{x=66, y=75, z=13}
+[00:59:08] [Render thread/INFO] (originclient) Origin[world]: first quads submit, 288 vertices
+[00:59:08] [Render thread/INFO] (originclient) Origin[world]: first replay into the frame (288 vertices)
+[00:59:09] [Render thread/INFO] (Minecraft) Resizing Dynamic Transforms UBO, capacity limit of 2 reached during a single frame. New capacity will be 4.
+[00:59:10] [Render thread/INFO] (Minecraft) Resizing Dynamic Transforms UBO, capacity limit of 4 reached during a single frame. New capacity will be 8.
+[00:59:11] [Render thread/INFO] (Minecraft) Resizing Dynamic Transforms UBO, capacity limit of 8 reached during a single frame. New capacity will be 16.
+[00:59:13] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 2 reached during a single frame. New capacity will be 8.
+[00:59:14] [Render thread/INFO] (Minecraft) [System] [CHAT] §7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the Origin menu: §fRight Shift → Mods → JEI§7.
+[00:59:15] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 8 reached during a single frame. New capacity will be 16.
+[00:59:17] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 16 reached during a single frame. New capacity will be 32.
+[00:59:18] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 32 reached during a single frame. New capacity will be 64.
+[00:59:19] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 64 reached during a single frame. New capacity will be 128.
+[00:59:22] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 128 reached during a single frame. New capacity will be 256.
+[00:59:33] [Render thread/INFO] (Minecraft) Resizing Chunk Sections UBO, capacity limit of 256 reached during a single frame. New capacity will be 512.
+[00:59:38] [Render thread/INFO] (originclient) [dev-shots] captured world_off_1920x1080.png
+[00:59:41] [Render thread/INFO] (originclient) [dev-shots] captured world_sat_1920x1080.png
+[00:59:43] [Server thread/INFO] (Minecraft) Saving and pausing game...
+[00:59:43] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
+[00:59:43] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
+[00:59:43] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
+[00:59:43] [Render thread/INFO] (originclient) [dev-shots] captured world_bright_1920x1080.png
+[00:59:43] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas
+[00:59:43] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf_bold' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas_bold
+[00:59:44] [Render thread/INFO] (originclient) Origin MSDF DEBUG: first emit('Cosmetics') -> 9 quads, pipeline=originclient:pipeline/origin_msdf, atlasView=com.mojang.blaze3d.opengl.GlTextureView@157a42c9, v0=(606.0,277.82687 uv 0.111328125,0.64453125), bounds=ScreenRectangle[position=ScreenPosition[x=151, y=69], width=23, height=4]
+[00:59:44] [Render thread/INFO] (originclient) Origin MSDF DEBUG: buildVertices() completed OK, wrote 45 quads
+[00:59:46] [Render thread/INFO] (originclient) [dev-shots] captured pause_1920x1080.png
+[00:59:47] [Render thread/INFO] (originclient) [dev-shots] captured cosmetics_world_1920x1080.png
+[00:59:51] [Render thread/INFO] (originclient) [dev-shots] captured party_world_1920x1080.png
+[00:59:51] [Render thread/INFO] (originclient) Origin: block outline/overlay drew (outline=true, overlay=true)
+[00:59:55] [Render thread/INFO] (originclient) [dev-shots] captured overlays_world_1920x1080.png
+[00:59:55] [Render thread/INFO] (originclient) [dev-shots] done — world set in /home/runner/work/_temp/shots
+[00:59:55] [Render thread/INFO] (Minecraft) Stopping!
+[00:59:55] [Server thread/INFO] (Minecraft) Player112 lost connection: Disconnected
+[00:59:55] [Server thread/INFO] (Minecraft) Player112 left the game
+[00:59:55] [Server thread/INFO] (Minecraft) Stopping singleplayer server as player logged out
+[00:59:55] [Server thread/INFO] (Minecraft) Stopping server
+[00:59:56] [Server thread/INFO] (Minecraft) Saving players
+[00:59:56] [Server thread/INFO] (Minecraft) Saving worlds
+[00:59:56] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:overworld
+[00:59:58] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_nether
+[00:59:58] [Server thread/INFO] (Minecraft) Saving chunks for level 'ServerLevel[New World]'/minecraft:the_end
+[00:59:58] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (world): All chunks are saved
+[00:59:58] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[00:59:58] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[00:59:58] [Server thread/INFO] (Minecraft) ThreadedAnvilChunkStorage: All dimensions are saved
+[00:59:58] [Render thread/INFO] (ClientLifecycleHandler) Stopping JEI
+[00:59:58] [Render thread/INFO] (JeiStarter) Stopping JEI
+[00:59:58] [Render thread/INFO] (PluginCaller) Sending Runtime Unavailable...
+[00:59:58] [Render thread/INFO] (FabricGuiPlugin) Stopping JEI GUI
+[00:59:58] [Render thread/INFO] (PluginCaller) Sending Runtime Unavailable took 532.9 microseconds
 
 [Incubating] Problems report is available at: file:///home/runner/work/originclient/originclient/src/mods/versions/26.2/build/reports/problems/problems-report.html
 
-BUILD SUCCESSFUL in 4m 31s
+BUILD SUCCESSFUL in 4m 44s
 9 actionable tasks: 9 executed
