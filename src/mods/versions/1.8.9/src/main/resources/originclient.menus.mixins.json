@@ -8,5 +8,15 @@
 		"defaultRequire": 0
 	},
 	"client": [
+		"GuiAchievementMixin",
+		"GuiButtonExtMixin",
+		"GuiButtonMixin",
+		"GuiConnectingMixin",
+		"GuiDownloadTerrainMixin",
+		"GuiScreenAccessor",
+		"GuiScreenBackgroundMixin",
+		"GuiScreenWorkingMixin",
+		"GuiSlotMixin",
+		"GuiTextFieldMixin"
 	]
 }

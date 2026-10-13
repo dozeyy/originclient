@@ -202,6 +202,13 @@ public final class WorldEditCui {
 		}
 	}
 
+	/** WorldHooks' RenderWorldLastEvent: draws the selection (CuiRenderer is package-private). */
+	public static void renderWorld(float partialTicks) {
+		if (active) {
+			CuiRenderer.render(partialTicks);
+		}
+	}
+
 	private static void clear() {
 		selection = null;
 		multi.clear();

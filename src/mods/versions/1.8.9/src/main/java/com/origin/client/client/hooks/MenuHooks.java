@@ -4,7 +4,6 @@ import com.origin.client.client.gui.CosmeticsScreen;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.gui.OriginScreen;
 import com.origin.client.client.gui.OriginTitleScreen;
-import com.origin.client.client.gui.OriginWindow;
 import com.origin.client.client.mixin.menus.GuiScreenAccessor;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginLoadingRenderer;
@@ -115,11 +114,12 @@ public class MenuHooks {
 					|| !OriginScreenRenderer.isActive()) {
 				return;
 			}
-			// Screens that paint their own scene: the Origin title and every Origin
-			// window (they call renderTitleBackground themselves), and vanilla's
-			// main menu (its own panorama, Main Menu Style = Vanilla).
-			if (screen instanceof OriginTitleScreen || screen instanceof OriginWindow
-					|| screen instanceof GuiMainMenu) {
+			// Screens that paint their own scene: every Origin screen (the title,
+			// the mod menu, the HUD editor, every OriginWindow -- each calls
+			// renderTitleBackground itself, so a second pass would only cost a
+			// frame), and vanilla's main menu (its own panorama, Main Menu Style =
+			// Vanilla).
+			if (screen instanceof OriginScreen || screen instanceof GuiMainMenu) {
 				return;
 			}
 			Gfx g = new Gfx();
