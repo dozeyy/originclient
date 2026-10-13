@@ -288,8 +288,8 @@ public final class HudElements {
 			}
 		}
 		if (items.isEmpty() && editorPreview) {
-			items = new ArrayList<>(List.of(new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE),
-					new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS), new ItemStack(Items.DIAMOND_SWORD)));
+			items = new ArrayList<>(List.of(com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_HELMET), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_CHESTPLATE),
+					com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_LEGGINGS), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_BOOTS), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_SWORD)));
 		}
 		return items;
 	}

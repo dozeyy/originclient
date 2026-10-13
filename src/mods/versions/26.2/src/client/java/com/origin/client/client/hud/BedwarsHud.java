@@ -101,7 +101,7 @@ final class BedwarsHud {
 		int color = OriginColorPicker.liveColor(MOD, "color");
 		int y = 0;
 		for (Item item : RESOURCES) {
-			g.item(new ItemStack(item), 0, y);
+			g.item(com.origin.client.client.gui.ItemStacks.of(item), 0, y);
 			g.text(mc.font, String.valueOf(count(mc, item)), 18, y + 4, color, shadow);
 			y += ROW + ROW_GAP;
 		}

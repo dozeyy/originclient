@@ -312,6 +312,13 @@ public class TitleScreenMixin {
 				dx += L.dockSize + L.dockGap;
 			}
 			for (AbstractWidget iconButton : icons) {
+				// 26.x: the title screen gained Mojang's own Friends button (a
+				// SpriteIconButton.CenteredIcon subclass drawing player heads). It stays
+				// -- it is vanilla's feature -- in the dock's Origin look, "@user" icon.
+				if (iconButton instanceof net.minecraft.client.gui.components.FriendsButton) {
+					OriginButtonRenderer.setTitlePresentation(iconButton, "@user", true);
+					continue;
+				}
 				if (!(iconButton instanceof net.minecraft.client.gui.components.SpriteIconButton)) {
 					continue;
 				}

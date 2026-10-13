@@ -116,7 +116,7 @@ public class ItemCounterPickerScreen extends OriginItemGridScreen {
 			boolean hov = d.over(cx, cy, CHIP, CHIP);
 			float hp = OriginUi.hover("item-counter:chip:" + e.key(), hov);
 			d.rect(cx, cy, CHIP, CHIP, 6, lerp(ACC_SOFT, RED_SOFT, hp), lerp(mul(ACC, 0.45f), mul(RED, 0.6f), hp));
-			drawItem(d, new ItemStack(e.icon()), cx, cy, CHIP, 32);
+			drawItem(d, com.origin.client.client.gui.ItemStacks.of(e.icon()), cx, cy, CHIP, 32);
 			final int idx = i;
 			d.hit(cx, cy, CHIP, CHIP, () -> {
 				List<String> cur = picks();

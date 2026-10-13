@@ -81,7 +81,7 @@ public final class CooldownsHud {
 		}
 		if (icon == null || !group.equals(cooldowns.getCooldownGroup(icon))) {
 			var item = BuiltInRegistries.ITEM.getValue(group);
-			icon = item == null || item == Items.AIR ? null : new ItemStack(item);
+			icon = item == null || item == Items.AIR ? null : com.origin.client.client.gui.ItemStacks.of(item);
 		}
 		if (icon == null) {
 			return;   // a custom group with no item of that name: nothing to show it as
@@ -112,8 +112,8 @@ public final class CooldownsHud {
 			TOTALS.clear();
 		}
 		if (out.isEmpty() && HudElements.editorPreview) {
-			out.add(new Entry(new ItemStack(Items.ENDER_PEARL), 0.65f, 0.65f));
-			out.add(new Entry(new ItemStack(Items.SHIELD), 0.3f, 1.5f));
+			out.add(new Entry(com.origin.client.client.gui.ItemStacks.of(Items.ENDER_PEARL), 0.65f, 0.65f));
+			out.add(new Entry(com.origin.client.client.gui.ItemStacks.of(Items.SHIELD), 0.3f, 1.5f));
 		}
 		return out;
 	}

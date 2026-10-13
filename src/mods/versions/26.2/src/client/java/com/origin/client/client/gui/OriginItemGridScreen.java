@@ -144,12 +144,15 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 
 	protected static List<Entry> allItems() {
 		if (ALL_ITEMS == null) {
+			if (!com.origin.client.client.gui.ItemStacks.ready()) {
+				return List.of();   // 26.x: no item stacks before a world loads (see ItemStacks)
+			}
 			List<Entry> out = new ArrayList<>();
 			for (Item item : BuiltInRegistries.ITEM) {
 				if (item == Items.AIR) {
 					continue;
 				}
-				ItemStack st = new ItemStack(item);
+				ItemStack st = com.origin.client.client.gui.ItemStacks.of(item);
 				Identifier id = BuiltInRegistries.ITEM.getKey(item);
 				Cat c = categorize(item, st, id);
 				out.add(new Entry(item, id, st.getHoverName().getString(), st, c,
@@ -162,7 +165,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 
 	/** A pinned (non-item) entry: drawn with `icon`, stored as `key`. */
 	protected static Entry pinnedEntry(String key, String name, Item icon) {
-		return new Entry(icon, null, name, new ItemStack(icon), Cat.ALL, 0, -1, key);
+		return new Entry(icon, null, name, com.origin.client.client.gui.ItemStacks.of(icon), Cat.ALL, 0, -1, key);
 	}
 
 	// Material tiers, best → worst, shared by tools/combat/armor rankings.
@@ -403,7 +406,9 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 		scrollTarget = Math.min(scrollTarget, maxScroll);
 		scroll = Math.min(scroll, maxScroll);
 
-		if (filtered.isEmpty()) {
+		if (filtered.isEmpty() && !com.origin.client.client.gui.ItemStacks.ready()) {
+			d.textCenter("Items appear here once you are in a world", W / 2, top + 60, 14, false, 0, MUTE);
+		} else if (filtered.isEmpty()) {
 			d.textCenter("No items match \"" + search + "\"", W / 2, top + 60, 14, false, 0, MUTE);
 			return;
 		}

@@ -414,7 +414,7 @@ final class Readouts {
 			if (n == 0 && hideZero) {
 				continue;
 			}
-			out.add(new Counted(new ItemStack(e.icon()), String.valueOf(n)));
+			out.add(new Counted(com.origin.client.client.gui.ItemStacks.of(e.icon()), String.valueOf(n)));
 		}
 		return out;
 	}

@@ -106,7 +106,10 @@ public final class ItemCounter {
 			return null;
 		}
 		Item item = BuiltInRegistries.ITEM.getValue(id);   // 1.21.2+: get(id) returns an Optional holder
-		return new Entry(token, new ItemStack(item).getHoverName().getString(), item, s -> s.is(item));
+		// 26.x: no stack (or its name) before a world loads -- fall back to the id.
+		String name = com.origin.client.client.gui.ItemStacks.ready()
+				? com.origin.client.client.gui.ItemStacks.of(item).getHoverName().getString() : id.getPath();
+		return new Entry(token, name, item, s -> s.is(item));
 	}
 
 	/** The picks, in the order the player picked them. */
