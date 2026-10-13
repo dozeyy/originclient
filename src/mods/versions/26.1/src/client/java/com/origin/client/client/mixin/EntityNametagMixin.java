@@ -59,7 +59,7 @@ public class EntityNametagMixin {
 										   CallbackInfo ci) {
 		if (Mods.on("nametags")) {
 			boolean player = state instanceof AvatarRenderState;
-			boolean f1 = Minecraft.getInstance().gui.hud.isHidden() && Mods.bool("nametags", "hideInF1");
+			boolean f1 = Minecraft.getInstance().options.hideGui && Mods.bool("nametags", "hideInF1");
 			if (OriginClientMod.nametagsHidden || (OriginClientMod.playerNametagsHidden && player) || f1) {
 				ci.cancel();
 				return;

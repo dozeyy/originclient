@@ -75,7 +75,7 @@ public final class TeamView {
 
 		// Same view-projection WaypointHud uses (see the class note).
 		var camState = ctx.levelState().cameraRenderState;
-		Matrix4f viewProj = mc.gameRenderer.mainCamera().getViewRotationProjectionMatrix(new Matrix4f());
+		Matrix4f viewProj = mc.gameRenderer.getMainCamera().getViewRotationProjectionMatrix(new Matrix4f());
 		Vec3 cam = camState.pos;
 		float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
 		int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
@@ -114,7 +114,7 @@ public final class TeamView {
 	 *  each teammate, smaller with distance. */
 	public static void render(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
-		if (!Mods.on(MOD) || mc.gui.hud.isHidden() || mc.player == null) {
+		if (!Mods.on(MOD) || mc.options.hideGui || mc.player == null) {
 			return;
 		}
 		for (Marker m : markers) {

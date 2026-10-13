@@ -33,7 +33,7 @@ public abstract class MouseHandlerMixin {
 	private void originclient$trackClicks(long windowPointer, net.minecraft.client.input.MouseButtonInfo info, int action, CallbackInfo ci) {
 		// A click made while a screen (inventory/menu) is open is a "cancelled"
 		// click for CPS purposes — track the held-state but don't count it.
-		boolean counts = Minecraft.getInstance().gui.screen() == null;
+		boolean counts = Minecraft.getInstance().screen == null;
 		com.origin.client.client.mods.ClickStats.onButton(info.button(), action == org.lwjgl.glfw.GLFW.GLFW_PRESS, counts);
 	}
 
@@ -54,7 +54,7 @@ public abstract class MouseHandlerMixin {
 		// case — screens (their own scroll) and spectator mode are left alone.
 		Minecraft mc = Minecraft.getInstance();
 		if (Mods.bool(Mods.GENERAL_ID, "disableHotbarScrolling")
-				&& mc.gui.screen() == null && mc.player != null && !mc.player.isSpectator()) {
+				&& mc.screen == null && mc.player != null && !mc.player.isSpectator()) {
 			ci.cancel();
 		}
 	}

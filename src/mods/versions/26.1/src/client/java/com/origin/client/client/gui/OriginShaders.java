@@ -1,9 +1,7 @@
 package com.origin.client.client.gui;
 
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.OriginClient;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -20,16 +18,16 @@ import java.util.function.UnaryOperator;
  * later by the GUI renderer (see {@link OriginSdfFont}, {@link ModIcons},
  * {@link OriginUi}, {@code render/ColorGrade}).
  *
- * <p>PER-VERSION DELTA (26.x): RenderPipeline lost {@code withVertexFormat},
- * {@code withBlend} and {@code withSampler} -- pipelines now carry bind-group
- * layouts, colour-target states and a primitive topology. So every pipeline here
- * is DERIVED from a vanilla one: its whole configuration is read back through
- * the public getters and copied into a fresh builder, then only the location,
- * fragment shader and (for GRADE) the colour target change. Copying the
- * bind-group layouts is the critical part: they declare the DynamicTransforms
- * UBO and Sampler0 the vertex shader needs (an empty builder omits them and the
- * driver reports "unknown and unsupported uniform DynamicTransforms" -- found by
- * the 26.2 staged port, 2026-07-30).
+ * <p>PER-VERSION DELTA (26.1.x): RenderPipeline has colour-target and
+ * depth-stencil STATES (no withBlend / withDepthTestFunction) but still declares
+ * its vertex format, samplers and uniforms itself (26.2 moved those into
+ * bind-group layouts + a primitive topology). So every pipeline here is DERIVED
+ * from a vanilla one: its whole configuration is read back through the public
+ * getters and copied into a fresh builder, then only the location, fragment
+ * shader and (for GRADE) the colour target change. Copying the uniforms is the
+ * critical part: they declare the DynamicTransforms UBO and Sampler0 the vertex
+ * shader needs (an empty builder omits them and the driver reports "unknown and
+ * unsupported uniform DynamicTransforms" -- found by the 26.2 staged port).
  *
  * <p>Built LAZILY on first use, never at class-load: this class is first touched
  * from mod init, before the vanilla pipelines it copies are guaranteed to exist.
@@ -103,26 +101,26 @@ public final class OriginShaders {
 				.withVertexShader(base.getVertexShader())
 				.withFragmentShader(fragmentShader == null ? base.getFragmentShader()
 						: Identifier.fromNamespaceAndPath("originclient", fragmentShader))
-				.withPrimitiveTopology(base.getPrimitiveTopology())
+				.withVertexFormat(base.getVertexFormat(), base.getVertexFormatMode())
 				.withPolygonMode(base.getPolygonMode())
 				// GUI pipelines have NO depth-stencil state (null); the non-Optional
 				// overload NPEs on null (Optional.of), so route through the Optional one.
 				.withDepthStencilState(java.util.Optional.ofNullable(base.getDepthStencilState()))
 				.withCull(base.isCull());
-		ColorTargetState[] targets = base.getColorTargetStates();
-		for (int i = 0; i < targets.length; i++) {
-			if (targets[i] != null) {
-				b.withColorTargetState(i, targets[i]);
-			}
+		if (base.getColorTargetState() != null) {
+			b.withColorTargetState(base.getColorTargetState());
 		}
-		VertexFormat[] bindings = base.getVertexFormatBindings();
-		for (int i = 0; i < bindings.length; i++) {
-			if (bindings[i] != null) {
-				b.withVertexBinding(i, bindings[i]);
-			}
+		// 26.1: samplers + uniforms (the DynamicTransforms UBO, Projection, ...) are
+		// declared on the pipeline itself (26.2 moved them into bind-group layouts).
+		for (String sampler : base.getSamplers()) {
+			b.withSampler(sampler);
 		}
-		for (BindGroupLayout layout : base.getBindGroupLayouts()) {
-			b.withBindGroupLayout(layout);
+		for (RenderPipeline.UniformDescription u : base.getUniforms()) {
+			if (u.textureFormat() != null) {
+				b.withUniform(u.name(), u.type(), u.textureFormat());
+			} else {
+				b.withUniform(u.name(), u.type());
+			}
 		}
 		var defines = base.getShaderDefines();
 		if (defines != null) {
@@ -149,7 +147,7 @@ public final class OriginShaders {
 			return;
 		}
 		registered = true;
-		OriginClient.LOGGER.info("Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).");
+		OriginClient.LOGGER.info("Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.1.x).");
 	}
 
 	/** Vector text is always on (the user-facing toggle was removed on 1.21.1). */

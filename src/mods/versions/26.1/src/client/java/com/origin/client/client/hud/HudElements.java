@@ -69,7 +69,7 @@ public final class HudElements {
 	}
 
 	private static boolean chatOpen(Minecraft mc) {
-		return mc.gui.screen() instanceof ChatScreen;
+		return mc.screen instanceof ChatScreen;
 	}
 
 	/** Standard text row backing, gated by the mod's Show Background toggle. Uses
@@ -155,7 +155,7 @@ public final class HudElements {
 		if (Mods.bool("coords", "renderers")) {
 			int c;
 			try {
-				c = mc.levelRenderer.visibleSections().size();
+				c = mc.levelRenderer.countRenderedSections();
 			} catch (Throwable t) {
 				c = -1;
 			}
@@ -470,7 +470,7 @@ public final class HudElements {
 		add("locatorbar", "waypoints", "Locator Bar", new HudPos(7, 0, -22, 1.0),
 				mc -> locatorBarActive() ? new int[]{182, 5} : new int[]{0, 0},
 				(g, mc, w, h) -> {
-					if (locatorBarActive() && (editorPreview || mc.gui.screen() instanceof HudEditorScreen)) {
+					if (locatorBarActive() && (editorPreview || mc.screen instanceof HudEditorScreen)) {
 						com.origin.client.client.waypoints.WaypointHud.drawBar(g, mc, 0, 0, w, true);
 					}
 				});
@@ -591,7 +591,7 @@ public final class HudElements {
 			// 1.21.11: effect icons come from Gui.getMobEffectSprite (an Identifier,
 			// not an atlas sprite) and blitSprite takes the RenderPipeline. Already
 			// fail-soft (the catch below falls back to a flat color swatch).
-			var sprite = mc.gui.hud.getMobEffectSprite(effect);
+			var sprite = mc.gui.getMobEffectSprite(effect);
 			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, 0, y, 18, 18);
 		} catch (Throwable t) {
 			g.fill(2, y + 4, 12, y + 14, 0xFF000000 | effect.value().getColor());
@@ -850,7 +850,7 @@ public final class HudElements {
 	 *  editor draws its own draggable versions). */
 	public static void renderAll(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudEditorScreen) {
+		if (mc.player == null || mc.options.hideGui || mc.screen instanceof HudEditorScreen) {
 			return;
 		}
 		int sw = g.guiWidth(), sh = g.guiHeight();

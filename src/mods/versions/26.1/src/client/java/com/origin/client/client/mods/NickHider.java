@@ -89,7 +89,7 @@ public final class NickHider {
 		if (!ownSig.equals(lastOwnSig)) {
 			lastOwnSig = ownSig;
 			try {
-				mc.gui.hud.getChat().rescaleChat();   // re-wrap chat history with the new names
+				mc.gui.getChat().rescaleChat();   // re-wrap chat history with the new names
 			} catch (Throwable t) {
 				// chat refresh is cosmetic
 			}

@@ -24,7 +24,7 @@ public class MenuBlurRadiusMixin {
 			index = 5)
 	private int originclient$menuBlurRadius(int vanilla) {
 		try {
-			return MenuBlur.handles(Minecraft.getInstance().gui.screen()) ? MenuBlur.radius() : vanilla;
+			return MenuBlur.handles(Minecraft.getInstance().screen) ? MenuBlur.radius() : vanilla;
 		} catch (Throwable t) {
 			return vanilla;
 		}

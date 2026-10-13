@@ -170,6 +170,18 @@ if (apiDumpList.exists() && System.getenv("ORIGIN_SHOTS")) {
 					target << so.toString() << se.toString()
 				}
 			}
+			// api-code.txt (optional, binary class names one per line): full `javap -c`
+			// BYTECODE of those classes -- what a mixin's INVOKE/FIELD @At targets
+			// must match inside a method body.
+			def codeList = file("api-code.txt")
+			if (codeList.exists()) {
+				def names = codeList.readLines().collect { it.trim() }.findAll { it && !it.startsWith("#") }
+				def proc = ([javap, "-p", "-c", "-cp", cpStr] + names).execute()
+				def so = new StringBuilder(), se = new StringBuilder()
+				proc.consumeProcessOutput(so, se)
+				proc.waitFor()
+				new File(out, "code.txt").text = so.toString() + se.toString()
+			}
 			println "[api-dump] wrote ${picked.values().sum { it.size() } ?: 0} classes to ${out}"
 		}
 	}

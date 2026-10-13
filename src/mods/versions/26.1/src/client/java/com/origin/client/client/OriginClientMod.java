@@ -352,7 +352,7 @@ public class OriginClientMod implements ClientModInitializer {
 		if (mc == null || mc.options == null || key != mc.options.keySprint) {
 			return false;
 		}
-		if (mc.gui.screen() != null) {
+		if (mc.screen != null) {
 			return false;   // vanilla releases every key in a screen; don't lie to it
 		}
 		return Mods.on("togglesprint") && Mods.bool("togglesprint", "sprint");
@@ -368,7 +368,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// Right Shift opens the quick HUD-edit screen (drag/resize elements
 		// directly, ORIGIN logo, dark MODS button into the full grid).
 		while (OriginKeyBindings.openModMenu.consumeClick()) {
-			if (client.gui.screen() == null) {
+			if (client.screen == null) {
 				client.setScreenAndShow(new com.origin.client.client.hud.HudEditorScreen(true));
 			}
 		}
@@ -390,13 +390,13 @@ public class OriginClientMod implements ClientModInitializer {
 			Mods.setOn("waypoints", !Mods.on("waypoints"));
 		}
 		while (OriginKeyBindings.waypointMenu.consumeClick()) {
-			if (client.gui.screen() == null) {
+			if (client.screen == null) {
 				client.setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
 			}
 		}
 		while (OriginKeyBindings.waypointCreate.consumeClick()) {
 			// Opens the Waypoints screen straight into a fresh Create form.
-			if (client.gui.screen() == null) {
+			if (client.screen == null) {
 				client.setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen(true));
 			}
 		}
@@ -438,7 +438,7 @@ public class OriginClientMod implements ClientModInitializer {
 			return;
 		}
 
-		if (!jeiNoticeShown && client.gui.screen() == null) {
+		if (!jeiNoticeShown && client.screen == null) {
 			jeiNoticeShown = true;
 			if (foreignJei != null) {
 				player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
@@ -454,7 +454,7 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		// Scoreboard hide toggle keybind (+ optional action-bar message)
-		boolean sbDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
+		boolean sbDown = client.screen == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
 		if (sbDown && !scoreboardKeyWasDown) {
 			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
 			Mods.set("scoreboard", "hideScoreboard", hidden);
@@ -466,7 +466,7 @@ public class OriginClientMod implements ClientModInitializer {
 		scoreboardKeyWasDown = sbDown;
 
 		// Full Bright toggle keybind flips the mod's own sub-toggle
-		boolean fbDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
+		boolean fbDown = client.screen == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
 		if (fbDown && !fullbrightKeyWasDown) {
 			Mods.set("fullbright", "fullBright", !Mods.bool("fullbright", "fullBright"));
 		}
@@ -474,7 +474,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 		// Nametag toggle keybinds (default unbound). Toggle All hides every
 		// nametag; Toggle Players hides only other players'.
-		boolean naDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
+		boolean naDown = client.screen == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
 		if (naDown && !nametagAllKeyWasDown) {
 			nametagsHidden = !nametagsHidden;
 			if (Mods.bool("nametags", "displayToggleMessage")) {
@@ -484,7 +484,7 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		nametagAllKeyWasDown = naDown;
 
-		boolean npDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
+		boolean npDown = client.screen == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
 		if (npDown && !nametagPlayerKeyWasDown) {
 			playerNametagsHidden = !playerNametagsHidden;
 			if (Mods.bool("nametags", "displayToggleMessage")) {
@@ -499,7 +499,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// the Tab Editor mod adds sticky tap-to-lock + two-way keybind sync on top.
 		int mcTab = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper
 				.getBoundKeyOf(client.options.keyPlayerList).getValue();
-		boolean rawTab = client.gui.screen() == null && isRawKeyDown(mcTab);
+		boolean rawTab = client.screen == null && isRawKeyDown(mcTab);
 		if (Mods.on("tablist")) {
 			int ourTab = Mods.keyCode("tablist", "tabKey");
 			if (!tabSyncInit) {
@@ -552,7 +552,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// Toggle Zoom: in toggle mode the key latches instead of holding. The
 		// FOV easing itself lives in GameRendererMixin (frame-side); here we only
 		// resolve whether zoom is engaged and expose it as zoomActive.
-		boolean zDown = client.gui.screen() == null
+		boolean zDown = client.screen == null
 				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isDown());
 		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
 			if (zDown && !zoomKeyWasDown) {
@@ -583,7 +583,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 		// Chunk borders toggle keybind (edge-triggered, ignored in screens).
 		int cbKey = Mods.keyCode("chunkborders", "key");
-		boolean cbDown = client.gui.screen() == null && isRawKeyDown(cbKey);
+		boolean cbDown = client.screen == null && isRawKeyDown(cbKey);
 		if (cbDown && !chunkKeyWasDown) {
 			Mods.setOn("chunkborders", !Mods.on("chunkborders"));
 		}
@@ -606,7 +606,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// dropdown used to be read by nothing, so Hold behaved as Toggle.
 		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
 		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
-			boolean custom = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sprintKeyWasDown;
 			sprintKeyWasDown = custom;
 			if (holdMode) {
@@ -623,7 +623,7 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 
 		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
-			boolean custom = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean custom = client.screen == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
 			boolean edge = custom && !sneakKeyWasDown;
 			sneakKeyWasDown = custom;
 			if (holdMode) {
@@ -663,7 +663,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// binding as a fallback. Hold = look around; release = snap back (the
 		// player's real rotation is never touched — see MouseHandlerMixin).
 		// "Toggle Freelook" turns the hold into a press-on/press-off latch.
-		boolean keyDown = Mods.on("freelook") && client.gui.screen() == null
+		boolean keyDown = Mods.on("freelook") && client.screen == null
 				&& (isRawKeyDown(Mods.keyCode("freelook", "key")) || OriginKeyBindings.freelook.isDown());
 		boolean freelookDown = Mods.bool("freelook", "toggle")
 				? (keyDown && !freelookWasDown) != OriginFreelookState.active
@@ -744,8 +744,8 @@ public class OriginClientMod implements ClientModInitializer {
 			// noon IRL = noon in-game: 06:00 IRL maps to tick 0 (sunrise)
 			base = ((now.getHour() * 1000.0 + now.getMinute() * 1000.0 / 60.0) - 6000 + 24000) % 24000;
 		}
-		boolean inc = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("timechanger", "increaseKey"));
-		boolean dec = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("timechanger", "decreaseKey"));
+		boolean inc = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "increaseKey"));
+		boolean dec = client.screen == null && isRawKeyDown(Mods.keyCode("timechanger", "decreaseKey"));
 		if (inc && !timeIncWasDown) {
 			base = (base + 500) % 24000;
 			Mods.set("timechanger", "time", base);

@@ -112,14 +112,14 @@ public final class IrisBridge {
 		Minecraft mc = Minecraft.getInstance();
 		try {
 			Class<?> cls = Class.forName("net.irisshaders.iris.gui.screen.ShaderPackScreen");
-			Screen screen = (Screen) cls.getConstructor(Screen.class).newInstance(mc.gui.screen());
+			Screen screen = (Screen) cls.getConstructor(Screen.class).newInstance(mc.screen);
 			mc.setScreenAndShow(screen);
 			return true;
 		} catch (Throwable t) {
 			try {
 				Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
 				Object inst = api.getMethod("getInstance").invoke(null);
-				Object screen = api.getMethod("openMainIrisScreenObj", Object.class).invoke(inst, mc.gui.screen());
+				Object screen = api.getMethod("openMainIrisScreenObj", Object.class).invoke(inst, mc.screen);
 				mc.setScreenAndShow((Screen) screen);
 				return true;
 			} catch (Throwable t2) {

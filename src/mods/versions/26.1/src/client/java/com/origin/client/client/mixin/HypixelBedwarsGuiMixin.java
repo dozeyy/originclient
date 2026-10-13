@@ -1,7 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.origin.client.client.mods.HypixelBedwars;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //    title packets; `subtitle` is the private field the title layer reads.
 // Cancelling renderFood at HEAD also skips the Saturation overlay that
 // GuiFoodMixin draws at its TAIL, which is right: no food bar, nothing over it.
-@Mixin(Hud.class)
+@Mixin(Gui.class)
 public class HypixelBedwarsGuiMixin {
 	@Shadow
 	private Component subtitle;

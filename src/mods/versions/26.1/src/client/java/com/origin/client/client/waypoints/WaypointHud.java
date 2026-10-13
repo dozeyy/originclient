@@ -79,7 +79,7 @@ public final class WaypointHud {
 	private static Matrix4f viewProj(Minecraft mc) {
 		// 26.2: the camera hands out this frame's projection x view rotation itself
 		// (the same matrix vanilla culls and draws the level with, zoom included).
-		return mc.gameRenderer.mainCamera().getViewRotationProjectionMatrix(new Matrix4f());
+		return mc.gameRenderer.getMainCamera().getViewRotationProjectionMatrix(new Matrix4f());
 	}
 
 	/**
@@ -115,7 +115,7 @@ public final class WaypointHud {
 		// Never over a menu. The overlay is drawn from HudElements.renderAll, which
 		// the mod menu also calls to preview HUD changes live — without this the
 		// markers float on top of the menu panel (Will, 2026-07-26).
-		if (mc.gui.screen() != null) {
+		if (mc.screen != null) {
 			return;
 		}
 		String dim = mc.level.dimension().identifier().toString();
@@ -177,7 +177,7 @@ public final class WaypointHud {
 	// sprite over the gems — pixel-verified).
 	public static void renderBars(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || mc.gui.hud.isHidden()
+		if (mc.player == null || mc.level == null || mc.options.hideGui
 				|| !Mods.on("waypoints") || !Mods.bool("waypoints", "locatorBar")) {
 			return;
 		}
@@ -252,7 +252,7 @@ public final class WaypointHud {
 		// the cone hard-clamps to the exact end (left/right by which side it's on),
 		// no matter how far behind it is — 45° past the edge and directly behind
 		// land on the same end pixel.
-		double vFov = Math.toRadians(mc.gameRenderer.mainCamera().getFov());
+		double vFov = Math.toRadians(mc.gameRenderer.getMainCamera().getFov());
 		double aspect = (double) Math.max(1, mc.getWindow().getWidth()) / Math.max(1, mc.getWindow().getHeight());
 		double halfCone = Math.toDegrees(Math.atan(Math.tan(vFov / 2.0) * aspect));
 

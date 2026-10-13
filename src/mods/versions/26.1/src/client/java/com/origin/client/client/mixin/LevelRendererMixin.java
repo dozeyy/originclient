@@ -37,14 +37,17 @@ public class LevelRendererMixin {
 		}
 	}
 
-	// Block Outline + Overlay: cancel vanilla's own outline submit when Origin
-	// draws it (26.2: LevelRenderer.submitBlockOutline(PoseStack,
-	// SubmitNodeCollector, LevelRenderState), javap). The Origin outline/overlay
-	// itself is submitted from the level-render event (BlockOverlayRenderer).
+	// Block Outline + Overlay: cancel vanilla's own outline draw when Origin
+	// draws it. 26.1.x still draws it immediately like 1.21.11 --
+	// LevelRenderer.renderBlockOutline(BufferSource, PoseStack, boolean,
+	// LevelRenderState), javap 26.1.2 (26.2 made it submitBlockOutline). Vanilla
+	// calls it for the solid and the translucent pass; both are cancelled so
+	// exactly one (Origin's) outline shows. The Origin outline/overlay itself is
+	// submitted from the level-render event (BlockOverlayRenderer).
 	// Fail-soft: any throw leaves vanilla's outline untouched.
-	@Inject(method = "submitBlockOutline", at = @At("HEAD"), cancellable = true)
-	private void originclient$blockOutline(com.mojang.blaze3d.vertex.PoseStack poseStack,
-			net.minecraft.client.renderer.SubmitNodeCollector collector,
+	@Inject(method = "renderBlockOutline", at = @At("HEAD"), cancellable = true)
+	private void originclient$blockOutline(net.minecraft.client.renderer.MultiBufferSource.BufferSource bufferSource,
+			com.mojang.blaze3d.vertex.PoseStack poseStack, boolean translucentPass,
 			net.minecraft.client.renderer.state.level.LevelRenderState levelRenderState, CallbackInfo ci) {
 		try {
 			var outline = levelRenderState.blockOutlineRenderState;

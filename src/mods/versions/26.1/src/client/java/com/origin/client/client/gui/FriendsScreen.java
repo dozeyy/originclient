@@ -101,7 +101,7 @@ public class FriendsScreen extends OriginWindow {
 
 	/** Is the chat with `uuid` on screen right now? (Then a DM needs no toast.) */
 	public static boolean isShowingChat(Minecraft mc, String uuid) {
-		return mc.gui.screen() instanceof FriendsScreen fs && uuid != null && uuid.equals(fs.sel);
+		return mc.screen instanceof FriendsScreen fs && uuid != null && uuid.equals(fs.sel);
 	}
 
 	@Override

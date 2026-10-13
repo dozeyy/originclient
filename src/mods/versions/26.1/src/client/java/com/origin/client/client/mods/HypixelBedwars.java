@@ -17,6 +17,7 @@ import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.entity.BedBlockEntity;
 import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerScoreEntry;
@@ -232,11 +233,11 @@ public final class HypixelBedwars {
 	}
 
 	/** The team colour to draw this bed in, or null to leave it as it is. */
-	public static DyeColor bedColor(BlockPos bedPos) {
+	public static DyeColor bedColor(BedBlockEntity bed) {
 		if (!active() || !Mods.bool(MOD, "coloredBeds") || (practice && !Mods.bool(MOD, "practiceColor"))) {
 			return null;
 		}
-		BlockPos pos = bedPos;
+		BlockPos pos = bed.getBlockPos();
 		Optional<DyeColor> cached = BED_TEAM.get(pos.asLong());
 		if (cached == null) {
 			cached = Optional.ofNullable(nearestSpawn(pos));
@@ -363,7 +364,7 @@ public final class HypixelBedwars {
 			return out;
 		}
 		Scoreboard sb = mc.level.getScoreboard();
-		Integer rgb = rgbOf(ownTeamColor);
+		Integer rgb = ownTeamColor != null ? ownTeamColor.getColor() : null;
 		int color = 0xFF000000 | (rgb != null ? rgb : 0xFFFFFF);
 		for (Map.Entry<UUID, String> e : ROSTER.entrySet()) {
 			PlayerInfo info = mc.getConnection().getPlayerInfo(e.getKey());
@@ -406,15 +407,8 @@ public final class HypixelBedwars {
 		if (team == null) {
 			return null;
 		}
-		// 26.2: team colours are their own TeamColor enum (same 16 names).
-		ChatFormatting c = team.getColor().map(tc -> {
-			try {
-				return ChatFormatting.valueOf(tc.name());
-			} catch (IllegalArgumentException e) {
-				return null;
-			}
-		}).orElse(null);
-		if (isColor(c)) {
+		ChatFormatting c = team.getColor();
+		if (c != null && c.isColor()) {
 			return c;
 		}
 		return firstColor(team.getPlayerPrefix());
@@ -427,7 +421,7 @@ public final class HypixelBedwars {
 			for (int i = 0; i + 1 < text.length(); i++) {
 				if (text.charAt(i) == '§') {
 					ChatFormatting f = ChatFormatting.getByCode(text.charAt(i + 1));
-					if (isColor(f)) {
+					if (f != null && f.isColor()) {
 						found[0] = f;
 						return Optional.of(Boolean.TRUE);
 					}
@@ -445,27 +439,10 @@ public final class HypixelBedwars {
 		return found[0];
 	}
 
-	// 26.2: ChatFormatting lost isColor()/getColor(); the colour codes' RGB now
-	// lives on TeamColor (same constant names), so look it up there.
-	private static boolean isColor(ChatFormatting f) {
-		return rgbOf(f) != null;
-	}
-
-	private static Integer rgbOf(ChatFormatting f) {
-		if (f == null) {
-			return null;
-		}
-		try {
-			return net.minecraft.world.scores.TeamColor.valueOf(f.name()).rgb() & 0xFFFFFF;
-		} catch (IllegalArgumentException notAColour) {
-			return null;
-		}
-	}
-
 	private static ChatFormatting byRgb(int rgb) {
 		for (ChatFormatting f : ChatFormatting.values()) {
-			Integer v = rgbOf(f);
-			if (isColor(f) && v != null && v == (rgb & 0xFFFFFF)) {
+			Integer v = f.getColor();
+			if (f.isColor() && v != null && v == (rgb & 0xFFFFFF)) {
 				return f;
 			}
 		}

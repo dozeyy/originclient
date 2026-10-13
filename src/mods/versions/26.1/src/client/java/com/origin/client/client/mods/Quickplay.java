@@ -91,7 +91,7 @@ public final class Quickplay {
 	private static boolean openWasDown = false, againWasDown = false;
 
 	public static void tick(Minecraft mc) {
-		boolean active = Mods.on(ID) && mc.player != null && mc.gui.screen() == null;
+		boolean active = Mods.on(ID) && mc.player != null && mc.screen == null;
 		boolean open = active && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "key"));
 		boolean again = active && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "requeueKey"));
 		if (open && !openWasDown) {

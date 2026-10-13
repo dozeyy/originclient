@@ -44,7 +44,7 @@ public final class AutoTextHotkey {
 	}
 
 	public static void tick(Minecraft mc) {
-		boolean active = Mods.on(ID) && mc.player != null && mc.getConnection() != null && mc.gui.screen() == null;
+		boolean active = Mods.on(ID) && mc.player != null && mc.getConnection() != null && mc.screen == null;
 		for (int i = 1; i <= SLOTS; i++) {
 			boolean down = active && Mods.bool(ID, "slot" + i) && pressed(i);
 			if (down && !WAS_DOWN[i]) {

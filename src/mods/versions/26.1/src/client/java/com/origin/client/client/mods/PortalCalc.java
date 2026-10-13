@@ -187,7 +187,7 @@ public final class PortalCalc {
 			PortalMemory.flush();
 		}
 
-		boolean down = mc.gui.screen() == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "markKey"));
+		boolean down = mc.screen == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "markKey"));
 		Side side = Side.of(level);
 		if (down && !keyWasDown) {
 			markMatchingSpot(player, side, true);

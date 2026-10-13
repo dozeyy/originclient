@@ -18,7 +18,7 @@ import net.minecraft.client.gui.components.toasts.ToastManager;
 // PER-VERSION DELTA (1.21.11 Toast contract, as ScreenshotToast on this
 // module): the visibility decision lives in update(ToastManager, long) +
 // getWantedVisibility(), render(GuiGraphicsExtractor, Font, long) only draws, and the
-// queue is Minecraft.gui.toastManager().
+// queue is Minecraft.getToastManager().
 public class FpsCoachToast implements Toast {
 	private static final Object TOKEN = new Object();
 	private static final int W = 190, H = 32;
@@ -34,13 +34,13 @@ public class FpsCoachToast implements Toast {
 	}
 
 	public static void show(Minecraft mc, int count, String key) {
-		FpsCoachToast t = mc.gui.toastManager().getToast(FpsCoachToast.class, TOKEN);
+		FpsCoachToast t = mc.getToastManager().getToast(FpsCoachToast.class, TOKEN);
 		if (t != null) {
 			t.count = count;
 			t.key = key;
 			t.restart = true;
 		} else {
-			mc.gui.toastManager().addToast(new FpsCoachToast(count, key));
+			mc.getToastManager().addToast(new FpsCoachToast(count, key));
 		}
 	}
 
@@ -74,7 +74,7 @@ public class FpsCoachToast implements Toast {
 		// Gone once the player opens the coach (the nudge did its job).
 		boolean show = Mods.on(FpsCoach.ID)
 				&& shown < SHOW_MS * toasts.getNotificationDisplayTimeMultiplier()
-				&& !(Minecraft.getInstance().gui.screen() instanceof FpsCoachScreen);
+				&& !(Minecraft.getInstance().screen instanceof FpsCoachScreen);
 		hidden = !show;
 	}
 

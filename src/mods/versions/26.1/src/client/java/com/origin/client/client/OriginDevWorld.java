@@ -61,7 +61,7 @@ final class OriginDevWorld {
 			if (phase == 0) {
 				// Title is up (OriginDevShots waited for it): open Select World.
 				GLFW.glfwSetWindowSize(mc.getWindow().handle(), 1920, 1080);
-				mc.framebufferSizeChanged();
+				mc.resizeGui();
 				mc.setScreenAndShow(new SelectWorldScreen(new TitleScreen()));
 				phase = 1;
 				return;
@@ -69,15 +69,15 @@ final class OriginDevWorld {
 			if (phase == 1) {
 				if (mc.level == null) {
 					// Select World / Create World: press "Create New World" wherever it is.
-					if (mc.gui.screen() != null && press(mc, I18n.get("selectWorld.create"))) {
-						log("[dev-shots] pressed Create New World on " + mc.gui.screen().getClass().getSimpleName());
+					if (mc.screen != null && press(mc, I18n.get("selectWorld.create"))) {
+						log("[dev-shots] pressed Create New World on " + mc.screen.getClass().getSimpleName());
 					}
 					return;
 				}
-				if (mc.gui.screen() instanceof PauseScreen) {
+				if (mc.screen instanceof PauseScreen) {
 					mc.setScreenAndShow(null);   // lost focus under Xvfb
 				}
-				if (mc.player == null || mc.gui.screen() != null) {
+				if (mc.player == null || mc.screen != null) {
 					return;
 				}
 				if (loadedAt == 0) {
@@ -95,7 +95,7 @@ final class OriginDevWorld {
 				return;
 			}
 			if (phase == 2) {
-				if (mc.gui.screen() instanceof PauseScreen) {
+				if (mc.screen instanceof PauseScreen) {
 					mc.setScreenAndShow(null);
 				}
 				grab(mc, dir, "world_sat_1920x1080.png");
@@ -136,7 +136,7 @@ final class OriginDevWorld {
 				return;
 			}
 			if (phase == 7) {
-				if (mc.gui.screen() instanceof PauseScreen) {
+				if (mc.screen instanceof PauseScreen) {
 					mc.setScreenAndShow(null);
 				}
 				grab(mc, dir, "party_world_1920x1080.png");
@@ -158,7 +158,7 @@ final class OriginDevWorld {
 				return;
 			}
 			if (phase == 9) {
-				if (mc.gui.screen() instanceof PauseScreen) {
+				if (mc.screen instanceof PauseScreen) {
 					mc.setScreenAndShow(null);
 				}
 				grab(mc, dir, "overlays_world_1920x1080.png");
@@ -178,7 +178,7 @@ final class OriginDevWorld {
 	}
 
 	private static boolean press(Minecraft mc, String label) {
-		for (var child : mc.gui.screen().children()) {
+		for (var child : mc.screen.children()) {
 			if (child instanceof AbstractButton b && b.active && label.equals(b.getMessage().getString())) {
 				b.onPress(new KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
 				return true;
@@ -191,7 +191,7 @@ final class OriginDevWorld {
 		before = OriginDevShots.pngs();
 		renameTries = 0;
 		pending = name;
-		Screenshot.grab(new File(dir), mc.gameRenderer.mainRenderTarget(), c -> {
+		Screenshot.grab(new File(dir), mc.getMainRenderTarget(), c -> {
 		});
 	}
 

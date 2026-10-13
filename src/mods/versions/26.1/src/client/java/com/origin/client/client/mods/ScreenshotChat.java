@@ -152,7 +152,7 @@ public final class ScreenshotChat {
 	// Runs the button under the mouse, if it's one of ours. True = handled.
 	private static boolean clicked(Minecraft mc, double mx, double my) {
 		ActiveTextCollector.ClickableStyleFinder finder = new ActiveTextCollector.ClickableStyleFinder(mc.font, (int) mx, (int) my);
-		mc.gui.hud.getChat().captureClickableText(finder, mc.getWindow().getGuiScaledHeight(), mc.gui.hud.getGuiTicks(),
+		mc.gui.getChat().captureClickableText(finder, mc.getWindow().getGuiScaledHeight(), mc.gui.getGuiTicks(),
 				net.minecraft.client.gui.components.ChatComponent.DisplayMode.FOREGROUND);
 		Style style = finder.result();
 		String path = style == null ? null : pathOf(style.getClickEvent());
@@ -174,7 +174,7 @@ public final class ScreenshotChat {
 
 	/** "Copy Last Screenshot" key, edge-triggered with no screen open. */
 	public static void tick(Minecraft mc) {
-		boolean down = Mods.on(ID) && mc.gui.screen() == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "copyKey"));
+		boolean down = Mods.on(ID) && mc.screen == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "copyKey"));
 		if (down && !copyKeyWasDown && last != null) {
 			copyImage(last);
 		}
@@ -185,7 +185,7 @@ public final class ScreenshotChat {
 
 	private static void status(String text) {
 		Minecraft mc = Minecraft.getInstance();
-		mc.execute(() -> mc.gui.hud.setOverlayMessage(Component.literal(text), false));
+		mc.execute(() -> mc.gui.setOverlayMessage(Component.literal(text), false));
 	}
 
 	public static void copyImage(File f) {

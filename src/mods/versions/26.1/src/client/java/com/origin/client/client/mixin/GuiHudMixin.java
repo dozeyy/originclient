@@ -2,7 +2,7 @@ package com.origin.client.client.mixin;
 
 import com.origin.client.client.hud.HudElements;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // injectors. Honest limit: a mod that itself injects at RETURN with a still
 // higher order could draw over us — that's the ceiling of what mixins can
 // guarantee.
-@Mixin(value = Hud.class, priority = 2000)
+@Mixin(value = Gui.class, priority = 2000)
 public class GuiHudMixin {
 
 	// Color Saturation: grade the finished WORLD frame before any HUD is drawn,
@@ -52,7 +52,7 @@ public class GuiHudMixin {
 		if (com.origin.client.client.OriginClientMod.tabListVisible) {
 			try {
 				net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-				var acc = (com.origin.client.client.mixin.PlayerTabOverlayAccessor) mc.gui.hud.getTabList();
+				var acc = (com.origin.client.client.mixin.PlayerTabOverlayAccessor) mc.gui.getTabList();
 				com.origin.client.client.hud.OriginTabList.render(guiGraphics, guiGraphics.guiWidth(),
 						acc.originclient$getPlayerInfos(), acc.originclient$getHeader(), acc.originclient$getFooter(),
 						com.origin.client.client.mods.Mods.on("tablist"));

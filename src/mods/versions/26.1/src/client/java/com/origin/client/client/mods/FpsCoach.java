@@ -120,7 +120,7 @@ public final class FpsCoach {
 		lastFrameEventMs = Util.getMillis();
 		Minecraft mc = Minecraft.getInstance();
 		boolean test = phase != Phase.NONE;
-		if (mc.gui.screen() != null || !(test ? recordable : recordWatch)) {
+		if (mc.screen != null || !(test ? recordable : recordWatch)) {
 			lastFrameNanos = 0;
 			return;
 		}
@@ -192,7 +192,7 @@ public final class FpsCoach {
 		sampleMemory(now);
 		handleKey(mc);
 
-		recordable = mc.gui.screen() == null && !mc.isPaused() && mc.isWindowActive();
+		recordable = mc.screen == null && !mc.isPaused() && mc.isWindowActive();
 		boolean warm = now - joinedAt >= JOIN_GRACE_MS && now - teleportAt >= TELEPORT_GRACE_MS;
 		recordWatch = recordable && Mods.on(ID) && phase == Phase.NONE && warm;
 
@@ -213,14 +213,14 @@ public final class FpsCoach {
 			evaluate(mc, now);
 		}
 
-		if (result != null && !resultOpened && mc.gui.screen() == null && !inCombat(now)) {
+		if (result != null && !resultOpened && mc.screen == null && !inCombat(now)) {
 			resultOpened = true;
 			mc.setScreenAndShow(new FpsCoachScreen(null));
 		}
 	}
 
 	private static void handleKey(Minecraft mc) {
-		boolean down = Mods.on(ID) && mc.gui.screen() == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "key"));
+		boolean down = Mods.on(ID) && mc.screen == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "key"));
 		if (down && !keyWasDown) {
 			mc.setScreenAndShow(new FpsCoachScreen(null));
 		}
@@ -251,7 +251,7 @@ public final class FpsCoach {
 		if (lastToastAt != 0 && now - lastToastAt < cooldown) {
 			return;
 		}
-		if (inCombat(now) || mc.gui.screen() != null) {
+		if (inCombat(now) || mc.screen != null) {
 			return;   // try again next second
 		}
 		List<FpsCoachTips.Tip> tips = tips(mc, s.avg());

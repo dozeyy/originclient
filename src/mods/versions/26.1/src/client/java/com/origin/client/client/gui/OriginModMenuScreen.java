@@ -425,7 +425,7 @@ public class OriginModMenuScreen extends Screen {
 			super.extractBackground(g, mouseX, mouseY, partialTick);
 		} else {
 			com.origin.client.client.mods.MenuBlur.renderBehind(g, this, partialTick);
-			Minecraft.getInstance().gui.hud.extractDeferredSubtitles();   // vanilla's tail call
+			Minecraft.getInstance().gui.extractDeferredSubtitles();   // vanilla's tail call
 		}
 	}
 

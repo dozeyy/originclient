@@ -2,7 +2,7 @@ package com.origin.client.client.mixin;
 
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.scores.Objective;
 import org.spongepowered.asm.mixin.Mixin;
@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // priority 2000: Origin's scoreboard rescale wins over other UI mods.
 // 1.21.11: GuiGraphicsExtractor.pose() is a Matrix3x2fStack (pushMatrix/popMatrix, 2-arg
 // float translate/scale) -- same maths as 1.21.1, different stack API.
-@Mixin(value = Hud.class, priority = 2000)
+@Mixin(value = Gui.class, priority = 2000)
 public class GuiScoreboardMixin {
 
 	@Inject(method = "displayScoreboardSidebar", at = @At("HEAD"), cancellable = true)

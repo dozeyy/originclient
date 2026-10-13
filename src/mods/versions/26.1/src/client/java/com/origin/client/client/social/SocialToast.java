@@ -27,7 +27,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * PER-VERSION DELTA (1.21.11 Toast contract, as FpsCoachToast on this module):
  * the time-out lives in update(ToastManager, long) + getWantedVisibility(),
  * render(GuiGraphicsExtractor, Font, long) only draws, the queue is
- * Minecraft.gui.toastManager(), and the GUI pose is a Matrix3x2f (translation in
+ * Minecraft.getToastManager(), and the GUI pose is a Matrix3x2f (translation in
  * m20/m21).
  */
 public final class SocialToast implements Toast {
@@ -80,14 +80,14 @@ public final class SocialToast implements Toast {
 
 	/** A second DM from the same friend updates the visible toast instead of stacking. */
 	private static void show(Minecraft mc, SocialToast t) {
-		SocialToast old = mc.gui.toastManager().getToast(SocialToast.class, t.token);
+		SocialToast old = mc.getToastManager().getToast(SocialToast.class, t.token);
 		if (old != null && !old.dismissed) {
 			old.title = t.title;
 			old.line = t.line;
 			old.restart = true;
 			return;
 		}
-		mc.gui.toastManager().addToast(t);
+		mc.getToastManager().addToast(t);
 	}
 
 	@Override

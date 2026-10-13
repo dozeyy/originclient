@@ -161,13 +161,13 @@ public final class OriginDevShots {
 			// A fresh game directory (CI) opens vanilla's one-time accessibility
 			// onboarding screen instead of the title; skip it, or the harness would
 			// wait for a title screen that never comes.
-			if (mc.gui.overlay() == null && mc.gui.screen() != null && !(mc.gui.screen() instanceof TitleScreen)
-					&& !(mc.gui.screen() instanceof OriginModMenuScreen)) {
+			if (mc.getOverlay() == null && mc.screen != null && !(mc.screen instanceof TitleScreen)
+					&& !(mc.screen instanceof OriginModMenuScreen)) {
 				mc.options.onboardAccessibility = false;
 				mc.setScreenAndShow(new TitleScreen());
 				return;
 			}
-			if (mc.gui.overlay() == null && mc.gui.screen() instanceof TitleScreen) {
+			if (mc.getOverlay() == null && mc.screen instanceof TitleScreen) {
 				if (nextAt == 0) {
 					nextAt = now + 1500;
 				} else if (now >= nextAt) {
@@ -204,7 +204,7 @@ public final class OriginDevShots {
 				case 0 -> {
 					GLFW.glfwSetWindowSize(mc.getWindow().handle(), s.w(), s.h());
 					mc.options.guiScale().set(s.scale());
-					mc.framebufferSizeChanged();
+					mc.resizeGui();
 					resizeRetries = 0;
 					phase = 1;
 					nextAt = now + 800;
@@ -212,7 +212,7 @@ public final class OriginDevShots {
 				case 1 -> {
 					// Fresh screens so entrance animations replay and get captured settled.
 					mc.setScreenAndShow(s.kind().open());
-					mc.framebufferSizeChanged();
+					mc.resizeGui();
 					phase = 2;
 					nextAt = now + (s.kind() == Kind.TITLE ? 1900 : 900);
 				}
@@ -224,7 +224,7 @@ public final class OriginDevShots {
 					int actualH = mc.getWindow().getHeight();
 					if ((actualW != s.w() || actualH != s.h()) && resizeRetries++ < 8) {
 						GLFW.glfwSetWindowSize(mc.getWindow().handle(), s.w(), s.h());
-						mc.framebufferSizeChanged();
+						mc.resizeGui();
 						nextAt = now + 350;
 						return;
 					}
@@ -234,7 +234,7 @@ public final class OriginDevShots {
 					}
 					before = pngs();
 					renameRetries = 0;
-					Screenshot.grab(new File(DIR), mc.gameRenderer.mainRenderTarget(), c -> {
+					Screenshot.grab(new File(DIR), mc.getMainRenderTarget(), c -> {
 					});
 					phase = 3;
 					nextAt = now + 250;

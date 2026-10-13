@@ -29,7 +29,7 @@ public final class Snaplook {
 
 	public static void tick(Minecraft client) {
 		boolean enabled = Mods.on(MOD);
-		boolean keyDown = enabled && client.gui.screen() == null && client.player != null
+		boolean keyDown = enabled && client.screen == null && client.player != null
 				&& !OriginFreelookState.active
 				&& OriginClientMod.isRawKeyDown(Mods.keyCode(MOD, "key"));
 		boolean want;

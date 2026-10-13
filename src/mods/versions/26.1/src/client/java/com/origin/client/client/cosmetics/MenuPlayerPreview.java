@@ -99,7 +99,7 @@ public final class MenuPlayerPreview {
 
 			float ticks = (Util.getMillis() % 3_600_000L) / 50f;
 			AvatarRenderState st = new AvatarRenderState();
-			st.entityType = net.minecraft.world.entity.EntityTypes.PLAYER;
+			st.entityType = net.minecraft.world.entity.EntityType.PLAYER;
 			st.id = STATE_ID;
 			st.skin = skin;
 			st.ageInTicks = ticks;           // vanilla's idle arm sway reads this

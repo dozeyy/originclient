@@ -3,7 +3,7 @@ package com.origin.client.client.mixin;
 import com.origin.client.client.hud.TitlesHud;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // reads the private title/subtitle/titleTime/fade fields below; the fade maths
 // here is a verbatim copy of vanilla's, so titles fade exactly as before.
 // Fail-soft: if Origin's draw throws, vanilla draws the title instead.
-@Mixin(Hud.class)
+@Mixin(Gui.class)
 public class TitlesMixin {
 	@Shadow
 	private int titleTime;

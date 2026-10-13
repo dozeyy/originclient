@@ -91,7 +91,7 @@ public final class ColorGrade {
 			return;
 		}
 		try {
-			RenderTarget main = mc.gameRenderer.mainRenderTarget();
+			RenderTarget main = mc.getMainRenderTarget();
 			if (main == null || main.getColorTexture() == null) {
 				return;
 			}
@@ -100,7 +100,7 @@ public final class ColorGrade {
 				if (swap != null) {
 					swap.destroyBuffers();
 				}
-				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.blaze3d.GpuFormat.RGBA8_UNORM);
+				swap = new TextureTarget("origin_grade", main.width, main.height, false);
 			}
 			// 26.x: this runs during EXTRACTION, before this frame's world is drawn,
 			// so the snapshot can't be taken here (it would copy LAST frame's finished

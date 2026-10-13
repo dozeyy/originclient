@@ -207,11 +207,11 @@ public final class Social {
 				.withStyle(s -> s.withColor(TextColor.fromRgb(tint)))
 				.append(Component.literal(name == null ? "?" : name).withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFFFF))))
 				.append(Component.literal(": " + text).withStyle(s -> s.withColor(TextColor.fromRgb(0xE0E0E0))));
-		mc.gui.hud.getChat().addClientSystemMessage(line);
+		mc.gui.getChat().addClientSystemMessage(line);
 	}
 
 	private static void note(Minecraft mc, String text, boolean red) {
-		mc.gui.hud.getChat().addClientSystemMessage(Component.literal(text)
+		mc.gui.getChat().addClientSystemMessage(Component.literal(text)
 				.withStyle(s -> s.withColor(TextColor.fromRgb(red ? 0xFF7066 : 0xB0B0B0))));
 	}
 
@@ -359,10 +359,10 @@ public final class Social {
 	/** Opens the Friends window on `select` (a friend uuid, {@link FriendsScreen#PARTY}, or null). */
 	public static void openFriends(String select) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.gui.screen() instanceof FriendsScreen fs) {
+		if (mc.screen instanceof FriendsScreen fs) {
 			fs.select(select);
 			return;
 		}
-		mc.setScreenAndShow(new FriendsScreen(mc.gui.screen()).select(select));
+		mc.setScreenAndShow(new FriendsScreen(mc.screen).select(select));
 	}
 }

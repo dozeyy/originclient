@@ -93,7 +93,7 @@ public abstract class LevelHeadMixin {
 			pose.pushPose();
 			pose.translate(0.0F, lines * originclient$LINE, 0.0F);
 			collector.submitNameTag(pose, state.nameTagAttachment, earOffset, level, !state.isDiscrete,
-					state.lightCoords, camera);
+					state.lightCoords, state.distanceToCameraSq, camera);
 			pose.popPose();
 		} catch (Throwable t) {
 			// never take a frame down over a level label
@@ -108,7 +108,7 @@ public abstract class LevelHeadMixin {
 			return true;
 		}
 		if (Mods.on("nametags")) {
-			boolean f1 = Minecraft.getInstance().gui.hud.isHidden() && Mods.bool("nametags", "hideInF1");
+			boolean f1 = Minecraft.getInstance().options.hideGui && Mods.bool("nametags", "hideInF1");
 			return OriginClientMod.nametagsHidden || OriginClientMod.playerNametagsHidden || f1;
 		}
 		return false;

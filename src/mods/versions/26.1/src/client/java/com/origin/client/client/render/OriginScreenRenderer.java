@@ -308,7 +308,7 @@ public final class OriginScreenRenderer {
 	 *
 	 * Two era differences from 1.21.1, both because 1.21.11 renders the GUI
 	 * deferred rather than immediate:
-	 *   - the panorama comes from gameRenderer.panorama() (the shared
+	 *   - the panorama comes from gameRenderer.getPanorama() (the shared
 	 *     instance vanilla itself spins) instead of a privately-built
 	 *     CubeMap/PanoramaRenderer pair, so spin state and the panoramaSpeed
 	 *     option stay consistent with vanilla. Its render() takes a
@@ -333,7 +333,7 @@ public final class OriginScreenRenderer {
 
 			// true = keep spinning; vanilla passes panoramaShouldSpin(), which is
 			// only false while a screen is fading in.
-			mc.gameRenderer.panorama().extractRenderState(guiGraphics, w, h);
+			mc.gameRenderer.getPanorama().extractRenderState(guiGraphics, w, h);
 			guiGraphics.blurBeforeThisStratum();
 			drawGrade(guiGraphics, w, h);
 			return true;
