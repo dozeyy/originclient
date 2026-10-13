@@ -124,7 +124,8 @@ docs/RELEASING.md         how shipping works (tag flow, pipeline, labels)
 1.21.6/7, 1.21.8, 1.21.10, 1.21.11 are LIVE, **plus the pre-1.20 set 1.16.5,
 1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 (LIVE 2026-07-15, launcher-v1.0.24)**.
 **26.2 LIVE 2026-10-13** (ported from 1.21.11; unobfuscated, Java 25 — the 26.x era,
-see PORTING-ERA-NOTES "26.x era"; 26.1.x / 26.3 are derived from it). **PULLED 2026-08-06 (Will's call):** 1.21.5, and the legacy Forge
+see PORTING-ERA-NOTES "26.x era"; 26.3 is derived from it), **plus 26.1, 26.1.1, 26.1.2 LIVE
+2026-10-13** (one jar, `versions/26.1`, derived from 26.2 — PORTING-ERA-NOTES "26.1.x"). **PULLED 2026-08-06 (Will's call):** 1.21.5, and the legacy Forge
 pair 1.8.9 + 1.12.2 — all three are removed from `VersionCatalog`, so they no
 longer appear in the picker at all, and CI no longer builds or bundles them.
 Their modules stay on disk. **Pre-1.20 is a SECOND rendering backend**, not a
@@ -135,7 +136,7 @@ method shapes (1.16.5 additionally is Java 8 + fixed-function GL). They are
 only Sodium is an alpha, its only Iris a pre-release). The 1.21.x line is NOT
 one build — Minecraft rewrote its render/GUI/input system in stages, so each
 sub-family is its own port. **No "Coming Soon" entries (Will, 2026-10-12):**
-the picker shows ONLY the versions above — every unbuilt version (26.x except 26.2,
+the picker shows ONLY the versions above — every unbuilt version (26.x except 26.1–26.1.2 and 26.2,
 1.20.6/1.20.5/1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, 1.16–1.16.4) was removed
 because Will says they will never ship; CI's check_consistency.py fails if the
 picker (`VersionCatalog`) and `OriginBuilds` ever disagree. Per-
@@ -165,7 +166,7 @@ mandatory for players. Full rules: `docs/RELEASING.md`.
   `SettingsStore.Update(mutate)` ONLY — never write a whole cached snapshot.
 - Mod: Java + Fabric (loader + API) + Loom + official Mojang mappings. 1.21.x
   on Java 21, 1.20.x/1.18–1.19.x on Java 17 bytecode, 1.17.1 on 16, 1.16.5 on
-  8, 26.2 on Java 25 (unobfuscated: no mappings line, `net.fabricmc.fabric-loom`; CI builds it on
+  8, 26.1.x + 26.2 on Java 25 (unobfuscated: no mappings line, `net.fabricmc.fabric-loom`; CI builds it on
   JDK 25 via `"java": "25"` in live-modules.json). Shaders via Iris; perf via Sodium/Lithium/FerriteCore.
   1.21.1 bundles its perf stack jar-in-jar; other versions get the stack
   standalone from `PerformanceModCatalog` (`VersionManager.OriginBuilds`
@@ -357,7 +358,8 @@ floating corner controls. In-game menus match this exactly.
 - [ ] 1.21.9 — pulled (input-event boundary + fabric-API gap); analysis in memory.
 - [ ] 1.18.1 — blocked on a stable Sodium/Iris pair (alpha/pre-release only today).
 - [x] 26.2 — live 2026-10-13 (`src/mods/versions/26.2`, ported from 1.21.11; dev shots match 1.21.1).
-- [ ] 26.1.x, 26.3 — derive from 26.2 (PORTING-ERA-NOTES "26.x era").
+- [x] 26.1, 26.1.1, 26.1.2 — live 2026-10-13 (one jar, `src/mods/versions/26.1`, derived from 26.2; dev shots match 1.21.1).
+- [ ] 26.3 — derive from 26.2 (PORTING-ERA-NOTES "26.x era").
 - [x] Crash system v1 — boot-crash blame + Origin-only retry.
 - [ ] Crash system v2 — in-game Origin debug screen, log-cause detection.
 - [ ] Light theme (Deskify inverse tokens).
