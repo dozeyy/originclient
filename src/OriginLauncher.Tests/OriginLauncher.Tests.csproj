@@ -35,11 +35,19 @@
          429 back-off (Core/Auth/Sessions is pure; the broker glue stays out). -->
     <Compile Include="..\OriginLauncher.App\Core\Auth\Sessions\*.cs" LinkBase="Auth" />
     <Compile Include="..\OriginLauncher.App\Core\Auth\MicrosoftAuthException.cs" LinkBase="Auth" />
+    <!-- The real accounts.json vault, run against a temporary file with DPAPI
+         swapped for a pass-through (AccountVaultTests): never the real file. -->
+    <Compile Include="..\OriginLauncher.App\Core\Auth\AccountSessionVault.cs" LinkBase="Auth" />
+    <Compile Include="..\OriginLauncher.App\Core\Accounts\AccountStore.cs" LinkBase="Accounts" />
+    <Compile Include="..\OriginLauncher.App\Core\Accounts\StoredAccount.cs" LinkBase="Accounts" />
+    <Compile Include="..\OriginLauncher.App\Core\OriginPaths.cs" LinkBase="Accounts" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
+    <!-- Compile-time only for AccountStore; the tests never call DPAPI. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
   </ItemGroup>
 </Project>

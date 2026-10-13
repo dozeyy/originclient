@@ -459,7 +459,7 @@ public partial class HomePage : UserControl
                 var signedIn = await MinecraftSessionBroker.ForPlayAsync(account.Id, ticket.Token);
                 if (signedIn == null)
                 {
-                    Note(key, "Session expired", LaunchTone.Error);
+                    Note(key, "Your sign-in is no longer valid. Add this account again in Accounts.", LaunchTone.Error);
                     return;
                 }
                 session = signedIn;

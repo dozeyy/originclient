@@ -114,7 +114,13 @@ public sealed class MicrosoftAuthenticator
     private const string TestAuthorizeEndpoint = "https://login.live.com/oauth20_authorize.srf";
     private const string TestTokenEndpoint = "https://login.live.com/oauth20_token.srf";
 
-    public (string AuthUrl, string CodeVerifier) BuildTestAuthorizationRequest()
+    // Returns the state too: the caller must reject any redirect whose state
+    // doesn't match (MicrosoftSignInPanel), like the loopback flow does.
+    // No prompt=select_account here: on legacy login.live.com it is
+    // undocumented, and an anonymous probe got the same login page for a bogus
+    // prompt value, so "accepted" proves nothing. Not needed either: the
+    // panel's InPrivate profile means there is never a session to reuse.
+    public (string AuthUrl, string CodeVerifier, string State) BuildTestAuthorizationRequest()
     {
         var codeVerifier = Pkce.GenerateCodeVerifier();
         var codeChallenge = Pkce.GenerateCodeChallenge(codeVerifier);
@@ -131,7 +137,7 @@ public sealed class MicrosoftAuthenticator
             $"&code_challenge_method=S256" +
             $"&state={state}";
 
-        return (authUrl, codeVerifier);
+        return (authUrl, codeVerifier, state);
     }
 
     public async Task<AuthResult> CompleteTestSignInAsync(string code, string codeVerifier, CancellationToken ct = default)
@@ -217,6 +223,11 @@ public sealed class MicrosoftAuthenticator
             $"&scope={Uri.EscapeDataString("XboxLive.signin offline_access")}" +
             $"&code_challenge={codeChallenge}" +
             $"&code_challenge_method=S256" +
+            // Adding an account must never silently reuse a session Microsoft
+            // already has (that is how the second account couldn't be added).
+            // Documented for this v2 endpoint; the InPrivate profile in
+            // MicrosoftSignInPanel is the main guard.
+            $"&prompt=select_account" +
             $"&state={state}";
 
         using var listener = new HttpListener();

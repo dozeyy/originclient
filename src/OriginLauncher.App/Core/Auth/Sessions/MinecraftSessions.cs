@@ -34,6 +34,9 @@ public sealed class MinecraftSessions
     /// <summary>Friends may force a fresh sign-in at most this often per account.</summary>
     public static readonly TimeSpan RenewInterval = TimeSpan.FromMinutes(30);
 
+    /// <summary>Id of an account added while Microsoft was rate-limiting, until its real UUID is known.</summary>
+    public const string PendingIdPrefix = "pending-";
+
     private readonly ISessionVault _vault;
     private readonly ISessionSignIn _signIn;
     private readonly Func<DateTimeOffset> _clock;
@@ -215,6 +218,7 @@ public sealed class MinecraftSessions
             // rotated the token (or turned a pending account into a real one).
             var refreshToken = _vault.RefreshToken(accountId);
             if (refreshToken == null) return null;
+            var startedAt = _clock();
 
             SilentSignIn result;
             try
@@ -225,6 +229,41 @@ public sealed class MinecraftSessions
             {
                 NoteRateLimited(accountId, ex.RetryAfter);
                 throw;
+            }
+
+            // A real account's refresh token must sign in as THAT account. If
+            // it comes back as another profile, the row's tokens are crossed
+            // (an older launcher could write one account's rotated token into
+            // another): save none of it, so the crossing can't spread or launch
+            // the wrong player, and unlink the row's Microsoft sign-in so the
+            // next Play / Friends call fails at once instead of spending
+            // another login_with_xbox (rate-limited). Adding the account again
+            // replaces this row by its real UUID.
+            // Pending ids are decided by their prefix, never by re-reading the
+            // file (a read error there must not make a pending row look real).
+            if (result.Session.Uuid != accountId && !accountId.StartsWith(PendingIdPrefix, StringComparison.Ordinal))
+            {
+                lock (_lock)
+                {
+                    // Keep a session adopted after this sign-in started (the
+                    // account was just added again); drop anything older.
+                    if (!_lastSignIn.TryGetValue(accountId, out var at) || at <= startedAt)
+                        _cache.Remove(accountId);
+                }
+                var detail = "silent sign-in returned a different profile than the stored account";
+                try
+                {
+                    _vault.Unlink(accountId, refreshToken);
+                }
+                catch (Exception ex)
+                {
+                    // Still the mismatch the player must act on; the failed
+                    // unlink only means the next call checks again.
+                    detail += $"; unlinking the row failed: {ex.GetType().Name}: {ex.Message}";
+                }
+                throw new MicrosoftAuthException(MicrosoftAuthException.AccountMismatchStage,
+                    "This account's saved sign-in belongs to a different Minecraft account. Add the account again to fix it.",
+                    detail);
             }
 
             _vault.Save(accountId, result);

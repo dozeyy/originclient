@@ -27,12 +27,17 @@ public static class LauncherIdentity
                 ? await MinecraftSessionBroker.RenewAsync(account.Id, ct).ConfigureAwait(false)
                 : await MinecraftSessionBroker.GetAsync(account.Id, ct).ConfigureAwait(false);
             if (session?.AccessToken is not { Length: > 0 } token || session.UUID is not { Length: > 0 } uuid)
-                return IdentityResult.SignInFailed("Your sign-in expired. Remove and re-add your account to use friends.");
+                return IdentityResult.SignInFailed("Your sign-in is no longer valid. Add this account again in Accounts to use friends.");
             return IdentityResult.Ok(new MinecraftIdentity(session.Username ?? account.Gamertag, uuid, token));
         }
         catch (MicrosoftAuthException ex) when (ex.RateLimited)
         {
             return IdentityResult.Unreachable(MicrosoftAuthException.RateLimitedMessage);
+        }
+        catch (MicrosoftAuthException ex) when (ex.Stage == MicrosoftAuthException.AccountMismatchStage)
+        {
+            // Not transient: retrying can't help, the account must be added again.
+            return IdentityResult.SignInFailed(ex.Message);
         }
         catch (MicrosoftAuthException)
         {

@@ -23,6 +23,28 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
     public MicrosoftSignInPanel()
     {
         InitializeComponent();
+
+        // Every sign-in runs in a throwaway InPrivate profile. The panel used
+        // to run in WebView2's default profile (<exe>.WebView2, on disk, shared
+        // by every panel), which kept the first account's "stay signed in"
+        // Microsoft cookies (MSPAuth / WLSSC / __Host-MSAAUTHP on login.live.com).
+        // Microsoft then silently issued a code for THAT account on every later
+        // "Add Microsoft Account", so a second account could never be added -
+        // the store just refreshed account #1. InPrivate keeps nothing between
+        // panels. The working folder is under our data root (OriginPaths); App
+        // deletes the old default folder at startup.
+        // Must be set before the CoreWebView2 is created (EnsureCoreWebView2Async).
+        WebView.CreationProperties = new Microsoft.Web.WebView2.Wpf.CoreWebView2CreationProperties
+        {
+            UserDataFolder = OriginLauncher.App.Core.OriginPaths.SignInWebViewData,
+            IsInPrivateModeEnabled = true,
+            // InPrivate webviews with the same profile name share in-memory
+            // cookies inside one browser process, so a panel that hasn't fully
+            // torn down could still hand its session to the next one. A fresh
+            // name per panel gives each sign-in its own empty cookie jar.
+            ProfileName = "signin-" + Guid.NewGuid().ToString("N")
+        };
+
         Loaded += MicrosoftSignInPanel_Loaded;
     }
 
@@ -95,7 +117,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
     private async Task<AuthResult> SignInViaPrismTestAsync(CancellationToken ct)
     {
         var authenticator = new MicrosoftAuthenticator();
-        var (authUrl, codeVerifier) = authenticator.BuildTestAuthorizationRequest();
+        var (authUrl, codeVerifier, expectedState) = authenticator.BuildTestAuthorizationRequest();
 
         var codeSource = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -104,9 +126,26 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             if (!args.Uri.StartsWith(MicrosoftAuthenticator.TestRedirectUri, StringComparison.Ordinal)) return;
             args.Cancel = true;
 
+            // Only the answer to THIS request counts (login.live.com echoes
+            // state on every redirect, success or error - probed 2026-10-13):
+            //  - state present but different: a stale or forged redirect; ignore
+            //    it so it can neither finish nor abort this sign-in;
+            //  - a code without our state: refuse it (CSRF guard);
+            //  - an error with no state: ignore (can't be ours);
+            //  - our state: the code, or the error that ends this sign-in.
             var query = ParseQuery(new Uri(args.Uri).Query);
-            if (query.TryGetValue("code", out var code))
-                codeSource.TrySetResult(code);
+            var hasState = query.TryGetValue("state", out var returnedState);
+            if (hasState && returnedState != expectedState) return;
+            var hasCode = query.TryGetValue("code", out var code);
+            if (!hasState)
+            {
+                if (hasCode)
+                    codeSource.TrySetException(new MicrosoftAuthException("login",
+                        "Microsoft sign-in didn't finish. Please try again.", "authorization code without state"));
+                return;
+            }
+            if (hasCode)
+                codeSource.TrySetResult(code!);
             else
                 codeSource.TrySetException(new MicrosoftAuthException("login",
                     "Microsoft sign-in didn't finish. Please try again.",
@@ -168,6 +207,17 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
 
         _cts.Cancel();
         _cts.Dispose();
+        // This panel's one-off InPrivate profile: mark it for deletion so its
+        // folder (EBWebView\WV2Profile_signin-<guid>) and Local State entry go
+        // when the browser process exits. App sweeps any that survive.
+        try
+        {
+            WebView.CoreWebView2?.Profile.Delete();
+        }
+        catch (Exception)
+        {
+            // Never block closing the card; the startup sweep catches leftovers.
+        }
         WebView.Dispose();
     }
 }

@@ -53,8 +53,34 @@ public static class OriginPaths
     // The banner's ad-network WebView2 profile (cookies, storage, browser
     // cache). Deliberately its OWN user-data folder: it never shares a
     // browser process, cookie jar or lock with the Microsoft sign-in WebView2
-    // (MicrosoftSignInPanel, which uses WebView2's default folder).
+    // (MicrosoftSignInPanel, SignInWebViewData below).
     public static string BannerWebViewData => Path.Combine(Root, "webview", "banner");
+
+    // The Microsoft sign-in WebView2's user-data folder. The panel runs
+    // InPrivate, so no cookies or session persist here; the browser process
+    // still needs a writable working folder, and it belongs under our root.
+    public static string SignInWebViewData => Path.Combine(Root, "webview", "signin");
+
+    // WebView2's DEFAULT user-data folder (<exe name>.WebView2 next to the exe),
+    // which the sign-in panel used before 2026-10-13. It kept the first
+    // account's long-lived Microsoft session cookies, which made every later
+    // "Add Microsoft Account" sign in as that account again, so App deletes it
+    // at startup. Null unless running as our own apphost exe (e.g. under
+    // `dotnet <dll>` the "exe" is dotnet.exe), so no other folder is targeted.
+    public static string? LegacySignInWebViewData
+    {
+        get
+        {
+            var exe = Environment.ProcessPath;
+            var exeDir = string.IsNullOrEmpty(exe) ? null : Path.GetDirectoryName(exe);
+            if (exeDir == null || !string.Equals(
+                    Path.GetFullPath(exeDir).TrimEnd(Path.DirectorySeparatorChar),
+                    Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase))
+                return null;
+            return Path.Combine(exeDir, Path.GetFileName(exe) + ".WebView2");
+        }
+    }
 
     // Read-only assets shipped alongside the exe (see the Content items in
     // OriginLauncher.App.csproj that copy them out of each src/mods module's
