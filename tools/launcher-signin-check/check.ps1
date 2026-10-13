@@ -90,9 +90,15 @@ $uiError = $null
 try {
     $acct = Find-El $NameP 'Accounts'
     if (-not $acct) { throw 'Accounts button not found' }
+    # A cold first start can take several seconds to open the flyout: wait up
+    # to ~10 s, clicking Accounts once more half-way.
     Invoke-El $acct
     $add = $null
-    for ($i = 0; $i -lt 15 -and -not $add; $i++) { Start-Sleep -Milliseconds 300; $add = Find-El $IdP 'AddAccountButton' }
+    for ($i = 0; $i -lt 33 -and -not $add; $i++) {
+        Start-Sleep -Milliseconds 300
+        $add = Find-El $IdP 'AddAccountButton'
+        if (-not $add -and $i -eq 16) { Invoke-El $acct }
+    }
     if (-not $add) { throw 'AddAccountButton not found' }
     Invoke-El $add
     Start-Sleep -Seconds $WaitSeconds

@@ -54,6 +54,12 @@ public interface ISessionVault
     /// </summary>
     void Save(string accountId, SilentSignIn signIn);
 
+    /// <summary>
+    /// Drop the account's Microsoft sign-in AND saved session: they belong to
+    /// another account. Afterwards RefreshToken returns null (re-add it).
+    /// </summary>
+    void Unlink(string accountId);
+
     /// <summary>Drop the saved Minecraft session (Mojang refused it).</summary>
     void Forget(string accountId);
 

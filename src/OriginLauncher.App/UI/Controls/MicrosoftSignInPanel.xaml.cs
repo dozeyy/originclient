@@ -37,7 +37,12 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
         WebView.CreationProperties = new Microsoft.Web.WebView2.Wpf.CoreWebView2CreationProperties
         {
             UserDataFolder = OriginLauncher.App.Core.OriginPaths.SignInWebViewData,
-            IsInPrivateModeEnabled = true
+            IsInPrivateModeEnabled = true,
+            // InPrivate webviews with the same profile name share in-memory
+            // cookies inside one browser process, so a panel that hasn't fully
+            // torn down could still hand its session to the next one. A fresh
+            // name per panel gives each sign-in its own empty cookie jar.
+            ProfileName = "signin-" + Guid.NewGuid().ToString("N")
         };
 
         Loaded += MicrosoftSignInPanel_Loaded;
@@ -122,18 +127,18 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             args.Cancel = true;
 
             var query = ParseQuery(new Uri(args.Uri).Query);
-            // Reject a redirect that is not the answer to THIS request (forged
-            // or stale), like the loopback flow's state check. login.live.com
-            // echoes state on its redirects (probed 2026-10-13).
-            if (!query.TryGetValue("state", out var returnedState) || returnedState != expectedState)
-                codeSource.TrySetException(new MicrosoftAuthException("login",
-                    "Microsoft sign-in didn't finish. Please try again.", "state mismatch on the redirect"));
-            else if (query.TryGetValue("code", out var code))
-                codeSource.TrySetResult(code);
-            else
+            if (!query.TryGetValue("code", out var code))
                 codeSource.TrySetException(new MicrosoftAuthException("login",
                     "Microsoft sign-in didn't finish. Please try again.",
                     $"no authorization code ({(query.TryGetValue("error", out var err) ? err : "unknown error")})"));
+            // A code is only accepted as the answer to THIS request (not a
+            // forged or stale redirect), like the loopback flow's state check.
+            // login.live.com echoes state on its redirects (probed 2026-10-13).
+            else if (!query.TryGetValue("state", out var returnedState) || returnedState != expectedState)
+                codeSource.TrySetException(new MicrosoftAuthException("login",
+                    "Microsoft sign-in didn't finish. Please try again.", "state mismatch on the redirect"));
+            else
+                codeSource.TrySetResult(code);
         }
 
         WebView.CoreWebView2.NavigationStarting += OnNavigationStarting;

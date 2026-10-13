@@ -230,13 +230,19 @@ public sealed class MinecraftSessions
             // A real account's refresh token must sign in as THAT account. If
             // it comes back as another profile, the row's tokens are crossed
             // (an older launcher could write one account's rotated token into
-            // another): save nothing, so the crossing can't spread or launch
-            // the wrong player, and ask for the account to be added again
-            // (adding it replaces this row by its real UUID).
+            // another): save none of it, so the crossing can't spread or launch
+            // the wrong player, and unlink the row's Microsoft sign-in so the
+            // next Play / Friends call fails at once instead of spending
+            // another login_with_xbox (rate-limited). Adding the account again
+            // replaces this row by its real UUID.
             if (result.Session.Uuid != accountId && !_vault.IsPending(accountId))
-                throw new MicrosoftAuthException("token_refresh",
+            {
+                _vault.Unlink(accountId);
+                lock (_lock) _cache.Remove(accountId);
+                throw new MicrosoftAuthException(MicrosoftAuthException.AccountMismatchStage,
                     "This account's saved sign-in belongs to a different Minecraft account. Add the account again to fix it.",
                     "silent sign-in returned a different profile than the stored account");
+            }
 
             _vault.Save(accountId, result);
             var session = result.Session;

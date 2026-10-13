@@ -10,6 +10,12 @@ public sealed class MicrosoftAuthException : Exception
     public const string RateLimitedMessage =
         "Microsoft is limiting sign-ins right now. Please wait a few minutes and try again.";
 
+    /// <summary>
+    /// A saved account's sign-in came back as a different Minecraft profile
+    /// (crossed tokens). Its message already says to add the account again.
+    /// </summary>
+    public const string AccountMismatchStage = "account_mismatch";
+
     public string Stage { get; }
 
     /// <summary>Raw diagnostics (HTTP status + body). Never shown to the player.</summary>

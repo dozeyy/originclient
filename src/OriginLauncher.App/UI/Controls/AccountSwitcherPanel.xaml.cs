@@ -110,7 +110,7 @@ public partial class AccountSwitcherPanel : UserControl
             {
                 const string later =
                     "Microsoft is limiting sign-ins right now. Your account is saved: in a few minutes, click it in Accounts to finish signing in.";
-                ShowSignInError(later);
+                ShowSignInNote(later);
                 return new SignInOutcome("Almost there", later);
             }
             AccountsChanged?.Invoke(this, EventArgs.Empty);

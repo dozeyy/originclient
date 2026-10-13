@@ -295,11 +295,25 @@ public class MinecraftSessionsTests
 
         var ex = await Assert.ThrowsAsync<MicrosoftAuthException>(() => _sessions.ForPlayAsync(Alex));
 
-        Assert.Equal("token_refresh", ex.Stage);
-        Assert.Equal("rt-0", _vault.Accounts[Alex].Refresh);
+        Assert.Equal(MicrosoftAuthException.AccountMismatchStage, ex.Stage);
+        Assert.Null(_vault.Accounts[Alex].Refresh); // unlinked: the token was Steve's
         Assert.Null(_vault.Accounts[Alex].Session);
         Assert.False(_vault.Accounts.ContainsKey(Steve));
         Assert.Equal(0, _vault.UsedMarks);
+    }
+
+    [Fact]
+    public async Task A_refused_crossed_account_fails_fast_without_signing_in_again()
+    {
+        // Every retry used to rerun the whole chain (login_with_xbox is
+        // rate-limited). After one refusal the row is unlinked: the next Play
+        // and Friends calls answer "re-add" with no network at all.
+        _vault.Add(Alex, "rt-0");
+        await Assert.ThrowsAsync<MicrosoftAuthException>(() => _sessions.ForPlayAsync(Alex));
+
+        Assert.Null(await _sessions.ForPlayAsync(Alex));
+        Assert.Null(await _sessions.GetAsync(Alex));
+        Assert.Equal(1, _signIn.Calls);
     }
 
     // --- fakes -----------------------------------------------------------------
@@ -308,7 +322,7 @@ public class MinecraftSessionsTests
     {
         public sealed class Entry
         {
-            public required string Refresh { get; set; }
+            public required string? Refresh { get; set; }
             public MinecraftSession? Session { get; set; }
         }
 
@@ -327,6 +341,11 @@ public class MinecraftSessionsTests
 
         public MinecraftSession? SavedSession(string accountId) =>
             Accounts.TryGetValue(accountId, out var e) ? e.Session : null;
+
+        public void Unlink(string accountId)
+        {
+            if (Accounts.TryGetValue(accountId, out var e)) { e.Refresh = null; e.Session = null; }
+        }
 
         public void Save(string accountId, SilentSignIn signIn)
         {

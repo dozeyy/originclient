@@ -173,9 +173,20 @@ public static class MinecraftSessionBroker
     private sealed class AccountSessionVault : ISessionVault
     {
         public string? RefreshToken(string accountId) =>
-            Find(AccountStore.Load(), accountId) is { } account
+            Find(AccountStore.Load(), accountId) is { ProtectedRefreshToken.Length: > 0 } account
                 ? AccountStore.TryUnprotectRefreshToken(account.ProtectedRefreshToken)
                 : null;
+
+        public void Unlink(string accountId) =>
+            AccountStore.Update(accounts =>
+            {
+                if (Find(accounts, accountId) is { } stored)
+                {
+                    stored.ProtectedRefreshToken = "";
+                    stored.ProtectedMinecraftSession = null;
+                }
+                return accounts;
+            });
 
         public bool IsPending(string accountId) =>
             Find(AccountStore.Load(), accountId) is { PendingMinecraftSignIn: true };
