@@ -37,11 +37,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // filter as three blank squares, the filter's hidden "Showing All" label
 // sprawling out of it).
 //
-// Plain Button and CycleButton (the "Something: Value" toggles all over the
-// Options menus) are covered here. Dynamic labels with no baked Inter texture
-// fall back to vanilla font inside the Origin shell, per the settled font
-// decision. Disabled buttons (active=false, e.g. Telemetry Data) render the
-// dimmed Origin style and skip hover.
+// Plain Button and text CycleButtons (the "Something: Value" toggles all over
+// the Options menus) are covered here; a CycleButton counts as text exactly
+// when vanilla would draw only its label (originclient$isTextCycle). If that
+// test breaks, Options toggles silently go vanilla grey again (the 2026-10-13
+// Controls-screen report) -- nothing crashes. Dynamic labels with no baked
+// Inter texture fall back to vanilla font inside the Origin shell, per the
+// settled font decision. Disabled buttons (active=false, e.g. Telemetry Data)
+// render the dimmed Origin style and skip hover.
 // priority 2000: Origin's widget restyle wins over other UI mods.
 @Mixin(value = AbstractButton.class, priority = 2000)
 public class AbstractButtonMixin {
@@ -75,13 +78,41 @@ public class AbstractButtonMixin {
 		if (widget instanceof PlainTextButton) {
 			return false;
 		}
-		if (widget instanceof CycleButton<?>) {
-			// Text cycle buttons = Origin look; sprite ones (recipe filter) = vanilla.
-			return ((CycleButtonSpriteAccessor) widget).originclient$spriteSupplier() == null;
+		if (widget instanceof CycleButton<?> cycle) {
+			// Text cycle buttons = Origin look; sprite ones (recipe filter) and
+			// label-less ones (DisplayState.HIDE) = vanilla.
+			return originclient$isTextCycle(cycle);
 		}
 		// Plain vanilla Buttons and Origin's own Button subclasses. Everything
 		// that is an AbstractButton but not a Button -- Checkbox (CheckboxMixin
 		// draws it), the beacon screen's custom buttons -- stays vanilla.
 		return widget instanceof Button;
+	}
+
+	// True when vanilla's CycleButton.renderContents would draw a text label and
+	// nothing else, i.e. the button is a plain toggle Origin can restyle. It asks
+	// the same two questions vanilla asks (javap, renderContents):
+	//   offsets 0-18:  spriteSupplier.apply(this, getValue()) -- non-null = blit
+	//                  that sprite (recipe book filter) -> vanilla.
+	//   offsets 54-61: displayState == HIDE -> no label at all -> vanilla.
+	// Testing the supplier FIELD for null is wrong on 1.21.11 and 26.x: every
+	// CycleButton.Builder installs a default supplier that returns null
+	// (Builder.<init> 14-19), so the field is never null and every Options
+	// toggle (Sneak: Hold, Auto-Jump: OFF, Chat: Shown...) fell through to
+	// vanilla grey.
+	private static <T> boolean originclient$isTextCycle(CycleButton<T> cycle) {
+		CycleButtonSpriteAccessor accessor = (CycleButtonSpriteAccessor) cycle;
+		if (accessor.originclient$displayState() == CycleButton.DisplayState.HIDE) {
+			return false;
+		}
+		try {
+			@SuppressWarnings("unchecked")
+			CycleButton.SpriteSupplier<T> supplier = (CycleButton.SpriteSupplier<T>) accessor.originclient$spriteSupplier();
+			return supplier == null || supplier.apply(cycle, cycle.getValue()) == null;
+		} catch (Throwable t) {
+			// A (third-party) supplier threw. This runs before OriginButtonRenderer's
+			// fail-soft latch, so never let it escape: leave the button to vanilla.
+			return false;
+		}
 	}
 }

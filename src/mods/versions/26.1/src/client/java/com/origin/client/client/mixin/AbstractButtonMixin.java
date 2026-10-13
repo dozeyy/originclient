@@ -18,15 +18,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // Restyles every button in the Origin look, on every screen: cancels the
 // vanilla button drawing and draws the Origin style instead. Restyling
 // happens in-place (no widgets added/removed) -- buttons keep their
-// positions, actions, and clicks; only renderWidget is replaced.
+// positions, actions, and clicks; only extractWidgetRenderState is replaced.
 //
-// PER-VERSION DELTA (1.21.11): on 1.21.1 coverage scoped ITSELF by the class
-// hierarchy -- subclasses with their own renderWidget override (ImageButton,
-// SpriteIconButton, Checkbox, sliders) simply bypassed this mixin. That is no
-// longer true here: 1.21.11 made AbstractButton.renderWidget `protected final`
-// and moved subclass drawing into the abstract renderContents(...), so there is
-// exactly ONE renderWidget in the whole hierarchy and this inject pre-empts
-// every button type, including ones that draw their own art.
+// PER-VERSION DELTA (26.x, same shape since 1.21.11): on 1.21.1 coverage
+// scoped ITSELF by the class hierarchy -- subclasses with their own
+// renderWidget override (ImageButton, SpriteIconButton, Checkbox, sliders)
+// simply bypassed this mixin. That is no longer true here: 26.x's
+// AbstractButton.extractWidgetRenderState is `protected final` (1.21.11's
+// renderWidget, renamed) and subclass drawing lives in the abstract
+// extractContents(...), so there is exactly ONE extractWidgetRenderState in
+// the whole hierarchy and this inject pre-empts every button type, including
+// ones that draw their own art.
 //
 // So the scoping has to be explicit now, and it is a WHITELIST (originclient$
 // ownsLook below): Origin only claims the button types it actually has a look
@@ -37,19 +39,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // filter as three blank squares, the filter's hidden "Showing All" label
 // sprawling out of it).
 //
-// Plain Button and CycleButton (the "Something: Value" toggles all over the
-// Options menus) are covered here. Dynamic labels with no baked Inter texture
-// fall back to vanilla font inside the Origin shell, per the settled font
-// decision. Disabled buttons (active=false, e.g. Telemetry Data) render the
-// dimmed Origin style and skip hover.
+// Plain Button and text CycleButtons (the "Something: Value" toggles all over
+// the Options menus) are covered here; a CycleButton counts as text exactly
+// when vanilla would draw only its label (originclient$isTextCycle). If that
+// test breaks, Options toggles silently go vanilla grey again (the 2026-10-13
+// Controls-screen report) -- nothing crashes. Dynamic labels with no baked
+// Inter texture fall back to vanilla font inside the Origin shell, per the
+// settled font decision. Disabled buttons (active=false, e.g. Telemetry Data)
+// render the dimmed Origin style and skip hover.
 // priority 2000: Origin's widget restyle wins over other UI mods.
 @Mixin(value = AbstractButton.class, priority = 2000)
 public class AbstractButtonMixin {
 
 	@Inject(method = "extractWidgetRenderState", at = @At("HEAD"), cancellable = true)
 	private void originclient$originStyle(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		// Not ours to restyle -- leave renderWidget alone so it reaches the
-		// widget's own renderContents (vanilla art, or a dedicated Origin mixin
+		// Not ours to restyle -- leave extractWidgetRenderState alone so it reaches the
+		// widget's own extractContents (vanilla art, or a dedicated Origin mixin
 		// such as SpriteIconButtonMixin / CheckboxMixin).
 		if (!originclient$ownsLook(this)) {
 			return;
@@ -64,7 +69,7 @@ public class AbstractButtonMixin {
 	// The whitelist: which AbstractButtons wear the Origin shell.
 	private static boolean originclient$ownsLook(Object widget) {
 		// Sprite-drawn buttons keep vanilla art. Their picture lives in
-		// renderContents, so an Origin shell here would erase it: ImageButton
+		// extractContents, so an Origin shell here would erase it: ImageButton
 		// covers the recipe-book open button and RecipeBookTabButton, PageButton
 		// the book arrows, LockIconButton the world-difficulty lock.
 		if (widget instanceof ImageButton || widget instanceof SpriteIconButton
@@ -75,13 +80,41 @@ public class AbstractButtonMixin {
 		if (widget instanceof PlainTextButton) {
 			return false;
 		}
-		if (widget instanceof CycleButton<?>) {
-			// Text cycle buttons = Origin look; sprite ones (recipe filter) = vanilla.
-			return ((CycleButtonSpriteAccessor) widget).originclient$spriteSupplier() == null;
+		if (widget instanceof CycleButton<?> cycle) {
+			// Text cycle buttons = Origin look; sprite ones (recipe filter) and
+			// label-less ones (DisplayState.HIDE) = vanilla.
+			return originclient$isTextCycle(cycle);
 		}
 		// Plain vanilla Buttons and Origin's own Button subclasses. Everything
 		// that is an AbstractButton but not a Button -- Checkbox (CheckboxMixin
 		// draws it), the beacon screen's custom buttons -- stays vanilla.
 		return widget instanceof Button;
+	}
+
+	// True when vanilla's CycleButton.extractContents would draw a text label and
+	// nothing else, i.e. the button is a plain toggle Origin can restyle. It asks
+	// the same two questions vanilla asks (javap, extractContents):
+	//   offsets 0-18:  spriteSupplier.apply(this, getValue()) -- non-null = blit
+	//                  that sprite (recipe book filter) -> vanilla.
+	//   offsets 54-61: displayState == HIDE -> no label at all -> vanilla.
+	// Testing the supplier FIELD for null is wrong on 1.21.11 and 26.x: every
+	// CycleButton.Builder installs a default supplier that returns null
+	// (Builder.<init> 14-19), so the field is never null and every Options
+	// toggle (Sneak: Hold, Auto-Jump: OFF, Chat: Shown...) fell through to
+	// vanilla grey.
+	private static <T> boolean originclient$isTextCycle(CycleButton<T> cycle) {
+		CycleButtonSpriteAccessor accessor = (CycleButtonSpriteAccessor) cycle;
+		if (accessor.originclient$displayState() == CycleButton.DisplayState.HIDE) {
+			return false;
+		}
+		try {
+			@SuppressWarnings("unchecked")
+			CycleButton.SpriteSupplier<T> supplier = (CycleButton.SpriteSupplier<T>) accessor.originclient$spriteSupplier();
+			return supplier == null || supplier.apply(cycle, cycle.getValue()) == null;
+		} catch (Throwable t) {
+			// A (third-party) supplier threw. This runs before OriginButtonRenderer's
+			// fail-soft latch, so never let it escape: leave the button to vanilla.
+			return false;
+		}
 	}
 }
