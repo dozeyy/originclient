@@ -410,12 +410,12 @@ public final class OriginButtonRenderer {
 	 *  shadow — routed through OriginText so it matches every other menu label and
 	 *  the whole client reads in one typeface (no vanilla pixel glyphs on widgets).
 	 *  Raw label text is kept as-is (no dot-stripping) so "Options..." reads right.
-	 *  Labels wider than the box minus a 4 px inset per side end in an ellipsis
-	 *  (OriginText.ellipsize) instead of spilling past the button edge -- long
-	 *  toggles like "High Contrast Block Outline: OFF" on 150 px Options rows. */
+	 *  Labels wider than the box minus a 4 px inset per side are shortened
+	 *  (OriginText.fitLabel) instead of spilling past the button edge; an
+	 *  option's value always stays readable: "High Contrast Bl…: OFF". */
 	private static void drawLabelCentered(GuiGraphics g, double cx, double cy, int boxW, Component message, int color) {
 		Font font = Minecraft.getInstance().font;
-		String s = OriginText.ellipsize(font, message.getString(), boxW - 8);
+		String s = OriginText.fitLabel(font, message, boxW - 8);
 		int tw = OriginText.widthBold(font, s);
 		OriginText.drawBold(g, font, s, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
 	}
