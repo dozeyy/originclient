@@ -146,7 +146,15 @@ public final class OriginShaders {
 		if (tweak != null) {
 			b = tweak.apply(b);
 		}
-		return b.build();
+		RenderPipeline built = b.build();
+		// 26.3: a pipeline whose shaders fail to compile/link only surfaces when the
+		// GUI renderer draws with it -- as an IllegalStateException that takes the
+		// whole frame (and the game) down. Compile it here instead: a failure throws
+		// to the caller, whose catch falls back to the vanilla look (mandate 4).
+		if (com.mojang.blaze3d.systems.RenderSystem.getCompiledPipelineNullable(built) == null) {
+			throw new IllegalStateException("pipeline " + location + " did not compile");
+		}
+		return built;
 	}
 
 	/** Kept for the 1.21.x init call shape; the pipelines build on first use. */

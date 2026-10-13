@@ -14,11 +14,13 @@
 // not a bare `uniform vec4`) — mirrors vanilla's own core/position_tex_color.fsh.
 // The MSDF math itself is unchanged from 1.21.1/1.21.4.
 
+// 26.3 reordered this block (TextureMat moved up) -- it must match vanilla's
+// include/dynamictransforms.glsl member for member or the program won't link.
 layout(std140) uniform DynamicTransforms {
     mat4 ModelViewMat;
+    mat4 TextureMat;
     vec4 ColorModulator;
     vec3 ModelOffset;
-    mat4 TextureMat;
 };
 
 uniform sampler2D Sampler0;

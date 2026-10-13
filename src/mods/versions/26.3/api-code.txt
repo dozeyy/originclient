@@ -33,3 +33,5 @@ net.minecraft.client.Screenshot
 com.mojang.renderpearl.backend.opengl.GlDevice
 com.mojang.blaze3d.platform.Window
 com.mojang.renderpearl.backend.opengl.GlBackend
+com.mojang.blaze3d.systems.RenderSystem
+com.mojang.blaze3d.pipeline.PipelineCache

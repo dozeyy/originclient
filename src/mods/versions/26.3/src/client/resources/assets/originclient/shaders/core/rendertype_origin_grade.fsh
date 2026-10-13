@@ -16,11 +16,13 @@
 // 0..1. One byte per channel is ~0.008 of slider range; the sliders step by
 // 0.05, so the quantisation is invisible.
 
+// 26.3 reordered this block (TextureMat moved up) -- it must match vanilla's
+// include/dynamictransforms.glsl member for member or the program won't link.
 layout(std140) uniform DynamicTransforms {
     mat4 ModelViewMat;
+    mat4 TextureMat;
     vec4 ColorModulator;
     vec3 ModelOffset;
-    mat4 TextureMat;
 };
 
 uniform sampler2D Sampler0;
