@@ -50,6 +50,9 @@ sourceSets.main.output.resourcesDir = sourceSets.main.java.classesDirectory
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
+	// Report every error in one CI run (default stops at 100): the sandbox can't
+	// compile 1.8.9, so CI is the compiler and each round trip should show all.
+	options.compilerArgs += ['-Xmaxerrs', '5000']
 }
 
 // Loom's run tasks don't inherit the java{} toolchain — left alone they launch
@@ -65,5 +68,13 @@ processResources {
 	inputs.property 'version', project.version
 	filesMatching('mcmod.info') {
 		expand 'version': project.version, 'mcversion': project.minecraft_version
+	}
+}
+
+// Prints the compile classpath (MCP-named Minecraft + Forge + libraries) for
+// .github/workflows/ref-189.yml, the CI-side API lookup the sandbox relies on.
+tasks.register('originPrintClasspath') {
+	doLast {
+		sourceSets.main.compileClasspath.each { println "CP " + it }
 	}
 }

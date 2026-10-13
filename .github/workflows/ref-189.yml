@@ -1,0 +1,54 @@
+# 1.8.9 API lookup: answers "what is this class/method/field called on 1.8.9
+# Forge (MCP stable_22), and what is its SRG (runtime) name?" in the job log.
+#
+# Why: the cloud sandbox Claude ports in can't reach Forge's maven, so it has
+# no 1.8.9 classes to read. This job sets up the 1.8.9 module's real Loom
+# workspace (MCP-named Minecraft + Forge) and prints only what was asked:
+#   class <name>     javap -p of a class (simple name or full name; all matches)
+#   member <name>    every field/method with that MCP name: owner, descriptor, SRG name
+#   find <regex>     class names matching the regex
+# SRG names matter because production Forge runs SRG-named: any reflection
+# the 1.8.9 module does must try the MCP name (dev) AND the SRG name (players).
+#
+# Trigger: push a change to src/mods/versions/1.8.9/tools/ref-queries.txt on a
+# claude/** branch (one query per line, '#' comments), then read the
+# "Answer queries" step's log. Nothing is published or committed.
+name: ref-189
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["src/mods/versions/1.8.9/tools/ref-queries.txt", ".github/workflows/ref-189.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ref-189-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lookup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: src/mods/versions/1.8.9
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up the 1.8.9 workspace (MCP-named Minecraft + Forge)
+        shell: bash
+        run: |
+          sh ./gradlew originPrintClasspath --no-daemon -q > "$RUNNER_TEMP/cp.txt" 2> "$RUNNER_TEMP/gradle-err.txt" || { tail -60 "$RUNNER_TEMP/gradle-err.txt"; exit 1; }
+          grep '^CP ' "$RUNNER_TEMP/cp.txt" | cut -c4- > "$RUNNER_TEMP/jars.txt"
+          echo "classpath jars: $(wc -l < "$RUNNER_TEMP/jars.txt")"
+          find ~/.gradle .gradle -type f \( -name '*.tiny' -o -name 'methods.csv' -o -name 'fields.csv' -o -name '*.srg' -o -name '*.tsrg' \) 2>/dev/null > "$RUNNER_TEMP/maps.txt" || true
+          echo "mapping files:"; cat "$RUNNER_TEMP/maps.txt"
+
+      - name: Answer queries
+        shell: bash
+        run: python3 tools/ref_lookup.py "$RUNNER_TEMP/jars.txt" "$RUNNER_TEMP/maps.txt" tools/ref-queries.txt
