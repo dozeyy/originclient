@@ -120,6 +120,10 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
           MESA_GL_VERSION_OVERRIDE: "4.6"
           MESA_GLSL_VERSION_OVERRIDE: "460"
+          # 26.3+ windows through SDL3, whose GLX path asks for a DirectColor visual
+          # by default; Xvfb + llvmpipe has none ("Couldn't find matching GLX visual").
+          # GLFW-era modules ignore this variable.
+          SDL_VIDEO_X11_NODIRECTCOLOR: "1"
           ORIGIN_SHOTS: ${{ runner.temp }}/shots
           ORIGIN_SHOTS_SET: ${{ github.event.inputs.set || 'design' }}
         run: |
