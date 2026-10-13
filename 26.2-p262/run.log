@@ -102,9 +102,9 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :configureClientLaunch
 
 > Task :runClient
-[22:33:04] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.2 with Fabric Loader 0.19.3
-[22:33:04] [main/INFO] (FabricLoader/Mappings) Mappings not present!
-[22:33:04] [main/INFO] (FabricLoader) Loading 54 mods:
+[00:46:07] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.2 with Fabric Loader 0.19.3
+[00:46:07] [main/INFO] (FabricLoader/Mappings) Mappings not present!
+[00:46:07] [main/INFO] (FabricLoader) Loading 54 mods:
 	- fabric-advancement-api-v1 1.0.0+58719a3b9e
 	- fabric-api 0.161.0+26.2
 	- fabric-api-base 2.0.4+ece063239e
@@ -159,26 +159,25 @@ Note: Recompile with -Xlint:deprecation for details.
 	- minecraft 26.2
 	- mixinextras 0.5.4
 	- originclient 0.4.2
-[22:33:05] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
-[22:33:05] [main/INFO] (FabricLoader/Mixin) Compatibility level set to JAVA_25
-[22:33:05] [main/WARN] (FabricLoader/Mixin) Error loading class: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit (java.lang.ClassNotFoundException: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit)
-[22:33:05] [main/WARN] (FabricLoader/Mixin) @Mixin target de.siphalor.amecs.key_modifiers.impl.AmecsKeyModifiersEarlyInit was not found jei.mixins.json:AmecsKeyModifiersEarlyInitMixin from mod jei
-[22:33:05] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
-[22:33:06] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.4).
-[22:33:08] [Datafixer Bootstrap #0/INFO] (Minecraft) 295 Datafixer optimizations took 618 milliseconds
-[22:33:13] [Render thread/INFO] (Minecraft) Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, profilesHost=https://api.mojang.com, name=PROD]
-[22:33:13] [Render thread/INFO] (Minecraft) Setting user: Player409
-[22:33:14] [Render thread/INFO] (originclient) Origin Client initializing
-[22:33:14] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
-[22:33:14] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.450 milliseconds
-[22:33:14] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
-[22:33:14] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
-[22:33:14] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.1-snapshot
-[22:33:16] [Render thread/INFO] (Minecraft) Using graphics backend OpenGL, using drivers: 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
-[22:33:16] [Render thread/INFO] (Minecraft) Using graphics device: llvmpipe (LLVM 20.1.2, 256 bits) (Mesa)
-[22:33:16] [Render thread/INFO] (Minecraft) Using graphics device extensions: GL_ARB_multi_draw_indirect, GL_ARB_buffer_storage, GL_ARB_shader_draw_parameters, GL_ARB_base_instance, GL_KHR_debug, GL_ARB_draw_indirect, GL_ARB_clip_control, GL_ARB_vertex_attrib_binding, GL_ARB_direct_state_access, GL_EXT_texture_filter_anisotropic
-[22:33:17] [Download-1/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
-[22:33:17] [Render thread/ERROR] (Minecraft) Error while loading the narrator
+[00:46:07] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.3+mixin.0.8.7/41c4a3984a80f4679e759fb9f495587acc5cdac7/sponge-mixin-0.17.3+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[00:46:07] [main/INFO] (FabricLoader/Mixin) Compatibility level set to JAVA_25
+[00:46:08] [main/WARN] (FabricLoader/Mixin) Error loading class: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit (java.lang.ClassNotFoundException: de/siphalor/amecs/key_modifiers/impl/AmecsKeyModifiersEarlyInit)
+[00:46:08] [main/WARN] (FabricLoader/Mixin) @Mixin target de.siphalor.amecs.key_modifiers.impl.AmecsKeyModifiersEarlyInit was not found jei.mixins.json:AmecsKeyModifiersEarlyInitMixin from mod jei
+[00:46:08] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
+[00:46:08] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.4).
+[00:46:09] [Datafixer Bootstrap #0/INFO] (Minecraft) 295 Datafixer optimizations took 311 milliseconds
+[00:46:13] [Render thread/INFO] (Minecraft) Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, profilesHost=https://api.mojang.com, name=PROD]
+[00:46:13] [Render thread/INFO] (Minecraft) Setting user: Player672
+[00:46:13] [Render thread/INFO] (originclient) Origin Client initializing
+[00:46:13] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
+[00:46:13] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.210 milliseconds
+[00:46:13] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
+[00:46:13] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
+[00:46:13] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.1-snapshot
+[00:46:15] [Render thread/INFO] (Minecraft) Using graphics backend OpenGL, using drivers: 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
+[00:46:15] [Render thread/INFO] (Minecraft) Using graphics device: llvmpipe (LLVM 20.1.2, 256 bits) (Mesa)
+[00:46:15] [Render thread/INFO] (Minecraft) Using graphics device extensions: GL_ARB_multi_draw_indirect, GL_ARB_buffer_storage, GL_ARB_shader_draw_parameters, GL_ARB_base_instance, GL_KHR_debug, GL_ARB_draw_indirect, GL_ARB_clip_control, GL_ARB_vertex_attrib_binding, GL_ARB_direct_state_access, GL_EXT_texture_filter_anisotropic
+[00:46:15] [Render thread/ERROR] (Minecraft) Error while loading the narrator
 
 com.mojang.text2speech.Narrator$InitializeException: Failed to load library flite
 	at knot//com.mojang.text2speech.NarratorLinux$FliteLibrary.loadNative(NarratorLinux.java:82)
@@ -212,11 +211,12 @@ Native library (linux-x86-64/libflite.so) not found in resource path (/home/runn
 		at knot//com.sun.jna.Native.extractFromResourcePath(Native.java:1141)
 		at knot//com.sun.jna.NativeLibrary.loadLibrary(NativeLibrary.java:297)
 		... 12 more
-[22:33:17] [Render thread/INFO] (Minecraft) Reloading ResourceManager: vanilla, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-client-gametest-api-v1, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-gametest-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, jei, mezz_config, originclient
-[22:33:17] [Render thread/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
-[22:33:18] [Worker-Main-2/INFO] (Minecraft) Found unifont_all_no_pua-17.0.01.hex, loading
-[22:33:18] [Worker-Main-3/INFO] (Minecraft) Found unifont_pua-17.0.01.hex, loading
-[22:33:18] [Worker-Main-2/INFO] (Minecraft) Found unifont_jp_patch-17.0.01.hex, loading
+[00:46:15] [Render thread/INFO] (Minecraft) Reloading ResourceManager: vanilla, fabric-advancement-api-v1, fabric-api, fabric-api-base, fabric-api-lookup-api-v1, fabric-biome-api-v1, fabric-block-api-v1, fabric-block-getter-api-v2, fabric-client-gametest-api-v1, fabric-command-api-v2, fabric-content-registries-v0, fabric-convention-tags-v2, fabric-crash-report-info-v1, fabric-creative-tab-api-v1, fabric-data-attachment-api-v1, fabric-data-generation-api-v1, fabric-debug-api-v1, fabric-dimensions-v1, fabric-entity-events-v1, fabric-events-interaction-v0, fabric-game-rule-api-v1, fabric-gametest-api-v1, fabric-item-api-v1, fabric-key-mapping-api-v1, fabric-lifecycle-events-v1, fabric-loot-api-v3, fabric-menu-api-v1, fabric-message-api-v1, fabric-model-loading-api-v1, fabric-networking-api-v1, fabric-object-builder-api-v1, fabric-particles-v1, fabric-permission-api-v1, fabric-recipe-api-v1, fabric-registry-sync-v0, fabric-renderer-api-v1, fabric-renderer-indigo, fabric-rendering-fluids-v1, fabric-rendering-v1, fabric-resource-conditions-api-v1, fabric-resource-loader-v0, fabric-resource-loader-v1, fabric-screen-api-v1, fabric-serialization-api-v1, fabric-sound-api-v1, fabric-tag-api-v1, fabric-transfer-api-v1, fabric-transitive-access-wideners-v1, fabricloader, jei, mezz_config, originclient
+[00:46:15] [Download-2/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[00:46:15] [Render thread/INFO] (originclient) Seeded new instance from bundled default-mods-config.json
+[00:46:16] [Worker-Main-2/INFO] (Minecraft) Found unifont_all_no_pua-17.0.01.hex, loading
+[00:46:16] [Worker-Main-3/INFO] (Minecraft) Found unifont_pua-17.0.01.hex, loading
+[00:46:16] [Worker-Main-2/INFO] (Minecraft) Found unifont_jp_patch-17.0.01.hex, loading
 ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
 ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
 ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
@@ -233,7 +233,7 @@ ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
 ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
 ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
 ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
-[22:33:21] [Render thread/ERROR] (Minecraft) Error starting SoundSystem. Turning off sounds & music
+[00:46:17] [Render thread/ERROR] (Minecraft) Error starting SoundSystem. Turning off sounds & music
 
 java.lang.IllegalStateException: Failed to open OpenAL device
 	at knot//com.mojang.blaze3d.audio.Library.openDeviceOrFallback(Library.java:275)
@@ -257,631 +257,62 @@ java.lang.IllegalStateException: Failed to open OpenAL device
 	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
 	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
 	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 2048x1024x0 minecraft:textures/atlas/armor_trims.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 2048x2048x4 minecraft:textures/atlas/blocks.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
-[22:33:21] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
-[22:33:24] [Download-1/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
-[22:33:29] [Render thread/INFO] (originclient) [dev-shots] captured title_1920x1080_s0.png
-[22:33:31] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas
-[22:33:31] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf_bold' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas_bold
-[22:33:31] [Render thread/INFO] (originclient) Origin MSDF DEBUG: first emit('ORIGIN') -> 6 quads, pipeline=originclient:pipeline/origin_msdf, atlasView=com.mojang.blaze3d.opengl.GlTextureView@7e8abbb, v0=(566.0,282.1836 uv 0.45898438,0.7109375), bounds=ScreenRectangle[position=ScreenPosition[x=141, y=70], width=17, height=4]
-[22:33:31] [Render thread/INFO] (originclient) Origin MSDF DEBUG: buildVertices() completed OK, wrote 6 quads
-[22:33:32] [Render thread/INFO] (originclient) [dev-shots] captured menu_1920x1080_s0.png
-[22:33:35] [Render thread/INFO] (originclient) [dev-shots] captured menu_list_1920x1080_s0.png
-[22:33:38] [Render thread/INFO] (originclient) [dev-shots] captured mod_settings_1920x1080_s0.png
-[22:33:41] [Render thread/INFO] (originclient) [dev-shots] captured settings_1920x1080_s0.png
-[22:33:43] [Render thread/WARN] (originclient) [dev-shots] step 5 failed
-
-net.minecraft.ReportedException: Rendering screen
-	at knot//net.minecraft.client.gui.Gui.extractRenderState(Gui.java:191)
-	at knot//net.minecraft.client.renderer.GameRenderer.extract(GameRenderer.java:401)
-	at knot//net.minecraft.client.Minecraft.renderFrame(Minecraft.java:1366)
-	at knot//net.minecraft.client.Minecraft.setScreenAndShow(Minecraft.java:2294)
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:214)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-Caused by: java.lang.NullPointerException: Components not bound yet
-	at java.base/java.util.Objects.requireNonNull(Objects.java:246)
-	at knot//net.minecraft.core.Holder$Reference.components(Holder.java:281)
-	at knot//net.minecraft.world.item.ItemStack.<init>(ItemStack.java:265)
-	at knot//net.minecraft.world.item.ItemStack.<init>(ItemStack.java:259)
-	at knot//com.origin.client.client.hud.CooldownsHud.entries(CooldownsHud.java:115)
-	at knot//com.origin.client.client.hud.CooldownsHud.size(CooldownsHud.java:129)
-	at knot//com.origin.client.client.hud.HudEditorScreen.extractRenderState(HudEditorScreen.java:157)
-	at knot//net.minecraft.client.gui.screens.Screen.extractRenderStateWithTooltipAndSubtitles(Screen.java:119)
-	at knot//net.minecraft.client.gui.Gui.mixinextras$bridge$extractRenderStateWithTooltipAndSubtitles$41(Gui.java)
-	at knot//net.minecraft.client.gui.Gui.wrapOperation$zed000$fabric-screen-api-v1$onExtractGui(Gui.java:609)
-	at knot//net.minecraft.client.gui.Gui.extractRenderState(Gui.java:183)
-	... 15 more
-[22:33:51] [Render thread/WARN] (originclient) [dev-shots] step 6 failed
-
-java.lang.IllegalStateException: no screenshot appeared for cosmetics_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:33:59] [Render thread/WARN] (originclient) [dev-shots] step 7 failed
-
-java.lang.IllegalStateException: no screenshot appeared for fpscoach_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:34:07] [Render thread/WARN] (originclient) [dev-shots] step 8 failed
-
-java.lang.IllegalStateException: no screenshot appeared for waypoints_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:34:15] [Render thread/WARN] (originclient) [dev-shots] step 9 failed
-
-java.lang.IllegalStateException: no screenshot appeared for itemsize_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:34:24] [Render thread/WARN] (originclient) [dev-shots] step 10 failed
-
-java.lang.IllegalStateException: no screenshot appeared for itemcounter_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:34:32] [Render thread/WARN] (originclient) [dev-shots] step 11 failed
-
-java.lang.IllegalStateException: no screenshot appeared for quickplay_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:34:40] [Render thread/WARN] (originclient) [dev-shots] step 12 failed
-
-java.lang.IllegalStateException: no screenshot appeared for shaders_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:34:48] [Render thread/WARN] (originclient) [dev-shots] step 13 failed
-
-java.lang.IllegalStateException: no screenshot appeared for menu_clear_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:34:57] [Render thread/WARN] (originclient) [dev-shots] step 14 failed
-
-java.lang.IllegalStateException: no screenshot appeared for friends_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:35:05] [Render thread/WARN] (originclient) [dev-shots] step 15 failed
-
-java.lang.IllegalStateException: no screenshot appeared for friends_party_1920x1080_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:35:14] [Render thread/WARN] (originclient) [dev-shots] step 16 failed
-
-java.lang.IllegalStateException: no screenshot appeared for title_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:35:22] [Render thread/WARN] (originclient) [dev-shots] step 17 failed
-
-java.lang.IllegalStateException: no screenshot appeared for menu_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:35:31] [Render thread/WARN] (originclient) [dev-shots] step 18 failed
-
-java.lang.IllegalStateException: no screenshot appeared for menu_list_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:35:39] [Render thread/WARN] (originclient) [dev-shots] step 19 failed
-
-java.lang.IllegalStateException: no screenshot appeared for mod_settings_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:35:47] [Render thread/WARN] (originclient) [dev-shots] step 20 failed
-
-java.lang.IllegalStateException: no screenshot appeared for settings_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:35:55] [Render thread/WARN] (originclient) [dev-shots] step 21 failed
-
-java.lang.IllegalStateException: no screenshot appeared for rshift_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:36:04] [Render thread/WARN] (originclient) [dev-shots] step 22 failed
-
-java.lang.IllegalStateException: no screenshot appeared for cosmetics_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:36:12] [Render thread/WARN] (originclient) [dev-shots] step 23 failed
-
-java.lang.IllegalStateException: no screenshot appeared for fpscoach_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:36:20] [Render thread/WARN] (originclient) [dev-shots] step 24 failed
-
-java.lang.IllegalStateException: no screenshot appeared for waypoints_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:36:28] [Render thread/WARN] (originclient) [dev-shots] step 25 failed
-
-java.lang.IllegalStateException: no screenshot appeared for itemsize_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:36:36] [Render thread/WARN] (originclient) [dev-shots] step 26 failed
-
-java.lang.IllegalStateException: no screenshot appeared for itemcounter_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:36:45] [Render thread/WARN] (originclient) [dev-shots] step 27 failed
-
-java.lang.IllegalStateException: no screenshot appeared for quickplay_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:36:53] [Render thread/WARN] (originclient) [dev-shots] step 28 failed
-
-java.lang.IllegalStateException: no screenshot appeared for shaders_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:37:01] [Render thread/WARN] (originclient) [dev-shots] step 29 failed
-
-java.lang.IllegalStateException: no screenshot appeared for menu_clear_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:37:09] [Render thread/WARN] (originclient) [dev-shots] step 30 failed
-
-java.lang.IllegalStateException: no screenshot appeared for friends_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:37:17] [Render thread/WARN] (originclient) [dev-shots] step 31 failed
-
-java.lang.IllegalStateException: no screenshot appeared for friends_party_1366x768_s0.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:37:25] [Render thread/WARN] (originclient) [dev-shots] step 32 failed
-
-java.lang.IllegalStateException: no screenshot appeared for menu_1920x1080_s2.png
-	at knot//com.origin.client.client.OriginDevShots.tick(OriginDevShots.java:257)
-	at knot//com.origin.client.client.OriginClientMod.onEndTick(OriginClientMod.java:364)
-	at knot//net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.lambda$static$3(ClientTickEvents.java:43)
-	at knot//net.minecraft.client.Minecraft.handler$bib000$fabric-lifecycle-events-v1$onEndTick(Minecraft.java:6162)
-	at knot//net.minecraft.client.Minecraft.tick(Minecraft.java:1956)
-	at knot//net.minecraft.client.Minecraft.runTick(Minecraft.java:1250)
-	at knot//net.minecraft.client.Minecraft.run(Minecraft.java:959)
-	at knot//net.minecraft.client.main.Main.main(Main.java:292)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[22:37:26] [Render thread/INFO] (originclient) [dev-shots] done — 33 shots in /home/runner/work/_temp/shots
-[22:37:26] [Render thread/INFO] (Minecraft) Stopping!
-[22:37:26] [Render thread/ERROR] (Minecraft) Shutdown failure!
-
-java.lang.IllegalStateException: Cannot close a surface while it is acquired
-	at knot//com.mojang.blaze3d.systems.GpuSurface.close(GpuSurface.java:22)
-	at knot//net.minecraft.client.Minecraft.close(Minecraft.java:1199)
-	at knot//net.minecraft.client.Minecraft.exitWorldAndClose(Minecraft.java:1172)
-	at knot//net.minecraft.client.main.Main.main(Main.java:296)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
----- Minecraft Crash Report ----
-// You should try our sister game, Minceraft!
-
-Time: 2026-10-12 22:37:26
-Description: Game shutdown
-
-java.lang.IllegalStateException: Cannot close a surface while it is acquired
-	at knot//com.mojang.blaze3d.systems.GpuSurface.close(GpuSurface.java:22)
-	at knot//net.minecraft.client.Minecraft.close(Minecraft.java:1199)
-	at knot//net.minecraft.client.Minecraft.exitWorldAndClose(Minecraft.java:1172)
-	at knot//net.minecraft.client.main.Main.main(Main.java:296)
-	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:514)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-
-
-A detailed walkthrough of the error, its code path and all known details is as follows:
----------------------------------------------------------------------------------------
-
--- System Details --
-Details:
-	Minecraft Version: 26.2
-	Minecraft Version ID: 26.2
-	Operating System: Linux (amd64) version 6.17.0-1022-azure
-	Java Version: 25.0.4.1, Eclipse Adoptium
-	Java VM Version: OpenJDK 64-Bit Server VM (mixed mode, sharing), Eclipse Adoptium
-	Memory: 91323920 bytes (87 MiB) / 417333248 bytes (398 MiB) up to 4192206848 bytes (3998 MiB)
-	Memory (heap): init: 250MiB, used: 309MiB, committed: 398MiB, max: 3998MiB
-	Memory (non-head): init: 007MiB, used: 150MiB, committed: 163MiB, max: 000MiB
-	CPUs: 4
-	Processor Vendor: AuthenticAMD
-	Processor Name: AMD EPYC 7763 64-Core Processor
-	Identifier: AuthenticAMD Family 25 Model 1 Stepping 1
-	Microarchitecture: Zen 3
-	Frequency (GHz): -0.00
-	Number of physical packages: 1
-	Number of physical CPUs: 2
-	Number of logical CPUs: 4
-	Graphics card #0 name: hyperv_drmdrmfb
-	Graphics card #0 vendor: unknown
-	Graphics card #0 VRAM (MiB): 0.00
-	Graphics card #0 deviceId: unknown
-	Graphics card #0 versionInfo: unknown
-	Virtual memory max (MiB): 11066.84
-	Virtual memory used (MiB): 3527.55
-	Swap memory total (MiB): 3072.00
-	Swap memory used (MiB): 0.00
-	Space in storage for jna.tmpdir (MiB): <path not set>
-	Space in storage for org.lwjgl.system.SharedLibraryExtractPath (MiB): <path not set>
-	Space in storage for io.netty.native.workdir (MiB): <path not set>
-	Space in storage for java.io.tmpdir (MiB): available: 85724.31, total: 147718.61
-	Space in storage for workdir (MiB): available: 85724.31, total: 147718.61
-	Operating System Version: GNU/Linux Ubuntu 24.04.5 LTS (Noble Numbat) build 6.17.0-1022-azure
-	Process Elevated: false
-	Process Loads: Uptime: 263s, user: 220s (83.75%), kernel: 147s (55.96%), total: 367s (139.71%)
-	Process Virtual Size (MiB): 8527.95
-	Process Resident Size (MiB): 1146.03
-	JVM Flags: 1 total; -XX:StackShadowPages=32
-	Debug Flags: 0 total; 
-	Fabric Mods: 
-		fabric-advancement-api-v1: Fabric Advancement API (v1) 1.0.0+58719a3b9e
-		fabric-api: Fabric API 0.161.0+26.2
-		fabric-api-base: Fabric API Base 2.0.4+ece063239e
-		fabric-api-lookup-api-v1: Fabric API Lookup API (v1) 2.0.18+11e1c9a39e
-		fabric-biome-api-v1: Fabric Biome API (v1) 18.0.6+c7bd5b8e9e
-		fabric-block-api-v1: Fabric Block API (v1) 3.1.0+53515aab9e
-		fabric-block-getter-api-v2: Fabric BlockGetter API (v2) 2.0.7+ec56b6019e
-		fabric-client-gametest-api-v1: Fabric Client Game Test API (v1) 6.0.2+0f4f1dca9e
-		fabric-command-api-v2: Fabric Command API (v2) 3.1.0+00cb03469e
-		fabric-content-registries-v0: Fabric Content Registries (v0) 11.3.2+37b1aa249e
-		fabric-convention-tags-v2: Fabric Convention Tags (v2) 4.7.1+1f023a9e9e
-		fabric-crash-report-info-v1: Fabric Crash Report Info (v1) 1.0.5+086d547a9e
-		fabric-creative-tab-api-v1: Fabric Creative Tab API (v1) 5.0.15+6468574f9e
-		fabric-data-attachment-api-v1: Fabric Data Attachment API (v1) 2.2.19+515ac5339e
-		fabric-data-generation-api-v1: Fabric Data Generation API (v1) 25.6.0+c0da0b829e
-		fabric-debug-api-v1: Fabric Debug API (v1) 1.0.2+c792624d9e
-		fabric-dimensions-v1: Fabric Dimensions API (v1) 5.1.12+515ac5339e
-		fabric-entity-events-v1: Fabric Entity Events (v1) 5.0.5+06488ac19e
-		fabric-events-interaction-v0: Fabric Events Interaction (v0) 5.2.8+515ac5339e
-		fabric-game-rule-api-v1: Fabric Game Rule API (v1) 4.0.8+46a6d00c9e
-		fabric-gametest-api-v1: Fabric Game Test API (v1) 4.0.22+4a7fa0819e
-		fabric-item-api-v1: Fabric Item API (v1) 14.5.0+c68f6cbe9e
-		fabric-key-mapping-api-v1: Fabric Key Mapping API (v1) 2.0.5+e2bdee789e
-		fabric-lifecycle-events-v1: Fabric Lifecycle Events (v1) 4.1.4+29b6eb019e
-		fabric-loot-api-v3: Fabric Loot API (v3) 3.0.17+06488ac19e
-		fabric-menu-api-v1: Fabric Menu API (v1) 2.0.17+086d547a9e
-		fabric-message-api-v1: Fabric Message API (v1) 7.0.8+bb2ed3f79e
-		fabric-model-loading-api-v1: Fabric Model Loading API (v1) 8.0.17+c80601bb9e
-		fabric-networking-api-v1: Fabric Networking API (v1) 6.3.4+2989c6a09e
-		fabric-object-builder-api-v1: Fabric Object Builder API (v1) 24.1.1+6fcd5f039e
-		fabric-particles-v1: Fabric Particles (v1) 5.0.19+d1756aa99e
-		fabric-permission-api-v1: Fabric Permission API (v1) 1.0.5+e442d8d09e
-		fabric-recipe-api-v1: Fabric Recipe API (v1) 9.0.22+11e1c9a39e
-		fabric-registry-sync-v0: Fabric Registry Sync (v0) 7.1.1+c7bd5b8e9e
-		fabric-renderer-api-v1: Fabric Renderer API (v1) 14.1.4+2b0d8a229e
-		fabric-renderer-indigo: Fabric Renderer - Indigo 9.1.4+2b0d8a229e
-		fabric-rendering-fluids-v1: Fabric Rendering Fluids (v1) 6.0.4+06488ac19e
-		fabric-rendering-v1: Fabric Rendering (v1) 25.3.3+515ac5339e
-		fabric-resource-conditions-api-v1: Fabric Resource Conditions API (v1) 6.1.0+10e9a28b9e
-		fabric-resource-loader-v0: Fabric Resource Loader (v0) 3.3.20+4fc5413f9e
-		fabric-resource-loader-v1: Fabric Resource Loader (v1) 2.0.13+9edec1269e
-		fabric-screen-api-v1: Fabric Screen API (v1) 5.2.1+5087f8249e
-		fabric-serialization-api-v1: Fabric Serialization API (v1) 2.0.4+11a26f319e
-		fabric-sound-api-v1: Fabric Sound API (v1) 2.0.5+11a26f319e
-		fabric-tag-api-v1: Fabric Tag API (v1) 2.1.4+515ac5339e
-		fabric-transfer-api-v1: Fabric Transfer API (v1) 8.0.13+11dbb7d79e
-		fabric-transitive-access-wideners-v1: Fabric Transitive Access Wideners (v1) 8.1.4+67c847259e
-		fabricloader: Fabric Loader 0.19.3
-		java: OpenJDK 64-Bit Server VM 25
-		jei: Just Enough Items 30.42.0.236
-			mezz_config: MezzConfig 0.6.6
-		minecraft: Minecraft 26.2
-		mixinextras: MixinExtras 0.5.4
-		originclient: Origin Client 0.4.2
-	Launched Version: Fabric
-	Backend library: LWJGL version 3.4.1-snapshot
-	Window size: <not initialized>
-	Surface Info: <no surface>
-	GFLW Platform: x11
-	Graphics Device: llvmpipe (LLVM 20.1.2, 256 bits)
-	Graphics Backend: OpenGL
-	Graphics Vendor: Mesa
-	Graphics Drivers: 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4
-	Graphics Device Extensions: GL_ARB_multi_draw_indirect, GL_ARB_buffer_storage, GL_ARB_shader_draw_parameters, GL_ARB_base_instance, GL_KHR_debug, GL_ARB_draw_indirect, GL_ARB_clip_control, GL_ARB_vertex_attrib_binding, GL_ARB_direct_state_access, GL_EXT_texture_filter_anisotropic
-	Graphics Device Type: CPU
-	Graphics Device Features: DeviceFeatures[shaderDrawParameters=true, multiDrawDirectInterleaved=false, multiDrawDirectSeparate=true, multiDrawIndirect=true, drawIndirect=true, nonZeroFirstInstance=true, persistentMapping=true]
-	GL debug messages: 
-	Is Modded: Definitely; Client brand changed to 'fabric'
-	Universe: 404
-	Type: Client
-	Locale: en
-	System encoding: UTF-8
-	File encoding: UTF-8
-	CPU: 4x AMD EPYC 7763 64-Core Processor
-#@!@# Game crashed! Crash report saved to: #@!@# /home/runner/work/originclient/originclient/src/mods/versions/26.2/run/crash-reports/crash-2026-10-12_22.37.26-client.txt
-
-> Task :runClient FAILED
+[00:46:17] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
+[00:46:17] [Render thread/INFO] (Minecraft) Created: 128x128x0 minecraft:textures/atlas/decorated_pot.png-atlas
+[00:46:17] [Render thread/INFO] (Minecraft) Created: 2048x1024x0 minecraft:textures/atlas/armor_trims.png-atlas
+[00:46:17] [Render thread/INFO] (Minecraft) Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[00:46:17] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/shield_patterns.png-atlas
+[00:46:17] [Render thread/INFO] (Minecraft) Created: 2048x2048x4 minecraft:textures/atlas/blocks.png-atlas
+[00:46:18] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/chest.png-atlas
+[00:46:18] [Render thread/INFO] (Minecraft) Created: 256x128x0 minecraft:textures/atlas/celestials.png-atlas
+[00:46:18] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/banner_patterns.png-atlas
+[00:46:18] [Render thread/INFO] (Minecraft) Created: 1024x512x0 minecraft:textures/atlas/items.png-atlas
+[00:46:18] [Render thread/INFO] (Minecraft) Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas
+[00:46:18] [Render thread/INFO] (Minecraft) Created: 128x64x0 minecraft:textures/atlas/map_decorations.png-atlas
+[00:46:18] [Render thread/INFO] (Minecraft) Created: 512x512x0 minecraft:textures/atlas/shulker_boxes.png-atlas
+[00:46:20] [Download-2/INFO] (Minecraft) Could not authorize you against Realms server: java.lang.RuntimeException: Failed to parse into SignedJWT: FabricMC
+[00:46:25] [Render thread/INFO] (originclient) [dev-shots] captured title_1920x1080_s0.png
+[00:46:26] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas
+[00:46:26] [Render thread/INFO] (originclient) Origin MSDF DEBUG: face 'inter_msdf_bold' loaded ok, 107 glyphs, atlas 512.0x256.0, size=42.0, atlasId=originclient:origin_msdf_atlas_bold
+[00:46:26] [Render thread/INFO] (originclient) Origin MSDF DEBUG: first emit('ORIGIN') -> 6 quads, pipeline=originclient:pipeline/origin_msdf, atlasView=com.mojang.blaze3d.opengl.GlTextureView@3dee97ca, v0=(566.0,282.1836 uv 0.45898438,0.7109375), bounds=ScreenRectangle[position=ScreenPosition[x=141, y=70], width=17, height=4]
+[00:46:26] [Render thread/INFO] (originclient) Origin MSDF DEBUG: buildVertices() completed OK, wrote 6 quads
+[00:46:27] [Render thread/INFO] (originclient) [dev-shots] captured menu_1920x1080_s0.png
+[00:46:30] [Render thread/INFO] (originclient) [dev-shots] captured menu_list_1920x1080_s0.png
+[00:46:32] [Render thread/INFO] (originclient) [dev-shots] captured mod_settings_1920x1080_s0.png
+[00:46:35] [Render thread/INFO] (originclient) [dev-shots] captured settings_1920x1080_s0.png
+[00:46:37] [Render thread/INFO] (originclient) [dev-shots] captured rshift_1920x1080_s0.png
+[00:46:39] [Render thread/INFO] (Minecraft) Resizing Dynamic Transforms UBO, capacity limit of 2 reached during a single frame. New capacity will be 4.
+[00:46:40] [Render thread/INFO] (originclient) [dev-shots] captured cosmetics_1920x1080_s0.png
+[00:46:42] [Render thread/INFO] (originclient) [dev-shots] captured fpscoach_1920x1080_s0.png
+[00:46:45] [Render thread/INFO] (originclient) [dev-shots] captured waypoints_1920x1080_s0.png
+[00:46:47] [Render thread/INFO] (originclient) [dev-shots] captured itemsize_1920x1080_s0.png
+[00:46:50] [Render thread/INFO] (originclient) [dev-shots] captured itemcounter_1920x1080_s0.png
+[00:46:52] [Render thread/INFO] (originclient) [dev-shots] captured quickplay_1920x1080_s0.png
+[00:46:55] [Render thread/INFO] (originclient) [dev-shots] captured shaders_1920x1080_s0.png
+[00:46:57] [Render thread/INFO] (originclient) [dev-shots] captured menu_clear_1920x1080_s0.png
+[00:46:59] [Render thread/INFO] (originclient) [dev-shots] captured friends_1920x1080_s0.png
+[00:47:02] [Render thread/INFO] (originclient) [dev-shots] captured friends_party_1920x1080_s0.png
+[00:47:06] [Render thread/INFO] (originclient) [dev-shots] captured title_1366x768_s0.png
+[00:47:08] [Render thread/INFO] (originclient) [dev-shots] captured menu_1366x768_s0.png
+[00:47:10] [Render thread/INFO] (originclient) [dev-shots] captured menu_list_1366x768_s0.png
+[00:47:13] [Render thread/INFO] (originclient) [dev-shots] captured mod_settings_1366x768_s0.png
+[00:47:15] [Render thread/INFO] (originclient) [dev-shots] captured settings_1366x768_s0.png
+[00:47:17] [Render thread/INFO] (originclient) [dev-shots] captured rshift_1366x768_s0.png
+[00:47:20] [Render thread/INFO] (originclient) [dev-shots] captured cosmetics_1366x768_s0.png
+[00:47:22] [Render thread/INFO] (originclient) [dev-shots] captured fpscoach_1366x768_s0.png
+[00:47:24] [Render thread/INFO] (originclient) [dev-shots] captured waypoints_1366x768_s0.png
+[00:47:27] [Render thread/INFO] (originclient) [dev-shots] captured itemsize_1366x768_s0.png
+[00:47:29] [Render thread/INFO] (originclient) [dev-shots] captured itemcounter_1366x768_s0.png
+[00:47:32] [Render thread/INFO] (originclient) [dev-shots] captured quickplay_1366x768_s0.png
+[00:47:34] [Render thread/INFO] (originclient) [dev-shots] captured shaders_1366x768_s0.png
+[00:47:36] [Render thread/INFO] (originclient) [dev-shots] captured menu_clear_1366x768_s0.png
+[00:47:39] [Render thread/INFO] (originclient) [dev-shots] captured friends_1366x768_s0.png
+[00:47:41] [Render thread/INFO] (originclient) [dev-shots] captured friends_party_1366x768_s0.png
+[00:47:44] [Render thread/INFO] (originclient) [dev-shots] captured menu_1920x1080_s2.png
+[00:47:44] [Render thread/INFO] (originclient) [dev-shots] done — 33 shots in /home/runner/work/_temp/shots
+[00:47:44] [Render thread/INFO] (Minecraft) Stopping!
 
 [Incubating] Problems report is available at: file:///home/runner/work/originclient/originclient/src/mods/versions/26.2/build/reports/problems/problems-report.html
 
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':runClient' (registered by plugin 'fabric-loom').
-> Process 'command 'xvfb-run'' finished with non-zero exit value 250
-
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights from a Build Scan (powered by Develocity).
-> Get more help at https://help.gradle.org.
-
-BUILD FAILED in 7m 22s
+BUILD SUCCESSFUL in 3m 37s
 9 actionable tasks: 9 executed
