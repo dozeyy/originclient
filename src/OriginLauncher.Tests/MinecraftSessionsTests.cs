@@ -286,6 +286,22 @@ public class MinecraftSessionsTests
         Assert.Equal(1, _signIn.Calls);
     }
 
+    [Fact]
+    public async Task A_sign_in_that_comes_back_as_another_account_is_refused_and_saves_nothing()
+    {
+        // Alex's row holds a refresh token that signs in as Steve (crossed by an
+        // older launcher). Nothing may be saved or launched as the wrong player.
+        _vault.Add(Alex, "rt-0");
+
+        var ex = await Assert.ThrowsAsync<MicrosoftAuthException>(() => _sessions.ForPlayAsync(Alex));
+
+        Assert.Equal("token_refresh", ex.Stage);
+        Assert.Equal("rt-0", _vault.Accounts[Alex].Refresh);
+        Assert.Null(_vault.Accounts[Alex].Session);
+        Assert.False(_vault.Accounts.ContainsKey(Steve));
+        Assert.Equal(0, _vault.UsedMarks);
+    }
+
     // --- fakes -----------------------------------------------------------------
 
     private sealed class FakeVault : ISessionVault
@@ -304,6 +320,10 @@ public class MinecraftSessionsTests
 
         public string? RefreshToken(string accountId) =>
             Accounts.TryGetValue(accountId, out var e) ? e.Refresh : null;
+
+        // Mirrors AddSignedIn's "pending-<guid>" ids.
+        public bool IsPending(string accountId) =>
+            Accounts.ContainsKey(accountId) && accountId.StartsWith("pending-", StringComparison.Ordinal);
 
         public MinecraftSession? SavedSession(string accountId) =>
             Accounts.TryGetValue(accountId, out var e) ? e.Session : null;

@@ -47,24 +47,46 @@ public static class MinecraftSessionBroker
     /// Without one (the Minecraft step hit a 429): kept as a pending account
     /// holding its Microsoft refresh token, so the player never has to redo
     /// the Microsoft window; its Minecraft step finishes later
-    /// (<see cref="FinishPendingAsync"/>). Returns the stored account's id.
+    /// (<see cref="FinishPendingAsync"/>).
+    /// An account that is already in the list is refreshed in place (new
+    /// tokens and name) and keeps its selection state: re-signing an account
+    /// never steals the active one. Throws MicrosoftAuthException("profile")
+    /// when Microsoft returned a session without a Minecraft profile id.
     /// </summary>
-    public static string AddSignedIn(AuthResult result)
+    public static AddedAccount AddSignedIn(AuthResult result)
     {
+        if (result.Session != null && FromMSession(result.Session, result.ExpiresAt) == null)
+            throw new MicrosoftAuthException("profile",
+                "Microsoft didn't return a Minecraft profile for this account. Please try again.",
+                "interactive sign-in returned a session without uuid or access token");
+
         var protectedRefresh = AccountStore.ProtectRefreshToken(result.MsaRefreshToken);
         if (FromMSession(result.Session, result.ExpiresAt) is { } session)
         {
-            var stored = new StoredAccount
+            var protectedSession = AccountStore.ProtectSession(session);
+            var alreadyAdded = false;
+            AccountStore.Update(accounts =>
             {
-                Id = session.Uuid,
-                Gamertag = session.Name,
-                LastUsedUtc = DateTimeOffset.UtcNow,
-                ProtectedRefreshToken = protectedRefresh,
-                ProtectedMinecraftSession = AccountStore.ProtectSession(session),
-            };
-            AccountStore.Update(accounts => AccountStore.Upsert(accounts, stored));
+                var existing = accounts.FirstOrDefault(a => a.Id == session.Uuid && !a.PendingMinecraftSignIn);
+                alreadyAdded = existing != null;
+                if (existing != null)
+                {
+                    if (!string.IsNullOrEmpty(session.Name)) existing.Gamertag = session.Name;
+                    existing.ProtectedRefreshToken = protectedRefresh;
+                    existing.ProtectedMinecraftSession = protectedSession;
+                    return accounts;
+                }
+                return AccountStore.Upsert(accounts, new StoredAccount
+                {
+                    Id = session.Uuid,
+                    Gamertag = session.Name,
+                    LastUsedUtc = DateTimeOffset.UtcNow,
+                    ProtectedRefreshToken = protectedRefresh,
+                    ProtectedMinecraftSession = protectedSession,
+                });
+            });
             Sessions.Adopt(session);
-            return stored.Id;
+            return new AddedAccount(session.Uuid, session.Name, alreadyAdded);
         }
 
         var pending = new StoredAccount
@@ -82,8 +104,11 @@ public static class MinecraftSessionBroker
             return accounts;
         });
         Sessions.NoteRateLimited(pending.Id, result.Deferred?.RetryAfter);
-        return pending.Id;
+        return new AddedAccount(pending.Id, pending.Gamertag, AlreadyAdded: false);
     }
+
+    /// <summary>What AddSignedIn stored. AlreadyAdded = that Minecraft account was already listed (refreshed in place).</summary>
+    public sealed record AddedAccount(string Id, string Name, bool AlreadyAdded);
 
     /// <summary>
     /// Finish a pending account's Minecraft step. On success it becomes a real
@@ -151,6 +176,9 @@ public static class MinecraftSessionBroker
             Find(AccountStore.Load(), accountId) is { } account
                 ? AccountStore.TryUnprotectRefreshToken(account.ProtectedRefreshToken)
                 : null;
+
+        public bool IsPending(string accountId) =>
+            Find(AccountStore.Load(), accountId) is { PendingMinecraftSignIn: true };
 
         public MinecraftSession? SavedSession(string accountId) =>
             Find(AccountStore.Load(), accountId) is { PendingMinecraftSignIn: false } account

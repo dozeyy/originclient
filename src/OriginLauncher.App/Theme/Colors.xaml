@@ -29,6 +29,8 @@
          fade only animates alpha, never drifts white via RGB interpolation. -->
     <Color x:Key="Color.GhostRest">#0027302A</Color>
 
+    <!-- Lapis (docs/ORIGIN_UI_SYSTEM.md): information only, never decoration. -->
+    <Color x:Key="Color.Info">#FF6FAEE8</Color>
     <Color x:Key="Color.Danger">#FFE06B5B</Color>
     <Color x:Key="Color.DangerStrong">#FFBB5144</Color>
     <Color x:Key="Color.Success">#FF68C490</Color>
@@ -58,6 +60,7 @@
     <SolidColorBrush x:Key="Brush.AccentBorder" Color="{StaticResource Color.AccentBorder}"/>
     <SolidColorBrush x:Key="Brush.TextOnAccent" Color="{StaticResource Color.TextOnAccent}"/>
 
+    <SolidColorBrush x:Key="Brush.Info" Color="{StaticResource Color.Info}"/>
     <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}"/>
     <SolidColorBrush x:Key="Brush.DangerStrong" Color="{StaticResource Color.DangerStrong}"/>
     <SolidColorBrush x:Key="Brush.Success" Color="{StaticResource Color.Success}"/>

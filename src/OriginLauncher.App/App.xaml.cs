@@ -79,6 +79,7 @@ public partial class App : Application
             DisableMotion();
 
         OriginPaths.EnsureScaffold();
+        System.Threading.Tasks.Task.Run(DeleteLegacySignInProfile);
 
         // Per-account game folders (Core/GameFolders): the first run of this
         // code moves each version's old single game folder into the selected
@@ -126,6 +127,37 @@ public partial class App : Application
         Resources["Motion.Release"] = none;
         Resources["Motion.Scene"] = none;
         Resources["Motion.Exit"] = none;
+    }
+
+    // Removes the pre-2026-10-13 sign-in browser profile
+    // (OriginPaths.LegacySignInWebViewData): it still held the first account's
+    // Microsoft session cookies. Off the UI thread and fail-soft: a locked file
+    // only means another try on the next start. The log line names the
+    // outcome, never the folder's contents.
+    private static void DeleteLegacySignInProfile()
+    {
+        var legacy = OriginPaths.LegacySignInWebViewData;
+        if (legacy == null || !System.IO.Directory.Exists(legacy)) return;
+        string outcome;
+        try
+        {
+            System.IO.Directory.Delete(legacy, recursive: true);
+            outcome = "removed the old sign-in browser profile";
+        }
+        catch (Exception ex)
+        {
+            outcome = $"could not remove the old sign-in browser profile ({ex.GetType().Name}); will retry next start";
+        }
+        try
+        {
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(OriginPaths.Logs, "signin-profile.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {outcome}{Environment.NewLine}");
+        }
+        catch (Exception)
+        {
+            // Logging is a courtesy; never let it surface.
+        }
     }
 
     // Best-effort: bring the already-running launcher's window forward so the

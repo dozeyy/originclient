@@ -23,6 +23,23 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
     public MicrosoftSignInPanel()
     {
         InitializeComponent();
+
+        // Every sign-in runs in a throwaway InPrivate profile. The panel used
+        // to run in WebView2's default profile (<exe>.WebView2, on disk, shared
+        // by every panel), which kept the first account's "stay signed in"
+        // Microsoft cookies (MSPAuth / WLSSC / __Host-MSAAUTHP on login.live.com).
+        // Microsoft then silently issued a code for THAT account on every later
+        // "Add Microsoft Account", so a second account could never be added -
+        // the store just refreshed account #1. InPrivate keeps nothing between
+        // panels. The working folder is under our data root (OriginPaths); App
+        // deletes the old default folder at startup.
+        // Must be set before the CoreWebView2 is created (EnsureCoreWebView2Async).
+        WebView.CreationProperties = new Microsoft.Web.WebView2.Wpf.CoreWebView2CreationProperties
+        {
+            UserDataFolder = OriginLauncher.App.Core.OriginPaths.SignInWebViewData,
+            IsInPrivateModeEnabled = true
+        };
+
         Loaded += MicrosoftSignInPanel_Loaded;
     }
 
@@ -95,7 +112,7 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
     private async Task<AuthResult> SignInViaPrismTestAsync(CancellationToken ct)
     {
         var authenticator = new MicrosoftAuthenticator();
-        var (authUrl, codeVerifier) = authenticator.BuildTestAuthorizationRequest();
+        var (authUrl, codeVerifier, expectedState) = authenticator.BuildTestAuthorizationRequest();
 
         var codeSource = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -105,7 +122,13 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             args.Cancel = true;
 
             var query = ParseQuery(new Uri(args.Uri).Query);
-            if (query.TryGetValue("code", out var code))
+            // Reject a redirect that is not the answer to THIS request (forged
+            // or stale), like the loopback flow's state check. login.live.com
+            // echoes state on its redirects (probed 2026-10-13).
+            if (!query.TryGetValue("state", out var returnedState) || returnedState != expectedState)
+                codeSource.TrySetException(new MicrosoftAuthException("login",
+                    "Microsoft sign-in didn't finish. Please try again.", "state mismatch on the redirect"));
+            else if (query.TryGetValue("code", out var code))
                 codeSource.TrySetResult(code);
             else
                 codeSource.TrySetException(new MicrosoftAuthException("login",

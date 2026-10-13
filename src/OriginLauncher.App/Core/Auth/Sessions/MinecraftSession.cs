@@ -37,6 +37,12 @@ public interface ISessionVault
     /// <summary>The account's Microsoft refresh token; null = unreadable or no such account (re-add it).</summary>
     string? RefreshToken(string accountId);
 
+    /// <summary>
+    /// True for a pending account (added while Microsoft was rate-limiting): the
+    /// only kind whose sign-in may come back as a different id (its real UUID).
+    /// </summary>
+    bool IsPending(string accountId);
+
     /// <summary>The account's saved Minecraft session, if one was saved and can be read.</summary>
     MinecraftSession? SavedSession(string accountId);
 

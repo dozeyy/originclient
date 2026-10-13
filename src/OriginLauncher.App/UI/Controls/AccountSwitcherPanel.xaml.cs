@@ -91,9 +91,21 @@ public partial class AccountSwitcherPanel : UserControl
     {
         try
         {
-            MinecraftSessionBroker.AddSignedIn(result);
+            var added = MinecraftSessionBroker.AddSignedIn(result);
             _accounts = AccountStore.Load();
             RefreshList();
+            if (added.AlreadyAdded)
+            {
+                // Signing in to an account that is already listed is a
+                // refresh, not "a second account": say so, so it is never
+                // mistaken for the add having failed or worked.
+                var name = string.IsNullOrWhiteSpace(added.Name) ? "This account" : added.Name;
+                var note = $"{name} is already added, so its sign-in was refreshed. " +
+                           "To add another account, sign in with a different Microsoft account.";
+                ShowSignInNote(note);
+                AccountsChanged?.Invoke(this, EventArgs.Empty);
+                return new SignInOutcome("Already added", note);
+            }
             if (result.Session == null)
             {
                 const string later =
@@ -103,6 +115,11 @@ public partial class AccountSwitcherPanel : UserControl
             }
             AccountsChanged?.Invoke(this, EventArgs.Empty);
             return null;
+        }
+        catch (MicrosoftAuthException ex)
+        {
+            ShowSignInError(ex.Message);
+            return new SignInOutcome("Couldn't add this account", ex.Message);
         }
         catch (Exception)
         {
@@ -171,6 +188,15 @@ public partial class AccountSwitcherPanel : UserControl
 
     public void ShowSignInError(string message)
     {
+        ErrorText.Foreground = (System.Windows.Media.Brush)FindResource("Brush.Danger");
+        ErrorText.Text = message;
+        ErrorText.Visibility = Visibility.Visible;
+    }
+
+    // Informational (lapis), not a failure: e.g. "already added".
+    public void ShowSignInNote(string message)
+    {
+        ErrorText.Foreground = (System.Windows.Media.Brush)FindResource("Brush.Info");
         ErrorText.Text = message;
         ErrorText.Visibility = Visibility.Visible;
     }
