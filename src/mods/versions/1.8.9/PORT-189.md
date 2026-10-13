@@ -396,3 +396,10 @@ Package root `com.origin.client.client` unless noted.
   reads the same JSON shape; GLSL 110). The OLD vanilla overrides
   `assets/minecraft/textures/gui/widgets.png` + `options_background.png` are
   still there — **menus decides** whether its widget skin needs them.
+
+## Status
+- 2026-10-13: every area written (foundation, menus, modmenu, hud, world,
+  social, server — ~43k lines, 191 files). Next: CI compile to green, then
+  dev shots against 1.21.1's, then Will's in-game pass (the bar for "done":
+  `runClient` with zero `Mixin apply ... failed` lines, and the real launcher
+  with OptiFine installed).
