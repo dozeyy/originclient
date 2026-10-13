@@ -2,7 +2,7 @@ package com.origin.client.client.mixin;
 
 import com.origin.client.client.mods.Mods;
 import mezz.jei.gui.input.ClientInputHandler;
-import mezz.jei.common.input.UserInput;
+import mezz.jei.gui.input.UserInput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import org.spongepowered.asm.mixin.Mixin;
