@@ -1053,7 +1053,7 @@ public final class HudElements {
 	/** 1.8.9: the pose IS the GL matrix stack, shared by every element; an element
 	 *  that threw between its own push and pop must not leave a level behind for the
 	 *  next element (or vanilla) -- unwind to the depth from before the element. */
-	static void popTo(Pose p, int depth) {
+	public static void popTo(Pose p, int depth) {
 		while (p.depth() > depth) {
 			p.popPose();
 		}

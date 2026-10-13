@@ -179,6 +179,9 @@ public abstract class OriginScreen extends GuiScreen {
 
 	@Override
 	public final void initGui() {
+		// Modern screens get key repeats (held Backspace / arrows) from GLFW; LWJGL 2
+		// only sends them while repeat events are on (vanilla GuiChat does the same).
+		Keyboard.enableRepeatEvents(true);
 		try {
 			init();
 		} catch (Throwable t) {
@@ -210,6 +213,7 @@ public abstract class OriginScreen extends GuiScreen {
 
 	@Override
 	public final void onGuiClosed() {
+		Keyboard.enableRepeatEvents(false);
 		try {
 			removed();
 		} catch (Throwable t) {

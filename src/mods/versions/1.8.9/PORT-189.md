@@ -367,3 +367,32 @@ Package root `com.origin.client.client` unless noted.
   and `vertical(WorldRenderer q, Pose pose, x, z, y0, y1, halfWidth, r,g,b,a)`
   — `pose` is accepted and ignored (the GL matrix applies); overloads without
   it exist too.
+
+**Hub extras / resources (Phase B, as built)**
+- `OriginClientMod.chatBackground(int vanillaColor)` + `keyHeldByToggle(KeyBinding)`
+  are what `mixin/core/GuiNewChatMixin` (Chat mod Background Opacity — 1.8.9 has
+  no text-background option) and `mixin/core/KeyBindingMixin` (toggle sprint +
+  sneak) call. Chat Scale rides `gameSettings.chatScale`; `chatOpacity` is never
+  touched. FPS caps (maxMainMenuFps / limitUnfocusedFps) are NOT in the hub —
+  world owns them per the Ownership list (`Minecraft.getLimitFramerate()` RETURN).
+- The hub's tick is `TickEvent.ClientTickEvent` END; dev shots tick from it.
+  On-exit flush = JVM shutdown hook (Forge 1.8.9 has no client-stopping event).
+- `OriginDevShots` (same shot names as 1.16.5) builds other areas' screens by
+  class name with 1.16.5's constructor shapes: `OriginModMenuScreen()` /
+  `(GuiScreen, String modId)` + `.preview(boolean list, boolean settings)`,
+  `CosmeticsScreen(GuiScreen)`, `FpsCoachScreen(GuiScreen)`, `WaypointScreen()`,
+  `OriginItemSizeScreen()`, `ItemCounterPickerScreen()`, `QuickplayScreen()`,
+  `ShaderBrowserScreen(GuiScreen)`, `FriendsScreen(GuiScreen).select(Object)`
+  with `FriendsScreen.PARTY` / `SocialDemo.KESTREL`, `HudEditorScreen(boolean)`,
+  static `SocialDemo.clear()` / `install(boolean)`. TITLE = `new GuiMainMenu()`
+  through `displayGuiScreen` (menus swaps it on GuiOpenEvent); the harness
+  treats `GuiMainMenu` or any class whose simple name contains "Title" as the
+  title. World set: `launchIntegratedServer` + `new GuiIngameMenu()`.
+- Resources: assets/originclient = 1.16.5's (textures incl. cosmetics, Inter
+  TTFs, icon, default-mods-config.json; the MSDF `textures/font` atlases and the
+  `font/*.json` ttf providers are left out — no use on 1.8.9);
+  `lang/en_US.lang` (1.8.9 key=value); `certs/*.pem` (OriginHttp);
+  assets/minecraft/shaders = 1.16.5's post + program files (1.8.9 ShaderGroup
+  reads the same JSON shape; GLSL 110). The OLD vanilla overrides
+  `assets/minecraft/textures/gui/widgets.png` + `options_background.png` are
+  still there — **menus decides** whether its widget skin needs them.

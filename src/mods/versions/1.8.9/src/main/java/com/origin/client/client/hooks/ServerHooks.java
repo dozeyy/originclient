@@ -42,6 +42,11 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
  */
 public class ServerHooks {
 	public ServerHooks() {
+		try {
+			OriginHooks.registerObject(new ChatClicks());
+		} catch (Throwable t) {
+			// screenshot buttons fall back to their click events
+		}
 	}
 
 	// ---- client tick (FML bus) ----
@@ -210,19 +215,29 @@ public class ServerHooks {
 
 	// ---- chat screen clicks (Forge bus) ----
 
-	// Screenshot chat buttons: our button runs before GuiChat's own click
-	// handling (which would otherwise just open the file). MouseInputEvent.Pre is
-	// cancelable in Forge 1.8.9; guarded anyway so a non-cancelable build only
-	// costs the fallback behaviour, never an exception.
-	@SubscribeEvent
-	public void onMouseInput(GuiScreenEvent.MouseInputEvent.Pre event) {
-		try {
-			if (event.gui instanceof GuiChat && ScreenshotChat.onChatClick(Minecraft.getMinecraft())
-					&& event.isCancelable()) {
-				event.setCanceled(true);
+	/**
+	 * Screenshot chat buttons: our button runs before GuiChat's own click
+	 * handling (which would otherwise just open the file). Its own handler object,
+	 * registered from the constructor: GuiScreenEvent.MouseInputEvent.Pre is a
+	 * nested event class this module's name lookups didn't list, and if it were
+	 * ever missing only this one hook would fail to register -- not every server
+	 * hook above. Pre is cancelable in Forge 1.8.9; guarded anyway so a
+	 * non-cancelable build only costs the fallback (vanilla opens the file).
+	 */
+	public static class ChatClicks {
+		public ChatClicks() {
+		}
+
+		@SubscribeEvent
+		public void onMouseInput(GuiScreenEvent.MouseInputEvent.Pre event) {
+			try {
+				if (event.gui instanceof GuiChat && ScreenshotChat.onChatClick(Minecraft.getMinecraft())
+						&& event.isCancelable()) {
+					event.setCanceled(true);
+				}
+			} catch (Throwable t) {
+				// vanilla handles the click
 			}
-		} catch (Throwable t) {
-			// vanilla handles the click
 		}
 	}
 }

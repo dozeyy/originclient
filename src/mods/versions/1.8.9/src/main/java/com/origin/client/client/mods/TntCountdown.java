@@ -85,7 +85,7 @@ public final class TntCountdown {
 		float w = font.getStringWidth(prefix + number);
 		float x0 = -w / 2f;
 		boolean shadow = Mods.bool(MOD, "textShadow");
-		WorldLabel.begin(x, y + tnt.height + 0.5, z, SCALE);
+		WorldLabel.begin(x, y + tnt.height + 0.5, z, SCALE, true);
 		try {
 			if (Mods.bool(MOD, "background")) {
 				// vanilla's tag backdrop (options background opacity 0.25 on newer versions)

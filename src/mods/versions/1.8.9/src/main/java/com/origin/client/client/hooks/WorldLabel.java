@@ -36,9 +36,11 @@ public final class WorldLabel {
 	/**
 	 * Pushes a matrix at camera-relative (x, y, z), turned to face the camera and
 	 * scaled to label px (`scale` world units per px; vanilla tags use
-	 * {@link #VANILLA_SCALE}). Lighting off, full-bright lightmap, blend on.
+	 * {@link #VANILLA_SCALE}). Lighting off, blend on; `fullBright` forces the
+	 * lightmap to full (Origin's own labels, readable at night) -- vanilla tags
+	 * keep the entity's light, so restyled name tags pass false.
 	 */
-	public static void begin(double x, double y, double z, float scale) {
+	public static void begin(double x, double y, double z, float scale, boolean fullBright) {
 		RenderManager rm = Minecraft.getMinecraft().getRenderManager();
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(x, y, z);
@@ -47,9 +49,9 @@ public final class WorldLabel {
 		GlStateManager.rotate(rm.playerViewX, 1.0F, 0.0F, 0.0F);
 		GlStateManager.scale(-scale, -scale, scale);
 		GlStateManager.disableLighting();
-		// full bright, so a label stays readable at night (vanilla tags are lit by
-		// the entity's light; Origin's labels never were)
-		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240f, 240f);
+		if (fullBright) {
+			OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240f, 240f);
+		}
 		GlStateManager.enableBlend();
 		GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
 		GlStateManager.depthMask(false);

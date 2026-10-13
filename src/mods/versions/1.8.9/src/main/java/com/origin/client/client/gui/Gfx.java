@@ -156,6 +156,10 @@ public final class Gfx {
 				int min = GL11.GL_LINEAR;
 				if (mipmap) {
 					try {
+						// TextureUtil allocates DynamicTextures with MAX_LEVEL = MAX_LOD = 0;
+						// open the range FIRST (glGenerateMipmap only fills base+1..MAX_LEVEL).
+						GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL, 1000);
+						GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LOD, 1000f);
 						org.lwjgl.opengl.ContextCapabilities caps = org.lwjgl.opengl.GLContext.getCapabilities();
 						if (caps.OpenGL30) {
 							org.lwjgl.opengl.GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
@@ -167,13 +171,13 @@ public final class Gfx {
 					} catch (Throwable t) {
 						min = GL11.GL_LINEAR;
 					}
+					if (min == GL11.GL_LINEAR) {
+						GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL, 0);
+						GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LOD, 0f);
+					}
 				}
 				GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, min);
 				GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-				if (min != GL11.GL_LINEAR) {
-					// DynamicTexture allocates level 0 only; let the generated chain be used
-					GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12.GL_TEXTURE_MAX_LEVEL, 1000);
-				}
 			}
 			return tex;
 		} catch (Throwable t) {
