@@ -1,0 +1,269 @@
+{
+  "mods": {
+    "togglesprint": {
+      "doubleTap": false,
+      "mode": "Toggle",
+      "hud": true,
+      "flyBoostAmount": 4.0,
+      "flyBoost": true,
+      "sneak": false,
+      "enabled": false,
+      "key": 341
+    },
+    "keystrokes": {
+      "border": true,
+      "showClicks": true,
+      "boxSize": 0.9,
+      "borderColor": 1711276032,
+      "color": -1,
+      "showMovement": true,
+      "keyFadeDelay": 350.0,
+      "arrows": false,
+      "scale": 1.1,
+      "showSpace": true,
+      "enabled": false,
+      "borderColor#chroma": false,
+      "borderThickness": 0.0,
+      "bgColor": -1375731712,
+      "textColorPressed": 1184274,
+      "spacebarThickness": 10.0,
+      "textShadow": true
+    },
+    "chunkborders": {
+      "innerThickness": 3.0,
+      "gridSize": 16.0,
+      "innerCorners": false,
+      "color": -132612,
+      "color#speed": 71.0,
+      "thickness": 1.0,
+      "color#chroma": false,
+      "grid": true,
+      "outerThickness": 3.0,
+      "outerCorners": false,
+      "enabled": false
+    },
+    "timechanger": {
+      "skyMode": "Void",
+      "horizonY": 164.0,
+      "useRealTime": true,
+      "time": 0.0,
+      "timePassage": false,
+      "enabled": false
+    },
+    "serveraddress": {
+      "showBackground": true,
+      "serverIcon": true,
+      "textShadow": true,
+      "enabled": false
+    },
+    "packdisplay": {
+      "enabled": false
+    },
+    "freelook": {
+      "invertYaw": false,
+      "smoothCamera": true,
+      "invertPitch": false,
+      "toggle": false,
+      "enabled": false
+    },
+    "motionblur": {
+      "amount": 0.0,
+      "enabled": false
+    },
+    "fullbright": {
+      "fullBright": true,
+      "enabled": false,
+      "gamma": 10.0
+    },
+    "weather": {
+      "mode": "Clear",
+      "thunder": false,
+      "enabled": false
+    },
+    "scoreboard": {
+      "enabled": false
+    },
+    "particles": {
+      "hideFirstPerson": false,
+      "mode": "All",
+      "customColor": -9418166,
+      "customColor#chroma": true,
+      "multiplier": 1.0,
+      "alwaysShowSharpness": true,
+      "scale": 1.0,
+      "colorMode": "Overlay",
+      "hideBlockBreak": false,
+      "hideAll": false,
+      "enabled": false
+    },
+    "togglesneak": {
+      "enabled": false
+    },
+    "customsky": {},
+    "coords": {
+      "moveIndividually": true,
+      "borderColor": 1946157055,
+      "scale": 1.0,
+      "enabled": false,
+      "listMode": "Horizontal",
+      "biome": false,
+      "renderers": false,
+      "showBackground": false,
+      "x": true,
+      "showWhileTyping": true,
+      "decimal": false,
+      "textShadow": true,
+      "direction": false
+    },
+    "potionhud": {
+      "border": false,
+      "uppercase": false,
+      "excludePermanent": false,
+      "vanillaDisplay": false,
+      "reversedText": false,
+      "blink": true,
+      "showInInventory": false,
+      "enabled": false,
+      "minimal": false,
+      "formattedDurations": true,
+      "showBackground": false,
+      "showWhileTyping": true,
+      "textShadow": true
+    },
+    "nametags": {
+      "replaceOwnColor": false,
+      "scale": 1.1,
+      "thirdPerson": true,
+      "opacity": 0.9,
+      "enabled": false
+    },
+    "cps": {
+      "rightClick": true,
+      "reverseText": false,
+      "color": -1,
+      "color#speed": 72.0,
+      "color#chroma": false,
+      "ignoreCancelled": false,
+      "showText": false,
+      "showBackground": false,
+      "scale": 0.5,
+      "enabled": false
+    },
+    "fps": {
+      "showBrackets": false,
+      "color": -65794,
+      "reverseOrder": true,
+      "showBackground": false,
+      "scale": 1.0,
+      "threshold": 0.0,
+      "color#type": "Solid Cycle",
+      "textShadow": true,
+      "enabled": false
+    },
+    "zoom": {
+      "toggleZoom": false,
+      "scrollSpeed": 1.0,
+      "fov": 30.0,
+      "smoothZoom": true,
+      "enabled": false
+    },
+    "@general": {},
+    "armorhud": {
+      "listMode": "Vertical",
+      "damageThreshold": "Percent",
+      "showBackground": false,
+      "durabilityPos": "Right",
+      "damageColor": -4715508,
+      "damageDisplay": "Value",
+      "textColor": -1,
+      "enabled": false
+    },
+    "hitboxes": {
+      "linePattern": "Solid",
+      "showLookVector": false,
+      "maxDistance": 72.0,
+      "lineColor": -1,
+      "showHittable": true,
+      "monsters": true,
+      "showDamaged": true,
+      "enabled": false,
+      "lineWidth": 1.0
+    },
+    "chat": {
+      "inputOpacity": 1.0,
+      "hoverImagePreview": true,
+      "unlimited": true,
+      "timestamps": false,
+      "scale": 1.0,
+      "opacity": 0.0,
+      "enabled": false
+    },
+    "blockoverlay": {
+      "side": false,
+      "color": -1,
+      "overlay": false,
+      "thickness": 1.0,
+      "color#chroma": false,
+      "overlayColor#chroma": false,
+      "showHiddenFoliage": true,
+      "color#type": "Wave",
+      "overlayColor": 16185078,
+      "enabled": false,
+      "interpolateAlpha": true
+    }
+  },
+  "hud": {
+    "serveraddress": [
+      0.0,
+      4.0,
+      24.029218407596787,
+      1.0,
+      0.0
+    ],
+    "armorhud": [
+      3.0,
+      4.0,
+      3.776479181884554,
+      1.0,
+      0.0
+    ],
+    "keystrokes": [
+      0.0,
+      4.0,
+      82.56281957633308,
+      1.0,
+      0.0
+    ],
+    "potionhud": [
+      2.0,
+      -4.0,
+      26.06647187728268,
+      1.0,
+      0.0
+    ],
+    "cps": [
+      2.0,
+      -4.0,
+      4.0,
+      2.5,
+      0.0
+    ],
+    "fps": [
+      1.0,
+      2.5,
+      4.0,
+      1.0,
+      0.0
+    ],
+    "coords": [
+      0.0,
+      4.0,
+      4.0,
+      1.0,
+      0.0
+    ]
+  },
+  "meta": {
+    "panelBacking": false
+  }
+}
