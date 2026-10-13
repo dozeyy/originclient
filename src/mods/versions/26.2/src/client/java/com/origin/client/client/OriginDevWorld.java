@@ -144,13 +144,35 @@ final class OriginDevWorld {
 				return;
 			}
 			if (phase == 8) {
-				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				// 26.x extra: the world-geometry overlays (submitted from
+				// COLLECT_SUBMITS) -- chunk borders + the Origin block outline/overlay,
+				// looking down at the ground so a block is targeted.
+				com.origin.client.client.social.SocialDemo.clear();
+				Mods.setOn("chunkborders", true);
+				Mods.setOn("blockoverlay", true);
+				Mods.set("blockoverlay", "outline", true);
+				Mods.set("blockoverlay", "overlay", true);
+				mc.player.setXRot(55f);
 				phase = 9;
+				nextAt = now + 2500;
+				return;
+			}
+			if (phase == 9) {
+				if (mc.gui.screen() instanceof PauseScreen) {
+					mc.setScreenAndShow(null);
+				}
+				grab(mc, dir, "overlays_world_1920x1080.png");
+				phase = 10;
+				return;
+			}
+			if (phase == 10) {
+				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
+				phase = 11;
 				mc.stop();
 			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] world step {} failed", phase, t);
-			phase = 9;
+			phase = 11;
 			mc.stop();
 		}
 	}

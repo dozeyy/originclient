@@ -53,6 +53,22 @@ public final class ColorGrade {
 	}
 
 	private static TextureTarget swap;
+	// The main target to snapshot into `swap` when the grade quad's vertices are
+	// built (render time); null once taken for this frame.
+	private static volatile RenderTarget pendingCopy;
+
+	/** Snapshot the finished world frame into `swap` (render thread, GUI build time). */
+	private static void takeSnapshot() {
+		RenderTarget main = pendingCopy;
+		pendingCopy = null;
+		if (main == null || swap == null || main.getColorTexture() == null
+				|| main.width != swap.width || main.height != swap.height) {
+			return;
+		}
+		RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(
+				main.getColorTexture(), swap.getColorTexture(), 0,
+				0, 0, 0, 0, main.width, main.height);
+	}
 	private static boolean broken = false;
 
 	public static void process(GuiGraphicsExtractor guiGraphics) {
@@ -86,11 +102,14 @@ public final class ColorGrade {
 				}
 				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.blaze3d.GpuFormat.RGBA8_UNORM);
 			}
-			// Snapshot the finished world frame. The graded quad below samples THIS,
-			// not the live target it is about to overwrite.
-			RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(
-					main.getColorTexture(), swap.getColorTexture(), 0,
-					0, 0, 0, 0, main.width, main.height);
+			// 26.x: this runs during EXTRACTION, before this frame's world is drawn,
+			// so the snapshot can't be taken here (it would copy LAST frame's finished
+			// image -- graded + HUD -- and re-grade it every frame: a runaway grade,
+			// seen in the first 26.2 dev shots). The quad's buildVertices() takes it
+			// instead: the GUI renderer builds its vertices after the world (and the
+			// hand) are drawn and before any GUI is, which is exactly 1.21.11's
+			// Gui.render-HEAD moment.
+			pendingCopy = main;
 
 			GpuTextureView view = swap.getColorTextureView();
 			if (view == null) {
@@ -128,6 +147,11 @@ public final class ColorGrade {
 									GpuTextureView source, ScreenRectangle bounds) implements GuiElementRenderState {
 		@Override
 		public void buildVertices(VertexConsumer vc) {
+			try {
+				takeSnapshot();
+			} catch (Throwable t) {
+				broken = true;   // the grade samples a stale copy at worst this frame
+			}
 			// UVs are flipped vertically: the framebuffer's origin is bottom-left
 			// while GUI space runs top-down, so sampling straight through would
 			// draw the world upside down.

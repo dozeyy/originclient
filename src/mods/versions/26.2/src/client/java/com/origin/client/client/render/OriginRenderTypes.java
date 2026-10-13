@@ -211,6 +211,9 @@ public final class OriginRenderTypes {
 			return this;
 		}
 
+		// One-time breadcrumbs (record -> submit -> replay) for the first 26.x boots.
+		private static boolean loggedSubmit, loggedReplay;
+
 		void clear() {
 			n = 0;
 		}
@@ -219,11 +222,19 @@ public final class OriginRenderTypes {
 			if (n == 0 || type == null) {
 				return;
 			}
+			if (!loggedSubmit) {
+				loggedSubmit = true;
+				com.origin.client.OriginClient.LOGGER.info("Origin[world]: first {} submit, {} vertices", lines ? "lines" : "quads", n);
+			}
 			final float[] fs = java.util.Arrays.copyOf(f, n * 7);
 			final int[] cs = java.util.Arrays.copyOf(c, n);
 			final int count = n;
 			// Identity pose: the recorded positions already carry the caller's matrix.
 			ctx.submitNodeCollector().submitCustomGeometry(new PoseStack(), type, (pose, vc) -> {
+				if (!loggedReplay) {
+					loggedReplay = true;
+					com.origin.client.OriginClient.LOGGER.info("Origin[world]: first replay into the frame ({} vertices)", count);
+				}
 				for (int i = 0; i < count; i++) {
 					int o = i * 7;
 					VertexConsumer v = vc.addVertex(fs[o], fs[o + 1], fs[o + 2]).setColor(cs[i]);
