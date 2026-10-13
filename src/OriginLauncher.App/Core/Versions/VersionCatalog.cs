@@ -44,8 +44,12 @@ public static class VersionCatalog
     // Left out ON PURPOSE (Will, 2026-10-12: they will never ship, so they are
     // not shown greyed either): every 26.x release (the whole "26" card),
     // 1.20.6, 1.20.5, 1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, and 1.16 – 1.16.4.
-    // Pulled earlier and likewise absent: 1.21.5, 1.21.9 (2026-08-06) and the
-    // Forge pair 1.12.2 / 1.8.9 (whose 1.12 and 1.8 cards went with them).
+    // Pulled earlier and likewise absent: 1.21.5, 1.21.9 (2026-08-06) and
+    // 1.12.2 (Forge; its 1.12 card went with it).
+    //
+    // 1.8.9 came BACK 2026-10-13 (Will): the one Forge + OptiFine version
+    // (the launcher installs that stack quietly — VersionManager's legacy
+    // branch); the picker's facts line names the stack per card.
     private static IReadOnlyList<VersionGroup> Build() =>
     [
         Group("1.21", "1.21 – 1.21.11", "Tricky Trials",
@@ -67,6 +71,9 @@ public static class VersionCatalog
         Group("1.16", "1.16.5",         "The Nether Update",
             "The Nether finally comes alive with crimson and warped forests, soul sand valleys, and basalt deltas to explore. Trade with piglins, ride striders across lava, mine ancient debris to craft top-tier netherite gear, and set your spawn with a respawn anchor.",
             "1.16.5"),
+        Group("1.8", "1.8.9",          "The Bountiful Update",
+            "The classic PvP version, still the home of competitive Minecraft. Bring slime blocks, banners and armor stands into your builds, sneak through ocean monuments past elder guardians, and fight in the fast, click-driven combat that minigame servers like Hypixel were built around.",
+            "1.8.9"),
     ];
 
     // Every version Origin ships, newest first — the grid's versions in reading

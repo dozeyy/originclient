@@ -40,6 +40,12 @@ public readonly record struct ModMergeEntry(bool IsFolder, DateTime LastWriteUtc
 // open copy; either way that game is unaffected. VersionManager follows the
 // same rule for Origin's own jars.
 //
+// FORGE 1.8.9 is the one exception to "nothing lives in the account's mods/":
+// FML only loads <gameDir>/mods, so before each 1.8.9 launch the shared folder
+// is MIRRORED into the launching account's mods/ (Mirror, below). The shared
+// folder is still the one the launcher installs into and the Mods page edits;
+// the mirror is a copy, marked by its manifest, which the merge leaves alone.
+//
 // MIGRATION (MergeVersion): every account's old mods/ for the version is merged
 // into the shared folder — a union, byte-identical files deduplicated, and on a
 // same-name clash the newer file keeps the name while the other is parked next
@@ -159,7 +165,12 @@ public static class SharedMods
         return complete;
     }
 
-    /// <summary>Every account game folder's own mods folder that exists, as (account key, path), sorted by key.</summary>
+    /// <summary>
+    /// Every account game folder's own mods folder that exists, as (account
+    /// key, path), sorted by key — except a launcher-made mirror (it holds
+    /// <see cref="MirrorManifestName"/>): that one is a copy OF the shared
+    /// folder, and Mirror itself adopts any file the player adds to it.
+    /// </summary>
     public static IReadOnlyList<(string Key, string Dir)> AccountModsFolders(string versionRoot)
     {
         try
@@ -168,7 +179,8 @@ public static class SharedMods
             if (!Directory.Exists(accounts)) return Array.Empty<(string, string)>();
             return Directory.EnumerateDirectories(accounts)
                 .Select(dir => (Key: Path.GetFileName(dir), Dir: Path.Combine(dir, InstanceLayout.ModsFolder)))
-                .Where(e => InstanceLayout.IsAccountKey(e.Key) && Directory.Exists(e.Dir))
+                .Where(e => InstanceLayout.IsAccountKey(e.Key) && Directory.Exists(e.Dir)
+                            && !File.Exists(Path.Combine(e.Dir, MirrorManifestName)))
                 .OrderBy(e => e.Key, StringComparer.Ordinal)
                 .ToList();
         }
@@ -270,6 +282,150 @@ public static class SharedMods
             }
         }
         return complete;
+    }
+
+    // ------------------------------------------------------------ the mirror
+
+    /// <summary>The mirror's record of which files in it the launcher put there (one name per line).</summary>
+    public const string MirrorManifestName = ".origin-mirror";
+
+    /// <summary>True for a file name Forge 1.8.9 loads from mods/ (FML's ModDiscoverer takes .jar and .zip).</summary>
+    public static bool IsForgeLoadable(string fileName) =>
+        fileName.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Makes an account's own mods folder hold exactly the shared folder's
+    /// loadable files (those <paramref name="include"/> accepts; all by
+    /// default) — for Forge 1.8.9, which only ever loads &lt;gameDir&gt;/mods
+    /// and has no fabric.modsFolder (VersionManager.InstallLegacyAsync).
+    /// The shared folder stays the single source of truth:
+    ///  * a loadable file in the mirror that the launcher did not put there
+    ///    (the manifest says which it did) was added by the player — it moves
+    ///    INTO the shared folder by the same rule as the migration merge, so
+    ///    it is never lost, then comes back as a mirrored copy;
+    ///  * a copy whose shared file is gone (removed or turned off on the Mods
+    ///    page, or left out by <paramref name="include"/>) is deleted;
+    ///  * a missing or changed copy is copied beside and renamed into place.
+    /// Sub-folders and non-loadable files are left alone on both sides. Only
+    /// the launching account's folder is touched, whose game is not running;
+    /// a file that is busy anyway stays as it is until the next launch.
+    /// Returns true when the mirror matches. Never throws.
+    /// </summary>
+    public static bool Mirror(string sharedMods, string mirror, Func<string, bool>? include = null, Action<string>? log = null)
+    {
+        log ??= _ => { };
+        include ??= _ => true;
+        var complete = true;
+        try
+        {
+            Directory.CreateDirectory(sharedMods);
+            Directory.CreateDirectory(mirror);
+            var manifestPath = Path.Combine(mirror, MirrorManifestName);
+            var placed = ReadManifest(manifestPath);
+
+            // 1. The player's own files join the shared folder.
+            foreach (var file in Directory.EnumerateFiles(mirror).OrderBy(p => p, StringComparer.Ordinal).ToList())
+            {
+                var name = Path.GetFileName(file);
+                if (!IsForgeLoadable(name) || placed.Contains(name)) continue;
+                complete &= MergeEntry(file, Path.Combine(sharedMods, name), log);
+            }
+
+            var wanted = Directory.EnumerateFiles(sharedMods)
+                .Select(Path.GetFileName).OfType<string>()
+                .Where(n => IsForgeLoadable(n) && include(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // 2. Copies whose source is gone (or no longer wanted).
+            var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var name in placed)
+            {
+                var copy = Path.Combine(mirror, name);
+                if (wanted.Contains(name) || !File.Exists(copy)) continue;
+                try
+                {
+                    File.Delete(copy);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    owned.Add(name); // still ours: deleted on the next launch
+                    complete = false;
+                    log($"could not remove the mirrored {name} yet: {ex.Message}");
+                }
+            }
+
+            // 3. Missing or changed copies.
+            foreach (var name in wanted)
+            {
+                var source = Path.Combine(sharedMods, name);
+                var copy = Path.Combine(mirror, name);
+                if (!SameStamp(source, copy))
+                {
+                    var temp = copy + ".download"; // never loadable, never listed
+                    try
+                    {
+                        File.Copy(source, temp, overwrite: true);
+                        File.SetLastWriteTimeUtc(temp, File.GetLastWriteTimeUtc(source));
+                        File.Move(temp, copy, overwrite: true);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        try { File.Delete(temp); } catch { /* our own half-copy; best-effort */ }
+                        complete = false;
+                        log($"could not mirror {name} yet: {ex.Message}");
+                        if (!File.Exists(copy)) continue;
+                    }
+                }
+                owned.Add(name);
+            }
+
+            WriteManifest(manifestPath, owned);
+        }
+        catch (Exception ex)
+        {
+            log($"mods mirror paused: {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
+        return complete;
+    }
+
+    // Same length and last-write time: the copy is current (Mirror stamps
+    // every copy with its source's time). No hashing on every launch.
+    private static bool SameStamp(string source, string copy)
+    {
+        if (!File.Exists(copy)) return false;
+        var a = new FileInfo(source);
+        var b = new FileInfo(copy);
+        return a.Length == b.Length && a.LastWriteTimeUtc == b.LastWriteTimeUtc;
+    }
+
+    private static HashSet<string> ReadManifest(string path)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            if (!File.Exists(path)) return names;
+            foreach (var line in File.ReadAllLines(path))
+            {
+                var name = line.Trim();
+                // A name only, never a path: the manifest can't point outside the folder.
+                if (name.Length > 0 && name == Path.GetFileName(name)) names.Add(name);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Unreadable: every file in the mirror is then treated as the
+            // player's and merged into the shared folder, which loses nothing.
+        }
+        return names;
+    }
+
+    private static void WriteManifest(string path, IEnumerable<string> names)
+    {
+        var temp = path + ".tmp";
+        File.WriteAllLines(temp, names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+        File.Move(temp, path, overwrite: true);
     }
 
     private static ModMergeEntry Facts(string path, bool isFolder) =>

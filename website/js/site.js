@@ -24,6 +24,7 @@ const VERSION_GROUPS = [
   { title: '1.18.2', tag: 'Caves & Cliffs II', versions: ['1.18.2'] },
   { title: '1.17.1', tag: 'Caves & Cliffs I', versions: ['1.17.1'] },
   { title: '1.16.5', tag: 'The Nether Update', versions: ['1.16.5'] },
+  { title: '1.8.9', tag: 'The Bountiful Update', versions: ['1.8.9'] },
   { title: '26.x', tag: 'The Latest Releases', versions: ['26.2'], dev: true },
 ];
 

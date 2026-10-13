@@ -200,12 +200,27 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <!-- LEGACY (Forge) — 1.8.9 + 1.12.2 bundle entries and their Forge version
-         JSONs REMOVED 2026-08-06: both versions are pulled from the lineup, so
-         nothing can install them and shipping the jars would be dead weight in
-         setup.exe. The modules and the legacy installer code remain in the repo;
-         re-adding them means restoring these entries plus the catalog and CI
-         steps. -->
+    <!-- LEGACY (Forge) — 1.8.9, LIVE again 2026-10-13: Origin's Forge build
+         (gg.essential.loom; archivesName originclient-1.8.9, so the same glob
+         shape as every Fabric module) plus the Forge 11.15.1.2318 version JSON
+         that LegacyForgeInstaller copies into the instance
+         (AppContext.BaseDirectory\Bundled\Forge\forge-1.8.9.json — loose next to
+         the exe for the same reason as the jars). OptiFine is never bundled:
+         OptiFineInstaller downloads it at install time.
+         1.12.2 stays pulled (2026-08-06): no entries for its jar or JSON. -->
+    <Content Include="..\mods\versions\1.8.9\build\libs\originclient-1.8.9-*.jar"
+             Exclude="..\mods\versions\1.8.9\build\libs\originclient-1.8.9-*-sources.jar;..\mods\versions\1.8.9\build\libs\originclient-1.8.9-*-dev.jar">
+      <Link>Bundled\OriginClient\originclient-1.8.9.jar</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Assets\Forge\forge-1.8.9.json">
+      <Link>Bundled\Forge\forge-1.8.9.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
   </ItemGroup>
 
 </Project>

@@ -239,7 +239,8 @@ public static class ModManager
 
     /// <summary>
     /// True for jars Origin itself provisions into the instance (Origin Client,
-    /// Fabric API, OptiFine, and the pinned performance stack). These are shown
+    /// Fabric API, OptiFine, and the pinned performance stack — Fabric's, or
+    /// the legacy Forge one on 1.8.9). These are shown
     /// read-only on the Mods page — the player can't disable a hard dependency
     /// and break their game. Everything else is a user-owned mod.
     ///
@@ -255,6 +256,7 @@ public static class ModManager
             || n.StartsWith("fabric-api-")
             || n.StartsWith("legacy-fabric-api-")
             || n.Equals("optifine.jar")
+            || Loaders.LegacyStackInstaller.IsStackJar(jarName)
             || IsBundledPerfJar(jarName);
     }
 
