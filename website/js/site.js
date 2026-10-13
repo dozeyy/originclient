@@ -29,7 +29,8 @@ const VERSION_GROUPS = [
 ];
 
 // Scenes top to bottom: [section id, world pose, how much to darken the island].
-const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.62], ['shaders', 'shaders', 0], ['get', 'get', 0.2]];
+// "why" holds the shaders pose and darkens it so the table reads over the island.
+const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.62], ['shaders', 'shaders', 0], ['why', 'shaders', 0.7], ['get', 'get', 0.2]];
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
