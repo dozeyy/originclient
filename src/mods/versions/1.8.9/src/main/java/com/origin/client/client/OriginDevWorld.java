@@ -39,6 +39,10 @@ final class OriginDevWorld {
 			if (phase == 0) {
 				// Title is up (OriginDevShots waited for it): make a fresh world.
 				OriginDevShots.resizeWindow(mc, 1920, 1080);
+				// 1.8.9 re-opens the pause menu EVERY tick the window lacks focus (always,
+				// under Xvfb), so closing it below can't win -- switch the behaviour off
+				// for this dev run (the harness only runs with ORIGIN_SHOTS set).
+				mc.gameSettings.pauseOnLostFocus = false;
 				String folder = "OriginDevWorld-" + now;
 				WorldSettings settings = new WorldSettings(1234567L, WorldSettings.GameType.CREATIVE,
 						true, false, WorldType.DEFAULT);
