@@ -855,3 +855,38 @@ ported on 1.21.8, copied to 1.21.6. 3-way `git merge-file` per edited file (base
   (no immediate BufferBuilder); OriginDevWorld's party capture is two extra phases (grab, then wait for
   the dated-PNG rename before mc.stop()); SocialDemo's friends report Social.version() so the demo's
   JOIN reads like 1.21.1's.
+
+## 1.8.9 on Forge (2026-10-13) — the full experience, ported from 1.16.5
+Will: Forge + OptiFine, live in the picker, everything at once. Brief + as-built API:
+`src/mods/versions/1.8.9/PORT-189.md`. Seven agents (foundation first, then menus /
+modmenu / hud / world / social / server in parallel) kept 1.16.5's package layout and
+public API with Minecraft types swapped, so cross-area calls compiled first time.
+- Build: Forge 11.15.1.2318 + MCP stable_22 via gg.essential.loom 1.3.12 + **Mixin
+  0.7.11 shadowed into the jar** (manifest TweakClass MixinTweaker + ForceLoadAsMod).
+  The 0.8.5 annotation processor needs gson/guava/asm on its own path or javac dies with
+  NoClassDefFoundError JsonParseException. Loom 1.x DSL is `runs { client { programArgs } }`
+  (`launchConfigs` is the old 0.10 DSL). One mixin config per area, required:false,
+  defaultRequire 0.
+- The sandbox can't reach Forge's maven: `.github/workflows/ref-189.yml` is the dev loop —
+  `compile` prints only javac errors + a per-file summary, inspects the shipped jar
+  (Mixin classes, manifest, refmap coverage), and `lookup` jobs answer
+  `class`/`member`/`find` queries (javap of MCP-named classes, SRG names) from
+  `tools/ref-queries/*.txt`. First full compile of ~43k lines had TWO errors.
+- Hooks: Forge events first; mixins only where none exists; @Accessor/@Invoker over
+  reflection (the refmap carries SRG names — reflection would need them by hand).
+  OptiFine replaces EntityRenderer/RenderGlobal/RenderItem/FontRenderer/... so mixins there
+  are HEAD/RETURN only. Mixins into Forge's own classes (GuiIngameForge, GuiButtonExt) are
+  remap=false and have no refmap entry (expected: the jar check lists exactly those two).
+- Text: no stb on LWJGL 2 → OriginTtfFont rasterises Inter with java.awt. Icons: the mask
+  atlas must NOT be mipmapped (a mip chain greyed the 2 px strokes) — linear like 1.16.5.
+- Item grid: skip registry items with no creative tab (technical blocks draw as the magenta
+  missing-model cube), except a short allowlist (command block, barrier, spawner...).
+- Keys: config files keep GLFW codes (Settings Sync); util/KeyCodes translates at the edge.
+  LWJGL 2 has no KEY_OEM_102 — the ISO key arrives as its DirectInput scancode 0x56.
+- Gson 2.2.4 (no keySet/size/deepCopy/isEmpty) → IoCompat helpers. Runtime Java can be 8u51
+  (old CA store) → all HTTPS through net/OriginHttp with bundled roots.
+- Dev shots under Xvfb: LWJGL 2 needs x11-xserver-utils/libXxf86vm/libXrandr; 1.8.9
+  re-opens the pause menu every unfocused tick → the harness sets pauseOnLostFocus=false.
+- Not on 1.8.9 (cards/rows hidden, config keys kept): Cooldowns, Raw Mouse Input, Shader
+  Performance Mode, Bed Wars Colored Beds/Practice Color, Keep Chat History. Shader browser
+  lists only packs with a 1.8.9 OptiFine build (20).
