@@ -23,36 +23,6 @@ Fabric Loom: 1.17.21
 [api-dump] wrote 13652 classes to /home/runner/work/_temp/shots/screenshots/api
 
 > Task :compileClientJava
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:6: error: cannot find symbol
-import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
-                                            ^
-  symbol:   class NameTagFeatureRenderer
-  location: package net.minecraft.client.renderer.feature
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:46: error: package NameTagFeatureRenderer does not exist
-	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
-	                                                                                             ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:46: error: package NameTagFeatureRenderer does not exist
-	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
-	                                     ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:96: error: package NameTagFeatureRenderer does not exist
-	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
-	                                                                                     ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:96: error: package NameTagFeatureRenderer does not exist
-	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
-	                                     ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:37: error: cannot find symbol
-@Mixin(NameTagFeatureRenderer.class)
-       ^
-  symbol: class NameTagFeatureRenderer
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/Readouts.java:322: error: incompatible types: Stream<PackResources> cannot be converted to PackResources
-		try (PackResources res = p.open()) {
-		                               ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:135: error: Recorder is not abstract and does not override abstract method setUv3(float,float) in VertexConsumer
-	private static final class Recorder implements VertexConsumer {
-	                     ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:103: error: incompatible types: boolean cannot be converted to GpuFormat
-				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.renderpearl.api.GpuFormat.RGBA8_UNORM);
-				                                                                  ^
 /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
 	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
 	                                 ^
@@ -119,150 +89,110 @@ import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
 /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
 	private static String fileName(IJeiConfigFile file) {
 	                               ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:97: error: package NameTagFeatureRenderer does not exist
-		return new NameTagFeatureRenderer.Submit(s.pose(), s.x(), s.y(), s.text(), s.lightCoords(), color, bg, s.displayMode());
-		                                 ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/MouseHandlerMixin.java:38: error: package org.lwjgl.glfw does not exist
-		com.origin.client.client.mods.ClickStats.onButton(info.button(), action == org.lwjgl.glfw.InputConstants.PRESS, counts);
-		                                                                                         ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java:329: error: method isKeyDown in class InputConstants cannot be applied to given types;
-			return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), glfwKey);
-			                     ^
-  required: int
-  found:    Window,int
-  reason: actual and formal argument lists differ in length
 Note: /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java uses or overrides a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
-Note: Some messages have been simplified; recompile with -Xdiags:verbose to get full output
-12 errors
 22 warnings
 
-> Task :compileClientJava FAILED
+> Task :processClientResources
+> Task :clientClasses
+> Task :generateLog4jConfig
+> Task :generateDLIConfig
+> Task :configureLaunch
+> Task :downloadAssets
+> Task :configureClientLaunch
 
-[Incubating] Problems report is available at: file:///home/runner/work/originclient/originclient/src/mods/versions/26.3/build/reports/problems/problems-report.html
+> Task :runClient
+[01:41:42] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.3 with Fabric Loader 0.19.5
+[01:41:42] [main/INFO] (FabricLoader/Mappings) Mappings not present!
+[01:41:42] [main/INFO] (FabricLoader) Loading 54 mods:
+	- fabric-advancement-api-v1 1.0.0+38c7a2d55d
+	- fabric-api 0.162.0+26.3
+	- fabric-api-base 2.0.6+fcdff87f5d
+	- fabric-api-lookup-api-v1 2.0.24+3434d6d95d
+	- fabric-biome-api-v1 20.1.0+c6aa69a85d
+	- fabric-block-api-v1 3.1.0+0ae6f9115d
+	- fabric-block-getter-api-v2 2.0.9+3434d6d95d
+	- fabric-client-gametest-api-v1 6.0.8+4be74c3f5d
+	- fabric-command-api-v2 3.1.2+fcdff87f5d
+	- fabric-content-registries-v0 15.0.4+74ed1ea55d
+	- fabric-convention-tags-v2 4.10.3+6b5b47fd5d
+	- fabric-crash-report-info-v1 1.0.7+fcdff87f5d
+	- fabric-creative-tab-api-v1 5.0.21+fcdff87f5d
+	- fabric-data-attachment-api-v1 2.2.31+b9b88df45d
+	- fabric-data-generation-api-v1 27.3.0+5be2453c5d
+	- fabric-debug-api-v1 1.0.4+3434d6d95d
+	- fabric-dimensions-v1 5.1.19+47f74c985d
+	- fabric-entity-events-v1 6.0.4+3434d6d95d
+	- fabric-events-interaction-v0 5.3.7+b9b88df45d
+	- fabric-game-rule-api-v1 4.0.10+3434d6d95d
+	- fabric-gametest-api-v1 4.0.33+3434d6d95d
+	- fabric-item-api-v1 14.7.0+cf6bc2db5d
+	- fabric-key-mapping-api-v1 2.0.8+3434d6d95d
+	- fabric-lifecycle-events-v1 4.1.9+ffef5f675d
+	- fabric-loot-api-v3 4.0.8+4068fd645d
+	- fabric-menu-api-v1 2.0.28+ed66f0a35d
+	- fabric-message-api-v1 7.0.10+3434d6d95d
+	- fabric-model-loading-api-v1 8.0.35+fcdff87f5d
+	- fabric-networking-api-v1 6.3.9+b9b88df45d
+	- fabric-object-builder-api-v1 24.1.10+3434d6d95d
+	- fabric-particles-v1 5.0.25+3434d6d95d
+	- fabric-permission-api-v1 1.0.8+fcdff87f5d
+	- fabric-recipe-api-v1 10.0.9+b9b88df45d
+	- fabric-registry-sync-v0 8.0.2+1ca9f6365d
+	- fabric-renderer-api-v1 17.0.15+79385d0b5d
+	- fabric-renderer-indigo 9.1.23+b9d63e335d
+	- fabric-rendering-fluids-v1 6.0.6+3434d6d95d
+	- fabric-rendering-v1 27.0.14+901a437c5d
+	- fabric-resource-conditions-api-v1 6.2.0+0d124ae85d
+	- fabric-resource-loader-v0 3.3.26+4fc5413f5d
+	- fabric-resource-loader-v1 3.0.4+fcdff87f5d
+	- fabric-screen-api-v1 5.2.4+48607d035d
+	- fabric-serialization-api-v1 2.0.7+74ed1ea55d
+	- fabric-sound-api-v1 2.0.7+3434d6d95d
+	- fabric-tag-api-v1 2.1.10+fcdff87f5d
+	- fabric-transfer-api-v1 8.0.25+fcdff87f5d
+	- fabric-transitive-access-wideners-v1 8.1.16+52268a0e5d
+	- fabricloader 0.19.5
+	- java 25
+	- jei 31.12.0.65
+	   \-- mezz_config 0.6.6
+	- minecraft 26.3
+	- mixinextras 0.5.5
+	- originclient 0.4.2
+[01:41:42] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/5f66cc9f59b8efaa942155a3d5a30599bf6640dd/sponge-mixin-0.17.4+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[01:41:43] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
+[01:41:43] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.5).
+[01:41:45] [Datafixer Bootstrap #0/INFO] (Minecraft) 307 Datafixer optimizations took 531 milliseconds
+[01:41:51] [Render thread/INFO] (Minecraft) Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]
+[01:41:51] [Render thread/INFO] (Minecraft) Setting user: Player602
+[01:41:51] [Render thread/INFO] (originclient) Origin Client initializing
+[01:41:52] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
+[01:41:52] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
+[01:41:52] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
+[01:41:52] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.709 milliseconds
+[01:41:52] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.3-snapshot
+[01:41:52] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App name: Minecraft
+[01:41:52] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App version: 26.3
+[01:41:52] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App ID: com.mojang.minecraft
+[01:41:52] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: SDL revision: SDL-3.4.14--128-NOTFOUND
+[01:41:52] [Render thread/ERROR] (Minecraft) Failed to create backend OpenGL
 
-FAILURE: Build failed with an exception.
+com.mojang.renderpearl.api.device.BackendCreationException: Failed to create window for OpenGL context: Couldn't find matching GLX visual
+	at knot//com.mojang.renderpearl.backend.opengl.GlDevice.<init>(GlDevice.java:83)
+	at knot//com.mojang.renderpearl.backend.opengl.GlBackend.createDevice(GlBackend.java:68)
+	at knot//net.minecraft.client.Minecraft.<init>(Minecraft.java:533)
+	at knot//net.minecraft.client.main.Main.main(Main.java:278)
+	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:517)
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
+[01:41:52] [Render thread/ERROR] (Minecraft) Failed to create backend Vulkan
 
-* What went wrong:
-Execution failed for task ':compileClientJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
-> Compilation failed; see the compiler output below.
-  Note: /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java uses or overrides a deprecated API.
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java:329: error: method isKeyDown in class InputConstants cannot be applied to given types;
-  			return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), glfwKey);
-  			                     ^
-    required: int
-    found:    Window,int
-    reason: actual and formal argument lists differ in length
-  Note: Recompile with -Xlint:deprecation for details.
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/OriginRenderTypes.java:135: error: Recorder is not abstract and does not override abstract method setUv3(float,float) in VertexConsumer
-  	private static final class Recorder implements VertexConsumer {
-  	                     ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/hud/Readouts.java:322: error: incompatible types: Stream<PackResources> cannot be converted to PackResources
-  		try (PackResources res = p.open()) {
-  		                               ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/render/ColorGrade.java:103: error: incompatible types: boolean cannot be converted to GpuFormat
-  				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.renderpearl.api.GpuFormat.RGBA8_UNORM);
-  				                                                                  ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:6: error: cannot find symbol
-  import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
-                                              ^
-    symbol:   class NameTagFeatureRenderer
-    location: package net.minecraft.client.renderer.feature
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
-  	                                 ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] getConfigManager() in IJeiRuntime has been deprecated and marked for removal
-  			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
-  			                             ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
-  			     ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:118: warning: [removal] IJeiConfigCategory in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  				for (IJeiConfigCategory cat : file.getCategories()) {
-  				     ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:120: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  					for (IJeiConfigValue<?> v : cat.getConfigValues()) {
-  					     ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:141: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static ModOption build(String category, IJeiConfigValue<?> v) {
-  	                                                ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:144: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  			IJeiConfigValueSerializer<?> ser = v.getSerializer();
-  			^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:148: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
-  			                   ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:184: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  		IJeiConfigValue<?> v = HANDLES.get(key);
-  		^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:200: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  		IJeiConfigValue<?> v = HANDLES.get(key);
-  		^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:217: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  		IJeiConfigValue<?> v = HANDLES.get(key);
-  		^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:242: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  		IJeiConfigValue<?> v = HANDLES.get(key);
-  		^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:255: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static <T> String readTyped(IJeiConfigValue<T> v) {
-  	                                    ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:259: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static <T> void writeTyped(IJeiConfigValue<T> v, String s) {
-  	                                   ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:260: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  		IJeiConfigValueSerializer.IDeserializeResult<T> r = v.getSerializer().deserialize(s);
-  		^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:269: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static <T> List<String> validTokens(IJeiConfigValueSerializer<T> ser) {
-  	                                            ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:281: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
-  	                                               ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:287: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static double[] bounds(String key, IJeiConfigValueSerializer<?> ser, int pivot) {
-  	                                           ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:314: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static int probeMin(IJeiConfigValueSerializer<?> ser, int pivot) {
-  	                            ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:330: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static int probeMax(IJeiConfigValueSerializer<?> ser, int pivot) {
-  	                            ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:346: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static boolean validInt(IJeiConfigValueSerializer<?> ser, int x) {
-  	                                ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
-  	private static String fileName(IJeiConfigFile file) {
-  	                               ^
-  Note: Some messages have been simplified; recompile with -Xdiags:verbose to get full output
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:37: error: cannot find symbol
-  @Mixin(NameTagFeatureRenderer.class)
-         ^
-    symbol: class NameTagFeatureRenderer
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:46: error: package NameTagFeatureRenderer does not exist
-  	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
-  	                                                                                             ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:46: error: package NameTagFeatureRenderer does not exist
-  	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
-  	                                     ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:96: error: package NameTagFeatureRenderer does not exist
-  	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
-  	                                                                                     ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:96: error: package NameTagFeatureRenderer does not exist
-  	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
-  	                                     ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/NametagStyleMixin.java:97: error: package NameTagFeatureRenderer does not exist
-  		return new NameTagFeatureRenderer.Submit(s.pose(), s.x(), s.y(), s.text(), s.lightCoords(), color, bg, s.displayMode());
-  		                                 ^
-  /home/runner/work/originclient/originclient/src/mods/versions/26.3/src/client/java/com/origin/client/client/mixin/MouseHandlerMixin.java:38: error: package org.lwjgl.glfw does not exist
-  		com.origin.client.client.mods.ClickStats.onButton(info.button(), action == org.lwjgl.glfw.InputConstants.PRESS, counts);
-  		                                                                                         ^
-  12 errors
-  22 warnings
-
-* Try:
-> Check your code and dependencies to fix the compilation error(s)
-> Run with --scan to get full insights from a Build Scan (powered by Develocity).
-
-BUILD FAILED in 3m 6s
-4 actionable tasks: 4 executed
+com.mojang.renderpearl.api.device.BackendCreationException: Vulkan is not supported: Installed Vulkan doesn't implement the VK_KHR_surface extension
+	at knot//com.mojang.renderpearl.backend.vulkan.VulkanBackend.loadLibrary(VulkanBackend.java:69)
+	at knot//net.minecraft.client.Minecraft.<init>(Minecraft.java:530)
+	at knot//net.minecraft.client.main.Main.main(Main.java:278)
+	at net.fabricmc.loader.impl.game.minecraft.MinecraftGameProvider.launch(MinecraftGameProvider.java:517)
+	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
+	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
+	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
