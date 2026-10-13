@@ -3,6 +3,7 @@ package com.origin.client.client.hud;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginModMenuScreen;
+import com.origin.client.client.gui.OriginScreen;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.gui.Pose;
 import com.origin.client.client.mods.Mods;
@@ -10,10 +11,6 @@ import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.GL11;
-
-import java.io.IOException;
 
 // The HUD editing workspace, directly over the LIVE game — no dim, no blur.
 // Freeform drag, no snapping; thin center guides appear only while dragging.
@@ -25,16 +22,15 @@ import java.io.IOException;
 //
 // quick=true IS the Right Shift screen: the editable surface plus the centre
 // group from the 2026-10 redesign (design/menu-redesign, scene "rshift"): the
-// real Origin mark, ORIGIN CLIENT, and [Settings] [Waypoints] [MODS]
-// [Cosmetics] [Friends], drawn with OriginDeck so it matches the mod menu exactly.
+// real Origin mark, ORIGIN CLIENT, and [Waypoints] [MODS] [Cosmetics], drawn
+// with OriginDeck so it matches the mod menu exactly.
 //
-// 1.8.9 port (from 1.16.5): a plain GuiScreen. The HUD itself keeps drawing
-// behind it (1.8.9 renders GuiIngame before the open screen). Input plumbing
-// is the era's: mouseClickMove is the drag callback, the wheel arrives through
-// handleMouseInput + Mouse.getEventDWheel, keys are LWJGL2 codes from keyTyped,
-// and Esc is handled here (GuiScreen.keyTyped would always go to the game, not
-// to `returnTo`).
-public class HudEditorScreen extends GuiScreen {
+// 1.8.9 port (from 1.16.5): built on OriginScreen, the GuiScreen that speaks
+// the modern handler shapes (double GUI-px mouse from the LWJGL event,
+// mouseDragged / Released / Scrolled, keyPressed), so the editing logic below
+// is 1.16.5's. The HUD keeps drawing behind it (1.8.9 renders GuiIngame before
+// the open screen). Key codes are LWJGL2 (Keyboard.KEY_*).
+public class HudEditorScreen extends OriginScreen {
 	private final boolean quick;
 	// Where Esc lands: null = the game; the mod menu passes itself ("Edit HUD" /
 	// "Edit position") so the player comes straight back to where they were.
@@ -68,9 +64,6 @@ public class HudEditorScreen extends GuiScreen {
 	// snaps to it; dragging further than this pulls it back off (B1).
 	private static final double SNAP = 6.0;
 
-	// Latched fail-soft: a throw while drawing closes the editor (logged once).
-	private boolean failed = false;
-
 	public HudEditorScreen() {
 		this(false);
 	}
@@ -80,17 +73,18 @@ public class HudEditorScreen extends GuiScreen {
 	}
 
 	public HudEditorScreen(boolean quick, GuiScreen returnTo) {
+		super(quick ? "Origin" : "HUD Editor");
 		this.quick = quick;
 		this.returnTo = returnTo;
 	}
 
-	/** Esc / Right Shift: back to `returnTo` (null = the game). */
+	@Override
 	public void onClose() {
 		Minecraft.getMinecraft().displayGuiScreen(returnTo);
 	}
 
 	@Override
-	public boolean doesGuiPauseGame() {
+	public boolean isPauseScreen() {
 		return false;
 	}
 
@@ -98,22 +92,24 @@ public class HudEditorScreen extends GuiScreen {
 	// input hit-testing must all see the same (possibly sample-content) box,
 	// otherwise elements like Potions resize against a different size than
 	// they display. That mismatch was exactly the "can't resize potions" bug.
-	// 1.8.9: initGui also runs on every resize; setting the flag again is harmless.
 	@Override
-	public void initGui() {
+	protected void init() {
+		super.init();
 		HudElements.editorPreview = true;
 	}
 
 	@Override
-	public void onGuiClosed() {
+	public void removed() {
 		HudElements.editorPreview = false;
+		super.removed();
 	}
 
 	// Nothing in a world: the game stays perfectly visible. Outside one (only
 	// the dev-shots harness gets here) paint the title backdrop instead of
-	// leaving the last frame behind.
-	private void renderBackground(Gfx g) {
-		if (mc.theWorld == null) {
+	// leaving the last frame behind. (1.8.9: GuiScreen has no renderBackground
+	// hook to override; render() calls this first.)
+	private void renderBackdrop(Gfx g) {
+		if (Minecraft.getMinecraft().theWorld == null) {
 			com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(g);
 		}
 	}
@@ -146,26 +142,9 @@ public class HudEditorScreen extends GuiScreen {
 	}
 
 	@Override
-	public void drawScreen(int mouseX, int mouseY, float partialTick) {
-		if (failed) {
-			return;
-		}
-		Gfx g = new Gfx();
-		try {
-			render(g, mouseX, mouseY);
-		} catch (Throwable t) {
-			failed = true;
-			System.err.println("[OriginClient] HUD editor failed to draw, closing it: " + t);
-			onClose();
-		} finally {
-			// a throw mid-frame must not leave the GL matrix stack or a scissor behind
-			g.pose().popAll();
-			GL11.glDisable(GL11.GL_SCISSOR_TEST);
-		}
-	}
-
-	private void render(Gfx g, int mouseX, int mouseY) {
-		renderBackground(g);
+	public void render(Gfx g, int mouseX, int mouseY, float partialTick) {
+		renderBackdrop(g);
+		Minecraft mc = Minecraft.getMinecraft();
 		float in = (float) OriginTheme.easeOut(Math.min(1.0, (System.currentTimeMillis() - openedAt) / 160.0));
 		String hovered = null;
 
@@ -179,8 +158,8 @@ public class HudEditorScreen extends GuiScreen {
 			int[] size = e.measure().apply(mc);
 			if (size[0] <= 0 && size[1] <= 0) {
 				// 0x0 = nothing to place right now (an off sub-feature, e.g. the
-				// Saturation HUD): no box, no X button -- the X would switch off the
-				// whole owning mod.
+				// Saturation HUD or a non-separate Locator Bar): no box, no X button
+				// -- the X would switch off the whole owning mod.
 				continue;
 			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
@@ -229,7 +208,9 @@ public class HudEditorScreen extends GuiScreen {
 				g.fill(hx0, hy0, hx0 + HANDLE_VIS, hy0 + HANDLE_VIS, hh ? 0xFFFFFFFF : 0xF0F0F0F0);
 
 				// X toggle in the corner OPPOSITE the resize handle (the anchored
-				// corner), scaled with the element so it grows/shrinks as you resize.
+				// corner). Placed just OUTSIDE the element's box so it never covers the
+				// content/text, and scaled with the element so it grows/shrinks as you
+				// resize. Clamped to stay on screen.
 				int xs = xBtn(Math.min(w, h));
 				int xbx = xBtnX(pos.anchor, ox0, ox1, xs);
 				int xby = xBtnY(pos.anchor, oy0, oy1, xs);
@@ -237,14 +218,14 @@ public class HudEditorScreen extends GuiScreen {
 				// Invisible until the element is hovered (we're inside `if (active)`);
 				// a soft 60% red ✕ with NO box, firming to full red when pointed at.
 				// Scaled to the box so it never crowds the letters. (1.8.9's
-				// FontRenderer draws ✕ from its unicode glyph pages.)
+				// FontRenderer draws it from its unicode glyph pages.)
 				int xcol = xh ? 0xFFF08A90 : 0x99F08A90;
 				float gs = xs / (float) XBTN;
 				Pose xp = g.pose();
 				xp.pushPose();
 				xp.translate(xbx + xs / 2f, xby + xs / 2f, 0);
 				xp.scale(gs, gs, 1f);
-				g.drawString(fontRendererObj, "✕", -fontRendererObj.getStringWidth("✕") / 2, -4, xcol, false);
+				g.drawString(font, "✕", -font.getStringWidth("✕") / 2, -4, xcol, false);
 				xp.popPose();
 			}
 
@@ -263,7 +244,7 @@ public class HudEditorScreen extends GuiScreen {
 		this.hoveredId = hovered;
 
 		if (quick) {
-			renderQuickGroup(g, in);
+			renderQuickGroup(g, mouseX, mouseY, in);
 		}
 	}
 
@@ -271,16 +252,14 @@ public class HudEditorScreen extends GuiScreen {
 	 * The Right Shift centre group, in design px around the screen centre (the
 	 * mock's 1080p numbers): the mark rises out from behind the wordmark on open.
 	 */
-	private void renderQuickGroup(Gfx g, float in) {
+	private void renderQuickGroup(Gfx g, int mouseX, int mouseY, float in) {
 		// 1.8.9: no Window object -- framebuffer size via the Gfx helpers; the deck
-		// gets LWJGL's window-px mouse (finer than drawScreen's int GUI px)
+		// gets the live double GUI-px mouse (finer than render's int coordinates)
 		int winW = Gfx.windowWidth(), winH = Gfx.windowHeight();
 		deckS = OriginDeck.scale(winW, winH, 920, 580);
 		deckOx = winW / 2f;
 		deckOy = winH / 2f;
-		double gs = Gfx.guiScale();
-		OriginDeck d = new OriginDeck(g, deckS, deckOx, deckOy,
-				Mouse.getX() / gs, (mc.displayHeight - Mouse.getY() - 1) / gs, hits);
+		OriginDeck d = new OriginDeck(g, deckS, deckOx, deckOy, mouseGuiX(), mouseGuiY(), hits);
 		d.alpha = in;
 		// the wordmark sits straight on the game world (this screen never has a
 		// panel), so it always gets the kit's see-through legibility; the buttons'
@@ -331,31 +310,19 @@ public class HudEditorScreen extends GuiScreen {
 		g.fill(x1 - t, y0, x1, y1, color);          // right
 	}
 
-	// ---- input (1.8.9: int GUI px from GuiScreen's mouse callbacks) ----
-
 	@Override
-	protected void mouseClicked(int mx, int my, int button) throws IOException {
-		try {
-			onClick(mx, my, button);
-		} catch (Throwable t) {
-			// fail soft: a broken element must not take the editor down
-		}
-	}
-
-	private void onClick(int mx, int my, int button) {
+	public boolean mouseClicked(double mx, double my, int button) {
 		if (button != 0) {
-			return;
+			return super.mouseClicked(mx, my, button);
 		}
 		if (quick) {
-			// the deck's targets are in design px; read LWJGL's event position for
-			// the same precision the deck drew with
 			double gs = Gfx.guiScale();
-			double gx = Mouse.getEventX() / gs, gy = (mc.displayHeight - Mouse.getEventY() - 1) / gs;
-			if (OriginDeck.click(hits, OriginDeck.toDesign(gx, gs, deckOx, deckS), OriginDeck.toDesign(gy, gs, deckOy, deckS))) {
-				return;
+			if (OriginDeck.click(hits, OriginDeck.toDesign(mx, gs, deckOx, deckS), OriginDeck.toDesign(my, gs, deckOy, deckS))) {
+				return true;
 			}
 		}
 
+		Minecraft mc = Minecraft.getMinecraft();
 		for (int i = HudElements.ALL.size() - 1; i >= 0; i--) {
 			HudElements.Element e = HudElements.ALL.get(i);
 			if (!Mods.on(e.modId())) {
@@ -364,7 +331,9 @@ public class HudEditorScreen extends GuiScreen {
 			HudPos pos = e.pos();
 			int[] size = e.measure().apply(mc);
 			if (size[0] <= 0 && size[1] <= 0) {
-				// 0x0 = nothing to place right now: no box, no X button (see render)
+				// 0x0 = nothing to place right now (an off sub-feature, e.g. the
+				// Saturation HUD or a non-separate Locator Bar): no box, no X button
+				// -- the X would switch off the whole owning mod.
 				continue;
 			}
 			double w = size[0] * pos.scale, h = size[1] * pos.scale;
@@ -382,7 +351,7 @@ public class HudEditorScreen extends GuiScreen {
 				if (e.id().equals(selectedId)) {
 					selectedId = null;
 				}
-				return;
+				return true;
 			}
 			// free-corner handle first, so it wins over the body
 			if (mx >= hx0 - HANDLE_HIT && mx <= hx0 + HANDLE_VIS + HANDLE_HIT
@@ -399,7 +368,7 @@ public class HudEditorScreen extends GuiScreen {
 				// so it never snaps to the cursor on the first move.
 				resizeStartScale = pos.scale;
 				resizeGrabDist = Math.max(1.0, Math.hypot(mx - resizeFixedX, my - resizeFixedY));
-				return;
+				return true;
 			}
 			if (mx >= x - 4 && mx < x + w + 4 && my >= y - 4 && my < y + h + 4) {
 				selectedId = e.id();
@@ -410,23 +379,15 @@ public class HudEditorScreen extends GuiScreen {
 				dragY = y;
 				dragW = w;
 				dragH = h;
-				return;
+				return true;
 			}
 		}
 		selectedId = null;
+		return super.mouseClicked(mx, my, button);
 	}
 
-	// 1.8.9's mouseDragged: fires while a button is held and the mouse moves.
 	@Override
-	protected void mouseClickMove(int mx, int my, int button, long timeSinceLastClick) {
-		try {
-			onDrag(mx, my);
-		} catch (Throwable t) {
-			// fail soft
-		}
-	}
-
-	private void onDrag(int mx, int my) {
+	public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
 		if (resizingId != null) {
 			HudElements.Element e = byId(resizingId);
 			if (e != null && resizeBaseW > 0 && resizeBaseH > 0) {
@@ -435,11 +396,12 @@ public class HudEditorScreen extends GuiScreen {
 				HudPos pos = e.pos();
 				// Distance from the anchored corner to the cursor. Growth direction
 				// follows the handle: pulling the free corner AWAY from the anchor
-				// grows; toward it shrinks — same for all four corners since the
-				// handle is always opposite the anchor. A deadzone makes the grab forgiving.
+				// (down+right on a bottom-right handle) grows; toward it shrinks —
+				// same for all four corners since the handle is always opposite the
+				// anchor. A deadzone makes the grab forgiving.
 				double d = Math.hypot(mx - resizeFixedX, my - resizeFixedY);
 				if (Math.abs(d - resizeGrabDist) < RESIZE_DEADZONE) {
-					return;
+					return true;
 				}
 				double raw = resizeStartScale * (d / resizeGrabDist);
 				// cap so the growing edge can't leave the screen either
@@ -449,7 +411,7 @@ public class HudEditorScreen extends GuiScreen {
 				pos.scale = Math.max(0.5, Math.min(maxS, raw));
 				pos.save(e.id());
 			}
-			return;
+			return true;
 		}
 		if (draggingId != null) {
 			// locked fully on-screen: the whole element AND its 4px outline stay
@@ -471,69 +433,59 @@ public class HudEditorScreen extends GuiScreen {
 			if (Math.abs(ccy - height / 2.0) <= SNAP) {
 				dragY = height / 2.0 - dragH / 2.0;
 			}
+			return true;
 		}
+		return super.mouseDragged(mx, my, button, dx, dy);
 	}
 
 	@Override
-	protected void mouseReleased(int mx, int my, int button) {
-		try {
-			if (resizingId != null) {
-				resizingId = null;
-				return;
-			}
-			if (draggingId != null) {
-				HudElements.Element e = byId(draggingId);
-				if (e != null) {
-					HudPos pos = e.pos();
-					int[] size = e.measure().apply(mc);
-					pos.setFromAbsolute(dragX, dragY, width, height, size[0] * pos.scale, size[1] * pos.scale);
-					pos.save(e.id());
-				}
-				draggingId = null;
-			}
-		} catch (Throwable t) {
-			draggingId = null;
+	public boolean mouseReleased(double mx, double my, int button) {
+		if (resizingId != null) {
 			resizingId = null;
+			return true;
 		}
-	}
-
-	// 1.8.9 has no mouseScrolled: the wheel is a mouse event's DWheel (+-120 per
-	// notch on Windows); one notch = one 0.05 scale step, as on 1.16.5.
-	@Override
-	public void handleMouseInput() throws IOException {
-		super.handleMouseInput();
-		int wheel = Mouse.getEventDWheel();
-		if (wheel == 0) {
-			return;
-		}
-		try {
-			String target = hoveredId != null ? hoveredId : selectedId;
-			HudElements.Element e = target == null ? null : byId(target);
+		if (draggingId != null) {
+			HudElements.Element e = byId(draggingId);
 			if (e != null) {
+				Minecraft mc = Minecraft.getMinecraft();
 				HudPos pos = e.pos();
-				pos.scale = Math.max(0.5, Math.min(2.5, pos.scale + Math.signum(wheel) * 0.05));
+				int[] size = e.measure().apply(mc);
+				pos.setFromAbsolute(dragX, dragY, width, height, size[0] * pos.scale, size[1] * pos.scale);
 				pos.save(e.id());
 			}
-		} catch (Throwable t) {
-			// fail soft
+			draggingId = null;
+			return true;
 		}
+		return super.mouseReleased(mx, my, button);
 	}
 
-	// LWJGL2 key codes. Never calls super: GuiScreen.keyTyped sends Esc to the
-	// game, but Esc here goes back to `returnTo` (the mod menu when it opened us).
 	@Override
-	protected void keyTyped(char chr, int keyCode) throws IOException {
-		if (keyCode == Keyboard.KEY_ESCAPE || keyCode == Keyboard.KEY_RSHIFT) {
-			onClose();
-			return;
-		}
-		if (keyCode == Keyboard.KEY_R && hoveredId != null) {
-			try {
-				com.origin.client.client.mods.ModsConfigAccess.resetHud(hoveredId);
-			} catch (Throwable t) {
-				// fail soft
+	public boolean mouseScrolled(double mx, double my, double sy) {
+		String target = hoveredId != null ? hoveredId : selectedId;
+		if (target != null) {
+			HudElements.Element e = byId(target);
+			if (e != null) {
+				HudPos pos = e.pos();
+				pos.scale = Math.max(0.5, Math.min(2.5, pos.scale + sy * 0.05));
+				pos.save(e.id());
+				return true;
 			}
 		}
+		return super.mouseScrolled(mx, my, sy);
+	}
+
+	@Override
+	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		// LWJGL2 codes; anything unhandled falls to the bridge, which sends Esc to onClose()
+		if (keyCode == Keyboard.KEY_RSHIFT) {
+			onClose();
+			return true;
+		}
+		if (keyCode == Keyboard.KEY_R && hoveredId != null) {
+			com.origin.client.client.mods.ModsConfigAccess.resetHud(hoveredId);
+			return true;
+		}
+		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
 	private static HudElements.Element byId(String id) {
@@ -544,4 +496,6 @@ public class HudEditorScreen extends GuiScreen {
 		}
 		return null;
 	}
+
+
 }

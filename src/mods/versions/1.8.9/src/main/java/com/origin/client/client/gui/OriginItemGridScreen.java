@@ -217,9 +217,9 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 		if (ALL_ITEMS == null) {
 			List<Entry> out = new ArrayList<>();
 			// 1.8.9: RegistryNamespaced iterates its values; there is no air item to skip
-			for (Item item : Item.itemRegistry) {
+			for (Item item : Item.itemRegistry) {   // 1.8.9 NAME UNVERIFIED: RegistryNamespaced iterates values
 				try {
-					ResourceLocation id = item == null ? null : Item.itemRegistry.getNameForObject(item);
+					ResourceLocation id = item == null ? null : Item.itemRegistry.getNameForObject(item);   // 1.8.9 NAME UNVERIFIED
 					if (id == null) {
 						continue;
 					}
@@ -227,6 +227,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 					Cat c = categorize(item);
 					out.add(new Entry(item, id, st.getDisplayName(), st, c,
 							categoryOrder(c, id.getResourcePath()), Item.getIdFromItem(item), id.toString()));
+					// 1.8.9 NAME UNVERIFIED: ResourceLocation.getResourcePath
 				} catch (Throwable t) {
 					// fail soft: an item whose name or stack can't be built is left out
 				}
@@ -330,6 +331,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 
 	// 1.8.9: the era's item classes. Hoes are not ItemTool here (ItemHoe extends
 	// Item until 1.16), so they join the tools explicitly.
+	// 1.8.9 NAME UNVERIFIED: ItemArmor / ItemSword / ItemBow / ItemTool / ItemHoe / ItemBlock
 	private static Cat categorize(Item item) {
 		if (item instanceof ItemArmor) {
 			return Cat.ARMOR;

@@ -320,8 +320,9 @@ public class OriginModMenuScreen extends OriginScreen {
 			case COLOR:
 				return Mods.color(id, o.key) != o.defColor || OriginColorPicker.chromaOn(id, o.key);
 			case KEYBIND:
-				// 1.8.9: Mods.keyCode is LWJGL2, the schema default is GLFW (the file format)
-				return Mods.keyCode(id, o.key) != KeyCodes.glfwToLwjgl(o.defKey);
+				// 1.8.9: both sides LWJGL2 (Mods.keyCode translates the file's GLFW
+				// code; this module's schema declares its defaults in LWJGL2)
+				return Mods.keyCode(id, o.key) != o.defKey;
 			case DROPDOWN:
 				return o.modes != null && o.modes.length > 0 && !Mods.mode(id, o.key).equals(o.modes[0]);
 			case TEXT:
