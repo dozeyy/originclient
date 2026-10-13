@@ -1,2 +1,0 @@
-# PORTING AID (build.gradle): delete once the port is done.
-mezz/jei/
