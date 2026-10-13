@@ -102,9 +102,9 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :configureClientLaunch
 
 > Task :runClient
-[01:41:42] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.3 with Fabric Loader 0.19.5
-[01:41:42] [main/INFO] (FabricLoader/Mappings) Mappings not present!
-[01:41:42] [main/INFO] (FabricLoader) Loading 54 mods:
+[02:03:26] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.3 with Fabric Loader 0.19.5
+[02:03:26] [main/INFO] (FabricLoader/Mappings) Mappings not present!
+[02:03:26] [main/INFO] (FabricLoader) Loading 54 mods:
 	- fabric-advancement-api-v1 1.0.0+38c7a2d55d
 	- fabric-api 0.162.0+26.3
 	- fabric-api-base 2.0.6+fcdff87f5d
@@ -159,23 +159,23 @@ Note: Recompile with -Xlint:deprecation for details.
 	- minecraft 26.3
 	- mixinextras 0.5.5
 	- originclient 0.4.2
-[01:41:42] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/5f66cc9f59b8efaa942155a3d5a30599bf6640dd/sponge-mixin-0.17.4+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
-[01:41:43] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
-[01:41:43] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.5).
-[01:41:45] [Datafixer Bootstrap #0/INFO] (Minecraft) 307 Datafixer optimizations took 531 milliseconds
-[01:41:51] [Render thread/INFO] (Minecraft) Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]
-[01:41:51] [Render thread/INFO] (Minecraft) Setting user: Player602
-[01:41:51] [Render thread/INFO] (originclient) Origin Client initializing
-[01:41:52] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
-[01:41:52] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
-[01:41:52] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
-[01:41:52] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.709 milliseconds
-[01:41:52] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.3-snapshot
-[01:41:52] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App name: Minecraft
-[01:41:52] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App version: 26.3
-[01:41:52] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App ID: com.mojang.minecraft
-[01:41:52] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: SDL revision: SDL-3.4.14--128-NOTFOUND
-[01:41:52] [Render thread/ERROR] (Minecraft) Failed to create backend OpenGL
+[02:03:26] [main/INFO] (FabricLoader/Mixin) SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/home/runner/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/5f66cc9f59b8efaa942155a3d5a30599bf6640dd/sponge-mixin-0.17.4+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[02:03:27] [main/WARN] (FabricLoader/Mixin) Error loading class: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives (java.lang.ClassNotFoundException: net/irisshaders/iris/shaderpack/properties/PackShadowDirectives)
+[02:03:27] [main/INFO] (FabricLoader/MixinExtras|Service) Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.5).
+[02:03:30] [Datafixer Bootstrap #0/INFO] (Minecraft) 307 Datafixer optimizations took 658 milliseconds
+[02:03:35] [Render thread/INFO] (Minecraft) Environment: Environment[discoveryUrl=https://discovery.minecraftservices.com/minecraft/client, name=PROD]
+[02:03:35] [Render thread/INFO] (Minecraft) Setting user: Player891
+[02:03:36] [Render thread/INFO] (originclient) Origin Client initializing
+[02:03:36] [Render thread/INFO] (PluginCaller) Sending ConfigManager...
+[02:03:36] [Render thread/INFO] (PluginCaller) Sending ConfigManager took 1.089 milliseconds
+[02:03:36] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!
+[02:03:36] [Render thread/INFO] (originclient) Origin: MSDF text, icon SDF and colour-grade pipelines build on first use (26.2).
+[02:03:36] [Render thread/INFO] (Minecraft) Backend library: LWJGL version 3.4.3-snapshot
+[02:03:36] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App name: Minecraft
+[02:03:36] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App version: 26.3
+[02:03:36] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: App ID: com.mojang.minecraft
+[02:03:36] [Render thread/INFO] (Minecraft) SDL [SYSTEM]: SDL revision: SDL-3.4.14--128-NOTFOUND
+[02:03:37] [Render thread/ERROR] (Minecraft) Failed to create backend OpenGL
 
 com.mojang.renderpearl.api.device.BackendCreationException: Failed to create window for OpenGL context: Couldn't find matching GLX visual
 	at knot//com.mojang.renderpearl.backend.opengl.GlDevice.<init>(GlDevice.java:83)
@@ -186,7 +186,7 @@ com.mojang.renderpearl.api.device.BackendCreationException: Failed to create win
 	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:72)
 	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
 	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
-[01:41:52] [Render thread/ERROR] (Minecraft) Failed to create backend Vulkan
+[02:03:37] [Render thread/ERROR] (Minecraft) Failed to create backend Vulkan
 
 com.mojang.renderpearl.api.device.BackendCreationException: Vulkan is not supported: Installed Vulkan doesn't implement the VK_KHR_surface extension
 	at knot//com.mojang.renderpearl.backend.vulkan.VulkanBackend.loadLibrary(VulkanBackend.java:69)
