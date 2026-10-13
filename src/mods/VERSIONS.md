@@ -43,6 +43,7 @@ MEMORY.md and `docs/PORTING-ERA-NOTES.md`). JEI ships only where a Fabric JEI ex
 | Module | Covers | fabric.mod.json range | Install model | Java |
 |--------|--------|----------------------|---------------|------|
 | `26.2` | 26.2 | `~26.2` | standalone stack (Sodium 0.9.2 + Iris 1.11.4 …) + JEI jar-in-jar. **26.x era**: unobfuscated (no mappings), extract/submit GUI — ported from 1.21.11 on 2026-10-13, see `docs/PORTING-ERA-NOTES.md` "26.x era" | 25 (CI runs Gradle on JDK 25: `"java": "25"` in live-modules.json) |
+| `26.1` | 26.1, 26.1.1, 26.1.2 | `>=26.1- <26.2-` | standalone stack (26.1.2: Sodium 0.9.2 + Iris 1.11.4; 26.1 / 26.1.1: Sodium 0.8.9 + Iris 1.10.9 — Iris 1.11 needs Sodium 0.9, whose only build here requires 26.1.2) + JEI 29.47 jar-in-jar. **One jar for all three**: version-scout's API diff found no class or public signature change across 26.1 → 26.1.2. Derived from `26.2` on 2026-10-13 (a middle era: extract GUI like 26.2, but `Gui` is still the HUD, `mc.screen`, immediate block outline, `RenderType.draw`, beds are block entities) — `docs/PORTING-ERA-NOTES.md` "26.1.x" | 25 |
 | `1.21.1` | 1.21.1 | `~1.21.1` | **Bundles perf stack jar-in-jar** (Sodium/Indium/Iris/Lithium/…) | 21 |
 | `1.20` | 1.20, 1.20.1 | `>=1.20- <1.20.2` | Origin jar + standalone catalog stack | 17 (via JDK 21) |
 | `1.20.4` | 1.20.3, 1.20.4 | `>=1.20.3- <1.20.5` | standalone stack | 17 (via JDK 21) |
@@ -151,7 +152,7 @@ screen and every loading/connecting/working screen.
 
 | Module | Covers | fabric.mod.json range | Java | Status | Blocking / next step |
 |--------|--------|----------------------|------|--------|----------------------|
-| — | | | | | (none — 26.2 went live 2026-10-13; 26.1.x / 26.3 are to be derived from `versions/26.2`) |
+| — | | | | | (none — 26.2 and 26.1 – 26.1.2 went live 2026-10-13; 26.3 is to be derived from `versions/26.2`) |
 
 **1.21.9 was pulled entirely** (removed from `VersionCatalog` — it was the hard
 input-event-boundary + fabric-API-gap hybrid; not worth carrying). Its analysis
@@ -166,8 +167,8 @@ exactly the `OriginBuilds` versions — nothing else — and
 that day: the whole 26.x card (26.1, 26.1.1, 26.1.2, 26.2), 1.20.6, 1.20.5,
 1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, and 1.16–1.16.4 (the 26 card's art went
 with it; re-adding a version means re-adding it to its card). The 26 card came
-back on 2026-10-13 listing 26.2 (its art restored from history); 26.1.x / 26.3
-join it as they are ported. A player whose
+back on 2026-10-13 listing 26.2 (its art restored from history); 26.1.2, 26.1.1
+and 26.1 joined it the same day (one jar); 26.3 joins it once ported. A player whose
 saved version is no longer listed starts on the newest version (1.21.11) — the
 launcher already drops any saved version the picker doesn't offer.
 
