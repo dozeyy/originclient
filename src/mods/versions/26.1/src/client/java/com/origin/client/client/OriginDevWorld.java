@@ -152,6 +152,10 @@ final class OriginDevWorld {
 				Mods.setOn("blockoverlay", true);
 				Mods.set("blockoverlay", "outline", true);
 				Mods.set("blockoverlay", "overlay", true);
+				// Vivid colours so the overlays read on any biome (a snowy seed hid
+				// the default white outline/overlay completely).
+				Mods.set("blockoverlay", "color", (double) 0xFFFF3030);
+				Mods.set("blockoverlay", "overlayColor", (double) 0x66FF3030);
 				mc.player.setXRot(55f);
 				phase = 9;
 				nextAt = now + 2500;
