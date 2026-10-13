@@ -111,7 +111,10 @@ jobs:
       - name: Headless GL deps (Xvfb + Mesa software rasterizer)
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa
+          # x11-xserver-utils (xrandr) + libXxf86vm/libXrandr: LWJGL 2 (1.8.9)
+          # queries display modes through them at Display.create().
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa \
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
 
       - name: Boot ${{ matrix.module }} and capture the Origin screens
         working-directory: src/mods/versions/${{ matrix.module }}
