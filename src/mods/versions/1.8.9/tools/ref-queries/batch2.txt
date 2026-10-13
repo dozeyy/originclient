@@ -1,0 +1,23 @@
+# ref-189 lookup group: batch2 — unverified names from the area reports
+class IScoreObjectiveCriteria$EnumRenderType
+class GuiScreenEvent$MouseInputEvent$Pre
+class GuiScreenEvent$ActionPerformedEvent$Pre
+class ChatAllowedCharacters
+class Vec3
+class InventoryPlayer
+class net.minecraft.init.Items
+class ResourcePackRepository$Entry
+class net.minecraft.world.chunk.Chunk
+class net.minecraft.world.WorldProvider
+class BiomeColorHelper
+class net.minecraft.world.border.WorldBorder
+class ItemTooltipEvent
+class AttackEntityEvent
+class net.minecraft.block.material.MapColor
+class BlockPortal
+class GuiScreenOptionsSounds$Button
+class net.minecraft.client.gui.GuiSlider
+class org.lwjgl.input.Keyboard
+member drawButton
+member drawChat
+member sliderPosition

@@ -9,7 +9,6 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.client.event.RenderWorldLastEvent;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
@@ -68,11 +67,6 @@ public final class WaypointHud {
 		} catch (Throwable t) {
 			valid = false;
 		}
-	}
-
-	/** {@link #capture(float)} from the world-last event (the 1.16.5 shape took the render context). */
-	public static void capture(RenderWorldLastEvent event) {
-		capture(event == null ? 1f : event.partialTicks);
 	}
 
 	/** Clip-space {x, y, w} of a camera-relative point (VIEW then PROJ, column-major). */

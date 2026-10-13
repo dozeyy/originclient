@@ -8,5 +8,32 @@
 		"defaultRequire": 0
 	},
 	"client": [
+		"ActiveRenderInfoMixin",
+		"ArmorGlintMixin",
+		"FreelookCameraMixin",
+		"FreelookTerrainMixin",
+		"FreelookTurnMixin",
+		"FullbrightMixin",
+		"GameSettingsZoomMixin",
+		"GlintColorizerMixin",
+		"HitColorMixin",
+		"HurtCamMixin",
+		"LivingNametagMixin",
+		"MinecraftFramerateMixin",
+		"NametagLabelMixin",
+		"ParticleScaleMixin",
+		"ParticleSpawnMixin",
+		"RenderEntityItemMixin",
+		"RenderItemInvoker",
+		"RenderManagerMixin",
+		"ShaderGroupAccessor",
+		"ShinyPotsMixin",
+		"SoundChangerMixin",
+		"TileEntityDistanceMixin",
+		"TntCountdownMixin",
+		"WeatherRenderMixin",
+		"WorldTimeMixin",
+		"WorldWeatherMixin",
+		"ZoomFovMixin"
 	]
 }

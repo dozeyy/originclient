@@ -616,7 +616,8 @@ public final class Mods {
 				ModOption.toggle("unlimited", "Unlimited Chat", false).tip("Remove the limit on stored chat history length."),
 				ModOption.toggle("stackSpam", "Stack Spam Messages", true).tip("Collapse repeated messages into one line with a counter."),
 				ModOption.toggle("textShadow", "Text Shadow in Chat", true),
-				ModOption.toggle("keepHistory", "Keep Chat History", true),
+				// 1.8.9: no "Keep Chat History" row -- 1.8.9 never clears chat when you
+				// leave a server, so the toggle would do nothing (its stored value stays).
 				ModOption.toggle("smoothChat", "Smooth Chat", true).tip("Animate new messages sliding into the chat."),
 				ModOption.toggle("timestamps", "Timestamps", false),
 				ModOption.slider("opacity", "Background Opacity", 0.0, 1.0, 0.05, 0.5, "%.0f%%"),
@@ -1111,11 +1112,10 @@ public final class Mods {
 	// Bed Wars game on *.hypixel.net (mods/HypixelBedwars, hud/BedwarsHud).
 	// Kept in its own method so it merges cleanly with other registry additions.
 	private static void registerLunarBedwars() {
-		add("hypixelbedwars", "Hypixel Bed Wars", "Team-coloured beds, hardcore hearts and trap alerts in Bed Wars.", true,
-				ModOption.toggle("coloredBeds", "Colored Beds", true)
-						.tip("Recolor the beds in-game according to the team's color."),
-				ModOption.toggle("practiceColor", "Enable Practice Color", false).under("coloredBeds")
-						.tip("Recolor the beds in Bed Wars practice mode too."),
+		// 1.8.9: no Colored Beds / Practice Color rows -- 1.8.9 beds are plain blocks
+		// baked into the chunk mesh with one texture, so there is nothing to recolour
+		// (their stored values stay in the file for the other versions).
+		add("hypixelbedwars", "Hypixel Bed Wars", "Hardcore hearts, trap alerts and team HUDs in Bed Wars.", true,
 				ModOption.toggle("hardcoreHearts", "Hardcore Hearts", true)
 						.tip("Replace normal hearts with hardcore hearts once your bed is lost."),
 				ModOption.toggle("hideFoodBar", "Hide Food Bar", false)

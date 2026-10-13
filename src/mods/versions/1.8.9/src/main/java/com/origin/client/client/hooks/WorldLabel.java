@@ -41,9 +41,26 @@ public final class WorldLabel {
 	 * keep the entity's light, so restyled name tags pass false.
 	 */
 	public static void begin(double x, double y, double z, float scale, boolean fullBright) {
+		begin(x, y, z, 1f, 0.0, scale, fullBright);
+	}
+
+	/**
+	 * As {@link #begin(double, double, double, float, boolean)}, but first scales
+	 * the world by `worldScale` about (x, y, z) and lifts the label `lift` world
+	 * units straight up from there (both BEFORE the billboard turn, so the label
+	 * stays on the vertical line above the anchor from any angle). The Nametags
+	 * mod's Scale uses this with the entity's feet as the anchor.
+	 */
+	public static void begin(double x, double y, double z, float worldScale, double lift, float scale, boolean fullBright) {
 		RenderManager rm = Minecraft.getMinecraft().getRenderManager();
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(x, y, z);
+		if (worldScale != 1f) {
+			GlStateManager.scale(worldScale, worldScale, worldScale);
+		}
+		if (lift != 0.0) {
+			GlStateManager.translate(0.0, lift, 0.0);
+		}
 		GL11.glNormal3f(0.0F, 1.0F, 0.0F);
 		GlStateManager.rotate(-rm.playerViewY, 0.0F, 1.0F, 0.0F);
 		GlStateManager.rotate(rm.playerViewX, 1.0F, 0.0F, 0.0F);
