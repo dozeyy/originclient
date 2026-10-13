@@ -159,65 +159,131 @@ h2 span, h1 span { color: var(--acc-h); }
 
 /* ---------- why origin: the mining game (js/why.js) ---------- */
 .why.is-game .compare { display: none; }
-.why__stage { position: relative; max-width: 1040px; padding: 30px 0 10px; }
+.why__stage {
+  --pick: pointer; position: relative; max-width: 820px; padding: clamp(22px, 3vw, 36px);
+  /* its own dark glass, so the island and orbit rings never fight the blocks */
+  background: rgba(10, 13, 11, .78); border: 1px solid var(--soft); border-radius: 4px;
+  backdrop-filter: blur(12px); box-shadow: 0 6px 0 rgba(0, 0, 0, .5), 0 30px 80px rgba(0, 0, 0, .45);
+}
 .why:not(.is-game) .why__stage { display: none; }
 .why__fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
-.why__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(14px, 2.4vw, 28px); }
-.why__cell { position: relative; display: grid; place-items: center; min-height: clamp(150px, 17vw, 190px); perspective: 600px; }
+/* mined cards sit above the particles so their text stays readable */
+.why__cell.is-mined { z-index: 4; }
+.why__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(10px, 1.6vw, 18px); }
+.why__cell { position: relative; display: grid; grid-template-rows: 1fr auto; justify-items: center; align-items: center; gap: 12px; min-height: clamp(168px, 16vw, 196px); padding-top: 8px; perspective: 600px; }
+/* the reason, readable before anyone mines */
+.why__label { font: 600 12px/1.3 var(--mono); letter-spacing: .04em; color: var(--dim); text-align: center; text-wrap: balance; }
+.why__cell.is-mined .why__label { visibility: hidden; }
 /* the blocks fall in, one after another, when the section arrives */
 .why__block {
   --rx: 0deg; --ry: 0deg;
-  position: relative; width: clamp(96px, 11vw, 132px); aspect-ratio: 1; padding: 0; border: 0; background: none; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' shape-rendering='crispEdges'%3E%3Cpath fill='%235a3a1e' d='M14 14h4v4h-4zM11 17h4v4h-4zM8 20h4v4H8zM5 23h4v4H5z'/%3E%3Cpath fill='%2383e2b5' d='M10 4h12v4h4v4h-4V8H10zM22 12h4v8h-4zM18 8h4v4h-4z'/%3E%3C/svg%3E") 8 24, pointer;
+  position: relative; width: clamp(84px, 9vw, 112px); aspect-ratio: 1; padding: 0; border: 0; background: none; cursor: var(--pick);
   transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry));
   transition: transform .15s var(--ease), filter .15s;
   opacity: 0; translate: 0 -120vh;
 }
 .why.is-in-view .why__block { opacity: 1; translate: 0 0; transition: translate .7s cubic-bezier(.3, 1.45, .5, 1) calc(.38s + var(--i) * .11s), opacity .2s calc(.38s + var(--i) * .11s), transform .15s var(--ease), filter .15s; }
-.why__block:hover { filter: brightness(1.12) drop-shadow(0 0 18px rgba(131, 226, 181, .45)); }
+.why__block:hover { filter: brightness(1.14) drop-shadow(0 0 20px rgba(131, 226, 181, .5)); }
 .why__block:focus-visible { outline-offset: 6px; }
 .why__face, .why__crack { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; border-radius: 2px; }
+.why__face::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .28) 50%, transparent 65%) -150% 0 / 250% 100% no-repeat; }
+.why.is-in-view .why__face::after { animation: why-sheen 3.6s ease-in-out calc(1.8s + var(--i) * .25s) infinite; }
+@keyframes why-sheen { 0%, 55% { background-position: -150% 0; } 85%, 100% { background-position: 150% 0; } }
 .why__face { background-size: cover; box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .25), inset -6px -6px 0 rgba(0, 0, 0, .22), inset 6px 6px 0 rgba(255, 255, 255, .12), 0 14px 22px rgba(0, 0, 0, .55); }
-/* idle bob, staggered so the row breathes */
-.why.is-in-view .why__face { animation: why-bob 3.2s ease-in-out calc(1.4s + var(--i) * .35s) infinite; }
-.why.is-in-view .why__crack { animation: why-bob 3.2s ease-in-out calc(1.4s + var(--i) * .35s) infinite; }
+.why.is-in-view .why__face, .why.is-in-view .why__crack { animation: why-bob 3.2s ease-in-out calc(1.4s + var(--i) * .35s) infinite; }
 @keyframes why-bob { 50% { translate: 0 -7px; } }
 .why__block.is-hit { animation: why-hit .22s; }
-@keyframes why-hit { 20% { scale: .9; rotate: -4deg; } 55% { scale: 1.06; rotate: 3deg; } 100% { scale: 1; rotate: 0deg; } }
+@keyframes why-hit { 20% { scale: .88; rotate: -5deg; } 55% { scale: 1.08; rotate: 3deg; } 100% { scale: 1; rotate: 0deg; } }
+.why__stage.is-quake { animation: why-quake .28s; }
+.why__stage.is-boom { animation: why-quake .5s 2; }
+@keyframes why-quake { 20% { translate: -5px 3px; } 40% { translate: 5px -3px; } 60% { translate: -4px -2px; } 80% { translate: 3px 2px; } }
 .why__card {
-  position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; padding: 18px; text-align: center;
+  --rx: 0deg; --ry: 0deg;
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; padding: 16px; text-align: center;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform .15s var(--ease);
   background: var(--glass); border: 1px solid var(--stroke); border-radius: 3px; box-shadow: 0 4px 0 rgba(0, 0, 0, .48), 0 0 34px rgba(95, 208, 155, .18);
-  opacity: 0; scale: .6; pointer-events: none;
+  opacity: 0; scale: .6; rotate: -6deg; pointer-events: none;
 }
-.why__card strong { font: 700 clamp(15px, 1.6vw, 20px)/1.2 var(--mono); color: var(--acc-h); }
-.why__card span { font-size: 13px; color: var(--muted); }
-.why__card em { font-style: normal; font: 600 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; margin-right: 6px; }
-.why__card s { text-decoration-color: var(--danger); text-decoration-thickness: 2px; }
+.why__card strong { font: 700 clamp(15px, 1.6vw, 20px)/1.2 var(--mono); color: var(--acc-h); text-wrap: balance; }
+.why__icon { width: 30px; height: 30px; fill: none; stroke: var(--acc-h); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 8px rgba(95, 208, 155, .45)); }
+.why__cell.is-mined .why__icon { animation: why-pop .6s cubic-bezier(.3, 1.8, .5, 1) .15s backwards; }
+.why__them { display: grid; gap: 4px; font: 600 12px/1.2 var(--mono); color: var(--dim); }
+.why__them > span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.why__them s { white-space: nowrap; color: #e8a49a; text-decoration-color: #f08b7c; text-decoration-thickness: 2px; }
 .why__cell.is-mined .why__block { visibility: hidden; }
-.why__cell.is-mined .why__card { opacity: 1; scale: 1; pointer-events: auto; transition: opacity .3s, scale .45s cubic-bezier(.3, 1.6, .5, 1); }
+.why__cell.is-mined .why__card { opacity: 1; scale: 1; rotate: 0deg; pointer-events: auto; transition: opacity .3s, scale .5s cubic-bezier(.3, 1.6, .5, 1), rotate .5s cubic-bezier(.3, 1.6, .5, 1); }
+.why__cell.is-mined .why__card:hover { border-color: var(--acc-border); box-shadow: 0 4px 0 rgba(0, 0, 0, .48), 0 0 44px rgba(95, 208, 155, .35); }
+/* floating "+1" / "CRIT!" / "+XP" over the hit point */
+.why__pop { position: absolute; z-index: 5; translate: -50% -50%; font: 700 16px/1 var(--mono); color: var(--text); text-shadow: 2px 2px 0 rgba(0, 0, 0, .7); pointer-events: none; animation: why-float .9s var(--ease) forwards; }
+.why__pop--crit { color: #ffd36e; font-size: 20px; }
+.why__pop--xp { color: #b8ff6a; font-size: 18px; }
+@keyframes why-float { 0% { opacity: 0; transform: translate(0, 6px) scale(.6); } 15% { opacity: 1; transform: translate(0, 0) scale(1.15); } 100% { opacity: 0; transform: translate(var(--dx), -54px) scale(1); } }
+/* the pickaxe hint parked on the next block */
 .why__hint { position: absolute; z-index: 4; display: flex; align-items: center; gap: 8px; font: 600 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--acc-h); pointer-events: none; opacity: 0; transition: opacity .4s, left .4s var(--ease), top .4s var(--ease); }
-/* the delay is for the fade only: placeHint() re-sets left/top every 800 ms */
+/* the delay is for the fade only, so moving to the next block is immediate */
 .why.is-in-view .why__hint { opacity: 1; transition: opacity .4s 1.4s, left .4s var(--ease), top .4s var(--ease); }
 .why__hint.is-gone { opacity: 0 !important; transition: opacity .25s; }
-.why__pick { width: 26px; height: 26px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' shape-rendering='crispEdges'%3E%3Cpath fill='%235a3a1e' d='M14 14h4v4h-4zM11 17h4v4h-4zM8 20h4v4H8zM5 23h4v4H5z'/%3E%3Cpath fill='%2383e2b5' d='M10 4h12v4h4v4h-4V8H10zM22 12h4v8h-4zM18 8h4v4h-4z'/%3E%3C/svg%3E") center / contain no-repeat; animation: why-swing .9s ease-in-out infinite; transform-origin: 20% 80%; }
+.why__pick { width: 26px; height: 26px; background: center / contain no-repeat; animation: why-swing .9s ease-in-out infinite; transform-origin: 20% 80%; }
 @keyframes why-swing { 0%, 100% { rotate: 20deg; } 50% { rotate: -25deg; } }
-.why__xp { display: flex; align-items: center; gap: 14px; margin-top: 30px; font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.why__hint.is-tap .why__pick { animation: why-tap .35s ease-in; }
+@keyframes why-tap { 40% { rotate: 70deg; translate: -6px 4px; } }
+/* TNT: drops in after two blocks; light it and it mines the rest */
+.why__tnt-slot { flex: none; width: 40px; height: 40px; }
+.why__tnt { position: relative; flex: none; width: 40px; aspect-ratio: 1; padding: 0; border: 0; background: none; cursor: var(--pick); opacity: 0; translate: 0 -40vh; pointer-events: none; transition: translate .8s cubic-bezier(.3, 1.45, .5, 1), opacity .2s; }
+.why__tnt.is-in { opacity: 1; translate: 0 0; pointer-events: auto; animation: why-tnt-wiggle 1.8s ease-in-out .9s infinite; }
+.why__tnt-body { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(#d33a2c 0 30%, #ececec 30% 70%, #d33a2c 70%); box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .3), 0 10px 18px rgba(0, 0, 0, .5); border-radius: 2px; }
+.why__tnt-body span { font: 700 11px/1 var(--mono); color: #111; letter-spacing: .06em; }
+.why__tnt::after { content: "Light me!"; position: absolute; left: 50%; bottom: calc(100% + 6px); translate: -50% 0; white-space: nowrap; font: 600 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: #ffb347; }
+.why__tnt.is-lit { animation: none; }
+.why__tnt.is-lit .why__tnt-body { animation: why-fuse .2s steps(2) infinite; }
+.why__tnt.is-lit::after { content: "Run!"; color: var(--danger); }
+@keyframes why-tnt-wiggle { 0%, 100% { rotate: 0deg; } 10% { rotate: -8deg; } 20% { rotate: 8deg; } 30% { rotate: 0deg; } }
+@keyframes why-fuse { 50% { filter: brightness(2.4); scale: 1.08; } }
+/* Minecraft-style advancement toasts */
+.why__toasts { position: absolute; z-index: 6; right: 12px; top: 0; translate: 0 -50%; display: grid; gap: 8px; pointer-events: none; }
+.why__toast { display: flex; align-items: center; gap: 12px; min-width: 230px; padding: 10px 14px; background: #212121; border: 2px solid #555; box-shadow: inset 0 0 0 2px #000, 0 6px 0 rgba(0, 0, 0, .45); font: 600 12px/1.3 var(--mono); color: #fff; animation: why-toast-in .4s var(--ease); }
+.why__toast b { display: block; color: #ffff55; font-weight: 600; }
+.why__toast-icon { flex: none; width: 28px; height: 28px; background: url(../assets/blocks/crafting_table_front.png) center / cover; image-rendering: pixelated; }
+.why__toast.is-out { animation: why-toast-out .4s var(--ease) forwards; }
+@keyframes why-toast-in { from { opacity: 0; translate: 40px 0; } }
+@keyframes why-toast-out { to { opacity: 0; translate: 40px 0; } }
+/* HUD row: level, XP bar, count, current pickaxe, sound */
+.why__hud { position: relative; z-index: 4; display: flex; align-items: center; gap: 14px; margin-top: 30px; font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
 .why__lvl { min-width: 28px; font-size: 22px; color: #a5f05a; text-shadow: 0 0 10px rgba(160, 240, 90, .6), 2px 2px 0 #1b2b10; text-align: center; }
 .why__lvl.is-pop { animation: why-pop .4s cubic-bezier(.3, 1.8, .5, 1); }
 @keyframes why-pop { 40% { scale: 1.7; } }
-.why__bar { position: relative; flex: 1; max-width: 520px; height: 12px; background: #1b2b10; border: 2px solid #0a1206; border-radius: 1px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); overflow: hidden; }
+.why__bar { position: relative; flex: 1; max-width: 420px; height: 12px; background: #1b2b10; border: 2px solid #0a1206; border-radius: 1px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); overflow: hidden; }
 .why__bar > span { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(#c6ff7a, #7ed63c); box-shadow: 0 0 12px rgba(160, 240, 90, .7); }
-.why__cta { margin-top: 26px; opacity: 0; translate: 0 10px; pointer-events: none; transition: opacity .5s, translate .5s var(--ease); }
-.why.is-done .why__cta { opacity: 1; translate: 0; pointer-events: auto; animation: why-glow 1.6s ease-in-out infinite; }
+.why__tool { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.why__tool-icon { width: 24px; height: 24px; background: center / contain no-repeat; }
+.why__tool.is-up .why__tool-icon { animation: why-pop .5s cubic-bezier(.3, 1.8, .5, 1); }
+.why__mute { width: 34px; height: 34px; padding: 0; border: 1px solid var(--soft); border-radius: 1px; background: var(--card) center / 18px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b8b5a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14'/%3E%3C/svg%3E"); cursor: pointer; }
+.why__mute.is-muted { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237d8279' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 5 6 9H2v6h4l5 4V5zM22 9l-6 6M16 9l6 6'/%3E%3C/svg%3E"); }
+.why__end { display: flex; gap: 12px; max-height: 0; margin-top: 0; overflow: hidden; opacity: 0; translate: 0 10px; pointer-events: none; transition: opacity .5s, translate .5s var(--ease), max-height .5s var(--ease), margin-top .5s var(--ease); }
+/* padding keeps the glowing CTA's halo from being clipped by overflow */
+.why.is-done .why__end { max-height: 120px; margin-top: 18px; padding: 8px; margin-left: -8px; opacity: 1; translate: 0; pointer-events: auto; }
+.why.is-done .why__cta { animation: why-glow 1.6s ease-in-out infinite; }
 @keyframes why-glow { 50% { box-shadow: 0 0 0 6px rgba(95, 208, 155, .25), 0 0 34px rgba(95, 208, 155, .55); } }
 .why.is-done .why__count { color: var(--acc-h); }
+/* the empty TNT slot would push the HUD onto extra rows once it's over */
+.why.is-done .why__tnt-slot { display: none; }
 @media (max-width: 640px) {
   .why__grid { grid-template-columns: repeat(2, 1fr); }
-  .why__cell { min-height: 150px; }
-  .why__xp { flex-wrap: wrap; }
-  .why__bar { order: 3; flex-basis: 100%; }
+  .why__cell { min-height: 160px; }
+  .why__label { font-size: 11px; }
+  .why__card { padding: 10px; gap: 6px; }
+  .why__card strong { font-size: 14px; }
+  .why__them { font-size: 12px; }
+  .why__hud { flex-wrap: wrap; }
+  .why__bar { order: 5; flex-basis: 100%; max-width: none; }
+  .why__toasts { left: 12px; right: 12px; justify-items: end; }
+  /* icon only, so level, count, pickaxe and sound share one line */
+  .why__tool [data-tool-name] { display: none; }
+  .why__toast { min-width: 0; max-width: calc(100vw - 2 * var(--gutter) - 8px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .why__block { opacity: 1; translate: 0 0; }
+  .why__tnt.is-in { animation: none; }
 }
 
 /* ---------- terms page ---------- */
