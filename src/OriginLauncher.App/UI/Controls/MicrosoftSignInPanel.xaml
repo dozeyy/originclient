@@ -20,7 +20,8 @@
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="Sign in with Microsoft" Style="{StaticResource Text.H2}" VerticalAlignment="Center"/>
             <Button Grid.Column="1" Style="{StaticResource Button.Chrome}" Width="28" Height="28" Padding="6"
-                    Click="CancelButton_Click" ToolTip="Cancel sign-in">
+                    Click="CancelButton_Click" ToolTip="Cancel sign-in"
+                    AutomationProperties.Name="Cancel sign-in">
                 <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                       Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
             </Button>

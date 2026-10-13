@@ -316,6 +316,43 @@ public class MinecraftSessionsTests
         Assert.Equal(1, _signIn.Calls);
     }
 
+    [Fact]
+    public async Task Adding_the_account_again_during_a_refused_sign_in_keeps_the_new_sign_in()
+    {
+        // The re-add (AddSignedIn) runs outside the sign-in gate: it can land
+        // while the crossed sign-in is still in flight. Its fresh tokens and
+        // adopted session must survive that sign-in's refusal.
+        _vault.Add(Alex, "rt-0");
+        _signIn.Hold = new TaskCompletionSource();
+        var play = _sessions.ForPlayAsync(Alex);
+        await _signIn.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        _now = Start.AddSeconds(5);
+        var readded = SessionFor(Alex, Start.AddHours(24), token: "from-add");
+        _vault.Add(Alex, "rt-a-fresh", readded);
+        _sessions.Adopt(readded);
+        _signIn.Hold.SetResult();
+
+        var ex = await Assert.ThrowsAsync<MicrosoftAuthException>(() => play);
+        Assert.Equal(MicrosoftAuthException.AccountMismatchStage, ex.Stage);
+        Assert.Equal("rt-a-fresh", _vault.Accounts[Alex].Refresh);
+        Assert.Same(readded, _vault.Accounts[Alex].Session);
+        Assert.Equal("from-add", (await _sessions.ForPlayAsync(Alex))!.AccessToken);
+        Assert.Equal(1, _signIn.Calls);
+    }
+
+    [Fact]
+    public async Task A_failed_unlink_still_reports_the_mismatch()
+    {
+        _vault.Add(Alex, "rt-0");
+        _vault.UnlinkFails = true;
+
+        var ex = await Assert.ThrowsAsync<MicrosoftAuthException>(() => _sessions.ForPlayAsync(Alex));
+
+        Assert.Equal(MicrosoftAuthException.AccountMismatchStage, ex.Stage);
+        Assert.Contains("IOException", ex.Detail);
+    }
+
     // --- fakes -----------------------------------------------------------------
 
     private sealed class FakeVault : ISessionVault
@@ -335,16 +372,21 @@ public class MinecraftSessionsTests
         public string? RefreshToken(string accountId) =>
             Accounts.TryGetValue(accountId, out var e) ? e.Refresh : null;
 
-        // Mirrors AddSignedIn's "pending-<guid>" ids.
-        public bool IsPending(string accountId) =>
-            Accounts.ContainsKey(accountId) && accountId.StartsWith("pending-", StringComparison.Ordinal);
-
         public MinecraftSession? SavedSession(string accountId) =>
             Accounts.TryGetValue(accountId, out var e) ? e.Session : null;
 
-        public void Unlink(string accountId)
+        public bool UnlinkFails;
+
+        // Same compare-and-swap as the real vault: only while the row still
+        // holds the token the refused sign-in used.
+        public void Unlink(string accountId, string usedRefreshToken)
         {
-            if (Accounts.TryGetValue(accountId, out var e)) { e.Refresh = null; e.Session = null; }
+            if (UnlinkFails) throw new IOException("accounts.json is locked");
+            if (Accounts.TryGetValue(accountId, out var e) && e.Refresh == usedRefreshToken)
+            {
+                e.Refresh = null;
+                e.Session = null;
+            }
         }
 
         public void Save(string accountId, SilentSignIn signIn)

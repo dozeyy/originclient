@@ -91,7 +91,7 @@ public static class MinecraftSessionBroker
 
         var pending = new StoredAccount
         {
-            Id = "pending-" + Guid.NewGuid().ToString("N"),
+            Id = MinecraftSessions.PendingIdPrefix + Guid.NewGuid().ToString("N"),
             Gamertag = "New account",
             LastUsedUtc = DateTimeOffset.UtcNow,
             ProtectedRefreshToken = protectedRefresh,
@@ -167,82 +167,5 @@ public static class MinecraftSessionBroker
 
         public Task<TokenCheck> CheckAsync(string accessToken, CancellationToken ct) =>
             MicrosoftAuthenticator.CheckMinecraftTokenAsync(accessToken, ct);
-    }
-
-    /// <summary>accounts.json: refresh token + cached session, both DPAPI-protected.</summary>
-    private sealed class AccountSessionVault : ISessionVault
-    {
-        public string? RefreshToken(string accountId) =>
-            Find(AccountStore.Load(), accountId) is { ProtectedRefreshToken.Length: > 0 } account
-                ? AccountStore.TryUnprotectRefreshToken(account.ProtectedRefreshToken)
-                : null;
-
-        public void Unlink(string accountId) =>
-            AccountStore.Update(accounts =>
-            {
-                if (Find(accounts, accountId) is { } stored)
-                {
-                    stored.ProtectedRefreshToken = "";
-                    stored.ProtectedMinecraftSession = null;
-                }
-                return accounts;
-            });
-
-        public bool IsPending(string accountId) =>
-            Find(AccountStore.Load(), accountId) is { PendingMinecraftSignIn: true };
-
-        public MinecraftSession? SavedSession(string accountId) =>
-            Find(AccountStore.Load(), accountId) is { PendingMinecraftSignIn: false } account
-                ? AccountStore.TryUnprotectSession(account.ProtectedMinecraftSession)
-                : null;
-
-        public void Save(string accountId, SilentSignIn signIn)
-        {
-            var session = signIn.Session;
-            var protectedRefresh = AccountStore.ProtectRefreshToken(signIn.RefreshToken);
-            var protectedSession = AccountStore.ProtectSession(session);
-            AccountStore.Update(accounts =>
-            {
-                var stored = Find(accounts, accountId);
-                if (stored == null) return accounts;
-                if (stored.PendingMinecraftSignIn)
-                {
-                    // The pending account becomes the real one — or, when this
-                    // Minecraft account was already in the list, refreshes it.
-                    var existing = accounts.FirstOrDefault(a => a.Id == session.Uuid && !a.PendingMinecraftSignIn);
-                    if (existing != null)
-                    {
-                        accounts.Remove(stored);
-                        stored = existing;
-                    }
-                    else
-                    {
-                        stored.Id = session.Uuid;
-                        stored.PendingMinecraftSignIn = false;
-                    }
-                }
-                if (!string.IsNullOrEmpty(session.Name)) stored.Gamertag = session.Name;
-                stored.ProtectedRefreshToken = protectedRefresh;
-                stored.ProtectedMinecraftSession = protectedSession;
-                return accounts;
-            });
-        }
-
-        public void Forget(string accountId) =>
-            AccountStore.Update(accounts =>
-            {
-                if (Find(accounts, accountId) is { } stored) stored.ProtectedMinecraftSession = null;
-                return accounts;
-            });
-
-        public void MarkUsed(string accountId) =>
-            AccountStore.Update(accounts =>
-            {
-                if (Find(accounts, accountId) is { } stored) stored.LastUsedUtc = DateTimeOffset.UtcNow;
-                return accounts;
-            });
-
-        private static StoredAccount? Find(List<StoredAccount> accounts, string accountId) =>
-            accounts.FirstOrDefault(a => a.Id == accountId);
     }
 }

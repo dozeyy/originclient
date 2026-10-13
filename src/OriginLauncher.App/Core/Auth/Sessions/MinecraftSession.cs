@@ -37,12 +37,6 @@ public interface ISessionVault
     /// <summary>The account's Microsoft refresh token; null = unreadable or no such account (re-add it).</summary>
     string? RefreshToken(string accountId);
 
-    /// <summary>
-    /// True for a pending account (added while Microsoft was rate-limiting): the
-    /// only kind whose sign-in may come back as a different id (its real UUID).
-    /// </summary>
-    bool IsPending(string accountId);
-
     /// <summary>The account's saved Minecraft session, if one was saved and can be read.</summary>
     MinecraftSession? SavedSession(string accountId);
 
@@ -57,8 +51,10 @@ public interface ISessionVault
     /// <summary>
     /// Drop the account's Microsoft sign-in AND saved session: they belong to
     /// another account. Afterwards RefreshToken returns null (re-add it).
+    /// Only while the row still holds <paramref name="usedRefreshToken"/>: a
+    /// re-add that landed meanwhile is kept.
     /// </summary>
-    void Unlink(string accountId);
+    void Unlink(string accountId, string usedRefreshToken);
 
     /// <summary>Drop the saved Minecraft session (Mojang refused it).</summary>
     void Forget(string accountId);

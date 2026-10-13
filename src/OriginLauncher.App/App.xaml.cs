@@ -134,29 +134,47 @@ public partial class App : Application
     // Microsoft session cookies. Off the UI thread and fail-soft: a locked file
     // only means another try on the next start. The log line names the
     // outcome, never the folder's contents.
+    // Also sweeps per-panel sign-in profiles (WV2Profile_signin-<guid>) that a
+    // closed panel's Profile.Delete() didn't get to remove; at startup no
+    // sign-in browser is running yet, so none of them is in use.
     private static void DeleteLegacySignInProfile()
     {
-        var legacy = OriginPaths.LegacySignInWebViewData;
-        if (legacy == null || !System.IO.Directory.Exists(legacy)) return;
-        string outcome;
+        var targets = new List<string>();
+        if (OriginPaths.LegacySignInWebViewData is { } legacy && System.IO.Directory.Exists(legacy))
+            targets.Add(legacy);
+        var signInProfiles = System.IO.Path.Combine(OriginPaths.SignInWebViewData, "EBWebView");
         try
         {
-            System.IO.Directory.Delete(legacy, recursive: true);
-            outcome = "removed the old sign-in browser profile";
-        }
-        catch (Exception ex)
-        {
-            outcome = $"could not remove the old sign-in browser profile ({ex.GetType().Name}); will retry next start";
-        }
-        try
-        {
-            System.IO.File.AppendAllText(
-                System.IO.Path.Combine(OriginPaths.Logs, "signin-profile.log"),
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {outcome}{Environment.NewLine}");
+            if (System.IO.Directory.Exists(signInProfiles))
+                targets.AddRange(System.IO.Directory.GetDirectories(signInProfiles, "WV2Profile_signin-*"));
         }
         catch (Exception)
         {
-            // Logging is a courtesy; never let it surface.
+            // Unreadable folder: nothing to sweep this time.
+        }
+
+        foreach (var target in targets)
+        {
+            string outcome;
+            try
+            {
+                System.IO.Directory.Delete(target, recursive: true);
+                outcome = $"removed old sign-in browser profile {System.IO.Path.GetFileName(target)}";
+            }
+            catch (Exception ex)
+            {
+                outcome = $"could not remove old sign-in browser profile {System.IO.Path.GetFileName(target)} ({ex.GetType().Name}); will retry next start";
+            }
+            try
+            {
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(OriginPaths.Logs, "signin-profile.log"),
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {outcome}{Environment.NewLine}");
+            }
+            catch (Exception)
+            {
+                // Logging is a courtesy; never let it surface.
+            }
         }
     }
 

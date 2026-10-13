@@ -126,19 +126,30 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
             if (!args.Uri.StartsWith(MicrosoftAuthenticator.TestRedirectUri, StringComparison.Ordinal)) return;
             args.Cancel = true;
 
+            // Only the answer to THIS request counts (login.live.com echoes
+            // state on every redirect, success or error - probed 2026-10-13):
+            //  - state present but different: a stale or forged redirect; ignore
+            //    it so it can neither finish nor abort this sign-in;
+            //  - a code without our state: refuse it (CSRF guard);
+            //  - an error with no state: ignore (can't be ours);
+            //  - our state: the code, or the error that ends this sign-in.
             var query = ParseQuery(new Uri(args.Uri).Query);
-            if (!query.TryGetValue("code", out var code))
+            var hasState = query.TryGetValue("state", out var returnedState);
+            if (hasState && returnedState != expectedState) return;
+            var hasCode = query.TryGetValue("code", out var code);
+            if (!hasState)
+            {
+                if (hasCode)
+                    codeSource.TrySetException(new MicrosoftAuthException("login",
+                        "Microsoft sign-in didn't finish. Please try again.", "authorization code without state"));
+                return;
+            }
+            if (hasCode)
+                codeSource.TrySetResult(code!);
+            else
                 codeSource.TrySetException(new MicrosoftAuthException("login",
                     "Microsoft sign-in didn't finish. Please try again.",
                     $"no authorization code ({(query.TryGetValue("error", out var err) ? err : "unknown error")})"));
-            // A code is only accepted as the answer to THIS request (not a
-            // forged or stale redirect), like the loopback flow's state check.
-            // login.live.com echoes state on its redirects (probed 2026-10-13).
-            else if (!query.TryGetValue("state", out var returnedState) || returnedState != expectedState)
-                codeSource.TrySetException(new MicrosoftAuthException("login",
-                    "Microsoft sign-in didn't finish. Please try again.", "state mismatch on the redirect"));
-            else
-                codeSource.TrySetResult(code);
         }
 
         WebView.CoreWebView2.NavigationStarting += OnNavigationStarting;
@@ -196,6 +207,17 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
 
         _cts.Cancel();
         _cts.Dispose();
+        // This panel's one-off InPrivate profile: mark it for deletion so its
+        // folder (EBWebView\WV2Profile_signin-<guid>) and Local State entry go
+        // when the browser process exits. App sweeps any that survive.
+        try
+        {
+            WebView.CoreWebView2?.Profile.Delete();
+        }
+        catch (Exception)
+        {
+            // Never block closing the card; the startup sweep catches leftovers.
+        }
         WebView.Dispose();
     }
 }

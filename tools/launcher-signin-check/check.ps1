@@ -9,40 +9,51 @@ Account" silently signed in as the first account again.
 What it does (never types into the sign-in page, never reads cookie values):
   1. Starts the DEBUG launcher build (Debug builds run beside an installed
      release; a Release build would just focus the installed one).
-  2. Clicks Accounts -> ADD MICROSOFT ACCOUNT via UI Automation, waits for the
-     Microsoft page, brings the window to the front, saves a screenshot, then
-     closes the launcher.
-  3. Looks at every on-disk cookie store the sign-in browser could use:
-       <exe dir>\<exe>.WebView2\...        (the old default profile)
-       %LocalAppData%\OriginLauncher\webview\signin\...   (OriginPaths.SignInWebViewData)
+  2. Clicks Accounts -> ADD MICROSOFT ACCOUNT via UI Automation and requires a
+     FRESH Microsoft sign-in: the empty email box, no error.
+  3. Requires that a sign-in browser profile folder was created or changed in
+     this run under one of the two roots the sign-in can use:
+       <exe dir>\<exe>.WebView2\EBWebView\*            (the old default profile)
+       %LocalAppData%\OriginLauncher\webview\signin\EBWebView\*   (OriginPaths)
+     (Default, and every WV2Profile_* a per-panel ProfileName creates.)
+     None found = the check is looking in the wrong place: CHECK ERROR.
+  4. Closes the launcher WITH THE CARD STILL OPEN (so the panel's own
+     Profile.Delete never runs and this run's profile stays on disk to be
+     inspected - the next launcher start sweeps it), then reads every
+     <root>\EBWebView\*\Network\Cookies. Chromium holds these databases under
+     an exclusive lock while it runs, so they can only be read after close.
      FAIL if any cookie for a Microsoft login host (live.com,
      microsoftonline.com, microsoft.com) was created, read or updated during
-     this run. The old shared profile reads and re-sets MUID/fpc on every page
-     load even without signing in; the InPrivate profile never touches disk.
-     Rows left by an older build are ignored (only this run's activity counts).
+     this run. An InPrivate profile never writes cookies to disk; a normal
+     profile writes MUID/fpc on page load. Rows left by an older run are
+     ignored. CHECK ERROR if the profile used this run had no cookie store to
+     read (nothing was actually inspected).
+  5. Prints how many per-panel sign-in profile folders exist after the run,
+     so repeated runs show whether they pile up.
 
-Exit codes: 0 PASS, 1 FAIL, 2 check error (python missing, launcher not found,
-sign-in page didn't load or showed an error, unreadable cookie store) - an
-error is never reported as PASS or FAIL.
+Exit codes: 0 PASS, 1 FAIL, 2 CHECK ERROR (python missing, launcher not
+found, sign-in page didn't load or showed an error, no sign-in profile from
+this run found, unreadable cookie store) - an error is never PASS or FAIL.
 
 Path length: run the exe from a short folder. Under a very deep build folder
 the old exe-side profile path passes 260 characters and WebView2 cannot start
-(CO_E_SERVER_EXEC_FAILURE), which this check reports as a check error.
+(CO_E_SERVER_EXEC_FAILURE), which this check reports as a CHECK ERROR.
 
-Usage (repo root, after `dotnet build src\OriginLauncher.App -c Debug`):
-  powershell -NoProfile -ExecutionPolicy Bypass -File tools/launcher-signin-check/check.ps1
+Usage (repo root, after `dotnet build src\OriginLauncher.App -c Debug`, copied
+to a short folder such as %TEMP%\olv):
+  powershell -NoProfile -ExecutionPolicy Bypass -File tools/launcher-signin-check/check.ps1 -Exe <path>
 It reads %LocalAppData%\OriginLauncher like the real launcher; it does not
 change accounts unless someone completes a sign-in in the window it opens.
 #>
 param(
     [string] $Exe = (Join-Path $PSScriptRoot '..\..\src\OriginLauncher.App\bin\Debug\net8.0-windows\OriginLauncher.App.exe'),
     [string] $Shot = (Join-Path $env:TEMP 'origin-addaccount-check.png'),
-    [int] $WaitSeconds = 15
+    [int] $WaitSeconds = 12           # for the Microsoft page to load
 )
 $ErrorActionPreference = 'Stop'
 
 function Exit-CheckError([string] $why) {
-    Write-Output "CHECK ERROR: $why"
+    Write-Host "CHECK ERROR: $why"
     exit 2
 }
 
@@ -59,12 +70,67 @@ try {
 catch { Exit-CheckError $_.Exception.Message }
 
 $exeName = Split-Path $Exe -Leaf
-$cookieStores = @(
-    (Join-Path (Split-Path $Exe) "$exeName.WebView2\EBWebView\Default\Network\Cookies"),
-    (Join-Path $env:LOCALAPPDATA 'OriginLauncher\webview\signin\EBWebView\Default\Network\Cookies')
+$profileRoots = @(
+    (Join-Path (Split-Path $Exe) "$exeName.WebView2\EBWebView"),
+    (Join-Path $env:LOCALAPPDATA 'OriginLauncher\webview\signin\EBWebView')
 )
+$signinRoot = $profileRoots[1]
+
+function Get-ProfileDirs {
+    foreach ($root in $profileRoots) {
+        if (Test-Path $root) {
+            Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -eq 'Default' -or $_.Name -like 'WV2Profile_*' }
+        }
+    }
+}
+
+# Only cookies created, read or updated DURING this run count.
+$py = @'
+import sqlite3, sys
+try:
+    since = int(sys.argv[2])
+    c = sqlite3.connect(sys.argv[1])
+    rows = c.execute(
+        "select host_key, name from cookies "
+        "where (host_key like '%live.com' or host_key like '%microsoftonline.com' or host_key like '%microsoft.com') "
+        "and max(creation_utc, last_access_utc, last_update_utc) >= ?", (since,)).fetchall()
+except Exception as e:
+    print("error:", type(e).__name__, e)
+    sys.exit(2)
+for h, n in rows: print(h, n)
+sys.exit(1 if rows else 0)
+'@
+
+# Sets $script:failed when any store had Microsoft cookies used this run.
+# Messages go to the host (not the pipeline) so they can't be mistaken for a
+# return value.
+function Test-CookieStores([string] $when) {
+    foreach ($dir in @(Get-ProfileDirs)) {
+        $db = Join-Path $dir.FullName 'Network\Cookies'
+        if (-not (Test-Path $db)) { Write-Host "  [$when] no cookie file: $($dir.FullName)"; continue }
+        if ($script:usedDirs -contains $dir.FullName) { $script:inspected++ }
+        $copy = Join-Path $env:TEMP ("origin-cookies-" + [guid]::NewGuid().ToString('N') + '.db')
+        try {
+            Copy-Item -LiteralPath $db $copy
+            $out = $py | python -I - $copy $runStartChromium
+            $code = $LASTEXITCODE
+        }
+        catch { $out = $_.Exception.Message; $code = 2 }
+        finally { Remove-Item $copy -ErrorAction SilentlyContinue }
+
+        if ($code -eq 2) { Exit-CheckError "could not read $db : $out" }
+        if ($code -ne 0) {
+            $script:failed = $true
+            Write-Host "  [$when] FAIL: $db had Microsoft cookies used during this sign-in:"
+            $out | ForEach-Object { Write-Host "      $_" }
+        }
+        else { Write-Host "  [$when] clean: $db" }
+    }
+}
 
 # Chromium cookie timestamps: microseconds since 1601-01-01 UTC (= FILETIME / 10).
+$runStart = (Get-Date).AddSeconds(-1)
 $runStartChromium = [long]([DateTime]::UtcNow.ToFileTimeUtc() / 10) - 1000000
 
 $p = Start-Process -FilePath $Exe -PassThru
@@ -87,6 +153,7 @@ $NameP = [System.Windows.Automation.AutomationElement]::NameProperty
 $IdP = [System.Windows.Automation.AutomationElement]::AutomationIdProperty
 
 $uiError = $null
+$failed = $false
 try {
     $acct = Find-El $NameP 'Accounts'
     if (-not $acct) { throw 'Accounts button not found' }
@@ -122,7 +189,6 @@ try {
     [OriginCheck.Win32]::SetForegroundWindow($hwnd) | Out-Null
     try { $win.SetFocus() } catch { }
     Start-Sleep -Milliseconds 700
-
     $r = $win.Current.BoundingRectangle
     $bmp = New-Object System.Drawing.Bitmap([int]$r.Width, [int]$r.Height)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
@@ -130,6 +196,12 @@ try {
     $bmp.Save($Shot, [System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose(); $bmp.Dispose()
     Write-Output "screenshot: $Shot"
+
+    # Proof the check looks where the sign-in browser actually lives.
+    $used = @(Get-ProfileDirs | Where-Object { $_.CreationTime -ge $runStart -or $_.LastWriteTime -ge $runStart })
+    if ($used.Count -eq 0) { throw 'no sign-in browser profile was created or changed in this run under either root' }
+    $used | ForEach-Object { Write-Output "profile in use this run: $($_.FullName)" }
+    $script:usedDirs = @($used | ForEach-Object { $_.FullName })
 }
 catch { $uiError = $_.Exception.Message }
 finally {
@@ -140,43 +212,13 @@ finally {
 }
 if ($uiError) { Exit-CheckError "UI step failed: $uiError" }
 
-# Only cookies created, read or updated DURING this run count.
-$py = @'
-import sqlite3, sys
-try:
-    since = int(sys.argv[2])
-    c = sqlite3.connect(sys.argv[1])
-    rows = c.execute(
-        "select host_key, name from cookies "
-        "where (host_key like '%live.com' or host_key like '%microsoftonline.com' or host_key like '%microsoft.com') "
-        "and max(creation_utc, last_access_utc, last_update_utc) >= ?", (since,)).fetchall()
-except Exception as e:
-    print("error:", type(e).__name__, e)
-    sys.exit(2)
-for h, n in rows: print(h, n)
-sys.exit(1 if rows else 0)
-'@
+$script:inspected = 0
+Test-CookieStores 'closed'
+if ($script:inspected -eq 0) { Exit-CheckError 'the profile used this run had no cookie store left to inspect after close' }
 
-$failed = $false
-foreach ($db in $cookieStores) {
-    if (-not (Test-Path $db)) { Write-Output "no cookie store: $db"; continue }
-    $copy = Join-Path $env:TEMP ("origin-cookies-" + [guid]::NewGuid().ToString('N') + '.db')
-    try {
-        Copy-Item $db $copy
-        $out = $py | python -I - $copy $runStartChromium
-        $code = $LASTEXITCODE
-    }
-    catch { $out = $_.Exception.Message; $code = 2 }
-    finally { Remove-Item $copy -ErrorAction SilentlyContinue }
+$left = @(if (Test-Path $signinRoot) { Get-ChildItem -LiteralPath $signinRoot -Directory -Filter 'WV2Profile_signin-*' })
+Write-Output "per-panel sign-in profile folders left: $($left.Count)"
 
-    if ($code -eq 2) { Exit-CheckError "could not read $db : $out" }
-    if ($code -ne 0) {
-        $failed = $true
-        Write-Output "FAIL: $db had Microsoft cookies used during this sign-in (the next Add Account would reuse this session):"
-        $out | ForEach-Object { Write-Output "  $_" }
-    }
-    else { Write-Output "clean: $db" }
-}
-if ($failed) { exit 1 }
-Write-Output "PASS: sign-in did not create, read or update any Microsoft cookie on disk"
+if ($failed) { Write-Output 'FAIL: the sign-in kept Microsoft cookies on disk (the next Add Account could reuse that session)'; exit 1 }
+Write-Output 'PASS: sign-in did not create, read or update any Microsoft cookie on disk'
 exit 0

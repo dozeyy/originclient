@@ -8,7 +8,15 @@ namespace OriginLauncher.App.Core.Accounts;
 
 public static class AccountStore
 {
-    private static readonly string FilePath = Path.Combine(OriginPaths.Accounts, "accounts.json");
+    // The real file. Tests point it at a temporary file (and swap the DPAPI
+    // calls below), so nothing ever touches the player's real accounts.
+    internal static string FilePath { get; set; } = Path.Combine(OriginPaths.Accounts, "accounts.json");
+
+    internal static Func<byte[], byte[]> ProtectBytes { get; set; } =
+        bytes => ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+
+    internal static Func<byte[], byte[]> UnprotectBytes { get; set; } =
+        bytes => ProtectedData.Unprotect(bytes, null, DataProtectionScope.CurrentUser);
     private static readonly object Gate = new();
 
     public static List<StoredAccount> Load()
@@ -64,10 +72,11 @@ public static class AccountStore
 
     private static void SaveCore(List<StoredAccount> accounts)
     {
-        Directory.CreateDirectory(OriginPaths.Accounts);
+        var folder = Path.GetDirectoryName(FilePath)!;
+        Directory.CreateDirectory(folder);
         var json = JsonSerializer.Serialize(accounts, new JsonSerializerOptions { WriteIndented = true });
         var tempPath = Path.Combine(
-            OriginPaths.Accounts,
+            folder,
             $"accounts.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp");
 
         try
@@ -124,7 +133,7 @@ public static class AccountStore
     public static string ProtectRefreshToken(string refreshToken)
     {
         var bytes = Encoding.UTF8.GetBytes(refreshToken);
-        var protectedBytes = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+        var protectedBytes = ProtectBytes(bytes);
         return Convert.ToBase64String(protectedBytes);
     }
 
@@ -159,7 +168,7 @@ public static class AccountStore
         try
         {
             var protectedBytes = Convert.FromBase64String(protectedToken);
-            var bytes = ProtectedData.Unprotect(protectedBytes, null, DataProtectionScope.CurrentUser);
+            var bytes = UnprotectBytes(protectedBytes);
             return Encoding.UTF8.GetString(bytes);
         }
         catch (CryptographicException)
