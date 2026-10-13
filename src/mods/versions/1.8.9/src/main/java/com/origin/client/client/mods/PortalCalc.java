@@ -235,7 +235,7 @@ public final class PortalCalc {
 			int actualHeight = inNether ? 256 : 128;
 			int floorMin = 1;
 			int floorMax = Math.max(floorMin, actualHeight - 1 - 4);
-			WorldBorder b = level.getWorldBorder();
+			WorldBorder b = level.getWorldBorder();   // 1.8.9 NAME UNVERIFIED: WorldBorder.minX/maxX/minZ/maxZ
 			return new Side(Waypoints.dimName(inNether ? 0 : -1), inNether ? "Overworld" : "Nether",
 					inNether ? 8.0 : 1.0 / 8.0, inNether ? 1.0 / 8.0 : 8.0, floorMin, floorMax,
 					b.minX() + BORDER_INSET, b.maxX() - BORDER_INSET, b.minZ() + BORDER_INSET, b.maxZ() - BORDER_INSET);

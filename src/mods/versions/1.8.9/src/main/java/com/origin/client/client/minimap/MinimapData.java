@@ -445,7 +445,7 @@ public final class MinimapData {
 	/** Vanilla map rules: the topmost block that has a map colour; fluids count depth. */
 	private static void surfaceColumn(WorldClient level, Chunk chunk, int x, int z, int minY, int maxY, Look look, int i) {
 		// The heightmap is the first block ABOVE the topmost light-stopping one.
-		int y = Math.min(maxY, chunk.getHeightValue(x & 15, z & 15));
+		int y = Math.min(maxY, chunk.getHeightValue(x & 15, z & 15));   // 1.8.9 NAME UNVERIFIED: Chunk.getHeightValue / getBlockState
 		colWater[i] = false;
 		colDepth[i] = 0;
 		BlockPos pos = new BlockPos(x, y, z);

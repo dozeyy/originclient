@@ -14,8 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // the Mods list's buttons) and its subclass GuiSlider. GuiButtonExt overrides
 // drawButton WITHOUT calling super (it draws a stretched widgets.png box via
 // GuiUtils), so GuiButtonMixin never sees these. Same takeover: vanilla's hover
-// test, then OriginButtonRenderer runs the button's own mouseDragged (Forge's
-// GuiSlider applies its drag there) at the right moment.
+// test, OriginButtonRenderer's first phase, the button's own mouseDragged
+// (Forge's GuiSlider applies its drag there), then the second phase.
 //
 // 1.8.9: Forge classes are not obfuscated, but this method OVERRIDES a vanilla
 // one, so in production (SRG names) it is called func_146112_a, not drawButton.

@@ -19,9 +19,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // sliders, vanilla GuiSlider): it sets `hovered`, draws the box, then calls
 // mouseDragged(mc, mx, my) -- where a slider APPLIES the drag and draws its knob
 // -- then the label. HEAD-cancelling it would freeze every slider, so this hook
-// does vanilla's bookkeeping itself (the `hovered` test, verbatim) and hands
-// OriginButtonRenderer a callback that runs the button's own mouseDragged at the
-// right moment (OriginButtonRenderer.beginVanillaButton / finishVanillaButton). Subclasses that override drawButton
+// does vanilla's bookkeeping itself (the `hovered` test, verbatim) and calls the
+// button's own mouseDragged between OriginButtonRenderer's two phases
+// (beginVanillaButton draws the box, finishVanillaButton the label / slider),
+// colour-masked for sliders Origin draws itself. No lambdas or inner classes in
+// the mixin body (Mixin 0.7 keeps them out of the target class). Subclasses that override drawButton
 // without calling super (GuiButtonLanguage, GuiLockIconButton, book page arrows,
 // merchant/beacon buttons, other mods' art buttons) never reach this and keep
 // their own look; Forge's GuiButtonExt (config GUIs, Forge's GuiSlider) has its

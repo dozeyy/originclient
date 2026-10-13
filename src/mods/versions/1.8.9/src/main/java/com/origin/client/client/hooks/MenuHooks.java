@@ -2,6 +2,7 @@ package com.origin.client.client.hooks;
 
 import com.origin.client.client.gui.CosmeticsScreen;
 import com.origin.client.client.gui.Gfx;
+import com.origin.client.client.gui.OriginForeignWidgets;
 import com.origin.client.client.gui.OriginScreen;
 import com.origin.client.client.gui.OriginTitleScreen;
 import com.origin.client.client.mixin.menus.GuiScreenAccessor;
@@ -38,8 +39,9 @@ import java.util.WeakHashMap;
  *    drawn before any screen content so it clears the frame (1.16.5's
  *    beforeRender screen event). Vanilla's dirt is cancelled by
  *    GuiScreenBackgroundMixin / GuiSlotMixin.
- *  - InitGuiEvent.Post: the pause menu's Cosmetics row (CosmeticsPauseMixin)
- *    and the "Download Shaders" button in OptiFine's shader screen.
+ *  - InitGuiEvent.Post: the pause menu's Cosmetics row (CosmeticsPauseMixin),
+ *    the "Download Shaders" button in OptiFine's shader screen, and other mods'
+ *    buttons moved off the Origin title layout (OriginForeignWidgets).
  *  - ActionPerformedEvent.Pre: those buttons' actions (1.8.9 buttons have no
  *    OnPress), and Smart Disconnect (PauseScreenMixin).
  *  - ClientTickEvent: claims mc.loadingScreen for the Origin world-load scene.
@@ -144,13 +146,19 @@ public class MenuHooks {
 
 	// ---- buttons added to vanilla / OptiFine screens ----
 
-	@SubscribeEvent
+	// LOWEST: runs after other mods' InitGuiEvent handlers, so buttons they add
+	// are already in the list (measured by the pause row, moved off the title's).
+	@SubscribeEvent(priority = EventPriority.LOWEST)
 	public void onInitGuiPost(GuiScreenEvent.InitGuiEvent.Post event) {
 		GuiScreen screen = event.gui;
 		if (screen == null || event.buttonList == null) {
 			return;
 		}
-		if (screen instanceof GuiIngameMenu) {
+		if (screen instanceof OriginTitleScreen) {
+			// Another mod's button that landed on Origin's title layout is moved
+			// to free space (TitleScreenMixin's avoidOverlap call on the others).
+			OriginForeignWidgets.avoidOverlap(screen, event.buttonList);
+		} else if (screen instanceof GuiIngameMenu) {
 			addCosmeticsRow(screen, event.buttonList);
 		} else if (IrisBridge.isShaderScreen(screen)) {
 			addDownloadShaders(screen, event.buttonList);

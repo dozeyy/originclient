@@ -1,7 +1,7 @@
 package com.origin.client.client.render;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.gui.OriginText;
 import com.origin.client.client.gui.OriginUi;
@@ -51,7 +51,6 @@ import java.util.List;
 // Textures load via the classloader (not the resource manager) and degrade
 // gracefully if any asset fails rather than crashing.
 public final class OriginScreenRenderer {
-	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
 
@@ -745,8 +744,9 @@ public final class OriginScreenRenderer {
 		try {
 			JsonObject meta;
 			try (InputStream in = open("/assets/originclient/textures/ui/rings.json")) {
-				meta = GSON.fromJson(new String(com.origin.client.client.IoCompat.readAllBytes(in),
-						java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
+				// gson 2.2.4: no JsonObject adapter for fromJson -- parse the tree directly.
+				meta = new JsonParser().parse(new String(com.origin.client.client.IoCompat.readAllBytes(in),
+						java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
 			}
 			com.google.gson.JsonArray arr = meta.getAsJsonArray("rings");
 			for (int i = 0; i < arr.size(); i++) {
