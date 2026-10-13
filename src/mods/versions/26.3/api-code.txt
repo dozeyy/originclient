@@ -32,3 +32,4 @@ net.minecraft.client.renderer.feature.FeatureRenderDispatcher
 net.minecraft.client.Screenshot
 com.mojang.renderpearl.backend.opengl.GlDevice
 com.mojang.blaze3d.platform.Window
+com.mojang.renderpearl.backend.opengl.GlBackend
