@@ -34760,3 +34760,133 @@ public final class com.mojang.blaze3d.platform.Window implements java.lang.AutoC
          3: putstatic     #268                // Field LOGGER:Lorg/slf4j/Logger;
          6: return
 }
+Compiled from "GlBackend.java"
+public class com.mojang.renderpearl.backend.opengl.GlBackend implements com.mojang.renderpearl.api.device.GpuBackend {
+  private static final int VERSION_MAJOR;
+
+  private static final int VERSION_MINOR;
+
+  private boolean libraryLoaded;
+
+  private com.mojang.renderpearl.api.device.BackendCreationException libraryLoadFailure;
+
+  public com.mojang.renderpearl.backend.opengl.GlBackend();
+    Code:
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+
+  public java.lang.String getName();
+    Code:
+         0: ldc           #7                  // String OpenGL
+         2: areturn
+
+  public void loadLibrary() throws com.mojang.renderpearl.api.device.BackendCreationException;
+    Code:
+         0: aload_0
+         1: getfield      #9                  // Field libraryLoaded:Z
+         4: ifeq          8
+         7: return
+         8: aload_0
+         9: getfield      #15                 // Field libraryLoadFailure:Lcom/mojang/renderpearl/api/device/BackendCreationException;
+        12: ifnull        20
+        15: aload_0
+        16: getfield      #15                 // Field libraryLoadFailure:Lcom/mojang/renderpearl/api/device/BackendCreationException;
+        19: athrow
+        20: invokestatic  #19                 // Method org/lwjgl/opengl/GL.getFunctionProvider:()Lorg/lwjgl/system/FunctionProvider;
+        23: checkcast     #25                 // class org/lwjgl/system/SharedLibrary
+        26: invokeinterface #27,  1           // InterfaceMethod org/lwjgl/system/SharedLibrary.getPath:()Ljava/lang/String;
+        31: invokestatic  #31                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_LoadLibrary:(Ljava/lang/CharSequence;)Z
+        34: ifne          72
+        37: aload_0
+        38: new           #37                 // class com/mojang/renderpearl/api/device/BackendCreationException
+        41: dup
+        42: invokestatic  #39                 // Method org/lwjgl/sdl/SDLError.SDL_GetError:()Ljava/lang/String;
+        45: ldc           #44                 // String <no error>
+        47: invokestatic  #46                 // Method java/util/Objects.requireNonNullElse:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+        50: checkcast     #52                 // class java/lang/String
+        53: invokedynamic #54,  0             // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        58: getstatic     #58                 // Field com/mojang/renderpearl/api/device/BackendCreationException$Reason.OPENGL_MISSING:Lcom/mojang/renderpearl/api/device/BackendCreationException$Reason;
+        61: invokespecial #64                 // Method com/mojang/renderpearl/api/device/BackendCreationException."<init>":(Ljava/lang/String;Lcom/mojang/renderpearl/api/device/BackendCreationException$Reason;)V
+        64: putfield      #15                 // Field libraryLoadFailure:Lcom/mojang/renderpearl/api/device/BackendCreationException;
+        67: aload_0
+        68: getfield      #15                 // Field libraryLoadFailure:Lcom/mojang/renderpearl/api/device/BackendCreationException;
+        71: athrow
+        72: invokestatic  #19                 // Method org/lwjgl/opengl/GL.getFunctionProvider:()Lorg/lwjgl/system/FunctionProvider;
+        75: ldc           #67                 // String glGetError
+        77: invokeinterface #69,  2           // InterfaceMethod org/lwjgl/system/FunctionProvider.getFunctionAddress:(Ljava/lang/CharSequence;)J
+        82: ldc           #67                 // String glGetError
+        84: invokestatic  #75                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_GetProcAddress:(Ljava/lang/CharSequence;)J
+        87: lcmp
+        88: ifeq          115
+        91: aload_0
+        92: new           #37                 // class com/mojang/renderpearl/api/device/BackendCreationException
+        95: dup
+        96: ldc           #78                 // String glGetError mismatch
+        98: getstatic     #58                 // Field com/mojang/renderpearl/api/device/BackendCreationException$Reason.OPENGL_MISSING:Lcom/mojang/renderpearl/api/device/BackendCreationException$Reason;
+       101: invokespecial #64                 // Method com/mojang/renderpearl/api/device/BackendCreationException."<init>":(Ljava/lang/String;Lcom/mojang/renderpearl/api/device/BackendCreationException$Reason;)V
+       104: putfield      #15                 // Field libraryLoadFailure:Lcom/mojang/renderpearl/api/device/BackendCreationException;
+       107: invokestatic  #80                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_UnloadLibrary:()V
+       110: aload_0
+       111: getfield      #15                 // Field libraryLoadFailure:Lcom/mojang/renderpearl/api/device/BackendCreationException;
+       114: athrow
+       115: aload_0
+       116: iconst_1
+       117: putfield      #9                  // Field libraryLoaded:Z
+       120: return
+
+  public void unloadLibrary();
+    Code:
+         0: aload_0
+         1: getfield      #9                  // Field libraryLoaded:Z
+         4: ifne          8
+         7: return
+         8: invokestatic  #80                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_UnloadLibrary:()V
+        11: aload_0
+        12: iconst_0
+        13: putfield      #9                  // Field libraryLoaded:Z
+        16: return
+
+  public long createWindow(java.lang.String, int, int, long);
+    Code:
+         0: bipush        17
+         2: iconst_3
+         3: invokestatic  #83                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_SetAttribute:(II)Z
+         6: pop
+         7: bipush        18
+         9: iconst_3
+        10: invokestatic  #83                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_SetAttribute:(II)Z
+        13: pop
+        14: bipush        20
+        16: iconst_1
+        17: invokestatic  #83                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_SetAttribute:(II)Z
+        20: pop
+        21: bipush        19
+        23: iconst_2
+        24: invokestatic  #83                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_SetAttribute:(II)Z
+        27: pop
+        28: bipush        22
+        30: iconst_1
+        31: invokestatic  #83                 // Method org/lwjgl/sdl/SDLVideo.SDL_GL_SetAttribute:(II)Z
+        34: pop
+        35: aload_1
+        36: iload_2
+        37: iload_3
+        38: ldc2_w        #87                 // long 2l
+        41: lload         4
+        43: lor
+        44: invokestatic  #89                 // Method org/lwjgl/sdl/SDLVideo.SDL_CreateWindow:(Ljava/lang/CharSequence;IIJ)J
+        47: lreturn
+
+  public com.mojang.renderpearl.api.device.GpuDevice createDevice(com.mojang.renderpearl.api.device.GpuDebugOptions) throws com.mojang.renderpearl.api.device.BackendCreationException;
+    Code:
+         0: new           #93                 // class com/mojang/renderpearl/frontend/FrontendGpuDevice
+         3: dup
+         4: new           #95                 // class com/mojang/renderpearl/backend/opengl/GlDevice
+         7: dup
+         8: aload_0
+         9: aload_1
+        10: invokespecial #97                 // Method com/mojang/renderpearl/backend/opengl/GlDevice."<init>":(Lcom/mojang/renderpearl/backend/opengl/GlBackend;Lcom/mojang/renderpearl/api/device/GpuDebugOptions;)V
+        13: invokespecial #100                // Method com/mojang/renderpearl/frontend/FrontendGpuDevice."<init>":(Lcom/mojang/renderpearl/backend/api/GpuDeviceBackend;)V
+        16: areturn
+}
