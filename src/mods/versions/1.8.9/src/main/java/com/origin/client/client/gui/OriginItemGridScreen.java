@@ -220,7 +220,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 			for (Item item : Item.itemRegistry) {   // 1.8.9 NAME UNVERIFIED: RegistryNamespaced iterates values
 				try {
 					ResourceLocation id = item == null ? null : Item.itemRegistry.getNameForObject(item);   // 1.8.9 NAME UNVERIFIED
-					if (id == null) {
+					if (id == null || !listable(item, id)) {
 						continue;
 					}
 					ItemStack st = displayStack(item);
@@ -235,6 +235,18 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 			ALL_ITEMS = out;
 		}
 		return ALL_ITEMS;
+	}
+
+	// Real items no creative tab lists. Every OTHER tab-less registry entry is a
+	// technical block item (piston head, double slab, lit furnace, portal...) that
+	// has no item model on 1.8.9 and draws as the magenta missing-texture cube
+	// (dev shots 2026-10-13), so the grid leaves those out.
+	private static final java.util.Set<String> TABLESS_REAL = new java.util.HashSet<>(java.util.Arrays.asList(
+			"command_block", "command_block_minecart", "barrier", "mob_spawner",
+			"written_book", "filled_map", "farmland"));
+
+	private static boolean listable(Item item, ResourceLocation id) {
+		return item.getCreativeTab() != null || TABLESS_REAL.contains(id.getResourcePath());
 	}
 
 	/**

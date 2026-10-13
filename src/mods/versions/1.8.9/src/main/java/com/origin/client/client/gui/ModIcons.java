@@ -105,9 +105,11 @@ public final class ModIcons {
 				java.awt.image.BufferedImage img = Gfx.readImage("/assets/originclient/textures/ui/mod_icons.png");
 				atlasW = img.getWidth();
 				atlasH = img.getHeight();
-				// 1.8.9: no icon SDF shader, so the mask atlas is the one GPU atlas -- mipmapped
-				// (Gfx.registerTexture) so 192 px cells keep their thin strokes at 14 px.
-				ok = Gfx.registerTexture(ATLAS, img, true, true) != null;
+				// 1.8.9: no icon SDF shader, so the mask atlas is the one GPU atlas, sampled
+				// GL_LINEAR without mipmaps exactly like 1.16.5 (tex.setFilter(true, false)).
+				// A mip chain averaged the 2 px strokes of 14-28 px icons into faint grey
+				// (dev shots 2026-10-13: close/grid/list icons washed out next to 1.16.5's).
+				ok = Gfx.registerTexture(ATLAS, img, true, false) != null;
 			} catch (Throwable t) {
 				ok = false;
 				com.origin.client.OriginClient.LOGGER.warn("Origin mod icons failed to load; cards draw without icons", t);
