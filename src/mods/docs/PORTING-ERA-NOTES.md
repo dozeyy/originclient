@@ -1015,3 +1015,57 @@ Tooling added for this port: the build.gradle PORTING AID also takes `api-code.t
 publishes their `javap -c` bytecode to `api/code.txt` — check each mixin's INVOKE target is really called
 inside the targeted method (the static check only proves the names exist). With `defaultRequire: 0` a
 missing target is SILENT at boot, so "zero mixin failures" alone proves nothing for those hooks.
+
+## 26.3 (2026-10-13) — derived from 26.2 (agent p263)
+26.3 (src/mods/versions/26.3) = the 26.2 module + the deltas below. Dev shots (design + world, label
+p263) match 26.2 / 1.21.1 with zero Mixin apply failures. 26.3 has no patch releases yet; the jar is `~26.3`.
+
+### Toolchain / pins
+- Fabric API 0.162.0+26.3, loader 0.19.5 (Lithium 0.26.2 needs >=0.19.5), JEI 31.12.0.65 (needs Fabric API
+  >=0.156.3). Loom 1.17-SNAPSHOT still works. Stack: Sodium mc26.3-0.9.2 (release; breaks Iris <=1.11.2) +
+  Iris 1.11.7 (depends Sodium 0.9.x) — read from each jar's fabric.mod.json via version-scout "inspect".
+
+### Window + input: GLFW -> SDL3 (LWJGL 3.4 lwjgl-sdl)
+- org.lwjgl.glfw is gone. Keys: InputConstants.KEY_* (KEY_RSHIFT, KEY_RETURN, KEY_NUMPADENTER, KEY_LALT,
+  KEY_LBRACKET ...), MOUSE_BUTTON_LEFT, PRESS; InputConstants.Type.KEYSYM -> KEYBOARD;
+  InputConstants.isKeyDown(int) (no window); KeyEvent has key()/keycode()/modifiers() (no scancode()).
+- Window.handle() is an SDL_Window*: SDLVideo.SDL_SetWindowSize / SDL_GetWindowPosition / SDL_SetWindowBordered /
+  SDL_GetDisplayForWindow / SDL_GetDisplayBounds (GeneralSettings Borderless). Raw Mouse Input = the SDL hint
+  SDL_MOUSE_RELATIVE_SYSTEM_SCALE (0 = raw, SDL's default). Held left button: mouseHandler.isLeftPressed().
+  Refresh rate: getWindow().getActiveVideoMode().getRefreshRate(). Util.OS.openUri/openFile ->
+  com.mojang.blaze3d.Blaze3D.openUri(URI) / openPath(Path).
+- HEADLESS CI: SDL's GLX path finds no visual under Xvfb + llvmpipe ("Couldn't find matching GLX visual") and
+  there's no Vulkan surface; dev-shots.yml / boot-smoke.yml set SDL_VIDEO_FORCE_EGL=1 (+ libegl1 libegl-mesa0).
+
+### Render API moved: com.mojang.blaze3d.{pipeline,textures,...} -> com.mojang.renderpearl.api.*
+- RenderPipeline/BlendFunction/ColorTargetState/DepthStencilState/CompareOp/BindGroupLayout -> .api.pipeline,
+  FilterMode/GpuSampler/GpuTextureView (now interfaces) -> .api.textures, VertexFormat -> .api.vertex,
+  GpuFormat -> .api. (RenderTarget/TextureTarget/RenderSystem stay in blaze3d.) Same simple names: a
+  mechanical import rewrite covered almost all of it.
+- RenderPipeline: getShaders() Map<ShaderType,Identifier> (no getVertex/FragmentShader), colour targets and
+  vertex bindings are Lists, pushConstantSize() must be copied (OriginShaders.derive). TextureTarget(name,
+  w, h, colourFormat, depthFormat|null). PreparedRenderType(name, pipeline, oitPipelineSet, dynamicTransforms,
+  scissorState, textures). VertexConsumer gained setUv3(float,float).
+- Shaders: every vanilla shader is `#extension GL_ARB_separate_shader_objects : require` with explicit
+  layout(location) on varyings, and DynamicTransforms is ModelViewMat, TextureMat, ColorModulator,
+  ModelOffset (TextureMat moved up). Origin's .fsh must match both or the program fails to LINK.
+- A pipeline that fails to compile only surfaced at GUI draw time as an IllegalStateException that crashed
+  the game. OriginShaders.derive now forces RenderSystem.getCompiledPipelineNullable() and throws to its
+  caller's fail-soft catch instead (mandate 4).
+- Glint is drawn INSIDE the item/armour pass (RenderTypes.itemCutoutGlint(tex) etc.; old glint()/entityGlint()
+  types gone). Glint Colorizer recognises a draw by the vanilla glint texture in its texture list and swaps
+  it; Lunar Blending's darker-than-vanilla colours only apply where RenderPipelines.GLINT is still its own pass.
+- Post effects: GameRenderer.update() rebuilds getRequestedPostEffects() every frame; Motion Blur appends its
+  chain there (setPostEffect/clearPostEffect are gone). Failed chains are dropped by vanilla.
+- Weather: no addWeatherPass; Weather "Clear" empties WeatherRenderState after
+  WeatherEffectRenderer.extractRenderState. Menu blur radius: GameRenderer.render() (no args) ->
+  GlobalSettingsUniform.update(IIDJFILVec3;Z) arg 5.
+- Name tags: NameTagFeatureRenderer is gone; tags are TextFeatureRenderer.Submit(Content.Text) built by
+  SubmitNodeCollection's private static nameTag(...) factory -> NametagStyleMixin restyles its return. Text
+  carries a dropShadow flag again, so Nametags' Text Shadow works on 26.3 (it didn't on 26.2).
+- Smaller: PoseStack.mulPose(Quaternionf) -> rotate(Quaternionfc) / rotate(Axis, rad) / rotateDegrees(Axis, deg);
+  ClientClockManager.getTotalTicks gone -> hook ClientClockInstance.totalTicks() (Time Changer);
+  ClientLevel.addBreakingBlockEffects now also plays the hit sound -> gate addBreakingParticles;
+  EntityRenderDispatcher.shouldRender(+float); armour submitModel(..., UvMapping, int); Pack.open() returns a
+  Stream<PackResources>; NativeImage.read(Format, in) gone; F2 screenshots go through Screenshot.grab(Minecraft,
+  boolean) -> ScreenshotChat wraps grab(File, RenderTarget, Consumer)'s callback.
