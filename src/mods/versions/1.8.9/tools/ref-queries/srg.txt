@@ -1,0 +1,16 @@
+# ref-189 lookup group: srg (see .github/workflows/ref-189.yml)
+member displayedTitle
+member displayedSubTitle
+member sliderValue
+member buttonList
+member timer
+member renderPartialTicks
+member debugFPS
+member fovModifierHand
+member hurtCameraEffect
+member orientCamera
+member getFOVModifier
+member drawSelectionBox
+member renderName
+member renderLivingLabel
+member capeLocation

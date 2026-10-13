@@ -88,7 +88,12 @@ def main():
                 emit([l for l in (out.stdout or out.stderr).splitlines()
                       if "lambda$" not in l and "access$" not in l])
         elif kind == "member":
-            rows = members.get(arg, [])
+            # Several cached tiny files repeat a member; some carry a numeric
+            # namespace instead of SRG. Keep unique rows, real SRG names first.
+            rows = sorted(set(members.get(arg, [])),
+                          key=lambda r: not re.match(r"^(field|func)_\d+_[a-z]+$", r[3]))
+            srg_rows = [r for r in rows if re.match(r"^(field|func)_\d+_[a-z]+$", r[3])]
+            rows = srg_rows or rows
             for owner, k, desc, s in rows:
                 print(f"  {k} {owner}.{arg} {desc}  srg={s}")
             if not rows:
