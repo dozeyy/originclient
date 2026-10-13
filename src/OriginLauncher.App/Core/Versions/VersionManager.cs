@@ -173,6 +173,10 @@ public sealed class VersionManager
             // (src/mods/versions/1.8.9, /1.12.2) are still on disk, so re-adding
             // both versions is a catalog + CI change, not a rewrite.
             // --- 26.x (unobfuscated, Java 25, extract/submit GUI) ---
+            // 26.3 — derived from the 26.2 module 2026-10-13 (src/mods/versions/26.3):
+            // SDL3 window/input and the com.mojang.renderpearl render API. 26.3 has no
+            // patch releases yet; the jar declares ~26.3. Perf/shader stack standalone.
+            ["26.3"] = new("originclient-26.3.jar", BundlesPerfStack: false),
             // 26.2 — ported from the 1.21.11 module 2026-10-12 (src/mods/versions/26.2);
             // perf/shader stack installed standalone from PerformanceModCatalog.
             // Mojang's version JSON asks for a Java 25 runtime, which CmlLib

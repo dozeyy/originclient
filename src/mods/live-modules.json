@@ -12,6 +12,7 @@
     "fails CI otherwise."
   ],
   "modules": [
+    { "module": "26.3",    "covers": "26.3",             "versions": ["26.3"], "java": "25" },
     { "module": "26.2",    "covers": "26.2",             "versions": ["26.2"], "java": "25" },
     { "module": "26.1",    "covers": "26.1 – 26.1.2",    "versions": ["26.1", "26.1.1", "26.1.2"], "java": "25" },
     { "module": "1.21.1",  "covers": "1.21.1",           "versions": ["1.21.1"] },

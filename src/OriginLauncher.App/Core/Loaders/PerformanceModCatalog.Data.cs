@@ -19,6 +19,16 @@ public static partial class PerformanceModCatalog
 {
     private static readonly Dictionary<string, VersionPerfProfile> Data = new()
     {
+        // EXCEPTION (hand-maintained, do not regenerate over this): the "26.3"
+        // entry, pinned 2026-10-13 for the Origin 26.3 build to the newest RELEASE of
+        // each mod for 26.3 (version-scout, plus each jar's own fabric.mod.json via
+        // its "inspect" job): Sodium mc26.3-0.9.2-fabric (breaks Iris <=1.11.2),
+        // Iris 1.11.7+26.3-fabric (depends Sodium 0.9.x) -- a matching stable pair;
+        // Sodium's 0.9.3-alpha.1 is NOT used. Lithium 0.26.2 (needs Fabric Loader
+        // >=0.19.5), FerriteCore 9.0.0, Krypton 0.3.2, ImmediatelyFast 1.17.1+26.3,
+        // Mod Menu 21.0.0. Indium is unnecessary on Sodium 0.9.x. Standalone stack
+        // installed alongside originclient-26.3.jar (BundlesPerfStack:false).
+        ["26.3"] = new("26.3", PerfStackTier.Full, new PerfMod("mc26.3-0.9.2-fabric", "https://cdn.modrinth.com/data/AANobbMI/versions/bAZQdGpg/sodium-fabric-0.9.2%2Bmc26.3.jar", "sodium-fabric-0.9.2+mc26.3.jar"), null, new PerfMod("mc26.3-0.26.2-fabric", "https://cdn.modrinth.com/data/gvQqBUqZ/versions/xS0Q8LSi/lithium-fabric-0.26.2%2Bmc26.3.jar", "lithium-fabric-0.26.2+mc26.3.jar"), new PerfMod("9.0.0-fabric", "https://cdn.modrinth.com/data/uXXizFIs/versions/d5ddUdiB/ferritecore-9.0.0-fabric.jar", "ferritecore-9.0.0-fabric.jar"), new PerfMod("0.3.2", "https://cdn.modrinth.com/data/fQEb0iXm/versions/UugdIYJw/krypton-0.3.2.jar", "krypton-0.3.2.jar"), Iris: new PerfMod("1.11.7+26.3-fabric", "https://cdn.modrinth.com/data/YL57xq9U/versions/vTN4NRGW/iris-fabric-1.11.7%2Bmc26.3.jar", "iris-fabric-1.11.7+mc26.3.jar"), ImmediatelyFast: new PerfMod("1.17.1+26.3-fabric", "https://cdn.modrinth.com/data/5ZwdcRci/versions/3MP9UR23/ImmediatelyFast-Fabric-1.17.1%2B26.3.jar", "ImmediatelyFast-Fabric-1.17.1+26.3.jar"), ModMenu: new PerfMod("21.0.0", "https://cdn.modrinth.com/data/mOgUt4GM/versions/kyy7dbrZ/modmenu-21.0.0.jar", "modmenu-21.0.0.jar")),
         // EXCEPTION (hand-maintained, do not regenerate over this): the "26.2"
         // entry. Re-pinned 2026-10-13 for the Origin 26.2 build to the newest
         // RELEASE of each mod for 26.2 (version-scout, .github/workflows/
