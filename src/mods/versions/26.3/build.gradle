@@ -149,7 +149,7 @@ if (apiDumpList.exists() && System.getenv("ORIGIN_SHOTS")) {
 						def n = e.name
 						if (!n.endsWith(".class") || n.endsWith("module-info.class")) return
 						def cn = n.substring(0, n.length() - 6)
-						if (cn.startsWith("net/minecraft/") || cn.startsWith("com/mojang/") || cn.startsWith("net/fabricmc/") || cn.startsWith("mezz/")) {
+						if (cn.startsWith("net/minecraft/") || cn.startsWith("com/mojang/") || cn.startsWith("net/fabricmc/") || cn.startsWith("mezz/") || cn.startsWith("org/lwjgl/")) {
 							index.append(f.name).append(' ').append(cn).append('\n')
 						}
 						def p = prefixes.find { cn.startsWith(it) }

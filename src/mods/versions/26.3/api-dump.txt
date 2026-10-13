@@ -26,3 +26,12 @@ net/minecraft/sounds/
 net/minecraft/server/Services
 net/fabricmc/
 mezz/jei/
+com/mojang/renderpearl/
+org/lwjgl/sdl/SDLKeycode
+org/lwjgl/sdl/SDLScancode
+org/lwjgl/sdl/SDLMouse
+org/lwjgl/sdl/SDLKeyboard
+org/lwjgl/sdl/SDLVideo
+org/lwjgl/sdl/SDLClipboard
+org/lwjgl/sdl/SDL_DisplayMode
+org/lwjgl/sdl/SDLMisc
