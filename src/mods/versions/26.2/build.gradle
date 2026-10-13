@@ -45,6 +45,15 @@ loom {
 			if (project.hasProperty("mixinexport")) {
 				property "mixin.debug.export", "true"
 			}
+			// The launcher's JVM preset (Core/Launch/JvmArgPresets.cs, Aikar's flags),
+			// so every dev run / dev-shots boot proves Java 25 still accepts each flag
+			// (an expired -XX option stops the JVM before the game starts).
+			vmArgs "-XX:+UseG1GC", "-XX:+ParallelRefProcEnabled", "-XX:MaxGCPauseMillis=200",
+					"-XX:+UnlockExperimentalVMOptions", "-XX:+DisableExplicitGC", "-XX:G1NewSizePercent=30",
+					"-XX:G1MaxNewSizePercent=40", "-XX:G1HeapRegionSize=8M", "-XX:G1ReservePercent=20",
+					"-XX:G1HeapWastePercent=5", "-XX:G1MixedGCCountTarget=4", "-XX:InitiatingHeapOccupancyPercent=15",
+					"-XX:G1MixedGCLiveThresholdPercent=90", "-XX:G1RSetUpdatingPauseTimePercent=5",
+					"-XX:SurvivorRatio=32", "-XX:+PerfDisableSharedMem", "-XX:MaxTenuringThreshold=1"
 			if (project.hasProperty("panoramacapture")) {
 				property "origin.panoramacapture", "true"
 				vmArg "-Xmx4G"
