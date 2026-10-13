@@ -111,7 +111,11 @@ jobs:
       - name: Headless GL deps (Xvfb + Mesa software rasterizer)
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa
+          # libegl1/libegl-mesa0: 26.3's SDL3 window opens through EGL under Xvfb.
+          # x11-xserver-utils (xrandr) + libXxf86vm/libXrandr: LWJGL 2 (1.8.9)
+          # queries display modes through them at Display.create().
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
 
       - name: Boot ${{ matrix.module }} and capture the Origin screens
         working-directory: src/mods/versions/${{ matrix.module }}
@@ -120,6 +124,11 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
           MESA_GL_VERSION_OVERRIDE: "4.6"
           MESA_GLSL_VERSION_OVERRIDE: "460"
+          # 26.3+ windows through SDL3, whose GLX visual request Xvfb + llvmpipe can't
+          # meet ("Couldn't find matching GLX visual"); SDL's EGL path (Mesa EGL on
+          # X11) creates the same OpenGL context. GLFW-era modules ignore both.
+          SDL_VIDEO_X11_NODIRECTCOLOR: "1"
+          SDL_VIDEO_FORCE_EGL: "1"
           ORIGIN_SHOTS: ${{ runner.temp }}/shots
           ORIGIN_SHOTS_SET: ${{ github.event.inputs.set || 'design' }}
         run: |

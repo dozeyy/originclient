@@ -6,11 +6,15 @@
     "Adding or removing a live version here is one of the promotion coupling points in",
     "src/mods/VERSIONS.md.",
     "'covers' = human label for build jobs and release notes.",
+    "'java' (optional, default 21) = the JDK the module's Gradle build runs on; 26.x needs 25.",
     "'versions' = the exact Minecraft versions that run this jar. MUST equal the launcher's",
     "VersionManager.OriginBuilds entries for this jar - tools/release/check_consistency.py",
     "fails CI otherwise."
   ],
   "modules": [
+    { "module": "26.3",    "covers": "26.3",             "versions": ["26.3"], "java": "25" },
+    { "module": "26.2",    "covers": "26.2",             "versions": ["26.2"], "java": "25" },
+    { "module": "26.1",    "covers": "26.1 – 26.1.2",    "versions": ["26.1", "26.1.1", "26.1.2"], "java": "25" },
     { "module": "1.21.1",  "covers": "1.21.1",           "versions": ["1.21.1"] },
     { "module": "1.21",    "covers": "1.21",             "versions": ["1.21"] },
     { "module": "1.21.4",  "covers": "1.21.2 – 1.21.4",  "versions": ["1.21.2", "1.21.3", "1.21.4"] },
@@ -26,6 +30,7 @@
     { "module": "1.19.2",  "covers": "1.19.2",           "versions": ["1.19.2"] },
     { "module": "1.18.2",  "covers": "1.18.2",           "versions": ["1.18.2"] },
     { "module": "1.17.1",  "covers": "1.17.1",           "versions": ["1.17.1"] },
-    { "module": "1.16.5",  "covers": "1.16.5",           "versions": ["1.16.5"] }
+    { "module": "1.16.5",  "covers": "1.16.5",           "versions": ["1.16.5"] },
+    { "module": "1.8.9",   "covers": "1.8.9",            "versions": ["1.8.9"] }
   ]
 }

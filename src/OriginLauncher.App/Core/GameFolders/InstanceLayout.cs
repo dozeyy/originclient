@@ -13,7 +13,9 @@ namespace OriginLauncher.App.Core.GameFolders;
 //     mods/                                      the version's ONE mods folder, shared by
 //                                                every account (Will, 2026-10-12) — the
 //                                                game loads it via fabric.modsFolder
-//                                                (SharedMods has the why and the merge)
+//                                                (SharedMods has the why and the merge;
+//                                                Forge 1.8.9 can't, so it gets a copy
+//                                                in the account's mods/: SharedMods.Mirror)
 //     accounts/<account>/                       one ACCOUNT's game folder (--gameDir):
 //       options.txt servers.dat saves/ config/   its own settings, worlds, servers and
 //       logs/ screenshots/ ...                   mod configs

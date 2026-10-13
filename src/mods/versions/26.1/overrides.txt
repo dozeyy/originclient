@@ -1,0 +1,47 @@
+# Files under src/ that this module DELIBERATELY diverges from
+# src/mods/shared/ on. tools/shared-sync/sync.py never copies these into this
+# module. One path per line, relative to this module's src/.
+#
+# 26.1 (covers 26.1 - 26.1.2) was copied from the 26.2 module on 2026-10-13
+# and carries the same forks, so the list below is 26.2's.
+#
+# 26.2 (2026-10-12 port from 1.21.11): the 26.x GUI is extract-based
+# (GuiGraphics -> GuiGraphicsExtractor, render* -> extract*), the HUD moved to
+# net.minecraft.client.gui.Hud, the current screen lives on Minecraft.gui, and
+# the shared core's 1.21.1-era copies predate the redesign. Every shared file
+# this module carries in its own 26.2 form is listed; files absent here were
+# never ported because 26.2 has no use for them (e.g. ToastComponentMixin,
+# ReceivingLevelScreenMixin -- both classes are gone from the game).
+client/java/com/origin/client/client/GeneralSettings.java
+client/java/com/origin/client/client/OriginHud.java
+client/java/com/origin/client/client/OriginKeyBindings.java
+client/java/com/origin/client/client/gui/OriginColorPicker.java
+client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
+client/java/com/origin/client/client/mixin/BlockEntityRenderDispatcherMixin.java
+client/java/com/origin/client/client/mixin/CameraMixin.java
+client/java/com/origin/client/client/mixin/ClientLevelTimeMixin.java
+client/java/com/origin/client/client/mixin/GameRendererAccessor.java
+client/java/com/origin/client/client/mixin/GameRendererMixin.java
+client/java/com/origin/client/client/mixin/GuiScoreboardMixin.java
+client/java/com/origin/client/client/mixin/LevelTimeMixin.java
+client/java/com/origin/client/client/mixin/LightTextureMixin.java
+client/java/com/origin/client/client/mixin/LoadingOverlayMixin.java
+client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java
+client/java/com/origin/client/client/mixin/MouseHandlerMixin.java
+client/java/com/origin/client/client/mixin/ParticleEngineMixin.java
+client/java/com/origin/client/client/mixin/PauseScreenMixin.java
+client/java/com/origin/client/client/mixin/ToastComponentMixin.java
+client/java/com/origin/client/client/mixin/loading/ConnectScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/ProgressScreenMixin.java
+client/java/com/origin/client/client/mixin/loading/ReceivingLevelScreenMixin.java
+client/java/com/origin/client/client/mods/ModOption.java
+client/java/com/origin/client/client/mods/Mods.java
+client/java/com/origin/client/client/shaders/ShaderDownloader.java
+client/java/com/origin/client/client/theme/OriginTheme.java
+client/resources/assets/originclient/lang/en_us.json
+client/resources/assets/originclient/textures/ui/mod_icons.json
+client/resources/assets/originclient/textures/ui/mod_icons.png
+client/resources/assets/originclient/textures/ui/wordmark.json
+client/resources/assets/originclient/textures/ui/wordmark.png
+main/resources/assets/originclient/icon.png

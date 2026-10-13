@@ -10,9 +10,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // SETTINGS > General > Show Achievements. When off, drop advancement toasts
-// before they're queued so the pop-ups never appear. Every other toast (recipe
-// unlock, tutorial, system) is left untouched. 26.2 renamed ToastComponent ->
-// ToastManager; addToast(Toast) is unchanged in shape.
+// before they're queued so the pop-ups never appear. Every other toast
+// (recipe unlock, tutorial, system) is left untouched.
 @Mixin(ToastManager.class)
 public abstract class ToastManagerMixin {
 	@Inject(method = "addToast", at = @At("HEAD"), cancellable = true)

@@ -144,8 +144,9 @@
                         <ItemsPanelTemplate>
                             <!-- Columns fixed at 3, rows left to UniformGrid so the
                                  grid follows the catalog instead of a hardcoded 9.
-                                 Six cards today (3/3) since the never-shipping
-                                 versions and the 26 card left on 2026-10-12. -->
+                                 Eight cards today (3/3/2): the 26 card (back
+                                 2026-10-13), six Fabric families, and 1.8
+                                 (Forge, back 2026-10-13) last. -->
                             <UniformGrid Columns="3"/>
                         </ItemsPanelTemplate>
                     </ListBox.ItemsPanel>

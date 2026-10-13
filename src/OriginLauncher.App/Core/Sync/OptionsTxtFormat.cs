@@ -12,6 +12,7 @@ namespace OriginLauncher.App.Core.Sync;
 // the video settings.
 //
 // How the loaders treat what we write (checked in decompiled vanilla):
+//  * 1.8.9 (GameSettings.loadOptions, Forge + OptiFine) and
 //  * 1.16.5 (Options.load, an if-chain per key): an unknown key matches
 //    nothing and is ignored; a bad value throws inside a per-key try/catch
 //    ("Skipping bad option") and only that key keeps its default.
@@ -45,7 +46,27 @@ namespace OriginLauncher.App.Core.Sync;
 //  * graphicsMode (<= 1.21.10) vs graphicsPreset & co (1.21.11, vanilla's
 //    OptionsGraphicsModeSplitFix) and showNowPlayingToast (1.21.6-1.21.10) vs
 //    musicToast (1.21.11): different keys, each syncs between the versions
-//    that have it and is ignored by the rest — never translated.
+//    that have it and is ignored by the rest — never translated. Same for
+//    1.8.9's own keys (fancyGraphics, clouds, stream*): nothing else has them.
+//
+// 1.8.9 (the one pre-1.13 version, on Forge — decided 2026-10-13): synced,
+// with the two translations its values need, so a PvP player's keybinds
+// follow them between 1.8.9 and the modern versions:
+//  * keybinds: 1.8.9 stores LWJGL 2 key codes (`key_key.forward:17`, mouse
+//    buttons as -100 + button), 1.13+ GLFW names (`key.keyboard.w`). Compared
+//    as the GLFW name (LegacyKeyNames — the same table as vanilla 1.13's
+//    OptionsKeyLwjgl3Fix) and written as a code into 1.8.9. A key with no
+//    counterpart in the other era (a raw scancode, F20, an odd code) is never
+//    written there: that version keeps its own binding.
+//  * lang: `en_US` up to 1.10, `en_us` from 1.11 (vanilla's
+//    OptionsLowerCaseLanguageFix). Compared lower-case, written xx_YY into 1.8.9.
+//  * no `version:` line: 1.8.9 predates data versions (1.9 introduced them), so
+//    a brand-new 1.8.9 options.txt is created without one — correct there.
+// Everything else 1.8.9 shares with the later eras is already the same format
+// (fov/gamma/sensitivity as 0..1 fractions, ao 0/1/2 — 1.8.9 also reads
+// true/false — soundCategory_*, chat sliders, guiScale, renderDistance), and
+// its loader skips any bad line on its own ("Skipping bad option").
+// servers.dat and Origin's originclient*.json are the same files on 1.8.9.
 public sealed class OptionsTxtFormat : ISyncFormat
 {
     public static readonly OptionsTxtFormat Instance = new();
@@ -92,6 +113,55 @@ public sealed class OptionsTxtFormat : ISyncFormat
         ["1.21.2"] = 4080, ["1.21.3"] = 4082, ["1.21.4"] = 4189, ["1.21.6"] = 4435,
         ["1.21.7"] = 4438, ["1.21.8"] = 4440, ["1.21.10"] = 4556, ["1.21.11"] = 4671,
     };
+
+    // The era cliffs above, as the first version on the new side.
+    private const string GlfwKeyNamesSince = "1.13";
+    private const string LowerCaseLangSince = "1.11";
+    private const string DataVersionsSince = "1.9";
+
+    // LWJGL 2 key code (1.8.9's options.txt) -> GLFW key name (1.13+), as in
+    // vanilla 1.13's OptionsKeyLwjgl3Fix. 0 is "unbound"; mouse button b is
+    // stored as -100 + b.
+    private static readonly Dictionary<int, string> LegacyKeyNames = BuildLegacyKeyNames();
+    private static readonly Dictionary<string, int> LegacyKeyCodes =
+        LegacyKeyNames.ToDictionary(kv => kv.Value, kv => kv.Key, StringComparer.Ordinal);
+
+    private static Dictionary<int, string> BuildLegacyKeyNames()
+    {
+        var names = new Dictionary<int, string>
+        {
+            [0] = "unknown", [1] = "escape", [11] = "0", [12] = "minus", [13] = "equal",
+            [14] = "backspace", [15] = "tab", [26] = "left.bracket", [27] = "right.bracket",
+            [28] = "enter", [29] = "left.control", [39] = "semicolon", [40] = "apostrophe",
+            [41] = "grave.accent", [42] = "left.shift", [43] = "backslash", [51] = "comma",
+            [52] = "period", [53] = "slash", [54] = "right.shift", [55] = "keypad.multiply",
+            [56] = "left.alt", [57] = "space", [58] = "caps.lock", [69] = "num.lock",
+            [70] = "scroll.lock", [71] = "keypad.7", [72] = "keypad.8", [73] = "keypad.9",
+            [74] = "keypad.subtract", [75] = "keypad.4", [76] = "keypad.5", [77] = "keypad.6",
+            [78] = "keypad.add", [79] = "keypad.1", [80] = "keypad.2", [81] = "keypad.3",
+            [82] = "keypad.0", [83] = "keypad.decimal", [87] = "f11", [88] = "f12",
+            [100] = "f13", [101] = "f14", [102] = "f15", [103] = "f16", [104] = "f17",
+            [105] = "f18", [113] = "f19", [141] = "keypad.equal", [156] = "keypad.enter",
+            [157] = "right.control", [181] = "keypad.divide", [183] = "print.screen",
+            [184] = "right.alt", [197] = "pause", [199] = "home", [200] = "up",
+            [201] = "page.up", [203] = "left", [205] = "right", [207] = "end", [208] = "down",
+            [209] = "page.down", [210] = "insert", [211] = "delete", [219] = "left.win",
+            [220] = "right.win", [221] = "menu",
+        };
+        for (var digit = 1; digit <= 9; digit++) names[1 + digit] = digit.ToString(CultureInfo.InvariantCulture);
+        for (var f = 1; f <= 10; f++) names[58 + f] = "f" + f.ToString(CultureInfo.InvariantCulture);
+        // Letter rows, in LWJGL 2 (scancode) order.
+        foreach (var (first, letters) in new[] { (16, "qwertyuiop"), (30, "asdfghjkl"), (44, "zxcvbnm") })
+            for (var i = 0; i < letters.Length; i++) names[first + i] = letters[i].ToString();
+
+        var keys = names.ToDictionary(kv => kv.Key, kv => "key.keyboard." + kv.Value);
+        keys[-100] = "key.mouse.left";
+        keys[-99] = "key.mouse.right";
+        keys[-98] = "key.mouse.middle";
+        for (var button = 3; button <= 7; button++)
+            keys[-100 + button] = "key.mouse." + (button + 1).ToString(CultureInfo.InvariantCulture);
+        return keys;
+    }
 
     // Keybind values: GLFW key names, mouse buttons (named or numbered) and raw scancodes.
     private static readonly Regex KeybindValue = new(@"^(key\.(keyboard|mouse)\.[a-z0-9_.]+|scancode\.\d+)$", RegexOptions.CultureInvariant);
@@ -158,7 +228,7 @@ public sealed class OptionsTxtFormat : ISyncFormat
 
         if (!changed) return ToMap(lines);
 
-        if (!ToMap(lines).ContainsKey("version"))
+        if (!ToMap(lines).ContainsKey("version") && McVersion.AtLeast(target.Version, DataVersionsSince))
         {
             // Without a version line vanilla treats the file as version 0 and runs
             // every data fixer over it (1.13's keybind rewrite included). Only
@@ -179,7 +249,8 @@ public sealed class OptionsTxtFormat : ISyncFormat
     private static bool IsSafeValue(string key, string raw)
     {
         if (raw.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0) return false;
-        if (key.StartsWith("key_", StringComparison.Ordinal)) return KeybindValue.IsMatch(raw.Trim());
+        // A 1.8.9 code counts in its GLFW form; one with no GLFW name is rejected.
+        if (key.StartsWith("key_", StringComparison.Ordinal)) return KeybindValue.IsMatch(Canonical(key, raw));
         if (RawTextKeys.Contains(key) || TextKeysQuotedInCodecEra.Contains(key)) return true;
         var value = raw.Trim();
         return value is "true" or "false"
@@ -202,6 +273,16 @@ public sealed class OptionsTxtFormat : ISyncFormat
                 _ => value,
             };
         }
+        else if (key.StartsWith("key_", StringComparison.Ordinal)
+                 && int.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var code)
+                 && LegacyKeyNames.TryGetValue(code, out var glfwName))
+        {
+            value = glfwName; // 1.8.9's LWJGL 2 code
+        }
+        else if (key == "lang")
+        {
+            value = value.ToLowerInvariant(); // en_US (1.8.9) == en_us
+        }
         return value;
     }
 
@@ -211,6 +292,11 @@ public sealed class OptionsTxtFormat : ISyncFormat
     {
         var canonical = Canonical(key, raw);
         var codecEra = McVersion.AtLeast(targetVersion, "1.19");
+
+        if (key.StartsWith("key_", StringComparison.Ordinal) && !McVersion.AtLeast(targetVersion, GlfwKeyNamesSince))
+            return LegacyKeyCodes.TryGetValue(canonical, out var code) ? code.ToString(CultureInfo.InvariantCulture) : null;
+        if (key == "lang" && !McVersion.AtLeast(targetVersion, LowerCaseLangSince))
+            return LegacyLanguageCode(canonical);
 
         if (codecEra && (UnitIntervalKeys.Contains(key) || key.StartsWith("soundCategory_", StringComparison.Ordinal))
             && TryNumber(canonical, out var unit) && (unit < 0 || unit > 1))
@@ -226,6 +312,13 @@ public sealed class OptionsTxtFormat : ISyncFormat
         // a bare token is read the same way by the lenient parser.
         var trimmed = raw.Trim();
         return IsJsonString(trimmed) ? trimmed : canonical;
+    }
+
+    // "en_us" -> "en_US": the language code form before 1.11 (region upper-case).
+    private static string LegacyLanguageCode(string code)
+    {
+        var underscore = code.IndexOf('_');
+        return underscore < 0 ? code : code[..underscore] + code[underscore..].ToUpperInvariant();
     }
 
     private static bool IsJsonString(string value)

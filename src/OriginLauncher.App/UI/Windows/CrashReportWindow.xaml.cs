@@ -9,8 +9,8 @@ namespace OriginLauncher.App.UI.Windows;
 // Names the mod(s) CrashAnalyzer implicated — or says plainly that the culprit
 // is unknown — and offers exactly two actions besides Close:
 //   - Disable external mods & retry: relaunch with only Origin's own mods
-//     (the same fabric.modsFolder mechanism as the Home switch). The player's
-//     files are never touched.
+//     (the same mechanism as the Home switch: fabric.modsFolder, or on Forge
+//     1.8.9 a managed-only mods mirror). The player's files are never touched.
 //   - Open log: the per-launch log this analysis was made from.
 public partial class CrashReportWindow : Window
 {

@@ -28,8 +28,6 @@ public class LoadingOverlayMixin {
 	@Shadow
 	private float currentProgress;
 
-	// 26.2: Overlay.render -> extractRenderState (retained-mode). TAIL/non-cancel
-	// keeps vanilla's fade + setOverlay(null) transition intact (see class note).
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void originclient$drawOriginLoading(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		OriginScreenRenderer.renderLoading(guiGraphics, this.currentProgress);

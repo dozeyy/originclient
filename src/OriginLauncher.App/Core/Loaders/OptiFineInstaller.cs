@@ -81,8 +81,21 @@ public static class OptiFineInstaller
             if (!fetched) return false;
         }
 
+        // Copied beside, then swapped in with one rename: the mods folder is
+        // shared by every account (SharedMods), and another account's running
+        // game may hold the old optifine.jar open. If it does, the swap fails
+        // and this launch uses the copy already there; the next one heals it.
         Directory.CreateDirectory(modsFolder);
-        File.Copy(cached, destPath, overwrite: true);
+        var temp = destPath + ".download";
+        try
+        {
+            File.Copy(cached, temp, overwrite: true);
+            File.Move(temp, destPath, overwrite: true);
+        }
+        catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && File.Exists(destPath))
+        {
+            try { File.Delete(temp); } catch { /* our own half-copy; best-effort */ }
+        }
         return true;
     }
 

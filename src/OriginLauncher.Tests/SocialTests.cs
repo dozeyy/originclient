@@ -110,6 +110,8 @@ public class JoinArgumentsTests
     [InlineData("1.19.4", "hypixel.net:25565", "--server hypixel.net")]
     [InlineData("1.16.5", "mc.example.org:25570", "--server mc.example.org --port 25570")]
     [InlineData("1.18.2", "2001:db8::1", "--server 2001:db8::1")]
+    [InlineData("1.8.9", "mc.hypixel.net", "--server mc.hypixel.net")]           // Forge 1.8.9: vanilla's own pair
+    [InlineData("1.8.9", "pvp.example.net:25599", "--server pvp.example.net --port 25599")]
     public void QuickPlayFrom120ServerPortBefore(string version, string server, string expected) =>
         Assert.Equal(expected, string.Join(" ", JoinArguments.Build(version, server)));
 
@@ -131,11 +133,11 @@ public class JoinArgumentsTests
     {
         static bool Supported(string v) => v is "1.21.1" or "1.20.1";
         Assert.Equal(JoinBlock.None, JoinArguments.Check("1.21.1", "hypixel.net", Supported));
-        Assert.Equal(JoinBlock.UnsupportedVersion, JoinArguments.Check("1.8.9", "hypixel.net", Supported));
+        Assert.Equal(JoinBlock.UnsupportedVersion, JoinArguments.Check("1.12.2", "hypixel.net", Supported));
         Assert.Equal(JoinBlock.UnknownVersion, JoinArguments.Check(null, "hypixel.net", Supported));
         Assert.Equal(JoinBlock.NoServer, JoinArguments.Check("1.21.1", null, Supported));
-        Assert.Contains("1.8.9", JoinArguments.Explain(JoinBlock.UnsupportedVersion, "rinrin", "1.8.9"));
-        Assert.Contains("rinrin", JoinArguments.Explain(JoinBlock.UnsupportedVersion, "rinrin", "1.8.9"));
+        Assert.Contains("1.12.2", JoinArguments.Explain(JoinBlock.UnsupportedVersion, "rinrin", "1.12.2"));
+        Assert.Contains("rinrin", JoinArguments.Explain(JoinBlock.UnsupportedVersion, "rinrin", "1.12.2"));
     }
 }
 

@@ -59,10 +59,11 @@ application
 ## The mandate (non-negotiable)
 1. **No loader choice, ever** (the Lunar/Feather model): the launcher always
    installs the right stack for the picked version quietly. **Fabric for every
-   supported version — the lineup is Fabric-only again as of 2026-08-06**, when
-   the legacy Forge pair (1.8.9, 1.12.2) was pulled. No Forge, no NeoForge, no
-   loader selector anywhere in the UI or the code. (The legacy install path
-   still exists in the launcher but is unreachable — see VERSIONS.md.)
+   supported version except 1.8.9, which runs Forge 11.15.1.2318 + OptiFine**
+   (back LIVE 2026-10-13, Will's call: Fabric never supported 1.8.9 and
+   OptiFine is its only shader layer). No NeoForge, no loader selector anywhere
+   in the UI or the code — the player never sees which loader a version uses.
+   1.12.2 stays pulled.
 2. **Every supported version gets the FULL Origin experience.** Identical look
    across versions — title screen, every loading/progress screen, mod menu, and
    HUD must match the Origin design on every supported version. Vanilla menus
@@ -120,13 +121,18 @@ docs/RELEASING.md         how shipping works (tag flow, pipeline, labels)
 - Staged work NEVER lives next to shipped work — `staged/` is the boundary.
 
 ## Supported versions
-**Fabric only.** 1.20, 1.20.1, 1.20.2, 1.20.4, 1.21, 1.21.1, 1.21.2/3/4,
+**Fabric, plus 1.8.9 on Forge.** 1.20, 1.20.1, 1.20.2, 1.20.4, 1.21, 1.21.1, 1.21.2/3/4,
 1.21.6/7, 1.21.8, 1.21.10, 1.21.11 are LIVE, **plus the pre-1.20 set 1.16.5,
 1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 (LIVE 2026-07-15, launcher-v1.0.24)**.
-26.2 staged. **PULLED 2026-08-06 (Will's call):** 1.21.5, and the legacy Forge
-pair 1.8.9 + 1.12.2 — all three are removed from `VersionCatalog`, so they no
-longer appear in the picker at all, and CI no longer builds or bundles them.
-Their modules stay on disk. **Pre-1.20 is a SECOND rendering backend**, not a
+**1.8.9 LIVE again (2026-10-13, Will's call) on Forge + OptiFine** with the
+full current Origin experience (`src/mods/versions/1.8.9/PORT-189.md`).
+**26.2 LIVE 2026-10-13** (ported from 1.21.11; unobfuscated, Java 25 — the 26.x era,
+see PORTING-ERA-NOTES "26.x era"), **plus 26.3 LIVE 2026-10-13** (`versions/26.3`, derived from 26.2;
+SDL3 + renderpearl render API — PORTING-ERA-NOTES "26.3"), **plus 26.1, 26.1.1, 26.1.2 LIVE
+2026-10-13** (one jar, `versions/26.1`, derived from 26.2 — PORTING-ERA-NOTES "26.1.x").
+**PULLED 2026-08-06 (Will's call):** 1.21.5 and 1.12.2 — removed
+from `VersionCatalog`, so they don't appear in the picker, and CI doesn't build
+or bundle them. Their modules stay on disk. **Pre-1.20 is a SECOND rendering backend**, not a
 gap-port: `GuiGraphics` only exists since 1.20, so those six modules draw via
 `PoseStack` through a per-module `Gfx` wrapper that mirrors the GuiGraphics
 method shapes (1.16.5 additionally is Java 8 + fixed-function GL). They are
@@ -134,7 +140,7 @@ method shapes (1.16.5 additionally is Java 8 + fixed-function GL). They are
 only Sodium is an alpha, its only Iris a pre-release). The 1.21.x line is NOT
 one build — Minecraft rewrote its render/GUI/input system in stages, so each
 sub-family is its own port. **No "Coming Soon" entries (Will, 2026-10-12):**
-the picker shows ONLY the versions above — every unbuilt version (all of 26.x,
+the picker shows ONLY the versions above — every unbuilt version (26.x except 26.1–26.1.2, 26.2 and 26.3,
 1.20.6/1.20.5/1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, 1.16–1.16.4) was removed
 because Will says they will never ship; CI's check_consistency.py fails if the
 picker (`VersionCatalog`) and `OriginBuilds` ever disagree. Per-
@@ -164,7 +170,8 @@ mandatory for players. Full rules: `docs/RELEASING.md`.
   `SettingsStore.Update(mutate)` ONLY — never write a whole cached snapshot.
 - Mod: Java + Fabric (loader + API) + Loom + official Mojang mappings. 1.21.x
   on Java 21, 1.20.x/1.18–1.19.x on Java 17 bytecode, 1.17.1 on 16, 1.16.5 on
-  8, 26.2 on Java 25. Shaders via Iris; perf via Sodium/Lithium/FerriteCore.
+  8, 26.1.x + 26.2 + 26.3 on Java 25 (unobfuscated: no mappings line, `net.fabricmc.fabric-loom`; CI builds it on
+  JDK 25 via `"java": "25"` in live-modules.json). Shaders via Iris; perf via Sodium/Lithium/FerriteCore.
   1.21.1 bundles its perf stack jar-in-jar; other versions get the stack
   standalone from `PerformanceModCatalog` (`VersionManager.OriginBuilds`
   records which model).
@@ -177,12 +184,20 @@ mandatory for players. Full rules: `docs/RELEASING.md`.
   Loom's `splitEnvironmentSourceSets()` fails below 1.18 (no bundled server
   jar → merged source set); 1.16.5 has no `RenderSystem.setShader*` at all
   (fixed-function: `TextureManager.bind` + `color4f`).
-- Legacy mod (1.8.9 / 1.12.2): Java 8, Forge, MCP mappings via
-  gg.essential.loom (Gradle 8.7, foojay-provisioned JDK 8), NO mixins — all
-  Forge events. Launcher side: `LegacyForgeInstaller` (bundled version JSON +
+- 1.8.9 mod: Java 8, Forge 11.15.1.2318, MCP stable_22 names via
+  gg.essential.loom 1.3.12 (Gradle 8.7, foojay-provisioned JDK 8) + Mixin
+  0.7.11 shadowed into the jar and loaded by its tweaker (Forge events first,
+  fail-soft mixins second — OptiFine replaces whole vanilla classes, so HEAD/
+  RETURN injections only there). Same package layout and public API as the
+  1.16.5 module it was ported from. The sandbox can't reach Forge's maven:
+  `.github/workflows/ref-189.yml` compiles it and answers 1.8.9 name/SRG
+  lookups in CI logs (PORT-189.md). (1.12.2's module is the old event-only
+  Forge build, pulled.) Launcher side: `LegacyForgeInstaller` (bundled version JSON +
   universal jar), `OptiFineInstaller` (download-at-install, SHA-1-pinned,
   official-site-then-mirrors, never redistributed), `LegacyStackInstaller`
-  (era perf mods + FML splash theme). Shaders via OptiFine.
+  (era perf mods + FML splash theme); Forge has no fabric.modsFolder, so the
+  shared `instances/1.8.9/mods/` is mirrored into each account's `mods/` at
+  launch (SharedMods.Mirror). Shaders via OptiFine.
 
 ## Brand
 Origin mark = 3 tilted stroke-only rings sharing one center (0°/60°/120°, atom/
@@ -207,7 +222,7 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-12)
-- **Latest release: `launcher-v1.0.48`** (2026-10-12; mandatory auto-update; tag flow). Tag `origin/main`
+- **Latest release: `launcher-v1.0.50`** (2026-10-12; mandatory auto-update; tag flow). Tag `origin/main`
   directly (`git tag launcher-v1.0.N origin/main`) — Will's local main once carried an unpushed commit and
   his first v1.0.46 tag landed on it (run cancelled before publishing).
 - **v1.0.49 round (2026-10-12):** friends sign-in v2 — Mojang 403s every Cloudflare Worker request, so
@@ -321,7 +336,14 @@ floating corner controls. In-game menus match this exactly.
   1.16.5's `TitleScreen.render()` opens with a full-screen WHITE fill that
   vanilla hides behind the panorama → suppressing the panorama exposed it and
   buried the Origin backdrop. Both fixed; full detail in MEMORY.md.
-- **1.8.9 + 1.12.2 PULLED 2026-08-06** (Will's call), together with **1.21.5**.
+- **1.8.9 back, full experience (2026-10-13, branch claude/trusting-shannon-k4vzd2, untagged):**
+  Will chose Forge + OptiFine, straight into the picker, everything at once. Ported from 1.16.5
+  by seven agents (foundation/menus/modmenu/hud/world/social/server; PORT-189.md is the brief +
+  the as-built API); CI-compiled. Launcher: legacy branch rebuilt on per-account game folders +
+  mirrored shared mods, Forge crash blame, Settings Sync translations (LWJGL2 key codes, lang).
+  Hidden on 1.8.9: Cooldowns, Raw Mouse Input, Shader Performance Mode, Bed Wars Colored Beds,
+  Keep Chat History. Awaiting Will's in-game pass through the real launcher (with OptiFine).
+- **1.8.9 + 1.12.2 PULLED 2026-08-06** (Will's call), together with **1.21.5** (1.8.9 returned 2026-10-13).
   All three are out of `VersionCatalog`, so their entries/cards are gone from
   the picker entirely, and neither CI workflow builds them nor does the
   launcher bundle their jars. The legacy pair went live 2026-07-14 on Forge +
@@ -350,11 +372,15 @@ floating corner controls. In-game menus match this exactly.
   boot-verified (`src/mods/versions/{1.21.8,1.21.11}`).
 - [x] 1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 — the pre-1.20 PoseStack
   backend, live + boot-verified 2026-07-15 (`launcher-v1.0.24`).
-- [x] 1.21.5, 1.8.9, 1.12.2 — PULLED from the lineup 2026-08-06 (Will's call);
+- [x] 1.21.5, 1.12.2 — PULLED from the lineup 2026-08-06 (Will's call);
   modules kept on disk, out of the picker and out of CI.
+- [~] 1.8.9 — back on Forge + OptiFine with the full experience (2026-10-13);
+  CI-green, awaiting Will's in-game pass.
 - [ ] 1.21.9 — pulled (input-event boundary + fabric-API gap); analysis in memory.
 - [ ] 1.18.1 — blocked on a stable Sodium/Iris pair (alpha/pre-release only today).
-- [~] 26.2 — staged, render layer mid-port (`src/mods/staged/26.2/PORT-262.md`).
+- [x] 26.2 — live 2026-10-13 (`src/mods/versions/26.2`, ported from 1.21.11; dev shots match 1.21.1).
+- [x] 26.1, 26.1.1, 26.1.2 — live 2026-10-13 (one jar, `src/mods/versions/26.1`, derived from 26.2; dev shots match 1.21.1).
+- [x] 26.3 — live 2026-10-13 (`src/mods/versions/26.3`, derived from 26.2; SDL3 + renderpearl; dev shots match 1.21.1).
 - [x] Crash system v1 — boot-crash blame + Origin-only retry.
 - [ ] Crash system v2 — in-game Origin debug screen, log-cause detection.
 - [ ] Light theme (Deskify inverse tokens).

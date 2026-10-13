@@ -289,4 +289,93 @@ public class SharedModsTests
         Assert.True(SharedMods.SameBytes(a, c));
         Assert.False(SharedMods.SameBytes(a, P("missing.jar")));
     }
+
+    // ------------------------------------------- the 1.8.9 (Forge) mods mirror
+
+    private string Mirror(string account = Steve) => P($"1.8.9/accounts/{account}/mods");
+
+    private bool MirrorShared(Func<string, bool>? include = null, string account = Steve) =>
+        SharedMods.Mirror(P("1.8.9/mods"), Mirror(account), include);
+
+    [Fact]
+    public void TheMirrorCopiesEveryLoadableSharedFile()
+    {
+        Write("1.8.9/mods/originclient.jar", "origin", Monday);
+        Write("1.8.9/mods/optifine.jar", "optifine", Monday);
+        Write("1.8.9/mods/old-mod.zip", "zip mod", Monday);
+        Write("1.8.9/mods/off.jar.disabled", "off");             // turned off on the Mods page
+        Write("1.8.9/mods/notes.txt", "not a mod");
+        Write("1.8.9/mods/1.8.9/nested.jar", "sub-folders stay out");
+
+        Assert.True(MirrorShared());
+
+        Assert.Equal("origin", Read($"1.8.9/accounts/{Steve}/mods/originclient.jar"));
+        Assert.Equal("optifine", Read($"1.8.9/accounts/{Steve}/mods/optifine.jar"));
+        Assert.Equal("zip mod", Read($"1.8.9/accounts/{Steve}/mods/old-mod.zip"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/off.jar.disabled"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/notes.txt"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/1.8.9"));
+        // The shared folder is never changed by mirroring it.
+        Assert.Equal("off", Read("1.8.9/mods/off.jar.disabled"));
+    }
+
+    [Fact]
+    public void TheMirrorFollowsChangesAndRemovalsInTheSharedFolder()
+    {
+        Write("1.8.9/mods/originclient.jar", "origin v1", Monday);
+        Write("1.8.9/mods/cool-mod.jar", "cool", Monday);
+        Assert.True(MirrorShared());
+
+        Write("1.8.9/mods/originclient.jar", "origin v2", Friday); // a launcher update
+        File.Move(P("1.8.9/mods/cool-mod.jar"), P("1.8.9/mods/cool-mod.jar.disabled")); // turned off
+        Assert.True(MirrorShared());
+
+        Assert.Equal("origin v2", Read($"1.8.9/accounts/{Steve}/mods/originclient.jar"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/cool-mod.jar"));
+        Assert.Equal("cool", Read("1.8.9/mods/cool-mod.jar.disabled"));
+    }
+
+    [Fact]
+    public void AJarThePlayerDropsIntoTheMirrorJoinsTheSharedFolder()
+    {
+        Write("1.8.9/mods/originclient.jar", "origin", Monday);
+        Assert.True(MirrorShared());
+        Write($"1.8.9/accounts/{Steve}/mods/keystrokes.jar", "keystrokes");
+
+        Assert.True(MirrorShared());
+
+        Assert.Equal("keystrokes", Read("1.8.9/mods/keystrokes.jar"));
+        Assert.Equal("keystrokes", Read($"1.8.9/accounts/{Steve}/mods/keystrokes.jar"));
+        // ...and from there it reaches every account's mirror.
+        Assert.True(MirrorShared(account: Alex));
+        Assert.Equal("keystrokes", Read($"1.8.9/accounts/{Alex}/mods/keystrokes.jar"));
+    }
+
+    [Fact]
+    public void OriginOnlyMirrorsJustTheProvisionedJarsAndLosesNothing()
+    {
+        Write("1.8.9/mods/originclient.jar", "origin", Monday);
+        Write("1.8.9/mods/keystrokes.jar", "keystrokes", Monday);
+        Assert.True(MirrorShared());
+
+        Assert.True(MirrorShared(name => name.StartsWith("originclient", StringComparison.Ordinal)));
+
+        Assert.True(Exists($"1.8.9/accounts/{Steve}/mods/originclient.jar"));
+        Assert.False(Exists($"1.8.9/accounts/{Steve}/mods/keystrokes.jar"));
+        Assert.Equal("keystrokes", Read("1.8.9/mods/keystrokes.jar"));
+
+        Assert.True(MirrorShared()); // external mods back on
+        Assert.Equal("keystrokes", Read($"1.8.9/accounts/{Steve}/mods/keystrokes.jar"));
+    }
+
+    [Fact]
+    public void TheMergeLeavesAMirrorAlone()
+    {
+        Write("1.8.9/mods/originclient.jar", "origin", Monday);
+        Assert.True(MirrorShared());
+
+        Assert.False(SharedMods.NeedsMerge(Root("1.8.9")));
+        Assert.True(SharedMods.MergeVersion(Root("1.8.9"), NothingRunning));
+        Assert.Equal("origin", Read($"1.8.9/accounts/{Steve}/mods/originclient.jar"));
+    }
 }

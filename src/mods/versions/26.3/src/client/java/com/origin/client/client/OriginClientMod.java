@@ -1,0 +1,855 @@
+package com.origin.client.client;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import com.origin.client.client.gui.OriginModMenuScreen;
+import com.origin.client.client.gui.OriginShaders;
+import com.origin.client.client.mods.ChunkBorderRenderer;
+import com.origin.client.client.mods.MotionBlur;
+import com.origin.client.client.mods.Mods;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+
+// Client entrypoint + per-tick feature hub. All feature state lives in the
+// Mods registry (originclient-mods.json); the legacy FEATURES object stays
+// only as the migration source and for its transient sprint/sneak state.
+public class OriginClientMod implements ClientModInitializer {
+	public static final OriginFeatures FEATURES = OriginConfig.load();
+
+	private boolean freelookWasDown = false;
+	private net.minecraft.client.CameraType savedPerspective = null;
+	private boolean sneakForced = false;
+	private boolean chatApplied = false;
+	private double savedChatOpacity = 1.0, savedChatScale = 1.0;
+	private boolean hitboxesApplied = false;
+	private boolean chunkKeyWasDown = false;
+	private boolean sprintKeyWasDown = false, sneakKeyWasDown = false;
+	private boolean scoreboardKeyWasDown = false;
+	private boolean fullbrightKeyWasDown = false;
+	private boolean zoomKeyWasDown = false;
+	private boolean timeIncWasDown = false, timeDecWasDown = false;
+	// static so previewTimeSlider (called from the mod menu) can fold it in too.
+	private static double timePassageAccum = 0;
+
+	// Live time-changer output, read by LevelTimeMixin every frame.
+	public static volatile double timeOverride = 6000;
+	// Toggle-mode zoom latch. zoomActive = zoom is engaged this tick (the target
+	// GameRendererMixin eases the FOV toward, frame-side). zoomScrollFactor is a
+	// transient scroll-to-zoom multiplier, reset whenever zoom disengages.
+	public static volatile boolean zoomToggled = false;
+	public static volatile boolean zoomActive = false;
+	public static volatile double zoomScrollFactor = 1.0;
+	// Eased zoom progress (0 = off, 1 = fully zoomed): advanced once per frame by
+	// GameRendererMixin, read by CameraMixin's calculateFov hook.
+	public static volatile double zoomAnim = 0;
+	// Edge-trigger for death waypoints: true while the player is alive, so a death
+	// drops exactly one waypoint on the alive→dead transition.
+	private boolean wasAlive = false;
+	// Nametag toggle latches, read by EntityNametagMixin.
+	public static volatile boolean nametagsHidden = false, playerNametagsHidden = false;
+	// Whether the Tab Editor's custom player-list overlay should draw this frame. Set
+	// each tick; read by GuiHudMixin. We drive our own visibility (not vanilla's,
+	// which refuses to show the list on a solo local server) so it also previews in
+	// single-player and never double-draws with vanilla (PlayerTabOverlayMixin cancels).
+	public static volatile boolean tabListVisible = false;
+	private boolean nametagAllKeyWasDown = false, nametagPlayerKeyWasDown = false;
+	// Tab Editor: sticky tap-vs-hold state + two-way keybind sync bookkeeping.
+	private boolean tabKeyWasDown = false;
+	private boolean tabStickyOn = false;
+	private long tabPressAt = 0;
+	private boolean tabSyncInit = false;
+	private int lastOurTabKey = -1, lastMcTabKey = -1;
+	// Zoomed Sensitivity + Smooth Camera (zoom/freelook) save-and-restore state.
+	private boolean zoomSensApplied = false;
+	private double savedSensitivity = 0.5;
+	private boolean smoothCamApplied = false;
+	private boolean savedSmoothCam = false;
+	// Fly Boost restore latch + thunder-sound cadence counter.
+	private boolean flyBoostApplied = false;
+	private int thunderSoundTicks = 0;
+
+	// JEI bundled here is jei 31.12.0.65 for 26.3 (see gradle.properties). If
+	// a player drops a different JEI in, Fabric loads the higher version and ours is
+	// shadowed — detectForeignJei() catches that. jeiNoticeShown gates the one-time
+	// in-world chat notice.
+	private static final String BUNDLED_JEI = "31.12.0.65";
+	private static String foreignJei = null;
+	private boolean jeiNoticeShown = false;
+
+	@Override
+	public void onInitializeClient() {
+		// FIRST world-render registration: every later COLLECT_SUBMITS listener
+		// (Origin's overlays, Social, WorldEdit CUI, Team View) records into
+		// OriginRenderTypes, which submits to the collector remembered here.
+		LevelRenderEvents.COLLECT_SUBMITS.register(com.origin.client.client.render.OriginRenderTypes::beginFrame);
+		OriginKeyBindings.register();
+		OriginShaders.register();
+		// Lunar-parity mods' own pipelines (saturation glow, shine, glint, CUI).
+		com.origin.client.client.render.LunarPipelines.register();
+		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
+		// Team View, Discord Status and Hypixel register their own events.
+		com.origin.client.client.mods.ServerMods.register();
+		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
+		com.origin.client.client.mods.SaturationOverlay.registerTooltip();
+
+		// Fragility guards for the bundled JEI: warn if a foreign JEI overrides ours
+		// and if the JEI internals the toggle mixins bind to have moved. Wrapped so a
+		// check can never fail client init.
+		try {
+			detectForeignJei();
+			selfCheckJeiMixins();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: JEI startup checks failed", t);
+		}
+		// WorldEdit CUI: its own plugin channel, tick and world-render hooks (fail-soft inside).
+		com.origin.client.client.worldedit.WorldEditCui.init();
+		// Origin originals: Portal Calculator hooks its own client tick (fail-soft inside).
+		com.origin.client.client.mods.PortalCalc.init();
+		// FPS Coach (Origin original): its own tick + per-frame hooks (fail-soft inside).
+		com.origin.client.client.mods.FpsCoach.register();
+		// Lunar parity, batch 3a: Auto GG's chat listeners and the Screenshot
+		// chat buttons' click hook (both Fabric API events, fail-soft).
+		try {
+			com.origin.client.client.mods.AutoGG.register();
+			com.origin.client.client.mods.ScreenshotChat.register();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
+		}
+		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
+		// client (background thread, fail-soft) and the head-cosmetic layer on
+		// every player model. Capes ride vanilla's cape slot (CosmeticCapeMixin).
+		// The player renderer is AvatarRenderer (1.21.11+); 26.2's Fabric API names
+		// the callback LivingEntityRenderLayerRegistrationCallback.
+		try {
+			com.origin.client.client.cosmetics.CosmeticsService.start();
+			net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback.EVENT.register(
+					(type, renderer, helper, ctx) -> {
+						if (renderer instanceof net.minecraft.client.renderer.entity.player.AvatarRenderer<?> player) {
+							helper.register(new com.origin.client.client.cosmetics.CosmeticHeadLayer(player));
+						}
+					});
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
+		}
+		// Friends, chat and parties (docs/SOCIAL.md): the service client (background
+		// thread, fail-soft), its tick / world / toast-click hooks and /originpc.
+		try {
+			com.origin.client.client.social.Social.init();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: friends failed to start", t);
+		}
+		// Single authoritative autosave when the player leaves the game (quit to
+		// desktop / window close). Mod + HUD settings already save eagerly on
+		// every change; this flushes all three stores once on exit so nothing is
+		// ever lost — including vanilla game options, which the mod otherwise
+		// never writes. Per-version isolation is automatic: options.txt and the
+		// config/ dir both live inside this version's own instance folder.
+		ClientLifecycleEvents.CLIENT_STOPPING.register(this::onClientStopping);
+		// DIAGNOSTIC (2026-07-23, invisible MSDF text bug — task 14): installs
+		// LWJGL's GL_KHR_debug message callback so the GPU driver's OWN compile/
+		// link/draw errors print straight to the console, instead of relying on
+		// only whatever Mojang's own code happens to log. Must run AFTER the GL
+		// context exists (onInitializeClient() runs before the window/context
+		// are created), so this is deferred to CLIENT_STARTED.
+		//
+		// OFF BY DEFAULT (2026-07-26). This shipped enabled, and a KHR_debug
+		// callback is SYNCHRONOUS: the driver calls back on every message, which
+		// forces validation work and serialisation into the GL command stream for
+		// the entire session — a permanent cost on the render thread paid by every
+		// player, for output only a developer reads. Re-enable when debugging with:
+		//     -Dorigin.gldebug=true
+		// DEV-ONLY (2026-07-27): arms the F8 cubemap grabber used to author the
+		// Origin title-screen panorama. Same off-by-default shape as gldebug
+		// below -- nothing registers, and the class never loads, for a player.
+		//     -Dorigin.panoramacapture=true
+		if (Boolean.getBoolean("origin.panoramacapture")) {
+			com.origin.client.client.dev.PanoramaCapture.register();
+		}
+		if (Boolean.getBoolean("origin.gldebug")) {
+			ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+				try {
+					org.lwjgl.opengl.GLUtil.setupDebugMessageCallback();
+					com.origin.client.OriginClient.LOGGER.info("Origin DEBUG: GL debug message callback installed");
+				} catch (Throwable t) {
+					com.origin.client.OriginClient.LOGGER.warn("Origin DEBUG: GL debug callback setup failed (driver may not support it)", t);
+				}
+			});
+		}
+		// Origin's HUD is drawn from GuiHudMixin (Gui.render RETURN, high order)
+		// instead of HudRenderCallback so it always lands on top of any other
+		// mod's HUD — see that mixin for why the callback can't guarantee this.
+
+		// Inject a "Download Shaders" button into Iris's own shader menu so the
+		// whole shader flow lives where Sodium/Iris users already look — no tab
+		// in the mod menu. Detected by class name (no compile dep on Iris),
+		// added via Fabric's screen API (no Iris mixin to break on updates).
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen.getClass().getName().contains("ShaderPackScreen")) {
+				var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getWidgets(screen);
+				// Iris re-inits its screen on resize and every time we return from
+				// the browser — guard so our button is added exactly once and never
+				// stacks. This is the ONLY shader-download entry point (Iris ships
+				// no Modrinth/download button of its own).
+				net.minecraft.network.chat.Component label =
+						net.minecraft.network.chat.Component.literal("Download Shaders");
+				boolean present = buttons.stream().anyMatch(w ->
+						w instanceof net.minecraft.client.gui.components.Button b
+								&& label.equals(b.getMessage()));
+				if (!present) {
+					buttons.add(new com.origin.client.client.shaders.OriginShaderButton(6, 6, 120, 20, label,
+							b -> client.setScreenAndShow(new com.origin.client.client.shaders.ShaderBrowserScreen(screen))));
+				}
+			}
+		});
+		// Vanilla's per-frame "draw the block outline?" flag, for the outline draw
+		// below (see BlockOverlayRenderer.outlineAllowedThisFrame). 26.2: the
+		// extraction context has no blockOutlines(); vanilla extracts an outline
+		// state only when it will draw one.
+		LevelRenderEvents.END_EXTRACTION.register(context ->
+				com.origin.client.client.mods.BlockOverlayRenderer.outlineAllowedThisFrame =
+						context.levelState().blockOutlineRenderState != null);
+		// 26.2: every Origin world overlay is SUBMITTED for the frame from
+		// COLLECT_SUBMITS (OriginRenderTypes records, then submits custom geometry).
+		LevelRenderEvents.COLLECT_SUBMITS.register(context -> {
+			try {
+				ChunkBorderRenderer.render(context);
+			} catch (Throwable t) {
+				// overlay must never take the frame down
+			}
+			try {
+				com.origin.client.client.waypoints.WaypointRenderer.render(context);
+			} catch (Throwable t) {
+				// waypoints must never take the frame down
+			}
+			try {
+				com.origin.client.client.mods.BlockOverlayRenderer.renderFromWorldEvent(context);
+			} catch (Throwable t) {
+				// outline must never take the frame down
+			}
+		});
+		// Potion Effects "Show In Inventory": the HUD pass is skipped while a
+		// container screen is open, so draw the potion element over it here.
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen) {
+				net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.afterExtract(screen).register((s, g, mx, my, tick) -> {
+					if (Mods.on("potionhud") && Mods.bool("potionhud", "showInInventory")) {
+						com.origin.client.client.hud.HudElements.renderInInventory(g);
+					}
+				});
+			}
+		});
+		// NO HUD hook over the Origin mod menu (removed 2026-10-11). On 1.21.11
+		// GameRenderer.render still runs Gui.render (-> GuiHudMixin -> renderAll)
+		// every in-world frame BEFORE the open screen draws, so the HUD already
+		// sits behind the menu and live-previews toggles there. A second
+		// afterRender pass drew the whole HUD again ON TOP of the menu (Will's
+		// call: the HUD always stays behind menus, even hidden behind the card).
+		// Block Outline + Overlay draws from the COLLECT_SUBMITS hook above
+		// (BlockOverlayRenderer.renderFromWorldEvent); LevelRendererMixin only
+		// cancels vanilla's outline. The Fabric BEFORE_BLOCK_OUTLINE event proved
+		// fragile here, so there is deliberately no registration for it.
+	}
+
+	// Lunar parity, batch 3a (chat / server): per-tick work. Each in its own
+	// try so one mod failing never stops the others or the client tick. Runs
+	// before the no-player return: Nick Hider and Screenshot work on menus too.
+	private static void tickLunarBatch3a(Minecraft client) {
+		try {
+			com.origin.client.client.mods.AutoTextHotkey.tick(client);
+		} catch (Throwable t) {
+			// hotkeys just don't fire this tick
+		}
+		try {
+			com.origin.client.client.mods.AutoGG.tick(client);
+		} catch (Throwable t) {
+			// a pending gg is dropped at worst
+		}
+		try {
+			com.origin.client.client.mods.NickHider.tick(client);
+		} catch (Throwable t) {
+			// names keep their last mapping
+		}
+		try {
+			com.origin.client.client.mods.Quickplay.tick(client);
+		} catch (Throwable t) {
+			// keys just don't fire this tick
+		}
+		try {
+			com.origin.client.client.mods.ScreenshotChat.tick(client);
+		} catch (Throwable t) {
+			// key just doesn't fire this tick
+		}
+	}
+
+	// Flush everything to disk once, when Minecraft is shutting down. Each
+	// store is saved in its own try so a failure in one never blocks the
+	// others, and nothing here is allowed to throw into the shutdown path.
+	private void onClientStopping(Minecraft client) {
+		try {
+			Mods.flush();                     // mod settings + HUD positions -> originclient-mods.json
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save mod settings on exit", t);
+		}
+		try {
+			OriginConfig.save(FEATURES);      // legacy feature flags -> originclient.json
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save feature flags on exit", t);
+		}
+		try {
+			if (client.options != null) {
+				client.options.save();        // vanilla game options -> options.txt
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save game options on exit", t);
+		}
+	}
+
+	/** True while realDayTime reads the clock: LevelTimeMixin then leaves it alone. */
+	public static volatile boolean readingRealTime = false;
+
+	/** The world's real time-of-day ticks (overworld clock), past the Time Changer. */
+	public static long realDayTime(net.minecraft.world.level.Level level) {
+		readingRealTime = true;
+		try {
+			return level.getOverworldClockTime();
+		} finally {
+			readingRealTime = false;
+		}
+	}
+
+	/** Raw GLFW key state for the mod-menu's rebindable keys. */
+	public static boolean isRawKeyDown(int glfwKey) {
+		if (glfwKey <= 0) {
+			return false;
+		}
+		try {
+			return InputConstants.isKeyDown(glfwKey); // 26.3 (SDL3): no window argument
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/**
+	 * True while Toggle Sprint is engaged -- SprintKeyMixin then reports the
+	 * vanilla sprint key as held, so the GAME starts the sprint itself, at the
+	 * exact point in the tick it normally would.
+	 *
+	 * That is what gives the toggle its memory. A screen, a pause, a server hop
+	 * or a wall bump ends the sprint exactly the way vanilla always did, and
+	 * vanilla re-starts it on the first tick the player is moving again -- so it
+	 * never needs re-toggling; only an un-toggle turns it off. Every vanilla
+	 * rule stays in force too: no sprinting inside a screen, at low hunger, or
+	 * while eating/blocking.
+	 */
+	public static boolean sprintKeyHeldByToggle(net.minecraft.client.KeyMapping key) {
+		if (!FEATURES.sprintToggledOn) {
+			return false;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		if (mc == null || mc.options == null || key != mc.options.keySprint) {
+			return false;
+		}
+		if (mc.gui.screen() != null) {
+			return false;   // vanilla releases every key in a screen; don't lie to it
+		}
+		return Mods.on("togglesprint") && Mods.bool("togglesprint", "sprint");
+	}
+
+	private void onEndTick(Minecraft client) {
+		// Dev-only screenshot matrix (env ORIGIN_SHOTS) — see OriginDevShots.
+		if (OriginDevShots.enabled()) {
+			OriginDevShots.tick(client);
+		}
+		// Right Shift opens the mod menu (the screen itself closes on the
+		// same key or Esc, with the reversed slide).
+		// Right Shift opens the quick HUD-edit screen (drag/resize elements
+		// directly, ORIGIN logo, dark MODS button into the full grid).
+		while (OriginKeyBindings.openModMenu.consumeClick()) {
+			if (client.gui.screen() == null) {
+				client.setScreenAndShow(new com.origin.client.client.hud.HudEditorScreen(true));
+			}
+		}
+
+		// Copy Coords To Clipboard: press the (unbound-by-default) key to drop
+		// your XYZ on the clipboard, gated by the Coordinates mod + its toggle.
+		while (OriginKeyBindings.copyCoords.consumeClick()) {
+			LocalPlayer p = client.player;
+			if (p != null && Mods.on("coords") && Mods.bool("coords", "copyClipboard")) {
+				String c = p.blockPosition().getX() + ", " + p.blockPosition().getY() + ", " + p.blockPosition().getZ();
+				client.keyboardHandler.setClipboard(c);
+				p.sendOverlayMessage(net.minecraft.network.chat.Component.literal("Copied coordinates: " + c));
+			}
+		}
+
+		// Waypoints — three activation paths (in addition to the mod-card ENABLED
+		// toggle and the in-menu toggle in WaypointScreen).
+		while (OriginKeyBindings.waypointToggle.consumeClick()) {
+			Mods.setOn("waypoints", !Mods.on("waypoints"));
+		}
+		while (OriginKeyBindings.waypointMenu.consumeClick()) {
+			if (client.gui.screen() == null) {
+				client.setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
+			}
+		}
+		while (OriginKeyBindings.waypointCreate.consumeClick()) {
+			// Opens the Waypoints screen straight into a fresh Create form.
+			if (client.gui.screen() == null) {
+				client.setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen(true));
+			}
+		}
+		// Death waypoint: drop one on the alive→dead transition (edge-triggered).
+		LocalPlayer wp = client.player;
+		boolean dead = wp != null && (wp.isDeadOrDying() || wp.getHealth() <= 0f);
+		if (dead && wasAlive && Mods.on("waypoints") && Mods.bool("waypoints", "deathWaypoints")) {
+			var bp = wp.blockPosition();
+			com.origin.client.client.waypoints.Waypoints.onDeath(bp.getX(), bp.getY(), bp.getZ(),
+					com.origin.client.client.waypoints.Waypoints.currentDim());
+		}
+		wasAlive = wp != null && !dead;
+
+		applyChat(client);
+		applyHitboxes(client);
+		applyWeather(client);
+		applyTimeChanger(client);
+		GeneralSettings.tick(client);
+		MotionBlur.tick(client);
+		// Snaplook ticks before the no-player return so leaving a world mid-look
+		// still restores the saved camera view.
+		com.origin.client.client.mods.Snaplook.tick(client);
+
+		// Lunar-parity readouts' per-tick state (Stopwatch keys, Ping samples,
+		// Combo/Reach hit confirmation). Fail-soft: a HUD readout must never be
+		// able to throw out of the client tick.
+		try {
+			com.origin.client.client.mods.Stopwatch.tick(client);
+			com.origin.client.client.mods.PingSampler.tick(client);
+			com.origin.client.client.mods.CombatStats.tick(client);
+			com.origin.client.client.minimap.MinimapHud.tick(client);   // zoom / full-map keys, auto cave mode
+		} catch (Throwable t) {
+			// keep ticking; the readouts just hold their last value
+		}
+		tickLunarBatch3a(client);
+
+		LocalPlayer player = client.player;
+		if (player == null) {
+			return;
+		}
+
+		if (!jeiNoticeShown && client.gui.screen() == null) {
+			jeiNoticeShown = true;
+			if (foreignJei != null) {
+				player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+						"§eOrigin already includes JEI (" + BUNDLED_JEI + "). A separate JEI ("
+								+ foreignJei + ") in your mods folder is overriding it — remove that jar so"
+								+ " Origin's JEI and its toggle work."));
+			} else if (!Mods.on("jei") && !Mods.metaBool("jeiHintShown", false)) {
+				Mods.setMetaBool("jeiHintShown", true);
+				player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+						"§7Origin includes §fJEI§7 (item & recipe viewer) — enable it in the"
+								+ " Origin menu: §fRight Shift → Mods → JEI§7."));
+			}
+		}
+
+		// Scoreboard hide toggle keybind (+ optional action-bar message)
+		boolean sbDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("scoreboard", "toggleKey"));
+		if (sbDown && !scoreboardKeyWasDown) {
+			boolean hidden = !Mods.bool("scoreboard", "hideScoreboard");
+			Mods.set("scoreboard", "hideScoreboard", hidden);
+			if (Mods.bool("scoreboard", "displayToggleMessage")) {
+				player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
+						hidden ? "Scoreboard hidden" : "Scoreboard shown"));
+			}
+		}
+		scoreboardKeyWasDown = sbDown;
+
+		// Full Bright toggle keybind flips the mod's own sub-toggle
+		boolean fbDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("fullbright", "key"));
+		if (fbDown && !fullbrightKeyWasDown) {
+			Mods.set("fullbright", "fullBright", !Mods.bool("fullbright", "fullBright"));
+		}
+		fullbrightKeyWasDown = fbDown;
+
+		// Nametag toggle keybinds (default unbound). Toggle All hides every
+		// nametag; Toggle Players hides only other players'.
+		boolean naDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("nametags", "toggleAll"));
+		if (naDown && !nametagAllKeyWasDown) {
+			nametagsHidden = !nametagsHidden;
+			if (Mods.bool("nametags", "displayToggleMessage")) {
+				player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
+						nametagsHidden ? "Nametags hidden" : "Nametags shown"));
+			}
+		}
+		nametagAllKeyWasDown = naDown;
+
+		boolean npDown = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("nametags", "togglePlayers"));
+		if (npDown && !nametagPlayerKeyWasDown) {
+			playerNametagsHidden = !playerNametagsHidden;
+			if (Mods.bool("nametags", "displayToggleMessage")) {
+				player.sendOverlayMessage(net.minecraft.network.chat.Component.literal(
+						playerNametagsHidden ? "Player nametags hidden" : "Player nametags shown"));
+			}
+		}
+		nametagPlayerKeyWasDown = npDown;
+
+		// Tab list — Origin drives visibility itself so it shows even on a solo local
+		// server (vanilla refuses to). Holding the Player List key always shows it;
+		// the Tab Editor mod adds sticky tap-to-lock + two-way keybind sync on top.
+		int mcTab = net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper
+				.getBoundKeyOf(client.options.keyPlayerList).getValue();
+		boolean rawTab = client.gui.screen() == null && isRawKeyDown(mcTab);
+		if (Mods.on("tablist")) {
+			int ourTab = Mods.keyCode("tablist", "tabKey");
+			if (!tabSyncInit) {
+				// On first tick, adopt Minecraft's Player List binding as the source
+				// of truth so the two always start in agreement.
+				tabSyncInit = true;
+				if (ourTab != mcTab) {
+					Mods.set("tablist", "tabKey", mcTab);
+					ourTab = mcTab;
+				}
+			} else if (ourTab != lastOurTabKey && ourTab != mcTab) {
+				// Rebound in the Origin menu → push to Minecraft's controls.
+				// PER-VERSION DELTA (1.21.11): InputConstants.getKey(int,int) is gone;
+				// build the Key from the raw GLFW code via Type.KEYSYM instead (same
+				// pattern OriginModMenuScreen's keyName() helper already uses).
+				client.options.keyPlayerList.setKey(
+						com.mojang.blaze3d.platform.InputConstants.Type.KEYBOARD.getOrCreate(ourTab));
+				net.minecraft.client.KeyMapping.resetMapping();
+				client.options.save();
+				mcTab = ourTab;
+			} else if (mcTab != lastMcTabKey && mcTab != ourTab) {
+				// Rebound in Minecraft's controls → pull into the Origin option.
+				Mods.set("tablist", "tabKey", mcTab);
+				ourTab = mcTab;
+			}
+			lastOurTabKey = ourTab;
+			lastMcTabKey = mcTab;
+
+			long now = System.currentTimeMillis();
+			if (rawTab && !tabKeyWasDown) {
+				tabPressAt = now;
+			}
+			if (!rawTab && tabKeyWasDown) {
+				// Quick tap → toggle the sticky lock; a longer hold-then-release just
+				// ends the vanilla peek (sticky stays off).
+				if (Mods.bool("tablist", "stickyToggle") && (now - tabPressAt) < 200) {
+					tabStickyOn = !tabStickyOn;
+				} else {
+					tabStickyOn = false;
+				}
+			}
+		} else {
+			tabStickyOn = false;
+			tabSyncInit = false;
+		}
+		tabKeyWasDown = rawTab;
+		// Held → always visible (even solo / mod off); sticky lock only with the mod on.
+		tabListVisible = rawTab || (Mods.on("tablist") && tabStickyOn);
+
+		// Toggle Zoom: in toggle mode the key latches instead of holding. The
+		// FOV easing itself lives in GameRendererMixin (frame-side); here we only
+		// resolve whether zoom is engaged and expose it as zoomActive.
+		boolean zDown = client.gui.screen() == null
+				&& (isRawKeyDown(Mods.keyCode("zoom", "key")) || OriginKeyBindings.zoom.isDown());
+		if (Mods.on("zoom") && Mods.bool("zoom", "toggleZoom")) {
+			if (zDown && !zoomKeyWasDown) {
+				zoomToggled = !zoomToggled;
+			}
+		} else {
+			zoomToggled = false;
+		}
+		zoomKeyWasDown = zDown;
+		zoomActive = Mods.on("zoom") && (Mods.bool("zoom", "toggleZoom") ? zoomToggled : zDown);
+		if (!zoomActive) {
+			zoomScrollFactor = 1.0;   // reset scroll-zoom depth when not zooming
+		}
+
+		// Zoomed Sensitivity: temporarily scale mouse sensitivity while zoomed so
+		// aiming is steadier, restoring the player's own value the instant zoom ends.
+		if (zoomActive) {
+			if (!zoomSensApplied) {
+				savedSensitivity = client.options.sensitivity().get();
+				zoomSensApplied = true;
+			}
+			double f = Mods.num("zoom", "sensitivity");
+			client.options.sensitivity().set(Math.max(0.0, Math.min(1.0, savedSensitivity * (f <= 0 ? 1.0 : f))));
+		} else if (zoomSensApplied) {
+			client.options.sensitivity().set(savedSensitivity);
+			zoomSensApplied = false;
+		}
+
+		// Chunk borders toggle keybind (edge-triggered, ignored in screens).
+		int cbKey = Mods.keyCode("chunkborders", "key");
+		boolean cbDown = client.gui.screen() == null && isRawKeyDown(cbKey);
+		if (cbDown && !chunkKeyWasDown) {
+			Mods.setOn("chunkborders", !Mods.on("chunkborders"));
+		}
+		chunkKeyWasDown = cbDown;
+
+		// Toggle Sprint / Sneak. "Hold" mode = vanilla behavior (we do
+		// nothing); "Toggle" flips on the vanilla key or the custom bind.
+		// Toggle Sneak/Sprint is one mod now (spec §5): the "sprint"/"sneak"
+		// sub-toggles pick which the hands-free behavior applies to.
+		// Toggle happens ONLY on the mod's assigned toggle key — we no longer
+		// consume the vanilla sprint/sneak keys, so double-tap-W sprinting and
+		// hold-Ctrl / hold-Shift keep working normally. We also never force the
+		// state OFF: while sprint is toggled the vanilla sprint key simply reads as
+		// held (SprintKeyMixin) so the game drives the sprint itself, and sneak is
+		// released once on un-toggle -- vanilla stays in control the rest of the
+		// time.
+		boolean toggleMod = Mods.on("togglesprint");
+		// Mode: "Toggle" = press once, stays on. "Hold" = active only while the
+		// mod's key is held (a hands-free key that isn't the vanilla one). The
+		// dropdown used to be read by nothing, so Hold behaved as Toggle.
+		boolean holdMode = Mods.mode("togglesprint", "mode").equals("Hold");
+		if (toggleMod && Mods.bool("togglesprint", "sprint")) {
+			boolean custom = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean edge = custom && !sprintKeyWasDown;
+			sprintKeyWasDown = custom;
+			if (holdMode) {
+				FEATURES.sprintToggledOn = custom;
+			} else if (edge) {
+				FEATURES.sprintToggledOn = !FEATURES.sprintToggledOn;
+			}
+			// The sprint itself is NOT forced from here any more. While the
+			// toggle is on, SprintKeyMixin makes the vanilla sprint key read as
+			// held, so the game starts (and re-starts) the sprint on its own at
+			// the right point in the tick -- see sprintKeyHeldByToggle().
+		} else {
+			FEATURES.sprintToggledOn = false;
+		}
+
+		if (toggleMod && Mods.bool("togglesprint", "sneak")) {
+			boolean custom = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("togglesprint", "key"));
+			boolean edge = custom && !sneakKeyWasDown;
+			sneakKeyWasDown = custom;
+			if (holdMode) {
+				FEATURES.sneakToggledOn = custom;
+			} else if (edge) {
+				FEATURES.sneakToggledOn = !FEATURES.sneakToggledOn;
+			}
+			if (FEATURES.sneakToggledOn) {
+				player.setShiftKeyDown(true);
+				sneakForced = true;
+			} else if (sneakForced) {
+				player.setShiftKeyDown(false);   // one-shot release; hold-Shift then works normally
+				sneakForced = false;
+			}
+		} else {
+			if (sneakForced) {
+				player.setShiftKeyDown(false);
+				sneakForced = false;
+			}
+			FEATURES.sneakToggledOn = false;
+		}
+
+		// Fly Boost: multiply flight speed, but ONLY in a mode that actually
+		// allows flight (creative/spectator) and only while airborne — it never
+		// touches survival movement, so it's a QoL tweak, not a speed hack.
+		if (Mods.on("togglesprint") && Mods.bool("togglesprint", "flyBoost")
+				&& player.getAbilities().flying && (player.isCreative() || player.isSpectator())) {
+			float mult = (float) Math.max(1.0, Mods.num("togglesprint", "flyBoostAmount"));
+			player.getAbilities().setFlyingSpeed(0.05f * mult);
+			flyBoostApplied = true;
+		} else if (flyBoostApplied) {
+			player.getAbilities().setFlyingSpeed(0.05f);
+			flyBoostApplied = false;
+		}
+
+		// Freelook: custom bind (default Left Alt) with the vanilla-controls
+		// binding as a fallback. Hold = look around; release = snap back (the
+		// player's real rotation is never touched — see MouseHandlerMixin).
+		// "Toggle Freelook" turns the hold into a press-on/press-off latch.
+		boolean keyDown = Mods.on("freelook") && client.gui.screen() == null
+				&& (isRawKeyDown(Mods.keyCode("freelook", "key")) || OriginKeyBindings.freelook.isDown());
+		boolean freelookDown = Mods.bool("freelook", "toggle")
+				? (keyDown && !freelookWasDown) != OriginFreelookState.active
+				: keyDown;
+		if (freelookDown && !OriginFreelookState.active) {
+			OriginFreelookState.cameraYaw = player.getViewYRot(1f);
+			OriginFreelookState.cameraPitch = player.getViewXRot(1f);
+			OriginFreelookState.active = true;
+			// Third Person mode = Lunar-style orbit: jump to third person for
+			// the hold and restore whatever perspective the player was in.
+			if (Mods.mode("freelook", "listMode").equals("Third Person")) {
+				savedPerspective = client.options.getCameraType();
+				client.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
+			}
+		} else if (!freelookDown && OriginFreelookState.active) {
+			OriginFreelookState.active = false;
+			if (savedPerspective != null) {
+				client.options.setCameraType(savedPerspective);
+				savedPerspective = null;
+			}
+		}
+		freelookWasDown = keyDown;
+
+		// Smooth Camera Movement (zoom / freelook / snaplook): ride vanilla's cinematic
+		// camera smoothing while either is engaged, then restore the player's own
+		// setting the moment both release.
+		boolean wantSmooth = (zoomActive && Mods.bool("zoom", "smoothCamera"))
+				|| (OriginFreelookState.active && Mods.on("freelook") && Mods.bool("freelook", "smoothCamera"))
+				|| com.origin.client.client.mods.Snaplook.wantsSmoothCamera();
+		if (wantSmooth && !smoothCamApplied) {
+			savedSmoothCam = client.options.smoothCamera;
+			client.options.smoothCamera = true;
+			smoothCamApplied = true;
+		} else if (!wantSmooth && smoothCamApplied) {
+			client.options.smoothCamera = savedSmoothCam;
+			smoothCamApplied = false;
+		}
+	}
+
+	// Weather Changer: forces client-side rain/thunder levels per the mode.
+	// Snow mode renders as snowfall in cold biomes (that's how MC does snow);
+	// Clear additionally skips the precipitation render pass entirely
+	// (LevelRendererMixin). Server weather/gameplay is never touched.
+	private void applyWeather(Minecraft client) {
+		if (!Mods.on("weather") || client.level == null) {
+			return;
+		}
+		// NOTE: no setRainLevel/setThunderLevel here any more — the values are now
+		// produced on READ by LevelWeatherMixin -> WeatherOverride (instant switch,
+		// nothing left behind, server weather untouched).
+		String mode = Mods.mode("weather", "mode");
+		boolean thunder = mode.equals("Thunder") || Mods.bool("weather", "thunder");
+
+		// Play Thunder Sounds: forcing the thunder level alone never actually
+		// makes a sound (vanilla thunder rides real lightning bolts we don't
+		// spawn), so play a rolling thunder clip on a gentle cadence instead.
+		if (thunder && Mods.bool("weather", "playThunderSounds") && client.player != null) {
+			if (++thunderSoundTicks >= 300) {   // ~every 15 seconds
+				thunderSoundTicks = 0;
+				client.level.playLocalSound(client.player.getX(), client.player.getY(), client.player.getZ(),
+						net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER,
+						net.minecraft.sounds.SoundSource.WEATHER, 1.0f, 0.9f, false);
+			}
+		} else {
+			thunderSoundTicks = 0;
+		}
+	}
+
+	// Time Changer: slider (live), Use Real Current Time, +/- keybinds, and
+	// Time Passage all resolve into one timeOverride that LevelTimeMixin reads.
+	private void applyTimeChanger(Minecraft client) {
+		if (!Mods.on("timechanger")) {
+			return;
+		}
+		double base = Mods.num("timechanger", "time");
+		if (Mods.bool("timechanger", "useRealTime")) {
+			var now = java.time.LocalTime.now();
+			// noon IRL = noon in-game: 06:00 IRL maps to tick 0 (sunrise)
+			base = ((now.getHour() * 1000.0 + now.getMinute() * 1000.0 / 60.0) - 6000 + 24000) % 24000;
+		}
+		boolean inc = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("timechanger", "increaseKey"));
+		boolean dec = client.gui.screen() == null && isRawKeyDown(Mods.keyCode("timechanger", "decreaseKey"));
+		if (inc && !timeIncWasDown) {
+			base = (base + 500) % 24000;
+			Mods.set("timechanger", "time", base);
+		}
+		if (dec && !timeDecWasDown) {
+			base = (base - 500 + 24000) % 24000;
+			Mods.set("timechanger", "time", base);
+		}
+		timeIncWasDown = inc;
+		timeDecWasDown = dec;
+		if (Mods.bool("timechanger", "timePassage")) {
+			// speed 1.0 = vanilla day speed (+1 tick per tick), kept transient
+			// so it never spams config saves
+			timePassageAccum = (timePassageAccum + Mods.num("timechanger", "speed")) % 24000;
+		} else {
+			timePassageAccum = 0;
+		}
+		timeOverride = (base + timePassageAccum) % 24000;
+	}
+
+	// Live sky while dragging the Time slider in the mod menu. applyTimeChanger
+	// only runs per client tick (20x/sec), so the sky visibly stepped behind the
+	// thumb; the menu calls this on every drag event instead. Same resolution as
+	// applyTimeChanger minus the +/- keys. Use Real Current Time ignores the
+	// slider there, so it ignores it here too (else the sky would flicker
+	// between the two every tick). Client-side only, like the rest of it.
+	public static void previewTimeSlider(double time) {
+		if (Mods.bool("timechanger", "useRealTime")) {
+			return;
+		}
+		timeOverride = (time + timePassageAccum) % 24000;
+	}
+
+	// Chat options ride the vanilla accessibility options. IMPORTANT mapping:
+	// "Background Opacity" drives textBackgroundOpacity — the grey box behind
+	// chat lines — NOT chatOpacity (which fades the TEXT itself; wiring the
+	// slider there made messages unreadable). Text stays fully visible at
+	// background 0. chatOpacity is pinned to 1.0 while the mod is on, which
+	// also heals any options.txt damage the old wiring left behind.
+	private void applyChat(Minecraft client) {
+		boolean on = Mods.on("chat");
+		if (on) {
+			if (!chatApplied) {
+				savedChatOpacity = client.options.textBackgroundOpacity().get();
+				savedChatScale = client.options.chatScale().get();
+				chatApplied = true;
+			}
+			client.options.textBackgroundOpacity().set(Mods.num("chat", "opacity"));
+			client.options.chatOpacity().set(1.0);
+			client.options.chatScale().set(Mods.num("chat", "scale"));
+		} else if (chatApplied) {
+			client.options.textBackgroundOpacity().set(savedChatOpacity);
+			client.options.chatScale().set(savedChatScale);
+			chatApplied = false;
+		}
+	}
+
+	private void applyHitboxes(Minecraft client) {
+		boolean on = Mods.on("hitboxes");
+		if (on != hitboxesApplied) {
+			// 1.21.11: the hitbox flag moved into the debug-entries system.
+			var entries = client.debugEntries;
+			var id = net.minecraft.client.gui.components.debug.DebugScreenEntries.ENTITY_HITBOXES;
+			if (entries.isCurrentlyEnabled(id) != on) {
+				entries.toggleStatus(id);
+			}
+			hitboxesApplied = on;
+		}
+	}
+
+	private static void detectForeignJei() {
+		net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("jei").ifPresent(c -> {
+			String v = c.getMetadata().getVersion().getFriendlyString();
+			if (!BUNDLED_JEI.equals(v)) {
+				foreignJei = v;
+				com.origin.client.OriginClient.LOGGER.warn(
+						"Origin bundles JEI {} but JEI {} is loaded -- a separate JEI jar is overriding "
+								+ "the bundled one; JEI integration may not work until it is removed.", BUNDLED_JEI, v);
+			}
+		});
+	}
+
+	// JEI 30 (26.2) splits the overlay draw into drawForScreenBackground / drawForScreenForeground;
+	// the input names below are unchanged. Names only — no signatures — so this stays
+	// valid across the char-typed CharacterEvent change.
+	private static void selfCheckJeiMixins() {
+		jeiMethodCheck("mezz.jei.gui.events.GuiEventHandler", "drawForScreenBackground", "drawForScreenForeground", "renderCompactPotionIndicators");
+		jeiMethodCheck("mezz.jei.gui.input.ClientInputHandler", "onKeyboardKeyPressedPre", "onGuiMouseClicked", "onGuiMouseScroll");
+	}
+
+	private static void jeiMethodCheck(String className, String... methods) {
+		try {
+			Class<?> c = Class.forName(className);
+			java.util.Set<String> present = new java.util.HashSet<>();
+			for (java.lang.reflect.Method m : c.getDeclaredMethods()) { present.add(m.getName()); }
+			for (String m : methods) {
+				if (!present.contains(m)) {
+					com.origin.client.OriginClient.LOGGER.warn(
+							"Origin self-check: JEI method {}.{} is missing -- toggle mixin may not have applied.", className, m);
+				}
+			}
+		} catch (ClassNotFoundException e) {
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin self-check for JEI mixins failed", t);
+		}
+	}
+}

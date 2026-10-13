@@ -1,27 +1,55 @@
 package com.origin.client.client.mixin;
 
-import com.origin.client.client.render.OriginScreenRenderer;
-import net.minecraft.client.Minecraft;
+import com.origin.client.client.mods.MenuBlur;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// 26.2 blurs the menu backdrop via GuiGraphicsExtractor.blurBeforeThisStratum()
-// (called before the widget stratum, gated by Options.getMenuBackgroundBlurriness).
-// That single call is the chokepoint for ALL menu blur regardless of which screen
-// method triggers it. Origin replaces the backdrop with its own crisp charcoal +
-// rings, and its widgets/panels are intentionally translucent — so any blur bleeds
-// through them as a grey haze. No-op the blur for out-of-world Origin menus
-// (level == null) so the Origin look stays crisp; in-world screens (pause/options)
-// keep vanilla's world blur.
-@Mixin(value = GuiGraphicsExtractor.class, priority = 2000)
+// Menu Blur: swaps the PIECES of vanilla's in-world menu backdrop, never the
+// whole renderBackground -- ScreenBackgroundMixin hangs the cursor glow off
+// renderBackground's TAIL, and cancelling that method would lose it.
+// 1.21.11 Screen (source-verified against the decompiled class):
+//   renderBackground -> isInGameUi() ? renderTransparentBackground(GuiGraphicsExtractor)
+//                     : renderBlurredBackground(GuiGraphicsExtractor) + renderMenuBackground(GuiGraphicsExtractor)
+//   (AbstractContainerScreen.isInGameUi() is true -> containers get the gradient)
+// Each hook asks MenuBlur.handles(screen) first; when it says no (mod off, kind
+// toggled off, no world) vanilla runs untouched. The strength itself goes in
+// through MenuBlurRadiusMixin (the blur radius is a global uniform here).
+@Mixin(Screen.class)
 public class MenuBlurMixin {
 
-	@Inject(method = "blurBeforeThisStratum", at = @At("HEAD"), cancellable = true)
-	private void originclient$noMenuBlur(CallbackInfo ci) {
-		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()) {
+	// Pause + in-game menus: Origin's blur marker (and strength) instead of the vanilla option.
+	@Inject(method = "extractBlurredBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
+	private void originclient$menuBlur(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
+		Screen self = (Screen) (Object) this;
+		if (MenuBlur.handles(self)) {
+			MenuBlur.blur(guiGraphics);
+			ci.cancel();
+		}
+	}
+
+	// ...and the kind's tint instead of vanilla's in-world menu texture.
+	@Inject(method = "extractMenuBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
+	private void originclient$menuTint(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
+		Screen self = (Screen) (Object) this;
+		if (MenuBlur.handles(self)) {
+			MenuBlur.tint(guiGraphics, self);
+			ci.cancel();
+		}
+	}
+
+	// Inventories/containers: vanilla never blurs these, only darkens with a
+	// gradient. Replace that gradient with blur + the inventory tint.
+	@Inject(method = "extractTransparentBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
+	private void originclient$inventoryBlur(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
+		Screen self = (Screen) (Object) this;
+		if (self instanceof AbstractContainerScreen<?> && MenuBlur.handles(self)) {
+			MenuBlur.blur(guiGraphics);
+			MenuBlur.tint(guiGraphics, self);
 			ci.cancel();
 		}
 	}

@@ -1,0 +1,16 @@
+{
+	"required": false,
+	"minVersion": "0.7",
+	"package": "com.origin.client.client.mixin.hud",
+	"refmap": "mixins.originclient.refmap.json",
+	"compatibilityLevel": "JAVA_8",
+	"injectors": {
+		"defaultRequire": 0
+	},
+	"client": [
+		"GuiIngameTitleAccessor",
+		"GuiIngameForgeTitlesMixin",
+		"GuiIngameScoreboardMixin",
+		"GuiPlayerTabOverlayAccessor"
+	]
+}

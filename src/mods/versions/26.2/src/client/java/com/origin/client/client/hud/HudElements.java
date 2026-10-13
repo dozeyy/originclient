@@ -9,6 +9,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -32,16 +33,15 @@ import java.util.List;
 public final class HudElements {
 	public static final int TEXT = 0xFFE0E0E0;
 	private static final int PANEL = 0x66101010;
-	// Width reserved on the right of the coords readout for the direction letter +
-	// travel sign column (vertical list mode).
-	private static final int DIR_COL_W = 22;
 
 	// Set by the HUD editor for its whole lifetime: elements that need worn
 	// armor / an active potion to be visible draw sample content instead, and
 	// measure/hit-testing see the same preview the render shows.
 	public static volatile boolean editorPreview = false;
-	// Set while the HUD editor previews the scoreboard itself, so the normal HUD
-	// path does not draw a second copy.
+
+	// The mod menu sets this while open: the scoreboard sample sits at the right
+	// edge and would stick out past the centered menu panel, so it's suppressed
+	// there (the menu is in front of everything). The HUD editor leaves it false.
 	public static volatile boolean suppressScoreboard = false;
 
 	public interface Renderer {
@@ -69,19 +69,29 @@ public final class HudElements {
 	}
 
 	private static boolean chatOpen(Minecraft mc) {
-		return com.origin.client.client.OriginScreenState.current instanceof ChatScreen;
+		return mc.gui.screen() instanceof ChatScreen;
 	}
 
-	/** Standard text row backing, gated by the mod's Show Background toggle. */
+	/** Standard text row backing, gated by the mod's Show Background toggle. Uses
+	 *  the mod's OWN Background Color so the setting works identically on every HUD
+	 *  (Will 2026-07-21 — this was a hardcoded PANEL, so fps/cps/server ignored it).
+	 *  Every mod routed through here now carries a "bgColor" option (see Mods). */
 	private static void bg(GuiGraphicsExtractor g, String modId, int w, int h) {
 		if (Mods.bool(modId, "showBackground")) {
-			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, PANEL, 0);
+			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, "bgColor"), 0);
 		}
 	}
 
 	private static void bgColored(GuiGraphicsExtractor g, String modId, String colorKey, int w, int h) {
+		bgColored(g, modId, colorKey, null, w, h);
+	}
+
+	/** `borderKey` null = no outline. Passing one makes the mod's Border Color
+	 *  option real — Coordinates shipped that picker with nothing reading it. */
+	private static void bgColored(GuiGraphicsExtractor g, String modId, String colorKey, String borderKey, int w, int h) {
 		if (Mods.bool(modId, "showBackground")) {
-			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, colorKey), 0);
+			int border = borderKey == null ? 0 : OriginColorPicker.liveColor(modId, borderKey);
+			OriginUi.panel(g, -3, -3, w + 6, h + 6, 5, OriginColorPicker.liveColor(modId, colorKey), border);
 		}
 	}
 
@@ -145,73 +155,93 @@ public final class HudElements {
 		if (Mods.bool("coords", "renderers")) {
 			int c;
 			try {
-				c = 0; // 26.2 STUB: countRenderedSections() removed (HUD deferred)
+				c = mc.levelRenderer.visibleSections().size();
 			} catch (Throwable t) {
 				c = -1;
 			}
 			if (c >= 0) lines.add("C: " + c);
 		}
-		// NOTE: in VERTICAL mode the direction letter + travel sign are NOT lines —
-		// they're a right-aligned column drawn beside the Y and Z rows (see the
-		// renderer). Only horizontal mode folds them into the text.
-		if (Mods.bool("coords", "direction") && Mods.mode("coords", "listMode").equals("Horizontal")
-				&& !lines.isEmpty()) {
-			float yaw = pl.getYRot();
-			lines.set(0, lines.get(0) + " (" + facingSign(yaw) + ") " + cardinal8(yaw));
+		if (Mods.bool("coords", "direction")) {
+			Direction d = pl.getDirection();
+			lines.add(String.format("Facing: %s (%.0f°)",
+					d.getName().substring(0, 1).toUpperCase() + d.getName().substring(1),
+					net.minecraft.util.Mth.wrapDegrees(pl.getYRot())));
 		}
 		if (Mods.bool("coords", "biome") && mc.level != null) {
-			var biome = mc.level.getBiome(BlockPos.containing(pl.position()));
-			lines.add("Biome: " + biome.unwrapKey()
-					.map(k -> titleCase(k.identifier().getPath().replace('_', ' '))).orElse("Unknown"));
+			lines.add("Biome: " + biomeName(mc.level.getBiome(BlockPos.containing(pl.position()))));
 		}
 		return lines;
 	}
 
-	/** "birch forest" -> "Birch Forest" — biome names read as proper nouns. */
+	// Biome display name: vanilla → Title Case ("Savanna Plateau" — first letter
+	// of each word, Will 2026-07-21); modded → the designer's translated name if
+	// they provide one, else the raw path — kept in the designer's own casing,
+	// never force-cased. Vanilla has no biome lang keys, hence the manual casing.
+	// Public: the Minimap's biome line uses this and biomeColor too.
+	public static String biomeName(Holder<net.minecraft.world.level.biome.Biome> biome) {
+		var key = biome.unwrapKey();
+		if (key.isEmpty()) {
+			return "Unknown";
+		}
+		var loc = key.get().identifier();   // 1.21.11: ResourceKey.location() -> identifier()
+		String path = loc.getPath();
+		if (loc.getNamespace().equals("minecraft")) {
+			return titleCase(path.replace('_', ' '));
+		}
+		String tk = "biome." + loc.getNamespace() + "." + path;
+		String disp = net.minecraft.network.chat.Component.translatable(tk).getString();
+		return disp.equals(tk) ? path.replace('_', ' ') : disp;
+	}
+
 	private static String titleCase(String s) {
-		StringBuilder b = new StringBuilder(s.length());
-		boolean up = true;
-		for (int i = 0; i < s.length(); i++) {
-			char c = s.charAt(i);
-			b.append(up ? Character.toUpperCase(c) : c);
-			up = c == ' ';
+		StringBuilder sb = new StringBuilder(s.length());
+		boolean cap = true;
+		for (char c : s.toCharArray()) {
+			if (c == ' ') {
+				cap = true;
+				sb.append(c);
+			} else if (cap) {
+				sb.append(Character.toUpperCase(c));
+				cap = false;
+			} else {
+				sb.append(c);
+			}
 		}
-		return b.toString();
+		return sb.toString();
 	}
 
-	// 8-way compass letter from a Minecraft yaw. MC yaw: 0 = South (+Z), 90 = West
-	// (-X), 180 = North (-Z), 270 = East (+X); sectors are 45° wide, centred.
-	private static String cardinal8(float yaw) {
-		float y = (yaw % 360f + 360f) % 360f;
-		String[] dirs = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
-		return dirs[Math.round(y / 45f) % 8];
-	}
-
-	// The sign of the dominant horizontal axis of the look direction — whether walking
-	// forward makes that coordinate go up (+) or down (-).
-	private static String facingSign(float yaw) {
-		double rad = Math.toRadians(yaw);
-		double dx = -Math.sin(rad), dz = Math.cos(rad);
-		if (Math.abs(dz) >= Math.abs(dx)) {
-			return dz >= 0 ? "+" : "-";
+	// Intuitive colour per biome family, keyword-matched on the id. Oceans scale
+	// warm→cold (lighter→darker) and deepen for the deep_ variants.
+	public static int biomeColor(Holder<net.minecraft.world.level.biome.Biome> biome) {
+		var key = biome.unwrapKey();
+		if (key.isEmpty()) {
+			return TEXT;
 		}
-		return dx >= 0 ? "+" : "-";
-	}
-
-	// A representative colour per biome family so the name reads in a matching tone.
-	private static int biomeColor(String name) {
-		String n = name.toLowerCase();
-		if (n.contains("ocean") || n.contains("river")) return 0xFF4A90D9;
-		if (n.contains("snow") || n.contains("frozen") || n.contains("ice") || n.contains("cold")) return 0xFFBFE6FF;
-		if (n.contains("desert") || n.contains("badlands") || n.contains("savanna") || n.contains("beach")) return 0xFFE0C864;
-		if (n.contains("warped")) return 0xFF3FD9C0;
-		if (n.contains("nether") || n.contains("crimson") || n.contains("basalt") || n.contains("soul")) return 0xFFD9564A;
-		if (n.contains("end")) return 0xFFE6DE7A;
-		if (n.contains("mushroom")) return 0xFFC79BE6;
-		if (n.contains("swamp") || n.contains("mangrove")) return 0xFF6E9A54;
-		if (n.contains("jungle") || n.contains("forest") || n.contains("taiga") || n.contains("plains")
-				|| n.contains("grove") || n.contains("meadow") || n.contains("birch") || n.contains("grass")) return 0xFF86C94E;
-		return 0xFF9FD97F;
+		String p = key.get().identifier().getPath().toLowerCase(java.util.Locale.ROOT);
+		if (p.contains("warm_ocean")) return 0xFF4FB6FF;
+		if (p.contains("lukewarm_ocean")) return p.contains("deep") ? 0xFF2A7FD6 : 0xFF3A97E6;
+		if (p.contains("frozen_ocean")) return p.contains("deep") ? 0xFF7FB0DD : 0xFF9FCBF0;
+		if (p.contains("cold_ocean")) return p.contains("deep") ? 0xFF163E86 : 0xFF1E56A8;
+		if (p.contains("ocean")) return p.contains("deep") ? 0xFF15408F : 0xFF2166CC;
+		if (p.contains("river")) return 0xFF3A97E6;
+		if (p.contains("swamp") || p.contains("mangrove")) return 0xFF3A6B2A;
+		if (p.contains("jungle")) return 0xFF2FA82F;
+		if (p.contains("forest") || p.contains("taiga") || p.contains("grove") || p.contains("wooded")) return 0xFF3FA34D;
+		if (p.contains("cherry")) return 0xFFFF9CC6;
+		if (p.contains("savanna")) return 0xFFC7B24A;
+		if (p.contains("plains") || p.contains("meadow") || p.contains("lush")) return 0xFF6FC24A;
+		if (p.contains("beach")) return 0xFFEAD9A0;
+		if (p.contains("desert")) return 0xFFE0C877;
+		if (p.contains("badlands") || p.contains("mesa")) return 0xFFD1662B;
+		if (p.contains("warped")) return 0xFF1FB6A6;
+		if (p.contains("crimson") || p.contains("nether") || p.contains("basalt") || p.contains("soul")) return 0xFFC0392B;
+		if (p.contains("frozen") || p.contains("snow") || p.contains("ice")) return 0xFFCFE6FF;
+		if (p.contains("end") || p.contains("void")) return 0xFFCBB0FF;
+		if (p.contains("mushroom")) return 0xFFC792E0;
+		if (p.contains("dripstone")) return 0xFFB07A55;
+		if (p.contains("deep_dark")) return 0xFF2A6E7A;
+		if (p.contains("stony") || p.contains("windswept") || p.contains("hills") || p.contains("peaks")) return 0xFFB8B8B8;
+		return TEXT;
 	}
 
 	/** Keystrokes vertical extent {top, bottom} of the currently-shown rows. */
@@ -243,25 +273,23 @@ public final class HudElements {
 	private static List<ItemStack> armorItems(Minecraft mc) {
 		List<ItemStack> items = new ArrayList<>();
 		if (mc.player != null) {
-			// Helmet-first, then held item. 26.2 removed the Inventory.armor list;
-			// getItemBySlot(EquipmentSlot) is the per-slot accessor.
-			for (net.minecraft.world.entity.EquipmentSlot slot : new net.minecraft.world.entity.EquipmentSlot[]{
-					net.minecraft.world.entity.EquipmentSlot.HEAD,
-					net.minecraft.world.entity.EquipmentSlot.CHEST,
-					net.minecraft.world.entity.EquipmentSlot.LEGS,
-					net.minecraft.world.entity.EquipmentSlot.FEET}) {
-				ItemStack piece = mc.player.getItemBySlot(slot);
-				if (!piece.isEmpty()) {
-					items.add(piece);
+			// 1.21.11: armor moved from an Inventory list to EntityEquipment slots.
+			for (var slot : new net.minecraft.world.entity.EquipmentSlot[]{
+					net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.LEGS,
+					net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.HEAD}) {
+				ItemStack s = mc.player.getItemBySlot(slot);
+				if (!s.isEmpty()) {
+					items.add(s);
 				}
 			}
+			java.util.Collections.reverse(items); // helmet first
 			if (!mc.player.getMainHandItem().isEmpty()) {
 				items.add(mc.player.getMainHandItem());
 			}
 		}
 		if (items.isEmpty() && editorPreview) {
-			items = new ArrayList<>(List.of(new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE),
-					new ItemStack(Items.DIAMOND_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS), new ItemStack(Items.DIAMOND_SWORD)));
+			items = new ArrayList<>(List.of(com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_HELMET), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_CHESTPLATE),
+					com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_LEGGINGS), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_BOOTS), com.origin.client.client.gui.ItemStacks.of(Items.DIAMOND_SWORD)));
 		}
 		return items;
 	}
@@ -303,10 +331,6 @@ public final class HudElements {
 			for (String l : lines) {
 				wMax = Math.max(wMax, mc.font.width(l));
 			}
-			// Vertical mode reserves a right-hand column for the direction letter/sign.
-			if (Mods.bool("coords", "direction") && !Mods.mode("coords", "listMode").equals("Horizontal")) {
-				wMax += DIR_COL_W;
-			}
 			int n = Math.max(1, lines.size());
 			return new int[]{(int) ((wMax + 2) * s), (int) ((n * 10 + 2) * s)};
 		}, (g, mc, w, h) -> {
@@ -320,45 +344,14 @@ public final class HudElements {
 			var p = g.pose();
 			p.pushMatrix();
 			p.scale(s, s);
-			bgColored(g, "coords", "bgColor", (int) (w / s), (int) (h / s));
+			bgColored(g, "coords", "bgColor", "borderColor", (int) (w / s), (int) (h / s));
 			boolean shadow = Mods.bool("coords", "textShadow");
+			var biomeH = mc.level != null ? mc.level.getBiome(BlockPos.containing(mc.player.position())) : null;
 			int y = 1;
-			// Row positions of the Y and Z lines, so the direction column lines up with
-			// them even when some axes are switched off (hardcoding rows 2/3 misaligned
-			// the moment X/Y/Z were toggled).
-			int yRowY = -1, zRowY = -1;
 			for (String line : coordsLines(mc)) {
-				if (line.startsWith("Y: ")) {
-					yRowY = y;
-				} else if (line.startsWith("Z: ")) {
-					zRowY = y;
-				}
-				if (line.startsWith("Biome: ")) {
-					// "Biome: " label in the normal tone, the biome NAME in its family colour.
-					String label = "Biome: ";
-					String bname = line.substring(label.length());
-					g.text(mc.font, label, 1, y, TEXT, shadow);
-					g.text(mc.font, bname, 1 + mc.font.width(label), y, biomeColor(bname), shadow);
-					y += 10;
-					continue;
-				}
-				g.text(mc.font, line, 1, y, TEXT, shadow);
+				int col = (biomeH != null && line.startsWith("Biome:")) ? biomeColor(biomeH) : TEXT;
+				g.text(mc.font, line, 1, y, col, shadow);
 				y += 10;
-			}
-			// Direction column (vertical mode): the 8-way letter sits beside the Y row
-			// and the travel sign ("+" heading South/East, "-" heading North/West)
-			// beside the Z row, both right-aligned — matching the reference layout.
-			// Horizontal mode already folded them into the text.
-			if (Mods.bool("coords", "direction") && !Mods.mode("coords", "listMode").equals("Horizontal")) {
-				float yaw = mc.player.getYRot();
-				String letter = cardinal8(yaw);
-				String sign = facingSign(yaw);
-				int right = (int) (w / s) - 2;
-				// Fall back to the first/second drawn row if that axis is hidden.
-				int ly = yRowY >= 0 ? yRowY : 1;
-				int sy2 = zRowY >= 0 ? zRowY : ly + 10;
-				g.text(mc.font, letter, right - mc.font.width(letter), ly, TEXT, shadow);
-				g.text(mc.font, sign, right - mc.font.width(sign), sy2, TEXT, shadow);
 			}
 			p.popMatrix();
 		});
@@ -454,9 +447,96 @@ public final class HudElements {
 						g.text(mc.font, s, 0, 0, TEXT);
 					}
 				});
+
+		// ---- Scoreboard (movable + editable) ----
+		// A real draggable element: default at the right edge, centred (id "scoreboard",
+		// HudPos loaded by scoreboardPos()). In the editor it shows the sample; in-game
+		// it draws nothing here (the vanilla sidebar draws, repositioned by the mixin).
+		add("scoreboard", "scoreboard", "Scoreboard", new HudPos(5, -3, 0, 1.0),
+				mc -> sampleScoreboardSize(),
+				(g, mc, w, h) -> {
+					if (editorPreview && !suppressScoreboard) {
+						drawSampleScoreboard(g);
+					}
+				});
+
+		// ---- Locator Bar (Separate/movable mode) ----
+		// The draggable placement element for the separate locator bar. In normal
+		// gameplay the bar itself is drawn by WaypointHud.renderBars from the vanilla
+		// hotbar layer (same batch context as the XP bar — required so the gems land
+		// on top of the sprite); this element only draws the PREVIEW in the HUD
+		// editor / mod menu, and provides the drag target. Measuring 0×0 while off
+		// keeps it out of the editor until separate mode is enabled.
+		add("locatorbar", "waypoints", "Locator Bar", new HudPos(7, 0, -22, 1.0),
+				mc -> locatorBarActive() ? new int[]{182, 5} : new int[]{0, 0},
+				(g, mc, w, h) -> {
+					if (locatorBarActive() && (editorPreview || mc.gui.screen() instanceof HudEditorScreen)) {
+						com.origin.client.client.waypoints.WaypointHud.drawBar(g, mc, 0, 0, w, true);
+					}
+				});
+
+		// ---- Lunar-parity readouts (Clock, Ping, Direction HUD, ...) ----
+		Readouts.register();
 	}
 
-	private static void add(String id, String modId, String label, HudPos def,
+	private static boolean locatorBarActive() {
+		return Mods.bool("waypoints", "locatorBar") && Mods.bool("waypoints", "separateBar");
+	}
+
+	// ---- Lunar parity, batch 2 (2026-10-11): Boss Bar, Titles, Cooldowns ----
+	// A second static block, after the first, so ALL already holds the original
+	// elements. Boss Bar and Titles follow the Scoreboard split: the element is the
+	// drag target + editor sample, and their mixins draw the real thing from
+	// vanilla's own layer at this element's position. Cooldowns is a plain element.
+	static {
+		add("bossbar", "bossbar", "Boss Bar", BossBarHud.defaultPos(),
+				mc -> BossBarHud.size(),
+				(g, mc, w, h) -> {
+					if (editorPreview) {
+						BossBarHud.renderSample(g);
+					}
+				});
+		add("titles", "titles", "Titles", TitlesHud.defaultPos(),
+				mc -> TitlesHud.editorSize(),
+				(g, mc, w, h) -> {
+					if (editorPreview && Mods.bool("titles", "showInHudEditor")) {
+						TitlesHud.renderSample(g);
+					}
+				});
+		add("cooldowns", "cooldowns", "Cooldowns", new HudPos(7, 0, -62, 1.0),
+				CooldownsHud::size, CooldownsHud::render);
+	}
+
+	// ---- Lunar parity, batch 4a (2026-10-11): Minimap ----
+	// Its own static block so it merges cleanly; the map, its terrain scan and its
+	// full-screen view live in the minimap package.
+	static {
+		add("minimap", "minimap", "Minimap", com.origin.client.client.minimap.MinimapHud.defaultPos(),
+				com.origin.client.client.minimap.MinimapHud::size, com.origin.client.client.minimap.MinimapHud::render);
+	}
+
+	// ---- Lunar parity: Hypixel Bed Wars (2026-10-11) ----
+	// Its own static block so it merges cleanly: Resource Counter + Teammates.
+	static {
+		BedwarsHud.register();
+	}
+
+	// ---- Origin originals: Portal Calculator (2026-10-12) ----
+	static {
+		PortalCalcHud.register();
+	}
+
+	// ---- Origin originals: Friends & Party (2026-10-12) ----
+	// The Party HUD (docs/SOCIAL.md C): name, health, distance, direction per
+	// member in a LAN world, names + online status elsewhere. Left edge under
+	// Combo / Reach; shown in the editor only while you're in a party.
+	static {
+		add("party", com.origin.client.client.social.Social.MOD, "Party", new HudPos(3, 6, 56, 1.0),
+				com.origin.client.client.social.PartyWorld::hudSize, com.origin.client.client.social.PartyWorld::hudRender);
+	}
+
+	// Package-private so Readouts (the Lunar-parity readouts) registers into the same list.
+	static void add(String id, String modId, String label, HudPos def,
 							java.util.function.Function<Minecraft, int[]> measure, Renderer r) {
 		ALL.add(new Element(id, modId, label, def, measure, r));
 	}
@@ -508,18 +588,11 @@ public final class HudElements {
 			return;
 		}
 		try {
-			// The real effect icon (textures/mob_effect/<id>.png, 18x18), drawn at
-			// 16x16 beside the row. 26.2 dropped MobEffectTextureManager, so we blit
-			// the texture directly by its registry id.
-			var key = net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getKey(effect.value());
-			if (key != null) {
-				var tex = net.minecraft.resources.Identifier.fromNamespaceAndPath(
-						key.getNamespace(), "textures/mob_effect/" + key.getPath() + ".png");
-				g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex,
-						2, y + 2, 0f, 0f, 16, 16, 18, 18, 18, 18, 0xFFFFFFFF);
-			} else {
-				g.fill(2, y + 4, 12, y + 14, 0xFF000000 | effect.value().getColor());
-			}
+			// 1.21.11: effect icons come from Gui.getMobEffectSprite (an Identifier,
+			// not an atlas sprite) and blitSprite takes the RenderPipeline. Already
+			// fail-soft (the catch below falls back to a flat color swatch).
+			var sprite = mc.gui.hud.getMobEffectSprite(effect);
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, 0, y, 18, 18);
 		} catch (Throwable t) {
 			g.fill(2, y + 4, 12, y + 14, 0xFF000000 | effect.value().getColor());
 		}
@@ -573,7 +646,7 @@ public final class HudElements {
 			boolean dur = !durPos.equals("Hidden");
 			int wAct = vertical ? 19 + (dur ? 30 : 0) : items.size() * 19;
 			int hAct = vertical ? items.size() * 19 : 17 + (dur ? 10 : 0);
-			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, PANEL, 0);
+			OriginUi.panel(g, -3, -3, wAct + 6, hAct + 6, 5, OriginColorPicker.liveColor("armorhud", "bgColor"), 0);
 		}
 
 		int x = 0, y = 0;
@@ -625,7 +698,7 @@ public final class HudElements {
 		var p = g.pose();
 		p.pushMatrix();
 		p.scale(s, s);
-		p.translate(0, -ksBounds()[0]); // hug the topmost shown row
+		p.translate(0f, (float) -ksBounds()[0]); // hug the topmost shown row
 		var o = mc.options;
 		boolean movement = Mods.bool("keystrokes", "showMovement");
 		boolean arrows = Mods.bool("keystrokes", "arrows");
@@ -711,12 +784,73 @@ public final class HudElements {
 		}
 	}
 
+	// The Scoreboard is a real draggable HUD element ("scoreboard" in ALL). In the
+	// editor/menu it draws this SAMPLE at its HudPos; in-game it draws NOTHING here —
+	// the vanilla sidebar renders, repositioned to the same HudPos + scale by
+	// GuiScoreboardMixin. So dragging the sample moves the real scoreboard.
+	private static final String SB_TITLE = "Origin Network";
+	private static final String[][] SB_ROWS = {
+			{"Rank: ", "VIP"}, {"Coins: ", "1,234"}, {"Wins: ", "42"},
+			{"Map: ", "Skylands"}, {"Players: ", "12/16"}};
+
+	public static int[] sampleScoreboardSize() {
+		var font = Minecraft.getInstance().font;
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		int w = font.width(SB_TITLE);
+		for (String[] r : SB_ROWS) {
+			w = Math.max(w, font.width(r[0]) + (hideNums ? 0 : font.width(r[1]) + 10));
+		}
+		int lineH = font.lineHeight + 1;
+		return new int[]{w + 6, (SB_ROWS.length + 1) * lineH + 3};
+	}
+
+	/** The scoreboard element's placement — shared by the editor element AND the
+	 *  mixin that repositions the real sidebar. Default: right edge (inset 3), centred. */
+	public static HudPos scoreboardPos() {
+		return HudPos.load("scoreboard", new HudPos(5, -3, 0, 1.0));
+	}
+
+	// Draws the sample scoreboard at LOCAL (0,0) — the caller has already translated
+	// and scaled to the element's position.
+	private static void drawSampleScoreboard(GuiGraphicsExtractor g) {
+		if (Mods.bool("scoreboard", "hideScoreboard")) {
+			return;
+		}
+		var font = Minecraft.getInstance().font;
+		boolean hideNums = Mods.bool("scoreboard", "hideNumbers");
+		boolean shadow = Mods.bool("scoreboard", "textShadow");
+		int headerColor = OriginColorPicker.liveColor("scoreboard", "headerColor");
+		int bg = OriginColorPicker.liveColor("scoreboard", "bgColor");
+		int[] sz = sampleScoreboardSize();
+		int boxW = sz[0], contentH = sz[1];
+		int lineH = font.lineHeight + 1;
+		OriginUi.panel(g, 0, 0, boxW, contentH, 0, bg, 0);
+		if (Mods.bool("scoreboard", "border")) {
+			int bt = (int) Math.max(1, Math.min(4, Math.round(Mods.num("scoreboard", "borderThickness"))));
+			int bc = OriginColorPicker.liveColor("scoreboard", "borderColor");
+			g.fill(0, 0, boxW, bt, bc);
+			g.fill(0, contentH - bt, boxW, contentH, bc);
+			g.fill(0, 0, bt, contentH, bc);
+			g.fill(boxW - bt, 0, boxW, contentH, bc);
+		}
+		int ty = 2;
+		g.text(font, SB_TITLE, (boxW - font.width(SB_TITLE)) / 2, ty, headerColor, shadow);
+		ty += lineH + 1;
+		for (String[] r : SB_ROWS) {
+			g.text(font, r[0], 3, ty, TEXT, shadow);
+			if (!hideNums) {
+				g.text(font, r[1], boxW - 3 - font.width(r[1]), ty, 0xFFE05555, shadow);
+			}
+			ty += lineH;
+		}
+	}
+
 	/** Main in-game dispatcher: draws every enabled element at its anchored,
 	 *  scaled position. Skipped entirely while the HUD editor is open (the
 	 *  editor draws its own draggable versions). */
 	public static void renderAll(GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || false /* 26.2 STUB: Options.hideGui relocated (HUD deferred) */ || com.origin.client.client.OriginScreenState.current instanceof HudEditorScreen) {
+		if (mc.player == null || mc.gui.hud.isHidden() || mc.gui.screen() instanceof HudEditorScreen) {
 			return;
 		}
 		int sw = g.guiWidth(), sh = g.guiHeight();
@@ -740,5 +874,32 @@ public final class HudElements {
 			}
 			p.popMatrix();
 		}
+		// Team View markers (Lunar parity): screen-projected like the waypoint
+		// overlay below; 1.21.1 drew them from HudRenderCallback (see ServerMods).
+		try {
+			com.origin.client.client.mods.TeamView.render(g);
+		} catch (Throwable t) {
+			// fail-soft
+		}
+		// Party markers + pings (Friends & Party): the same screen-projected overlay.
+		try {
+			com.origin.client.client.social.PartyWorld.renderMarkers(g);
+		} catch (Throwable t) {
+			// never takes the HUD down
+		}
+		// Waypoint icon/name/distance overlay — screen-projected so it's always
+		// visible (through blocks) and untouched by world lighting/shaders.
+		try {
+			com.origin.client.client.waypoints.WaypointHud.render(g);
+		} catch (Throwable t) {
+			// must never take the HUD down — but log the FIRST failure so a broken
+			// overlay is visible in the log instead of silently absent on screen
+			if (!waypointHudWarned) {
+				waypointHudWarned = true;
+				com.origin.client.OriginClient.LOGGER.warn("Origin: waypoint HUD overlay failed", t);
+			}
+		}
 	}
+
+	private static boolean waypointHudWarned = false;
 }

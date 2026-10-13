@@ -137,7 +137,9 @@ public static class AccountFolders
         }
         // Mods are shared per version: anything still in an account's own
         // mods/ (an older launcher's layout, or a jar Mod Menu's drag-and-drop
-        // put there) joins the shared folder before the game loads it.
+        // put there) joins the shared folder before the game loads it. (1.8.9's
+        // account mods/ is a launcher mirror of the shared folder — Forge can't
+        // load any other folder — which the merge skips; SharedMods.Mirror.)
         MergeSharedMods(version);
         return OriginPaths.GameDir(version, accountKey);
     }

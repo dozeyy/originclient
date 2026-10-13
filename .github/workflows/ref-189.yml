@@ -1,0 +1,132 @@
+# 1.8.9 dev loop: API lookups + a compile that prints only the errors.
+#
+# Why: the cloud sandbox Claude ports in can't reach Forge's maven, so it has
+# no 1.8.9 classes to read and can't compile. This workflow sets up the 1.8.9
+# module's real Loom workspace (MCP-named Minecraft + Forge) and
+#   - lookup (one job per file in src/mods/versions/1.8.9/tools/ref-queries/,
+#     so a reader fetches only the topic it needs), one query per line:
+#       class <name>     javap -p of a class (simple or full name; all matches)
+#       member <name>    every field/method with that MCP name: owner, descriptor, SRG name
+#       find <regex>     class names matching the regex
+#   - compile: `gradlew compileJava`, printing just javac's errors.
+# SRG names matter because production Forge runs SRG-named: reflection in the
+# 1.8.9 module must try the MCP name (dev) AND the SRG name (players).
+# Nothing is published or committed — read the job logs.
+name: ref-189
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["src/mods/versions/1.8.9/**", ".github/workflows/ref-189.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ref-189-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      files: ${{ steps.list.outputs.files }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: list
+        run: |
+          echo "files=$(ls src/mods/versions/1.8.9/tools/ref-queries/*.txt 2>/dev/null | xargs -n1 basename | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')" >> "$GITHUB_OUTPUT"
+
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: src/mods/versions/1.8.9
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Compile 1.8.9 (errors only)
+        shell: bash
+        run: |
+          set +e
+          sh ./gradlew compileJava --no-daemon > "$RUNNER_TEMP/compile.log" 2>&1
+          rc=$?
+          n=$(grep -c ' error: ' "$RUNNER_TEMP/compile.log")
+          echo "javac errors: $n (exit $rc)"
+          # Each error with its source line + caret + symbol/location lines.
+          grep -A4 ' error: ' "$RUNNER_TEMP/compile.log" | sed "s#$PWD/src/main/java/##" | grep -v '^--$' | head -6000
+          if [ "$rc" -ne 0 ] && [ "$n" -eq 0 ]; then tail -80 "$RUNNER_TEMP/compile.log"; fi
+          # Summary LAST, so a short log tail shows where the errors are.
+          echo "===== errors per file ====="
+          grep ' error: ' "$RUNNER_TEMP/compile.log" | sed "s#$PWD/src/main/java/##; s#:[0-9]*: error:.*##" | sort | uniq -c | sort -rn | head -150
+          echo "===== most common messages ====="
+          grep -o ' error: .*' "$RUNNER_TEMP/compile.log" | sort | uniq -c | sort -rn | head -40
+          echo "javac errors: $n (exit $rc)"
+          exit $rc
+      # The shipped jar must carry Mixin, the manifest tweaker and a refmap
+      # that maps every Origin mixin target to its SRG name — without the
+      # refmap, mixins work in dev (MCP names) and bind nothing for players.
+      - name: Inspect the shipped jar (Mixin, manifest, refmap)
+        shell: bash
+        run: |
+          sh ./gradlew build --no-daemon -q > "$RUNNER_TEMP/build.log" 2>&1 || { tail -60 "$RUNNER_TEMP/build.log"; exit 1; }
+          jar=$(ls build/libs/originclient-*.jar | grep -v sources | head -1)
+          echo "jar: $jar ($(stat -c %s "$jar") bytes)"
+          unzip -p "$jar" META-INF/MANIFEST.MF
+          echo "mixin runtime classes: $(unzip -l "$jar" | grep -c 'org/spongepowered/asm/')"
+          unzip -l "$jar" | grep -E 'mixins\.json|refmap' || echo "NO mixin configs / refmap in jar"
+          python3 - "$jar" <<'PY'
+          import json, sys, zipfile
+          z = zipfile.ZipFile(sys.argv[1])
+          names = [n for n in z.namelist() if n.endswith("refmap.json")]
+          if not names:
+              print("REFMAP MISSING"); sys.exit(1)
+          for n in names:
+              data = json.loads(z.read(n))
+              mappings = data.get("mappings", {})
+              print(f"{n}: {len(mappings)} mixin classes mapped")
+              for cls, m in sorted(mappings.items()):
+                  print(f"  {cls.split('/')[-1]}: {len(m)} targets")
+          configs = [n for n in z.namelist() if n.endswith(".mixins.json")]
+          listed = set()
+          for c in configs:
+              cfg = json.loads(z.read(c))
+              for k in ("mixins", "client"):
+                  for m in cfg.get(k, []):
+                      listed.add(cfg["package"].replace(".", "/") + "/" + m.replace(".", "/"))
+          mapped = set().union(*[json.loads(z.read(n)).get("mappings", {}).keys() for n in names])
+          missing = sorted(listed - mapped)
+          print(f"{len(listed)} mixins listed, {len(missing)} with no refmap entry (accessor-only or unmapped):")
+          for m in missing: print("  " + m)
+          PY
+
+  lookup:
+    needs: plan
+    if: needs.plan.outputs.files != '[]'
+    name: lookup ${{ matrix.file }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        file: ${{ fromJson(needs.plan.outputs.files) }}
+    defaults:
+      run:
+        working-directory: src/mods/versions/1.8.9
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up the 1.8.9 workspace (MCP-named Minecraft + Forge)
+        shell: bash
+        run: |
+          sh ./gradlew originPrintClasspath --no-daemon -q > "$RUNNER_TEMP/cp.txt" 2> "$RUNNER_TEMP/gradle-err.txt" || { tail -60 "$RUNNER_TEMP/gradle-err.txt"; exit 1; }
+          grep '^CP ' "$RUNNER_TEMP/cp.txt" | cut -c4- > "$RUNNER_TEMP/jars.txt"
+          find ~/.gradle .gradle -type f \( -name '*.tiny' -o -name 'methods.csv' -o -name 'fields.csv' \) 2>/dev/null > "$RUNNER_TEMP/maps.txt" || true
+      - name: Answer queries
+        shell: bash
+        run: python3 tools/ref_lookup.py "$RUNNER_TEMP/jars.txt" "$RUNNER_TEMP/maps.txt" "tools/ref-queries/${{ matrix.file }}"

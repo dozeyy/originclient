@@ -42,6 +42,9 @@ MEMORY.md and `docs/PORTING-ERA-NOTES.md`). JEI ships only where a Fabric JEI ex
 
 | Module | Covers | fabric.mod.json range | Install model | Java |
 |--------|--------|----------------------|---------------|------|
+| `26.3` | 26.3 | `~26.3` | standalone stack (Sodium 0.9.2 + Iris 1.11.7, Lithium 0.26.2 …) + JEI 31.12 jar-in-jar. Derived from `26.2` on 2026-10-13. 26.3 swapped GLFW for **SDL3** (window/input; `InputConstants.KEY_*`, `SDLVideo`) and moved the render API to **`com.mojang.renderpearl.api`** (pipelines, textures, GpuFormat) — see `docs/PORTING-ERA-NOTES.md` "26.3". No 26.3.x patch releases yet (2026-10-13); add them to this jar's range only after an API diff | 25 |
+| `26.2` | 26.2 | `~26.2` | standalone stack (Sodium 0.9.2 + Iris 1.11.4 …) + JEI jar-in-jar. **26.x era**: unobfuscated (no mappings), extract/submit GUI — ported from 1.21.11 on 2026-10-13, see `docs/PORTING-ERA-NOTES.md` "26.x era" | 25 (CI runs Gradle on JDK 25: `"java": "25"` in live-modules.json) |
+| `26.1` | 26.1, 26.1.1, 26.1.2 | `>=26.1- <26.2-` | standalone stack (26.1.2: Sodium 0.9.2 + Iris 1.11.4; 26.1 / 26.1.1: Sodium 0.8.9 + Iris 1.10.9 — Iris 1.11 needs Sodium 0.9, whose only build here requires 26.1.2) + JEI 29.37 jar-in-jar (newer JEI nests mezz_config, which demands 26.1.2 exactly and would not boot on 26.1 / 26.1.1). **One jar for all three**: version-scout's API diff found no class or public signature change across 26.1 → 26.1.2. Derived from `26.2` on 2026-10-13 (a middle era: extract GUI like 26.2, but `Gui` is still the HUD, `mc.screen`, immediate block outline, `RenderType.draw`, beds are block entities) — `docs/PORTING-ERA-NOTES.md` "26.1.x" | 25 |
 | `1.21.1` | 1.21.1 | `~1.21.1` | **Bundles perf stack jar-in-jar** (Sodium/Indium/Iris/Lithium/…) | 21 |
 | `1.20` | 1.20, 1.20.1 | `>=1.20- <1.20.2` | Origin jar + standalone catalog stack | 17 (via JDK 21) |
 | `1.20.4` | 1.20.3, 1.20.4 | `>=1.20.3- <1.20.5` | standalone stack | 17 (via JDK 21) |
@@ -55,6 +58,7 @@ MEMORY.md and `docs/PORTING-ERA-NOTES.md`). JEI ships only where a Fabric JEI ex
 | `1.18.2` | 1.18–1.18.2 | `>=1.18- <1.19-` | standalone stack (TextComponent era, no OptionInstance) | 17 |
 | `1.17.1` | 1.17–1.17.1 | `>=1.17- <1.18-` | standalone stack (merged source set — no bundled server jar) | 16 |
 | `1.16.5` | 1.16.5 | `>=1.16.5- <1.17-` | standalone stack (**fixed-function GL**, no `setShader*`) | 8 |
+| `1.8.9` | 1.8.9 | — (**Forge** 11.15.1.2318, `mcmod.info`) | Origin jar + OptiFine HD_U_M5 (downloaded at install) + TexFix/BetterFps — see "Legacy versions" below | 8 |
 
 All are boot-verified with zero mixin-apply failures and full shader
 integration (Iris + Sodium from the catalog pins). Each module's
@@ -104,30 +108,56 @@ the blur pass's UBO every frame (per-frame GPU-buffer churn racing the private
 `addToFrame` map) — not worth the stability risk; the baked variants are the
 best-fit stable method for this render era.
 
-## Legacy versions (1.8.9 / 1.12.2, Forge) — PULLED 2026-08-06
+## Legacy versions (Forge) — 1.8.9 LIVE again 2026-10-13, 1.12.2 still PULLED
 
-**Both are removed from the supported lineup** (Will's call). They are gone from
-`VersionCatalog`, so their grid cards no longer appear at all — the picker is
-Fabric-only now — and neither workflow builds them nor does the launcher bundle
-their jars or the Forge version JSONs.
+**1.8.9 is back in the lineup** (Will, 2026-10-13) on Forge 11.15.1.2318 +
+OptiFine HD_U_M5 — the only stack that gives 1.8.9 shaders. The player still
+never picks a loader: `VersionManager`'s legacy branch (`InstallLegacyAsync`)
+installs it quietly. **1.12.2 stays pulled** (2026-08-06): out of
+`VersionCatalog` and CI; its module and installer entries are kept.
 
-The modules (`versions/1.8.9`, `versions/1.12.2`) and the launcher-side install
-path (`LegacyForgeInstaller` / `OptiFineInstaller` / `LegacyStackInstaller`, plus
-the LEGACY BRANCH in `VersionManager.Prepare`) are still in the repo but are now
-**unreachable code** — no supported version uses Forge. Kept rather than deleted
-so re-adding either version is a catalog + CI change rather than a rewrite; if
-they are not coming back, that subsystem is a clean deletion.
+Coupling points for 1.8.9 are the usual four (OriginBuilds entry,
+`live-modules.json`, the csproj `<Content>` glob — `archivesName` is
+`originclient-1.8.9`, so the glob has the same shape as every Fabric module —
+and its own `1.8` card in `VersionCatalog`) **plus one**: the csproj also
+bundles `Assets/Forge/forge-1.8.9.json` as `Bundled/Forge/forge-1.8.9.json`,
+which `LegacyForgeInstaller` copies into the instance.
 
-Their original toolchain, for reference if revived:
+How the launcher runs it, on today's model (per-account game folders, one
+shared mods folder per version, several games at once):
+
+- `LegacyForgeInstaller`: the bundled Forge version JSON + the universal jar
+  from Forge's maven, in the version's shared root; CmlLib resolves the rest
+  (inheritsFrom 1.8.9, LWJGL 2 natives per account, Mojang's `jre-legacy`
+  Java 8, the legacy `minecraftArguments`).
+- Origin jar, `OptiFineInstaller` (download-at-install, SHA-1-pinned, never
+  redistributed) and `LegacyStackInstaller` (TexFix + BetterFps) all install
+  into the shared `instances/1.8.9/mods/` — the folder the Mods page edits.
+- **FML 8.0.x only loads `<gameDir>/mods`** (no `fabric.modsFolder`), so the
+  shared folder is **mirrored** into the launching account's own `mods/`
+  (`SharedMods.Mirror`): add / delete / rename-swap only, a manifest
+  (`.origin-mirror`) marks the launcher's copies, a jar the player drops into
+  the mirror joins the shared folder, and the shared-mods merge skips mirrors.
+  "Play with external mods" OFF mirrors only Origin's own jars
+  (`ModManager.IsManaged`), so the crash window's Origin-only retry works.
+- FML's splash theme (`config/splash.properties`) is per account.
+- Friends "Join": `--server/--port` (no Quick Play before 1.20).
+- Settings Sync: options.txt keybinds are translated between LWJGL 2 codes and
+  GLFW names, `lang` between `en_US` and `en_us` (OptionsTxtFormat); servers.dat
+  and Origin's `originclient*.json` sync as on every version.
+- CrashAnalyzer reads FML's mod state table (errored = `E`), its duplicate /
+  missing-dependency lines, and indexes Forge mods by `mcmod.info`.
+
+Toolchains (1.12.2 for reference if revived):
 
 | Module | Loader | Toolchain | Java | Install model |
 |--------|--------|-----------|------|---------------|
 | `1.8.9` | Forge 11.15.1.2318 | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_22 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_M5 + TexFix/BetterFps |
 | `1.12.2` | Forge 14.23.5.2860 runtime / 2847 dev | gg.essential.loom 1.3.12, Gradle 8.7, MCP stable_39-1.12 | 8 (foojay auto-provisioned) | Origin jar + OptiFine HD_U_G5 + FoamFix/Phosphor/VanillaFix/TexFix/BetterFps |
 
-These two versions predate Fabric entirely — Forge + OptiFine was the only
+These two versions predate Fabric entirely — Forge + OptiFine is the only
 loader/shader stack that exists there (the call Lunar/Feather made too). OptiFine
-was never redistributed: it downloaded at install time (official site first,
+is never redistributed: it downloads at install time (official site first,
 mirrors after) with every source SHA-1-pinned.
 
 **These modules do NOT consume `shared/`.** The shared core is Mojmap/modern-
@@ -150,7 +180,7 @@ screen and every loading/connecting/working screen.
 
 | Module | Covers | fabric.mod.json range | Java | Status | Blocking / next step |
 |--------|--------|----------------------|------|--------|----------------------|
-| `26.2` | 26.2 | — | 25 | compiles + boot-smoke passes (staged) | retained-mode client reaches renderer initialization with the Workbench UI. Keep staged until manual retained-mode screen/HUD review and the normal release gate are explicitly approved. `staged/26.2/PORT-262.md` |
+| — | | | | | (none — 26.3, 26.2 and 26.1 – 26.1.2 all went live 2026-10-13) |
 
 **1.21.9 was pulled entirely** (removed from `VersionCatalog` — it was the hard
 input-event-boundary + fabric-API-gap hybrid; not worth carrying). Its analysis
@@ -164,7 +194,9 @@ exactly the `OriginBuilds` versions — nothing else — and
 `tools/release/check_consistency.py` fails CI if the two ever disagree. Removed
 that day: the whole 26.x card (26.1, 26.1.1, 26.1.2, 26.2), 1.20.6, 1.20.5,
 1.20.3, 1.19.1, 1.19, 1.18.1, 1.17, and 1.16–1.16.4 (the 26 card's art went
-with it; re-adding a version means re-adding it to its card). A player whose
+with it; re-adding a version means re-adding it to its card). The 26 card came
+back on 2026-10-13 listing 26.2 (its art restored from history); 26.1.2, 26.1.1
+and 26.1 joined it the same day (one jar), and 26.3 (its own jar) on top. A player whose
 saved version is no longer listed starts on the newest version (1.21.11) — the
 launcher already drops any saved version the picker doesn't offer.
 
@@ -217,9 +249,9 @@ lines):
    what makes build-check AND the release build it (in parallel, via
    `.github/workflows/build-mods.yml`), what the release's "every live jar is
    bundled" assert checks, and what creates its `mc <module>` GitHub label.
-   Its Java level comes from the module's own `options.release`; CI runs every
-   module on JDK 21 (26.2 will need a JDK 25 runner — add a `java` field to
-   the list and to build-mods.yml then).
+   Its Java level comes from the module's own `options.release`; CI runs
+   Gradle on JDK 21 unless the entry says `"java": "25"` (every 26.x module:
+   plan.py, build-mods.yml and dev-shots.yml read it; boot-smoke.yml lists it).
 3. **`src/OriginLauncher.App/OriginLauncher.App.csproj`** — the `<Content>`
    bundle entry already exists for every module (a glob over its
    `build/libs`); verify its path points at `versions/<ver>` after the move.
