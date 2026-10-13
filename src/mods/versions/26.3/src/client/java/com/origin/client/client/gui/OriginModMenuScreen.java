@@ -14,7 +14,6 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -1532,12 +1531,12 @@ public class OriginModMenuScreen extends Screen {
 			return textKeyPressed(event);
 		}
 		if (capMod != null) {
-			Mods.set(capMod, capKey, keyCode == GLFW.GLFW_KEY_ESCAPE ? -1 : keyCode);
+			Mods.set(capMod, capKey, keyCode == InputConstants.KEY_ESCAPE ? -1 : keyCode);
 			capMod = null;
 			capKey = null;
 			return true;
 		}
-		boolean esc = keyCode == GLFW.GLFW_KEY_ESCAPE;
+		boolean esc = keyCode == InputConstants.KEY_ESCAPE;
 		if (confirmDelete != null) {
 			if (esc) {
 				confirmDelete = null;
@@ -1548,9 +1547,9 @@ public class OriginModMenuScreen extends Screen {
 			if (esc) {
 				profOpen = false;
 				profileFocused = false;
-			} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+			} else if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
 				saveProfile();
-			} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !profileInput.isEmpty()) {
+			} else if (keyCode == InputConstants.KEY_BACKSPACE && !profileInput.isEmpty()) {
 				profileInput = ctrl ? "" : profileInput.substring(0, profileInput.length() - 1);
 			}
 			return true;
@@ -1563,15 +1562,15 @@ public class OriginModMenuScreen extends Screen {
 			}
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		if (keyCode == InputConstants.KEY_RSHIFT) {
 			beginClose();
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_F && ctrl && page == null && tab == Tab.MODS) {
+		if (keyCode == InputConstants.KEY_F && ctrl && page == null && tab == Tab.MODS) {
 			searchFocused = true;
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+		if (keyCode == InputConstants.KEY_BACKSPACE) {
 			if (page == null && tab == Tab.MODS && !search.isEmpty()) {
 				search = ctrl ? "" : search.substring(0, search.length() - 1);
 				scrollTarget = 0;
@@ -1643,13 +1642,13 @@ public class OriginModMenuScreen extends Screen {
 	// which were static Screen helpers on 1.21.1.
 	private boolean textKeyPressed(KeyEvent event) {
 		int keyCode = event.key();
-		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+		if (keyCode == InputConstants.KEY_ESCAPE) {
 			textMod = null;      // cancel: the saved value stays as it was
 			textKey = null;
 			textBuf = "";
-		} else if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+		} else if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
 			commitText();
-		} else if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+		} else if (keyCode == InputConstants.KEY_BACKSPACE) {
 			if (!textBuf.isEmpty()) {
 				textBuf = event.hasControlDown() ? "" : textBuf.substring(0, textBuf.length() - 1);
 			}
@@ -1682,7 +1681,7 @@ public class OriginModMenuScreen extends Screen {
 			return "None";
 		}
 		try {
-			return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+			return InputConstants.Type.KEYBOARD.getOrCreate(code).getDisplayName().getString();
 		} catch (Throwable t) {
 			return "Key " + code;
 		}

@@ -1,10 +1,11 @@
 package com.origin.client.client.mods;
 
-import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.render.LunarPipelines;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.feature.ItemFeatureRenderer;
 import net.minecraft.client.renderer.rendertype.PreparedRenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -96,16 +97,36 @@ public final class GlintColorizer {
 
 	// ---- called from GlintColorizerMixin (render thread) ----
 
-	/** 0 = not a glint type, 1 = an item glint, 2 = the worn-armour glint. */
-	private static int kind(Object renderType) {
-		if (renderType == RenderTypes.armorEntityGlint()) {
-			return 2;
-		}
-		if (renderType == RenderTypes.glint() || renderType == RenderTypes.glintTranslucent()
-				|| renderType == RenderTypes.entityGlint()) {
-			return 1;
+	/**
+	 * 0 = no vanilla glint texture in this draw, 1 = the item glint, 2 = the
+	 * worn-armour glint. 26.3 folded the glint into the item/armour render types
+	 * themselves (RenderTypes.itemCutoutGlint(texture), armorCutoutNoCullGlint(...):
+	 * one pass sampling the model AND the glint texture), so a draw is recognised
+	 * by the glint texture it binds rather than by a dedicated glint render type.
+	 */
+	private static int kind(List<PreparedRenderType.Texture> textures) {
+		Object itemView = glintView(ItemFeatureRenderer.ENCHANTED_GLINT_ITEM);
+		Object armorView = glintView(ItemFeatureRenderer.ENCHANTED_GLINT_ARMOR);
+		for (PreparedRenderType.Texture tx : textures) {
+			if (tx.textureView() == null) {
+				continue;
+			}
+			if (tx.textureView() == armorView) {
+				return 2;
+			}
+			if (tx.textureView() == itemView) {
+				return 1;
+			}
 		}
 		return 0;
+	}
+
+	private static Object glintView(Identifier loc) {
+		try {
+			return Minecraft.getInstance().getTextureManager().getTexture(loc).getTextureView();
+		} catch (Throwable t) {
+			return null;
+		}
 	}
 
 	private static boolean active() {
@@ -128,8 +149,11 @@ public final class GlintColorizer {
 	 * Any other render type -- or any failure -- returns the vanilla record.
 	 */
 	public static PreparedRenderType prepare(Object renderType, PreparedRenderType vanilla) {
-		int k = kind(renderType);
-		if (k == 0 || !active() || vanilla == null) {
+		if (vanilla == null || !active()) {
+			return vanilla;
+		}
+		int k = kind(vanilla.textures());
+		if (k == 0) {
 			return vanilla;
 		}
 		DynamicTexture tex = null;
@@ -143,23 +167,30 @@ public final class GlintColorizer {
 		} else if (builtKey != null && overridden(k)) {
 			tex = k == 2 ? armor : item;
 		}
+		// Lunar Blending swaps the pipeline only where the glint is still its own
+		// pass (RenderPipelines.GLINT). 26.3 draws item/armour glints inside the
+		// model's own pipeline, so there the recoloured texture is mixed the way
+		// vanilla mixes the glint (it can brighten, not darken).
 		RenderPipeline pipeline = vanilla.pipeline();
-		if (Mods.bool(MOD, "showGlint") && builtKey != null && lunar() && overridden(k) && LunarPipelines.glintBlended() != null) {
+		if (pipeline == RenderPipelines.GLINT && Mods.bool(MOD, "showGlint") && builtKey != null && lunar()
+				&& overridden(k) && LunarPipelines.glintBlended() != null) {
 			pipeline = LunarPipelines.glintBlended();
 		}
 		if (tex == null && pipeline == vanilla.pipeline()) {
 			return vanilla;
 		}
+		Object itemView = glintView(ItemFeatureRenderer.ENCHANTED_GLINT_ITEM);
+		Object armorView = glintView(ItemFeatureRenderer.ENCHANTED_GLINT_ARMOR);
 		List<PreparedRenderType.Texture> textures = new ArrayList<>(vanilla.textures());
 		if (tex != null) {
 			for (int i = 0; i < textures.size(); i++) {
 				PreparedRenderType.Texture v = textures.get(i);
-				if ("Sampler0".equals(v.name())) {
+				if (v.textureView() != null && (v.textureView() == itemView || v.textureView() == armorView)) {
 					textures.set(i, new PreparedRenderType.Texture(v.name(), tex.getTextureView(), v.sampler()));
 				}
 			}
 		}
-		return new PreparedRenderType(pipeline, vanilla.outputTarget(), vanilla.dynamicTransforms(),
+		return new PreparedRenderType(vanilla.name(), pipeline, vanilla.oitPipelineSet(), vanilla.dynamicTransforms(),
 				vanilla.scissorState(), textures);
 	}
 
@@ -184,7 +215,7 @@ public final class GlintColorizer {
 	}
 
 	private static float[][] decode(Resource res) throws Exception {
-		try (InputStream in = res.open(); NativeImage img = NativeImage.read(NativeImage.Format.RGBA, in)) {
+		try (InputStream in = res.open(); NativeImage img = NativeImage.read(in)) {
 			float[][] out = new float[img.getWidth()][img.getHeight()];
 			for (int x = 0; x < img.getWidth(); x++) {
 				for (int y = 0; y < img.getHeight(); y++) {

@@ -516,7 +516,7 @@ public class OriginClientMod implements ClientModInitializer {
 				// build the Key from the raw GLFW code via Type.KEYSYM instead (same
 				// pattern OriginModMenuScreen's keyName() helper already uses).
 				client.options.keyPlayerList.setKey(
-						com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(ourTab));
+						com.mojang.blaze3d.platform.InputConstants.Type.KEYBOARD.getOrCreate(ourTab));
 				net.minecraft.client.KeyMapping.resetMapping();
 				client.options.save();
 				mcTab = ourTab;

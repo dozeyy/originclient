@@ -2,13 +2,24 @@ package com.origin.client.client;
 
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.sdl.SDLHints;
+import org.lwjgl.sdl.SDLVideo;
+import org.lwjgl.sdl.SDL_Rect;
+import org.lwjgl.system.MemoryStack;
+
+import java.nio.IntBuffer;
 
 // Applies the SETTINGS > General options that need to run against the live
-// window every tick: Borderless Fullscreen (GLFW window mode) and Raw Mouse
-// Input (GLFW raw motion). Both are edge-/state-driven and fully fail-soft —
-// any GLFW hiccup is swallowed so a bad window state can never crash the game.
+// window every tick: Borderless Fullscreen (window mode) and Raw Mouse Input.
+// Both are edge-/state-driven and fully fail-soft — any window-system hiccup is
+// swallowed so a bad window state can never crash the game.
+//
+// PER-VERSION DELTA (26.3): Minecraft moved from GLFW to SDL3, so Window.handle()
+// is an SDL_Window* and the window calls are SDLVideo's. Raw input: SDL3's
+// relative mouse mode (what Minecraft uses while the mouse is grabbed) already
+// reads unaccelerated device motion unless SDL_HINT_MOUSE_RELATIVE_SYSTEM_SCALE
+// asks for the OS pointer scaling -- so the toggle maps onto that hint (on = raw,
+// the SDL default; off = OS scaling, the old "raw input off" feel).
 public final class GeneralSettings {
 	// Borderless is edge-triggered so we never fight the user's own window
 	// dragging: we only act when the toggle's value actually changes.
@@ -43,32 +54,34 @@ public final class GeneralSettings {
 				lastBorderless = null; // retry once we're back in windowed mode
 				return;
 			}
-			try {
-				int[] x = new int[1], y = new int[1], w = new int[1], h = new int[1];
-				GLFW.glfwGetWindowPos(win, x, y);
-				GLFW.glfwGetWindowSize(win, w, h);
-				savedX = x[0];
-				savedY = y[0];
-				savedW = w[0];
-				savedH = h[0];
-				long monitor = GLFW.glfwGetPrimaryMonitor();
-				GLFWVidMode mode = GLFW.glfwGetVideoMode(monitor);
-				if (mode == null) {
+			try (MemoryStack stack = MemoryStack.stackPush()) {
+				IntBuffer x = stack.mallocInt(1), y = stack.mallocInt(1), w = stack.mallocInt(1), h = stack.mallocInt(1);
+				SDLVideo.SDL_GetWindowPosition(win, x, y);
+				SDLVideo.SDL_GetWindowSize(win, w, h);
+				savedX = x.get(0);
+				savedY = y.get(0);
+				savedW = w.get(0);
+				savedH = h.get(0);
+				int display = SDLVideo.SDL_GetDisplayForWindow(win);
+				if (display == 0) {
+					display = SDLVideo.SDL_GetPrimaryDisplay();
+				}
+				SDL_Rect bounds = SDL_Rect.malloc(stack);
+				if (display == 0 || !SDLVideo.SDL_GetDisplayBounds(display, bounds)) {
 					return;
 				}
-				int[] mx = new int[1], my = new int[1];
-				GLFW.glfwGetMonitorPos(monitor, mx, my);
-				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_FALSE);
-				GLFW.glfwSetWindowMonitor(win, 0L, mx[0], my[0], mode.width(), mode.height(), GLFW.GLFW_DONT_CARE);
+				SDLVideo.SDL_SetWindowBordered(win, false);
+				SDLVideo.SDL_SetWindowPosition(win, bounds.x(), bounds.y());
+				SDLVideo.SDL_SetWindowSize(win, bounds.w(), bounds.h());
 				borderlessApplied = true;
 			} catch (Throwable t) {
 				// fail-soft: leave the window as-is
 			}
 		} else if (!want && borderlessApplied) {
 			try {
-				GLFW.glfwSetWindowAttrib(win, GLFW.GLFW_DECORATED, GLFW.GLFW_TRUE);
-				GLFW.glfwSetWindowMonitor(win, 0L, savedX, savedY,
-						Math.max(320, savedW), Math.max(240, savedH), GLFW.GLFW_DONT_CARE);
+				SDLVideo.SDL_SetWindowBordered(win, true);
+				SDLVideo.SDL_SetWindowSize(win, Math.max(320, savedW), Math.max(240, savedH));
+				SDLVideo.SDL_SetWindowPosition(win, savedX, savedY);
 				borderlessApplied = false;
 			} catch (Throwable t) {
 				// fail-soft
@@ -76,14 +89,16 @@ public final class GeneralSettings {
 		}
 	}
 
+	private static Boolean lastRaw = null;
+
 	private static void applyRawMouseInput(Minecraft mc) {
 		try {
-			if (!GLFW.glfwRawMouseMotionSupported() || !mc.mouseHandler.isMouseGrabbed()) {
-				return;
-			}
 			boolean on = Mods.bool(Mods.GENERAL_ID, "rawMouseInput");
-			GLFW.glfwSetInputMode(mc.getWindow().handle(), GLFW.GLFW_RAW_MOUSE_MOTION,
-					on ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
+			if (lastRaw != null && lastRaw == on) {
+				return; // a hint only needs setting when the toggle changes
+			}
+			lastRaw = on;
+			SDLHints.SDL_SetHint("SDL_MOUSE_RELATIVE_SYSTEM_SCALE", on ? "0" : "1");
 		} catch (Throwable t) {
 			// fail-soft
 		}

@@ -129,14 +129,14 @@ public final class ItemPhysics {
 
 		// 1) undo vanilla: rotate(spin) was applied last, so it comes off first.
 		float bob = Mth.sin(s.ageInTicks / 10.0F + s.bobOffset) * 0.1F + 0.1F;
-		pose.mulPose(Axis.YP.rotation(-ItemEntity.getSpin(s.ageInTicks, s.bobOffset)));
+		pose.rotate(Axis.YP, -ItemEntity.getSpin(s.ageInTicks, s.bobOffset));
 		pose.translate(0.0F, -(bob + lift), 0.0F);
 
 		// 2) physics pose. bobOffset is a per-entity random angle: a stable heading.
-		pose.mulPose(Axis.YP.rotation(s.bobOffset));
+		pose.rotate(Axis.YP, s.bobOffset);
 		pose.translate(0.0F, ps.originclient$height() + centre, 0.0F);
-		pose.mulPose(Axis.ZP.rotationDegrees(ps.originclient$tilt()));
-		pose.mulPose(Axis.XP.rotationDegrees(ps.originclient$tumble()));
+		pose.rotateDegrees(Axis.ZP, ps.originclient$tilt());
+		pose.rotateDegrees(Axis.XP, ps.originclient$tumble());
 		pose.translate(0.0F, -centre, 0.0F);
 	}
 

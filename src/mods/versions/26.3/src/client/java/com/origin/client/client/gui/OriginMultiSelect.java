@@ -1,10 +1,10 @@
 package com.origin.client.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -206,7 +206,7 @@ public final class OriginMultiSelect {
 		if (!open) {
 			return false;
 		}
-		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+		if (keyCode == InputConstants.KEY_ESCAPE) {
 			close();
 		}
 		return true; // swallow keys while modal

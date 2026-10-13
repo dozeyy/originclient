@@ -1,5 +1,6 @@
 package com.origin.client.client.waypoints;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginUi;
@@ -10,7 +11,6 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -845,7 +845,7 @@ public class WaypointScreen extends OriginWindow {
 			OriginColorPicker.keyPressed(keyCode);
 			return true;
 		}
-		if (focus >= 0 && keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+		if (focus >= 0 && keyCode == InputConstants.KEY_BACKSPACE) {
 			String cur = focused();
 			if (cur != null && !cur.isEmpty()) {
 				setFocused(cur.substring(0, cur.length() - 1));
@@ -853,11 +853,11 @@ public class WaypointScreen extends OriginWindow {
 			}
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_TAB && focus >= 0) {
+		if (keyCode == InputConstants.KEY_TAB && focus >= 0) {
 			focus = focus >= 4 ? 0 : focus + 1;
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_ESCAPE && pendingDelete != null) {
+		if (keyCode == InputConstants.KEY_ESCAPE && pendingDelete != null) {
 			pendingDelete = null;   // Esc first dismisses the delete dialog
 			return true;
 		}

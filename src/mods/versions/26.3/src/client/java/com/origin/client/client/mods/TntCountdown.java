@@ -68,7 +68,7 @@ public final class TntCountdown {
 		pose.pushPose();
 		try {
 			pose.translate(0.0, tnt.boundingBoxHeight + 0.5, 0.0);
-			pose.mulPose(camera.orientation);
+			pose.rotate(camera.orientation);
 			pose.scale(0.025F, -0.025F, 0.025F);
 			float x = -font.width(text) / 2f;
 			int bg = Mods.bool(MOD, "background")

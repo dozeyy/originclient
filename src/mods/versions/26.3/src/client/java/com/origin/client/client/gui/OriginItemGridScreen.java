@@ -1,5 +1,6 @@
 package com.origin.client.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -19,7 +20,6 @@ import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.ShieldItem;
 import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.equipment.Equippable;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -549,7 +549,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == GLFW.GLFW_KEY_BACKSPACE && searchFocused && !search.isEmpty()) {
+		if (event.key() == InputConstants.KEY_BACKSPACE && searchFocused && !search.isEmpty()) {
 			search = search.substring(0, search.length() - 1);
 			scrollTarget = scroll = 0;
 			return true;

@@ -164,7 +164,7 @@ public final class ScreenshotChat {
 		switch (style.getInsertion().substring(ACTION_PREFIX.length())) {
 			case "image" -> copyImage(target);
 			case "file" -> copyFile(target);
-			case "folder" -> Util.getPlatform().openFile(target);
+			case "folder" -> com.mojang.blaze3d.Blaze3D.openPath(target.toPath());
 			default -> {
 				return false;
 			}

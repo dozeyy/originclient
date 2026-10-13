@@ -2,11 +2,11 @@ package com.origin.client.client.gui;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
@@ -922,7 +922,7 @@ public final class OriginUi {
 		DynamicTexture tex = new DynamicTexture(() -> "originclient:" + name, image) {
 			{
 				// 1.21.11 dropped setFilter; bind a LINEAR clamp sampler for smooth icons/font.
-				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.renderpearl.api.textures.FilterMode.LINEAR);
 			}
 		};
 		mc.getTextureManager().register(id, tex);

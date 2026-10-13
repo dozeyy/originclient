@@ -1,5 +1,6 @@
 package com.origin.client.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -11,7 +12,6 @@ import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -395,11 +395,9 @@ public final class OriginButtonRenderer {
 	/** Title controls are one opaque material at rest. Color appears only as
 	 * direct hover/press feedback; there are no stacked washes or idle outlines. */
 	private static void titleBox(GuiGraphicsExtractor g, AbstractButton button, boolean enabled, double hover) {
-		// 1.21.11: read the left button straight from GLFW (Window.handle() is this
-		// era's spelling) rather than through MouseHandler, whose press accessors
-		// changed with the 1.21.9 input-event rework.
+		// 26.3: GLFW is gone (SDL3); MouseHandler.isLeftPressed() is the held state.
 		boolean pressed = enabled && button.isHovered()
-				&& GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+				&& Minecraft.getInstance().mouseHandler.isLeftPressed();
 		int fill = enabled ? OriginTheme.lerpColor(TITLE_FILL, TITLE_FILL_HOVER, hover) : FILL_DISABLED;
 		if (pressed) fill = TITLE_FILL_PRESSED;
 		OriginUi.panel(g, button.getX(), button.getY(), button.getWidth(), button.getHeight(),

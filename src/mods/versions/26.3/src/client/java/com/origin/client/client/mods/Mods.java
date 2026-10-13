@@ -1,5 +1,6 @@
 package com.origin.client.client.mods;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.google.gson.JsonPrimitive;
 import com.origin.client.client.OriginClientMod;
 
@@ -7,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.lwjgl.glfw.GLFW;
 
 // The single registry behind the mod menu: every mod's id, display name,
 // default enable state, and settings schema, plus the typed read/write
@@ -150,7 +150,7 @@ public final class Mods {
 				ModOption.dropdown("mode", "Mode", "Toggle", "Hold"));
 
 		add("zoom", "Zoom", "Smooth, configurable zoom.", true,
-				ModOption.keybind("key", "Zoom Key", GLFW.GLFW_KEY_C),
+				ModOption.keybind("key", "Zoom Key", InputConstants.KEY_C),
 				ModOption.toggle("toggleZoom", "Toggle Zoom", false).tip("Press once to zoom, press again to unzoom (instead of holding)."),
 				ModOption.toggle("smoothCamera", "Smooth Camera Movement", false).tip("Eases camera motion so the view glides instead of snapping."),
 				ModOption.toggle("smoothZoom", "Smooth Zoom In/Out", true).tip("Animates the FOV change when zooming instead of an instant jump."),
@@ -377,7 +377,7 @@ public final class Mods {
 				ModOption.toggle("invertYaw", "Invert Yaw", false),
 				ModOption.toggle("toggle", "Toggle Freelook", false),
 				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true).tip("Eases camera motion so the view glides instead of snapping."),
-				ModOption.keybind("key", "Freelook Key", GLFW.GLFW_KEY_LEFT_ALT));
+				ModOption.keybind("key", "Freelook Key", InputConstants.KEY_LALT));
 
 		add("fullbright", "Lighting", "Full-bright and brightness boost.", false,
 				ModOption.toggle("fullBright", "Full Bright", true).tip("Lights the whole world to maximum brightness. Shaders must be OFF for this to work — a shaderpack does its own lighting and ignores it."),
@@ -416,7 +416,7 @@ public final class Mods {
 				ModOption.color("color", "Crosshair Color", 0xFFFFFFFF));
 
 		add("chunkborders", "Chunk Borders", "Visualize chunk boundaries.", false,
-				ModOption.keybind("key", "Toggle Chunk Borders", GLFW.GLFW_KEY_F9),
+				ModOption.keybind("key", "Toggle Chunk Borders", InputConstants.KEY_F9),
 				ModOption.toggle("grid", "Grid", true),
 				ModOption.slider("gridSize", "Grid Size", 1, 16, 1, 16, "%.0f").under("grid"),
 				ModOption.slider("thickness", "Line Thickness", 1, 3, 1, 1, "%.0f").under("grid"),
@@ -491,7 +491,7 @@ public final class Mods {
 		add("tablist", "Tab Editor", "Customize the player list overlay.", false,
 				ModOption.toggle("stickyToggle", "Sticky Tab", true)
 						.tip("Tap the list key to lock it open; hold and release for vanilla peek."),
-				ModOption.keybind("tabKey", "Tab Keybind", GLFW.GLFW_KEY_TAB)
+				ModOption.keybind("tabKey", "Tab Keybind", InputConstants.KEY_TAB)
 						.tip("Two-way synced with Minecraft's Player List key in Controls."),
 				ModOption.header("Players"),
 				ModOption.toggle("displayHeads", "Display Player Heads", true),
@@ -528,8 +528,8 @@ public final class Mods {
 		add("timechanger", "Time Changer", "Set a fixed client time of day.", false,
 				ModOption.slider("time", "Time", 0, 24000, 100, 6000, "%.0f"),
 				ModOption.toggle("useRealTime", "Use Real Current Time", false),
-				ModOption.keybind("increaseKey", "Increase Time", GLFW.GLFW_KEY_RIGHT_BRACKET),
-				ModOption.keybind("decreaseKey", "Decrease Time", GLFW.GLFW_KEY_LEFT_BRACKET),
+				ModOption.keybind("increaseKey", "Increase Time", InputConstants.KEY_RBRACKET),
+				ModOption.keybind("decreaseKey", "Decrease Time", InputConstants.KEY_LBRACKET),
 				ModOption.toggle("timePassage", "Time Passage", false),
 				ModOption.slider("speed", "Speed", 0.1, 10, 0.1, 1.0, "%.1fx").under("timePassage"));
 
@@ -746,7 +746,7 @@ public final class Mods {
 		// The key isn't in Lunar's schema (keybinds live outside it); V is free in
 		// vanilla and nothing else in Origin uses it.
 		add("snaplook", "Snaplook", "Hold a key to look behind you.", false,
-				ModOption.keybind("key", "Snaplook Key", GLFW.GLFW_KEY_V),
+				ModOption.keybind("key", "Snaplook Key", InputConstants.KEY_V),
 				ModOption.toggle("toggleMode", "Toggle Mode", false).tip("Press once to look behind, press again to look forward."),
 				ModOption.toggle("smoothCamera", "Smooth Camera Movement", true)
 						.tip("Eases camera motion while you look behind you."));
@@ -870,7 +870,7 @@ public final class Mods {
 				ModOption.keybind("zoomInKey", "Zoom In Key", -1),
 				ModOption.keybind("zoomOutKey", "Zoom Out Key", -1),
 				ModOption.toggle("rotate", "Rotate With Player", true).tip("Off = north is always up."),
-				ModOption.keybind("openMapKey", "Open Full Map", GLFW.GLFW_KEY_M)
+				ModOption.keybind("openMapKey", "Open Full Map", InputConstants.KEY_M)
 						.tip("A big map of everything mapped around you. Scroll to zoom, drag to move."),
 				ModOption.header("Terrain"),
 				ModOption.dropdown("caveMode", "Cave Mode", "Auto", "Off", "Always")
@@ -960,7 +960,7 @@ public final class Mods {
 
 		// G is unbound in vanilla 1.21.1 and unused elsewhere in Origin.
 		add("quickplay", "Quickplay", "Jump into any Hypixel game from one menu.", false,
-				ModOption.keybind("key", "Open Quickplay", GLFW.GLFW_KEY_G),
+				ModOption.keybind("key", "Open Quickplay", InputConstants.KEY_G),
 				ModOption.keybind("requeueKey", "Play Again", -1)
 						.tip("Re-joins the last game you picked in Quickplay."),
 				ModOption.toggle("displayMessage", "Display Queue Message", true)
@@ -999,7 +999,7 @@ public final class Mods {
 		add("fpscoach", "FPS Coach", "Finds the settings costing you FPS and tests each fix.", true,
 				ModOption.slider("targetFps", "Target FPS", 30, 240, 10, 60, "%.0f")
 						.tip("Tips show up after you stay below this for about 20 seconds."),
-				ModOption.keybind("key", "Open FPS Coach", GLFW.GLFW_KEY_K),
+				ModOption.keybind("key", "Open FPS Coach", InputConstants.KEY_K),
 				ModOption.toggle("showToast", "Show Tips Pop-up", true)
 						.tip("A small pop-up when there are tips. Never during a fight or with a menu open."),
 				ModOption.slider("cooldown", "Pop-up Cooldown", 1, 60, 1, 10, "%.0f min").under("showToast")

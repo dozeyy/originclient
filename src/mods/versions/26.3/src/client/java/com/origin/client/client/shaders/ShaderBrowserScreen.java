@@ -1,5 +1,6 @@
 package com.origin.client.client.shaders;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginWindow;
 import net.minecraft.SharedConstants;
@@ -8,7 +9,6 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -314,7 +314,7 @@ public class ShaderBrowserScreen extends OriginWindow {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		if (event.key() == GLFW.GLFW_KEY_BACKSPACE && !query.isEmpty()) {
+		if (event.key() == InputConstants.KEY_BACKSPACE && !query.isEmpty()) {
 			query = query.substring(0, query.length() - 1);
 			rebuildView();
 			return true;

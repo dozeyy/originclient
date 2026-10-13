@@ -6,7 +6,7 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import com.origin.client.client.hud.HudEditorScreen;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDLVideo;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -33,7 +33,7 @@ import java.util.Set;
  *
  * PER-VERSION DELTA (1.21.11): two calls differ from 1.21.1, both swapped for
  * ones this module already uses elsewhere --
- *   * the window is resized with GLFW.glfwSetWindowSize on Window.handle()
+ *   * the window is resized with SDLVideo.SDL_SetWindowSize on Window.handle() (26.3: SDL3)
  *     (the 1.21.9 Window API; handle() is what GeneralSettings uses) instead
  *     of Window.setWindowed -- the same call setWindowed makes for a windowed
  *     game, and the framebuffer callback + resizeDisplay() pick it up;
@@ -202,7 +202,7 @@ public final class OriginDevShots {
 		try {
 			switch (phase) {
 				case 0 -> {
-					GLFW.glfwSetWindowSize(mc.getWindow().handle(), s.w(), s.h());
+					SDLVideo.SDL_SetWindowSize(mc.getWindow().handle(), s.w(), s.h());
 					mc.options.guiScale().set(s.scale());
 					mc.framebufferSizeChanged();
 					resizeRetries = 0;
@@ -223,7 +223,7 @@ public final class OriginDevShots {
 					int actualW = mc.getWindow().getWidth();
 					int actualH = mc.getWindow().getHeight();
 					if ((actualW != s.w() || actualH != s.h()) && resizeRetries++ < 8) {
-						GLFW.glfwSetWindowSize(mc.getWindow().handle(), s.w(), s.h());
+						SDLVideo.SDL_SetWindowSize(mc.getWindow().handle(), s.w(), s.h());
 						mc.framebufferSizeChanged();
 						nextAt = now + 350;
 						return;

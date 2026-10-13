@@ -91,8 +91,8 @@ final class HeadModels {
 
 		// nucleus
 		m.pose.pushPose();
-		m.pose.mulPose(Axis.XP.rotation(w * t));
-		m.pose.mulPose(Axis.YP.rotation(2 * w * t));
+		m.pose.rotate(Axis.XP, w * t);
+		m.pose.rotate(Axis.YP, 2 * w * t);
 		float pulse = 1 + 0.15f * (float) Math.sin(4 * w * t);
 		m.box(0, 0, 0, 0.9f * pulse, 0.9f * pulse, 0.9f * pulse, 0xFFFFFFFF, LightCoordsUtil.FULL_BRIGHT, Pass.SOLID);
 		m.box(0, 0, 0, 2f * pulse, 2f * pulse, 2f * pulse, WHITE_GLOW, LightCoordsUtil.FULL_BRIGHT, Pass.GLOW);
@@ -101,8 +101,8 @@ final class HeadModels {
 		for (float[] o : ORBIT_RINGS) {
 			float r = o[0], dir = Math.signum(o[4]);
 			m.pose.pushPose();
-			m.pose.mulPose(Axis.YP.rotation(o[5] + o[2] * w * t));
-			m.pose.mulPose(Axis.XP.rotation(o[1] + 0.12f * (float) Math.sin(o[3] * w * t)));
+			m.pose.rotate(Axis.YP, o[5] + o[2] * w * t);
+			m.pose.rotate(Axis.XP, o[1] + 0.12f * (float) Math.sin(o[3] * w * t));
 			m.ring(r, 0.26f, MINT, LightCoordsUtil.FULL_BRIGHT, Pass.SOLID);
 			m.ring(r, 0.68f, MINT_GLOW, LightCoordsUtil.FULL_BRIGHT, Pass.GLOW);
 			float spin = o[4] * w * t;
@@ -145,7 +145,7 @@ final class HeadModels {
 		}
 		for (int side = 0; side < 4; side++) {
 			m.pose.pushPose();
-			m.pose.mulPose(Axis.YP.rotation(side * TAU / 4));
+			m.pose.rotate(Axis.YP, side * TAU / 4);
 			m.box(0, 31.8f, R, 2 * R + 0.6f, 2.4f, 0.6f, side % 2 == 1 ? DEEP : GOLD, light, Pass.SOLID);  // band
 			m.box(0, 30.8f, R, 2 * R + 0.9f, 0.4f, 0.9f, DEEP, light, Pass.SOLID);                        // rims
 			m.box(0, 32.9f, R, 2 * R + 0.9f, 0.4f, 0.9f, DEEP, light, Pass.SOLID);
@@ -162,7 +162,7 @@ final class HeadModels {
 			m.box(0, 34.5f, R, 1f, 2.8f, 0.6f, GOLD, light, Pass.SOLID);                                  // centre point
 			m.pose.pushPose();
 			m.pose.translate(0, 36.3f, R);
-			m.pose.mulPose(Axis.ZP.rotation(TAU / 8));
+			m.pose.rotate(Axis.ZP, TAU / 8);
 			m.box(0, 0, 0, 0.8f, 0.8f, 0.8f, GEMS[side], light, Pass.SOLID);
 			m.pose.popPose();
 			m.pose.popPose();

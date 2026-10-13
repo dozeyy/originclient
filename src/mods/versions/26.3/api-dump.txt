@@ -35,3 +35,4 @@ org/lwjgl/sdl/SDLVideo
 org/lwjgl/sdl/SDLClipboard
 org/lwjgl/sdl/SDL_DisplayMode
 org/lwjgl/sdl/SDLMisc
+com/mojang/math/

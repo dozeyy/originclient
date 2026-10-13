@@ -265,7 +265,7 @@ public final class FpsCoachTips {
 
 	private static int refreshRate(Minecraft mc) {
 		try {
-			return mc.getWindow().getRefreshRate();
+			return Math.round(mc.getWindow().getActiveVideoMode().getRefreshRate());
 		} catch (Throwable t) {
 			return 0;
 		}

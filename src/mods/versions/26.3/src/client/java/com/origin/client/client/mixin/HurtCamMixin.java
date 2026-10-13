@@ -42,7 +42,7 @@ public class HurtCamMixin {
 		ci.cancel();
 		if (living.isDeadOrDying) {
 			float death = Math.min(living.deathTime, 20.0F);
-			poseStack.mulPose(Axis.ZP.rotationDegrees(40.0F - 8000.0F / (death + 200.0F)));
+			poseStack.rotateDegrees(Axis.ZP, 40.0F - 8000.0F / (death + 200.0F));
 		}
 		float hurt = living.hurtTime;
 		if (hurt < 0.0F || Mods.bool("hurtcam", "disableHurtCam") || living.hurtDuration <= 0) {
@@ -51,9 +51,9 @@ public class HurtCamMixin {
 		hurt /= (float) living.hurtDuration;
 		hurt = Mth.sin(hurt * hurt * hurt * hurt * (float) Math.PI);
 		float dir = Mods.bool("hurtcam", "oldTilt") ? 0.0F : living.hurtDir;
-		poseStack.mulPose(Axis.YP.rotationDegrees(-dir));
+		poseStack.rotateDegrees(Axis.YP, -dir);
 		double strength = mc.options.damageTiltStrength().get() * Mods.num("hurtcam", "intensity");
-		poseStack.mulPose(Axis.ZP.rotationDegrees((float) (-hurt * 14.0 * strength)));
-		poseStack.mulPose(Axis.YP.rotationDegrees(dir));
+		poseStack.rotateDegrees(Axis.ZP, (float) (-hurt * 14.0 * strength));
+		poseStack.rotateDegrees(Axis.YP, dir);
 	}
 }

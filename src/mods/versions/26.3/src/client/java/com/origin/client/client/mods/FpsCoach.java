@@ -513,7 +513,7 @@ public final class FpsCoach {
 			return null;
 		}
 		try {
-			return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+			return InputConstants.Type.KEYBOARD.getOrCreate(code).getDisplayName().getString();
 		} catch (Throwable t) {
 			return null;
 		}

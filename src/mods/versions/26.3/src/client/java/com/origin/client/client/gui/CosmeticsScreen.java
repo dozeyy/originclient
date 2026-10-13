@@ -113,7 +113,7 @@ public class CosmeticsScreen extends OriginWindow {
 		String label = "Open the store";
 		float bw = buttonW(d, label, null);
 		button(d, label, null, right - bw, 16, bw, 32, Style.PRIMARY, true,
-				() -> Util.getPlatform().openUri(Cosmetics.STORE_URL));
+				() -> com.mojang.blaze3d.Blaze3D.openUri(java.net.URI.create(Cosmetics.STORE_URL)));
 	}
 
 	// ---- what's on offer ----

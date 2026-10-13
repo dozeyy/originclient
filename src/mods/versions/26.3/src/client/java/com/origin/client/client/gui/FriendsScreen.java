@@ -1,5 +1,6 @@
 package com.origin.client.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.social.FairPlay;
 import com.origin.client.client.social.Social;
 import com.origin.client.client.social.SocialClient;
@@ -17,7 +18,6 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -914,7 +914,7 @@ public class FriendsScreen extends OriginWindow {
 	public boolean keyPressed(KeyEvent event) {
 		int keyCode = event.key();
 		if (focus != Focus.NONE) {
-			if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+			if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
 				if (focus == Focus.ADD) {
 					submitAdd();
 				} else {
@@ -922,7 +922,7 @@ public class FriendsScreen extends OriginWindow {
 				}
 				return true;
 			}
-			if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+			if (keyCode == InputConstants.KEY_BACKSPACE) {
 				if (focus == Focus.ADD) {
 					addText = cut(addText, event.hasControlDown());
 				} else {
@@ -939,7 +939,7 @@ public class FriendsScreen extends OriginWindow {
 				}
 				return true;
 			}
-			if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+			if (keyCode == InputConstants.KEY_ESCAPE) {
 				focus = Focus.NONE;
 				return true;
 			}

@@ -1,9 +1,10 @@
 package com.origin.client.client.gui;
 
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.ShaderType;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import com.origin.client.OriginClient;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -98,27 +99,32 @@ public final class OriginShaders {
 	 */
 	public static RenderPipeline derive(RenderPipeline base, String location, String fragmentShader,
 			UnaryOperator<RenderPipeline.Builder> tweak) {
+		// 26.3: shaders are a ShaderType -> Identifier map, the colour targets and
+		// vertex bindings are lists, and pipelines carry a push-constant size.
 		RenderPipeline.Builder b = RenderPipeline.builder()
 				.withLocation(Identifier.fromNamespaceAndPath("originclient", location))
-				.withVertexShader(base.getVertexShader())
-				.withFragmentShader(fragmentShader == null ? base.getFragmentShader()
+				.withVertexShader(base.getShaders().get(ShaderType.VERTEX))
+				.withFragmentShader(fragmentShader == null ? base.getShaders().get(ShaderType.FRAGMENT)
 						: Identifier.fromNamespaceAndPath("originclient", fragmentShader))
 				.withPrimitiveTopology(base.getPrimitiveTopology())
 				.withPolygonMode(base.getPolygonMode())
 				// GUI pipelines have NO depth-stencil state (null); the non-Optional
 				// overload NPEs on null (Optional.of), so route through the Optional one.
 				.withDepthStencilState(java.util.Optional.ofNullable(base.getDepthStencilState()))
-				.withCull(base.isCull());
-		ColorTargetState[] targets = base.getColorTargetStates();
-		for (int i = 0; i < targets.length; i++) {
-			if (targets[i] != null) {
-				b.withColorTargetState(i, targets[i]);
+				.withCull(base.isCull())
+				.withPushConstantSize(base.pushConstantSize());
+		java.util.List<ColorTargetState> targets = base.getColorTargetStates();
+		for (int i = 0; i < targets.size(); i++) {
+			if (targets.get(i) != null) {
+				b.withColorTargetState(i, targets.get(i));
+			} else {
+				b.withUnusedColorTargetState(i);
 			}
 		}
-		VertexFormat[] bindings = base.getVertexFormatBindings();
-		for (int i = 0; i < bindings.length; i++) {
-			if (bindings[i] != null) {
-				b.withVertexBinding(i, bindings[i]);
+		java.util.List<VertexFormat> bindings = base.getVertexFormatBindings();
+		for (int i = 0; i < bindings.size(); i++) {
+			if (bindings.get(i) != null) {
+				b.withVertexBinding(i, bindings.get(i));
 			}
 		}
 		for (BindGroupLayout layout : base.getBindGroupLayouts()) {

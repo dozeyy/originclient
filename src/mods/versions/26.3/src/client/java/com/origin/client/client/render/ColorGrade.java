@@ -3,8 +3,8 @@ package com.origin.client.client.render;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.client.gui.OriginShaders;
 import com.origin.client.client.mods.Mods;
@@ -100,7 +100,7 @@ public final class ColorGrade {
 				if (swap != null) {
 					swap.destroyBuffers();
 				}
-				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.blaze3d.GpuFormat.RGBA8_UNORM);
+				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.renderpearl.api.GpuFormat.RGBA8_UNORM);
 			}
 			// 26.x: this runs during EXTRACTION, before this frame's world is drawn,
 			// so the snapshot can't be taken here (it would copy LAST frame's finished
@@ -162,7 +162,7 @@ public final class ColorGrade {
 		}
 
 		@Override
-		public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+		public com.mojang.renderpearl.api.pipeline.RenderPipeline pipeline() {
 			return OriginShaders.grade();
 		}
 

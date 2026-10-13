@@ -1,10 +1,10 @@
 package com.origin.client.client.mods;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.OriginClientMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.util.StringUtil;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,9 +62,9 @@ public final class AutoTextHotkey {
 		if (key <= 0 || !OriginClientMod.isRawKeyDown(key)) {
 			return false;
 		}
-		boolean ctrl = held(GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
-		boolean shift = held(GLFW.GLFW_KEY_LEFT_SHIFT, GLFW.GLFW_KEY_RIGHT_SHIFT);
-		boolean alt = held(GLFW.GLFW_KEY_LEFT_ALT, GLFW.GLFW_KEY_RIGHT_ALT);
+		boolean ctrl = held(InputConstants.KEY_LCONTROL, InputConstants.KEY_RCONTROL);
+		boolean shift = held(InputConstants.KEY_LSHIFT, InputConstants.KEY_RSHIFT);
+		boolean alt = held(InputConstants.KEY_LALT, InputConstants.KEY_RALT);
 		return switch (Mods.mode(ID, "modifier" + i)) {
 			case "Ctrl" -> ctrl;
 			case "Shift" -> shift;

@@ -1,9 +1,9 @@
 package com.origin.client.client.dev;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.OriginClientMod;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
 
@@ -34,7 +34,7 @@ import java.io.File;
  */
 public final class PanoramaCapture {
 	/** GLFW key that fires a capture. F8 is unbound in vanilla and by Origin. */
-	private static final int CAPTURE_KEY = GLFW.GLFW_KEY_F8;
+	private static final int CAPTURE_KEY = InputConstants.KEY_F8;
 
 	/** Edge trigger -- a capture is expensive, so it fires on press, not while held. */
 	private static boolean wasDown = false;

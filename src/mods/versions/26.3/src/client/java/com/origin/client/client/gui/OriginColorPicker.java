@@ -1,11 +1,11 @@
 package com.origin.client.client.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
-import org.lwjgl.glfw.GLFW;
 
 // The one shared color picker, reused for every color option across every mod
 // (spec §6). A modal overlay the mod menu draws last and feeds input to first.
@@ -360,7 +360,7 @@ public final class OriginColorPicker {
 		if (!open) {
 			return false;
 		}
-		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+		if (keyCode == InputConstants.KEY_ESCAPE) {
 			close();
 		}
 		return true; // swallow keys while modal

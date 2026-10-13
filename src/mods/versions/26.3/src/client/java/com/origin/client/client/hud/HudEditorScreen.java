@@ -1,5 +1,6 @@
 package com.origin.client.client.hud;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.gui.OriginDeck;
 import com.origin.client.client.gui.OriginModMenuScreen;
 import com.origin.client.client.gui.OriginUi;
@@ -11,7 +12,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 // The HUD editing workspace, directly over the LIVE game — no dim, no blur.
 // Freeform drag, no snapping; thin center guides appear only while dragging.
@@ -478,12 +478,12 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(KeyEvent event) {
-		int keyCode = event.key(), scanCode = event.scancode(), modifiers = event.modifiers();
-		if (keyCode == GLFW.GLFW_KEY_RIGHT_SHIFT) {
+		int keyCode = event.key();
+		if (keyCode == InputConstants.KEY_RSHIFT) {
 			onClose();
 			return true;
 		}
-		if (keyCode == GLFW.GLFW_KEY_R && hoveredId != null) {
+		if (keyCode == InputConstants.KEY_R && hoveredId != null) {
 			com.origin.client.client.mods.ModsConfigAccess.resetHud(hoveredId);
 			return true;
 		}

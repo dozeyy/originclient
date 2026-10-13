@@ -1,0 +1,9 @@
+# TEMPORARY porting aid: classes whose bytecode (javap -c -p) the dev-shots run writes to api/code.txt.
+net.minecraft.client.renderer.SubmitNodeCollection
+net.minecraft.client.renderer.SubmitNodeStorage
+net.minecraft.client.renderer.feature.TextFeatureRenderer
+net.minecraft.client.renderer.entity.EntityRenderer
+net.minecraft.client.renderer.rendertype.RenderTypes
+net.minecraft.client.renderer.rendertype.RenderSetup
+net.minecraft.client.renderer.RenderPipelines
+com.mojang.blaze3d.platform.InputConstants

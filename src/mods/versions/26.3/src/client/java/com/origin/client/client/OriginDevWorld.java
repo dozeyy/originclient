@@ -1,5 +1,6 @@
 package com.origin.client.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -9,7 +10,7 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.resources.language.I18n;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDLVideo;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -28,7 +29,7 @@ import java.util.Set;
  * party (Party HUD, markers, a ping), and quits.
  *
  * PER-VERSION DELTA (1.21.11), the same swaps OriginDevShots makes:
- *   * the window is sized with GLFW.glfwSetWindowSize on Window.handle();
+ *   * the window is sized with SDLVideo.SDL_SetWindowSize on Window.handle() (26.3: SDL3);
  *   * AbstractButton.onPress takes the triggering input (1.21.9): an Enter
  *     KeyEvent, as this module's PauseScreenMixin synthesises;
  *   * Screenshot.grab is the dated-file form, written on the IO thread, so each
@@ -60,7 +61,7 @@ final class OriginDevWorld {
 			}
 			if (phase == 0) {
 				// Title is up (OriginDevShots waited for it): open Select World.
-				GLFW.glfwSetWindowSize(mc.getWindow().handle(), 1920, 1080);
+				SDLVideo.SDL_SetWindowSize(mc.getWindow().handle(), 1920, 1080);
 				mc.framebufferSizeChanged();
 				mc.setScreenAndShow(new SelectWorldScreen(new TitleScreen()));
 				phase = 1;
@@ -180,7 +181,7 @@ final class OriginDevWorld {
 	private static boolean press(Minecraft mc, String label) {
 		for (var child : mc.gui.screen().children()) {
 			if (child instanceof AbstractButton b && b.active && label.equals(b.getMessage().getString())) {
-				b.onPress(new KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
+				b.onPress(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
 				return true;
 			}
 		}

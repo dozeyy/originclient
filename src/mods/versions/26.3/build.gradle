@@ -158,6 +158,19 @@ if (apiDumpList.exists() && System.getenv("ORIGIN_SHOTS")) {
 				}
 			}
 			new File(out, "classes.txt").text = index.toString()
+			// 26.3: also export vanilla's shader sources (assets/minecraft/shaders/**)
+			// so Origin's .fsh/.vsh can be checked against the uniform/push-constant layout.
+			cp.findAll { it.name.startsWith("minecraft-") }.each { f ->
+				new java.util.zip.ZipFile(f).withCloseable { z ->
+					z.entries().each { e ->
+						if (!e.directory && e.name.startsWith("assets/minecraft/shaders/")) {
+							def dst = new File(out, "shaders/" + e.name.substring("assets/minecraft/shaders/".length()))
+							dst.parentFile.mkdirs()
+							z.getInputStream(e).withCloseable { ins -> dst.bytes = ins.bytes }
+						}
+					}
+				}
+			}
 			def cpStr = cp.join(File.pathSeparator)
 			picked.each { p, list ->
 				def target = new File(out, p.replaceAll("[^A-Za-z0-9]+", "_") + ".txt")
@@ -169,6 +182,17 @@ if (apiDumpList.exists() && System.getenv("ORIGIN_SHOTS")) {
 					proc.waitFor()
 					target << so.toString() << se.toString()
 				}
+			}
+			// api-code.txt (optional, one class per line): full `javap -c -p` bytecode of
+			// those classes, for hooks that depend on a method body (call order, locals).
+			def codeList = file("api-code.txt")
+			if (codeList.exists()) {
+				def names = codeList.readLines().collect { it.trim() }.findAll { it && !it.startsWith("#") }
+				def proc = ([javap, "-c", "-p", "-cp", cpStr] + names).execute()
+				def so = new StringBuilder(), se = new StringBuilder()
+				proc.consumeProcessOutput(so, se)
+				proc.waitFor()
+				new File(out, "code.txt").text = so.toString() + se.toString()
 			}
 			println "[api-dump] wrote ${picked.values().sum { it.size() } ?: 0} classes to ${out}"
 		}

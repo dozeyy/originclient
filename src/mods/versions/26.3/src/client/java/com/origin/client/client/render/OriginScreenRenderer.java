@@ -1000,7 +1000,7 @@ public final class OriginScreenRenderer {
 		DynamicTexture texture = new DynamicTexture(() -> "originclient:" + name, image) {
 			{
 				// 1.21.11 dropped setFilter; bind a LINEAR clamp sampler for smooth icons/font.
-				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.renderpearl.api.textures.FilterMode.LINEAR);
 			}
 		};
 		mc.getTextureManager().register(id, texture);

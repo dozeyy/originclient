@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.origin.client.client.OriginClientMod;
 import com.origin.client.client.OriginFreelookState;
 import com.origin.client.client.mods.Mods;
@@ -34,7 +35,7 @@ public abstract class MouseHandlerMixin {
 		// A click made while a screen (inventory/menu) is open is a "cancelled"
 		// click for CPS purposes — track the held-state but don't count it.
 		boolean counts = Minecraft.getInstance().gui.screen() == null;
-		com.origin.client.client.mods.ClickStats.onButton(info.button(), action == org.lwjgl.glfw.GLFW.GLFW_PRESS, counts);
+		com.origin.client.client.mods.ClickStats.onButton(info.button(), action == org.lwjgl.glfw.InputConstants.PRESS, counts);
 	}
 
 	// Scroll to Zoom: while actively zoomed, the wheel changes zoom depth (a
