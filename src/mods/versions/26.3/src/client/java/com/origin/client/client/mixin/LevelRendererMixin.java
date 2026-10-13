@@ -20,14 +20,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin {
 
-	@Inject(method = "addWeatherPass", at = @At("HEAD"), cancellable = true)
-	private void originclient$skipWeather(CallbackInfo ci) {
-		// Clear mode skips the precipitation pass; other modes force rain levels
-		// tick-side (OriginClientMod.applyWeather) and render normally.
-		if (Mods.on("weather") && Mods.mode("weather", "mode").equals("Clear")) {
-			ci.cancel();
-		}
-	}
+	// 26.3: weather is no longer its own framegraph pass (addWeatherPass is gone);
+	// Weather "Clear" empties the extracted rain/snow state in WeatherEffectRendererMixin.
 
 	@Inject(method = "addSkyPass", at = @At("HEAD"), cancellable = true)
 	private void originclient$flatSky(CallbackInfo ci) {

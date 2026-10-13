@@ -1,4 +1,7 @@
 #version 330
+#extension GL_ARB_separate_shader_objects : require
+// 26.3: vanilla shaders bind varyings by explicit location (separate shader
+// objects); these match core/position_tex_color.vsh (texCoord0 = 0, vertexColor = 1).
 
 // Single-channel SDF icon glyphs (close X, chevrons, edit pencil) — baked
 // offline (tools/.../gen_icon_sdf.py) from the exact same capsule-stroke
@@ -19,10 +22,10 @@ layout(std140) uniform DynamicTransforms {
 
 uniform sampler2D Sampler0;
 
-in vec4 vertexColor;
-in vec2 texCoord0;
+layout(location = 1) in vec4 vertexColor;
+layout(location = 0) in vec2 texCoord0;
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 // Must match ICON_DISTANCE_RANGE in gen_icon_sdf.py (baked-texture pixels).
 const float DISTANCE_RANGE = 16.0;

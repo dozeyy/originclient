@@ -16,6 +16,7 @@
 		"AbstractSliderButtonMixin",
 		"CheckboxMixin",
 		"LevelRendererMixin",
+		"WeatherEffectRendererMixin",
 		"LightmapRenderStateExtractorMixin",
 		"ParticleEngineMixin",
 		"ClientLevelParticleMixin",

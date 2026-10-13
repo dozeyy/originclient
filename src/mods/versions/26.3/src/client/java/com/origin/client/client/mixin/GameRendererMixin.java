@@ -33,6 +33,22 @@ public class GameRendererMixin {
 	// markers) disagreed for ~0.5s after every zoom in/out. `render` is matched
 	// by name with a CallbackInfo-only handler, so it binds whatever the era's
 	// GameRenderer.render(DeltaTracker, boolean) parameters are.
+	// Motion Blur (26.3): GameRenderer.update() rebuilds the frame's requested post
+	// effects (clear, END_OF_FRAME, the player's, the spectated entity's -- javap -c,
+	// 26.3); vanilla applies that list in order and drops any effect that fails to
+	// load (failedPostEffects). Appending Origin's chain here is the whole hook.
+	@Inject(method = "update", at = @At("RETURN"))
+	private void originclient$motionBlur(CallbackInfo ci) {
+		try {
+			net.minecraft.resources.Identifier effect = com.origin.client.client.mods.MotionBlur.requested();
+			if (effect != null) {
+				((GameRenderer) (Object) this).getRequestedPostEffects().add(effect);
+			}
+		} catch (Throwable t) {
+			// no blur this frame
+		}
+	}
+
 	@Inject(method = "render", at = @At("HEAD"))
 	private void originclient$advanceZoom(CallbackInfo ci) {
 		try {

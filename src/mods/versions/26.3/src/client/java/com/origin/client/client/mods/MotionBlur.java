@@ -1,16 +1,16 @@
 package com.origin.client.client.mods;
 
-import com.origin.client.client.mixin.GameRendererAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 
 // Motion Blur: previous-frame accumulation post chains (the classic
-// "phosphor" technique) loaded through vanilla's own post-effect pipeline.
-// 1.21.11 note: the old private loadEffect + live "Amount" uniform are gone
-// (PostChain uniforms are baked per pass now), so the 0..10 slider maps onto
-// the three baked chain variants (motion_blur_1/2/3.json) instead of one
-// live-uniform chain. Fully guarded: if the shader fails on some driver, the
-// feature silently no-ops.
+// "phosphor" technique) run through vanilla's own post-effect pipeline.
+// 1.21.11 note: PostChain uniforms are baked per pass, so the 0..10 slider maps
+// onto the three baked chain variants (motion_blur_1/2/3.json).
+// 26.3: vanilla keeps a per-frame LIST of requested post effects (rebuilt in
+// GameRenderer.update); GameRendererMixin appends requested() to it. A chain that
+// fails to load is dropped by vanilla itself (failedPostEffects), so the feature
+// silently no-ops on a driver that can't run it.
 public final class MotionBlur {
 	private static final Identifier[] EFFECTS = {
 			Identifier.fromNamespaceAndPath("originclient", "motion_blur_1"),
@@ -18,32 +18,19 @@ public final class MotionBlur {
 			Identifier.fromNamespaceAndPath("originclient", "motion_blur_3"),
 	};
 
-	private static int loadedStep = 0; // 0 = off, 1..3 = variant strength
-	private static boolean broken = false;
+	private static int step = 0; // 0 = off, 1..3 = variant strength
 
 	private MotionBlur() {
 	}
 
 	public static void tick(Minecraft mc) {
-		double amount = (!broken && Mods.on("motionblur")) ? Mods.num("motionblur", "amount") : 0;
+		double amount = Mods.on("motionblur") ? Mods.num("motionblur", "amount") : 0;
 		// 0..10 slider -> off / light / medium / heavy
-		int step = amount < 0.5 ? 0 : (int) Math.min(3, Math.ceil(Math.min(10.0, amount) / 10.0 * 3.0));
+		step = amount < 0.5 ? 0 : (int) Math.min(3, Math.ceil(Math.min(10.0, amount) / 10.0 * 3.0));
+	}
 
-		if (step == loadedStep) {
-			return;
-		}
-		try {
-			if (step == 0) {
-				((GameRendererAccessor) mc.gameRenderer).originclient$clearPostEffect();
-			} else {
-				((GameRendererAccessor) mc.gameRenderer).originclient$setPostEffect(EFFECTS[step - 1]);
-			}
-			loadedStep = step;
-		} catch (Throwable t) {
-			broken = true;
-			loadedStep = 0;
-			try { ((GameRendererAccessor) mc.gameRenderer).originclient$clearPostEffect(); } catch (Throwable ignored) { }
-			com.origin.client.OriginClient.LOGGER.warn("Motion blur shader failed to load; feature disabled this session", t);
-		}
+	/** The chain to run this frame, or null when Motion Blur is off. */
+	public static Identifier requested() {
+		return step == 0 ? null : EFFECTS[step - 1];
 	}
 }

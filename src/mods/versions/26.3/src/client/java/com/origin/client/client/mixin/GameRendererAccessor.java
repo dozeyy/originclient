@@ -1,20 +1,12 @@
 package com.origin.client.client.mixin;
 
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Invoker;
 
-// Motion Blur drives vanilla's own post-effect pipeline; both entry points
-// are private in 1.21.11 (vanilla only calls them from spectator/keybind
-// paths), so invokers it is.
+// 26.3: no invokers needed any more -- Motion Blur appends its chain to the
+// public GameRenderer.getRequestedPostEffects() list (GameRendererMixin), and
+// Camera.getFov() is public (26.2). Kept as an empty accessor so the mixin
+// config keeps its 26.2 shape.
 @Mixin(GameRenderer.class)
 public interface GameRendererAccessor {
-	@Invoker("setPostEffect")
-	void originclient$setPostEffect(Identifier effect);
-
-	@Invoker("clearPostEffect")
-	void originclient$clearPostEffect();
-
-	// 26.2: no getFov invoker -- Camera.getFov() is public (the effective world fov).
 }

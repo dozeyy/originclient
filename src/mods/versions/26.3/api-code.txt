@@ -29,3 +29,6 @@ com.mojang.blaze3d.pipeline.TextureTarget
 com.mojang.blaze3d.pipeline.RenderTarget
 net.minecraft.client.renderer.state.level.WeatherRenderState
 net.minecraft.client.renderer.feature.FeatureRenderDispatcher
+net.minecraft.client.Screenshot
+com.mojang.renderpearl.backend.opengl.GlDevice
+com.mojang.blaze3d.platform.Window

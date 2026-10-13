@@ -1,4 +1,7 @@
 #version 330
+#extension GL_ARB_separate_shader_objects : require
+// 26.3: vanilla shaders bind varyings by explicit location (separate shader
+// objects); these match core/position_tex_color.vsh (texCoord0 = 0, vertexColor = 1).
 
 // MSDF text: the glyph atlas stores a multi-channel signed distance field; the
 // median of the three channels reconstructs the true distance to the glyph
@@ -20,10 +23,10 @@ layout(std140) uniform DynamicTransforms {
 
 uniform sampler2D Sampler0;
 
-in vec4 vertexColor;
-in vec2 texCoord0;
+layout(location = 1) in vec4 vertexColor;
+layout(location = 0) in vec2 texCoord0;
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 // distanceRange the atlas was baked with (msdf-bmfont -r 4)
 const float DISTANCE_RANGE = 4.0;
