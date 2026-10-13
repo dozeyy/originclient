@@ -973,3 +973,40 @@ compile + the mixin check show), not from 1.21.11.
   OriginBuilds, check_consistency check 5); csproj bundle glob; PerformanceModCatalog pins (Sodium 0.9.x
   ships its own Fabric Rendering API — no Indium). CmlLib downloads Mojang's Java 25 runtime from the
   version JSON like any other version's; no launcher change was needed for that.
+
+## 26.1.x (2026-10-13) — 26.1 / 26.1.1 / 26.1.2 derived from 26.2 (agent p261)
+ONE module, `versions/26.1` (jar originclient-26.1.jar, fabric.mod.json `>=26.1- <26.2-`), compiled against
+26.1.2 and picked for all three. version-scout's API diff (the `inspect` job: javap of every changed class
+between neighbouring releases) found no added/removed class and no public signature change from 26.1 to
+26.1.2 — only method bodies (DetectedVersion, PlayerEntry, Checkbox gained a private row limit,
+AbstractReportScreen, ServerGamePacketListenerImpl). Fabric API 0.155.3+26.1.2, JEI 29.47.0.109 and every
+perf mod declare all three. Dev shots design + world (label p261) matched 1.21.1 with zero mixin failures.
+
+26.1 is a MIDDLE era: 26.2's extract GUI is already there (GuiGraphicsExtractor, extract* names, LevelRenderEvents
+with COLLECT_SUBMITS + submitCustomGeometry, ColorTargetState/DepthStencilState, world clocks,
+LightmapRenderStateExtractor, Camera.calculateFov, JEI split draw), but these are still 1.21.11-shaped:
+- No Hud class: `Gui` IS the HUD (same extract* method names as 26.2's Hud) -> HUD mixins target Gui.class;
+  `mc.gui.getChat()`, `mc.options.hideGui`, `mc.screen`, `mc.getToastManager()`, `mc.getOverlay()`,
+  `mc.resizeGui()` (26.2's framebufferSizeChanged), `gameRenderer.getMainCamera()/getPanorama()`,
+  `mc.getMainRenderTarget()`, `levelRenderer.countRenderedSections()`. `mc.setScreenAndShow` exists.
+- Panorama.extractRenderState(GGE, w, h, boolean spin). TextureTarget(name, w, h, depth) (no GpuFormat).
+- RenderPipeline.Builder: withVertexFormat(format, mode), withSampler, withUniform(name, type[, texFormat]),
+  single withColorTargetState(state) — OriginShaders.derive copies samplers + uniforms (no bind groups /
+  primitive topology / vertex bindings).
+- RenderType.draw(MeshData) (no prepare()/PreparedRenderType): Glint Colorizer uses 1.21.11's three draw hooks.
+- Block outline drawn immediately: cancel LevelRenderer.renderBlockOutline(BufferSource, PoseStack, boolean,
+  LevelRenderState) at HEAD (26.2: submitBlockOutline).
+- Name tags: NameTagFeatureRenderer.renderTranslucent(SubmitNodeCollection, BufferSource, Font) makes the two
+  Font.drawInBatch(Component, ..., Matrix4fc, ...) calls -> 1.21.11's redirect, so Text Shadow works again.
+  collector.submitNameTag keeps the distance argument.
+- TabButton (gui.components) is concrete and declares extractWidgetRenderState (no MenuTabBar$MenuTabButton).
+- ChatFormatting.isColor()/getColor() and PlayerTeam.getColor() -> ChatFormatting (no TeamColor).
+- Beds are block entities (BedRenderer.extractRenderState(BedBlockEntity, BedRenderState, ...)): Colored Beds
+  (HypixelBedwarsBedMixin) is back. No Mojang Friends button on the title screen (no FriendsButton class).
+- EntityType.PLAYER (no EntityTypes).
+Shader stack: Iris 1.11.x needs Sodium 0.9.x, whose only build here (0.9.2+mc26.1.2) requires 26.1.2 exactly ->
+26.1.2 = Sodium 0.9.2 + Iris 1.11.4; 26.1 / 26.1.1 = Sodium 0.8.9 + Iris 1.10.9 (both mc26.1.1 builds).
+Tooling added for this port: the build.gradle PORTING AID also takes `api-code.txt` (class names) and
+publishes their `javap -c` bytecode to `api/code.txt` — check each mixin's INVOKE target is really called
+inside the targeted method (the static check only proves the names exist). With `defaultRequire: 0` a
+missing target is SILENT at boot, so "zero mixin failures" alone proves nothing for those hooks.
