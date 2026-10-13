@@ -43,9 +43,11 @@ loom {
 	mixin {
 		defaultRefmapName = 'mixins.originclient.refmap.json'
 	}
-	launchConfigs {
+	runs {
 		client {
-			arg '--tweakClass', 'org.spongepowered.asm.launch.MixinTweaker'
+			// Dev runs load the classes dir, not the jar, so the manifest's
+			// TweakClass isn't seen there — pass the tweaker explicitly.
+			programArgs '--tweakClass', 'org.spongepowered.asm.launch.MixinTweaker'
 		}
 	}
 }
