@@ -214,7 +214,9 @@ public final class OriginDevShots {
 					mc.setScreenAndShow(s.kind().open());
 					mc.resizeGui();
 					phase = 2;
-					nextAt = now + (s.kind() == Kind.TITLE ? 1900 : 900);
+					// The shader browser's first open starts its preview downloads; under
+					// software GL (CI) that first second is slow, so it gets longer to settle.
+					nextAt = now + (s.kind() == Kind.TITLE ? 1900 : s.kind() == Kind.SHADERS ? 3000 : 900);
 				}
 				case 2 -> {
 					// Windows may apply a resize one message-loop later (especially
