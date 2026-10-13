@@ -20,117 +20,76 @@ Fabric Loom: 1.17.21
 > Task :processResources
 > Task :classes
 
+> Task :originApiDump
+[api-dump] wrote 1113 classes to /home/runner/work/_temp/shots/screenshots/api
+
 > Task :compileClientJava
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:61: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static final Map<String, IJeiConfigValue<?>> HANDLES = new LinkedHashMap<>();
-	                                 ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] getConfigManager() in IJeiRuntime has been deprecated and marked for removal
-			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
-			                             ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:114: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
-			for (IJeiConfigFile file : rt.getConfigManager().getConfigFiles()) {
-			     ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:118: warning: [removal] IJeiConfigCategory in mezz.jei.api.runtime.config has been deprecated and marked for removal
-				for (IJeiConfigCategory cat : file.getCategories()) {
-				     ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:120: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-					for (IJeiConfigValue<?> v : cat.getConfigValues()) {
-					     ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:141: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static ModOption build(String category, IJeiConfigValue<?> v) {
-	                                                ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:144: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-			IJeiConfigValueSerializer<?> ser = v.getSerializer();
-			^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:148: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-			if (ser instanceof IJeiConfigListValueSerializer<?> ls) {
-			                   ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:184: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-		IJeiConfigValue<?> v = HANDLES.get(key);
-		^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:200: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-		IJeiConfigValue<?> v = HANDLES.get(key);
-		^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:217: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-		IJeiConfigValue<?> v = HANDLES.get(key);
-		^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:242: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-		IJeiConfigValue<?> v = HANDLES.get(key);
-		^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:255: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static <T> String readTyped(IJeiConfigValue<T> v) {
-	                                    ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:259: warning: [removal] IJeiConfigValue in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static <T> void writeTyped(IJeiConfigValue<T> v, String s) {
-	                                   ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:260: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-		IJeiConfigValueSerializer.IDeserializeResult<T> r = v.getSerializer().deserialize(s);
-		^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:269: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static <T> List<String> validTokens(IJeiConfigValueSerializer<T> ser) {
-	                                            ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:281: warning: [removal] IJeiConfigListValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static <E> List<String> elementChoices(IJeiConfigListValueSerializer<E> ls) {
-	                                               ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:287: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static double[] bounds(String key, IJeiConfigValueSerializer<?> ser, int pivot) {
-	                                           ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:314: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static int probeMin(IJeiConfigValueSerializer<?> ser, int pivot) {
-	                            ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:330: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static int probeMax(IJeiConfigValueSerializer<?> ser, int pivot) {
-	                            ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:346: warning: [removal] IJeiConfigValueSerializer in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static boolean validInt(IJeiConfigValueSerializer<?> ser, int x) {
-	                                ^
-/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/JeiSettings.java:356: warning: [removal] IJeiConfigFile in mezz.jei.api.runtime.config has been deprecated and marked for removal
-	private static String fileName(IJeiConfigFile file) {
-	                               ^
-22 warnings
+/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:5: error: cannot find symbol
+import mezz.jei.common.input.UserInput;
+                            ^
+  symbol:   class UserInput
+  location: package mezz.jei.common.input
+/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:43: error: cannot find symbol
+	private void originclient$blockKeyPre(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+	                                                     ^
+  symbol:   class UserInput
+  location: class JeiClientInputHandlerMixin
+/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:50: error: cannot find symbol
+	private void originclient$blockKeyPost(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+	                                                      ^
+  symbol:   class UserInput
+  location: class JeiClientInputHandlerMixin
+/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:76: error: cannot find symbol
+	private void originclient$blockClick(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+	                                                    ^
+  symbol:   class UserInput
+  location: class JeiClientInputHandlerMixin
+/home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:83: error: cannot find symbol
+	private void originclient$blockRelease(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+	                                                      ^
+  symbol:   class UserInput
+  location: class JeiClientInputHandlerMixin
+5 errors
 
-> Task :processClientResources
-> Task :clientClasses
-> Task :generateLog4jConfig
-> Task :generateDLIConfig
-> Task :configureLaunch
-> Task :downloadAssets
-> Task :configureClientLaunch
-
-> Task :runClient FAILED
-[01:56:11] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.1 with Fabric Loader 0.19.3
-[01:56:11] [main/INFO] (FabricLoader/Mappings) Mappings not present!
-[01:56:11] [main/WARN] (FabricLoader/Resolution) Mod resolution failed
-[01:56:11] [main/INFO] (FabricLoader/Resolution) Immediate reason: [HARD_DEP jei 29.47.0.109 {depends mezz_config @ [>=0.6.3 <1.0.0]}, HARD_DEP_INCOMPATIBLE_PRESELECTED mezz_config 0.6.6 {depends minecraft @ [26.1.2]}, ROOT_FORCELOAD_SINGLE jei 29.47.0.109]
-[01:56:11] [main/INFO] (FabricLoader/Resolution) Reason: [HARD_DEP mezz_config 0.6.6 {depends minecraft @ [26.1.2]}]
-[01:56:11] [main/INFO] (FabricLoader/Resolution) Fix: add [], remove [], replace [[minecraft 26.1] -> add:minecraft 26.1.2 ([[26.1.2,26.1.2]])]
-[01:56:11] [main/ERROR] (FabricLoader) Incompatible mods found!
-
-net.fabricmc.loader.impl.FormattedException: Some of your mods are incompatible with the game or each other!
-A potential solution has been determined, this may resolve your problem:
-	 - Replace 'Minecraft' (minecraft) 26.1 with version 26.1.2.
-More details:
-	 - Mod 'MezzConfig' (mezz_config) 0.6.6 requires version 26.1.2 of 'Minecraft' (minecraft), but only the wrong version is present: 26.1!
-	at net.fabricmc.loader.impl.FormattedException.ofLocalized(FormattedException.java:51)
-	at net.fabricmc.loader.impl.FabricLoaderImpl.load(FabricLoaderImpl.java:202)
-	at net.fabricmc.loader.impl.launch.knot.Knot.init(Knot.java:142)
-	at net.fabricmc.loader.impl.launch.knot.Knot.launch(Knot.java:66)
-	at net.fabricmc.loader.impl.launch.knot.KnotClient.main(KnotClient.java:23)
-	at net.fabricmc.devlaunchinjector.Main.main(Main.java:86)
+> Task :compileClientJava FAILED
 
 [Incubating] Problems report is available at: file:///home/runner/work/originclient/originclient/src/mods/versions/26.1/build/reports/problems/problems-report.html
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':runClient' (registered by plugin 'fabric-loom').
-> Process 'command 'xvfb-run'' finished with non-zero exit value 1
+Execution failed for task ':compileClientJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  /home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:5: error: cannot find symbol
+  import mezz.jei.common.input.UserInput;
+                              ^
+    symbol:   class UserInput
+    location: package mezz.jei.common.input
+  /home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:43: error: cannot find symbol
+  	private void originclient$blockKeyPre(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+  	                                                     ^
+    symbol:   class UserInput
+    location: class JeiClientInputHandlerMixin
+  /home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:50: error: cannot find symbol
+  	private void originclient$blockKeyPost(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+  	                                                      ^
+    symbol:   class UserInput
+    location: class JeiClientInputHandlerMixin
+  /home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:76: error: cannot find symbol
+  	private void originclient$blockClick(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+  	                                                    ^
+    symbol:   class UserInput
+    location: class JeiClientInputHandlerMixin
+  /home/runner/work/originclient/originclient/src/mods/versions/26.1/src/client/java/com/origin/client/client/mixin/JeiClientInputHandlerMixin.java:83: error: cannot find symbol
+  	private void originclient$blockRelease(Screen screen, UserInput input, CallbackInfoReturnable<Boolean> cir) {
+  	                                                      ^
+    symbol:   class UserInput
+    location: class JeiClientInputHandlerMixin
+  5 errors
 
 * Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
+> Check your code and dependencies to fix the compilation error(s)
 > Run with --scan to get full insights from a Build Scan (powered by Develocity).
-> Get more help at https://help.gradle.org.
 
-BUILD FAILED in 1m 21s
-8 actionable tasks: 8 executed
+BUILD FAILED in 1m 18s
+4 actionable tasks: 4 executed
