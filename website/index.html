@@ -15,6 +15,7 @@
   <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/site.css">
   <script type="module" src="js/site.js"></script>
+  <script type="module" src="js/why.js"></script>
 </head>
 <body>
   <!-- Brand geometry, reused everywhere through <use>. Paths are the launcher's own
@@ -100,9 +101,11 @@
     <section class="section why" id="why" data-scene="why">
       <div class="section__head">
         <p class="eyebrow eyebrow--accent">Why Origin</p>
-        <h2>Every client looks the same.<br><span>Here's what's different.</span></h2>
-        <p class="lede">The things Origin does that most clients don't.</p>
+        <h2>Six blocks.<br><span>Six reasons.</span></h2>
+        <p class="lede">Mine them all.</p>
       </div>
+      <!-- js/why.js builds the mining game here; the table below is the no-JS fallback. -->
+      <div class="why__stage" data-why-stage></div>
       <div class="compare" data-reveal>
         <table>
           <thead>
