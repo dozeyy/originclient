@@ -2,7 +2,8 @@
 # src/mods/shared/ on. tools/shared-sync/sync.py never copies these into this
 # module. One path per line, relative to this module's src/.
 #
-# 26.3 (2026-10-13): copied from the 26.2 module, so it carries the same forks.
+# 26.3 (2026-10-13): copied from the 26.2 module, so it carries the same forks,
+# plus EntityRenderDispatcherMixin (26.3 shouldRender gained a partial-tick float).
 #
 # 26.2 (2026-10-12 port from 1.21.11): the 26.x GUI is extract-based
 # (GuiGraphics -> GuiGraphicsExtractor, render* -> extract*), the HUD moved to
@@ -19,6 +20,7 @@ client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
 client/java/com/origin/client/client/mixin/BlockEntityRenderDispatcherMixin.java
 client/java/com/origin/client/client/mixin/CameraMixin.java
 client/java/com/origin/client/client/mixin/ClientLevelTimeMixin.java
+client/java/com/origin/client/client/mixin/EntityRenderDispatcherMixin.java
 client/java/com/origin/client/client/mixin/GameRendererAccessor.java
 client/java/com/origin/client/client/mixin/GameRendererMixin.java
 client/java/com/origin/client/client/mixin/GuiScoreboardMixin.java
