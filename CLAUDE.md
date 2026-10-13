@@ -30,6 +30,14 @@
    Windows paths + backslashes + `.bat`. If the repo path is wrong, have him
    find it: `Get-ChildItem $HOME -Recurse -Depth 5 -Directory -Force -Filter ".git" -ErrorAction SilentlyContinue | ForEach-Object { $_.Parent.FullName }`.
 
+5. **Website changes auto-deploy (Will, 2026-10-13).** For anything on the
+   website (`website/`), don't wait for Will's approval: have an independent
+   judge agent score it (fun, polish, mobile, accessibility, honest claims) and
+   keep improving until it rates **9/10 or higher**, then publish it yourself —
+   push ONLY the website commits to `main` (deploy-website.yml publishes on
+   push), never unreleased launcher/mod work. Never claim "every version" on
+   the site (Origin doesn't cover every Minecraft version).
+
 ## Working order (Will, 2026-07-21)
 Perfect ONE version at a time, then move on — never spread half-finished work
 across versions. The order:
