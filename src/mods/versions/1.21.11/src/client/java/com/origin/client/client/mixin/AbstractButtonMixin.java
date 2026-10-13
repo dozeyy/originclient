@@ -39,12 +39,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 //
 // Plain Button and text CycleButtons (the "Something: Value" toggles all over
 // the Options menus) are covered here; a CycleButton counts as text exactly
-// when vanilla would draw its label instead of a sprite (originclient$
-// drawsSprite). If that test breaks, Options toggles silently go vanilla grey
-// again (the 2026-10-13 Controls-screen report) -- nothing crashes.
-// Dynamic labels with no baked Inter texture fall back to vanilla font inside
-// the Origin shell, per the settled font decision. Disabled buttons (active=false, e.g. Telemetry Data) render the
-// dimmed Origin style and skip hover.
+// when vanilla would draw only its label (originclient$isTextCycle). If that
+// test breaks, Options toggles silently go vanilla grey again (the 2026-10-13
+// Controls-screen report) -- nothing crashes. Dynamic labels with no baked
+// Inter texture fall back to vanilla font inside the Origin shell, per the
+// settled font decision. Disabled buttons (active=false, e.g. Telemetry Data)
+// render the dimmed Origin style and skip hover.
 // priority 2000: Origin's widget restyle wins over other UI mods.
 @Mixin(value = AbstractButton.class, priority = 2000)
 public class AbstractButtonMixin {
@@ -79,8 +79,9 @@ public class AbstractButtonMixin {
 			return false;
 		}
 		if (widget instanceof CycleButton<?> cycle) {
-			// Text cycle buttons = Origin look; sprite ones (recipe filter) = vanilla.
-			return !originclient$drawsSprite(cycle);
+			// Text cycle buttons = Origin look; sprite ones (recipe filter) and
+			// label-less ones (DisplayState.HIDE) = vanilla.
+			return originclient$isTextCycle(cycle);
 		}
 		// Plain vanilla Buttons and Origin's own Button subclasses. Everything
 		// that is an AbstractButton but not a Button -- Checkbox (CheckboxMixin
@@ -88,19 +89,30 @@ public class AbstractButtonMixin {
 		return widget instanceof Button;
 	}
 
-	// Asks the exact question vanilla's CycleButton.renderContents asks before
-	// it draws: `spriteSupplier.apply(this, getValue())` -- non-null = blit that
-	// sprite, null = draw the text label (javap, renderContents offsets 0-18).
-	// Testing the supplier field itself for null is WRONG on 1.21.11 and 26.x:
-	// every CycleButton.Builder installs a default supplier that returns null
+	// True when vanilla's CycleButton.renderContents would draw a text label and
+	// nothing else, i.e. the button is a plain toggle Origin can restyle. It asks
+	// the same two questions vanilla asks (javap, renderContents):
+	//   offsets 0-18:  spriteSupplier.apply(this, getValue()) -- non-null = blit
+	//                  that sprite (recipe book filter) -> vanilla.
+	//   offsets 54-61: displayState == HIDE -> no label at all -> vanilla.
+	// Testing the supplier FIELD for null is wrong on 1.21.11 and 26.x: every
+	// CycleButton.Builder installs a default supplier that returns null
 	// (Builder.<init> 14-19), so the field is never null and every Options
 	// toggle (Sneak: Hold, Auto-Jump: OFF, Chat: Shown...) fell through to
-	// vanilla grey. Only a builder given withSprite(...) -- the recipe book's
-	// craftable filter, whose supplier always returns a WidgetSprites id --
-	// answers non-null and keeps its vanilla art.
-	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static boolean originclient$drawsSprite(CycleButton cycle) {
-		CycleButton.SpriteSupplier supplier = ((CycleButtonSpriteAccessor) cycle).originclient$spriteSupplier();
-		return supplier != null && supplier.apply(cycle, cycle.getValue()) != null;
+	// vanilla grey.
+	private static <T> boolean originclient$isTextCycle(CycleButton<T> cycle) {
+		CycleButtonSpriteAccessor accessor = (CycleButtonSpriteAccessor) cycle;
+		if (accessor.originclient$displayState() == CycleButton.DisplayState.HIDE) {
+			return false;
+		}
+		try {
+			@SuppressWarnings("unchecked")
+			CycleButton.SpriteSupplier<T> supplier = (CycleButton.SpriteSupplier<T>) accessor.originclient$spriteSupplier();
+			return supplier == null || supplier.apply(cycle, cycle.getValue()) == null;
+		} catch (Throwable t) {
+			// A (third-party) supplier threw. This runs before OriginButtonRenderer's
+			// fail-soft latch, so never let it escape: leave the button to vanilla.
+			return false;
+		}
 	}
 }

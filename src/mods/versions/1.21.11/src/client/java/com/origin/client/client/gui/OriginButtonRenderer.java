@@ -165,7 +165,7 @@ public final class OriginButtonRenderer {
 				drawTitlePresentation(g, button, title, enabled, hv);
 			} else {
 				box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
-				drawLabelCentered(g, x + w / 2.0, y + h / 2.0, button.getMessage(),
+				drawLabelCentered(g, x + w / 2.0, y + h / 2.0, w, button.getMessage(),
 						enabled ? LABEL_COLOR : LABEL_DISABLED);
 			}
 			return true;
@@ -209,7 +209,7 @@ public final class OriginButtonRenderer {
 			}
 			int labelColor = selected ? LABEL_COLOR
 					: OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, hv);
-			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, label, labelColor);
+			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, w, label, labelColor);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -313,7 +313,7 @@ public final class OriginButtonRenderer {
 			g.fill(handleX, handleY, handleX + handleW, handleY + handleH,
 					enabled ? OriginTheme.lerpColor(HANDLE, HANDLE_HOVER, hv) : 0x66808080);
 
-			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, slider.getMessage(),
+			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, w, slider.getMessage(),
 					enabled ? LABEL_COLOR : LABEL_DISABLED);
 			return true;
 		} catch (Throwable t) {
@@ -409,10 +409,13 @@ public final class OriginButtonRenderer {
 	/** Centered label in Origin's Inter (SDF) font — semibold, with a soft drop
 	 *  shadow — routed through OriginText so it matches every other menu label and
 	 *  the whole client reads in one typeface (no vanilla pixel glyphs on widgets).
-	 *  Raw label text is kept as-is (no dot-stripping) so "Options..." reads right. */
-	private static void drawLabelCentered(GuiGraphics g, double cx, double cy, Component message, int color) {
+	 *  Raw label text is kept as-is (no dot-stripping) so "Options..." reads right.
+	 *  Labels wider than the box minus a 4 px inset per side end in an ellipsis
+	 *  (OriginText.ellipsize) instead of spilling past the button edge -- long
+	 *  toggles like "High Contrast Block Outline: OFF" on 150 px Options rows. */
+	private static void drawLabelCentered(GuiGraphics g, double cx, double cy, int boxW, Component message, int color) {
 		Font font = Minecraft.getInstance().font;
-		String s = message.getString();
+		String s = OriginText.ellipsize(font, message.getString(), boxW - 8);
 		int tw = OriginText.widthBold(font, s);
 		OriginText.drawBold(g, font, s, (int) (cx - tw / 2.0), (int) (cy - 4), color, true);
 	}
