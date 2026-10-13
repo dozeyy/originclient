@@ -27,8 +27,11 @@ public class ClientLevelParticleMixin {
 		}
 	}
 
-	@Inject(method = "addBreakingBlockEffect", at = @At("HEAD"), cancellable = true)
-	private void originclient$hideCrackBurst(BlockPos pos, Direction direction, CallbackInfo ci) {
+	// 26.3: addBreakingBlockEffects(pos, dir, boolean) now also plays the hit
+	// sound, so the gate moved to its private addBreakingParticles(pos, dir, state)
+	// -- hiding the particles must never mute the block.
+	@Inject(method = "addBreakingParticles", at = @At("HEAD"), cancellable = true)
+	private void originclient$hideCrackBurst(BlockPos pos, Direction direction, BlockState state, CallbackInfo ci) {
 		if (Mods.on("particles") && (Mods.bool("particles", "hideAll") || Mods.bool("particles", "hideBlockBreak"))) {
 			ci.cancel();
 		}

@@ -100,7 +100,8 @@ public final class ColorGrade {
 				if (swap != null) {
 					swap.destroyBuffers();
 				}
-				swap = new TextureTarget("origin_grade", main.width, main.height, false, com.mojang.renderpearl.api.GpuFormat.RGBA8_UNORM);
+				// 26.3: TextureTarget(name, w, h, colourFormat, depthFormat) -- null depth = colour only.
+				swap = new TextureTarget("origin_grade", main.width, main.height, com.mojang.renderpearl.api.GpuFormat.RGBA8_UNORM, null);
 			}
 			// 26.x: this runs during EXTRACTION, before this frame's world is drawn,
 			// so the snapshot can't be taken here (it would copy LAST frame's finished

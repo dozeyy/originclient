@@ -192,6 +192,12 @@ public final class OriginRenderTypes {
 			return this;
 		}
 
+		// 26.3: a third UV set (the in-pass glint coordinates); Origin's overlays have none.
+		@Override
+		public VertexConsumer setUv3(float u, float v) {
+			return this;
+		}
+
 		@Override
 		public VertexConsumer setNormal(float x, float y, float z) {
 			if (n > 0) {

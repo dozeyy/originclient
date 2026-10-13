@@ -326,7 +326,7 @@ public class OriginClientMod implements ClientModInitializer {
 			return false;
 		}
 		try {
-			return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), glfwKey);
+			return InputConstants.isKeyDown(glfwKey); // 26.3 (SDL3): no window argument
 		} catch (Throwable t) {
 			return false;
 		}

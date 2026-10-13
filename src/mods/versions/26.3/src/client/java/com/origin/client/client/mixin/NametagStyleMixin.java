@@ -3,12 +3,15 @@ package com.origin.client.client.mixin;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollection;
+import net.minecraft.client.renderer.feature.TextFeatureRenderer;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.network.chat.Component;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Nametag STYLING for the Nametags mod: text shadow, opacity, a custom background
@@ -19,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  * read the entity straight out of the captured parameters. Both of those are
  * gone here — name tags are now EXTRACTED into
  * {@code SubmitNodeStorage.NameTagSubmit} records during entity submission and
- * drawn later, in one batch, by {@link NameTagFeatureRenderer#render}. That
+ * drawn later, in one batch, by the name-tag feature renderer. That
  * method still makes exactly the same pair of drawInBatch calls (a faint
  * SEE_THROUGH pass with a black background box, then a solid NORMAL pass with
  * none), so the redirect still works — it just lives here instead.
@@ -34,26 +37,32 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  * <p>Every option is read live and gated on the mod being on, so it fails soft
  * to vanilla the instant the mod is off.
  */
-@Mixin(NameTagFeatureRenderer.class)
+@Mixin(SubmitNodeCollection.class)
 public class NametagStyleMixin {
 
-	// 26.2: name tags are NameTagFeatureRenderer.Submit records (text, colour,
-	// background, light) turned into glyphs by the static prepareText(Font,
-	// Submit). Swapping the record there restyles every tag in one place. There
-	// is no per-tag shadow flag on this path any more, so Text Shadow follows
-	// vanilla here (era limit, see PORTING-ERA-NOTES "26.x era").
-	@ModifyVariable(method = "prepareText", at = @At("HEAD"), argsOnly = true)
-	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
+	// 26.3: name tags are generic world-text submits (TextFeatureRenderer.Submit
+	// holding a Content.Text: x, y, text, dropShadow, colour, background, outline).
+	// SubmitNodeCollection.submitNameTag builds each pass (solid NORMAL + faint
+	// SEE_THROUGH with the background box) through the private static
+	// nameTag(pose, x, y, text, light, colour, background, mode) factory (javap -c,
+	// 26.3) -- the one place every tag passes, so the RETURN value is restyled there.
+	// Content.Text carries a drop-shadow flag again, so Text Shadow works on 26.3.
+	@Inject(method = "nameTag", at = @At("RETURN"), cancellable = true)
+	private static void originclient$styleNameTag(Matrix4f pose, float x, float y, FormattedCharSequence text,
+			int light, int color, int bgColor, Font.DisplayMode mode,
+			CallbackInfoReturnable<TextFeatureRenderer.Submit> cir) {
 		try {
-			Component text = s.text();
-			int color = s.color();
-			int bgColor = s.backgroundColor();
+			TextFeatureRenderer.Submit s = cir.getReturnValue();
+			if (s == null) {
+				return;
+			}
+			String plain = originclient$plain(text);
 			// Friends & Party: a party member's tag in the party colour (LAN worlds only;
 			// PartyWorld decides, matching the tag's text -- see originclient$isSelf for
 			// why there is no entity here). Keeps vanilla's per-pass alpha like the colours below.
 			Integer party = null;
 			try {
-				party = com.origin.client.client.social.PartyWorld.nametagTint(text);
+				party = com.origin.client.client.social.PartyWorld.nametagTint(Component.literal(plain));
 			} catch (Throwable ignored) {
 				// no tint
 			}
@@ -61,9 +70,12 @@ public class NametagStyleMixin {
 				color = (color & 0xFF000000) | (party & 0xFFFFFF);
 			}
 			if (!Mods.on("nametags")) {
-				return party == null ? s : originclient$with(s, color, bgColor);
+				if (party != null) {
+					cir.setReturnValue(originclient$with(s, x, y, text, false, color, bgColor));
+				}
+				return;
 			}
-			boolean self = originclient$isSelf(text);
+			boolean self = originclient$isSelf(plain);
 			boolean over = self && Mods.bool("nametags", "ownOverride");
 			double op = Mods.num("nametags", "opacity");
 			if (op <= 0.0) {
@@ -87,21 +99,35 @@ public class NametagStyleMixin {
 				int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 				newBg = originclient$scaleAlpha(bg, op);
 			}
-			return originclient$with(s, newColor, newBg);
-		} catch (Throwable t) {
-			return s;
+			// Text Shadow on the solid pass only (the see-through pass is the faint
+			// "behind a wall" copy; a shadow there would double up through walls).
+			boolean shadow = mode == Font.DisplayMode.NORMAL && Mods.bool("nametags", "textShadow");
+			cir.setReturnValue(originclient$with(s, x, y, text, shadow, newColor, newBg));
+		} catch (Throwable ignored) {
+			// vanilla's tag
 		}
 	}
 
-	private static NameTagFeatureRenderer.Submit originclient$with(NameTagFeatureRenderer.Submit s, int color, int bg) {
-		return new NameTagFeatureRenderer.Submit(s.pose(), s.x(), s.y(), s.text(), s.lightCoords(), color, bg, s.displayMode());
+	private static TextFeatureRenderer.Submit originclient$with(TextFeatureRenderer.Submit s, float x, float y,
+			FormattedCharSequence text, boolean shadow, int color, int bg) {
+		return new TextFeatureRenderer.Submit(s.pose(), s.displayMode(), s.lightCoords(),
+				new TextFeatureRenderer.Content.Text(x, y, text, shadow, color, bg, 0));
 	}
 
-	private static boolean originclient$isSelf(Component text) {
+	private static String originclient$plain(FormattedCharSequence text) {
+		StringBuilder sb = new StringBuilder();
+		text.accept((index, style, codePoint) -> {
+			sb.appendCodePoint(codePoint);
+			return true;
+		});
+		return sb.toString();
+	}
+
+	private static boolean originclient$isSelf(String text) {
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			return mc.player != null && mc.player.getDisplayName() != null
-					&& mc.player.getDisplayName().getString().equals(text.getString());
+					&& mc.player.getDisplayName().getString().equals(text);
 		} catch (Throwable ignored) {
 			return false;
 		}

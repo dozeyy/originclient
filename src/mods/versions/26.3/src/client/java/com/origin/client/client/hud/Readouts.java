@@ -319,18 +319,34 @@ final class Readouts {
 			return cached;
 		}
 		Identifier loc = UNKNOWN_PACK;
-		try (PackResources res = p.open()) {
-			var supplier = res.getRootResource("pack.png");
-			if (supplier != null) {
+		// 26.3: Pack.open() hands back a stream of the pack's resource layers; the
+		// first one with a pack.png supplies the icon, and every layer is closed.
+		java.util.List<PackResources> layers = java.util.List.of();
+		try {
+			layers = p.open().toList();
+			for (PackResources res : layers) {
+				var supplier = res.getRootResource("pack.png");
+				if (supplier == null) {
+					continue;
+				}
 				try (InputStream in = supplier.get()) {
 					NativeImage img = NativeImage.read(in);
 					String safe = Integer.toHexString(p.getId().hashCode());
 					loc = Identifier.fromNamespaceAndPath("originclient", "pack_display/" + safe);
 					mc.getTextureManager().register(loc, new DynamicTexture(() -> "Origin pack icon", img));
 				}
+				break;
 			}
 		} catch (Throwable t) {
 			loc = UNKNOWN_PACK;
+		} finally {
+			for (PackResources res : layers) {
+				try {
+					res.close();
+				} catch (Throwable ignored) {
+					// already closed
+				}
+			}
 		}
 		PACK_ICONS.put(p.getId(), loc);
 		return loc;

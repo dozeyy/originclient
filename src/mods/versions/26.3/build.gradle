@@ -163,8 +163,8 @@ if (apiDumpList.exists() && System.getenv("ORIGIN_SHOTS")) {
 			cp.findAll { it.name.startsWith("minecraft-") }.each { f ->
 				new java.util.zip.ZipFile(f).withCloseable { z ->
 					z.entries().each { e ->
-						if (!e.directory && e.name.startsWith("assets/minecraft/shaders/")) {
-							def dst = new File(out, "shaders/" + e.name.substring("assets/minecraft/shaders/".length()))
+						if (!e.directory && (e.name.startsWith("assets/minecraft/shaders/") || e.name.startsWith("assets/minecraft/post_effect/"))) {
+							def dst = new File(out, "assets/" + e.name.substring("assets/minecraft/".length()))
 							dst.parentFile.mkdirs()
 							z.getInputStream(e).withCloseable { ins -> dst.bytes = ins.bytes }
 						}
