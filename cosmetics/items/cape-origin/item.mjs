@@ -17,7 +17,10 @@ const MX = 40, MY = 62, MSIZE = 68;                    // mark: centre (on a pix
 const FX = x => 2 * MX - 1 - x, FY = y => 2 * MY - 1 - y;   // mirror a pixel column / row through the centre
 
 // 5-step cloth: lit ridge (4) -> dark valley (0). Near-neutral, a hair cool in shadow, low contrast.
-const cloth = ramp('#363940', 5, { lo: 0.075, hi: 0.3, tint: 0.025, shadowHue: 232, lightHue: 215, shift: 0.3 });
+// The body uses the fine 9-step version so every fold edge has in-between tones; seams, collar
+// and hem use the 5 coarse steps picked from the same ramp.
+const clothFine = ramp('#363940', 9, { lo: 0.075, hi: 0.3, tint: 0.025, shadowHue: 232, lightHue: 215, shift: 0.3 });
+const cloth = [0, 2, 4, 6, 8].map(i => clothFine[i]);
 const BODY = '#e0e0e0', EDGE = '#cfcfcf';              // thread: #E0E0E0 body, a softer inner edge pixel
 const OUTLINE = cloth[0];
 
@@ -31,7 +34,7 @@ function foldProfile(p) {
   const r = 0.38;
   return p < r ? 0.5 - 0.5 * Math.cos(Math.PI * p / r) : 0.5 + 0.5 * Math.cos(Math.PI * (p - r) / (1 - r));
 }
-function clothLevel(x, y) {
+function fineLevel(x, y) {
   let k = 0; while (k < VALLEYS.length - 2 && x >= valleyX(k + 1, y)) k++;
   const a = valleyX(k, y), b = valleyX(k + 1, y), p = clamp((x - a) / (b - a));
   const behind = 1 - smoothstep(0.55, 1.15, Math.hypot((x - MX) / 40, (y - MY) / 42));     // 1 at the mark, 0 away from it
@@ -39,14 +42,15 @@ function clothLevel(x, y) {
   let t = 0.37 + prof * 0.44 + (0.5 - y / H) * 0.14;      // brighter near the collar, darker toward the hem
   t -= 0.12 * smoothstep(0.4, 1.1, Math.hypot((x - 40) / 46, (y - 64) / 80));   // soft vignette
   t -= 0.07 * behind;
-  return clamp(Math.floor(clamp(t) * cloth.length), 1, cloth.length - 1);   // level 0 is kept for outlines and seams
+  return clamp(Math.floor(clamp(t) * clothFine.length), 2, clothFine.length - 1);   // steps 0-1 are kept for outlines and seams
 }
+const clothLevel = (x, y) => Math.round(fineLevel(x, y) / 2);          // the same value on the coarse 5-step scale
 
 // ---------------------------------------------------------------- the mark
 // Ring 0: horizontal. Ring 1: 60 degrees. Ring 2: 120 degrees = ring 1 mirrored left/right,
 // so the two tilted rings share one size (the three-ring mark, drawn symmetric).
 function ringGeometry() {
-  const k = (MSIZE / 2 - 1) / 90, open = 1.12;
+  const k = (MSIZE / 2 - 1) / 90, open = 1.38;
   return [{ rx: 90, ry: 32, rot: 0 }, { rx: 78, ry: 29, rot: 60 }, { rx: 78, ry: 29, rot: 120 }]
     .map(r => ({ rx: r.rx * k, ry: r.ry * k * open, rot: r.rot * Math.PI / 180 }));
 }
@@ -149,7 +153,7 @@ export default {
   paint() {
     const c = newCapeArt(S);
     // ------- cloth: four soft folds, 5-step ramp, no dither
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) c.set(x, y, cloth[clothLevel(x, y)]);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) c.set(x, y, clothFine[fineLevel(x, y)]);
 
     // ------- collar: darker gathered band under a seam
     for (let y = 1; y < 7; y++) for (let x = 0; x < W; x++) c.set(x, y, cloth[clamp(clothLevel(x, y) - 1, 1, 2)]);

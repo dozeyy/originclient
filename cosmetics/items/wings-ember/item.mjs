@@ -13,14 +13,14 @@ import { ramp, clamp, lerp, smoothstep, hash2, noise2, bayer } from '../../lib/p
 import { footprint, layoutCubes, newTexture, paintCube, LIGHT } from '../../lib/model.mjs';
 
 const S = 4, TEX = [40, 42], FRAMES = 6, FPS = 6, PERIOD = 1.5;
-const BASE_YAW = 18;                                            // wings rest swept back this far (deg)
+const BASE_YAW = 32;                                            // wings rest swept back this far (deg)
 const REST_DROOP = -7;                                          // and drooped a little, so the up-flap stays below the head
 
 // ---- the planar wing (model px, body frame, left wing, before the sweep) -----------
 // Dropped ~4 px against try 1: the root sits low on the back and the tips hang to the hips.
 const P = {
-  S: [2.4, -3.0], E: [6.4, 1.2], Wr: [10.4, -0.4],
-  F: [[12.9, -1.6], [12.9, -6.0], [11.0, -10.6], [7.6, -13.0]],    // fingertips, leading edge first
+  S: [2.4, -3.0], E: [5.4, 1.4], Wr: [9.0, -0.2],
+  F: [[12.7, -2.0], [12.7, -5.6], [11.3, -10.8], [6.2, -13.2]],    // fingertips, leading edge first
   B: [3.2, -10.8],
 };
 const ZI = -2.9, ZO = -3.15;                                    // z of the inner and outer membranes (outer sits behind)
@@ -90,7 +90,7 @@ const leftBones = side => [
   limb('claw', 'out', P.Wr, CLAW_TIP, BONE_TH.claw, ZO, side),
   ...FINGERS.map(([a, b], i) => limb(`f${i + 1}`, 'out', a, b, BONE_TH[`f${i + 1}`], ZO, side, TIP)),
   knuckle('kW', 'out', P.Wr, ZO, side, 1.5),
-  ...FINGERS.map(([a, b], i) => knuckle(`k${i + 1}`, 'out', along(a, b, 0.55), ZO, side, 1.5)),
+  ...FINGERS.map(([a, b], i) => knuckle(`k${i + 1}`, 'out', along(a, b, 0.55), ZO, side, 1.25)),
 ];
 // pack the bone cubes below the planes (the left wing defines the UV, the mirror reuses it)
 const boneL = leftBones(+1), boneR = leftBones(-1);
@@ -113,8 +113,8 @@ const bones = [...wing(+1), ...wing(-1)];
 // ---- motion ---------------------------------------------------------------------------
 // flap: up/down about the shoulder, the fingers a beat behind (10-15 deg idle at the tips, more on the move).
 // sweep: a small fore/aft rock a quarter-cycle later, so the tips trace an ellipse instead of a line.
-const flap = (bone, s, lag) => ({ bone, channel: 'rot', axis: 'z', amp: s * (lag ? 5 : 8), walkAmp: s * (lag ? 2 : 3), airAmp: s * (lag ? 6 : 10), period: PERIOD, phase: lag ? -0.12 : 0 });
-const sweep = (bone, s, lag) => ({ bone, channel: 'rot', axis: 'y', amp: s * (lag ? 3 : 4), walkAmp: s * (lag ? 2 : 3), airAmp: s * (lag ? 5 : 6), period: PERIOD, phase: lag ? 0.13 : 0.25 });
+const flap = (bone, s, lag) => ({ bone, channel: 'rot', axis: 'z', amp: s * (lag ? 5 : 8), walkAmp: s * (lag ? 1.5 : 2), airAmp: s * (lag ? 3 : 5), period: PERIOD, phase: lag ? -0.12 : 0 });
+const sweep = (bone, s, lag) => ({ bone, channel: 'rot', axis: 'y', amp: s * (lag ? 2 : 3), walkAmp: s * (lag ? 1 : 2), airAmp: s * (lag ? 3 : 4), period: PERIOD, phase: lag ? 0.13 : 0.25 });
 const motion = [
   flap('wingL', 1, 0), flap('wingL2', 1, 1), sweep('wingL', 1, 0), sweep('wingL2', 1, 1),
   flap('wingR', -1, 0), flap('wingR2', -1, 1), sweep('wingR', -1, 0), sweep('wingR2', -1, 1),
@@ -151,11 +151,11 @@ const polyDist = (pts, x, y) => { let d = 1e9; for (let i = 0; i + 1 < pts.lengt
 const angOf = (p, o) => { const a = rad2deg(Math.atan2(p[1] - o[1], p[0] - o[0])); return a > 90 ? a - 360 : a; };
 const SPOKE = {
   O: P.F.map((f, i) => ({ a: angOf(f, P.Wr), bone: true, id: i })),
-  I: [{ a: angOf(F4, P.Wr), bone: true, id: 4 }, { a: -122, bone: false, id: 5 }, { a: -143, bone: false, id: 6 }, { a: -165, bone: false, id: 7 }, { a: -199, bone: true, id: 8 }],
+  I: [{ a: angOf(F4, P.Wr), bone: true, id: 4 }, { a: -121, bone: false, id: 5 }, { a: -140, bone: false, id: 6 }, { a: -160, bone: false, id: 7 }, { a: -181, bone: false, id: 9 }, { a: -206, bone: true, id: 8 }],
 };
 const BANDS = {                                                 // arc radii from the wrist per sector (model px)
-  O: [[3.6, 7.4], [4.4, 8.2], [3.8, 7.8]],
-  I: [[4.0, 7.8], [5.2, 8.6], [3.8, 7.2], [4.8, 8.4]],
+  O: [[3.4], [3.8, 7.2], [4.2, 8.4]],
+  I: [[4.2, 8.0], [5.0, 8.8], [3.8, 7.2], [4.6, 8.0], [3.6, 6.4]],
 };
 const ARCS_SEED = { O: 29, I: 11 };
 
@@ -189,10 +189,10 @@ function sampleRegion(key, reg, outline, bonesList, trail) {
     let dCrack = 1e9, cid = 0;
     arcs.forEach((rb, k) => { const d = Math.abs(r - rb); if (d < dCrack) { dCrack = d; cid = sec * 11 + k; } });
     for (const sp of [up, lo]) if (sp && !sp.bone) { const d = r * Math.abs(((ang - sp.a) * Math.PI) / 180); if (d < dCrack) { dCrack = d; cid = 100 + sp.id; } }
-    const isCrack = dCrack < hw && r > 3.0 && db > 0.55;
+    const isCrack = dCrack < hw && r > 2.4 && db > 0.55;
     T.crack[i] = isCrack ? 1 : 0;
     // about 30% of the cracks are lit: those that run beside a bone, and only on chosen arcs, fading out with distance
-    if (isCrack && hash2(cid, 3, seed + 5) < 0.62) T.lit[i] = smoothstep(3.4, 1.4, db);
+    if (isCrack && hash2(cid, 3, seed + 5) < 0.66) T.lit[i] = smoothstep(3.4, 1.4, db);
 
     // cell tone, 0..1 over the 4-step ramp: warm near the shoulder side of each cell, char toward the trailing edge
     const cellHash = hash2(sec, band, seed + 21);
@@ -259,7 +259,7 @@ function paintVeins(tex, T, f, out) {
   for (let y = 0; y < reg.h; y++) for (let x = 0; x < reg.w; x++) {
     const i = y * reg.w + x, k = T.lit[i]; if (!T.crack[i] || k < 0.12) continue;
     const b = clamp((0.35 + 0.65 * pulse(T.rr[i], f)) * (0.35 + 0.65 * k));
-    v.set(x, y, ember[clamp(Math.round(2 + b * 5.5), 0, ember.length - 1)]);
+    v.set(x, y, ember[clamp(Math.round(2 + b * 4.2), 0, 6)]);          // orange core; pale yellow is kept for the fx sparks
   }
 }
 // Bone cube faces: dark outline all round, a lit top row, joint grooves, and a tiny ember gem in each knuckle.
