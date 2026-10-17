@@ -41,6 +41,13 @@ const ITEMS = [
   { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99 },
 ];
 const DEFAULT_CURRENCY = 'USD';
+// Origin+ membership. Like `price` above, these only show until the service's
+// catalog answers; the service (stripe.js PLUS) is what's charged, and it
+// computes the member discount itself. The page only previews it.
+const PLUS_FALLBACK = {
+  month: 4.99, year: 39.99, percentOff: 20,
+  manageUrl: 'https://billing.stripe.com/p/login/eVqfZi2uF97zdlEgr40co00',   // Stripe's sign-in page: cancel, change card, receipts
+};
 // Every price stays between $5 and $10 (Will, 2026-10-12): still items at the
 // low end, animated capes at the top.
 // ---------------------------------------------------------------------------
@@ -61,7 +68,13 @@ const state = {
   name: '',                    // as typed
   player: null,                // { name, uuid } once verified
   nameState: 'empty',          // empty | bad | checking | ok | missing | unknown
-  prices: new Map(),           // item id -> { amount, currency }, from the service
+  prices: new Map(),           // item id -> { amount, member, currency }, from the service
+  plus: PLUS_FALLBACK,         // Origin+ prices + manage link (the service's, once loaded)
+  plan: 'month',               // month | year, the Origin+ billing toggle
+  member: null,                // is the typed player an Origin+ member? null until known
+  plusBusy: false,
+  plusError: '',
+  plusPending: 0,              // membership re-checks left after returning from joining
   catalog: 'loading',          // loading | ok | closed | error
   api: '',                     // the service's base URL once known
   trying: null,
@@ -85,8 +98,12 @@ function restore() {
 
 // ------------------------------------------------------------------ prices
 function priceOf(item) {
-  return state.prices.get(item.id) || { amount: item.price, currency: DEFAULT_CURRENCY };
+  return state.prices.get(item.id) || { amount: item.price, member: null, currency: DEFAULT_CURRENCY };
 }
+// What the buyer pays for an item: the member price while the typed player is a
+// member (a preview; the service works out the real amount at checkout).
+const memberDeal = item => state.member === true && priceOf(item).member != null;
+const payOf = item => (memberDeal(item) ? priceOf(item).member : priceOf(item).amount);
 function money(amount, currency) {
   try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount); } catch { return `${amount.toFixed(2)} ${currency}`; }
 }
@@ -99,7 +116,12 @@ async function loadPrices() {
   try {
     state.api = (await (await fetch(STORE.service)).json()).api;
     const c = await (await fetch(`${state.api}/v1/store/catalog`)).json();
-    for (const [id, item] of Object.entries(c.items || {})) state.prices.set(id, { amount: Number(item.price), currency: c.currency || DEFAULT_CURRENCY });
+    for (const [id, item] of Object.entries(c.items || {})) {
+      state.prices.set(id, { amount: Number(item.price), member: item.memberPrice == null ? null : Number(item.memberPrice), currency: c.currency || DEFAULT_CURRENCY });
+    }
+    if (c.plus && Number(c.plus.month) > 0 && Number(c.plus.year) > 0) {
+      state.plus = { ...PLUS_FALLBACK, ...c.plus, month: Number(c.plus.month), year: Number(c.plus.year) };
+    }
     state.catalog = c.open ? 'ok' : 'closed';
   } catch (err) {
     console.warn('Origin store: the cosmetics service can’t be reached.', err);
@@ -107,6 +129,63 @@ async function loadPrices() {
   }
   renderGrid();
   renderBag();
+  renderPlus();
+  checkMember();     // a name may have been verified before the service answered
+}
+
+// Is the verified player an Origin+ member? Only affects the preview prices and
+// the membership card; a failed lookup just means "not shown as a member".
+async function checkMember() {
+  const player = state.player;
+  if (!STORE.live || !state.api || !player?.uuid) return;
+  let member = null;
+  try {
+    const r = await fetch(`${state.api}/v1/players/${encodeURIComponent(player.uuid)}`);
+    if (r.ok) member = !!(await r.json()).plus;
+  } catch { /* leave unknown */ }
+  if (state.player !== player) return;   // the name changed meanwhile
+  // Back from joining: Stripe's word can take a few seconds to reach the
+  // service, so look again a few times before showing them as not a member.
+  if (!member && state.plusPending > 0) { state.plusPending--; setTimeout(checkMember, 4000); }
+  if (state.member === member) return;
+  state.member = member;
+  renderGrid();
+  renderBag();
+  renderPlus();
+}
+
+async function joinPlus() {
+  if (!STORE.live || state.plusBusy || state.catalog !== 'ok' || state.member) return;
+  if (!canCheckout()) {         // the name box lives with the bag, which is below the shop on phones
+    state.plusError = 'Type the Minecraft name the membership is for.';
+    renderPlus();
+    $('#checkout').scrollIntoView({ behavior: smoothScroll(), block: 'start' });
+    setTimeout(() => $('#mc-name').focus({ preventScroll: true }), reducedMotion() ? 0 : 400);
+    return;
+  }
+  state.plusBusy = true;
+  state.plusError = '';
+  renderPlus();
+  try {
+    const r = await fetch(`${state.api}/v1/plus/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uuid: state.player.uuid, name: state.player.name, plan: state.plan }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 409) {                          // already a member: show that instead of an error
+      state.plusBusy = false;
+      state.member = true;
+      renderGrid(); renderBag(); renderPlus();
+      return;
+    }
+    if (!r.ok || !j.url) throw new Error(j.error || 'Membership isn’t available right now. Nothing was charged; please try again in a minute.');
+    location.href = j.url;
+  } catch (err) {
+    state.plusBusy = false;
+    state.plusError = err instanceof TypeError ? 'Couldn’t reach checkout. Nothing was charged; please try again.' : err.message;
+    renderPlus();
+  }
 }
 
 async function checkout() {
@@ -137,6 +216,9 @@ let lookupSeq = 0, lookupTimer = 0;
 function onName(value) {
   state.name = value;
   state.player = null;
+  const wasMember = state.member;
+  state.member = null;
+  state.plusError = '';
   save();
   clearTimeout(lookupTimer);
   const name = value.trim();
@@ -152,13 +234,17 @@ function onName(value) {
       state.player = result.player || null;
       renderName();
       renderBag();
+      renderPlus();
+      checkMember();
       const skin = state.player ? await loadSkin(state.player) : null;
       if (room && seq === lookupSeq) room.setSkin(skin);
     }, 450);
   }
   if (room && state.nameState !== 'checking') room.setSkin(null);
   renderName();
+  if (wasMember) renderGrid();     // member prices belong to the old name
   renderBag();
+  renderPlus();
 }
 
 async function lookupName(name) {
@@ -226,7 +312,9 @@ function renderGrid() {
         <span class="item__art" data-art></span><span class="item__kind">${KINDS[kindOf(i.id)]}</span>${isAnimated(i.id) ? '<span class="item__anim">Animated</span>' : ''}<span class="item__tryon">${state.trying === i.id ? 'Wearing' : 'Try on'}</span>
       </button>
       <div class="item__meta"><h3>${esc(i.name)}</h3><p>${esc(i.blurb)}</p></div>
-      <div class="item__buy"><b>${money(p.amount, p.currency)}</b>
+      <div class="item__buy">${memberDeal(i)
+        ? `<b class="item__deal"><s><span class="sr">Was </span>${money(p.amount, p.currency)}</s> <span class="sr">Member price </span>${money(p.member, p.currency)}</b>`
+        : `<b>${money(p.amount, p.currency)}</b>`}
         <button class="btn btn--sm ${inBag ? 'btn--ghost' : 'btn--primary'}" type="button" data-add ${soon ? 'disabled data-soon' : ''} aria-pressed="${inBag}">${inBag ? 'In bag ✓' : 'Add to bag'}</button>
       </div>
     </article>`;
@@ -293,11 +381,12 @@ function flatFallback(id) {
 function renderBag(error = '') {
   const items = state.bag.map(id => byId.get(id));
   $('[data-bag]').innerHTML = items.length
-    ? items.map(i => `<li><span>${esc(i.name)}</span><b>${money(priceOf(i).amount, priceOf(i).currency)}</b><button type="button" data-remove="${i.id}" aria-label="Remove ${esc(i.name)}">×</button></li>`).join('')
+    ? items.map(i => `<li><span>${esc(i.name)}</span><b>${money(payOf(i), priceOf(i).currency)}</b><button type="button" data-remove="${i.id}" aria-label="Remove ${esc(i.name)}">×</button></li>`).join('')
     : '<li class="bag__empty">Your bag is empty. Add something from the store.</li>';
   const currency = items.length ? priceOf(items[0]).currency : DEFAULT_CURRENCY;
-  const total = items.reduce((sum, i) => sum + priceOf(i).amount, 0);
+  const total = items.reduce((sum, i) => sum + payOf(i), 0);
   $('[data-total]').textContent = money(total, currency);
+  $('[data-bag-member]').hidden = !(state.member === true && items.some(memberDeal));
 
   const btn = $('[data-checkout]'), note = $('[data-checkout-note]');
   const open = STORE.live && state.catalog !== 'closed';
@@ -321,6 +410,59 @@ function renderBag(error = '') {
   bar.hidden = !items.length;
   $('[data-bagbar-text]').textContent = `${items.length} ${items.length === 1 ? 'item' : 'items'} · ${money(total, currency)}`;
   $('[data-bag-count]').textContent = items.length ? String(items.length) : '';
+}
+
+// ------------------------------------------------------------------ Origin+
+// The members-only cape isn't an ITEMS entry (it isn't sold); its flat art is
+// only the picture on the membership card.
+function paintPlusCape() {
+  try {
+    const img = $('[data-plus-cape]');
+    img.src = flatArt('cape-plus').toDataURL();
+    img.hidden = false;
+  } catch (err) { console.warn('Origin store: Origin+ cape preview unavailable.', err); }
+}
+const percentSaved = () => Math.round((1 - state.plus.year / (state.plus.month * 12)) * 100);
+
+function renderPlus() {
+  const plus = state.plus, cur = DEFAULT_CURRENCY, year = state.plan === 'year';
+  const open = STORE.live && state.catalog !== 'closed';
+  const member = state.member === true;
+
+  $$('[data-plan]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.plan === state.plan)));
+  $('[data-plan-save]').textContent = `Save ${percentSaved()}%`;
+  $('[data-plus-off]').textContent = `${plus.percentOff}%`;
+  $('[data-plus-price]').textContent = money(year ? plus.year : plus.month, cur);
+  $('[data-plus-per]').textContent = year ? 'per year' : 'per month';
+  $('[data-plus-sub]').textContent = year
+    ? `About ${money(plus.year / 12, cur)} a month, ${percentSaved()}% less than paying monthly.`
+    : 'Switch to yearly to save.';
+  $('[data-plus-fine]').textContent = `Renews automatically every ${year ? 'year' : 'month'} until you cancel. Cancel any time: your perks last until the end of the period you’ve paid for. Taxes are added at checkout where they apply.`;
+
+  // A member sees their status instead of the Join controls.
+  $('[data-plus-join]').hidden = member;
+  const box = $('[data-plus-member]');
+  box.hidden = !member;
+  if (member) box.innerHTML = `<b>${esc(state.player?.name || 'This player')} is an Origin+ member.</b> Member prices are shown in the store and applied at checkout.`;
+
+  const manage = $('[data-plus-manage]');
+  if (/^https:\/\//.test(plus.manageUrl)) manage.href = plus.manageUrl;
+
+  const btn = $('[data-plus-go]'), note = $('[data-plus-note]');
+  const ready = state.catalog === 'ok';
+  btn.toggleAttribute('data-soon', !open);
+  btn.disabled = open && (state.plusBusy || !ready);
+  btn.setAttribute('aria-disabled', String(!open || btn.disabled));
+  btn.textContent = state.plusBusy ? 'Opening checkout…' : canCheckout() || !open
+    ? `Join Origin+${open && canCheckout() ? ` · ${money(year ? plus.year : plus.month, cur)}` : ''}`
+    : 'Choose a Minecraft name';
+  note.classList.toggle('is-error', !!state.plusError || (open && state.catalog === 'error'));
+  note.textContent = state.plusError || (!open
+    ? 'Memberships open soon.'
+    : state.catalog === 'error' ? 'Membership can’t be reached right now. Please try again in a minute.'
+    : state.catalog === 'loading' ? 'Loading…'
+    : canCheckout() ? `Membership goes to ${state.player.name}.`
+    : 'It goes to the Minecraft name you type. Gifts welcome.');
 }
 
 function tryOn(id) {
@@ -355,10 +497,15 @@ function toggleBag(id) {
 // --------------------------------------------------------------- returning
 // Stripe sends the buyer back with ?purchase=done or ?purchase=cancelled.
 function handleReturn() {
-  const q = new URLSearchParams(location.search), result = q.get('purchase');
-  if (!result) return;
+  const q = new URLSearchParams(location.search), result = q.get('purchase'), plus = q.get('plus');
+  if (!result && !plus) return;
   const notice = $('[data-notice]');
-  if (result === 'done') {
+  if (plus === 'done') {
+    notice.innerHTML = '<b>Welcome to Origin+.</b> It can take a minute to show as active. A receipt is on its way to your email.';
+    state.plusPending = 5;
+  } else if (plus) {
+    notice.innerHTML = '<b>No charge made.</b> You can join Origin+ any time.';
+  } else if (result === 'done') {
     notice.innerHTML = `<b>Thank you!</b> Your cosmetics will show up on <b>${esc(state.player?.name || state.name || 'your player')}</b> within a minute. A receipt is on its way to your email.`;
     state.bag = [];
     save();
@@ -377,6 +524,13 @@ function boot() {
   const input = $('#mc-name');
   input.value = state.name;
   input.addEventListener('input', () => onName(input.value));
+
+  $$('[data-plan]').forEach(b => b.addEventListener('click', () => {
+    state.plan = b.dataset.plan;
+    renderPlus();
+  }));
+  $('[data-plus-go]').addEventListener('click', joinPlus);
+  paintPlusCape();
 
   $$('[data-filter]').forEach(b => b.addEventListener('click', () => {
     $$('[data-filter]').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
@@ -422,6 +576,7 @@ function boot() {
   renderGrid();
   renderBag();
   renderName();
+  renderPlus();
   if (state.name) onName(state.name);
   tryOn(ITEMS[0].id);
   loadPrices();

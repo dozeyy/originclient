@@ -71,9 +71,9 @@ body.no-webgl .fit__hint { display: none; }
 /* ---------- shop ---------- */
 
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-.tabs button { height: 38px; padding: 0 14px; border: 1px solid var(--soft); border-radius: 1px; background: rgba(29, 36, 32, .7); color: var(--dim); font: 600 13px/1 var(--mono); cursor: pointer; transition: background-color .12s, color .12s, border-color .12s; }
-.tabs button:hover { color: var(--text); background: var(--card-alt); }
-.tabs button[aria-pressed="true"] { background: var(--acc-soft); border-color: var(--acc-border); color: var(--acc-h); }
+.tabs button, .plus__plans button { height: 38px; padding: 0 14px; border: 1px solid var(--soft); border-radius: 1px; background: rgba(29, 36, 32, .7); color: var(--dim); font: 600 13px/1 var(--mono); cursor: pointer; transition: background-color .12s, color .12s, border-color .12s; }
+.tabs button:hover, .plus__plans button:hover { color: var(--text); background: var(--card-alt); }
+.tabs button[aria-pressed="true"], .plus__plans button[aria-pressed="true"] { background: var(--acc-soft); border-color: var(--acc-border); color: var(--acc-h); }
 
 .shop__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .item { display: flex; flex-direction: column; background: var(--glass); border: 1px solid var(--soft); border-radius: 3px; box-shadow: 0 4px 0 rgba(0, 0, 0, .48); overflow: hidden; transition: border-color .12s, translate .12s var(--ease); }
@@ -104,6 +104,53 @@ body.no-webgl .fit__hint { display: none; }
 .fine p { margin: 0; color: var(--dim); font-size: 13px; line-height: 1.5; }
 .fine b { color: var(--text); font-weight: 600; }
 
+/* ---------- Origin+ membership card ---------- */
+.plus { display: grid; grid-template-columns: 200px minmax(0, 1fr); margin-bottom: 20px; background: var(--glass); border: 1px solid var(--stroke); border-radius: 3px; box-shadow: 0 4px 0 rgba(0, 0, 0, .48); overflow: hidden; scroll-margin-top: 84px; }
+.plus__art { position: relative; display: grid; place-items: center; align-content: center; gap: 12px; padding: 24px 16px; background: radial-gradient(ellipse 70% 55% at 50% 45%, rgba(224, 224, 224, .12), rgba(224, 224, 224, 0) 70%), linear-gradient(#1d2420, #141917); border-right: 1px solid var(--soft); }
+.plus__cape { width: auto; height: 190px; max-width: 100%; image-rendering: pixelated; filter: drop-shadow(0 0 14px rgba(224, 224, 224, .16)); }
+.plus__caption { margin: 0; color: var(--dim); font-size: 13px; line-height: 1.4; text-align: center; }
+.plus__body { min-width: 0; padding: 24px; }
+.plus__title { display: flex; align-items: center; gap: 12px; margin: 0 0 8px; font-size: clamp(26px, 4vw, 34px); line-height: 1; letter-spacing: -.01em; }
+.plus__mark { flex: none; width: 34px; height: 34px; color: #e0e0e0; stroke-width: 9; filter: drop-shadow(0 0 8px rgba(224, 224, 224, .35)); }
+.plus__lede { margin: 0 0 16px; color: var(--dim); font-size: 14px; line-height: 1.5; }
+
+.plus__perks { display: grid; gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; }
+.plus__perks li { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; background: var(--card); border: 1px solid var(--soft); border-radius: 1px; color: var(--dim); font-size: 13px; line-height: 1.45; }
+.plus__perks b { color: var(--text); font-weight: 600; }
+.plus__why { font-size: inherit; }
+.plus__tag { flex: none; margin-top: 1px; padding: 4px 6px 3px; border: 1px solid var(--soft); border-radius: 1px; color: var(--dim); font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.plus__tag--now { background: var(--acc-soft); border-color: var(--acc-border); color: var(--acc-h); }
+.plus__soon { margin: 0 0 20px; color: var(--dim); font-size: 13px; line-height: 1.5; }
+
+.plus__plans { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.plus__plans button { display: inline-flex; align-items: center; gap: 8px; height: 44px; }
+.plus__plans button span { padding: 3px 5px 2px; border-radius: 1px; background: var(--acc-soft); color: var(--acc-h); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.plus__price { margin: 0; font: 600 13px/1.2 var(--mono); color: var(--dim); }
+.plus__price b { font-size: 30px; letter-spacing: -.01em; color: var(--text); }
+.plus__sub { margin: 4px 0 16px; color: var(--dim); font-size: 13px; line-height: 1.4; }
+.plus__go { width: 100%; max-width: 360px; }
+.plus__go:disabled { opacity: .55; cursor: not-allowed; }
+.plus__go:disabled:active { transform: none; }
+.plus__note { min-height: 1.4em; margin: 10px 0 0; color: var(--dim); font-size: 13px; line-height: 1.4; }
+.plus__note.is-error { color: #f0a195; }
+/* Renewal terms sit right under the button (auto-renew rules), so they stay full-strength. */
+.plus__fine { margin: 6px 0 0; max-width: 62ch; color: var(--dim); font-size: 13px; line-height: 1.5; }
+.plus__member { margin: 0; padding: 14px 16px; background: var(--acc-soft); border: 1px solid var(--acc-border); border-radius: 1px; color: var(--text); font-size: 14px; line-height: 1.45; }
+.plus__member b { color: var(--acc-h); }
+.plus__manage { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--soft); color: var(--muted); font-size: 13px; line-height: 1.4; }
+.plus__manage a { display: inline-block; padding: 8px 0; color: var(--text); font-weight: 600; text-underline-offset: 3px; }
+.plus__manage a:hover { color: var(--acc-h); }
+
+/* Member prices in the grid: list price struck, member price beside it. */
+.item__deal { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.item__deal s { color: var(--muted); font-size: 13px; font-weight: 600; }
+.bag__member { margin: -4px 0 14px; color: var(--dim); font-size: 13px; line-height: 1.4; text-align: right; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .plus__mark { animation: plus-spin 60s linear infinite; }
+}
+@keyframes plus-spin { to { rotate: 360deg; } }
+
 /* ---------- header bag button ---------- */
 .top__bag { margin-left: 8px; }
 .top__count:empty { display: none; }
@@ -127,4 +174,13 @@ body.no-webgl .fit__hint { display: none; }
   .item__meta p { display: none; }
   .item__buy { flex-direction: column; align-items: stretch; padding: 10px 12px 12px; }
   .item__buy .btn { width: 100%; }
+  .plus { grid-template-columns: minmax(0, 1fr); }
+  .plus__why { display: none; }   /* phones: the perk titles say enough, and the shop stays close */
+  .plus__perks li { padding: 8px 10px; }
+  .plus__art { grid-template-columns: auto minmax(0, 1fr); justify-items: start; gap: 16px; padding: 16px; border-right: 0; border-bottom: 1px solid var(--soft); }
+  .plus__cape { height: 120px; }
+  .plus__caption { text-align: left; }
+  .plus__body { padding: 20px 16px; }
+  .plus__go { max-width: none; }
+  .plus__manage a { padding: 12px 0; }
 }

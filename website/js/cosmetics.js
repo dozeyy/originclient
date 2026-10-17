@@ -132,6 +132,17 @@ const CAPES = {
     });
     border(ctx, '#3a1a55');
   },
+  // Origin+ members' cape: never sold, worn while a membership is active. Placeholder
+  // art: a neutral graphite cape, the three rings in light grey, a pixel "+" beneath.
+  plus(ctx, r) {
+    cells(ctx, r, (u, v, x, y) => {
+      const dx = Math.abs(x + 1 - 20), dy = Math.abs(y + 1 - 52);
+      if ((dx <= 5 && dy <= 1) || (dx <= 1 && dy <= 5)) return rgb('#e0e0e0');
+      return ramp([[0, '#262626'], [1, '#0d0d0d']], v);
+    });
+    originMark(ctx, 20, 27, 38, '#e0e0e0', '#9a9a9a');
+    border(ctx, '#3a3a3a');
+  },
 
   // ----- animated -----
   orbit(ctx, r, ph) {
@@ -292,6 +303,8 @@ const ART = {
   'cape-golden': { kind: 'cape', paint: CAPES.golden, edge: '#2a1f2e' },
   'cape-frost': { kind: 'cape', paint: CAPES.frost, edge: '#b9dcf2' },
   'cape-void': { kind: 'cape', paint: CAPES.void, edge: '#3a1a55' },
+  // Not for sale (the service grants it to Origin+ members): see CAPES.plus.
+  'cape-plus': { kind: 'cape', paint: CAPES.plus, edge: '#3a3a3a' },
   // Wings are built but NOT on sale (Will, 2026-10-12: "no wings for now").
   // To sell them again, add their ids back to ITEMS in store.js and the Wings
   // tab in store.html.
