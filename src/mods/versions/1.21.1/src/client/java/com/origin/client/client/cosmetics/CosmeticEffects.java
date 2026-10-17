@@ -195,22 +195,25 @@ public final class CosmeticEffects {
 
 		PoseStack.Pose pose = stack.last();
 		VertexConsumer q = OriginRenderTypes.begin();
-		for (Iterator<Emitter> eit = EMITTERS.values().iterator(); eit.hasNext();) {
-			Emitter em = eit.next();
-			for (Iterator<Particle> it = em.live.iterator(); it.hasNext();) {
-				Particle pt = it.next();
-				float age = (float) (now - pt.born);
-				if (age >= pt.life) {
-					it.remove();
-				} else if (age >= 0f) {
-					draw(q, pose, pt, age, cp);
+		try {
+			for (Iterator<Emitter> eit = EMITTERS.values().iterator(); eit.hasNext();) {
+				Emitter em = eit.next();
+				for (Iterator<Particle> it = em.live.iterator(); it.hasNext();) {
+					Particle pt = it.next();
+					float age = (float) (now - pt.born);
+					if (age >= pt.life) {
+						it.remove();
+					} else if (age >= 0f) {
+						draw(q, pose, pt, age, cp);
+					}
+				}
+				if (em.live.isEmpty() && !em.emitting) {
+					eit.remove();
 				}
 			}
-			if (em.live.isEmpty() && !em.emitting) {
-				eit.remove();
-			}
+		} finally {
+			OriginRenderTypes.draw();   // never leave half-built quads to flush into the next frame
 		}
-		OriginRenderTypes.draw();
 	}
 
 	/** Spawns this frame's share of one recipe; returns how many it made. */

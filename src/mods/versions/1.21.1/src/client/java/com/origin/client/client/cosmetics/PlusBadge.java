@@ -10,9 +10,12 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
 import org.joml.Matrix4f;
 
 import java.io.InputStream;
@@ -58,6 +61,23 @@ public final class PlusBadge {
 	public static boolean wantsNametag(Entity entity) {
 		try {
 			return !failed && entity instanceof Player p && CosmeticsService.isPlus(p.getUUID());
+		} catch (Throwable t) {
+			return false;
+		}
+	}
+
+	/**
+	 * True when this renderNameTag call is the below-name scoreboard line, not the
+	 * name: PlayerRenderer sends that line through the same renderNameTag first, as
+	 * "<score> <objective name>". Only the name line gets the badge.
+	 */
+	public static boolean isScoreLine(Entity entity, Component line) {
+		try {
+			if (!(entity instanceof Player p) || line == null) {
+				return false;
+			}
+			Objective objective = p.getScoreboard().getDisplayObjective(DisplaySlot.BELOW_NAME);
+			return objective != null && line.getString().endsWith(" " + objective.getDisplayName().getString());
 		} catch (Throwable t) {
 			return false;
 		}

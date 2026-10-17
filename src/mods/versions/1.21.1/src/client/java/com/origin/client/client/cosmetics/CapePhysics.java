@@ -23,7 +23,7 @@ import net.minecraft.world.item.Items;
 
 import java.util.Iterator;
 import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.IdentityHashMap;
 
 /**
  * Cape physics for Origin capes (Lunar-style): instead of vanilla's stiff
@@ -99,7 +99,9 @@ public final class CapePhysics {
 		}
 	}
 
-	private static final Map<AbstractClientPlayer, State> STATES = new WeakHashMap<>();
+	// By identity, not Entity.equals (entity id): a menu preview or fake player sharing a
+	// real player's id must not share (and snap) that player's cape. sweep() drops unseen ones.
+	private static final Map<AbstractClientPlayer, State> STATES = new IdentityHashMap<>();
 	private static long lastSweepMs = 0;
 
 	// The N segment models, built once. null = couldn't be built: physics stays
@@ -224,9 +226,12 @@ public final class CapePhysics {
 					pose.translate(0f, cy / 16f, -cz / 16f);
 				}
 				pose.pushPose();
-				pose.mulPose(Axis.YP.rotationDegrees(180f - cumR));
-				segments[i].render(pose, vc, light, OverlayTexture.NO_OVERLAY);
-				pose.popPose();
+				try {
+					pose.mulPose(Axis.YP.rotationDegrees(180f - cumR));
+					segments[i].render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+				} finally {
+					pose.popPose();   // the stack must balance even if a segment throws
+				}
 				prevP = cumP;
 				prevR = cumR;
 			}

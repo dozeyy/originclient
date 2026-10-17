@@ -52,7 +52,7 @@ public class NametagStyleMixin {
 		// pass, with that pass's alpha/light/mode (so sneaking + see-through match the name).
 		float padW = 0f;
 		try {
-			if (PlusBadge.wantsNametag(entity)) {
+			if (PlusBadge.wantsNametag(entity) && !PlusBadge.isScoreLine(entity, displayName)) {
 				String pad = PlusBadge.namePad(font);
 				if (pad != null) {
 					padW = font.width(pad);
