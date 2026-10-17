@@ -48,8 +48,11 @@ public final class CosmeticsService {
 		public static final Look NONE = new Look(null, null);
 	}
 
-	/** The signed-in player's own cosmetics. */
-	public record Mine(List<String> owned, Look wearing) {
+	/** The signed-in player's own cosmetics; `plus` = an Origin+ member. */
+	public record Mine(List<String> owned, Look wearing, boolean plus) {
+		public Mine(List<String> owned, Look wearing) {
+			this(owned, wearing, false);
+		}
 	}
 
 	public enum Status {
@@ -62,7 +65,7 @@ public final class CosmeticsService {
 		READY
 	}
 
-	private record Entry(Look look, long freshUntil) {
+	private record Entry(Look look, boolean plus, long freshUntil) {
 	}
 
 	private static final long FRESH_MS = 5L * 60L * 1000L;
@@ -136,6 +139,43 @@ public final class CosmeticsService {
 			WANTED.add(uuid);
 		}
 		return e != null ? e.look() : Look.NONE;
+	}
+
+	/**
+	 * Is this player an Origin+ member (for the badge)? Same cache and lookup
+	 * queue as {@link #lookOf}; unknown / not looked up yet / old service
+	 * without the field = false. Render thread; never blocks.
+	 */
+	public static boolean isPlus(UUID uuid) {
+		if (uuid == null || status != Status.READY) {
+			return false;
+		}
+		if (uuid.equals(selfId())) {
+			Mine m = mine;
+			return m != null && m.plus();
+		}
+		Entry e = LOOKS.get(uuid);
+		if ((e == null || e.freshUntil() < System.currentTimeMillis()) && WANTED.size() < MAX_WANTED) {
+			WANTED.add(uuid);
+		}
+		return e != null && e.plus();
+	}
+
+	/** {@link #isPlus(UUID)} for a service-style id string (dashed or not); bad input = false. */
+	public static boolean isPlus(String uuid) {
+		if (uuid == null) {
+			return false;
+		}
+		try {
+			String t = uuid.trim();
+			if (t.length() == 32) {
+				t = t.substring(0, 8) + "-" + t.substring(8, 12) + "-" + t.substring(12, 16) + "-"
+						+ t.substring(16, 20) + "-" + t.substring(20);
+			}
+			return isPlus(UUID.fromString(t));
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 	/** Re-reads your own cosmetics (e.g. when the Cosmetics screen opens, after a purchase). */
@@ -219,7 +259,7 @@ public final class CosmeticsService {
 					}
 				}
 			}
-			mine = new Mine(owned, lookFrom(o.getAsJsonObject("equipped")));
+			mine = new Mine(owned, lookFrom(o.getAsJsonObject("equipped")), plusFrom(o));
 		} catch (Exception e) {
 			OriginClient.LOGGER.debug("Origin cosmetics: couldn't load your cosmetics", e);
 		}
@@ -245,12 +285,12 @@ public final class CosmeticsService {
 			JsonObject players = r.response().getAsJsonObject("players");
 			for (UUID u : batch) {
 				JsonObject p = players != null ? players.getAsJsonObject(undashed(u)) : null;
-				LOOKS.put(u, new Entry(p != null ? lookFrom(p) : Look.NONE, now + FRESH_MS));
+				LOOKS.put(u, new Entry(p != null ? lookFrom(p) : Look.NONE, p != null && plusFrom(p), now + FRESH_MS));
 			}
 		} catch (Exception e) {
 			for (UUID u : batch) {
 				Entry old = LOOKS.get(u);
-				LOOKS.put(u, new Entry(old != null ? old.look() : Look.NONE, now + RETRY_MS));
+				LOOKS.put(u, new Entry(old != null ? old.look() : Look.NONE, old != null && old.plus(), now + RETRY_MS));
 			}
 		}
 	}
@@ -279,7 +319,8 @@ public final class CosmeticsService {
 			if (r.status() == 200) {
 				JsonObject o = r.response();
 				Mine m = mine;
-				mine = new Mine(m != null ? m.owned() : List.of(), lookFrom(o.getAsJsonObject("equipped")));
+				mine = new Mine(m != null ? m.owned() : List.of(), lookFrom(o.getAsJsonObject("equipped")),
+						m != null && m.plus());
 				picked = null;
 				return null;
 			}
@@ -310,6 +351,16 @@ public final class CosmeticsService {
 			return Look.NONE;
 		}
 		return new Look(known(o, "cape"), known(o, "head"));
+	}
+
+	// `plus` is newer than the service's first release: absent / odd = not a member.
+	private static boolean plusFrom(JsonObject o) {
+		try {
+			JsonElement e = o != null ? o.get("plus") : null;
+			return e != null && e.isJsonPrimitive() && e.getAsBoolean();
+		} catch (Exception ignored) {
+			return false;
+		}
 	}
 
 	// Only ids this build can draw; anything newer is treated as "nothing".

@@ -31,6 +31,7 @@ public final class Cosmetics {
 			new Item("cape-golden", "Golden Hour Cape", Slot.CAPE),
 			new Item("cape-frost", "Frost Cape", Slot.CAPE),
 			new Item("cape-void", "Void Cape", Slot.CAPE),
+			new Item("cape-plus", "Origin+ Cape", Slot.CAPE),
 			new Item("halo-orbit", "Orbit Halo", Slot.HEAD),
 			new Item("crown-pixel", "Pixel Crown", Slot.HEAD),
 			new Item("halo-gold", "Golden Halo", Slot.HEAD));
@@ -55,6 +56,13 @@ public final class Cosmetics {
 
 	public static boolean isAnimated(String id) {
 		return ANIMATED.contains(id);
+	}
+
+	/** Members-only items (never sold): the service grants them while the player is an Origin+ member. */
+	private static final Set<String> PLUS_ONLY = Set.of("cape-plus");
+
+	public static boolean isPlusOnly(String id) {
+		return PLUS_ONLY.contains(id);
 	}
 
 	public static final String STORE_URL = "https://originclient.org/store.html";

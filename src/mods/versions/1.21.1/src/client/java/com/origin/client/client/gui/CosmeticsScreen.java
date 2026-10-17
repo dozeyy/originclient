@@ -285,6 +285,10 @@ public class CosmeticsScreen extends OriginWindow {
 				selected || hp > 0.5f ? TEXT : DIM);
 		d.textCenter(caption(t), x + TILE_W / 2, y + 146, 10, true, 1.6f, MUTE);
 
+		if (t.id() != null && Cosmetics.isPlusOnly(t.id())) {
+			// members-only: the Origin mark in the corner (+ the caption below)
+			d.logo(x + TILE_W - 18, y + 16, 16, 0.2f);
+		}
 		if (selected) {
 			String badge = t.id() == null ? "ON" : "WORN";
 			float bw = 12 + d.textW(badge, 10, true, 1.4f);
@@ -296,6 +300,9 @@ public class CosmeticsScreen extends OriginWindow {
 	private static String caption(Tile t) {
 		if (t.id() == null) {
 			return "NONE";
+		}
+		if (Cosmetics.isPlusOnly(t.id())) {
+			return "ORIGIN+ MEMBERS";
 		}
 		if (t.slot() == Cosmetics.Slot.CAPE) {
 			return Cosmetics.isAnimated(t.id()) ? "ANIMATED CAPE" : "CAPE";
