@@ -94,43 +94,27 @@ b { font-weight: 600; }
 
   <section class="step" data-step="2">
     <div class="top"><input type="checkbox" class="tick" id="s2" data-n="2" aria-label="Step 2 done"><div>
-      <h2>Add your address for sales tax</h2><p class="where">The one thing Stripe Tax is still missing</p></div></div>
-    <a class="open" href="https://dashboard.stripe.com/settings/tax" target="_blank" rel="noopener">Open Tax settings ↗</a>
-    <ol>
-      <li>Tap <b>Get started</b> (or <b>Edit</b> next to Head office).</li>
-      <li>Enter your business address. If you don't have a business, that's your home address.</li>
-      <li>Leave everything else as it is. Prices and the tax type are already set by the store.</li>
-    </ol>
-    <p class="note">Until this is done, checkout shows "Checkout isn't available right now". Stripe watches your sales and tells you under <b>Registrations</b> when a state or country says you have to start collecting tax there.</p>
+      <h2>Sales tax</h2><p class="where">Done: Stripe Tax is on with your address</p></div></div>
+    <p class="note">Nothing to do. Stripe watches your sales and tells you under <b>Registrations</b> when a state or country says you have to start collecting tax there.</p>
   </section>
 
   <section class="step" data-step="3">
     <div class="top"><input type="checkbox" class="tick" id="s3" data-n="3" aria-label="Step 3 done"><div>
-      <h2>Turn on email receipts</h2><p class="where">The store promises buyers a receipt</p></div></div>
+      <h2>Receipts and Google Pay</h2><p class="where">The store promises a receipt, and offers Google Pay</p></div></div>
     <a class="open" href="https://dashboard.stripe.com/settings/emails" target="_blank" rel="noopener">Open Customer emails ↗</a>
     <ol><li>Switch on <b>Successful payments</b>. Also switch on <b>Refunds</b> if you see it.</li></ol>
+    <a class="open" href="https://dashboard.stripe.com/settings/payment_methods" target="_blank" rel="noopener">Open Payment methods ↗</a>
+    <ol start="2"><li>Find <b>Google Pay</b> and turn it on. Cards, Apple Pay and Link are already on.</li></ol>
   </section>
 
   <section class="step" data-step="4">
     <div class="top"><input type="checkbox" class="tick" id="s4" data-n="4" aria-label="Step 4 done"><div>
-      <h2>Connect Stripe to the store</h2><p class="where">This is how a payment turns into a cape in game</p></div></div>
+      <h2>Get a fresh signing secret</h2><p class="where">Claude already connected Stripe to the store</p></div></div>
     <a class="open" href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener">Open Webhooks ↗</a>
     <ol>
-      <li>Tap <b>Add destination</b> (or <b>Add endpoint</b>).</li>
-      <li>Search for and tick these four events:</li>
-    </ol>
-    <div class="copies">
-      <button class="copy" type="button"><code>checkout.session.completed</code><span>Copy</span></button>
-      <button class="copy" type="button"><code>checkout.session.async_payment_succeeded</code><span>Copy</span></button>
-      <button class="copy" type="button"><code>charge.refunded</code><span>Copy</span></button>
-      <button class="copy" type="button"><code>charge.dispute.created</code><span>Copy</span></button>
-    </div>
-    <ol start="3">
-      <li>Tap <b>Continue</b>, pick <b>Webhook endpoint</b>, and paste this as the URL:</li>
-    </ol>
-    <div class="copies"><button class="copy" type="button"><code>https://origin-cosmetics.will-f11.workers.dev/v1/stripe/webhook</code><span>Copy</span></button></div>
-    <ol start="4">
-      <li>Create it. On its page, tap <b>Reveal</b> under <b>Signing secret</b> and copy it. It starts with <code>whsec_</code>.</li>
+      <li>Tap the one ending in <b>/v1/stripe/webhook</b>.</li>
+      <li>Under <b>Signing secret</b>, tap <b>Roll secret</b> and pick <b>Now</b>. This kills the first secret, which passed through our chat.</li>
+      <li>Tap <b>Reveal</b> and copy the new secret. It starts with <code>whsec_</code>.</li>
     </ol>
   </section>
 

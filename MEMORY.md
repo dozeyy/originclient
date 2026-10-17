@@ -16,6 +16,9 @@ just the dated section you need with offset/limit).
 - Webhook endpoint NOT created via API on purpose: its signing secret would land in the transcript.
 - Stripe products: 12 live `origin-<id>` products (tax txcd_10201000, exclusive prices) made for Stripe's setup
   checklist; dashboard-only, checkout still uses inline price_data from CATALOG.
+- Webhook we_1URaDTKh5W1iETe3Huscq1c8 created via API at Will's ask ("setup what you can"); its first secret hit the
+  transcript, so Will rolls it (expire Now) before pasting into Cloudflare. Stripe Tax now active (head office set).
+  Default payment-method config: Google Pay was OFF (store copy promises it) -> Will turns it on in the dashboard.
 - Testers (Will): dozeyy, bxlt, lozeyy, silo5. STRIPE_TEST_PLAYERS takes NAMES too (sandbox can't reach
   playerdb/Mojang to get UUIDs); checkout confirms name→UUID with api.mojang.com, fails closed.
 

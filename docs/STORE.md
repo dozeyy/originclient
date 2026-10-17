@@ -93,7 +93,7 @@ The account holder must be an adult (ID + bank account for payouts).
    fails ("Checkout isn't available right now") until Stripe Tax is on.
 3. **Receipts:** Settings → Customer emails → turn on **Successful payments**
    (the store's thank-you note promises an emailed receipt).
-4. **Webhook:** Developers → Webhooks → add an endpoint
+4. **Webhook:** (created 2026-10-17 by Claude via the API: roll its secret, expire Now) Developers → Webhooks → add an endpoint
    `https://origin-cosmetics.will-f11.workers.dev/v1/stripe/webhook` with the
    events `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
    `charge.refunded`, `charge.dispute.created`. Copy its **signing secret** (`whsec_...`).
