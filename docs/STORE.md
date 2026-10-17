@@ -8,11 +8,11 @@ payment, so the purchase belongs to that player (gifting = typing a friend's
 name). Tebex was dropped 2026-10-17: its review rejected the custom delivery
 ("invalid or missing deliverables"), and nothing was ever sold through it.
 
-**Status (2026-10-17): showroom; Stripe built, waiting on Will's Stripe account.**
-Browsing, trying on, the name check and the bag all work; Checkout shows
-"Soon" and the page never calls the service until `STORE.live` is turned on.
-Order to go live: Will's Stripe steps below → Claude flips `STORE.live` →
-one real purchase to Will's own name shows up in game → refund it → gone.
+**Status (2026-10-17): switched on, waiting on Will's live Stripe keys.** Will
+skipped test mode ("do it with the real live stuff"). `STORE.live = true`, so
+the page asks the service for its catalog; until `STRIPE_SECRET_KEY` is in
+Cloudflare the service says `open: false` and Checkout keeps saying "Soon".
+The moment the key lands, the store opens by itself (no deploy).
 
 ## How a purchase reaches the game
 
