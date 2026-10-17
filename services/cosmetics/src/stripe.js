@@ -80,6 +80,9 @@ export async function checkout(env, body) {
       success_url: `${STORE_PAGE}?purchase=done`,
       cancel_url: `${STORE_PAGE}?purchase=cancelled`,
       client_reference_id: uuid,
+      // Short-lived, so an abandoned checkout can't be paid hours later for
+      // something bought since (30 min is Stripe's minimum).
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
       automatic_tax: { enabled: AUTOMATIC_TAX },
       line_items: ids.map(id => ({
         quantity: 1,
@@ -129,18 +132,31 @@ async function grant(env, session) {
     return;
   }
   const payment = String(session.payment_intent || session.id);
+  // Stripe retries a "paid" event it didn't hear back about, even after a refund.
+  if (await env.DB.prepare('SELECT 1 FROM revoked WHERE payment = ?').bind(payment).first()) return;
   const now = Date.now();
   // INSERT OR IGNORE: Stripe may send the same event more than once.
-  await env.DB.batch(ids.map(id =>
+  const results = await env.DB.batch(ids.map(id =>
     env.DB.prepare('INSERT OR IGNORE INTO owned (uuid, item, payment, at) VALUES (?, ?, ?, ?)').bind(uuid, id, payment, now)));
+  // Already owned from ANOTHER payment (two checkouts paid for the same item):
+  // the buyer paid for nothing, so flag it for a manual refund.
+  for (const [i, r] of results.entries()) {
+    if (r?.meta?.changes) continue;
+    const prev = await env.DB.prepare('SELECT payment FROM owned WHERE uuid = ? AND item = ?').bind(uuid, ids[i]).first('payment');
+    if (prev !== payment) console.error(`origin-cosmetics: REFUND NEEDED, ${uuid} paid twice for ${ids[i]} (kept ${prev}, extra ${payment})`);
+  }
 }
 
-// Everything bought in that payment goes away, and comes off if worn.
+// Everything bought in that payment goes away, and comes off if worn. The
+// payment is remembered, so a late or repeated "paid" event can't undo this.
+// A won dispute doesn't give items back by itself: re-grant by hand.
 async function revoke(env, paymentIntent) {
   if (!paymentIntent) return;
   const rows = (await env.DB.prepare('SELECT uuid, item FROM owned WHERE payment = ?').bind(String(paymentIntent)).all()).results;
-  if (!rows.length) return;
-  const stmts = [env.DB.prepare('DELETE FROM owned WHERE payment = ?').bind(String(paymentIntent))];
+  const stmts = [
+    env.DB.prepare('INSERT OR IGNORE INTO revoked (payment, at) VALUES (?, ?)').bind(String(paymentIntent), Date.now()),
+    env.DB.prepare('DELETE FROM owned WHERE payment = ?').bind(String(paymentIntent)),
+  ];
   for (const { uuid, item } of rows) {
     const slot = slotOf(item);
     stmts.push(env.DB.prepare(`UPDATE equipped SET ${slot} = NULL WHERE uuid = ? AND ${slot} = ?`).bind(uuid, item));

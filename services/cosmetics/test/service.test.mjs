@@ -95,6 +95,7 @@ test('checkout: makes a Stripe Checkout with our prices, the player on it, and t
   assert.equal(sent.get('line_items[1][price_data][product_data][name]'), 'Golden Halo');
   assert.equal(sent.get('line_items[2][quantity]'), null);                       // duplicate in the bag dropped
   assert.equal(sent.get('metadata[uuid]'), UUID);
+  assert.ok(Number(sent.get('expires_at')) > Date.now() / 1000 + 29 * 60);
   assert.equal(sent.get('metadata[items]'), 'cape-orbit,halo-gold');
   assert.equal(sent.get('payment_intent_data[metadata][uuid]'), UUID);
   assert.match(sent.get('success_url'), /store\.html\?purchase=done$/);
@@ -163,6 +164,23 @@ test('refunds and chargebacks take that payment\'s items back and off; partial r
 
   await stripeEvent('charge.dispute.created', { id: 'dp_1', payment_intent: 'pi_b' });
   assert.deepEqual(await ownedNow(), []);
+});
+
+test('a "paid" event Stripe retries after the refund gives nothing back; paying twice for one item is flagged', async () => {
+  await stripeEvent('charge.refunded', { id: 'ch_c', payment_intent: 'pi_c', refunded: true });   // refund seen first
+  await paid(['cape-orbit'], 'pi_c');
+  assert.deepEqual(await ownedNow(), []);
+
+  const logged = [], error = console.error;
+  console.error = (...a) => logged.push(a.join(' '));
+  try {
+    await paid(['cape-void'], 'pi_d');
+    await paid(['cape-void'], 'pi_d');          // a repeat of the same payment: fine, silent
+    assert.equal(logged.length, 0);
+    await paid(['cape-void'], 'pi_e');          // a second payment for the same cape
+  } finally { console.error = error; }
+  assert.match(logged.join('\n'), /REFUND NEEDED.*cape-void.*pi_d.*pi_e/);
+  assert.deepEqual(await ownedNow(), ['cape-void']);
 });
 
 async function signIn() {

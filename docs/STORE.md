@@ -27,6 +27,9 @@ Stripe webhook ──▶ POST /v1/stripe/webhook (signature checked)
   checkout.session.completed (paid) / async_payment_succeeded → owned rows
   charge.refunded (FULL refund only) / charge.dispute.created → rows for that
   payment removed and taken off (owned.payment = the Stripe payment intent)
+  and remembered in `revoked`, so a retried "paid" event can't give them back.
+  A WON dispute does not re-grant: give the items back by hand. Two paid
+  checkouts for one item log "REFUND NEEDED" (Cloudflare Worker logs).
         │
 Origin mod ── reads website/cosmetics/service.json for the service address ──
   Cosmetics screen: pick what you wear (Origin sign-in token) ── every Origin
