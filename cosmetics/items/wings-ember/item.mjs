@@ -81,16 +81,16 @@ function plane(name, reg, side, extra = {}) {
     ...(extra.emissive ? { emissive: true } : {}),
   };
 }
-const BONE_TH = { humerus: 1.5, forearm: 1.25, claw: 0.75, f1: 1, f2: 1, f3: 1, f4: 1 };
+const BONE_TH = { humerus: 1.25, forearm: 1, claw: 0.75, f1: 0.75, f2: 0.75, f3: 0.75, f4: 0.75 };
 const CLAW_TIP = [11.5, 1.5];
 const along = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
 const leftBones = side => [
   limb('humerus', 'in', P.S, P.E, BONE_TH.humerus, ZI, side), limb('forearm', 'in', P.E, P.Wr, BONE_TH.forearm, ZI, side),
-  knuckle('kS', 'in', P.S, ZI, side, 1.75), knuckle('kE', 'in', P.E, ZI, side, 1.75),
+  knuckle('kS', 'in', P.S, ZI, side, 1.5), knuckle('kE', 'in', P.E, ZI, side, 1.5),
   limb('claw', 'out', P.Wr, CLAW_TIP, BONE_TH.claw, ZO, side),
   ...FINGERS.map(([a, b], i) => limb(`f${i + 1}`, 'out', a, b, BONE_TH[`f${i + 1}`], ZO, side, TIP)),
-  knuckle('kW', 'out', P.Wr, ZO, side, 1.5),
-  ...FINGERS.map(([a, b], i) => knuckle(`k${i + 1}`, 'out', along(a, b, 0.55), ZO, side, 1.25)),
+  knuckle('kW', 'out', P.Wr, ZO, side, 1.25),
+  ...FINGERS.map(([a, b], i) => knuckle(`k${i + 1}`, 'out', along(a, b, 0.55), ZO, side, 1)),
 ];
 // pack the bone cubes below the planes (the left wing defines the UV, the mirror reuses it)
 const boneL = leftBones(+1), boneR = leftBones(-1);
@@ -192,7 +192,7 @@ function sampleRegion(key, reg, outline, bonesList, trail) {
     const isCrack = dCrack < hw && r > 2.4 && db > 0.55;
     T.crack[i] = isCrack ? 1 : 0;
     // about 30% of the cracks are lit: those that run beside a bone, and only on chosen arcs, fading out with distance
-    if (isCrack && hash2(cid, 3, seed + 5) < 0.66) T.lit[i] = smoothstep(3.4, 1.4, db);
+    if (isCrack && hash2(cid, 3, seed + 5) < 0.6) T.lit[i] = smoothstep(3.4, 1.4, db);
 
     // cell tone, 0..1 over the 4-step ramp: warm near the shoulder side of each cell, char toward the trailing edge
     const cellHash = hash2(sec, band, seed + 21);
@@ -259,7 +259,7 @@ function paintVeins(tex, T, f, out) {
   for (let y = 0; y < reg.h; y++) for (let x = 0; x < reg.w; x++) {
     const i = y * reg.w + x, k = T.lit[i]; if (!T.crack[i] || k < 0.12) continue;
     const b = clamp((0.35 + 0.65 * pulse(T.rr[i], f)) * (0.35 + 0.65 * k));
-    v.set(x, y, ember[clamp(Math.round(2 + b * 4.2), 0, 6)]);          // orange core; pale yellow is kept for the fx sparks
+    v.set(x, y, ember[clamp(Math.round(2 + b * 3.4), 0, 5)]);          // orange core; pale yellow is kept for the fx sparks
   }
 }
 // Bone cube faces: dark outline all round, a lit top row, joint grooves, and a tiny ember gem in each knuckle.
