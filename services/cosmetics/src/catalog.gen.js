@@ -3,8 +3,9 @@
 // owned and worn by whoever bought it, no longer sold. plusOnly = Origin+ members wear it, never sold.
 export const CATALOG = {
   'cape-origin': { name: 'Origin Cape', cents: 599, slot: 'cape', kind: 'cape', onSale: true, plusOnly: false },
+  'cape-plus': { name: 'Origin+ Cape', cents: 0, slot: 'cape', kind: 'cape', onSale: false, plusOnly: true },
   'wings-ember': { name: 'Ember Wings', cents: 999, slot: 'back', kind: 'wings', onSale: true, plusOnly: false },
   'halo-orbit': { name: 'Orbit Halo', cents: 799, slot: 'head', kind: 'halo', onSale: true, plusOnly: false },
   'halo-gold': { name: 'Golden Halo', cents: 599, slot: 'head', kind: 'halo', onSale: true, plusOnly: false },
-  'crown-pixel': { name: 'Pixel Crown', cents: 699, slot: 'head', kind: 'crown', onSale: true, plusOnly: false },
+  'crown-pixel': { name: 'Pixel Crown', cents: 699, slot: 'head', kind: 'crown', onSale: false, plusOnly: false },
 };

@@ -15,6 +15,19 @@
       "capeOffset": 0
     },
     {
+      "id": "cape-plus",
+      "name": "Origin+ Cape",
+      "kind": "cape",
+      "slot": "cape",
+      "cents": 0,
+      "blurb": "Members only. Satin-black cloth, silver trim, the three rings and a stitched plus.",
+      "animated": false,
+      "plusOnly": true,
+      "onSale": false,
+      "hidesCape": false,
+      "capeOffset": 0
+    },
+    {
       "id": "wings-ember",
       "name": "Ember Wings",
       "kind": "wings",
@@ -36,7 +49,7 @@
       "blurb": "A small gold crown with four pearl-tipped points, an engraved scroll band and cut gems. Low enough to see over.",
       "animated": false,
       "plusOnly": false,
-      "onSale": true,
+      "onSale": false,
       "hidesCape": false,
       "capeOffset": 0
     }

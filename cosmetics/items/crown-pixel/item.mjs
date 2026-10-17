@@ -236,7 +236,9 @@ function paintGem(v, f, c, p) {
 }
 
 export default {
-  meta: { id: 'crown-pixel', name: 'Pixel Crown', kind: 'crown', cents: 699, blurb: 'A small gold crown with four pearl-tipped points, an engraved scroll band and cut gems. Low enough to see over.' },
+  // Dropped 2026-10-17: judged 7/10 after 3 tries (Will's rule: under 8 after 3 tries, dump it). Kept so
+  // anyone who bought the round-1 crown still owns and wears it; never sold again.
+  meta: { id: 'crown-pixel', name: 'Pixel Crown', kind: 'crown', cents: 699, onSale: false, blurb: 'A small gold crown with four pearl-tipped points, an engraved scroll band and cut gems. Low enough to see over.' },
   model: { texSize: TEX, scale: S, bones: [{ name: 'crown', pivot: [0, 0, 0], rotation: [0, 0, 0], cubes: modelCubes }] },
   paint() {
     const tex = newTexture({ texSize: TEX, scale: S });

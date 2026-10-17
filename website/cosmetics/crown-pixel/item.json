@@ -7,7 +7,7 @@
   "blurb": "A small gold crown with four pearl-tipped points, an engraved scroll band and cut gems. Low enough to see over.",
   "animated": false,
   "plusOnly": false,
-  "onSale": true,
+  "onSale": false,
   "hidesCape": false,
   "capeOffset": 0,
   "model": {

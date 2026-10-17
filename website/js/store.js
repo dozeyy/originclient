@@ -40,7 +40,6 @@ const PRICE_LIST = [
   { id: 'cape-void', name: 'Void Cape', blurb: 'An ender eye in the dark.', price: 5.99 },
   { id: 'wings-ember', name: 'Ember Wings', blurb: 'Obsidian wings with fire running through the veins.', price: 9.99 },
   { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Three rings orbiting a glowing core, each at its own speed.', price: 7.99 },
-  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'A small gold circlet with a checker band and three glowing gems.', price: 6.99 },
   { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99 },
 ];
 // Items the store shows: the catalog once loaded, else the price list. Each: { id, name, blurb, price, kind, slot, animated }.
