@@ -1,9 +1,177 @@
 # Orbit Launcher — Memory Log
 
 Append-only log of real outcomes, decisions, and root-caused fixes. Not loaded
-every session — read at session start alongside `./CLAUDE.md`.
+every session, and ~350 KB: NEVER read it whole — Grep it for the topic (or read
+just the dated section you need with offset/limit).
 
 ---
+
+## 2026-10-17 — CLAUDE.md current-state + roadmap archive (moved here by Claude Lean)
+
+CLAUDE.md was cut to the rules that matter every session. These two sections moved here
+verbatim as of 2026-10-17; newer state goes in dated entries above this one.
+
+### Current state (2026-10-12)
+- **Latest release: `launcher-v1.0.48`** (2026-10-12; mandatory auto-update; tag flow). Tag `origin/main`
+  directly (`git tag launcher-v1.0.N origin/main`) — Will's local main once carried an unpushed commit and
+  his first v1.0.46 tag landed on it (run cancelled before publishing).
+- **v1.0.49 round (2026-10-12):** friends sign-in v2 — Mojang 403s every Cloudflare Worker request, so
+  clients send their Mojang player certificate + signed profile + a possession signature and the service
+  verifies Mojang's signatures offline (keys from api.minecraftservices.com/publickeys, fetched by GitHub
+  Actions into D1 meta; docs/SOCIAL.md "Identity v2"); cosmetics equip uses the same Bearer token. Multiple
+  game windows (one per account, "Running" focuses it). Home banner: click a tip → next card, text always fits.
+- **Origin social (2026-10-12, branch claude/fervent-feynman-u4xm34, CI-green, untagged — next release):**
+  docs/SOCIAL.md is THE contract. Service: services/cosmetics (social.js/party.js, migration 0002_social.sql;
+  deploys + migrates when main changes). Launcher: status pill left + "<n> playing Origin" pill right (5 min),
+  Friends drawer (chat, party, Join → launches the friend's version straight into their server),
+  Core/Social + Core/Auth/MinecraftSessionBroker; CI screen render `launcher-shots.yml` → claude/dev-shots/launcher.
+  Game, ALL 16 versions: social/ + gui/FriendsScreen (FRIENDS tab, Right Shift group Settings·Waypoints·MODS·
+  Cosmetics·Friends), toasts, party chat `/originpc` (client-only), Party HUD, markers/pings/minimap dots ONLY in
+  LAN worlds (Will: positions banned on all multiplayer servers — social/FairPlay). Free Cloudflare plan by Will's
+  choice: adaptive polling (4/20/30/60 s), friendsEtag, wantState; ~30 all-day players fit. Untested live until
+  merged (service not deployed before that).
+- **Will's 2026-10-12 fix round, ALL 16 versions (branch claude/fervent-feynman-u4xm34, CI-green, untagged
+  — next release):** every Origin window (Cosmetics, FPS Coach, Quickplay, shader browser, Waypoints, Item
+  Size, Item Counter picker, full-screen map) rebuilt on gui/OriginWindow (the mod menu's panel/header/widgets
+  as a base class); see-through menu text readable (OriginDeck.seeThrough: legible() colours + soft halo);
+  Cosmetics: character shown from the title screen (cosmetics/MenuPlayerPreview, per era), drag spins the
+  other way; title + pause Cosmetics buttons identical to their neighbours (1.19.3 pause had none before);
+  icons fixed (Shinypots, Glint Colorizer, TNT Countdown, title Accessibility/Language); Color Saturation
+  black world / white vignette on 1.17.1-1.20.4 fixed (pre-1.20.5 BlendMode cache — see PORTING-ERA-NOTES).
+  Dev shots: `set: world` (OriginDevWorld creates a world: world_off/sat/bright, pause, cosmetics_world) and
+  `label` (parallel runs keep separate folders <module>[-world]-<label>). Awaiting Will's in-game pass.
+- **New mod menu + Right Shift screen on ALL 16 versions (2026-10-12, branch
+  claude/fervent-feynman-u4xm34, merged for v1.0.46):** Will's approved mock (design/menu-redesign
+  v5) built 1:1 on gui/OriginDeck (design-px kit, smooth Inter, click targets recorded while
+  drawing), Will's v3 icon pack (design/icon-proposals/origin-icon-system-v3; generate_icons.py
+  writes every live module). Dev shots of all 16 match 1.21.1 (`[shots:all]` or `[shots:a,b]` in a
+  commit message). Per-era methods in src/mods/docs/PORTING-ERA-NOTES.md; 1.16.5 text = OriginTtfFont.
+  HUD-editor drag mode itself unchanged. Awaiting Will's in-game pass.
+- **Cosmetics + every 1.21.1-only mod on ALL 16 versions (2026-10-12, merged for v1.0.46):**
+  capes/halos/crown + Cosmetics screen and its buttons, Portal Calculator, FPS Coach, the feedback
+  round below, Mod Menu Layout; Color Saturation now on 1.16.5 too. Dev shots match 1.21.1 on all 16;
+  in-world parts await Will's in-game pass. Era findings in PORTING-ERA-NOTES.md. The Cosmetics
+  screen is still the old style everywhere (restyle offered).
+- **Lunar-parity mods on all 16 modules (2026-10-12, CI-green, not yet tagged — v1.0.43):**
+  Lunar's mod set (Minimap, Direction HUD, Ping, Reach, Combo, Crosshair, Cooldowns, Item
+  Physics, Boss Bar, Titles, Menu Blur, Nick Hider, Auto GG, Quickplay, Discord status,
+  Hypixel/Level Head, Team View, WorldEdit CUI, screenshot pop-up, ...) + Hypixel Bed Wars,
+  built on 1.21.1 then ported per era (registerLunarBatch* in each Mods.java). Era stand-ins:
+  own Menu Blur post chain below 1.20.5; Hurt Cam tilt / Shinypots speed / toast time sliders
+  are no-ops below 1.19.4; no Wind Charge counter below 1.21. Mumble Link skipped (Will).
+  Awaiting Will's in-game pass.
+- **Origin originals (2026-10-12, CI-green, untagged):** Portal Calculator + FPS Coach (now on
+  all 16); **Settings Sync** in the launcher (Core/Sync + Core/SettingsSync.cs,
+  off by default, Settings → Origin Client card) carries options.txt, originclient*.json, Sodium/Iris
+  settings and servers.dat across every version's instance — three-way per-key merge, era value
+  translations, resource packs + `version` never synced. Will chose these and said "that's it".
+- **Every live version on the 1.21.1 design (released 2026-10-11, launcher-v1.0.40):** all 16
+  modules ported to the 1.21.1 title screen, menus, widget skin, mod menu and mod set,
+  CI-compiled, awaiting Will's in-game pass. Differences by necessity: no JEI card on
+  1.21.2-1.21.8 / 1.17.1 / 1.16.5 (Will: no substitute). Detail in MEMORY.md;
+  era notes in src/mods/docs/PORTING-ERA-NOTES.md.
+- **Custom installer (2026-10-11):** Inno Setup replaced by Origin Setup —
+  themed Welcome/Customize/Installing/Done + uninstaller, smoke-tested
+  (silent install/uninstall) and screen-rendered on every CI run. Not yet
+  run by hand on a real PC — first shipped in launcher-v1.0.40. **Since
+  launcher-v1.0.41: a ~1 MB setup that DOWNLOADS the newest release's
+  launcher zip while installing** (needs internet; resume, verify, Try-again
+  screen) instead of carrying an 85 MB payload — docs/RELEASING.md → The installer.
+- **In-game fix round (launcher-v1.0.41, 2026-10-11), all 16 modules:** block outline
+  drawn at outline time with its own depth state (no see-through edges after zoom), zoom
+  eases once per frame and never zooms the hand, HUD no longer redrawn over the mod menu,
+  HUD backgrounds default transparent (Keystrokes kept), Time Changer remapped so it works
+  in production + live slider, icon strokes padded for AA, waypoint beam/chunk posts as
+  real geometry. CI-green, awaiting Will's in-game pass.
+- **Source-verified fix round (launcher-v1.0.42, 2026-10-11):** every bug re-traced against
+  decompiled vanilla + the pinned Fabric API per version. Waypoint beam/labels/chunk borders
+  were rotated twice on 1.16.5-1.19.3 (WorldRenderEvents.LAST fires inside vanilla's
+  cloud/weather model-view push) -> identity model-view window in the LAST hook; 1.16.5 zoom
+  left chunks culled by the zoomed frustum -> needsUpdate() as FOV widens; loading screen
+  draws ORIGIN from vanilla ascii.png (fonts aren't baked yet); scoreboard bg fixed on
+  1.20.4-1.21.1 (fills inside drawManaged). Awaiting Will's in-game pass.
+- **Release pipeline rebuilt 2026-10-10:** mod versions build in parallel on
+  Linux (build-check ~2.5 min, release ~5-6 min, was 12-40); real release
+  notes; GitHub labels + PR auto-labels; update download shows a full-screen
+  progress bar; Settings shows the launcher version. Detail in MEMORY.md.
+- **Since v1.0.24 (through v1.0.29):** JEI bundled + toggleable on all 11 Fabric
+  versions that have a Fabric JEI; ThickLine hitboxes + real-item ModIcons
+  propagated to every live version; Weather-changer rewrite + own-nametag fix
+  everywhere; batched-gui tint fix (TV-static backgrounds) on 1.21.4/1.21.5;
+  Add-Microsoft-Account WebView2-dispose fix; CI Gradle cross-release caching;
+  **1.21.1 menu buttons reskinned to the Origin look (v1.0.29).**
+- **No recipe viewer where Fabric JEI doesn't exist (Will, 2026-10-12: "nah it's fine"):**
+  1.16.5, 1.17.1, 1.21.2-1.21.8 keep no JEI card; don't add REI or another substitute.
+- **Video-Settings mod rail REMOVED (Will, 2026-10-12):** he didn't like the mod list on the
+  left of Video Settings; 1.21.1's SodiumOptionsRailMixin + gui/SodiumModRail are deleted and
+  Video Settings is plain Sodium again. Don't port it to other versions.
+- **Will's 2026-10-12 feedback round (now on all 16, untagged):**
+  Item Counter picks any item in the Item Size grid (shared gui/OriginItemGridScreen); Combo
+  gets Players Only + Reset After; Item Physics tumbles about the item centre and eases flat;
+  Minimap is singleplayer-only; Screenshot pop-up replaced by buttons on the chat line
+  (mods/ScreenshotChat); Nick Hider trimmed to your own name/skin + lobby ID. Launcher home
+  banner: preview art (Assets/Promos, from tools/launcher-previews), a "tips" feed slot
+  (Core/Promos/PromoTips), progress-bar rotation. **Icons v2:** Will's 2.2 px set
+  (design/icon-proposals/origin-icon-system-v2, Feather/MIT) now feeds the 1.21.1 atlas
+  (tools/mod-menu/generate_icons.py) and launcher Theme/Icons.xaml. Never ship the pack's
+  lunar-originals PNGs (Lunar's art); Origin redrew those 7 in REDRAWN.
+- **1.16.5 / 1.17.1 / 1.18.2 / 1.19.2 / 1.19.3 / 1.19.4 went LIVE 2026-07-15**
+  (`launcher-v1.0.24`) — Will's order: 1.16.5 and everything above it, skipping
+  the unfinished 1.21.x gaps, Lunar-parity coverage. The pre-`GuiGraphics`
+  PoseStack backend (one `Gfx` wrapper per module); all six boot-verified by
+  Will. 1.19.3 got its OWN jar (hybrid era: 1.19.4 APIs but renderButton
+  widgets/no LogoRenderer/dirt bg — the 1.19.4 jar degrades silently there).
+  Boot testing found what a 100%-green mixin audit could not: Fabric API's mod
+  id is `fabric` (not `fabric-api`) below 1.18 → loader refused to start; and
+  1.16.5's `TitleScreen.render()` opens with a full-screen WHITE fill that
+  vanilla hides behind the panorama → suppressing the panorama exposed it and
+  buried the Origin backdrop. Both fixed; full detail in MEMORY.md.
+- **1.8.9 back, full experience (2026-10-13, branch claude/trusting-shannon-k4vzd2, untagged):**
+  Will chose Forge + OptiFine, straight into the picker, everything at once. Ported from 1.16.5
+  by seven agents (foundation/menus/modmenu/hud/world/social/server; PORT-189.md is the brief +
+  the as-built API); CI-compiled. Launcher: legacy branch rebuilt on per-account game folders +
+  mirrored shared mods, Forge crash blame, Settings Sync translations (LWJGL2 key codes, lang).
+  Hidden on 1.8.9: Cooldowns, Raw Mouse Input, Shader Performance Mode, Bed Wars Colored Beds,
+  Keep Chat History. Awaiting Will's in-game pass through the real launcher (with OptiFine).
+- **1.8.9 + 1.12.2 PULLED 2026-08-06** (Will's call), together with **1.21.5** (1.8.9 returned 2026-10-13).
+  All three are out of `VersionCatalog`, so their entries/cards are gone from
+  the picker entirely, and neither CI workflow builds them nor does the
+  launcher bundle their jars. The legacy pair went live 2026-07-14 on Forge +
+  OptiFine; with them gone the lineup is Fabric-only again and the legacy
+  install path is unreachable (kept, not deleted — see VERSIONS.md).
+- Launcher shipping via tag flow (latest launcher-v1.0.42; auto-update).
+  Auth chain: MSA→Xbox→XSTS confirmed; Minecraft `login_with_xbox` returns 403
+  (leading theory: new-app-registration propagation) — `OfflineTestMode` in
+  Settings→Developer is the test path until resolved.
+- Live Origin builds: 1.21.1 (bundled stack), 1.20/1.20.1, 1.20.4, 1.21 —
+  runClient-verified except 1.21 (at-home confidence check pending).
+- Fabric-only cleanup landed 2026-07-12: loader selector, Forge/OptiFine,
+  Voxy, and PerformanceMode all removed end to end.
+- Crash system v1: `CrashAnalyzer` + `CrashReportWindow` (boot crashes name
+  the culprit mod; Origin-only retry). In-game debug screen still open.
+- 1.21.5, 1.21.8, 1.21.10, 1.21.11 went LIVE 2026-07-13, each a separate
+  sub-family port of the staged 1.21.x rewrite (render-pipeline era rename
+  table in MEMORY.md), all four boot-verified clean through the real launcher.
+  The "one build for the whole 1.21.2–1.21.11 family" assumption was wrong;
+  1.21.2/3/4/6/7/9 still need their own ports (VERSIONS.md has the boundaries).
+
+### Roadmap
+- [x] 1.20 / 1.20.1, 1.20.4, 1.21.1 — full Origin experience, verified.
+- [x] 1.21 — wired live; runClient at home is the remaining confidence check.
+- [x] 1.21.8, 1.21.10, 1.21.11 — live, each its own sub-family port,
+  boot-verified (`src/mods/versions/{1.21.8,1.21.11}`).
+- [x] 1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.19.3, 1.19.4 — the pre-1.20 PoseStack
+  backend, live + boot-verified 2026-07-15 (`launcher-v1.0.24`).
+- [x] 1.21.5, 1.12.2 — PULLED from the lineup 2026-08-06 (Will's call);
+  modules kept on disk, out of the picker and out of CI.
+- [~] 1.8.9 — back on Forge + OptiFine with the full experience (2026-10-13);
+  CI-green, awaiting Will's in-game pass.
+- [ ] 1.21.9 — pulled (input-event boundary + fabric-API gap); analysis in memory.
+- [ ] 1.18.1 — blocked on a stable Sodium/Iris pair (alpha/pre-release only today).
+- [~] 26.2 — staged, render layer mid-port (`src/mods/staged/26.2/PORT-262.md`).
+- [x] Crash system v1 — boot-crash blame + Origin-only retry.
+- [ ] Crash system v2 — in-game Origin debug screen, log-cause detection.
+- [ ] Light theme (Deskify inverse tokens).
 
 
 ## 2026-10-12 — v1.0.47 released; menu polish; Origin social (friends/chat/parties) everywhere
