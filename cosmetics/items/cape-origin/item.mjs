@@ -18,7 +18,7 @@ const FX = x => 2 * MX - 1 - x, FY = y => 2 * MY - 1 - y;   // mirror a pixel co
 
 // 5-step cloth: lit ridge (4) -> dark valley (0). Near-neutral, a hair cool in shadow, low contrast.
 const cloth = ramp('#363940', 5, { lo: 0.075, hi: 0.3, tint: 0.025, shadowHue: 232, lightHue: 215, shift: 0.3 });
-const BODY = '#e0e0e0', EDGE = '#bcbcbc';              // thread: #E0E0E0 body, a softer inner edge pixel
+const BODY = '#e0e0e0', EDGE = '#cfcfcf';              // thread: #E0E0E0 body, a softer inner edge pixel
 const OUTLINE = cloth[0];
 
 // ---------------------------------------------------------------- cloth folds
@@ -39,7 +39,7 @@ function clothLevel(x, y) {
   let t = 0.28 + prof * 0.5 + (0.5 - y / H) * 0.14;      // brighter near the collar, darker toward the hem
   t -= 0.12 * smoothstep(0.4, 1.1, Math.hypot((x - 40) / 46, (y - 64) / 80));   // soft vignette
   t -= 0.07 * behind;
-  return clamp(Math.floor(clamp(t) * cloth.length), 0, cloth.length - 1);
+  return clamp(Math.floor(clamp(t) * cloth.length), 1, cloth.length - 1);   // level 0 is kept for outlines and seams
 }
 
 // ---------------------------------------------------------------- the mark
@@ -152,7 +152,7 @@ export default {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) c.set(x, y, cloth[clothLevel(x, y)]);
 
     // ------- collar: darker gathered band under a seam
-    for (let y = 1; y < 7; y++) for (let x = 0; x < W; x++) c.set(x, y, cloth[clamp(clothLevel(x, y) - 1, 0, 3)]);
+    for (let y = 1; y < 7; y++) for (let x = 0; x < W; x++) c.set(x, y, cloth[clamp(clothLevel(x, y) - 1, 1, 2)]);
     for (let x = 0; x < W; x++) { c.set(x, 7, cloth[0]); c.set(x, 8, ((x >> 1) & 1) ? cloth[3] : cloth[2]); }   // seam + stitch row
 
     // ------- hem: one fold-over with a single stitched line
