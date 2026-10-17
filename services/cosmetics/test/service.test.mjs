@@ -331,6 +331,12 @@ test('origin+ webhook: a member once paid, through renewals, until it ends; out-
   assert.equal((await me()).plus, false);
 });
 
+test('origin+ webhook: "paid" and "created" stamped the same second, in either order, leave a member', async () => {
+  await subEvent('customer.subscription.updated', sub('active'), 200);
+  await subEvent('customer.subscription.created', sub('incomplete'), 200);
+  assert.equal((await me()).plus, true);
+});
+
 test('origin+ webhook: perks stop a little after an unrenewed period; other products, non-testers and old API shapes', async () => {
   await subEvent('customer.subscription.created', sub('active', { periodEnd: nowS() - 3 * DAY }));
   assert.equal((await me()).plus, false);                                    // past the 2-day grace

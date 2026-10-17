@@ -296,6 +296,10 @@ async function revoke(env, paymentIntent) {
 // A membership started, renewed, changed or ended. Rows are only ever updated
 // by a NEWER event, so Stripe sending events out of order can't bring an old
 // status back, and an ended membership stays ended (Stripe never revives one).
+// Events stamped the same second (created + paid often are) can't go back to
+// `incomplete`, the only status a membership never returns to.
+// A failed renewal still moves period_end on (Stripe starts the new period when
+// it bills it), so past_due members keep their perks while the card is retried.
 async function plusChanged(env, sub, livemode, eventAt) {
   const uuid = normUuid(sub.metadata?.uuid);
   const item = sub.items?.data?.[0];
@@ -312,7 +316,8 @@ async function plusChanged(env, sub, livemode, eventAt) {
   const periodEnd = Number(item?.current_period_end ?? sub.current_period_end) || 0;
   await env.DB.prepare(`INSERT INTO plus (subscription, uuid, name, customer, status, period_end, event_at) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (subscription) DO UPDATE SET status = excluded.status, period_end = excluded.period_end, event_at = excluded.event_at
-    WHERE excluded.event_at >= plus.event_at AND plus.status NOT IN ('canceled', 'incomplete_expired')`)
+    WHERE plus.status NOT IN ('canceled', 'incomplete_expired') AND (excluded.event_at > plus.event_at
+      OR (excluded.event_at = plus.event_at AND NOT (excluded.status = 'incomplete' AND plus.status != 'incomplete')))`)
     .bind(sub.id, uuid, String(sub.metadata?.name || ''), String(sub.customer || ''), String(sub.status), periodEnd, Number(eventAt) || 0).run();
   // Two checkouts finished for the same player: they're paying twice for one membership.
   const live = await env.DB.prepare(`SELECT subscription FROM plus WHERE uuid = ? AND ${memberSql}`).bind(uuid, Date.now()).all();
