@@ -80,8 +80,8 @@ b { font-weight: 600; }
       <h2>Activate your Stripe account</h2><p class="where">So Stripe can take real money and pay you</p></div></div>
     <a class="open" href="https://dashboard.stripe.com/" target="_blank" rel="noopener">Open Stripe ↗</a>
     <ol>
-      <li>Tap the <b>Activate payments</b> (or <b>Complete your profile</b>) banner.</li>
-      <li>Fill in your details, ID and the bank account for payouts. The account holder has to be 18+; if you're not, a parent or guardian sets it up in their name.</li>
+      <li><b>No banner?</b> Your account may already be active. Check two pages with the buttons below: <b>Business details</b> should show your name and address, and <b>Payouts</b> should show a bank account. If both are filled in, skip to step 2. If Stripe still needs something, it shows a red <b>Action required</b> or <b>Complete your profile</b> on the Home page or in the bell menu.</li>
+      <li>If something's missing, fill in your details, ID and the bank account for payouts. The account holder has to be 18+; if you're not, a parent or guardian sets it up in their name.</li>
       <li>When it asks about your business, paste these:</li>
     </ol>
     <div class="copies">
@@ -89,7 +89,9 @@ b { font-weight: 600; }
       <button class="copy" type="button"><code>Cosmetic items (capes and hats) and an optional Origin+ membership for the Origin Minecraft client. Looks only, no gameplay advantage.</code><span>Copy</span></button>
       <button class="copy" type="button"><code>ORIGIN CLIENT</code><span>Copy</span></button>
     </div>
-    <p class="note">The last one is what shows on buyers' bank statements.</p>
+    <a class="open" href="https://dashboard.stripe.com/settings/account" target="_blank" rel="noopener">Open Business details ↗</a>
+    <a class="open" href="https://dashboard.stripe.com/settings/payouts" target="_blank" rel="noopener">Open Payouts ↗</a>
+    <p class="note">The last copy line is what shows on buyers' bank statements. Final check: in step 6, if Stripe lets you make a key starting <code>rk_live_</code>, the account is active.</p>
   </section>
 
   <section class="step" data-step="2">
