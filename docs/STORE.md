@@ -79,9 +79,11 @@ The account holder must be an adult (ID + bank account for payouts).
 1. **Account:** sign up at stripe.com and finish activation. Business website
    `https://originclient.org`; what you sell: "Cosmetic items (capes and hats)
    for the Origin Minecraft client. Looks only, no gameplay advantage."
-2. **Stripe Tax:** Dashboard → Tax → set it up: your address, default product
-   tax code for digital goods / video game items, prices **exclusive** of tax
-   (tax added on top). Add registrations where Stripe's monitoring says you
+2. **Stripe Tax:** Dashboard → Tax → set it up: your business address (the
+   one thing it was missing on 2026-10-17). Prices are already **exclusive**
+   of tax (tax added on top), and the service puts the tax category on every
+   item itself (`txcd_10201000`, video game items kept for good), so the
+   dashboard's default category doesn't matter. Add registrations where Stripe's monitoring says you
    need them. The service sends `automatic_tax` on every checkout, so checkout
    fails ("Checkout isn't available right now") until Stripe Tax is on.
 3. **Receipts:** Settings → Customer emails → turn on **Successful payments**
@@ -102,6 +104,18 @@ The account holder must be an adult (ID + bank account for payouts).
 8. Buy the cheapest item for your own name, see it in game, refund it from the
    Stripe dashboard (Payments → the payment → Refund), see it disappear.
    Then close the Tebex webstore.
+
+### Testing first (Will, 2026-10-17)
+
+Do steps 2–6 on a Stripe **sandbox / test mode** first (keys start `rk_test_`,
+secrets `whsec_` from the test webhook). While the service holds a test key,
+only the Minecraft UUIDs in `STRIPE_TEST_PLAYERS` (services/cosmetics/
+wrangler.toml, comma-separated, not secret) can check out or be granted
+anything, so Stripe's fake cards can't hand out real cosmetics. Open
+`originclient.org/store.html?checkout=test` (opens checkout while `STORE.live`
+is off), pay with `4242 4242 4242 4242` (any future date, any CVC), see the
+item in game, refund it in the Stripe dashboard, see it go. Then swap both
+Cloudflare secrets for the live ones and carry on from step 7.
 
 ## Delivery service setup (Will, one time)
 

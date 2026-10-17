@@ -14,6 +14,11 @@
 //   STRIPE_SECRET_KEY      creates Checkout pages (a restricted key with
 //                          Checkout Sessions: Write is enough)
 //   STRIPE_WEBHOOK_SECRET  proves a webhook call really came from Stripe (whsec_...)
+// Var (wrangler.toml, not secret):
+//   STRIPE_TEST_PLAYERS    while the key is a TEST key (sk_test_/rk_test_), only
+//                          these Minecraft UUIDs may check out or be granted
+//                          anything, so Stripe's fake test cards can never hand
+//                          out real cosmetics (Will, 2026-10-17: test first)
 import { json, fail, normUuid, slotOf, NAME_RE } from './common.js';
 
 const STRIPE = 'https://api.stripe.com/v1';
@@ -22,6 +27,10 @@ const CURRENCY = 'usd';
 // Will, 2026-10-17: Stripe Tax works out the right tax for each buyer and adds
 // it on top of the list price at checkout (needs Stripe Tax switched on).
 const AUTOMATIC_TAX = true;
+// Stripe's tax category for every item: "Video Games - downloaded - non
+// subscription - with permanent rights", the closest fit for in-game items
+// that are kept for good. Set here so the dashboard default doesn't matter.
+const TAX_CODE = 'txcd_10201000';
 const SIGNATURE_TOLERANCE_S = 300;   // Stripe's own default for webhook replays
 
 // THE price list: what Stripe charges. The store page loads it, so what's
@@ -41,6 +50,9 @@ export const CATALOG = {
   'crown-pixel':   { name: 'Pixel Crown',      cents: 699 },
   'halo-gold':     { name: 'Golden Halo',      cents: 599 },
 };
+
+const testKey = env => /^(sk|rk)_test_/.test(env.STRIPE_SECRET_KEY || '');
+const testers = env => new Set(String(env.STRIPE_TEST_PLAYERS || '').split(',').map(normUuid).filter(Boolean));
 
 export function catalog(env) {
   const items = {};
@@ -64,6 +76,7 @@ export async function checkout(env, body) {
   const name = String(body?.name ?? '');
   const ids = Array.isArray(body?.items) ? [...new Set(body.items)] : [];
   if (!uuid || !NAME_RE.test(name)) return fail(400, 'Type the Minecraft name these are for.');
+  if (testKey(env) && !testers(env).has(uuid)) return fail(403, 'The store is being tested right now. Please check back soon.');
   if (!ids.length || ids.some(id => !CATALOG[id])) return fail(400, 'Something in your bag isn’t on sale. Remove it and try again.');
 
   // Paying twice for the same cosmetic gets nothing new, so stop it here.
@@ -90,7 +103,7 @@ export async function checkout(env, body) {
           currency: CURRENCY,
           unit_amount: CATALOG[id].cents,
           tax_behavior: 'exclusive',
-          product_data: { name: CATALOG[id].name, description: `For ${name} in Origin Client` },
+          product_data: { name: CATALOG[id].name, description: `For ${name} in Origin Client`, tax_code: TAX_CODE },
         },
       })),
       metadata: meta,
@@ -123,12 +136,16 @@ export async function verifySignature(secret, header, raw, nowMs = Date.now()) {
   return sigs.some(s => s.length === want.length && [...s].reduce((d, c, i) => d | (c.charCodeAt(0) ^ want.charCodeAt(i)), 0) === 0);
 }
 
-async function grant(env, session) {
+async function grant(env, session, livemode) {
   const uuid = normUuid(session.metadata?.uuid);
   const ids = String(session.metadata?.items || '').split(',').filter(id => CATALOG[id]);
   if (!uuid || !ids.length) {
     // Not one of ours (another Stripe product) or damaged metadata: say so loudly, keep nothing.
     console.error('origin-cosmetics: paid session without Origin metadata', session.id);
+    return;
+  }
+  if (!livemode && !testers(env).has(uuid)) {
+    console.warn('origin-cosmetics: test payment for a player not in STRIPE_TEST_PLAYERS ignored', session.id);
     return;
   }
   const payment = String(session.payment_intent || session.id);
@@ -174,10 +191,10 @@ export async function webhook(request, env) {
   switch (event.type) {
     // Cards and wallets are paid on completion; slower methods report later.
     case 'checkout.session.completed':
-      if (obj.payment_status === 'paid') await grant(env, obj);
+      if (obj.payment_status === 'paid') await grant(env, obj, event.livemode);
       break;
     case 'checkout.session.async_payment_succeeded':
-      await grant(env, obj);
+      await grant(env, obj, event.livemode);
       break;
     // Only a FULL refund takes items back; a partial refund is a manual call.
     case 'charge.refunded':

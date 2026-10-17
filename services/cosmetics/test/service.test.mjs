@@ -30,7 +30,7 @@ function fakeFetch() {
 }
 
 beforeEach(() => {
-  env = { DB: d1(), STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: WHSEC };
+  env = { DB: d1(), STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: WHSEC, STRIPE_TEST_PLAYERS: DASHED };
   seedKeys(env);
   calls = [];
   routes = [];
@@ -91,6 +91,7 @@ test('checkout: makes a Stripe Checkout with our prices, the player on it, and t
   assert.equal(calls[0].headers.Authorization, 'Bearer sk_test_x');
   assert.equal(sent.get('mode'), 'payment');
   assert.equal(sent.get('automatic_tax[enabled]'), 'true');
+  assert.equal(sent.get('line_items[0][price_data][product_data][tax_code]'), 'txcd_10201000');
   assert.equal(sent.get('line_items[0][price_data][unit_amount]'), '999');      // the server's price, never the page's
   assert.equal(sent.get('line_items[1][price_data][product_data][name]'), 'Golden Halo');
   assert.equal(sent.get('line_items[2][quantity]'), null);                       // duplicate in the bag dropped
@@ -119,6 +120,23 @@ test('checkout: refuses bad input, things already owned, and a closed store; Str
   delete env.STRIPE_SECRET_KEY;
   assert.equal((await api('POST', '/v1/store/checkout', { uuid: UUID, name: 'Will', items: ['cape-orbit'] })).status, 503);
   assert.equal(calls.length, 1);   // only the one Stripe call above
+});
+
+test('test mode: only listed testers can check out or be given anything; a live key sells to everyone', async () => {
+  const OTHER = 'f'.repeat(32);
+  routes.push(['https://api.stripe.com/v1/checkout/sessions', { body: { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' } }]);
+  const buy = uuid => api('POST', '/v1/store/checkout', { uuid, name: 'Alex', items: ['halo-gold'] });
+  assert.equal((await buy(OTHER)).status, 403);
+  assert.equal((await buy(UUID)).status, 200);
+  await paid(['halo-gold'], 'pi_t', OTHER);
+  assert.deepEqual((await (await api('GET', `/v1/players/${OTHER}`)).json()).owned, []);
+
+  env.STRIPE_SECRET_KEY = 'rk_live_x';
+  assert.equal((await buy(OTHER)).status, 200);
+  const raw = JSON.stringify({ id: 'evt_2', type: 'checkout.session.completed', livemode: true,
+    data: { object: { id: 'cs_2', payment_status: 'paid', payment_intent: 'pi_l', metadata: { uuid: OTHER, items: 'halo-gold' } } } });
+  await handle(new Request('https://svc.test/v1/stripe/webhook', { method: 'POST', headers: { 'Stripe-Signature': sign(raw) }, body: raw }), env);
+  assert.deepEqual((await (await api('GET', `/v1/players/${OTHER}`)).json()).owned, ['halo-gold']);
 });
 
 test('webhook: a paid checkout gives the items once, however often Stripe repeats it', async () => {

@@ -12,9 +12,11 @@ import { createFittingRoom, createThumbnailer, loadSkin, flatArt, kindOf, isAnim
 // THE ONE SWITCH. While `live` is false the store is a showroom: everything
 // can be browsed, tried on and bagged, but Checkout says "Soon" and the
 // service is never asked for prices or a checkout. Turn it on only once the
-// Stripe keys are in the service (docs/STORE.md).
+// Stripe keys are in the service (docs/STORE.md). For testing before then,
+// store.html?checkout=test opens checkout (while the service holds a Stripe
+// TEST key, only the testers it lists can buy).
 const STORE = {
-  live: false,
+  live: false || new URLSearchParams(location.search).get('checkout') === 'test',
   // Where the cosmetics service lives; the same pointer file the mod reads.
   service: 'cosmetics/service.json',
 };

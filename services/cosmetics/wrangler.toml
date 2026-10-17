@@ -15,3 +15,8 @@ database_name = "origin-cosmetics"
 # Will's D1 database (Cloudflare -> Storage & Databases -> D1), created 2026-10-12.
 database_id = "4f1a0bc1-cdc3-48c9-bd86-e628f03ccb8d"
 migrations_dir = "migrations"
+
+# Not secret. While the Stripe key is a TEST key, only these Minecraft UUIDs
+# (comma-separated) can buy, so fake test cards never hand out real cosmetics.
+[vars]
+STRIPE_TEST_PLAYERS = ""
