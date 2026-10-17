@@ -25,6 +25,7 @@
 //                          separated Minecraft names or UUIDs; a name is checked
 //                          against Mojang at checkout, so nobody can borrow it.
 import { json, fail, normUuid, slotOf, NAME_RE } from './common.js';
+import { CATALOG } from './catalog.gen.js';
 
 const STRIPE = 'https://api.stripe.com/v1';
 const STORE_PAGE = 'https://originclient.org/store.html';
@@ -38,23 +39,11 @@ const AUTOMATIC_TAX = true;
 const TAX_CODE = 'txcd_10201000';
 const SIGNATURE_TOLERANCE_S = 300;   // Stripe's own default for webhook replays
 
-// THE price list: what Stripe charges. The store page loads it, so what's
-// shown is what's charged. Ids are the contract with website/js/store.js ITEMS,
-// website/js/cosmetics.js and the mod. Every price $5-$10 (Will, 2026-10-12).
-export const CATALOG = {
-  'cape-orbit':    { name: 'Orbit Cape',       cents: 999 },
-  'cape-glitch':   { name: 'Glitch Cape',      cents: 999 },
-  'cape-inferno':  { name: 'Inferno Cape',     cents: 899 },
-  'cape-aurora':   { name: 'Aurora Cape',      cents: 899 },
-  'cape-starfall': { name: 'Starfall Cape',    cents: 899 },
-  'cape-origin':   { name: 'Origin Cape',      cents: 599 },
-  'cape-golden':   { name: 'Golden Hour Cape', cents: 599 },
-  'cape-frost':    { name: 'Frost Cape',       cents: 599 },
-  'cape-void':     { name: 'Void Cape',        cents: 599 },
-  'halo-orbit':    { name: 'Orbit Halo',       cents: 799 },
-  'crown-pixel':   { name: 'Pixel Crown',      cents: 699 },
-  'halo-gold':     { name: 'Golden Halo',      cents: 599 },
-};
+// THE price list lives in catalog.gen.js, generated from cosmetics/items/*
+// (cosmetics/FORMAT.md). Every price $5-$10 (Will, 2026-10-12). SALE = what can
+// be bought: on sale and not members-only.
+export { CATALOG };
+export const forSale = id => Object.hasOwn(CATALOG, id) && CATALOG[id].onSale && !CATALOG[id].plusOnly;
 
 // ------------------------------------------------------------------ Origin+
 // Will, 2026-10-17. Every perk is cosmetic, never a gameplay advantage:
@@ -119,7 +108,7 @@ const isTester = (env, uuid, name) => testUuids(env).has(uuid) || testNames(env)
 
 export function catalog(env) {
   const items = {};
-  for (const [id, c] of Object.entries(CATALOG)) items[id] = { name: c.name, price: c.cents / 100, memberPrice: memberCents(c.cents) / 100 };
+  for (const [id, c] of Object.entries(CATALOG)) if (forSale(id)) items[id] = { name: c.name, price: c.cents / 100, memberPrice: memberCents(c.cents) / 100 };
   const plus = { month: PLUS.month.cents / 100, year: PLUS.year.cents / 100, percentOff: MEMBER_PERCENT_OFF, manageUrl: PLUS_MANAGE_URL };
   return json({ currency: CURRENCY.toUpperCase(), open: !!env.STRIPE_SECRET_KEY, taxAdded: AUTOMATIC_TAX, items, plus });
 }
@@ -164,7 +153,7 @@ export async function checkout(env, body) {
   const ids = Array.isArray(body?.items) ? [...new Set(body.items)] : [];
   if (!uuid || !NAME_RE.test(name)) return fail(400, 'Type the Minecraft name these are for.');
   if (testKey(env) && !(await mayTest(env, uuid, name))) return fail(403, 'The store is being tested right now. Please check back soon.');
-  if (!ids.length || ids.some(id => !CATALOG[id])) return fail(400, 'Something in your bag isn’t on sale. Remove it and try again.');
+  if (!ids.length || ids.some(id => !forSale(id))) return fail(400, 'Something in your bag isn’t on sale. Remove it and try again.');
 
   // Paying twice for the same cosmetic gets nothing new, so stop it here.
   const owned = new Set((await env.DB.prepare('SELECT item FROM owned WHERE uuid = ?').bind(uuid).all()).results.map(r => r.item));

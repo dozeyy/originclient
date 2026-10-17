@@ -6,9 +6,12 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { handle, slotOf } from '../src/index.js';
-import { CATALOG, PLUS_MANAGE_URL, verifySignature } from '../src/stripe.js';
+import { CATALOG, PLUS_MANAGE_URL, forSale, verifySignature } from '../src/stripe.js';
 import { d1 } from './d1.mjs';   // D1 stand-in with every migration applied
 import { authBody, seedKeys } from './mojang.mjs';
+
+// What a player wears with nothing on, slot by slot (cosmetics/FORMAT.md).
+const BARE = { cape: null, head: null, face: null, back: null, theme: null };
 
 const UUID = '069a79f444e94726a5befca90e38aaf5';
 const DASHED = '069a79f4-44e9-4726-a5be-fca90e38aaf5';
@@ -68,7 +71,8 @@ test('catalog: the store page sells exactly what the service charges for, at the
   const page = readFileSync(new URL('../../../website/js/store.js', import.meta.url), 'utf8');
   const items = [...page.matchAll(/\{ id: '([a-z0-9-]+)', name: '([^']+)',.*?price: ([\d.]+) \}/g)]
     .map(([, id, name, price]) => [id, { name, cents: Math.round(Number(price) * 100) }]);
-  assert.deepEqual(Object.fromEntries(items), CATALOG);
+  const sold = Object.entries(CATALOG).filter(([id]) => forSale(id)).map(([id, c]) => [id, { name: c.name, cents: c.cents }]);
+  assert.deepEqual(Object.fromEntries(items), Object.fromEntries(sold));
 });
 
 test('catalog: every item and its price, and whether checkout is open', async () => {
@@ -197,7 +201,7 @@ test('refunds and chargebacks take that payment\'s items back and off; partial r
   await stripeEvent('charge.refunded', { id: 'ch_a', payment_intent: 'pi_a', refunded: true });
   const view = await (await api('GET', `/v1/players/${UUID}`)).json();
   assert.deepEqual(view.owned, ['cape-void']);
-  assert.deepEqual(view.equipped, { cape: null, head: null });
+  assert.deepEqual(view.equipped, BARE);
 
   await stripeEvent('charge.dispute.created', { id: 'dp_1', payment_intent: 'pi_b' });
   assert.deepEqual(await ownedNow(), []);
@@ -234,11 +238,22 @@ test('equip: wear owned items, signed in with an Origin token', async () => {
   const token = await signIn();
   const r = await api('POST', '/v1/equip', { cape: 'cape-orbit', head: 'halo-gold' }, token);
   assert.equal(r.status, 200);
-  assert.deepEqual((await r.json()).equipped, { cape: 'cape-orbit', head: 'halo-gold' });
+  assert.deepEqual((await r.json()).equipped, { ...BARE, cape: 'cape-orbit', head: 'halo-gold' });
 
   const batch = await (await api('POST', '/v1/players/equipped', { uuids: [DASHED, 'not-a-uuid', 'f'.repeat(32)] })).json();
-  assert.deepEqual(batch.players, { [UUID]: { cape: 'cape-orbit', head: 'halo-gold', plus: false } });
+  assert.deepEqual(batch.players, { [UUID]: { ...BARE, cape: 'cape-orbit', head: 'halo-gold', plus: false } });
   assert.equal(calls.length, 0);   // nothing asked of Mojang (or anyone)
+});
+
+test('equip: a slot the request leaves out stays on (older mods only know some slots); null takes it off', async () => {
+  await own('cape-orbit', 'halo-gold');
+  const token = await signIn();
+  const wear = async body => (await (await api('POST', '/v1/equip', body, token)).json()).equipped;
+  assert.deepEqual(await wear({ cape: 'cape-orbit' }), { ...BARE, cape: 'cape-orbit' });
+  assert.deepEqual(await wear({ head: 'halo-gold' }), { ...BARE, cape: 'cape-orbit', head: 'halo-gold' });
+  assert.deepEqual(await wear({ cape: null }), { ...BARE, head: 'halo-gold' });
+  assert.equal((await api('POST', '/v1/equip', { back: 'cape-orbit' }, token)).status, 403);   // a cape isn't worn on the back
+  assert.deepEqual(await wear({}), { ...BARE, head: 'halo-gold' });
 });
 
 test('equip: refuses items you do not own, wrong slots, missing/bad tokens and old mods', async () => {
@@ -375,22 +390,22 @@ test('origin+ cape and badge: members wear the cape and show up for their badge;
   const token = await signIn();
   let r = await api('POST', '/v1/equip', { cape: 'cape-plus', head: null }, token);
   assert.equal(r.status, 200);
-  assert.deepEqual((await r.json()).equipped, { cape: 'cape-plus', head: null });
+  assert.deepEqual((await r.json()).equipped, { ...BARE, cape: 'cape-plus' });
   const other = 'c'.repeat(32);
   env.STRIPE_TEST_PLAYERS += `,${other}`;
   await subEvent('customer.subscription.created', sub('active', { id: 'sub_3', uuid: other }));   // a member wearing nothing
   let batch = await (await api('POST', '/v1/players/equipped', { uuids: [UUID, other] })).json();
   assert.deepEqual(batch.players, {
-    [UUID]: { cape: 'cape-plus', head: null, plus: true },
-    [other]: { cape: null, head: null, plus: true },
+    [UUID]: { ...BARE, cape: 'cape-plus', plus: true },
+    [other]: { ...BARE, plus: true },
   });
 
   await subEvent('customer.subscription.deleted', sub('canceled'), 101);
   batch = await (await api('POST', '/v1/players/equipped', { uuids: [UUID] })).json();
   assert.deepEqual(batch.players, {});                                       // no cape shown, no badge
-  assert.deepEqual((await me()).equipped, { cape: null, head: null });
+  assert.deepEqual((await me()).equipped, BARE);
   assert.equal((await api('POST', '/v1/equip', { cape: 'cape-plus', head: null }, token)).status, 403);
   // Joining again brings the saved cape straight back.
   await subEvent('customer.subscription.created', sub('active', { id: 'sub_4' }));
-  assert.deepEqual((await me()).equipped, { cape: 'cape-plus', head: null });
+  assert.deepEqual((await me()).equipped, { ...BARE, cape: 'cape-plus' });
 });

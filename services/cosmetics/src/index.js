@@ -24,7 +24,8 @@
 //   STRIPE_SECRET_KEY      creates Checkout pages
 //   STRIPE_WEBHOOK_SECRET  checks that webhook calls really come from Stripe
 
-import { CORS, json, fail, normUuid, slotOf } from './common.js';
+import { CORS, json, fail, normUuid, slotOf, SLOTS } from './common.js';
+import { CATALOG } from './catalog.gen.js';
 import { handleSocial, socialCleanup, presenceSweep, session } from './social.js';
 import { keysDiag } from './mojang.js';
 import { catalog, checkout, plusCheckout, webhook, isMember, membersAmong, PLUS_CAPE } from './stripe.js';
@@ -34,21 +35,23 @@ export { normUuid, slotOf };
 const MAX_BATCH = 100;                   // players per /equipped lookup
 
 // --------------------------------------------------------------------- API
-// Origin+ members also own the members-only cape (never sold) while they're
-// members. It stays saved as worn when a membership ends, but nobody sees it
-// until they're a member again (looks()).
+// Origin+ members also own the members-only items (the cape; never sold)
+// while they're members. They stay saved as worn when a membership ends, but
+// nobody sees them until they're a member again (looks()).
+const PLUS_ITEMS = [...new Set([PLUS_CAPE, ...Object.keys(CATALOG).filter(id => CATALOG[id].plusOnly)])];
 async function ownedBy(env, uuid, member) {
   const rows = (await env.DB.prepare('SELECT item FROM owned WHERE uuid = ? ORDER BY at').bind(uuid).all()).results.map(r => r.item);
-  return member ? [...rows, PLUS_CAPE] : rows;
+  return member ? [...rows, ...PLUS_ITEMS.filter(id => !rows.includes(id))] : rows;
 }
-const looks = (row, member) => ({
-  cape: row?.cape && (member || row.cape !== PLUS_CAPE) ? row.cape : null,
-  head: row?.head ?? null,
-});
+const looks = (row, member) => Object.fromEntries(SLOTS.map(slot => {
+  const item = row?.[slot] ?? null;
+  return [slot, item && (member || !PLUS_ITEMS.includes(item)) ? item : null];
+}));
+const COLS = SLOTS.join(', ');
 
 async function playerView(env, uuid) {
   const member = await isMember(env, uuid);
-  const eq = await env.DB.prepare('SELECT cape, head FROM equipped WHERE uuid = ?').bind(uuid).first();
+  const eq = await env.DB.prepare(`SELECT ${COLS} FROM equipped WHERE uuid = ?`).bind(uuid).first();
   return { uuid, owned: await ownedBy(env, uuid, member), equipped: looks(eq, member), plus: member };
 }
 
@@ -56,15 +59,15 @@ async function equippedBatch(env, body) {
   const uuids = [...new Set((Array.isArray(body?.uuids) ? body.uuids : []).map(normUuid).filter(Boolean))].slice(0, MAX_BATCH);
   const out = {};
   if (!uuids.length) return json({ players: out });
-  const rows = await env.DB.prepare(`SELECT uuid, cape, head FROM equipped WHERE uuid IN (${uuids.map(() => '?').join(',')})`)
+  const rows = await env.DB.prepare(`SELECT uuid, ${COLS} FROM equipped WHERE uuid IN (${uuids.map(() => '?').join(',')})`)
     .bind(...uuids).all();
   const members = await membersAmong(env, uuids);
   // Members are listed even wearing nothing, so the game can show their Origin+ badge.
   for (const r of rows.results) {
     const look = looks(r, members.has(r.uuid));
-    if (look.cape || look.head) out[r.uuid] = { ...look, plus: members.has(r.uuid) };
+    if (SLOTS.some(slot => look[slot])) out[r.uuid] = { ...look, plus: members.has(r.uuid) };
   }
-  for (const u of members) out[u] ??= { cape: null, head: null, plus: true };
+  for (const u of members) out[u] ??= { ...looks(null, true), plus: true };
   return json({ players: out });
 }
 
@@ -80,14 +83,19 @@ async function equip(request, env, body, now = Date.now()) {
   const uuid = me.uuid;
 
   const owned = new Set(await ownedBy(env, uuid, await isMember(env, uuid)));
+  // A slot the request leaves out stays as it is (a mod from before a slot
+  // existed must not take it off); null takes it off.
+  const worn = await env.DB.prepare(`SELECT ${COLS} FROM equipped WHERE uuid = ?`).bind(uuid).first();
   const want = {};
-  for (const slot of ['cape', 'head']) {
-    const item = body[slot] ?? null;
-    if (item !== null && (slotOf(item) !== slot || !owned.has(item))) return fail(403, `you don't own ${item}`);
+  for (const slot of SLOTS) {
+    const item = Object.hasOwn(body, slot) ? body[slot] ?? null : worn?.[slot] ?? null;
+    if (Object.hasOwn(body, slot) && item !== null && (slotOf(item) !== slot || !owned.has(item))) {
+      return fail(403, `you don't own ${item}`);
+    }
     want[slot] = item;
   }
-  await env.DB.prepare('INSERT OR REPLACE INTO equipped (uuid, cape, head, at) VALUES (?, ?, ?, ?)')
-    .bind(uuid, want.cape, want.head, now).run();
+  await env.DB.prepare(`INSERT OR REPLACE INTO equipped (uuid, ${COLS}, at) VALUES (?, ${SLOTS.map(() => '?').join(', ')}, ?)`)
+    .bind(uuid, ...SLOTS.map(slot => want[slot]), now).run();
   return json(await playerView(env, uuid));
 }
 
