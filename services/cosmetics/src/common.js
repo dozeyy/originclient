@@ -21,3 +21,11 @@ export function normUuid(raw) {
 }
 
 export const NAME_RE = /^[A-Za-z0-9_]{1,16}$/;
+
+// Which slot an item id wears in. The id is the contract shared with the
+// store (website/js/store.js ITEMS, stripe.js CATALOG) and the mod.
+export function slotOf(item) {
+  if (/^cape-[a-z0-9-]+$/.test(item)) return 'cape';
+  if (/^(halo|crown|hat)-[a-z0-9-]+$/.test(item)) return 'head';
+  return null;
+}

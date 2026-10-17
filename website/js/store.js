@@ -1,43 +1,43 @@
-// Origin Store: pick cosmetics, type a Minecraft name, pay through Tebex.
+// Origin Store: pick cosmetics, type a Minecraft name, pay through Stripe.
 //
-// This file owns WHAT is for sale and the checkout; cosmetics.js owns how each
-// item looks (same ids). Payment, tax, receipts and refunds are Tebex's job:
-// the page builds a Tebex basket with the typed Minecraft name on it, adds the
-// packages and sends the player to Tebex's own checkout page. The name rides
-// on the order, so the purchase belongs to that player. Setup: docs/STORE.md.
+// This file owns the shop window and the bag; cosmetics.js owns how each item
+// looks (same ids). Prices and payment belong to the cosmetics service
+// (services/cosmetics/src/stripe.js): the page asks it for a Stripe Checkout
+// for the bag and the typed player's UUID, and sends the buyer to Stripe's own
+// checkout page. Stripe tells the service when the money arrives, and the
+// service gives that player the items. Setup: docs/STORE.md.
 import { createFittingRoom, createThumbnailer, loadSkin, flatArt, kindOf, isAnimated, loopOf, LOOP } from './cosmetics.js';
 
 // ---------------------------------------------------------------------------
 // THE ONE SWITCH. While `live` is false the store is a showroom: everything
-// can be browsed, tried on and bagged, but Checkout says "Soon" and no Tebex
-// call is made. Turn it on only once cosmetics actually show up in game.
+// can be browsed, tried on and bagged, but Checkout says "Soon" and the
+// service is never asked for prices or a checkout. Turn it on only once the
+// Stripe keys are in the service (docs/STORE.md).
 const STORE = {
   live: false,
-  // Tebex → Integrations → Headless API → the webstore's PUBLIC token.
-  // Public by design (it only lets a browser build baskets); never put the
-  // private key here.
-  webstore: '14xjc-4976f2503dc526c3e4f544a29aeb5b5e2c5e7476',
+  // Where the cosmetics service lives; the same pointer file the mod reads.
+  service: 'cosmetics/service.json',
 };
 
-// Everything for sale. `tebex` = that item's Tebex package id (0 = not set up
-// in Tebex yet: the card says Soon). `price` is only shown until Tebex's own
-// prices load; Tebex is the source of truth for what is charged.
+// Everything for sale. `price` is only shown until the service's price list
+// loads; the service (stripe.js CATALOG, same ids, tested to match) is what's
+// charged.
 const ITEMS = [
   // Animated capes: the art moves and they give off particles.
-  { id: 'cape-orbit', name: 'Orbit Cape', blurb: 'Sparks race round the Origin rings while the glow breathes.', price: 9.99, tebex: 7733585 },
-  { id: 'cape-glitch', name: 'Glitch Cape', blurb: 'The Origin mark, split and glitching on a dark screen.', price: 9.99, tebex: 7733633 },
-  { id: 'cape-inferno', name: 'Inferno Cape', blurb: 'Living flames with embers rising off them.', price: 8.99, tebex: 7733637 },
-  { id: 'cape-aurora', name: 'Aurora Cape', blurb: 'Northern lights that ripple under twinkling stars.', price: 8.99, tebex: 7733638 },
-  { id: 'cape-starfall', name: 'Starfall Cape', blurb: 'Shooting stars across a moonlit sky.', price: 8.99, tebex: 7733639 },
+  { id: 'cape-orbit', name: 'Orbit Cape', blurb: 'Sparks race round the Origin rings while the glow breathes.', price: 9.99 },
+  { id: 'cape-glitch', name: 'Glitch Cape', blurb: 'The Origin mark, split and glitching on a dark screen.', price: 9.99 },
+  { id: 'cape-inferno', name: 'Inferno Cape', blurb: 'Living flames with embers rising off them.', price: 8.99 },
+  { id: 'cape-aurora', name: 'Aurora Cape', blurb: 'Northern lights that ripple under twinkling stars.', price: 8.99 },
+  { id: 'cape-starfall', name: 'Starfall Cape', blurb: 'Shooting stars across a moonlit sky.', price: 8.99 },
   // Still capes.
-  { id: 'cape-origin', name: 'Origin Cape', blurb: 'The three rings, glowing on deepslate.', price: 5.99, tebex: 7733641 },
-  { id: 'cape-golden', name: 'Golden Hour Cape', blurb: 'The sunset over the Origin island.', price: 5.99, tebex: 7733643 },
-  { id: 'cape-frost', name: 'Frost Cape', blurb: 'Ice blue with falling snow.', price: 5.99, tebex: 7733645 },
-  { id: 'cape-void', name: 'Void Cape', blurb: 'An ender eye in the dark.', price: 5.99, tebex: 7733647 },
+  { id: 'cape-origin', name: 'Origin Cape', blurb: 'The three rings, glowing on deepslate.', price: 5.99 },
+  { id: 'cape-golden', name: 'Golden Hour Cape', blurb: 'The sunset over the Origin island.', price: 5.99 },
+  { id: 'cape-frost', name: 'Frost Cape', blurb: 'Ice blue with falling snow.', price: 5.99 },
+  { id: 'cape-void', name: 'Void Cape', blurb: 'An ender eye in the dark.', price: 5.99 },
   // Head.
-  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Three rings orbiting a glowing core, each at its own speed.', price: 7.99, tebex: 7733648 },
-  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'Gold band, jewels, pearls and a velvet cap.', price: 6.99, tebex: 7733650 },
-  { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99, tebex: 7733652 },
+  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Three rings orbiting a glowing core, each at its own speed.', price: 7.99 },
+  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'Gold band, jewels, pearls and a velvet cap.', price: 6.99 },
+  { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99 },
 ];
 const DEFAULT_CURRENCY = 'USD';
 // Every price stays between $5 and $10 (Will, 2026-10-12): still items at the
@@ -45,7 +45,6 @@ const DEFAULT_CURRENCY = 'USD';
 // ---------------------------------------------------------------------------
 
 const KINDS = { cape: 'Cape', head: 'Hat & halo' };
-const TEBEX = 'https://headless.tebex.io/api';
 const SAVE_KEY = 'origin.store.v1';
 const NAME_RE = /^[A-Za-z0-9_]{3,16}$/;   // Java Edition usernames
 
@@ -61,14 +60,16 @@ const state = {
   name: '',                    // as typed
   player: null,                // { name, uuid } once verified
   nameState: 'empty',          // empty | bad | checking | ok | missing | unknown
-  prices: new Map(),           // tebex package id -> { amount, currency }
+  prices: new Map(),           // item id -> { amount, currency }, from the service
+  catalog: 'loading',          // loading | ok | closed | error
+  api: '',                     // the service's base URL once known
   trying: null,
   busy: false,
 };
 let room = null;
 
 // ------------------------------------------------------------- persistence
-// Bag and name survive a refresh / the trip to Tebex and back. Storage can be
+// Bag and name survive a refresh / the trip to Stripe and back. Storage can be
 // blocked (private windows); the store works the same without it.
 function save() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify({ bag: state.bag, name: state.name })); } catch { /* not saved */ }
@@ -83,69 +84,54 @@ function restore() {
 
 // ------------------------------------------------------------------ prices
 function priceOf(item) {
-  const p = item.tebex && state.prices.get(item.tebex);
-  return p || { amount: item.price, currency: DEFAULT_CURRENCY };
+  return state.prices.get(item.id) || { amount: item.price, currency: DEFAULT_CURRENCY };
 }
 function money(amount, currency) {
   try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount); } catch { return `${amount.toFixed(2)} ${currency}`; }
 }
-const forSale = item => STORE.live && item.tebex > 0;
+// On sale = the service's price list has it (checked once that list is in).
+const forSale = item => STORE.live && state.catalog === 'ok' && state.prices.has(item.id);
 
-// ------------------------------------------------------------------- tebex
-async function tebex(method, path, body) {
-  const r = await fetch(TEBEX + path, {
-    method,
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.detail || j.message || j.title || `Tebex said ${r.status}`);
-  return j.data;
-}
-
+// ----------------------------------------------------------------- service
 async function loadPrices() {
-  if (!STORE.live || !STORE.webstore) return;
+  if (!STORE.live) return;
   try {
-    const cats = await tebex('GET', `/accounts/${STORE.webstore}/categories?includePackages=1`);
-    for (const c of cats || []) {
-      for (const p of c.packages || []) state.prices.set(p.id, { amount: Number(p.total_price ?? p.base_price), currency: p.currency || DEFAULT_CURRENCY });
-    }
-    renderGrid();
-    renderBag();
+    state.api = (await (await fetch(STORE.service)).json()).api;
+    const c = await (await fetch(`${state.api}/v1/store/catalog`)).json();
+    for (const [id, item] of Object.entries(c.items || {})) state.prices.set(id, { amount: Number(item.price), currency: c.currency || DEFAULT_CURRENCY });
+    state.catalog = c.open ? 'ok' : 'closed';
   } catch (err) {
-    console.warn('Origin store: live prices unavailable, showing list prices.', err);
+    console.warn('Origin store: the cosmetics service can’t be reached.', err);
+    state.catalog = 'error';
   }
+  renderGrid();
+  renderBag();
 }
 
 async function checkout() {
-  const items = state.bag.map(id => byId.get(id));
-  if (!STORE.live || state.busy || !items.length || !canCheckout() || notForSale().length) return;
+  if (!STORE.live || state.busy || !state.bag.length || !canCheckout() || state.catalog !== 'ok' || notForSale().length) return;
   state.busy = true;
   renderBag();
-  const here = new URL('store.html', location.href);
   try {
-    const basket = await tebex('POST', `/accounts/${STORE.webstore}/baskets`, {
-      username: state.player?.name || state.name.trim(),
-      complete_url: `${here}?purchase=done`,
-      cancel_url: `${here}?purchase=cancelled`,
-      complete_auto_redirect: true,
-      custom: { source: 'originclient.org/store', items: state.bag.join(',') },
+    const r = await fetch(`${state.api}/v1/store/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uuid: state.player.uuid, name: state.player.name, items: state.bag }),
     });
-    for (const item of items) await tebex('POST', `/baskets/${basket.ident}/packages`, { package_id: item.tebex, quantity: 1 });
-    const full = await tebex('GET', `/accounts/${STORE.webstore}/baskets/${basket.ident}`);
-    const url = full?.links?.checkout;
-    if (!url) throw new Error('Tebex did not return a checkout link');
-    location.href = url;
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.url) throw new Error(j.error || 'Checkout isn’t available right now. Nothing was charged; please try again in a minute.');
+    location.href = j.url;
   } catch (err) {
     state.busy = false;
-    renderBag(`Couldn't open checkout: ${err.message}. Nothing was charged; please try again.`);
+    // Service errors are already sentences for the buyer; a network failure isn't.
+    renderBag(err instanceof TypeError ? 'Couldn’t reach checkout. Nothing was charged; please try again.' : err.message);
   }
 }
 
 // -------------------------------------------------------- minecraft names
 // Looks the name up so the buyer sees whose head it goes on before paying.
 // A lookup that fails to answer (offline, blocked) doesn't block the sale:
-// Tebex checks the name again when the basket is made.
+// Checkout itself waits for a found name: the cosmetics go to its UUID.
 let lookupSeq = 0, lookupTimer = 0;
 function onName(value) {
   state.name = value;
@@ -204,8 +190,8 @@ function skinOf(p) {
   return out;
 }
 
-const canCheckout = () => ['ok', 'unknown'].includes(state.nameState);
-// Bagged before it was in Tebex (bags are saved), so it can't be bought yet.
+const canCheckout = () => state.nameState === 'ok' && !!state.player?.uuid;
+// Bagged before the service sold it (bags are saved), so it can't be bought yet.
 const notForSale = () => state.bag.map(id => byId.get(id)).filter(i => !forSale(i));
 
 function renderName() {
@@ -224,7 +210,7 @@ function renderName() {
     checking: 'Checking that name…',
     ok: `Found ${state.player?.name}. Everything in your bag goes to this player.`,
     missing: 'No Minecraft account has that name. Check the spelling.',
-    unknown: 'Couldn’t check that name right now. It’s checked again at checkout.',
+    unknown: 'Couldn’t check that name right now. Try again in a moment.',
   }[state.nameState];
 }
 
@@ -233,7 +219,7 @@ function renderGrid() {
   const filter = $('[data-filter][aria-pressed="true"]')?.dataset.filter || 'all';
   const shown = i => filter === 'all' || (filter === 'animated' ? isAnimated(i.id) : kindOf(i.id) === filter);
   $('[data-grid]').innerHTML = ITEMS.filter(shown).map(i => {
-    const inBag = state.bag.includes(i.id), p = priceOf(i), soon = STORE.live && !forSale(i);
+    const inBag = state.bag.includes(i.id), p = priceOf(i), soon = STORE.live && state.catalog === 'ok' && !forSale(i);
     return `<article class="item${state.trying === i.id ? ' is-trying' : ''}" data-item="${i.id}">
       <button class="item__try" type="button" data-try aria-label="Try on ${esc(i.name)}" aria-pressed="${state.trying === i.id}">
         <span class="item__art" data-art></span><span class="item__kind">${KINDS[kindOf(i.id)]}</span>${isAnimated(i.id) ? '<span class="item__anim">Animated</span>' : ''}<span class="item__tryon">${state.trying === i.id ? 'Wearing' : 'Try on'}</span>
@@ -313,18 +299,22 @@ function renderBag(error = '') {
   $('[data-total]').textContent = money(total, currency);
 
   const btn = $('[data-checkout]'), note = $('[data-checkout-note]');
-  btn.toggleAttribute('data-soon', !STORE.live);
-  const blocked = notForSale();
-  btn.disabled = STORE.live && (state.busy || !items.length || !canCheckout() || blocked.length > 0);
-  btn.setAttribute('aria-disabled', String(!STORE.live || btn.disabled));
-  btn.textContent = state.busy ? 'Opening checkout…' : `Checkout${STORE.live && items.length ? ` · ${money(total, currency)}` : ''}`;
-  note.classList.toggle('is-error', !!error);
-  note.textContent = error || (!STORE.live
+  const open = STORE.live && state.catalog !== 'closed';
+  btn.toggleAttribute('data-soon', !open);
+  const blocked = state.catalog === 'ok' ? notForSale() : [];
+  btn.disabled = open && (state.busy || !items.length || !canCheckout() || state.catalog !== 'ok' || blocked.length > 0);
+  btn.setAttribute('aria-disabled', String(!open || btn.disabled));
+  btn.textContent = state.busy ? 'Opening checkout…' : `Checkout${open && items.length ? ` · ${money(total, currency)}` : ''}`;
+  const failed = error || (open && state.catalog === 'error');
+  note.classList.toggle('is-error', !!failed);
+  note.textContent = error || (!open
     ? 'The store opens soon. Try everything on in the meantime.'
+    : state.catalog === 'error' ? 'Checkout can\u2019t be reached right now. Please try again in a minute.'
     : !items.length ? 'Add a cosmetic to get started.'
     : blocked.length ? `${blocked[0].name} isn\u2019t on sale yet. Remove it to check out.`
     : !canCheckout() ? 'Type the Minecraft name these are for.'
-    : 'Secure checkout by Tebex: card, PayPal, Apple Pay or Google Pay.');
+    : state.catalog === 'loading' ? 'Loading prices…'
+    : 'Secure checkout by Stripe: card, Apple Pay or Google Pay. Sales tax is added at checkout where it applies.');
 
   const bar = $('[data-bagbar]');
   bar.hidden = !items.length;
@@ -362,7 +352,7 @@ function toggleBag(id) {
 }
 
 // --------------------------------------------------------------- returning
-// Tebex sends the buyer back with ?purchase=done or ?purchase=cancelled.
+// Stripe sends the buyer back with ?purchase=done or ?purchase=cancelled.
 function handleReturn() {
   const q = new URLSearchParams(location.search), result = q.get('purchase');
   if (!result) return;

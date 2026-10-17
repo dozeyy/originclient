@@ -116,11 +116,11 @@ tools/lean/               Claude Lean: report.py (where tokens went) + hook test
                           the hooks live in .claude/hooks/lean/ (README there)
 tools/website/build_assets.py  website textures/fonts/icons/three.js from their real sources
 website/                  originclient.org: island-in-the-sky page (DOWNLOAD.live switch in js/site.js)
-  store.html              cosmetics store (Tebex checkout, STORE.live switch in js/store.js) — docs/STORE.md
+  store.html              cosmetics store (Stripe Checkout, STORE.live switch in js/store.js) — docs/STORE.md
   launcher/promos.json    the launcher HOME BANNER's live feed (promos, Discord invite, ad-network
                           switch) — edit + push to main; launchers pick it up within 30 min
   ad/banner.html          the banner's ad-network page (placeholder until Nitro is approved)
-services/cosmetics/       store delivery service (Cloudflare Worker + D1): Tebex purchases ->
+services/cosmetics/       store service (Cloudflare Worker + D1): Stripe checkout + webhook ->
                           who owns/wears what; the mod reads it. docs/STORE.md
 tools/cosmetics/          export-capes.mjs: store cape art -> in-game cape textures
 docs/RELEASING.md         how shipping works (tag flow, pipeline, labels)

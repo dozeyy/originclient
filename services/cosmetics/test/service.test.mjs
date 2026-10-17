@@ -1,20 +1,24 @@
 // Runs the real Worker code against a real SQLite database (Node's built-in
-// node:sqlite, wrapped to look like Cloudflare D1), with Tebex faked and
+// node:sqlite, wrapped to look like Cloudflare D1), with Stripe faked and
 // Mojang's signatures made by test/mojang.mjs. `npm test` (node --test) — no packages to install.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { handle, collect, parseCommand, slotOf } from '../src/index.js';
+import { createHmac } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { handle, slotOf } from '../src/index.js';
+import { CATALOG, verifySignature } from '../src/stripe.js';
 import { d1 } from './d1.mjs';   // D1 stand-in with every migration applied
 import { authBody, seedKeys } from './mojang.mjs';
 
 const UUID = '069a79f444e94726a5befca90e38aaf5';
 const DASHED = '069a79f4-44e9-4726-a5be-fca90e38aaf5';
+const WHSEC = 'whsec_test';
 let env, calls, routes;
 
 // Fake network: route by URL prefix; records every call.
 function fakeFetch() {
   globalThis.fetch = async (url, init = {}) => {
-    calls.push({ url: String(url), method: init.method || 'GET', headers: init.headers || {} });
+    calls.push({ url: String(url), method: init.method || 'GET', headers: init.headers || {}, body: init.body });
     for (const [prefix, reply] of routes) {
       if (String(url).startsWith(prefix)) {
         const { status = 200, body } = typeof reply === 'function' ? reply(String(url)) : reply;
@@ -26,86 +30,148 @@ function fakeFetch() {
 }
 
 beforeEach(() => {
-  env = { DB: d1(), TEBEX_SECRET: 'test-secret' };
+  env = { DB: d1(), STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: WHSEC };
   seedKeys(env);
   calls = [];
   routes = [];
   fakeFetch();
 });
 
-const tebexQueue = (offline, players = [], nextCheck = 120) => {
-  routes.push(['https://plugin.tebex.io/queue/offline-commands', { body: { meta: { limited: false }, commands: offline } }]);
-  routes.push(['https://plugin.tebex.io/queue?', { status: 204 }]);
-  routes.push(['https://plugin.tebex.io/queue', { body: { meta: { execute_offline: true, next_check: nextCheck, more: false }, players } }]);
-};
 const api = (method, path, body, token) => handle(new Request(`https://svc.test${path}`, {
   method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   body: body && JSON.stringify(body),
 }), env);
-const deletes = () => calls.filter(c => c.method === 'DELETE');
 
-test('commands: parse grant/revoke, reject junk', () => {
-  assert.deepEqual(parseCommand(`origin-grant Will ${DASHED} cape-orbit`), { action: 'grant', name: 'Will', uuid: UUID, item: 'cape-orbit' });
-  assert.equal(parseCommand(`origin-revoke Will ${UUID} halo-gold`).action, 'revoke');
-  assert.equal(parseCommand('give Will diamond 1'), null);
-  assert.equal(parseCommand(`origin-grant Will ${UUID} sword-of-doom`), null);   // not a cosmetic slot
+// A webhook call signed the way Stripe signs them.
+function sign(raw, secret = WHSEC, t = Math.floor(Date.now() / 1000)) {
+  return `t=${t},v1=${createHmac('sha256', secret).update(`${t}.${raw}`).digest('hex')}`;
+}
+function stripeEvent(type, object, signature) {
+  const raw = JSON.stringify({ id: 'evt_1', type, data: { object } });
+  return handle(new Request('https://svc.test/v1/stripe/webhook', {
+    method: 'POST', headers: { 'Stripe-Signature': signature ?? sign(raw) }, body: raw,
+  }), env);
+}
+const paid = (items, pi = 'pi_1', uuid = UUID) => stripeEvent('checkout.session.completed', {
+  id: 'cs_1', payment_status: 'paid', payment_intent: pi, metadata: { uuid, name: 'Will', items: items.join(',') },
+});
+const ownedNow = async () => (await (await api('GET', `/v1/players/${UUID}`)).json()).owned;
+
+test('items: slots by id', () => {
   assert.equal(slotOf('crown-pixel'), 'head');
   assert.equal(slotOf('cape-void'), 'cape');
+  assert.equal(slotOf('sword-of-doom'), null);
+  for (const id of Object.keys(CATALOG)) assert.ok(slotOf(id), id);   // everything on sale can be worn
 });
 
-test('delivery: a purchase lands, Tebex is told it is done, next_check is obeyed', async () => {
-  tebexQueue([{ id: 11, command: `origin-grant Will ${UUID} cape-orbit`, payment: 555, player: { id: 1, name: 'Will', uuid: DASHED } }]);
-  const r = await collect(env, 1_000_000);
-  assert.equal(r.delivered, 1);
-  assert.ok(calls.every(c => c.headers['X-Tebex-Secret'] === 'test-secret' || !c.url.includes('tebex')));
-  assert.match(deletes()[0].url, /\/queue\?ids\[\]=11$/);
-
-  const view = await (await api('GET', `/v1/players/${DASHED}`)).json();
-  assert.deepEqual(view.owned, ['cape-orbit']);
-
-  calls = [];
-  assert.deepEqual(await collect(env, 1_000_000 + 119_000), { skipped: true });   // Tebex said wait 120s
-  assert.equal(calls.length, 0);
-  routes = [];
-  tebexQueue([]);
-  assert.equal((await collect(env, 1_000_000 + 121_000)).delivered, 0);
+test('catalog: the store page sells exactly what the service charges for, at the same list prices', () => {
+  const page = readFileSync(new URL('../../../website/js/store.js', import.meta.url), 'utf8');
+  const items = [...page.matchAll(/\{ id: '([a-z0-9-]+)', name: '([^']+)',.*?price: ([\d.]+) \}/g)]
+    .map(([, id, name, price]) => [id, { name, cents: Math.round(Number(price) * 100) }]);
+  assert.deepEqual(Object.fromEntries(items), CATALOG);
 });
 
-test('delivery: never checks more often than once a minute even if Tebex says 0', async () => {
-  tebexQueue([], [], 0);
-  await collect(env, 5_000_000);
-  calls = [];
-  assert.deepEqual(await collect(env, 5_000_000 + 30_000), { skipped: true });
+test('catalog: every item and its price, and whether checkout is open', async () => {
+  let c = await (await api('GET', '/v1/store/catalog')).json();
+  assert.equal(c.open, true);
+  assert.equal(c.currency, 'USD');
+  assert.deepEqual(c.items['cape-orbit'], { name: 'Orbit Cape', price: 9.99 });
+  for (const { price } of Object.values(c.items)) assert.ok(price >= 5 && price <= 10);   // Will: $5-$10
+  delete env.STRIPE_SECRET_KEY;
+  c = await (await api('GET', '/v1/store/catalog')).json();
+  assert.equal(c.open, false);
 });
 
-test('delivery: an unreadable command stays queued instead of being lost', async () => {
-  tebexQueue([
-    { id: 1, command: 'origin-grant Will', player: { uuid: UUID } },
-    { id: 2, command: `origin-grant Will ${UUID} halo-gold`, player: { uuid: UUID } },
-  ]);
-  const r = await collect(env, 1);
-  assert.equal(r.delivered, 1);
-  assert.match(deletes()[0].url, /ids\[\]=2$/);
+test('checkout: makes a Stripe Checkout with our prices, the player on it, and tax on', async () => {
+  routes.push(['https://api.stripe.com/v1/checkout/sessions', { body: { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' } }]);
+  const r = await api('POST', '/v1/store/checkout', { uuid: DASHED, name: 'Will', items: ['cape-orbit', 'halo-gold', 'cape-orbit'] });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).url, 'https://checkout.stripe.com/c/pay/cs_1');
+  const sent = new URLSearchParams(calls[0].body.toString());
+  assert.equal(calls[0].headers.Authorization, 'Bearer sk_test_x');
+  assert.equal(sent.get('mode'), 'payment');
+  assert.equal(sent.get('automatic_tax[enabled]'), 'true');
+  assert.equal(sent.get('line_items[0][price_data][unit_amount]'), '999');      // the server's price, never the page's
+  assert.equal(sent.get('line_items[1][price_data][product_data][name]'), 'Golden Halo');
+  assert.equal(sent.get('line_items[2][quantity]'), null);                       // duplicate in the bag dropped
+  assert.equal(sent.get('metadata[uuid]'), UUID);
+  assert.equal(sent.get('metadata[items]'), 'cape-orbit,halo-gold');
+  assert.equal(sent.get('payment_intent_data[metadata][uuid]'), UUID);
+  assert.match(sent.get('success_url'), /store\.html\?purchase=done$/);
 });
 
-test('delivery: commands wrongly set to "player must be online" still deliver', async () => {
-  routes.push(['https://plugin.tebex.io/queue/online-commands/77', { body: { player: { id: 77, name: 'Will', uuid: UUID }, commands: [{ id: 9, command: `origin-grant Will ${UUID} crown-pixel` }] } }]);
-  tebexQueue([], [{ id: 77, name: 'Will', uuid: UUID }]);
-  assert.equal((await collect(env, 1)).delivered, 1);
+test('checkout: refuses bad input, things already owned, and a closed store; Stripe errors say nothing was charged', async () => {
+  for (const body of [null, { uuid: 'nope', name: 'Will', items: ['cape-orbit'] }, { uuid: UUID, name: 'bad name!', items: ['cape-orbit'] },
+    { uuid: UUID, name: 'Will', items: [] }, { uuid: UUID, name: 'Will', items: ['sword-of-doom'] }]) {
+    assert.equal((await api('POST', '/v1/store/checkout', body)).status, 400, JSON.stringify(body));
+  }
+  await paid(['cape-void']);
+  const r = await api('POST', '/v1/store/checkout', { uuid: UUID, name: 'Will', items: ['cape-orbit', 'cape-void'] });
+  assert.equal(r.status, 409);
+  assert.match((await r.json()).error, /already owns the Void Cape/);
+
+  routes.push(['https://api.stripe.com/', { status: 400, body: { error: { message: 'Stripe Tax is not active' } } }]);
+  const bad = await api('POST', '/v1/store/checkout', { uuid: UUID, name: 'Will', items: ['cape-orbit'] });
+  assert.equal(bad.status, 502);
+  assert.match((await bad.json()).error, /Nothing was charged/);
+
+  delete env.STRIPE_SECRET_KEY;
+  assert.equal((await api('POST', '/v1/store/checkout', { uuid: UUID, name: 'Will', items: ['cape-orbit'] })).status, 503);
+  assert.equal(calls.length, 1);   // only the one Stripe call above
+});
+
+test('webhook: a paid checkout gives the items once, however often Stripe repeats it', async () => {
+  assert.equal((await paid(['cape-orbit', 'halo-gold'])).status, 200);
+  assert.equal((await paid(['cape-orbit', 'halo-gold'])).status, 200);
+  assert.deepEqual((await ownedNow()).sort(), ['cape-orbit', 'halo-gold']);
+  assert.equal(calls.length, 0);   // the webhook never calls out
+});
+
+test('webhook: unpaid sessions wait for the late payment; unknown items and events are ignored', async () => {
+  const session = { id: 'cs_2', payment_status: 'unpaid', payment_intent: 'pi_2', metadata: { uuid: UUID, name: 'Will', items: 'cape-frost,sword-of-doom' } };
+  await stripeEvent('checkout.session.completed', session);
+  assert.deepEqual(await ownedNow(), []);
+  await stripeEvent('checkout.session.async_payment_succeeded', { ...session, payment_status: 'paid' });
+  assert.deepEqual(await ownedNow(), ['cape-frost']);
+  assert.equal((await stripeEvent('customer.created', { id: 'cus_1' })).status, 200);
+  assert.equal((await stripeEvent('checkout.session.completed', { id: 'cs_3', payment_status: 'paid', metadata: {} })).status, 200);
+});
+
+test('webhook: refuses forged, wrongly signed and stale calls', async () => {
+  const raw = JSON.stringify({ type: 'checkout.session.completed', data: { object: {} } });
+  assert.equal((await stripeEvent('checkout.session.completed', {}, 'garbage')).status, 400);
+  assert.equal((await stripeEvent('checkout.session.completed', {}, sign(raw, 'whsec_other'))).status, 400);
+  assert.equal(await verifySignature(WHSEC, sign(raw, WHSEC, Math.floor(Date.now() / 1000) - 600), raw), false);   // 10 min old
+  assert.equal(await verifySignature(WHSEC, sign(raw), raw), true);
+  assert.equal(await verifySignature(WHSEC, sign(raw), raw + ' '), false);                                          // body changed
+  delete env.STRIPE_WEBHOOK_SECRET;
+  assert.equal((await paid(['cape-orbit'])).status, 400);
+  assert.deepEqual(await ownedNow(), []);
+});
+
+test('refunds and chargebacks take that payment\'s items back and off; partial refunds and other payments stay', async () => {
+  await paid(['cape-orbit', 'halo-gold'], 'pi_a');
+  await paid(['cape-void'], 'pi_b');
+  await api('POST', '/v1/equip', { cape: 'cape-orbit', head: 'halo-gold' }, await signIn());
+
+  await stripeEvent('charge.refunded', { id: 'ch_a', payment_intent: 'pi_a', refunded: false });   // partial
+  assert.equal((await ownedNow()).length, 3);
+  await stripeEvent('charge.refunded', { id: 'ch_a', payment_intent: 'pi_a', refunded: true });
   const view = await (await api('GET', `/v1/players/${UUID}`)).json();
-  assert.deepEqual(view.owned, ['crown-pixel']);
+  assert.deepEqual(view.owned, ['cape-void']);
+  assert.deepEqual(view.equipped, { cape: null, head: null });
+
+  await stripeEvent('charge.dispute.created', { id: 'dp_1', payment_intent: 'pi_b' });
+  assert.deepEqual(await ownedNow(), []);
 });
 
-// Origin sign-in (identity v2): the token /v1/equip takes as `Bearer`.
 async function signIn() {
   const r = await api('POST', '/v1/auth', authBody({ name: 'Will', uuid: UUID, now: Date.now() }));
   assert.equal(r.status, 200);
   return (await r.json()).token;
 }
 async function own(...items) {
-  tebexQueue(items.map((item, i) => ({ id: i + 1, command: `origin-grant Will ${UUID} ${item}`, player: { uuid: UUID } })));
-  await collect(env, 1);
-  routes = [];
+  await paid(items);
 }
 
 test('equip: wear owned items, signed in with an Origin token', async () => {
@@ -117,7 +183,7 @@ test('equip: wear owned items, signed in with an Origin token', async () => {
 
   const batch = await (await api('POST', '/v1/players/equipped', { uuids: [DASHED, 'not-a-uuid', 'f'.repeat(32)] })).json();
   assert.deepEqual(batch.players, { [UUID]: { cape: 'cape-orbit', head: 'halo-gold' } });
-  assert.ok(calls.every(c => c.url.startsWith('https://plugin.tebex.io/')));   // only the Tebex delivery; nothing asked of Mojang
+  assert.equal(calls.length, 0);   // nothing asked of Mojang (or anyone)
 });
 
 test('equip: refuses items you do not own, wrong slots, missing/bad tokens and old mods', async () => {
@@ -138,16 +204,6 @@ test('equip: refuses items you do not own, wrong slots, missing/bad tokens and o
   assert.equal(r.status, 400);
   assert.match((await r.json()).error, /update Origin to change cosmetics/);
   assert.equal((await api('POST', '/v1/equip', { serverId: 'a'.repeat(40), cape: null, head: null }, token)).status, 400);
-});
-
-test('refund: revoking an item removes it and takes it off', async () => {
-  await own('cape-orbit');
-  await api('POST', '/v1/equip', { cape: 'cape-orbit', head: null }, await signIn());
-  tebexQueue([{ id: 5, command: `origin-revoke Will ${UUID} cape-orbit`, player: { uuid: UUID } }]);
-  await collect(env, 10_000_000);
-  const view = await (await api('GET', `/v1/players/${UUID}`)).json();
-  assert.deepEqual(view.owned, []);
-  assert.deepEqual(view.equipped, { cape: null, head: null });
 });
 
 test('api: CORS preflight, bad uuid, unknown path', async () => {

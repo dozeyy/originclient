@@ -22,13 +22,13 @@ Date.now = () => clock;
 function uuidFor(name) { return createHash('md5').update(name).digest('hex'); }
 
 beforeEach(() => {
-  env = { DB: d1(), TEBEX_SECRET: 'test-secret' };
+  env = { DB: d1() };
   seedKeys(env);
   clock = 1_800_000_000_000;
   step = 1001;
   calls = [];
   // The service must never call out for sign-in or friends (Mojang blocks
-  // Workers); only the store delivery talks to Tebex.
+  // Workers), and nothing on the cron calls out either.
   globalThis.fetch = async url => {
     calls.push(String(url));
     throw new Error(`unexpected fetch ${url}`);
@@ -675,15 +675,14 @@ test('cleanup: expired sessions, 30-day-old chat, expired pings/warps/invites, i
   assert.equal(rows('SELECT * FROM chat').length, 0);
 });
 
-test('cron: social cleanup runs every 10th minute next to delivery, never instead of it', async () => {
+test('cron: social cleanup runs every 10th minute, and nothing on the cron calls out', async () => {
   await signIn('Will');
-  env.DB.raw.prepare("INSERT INTO meta (k, v) VALUES ('tebex_next_check', ?)").run(String(clock + 3600_000));
   env.DB.raw.prepare('UPDATE sessions SET expires = ?').run(clock - 1);
   await scheduled({ scheduledTime: 600_000 * 5 + 60_000 }, env, clock);       // minute 501: not a cleanup minute
   assert.equal(rows('SELECT * FROM sessions').length, 1);
   await scheduled({ scheduledTime: 600_000 * 5 }, env, clock);                // minute 500
   assert.equal(rows('SELECT * FROM sessions').length, 0);
-  assert.equal(calls.filter(c => c.includes('tebex')).length, 0);             // delivery still obeyed its own wait
+  assert.equal(calls.length, 0);
 });
 
 // ------------------------------------------------- free-plan savings (etag)
@@ -765,7 +764,6 @@ test('friendsEtag: a friend going offline (no write at all) is caught by the cro
   assert.equal(r.friends[0].online, false);
 
   // The cron runs the sweep every minute.
-  env.DB.raw.prepare("INSERT INTO meta (k, v) VALUES ('tebex_next_check', ?)").run(String(clock + 3600_000));
   const before = rows(`SELECT friends_rev FROM names WHERE uuid = '${will.uuid}'`)[0].friends_rev;
   await sync(alex, onServer('b.net'));                                // back online...
   const back = clock;

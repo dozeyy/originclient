@@ -1,35 +1,37 @@
 # The Origin Store (originclient.org/store.html)
 
 The website's cosmetics shop. Players browse capes, halos and a crown, try them
-on in a 3D preview, type the Minecraft name the items are for, and pay through
-**Tebex**, the checkout service Minecraft servers use. It takes card, PayPal,
-Apple Pay and Google Pay, and handles tax, receipts and refunds. The
-Minecraft name is attached to the Tebex order, so the purchase belongs to that
-player (gifting = typing a friend's name).
+on in a 3D preview, type the Minecraft name the items are for, and pay on
+**Stripe Checkout** (card, Apple Pay, Google Pay; Stripe Tax adds sales tax
+where it applies, Will 2026-10-17). The player's Minecraft UUID rides on the
+payment, so the purchase belongs to that player (gifting = typing a friend's
+name). Tebex was dropped 2026-10-17: its review rejected the custom delivery
+("invalid or missing deliverables"), and nothing was ever sold through it.
 
-**Status (2026-10-12): showroom; delivery + in-game built, not yet switched on.**
+**Status (2026-10-17): showroom; Stripe built, waiting on Will's Stripe account.**
 Browsing, trying on, the name check and the bag all work; Checkout shows
-"Soon" and makes no Tebex calls until `STORE.live` is turned on. The delivery
-service (`services/cosmetics`) and the 1.21.1 in-game side are built but wait
-on Cloudflare setup (below). Order to go live: Cloudflare + service deployed →
-`website/cosmetics/service.json` points at it → Will sees his own test item
-in game → `STORE.live = true` → Tebex "Submit for Review".
+"Soon" and the page never calls the service until `STORE.live` is turned on.
+Order to go live: Will's Stripe steps below → Claude flips `STORE.live` →
+one real purchase to Will's own name shows up in game → refund it → gone.
 
 ## How a purchase reaches the game
 
 ```
-store page ──basket+name──▶ Tebex checkout ──paid──▶ Tebex queues
-  origin-grant <name> <uuid> <item>  for the "Origin Cosmetics" server
+store page ──{uuid, name, items}──▶ services/cosmetics POST /v1/store/checkout
+  (prices from stripe.js CATALOG; refuses items that player already owns)
+        │ Stripe Checkout Session, uuid + items in its metadata
+        ▼
+buyer pays on checkout.stripe.com ──▶ back to store.html?purchase=done
         │
-services/cosmetics (Cloudflare Worker, cron each minute, obeys next_check)
-  pulls the queue with that server's secret, records owner by UUID in D1,
-  marks the commands done (refunds: origin-revoke removes + unequips)
+Stripe webhook ──▶ POST /v1/stripe/webhook (signature checked)
+  checkout.session.completed (paid) / async_payment_succeeded → owned rows
+  charge.refunded (FULL refund only) / charge.dispute.created → rows for that
+  payment removed and taken off (owned.payment = the Stripe payment intent)
         │
-Origin mod (1.21.1) ── reads website/cosmetics/service.json for the service
-  address ── Cosmetics screen (mod menu rail): pick what you wear; saved with
-  Minecraft's server-join check (Mojang joinServer → service hasJoined), so
-  no token ever reaches us ── every Origin player looks up who wears what
-  (batched, cached 5 min) and draws capes (vanilla cape slot) + head items
+Origin mod ── reads website/cosmetics/service.json for the service address ──
+  Cosmetics screen: pick what you wear (Origin sign-in token) ── every Origin
+  player looks up who wears what (batched, cached 5 min) and draws capes
+  (vanilla cape slot) + head items
 ```
 
 **Microsoft sign-in on the store page: blocked.** The launcher's sign-in works
@@ -45,7 +47,8 @@ on that app + a token-exchange endpoint on the Worker).
 |---|---|
 | `website/store.html` | the page |
 | `website/css/store.css` | store-only styles (tokens/buttons come from `site.css`) |
-| `website/js/store.js` | **what's for sale**: `STORE` switch, `ITEMS` (name, blurb, list price, Tebex package id), name lookup, bag, checkout |
+| `website/js/store.js` | **the shop window**: `STORE` switch, `ITEMS` (name, blurb, list price), name lookup, bag, checkout call |
+| `services/cosmetics/src/stripe.js` | **what's charged**: `CATALOG` (same ids and prices as `ITEMS`; a service test fails if they differ), checkout, webhook |
 | `website/js/cosmetics.js` | **how each item looks**: procedural art per id, the 3D player + fitting room, card thumbnails, animation loop |
 
 Item ids are shared between the two JS files. Everything that moves repeats
@@ -68,30 +71,34 @@ function per item.
 
 ## Turning payments on (Will's steps)
 
-1. Make a free account at tebex.io and create a webstore of type
-   **Minecraft: Java Edition** (so Tebex checks the name the buyer types).
-2. In Tebex, add one **package** per item, using the same names and prices as
-   `ITEMS` in `website/js/store.js`. Note each package's numeric id.
-   - **Deliverable (Tebex requires one per package):** a game-server command
-     to a stand-in server named **Origin Cosmetics** (plugin type, nothing
-     installed). On purchase: `origin-grant {username} {id} <item-id>`; on
-     refund/chargeback: `origin-revoke {username} {id} <item-id>`; "player must
-     be online" OFF. `<item-id>` is the item's id in `ITEMS` (e.g. `cape-orbit`).
-     **This is the delivery contract:** the future ownership service plays that
-     server, pulling these commands from Tebex's plugin API (with the stand-in
-     server's secret key, kept out of chat and out of the repo) to record who
-     owns what, then marking them done.
-3. Tebex → Integrations → **Headless API**: copy the webstore's **public token**
-   (never the private key).
-4. Give Claude the token and the package ids. Claude puts them in `STORE.webstore`
-   and each item's `tebex` field. **Done 2026-10-12** (all 12 packages; ids in
-   `website/js/store.js`). Check anytime in a browser:
-   `https://headless.tebex.io/api/accounts/<STORE.webstore>/categories?includePackages=1`.
-5. Once in-game cosmetics exist, Claude flips `STORE.live = true`. Then make one
-   real test purchase to your own Minecraft name and refund it from Tebex.
+The account holder must be an adult (ID + bank account for payouts).
 
-When live, the page loads Tebex's prices, so what's shown is always what's
-charged. An item without a package id shows "Soon" and can't be bought.
+1. **Account:** sign up at stripe.com and finish activation. Business website
+   `https://originclient.org`; what you sell: "Cosmetic items (capes and hats)
+   for the Origin Minecraft client. Looks only, no gameplay advantage."
+2. **Stripe Tax:** Dashboard → Tax → set it up: your address, default product
+   tax code for digital goods / video game items, prices **exclusive** of tax
+   (tax added on top). Add registrations where Stripe's monitoring says you
+   need them. The service sends `automatic_tax` on every checkout, so checkout
+   fails ("Checkout isn't available right now") until Stripe Tax is on.
+3. **Receipts:** Settings → Customer emails → turn on **Successful payments**
+   (the store's thank-you note promises an emailed receipt).
+4. **Webhook:** Developers → Webhooks → add an endpoint
+   `https://origin-cosmetics.will-f11.workers.dev/v1/stripe/webhook` with the
+   events `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+   `charge.refunded`, `charge.dispute.created`. Copy its **signing secret** (`whsec_...`).
+5. **API key:** Developers → API keys → **Create restricted key** with
+   Write on **Checkout Sessions**, **Products** and **Prices** (everything else
+   None). Copy it (`rk_live_...`).
+6. **Into Cloudflare, never chat or the repo:** Workers & Pages →
+   `origin-cosmetics` → Settings → Variables and Secrets → add **Secret**
+   `STRIPE_SECRET_KEY` (step 5) and **Secret** `STRIPE_WEBHOOK_SECRET` (step 4).
+   Delete the old `TEBEX_SECRET`.
+7. Tell Claude. `GET /v1/store/catalog` then says `"open": true` (the
+   cosmetics-service smoke test prints it); Claude flips `STORE.live = true`.
+8. Buy the cheapest item for your own name, see it in game, refund it from the
+   Stripe dashboard (Payments → the payment → Refund), see it disappear.
+   Then close the Tebex webstore.
 
 ## Delivery service setup (Will, one time)
 
@@ -105,11 +112,7 @@ charged. An item without a package id shows "Soon" and can't be bought.
    `CLOUDFLARE_API_TOKEN` (step 3) and `CLOUDFLARE_ACCOUNT_ID` (shown on the
    Cloudflare dashboard home). The `cosmetics-service` workflow then tests
    and deploys on every push to main (it skips deploy until all of this exists).
-5. **Tebex secret:** the stand-in server's key was once shown in a chat
-   screenshot, so make a fresh one in Tebex (Game Servers → Origin Cosmetics),
-   then Cloudflare → Workers & Pages → `origin-cosmetics` → Settings →
-   Variables and Secrets → add **Secret** `TEBEX_SECRET`. Never in the repo
-   or chat.
+5. **Stripe secrets:** see "Turning payments on", step 6.
 6. **Live 2026-10-12: `https://origin-cosmetics.will-f11.workers.dev`** (deploy
    needed token permissions Account → Workers Scripts Edit + D1 Edit + Account
    Settings Read). Give Claude the Worker's address;
@@ -118,7 +121,9 @@ charged. An item without a package id shows "Soon" and can't be bought.
 
 Service API (all JSON, CORS open): `GET /v1/players/<uuid>` → owned +
 equipped; `POST /v1/players/equipped {uuids}` → who wears what (≤100);
-`POST /v1/equip {name, serverId, cape, head}` (Mojang-verified). Tests:
+`POST /v1/equip {cape, head}` (Origin sign-in Bearer token);
+`GET /v1/store/catalog`, `POST /v1/store/checkout {uuid, name, items}`,
+`POST /v1/stripe/webhook` (Stripe-signed; stripe.js). Tests:
 `cd services/cosmetics && npm test` (Node 22, no installs).
 
 ## In game (1.21.1 first; other versions follow the working order)
@@ -135,9 +140,12 @@ equipped; `POST /v1/players/equipped {uuids}` → who wears what (≤100);
 
 ## Outside services the page uses (all fail soft)
 
-- `headless.tebex.io`: baskets and checkout (only when live).
-- `playerdb.co`: checks the typed name exists and gets the UUID. If it can't
-  be reached, checkout is still allowed and Tebex checks the name instead.
+- The cosmetics service (address from `website/cosmetics/service.json`):
+  prices and checkout, only when live. Unreachable = list prices shown and
+  Checkout says it can't be reached right now.
+- `playerdb.co`: checks the typed name exists and gets the UUID the items go
+  to. Checkout waits for a found name; if the lookup can't answer, the buyer
+  is asked to try again in a moment.
 - The real skin for the 3D preview, in order: the skin file on Mojang's
   `textures.minecraft.net` (its address and arm model, slim or classic, come
   from the lookup), then `crafthead.net`, then `mc-heads.net`. If none

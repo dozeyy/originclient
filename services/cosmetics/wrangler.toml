@@ -1,11 +1,11 @@
 # Origin cosmetics service. Deployed by .github/workflows/cosmetics-service.yml
 # (setup steps: docs/STORE.md -> Delivery service). Secrets are set in the
-# Cloudflare dashboard, never here: TEBEX_SECRET.
+# Cloudflare dashboard, never here: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET.
 name = "origin-cosmetics"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 
-# Every minute; the code itself waits as long as Tebex asks between checks.
+# Every minute: the friends offline sweep (social cleanup every 10th minute).
 [triggers]
 crons = ["* * * * *"]
 

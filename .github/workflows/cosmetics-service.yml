@@ -1,5 +1,6 @@
-# The cosmetics delivery service (services/cosmetics, a Cloudflare Worker).
-# Tests run on every push/PR that touches it. Deploys happen from main only,
+# The cosmetics service (services/cosmetics, a Cloudflare Worker: store payments
+# through Stripe, ownership, Origin social). Tests run on every push/PR that
+# touches it, or the store page's item list (a test checks the two agree). Deploys happen from main only,
 # and only once Cloudflare is set up (docs/STORE.md -> Delivery service):
 # repo secrets CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID, and the real D1
 # database id in services/cosmetics/wrangler.toml. Until then the deploy job
@@ -11,10 +12,12 @@ on:
     branches: [main, "claude/**"]
     paths:
       - "services/cosmetics/**"
+      - "website/js/store.js"
       - ".github/workflows/cosmetics-service.yml"
   pull_request:
     paths:
       - "services/cosmetics/**"
+      - "website/js/store.js"
       - ".github/workflows/cosmetics-service.yml"
   workflow_dispatch:
 
@@ -89,6 +92,7 @@ jobs:
         working-directory: services/cosmetics
         run: npx --yes wrangler@4 deploy
       # Smoke test the live Worker (docs/STORE.md has the URL): the service answers,
+      # the store price list loads ("open" turns true once the Stripe key is set),
       # the players-online count works, and the Worker holds Mojang's keys
       # (counts only); 0 keys means every friends sign-in gets "try again later".
       - name: Smoke test the live service
@@ -96,7 +100,7 @@ jobs:
         run: |
           base=https://origin-cosmetics.will-f11.workers.dev
           sleep 10
-          for p in / /v1/stats/online /v1/diag/keys; do
+          for p in / /v1/store/catalog /v1/stats/online /v1/diag/keys; do
             echo "== GET $p"; curl -sS --max-time 20 "$base$p"; echo
           done
           curl -sS --max-time 20 "$base/v1/diag/keys" | python3 -c '

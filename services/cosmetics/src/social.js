@@ -489,8 +489,7 @@ export async function socialCleanup(env, now = Date.now()) {
     env.DB.prepare('DELETE FROM warps WHERE at <= ?').bind(now - L.WARP_TTL_MS),
     env.DB.prepare('DELETE FROM party_invites WHERE at <= ?').bind(now - L.INVITE_TTL_MS),
     env.DB.prepare('DELETE FROM rate WHERE at < ?').bind(now - L.RATE_KEEP_MS),
-    // Also done after each Tebex pass; repeated here so it happens even
-    // while the store side is switched off or failing.
+    // Used sign-in proofs are only remembered long enough to refuse a replay.
     env.DB.prepare('DELETE FROM joins WHERE at < ?').bind(now - L.TOKEN_TTL_MS),
   ]);
   // Players who closed everything an hour ago leave their party, so nobody's

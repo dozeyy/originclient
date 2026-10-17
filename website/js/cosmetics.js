@@ -1,6 +1,6 @@
 // Origin store cosmetics: how every item LOOKS, plus the 3D fitting room.
 //
-// store.js owns WHAT is for sale (names, prices, Tebex package ids); this file
+// store.js owns WHAT is for sale (names, list prices; the service charges); this file
 // owns the art, keyed by the same item id. Every texture is painted in code at
 // Minecraft-like resolution (capes at 4x a vanilla cape, 40x64), so the
 // placeholder art needs no image files and a new design is one entry in ART.
