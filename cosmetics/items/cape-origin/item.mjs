@@ -36,7 +36,7 @@ function clothLevel(x, y) {
   const a = valleyX(k, y), b = valleyX(k + 1, y), p = clamp((x - a) / (b - a));
   const behind = 1 - smoothstep(0.55, 1.15, Math.hypot((x - MX) / 40, (y - MY) / 42));     // 1 at the mark, 0 away from it
   const prof = foldProfile(p) * (1 - 0.55 * behind) + 0.4 * 0.55 * behind;                 // folds dim and flatten behind the mark
-  let t = 0.28 + prof * 0.5 + (0.5 - y / H) * 0.14;      // brighter near the collar, darker toward the hem
+  let t = 0.37 + prof * 0.44 + (0.5 - y / H) * 0.14;      // brighter near the collar, darker toward the hem
   t -= 0.12 * smoothstep(0.4, 1.1, Math.hypot((x - 40) / 46, (y - 64) / 80));   // soft vignette
   t -= 0.07 * behind;
   return clamp(Math.floor(clamp(t) * cloth.length), 1, cloth.length - 1);   // level 0 is kept for outlines and seams

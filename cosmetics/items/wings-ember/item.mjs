@@ -20,11 +20,11 @@ const REST_DROOP = -7;                                          // and drooped a
 // Dropped ~4 px against try 1: the root sits low on the back and the tips hang to the hips.
 const P = {
   S: [2.4, -3.0], E: [6.4, 1.2], Wr: [10.4, -0.4],
-  F: [[13.4, -3.4], [12.8, -7.8], [10.6, -11.4], [7.6, -13.0]],    // fingertips, leading edge first
+  F: [[12.9, -1.6], [12.9, -6.0], [11.0, -10.6], [7.6, -13.0]],    // fingertips, leading edge first
   B: [3.2, -10.8],
 };
 const ZI = -2.9, ZO = -3.15;                                    // z of the inner and outer membranes (outer sits behind)
-const TIP = 1.0;                                                // the finger bones poke this far past the membrane
+const TIP = 0.8;                                                // the finger bones poke this far past the membrane
 
 // Trailing edge between two fingertips: a concave scallop pulled toward the wrist.
 function scallop(a, b, toward, depth, n = 18) {
@@ -81,7 +81,7 @@ function plane(name, reg, side, extra = {}) {
     ...(extra.emissive ? { emissive: true } : {}),
   };
 }
-const BONE_TH = { humerus: 1.5, forearm: 1.25, claw: 0.75, f1: 0.75, f2: 0.75, f3: 0.75, f4: 0.75 };
+const BONE_TH = { humerus: 1.5, forearm: 1.25, claw: 0.75, f1: 1, f2: 1, f3: 1, f4: 1 };
 const CLAW_TIP = [11.5, 1.5];
 const along = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
 const leftBones = side => [
@@ -90,7 +90,7 @@ const leftBones = side => [
   limb('claw', 'out', P.Wr, CLAW_TIP, BONE_TH.claw, ZO, side),
   ...FINGERS.map(([a, b], i) => limb(`f${i + 1}`, 'out', a, b, BONE_TH[`f${i + 1}`], ZO, side, TIP)),
   knuckle('kW', 'out', P.Wr, ZO, side, 1.5),
-  ...FINGERS.map(([a, b], i) => knuckle(`k${i + 1}`, 'out', along(a, b, 0.55), ZO, side, 1.25)),
+  ...FINGERS.map(([a, b], i) => knuckle(`k${i + 1}`, 'out', along(a, b, 0.55), ZO, side, 1.5)),
 ];
 // pack the bone cubes below the planes (the left wing defines the UV, the mirror reuses it)
 const boneL = leftBones(+1), boneR = leftBones(-1);
@@ -122,9 +122,9 @@ const motion = [
 
 // ---- colour ramps ---------------------------------------------------------------------
 // membrane cells: char -> deep maroon -> ember red -> warm ember (shadows cooler, lights warmer)
-const CELL = ['#1a0d12', '#3a171c', '#6e2619', '#a8441a'];
+const CELL = ['#160b10', '#31141b', '#5c2019', '#8c3418'];
 const OUTLINE = '#0c0608';
-const dimCrack = ['#6a1d16', '#8e2918', '#b43a1a'];           // the cracks that are not lit: dim ember red
+const dimCrack = ['#6a1d16', '#a02e19', '#d14a1e'];           // the cracks that are not lit: dim ember red
 const ember = ramp('#ff6418', 9, { lo: 0.16, hi: 0.94, shadowHue: 352, lightHue: 52, shift: 0.85, tint: 0.5, satHi: 1.1, satLo: 1.0 });
 const rock = ramp('#3a2c33', 8, { lo: 0.03, hi: 0.5, shadowHue: 280, lightHue: 18, shift: 0.45, tint: 0.08 });
 
@@ -185,7 +185,7 @@ function sampleRegion(key, reg, outline, bonesList, trail) {
     const u01 = clamp((r - rIn) / (rOut - rIn));
 
     // cracks: the non-bone spokes and the arcs, thicker near the wrist, never drawn on top of the wrist knot
-    const hw = lerp(0.2, 0.13, clamp(r / 13));
+    const hw = lerp(0.22, 0.15, clamp(r / 13));
     let dCrack = 1e9, cid = 0;
     arcs.forEach((rb, k) => { const d = Math.abs(r - rb); if (d < dCrack) { dCrack = d; cid = sec * 11 + k; } });
     for (const sp of [up, lo]) if (sp && !sp.bone) { const d = r * Math.abs(((ang - sp.a) * Math.PI) / 180); if (d < dCrack) { dCrack = d; cid = 100 + sp.id; } }
@@ -197,8 +197,8 @@ function sampleRegion(key, reg, outline, bonesList, trail) {
     // cell tone, 0..1 over the 4-step ramp: warm near the shoulder side of each cell, char toward the trailing edge
     const cellHash = hash2(sec, band, seed + 21);
     const g = smoothstep(0, 9.5, dEdge);
-    let L = 0.1 + 0.52 * g + 0.2 * (1 - u01) + (cellHash - 0.5) * 0.2 + (noise2(x * 1.3, y * 1.3, seed) - 0.5) * 0.1;
-    L += 0.22 * Math.exp(-db / 1.6);                                     // the leather warms against a bone
+    let L = 0.04 + 0.42 * g + 0.3 * (1 - u01) + (cellHash - 0.5) * 0.2 + (noise2(x * 0.5, y * 0.5, seed) - 0.5) * 0.08;
+    L += 0.16 * Math.exp(-db / 1.4);                                     // the leather warms against a bone
     T.level[i] = clamp(L, 0, 1);
     T.shade[i] = g;
     void lo; void up;
@@ -264,7 +264,7 @@ function paintVeins(tex, T, f, out) {
 }
 // Bone cube faces: dark outline all round, a lit top row, joint grooves, and a tiny ember gem in each knuckle.
 function paintBone(v, f, name) {
-  const L = LIGHT[f], isK = /^k/.test(name), th = BONE_TH[name] ?? 1;
+  const L = LIGHT[f], isK = /^k/.test(name), gem = /^k[SEW]$/.test(name), th = BONE_TH[name] ?? 1;
   v.paint((x, y) => {
     const edge = x === 0 || y === 0 || x === v.w - 1 || y === v.h - 1;
     if (edge) return rock[0];
@@ -274,7 +274,7 @@ function paintBone(v, f, name) {
     if (!isK && v.w > v.h && (x + 3) % 6 === 0 && th > 0.7) t -= 0.14;   // faint segment grooves along the bone
     return rock[clamp(Math.round(t * (rock.length - 1)), 0, rock.length - 1)];
   });
-  if (isK && f !== 'down' && f !== 'up' && v.w >= 3) {                  // ember gem at the centre of the knuckle
+  if (gem && f !== 'down' && f !== 'up' && v.w >= 3) {                  // ember gem at the centre of the knuckle
     const cx = (v.w - 1) >> 1, cy = (v.h - 1) >> 1;
     v.set(cx, cy, ember[4]);
     if (v.w >= 5) { v.set(cx - 1, cy, ember[1]); v.set(cx + 1, cy, ember[1]); v.set(cx, cy - 1, ember[1]); v.set(cx, cy + 1, ember[1]); v.set(cx, cy, ember[5]); }
