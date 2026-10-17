@@ -93,6 +93,7 @@ const state = {
   plusPending: 0,              // membership re-checks left after returning from joining
   catalog: 'loading',          // loading | ok | closed | error
   api: '',                     // the service's base URL once known
+  plusCape: false,             // is the members' cape drawn yet (cape-plus in catalog.json)?
   worn: {},                    // slot -> item id: what the fitting room wears (one item per slot)
   themeView: true,             // a worn theme shows its menu preview instead of the player
   busy: false,
@@ -442,6 +443,7 @@ function renderBag(error = '') {
 // drawn (cosmetics/items/cape-plus), is only the picture on the membership card. Until then
 // the picture stays hidden.
 async function paintPlusCape() {
+  if (!state.plusCape) return;
   try {
     const { item, image } = await getSource('cape-plus');
     const S = item.cape.scale, c = document.createElement('canvas'), img = $('[data-plus-cape]');
@@ -579,7 +581,9 @@ const SLOT_OF = { cape: 'cape', wings: 'back', pack: 'back', mask: 'face', banda
 async function loadItems() {
   let list = null;
   try {
-    list = (await loadCatalog(base())).filter(i => i && i.id && i.onSale !== false && !i.plusOnly);
+    const raw = await loadCatalog(base());
+    state.plusCape = raw.some(i => i.id === 'cape-plus');
+    list = raw.filter(i => i && i.id && i.onSale !== false && !i.plusOnly);
   } catch (err) {
     console.warn('Origin store: catalog.json can\u2019t be read, using the built-in list.', err);
   }

@@ -201,3 +201,14 @@ export default {
    dithered gradients, NOT flat bands and blobs (that was the "Roblox" look).
 5. Animated items loop seamlessly; emissive parts sparingly.
 6. Silhouette clean at 1x in-game scale, rich up close.
+
+## Implementation notes (pipeline v2, clarifications found while building the pilots)
+- Cube coordinates and bone pivots are absolute, Blockbench-style, in the attach bone's frame (head or body).
+- Rotation is applied Z, then Y, then X (three.js Euler 'XYZ' as the site rig uses it).
+- A mirrored bone negates `amp`, `walkAmp` and `airAmp` together. A mirror cube may share its partner's UV pixels.
+- Cube sizes and `uv * scale` must land on whole texture pixels. Frame-stacked textures cycle the whole sheet.
+- `capeOffset` belongs to the backpack (how far the cape is pushed back).
+- `catalog.json` is `{ schema: 2, items }`; `item.json` is the flattened meta plus model/cape/anim/fx/theme/view.
+- Items not yet redrawn stay in `cosmetics/pending.json`: they keep their service/price entries but are hidden from the store.
+- `website/js/store.js` keeps a literal one-line-per-item PRICE_LIST (the service test compares it); the shop grid itself is driven by catalog.json.
+- Judge sheets: `node tools/cosmetics/shots.mjs <id> [--with <id>]` writes `_sheet.jpg` per item.

@@ -72,13 +72,14 @@ try {
     const views = [
       ['front', { ...body, yaw: 0, t: T }],
       ['back', { ...body, yaw: PI, t: T }],
-      ['three-quarter left', { ...body, yaw: home - PI / 4 * (back ? -1 : 1) * -1 + 0, t: T }],
-      ['three-quarter right', { ...body, yaw: home + PI / 4 * (back ? -1 : 1) * -1 + 0, t: T }],
+      ['three-quarter left', { ...body, yaw: 0, t: T }],
+      ['three-quarter right', { ...body, yaw: 0, t: T }],
       ['side', { ...body, yaw: -PI / 2, t: T }],
       ['close-up', { ...close, lift: 3, yaw: home + (back ? 0.5 : 0.45), t: T }],
       ['far (8 blocks)', { look: 17, dist: 128, lift: 6, yaw: home + (back ? 0.35 : 0.35), t: T }],
     ];
     // 3/4 left = the player's left side toward the camera, from the front (or the back for back items)
+    // three-quarter views: the yaw depends on which side the item sits (back items are seen from behind)
     views[2][1].yaw = back ? -3 * PI / 4 : -PI / 4;
     views[3][1].yaw = back ? 3 * PI / 4 : PI / 4;
     if (item.animated && item.anim?.motion?.length || item.cape?.frames > 1 || item.anim?.frames > 1) {
