@@ -1,94 +1,185 @@
-// The brand cape: dark woven cloth, the Origin mark embroidered in silver thread,
-// a metallic stitched hem. Static, scale 8: painted 1 art pixel = 1 texture pixel
-// on the 80x128 outside face (one density for the whole item).
-import { Canvas, ramp, ditherIndex, bayer, clamp, smoothstep, hash2, noise2 } from '../../lib/px.mjs';
-import { drawMark } from '../../lib/marks.mjs';
+// The brand cape: dark cloth with four broad vertical folds, the Origin mark
+// stitched on in silver thread, one clean stitched hem. Static, scale 8: painted
+// 1 art pixel = 1 texture pixel on the 80x128 outside face (one density per item).
+//
+// The mark is rasterised HERE (not lib/marks) so every ring holds a constant 2 px
+// stroke: per pixel we take the true distance to the ring's centre line and keep
+// the pixels whose offset along the stroke's dominant axis falls in [-1, 1), which
+// is exactly 2 pixels per row/column wherever the ring runs. The inner pixel is the
+// darker edge. Crossings alternate over/under along every ring.
+import { Canvas, ramp, clamp, smoothstep, mix } from '../../lib/px.mjs';
 import { newCapeArt } from '../../lib/cape.mjs';
 
 const S = 8, W = 10 * S, H = 16 * S;
-const MX = 40, MY = 52, MS = 62, STROKE = 4;      // mark: centre, size, stroke
+const MX = 40, MY = 62, MSIZE = 68;                    // mark: centre and overall width
 
-const cloth = ramp('#2b3035', 8, { lo: 0.03, hi: 0.43, tint: 0.04, shadowHue: 232, lightHue: 205, shift: 0.5 });
-const silver = ramp('#c4c8cd', 7, { lo: 0.16, hi: 0.97, shadowHue: 235, lightHue: 45, shift: 0.18, tint: 0.03 });
-const steel = ramp('#757b84', 5, { lo: 0.08, hi: 0.62, shift: 0.3, tint: 0.04 });
+// 5-step cloth: lit ridge (4) -> dark valley (0). Near-neutral, a hair cool in shadow.
+const cloth = ramp('#3a3d42', 5, { lo: 0.07, hi: 0.36, tint: 0.025, shadowHue: 232, lightHue: 215, shift: 0.3 });
+const THREAD = ['#6a6a6a', '#8e8e8e', '#b6b6b6', '#e0e0e0', '#f5f5f5'];   // monochrome, #E0E0E0 is the body
+const GAP = '#383838';                                  // thread dipping under another ring
+const OUTLINE = cloth[0];
 
-// Hanging folds: they fan out from the collar and widen toward the hem. 0..1, ridge-shaped.
-function folds(x, y) {
-  const spread = 0.62 + 0.55 * (y / H);
-  const u = (x - 40) / spread;
-  const a = Math.sin(u * 0.205 + 0.8), b = Math.sin(u * 0.093 - 1.9 + y * 0.003), c = Math.sin(u * 0.41 + 2.2) * (0.35 + 0.65 * (y / H));
-  const v = 0.5 + 0.34 * a + 0.2 * b + 0.12 * c;
-  return clamp(v);
+// ---------------------------------------------------------------- cloth folds
+// Valley lines at the top of the cape (x, relative to the centre line); they fan out
+// toward the hem and sway a little, so the folds read as hanging cloth, not stripes.
+const VALLEYS = [-9, 16, 42, 62, 88];
+const valleyX = (k, y) => 40 + (VALLEYS[k] - 40) * (0.8 + 0.3 * (y / H)) + Math.sin(y * 0.045 + k * 1.7) * 2.2;
+// Lit value 0..1 across one fold: valley (dark) -> sharp lit ridge -> long shaded slope. Light from the top-left.
+function foldProfile(p) {
+  if (p < 0.3) return 0.1 + 0.9 * smoothstep(0, 0.3, p);
+  return 1 - Math.pow(smoothstep(0.3, 1, p), 0.8) * 0.97;
 }
-const twill = (x, y) => (((x + y) & 3) / 3) - 0.5;   // diagonal rib, one thread per pixel
+function clothLevel(x, y) {
+  let k = 0; while (k < VALLEYS.length - 2 && x >= valleyX(k + 1, y)) k++;
+  const a = valleyX(k, y), b = valleyX(k + 1, y), p = clamp((x - a) / (b - a));
+  let t = foldProfile(p);
+  t = 0.17 + t * 0.7 + (0.5 - y / H) * 0.2;            // brighter near the collar, darker toward the hem
+  t -= 0.14 * smoothstep(0.4, 1.1, Math.hypot((x - 40) / 46, (y - 64) / 80));   // soft vignette
+  return clamp(Math.floor(clamp(t) * cloth.length), 0, cloth.length - 1);
+}
+
+// ---------------------------------------------------------------- the mark
+// Rings as in website/store.html #mark (rx 90/75/60, ry 32/27/22), rotated 0/60/120.
+function ringGeometry() {
+  const k = (MSIZE / 2 - 1) / 90, open = 1.15;
+  return [{ rx: 90, ry: 32, rot: 0 }, { rx: 75, ry: 27, rot: 60 }, { rx: 60, ry: 22, rot: 120 }]
+    .map(r => ({ rx: r.rx * k, ry: r.ry * k * open, rot: r.rot * Math.PI / 180 }));
+}
+function ringPoints(r, n = 2400) {
+  const c = Math.cos(r.rot), s = Math.sin(r.rot), pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2, u = r.rx * Math.cos(t), v = r.ry * Math.sin(t);
+    pts.push([MX + u * c - v * s, MY + u * s + v * c, t]);
+  }
+  return pts;
+}
+// Over/under: pick which ring is on top at each of the 12 crossings so that every ring
+// alternates over, under, over, under around its whole length (real interlocking thread).
+function crossingsAndOrder(pts) {
+  const X = [];
+  for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) {
+    const hits = [];
+    for (let i = 0; i < pts[a].length; i++) {
+      const p = pts[a][i], q = pts[a][(i + 1) % pts[a].length];
+      // sign change of "inside ring b" test along ring a marks a crossing
+      const fa = insideF(b, p[0], p[1]), fb = insideF(b, q[0], q[1]);
+      if ((fa - 1) * (fb - 1) < 0) hits.push([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, i]);
+    }
+    for (const h of hits) X.push({ a, b, x: h[0], y: h[1], ia: h[2] });
+  }
+  // index of each crossing along its two rings
+  for (const c of X) c.ib = nearestIndex(pts[c.b], c.x, c.y);
+  for (let r = 0; r < 3; r++) {
+    const mine = X.filter(c => c.a === r || c.b === r).sort((p, q) => (p.a === r ? p.ia : p.ib) - (q.a === r ? q.ia : q.ib));
+    mine.forEach((c, i) => { (c.pos ||= {})[r] = i; });
+  }
+  // brute force a consistent assignment: bit = 1 means ring a is over ring b
+  const n = X.length;
+  for (let m = 0; m < (1 << n); m++) {
+    let ok = true;
+    for (let r = 0; r < 3 && ok; r++) {
+      const mine = X.filter(c => c.a === r || c.b === r);
+      const ov = mine.map(c => ((m >> X.indexOf(c)) & 1) ? c.a === r : c.b === r);   // is ring r on top here
+      const byPos = new Array(mine.length);
+      mine.forEach((c, i) => { byPos[c.pos[r]] = ov[i]; });
+      for (let i = 0; i < byPos.length; i++) if (byPos[i] === byPos[(i + 1) % byPos.length]) { ok = false; break; }
+    }
+    if (ok) { X.forEach((c, i) => { c.over = ((m >> i) & 1) ? c.a : c.b; }); return X; }
+  }
+  X.forEach((c, i) => { c.over = (i & 1) ? c.a : c.b; });           // fallback: simple alternate
+  return X;
+}
+let GEO;
+const insideF = (i, x, y) => {
+  const r = GEO[i], c = Math.cos(r.rot), s = Math.sin(r.rot), dx = x - MX, dy = y - MY, u = dx * c + dy * s, v = -dx * s + dy * c;
+  return (u / r.rx) ** 2 + (v / r.ry) ** 2;
+};
+const nearestIndex = (pts, x, y) => { let best = 0, bd = 1e9; pts.forEach((p, i) => { const d = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (d < bd) { bd = d; best = i; } }); return best; };
+
+// Returns Map(y*W+x -> { ring, inner, lit }) for every thread pixel, plus the shadowed (dipping) ones.
+function buildMark() {
+  GEO = ringGeometry();
+  const pts = GEO.map(r => ringPoints(r)), X = crossingsAndOrder(pts);
+  const cover = [new Map(), new Map(), new Map()];                     // per ring: pixel -> { inner, nx, ny }
+  const R = MSIZE / 2 + 4;
+  for (let y = Math.floor(MY - R); y <= Math.ceil(MY + R); y++) for (let x = Math.floor(MX - R); x <= Math.ceil(MX + R); x++) {
+    const cx = x + 0.5, cy = y + 0.5;
+    for (let i = 0; i < 3; i++) {
+      let bd = 1e9, bx = 0, by = 0;
+      for (const p of pts[i]) { const d = (p[0] - cx) ** 2 + (p[1] - cy) ** 2; if (d < bd) { bd = d; bx = p[0]; by = p[1]; } }
+      const dist = Math.sqrt(bd); if (dist > 2.2) continue;
+      let nx = dist > 1e-6 ? (cx - bx) / dist : 0, ny = dist > 1e-6 ? (cy - by) / dist : 0;
+      const out = insideF(i, cx, cy) >= 1;
+      const sd = out ? dist : -dist;
+      if (!out) { nx = -nx; ny = -ny; }                                   // keep the normal pointing outward
+      const dom = Math.max(Math.abs(nx), Math.abs(ny)) || 1, off = sd / dom;
+      if (off >= -1 && off < 1) cover[i].set(y * W + x, { inner: off < 0, nx, ny });
+    }
+  }
+  const owner = new Map();                                                // pixel -> ring that is visible there
+  for (let i = 0; i < 3; i++) for (const k of cover[i].keys()) {
+    if (!owner.has(k)) { owner.set(k, i); continue; }
+    const j = owner.get(k), px = k % W, py = (k / W) | 0;
+    let near = null, nd = 1e9;                                            // nearest crossing between the two rings
+    for (const c of X) if ((c.a === i && c.b === j) || (c.a === j && c.b === i)) { const d = (c.x - px) ** 2 + (c.y - py) ** 2; if (d < nd) { nd = d; near = c; } }
+    owner.set(k, near.over);
+  }
+  // under-thread pixels hugging the over ring dip into shadow: a 1 px gap each side
+  const dip = new Set();
+  for (const [k, i] of owner) {
+    const px = k % W, py = (k / W) | 0;
+    let near = null, nd = 1e9;
+    for (const c of X) if (c.a === i || c.b === i) { const d = (c.x - px) ** 2 + (c.y - py) ** 2; if (d < nd) { nd = d; near = c; } }
+    if (!near || nd > 36 || near.over === i) continue;
+    const o = near.over;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (owner.get((py + dy) * W + px + dx) === o) { dip.add(k); }
+  }
+  return { owner, cover, dip };
+}
+
+const LIGHT = [-0.6, -0.8];
+function threadColor(ring, k, mark) {
+  const c = mark.cover[ring].get(k), lit = 0.5 + 0.5 * (c.nx * LIGHT[0] + c.ny * LIGHT[1]);   // outward normal vs light
+  const step = lit > 0.64 ? 1 : lit < 0.3 ? -1 : 0;
+  return c.inner ? THREAD[clamp(1 + step, 0, 2)] : THREAD[clamp(3 + step, 2, 4)];
+}
 
 export default {
-  meta: { id: 'cape-origin', name: 'Origin Cape', kind: 'cape', cents: 599, blurb: 'The three rings, stitched in silver on dark woven cloth.' },
+  meta: { id: 'cape-origin', name: 'Origin Cape', kind: 'cape', cents: 599, blurb: 'The three rings, stitched in silver on dark folded cloth.' },
   cape: { scale: S, frames: 1, fps: 10 },
   paint() {
     const c = newCapeArt(S);
-    // ------- the mark first (as a mask), so cloth lighting can react to it
-    const markCv = new Canvas(W, H), info = new Map();
-    drawMark(markCv, MX, MY, MS, p => { info.set(p.y * W + p.x, p); return '#fff'; }, STROKE);
-    const near = new Float32Array(W * H).fill(99);                       // distance to the nearest mark pixel (halo)
-    const R = 9;
-    for (const [k] of info) {
-      const px = k % W, py = (k / W) | 0;
-      for (let y = Math.max(0, py - R); y <= Math.min(H - 1, py + R); y++) for (let x = Math.max(0, px - R); x <= Math.min(W - 1, px + R); x++) {
-        const d = Math.hypot(x - px, y - py), i = y * W + x; if (d < near[i]) near[i] = d;
-      }
-    }
-    const shadowAt = new Uint8Array(W * H);                               // the embroidery's drop shadow (down-right)
-    for (const [k] of info) { const px = k % W + 2, py = ((k / W) | 0) + 2; if (px < W && py < H) shadowAt[py * W + px] = 1; for (const [dx, dy] of [[1, 2], [2, 1]]) if (px + dx - 2 < W) { const q = (py + dy - 2) * W + px + dx - 2; if (q < W * H) shadowAt[q] = 1; } }
+    // ------- cloth: broad folds, 5-step ramp, no dither
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) c.set(x, y, cloth[clothLevel(x, y)]);
 
-    // ------- cloth: a lighting value per pixel, then dithered onto the ramp
+    // ------- collar: darker gathered band under a seam
+    for (let y = 1; y < 7; y++) for (let x = 0; x < W; x++) c.set(x, y, cloth[clamp(clothLevel(x, y) - 1, 1, 3)]);
+    for (let x = 0; x < W; x++) { c.set(x, 7, cloth[0]); c.set(x, 8, ((x >> 1) & 1) ? cloth[3] : cloth[2]); }   // seam + stitch row
+
+    // ------- hem: one fold-over with a single stitched line
+    const hy = H - 9;
+    for (let x = 0; x < W; x++) {
+      c.set(x, hy, cloth[0]);                                              // crease
+      c.set(x, hy + 1, cloth[clamp(clothLevel(x, hy) + 1, 0, 4)]);        // catch-light on the folded edge
+      for (let y = hy + 2; y < H - 1; y++) c.set(x, y, cloth[clamp(clothLevel(x, y) - 0, 1, 3)]);
+      c.set(x, hy + 3, ((x % 4) === 3) ? cloth[1] : '#9a9a9a');           // the stitch: 3 px thread, 1 px gap
+      c.set(x, hy + 4, cloth[0]);                                          // shadow under the thread
+    }
+
+    // ------- the mark: halo first, then thread
+    const mark = buildMark();
+    const near = (k, r) => { const px = k % W, py = (k / W) | 0; let best = 99; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (mark.owner.has((py + dy) * W + px + dx)) best = Math.min(best, Math.hypot(dx, dy)); return best; };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const f = folds(x, y), top = 1 - y / H, left = 1 - x / W;
-      let t = 0.42 + (f - 0.5) * 0.7 + (top - 0.5) * 0.3 + (left - 0.5) * 0.16;
-      t -= 0.2 * smoothstep(0.5, 1.05, Math.hypot((x - 40) / 44, (y - 62) / 78));        // vignette
-      t += twill(x, y) * 0.085 + (noise2(x * 0.5, y * 0.5, 3) - 0.5) * 0.06;                // weave + slub
-      const d = near[y * W + x];
-      if (d < R) t += (1 - d / R) ** 2 * 0.3;                                               // soft lift around the mark
-      if (shadowAt[y * W + x] && !info.has(y * W + x)) t -= 0.2;                           // stitching sits on the cloth
-      c.set(x, y, cloth[ditherIndex(clamp(t), cloth.length, bayer(x, y, 4) * 0.8 + 0.1)]);
+      const k = y * W + x; if (mark.owner.has(k)) continue;
+      const d = near(k, 3);
+      if (d <= 1.5) c.set(x, y, mix(c.get(x, y), '#e0e0e0', 0.26));         // halo step 1
+      else if (d <= 2.5) c.set(x, y, mix(c.get(x, y), '#e0e0e0', 0.1));     // halo step 2
     }
-    // ------- collar: gathered pleats under a stitched seam
-    for (let y = 0; y < 9; y++) for (let x = 0; x < W; x++) {
-      const k = y / 9, pleat = ((x >> 1) & 1) ? 0.18 : -0.12;
-      const [r, g, b] = c.get(x, y), idx = cloth.indexOf('#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join(''));
-      c.set(x, y, cloth[clamp(Math.round(idx + (pleat - 0.34) * 3 * (1 - k)), 0, cloth.length - 1)]);
-    }
-    for (let x = 0; x < W; x++) { c.set(x, 0, cloth[0]); c.set(x, 8, cloth[0]); c.set(x, 9, ((x >> 1) & 1) ? cloth[2] : cloth[1]); c.set(x, 10, ((x >> 2) & 1) ? steel[3] : cloth[2]); }
-    // ------- the mark: tube-lit silver thread with a stitch sheen and a couple of glints
-    drawMark(c, MX, MY, MS, p => {
-      const stitch = (((p.x + p.y) >> 1) & 1) ? 0.045 : -0.045;
-      const fold = (folds(p.x, p.y) - 0.5) * 0.22 + (1 - p.y / H - 0.5) * 0.12;
-      const edgeDark = Math.abs(p.t) > 0.9 ? -0.13 : 0;
-      const t = clamp(p.light * 0.96 + stitch + fold + edgeDark - 0.02);
-      return silver[Math.min(silver.length - 1, Math.floor(t * silver.length))];
-    }, STROKE);
-    // glints: the brightest thread pixel in the upper-left of each half of the mark
-    for (const left of [true, false]) {
-      let best = null;
-      for (const [k, p] of info) if ((p.x < MX) === left && p.y < MY - 2 && (!best || p.light - p.y * 0.002 > best.light - best.y * 0.002)) best = p;
-      if (best) { const { x, y } = best; c.set(x, y, '#ffffff'); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (info.has((y + dy) * W + x + dx)) c.set(x + dx, y + dy, silver[6]); }
-    }
-    // ------- hem: a metal bar with stitched cloth above it
-    const HEM = 13, y0 = H - HEM;
-    const hem = [
-      () => cloth[0], x => (x & 1 ? steel[1] : steel[2]), () => silver[5], () => silver[4], () => steel[2],           // 0-4 piping
-      () => cloth[1], x => ((x % 4) === 3 ? cloth[2] : silver[4]), () => cloth[1],                                // 5-7 stitch row
-      () => cloth[2], () => cloth[0],                                                                                 // 8-9 shadow
-      () => silver[6], () => silver[4], () => steel[2],                                                               // 10-12 metal edge
-    ];
-    for (let k = 0; k < HEM; k++) for (let x = 0; x < W; x++) c.set(x, y0 + k, hem[k](x));
-    for (const gx of [9, 31, 58, 72]) { c.set(gx, y0 + 10, '#ffffff'); c.set(gx + 1, y0 + 10, silver[6]); }          // glints on the bar
-    // ------- side piping, with its own shading
-    for (let y = 0; y < H; y++) {
-      const ink = y % 6 < 4;
-      c.set(0, y, ink ? silver[5] : silver[3]); c.set(1, y, steel[3]); c.set(2, y, steel[1]);
-      c.set(W - 1, y, steel[1]); c.set(W - 2, y, steel[2]); c.set(W - 3, y, cloth[1]);
-    }
+    for (const [k, ring] of mark.owner) c.set(k % W, (k / W) | 0, mark.dip.has(k) ? GAP : threadColor(ring, k, mark));
+
+    // ------- 1 px dark outline all round (replaces the old side frame)
+    for (let x = 0; x < W; x++) { c.set(x, 0, OUTLINE); c.set(x, H - 1, OUTLINE); }
+    for (let y = 0; y < H; y++) { c.set(0, y, OUTLINE); c.set(W - 1, y, OUTLINE); }
     return c;
   },
 };
