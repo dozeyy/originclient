@@ -3,8 +3,6 @@ package com.origin.client.client.cosmetics;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.origin.client.OriginClient;
-import com.origin.client.client.cosmetics.CosmeticEffectDefs.Anchor;
-import com.origin.client.client.cosmetics.CosmeticEffectDefs.Spec;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginRenderTypes;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -31,21 +29,29 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * In-game sparkles for cosmetics, matching the store's previews (the recipes
- * live in {@link CosmeticEffectDefs}, one table; this class knows no item).
+ * In-game sparkles for cosmetics, matching the store's previews. The recipes
+ * are each item's `fx` list in its item.json (FORMAT.md "Particles"; model px
+ * and seconds); this class knows no item by name.
+ *
+ * An fx entry lives in the frame of a model bone (`bone`), which rides the
+ * head (hats, masks) or the body (capes, wings, backpacks). For a cape, which
+ * has no model, `bone` is just the body frame. `at` and `spread` are px in that
+ * bone's frame, `rise` is px/s straight up, `drift` is px/s in the attach
+ * frame (+z = the player's front), as in website/js/rig.js.
  *
  * Purely cosmetic and client-side: small camera-facing squares (with a faint
- * halo) drawn into the world on Origin's own overlay quad surface
+ * halo for `glow`) drawn into the world on Origin's own overlay quad surface
  * ({@link OriginRenderTypes}, depth-tested so walls hide them), never
  * anything that changes what a player sees of the game. Cheap by design:
- *  - at most {@link #PER_PLAYER_CAP}-ish particles per player and
- *    {@link #GLOBAL_CAP} in total, nearer players first;
+ *  - at most a few dozen particles per player and {@link #GLOBAL_CAP} in
+ *    total;
  *  - nothing for players beyond {@link #MAX_DISTANCE} blocks, invisible or
  *    spectating players, players swimming/gliding/sleeping, an elytra'd or
  *    hidden cape, F1 (hidden HUD), or your OWN cosmetics in first person;
  *  - no per-particle objects beyond one small record; a particle's position is
  *    a closed-form function of its age, so there is no per-tick simulation and
- *    the motion is exact at any frame rate.
+ *    the motion is exact at any frame rate. It is born where the bone is and
+ *    then stays in the world, so a moving player leaves a trail.
  *
  * Setting: SETTINGS > General > Cosmetic Effects ("cosmeticEffects", default on).
  * Everything is fail-soft: an error in a frame just skips the sparkles.
@@ -57,29 +63,28 @@ public final class CosmeticEffects {
 	/** Players farther than this get no sparkles (they'd be a speck anyway). */
 	private static final double MAX_DISTANCE = 40.0;
 	private static final int GLOBAL_CAP = 260;
-	private static final float PER_PLAYER_SLACK = 1.25f;
 	/** The website sizes particles for a 16-px-wide cape; in game a little bigger reads better. */
 	private static final float GAME_SIZE_SCALE = 1.5f;
 
-	/** One live particle. Position = origin + velocity * age + sway * sin(life phase). */
+	/** One live particle. Position = origin + velocity * age. */
 	private static final class Particle {
 		double ox, oy, oz;     // where it was born (world)
-		float vx, vy, vz;      // drift, blocks per tick
-		float sx, sz;          // sway amplitude (blocks) along the horizontal axes
-		float phase;           // sway phase offset
+		float vx, vy, vz;      // blocks per tick
 		double born;           // game time (ticks, with partial) at birth
 		float life;            // ticks
 		float r, g, b;         // colour 0..1
 		float size;            // blocks, side of the square
-		float glow;            // halo strength (recipe's glow)
+		boolean glow;          // faint halo behind it
 	}
+
+	private static final int FX_SLOTS = 8;   // CosmeticDef.MAX_FX
 
 	private static final class Emitter {
 		final List<Particle> live = new ArrayList<>();
-		float accCape, accHead;   // fractional spawns carried between frames
+		/** fractional spawns carried between frames, per (slot, fx index) */
+		final float[] acc = new float[Cosmetics.Slot.values().length * FX_SLOTS];
 		long frame;               // last frame this player was handled
 		boolean emitting;         // wearing something that sparkles right now
-		int colorCursor;
 	}
 
 	private static final Map<UUID, Emitter> EMITTERS = new HashMap<>();
@@ -90,7 +95,7 @@ public final class CosmeticEffects {
 	// Reused per frame: no allocation in the draw loop.
 	private static final Vector3f CAM_RIGHT = new Vector3f();
 	private static final Vector3f CAM_UP = new Vector3f();
-	private static final float[] SHAPE = new float[CapePhysics.N];
+	private static final Vector3f TMP = new Vector3f();
 	private static boolean warned = false;
 
 	/** Hooks the world-render pass. Called once from OriginClientMod. */
@@ -159,27 +164,29 @@ public final class CosmeticEffects {
 				continue;   // its emitter (if any) is not touched this frame, so it is swept below
 			}
 			CosmeticsService.Look look = CosmeticsService.lookOf(p.getUUID());
-			Spec capeSpec = capeVisible(p) ? CosmeticEffectDefs.get(look.cape()) : null;
-			Spec headSpec = CosmeticEffectDefs.get(look.head());
+			boolean elytra = p.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA);
+			boolean capeShown = capeVisible(p, elytra) && !look.hidesCape();
 			Emitter em = EMITTERS.get(p.getUUID());
-			if (capeSpec == null && headSpec == null) {
-				if (em != null) {
-					em.frame = frameNo;   // took the item off: let what is left age out
-					em.emitting = false;
+			int sparkling = 0;
+			for (Cosmetics.Slot slot : SPARKLY_SLOTS) {
+				if ((slot == Cosmetics.Slot.CAPE && !capeShown) || (slot == Cosmetics.Slot.BACK && elytra)) {
+					continue;
 				}
-				continue;
+				CosmeticDef def = CosmeticCatalog.def(look.get(slot));
+				if (def != null && !def.fx.isEmpty()) {
+					sparkling++;
+					if (em == null) {
+						em = new Emitter();
+						EMITTERS.put(p.getUUID(), em);
+					}
+					em.frame = frameNo;
+					em.emitting = true;
+					total += emit(em, p, slot, def, dt, now, partial, total);
+				}
 			}
-			if (em == null) {
-				em = new Emitter();
-				EMITTERS.put(p.getUUID(), em);
-			}
-			em.frame = frameNo;
-			em.emitting = true;
-			if (capeSpec != null) {
-				total += emit(em, p, capeSpec, Anchor.CAPE, dt, now, partial, total);
-			}
-			if (headSpec != null) {
-				total += emit(em, p, headSpec, Anchor.HEAD, dt, now, partial, total);
+			if (sparkling == 0 && em != null) {
+				em.frame = frameNo;   // took the item off: let what is left age out
+				em.emitting = false;
 			}
 		}
 
@@ -216,144 +223,144 @@ public final class CosmeticEffects {
 		}
 	}
 
-	/** Spawns this frame's share of one recipe; returns how many it made. */
-	private static int emit(Emitter em, AbstractClientPlayer p, Spec spec, Anchor anchor, double dt, double now,
-			float partial, int totalNow) {
-		float acc = (anchor == Anchor.CAPE ? em.accCape : em.accHead) + (float) dt * spec.perSecond() / 20f;
-		int mine = em.live.size();
-		int cap = Math.round(spec.count() * PER_PLAYER_SLACK);
+	/** The slots that can carry fx (themes have no body). */
+	private static final Cosmetics.Slot[] SPARKLY_SLOTS = {
+			Cosmetics.Slot.CAPE, Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK };
+
+	/** Spawns this frame's share of one item's fx entries; returns how many it made. */
+	private static int emit(Emitter em, AbstractClientPlayer p, Cosmetics.Slot slot, CosmeticDef def, double dt,
+			double now, float partial, int totalNow) {
+		boolean head = slot == Cosmetics.Slot.HEAD || slot == Cosmetics.Slot.FACE;
+		Basis basis = null;
+		ModelCosmetic model = null;
+		float t = 0f, walk = 0f, air = 0f;
 		int made = 0;
 		ThreadLocalRandom rnd = ThreadLocalRandom.current();
-		while (acc >= 1f) {
-			acc -= 1f;
-			if (mine + made >= cap || totalNow + made >= GLOBAL_CAP) {
-				acc = Math.min(acc, 1f);   // full: don't bank a burst
-				continue;
+		for (int i = 0; i < def.fx.size() && i < FX_SLOTS; i++) {
+			CosmeticDef.Fx fx = def.fx.get(i);
+			int k = slot.ordinal() * FX_SLOTS + i;
+			float acc = em.acc[k] + (float) dt * fx.perSecond() / 20f;
+			// A steady state holds about perSecond * life particles; allow a little slack.
+			int cap = Math.max(4, Math.round(fx.perSecond() * fx.lifeMax() * 1.25f));
+			while (acc >= 1f) {
+				acc -= 1f;
+				if (em.live.size() >= Math.min(cap * 2, 160) || totalNow + made >= GLOBAL_CAP) {
+					acc = Math.min(acc, 1f);   // full: don't bank a burst
+					continue;
+				}
+				if (basis == null) {
+					basis = basisOf(p, head, partial);
+					model = ModelCosmetic.of(look(p, slot));
+					CosmeticLayer.Feel feel = CosmeticLayer.feelOf(p);
+					t = (p.tickCount + partial) / 20f;
+					walk = feel.walk;
+					air = feel.air;
+				}
+				Particle pt = spawn(fx, basis, model, t, walk, air, now, rnd);
+				if (pt != null) {
+					em.live.add(pt);
+					made++;
+				}
 			}
-			Particle pt = spawn(p, spec, anchor, now, partial, em.colorCursor++, rnd);
-			if (pt != null) {
-				em.live.add(pt);
-				made++;
-			}
-		}
-		if (anchor == Anchor.CAPE) {
-			em.accCape = acc;
-		} else {
-			em.accHead = acc;
+			em.acc[k] = acc;
 		}
 		return made;
 	}
 
-	private static Particle spawn(AbstractClientPlayer p, Spec spec, Anchor anchor, double now, float partial,
-			int colorIndex, ThreadLocalRandom rnd) {
-		// The player as drawn this frame (interpolated), in blocks.
-		double px = Mth.lerp(partial, p.xo, p.getX());
+	private static String look(AbstractClientPlayer p, Cosmetics.Slot slot) {
+		return CosmeticsService.lookOf(p.getUUID()).get(slot);
+	}
+
+	/**
+	 * A player's attach frame in the world: origin (blocks), the horizontal
+	 * unit vectors for the player's left (+x of FORMAT) and front (+z), and the
+	 * tilt of the frame about its left axis (head pitch / crouch lean).
+	 */
+	private static final class Basis {
+		double ox, oy, oz;
+		float leftX, leftZ, fwdX, fwdZ;
+		float cosT, sinT;
+	}
+
+	private static Basis basisOf(AbstractClientPlayer p, boolean head, float partial) {
+		Basis b = new Basis();
+		b.ox = Mth.lerp(partial, p.xo, p.getX());
 		double py = Mth.lerp(partial, p.yo, p.getY());
-		double pz = Mth.lerp(partial, p.zo, p.getZ());
-		float bodyYaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot) * Mth.DEG_TO_RAD;
-		// Body axes on the ground plane: forward (where it faces), right (its right hand).
-		float fx = -Mth.sin(bodyYaw), fz = Mth.cos(bodyYaw);
-		float rx = -Mth.cos(bodyYaw), rz = -Mth.sin(bodyYaw);
+		b.oz = Mth.lerp(partial, p.zo, p.getZ());
 		boolean crouch = p.getPose() == Pose.CROUCHING;
-		float shoulder = (crouch ? 24f - 3.2f : 24f) / 16f;   // blocks above the feet
+		// Pivot heights in px above the feet: the neck and the top of the torso (vanilla: head.y 4.2 and
+		// body.y 3.2 lower while crouching, plus the renderer's own 2 px drop).
+		b.oy = py + (24f - (crouch ? (head ? 6.2f : 5.2f) : 0f)) / 16f;
+		float yaw = (head ? Mth.rotLerp(partial, p.yHeadRotO, p.yHeadRot) : Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot))
+				* Mth.DEG_TO_RAD;
+		b.fwdX = -Mth.sin(yaw);
+		b.fwdZ = Mth.cos(yaw);
+		b.leftX = Mth.cos(yaw);
+		b.leftZ = Mth.sin(yaw);
+		float tilt = head ? Mth.lerp(partial, p.xRotO, p.getXRot()) * Mth.DEG_TO_RAD : (crouch ? 0.5f : 0f);
+		b.cosT = Mth.cos(tilt);
+		b.sinT = Mth.sin(tilt);
+		return b;
+	}
 
-		double x;
-		double y;
-		double z;
-		float vx;
-		float vz;
-		float swayX;
-		float swayZ;
-		float life = (spec.lifeMinSec() + rnd.nextFloat() * (spec.lifeMaxSec() - spec.lifeMinSec())) * 20f;
-		float lifeSafe = Math.max(4f, life);
+	/** FORMAT vector (px) in the attach frame -> world offset, in blocks. */
+	private static void toWorld(Basis b, float x, float y, float z, double[] out) {
+		float up = y * b.cosT - z * b.sinT;
+		float fwd = y * b.sinT + z * b.cosT;
+		out[0] = (b.leftX * x + b.fwdX * fwd) / 16.0;
+		out[1] = up / 16.0;
+		out[2] = (b.leftZ * x + b.fwdZ * fwd) / 16.0;
+	}
 
-		if (anchor == Anchor.CAPE) {
-			float across = (rnd.nextFloat() * 2f - 1f) * spec.widthPx();
-			float along = spec.fromPx() + rnd.nextFloat() * (spec.toPx() - spec.fromPx());
-			// Walk down the cape's current shape (a hanging cape if it isn't simulated).
-			boolean sim = CapePhysics.shape(p, SHAPE);
-			float seg = CapePhysics.segmentPx();
-			float back = 2f;      // px behind the body centre at the shoulders
-			float down = 0f;      // px below the shoulders
-			float left = along;
-			float nB = 1f, nU = 0f;   // outward normal: (backwards, upwards)
-			for (int i = 0; i < CapePhysics.N && left > 0f; i++) {
-				float ang = (sim ? SHAPE[i] : 6f) * Mth.DEG_TO_RAD;
-				float use = Math.min(seg, left);
-				back += Mth.sin(ang) * use;
-				down += Mth.cos(ang) * use;
-				left -= use;
-				nB = Mth.cos(ang);
-				nU = -Mth.sin(ang);
-			}
-			back += nB * spec.standoffPx();
-			down -= nU * spec.standoffPx();
-			float backBlocks = back / 16f;
-			x = px - fx * backBlocks + rx * (across / 16f);
-			z = pz - fz * backBlocks + rz * (across / 16f);
-			y = py + shoulder - down / 16f;
-			float away = spec.driftBackPx() / 16f / lifeSafe;
-			vx = -fx * away;
-			vz = -fz * away;
-			swayX = rx * spec.wobblePx() / 16f;
-			swayZ = rz * spec.wobblePx() / 16f;
-		} else {
-			// A point on the square ring (half-side widthPx) at a height between from/to.
-			float side = rnd.nextInt(4) * (Mth.PI * 0.5f);
-			float t = (rnd.nextFloat() - 0.5f) * 2f * spec.widthPx() * 0.9f;
-			float lx = t * Mth.cos(side) + spec.widthPx() * Mth.sin(side);
-			float lz = spec.widthPx() * Mth.cos(side) - t * Mth.sin(side);
-			float headYaw = Mth.rotLerp(partial, p.yHeadRotO, p.yHeadRot) * Mth.DEG_TO_RAD;
-			float hs = Mth.sin(headYaw), hc = Mth.cos(headYaw);
-			double wx = (lx * hc - lz * hs) / 16f;
-			double wz = (lx * hs + lz * hc) / 16f;
-			float h = spec.fromPx() + rnd.nextFloat() * (spec.toPx() - spec.fromPx());
-			x = px + wx;
-			z = pz + wz;
-			y = py + (h - (crouch ? 3.2f : 0f)) / 16f;
-			float away = spec.driftBackPx() / 16f / lifeSafe;
-			vx = -fx * away;
-			vz = -fz * away;
-			swayX = rx * spec.wobblePx() / 16f;
-			swayZ = rz * spec.wobblePx() / 16f;
+	private static final double[] W = new double[3];
+
+	private static Particle spawn(CosmeticDef.Fx fx, Basis basis, ModelCosmetic model, float t, float walk, float air,
+			double now, ThreadLocalRandom rnd) {
+		float lx = fx.at()[0] + (rnd.nextFloat() - 0.5f) * fx.spread()[0];
+		float ly = fx.at()[1] + (rnd.nextFloat() - 0.5f) * fx.spread()[1];
+		float lz = fx.at()[2] + (rnd.nextFloat() - 0.5f) * fx.spread()[2];
+		if (model != null && model.pointInAttachFrame(fx.bone(), lx, ly, lz, t, walk, air, TMP)) {
+			lx = TMP.x;
+			ly = TMP.y;
+			lz = TMP.z;
 		}
-
+		toWorld(basis, lx, ly, lz, W);
 		Particle pt = new Particle();
-		pt.ox = x;
-		pt.oy = y;
-		pt.oz = z;
-		pt.vx = vx;
-		pt.vy = spec.driftUpPx() / 16f / lifeSafe;
-		pt.vz = vz;
-		pt.sx = swayX;
-		pt.sz = swayZ;
-		pt.phase = rnd.nextFloat() * Mth.TWO_PI;
+		pt.ox = basis.ox + W[0];
+		pt.oy = basis.oy + W[1];
+		pt.oz = basis.oz + W[2];
+		// drift: px/s in the attach frame; rise: px/s straight up. Both -> blocks per tick.
+		toWorld(basis, fx.drift()[0], fx.drift()[1], fx.drift()[2], W);
+		float perTick = 1f / 20f;
+		pt.vx = (float) W[0] * perTick;
+		pt.vy = (float) W[1] * perTick + fx.rise() / 16f * perTick;
+		pt.vz = (float) W[2] * perTick;
 		pt.born = now;
-		pt.life = lifeSafe;
-		int rgb = spec.colors()[Math.floorMod(colorIndex, spec.colors().length)];
-		pt.r = ((rgb >> 16) & 0xFF) / 255f;
-		pt.g = ((rgb >> 8) & 0xFF) / 255f;
-		pt.b = (rgb & 0xFF) / 255f;
-		pt.glow = spec.glow();
-		pt.size = spec.sizePx() / 16f * GAME_SIZE_SCALE * (0.85f + rnd.nextFloat() * 0.3f);
+		pt.life = Math.max(2f, (fx.lifeMin() + rnd.nextFloat() * (fx.lifeMax() - fx.lifeMin())) * 20f);
+		float mix = rnd.nextFloat();
+		int c1 = fx.color(), c2 = fx.color2();
+		pt.r = Mth.lerp(mix, ((c1 >> 16) & 0xFF) / 255f, ((c2 >> 16) & 0xFF) / 255f);
+		pt.g = Mth.lerp(mix, ((c1 >> 8) & 0xFF) / 255f, ((c2 >> 8) & 0xFF) / 255f);
+		pt.b = Mth.lerp(mix, (c1 & 0xFF) / 255f, (c2 & 0xFF) / 255f);
+		pt.glow = fx.glow();
+		pt.size = fx.size() * (0.7f + 0.6f * rnd.nextFloat()) / 16f * GAME_SIZE_SCALE;
 		return pt;
 	}
 
-	/** Draws one particle: a bright square and a faint halo behind it. */
+	/** Draws one particle: a bright square and, for glow, a faint halo behind it. */
 	private static void draw(VertexConsumer q, PoseStack.Pose pose, Particle pt, float age, Vec3 cam) {
-		float frac = age / pt.life;
-		float k = Mth.sin(frac * Mth.PI);   // fade in, fade out (website: sin(life * pi))
+		// website/js/rig.js: fade = min(1, age / 0.15 s) * (1 - age / life)
+		float k = Math.min(1f, age / 3f) * (1f - age / pt.life);
 		if (k < 0.04f) {
 			return;
 		}
-		float sway = Mth.sin(frac * Mth.TWO_PI + pt.phase);
-		float wx = (float) (pt.ox + pt.vx * age + pt.sx * sway - cam.x);
+		float wx = (float) (pt.ox + pt.vx * age - cam.x);
 		float wy = (float) (pt.oy + pt.vy * age - cam.y);
-		float wz = (float) (pt.oz + pt.vz * age + pt.sz * sway - cam.z);
+		float wz = (float) (pt.oz + pt.vz * age - cam.z);
 		float h = pt.size * 0.5f;
 		quad(q, pose, wx, wy, wz, h, pt.r, pt.g, pt.b, 0.95f * k);
-		if (pt.glow > 0f) {
-			quad(q, pose, wx, wy, wz, h * 2.4f, pt.r, pt.g, pt.b, pt.glow * k);
+		if (pt.glow) {
+			quad(q, pose, wx, wy, wz, h * 2.4f, pt.r, pt.g, pt.b, 0.25f * k);
 		}
 	}
 
@@ -386,8 +393,8 @@ public final class CosmeticEffects {
 	}
 
 	/** Vanilla's cape rules: shown only with the Cape skin option on and no elytra. */
-	private static boolean capeVisible(AbstractClientPlayer p) {
-		return p.isModelPartShown(PlayerModelPart.CAPE) && !p.getItemBySlot(EquipmentSlot.CHEST).is(Items.ELYTRA);
+	static boolean capeVisible(AbstractClientPlayer p, boolean elytra) {
+		return p.isModelPartShown(PlayerModelPart.CAPE) && !elytra;
 	}
 
 	private static void reset() {

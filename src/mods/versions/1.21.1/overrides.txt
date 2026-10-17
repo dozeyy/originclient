@@ -89,3 +89,9 @@ client/java/com/origin/client/client/shaders/ShaderDownloader.java
 # DELIBERATE FORK (2026-09-09) — Mod Menu's 1.21.1 pause-button subclass is
 # safe for Origin to skin while retaining its own update badge.
 client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
+
+# DELIBERATE FORK (cosmetics v2) - menu themes. The palette tokens are runtime
+# statics here (applyTheme / resetTheme, driven by theme/ThemeManager from the
+# equipped theme cosmetic); shared/ keeps them constants. Reconcile if another
+# version gets themes.
+client/java/com/origin/client/client/theme/OriginTheme.java

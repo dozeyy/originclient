@@ -156,9 +156,13 @@ public final class CapePhysics {
 		if (p.isInvisible() || !p.isModelPartShown(PlayerModelPart.CAPE)) {
 			return false;
 		}
-		String id = CosmeticsService.lookOf(p.getUUID()).cape();
+		CosmeticsService.Look look = CosmeticsService.lookOf(p.getUUID());
+		String id = look.cape();
 		if (id == null) {
 			return false;   // vanilla / Mojang cape: untouched
+		}
+		if (look.hidesCape()) {
+			return true;    // wings / a backpack replace the cape: draw nothing, and keep vanilla from drawing it
 		}
 		ItemStack chest = p.getItemBySlot(EquipmentSlot.CHEST);
 		if (chest.is(Items.ELYTRA)) {
@@ -193,7 +197,7 @@ public final class CapePhysics {
 
 		pose.pushPose();
 		try {
-			pose.translate(0f, 0f, 0.125f);   // vanilla: 2 px behind the body
+			pose.translate(0f, 0f, 0.125f + look.capeOffset() / 16f);   // vanilla: 2 px behind the body (+ clearance for worn items)
 			float prevP = 0f;
 			float prevR = 0f;
 			for (int i = 0; i < N; i++) {
