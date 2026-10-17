@@ -950,6 +950,21 @@ export const FX = {
   'wings-frost': [{ anchor: 'wing', colors: ['#ffffff', '#cdeeff'], rate: 8, life: 1.2, size: [0.8, 0.2], from: [1, -14, 0], to: [10, -3, 0], vel: [0, -4, -1.6], sway: [0.5, 1], fade: 'inout', shape: 'glow' }],
 };
 
+// Additive light that is safe on the store's transparent canvas. Plain additive blending
+// would also push the canvas's alpha to 1, painting dark glow as opaque dark blobs over
+// the page behind it. Instead the colour is written premultiplied (rgb never above alpha):
+// opacity = the colour's brightest channel, the material colour is scaled up by the same
+// amount (three multiplies it back in), so the result is exactly `hex` added to the scene
+// with alpha = brightness, which the page composites as a soft glow. In the mod this is
+// just additive blending (GL ONE, ONE) of `hex`.
+function glowMaterial(hex) {
+  const c = rgb(hex).map(v => v / 255), m = Math.max(...c, 1e-4);
+  return new THREE.MeshBasicMaterial({
+    color: new THREE.Color(c[0] / m, c[1] / m, c[2] / m), opacity: m, transparent: true,
+    premultipliedAlpha: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+}
+
 // The store's player for FX: Points whose per-particle size, colour and alpha come
 // from the spec. Particle i of n lives a fraction (ph * cycles + i / n) mod 1 of its
 // life; its spawn spot is hashed from (i, which cycle) so spots vary but the whole
@@ -964,7 +979,7 @@ function fxEmitter(spec, loop) {
   geo.setAttribute('aColor', new THREE.BufferAttribute(col, 4));
   geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
   const mat = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, premultipliedAlpha: true,
     uniforms: { uScale: { value: 300 }, uShape: { value: FX_SHAPES[spec.shape] ?? 0 } },
     vertexShader: `attribute vec4 aColor; attribute float aSize; uniform float uScale; varying vec4 vColor;
       void main() { vColor = aColor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
@@ -975,7 +990,7 @@ function fxEmitter(spec, loop) {
         else if (uShape == 2) { vec2 q = abs(p);
           a = max(pow(max(0.0, 1.0 - q.x), 3.0) * max(0.0, 1.0 - q.y * 7.0), pow(max(0.0, 1.0 - q.y), 3.0) * max(0.0, 1.0 - q.x * 7.0));
           a += 0.6 * pow(max(0.0, 1.0 - dot(p, p) * 2.2), 2.0); }
-        gl_FragColor = vec4(vColor.rgb, vColor.a * a); }`,
+        float al = vColor.a * a; gl_FragColor = vec4(vColor.rgb * al, al); }`,
   });
   const points = new THREE.Points(geo, mat);
   points.frustumCulled = false;               // positions change every frame
@@ -1051,7 +1066,7 @@ class Rig {
   }
   pop() { this.cur = this.stack.pop(); }
   _material(hex, o) {
-    if (o.glow) return new THREE.MeshBasicMaterial({ color: hex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    if (o.glow) return glowMaterial(hex);
     return (this.lit && !o.bright) ? new THREE.MeshBasicMaterial({ vertexColors: true }) : new THREE.MeshBasicMaterial({ color: hex });
   }
   box(cx, cy, cz, w, h, d, hex, o = {}) {
@@ -1160,7 +1175,8 @@ function buildOrbitHalo(g) {
 //                 the ring at y +0.65; a sparkle runs round them once a LOOP (the stud
 //                 under it swells to 2x); every third stud is an amber gem instead
 //   rays          8 glow bars (2.6 long) radiating at r 6.6, turning with the spin
-//   glow          glow tori r 4.5, tubes 1.6 and 2.6
+//   glow          four glow tori r 4.5, tubes 0.9 / 1.5 / 2.1 / 2.8 (each dimmer than the last,
+//                 stacked additively, so the glow fades out instead of ending in an edge)
 function buildGoldHalo(g) {
   const rig = new Rig(g);
   const halo = rig.push(0, 35.2, 0);
@@ -1169,8 +1185,7 @@ function buildGoldHalo(g) {
   rig.push(0, -0.3, 0); rig.ring(4.5, 0.3, '#c98a22'); rig.pop();
   rig.ring(5.4, 0.12, '#ffd56b');
   rig.ring(3.6, 0.1, '#ffd56b');
-  rig.ring(4.5, 1.6, '#3a2810', { glow: true });
-  rig.ring(4.5, 2.6, '#1a1208', { glow: true });
+  for (const [tube, hex] of [[0.9, '#55400f'], [1.5, '#35260a'], [2.1, '#201706'], [2.8, '#120d04']]) rig.ring(4.5, tube, hex, { glow: true });   // stacked: a soft falloff
   const spin = rig.push();
   const studs = [];
   for (let k = 0; k < 12; k++) {
@@ -1260,16 +1275,16 @@ function buildCrown(g) {
   rig.box(0, 38.9, 0, 1.5, 0.55, 0.55, gold);
   rig.box(0, 39.9, 0, 0.6, 0.6, 0.6, '#e0485b', { rz: Math.PI / 4, bright: true });
   const sweep = rig.push();                                                        // the travelling shine
-  rig.box(0, 31.7, 0, 1.4, 3.2, 1.2, '#5a4618', { glow: true });
-  rig.box(0, 31.7, 0.3, 0.16, 3.4, 0.16, '#a08a4a', { glow: true });
-  rig.box(0, 31.7, 0.3, 3.4, 0.16, 0.16, '#a08a4a', { glow: true });
+  rig.box(0, 0, 0, 1.4, 3.2, 1.2, '#5a4618', { glow: true });                      // (centred on the group,
+  rig.box(0, 0, 0.3, 0.16, 3.4, 0.16, '#a08a4a', { glow: true });                  // which is lifted to y 31.7 below,
+  rig.box(0, 0, 0.3, 3.4, 0.16, 0.16, '#a08a4a', { glow: true });                  // so scaling it shrinks it in place)
   rig.pop();
   rig.pop();
   return (t, still) => {
     const u = fract(t / LOOP) * 4.8, side = Math.floor(u);                       // one lap, then a rest
     if (still || u >= 4) { sweep.scale.setScalar(0.0001); return; }
     const f = u - side, x = -R + 2 * R * f, a = side * Math.PI / 2;
-    sweep.position.set(x * Math.cos(a) + (R + 0.5) * Math.sin(a), 0, -x * Math.sin(a) + (R + 0.5) * Math.cos(a));
+    sweep.position.set(x * Math.cos(a) + (R + 0.5) * Math.sin(a), 31.7, -x * Math.sin(a) + (R + 0.5) * Math.cos(a));
     sweep.rotation.y = a;
     sweep.scale.setScalar(Math.max(0.0001, Math.sin(Math.PI * u / 4)));
   };
