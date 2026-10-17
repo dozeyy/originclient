@@ -6,6 +6,15 @@ just the dated section you need with offset/limit).
 
 ---
 
+## 2026-10-17 — Stripe connected; store test lock (branch claude/stripe-store → main)
+- Stripe MCP connected: live account "Origin Client" (acct_1URXqfKh5W1iETe3), empty, no webhook, Stripe Tax
+  `pending` (missing head_office = Will's address). Will chose "test first": STRIPE_TEST_PLAYERS lock (test
+  key ⇒ only listed UUIDs buy/get granted) + store.html?checkout=test. Tax code txcd_10201000 on every item.
+- Review fix: expires_at was now+30 min exactly → Stripe rejects (min counted on arrival) → 35 min.
+- Known, accepted: same item paid via 2 checkouts keeps the FIRST payment; refunding that one removes the
+  item though the 2nd is paid ("REFUND NEEDED" log covers the double charge). /v1/store/checkout unrated-limited.
+- Webhook endpoint NOT created via API on purpose: its signing secret would land in the transcript.
+
 ## 2026-10-17 — CLAUDE.md current-state + roadmap archive (moved here by Claude Lean)
 
 CLAUDE.md was cut to the rules that matter every session. These two sections moved here
