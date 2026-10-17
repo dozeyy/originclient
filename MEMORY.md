@@ -6,6 +6,17 @@ just the dated section you need with offset/limit).
 
 ---
 
+## 2026-10-17 — Origin+ membership (payments + website now, game next)
+- Will: $4.99/mo or $39.99/yr; perks = members-only cape `cape-plus` + Origin+ badge, 20% off store,
+  no launcher ads. Cosmetic only. Scope: Stripe + service + store page now; in-game cape/badge (1.21.1
+  first) + launcher no-ads later in a launcher update. Contract: docs/STORE.md → Origin+.
+- Stripe (live, via MCP): product `origin-plus` (tax txcd_10201004, Will to confirm), portal config
+  bpc_1URaUPKh5W1iETe3tUVupR1u with login page (PLUS_MANAGE_URL in stripe.js), webhook now also gets
+  customer.subscription.created/updated/deleted. Checkout uses price_data → product `origin-plus`.
+- Service: migration 0004_plus.sql (`plus` table per subscription, newer-event-wins, canceled stays
+  ended), POST /v1/plus/checkout, `plus` flag on player views + /equipped (members listed for the
+  badge), cape-plus hidden when membership lapses, store discount by recipient's membership.
+
 ## 2026-10-17 — Stripe connected; store test lock (branch claude/stripe-store → main)
 - Stripe MCP connected: live account "Origin Client" (acct_1URXqfKh5W1iETe3), empty, no webhook, Stripe Tax
   `pending` (missing head_office = Will's address). Will chose "test first": STRIPE_TEST_PLAYERS lock (test

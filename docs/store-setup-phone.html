@@ -68,7 +68,7 @@ b { font-weight: 600; }
     </svg>
     <h1>Turn on the Origin store</h1>
     <p class="lede">Nine steps, all doable on your phone. Tap the circle when a step is done. Your ticks are saved on this phone.</p>
-    <div class="progress"><div class="bar"><i id="bar"></i></div><span id="count">0 of 9 done</span></div>
+    <div class="progress"><div class="bar"><i id="bar"></i></div><span id="count">0 of 10 done</span></div>
   </header>
 
   <p class="careful"><b>Phone tip:</b> if a Stripe or Cloudflare menu is missing, open your browser menu and pick <b>Desktop site</b>. Keys and secrets go only into Cloudflare. Never paste them in chat, Discord or anywhere else.</p>
@@ -186,6 +186,20 @@ b { font-weight: 600; }
       <li>Back in game, the item should be gone within a minute.</li>
     </ol>
     <a class="open" href="https://dashboard.stripe.com/payments" target="_blank" rel="noopener">Open Stripe Payments ↗</a>
+  </section>
+
+  <section class="step" data-step="10">
+    <div class="top"><input type="checkbox" class="tick" id="s10" data-n="10" aria-label="Step 10 done"><div>
+      <h2>Try Origin+, then cancel it</h2><p class="where">A real $4.99 charge you get straight back</p></div></div>
+    <a class="open" href="https://originclient.org/store.html" target="_blank" rel="noopener">Open the store ↗</a>
+    <ol>
+      <li>On the store, type <b>dozeyy</b> as the name, pick <b>Monthly</b> in the Origin+ card and join.</li>
+      <li>Back on the store with the same name, it should say you're a member and show the 20% lower prices.</li>
+      <li>Tap <b>Manage or cancel</b>, sign in with the email you paid with, and cancel. It stays active until the month ends.</li>
+      <li>Refund the $4.99 in Stripe: <b>Payments</b> → the payment → <b>Refund</b>. Then end it now: <b>Customers</b> → that customer → the subscription → <b>Cancel</b> → <b>Immediately</b>. The store should stop showing you as a member within a minute.</li>
+      <li>One thing to check with whoever does your taxes: Origin+ is filed under Stripe's tax category <b>"Video Games, streamed, subscription"</b>. It's the closest match Stripe has. Change it on the Origin+ product if they say otherwise.</li>
+    </ol>
+    <a class="open" href="https://dashboard.stripe.com/subscriptions" target="_blank" rel="noopener">Open Stripe Subscriptions ↗</a>
   </section>
 
   <button class="reset" id="reset" type="button">Clear all ticks</button>

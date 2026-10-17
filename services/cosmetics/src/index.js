@@ -4,10 +4,13 @@
 //  1. Store payments (stripe.js, contract in docs/STORE.md): the store page
 //     opens a Stripe Checkout for the typed Minecraft name; Stripe's webhook
 //     then records ownership by the player's permanent Minecraft UUID, and
-//     takes it back on a full refund or chargeback.
+//     takes it back on a full refund or chargeback. Origin+ memberships
+//     (Stripe subscriptions) the same way, tracked in the plus table.
 //  2. API for the Origin mod:
-//       GET  /v1/players/<uuid>      what a player owns + is wearing
-//       POST /v1/players/equipped    { uuids: [...] } -> who's wearing what
+//       GET  /v1/players/<uuid>      what a player owns + is wearing, and
+//                                    whether they're Origin+ (`plus`)
+//       POST /v1/players/equipped    { uuids: [...] } -> who's wearing what,
+//                                    and which of them are Origin+
 //       POST /v1/equip               change what you wear; `Authorization:
 //            Bearer <token>` from Origin sign-in (/v1/auth, identity v2:
 //            Mojang-signed proofs checked offline, mojang.js). No Microsoft
@@ -24,17 +27,29 @@
 import { CORS, json, fail, normUuid, slotOf } from './common.js';
 import { handleSocial, socialCleanup, presenceSweep, session } from './social.js';
 import { keysDiag } from './mojang.js';
-import { catalog, checkout, webhook } from './stripe.js';
+import { catalog, checkout, plusCheckout, webhook, isMember, membersAmong, PLUS_CAPE } from './stripe.js';
 
 export { normUuid, slotOf };
 
 const MAX_BATCH = 100;                   // players per /equipped lookup
 
 // --------------------------------------------------------------------- API
+// Origin+ members also own the members-only cape (never sold) while they're
+// members. It stays saved as worn when a membership ends, but nobody sees it
+// until they're a member again (looks()).
+async function ownedBy(env, uuid, member) {
+  const rows = (await env.DB.prepare('SELECT item FROM owned WHERE uuid = ? ORDER BY at').bind(uuid).all()).results.map(r => r.item);
+  return member ? [...rows, PLUS_CAPE] : rows;
+}
+const looks = (row, member) => ({
+  cape: row?.cape && (member || row.cape !== PLUS_CAPE) ? row.cape : null,
+  head: row?.head ?? null,
+});
+
 async function playerView(env, uuid) {
-  const owned = await env.DB.prepare('SELECT item FROM owned WHERE uuid = ? ORDER BY at').bind(uuid).all();
+  const member = await isMember(env, uuid);
   const eq = await env.DB.prepare('SELECT cape, head FROM equipped WHERE uuid = ?').bind(uuid).first();
-  return { uuid, owned: owned.results.map(r => r.item), equipped: { cape: eq?.cape ?? null, head: eq?.head ?? null } };
+  return { uuid, owned: await ownedBy(env, uuid, member), equipped: looks(eq, member), plus: member };
 }
 
 async function equippedBatch(env, body) {
@@ -43,7 +58,13 @@ async function equippedBatch(env, body) {
   if (!uuids.length) return json({ players: out });
   const rows = await env.DB.prepare(`SELECT uuid, cape, head FROM equipped WHERE uuid IN (${uuids.map(() => '?').join(',')})`)
     .bind(...uuids).all();
-  for (const r of rows.results) if (r.cape || r.head) out[r.uuid] = { cape: r.cape ?? null, head: r.head ?? null };
+  const members = await membersAmong(env, uuids);
+  // Members are listed even wearing nothing, so the game can show their Origin+ badge.
+  for (const r of rows.results) {
+    const look = looks(r, members.has(r.uuid));
+    if (look.cape || look.head) out[r.uuid] = { ...look, plus: members.has(r.uuid) };
+  }
+  for (const u of members) out[u] ??= { cape: null, head: null, plus: true };
   return json({ players: out });
 }
 
@@ -58,7 +79,7 @@ async function equip(request, env, body, now = Date.now()) {
   if (!me) return fail(401, 'Your Origin sign-in ran out. Signing you in again...');
   const uuid = me.uuid;
 
-  const owned = new Set((await env.DB.prepare('SELECT item FROM owned WHERE uuid = ?').bind(uuid).all()).results.map(x => x.item));
+  const owned = new Set(await ownedBy(env, uuid, await isMember(env, uuid)));
   const want = {};
   for (const slot of ['cape', 'head']) {
     const item = body[slot] ?? null;
@@ -83,6 +104,7 @@ export async function handle(request, env) {
     if (request.method === 'POST' && url.pathname === '/v1/equip') return equip(request, env, await request.json().catch(() => null));
     if (request.method === 'GET' && url.pathname === '/v1/store/catalog') return catalog(env);
     if (request.method === 'POST' && url.pathname === '/v1/store/checkout') return checkout(env, await request.json().catch(() => null));
+    if (request.method === 'POST' && url.pathname === '/v1/plus/checkout') return plusCheckout(env, await request.json().catch(() => null));
     if (request.method === 'POST' && url.pathname === '/v1/stripe/webhook') return webhook(request, env);
     if (request.method === 'GET' && url.pathname === '/') return json({ service: 'origin-cosmetics', ok: true });
     // How many of Mojang's keys the service holds (counts only), checked after every deploy.

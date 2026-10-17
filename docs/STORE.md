@@ -58,6 +58,45 @@ Item ids are shared between the two JS files. Everything that moves repeats
 every `LOOP` seconds (whole-number cycles only; the Orbit Halo uses 3x LOOP),
 which is what lets cards play a seamless pre-rendered loop.
 
+## Origin+ membership (Will, 2026-10-17)
+
+**$4.99/month or $39.99/year**, a Stripe subscription for the typed Minecraft
+name (gifts fine). Perks are cosmetic only, never a gameplay advantage:
+
+| Perk | Where it lives | State |
+|---|---|---|
+| Members-only **Origin+ cape** (`cape-plus`, never sold) | service: members own it while they're members; a worn one is hidden (not deleted) when the membership ends and comes back on rejoining | service done; in-game art + item: game phase |
+| **Origin+ badge** (ring mark by the name in friends + above the head) | service: `plus` on `/v1/players/<uuid>` and every `/equipped` entry (members listed even wearing nothing) | service done; drawing it: game phase |
+| **20% off the store** | service: `checkout` charges `memberPrice` when the items are FOR a member (`metadata.plus=1`); catalog shows both prices | live |
+| **No launcher ads** | launcher hides the home-banner ad for members | launcher update |
+
+```
+store page ──{uuid, name, plan}──▶ POST /v1/plus/checkout (409 if already a member)
+        │ Checkout Session, mode=subscription, product `origin-plus`,
+        │ uuid/name on subscription_data.metadata
+        ▼
+customer.subscription.created/updated/deleted ──▶ `plus` table (one row per
+  subscription; only a NEWER event updates a row; a canceled one stays ended)
+member = a row with status active/trialing/past_due and period_end + 2 days > now
+```
+
+- **Stripe pieces** (made 2026-10-17 by Claude through the API): product
+  `origin-plus` (tax code `txcd_10201004`, "Video Games - Streamed -
+  Subscription - With Conditional Rights": **Will/accountant to confirm**);
+  billing portal configuration "Origin+ members" (cancel at period end, change
+  card, receipts, change email) with a hosted sign-in page,
+  `https://billing.stripe.com/p/login/eVqfZi2uF97zdlEgr40co00`
+  (`PLUS_MANAGE_URL`). Members sign in with their checkout email, so knowing
+  a player's name is not enough to cancel their membership.
+- **Refunds:** refunding an Origin+ payment does NOT end the membership.
+  Cancel the subscription in the dashboard too (Customers → the customer →
+  Cancel subscription); the cancel event ends the perks. Two memberships for
+  one player log "REFUND NEEDED" (Worker logs).
+- **Test mode:** same lock as the store (`STRIPE_TEST_PLAYERS`); a test key
+  also needs a product with id `origin-plus` made in test mode.
+- Prices: `PLUS` and `MEMBER_PERCENT_OFF` in stripe.js; the page reads them
+  from the catalog.
+
 ## Lineup and prices (Will: every price $5–$10)
 
 - Animated capes (moving art + particles): Orbit $9.99, Glitch $9.99,
@@ -96,7 +135,8 @@ The account holder must be an adult (ID + bank account for payouts).
 4. **Webhook:** (created 2026-10-17 by Claude via the API: roll its secret, expire Now) Developers → Webhooks → add an endpoint
    `https://origin-cosmetics.will-f11.workers.dev/v1/stripe/webhook` with the
    events `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
-   `charge.refunded`, `charge.dispute.created`. Copy its **signing secret** (`whsec_...`).
+   `charge.refunded`, `charge.dispute.created`, and for Origin+
+   `customer.subscription.created`, `.updated`, `.deleted`. Copy its **signing secret** (`whsec_...`).
 5. **API key:** Developers → API keys → **Create restricted key** with
    Write on **Checkout Sessions**, **Products** and **Prices** (everything else
    None). Copy it (`rk_live_...`).
@@ -146,7 +186,7 @@ Service API (all JSON, CORS open): `GET /v1/players/<uuid>` → owned +
 equipped; `POST /v1/players/equipped {uuids}` → who wears what (≤100);
 `POST /v1/equip {cape, head}` (Origin sign-in Bearer token);
 `GET /v1/store/catalog`, `POST /v1/store/checkout {uuid, name, items}`,
-`POST /v1/stripe/webhook` (Stripe-signed; stripe.js). Tests:
+`POST /v1/plus/checkout {uuid, name, plan}`, `POST /v1/stripe/webhook` (Stripe-signed; stripe.js). Tests:
 `cd services/cosmetics && npm test` (Node 22, no installs).
 
 ## In game (1.21.1 first; other versions follow the working order)
