@@ -198,13 +198,21 @@ floating corner controls. In-game menus match this exactly.
 
 ## Token discipline (Claude Lean — `.claude/hooks/lean/README.md`)
 Usage is ~all re-reading of the conversation, so what enters it stays forever.
+These Origin rules override the global `~/.claude` ones where they differ.
 - Search before reading (Grep/Glob), then Read only the lines you need (offset/limit).
 - Don't re-read a file that's unchanged and still in context (a hook denies it once;
   repeating the identical call goes through if it was summarized away).
 - Build/test output is auto-trimmed to errors + verdict; the full log path is printed.
-- Subagents: read-only searching/research → `subagent_type: Explore` or `model: "sonnet"`;
-  keep coding/porting agents on the main model. Ask them for short reports.
-- Never cat/Read MEMORY.md or big generated files whole.
+- MEMORY.md is grep-only — never read it whole, not even at session start.
+- Screenshots: look at the folder's `_sheet.jpg` (every shot in one image; dev-shots
+  makes it, `python tools/lean/contact_sheet.py <dir>` for any folder) before any
+  single full-size shot.
+- **How work runs in Origin:** the main session does small, single-area work itself.
+  Dispatch agents only for parallel fan-outs (ports across versions), isolated heavy
+  research, or review/verify passes — each agent re-pays its own context. Use
+  Origin's agents in `.claude/agents/` (Will's claude-config set, adapted to Origin
+  with a token contract): coding/porting/debugging on opus, building/reviewing on
+  sonnet, mechanical on haiku. Ask for short reports; CI checks at most every 3 min.
 
 # Compact instructions
 When compacting, keep: the user's current request and any decisions/"never" rules they

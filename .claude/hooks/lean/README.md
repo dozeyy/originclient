@@ -22,6 +22,9 @@ conversation, and don't let the conversation grow huge.
 | CI log timestamps | `lean.py post-tool` (GitHub `get_job_logs`) | Drops the per-line timestamp (~28 chars/line). Not error-filtered: job logs here are often the answer itself (ref-189 lookups). |
 | Repeat-read guard | `lean.py pre-tool` (Read) | Denies once a re-read of an unchanged file (>=16 KB, same lines) that is still in context. Repeating the identical call always goes through (escape hatch). Resets at compaction; subagents are tracked separately. |
 | Meter | `lean.py statusline` | `ctx 102k (34%) | 5h 41% | 7d 12% | lean ~38k tok trimmed, 2 re-reads skipped` (terminal only). |
+| Screenshot sheets | `tools/lean/contact_sheet.py`, run by `dev-shots.yml` | Every dev-shots folder gets `_sheet.jpg`: each screen once (smallest resolution), labelled, 1568 px wide. 33 PNGs -> 2 sheets (~4k image tokens instead of ~50-100k). |
+| Lean agents | `.claude/agents/` | Will's `claude-config` agents that fit Origin (13 of 37), same opus/sonnet/haiku split, no preloaded skills, Origin contract: grep MEMORY.md, CI checks <= every 3 min, sheet-first screenshots, <= ~300-word reports. Same names as the global ones, so in Origin they take precedence. |
+| Unused plugins off | `enabledPlugins` in `.claude/settings.json` | nimble, product-management, productivity, design off for this project (their skill lists + MCP servers rode along on every call). |
 | Lean instructions | `CLAUDE.md` + `.claude/rules/` | CLAUDE.md cut from 28 KB to ~14 KB; mod/launcher detail moved into path-scoped rules that load only when those files are touched; `# Compact instructions` section. |
 
 ## Turning it off
