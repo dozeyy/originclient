@@ -69,6 +69,11 @@ which is what lets cards play a seamless pre-rendered loop.
   ids (`wings-ember`, `wings-void`, `wings-frost`) to `ITEMS` and a Wings tab
   to `store.html`.
 
+Stripe's product list (Dashboard → Product catalog) mirrors this lineup as
+`origin-<item id>` products (made 2026-10-17 because Stripe's setup asked for
+them). They're for the dashboard only: checkout charges the prices in
+`services/cosmetics/src/stripe.js` CATALOG, so change a price there AND in Stripe.
+
 All art is placeholder, painted in code. Real artwork replaces one painter
 function per item.
 

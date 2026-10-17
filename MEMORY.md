@@ -14,6 +14,8 @@ just the dated section you need with offset/limit).
 - Known, accepted: same item paid via 2 checkouts keeps the FIRST payment; refunding that one removes the
   item though the 2nd is paid ("REFUND NEEDED" log covers the double charge). /v1/store/checkout unrated-limited.
 - Webhook endpoint NOT created via API on purpose: its signing secret would land in the transcript.
+- Stripe products: 12 live `origin-<id>` products (tax txcd_10201000, exclusive prices) made for Stripe's setup
+  checklist; dashboard-only, checkout still uses inline price_data from CATALOG.
 - Testers (Will): dozeyy, bxlt, lozeyy, silo5. STRIPE_TEST_PLAYERS takes NAMES too (sandbox can't reach
   playerdb/Mojang to get UUIDs); checkout confirms name→UUID with api.mojang.com, fails closed.
 
