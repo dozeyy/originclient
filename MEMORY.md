@@ -7,6 +7,8 @@ just the dated section you need with offset/limit).
 ---
 
 ## 2026-10-17 — Origin+ membership (payments + website now, game next)
+- Will put the live Stripe keys in Cloudflare; catalog reports open:true (2026-10-17). Origin+ not yet on
+  main (needs Will's "push it"; push to main is gated by the auto-mode classifier as a production deploy).
 - Will: $4.99/mo or $39.99/yr; perks = members-only cape `cape-plus` + Origin+ badge, 20% off store,
   no launcher ads. Cosmetic only. Scope: Stripe + service + store page now; in-game cape/badge (1.21.1
   first) + launcher no-ads later in a launcher update. Contract: docs/STORE.md → Origin+.
