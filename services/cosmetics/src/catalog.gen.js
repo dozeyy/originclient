@@ -12,6 +12,7 @@ export const CATALOG = {
   'cape-glitch': { name: 'Glitch Cape', cents: 999, slot: 'cape', kind: 'cape', onSale: true, plusOnly: false },
   'cape-frost': { name: 'Frost Cape', cents: 599, slot: 'cape', kind: 'cape', onSale: true, plusOnly: false },
   'cape-golden': { name: 'Golden Hour Cape', cents: 599, slot: 'cape', kind: 'cape', onSale: true, plusOnly: false },
+  'wings-ember': { name: 'Ember Wings', cents: 999, slot: 'back', kind: 'wings', onSale: true, plusOnly: false },
   'halo-orbit': { name: 'Orbit Halo', cents: 799, slot: 'head', kind: 'halo', onSale: true, plusOnly: false },
   'halo-gold': { name: 'Golden Halo', cents: 599, slot: 'head', kind: 'halo', onSale: true, plusOnly: false },
   'crown-pixel': { name: 'Pixel Crown', cents: 699, slot: 'head', kind: 'crown', onSale: true, plusOnly: false },

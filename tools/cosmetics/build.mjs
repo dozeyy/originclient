@@ -139,7 +139,8 @@ function paintItem(id) {
 
 // Compact, stable JSON: arrays of numbers and short leaf objects stay on one line.
 function stringify(v, indent = '') {
-  const inline = JSON.stringify(v, (k, x) => x);
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);   // a long string is still one leaf
+  const inline = JSON.stringify(v);
   const leafish = x => x === null || typeof x !== 'object' || (Array.isArray(x) ? x.every(leafish) : Object.values(x).every(leafish));
   if (leafish(v) && inline.length <= 100) return inline;
   const pad = indent + '  ';

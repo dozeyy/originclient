@@ -1,0 +1,282 @@
+{
+  "id": "wings-ember",
+  "name": "Ember Wings",
+  "kind": "wings",
+  "slot": "back",
+  "cents": 999,
+  "blurb": "Obsidian wings with fire running through the veins. Hides your cape; a few embers drift off as you move.",
+  "animated": true,
+  "plusOnly": false,
+  "onSale": true,
+  "hidesCape": true,
+  "capeOffset": 0,
+  "model": {
+    "texSize": [40,42],
+    "scale": 8,
+    "bones": [
+      {
+        "name": "wingL",
+        "pivot": [2.4,-1,-2.9],
+        "rotation": [0,18,0],
+        "cubes": [
+          {
+            "from": [2.25,-11.75,-2.9],
+            "to": [11.75,5.125,-2.9],
+            "faces": {"north":[0,0,9.5,16.875],"south":[9.5,0,0,16.875]}
+          },
+          {
+            "from": [2.25,-11.75,-3.025],
+            "to": [11.75,5.125,-2.775],
+            "faces": {"north":[15.5,0,25,16.875],"south":[25,0,15.5,16.875]},
+            "emissive": true
+          },
+          {
+            "from": [1.375,-12.625,-2.5],
+            "to": [12.625,6,-2.5],
+            "faces": {"north":[0,16.875,11.25,35.5],"south":[11.25,16.875,0,35.5]},
+            "glow": true
+          },
+          {
+            "from": [2.4,-1.625,-3.525],
+            "to": [9.775,-0.375,-2.275],
+            "rotation": {"origin":[2.4,-1,-2.9],"angle":[0,0,55.008]},
+            "uv": [0,35.75]
+          },
+          {
+            "from": [6.6,4.5,-3.4],
+            "to": [11.1,5.5,-2.4],
+            "rotation": {"origin":[6.6,5,-2.9],"angle":[0,0,-20.854]},
+            "uv": [17.25,35.75]
+          }
+        ]
+      },
+      {
+        "name": "wingL2",
+        "parent": "wingL",
+        "pivot": [10.8,3.4,-3.15],
+        "rotation": [0,0,0],
+        "cubes": [
+          {
+            "from": [7.625,-11.75,-3.15],
+            "to": [13.625,3.625,-3.15],
+            "faces": {"north":[9.5,0,15.5,15.375],"south":[15.5,0,9.5,15.375]}
+          },
+          {
+            "from": [7.625,-11.75,-3.275],
+            "to": [13.625,3.625,-3.025],
+            "faces": {"north":[25,0,31,15.375],"south":[31,0,25,15.375]},
+            "emissive": true
+          },
+          {
+            "from": [6.75,-12.625,-2.75],
+            "to": [14.5,4.5,-2.75],
+            "faces": {"north":[11.25,16.875,19,34],"south":[19,16.875,11.25,34]},
+            "glow": true
+          },
+          {
+            "from": [10.8,3.15,-3.4],
+            "to": [12.925,3.65,-2.9],
+            "rotation": {"origin":[10.8,3.4,-3.15],"angle":[0,0,56.31]},
+            "uv": [31.5,40.25]
+          },
+          {
+            "from": [10.8,3.15,-3.4],
+            "to": [15.8,3.65,-2.9],
+            "rotation": {"origin":[10.8,3.4,-3.15],"angle":[0,0,-51.546]},
+            "uv": [20.5,40.25]
+          },
+          {
+            "from": [10.8,3.15,-3.4],
+            "to": [20.55,3.65,-2.9],
+            "rotation": {"origin":[10.8,3.4,-3.15],"angle":[0,0,-75.964]},
+            "uv": [0,40.25]
+          },
+          {
+            "from": [10.8,3.15,-3.4],
+            "to": [24.675,3.65,-2.9],
+            "rotation": {"origin":[10.8,3.4,-3.15],"angle":[0,0,-90]},
+            "uv": [0,39.25]
+          },
+          {
+            "from": [10.8,3.15,-3.4],
+            "to": [26.8,3.65,-2.9],
+            "rotation": {"origin":[10.8,3.4,-3.15],"angle":[0,0,-101.31]},
+            "uv": [0,38.25]
+          }
+        ]
+      },
+      {
+        "name": "wingR",
+        "pivot": [-2.4,-1,-2.9],
+        "rotation": [0,-18,0],
+        "cubes": [
+          {
+            "from": [-11.75,-11.75,-2.9],
+            "to": [-2.25,5.125,-2.9],
+            "faces": {"north":[9.5,0,0,16.875],"south":[0,0,9.5,16.875]}
+          },
+          {
+            "from": [-11.75,-11.75,-3.025],
+            "to": [-2.25,5.125,-2.775],
+            "faces": {"north":[25,0,15.5,16.875],"south":[15.5,0,25,16.875]},
+            "emissive": true
+          },
+          {
+            "from": [-12.625,-12.625,-2.5],
+            "to": [-1.375,6,-2.5],
+            "faces": {"north":[11.25,16.875,0,35.5],"south":[0,16.875,11.25,35.5]},
+            "glow": true
+          },
+          {
+            "from": [-9.775,-1.625,-3.525],
+            "to": [-2.4,-0.375,-2.275],
+            "mirror": true,
+            "rotation": {"origin":[-2.4,-1,-2.9],"angle":[0,0,-55.008]},
+            "uv": [0,35.75]
+          },
+          {
+            "from": [-11.1,4.5,-3.4],
+            "to": [-6.6,5.5,-2.4],
+            "mirror": true,
+            "rotation": {"origin":[-6.6,5,-2.9],"angle":[0,0,20.854]},
+            "uv": [17.25,35.75]
+          }
+        ]
+      },
+      {
+        "name": "wingR2",
+        "parent": "wingR",
+        "pivot": [-10.8,3.4,-3.15],
+        "rotation": [0,0,0],
+        "cubes": [
+          {
+            "from": [-13.625,-11.75,-3.15],
+            "to": [-7.625,3.625,-3.15],
+            "faces": {"north":[15.5,0,9.5,15.375],"south":[9.5,0,15.5,15.375]}
+          },
+          {
+            "from": [-13.625,-11.75,-3.275],
+            "to": [-7.625,3.625,-3.025],
+            "faces": {"north":[31,0,25,15.375],"south":[25,0,31,15.375]},
+            "emissive": true
+          },
+          {
+            "from": [-14.5,-12.625,-2.75],
+            "to": [-6.75,4.5,-2.75],
+            "faces": {"north":[19,16.875,11.25,34],"south":[11.25,16.875,19,34]},
+            "glow": true
+          },
+          {
+            "from": [-12.925,3.15,-3.4],
+            "to": [-10.8,3.65,-2.9],
+            "mirror": true,
+            "rotation": {"origin":[-10.8,3.4,-3.15],"angle":[0,0,-56.31]},
+            "uv": [31.5,40.25]
+          },
+          {
+            "from": [-15.8,3.15,-3.4],
+            "to": [-10.8,3.65,-2.9],
+            "mirror": true,
+            "rotation": {"origin":[-10.8,3.4,-3.15],"angle":[0,0,51.546]},
+            "uv": [20.5,40.25]
+          },
+          {
+            "from": [-20.55,3.15,-3.4],
+            "to": [-10.8,3.65,-2.9],
+            "mirror": true,
+            "rotation": {"origin":[-10.8,3.4,-3.15],"angle":[0,0,75.964]},
+            "uv": [0,40.25]
+          },
+          {
+            "from": [-24.675,3.15,-3.4],
+            "to": [-10.8,3.65,-2.9],
+            "mirror": true,
+            "rotation": {"origin":[-10.8,3.4,-3.15],"angle":[0,0,90]},
+            "uv": [0,39.25]
+          },
+          {
+            "from": [-26.8,3.15,-3.4],
+            "to": [-10.8,3.65,-2.9],
+            "mirror": true,
+            "rotation": {"origin":[-10.8,3.4,-3.15],"angle":[0,0,101.31]},
+            "uv": [0,38.25]
+          }
+        ]
+      }
+    ]
+  },
+  "anim": {
+    "frames": 6,
+    "fps": 6,
+    "motion": [
+      {"bone":"wingL","channel":"rot","axis":"y","amp":5,"walkAmp":7,"airAmp":22,"period":2,"phase":0},
+      {
+        "bone": "wingL2",
+        "channel": "rot",
+        "axis": "y",
+        "amp": 8,
+        "walkAmp": 8,
+        "airAmp": 20,
+        "period": 2,
+        "phase": -0.14
+      },
+      {
+        "bone": "wingL",
+        "channel": "rot",
+        "axis": "z",
+        "amp": 2.5,
+        "walkAmp": 3,
+        "airAmp": 10,
+        "period": 2,
+        "phase": 0.25
+      },
+      {"bone":"wingL2","channel":"rot","axis":"z","amp":4,"walkAmp":4,"airAmp":12,"period":2,"phase":0.11},
+      {"bone":"wingR","channel":"rot","axis":"y","amp":-5,"walkAmp":-7,"airAmp":-22,"period":2,"phase":0},
+      {
+        "bone": "wingR2",
+        "channel": "rot",
+        "axis": "y",
+        "amp": -8,
+        "walkAmp": -8,
+        "airAmp": -20,
+        "period": 2,
+        "phase": -0.14
+      },
+      {
+        "bone": "wingR",
+        "channel": "rot",
+        "axis": "z",
+        "amp": -2.5,
+        "walkAmp": -3,
+        "airAmp": -10,
+        "period": 2,
+        "phase": 0.25
+      },
+      {
+        "bone": "wingR2",
+        "channel": "rot",
+        "axis": "z",
+        "amp": -4,
+        "walkAmp": -4,
+        "airAmp": -12,
+        "period": 2,
+        "phase": 0.11
+      }
+    ]
+  },
+  "fx": [
+    {
+      "bone": "body",
+      "at": [0,-5,-3.8],
+      "spread": [22,14,1],
+      "color": "#ff7a2a",
+      "color2": "#ffd27a",
+      "perSecond": 5,
+      "life": [1.4,2.4],
+      "size": 0.5,
+      "rise": 3,
+      "drift": [0,0,-1.2],
+      "glow": true
+    }
+  ]
+}

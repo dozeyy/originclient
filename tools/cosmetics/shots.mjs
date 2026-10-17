@@ -97,7 +97,8 @@ try {
     const tex = decodePNG(texBuf), k = Math.max(1, Math.ceil(1024 / Math.max(tex.w, tex.h)));
         fs.writeFileSync(path.join(dir, `texture@${k}x.png`), tex.upscale(k).toPNG());
     // capes: the outside face on its own (what is seen), 4x, for the sheet and for close inspection
-    let sheetTex = texBuf;
+    const nFrames = item.cape?.frames ?? item.anim?.frames ?? 1;
+    let sheetTex = nFrames > 1 ? tex.crop(0, 0, tex.w, tex.h / nFrames).toPNG() : texBuf;     // sheet shows frame 1 (texture@Nx.png has them all)
     if (item.cape) {
       const S = item.cape.scale, face = tex.crop(S, S, 10 * S, 16 * S), fk = Math.max(2, Math.floor(640 / face.h));
       sheetTex = face.upscale(fk).toPNG();

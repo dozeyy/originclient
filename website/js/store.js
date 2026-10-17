@@ -6,7 +6,7 @@
 // for the bag and the typed player's UUID, and sends the buyer to Stripe's own
 // checkout page. Stripe tells the service when the money arrives, and the
 // service gives that player the items. Setup: docs/STORE.md.
-import { createFittingRoom, createThumbnailer, loadSkin, flatArt, kindOf, isAnimated, loopOf, LOOP } from './cosmetics.js';
+import { createFittingRoom, createThumbnailer, loadSkin, loadCatalog, prepare, getSource, resolvedSource, loopOf, STILL_T } from './cosmetics.js';
 
 // ---------------------------------------------------------------------------
 // THE ONE SWITCH. While `live` is false the store is a showroom: everything
@@ -20,26 +20,31 @@ const STORE = {
   service: 'cosmetics/service.json',
 };
 
-// Everything for sale. `price` is only shown until the service's price list
-// loads; the service (stripe.js CATALOG, same ids, tested to match) is what's
-// charged.
-const ITEMS = [
-  // Animated capes: the art moves and they give off particles.
+// WHAT the store shows comes from cosmetics/catalog.json (written by
+// tools/cosmetics/build.mjs, one entry per drawn item: name, blurb, price, slot,
+// animated). This literal list is the service's price list as the page last knew
+// it: `price` is only shown until the service's own list loads (the service,
+// stripe.js CATALOG, is what's charged), and the list stands in for the catalog
+// if catalog.json can't be fetched. A service test keeps it identical to the
+// for-sale part of services/cosmetics/src/catalog.gen.js, so it has to stay one
+// entry per line in exactly this shape.
+const PRICE_LIST = [
   { id: 'cape-orbit', name: 'Orbit Cape', blurb: 'Sparks race round the Origin rings while the glow breathes.', price: 9.99 },
   { id: 'cape-glitch', name: 'Glitch Cape', blurb: 'The Origin mark, split and glitching on a dark screen.', price: 9.99 },
   { id: 'cape-inferno', name: 'Inferno Cape', blurb: 'Living flames with embers rising off them.', price: 8.99 },
   { id: 'cape-aurora', name: 'Aurora Cape', blurb: 'Northern lights that ripple under twinkling stars.', price: 8.99 },
   { id: 'cape-starfall', name: 'Starfall Cape', blurb: 'Shooting stars across a moonlit sky.', price: 8.99 },
-  // Still capes.
-  { id: 'cape-origin', name: 'Origin Cape', blurb: 'The three rings, glowing on deepslate.', price: 5.99 },
+  { id: 'cape-origin', name: 'Origin Cape', blurb: 'The three rings, stitched in silver on dark woven cloth.', price: 5.99 },
   { id: 'cape-golden', name: 'Golden Hour Cape', blurb: 'The sunset over the Origin island.', price: 5.99 },
   { id: 'cape-frost', name: 'Frost Cape', blurb: 'Ice blue with falling snow.', price: 5.99 },
   { id: 'cape-void', name: 'Void Cape', blurb: 'An ender eye in the dark.', price: 5.99 },
-  // Head.
+  { id: 'wings-ember', name: 'Ember Wings', blurb: 'Obsidian wings with fire running through the veins.', price: 9.99 },
   { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Three rings orbiting a glowing core, each at its own speed.', price: 7.99 },
-  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'Gold band, jewels, pearls and a velvet cap.', price: 6.99 },
+  { id: 'crown-pixel', name: 'Pixel Crown', blurb: 'A small gold circlet with a checker band and three glowing gems.', price: 6.99 },
   { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99 },
 ];
+// Items the store shows: the catalog once loaded, else the price list. Each: { id, name, blurb, price, kind, slot, animated }.
+let ITEMS = [];
 const DEFAULT_CURRENCY = 'USD';
 // Origin+ membership. Like `price` above, these only show until the service's
 // catalog answers; the service (stripe.js PLUS) is what's charged, and it
@@ -52,13 +57,24 @@ const PLUS_FALLBACK = {
 // low end, animated capes at the top.
 // ---------------------------------------------------------------------------
 
-const KINDS = { cape: 'Cape', head: 'Hat & halo' };
+const KINDS = { cape: 'Cape', wings: 'Wings', pack: 'Backpack', mask: 'Mask', bandana: 'Bandana', hat: 'Hat', halo: 'Halo', crown: 'Crown', theme: 'Menu theme' };
+// The shop's filter tabs (store.html data-filter): which items each one shows.
+const FILTERS = {
+  all: () => true,
+  animated: i => i.animated,
+  cape: i => i.slot === 'cape',
+  back: i => i.slot === 'back',
+  wear: i => i.slot === 'head' || i.slot === 'face',
+  theme: i => i.slot === 'theme',
+};
+const EMPTY_NOTE = { theme: 'Menu themes are on their way.', back: 'Wings and backpacks are on their way.', wear: 'More hats and masks are on their way.', animated: 'No animated items yet.', cape: 'No capes yet.' };
+const SLOTS = ['cape', 'back', 'head', 'face', 'theme'];
 const SAVE_KEY = 'origin.store.v1';
 const NAME_RE = /^[A-Za-z0-9_]{3,16}$/;   // Java Edition usernames
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
-const byId = new Map(ITEMS.map(i => [i.id, i]));
+let byId = new Map();
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smoothScroll = () => (reducedMotion() ? 'auto' : 'smooth');
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
@@ -77,7 +93,8 @@ const state = {
   plusPending: 0,              // membership re-checks left after returning from joining
   catalog: 'loading',          // loading | ok | closed | error
   api: '',                     // the service's base URL once known
-  trying: null,
+  worn: {},                    // slot -> item id: what the fitting room wears (one item per slot)
+  themeView: true,             // a worn theme shows its menu preview instead of the player
   busy: false,
 };
 let room = null;
@@ -91,7 +108,7 @@ function save() {
 function restore() {
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
-    state.bag = (s.bag || []).filter(id => byId.has(id));
+    state.bag = Array.isArray(s.bag) ? s.bag.filter(id => typeof id === 'string') : [];   // pruned against the catalog in boot()
     state.name = typeof s.name === 'string' ? s.name : '';
   } catch { /* fresh start */ }
 }
@@ -302,14 +319,16 @@ function renderName() {
 }
 
 // ------------------------------------------------------------------ render
+const wornIds = () => SLOTS.map(sl => state.worn[sl]).filter(Boolean);
+const isWorn = id => wornIds().includes(id);
 function renderGrid() {
   const filter = $('[data-filter][aria-pressed="true"]')?.dataset.filter || 'all';
-  const shown = i => filter === 'all' || (filter === 'animated' ? isAnimated(i.id) : kindOf(i.id) === filter);
-  $('[data-grid]').innerHTML = ITEMS.filter(shown).map(i => {
-    const inBag = state.bag.includes(i.id), p = priceOf(i), soon = STORE.live && state.catalog === 'ok' && !forSale(i);
-    return `<article class="item${state.trying === i.id ? ' is-trying' : ''}" data-item="${i.id}">
-      <button class="item__try" type="button" data-try aria-label="Try on ${esc(i.name)}" aria-pressed="${state.trying === i.id}">
-        <span class="item__art" data-art></span><span class="item__kind">${KINDS[kindOf(i.id)]}</span>${isAnimated(i.id) ? '<span class="item__anim">Animated</span>' : ''}<span class="item__tryon">${state.trying === i.id ? 'Wearing' : 'Try on'}</span>
+  const list = ITEMS.filter(FILTERS[filter] || FILTERS.all);
+  $('[data-grid]').innerHTML = list.length ? list.map(i => {
+    const inBag = state.bag.includes(i.id), p = priceOf(i), soon = STORE.live && state.catalog === 'ok' && !forSale(i), on = isWorn(i.id);
+    return `<article class="item${on ? ' is-trying' : ''}" data-item="${i.id}">
+      <button class="item__try" type="button" data-try aria-label="${on ? 'Take off' : 'Try on'} ${esc(i.name)}" aria-pressed="${on}">
+        <span class="item__art" data-art></span><span class="item__kind">${KINDS[i.kind] || 'Cosmetic'}</span>${i.animated ? '<span class="item__anim">Animated</span>' : ''}<span class="item__tryon">${on ? 'Wearing' : 'Try on'}</span>
       </button>
       <div class="item__meta"><h3>${esc(i.name)}</h3><p>${esc(i.blurb)}</p></div>
       <div class="item__buy">${memberDeal(i)
@@ -318,35 +337,37 @@ function renderGrid() {
         <button class="btn btn--sm ${inBag ? 'btn--ghost' : 'btn--primary'}" type="button" data-add ${soon ? 'disabled data-soon' : ''} aria-pressed="${inBag}">${inBag ? 'In bag ✓' : 'Add to bag'}</button>
       </div>
     </article>`;
-  }).join('');
+  }).join('') : `<p class="shop__empty">${state.catalog === 'loading' && !ITEMS.length ? 'Loading…' : esc(EMPTY_NOTE[filter] || 'Nothing here yet.')}</p>`;
   paintArt();
 }
 
+// Card pictures. A theme's card IS its menu preview; everything else is a render of the
+// item on the mannequin (a still, plus a looping set of frames for animated ones).
 let thumbs = null;          // id -> still picture (data URL), or null when WebGL is out
 const frames = new Map();   // id -> looping frames for animated items, filled in the background
+const base = () => new URL('cosmetics', document.baseURI).href;
 function paintArt() {
   for (const card of $$('[data-item]')) {
-    const id = card.dataset.item, slot = $('[data-art]', card);
-    if (thumbs?.has(id)) slot.innerHTML = `<img src="${thumbs.get(id)}" alt="" width="320" height="320"${isAnimated(id) ? ` data-anim="${id}"` : ''}>`;
-    else slot.replaceChildren(flatFallback(id));
+    const id = card.dataset.item, item = byId.get(id), slot = $('[data-art]', card);
+    if (item.slot === 'theme') slot.innerHTML = `<img class="item__theme" src="${base()}/${id}/texture.png" alt="" width="320" height="256">`;
+    else if (thumbs?.has(id)) slot.innerHTML = `<img src="${thumbs.get(id)}" alt="" width="320" height="320"${item.animated ? ` data-anim="${id}"` : ''}>`;
+    else slot.replaceChildren(flatFallback(item));
   }
 }
 
-// Animated items play on their cards. The frames are rendered a few at a time
-// after the page is up, so the store never stalls; until an item's loop is
-// ready its card shows the still.
-const FRAMES = 20;
+// Animated items play on their cards at 10 frames a second. The frames are rendered a few at
+// a time after the page is up, so the store never stalls; until an item's loop is ready its
+// card shows the still.
+const CARD_FPS = 10, CARD_LOOP_MAX = 3.6;
+const cardFrames = id => Math.max(2, Math.round(Math.min(loopOf(id), CARD_LOOP_MAX) * CARD_FPS));
 function animateCards(thumber) {
-  // A slower item (the Orbit Halo loops over 3x LOOP) gets 3x the frames, so
-  // every card plays at the same frame rate.
-  const count = id => Math.round((FRAMES * loopOf(id)) / LOOP);
-  const todo = ITEMS.filter(i => isAnimated(i.id)).flatMap(i => Array.from({ length: count(i.id) }, (_, n) => [i.id, n]));
+  const todo = ITEMS.filter(i => i.animated && i.slot !== 'theme').flatMap(i => Array.from({ length: cardFrames(i.id) }, (_, n) => [i.id, n]));
   const step = () => {
     const until = performance.now() + 12;
     while (todo.length && performance.now() < until) {
       const [id, n] = todo.shift();
       if (!frames.has(id)) frames.set(id, []);
-      frames.get(id)[n] = thumber.frame(id, n, count(id));
+      frames.get(id)[n] = thumber.frame(id, n, cardFrames(id));
     }
     if (todo.length) setTimeout(step, 16);
     else thumber.dispose();
@@ -358,24 +379,28 @@ function animateCards(thumber) {
     tick++;
     for (const img of $$('img[data-anim]')) {
       const id = img.dataset.anim, f = frames.get(id);
-      if (f?.length === count(id)) img.src = f[tick % f.length];
+      if (f?.length === cardFrames(id)) img.src = f[tick % f.length];
     }
-  }, (LOOP * 1000) / FRAMES);
+  }, 1000 / CARD_FPS);
 }
-// No 3D: show the item's own 2D art (capes, wings) or the Origin mark.
-function flatFallback(id) {
-  const art = flatArt(id);
-  if (!art) {
-    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    s.setAttribute('class', 'item__mark');
-    s.innerHTML = '<use href="#mark"/>';
-    return s;
+// No 3D (or not rendered yet): a cape shows its own outside face cut from its texture, anything
+// else the Origin mark.
+function flatFallback(item) {
+  const src = item.cape && resolvedSource(item.id);
+  if (src) {
+    const S = src.item.cape.scale, c = document.createElement('canvas');
+    c.width = 10 * S; c.height = 16 * S;
+    c.getContext('2d').drawImage(src.image, S, S, 10 * S, 16 * S, 0, 0, c.width, c.height);
+    const img = new Image();
+    img.src = c.toDataURL();
+    img.alt = '';
+    img.className = 'item__flat item__flat--cape';
+    return img;
   }
-  const img = new Image();
-  img.src = art.toDataURL();
-  img.alt = '';
-  img.className = `item__flat item__flat--${kindOf(id)}`;
-  return img;
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('class', 'item__mark');
+  s.innerHTML = '<use href="#mark"/>';
+  return s;
 }
 
 function renderBag(error = '') {
@@ -413,14 +438,18 @@ function renderBag(error = '') {
 }
 
 // ------------------------------------------------------------------ Origin+
-// The members-only cape isn't an ITEMS entry (it isn't sold); its flat art is
-// only the picture on the membership card.
-function paintPlusCape() {
+// The members-only cape (cape-plus) isn't sold, so it isn't in the shop grid; its art, once
+// drawn (cosmetics/items/cape-plus), is only the picture on the membership card. Until then
+// the picture stays hidden.
+async function paintPlusCape() {
   try {
-    const img = $('[data-plus-cape]');
-    img.src = flatArt('cape-plus').toDataURL();
+    const { item, image } = await getSource('cape-plus');
+    const S = item.cape.scale, c = document.createElement('canvas'), img = $('[data-plus-cape]');
+    c.width = 10 * S; c.height = 16 * S;
+    c.getContext('2d').drawImage(image, S, S, 10 * S, 16 * S, 0, 0, c.width, c.height);
+    img.src = c.toDataURL();
     img.hidden = false;
-  } catch (err) { console.warn('Origin store: Origin+ cape preview unavailable.', err); }
+  } catch { /* no cape-plus art yet: the card has no cape picture */ }
 }
 const percentSaved = () => Math.round((1 - state.plus.year / (state.plus.month * 12)) * 100);
 
@@ -465,19 +494,47 @@ function renderPlus() {
     : 'It goes to the Minecraft name you type. Gifts welcome.');
 }
 
+// One item per slot: trying a second one in the same slot swaps it, trying a worn one takes it off.
 function tryOn(id) {
-  state.trying = state.trying === id ? null : id;
-  room?.wear(state.trying);
-  $('[data-fit-label]').textContent = state.trying ? `Wearing: ${byId.get(state.trying).name}` : 'Pick something to try it on';
+  const item = byId.get(id);
+  if (!item) return;
+  const worn = state.worn[item.slot] === id;
+  if (worn) delete state.worn[item.slot]; else state.worn[item.slot] = id;
+  if (item.slot === 'theme') state.themeView = !worn;
+  syncFit(worn ? null : id);
+}
+function clearWorn() {
+  state.worn = {};
+  syncFit(null);
+}
+// Push what's worn to the 3D room (or the flat fallback), the label, the chips and the cards.
+function syncFit(focus) {
+  const items = wornIds().map(id => byId.get(id));
+  const theme = items.find(i => i.slot === 'theme'), gear = items.filter(i => i.slot !== 'theme');
+  room?.wear(gear.map(i => i.id), gear.some(i => i.id === focus) ? focus : gear[gear.length - 1]?.id);
+  const names = items.map(i => i.name).join(' + ');
+  const hidden = gear.some(i => i.hidesCape) && gear.some(i => i.slot === 'cape');
+  $('[data-fit-label]').textContent = items.length ? `Wearing: ${names}${hidden ? ' (wings hide the cape)' : ''}` : 'Pick something to try it on';
+  const showTheme = !!theme && state.themeView;
+  const themeImg = $('[data-fit-theme-img]');
+  themeImg.hidden = !showTheme;
+  if (showTheme) { themeImg.src = `${base()}/${theme.id}/texture.png`; themeImg.alt = `Preview of the Origin menus in the ${theme.name} theme`; }
+  $('.fit__stage').classList.toggle('is-theme', showTheme);
+  const toggle = $('[data-fit-themeview]');
+  toggle.hidden = !theme;
+  toggle.textContent = state.themeView ? 'Show player' : 'Show menu';
+  $('[data-fit-clear]').hidden = !items.length;
   if (!room) {
     const flat = $('[data-fit-flat]');
-    flat.replaceChildren(...(state.trying ? [flatFallback(state.trying)] : []));
+    const pick = gear[gear.length - 1];
+    flat.replaceChildren(...(pick ? [flatFallback(pick)] : []));
   }
   for (const card of $$('[data-item]')) {
-    const on = card.dataset.item === state.trying;
+    const on = isWorn(card.dataset.item);
     card.classList.toggle('is-trying', on);
     const b = $('[data-try]', card);
     b.setAttribute('aria-pressed', String(on));
+    b.setAttribute('aria-label', `${on ? 'Take off' : 'Try on'} ${byId.get(card.dataset.item).name}`);
     $('.item__tryon', b).textContent = on ? 'Wearing' : 'Try on';
   }
 }
@@ -487,7 +544,7 @@ function toggleBag(id) {
   if (at >= 0) state.bag.splice(at, 1);
   else {
     state.bag.push(id);
-    if (state.trying !== id) tryOn(id);
+    if (!isWorn(id)) tryOn(id);
   }
   save();
   renderGrid();
@@ -517,9 +574,31 @@ function handleReturn() {
 }
 
 // -------------------------------------------------------------------- boot
-function boot() {
+const SLOT_OF = { cape: 'cape', wings: 'back', pack: 'back', mask: 'face', bandana: 'face', hat: 'head', halo: 'head', crown: 'head', theme: 'theme' };
+// What the shop shows: cosmetics/catalog.json (the drawn items), else the literal price list.
+async function loadItems() {
+  let list = null;
+  try {
+    list = (await loadCatalog(base())).filter(i => i && i.id && i.onSale !== false && !i.plusOnly);
+  } catch (err) {
+    console.warn('Origin store: catalog.json can\u2019t be read, using the built-in list.', err);
+  }
+  if (!list?.length) {
+    list = PRICE_LIST.map(p => {
+      const kind = p.id.split('-')[0];
+      return { ...p, kind, slot: SLOT_OF[kind] || 'cape', cents: Math.round(p.price * 100), animated: false };
+    });
+  }
+  ITEMS = list.map(i => ({ ...i, price: i.cents / 100 }));
+  byId = new Map(ITEMS.map(i => [i.id, i]));
+  state.bag = state.bag.filter(id => byId.has(id));     // a saved bag may name an item that is gone
+  save();
+}
+
+async function boot() {
   restore();
   handleReturn();
+  await loadItems();
 
   const input = $('#mc-name');
   input.value = state.name;
@@ -544,8 +623,13 @@ function boot() {
       tryOn(card.dataset.item);
       // On phones the preview sits above the grid: bring it into view.
       const stage = $('#preview');
-      if (state.trying && stage.getBoundingClientRect().bottom < 60) stage.scrollIntoView({ behavior: smoothScroll(), block: 'start' });
+      if (isWorn(card.dataset.item) && stage.getBoundingClientRect().bottom < 60) stage.scrollIntoView({ behavior: smoothScroll(), block: 'start' });
     }
+  });
+  $('[data-fit-clear]').addEventListener('click', clearWorn);
+  $('[data-fit-themeview]').addEventListener('click', () => {
+    state.themeView = !state.themeView;
+    syncFit(null);
   });
   $('[data-bag]').addEventListener('click', e => {
     const b = e.target.closest('[data-remove]');
@@ -557,29 +641,42 @@ function boot() {
     if (!state.name) setTimeout(() => input.focus({ preventScroll: true }), 400);
   });
 
-  try {
-    room = createFittingRoom($('[data-fit]'), { reducedMotion: reducedMotion() });
-  } catch (err) {
-    console.warn('Origin store: 3D preview unavailable, showing flat art.', err);
-    document.body.classList.add('no-webgl');
-  }
-  let thumber = null;
-  try {
-    thumber = createThumbnailer();
-    thumbs = new Map(ITEMS.map(i => [i.id, thumber.still(i.id)]));
-  } catch (err) {
-    console.warn('Origin store: card pictures unavailable, showing flat art.', err);
-    thumbs = null;
-    thumber = null;
-  }
-
+  // Draw the grid right away (flat pictures), then swap in renders once the art is loaded.
   renderGrid();
   renderBag();
   renderName();
   renderPlus();
   if (state.name) onName(state.name);
-  tryOn(ITEMS[0].id);
   loadPrices();
+
+  let loaded = true;
+  try {
+    await prepare(ITEMS.filter(i => i.slot !== 'theme').map(i => i.id));
+  } catch (err) {
+    console.warn('Origin store: item art can\u2019t be loaded.', err);
+    loaded = false;
+  }
+  let thumber = null;
+  if (loaded) {
+    try {
+      room = createFittingRoom($('[data-fit]'), { reducedMotion: reducedMotion() });
+    } catch (err) {
+      console.warn('Origin store: 3D preview unavailable, showing flat art.', err);
+      document.body.classList.add('no-webgl');
+    }
+    try {
+      thumber = createThumbnailer();
+      thumbs = new Map(ITEMS.filter(i => i.slot !== 'theme').map(i => [i.id, thumber.still(i.id)]));
+    } catch (err) {
+      console.warn('Origin store: card pictures unavailable, showing flat art.', err);
+      thumbs = null;
+      thumber = null;
+    }
+  } else document.body.classList.add('no-webgl');
+
+  renderGrid();
+  const first = ITEMS.find(i => i.slot !== 'theme') || ITEMS[0];
+  if (first) tryOn(first.id);
   if (thumber && !reducedMotion()) animateCards(thumber);
   else thumber?.dispose();
 }

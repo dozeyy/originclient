@@ -35,6 +35,7 @@ export function getSource(id, base = defaultBase()) {
   return sources.get(id);
 }
 export function setBase(base) { BASE = base; }
+export const resolvedSource = id => resolved.get(id);
 
 // ----------------------------------------------------------- shaded geometry
 // Minecraft-style fixed face light, baked into vertex colours. BoxGeometry's

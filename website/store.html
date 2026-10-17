@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#0e1110">
   <meta name="color-scheme" content="dark">
   <title>Origin Store</title>
-  <meta name="description" content="Capes and hats for Origin Client, plus Origin+ membership. Try them on, enter a Minecraft username, and check out with card, PayPal, Apple Pay or Google Pay.">
+  <meta name="description" content="Capes, wings, hats and more for Origin Client, plus Origin+ membership. Try them on, enter a Minecraft username, and check out with card, PayPal, Apple Pay or Google Pay.">
   <meta property="og:title" content="Origin Store">
-  <meta property="og:description" content="Capes and hats for Origin Client.">
+  <meta property="og:description" content="Capes, wings, hats and more for Origin Client.">
   <meta property="og:type" content="website">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/monocraft.woff2" as="font" type="font/woff2" crossorigin>
@@ -52,7 +52,7 @@
 
     <section class="store__intro">
       <p class="eyebrow eyebrow--accent">Origin Store</p>
-      <h1>Capes &amp; hats</h1>
+      <h1>Capes, wings &amp; more</h1>
       <p class="lede">Cosmetics for Origin Client. Pick an item, enter the Minecraft username it's for, and check out.</p>
     </section>
 
@@ -62,7 +62,12 @@
         <div class="fit__stage" id="preview">
           <canvas data-fit aria-label="3D preview of your player. Drag to turn." role="img"></canvas>
           <div class="fit__flat" data-fit-flat aria-hidden="true"></div>
+          <img class="fit__theme" data-fit-theme-img alt="" hidden>
           <p class="fit__label" data-fit-label>Pick something to try it on</p>
+          <div class="fit__chips">
+            <button type="button" class="chip" data-fit-themeview hidden>Show menu</button>
+            <button type="button" class="chip" data-fit-clear hidden>Take all off</button>
+          </div>
           <p class="fit__hint" aria-hidden="true">Drag to turn</p>
         </div>
 
@@ -128,7 +133,9 @@
           <button type="button" data-filter="all" aria-pressed="true">All</button>
           <button type="button" data-filter="animated" aria-pressed="false">Animated</button>
           <button type="button" data-filter="cape" aria-pressed="false">Capes</button>
-          <button type="button" data-filter="head" aria-pressed="false">Hats &amp; halos</button>
+          <button type="button" data-filter="back" aria-pressed="false">Wings &amp; backpacks</button>
+          <button type="button" data-filter="wear" aria-pressed="false">Hats &amp; masks</button>
+          <button type="button" data-filter="theme" aria-pressed="false">Themes</button>
         </div>
 
         <div class="shop__grid" data-grid></div>

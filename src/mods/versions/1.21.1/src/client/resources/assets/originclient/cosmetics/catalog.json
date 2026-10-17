@@ -15,6 +15,19 @@
       "capeOffset": 0
     },
     {
+      "id": "wings-ember",
+      "name": "Ember Wings",
+      "kind": "wings",
+      "slot": "back",
+      "cents": 999,
+      "blurb": "Obsidian wings with fire running through the veins. Hides your cape; a few embers drift off as you move.",
+      "animated": true,
+      "plusOnly": false,
+      "onSale": true,
+      "hidesCape": true,
+      "capeOffset": 0
+    },
+    {
       "id": "crown-pixel",
       "name": "Pixel Crown",
       "kind": "crown",

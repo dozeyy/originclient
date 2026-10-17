@@ -61,8 +61,10 @@ export function checkModel(model) {
     for (const r of rs) if (r.x < 0 || r.y < 0 || r.x + r.w > W || r.y + r.h > H) bad.push(`${tag}: UV outside the ${W}x${H} texture`);
     if (!cube.faces) {
       const f = footprint(cube, scale);
-      for (const o of seen) if (f.x < o.f.x + o.f.w && o.f.x < f.x + f.w && f.y < o.f.y + o.f.h && o.f.y < f.y + f.h) bad.push(`${tag}: UV overlaps ${o.tag}`);
-      seen.push({ tag, f });
+      // a mirrored twin (same size + uv, opposite `mirror`) deliberately shares its partner's pixels
+      const twin = o => o.f.x === f.x && o.f.y === f.y && o.f.w === f.w && o.f.h === f.h && !!o.cube.mirror !== !!cube.mirror;
+      for (const o of seen) if (!twin(o) && f.x < o.f.x + o.f.w && o.f.x < f.x + f.w && f.y < o.f.y + o.f.h && o.f.y < f.y + f.h) bad.push(`${tag}: UV overlaps ${o.tag}`);
+      seen.push({ tag, f, cube });
     }
   }
   return bad;
