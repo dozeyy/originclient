@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
     "CosmeticCapeMixin",
+    "CapePhysicsMixin",
     "CosmeticsPauseMixin",
 		"AbstractButtonMixin",
 		"SprintKeyMixin",

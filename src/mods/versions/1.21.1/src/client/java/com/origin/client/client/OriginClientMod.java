@@ -176,6 +176,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// every player model. Capes ride vanilla's cape slot (CosmeticCapeMixin).
 		try {
 			com.origin.client.client.cosmetics.CosmeticsService.start();
+			com.origin.client.client.cosmetics.CosmeticEffects.register();
 			net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
 					(type, renderer, helper, ctx) -> {
 						if (renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer player) {
