@@ -55,3 +55,7 @@ tools/loading-screen/out/
 src/mods/versions/*/run-*.log
 src/mods/versions/*/runboot.log
 src/mods/versions/*/runthick-*.log
+
+# Claude Lean runtime data (per-machine state, trimmed-output logs, stats)
+.claude/lean/
+.claude/settings.local.json

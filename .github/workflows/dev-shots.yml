@@ -114,8 +114,9 @@ jobs:
           # libegl1/libegl-mesa0: 26.3's SDL3 window opens through EGL under Xvfb.
           # x11-xserver-utils (xrandr) + libXxf86vm/libXrandr: LWJGL 2 (1.8.9)
           # queries display modes through them at Display.create().
+          # python3-pil: the contact sheet (tools/lean/contact_sheet.py) below.
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
-            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6 python3-pil
 
       - name: Boot ${{ matrix.module }} and capture the Origin screens
         working-directory: src/mods/versions/${{ matrix.module }}
@@ -152,6 +153,13 @@ jobs:
           mkdir -p "$ORIGIN_SHOTS/screenshots"
           cp run.log "$ORIGIN_SHOTS/screenshots/run.log" || true
           ls -la "$ORIGIN_SHOTS/screenshots" || true
+
+      # One small labelled image of every screen (_sheet.jpg): a session looks at
+      # that first instead of opening every PNG (each image read stays in the
+      # conversation for good — Claude Lean). Never fails the run.
+      - name: Contact sheet
+        if: always()
+        run: python3 tools/lean/contact_sheet.py "${{ runner.temp }}/shots/screenshots" || true
 
       - name: Keep the shots as a run artifact
         if: always()
