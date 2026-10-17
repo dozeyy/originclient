@@ -344,10 +344,10 @@ const CAPES = {
     for (let x = 3; x < CW; x += 3.4 + r() * 4) pine(ctx, x, near(x) + 2, 6 + r() * 8, x % 2 ? '#0e0a16' : '#120d1c');
     ctx.fillStyle = vgrad(ctx, 112, CH, [[0, '#1b1430'], [1, '#0a0712']]); ctx.fillRect(0, 114, CW, 14);   // dark water
     ctx.save(); ctx.globalCompositeOperation = 'lighter';                    // the sun's reflection, broken by ripples
-    for (let y = 115; y < 126; y += 1.6) {
-      const half = 9 - (y - 115) * 0.45 + r() * 3, cx = 40 + (r() - 0.5) * 3;
-      ctx.fillStyle = `rgba(255,200,130,${0.55 - (y - 115) * 0.035})`; ctx.fillRect(cx - half, y, half * 2, 0.7);
-    }
+    ctx.fillStyle = vgrad(ctx, 114, CH, [[0, 'rgba(255,200,130,.5)'], [1, 'rgba(255,200,130,.05)']]);
+    ctx.beginPath(); ctx.moveTo(30, 114); ctx.lineTo(50, 114); ctx.lineTo(46, CH); ctx.lineTo(34, CH); ctx.fill();
+    ctx.globalCompositeOperation = 'destination-out';
+    for (let y = 116; y < 127; y += 2.4) { ctx.fillStyle = `rgba(0,0,0,${0.35 + r() * 0.3})`; ctx.fillRect(26 + r() * 6, y, 28 - r() * 6, 0.9); }
     ctx.restore();
     for (const [x, h] of [[5, 22], [13, 15], [9, 11], [74, 24], [66, 14], [71, 10]]) pine(ctx, x, 128, h, '#07040d');   // foreground pines
     ctx.strokeStyle = '#1a1226'; ctx.lineWidth = 0.9; ctx.lineCap = 'round';  // birds
@@ -453,7 +453,7 @@ const CAPES = {
     ctx.fillStyle = 'rgba(255,255,255,.018)';
     for (let i = 0; i < 90; i++) ctx.fillRect(r() * CW, r() * CH, 0.5, 6 + r() * 30);
     glow(ctx, 40, 58, 44, '#cfcfcf', 0.16);
-    threadMark(ctx, 40, 58, 74, ['#ffffff', '#d4d4d4', '#7a7a7a'], '#bdbdbd', 2.4);
+    threadMark(ctx, 40, 58, 74, ['#ffffff', '#ececec', '#8c8c8c'], '#cfcfcf', 2.6);
     ctx.save();                                                   // the plus, beneath
     const plusStroke = (dx, dy, col, w) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'butt'; ctx.beginPath(); ctx.moveTo(40 - 7 + dx, 102 + dy); ctx.lineTo(40 + 7 + dx, 102 + dy); ctx.moveTo(40 + dx, 95 + dy); ctx.lineTo(40 + dx, 109 + dy); ctx.stroke(); };
     glow(ctx, 40, 102, 16, '#d8d8d8', 0.2);
@@ -461,6 +461,15 @@ const CAPES = {
     plusStroke(0, 0, hgrad(ctx, 33, 47, [[0, '#8e8e8e'], [0.5, '#ffffff'], [1, '#9a9a9a']]), 2.2);
     ctx.fillStyle = '#e0e0e0';
     for (const dx of [-14, 14]) { ctx.beginPath(); ctx.moveTo(40 + dx, 100.2); ctx.lineTo(40 + dx + 1.8, 102); ctx.lineTo(40 + dx, 103.8); ctx.lineTo(40 + dx - 1.8, 102); ctx.fill(); }
+    ctx.restore();
+    ctx.save();                                                   // a fine double frame with corner diamonds
+    ctx.strokeStyle = 'rgba(224,224,224,.6)'; ctx.lineWidth = 0.7; ctx.strokeRect(8, 8, CW - 16, CH - 16);
+    ctx.strokeStyle = 'rgba(224,224,224,.28)'; ctx.lineWidth = 0.4; ctx.strokeRect(10, 10, CW - 20, CH - 20);
+    ctx.fillStyle = '#e0e0e0';
+    for (const [x, y] of [[8, 8], [CW - 8, 8], [8, CH - 8], [CW - 8, CH - 8]]) { ctx.beginPath(); ctx.moveTo(x, y - 2.6); ctx.lineTo(x + 2.6, y); ctx.lineTo(x, y + 2.6); ctx.lineTo(x - 2.6, y); ctx.fill(); }
+    const sg = ctx.createLinearGradient(0, 0, CW, CH * 0.7);     // a broad band of light across the satin
+    for (const [t, a] of [[0, 0], [0.36, 0], [0.5, 0.1], [0.64, 0], [1, 0]]) sg.addColorStop(t, `rgba(255,255,255,${a})`);
+    ctx.fillStyle = sg; ctx.fillRect(0, 0, CW, CH);
     ctx.restore();
     fabric(ctx, { fold: 0.1, sheen: 0.09, weave: 0.025, vig: 0.24 });
     glint(ctx, 61, 38, 3.2, '#ffffff', 0.7);
@@ -479,13 +488,13 @@ const CAPES = {
     for (const off of [0, 0.5]) {                                  // two ripples a loop
       const t = fract(ph + off);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = `rgba(95,208,155,${0.22 * (1 - t) ** 2})`; ctx.lineWidth = 1.4;
+      ctx.strokeStyle = `rgba(95,208,155,${0.4 * (1 - t) ** 2})`; ctx.lineWidth = 2.2;
       ctx.beginPath(); ctx.ellipse(cx, cy, 12 + t * 54, 8 + t * 40, 0, 0, TAU); ctx.stroke();
       ctx.restore();
     }
-    glow(ctx, cx, cy, 46, '#4bc8ae', 0.2 + 0.14 * pulse);
+    glow(ctx, cx, cy, 46, '#4bc8ae', 0.14 + 0.1 * pulse);
     ctx.save(); ctx.lineCap = 'round'; ctx.globalCompositeOperation = 'lighter';
-    for (const [w, col, a] of [[6.5, '#2f9a7d', 0.22 + 0.16 * pulse], [3.2, '#4bc8ae', 0.55], [1.8, '#9af2cf', 0.95], [0.7, '#ffffff', 0.8]]) {
+    for (const [w, col, a] of [[5.6, '#2f9a7d', 0.14 + 0.12 * pulse], [2.8, '#3fbf98', 0.55], [1.5, '#a8f5d6', 0.85]]) {
       ctx.strokeStyle = col; ctx.globalAlpha = a; ctx.lineWidth = w;
       markRings(ctx, cx, cy, size, () => ctx.stroke());
     }
@@ -495,15 +504,15 @@ const CAPES = {
       const a = deg * Math.PI / 180, [turns, st] = spec[i];
       for (const lap of (i === 0 ? [0, 0.5] : [0])) {
         for (let k = 18; k >= 0; k--) {
-          const th = TAU * (turns * ph + st + lap) - Math.sign(turns) * k * 0.085;
+          const th = TAU * (turns * ph + st + lap) - Math.sign(turns) * k * 0.11;
           const ex = rx * s * Math.cos(th), ey = ry * s * Math.sin(th);
           const x = cx + ex * Math.cos(a) - ey * Math.sin(a), y = cy + ex * Math.sin(a) + ey * Math.cos(a);
           const f = 1 - k / 19;
           ctx.save(); ctx.globalCompositeOperation = 'lighter';
-          ctx.fillStyle = k === 0 ? '#ffffff' : `rgba(131,226,181,${0.8 * f ** 1.5})`;
-          ctx.beginPath(); ctx.arc(x, y, k === 0 ? 2.1 : 0.7 + 1.5 * f, 0, TAU); ctx.fill();
+          ctx.fillStyle = k === 0 ? '#ffffff' : `rgba(235,255,245,${0.9 * f ** 1.3})`;
+          ctx.beginPath(); ctx.arc(x, y, k === 0 ? 3 : 0.9 + 2.2 * f, 0, TAU); ctx.fill();
           ctx.restore();
-          if (k === 0) glow(ctx, x, y, 8, '#83e2b5', 0.65);
+          if (k === 0) glow(ctx, x, y, 13, '#83e2b5', 0.9);
         }
       }
     });
@@ -531,11 +540,11 @@ const CAPES = {
       ctx.fillRect(x, top - 36, 2.2, 36);
       ctx.fillStyle = '#c8fff0'; ctx.fillRect(x, top, 2.2, 3);
     }
-    const off = 1.8 + 1.4 * Math.sin(P * 3);
+    const off = 4 + 2.4 * Math.sin(P * 3);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
     for (const [dx, dy, col] of [[-off, 0, '#ff2e55'], [0, 0, '#2effa8'], [off, Math.sign(off) * 0.8, '#2e7bff']]) {
-      ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 5; ctx.save(); ctx.translate(dx, dy); markRings(ctx, 40, 58, 74, () => ctx.stroke()); ctx.restore();
-      ctx.globalAlpha = 0.95; ctx.lineWidth = 2; ctx.save(); ctx.translate(dx, dy); markRings(ctx, 40, 58, 74, () => ctx.stroke()); ctx.restore();
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.22; ctx.lineWidth = 6; ctx.save(); ctx.translate(dx, dy); markRings(ctx, 40, 58, 74, () => ctx.stroke()); ctx.restore();
+      ctx.globalAlpha = 0.6; ctx.lineWidth = 2.2; ctx.save(); ctx.translate(dx, dy); markRings(ctx, 40, 58, 74, () => ctx.stroke()); ctx.restore();
     }
     ctx.restore();
     ctx.fillStyle = 'rgba(0,0,0,.2)';                               // scanlines
@@ -566,34 +575,33 @@ const CAPES = {
   },
 
   inferno(ctx, ph, r) {
-    // Charred cloth split by lava, with layered flames licking up from the hem and embers rising.
+    // Charred cloth split by lava veins, with layered flames licking up from the hem and embers rising.
     const P = ph * TAU;
-    ctx.fillStyle = vgrad(ctx, 0, CH, [[0, '#120606'], [0.6, '#1d0907'], [1, '#3a0e08']]);
+    ctx.fillStyle = vgrad(ctx, 0, CH, [[0, '#120606'], [0.55, '#1d0907'], [1, '#3a0e08']]);
     ctx.fillRect(0, 0, CW, CH);
     fabric(ctx, { fold: 0.1, sheen: 0, weave: 0, vig: 0.25 });
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    for (let c = 0; c < 6; c++) {                                  // lava cracks, pulsing
-      let x = 8 + c * 13 + r() * 6, y = CH - 6 - r() * 10;
+    const vein = (x, y, ang, len, depth, heat) => {                // lava veins: jagged, branching
       const pts = [[x, y]];
-      for (let i = 0; i < 6; i++) { x += (r() - 0.5) * 12; y -= 8 + r() * 12; pts.push([x, y]); }
-      const heat = 0.55 + 0.45 * Math.sin(P + c * 1.7);
-      for (const [w, col, a] of [[4, '#a02a10', 0.3], [2, '#ff6a2b', 0.75], [0.8, '#ffe39a', 0.9]]) {
-        ctx.strokeStyle = col; ctx.globalAlpha = a * heat; ctx.lineWidth = w;
+      for (let i = 0; i < 5; i++) { ang += (r() - 0.5) * 1.1; x += Math.cos(ang) * len / 5; y += Math.sin(ang) * len / 5; pts.push([x, y]); }
+      for (const [w, col, a] of [[4.4, '#a02a10', 0.3], [2.4, '#ff6a2b', 0.8], [1, '#ffe39a', 0.95]]) {
+        ctx.strokeStyle = col; ctx.globalAlpha = a * heat; ctx.lineWidth = w * (0.5 + 0.5 * (depth + 1) / 3);
         ctx.beginPath(); pts.forEach(([px, py], i) => ctx[i ? 'lineTo' : 'moveTo'](px, py)); ctx.stroke();
       }
-    }
+      if (depth > 0) { vein(...pts[3], ang - 0.7, len * 0.55, depth - 1, heat); vein(...pts[2], ang + 0.8, len * 0.5, depth - 1, heat); }
+    };
+    for (let c = 0; c < 4; c++) vein(12 + c * 19 + r() * 6, CH - 40 - r() * 10, -Math.PI / 2 + (r() - 0.5) * 0.7, 34 + r() * 14, 1, 0.55 + 0.45 * Math.sin(P + c * 1.7));
     ctx.restore();
-    glow(ctx, 40, CH, 70, '#ff5a1c', 0.55);
-    const TONGUES = 9;
-    for (const [layer, hs, ws, stops] of [
-      [0, 1, 1, [[0, 'rgba(255,90,28,0)'], [0.45, '#c9300f'], [1, '#6e1006']]],
-      [1, 0.78, 0.72, [[0, 'rgba(255,170,60,0)'], [0.45, '#ff8a2b'], [1, '#e0451b']]],
-      [2, 0.5, 0.42, [[0, 'rgba(255,240,170,0)'], [0.5, '#ffe28a'], [1, '#ffb23e']]],
+    glow(ctx, 40, CH, 76, '#ff5a1c', 0.5);
+    for (const [hs, ws, stops] of [
+      [1, 1, [[0, 'rgba(255,90,28,0)'], [0.4, '#c9300f'], [1, '#6e1006']]],
+      [0.76, 0.72, [[0, 'rgba(255,170,60,0)'], [0.4, '#ff8a2b'], [1, '#e0451b']]],
+      [0.5, 0.42, [[0, 'rgba(255,240,170,0)'], [0.45, '#ffe28a'], [1, '#ffb23e']]],
     ]) {
-      for (let j = 0; j < TONGUES; j++) {
-        const bx = 4 + j * 9 + (hash(j) - 0.5) * 3, n = 1 + (j + layer) % 3, ph0 = hash(j * 3 + layer) * TAU;
-        const h = hs * (44 + 28 * hash(j + 7) + 9 * Math.sin(P * n + ph0)), sway = 3.2 * Math.sin(P * (1 + j % 2) + ph0) * (0.5 + 0.5 * hs);
-        const w = ws * (6 + 2 * hash(j + 11)), base = CH + 4, tip = base - h;
+      for (let j = 0; j < 10; j++) {
+        const bx = 3 + j * 8.2 + (hash(j) - 0.5) * 3, n = 1 + (j + (hs > 0.9 ? 0 : hs > 0.6 ? 1 : 2)) % 3, ph0 = hash(j * 3 + hs * 7) * TAU;
+        const h = hs * (46 + 32 * hash(j + 7) + 10 * Math.sin(P * n + ph0)), sway = 3.4 * Math.sin(P * (1 + j % 2) + ph0) * (0.5 + 0.5 * hs);
+        const w = ws * (6.5 + 2.5 * hash(j + 11)), base = CH + 4, tip = base - h;
         ctx.fillStyle = vgrad(ctx, tip, base, stops);
         ctx.beginPath();
         ctx.moveTo(bx - w, base);
@@ -603,10 +611,10 @@ const CAPES = {
       }
     }
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (let k = 0; k < 22; k++) {                                  // embers
+    for (let k = 0; k < 20; k++) {                                  // embers
       const life = fract(ph * (1 + k % 3) + hash(k)), x = clamp(4 + hash(k + 20) * 72 + Math.sin(life * TAU + k) * 3, 3, 77);
       ctx.fillStyle = `rgba(255,${150 + Math.round(90 * (1 - life))},60,${Math.sin(life * Math.PI)})`;
-      const sz = 1.2 + 1.4 * (1 - life); ctx.fillRect(x, CH - 18 - life * 100, sz, sz);
+      const sz = 2 + 1.4 * (1 - life); ctx.fillRect(Math.round(x / 2) * 2, Math.round((CH - 30 - life * 96) / 2) * 2, sz, sz);
     }
     ctx.restore();
     hem(ctx, ['#ffb23e', '#7a1608', '#ff6a2b', '#3a0d08'], { stitch: 'rgba(255,200,100,.35)', shine: 0.25, w: 3.2 });
@@ -619,18 +627,18 @@ const CAPES = {
     ctx.fillRect(0, 0, CW, CH);
     for (let i = 0; i < 70; i++) {
       const x = r() * CW, y = r() * 80, n = r(), tw = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(P * (1 + i % 2) + n * 40)) ** 2;
-      ctx.fillStyle = `rgba(220,240,255,${tw * (1 - y / 100)})`; ctx.fillRect(x, y, n > 0.9 ? 1.6 : 1, n > 0.9 ? 1.6 : 1);
+      ctx.fillStyle = `rgba(220,240,255,${tw * (1 - y / 100)})`; ctx.fillRect(Math.round(x / 2) * 2, Math.round(y / 2) * 2, n > 0.9 ? 3 : 2, n > 0.9 ? 3 : 2);
     }
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (const [y0, amp, f, k, col, col2, len] of [
-      [64, 9, 0.09, 1, '#3ee8b0', '#1b7e8f', 62], [78, 7, 0.12, -1, '#5fd09b', '#2a5fb0', 50], [52, 6, 0.16, 2, '#9a6bff', '#3a2aa0', 40]]) {
-      for (let x = 0; x < CW; x += 1) {
+      [60, 10, 0.1, 1, '#3ee8b0', '#1b7e8f', 60], [76, 8, 0.13, -1, '#5fd09b', '#2a5fb0', 50], [46, 7, 0.17, 2, '#9a6bff', '#3a2aa0', 38]]) {
+      for (let x = 0; x < CW; x += 2) {
         const yb = y0 + amp * Math.sin(x * f - P * k + y0), ray = 0.55 + 0.45 * Math.sin(x * 1.9 + P * k * 2 + y0) * Math.sin(x * 0.31 - P);
         const L = len * (0.65 + 0.35 * Math.sin(x * 0.21 + P * k + y0 * 0.2)) * (0.7 + 0.3 * ray);
         const g = ctx.createLinearGradient(0, yb - L, 0, yb);
         const c1 = rgb(col2), c2 = rgb(col);
-        g.addColorStop(0, `rgba(${c1},0)`); g.addColorStop(0.7, `rgba(${c1},${0.2 * ray})`); g.addColorStop(0.96, `rgba(${c2},${0.75 * ray})`); g.addColorStop(1, `rgba(255,255,255,${0.5 * ray})`);
-        ctx.fillStyle = g; ctx.fillRect(x, yb - L, 1.15, L);
+        g.addColorStop(0, `rgba(${c1},0)`); g.addColorStop(0.65, `rgba(${c1},${0.32 * ray})`); g.addColorStop(0.95, `rgba(${c2},${0.95 * ray})`); g.addColorStop(1, `rgba(255,255,255,${0.7 * ray})`);
+        ctx.fillStyle = g; ctx.fillRect(x, yb - L, 2.1, L);
       }
     }
     ctx.restore();
@@ -658,7 +666,7 @@ const CAPES = {
     for (let i = 0; i < 80; i++) {
       const x = r() * CW, y = r() * 96, n = r(), tw = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(P * (1 + i % 2) + n * 90)) ** 2;
       ctx.fillStyle = n < 0.18 ? `rgba(190,205,255,${tw})` : `rgba(255,255,255,${tw * 0.85})`;
-      ctx.fillRect(x, y, n > 0.92 ? 1.7 : 1, n > 0.92 ? 1.7 : 1);
+      ctx.fillRect(Math.round(x / 2) * 2, Math.round(y / 2) * 2, n > 0.92 ? 3 : 2, n > 0.92 ? 3 : 2);
     }
     for (const [x, y, sz] of [[14, 16, 3.2], [62, 62, 2.6], [24, 70, 2.2]]) glint(ctx, x, y, sz, '#cfd8ff', 0.5 + 0.5 * Math.sin(P + x));
     glow(ctx, 56, 24, 28, '#e8e2c0', 0.3);                          // moon
@@ -672,12 +680,12 @@ const CAPES = {
       const s = fract(ph + k / 3) * 3;
       if (s >= 1) continue;
       const hx = 84 - k * 12 - s * 78, hy = 4 + k * 26 + s * 52, a = Math.sin(s * Math.PI);
-      const dx = 0.83, dy = -0.55, L = 30, g = ctx.createLinearGradient(hx, hy, hx + dx * L, hy + dy * L);
+      const dx = 0.83, dy = -0.55, L = 40, g = ctx.createLinearGradient(hx, hy, hx + dx * L, hy + dy * L);
       g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.4, `rgba(190,210,255,${a * 0.5})`); g.addColorStop(1, 'rgba(190,210,255,0)');
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(hx, hy - 1.1); ctx.lineTo(hx + dx * L, hy + dy * L); ctx.lineTo(hx, hy + 1.1); ctx.fill();
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(hx, hy - 2); ctx.lineTo(hx + dx * L, hy + dy * L); ctx.lineTo(hx, hy + 2); ctx.fill();
       ctx.restore();
-      glow(ctx, hx, hy, 7, '#cfe0ff', a * 0.8);
+      glow(ctx, hx, hy, 9, '#cfe0ff', a * 0.9);
     }
     const back = ridge(r, 104, 9, 0.5), front = ridge(r, 114, 6, 0.5);
     fillRidge(ctx, back, vgrad(ctx, 90, CH, [[0, '#1a1a48'], [1, '#0a0b22']]));
@@ -935,7 +943,7 @@ export const FX = {
     { anchor: 'head', colors: ['#fff1b8', '#ffd56b'], rate: 5, life: 1.2, size: [1.1, 0.2], ring: [4.5, 34.8, 36.4], vel: [0, 0.8, 0], sway: [0, 0], fade: 'inout', shape: 'spark' },
   ],
   'crown-pixel': [
-    { anchor: 'head', colors: ['#ffffff', '#fff1b8'], rate: 6, life: 1.2, size: [1.1, 0.2], from: [-5, 30.5, -5], to: [5, 37, 5], vel: [0, 0.9, 0], sway: [0, 0], fade: 'inout', shape: 'spark' },
+    { anchor: 'head', colors: ['#ffffff', '#fff1b8'], rate: 6, life: 1.2, size: [1.1, 0.2], from: [-4.5, 32.5, -4.5], to: [4.5, 39, 4.5], vel: [0, 0.9, 0], sway: [0, 0], fade: 'inout', shape: 'spark' },
   ],
   'wings-ember': [{ anchor: 'wing', colors: ['#ffb23e', '#ff6a2b'], rate: 8, life: 1.2, size: [0.8, 0.2], from: [1, -14, 0], to: [10, -3, 0], vel: [0, 4, -1.6], sway: [0.5, 1], fade: 'inout', shape: 'glow' }],
   'wings-void': [{ anchor: 'wing', colors: ['#c86bff', '#7a2cff'], rate: 8, life: 1.2, size: [0.8, 0.2], from: [1, -14, 0], to: [10, -3, 0], vel: [0, -4, -1.6], sway: [0.5, 1], fade: 'inout', shape: 'glow' }],
@@ -1192,12 +1200,12 @@ function buildGoldHalo(g) {
 }
 
 // ---- Pixel Crown: a jewelled gold crown with an ermine band ------------------
-// R = 4.85 is the band's centre line (the skin's hat layer reaches 4.5). Four sides,
+// R = 4.55 is the band's centre line (the skin's hat layer reaches 4.5). Four sides,
 // each built in its own frame (+x along the side, +z outward) and turned by side * 90
 // degrees about y. Per side:
-//   band         box 10.3 x 2 x 0.6 gold at y 31.7, lit top bevel 10.5 x 0.3 x 0.7 light gold
-//   ermine       box 10.6 x 1.1 x 0.9 cream at y 30.55 with four dark spots (0.35 x 0.6)
-//   top rim      box 10.6 x 0.4 x 0.9 deep gold at y 33, seven cream pearls (0.5) on it
+//   band         box 9.7 x 2 x 0.6 gold at y 31.7, lit top bevel 9.9 x 0.3 x 0.7 light gold
+//   ermine       box 10.0 x 1.1 x 0.9 cream at y 30.55 with four dark spots (0.35 x 0.6)
+//   top rim      box 10.0 x 0.4 x 0.9 deep gold at y 33, seven cream pearls (0.5) on it
 //   engravings   four diamonds (0.5 turned 45 deg) in shadow gold on the band
 //   centrepiece  deep-gold diamond plate (2.5) with a gem (1.5), a lighter facet and a
 //                white glint, all full-bright
@@ -1211,7 +1219,7 @@ function buildCrown(g) {
   const gold = '#f2c14e', light = '#ffe08a', deep = '#c9932c', shadow = '#8a5f17', pearl = '#f4efe4';
   const velvet = ['#b02440', '#a3203a', '#8a1a30'], spot = '#2a2430';
   const gems = ['#e0485b', '#5b8be0', '#5fd09b', '#5b8be0'];   // front, left, back, right
-  const R = 4.85;
+  const R = 4.55;   // half-width of the band: the 8-wide head plus a hat's margin
   const rig = new Rig(g, { lit: true });
   const crown = rig.push();
   for (let side = 0; side < 4; side++) {
