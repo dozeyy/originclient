@@ -96,7 +96,7 @@ test('checkout: makes a Stripe Checkout with our prices, the player on it, and t
   assert.equal(sent.get('line_items[1][price_data][product_data][name]'), 'Golden Halo');
   assert.equal(sent.get('line_items[2][quantity]'), null);                       // duplicate in the bag dropped
   assert.equal(sent.get('metadata[uuid]'), UUID);
-  assert.ok(Number(sent.get('expires_at')) > Date.now() / 1000 + 29 * 60);
+  assert.ok(Number(sent.get('expires_at')) >= Date.now() / 1000 + 31 * 60);   // Stripe refuses < 30 min on arrival
   assert.equal(sent.get('metadata[items]'), 'cape-orbit,halo-gold');
   assert.equal(sent.get('payment_intent_data[metadata][uuid]'), UUID);
   assert.match(sent.get('success_url'), /store\.html\?purchase=done$/);

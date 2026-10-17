@@ -94,8 +94,9 @@ export async function checkout(env, body) {
       cancel_url: `${STORE_PAGE}?purchase=cancelled`,
       client_reference_id: uuid,
       // Short-lived, so an abandoned checkout can't be paid hours later for
-      // something bought since (30 min is Stripe's minimum).
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+      // something bought since. Stripe's minimum is 30 min counted from when
+      // the request ARRIVES, so 35 leaves room for the trip there.
+      expires_at: Math.floor(Date.now() / 1000) + 35 * 60,
       automatic_tax: { enabled: AUTOMATIC_TAX },
       line_items: ids.map(id => ({
         quantity: 1,

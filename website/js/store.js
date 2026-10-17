@@ -316,7 +316,7 @@ function renderBag(error = '') {
     : blocked.length ? `${blocked[0].name} isn\u2019t on sale yet. Remove it to check out.`
     : !canCheckout() ? 'Type the Minecraft name these are for.'
     : state.catalog === 'loading' ? 'Loading prices…'
-    : 'Secure checkout by Stripe: card, Apple Pay or Google Pay. Sales tax is added at checkout where it applies.');
+    : 'Secure checkout by Stripe: card, plus Apple Pay or Google Pay on devices that support them. Sales tax is added at checkout where it applies.');
 
   const bar = $('[data-bagbar]');
   bar.hidden = !items.length;
@@ -360,7 +360,7 @@ function handleReturn() {
   if (!result) return;
   const notice = $('[data-notice]');
   if (result === 'done') {
-    notice.innerHTML = `<b>Thank you!</b> Your cosmetics are on <b>${esc(state.player?.name || state.name || 'your player')}</b>. A receipt is on its way to your email.`;
+    notice.innerHTML = `<b>Thank you!</b> Your cosmetics will show up on <b>${esc(state.player?.name || state.name || 'your player')}</b> within a minute. A receipt is on its way to your email.`;
     state.bag = [];
     save();
   } else {
