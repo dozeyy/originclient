@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -46,8 +47,28 @@ public class NametagStyleMixin {
 		if (party != null) {
 			color = (color & 0xFF000000) | (party & 0xFFFFFF);
 		}
+		// Origin+ badge: blank text in front of the name makes vanilla's own centring and
+		// background box grow to hold it; the badge is then drawn over the blank in each
+		// pass, with that pass's alpha/light/mode (so sneaking + see-through match the name).
+		float padW = 0f;
+		try {
+			if (PlusBadge.wantsNametag(entity)) {
+				String pad = PlusBadge.namePad(font);
+				if (pad != null) {
+					padW = font.width(pad);
+					text = Component.literal(pad).append(text);
+					x -= padW / 2f;
+				}
+			}
+		} catch (Throwable ignored) {
+			padW = 0f;
+		}
 		if (!Mods.on("nametags")) {
-			return font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
+			int w = font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
+			if (padW > 0f) {
+				PlusBadge.nametag(matrix, buffer, mode, x, y, padW, color >>> 24, light);
+			}
+			return w;
 		}
 		boolean self = entity == Minecraft.getInstance().player;
 		boolean over = self && Mods.bool("nametags", "ownOverride");
@@ -77,7 +98,11 @@ public class NametagStyleMixin {
 			int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 			newBg = scaleAlpha(bg, op);
 		}
-		return font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+		int w = font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+		if (padW > 0f) {
+			PlusBadge.nametag(matrix, buffer, mode, x, y, padW, newColor >>> 24, light);
+		}
+		return w;
 	}
 
 	private static int scaleAlpha(int argb, double f) {
