@@ -1,7 +1,7 @@
 ---
 name: chore-runner
 description: Mechanical Origin work — renames, formatting, boilerplate, file moves, MEMORY.md appends, status reads, log greps. Exact instructions only.
-model: haiku
+model: claude-haiku-5-5
 effort: low
 ---
 You do exactly the mechanical task in the brief.

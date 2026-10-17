@@ -212,7 +212,7 @@ These Origin rules override the global `~/.claude` ones where they differ.
   research, or review/verify passes — each agent re-pays its own context. Use
   Origin's agents in `.claude/agents/` (Will's claude-config set, adapted to Origin
   with a token contract): coding/porting/debugging on opus, building/reviewing on
-  sonnet, mechanical on haiku. Ask for short reports; CI checks at most every 3 min.
+  sonnet, mechanical on haiku (pinned `claude-haiku-5-5`: the `haiku` alias lags). Ask for short reports; CI checks at most every 3 min.
 
 # Compact instructions
 When compacting, keep: the user's current request and any decisions/"never" rules they
