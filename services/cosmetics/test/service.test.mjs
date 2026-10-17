@@ -139,6 +139,24 @@ test('test mode: only listed testers can check out or be given anything; a live 
   assert.deepEqual((await (await api('GET', `/v1/players/${OTHER}`)).json()).owned, ['halo-gold']);
 });
 
+test('test mode: a tester listed by NAME can buy only as the UUID Mojang gives that name', async () => {
+  const OTHER = 'f'.repeat(32);
+  env.STRIPE_TEST_PLAYERS = 'Dozeyy, bxlt';
+  routes.push(['https://api.stripe.com/v1/checkout/sessions', { body: { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' } }]);
+  routes.push(['https://api.mojang.com/users/profiles/minecraft/dozeyy', { body: { id: UUID, name: 'dozeyy' } }]);
+  routes.push(['https://api.mojang.com/users/profiles/minecraft/bxlt', { status: 503 }]);
+  const buy = (uuid, name) => api('POST', '/v1/store/checkout', { uuid, name, items: ['halo-gold'] });
+  assert.equal((await buy(UUID, 'dozeyy')).status, 200);
+  assert.equal((await buy(OTHER, 'dozeyy')).status, 403);   // borrowing a tester's name
+  assert.equal((await buy(OTHER, 'Alex')).status, 403);
+  assert.equal((await buy(OTHER, 'bxlt')).status, 403);     // Mojang down: no
+  await paid(['halo-gold'], 'pi_n');                          // metadata name 'Will' isn't listed
+  assert.deepEqual(await ownedNow(), []);
+  env.STRIPE_TEST_PLAYERS = 'will';
+  await paid(['halo-gold'], 'pi_n2');
+  assert.deepEqual(await ownedNow(), ['halo-gold']);
+});
+
 test('webhook: a paid checkout gives the items once, however often Stripe repeats it', async () => {
   assert.equal((await paid(['cape-orbit', 'halo-gold'])).status, 200);
   assert.equal((await paid(['cape-orbit', 'halo-gold'])).status, 200);

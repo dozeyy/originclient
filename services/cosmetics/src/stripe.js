@@ -16,9 +16,11 @@
 //   STRIPE_WEBHOOK_SECRET  proves a webhook call really came from Stripe (whsec_...)
 // Var (wrangler.toml, not secret):
 //   STRIPE_TEST_PLAYERS    while the key is a TEST key (sk_test_/rk_test_), only
-//                          these Minecraft UUIDs may check out or be granted
-//                          anything, so Stripe's fake test cards can never hand
-//                          out real cosmetics (Will, 2026-10-17: test first)
+//                          these players may check out or be granted anything,
+//                          so Stripe's fake test cards can never hand out real
+//                          cosmetics (Will, 2026-10-17: test first). Comma-
+//                          separated Minecraft names or UUIDs; a name is checked
+//                          against Mojang at checkout, so nobody can borrow it.
 import { json, fail, normUuid, slotOf, NAME_RE } from './common.js';
 
 const STRIPE = 'https://api.stripe.com/v1';
@@ -52,7 +54,20 @@ export const CATALOG = {
 };
 
 const testKey = env => /^(sk|rk)_test_/.test(env.STRIPE_SECRET_KEY || '');
-const testers = env => new Set(String(env.STRIPE_TEST_PLAYERS || '').split(',').map(normUuid).filter(Boolean));
+const testList = env => String(env.STRIPE_TEST_PLAYERS || '').split(',').map(s => s.trim()).filter(Boolean);
+const testUuids = env => new Set(testList(env).map(normUuid).filter(Boolean));
+const testNames = env => new Set(testList(env).filter(s => !normUuid(s)).map(s => s.toLowerCase()));
+// Mojang is the authority on which UUID a name belongs to; any failure says no.
+async function mojangUuid(name) {
+  try {
+    const r = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(name)}`);
+    return r.ok ? normUuid((await r.json())?.id) : null;
+  } catch { return null; }
+}
+async function mayTest(env, uuid, name) {
+  if (testUuids(env).has(uuid)) return true;
+  return testNames(env).has(name.toLowerCase()) && (await mojangUuid(name)) === uuid;
+}
 
 export function catalog(env) {
   const items = {};
@@ -76,7 +91,7 @@ export async function checkout(env, body) {
   const name = String(body?.name ?? '');
   const ids = Array.isArray(body?.items) ? [...new Set(body.items)] : [];
   if (!uuid || !NAME_RE.test(name)) return fail(400, 'Type the Minecraft name these are for.');
-  if (testKey(env) && !testers(env).has(uuid)) return fail(403, 'The store is being tested right now. Please check back soon.');
+  if (testKey(env) && !(await mayTest(env, uuid, name))) return fail(403, 'The store is being tested right now. Please check back soon.');
   if (!ids.length || ids.some(id => !CATALOG[id])) return fail(400, 'Something in your bag isn’t on sale. Remove it and try again.');
 
   // Paying twice for the same cosmetic gets nothing new, so stop it here.
@@ -145,7 +160,9 @@ async function grant(env, session, livemode) {
     console.error('origin-cosmetics: paid session without Origin metadata', session.id);
     return;
   }
-  if (!livemode && !testers(env).has(uuid)) {
+  // A test session only exists if checkout let it through (only our key makes
+  // sessions), so its name was already checked against Mojang there.
+  if (!livemode && !testUuids(env).has(uuid) && !testNames(env).has(String(session.metadata?.name || '').toLowerCase())) {
     console.warn('origin-cosmetics: test payment for a player not in STRIPE_TEST_PLAYERS ignored', session.id);
     return;
   }

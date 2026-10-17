@@ -16,7 +16,9 @@ database_name = "origin-cosmetics"
 database_id = "4f1a0bc1-cdc3-48c9-bd86-e628f03ccb8d"
 migrations_dir = "migrations"
 
-# Not secret. While the Stripe key is a TEST key, only these Minecraft UUIDs
-# (comma-separated) can buy, so fake test cards never hand out real cosmetics.
+# Not secret. While the Stripe key is a TEST key, only these players can buy,
+# so fake test cards never hand out real cosmetics. Comma-separated Minecraft
+# names or UUIDs (names are checked with Mojang). With a LIVE key everyone can
+# buy and this list does nothing. Edit it HERE: a deploy resets dashboard vars.
 [vars]
-STRIPE_TEST_PLAYERS = ""
+STRIPE_TEST_PLAYERS = "dozeyy,bxlt,lozeyy,silo5"

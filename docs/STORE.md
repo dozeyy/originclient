@@ -107,15 +107,16 @@ The account holder must be an adult (ID + bank account for payouts).
 
 ### Testing first (Will, 2026-10-17)
 
-Do steps 2–6 on a Stripe **sandbox / test mode** first (keys start `rk_test_`,
-secrets `whsec_` from the test webhook). While the service holds a test key,
-only the Minecraft UUIDs in `STRIPE_TEST_PLAYERS` (services/cosmetics/
-wrangler.toml, comma-separated, not secret) can check out or be granted
-anything, so Stripe's fake cards can't hand out real cosmetics. Open
-`originclient.org/store.html?checkout=test` (opens checkout while `STORE.live`
-is off), pay with `4242 4242 4242 4242` (any future date, any CVC), see the
-item in game, refund it in the Stripe dashboard, see it go. Then swap both
-Cloudflare secrets for the live ones and carry on from step 7.
+Optional: do steps 2–6 on a Stripe **sandbox / test mode** first (keys start
+`rk_test_`, secrets `whsec_` from the test webhook). While the service holds a
+test key, only the players in `STRIPE_TEST_PLAYERS` (services/cosmetics/
+wrangler.toml: comma-separated Minecraft names or UUIDs, not secret; a name is
+checked against Mojang so nobody can borrow it) can check out or be granted
+anything, so Stripe's fake cards can't hand out real cosmetics. Current list:
+dozeyy, bxlt, lozeyy, silo5. Open `originclient.org/store.html`, pay with
+`4242 4242 4242 4242` (any future date, any CVC), see the item in game, refund
+it in the Stripe dashboard, see it go. Then swap both Cloudflare secrets for
+the live ones. With a LIVE key the list does nothing: everyone can buy.
 
 ## Delivery service setup (Will, one time)
 
