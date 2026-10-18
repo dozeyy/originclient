@@ -105,12 +105,56 @@ public final class HudElements {
 
 	private static String fpsText(Minecraft mc) {
 		long now = System.currentTimeMillis();
+		int opts = (Mods.bool("fps", "reverseOrder") ? 1 : 0) | (Mods.bool("fps", "showBrackets") ? 2 : 0)
+				| (Mods.bool("fps", "showLows") ? 4 : 0) | (Mods.bool("fps", "showFrameTime") ? 8 : 0);
+		boolean fresh = fpsText == null || opts != fpsTextOpts;
+		fpsTextOpts = opts;
 		if (now - fpsSampledAt > 250) {
 			fpsSampledAt = now;
 			fpsSample = mc.getFps();
+			fresh = true;
 		}
-		String txt = Mods.bool("fps", "reverseOrder") ? fpsSample + " FPS" : "FPS: " + fpsSample;
-		return Mods.bool("fps", "showBrackets") ? "[" + txt + "]" : txt;
+		if (fresh) {
+			String txt = Mods.bool("fps", "reverseOrder") ? fpsSample + " FPS" : "FPS: " + fpsSample;
+			if (Mods.bool("fps", "showLows")) {
+				int low = FrameStats.onePercentLow();
+				txt += Mods.bool("fps", "reverseOrder") ? " | " + (low > 0 ? low : "--") + " 1%" : " | 1%: " + (low > 0 ? low : "--");
+			}
+			if (Mods.bool("fps", "showFrameTime")) {
+				txt += String.format(java.util.Locale.ROOT, " | %.1f ms", FrameStats.averageMs(250));
+			}
+			fpsText = Mods.bool("fps", "showBrackets") ? "[" + txt + "]" : txt;
+		}
+		return fpsText;
+	}
+
+	// Rebuilt with the sample (4x a second) or when an option flips, not every
+	// frame: the 1% low sorts the frame ring.
+	private static String fpsText;
+	private static int fpsTextOpts = -1;
+
+	private static final int GRAPH_H = 24, GRAPH_MIN_W = 90;
+	/** The graph's top line: 30 FPS. Slower frames are clipped to it. */
+	private static final float GRAPH_MAX_MS = 1000f / 30f;
+
+	/**
+	 * Frame-time graph under the FPS text: one bar per recent frame, newest on the
+	 * right, height = frame time (top = 33 ms). Red = a spike, gold = a spike that
+	 * a garbage-collection pause overlapped. A faint line marks 60 FPS (16.7 ms).
+	 */
+	private static void frameGraph(GuiGraphics g, int x, int y, int w, int color) {
+		int n = Math.min(w, FrameStats.count());
+		int base = (color & 0x00FFFFFF) | 0x99000000;
+		int y60 = y + GRAPH_H - Math.round(GRAPH_H * (16.7f / GRAPH_MAX_MS));
+		g.fill(x, y60, x + w, y60 + 1, (color & 0x00FFFFFF) | 0x33000000);
+		for (int i = 0; i < n; i++) {
+			float ms = FrameStats.ms(i);
+			int h = Math.max(1, Math.min(GRAPH_H, Math.round(GRAPH_H * ms / GRAPH_MAX_MS)));
+			byte k = FrameStats.kind(i);
+			int c = k == FrameStats.GC ? 0xFFE9C46A : k == FrameStats.SPIKE ? 0xFFD9675A : base;
+			int bx = x + w - 1 - i;
+			g.fill(bx, y + GRAPH_H - h, bx + 1, y + GRAPH_H, c);
+		}
 	}
 
 	private static String cpsText() {
@@ -297,14 +341,20 @@ public final class HudElements {
 		// ---- FPS ----
 		add("fps", "fps", "FPS", new HudPos(0, 6, 6, 1.0), mc -> {
 			float s = ms("fps");
-			return new int[]{(int) ((mc.font.width(fpsText(mc)) + 2) * s), (int) (11 * s)};
+			boolean graph = Mods.bool("fps", "showGraph");
+			int tw = mc.font.width(fpsText(mc)) + 2;
+			return new int[]{(int) ((graph ? Math.max(tw, GRAPH_MIN_W) : tw) * s), (int) ((graph ? 11 + 3 + GRAPH_H : 11) * s)};
 		}, (g, mc, w, h) -> {
 			float s = ms("fps");
 			var p = g.pose();
 			p.pushPose();
 			p.scale(s, s, 1f);
 			bg(g, "fps", (int) (w / s), (int) (h / s));
-			g.drawString(mc.font, fpsText(mc), 1, 1, OriginColorPicker.liveColor("fps", "color"), Mods.bool("fps", "textShadow"));
+			int color = OriginColorPicker.liveColor("fps", "color");
+			g.drawString(mc.font, fpsText(mc), 1, 1, color, Mods.bool("fps", "textShadow"));
+			if (Mods.bool("fps", "showGraph")) {
+				frameGraph(g, 1, 11 + 3, (int) (w / s) - 2, color);
+			}
 			p.popPose();
 		});
 

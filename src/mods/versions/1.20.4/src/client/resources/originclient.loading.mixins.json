@@ -5,9 +5,13 @@
 	"client": [
 		"GenericDirtMessageScreenMixin",
 		"LevelLoadingScreenMixin",
+		"LevelLoadingScreenAccessor",
+		"LoadingOverlayAccessor",
 		"ReceivingLevelScreenMixin",
 		"ProgressScreenMixin",
-		"ConnectScreenMixin"
+		"ConnectScreenMixin",
+		"LoadingOverlayRevealMixin",
+		"TitleScreenFadeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
