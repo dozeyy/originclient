@@ -73,7 +73,11 @@
 		"ScreenshotKeyMixin",
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsBedMixin",
-		"HypixelBedwarsSoundMixin"
+		"HypixelBedwarsSoundMixin",
+		"SodiumShaderChunkRendererAccessor",
+		"SodiumDefaultChunkRendererAccessor",
+		"SodiumChunkRendererMixin",
+		"DebugScreenOriginRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
