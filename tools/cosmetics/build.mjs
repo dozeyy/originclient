@@ -17,7 +17,15 @@ import { checkIdentity } from '../../cosmetics/lib/theme.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ITEMS_DIR = path.join(ROOT, 'cosmetics/items');
 const OUT_SITE = path.join(ROOT, 'website/cosmetics');
-const OUT_MOD = path.join(ROOT, 'src/mods/versions/1.21.1/src/client/resources/assets/originclient/cosmetics');
+// Every live mod module bundles the same item files (src/mods/live-modules.json is THE list),
+// under its client resources, or main resources where the module has no split client set
+// (1.17.1 and older).
+const OUT_MODS = JSON.parse(fs.readFileSync(path.join(ROOT, 'src/mods/live-modules.json'), 'utf8')).modules.map(({ module }) => {
+  const res = ['client', 'main'].map(set => path.join(ROOT, 'src/mods/versions', module, 'src', set, 'resources'))
+    .find(dir => fs.existsSync(path.join(dir, 'assets/originclient')));
+  if (!res) throw new Error(`cosmetics build: src/mods/versions/${module} has no assets/originclient resources folder`);
+  return path.join(res, 'assets/originclient/cosmetics');
+});
 const OUT_GEN = path.join(ROOT, 'services/cosmetics/src/catalog.gen.js');
 
 const args = process.argv.slice(2);
@@ -192,13 +200,15 @@ for (const id of paintIds) {
   const json = itemJson(id);
   const tex = metas.get(id).kind === 'theme' ? themePicture(id) : (t => ({ site: t, mod: t }))(paintItem(id));
   outputs.set(path.join(OUT_SITE, id, 'item.json'), json);
-  outputs.set(path.join(OUT_MOD, id, 'item.json'), json);
   outputs.set(path.join(OUT_SITE, id, 'texture.png'), tex.site);
-  outputs.set(path.join(OUT_MOD, id, 'texture.png'), tex.mod);
+  for (const out of OUT_MODS) {
+    outputs.set(path.join(out, id, 'item.json'), json);
+    outputs.set(path.join(out, id, 'texture.png'), tex.mod);
+  }
 }
 const catalogItems = order.filter(id => metas.has(id)).map(id => metas.get(id));
 const catalogJson = stringify({ schema: 2, items: catalogItems }) + '\n';
-for (const base of [OUT_SITE, OUT_MOD]) outputs.set(path.join(base, 'catalog.json'), catalogJson);
+for (const base of [OUT_SITE, ...OUT_MODS]) outputs.set(path.join(base, 'catalog.json'), catalogJson);
 
 const q = s => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 const row = (id, c) => `  '${id}': { name: ${q(c.name)}, cents: ${c.cents}, slot: ${q(c.slot)}, kind: ${q(c.kind)}, onSale: ${c.onSale}, plusOnly: ${c.plusOnly} },`;

@@ -1,0 +1,14 @@
+{
+  "id": "cape-glitch",
+  "name": "Glitch Cape",
+  "kind": "cape",
+  "slot": "cape",
+  "cents": 999,
+  "blurb": "A clean Origin mark that tears and splits in brief digital bursts.",
+  "animated": true,
+  "plusOnly": false,
+  "onSale": true,
+  "hidesCape": false,
+  "capeOffset": 0,
+  "cape": {"scale":4,"frames":32,"fps":12}
+}

@@ -1,0 +1,81 @@
+{
+  "id": "bandana-origin",
+  "name": "Origin Bandana",
+  "kind": "bandana",
+  "slot": "face",
+  "cents": 599,
+  "blurb": "Charcoal cloth over the nose and mouth, the three rings stitched in silver, knotted at the back.",
+  "animated": true,
+  "plusOnly": false,
+  "onSale": true,
+  "hidesCape": false,
+  "capeOffset": 0,
+  "model": {
+    "texSize": [64,32],
+    "scale": 8,
+    "bones": [
+      {
+        "name": "bandana",
+        "pivot": [0,0,0],
+        "rotation": [0,0,0],
+        "cubes": [
+          {"from":[-4.5,-0.75,4],"to":[4.5,3,4.625],"uv":[37,0]},
+          {
+            "from": [-4.625,-3.125,4.3125],
+            "to": [4.625,-0.5,4.5625],
+            "uv": [0,12.375],
+            "rotation": {"origin":[0,-0.5,4.4375],"angle":[14,0,0]}
+          },
+          {"from":[4,-0.75,-4.625],"to":[4.625,3,4],"uv":[0,0]},
+          {"from":[-4.625,-0.75,-4.625],"to":[-4,3,4],"uv":[18.5,0]},
+          {"from":[-4.5,1.5,-4.625],"to":[4.5,3,-4],"uv":[26,12.375]},
+          {"from":[-0.75,1.5,-5.25],"to":[0.75,3,-4.5],"uv":[21.5,12.375]},
+          {"from":[0.75,1.75,-5],"to":[1.375,2.75,-4.5],"uv":[45.25,12.375]},
+          {"from":[-1.375,1.75,-5],"to":[-0.75,2.75,-4.5],"uv":[47.5,12.375]}
+        ]
+      },
+      {
+        "name": "tailL",
+        "parent": "bandana",
+        "pivot": [0.5,1.875,-4.875],
+        "rotation": [24,0,13],
+        "cubes": [{"from":[0,-0.875,-5],"to":[1,1.875,-4.75],"uv":[56.25,0]}]
+      },
+      {
+        "name": "tailR",
+        "parent": "bandana",
+        "pivot": [-0.5,1.875,-4.875],
+        "rotation": [20,0,-9],
+        "cubes": [{"from":[-1,-0.5,-5],"to":[0,1.875,-4.75],"uv":[19,12.375]}]
+      }
+    ]
+  },
+  "anim": {
+    "frames": 1,
+    "fps": 1,
+    "motion": [
+      {"bone":"tailL","channel":"rot","axis":"x","amp":3,"walkAmp":9,"airAmp":12,"period":1.9,"phase":0},
+      {
+        "bone": "tailR",
+        "channel": "rot",
+        "axis": "x",
+        "amp": 3,
+        "walkAmp": 9,
+        "airAmp": 12,
+        "period": 1.9,
+        "phase": 0.18
+      },
+      {"bone":"tailL","channel":"rot","axis":"z","amp":2,"walkAmp":3,"airAmp":4,"period":2.7,"phase":0.1},
+      {
+        "bone": "tailR",
+        "channel": "rot",
+        "axis": "z",
+        "amp": -2,
+        "walkAmp": -3,
+        "airAmp": -4,
+        "period": 2.7,
+        "phase": 0.35
+      }
+    ]
+  }
+}

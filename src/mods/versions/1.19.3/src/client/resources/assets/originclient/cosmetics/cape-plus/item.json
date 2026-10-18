@@ -1,0 +1,14 @@
+{
+  "id": "cape-plus",
+  "name": "Origin+ Cape",
+  "kind": "cape",
+  "slot": "cape",
+  "cents": 0,
+  "blurb": "Members only. Satin-black cloth, silver trim, the three rings and a stitched plus.",
+  "animated": false,
+  "plusOnly": true,
+  "onSale": false,
+  "hidesCape": false,
+  "capeOffset": 0,
+  "cape": {"scale":8,"frames":1}
+}

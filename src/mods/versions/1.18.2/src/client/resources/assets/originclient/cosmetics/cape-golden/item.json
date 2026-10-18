@@ -1,0 +1,14 @@
+{
+  "id": "cape-golden",
+  "name": "Golden Hour Cape",
+  "kind": "cape",
+  "slot": "cape",
+  "cents": 599,
+  "blurb": "A low sun, a violet-to-gold sky and layered pine ridges, painted on the cloth.",
+  "animated": false,
+  "plusOnly": false,
+  "onSale": true,
+  "hidesCape": false,
+  "capeOffset": 0,
+  "cape": {"scale":8,"frames":1}
+}
