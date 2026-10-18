@@ -51,12 +51,11 @@ public abstract class OriginWindow extends Screen {
 	public static final float W = 920, H = 580, M = 24;
 	public static final float HEAD_H = 64;
 	public static final float BODY_X = M, BODY_Y = HEAD_H + M, BODY_W = W - 2 * M, BODY_H = H - HEAD_H - 2 * M;
-	private static final long OPEN_MS = 180;
+	private static final long OPEN_MS = 110; // a quick fade-in that never holds up a click
 
 	protected final Screen returnTo;
 	protected final List<OriginDeck.Hit> hits = new ArrayList<>();
 	private final long openedAt = System.currentTimeMillis();
-	private long closingAt = -1;
 	private long lastFrameNanos = 0;
 	protected float lastS = 1, lastOx = 0, lastOy = 0;
 
@@ -103,14 +102,6 @@ public abstract class OriginWindow extends Screen {
 		scroll += (scrollTarget - scroll) * Math.min(1.0, dt / 60.0);
 
 		float p = (float) OriginTheme.easeOut(Math.min(1.0, (now - openedAt) / (double) OPEN_MS));
-		if (closingAt > 0) {
-			double cp = Math.min(1.0, (now - closingAt) / (double) OPEN_MS);
-			p = (float) OriginTheme.easeOut(1.0 - cp);
-			if (cp >= 1.0) {
-				Minecraft.getInstance().setScreenAndShow(returnTo);
-				return;
-			}
-		}
 
 		var win = Minecraft.getInstance().getWindow();
 		float s = OriginDeck.scale(win.getWidth(), win.getHeight(), W, H);
@@ -283,9 +274,6 @@ public abstract class OriginWindow extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
-		if (closingAt > 0) {
-			return true;
-		}
 		if (event.button() == 0 && OriginDeck.click(hits, dX(event.x()), dY(event.y()))) {
 			return true;
 		}
@@ -313,8 +301,11 @@ public abstract class OriginWindow extends Screen {
 	}
 
 	public void beginClose() {
-		if (closingAt < 0) {
-			closingAt = System.currentTimeMillis();
+		// Instant (Will 2026-10-18, "snappy"): a closing fade only made the game
+		// feel slow. The guard makes a second call (Esc + a button) harmless.
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.screen == this) {
+			mc.setScreen(returnTo);
 		}
 	}
 

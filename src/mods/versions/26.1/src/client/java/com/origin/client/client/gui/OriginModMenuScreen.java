@@ -68,7 +68,7 @@ public class OriginModMenuScreen extends Screen {
 	private static final float CARD_H = 184, ROW_H = 44, OPT_H = 40;
 	private static final float SEARCH_W = 176;
 
-	private static final long OPEN_MS = 180, PAGE_MS = 150;
+	private static final long OPEN_MS = 110, PAGE_MS = 110; // quick fades that never hold up a click
 
 	private enum Tab {MODS, SETTINGS}
 
@@ -94,7 +94,6 @@ public class OriginModMenuScreen extends Screen {
 
 	private final Screen returnTo;
 	private final long openedAt = System.currentTimeMillis();
-	private long closingAt = -1;
 
 	private Tab tab = Tab.MODS;
 	private Cat cat = Cat.ALL;
@@ -368,9 +367,9 @@ public class OriginModMenuScreen extends Screen {
 	private void openMod(Mods.Mod mod) {
 		Mods.setMetaBool("seen:" + mod.id(), true);
 		switch (mod.id()) {
-			case "waypoints" -> Minecraft.getInstance().setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
-			case "itemsize" -> Minecraft.getInstance().setScreenAndShow(new OriginItemSizeScreen());
-			case "fpscoach" -> Minecraft.getInstance().setScreenAndShow(new FpsCoachScreen(this));
+			case "waypoints" -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+			case "itemsize" -> Minecraft.getInstance().setScreen(new OriginItemSizeScreen());
+			case "fpscoach" -> Minecraft.getInstance().setScreen(new FpsCoachScreen(this));
 			default -> goPage(mod.id());
 		}
 	}
@@ -396,8 +395,11 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	public void beginClose() {
-		if (closingAt < 0) {
-			closingAt = System.currentTimeMillis();
+		// Instant (Will 2026-10-18, "snappy"): a closing fade only made the game
+		// feel slow. The guard makes a second call (Esc + a button) harmless.
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.screen == this) {
+			mc.setScreen(returnTo);
 		}
 	}
 
@@ -444,14 +446,6 @@ public class OriginModMenuScreen extends Screen {
 		pageScroll += (pageScrollTarget - pageScroll) * ease;
 
 		float p = (float) OriginTheme.easeOut(Math.min(1.0, (now - openedAt) / (double) OPEN_MS));
-		if (closingAt > 0) {
-			double cp = Math.min(1.0, (now - closingAt) / (double) OPEN_MS);
-			p = (float) OriginTheme.easeOut(1.0 - cp);
-			if (cp >= 1.0) {
-				Minecraft.getInstance().setScreenAndShow(returnTo);
-				return;
-			}
-		}
 
 		var win = Minecraft.getInstance().getWindow();
 		float s = OriginDeck.scale(win.getWidth(), win.getHeight(), W, H);
@@ -553,9 +547,9 @@ public class OriginModMenuScreen extends Screen {
 				switch (idx) {
 					case 0 -> goTab(Tab.MODS);
 					case 1 -> goTab(Tab.SETTINGS);
-					case 2 -> Minecraft.getInstance().setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
-					case 3 -> Minecraft.getInstance().setScreenAndShow(new CosmeticsScreen(this));
-					default -> Minecraft.getInstance().setScreenAndShow(new FriendsScreen(this));
+					case 2 -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+					case 3 -> Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
+					default -> Minecraft.getInstance().setScreen(new FriendsScreen(this));
 				}
 			});
 			tx += tw[i] + 4;
@@ -570,7 +564,7 @@ public class OriginModMenuScreen extends Screen {
 		d.rect(ex, 16, ew, 32, 6, ehov ? 0xFF83E2B5 : ACC);
 		d.icon("@hudeditor", ex + 14, 25, 14, ON_ACC);
 		d.textMid(eh, ex + 36, 32, 11, true, CAPS_TRACK, ON_ACC);
-		d.hit(ex, 16, ew, 32, () -> Minecraft.getInstance().setScreenAndShow(new HudEditorScreen(false, this)));
+		d.hit(ex, 16, ew, 32, () -> Minecraft.getInstance().setScreen(new HudEditorScreen(false, this)));
 	}
 
 	// ---- the library: toolbar + cards / list ----
@@ -697,8 +691,9 @@ public class OriginModMenuScreen extends Screen {
 			if (cy + itemH < BODY_Y - 8 || cy > BOTTOM) {
 				continue;
 			}
-			// entrance stagger: each item fades + rises a beat after the previous
-			float rt = (float) OriginTheme.easeOut(Math.max(0, Math.min(1, (now - rowsChangedAt - i * 14) / 170.0)));
+			// entrance stagger: each item fades + rises a beat after the previous,
+			// the whole list in place within ~0.17 s however long it is
+			float rt = (float) OriginTheme.easeOut(Math.max(0, Math.min(1, (now - rowsChangedAt - Math.min(i, 8) * 8) / 110.0)));
 			float base = d.alpha;
 			d.alpha = base * rt;
 			cy += (1 - rt) * 6;
@@ -978,7 +973,7 @@ public class OriginModMenuScreen extends Screen {
 		d.rect(bx, by, bw, 30, 6, hov ? 0xF0232A26 : 0xD10E1110, LINE2);
 		d.icon("@hudeditor", bx + 14, by + 8, 14, TEXT);
 		d.textMid(l, bx + 36, by + 15, 10.5f, true, CAPS_TRACK, TEXT);
-		d.hit(bx, by, bw, 30, () -> Minecraft.getInstance().setScreenAndShow(new HudEditorScreen(false, this)));
+		d.hit(bx, by, bw, 30, () -> Minecraft.getInstance().setScreen(new HudEditorScreen(false, this)));
 	}
 
 	// ---- the two-column option grid (mod page + Settings tab) ----
@@ -1154,7 +1149,7 @@ public class OriginModMenuScreen extends Screen {
 				d.icon("@chev-down", right - 22, cy - 6, 12, MUTE);
 				d.hit(right - bw, cy - 13, bw, 26, () -> {
 					if (isItemPicker(id, o.key)) {
-						Minecraft.getInstance().setScreenAndShow(new ItemCounterPickerScreen());
+						Minecraft.getInstance().setScreen(new ItemCounterPickerScreen());
 					} else {
 						OriginMultiSelect.open(o.label, java.util.Arrays.asList(o.modes), sel,
 								chosen -> vSetMulti(id, o.key, String.join(", ", chosen)));
@@ -1445,9 +1440,6 @@ public class OriginModMenuScreen extends Screen {
 		commitText();     // any click ends typing (clicking the field re-opens it)
 		capMod = null;    // and any click abandons a half-done key capture
 		capKey = null;
-		if (closingAt > 0) {
-			return true;
-		}
 		if (button != 0) {
 			return super.mouseClicked(event, doubled);
 		}

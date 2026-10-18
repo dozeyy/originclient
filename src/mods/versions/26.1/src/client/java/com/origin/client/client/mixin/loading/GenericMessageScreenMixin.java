@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // blurred game world, which bypasses ScreenBackgroundMixin (that targets
 // Screen.renderBackground, not this subclass override). So world entry showed
 // the vanilla blur instead of the Origin backdrop. Replace it with the Origin
-// loading backdrop (bg + bar, no title — the vanilla message text stays on top).
+// loading scene with the screen's message as its title.
 // required:false: on versions where GenericMessageScreen has no renderBackground
 // override (<=1.20.x), the target is absent and this is skipped, and Screen's own
 // mixin already handles the background there.
@@ -22,9 +22,18 @@ public class GenericMessageScreenMixin {
 
 	@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackground(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		// null title -> Origin draws its backdrop + indeterminate bar only; the
-		// screen's own "Preparing Resources..." label renders over it as usual.
-		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, null)) {
+		// The whole Origin loading scene, title included ("Preparing for world
+		// creation...", "Saving world"), as on 1.21.1. Vanilla's own label is a
+		// boxed FocusableTextWidget that would draw over it, so it is hidden for
+		// this frame's widget pass, which runs right after the background; a
+		// failed Origin draw leaves it visible over vanilla's background.
+		net.minecraft.client.gui.screens.Screen self = (net.minecraft.client.gui.screens.Screen) (Object) this;
+		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, self.getTitle())) {
+			for (net.minecraft.client.gui.components.events.GuiEventListener child : self.children()) {
+				if (child instanceof net.minecraft.client.gui.components.FocusableTextWidget label) {
+					label.visible = false;
+				}
+			}
 			ci.cancel();
 		}
 	}

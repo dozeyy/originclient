@@ -94,6 +94,28 @@ public final class GuiTris {
 		put(x2, y2, u2, v2, argb);
 	}
 
+	/**
+	 * One triangle with its own colour at each corner (the GPU blends between
+	 * them): MarkMotion's feathered stroke edges and glows.
+	 */
+	public void tri(float x0, float y0, int c0, float x1, float y1, int c1, float x2, float y2, int c2) {
+		if (((x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0)) > 0) {
+			// wound the culled way round: swap the last two corners
+			float tx = x1, ty = y1;
+			int tc = c1;
+			x1 = x2;
+			y1 = y2;
+			c1 = c2;
+			x2 = tx;
+			y2 = ty;
+			c2 = tc;
+		}
+		ensure(12);
+		put(x0, y0, 0, 0, c0);
+		put(x1, y1, 0, 0, c1);
+		put(x2, y2, 0, 0, c2);
+	}
+
 	/** A quad as two triangles (corners in order round the edge, either direction). */
 	public void quad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, int argb) {
 		tri(x0, y0, x1, y1, x2, y2, argb);
