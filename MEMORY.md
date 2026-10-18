@@ -5158,3 +5158,18 @@ Verification so far: stub-compiled (javac 21) against signatures copied from
 the real Sodium 0.6.13 / MC 1.21.1 / Mod Menu 11.0.4 sources. NOT yet built with
 Gradle nor runClient-smoke-tested (sandbox can't reach Fabric maven) — needs
 `gradlew runClient`, open Video Settings, confirm zero `Mixin apply ... failed`.
+
+## 2026-10-18 — 1.21.1: Resource Pack Hub, frame-time stats, Origin Render (branch claude/origin-client-development-4790bv)
+Built for 1.21.1 only. Full detail is in `DEVELOPMENT_REPORT.md`. Nothing is in `shared/`.
+- **Pack Hub** (`packs/`): Modrinth browse/install/update/order. It hangs off vanilla's Resource Packs screen through `PackSelectionScreenAccessor`. Tests: `tools/packhub-tests` (73).
+- **FPS module options**: 1% low, frame time and frame-time graph. Data comes from `hud/FrameStats`, timed at `GameRenderer.render` HEAD.
+- **Origin Render** (Settings → Performance, off by default): GPU two-phase Hi-Z occlusion culling of Sodium 0.6.13's SOLID and CUTOUT passes.
+  - `SodiumChunkRendererMixin` (HEAD of `DefaultChunkRenderer.render`, cancellable) hands the pass to `render/terrain/OriginRender`.
+  - That class re-runs Sodium's section loop (same face culling and region offset), using Sodium's own begin/end and tessellation through the `Sodium*Accessor` mixins. Draws are `glMultiDrawElementsIndirect`.
+  - The GPU half is `TerrainCuller` + `TerrainShaders`: pure LWJGL, GL 4.5. Tests: `tools/origin-render-tests` (37, Mesa llvmpipe under xvfb).
+  - It never touches texture units 0–11, the tracked ARRAY/ELEMENT buffers or the VAO. It uses units 14/15, SSBO 0–6 and image units 0–1, all unbound after use.
+  - Falls back to Sodium when a shaderpack is on, there's no GL 4.5, the draw FBO isn't main, or on any throw or GL error. The last two disable it for the session. The F3 line says why.
+  - Two-phase only lets something skip a draw when depth drawn in the same frame proves it hidden, so no pop-in.
+- **Licensing**: written from scratch. Not forked from Sodium (PolyForm Shield), Nvidium (NVIDIA-only, off with shaders) or Voxy (ARR).
+- **Unverified**: Gradle build, runClient mixin apply, any FPS gain.
+- **Next if it measures well**: occlusion-cull entities and block entities against the same pyramid; replace the 4096-slot hint hash with region ids at high render distance.
