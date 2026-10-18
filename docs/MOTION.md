@@ -11,13 +11,16 @@ loading scene and no window glide — the game loads like normal, then animates.
 | Token | Value | Launcher (`Theme/Spacing.xaml`, `UI/Controls`) | Mod (1.21.1) |
 |---|---|---|---|
 | Intro | 560 ms | `Motion.Intro`: the launcher mark assembling on first open | `StartupTransition.REVEAL_MS`: loading screen dissolves into the title |
-| Settle | 320 ms | `Motion.Settle`: wordmark and Play card settling in under the first-open mark | `OriginHandoff.RAMP_MS`: game window fades in |
+| Settle | 320 ms | `Motion.Settle`: wordmark and Play card settling in under the first-open mark | — |
 | Scene | 180 ms | `Motion.Scene`: progress screen lines arriving | — |
+| Morph | 480 + 720 ms | — | `MarkMotion.HOLD_MS`/`MORPH_MS`: each shape of the loading mark's loop holds, then morphs |
+| Flight | 950 ms | — | `MarkMotion.FLIGHT_MS`: the loading mark flies onto the title's logo spot and becomes the logo |
 
 Easing: cubic ease-out for arrivals, cubic in-out for travel (the glide, the
 assemble's flight) and leaving. Spins are allowed only as the rings' own orbit
-(wall-clock angles, so the launcher's and the game's rings line up exactly) and
-the assemble's spin-up that settles into it. No particles, no flashes.
+(wall-clock angles, so the launcher's and the game's rings line up exactly), the
+assemble's spin-up that settles into it, and the loading mark's turn with each
+morph. No particles, no flashes.
 
 Smoothness (Will 2026-10-18): in the game every loading-scene motion runs on
 `RingField.sceneMs()`, a clock that steps at most one 30 fps frame at a time and
@@ -39,9 +42,13 @@ Launcher:  Play press → the progress screen: spinning Origin mark, version, st
            none), Cancel. Preparing → Starting Minecraft → Loading Minecraft.
 Game:      opens its own window normally (visible, Minecraft's default place and
            size); once it shows the Origin loading screen the launcher's screen
-           lowers. loading screen ─resources done→ 560 ms dissolve → title: no
-           panorama, the same rings slow, drift and lean toward the mouse, the logo
-           settles out of them ─world→ the rings swing back into the loading orbit
+           lowers. loading screen: the mark's three strokes bloom from a point
+           and morph on a loop (circles → triangles → square and diamond → the
+           mark), the wordmark builds in letter by letter, the bar fills
+           ─resources done→ 560 ms dissolve → title: the mark itself flies onto
+           the logo spot, morphing into the logo as it goes (never a crossfade
+           to a second logo); no panorama, the rings slow, drift and lean toward
+           the mouse ─world→ the rings swing back into the loading orbit
            with real chunk progress → the world appears the frame it is ready, like
            vanilla (Will 2026-10-18: no zoom/lens).
 ```

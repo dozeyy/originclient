@@ -73,7 +73,10 @@ public abstract class LoadingOverlayRevealMixin {
 		}
 		guiGraphics.flush();
 		float alpha = (float) (1.0 - StartupTransition.ease(t / (double) StartupTransition.REVEAL_MS));
-		boolean drawn = OriginScreenRenderer.renderLoadingFade(guiGraphics, alpha);
+		// The game's first load landing on the title: the loading mark flies onto
+		// the title's logo instead of dissolving (a later resource reload just fades).
+		boolean toTitle = !this.fadeIn && screen instanceof net.minecraft.client.gui.screens.TitleScreen;
+		boolean drawn = OriginScreenRenderer.renderLoadingFade(guiGraphics, alpha, toTitle);
 		if (this.originclient$revealAt == 0L) {
 			// First frame: the loading screen still fully covers the title (which
 			// has now rendered once, its slow first frame out of the way). Both the

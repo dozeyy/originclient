@@ -196,7 +196,6 @@ public class TitleScreenMixin {
 		Screen self = (Screen) (Object) this;
 		if (originclient$openedAt == 0) {           // first init only — a resize re-init doesn't replay
 			originclient$openedAt = System.currentTimeMillis();
-			OriginScreenRenderer.setTitleOpenedAt(originclient$openedAt);
 		}
 		for (GuiEventListener child : self.children()) {
 			// Copyright line + any Mod Menu "Mods" button already present: hidden.

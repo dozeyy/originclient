@@ -137,16 +137,14 @@ public final class OriginScreenRenderer {
 	// ---- Public entry points ----
 
 	/**
-	 * Startup resource-load screen — the original mockup
-	 * (tools/loading-screen/wordmark_preview.png): near-black + crisp orbital
-	 * rings + fine grain + the "Origin" wordmark with its glow bloom, and a thin
-	 * word-width progress bar sitting just beneath it (the mock's underline).
-	 * No percentage caption: the mock has none, and the clean logo-over-bar
-	 * reads more premium.
+	 * Startup resource-load screen: near-black + fine grain, the Origin mark as
+	 * live morphing strokes (MarkMotion: circles, triangles, squares, the mark,
+	 * on a loop), the "ORIGIN" wordmark building in letter by letter beneath it
+	 * and a word-width bar under that. No percentage caption.
 	 */
 	public static void renderLoading(GuiGraphics guiGraphics, float progress) {
 		// The game is on screen now (Origin's scene, or vanilla's if ours
-		// broke): Origin Launcher's loading scene can hand over.
+		// broke): Origin Launcher can lower its progress screen.
 		com.origin.client.client.OriginHandoff.loading();
 		// Drawn at TAIL over vanilla's overlay, so skipping when broken simply
 		// reveals the vanilla loading screen -- no cancel to unwind.
@@ -154,7 +152,7 @@ public final class OriginScreenRenderer {
 			return;
 		}
 		try {
-			renderLoading0(guiGraphics, reloadProgress(progress), true);
+			renderLoading0(guiGraphics, reloadProgress(progress), true, true);
 		} catch (Throwable t) {
 			fail(t);
 		}
@@ -179,10 +177,13 @@ public final class OriginScreenRenderer {
 	/**
 	 * The startup loading screen at {@code alpha} over whatever is already drawn
 	 * this frame — the loading -> title dissolve (LoadingOverlayRevealMixin).
-	 * Loading is done by then, so the bar shows full. False (nothing to cancel)
+	 * Loading is done by then, so the bar shows full. With {@code toTitle} (the
+	 * game's first load, landing on the title screen) the mark doesn't dissolve:
+	 * it flies, solid, onto the title's logo spot and stays there as the logo
+	 * (renderTitleWordmark leaves it alone meanwhile). False (nothing to cancel)
 	 * when Origin rendering is off or this draw fails.
 	 */
-	public static boolean renderLoadingFade(GuiGraphics guiGraphics, float alpha) {
+	public static boolean renderLoadingFade(GuiGraphics guiGraphics, float alpha, boolean toTitle) {
 		if (broken) {
 			return false;
 		}
@@ -196,12 +197,20 @@ public final class OriginScreenRenderer {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
-			// The title underneath is already driving the rings (slowing into the
-			// menu): this layer draws them where they are rather than pulling them
-			// back to the loading orbit, so the two layers' rings coincide and only
-			// the mark and bar dissolve.
-			renderLoading0(guiGraphics, 1f, false);
+			if (toTitle) {
+				MarkMotion.startFlight();
+			}
+			boolean fly = toTitle && MarkMotion.flightStarted();
+			// The title underneath already drives the ring field: don't pull it back.
+			renderLoading0(guiGraphics, 1f, false, !fly);
 			guiGraphics.flush();
+			if (fly) {
+				layerAlpha = 1f;
+				markHandedOff = false;
+				Minecraft mc = Minecraft.getInstance();
+				TitleLayout L = TitleLayout.of(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+				MarkMotion.drawFlight(guiGraphics, L.markCenterX, L.markCenterY, L.markSize);
+			}
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -221,7 +230,7 @@ public final class OriginScreenRenderer {
 		RenderSystem.setShaderColor(r, g, b, a * layerAlpha);
 	}
 
-	private static void renderLoading0(GuiGraphics guiGraphics, float progress, boolean drive) {
+	private static void renderLoading0(GuiGraphics guiGraphics, float progress, boolean drive, boolean drawMark) {
 		ensureLoaded();
 		if (drive) {
 			field(RingField.Mood.LOADING);
@@ -243,30 +252,27 @@ public final class OriginScreenRenderer {
 				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
 		loadFillAt = scene;
 
+		// No orbit rings here (Will 2026-10-18): the moving mark is the scene.
 		guiGraphics.fill(0, 0, w, h, BG_COLOR);
-		if (!ringsFailed) {
-			drawRings(guiGraphics, w, h);
-			drawGrain(guiGraphics, w, h);
-		}
-		// Vignette above the rings/grain, under the wordmark: darkens the edges
-		// so the mark is the focal point.
+		drawGrain(guiGraphics, w, h);
 		drawVignette(guiGraphics, w, h);
 
-		// Wordmark nudged slightly above center so the logo+bar group stays
-		// balanced. All-caps "ORIGIN" has no descender, so its ink height IS the
-		// cap height: 0.135h gives the right cap size (Will's chosen "middle"
-		// size). The bar sits well below the logo with a clear gap and is a
-		// chunky full-word-width bar (Will: "farther down and bigger"). All
-		// verified in-sandbox against the ring background. On the startup screen
-		// the mark builds in letter by letter (staggered fade + rise).
-		double markInkH = fitInkHeight(h * 0.135, w, 0.82);
-		double markCenterY = h * 0.48;
-		drawWordmarkReveal(guiGraphics, w / 2.0, markCenterY, markInkH, elapsed);
+		// Mark above, then the wordmark (building in letter by letter), then the
+		// bar, as one group centred a touch above the middle. All-caps "ORIGIN"
+		// has no descender, so its ink height IS the cap height.
+		double size = Math.min(h * 0.36, w * 0.30);
+		double markCy = h * 0.40;
+		if (drawMark) {
+			MarkMotion.drawLoading(guiGraphics, w / 2.0, markCy, size, scene - loadStartScene, layerAlpha);
+		}
+		double inkH = fitInkHeight(h * 0.07, w, 0.6);
+		double wordCy = markCy + size * 0.5 + h * 0.06 + inkH / 2.0;
+		drawWordmarkReveal(guiGraphics, w / 2.0, wordCy, inkH, elapsed);
 
-		double dispW = (wordmarkId != null && wmInkH > 0) ? wmInkW * (markInkH / wmInkH) : w * 0.24;
+		double dispW = (wordmarkId != null && wmInkH > 0) ? wmInkW * (inkH / wmInkH) : w * 0.16;
 		int barW = (int) Math.round(dispW);
-		int barH = Math.max(3, (int) Math.round(h * 0.012));
-		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
+		int barH = Math.max(2, (int) Math.round(h * 0.008));
+		int barTop = (int) Math.round(wordCy + inkH * 1.15);
 		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, (float) loadFill);
 
 		// No text on this screen: it renders DURING the initial resource reload,
@@ -524,18 +530,18 @@ public final class OriginScreenRenderer {
 				d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
 	}
 
-	/** Main menu: the approved Origin atom above the compact action stack. */
-	// When the title screen was (re)opened — drives the letter-by-letter entrance
-	// reveal of the wordmark (same band animation the loading screen uses). Set
-	// by TitleScreenMixin; 0 = no animation (draw the settled mark).
-	private static volatile long titleOpenedAt = 0;
 	private static UUID titleSkinProfileId;
 	private static Supplier<net.minecraft.client.resources.PlayerSkin> titleSkinSupplier;
+	// False from the startup flight's first frame until the title draws its mark
+	// itself: while the loading overlay is still up, the dissolve layer draws the
+	// flying mark over the title.
+	private static boolean markHandedOff = true;
 
-	public static void setTitleOpenedAt(long millis) {
-		titleOpenedAt = millis;
-	}
-
+	/**
+	 * Main menu: the Origin mark above the compact action stack. After the game's
+	 * first load it is the loading screen's mark finishing its flight here
+	 * (MarkMotion); any other time it is simply there.
+	 */
 	public static boolean renderTitleWordmark(GuiGraphics guiGraphics) {
 		if (broken) {
 			return false;
@@ -543,58 +549,22 @@ public final class OriginScreenRenderer {
 		try {
 			ensureLoaded();
 			Minecraft mc = Minecraft.getInstance();
-			int w = mc.getWindow().getGuiScaledWidth();
-			int h = mc.getWindow().getGuiScaledHeight();
-			TitleLayout L = TitleLayout.of(w, h);
-			long el = titleOpenedAt > 0
-					? System.currentTimeMillis() - com.origin.client.client.StartupTransition.titleIntroStart(titleOpenedAt)
-					: Long.MAX_VALUE;
-			// "The logo IS the rings settling into place": three of the orbit's
-			// rings lift off, shrink, turn to 0/60/120 and land on the mark's spot,
-			// where the crisp baked logo takes over from them.
-			double raw = el == Long.MAX_VALUE ? 1.0 : Math.max(0.0, el / (double) SETTLE_MS);
-			double logoIn = smoothstep((raw - 0.62) / 0.38);
-			if (raw < 1.0 && !ringsFailed && rings.size() >= 3) {
-				drawSettlingRings(guiGraphics, w, h, L, raw, 1.0 - logoIn);
+			TitleLayout L = TitleLayout.of(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+			if (!markHandedOff) {
+				if (mc.getOverlay() instanceof net.minecraft.client.gui.screens.LoadingOverlay) {
+					return true;   // the dissolve layer draws it, over this
+				}
+				markHandedOff = true;
 			}
-			if (logoIn > 0.0) {
-				OriginUi.logo(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, (float) logoIn);
+			if (MarkMotion.flying()) {
+				MarkMotion.drawFlight(guiGraphics, L.markCenterX, L.markCenterY, L.markSize);
+			} else {
+				MarkMotion.drawFormed(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1.0);
 			}
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
-	}
-
-	/** How long the title's logo takes to settle out of the rings. */
-	private static final long SETTLE_MS = 1100;
-	// The logo's three ellipses as fractions of its size (OriginMark.xaml: 180/150/120 of 200).
-	private static final double[] LOGO_RING = {0.90, 0.75, 0.60};
-
-	private static void drawSettlingRings(GuiGraphics guiGraphics, int w, int h, TitleLayout L, double raw, double keep) {
-		for (int k = 0; k < 3; k++) {
-			Ring ring = rings.get(k);
-			double e = OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, (raw - k * 0.07) / 0.86)));
-			double cx = OriginTheme.lerp(w / 2.0 + RingField.offsetX(k, w), L.markCenterX, e);
-			double cy = OriginTheme.lerp(h / 2.0 + RingField.offsetY(k, w), L.markCenterY, e);
-			double from = ring.widthFrac() * w * 0.99;
-			double major = from * Math.pow(L.markSize * LOGO_RING[k] / from, e);   // even shrink at every size
-			double a0 = ringAngle(k);
-			double d = (((k * 60.0 - a0) % 180.0) + 180.0) % 180.0;                // an ellipse repeats every 180
-			if (d >= 90.0) {
-				d -= 180.0;
-			}
-			// Faded in from nothing so it lifts off the backdrop ring instead of
-			// doubling it, brightening to the logo's full white as it lands.
-			double alpha = (ring.opacity() + (1.0 - ring.opacity()) * e) * smoothstep(raw / 0.14) * keep;
-			drawRingAt(guiGraphics, ring, cx, cy, a0 + d * e, major, 1.0, (float) alpha);
-		}
-	}
-
-	/** 0..1 (clamped) smoothstep. */
-	private static double smoothstep(double t) {
-		t = Math.max(0.0, Math.min(1.0, t));
-		return t * t * (3.0 - 2.0 * t);
 	}
 
 	/**
