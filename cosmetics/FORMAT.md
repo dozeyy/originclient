@@ -60,7 +60,8 @@ Item outputs are deterministic (no Math.random without a fixed seed; no dates).
   `face`; hat, halo, crown -> `head`; theme -> `theme`. One item per slot.
 - `cents`: USD. Every price is $5-$10 (Will, 2026-10-12). Tiers: static cape
   599, animated cape 899-999, hat/halo/crown/mask/bandana 599-799, backpack
-  799-899, wings 999, theme 599. `plusOnly` items are never sold (`cents` 0).
+  799-899, wings 999. `plusOnly` items are never sold (`cents` 0, `onSale: false`):
+  the Origin+ cape and every menu theme (Will, 2026-10-18: themes are Origin+ menu unlocks).
 - `hidesCape`: wings hide the cape (like an elytra). `capeOffset`: model px
   the cape is pushed back so it hangs behind a backpack instead of through it.
 

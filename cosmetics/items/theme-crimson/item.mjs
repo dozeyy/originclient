@@ -7,6 +7,6 @@ import { themeTokens } from '../../lib/theme.mjs';
 const SPEC = { accent: '#e5545c', surface: '#261b1e', text: '#f3e9e3', off: 'neutral' };
 
 export default {
-  meta: { id: 'theme-crimson', name: 'Crimson', kind: 'theme', cents: 599, blurb: 'Wine-dark panels, warm cream type and a vivid crimson accent.' },
+  meta: { id: 'theme-crimson', name: 'Crimson', kind: 'theme', cents: 0, plusOnly: true, onSale: false, blurb: 'Wine-dark panels, warm cream type and a vivid crimson accent.' },
   theme: themeTokens(SPEC),
 };

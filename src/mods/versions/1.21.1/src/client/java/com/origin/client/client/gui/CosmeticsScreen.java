@@ -271,7 +271,7 @@ public class CosmeticsScreen extends OriginWindow {
 		if (blocker != null) {
 			emptyState(d, blocker, null);
 		} else if (mine.owned().isEmpty()) {
-			emptyState(d, "You don't own any cosmetics yet.", "Capes, wings, hats and menu themes are in the Origin Store.");
+			emptyState(d, "You don't own any cosmetics yet.", "Capes, wings and hats are in the Origin Store. Menu themes come with Origin+.");
 		} else {
 			drawTabs(d, mine);
 			drawGrid(d, mine, wearing());
@@ -342,6 +342,10 @@ public class CosmeticsScreen extends OriginWindow {
 			drawTile(d, tiles.get(i), look, x, y);
 		}
 		d.unclip();
+		if (tab == Tab.THEMES && !mine.plus()) {
+			// Themes are Origin+ menu unlocks, never sold: a non-member sees only "None" here, so say why.
+			d.textCenter("Menu themes come with Origin+.", LIST_X + LIST_W / 2, GRID_TOP + TILE_H + 44 - (float) scroll, 13, false, 0, DIM);
+		}
 		double op = Mods.metaNum("menuBgOpacity", 1.0);
 		if (op > 0.02 && maxScroll > 0 && scroll < maxScroll - 1) {
 			d.gradient(LIST_X - 4, GRID_BOTTOM - 40, LIST_W + 8, 40, mul(PANEL, 0), mul(PANEL, (float) op));
@@ -382,7 +386,7 @@ public class CosmeticsScreen extends OriginWindow {
 			return "NONE";
 		}
 		if (Cosmetics.isPlusOnly(t.id())) {
-			return "ORIGIN+ MEMBERS";
+			return Cosmetics.Slot.THEME == t.slot() ? "ORIGIN+ THEME" : "ORIGIN+ MEMBERS";
 		}
 		Cosmetics.Item item = Cosmetics.get(t.id());
 		String kind = item == null || item.kind() == null ? "" : item.kind();

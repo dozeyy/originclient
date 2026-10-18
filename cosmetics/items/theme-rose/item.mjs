@@ -7,6 +7,6 @@ import { themeTokens } from '../../lib/theme.mjs';
 const SPEC = { accent: '#ee7fae', surface: '#251c23', text: '#f5e9ee', off: 'neutral' };
 
 export default {
-  meta: { id: 'theme-rose', name: 'Rose', kind: 'theme', cents: 599, blurb: 'Plum-charcoal panels, blush type and a soft rose-pink accent.' },
+  meta: { id: 'theme-rose', name: 'Rose', kind: 'theme', cents: 0, plusOnly: true, onSale: false, blurb: 'Plum-charcoal panels, blush type and a soft rose-pink accent.' },
   theme: themeTokens(SPEC),
 };

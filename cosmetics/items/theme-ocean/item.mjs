@@ -6,6 +6,6 @@ import { themeTokens } from '../../lib/theme.mjs';
 const SPEC = { accent: '#5aa9e6', surface: '#1a2029', text: '#e9eef3' };
 
 export default {
-  meta: { id: 'theme-ocean', name: 'Ocean', kind: 'theme', cents: 599, blurb: 'Deep navy panels, cool white type and a calm sky-blue accent.' },
+  meta: { id: 'theme-ocean', name: 'Ocean', kind: 'theme', cents: 0, plusOnly: true, onSale: false, blurb: 'Deep navy panels, cool white type and a calm sky-blue accent.' },
   theme: themeTokens(SPEC),
 };

@@ -409,3 +409,20 @@ test('origin+ cape and badge: members wear the cape and show up for their badge;
   await subEvent('customer.subscription.created', sub('active', { id: 'sub_4' }));
   assert.deepEqual((await me()).equipped, { ...BARE, cape: 'cape-plus' });
 });
+
+test('origin+ menu themes: members unlock every theme, nobody can buy one, and it hides when the membership ends', async () => {
+  const themes = Object.keys((await import('../src/catalog.gen.js')).CATALOG).filter(id => id.startsWith('theme-'));
+  assert.ok(themes.length >= 4);
+  const c = await (await api('GET', '/v1/store/catalog')).json();
+  for (const id of themes) assert.equal(c.items[id], undefined);              // not in the store's price list
+  const token = await signIn();
+  assert.equal((await api('POST', '/v1/equip', { theme: themes[0] }, token)).status, 403);
+  await subEvent('customer.subscription.created', sub('active', { id: 'sub_th' }), 100);
+  const m = await me();
+  for (const id of themes) assert.ok(m.owned.includes(id));
+  assert.equal((await api('POST', '/v1/equip', { theme: themes[0] }, token)).status, 200);
+  assert.equal((await me()).equipped.theme, themes[0]);
+  await subEvent('customer.subscription.deleted', sub('canceled', { id: 'sub_th' }), 101);
+  assert.equal((await me()).equipped.theme, null);
+  assert.ok(!(await me()).owned.includes(themes[0]));
+});

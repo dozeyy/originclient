@@ -130,6 +130,16 @@ body.no-webgl .fit__hint { display: none; }
 .plus__why { font-size: inherit; }
 .plus__tag { flex: none; margin-top: 1px; padding: 4px 6px 3px; border: 1px solid var(--soft); border-radius: 1px; color: var(--dim); font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
 .plus__tag--now { background: var(--acc-soft); border-color: var(--acc-border); color: var(--acc-h); }
+.plus__themes { flex-basis: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.plus__themes[hidden] { display: none; }
+.plus__theme { display: grid; gap: 4px; padding: 0; background: none; border: 0; color: var(--dim); font: 500 11px/1.2 var(--sans); text-align: center; cursor: pointer; }
+.plus__theme img { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; object-fit: cover; object-position: 0 0; border: 1px solid var(--soft); border-radius: 1px; transition: border-color .15s; }
+.plus__theme:hover img, .plus__theme[aria-pressed="true"] img { border-color: var(--acc-border); }
+.plus__theme[aria-pressed="true"] { color: var(--text); }
+.plus__theme:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.plus__themes-perk { flex-wrap: wrap; }
+.plus__themes-perk > span:first-child { flex: 1; min-width: 0; }   /* shares the line with the tag; the swatches wrap below */
+.plus__theme span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plus__soon { margin: 0 0 20px; color: var(--dim); font-size: 13px; line-height: 1.5; }
 
 .plus__plans { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }

@@ -42,11 +42,7 @@ const PRICE_LIST = [
   { id: 'bandana-origin', name: 'Origin Bandana', blurb: 'Charcoal cloth over the nose and mouth, the three rings stitched in silver, knotted at the back.', price: 5.99 },
   { id: 'mask-visor', name: 'Visor Mask', blurb: 'A slim wraparound visor of smoked glass in a gunmetal frame. A soft light sweeps across it now and then.', price: 6.99 },
   { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'The Origin mark in orbit: three silver rings turn round one centre above your head, a spark of light racing round each.', price: 7.99 },
-  { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic polished gold halo with a warm glow. It floats just above your head, a glint sliding round it.', price: 5.99 },
-  { id: 'theme-amethyst', name: 'Amethyst', blurb: 'Violet-charcoal panels, lavender-white type and a soft amethyst accent.', price: 5.99 },
-  { id: 'theme-crimson', name: 'Crimson', blurb: 'Wine-dark panels, warm cream type and a vivid crimson accent.', price: 5.99 },
-  { id: 'theme-ocean', name: 'Ocean', blurb: 'Deep navy panels, cool white type and a calm sky-blue accent.', price: 5.99 },
-  { id: 'theme-rose', name: 'Rose', blurb: 'Plum-charcoal panels, blush type and a soft rose-pink accent.', price: 5.99 },
+  { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic polished gold halo. It floats just above your head, a glint sliding round it.', price: 5.99 },
 ];
 // Items the store shows: the catalog once loaded, else the price list. Each: { id, name, blurb, price, kind, slot, animated }.
 let ITEMS = [];
@@ -70,9 +66,8 @@ const FILTERS = {
   cape: i => i.slot === 'cape',
   back: i => i.slot === 'back',
   wear: i => i.slot === 'head' || i.slot === 'face',
-  theme: i => i.slot === 'theme',
 };
-const EMPTY_NOTE = { theme: 'Menu themes are on their way.', back: 'Wings and backpacks are on their way.', wear: 'More hats and masks are on their way.', animated: 'No animated items yet.', cape: 'No capes yet.' };
+const EMPTY_NOTE = { back: 'Wings and backpacks are on their way.', wear: 'More hats and masks are on their way.', animated: 'No animated items yet.', cape: 'No capes yet.' };
 const SLOTS = ['cape', 'back', 'head', 'face', 'theme'];
 const SAVE_KEY = 'origin.store.v1';
 const NAME_RE = /^[A-Za-z0-9_]{3,16}$/;   // Java Edition usernames
@@ -100,6 +95,7 @@ const state = {
   catalog: 'loading',          // loading | ok | closed | error
   api: '',                     // the service's base URL once known
   plusCape: false,             // is the members' cape drawn yet (cape-plus in catalog.json)?
+  plusThemes: [],              // the menu themes (members only, so not in the grid): tried on from the Origin+ card
   worn: {},                    // slot -> item id: what the fitting room wears (one item per slot)
   themeView: true,             // a worn theme shows its menu preview instead of the player
   busy: false,
@@ -490,6 +486,14 @@ async function paintPlusCape() {
     img.hidden = false;
   } catch { /* no cape-plus art yet: the card has no cape picture */ }
 }
+// Menu themes are Origin+ menu unlocks (Will, 2026-10-18), never sold: the perk lists them as
+// swatches of the real menu in each theme, and a swatch tries the theme on in the fitting room.
+function renderPlusThemes() {
+  const box = $('[data-plus-themes]');
+  box.hidden = !state.plusThemes.length;
+  box.innerHTML = state.plusThemes.map(t => `<button type="button" class="plus__theme" data-plus-theme="${esc(t.id)}" aria-pressed="false" aria-label="Try on the ${esc(t.name)} theme">
+    <img src="${base()}/${esc(t.id)}/texture.png" alt="" width="96" height="60" loading="lazy"><span>${esc(t.name)}</span></button>`).join('');
+}
 const percentSaved = () => Math.round((1 - state.plus.year / (state.plus.month * 12)) * 100);
 
 function renderPlus() {
@@ -576,6 +580,7 @@ function syncFit(focus) {
     b.setAttribute('aria-label', `${on ? 'Take off' : 'Try on'} ${byId.get(card.dataset.item).name}`);
     $('.item__tryon', b).textContent = on ? 'Wearing' : 'Try on';
   }
+  for (const b of $$('[data-plus-theme]')) b.setAttribute('aria-pressed', String(isWorn(b.dataset.plusTheme)));
 }
 
 function toggleBag(id) {
@@ -627,6 +632,7 @@ async function loadItems() {
   try {
     const raw = await loadCatalog(base());
     state.plusCape = raw.some(i => i.id === 'cape-plus');
+    state.plusThemes = raw.filter(i => i && i.plusOnly && i.slot === 'theme');
     list = raw.filter(i => i && i.id && i.onSale !== false && !i.plusOnly);
   } catch (err) {
     console.warn('Origin store: catalog.json can\u2019t be read, using the built-in list.', err);
@@ -638,8 +644,9 @@ async function loadItems() {
     });
   }
   ITEMS = list.map(i => ({ ...i, price: i.cents / 100 }));
-  byId = new Map(ITEMS.map(i => [i.id, i]));
-  state.bag = state.bag.filter(id => byId.has(id));     // a saved bag may name an item that is gone
+  byId = new Map([...ITEMS, ...state.plusThemes].map(i => [i.id, i]));   // the themes only for trying on
+  const sold = new Set(ITEMS.map(i => i.id));
+  state.bag = state.bag.filter(id => sold.has(id));     // a saved bag may name an item that is gone, or no longer sold
   save();
 }
 
@@ -666,6 +673,15 @@ async function boot() {
   }));
   $('[data-plus-go]').addEventListener('click', joinPlus);
   paintPlusCape();
+  renderPlusThemes();
+  $('[data-plus-themes]').addEventListener('click', e => {
+    const b = e.target.closest('[data-plus-theme]');
+    if (!b) return;
+    tryOn(b.dataset.plusTheme);
+    const stage = $('#preview');
+    const r = stage.getBoundingClientRect();
+    if (isWorn(b.dataset.plusTheme) && (r.bottom < 60 || r.top > innerHeight)) stage.scrollIntoView({ behavior: smoothScroll(), block: 'start' });
+  });
 
   $$('[data-filter]').forEach(b => b.addEventListener('click', () => {
     $$('[data-filter]').forEach(o => o.setAttribute('aria-pressed', String(o === b)));

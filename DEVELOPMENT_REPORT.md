@@ -10,11 +10,11 @@ Updated 2026-10-18.
   - **Passed (8/10):**
     - Capes: Origin, Origin+ (members only), Void, Golden Hour, Frost, Inferno, Starfall,
       Orbit, Glitch (the last three passed on their third and final try)
-    - Ember Wings
+    - Ember Wings, Explorer Pack, Origin Bandana, Visor Mask (the last two on their second try)
+    - Menu themes: Amethyst, Crimson, Ocean, Rose (reworked, below)
   - **Dropped after 3 tries:** Pixel Crown and Aurora Cape. Both are `onSale:false`, so
     owners still own and wear them.
-  - **Being judged:** menu themes Amethyst, Crimson, Ocean, Rose (reworked, below); Orbit and
-    Golden halos; Explorer Pack; Origin Bandana; Visor Mask.
+  - **Being redrawn (failed try 1):** Orbit and Golden halos.
 - **Menu themes rebuilt on the real main theme** (Will: the old ones didn't match the in-game
   menu). A theme is now the main theme's own colour tokens (`DEF_` in OriginDeck/OriginTheme)
   re-tinted in OKLCH by `cosmetics/lib/theme.mjs`, so every contrast and alpha carries over;
@@ -22,6 +22,11 @@ Updated 2026-10-18.
   assigns the precomputed tokens from item.json. Store/screen pictures are the real menu design
   (mock4) rendered in the theme (`tools/cosmetics/theme-preview.mjs`), smooth, not pixel art.
   Emerald was replaced by Amethyst: re-tinted properly it was nearly the free default.
+- **Menu themes are Origin+ menu unlocks** (Will, 2026-10-18), never sold: `plusOnly`, like the
+  Origin+ cape. The service gives members every theme and hides a worn one when the membership
+  ends (a test pins this). The store dropped its Themes tab; the Origin+ card lists "Every menu
+  theme" with the four previews, and each swatch tries the theme on in the fitting room. In game,
+  theme cards say "ORIGIN+ THEME", and a non-member's Themes tab says they come with Origin+.
 - **Menu themes and the mod-card toggle.** With a theme equipped, the DISABLED bar is neutral
   grey and the hovered ENABLED bar follows the theme's accent. Before, it stayed red and
   flashed green, so on Crimson "on" and "off" were both red. With no theme it is
@@ -62,7 +67,7 @@ Updated 2026-10-18.
   drifting from the service catalog.
 
 ## Build / test results (this sandbox)
-- `npm test` in services/cosmetics: **54 pass, 0 fail**.
+- `npm test` in services/cosmetics: **55 pass, 0 fail**.
 - `node tools/cosmetics/build.mjs --check`: run before every commit.
 - `python tools/shared-sync/sync.py --check`: OK.
 - `python tools/release/check_consistency.py`: OK.

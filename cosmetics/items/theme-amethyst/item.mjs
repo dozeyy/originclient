@@ -6,6 +6,6 @@ import { themeTokens } from '../../lib/theme.mjs';
 const SPEC = { accent: '#a48cf2', surface: '#201d29', text: '#ece8f5' };
 
 export default {
-  meta: { id: 'theme-amethyst', name: 'Amethyst', kind: 'theme', cents: 599, blurb: 'Violet-charcoal panels, lavender-white type and a soft amethyst accent.' },
+  meta: { id: 'theme-amethyst', name: 'Amethyst', kind: 'theme', cents: 0, plusOnly: true, onSale: false, blurb: 'Violet-charcoal panels, lavender-white type and a soft amethyst accent.' },
   theme: themeTokens(SPEC),
 };

@@ -66,7 +66,7 @@ try {
     const home = back ? PI : 0;                                        // the side the item is meant to be seen from
     const close = back
       ? { look: kind === 'cape' ? 14 : kind === 'pack' ? 18 : 20, dist: kind === 'cape' ? 38 : kind === 'pack' ? 36 : 56 }
-      : face ? { look: 29.5, dist: 22 } : { look: 31, dist: 27 };
+      : face ? { look: 27.5, dist: 30 } : { look: 31, dist: 27 };
     const body = { look: 17, dist: 76, lift: 4 };
     const T = 0.25 * loop;                                              // a mid-flap moment for the static views
     const views = [
@@ -78,6 +78,7 @@ try {
       ['close-up', { ...close, lift: 3, yaw: home + (back ? 0.5 : 0.45), t: T }],
       ['far (8 blocks)', { look: 17, dist: 128, lift: 6, yaw: home + (back ? 0.35 : 0.35), t: T }],
     ];
+    if (face) views.splice(6, 0, ['close-up rear', { ...close, lift: 3, yaw: PI - 0.45, t: T }]);   // the strap / knot side
     // 3/4 left = the player's left side toward the camera, from the front (or the back for back items)
     // three-quarter views: the yaw depends on which side the item sits (back items are seen from behind)
     views[2][1].yaw = back ? -3 * PI / 4 : -PI / 4;
