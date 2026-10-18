@@ -15,6 +15,7 @@
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
 		"ScreenInvoker",
+		"PackSelectionScreenAccessor",
 		"SpriteIconButtonAccessor",
 		"SpriteIconButtonMixin",
 		"AbstractButtonMixin",
