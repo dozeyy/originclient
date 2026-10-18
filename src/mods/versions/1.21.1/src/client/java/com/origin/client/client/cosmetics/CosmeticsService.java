@@ -144,6 +144,8 @@ public final class CosmeticsService {
 	private static final Set<UUID> WANTED = ConcurrentHashMap.newKeySet();
 
 	private static volatile Mine mine = null;
+	/** The last read of your own cosmetics failed (the screen says so instead of "Loading..." forever). */
+	private static volatile boolean mineFailed = false;
 	/** What you just picked, shown straight away while the save is in flight. */
 	private static volatile Look picked = null;
 
@@ -162,6 +164,11 @@ public final class CosmeticsService {
 
 	public static Mine mine() {
 		return mine;
+	}
+
+	/** True when the last attempt to read your own cosmetics failed and none are loaded. */
+	public static boolean mineFailed() {
+		return mineFailed && mine == null;
 	}
 
 	/**
@@ -247,9 +254,18 @@ public final class CosmeticsService {
 		}
 	}
 
-	/** Re-reads your own cosmetics (e.g. when the Cosmetics screen opens, after a purchase). */
+	/**
+	 * Re-reads your own cosmetics (e.g. when the Cosmetics screen opens, after a purchase).
+	 * If the service wasn't reachable earlier (game started offline), looks for it again
+	 * now instead of waiting out the 10-minute rediscovery in tick().
+	 */
 	public static void refreshMine() {
-		WORKER.execute(CosmeticsService::refreshMineNow);
+		WORKER.execute(() -> {
+			if (status != Status.READY) {
+				discover();
+			}
+			refreshMineNow();
+		});
 	}
 
 	/**
@@ -318,6 +334,7 @@ public final class CosmeticsService {
 		try {
 			JsonObject o = getJson(api + "/v1/players/" + undashed(self));
 			if (o == null) {
+				mineFailed = true;
 				return;
 			}
 			List<String> owned = new ArrayList<>();
@@ -329,7 +346,9 @@ public final class CosmeticsService {
 				}
 			}
 			mine = new Mine(owned, lookFrom(o), plusFrom(o));
+			mineFailed = false;
 		} catch (Exception e) {
+			mineFailed = true;
 			OriginClient.LOGGER.debug("Origin cosmetics: couldn't load your cosmetics", e);
 		}
 	}
@@ -364,17 +383,28 @@ public final class CosmeticsService {
 		}
 	}
 
+	private static void putIfChanged(JsonObject body, String slot, String now, String was, boolean always) {
+		if (always || !java.util.Objects.equals(now, was)) {
+			body.addProperty(slot, now);
+		}
+	}
+
 	private static String wearNow(Look look) {
 		if (status != Status.READY) {
 			return "Cosmetics aren't available right now.";
 		}
 		JsonObject body = new JsonObject();
-		// All five keys every time: a string wears it, null takes the slot off.
-		body.addProperty("cape", look.cape());
-		body.addProperty("head", look.head());
-		body.addProperty("face", look.face());
-		body.addProperty("back", look.back());
-		body.addProperty("theme", look.theme());
+		// Only the slots that change: a string wears it, null takes it off, and an
+		// absent key leaves it as saved. That keeps what the service saved but isn't
+		// showing - a lapsed member's Origin+ cape comes back when they rejoin -
+		// instead of overwriting it with the null this client was shown.
+		Mine m0 = mine;
+		Look was = m0 != null ? m0.wearing() : null;
+		putIfChanged(body, "cape", look.cape(), was == null ? null : was.cape(), was == null);
+		putIfChanged(body, "head", look.head(), was == null ? null : was.head(), was == null);
+		putIfChanged(body, "face", look.face(), was == null ? null : was.face(), was == null);
+		putIfChanged(body, "back", look.back(), was == null ? null : was.back(), was == null);
+		putIfChanged(body, "theme", look.theme(), was == null ? null : was.theme(), was == null);
 		try {
 			SocialClient.SignIn s = SocialClient.signInForService(null);
 			if (s.token() == null) {

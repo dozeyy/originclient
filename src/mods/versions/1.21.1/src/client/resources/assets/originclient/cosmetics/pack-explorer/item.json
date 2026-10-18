@@ -1,0 +1,18 @@
+{
+  "id": "pack-explorer",
+  "name": "Explorer Pack",
+  "kind": "pack",
+  "slot": "back",
+  "cents": 849,
+  "blurb": "Explorer Pack.",
+  "animated": false,
+  "plusOnly": false,
+  "onSale": true,
+  "hidesCape": false,
+  "capeOffset": 3,
+  "model": {
+    "texSize": [32,32],
+    "scale": 4,
+    "bones": [{"name":"root","pivot":[0,0,0],"cubes":[{"from":[-3,-9,-5],"to":[3,-2,-2],"uv":[0,0]}]}]
+  }
+}

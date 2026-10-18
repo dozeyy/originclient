@@ -20,7 +20,7 @@
         <Viewbox.RenderTransform>
             <ScaleTransform x:Name="MarkScale" ScaleX="0.94" ScaleY="0.94"/>
         </Viewbox.RenderTransform>
-        <!-- Glow is static (an animated Effect re-renders its blur every frame). -->
+        <!-- The glow's properties never animate; it re-blurs with the turning rings for under a second, then the layer is gone. -->
         <Grid Width="200" Height="200" Effect="{StaticResource Effect.OriginGlow}">
             <Ellipse x:Name="Ring0" Width="180" Height="64" Stroke="{StaticResource Brush.Text}"
                      StrokeThickness="3" Fill="Transparent"

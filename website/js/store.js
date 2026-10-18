@@ -32,19 +32,21 @@ const PRICE_LIST = [
   { id: 'cape-origin', name: 'Origin Cape', blurb: 'The three rings, stitched in silver on dark folded cloth.', price: 5.99 },
   { id: 'cape-void', name: 'Void Cape', blurb: 'A black hole rift in violet-black cloth, ringed in light, under a scatter of stars.', price: 5.99 },
   { id: 'cape-inferno', name: 'Inferno Cape', blurb: 'Charred black cloth with living flames licking up from a glowing hem.', price: 8.99 },
-  { id: 'cape-aurora', name: 'Aurora Cape', blurb: 'A rippling green, teal and violet aurora over a starry night and a dark pine horizon.', price: 8.99 },
   { id: 'cape-starfall', name: 'Starfall Cape', blurb: 'A deep navy night with a slow meteor shower and twinkling stars.', price: 8.99 },
   { id: 'cape-orbit', name: 'Orbit Cape', blurb: 'Electrons circle the three rings of the Origin mark.', price: 9.99 },
   { id: 'cape-glitch', name: 'Glitch Cape', blurb: 'A clean Origin mark that tears and splits in brief digital bursts.', price: 9.99 },
   { id: 'cape-frost', name: 'Frost Cape', blurb: 'Teal cloth, frost ferns creeping up from the hem, ice glinting in the light.', price: 5.99 },
   { id: 'cape-golden', name: 'Golden Hour Cape', blurb: 'A low sun, a violet-to-gold sky and layered pine ridges, painted on the cloth.', price: 5.99 },
   { id: 'wings-ember', name: 'Ember Wings', blurb: 'Obsidian wings with fire running through the veins. Hides your cape; a few embers drift off as you move.', price: 9.99 },
+  { id: 'pack-explorer', name: 'Explorer Pack', blurb: 'Explorer Pack.', price: 8.49 },
+  { id: 'bandana-origin', name: 'Origin Bandana', blurb: 'Charcoal cloth over the nose and mouth, knotted at the back.', price: 5.99 },
+  { id: 'mask-visor', name: 'Visor Mask', blurb: 'A slim smoked-glass visor across the eyes.', price: 6.99 },
+  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Orbit Halo.', price: 7.99 },
+  { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic polished gold halo with a warm glow, floating just above your head.', price: 5.99 },
   { id: 'theme-emerald', name: 'Emerald', blurb: 'Deep jewel green: cool forest shadows, ivory text, a bright emerald accent.', price: 5.99 },
   { id: 'theme-crimson', name: 'Crimson', blurb: 'Dark wine surfaces with a warm cream voice and a vivid crimson accent.', price: 5.99 },
   { id: 'theme-ocean', name: 'Ocean', blurb: 'Midnight navy panels with soft sea-glass text and a calm sky-blue accent.', price: 5.99 },
   { id: 'theme-rose', name: 'Rose', blurb: 'Dusky violet-black with blush text and a soft rose-pink accent.', price: 5.99 },
-  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'Three rings orbiting a glowing core, each at its own speed.', price: 7.99 },
-  { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic glowing ring.', price: 5.99 },
 ];
 // Items the store shows: the catalog once loaded, else the price list. Each: { id, name, blurb, price, kind, slot, animated }.
 let ITEMS = [];
@@ -91,9 +93,10 @@ const state = {
   plus: PLUS_FALLBACK,         // Origin+ prices + manage link (the service's, once loaded)
   plan: 'month',               // month | year, the Origin+ billing toggle
   member: null,                // is the typed player an Origin+ member? null until known
+  owned: null,                 // Set of item ids the typed player owns (the service's word), null until known
+  confirming: null,            // back from Stripe: { kind: 'items' | 'plus', ids, tries } until the service shows it
   plusBusy: false,
   plusError: '',
-  plusPending: 0,              // membership re-checks left after returning from joining
   catalog: 'loading',          // loading | ok | closed | error
   api: '',                     // the service's base URL once known
   plusCape: false,             // is the members' cape drawn yet (cape-plus in catalog.json)?
@@ -154,25 +157,52 @@ async function loadPrices() {
   checkMember();     // a name may have been verified before the service answered
 }
 
-// Is the verified player an Origin+ member? Only affects the preview prices and
-// the membership card; a failed lookup just means "not shown as a member".
+// What the verified player owns and whether they're an Origin+ member, from the
+// service. Drives the "Owned" cards, member prices and the membership card; a
+// failed lookup just means "not known" (nothing is shown as owned).
 async function checkMember() {
   const player = state.player;
   if (!STORE.live || !state.api || !player?.uuid) return;
-  let member = null;
+  let member = null, owned = null;
   try {
     const r = await fetch(`${state.api}/v1/players/${encodeURIComponent(player.uuid)}`);
-    if (r.ok) member = !!(await r.json()).plus;
+    if (r.ok) {
+      const j = await r.json();
+      member = !!j.plus;
+      owned = new Set(Array.isArray(j.owned) ? j.owned : []);
+    }
   } catch { /* leave unknown */ }
   if (state.player !== player) return;   // the name changed meanwhile
-  // Back from joining: Stripe's word can take a few seconds to reach the
-  // service, so look again a few times before showing them as not a member.
-  if (!member && state.plusPending > 0) { state.plusPending--; setTimeout(checkMember, 4000); }
-  if (state.member === member) return;
   state.member = member;
+  state.owned = owned;
+  if (owned) state.bag = state.bag.filter(id => !owned.has(id));   // nothing to buy twice
+  confirmPurchase();
+  save();
   renderGrid();
   renderBag();
   renderPlus();
+}
+
+// Back from Stripe. Stripe's redirect only says the buyer finished its page;
+// the purchase is real once Stripe's webhook has reached the service, which
+// can take a few seconds. So the notice says "confirming" until the service
+// lists the items (or the membership), and only then says thank you.
+const CONFIRM_TRIES = 12, CONFIRM_EVERY = 4000;
+function confirmPurchase() {
+  const c = state.confirming;
+  if (!c) return;
+  const notice = $('[data-notice]');
+  const done = c.kind === 'plus' ? state.member === true : !!state.owned && c.ids.every(id => state.owned.has(id));
+  if (done) {
+    state.confirming = null;
+    notice.innerHTML = c.kind === 'plus'
+      ? '<b>Welcome to Origin+.</b> Your membership is active. A receipt is on its way to your email.'
+      : `<b>Thank you!</b> Your cosmetics are on <b>${esc(state.player.name)}</b> now: open Cosmetics in game to wear them. A receipt is on its way to your email.`;
+    return;
+  }
+  if (--c.tries > 0) { setTimeout(checkMember, CONFIRM_EVERY); return; }
+  state.confirming = null;
+  notice.innerHTML = '<b>Your payment is still being confirmed.</b> This usually takes under a minute. Reload this page in a little while; if it still isn’t there in an hour, contact us with your receipt.';
 }
 
 async function joinPlus() {
@@ -239,6 +269,7 @@ function onName(value) {
   state.player = null;
   const wasMember = state.member;
   state.member = null;
+  state.owned = null;
   state.plusError = '';
   save();
   clearTimeout(lookupTimer);
@@ -330,6 +361,7 @@ function renderGrid() {
   const list = ITEMS.filter(FILTERS[filter] || FILTERS.all);
   $('[data-grid]').innerHTML = list.length ? list.map(i => {
     const inBag = state.bag.includes(i.id), p = priceOf(i), soon = STORE.live && state.catalog === 'ok' && !forSale(i), on = isWorn(i.id);
+    const owned = !!state.owned?.has(i.id);
     return `<article class="item${on ? ' is-trying' : ''}" data-item="${i.id}">
       <button class="item__try" type="button" data-try aria-label="${on ? 'Take off' : 'Try on'} ${esc(i.name)}" aria-pressed="${on}">
         <span class="item__art" data-art></span><span class="item__kind">${KINDS[i.kind] || 'Cosmetic'}</span>${i.animated ? '<span class="item__anim">Animated</span>' : ''}<span class="item__tryon">${on ? 'Wearing' : 'Try on'}</span>
@@ -338,7 +370,9 @@ function renderGrid() {
       <div class="item__buy">${memberDeal(i)
         ? `<b class="item__deal"><s><span class="sr">Was </span>${money(p.amount, p.currency)}</s> <span class="sr">Member price </span>${money(p.member, p.currency)}</b>`
         : `<b>${money(p.amount, p.currency)}</b>`}
-        <button class="btn btn--sm ${inBag ? 'btn--ghost' : 'btn--primary'}" type="button" data-add ${soon ? 'disabled data-soon' : ''} aria-pressed="${inBag}">${inBag ? 'In bag ✓' : 'Add to bag'}</button>
+        ${owned
+          ? `<button class="btn btn--sm btn--ghost" type="button" disabled>Owned ✓</button>`
+          : `<button class="btn btn--sm ${inBag ? 'btn--ghost' : 'btn--primary'}" type="button" data-add ${soon ? 'disabled data-soon' : ''} aria-pressed="${inBag}">${inBag ? 'In bag ✓' : 'Add to bag'}</button>`}
       </div>
     </article>`;
   }).join('') : `<p class="shop__empty">${state.catalog === 'loading' && !ITEMS.length ? 'Loading…' : esc(EMPTY_NOTE[filter] || 'Nothing here yet.')}</p>`;
@@ -421,7 +455,7 @@ function renderBag(error = '') {
   const open = STORE.live && state.catalog !== 'closed';
   btn.toggleAttribute('data-soon', !open);
   const blocked = state.catalog === 'ok' ? notForSale() : [];
-  btn.disabled = open && (state.busy || !items.length || !canCheckout() || state.catalog !== 'ok' || blocked.length > 0);
+  btn.disabled = !open || state.busy || !items.length || !canCheckout() || state.catalog !== 'ok' || blocked.length > 0;
   btn.setAttribute('aria-disabled', String(!open || btn.disabled));
   btn.textContent = state.busy ? 'Opening checkout…' : `Checkout${open && items.length ? ` · ${money(total, currency)}` : ''}`;
   const failed = error || (open && state.catalog === 'error');
@@ -485,7 +519,7 @@ function renderPlus() {
   const btn = $('[data-plus-go]'), note = $('[data-plus-note]');
   const ready = state.catalog === 'ok';
   btn.toggleAttribute('data-soon', !open);
-  btn.disabled = open && (state.plusBusy || !ready);
+  btn.disabled = !open || state.plusBusy || !ready;
   btn.setAttribute('aria-disabled', String(!open || btn.disabled));
   btn.textContent = state.plusBusy ? 'Opening checkout…' : canCheckout() || !open
     ? `Join Origin+${open && canCheckout() ? ` · ${money(year ? plus.year : plus.month, cur)}` : ''}`
@@ -562,20 +596,27 @@ function handleReturn() {
   const q = new URLSearchParams(location.search), result = q.get('purchase'), plus = q.get('plus');
   if (!result && !plus) return;
   const notice = $('[data-notice]');
+  // "done" only means the buyer left Stripe's page; the bag stays until the
+  // service confirms (confirmPurchase), so a failed payment loses nothing.
   if (plus === 'done') {
-    notice.innerHTML = '<b>Welcome to Origin+.</b> It can take a minute to show as active. A receipt is on its way to your email.';
-    state.plusPending = 5;
+    notice.innerHTML = '<b>Confirming your membership…</b> Stripe has your payment details; this takes a few seconds.';
+    state.confirming = { kind: 'plus', ids: [], tries: CONFIRM_TRIES };
   } else if (plus) {
     notice.innerHTML = '<b>No charge made.</b> You can join Origin+ any time.';
   } else if (result === 'done') {
-    notice.innerHTML = `<b>Thank you!</b> Your cosmetics will show up on <b>${esc(state.player?.name || state.name || 'your player')}</b> within a minute. A receipt is on its way to your email.`;
-    state.bag = [];
-    save();
+    notice.innerHTML = '<b>Confirming your purchase…</b> Stripe has your payment details; this takes a few seconds.';
+    state.confirming = { kind: 'items', ids: [...state.bag], tries: CONFIRM_TRIES };
   } else {
     notice.innerHTML = '<b>Checkout cancelled.</b> Nothing was charged, and your bag is still here.';
   }
   notice.hidden = false;
   history.replaceState(null, '', location.pathname);
+  // If the player can't be looked up at all (offline, name lookup down), the
+  // checks never run: never leave "Confirming…" up for good.
+  if (state.confirming) {
+    const c = state.confirming;
+    setTimeout(() => { if (state.confirming === c) { c.tries = 0; confirmPurchase(); } }, CONFIRM_TRIES * CONFIRM_EVERY + 8000);
+  }
 }
 
 // -------------------------------------------------------------------- boot
@@ -605,6 +646,14 @@ async function loadItems() {
 async function boot() {
   restore();
   handleReturn();
+  // Back from Stripe via the browser's Back button: the page is restored as it
+  // was, "Opening checkout…" included. Nothing was bought, so free the buttons.
+  addEventListener('pageshow', e => {
+    if (!e.persisted) return;
+    state.busy = state.plusBusy = false;
+    renderBag();
+    renderPlus();
+  });
   await loadItems();
 
   const input = $('#mc-name');

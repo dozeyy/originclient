@@ -42,7 +42,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         PageHost.Content = _homePage;
-        // Home is already built underneath, so the intro adds no wait of its own.
+        // Opening animation over the already-built Home; ~0.85 s, skippable (StartupIntro).
         Intro.Play(this);
 
         _accountPanel.CloseRequested += (_, _) => SetAccountPanelOpen(false);

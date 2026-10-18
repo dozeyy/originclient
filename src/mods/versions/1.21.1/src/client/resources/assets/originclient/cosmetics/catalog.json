@@ -62,7 +62,7 @@
       "blurb": "A rippling green, teal and violet aurora over a starry night and a dark pine horizon.",
       "animated": true,
       "plusOnly": false,
-      "onSale": true,
+      "onSale": false,
       "hidesCape": false,
       "capeOffset": 0
     },
@@ -145,6 +145,19 @@
       "capeOffset": 0
     },
     {
+      "id": "pack-explorer",
+      "name": "Explorer Pack",
+      "kind": "pack",
+      "slot": "back",
+      "cents": 849,
+      "blurb": "Explorer Pack.",
+      "animated": false,
+      "plusOnly": false,
+      "onSale": true,
+      "hidesCape": false,
+      "capeOffset": 3
+    },
+    {
       "id": "bandana-origin",
       "name": "Origin Bandana",
       "kind": "bandana",
@@ -165,6 +178,32 @@
       "cents": 699,
       "blurb": "A slim smoked-glass visor across the eyes.",
       "animated": false,
+      "plusOnly": false,
+      "onSale": true,
+      "hidesCape": false,
+      "capeOffset": 0
+    },
+    {
+      "id": "halo-orbit",
+      "name": "Orbit Halo",
+      "kind": "halo",
+      "slot": "head",
+      "cents": 799,
+      "blurb": "Orbit Halo.",
+      "animated": false,
+      "plusOnly": false,
+      "onSale": true,
+      "hidesCape": false,
+      "capeOffset": 0
+    },
+    {
+      "id": "halo-gold",
+      "name": "Golden Halo",
+      "kind": "halo",
+      "slot": "head",
+      "cents": 599,
+      "blurb": "A classic polished gold halo with a warm glow, floating just above your head.",
+      "animated": true,
       "plusOnly": false,
       "onSale": true,
       "hidesCape": false,

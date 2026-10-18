@@ -108,12 +108,12 @@ export async function handle(request, env) {
       const uuid = normUuid(parts[2]);
       return uuid ? json(await playerView(env, uuid)) : fail(400, 'bad uuid');
     }
-    if (request.method === 'POST' && url.pathname === '/v1/players/equipped') return equippedBatch(env, await request.json().catch(() => null));
-    if (request.method === 'POST' && url.pathname === '/v1/equip') return equip(request, env, await request.json().catch(() => null));
-    if (request.method === 'GET' && url.pathname === '/v1/store/catalog') return catalog(env);
-    if (request.method === 'POST' && url.pathname === '/v1/store/checkout') return checkout(env, await request.json().catch(() => null));
-    if (request.method === 'POST' && url.pathname === '/v1/plus/checkout') return plusCheckout(env, await request.json().catch(() => null));
-    if (request.method === 'POST' && url.pathname === '/v1/stripe/webhook') return webhook(request, env);
+    if (request.method === 'POST' && url.pathname === '/v1/players/equipped') return await equippedBatch(env, await request.json().catch(() => null));
+    if (request.method === 'POST' && url.pathname === '/v1/equip') return await equip(request, env, await request.json().catch(() => null));
+    if (request.method === 'GET' && url.pathname === '/v1/store/catalog') return await catalog(env);
+    if (request.method === 'POST' && url.pathname === '/v1/store/checkout') return await checkout(env, await request.json().catch(() => null));
+    if (request.method === 'POST' && url.pathname === '/v1/plus/checkout') return await plusCheckout(env, await request.json().catch(() => null));
+    if (request.method === 'POST' && url.pathname === '/v1/stripe/webhook') return await webhook(request, env);
     if (request.method === 'GET' && url.pathname === '/') return json({ service: 'origin-cosmetics', ok: true });
     // How many of Mojang's keys the service holds (counts only), checked after every deploy.
     if (request.method === 'GET' && url.pathname === '/v1/diag/keys') return json(await keysDiag(env));

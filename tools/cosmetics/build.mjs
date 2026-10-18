@@ -182,6 +182,21 @@ outputs.set(OUT_GEN, [
   '',
 ].join('\n'));
 
+// The store page's offline fallback (website/js/store.js PRICE_LIST): the for-sale
+// part of the catalog, one line per item (a service test holds it to catalog.gen.js).
+// A pending item has no blurb here, so it keeps the one already on its line.
+{
+  const file = path.join(ROOT, 'website/js/store.js');
+  const src = fs.readFileSync(file, 'utf8');
+  const start = src.indexOf('const PRICE_LIST = [\n'), end = src.indexOf('\n];', start);
+  if (start < 0 || end < 0) fail('website/js/store.js: no PRICE_LIST block');
+  const oldBlurb = id => (src.slice(start, end).match(new RegExp(`\\{ id: '${id}',.*?blurb: '((?:[^'\\\\]|\\\\.)*)'`)) || [])[1];
+  const lines = order.map(id => [id, metas.get(id) || pending[id]])
+    .filter(([, c]) => c.onSale !== false && !c.plusOnly)
+    .map(([id, c]) => `  { id: '${id}', name: ${q(c.name)}, blurb: ${c.blurb != null ? q(c.blurb) : `'${oldBlurb(id) ?? ''}'`}, price: ${(c.cents / 100).toFixed(2)} },`);
+  outputs.set(file, src.slice(0, start) + 'const PRICE_LIST = [\n' + lines.join('\n') + src.slice(end));
+}
+
 // -------------------------------------------------------------------- write / check
 const stale = [];
 const same = (file, want) => {

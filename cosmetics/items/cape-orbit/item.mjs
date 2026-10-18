@@ -1,20 +1,23 @@
-// Orbit Cape: Origin's signature animated cape. The mark (cape-origin's own rasteriser: constant 2 px
-// stroke, 120 degree ring an exact mirror of the 60 degree ring, halo outside the silhouette only,
-// 1 px cloth breaks at the over/under crossings) sits on dark folded cloth and NEVER changes between
-// frames. Small bright electrons ride each ring's centre line at their own speeds with short fading
-// trails, and slip under a ring wherever the thread passes beneath another. Everything is the
-// #E0E0E0 family (no hue). Loop: 32 frames; every electron makes a whole number of laps, so frame 32 = frame 0.
+// Orbit Cape: Origin's signature animated cape. The mark is cape-origin's own rasteriser (distance to the
+// true ring centre line, one pixel per row/column along the stroke's dominant axis, the 120 degree ring an
+// exact mirror of the 60 degree ring, 1 px cloth breaks at the over/under crossings), run at this cape's
+// density: an animated cape is 40x64 art px (4 px per model px), half of cape-origin's 80x128, so the
+// stroke is 1 px (the same thickness on the cape as cape-origin's 2 px) and the mark is drawn once, here,
+// at exactly that size, never resampled. It is identical in all 32 frames. Four electrons ride the ring
+// centre lines: a 2x2 bright dot with a 1 px halo and a 4 px trail that fades along the curve. They slip
+// under a ring wherever the thread passes beneath another. Monochrome only (the #E0E0E0 family).
+// Loop: whole laps per ring, so frame 32 = frame 0.
 import { Canvas, ramp, clamp, smoothstep, mix } from '../../lib/px.mjs';
 import { newCapeArt } from '../../lib/cape.mjs';
 
 const S = 4, W = 10 * S, H = 16 * S, FRAMES = 32;
-const MX = 20, MY = 31, MSIZE = 36, OPEN = 1.0;      // mark: centre on a pixel seam; overall width; minor-axis fatness
+const MX = 20, MY = 31, MSIZE = 36, OPEN = 1.15, STROKE = 1, GAPR2 = 2;   // mark: centre on a pixel seam; width; ring fatness; stroke px; crossing break radius^2
 const FX = x => 2 * MX - 1 - x, FY = y => 2 * MY - 1 - y;
 
 const clothFine = ramp('#363940', 9, { lo: 0.06, hi: 0.26, tint: 0.025, shadowHue: 232, lightHue: 215, shift: 0.3 });
 const cloth = [0, 2, 4, 6, 8].map(i => clothFine[i]);
 const OUTLINE = cloth[0];
-const RING = '#b4b4b4', RING_EDGE = '#8a8a8a';        // rings sit a step below the electrons so the beads read
+const RING = '#bcbcbc';                                  // rings sit below the electrons so the beads and trails read
 // ---------------------------------------------------------------- cloth folds (scale 4: 40x64 art px)
 // Same construction as cape-origin (uneven soft folds, 9-step hue-shifted ramp, light from the top-left),
 // halved to the 4 px/model-px density of an animated cape.
@@ -39,7 +42,7 @@ const clothLevel = (x, y) => Math.round(fineLevel(x, y) / 2);
 // Ring 0: horizontal. Ring 1: 60 degrees. Ring 2: 120 degrees = ring 1 mirrored left/right,
 // so the two tilted rings share one size (the three-ring mark, drawn symmetric).
 function ringGeometry() {
-  const k = (MSIZE / 2 - 1) / 90, open = OPEN;
+  const k = (MSIZE / 2 - STROKE / 2) / 90, open = OPEN;
   return [{ rx: 90, ry: 32, rot: 0 }, { rx: 78, ry: 29, rot: 60 }, { rx: 78, ry: 29, rot: 120 }]
     .map(r => ({ rx: r.rx * k, ry: r.ry * k * open, rot: r.rot * Math.PI / 180 }));
 }
@@ -98,12 +101,12 @@ function buildMark() {
     let bd = 1e9, bx = 0, by = 0;
     for (const p of pts[i]) { const d = (p[0] - cx) ** 2 + (p[1] - cy) ** 2; if (d < bd) { bd = d; bx = p[0]; by = p[1]; } }
     const dist = Math.sqrt(bd); let res = null;
-    if (dist <= 2.2) {
+    if (dist <= STROKE / 2 + 0.2) {
       let nx = dist > 1e-6 ? (cx - bx) / dist : 0, ny = dist > 1e-6 ? (cy - by) / dist : 0;
       const out = insideF(i, cx, cy) >= 1;
       if (!out) { nx = -nx; ny = -ny; }
       const off = (out ? dist : -dist) / (Math.max(Math.abs(nx), Math.abs(ny)) || 1);
-      if (off >= -1 && off < 1) res = off < 0 ? 'inner' : 'outer';
+      if (off >= -STROKE / 2 && off < STROKE / 2) res = off < 0 ? 'inner' : 'outer';
     }
     memo.set(key, res); return res;
   };
@@ -130,7 +133,7 @@ function buildMark() {
     const px = k % W, py = (k / W) | 0;
     let near = null, nd = 1e9;
     for (const c of X) if (c.a === i || c.b === i) { const d = (c.x - px) ** 2 + (c.y - py) ** 2; if (d < nd) { nd = d; near = c; } }
-    if (!near || nd > 36 || near.over === i) continue;
+    if (!near || nd > GAPR2 || near.over === i) continue;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (owner.get((py + dy) * W + px + dx) === near.over) gap.add(k);
   }
   return { owner, cover, gap, pts, X, crossingsSolved: X.every(c => c.over !== undefined) };
@@ -153,25 +156,7 @@ function buildBase() {
     c.set(x, hy + 3, ((x % 4) === 3) ? cloth[1] : '#7c7c7c');
   }
   const mark = buildMark();
-  const out = new Uint8Array(W * H), stack = [[0, 0]];
-  out[0] = 1;
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = x + dx, ny = y + dy, k = ny * W + nx;
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H || out[k] || mark.owner.has(k)) continue;
-      out[k] = 1; stack.push([nx, ny]);
-    }
-  }
-  const R = 3;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const k = y * W + x; if (!out[k]) continue;
-    let d = 99;
-    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) if (mark.owner.has((y + dy) * W + x + dx)) d = Math.min(d, Math.hypot(dx, dy));
-    if (d <= 1.5) c.set(x, y, mix(c.get(x, y), '#e0e0e0', 0.2));
-    else if (d <= 2.5) c.set(x, y, mix(c.get(x, y), '#e0e0e0', 0.08));
-  }
-  for (const [k, ring] of mark.owner) if (!mark.gap.has(k)) c.set(k % W, (k / W) | 0, mark.cover[ring].get(k) === 'inner' ? RING_EDGE : RING);
+  for (const [k] of mark.owner) if (!mark.gap.has(k)) c.set(k % W, (k / W) | 0, RING);
   for (let x = 0; x < W; x++) { c.set(x, 0, OUTLINE); c.set(x, H - 1, OUTLINE); }
   for (let y = 0; y < H; y++) { c.set(0, y, OUTLINE); c.set(W - 1, y, OUTLINE); }
 
@@ -198,15 +183,15 @@ function arcPoint(A, u) {                                 // u in [0,1) of the r
 }
 
 // ---------------------------------------------------------------- electrons
-// ring, laps per loop (sign = direction), electrons evenly spaced, start offset. Rings 1 and 2 are mirror
-// images, so they also run in opposite senses on screen. Whole laps only: the loop closes by itself.
+// ring, laps per loop (sign = direction), electrons evenly spaced, start offset, ecc = how much the electron
+// speeds up and slows down around its lap (so each ring has its own rhythm). Whole laps only: the loop closes.
 const ORBITS = [
-  { ring: 0, laps: 1, n: 2, off: 0.0 },
-  { ring: 1, laps: 2, n: 1, off: 0.18 },
-  { ring: 2, laps: -3, n: 1, off: 0.62 },
+  { ring: 0, laps: 1, n: 2, off: 0.09, ecc: 0.035 },
+  { ring: 1, laps: -1, n: 1, off: 0.31, ecc: -0.03 },
+  { ring: 2, laps: 1, n: 1, off: 0.9, ecc: 0.045 },
 ];
-const TRAIL = 12;                                         // trail length in px along the ring
-const TRAIL_RAMP = ['#b4b4b4', '#c4c4c4', '#d4d4d4', '#e4e4e4', '#f2f2f2'];
+const TRAIL = ['#fafafa', '#ececec', '#dedede', '#d0d0d0'];     // trail steps behind the head, 1 px each along the ring
+const lit = (c, x, y, k) => c.set(x, y, mix(c.get(x, y), '#e0e0e0', k));
 
 export default {
   meta: { id: 'cape-orbit', name: 'Orbit Cape', kind: 'cape', cents: 999, blurb: 'Electrons circle the three rings of the Origin mark.' },
@@ -215,32 +200,31 @@ export default {
     if (!BASE) buildBase();
     const c = BASE.clone(), { mark, arcs, frac } = ARC, t = f / FRAMES;
     const heads = [];
-    for (const o of ORBITS) for (let e = 0; e < o.n; e++) heads.push({ ring: o.ring, dir: Math.sign(o.laps), u: ((t * o.laps + o.off + e / o.n) % 1 + 1) % 1 });
-    // trails first (they are on the stroke pixels), then the beads on top
+    for (const o of ORBITS) for (let e = 0; e < o.n; e++) {
+      const u = o.off + e / o.n + o.laps * t + o.ecc * Math.sin(2 * Math.PI * t);
+      heads.push({ ring: o.ring, dir: Math.sign(o.laps), u: ((u % 1) + 1) % 1 });
+    }
+    // trails: the ring's own pixels just behind each head, brightest next to the dot
     for (const [k, s] of frac) {
       const ring = mark.owner.get(k);
-      let best = 0;
+      let best = -1;
       for (const h of heads) {
         if (h.ring !== ring) continue;
-        const behind = (((h.u - s) * h.dir % 1) + 1) % 1 * arcs[ring].len;     // px behind the head along the ring's travel
-        if (behind > 0.4 && behind < TRAIL) best = Math.max(best, (1 - behind / TRAIL) ** 1.35);
+        const behind = (((h.u - s) * h.dir % 1) + 1) % 1 * arcs[ring].len;    // px behind the head along the ring's travel
+        const step = Math.floor(behind - 1.0);
+        if (step >= 0 && step < TRAIL.length) best = best < 0 ? step : Math.min(best, step);
       }
-      if (best > 0.04) {
-        const inner = mark.cover[ring].get(k) === 'inner';
-        const i = Math.min(TRAIL_RAMP.length - 1, Math.floor(best * (TRAIL_RAMP.length - (inner ? 1.4 : 0.4))));
-        c.set(k % W, (k / W) | 0, TRAIL_RAMP[Math.max(0, i)]);
-      }
+      if (best >= 0) c.set(k % W, (k / W) | 0, TRAIL[best]);
     }
+    // beads: a 2x2 white dot (nearest pixel seam to the true position) inside a 1 px halo
     for (const h of heads) {
-      const [px, py] = arcPoint(arcs[h.ring], h.u);
-      for (let y = Math.floor(py - 3); y <= Math.ceil(py + 3); y++) for (let x = Math.floor(px - 3); x <= Math.ceil(px + 3); x++) {
-        if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
-        const k = y * W + x, owner = mark.owner.get(k);
-        if (owner !== undefined && owner !== h.ring && !mark.gap.has(k)) continue;     // passes under the ring that is over it here
-        const d = Math.hypot(x + 0.5 - px, y + 0.5 - py);
-        if (d <= 0.9) c.set(x, y, '#ffffff');
-        else if (d <= 1.6) c.set(x, y, '#e6e6e6');
-        else if (d <= 2.3) c.set(x, y, mix(c.get(x, y), '#e0e0e0', 0.26));
+      const [px, py] = arcPoint(arcs[h.ring], h.u), bx = Math.round(px) - 1, by = Math.round(py) - 1;
+      const free = (x, y) => { const o = mark.owner.get(y * W + x); return x > 0 && y > 0 && x < W - 1 && y < H - 1 && !(o !== undefined && o !== h.ring && !mark.gap.has(y * W + x)); };
+      for (let y = by - 1; y <= by + 2; y++) for (let x = bx - 1; x <= bx + 2; x++) {
+        if (!free(x, y)) continue;
+        const inner = x >= bx && x <= bx + 1 && y >= by && y <= by + 1, corner = (x < bx || x > bx + 1) && (y < by || y > by + 1);
+        if (inner) c.set(x, y, '#ffffff');
+        else lit(c, x, y, corner ? 0.14 : 0.34);
       }
     }
     return c;

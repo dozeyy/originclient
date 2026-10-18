@@ -1,21 +1,4 @@
 {
   "_": "Items that are ALREADY ON SALE in the service (round 1) but have no v2 item.mjs yet. build.mjs still writes them into services/cosmetics/src/catalog.gen.js so the price list never loses a sellable item, but they are NOT in the store catalog.json (nothing to render). When you draw one: create cosmetics/items/<id>/item.mjs and DELETE its line here (the build fails if an id is in both). Fields are exactly the catalog.gen.js ones.",
-  "items": {
-    "halo-orbit": {
-      "name": "Orbit Halo",
-      "cents": 799,
-      "slot": "head",
-      "kind": "halo",
-      "onSale": true,
-      "plusOnly": false
-    },
-    "halo-gold": {
-      "name": "Golden Halo",
-      "cents": 599,
-      "slot": "head",
-      "kind": "halo",
-      "onSale": true,
-      "plusOnly": false
-    }
-  }
+  "items": {}
 }

@@ -9,10 +9,10 @@ using System.Windows.Threading;
 namespace OriginLauncher.App.UI.Controls;
 
 // The opening animation. Rules it keeps:
-// - Never slows startup: MainWindow builds Home before this plays, and the
-//   intro only covers the window for the ~0.8 s the first render + idle takes
-//   anyway. It leaves at max(animation end, UI ready), never later than
-//   HardCap, and any click or key skips it.
+// - Short and skippable: MainWindow builds Home before this plays, so nothing
+//   waits on the intro except the player's eyes - about 0.85 s in all (0.65 s
+//   of rings, a 0.2 s fade) - and any click or key skips it at once. It
+//   leaves at max(animation end, UI ready), never later than HardCap.
 // - Honest: no progress bar. "Ready" is the one real signal - the window has
 //   rendered (ContentRendered) and the dispatcher reached ApplicationIdle.
 // - Windows' "Show animations" off (App.DisableMotion zeroes Motion.Scene):
@@ -21,10 +21,10 @@ namespace OriginLauncher.App.UI.Controls;
 // - Gone for good afterwards: it removes itself from the visual tree.
 public partial class StartupIntro : UserControl
 {
-    private static readonly TimeSpan RingStagger = TimeSpan.FromMilliseconds(70);
-    private static readonly TimeSpan RingDraw = TimeSpan.FromMilliseconds(560);
-    private static readonly TimeSpan RingTurn = TimeSpan.FromMilliseconds(700);
-    private static readonly TimeSpan Exit = TimeSpan.FromMilliseconds(260);
+    private static readonly TimeSpan RingStagger = TimeSpan.FromMilliseconds(55);
+    private static readonly TimeSpan RingDraw = TimeSpan.FromMilliseconds(460);
+    private static readonly TimeSpan RingTurn = TimeSpan.FromMilliseconds(540);
+    private static readonly TimeSpan Exit = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan SkipExit = TimeSpan.FromMilliseconds(120);
     private static readonly TimeSpan HardCap = TimeSpan.FromMilliseconds(2200);
     // The rings start stacked at this angle and swing out to OriginMark's 0/60/120.
