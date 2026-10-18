@@ -127,6 +127,8 @@ public partial class App : Application
         Resources["Motion.Release"] = none;
         Resources["Motion.Scene"] = none;
         Resources["Motion.Exit"] = none;
+        Resources["Motion.Intro"] = none;
+        Resources["Motion.Handoff"] = none;
     }
 
     // Removes the pre-2026-10-13 sign-in browser profile

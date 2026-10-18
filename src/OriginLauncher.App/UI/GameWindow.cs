@@ -22,6 +22,19 @@ public static class GameWindow
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(int dwProcessId);
+
+    /// <summary>
+    /// Lets a game the launcher just started take the focus when its window
+    /// opens (Windows only lets the foreground app grant that). Never throws.
+    /// </summary>
+    public static void AllowForeground(Process process)
+    {
+        try { AllowSetForegroundWindow(process.Id); }
+        catch { /* the process went away, or no permission — the game opens behind */ }
+    }
+
     /// <summary>True when the game's window was found and asked to come forward. Never throws.</summary>
     public static bool BringToFront(Process process)
     {

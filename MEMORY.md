@@ -5178,3 +5178,73 @@ Verification so far: stub-compiled (javac 21) against signatures copied from
 the real Sodium 0.6.13 / MC 1.21.1 / Mod Menu 11.0.4 sources. NOT yet built with
 Gradle nor runClient-smoke-tested (sandbox can't reach Fabric maven) — needs
 `gradlew runClient`, open Video Settings, confirm zero `Mixin apply ... failed`.
+
+## 2026-10-18 — 1.21.1: Resource Pack Hub, frame-time stats, Origin Render (branch claude/origin-client-development-4790bv)
+Built for 1.21.1 only. Full detail is in `DEVELOPMENT_REPORT.md`. Nothing is in `shared/`.
+- **Pack Hub** (`packs/`): Modrinth browse/install/update/order. It hangs off vanilla's Resource Packs screen through `PackSelectionScreenAccessor`. Tests: `tools/packhub-tests` (73).
+- **FPS module options**: 1% low, frame time and frame-time graph. Data comes from `hud/FrameStats`, timed at `GameRenderer.render` HEAD.
+- **Origin Render** (Settings → Performance, off by default): GPU two-phase Hi-Z occlusion culling of Sodium 0.6.13's SOLID and CUTOUT passes.
+  - `SodiumChunkRendererMixin` (HEAD of `DefaultChunkRenderer.render`, cancellable) hands the pass to `render/terrain/OriginRender`.
+  - That class re-runs Sodium's section loop (same face culling and region offset), using Sodium's own begin/end and tessellation through the `Sodium*Accessor` mixins. Draws are `glMultiDrawElementsIndirect`.
+  - The GPU half is `TerrainCuller` + `TerrainShaders`: pure LWJGL, GL 4.5. Tests: `tools/origin-render-tests` (37, Mesa llvmpipe under xvfb).
+  - It never touches texture units 0–11, the tracked ARRAY/ELEMENT buffers or the VAO. It uses units 14/15, SSBO 0–6 and image units 0–1, all unbound after use.
+  - Falls back to Sodium when a shaderpack is on, there's no GL 4.5, the draw FBO isn't main, or on any throw or GL error. The last two disable it for the session. The F3 line says why.
+  - Two-phase only lets something skip a draw when depth drawn in the same frame proves it hidden, so no pop-in.
+- **Licensing**: written from scratch. Not forked from Sodium (PolyForm Shield), Nvidium (NVIDIA-only, off with shaders) or Voxy (ARR).
+- **Unverified**: Gradle build, runClient mixin apply, any FPS gain.
+- **Next if it measures well**: occlusion-cull entities and block entities against the same pyramid; replace the 4096-slot hint hash with region ids at high render distance.
+
+## 2026-10-18 — Launch journey (launcher → game handshake + transitions, 1.21.1)
+- **Handshake**: launcher passes `-Dorigin.handoff=<32-hex token>` (last JVM arg); mod `OriginHandoff` (preLaunch entrypoint + END_CLIENT_TICK) logs `origin-handoff <token> hello|loading|ready` via slf4j → stdout, which `StartWithLifecycleCapture` already reads. No socket/pipe/file. `Core/Launch/GameHandoff.cs` is pure + unit-tested; fallbacks 3 s no-hello = old build, 20 s lower scene, 90 s ready.
+- **Only 1.21.1 speaks it** so far; other versions use the fallback (= old behaviour). Porting = OriginHandoff + preLaunch entry + the renderLoading `loading()` call per module.
+- **Loading → title**: `LoadingOverlayRevealMixin` HEAD-cancels ONLY after `fadeOutStart` is set (completion already ran), 560 ms dissolve via `OriginScreenRenderer.shade()`/`layerAlpha` (all shader colours in that file go through shade). `TitleScreenFadeMixin` skips vanilla's 2 s fade (vanilla draws no widgets/logo for its first second).
+- **World entry**: `StartupTransition.drawWorldEntry` at GuiHudMixin RETURN, armed by `renderLoadingScene0`.
+- Launcher XAML can't build in the sandbox (BG1002); type-check via stubs from x:Name (scratch `wpfcheck/gen.py`).
+- **Verified by video (dev-shots, CI)**: all mixins apply (0 failures); dissolve + world fade visible. The film caught 2 bugs: reveal clock counted from
+  `fadeOutStart` (before the slow first title frame → dissolve skipped) — now starts after its first drawn frame; HUD/menu labels sit at higher z
+  (LayeredDraw +200/layer) and beat a z-0 cover in the depth test — both covers now `flush` + `RenderSystem.clear(GL_DEPTH_BUFFER_BIT)` first.
+- **Filming dev-shots**: dispatch with `video: true` → `loading.mp4` + `x-probe.txt` in claude/dev-shots `<mc>-<set>-video/`. GOTCHA: Fabric Loom wraps
+  `runClient` in its own `xvfb-run -a` (1280x1024, cookie-locked display) whenever env `CI` is set — so the game is NEVER on the workflow's Xvfb.
+  The filmed path runs `env -u CI ./gradlew runClient` and reads DISPLAY/XAUTHORITY from the game's /proc environ. llvmpipe ≈ 1–13 fps, so
+  short fades show only 1–3 frames.
+
+## 2026-10-18 — Launch experience v2 (Will's picks, built — awaiting Will's in-game pass)
+Will (verbatim gist): click Play → custom motion graphics / morphing / fun effects, NOTHING may feel like a cut, seamless Play →
+game loading → main menu; main menu should feel like everything else; world loading custom but "keep that loading vibe, not
+some random animation". Also: resume automatically after usage limits reset (scheduled task "Origin launch v2 — resume").
+Picks (AskUserQuestion): **Play = "Rings come alive"** (Play button shrinks into the Origin mark, its 3 rings unfold, spin up and
+morph into the loading scene's big orbiting rings, which become the game's loading screen). **Handoff = launcher morphs into the
+game window** (launcher scene glides/stretches to the game window's exact rect, lines up with the game's identical loading frame,
+melts away). **Main menu = "Living rings"** (no panorama; loading rings stay, slow, drift behind the menu, parallax toward mouse;
+logo = rings settling). **World load = "Rings open into the world"** (menu rings swing back into the loading orbit with real
+progress; when ready, rings expand past the screen edges like a lens opening and the world appears inside).
+Order of work: 1.21.1 + launcher only (working order). Plan/status lines below get appended as steps land.
+- Landed: 49d2acd (game: RingField title rings, world-load rings + lens, real chunk progress) and b3dcd8f (launcher
+  LoadingScene = the game's loading screen re-drawn in WPF by the same formulas; Play assemble; window handoff:
+  `-Dorigin.handoff.window=cx,cy` → mod hides the window (GLFW_VISIBLE false before glfwCreateWindow,
+  WindowHandoffMixin), centres it there, prints `window x,y,w,h,scale`, ramps opacity after 620 ms; launcher's
+  SceneHandoffWindow glides onto the rect, melts at `loading`). Spec: docs/MOTION.md.
+- Gotchas: Button.Base's ScaleTransform is frozen (style-shared) — give a button its own before animating it. LoadingScene
+  wall-clock ring angles keep both halves aligned. Launcher is system-DPI aware: screen px / TransformToDevice.M11 = DIP.
+  Unverified until Will runs it: GLFW hidden-window + setMode interplay on Windows, mixed-DPI glide accuracy.
+
+## 2026-10-18 — Screen-open lag (Will's report; built on 1.21.1, awaiting his pass)
+Will, verbatim: "also the loading lag whenever loading into screens shouldn't be there it's annoying and makes my pc feel
+slow even if it isn't slow". Reported right after launch experience v2 landed (7f08f27). Wants it gone: opening a screen must
+feel instant. To do (1.21.1 first): find what runs on every screen open — deliberate entrance fades/rises/blur ramps that delay
+input, and real per-open work that hitches a frame (texture/file loads, framebuffer/blur passes, widget rebuilds) — then cut the
+cost and keep motion short and never blocking. Ask Will which screens/moments he means if it isn't obvious from the code.
+Will's answers: it's the Origin loading screen ("the rings are jumpy and the loading bar isn't smooth", visible in the dev-shots
+video too); feel = "Snappy" (screens open and take clicks at once, fades <= 0.12 s never delay anything, closing instant, the
+menu intro once per game start). Causes: frames arrive unevenly during the resource reload and wall-clock motion turns each slow
+frame into a skip; bar ends moved in whole GUI units; vanilla's currentProgress is smoothed per FRAME (crawls at low fps, never
+full before the dissolve, then jumps); the launcher re-tessellated + re-blurred its rings every frame. Built:
+- RingField.sceneMs(): smoothed scene clock (step <= 33 ms, owed time repaid at +30%, debt cap 1 s). Rings, sweep, scene/startup
+  bar fill and the wordmark build all run on it. Rings start at wall-clock angles (launcher sync) and may drift <= ~1 s after.
+- Startup bar reads the reload's real progress via LoadingOverlayAccessor (loading config, required:false; falls back to
+  currentProgress) and glides (FILL_TAU 140 ms); the dissolve keeps gliding it to full. fillSmooth(): sub-pixel bar ends.
+- Launcher LoadingScene: steady frames only set each ring's RotateTransform.Angle (no OnRender, no blur radius change);
+  SlideFill sub-pixel bar ends, _front SnapsToDevicePixels off.
+- Snappy: OriginWindow + OriginModMenuScreen close instantly (beginClose -> setScreen(returnTo) when still the screen; no
+  click-blocking close fade), open/page fades 110 ms, card stagger capped (<= 8 rows x 8 ms, 110 ms each), HUD editor + colour
+  picker 110 ms, title entrance once per game start (TitleScreenMixin openedAt static). Untouched: MenuBlur (a setting).

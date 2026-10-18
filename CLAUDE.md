@@ -195,6 +195,7 @@ floating corner controls. In-game menus match this exactly.
 ## Roadmap (open items)
 - [~] 1.8.9 and 26.1–26.3 — live, awaiting Will's in-game pass.
 - [ ] 1.21.9 (pulled), 1.18.1 (no stable Sodium/Iris), crash system v2, light theme.
+- [~] Screen-open lag (Will, 2026-10-18): smooth loading scenes + snappy menus built on 1.21.1, awaiting Will's in-game pass; then port. MEMORY.md → 2026-10-18 screen-open lag.
 
 ## Token discipline (Claude Lean — `.claude/hooks/lean/README.md`)
 Usage is ~all re-reading of the conversation, so what enters it stays forever.
