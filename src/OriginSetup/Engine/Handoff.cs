@@ -1,3 +1,6 @@
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+
 namespace OriginSetup.Engine;
 
 // Writes the Customize-page choices for the launcher to apply on its next
@@ -41,21 +44,35 @@ public static class Handoff
 
     /// <summary>
     /// Whether an existing install already has Settings Sync on, so an update
-    /// over it opens the Customize page showing the real state. Read-only; a
-    /// missing or unreadable file means off (the launcher's default).
+    /// over it opens the Customize page showing the real state. Read-only and
+    /// never throws: a missing, unreadable or malformed file, or a
+    /// SettingsSyncEnabled that is not a top-level JSON true, means off (the
+    /// launcher's default). Parsed with the same DataContractJsonSerializer the
+    /// release feed uses (System.Text.Json is not in .NET Framework 4.7.2), so a
+    /// string that merely contains the key text can't be mistaken for it.
     /// </summary>
     public static bool IsSettingsSyncOn(string settingsPath)
     {
         try
         {
-            return File.Exists(settingsPath) &&
-                   System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(settingsPath),
-                       "\"SettingsSyncEnabled\"\\s*:\\s*true");
+            if (!File.Exists(settingsPath)) return false;
+            using var stream = File.OpenRead(settingsPath);
+            var read = new DataContractJsonSerializer(typeof(SettingsProbe)).ReadObject(stream) as SettingsProbe;
+            // Typed as object so "true" and 1 stay a string / number: only a real JSON true counts.
+            return read?.SettingsSyncEnabled is bool on && on;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception)
         {
+            // Read-only probe: whatever goes wrong (IO, access, bad JSON, a
+            // wrong-typed value), the answer is the launcher's default, off.
             return false;
         }
+    }
+
+    [DataContract]
+    private sealed class SettingsProbe
+    {
+        [DataMember(Name = "SettingsSyncEnabled")] public object? SettingsSyncEnabled { get; set; }
     }
 
     public static string SettingsPath => Path.Combine(DataRoot, "settings.json");

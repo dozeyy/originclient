@@ -44,6 +44,7 @@
     <!-- The installer -> launcher hand-off: the launcher's reader/apply rules and the installer's
          own writer, round-tripped in SetupHandoffTests (never the real settings.json). -->
     <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesData.cs" LinkBase="Install" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesFile.cs" LinkBase="Install" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Install" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Install" />
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" LinkBase="Install" />

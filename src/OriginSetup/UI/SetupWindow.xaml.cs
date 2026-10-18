@@ -529,6 +529,7 @@ public partial class SetupWindow : Window
     internal void TourCustomize(string? problem, bool syncOn = false)
     {
         _existing = null;
+        _syncInitial = syncOn; // baseline too, so the render matches what Install would write
         SyncToggle.IsChecked = syncOn;
         FillWelcome();
         LocationBox.IsReadOnly = false;

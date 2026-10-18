@@ -137,10 +137,6 @@ public partial class SettingsPage : UserControl
         OriginClientConfigBridge.SetOriginUiEnabled(false);
     }
 
-    // Turning Settings Sync on also builds its store from every installed
-    // version (newest file wins per setting, so nothing the player set is
-    // lost) — on a worker thread, since it reads every instance. Turning it off
-    // only stops syncing: every version keeps exactly what it has.
     /// <summary>Render mode only (UI/RenderShots.cs): shows the switch On/Off without running its handlers (no settings write, no seeding).</summary>
     internal void TourSetSettingsSync(bool on)
     {
@@ -149,6 +145,10 @@ public partial class SettingsPage : UserControl
         _isLoading = false;
     }
 
+    // Turning Settings Sync on also builds its store from every installed
+    // version (newest file wins per setting, so nothing the player set is
+    // lost) — on a worker thread, since it reads every instance. Turning it off
+    // only stops syncing: every version keeps exactly what it has.
     private void SettingsSyncToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;

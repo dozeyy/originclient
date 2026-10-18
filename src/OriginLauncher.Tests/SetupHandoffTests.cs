@@ -91,6 +91,16 @@ public class SetupHandoffTests
     [InlineData("{\n  \"SettingsSyncEnabled\":true,\n  \"RamMb\": 4096\n}", true)]
     [InlineData("{ \"SettingsSyncEnabled\": false }", false)]
     [InlineData("{ \"RamMb\": 4096 }", false)]
+    // Not a top-level true: the key text inside a string value, a nested object, a wrong type,
+    // garbage, an empty file or a non-object root must all read as off, never throw.
+    [InlineData("{ \"Note\": \"\\\"SettingsSyncEnabled\\\": true\" }", false)]
+    [InlineData("{ \"Other\": { \"SettingsSyncEnabled\": true } }", false)]
+    [InlineData("{ \"SettingsSyncEnabled\": \"true\" }", false)]
+    [InlineData("{ \"SettingsSyncEnabled\": 1 }", false)]
+    [InlineData("{ \"SettingsSyncEnabled\": null }", false)]
+    [InlineData("{ not json", false)]
+    [InlineData("", false)]
+    [InlineData("[true]", false)]
     public void TheInstallerReadsTheExistingSettingsSyncState(string settingsJson, bool expected)
     {
         var path = Path.Combine(Directory.CreateTempSubdirectory("handoff").FullName, "settings.json");
@@ -102,5 +112,69 @@ public class SetupHandoffTests
     public void ASettingsFileThatIsMissingMeansOff()
     {
         Assert.False(Handoff.IsSettingsSyncOn(Path.Combine(Path.GetTempPath(), "origin-no-such-" + Guid.NewGuid().ToString("N"), "settings.json")));
+    }
+
+    // ---- SetupChoicesFile: the launcher's file shell (read, apply, always delete) ----
+
+    private static string TempFile(string? content)
+    {
+        var path = Path.Combine(Directory.CreateTempSubdirectory("choices").FullName, Handoff.FileName);
+        if (content != null) File.WriteAllText(path, content);
+        return path;
+    }
+
+    [Fact]
+    public void TheFileIsAppliedThenDeleted()
+    {
+        var path = TempFile(Handoff.Compose(8192, "1.21.1", true));
+        SetupChoicesData? seen = null;
+        SetupChoicesFile.Consume(path, c => seen = c);
+        Assert.NotNull(seen);
+        Assert.Equal(8192, seen!.RamMb);
+        Assert.True(seen.SettingsSyncEnabled);
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void AMissingFileIsANoOp()
+    {
+        var path = TempFile(null);
+        var called = false;
+        SetupChoicesFile.Consume(path, _ => called = true);
+        Assert.False(called);
+    }
+
+    [Theory]
+    [InlineData("{ not json")]
+    [InlineData("")]
+    [InlineData("[1, 2]")]
+    // Wrong-typed fields: parse throws JsonException inside the try; must not crash startup.
+    [InlineData("{ \"RamMb\": \"lots\" }")]
+    [InlineData("{ \"SettingsSyncEnabled\": \"yes\" }")]
+    [InlineData("{ \"SelectedVersion\": 5 }")]
+    public void AMalformedFileIsToleratedAndStillDeleted(string content)
+    {
+        var path = TempFile(content);
+        var called = false;
+        SetupChoicesFile.Consume(path, _ => called = true);
+        Assert.False(called);
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void AFileWhoseApplyFailsWithAnIoErrorIsToleratedAndStillDeleted()
+    {
+        var path = TempFile(Handoff.Compose(4096, null, null));
+        SetupChoicesFile.Consume(path, _ => throw new IOException("settings.json is locked"));
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void AnUnexpectedApplyFailureStillDeletesTheFileBeforeItPropagates()
+    {
+        // Not swallowed (a real bug should surface) but the file must not linger and re-apply every start.
+        var path = TempFile(Handoff.Compose(4096, null, null));
+        Assert.Throws<InvalidOperationException>(() => SetupChoicesFile.Consume(path, _ => throw new InvalidOperationException()));
+        Assert.False(File.Exists(path));
     }
 }
