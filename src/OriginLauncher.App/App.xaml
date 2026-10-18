@@ -14,6 +14,8 @@
                 <ResourceDictionary Source="Theme/Inputs.xaml"/>
                 <ResourceDictionary Source="Theme/Brand.xaml"/>
                 <ResourceDictionary Source="Theme/Icons.xaml"/>
+                <ResourceDictionary Source="Theme/Menus.xaml"/>
+                <ResourceDictionary Source="Theme/Social.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <Style TargetType="Button" BasedOn="{StaticResource Button.Secondary}"/>

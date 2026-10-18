@@ -21,6 +21,12 @@ public static class RenderShots
 {
     public static void Run(string outDir)
     {
+        // `--social`: only the Friends / party / chat surfaces, every state (UI/SocialShots.cs).
+        if (Environment.GetCommandLineArgs().Contains("--social"))
+        {
+            SocialShots.Run(outDir);
+            return;
+        }
         Directory.CreateDirectory(outDir);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         SocialHub.OnlineCountOverride = 1284;
@@ -216,7 +222,7 @@ public static class RenderShots
     }
 
     /// <summary>Runs the dispatcher for a while so layout, bindings and animations settle.</summary>
-    private static void Pump(int milliseconds)
+    internal static void Pump(int milliseconds)
     {
         var frame = new DispatcherFrame();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };
@@ -229,7 +235,7 @@ public static class RenderShots
         Dispatcher.PushFrame(frame);
     }
 
-    private static void Snap(Window window, string dir, string name)
+    internal static void Snap(Window window, string dir, string name)
     {
         window.UpdateLayout();
         var root = (FrameworkElement)window.Content;

@@ -287,6 +287,8 @@ public partial class MainWindow : Window
 
     internal FriendsPanel TourFriendsPanel => _friendsPanel;
 
+    internal bool TourFriendsOpen => _friendsOpen;
+
     internal void TourSetFriendsOpen(bool open) => SetFriendsOpen(open);
 
     internal void TourShowToast(SocialToast toast) => Toasts.Show(toast);

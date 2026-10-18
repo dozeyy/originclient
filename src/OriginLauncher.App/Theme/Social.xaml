@@ -1,0 +1,180 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:system="clr-namespace:System;assembly=mscorlib">
+
+    <!-- Friends / party / chat (the drawer and its toasts). Built only from the
+         tokens in Colors / Typography / Spacing / Buttons / Surfaces: change those
+         and the whole social surface follows. The values that are only about this
+         surface's rhythm live here. -->
+
+    <system:Double x:Key="Social.AvatarSize">32</system:Double>
+    <system:Double x:Key="Social.IconSize">28</system:Double>
+    <Thickness x:Key="Social.Gutter">16,0</Thickness>
+
+    <!-- One person: first letter on a raised block (no skin fetch: the launcher
+         talks to no third-party image service). -->
+    <Style x:Key="Social.Avatar" TargetType="Border">
+        <Setter Property="Width" Value="{StaticResource Social.AvatarSize}"/>
+        <Setter Property="Height" Value="{StaticResource Social.AvatarSize}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Swatch}"/>
+    </Style>
+
+    <Style x:Key="Social.Initial" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+    </Style>
+
+    <!-- The presence dot sits on the avatar's corner; its ring is the drawer colour. -->
+    <Style x:Key="Social.Dot" TargetType="Ellipse">
+        <Setter Property="Width" Value="11"/>
+        <Setter Property="Height" Value="11"/>
+        <Setter Property="HorizontalAlignment" Value="Right"/>
+        <Setter Property="VerticalAlignment" Value="Bottom"/>
+        <Setter Property="Margin" Value="0,0,-3,-3"/>
+        <Setter Property="Fill" Value="{StaticResource Brush.Success}"/>
+        <Setter Property="Stroke" Value="{StaticResource Brush.PanelElevated}"/>
+        <Setter Property="StrokeThickness" Value="2"/>
+    </Style>
+
+    <Style x:Key="Social.Name" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="LineHeight" Value="18"/>
+    </Style>
+
+    <Style x:Key="Social.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+        <Setter Property="LineHeight" Value="16"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <Style x:Key="Social.Section" TargetType="TextBlock" BasedOn="{StaticResource Text.Eyebrow}">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Placeholder text over an empty TextBox (Input.TextBox has none). -->
+    <Style x:Key="Social.Hint" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+        <Setter Property="Margin" Value="13,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+
+    <!-- A list row you can press (the whole row opens the conversation): a flat
+         wash on hover, the accent frame on keyboard focus. Inner buttons keep
+         their own clicks. -->
+    <Style x:Key="Social.RowFocus">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border BorderBrush="{StaticResource Brush.Accent}" BorderThickness="2"
+                            CornerRadius="{StaticResource Radius.Row}" IsHitTestVisible="False"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Social.Row" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Margin" Value="0,0,0,2"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Social.RowFocus}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource Radius.Row}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Card}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A row that is not itself pressable (requests, invites, members). -->
+    <Style x:Key="Social.RowStatic" TargetType="Border">
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Margin" Value="0,0,0,2"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Small text buttons: ghost for secondary, filled for the row's one primary. -->
+    <Style x:Key="Social.Action" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="Padding" Value="10,4"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+        <Setter Property="Margin" Value="6,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="Social.ActionPrimary" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+        <Setter Property="Padding" Value="10,4"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
+        <Setter Property="Margin" Value="6,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Effect" Value="{x:Null}"/>
+    </Style>
+
+    <!-- Icon-only button (always has a tooltip and an automation name). -->
+    <Style x:Key="Social.Icon" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
+        <Setter Property="Width" Value="{StaticResource Social.IconSize}"/>
+        <Setter Property="Height" Value="{StaticResource Social.IconSize}"/>
+        <Setter Property="Padding" Value="7"/>
+        <Setter Property="Margin" Value="2,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Hairline (chat day dividers, chat top edge). -->
+    <Style x:Key="Social.Divider" TargetType="Border">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{StaticResource Brush.SoftStroke}"/>
+    </Style>
+
+    <!-- A one-line status strip (notice, reconnecting). -->
+    <Style x:Key="Social.Strip" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="Margin" Value="16,0,16,10"/>
+    </Style>
+
+    <!-- A section's heading row. -->
+    <Style x:Key="Social.SectionButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="2,0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Social.RowFocus}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                            CornerRadius="{StaticResource Radius.Control}">
+                        <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

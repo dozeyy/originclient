@@ -17,10 +17,11 @@ public sealed class ToastVm
     public string Title => Toast.Title;
     public string Body => Toast.Body;
 
-    /// <summary>Warp → JOIN, request / invite → ACCEPT; DMs and notices just open the drawer.</summary>
+    /// <summary>Warp → JOIN, request / invite → ACCEPT, DM → REPLY (opens that chat); notices just open the drawer.</summary>
     public string? ActionText => Toast.Kind switch
     {
         SocialToastKind.Warp => "JOIN",
+        SocialToastKind.Message => "REPLY",
         SocialToastKind.FriendRequest or SocialToastKind.PartyInvite => "ACCEPT",
         _ => null,
     };
@@ -94,7 +95,9 @@ public partial class SocialToastHost : UserControl
     {
         if (Vm(sender) is not { } vm) return;
         Remove(vm);
-        ActionClicked?.Invoke(vm.Toast);
+        // REPLY is "open the chat", the same as pressing the card.
+        if (vm.Toast.Kind == SocialToastKind.Message) Opened?.Invoke(vm.Toast);
+        else ActionClicked?.Invoke(vm.Toast);
     }
 
     private void Dismiss_Click(object sender, RoutedEventArgs e)
