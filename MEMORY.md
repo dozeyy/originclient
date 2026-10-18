@@ -5207,3 +5207,10 @@ Order of work: 1.21.1 + launcher only (working order). Plan/status lines below g
 - Gotchas: Button.Base's ScaleTransform is frozen (style-shared) — give a button its own before animating it. LoadingScene
   wall-clock ring angles keep both halves aligned. Launcher is system-DPI aware: screen px / TransformToDevice.M11 = DIP.
   Unverified until Will runs it: GLFW hidden-window + setMode interplay on Windows, mixed-DPI glide accuracy.
+
+## 2026-10-18 — Screen-open lag (Will's report, open)
+Will, verbatim: "also the loading lag whenever loading into screens shouldn't be there it's annoying and makes my pc feel
+slow even if it isn't slow". Reported right after launch experience v2 landed (7f08f27). Wants it gone: opening a screen must
+feel instant. To do (1.21.1 first): find what runs on every screen open — deliberate entrance fades/rises/blur ramps that delay
+input, and real per-open work that hitches a frame (texture/file loads, framebuffer/blur passes, widget rebuilds) — then cut the
+cost and keep motion short and never blocking. Ask Will which screens/moments he means if it isn't obvious from the code.
