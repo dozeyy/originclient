@@ -5187,3 +5187,15 @@ Built for 1.21.1 only. Full detail is in `DEVELOPMENT_REPORT.md`. Nothing is in 
   `runClient` in its own `xvfb-run -a` (1280x1024, cookie-locked display) whenever env `CI` is set — so the game is NEVER on the workflow's Xvfb.
   The filmed path runs `env -u CI ./gradlew runClient` and reads DISPLAY/XAUTHORITY from the game's /proc environ. llvmpipe ≈ 1–13 fps, so
   short fades show only 1–3 frames.
+
+## 2026-10-18 — Launch experience v2 (Will's picks, in progress)
+Will (verbatim gist): click Play → custom motion graphics / morphing / fun effects, NOTHING may feel like a cut, seamless Play →
+game loading → main menu; main menu should feel like everything else; world loading custom but "keep that loading vibe, not
+some random animation". Also: resume automatically after usage limits reset (scheduled task "Origin launch v2 — resume").
+Picks (AskUserQuestion): **Play = "Rings come alive"** (Play button shrinks into the Origin mark, its 3 rings unfold, spin up and
+morph into the loading scene's big orbiting rings, which become the game's loading screen). **Handoff = launcher morphs into the
+game window** (launcher scene glides/stretches to the game window's exact rect, lines up with the game's identical loading frame,
+melts away). **Main menu = "Living rings"** (no panorama; loading rings stay, slow, drift behind the menu, parallax toward mouse;
+logo = rings settling). **World load = "Rings open into the world"** (menu rings swing back into the loading orbit with real
+progress; when ready, rings expand past the screen edges like a lens opening and the world appears inside).
+Order of work: 1.21.1 + launcher only (working order). Plan/status lines below get appended as steps land.
