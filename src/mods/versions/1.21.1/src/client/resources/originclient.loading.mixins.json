@@ -11,8 +11,7 @@
 		"ProgressScreenMixin",
 		"ConnectScreenMixin",
 		"LoadingOverlayRevealMixin",
-		"TitleScreenFadeMixin",
-		"WindowHandoffMixin"
+		"TitleScreenFadeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
