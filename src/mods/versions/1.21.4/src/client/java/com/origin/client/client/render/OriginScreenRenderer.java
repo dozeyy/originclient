@@ -306,19 +306,30 @@ public final class OriginScreenRenderer {
 	private static final int WARM_INK = 0x08FFFFFF;
 	private static int warmed;   // bit set of the warm-up steps done
 
+	/** True once the startup reload behind the loading overlay has finished every task. */
+	private static boolean reloadDone(Minecraft mc) {
+		if (!(mc.getOverlay() instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor overlay)) {
+			return false;
+		}
+		net.minecraft.server.packs.resources.ReloadInstance reload = overlay.originclient$reload();
+		return reload != null && reload.isDone();
+	}
+
 	private static void warmTitle(GuiGraphics guiGraphics, boolean loadDone) {
 		if (warmed == WARM_ALL) {
 			return;
 		}
 		try {
 			Minecraft mc = Minecraft.getInstance();
-			// The icon atlas waits for the finished load (the menu screen exists only then).
-			// On 1.21.2-1.21.4 ModIcons asks the ShaderManager for the icon program, and
-			// asking before the manager has loaded this pack's shaders fails into
+			// The icon atlas waits until the reload has fully finished. On 1.21.2-1.21.4
+			// ModIcons asks the ShaderManager for the icon program, and asking before the
+			// manager has loaded this pack's shaders fails into
 			// Minecraft.triggerResourcePackRecovery: the loading screen is dropped mid-load
 			// and every screen after it renders black (dev-shots 1.21.4-handoff-fix3; the
-			// same trap as GuiMesh's RENDERTYPE_GUI note).
-			if ((warmed & 1) == 0 && mc.screen != null) {
+			// same trap as GuiMesh's RENDERTYPE_GUI note). mc.screen is NOT a safe signal
+			// here (a screen already exists mid-load: dev-shots 1.21.4-handoff-fix4). No
+			// readable reload (accessor not applied) = never: the menu loads icons itself.
+			if ((warmed & 1) == 0 && reloadDone(mc)) {
 				warmed |= 1;
 				com.origin.client.client.gui.ModIcons.has("@title-singleplayer");   // decodes the icon atlases
 				return;
@@ -326,6 +337,11 @@ public final class OriginScreenRenderer {
 			if ((warmed & 2) == 0) {
 				warmed |= 2;
 				com.origin.client.client.gui.OriginUi.ready();   // decodes the panel/switch/logo textures
+				return;
+			}
+			// Every warm draw below waits for the finished reload too, for the same
+			// reason as the icon step: no draw may ask the ShaderManager mid-load.
+			if (!reloadDone(mc)) {
 				return;
 			}
 			boolean drew = false;
