@@ -30,7 +30,7 @@ just the dated section you need with offset/limit).
 - Stripe products: 12 live `origin-<id>` products (tax txcd_10201000, exclusive prices) made for Stripe's setup
   checklist; dashboard-only, checkout still uses inline price_data from CATALOG.
 - Webhook we_1URaDTKh5W1iETe3Huscq1c8 created via API at Will's ask ("setup what you can"); its first secret hit the
-  transcript, so Will rolls it (expire Now) before pasting into Cloudflare. Stripe Tax now active (head office set).
+  transcript, so Will rolled it (expire Now) and put it in Cloudflare (done 2026-10-17, Will confirmed 2026-10-18). Stripe Tax now active (head office set).
   Default payment-method config: Google Pay was OFF (store copy promises it) -> Will turns it on in the dashboard.
 - Stripe branding set via API (checkout bg #0d0d0e, button #e0e0e0, Inter); tax defaults exclusive + txcd_10201000.
   Icon can't be uploaded via MCP: Will uploads the PNG (Settings -> Branding). No browser/computer tools in cloud.
