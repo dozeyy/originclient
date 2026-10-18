@@ -568,7 +568,7 @@ public class OriginModMenuScreen extends Screen {
 		d.hit(cx, 16, 32, 32, this::beginClose);
 
 		boolean ehov = d.over(ex, 16, ew, 32);
-		d.rect(ex, 16, ew, 32, 6, ehov ? 0xFF83E2B5 : ACC);
+		d.rect(ex, 16, ew, 32, 6, ehov ? ACC_H : ACC);
 		d.icon("@hudeditor", ex + 14, 25, 14, ON_ACC);
 		d.textMid(eh, ex + 36, 32, 11, true, CAPS_TRACK, ON_ACC);
 		d.hit(ex, 16, ew, 32, () -> Minecraft.getInstance().gui.setScreen(new HudEditorScreen(false, this)));
@@ -784,7 +784,7 @@ public class OriginModMenuScreen extends Screen {
 		boolean on = Mods.on(id);
 		boolean hov = d.over(x, y, w, CARD_H);
 		float hp = OriginUi.hover("deck-card:" + id, hov);
-		d.rect(x, y, w, CARD_H, 8, lerp(CARD, CARD_H_FILL, hp), lerp(LINE, 0x29F1E9D2, hp));
+		d.rect(x, y, w, CARD_H, 8, lerp(CARD, OriginDeck.CARD_H, hp), lerp(LINE, 0x29F1E9D2, hp));
 		d.hit(x, y, w, CARD_H, () -> openMod(m));
 
 		float k = on ? 1f : 0.55f;
@@ -827,14 +827,13 @@ public class OriginModMenuScreen extends Screen {
 		}
 	}
 
-	private static final int CARD_H_FILL = OriginDeck.CARD_H;
 
 	private void drawRow(OriginDeck d, Mods.Mod m, float x, float y, float w) {
 		String id = m.id();
 		boolean on = Mods.on(id);
 		boolean hov = d.over(x, y, w, ROW_H);
 		float hp = OriginUi.hover("deck-row:" + id, hov);
-		d.rect(x, y, w, ROW_H, 7, lerp(CARD, CARD_H_FILL, hp), mul(0x29F1E9D2, hp));
+		d.rect(x, y, w, ROW_H, 7, lerp(CARD, OriginDeck.CARD_H, hp), mul(0x29F1E9D2, hp));
 		d.hit(x, y, w, ROW_H, () -> openMod(m));
 		d.icon(id, x + 12, y + 13, 18, on ? TEXT : mul(TEXT, 0.6f));
 		boolean isNew = showNewBadge(id);
@@ -977,7 +976,7 @@ public class OriginModMenuScreen extends Screen {
 		float bw = 14 + 14 + 8 + d.textW(l, 10.5f, true, CAPS_TRACK) + 14;
 		float bx = M + CW - 10 - bw, by = y + 128 - 10 - 30;
 		boolean hov = d.over(bx, by, bw, 30);
-		d.rect(bx, by, bw, 30, 6, hov ? 0xF0232A26 : 0xD10E1110, LINE2);
+		d.rect(bx, by, bw, 30, 6, hov ? withAlpha(OriginDeck.CARD_H, 0xF0) : 0xD10E1110, LINE2);
 		d.icon("@hudeditor", bx + 14, by + 8, 14, TEXT);
 		d.textMid(l, bx + 36, by + 15, 10.5f, true, CAPS_TRACK, TEXT);
 		d.hit(bx, by, bw, 30, () -> Minecraft.getInstance().gui.setScreen(new HudEditorScreen(false, this)));
@@ -1339,7 +1338,7 @@ public class OriginModMenuScreen extends Screen {
 		d.hit(x + 8, ry, fw, 30, () -> profileFocused = true);
 		boolean can = !profileInput.trim().isEmpty();
 		boolean ph = can && d.over(x + w - 8 - 30, ry, 30, 30);
-		d.rect(x + w - 8 - 30, ry, 30, 30, 6, can ? (ph ? 0xFF83E2B5 : ACC) : 0x14FFFFFF);
+		d.rect(x + w - 8 - 30, ry, 30, 30, 6, can ? (ph ? ACC_H : ACC) : 0x14FFFFFF);
 		d.icon("@plus", x + w - 8 - 30 + 8, fy + 8, 14, can ? ON_ACC : MUTE);
 		d.hit(x + w - 8 - 30, ry, 30, 30, this::saveProfile);
 	}

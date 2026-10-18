@@ -47,7 +47,6 @@ import com.origin.client.client.theme.OriginTheme;
 public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
-	private static final int BG_COLOR = OriginTheme.BG;
 	// The menu's one jade highlight under the rings: the radial glow tinted
 	// 0x4BC8AE at 7% alpha (0x12), 1.21.1's shade(0x4B, 0xC8, 0xAE, 0.07) as a
 	// per-blit ARGB tint (this era has no RenderSystem.setShaderColor).
@@ -256,7 +255,7 @@ public final class OriginScreenRenderer {
 		loadFillAt = scene;
 
 		// No orbit rings here (Will 2026-10-18): the moving mark is the scene.
-		guiGraphics.fill(0, 0, w, h, shade(BG_COLOR));
+		guiGraphics.fill(0, 0, w, h, shade(OriginTheme.BG));
 		drawGrain(guiGraphics, w, h);
 		drawVignette(guiGraphics, w, h);
 
@@ -331,7 +330,7 @@ public final class OriginScreenRenderer {
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
 
-		guiGraphics.fill(0, 0, w, h, BG_COLOR);
+		guiGraphics.fill(0, 0, w, h, OriginTheme.BG);
 		if (!ringsFailed) {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);
@@ -475,7 +474,7 @@ public final class OriginScreenRenderer {
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
-			guiGraphics.fill(0, 0, w, h, BG_COLOR);
+			guiGraphics.fill(0, 0, w, h, OriginTheme.BG);
 			drawMenuGlow(guiGraphics, w, h);
 			if (!ringsFailed) {
 				drawRings(guiGraphics, w, h);

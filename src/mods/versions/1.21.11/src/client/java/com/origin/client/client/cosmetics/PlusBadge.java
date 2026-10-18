@@ -21,13 +21,15 @@ import org.joml.Matrix4f;
 import java.io.InputStream;
 
 /**
- * The Origin+ badge: the Origin mark (three tilted stroke-only rings, #E0E0E0)
- * drawn small next to a member's name. Looks only. Three places draw it:
+ * The Origin badge: the Origin mark (three tilted stroke-only rings, #E0E0E0)
+ * drawn small next to the name of anyone playing on Origin (it was Origin+
+ * members only until 2026-10-18). Looks only. Three places draw it:
  *  - the nametag above the head ({@link #nametag}, called from NametagStyleMixin
  *    with vanilla's own text matrix, so sneaking / see-through / fading behave
  *    exactly like the name beside it);
  *  - the Tab player list ({@link #gui});
- *  - the friends list (gui/FriendsScreen, through OriginDeck.logo).
+ *  - the friends list (gui/FriendsScreen, through OriginDeck.logo) - there it
+ *    still marks Origin+ members, since every friend uses Origin.
  *
  * The art is textures/ui/origin_logo.png (256 px, white on transparent). A
  * 256 px picture shrunk to ~10 px by the GPU shimmers and loses the thin
@@ -68,7 +70,7 @@ public final class PlusBadge {
 
 	// ------------------------------------------------------------ nametag
 
-	/** Does this nametag text get a badge? (a loaded player whose name it is, who is an Origin+ member) */
+	/** Does this nametag text get a badge? (a loaded player whose name it is, using Origin - Will, 2026-10-18: everyone, not only Origin+) */
 	public static boolean wantsNametag(Component text) {
 		try {
 			Minecraft mc = Minecraft.getInstance();
@@ -79,7 +81,7 @@ public final class PlusBadge {
 			for (AbstractClientPlayer p : mc.level.players()) {
 				Component name = p.getDisplayName();
 				if (name != null && shown.equals(name.getString())) {
-					return CosmeticsService.isPlus(p.getUUID());
+					return CosmeticsService.usesOrigin(p.getUUID());
 				}
 			}
 			return false;

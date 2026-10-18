@@ -684,7 +684,7 @@ public class WaypointScreen extends OriginWindow {
 		float w = 24 + d.textW(caps, 11, true, CAPS_TRACK);
 		boolean hov = d.over(x, y, w, 32);
 		float hp = OriginUi.hover("wp-flag:" + label, hov);
-		d.rect(x, y, w, 32, 6, on ? lerp(ACC_SOFT, 0x385FD09B, hp) : lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
+		d.rect(x, y, w, 32, 6, on ? lerp(ACC_SOFT, withAlpha(ACC, 0x38), hp) : lerp(0x0AFFFFFF, 0x14FFFFFF, hp));
 		d.textMid(caps, x + 12, y + 16, 11, true, CAPS_TRACK, on ? ACC : lerp(MUTE, DIM, hp));
 		d.hit(x, y, w, 32, () -> {
 			flip.run();

@@ -2,14 +2,8 @@ package com.origin.client.client.cosmetics;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.origin.client.OriginClient;
 import com.origin.client.client.mods.Era;
 import com.origin.client.client.mods.Mods;
-import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.geom.PartPose;
-import net.minecraft.client.model.geom.builders.CubeListBuilder;
-import net.minecraft.client.model.geom.builders.LayerDefinition;
-import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -104,42 +98,11 @@ public final class CapePhysics {
 	private static final Map<AbstractClientPlayer, State> STATES = new IdentityHashMap<>();
 	private static long lastSweepMs = 0;
 
-	// The N segment models, built once. null = couldn't be built: physics stays
-	// off for the session and vanilla's cape draws.
-	private static ModelPart[] segments;
-	private static boolean segmentsTried = false;
-
-	private static boolean ensureSegments() {
-		if (segments != null) {
-			return true;
-		}
-		if (segmentsTried) {
-			return false;
-		}
-		segmentsTried = true;
-		try {
-			// Same layout as vanilla's cloak (a 10 x 16 x 1 box on the 64 x 32 cape
-			// texture) cut into N horizontal bands. Band i takes texture rows
-			// SEG_PX*i .. +SEG_PX of the outside face: a box's side faces start one
-			// row below its texOffs v (the top/bottom strip comes first), so v = SEG_PX*i.
-			MeshDefinition mesh = new MeshDefinition();
-			for (int i = 0; i < N; i++) {
-				mesh.getRoot().addOrReplaceChild("seg" + i,
-						CubeListBuilder.create().texOffs(0, Math.round(SEG_PX * i)).addBox(-5f, 0f, -1f, 10f, SEG_PX, 1f),
-						PartPose.ZERO);
-			}
-			ModelPart root = LayerDefinition.create(mesh, 64, 32).bakeRoot();
-			ModelPart[] built = new ModelPart[N];
-			for (int i = 0; i < N; i++) {
-				built[i] = root.getChild("seg" + i);
-			}
-			segments = built;
-			return true;
-		} catch (Throwable t) {
-			OriginClient.LOGGER.warn("Origin cosmetics: cape physics model failed to build; using vanilla capes", t);
-			return false;
-		}
-	}
+	// Joint frames for the current draw (render thread only): joint j's pose
+	// (position + normal matrix) with that joint's half-bend and twist applied.
+	// Each is the fresh Pose a pushPose made, kept after its popPose (PoseStack
+	// never reuses a popped Pose on this version).
+	private static final PoseStack.Pose[] JOINT = new PoseStack.Pose[N + 1];
 
 	/**
 	 * Draws `p`'s Origin cape with physics, replacing vanilla's CapeLayer.render.
@@ -169,7 +132,7 @@ public final class CapePhysics {
 			return false;   // vanilla draws nothing; so do we
 		}
 		ResourceLocation tex = p.getCloakTextureLocation();
-		if (tex == null || !ensureSegments()) {
+		if (tex == null) {
 			return false;
 		}
 
@@ -193,56 +156,136 @@ public final class CapePhysics {
 
 		float t = ageInTicks / 20f;
 		float calm = Mth.lerp(partialTick, s.calmPrev, s.calm);
-		VertexConsumer vc = buffers.getBuffer(RenderType.entitySolid(tex));
+		float[] relP = new float[N];
+		float[] relR = new float[N];
+		float[] cumR = new float[N];
+		float prevP = 0f;
+		float prevR = 0f;
+		for (int i = 0; i < N; i++) {
+			float cumP = Mth.lerp(partialTick, s.pitchPrev[i], s.pitch[i])
+					+ calm * 1.4f * (1f + 0.35f * i) * Mth.sin(t * 1.9f + s.phase - i * 0.9f);
+			float r = Mth.lerp(partialTick, s.rollPrev[i], s.roll[i])
+					+ calm * 1.2f * (1f + 0.5f * i) * Mth.sin(t * 1.3f + s.phase * 1.7f - i * 0.7f);
+			cumP = Mth.clamp(cumP, MIN_PITCH, MAX_PITCH);
+			r = Mth.clamp(r, -MAX_ROLL, MAX_ROLL);
+			if (i == 0) {
+				relP[i] = cumP;
+				relR[i] = r;
+			} else {
+				// Keep the joint from folding: limit the bend, and carry the limit down the chain.
+				relP[i] = Mth.clamp(cumP - prevP, -MAX_BEND, MAX_BEND);
+				relR[i] = Mth.clamp(r - prevR, -MAX_BEND, MAX_BEND);
+			}
+			prevP = i == 0 ? cumP : prevP + relP[i];
+			prevR = i == 0 ? r : prevR + relR[i];
+			cumR[i] = prevR;
+		}
 
+		// Walk the chain once to find every joint's frame, then draw the cloth as ONE
+		// continuous surface through those joints. (It used to be N separate boxes,
+		// one per band: at every bend they split apart and showed their inner top and
+		// bottom faces as dark slices across the cape - Will, 2026-10-18.) An inner
+		// joint takes HALF its bend, so the bands above and below meet on the bisector
+		// with no gap; the cape's Y twist (vanilla's 180 - roll) is blended the same way.
 		pose.pushPose();
 		try {
 			pose.translate(0f, 0f, 0.125f + look.capeOffset() / 16f);   // vanilla: 2 px behind the body (+ clearance for worn items)
-			float prevP = 0f;
-			float prevR = 0f;
+			pose.translate(0f, -look.adjust(Cosmetics.Slot.CAPE) / 16f, 0f);   // the player's own height tweak (model y is down)
 			for (int i = 0; i < N; i++) {
-				float cumP = Mth.lerp(partialTick, s.pitchPrev[i], s.pitch[i])
-						+ calm * 1.4f * (1f + 0.35f * i) * Mth.sin(t * 1.9f + s.phase - i * 0.9f);
-				float cumR = Mth.lerp(partialTick, s.rollPrev[i], s.roll[i])
-						+ calm * 1.2f * (1f + 0.5f * i) * Mth.sin(t * 1.3f + s.phase * 1.7f - i * 0.7f);
-				cumP = Mth.clamp(cumP, MIN_PITCH, MAX_PITCH);
-				cumR = Mth.clamp(cumR, -MAX_ROLL, MAX_ROLL);
-				float relP;
-				float relR;
-				if (i == 0) {
-					relP = cumP;
-					relR = cumR;
-				} else {
-					// Keep the joint from folding: limit the bend, and carry the limit down the chain.
-					relP = Mth.clamp(cumP - prevP, -MAX_BEND, MAX_BEND);
-					relR = Mth.clamp(cumR - prevR, -MAX_BEND, MAX_BEND);
-					cumP = prevP + relP;
-					cumR = prevR + relR;
-				}
 				if (i > 0) {
 					pose.translate(0f, SEG_PX / 16f, 0f);   // down to this joint
+					joint(pose, i, relP[i] * 0.5f, relR[i] * 0.5f, 180f - (cumR[i - 1] + cumR[i]) * 0.5f);
 				}
-				Era.rotX(pose, relP);
-				Era.rotZ(pose, relR);
+				Era.rotX(pose, relP[i]);
+				Era.rotZ(pose, relR[i]);
 				if (i == 0) {
 					// Vanilla applies the cloak offset after its rotations, in the cape's
 					// own (Y-flipped) frame, so z is mirrored here, before the flip.
 					pose.translate(0f, cy / 16f, -cz / 16f);
+					joint(pose, 0, 0f, 0f, 180f - cumR[0]);
 				}
-				pose.pushPose();
-				try {
-					Era.rotY(pose, 180f - cumR);
-					segments[i].render(pose, vc, light, OverlayTexture.NO_OVERLAY);
-				} finally {
-					pose.popPose();   // the stack must balance even if a segment throws
-				}
-				prevP = cumP;
-				prevR = cumR;
 			}
+			pose.translate(0f, SEG_PX / 16f, 0f);
+			joint(pose, N, 0f, 0f, 180f - cumR[N - 1]);
 		} finally {
 			pose.popPose();
 		}
+		drawCloth(buffers.getBuffer(RenderType.entitySolid(tex)), light);
 		return true;
+	}
+
+	/** Records joint j's frame: the current pose turned by the half-bend and the twist. */
+	private static void joint(PoseStack pose, int j, float bendP, float bendR, float twist) {
+		pose.pushPose();
+		try {
+			Era.rotX(pose, bendP);
+			Era.rotZ(pose, bendR);
+			Era.rotY(pose, twist);
+			JOINT[j] = pose.last();
+		} finally {
+			pose.popPose();
+		}
+	}
+
+	/**
+	 * The cloth through the recorded joints: vanilla's cloak box (x -5..5, z -1..0
+	 * in skin px, 16 px tall) with the exact face layout and UVs ModelPart gives a
+	 * 10 x 16 x 1 box at texOffs 0,0 on the 64 x 32 cape texture, except that the
+	 * long faces are cut into N bands whose edges are shared at the joints. Band j
+	 * spans texture rows 1 + SEG_PX * j .. 1 + SEG_PX * (j + 1).
+	 */
+	private static void drawCloth(VertexConsumer vc, int light) {
+		for (int j = 0; j < N; j++) {
+			int a = j;
+			int b = j + 1;
+			float v0 = 1f + SEG_PX * j;
+			float v1 = v0 + SEG_PX;
+			// outside (north, z = -1): the cape's picture
+			vert(vc, light, a, 5f, -1f, 11f, v0, 0f, 0f, -1f);
+			vert(vc, light, a, -5f, -1f, 1f, v0, 0f, 0f, -1f);
+			vert(vc, light, b, -5f, -1f, 1f, v1, 0f, 0f, -1f);
+			vert(vc, light, b, 5f, -1f, 11f, v1, 0f, 0f, -1f);
+			// inside (south, z = 0)
+			vert(vc, light, a, -5f, 0f, 22f, v0, 0f, 0f, 1f);
+			vert(vc, light, a, 5f, 0f, 12f, v0, 0f, 0f, 1f);
+			vert(vc, light, b, 5f, 0f, 12f, v1, 0f, 0f, 1f);
+			vert(vc, light, b, -5f, 0f, 22f, v1, 0f, 0f, 1f);
+			// edges (west x = -5, east x = 5)
+			vert(vc, light, a, -5f, -1f, 1f, v0, -1f, 0f, 0f);
+			vert(vc, light, a, -5f, 0f, 0f, v0, -1f, 0f, 0f);
+			vert(vc, light, b, -5f, 0f, 0f, v1, -1f, 0f, 0f);
+			vert(vc, light, b, -5f, -1f, 1f, v1, -1f, 0f, 0f);
+			vert(vc, light, a, 5f, 0f, 12f, v0, 1f, 0f, 0f);
+			vert(vc, light, a, 5f, -1f, 11f, v0, 1f, 0f, 0f);
+			vert(vc, light, b, 5f, -1f, 11f, v1, 1f, 0f, 0f);
+			vert(vc, light, b, 5f, 0f, 12f, v1, 1f, 0f, 0f);
+		}
+		// top strip at the shoulders (vanilla's DOWN face) and the hem (its UP face)
+		vert(vc, light, 0, 5f, 0f, 11f, 0f, 0f, -1f, 0f);
+		vert(vc, light, 0, -5f, 0f, 1f, 0f, 0f, -1f, 0f);
+		vert(vc, light, 0, -5f, -1f, 1f, 1f, 0f, -1f, 0f);
+		vert(vc, light, 0, 5f, -1f, 11f, 1f, 0f, -1f, 0f);
+		vert(vc, light, N, 5f, -1f, 21f, 1f, 0f, 1f, 0f);
+		vert(vc, light, N, -5f, -1f, 11f, 1f, 0f, 1f, 0f);
+		vert(vc, light, N, -5f, 0f, 11f, 0f, 0f, 1f, 0f);
+		vert(vc, light, N, 5f, 0f, 21f, 0f, 0f, 1f, 0f);
+	}
+
+	/**
+	 * One vertex at joint j: (x, z) skin px across the cloth, (u, v) cape-texture px,
+	 * a model-space normal. The same NEW_ENTITY .vertex(...)...endVertex() chain as
+	 * ModelCosmetic.emit; the matrix overloads transform position and normal.
+	 */
+	private static void vert(VertexConsumer vc, int light, int j, float x, float z, float u, float v,
+			float nx, float ny, float nz) {
+		PoseStack.Pose p = JOINT[j];
+		vc.vertex(p.pose(), x / 16f, 0f, z / 16f)
+				.color(255, 255, 255, 255)
+				.uv(u / 64f, v / 32f)
+				.overlayCoords(OverlayTexture.NO_OVERLAY)
+				.uv2(light)
+				.normal(p.normal(), nx, ny, nz)
+				.endVertex();
 	}
 
 	// ------------------------------------------------------------------ the sim

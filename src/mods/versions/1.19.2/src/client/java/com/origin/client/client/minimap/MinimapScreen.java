@@ -197,7 +197,7 @@ final class MinimapScreen extends Screen {
 			String xs = Integer.toString(mx), zs = Integer.toString(mz);
 			float w = 14 + d.textW("X", 11, true, CAPS_TRACK) + 8 + d.textW(xs, 13, true, 0) + 18
 					+ d.textW("Z", 11, true, CAPS_TRACK) + 8 + d.textW(zs, 13, true, 0) + 14;
-			d.rect(M, y, w, FOOT_H, 6, 0xC7141816, LINE);
+			d.rect(M, y, w, FOOT_H, 6, withAlpha(PANEL, 0xC7), LINE);
 			float x = M + 14;
 			x += d.textMid("X", x, y + 16, 11, true, CAPS_TRACK, MUTE) + 8;
 			x += d.textMid(xs, x, y + 16, 13, true, 0, TEXT) + 18;

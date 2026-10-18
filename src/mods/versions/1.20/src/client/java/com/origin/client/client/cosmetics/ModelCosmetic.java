@@ -127,7 +127,11 @@ public final class ModelCosmetic {
 		}
 	}
 
-	/** FORMAT.md anim.motion: each entry adds sin(2 pi (t / period + phase)) * A to one bone channel. */
+	/**
+	 * FORMAT.md anim.motion: each entry adds sin(2 pi (t / period + phase)) * A to one bone channel, or, for a
+	 * "spin" entry, a continuous rotation of speed deg/s (the angle is wrapped to 0..360 in double precision, so
+	 * it stays exact however long the session runs).
+	 */
 	private void motion(float t, float walk01, float air01) {
 		java.util.Arrays.fill(off, 0f);
 		List<CosmeticDef.Motion> list = anim.motion();
@@ -137,6 +141,10 @@ public final class ModelCosmetic {
 				continue;
 			}
 			CosmeticDef.Motion m = list.get(i);
+			if (m.spin()) {
+				off[b * 6 + m.axis()] += (float) ((m.speed() * (double) t) % 360.0);
+				continue;
+			}
 			float a = m.amp() + m.walkAmp() * walk01 + m.airAmp() * air01;
 			float v = (float) Math.sin(2.0 * Math.PI * (t / m.period() + m.phase())) * a;
 			off[b * 6 + (m.pos() ? 3 : 0) + m.axis()] += v;

@@ -167,6 +167,9 @@ public final class MenuPlayerPreview {
 				mc.getTextureManager().bindTexture(cape);
 				GlStateManager.pushMatrix();
 				GlStateManager.translate(0.0F, 0.0F, 0.125F + (look == null ? 0f : look.capeOffset()) / 16f);
+				if (capeId != null) {
+					GlStateManager.translate(0f, -look.adjust(Cosmetics.Slot.CAPE) / 16f, 0f);   // the player's height tweak (model y is down)
+				}
 				GlStateManager.rotate(6f + 2.5f * (float) Math.sin(ticks * 0.06f), 1.0F, 0.0F, 0.0F);
 				GlStateManager.rotate(180.0F, 0.0F, 1.0F, 0.0F);
 				model.renderCape(sc);

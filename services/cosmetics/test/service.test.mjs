@@ -241,8 +241,34 @@ test('equip: wear owned items, signed in with an Origin token', async () => {
   assert.deepEqual((await r.json()).equipped, { ...BARE, cape: 'cape-orbit', head: 'halo-gold' });
 
   const batch = await (await api('POST', '/v1/players/equipped', { uuids: [DASHED, 'not-a-uuid', 'f'.repeat(32)] })).json();
-  assert.deepEqual(batch.players, { [UUID]: { ...BARE, cape: 'cape-orbit', head: 'halo-gold', plus: false } });
+  assert.deepEqual(batch.players, { [UUID]: { ...BARE, cape: 'cape-orbit', head: 'halo-gold', plus: false, origin: false } });
   assert.equal(calls.length, 0);   // nothing asked of Mojang (or anyone)
+});
+
+test('equip: height tweaks are saved per slot, clamped to 0.5 px steps, and kept when a request leaves them out', async () => {
+  await own('cape-orbit', 'halo-gold');
+  const token = await signIn();
+  const wear = async body => (await (await api('POST', '/v1/equip', body, token)).json());
+  let r = await wear({ cape: 'cape-orbit', head: 'halo-gold', adjust: { head: 1.26, cape: -9, theme: 3, back: 'x', face: 0 } });
+  assert.deepEqual(r.adjust, { head: 1.5, cape: -4 });               // rounded, clamped, junk + theme + zero dropped
+  r = await wear({ head: null });                                      // an older mod sends no adjust: kept
+  assert.deepEqual(r.adjust, { head: 1.5, cape: -4 });
+  const batch = await (await api('POST', '/v1/players/equipped', { uuids: [UUID] })).json();
+  assert.deepEqual(batch.players[UUID].adjust, { head: 1.5, cape: -4 });
+  r = await wear({ adjust: {} });                                      // all back to default
+  assert.deepEqual(r.adjust, {});
+  assert.equal('adjust' in (await (await api('POST', '/v1/players/equipped', { uuids: [UUID] })).json()).players[UUID], false);
+});
+
+test('equipped: players in game on Origin lately are listed (for the name badge), even wearing nothing', async () => {
+  const other = 'b'.repeat(32), stale = 'c'.repeat(32), launcherOnly = 'd'.repeat(32);
+  const now = Date.now();
+  const put = env.DB.raw.prepare('INSERT INTO presence (uuid, client, activity, server, version, at) VALUES (?, ?, ?, NULL, NULL, ?)');
+  put.run(other, 'game', 'menu', now - 60_000);
+  put.run(stale, 'game', 'menu', now - 60 * 60_000);
+  put.run(launcherOnly, 'launcher', null, now);
+  const batch = await (await api('POST', '/v1/players/equipped', { uuids: [other, stale, launcherOnly] })).json();
+  assert.deepEqual(batch.players, { [other]: { ...BARE, plus: false, origin: true } });
 });
 
 test('equip: a slot the request leaves out stays on (older mods only know some slots); null takes it off', async () => {
@@ -396,8 +422,8 @@ test('origin+ cape and badge: members wear the cape and show up for their badge;
   await subEvent('customer.subscription.created', sub('active', { id: 'sub_3', uuid: other }));   // a member wearing nothing
   let batch = await (await api('POST', '/v1/players/equipped', { uuids: [UUID, other] })).json();
   assert.deepEqual(batch.players, {
-    [UUID]: { ...BARE, cape: 'cape-plus', plus: true },
-    [other]: { ...BARE, plus: true },
+    [UUID]: { ...BARE, cape: 'cape-plus', plus: true, origin: false },
+    [other]: { ...BARE, plus: true, origin: false },
   });
 
   await subEvent('customer.subscription.deleted', sub('canceled'), 101);

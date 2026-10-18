@@ -169,7 +169,7 @@ public abstract class OriginWindow extends Screen {
 		int fill, fg;
 		switch (style) {
 			case PRIMARY:
-				fill = hov ? 0xFF83E2B5 : ACC;
+				fill = hov ? ACC_H : ACC;
 				fg = ON_ACC;
 				break;
 			case DANGER:

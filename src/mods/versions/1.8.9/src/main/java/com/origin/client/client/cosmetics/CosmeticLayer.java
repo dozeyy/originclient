@@ -101,12 +101,14 @@ public final class CosmeticLayer implements LayerRenderer<AbstractClientPlayer> 
 	 */
 	public static void renderItems(ModelPlayer model, CosmeticsService.Look look, float t, float walk01, float air01,
 			boolean sneaking) {
-		draw(model.bipedHead, look.head(), t, walk01, air01, sneaking);
-		draw(model.bipedHead, look.face(), t, walk01, air01, sneaking);
-		draw(model.bipedBody, look.back(), t, walk01, air01, sneaking);
+		draw(model.bipedHead, look.head(), look.adjust(Cosmetics.Slot.HEAD), t, walk01, air01, sneaking);
+		draw(model.bipedHead, look.face(), look.adjust(Cosmetics.Slot.FACE), t, walk01, air01, sneaking);
+		draw(model.bipedBody, look.back(), look.adjust(Cosmetics.Slot.BACK), t, walk01, air01, sneaking);
 	}
 
-	private static void draw(ModelRenderer bone, String id, float t, float walk01, float air01, boolean sneaking) {
+	/** `lift` = the player's height tweak for this slot, model px (+ = up, along the bone). */
+	private static void draw(ModelRenderer bone, String id, float lift, float t, float walk01, float air01,
+			boolean sneaking) {
 		if (id == null) {
 			return;
 		}
@@ -124,6 +126,7 @@ public final class CosmeticLayer implements LayerRenderer<AbstractClientPlayer> 
 			// FORMAT space -> vanilla model space: 1/16 block per px, y up, face to +z
 			// (vanilla is y down, face to -z; a 180 degree turn about X, so no mirroring).
 			GlStateManager.scale(1 / 16f, -1 / 16f, -1 / 16f);
+			GlStateManager.translate(0f, lift, 0f);
 			m.render(t, walk01, air01);
 		} catch (Throwable ex) {
 			if (!warned) {

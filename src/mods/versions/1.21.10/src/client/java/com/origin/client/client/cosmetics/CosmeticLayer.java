@@ -99,14 +99,15 @@ public final class CosmeticLayer extends RenderLayer<AvatarRenderState, PlayerMo
 	 */
 	static void renderItems(PlayerModel model, PoseStack pose, SubmitNodeCollector collector,
 			int light, CosmeticsService.Look look, float t, float walk01, float air01, boolean hideBack) {
-		draw(model, model.head, look.head(), pose, collector, light, t, walk01, air01);
-		draw(model, model.head, look.face(), pose, collector, light, t, walk01, air01);
+		draw(model, model.head, look.head(), look.adjust(Cosmetics.Slot.HEAD), pose, collector, light, t, walk01, air01);
+		draw(model, model.head, look.face(), look.adjust(Cosmetics.Slot.FACE), pose, collector, light, t, walk01, air01);
 		if (!hideBack) {
-			draw(model, model.body, look.back(), pose, collector, light, t, walk01, air01);
+			draw(model, model.body, look.back(), look.adjust(Cosmetics.Slot.BACK), pose, collector, light, t, walk01, air01);
 		}
 	}
 
-	private static void draw(PlayerModel model, ModelPart bone, String id, PoseStack pose, SubmitNodeCollector collector,
+	/** `lift` = the player's height tweak for this slot, model px (+ = up, along the bone). */
+	private static void draw(PlayerModel model, ModelPart bone, String id, float lift, PoseStack pose, SubmitNodeCollector collector,
 			int light, float t, float walk01, float air01) {
 		if (id == null) {
 			return;
@@ -122,6 +123,7 @@ public final class CosmeticLayer extends RenderLayer<AvatarRenderState, PlayerMo
 			// FORMAT space -> vanilla model space: 1/16 block per px, y up, face to +z
 			// (vanilla is y down, face to -z; a 180 degree turn about X, so no mirroring).
 			pose.scale(1 / 16f, -1 / 16f, -1 / 16f);
+			pose.translate(0f, lift, 0f);
 			m.render(pose, collector, light, t, walk01, air01);
 		} catch (Throwable ex) {
 			if (!warned) {

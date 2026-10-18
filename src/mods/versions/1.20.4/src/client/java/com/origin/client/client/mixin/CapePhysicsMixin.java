@@ -2,6 +2,7 @@ package com.origin.client.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.origin.client.client.cosmetics.CapePhysics;
+import com.origin.client.client.cosmetics.Cosmetics;
 import com.origin.client.client.cosmetics.CosmeticsService;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -47,10 +48,13 @@ public abstract class CapePhysicsMixin {
 				return;
 			}
 			float off = look.capeOffset();
-			if (off > 0f) {
-				// Vanilla draws the cape: move it back for items worn on the back (undone at RETURN).
+			// the player's height tweak, only for an Origin cape (model y is down)
+			float up = look.cape() != null ? look.adjust(Cosmetics.Slot.CAPE) : 0f;
+			if (off > 0f || up != 0f) {
+				// Vanilla draws the cape: move it back for items worn on the back, and up / down
+				// by the player's tweak (undone at RETURN).
 				pose.pushPose();
-				pose.translate(0f, 0f, off / 16f);
+				pose.translate(0f, -up / 16f, off / 16f);
 				origin$pushed = true;
 			}
 		} catch (Throwable t) {

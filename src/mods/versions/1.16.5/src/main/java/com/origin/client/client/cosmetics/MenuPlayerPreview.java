@@ -146,6 +146,9 @@ public final class MenuPlayerPreview {
 				// CapeLayer's pose for a player standing still, with a gentle sway.
 				pose.pushPose();
 				pose.translate(0.0, 0.0, 0.125 + (look == null ? 0f : look.capeOffset()) / 16f);
+				if (capeId != null) {
+					pose.translate(0.0, -look.adjust(Cosmetics.Slot.CAPE) / 16.0, 0.0);   // the player's height tweak (model y is down)
+				}
 				pose.mulPose(Vector3f.XP.rotationDegrees(6f + 2.5f * (float) Math.sin(ticks * 0.06f)));
 				pose.mulPose(Vector3f.YP.rotationDegrees(180f));
 				model.renderCloak(pose, buffers.getBuffer(RenderType.entitySolid(cape)), LIGHT, OverlayTexture.NO_OVERLAY);

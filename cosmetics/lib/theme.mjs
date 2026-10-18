@@ -35,7 +35,7 @@ const FAMILY = {
   deck: {
     surface: ['PANEL', 'CARD', 'CARD_H'],
     text: ['TEXT', 'DIM', 'MUTE'],
-    accent: ['ACC', 'ACC_D', 'ACC_SOFT', 'ON_ACC', 'ON_TEXT', 'ACC_D_H'],
+    accent: ['ACC', 'ACC_H', 'ACC_D', 'ACC_SOFT', 'ON_ACC', 'ON_TEXT', 'ACC_D_H'],
   },
   workbench: {
     surface: ['BG', 'BG_ALT', 'PANEL', 'PANEL_TRANSLUCENT', 'PANEL_ALT', 'STROKE', 'STROKE_STRONG',

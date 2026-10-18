@@ -35,8 +35,6 @@ public final class OriginUi {
 
 	// Theme-matched toggles: familiar state language without borrowing the
 	// operating system's exact colors.
-	private static final int IOS_ON = OriginTheme.SWITCH_ON;
-	private static final int IOS_OFF = OriginTheme.SWITCH_OFF;
 	private static final int IOS_ON_DISABLED = 0xFF3E5147;
 	private static final int IOS_OFF_DISABLED = 0xFF242A26;
 
@@ -452,7 +450,7 @@ public final class OriginUi {
 
 		// Inventory-style block switch: neutral/off -> emerald/on.
 		int track = enabled
-				? OriginTheme.lerpColor(IOS_OFF, IOS_ON, k)
+				? OriginTheme.lerpColor(OriginTheme.SWITCH_OFF, OriginTheme.SWITCH_ON, k)
 				: OriginTheme.lerpColor(IOS_OFF_DISABLED, IOS_ON_DISABLED, k);
 		panel(g, x, y, wDisp, hDisp, OriginTheme.RADIUS_SM, track, OriginTheme.SWITCH_STROKE);
 

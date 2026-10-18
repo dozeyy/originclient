@@ -58,7 +58,6 @@ import java.util.List;
 // gracefully if any asset fails rather than crashing.
 public final class OriginScreenRenderer {
 	private static final int TEX = 768;
-	private static final int BG_COLOR = OriginTheme.BG;
 
 	// 1.8.9: GL_FRAMEBUFFER_BINDING (0x8CA6, same value for the ARB and EXT paths
 	// OpenGlHelper may use). Read before any off-screen pass so the frame's own
@@ -186,7 +185,7 @@ public final class OriginScreenRenderer {
 		int w = guiGraphics.guiWidth();
 		int h = guiGraphics.guiHeight();
 
-		fill(guiGraphics, 0, 0, w, h, BG_COLOR);
+		fill(guiGraphics, 0, 0, w, h, OriginTheme.BG);
 		if (!ringsFailed) {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);
@@ -298,7 +297,7 @@ public final class OriginScreenRenderer {
 			field(RingField.Mood.MENU);
 			int w = guiGraphics.guiWidth();
 			int h = guiGraphics.guiHeight();
-			fill(guiGraphics, 0, 0, w, h, BG_COLOR);
+			fill(guiGraphics, 0, 0, w, h, OriginTheme.BG);
 			drawMenuGlow(guiGraphics, w, h);
 			if (!ringsFailed) {
 				drawRings(guiGraphics, w, h);
@@ -513,7 +512,7 @@ public final class OriginScreenRenderer {
 		loadFillAt = scene;
 
 		// No orbit rings here (Will 2026-10-18): the moving mark is the scene.
-		fill(guiGraphics, 0, 0, w, h, BG_COLOR);
+		fill(guiGraphics, 0, 0, w, h, OriginTheme.BG);
 		drawGrain(guiGraphics, w, h);
 		drawVignette(guiGraphics, w, h);
 

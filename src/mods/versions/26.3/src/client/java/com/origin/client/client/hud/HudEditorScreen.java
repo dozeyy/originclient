@@ -290,7 +290,7 @@ public class HudEditorScreen extends Screen {
 		float y = 17, h = 44;
 		boolean hov = d.over(x, y, w, h);
 		float hp = OriginUi.hover("rshift:" + (label != null ? label : icon), hov);
-		d.rect(x, y, w, h, 7, OriginDeck.lerp(0xC7141816, 0xE6232A26, hp), OriginDeck.lerp(0x1AFFFFFF, 0x38FFFFFF, hp));
+		d.rect(x, y, w, h, 7, OriginDeck.lerp(OriginDeck.withAlpha(OriginDeck.PANEL, 0xC7), OriginDeck.withAlpha(OriginDeck.CARD_H, 0xE6), hp), OriginDeck.lerp(0x1AFFFFFF, 0x38FFFFFF, hp));
 		if (icon != null) {
 			d.icon(icon, x + (w - 19) / 2f, y + (h - 19) / 2f, 19, OriginDeck.TEXT);
 		} else {

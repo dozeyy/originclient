@@ -49,10 +49,11 @@ import java.util.IdentityHashMap;
  * AvatarRenderState and a SubmitNodeCollector, not a buffer source;
  * CapePhysicsMixin finds the wearer from the state's entity id and passes the
  * frame's partial tick. The "Cape" skin option and invisibility are read from
- * the state (showCape / isInvisible, what vanilla's CapeLayer checks). Each
- * cloth segment is submitted as its own custom-geometry node with the pose of
- * its joint, and its box is emitted here with vanilla's Cube face / UV layout
- * (no baked ModelPart: nothing in this module builds one in this era). The
+ * the state (showCape / isInvisible, what vanilla's CapeLayer checks). The
+ * cloth is ONE custom-geometry node: the joint frames are recorded while the
+ * chain is walked (fresh copies, since the node is replayed later) and the
+ * mesh is emitted through them with vanilla's cloak-box UVs (no baked
+ * ModelPart: nothing in this module builds one in this era). The
  * texture is the Origin cape's own frame (CapeTextures, which is what
  * CosmeticCapeMixin puts in the skin). Drawn in the layer's model space with
  * 1.21.1's offsets, so the cloth looks and moves exactly like 1.21.1's.
@@ -112,49 +113,6 @@ public final class CapePhysics {
 	private static long lastSweepMs = 0;
 
 	/**
-	 * Emits cloth segment `i`: vanilla's cloak box (10 x 16 x 1 on the 64 x 32
-	 * cape texture) cut into N horizontal bands, as a ModelPart Cube would
-	 * (same vertex order, face UVs and normals; px / 16 = blocks). Band i takes
-	 * texture rows SEG_PX*i .. +SEG_PX of the outside face: a box's side faces
-	 * start one row below its texOffs v (the top/bottom strip comes first), so
-	 * v = SEG_PX*i.
-	 */
-	private static void segment(PoseStack.Pose p, VertexConsumer vc, int i, int light) {
-		float u = 0f, v = Math.round(SEG_PX * i);
-		float x0 = -5f, y0 = 0f, z0 = -1f, w = 10f, h = SEG_PX, d = 1f;
-		float x1 = x0 + w, y1 = y0 + h, z1 = z0 + d;
-		float u0 = u, u1 = u + d, u2 = u + d + w, u3 = u + d + w + w, u4 = u + d + w + d, u5 = u + d + w + d + w;
-		float v0 = v, v1 = v + d, v2 = v + d + h;
-		// down (y0), up (y1), west (x0), north (z0), east (x1), south (z1)
-		face(p, vc, light, x1, y0, z1, x0, y0, z1, x0, y0, z0, x1, y0, z0, u1, v0, u2, v1, 0f, -1f, 0f);
-		face(p, vc, light, x1, y1, z0, x0, y1, z0, x0, y1, z1, x1, y1, z1, u2, v1, u3, v0, 0f, 1f, 0f);
-		face(p, vc, light, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0, u0, v1, u1, v2, -1f, 0f, 0f);
-		face(p, vc, light, x1, y0, z0, x0, y0, z0, x0, y1, z0, x1, y1, z0, u1, v1, u2, v2, 0f, 0f, -1f);
-		face(p, vc, light, x1, y0, z1, x1, y0, z0, x1, y1, z0, x1, y1, z1, u2, v1, u4, v2, 1f, 0f, 0f);
-		face(p, vc, light, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1, u4, v1, u5, v2, 0f, 0f, 1f);
-	}
-
-	/** One Cube polygon: corners a..d get UVs (uB,vA) (uA,vA) (uA,vB) (uB,vB), as ModelPart.Polygon assigns them. */
-	private static void face(PoseStack.Pose p, VertexConsumer vc, int light,
-			float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz,
-			float dx, float dy, float dz, float uA, float vA, float uB, float vB, float nx, float ny, float nz) {
-		vertex(p, vc, light, ax, ay, az, uB, vA, nx, ny, nz);
-		vertex(p, vc, light, bx, by, bz, uA, vA, nx, ny, nz);
-		vertex(p, vc, light, cx, cy, cz, uA, vB, nx, ny, nz);
-		vertex(p, vc, light, dx, dy, dz, uB, vB, nx, ny, nz);
-	}
-
-	private static void vertex(PoseStack.Pose p, VertexConsumer vc, int light, float x, float y, float z,
-			float u, float v, float nx, float ny, float nz) {
-		vc.addVertex(p, x / 16f, y / 16f, z / 16f)
-				.setColor(-1)
-				.setUv(u / 64f, v / 32f)
-				.setOverlay(OverlayTexture.NO_OVERLAY)
-				.setLight(light)
-				.setNormal(p, nx, ny, nz);
-	}
-
-	/**
 	 * Draws `p`'s Origin cape with physics, replacing vanilla's CapeLayer.render.
 	 *
 	 * @return true if the cape was drawn (the mixin cancels vanilla); false to
@@ -206,58 +164,139 @@ public final class CapePhysics {
 
 		float t = state.ageInTicks / 20f;
 		float calm = Mth.lerp(partialTick, s.calmPrev, s.calm);
-		RenderType type = RenderTypes.entityCutoutNoCull(tex);
+		float[] relP = new float[N];
+		float[] relR = new float[N];
+		float[] cumR = new float[N];
+		float prevP = 0f;
+		float prevR = 0f;
+		for (int i = 0; i < N; i++) {
+			float cumP = Mth.lerp(partialTick, s.pitchPrev[i], s.pitch[i])
+					+ calm * 1.4f * (1f + 0.35f * i) * Mth.sin(t * 1.9f + s.phase - i * 0.9f);
+			float r = Mth.lerp(partialTick, s.rollPrev[i], s.roll[i])
+					+ calm * 1.2f * (1f + 0.5f * i) * Mth.sin(t * 1.3f + s.phase * 1.7f - i * 0.7f);
+			cumP = Mth.clamp(cumP, MIN_PITCH, MAX_PITCH);
+			r = Mth.clamp(r, -MAX_ROLL, MAX_ROLL);
+			if (i == 0) {
+				relP[i] = cumP;
+				relR[i] = r;
+			} else {
+				// Keep the joint from folding: limit the bend, and carry the limit down the chain.
+				relP[i] = Mth.clamp(cumP - prevP, -MAX_BEND, MAX_BEND);
+				relR[i] = Mth.clamp(r - prevR, -MAX_BEND, MAX_BEND);
+			}
+			prevP = i == 0 ? cumP : prevP + relP[i];
+			prevR = i == 0 ? r : prevR + relR[i];
+			cumR[i] = prevR;
+		}
 
+		// Walk the chain once to find every joint's frame, then draw the cloth as ONE
+		// continuous surface through those joints. (It used to be N separate boxes,
+		// one per band: at every bend they split apart and showed their inner top and
+		// bottom faces as dark slices across the cape - Will, 2026-10-18.) An inner
+		// joint takes HALF its bend, so the bands above and below meet on the bisector
+		// with no gap; the cape's Y twist (vanilla's 180 - roll) is blended the same way.
+		// The frames are fresh per draw: the node below is replayed LATER by the feature
+		// renderer, after other players' capes have walked their own chains.
+		PoseStack.Pose[] at = new PoseStack.Pose[N + 1];
 		pose.pushPose();
 		try {
 			pose.translate(0f, 0f, 0.125f + look.capeOffset() / 16f);   // vanilla: 2 px behind the body (+ clearance for worn items)
-			float prevP = 0f;
-			float prevR = 0f;
+			pose.translate(0f, -look.adjust(Cosmetics.Slot.CAPE) / 16f, 0f);   // the player's own height tweak (model y is down)
 			for (int i = 0; i < N; i++) {
-				float cumP = Mth.lerp(partialTick, s.pitchPrev[i], s.pitch[i])
-						+ calm * 1.4f * (1f + 0.35f * i) * Mth.sin(t * 1.9f + s.phase - i * 0.9f);
-				float cumR = Mth.lerp(partialTick, s.rollPrev[i], s.roll[i])
-						+ calm * 1.2f * (1f + 0.5f * i) * Mth.sin(t * 1.3f + s.phase * 1.7f - i * 0.7f);
-				cumP = Mth.clamp(cumP, MIN_PITCH, MAX_PITCH);
-				cumR = Mth.clamp(cumR, -MAX_ROLL, MAX_ROLL);
-				float relP;
-				float relR;
-				if (i == 0) {
-					relP = cumP;
-					relR = cumR;
-				} else {
-					// Keep the joint from folding: limit the bend, and carry the limit down the chain.
-					relP = Mth.clamp(cumP - prevP, -MAX_BEND, MAX_BEND);
-					relR = Mth.clamp(cumR - prevR, -MAX_BEND, MAX_BEND);
-					cumP = prevP + relP;
-					cumR = prevR + relR;
-				}
 				if (i > 0) {
 					pose.translate(0f, SEG_PX / 16f, 0f);   // down to this joint
+					joint(pose, at, i, relP[i] * 0.5f, relR[i] * 0.5f, 180f - (cumR[i - 1] + cumR[i]) * 0.5f);
 				}
-				pose.mulPose(Axis.XP.rotationDegrees(relP));
-				pose.mulPose(Axis.ZP.rotationDegrees(relR));
+				pose.mulPose(Axis.XP.rotationDegrees(relP[i]));
+				pose.mulPose(Axis.ZP.rotationDegrees(relR[i]));
 				if (i == 0) {
 					// Vanilla applies the cloak offset after its rotations, in the cape's
 					// own (Y-flipped) frame, so z is mirrored here, before the flip.
 					pose.translate(0f, cy / 16f, -cz / 16f);
+					joint(pose, at, 0, 0f, 0f, 180f - cumR[0]);
 				}
-				pose.pushPose();
-				try {
-					pose.mulPose(Axis.YP.rotationDegrees(180f - cumR));
-					int seg = i;
-					// Replayed later by the feature renderer with this joint's pose.
-					collector.submitCustomGeometry(pose, type, (pp, vc) -> segment(pp, vc, seg, light));
-				} finally {
-					pose.popPose();   // the stack must balance even if a segment throws
-				}
-				prevP = cumP;
-				prevR = cumR;
 			}
+			pose.translate(0f, SEG_PX / 16f, 0f);
+			joint(pose, at, N, 0f, 0f, 180f - cumR[N - 1]);
 		} finally {
 			pose.popPose();
 		}
+		RenderType type = RenderTypes.entityCutoutNoCull(tex);
+		// One custom-geometry node for the whole cloth. Its vertices are already placed by
+		// the recorded joint frames (taken from this same pose stack), so the node's own
+		// pose is not applied again.
+		collector.submitCustomGeometry(pose, type, (pp, vc) -> drawCloth(vc, at, light));
 		return true;
+	}
+
+	/** Records joint j's frame: the current pose turned by the half-bend and the twist. */
+	private static void joint(PoseStack pose, PoseStack.Pose[] at, int j, float bendP, float bendR, float twist) {
+		pose.pushPose();
+		try {
+			pose.mulPose(Axis.XP.rotationDegrees(bendP));
+			pose.mulPose(Axis.ZP.rotationDegrees(bendR));
+			pose.mulPose(Axis.YP.rotationDegrees(twist));
+			PoseStack copy = new PoseStack();   // a snapshot: `pose` moves on down the chain
+			copy.last().set(pose.last());
+			at[j] = copy.last();
+		} finally {
+			pose.popPose();
+		}
+	}
+
+	/**
+	 * The cloth through the recorded joints: vanilla's cloak box (x -5..5, z -1..0
+	 * in skin px, 16 px tall) with the exact face layout and UVs ModelPart gives a
+	 * 10 x 16 x 1 box at texOffs 0,0 on the 64 x 32 cape texture, except that the
+	 * long faces are cut into N bands whose edges are shared at the joints. Band j
+	 * spans texture rows 1 + SEG_PX * j .. 1 + SEG_PX * (j + 1).
+	 */
+	private static void drawCloth(VertexConsumer vc, PoseStack.Pose[] at, int light) {
+		for (int j = 0; j < N; j++) {
+			int a = j;
+			int b = j + 1;
+			float v0 = 1f + SEG_PX * j;
+			float v1 = v0 + SEG_PX;
+			// outside (north, z = -1): the cape's picture
+			vert(vc, at, light, a, 5f, -1f, 11f, v0, 0f, 0f, -1f);
+			vert(vc, at, light, a, -5f, -1f, 1f, v0, 0f, 0f, -1f);
+			vert(vc, at, light, b, -5f, -1f, 1f, v1, 0f, 0f, -1f);
+			vert(vc, at, light, b, 5f, -1f, 11f, v1, 0f, 0f, -1f);
+			// inside (south, z = 0)
+			vert(vc, at, light, a, -5f, 0f, 22f, v0, 0f, 0f, 1f);
+			vert(vc, at, light, a, 5f, 0f, 12f, v0, 0f, 0f, 1f);
+			vert(vc, at, light, b, 5f, 0f, 12f, v1, 0f, 0f, 1f);
+			vert(vc, at, light, b, -5f, 0f, 22f, v1, 0f, 0f, 1f);
+			// edges (west x = -5, east x = 5)
+			vert(vc, at, light, a, -5f, -1f, 1f, v0, -1f, 0f, 0f);
+			vert(vc, at, light, a, -5f, 0f, 0f, v0, -1f, 0f, 0f);
+			vert(vc, at, light, b, -5f, 0f, 0f, v1, -1f, 0f, 0f);
+			vert(vc, at, light, b, -5f, -1f, 1f, v1, -1f, 0f, 0f);
+			vert(vc, at, light, a, 5f, 0f, 12f, v0, 1f, 0f, 0f);
+			vert(vc, at, light, a, 5f, -1f, 11f, v0, 1f, 0f, 0f);
+			vert(vc, at, light, b, 5f, -1f, 11f, v1, 1f, 0f, 0f);
+			vert(vc, at, light, b, 5f, 0f, 12f, v1, 1f, 0f, 0f);
+		}
+		// top strip at the shoulders (vanilla's DOWN face) and the hem (its UP face)
+		vert(vc, at, light, 0, 5f, 0f, 11f, 0f, 0f, -1f, 0f);
+		vert(vc, at, light, 0, -5f, 0f, 1f, 0f, 0f, -1f, 0f);
+		vert(vc, at, light, 0, -5f, -1f, 1f, 1f, 0f, -1f, 0f);
+		vert(vc, at, light, 0, 5f, -1f, 11f, 1f, 0f, -1f, 0f);
+		vert(vc, at, light, N, 5f, -1f, 21f, 1f, 0f, 1f, 0f);
+		vert(vc, at, light, N, -5f, -1f, 11f, 1f, 0f, 1f, 0f);
+		vert(vc, at, light, N, -5f, 0f, 11f, 0f, 0f, 1f, 0f);
+		vert(vc, at, light, N, 5f, 0f, 21f, 0f, 0f, 1f, 0f);
+	}
+
+	/** One vertex at joint j: (x, z) skin px across the cloth, (u, v) cape-texture px, a model-space normal. */
+	private static void vert(VertexConsumer vc, PoseStack.Pose[] at, int light, int j,
+			float x, float z, float u, float v, float nx, float ny, float nz) {
+		vc.addVertex(at[j], x / 16f, 0f, z / 16f)
+				.setColor(-1)
+				.setUv(u / 64f, v / 32f)
+				.setOverlay(OverlayTexture.NO_OVERLAY)
+				.setLight(light)
+				.setNormal(at[j], nx, ny, nz);
 	}
 
 	// ------------------------------------------------------------------ the sim

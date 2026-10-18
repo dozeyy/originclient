@@ -175,9 +175,9 @@ public final class SocialToast {
 		OriginText.draw(g, font, OriginText.ellipsize(font, line, textW), 30, 19, OriginTheme.TEXT_DIM, false);
 		if (kind == Kind.WARP) {
 			int bx = W - JOIN_W - 8;
-			OriginUi.panel(g, bx, 8, JOIN_W, 16, 5, 0xFF5FD09B, 0);
+			OriginUi.panel(g, bx, 8, JOIN_W, 16, 5, OriginTheme.ACCENT, 0);
 			int tw = OriginText.widthBold(font, "JOIN");
-			OriginText.drawBold(g, font, "JOIN", bx + (JOIN_W - tw) / 2, 12, 0xFF0A1710, false);
+			OriginText.drawBold(g, font, "JOIN", bx + (JOIN_W - tw) / 2, 12, com.origin.client.client.gui.OriginDeck.ON_ACC, false);
 		}
 	}
 

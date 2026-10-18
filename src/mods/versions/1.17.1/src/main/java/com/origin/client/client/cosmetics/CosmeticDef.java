@@ -63,9 +63,12 @@ public final class CosmeticDef {
 	public record CapeSpec(int scale, int frames, float fps) {
 	}
 
-	/** One `anim.motion` entry: adds sin(2 pi (t / period + phase)) * A to a bone channel. */
+	/**
+	 * One `anim.motion` entry: adds sin(2 pi (t / period + phase)) * A to a bone channel, or (`spin`, channel
+	 * "spin") a continuous rotation of `speed` degrees per second about `axis`.
+	 */
 	public record Motion(String bone, boolean pos, int axis, float amp, float period, float phase, float walkAmp,
-			float airAmp) {
+			float airAmp, boolean spin, float speed) {
 	}
 
 	public record Anim(int frames, float fps, List<Motion> motion) {
@@ -215,7 +218,8 @@ public final class CosmeticDef {
 						(float) Cosmetics.num(mo, "amp", 0),
 						(float) Math.max(0.05, Cosmetics.num(mo, "period", 1)),
 						(float) Cosmetics.num(mo, "phase", 0),
-						(float) Cosmetics.num(mo, "walkAmp", 0), (float) Cosmetics.num(mo, "airAmp", 0)));
+						(float) Cosmetics.num(mo, "walkAmp", 0), (float) Cosmetics.num(mo, "airAmp", 0),
+						"spin".equals(Cosmetics.str(mo, "channel", "rot")), (float) Cosmetics.num(mo, "speed", 0)));
 			}
 		}
 		return new Anim(clampInt((int) Cosmetics.num(ao, "frames", 1), 1, 256),

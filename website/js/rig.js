@@ -75,7 +75,8 @@ export function motionValue(m, ctx) {
 }
 // Seconds after which every motion, texture frame cycle and loop repeats exactly.
 export function loopSeconds(item) {
-  const parts = [...(item.anim?.motion || []).map(m => m.period)];
+  // a spin repeats every 360/|speed| seconds
+  const parts = (item.anim?.motion || []).map(m => (m.channel === 'spin' ? 360 / Math.abs(m.speed || 360) : m.period));
   const frames = item.cape?.frames ?? item.anim?.frames ?? 1, fps = item.cape?.fps ?? item.anim?.fps ?? 10;
   if (frames > 1) parts.push(frames / fps);
   if (!parts.length) return 2.4;
@@ -193,7 +194,9 @@ function buildModel(item, tex) {
   const update = ctx => {
     for (const mo of motion) {
       const g = bones.get(mo.bone); if (!g) continue;
-      const v = motionValue(mo, ctx), ax = ['x', 'y', 'z'][AX[mo.axis]];
+      const ax = ['x', 'y', 'z'][AX[mo.axis]];
+      if (mo.channel === 'spin') { g.rotation[ax] = g.userData.base.rot[ax] + rad((mo.speed || 0) * ctx.t % 360); continue; }   // FORMAT.md: continuous spin, deg/s
+      const v = motionValue(mo, ctx);
       if (mo.channel === 'pos') g.position[ax] = g.userData.base.pos[ax] + v;
       else g.rotation[ax] = g.userData.base.rot[ax] + rad(v);
     }
