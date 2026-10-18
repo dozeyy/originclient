@@ -22,3 +22,8 @@ migrations_dir = "migrations"
 # buy and this list does nothing. Edit it HERE: a deploy resets dashboard vars.
 [vars]
 STRIPE_TEST_PLAYERS = "dozeyy,bxlt,lozeyy,silo5"
+
+# Not secret: the SHA-256 of Will's admin key for making free store codes
+# (src/codes.js, tools/store/make-codes.ps1). The key itself lives only on
+# Will's PC; to replace it, put the new key's hash here.
+CODES_ADMIN_SHA256 = "7b965d4ff01f4f645436fd04709c1568e99d609c465a749a2f81d9e9e928bb5e"

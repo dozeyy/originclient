@@ -73,6 +73,21 @@ body.no-webgl .fit__hint { display: none; }
 .bag__go:disabled:active { transform: none; }
 .bag__note { min-height: 1.4em; margin: 12px 0 0; color: var(--dim); font-size: 13px; line-height: 1.4; text-align: center; }
 .bag__note.is-error { color: #f0a195; }
+/* "Have a code?": free codes Will hands out (services/cosmetics/src/codes.js) */
+.code { margin: 14px 0 0; }
+.code summary { width: max-content; margin: 0 auto; padding: 6px 4px; color: var(--dim); font: 600 13px/1.2 var(--sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; list-style: none; }
+.code summary::-webkit-details-marker { display: none; }
+.code summary:hover { color: var(--text); }
+.code summary:focus-visible { outline: 2px solid var(--stroke); outline-offset: 2px; }
+.code__row { display: grid; gap: 8px; margin-top: 10px; }   /* stacked: a whole code fits even on phones */
+.code__row input { width: 100%; min-width: 0; height: 48px; padding: 0 12px; background: var(--card); border: 1px solid var(--soft); border-radius: 2px; color: var(--text); font: 600 15px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; outline: none; }
+.code__row input::placeholder { color: var(--muted); text-transform: none; letter-spacing: 0; }
+.code__row input:focus { border-color: var(--stroke); }
+.code__go { --bh: 48px; width: 100%; font-size: 14px; }
+.code__go:disabled { opacity: .55; cursor: not-allowed; }
+.code__note { min-height: 1.4em; margin: 10px 0 0; color: var(--dim); font-size: 13px; line-height: 1.4; text-align: center; }
+.code__note.is-error { color: #f0a195; }
+.code__note.is-done { color: var(--acc-h); }
 .pay { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; }
 .pay li { padding: 5px 8px; border: 1px solid var(--soft); border-radius: 1px; font: 600 10px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 

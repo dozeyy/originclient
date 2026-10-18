@@ -86,6 +86,14 @@
           <p class="bag__member" data-bag-member hidden>Origin+ member prices. The final amount is confirmed at checkout.</p>
           <button class="btn btn--primary btn--lg bag__go" type="button" data-checkout>Checkout</button>
           <p class="bag__note" data-checkout-note aria-live="polite"></p>
+          <details class="code" data-code>
+            <summary>Have a code?</summary>
+            <div class="code__row">
+              <input id="store-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="ORIGIN-XXXX-XXXX-XXXX" aria-label="Your code" aria-describedby="code-note">
+              <button class="btn btn--ghost code__go" type="button" data-code-go>Use code</button>
+            </div>
+            <p class="code__note" id="code-note" data-code-note aria-live="polite">A code gives everything in your bag free, or Origin+. No card needed.</p>
+          </details>
           <ul class="pay" aria-label="Ways to pay"><li>Card</li><li>PayPal</li><li>Apple Pay</li><li>Google Pay</li></ul>
         </div>
       </aside>

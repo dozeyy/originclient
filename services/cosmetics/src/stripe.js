@@ -141,7 +141,11 @@ async function checkoutPage(env, params) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.url) {
     console.error('origin-cosmetics: Stripe checkout failed', r.status, j?.error?.message);
-    return fail(502, 'Checkout isn’t available right now. Nothing was charged; please try again in a minute.');
+    // Stripe's status and error code ride along (never its message, which can
+    // quote the key): 401 = bad key, 403 = key missing a permission, 400 = a
+    // setting on the Stripe account. So a report from the page says why.
+    const why = [r.status, j?.error?.code].filter(Boolean).join(' ');
+    return fail(502, `Checkout isn’t available right now (Stripe ${why}). Nothing was charged; please try again in a minute.`);
   }
   return json({ url: j.url });
 }
@@ -309,7 +313,8 @@ async function plusChanged(env, sub, livemode, eventAt) {
       OR (excluded.event_at = plus.event_at AND NOT (excluded.status = 'incomplete' AND plus.status != 'incomplete')))`)
     .bind(sub.id, uuid, String(sub.metadata?.name || ''), String(sub.customer || ''), String(sub.status), periodEnd, Number(eventAt) || 0).run();
   // Two checkouts finished for the same player: they're paying twice for one membership.
-  const live = await env.DB.prepare(`SELECT subscription FROM plus WHERE uuid = ? AND ${memberSql}`).bind(uuid, Date.now()).all();
+  // (A free-code membership, subscription 'code:...', is no payment, so it doesn't count.)
+  const live = await env.DB.prepare(`SELECT subscription FROM plus WHERE uuid = ? AND subscription NOT LIKE 'code:%' AND ${memberSql}`).bind(uuid, Date.now()).all();
   if (live.results.length > 1) {
     console.error(`origin-cosmetics: REFUND NEEDED, ${uuid} has ${live.results.length} Origin+ memberships (${live.results.map(r => r.subscription).join(', ')}); cancel and refund all but one`);
   }

@@ -97,7 +97,21 @@ member = a row with status active/trialing/past_due and period_end + 2 days > no
 - Prices: `PLUS` and `MEMBER_PERCENT_OFF` in stripe.js; the page reads them
   from the catalog.
 
-## Lineup and prices (Will: every price $5–$10)
+## Free codes (Will, 2026-10-18)
+Will makes one-time codes on his PC; a player types one under "Have a code?"
+on the store page and gets it straight away: no card, no Stripe.
+- **Kinds:** `bag` gives everything in the player's bag (any cosmetic on sale);
+  `plus` gives Origin+ for good (a `plus` row with subscription `code:<CODE>` and
+  a period_end of year 9999, so every perk follows from isMember).
+- **Each code works once.** A redeem that fails (empty bag, owned item, typo)
+  never spends it. Codes and who used them: the `codes` table (migration 0006).
+- **Making them:** `tools/store/make-codes.ps1` (`-Count N`, `-Plus`), which calls
+  `POST /v1/admin/codes` with the admin key from `%USERPROFILE%\.origin-admin-key`.
+  The repo only holds the key's SHA-256 (wrangler.toml `CODES_ADMIN_SHA256`); to
+  replace the key, put the new key's hash there and push.
+- Code: `services/cosmetics/src/codes.js`; tests: `test/codes.test.mjs`.
+
+
 
 - Animated capes (moving art + particles): Orbit $9.99, Glitch $9.99,
   Inferno $8.99, Aurora $8.99, Starfall $8.99
