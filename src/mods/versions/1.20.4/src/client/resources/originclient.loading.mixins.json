@@ -11,7 +11,8 @@
 		"ProgressScreenMixin",
 		"ConnectScreenMixin",
 		"LoadingOverlayRevealMixin",
-		"TitleScreenFadeMixin"
+		"TitleScreenFadeMixin",
+		"ReloadTaskBudgetMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

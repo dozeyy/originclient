@@ -121,7 +121,10 @@ public final class RingField {
 		double raw = Math.max(0L, now - clockNanos) / 1_000_000.0;
 		clockNanos = now;
 		if (raw > 0.0) {
-			typicalMs += (Math.min(raw, typicalMs * 2.0 + 8.0) - typicalMs) * 0.05;
+			// Weighted by the gap's length: sceneMs() is read several times a frame, and
+			// those tiny in-frame gaps must not count as "frames" (~1 s to follow a change).
+			double weight = Math.min(0.2, raw / 1000.0);
+			typicalMs += (Math.min(raw, typicalMs * 2.0 + 8.0) - typicalMs) * weight;
 			double cap = Math.max(STEP_MS, typicalMs * 1.5);
 			if (raw > Math.max(FREEZE_MS, cap * 4.0)) {
 				// A freeze: one usual frame of motion, nothing owed.
