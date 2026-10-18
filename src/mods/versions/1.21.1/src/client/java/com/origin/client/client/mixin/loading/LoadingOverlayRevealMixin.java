@@ -10,6 +10,7 @@ import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -41,17 +42,23 @@ public abstract class LoadingOverlayRevealMixin {
 	@Shadow
 	private long fadeOutStart;
 
+	// Util.getMillis() just after this overlay's first dissolve frame; 0 = none yet.
+	// The dissolve's clock starts here, not at fadeOutStart: vanilla sets that
+	// before it builds the title screen, and the first title frame is often slow
+	// (seen at 1.4 s on CI's software GL), so counting from fadeOutStart can spend
+	// the whole dissolve before a single frame of it reaches the screen.
+	@Unique
+	private long originclient$revealAt = 0L;
+
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void originclient$reveal(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		if (this.fadeOutStart <= -1L || !OriginScreenRenderer.isActive()) {
 			return;
 		}
-		long t = Util.getMillis() - this.fadeOutStart;
-		if (t < 0 || t >= 2000L) {
+		long now = Util.getMillis();
+		long t = this.originclient$revealAt == 0L ? 0L : now - this.originclient$revealAt;
+		if (now < this.fadeOutStart || t >= 2000L) {
 			return;
-		}
-		if (!this.fadeIn) {
-			StartupTransition.titleRevealed();  // the startup load, not a later resource reload
 		}
 		Screen screen = this.minecraft.screen;
 		if (screen != null) {
@@ -66,7 +73,17 @@ public abstract class LoadingOverlayRevealMixin {
 		}
 		guiGraphics.flush();
 		float alpha = (float) (1.0 - StartupTransition.ease(t / (double) StartupTransition.REVEAL_MS));
-		if (OriginScreenRenderer.renderLoadingFade(guiGraphics, alpha)) {
+		boolean drawn = OriginScreenRenderer.renderLoadingFade(guiGraphics, alpha);
+		if (this.originclient$revealAt == 0L) {
+			// First frame: the loading screen still fully covers the title (which
+			// has now rendered once, its slow first frame out of the way). Both the
+			// dissolve and the title's entrance count from here.
+			this.originclient$revealAt = Util.getMillis();
+			if (!this.fadeIn) {
+				StartupTransition.titleRevealed();  // the startup load, not a later resource reload
+			}
+		}
+		if (drawn) {
 			ci.cancel();
 		}
 	}
