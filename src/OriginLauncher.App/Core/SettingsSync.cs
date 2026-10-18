@@ -7,7 +7,7 @@ using OriginLauncher.App.Core.Versions;
 
 namespace OriginLauncher.App.Core;
 
-// Settings Sync (Settings -> Origin Client -> "Sync settings across versions",
+// Settings Sync (Settings -> Settings Sync -> "Sync settings across versions",
 // LauncherSettings.SettingsSyncEnabled, off by default): the player's keybinds,
 // video settings, HUD layout, mod settings and server list follow them to
 // every Minecraft version. Every version already has its own isolated instance,

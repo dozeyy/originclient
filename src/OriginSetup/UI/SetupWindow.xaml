@@ -68,7 +68,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Left: what this page is, and the way forward. -->
-                    <DockPanel Grid.Column="0" Margin="0,8,28,0" LastChildFill="False">
+                    <DockPanel Grid.Column="0" Margin="0,4,28,0" LastChildFill="False">
                         <StackPanel DockPanel.Dock="Top">
                             <TextBlock Text="CUSTOMIZE" Style="{StaticResource Text.Eyebrow}"
                                        Foreground="{StaticResource Brush.AccentHover}"/>
@@ -76,7 +76,7 @@
                                        TextTrimming="None" TextWrapping="Wrap"/>
                             <Border Style="{StaticResource Setup.TitleRule}"/>
                             <TextBlock Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"
-                                       Text="The defaults suit most players. You can change memory, version and startup any time in Origin's Settings."/>
+                                       Text="The defaults suit most players. You can change memory, version, startup and settings sync any time in Origin's Settings."/>
                         </StackPanel>
                         <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,6">
                             <Button x:Name="CustomizeInstallButton" Style="{StaticResource Button.Primary}"
@@ -86,7 +86,7 @@
                     </DockPanel>
 
                     <!-- Right: the three choices. -->
-                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Hidden" Margin="0,8,0,0">
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Hidden" Margin="0,4,0,0">
                         <StackPanel>
                             <Border Style="{StaticResource Setup.Card}">
                                 <StackPanel>
@@ -145,9 +145,12 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Style="{StaticResource Setup.Card}">
+                            <!-- Startup and Settings Sync share one card: the window is a fixed
+                                 600 px and this column scrolls with no visible bar, so a fourth
+                                 card would push the last option out of sight. -->
+                            <Border Style="{StaticResource Setup.Card}" Padding="18,12,18,10">
                                 <StackPanel>
-                                    <TextBlock Text="STARTUP" Style="{StaticResource Setup.CardTitle}"/>
+                                    <TextBlock Text="STARTUP AND SYNC" Style="{StaticResource Setup.CardTitle}"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -161,6 +164,25 @@
                                         <ToggleButton x:Name="StartupToggle" Grid.Column="1" Style="{StaticResource Toggle.Switch}"
                                                       VerticalAlignment="Center"
                                                       AutomationProperties.Name="Open Origin when Windows starts"/>
+                                    </Grid>
+
+                                    <!-- Settings Sync (launcher: Settings -> Settings Sync). Off unless
+                                         the player turns it on, same as the launcher's default. -->
+                                    <Border Height="1" Background="{StaticResource Brush.SoftStroke}" Margin="0,8,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Margin="0,0,16,0">
+                                            <TextBlock Text="Sync settings across versions" Style="{StaticResource Text.Body}"/>
+                                            <TextBlock Text="Your keybinds, video settings, HUD layout and server list follow you to every version."
+                                                       Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.TextMuted}"
+                                                       TextWrapping="Wrap" TextTrimming="None"/>
+                                        </StackPanel>
+                                        <ToggleButton x:Name="SyncToggle" Grid.Column="1" Style="{StaticResource Toggle.Switch}"
+                                                      VerticalAlignment="Center"
+                                                      AutomationProperties.Name="Sync settings across versions"/>
                                     </Grid>
                                 </StackPanel>
                             </Border>
