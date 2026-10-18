@@ -14,7 +14,7 @@
 // over every pose of the sway, the float and every ribbon corner and the glow disc).
 //
 // Ribbons: box segments laid along the ellipse at equal arc length, each with its long axis on local x.
-// Shading is a fixed 4-step grey ramp ending in the brand's #E0E0E0, by position ACROSS the ribbon (no
+// Shading is a fixed 4-step grey ramp (never brighter than #E0E0E0 except the #F0F0F0 spark head) ending in the brand's #E0E0E0, by position ACROSS the ribbon (no
 // per-texel noise, so no checker): the front-left arcs get the highlight, the rest stays satin, the side
 // walls are always the darkest step. Faces carry a 1-texel extruded border, so no atlas neighbour bleeds
 // into a seam. The only additive part is the flat glow disc (low alpha, round, never a streak).
@@ -24,7 +24,7 @@ import { newTexture } from '../../lib/model.mjs';
 const S = 8, YC = 11.5, FLOAT = 0.05, SWING = 5, TILT = -20;
 const A = 3.7, B = 1.55, W = 0.5, H = 0.25, N = 56;               // semi-axes (centre line), ribbon width + height, segments per ellipse
 const DY = [-0.06, 0, 0.06];                                     // per-ellipse height offset, only to stop z-fighting at the crossings
-const GR = 3.75, GW = 5, GALPHA = 0.3;                            // glow disc: half size (px), its texture rect (px), peak alpha
+const GR = 3.75, GW = 5, GALPHA = 0.16;                            // glow disc: half size (px), its texture rect (px), peak alpha
 const BEAD = 0.75, BEAD_ROTS = [[0, 0, 0], [35, 45, 0], [0, 45, 45]];   // the nucleus: three cubes turned against each other (a rough sphere), shaded as a sphere
 // yaw of the long axis (deg), spark laps per loop (sign = direction)
 const ELLS = [{ yaw: 0, laps: 1 }, { yaw: 60, laps: -1 }, { yaw: 120, laps: 1 }];
@@ -129,7 +129,7 @@ const bones = [
 
 // ---- shading ----------------------------------------------------------------------------------------
 const LV = norm([0.42, 0.72, 0.55]);                            // top, front (+z), the player's left (+x)
-const CHROME = ['#454a53', '#868b94', '#c2c5ca', '#e0e0e0'], SPEC = '#ffffff';
+const CHROME = ['#454a53', '#868b94', '#c2c5ca', '#e0e0e0'], SPEC = '#f0f0f0';
 const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const mix = (a, b, f) => '#' + hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v) * f).toString(16).padStart(2, '0')).join('');
 
@@ -162,9 +162,10 @@ const TRAIL = 2.5;
 function chrome({ u, wall, s, side }, r, f) {
   const dir = Math.sign(ELLS[r].laps), head = spark(r, f);
   const b = (((dir * (head - s)) % PERIM) + PERIM) % PERIM;      // arc px behind the head
-  const col = wall ? CHROME[0] : CHROME[ACROSS[side > 0 ? 'lit' : side < 0 ? 'dark' : 'mid'][u]];
-  if (!wall && (b < 0.25 || b > PERIM - 0.1)) return SPEC;       // the spark head: a pin-prick, never a block
-  if (b < 0.25 + TRAIL) return mix(col, '#e0e0e0', 0.85 * (1 - (b - 0.25) / TRAIL) ** 2);
+  const ramp = ACROSS[side > 0 ? 'lit' : side < 0 ? 'dark' : 'mid'];
+  const col = CHROME[ramp[wall ? 0 : u]];                        // a wall takes its ribbon's outer-edge step, so it blends into the stroke instead of drawing a second line
+  if (!wall && (b < 0.2 || b > PERIM - 0.1)) return SPEC;       // the spark head: a pin-prick, never a block
+  if (b < 0.2 + TRAIL) return mix(col, '#e0e0e0', 0.85 * (1 - (b - 0.2) / TRAIL) ** 2);
   return col;
 }
 // the nucleus: a small chrome ball (a cube stood on its corner, shaded as a sphere), smooth across the four steps
