@@ -62,11 +62,12 @@ public final class LunarPipelines {
 			OriginShaders.derive(RenderPipelines.GLINT, "pipeline/glint_blended", null,
 					b -> b.withColorTargetState(new ColorTargetState(BlendFunction.ENTITY_OUTLINE_BLIT))));
 
-	// Overlay quads with the depth test flipped to GREATER: fragments draw only
-	// where terrain is in front of them (the CUI's see-through pass).
+	// Overlay quads with the depth test flipped: fragments draw only where terrain
+	// is in front of them (the CUI's see-through pass). 26.3 is reversed-Z (far =
+	// 0.0, see OriginRenderTypes), so "terrain in front" is LESS_THAN here.
 	private static final Lazy<RenderType> CUI_HIDDEN = new Lazy<>(() -> RenderType.create("originclient_cui_hidden_quads",
 			RenderSetup.builder(OriginShaders.derive(RenderPipelines.DEBUG_QUADS, "pipeline/cui_hidden_quads", null,
-					b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN, false))))
+					b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN, false))))
 					.createRenderSetup()));
 
 	/** Additive GUI blit (Saturation's overlay), or GUI_TEXTURED if unavailable. */
