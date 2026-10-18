@@ -32,7 +32,7 @@ const VERSION_GROUPS = [
 
 // Scenes top to bottom: [section id, world pose, how much to darken the island].
 // "why" darkens the island so the cards read over it.
-const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.62], ['why', 'why', 0.7], ['get', 'get', 0.2]];
+const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.9], ['why', 'why', 0.92], ['get', 'get', 0.2]];
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -62,7 +62,7 @@ function initDownload() {
 }
 
 function initVersions() {
-  $('[data-vgrid]').innerHTML = VERSION_GROUPS.map((g, i) => `<article class="vcard" data-reveal style="--i:${i % 4}">`
+  $('[data-vgrid]').innerHTML = VERSION_GROUPS.map((g, i) => `<article class="vcard${g.versions.length > 6 ? ' vcard--wide' : ''}" data-reveal style="--i:${i % 4}">`
     + `<header><h3>${g.title}</h3><span class="tag">${g.tag}</span></header>`
     + `<ul>${g.versions.map(v => `<li>${v}</li>`).join('')}</ul></article>`).join('');
   const count = VERSION_GROUPS.reduce((n, g) => n + g.versions.length, 0);
@@ -83,12 +83,14 @@ function initBento() {
 let lastY = 0, queued = false;
 function frame() {
   const H = innerHeight, y = scrollY;
-  // each scene blends into the next as it scrolls up into view
+  // each scene blends into the next as it scrolls up into view, finished by
+  // the time its top is halfway up the screen, so the shade is already dark
+  // behind the heading before anyone reads it (phones: the island sits there)
   let pose = ['hero', 'hero', 0], shade = 0;
   for (let i = 1; i < SCENES.length; i++) {
     const top = document.getElementById(SCENES[i][0]).getBoundingClientRect().top;
     if (top >= H) break;
-    const t = smooth(clamp(1 - top / H)), [, pa, sa] = SCENES[i - 1], [, pb, sb] = SCENES[i];
+    const t = smooth(clamp((H - top) / (H * 0.5))), [, pa, sa] = SCENES[i - 1], [, pb, sb] = SCENES[i];
     pose = [pa, pb, t]; shade = sa + (sb - sa) * t;
   }
   world?.setPose(...pose);
