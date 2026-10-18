@@ -3,9 +3,9 @@
   "order": [
     "cape-origin", "cape-plus", "cape-void", "cape-inferno", "cape-aurora", "cape-starfall", "cape-orbit", "cape-glitch", "cape-frost", "cape-golden",
     "wings-ember", "wings-seraph", "wings-prism",
-    "pack-explorer", "pack-orbit",
-    "bandana-origin", "mask-shadow", "mask-visor",
-    "halo-orbit", "halo-gold", "crown-pixel",
+    "pack-shell", "pack-explorer", "pack-orbit",
+    "mask-shield", "mask-shades", "bandana-origin", "mask-shadow", "mask-visor", "mask-goggles", "mask-vent",
+    "hat-visor", "hat-goggles", "halo-orbit", "halo-gold", "crown-pixel", "hat-headband",
     "theme-amethyst", "theme-crimson", "theme-ocean", "theme-rose"
   ]
 }

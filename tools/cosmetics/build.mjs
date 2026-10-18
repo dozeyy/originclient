@@ -94,7 +94,9 @@ function checkClearance(id, meta, model) {
   const { lo, hi } = modelBounds(model), bad = [];
   if (meta.slot === 'head' && meta.kind !== 'halo') {
     if (hi[1] > 11.001) bad.push(`top ${hi[1].toFixed(2)} > 11 (max 3 px above the head)`);
-    if (Math.max(hi[0], -lo[0], hi[2], -lo[2]) > 5.501) bad.push(`sticks out ${(Math.max(hi[0], -lo[0], hi[2], -lo[2]) - 4).toFixed(2)} px past the head (max 1.5)`);
+    // a hat may carry a brim or peak out the FRONT (+z) up to 4 px past the face; every other direction stays 1.5 px
+    const front = meta.kind === 'hat' ? 8.001 : 5.501, reach = Math.max(hi[0], -lo[0], -lo[2]);
+    if (reach > 5.501 || hi[2] > front) bad.push(`sticks out ${(Math.max(reach, hi[2]) - 4).toFixed(2)} px past the head (max 1.5; a hat brim may reach 4 px at the front)`);
   }
   if (meta.kind === 'halo') {
     if (lo[1] < 9.99 || hi[1] > 13.001) bad.push(`halo y ${lo[1].toFixed(2)}..${hi[1].toFixed(2)} outside 10..13`);

@@ -38,11 +38,19 @@ const PRICE_LIST = [
   { id: 'cape-frost', name: 'Frost Cape', blurb: 'Teal cloth, frost ferns creeping up from the hem, ice glinting in the light.', price: 5.99 },
   { id: 'cape-golden', name: 'Golden Hour Cape', blurb: 'A low sun, a violet-to-gold sky and layered pine ridges, painted on the cloth.', price: 5.99 },
   { id: 'wings-ember', name: 'Ember Wings', blurb: 'Obsidian wings with fire running through the veins. Hides your cape; a few embers drift off as you move.', price: 9.99 },
+  { id: 'pack-shell', name: 'Chrome Shell', blurb: 'A Y2K hard-shell backpack: a polished chrome and gunmetal shell, a smoked-glass window and the Origin mark raised on the back.', price: 8.99 },
   { id: 'pack-explorer', name: 'Explorer Pack', blurb: 'A stitched leather rucksack with brass buckles and a wool bedroll strapped underneath.', price: 8.49 },
+  { id: 'mask-shield', name: 'Racer Shield', blurb: 'A rimless single-piece sport shield: one tall prizm mirror lens, pink-gold to cyan, on a slim chrome bar. A glint runs across it now and then.', price: 6.99 },
+  { id: 'mask-shades', name: 'Chrome Shades', blurb: 'Y2K bug-eye wraparound shades: smoked gunmetal mirror lenses with one pink, cyan and lime sheen band, in polished chrome. A glint sweeps across now and then.', price: 6.99 },
   { id: 'bandana-origin', name: 'Origin Bandana', blurb: 'Charcoal cloth over the nose and mouth, the three rings stitched in silver, knotted at the back.', price: 5.99 },
   { id: 'mask-visor', name: 'Visor Mask', blurb: 'A slim wraparound visor of smoked glass in a gunmetal frame. A soft light sweeps across it now and then.', price: 6.99 },
+  { id: 'mask-goggles', name: 'Frost Goggles', blurb: 'Big snow goggles: one wide silver-blue mirror lens with an iridescent edge, matte foam, a black strap and a small chrome Origin tab.', price: 7.99 },
+  { id: 'mask-vent', name: 'Vent Mask', blurb: 'A matte black techwear respirator: moulded shell, two brushed-chrome vent filters and a little Origin plate on the chin.', price: 6.99 },
+  { id: 'hat-visor', name: 'Mirror Visor', blurb: 'A Y2K sport sun visor: a slim graphite knit band with the Origin mark in silver thread, and a smoked mirror brim with one pink-to-cyan sheen line along its edge. A light glides along it now and then.', price: 6.99 },
+  { id: 'hat-goggles', name: 'Pilot Goggles', blurb: 'Retro pilot goggles pushed up on your forehead: mirrored lenses with a pink-to-lime sheen in chrome rims, a padded bridge and a glint that sweeps by.', price: 6.99 },
   { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'The Origin mark as an atom: three silver rings tumbling round a glowing white centre above your head, a spark of light racing round each.', price: 7.99 },
   { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic polished gold halo. It floats just above your head, a glint sliding round it.', price: 5.99 },
+  { id: 'hat-headband', name: 'Sport Headband', blurb: 'A slim off-white terry sweatband with a polished chrome stripe and a gunmetal badge carrying the Origin mark in silver thread.', price: 5.99 },
 ];
 // Items the store shows: the catalog once loaded, else the price list. Each: { id, name, blurb, price, kind, slot, animated }.
 let ITEMS = [];
