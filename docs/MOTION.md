@@ -4,16 +4,15 @@ One short spec for the launcher (WPF) and the mod (Java). Will's brief: from
 clicking Play to standing in a world, nothing may feel like a cut. One picture —
 the Origin loading scene's orbiting rings — carries the whole way: it unfolds
 out of the Play button, becomes the game's loading screen, lives on behind the
-menus, and opens around the world.
+menus, and steps aside once the world is ready (it then appears like vanilla).
 
 | Token | Value | Launcher (`Theme/Spacing.xaml`, `UI/Controls`) | Mod (1.21.1) |
 |---|---|---|---|
 | Intro | 560 ms | `Motion.Intro`: launcher mark on first open; the scene's glide onto the game window | `StartupTransition.REVEAL_MS`: loading screen dissolves into the title |
-| Handoff | 320 ms | `Motion.Handoff`: scene copy melts away once the game shows the same picture | `WORLD_MS` (plain fade fallback); `OriginHandoff.RAMP_MS`: game window fades in |
+| Handoff | 320 ms | `Motion.Handoff`: scene copy melts away once the game shows the same picture | `OriginHandoff.RAMP_MS`: game window fades in |
 | Scene | 180 ms | `Motion.Scene`: launcher lines leave as the glide starts | — |
 | Assemble | 1100 ms | `LoadingScene.AssembleMs`: Play → rings spin out into the orbit | ring-field settle (`RingField`) |
 | Glide wait | 620 ms | — | `OriginHandoff.GLIDE_MS`: window stays invisible while the scene glides on |
-| Lens | 820 ms | — | `StartupTransition.LENS_MS`: rings open past the edges around the world |
 
 Easing: cubic ease-out for arrivals, cubic in-out for travel (the glide, the
 assemble's flight) and leaving. Spins are allowed only as the rings' own orbit
@@ -46,8 +45,8 @@ Handoff:   the game opens its window INVISIBLY, centred on the scene, and report
 Game:      loading screen ─resources done→ 560 ms dissolve → title: no panorama,
            the same rings slow, drift and lean toward the mouse, the logo settles
            out of them ─world→ the rings swing back into the loading orbit with
-           real chunk progress → 820 ms lens: they open past the screen edges with
-           the world inside.
+           real chunk progress → the world appears the frame it is ready, like
+           vanilla (Will 2026-10-18: no zoom/lens).
 ```
 
 ## The launcher ↔ game handshake

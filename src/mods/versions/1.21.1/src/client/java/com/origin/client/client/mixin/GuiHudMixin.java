@@ -47,14 +47,6 @@ public class GuiHudMixin {
 				// never take the HUD down over the tab overlay
 			}
 		}
-
-		// Entering a world: the first frames rise out of the loading scene's
-		// charcoal (StartupTransition). Last, so it covers the whole HUD too.
-		try {
-			com.origin.client.client.StartupTransition.drawWorldEntry(guiGraphics);
-		} catch (Throwable ignored) {
-			// a missed fade is fine; a broken HUD is not
-		}
 	}
 
 	// Color Saturation: grade the world at the HEAD of the HUD render — the world is

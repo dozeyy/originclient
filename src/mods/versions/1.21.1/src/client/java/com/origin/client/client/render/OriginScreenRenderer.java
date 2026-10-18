@@ -9,10 +9,7 @@ import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import org.joml.Matrix4f;
 import net.minecraft.resources.ResourceLocation;
 
 import java.io.InputStream;
@@ -38,9 +35,8 @@ import org.lwjgl.opengl.GL11;
 //  - MENUS ("living rings", launch experience v2, Will 2026-10-18): the SAME
 //    rings, no panorama. They slow, drift and lean towards the mouse
 //    (RingField), and on the title the logo forms out of them.
-//  - WORLD LOADING: the menu's rings swing back into the loading orbit, and when
-//    the world is ready they open past the screen edges like a lens with the
-//    world inside (renderWorldEntry).
+//  - WORLD LOADING: the menu's rings swing back into the loading orbit; once the
+//    world is ready it simply appears, like vanilla (Will 2026-10-18: no zoom).
 // The panorama is NOT available during the startup load anyway (the cubemap's
 // textures aren't loaded yet); the rings are, which keeps the brand mark on the
 //    one screen that has nothing else on it.
@@ -314,15 +310,12 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	// The world-loading scene's last title and shown bar fill: the lens
-	// (renderWorldEntry) fades them out instead of letting them vanish on the
-	// first world frame. sceneFill < 0 = the bar was sweeping.
-	private static String sceneTitle = "";
+	// The world-loading scene's shown bar fill, gliding to each new count.
+	// sceneFill < 0 = the bar is sweeping.
 	private static double sceneFill = -1;
 	private static double sceneFillAt = 0;
 
 	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress) {
-		com.origin.client.client.StartupTransition.worldLoading();
 		ensureLoaded();
 		// From a menu this swings the slowed, leaning rings back to the centred
 		// loading orbit (RingField eases it, so it reads as one motion).
@@ -354,7 +347,6 @@ public final class OriginScreenRenderer {
 
 	/** The world-loading scene's centred title + bar (fill < 0: sweeping). */
 	private static void drawSceneText(GuiGraphics guiGraphics, Font font, int w, int h, String s, double fill) {
-		sceneTitle = s;
 		int barW = Math.max(80, (int) (w * 0.30));
 		int barH = Math.max(2, (int) (h * 0.010));
 		float titleScale = 1.5f;
@@ -403,128 +395,6 @@ public final class OriginScreenRenderer {
 		} catch (Throwable t) {
 			fail(t);
 		}
-	}
-
-	/**
-	 * World entry, "rings open into the world" (Will 2026-10-18): drawn over the
-	 * first world frames (StartupTransition, end of the HUD) for t = 0..1. The
-	 * loading scene's charcoal stays up with an opening in it the shape of the
-	 * front ring; the rings widen and turn to face the player until they pass
-	 * the screen edges, and the world shows through the opening like a lens
-	 * opening. The scene's title and bar fade out first. False when Origin
-	 * rendering is off or the draw fails: the caller falls back to a plain fade.
-	 */
-	public static boolean renderWorldEntry(GuiGraphics guiGraphics, double t) {
-		if (broken) {
-			return false;
-		}
-		try {
-			renderWorldEntry0(guiGraphics, Math.max(0.0, Math.min(1.0, t)));
-			return true;
-		} catch (Throwable e) {
-			return fail(e);
-		} finally {
-			layerAlpha = 1f;
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-		}
-	}
-
-	private static void renderWorldEntry0(GuiGraphics guiGraphics, double t) {
-		ensureLoaded();
-		field(RingField.Mood.LOADING);
-		Minecraft mc = Minecraft.getInstance();
-		int w = mc.getWindow().getGuiScaledWidth();
-		int h = mc.getWindow().getGuiScaledHeight();
-		RenderSystem.enableBlend();
-		RenderSystem.defaultBlendFunc();
-
-		double open = smoothstep(t);                       // the whole move, eased both ends
-		double grow = 1.0 + 1.6 * open;                    // front ring 0.29w -> 0.76w half-width
-		double aspect = OriginTheme.lerp(RING_HEIGHT_RATIO, 1.0, OriginTheme.easeOut(t));
-		// The opening starts as a point and has filled the front ring by t = 0.45,
-		// always just inside its stroke, so the world never pops in whole. By
-		// t = 1 it is wider than the screen's diagonal at any aspect ratio.
-		double front = rings.isEmpty() ? 0.59 : rings.get(0).widthFrac();
-		double holeA = front * w * 0.99 / 2.0 * grow * 0.985 * OriginTheme.easeOut(Math.min(1.0, t / 0.45));
-		double holeAngle = rings.isEmpty() ? 0.0 : ringAngle(0);
-		float cover = (float) (1.0 - smoothstep((t - 0.86) / 0.14));
-		drawCoverWithHole(guiGraphics, w, h, holeA, holeA * aspect, holeAngle, cover);
-
-		if (!ringsFailed) {
-			drawRings(guiGraphics, w, h, grow, aspect, (float) (1.0 - smoothstep((t - 0.5) / 0.5)));
-		}
-		layerAlpha = (float) (1.0 - smoothstep(t / 0.3));
-		if (layerAlpha > 0.001f) {
-			shade(1f, 1f, 1f, 1f);
-			drawFrame(guiGraphics, w, h);
-			drawSceneText(guiGraphics, mc.font, w, h, sceneTitle, sceneFill);
-			guiGraphics.flush();                           // the title is batched: draw it at this alpha
-		}
-		layerAlpha = 1f;
-		shade(1f, 1f, 1f, 1f);
-	}
-
-	/**
-	 * Charcoal over the whole screen except an elliptical opening (semi-axes a,
-	 * b, turned by angle) with a soft inner edge: a band of quads from the
-	 * opening out past the screen corners. GUI geometry only, no mask texture
-	 * or stencil.
-	 */
-	private static void drawCoverWithHole(GuiGraphics guiGraphics, int w, int h, double a, double b, double angle, float alpha) {
-		if (alpha <= 0.002f) {
-			return;
-		}
-		int rgb = BG_COLOR & 0xFFFFFF;
-		int solid = ((int) (alpha * 255) << 24) | rgb;
-		int clear = rgb;                                   // alpha 0: the feathered inner edge
-		double cx = w / 2.0, cy = h / 2.0;
-		double far = Math.hypot(w, h) * 2.0;               // a ring of quads well past every corner
-		double feather = Math.max(1.5, Math.max(w, h) * 0.012);
-		double rad = Math.toRadians(angle), cos = Math.cos(rad), sin = Math.sin(rad);
-		Matrix4f m = guiGraphics.pose().last().pose();
-		VertexConsumer vc = guiGraphics.bufferSource().getBuffer(RenderType.gui());
-		int steps = 120;
-		for (int i = 0; i < steps; i++) {
-			double p0 = i * 2.0 * Math.PI / steps, p1 = (i + 1) * 2.0 * Math.PI / steps;
-			double[] in0 = onEllipse(cx, cy, a, b, cos, sin, p0, 0), in1 = onEllipse(cx, cy, a, b, cos, sin, p1, 0);
-			double[] mid0 = onEllipse(cx, cy, a, b, cos, sin, p0, feather), mid1 = onEllipse(cx, cy, a, b, cos, sin, p1, feather);
-			double[] out0 = onEllipse(cx, cy, far, far, cos, sin, p0, 0), out1 = onEllipse(cx, cy, far, far, cos, sin, p1, 0);
-			quad(vc, m, in0, in1, mid1, mid0, clear, clear, solid, solid);
-			quad(vc, m, mid0, mid1, out1, out0, solid, solid, solid, solid);
-		}
-		shade(1f, 1f, 1f, 1f);
-		guiGraphics.flush();
-	}
-
-	/** The point at parameter p on the turned ellipse, pushed {@code out} GUI units further from the centre. */
-	private static double[] onEllipse(double cx, double cy, double a, double b, double cos, double sin, double p, double out) {
-		double lx = (a + out) * Math.cos(p), ly = (b + out) * Math.sin(p);
-		return new double[]{cx + lx * cos - ly * sin, cy + lx * sin + ly * cos};
-	}
-
-	/**
-	 * One quad, wound the way GuiGraphics.fill winds its own (negative signed
-	 * area in screen space) so it survives the GUI render type's culling.
-	 */
-	private static void quad(VertexConsumer vc, Matrix4f m, double[] p0, double[] p1, double[] p2, double[] p3,
-							 int c0, int c1, int c2, int c3) {
-		double area = (p0[0] * p1[1] - p1[0] * p0[1]) + (p1[0] * p2[1] - p2[0] * p1[1])
-				+ (p2[0] * p3[1] - p3[0] * p2[1]) + (p3[0] * p0[1] - p0[0] * p3[1]);
-		if (area > 0) {
-			vertex(vc, m, p3, c3);
-			vertex(vc, m, p2, c2);
-			vertex(vc, m, p1, c1);
-			vertex(vc, m, p0, c0);
-		} else {
-			vertex(vc, m, p0, c0);
-			vertex(vc, m, p1, c1);
-			vertex(vc, m, p2, c2);
-			vertex(vc, m, p3, c3);
-		}
-	}
-
-	private static void vertex(VertexConsumer vc, Matrix4f m, double[] p, int argb) {
-		vc.addVertex(m, (float) p[0], (float) p[1], 0f).setColor(argb);
 	}
 
 	/** A calm sweeping segment (smooth ping-pong) over the standard track. */
@@ -858,20 +728,12 @@ public final class OriginScreenRenderer {
 		return RingField.angle(i, ring.angle0(), ring.periodSeconds(), ring.reverse());
 	}
 
+	/** Every ring where RingField has it. */
 	private static void drawRings(GuiGraphics guiGraphics, int w, int h) {
-		drawRings(guiGraphics, w, h, 1.0, RING_HEIGHT_RATIO, 1f);
-	}
-
-	/**
-	 * Every ring where RingField has it, {@code grow} times its size, flattened
-	 * to {@code aspect} (height / width; the rings' own is RING_HEIGHT_RATIO) —
-	 * the lens opening widens and un-tilts them towards a circle.
-	 */
-	private static void drawRings(GuiGraphics guiGraphics, int w, int h, double grow, double aspect, float alpha) {
 		for (int i = 0; i < rings.size(); i++) {
 			Ring ring = rings.get(i);
 			drawRingAt(guiGraphics, ring, w / 2.0 + RingField.offsetX(i, w), h / 2.0 + RingField.offsetY(i, w),
-					ringAngle(i), ring.widthFrac() * w * 0.99 * grow, aspect, ring.opacity() * alpha);
+					ringAngle(i), ring.widthFrac() * w * 0.99, RING_HEIGHT_RATIO, ring.opacity());
 		}
 		shade(1f, 1f, 1f, 1f);
 	}
