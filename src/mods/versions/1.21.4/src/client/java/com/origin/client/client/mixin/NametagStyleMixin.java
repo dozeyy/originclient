@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -9,6 +10,7 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.PlayerRenderState;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Entity;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -47,10 +49,12 @@ public class NametagStyleMixin {
 		// 1.21.2+: the hook gets a render state, so the player is looked up by the
 		// state's entity id (PlayerRenderState.id), as LevelHeadMixin does.
 		Integer party = null;
+		Entity entity = null;   // the player behind a PlayerRenderState (party tint + Origin+ badge)
 		try {
 			Minecraft pmc = Minecraft.getInstance();
 			if (state instanceof PlayerRenderState prs && pmc.level != null) {
-				party = com.origin.client.client.social.PartyWorld.nametagTint(pmc.level.getEntity(prs.id));
+				entity = pmc.level.getEntity(prs.id);
+				party = com.origin.client.client.social.PartyWorld.nametagTint(entity);
 			}
 		} catch (Throwable ignored) {
 			// no tint
@@ -58,8 +62,29 @@ public class NametagStyleMixin {
 		if (party != null) {
 			color = (color & 0xFF000000) | (party & 0xFFFFFF);
 		}
+		// Origin+ badge: blank text in front of the name makes vanilla's own centring and
+		// background box grow to hold it; the badge is then drawn over the blank in each
+		// pass, with that pass's alpha/light/mode (so sneaking + see-through match the name).
+		// 1.21.2+: `entity` is the state's player looked up above (null = no badge).
+		float padW = 0f;
+		try {
+			if (PlusBadge.wantsNametag(entity) && !PlusBadge.isScoreLine(entity, displayName)) {
+				String pad = PlusBadge.namePad(font);
+				if (pad != null) {
+					padW = font.width(pad);
+					text = Component.literal(pad).append(text);
+					x -= padW / 2f;
+				}
+			}
+		} catch (Throwable ignored) {
+			padW = 0f;
+		}
 		if (!Mods.on("nametags")) {
-			return font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
+			int w = font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
+			if (padW > 0f) {
+				PlusBadge.nametag(matrix, buffer, mode, x, y, padW, color >>> 24, light);
+			}
+			return w;
 		}
 		boolean self = state instanceof PlayerRenderState && originclient$isSelf(displayName);
 		boolean over = self && Mods.bool("nametags", "ownOverride");
@@ -89,7 +114,11 @@ public class NametagStyleMixin {
 			int bg = over ? Mods.color("nametags", "ownBackgroundColor") : Mods.color("nametags", "backgroundColor");
 			newBg = originclient$scaleAlpha(bg, op);
 		}
-		return font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+		int w = font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+		if (padW > 0f) {
+			PlusBadge.nametag(matrix, buffer, mode, x, y, padW, newColor >>> 24, light);
+		}
+		return w;
 	}
 
 	private static boolean originclient$isSelf(Component name) {

@@ -20,6 +20,7 @@
 #
 # This fork is meant to DIE: once JEI ships on every version, the "jei" entry
 # belongs in shared/Mods.java unconditionally and this line should be deleted.
+# DELIBERATE FORK (cosmetics v2) - also the Cosmetic Effects and Cape Physics toggles.
 client/java/com/origin/client/client/mods/Mods.java
 
 # TEMPORARY FORK (2026-07-16, Will's call) - JEI settings tab.
@@ -55,6 +56,7 @@ client/java/com/origin/client/client/gui/OriginColorPicker.java
 # change hover/text color on all 12 other live modules before they have the
 # matching button skin. Promote to shared/OriginTheme.java (delete this line)
 # once the Frost button skin ships on a second version.
+# DELIBERATE FORK (cosmetics v2) - also menu themes: palette tokens are runtime statics (applyTheme / resetTheme with DEF_ values).
 client/java/com/origin/client/client/theme/OriginTheme.java
 
 # UNDECLARED DRIFT, now declared (2026-07-26). These four have been failing

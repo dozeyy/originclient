@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -56,7 +57,7 @@ public class NametagStyleMixin {
 										   // captured params of renderNameTag (the state names the entity):
 										   EntityRenderState state, Component displayName, PoseStack poseStack,
 										   MultiBufferSource bufferSource, int packedLight) {
-		originclient$draw(font, text, x, y, color, shadow, matrix, buffer, mode, bgColor, light, state);
+		originclient$draw(font, text, x, y, color, shadow, matrix, buffer, mode, bgColor, light, state, displayName);
 	}
 
 	@Redirect(method = "renderNameTag",
@@ -67,29 +68,53 @@ public class NametagStyleMixin {
 											 int bgColor, int light,
 											 EntityRenderState state, Component displayName, PoseStack poseStack,
 											 MultiBufferSource bufferSource, int packedLight) {
-		originclient$draw(font, text, x, y, color, shadow, matrix, buffer, mode, bgColor, light, state);
+		originclient$draw(font, text, x, y, color, shadow, matrix, buffer, mode, bgColor, light, state, displayName);
 		return 0;
 	}
 
 	private static void originclient$draw(Font font, Component text, float x, float y, int color, boolean shadow,
 										  Matrix4f matrix, MultiBufferSource buffer, Font.DisplayMode mode,
-										  int bgColor, int light, EntityRenderState state) {
+										  int bgColor, int light, EntityRenderState state,
+										  Component displayName) {
 		// Friends & Party: a party member's tag in the party colour (LAN worlds only;
 		// PartyWorld decides). Keeps vanilla's per-pass alpha like the colours below.
 		Integer party = null;
+		Entity entity = null;   // the player behind a PlayerRenderState (party tint + Origin+ badge)
 		try {
-			party = com.origin.client.client.social.PartyWorld.nametagTint(originclient$entity(state));
+			entity = originclient$entity(state);
+			party = com.origin.client.client.social.PartyWorld.nametagTint(entity);
 		} catch (Throwable ignored) {
 			// no tint
 		}
 		if (party != null) {
 			color = (color & 0xFF000000) | (party & 0xFFFFFF);
 		}
+		// "your own tag" is matched on the name text, so it is read before the badge pad goes in.
+		boolean self = originclient$isSelf(text);
+		// Origin+ badge: blank text in front of the name makes vanilla's own centring and
+		// background box grow to hold it; the badge is then drawn over the blank in each
+		// pass, with that pass's alpha/light/mode (so sneaking + see-through match the name).
+		// 1.21.2+: `entity` is the state's player looked up above (null = no badge).
+		float padW = 0f;
+		try {
+			if (PlusBadge.wantsNametag(entity) && !PlusBadge.isScoreLine(entity, displayName)) {
+				String pad = PlusBadge.namePad(font);
+				if (pad != null) {
+					padW = font.width(pad);
+					text = Component.literal(pad).append(text);
+					x -= padW / 2f;
+				}
+			}
+		} catch (Throwable ignored) {
+			padW = 0f;
+		}
 		if (!Mods.on("nametags")) {
 			font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
+			if (padW > 0f) {
+				PlusBadge.nametag(matrix, buffer, mode, x, y, padW, color >>> 24, light);
+			}
 			return;
 		}
-		boolean self = originclient$isSelf(text);
 		boolean over = self && Mods.bool("nametags", "ownOverride");
 		double op = Mods.num("nametags", "opacity");
 		if (op <= 0.0) {
@@ -118,6 +143,9 @@ public class NametagStyleMixin {
 			newBg = originclient$scaleAlpha(bg, op);
 		}
 		font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+		if (padW > 0f) {
+			PlusBadge.nametag(matrix, buffer, mode, x, y, padW, newColor >>> 24, light);
+		}
 	}
 
 	/** The player a render state was extracted from (null for anything else). */

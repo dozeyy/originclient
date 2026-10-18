@@ -1,5 +1,7 @@
 package com.origin.client.client.hud;
 
+import com.origin.client.client.cosmetics.CosmeticsService;
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -111,6 +113,16 @@ public final class OriginTabList {
 
 		int headW = heads ? ROW_H : 0;
 
+		// Origin+ members get the Origin mark in a narrow column left of the name; the
+		// column only exists while someone listed is a member, so a normal list is unchanged.
+		boolean[] plus = new boolean[n];
+		boolean anyPlus = false;
+		for (int i = 0; i < n; i++) {
+			plus[i] = CosmeticsService.isPlus(list.get(i).getProfile().getId());
+			anyPlus |= plus[i];
+		}
+		int badgeW = anyPlus ? 9 : 0;
+
 		Component[] names = new Component[n];
 		int[] scores = objective != null ? new int[n] : null;
 		int maxName = 0;
@@ -133,7 +145,7 @@ public final class OriginTabList {
 
 		int pingW = hidePing ? 0 : (pingNum ? font.width("999ms") : 11);
 		int healthW = showHealth ? font.width("20") + 4 : 0; // widest number + a hair of gap
-		int cellW = headW + maxName + 6 + healthW + scoreW + pingW;
+		int cellW = headW + badgeW + maxName + 6 + healthW + scoreW + pingW;
 
 		// columns: <=20 per column, then widen
 		int rows = n, cols = 1;
@@ -165,6 +177,12 @@ public final class OriginTabList {
 			if (heads) {
 				PlayerFaceRenderer.draw(g, info.getSkin(), px, ry, 8);
 				px += ROW_H;
+			}
+			if (badgeW > 0) {
+				if (plus[i]) {
+					PlusBadge.gui(g, px, ry, 7);
+				}
+				px += badgeW;
 			}
 			boolean isSelf = self != null && info.getProfile().getId().equals(self);
 			boolean fighting = combatOn

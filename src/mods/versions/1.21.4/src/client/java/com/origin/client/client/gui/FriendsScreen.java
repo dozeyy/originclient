@@ -1,5 +1,6 @@
 package com.origin.client.client.gui;
 
+import com.origin.client.client.cosmetics.CosmeticsService;
 import com.origin.client.client.social.FairPlay;
 import com.origin.client.client.social.Social;
 import com.origin.client.client.social.SocialClient;
@@ -433,14 +434,28 @@ public class FriendsScreen extends OriginWindow {
 		});
 	}
 
+	/** The Origin+ badge (the Origin mark) centred on (cx, cy), `size` design px. Never throws. */
+	private static void plusMark(OriginDeck d, float cx, float cy, float size) {
+		try {
+			d.logo(cx, cy, size, 0.10f);
+		} catch (Throwable ignored) {
+			// no badge
+		}
+	}
+
 	private void friendRow(OriginDeck d, Friend f, float y) {
 		boolean selected = f.uuid().equals(sel);
 		float hp = rowBack(d, f.uuid(), y, selected);
 		face(d, f.uuid(), BODY_X + 10, y + 10, 28, f.online());
 		int unread = SocialClient.unread(f.uuid());
-		float nameMax = LIST_W - 56 - (unread > 0 ? 34 : 12);
+		boolean plus = CosmeticsService.isPlus(f.uuid());
+		float nameMax = LIST_W - 56 - (unread > 0 ? 34 : 12) - (plus ? 18 : 0);
 		int nameCol = selected ? ACC : f.online() ? lerp(DIM, TEXT, Math.max(hp, unread > 0 ? 1 : 0)) : lerp(MUTE, DIM, hp);
-		d.text(d.fit(nz(f.name()), nameMax, 13.5f, true, 0), BODY_X + 48, y + 21, 13.5f, true, 0, nameCol);
+		String shownName = d.fit(nz(f.name()), nameMax, 13.5f, true, 0);
+		d.text(shownName, BODY_X + 48, y + 21, 13.5f, true, 0, nameCol);
+		if (plus) {
+			plusMark(d, BODY_X + 48 + d.textW(shownName, 13.5f, true, 0) + 10, y + 16, 12);
+		}
 		d.text(d.fit(status(f, " • "), LIST_W - 60, 11.5f, false, 0), BODY_X + 48, y + 37, 11.5f, false, 0, MUTE);
 		if (unread > 0) {
 			String c = unread > 9 ? "9+" : Integer.toString(unread);
@@ -469,7 +484,12 @@ public class FriendsScreen extends OriginWindow {
 	private void drawFriend(OriginDeck d, SocialState s, Friend f) {
 		face(d, f.uuid(), RX, TOP + 4, 44, f.online());
 		float tx = RX + 44 + 16;
-		d.text(d.fit(nz(f.name()), RW - 64, 18, true, 0), tx, TOP + 22, 18, true, 0.2f, TEXT);
+		boolean plus = CosmeticsService.isPlus(f.uuid());
+		String shownName = d.fit(nz(f.name()), RW - 64 - (plus ? 24 : 0), 18, true, 0);
+		d.text(shownName, tx, TOP + 22, 18, true, 0.2f, TEXT);
+		if (plus) {
+			plusMark(d, tx + d.textW(shownName, 18, true, 0.2f) + 14, TOP + 15.5f, 16);
+		}
 		d.text(d.fit(status(f, " • "), RW - 64, 12.5f, false, 0), tx, TOP + 42, 12.5f, false, 0, f.online() ? DIM : MUTE);
 
 		float x = RX;
