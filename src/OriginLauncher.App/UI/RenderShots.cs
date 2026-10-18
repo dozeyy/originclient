@@ -169,6 +169,21 @@ public static class RenderShots
         Pump(800);
         Snap(window, outDir, "24-min-settings");
 
+        // The Profiles page and Home with a profile (profile row + Join under Play), at the smallest
+        // window too, the second time with the toasts up: the Play card, Play and Join must all fit
+        // under the top bar and above the bottom edge, and the toasts must leave them uncovered.
+        window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
+        Pump(700);
+        Snap(window, outDir, "25-min-profiles");
+        window.TourShowHomeWithProfile(demoProfiles.ModProfiles[0]);
+        Pump(700);
+        Snap(window, outDir, "26-min-home-profile");
+        foreach (var toast in SocialDemo.Toasts()) window.TourShowToast(toast);
+        window.TourShowToast(new SocialToast(SocialToastKind.FriendRequest, "Friend request", "OjoTheCat wants to be friends", Uuid: SocialDemo.Ojo));
+        Pump(700);
+        Snap(window, outDir, "27-min-home-profile-toasts");
+        window.TourClearToasts();
+
         window.Close();
     }
 

@@ -3,6 +3,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -25,6 +26,11 @@ public static class SocialShots
     private sealed record Scene(string Name, Action<MainWindow> Setup, Func<FrameworkElement?>? Extra = null);
 
     private static ContextMenu? _menu;
+    // Undoes what a scene painted on a row (hover fill, focus frame): rows are reused between scenes
+    // when their content is the same, so a leftover would show up in the next picture.
+    private static Action? _cleanup;
+    // A picture of something the window picture cannot hold (a pop-up menu, the focus-frame adorner layer).
+    private static FrameworkElement? _extraElement;
 
     public static void Run(string outDir)
     {
@@ -57,6 +63,9 @@ public static class SocialShots
                 {
                     if (_menu != null) _menu.IsOpen = false;
                     _menu = null;
+                    _cleanup?.Invoke();
+                    _cleanup = null;
+                    _extraElement = null;
                     window.TourFriendsPanel.TourScrollListToTop();
                     scene.Setup(window);
                     RenderShots.Pump(450);
@@ -71,9 +80,50 @@ public static class SocialShots
             }
         }
         if (_menu != null) _menu.IsOpen = false;
+        _cleanup?.Invoke();
+        _cleanup = null;
         KeyboardChecks(window, outDir);
         ToastClearance(window, outDir);
         window.Close();
+    }
+
+    private static T? FindAncestor<T>(DependencyObject start) where T : DependencyObject
+    {
+        for (var d = VisualTreeHelper.GetParent(start); d != null; d = VisualTreeHelper.GetParent(d))
+            if (d is T t) return t;
+        return null;
+    }
+
+    /// <summary>
+    /// Draws a row's focus frame the way WPF does when you Tab to it: a control styled with the
+    /// row's own FocusVisualStyle, laid over the row on the adorner layer.
+    /// </summary>
+    private sealed class FocusPreview : Adorner
+    {
+        private readonly Control _frame;
+
+        public FocusPreview(FrameworkElement adorned) : base(adorned)
+        {
+            IsHitTestVisible = false;
+            _frame = new Control { Style = adorned.FocusVisualStyle, IsHitTestVisible = false };
+            AddVisualChild(_frame);
+        }
+
+        protected override int VisualChildrenCount => 1;
+
+        protected override Visual GetVisualChild(int index) => _frame;
+
+        protected override Size MeasureOverride(Size constraint)
+        {
+            _frame.Measure(AdornedElement.RenderSize);
+            return AdornedElement.RenderSize;
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            _frame.Arrange(new Rect(AdornedElement.RenderSize));
+            return AdornedElement.RenderSize;
+        }
     }
 
     private static void SnapElement(FrameworkElement element, string dir, string name)
@@ -104,35 +154,66 @@ public static class SocialShots
         return default;
     }
 
-    /// <summary>Do the toasts (two shown, "+N more" for the rest) stay off the Play button? Numbers, not a picture. Written to layout-checks.txt.</summary>
+    /// <summary>
+    /// Layout in numbers, not pictures (layout-checks.txt): with the toasts up, do they stay off Play and Join,
+    /// and does the Play card (with its profile row and Join) sit under the top bar and above the bottom edge?
+    /// </summary>
     private static void ToastClearance(MainWindow window, string outDir)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var report = new StringBuilder();
+        var profile = new Core.Profiles.ModProfile
+        {
+            Id = "0a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Survival SMP", Version = "1.21.1",
+            ServerName = "Survival SMP", ServerAddress = "play.example.net",
+        };
         SocialHub.Service.ShowDemo(SocialDemo.Online(now));
         window.TourSetFriendsOpen(false);
         foreach (var (width, height) in new[] { (1180, 740), (980, 600) })
         {
-            window.Width = width;
-            window.Height = height;
-            window.TourClearToasts();
-            RenderShots.Pump(500);
-            foreach (var toast in SocialDemo.Toasts()) window.TourShowToast(toast);
-            window.TourShowToast(new SocialToast(SocialToastKind.FriendRequest, "Friend request", "OjoTheCat wants to be friends", Uuid: SocialDemo.Ojo));
-            window.TourShowToast(new SocialToast(SocialToastKind.PartyInvite, "Party invite", "Kai_Builds invited you", Uuid: SocialDemo.Kai, PartyId: "p2"));
-            RenderShots.Pump(600);
-            window.UpdateLayout();
-            var root = (Visual)window.Content;
-            var play = FindVisual<Button>(root, b => ReferenceEquals(b.Style, Application.Current.FindResource("Button.PlayHero")));
-            var toasts = FindVisual<SocialToastHost>(root, _ => true);
-            if (play == null || toasts == null)
+            foreach (var withProfile in new[] { false, true })
             {
-                report.AppendLine($"{width}x{height}: play button found = {play != null}, toast host found = {toasts != null} (cannot check)");
-                continue;
+                window.Width = width;
+                window.Height = height;
+                window.TourClearToasts();
+                if (withProfile) window.TourShowHomeWithProfile(profile);
+                else window.TourGoTo(0);
+                RenderShots.Pump(600);
+                foreach (var toast in SocialDemo.Toasts()) window.TourShowToast(toast);
+                window.TourShowToast(new SocialToast(SocialToastKind.FriendRequest, "Friend request", "OjoTheCat wants to be friends", Uuid: SocialDemo.Ojo));
+                window.TourShowToast(new SocialToast(SocialToastKind.PartyInvite, "Party invite", "Kai_Builds invited you", Uuid: SocialDemo.Kai, PartyId: "p2"));
+                RenderShots.Pump(600);
+                window.UpdateLayout();
+
+                var label = $"{width}x{height} {(withProfile ? "with profile + Join" : "no profile")}";
+                var root = (Visual)window.Content;
+                var play = FindVisual<Button>(root, b => ReferenceEquals(b.Style, Application.Current.FindResource("Button.PlayHero")));
+                var join = FindVisual<Button>(root, b => b.Name == "JoinButton" && b.IsVisible);
+                var card = FindVisual<StackPanel>(root, p => p.Name == "HomeCard");
+                var toasts = FindVisual<SocialToastHost>(root, _ => true);
+                if (play == null || toasts == null || card == null)
+                {
+                    report.AppendLine($"{label}: play button found = {play != null}, card found = {card != null}, toast host found = {toasts != null} (cannot check)");
+                    continue;
+                }
+                var stack = BoundsIn(toasts, root);
+                var playRect = BoundsIn(play, root);
+                var cardRect = BoundsIn(card, root);
+                var pageTop = window.FindName("PageHost") is FrameworkElement host ? host.Margin.Top : 58;
+                report.AppendLine($"{label}: toast stack {stack}");
+                report.AppendLine($"    Play {playRect} overlap = {stack.IntersectsWith(playRect)}");
+                if (join != null)
+                {
+                    var joinRect = BoundsIn(join, root);
+                    report.AppendLine($"    Join {joinRect} overlap = {stack.IntersectsWith(joinRect)} ; gap Play to Join = {joinRect.Top - playRect.Bottom:0.#} px");
+                }
+                else if (withProfile)
+                {
+                    report.AppendLine("    Join not visible (cannot check it)");
+                }
+                var rootHeight = ((FrameworkElement)window.Content).ActualHeight;
+                report.AppendLine($"    Home card {cardRect}: top clear of the top bar ({pageTop}) = {cardRect.Top >= pageTop} ; bottom above the window edge ({rootHeight}) = {cardRect.Bottom <= rootHeight}");
             }
-            var stack = BoundsIn(toasts, root);
-            var playRect = BoundsIn(play, root);
-            report.AppendLine($"{width}x{height}: toast stack {stack} ; Play button {playRect} ; overlap = {stack.IntersectsWith(playRect)}");
         }
         window.TourClearToasts();
         File.WriteAllText(Path.Combine(outDir, "layout-checks.txt"), report.ToString());
@@ -370,27 +451,38 @@ public static class SocialShots
                 List(w, SocialDemo.Online(now));
                 w.TourFriendsPanel.TourShowAddError("That isn't a Minecraft username.");
             }),
-            // Hover and keyboard focus can't be made by an offscreen run, so these two paint what the
-            // row's own triggers paint: the hover fill (Brush.CardAlt), and the 2 px accent focus frame.
+            // Hover cannot be made by an offscreen run, so that scene paints what the row's own trigger
+            // paints (Brush.CardAlt). Keyboard focus uses the REAL frame: the row's own FocusVisualStyle
+            // (Social.RowFocus) on a preview adorner, on the first, a middle and the last row of a card.
             new("row-hover", w =>
             {
-                List(w, SocialDemo.Online(now));
-                w.TourFriendsPanel.TourSetAddOpen(false);
-                RenderShots.Pump(250);
-                if (w.TourFriendsPanel.TourFindRow(SocialDemo.Kai) is { } row && Bd(row) is { } bd)
-                    bd.Background = (Brush)Application.Current.FindResource("Brush.CardAlt");
-            }),
-            new("row-focus", w =>
-            {
-                List(w, SocialDemo.Online(now));
+                List(w, NoParty(now));
                 w.TourFriendsPanel.TourSetAddOpen(false);
                 RenderShots.Pump(250);
                 if (w.TourFriendsPanel.TourFindRow(SocialDemo.Kai) is { } row && Bd(row) is { } bd)
                 {
-                    bd.BorderBrush = (Brush)Application.Current.FindResource("Brush.Accent");
-                    bd.BorderThickness = new Thickness(2);
+                    bd.Background = (Brush)Application.Current.FindResource("Brush.CardAlt");
+                    _cleanup = () => bd.ClearValue(Border.BackgroundProperty);
                 }
             }),
+            new("row-focus", w =>
+            {
+                List(w, NoParty(now));
+                w.TourFriendsPanel.TourSetAddOpen(false);
+                RenderShots.Pump(250);
+                var added = new List<(AdornerLayer Layer, Adorner Adorner)>();
+                foreach (var uuid in new[] { SocialDemo.Steve, SocialDemo.Alex, SocialDemo.Rin })
+                {
+                    if (w.TourFriendsPanel.TourFindRow(uuid) is not { } row) continue;
+                    if (AdornerLayer.GetAdornerLayer(row) is not { } layer) continue;
+                    var adorner = new FocusPreview(row);
+                    layer.Add(adorner);
+                    added.Add((layer, adorner));
+                }
+                _cleanup = () => { foreach (var (layer, adorner) in added) layer.Remove(adorner); };
+                // The adorner layer sits above the window's content, so the window picture cannot hold it.
+                _extraElement = FindAncestor<AdornerDecorator>((DependencyObject)w.Content);
+            }, () => _extraElement),
             new("list-notice", w =>
             {
                 List(w, SocialDemo.Online(now));

@@ -32,7 +32,7 @@
                 </MultiBinding>
             </Setter.Value>
         </Setter>
-        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Padding" Value="10,8"/>
     </Style>
 
     <!-- A row that is not itself pressable (requests, invites, hints, blocked). -->
@@ -98,12 +98,24 @@
     <!-- A list row you can press (the whole row opens the conversation): the card
          row with a lighter fill on hover, the accent frame on keyboard focus.
          Inner buttons keep their own clicks. -->
+    <!-- The keyboard focus frame: an outset 2 px frame around the row, corners following the row's
+         place in its card (first, middle, last) at the card radius plus the outset (Radius.FocusCard).
+         The frame is an adorner, so the next row can't cover it; it reads the row's Pos through the
+         adorner's AdornedElement. A button that isn't a card row gets the full rounded frame. -->
     <Style x:Key="Social.RowFocus">
         <Setter Property="Control.Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border BorderBrush="{StaticResource Brush.Accent}" BorderThickness="2"
-                            CornerRadius="{StaticResource Radius.Control}" IsHitTestVisible="False"/>
+                    <Border Margin="-3" BorderBrush="{StaticResource Brush.Accent}" BorderThickness="2"
+                            IsHitTestVisible="False">
+                        <Border.CornerRadius>
+                            <MultiBinding Converter="{StaticResource Social.CardCorners}">
+                                <Binding Path="AdornedElement.DataContext.Pos"
+                                         RelativeSource="{RelativeSource FindAncestor, AncestorType={x:Type Adorner}}"/>
+                                <Binding Source="{StaticResource Radius.FocusCard}"/>
+                            </MultiBinding>
+                        </Border.CornerRadius>
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -111,7 +123,7 @@
 
     <Style x:Key="Social.Row" TargetType="Button">
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Padding" Value="10,8"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="FocusVisualStyle" Value="{StaticResource Social.RowFocus}"/>
@@ -185,7 +197,7 @@
         <Setter Property="Width" Value="{StaticResource Social.IconSize}"/>
         <Setter Property="Height" Value="{StaticResource Social.IconSize}"/>
         <Setter Property="Padding" Value="7"/>
-        <Setter Property="Margin" Value="2,0,0,0"/>
+        <Setter Property="Margin" Value="0"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 

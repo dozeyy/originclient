@@ -342,10 +342,25 @@ public partial class FriendsPanel : UserControl
         f.Online ? SocialText.StatusLine(f)
         : f.LastSeen > 0 ? $"Offline - last seen {Ago(f.LastSeen)}" : "Offline";
 
-    /// <summary>The row's line: the same without the version, so the server name isn't cut off.</summary>
-    private static string StatusShort(FriendInfo f) =>
-        f.Online ? SocialText.ActivityLine(f)
-        : f.LastSeen > 0 ? $"Last seen {Ago(f.LastSeen)}" : "Offline";
+    /// <summary>
+    /// The row's line, as short as it can be so it isn't cut off: "On hypixel.net" (the whole line,
+    /// with the version, is the tooltip and the chat header).
+    /// </summary>
+    private static string StatusShort(FriendInfo f)
+    {
+        if (!f.Online) return f.LastSeen > 0 ? $"Last seen {Ago(f.LastSeen)}" : "Offline";
+        if (f.Client == "launcher") return "In the launcher";
+        return f.Activity switch
+        {
+            "server" when !string.IsNullOrWhiteSpace(f.Server) => "On " + Clip(SocialText.DisplayServer(f.Server), 20),
+            "singleplayer" => "Singleplayer",
+            _ => "In game",
+        };
+    }
+
+    /// <summary>Cuts a long name with three dots, never leaving the dots right behind a "." or "-".</summary>
+    private static string Clip(string text, int max) =>
+        text.Length <= max ? text : text[..(max - 1)].TrimEnd('.', '-') + "...";
 
     private static string JoinTipFor(FriendInfo f) =>
         !f.IsOnServer ? "Join their server"

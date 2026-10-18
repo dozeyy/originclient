@@ -146,8 +146,8 @@ public partial class ProfilesPage : UserControl
         var grid = RowGrid(4);
 
         var mods = _countMods(profile);
-        var detail = $"{profile.Version} · {mods} {(mods == 1 ? "mod" : "mods")}";
-        if (profile.HasServer) detail += $" · {profile.ServerName ?? profile.ServerAddress}";
+        var detail = $"{profile.Version} - {mods} {(mods == 1 ? "mod" : "mods")}";
+        if (profile.HasServer) detail += $" - {profile.ServerName ?? profile.ServerAddress}";
         grid.Children.Add(TitleBlock(profile.Name, detail, dim: false));
 
         AddAt(grid, 1, UseControl(selected, $"Use {profile.Name}", () => Select(profile)));

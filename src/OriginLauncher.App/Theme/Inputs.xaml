@@ -218,7 +218,8 @@
         <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="15,9"/>
+        <!-- Right padding leaves room for the dropdown chevron. -->
+        <Setter Property="Padding" Value="15,9,40,9"/>
         <Setter Property="MinHeight" Value="40"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -234,11 +235,18 @@
                                       ClickMode="Press">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
+                                    <!-- Its own brushes (the same Card fill and Stroke edge as a text box), so the
+                                         hover and open animations below never repaint a brush other fields share. -->
                                     <Border x:Name="ToggleBg"
-                                            Background="{TemplateBinding Background}"
-                                            BorderBrush="{TemplateBinding BorderBrush}"
                                             BorderThickness="{TemplateBinding BorderThickness}"
-                                            CornerRadius="{StaticResource Radius.Control}"/>
+                                            CornerRadius="{StaticResource Radius.Control}">
+                                        <Border.Background>
+                                            <SolidColorBrush Color="{StaticResource Color.Card}"/>
+                                        </Border.Background>
+                                        <Border.BorderBrush>
+                                            <SolidColorBrush Color="{StaticResource Color.Stroke}"/>
+                                        </Border.BorderBrush>
+                                    </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Trigger.EnterActions>
@@ -294,6 +302,11 @@
                                           IsHitTestVisible="False"
                                           Content="{TemplateBinding SelectionBoxItem}"
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+                        <!-- The dropdown arrow: a chevron, so a combo box reads as one. -->
+                        <Path Data="{StaticResource Icon.Chevron}" Style="{StaticResource Icon.Base}"
+                              Width="12" Height="12" Margin="0,0,14,0"
+                              HorizontalAlignment="Right" VerticalAlignment="Center"
+                              Stroke="{StaticResource Brush.TextDim}" IsHitTestVisible="False"/>
                         <Popup x:Name="Popup"
                                IsOpen="{TemplateBinding IsDropDownOpen}"
                                Placement="Bottom"

@@ -88,7 +88,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Grid Margin="0,0,12,0" VerticalAlignment="Center">
+                    <Grid Margin="0,0,10,0" VerticalAlignment="Center">
                         <Border x:Name="Avatar" Style="{StaticResource Social.Avatar}">
                             <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                         </Border>
@@ -143,12 +143,12 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Social.Avatar}" Margin="0,0,12,0">
+                    <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0">
                         <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
-                        <TextBlock Text="Wants to be your friend" Style="{StaticResource Social.Caption}"/>
+                        <TextBlock Text="Wants to be friends" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                         <Button Content="ACCEPT" Style="{StaticResource Social.ActionPrimary}" Click="RequestAccept_Click"/>
@@ -170,12 +170,12 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Social.Avatar}" Margin="0,0,12,0">
+                    <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0">
                         <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
-                        <TextBlock Text="Invited you to a party" Style="{StaticResource Social.Caption}"/>
+                        <TextBlock Text="Party invite" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
                         <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}" Click="InviteAccept_Click"
@@ -202,7 +202,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Grid Margin="0,0,12,0" VerticalAlignment="Center">
+                    <Grid Margin="0,0,10,0" VerticalAlignment="Center">
                         <Border Style="{StaticResource Social.Avatar}">
                             <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                         </Border>
@@ -276,13 +276,13 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Social.Avatar}" Margin="0,0,12,0" Opacity="0.6">
+                    <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
                         <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"
                                    Foreground="{StaticResource Brush.TextDim}"/>
-                        <TextBlock Text="Waiting for them to accept" Style="{StaticResource Social.Caption}"/>
+                        <TextBlock Text="Request sent" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
                     <Button Grid.Column="2" Content="CANCEL" Style="{StaticResource Social.Action}"
                             ToolTip="Cancel your friend request" Click="RequestCancel_Click"/>
@@ -298,7 +298,7 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Social.Avatar}" Margin="0,0,12,0" Opacity="0.6">
+                    <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" Opacity="0.6">
                         <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -356,7 +356,8 @@
 
         <!-- Header: back (chat only), title + one status line, then the view's own actions.
              The status line keeps its height when empty, so the title never jumps between views. -->
-        <Grid Grid.Row="0" Margin="16,16,12,10">
+        <StackPanel Grid.Row="0">
+        <Grid Margin="16,16,12,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -394,6 +395,9 @@
                 </Button>
             </StackPanel>
         </Grid>
+        <!-- One hairline under the header, in the list, the states and the chat alike. -->
+        <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,10"/>
+        </StackPanel>
 
         <!-- Add a friend: opens from the header button (or "Add a friend" when you have none). -->
         <Grid x:Name="AddRow" Grid.Row="1" Margin="16,0,16,10" Visibility="Collapsed">
@@ -458,17 +462,17 @@
                 <StackPanel x:Name="FeatureList" Margin="0,18,0,0" Visibility="Collapsed">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <Path Data="{StaticResource Icon.Chat}" Style="{StaticResource Icon.Base}" Width="16" Height="16"
-                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,12,0"/>
+                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,10,0"/>
                         <TextBlock Text="Message friends" Style="{StaticResource Text.Body}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <Path Data="{StaticResource Icon.Friends}" Style="{StaticResource Icon.Base}" Width="16" Height="16"
-                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,12,0"/>
+                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,10,0"/>
                         <TextBlock Text="Party up, with chat" Style="{StaticResource Text.Body}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <Path Data="{StaticResource Icon.External}" Style="{StaticResource Icon.Base}" Width="16" Height="16"
-                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,12,0"/>
+                              Stroke="{StaticResource Brush.TextDim}" Margin="0,0,10,0"/>
                         <TextBlock Text="Join their server in one click" Style="{StaticResource Text.Body}"/>
                     </StackPanel>
                 </StackPanel>
@@ -521,8 +525,7 @@
 
                 <!-- Join / invite, only the ones that apply right now, between two hairlines. -->
                 <StackPanel Grid.Row="0">
-                    <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,0"/>
-                    <StackPanel x:Name="ChatBar" Orientation="Horizontal" Margin="16,10,16,10" Visibility="Collapsed">
+                    <StackPanel x:Name="ChatBar" Orientation="Horizontal" Margin="16,0,16,10" Visibility="Collapsed">
                         <Button x:Name="ChatJoinButton" Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
                                 Margin="0,0,8,0" Padding="14,6" Click="ChatJoin_Click"
                                 ToolTip="Launch their Minecraft version and join their server"/>
