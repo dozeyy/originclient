@@ -23,6 +23,17 @@ public static class OriginPaths
     /// <summary>A version's mods folder, shared by every account (Core/GameFolders/SharedMods.cs).</summary>
     public static string ModsDir(string version) => InstanceLayout.ModsDir(Instances, version);
 
+    /// <summary>All mod profiles of a version (Core/Profiles); each is a folder named by its id.</summary>
+    public static string ProfilesDir(string version) => InstanceLayout.ProfilesDir(Instances, version);
+
+    /// <summary>One mod profile's folder, instances/&lt;version&gt;/profiles/&lt;id&gt;.</summary>
+    public static string ProfileDir(string version, string profileId) =>
+        InstanceLayout.ProfileDir(Instances, version, profileId);
+
+    /// <summary>The jars one mod profile loads (the Mods page edits this while the profile is selected).</summary>
+    public static string ProfileModsDir(string version, string profileId) =>
+        InstanceLayout.ProfileModsDir(Instances, version, profileId);
+
     // Which account inherited the old one-folder-per-version game data
     // (Core/GameFolders/InstanceMigration.cs).
     public static string AccountMigrationMarker => Path.Combine(Instances, "account-migration.json");

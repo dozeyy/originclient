@@ -40,4 +40,11 @@
     <Geometry x:Key="Icon.Chat">M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z</Geometry>
     <Geometry x:Key="Icon.Crown">M2,6 L5,18 19,18 22,6 16,12 12,5 8,12 Z</Geometry>
 
+    <!-- Mod profiles (Feather layers / plus / edit-2 / copy / check, MIT). -->
+    <Geometry x:Key="Icon.Profiles">M12,2 L2,7 12,12 22,7 Z M2,17 L12,22 22,17 M2,12 L12,17 22,12</Geometry>
+    <Geometry x:Key="Icon.Plus">M12,5 L12,19 M5,12 L19,12</Geometry>
+    <Geometry x:Key="Icon.Edit">M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z</Geometry>
+    <Geometry x:Key="Icon.Copy">M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1</Geometry>
+    <Geometry x:Key="Icon.Check">M20,6 L9,17 L4,12</Geometry>
+
 </ResourceDictionary>
