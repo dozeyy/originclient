@@ -117,8 +117,8 @@ public final class OriginRender {
 		boolean checkErrors = errorChecks > 0;
 		if (checkErrors) {
 			errorChecks--;
-			while (GL11C.glGetError() != GL11C.GL_NO_ERROR) {
-				// clear older errors so only ours count
+			// clear older errors so only ours count (capped: a lost context repeats its error forever)
+			for (int i = 0; i < 16 && GL11C.glGetError() != GL11C.GL_NO_ERROR; i++) {
 			}
 		}
 
@@ -135,7 +135,18 @@ public final class OriginRender {
 		}
 
 		// 2. Sodium's own setup, our draws, Sodium's own teardown
-		base.originclient$begin(pass);
+		try {
+			base.originclient$begin(pass);
+		} catch (Throwable t) {
+			// begin may have half-run (render state set, no program): undo what it can
+			fail(t);
+			try {
+				base.originclient$end(pass);
+			} catch (Throwable ignored) {
+				// nothing bound to undo
+			}
+			return false;
+		}
 		try {
 			ChunkShaderInterface shader = base.originclient$activeProgram().getInterface();
 			shader.setProjectionMatrix(matrices.projection());
@@ -301,6 +312,8 @@ public final class OriginRender {
 	}
 
 	private static void release() {
+		Arrays.fill(regions, 0, regionTotal, null);
+		regionTotal = 0;
 		try {
 			culler.delete();
 		} catch (Throwable ignored) {
