@@ -1,5 +1,6 @@
 package com.origin.client.client.gui;
 
+import com.origin.client.client.StartupTransition;
 import com.origin.client.client.render.OriginScreenRenderer;
 import com.origin.client.client.render.TitleLayout;
 import com.origin.client.client.theme.OriginTheme;
@@ -49,6 +50,15 @@ import java.util.List;
 // Fail-soft: OriginScreen latches this class broken on any throw (MenuHooks then
 // stops substituting it) and a broken backdrop sends the player to vanilla's
 // GuiMainMenu on the next tick.
+//
+// The launch journey (StartupTransition; docs/MOTION.md): 1.21.1 dissolves its
+// startup loading overlay into the title while the loading mark flies onto the
+// logo spot. 1.8.9's startup load is Forge's own splash, which nothing of
+// Origin's can draw on, so the first title of a game start plays that ending
+// itself: the Origin loading layer (HOLD, the seed blooming into three circles
+// on the splash's charcoal, ~1.1 s; a click skips it), then the 560 ms
+// DISSOLVE over the title with the mark flying onto its logo spot. The title's
+// entrance (the nav rising in) plays once per game start, from that reveal.
 public class OriginTitleScreen extends OriginScreen {
 	// Button ids: actionPerformed dispatches on the instance, not the id, but
 	// distinct ids keep other mods' InitGuiEvent code from mistaking ours for
@@ -56,7 +66,13 @@ public class OriginTitleScreen extends OriginScreen {
 	private static final int ID_BASE = 0x4F520;
 
 	private GuiButton singleplayer, multiplayer, friends, mods, cosmetics, options, language, quit;
-	private long openedAt = 0;
+	// Static: the entrance plays once per game start, not on every return to the title.
+	private static long openedAt = 0;
+	// The startup intro (class comment): NONE, HOLD (the loading layer alone) or
+	// DISSOLVE (the layer fading over the title); dissolveAt = its first frame (0 = not yet).
+	private static final int NONE = 0, HOLD = 1, DISSOLVE = 2;
+	private static int intro = NONE;
+	private static long dissolveAt = 0;
 	private boolean fallBack = false;
 	private final List<GuiButton> nav = new ArrayList<>();
 	private final List<int[]> navPos = new ArrayList<>();
@@ -67,9 +83,11 @@ public class OriginTitleScreen extends OriginScreen {
 
 	@Override
 	protected void init() {
-		if (openedAt == 0) {           // first init only -- a resize re-init doesn't replay
+		if (openedAt == 0) {           // first title of the game only -- a resize or return doesn't replay
 			openedAt = System.currentTimeMillis();
-			OriginScreenRenderer.setTitleOpenedAt(openedAt);
+			if (StartupTransition.claimIntro() && OriginScreenRenderer.isActive()) {
+				intro = HOLD;
+			}
 		}
 		nav.clear();
 		navPos.clear();
@@ -131,7 +149,7 @@ public class OriginTitleScreen extends OriginScreen {
 	/** The nav's staggered entrance rise on Y (the dock sits still), re-applied
 	 *  every frame like the other versions' title mixins. */
 	private void applyPositions() {
-		long el = System.currentTimeMillis() - openedAt;
+		long el = System.currentTimeMillis() - StartupTransition.titleIntroStart(openedAt);
 		for (int i = 0; i < nav.size(); i++) {
 			int[] t = navPos.get(i);
 			double e = el > 1200 ? 1.0 : ease((el - 120 - i * 55) / 380.0);
@@ -147,6 +165,27 @@ public class OriginTitleScreen extends OriginScreen {
 
 	@Override
 	public void render(Gfx g, int mouseX, int mouseY, float partialTick) {
+		if (intro == HOLD) {
+			if (OriginScreenRenderer.renderStartupLoading(g)) {
+				if (OriginScreenRenderer.startupBloomed()) {
+					intro = DISSOLVE;
+				}
+				return;   // the title waits under the layer
+			}
+			endIntro();
+		}
+		long fadeT = -1;
+		if (intro == DISSOLVE) {
+			long t = dissolveAt == 0 ? 0 : System.currentTimeMillis() - dissolveAt;
+			if (t >= StartupTransition.REVEAL_MS) {
+				// The dissolve's last frame: end the layer BEFORE the title draws, or
+				// the title's mark (hidden while the layer is up) blinks out for a
+				// frame (1.21.1 b083908a).
+				endIntro();
+			} else {
+				fadeT = t;
+			}
+		}
 		if (!OriginScreenRenderer.renderTitleBackground(g)) {
 			// Origin rendering failed this session: a plain frame now, vanilla's
 			// GuiMainMenu on the next tick (tick() below).
@@ -167,6 +206,43 @@ public class OriginTitleScreen extends OriginScreen {
 		OriginScreenRenderer.renderTitleAccountChip(g);
 		applyPositions();
 		super.render(g, mouseX, mouseY, partialTick);   // the buttons (skinned) + labels
+		if (fadeT >= 0) {
+			float alpha = (float) (1.0 - StartupTransition.ease(fadeT / (double) StartupTransition.REVEAL_MS));
+			if (!OriginScreenRenderer.renderLoadingFade(g, alpha, true)) {
+				endIntro();
+			} else if (dissolveAt == 0) {
+				// First dissolve frame: the layer still fully covers the title (whose
+				// slow first frame is now out of the way). Both the dissolve and the
+				// title's entrance count from here.
+				dissolveAt = System.currentTimeMillis();
+				StartupTransition.titleRevealed();
+			}
+		}
+	}
+
+	private static void endIntro() {
+		intro = NONE;
+		OriginScreenRenderer.endStartupLayer();
+	}
+
+	// A click while the seed blooms skips straight to the dissolve (the buttons
+	// under the layer are not on screen yet, so it never presses one).
+	@Override
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		if (intro == HOLD) {
+			intro = DISSOLVE;
+			return true;
+		}
+		return false;
+	}
+
+	// Leaving the title mid-intro (a click during the dissolve) ends the layer:
+	// a later return shows the plain title.
+	@Override
+	public void removed() {
+		if (intro != NONE) {
+			endIntro();
+		}
 	}
 
 	@Override

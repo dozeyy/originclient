@@ -15,8 +15,11 @@
 		"GuiDownloadTerrainMixin",
 		"GuiScreenAccessor",
 		"GuiScreenBackgroundMixin",
+		"GuiScreenResourcePacksAccessor",
 		"GuiScreenWorkingMixin",
 		"GuiSlotMixin",
-		"GuiTextFieldMixin"
+		"GuiTextFieldMixin",
+		"MinecraftServerProgressMixin",
+		"MinecraftWorldLoadMixin"
 	]
 }

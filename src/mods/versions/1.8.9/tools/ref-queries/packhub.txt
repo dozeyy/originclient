@@ -1,0 +1,11 @@
+# ref-189 lookup group: packhub — names the launch-journey / Resource Pack Hub port (2026-10-18) uses that
+# no earlier ref-189 run answered (Minecraft, GameSettings, TextureManager, SimpleReloadableResourceManager and
+# ResourcePackRepository$Entry members were already verified from run 39133935340)
+class ResourcePackRepository
+class GuiScreenResourcePacks
+member outputPercentRemaining
+member getDirResourcepacks
+member setRepositories
+member updateRepositoryEntriesAll
+member getRepositoryEntriesAll
+member changed

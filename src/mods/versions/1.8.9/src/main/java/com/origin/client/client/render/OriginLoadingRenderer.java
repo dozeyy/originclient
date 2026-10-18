@@ -32,6 +32,16 @@ public final class OriginLoadingRenderer extends LoadingScreenRenderer {
 	private int progress = -1;
 	private long lastDraw;
 
+	// The integrated server's spawn-preparation percent (MinecraftServerProgressMixin,
+	// server thread), -1 = none. Read on the client thread by the wait loop's
+	// displayLoadingString calls, which never carry it themselves.
+	private static volatile int serverPercent = -1;
+
+	/** MinecraftServerProgressMixin: the integrated server reported spawn preparation. */
+	public static void serverProgress(int percent) {
+		serverPercent = percent >= 0 && percent <= 100 ? percent : -1;
+	}
+
 	public OriginLoadingRenderer(Minecraft mc) {
 		super(mc);
 		this.mc = mc;
@@ -46,6 +56,7 @@ public final class OriginLoadingRenderer extends LoadingScreenRenderer {
 		title = message != null ? message : "";
 		stage = "";
 		progress = -1;
+		serverPercent = -1;
 		draw(true);
 	}
 
@@ -58,6 +69,7 @@ public final class OriginLoadingRenderer extends LoadingScreenRenderer {
 		title = message != null ? message : "";
 		stage = "";
 		progress = -1;
+		serverPercent = -1;
 		draw(true);
 	}
 
@@ -68,7 +80,8 @@ public final class OriginLoadingRenderer extends LoadingScreenRenderer {
 			return;
 		}
 		stage = message != null ? message : "";
-		progress = -1;
+		// The integrated server's spawn preparation, when it is what's loading.
+		progress = serverPercent;
 		draw(true);
 	}
 
@@ -90,6 +103,7 @@ public final class OriginLoadingRenderer extends LoadingScreenRenderer {
 		}
 		progress = -1;
 		stage = "";
+		serverPercent = -1;
 	}
 
 	private void draw(boolean force) {
