@@ -104,7 +104,7 @@ test('checkout: makes a Stripe Checkout with our prices, the player on it, and t
   assert.ok(Number(sent.get('expires_at')) >= Date.now() / 1000 + 31 * 60);   // Stripe refuses < 30 min on arrival
   assert.equal(sent.get('metadata[items]'), 'cape-orbit,halo-gold');
   assert.equal(sent.get('payment_intent_data[metadata][uuid]'), UUID);
-  assert.match(sent.get('success_url'), /store\.html\?purchase=done$/);
+  assert.match(sent.get('success_url'), /store\?purchase=done$/);
 });
 
 test('checkout: refuses bad input, things already owned, and a closed store; Stripe errors say nothing was charged', async () => {
@@ -308,7 +308,7 @@ test('origin+ checkout: a Stripe subscription at our price, the player on the su
   assert.equal(sent.get('line_items[0][price_data][product]'), 'origin-plus');
   assert.equal(sent.get('subscription_data[metadata][uuid]'), UUID);
   assert.equal(sent.get('subscription_data[metadata][name]'), 'Will');
-  assert.match(sent.get('success_url'), /store\.html\?plus=done$/);
+  assert.match(sent.get('success_url'), /store\?plus=done$/);
   assert.equal(sent.get('payment_intent_data[metadata][uuid]'), null);   // not allowed in subscription mode
 });
 

@@ -28,7 +28,7 @@ import { json, fail, normUuid, slotOf, NAME_RE } from './common.js';
 import { CATALOG } from './catalog.gen.js';
 
 const STRIPE = 'https://api.stripe.com/v1';
-const STORE_PAGE = 'https://originclient.org/store.html';
+const STORE_PAGE = 'https://originclient.org/store';
 const CURRENCY = 'usd';
 // Will, 2026-10-17: Stripe Tax works out the right tax for each buyer and adds
 // it on top of the list price at checkout (needs Stripe Tax switched on).

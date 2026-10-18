@@ -1,4 +1,4 @@
-# The Origin Store (originclient.org/store.html)
+# The Origin Store (originclient.org/store)
 
 The website's cosmetics shop. Players browse capes, halos and a crown, try them
 on in a 3D preview, type the Minecraft name the items are for, and pay on
@@ -120,7 +120,7 @@ on the store page and gets it straight away: no card, no Stripe.
 - **Wings: not on sale** (Will, 2026-10-12: "no wings for now"). Their art and
   flap animation are still in `cosmetics.js`. To bring them back, add their
   ids (`wings-ember`, `wings-void`, `wings-frost`) to `ITEMS` and a Wings tab
-  to `store.html`.
+  to `store.html` (served at /store).
 
 Stripe's product list (Dashboard → Product catalog) mirrors this lineup as
 `origin-<item id>` products (made 2026-10-17 because Stripe's setup asked for
@@ -172,7 +172,7 @@ test key, only the players in `STRIPE_TEST_PLAYERS` (services/cosmetics/
 wrangler.toml: comma-separated Minecraft names or UUIDs, not secret; a name is
 checked against Mojang so nobody can borrow it) can check out or be granted
 anything, so Stripe's fake cards can't hand out real cosmetics. Current list:
-dozeyy, bxlt, lozeyy, silo5. Open `originclient.org/store.html`, pay with
+dozeyy, bxlt, lozeyy, silo5. Open `originclient.org/store`, pay with
 `4242 4242 4242 4242` (any future date, any CVC), see the item in game, refund
 it in the Stripe dashboard, see it go. Then swap both Cloudflare secrets for
 the live ones. With a LIVE key the list does nothing: everyone can buy.

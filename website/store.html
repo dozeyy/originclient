@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <!-- Clean addresses: GitHub Pages serves /store from store.html, so old
+       ".html" links still work; this just tidies the address bar. -->
+  <script>if (/\.html$/.test(location.pathname)) history.replaceState(null, "", location.pathname.replace(/(index)?\.html$/, "") + location.search + location.hash);</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0e1110">
   <meta name="color-scheme" content="dark">
@@ -36,13 +39,13 @@
   <div class="backdrop" aria-hidden="true"></div>
 
   <header class="top is-solid">
-    <a class="brand" href="index.html" aria-label="Origin, home">
+    <a class="brand" href="./" aria-label="Origin, home">
       <svg class="brand__mark"><use href="#mark"/></svg>
       <svg class="brand__word"><use href="#wordmark"/></svg>
     </a>
     <nav class="top__nav" aria-label="Pages">
-      <a href="index.html">Home</a>
-      <a href="store.html" class="is-on nav-store" aria-current="page">Store</a>
+      <a href="./">Home</a>
+      <a href="store" class="is-on nav-store" aria-current="page">Store</a>
     </nav>
     <a class="btn btn--ghost btn--sm top__bag" href="#checkout">Bag <span class="top__count" data-bag-count></span></a>
   </header>
@@ -166,10 +169,10 @@
   </div>
 
   <footer class="foot">
-    <a class="brand" href="index.html" aria-label="Origin, home"><svg class="brand__mark"><use href="#mark"/></svg><svg class="brand__word"><use href="#wordmark"/></svg></a>
+    <a class="brand" href="./" aria-label="Origin, home"><svg class="brand__mark"><use href="#mark"/></svg><svg class="brand__word"><use href="#wordmark"/></svg></a>
     <p>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft. Checkout and payments by Stripe.</p>
     <p class="foot__credits">Type: Monocraft and Inter (SIL OFL). 3D: three.js (MIT). Player heads and skins: mc-heads.net, Crafatar.</p>
-    <nav><a href="index.html">Home</a><a href="terms.html">Terms &amp; Privacy</a><span>© 2026 Origin Client</span></nav>
+    <nav><a href="./">Home</a><a href="terms">Terms &amp; Privacy</a><span>© 2026 Origin Client</span></nav>
   </footer>
 </body>
 </html>
