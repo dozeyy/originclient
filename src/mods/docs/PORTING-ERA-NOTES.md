@@ -918,7 +918,7 @@ compile + the mixin check show), not from 1.21.11.
   title screen; HUD-editor item previews are blank there.
 
 ### Minecraft / HUD / input
-- Minecraft.screen is gone: `mc.gui.screen()`; open screens with `mc.setScreenAndShow(s)`.
+- Minecraft.screen is gone: `mc.gui.screen()`; open screens with `mc.gui.setScreen(s)` (26.2+; `mc.setScreen(s)` on 26.1). NOT `setScreenAndShow`: that is the disconnect helper (stops sounds, clears the camera, forces a frame) and broke the Mods button (2026-10-18).
   `Gui` is now the screen/overlay manager; the HUD is `net.minecraft.client.gui.Hud` = `mc.gui.hud`
   (getChat, getTabList, getBossOverlay, isHidden() replaces options.hideGui, extractDeferredSubtitles).
   Toasts: `mc.gui.toastManager()`. Overlay: `mc.gui.overlay()`.
@@ -993,7 +993,7 @@ LightmapRenderStateExtractor, Camera.calculateFov, JEI split draw), but these ar
 - No Hud class: `Gui` IS the HUD (same extract* method names as 26.2's Hud) -> HUD mixins target Gui.class;
   `mc.gui.getChat()`, `mc.options.hideGui`, `mc.screen`, `mc.getToastManager()`, `mc.getOverlay()`,
   `mc.resizeGui()` (26.2's framebufferSizeChanged), `gameRenderer.getMainCamera()/getPanorama()`,
-  `mc.getMainRenderTarget()`, `levelRenderer.countRenderedSections()`. `mc.setScreenAndShow` exists.
+  `mc.getMainRenderTarget()`, `levelRenderer.countRenderedSections()`. `mc.setScreenAndShow` exists but is the disconnect helper: open screens with `mc.setScreen`.
 - Panorama.extractRenderState(GGE, w, h, boolean spin). TextureTarget(name, w, h, depth) (no GpuFormat).
 - RenderPipeline.Builder: withVertexFormat(format, mode), withSampler, withUniform(name, type[, texFormat]),
   single withColorTargetState(state) — OriginShaders.derive copies samplers + uniforms (no bind groups /
