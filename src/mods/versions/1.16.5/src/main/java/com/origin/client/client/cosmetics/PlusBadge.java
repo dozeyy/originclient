@@ -21,13 +21,15 @@ import com.origin.client.client.gui.Gfx;
 import java.io.InputStream;
 
 /**
- * The Origin+ badge: the Origin mark (three tilted stroke-only rings, #E0E0E0)
- * drawn small next to a member's name. Looks only. Three places draw it:
+ * The Origin badge: the Origin mark (three tilted stroke-only rings, #E0E0E0)
+ * drawn small next to the name of anyone playing on Origin (it was Origin+
+ * members only until 2026-10-18). Looks only. Three places draw it:
  *  - the nametag above the head ({@link #nametag}, called from NametagStyleMixin
  *    with vanilla's own text matrix, so sneaking / see-through / fading behave
  *    exactly like the name beside it);
  *  - the Tab player list ({@link #gui});
- *  - the friends list (gui/FriendsScreen, through OriginDeck.logo).
+ *  - the friends list (gui/FriendsScreen, through OriginDeck.logo) - there it
+ *    still marks Origin+ members, since every friend uses Origin.
  *
  * The art is textures/ui/origin_logo.png (256 px, white on transparent). A
  * 256 px picture shrunk to ~10 px by the GPU shimmers and loses the thin
@@ -57,10 +59,10 @@ public final class PlusBadge {
 
 	// ------------------------------------------------------------ nametag
 
-	/** Does this entity get a badge on its nametag? (a player who is an Origin+ member) */
+	/** Does this entity get a badge on its nametag? (a player using Origin - Will, 2026-10-18: everyone, not only Origin+) */
 	public static boolean wantsNametag(Entity entity) {
 		try {
-			return !failed && entity instanceof Player && CosmeticsService.isPlus(((Player) entity).getUUID());
+			return !failed && entity instanceof Player && CosmeticsService.usesOrigin(((Player) entity).getUUID());
 		} catch (Throwable t) {
 			return false;
 		}

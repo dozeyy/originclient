@@ -206,7 +206,10 @@ public final class CosmeticDef {
 		}
 	}
 
-	/** One `anim.motion` entry: adds sin(2 pi (t / period + phase)) * A to a bone channel. */
+	/**
+	 * One `anim.motion` entry: adds sin(2 pi (t / period + phase)) * A to a bone channel, or (`spin`, channel
+	 * "spin") a continuous rotation of `speed` degrees per second about `axis`.
+	 */
 	public static final class Motion {
 		private final String bone;
 		private final boolean pos;
@@ -216,8 +219,11 @@ public final class CosmeticDef {
 		private final float phase;
 		private final float walkAmp;
 		private final float airAmp;
+		private final boolean spin;
+		private final float speed;
 
-		public Motion(String bone, boolean pos, int axis, float amp, float period, float phase, float walkAmp, float airAmp) {
+		public Motion(String bone, boolean pos, int axis, float amp, float period, float phase, float walkAmp, float airAmp,
+				boolean spin, float speed) {
 			this.bone = bone;
 			this.pos = pos;
 			this.axis = axis;
@@ -226,6 +232,8 @@ public final class CosmeticDef {
 			this.phase = phase;
 			this.walkAmp = walkAmp;
 			this.airAmp = airAmp;
+			this.spin = spin;
+			this.speed = speed;
 		}
 
 		public String bone() {
@@ -258,6 +266,14 @@ public final class CosmeticDef {
 
 		public float airAmp() {
 			return this.airAmp;
+		}
+
+		public boolean spin() {
+			return this.spin;
+		}
+
+		public float speed() {
+			return this.speed;
 		}
 	}
 
@@ -519,7 +535,8 @@ public final class CosmeticDef {
 						(float) Cosmetics.num(mo, "amp", 0),
 						(float) Math.max(0.05, Cosmetics.num(mo, "period", 1)),
 						(float) Cosmetics.num(mo, "phase", 0),
-						(float) Cosmetics.num(mo, "walkAmp", 0), (float) Cosmetics.num(mo, "airAmp", 0)));
+						(float) Cosmetics.num(mo, "walkAmp", 0), (float) Cosmetics.num(mo, "airAmp", 0),
+						"spin".equals(Cosmetics.str(mo, "channel", "rot")), (float) Cosmetics.num(mo, "speed", 0)));
 			}
 		}
 		return new Anim(clampInt((int) Cosmetics.num(ao, "frames", 1), 1, 256),

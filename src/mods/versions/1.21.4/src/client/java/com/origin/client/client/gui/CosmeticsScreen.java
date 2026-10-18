@@ -616,13 +616,14 @@ public class CosmeticsScreen extends OriginWindow {
 		int color = !enabled ? mul(MUTE, 0.5f) : lerp(DIM, TEXT, hp);
 		float ix = x + 5, iy = y + 5, is = 14;
 		if (up) {
-			// the atlas has no up chevron: the down one, flipped about its own centre
+			// the atlas has no up chevron: the down one turned 180 degrees about its own centre (a
+			// turn, not a mirror, so the quad keeps its winding and culling can't hide it)
 			var pose = d.g.pose();
 			float pcx = d.ox + (ix + is / 2) * d.s, pcy = d.oy + (iy + is / 2) * d.s;
 			pose.pushPose();
 			try {
 				pose.translate(pcx, pcy, 0);
-				pose.scale(1f, -1f, 1f);
+				pose.scale(-1f, -1f, 1f);
 				pose.translate(-pcx, -pcy, 0);
 				d.icon("@chev-down", ix, iy, is, color);
 			} finally {

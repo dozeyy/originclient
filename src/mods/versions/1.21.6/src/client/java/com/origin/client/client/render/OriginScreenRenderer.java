@@ -45,7 +45,6 @@ import com.origin.client.client.theme.OriginTheme;
 public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
-	private static final int BG_COLOR = OriginTheme.BG;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
@@ -162,7 +161,7 @@ public final class OriginScreenRenderer {
 		}
 		long elapsed = System.currentTimeMillis() - loadStartMs;
 
-		guiGraphics.fill(0, 0, w, h, BG_COLOR);
+		guiGraphics.fill(0, 0, w, h, OriginTheme.BG);
 		if (!ringsFailed) {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);
@@ -226,7 +225,7 @@ public final class OriginScreenRenderer {
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
 
-		guiGraphics.fill(0, 0, w, h, BG_COLOR);
+		guiGraphics.fill(0, 0, w, h, OriginTheme.BG);
 		if (!ringsFailed) {
 			drawRings(guiGraphics, w, h);
 			drawGrain(guiGraphics, w, h);

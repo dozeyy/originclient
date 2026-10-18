@@ -38,24 +38,13 @@ import com.origin.client.client.theme.OriginTheme;
 // and CenteredIcon still overrides renderWidget here (MEMORY icon-button era table).
 public final class OriginButtonRenderer {
 
-	// Glass palette — one material with the rest of the Origin UI. Fill and border
-	// are the shared theme tokens so a token change re-skins buttons and cards
-	// together; hover firms both and adds a faint accent wash (see box()).
-	private static final int FILL_NORMAL = OriginTheme.BOX_FILL;
-	private static final int FILL_HOVER = OriginTheme.BOX_FILL_HOVER;
+	// Glass palette — one material with the rest of the Origin UI. Fill, border, label
+	// and handle colours are read live from the OriginTheme tokens at every draw (never
+	// copied into a static final here): an equipped theme repaints them at runtime, and a
+	// copy taken at class load would keep the default green hover forever. Hover firms
+	// fill and border and adds a faint accent wash (see box()).
 	private static final int FILL_DISABLED = 0x40171C19;
-	private static final int BORDER_NORMAL = OriginTheme.BOX_BORDER;
-	private static final int BORDER_HOVER = OriginTheme.BOX_BORDER_HOVER;
 	private static final int BORDER_DISABLED = 0x99080B09;
-	private static final int LABEL_COLOR = OriginTheme.TEXT;
-	private static final int LABEL_DISABLED = OriginTheme.MUTED;
-	private static final int TITLE_FILL = OriginTheme.PANEL;
-	private static final int TITLE_FILL_HOVER = OriginTheme.PANEL_ALT;
-	private static final int TITLE_FILL_PRESSED = 0xFF294333;
-	// Slider handles / checkbox ticks read as the accent — the one place a
-	// control's "value" carries the brand hue; brightens toward full accent on hover.
-	private static final int HANDLE = OriginTheme.ACCENT_BORDER;
-	private static final int HANDLE_HOVER = OriginTheme.ACCENT;
 	// Corner radius for every widget — soft premium glass (matches RADIUS_SM cards).
 	private static final int RADIUS = OriginTheme.RADIUS_SM;
 	// Short + eased = a snappy, tactile hover.
@@ -164,7 +153,7 @@ public final class OriginButtonRenderer {
 			} else {
 				box(g, x, y, w, h, enabled, hv, PRIMARY.containsKey(button));
 				drawLabelCentered(g, x + w / 2.0, y + h / 2.0, button.getMessage(),
-						enabled ? LABEL_COLOR : LABEL_DISABLED);
+						enabled ? OriginTheme.TEXT : OriginTheme.MUTED);
 			}
 			return true;
 		} catch (Throwable t) {
@@ -189,8 +178,8 @@ public final class OriginButtonRenderer {
 			double hv = hoverEase(key, hovered);
 			// Selected pins the hover look; unselected eases with the cursor.
 			double lit = selected ? 1.0 : hv;
-			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, lit);
-			int border = OriginTheme.lerpColor(BORDER_NORMAL, OriginTheme.STROKE_HOVER, lit);
+			int fill = OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, lit);
+			int border = OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.STROKE_HOVER, lit);
 			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 			if (selected) {
 				// Accent underline: the accent's own value ramp across the tab,
@@ -205,7 +194,7 @@ public final class OriginButtonRenderer {
 					g.fill(sx, y + h - 2, ex, y + h - 1, OriginTheme.aurora(i / (double) (seg - 1)));
 				}
 			}
-			int labelColor = selected ? LABEL_COLOR
+			int labelColor = selected ? OriginTheme.TEXT
 					: OriginTheme.lerpColor(OriginTheme.MUTED, OriginTheme.TEXT, hv);
 			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, label, labelColor);
 			return true;
@@ -258,7 +247,7 @@ public final class OriginButtonRenderer {
 			// caught on 1.21.8, MEMORY icon-button port.)
 			if (button instanceof SpriteIconButton.TextAndIcon) {
 				OriginText.draw(g, Minecraft.getInstance().font, button.getMessage().getString(), x + 2, y + (h - 8) / 2,
-						enabled ? LABEL_COLOR : LABEL_DISABLED, false);
+						enabled ? OriginTheme.TEXT : OriginTheme.MUTED, false);
 			}
 
 			// Icon centered, matching vanilla SpriteIconButton placement. The blit
@@ -307,10 +296,10 @@ public final class OriginButtonRenderer {
 			int travel = Math.max(0, w - 2 * inset - handleW);
 			int handleX = x + inset + (int) Math.round(travel * v);
 			g.fill(handleX, handleY, handleX + handleW, handleY + handleH,
-					enabled ? OriginTheme.lerpColor(HANDLE, HANDLE_HOVER, hv) : 0x66808080);
+					enabled ? OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, hv) : 0x66808080);
 
 			drawLabelCentered(g, x + w / 2.0, y + h / 2.0, slider.getMessage(),
-					enabled ? LABEL_COLOR : LABEL_DISABLED);
+					enabled ? OriginTheme.TEXT : OriginTheme.MUTED);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -346,11 +335,11 @@ public final class OriginButtonRenderer {
 			if (checkbox.selected()) {
 				int inset = Math.max(3, box / 5);
 				g.fill(x + inset, y + inset, x + box - inset, y + box - inset,
-						enabled ? OriginTheme.lerpColor(HANDLE, HANDLE_HOVER, hv) : 0x669A9A9A);
+						enabled ? OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, hv) : 0x669A9A9A);
 			}
 			Font font = Minecraft.getInstance().font;
 			OriginText.draw(g, font, checkbox.getMessage().getString(), x + box + 5, y + (box - 8) / 2 + 1,
-					enabled ? LABEL_COLOR : LABEL_DISABLED, true);
+					enabled ? OriginTheme.TEXT : OriginTheme.MUTED, true);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -371,15 +360,15 @@ public final class OriginButtonRenderer {
 	private static void box(GuiGraphics g, int x, int y, int w, int h, boolean enabled, double hv, boolean primary) {
 		if (primary && enabled) {
 			// Accent-washed glass: the one accent moment on a screen.
-			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv);
+			int fill = OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hv);
 			int border = OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, hv);
 			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 			int wash = OriginTheme.withAlpha(OriginTheme.ACCENT, (int) Math.round(0x2E + 0x1C * hv));
 			OriginUi.panel(g, x, y, w, h, RADIUS, wash, 0);
 			return;
 		}
-		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
-		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		int fill = enabled ? OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hv) : FILL_DISABLED;
+		int border = enabled ? OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.BOX_BORDER_HOVER, hv) : BORDER_DISABLED;
 		OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 		// Accent wash: a translucent accent fill that fades in with hover only.
 		if (enabled && hv > 0.01) {
@@ -393,8 +382,8 @@ public final class OriginButtonRenderer {
 	private static void titleBox(GuiGraphics g, AbstractButton button, boolean enabled, double hover) {
 		boolean pressed = enabled && button.isHovered()
 				&& Minecraft.getInstance().mouseHandler.isLeftPressed();
-		int fill = enabled ? OriginTheme.lerpColor(TITLE_FILL, TITLE_FILL_HOVER, hover) : FILL_DISABLED;
-		if (pressed) fill = TITLE_FILL_PRESSED;
+		int fill = enabled ? OriginTheme.lerpColor(OriginTheme.PANEL, OriginTheme.PANEL_ALT, hover) : FILL_DISABLED;
+		if (pressed) fill = OriginTheme.lerpColor(OriginTheme.PANEL_ALT, OriginTheme.ACCENT, 0.15);
 		OriginUi.panel(g, button.getX(), button.getY(), button.getWidth(), button.getHeight(),
 				RADIUS, fill, 0);
 	}
@@ -413,7 +402,7 @@ public final class OriginButtonRenderer {
 	private static void drawTitlePresentation(GuiGraphics g, AbstractButton button, TitlePresentation title,
 										 boolean enabled, double hover) {
 		int x = button.getX(), y = button.getY(), w = button.getWidth(), h = button.getHeight();
-		int color = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hover) : LABEL_DISABLED;
+		int color = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hover) : OriginTheme.MUTED;
 		// Twelve logical pixels gives the SDF enough screen area to retain its
 		// hairline character while keeping every dock glyph centred on the same box.
 		int iconSize = Math.max(10, Math.min(12, h - 5));
