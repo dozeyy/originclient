@@ -24,19 +24,22 @@ import com.origin.client.client.theme.OriginTheme;
 // (LoadingOverlayMixin), the main menu (TitleScreenMixin) and every out-of-world
 // menu (ScreenBackgroundMixin). The two surfaces deliberately differ:
 //
-//  - MENUS: the vanilla panorama, live-rotating, blurred, graded into Origin's
-//    Ion Jade palette (renderTitleBackground). No rings, grain, particles or
-//    cursor spotlight.
-//  - LOADING: still near-black + the pre-rendered orbital rings + grain +
-//    vignette + the progress bar, matching the original mock
-//    (tools/loading-screen/wordmark_preview.png). The panorama is NOT available
-//    this early — the cubemap's textures aren't loaded yet — so the ring
-//    background stays exactly where it belongs.
+//  - LOADING: near-black + grain + vignette, the Origin mark as live morphing
+//    strokes (MarkMotion), "ORIGIN" and a bar gliding on the reload's real
+//    progress. When it finishes the scene dissolves into the title and the mark
+//    flies onto the title's logo spot (LoadingOverlayRevealMixin, docs/MOTION.md).
+//  - MENUS ("living rings", launch experience v2, Will 2026-10-18): the
+//    loading scene's orbital rings, no panorama. They slow, drift and lean
+//    towards the mouse (RingField); the title's logo is the same mark.
+//  - WORLD LOADING: the menu's rings swing back into the loading orbit, with a
+//    bar on the real chunk count; once the world is ready it simply appears,
+//    like vanilla (Will 2026-10-18: no zoom).
 //
-// 1.21.11: every textured draw is a RenderPipelines.GUI_TEXTURED blit carrying
-// its tint on the ARGB argument (no setShaderColor), the pose is a
-// Matrix3x2fStack, and the panorama/blur come from the engine's own
-// getPanorama().render(...) + blurBeforeThisStratum() (see renderTitleBackground).
+// 26.x era (retained GUI): every textured draw is a RenderPipelines.GUI_TEXTURED
+// blit carrying its tint on the ARGB argument (no setShaderColor), the pose is a
+// Matrix3x2fStack, and "draw over everything so far" is nextStratum() instead
+// of a depth clear. A translucent layer (the dissolve) multiplies layerAlpha
+// into each colour through shade(int) rather than a global shader colour.
 //
 // Textures load via the classloader (not the resource manager), so this is
 // safe during the earliest loading overlay while resources are still loading,
@@ -45,10 +48,10 @@ public final class OriginScreenRenderer {
 	private static final Gson GSON = new Gson();
 	private static final int TEX = 768;
 	private static final int BG_COLOR = OriginTheme.BG;
-	// Ion Jade grade: the one jade highlight over the graded panorama is the radial
-	// glow tinted 0x4BC8AE at ~9% alpha (0x17). Carried on the per-blit ARGB tint
-	// because this era has no RenderSystem.setShaderColor.
-	private static final int GRADE_GLOW_TINT = 0x174BC8AE;
+	// The menu's one jade highlight under the rings: the radial glow tinted
+	// 0x4BC8AE at 7% alpha (0x12), 1.21.1's shade(0x4B, 0xC8, 0xAE, 0.07) as a
+	// per-blit ARGB tint (this era has no RenderSystem.setShaderColor).
+	private static final int MENU_GLOW_TINT = 0x124BC8AE;
 
 	// Fail-soft master switch: if ANY Origin screen draw throws (e.g. a
 	// Minecraft GUI API that renamed/changed shape in a different game
@@ -63,6 +66,9 @@ public final class OriginScreenRenderer {
 	private static volatile boolean loaded = false;
 	private static boolean ringsFailed = false;
 	private static final List<Ring> rings = new ArrayList<>();
+	// The rings' rotation inputs as arrays, for RingField (built with `rings`).
+	private static double[] ringAngle0 = new double[0], ringPeriod = new double[0];
+	private static boolean[] ringReverse = new boolean[0];
 	private static Identifier grainId;
 
 	// Edge vignette (transparent core -> soft black corners). Blitted full-screen
@@ -80,9 +86,16 @@ public final class OriginScreenRenderer {
 	// (no staggered reveal) instead of failing.
 	private static int[] wmLetterX0, wmLetterX1;
 
-	// Loading-screen animation clock: millis at the first loading frame, so the
-	// per-letter reveal and the caption's cycling dots are time-driven.
-	private static long loadStartMs = 0L;
+	// Loading-screen animation clock: RingField.sceneMs() at the first loading
+	// frame (-1 = not yet), so the per-letter reveal is time-driven on the same
+	// smoothed clock as the rings.
+	private static double loadStartScene = -1;
+	// The startup bar's shown fill (-1 = none yet) and the scene time it was set:
+	// it glides to the reload's real progress instead of stepping with it.
+	private static double loadFill = -1;
+	private static double loadFillAt = 0;
+	/** The startup and world-loading bars' glide time constant (ms). */
+	private static final double FILL_TAU = 140.0;
 
 	// ---- Main-menu ambient layer ----
 	// Ellipse height:width of the ring textures (generate_textures HEIGHT_RATIO),
@@ -130,63 +143,140 @@ public final class OriginScreenRenderer {
 	// ---- Public entry points ----
 
 	/**
-	 * Startup resource-load screen — the original mockup
-	 * (tools/loading-screen/wordmark_preview.png): near-black + crisp orbital
-	 * rings + fine grain + the "Origin" wordmark with its glow bloom, and a thin
-	 * word-width progress bar sitting just beneath it (the mock's underline).
-	 * No percentage caption: the mock has none, and the clean logo-over-bar
-	 * reads more premium.
+	 * Startup resource-load screen: near-black + fine grain, the Origin mark as
+	 * live morphing strokes (MarkMotion: circles, triangles, squares, the mark,
+	 * on a loop), the "ORIGIN" wordmark building in letter by letter beneath it
+	 * and a word-width bar under that. No percentage caption.
 	 */
 	public static void renderLoading(GuiGraphicsExtractor guiGraphics, float progress) {
+		// The game is on screen now (Origin's scene, or vanilla's if ours
+		// broke): Origin Launcher can lower its progress screen.
+		com.origin.client.client.OriginHandoff.loading();
 		// Drawn at TAIL over vanilla's overlay, so skipping when broken simply
 		// reveals the vanilla loading screen -- no cancel to unwind.
 		if (broken) {
 			return;
 		}
 		try {
-			renderLoading0(guiGraphics, progress);
+			renderLoading0(guiGraphics, reloadProgress(progress), true, true);
 		} catch (Throwable t) {
 			fail(t);
 		}
 	}
 
-	private static void renderLoading0(GuiGraphicsExtractor guiGraphics, float progress) {
+	/**
+	 * The startup reload's real fraction done (1 once it has finished), read from
+	 * the overlay through LoadingOverlayAccessor; {@code fallback} (vanilla's own
+	 * frame-by-frame smoothed value) if that accessor didn't apply. The bar
+	 * glides to it in renderLoading0, the same at any frame rate.
+	 */
+	private static float reloadProgress(float fallback) {
+		if (Minecraft.getInstance().getOverlay() instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor overlay) {
+			net.minecraft.server.packs.resources.ReloadInstance reload = overlay.originclient$reload();
+			if (reload != null) {
+				return reload.isDone() ? 1f : reload.getActualProgress();
+			}
+		}
+		return fallback;
+	}
+
+	/**
+	 * The startup loading screen at {@code alpha} over whatever is already drawn
+	 * this frame — the loading -> title dissolve (LoadingOverlayRevealMixin).
+	 * Loading is done by then, so the bar shows full. With {@code toTitle} (the
+	 * game's first load, landing on the title screen) the mark doesn't dissolve:
+	 * it flies, solid, onto the title's logo spot and stays there as the logo
+	 * (renderTitleWordmark leaves it alone meanwhile). False (nothing to cancel)
+	 * when Origin rendering is off or this draw fails.
+	 */
+	public static boolean renderLoadingFade(GuiGraphicsExtractor guiGraphics, float alpha, boolean toTitle) {
+		if (broken) {
+			return false;
+		}
+		try {
+			layerAlpha = Math.max(0f, Math.min(1f, alpha));
+			// Everything after this sits above the title recorded so far this frame,
+			// its text and icons included (1.21.1 clears the depth buffer here; the
+			// retained GUI orders by stratum instead).
+			guiGraphics.nextStratum();
+			if (toTitle) {
+				MarkMotion.startFlight();
+			}
+			boolean fly = toTitle && MarkMotion.flightStarted();
+			// The title underneath already drives the ring field: don't pull it back.
+			renderLoading0(guiGraphics, 1f, false, !fly);
+			if (fly) {
+				layerAlpha = 1f;
+				markHandedOff = false;
+				Minecraft mc = Minecraft.getInstance();
+				TitleLayout L = TitleLayout.of(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+				MarkMotion.drawFlight(guiGraphics, L.markCenterX, L.markCenterY, L.markSize);
+			}
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		} finally {
+			layerAlpha = 1f;
+		}
+	}
+
+	// The loading layer's opacity: 1 except during the loading -> title dissolve.
+	// Every colour the loading scene draws goes through shade(), so the whole
+	// scene turns translucent without each helper knowing.
+	private static float layerAlpha = 1f;
+
+	private static int shade(int argb) {
+		if (layerAlpha >= 1f) {
+			return argb;
+		}
+		int a = Math.round((argb >>> 24) * layerAlpha);
+		return (a << 24) | (argb & 0xFFFFFF);
+	}
+
+	private static void renderLoading0(GuiGraphicsExtractor guiGraphics, float progress, boolean drive, boolean drawMark) {
 		ensureLoaded();
+		if (drive) {
+			field(RingField.Mood.LOADING);
+		}
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
 		float clamped = Math.max(0f, Math.min(1f, progress));
 
-		if (loadStartMs == 0L) {
-			loadStartMs = System.currentTimeMillis();
+		double scene = RingField.sceneMs();
+		if (loadStartScene < 0) {
+			loadStartScene = scene;
 		}
-		long elapsed = System.currentTimeMillis() - loadStartMs;
+		long elapsed = (long) (scene - loadStartScene);
+		// A new reload (resource pack change) starts the bar over; otherwise the
+		// fill only ever glides forward. The dissolve passes 1: the bar finishes
+		// its glide while the title appears instead of jumping full.
+		loadFill = loadFill < 0 || clamped < loadFill - 0.25 ? clamped
+				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
+		loadFillAt = scene;
 
-		guiGraphics.fill(0, 0, w, h, BG_COLOR);
-		if (!ringsFailed) {
-			drawRings(guiGraphics, w, h);
-			drawGrain(guiGraphics, w, h);
-		}
-		// Vignette above the rings/grain, under the wordmark: darkens the edges
-		// so the mark is the focal point.
+		// No orbit rings here (Will 2026-10-18): the moving mark is the scene.
+		guiGraphics.fill(0, 0, w, h, shade(BG_COLOR));
+		drawGrain(guiGraphics, w, h);
 		drawVignette(guiGraphics, w, h);
 
-		// Wordmark nudged slightly above center so the logo+bar group stays
-		// balanced. All-caps "ORIGIN" has no descender, so its ink height IS the
-		// cap height: 0.135h gives the right cap size (Will's chosen "middle"
-		// size). The bar sits well below the logo with a clear gap and is a
-		// chunky full-word-width bar (Will: "farther down and bigger"). All
-		// verified in-sandbox against the ring background. On the startup screen
-		// the mark builds in letter by letter (staggered fade + rise).
-		double markInkH = fitInkHeight(h * 0.135, w, 0.82);
-		double markCenterY = h * 0.48;
-		drawWordmarkReveal(guiGraphics, w / 2.0, markCenterY, markInkH, elapsed);
+		// Mark above, then the wordmark (building in letter by letter), then the
+		// bar, as one group centred a touch above the middle. All-caps "ORIGIN"
+		// has no descender, so its ink height IS the cap height.
+		double size = Math.min(h * 0.36, w * 0.30);
+		double markCy = h * 0.40;
+		if (drawMark) {
+			MarkMotion.drawLoading(guiGraphics, w / 2.0, markCy, size, scene - loadStartScene, layerAlpha);
+		}
+		double inkH = fitInkHeight(h * 0.07, w, 0.6);
+		double wordCy = markCy + size * 0.5 + h * 0.06 + inkH / 2.0;
+		drawWordmarkReveal(guiGraphics, w / 2.0, wordCy, inkH, elapsed);
 
-		double dispW = (wordmarkId != null && wmInkH > 0) ? wmInkW * (markInkH / wmInkH) : w * 0.24;
+		double dispW = (wordmarkId != null && wmInkH > 0) ? wmInkW * (inkH / wmInkH) : w * 0.16;
 		int barW = (int) Math.round(dispW);
-		int barH = Math.max(3, (int) Math.round(h * 0.012));
-		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
-		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
+		int barH = Math.max(2, (int) Math.round(h * 0.008));
+		int barTop = (int) Math.round(wordCy + inkH * 1.15);
+		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, (float) loadFill);
 
 		// No text on this screen: it renders DURING the initial resource reload,
 		// before any font glyphs are baked, so font-drawn strings can only ever
@@ -198,30 +288,45 @@ public final class OriginScreenRenderer {
 
 	/**
 	 * Full-screen loading/progress scene for the world-load screens
-	 * (LevelLoadingScreen, ReceivingLevelScreen, ProgressScreen): the same
+	 * (LevelLoadingScreen, ProgressScreen, GenericMessageScreen): the same
 	 * charcoal + rings + grain background as the menus, the screen's title in
-	 * the default font, and a smooth indeterminate bar. Drawn as a HEAD-cancel
-	 * takeover, so it replaces vanilla's chunk map / dirt / progress clutter
-	 * with one clean Origin scene. Indeterminate (not tied to a real percent):
-	 * reading each screen's internal progress field would need an unverifiable
-	 * @Shadow, and a calm sweeping bar reads as premium regardless.
+	 * the default font, and a bar. Drawn as a HEAD-cancel takeover, so it
+	 * replaces vanilla's chunk map / dirt / progress clutter with one clean
+	 * Origin scene. Without a real measure the bar sweeps.
 	 */
 	public static boolean renderLoadingScene(GuiGraphicsExtractor guiGraphics, net.minecraft.network.chat.Component title) {
+		return renderLoadingScene(guiGraphics, title, -1f);
+	}
+
+	/**
+	 * The world-loading scene with a real fraction done ({@code progress} 0..1,
+	 * what LevelLoadingScreen's load tracker reports), or -1 when the screen has
+	 * no real measure — then the bar sweeps. Never a made-up percentage.
+	 */
+	public static boolean renderLoadingScene(GuiGraphicsExtractor guiGraphics, net.minecraft.network.chat.Component title, float progress) {
 		// HEAD-cancel takeover: callers must only ci.cancel() when this
 		// returns true, so a failure mid-draw falls back to the vanilla screen.
 		if (broken) {
 			return false;
 		}
 		try {
-			renderLoadingScene0(guiGraphics, title);
+			renderLoadingScene0(guiGraphics, title, progress);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
 	}
 
-	private static void renderLoadingScene0(GuiGraphicsExtractor guiGraphics, net.minecraft.network.chat.Component title) {
+	// The world-loading scene's shown bar fill, gliding to each new count.
+	// sceneFill < 0 = the bar is sweeping.
+	private static double sceneFill = -1;
+	private static double sceneFillAt = 0;
+
+	private static void renderLoadingScene0(GuiGraphicsExtractor guiGraphics, net.minecraft.network.chat.Component title, float progress) {
 		ensureLoaded();
+		// From a menu this swings the slowed, leaning rings back to the centred
+		// loading orbit (RingField eases it, so it reads as one motion).
+		field(RingField.Mood.LOADING);
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
@@ -233,14 +338,28 @@ public final class OriginScreenRenderer {
 		}
 		drawFrame(guiGraphics, w, h);
 
-		Font font = mc.font;
+		// The fill glides to each new count (chunk counts arrive in steps), and
+		// a new scene with no count goes back to the sweep.
+		double now = RingField.sceneMs();
+		if (progress < 0f) {
+			sceneFill = -1;
+		} else {
+			double target = Math.max(0.0, Math.min(1.0, progress));
+			sceneFill = sceneFill < 0 || target < sceneFill ? target
+					: target + (sceneFill - target) * Math.exp(-(now - sceneFillAt) / FILL_TAU);
+		}
+		sceneFillAt = now;
+		drawSceneText(guiGraphics, mc.font, w, h, title == null ? "" : title.getString().trim(), sceneFill);
+	}
+
+	/** The world-loading scene's centred title + bar (fill < 0: sweeping). */
+	private static void drawSceneText(GuiGraphicsExtractor guiGraphics, Font font, int w, int h, String s, double fill) {
 		int barW = Math.max(80, (int) (w * 0.30));
 		int barH = Math.max(2, (int) (h * 0.010));
 		float titleScale = 1.5f;
 		int titleH = (int) Math.ceil(font.lineHeight * titleScale);
 		double gap = Math.max(8.0, h * 0.045);
 
-		String s = title == null ? "" : title.getString().trim();
 		boolean hasTitle = !s.isEmpty();
 		double groupH = (hasTitle ? titleH + gap : 0) + barH;
 		double groupTop = h / 2.0 - groupH / 2.0;
@@ -254,7 +373,11 @@ public final class OriginScreenRenderer {
 			pose.popMatrix();
 		}
 		int barTop = (int) Math.round(groupTop + (hasTitle ? titleH + gap : 0));
-		drawIndeterminateBar(guiGraphics, w / 2.0, barTop, barW, barH);
+		if (fill < 0) {
+			drawIndeterminateBar(guiGraphics, w / 2.0, barTop, barW, barH);
+		} else {
+			drawBar(guiGraphics, w / 2.0, barTop, barW, barH, (float) fill);
+		}
 	}
 
 	/**
@@ -285,84 +408,95 @@ public final class OriginScreenRenderer {
 	private static void drawIndeterminateBar(GuiGraphicsExtractor guiGraphics, double cx, int barTop, int barW, int barH) {
 		int bx = (int) Math.round(cx - barW / 2.0);
 		int by = barTop;
-		guiGraphics.fill(bx, by, bx + barW, by + barH, 0x29FFFFFF); // track
+		guiGraphics.fill(bx, by, bx + barW, by + barH, shade(0x29FFFFFF)); // track
 		int segW = Math.max(8, (int) (barW * 0.32));
 		int travel = Math.max(1, barW - segW);
-		double t = (System.currentTimeMillis() % 1800L) / 1800.0;
+		double t = (RingField.sceneMs() % 1800.0) / 1800.0;
 		double eased = 0.5 - 0.5 * Math.cos(t * 2.0 * Math.PI); // smooth 0->1->0
-		int segX = bx + (int) Math.round(eased * travel);
-		guiGraphics.fill(segX - 1, by - 1, segX + segW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW);
-		guiGraphics.fill(segX, by, segX + segW, by + barH, OriginTheme.ACCENT);
+		double segX = bx + eased * travel;
+		fillSmooth(guiGraphics, segX - 1, by - 1, segX + segW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW);
+		fillSmooth(guiGraphics, segX, by, segX + segW, by + barH, OriginTheme.ACCENT);
 	}
 
 	/**
-	 * Menu background: the live-rotating vanilla panorama, blurred, under the
-	 * Origin Ion Jade grade (behind vanilla's logo/buttons). Returns true only
-	 * if the Origin backdrop actually drew; callers that cancel vanilla's own
-	 * backdrop must key off this.
+	 * fill() with a horizontal span placed to a fraction of a real pixel: the
+	 * whole pixels in one fill, each partly covered edge pixel at its share of
+	 * the alpha. A moving bar end then slides smoothly instead of stepping a
+	 * whole GUI unit (guiScale screen pixels) at a time. Vertical edges snap to
+	 * real pixels. Drawn in real pixels, the same way drawGrain is.
+	 */
+	private static void fillSmooth(GuiGraphicsExtractor guiGraphics, double x0, double y0, double x1, double y1, int argb) {
+		if (!(x1 > x0) || !(y1 > y0)) {
+			return;
+		}
+		double gs = Math.max(1.0, Minecraft.getInstance().getWindow().getGuiScale());
+		double px0 = x0 * gs, px1 = x1 * gs;
+		int py0 = (int) Math.round(y0 * gs), py1 = (int) Math.round(y1 * gs);
+		Matrix3x2fStack pose = guiGraphics.pose();
+		pose.pushMatrix();
+		pose.scale((float) (1.0 / gs), (float) (1.0 / gs));
+		int i0 = (int) Math.ceil(px0), i1 = (int) Math.floor(px1);
+		if (i1 < i0) {
+			fillEdge(guiGraphics, i1, py0, py1, px1 - px0, argb);  // the whole span is inside one pixel
+		} else {
+			if (i1 > i0) {
+				guiGraphics.fill(i0, py0, i1, py1, shade(argb));
+			}
+			fillEdge(guiGraphics, i0 - 1, py0, py1, i0 - px0, argb);
+			fillEdge(guiGraphics, i1, py0, py1, px1 - i1, argb);
+		}
+		pose.popMatrix();
+	}
+
+	private static void fillEdge(GuiGraphicsExtractor guiGraphics, int x, int y0, int y1, double cover, int argb) {
+		int a = (int) Math.round((argb >>> 24) * Math.min(1.0, cover));
+		if (a > 0) {
+			guiGraphics.fill(x, y0, x + 1, y1, shade((a << 24) | (argb & 0xFFFFFF)));
+		}
+	}
+
+	/**
+	 * Menu background, "living rings" (Will 2026-10-18): the loading scene's own
+	 * rings, never a panorama, so the menus read as the same place the game
+	 * loaded into. RingField slows them to a third, lets them drift and leans
+	 * them towards the mouse. Returns true only if the Origin backdrop actually
+	 * drew; callers that cancel vanilla's own backdrop must key off this.
 	 *
-	 * Ported from 1.21.1 (2026-07-26) so the main menu pans here too. This
-	 * replaced an 8-layer composite (flat fill + rings + grain + particles +
-	 * orbiting bodies + vignette + brackets); see 1.21.1's copy for the cost
-	 * note -- live rotation is deliberately the expensive option.
-	 *
-	 * Two era differences from 1.21.1, both because 1.21.11 renders the GUI
-	 * deferred rather than immediate:
-	 *   - the panorama comes from gameRenderer.getPanorama() (the shared
-	 *     instance vanilla itself spins) instead of a privately-built
-	 *     CubeMap/PanoramaRenderer pair, so spin state and the panoramaSpeed
-	 *     option stay consistent with vanilla. Its render() takes a
-	 *     "should spin" boolean and does its own delta timing -- 1.21.1's
-	 *     alpha + partialTick arguments are gone.
-	 *   - blur is guiGraphics.blurBeforeThisStratum(), which blurs everything
-	 *     queued before this point. 1.21.1's processBlurEffect +
-	 *     bindWrite(false) pair does not exist here and is NOT needed: nothing
-	 *     rebinds a framebuffer, so the widget pass after us is unaffected.
-	 * This mirrors vanilla's own Screen.renderBackground ordering exactly
-	 * (renderPanorama -> renderBlurredBackground), so the grade lands on top
-	 * of the blur rather than being blurred with it.
+	 * Cheap on purpose: one fill, four ring blits, the grain tiles, one glow and
+	 * the vignette — no cubemap, no blur pass.
 	 */
 	public static boolean renderTitleBackground(GuiGraphicsExtractor guiGraphics) {
 		if (broken) {
 			return false;
 		}
 		try {
+			ensureLoaded();
+			field(RingField.Mood.MENU);
 			Minecraft mc = Minecraft.getInstance();
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
-
-			// true = keep spinning; vanilla passes panoramaShouldSpin(), which is
-			// only false while a screen is fading in.
-			mc.gameRenderer.getPanorama().extractRenderState(guiGraphics, w, h, true);
-			guiGraphics.blurBeforeThisStratum();
-			drawGrade(guiGraphics, w, h);
+			guiGraphics.fill(0, 0, w, h, BG_COLOR);
+			drawMenuGlow(guiGraphics, w, h);
+			if (!ringsFailed) {
+				drawRings(guiGraphics, w, h);
+				drawGrain(guiGraphics, w, h);
+			}
+			drawVignette(guiGraphics, w, h);
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
 		}
 	}
 
-	/**
-	 * The Origin grade over the blurred panorama. Alpha blends toward cool
-	 * mineral tones pull every channel together, so this darkens and mutes in
-	 * one pass (NOT a true desaturation -- that needs a post-process stage; the
-	 * world stays a quiet hint by design).
-	 */
-	private static void drawGrade(GuiGraphicsExtractor guiGraphics, int w, int h) {
-		// Ion Jade grade: the world stays a quiet hint below cool mineral bands,
-		// followed by one restrained jade highlight and the edge vignette.
-		int a = 0xDC << 24;
-		int y1 = h * 40 / 100, y2 = h * 62 / 100;
-		guiGraphics.fillGradient(0, 0, w, y1, a | 0x0B1110, a | 0x0D1715);
-		guiGraphics.fillGradient(0, y1, w, y2, a | 0x0D1715, a | 0x091210);
-		guiGraphics.fillGradient(0, y2, w, h, a | 0x091210, a | 0x070B0B);
-		if (radialGlowId != null) {
-			int d = (int) Math.round(w * 1.1);
-			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, radialGlowId,
-					(int) Math.round(w * 0.70 - d / 2.0), (int) Math.round(h * 0.15 - d / 2.0),
-					0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, GRADE_GLOW_TINT);
+	/** One restrained jade highlight, top right, under the rings (kept from the Ion Jade grade). */
+	private static void drawMenuGlow(GuiGraphicsExtractor guiGraphics, int w, int h) {
+		if (radialGlowId == null) {
+			return;
 		}
-		drawVignette(guiGraphics, w, h);
+		int d = (int) Math.round(w * 1.1);
+		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, radialGlowId,
+				(int) Math.round(w * 0.70 - d / 2.0), (int) Math.round(h * 0.15 - d / 2.0),
+				0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, MENU_GLOW_TINT);
 	}
 
 	/**
@@ -387,15 +521,16 @@ public final class OriginScreenRenderer {
 				0f, 0f, d, d, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, ARGB.white((float) alpha));
 	}
 
-	/** Main menu: the approved Origin atom above the compact action stack. */
-	// When the title screen was (re)opened — drives the mark's entrance (scale +
-	// fade in). Set by TitleScreenMixin; 0 = no animation (draw the settled mark).
-	private static volatile long titleOpenedAt = 0;
+	// False from the startup flight's first frame until the title draws its mark
+	// itself: while the loading overlay is still up, the dissolve layer draws the
+	// flying mark over the title.
+	private static boolean markHandedOff = true;
 
-	public static void setTitleOpenedAt(long millis) {
-		titleOpenedAt = millis;
-	}
-
+	/**
+	 * Main menu: the Origin mark above the compact action stack. After the game's
+	 * first load it is the loading screen's mark finishing its flight here
+	 * (MarkMotion); any other time it is simply there.
+	 */
 	public static boolean renderTitleWordmark(GuiGraphicsExtractor guiGraphics) {
 		if (broken) {
 			return false;
@@ -403,14 +538,18 @@ public final class OriginScreenRenderer {
 		try {
 			ensureLoaded();
 			Minecraft mc = Minecraft.getInstance();
-			int w = mc.getWindow().getGuiScaledWidth();
-			int h = mc.getWindow().getGuiScaledHeight();
-			TitleLayout L = TitleLayout.of(w, h);
-			long el = titleOpenedAt > 0 ? System.currentTimeMillis() - titleOpenedAt : Long.MAX_VALUE;
-			double t = el == Long.MAX_VALUE ? 1.0
-					: OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, (el - 40.0) / 420.0)));
-			int size = Math.max(1, (int) Math.round(L.markSize * (0.88 + 0.12 * t)));
-			OriginUi.logo(guiGraphics, L.markCenterX, L.markCenterY, size, (float) t);
+			TitleLayout L = TitleLayout.of(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+			if (!markHandedOff) {
+				if (Minecraft.getInstance().getOverlay() instanceof net.minecraft.client.gui.screens.LoadingOverlay) {
+					return true;   // the dissolve layer draws it, over this
+				}
+				markHandedOff = true;
+			}
+			if (MarkMotion.flying()) {
+				MarkMotion.drawFlight(guiGraphics, L.markCenterX, L.markCenterY, L.markSize);
+			} else {
+				MarkMotion.drawFormed(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1.0);
+			}
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -528,29 +667,49 @@ public final class OriginScreenRenderer {
 
 	// ---- Primitives ----
 
-	private static void drawRings(GuiGraphicsExtractor guiGraphics, int w, int h) {
-		double cx = w / 2.0;
-		double cy = h / 2.0;
-		long now = System.currentTimeMillis();
-		Matrix3x2fStack pose = guiGraphics.pose();
-
-		for (Ring ring : rings) {
-			double revs = (now / 1000.0) / ring.periodSeconds();
-			// Wrap to [0,360) in double BEFORE the float cast: the absolute
-			// angle grows to ~1e10 degrees over time, which a 32-bit float
-			// quantizes to ~1000-degree steps -> rings freeze then jump every
-			// several seconds. Modulo keeps it small and precise.
-			double angle = (ring.angle0() + (ring.reverse() ? -revs : revs) * 360.0) % 360.0;
-			float scale = (float) (ring.widthFrac() * w * 1.1 / TEX); // *1.1: ellipse fills 0.9 of its square texture
-
-			pose.pushMatrix();
-			pose.translate((float) cx, (float) cy);
-			pose.rotate((float) Math.toRadians(angle));
-			pose.scale(scale, scale);
-			pose.translate(-TEX / 2f, -TEX / 2f);
-			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, ring.texture(), 0, 0, 0f, 0f, TEX, TEX, TEX, TEX, ARGB.white(ring.opacity()));
-			pose.popMatrix();
+	/** Advance the shared rings (RingField) for this frame's scene. */
+	private static void field(RingField.Mood mood) {
+		double mx = 0.5, my = 0.5;
+		if (mood == RingField.Mood.MENU) {
+			Minecraft mc = Minecraft.getInstance();
+			mx = mc.mouseHandler.xpos() / Math.max(1, mc.getWindow().getScreenWidth());
+			my = mc.mouseHandler.ypos() / Math.max(1, mc.getWindow().getScreenHeight());
 		}
+		RingField.update(mood, ringAngle0, ringPeriod, ringReverse, mx, my);
+	}
+
+	private static double ringAngle(int i) {
+		Ring ring = rings.get(i);
+		return RingField.angle(i, ring.angle0(), ring.periodSeconds(), ring.reverse());
+	}
+
+	/** Every ring where RingField has it. */
+	private static void drawRings(GuiGraphicsExtractor guiGraphics, int w, int h) {
+		for (int i = 0; i < rings.size(); i++) {
+			Ring ring = rings.get(i);
+			drawRingAt(guiGraphics, ring, w / 2.0 + RingField.offsetX(i, w), h / 2.0 + RingField.offsetY(i, w),
+					ringAngle(i), ring.widthFrac() * w * 0.99, RING_HEIGHT_RATIO, ring.opacity());
+		}
+	}
+
+	/** One ring texture as an ellipse of on-screen width {@code major} (GUI units). */
+	private static void drawRingAt(GuiGraphicsExtractor guiGraphics, Ring ring, double cx, double cy, double angle,
+								   double major, double aspect, float alpha) {
+		if (alpha <= 0.002f) {
+			return;
+		}
+		// The ellipse fills 0.9 of its square texture.
+		float scale = (float) (major / (0.9 * TEX));
+		Matrix3x2fStack pose = guiGraphics.pose();
+		pose.pushMatrix();
+		pose.translate((float) cx, (float) cy);
+		// Wrapped to [0,360) in double before the float cast (RingField does):
+		// a float holding a large absolute angle would step visibly.
+		pose.rotate((float) Math.toRadians(angle % 360.0));
+		pose.scale(scale, (float) (scale * aspect / RING_HEIGHT_RATIO));
+		pose.translate(-TEX / 2f, -TEX / 2f);
+		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, ring.texture(), 0, 0, 0f, 0f, TEX, TEX, TEX, TEX, ARGB.white(alpha * layerAlpha));
+		pose.popMatrix();
 	}
 
 	private static void drawGrain(GuiGraphicsExtractor guiGraphics, int w, int h) {
@@ -568,7 +727,7 @@ public final class OriginScreenRenderer {
 		Matrix3x2fStack pose = guiGraphics.pose();
 		pose.pushMatrix();
 		pose.scale((float) (1.0 / gs), (float) (1.0 / gs));
-		int grainTint = ARGB.white(0.028f);
+		int grainTint = ARGB.white(0.028f * layerAlpha);
 		for (int y = 0; y < realH; y += tile) {
 			for (int x = 0; x < realW; x += tile) {
 				guiGraphics.blit(RenderPipelines.GUI_TEXTURED, grainId, x, y, 0f, 0f, tile, tile, tile, tile, grainTint);
@@ -672,7 +831,7 @@ public final class OriginScreenRenderer {
 		Matrix3x2fStack pose = guiGraphics.pose();
 		pose.pushMatrix();
 		pose.scale((float) w / VIGNETTE_TEX, (float) h / VIGNETTE_TEX);
-		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX);
+		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, ARGB.white(layerAlpha));
 		pose.popMatrix();
 	}
 
@@ -686,7 +845,7 @@ public final class OriginScreenRenderer {
 		int inset = Math.max(10, (int) Math.round(w * 0.022));
 		int len = Math.max(10, (int) Math.round(w * 0.018));
 		int th = Math.max(1, (int) Math.round(w * 0.0015));
-		int c = OriginTheme.STROKE_STRONG;
+		int c = shade(OriginTheme.STROKE_STRONG);
 		// top-left
 		guiGraphics.fill(inset, inset, inset + len, inset + th, c);
 		guiGraphics.fill(inset, inset, inset + th, inset + len, c);
@@ -738,7 +897,7 @@ public final class OriginScreenRenderer {
 				continue;
 			}
 			int yoff = (int) Math.round((1.0 - eased) * rise);
-			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH, ARGB.white((float) eased));
+			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH, ARGB.white((float) eased * layerAlpha));
 		}
 		pose.popMatrix();
 	}
@@ -754,7 +913,7 @@ public final class OriginScreenRenderer {
 			pose.pushMatrix();
 			pose.translate((float) (inkCenterX - icx), (float) (inkCenterY - icy));
 			pose.scale(scale, scale);
-			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH);
+			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, wordmarkId, 0, 0, 0f, 0f, wmTexW, wmTexH, wmTexW, wmTexH, ARGB.white(layerAlpha));
 			pose.popMatrix();
 
 			return (int) Math.round(inkCenterY + (wmInkH * scale) / 2.0);
@@ -846,6 +1005,7 @@ public final class OriginScreenRenderer {
 			total += ch < 256 ? bootFontWidth[ch] + 1 : 0;
 		}
 		total -= 1;
+		argb = shade(argb);
 		// Batched-gui era: the tint rides the per-blit ARGB (setShaderColor has no effect here).
 		Matrix3x2fStack pose = guiGraphics.pose();
 		pose.pushMatrix();
@@ -876,11 +1036,11 @@ public final class OriginScreenRenderer {
 		// background the unfilled track was invisible in-game, so only the fill
 		// showed and the bar read as the wrong (too small) size. ~16% matches how
 		// the mockup's track actually reads on screen.
-		guiGraphics.fill(bx, by, bx + barW, by + barH, 0x29FFFFFF);              // track
-		int fillW = Math.round(barW * progress);
-		if (fillW > 0) {
-			guiGraphics.fill(bx - 1, by - 1, bx + fillW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW); // soft glow
-			guiGraphics.fill(bx, by, bx + fillW, by + barH, OriginTheme.ACCENT);  // fill
+		guiGraphics.fill(bx, by, bx + barW, by + barH, shade(0x29FFFFFF));       // track
+		double fillW = barW * Math.max(0f, Math.min(1f, progress));
+		if (fillW > 0.05) {
+			fillSmooth(guiGraphics, bx - 1, by - 1, bx + fillW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW); // soft glow
+			fillSmooth(guiGraphics, bx, by, bx + fillW, by + barH, OriginTheme.ACCENT);  // fill
 		}
 	}
 
@@ -919,6 +1079,17 @@ public final class OriginScreenRenderer {
 						r.get("periodSeconds").getAsDouble(),
 						r.get("reverse").getAsBoolean()));
 			}
+			int n = rings.size();
+			double[] a0 = new double[n], period = new double[n];
+			boolean[] reverse = new boolean[n];
+			for (int i = 0; i < n; i++) {
+				a0[i] = rings.get(i).angle0();
+				period[i] = rings.get(i).periodSeconds();
+				reverse[i] = rings.get(i).reverse();
+			}
+			ringAngle0 = a0;
+			ringPeriod = period;
+			ringReverse = reverse;
 			grainId = registerTexture(mc, "origin_grain", "/assets/originclient/textures/ui/grain.png");
 		} catch (Exception e) {
 			ringsFailed = true;

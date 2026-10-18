@@ -78,7 +78,8 @@
 		"HypixelBedwarsSoundMixin",
 		"CosmeticCapeMixin",
 		"CapePhysicsMixin",
-		"CosmeticsPauseMixin"
+		"CosmeticsPauseMixin",
+		"PackSelectionScreenAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 0

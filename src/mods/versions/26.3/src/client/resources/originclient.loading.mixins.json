@@ -5,8 +5,12 @@
 	"client": [
 		"GenericMessageScreenMixin",
 		"LevelLoadingScreenMixin",
+		"LevelLoadingScreenAccessor",
+		"LoadingOverlayAccessor",
 		"ProgressScreenMixin",
-		"ConnectScreenMixin"
+		"ConnectScreenMixin",
+		"LoadingOverlayRevealMixin",
+		"TitleScreenFadeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
