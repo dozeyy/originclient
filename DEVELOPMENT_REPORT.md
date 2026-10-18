@@ -60,6 +60,18 @@ Updated 2026-10-18.
     away, instead of waiting out a 10-minute timer.
 - **In game: equip sends only the slots that change.** A lapsed member's saved Origin+ cape
   is no longer wiped by changing another slot, so it comes back when they rejoin.
+- **Cosmetics v2 on every live version** (Will, 2026-10-18: "every version now, everything").
+  Worn cosmetics, the Cosmetics screen, menu themes, the Origin+ badge, cape physics, effects
+  and both Mods toggles were ported from 1.21.1 to 1.8.9, 1.16.5, 1.17.1, 1.18.2, 1.19.2-1.19.4,
+  1.20-1.20.4, 1.21, 1.21.2-1.21.11 and 26.1-26.3, each on its own era's API (mandate 5). Every
+  module keeps 1.21.1's menu colours, so the themes re-tint identically. `build.mjs` writes the
+  item files into every live module. Small per-version differences in method:
+  - 1.21.6/1.21.8: model pictures in the Cosmetics screen use one picture-in-picture slot per tile.
+  - 1.21.10/1.21.11: those pictures are drawn flat on the CPU; glowing parts look a bit flatter.
+  - 26.x: the nametag Origin+ badge is a font glyph (slightly sharper/blockier); capes with
+    physics get no outline glow.
+  - 1.8.9: no badge on a *sneaking* player's nametag (1.8.9 draws that tag elsewhere); no
+    elytra/swim poses exist there.
 
 ## Bugs fixed
 - The store showed "Thank you" and emptied the bag on `?purchase=done` alone, before the
@@ -83,6 +95,10 @@ Updated 2026-10-18.
   compiled), the installer smoke test passed, and the launcher logic tests passed.
   cosmetics-service and launcher-shots also passed. Compiling is not running:
   **nothing has been run in game.**
+- **CI on e2e1e992 (every version ported): build-check all green**, ref-189 green. Dev shots on
+  1.20, 1.20.2, 1.20.4 and 1.21 booted with no mixin-apply failures and the Cosmetics screen
+  showed the worn cape, wings and halo on the model. Dev shots are automated headless boots,
+  not a player's test.
 
 ## Needs in-game / on-PC testing (nothing below has been seen running)
 - Launcher start, normal and with Windows animations off: does the intro play, skip on a
@@ -91,6 +107,8 @@ Updated 2026-10-18.
   and the Origin+ cape as member and non-member.
 - 1.21.1: each menu theme on the mod menu, checking ENABLED/DISABLED and hover.
 - 1.21.1: the Cosmetics screen offline, then online again.
+- One version from each era (1.8.9, 1.16.5, 1.19.4, 1.21.11, 26.2): wear a cape, wings and a
+  halo, walk/sneak (cape physics), check an Origin+ nametag and Tab, switch a menu theme.
 - Store with a Stripe **test** card: confirm → thank-you; cancel → bag kept.
 
 ## Known limitations / external integrations
@@ -99,7 +117,6 @@ Updated 2026-10-18.
 - The 1.21.1 title screen and LaunchLoadingOverlay were reviewed and left unchanged. They
   already have a staggered logo intro and an honest progress bar (a sweep while launching,
   real bytes while updating). Changing them untested risked the launch path.
-- Cosmetics v2 is 1.21.1 only. Porting to other versions waits for Will's approval.
 
 ## Ad / monetization research (summary)
 Sources: search snippets only; primary pages were blocked here.
