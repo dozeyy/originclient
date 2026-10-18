@@ -5,6 +5,7 @@
 	"client": [
 		"GenericMessageScreenMixin",
 		"LevelLoadingScreenMixin",
+		"LevelLoadingScreenAccessor",
 		"ReceivingLevelScreenMixin",
 		"ProgressScreenMixin",
 		"ConnectScreenMixin",

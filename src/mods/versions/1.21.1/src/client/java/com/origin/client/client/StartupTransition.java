@@ -1,6 +1,7 @@
 package com.origin.client.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.origin.client.client.render.OriginScreenRenderer;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -16,9 +17,11 @@ import org.lwjgl.opengl.GL11;
  *       loading screen dissolves over {@link #REVEAL_MS} into the title screen
  *       (LoadingOverlayRevealMixin) and the title's mark and buttons start their
  *       entrance at that moment, not behind the loading screen.</li>
- *   <li>Menu -> world: the first world frames rise out of the loading scene's
- *       charcoal over {@link #WORLD_MS}. Drawn over the HUD only — the player can
- *       move from the first frame, and any error screen draws above it.</li>
+ *   <li>Menu -> world: the loading scene's rings open past the screen edges like
+ *       a lens with the world inside, over {@link #LENS_MS}
+ *       (OriginScreenRenderer.renderWorldEntry). Drawn over the HUD only — the
+ *       player can move from the first frame, and any error screen draws above
+ *       it. If Origin rendering is off, a plain {@link #WORLD_MS} fade instead.</li>
  * </ul>
  *
  * Render thread only. Every clock here is a plain timestamp: nothing ticks
@@ -27,8 +30,10 @@ import org.lwjgl.opengl.GL11;
 public final class StartupTransition {
 	/** Loading -> title dissolve. Mirrors the launcher's Motion.Intro. */
 	public static final long REVEAL_MS = 560;
-	/** Loading scene -> first world frames. Mirrors the launcher's Motion.Handoff. */
+	/** Loading scene -> first world frames, plain fade (fallback). Mirrors the launcher's Motion.Handoff. */
 	public static final long WORLD_MS = 320;
+	/** Loading scene -> first world frames, the lens opening. */
+	public static final long LENS_MS = 820;
 
 	// System.currentTimeMillis() of the startup reveal's first frame; 0 = none yet.
 	private static long titleRevealAt = 0;
@@ -83,19 +88,25 @@ public final class StartupTransition {
 			worldFadeAt = System.currentTimeMillis();
 		}
 		long el = System.currentTimeMillis() - worldFadeAt;
-		if (el >= WORLD_MS) {
+		if (el >= LENS_MS) {
 			worldFadeAt = 0;
+			return;
+		}
+		// The HUD's layers sit at rising z (LayeredDraw), so a cover drawn at z 0
+		// would lose the depth test to the hotbar, chat and Origin HUD and they'd
+		// show at full strength through it. Draw what the HUD queued, clear depth
+		// (GameRenderer clears it again right after the HUD anyway, so screens are
+		// unaffected), then cover.
+		guiGraphics.flush();
+		RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
+		if (OriginScreenRenderer.renderWorldEntry(guiGraphics, el / (double) LENS_MS)) {
+			return;
+		}
+		if (el >= WORLD_MS) {
 			return;
 		}
 		int alpha = (int) Math.round((1.0 - ease(el / (double) WORLD_MS)) * 255);
 		if (alpha > 0) {
-			// The HUD's layers sit at rising z (LayeredDraw), so a plain fill at z 0
-			// would lose the depth test to the hotbar, chat and Origin HUD and they'd
-			// show at full strength through the charcoal. Draw what the HUD queued,
-			// clear depth (GameRenderer clears it again right after the HUD anyway,
-			// so screens are unaffected), then cover everything.
-			guiGraphics.flush();
-			RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
 			guiGraphics.fill(0, 0, guiGraphics.guiWidth(), guiGraphics.guiHeight(), (alpha << 24) | (OriginTheme.BG & 0xFFFFFF));
 			guiGraphics.flush();
 		}
