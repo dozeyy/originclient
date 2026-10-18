@@ -117,3 +117,21 @@ client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java
 # rings loading scene. Promote to shared/ when the other versions get the rings.
 client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
 
+# Motion Blur, 1.21.2-1.21.4 format (2026-10-18). shared/'s motion-blur files are
+# the <=1.21.1 post-chain + program format. From 1.21.2 the chains live in
+# post_effect/ and ShaderManager parses EVERY shaders/**/*.json as a program config,
+# so shared/'s old post chains under shaders/post/ logged "Failed to parse shader
+# config ... No key fragment" on every reload and the blur never loaded. This module
+# ships post_effect/motion_blur_1/2/3.json plus its own program
+# shaders/post/motion_blur.json/.fsh instead; the old files are deleted here and
+# listed so sync never copies them back. (MotionBlur.java explains the last-frame target.)
+client/resources/assets/minecraft/shaders/program/originclient_motion_blur.fsh
+client/resources/assets/minecraft/shaders/program/originclient_motion_blur.json
+client/resources/assets/minecraft/shaders/program/originclient_motion_blur.vsh
+client/resources/assets/minecraft/shaders/program/originclient_motion_blur_1.json
+client/resources/assets/minecraft/shaders/program/originclient_motion_blur_2.json
+client/resources/assets/minecraft/shaders/program/originclient_motion_blur_3.json
+client/resources/assets/originclient/shaders/post/motion_blur.json
+client/resources/assets/originclient/shaders/post/motion_blur_1.json
+client/resources/assets/originclient/shaders/post/motion_blur_2.json
+client/resources/assets/originclient/shaders/post/motion_blur_3.json

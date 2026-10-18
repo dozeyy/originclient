@@ -18,8 +18,8 @@ import java.io.File;
  * the game's own screens -- Select World -> "Create New World" -> "Create New
  * World" -- by pressing the buttons by their translated label (the same keys
  * on every version), waits for the world to draw, then captures it with Color
- * Saturation off and on, then the pause menu, the Cosmetics window and a demo
- * party (Party HUD, markers, a ping), and quits.
+ * Saturation off and on, then with Motion Blur on, then the pause menu, the
+ * Cosmetics window and a demo party (Party HUD, markers, a ping), and quits.
  */
 final class OriginDevWorld {
 	private OriginDevWorld() {
@@ -85,41 +85,55 @@ final class OriginDevWorld {
 			if (phase == 3) {
 				grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
-				// The pause menu (its Cosmetics button sits among vanilla's buttons).
-				mc.setScreen(new PauseScreen(true));
+				// Motion Blur at full strength: loads its post chain, so run.log shows
+				// whether the chain parses and its last-frame target attaches.
+				Mods.setOn("motionblur", true);
+				Mods.set("motionblur", "amount", 10.0);
 				phase = 4;
-				nextAt = now + 1500;
-				return;
-			}
-			if (phase == 4) {
-				grab(mc, dir, "pause_1920x1080.png");
-				// The Cosmetics window over the world: its preview is the real player here.
-				mc.setScreen(new com.origin.client.client.gui.CosmeticsScreen(null));
-				phase = 5;
 				nextAt = now + 2500;
 				return;
 			}
+			if (phase == 4) {
+				if (mc.screen instanceof PauseScreen) {
+					mc.setScreen(null);
+				}
+				grab(mc, dir, "world_motionblur_1920x1080.png");
+				Mods.setOn("motionblur", false);
+				// The pause menu (its Cosmetics button sits among vanilla's buttons).
+				mc.setScreen(new PauseScreen(true));
+				phase = 5;
+				nextAt = now + 1500;
+				return;
+			}
 			if (phase == 5) {
-				grab(mc, dir, "cosmetics_world_1920x1080.png");
-				// Friends & Party: a demo party standing in front of the camera, with a ping
-				mc.setScreen(null);
-				com.origin.client.client.social.SocialDemo.install(true);
+				grab(mc, dir, "pause_1920x1080.png");
+				// The Cosmetics window over the world: its preview is the real player here.
+				mc.setScreen(new com.origin.client.client.gui.CosmeticsScreen(null));
 				phase = 6;
 				nextAt = now + 2500;
 				return;
 			}
 			if (phase == 6) {
+				grab(mc, dir, "cosmetics_world_1920x1080.png");
+				// Friends & Party: a demo party standing in front of the camera, with a ping
+				mc.setScreen(null);
+				com.origin.client.client.social.SocialDemo.install(true);
+				phase = 7;
+				nextAt = now + 2500;
+				return;
+			}
+			if (phase == 7) {
 				if (mc.screen instanceof PauseScreen) {
 					mc.setScreen(null);
 				}
 				grab(mc, dir, "party_world_1920x1080.png");
 				com.origin.client.OriginClient.LOGGER.info("[dev-shots] done — world set in {}", dir);
-				phase = 7;
+				phase = 8;
 				mc.stop();
 			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] world step {} failed", phase, t);
-			phase = 7;
+			phase = 8;
 			mc.stop();
 		}
 	}
