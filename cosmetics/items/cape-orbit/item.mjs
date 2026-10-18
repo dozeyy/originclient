@@ -8,7 +8,7 @@ import { Canvas, ramp, clamp, smoothstep, mix } from '../../lib/px.mjs';
 import { newCapeArt } from '../../lib/cape.mjs';
 
 const S = 4, W = 10 * S, H = 16 * S, FRAMES = 32;
-const MX = 20, MY = 31, MSIZE = 34;                    // mark: centre on a pixel seam; overall width
+const MX = 20, MY = 31, MSIZE = 36, OPEN = 1.0;      // mark: centre on a pixel seam; overall width; minor-axis fatness
 const FX = x => 2 * MX - 1 - x, FY = y => 2 * MY - 1 - y;
 
 const clothFine = ramp('#363940', 9, { lo: 0.06, hi: 0.26, tint: 0.025, shadowHue: 232, lightHue: 215, shift: 0.3 });
@@ -39,7 +39,7 @@ const clothLevel = (x, y) => Math.round(fineLevel(x, y) / 2);
 // Ring 0: horizontal. Ring 1: 60 degrees. Ring 2: 120 degrees = ring 1 mirrored left/right,
 // so the two tilted rings share one size (the three-ring mark, drawn symmetric).
 function ringGeometry() {
-  const k = (MSIZE / 2 - 1) / 90, open = 1.38;
+  const k = (MSIZE / 2 - 1) / 90, open = OPEN;
   return [{ rx: 90, ry: 32, rot: 0 }, { rx: 78, ry: 29, rot: 60 }, { rx: 78, ry: 29, rot: 120 }]
     .map(r => ({ rx: r.rx * k, ry: r.ry * k * open, rot: r.rot * Math.PI / 180 }));
 }
@@ -205,7 +205,7 @@ const ORBITS = [
   { ring: 1, laps: 2, n: 1, off: 0.18 },
   { ring: 2, laps: -3, n: 1, off: 0.62 },
 ];
-const TRAIL = 9;                                          // trail length in px along the ring
+const TRAIL = 12;                                         // trail length in px along the ring
 const TRAIL_RAMP = ['#b4b4b4', '#c4c4c4', '#d4d4d4', '#e4e4e4', '#f2f2f2'];
 
 export default {

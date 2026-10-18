@@ -13,7 +13,7 @@ import { Canvas, clamp, smoothstep, mix, lerp, fbm, hash2, bayer, rng, rgb2hsl, 
 import { newCapeArt } from '../../lib/cape.mjs';
 
 const S = 8, W = 10 * S, H = 16 * S;
-const SUNX = 45, SUNY = 76, SUNR = 7;
+const SUNX = 45, SUNY = 79, SUNR = 7;
 const OUTLINE = '#120b24';
 
 // ------------------------------------------------------------------ sky
@@ -37,11 +37,11 @@ function skyT(x, y) {
 // ------------------------------------------------------------------ hills
 // Ridge y(x) per layer: far -> near. Each is a sum of two sines + fbm so they never repeat.
 const LAYERS = [
-  { y: 80, amp: 5, f: 0.05, seed: 11, rim: '#ffd9a0', body: ['#f08a6c', '#dc7070', '#c85e76'] },
-  { y: 88, amp: 6, f: 0.07, seed: 23, rim: '#ffb982', body: ['#c05a7c', '#a84c7c', '#8e4078'] },
-  { y: 97, amp: 6, f: 0.06, seed: 37, rim: '#f09a78', body: ['#82407a', '#6e3676', '#5a2c6e'], pines: { n: 11, h: [4, 7] } },
-  { y: 106, amp: 5, f: 0.08, seed: 51, rim: '#d27a7a', body: ['#4a2c66', '#3c235a', '#2e1b4c'], pines: { n: 13, h: [6, 11] } },
-  { y: 115, amp: 4, f: 0.09, seed: 67, rim: '#9a5a7e', body: ['#241545', '#1d113c', '#170d32'] },
+  { y: 81, amp: 5, f: 0.05, seed: 11, rim: '#ffe0a8', body: ['#f4906c', '#e07674', '#cc6478'] },
+  { y: 89, amp: 6, f: 0.07, seed: 23, rim: '#ffc08a', body: ['#c85e7e', '#ac5080', '#924480'] },
+  { y: 98, amp: 6, f: 0.06, seed: 37, rim: '#f49c7c', body: ['#8a4480', '#733a78', '#5e3070'], pines: { n: 11, h: [4, 7] } },
+  { y: 107, amp: 5, f: 0.08, seed: 51, rim: '#b86e7c', body: ['#46285f', '#381f54', '#2a1748'], pines: { n: 13, h: [6, 11] } },
+  { y: 116, amp: 3, f: 0.09, seed: 67, rim: '#6a3e70', body: ['#1c1038', '#160d2e', '#120a26'] },
 ];
 const ridgeY = (L, x) => L.y + (fbm(x * L.f, 0.5, L.seed, 3) - 0.5) * 2 * L.amp + Math.sin(x * L.f * 0.9 + L.seed) * L.amp * 0.35;
 
@@ -81,7 +81,8 @@ function cloudMask(cl) {
   const m = new Map();
   for (let y = Math.floor(cl.cy - cl.ry * 2.5); y <= cl.cy + cl.ry * 2.5; y++) for (let x = Math.floor(cl.cx - cl.rx - 2); x <= cl.cx + cl.rx + 2; x++) {
     const ex = (x - cl.cx) / cl.rx, ey = (y - cl.cy) / cl.ry;
-    const v = 1 - ex * ex - ey * ey * (ey > 0 ? 1.25 : 0.8) + (fbm(x * 0.09, y * 0.35, cl.seed, 3) - 0.5) * 0.9;
+    const v = 1 - ex * ex - ey * ey * (ey > 0 ? 1.25 : 0.8) + (fbm(x * 0.09, y * 0.35, cl.seed, 3) - 0.5) * 0.9
+      - 0.55 * smoothstep(0.62, 0.8, fbm(x * 0.07 + 9, y * 0.5, cl.seed + 40, 2));   // breaks the long streaks into wisps
     if (v <= 0.02) continue;
     if (v < 0.16 && v / 0.16 < bayer(x, y, 4)) continue;
     m.set(y * W + x, v);
@@ -107,13 +108,11 @@ const FOLD_STEPS = 7;
 const foldStep = (x, y) => clamp(Math.round(foldValue(x, y) * (FOLD_STEPS - 1)), 0, FOLD_STEPS - 1);
 function shadeCloth(col, step, amp) {
   const u = (step - 2) / 2.5;                      // step 2 = neutral; 0 = deepest valley; 6 = lit crest
-  const [h, sa, l] = rgb2hsl(col);
   if (u < 0) {
-    const k = -u * amp;
-    return toHex(hsl2rgb(h + (((270 - h + 540) % 360) - 180) * 0.22 * k, clamp(sa * (1 + 0.18 * k)), l * (1 - 0.34 * k)));
+    const k = -u * amp, [h, sa, l] = rgb2hsl(mix(col, '#5c2a74', 0.3 * k));   // a muted plum: cool, never a vivid orange
+    return toHex(hsl2rgb(h, sa * (1 - 0.1 * k), l * (1 - 0.14 * k)));
   }
-  const k = Math.min(1, u) * amp;
-  return toHex(hsl2rgb(h + (((42 - h + 540) % 360) - 180) * 0.1 * k, sa, clamp(l + (1 - l) * 0.13 * k)));
+  return toHex(mix(col, '#fff1cc', 0.07 * Math.min(1, u) * amp));
 }
 
 export default {
@@ -173,7 +172,8 @@ export default {
         for (let y = top; y < H; y++) {
           const d = y - top;
           let col;
-          const pick = d < 3 ? 0 : d < 6 ? (bayer(x, y, 4) < (d - 3) / 3 ? 1 : 0) : d < 10 ? 1 : d < 14 ? (bayer(x, y, 4) < (d - 10) / 4 ? 2 : 1) : 2;
+          const th = bayer(x, y, 4) * 0.7 + hash2(x, y, 31) * 0.3;
+          const pick = d < 4 ? 0 : d < 6 ? (th < (d - 4) / 2 ? 1 : 0) : d < 11 ? 1 : d < 13 ? (th < (d - 11) / 2 ? 2 : 1) : 2;
           col = L.body[Math.min(2, pick)];
           const glow = Math.exp(-Math.pow(sunDist(x) / 26, 2));
           if (d === 0) col = mix(col, L.rim, 0.45 + 0.5 * glow);
@@ -194,7 +194,9 @@ export default {
     // ------- cloth folds over the painting (stronger toward the hem where cloth drapes)
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const st = foldStep(x, y); if (st === 2) continue;
-      c.set(x, y, shadeCloth(c.get(x, y), st, 0.75 + 0.25 * (y / H)));
+      if (Math.hypot(x + 0.5 - SUNX, y + 0.5 - SUNY) < SUNR + 2) continue;                 // the sun disc stays crisp
+      const sky = y < 79 ? 0.5 : 1;                                                         // folds half strength over the sky
+      c.set(x, y, shadeCloth(c.get(x, y), st, (0.75 + 0.25 * (y / H)) * sky));
     }
 
     // ------- collar: gathered band, seam and stitch row in the sky's deepest violet

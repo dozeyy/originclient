@@ -188,5 +188,8 @@
         <!-- Social toasts, above everything. Moves left of the Friends drawer while it's open. -->
         <controls:SocialToastHost x:Name="Toasts" Width="320"
                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"/>
+
+        <!-- Opening animation, over everything; removes itself when done (StartupIntro.xaml.cs). -->
+        <controls:StartupIntro x:Name="Intro"/>
     </Grid>
 </Window>

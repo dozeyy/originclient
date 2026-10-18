@@ -70,6 +70,15 @@ public final class OriginDeck {
 	public static int ON_TEXT = DEF_ON_TEXT;    // text on the ENABLED bar
 	public static final int RED = 0xFFD9675A;
 	public static final int RED_SOFT = 0x29D9675A;   // red .16
+	// The mod card's ENABLED / DISABLED bar. Default: red DISABLED, green hover. A theme
+	// recolours both, so a red-accent theme (crimson) never has ENABLED and DISABLED
+	// reading as the same red, and no theme flashes the default green on hover.
+	private static final int DEF_ACC_D_H = 0xFF35895F;
+	public static int ACC_D_H = DEF_ACC_D_H;    // ENABLED bar, hovered
+	public static int OFF = RED;                // DISABLED label
+	public static int OFF_SOFT = RED_SOFT;      // DISABLED bar
+	private static final int DEF_OFF_SOFT_H = 0x3DD9675A;
+	public static int OFF_SOFT_H = DEF_OFF_SOFT_H; // DISABLED bar, hovered
 	public static final int GOLD = 0xFFE9C46A;
 	public static final int GOLD_BG = 0xFF3A3220;
 	public static final int FIELD = 0x47000000;      // black .28 (search / text fields)
@@ -199,6 +208,11 @@ public final class OriginDeck {
 		ACC_SOFT = withAlpha(acc, 0x24);
 		ON_ACC = opaque(onAcc);
 		ON_TEXT = opaque(lerp(accHi, 0xFFFFFFFF, 0.6f));
+		ACC_D_H = opaque(lerp(acc, bg, 0.42f));
+		// Neutral DISABLED under a theme: the accent alone says "on".
+		OFF = withAlpha(dim, 0xE0);
+		OFF_SOFT = withAlpha(text, 0x14);
+		OFF_SOFT_H = withAlpha(text, 0x24);
 	}
 
 	/** Back to today's colours. */
@@ -216,6 +230,10 @@ public final class OriginDeck {
 		ACC_SOFT = DEF_ACC_SOFT;
 		ON_ACC = DEF_ON_ACC;
 		ON_TEXT = DEF_ON_TEXT;
+		ACC_D_H = DEF_ACC_D_H;
+		OFF = RED;
+		OFF_SOFT = RED_SOFT;
+		OFF_SOFT_H = DEF_OFF_SOFT_H;
 	}
 
 	private static int withAlpha(int rgb, int a) {

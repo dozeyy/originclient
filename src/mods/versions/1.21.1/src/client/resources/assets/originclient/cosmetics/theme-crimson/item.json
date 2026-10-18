@@ -1,0 +1,23 @@
+{
+  "id": "theme-crimson",
+  "name": "Crimson",
+  "kind": "theme",
+  "slot": "theme",
+  "cents": 599,
+  "blurb": "Dark wine surfaces with a warm cream voice and a vivid crimson accent.",
+  "animated": false,
+  "plusOnly": false,
+  "onSale": true,
+  "hidesCape": false,
+  "capeOffset": 0,
+  "theme": {
+    "bg": "#130d0f",
+    "card": "#221619",
+    "line": "#43292f",
+    "text": "#f6e8dd",
+    "dim": "#c6aaa8",
+    "acc": "#f0384e",
+    "accHi": "#ff94a2",
+    "onAcc": "#1c0409"
+  }
+}

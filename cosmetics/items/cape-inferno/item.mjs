@@ -1,28 +1,26 @@
-// Inferno Cape: charred black cloth with flame tongues licking up from a glowing, cracked hem.
-// Animated, scale 4: painted 1 art pixel = 4 texture pixels on the 40x64 outside face.
+// Inferno Cape (try 2): charred black cloth, four big curved flame tongues rising from a cracked
+// ember hem, and a dithered heat glow that climbs the cloth. Animated, scale 4: 1 art pixel = 4
+// texture pixels on the 40x64 outside face, 24 frames.
 //
-// Fire is built from 8 separate tongues (each its own height, lean and flicker) so dark cloth shows
-// BETWEEN them above the hem -- a row of flames, not a gradient. Each tongue is shaded on a 5-step
-// ramp (deep red edge -> red -> orange -> yellow -> white core): the hottest pixels sit low in the
-// middle of each tongue, the rim and the tip stay red. Above the tips a little cool ash smoke
-// drifts, and a few slow embers rise. The cloth itself is a near-black cool ramp that only picks up
-// a warm underlight in the lowest rows. Every motion uses a whole number of cycles over the loop
-// (periodic noise scrolled by exactly its period), so frame 23 -> frame 0 is seamless.
-// Cape textures have no emissive channel, so the flame cores are simply the brightest pixels.
-import { ramp, clamp, smoothstep, mix, hash2, bayer, rampThrough } from '../../lib/px.mjs';
+// Each tongue is a teardrop around an S-shaped spine; the spine wave travels UP the flame so the
+// tongue writhes instead of bouncing. Shading is concentric around the spine, hottest near the
+// base: deep red rim -> red -> orange -> yellow -> pale core, so the layers follow the curve.
+// A warm glow (4-step dither) fades up the cloth from the tongues. Five large embers rise through
+// the loop. Every motion is a whole number of cycles per loop (seamless). Cape textures have no
+// emissive channel, so the flame cores are simply the brightest pixels.
+import { ramp, clamp, smoothstep, mix, hash2, bayer } from '../../lib/px.mjs';
 import { newCapeArt } from '../../lib/cape.mjs';
 
-const S = 4, W = 10 * S, H = 16 * S, N = 24, FPS = 12;
-const YB = H - 4;                                       // flame base row (the crust sits below it)
+const S = 4, W = 10 * S, H = 16 * S, N = 24, FPS = 12, TAU = Math.PI * 2;
+const YB = H - 4;                                        // flame base row (the crust sits below it)
 
-// --- palettes -------------------------------------------------------------------------------
 const clothFine = ramp('#1e1d22', 9, { lo: 0.02, hi: 0.115, tint: 0.025, shadowHue: 250, lightHue: 18, shift: 0.3 });
-const FIRE = ['#6e1410', '#c42a14', '#ff7a18', '#ffc02e', '#fff4c8'];   // deep red, red, orange, yellow, white core
-const WARM = ['#1d1012', '#2e1210', '#47160f', '#68200f'];              // cloth lit from below by the fire
-const ASH = ['#2b2c33', '#3f4048', '#5b5e68'];                          // cool smoke
+const FIRE = ['#7a1612', '#cf2a14', '#ff7a18', '#ffc02e', '#fff0c0'];   // deep red, red, orange, yellow, pale core
+const WARM = ['#2a1114', '#401511', '#6a1b0f', '#982a0e'];              // cloth lit by the fire (dithered in)
 const OUTLINE = '#08080b';
+const sinT = (t, m, ph) => Math.sin(TAU * (t * m + ph));
 
-// --- periodic value noise: repeats every K lattice cells in y, so scrolling by K cells loops ----
+// periodic value noise: repeats every K lattice cells in y, so scrolling by K cells loops
 function pnoise(x, y, K, seed) {
   const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
   const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = j => ((j % K) + K) % K;
@@ -30,7 +28,7 @@ function pnoise(x, y, K, seed) {
   return (a + (b - a) * u) + ((c + (d - c) * u) - (a + (b - a) * u)) * v;
 }
 
-// --- cloth ------------------------------------------------------------------------------------
+// ---- cloth ----
 const VALLEYS = [-2, 11, 21, 31, 42];
 const valleyX = (k, y) => VALLEYS[k] + Math.sin(y * 0.09 + k * 1.9) * 0.8;
 const foldProfile = p => { const r = 0.4; return p < r ? 0.5 - 0.5 * Math.cos(Math.PI * p / r) : 0.5 + 0.5 * Math.cos(Math.PI * (p - r) / (1 - r)); };
@@ -38,111 +36,74 @@ function clothLevel(x, y) {
   let k = 0; while (k < VALLEYS.length - 2 && x >= valleyX(k + 1, y)) k++;
   const a = valleyX(k, y), b = valleyX(k + 1, y), p = clamp((x - a) / (b - a));
   let t = 0.22 + foldProfile(p) * 0.46 + (0.5 - y / H) * 0.1;
-  t += (pnoise(x / 6, y / 7, 64, 7) - 0.5) * 0.16;                       // uneven char: patches burnt darker
+  t += (pnoise(x / 6, y / 7, 64, 7) - 0.5) * 0.16;
   if ((x + y * 2) % 5 === 0) t -= 0.05;                                  // faint weave
   return clamp(Math.floor(clamp(t) * clothFine.length), 1, clothFine.length - 1);
 }
 
-// --- fire -------------------------------------------------------------------------------------
-// c = centre column, w = half-width at the base, h = height, m = flicker cycles per loop, lean = sideways curl.
-const TEETH = [
-  { c: 3.0, w: 2.3, h: 15, m: 1, ph: 0.10, lean: -1.2, k: 0.9 }, { c: 9.6, w: 2.6, h: 27, m: 1, ph: 0.55, lean: 2.4, k: 1 },
-  { c: 16.0, w: 2.4, h: 20, m: 2, ph: 0.30, lean: -1.8, k: 1 }, { c: 22.2, w: 2.8, h: 31, m: 1, ph: 0.80, lean: 1.6, k: 1 },
-  { c: 28.6, w: 2.4, h: 22, m: 2, ph: 0.05, lean: -2.2, k: 1 }, { c: 35.2, w: 2.5, h: 17, m: 1, ph: 0.40, lean: 1.4, k: 0.9 },
-  // short licks in the gaps: low, cooler, they keep the hem from reading as separate teeth
-  { c: 6.3, w: 1.5, h: 8, m: 2, ph: 0.20, lean: 0.8, k: 0.72 }, { c: 12.9, w: 1.6, h: 10, m: 1, ph: 0.70, lean: -0.8, k: 0.72 },
-  { c: 19.1, w: 1.5, h: 9, m: 2, ph: 0.45, lean: 0.9, k: 0.72 }, { c: 25.4, w: 1.6, h: 11, m: 1, ph: 0.15, lean: -1.0, k: 0.72 },
-  { c: 31.9, w: 1.5, h: 8, m: 2, ph: 0.85, lean: 0.8, k: 0.72 }, { c: 38.0, w: 1.4, h: 7, m: 1, ph: 0.50, lean: -0.6, k: 0.72 },
+// ---- flame tongues: c = base column, w = half-width at the base, h = height, a = S-curve sway ----
+const TONGUES = [
+  { c: 7.5, w: 5.0, h: 30, a: 3.6, ph: 0.00 },
+  { c: 17.5, w: 5.6, h: 42, a: 4.4, ph: 0.30 },
+  { c: 28.0, w: 5.4, h: 36, a: 4.0, ph: 0.62 },
+  { c: 36.5, w: 4.4, h: 25, a: 3.0, ph: 0.85 },
 ];
-const sinT = (t, m, ph) => Math.sin(2 * Math.PI * (t * m + ph));
-
-function toothAt(T, x, y, t) {            // -> { heat 0..1, v } of tooth T at pixel centre, or null outside
-  const hh = T.h * (1 + 0.16 * sinT(t, T.m, T.ph)), v = (YB - y) / hh;
-  if (v < 0 || v > 1) return null;
-  const cx = T.c + T.lean * v * v * sinT(t, 1, T.ph + 0.25) + 0.6 * sinT(t, 1, T.ph) * v;
-  const wob = (pnoise(x / 3.2 + T.c, (y + t * 16) / 3.2, 6, 31) - 0.5) * 1.1;   // 16 px scroll = 8 cells x 2 px: loops
-  const wd = T.w * Math.pow(1 - v, 0.85) + wob * (0.5 + v) * 0.6;
-  if (wd <= 0.25) return null;
+function tongueAt(T, x, y, t) {                      // -> heat 0..1 at pixel centre, or -1 outside
+  const v = (YB - y) / (T.h * (1 + 0.08 * sinT(t, 1, T.ph)));
+  if (v < 0 || v > 1) return -1;
+  // S spine: 1.1 waves over the height, travelling up; anchored at the base, whipping at the tip
+  const cx = T.c + T.a * Math.pow(v, 0.8) * Math.sin(TAU * (1.1 * v - t + T.ph));
+  const wob = (pnoise(x / 3.5 + T.c, (y + t * 18) / 3.5, 6, 31) - 0.5) * 1.0;
+  const wd = T.w * Math.pow(1 - v, 0.8) + wob * (0.4 + v) * 0.6;
+  if (wd < 0.3) return -1;
   const dn = Math.abs(x - cx) / wd;
-  if (dn >= 1) return null;
-  return { heat: T.k * clamp((1 - Math.pow(dn, 1.5)) * 0.5 + (1 - v) * 0.48 - 0.1), v, dn };
+  if (dn >= 1) return -1;
+  return clamp((1 - Math.pow(dn, 1.1)) * (1.12 - 0.62 * v) + (pnoise(x / 2, y / 2 + t * 12, 6, 53) - 0.5) * 0.1);
 }
 
 function paintFrame(f) {
-  const t = f / N, c = newCapeArt(S), heat = new Float32Array(W * H).fill(-1), tipY = new Float32Array(W).fill(H);
-  // ---- charred cloth + outline
+  const t = f / N, c = newCapeArt(S), heat = new Float32Array(W * H).fill(-1);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) c.set(x, y, clothFine[clothLevel(x, y)]);
-  for (let x = 0; x < W; x++) { c.set(x, 0, OUTLINE); }
+
+  // ---- heat glow climbing the cloth: 4-step dither, strongest above the tongues
+  const pulse = 0.92 + 0.08 * sinT(t, 1, 0);
+  for (let y = 7; y < YB; y++) for (let x = 1; x < W - 1; x++) {
+    let plume = 0;
+    for (const T of TONGUES) plume = Math.max(plume, Math.exp(-(((x - T.c) / 11) ** 2)));
+    const L = Math.pow(clamp(1 - (YB - y) / 56), 1.5) * (0.45 + 0.55 * plume) * pulse * 0.9;
+    const p = L * 4.6, fl = Math.floor(p), k = fl + (p - fl > bayer(x, y, 4) ? 1 : 0);
+    if (k > 0) c.set(x, y, mix(c.get(x, y), WARM[Math.min(3, k - 1)], 0.9));
+  }
+  // ---- outline + collar (drawn before the flames so fire can lick the sides)
+  for (let x = 0; x < W; x++) c.set(x, 0, OUTLINE);
   for (let y = 0; y < H; y++) { c.set(0, y, OUTLINE); c.set(W - 1, y, OUTLINE); }
-  // collar: gathered band + stitched seam
   for (let y = 1; y < 5; y++) for (let x = 1; x < W - 1; x++) c.set(x, y, clothFine[clamp(clothLevel(x, y) - 1, 1, 3)]);
   for (let x = 1; x < W - 1; x++) { c.set(x, 5, OUTLINE); c.set(x, 6, (x >> 1) & 1 ? clothFine[4] : clothFine[3]); }
 
-  // ---- flame field
+  // ---- flames: hottest value of any tongue; bands follow the curve
   for (let y = 0; y < YB; y++) for (let x = 0; x < W; x++) {
-    let best = null;
-    for (const T of TEETH) { const r = toothAt(T, x + 0.5, y + 0.5, t); if (r && (!best || r.heat > best.heat)) best = r; }
-    if (best) {
-      heat[y * W + x] = best.heat;
-      tipY[x] = Math.min(tipY[x], y);
-    }
+    let h = -1;
+    for (const T of TONGUES) h = Math.max(h, tongueAt(T, x + 0.5, y + 0.5, t));
+    if (h < 0) continue;
+    c.set(x, y, FIRE[h < 0.13 ? 0 : h < 0.3 ? 1 : h < 0.52 ? 2 : h < 0.78 ? 3 : 4]);
   }
-  // ---- warm underlight on the cloth: box-blurred heat, quantised to 4 dithered steps, strongest at the hem
-  for (let y = 8; y < H; y++) for (let x = 0; x < W; x++) {
-    if (heat[y * W + x] >= 0) continue;
-    let s = 0, n = 0;
-    for (let dy = -4; dy <= 2; dy++) for (let dx = -3; dx <= 3; dx++) {
-      const xx = x + dx, yy = y + dy; if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
-      n++; if (heat[yy * W + xx] >= 0) s += 0.4 + heat[yy * W + xx];
-    }
-    const L = clamp(s / n * 1.5 + smoothstep(H - 14, H - 1, y) * 0.25);
-    const i = Math.floor(L * WARM.length * 1.1);
-    const k = i + (L * WARM.length * 1.1 - i > bayer(x, y, 4) ? 1 : 0);
-    if (k > 0) { const w = WARM[Math.min(WARM.length - 1, k - 1)], base = c.get(x, y); c.set(x, y, mix(base, w, x === 0 || x === W - 1 ? 0 : 0.85)); }
-  }
-  // ---- smoke: cool ash above the tips, thin and dithered, scrolling up
-  for (let y = 10; y < YB - 4; y++) for (let x = 1; x < W - 1; x++) {
-    if (heat[y * W + x] >= 0) continue;
-    let near = 99;
-    for (let dx = -4; dx <= 4; dx++) { const xx = x + dx; if (xx >= 0 && xx < W) near = Math.min(near, Math.abs(dx) + Math.max(0, tipY[xx] - y) * 0.6); }
-    const above = y < tipY[x] ? tipY[x] - y : 0;
-    if (above <= 0 || above > 13) continue;
-    const dens = pnoise(x / 3.6, (y + t * 24) / 3.6, 12, 5) * (1 - above / 13) * (1 - near / 12) * 1.15;
-    if (dens > 0.2 + bayer(x, y, 4) * 0.4) {
-      const k = dens > 0.55 ? 2 : dens > 0.38 ? 1 : 0;
-      c.set(x, y, mix(c.get(x, y), ASH[k], 0.8));
-    }
-  }
-  // ---- flames
-  for (let y = 0; y < YB; y++) for (let x = 0; x < W; x++) {
-    const h = heat[y * W + x]; if (h < 0) continue;
-    const p = clamp(h * 1.08) * 4.3, lo = Math.floor(p), up = p - lo > 0.62 && bayer(x, y, 2) < (p - lo) ? 1 : 0;   // tiny 2x2 dither only where two steps meet
-    c.set(x, y, FIRE[clamp(lo + up, 0, 4)]);
-  }
-  // ---- cracked hem crust: dark char with pulsing ember cracks, flames rise out of it
+  // ---- cracked hem crust with pulsing ember cracks
   for (let y = YB; y < H; y++) for (let x = 0; x < W; x++) {
-    const n = pnoise(x / 3, y / 2, 16, 91) + 0.35 * Math.sin(2 * Math.PI * (t + hash2(x >> 1, y, 3)));
+    const n = pnoise(x / 3, y / 2, 16, 91) + 0.35 * Math.sin(TAU * (t + hash2(x >> 1, y, 3)));
     const crack = n > 1.0 - (y === YB ? 0.18 : 0.08);
     if (y === H - 1) c.set(x, y, crack ? FIRE[0] : OUTLINE);
     else if (crack) c.set(x, y, FIRE[n > 1.25 ? 3 : n > 1.12 ? 2 : 1]);
     else c.set(x, y, y === YB ? '#4a1a10' : clothFine[1 + (hash2(x, y, 4) > 0.7 ? 1 : 0)]);
   }
-  // ---- ember pinholes in the upper cloth: a few dull glows that breathe
-  for (let i = 0; i < 6; i++) {
-    const ex = 4 + Math.floor(hash2(i, 1, 77) * 32), ey = 12 + Math.floor(hash2(i, 2, 77) * 22);
-    const br = 0.5 + 0.5 * sinT(t, 1, hash2(i, 3, 77));
-    if (heat[ey * W + ex] < 0) c.set(ex, ey, br > 0.55 ? FIRE[1] : FIRE[0]);
-  }
-  // ---- rising embers: whole cycles per loop, hidden at both ends of their life so the wrap never pops
-  for (let i = 0; i < 9; i++) {
-    const k = i % 3 === 0 ? 2 : 1, life = (t * k + hash2(i, 5, 11)) % 1;
-    if (life < 0.1 || life > 0.9) continue;
-    const x = Math.floor(3 + hash2(i, 6, 11) * 34 + 2.2 * Math.sin(2 * Math.PI * (life * 1.5 + hash2(i, 7, 11))));
-    const y = Math.floor(YB - 3 - life * (k === 2 ? 20 : 38));
-    const col = life < 0.35 ? FIRE[3] : life < 0.65 ? FIRE[2] : FIRE[1];
-    c.set(x, y, col);
-    if (life < 0.4 && i % 2 === 0) c.set(x, y + 1, FIRE[1]);                 // short trail on the young ones
-  }
+  // ---- five large embers, one rise per loop, staggered; hidden at both ends of their life
+  const EMBERS = [[5, 0.00], [14, 0.46], [22, 0.18], [31, 0.70], [36, 0.93]];
+  EMBERS.forEach(([x0, off], i) => {
+    const life = (t + off) % 1; if (life < 0.06 || life > 0.94) return;
+    const x = Math.round(x0 + 2.6 * Math.sin(TAU * (life * 1 + hash2(i, 1, 9)))), y = Math.round(YB - 14 - life * 46);
+    const big = life < 0.62;
+    if (big) { c.set(x, y, FIRE[2]); c.set(x + 1, y, FIRE[1]); c.set(x, y + 1, FIRE[1]); c.set(x + 1, y + 1, FIRE[0]); c.set(x, y, life < 0.3 ? FIRE[3] : FIRE[2]); }
+    else c.set(x, y, FIRE[1]);
+  });
   return c;
 }
 

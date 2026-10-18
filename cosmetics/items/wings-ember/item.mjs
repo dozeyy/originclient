@@ -14,14 +14,14 @@ import { ramp, clamp, lerp, smoothstep, hash2, noise2, bayer } from '../../lib/p
 import { footprint, layoutCubes, newTexture, paintCube, LIGHT } from '../../lib/model.mjs';
 
 const S = 4, TEX = [40, 42], FRAMES = 6, FPS = 6, PERIOD = 1.5;
-const BASE_YAW = 24;                                            // wings rest swept back this far (deg)
+const BASE_YAW = 33;                                            // wings rest swept back this far (deg)
 const REST_DROOP = -3;                                          // and a touch low, so the up-flap stays under y +6
 
 // ---- the planar wing (model px, body frame, left wing, before the sweep) -----------
 // Dropped ~4 px against try 1: the root sits low on the back and the tips hang to the hips.
 const P = {
-  S: [2.4, -3.0], E: [6.0, 2.4], Wr: [10.2, 1.0],                // the leading edge arcs up to the elbow, then sweeps out and back
-  F: [[13.6, -1.0], [13.2, -7.0], [7.2, -11.8]],                 // three fingertips, leading edge first, fanned ~75 deg
+  S: [2.4, -3.0], E: [5.8, 2.4], Wr: [9.6, 1.0],                // the leading edge arcs up to the elbow, then sweeps out and back
+  F: [[12.4, -1.0], [12.1, -7.0], [6.8, -11.8]],                 // three fingertips, leading edge first, fanned ~75 deg
   B: [3.2, -10.0],
 };
 const ZI = -2.9, ZO = -3.15;                                    // z of the inner and outer membranes (outer sits behind)
@@ -72,12 +72,6 @@ function limb(name, grp, a, b, t, z, side, extend = 0) {
   const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy), len = Math.round((d + extend) * S) / S, phi = rad2deg(Math.atan2(dy, dx));
   if (side > 0) return { name, grp, from: [a[0], a[1] - t / 2, z - t / 2], to: [a[0] + len, a[1] + t / 2, z + t / 2], rotation: { origin: [a[0], a[1], z], angle: [0, 0, +phi.toFixed(3)] } };
   return { name, grp, from: [-a[0] - len, a[1] - t / 2, z - t / 2], to: [-a[0], a[1] + t / 2, z + t / 2], mirror: true, rotation: { origin: [-a[0], a[1], z], angle: [0, 0, -phi.toFixed(3)] } };
-}
-// A joint knuckle: a small axis-aligned bone cube centred on a point.
-function knuckle(name, grp, c, z, side, k = 1.25) {
-  const h = k / 2;
-  if (side > 0) return { name, grp, from: [c[0] - h, c[1] - h, z - h], to: [c[0] + h, c[1] + h, z + h] };
-  return { name, grp, from: [-c[0] - h, c[1] - h, z - h], to: [-c[0] + h, c[1] + h, z + h], mirror: true };
 }
 // A flat, two-faced plane over a region. Left wing: north reads as painted, south flips; right is the reverse.
 function plane(name, reg, side, extra = {}) {
@@ -134,8 +128,8 @@ const bones = [...wing(+1), ...wing(-1)];
 // ---- motion ---------------------------------------------------------------------------
 // flap: up/down about the shoulder, the fingers a beat behind (10-15 deg idle at the tips, more on the move).
 // sweep: a small fore/aft rock a quarter-cycle later, so the tips trace an ellipse instead of a line.
-const flap = (bone, s, lag) => ({ bone, channel: 'rot', axis: 'z', amp: s * (lag ? 5 : 8), walkAmp: s * (lag ? 1.5 : 2), airAmp: s * (lag ? 3 : 5), period: PERIOD, phase: lag ? -0.12 : 0 });
-const sweep = (bone, s, lag) => ({ bone, channel: 'rot', axis: 'y', amp: s * (lag ? 2 : 3), walkAmp: s * (lag ? 1 : 2), airAmp: s * (lag ? 3 : 4), period: PERIOD, phase: lag ? 0.13 : 0.25 });
+const flap = (bone, s, lag) => ({ bone, channel: 'rot', axis: 'z', amp: s * (lag ? 5 : 8), walkAmp: s * (lag ? 1 : 1.5), airAmp: s * (lag ? 2 : 3), period: PERIOD, phase: lag ? -0.12 : 0 });
+const sweep = (bone, s, lag) => ({ bone, channel: 'rot', axis: 'y', amp: s * (lag ? 2 : 3), walkAmp: s * (lag ? 0.5 : 1), airAmp: s * (lag ? 1.5 : 2), period: PERIOD, phase: lag ? 0.13 : 0.25 });
 const motion = [
   flap('wingL', 1, 0), flap('wingL2', 1, 1), sweep('wingL', 1, 0), sweep('wingL2', 1, 1),
   flap('wingR', -1, 0), flap('wingR2', -1, 1), sweep('wingR', -1, 0), sweep('wingR2', -1, 1),
@@ -170,12 +164,13 @@ const polyDist = (pts, x, y) => { let d = 1e9; for (let i = 0; i + 1 < pts.lengt
 // per-sector stagger, so the cells read as leather panels between veins (never loops).
 // Angles are degrees around the wrist, 0 = +x, running negative downward; the arm sits near -198.
 const angOf = (p, o) => { const a = rad2deg(Math.atan2(p[1] - o[1], p[0] - o[0])); return a > 90 ? a - 360 : a; };
+const aF3 = angOf(F3, P.Wr), aArm = angOf(P.E, P.Wr);
 const SPOKE = {
   O: P.F.map((f, i) => ({ a: angOf(f, P.Wr), bone: true, id: i })),
-  I: [{ a: angOf(F4, P.Wr), bone: true, id: 4 }, { a: -121, bone: false, id: 5 }, { a: -140, bone: false, id: 6 }, { a: -160, bone: false, id: 7 }, { a: -181, bone: false, id: 9 }, { a: -206, bone: true, id: 8 }],
+  I: [{ a: aF3, bone: true, id: 4 }, ...[0.18, 0.38, 0.58, 0.78].map((f, k) => ({ a: lerp(aF3, aArm, f), bone: false, id: 5 + k })), { a: aArm, bone: true, id: 9 }],
 };
 const BANDS = {                                                 // arc radii from the wrist per sector (model px)
-  O: [[3.4], [3.8, 7.2], [4.2, 8.4]],
+  O: [[3.4, 6.0], [4.0, 7.6]],
   I: [[4.2, 8.0], [5.0, 8.8], [3.8, 7.2], [4.6, 8.0], [3.6, 6.4]],
 };
 const ARCS_SEED = { O: 29, I: 11 };
@@ -185,7 +180,7 @@ function sampleRegion(key, reg, outline, bonesList, trail) {
   const n = reg.w * reg.h, spokes = SPOKE[key], bands = BANDS[key], seed = ARCS_SEED[key];
   const T = {
     reg, key, inside: new Uint8Array(n), edge: new Uint8Array(n), rr: new Float32Array(n), dEdge: new Float32Array(n), dBone: new Float32Array(n),
-    level: new Float32Array(n), crack: new Uint8Array(n), lit: new Float32Array(n), rim: new Uint8Array(n), shade: new Float32Array(n),
+    dTip: new Float32Array(n), level: new Float32Array(n), crack: new Uint8Array(n), lit: new Float32Array(n), rim: new Uint8Array(n), shade: new Float32Array(n),
   };
   for (let v = 0; v < reg.h; v++) for (let u = 0; u < reg.w; u++) {
     const i = v * reg.w + u, x = reg.x1 - (u + 0.5) / S, y = reg.y1 - (v + 0.5) / S;
@@ -194,7 +189,7 @@ function sampleRegion(key, reg, outline, bonesList, trail) {
     T.inside[i] = 1;
     const dEdge = polyDist(trail, x, y);
     let db = 1e9; for (const [a, b] of bonesList) db = Math.min(db, segDist(x, y, a, b));
-    T.dEdge[i] = dEdge; T.dBone[i] = db;
+    T.dEdge[i] = dEdge; T.dBone[i] = db; T.dTip[i] = Math.min(...TIPS.map(t => Math.hypot(x - t[0], y - t[1])));
 
     // sector + band
     const dx = x - P.Wr[0], dy = y - P.Wr[1], r = Math.hypot(dx, dy), ang = angOf([x, y], P.Wr);
@@ -234,7 +229,7 @@ function sampleRegion(key, reg, outline, bonesList, trail) {
   return T;
 }
 const samples = {
-  I: sampleRegion('I', R.memI, OUT_I, [...ARM, FINGERS[3]], TRAIL_I),
+  I: sampleRegion('I', R.memI, OUT_I, [...ARM, ...FPATHS[2].slice(0, -1).map((a, k) => [a, FPATHS[2][k + 1]])], TRAIL_I),
   O: sampleRegion('O', R.memO, OUT_O, FINGERS, TRAIL_O),
 };
 // share of crack pixels that are lit (logged by the build; the brief asks for about 30%)
@@ -269,36 +264,43 @@ function paintMembrane(tex, T) {
     if (near > 0) v.set(x, y, cellColor(clamp(T.level[i] + 0.3 * near, 0, 1), reg.tx + x, reg.ty + y));
   }
   void base;
-  // scorched trailing edge: one dim ember-red row inside the outline, hotter toward the fingertips
+  // scorched trailing edge: one uniform dim ember-red row inside the outline; every fingertip ends in the same hot ember tip
   for (let y = 0; y < reg.h; y++) for (let x = 0; x < reg.w; x++) {
-    const i = y * reg.w + x; if (!T.rim[i]) continue;
-    v.set(x, y, dimCrack[clamp(Math.round(1 + 1.2 * (1 - T.shade[i]) + (hash2(x, y, 3) > 0.7 ? 0.5 : 0)), 0, 2)]);
+    const i = y * reg.w + x; if (!T.rim[i] && !(T.edge[i] && T.dTip[i] < 0.5)) continue;
+    v.set(x, y, T.dTip[i] < 0.75 ? ember[4] : dimCrack[1]);
   }
 }
+const CORE = '#fff1c2';                                        // yellow-white hot spot
 function paintVeins(tex, T, f, out) {
-  const { reg } = T, v = tex.view(out.tx, out.ty, out.w, out.h);
+  const { reg } = T, v = tex.view(out.tx, out.ty, out.w, out.h), px = [];
   for (let y = 0; y < reg.h; y++) for (let x = 0; x < reg.w; x++) {
     const i = y * reg.w + x, k = T.lit[i]; if (!T.crack[i] || k < 0.12) continue;
-    const b = clamp((0.35 + 0.65 * pulse(T.rr[i], f)) * (0.35 + 0.65 * k));
-    v.set(x, y, ember[clamp(Math.round(2 + b * 3.4), 0, 5)]);          // orange core; pale yellow is kept for the fx sparks
+    px.push({ x, y, b: clamp((0.35 + 0.65 * pulse(T.rr[i], f)) * (0.35 + 0.65 * k)) });
   }
+  // the brightest quarter of the lit pixels (this frame) get a 1 px yellow-white core
+  const cut = px.map(p => p.b).sort((a, b) => a - b)[Math.floor(px.length * 0.75)] ?? 1;
+  for (const p of px) v.set(p.x, p.y, p.b >= cut ? CORE : ember[clamp(Math.round(2 + p.b * 3.4), 0, 5)]);
 }
-// Bone cube faces: dark outline all round, a lit top row, joint grooves, and a tiny ember gem in each knuckle.
-function paintBone(v, f, name) {
-  const L = LIGHT[f], isK = /^k/.test(name), gem = /^k[SEW]$/.test(name), th = BONE_TH[name] ?? 1;
+// Bone material: a 4-step obsidian ramp, cool violet shadows to a warm top-left highlight.
+const BONE = ['#150f1d', '#2f2640', '#5d4c66', '#a58d8c'];
+// Bone cube faces. Light comes from the top-left: the top row and the leading column catch it, the underside
+// falls into cool shadow; a darker rim wraps thick faces; knuckles carry a small ember gem.
+function paintBone(v, f, c) {
+  const name = c.name, isK = !!c.knuckle, gem = /^k[SEW]_z$/.test(name), L = LIGHT[f];
+  const thick = v.h >= 4 && v.w >= 4;
   v.paint((x, y) => {
-    const edge = x === 0 || y === 0 || x === v.w - 1 || y === v.h - 1;
-    if (edge) return rock[0];
-    let t = 0.18 + 0.6 * L;
-    if (y === 1 && f !== 'down') t += 0.16;                              // lit top row
-    if (y === v.h - 2 && v.h > 3) t -= 0.12;                             // underside falls into shadow
-    if (!isK && v.w > v.h && (x + 3) % 6 === 0 && th > 0.7) t -= 0.14;   // faint segment grooves along the bone
-    return rock[clamp(Math.round(t * (rock.length - 1)), 0, rock.length - 1)];
+    if (thick && (x === 0 || y === 0 || x === v.w - 1 || y === v.h - 1)) return BONE[0];     // rim
+    let t = 0.3 + 0.9 * L - 0.55;                                                              // face light -> 0..~0.7
+    if (f !== 'down') t += 0.5 * (1 - (y + 0.5) / v.h) - 0.2;                                  // top of the face lit, bottom shaded
+    if (x <= 1 && f !== 'west') t += 0.14;                                                     // left edge catches the light
+    if (!isK && v.h <= 2) t = f === 'down' ? 0.1 : 0.5;                                        // fine bones: a lit side and a dark side
+    return BONE[clamp(Math.round(t * 3), 0, 3)];
   });
-  if (gem && f !== 'down' && f !== 'up' && v.w >= 3) {                  // ember gem at the centre of the knuckle
+  if (!isK && v.h >= 3 && v.w > 4) v.set(1, 1, BONE[3]);                                        // specular glint at the start of each segment
+  if (gem && f !== 'down' && f !== 'up' && v.w >= 3) {
     const cx = (v.w - 1) >> 1, cy = (v.h - 1) >> 1;
-    v.set(cx, cy, ember[4]);
-    if (v.w >= 5) { v.set(cx - 1, cy, ember[1]); v.set(cx + 1, cy, ember[1]); v.set(cx, cy - 1, ember[1]); v.set(cx, cy + 1, ember[1]); v.set(cx, cy, ember[5]); }
+    v.set(cx, cy, ember[5]);
+    if (v.w >= 5) { v.set(cx - 1, cy, ember[2]); v.set(cx + 1, cy, ember[2]); v.set(cx, cy - 1, ember[2]); v.set(cx, cy + 1, ember[2]); }
   }
 }
 
@@ -307,7 +309,7 @@ function staticLayer() {
   if (staticArt) return staticArt;
   const t = newTexture({ texSize: TEX, scale: S });
   paintMembrane(t, samples.I); paintMembrane(t, samples.O);
-  for (const c of boneL) paintCube(t, { ...c, uv: c.uv }, S, (v, f) => paintBone(v, f, c.name));
+  for (const c of boneL) paintCube(t, { ...c, uv: c.uv }, S, (v, f) => paintBone(v, f, c));
   return (staticArt = t);
 }
 

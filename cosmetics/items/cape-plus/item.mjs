@@ -1,7 +1,7 @@
 // Origin+ cape (members only, never sold): the premium sibling of cape-origin. Same hand-rasterised
-// three-ring mark and fold construction, but deeper near-black cloth with a faint satin sheen, a fine
-// 1 px silver trim down both sides and along the hem, a wider soft halo around the mark, and a stitched
-// "+" between two thread rules below it. Monochrome throughout (#E0E0E0 is the only accent). Static, scale 8: painted
+// three-ring mark and fold construction, but deeper near-black cloth with a faint satin sheen, a 2 px
+// bevelled silver border, a strong three-step halo around the mark, a diagonal sheen sweeping across the rings, and a
+// bright stitched "+" between two thread rules below it. Monochrome throughout (#E0E0E0 is the only accent). Static, scale 8: painted
 // 1 art pixel = 1 texture pixel on the 80x128 outside face (one density per item).
 //
 // The mark is rasterised HERE (not lib/marks) so every ring holds a constant 2 px
@@ -15,13 +15,13 @@ import { Canvas, ramp, clamp, smoothstep, mix } from '../../lib/px.mjs';
 import { newCapeArt } from '../../lib/cape.mjs';
 
 const S = 8, W = 10 * S, H = 16 * S;
-const MX = 40, MY = 62, MSIZE = 68;                    // mark: centre (on a pixel seam) and overall width
+const MX = 40, MY = 56, MSIZE = 66;                    // mark: centre (on a pixel seam) and overall width
 const FX = x => 2 * MX - 1 - x, FY = y => 2 * MY - 1 - y;   // mirror a pixel column / row through the centre
 
 // 5-step cloth: lit ridge (4) -> dark valley (0). Near-neutral, a hair cool in shadow, low contrast.
 // The body uses the fine 9-step version so every fold edge has in-between tones; seams, collar
 // and hem use the 5 coarse steps picked from the same ramp.
-const clothFine = ramp('#202227', 9, { lo: 0.025, hi: 0.2, tint: 0.02, shadowHue: 232, lightHue: 215, shift: 0.3 });
+const clothFine = ramp('#16181c', 9, { lo: 0.02, hi: 0.19, tint: 0.02, shadowHue: 232, lightHue: 215, shift: 0.3 });
 const cloth = [0, 2, 4, 6, 8].map(i => clothFine[i]);
 const BODY = '#e0e0e0', EDGE = '#cfcfcf';              // thread: #E0E0E0 body, a softer inner edge pixel
 const OUTLINE = cloth[0];
@@ -29,7 +29,7 @@ const OUTLINE = cloth[0];
 // ---------------------------------------------------------------- cloth folds
 // Valley lines at the top of the cape (x, relative to the centre line): four folds of UNEVEN width.
 // They fan out toward the hem and sway a little, so they read as hanging cloth, not stripes.
-const VALLEYS = [-3, 19, 46, 62, 83];
+const VALLEYS = [-3, 8, 20, 31, 41, 52, 64, 74, 86];   // eight tight folds (cape-origin has four broad ones)
 const valleyX = (k, y) => 40 + (VALLEYS[k] - 40) * (0.95 + 0.1 * (y / H)) + Math.sin(y * 0.04 + k * 1.9) * 1.6;
 // Soft lit value 0..1 across one fold: dark valley -> broad lit ridge -> long shaded slope (light from top-left).
 function foldProfile(p) {
@@ -41,7 +41,7 @@ function fineLevel(x, y) {
   const a = valleyX(k, y), b = valleyX(k + 1, y), p = clamp((x - a) / (b - a));
   const behind = 1 - smoothstep(0.55, 1.15, Math.hypot((x - MX) / 40, (y - MY) / 42));     // 1 at the mark, 0 away from it
   const prof = foldProfile(p) * (1 - 0.55 * behind) + 0.4 * 0.55 * behind;                 // folds dim and flatten behind the mark
-  let t = 0.33 + prof * 0.5 + (0.5 - y / H) * 0.14;      // brighter near the collar, darker toward the hem
+  let t = 0.27 + prof * 0.6 + (0.5 - y / H) * 0.14;      // brighter near the collar, darker toward the hem
   t -= 0.12 * smoothstep(0.4, 1.1, Math.hypot((x - 40) / 46, (y - 64) / 80));   // soft vignette
   t -= 0.07 * behind;
   return clamp(Math.floor(clamp(t) * clothFine.length), 2, clothFine.length - 1);   // steps 0-1 are kept for outlines and seams
@@ -167,7 +167,7 @@ export default {
       c.set(x, hy, cloth[0]);                                              // crease
       c.set(x, hy + 1, cloth[clamp(clothLevel(x, hy) + 1, 0, 4)]);        // catch-light on the folded edge
       for (let y = hy + 2; y < H - 1; y++) c.set(x, y, cloth[clamp(clothLevel(x, y), 1, 3)]);
-      c.set(x, hy + 3, ((x % 4) === 3) ? cloth[1] : '#9a9a9a');           // the stitch: 3 px thread, 1 px gap
+      c.set(x, hy + 3, ((x % 4) === 3) ? cloth[1] : '#e0e0e0');           // the stitch (bright silver thread): 3 px thread, 1 px gap
       c.set(x, hy + 4, cloth[0]);                                          // shadow under the thread
     }
 
@@ -183,46 +183,65 @@ export default {
         out[k] = 1; stack.push([nx, ny]);
       }
     }
-    const R = 7;
+    // diagonal sheen: a soft band of light sweeping across the cloth and the thread (static "shimmer")
+    const sheenQ = (x, y) => Math.abs(x * 0.74 - y * 0.67 + 5);          // distance (px) from the band's centre line
+    const sheen = (x, y) => 1 - smoothstep(0, 9, sheenQ(x, y));
+    for (let y = 9; y < H - 9; y++) for (let x = 3; x < W - 3; x++) {
+      const k = sheen(x, y); if (k > 0) c.set(x, y, mix(c.get(x, y), '#e0e0e0', 0.14 * k));
+    }
+    // mark halo: three strong steps hugging the thread plus a faint tail, outside the silhouette only
+    const R = 8;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const k = y * W + x; if (!out[k]) continue;
       let d = 99;
       for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) if (mark.owner.has((y + dy) * W + x + dx)) d = Math.min(d, Math.hypot(dx, dy));
-      const a = d <= 1.5 ? 0.34 : d <= 2.5 ? 0.2 : d <= 3.6 ? 0.11 : d <= 5 ? 0.055 : d <= 7 ? 0.022 : 0;   // five stepped rings, outside the silhouette only
+      const a = d <= 1.5 ? 0.52 : d <= 3 ? 0.3 : d <= 5 ? 0.15 : d <= 8 ? 0.055 : 0;
       if (a) c.set(x, y, mix(c.get(x, y), '#e0e0e0', a));
     }
-    for (const [k, ring] of mark.owner) if (!mark.gap.has(k)) c.set(k % W, (k / W) | 0, mark.cover[ring].get(k) === 'inner' ? EDGE : BODY);
+    for (const [k, ring] of mark.owner) if (!mark.gap.has(k)) {
+      const x = k % W, y = (k / W) | 0, hot = sheen(x, y);
+      const base = mark.cover[ring].get(k) === 'inner' ? EDGE : BODY;
+      c.set(x, y, hot > 0.15 ? mix(base, '#ffffff', hot) : base);
+    }
 
-    // ------- the plus: a 2 px stitched cross on the seam (40, 106) between two thread rules
-    const PY = 106;
-    const plusPx = new Set();
-    for (let i = -6; i <= 5; i++) { plusPx.add(`${40 + i},${PY - 1}`); plusPx.add(`${40 + i},${PY}`); plusPx.add(`${39},${PY + i}`); plusPx.add(`${40},${PY + i}`); }
-    for (let i = 0; i < 12; i++) { plusPx.add(`${40 - 12 - i},${PY - 1}`); plusPx.add(`${40 + 11 + i},${PY - 1}`); }   // rules: 1 px, fading outward
-    for (let y = PY - 12; y <= PY + 11; y++) for (let x = 40 - 26; x <= 40 + 25; x++) {          // soft halo for the plus, outside its pixels
+    // ------- the plus: a 2 px silver cross on the centre seam, 20 px across, between two fading thread rules
+    const PY = 106, ARM = 10;
+    const plusPx = new Map();                                                // "x,y" -> colour
+    for (let i = -ARM; i < ARM; i++) {
+      const tip = (i === -ARM || i === ARM - 1), core = (i >= -1 && i <= 0);
+      const col = core ? '#ffffff' : tip ? EDGE : BODY;
+      for (const [x, y] of [[40 + i, PY - 1], [40 + i, PY], [39, PY + i], [40, PY + i]]) plusPx.set(`${x},${y}`, tip && x !== 39 && x !== 40 ? EDGE : col);
+    }
+    for (let i = 0; i < 14; i++) {                                           // rules: 1 px, a 3 px gap after the tips, fading out
+      const col = mix('#e0e0e0', cloth[2], (i / 14) * 0.92);
+      plusPx.set(`${40 - ARM - 3 - i},${PY - 1}`, col); plusPx.set(`${40 + ARM + 2 + i},${PY - 1}`, col);
+    }
+    for (let y = PY - ARM - 8; y <= PY + ARM + 7; y++) for (let x = 40 - ARM - 24; x <= 40 + ARM + 23; x++) {   // halo: 3 steps outside the plus
       if (plusPx.has(`${x},${y}`)) continue;
       let d = 99;
-      for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (plusPx.has(`${x + dx},${y + dy}`)) d = Math.min(d, Math.hypot(dx, dy));
-      const a = d <= 1.5 ? 0.24 : d <= 2.5 ? 0.1 : d <= 3.2 ? 0.04 : 0;
+      for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) if (plusPx.has(`${x + dx},${y + dy}`)) d = Math.min(d, Math.hypot(dx, dy));
+      const a = d <= 1.5 ? 0.46 : d <= 3 ? 0.24 : d <= 5 ? 0.1 : 0;
       if (a) c.set(x, y, mix(c.get(x, y), '#e0e0e0', a));
     }
-    for (let i = -6; i <= 5; i++) {
-      const edge = (i === -6 || i === 5);
-      for (const [x, y] of [[40 + i, PY - 1], [40 + i, PY], [39, PY + i], [40, PY + i]]) c.set(x, y, edge ? EDGE : BODY);
-    }
-    for (let i = 0; i < 12; i++) {                                              // rules fade 1 px thread -> dim
-      const col = mix('#e0e0e0', cloth[2], i / 12 * 0.9);
-      c.set(40 - 12 - i, PY - 1, col); c.set(40 + 11 + i, PY - 1, col);
-    }
+    for (const [key, col] of plusPx) { const [x, y] = key.split(',').map(Number); c.set(x, y, col); }
 
-    // ------- fine silver trim: 1 px, inset 3 px from each side edge, lit from the top-left (dims toward the hem)
-    const trimTop = 11, trimBot = H - 14;
-    for (let y = trimTop; y <= trimBot; y++) {
-      const f = 1 - (y - trimTop) / (trimBot - trimTop);
-      c.set(3, y, mix(cloth[2], '#c4c4c4', 0.12 + 0.8 * f * f));        // fades out toward the hem: no closed frame
-      c.set(W - 4, y, mix(cloth[2], '#c4c4c4', 0.1 + 0.62 * f * f));
+    // ------- 2 px silver border, a 4-step metal ramp lit from the top-left (raised bevel), mitred corners
+    const METAL = ['#4a4d56', '#82868f', '#bbbec7', '#f1f2f5'];
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const dl = x - 1, dr = W - 2 - x, dt = y - 1, db = H - 2 - y, m = Math.min(dl, dr, dt, db);
+      if (m > 1) continue;
+      const layer = m;                                                      // 0 = outer pixel, 1 = inner pixel
+      const top = dt === m, left = dl === m, right = dr === m, bottom = db === m;
+      let col;
+      if (dl <= 1 && dt <= 1) col = (x === 1 && y === 1) ? '#ffffff' : METAL[3];            // lit corner
+      else if (dr <= 1 && dt <= 1 || dl <= 1 && db <= 1) col = METAL[2];                   // side corners
+      else if (dr <= 1 && db <= 1) col = layer ? METAL[0] : METAL[1];                       // shaded corner
+      else if (top || left) col = layer ? METAL[2] : METAL[3];
+      else col = layer ? METAL[0] : METAL[1];
+      c.set(x, y, col);
     }
-    // 1 px dark shadow just inside the trim so it reads as a seam, not a stripe
-    for (let y = trimTop; y <= trimBot; y++) { c.set(4, y, cloth[0]); c.set(W - 5, y, cloth[0]); }
+    for (let x = 3; x < W - 3; x++) { c.set(x, 3, cloth[0]); c.set(x, H - 4, cloth[0]); }   // shadow line just inside the border
+    for (let y = 3; y < H - 3; y++) { c.set(3, y, cloth[0]); c.set(W - 4, y, cloth[0]); }
 
     // ------- 1 px dark outline all round
     for (let x = 0; x < W; x++) { c.set(x, 0, OUTLINE); c.set(x, H - 1, OUTLINE); }

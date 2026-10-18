@@ -42,6 +42,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         PageHost.Content = _homePage;
+        // Home is already built underneath, so the intro adds no wait of its own.
+        Intro.Play(this);
 
         _accountPanel.CloseRequested += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AccountsChanged += (_, _) =>
