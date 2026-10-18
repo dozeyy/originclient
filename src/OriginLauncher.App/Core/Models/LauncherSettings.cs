@@ -42,6 +42,15 @@ public sealed class LauncherSettings
     // and everything loads exactly as before.
     public bool PlayWithExternalMods { get; set; } = true;
 
+    // Mod profiles (Profiles page, Core/Profiles): the player's named sets of
+    // their OWN mods, one Minecraft version each, optionally with a server to
+    // join from Home. Empty by default, and SelectedProfileId null = "no
+    // profile": the version's normal mods folder, exactly as before profiles
+    // existed. A selected profile only applies to its own version
+    // (ProfileRules.Active). Written only via SettingsStore.Update + ProfileBook.
+    public List<Profiles.ModProfile> ModProfiles { get; set; } = new();
+    public string? SelectedProfileId { get; set; }
+
     // "Sync settings across versions" (Settings -> Origin Client). ON by
     // default (Will, 2026-10-18 — it used to be off and nobody knew it existed):
     // keybinds, video settings, every Origin mod setting, HUD positions and the

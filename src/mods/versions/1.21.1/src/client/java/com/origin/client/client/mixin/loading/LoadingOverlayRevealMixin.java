@@ -42,7 +42,7 @@ public abstract class LoadingOverlayRevealMixin {
 	@Shadow
 	private long fadeOutStart;
 
-	// Util.getMillis() just after this overlay's first dissolve frame; 0 = none yet.
+	// StartupTransition.clockMs() just after this overlay's first dissolve frame; 0 = none yet.
 	// The dissolve's clock starts here, not at fadeOutStart: vanilla sets that
 	// before it builds the title screen, and the first title frame is often slow
 	// (seen at 1.4 s on CI's software GL), so counting from fadeOutStart can spend
@@ -56,7 +56,9 @@ public abstract class LoadingOverlayRevealMixin {
 			return;
 		}
 		long now = Util.getMillis();
-		long t = this.originclient$revealAt == 0L ? 0L : now - this.originclient$revealAt;
+		// The hand-off's one clock (StartupTransition.clockMs), the same the mark's
+		// flight and the title's entrance count on, so a slow frame moves all three alike.
+		long t = this.originclient$revealAt == 0L ? 0L : StartupTransition.clockMs() - this.originclient$revealAt;
 		if (now < this.fadeOutStart || t >= 2000L) {
 			return;
 		}
@@ -86,7 +88,7 @@ public abstract class LoadingOverlayRevealMixin {
 			// First frame: the loading screen still fully covers the title (which
 			// has now rendered once, its slow first frame out of the way). Both the
 			// dissolve and the title's entrance count from here.
-			this.originclient$revealAt = Util.getMillis();
+			this.originclient$revealAt = StartupTransition.clockMs();
 			if (!this.fadeIn) {
 				StartupTransition.titleRevealed();  // the startup load, not a later resource reload
 			}

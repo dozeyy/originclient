@@ -9,6 +9,7 @@ using CmlLib.Core.ProcessBuilder;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.Loaders;
 using OriginLauncher.App.Core.Mods;
+using OriginLauncher.App.Core.Profiles;
 
 namespace OriginLauncher.App.Core.Versions;
 
@@ -285,16 +286,23 @@ public sealed class VersionManager
     // progress reports human-readable stage text — drives LaunchLoadingOverlay.
     // accountKey picks the game folder (InstanceLayout.KeyFor); the caller
     // prepares it first (AccountFolders.PrepareGameDir: migration + seeding).
+    // profileId = the mod profile (Core/Profiles) whose mods this launch loads
+    // INSTEAD of the player's loose jars in the shared folder; null = none.
     public async Task<Process> InstallAndBuildProcessAsync(
         string version, string accountKey, MLaunchOption option,
         bool externalMods = true,
+        string? profileId = null,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
+        // A mod profile only ever applies with the player's mods on, and only
+        // by an id this launcher made (it becomes a folder name).
+        if (!externalMods || !ProfileRules.IsValidId(profileId)) profileId = null;
+
         var gate = GateFor(version);
         await gate.WaitAsync(ct);
         try
         {
-            return await InstallAndBuildCoreAsync(version, accountKey, option, externalMods, progress, ct);
+            return await InstallAndBuildCoreAsync(version, accountKey, option, externalMods, profileId, progress, ct);
         }
         finally
         {
@@ -304,7 +312,7 @@ public sealed class VersionManager
 
     private async Task<Process> InstallAndBuildCoreAsync(
         string version, string accountKey, MLaunchOption option,
-        bool externalMods,
+        bool externalMods, string? profileId,
         IProgress<string>? progress, CancellationToken ct)
     {
         var path = new GameFolderPath(version, accountKey);
@@ -343,7 +351,7 @@ public sealed class VersionManager
         // choiceless exactly like the Fabric path below, which is everything
         // after this line.
         if (LegacyForgeInstaller.IsLegacy(version))
-            return await InstallLegacyAsync(version, path, option, externalMods, progress, ct);
+            return await InstallLegacyAsync(version, path, option, externalMods, profileId, progress, ct);
 
         // Fast path: a stamped instance already resolved this loader and passed
         // a full integrity check under this same launcher build, so both the
@@ -518,59 +526,38 @@ public sealed class VersionManager
         // the switch back on restores their setup exactly. Rebuilding
         // from scratch each launch means the folder can never drift
         // stale relative to what a normal launch would install.
-        var gameModsFolder = modsFolder; // the shared folder, unless Origin-only
-        if (!externalMods)
+        //
+        // A MOD PROFILE (Core/Profiles) is the same trick with one more
+        // source: Origin's jars from the shared folder PLUS that profile's
+        // own jars, and none of the player's loose jars in the shared
+        // folder. Its folder is per account, like Origin-only's, so one
+        // account's profile game never disturbs another account's game, and
+        // the profile's own folder is only ever read (the game holds the
+        // copies), so editing or deleting a profile can't hurt a running game.
+        var gameModsFolder = modsFolder; // the shared folder, unless Origin-only or a profile
+        if (!externalMods || profileId != null)
         {
-            progress?.Report("Preparing Origin-only mod set...");
-            // Per account (not shared): rebuilt each launch and held open by
-            // that account's game only.
-            var originOnlyFolder = Path.Combine(path.BasePath, "mods-origin-only");
-            Directory.CreateDirectory(originOnlyFolder);
+            progress?.Report(profileId != null ? "Preparing profile mods..." : "Preparing Origin-only mod set...");
+            var launchFolder = Path.Combine(path.BasePath,
+                profileId != null ? LaunchModFolder.ProfileFolderName : LaunchModFolder.OriginOnlyFolderName);
 
-            // Managed = Origin-provisioned: originclient.jar, Fabric API,
-            // and the perf/shader stack. Everything else is the player's
-            // and stays out of this launch.
-            var desired = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var file in Directory.EnumerateFiles(modsFolder))
-            {
-                var name = Path.GetFileName(file);
-                if (name.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase)
-                    && ModManager.IsManaged(name))
-                {
-                    desired[name] = file;
-                }
-            }
+            // Origin-provisioned = originclient.jar, Fabric API, the
+            // perf/shader stack (and, for a profile, Simple Voice Chat).
+            // Everything else is the player's and stays out of this launch
+            // unless the profile holds it.
+            var sharedFiles = Directory.EnumerateFiles(modsFolder);
+            var desired = profileId != null
+                ? LaunchModFolder.LaunchSet(sharedFiles,
+                    Directory.Exists(OriginPaths.ProfileModsDir(version, profileId))
+                        ? Directory.EnumerateFiles(OriginPaths.ProfileModsDir(version, profileId))
+                        : Enumerable.Empty<string>(),
+                    ModManager.IsOriginProvisioned)
+                : LaunchModFolder.LaunchSet(sharedFiles, Enumerable.Empty<string>(), ModManager.IsManaged);
 
-            // Diff-sync rather than delete+recreate: a still-running game
-            // instance holds these jars open (Windows file locks), which
-            // made a relaunch-while-playing fail with IOException. An
-            // unchanged set now needs zero file ops; stale extras are
-            // removed best-effort (a locked one belongs to the running
-            // instance and gets cleaned on the next launch instead).
-            foreach (var existing in Directory.EnumerateFiles(originOnlyFolder))
-            {
-                if (!desired.ContainsKey(Path.GetFileName(existing)))
-                {
-                    try { File.Delete(existing); } catch { /* locked by a running instance */ }
-                }
-            }
-            foreach (var (name, source) in desired)
-            {
-                var dest = Path.Combine(originOnlyFolder, name);
-                try
-                {
-                    if (!File.Exists(dest) || new FileInfo(dest).Length != new FileInfo(source).Length)
-                        File.Copy(source, dest, overwrite: true);
-                }
-                catch (IOException) when (File.Exists(dest))
-                {
-                    // Locked by a still-running instance but present — the
-                    // existing copy is loadable, and launching with it
-                    // beats failing the whole launch.
-                }
-            }
-
-            gameModsFolder = originOnlyFolder;
+            // Diff-synced rather than delete+recreate (see LaunchModFolder.Sync):
+            // a still-running game of this account holds these jars open.
+            LaunchModFolder.Sync(launchFolder, desired);
+            gameModsFolder = launchFolder;
         }
 
         // Fabric Loader's own supported switch for the folder it loads mods
@@ -617,7 +604,7 @@ public sealed class VersionManager
     //    here too — same contract as the Fabric path's mods-origin-only folder.
     // Self-contained: ends with its own game-file download + process build.
     private async Task<Process> InstallLegacyAsync(
-        string version, GameFolderPath path, MLaunchOption option, bool externalMods,
+        string version, GameFolderPath path, MLaunchOption option, bool externalMods, string? profileId,
         IProgress<string>? progress, CancellationToken ct)
     {
         var sharedRoot = OriginPaths.VersionRoot(version);
@@ -641,9 +628,14 @@ public sealed class VersionManager
         LegacyStackInstaller.SeedSplashTheme(configFolder);
         SanitizeCorruptConfigs(configFolder);
 
-        progress?.Report(externalMods ? "Preparing mods..." : "Preparing Origin-only mod set...");
-        Func<string, bool> include = externalMods ? static _ => true : static name => ModManager.IsManaged(name);
-        SharedMods.Mirror(modsFolder, Path.Combine(path.BasePath, InstanceLayout.ModsFolder), include);
+        // A mod profile mirrors Origin's own jars plus the profile's folder —
+        // none of the player's loose jars in the shared folder (SharedMods.Mirror).
+        progress?.Report(profileId != null ? "Preparing profile mods..."
+            : externalMods ? "Preparing mods..." : "Preparing Origin-only mod set...");
+        Func<string, bool> include = profileId != null ? static name => ModManager.IsOriginProvisioned(name)
+            : externalMods ? static _ => true : static name => ModManager.IsManaged(name);
+        SharedMods.Mirror(modsFolder, Path.Combine(path.BasePath, InstanceLayout.ModsFolder), include,
+            profileMods: profileId != null ? OriginPaths.ProfileModsDir(version, profileId) : null);
 
         // Same stamp policy as the Fabric path — the legacy instance carries
         // the same multi-hundred-MB asset + JRE rehash, so it gets the same

@@ -12,7 +12,7 @@
     layout, migration, seeding, the shared per-version mods folder + its merge,
     the per-account launch state machine) and Core/Social (Origin social: sign-in,
     sync parsing/merging, polling budget, status lines, join arguments) and
-    Core/Auth/Sessions (when the launcher signs in to Minecraft: per-account
+    Core/Profiles (mod profiles) and Core/Auth/Sessions (when the launcher signs in to Minecraft: per-account
     session reuse until expiry, 429 back-off, pending accounts).
     Network is never touched: every fetch goes through a fake HttpTextGet.
     Run: dotnet test src/OriginLauncher.Tests
@@ -41,6 +41,9 @@
     <Compile Include="..\OriginLauncher.App\Core\Accounts\AccountStore.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\Accounts\StoredAccount.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\OriginPaths.cs" LinkBase="Accounts" />
+    <!-- Mod profiles: the naming/server/selection rules, the profile list edits,
+         the launch mods folder and the profile folder copy/delete (all pure). -->
+    <Compile Include="..\OriginLauncher.App\Core\Profiles\*.cs" LinkBase="Profiles" />
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameHandoff.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\StageProgress.cs" LinkBase="Launch" />
