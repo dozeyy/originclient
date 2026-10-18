@@ -341,7 +341,7 @@ public final class OriginScreenRenderer {
 			if (drew) {
 				// The menu draws some of these a little in front (z > 0): clear depth so
 				// the backdrop drawn next covers them, the same clear GameRenderer does.
-				RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
+				RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT);
 			}
 		} catch (Throwable t) {
 			warmed = WARM_ALL;   // a warm-up is only an optimisation: never retried, never fatal
