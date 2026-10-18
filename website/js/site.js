@@ -129,7 +129,7 @@ async function boot() {
   // the 3D world (fails soft to the flat sky backdrop)
   try {
     const { createWorld } = await import('./world.js');
-    world = await createWorld($('#world'), { mobile: innerWidth < 900, reducedMotion });
+    world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion });   // same 900px line as the CSS phone/tablet layout
     frame();
   } catch (err) {
     console.warn('Origin: 3D world unavailable, using the flat backdrop.', err);

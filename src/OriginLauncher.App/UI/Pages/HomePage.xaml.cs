@@ -14,6 +14,7 @@ using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.GameFolders.Launcher;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
+using OriginLauncher.App.Core.Profiles;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.Core.Updates;
@@ -40,6 +41,15 @@ public partial class HomePage : UserControl
     // requirement, now per account): a new launch cancels only the same
     // account's preparation, never another account's preparation or game.
     private readonly AccountLaunchBook _launches = new();
+
+    // Which mod profile (Core/Profiles) each account's newest launch used, so
+    // the Profiles page can refuse to delete one while a game is using it.
+    // Only meaningful while that account's phase isn't Idle (IsProfileInUse).
+    private readonly Dictionary<string, string?> _profileByKey = new();
+
+    // The selected profile when it applies to the selected version and has a
+    // server: what the "Join ..." button under Play launches into.
+    private ModProfile? _joinProfile;
 
     // The launch the loading scene is showing (the newest one started); its
     // Cancel aborts exactly that launch. Null while the scene is down.
@@ -194,6 +204,64 @@ public partial class HomePage : UserControl
     // not persisted until chosen, matching the previous behavior.
     public string? CurrentVersion => _selectedVersion;
 
+    /// <summary>
+    /// The Profiles page: true while a game this launcher started (or is still
+    /// preparing) uses mod profile <paramref name="profileId"/>. Such a profile
+    /// can't be deleted — its game is running.
+    /// </summary>
+    public bool IsProfileInUse(string profileId) =>
+        _profileByKey.Any(entry => entry.Value == profileId && _launches.PhaseOf(entry.Key) != GamePhase.Idle);
+
+    /// <summary>
+    /// MainWindow, when Home comes back into view: pick up what the Profiles
+    /// page changed — a newly selected profile also switched the version in
+    /// settings, and the profile row and its join button follow the selection.
+    /// </summary>
+    public void RefreshProfile()
+    {
+        var settings = SettingsStore.Load();
+        // Home is the only other writer of SelectedVersion and keeps its memory
+        // in step, so a difference here came from selecting a profile.
+        if (settings.SelectedVersion is { } picked && picked != _selectedVersion && VersionCatalog.IsSupported(picked))
+        {
+            _selectedVersion = picked;
+            _settings.SelectedVersion = picked;
+            SetVersionButtonText(picked);
+            SocialHub.PresenceVersion = picked;
+        }
+        ApplyProfile(settings);
+        UpdatePlayState();
+    }
+
+    // Shows the selected profile on Home. It only APPLIES to its own version
+    // (ProfileRules.Active): on any other the row says so and Play launches
+    // with the version's normal mods.
+    private void ApplyProfile(LauncherSettings settings)
+    {
+        var selected = settings.ModProfiles.FirstOrDefault(p => p.Id == settings.SelectedProfileId && ProfileRules.IsUsable(p));
+        var active = ProfileRules.Active(settings.ModProfiles, settings.SelectedProfileId, _selectedVersion);
+
+        ProfileRow.Visibility = selected != null ? Visibility.Visible : Visibility.Collapsed;
+        ProfileNameText.Text = selected == null ? "" : active != null ? selected.Name : $"{selected.Name} · {selected.Version} only";
+        ProfileNameText.ToolTip = selected == null ? null
+            : active != null ? "Play uses this profile's mods (change it on the Profiles page)"
+            : $"This profile is for {selected.Version}, so {_selectedVersion} uses your normal mods";
+
+        _joinProfile = active is { HasServer: true } ? active : null;
+        JoinButton.Visibility = _joinProfile != null ? Visibility.Visible : Visibility.Collapsed;
+        if (_joinProfile != null)
+        {
+            JoinButton.Content = ProfileRules.JoinLabel(_joinProfile);
+            System.Windows.Automation.AutomationProperties.SetName(JoinButton, JoinButton.Content.ToString());
+        }
+    }
+
+    private async void JoinButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_joinProfile is { HasServer: true } profile)
+            await JoinServerAsync(profile.Version, profile.ServerAddress!);
+    }
+
     public bool HasOpenScene => VersionOverlay.IsOpen
         || LoadingOverlay.Visibility == Visibility.Visible;
 
@@ -297,6 +365,8 @@ public partial class HomePage : UserControl
         var key = SelectedKey();
         var phase = key != null ? _launches.PhaseOf(key) : GamePhase.Idle;
         ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: _selectedVersion != null));
+        // Join follows Play: usable only when Play itself could start a launch.
+        JoinButton.IsEnabled = key != null && phase == GamePhase.Idle && _selectedVersion != null;
     }
 
     private void ApplyPlayButton(PlayButtonView view)
@@ -346,6 +416,7 @@ public partial class HomePage : UserControl
         SetVersionButtonText(_selectedVersion);
         SocialHub.PresenceVersion = _selectedVersion;
         SyncExternalModsToggle();
+        ApplyProfile(_settings);
         UpdatePlayState();
     }
 
@@ -480,7 +551,11 @@ public partial class HomePage : UserControl
         // Newest launch action wins, per account: this cancels only this
         // account's earlier preparation (if any). The loading scene's Cancel
         // aborts this one.
+        // The mod profile this launch uses (null = plain launch): the selected
+        // profile, only when it belongs to this version and personal mods are on.
+        var profile = ProfileRules.ForLaunch(freshSettings.ModProfiles, freshSettings.SelectedProfileId, version, externalMods);
         if (_launches.BeginPrepare(key, version) is not { } ticket) return;
+        _profileByKey[key] = profile?.Id;
         _overlayTicket = ticket;
         _sceneGame = null; // the scene is this launch's now, whatever it showed before
         RefreshPlayButton();
@@ -567,7 +642,7 @@ public partial class HomePage : UserControl
             // still marshals every stage update back correctly.
             var process = await Task.Run(
                 () => _versionManager.InstallAndBuildProcessAsync(
-                    version, key, launchOption, externalMods, installProgress, ticket.Token),
+                    version, key, launchOption, externalMods, profile?.Id, installProgress, ticket.Token),
                 ticket.Token);
 
             // Hint hybrid-GPU laptops onto the discrete GPU. Always applied now
@@ -1107,6 +1182,15 @@ public partial class HomePage : UserControl
     internal void TourShowVersions(int detailIndex) => VersionOverlay.TourOpen(detailIndex);
 
     internal void TourHideVersions() => VersionOverlay.TourClose();
+
+    /// <summary>Render mode only: Home as if <paramref name="profile"/> were selected (no settings are touched).</summary>
+    internal void TourShowProfile(ModProfile profile)
+    {
+        _selectedVersion = profile.Version;
+        SetVersionButtonText(profile.Version);
+        ApplyProfile(new LauncherSettings { ModProfiles = { profile }, SelectedProfileId = profile.Id });
+        JoinButton.IsEnabled = true;
+    }
 
     private enum StatusTone
     {

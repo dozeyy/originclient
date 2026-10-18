@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using OriginLauncher.App.Core.Models;
+using OriginLauncher.App.Core.Profiles;
 using OriginLauncher.App.Core.Promos;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
@@ -85,6 +87,31 @@ public static class RenderShots
         Snap(window, outDir, "08-launch-b-counted");
         window.TourHideLaunch();
         Pump(500);
+
+        // Mod profiles, with made-up profiles (the real settings are never touched):
+        // the Profiles page, its new-profile form, then Home with a profile that
+        // has a server (profile row + the Join button under Play).
+        var demoProfiles = new LauncherSettings
+        {
+            ModProfiles =
+            {
+                new ModProfile { Id = "0a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Survival SMP", Version = "1.21.1", ServerName = "Survival SMP", ServerAddress = "play.example.net" },
+                new ModProfile { Id = "1a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "PvP practice", Version = "1.8.9", ServerName = "Practice", ServerAddress = "pvp.example.org:25570" },
+                new ModProfile { Id = "2a1b2c3d4e5f60718293a4b5c6d7e8f9", Name = "Singleplayer shaders", Version = "1.20.1" },
+            },
+            SelectedProfileId = "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+            SelectedVersion = "1.21.1",
+        };
+        Func<ModProfile, int> demoCount = p => p.Name.StartsWith("PvP", StringComparison.Ordinal) ? 1 : p.HasServer ? 6 : 3;
+        window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
+        Pump(700);
+        Snap(window, outDir, "09-profiles");
+        window.TourShowProfiles(demoProfiles, demoCount, openForm: true);
+        Pump(500);
+        Snap(window, outDir, "10-profiles-form");
+        window.TourShowHomeWithProfile(demoProfiles.ModProfiles[0]);
+        Pump(700);
+        Snap(window, outDir, "11-home-profile");
 
         // The selected account's game is already open: Play reads "Running"
         // and brings that window forward (one game per account).

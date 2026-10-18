@@ -5308,3 +5308,39 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
   push to main never went live. Both vercel.json copies now set git.deploymentEnabled to main only
   ("**": false, "main": true; a branch deploys if any matching rule is true). A branch cut from an
   older main still lacks this until it merges main.
+
+## 2026-10-18 — Launcher mod profiles (Will's ask; branch claude/launcher-mod-profiles)
+- Personal mod profiles live on the launcher's own Profiles page (Ctrl+3), separate from the in-game
+  Origin Profiles tab. Each profile has a name, ONE Minecraft version, its own mods folder under
+  profiles/, and an optional server (name + address).
+- Code: Core/Profiles/ (ModProfile, ProfileRules, ProfileBook, ProfileFolders, LaunchModFolder) and
+  UI/Pages/ProfilesPage. The Home page shows the selected profile plus a "Join <server>" button under
+  PLAY. The Mods page adds to the selected profile while profile mode is on.
+- Launch on Fabric: a per-account mods-profile folder, set via fabric.modsFolder, holding Origin's jars
+  plus the profile's jars. It is diff-synced and never rewritten in place.
+- Launch on 1.8.9 Forge: SharedMods.Mirror(profileMods).
+- Join: --quickPlayMultiplayer on 1.20+; --server/--port on 1.8.9–1.19.4.
+- If a different version is picked than the profile's own, the profile and Join are ignored. This is
+  an open UX question for Will.
+- Gotcha: the Edit tool trimmed a trailing space in MainWindow.xaml, which caused XAML error MC3000.
+- Verified: 451 launcher tests; CI green on 973ee6f3.
+
+## 2026-10-18 — Loading → main-menu freeze fixed (every version; branch claude/fix-menu-handoff-freeze)
+- Will saw the loading animation freeze just before the main menu. A probe on 1.21.1 found four causes:
+  1. Every reload apply task ran in ONE frame (982 ms).
+  2. The title's first frame paid texture and shader first-use costs (403 ms).
+  3. Three animation clocks disagreed, and the scene clock ran at about 0.6x.
+  4. 1.18.2–1.20.4 only: an old Fabric API event recompiled Origin's shaders about 55 times per reload.
+- Fixes:
+  - ReloadTaskBudgetMixin (every Fabric module): an 8 ms per-frame budget, startup load only.
+  - OriginScreenRenderer.warmTitle: pays first-use costs during loading, one step per frame.
+  - One clock: StartupTransition.clockMs() on RingField's scene clock.
+  - ShaderReloadMixin + an OriginShaders guard: one compile per reload.
+- TRAP (same as 3eb35971): on 1.21.2–1.21.4, touching the ShaderManager mid-reload (ModIcons.has ->
+  OriginShaders.icon) fails, Minecraft's pack recovery drops the overlay, and EVERY screen renders black.
+  1.21.4's warm-up therefore waits for reload.isDone(). On 1.17.1–1.21.1 the icon step waits for
+  OriginShaders.ICON, otherwise blurry fallback icons latch for the session.
+- Longest pause after boot, before → after (CI): 1.21.1 1.0 s → 0.23 s; 1.21.11 1.3 s → 0.4 s;
+  26.3 2.5 s → 0.33 s; 1.21.4 → 0.37 s.
+- 1.19.2 still pauses 1.67 s: vanilla's own shader reload on CI's software GPU. Needs Will's check
+  on real hardware.

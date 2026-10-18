@@ -10,7 +10,8 @@
 		"LevelLoadingScreenAccessor",
 		"LoadingOverlayAccessor",
 		"LoadingOverlayRevealMixin",
-		"TitleScreenFadeMixin"
+		"TitleScreenFadeMixin",
+		"ReloadTaskBudgetMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

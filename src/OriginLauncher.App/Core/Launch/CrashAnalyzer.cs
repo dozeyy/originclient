@@ -36,8 +36,12 @@ public static class CrashAnalyzer
     /// <param name="instanceDir">The crashed game's folder (one account's game folder for the version).</param>
     public static CrashAnalysis Analyze(string instanceDir, string? launchLogPath)
     {
-        // Mods live in the version's shared folder, not the account's (SharedMods).
-        var modIndex = BuildModIndex(GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir));
+        // Mods live in the version's shared folder, not the account's (SharedMods)
+        // — except a mod-profile launch, whose jars the game loaded from this
+        // account's own "mods-profile" copy (Core/Profiles/LaunchModFolder).
+        var modIndex = BuildModIndex(
+            GameFolders.InstanceLayout.ModsDirForGameDir(instanceDir),
+            Path.Combine(instanceDir, Profiles.LaunchModFolder.ProfileFolderName));
 
         var logText = TryRead(launchLogPath);
         var crashReportText = TryRead(NewestCrashReport(instanceDir));
@@ -169,13 +173,12 @@ public static class CrashAnalyzer
     // mcmod.info (Forge 1.8.9) inside every enabled jar in the instance's mods
     // folder. Best-effort per jar: one unreadable jar must not blank the whole
     // index.
-    private static Dictionary<string, string> BuildModIndex(string modsFolder)
+    private static Dictionary<string, string> BuildModIndex(params string[] modsFolders)
     {
         var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            if (!Directory.Exists(modsFolder)) return index;
-            foreach (var jar in Directory.EnumerateFiles(modsFolder, "*.jar"))
+            foreach (var jar in modsFolders.Where(Directory.Exists).SelectMany(f => Directory.EnumerateFiles(f, "*.jar")))
             {
                 try
                 {

@@ -310,9 +310,16 @@ public static class SharedMods
     /// Sub-folders and non-loadable files are left alone on both sides. Only
     /// the launching account's folder is touched, whose game is not running;
     /// a file that is busy anyway stays as it is until the next launch.
+    /// With a <paramref name="profileMods"/> folder (a mod profile on 1.8.9:
+    /// Core/Profiles) the mirror holds the shared folder's files that
+    /// <paramref name="include"/> accepts (the caller passes Origin's own jars
+    /// only) PLUS that folder's loadable files, and a file the player adds to
+    /// the mirror joins the PROFILE folder instead of the shared one — a
+    /// profile's mods never leak into the version's normal set.
     /// Returns true when the mirror matches. Never throws.
     /// </summary>
-    public static bool Mirror(string sharedMods, string mirror, Func<string, bool>? include = null, Action<string>? log = null)
+    public static bool Mirror(string sharedMods, string mirror, Func<string, bool>? include = null, Action<string>? log = null,
+        string? profileMods = null)
     {
         log ??= _ => { };
         include ??= _ => true;
@@ -320,29 +327,40 @@ public static class SharedMods
         try
         {
             Directory.CreateDirectory(sharedMods);
+            if (profileMods != null) Directory.CreateDirectory(profileMods);
             Directory.CreateDirectory(mirror);
             var manifestPath = Path.Combine(mirror, MirrorManifestName);
             var placed = ReadManifest(manifestPath);
 
-            // 1. The player's own files join the shared folder.
+            // 1. The player's own files join the shared folder (or the profile's).
+            var adoptInto = profileMods ?? sharedMods;
             foreach (var file in Directory.EnumerateFiles(mirror).OrderBy(p => p, StringComparer.Ordinal).ToList())
             {
                 var name = Path.GetFileName(file);
                 if (!IsForgeLoadable(name) || placed.Contains(name)) continue;
-                complete &= MergeEntry(file, Path.Combine(sharedMods, name), log);
+                complete &= MergeEntry(file, Path.Combine(adoptInto, name), log);
             }
 
-            var wanted = Directory.EnumerateFiles(sharedMods)
-                .Select(Path.GetFileName).OfType<string>()
-                .Where(n => IsForgeLoadable(n) && include(n))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // Name -> the file its copy is made from.
+            var wanted = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var path in Directory.EnumerateFiles(sharedMods).OrderBy(p => p, StringComparer.Ordinal))
+            {
+                var name = Path.GetFileName(path);
+                if (IsForgeLoadable(name) && include(name)) wanted[name] = path;
+            }
+            if (profileMods != null)
+                foreach (var path in Directory.EnumerateFiles(profileMods).OrderBy(p => p, StringComparer.Ordinal))
+                {
+                    var name = Path.GetFileName(path);
+                    if (IsForgeLoadable(name)) wanted.TryAdd(name, path); // Origin's own jar of that name wins
+                }
 
             // 2. Copies whose source is gone (or no longer wanted).
             var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var name in placed)
             {
                 var copy = Path.Combine(mirror, name);
-                if (wanted.Contains(name) || !File.Exists(copy)) continue;
+                if (wanted.ContainsKey(name) || !File.Exists(copy)) continue;
                 try
                 {
                     File.Delete(copy);
@@ -356,9 +374,8 @@ public static class SharedMods
             }
 
             // 3. Missing or changed copies.
-            foreach (var name in wanted)
+            foreach (var (name, source) in wanted)
             {
-                var source = Path.Combine(sharedMods, name);
                 var copy = Path.Combine(mirror, name);
                 if (!SameStamp(source, copy))
                 {

@@ -98,15 +98,75 @@ h2 span, h1 span { color: var(--muted); }
 .top__action { justify-self: end; }
 
 /* ---------- hero ---------- */
-.hero { position: relative; min-height: 100svh; display: flex; align-items: center; padding: 110px var(--pad) 100px; }
-.hero__copy { max-width: 760px; }
-.hero__title { font-size: clamp(44px, 6.6vw, 96px); line-height: .95; letter-spacing: -.05em; margin-bottom: 28px; }
-.hero__lede { color: var(--dim); font-size: clamp(17px, 1.5vw, 20px); max-width: 520px; margin: 0 0 36px; text-wrap: pretty; }
-.hero__actions { display: flex; flex-wrap: wrap; gap: 12px; }
-.facts { display: flex; gap: 40px; margin: 48px 0 0; padding: 0; list-style: none; }
-.facts li { display: grid; gap: 6px; }
-.facts b { font: 700 30px/1 var(--sans); letter-spacing: -.03em; }
-.facts span { font: 600 12px/1 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.hero { position: relative; min-height: 100svh; display: flex; align-items: center; padding: 110px var(--pad) 100px; container-type: inline-size; overflow-x: clip; }
+/* overflow-x: clip: CLIENT's box runs past its last letter (tracking adds space after
+   the T); on a phone that spare space would otherwise make the page scroll sideways. */
+/* The hero is one column on one grid. --col is its width: every block in it is
+   exactly that wide, and ORIGIN's letters (their ink, not their box) span it edge
+   to edge. --logo is the font size that makes that true (ORIGIN's ink is 3.2165em
+   wide, measured in the browser). Vertical gaps are whole steps of --u (1/68 of the
+   column, 8px on a wide screen) measured between the letters themselves (cap top /
+   baseline), not between line boxes: each text block cancels its own leading with
+   --trim, which is (line-height - Inter's .727 cap height) / 2 in em. Every block's
+   left AND right edge sits on the column edges (buttons split it in two, the stats
+   spread across it). cqw = % of the hero's content width. */
+.hero__copy { --col: min(44cqw, 560px); --logo: calc(var(--col) / 3.2165); --u: calc(var(--col) / 68); width: var(--col); }
+.hero__copy > .eyebrow { margin: -.1365em 0 calc(var(--u) * 4 - .1365em); }
+/* ORIGIN CLIENT logo (Lunar-style lockup): the name huge in Inter, CLIENT small and
+   widely tracked beneath it. The span's own pale face is only the fallback; the
+   chrome face below covers it. Under it: a thin cool rim along the top edge (the
+   chrome bevel), a dark lip just below (the metal's thickness) and a soft drop. */
+.logo-title { font-family: var(--sans); font-weight: 700; text-transform: uppercase; display: grid; justify-items: start; row-gap: calc(var(--u) * 3); margin: 0 0 calc(var(--u) * 5); }
+.logo-title__main, .logo-title__sub { color: #e4e4e8; text-shadow:
+  0 -.012em 0 rgba(226, 236, 255, .55), 0 .018em 0 #34343a, 0 .05em .16em rgba(0, 0, 0, .6); }
+/* line-height = Inter's cap height, so each line box is exactly its capitals and
+   the gaps around them are the real visible gaps. The negative left margins pull
+   each word's first letter onto the column edge (big letters sit slightly inside
+   their box). CLIENT is .5347x ORIGIN with .5em tracking: measured so its ink is
+   exactly as wide as ORIGIN's (6.016em of its own size); change one number,
+   re-measure all of them (ink left edge: ORIGIN .045em, CLIENT .05em). */
+.logo-title__main, .logo-title__sub { line-height: .727; }
+.logo-title__main { font-size: var(--logo); letter-spacing: -.035em; margin-left: -.045em; }
+.logo-title__sub { font-size: calc(var(--logo) * .5347); font-weight: 600; letter-spacing: .5em; margin: 0 -.54em 0 -.05em; }
+/* Y2K chrome face (the cosmetics' Oakley-ish feel): a copy of the word laid exactly
+   over the fallback face, filled with polished chrome (bright sky, dark horizon line,
+   bright floor) and, on top, a thin lens-glint band (pink -> cyan -> lime, the only
+   hue on the site, and only for a moment) that sweeps across now and then. It has to
+   be a separate layer: on the span itself the shadows would paint over a clipped background.
+   The '/ ""' alt text keeps screen readers from reading the word twice. If clipping
+   isn't supported the plain pale face underneath still shows. */
+.logo-title__main, .logo-title__sub { position: relative; }
+.logo-title__main::after, .logo-title__sub::after {
+  content: attr(data-text); content: attr(data-text) / "";
+  position: absolute; inset: 0; pointer-events: none; text-shadow: none;
+  background:
+    linear-gradient(105deg, transparent 46.5%, rgba(255, 120, 210, .6) 48.5%, rgba(90, 205, 255, .7) 50%, rgba(175, 245, 120, .6) 51.5%, transparent 53.5%) 100% 0 / 300% 100% no-repeat,
+    linear-gradient(180deg, #ffffff 0%, #eef1f7 26%, #b4b8c2 46%, #646a76 50%, #d6d9e0 54%, #f6f7fa 74%, #bfc3cc 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .logo-title__main::after, .logo-title__sub::after { animation: lens-glint 7s cubic-bezier(.45, 0, .2, 1) .6s infinite; }
+  .logo-title__sub::after { animation-delay: .85s; }
+}
+/* One quick pass left -> right first (so the first one comes right after the page
+   opens), then it rests off to the right until the next loop. */
+@keyframes lens-glint { 0% { background-position: 100% 0, 0 0; } 22%, 100% { background-position: 0% 0, 0 0; } }
+/* One line, sized like the logo so its ink spans the column edge to edge (19.67em
+   wide, first letter .04em inside its box). New wording = re-measure that width. */
+.hero__lede { color: var(--dim); font-size: calc(var(--col) / 19.67); line-height: 1; white-space: nowrap; margin: -.1365em 0 calc(var(--u) * 5 - .1365em) -.04em; }
+.hero__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--u) * 2); }
+/* While Download is "Soon" it can't be the bright button, so the versions link takes the lead. */
+.hero__actions:has(.btn[data-soon]) .btn--ghost { background: var(--acc); color: var(--on-acc); border-color: transparent; }
+.hero__actions:has(.btn[data-soon]) .btn--ghost:hover { background: var(--acc-h); }
+/* Stats span the column like every block above: the first starts on the left edge,
+   the middle sits on the centre line (right over the seam between the buttons), the
+   last ends on the right edge. */
+.facts { display: grid; grid-template-columns: 1fr auto 1fr; gap: calc(var(--u) * 2); margin: calc(var(--u) * 6) 0 0; padding: 0; list-style: none; }
+.facts li { display: grid; gap: var(--u); }
+.facts li:nth-child(2) { justify-items: center; text-align: center; }
+.facts li:last-child { justify-items: end; text-align: right; }
+.facts b { font: 700 30px/1 var(--sans); letter-spacing: -.03em; margin-top: -.1365em; }
+.facts span { font: 600 12px/1 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: -.1365em; }
 
 /* ---------- sections ---------- */
 .section { position: relative; padding: clamp(96px, 12vw, 160px) var(--pad); }
@@ -250,7 +310,11 @@ h2 span, h1 span { color: var(--muted); }
   .top__action { justify-self: auto; }
   .brand__word { display: none; }
   .hero { align-items: flex-end; padding-bottom: 48px; }
-  .facts { gap: 28px; }
+  /* The copy sits low over the island here: a deeper pool behind it, and a fade
+     under the (still clear) header so the island's rings don't cut through its buttons. */
+  .hero::before { background: radial-gradient(ellipse 95% 48% at 24% 78%, rgba(6, 6, 7, .78), rgba(6, 6, 7, 0) 100%); }
+  .top:not(.is-solid) { background: linear-gradient(rgba(6, 6, 7, .85), rgba(6, 6, 7, 0)); }
+  .hero__copy { --col: min(70cqw, 600px); }
   .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bcard--a { grid-column: 1 / -1; grid-row: auto; }
   .bcard--b, .bcard--c, .bcard--d, .bcard--e { grid-column: auto; }
@@ -263,6 +327,8 @@ h2 span, h1 span { color: var(--muted); }
   .brand__word { display: block; }
   .top__nav a { padding: 0 14px; }
   .btn--sm { padding: 0 16px; }
+  .hero__copy { --col: 100cqw; }
+  .hero__actions .btn { --bh: 50px; padding: 0 12px; gap: 8px; font-size: 15px; }
 }
 @media (max-width: 380px) { .brand__word { display: none; } }
 

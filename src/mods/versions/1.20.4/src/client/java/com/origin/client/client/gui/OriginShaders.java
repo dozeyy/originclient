@@ -40,10 +40,24 @@ public final class OriginShaders {
 	public static ShaderInstance GRADE;
 
 	private static boolean registered = false;
+	// This version's Fabric API fires the registration event once per VANILLA core
+	// shader (~55 times a reload), and every call compiled all of Origin's shaders
+	// again: ~220 compiles in one go at the very end of the startup load, a long
+	// freeze just before the main menu (Will 2026-10-18). ShaderReloadMixin re-arms
+	// this at the start of each shader reload so only the first call registers. If
+	// that hook never runs, nothing is skipped (the old behaviour).
+	private static boolean reloadHookSeen = false;
+	private static boolean registeredThisReload = false;
 	private static boolean warnedTextFallback = false;
 	private static boolean warnedRoundFallback = false;
 
 	private OriginShaders() {
+	}
+
+	/** A shader reload is starting (ShaderReloadMixin): the next registration call counts. */
+	public static void beginShaderReload() {
+		reloadHookSeen = true;
+		registeredThisReload = false;
 	}
 
 	/** Wire the core-shader registration. Call once from client init. */
@@ -54,6 +68,10 @@ public final class OriginShaders {
 		registered = true;
 		OriginClient.LOGGER.info("Origin: registering scalable core shaders (MSDF text + icon/rounded SDF)…");
 		CoreShaderRegistrationCallback.EVENT.register(context -> {
+			if (reloadHookSeen && registeredThisReload) {
+				return;
+			}
+			registeredThisReload = true;
 			context.register(new ResourceLocation("originclient", "rendertype_origin_msdf"),
 					DefaultVertexFormat.POSITION_TEX_COLOR, shader -> {
 						MSDF = shader;

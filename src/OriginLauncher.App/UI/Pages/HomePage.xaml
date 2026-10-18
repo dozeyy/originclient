@@ -60,6 +60,25 @@
                         </Grid>
                     </Button>
 
+                    <!-- The mod profile Play will use (chosen on the Profiles page).
+                         Read-only here, and hidden until a profile is selected. -->
+                    <Border x:Name="ProfileRow" Visibility="Collapsed" Margin="0,0,0,16" Padding="16,13"
+                            Background="{StaticResource Brush.Card}"
+                            BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Control}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Profile" Style="{StaticResource Text.Body}"
+                                       FontWeight="Medium" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" x:Name="ProfileNameText" Style="{StaticResource Text.BodyDim}"
+                                       HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
                     <Border Margin="0,0,0,16" Padding="16,13" Background="{StaticResource Brush.Card}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                             CornerRadius="{StaticResource Radius.Control}">
@@ -103,6 +122,13 @@
                                   RenderTransformOrigin="0.5,0.5"/>
                         </Grid>
                     </Button>
+
+                    <!-- The selected mod profile's server (Profiles page): launches
+                         straight into it with that profile's mods. Plain Play above
+                         still launches normally. Hidden when the profile has none. -->
+                    <Button x:Name="JoinButton" Style="{StaticResource Button.Secondary}"
+                            Visibility="Collapsed" Margin="0,8,0,0" Height="40"
+                            HorizontalAlignment="Stretch" Click="JoinButton_Click"/>
 
                     <!-- Two matching pills under Play: the launch status on the
                          LEFT ("Ready", "Sign in to play", errors), and on the

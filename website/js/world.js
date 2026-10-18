@@ -45,7 +45,8 @@ const EMISSIVE = new Set(['glowstone', 'torch']);
 // the whole picture by a fraction of the screen; orbit scales the slow sway.
 const POSES = {
   hero:     { pos: [42, 19, 53], target: [0.5, -4, 0.5], fov: 42, shiftX: 0.2, shiftY: 0.02, orbit: 1 },
-  heroMobile: { pos: [70, 30, 88], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.3, orbit: 1 },   // above the headline
+  heroMobile: { pos: [96, 41, 120], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.28, orbit: 1 },   // above the headline, small enough that its rings clear the header and the title
+  heroTablet: { pos: [52, 22, 65], target: [0.5, -4, 0.5], fov: 54, shiftX: 0, shiftY: 0.21, orbit: 1 },    // same, for the bigger open space a tablet has above the headline
   versions: { pos: [-36, 18, 46], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.24, shiftY: 0, orbit: 1 },
   why:      { pos: [-34, 13, 43], target: [0.5, -4, 0.5], fov: 44, shiftX: 0.2, shiftY: 0.03, orbit: 0.6 },
   // centred under "Ready when you are", whole island + rings in frame below the text
@@ -454,7 +455,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   // ---- camera + state
   const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 400);
   const poseValues = name => {
-    const q = name === 'hero' && mobile ? POSES.heroMobile : POSES[name];
+    const q = name === 'hero' && mobile ? (window.innerWidth > 600 ? POSES.heroTablet : POSES.heroMobile) : POSES[name];
     return [...q.pos, ...q.target, q.fov, mobile ? 0 : q.shiftX,
       // phones: sink the island under the content chapters so it never sits behind the text
       mobile && (name === 'versions' || name === 'why') ? q.shiftY - 0.24 : q.shiftY, q.orbit];

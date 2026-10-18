@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly HomePage _homePage = new();
     private readonly SettingsPage _settingsPage = new();
     private readonly ModsPage _modsPage = new();
+    private readonly ProfilesPage _profilesPage;
     private readonly AccountSwitcherPanel _accountPanel = new();
     private readonly FriendsPanel _friendsPanel = new();
     private bool _accountPanelOpen;
@@ -31,6 +32,7 @@ public partial class MainWindow : Window
     {
         Home,
         Mods,
+        Profiles,
         Settings
     }
 
@@ -41,6 +43,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // Needs Home to say whether a game is using a profile (no deleting it then).
+        _profilesPage = new ProfilesPage(_homePage.IsProfileInUse);
         PageHost.Content = _homePage;
         // Opening animation over the already-built Home; ~0.85 s, skippable (StartupIntro).
         Intro.Play(this);
@@ -326,6 +330,22 @@ public partial class MainWindow : Window
         }
     }
 
+    // The Profiles page with made-up profiles (never the real settings), the
+    // new-profile form open or not.
+    internal void TourShowProfiles(Core.Models.LauncherSettings demo, Func<Core.Profiles.ModProfile, int> countMods, bool openForm)
+    {
+        NavigateTo(LauncherPage.Profiles);
+        _profilesPage.ShowDemo(demo, countMods);
+        if (openForm) _profilesPage.TourOpenForm();
+    }
+
+    // Home with a made-up selected profile (its row and, with a server, Join).
+    internal void TourShowHomeWithProfile(Core.Profiles.ModProfile profile)
+    {
+        NavigateTo(LauncherPage.Home);
+        _homePage.TourShowProfile(profile);
+    }
+
     private void OpenSignInPanel()
     {
         if (_signInPanelOpen) return;
@@ -395,6 +415,11 @@ public partial class MainWindow : Window
         NavigateTo(LauncherPage.Mods);
     }
 
+    private void NavProfiles_Checked(object sender, RoutedEventArgs e)
+    {
+        NavigateTo(LauncherPage.Profiles);
+    }
+
     private void NavSettings_Checked(object sender, RoutedEventArgs e)
     {
         NavigateTo(LauncherPage.Settings);
@@ -429,13 +454,19 @@ public partial class MainWindow : Window
         {
             LauncherPage.Home => _homePage,
             LauncherPage.Mods => _modsPage,
+            LauncherPage.Profiles => _profilesPage,
             _ => _settingsPage
         };
 
         if (page == LauncherPage.Home)
+        {
             _homePage.RefreshAccountState();
+            _homePage.RefreshProfile(); // a profile picked on the Profiles page
+        }
         else if (page == LauncherPage.Mods)
             _modsPage.ShowVersion(_homePage.CurrentVersion);
+        else if (page == LauncherPage.Profiles)
+            _profilesPage.Show(_homePage.CurrentVersion);
 
         PageHost.Content = content;
         AnimatePageIn(direction == 0 ? 1 : direction);
@@ -446,6 +477,7 @@ public partial class MainWindow : Window
         _syncingNavigation = true;
         NavHome.IsChecked = page == LauncherPage.Home;
         NavMods.IsChecked = page == LauncherPage.Mods;
+        NavProfiles.IsChecked = page == LauncherPage.Profiles;
         NavSettings.IsChecked = page == LauncherPage.Settings;
         _syncingNavigation = false;
     }
@@ -574,7 +606,7 @@ public partial class MainWindow : Window
         }
 
         // A Home scene owns the keyboard while it is open. In particular,
-        // Ctrl+1/2/3 must not navigate behind the version picker and leave it
+        // Ctrl+1/2/3/4 must not navigate behind the version picker and leave it
         // invisibly open until the player returns to Home.
         if (_currentPage == LauncherPage.Home && _homePage.HasOpenScene)
             return;
@@ -585,7 +617,8 @@ public partial class MainWindow : Window
             {
                 Key.D1 or Key.NumPad1 => LauncherPage.Home,
                 Key.D2 or Key.NumPad2 => LauncherPage.Mods,
-                Key.D3 or Key.NumPad3 => LauncherPage.Settings,
+                Key.D3 or Key.NumPad3 => LauncherPage.Profiles,
+                Key.D4 or Key.NumPad4 => LauncherPage.Settings,
                 _ => (LauncherPage?)null
             };
             if (target is { } page)
