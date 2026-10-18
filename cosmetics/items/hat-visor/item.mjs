@@ -1,18 +1,21 @@
-// Mirror Visor: a Y2K sport sun visor. A slim graphite knit band (2.25 px tall, the same height all the way
-// round, so it reads as one smooth wrap and not a peaked cap) circles the head with no crown: the top of the
-// head stays open. The knit has a lit hem, stitched dashes and, on the front, the Origin mark printed in
-// reflective silver thread (lib/marks geometry, rasterised here with a woven over/under at the crossings so
-// the three rings keep a clear 1 px gap). A chrome slider sits at the back. Out the front goes a curved brim of
-// SMOKED MIRROR plastic: 72 one-texel strips fanned from one hinge so the plan is an arc and the edges droop
-// more than the middle. Its top is a dark gunmetal mirror (soft horizon, a muted softbox streak) and ONE
-// iridescent sheen line, pink -> violet -> cyan, runs along its front edge. Hue lives only in that line.
-// Once every 2 s a pale light sweep runs along the sheen line (baked into texture frames, loop is seamless).
+// Mirror Visor: a Y2K sport sun visor. A slim gunmetal band (2.25 px tall, the same height all the way round,
+// sitting flush on the head: 0.625 px of inflate) circles the head with no crown, so the top of the head stays
+// open. Its four corners are chamfered by 45 degree pieces, so the wrap reads as round and not as a box. The
+// band is a plain 4-tone gunmetal ramp lit from the top-left (no texture noise), with one stitch line, and on
+// the front the Origin mark in 1 px silver thread: the ring geometry is lib/marks' (markGeometry), rasterised
+// here as exact 1 px ellipses (one pixel per row/column along each ring) with a clean 1 px gap at every
+// crossing, alternating over/under along each ring. A chrome slider sits at the back. Out the front goes a
+// curved brim of SMOKED MIRROR plastic: 72 one-texel strips fanned from one hinge so the plan is an arc and
+// the edges droop more than the middle. Its top is a dark gunmetal mirror (soft horizon, a muted softbox
+// streak) and ONE iridescent sheen line, pink -> violet -> cyan, runs along its front edge. Hue lives only in
+// that line. Once every 2 s a pale light sweep runs along the sheen line (baked into texture frames, loop is
+// seamless).
 //
-// Light: top-front-left of the PLAYER (+x, +y, +z). The band is shaded from each texel's angle round the head
-// (atan2 of its head-frame x, z), so the light rolls continuously over the front, the corners, the sides and the
-// back. Every brim texel is painted from its position in the cube's own (pre-rotation) frame so the mirror runs
-// continuously across neighbouring strips.
-// Clearance (FORMAT.md): band 1 px proud of the head (hat layer is 0.5), top y = 7.75, brim tip 3.75 px
+// Light: top-front-left of the PLAYER (+x, +y, +z). The band is shaded from each texel's angle round the head,
+// so the light rolls continuously over the front, the corners, the sides and the back. Every brim texel is
+// painted from its position in the cube's own (pre-rotation) frame so the mirror runs continuously across
+// neighbouring strips.
+// Clearance (FORMAT.md): band 0.625 px proud of the head (hat layer is 0.5), top y = 6.75, brim tip 3.9 px
 // in front of the face, nothing above y = 8, nothing wider than x +-5.
 import { clamp, smoothstep, mix, toHex } from '../../lib/px.mjs';
 import { Canvas } from '../../lib/px.mjs';
@@ -24,8 +27,8 @@ const FRAMES = 20, FPS = 10, SWEEP_FRAMES = 10;
 const PACK_W = 256;                                                // texture width in texels
 
 // ---- ramps -----------------------------------------------------------------------------------------------
-// graphite knit, 8 steps: cool blue-violet shadows -> neutral -> a faintly warm grey. Index 0 = outline.
-const F = ['#08090d', '#101218', '#181b23', '#21252f', '#2c313d', '#3a404d', '#4c5361', '#656c7a'];
+// the band: a plain 4-tone gunmetal ramp, shadow -> light (lit from the top-left). BAND[0] doubles as the outline.
+const BAND = ['#161920', '#232731', '#353b49', '#4d5668'];
 // reflective silver print for the mark
 const SV = ['#4c525e', '#7c828d', '#aeb2ba', '#d9dbe0', '#f6f6f4'];
 // gunmetal / chrome hardware (back slider)
@@ -40,7 +43,6 @@ const CYAN = ['#06223a', '#0b4a6a', '#1790b0', '#46d3e2', '#a0f1ef', '#effffd'];
 const UNDER = ['#050608', '#0b0c10', '#14161c', '#1e212a', '#2b2f3a'];
 const WHITE = '#ffffff';
 
-const fabric = v => F[clamp(Math.round(v), 0, F.length - 1)];
 const smoke = s => {                                                // light index -> smoked gunmetal (fractional steps mixed)
   const i = clamp(s, 0, G.length - 1), lo = Math.floor(i), hi = Math.min(G.length - 1, lo + 1);
   return toHex(mix(G[lo], G[hi], i - lo));
@@ -49,18 +51,28 @@ const smoke = s => {                                                // light ind
 // ---- geometry (head frame: head cube x -4..4, y 0..8, z -4..4) ----------------------------------------------
 const parts = [];
 const part = (role, from, to, o = {}) => { const c = { from, to, role, faces: {}, ...o }; parts.push(c); return c; };
-const OUTER = 5.0, INNER = 4.0;                                      // band: 1 px thick, 1 px proud of the head
-const BAND = { y0: 5.5, y1: 7.75 };                                  // one height all the way round
-part('front', [-OUTER, BAND.y0, INNER], [OUTER, BAND.y1, OUTER], { need: ['south', 'up', 'down', 'east', 'west'] });
-for (const sx of [1, -1]) {                                          // one plain side piece per side: no steps
+const OUTER = 4.625, INNER = 4.0;                                    // band: flush on the head, 0.625 px thick
+const BAND_Y = { y0: 4.5, y1: 6.75 };                                // one height all the way round (18 texels)
+const CUT = 0.75, CW = 1.125, CT = OUTER - INNER;                    // corner chamfer: leg, width (9 texels), thickness
+const FLAT = OUTER - CUT;                                            // half-length of the straight pieces
+part('front', [-FLAT, BAND_Y.y0, INNER], [FLAT, BAND_Y.y1, OUTER], { need: ['south', 'up', 'down'] });
+part('back', [-FLAT, BAND_Y.y0, -OUTER], [FLAT, BAND_Y.y1, -INNER], { need: ['north', 'up', 'down'] });
+for (const sx of [1, -1]) {
   const [x0, x1] = sx > 0 ? [INNER, OUTER] : [-OUTER, -INNER], out = sx > 0 ? 'east' : 'west';
-  part('side', [x0, BAND.y0, -INNER], [x1, BAND.y1, INNER], { sx, need: [out, 'up', 'down'] });
+  part('side', [x0, BAND_Y.y0, -FLAT], [x1, BAND_Y.y1, FLAT], { sx, need: [out, 'up', 'down'] });
 }
-part('back', [-OUTER, BAND.y0, -OUTER], [OUTER, BAND.y1, -INNER], { need: ['north', 'up', 'down', 'east', 'west'] });
-part('slider', [-1.25, 5.75, -OUTER - 0.375], [1.25, 7.5, -OUTER], { need: ['north', 'up', 'down', 'east', 'west'] });
+// four 45 degree corner pieces, each centred so its outer face spans the chord between the straight pieces
+const CC = (FLAT + OUTER) / 2 - (CT / 2) / Math.SQRT2;
+for (const [sx, sz, deg] of [[1, 1, 45], [-1, 1, -45], [1, -1, 135], [-1, -1, -135]]) {
+  const cx = sx * CC, cz = sz * CC;
+  part('corner', [cx - CW / 2, BAND_Y.y0, cz - CT / 2], [cx + CW / 2, BAND_Y.y1, cz + CT / 2], {
+    deg, rotation: { origin: [cx, BAND_Y.y0, cz], angle: [0, deg, 0] }, need: ['south', 'up', 'down'],
+  });
+}
+part('slider', [-1.25, 4.75, -OUTER - 0.375], [1.25, 6.5, -OUTER], { need: ['north', 'up', 'down', 'east', 'west'] });
 
 // the brim: strips of half a pixel, hinged along the band's front face just above the band's lower edge
-const HINGE = { y: 5.625, z: OUTER }, BRIM_T = 0.375, TIP = 7.9, NSTRIP = 72, SW = 0.125, BRIM_HALF = 4.5;
+const HINGE = { y: BAND_Y.y0 + 0.125, z: OUTER }, BRIM_T = 0.375, TIP = 7.9, NSTRIP = 72, SW = 0.125, BRIM_HALF = 4.5;
 const tipZ = xc => OUTER + 0.75 + (TIP - OUTER - 0.75) * Math.pow(1 - Math.pow(Math.abs(xc) / BRIM_HALF, 2.4), 0.6);
 const tilt = xc => 11 + 8 * Math.pow(Math.abs(xc) / OUTER, 2);        // degrees: droops more toward the ends
 for (let k = 0; k < NSTRIP; k++) {
@@ -106,71 +118,99 @@ function world(c, f, x, y) {
   }
 }
 
-// ---- the Origin mark: woven thread --------------------------------------------------------------------------------
-// Ring geometry comes from lib/marks (the three tilted ellipses). Each texel gets an anti-aliased COVERAGE from
-// its centre's exact distance to the ring centre lines (a 1 px thread), and at each crossing one strand runs over
-// while the other dives under (its coverage fades beside the over strand), alternating by quadrant: that is what
-// keeps the 1 px gap where rings cross, the way the Origin Bandana does it. MW x MW texels.
+// ---- the Origin mark: crisp 1 px thread ---------------------------------------------------------------------------
+// Ring geometry comes from lib/marks (three tilted ellipses, markGeometry). Each ring is rasterised as an exact
+// 1 px line: a texel is on when its offset from the true ellipse, measured along the stroke's dominant axis, is
+// within half a texel, which gives exactly one texel per row or column wherever the ring runs (even strokes, no
+// stair-step doubles). The 12 crossings alternate over/under along every ring (found by search, as the cape
+// does); the under strand is cut for GAP texels around the crossing, leaving a clean 1 px gap each side.
 const MARK = (() => {
-  const SIZE = 22, HALF = 0.55, EDGE = 0.8, UNDER_W = 1.0, N = 1440, MW = SIZE + 2;
-  const poly = markGeometry(SIZE, 2, 1).map(r => {
+  const SIZE = 22, GAP = 1.2, N = 2400, MW = SIZE + 2;
+  const poly = markGeometry(SIZE, 1, 1).map(r => {
     const th = (r.rot * Math.PI) / 180, c = Math.cos(th), s = Math.sin(th), pts = [];
     for (let i = 0; i < N; i++) { const t = (i / N) * 2 * Math.PI, u = r.rx * Math.cos(t), v = r.ry * Math.sin(t); pts.push([u * c - v * s, u * s + v * c]); }
     return pts;
   });
-  const sm = t => t * t * (3 - 2 * t), cl = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
-  const cov = new Float32Array(MW * MW), tone = new Float32Array(MW * MW);
+  // texels on each ring
+  const on = [[], [], []];
   for (let y = 0; y < MW; y++) for (let x = 0; x < MW; x++) {
     const qx = x + 0.5 - MW / 2, qy = y + 0.5 - MW / 2;
-    const near = poly.map(pts => { let d = 1e9, q = null; for (const p of pts) { const e = (p[0] - qx) ** 2 + (p[1] - qy) ** 2; if (e < d) { d = e; q = p; } } return { d: Math.sqrt(d), q }; });
-    const quad = Math.floor((Math.atan2(qy, qx) + Math.PI) / (Math.PI / 2)) & 1;
-    let best = 0, bi = -1;
-    near.forEach((n, i) => {
-      let c = 1 - sm(cl((n.d - HALF) / EDGE));
-      for (let j = 0; j < 3; j++) {
-        if (j === i || near[j].d > HALF + UNDER_W) continue;
-        const lo = Math.min(i, j), hi = Math.max(i, j), over = ((lo + hi + quad) & 1) ? hi : lo;
-        if (over !== i) c *= 0.15 + 0.85 * sm(cl((near[j].d - HALF) / UNDER_W));
-      }
-      if (c > best) { best = c; bi = i; }
+    poly.forEach((pts, i) => {
+      let d = 1e9, k = 0;
+      for (let j = 0; j < N; j++) { const e = (pts[j][0] - qx) ** 2 + (pts[j][1] - qy) ** 2; if (e < d) { d = e; k = j; } }
+      const a = pts[(k + N - 3) % N], b = pts[(k + 3) % N], tx = b[0] - a[0], ty = b[1] - a[1], tl = Math.hypot(tx, ty) || 1;
+      const dom = Math.max(Math.abs(ty), Math.abs(tx)) / tl, dist = Math.sqrt(d);
+      if (dist / dom < 0.5 + 1e-9 && dist < 0.8) on[i].push([x, y]);
     });
-    if (bi < 0) continue;
-    const n = near[bi], nx = qx - n.q[0], ny = qy - n.q[1], len = Math.hypot(nx, ny) || 1;
-    cov[y * MW + x] = best;
-    tone[y * MW + x] = cl(0.62 + 0.38 * ((-nx * 0.55 - ny * 0.8) / len) * sm(cl(n.d / HALF)));   // a rounded cord, lit upper-left
   }
-  return { MW, cov, tone, rowOff: 3 };       // mark rows 4..19 land on band rows 1..16 (rowOff = first mark row - 1)
+  // crossings between ring pairs: points where the two centre lines pass within 0.12 texel
+  const X = [];
+  for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) {
+    const hits = [];
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const p = poly[a][i], r = poly[b][j];
+      if (Math.abs(r[0] - p[0]) > 0.3 || Math.abs(r[1] - p[1]) > 0.3) continue;
+      hits.push({ i, j, x: p[0], y: p[1], d: Math.hypot(r[0] - p[0], r[1] - p[1]) });
+    }
+    hits.sort((u, v) => u.d - v.d);
+    const used = [];
+    for (const h of hits) {
+      if (h.d > 0.12) break;
+      if (used.some(u => Math.hypot(u.x - h.x, u.y - h.y) < 1.5)) continue;
+      used.push(h); X.push({ a, b, ta: h.i, tb: h.j, x: h.x, y: h.y });
+    }
+  }
+  // over/under: bit k set = ring a over ring b at crossing k; every ring must alternate along its path
+  let best = null;
+  for (let m = 0; m < (1 << X.length) && best === null; m++) {
+    let ok = true;
+    for (let r = 0; r < 3 && ok; r++) {
+      const list = X.map((c, k) => ({ t: c.a === r ? c.ta : c.tb, over: c.a === r ? !!((m >> k) & 1) : !((m >> k) & 1), in: c.a === r || c.b === r }))
+        .filter(e => e.in).sort((u, v) => u.t - v.t);
+      for (let k = 0; k < list.length; k++) if (list[k].over === list[(k + 1) % list.length].over) { ok = false; break; }
+    }
+    if (ok) best = m;
+  }
+  const under = X.map((c, k) => ((((best ?? 0) >> k) & 1) ? c.b : c.a));
+  const g = new Map();                                         // "x,y" -> ring
+  on.forEach((list, r) => {
+    for (const [x, y] of list) {
+      const qx = x + 0.5 - MW / 2, qy = y + 0.5 - MW / 2;
+      if (X.some((c, k) => under[k] === r && Math.hypot(c.x - qx, c.y - qy) < GAP)) continue;
+      g.set(`${x},${y}`, r);
+    }
+  });
+  let x0 = 99, x1 = -1, y0 = 99, y1 = -1;
+  for (const k of g.keys()) { const [x, y] = k.split(',').map(Number); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  return { g, x0, x1, y0, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
 })();
 
-// ---- the knit band ----------------------------------------------------------------------------------------------
-// Light index from the texel's angle round the head: 0 deg = straight ahead, +90 = the player's left side.
-const LIGHT_DEG = 35;
-const wrapL = (X, Z) => Math.cos(((Math.atan2(X, Z) * 180) / Math.PI - LIGHT_DEG) * Math.PI / 180);
+// ---- the band -------------------------------------------------------------------------------------------------------
+// The light index comes from the texel's angle round the head: 0 deg = straight ahead, +90 = the player's left side.
+const LIGHT_DEG = 35, CORNER_SPAN = 14;
+const cosL = deg => Math.cos(((deg - LIGHT_DEG) * Math.PI) / 180);
+function bandAngle(c, f, x, X, Z, v) {
+  if (c.role === 'corner') return c.deg + (f === 'south' ? ((x + 0.5) / v.w - 0.5) * CORNER_SPAN : 0);
+  return (Math.atan2(X, Z) * 180) / Math.PI;
+}
 function paintBand(v, f, c) {
-  const front = f === 'south', mox = Math.round(v.w / 2 - MARK.MW / 2);
+  const front = c.role === 'front', mx0 = Math.round((v.w - MARK.w) / 2) - MARK.x0, my0 = Math.round((v.h - MARK.h) / 2) - MARK.y0;
+  const at = (x, y) => MARK.g.has(`${x - mx0},${y - my0}`);
   for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
-    const [X, Y, Z] = world(c, f, x, y), w = wrapL(X, Z);
+    const [X, , Z] = world(c, f, x, y), w = cosL(bandAngle(c, f, x, X, Z, v));
     let col;
-    if (f === 'up') col = fabric(4.1 + 1.0 * w + (x % 2 === 0 ? 0.5 : -0.1));
-    else if (f === 'down') col = F[1];
+    if (f === 'up') col = BAND[clamp(Math.round(2.2 + 0.8 * w), 0, 3)];
+    else if (f === 'down') col = BAND[0];
     else {
+      let t = clamp(Math.round(1.0 + 1.6 * w), 0, 3);
       const yTop = y, yBot = v.h - 1 - y;
-      let l = 3.1 + 1.6 * w - 0.25 * (y / v.h);
-      l += (x + y) % 4 < 2 ? 0.28 : -0.2;                                    // fine diagonal twill
-      const clear = !front || Math.abs(x - v.w / 2) > 14;                       // stitches keep off the mark
-      if (yTop === 0) l = 4.9 + 1.0 * w;                                       // top hem: a lit rolled edge
-      else if (yTop === 1) l = 2.0;
-      else if (yTop === 3 && x % 4 !== 3 && clear) l = 5.0 + 0.9 * w;          // stitching: dashes
-      else if (yTop === 4 && x % 4 !== 3 && clear) l = 1.8;                    // ...with their shadow
-      if (yBot === 0) l = 0.7;
-      else if (yBot === 1) l = 2.0;
-      col = fabric(l);
-      if (front) {                                                              // the mark, silver thread
-        const mx = x - mox, my = y + MARK.rowOff;
-        if (mx >= 0 && my >= 0 && mx < MARK.MW && my < MARK.MW) {
-          const i = my * MARK.MW + mx, cv = MARK.cov[i];
-          if (cv > 0.1) col = toHex(mix(col, SV[clamp(Math.round(MARK.tone[i] * 4), 0, 4)], Math.min(1, cv * 1.1)));
-        }
+      if (yTop === 0) t = Math.min(3, t + 1);                                  // the top edge catches the light
+      else if (yBot === 0) t = Math.max(0, t - 1);                             // the bottom edge turns into shadow
+      else if (yTop === 4 && x % 4 < 2) t = Math.max(0, t - 1);                // the one stitch line: dashes
+      col = BAND[t];
+      if (front) {                                                             // the mark: silver thread, dark outline
+        if (at(x, y)) col = SV[3];
+        else if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) col = BAND[0];
       }
     }
     v.set(x, y, col);
@@ -261,7 +301,7 @@ function sweepFn(frame) {
   };
 }
 
-const PAINT = { front: paintBand, side: paintBand, back: paintBand, slider: paintSlider };
+const PAINT = { front: paintBand, side: paintBand, back: paintBand, corner: paintBand, slider: paintSlider };
 let baseTex = null;
 function paintTexture(sweep) {
   const tex = new Canvas(TW, TH);
@@ -275,7 +315,7 @@ function paintTexture(sweep) {
   return tex;
 }
 
-const strip = ({ role, sx, k, xc, need, ...c }) => c;
+const strip = ({ role, sx, k, xc, deg, need, ...c }) => c;
 export default {
   meta: { id: 'hat-visor', name: 'Mirror Visor', kind: 'hat', cents: 699,
     blurb: 'A Y2K sport sun visor: a slim graphite knit band with the Origin mark in silver thread, and a smoked mirror brim with one pink-to-cyan sheen line along its edge. A light glides along it now and then.' },
