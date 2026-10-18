@@ -32,6 +32,12 @@ export const L = {
   DM_PAGE: 200,                    // later syncs: at most this many per call; the
   PARTY_PAGE: 200,                 // cursor then stops at the last one returned
   RATE_KEEP_MS: HOUR,
+  // Held sync (`wait`): the service keeps a quiet sync open up to HOLD_MAX_MS,
+  // checking every HOLD_CHECK_MS for chat (one cheap indexed query), and answers
+  // as soon as something arrives. 20 s / 2 s = at most 11 checks, well under the
+  // free plan's 50 D1 queries per request, and sleeping costs no CPU time.
+  HOLD_MAX_MS: 20 * SECOND,
+  HOLD_CHECK_MS: 2 * SECOND,
 };
 
 export const CLIENTS = new Set(['game', 'launcher']);

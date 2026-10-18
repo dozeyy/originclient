@@ -61,7 +61,11 @@ import java.util.concurrent.TimeUnit;
  *  - adaptive polling inside the contract's request budget (4 s while the
  *    Friends window is open, the party shares your LAN world or a DM/invite
  *    just arrived; 20 s in a party; 30 s idle; 60 s once the game window has
- *    been unfocused 5 minutes);
+ *    been unfocused 5 minutes). In a party the 20 s poll is a HELD sync: the
+ *    service keeps it open up to 20 s and answers the moment party chat or a
+ *    DM lands, so /originpc lines show in ~1-3 s for the same requests. The
+ *    held request waits off the worker (sendAsync), so actions never queue
+ *    behind it; any action or the window opening drops it for a fresh sync;
  *  - everything fails soft: no service, no endpoints yet, no network or an
  *    offline account just means a calm message in the Friends window, never an
  *    error in game. Failures back off (15 s doubling to 5 min).
@@ -92,6 +96,8 @@ public final class SocialClient {
 	private static final long AWAY_AFTER_MS = 5 * 60_000, HOT_MS = 2 * 60_000;
 	private static final long MISSING_RETRY_MS = 5 * 60_000, SIGNED_OUT_RETRY_MS = 10 * 60_000;
 	private static final long WAKE_FLOOR_WHEN_DOWN_MS = 60_000;
+	/** Held sync (docs/SOCIAL.md "Held sync"): the wait asked for, the soonest re-hold after an early answer, and when a lost one is dropped. */
+	private static final long HOLD_MS = 20_000, HOLD_REARM_MS = 2_000, HELD_GIVE_UP_MS = HOLD_MS + 30_000;
 	private static final int CHAT_KEEP = 200;
 
 	private static final HttpClient HTTP = HttpClient.newBuilder()
@@ -158,6 +164,14 @@ public final class SocialClient {
 	private static boolean wantState = true;
 	private static boolean firstSync = true;
 	private static long nextSyncAt = 0, lastAttemptAt = 0;
+	/** A held /v1/sync is out (its answer arrives via heldDone); holdGen tells a dropped one's answer apart. */
+	private static boolean holding = false;
+	private static long holdGen = 0, heldStartedAt = 0;
+	private static CompletableFuture<?> heldCall = null;
+	/** The last answer's `held` (-1 = not a held answer) and the wait that was asked for. */
+	private static long lastHeld = -1, lastWait = 0;
+	/** The last answer brought something (a DM, a party line, a changed friends list or party). */
+	private static boolean lastNews = false;
 	private static int failures = 0;
 	private static final Set<String> seenRequests = new HashSet<>();
 	private static final Set<String> seenInvites = new HashSet<>();
@@ -426,6 +440,14 @@ public final class SocialClient {
 	private static void tick() {
 		try {
 			long now = System.currentTimeMillis();
+			if (holding) {
+				// A held sync answers by itself. Something newer (an action, the window
+				// opening) drops it for a fresh sync now; a lost one is dropped too.
+				if (!wake && now - heldStartedAt < HELD_GIVE_UP_MS) {
+					return;
+				}
+				dropHeld();
+			}
 			boolean down = status == Status.SIGNED_OUT || status == Status.REFUSED || status == Status.COMING_SOON || status == Status.UNREACHABLE;
 			boolean woke = wake && (!down || now - lastAttemptAt > WAKE_FLOOR_WHEN_DOWN_MS);
 			if (now < nextSyncAt && !woke) {
@@ -443,35 +465,73 @@ public final class SocialClient {
 				nextSyncAt = now + 15_000;
 				return;
 			}
-			try {
-				syncNow(api);
-				failures = 0;
-				stale = false;
-				status = Status.READY;
-				nextSyncAt = System.currentTimeMillis() + interval(System.currentTimeMillis());
-			} catch (Missing e) {
-				status = Status.COMING_SOON;
-				nextSyncAt = now + MISSING_RETRY_MS;
-			} catch (SignedOut e) {
-				status = Status.SIGNED_OUT;
-				nextSyncAt = now + SIGNED_OUT_RETRY_MS;
-			} catch (Refused e) {
-				refuse(e);
-				nextSyncAt = now + SIGNED_OUT_RETRY_MS;
-			} catch (Exception e) {
-				failures++;
-				if (status == Status.READY) {
-					stale = true;
-				} else {
-					status = Status.UNREACHABLE;
+			long wait = holdWait(now);
+			if (wait > 0) {
+				try {
+					startHeld(api, wait, now);
+				} catch (Exception e) {
+					failed(now, e);
 				}
-				long backoff = Math.min(5 * 60_000L, 15_000L << Math.min(5, failures - 1));
-				nextSyncAt = now + Math.max(interval(now), backoff);
-				OriginClient.LOGGER.debug("Origin social: sync failed ({} in a row)", failures, e);
+				return;
 			}
+			settle(now, () -> syncNow(api));
 		} catch (Throwable t) {
 			// the worker must survive anything a single round throws
+			holding = false;
 			nextSyncAt = System.currentTimeMillis() + 60_000;
+		}
+	}
+
+	private interface Round {
+		void run() throws Exception;
+	}
+
+	/** One sync round's bookkeeping: status, failures and when the next round runs. Worker only. */
+	private static void settle(long started, Round round) {
+		try {
+			round.run();
+		} catch (Exception e) {
+			failed(started, e);
+			return;
+		}
+		failures = 0;
+		stale = false;
+		status = Status.READY;
+		long t = System.currentTimeMillis();
+		long h = lastHeld;
+		lastHeld = -1;
+		if (h >= 0 && h < lastWait - 1_000 && lastNews) {
+			// The service answered a held sync early because something arrived. Hold
+			// again straight away (at most one round per HOLD_REARM_MS, so a busy
+			// chat can't turn into a request storm). An early answer that brought
+			// nothing new keeps the ordinary cadence, whatever the service did.
+			nextSyncAt = Math.max(started + HOLD_REARM_MS, t);
+		} else {
+			// A quiet hold counts from when it started: in a party that is "now".
+			nextSyncAt = (h >= 0 ? started : t) + interval(t);
+		}
+	}
+
+	private static void failed(long now, Exception e) {
+		if (e instanceof Missing) {
+			status = Status.COMING_SOON;
+			nextSyncAt = now + MISSING_RETRY_MS;
+		} else if (e instanceof SignedOut) {
+			status = Status.SIGNED_OUT;
+			nextSyncAt = now + SIGNED_OUT_RETRY_MS;
+		} else if (e instanceof Refused r) {
+			refuse(r);
+			nextSyncAt = now + SIGNED_OUT_RETRY_MS;
+		} else {
+			failures++;
+			if (status == Status.READY) {
+				stale = true;
+			} else {
+				status = Status.UNREACHABLE;
+			}
+			long backoff = Math.min(5 * 60_000L, 15_000L << Math.min(5, failures - 1));
+			nextSyncAt = now + Math.max(interval(now), backoff);
+			OriginClient.LOGGER.debug("Origin social: sync failed ({} in a row)", failures, e);
 		}
 	}
 
@@ -485,12 +545,93 @@ public final class SocialClient {
 		return base;
 	}
 
+	/**
+	 * How long to ask the service to hold this sync (0 = an ordinary one). In a
+	 * party, while nothing polls fast already: party chat (/originpc) then shows
+	 * within a couple of seconds instead of waiting for the next 20 s poll, for
+	 * the same number of requests. An older service ignores `wait` and answers at
+	 * once (no `held` in the answer), which simply keeps the old cadence.
+	 */
+	private static long holdWait(long now) {
+		boolean live = windowOpen || wantState || now < hotUntil;
+		return state.party() != null && !firstSync && !live ? HOLD_MS : 0;
+	}
+
+	/** Sends a held /v1/sync without blocking the worker; its answer comes back through {@link #heldDone}. */
+	private static void startHeld(String api, long wait, long now) throws Exception {
+		String t = token(api, null);
+		long gen = ++holdGen;
+		holding = true;
+		heldStartedAt = now;
+		heldCall = HTTP.sendAsync(request(api + "/v1/sync", syncBody(wait), t, wait + 15_000),
+						HttpResponse.BodyHandlers.ofString())
+				.whenComplete((resp, err) -> WORKER.execute(() -> heldDone(gen, now, wait, resp, err)));
+	}
+
+	private static void heldDone(long gen, long started, long wait, HttpResponse<String> resp, Throwable err) {
+		if (gen != holdGen || !holding) {
+			return; // dropped for a newer sync
+		}
+		holding = false;
+		heldCall = null;
+		settle(started, () -> {
+			if (err != null) {
+				throw err instanceof Exception ex ? ex : new IllegalStateException(err);
+			}
+			Reply r = reply(resp);
+			if (r.status() == 401) {
+				// token ran out: an ordinary sync signs in again and retries once
+				String api = CosmeticsService.api();
+				if (api == null) {
+					throw new IllegalStateException("no service");
+				}
+				syncNow(api);
+				return;
+			}
+			lastWait = wait;
+			finishSync(r);
+		});
+	}
+
+	private static void dropHeld() {
+		holding = false;
+		holdGen++;
+		CompletableFuture<?> c = heldCall;
+		heldCall = null;
+		if (c != null) {
+			c.cancel(true);
+		}
+	}
+
 	private static void syncNow(String api) throws Exception {
+		finishSync(authed(api, "/v1/sync", syncBody(0)));
+	}
+
+	private static void finishSync(Reply r) throws Exception {
+		if (r.status() == 404) {
+			throw new Missing();
+		}
+		if (r.status() != 200) {
+			throw new IllegalStateException("HTTP " + r.status());
+		}
+		JsonObject o = r.body();
+		lastHeld = o.has("held") && !o.get("held").isJsonNull() ? lng(o, "held") : -1;
+		Party before = state.party();
+		JsonObject pO = obj(o, "party");
+		lastNews = arr(o, "messages").size() > 0 || arr(o, "partyMessages").size() > 0 || o.has("friends")
+				|| !java.util.Objects.equals(before == null ? null : before.id(), pO == null ? null : str(pO, "id"));
+		apply(o);
+	}
+
+	private static JsonObject syncBody(long wait) {
 		Presence p = presence;
 		JsonObject body = new JsonObject();
 		body.add("since", cursor);
 		if (friendsEtag != null) {
 			body.add("friendsEtag", friendsEtag);
+		}
+		if (wait > 0) {
+			body.addProperty("wait", wait);
 		}
 		JsonObject pres = new JsonObject();
 		pres.addProperty("client", "game");
@@ -523,14 +664,7 @@ public final class SocialClient {
 		} else {
 			body.add("partyState", JsonNull.INSTANCE);
 		}
-		Reply r = authed(api, "/v1/sync", body);
-		if (r.status() == 404) {
-			throw new Missing();
-		}
-		if (r.status() != 200) {
-			throw new IllegalStateException("HTTP " + r.status());
-		}
-		apply(r.body());
+		return body;
 	}
 
 	// ------------------------------------------------------------- parsing
@@ -964,8 +1098,12 @@ public final class SocialClient {
 	}
 
 	private static Reply post(String url, JsonObject body, String bearer) throws Exception {
+		return reply(HTTP.send(request(url, body, bearer, 10_000), HttpResponse.BodyHandlers.ofString()));
+	}
+
+	private static HttpRequest request(String url, JsonObject body, String bearer, long timeoutMs) {
 		HttpRequest.Builder rb = HttpRequest.newBuilder(URI.create(url))
-				.timeout(Duration.ofSeconds(10))
+				.timeout(Duration.ofMillis(timeoutMs))
 				.header("User-Agent", "OriginClient-social")
 				.header("Accept", "application/json")
 				.header("Content-Type", "application/json")
@@ -973,7 +1111,10 @@ public final class SocialClient {
 		if (bearer != null) {
 			rb.header("Authorization", "Bearer " + bearer);
 		}
-		HttpResponse<String> r = HTTP.send(rb.build(), HttpResponse.BodyHandlers.ofString());
+		return rb.build();
+	}
+
+	private static Reply reply(HttpResponse<String> r) {
 		JsonObject o = null;
 		try {
 			// Gson 2.8.0 (1.17.1): no static JsonParser.parseString.

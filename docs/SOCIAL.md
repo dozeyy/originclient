@@ -79,6 +79,8 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
     POST /v1/sync
     { since: <cursor or 0>,
       friendsEtag: "<last friendsEtag>" | absent,         // optional (2026-10-12): skip an unchanged friends list
+      wait: <ms> | absent,                               // optional (2026-10-18): hold this sync until chat arrives,
+                                                         // at most 20 000 ms ("Held sync" below)
       presence: { client: "game"|"launcher",
                   activity: "menu" | "singleplayer" | "server",
                   server: "host[:port]" | null,          // only when activity == "server"
@@ -101,7 +103,8 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
       partyMessages: [ { id, from, name, text, at } ],   // newer than `since`
       pings: [ { id, from, name, server, dim, x, y, z, label, at, expiresAt } ],          // still active
       partyInvites: [ { partyId, from, name, at } ],
-      warp: null | { server, version, at, from }         // leader asked the party to join them (last 2 min)
+      warp: null | { server, version, at, from },        // leader asked the party to join them (last 2 min)
+      held: <ms>                                         // only when `wait` was sent: how long the service held it
     }
 - Presence is per (account, client): launcher and game both open = one online account. Online = synced in
   the last 150 s. A friend who set appearOffline shows `online:false`, no activity, to friends (party members
@@ -116,6 +119,34 @@ it's an anonymous number). Cached ~60 s server side. The launcher calls it on st
 - `friendsEtag` (free-plan saving): opaque string; it changes whenever anything in `friends`, `requests` or
   `blocked` changes, and at least every 10 minutes. With it, a friend going offline shows after 150–210 s (the
   service notices on its once-a-minute sweep) instead of exactly 150 s.
+
+## Held sync (2026-10-18): party chat in ~1-3 s on the free plan
+Will, 2026-10-18: "make it so the /originpc messages load faster there pretty slow right now". Party chat was only
+picked up by the receiver's next poll, every 20 s in a party, so a line took 0-20 s (measured: mean 9.8-11.8 s,
+worst 17.8-19.9 s). Polling faster costs requests the free plan doesn't have, so a sync can be HELD instead:
+- The client sends `wait: <ms>` (the game sends 20 000) and the service keeps the request open while nothing is new
+  for the caller, re-checking every 2 s with one indexed query (`newsQuery`: a DM to you, a party line in your party
+  — including your own, from another client — your party id changing, or your friends list changing, i.e.
+  `friends_rev`). The moment one of those lands it answers with an ordinary, fresh sync; a quiet hold answers after
+  the full wait. Waiting costs no Worker CPU time; 20 s / 2 s = at most 11 checks, under the free plan's 50 D1
+  queries per request. `wait` is capped at 20 000 ms.
+- Answered at once (`held: 0`): a stale or missing `friendsEtag` (the lists changed), or chat newer than `since`
+  already waiting. `since: 0` is held too (a cursor that is still 0 because no chat is stored yet must not turn holds
+  off). Party invites, warps, pings and positions don't end a hold; they come with the next answer, as before.
+- `held` is in the answer only when `wait` was sent; that is how a client knows the service holds. An older
+  service ignores `wait` and answers at once without `held`, and the client simply keeps its old cadence.
+- The game holds ONLY in a party, when it would otherwise poll every 20 s (or 60 s unfocused): never while the
+  Friends window is open, `wantState` is true (positions need the 4 s cadence) or a DM/invite just arrived — those
+  poll every 4 s as before. After a quiet hold it holds again straight away (the period stays ~20 s); after an
+  early answer that brought something (a message, a list, a party change) it holds again 2 s after the previous
+  one started at the soonest, so a busy chat can't become a request storm; an early answer that brought nothing
+  keeps the 20 s cadence. The held request waits off the social worker (sendAsync; a hold thread on Java 8), so
+  actions never queue behind it; any action, or the Friends window opening, drops it for a fresh sync.
+- Delay a party line now takes to show: designed worst ~2-3 s (2 s check + the ≤1 s re-arm gap + round trips),
+  typical under 1 s. Measured on a local harness (the real Worker code over local HTTP, SQLite D1 shim, a receiver
+  that follows the game's rules), 15 lines: mean 0.85 s, median 0.59 s, max 1.90 s (before, same harness, 20 s
+  polls, 12 lines: mean 11.8 s, median 14.6 s, max 19.9 s). Real Cloudflare round trips add on top. The launcher does not send `wait` (unchanged: 4 s while the
+  drawer is open or for 2 minutes after a DM/invite/party line, else 20/30 s).
 
 ## Actions (all POST, all Bearer, JSON body, 200 → { ok: true, ... } unless noted)
     /v1/settings              { appearOffline: bool }
@@ -143,7 +174,8 @@ Retention: DMs and party chat kept 30 days, pings 60 s, joins/sessions pruned by
 Clients poll `/v1/sync` adaptively:
 - every 4 s while: a chat/friends window is open, the last sync said `wantState: true`, or a DM/invite arrived
   < 2 min ago;
-- every 20 s while in a party otherwise;
+- every 20 s while in a party otherwise — in the game as a HELD sync (above): the same ~20 s period, but party chat
+  and DMs end the hold and show within ~1-3 s;
 - every 30 s otherwise (game and launcher alike); every 60 s once the game window has been unfocused > 5 min.
 (Will chose the free plan to stay free; the 2026-10-12 cadence revision above cuts party polling 4-5x.)
 Writes: presence is written at most once per 60 s per (account, client) even if synced faster (a change of
@@ -173,11 +205,23 @@ Measured cost per call (D1's own rows_read / rows_written on a local D1, re-meas
   (it was ~5,800, ~17 players, with the 30 s heartbeat).
 - Unfocused game (60 s polls): ~1,440 + 288 requests, the same ~3,000 rows written.
 
-**A party of 4 on an ordinary multiplayer server all day, no chat window open (20 s polls, wantState false):**
+**A party of 4 on an ordinary multiplayer server all day, no chat window open (wantState false):**
+Before 2026-10-18 (20 s polls; a party line took 0-20 s to show):
 - requests: 4 × 4,320 = **~17,300** (17% of the free plan);
 - rows read: 4 × 4,320 × ~46 ≈ **~800,000** (16%);
 - rows written: positions 0 (Will's rule: positions never leave the game on multiplayer servers), heartbeats
   4 × 2,880 ≈ **~11,500** (12%).
+Now (held syncs, a party line shows in ~1-3 s):
+- requests: a quiet hold lasts 20 s, so still ≤ 4,320 per member (**~17,300**, 17%), plus at most one extra per
+  party line per other member (a line ends their hold early and their 20 s period restarts): 500 lines a day in the
+  party ≈ +1,500 (**~18,800**, 19%). Measured on the local harness: a quiet party 2.8 requests a minute holding vs
+  3.2 polling; 4.0 a minute during a dense test chat (15 lines in under 4 minutes).
+- rows read: each held sync is one ordinary sync (~46) plus up to 11 checks of ~5 index entries (names, 2 ×
+  party_members, chat_to, chat_party; EXPLAIN QUERY PLAN: all index searches) ≈ 100 per 20 s → 4 × 4,320 × ~100 ≈
+  **~1.7 M** (35%). The check's rows are an estimate from the query plan, not a D1 measurement: re-measure with
+  `rows_read` after deploy.
+- rows written: unchanged, **~11,500** (12%) — a hold writes nothing until its answer, which follows the same
+  60 s / 5 s presence rules.
 
 **A party of 4 in one LAN world, moving all day (wantState true, so 4 s polls):**
 - requests: 4 × 21,600 = **86,400** — almost the whole free plan on its own;
@@ -185,8 +229,8 @@ Measured cost per call (D1's own rows_read / rows_written on a local D1, re-meas
 - rows written: positions 4 × 17,280 (every 5 s) ≈ 69,000 + heartbeats ≈ 11,500 → **~80,500** (81%).
   This is the extreme case; a few LAN hours a day cost a few hours' share of it.
 
-For scale: ~25 players idle all day plus one 4-player server party all day ≈ 96,000 requests, ~2.1 M rows read,
-~87,000 rows written. Players who play a few hours a day cost that fraction, so the daily-active count the free
+For scale: ~25 players idle all day plus one 4-player server party all day ≈ 96,000 requests, ~2.1 M rows read
+(~3.0 M with held syncs), ~87,000 rows written. Players who play a few hours a day cost that fraction, so the daily-active count the free
 plan carries is several times the all-day figures.
 
 So the free plan carries a few dozen all-day players (more who play a few hours), not a big community: the $5 Workers Paid plan (10 M requests and
@@ -211,7 +255,7 @@ So the free plan carries a few dozen all-day players (more who play a few hours)
 - Toasts (Origin style) for DMs, friend requests, party invites, warps; click opens the Friends window.
 - Party chat: shown in vanilla chat as "[Party] <name>: <text>" (client-side only, the server never sees it);
   sent from the Friends window or the client-only command `/originpc <text>` (Will, 2026-10-12: a name no
-  server uses — `/pc` and `/p` belong to server plugins).
+  server uses — `/pc` and `/p` belong to server plugins). Other members see it within ~1-3 s (held sync).
   DMs are sent from the Friends window only.
 - B: party members' nametags tinted + a marker (diamond + name + distance) visible through walls, C: a movable
   Party HUD element (name, health, distance, direction arrow), D: party members on the minimap and locator bar,

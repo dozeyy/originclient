@@ -140,7 +140,67 @@ function friendView(f, now) {
   };
 }
 
+// ------------------------------------------------------------- held sync
+// Party chat used to wait for the receiver's next poll (20 s in a party), so
+// /originpc lines took 0-20 s to show. No WebSockets on the free plan, so a
+// sync may ask to be HELD instead: `wait: <ms>` (capped at L.HOLD_MAX_MS).
+// While nothing is new for the caller the service keeps the request open and
+// re-checks every L.HOLD_CHECK_MS with ONE cheap indexed query; the moment a
+// DM to them or a line in their party lands (or their friends list / party
+// changes) it answers with a normal, fresh sync. A quiet hold answers after
+// the full wait. Either way the answer carries `held: <ms waited>`, which is
+// also how a client knows this service holds (an older one just ignores
+// `wait` and answers at once, so the client keeps its old cadence).
+// A stale friendsEtag is answered at once (the lists changed). `since: 0` is
+// held too, so a cursor that is still 0 (no chat stored yet) doesn't turn
+// holds off; when chat exists the first check answers it at once anyway.
+export const holdClock = {
+  sleep: ms => new Promise(r => setTimeout(r, ms)),
+  now: () => Date.now(),
+};
+
+// Is anything new for `uuid` after chat id `since`? Index seeks only
+// (names PK, chat_to, party_members PK, chat_party): a few rows per check.
+function newsQuery(env, uuid, since) {
+  return env.DB.prepare(`SELECT
+      (SELECT friends_rev FROM names WHERE uuid = ?1) AS rev,
+      (SELECT party_id FROM party_members WHERE uuid = ?1) AS party,
+      EXISTS (SELECT 1 FROM chat WHERE to_uuid = ?1 AND id > ?2) AS dm,
+      EXISTS (SELECT 1 FROM party_members me JOIN chat c ON c.party_id = me.party_id
+              AND c.id > me.chat_from AND c.id > ?2 WHERE me.uuid = ?1) AS pc`).bind(uuid, since);
+}
+
 async function sync(env, me, body, now) {
+  const waitRaw = Number(body.wait);
+  if (!(waitRaw > 0)) return json(await syncAnswer(env, me, body, now));
+  const wait = Math.min(L.HOLD_MAX_MS, Math.floor(waitRaw));
+  const sinceRaw = Number(body.since);
+  const since = Number.isSafeInteger(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
+  const etagNow = `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`;
+  let held = 0;
+  if (body.friendsEtag === etagNow) {
+    let party, rev = me.friendsRev;
+    for (;;) {
+      const n = await newsQuery(env, me.uuid, since).first();
+      if (held === 0) party = n?.party ?? null;
+      rev = Number(n?.rev) || 0;
+      if (!n || n.dm || n.pc || rev !== me.friendsRev || (n.party ?? null) !== party) break;
+      const left = wait - (holdClock.now() - now);
+      if (left <= 0) break;
+      await holdClock.sleep(Math.min(L.HOLD_CHECK_MS, left));
+      held = Math.max(1, holdClock.now() - now);
+    }
+    // Answer as of now (not as of when the request came in), with the
+    // friends rev the last check saw, so a bump that ended the hold shows.
+    if (held > 0) {
+      now = holdClock.now();
+      me = { ...me, friendsRev: rev };
+    }
+  }
+  return json({ ...(await syncAnswer(env, me, body, now)), held });
+}
+
+async function syncAnswer(env, me, body, now) {
   const sinceRaw = Number(body.since);
   const since = Number.isSafeInteger(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
   const first = since === 0;
@@ -272,7 +332,7 @@ async function sync(env, me, body, now) {
     requests: { incoming: res.incoming, outgoing: res.outgoing },
     blocked: res.blocked,
   } : {};
-  return json({
+  return {
     cursor,
     me: { uuid: me.uuid, name: me.name, appearOffline: !!res.settings[0]?.appear_offline },
     friendsEtag,
@@ -287,7 +347,7 @@ async function sync(env, me, body, now) {
     })),
     partyInvites: res.invites.map(i => ({ partyId: i.party_id, from: i.from_uuid, name: i.name ?? '', at: i.at })),
     warp: warp ? { server: warp.server, version: warp.version, at: warp.at, from: warp.from_uuid, name: warp.name ?? '' } : null,
-  });
+  };
 }
 
 // ----------------------------------------------------------------- settings
