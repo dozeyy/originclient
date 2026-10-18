@@ -86,6 +86,13 @@ Face items hug the face (z 4..5). Back items: wings span <= 14 px each side of
 the spine and never rise above y = +6 (they must not cover the head from
 behind); backpacks <= 5 px deep, inside x -4..4.
 
+**Height tweaks (per player, not per item):** a player can raise or lower what
+sits in each body slot (cape, head, face, back) to suit their skin, in 0.5 px
+steps, within +-4 px (the Cosmetics screen's arrows). It is saved with what they
+wear (service `equipped.adjust`, `{"head": 1.5, ...}`, zero slots left out) so
+everyone sees it, and the renderers add it to the item's y after the bone
+transform. Items are authored for the default skin; the tweak is never baked in.
+
 ## Models
 
 ```json
@@ -149,6 +156,16 @@ capes: scale 8. Animated capes: scale 4 (GPU budget <= 4 MB per item:
   (game: ticks/20 + partial). walkSpeed01 = horizontal speed / sprint speed,
   clamped 0..1; airborne01 eases 0 -> 1 over 0.25 s when not on ground.
   Mirror bones (wingR) use the same entry with `amp` negated.
+- `spin` (continuous rotation): `{ "bone": "ring0", "channel": "spin", "axis": "x",
+  "speed": 62 }` turns the bone about its own `axis` at `speed` degrees per
+  second (negative = the other way), added to the bone's rest rotation:
+  `angle = (speed * t) mod 360`. Renderers wrap the angle (double precision) so a
+  long session never loses precision. A spin has no `amp`/`period`; it repeats
+  every `360/|speed|` s. Old renderers that don't know `spin` read it as a `rot`
+  entry with `amp` 0, i.e. no motion (the bone just holds its rest rotation), so
+  give a spun bone a rest rotation that looks fine standing still. Put spinning
+  parts under a parent bone whose rest rotation sets the spin axis (a ring under a
+  yaw bone spins about its own long axis).
 - Reduced motion (store `prefers-reduced-motion`): renderers hold t = 0.
 
 ## Particles

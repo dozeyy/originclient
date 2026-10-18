@@ -9,8 +9,10 @@
 //  2. API for the Origin mod:
 //       GET  /v1/players/<uuid>      what a player owns + is wearing, and
 //                                    whether they're Origin+ (`plus`)
-//       POST /v1/players/equipped    { uuids: [...] } -> who's wearing what,
-//                                    and which of them are Origin+
+//       POST /v1/players/equipped    { uuids: [...] } -> who's wearing what
+//                                    (+ their height tweaks), which of them
+//                                    are Origin+, and which are in game on
+//                                    Origin right now (`origin`, the name badge)
 //       POST /v1/equip               change what you wear; `Authorization:
 //            Bearer <token>` from Origin sign-in (/v1/auth, identity v2:
 //            Mojang-signed proofs checked offline, mojang.js). No Microsoft
@@ -52,25 +54,59 @@ const looks = (row, member) => Object.fromEntries(SLOTS.map(slot => {
 }));
 const COLS = SLOTS.join(', ');
 
-async function playerView(env, uuid) {
-  const member = await isMember(env, uuid);
-  const eq = await env.DB.prepare(`SELECT ${COLS} FROM equipped WHERE uuid = ?`).bind(uuid).first();
-  return { uuid, owned: await ownedBy(env, uuid, member), equipped: looks(eq, member), plus: member };
+// Height tweaks (FORMAT.md): how far each worn slot sits above (+) or below (-) its
+// default spot, model px in 0.5 steps, at most ADJUST_MAX either way. Theme has none.
+const ADJUST_SLOTS = ['cape', 'head', 'face', 'back'];
+const ADJUST_MAX = 4;
+function cleanAdjust(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const slot of ADJUST_SLOTS) {
+    const v = Number(raw[slot]);
+    if (!Number.isFinite(v)) continue;
+    const r = Math.round(Math.max(-ADJUST_MAX, Math.min(ADJUST_MAX, v)) * 2) / 2;
+    if (r !== 0) out[slot] = r;
+  }
+  return out;
+}
+const adjustOf = row => { try { return cleanAdjust(JSON.parse(row?.adjust ?? 'null')); } catch { return {}; } };
+
+// "Using Origin" = the game wrote presence lately (it does every minute while
+// running; social.js). Drives the Origin badge by every Origin player's name.
+const ORIGIN_RECENT_MS = 10 * 60 * 1000;
+async function inGameAmong(env, uuids, now) {
+  if (!uuids.length) return new Set();
+  const rows = await env.DB.prepare(`SELECT DISTINCT uuid FROM presence WHERE client = 'game' AND at > ? AND uuid IN (${uuids.map(() => '?').join(',')})`)
+    .bind(now - ORIGIN_RECENT_MS, ...uuids).all();
+  return new Set(rows.results.map(r => r.uuid));
 }
 
-async function equippedBatch(env, body) {
+async function playerView(env, uuid) {
+  const member = await isMember(env, uuid);
+  const eq = await env.DB.prepare(`SELECT ${COLS}, adjust FROM equipped WHERE uuid = ?`).bind(uuid).first();
+  return { uuid, owned: await ownedBy(env, uuid, member), equipped: looks(eq, member), adjust: adjustOf(eq), plus: member };
+}
+
+async function equippedBatch(env, body, now = Date.now()) {
   const uuids = [...new Set((Array.isArray(body?.uuids) ? body.uuids : []).map(normUuid).filter(Boolean))].slice(0, MAX_BATCH);
   const out = {};
   if (!uuids.length) return json({ players: out });
-  const rows = await env.DB.prepare(`SELECT uuid, ${COLS} FROM equipped WHERE uuid IN (${uuids.map(() => '?').join(',')})`)
+  const rows = await env.DB.prepare(`SELECT uuid, ${COLS}, adjust FROM equipped WHERE uuid IN (${uuids.map(() => '?').join(',')})`)
     .bind(...uuids).all();
   const members = await membersAmong(env, uuids);
-  // Members are listed even wearing nothing, so the game can show their Origin+ badge.
+  const inGame = await inGameAmong(env, uuids, now);
+  const entry = (uuid, look, adjust) => {
+    const e = { ...look, plus: members.has(uuid), origin: inGame.has(uuid) };
+    if (Object.keys(adjust).length) e.adjust = adjust;
+    return e;
+  };
+  // Members and players in game on Origin are listed even wearing nothing, so the
+  // game can show their badge.
   for (const r of rows.results) {
     const look = looks(r, members.has(r.uuid));
-    if (SLOTS.some(slot => look[slot])) out[r.uuid] = { ...look, plus: members.has(r.uuid) };
+    if (SLOTS.some(slot => look[slot])) out[r.uuid] = entry(r.uuid, look, adjustOf(r));
   }
-  for (const u of members) out[u] ??= { ...looks(null, true), plus: true };
+  for (const u of [...members, ...inGame]) out[u] ??= entry(u, looks(null, members.has(u)), {});
   return json({ players: out });
 }
 
@@ -88,7 +124,7 @@ async function equip(request, env, body, now = Date.now()) {
   const owned = new Set(await ownedBy(env, uuid, await isMember(env, uuid)));
   // A slot the request leaves out stays as it is (a mod from before a slot
   // existed must not take it off); null takes it off.
-  const worn = await env.DB.prepare(`SELECT ${COLS} FROM equipped WHERE uuid = ?`).bind(uuid).first();
+  const worn = await env.DB.prepare(`SELECT ${COLS}, adjust FROM equipped WHERE uuid = ?`).bind(uuid).first();
   const want = {};
   for (const slot of SLOTS) {
     const item = Object.hasOwn(body, slot) ? body[slot] ?? null : worn?.[slot] ?? null;
@@ -97,8 +133,10 @@ async function equip(request, env, body, now = Date.now()) {
     }
     want[slot] = item;
   }
-  await env.DB.prepare(`INSERT OR REPLACE INTO equipped (uuid, ${COLS}, at) VALUES (?, ${SLOTS.map(() => '?').join(', ')}, ?)`)
-    .bind(uuid, ...SLOTS.map(slot => want[slot]), now).run();
+  // Height tweaks: sent = replaced, left out = kept (mods from before them don't send it).
+  const adjust = Object.hasOwn(body, 'adjust') ? cleanAdjust(body.adjust) : adjustOf(worn);
+  await env.DB.prepare(`INSERT OR REPLACE INTO equipped (uuid, ${COLS}, adjust, at) VALUES (?, ${SLOTS.map(() => '?').join(', ')}, ?, ?)`)
+    .bind(uuid, ...SLOTS.map(slot => want[slot]), Object.keys(adjust).length ? JSON.stringify(adjust) : null, now).run();
   return json(await playerView(env, uuid));
 }
 

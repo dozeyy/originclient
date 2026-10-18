@@ -198,7 +198,9 @@ the live ones. With a LIVE key the list does nothing: everyone can buy.
 
 Service API (all JSON, CORS open): `GET /v1/players/<uuid>` → owned +
 equipped; `POST /v1/players/equipped {uuids}` → who wears what (≤100);
-`POST /v1/equip {cape, head}` (Origin sign-in Bearer token);
+`POST /v1/equip {cape, head, face, back, theme, adjust}` (Origin sign-in Bearer token;
+`adjust` = the per-slot height tweaks, kept when left out); every `/equipped` entry
+also carries `origin` (seen in game in the last 10 min: the Origin logo by the name);
 `GET /v1/store/catalog`, `POST /v1/store/checkout {uuid, name, items}`,
 `POST /v1/plus/checkout {uuid, name, plan}`, `POST /v1/stripe/webhook` (Stripe-signed; stripe.js). Tests:
 `cd services/cosmetics && npm test` (Node 22, no installs).

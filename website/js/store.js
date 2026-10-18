@@ -41,7 +41,7 @@ const PRICE_LIST = [
   { id: 'pack-explorer', name: 'Explorer Pack', blurb: 'A stitched leather rucksack with brass buckles and a wool bedroll strapped underneath.', price: 8.49 },
   { id: 'bandana-origin', name: 'Origin Bandana', blurb: 'Charcoal cloth over the nose and mouth, the three rings stitched in silver, knotted at the back.', price: 5.99 },
   { id: 'mask-visor', name: 'Visor Mask', blurb: 'A slim wraparound visor of smoked glass in a gunmetal frame. A soft light sweeps across it now and then.', price: 6.99 },
-  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'The Origin mark in orbit: three silver rings round one centre above your head, a soft glow beneath and a spark of light racing round each.', price: 7.99 },
+  { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'The Origin mark as an atom: three silver rings tumbling round a glowing white centre above your head, a spark of light racing round each.', price: 7.99 },
   { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic polished gold halo. It floats just above your head, a glint sliding round it.', price: 5.99 },
 ];
 // Items the store shows: the catalog once loaded, else the price list. Each: { id, name, blurb, price, kind, slot, animated }.

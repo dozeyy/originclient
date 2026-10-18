@@ -5256,3 +5256,28 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
 - Clean addresses (/store, /terms) need `"cleanUrls": true` — in both `vercel.json` and
   `website/vercel.json`, because the project's Root Directory setting isn't recorded. With it, Vercel
   308-redirects old *.html links (query kept), so ad/banner.html and the mod's store.html still work.
+
+## 2026-10-18 — Cosmetics round (Will's list; built on 1.21.1, awaiting his pass) (branch claude/relaxed-turing-pfdzax)
+- Cape "slices": CapePhysics no longer draws 4 rotating 1px boxes (their inner caps showed at every
+  joint); it records a mitred frame per joint and emits ONE continuous cloth mesh (front/back/sides +
+  top/hem caps) with vanilla cape UVs, entitySolid.
+- Cosmetics screen: click a tile to wear, click again to take off; ONE "None" tile per body tab
+  (takes everything off, keeps the menu theme; Themes tab keeps its "Origin menu" default). Wearing a
+  back item (backpack/wings) takes the cape off and vice versa.
+- Height tweaks: `CosmeticsService.Adjust` (cape/head/face/back, 0.5 px steps, ±4) under the preview;
+  arrows `show()` instantly, save debounced 700 ms (and on close). Service: migration 0007
+  `equipped.adjust` (JSON), returned on players/equipped/equip; equip keeps it when omitted. Applied
+  in CosmeticLayer (y after bone), CosmeticEffects, CapePhysics(+Mixin), MenuPlayerPreview.
+  `picked` is cleared only if it is still the look being saved (no flicker from a mid-save nudge).
+- Origin logo by names for EVERY Origin user: service `/equipped` entries carry `origin` (game presence
+  in last 10 min; in-game players listed even wearing nothing); mod `CosmeticsService.usesOrigin` (self
+  always). Friends-list mark still means Origin+. Needs the service deployed (main) to show for others.
+- Green hover with a theme: OriginButtonRenderer / OriginUi switch / mod-card hover / loading backdrop
+  copied theme tokens into `static final` at class load (frozen default green) — now read live.
+  Hard-coded greens replaced: new themed deck token `ACC_H` (accent button hover; theme.mjs accent
+  family) + `OriginDeck.withAlpha(token, a)` for one-off strengths.
+- Orbit Halo = atom: 3 rings tumbling on their own axes around a white glowing centre, 0.18 px bob.
+  New anim.motion channel `spin` {bone, channel:"spin", axis, speed deg/s} (FORMAT.md; rig.js;
+  1.21.1 CosmeticDef/ModelCosmetic). Old jars read it as amp-0 rot = still rings. Halo rule y 10..13
+  caps ring minor axis ~1.06 px. Other modules: spin + adjust + new screen NOT ported yet (port after
+  Will approves 1.21.1).
