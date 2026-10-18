@@ -5248,3 +5248,11 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
 - Snappy: OriginWindow + OriginModMenuScreen close instantly (beginClose -> setScreen(returnTo) when still the screen; no
   click-blocking close fade), open/page fades 110 ms, card stagger capped (<= 8 rows x 8 ms, 110 ms each), HUD editor + colour
   picker 110 ms, title entrance once per game start (TitleScreenMixin openedAt static). Untouched: MenuBlur (a setting).
+
+## 2026-10-18 — originclient.org is served by Vercel, not GitHub Pages
+- The live domain is the Vercel project `willhenry/orginclient` (git-connected; posts a "Vercel"
+  commit status). deploy-website.yml's GitHub Pages copy is NOT what players see. Its 404 page reads
+  "404 NOT_FOUND sfo1::…".
+- Clean addresses (/store, /terms) need `"cleanUrls": true` — in both `vercel.json` and
+  `website/vercel.json`, because the project's Root Directory setting isn't recorded. With it, Vercel
+  308-redirects old *.html links (query kept), so ad/banner.html and the mod's store.html still work.
