@@ -110,7 +110,17 @@ public final class GuiMesh {
 			RenderSystem.setShader(CoreShaders.POSITION_TEX_COLOR);
 			RenderSystem.setShaderTexture(0, texture);
 		} else {
-			RenderSystem.setShader(CoreShaders.POSITION_COLOR);
+			// RENDERTYPE_GUI, not POSITION_COLOR (same Position+Color format, same
+			// output): MarkMotion draws through here on the startup loading screen,
+			// BEFORE the first resource reload has loaded the core shaders. Only
+			// rendertype_gui, rendertype_gui_overlay and position_tex_color are
+			// preloaded then (GameRenderer.preloadUiShader). Asking for any other
+			// program fails, and ShaderManager.getProgram's failure path triggers
+			// Minecraft.triggerResourcePackRecovery: abortResourcePackRecovery
+			// (setOverlay(null) mid-load -> gameLoadFinished never set -> every
+			// screen renders black forever) or clearResourcePacksOnError (wipes the
+			// player's resource packs). Seen on dev-shots 1.21.4-p2.
+			RenderSystem.setShader(CoreShaders.RENDERTYPE_GUI);
 		}
 		BufferUploader.drawWithShader(mesh);
 		RenderSystem.enableDepthTest();
