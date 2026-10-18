@@ -61,15 +61,20 @@ public abstract class LoadingOverlayRevealMixin {
 			return;
 		}
 		Screen screen = this.minecraft.screen;
-		if (screen != null) {
-			screen.render(guiGraphics, mouseX, mouseY, partialTick);
-		}
 		if (t >= StartupTransition.REVEAL_MS) {
 			// Dissolve finished: this frame is the screen alone, and from the
-			// next one the game renders and routes input to it normally.
+			// next one the game renders and routes input to it normally. The
+			// overlay goes first so the screen draws as it will from now on (the
+			// title's mark checks for it).
 			this.minecraft.setOverlay(null);
+			if (screen != null) {
+				screen.render(guiGraphics, mouseX, mouseY, partialTick);
+			}
 			ci.cancel();
 			return;
+		}
+		if (screen != null) {
+			screen.render(guiGraphics, mouseX, mouseY, partialTick);
 		}
 		guiGraphics.flush();
 		float alpha = (float) (1.0 - StartupTransition.ease(t / (double) StartupTransition.REVEAL_MS));
