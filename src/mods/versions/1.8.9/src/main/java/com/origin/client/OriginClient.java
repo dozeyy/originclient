@@ -30,6 +30,16 @@ public class OriginClient {
 	public static final String MOD_ID = "originclient";
 	public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
 
+	// 1.8.9: mod construction is the earliest hook Forge gives a mod (no
+	// pre-launch entrypoint), so the launcher handshake's hello is said here.
+	public OriginClient() {
+		try {
+			com.origin.client.client.OriginHandoff.startup();
+		} catch (Throwable t) {
+			// informational only; the launcher falls back on its own
+		}
+	}
+
 	@Mod.EventHandler
 	public void init(FMLInitializationEvent event) {
 		LOGGER.info("Origin Client initializing");

@@ -75,11 +75,22 @@ public final class HudHooks {
 
 	// ---- frame timing ----
 
-	/** The frame's partial tick for HUD pieces that interpolate (the minimap). */
+	/**
+	 * The frame's partial tick for HUD pieces that interpolate (the minimap), and
+	 * the frame clock for the FPS module's 1% low / frame time / graph.
+	 * 1.8.9: RenderTickEvent START fires once per frame on the render thread --
+	 * the moment 1.21.1's GameRenderer mixin samples, with no mixin into
+	 * OptiFine's replaced renderer.
+	 */
 	@SubscribeEvent
 	public void onRenderTick(TickEvent.RenderTickEvent e) {
 		if (e.phase == TickEvent.Phase.START) {
 			MinimapHud.partial = e.renderTickTime;
+			try {
+				com.origin.client.client.hud.FrameStats.frame(System.nanoTime());
+			} catch (Throwable t) {
+				// fail-soft: the FPS readout just loses its frame-time extras
+			}
 		}
 	}
 

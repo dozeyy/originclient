@@ -1,5 +1,7 @@
 package com.origin.client.client.hooks;
 
+import com.origin.client.client.OriginHandoff;
+import com.origin.client.client.StartupTransition;
 import com.origin.client.client.gui.CosmeticsScreen;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.gui.OriginForeignWidgets;
@@ -17,6 +19,7 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiIngameMenu;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiScreenResourcePacks;
 import net.minecraft.client.gui.GuiYesNo;
 import net.minecraft.client.gui.GuiYesNoCallback;
 import net.minecraftforge.client.event.GuiOpenEvent;
@@ -44,7 +47,8 @@ import java.util.WeakHashMap;
  *    buttons moved off the Origin title layout (OriginForeignWidgets).
  *  - ActionPerformedEvent.Pre: those buttons' actions (1.8.9 buttons have no
  *    OnPress), and Smart Disconnect (PauseScreenMixin).
- *  - ClientTickEvent: claims mc.loadingScreen for the Origin world-load scene.
+ *  - ClientTickEvent: claims mc.loadingScreen for the Origin world-load scene,
+ *    and says the launcher handshake's "ready" (OriginHandoff).
  *
  * Every handler is fail-soft: a throw leaves vanilla's behaviour.
  */
@@ -162,6 +166,34 @@ public class MenuHooks {
 			addCosmeticsRow(screen, event.buttonList);
 		} else if (IrisBridge.isShaderScreen(screen)) {
 			addDownloadShaders(screen, event.buttonList);
+		} else if (screen instanceof GuiScreenResourcePacks) {
+			addBrowsePacks(screen, event.buttonList);
+		}
+	}
+
+	/**
+	 * The Resource Pack Hub's entry point: a "Browse Packs" button in the top-left
+	 * of Minecraft's own Resource Packs screen, the same button and spot 1.21.1
+	 * uses (and the shader screen's "Download Shaders"). 1.8.9: the screen is
+	 * resource-packs only (no data-pack twin to tell apart), and it re-inits on
+	 * return from the hub, so the button is added once per init.
+	 */
+	private static void addBrowsePacks(final GuiScreen screen, List<GuiButton> buttons) {
+		try {
+			for (GuiButton b : buttons) {
+				if (b instanceof OriginShaderButton) {
+					return;
+				}
+			}
+			buttons.add(new OriginShaderButton(6, 6, 120, 20, "Browse Packs", new Runnable() {
+				@Override
+				public void run() {
+					Minecraft.getMinecraft().displayGuiScreen(
+							new com.origin.client.client.packs.ResourcePackHubScreen(screen));
+				}
+			}));
+		} catch (Throwable ignored) {
+			// the Resource Packs screen as it is
 		}
 	}
 
@@ -326,7 +358,16 @@ public class MenuHooks {
 			return;
 		}
 		try {
+			OriginHandoff.tick();
+		} catch (Throwable t) {
+			// informational only
+		}
+		try {
 			Minecraft mc = Minecraft.getMinecraft();
+			if (mc.theWorld != null) {
+				// A launch straight into a server: the startup intro is not owed later.
+				StartupTransition.claimIntro();
+			}
 			if (mc.loadingScreen != null && !(mc.loadingScreen instanceof OriginLoadingRenderer)
 					&& OriginScreenRenderer.isActive()) {
 				mc.loadingScreen = new OriginLoadingRenderer(mc);

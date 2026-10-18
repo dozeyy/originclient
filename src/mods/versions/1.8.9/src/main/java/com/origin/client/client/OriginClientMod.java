@@ -90,6 +90,14 @@ public class OriginClientMod {
 		OriginHooks.registerObject(instance);
 		// Every area's hooks class (Menu, ModMenu, Hud, World, Social, Server).
 		OriginHooks.registerAll();
+		// Resource Pack Hub: finish uninstalls that had to wait for Minecraft to
+		// release a pack (now, and after every resource reload). Its "Browse Packs"
+		// button on the Resource Packs screen is added by MenuHooks.
+		try {
+			com.origin.client.client.packs.PackHub.register();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin pack hub: init failed", t);
+		}
 		// 1.8.9: Forge 1.8.9 has no client-stopping event. Minecraft.shutdown()
 		// ends in System.exit, which runs JVM shutdown hooks: the single
 		// authoritative autosave happens there (mod settings + HUD positions,
