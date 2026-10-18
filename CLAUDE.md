@@ -185,9 +185,13 @@ floating corner controls. In-game menus match this exactly.
 - Newest launch action cancels any in-flight one FOR THE SAME ACCOUNT (other accounts' games keep running).
 - One control, one job: no UI handler may mutate a setting other than its own.
 
-## Current state (2026-10-17)
-- Latest release `launcher-v1.0.50`. Tag `origin/main` directly (`git tag launcher-v1.0.N origin/main`).
-- Merged, awaiting Will's in-game pass: 26.1–26.3 and 1.8.9 back on Forge + OptiFine (#32).
+## Current state (2026-10-18)
+- Latest release `launcher-v1.0.52`; `launcher-v1.0.53` (main @ 1c094fe0: cosmetics v2 + launch v2 +
+  smooth loading, #33) is green and waiting on its tag. Tag `origin/main` directly
+  (`git tag launcher-v1.0.N origin/main`). Cloud sessions can't push tags (the git proxy drops
+  every tag push), so Will pushes the tag from PowerShell.
+- Merged, awaiting Will's in-game pass: 26.1–26.3 and 1.8.9 back on Forge + OptiFine (#32);
+  launch experience v2 + smooth loading + snappy menus on 1.21.1 (#33).
 - Auth: Minecraft `login_with_xbox` 403 (app approval pending) — `OfflineTestMode` is the test path.
 - Full history (everything this section used to hold): MEMORY.md → "CLAUDE.md current-state +
   roadmap archive" and the dated entries. Grep it; never read it whole.
