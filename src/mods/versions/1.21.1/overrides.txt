@@ -89,3 +89,8 @@ client/java/com/origin/client/client/shaders/ShaderDownloader.java
 # DELIBERATE FORK (2026-09-09) — Mod Menu's 1.21.1 pause-button subclass is
 # safe for Origin to skin while retaining its own update badge.
 client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
+
+# DELIBERATE FORK (2026-10-18) — launch experience v2. 1.21.1's world-loading
+# screen hands the real chunk progress (LevelLoadingScreenAccessor) to the living-
+# rings loading scene. Promote to shared/ when the other versions get the rings.
+client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
