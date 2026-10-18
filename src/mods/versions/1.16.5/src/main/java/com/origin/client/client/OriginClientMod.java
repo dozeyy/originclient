@@ -72,6 +72,8 @@ public class OriginClientMod implements ClientModInitializer {
 	public void onInitializeClient() {
 		OriginKeyBindings.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
+		// Tells Origin Launcher the game is past its loading screen (OriginHandoff).
+		ClientTickEvents.END_CLIENT_TICK.register(OriginHandoff::tick);
 		// Team View, Discord Status and Hypixel register their own events.
 		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
@@ -106,6 +108,30 @@ public class OriginClientMod implements ClientModInitializer {
 				if (!present) {
 					buttons.add(new com.origin.client.client.shaders.OriginShaderButton(6, 6, 120, 20, label,
 							b -> client.setScreen(new com.origin.client.client.shaders.ShaderBrowserScreen(screen))));
+				}
+			}
+		});
+		// Resource Pack Hub: a "Browse Packs" button on Minecraft's own Resource
+		// Packs screen (the data-pack screen is the same class, so match on its
+		// title key -- a TranslatableComponent before 1.19). The hub applies its
+		// staged edits to this screen's list once it has re-initialised on return
+		// (onPackScreenInit). Uninstalls that had to wait for Minecraft to release a
+		// pack finish at startup / after reloads.
+		com.origin.client.client.packs.PackHub.register();
+		net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((client, screen, sw, sh) -> {
+			if (screen instanceof net.minecraft.client.gui.screens.packs.PackSelectionScreen
+					&& screen.getTitle() instanceof net.minecraft.network.chat.TranslatableComponent
+					&& "resourcePack.title".equals(((net.minecraft.network.chat.TranslatableComponent) screen.getTitle()).getKey())) {
+				com.origin.client.client.packs.ResourcePackHubScreen.onPackScreenInit(screen);
+				java.util.List<net.minecraft.client.gui.components.AbstractWidget> buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen);
+				net.minecraft.network.chat.Component label =
+						new net.minecraft.network.chat.TextComponent("Browse Packs");
+				boolean present = buttons.stream().anyMatch(w ->
+						w instanceof net.minecraft.client.gui.components.Button
+								&& label.equals(((net.minecraft.client.gui.components.Button) w).getMessage()));
+				if (!present) {
+					buttons.add(new com.origin.client.client.shaders.OriginShaderButton(6, 6, 120, 20, label,
+							b -> client.setScreen(new com.origin.client.client.packs.ResourcePackHubScreen(screen))));
 				}
 			}
 		});

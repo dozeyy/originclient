@@ -140,6 +140,12 @@ public final class Mods {
 				ModOption.toggle("textShadow", "Text Shadow", true),
 				ModOption.toggle("showBrackets", "Show Brackets", false),
 				ModOption.toggle("showBackground", "Show Background", true),
+				// Frame pacing (FrameStats). Off by default so the readout looks the same
+				// for everyone who never opens these settings.
+				ModOption.header("Frame Times"),
+				ModOption.toggle("showLows", "Show 1% Low", false),
+				ModOption.toggle("showFrameTime", "Show Frame Time (ms)", false),
+				ModOption.toggle("showGraph", "Frame Time Graph", false),
 				ModOption.header("Color"),
 				ModOption.color("color", "Text Color", 0xFFFFFFFF),
 				ModOption.color("bgColor", "Background Color", 0x00000000));
