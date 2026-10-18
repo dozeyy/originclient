@@ -21,6 +21,7 @@
 		"LoadingOverlayMixin",
 		"TitleScreenMixin",
 		"ScreenInvoker",
+		"PackSelectionScreenAccessor",
 		"ScreenBackgroundMixin",
 		"AbstractSelectionListMixin",
 		"LevelRendererMixin",

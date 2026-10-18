@@ -53,6 +53,12 @@ public final class Gfx {
 		return pose;
 	}
 
+	/** GuiGraphics.flush() twin. Pre-1.20 every draw here is immediate (GuiComponent
+	 *  statics and Tesselator end their own batch), so there is never anything
+	 *  pending to push out — kept so ported 1.21.1 call sites read the same. */
+	public void flush() {
+	}
+
 	public int guiWidth() {
 		return Minecraft.getInstance().getWindow().getGuiScaledWidth();
 	}

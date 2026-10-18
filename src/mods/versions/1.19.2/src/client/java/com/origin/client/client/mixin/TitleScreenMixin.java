@@ -76,8 +76,10 @@ public class TitleScreenMixin {
 	private Button originclient$modsNav;
 	@Unique
 	private Button originclient$cosmeticsNav;
+	// Static: the menu's entrance plays once per game start (Will 2026-10-18,
+	// "snappy"), not again every time the player comes back from a world.
 	@Unique
-	private long originclient$openedAt = 0;
+	private static long originclient$openedAt = 0;
 	@Unique
 	private final List<AbstractWidget> originclient$nav = new ArrayList<>();
 	@Unique
@@ -144,7 +146,9 @@ public class TitleScreenMixin {
 	 *  until this. A handful of setX/setY calls a frame is nothing. */
 	@Unique
 	private void originclient$applyPositions() {
-		long el = System.currentTimeMillis() - originclient$openedAt;
+		// Counted from the startup reveal when that came later: the first init
+		// happens behind the loading screen, where the rise would play unseen.
+		long el = System.currentTimeMillis() - com.origin.client.client.StartupTransition.titleIntroStart(originclient$openedAt);
 		for (int i = 0; i < originclient$nav.size(); i++) {
 			int[] t = originclient$navPos.get(i);
 			double e = el > 1200 ? 1.0 : originclient$ease((el - 120 - i * 55) / 380.0);
@@ -240,7 +244,6 @@ public class TitleScreenMixin {
 		Screen self = (Screen) (Object) this;
 		if (originclient$openedAt == 0) {           // first init only — a resize re-init doesn't replay
 			originclient$openedAt = System.currentTimeMillis();
-			OriginScreenRenderer.setTitleOpenedAt(originclient$openedAt);
 		}
 		for (GuiEventListener child : self.children()) {
 			// Copyright line + any Mod Menu "Mods" button already present: hidden.
