@@ -5180,4 +5180,10 @@ Built for 1.21.1 only. Full detail is in `DEVELOPMENT_REPORT.md`. Nothing is in 
 - **Loading → title**: `LoadingOverlayRevealMixin` HEAD-cancels ONLY after `fadeOutStart` is set (completion already ran), 560 ms dissolve via `OriginScreenRenderer.shade()`/`layerAlpha` (all shader colours in that file go through shade). `TitleScreenFadeMixin` skips vanilla's 2 s fade (vanilla draws no widgets/logo for its first second).
 - **World entry**: `StartupTransition.drawWorldEntry` at GuiHudMixin RETURN, armed by `renderLoadingScene0`.
 - Launcher XAML can't build in the sandbox (BG1002); type-check via stubs from x:Name (scratch `wpfcheck/gen.py`).
-- **Unverified**: mixin apply of the new shadows; the visual timing in-game.
+- **Verified by video (dev-shots, CI)**: all mixins apply (0 failures); dissolve + world fade visible. The film caught 2 bugs: reveal clock counted from
+  `fadeOutStart` (before the slow first title frame → dissolve skipped) — now starts after its first drawn frame; HUD/menu labels sit at higher z
+  (LayeredDraw +200/layer) and beat a z-0 cover in the depth test — both covers now `flush` + `RenderSystem.clear(GL_DEPTH_BUFFER_BIT)` first.
+- **Filming dev-shots**: dispatch with `video: true` → `loading.mp4` + `x-probe.txt` in claude/dev-shots `<mc>-<set>-video/`. GOTCHA: Fabric Loom wraps
+  `runClient` in its own `xvfb-run -a` (1280x1024, cookie-locked display) whenever env `CI` is set — so the game is NEVER on the workflow's Xvfb.
+  The filmed path runs `env -u CI ./gradlew runClient` and reads DISPLAY/XAUTHORITY from the game's /proc environ. llvmpipe ≈ 1–13 fps, so
+  short fades show only 1–3 frames.

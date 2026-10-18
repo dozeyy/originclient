@@ -85,6 +85,9 @@ Spec and timings: `docs/MOTION.md`. Durations are mirrored once each in `Theme/S
   - Vanilla's 2 s blank fade-in is skipped, so the menu is clickable when the dissolve ends.
   - This is a HEAD-cancel that runs only after vanilla's completion step, so vanilla's own end stays the safety net.
 - **Menu → world:** the first world frames fade out of the loading scene's charcoal over 320 ms. The fade is drawn over the HUD, so input is live from the first frame and error screens draw above it. It also plays for dimension changes and server joins.
+- **Found by filming it** (dev-shots `video` input, a real headless run):
+  - the dissolve's clock started before the menu's slow first frame, so a hitch could skip it; it now starts once its first frame is on screen;
+  - menu labels and the HUD poked through the dissolve and the world fade (depth); both now fade with everything else.
 
 ## Performance
 No blind optimisations and no FPS claims. The stack (Sodium, Lithium, FerriteCore, ImmediatelyFast, ModernFix, Krypton) already covers what Lunar, Feather and Badlion ship. The new frame graph and 1% low are the measuring tools that should come first.
