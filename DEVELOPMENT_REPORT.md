@@ -1,6 +1,6 @@
 # Development report — cosmetics, launch experience, Origin+
 
-Branch `claude/stripe-store`. Commits are local only (not pushed, merged or deployed).
+Branch `claude/stripe-store`, pushed (Will's OK, 2026-10-18). Not merged to main, not deployed.
 Updated 2026-10-18.
 
 ## Features completed
@@ -10,11 +10,12 @@ Updated 2026-10-18.
   - **Passed (8/10):**
     - Capes: Origin, Origin+ (members only), Void, Golden Hour, Frost, Inferno, Starfall,
       Orbit, Glitch (the last three passed on their third and final try)
-    - Ember Wings, Explorer Pack, Origin Bandana, Visor Mask (the last two on their second try)
+    - Ember Wings, Explorer Pack, Golden Halo, Origin Bandana, Visor Mask (the last three on
+      their second try; Will asked for an extra polish pass on the bandana and visor)
     - Menu themes: Amethyst, Crimson, Ocean, Rose (reworked, below)
-  - **Dropped after 3 tries:** Pixel Crown and Aurora Cape. Both are `onSale:false`, so
-    owners still own and wear them.
-  - **Being redrawn (failed try 1):** Orbit and Golden halos.
+  - **Dropped after 3 tries:** Pixel Crown, Aurora Cape and Orbit Halo (best 7: the inner orbits
+    read as a knot, not atom rings). All three are `onSale:false`, so owners still own and
+    wear them.
 - **Menu themes rebuilt on the real main theme** (Will: the old ones didn't match the in-game
   menu). A theme is now the main theme's own colour tokens (`DEF_` in OriginDeck/OriginTheme)
   re-tinted in OKLCH by `cosmetics/lib/theme.mjs`, so every contrast and alpha carries over;
@@ -27,10 +28,10 @@ Updated 2026-10-18.
   ends (a test pins this). The store dropped its Themes tab; the Origin+ card lists "Every menu
   theme" with the four previews, and each swatch tries the theme on in the fitting room. In game,
   theme cards say "ORIGIN+ THEME", and a non-member's Themes tab says they come with Origin+.
-- **Menu themes and the mod-card toggle.** With a theme equipped, the DISABLED bar is neutral
-  grey and the hovered ENABLED bar follows the theme's accent. Before, it stayed red and
-  flashed green, so on Crimson "on" and "off" were both red. With no theme it is
-  byte-identical to before.
+- **Menu themes and the mod-card toggle.** The hovered ENABLED bar follows the theme's accent
+  (before, it flashed green on every theme). On the red and pink themes (Crimson, Rose) the
+  DISABLED bar is neutral grey, so "on" and "off" are never both red; the others keep the main
+  theme's red. With no theme it is byte-identical to before.
 - **Launcher opening animation** (`UI/Controls/StartupIntro`):
   - The three Origin rings draw themselves in and swing out to their angles, then the layer
     fades away. It lasts about 0.85 s.

@@ -16,7 +16,7 @@ export const CATALOG = {
   'pack-explorer': { name: 'Explorer Pack', cents: 849, slot: 'back', kind: 'pack', onSale: true, plusOnly: false },
   'bandana-origin': { name: 'Origin Bandana', cents: 599, slot: 'face', kind: 'bandana', onSale: true, plusOnly: false },
   'mask-visor': { name: 'Visor Mask', cents: 699, slot: 'face', kind: 'mask', onSale: true, plusOnly: false },
-  'halo-orbit': { name: 'Orbit Halo', cents: 799, slot: 'head', kind: 'halo', onSale: true, plusOnly: false },
+  'halo-orbit': { name: 'Orbit Halo', cents: 799, slot: 'head', kind: 'halo', onSale: false, plusOnly: false },
   'halo-gold': { name: 'Golden Halo', cents: 599, slot: 'head', kind: 'halo', onSale: true, plusOnly: false },
   'crown-pixel': { name: 'Pixel Crown', cents: 699, slot: 'head', kind: 'crown', onSale: false, plusOnly: false },
   'theme-amethyst': { name: 'Amethyst', cents: 0, slot: 'theme', kind: 'theme', onSale: false, plusOnly: true },
