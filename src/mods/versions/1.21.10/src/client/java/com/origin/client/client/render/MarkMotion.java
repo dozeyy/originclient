@@ -9,7 +9,6 @@ import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import net.minecraft.client.renderer.RenderPipelines;
 import org.joml.Matrix3x2f;
-import org.joml.Matrix3x2fc;
 
 import java.util.Arrays;
 
@@ -256,7 +255,7 @@ final class MarkMotion {
 	// Vanilla's GUI pipeline (POSITION_COLOR, QUADS, translucent, culls back faces).
 	private static final RenderPipeline PIPELINE = RenderPipelines.GUI;
 
-	private record MarkRenderState(RenderPipeline pipeline, TextureSetup textureSetup, Matrix3x2fc pose,
+	private record MarkRenderState(RenderPipeline pipeline, TextureSetup textureSetup, Matrix3x2f pose,
 								   float[] xy, int[] argb, ScreenRectangle scissorArea,
 								   ScreenRectangle bounds) implements GuiElementRenderState {
 		@Override
