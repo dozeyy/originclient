@@ -93,7 +93,6 @@ public static class RenderShots
         window.TourHideLaunch();
         window.TourGoTo(0);
         Pump(400);
-        var playerVersion = window.TourCurrentVersion;
         window.TourShowVersions(-1);
         Pump(500);
         Snap(window, outDir, "10-versions-grid");
@@ -101,7 +100,6 @@ public static class RenderShots
         Pump(500);
         Snap(window, outDir, "11-versions-detail");
         window.TourHideVersions();
-        window.TourRestoreVersion(playerVersion);   // browsing saved a version; put the player's back
         Pump(300);
         window.TourSetAccountOpen(true);
         Pump(500);
@@ -130,7 +128,6 @@ public static class RenderShots
         Pump(500);
         Snap(window, outDir, "22-min-versions-detail");
         window.TourHideVersions();
-        window.TourRestoreVersion(playerVersion);
         Pump(300);
         window.TourGoTo(1);
         Pump(800);

@@ -23,6 +23,9 @@ public partial class MicrosoftSignInPanel : UserControl, IDisposable
     public MicrosoftSignInPanel()
     {
         InitializeComponent();
+        // The page's own background while it loads: the field colour, from the theme tokens.
+        var field = (System.Windows.Media.Color)FindResource("Color.Field");
+        WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(field.A, field.R, field.G, field.B);
 
         // Every sign-in runs in a throwaway InPrivate profile. The panel used
         // to run in WebView2's default profile (<exe>.WebView2, on disk, shared

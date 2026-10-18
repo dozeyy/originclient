@@ -2,13 +2,13 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- Surfaces and chips, in the website's treatment (.vcard / .vcard li):
-         flat translucent glass, a 1 px soft stroke that lifts one step on hover,
-         small translucent chips. No lift or resize on hover (Workbench: geometry
-         never moves under the pointer); the stroke change is the whole response.
+         flat translucent glass with a 1 px soft stroke, small translucent chips.
+         Clickable cards (version picker) brighten their stroke on hover in their own
+         templates; static containers do not.
          Radii come from Theme/Spacing.xaml. -->
 
-    <!-- A card: a ContentControl so the hover edge is a named template part.
-         Pages set Padding and Margin; content is whatever sits inside. -->
+    <!-- A static card: glass, soft stroke, no hover response (it is a container, not
+         a control, so it must not read as clickable). Pages set Padding and Margin. -->
     <Style x:Key="Surface.Card" TargetType="ContentControl">
         <Setter Property="Padding" Value="{StaticResource Layout.CardPadding}"/>
         <Setter Property="Margin" Value="{StaticResource Layout.CardGap}"/>
@@ -20,32 +20,8 @@
                         <Border Background="{StaticResource Brush.PanelGlass}"
                                 BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                                 CornerRadius="{StaticResource Radius.Card}"/>
-                        <Border x:Name="HoverEdge"
-                                BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
-                                CornerRadius="{StaticResource Radius.Card}"
-                                IsHitTestVisible="False" Opacity="0"/>
                         <ContentPresenter Margin="{TemplateBinding Padding}"/>
                     </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Trigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="HoverEdge" Storyboard.TargetProperty="Opacity"
-                                                         To="1" Duration="{StaticResource Motion.Base}"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.EnterActions>
-                            <Trigger.ExitActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="HoverEdge" Storyboard.TargetProperty="Opacity"
-                                                         To="0" Duration="{StaticResource Motion.Release}"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.ExitActions>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

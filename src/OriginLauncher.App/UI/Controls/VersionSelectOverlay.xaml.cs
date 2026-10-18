@@ -218,8 +218,11 @@ public partial class VersionSelectOverlay : UserControl
 
     // Render mode only (UI/RenderShots.cs): open the picker, optionally straight
     // into one family's detail view (index into VersionCatalog.Groups).
+    // They do nothing outside a render-shots run (OriginPaths.IsScratchRoot): picking a
+    // family raises VersionSelected, which saves the player's version.
     internal void TourOpen(int detailIndex)
     {
+        if (!OriginPaths.IsScratchRoot) return;
         Show(null);
         if (detailIndex >= 0 && detailIndex < VersionCatalog.Groups.Count)
             GridList.SelectedItem = VersionCatalog.Groups[detailIndex];
@@ -227,6 +230,7 @@ public partial class VersionSelectOverlay : UserControl
 
     internal void TourClose()
     {
+        if (!OriginPaths.IsScratchRoot) return;
         ++_sceneRevision;
         Visibility = Visibility.Collapsed;
     }

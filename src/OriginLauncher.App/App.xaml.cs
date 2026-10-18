@@ -28,6 +28,10 @@ public partial class App : Application
         if (render >= 0 && render + 1 < e.Args.Length)
         {
             var outDir = e.Args[render + 1];
+            // First thing, before any code reads a launcher path: all launcher data goes
+            // to a throwaway folder, so this run can't touch the player's settings.
+            OriginPaths.UseScratchRoot(System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "origin-render-shots-" + Guid.NewGuid().ToString("N")));
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             // Any failure, on any thread, leaves its stack trace for the CI log.
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>

@@ -5,11 +5,15 @@
         Width="620" Height="480" MinWidth="480" MinHeight="360"
         WindowStartupLocation="CenterOwner"
         Background="#FF0E1110"
-        FontFamily="{StaticResource Font.Primary}"
+        FontFamily="Segoe UI"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
-    <!-- Self-contained styling (hardcoded Workbench hex, no theme StaticResources), same
-         rule as CrashWindow: a crash surface must render no matter what. -->
+    <!-- Self-contained styling: literal colours and system fonts only (Segoe UI, Consolas), no
+         theme resources, so a crash surface renders even if the theme is what broke.
+         Each hex mirrors a Theme/Colors.xaml token (keep them in step by hand):
+         #FF0E1110 Color.Bg, #FFF1E9D2 Color.Text, #FFB8B5A6 Color.TextDim, #FF8C9187 Color.TextMuted,
+         #FF1D2420 Color.Card, #FF27302A Color.CardAlt, #FF121614 Color.Field, #FF2E3B33 Color.SoftStroke,
+         #FF4E705C Color.Stroke, #FF5FD09B Color.Accent, #FF83E2B5 Color.AccentHover, #FF0A1710 Color.TextOnAccent. -->
     <Window.Resources>
         <Style x:Key="CrashButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
@@ -89,7 +93,7 @@
                 BorderThickness="1" CornerRadius="2">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                      Background="Transparent" Foreground="#FFB8B5A6" BorderThickness="0"
-                     FontFamily="{StaticResource Font.Mono}" FontSize="11" Padding="14"
+                     FontFamily="Consolas" FontSize="11" Padding="14"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
