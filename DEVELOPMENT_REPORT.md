@@ -75,9 +75,12 @@ Updated 2026-10-18.
 - `node --check website/js/store.js`: OK.
 - **Not built here.** The launcher (.NET) and the mod (Gradle/Fabric) can't build in this
   sandbox: the .NET SDK and the Fabric maven are blocked. A reviewer read StartupIntro and
-  the Java changes as a compiler would and found no errors, but **nothing has been compiled
-  or run**. CI last compiled the 1.21.1 cosmetics renderer on 7b52bed. Later Java edits are
-  uncompiled.
+  the Java changes as a compiler would and found no errors.
+- **CI on 75e234a1 (GitHub build-check): all green.** Every live mod version compiled,
+  including 1.21.1 with this branch's Java changes. The launcher published (StartupIntro
+  compiled), the installer smoke test passed, and the launcher logic tests passed.
+  cosmetics-service and launcher-shots also passed. Compiling is not running:
+  **nothing has been run in game.**
 
 ## Needs in-game / on-PC testing (nothing below has been seen running)
 - Launcher start, normal and with Windows animations off: does the intro play, skip on a
