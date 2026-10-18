@@ -8,13 +8,14 @@ Updated 2026-10-18.
   judge scores every item, and anything still under 8 after 3 tries is taken off sale
   (owners keep it).
   - **Passed (8/10):**
-    - Capes: Origin, Origin+ (members only), Void, Golden Hour, Frost, Inferno
+    - Capes: Origin, Origin+ (members only), Void, Golden Hour, Frost, Inferno, Starfall,
+      Orbit, Glitch (the last three passed on their third and final try)
     - Ember Wings
     - Menu themes: Emerald, Crimson, Ocean, Rose
   - **Dropped after 3 tries:** Pixel Crown and Aurora Cape. Both are `onSale:false`, so
     owners still own and wear them.
-  - **Still on their last tries, or first draws:** Starfall, Orbit and Glitch capes (try 3);
-    Orbit and Golden halos; Explorer Pack; Origin Bandana; Visor Mask.
+  - **Still being drawn and judged:** Orbit and Golden halos; Explorer Pack; Origin Bandana;
+    Visor Mask.
 - **Menu themes and the mod-card toggle.** With a theme equipped, the DISABLED bar is neutral
   grey and the hovered ENABLED bar follows the theme's accent. Before, it stayed red and
   flashed green, so on Crimson "on" and "off" were both red. With no theme it is
