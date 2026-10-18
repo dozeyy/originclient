@@ -50,7 +50,8 @@ import java.util.Iterator;
 // call changes from glMultiDrawElementsBaseVertex to GPU-written indirect commands.
 //
 // Never broken (mandate 4): off by default; stock Sodium whenever a shaderpack is
-// on (Iris owns the pipeline then, mandate 3), the driver lacks GL 4.5, the pass
+// on (Iris owns the pipeline then, mandate 3), the card lacks compute shaders
+// (TerrainCuller.supported: GL 4.3 features, any context version), the pass
 // isn't drawing into Minecraft's main framebuffer, or anything ever throws or
 // raises a GL error (then it stays off for the session and F3 says so).
 public final class OriginRender {
@@ -298,7 +299,7 @@ public final class OriginRender {
 
 	private static boolean create() {
 		if (!TerrainCuller.supported()) {
-			fail("needs OpenGL 4.5");
+			fail("your graphics card has no compute shaders");
 			return false;
 		}
 		try {
@@ -356,7 +357,7 @@ public final class OriginRender {
 			return "stopped (" + failure + ")";
 		}
 		if (!TerrainCuller.supported()) {
-			return "your graphics driver lacks OpenGL 4.5, so Sodium keeps drawing as usual";
+			return "your graphics card is too old for it (no compute shaders), so Sodium keeps drawing as usual";
 		}
 		if (shaderPackOn()) {
 			return "pauses while a shaderpack is on";

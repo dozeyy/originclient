@@ -1,7 +1,13 @@
 package com.origin.client.client.render.terrain;
 
-// Origin Render's compute shaders (GLSL 4.50). Buffer bindings, shared by both
-// cull shaders (TerrainCuller.bindBuffers):
+// Origin Render's compute shaders, GLSL 4.30 (VERSION goes in front of each).
+// Minecraft's context reports GL 3.2 on AMD/NVIDIA, but those drivers (and
+// Intel's) still take any GLSL version the card does - the same way Iris
+// shaderpacks run there - so supported() checks the reported GLSL version and
+// there is no extension-header fallback: Mesa crashed natively LINKING a compute
+// shader declared under an older #version with the 4.3 extensions switched on.
+// Buffer bindings, shared by both cull shaders
+// (TerrainCuller.bindBuffers):
 //   0 sections   per section: vec4 (camera-relative min corner, -), uvec4 (hint slot, first command, command count, -)
 //   1 templates  per command: 5 uints as the CPU wrote them (instanceCount 0)
 //   2 outA / 3 outB  the indirect buffers: template copied, instanceCount 0 or 1
@@ -12,8 +18,9 @@ final class TerrainShaders {
 	private TerrainShaders() {
 	}
 
+	static final String VERSION = "#version 430 core\n";
+
 	private static final String COMMON = """
-			#version 450
 			struct Section { vec4 box; uvec4 meta; };
 			layout(std430, binding = 0) readonly buffer Sections { Section sections[]; };
 			layout(std430, binding = 1) readonly buffer Templates { uint tmpl[]; };
@@ -128,7 +135,6 @@ final class TerrainShaders {
 
 	/** Level 0: max over every depth pixel the texel overlaps (conservative for any screen size). */
 	static final String HIZ_FIRST = """
-			#version 450
 			layout(local_size_x = 8, local_size_y = 8) in;
 			uniform sampler2D u_depth;
 			uniform ivec2 u_src;
@@ -149,7 +155,6 @@ final class TerrainShaders {
 
 	/** Each further level: max of the 2x2 below it. */
 	static final String HIZ_REDUCE = """
-			#version 450
 			layout(local_size_x = 8, local_size_y = 8) in;
 			uniform ivec2 u_inSize;
 			uniform ivec2 u_outSize;

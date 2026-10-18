@@ -9,7 +9,9 @@ import org.lwjgl.opengl.GL30C;
 import org.lwjgl.opengl.GL33C;
 import org.lwjgl.opengl.GL40C;
 import org.lwjgl.opengl.GL43C;
-import org.lwjgl.opengl.GL45C;
+import org.lwjgl.opengl.GL12C;
+import org.lwjgl.opengl.GL13C;
+import org.lwjgl.opengl.GL31C;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
@@ -20,10 +22,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-// Origin Render's GPU culler on a real OpenGL 4.5 driver (Mesa llvmpipe under
-// Xvfb in the sandbox, or any desktop GL). No Minecraft: TerrainCuller is plain
+// Origin Render's GPU culler on a real OpenGL driver (Mesa llvmpipe under Xvfb
+// in the sandbox, or any desktop GL). No Minecraft: TerrainCuller is plain
 // LWJGL. The key property: a section is NEVER culled when any of it could be
 // seen - checked against the GPU's own occlusion queries over random scenes.
+//
+// Context modes (run.py runs all three): "45" = a 4.5 core context; "mc" = the
+// context Minecraft really gets on AMD/NVIDIA - 3.2 core forward-compatible,
+// where the 4.3 features exist only as extensions (run.py caps Mesa at GL 3.2);
+// "old" = also GLSL capped at 1.50, which supported() must refuse up front. The
+// fixtures below therefore use only GL 3.2 calls themselves.
 public class OriginRenderTests {
 	static int passed = 0, failed = 0;
 
@@ -37,21 +45,35 @@ public class OriginRenderTests {
 	}
 
 	public static void main(String[] args) {
+		String mode = args.length > 0 ? args[0] : "45";
+		boolean mc = !mode.equals("45");
 		if (!GLFW.glfwInit()) {
 			throw new IllegalStateException("glfwInit failed (run under xvfb-run)");
 		}
 		GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
-		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 4);
-		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 5);
+		// mc: exactly Minecraft's request (com.mojang.blaze3d.platform.Window)
+		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, mc ? 3 : 4);
+		GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, mc ? 2 : 5);
 		GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_CORE_PROFILE);
+		GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_FORWARD_COMPAT, mc ? GLFW.GLFW_TRUE : GLFW.GLFW_FALSE);
 		long win = GLFW.glfwCreateWindow(64, 64, "origin-render-tests", 0, 0);
 		if (win == 0) {
-			throw new IllegalStateException("no GL 4.5 context");
+			throw new IllegalStateException("no GL " + (mc ? "3.2" : "4.5") + " context");
 		}
 		GLFW.glfwMakeContextCurrent(win);
 		GL.createCapabilities();
 		System.out.println("GL: " + GL11C.glGetString(GL11C.GL_VERSION) + " / " + GL11C.glGetString(GL11C.GL_RENDERER));
-		check(TerrainCuller.supported(), "supported() on a 4.5 context");
+		var caps = GL.getCapabilities();
+		if (mc) {
+			check(!caps.OpenGL43, "mc context hides GL 4.3 (else this mode proves nothing)");
+		}
+		if (mode.equals("old")) {
+			check(!TerrainCuller.supported(), "supported() refuses a driver without GLSL 4.30");
+			System.out.println(passed + " passed, " + failed + " failed");
+			GLFW.glfwTerminate();
+			System.exit(failed == 0 ? 0 : 1);
+		}
+		check(TerrainCuller.supported(), "supported() on the " + (mc ? "Minecraft-like 3.2" : "4.5") + " context");
 
 		TerrainCuller culler = new TerrainCuller(); // compiles all four shaders
 		check(GL11C.glGetError() == 0, "no GL error after compile");
@@ -82,9 +104,8 @@ public class OriginRenderTests {
 		for (int i = 0; i < depth.length; i++) {
 			depth[i] = r.nextFloat();
 		}
-		int tex = GL45C.glCreateTextures(GL11C.GL_TEXTURE_2D);
-		GL45C.glTextureStorage2D(tex, 1, GL30C.GL_DEPTH_COMPONENT32F, w, h);
-		GL45C.glTextureSubImage2D(tex, 0, 0, 0, w, h, GL11C.GL_DEPTH_COMPONENT, GL11C.GL_FLOAT, depth);
+		int tex = texture(GL30C.GL_DEPTH_COMPONENT32F, w, h);
+		depthData(tex, w, h, depth);
 		culler.buildHiZ(tex, w, h);
 		int hizTex = field(culler, "hizTex"), hw = field(culler, "hizW"), hh = field(culler, "hizH"), levels = field(culler, "hizLevels");
 		check(hw == Math.max(1, Integer.highestOneBit(Math.max(1, w / 2))) && hh == Math.max(1, Integer.highestOneBit(Math.max(1, h / 2))),
@@ -95,7 +116,9 @@ public class OriginRenderTests {
 		for (int l = 0; l < levels; l++) {
 			int lw = Math.max(1, hw >> l), lh = Math.max(1, hh >> l);
 			float[] got = new float[lw * lh];
-			GL45C.glGetTextureImage(hizTex, l, GL11C.GL_RED, GL11C.GL_FLOAT, got);
+			GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, hizTex);
+			GL11C.glGetTexImage(GL11C.GL_TEXTURE_2D, l, GL11C.GL_RED, GL11C.GL_FLOAT, got);
+			GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, 0);
 			for (int y = 0; y < lh && ok; y++) {
 				for (int x = 0; x < lw && ok; x++) {
 					float want = 0;
@@ -141,20 +164,14 @@ public class OriginRenderTests {
 	static void neverHidesVisible(TerrainCuller culler, int w, int h, long seed, int reach, boolean edges) {
 		W = w;
 		H = h;
-		int fbo = GL45C.glCreateFramebuffers();
-		int color = GL45C.glCreateTextures(GL11C.GL_TEXTURE_2D);
-		GL45C.glTextureStorage2D(color, 1, GL11C.GL_RGBA8, W, H);
-		int depth = GL45C.glCreateTextures(GL11C.GL_TEXTURE_2D);
-		GL45C.glTextureStorage2D(depth, 1, GL30C.GL_DEPTH_COMPONENT24, W, H);
-		GL45C.glNamedFramebufferTexture(fbo, GL30C.GL_COLOR_ATTACHMENT0, color, 0);
-		GL45C.glNamedFramebufferTexture(fbo, GL30C.GL_DEPTH_ATTACHMENT, depth, 0);
+		int fbo = GL30C.glGenFramebuffers();
+		int color = texture(GL11C.GL_RGBA8, W, H);
+		int depth = texture(GL30C.GL_DEPTH_COMPONENT24, W, H);
+		attach(fbo, GL30C.GL_COLOR_ATTACHMENT0, color);
+		attach(fbo, GL30C.GL_DEPTH_ATTACHMENT, depth);
 		int prog = boxProgram();
-		int vao = GL45C.glCreateVertexArrays();
-		int vbo = GL45C.glCreateBuffers();
-		GL45C.glVertexArrayVertexBuffer(vao, 0, vbo, 0, 12);
-		GL45C.glEnableVertexArrayAttrib(vao, 0);
-		GL45C.glVertexArrayAttribFormat(vao, 0, 3, GL11C.GL_FLOAT, false, 0);
-		GL45C.glVertexArrayAttribBinding(vao, 0, 0);
+		int vbo = GL15C.glGenBuffers();
+		int vao = vertexArray(vbo, 0);
 		int query = GL15C.glGenQueries();
 
 		Random r = new Random(seed);
@@ -248,11 +265,10 @@ public class OriginRenderTests {
 	// ---- two-phase: hints carry visibility to the next frame ----
 
 	static void twoPhaseFlow(TerrainCuller culler) {
-		int depth = GL45C.glCreateTextures(GL11C.GL_TEXTURE_2D);
-		GL45C.glTextureStorage2D(depth, 1, GL30C.GL_DEPTH_COMPONENT32F, 64, 64);
+		int depth = texture(GL30C.GL_DEPTH_COMPONENT32F, 64, 64);
 		float[] far = new float[64 * 64];
 		java.util.Arrays.fill(far, 1f);
-		GL45C.glTextureSubImage2D(depth, 0, 0, 0, 64, 64, GL11C.GL_DEPTH_COMPONENT, GL11C.GL_FLOAT, far);
+		depthData(depth, 64, 64, far);
 		Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(70), 1f, 0.05f, 512f);
 		int[] slots = {7, 300_000, 1_048_575};
 		for (int frame = 0; frame < 2; frame++) {
@@ -292,8 +308,7 @@ public class OriginRenderTests {
 		int prog = boxProgram();
 		GL20C.glUseProgram(prog);
 		GL13();
-		int depth = GL45C.glCreateTextures(GL11C.GL_TEXTURE_2D);
-		GL45C.glTextureStorage2D(depth, 1, GL30C.GL_DEPTH_COMPONENT32F, 32, 32);
+		int depth = texture(GL30C.GL_DEPTH_COMPONENT32F, 32, 32);
 		culler.reset();
 		culler.addSection(0, 0, -40, 1);
 		culler.addCommand(6, 0);
@@ -308,10 +323,10 @@ public class OriginRenderTests {
 		check(GL11C.glGetInteger(GL13_ACTIVE_TEXTURE) == GL13_TEXTURE0 + 3, "active texture unit untouched");
 		boolean unitsClear = true;
 		for (int u : new int[]{14, 15}) {
-			GL45C.glActiveTexture(GL13_TEXTURE0 + u);
+			GL13C.glActiveTexture(GL13_TEXTURE0 + u);
 			unitsClear &= GL11C.glGetInteger(GL11C.GL_TEXTURE_BINDING_2D) == 0 && GL11C.glGetInteger(GL33C.GL_SAMPLER_BINDING) == 0;
 		}
-		GL45C.glActiveTexture(GL13_TEXTURE0);
+		GL13C.glActiveTexture(GL13_TEXTURE0);
 		check(unitsClear, "texture units 14/15 and their samplers unbound");
 		check(GL11C.glGetError() == 0, "no GL error in state test");
 		GL20C.glUseProgram(0);
@@ -322,39 +337,36 @@ public class OriginRenderTests {
 	static final int GL13_ACTIVE_TEXTURE = 0x84E0, GL13_TEXTURE0 = 0x84C0;
 
 	static void GL13() {
-		GL45C.glActiveTexture(GL13_TEXTURE0 + 3);
+		GL13C.glActiveTexture(GL13_TEXTURE0 + 3);
 	}
 
 	// ---- the buffers really drive glMultiDrawElementsIndirect ----
 
 	static void indirectDraws(TerrainCuller culler) {
-		int fbo = GL45C.glCreateFramebuffers();
-		int color = GL45C.glCreateTextures(GL11C.GL_TEXTURE_2D);
-		GL45C.glTextureStorage2D(color, 1, GL11C.GL_RGBA8, 16, 16);
-		GL45C.glNamedFramebufferTexture(fbo, GL30C.GL_COLOR_ATTACHMENT0, color, 0);
-		int depth = GL45C.glCreateTextures(GL11C.GL_TEXTURE_2D);
-		GL45C.glTextureStorage2D(depth, 1, GL30C.GL_DEPTH_COMPONENT32F, 16, 16);
+		int fbo = GL30C.glGenFramebuffers();
+		int color = texture(GL11C.GL_RGBA8, 16, 16);
+		attach(fbo, GL30C.GL_COLOR_ATTACHMENT0, color);
+		int depth = texture(GL30C.GL_DEPTH_COMPONENT32F, 16, 16);
 		float[] far = new float[256];
 		java.util.Arrays.fill(far, 1f);
-		GL45C.glTextureSubImage2D(depth, 0, 0, 0, 16, 16, GL11C.GL_DEPTH_COMPONENT, GL11C.GL_FLOAT, far);
+		depthData(depth, 16, 16, far);
 		// two quads (Sodium-style: 4 vertices each, shared index buffer 0,1,2,2,3,0), full screen
 		float[] verts = {-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0, -1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0};
-		int vbo = GL45C.glCreateBuffers();
-		GL45C.glNamedBufferData(vbo, verts, GL15C.GL_STATIC_DRAW);
-		int ibo = GL45C.glCreateBuffers();
-		GL45C.glNamedBufferData(ibo, new int[]{0, 1, 2, 2, 3, 0}, GL15C.GL_STATIC_DRAW);
-		int vao = GL45C.glCreateVertexArrays();
-		GL45C.glVertexArrayVertexBuffer(vao, 0, vbo, 0, 12);
-		GL45C.glEnableVertexArrayAttrib(vao, 0);
-		GL45C.glVertexArrayAttribFormat(vao, 0, 3, GL11C.GL_FLOAT, false, 0);
-		GL45C.glVertexArrayAttribBinding(vao, 0, 0);
-		GL45C.glVertexArrayElementBuffer(vao, ibo);
+		int vbo = GL15C.glGenBuffers();
+		GL15C.glBindBuffer(GL15C.GL_ARRAY_BUFFER, vbo);
+		GL15C.glBufferData(GL15C.GL_ARRAY_BUFFER, verts, GL15C.GL_STATIC_DRAW);
+		GL15C.glBindBuffer(GL15C.GL_ARRAY_BUFFER, 0);
+		int ibo = GL15C.glGenBuffers();
+		int vao = vertexArray(vbo, ibo);
+		GL30C.glBindVertexArray(vao);
+		GL15C.glBufferData(GL15C.GL_ELEMENT_ARRAY_BUFFER, new int[]{0, 1, 2, 2, 3, 0}, GL15C.GL_STATIC_DRAW);
+		GL30C.glBindVertexArray(0);
 		int prog = program("""
-				#version 450
-				layout(location = 0) in vec3 p;
+				#version 150 core
+				in vec3 p;
 				void main() { gl_Position = vec4(p, 1.0); }
 				""", """
-				#version 450
+				#version 150 core
 				out vec4 c;
 				void main() { c = vec4(1.0); }
 				""");
@@ -385,11 +397,10 @@ public class OriginRenderTests {
 	}
 
 	static void statsArrive(TerrainCuller culler) {
-		int depth = GL45C.glCreateTextures(GL11C.GL_TEXTURE_2D);
-		GL45C.glTextureStorage2D(depth, 1, GL30C.GL_DEPTH_COMPONENT32F, 16, 16);
+		int depth = texture(GL30C.GL_DEPTH_COMPONENT32F, 16, 16);
 		float[] far = new float[256];
 		java.util.Arrays.fill(far, 1f);
-		GL45C.glTextureSubImage2D(depth, 0, 0, 0, 16, 16, GL11C.GL_DEPTH_COMPONENT, GL11C.GL_FLOAT, far);
+		depthData(depth, 16, 16, far);
 		int[] got = null;
 		for (int frame = 0; frame < 6 && got == null; frame++) {
 			culler.beginFrameStats();
@@ -415,22 +426,63 @@ public class OriginRenderTests {
 
 	static int boxProgram() {
 		return program("""
-				#version 450
-				layout(location = 0) in vec3 p;
+				#version 150 core
+				in vec3 p;
 				uniform mat4 u_vp;
 				void main() { gl_Position = u_vp * vec4(p, 1.0); }
 				""", """
-				#version 450
+				#version 150 core
 				out vec4 c;
 				void main() { c = vec4(1.0); }
 				""");
+	}
+
+	/** A one-level 2D texture (complete for texelFetch: no mipmaps expected), left unbound. */
+	static int texture(int internalFormat, int w, int h) {
+		boolean depth = internalFormat == GL30C.GL_DEPTH_COMPONENT32F || internalFormat == GL30C.GL_DEPTH_COMPONENT24;
+		int t = GL11C.glGenTextures();
+		GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, t);
+		GL11C.glTexImage2D(GL11C.GL_TEXTURE_2D, 0, internalFormat, w, h, 0,
+				depth ? GL11C.GL_DEPTH_COMPONENT : GL11C.GL_RGBA, depth ? GL11C.GL_FLOAT : GL11C.GL_UNSIGNED_BYTE, (ByteBuffer) null);
+		GL11C.glTexParameteri(GL11C.GL_TEXTURE_2D, GL12C.GL_TEXTURE_MAX_LEVEL, 0);
+		GL11C.glTexParameteri(GL11C.GL_TEXTURE_2D, GL11C.GL_TEXTURE_MIN_FILTER, GL11C.GL_NEAREST);
+		GL11C.glTexParameteri(GL11C.GL_TEXTURE_2D, GL11C.GL_TEXTURE_MAG_FILTER, GL11C.GL_NEAREST);
+		GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, 0);
+		return t;
+	}
+
+	static void depthData(int t, int w, int h, float[] data) {
+		GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, t);
+		GL11C.glTexSubImage2D(GL11C.GL_TEXTURE_2D, 0, 0, 0, w, h, GL11C.GL_DEPTH_COMPONENT, GL11C.GL_FLOAT, data);
+		GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, 0);
+	}
+
+	static void attach(int fbo, int attachment, int tex) {
+		GL30C.glBindFramebuffer(GL30C.GL_FRAMEBUFFER, fbo);
+		GL30C.glFramebufferTexture2D(GL30C.GL_FRAMEBUFFER, attachment, GL11C.GL_TEXTURE_2D, tex, 0);
+		GL30C.glBindFramebuffer(GL30C.GL_FRAMEBUFFER, 0);
+	}
+
+	/** vec3 positions at attribute 0 from vbo; ibo (0 = none) recorded as its element buffer. */
+	static int vertexArray(int vbo, int ibo) {
+		int vao = GL30C.glGenVertexArrays();
+		GL30C.glBindVertexArray(vao);
+		GL15C.glBindBuffer(GL15C.GL_ARRAY_BUFFER, vbo);
+		GL20C.glVertexAttribPointer(0, 3, GL11C.GL_FLOAT, false, 12, 0L);
+		GL20C.glEnableVertexAttribArray(0);
+		if (ibo != 0) {
+			GL15C.glBindBuffer(GL15C.GL_ELEMENT_ARRAY_BUFFER, ibo);
+		}
+		GL30C.glBindVertexArray(0);
+		GL15C.glBindBuffer(GL15C.GL_ARRAY_BUFFER, 0);
+		return vao;
 	}
 
 	static void setMatrix(int prog, Matrix4f m) {
 		try (MemoryStack s = MemoryStack.stackPush()) {
 			FloatBuffer f = s.mallocFloat(16);
 			m.get(f);
-			GL45C.glProgramUniformMatrix4fv(prog, GL20C.glGetUniformLocation(prog, "u_vp"), false, f);
+			GL20C.glUniformMatrix4fv(GL20C.glGetUniformLocation(prog, "u_vp"), false, f); // prog is in use
 		}
 	}
 
@@ -445,13 +497,17 @@ public class OriginRenderTests {
 			v[i * 3 + 1] = c[idx[i]][1];
 			v[i * 3 + 2] = c[idx[i]][2];
 		}
-		GL45C.glNamedBufferData(vbo, v, GL15C.GL_STREAM_DRAW);
+		GL15C.glBindBuffer(GL15C.GL_ARRAY_BUFFER, vbo);
+		GL15C.glBufferData(GL15C.GL_ARRAY_BUFFER, v, GL15C.GL_STREAM_DRAW);
+		GL15C.glBindBuffer(GL15C.GL_ARRAY_BUFFER, 0);
 		GL11C.glDrawArrays(GL11C.GL_TRIANGLES, 0, idx.length);
 	}
 
 	static int[] readCommands(int buf, int count) {
 		int[] out = new int[count * 5];
-		GL45C.glGetNamedBufferSubData(buf, 0, out);
+		GL15C.glBindBuffer(GL31C.GL_COPY_READ_BUFFER, buf);
+		GL15C.glGetBufferSubData(GL31C.GL_COPY_READ_BUFFER, 0, out);
+		GL15C.glBindBuffer(GL31C.GL_COPY_READ_BUFFER, 0);
 		return out;
 	}
 
@@ -466,6 +522,7 @@ public class OriginRenderTests {
 			}
 			GL20C.glAttachShader(p, sh);
 		}
+		GL20C.glBindAttribLocation(p, 0, "p");
 		GL20C.glLinkProgram(p);
 		if (GL20C.glGetProgrami(p, GL20C.GL_LINK_STATUS) == 0) {
 			throw new IllegalStateException(GL20C.glGetProgramInfoLog(p));

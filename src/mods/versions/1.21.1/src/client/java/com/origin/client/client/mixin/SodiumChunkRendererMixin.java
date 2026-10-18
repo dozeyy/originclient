@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Origin Render's entry: every Sodium terrain pass asks OriginRender first. It
 // returns true only when it drew the whole pass itself (setting on, opaque pass,
-// no shaderpack, GL 4.5, no earlier failure); otherwise Sodium draws as usual.
+// no shaderpack, compute shaders available, no earlier failure); otherwise Sodium draws as usual.
 // require = 0 (config default): if Sodium renames render(), this is a no-op.
 @Mixin(value = DefaultChunkRenderer.class, remap = false)
 public class SodiumChunkRendererMixin {

@@ -1,11 +1,15 @@
-"""Run Origin Render's GPU culler tests on a real OpenGL 4.5 driver.
+"""Run Origin Render's GPU culler tests on a real OpenGL driver, twice.
 
     python tools/origin-render-tests/run.py [--lwjgl DIR]
 
 TerrainCuller + TerrainShaders (1.21.1 module, render/terrain/) are plain LWJGL,
-so they compile and run here without Minecraft. Needs a JDK 21+, a GL 4.5
-driver (Linux sandbox: Mesa llvmpipe under xvfb-run, used automatically when
-present; Windows/macOS-with-4.5: the desktop driver) and LWJGL 3.3.3 + JOML
+so they compile and run here without Minecraft. Three passes:
+  45  - a 4.5 core context;
+  mc  - the context Minecraft really gets on AMD/NVIDIA (3.2 core, where the
+        4.3 features are extensions; Mesa is capped to report GL 3.2);
+  old - GLSL also capped below 4.30: supported() must say no (Mesa only).
+Needs a JDK 21+, a GL 4.3-class driver (Linux sandbox: Mesa llvmpipe under
+xvfb-run, used automatically when present; Windows: the desktop driver) and LWJGL 3.3.3 + JOML
 1.10.5 (Minecraft 1.21.1's versions) - downloaded from Maven Central into
 ~/.cache/origin-render-tests when --lwjgl isn't given.
 """
@@ -48,10 +52,22 @@ def main():
     r = subprocess.run(["javac", "-Xlint:all", "-d", out, "-cp", cp] + srcs + [os.path.join(HERE, "OriginRenderTests.java")])
     if r.returncode:
         sys.exit("compile failed")
-    cmd = ["java", "-cp", out + os.pathsep + cp, "OriginRenderTests"]
-    if platform.system() == "Linux" and not os.environ.get("DISPLAY") and shutil.which("xvfb-run"):
-        cmd = ["xvfb-run", "-a"] + cmd
-    sys.exit(subprocess.run(cmd).returncode)
+    worst = 0
+    for mode in ("45", "mc", "old"):
+        print(f"== context: {mode}", flush=True)
+        cmd = ["java", "-cp", out + os.pathsep + cp, "OriginRenderTests", mode]
+        if platform.system() == "Linux" and not os.environ.get("DISPLAY") and shutil.which("xvfb-run"):
+            cmd = ["xvfb-run", "-a"] + cmd
+        env = dict(os.environ)
+        if mode != "45":
+            # Mesa only: report exactly what Minecraft's context reports on AMD/NVIDIA
+            env["MESA_GL_VERSION_OVERRIDE"] = "3.2"
+        if mode == "old":
+            env["MESA_GLSL_VERSION_OVERRIDE"] = "150"
+        rc = subprocess.run(cmd, env=env).returncode
+        print(f"== {mode}: exit {rc}", flush=True)
+        worst = max(worst, rc)
+    sys.exit(worst)
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ import java.util.List;
 
 // One F3 line (left column) while Settings > Performance > Origin Render is on:
 // what it's doing ("drawing 812 of 1430 solid sections") or why it isn't
-// (shaderpack on, needs OpenGL 4.5, stopped after an error). Nothing when off.
+// (shaderpack on, card too old, stopped after an error). Nothing when off.
 @Mixin(DebugScreenOverlay.class)
 public class DebugScreenOriginRenderMixin {
 	@Inject(method = "getGameInformation", at = @At("RETURN"))
