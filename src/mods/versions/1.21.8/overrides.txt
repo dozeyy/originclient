@@ -58,3 +58,8 @@ main/resources/assets/originclient/icon.png
 # FramerateLimitTrackerMixin already hooks. The leftover copy bound nothing and
 # printed "Cannot remap getFramerateLimit" on every build. Removed 2026-10-11.
 client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java
+
+# DELIBERATE FORK (2026-10-18) — launch experience v2. This module's world-loading
+# screen hands the real progress (LevelLoadingScreenAccessor) to the loading scene,
+# as 1.21.1 does. Promote to shared/ when every version has it.
+client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java

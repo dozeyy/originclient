@@ -60,7 +60,7 @@ public class OriginModMenuScreen extends Screen {
 	private static final float CARD_H = 184, ROW_H = 44, OPT_H = 40;
 	private static final float SEARCH_W = 176;
 
-	private static final long OPEN_MS = 180, PAGE_MS = 150;
+	private static final long OPEN_MS = 110, PAGE_MS = 110; // quick fades that never hold up a click
 
 	private enum Tab {MODS, SETTINGS}
 
@@ -86,7 +86,6 @@ public class OriginModMenuScreen extends Screen {
 
 	private final Screen returnTo;
 	private final long openedAt = System.currentTimeMillis();
-	private long closingAt = -1;
 
 	private Tab tab = Tab.MODS;
 	private Cat cat = Cat.ALL;
@@ -368,8 +367,11 @@ public class OriginModMenuScreen extends Screen {
 	}
 
 	public void beginClose() {
-		if (closingAt < 0) {
-			closingAt = System.currentTimeMillis();
+		// Instant (Will 2026-10-18, "snappy"): a closing fade only made the game
+		// feel slow. The guard makes a second call (Esc + a button) harmless.
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.screen == this) {
+			mc.setScreen(returnTo);
 		}
 	}
 
@@ -418,14 +420,6 @@ public class OriginModMenuScreen extends Screen {
 		pageScroll += (pageScrollTarget - pageScroll) * ease;
 
 		float p = (float) OriginTheme.easeOut(Math.min(1.0, (now - openedAt) / (double) OPEN_MS));
-		if (closingAt > 0) {
-			double cp = Math.min(1.0, (now - closingAt) / (double) OPEN_MS);
-			p = (float) OriginTheme.easeOut(1.0 - cp);
-			if (cp >= 1.0) {
-				Minecraft.getInstance().setScreen(returnTo);
-				return;
-			}
-		}
 
 		var win = Minecraft.getInstance().getWindow();
 		float s = OriginDeck.scale(win.getWidth(), win.getHeight(), W, H);
@@ -671,8 +665,9 @@ public class OriginModMenuScreen extends Screen {
 			if (cy + itemH < BODY_Y - 8 || cy > BOTTOM) {
 				continue;
 			}
-			// entrance stagger: each item fades + rises a beat after the previous
-			float rt = (float) OriginTheme.easeOut(Math.max(0, Math.min(1, (now - rowsChangedAt - i * 14) / 170.0)));
+			// entrance stagger: each item fades + rises a beat after the previous,
+			// the whole list in place within ~0.17 s however long it is
+			float rt = (float) OriginTheme.easeOut(Math.max(0, Math.min(1, (now - rowsChangedAt - Math.min(i, 8) * 8) / 110.0)));
 			float base = d.alpha;
 			d.alpha = base * rt;
 			cy += (1 - rt) * 6;
@@ -1416,9 +1411,6 @@ public class OriginModMenuScreen extends Screen {
 		commitText();     // any click ends typing (clicking the field re-opens it)
 		capMod = null;    // and any click abandons a half-done key capture
 		capKey = null;
-		if (closingAt > 0) {
-			return true;
-		}
 		if (button != 0) {
 			return super.mouseClicked(mx, my, button);
 		}

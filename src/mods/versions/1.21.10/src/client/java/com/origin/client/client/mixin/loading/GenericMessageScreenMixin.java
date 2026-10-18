@@ -2,7 +2,10 @@ package com.origin.client.client.mixin.loading;
 
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.FocusableTextWidget;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.GenericMessageScreen;
+import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // blurred game world, which bypasses ScreenBackgroundMixin (that targets
 // Screen.renderBackground, not this subclass override). So world entry showed
 // the vanilla blur instead of the Origin backdrop. Replace it with the Origin
-// loading backdrop (bg + bar, no title — the vanilla message text stays on top).
+// loading scene with the screen's message as its title.
 // required:false: on versions where GenericMessageScreen has no renderBackground
 // override (<=1.20.x), the target is absent and this is skipped, and Screen's own
 // mixin already handles the background there.
@@ -22,9 +25,18 @@ public class GenericMessageScreenMixin {
 
 	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		// null title -> Origin draws its backdrop + indeterminate bar only; the
-		// screen's own "Preparing Resources..." label renders over it as usual.
-		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, null)) {
+		// The whole Origin loading scene, title included ("Preparing for world
+		// creation...", "Saving world"). Vanilla's own label is a boxed
+		// FocusableTextWidget that would draw over it, so it is hidden for this
+		// frame's widget pass, which runs right after the background; a failed
+		// Origin draw leaves it visible over vanilla's background.
+		Screen self = (Screen) (Object) this;
+		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, self.getTitle())) {
+			for (GuiEventListener child : self.children()) {
+				if (child instanceof FocusableTextWidget label) {
+					label.visible = false;
+				}
+			}
 			ci.cancel();
 		}
 	}
