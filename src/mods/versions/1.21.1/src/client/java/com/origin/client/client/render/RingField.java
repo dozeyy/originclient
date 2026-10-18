@@ -19,6 +19,13 @@ package com.origin.client.client.render;
  * value eases towards that mood's target, so a scene change is a glide, never a
  * cut. Render thread only. Calling update twice in one frame is harmless (the
  * second call sees dt = 0).
+ *
+ * <p>Everything here moves on {@link #sceneMs}, not the raw wall clock: while
+ * Minecraft loads, frames arrive unevenly (one takes 16 ms, the next 250 ms), and
+ * wall-clock motion turns every slow frame into a visible skip (Will 2026-10-18:
+ * "the rings are jumpy and the loading bar isn't smooth"). The scene clock steps
+ * at most one 30 fps frame at a time and quietly earns the rest back over the
+ * next smooth frames.
  */
 public final class RingField {
 	public enum Mood { LOADING, MENU }
@@ -35,11 +42,21 @@ public final class RingField {
 	private static final double[] DRIFT = {0.010, 0.008, 0.006, 0.005};
 
 	private static double[] phase;     // degrees, per ring
-	private static long lastMs;
 	private static double speed = 1.0;
 	private static double calm = 0.0;  // 0 = loading (centred), 1 = menu (drifting + leaning)
 	private static double leanX, leanY; // -0.5..0.5, eased mouse position from centre
 	private static double clockS;      // menu-time seconds for the drift paths
+	private static double lastScene;   // sceneMs() at the last update
+
+	/** Longest single step of the scene clock (ms): one 30 fps frame. */
+	private static final double STEP_MS = 33.0;
+	/** How much faster than real time the clock may run while it catches up. */
+	private static final double CATCH_UP = 0.3;
+	/** Most time it ever owes (ms); a longer stall is simply skipped, never replayed. */
+	private static final double DEBT_CAP_MS = 1000.0;
+	private static long clockWallMs;
+	private static double clockMs;
+	private static double clockDebt;
 
 	private RingField() {
 	}
@@ -50,17 +67,18 @@ public final class RingField {
 	 */
 	public static void update(Mood mood, double[] angle0, double[] periodS, boolean[] reverse,
 							  double mouseNx, double mouseNy) {
-		long now = System.currentTimeMillis();
+		double scene = sceneMs();
 		int n = angle0.length;
 		if (phase == null || phase.length != n) {
 			phase = new double[n];
+			long now = System.currentTimeMillis();
 			for (int i = 0; i < n; i++) {
 				phase[i] = wallClockAngle(now, angle0[i], periodS[i], reverse[i]);
 			}
-			lastMs = now;
+			lastScene = scene;
 		}
-		double dt = Math.max(0, Math.min(100, now - lastMs)); // a stall never jumps the rings
-		lastMs = now;
+		double dt = scene - lastScene;
+		lastScene = scene;
 
 		boolean menu = mood == Mood.MENU;
 		speed = approach(speed, menu ? MENU_SPEED : 1.0, dt, SPEED_TAU);
@@ -75,6 +93,28 @@ public final class RingField {
 			double step = dt / 1000.0 / periodS[i] * 360.0 * speed;
 			phase[i] = (phase[i] + (reverse[i] ? -step : step)) % 360.0;
 		}
+	}
+
+	/**
+	 * The smoothed scene clock in ms (arbitrary origin). Every animated part of an
+	 * Origin loading scene — the rings, the bar's fill and sweep, the wordmark
+	 * build — reads this, so they all glide through the same uneven frames
+	 * together. Safe to call any number of times per frame.
+	 */
+	public static double sceneMs() {
+		long now = System.currentTimeMillis();
+		if (clockWallMs == 0L) {
+			clockWallMs = now;
+		}
+		long raw = Math.max(0L, now - clockWallMs);
+		clockWallMs = now;
+		if (raw > 0L) {
+			clockDebt = Math.min(DEBT_CAP_MS, clockDebt + raw);
+			double step = Math.min(clockDebt, Math.min(raw, STEP_MS) * (1.0 + CATCH_UP));
+			clockDebt -= step;
+			clockMs += step;
+		}
+		return clockMs;
 	}
 
 	/** Ring i's rotation in degrees. Wall-clock exact until the field first leaves LOADING. */

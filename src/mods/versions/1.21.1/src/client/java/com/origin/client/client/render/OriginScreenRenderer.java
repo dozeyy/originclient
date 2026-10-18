@@ -86,9 +86,16 @@ public final class OriginScreenRenderer {
 	// (no staggered reveal) instead of failing.
 	private static int[] wmLetterX0, wmLetterX1;
 
-	// Loading-screen animation clock: millis at the first loading frame, so the
-	// per-letter reveal and the caption's cycling dots are time-driven.
-	private static long loadStartMs = 0L;
+	// Loading-screen animation clock: RingField.sceneMs() at the first loading
+	// frame (-1 = not yet), so the per-letter reveal is time-driven on the same
+	// smoothed clock as the rings.
+	private static double loadStartScene = -1;
+	// The startup bar's shown fill (-1 = none yet) and the scene time it was set:
+	// it glides to the reload's real progress instead of stepping with it.
+	private static double loadFill = -1;
+	private static double loadFillAt = 0;
+	/** The startup and world-loading bars' glide time constant (ms). */
+	private static final double FILL_TAU = 140.0;
 
 	// ---- Main-menu ambient layer ----
 	// Ellipse height:width of the ring textures (generate_textures HEIGHT_RATIO),
@@ -151,10 +158,26 @@ public final class OriginScreenRenderer {
 			return;
 		}
 		try {
-			renderLoading0(guiGraphics, progress, true);
+			renderLoading0(guiGraphics, reloadProgress(progress), true);
 		} catch (Throwable t) {
 			fail(t);
 		}
+	}
+
+	/**
+	 * The startup reload's real fraction done (1 once it has finished), read from
+	 * the overlay through LoadingOverlayAccessor; {@code fallback} (vanilla's own
+	 * frame-by-frame smoothed value) if that accessor didn't apply. The bar
+	 * glides to it in renderLoading0, the same at any frame rate.
+	 */
+	private static float reloadProgress(float fallback) {
+		if (Minecraft.getInstance().getOverlay() instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor overlay) {
+			net.minecraft.server.packs.resources.ReloadInstance reload = overlay.originclient$reload();
+			if (reload != null) {
+				return reload.isDone() ? 1f : reload.getActualProgress();
+			}
+		}
+		return fallback;
 	}
 
 	/**
@@ -212,10 +235,17 @@ public final class OriginScreenRenderer {
 		int h = mc.getWindow().getGuiScaledHeight();
 		float clamped = Math.max(0f, Math.min(1f, progress));
 
-		if (loadStartMs == 0L) {
-			loadStartMs = System.currentTimeMillis();
+		double scene = RingField.sceneMs();
+		if (loadStartScene < 0) {
+			loadStartScene = scene;
 		}
-		long elapsed = System.currentTimeMillis() - loadStartMs;
+		long elapsed = (long) (scene - loadStartScene);
+		// A new reload (resource pack change) starts the bar over; otherwise the
+		// fill only ever glides forward. The dissolve passes 1: the bar finishes
+		// its glide while the title appears instead of jumping full.
+		loadFill = loadFill < 0 || clamped < loadFill - 0.25 ? clamped
+				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
+		loadFillAt = scene;
 
 		guiGraphics.fill(0, 0, w, h, BG_COLOR);
 		if (!ringsFailed) {
@@ -241,7 +271,7 @@ public final class OriginScreenRenderer {
 		int barW = (int) Math.round(dispW);
 		int barH = Math.max(3, (int) Math.round(h * 0.012));
 		int barTop = (int) Math.round(markCenterY + markInkH * 1.15);
-		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, clamped);
+		drawBar(guiGraphics, w / 2.0, barTop, barW, barH, (float) loadFill);
 
 		// No text on this screen: it renders DURING the initial resource reload,
 		// before any font glyphs are baked, so font-drawn strings can only ever
@@ -289,7 +319,7 @@ public final class OriginScreenRenderer {
 	// first world frame. sceneFill < 0 = the bar was sweeping.
 	private static String sceneTitle = "";
 	private static double sceneFill = -1;
-	private static long sceneFillAt = 0;
+	private static double sceneFillAt = 0;
 
 	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress) {
 		com.origin.client.client.StartupTransition.worldLoading();
@@ -310,14 +340,13 @@ public final class OriginScreenRenderer {
 
 		// The fill glides to each new count (chunk counts arrive in steps), and
 		// a new scene with no count goes back to the sweep.
-		long now = System.currentTimeMillis();
+		double now = RingField.sceneMs();
 		if (progress < 0f) {
 			sceneFill = -1;
 		} else {
 			double target = Math.max(0.0, Math.min(1.0, progress));
-			double dt = Math.min(100, now - sceneFillAt);
 			sceneFill = sceneFill < 0 || target < sceneFill ? target
-					: target + (sceneFill - target) * Math.exp(-dt / 140.0);
+					: target + (sceneFill - target) * Math.exp(-(now - sceneFillAt) / FILL_TAU);
 		}
 		sceneFillAt = now;
 		drawSceneText(guiGraphics, mc.font, w, h, title == null ? "" : title.getString().trim(), sceneFill);
@@ -505,11 +534,48 @@ public final class OriginScreenRenderer {
 		guiGraphics.fill(bx, by, bx + barW, by + barH, 0x29FFFFFF); // track
 		int segW = Math.max(8, (int) (barW * 0.32));
 		int travel = Math.max(1, barW - segW);
-		double t = (System.currentTimeMillis() % 1800L) / 1800.0;
+		double t = (RingField.sceneMs() % 1800.0) / 1800.0;
 		double eased = 0.5 - 0.5 * Math.cos(t * 2.0 * Math.PI); // smooth 0->1->0
-		int segX = bx + (int) Math.round(eased * travel);
-		guiGraphics.fill(segX - 1, by - 1, segX + segW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW);
-		guiGraphics.fill(segX, by, segX + segW, by + barH, OriginTheme.ACCENT);
+		double segX = bx + eased * travel;
+		fillSmooth(guiGraphics, segX - 1, by - 1, segX + segW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW);
+		fillSmooth(guiGraphics, segX, by, segX + segW, by + barH, OriginTheme.ACCENT);
+	}
+
+	/**
+	 * fill() with a horizontal span placed to a fraction of a real pixel: the
+	 * whole pixels in one fill, each partly covered edge pixel at its share of
+	 * the alpha. A moving bar end then slides smoothly instead of stepping a
+	 * whole GUI unit (guiScale screen pixels) at a time. Vertical edges snap to
+	 * real pixels. Drawn in real pixels, the same way drawGrain is.
+	 */
+	private static void fillSmooth(GuiGraphics guiGraphics, double x0, double y0, double x1, double y1, int argb) {
+		if (!(x1 > x0) || !(y1 > y0)) {
+			return;
+		}
+		double gs = Math.max(1.0, Minecraft.getInstance().getWindow().getGuiScale());
+		double px0 = x0 * gs, px1 = x1 * gs;
+		int py0 = (int) Math.round(y0 * gs), py1 = (int) Math.round(y1 * gs);
+		PoseStack pose = guiGraphics.pose();
+		pose.pushPose();
+		pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
+		int i0 = (int) Math.ceil(px0), i1 = (int) Math.floor(px1);
+		if (i1 < i0) {
+			fillEdge(guiGraphics, i1, py0, py1, px1 - px0, argb);  // the whole span is inside one pixel
+		} else {
+			if (i1 > i0) {
+				guiGraphics.fill(i0, py0, i1, py1, argb);
+			}
+			fillEdge(guiGraphics, i0 - 1, py0, py1, i0 - px0, argb);
+			fillEdge(guiGraphics, i1, py0, py1, px1 - i1, argb);
+		}
+		pose.popPose();
+	}
+
+	private static void fillEdge(GuiGraphics guiGraphics, int x, int y0, int y1, double cover, int argb) {
+		int a = (int) Math.round((argb >>> 24) * Math.min(1.0, cover));
+		if (a > 0) {
+			guiGraphics.fill(x, y0, x + 1, y1, (a << 24) | (argb & 0xFFFFFF));
+		}
 	}
 
 	/**
@@ -1172,10 +1238,10 @@ public final class OriginScreenRenderer {
 		// showed and the bar read as the wrong (too small) size. ~16% matches how
 		// the mockup's track actually reads on screen.
 		guiGraphics.fill(bx, by, bx + barW, by + barH, 0x29FFFFFF);              // track
-		int fillW = Math.round(barW * progress);
-		if (fillW > 0) {
-			guiGraphics.fill(bx - 1, by - 1, bx + fillW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW); // soft glow
-			guiGraphics.fill(bx, by, bx + fillW, by + barH, OriginTheme.ACCENT);  // fill
+		double fillW = barW * Math.max(0f, Math.min(1f, progress));
+		if (fillW > 0.05) {
+			fillSmooth(guiGraphics, bx - 1, by - 1, bx + fillW + 1, by + barH + 1, OriginTheme.ACCENT_GLOW); // soft glow
+			fillSmooth(guiGraphics, bx, by, bx + fillW, by + barH, OriginTheme.ACCENT);  // fill
 		}
 	}
 

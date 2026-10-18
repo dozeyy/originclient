@@ -20,7 +20,10 @@ namespace OriginLauncher.App.UI.Controls;
 /// orbit — the game's title-screen settle, run the other way.
 ///
 /// Every value here is mirrored from the game; change them there first. Ticks
-/// on CompositionTarget.Rendering only while visible.
+/// on CompositionTarget.Rendering only while visible. Once the rings have
+/// landed and the size holds still, a frame only turns each ring's
+/// RotateTransform: the ellipses (and the blur over the back two) are not
+/// redrawn, so the scene stays smooth while the launcher is busy.
 /// </summary>
 public sealed class LoadingScene : Grid
 {
@@ -76,6 +79,9 @@ public sealed class LoadingScene : Grid
     private readonly Layer _backdrop = new();
     private readonly Layer[] _rings = new Layer[Rings.Length];
     private readonly BlurEffect?[] _blur = new BlurEffect?[Rings.Length];
+    private readonly RotateTransform[] _turn = new RotateTransform[Rings.Length];
+    // The layout the rings were last drawn for; NaN = draw them again next frame.
+    private (double U, double W, double H, double Dpd) _ringsDrawnFor = (double.NaN, 0, 0, 0);
     private readonly Rectangle _vignette = new() { Fill = VignetteBrush() };
     private readonly Layer _front = new();
     private bool _ticking;
@@ -102,6 +108,7 @@ public sealed class LoadingScene : Grid
         for (var i = 0; i < Rings.Length; i++)
         {
             var ring = i;
+            _turn[i] = new RotateTransform();
             _rings[i] = new Layer { Paint = dc => PaintRing(dc, ring) };
             if (Rings[i].BlurTex > 0)
                 _rings[i].Effect = _blur[i] = new BlurEffect { RenderingBias = RenderingBias.Performance };
@@ -109,6 +116,7 @@ public sealed class LoadingScene : Grid
         }
         Children.Add(_vignette);
         _front.Paint = PaintFront;
+        _front.SnapsToDevicePixels = false; // the window's snapping would undo SlideFill's sub-pixel ends
         Children.Add(_front);
         IsVisibleChanged += (_, _) => SyncTicking();
         Loaded += (_, _) => SyncTicking();
@@ -189,11 +197,22 @@ public sealed class LoadingScene : Grid
         var a = AssembleT();
         _backdrop.Opacity = _vignette.Opacity = Smooth(a / 0.4);
         _front.Opacity = Smooth((a - 0.6) / 0.4);
+        // The assemble moves, grows and fades the rings, and a new size (the glide
+        // changes it every frame) resizes them: those frames redraw. Every other
+        // frame the drawings stay and only their rotation advances.
+        var layout = (_u, _w, _h, _dpd);
+        var redraw = a < 1 || layout != _ringsDrawnFor;
+        _ringsDrawnFor = a < 1 ? (double.NaN, 0, 0, 0) : layout;
         for (var i = 0; i < Rings.Length; i++)
         {
-            if (_blur[i] is { } blur)
-                blur.Radius = Rings[i].BlurTex * 3 * (Rings[i].WidthFrac * _w * 0.99 / TexEllipse) * _u;
-            _rings[i].InvalidateVisual();
+            if (redraw)
+            {
+                if (_blur[i] is { } blur)
+                    blur.Radius = Rings[i].BlurTex * 3 * (Rings[i].WidthFrac * _w * 0.99 / TexEllipse) * _u;
+                _rings[i].InvalidateVisual();
+            }
+            else
+                _turn[i].Angle = WallClockAngle(_now, Rings[i]) % 360.0;
         }
         _front.InvalidateVisual();
     }
@@ -284,7 +303,13 @@ public sealed class LoadingScene : Grid
         // The texture's ellipse is drawn inside its outline: the stroke's outer edge is the major axis.
         var rx = Math.Max(0.1, major * u / 2 - pen.Thickness / 2);
         var ry = Math.Max(0.1, major * aspect * u / 2 - pen.Thickness / 2);
-        dc.PushTransform(new RotateTransform(angle % 360.0, c.X, c.Y));
+        // A kept transform, not a new one: steady frames turn the ring by setting
+        // its Angle without drawing it again (OnRendering).
+        var turn = _turn[i];
+        turn.Angle = angle % 360.0;
+        turn.CenterX = c.X;
+        turn.CenterY = c.Y;
+        dc.PushTransform(turn);
         dc.DrawEllipse(null, pen, c, rx, ry);
         dc.Pop();
     }
@@ -317,13 +342,15 @@ public sealed class LoadingScene : Grid
         var by = JRound(cy + h * 0.135 * 1.15);
         var bx = JRound(cx - barW / 2.0);
         Fill(dc, TrackBrush, bx, by, bx + barW, by + barH);
+        // Moving ends are placed to a fraction of a pixel (the game's fillSmooth):
+        // the bar slides instead of stepping a GUI unit at a time.
         if (_fill >= 0)
         {
-            var fillW = JRound(barW * _fill);
-            if (fillW > 0)
+            var fillW = barW * _fill;
+            if (fillW > 0.05)
             {
-                Fill(dc, GlowBrush, bx - 1, by - 1, bx + fillW + 1, by + barH + 1);
-                Fill(dc, AccentBrush, bx, by, bx + fillW, by + barH);
+                SlideFill(dc, GlowBrush, bx - 1, by - 1, bx + fillW + 1, by + barH + 1);
+                SlideFill(dc, AccentBrush, bx, by, bx + fillW, by + barH);
             }
         }
         else
@@ -332,9 +359,9 @@ public sealed class LoadingScene : Grid
             var travel = Math.Max(1, barW - segW);
             var t = _now % 1800L / 1800.0;
             var eased = 0.5 - 0.5 * Math.Cos(t * 2.0 * Math.PI);
-            var segX = bx + JRound(eased * travel);
-            Fill(dc, GlowBrush, segX - 1, by - 1, segX + segW + 1, by + barH + 1);
-            Fill(dc, AccentBrush, segX, by, segX + segW, by + barH);
+            var segX = bx + eased * travel;
+            SlideFill(dc, GlowBrush, segX - 1, by - 1, segX + segW + 1, by + barH + 1);
+            SlideFill(dc, AccentBrush, segX, by, segX + segW, by + barH);
         }
 
         // Corner brackets (drawCornerBrackets).
@@ -361,6 +388,16 @@ public sealed class LoadingScene : Grid
         var r = Math.Round(x1 * k) / _dpd;
         var b = Math.Round(y1 * k) / _dpd;
         if (r > l && b > t) dc.DrawRectangle(brush, null, new Rect(l, t, r - l, b - t));
+    }
+
+    // Fill() with the left and right edges left exactly where they fall, so
+    // WPF's anti-aliasing covers the edge pixel partly; top and bottom snap.
+    private void SlideFill(DrawingContext dc, Brush brush, double x0, double y0, double x1, double y1)
+    {
+        var k = _u * _dpd;
+        var t = Math.Round(y0 * k) / _dpd;
+        var b = Math.Round(y1 * k) / _dpd;
+        if (x1 > x0 && b > t) dc.DrawRectangle(brush, null, new Rect(x0 * _u, t, (x1 - x0) * _u, b - t));
     }
 
     // generate_textures.py make_vignette: clear to 0.45 of the half-diagonal,
