@@ -5188,7 +5188,7 @@ Built for 1.21.1 only. Full detail is in `DEVELOPMENT_REPORT.md`. Nothing is in 
   The filmed path runs `env -u CI ./gradlew runClient` and reads DISPLAY/XAUTHORITY from the game's /proc environ. llvmpipe ≈ 1–13 fps, so
   short fades show only 1–3 frames.
 
-## 2026-10-18 — Launch experience v2 (Will's picks, in progress)
+## 2026-10-18 — Launch experience v2 (Will's picks, built — awaiting Will's in-game pass)
 Will (verbatim gist): click Play → custom motion graphics / morphing / fun effects, NOTHING may feel like a cut, seamless Play →
 game loading → main menu; main menu should feel like everything else; world loading custom but "keep that loading vibe, not
 some random animation". Also: resume automatically after usage limits reset (scheduled task "Origin launch v2 — resume").
@@ -5199,3 +5199,11 @@ melts away). **Main menu = "Living rings"** (no panorama; loading rings stay, sl
 logo = rings settling). **World load = "Rings open into the world"** (menu rings swing back into the loading orbit with real
 progress; when ready, rings expand past the screen edges like a lens opening and the world appears inside).
 Order of work: 1.21.1 + launcher only (working order). Plan/status lines below get appended as steps land.
+- Landed: 49d2acd (game: RingField title rings, world-load rings + lens, real chunk progress) and b3dcd8f (launcher
+  LoadingScene = the game's loading screen re-drawn in WPF by the same formulas; Play assemble; window handoff:
+  `-Dorigin.handoff.window=cx,cy` → mod hides the window (GLFW_VISIBLE false before glfwCreateWindow,
+  WindowHandoffMixin), centres it there, prints `window x,y,w,h,scale`, ramps opacity after 620 ms; launcher's
+  SceneHandoffWindow glides onto the rect, melts at `loading`). Spec: docs/MOTION.md.
+- Gotchas: Button.Base's ScaleTransform is frozen (style-shared) — give a button its own before animating it. LoadingScene
+  wall-clock ring angles keep both halves aligned. Launcher is system-DPI aware: screen px / TransformToDevice.M11 = DIP.
+  Unverified until Will runs it: GLFW hidden-window + setMode interplay on Windows, mixed-DPI glide accuracy.
