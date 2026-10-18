@@ -122,7 +122,7 @@ jobs:
           # python3-pil: the contact sheet (tools/lean/contact_sheet.py) below.
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
             x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6 python3-pil
-          if [ "$VIDEO" = "true" ]; then sudo apt-get install -y ffmpeg; fi
+          if [ "$VIDEO" = "true" ]; then sudo apt-get install -y ffmpeg x11-utils; fi
         env:
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
 
@@ -167,6 +167,11 @@ jobs:
                 -vf scale=1280:-2 -c:v libx264 -preset ultrafast -crf 26 -pix_fmt yuv420p \
                 -movflags +frag_keyframe+empty_moov "$ORIGIN_SHOTS/screenshots/loading.mp4" ) &
             rec=$!
+            # What's on the display mid-run (windows, sizes, one still), next to the video.
+            ( for i in $(seq 1 600); do grep -q "Backend library" run.log 2>/dev/null && break; sleep 1; done
+              sleep 25
+              { echo "DISPLAY=$DISPLAY"; ls -la /tmp/.X11-unix; xdpyinfo | head -30; xwininfo -root -tree; } > "$ORIGIN_SHOTS/screenshots/x-probe.txt" 2>&1
+              ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -video_size 1920x1080 -i :99 -frames:v 1 "$ORIGIN_SHOTS/screenshots/x-probe.png" ) &
           else
             setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClient --no-daemon > run.log 2>&1 &
             pid=$!
