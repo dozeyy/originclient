@@ -186,22 +186,21 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-18)
-- Latest release `launcher-v1.0.54` (2026-10-18, main @ 4c6f9a36: launch v2/loading/Pack Hub/FPS graph on
-  every version, Settings Sync on + instant saving, 1.21.4 black-screen fix, cosmetics fixes). Tag `origin/main` directly
-  (`git tag launcher-v1.0.N origin/main`). Cloud sessions can't push tags (the git proxy drops
-  every tag push), so Will pushes the tag from PowerShell.
-- Merged, awaiting Will's in-game pass: 26.1–26.3 and 1.8.9 back on Forge + OptiFine (#32);
-  launch experience v2 + smooth loading + snappy menus on 1.21.1 (#33).
-- In `launcher-v1.0.54`, awaiting Will's in-game pass: launch v2 + loading + Pack Hub + FPS
-  graph ported to every live version (Origin Render only on 1.21–1.21.4); 26.x mod-menu/outline fixes;
-  Settings Sync ON by default + every setting saved instantly (MEMORY.md → 2026-10-18 Settings Sync).
+- Latest release `launcher-v1.0.55` (2026-10-18, main @ 80904430: launcher mod profiles + loading→menu
+  freeze fix on every version). Tag `origin/main` directly (`git tag launcher-v1.0.N origin/main`).
+  Cloud sessions can't push tags (the git proxy drops every tag push), so Will pushes the tag from
+  PowerShell. (v1.0.55 alone went out via a one-shot tag-release.yml, Will's one-time OK; deleted after.)
+- In `launcher-v1.0.55`, awaiting Will's in-game pass: launcher mod profiles (Profiles page, Join
+  <server> under Play; MEMORY.md → 2026-10-18 Launcher mod profiles) and the loading→menu freeze fix
+  (MEMORY.md → 2026-10-18 Loading → main-menu freeze; 1.19.2 still to check on real hardware).
+- Still awaiting Will's in-game pass: 1.8.9 + 26.1–26.3 (#32); launch v2/loading/Pack Hub/FPS graph on
+  every version, Settings Sync + instant saving (v1.0.54).
 - Auth: Minecraft `login_with_xbox` 403 (app approval pending) — `OfflineTestMode` is the test path.
 - Full history (everything this section used to hold): MEMORY.md → "CLAUDE.md current-state +
   roadmap archive" and the dated entries. Grep it; never read it whole.
 
 ## Roadmap (open items)
 - [~] 1.8.9 and 26.1–26.3 — live, awaiting Will's in-game pass.
-- [ ] Motion Blur dead on 1.21.2–1.21.4 (old post-chain JSON format; task card queued).
 - [ ] 1.21.9 (pulled), 1.18.1 (no stable Sodium/Iris), crash system v2, light theme.
 - [~] Screen-open lag (Will, 2026-10-18): smooth loading scenes + snappy menus built on 1.21.1, awaiting Will's in-game pass; then port. MEMORY.md → 2026-10-18 screen-open lag.
 
