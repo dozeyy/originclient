@@ -41,7 +41,7 @@ const PRICE_LIST = [
   { id: 'pack-shell', name: 'Chrome Shell', blurb: 'A Y2K hard-shell backpack: a polished chrome and gunmetal shell, a smoked-glass window and the Origin mark raised on the back.', price: 8.99 },
   { id: 'pack-explorer', name: 'Explorer Pack', blurb: 'A stitched leather rucksack with brass buckles and a wool bedroll strapped underneath.', price: 8.49 },
   { id: 'mask-shield', name: 'Racer Shield', blurb: 'A rimless single-piece sport shield: one tall prizm mirror lens, pink-gold to cyan, on a slim chrome bar. A glint runs across it now and then.', price: 6.99 },
-  { id: 'mask-shades', name: 'Chrome Shades', blurb: 'Y2K bug-eye wraparound shades: mirrored pink, cyan and lime lenses in thin polished chrome. A glint sweeps across now and then.', price: 6.99 },
+  { id: 'mask-shades', name: 'Chrome Shades', blurb: 'Y2K bug-eye wraparound shades: smoked gunmetal mirror lenses with one pink, cyan and lime sheen band, in polished chrome. A glint sweeps across now and then.', price: 6.99 },
   { id: 'bandana-origin', name: 'Origin Bandana', blurb: 'Charcoal cloth over the nose and mouth, the three rings stitched in silver, knotted at the back.', price: 5.99 },
   { id: 'mask-visor', name: 'Visor Mask', blurb: 'A slim wraparound visor of smoked glass in a gunmetal frame. A soft light sweeps across it now and then.', price: 6.99 },
   { id: 'mask-goggles', name: 'Frost Goggles', blurb: 'Big snow goggles: one wide silver-blue mirror lens with an iridescent edge, matte foam, a black strap and a small chrome Origin tab.', price: 7.99 },

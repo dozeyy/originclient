@@ -96,7 +96,7 @@ for (const sx of [1, -1]) {
   const [s0, s1] = sx > 0 ? [4.0, 4.375] : [-4.375, -4.0];
   part('strap', [s0, 3.375, -4.375], [s1, 4.625, 2.9], { sx });
   const [t0, t1] = sx > 0 ? [4.375, 4.625] : [-4.625, -4.375];
-  part('tab', [t0, 3.125, 0.5], [t1, 4.875, 2.75], { sx });
+  part('tab', [t0, 2.75, 0.25], [t1, 5.25, 2.75], { sx });
 }
 part('strap', [-4.375, 3.375, -4.375], [4.375, 4.625, -4.0], { sx: 0 });
 
@@ -277,7 +277,7 @@ function paintStrap(v, f, c) {
 // ---- chrome tab with the Origin mark ------------------------------------------------------------------------------
 // A little polished plate (sky / horizon / ground bands, dark outline) with the mark engraved dark, drawn pixel by
 // pixel at the size it appears (lib/marks, never resampled).
-const MARK_SIZE = 12;
+const MARK_SIZE = 16;
 function paintTab(v, f, c) {
   const outer = (c.sx > 0 && f === 'east') || (c.sx < 0 && f === 'west');
   for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
@@ -286,7 +286,7 @@ function paintTab(v, f, c) {
     else if (f === 'down') s = 1;
     else {
       const yf = y / Math.max(1, v.h - 1);
-      s = v.h >= 6 ? (yf < 0.28 ? 5 : yf < 0.5 ? 4 : yf < 0.62 ? 2 : yf < 0.88 ? 3.2 : 1.4) : 3;
+      s = v.h >= 6 ? (yf < 0.3 ? 5 : yf < 0.7 ? 4.2 : yf < 0.9 ? 3.4 : 2.2) : 3;   // a calm plate (soft sky-to-ground steps) so the mark stays the focus
       if (outer) {
         if (x === 0 || y === 0 || x === v.w - 1 || y === v.h - 1) s = (y === 0 || x === 0) ? 3 : 1;          // plate outline: lit top-left, dark bottom-right
         if (x === 1 && y > 0 && y < v.h - 1) s += 0.5;

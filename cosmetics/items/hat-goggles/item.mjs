@@ -191,6 +191,8 @@ function paintGlass(v, sx) {
     if (edge < wd) tone -= 1.8 * (1 - clamp(edge / wd));
     tone = tone * 0.74 - 0.2;                                  // smoked glass: the body of the lens is dark, the hue lives in the reflection
     let col = specCol(band, tone);
+    // below the horizon the glass is near-black gunmetal with only a trace of the sheen (the colour lives in the upper reflection)
+    if (dy >= hy + 1) col = toHex(mix(GUN[clamp(Math.round(1.2 + 0.9 * smoothstep(0, 8, dy - hy) + 0.6 * (dx / 9.5) - (edge < wd ? 0.8 : 0)), 0, 3)], specCol(band, tone + 1), 0.14));
     // the crescent of light, upper right, tapering at both ends
     const ang = (Math.atan2(-dy, dx) * 180) / Math.PI;
     if (ang > 22 && ang < 78) {

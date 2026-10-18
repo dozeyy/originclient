@@ -1,12 +1,11 @@
-// Chrome Shades: Y2K bug-eye wraparound sunglasses. Two big rounded-oval mirror lenses (a pink -> cyan -> lime
-// iridescent sheen over dark smoke, with two slanted sky reflections and a bright catch-light along the lower
-// edge) sit recessed in thin polished-chrome rims. A curved chrome bridge joins them, a hinge block at each
-// outer end and a short chrome arm wraps to the side of the head and bends down behind the ear. Every few
+// Chrome Shades: Y2K bug-eye wraparound sunglasses. Two wide, flat, tapering oval lenses of smoked gunmetal mirror, each with
+// ONE diagonal pink -> cyan -> lime sheen band (the only hue), in thin polished-chrome rims, a thick chrome nose bar, corner
+// posts that turn the frame around the head, a small wrap lens on each side and thin chrome arms with an ear hook. Every few
 // seconds a soft glint glides across both lenses (additive glow planes; the rest of the loop the glass is still).
 //
 // Built for its own silhouette (nothing like the one-piece Visor Mask): each lens is stacked row cubes of a
 // superellipse (rows 0.25 px high, edges on 1/8 px), so the oval reads at 1x AND up close, and the rim is a
-// real ring with a recessed lens inside it. Each lens bone is yawed 8 degrees so the pair wraps the face.
+// real ring with a recessed lens inside it. Each lens bone is yawed 5 degrees so the pair wraps the face.
 //
 // Light: top-front-left of the PLAYER (+x, +y, +z). Chrome is painted as a reflection of a tiny environment:
 // across a ring/bar the texels read sky (bright) / horizon (a dark line) / ground bounce, which is what makes
@@ -30,13 +29,22 @@ const pick = (R, v) => R[clamp(Math.round(v), 0, R.length - 1)];
 const SWEEP = '#e0e0e0';
 
 // ---- geometry (head frame: head cube x -4..4, y 0..8, z -4..4) ------------------------------------------
-const CX = 2.25, CY = 3.7, A = 1.85, B = 1.5, P = 2.2, TH = 0.3125;       // lens centre, outer radii, superellipse power, rim width
-const YAW = 8;                                                            // each lens turned this far toward the temple
+// Each lens is a wide, flat oval (about 1.8 : 1) that tapers toward the temple: its lower edge climbs, its top
+// stays level, so the pair reads as bug-eye wraparounds rather than two round reading glasses. A thick chrome bar
+// crosses the nose, a chrome corner post turns each lens around the head, a smaller wrap lens in its own rim sits on
+// the side of the head, and a thin chrome arm runs back along the head with a hook behind the ear.
+const CX = 2.15, CY = 3.625, A = 1.85, B0 = 1.15, P = 2.4, TH = 0.3125;      // lens centre, outer half width / nose-end half height, superellipse power, rim width
+const TAPER = 0.3, LIFT = 0.22;                                           // temple end: 30% lower half height, centre raised
+const YAW = 5;                                                            // each lens turned this far toward the temple
 const RZ = [3.875, 4.625], GZ = [3.875, 4.375];                           // rim depth (front 0.625 proud of the face), lens plate (recessed 0.25)
 const sup = (u, w) => (Math.abs(u) ** P + Math.abs(w) ** P) ** (1 / P);
-const rho = (lx, ly, a = A, b = B) => sup(lx / a, ly / b);
-const inOuter = (lx, ly) => rho(lx, ly) < 1;
-const inInner = (lx, ly, grow = 0) => rho(lx, ly, A - TH + grow, B - TH + grow) < 1;
+const shape = lx => { const s = clamp((lx / A + 1) / 2); return { b: B0 * (1 - TAPER * s), c: LIFT * B0 * s }; };
+const rhoS = (lx, ly, grow = 0) => { const { b, c } = shape(lx); return sup(lx / (A + grow), (ly - c) / (b + grow)); };
+const inOuter = (lx, ly) => rhoS(lx, ly) < 1;
+const inInner = (lx, ly, grow = 0) => rhoS(lx, ly, -TH + grow) < 1;
+// side wrap lens: a half oval in (z, y) on the head side, pointing back toward the arm
+const ZC = 3.875, ZA = 1.6, SC = 3.875, PB = 0.8, TS = 0.3125, SIDE_X = [4.0, 4.4];
+const sideRho = (z, y, grow = 0) => sup(Math.max(0, ZC - z) / (ZA + grow), (y - SC) / (PB + grow));
 
 const parts = [];
 const g8 = v => Math.round(v * 8) / 8;                                   // every edge sits on a texel (1/8 px)
@@ -56,26 +64,52 @@ function rows(mask, y0, y1) {
   }
   return out;
 }
+// The same in (z, y) for the side lens, identical consecutive rows merged into one taller cube.
+function zrows(mask, y0, y1, z0, z1) {
+  const out = []; let open = new Map();
+  for (let ya = y0; ya < y1 - 1e-9; ya += px) {
+    const yc = ya + px / 2, row = []; let start = null;
+    for (let z = z0; z <= z1 + 1e-9; z += px) {
+      const on = z < z1 - 1e-9 && mask(z + px / 2, yc);
+      if (on && start === null) start = z;
+      if (!on && start !== null) { row.push([start, z]); start = null; }
+    }
+    const next = new Map();
+    for (const [a, b] of row) {
+      const key = a + '|' + b, prev = open.get(key);
+      if (prev) { prev.yb = ya + px; next.set(key, prev); } else { const cu = { a, b, ya, yb: ya + px }; out.push(cu); next.set(key, cu); }
+    }
+    open = next;
+  }
+  return out;
+}
+const LY = [2.375, 4.875];
 for (const sx of [1, -1]) {
   const bone = sx > 0 ? 'lensL' : 'lensR';
-  // the lens plate runs 1/8 px under the rim so no crack shows; the rim is the ring between the two ellipses
+  // the lens plate runs 1/8 px under the rim so no crack shows; the rim is the ring between the two ovals
   // the overlapping rows alternate 0.004 px in depth so their coplanar fronts never z-fight
-  for (const [a, b, ya, yb, k] of rows((lx, ly) => inInner(lx, ly, px), CY - B, CY + B)) part('glass', [sx * CX + a, ya, GZ[0]], [sx * CX + b, yb, GZ[1]], { sx, bone, dz: (k % 2) * 0.004 });
-  for (const [a, b, ya, yb, k] of rows((lx, ly) => inOuter(lx, ly) && !inInner(lx, ly), CY - B, CY + B)) part('rim', [sx * CX + a, ya, RZ[0]], [sx * CX + b, yb, RZ[1]], { sx, bone, dz: (k % 2) * 0.004 });
+  for (const [a, b, ya, yb, k] of rows((lx, ly) => inInner(lx, ly, px), ...LY)) part('glass', [sx * CX + a, ya, GZ[0]], [sx * CX + b, yb, GZ[1]], { sx, bone, dz: (k % 2) * 0.004 });
+  for (const [a, b, ya, yb, k] of rows((lx, ly) => inOuter(lx, ly) && !inInner(lx, ly), ...LY)) part('rim', [sx * CX + a, ya, RZ[0]], [sx * CX + b, yb, RZ[1]], { sx, bone, dz: (k % 2) * 0.004 });
+  // side wrap lens (rim ring + recessed smoke glass), on the frame bone
+  const sxr = (a, b) => (sx > 0 ? [a, b] : [-b, -a]);
+  const [r0, r1] = sxr(SIDE_X[0], SIDE_X[1]), [g0, g1] = sxr(SIDE_X[0], SIDE_X[1] - 0.125);
+  for (const cu of zrows((z, y) => sideRho(z, y, -TS + px) < 1, 2.9, 4.9, 2.2, 4.0)) part('sglass', [g0, cu.ya, cu.a], [g1, cu.yb, cu.b], { sx, bone: 'frame' });
+  for (const cu of zrows((z, y) => sideRho(z, y) < 1 && sideRho(z, y, -TS) >= 1, 2.9, 4.9, 2.2, 4.0)) part('srim', [r0, cu.ya, cu.a], [r1, cu.yb, cu.b], { sx, bone: 'frame' });
 }
-// frame bone: curved bridge, hinge blocks, short arms
-part('chrome', [-0.75, 3.95, 4.15], [0.75, 4.3, 4.65], { bone: 'frame', bridge: true });
-part('chrome', [-0.375, 4.3, 4.2], [0.375, 4.5, 4.65], { bone: 'frame', bridge: true });
+// frame bone: thick nose bar, corner posts, thin arms with an ear hook
+part('chrome', [-0.9, 3.9, 4.2], [0.9, 4.55, 4.85], { bone: 'frame', bridge: true });
+part('chrome', [-0.5, 3.6, 4.25], [0.5, 3.95, 4.8], { bone: 'frame', bridge: true });
 for (const sx of [1, -1]) {
   const m = (a, b) => (sx > 0 ? [a, b] : [-b, -a]);
-  const [h0, h1] = m(3.95, 4.5), [a0, a1] = m(4.0, 4.4);
-  part('chrome', [h0, 3.4, 3.1], [h1, 4.05, 4.4], { sx, bone: 'frame', hinge: true });
-  part('chrome', [a0, 3.55, 0.9], [a1, 4.0, 3.2], { sx, bone: 'frame', arm: true });
-  part('chrome', [a0, 3.2, -0.1], [a1, 3.85, 1.0], { sx, bone: 'frame', arm: true });
+  const [h0, h1] = m(3.7, 4.45), [a0, a1] = m(4.0, 4.35);
+  part('chrome', [h0, 3.4, 3.55], [h1, 4.45, 4.5], { sx, bone: 'frame', hinge: true });
+  part('chrome', [a0, 3.7, 0.0], [a1, 4.1, 2.4], { sx, bone: 'frame', arm: true });
+  part('chrome', [a0, 3.55, -2.6], [a1, 3.95, 0.1], { sx, bone: 'frame', arm: true });
+  part('chrome', [a0, 3.05, -3.0], [a1, 3.95, -2.45], { sx, bone: 'frame', arm: true });
 }
 
 // ---- sweep planes: one texture region over both lenses, each lens plane shows its half -----------------------
-const SW = { x0: -4.25, x1: 4.25, y0: CY - B, y1: CY + B };
+const SW = { x0: -4.25, x1: 4.25, y0: LY[0], y1: LY[1] };
 const SWH = Math.round((SW.y1 - SW.y0) / px) * px;
 
 // ---- atlas ------------------------------------------------------------------------------------------------------
@@ -83,14 +117,17 @@ const SWH = Math.round((SW.y1 - SW.y0) / px) * px;
 // every face in its own rectangle with a 1 texel gutter that repeats the face's edge colour. Row cubes are
 // thin strips, so without the gutter the sampler picked up the neighbouring strip at a row seam and drew hairline
 // cracks across the lenses.
-const NEED = { glass: ['south'], rim: ['south', 'up', 'down', 'east', 'west'], chrome: ['north', 'east', 'south', 'west', 'up', 'down'] };
+const NEED = c => ({
+  glass: ['south'], rim: ['south', 'up', 'down', 'east', 'west'], chrome: ['north', 'east', 'south', 'west', 'up', 'down'],
+  sglass: [c.sx > 0 ? 'east' : 'west'], srim: [c.sx > 0 ? 'east' : 'west', 'up', 'down', 'south', 'north'],
+})[c.role];
 const GUT = 1;
 const faceDims = (c, f) => {
   const [w, h, d] = [0, 1, 2].map(i => Math.round((c.to[i] - c.from[i]) * S));
   return { north: [w, h], south: [w, h], east: [d, h], west: [d, h], up: [w, d], down: [w, d] }[f];
 };
 const items = [];
-parts.forEach((c, i) => { for (const f of NEED[c.role]) { const [fw, fh] = faceDims(c, f); items.push({ c, f, fw, fh, i }); } });
+parts.forEach((c, i) => { for (const f of NEED(c)) { const [fw, fh] = faceDims(c, f); items.push({ c, f, fw, fh, i }); } });
 items.sort((a, b) => b.fh - a.fh || b.fw - a.fw || a.i - b.i);
 function pack(W) {
   let x = 0, y = 0, rowH = 0;
@@ -141,90 +178,109 @@ function ringAt(lx, ly) {
   return { dOut: R - r, dIn: r - Rin, width: Math.max(R - Rin, 1e-3), nx: gx / g, ny: gy / g, r, R };
 }
 
-// ---- chrome rim ---------------------------------------------------------------------------------------------
-// A rounded wire: across its width the surface normal tilts from outward (outer edge) through straight-ahead to
-// inward (inner edge). Phong against the top-front-left light, quantised onto the chrome ramp, then a ground
-// bounce lifts the shadow side (chrome is never flat black) and a 1 texel outline closes the silhouette.
-const LDIR = (() => { const l = [0.45, 0.62, 0.64], n = Math.hypot(...l); return l.map(v => v / n); })();
-function chromeLit(nx, ny, nz) {
-  const lit = nx * LDIR[0] + ny * LDIR[1] + nz * LDIR[2];
-  let s = lit > 0.86 ? 6 : lit > 0.7 ? 5 : lit > 0.52 ? 4 : lit > 0.32 ? 3 : lit > 0.12 ? 2 : 1;
-  if (ny < -0.15 && s < 4) s += 1.1 * smoothstep(-0.15, -0.7, ny);       // ground bounce on the underside
-  return s;
+// ---- polished chrome -------------------------------------------------------------------------------------------
+// Chrome reads as a tiny environment: sky above, a hard dark horizon, ground bounce below (see rimTexel and paintBar).
+// numeric outward normal and distance in from the outer edge of a scalar shape field (rho < 1 inside)
+function edgeInfo(field, u, w) {
+  const h = 0.01, gu = (field(u + h, w) - field(u - h, w)) / (2 * h), gw = (field(u, w + h) - field(u, w - h)) / (2 * h);
+  const g = Math.hypot(gu, gw) || 1e-6;
+  return { dOut: (1 - field(u, w)) / g, nu: gu / g, nw: gw / g };
+}
+const lensEdge = (lx, ly) => edgeInfo((u, w) => rhoS(u, w), lx, ly);
+const sideEdge = (z, y) => edgeInfo((u, w) => sideRho(u, w), z, y);
+// A 2 to 3 texel wire, read from the outside in: [1 texel dark outline] [lit band] [inner band]. Where the wire faces
+// up (the sky side) the lit band is a near-white highlight and the inner band the hard dark horizon; where it faces
+// down the order flips (dark horizon first, then a light bounce line on the inner edge); on the sides it is mid steel
+// then the dark horizon.
+function rimTexel(g) {
+  const k = Math.min(2, Math.floor(g.dOut / px + 1e-6)), lit = 0.85 * g.nw + 0.5 * g.nu;
+  if (k === 0) return pick(C, 0.5);
+  if (lit > 0.35) return pick(C, k === 1 ? 5.8 : 0.9);
+  if (lit < -0.35) return pick(C, k === 1 ? 1.4 : 4.3);
+  return pick(C, k === 1 ? (lit > 0 ? 4.6 : 3.4) : 0.9);
 }
 function paintRim(v, f, c) {
   for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
     const [X, Y] = world(c, f, x, y);
-    let col;
-    if (f === 'south') {
-      const lx = X - c.sx * CX, ly = Y - CY, g = ringAt(lx, ly);
-      const t = clamp(g.dOut / g.width), tp = 1 - 2 * t;                  // +1 outer edge .. -1 inner edge
-      const z = Math.sqrt(Math.max(0, 1 - tp * tp));
-      let s = chromeLit(g.nx * tp, g.ny * tp, z);
-      if (g.dOut < px * 0.99) s = Math.min(s, g.nx * 0.45 + g.ny * 0.9 > 0.3 ? 2.2 : 1);   // outline, softer on the lit side
-      col = pick(C, s);
-    } else col = pick(C, { up: 4, east: 3, north: 1, south: 3, west: 2, down: 1 }[f]);
-    v.set(x, y, col);
+    v.set(x, y, f === 'south' ? rimTexel(lensEdge(X - c.sx * CX, Y - CY)) : pick(C, { up: 4.4, down: 1.2 }[f] ?? 2));   // stair-step faces: sky-lit tops, dark undersides, quiet sides
+  }
+}
+function paintSideRim(v, f, c) {
+  const out = c.sx > 0 ? 'east' : 'west';
+  for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
+    const [, Y, Z] = world(c, f, x, y);
+    v.set(x, y, f === out ? rimTexel(sideEdge(Z, Y)) : pick(C, 1.5));
   }
 }
 
-// ---- iridescent mirror lens -------------------------------------------------------------------------------------
-// h runs pink (top) -> cyan (middle) -> lime (bottom), tilted a little so the bands lean; the coat is strongest
-// in the upper half and thins to smoke at the rim. Two slanted sky reflections, a thin dark lip under the rim and
-// a bright catch-light along the lower edge finish it. Every value is quantised so gradients are clean bands.
+// ---- smoked gunmetal mirror lens ---------------------------------------------------------------------------------
+// The body is a dark gunmetal mirror: a brighter steel sky over a hard horizon and a darker ground, darkening toward
+// the rim. The ONLY hue is one diagonal sheen band per lens (pink -> cyan -> lime across its width, soft at both
+// edges), plus a thin pale reflection streak beside it. Every value is quantised so gradients are clean bands.
+const GM = ['#06080d', '#0b0f17', '#121824', '#1b2434', '#26324a', '#364660'];
 const q = (v, n) => Math.round(v * n) / n;
+const BAND = { d0: 0.1, w: 1.2 };
+function lensBody(lx, ly, dIn) {
+  const { c } = shape(lx), up = ly - c;
+  const sky = up > -0.12;
+  let lv = sky ? 3.6 + 1.4 * clamp((up + 0.12) / 0.9) - 0.9 * clamp((lx / A + 1) / 2) : 1.0 + 1.2 * clamp((up + 0.8) / 0.7);
+  lv -= 1.6 * (1 - smoothstep(0.0, 0.22, dIn));                           // smoke near the rim
+  if (sky && up > 0.1 && dIn < 0.1) lv -= 1;                              // lip shadow under the top rim
+  return pick(GM, lv);
+}
 function lensColor(lx, ly) {
-  const g = ringAt(lx, ly), dIn = -g.dIn;                                 // distance in from the lens edge (>= 0 inside)
-  const h = clamp(0.5 - ly * 0.4 + lx * 0.08);
-  const sheen = sheenAt(q(h, 8));
-  let a = 0.8 + 0.1 * (ly / B) - 0.05 * (lx / A);
-  const edge = smoothstep(0.0, 0.3, dIn);                                // smoke shows through near the rim
-  a *= 0.45 + 0.55 * edge;
-  const smoke = pick(K, 1.2 + 2.2 * (ly + B) / (2 * B) * 0.8 + 0.6 * edge);
-  let col = mix(smoke, sheen, q(a, 12));
-  // sky reflections: two slanted bands up-left
-  const qq = lx * 0.8 - ly * 0.6;
-  if (dIn > 0.1) {
-    if (qq > -0.78 && qq < -0.5) col = mix(col, '#f2f6ff', 0.56);
-    else if (qq > -0.36 && qq < -0.24) col = mix(col, '#f2f6ff', 0.4);
+  const dIn = lensEdge(lx, ly).dOut - TH;
+  let col = lensBody(lx, ly, dIn);
+  const d = lx - 0.55 * ly - BAND.d0, u = d / BAND.w + 0.5;
+  if (u > 0 && u < 1) {
+    const a = q(1 - Math.abs(2 * u - 1) ** 1.5, 5) * 0.85 * smoothstep(0.0, 0.2, dIn + 0.05);
+    col = mix(col, sheenAt(q(u, 6)), a);
   }
-  // catch-light along the lower edge (ground bounce) and a lip of shadow under the top rim
-  if (ly < -0.35 && dIn < 0.14 && dIn > 0.0 && lx > -1.0 && lx < 1.15) col = mix(col, sheenAt(q(h, 8)), 0.5), col = mix(col, '#ffffff', 0.18);
-  if (ly > 0.2 && dIn < 0.14) col = mix(col, K[0], 0.7);
-  if (lx > 0.9 && ly > -0.9 && dIn < 0.1) col = mix(col, K[0], 0.4);
+  const d2 = d - 1.0;                                                     // a thin pale streak ahead of the band
+  if (d2 > -0.07 && d2 < 0.07 && dIn > 0.12) col = mix(col, '#f2f6ff', 0.34);
   return toHex(col);
 }
 function paintGlass(v, f, c) {
   for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
     const [X, Y] = world(c, f, x, y);
-    let col;
-    if (f === 'south') col = lensColor(X - c.sx * CX, Y - CY);
-    else if (f === 'up') col = K[2];
-    else col = K[1];
+    v.set(x, y, f === 'south' ? lensColor(X - c.sx * CX, Y - CY) : f === 'up' ? K[2] : K[1]);
+  }
+}
+function paintSideGlass(v, f, c) {
+  const out = c.sx > 0 ? 'east' : 'west';
+  for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
+    const [, Y, Z] = world(c, f, x, y);
+    let col = K[1];
+    if (f === out) {
+      const dIn = sideEdge(Z, Y).dOut - TS, up = Y - SC;
+      let lv = up > -0.06 ? 3.0 + 1.2 * clamp(up / 0.5) : 1.0 + 1.0 * clamp((up + 0.6) / 0.55);
+      lv -= 1.5 * (1 - smoothstep(0, 0.2, dIn));
+      col = pick(GM, lv);
+    }
     v.set(x, y, col);
   }
 }
 
-// ---- chrome bars: bridge, hinge blocks, arms --------------------------------------------------------------------
+// ---- chrome bars: bridge, corner posts, arms ---------------------------------------------------------------------
+// Rows top to bottom: outline, near-white highlight, mid steel, hard dark horizon, steel ground, a light bounce line.
 function paintBar(v, f, c) {
   const outer = (c.sx > 0 && f === 'east') || (c.sx < 0 && f === 'west');
   const bias = { up: 0, south: 0.3, east: 0.5, west: -0.6, north: -0.3, down: -1.2 }[f] ?? 0;
   for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
     let s;
     if (f === 'up') s = y === v.h - 1 ? 6 : 5;
-    else if (f === 'down') s = 1;
+    else if (f === 'down') s = 1.2;
     else {
       const yf = v.h > 1 ? y / (v.h - 1) : 0;
-      if (v.h >= 5) s = yf < 0.2 ? 5.2 : yf < 0.45 ? 4.2 : yf < 0.62 ? 2 : yf < 0.9 ? 3 : 1;      // sky / horizon / ground bounce / under edge
-      else s = y === 0 ? 5 : y === v.h - 1 ? 1 : 3;
-      s += bias + (outer ? 0.4 : 0);
-      if (y === 0 && !outer) s = Math.min(s, 4.4);
+      if (v.h >= 6) s = y === 0 ? 0.6 : yf < 0.26 ? 5.6 : yf < 0.42 ? 4 : yf < 0.62 ? 0.7 : yf < 0.86 ? 2.6 : 3.9;
+      else if (v.h >= 4) s = y === 0 ? 5.4 : y === v.h - 1 ? 3.8 : yf < 0.6 ? 0.9 : 2.6;
+      else s = y === 0 ? 5.2 : y === v.h - 1 ? 3.8 : 0.9;
+      s += (s > 1.5 && s < 5.5 ? bias : 0) + (outer && s > 1.5 && s < 5.5 ? 0.4 : 0);
     }
     if (c.hinge && (f === 'east' || f === 'west')) {
-      const [X, , Z] = world(c, f, x, y);
+      const [, , Z] = world(c, f, x, y);
       if (Math.abs(Z - 3.8125) < px * 0.6) s = 0.8;                          // the hinge seam
-      if (Math.abs(Z - 3.4375) < px * 0.6 && Math.abs(y - (v.h - 1) / 2) < 1.2) s = 6;   // a pin head catching the light
-      void X;
+      if (Math.abs(Z - 4.1875) < px * 0.6 && Math.abs(y - (v.h - 1) / 2) < 1.2) s = 6;   // a pin head catching the light
     }
     v.set(x, y, pick(C, s));
   }
@@ -250,7 +306,7 @@ function paintSweep(tex, frame) {
   }
 }
 
-const PAINT = { rim: paintRim, glass: paintGlass, chrome: paintBar };
+const PAINT = { rim: paintRim, glass: paintGlass, chrome: paintBar, srim: paintSideRim, sglass: paintSideGlass };
 const strip = ({ role, sx, bone, bridge, hinge, arm, dz = 0, ...c }) => (dz ? { ...c, from: [c.from[0], c.from[1], c.from[2] + dz], to: [c.to[0], c.to[1], c.to[2] + dz] } : c);
 const inBone = name => parts.filter(c => c.bone === name).map(strip);
 
@@ -271,7 +327,7 @@ function staticLayer() {
 }
 
 export default {
-  meta: { id: 'mask-shades', name: 'Chrome Shades', kind: 'mask', cents: 699, blurb: 'Y2K bug-eye wraparound shades: mirrored pink, cyan and lime lenses in thin polished chrome. A glint sweeps across now and then.' },
+  meta: { id: 'mask-shades', name: 'Chrome Shades', kind: 'mask', cents: 699, blurb: 'Y2K bug-eye wraparound shades: smoked gunmetal mirror lenses with one pink, cyan and lime sheen band, in polished chrome. A glint sweeps across now and then.' },
   model: {
     texSize: TEX, scale: S,
     bones: [
