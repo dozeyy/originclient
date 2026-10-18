@@ -77,7 +77,8 @@
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
-		"ChatReceiveMixin"
+		"ChatReceiveMixin",
+		"PackSelectionScreenAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 0
