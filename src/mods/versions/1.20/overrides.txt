@@ -95,3 +95,6 @@ client/java/com/origin/client/client/gui/OriginWidgetOwnership.java
 # equipped theme cosmetic); shared/ keeps them constants. Reconcile if another
 # version gets themes.
 client/java/com/origin/client/client/theme/OriginTheme.java
+# DELIBERATE FORK (2026-10-18) - launch experience v2: the world-loading screen hands real chunk
+# progress (LevelLoadingScreenAccessor) to the Origin loading scene.
+client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
