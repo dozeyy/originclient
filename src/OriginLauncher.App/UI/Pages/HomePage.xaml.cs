@@ -665,6 +665,9 @@ public partial class HomePage : UserControl
                 {
                     _sceneGame = started;
                     LoadingOverlay.EnterGameStart();
+                    // The player switched account while it was preparing: that
+                    // switch ran before the scene had a game, so lower it now.
+                    if (started.Key != SelectedKey()) ReleaseScene(started, false);
                 }
                 else
                 {

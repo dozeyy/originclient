@@ -71,9 +71,7 @@ public final class StartupTransition {
 		}
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.level == null) {
-			worldPending = false;
-			worldFadeAt = 0;
-			return;
+			return;                         // not in a world yet; the next entry re-arms anyway
 		}
 		if (worldPending) {
 			if (mc.screen != null) {

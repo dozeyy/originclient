@@ -38,7 +38,8 @@ Game:      Origin loading screen ─resources done→ 560 ms dissolve → title 
   so nothing outside the game process can reach it; the token stops chat or
   other mods from faking a stage.
 - `hello`: pre-launch. `loading`: first Origin loading-screen frame, so the
-  launcher scene lowers. `ready`: the loading screen is gone, so Play is done.
+  launcher scene lowers. `ready`: the startup loading screen is gone (title, or a Quick Play world
+  starting to load), so Play is done.
 - Fallbacks (`Core/Launch/GameHandoff.cs`): window seen with no hello for 3 s
   means an older build, so it behaves as before; no loading frame 20 s after the
   window means the scene lowers anyway; 90 s from process start means ready
