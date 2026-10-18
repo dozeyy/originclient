@@ -63,14 +63,16 @@ const parts = [];
 function slab(role, sx, sg, y0, y1, off, thick, extra = {}) {
   const nx = sx * Math.sin(sg.phi), nz = Math.cos(sg.phi);
   const fx = sx * sg.x + off * nx, fz = sg.z + off * nz;
-  const [xa, xb] = sx > 0 ? [fx, fx + STEP] : [fx - STEP, fx];
-  parts.push({ role, sx, sg, from: [xa, y0, fz - thick], to: [xb, y1, fz], uv: [0, 0], rotation: { origin: [fx, 0, fz], angle: [0, sx * sg.deg, 0] }, ...extra });
+  // `lap` lets a slab run one texel into its outer neighbour so rasteriser cracks at the joins show lens, not skin
+  const lap = extra.lap ? px : 0;
+  const [xa, xb] = sx > 0 ? [fx, fx + STEP + lap] : [fx - STEP - lap, fx];
+  parts.push({ role, sx, sg, from: [xa, y0, fz - thick], to: [xb, y1, fz], uv: [0, 0], rotation: { origin: [fx, 0, fz], angle: [0, sx * sg.deg, 0] }, ...extra, lap: undefined });
 }
 for (const sx of [1, -1]) for (const sg of SEG) {
   const am = sg.a0 + STEP / 2, y1 = topOf(am);
   let y0 = 9;                                                            // the slab box reaches the lowest texel column; the rest is cut away by alpha
   for (let k = 0; k < STEP * S; k++) y0 = Math.min(y0, bottomOf(sg.a0 + (k + 0.5) * px));
-  slab('lens', sx, sg, y0, y1, 0, T);
+  slab('lens', sx, sg, y0, y1, 0, T, { lap: sg.i < N - 1 });
   slab('bar', sx, sg, y1 - 0.25, y1 + 0.25, 0.0625, 0.5);
 }
 // earstems: from the lens ends back past the ear, angled in to touch the head; the last stretch is a rubber tip

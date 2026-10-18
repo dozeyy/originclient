@@ -85,12 +85,12 @@ for (const sx of [1, -1]) {
 // strap and one buckle at the back centre
 const SY = { up: [1.75, 2.125], lo: [0.625, 1.0] };
 for (const sx of [1, -1]) {
-  const [a, b] = sx > 0 ? [4.0, 4.25] : [-4.25, -4.0];
+  const [a, b] = sx > 0 ? [3.875, 4.25] : [-4.25, -3.875];                          // the inner texel sinks into the head so the strap sits flush on the cheek
   for (const k of ['up', 'lo']) add('vent', 'strap', [a, SY[k][0], -4.25], [b, SY[k][1], 3.0], { sx, long: true });
   const [s0, s1] = sx > 0 ? [3.875, 4.375] : [-4.375, -3.875];
   add('vent', 'slider', [s0, SY.up[0] - 0.125, 1.0], [s1, SY.up[1] + 0.125, 1.5], { sx });
 }
-for (const k of ['up', 'lo']) add('vent', 'strap', [-4.25, SY[k][0], -4.25], [4.25, SY[k][1], -4.0], { sx: 0, rear: true });
+for (const k of ['up', 'lo']) add('vent', 'strap', [-4.25, SY[k][0], -4.25], [4.25, SY[k][1], -3.875], { sx: 0, rear: true });
 add('vent', 'buckle', [-0.75, SY.lo[0] - 0.125, -4.625], [0.75, SY.up[1] + 0.125, -4.25], { sx: 0 });
 layoutCubes(parts, [64, 32], S);
 const USED = Math.ceil(Math.max(...parts.map(c => c.uv[1] + (c.to[2] - c.from[2]) + (c.to[1] - c.from[1]))));   // rows the boxes take
