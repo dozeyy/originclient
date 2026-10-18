@@ -368,9 +368,9 @@ public class OriginModMenuScreen extends Screen {
 	private void openMod(Mods.Mod mod) {
 		Mods.setMetaBool("seen:" + mod.id(), true);
 		switch (mod.id()) {
-			case "waypoints" -> Minecraft.getInstance().setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
-			case "itemsize" -> Minecraft.getInstance().setScreenAndShow(new OriginItemSizeScreen());
-			case "fpscoach" -> Minecraft.getInstance().setScreenAndShow(new FpsCoachScreen(this));
+			case "waypoints" -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+			case "itemsize" -> Minecraft.getInstance().setScreen(new OriginItemSizeScreen());
+			case "fpscoach" -> Minecraft.getInstance().setScreen(new FpsCoachScreen(this));
 			default -> goPage(mod.id());
 		}
 	}
@@ -448,7 +448,7 @@ public class OriginModMenuScreen extends Screen {
 			double cp = Math.min(1.0, (now - closingAt) / (double) OPEN_MS);
 			p = (float) OriginTheme.easeOut(1.0 - cp);
 			if (cp >= 1.0) {
-				Minecraft.getInstance().setScreenAndShow(returnTo);
+				Minecraft.getInstance().setScreen(returnTo);
 				return;
 			}
 		}
@@ -553,9 +553,9 @@ public class OriginModMenuScreen extends Screen {
 				switch (idx) {
 					case 0 -> goTab(Tab.MODS);
 					case 1 -> goTab(Tab.SETTINGS);
-					case 2 -> Minecraft.getInstance().setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
-					case 3 -> Minecraft.getInstance().setScreenAndShow(new CosmeticsScreen(this));
-					default -> Minecraft.getInstance().setScreenAndShow(new FriendsScreen(this));
+					case 2 -> Minecraft.getInstance().setScreen(new com.origin.client.client.waypoints.WaypointScreen());
+					case 3 -> Minecraft.getInstance().setScreen(new CosmeticsScreen(this));
+					default -> Minecraft.getInstance().setScreen(new FriendsScreen(this));
 				}
 			});
 			tx += tw[i] + 4;
@@ -570,7 +570,7 @@ public class OriginModMenuScreen extends Screen {
 		d.rect(ex, 16, ew, 32, 6, ehov ? 0xFF83E2B5 : ACC);
 		d.icon("@hudeditor", ex + 14, 25, 14, ON_ACC);
 		d.textMid(eh, ex + 36, 32, 11, true, CAPS_TRACK, ON_ACC);
-		d.hit(ex, 16, ew, 32, () -> Minecraft.getInstance().setScreenAndShow(new HudEditorScreen(false, this)));
+		d.hit(ex, 16, ew, 32, () -> Minecraft.getInstance().setScreen(new HudEditorScreen(false, this)));
 	}
 
 	// ---- the library: toolbar + cards / list ----
@@ -978,7 +978,7 @@ public class OriginModMenuScreen extends Screen {
 		d.rect(bx, by, bw, 30, 6, hov ? 0xF0232A26 : 0xD10E1110, LINE2);
 		d.icon("@hudeditor", bx + 14, by + 8, 14, TEXT);
 		d.textMid(l, bx + 36, by + 15, 10.5f, true, CAPS_TRACK, TEXT);
-		d.hit(bx, by, bw, 30, () -> Minecraft.getInstance().setScreenAndShow(new HudEditorScreen(false, this)));
+		d.hit(bx, by, bw, 30, () -> Minecraft.getInstance().setScreen(new HudEditorScreen(false, this)));
 	}
 
 	// ---- the two-column option grid (mod page + Settings tab) ----
@@ -1154,7 +1154,7 @@ public class OriginModMenuScreen extends Screen {
 				d.icon("@chev-down", right - 22, cy - 6, 12, MUTE);
 				d.hit(right - bw, cy - 13, bw, 26, () -> {
 					if (isItemPicker(id, o.key)) {
-						Minecraft.getInstance().setScreenAndShow(new ItemCounterPickerScreen());
+						Minecraft.getInstance().setScreen(new ItemCounterPickerScreen());
 					} else {
 						OriginMultiSelect.open(o.label, java.util.Arrays.asList(o.modes), sel,
 								chosen -> vSetMulti(id, o.key, String.join(", ", chosen)));

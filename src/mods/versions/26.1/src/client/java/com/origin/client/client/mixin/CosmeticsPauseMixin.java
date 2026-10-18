@@ -78,7 +78,7 @@ public abstract class CosmeticsPauseMixin extends Screen {
 			}
 			final Screen self = this;
 			this.addRenderableWidget(Button.builder(Component.literal("Cosmetics"),
-					b -> this.minecraft.setScreenAndShow(new CosmeticsScreen(self)))
+					b -> this.minecraft.setScreen(new CosmeticsScreen(self)))
 					.bounds(wide.getX(), low.getY() + low.getHeight() + gap, wide.getWidth(), h).build());
 		} catch (Throwable ignored) {
 			// fail-soft: the pause menu stays vanilla

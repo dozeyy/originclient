@@ -122,7 +122,7 @@ public class FpsCoachScreen extends OriginWindow {
 		}
 		float bw = buttonW(d, "Settings", "@title-options");
 		button(d, "Settings", "@title-options", right - bw, 16, bw, 32, Style.SECONDARY, true,
-				() -> Minecraft.getInstance().setScreenAndShow(new OriginModMenuScreen(null, FpsCoach.ID)));
+				() -> Minecraft.getInstance().setScreen(new OriginModMenuScreen(null, FpsCoach.ID)));
 	}
 
 	// ---- body ----
@@ -207,7 +207,7 @@ public class FpsCoachScreen extends OriginWindow {
 				float tw = Math.max(96, buttonW(d, "Try it", null));
 				bx -= tw;
 				button(d, "Try it", null, bx, by, tw, 32, Style.PRIMARY, canTry, () -> {
-					Minecraft.getInstance().setScreenAndShow(null);   // the test only counts frames with no menu open
+					Minecraft.getInstance().setScreen(null);   // the test only counts frames with no menu open
 					FpsCoach.startTest(tip);
 				});
 				if (d.over(bx, by, tw, 32)) {
@@ -337,7 +337,7 @@ public class FpsCoachScreen extends OriginWindow {
 		y += 88;
 		float bw = 140;
 		button(d, "Continue", null, cx - GAP / 2 - bw, y, bw, 40, Style.PRIMARY, true,
-				() -> Minecraft.getInstance().setScreenAndShow(null));
+				() -> Minecraft.getInstance().setScreen(null));
 		button(d, "Stop test", null, cx + GAP / 2, y, bw, 40, Style.SECONDARY, true, () -> {
 			freeze();
 			FpsCoach.stopTest();

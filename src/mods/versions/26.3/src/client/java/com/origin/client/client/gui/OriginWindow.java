@@ -107,7 +107,7 @@ public abstract class OriginWindow extends Screen {
 			double cp = Math.min(1.0, (now - closingAt) / (double) OPEN_MS);
 			p = (float) OriginTheme.easeOut(1.0 - cp);
 			if (cp >= 1.0) {
-				Minecraft.getInstance().setScreenAndShow(returnTo);
+				Minecraft.getInstance().gui.setScreen(returnTo);
 				return;
 			}
 		}

@@ -62,7 +62,7 @@ final class OriginDevWorld {
 				// Title is up (OriginDevShots waited for it): open Select World.
 				GLFW.glfwSetWindowSize(mc.getWindow().handle(), 1920, 1080);
 				mc.framebufferSizeChanged();
-				mc.setScreenAndShow(new SelectWorldScreen(new TitleScreen()));
+				mc.gui.setScreen(new SelectWorldScreen(new TitleScreen()));
 				phase = 1;
 				return;
 			}
@@ -75,7 +75,7 @@ final class OriginDevWorld {
 					return;
 				}
 				if (mc.gui.screen() instanceof PauseScreen) {
-					mc.setScreenAndShow(null);   // lost focus under Xvfb
+					mc.gui.setScreen(null);   // lost focus under Xvfb
 				}
 				if (mc.player == null || mc.gui.screen() != null) {
 					return;
@@ -96,7 +96,7 @@ final class OriginDevWorld {
 			}
 			if (phase == 2) {
 				if (mc.gui.screen() instanceof PauseScreen) {
-					mc.setScreenAndShow(null);
+					mc.gui.setScreen(null);
 				}
 				grab(mc, dir, "world_sat_1920x1080.png");
 				Mods.set("colorsaturation", "saturation", 1.0);
@@ -109,7 +109,7 @@ final class OriginDevWorld {
 				grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
 				// The pause menu (its Cosmetics button sits among vanilla's buttons).
-				mc.setScreenAndShow(new PauseScreen(true));
+				mc.gui.setScreen(new PauseScreen(true));
 				phase = 4;
 				nextAt = now + 1500;
 				return;
@@ -117,7 +117,7 @@ final class OriginDevWorld {
 			if (phase == 4) {
 				grab(mc, dir, "pause_1920x1080.png");
 				// The Cosmetics window over the world: its preview is the real player here.
-				mc.setScreenAndShow(new com.origin.client.client.gui.CosmeticsScreen(null));
+				mc.gui.setScreen(new com.origin.client.client.gui.CosmeticsScreen(null));
 				phase = 5;
 				nextAt = now + 2500;
 				return;
@@ -129,7 +129,7 @@ final class OriginDevWorld {
 			}
 			if (phase == 6) {
 				// Friends & Party: a demo party standing in front of the camera, with a ping
-				mc.setScreenAndShow(null);
+				mc.gui.setScreen(null);
 				com.origin.client.client.social.SocialDemo.install(true);
 				phase = 7;
 				nextAt = now + 2500;
@@ -137,7 +137,7 @@ final class OriginDevWorld {
 			}
 			if (phase == 7) {
 				if (mc.gui.screen() instanceof PauseScreen) {
-					mc.setScreenAndShow(null);
+					mc.gui.setScreen(null);
 				}
 				grab(mc, dir, "party_world_1920x1080.png");
 				phase = 8;
@@ -159,7 +159,7 @@ final class OriginDevWorld {
 			}
 			if (phase == 9) {
 				if (mc.gui.screen() instanceof PauseScreen) {
-					mc.setScreenAndShow(null);
+					mc.gui.setScreen(null);
 				}
 				grab(mc, dir, "overlays_world_1920x1080.png");
 				phase = 10;

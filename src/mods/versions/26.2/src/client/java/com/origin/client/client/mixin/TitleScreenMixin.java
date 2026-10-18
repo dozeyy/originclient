@@ -207,10 +207,10 @@ public class TitleScreenMixin {
 		try {
 			Minecraft mc = Minecraft.getInstance();
 			originclient$modsNav = Button.builder(Component.literal("Mods"),
-					b -> mc.setScreenAndShow(new OriginModMenuScreen())).bounds(0, 0, 150, 20).build();
+					b -> mc.gui.setScreen(new OriginModMenuScreen())).bounds(0, 0, 150, 20).build();
 			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$modsNav);
 			originclient$cosmeticsNav = Button.builder(Component.literal("Cosmetics"),
-					b -> mc.setScreenAndShow(new CosmeticsScreen(self))).bounds(0, 0, 150, 20).build();
+					b -> mc.gui.setScreen(new CosmeticsScreen(self))).bounds(0, 0, 150, 20).build();
 			((ScreenInvoker) self).originclient$addRenderableWidget(originclient$cosmeticsNav);
 		} catch (Throwable ignored) {
 			originclient$modsNav = null;

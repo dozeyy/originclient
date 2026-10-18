@@ -164,7 +164,7 @@ public final class OriginDevShots {
 			if (mc.getOverlay() == null && mc.screen != null && !(mc.screen instanceof TitleScreen)
 					&& !(mc.screen instanceof OriginModMenuScreen)) {
 				mc.options.onboardAccessibility = false;
-				mc.setScreenAndShow(new TitleScreen());
+				mc.setScreen(new TitleScreen());
 				return;
 			}
 			if (mc.getOverlay() == null && mc.screen instanceof TitleScreen) {
@@ -211,7 +211,7 @@ public final class OriginDevShots {
 				}
 				case 1 -> {
 					// Fresh screens so entrance animations replay and get captured settled.
-					mc.setScreenAndShow(s.kind().open());
+					mc.setScreen(s.kind().open());
 					mc.resizeGui();
 					phase = 2;
 					// The shader browser's first open starts its preview downloads; under

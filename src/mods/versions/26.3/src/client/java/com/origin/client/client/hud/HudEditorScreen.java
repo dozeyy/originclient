@@ -77,7 +77,7 @@ public class HudEditorScreen extends Screen {
 
 	@Override
 	public void onClose() {
-		Minecraft.getInstance().setScreenAndShow(returnTo);
+		Minecraft.getInstance().gui.setScreen(returnTo);
 	}
 
 	@Override
@@ -271,14 +271,14 @@ public class HudEditorScreen extends Screen {
 
 		// Two icons either side of MODS so the group stays centred under the mark
 		// (Friends joined 2026-10-12; Settings balances it on the left).
-		quickButton(d, "@title-options", null, -182, 44, () -> Minecraft.getInstance().setScreenAndShow(
+		quickButton(d, "@title-options", null, -182, 44, () -> Minecraft.getInstance().gui.setScreen(
 				new OriginModMenuScreen().settingsTab()));
-		quickButton(d, "waypoints", null, -130, 44, () -> Minecraft.getInstance().setScreenAndShow(
+		quickButton(d, "waypoints", null, -130, 44, () -> Minecraft.getInstance().gui.setScreen(
 				new com.origin.client.client.waypoints.WaypointScreen()));
-		quickButton(d, null, "MODS", -78, 156, () -> Minecraft.getInstance().setScreenAndShow(new OriginModMenuScreen()));
-		quickButton(d, "@shirt", null, 86, 44, () -> Minecraft.getInstance().setScreenAndShow(
+		quickButton(d, null, "MODS", -78, 156, () -> Minecraft.getInstance().gui.setScreen(new OriginModMenuScreen()));
+		quickButton(d, "@shirt", null, 86, 44, () -> Minecraft.getInstance().gui.setScreen(
 				new com.origin.client.client.gui.CosmeticsScreen(this)));
-		quickButton(d, "@user", null, 138, 44, () -> Minecraft.getInstance().setScreenAndShow(
+		quickButton(d, "@user", null, 138, 44, () -> Minecraft.getInstance().gui.setScreen(
 				new com.origin.client.client.gui.FriendsScreen(this)));
 		if (com.origin.client.client.social.SocialClient.attention() > 0) {
 			d.circle(138 + 44 - 7, 17 + 7, 3.5f, OriginDeck.ACC);   // something waiting in Friends

@@ -352,7 +352,7 @@ public final class Social {
 					ServerAddress.parseString(server), data, false, null);
 		} catch (Throwable t) {
 			OriginClient.LOGGER.warn("Origin: couldn't join {}", server, t);
-			mc.setScreenAndShow(new JoinMultiplayerScreen(new TitleScreen()));
+			mc.setScreen(new JoinMultiplayerScreen(new TitleScreen()));
 		}
 	}
 
@@ -363,6 +363,6 @@ public final class Social {
 			fs.select(select);
 			return;
 		}
-		mc.setScreenAndShow(new FriendsScreen(mc.screen).select(select));
+		mc.setScreen(new FriendsScreen(mc.screen).select(select));
 	}
 }

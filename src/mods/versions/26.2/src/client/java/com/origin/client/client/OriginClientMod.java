@@ -203,7 +203,7 @@ public class OriginClientMod implements ClientModInitializer {
 								&& label.equals(b.getMessage()));
 				if (!present) {
 					buttons.add(new com.origin.client.client.shaders.OriginShaderButton(6, 6, 120, 20, label,
-							b -> client.setScreenAndShow(new com.origin.client.client.shaders.ShaderBrowserScreen(screen))));
+							b -> client.gui.setScreen(new com.origin.client.client.shaders.ShaderBrowserScreen(screen))));
 				}
 			}
 		});
@@ -372,7 +372,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// directly, ORIGIN logo, dark MODS button into the full grid).
 		while (OriginKeyBindings.openModMenu.consumeClick()) {
 			if (client.gui.screen() == null) {
-				client.setScreenAndShow(new com.origin.client.client.hud.HudEditorScreen(true));
+				client.gui.setScreen(new com.origin.client.client.hud.HudEditorScreen(true));
 			}
 		}
 
@@ -394,13 +394,13 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		while (OriginKeyBindings.waypointMenu.consumeClick()) {
 			if (client.gui.screen() == null) {
-				client.setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen());
+				client.gui.setScreen(new com.origin.client.client.waypoints.WaypointScreen());
 			}
 		}
 		while (OriginKeyBindings.waypointCreate.consumeClick()) {
 			// Opens the Waypoints screen straight into a fresh Create form.
 			if (client.gui.screen() == null) {
-				client.setScreenAndShow(new com.origin.client.client.waypoints.WaypointScreen(true));
+				client.gui.setScreen(new com.origin.client.client.waypoints.WaypointScreen(true));
 			}
 		}
 		// Death waypoint: drop one on the alive→dead transition (edge-triggered).
