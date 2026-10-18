@@ -4,8 +4,8 @@
 // chrome nucleus bead at the shared centre. Where two cross, one passes UNDER the other: the under wire
 // simply stops 0.5 px short of the over wire's edge on both sides (a 1 px gap, as in the cape art), and
 // which one goes under alternates round the mark (the one with the lower sin(2 x polar angle)). The whole
-// mark is one rigid object: tipped 30 degrees front-up (so it faces the usual camera instead of
-// collapsing edge-on) and swaying a slow +-8 degrees (14 s period) about its own axis. A single bright spark with a
+// mark is one rigid object: tipped 20 degrees front-up (so it faces the usual camera instead of
+// collapsing edge-on) and swaying a slow +-5 degrees (14 s period) about its own axis. A single bright spark with a
 // 2.5 px fading trail races round each ellipse.
 //
 // Size is set by the halo height rule (FORMAT.md: halo y 10..13): a tilted flat mark reaches
@@ -23,9 +23,9 @@
 import { clamp } from '../../lib/px.mjs';
 import { newTexture } from '../../lib/model.mjs';
 
-const S = 8, YC = 11.5, FLOAT = 0.05, SWING = 8, TILT = -30;
-const A = 2.45, B = 1.15, T = 0.375, N = 72;                       // semi-axes (centre line), tube, segments per ellipse
-const GAP = 0.2;                                                 // clear px each side of the over wire (0.375 wire + 2 x 0.2 = a ~0.8 px break)
+const S = 8, YC = 11.5, FLOAT = 0.05, SWING = 5, TILT = -20;
+const A = 3.7, B = 1.45, T = 0.375, N = 72;                       // semi-axes (centre line), tube, segments per ellipse
+const GAP = 0.3;                                                 // clear px each side of the over wire: with the 0.375 wire a ~1 px break in the under wire
 const BEAD = 0.8, BEAD_ROTS = [[0, 0, 0], [35, 45, 0], [0, 45, 45]];   // the nucleus: three cubes turned against each other (a rough sphere), shaded as a sphere
 // yaw of the long axis (deg), spark laps per loop (sign = direction)
 const ELLS = [{ yaw: 0, laps: 1 }, { yaw: 60, laps: -1 }, { yaw: 120, laps: 1 }];
@@ -73,7 +73,7 @@ const CUTS = ELLS.map(() => []);                                 // per ellipse:
         if (hi < hj) {
           const e = 1e-3, qa = world(i, [P(tAt(sc - e))[0], 0, P(tAt(sc - e))[2]]), qb = world(i, [P(tAt(sc + e))[0], 0, P(tAt(sc + e))[2]]);
           const d = norm(sub(qb, qa)), q = rotY(wc, -ELLS[j].yaw), g = norm([q[0] / (A * A), 0, q[2] / (B * B)]), gw = rotY(g, ELLS[j].yaw);
-          const sinX = Math.max(0.5, Math.abs(d[0] * gw[2] - d[2] * gw[0]));   // angle between the wires
+          const sinX = Math.max(0.6, Math.abs(d[0] * gw[2] - d[2] * gw[0]));   // angle between the wires
           CUTS[i].push({ s: ((sc % PERIM) + PERIM) % PERIM, half: (T / 2 + GAP) / sinX });
         }
       }
@@ -198,8 +198,8 @@ function chrome({ phi, s, side }, r, f) {
   const rw = row(phi), [base, dark, lite] = TABLE[rw];
   const st = clamp(base - (side < 0 ? dark : 0) + (side > 0 ? lite : 0), 0, 2);   // satin: a step under the brand's #E0E0E0, so the spark is the brightest thing on the mark
   const col = CHROME[st];
-  if (b < 0.5 || b > PERIM - 0.2) return SPEC;                   // the spark
-  if (b < 0.5 + TRAIL) { const k = 1 - (b - 0.5) / TRAIL; return mix(col, SPEC, 0.85 * k * k); }
+  if (b < 0.3 || b > PERIM - 0.1) return SPEC;                   // the spark
+  if (b < 0.3 + TRAIL) { const k = 1 - (b - 0.3) / TRAIL; return mix(col, SPEC, 0.85 * k * k); }
   return col;
 }
 // the nucleus: a small chrome ball (a cube stood on its corner, shaded as a sphere), smooth across the four steps
