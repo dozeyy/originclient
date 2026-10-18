@@ -77,6 +77,7 @@
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsSoundMixin",
 		"CosmeticCapeMixin",
+		"CapePhysicsMixin",
 		"CosmeticsPauseMixin"
 	],
 	"injectors": {

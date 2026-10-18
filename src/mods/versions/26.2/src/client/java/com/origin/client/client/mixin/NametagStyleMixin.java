@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -44,6 +45,10 @@ public class NametagStyleMixin {
 	// vanilla here (era limit, see PORTING-ERA-NOTES "26.x era").
 	@ModifyVariable(method = "prepareText", at = @At("HEAD"), argsOnly = true)
 	private static NameTagFeatureRenderer.Submit originclient$styleNameTag(NameTagFeatureRenderer.Submit s) {
+		return originclient$withBadge(originclient$style(s));
+	}
+
+	private static NameTagFeatureRenderer.Submit originclient$style(NameTagFeatureRenderer.Submit s) {
 		try {
 			Component text = s.text();
 			int color = s.color();
@@ -88,6 +93,25 @@ public class NametagStyleMixin {
 				newBg = originclient$scaleAlpha(bg, op);
 			}
 			return originclient$with(s, newColor, newBg);
+		} catch (Throwable t) {
+			return s;
+		}
+	}
+
+	// Origin+ badge: the badge glyph goes IN FRONT of a member's name, so vanilla's own
+	// background box, see-through pass and fade hold it like the name (PlusBadge doc).
+	// The Submit's x is the left edge of the centred text, so it moves left by half the
+	// badge to stay centred. The member is matched by the tag's text, like `self`.
+	private static NameTagFeatureRenderer.Submit originclient$withBadge(NameTagFeatureRenderer.Submit s) {
+		try {
+			Component badge = PlusBadge.nametagBadge(s.text());
+			if (badge == null) {
+				return s;
+			}
+			float w = PlusBadge.width(badge);
+			return new NameTagFeatureRenderer.Submit(s.pose(), s.x() - w / 2f, s.y(),
+					Component.empty().append(badge).append(s.text()), s.lightCoords(), s.color(), s.backgroundColor(),
+					s.displayMode());
 		} catch (Throwable t) {
 			return s;
 		}

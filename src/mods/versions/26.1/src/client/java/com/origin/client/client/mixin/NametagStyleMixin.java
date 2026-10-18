@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -60,11 +61,25 @@ public class NametagStyleMixin {
 		if (party != null) {
 			color = (color & 0xFF000000) | (party & 0xFFFFFF);
 		}
+		boolean self = originclient$isSelf(text);   // on the tag's own text, before the badge
+		// Origin+ badge: the badge glyph goes IN FRONT of a member's name, so vanilla's own
+		// centring, background box, see-through pass and fade hold it like the name
+		// (PlusBadge doc). x is the left edge of the centred text, so it moves left by half
+		// the badge to stay centred. The member is matched by the tag's text, like `self`.
+		try {
+			Component badge = PlusBadge.nametagBadge(text);
+			if (badge != null) {
+				float w = PlusBadge.width(badge);
+				text = Component.empty().append(badge).append(text);
+				x -= w / 2f;
+			}
+		} catch (Throwable ignored) {
+			// no badge
+		}
 		if (!Mods.on("nametags")) {
 			font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
 			return;
 		}
-		boolean self = originclient$isSelf(text);
 		boolean over = self && Mods.bool("nametags", "ownOverride");
 		double op = Mods.num("nametags", "opacity");
 		if (op <= 0.0) {
