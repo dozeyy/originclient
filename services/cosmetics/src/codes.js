@@ -106,7 +106,7 @@ export async function redeem(env, body, now = Date.now()) {
   ]);
   if (!claim?.meta?.changes) {
     const used = await env.DB.prepare('SELECT used_at FROM codes WHERE code = ?').bind(code).first('used_at');
-    return fail(409, used != null ? 'That code has already been used.' : `${name} just got something in your bag. Refresh the page and try again.`);
+    return fail(409, used != null ? 'That code has already been used.' : `${name} just got one of these items. Refresh the page and try again.`);
   }
   // Still paying for a membership they now have for free: tell them to stop it.
   const paying = row.kind === 'plus' &&
