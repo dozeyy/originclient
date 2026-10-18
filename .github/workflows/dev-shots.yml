@@ -13,7 +13,8 @@
 #   [shots:all]            -> every live module (src/mods/live-modules.json)
 # or run it by hand (Run workflow) with the same list in `modules`; `set: world`
 # captures inside a fresh world instead (modules with OriginDevWorld); `label`
-# names the output folders (<module>[-world]-<label>) so parallel runs stay apart.
+# names the output folders (<module>[-world]-<label>) so parallel runs stay apart;
+# `video` (or [video] in the commit message) also films the run as loading.mp4.
 # Software GL limits (Xvfb + llvmpipe, Sodium's GL 4.6 spoofed) are the same
 # as boot-smoke.yml -- see the notes there.
 name: dev-shots
@@ -33,6 +34,10 @@ on:
       label:
         description: "Optional name for this run's output (folder <module>[-world]-<label>), so parallel sessions don't overwrite each other"
         default: ""
+      video:
+        description: "Also film the run (boot, loading screen, menu, world entry) as loading.mp4 next to the shots"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -117,6 +122,9 @@ jobs:
           # python3-pil: the contact sheet (tools/lean/contact_sheet.py) below.
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
             x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6 python3-pil
+          if [ "$VIDEO" = "true" ]; then sudo apt-get install -y ffmpeg; fi
+        env:
+          VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
 
       - name: Boot ${{ matrix.module }} and capture the Origin screens
         working-directory: src/mods/versions/${{ matrix.module }}
@@ -132,25 +140,55 @@ jobs:
           SDL_VIDEO_FORCE_EGL: "1"
           ORIGIN_SHOTS: ${{ runner.temp }}/shots
           ORIGIN_SHOTS_SET: ${{ github.event.inputs.set || 'design' }}
+          VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
         run: |
           chmod +x gradlew
+          mkdir -p "$ORIGIN_SHOTS/screenshots"
           # The harness quits the game itself once every shot is taken. The whole
           # gradle + java tree runs in its own process group so a hang is killed
           # outright after 15 minutes (a plain `timeout` only reached xvfb-run and
           # left the game holding the log pipe open).
-          setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClient --no-daemon > run.log 2>&1 &
-          pid=$!
+          rec=""
+          if [ "$VIDEO" = "true" ]; then
+            # Filmed run: a fixed display ffmpeg can grab, and a first boot that
+            # looks like a player's (full-size window, no one-time accessibility
+            # screen, no auto-pause when Xvfb's window "loses focus").
+            mkdir -p run
+            printf 'onboardAccessibility:false\npauseOnLostFocus:false\noverrideWidth:1920\noverrideHeight:1080\n' > run/options.txt
+            Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
+            xvfb=$!
+            export DISPLAY=:99
+            sleep 2
+            setsid ./gradlew runClient --no-daemon > run.log 2>&1 &
+            pid=$!
+            # Start filming as the game opens its window, not during Gradle's compile.
+            ( for i in $(seq 1 600); do grep -q "Backend library" run.log 2>/dev/null && break; sleep 1; done
+              exec ffmpeg -loglevel error -y -f x11grab -framerate 30 -video_size 1920x1080 -i :99 -t 600 \
+                -vf scale=1280:-2 -c:v libx264 -preset ultrafast -crf 26 -pix_fmt yuv420p \
+                -movflags +frag_keyframe+empty_moov "$ORIGIN_SHOTS/screenshots/loading.mp4" ) &
+            rec=$!
+          else
+            setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClient --no-daemon > run.log 2>&1 &
+            pid=$!
+          fi
           for i in $(seq 1 900); do kill -0 $pid 2>/dev/null || break; sleep 1; done
           kill -- -$pid 2>/dev/null || true
           sleep 3
           kill -9 -- -$pid 2>/dev/null || true
+          if [ -n "$rec" ]; then
+            # SIGINT lets ffmpeg finish the file; the fragmented mp4 plays even if it can't.
+            kill -INT $rec 2>/dev/null || true
+            for i in $(seq 1 15); do kill -0 $rec 2>/dev/null || break; sleep 1; done
+            kill -9 $rec 2>/dev/null || true
+            kill $xvfb 2>/dev/null || true
+            ls -la "$ORIGIN_SHOTS/screenshots/loading.mp4" || echo "no video"
+          fi
           echo "--- last 120 log lines ---"
           tail -n 120 run.log
           echo "--- dev-shots lines ---"
           grep -F "[dev-shots]" run.log || echo "no dev-shots lines"
           echo "--- mixin failures (should be none) ---"
           grep -iE "Mixin apply(ing)? .*failed|Critical injection failure" run.log || echo "none"
-          mkdir -p "$ORIGIN_SHOTS/screenshots"
           cp run.log "$ORIGIN_SHOTS/screenshots/run.log" || true
           ls -la "$ORIGIN_SHOTS/screenshots" || true
 
