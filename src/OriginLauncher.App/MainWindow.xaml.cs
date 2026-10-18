@@ -148,6 +148,7 @@ public partial class MainWindow : Window
         FriendsPanelHost.Content = _friendsPanel;
 
         Toasts.Opened += OnToastOpened;
+        Toasts.MoreClicked += () => SetFriendsOpen(true);
         Toasts.ActionClicked += toast => _ = OnToastActionAsync(toast);
 
         var social = SocialHub.Service;

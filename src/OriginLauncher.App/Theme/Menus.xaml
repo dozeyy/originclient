@@ -16,7 +16,7 @@
                 <ControlTemplate TargetType="ContextMenu">
                     <Border Background="{StaticResource Brush.PanelElevated}"
                             BorderBrush="{StaticResource Brush.Stroke}" BorderThickness="1"
-                            CornerRadius="{StaticResource Radius.Row}" Padding="4"
+                            CornerRadius="{StaticResource Radius.Dialog}" Padding="4"
                             MinWidth="196" SnapsToDevicePixels="True">
                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
                     </Border>

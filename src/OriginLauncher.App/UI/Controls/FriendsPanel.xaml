@@ -9,9 +9,10 @@
     <!-- The Friends drawer (docs/SOCIAL.md → Launcher). One drawer, four views:
            MessagePane  signed out / connecting / service unreachable
            EmptyPane    signed in, no friends yet
-           ListPane     ONE list: needs-you (requests, invites, warp), your party,
-                        online, offline, sent, blocked
-           ChatPane     one friend, or the party
+           RowList      ONE list: warp, requests and invites, party, online, offline,
+                        sent, blocked. Each section is one card group with 1 px
+                        dividers between its rows.
+           ChatPane     one friend, or the party, on a dark well
          Every row has one obvious action on it; the rest are in its "..." menu
          (also right-click or the Menu key). All styles come from Theme/Social.xaml
          and Theme/Menus.xaml, so a token change restyles the whole drawer. -->
@@ -22,12 +23,13 @@
         <!-- ================= list rows ================= -->
 
         <DataTemplate DataType="{x:Type controls:SectionVm}">
-            <Button x:Name="Btn" Style="{StaticResource Social.SectionButton}" Margin="0,14,0,4" Padding="10,2"
+            <Button x:Name="Btn" Style="{StaticResource Social.SectionButton}" Margin="0,14,0,6" Padding="2,2"
                     Click="Section_Click">
                 <Grid>
                     <TextBlock Text="{Binding Heading}" Style="{StaticResource Social.Section}"/>
                     <Path x:Name="Chev" Data="{StaticResource Icon.Chevron}" Style="{StaticResource Icon.Base}"
                           Width="10" Height="10" HorizontalAlignment="Right" VerticalAlignment="Center"
+                          Margin="0,0,10,0"
                           Stroke="{StaticResource Brush.TextMuted}" RenderTransformOrigin="0.5,0.5"
                           Visibility="Collapsed"/>
                 </Grid>
@@ -50,15 +52,17 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:HintVm}">
-            <TextBlock Text="{Binding Text}" Style="{StaticResource Social.Caption}"
-                       Foreground="{StaticResource Brush.TextMuted}" Margin="10,2,0,6"/>
+            <Border Style="{StaticResource Social.RowStatic}">
+                <TextBlock Text="{Binding Text}" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap"
+                           TextTrimming="None"/>
+            </Border>
         </DataTemplate>
 
         <!-- The party leader asked everyone to join them. -->
         <DataTemplate DataType="{x:Type controls:WarpVm}">
             <Border Margin="0,10,0,2" Padding="12,10" Background="{StaticResource Brush.AccentSoft}"
                     BorderBrush="{StaticResource Brush.AccentBorder}" BorderThickness="1"
-                    CornerRadius="{StaticResource Radius.Row}">
+                    CornerRadius="{StaticResource Radius.Card}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -73,7 +77,7 @@
             </Border>
         </DataTemplate>
 
-        <!-- A friend. The row opens the chat; JOIN is the one loud button; "+" invites; "..." has the rest. -->
+        <!-- A friend. The row opens the chat; JOIN is the one loud button; "..." has the rest. -->
         <DataTemplate DataType="{x:Type controls:FriendVm}">
             <Button Style="{StaticResource Social.Row}" Click="FriendRow_Click"
                     ContextMenuOpening="FriendRow_ContextMenuOpening"
@@ -105,16 +109,10 @@
                         <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
                                 Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
                                 ToolTip="{Binding JoinTip}" Click="FriendJoin_Click"/>
-                        <Button Style="{StaticResource Social.Icon}" Click="FriendInvite_Click"
-                                Visibility="{Binding ShowInvite, Converter={StaticResource BoolToVis}}"
-                                ToolTip="Invite to party" AutomationProperties.Name="Invite to party">
-                            <Path Data="{StaticResource Icon.UserPlus}" Style="{StaticResource Icon.Base}"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                        </Button>
                         <Button Style="{StaticResource Social.Icon}" Click="FriendMore_Click"
-                                ToolTip="More (right-click)" AutomationProperties.Name="More actions">
+                                ToolTip="More: invite to party, remove, block (or right-click)"
+                                AutomationProperties.Name="More actions">
                             <Path Data="{StaticResource Icon.More}" Style="{StaticResource Icon.Base}"
-                                 
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                         </Button>
                     </StackPanel>
@@ -192,9 +190,12 @@
             </Border>
         </DataTemplate>
 
-        <!-- A party member. The leader gets two small icon actions on everyone else. -->
+        <!-- A party member: a friend's row opens their chat; "..." holds Message, Join,
+             Make leader (leader only), Kick (leader only), Remove, Block. -->
         <DataTemplate DataType="{x:Type controls:MemberVm}">
-            <Border Style="{StaticResource Social.RowStatic}">
+            <Button x:Name="Row" Style="{StaticResource Social.Row}" Click="MemberRow_Click"
+                    ContextMenuOpening="MemberRow_ContextMenuOpening"
+                    AutomationProperties.Name="{Binding Name}">
                 <Grid MinHeight="38">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -218,25 +219,37 @@
                         </StackPanel>
                         <TextBlock Text="{Binding Status}" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0"
-                                Visibility="{Binding CanManage, Converter={StaticResource BoolToVis}}">
-                        <Button Style="{StaticResource Social.Icon}" Click="MemberPromote_Click"
-                                ToolTip="Make leader" AutomationProperties.Name="Make leader">
-                            <Path Data="{StaticResource Icon.Crown}" Style="{StaticResource Icon.Base}"
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Border Visibility="{Binding HasUnread, Converter={StaticResource BoolToVis}}"
+                                Background="{StaticResource Brush.Accent}" CornerRadius="{StaticResource Radius.Chip}"
+                                Padding="6,1" VerticalAlignment="Center" ToolTip="Unread messages">
+                            <TextBlock Text="{Binding UnreadText}" FontSize="{StaticResource FontSize.Eyebrow}"
+                                       FontWeight="SemiBold" Foreground="{StaticResource Brush.TextOnAccent}"/>
+                        </Border>
+                        <Button Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                                Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
+                                ToolTip="{Binding JoinTip}" Click="MemberJoin_Click"/>
+                        <Button Style="{StaticResource Social.Icon}" Click="MemberMore_Click"
+                                Visibility="{Binding HasMenu, Converter={StaticResource BoolToVis}}"
+                                ToolTip="More (right-click)" AutomationProperties.Name="More actions">
+                            <Path Data="{StaticResource Icon.More}" Style="{StaticResource Icon.Base}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                        </Button>
-                        <Button Style="{StaticResource Social.Icon}" Click="MemberKick_Click"
-                                ToolTip="Kick from party" AutomationProperties.Name="Kick from party">
-                            <Path Data="{StaticResource Icon.UserMinus}" Style="{StaticResource Icon.Base}"
-                                  Stroke="{StaticResource Brush.Danger}"/>
                         </Button>
                     </StackPanel>
                 </Grid>
-            </Border>
+            </Button>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Clickable}" Value="False">
+                    <Setter TargetName="Row" Property="Cursor" Value="Arrow"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding HasUnread}" Value="True">
+                    <Setter TargetName="Row" Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type controls:PartyHeaderVm}">
-            <Grid Margin="10,14,10,6">
+            <Grid Margin="2,14,0,6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -308,8 +321,7 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource Social.Divider}" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="{Binding Label}" Style="{StaticResource Social.Caption}"
-                           Foreground="{StaticResource Brush.TextMuted}" Margin="10,0"/>
+                <TextBlock Grid.Column="1" Text="{Binding Label}" Style="{StaticResource Social.Quiet}" Margin="10,0"/>
                 <Border Grid.Column="2" Style="{StaticResource Social.Divider}" VerticalAlignment="Center"/>
             </Grid>
         </DataTemplate>
@@ -319,8 +331,7 @@
                 <StackPanel Orientation="Horizontal" Visibility="{Binding HeaderVisibility}" Margin="0,0,0,2">
                     <TextBlock x:Name="Who" Text="{Binding Author}" Style="{StaticResource Social.Name}"
                                FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Time}" Style="{StaticResource Social.Caption}"
-                               Foreground="{StaticResource Brush.TextMuted}" Margin="8,0,0,0"
+                    <TextBlock Text="{Binding Time}" Style="{StaticResource Social.Quiet}" Margin="8,0,0,0"
                                VerticalAlignment="Center"/>
                 </StackPanel>
                 <TextBlock Text="{Binding Text}" Style="{StaticResource Text.Body}" TextWrapping="Wrap"
@@ -343,7 +354,8 @@
             <RowDefinition Height="Auto"/>   <!-- footer -->
         </Grid.RowDefinitions>
 
-        <!-- Header: back (chat only), title + one status line, then the view's own actions. -->
+        <!-- Header: back (chat only), title + one status line, then the view's own actions.
+             The status line keeps its height when empty, so the title never jumps between views. -->
         <Grid Grid.Row="0" Margin="16,16,12,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -358,10 +370,10 @@
             </Button>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <TextBlock x:Name="HeaderTitle" Text="Friends" Style="{StaticResource Text.H2}"/>
-                <StackPanel x:Name="HeaderSubRow" Orientation="Horizontal" Visibility="Collapsed">
+                <StackPanel x:Name="HeaderSubRow" Orientation="Horizontal" Visibility="Hidden">
                     <Ellipse x:Name="HeaderDot" Width="7" Height="7" Fill="{StaticResource Brush.Success}"
                              Margin="0,0,6,0" VerticalAlignment="Center" Visibility="Collapsed"/>
-                    <TextBlock x:Name="HeaderSubtitle" Style="{StaticResource Social.Caption}"/>
+                    <TextBlock x:Name="HeaderSubtitle" Text=" " Style="{StaticResource Social.Quiet}"/>
                 </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
@@ -371,7 +383,7 @@
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
                 <Button x:Name="ChatMoreButton" Style="{StaticResource Social.Icon}" Click="ChatMore_Click"
-                        Visibility="Collapsed" ToolTip="More" AutomationProperties.Name="More actions">
+                        Visibility="Collapsed" ToolTip="More: remove, block" AutomationProperties.Name="More actions">
                     <Path Data="{StaticResource Icon.More}" Style="{StaticResource Icon.Base}"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
@@ -432,7 +444,7 @@
         <Grid Grid.Row="3">
 
             <!-- Signed out / connecting / unreachable. -->
-            <StackPanel x:Name="MessagePane" Margin="24,20,24,24" VerticalAlignment="Top" Visibility="Collapsed">
+            <StackPanel x:Name="MessagePane" Margin="16,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
                 <Border Width="56" Height="56" HorizontalAlignment="Left" Background="{StaticResource Brush.Card}"
                         BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                         CornerRadius="{StaticResource Radius.Swatch}">
@@ -465,7 +477,7 @@
             </StackPanel>
 
             <!-- Signed in, nobody yet. -->
-            <StackPanel x:Name="EmptyPane" Margin="24,20,24,24" VerticalAlignment="Top" Visibility="Collapsed">
+            <StackPanel x:Name="EmptyPane" Margin="16,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
                 <Border Width="56" Height="56" HorizontalAlignment="Left" Background="{StaticResource Brush.Card}"
                         BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                         CornerRadius="{StaticResource Radius.Swatch}">
@@ -480,12 +492,12 @@
             </StackPanel>
 
             <!-- The list: virtualized, so a long friends list costs nothing off screen. -->
-            <ItemsControl x:Name="RowList" Margin="6,0,2,0" Focusable="False"
+            <ItemsControl x:Name="RowList" Margin="16,0,6,0" Focusable="False"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel"
                           ScrollViewer.CanContentScroll="True">
                 <ItemsControl.Template>
                     <ControlTemplate TargetType="ItemsControl">
-                        <ScrollViewer Focusable="False" Padding="0,0,4,8" VerticalScrollBarVisibility="Auto"
+                        <ScrollViewer Focusable="False" Padding="0,0,8,12" VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
                             <ItemsPresenter/>
                         </ScrollViewer>
@@ -507,42 +519,52 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,0" VerticalAlignment="Top"/>
-
-                <!-- Join / invite, only the ones that apply right now. -->
-                <StackPanel x:Name="ChatBar" Grid.Row="0" Orientation="Horizontal" Margin="16,10,16,4"
-                            Visibility="Collapsed">
-                    <Button x:Name="ChatJoinButton" Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
-                            Margin="0,0,8,0" Padding="14,6" Click="ChatJoin_Click"
-                            ToolTip="Launch their Minecraft version and join their server"/>
-                    <Button x:Name="ChatInviteButton" Content="INVITE TO PARTY" Style="{StaticResource Social.Action}"
-                            Margin="0" Padding="14,6" Click="ChatInvite_Click"/>
+                <!-- Join / invite, only the ones that apply right now, between two hairlines. -->
+                <StackPanel Grid.Row="0">
+                    <Border Style="{StaticResource Social.Divider}" Margin="16,0,16,0"/>
+                    <StackPanel x:Name="ChatBar" Orientation="Horizontal" Margin="16,10,16,10" Visibility="Collapsed">
+                        <Button x:Name="ChatJoinButton" Content="JOIN" Style="{StaticResource Social.ActionPrimary}"
+                                Margin="0,0,8,0" Padding="14,6" Click="ChatJoin_Click"
+                                ToolTip="Launch their Minecraft version and join their server"/>
+                        <Button x:Name="ChatInviteButton" Content="INVITE TO PARTY" Style="{StaticResource Social.Action}"
+                                Margin="0" Padding="14,6" Click="ChatInvite_Click"/>
+                    </StackPanel>
+                    <Border x:Name="ChatBarDivider" Style="{StaticResource Social.Divider}" Margin="16,0,16,8"
+                            Visibility="Collapsed"/>
                 </StackPanel>
 
-                <Grid Grid.Row="1">
-                    <ScrollViewer x:Name="ChatScroll" Padding="16,0,12,8" VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled" ScrollChanged="ChatScroll_ScrollChanged">
-                        <ItemsControl x:Name="ChatList" Focusable="False"/>
-                    </ScrollViewer>
-                    <StackPanel x:Name="ChatEmpty" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                Margin="32,0" IsHitTestVisible="False">
-                        <Path Data="{StaticResource Icon.Chat}" Style="{StaticResource Icon.Base}" Width="26" Height="26"
-                              Stroke="{StaticResource Brush.TextMuted}" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="ChatEmptyTitle" Style="{StaticResource Text.Body}" Margin="0,10,0,0"
-                                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="None"/>
-                        <TextBlock x:Name="ChatEmptyBody" Style="{StaticResource Social.Caption}" Margin="0,4,0,0"
-                                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="None"/>
-                    </StackPanel>
-                    <Button x:Name="JumpButton" Style="{StaticResource Social.ActionPrimary}" Margin="0,0,0,10"
-                            HorizontalAlignment="Center" VerticalAlignment="Bottom" Padding="12,6"
-                            Visibility="Collapsed" Click="Jump_Click" ToolTip="Scroll to the newest message">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="NEW MESSAGES" Margin="0,0,8,0" Foreground="{StaticResource Brush.TextOnAccent}"/>
-                            <Path Data="{StaticResource Icon.Arrow.Down}" Style="{StaticResource Icon.Base}" Width="11" Height="11"
-                                  Stroke="{StaticResource Brush.TextOnAccent}" VerticalAlignment="Center"/>
+                <!-- The dark well the conversation sits in. -->
+                <Border Grid.Row="1" Margin="16,8,16,8" Background="{StaticResource Brush.BgAlt}"
+                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                        CornerRadius="{StaticResource Radius.Card}">
+                    <Grid>
+                        <ScrollViewer x:Name="ChatScroll" Padding="12,0,8,8" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled" ScrollChanged="ChatScroll_ScrollChanged">
+                            <ItemsControl x:Name="ChatList" Focusable="False"/>
+                        </ScrollViewer>
+                        <StackPanel x:Name="ChatEmpty" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Margin="24,0">
+                            <Path Data="{StaticResource Icon.Chat}" Style="{StaticResource Icon.Base}" Width="26" Height="26"
+                                  Stroke="{StaticResource Brush.TextMuted}" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="ChatEmptyTitle" Style="{StaticResource Text.Body}" Margin="0,10,0,0"
+                                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="None"/>
+                            <TextBlock x:Name="ChatEmptyBody" Style="{StaticResource Social.Quiet}" Margin="0,4,0,0"
+                                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="None"/>
+                            <Button x:Name="ChatEmptyAction" Content="INVITE A FRIEND" Style="{StaticResource Social.ActionPrimary}"
+                                    Margin="0,14,0,0" Padding="14,6" HorizontalAlignment="Center" Visibility="Collapsed"
+                                    Click="ChatEmptyAction_Click" ToolTip="Pick a friend to invite"/>
                         </StackPanel>
-                    </Button>
-                </Grid>
+                        <Button x:Name="JumpButton" Style="{StaticResource Social.ActionPrimary}" Margin="0,0,0,10"
+                                HorizontalAlignment="Center" VerticalAlignment="Bottom" Padding="12,6"
+                                Visibility="Collapsed" Click="Jump_Click" ToolTip="Scroll to the newest message">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="NEW MESSAGES" Margin="0,0,8,0" Foreground="{StaticResource Brush.TextOnAccent}"/>
+                                <Path Data="{StaticResource Icon.Arrow.Down}" Style="{StaticResource Icon.Base}" Width="11" Height="11"
+                                      Stroke="{StaticResource Brush.TextOnAccent}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
 
                 <TextBlock x:Name="ChatError" Grid.Row="2" Style="{StaticResource Text.Caption}"
                            Foreground="{StaticResource Brush.Danger}" Margin="18,2,16,6"
@@ -556,7 +578,7 @@
                     <TextBox x:Name="ChatInput" MaxLength="256" KeyDown="ChatInput_KeyDown"
                              TextChanged="ChatInput_TextChanged" AutomationProperties.Name="Message"/>
                     <TextBlock x:Name="ChatHint" Text="Message" Style="{StaticResource Social.Hint}"/>
-                    <TextBlock x:Name="ChatCounter" Style="{StaticResource Social.Caption}" Margin="0,0,10,0"
+                    <TextBlock x:Name="ChatCounter" Style="{StaticResource Social.Quiet}" Margin="0,0,10,0"
                                HorizontalAlignment="Right" VerticalAlignment="Center" IsHitTestVisible="False"
                                Visibility="Collapsed"/>
                     <Button Grid.Column="1" x:Name="ChatSendButton" Style="{StaticResource Button.Primary}"
@@ -579,7 +601,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Appear offline" Style="{StaticResource Text.Body}"/>
-                    <TextBlock x:Name="AppearCaption" Text="Friends see you as online" Style="{StaticResource Social.Caption}"/>
+                    <TextBlock x:Name="AppearCaption" Text="Friends see you as online" Style="{StaticResource Social.Quiet}"/>
                 </StackPanel>
                 <ToggleButton Grid.Column="1" x:Name="AppearOfflineToggle" Style="{StaticResource Toggle.Switch}"
                               VerticalAlignment="Center" AutomationProperties.Name="Appear offline"

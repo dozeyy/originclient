@@ -22,8 +22,10 @@ public sealed record JoinRequest(string Who, string? Version, string? Server);
 /// own sentence on failure; the list refreshes from the next sync.
 ///
 /// The list is ONE flat, virtualized collection of rows (sections included).
-/// <see cref="Reconcile{T}"/> edits it in place, so a sync that changes one
-/// friend's status touches one row: no flicker, no lost hover, no scroll jump.
+/// <see cref="KeyedDiff"/> edits it in place by row key, so a sync that changes
+/// one friend's status touches one row: no flicker, no lost hover or focus, no
+/// scroll jump. While the drawer is hidden, or a menu is open on a row, a new
+/// snapshot is only remembered and drawn when the drawer shows / the menu closes.
 /// </summary>
 public partial class FriendsPanel : UserControl
 {
@@ -38,11 +40,15 @@ public partial class FriendsPanel : UserControl
     private readonly ObservableCollection<RowVm> _rows = new();
     private readonly ObservableCollection<ChatRowVm> _chatRows = new();
     private readonly DispatcherTimer _noticeTimer = new(DispatcherPriority.Background) { Interval = NoticeLife };
+    // Actions in flight, by what they act on ("friend:<uuid>"), so a second press can't start a second one.
+    private readonly HashSet<string> _busy = new();
 
     private SocialSnapshot _snapshot = new();
     // null = the list; a uuid = that friend's chat; SocialSnapshot.PartyKey = party chat.
     private string? _chatKey;
     private bool _shown;
+    private bool _menuOpen;
+    private bool _renderDirty = true;
     private bool _syncingToggle;
     private bool _appearOfflinePending;
     private bool _addOpen;
@@ -57,9 +63,8 @@ public partial class FriendsPanel : UserControl
         // The warp button depends on what the launched game is doing.
         SocialHub.Game.Changed += () => Dispatcher.BeginInvoke(() =>
         {
-            if (_chatKey == null) RenderList();
+            if (_chatKey == null) Render();
         });
-        Render();
     }
 
     // ---- driven by MainWindow ---------------------------------------------------
@@ -75,7 +80,9 @@ public partial class FriendsPanel : UserControl
     {
         _shown = shown;
         Service.SetOpenConversation(shown ? _chatKey : null);
-        if (shown && _chatKey == null) HideNotice();
+        if (!shown) return;
+        if (_chatKey == null) HideNotice();
+        if (_renderDirty) Render();
     }
 
     /// <summary>Opens a conversation (a friend's uuid, or <see cref="SocialSnapshot.PartyKey"/>).</summary>
@@ -88,6 +95,7 @@ public partial class FriendsPanel : UserControl
         NoticeStrip.Visibility = Visibility.Collapsed;
         _chatRows.Clear();
         if (_shown) Service.SetOpenConversation(key);
+        _renderDirty = true;
         Render();
         Dispatcher.BeginInvoke(() => ChatInput.Focus(), DispatcherPriority.Input);
     }
@@ -142,20 +150,38 @@ public partial class FriendsPanel : UserControl
         _noticeTimer.Stop();
         NoticeStrip.Visibility = Visibility.Collapsed;
         ChatError.Visibility = Visibility.Collapsed;
+        SetAddInvalid(false);
     }
 
     private void Notice_Click(object sender, MouseButtonEventArgs e) => HideNotice();
 
+    /// <summary>The username box gets a redstone edge while its error shows.</summary>
+    private void SetAddInvalid(bool invalid)
+    {
+        if (invalid) AddFriendBox.BorderBrush = ((SolidColorBrush)FindResource("Brush.Danger")).Clone();
+        else AddFriendBox.ClearValue(Control.BorderBrushProperty);
+    }
+
     // Render harness only (UI/SocialShots.cs).
     internal Task<bool> TourShowConfirm() =>
-        Confirm.ShowAsync("Remove Steve?", "You'll stop seeing each other online. You can add them again later.", "REMOVE", "CANCEL");
+        Confirm.ShowAsync("Remove Steve?", "You'll stop seeing each other online. You can add them again later.",
+            "REMOVE", "CANCEL", destructive: true);
 
     internal void TourDismissConfirm() => Confirm.Dismiss();
 
     internal ContextMenu? TourFriendMenu(string uuid, bool inChat) =>
-        _snapshot.Friend(uuid) is { } friend ? BuildFriendMenu(friend, inChat) : null;
+        _snapshot.Friend(uuid) is not null ? BuildMenu(uuid, inChat, member: false) : null;
+
+    internal ContextMenu TourMemberMenu(string uuid) => BuildMenu(uuid, inChat: false, member: true);
 
     internal void TourSetAddOpen(bool open) => SetAddOpen(open);
+
+    internal void TourShowAddError(string text)
+    {
+        SetAddOpen(true);
+        ShowNotice(text, error: true);
+        SetAddInvalid(true);
+    }
 
     internal void TourClearNotice() => HideNotice();
 
@@ -173,6 +199,25 @@ public partial class FriendsPanel : UserControl
         if (FindScrollViewer(RowList) is { } scroll) scroll.ScrollToTop();
     }
 
+    /// <summary>The list row for a friend or party member (hover / focus scenes).</summary>
+    internal Button? TourFindRow(string uuid)
+    {
+        UpdateLayout();
+        return FindRow(RowList, uuid);
+    }
+
+    private static Button? FindRow(DependencyObject parent, string uuid)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is Button { DataContext: FriendVm f } b && f.Uuid == uuid) return b;
+            if (child is Button { DataContext: MemberVm m } bm && m.Uuid == uuid) return bm;
+            if (FindRow(child, uuid) is { } found) return found;
+        }
+        return null;
+    }
+
     private static ScrollViewer? FindScrollViewer(DependencyObject parent)
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
@@ -186,8 +231,16 @@ public partial class FriendsPanel : UserControl
 
     // ---- rendering ------------------------------------------------------------------
 
+    /// <summary>Draws the newest snapshot, unless nobody is looking (drawer hidden) or a menu is anchored to a row.</summary>
     private void Render()
     {
+        if (!_shown || _menuOpen)
+        {
+            _renderDirty = true;
+            return;
+        }
+        _renderDirty = false;
+
         var s = _snapshot;
         if (s.Status != SocialStatus.Online && !s.HasData)
         {
@@ -206,7 +259,6 @@ public partial class FriendsPanel : UserControl
         AddToggle.Visibility = list ? Visibility.Visible : Visibility.Collapsed;
         AddRow.Visibility = list && _addOpen ? Visibility.Visible : Visibility.Collapsed;
         Footer.Visibility = list ? Visibility.Visible : Visibility.Collapsed;
-        HeaderSubRow.Visibility = Visibility.Visible;
 
         if (list)
         {
@@ -223,13 +275,17 @@ public partial class FriendsPanel : UserControl
     private void SetHeader(string title, string subtitle, bool dot = false)
     {
         HeaderTitle.Text = title;
-        HeaderSubtitle.Text = subtitle;
+        // The line keeps its height when empty so the title sits in the same place in every view.
+        HeaderSubtitle.Text = string.IsNullOrEmpty(subtitle) ? " " : subtitle;
         HeaderDot.Visibility = dot ? Visibility.Visible : Visibility.Collapsed;
-        HeaderSubRow.Visibility = string.IsNullOrEmpty(subtitle) ? Visibility.Collapsed : Visibility.Visible;
+        HeaderSubRow.Visibility = string.IsNullOrEmpty(subtitle) ? Visibility.Hidden : Visibility.Visible;
     }
 
     private void ShowMessage(SocialSnapshot s)
     {
+        // A chat that was open is over: the first Esc must close the drawer, not "leave" a chat nobody sees.
+        if (_chatKey != null) BackToList(render: false);
+
         RowList.Visibility = Visibility.Collapsed;
         EmptyPane.Visibility = Visibility.Collapsed;
         ChatPane.Visibility = Visibility.Collapsed;
@@ -249,7 +305,7 @@ public partial class FriendsPanel : UserControl
                 "ADD MICROSOFT ACCOUNT"),
             SocialStatus.SignInFailed => ("Couldn't sign in to friends",
                 s.StatusMessage ?? "Origin couldn't confirm your Minecraft account.", "TRY AGAIN"),
-            SocialStatus.Unreachable => ("Friends are offline right now",
+            SocialStatus.Unreachable => ("Friends are offline",
                 s.StatusMessage ?? "Origin can't reach its friends service. It keeps trying in the background.", "TRY AGAIN"),
             _ => ("Connecting...", "Signing in to Origin friends.", null),
         };
@@ -270,20 +326,29 @@ public partial class FriendsPanel : UserControl
         return $"{(int)span.TotalDays} d ago";
     }
 
-    /// <summary>The whole line, version included ("Playing on hypixel.net · 1.21.1", "Offline · last seen 3 h ago").</summary>
+    /// <summary>The whole line, version included (chat header, tooltips).</summary>
     private static string StatusFull(FriendInfo f) =>
         f.Online ? SocialText.StatusLine(f)
-        : f.LastSeen > 0 ? $"Offline · last seen {Ago(f.LastSeen)}" : "Offline";
+        : f.LastSeen > 0 ? $"Offline - last seen {Ago(f.LastSeen)}" : "Offline";
 
     /// <summary>The row's line: the same without the version, so the server name isn't cut off.</summary>
-    private static string StatusShort(FriendInfo f)
+    private static string StatusShort(FriendInfo f) =>
+        f.Online ? SocialText.ActivityLine(f)
+        : f.LastSeen > 0 ? $"Last seen {Ago(f.LastSeen)}" : "Offline";
+
+    private static string JoinTipFor(FriendInfo f) =>
+        !f.IsOnServer ? "Join their server"
+        : string.IsNullOrWhiteSpace(f.Version)
+            ? $"Launch Minecraft and join {f.Name} on {SocialText.DisplayServer(f.Server!)}"
+            : $"Launch Minecraft {f.Version} and join {f.Name} on {SocialText.DisplayServer(f.Server!)}";
+
+    /// <summary>Adds rows as one card group: the first has the top corners, the last the bottom ones.</summary>
+    private static void AddCard(List<RowVm> rows, IEnumerable<CardRowVm> items)
     {
-        if (!f.Online) return f.LastSeen > 0 ? $"Last seen {Ago(f.LastSeen)}" : "Offline";
-        var line = SocialText.StatusLine(f);
-        var tail = $" · {f.Version}";
-        return !string.IsNullOrWhiteSpace(f.Version) && line.EndsWith(tail, StringComparison.Ordinal)
-            ? line[..^tail.Length]
-            : line;
+        var group = items.ToList();
+        for (var i = 0; i < group.Count; i++)
+            group[i].Pos = group.Count == 1 ? CardPos.Only : i == 0 ? CardPos.First : i == group.Count - 1 ? CardPos.Last : CardPos.Middle;
+        rows.AddRange(group);
     }
 
     private void RenderList()
@@ -315,12 +380,12 @@ public partial class FriendsPanel : UserControl
         var waiting = s.PartyInvites.Count + s.Incoming.Count;
         if (waiting > 0)
         {
-            rows.Add(new SectionVm { Key = "needs", Title = "REQUESTS", Count = waiting });
-            rows.AddRange(s.PartyInvites.Select(i => new InviteVm { PartyId = i.PartyId, Name = i.Name }));
-            rows.AddRange(s.Incoming.Select(r => new RequestVm { Uuid = r.Uuid, Name = r.Name }));
+            rows.Add(new SectionVm { Id = "needs", Title = "REQUESTS", Count = waiting });
+            AddCard(rows, s.PartyInvites.Select(i => (CardRowVm)new InviteVm { PartyId = i.PartyId, Name = i.Name })
+                .Concat(s.Incoming.Select(r => new RequestVm { Uuid = r.Uuid, Name = r.Name })));
         }
 
-        // 3. Your party.
+        // 3. Your party: its members are listed here and only here (not again under ONLINE).
         var inParty = new HashSet<string>();
         if (s.Party is { } party)
         {
@@ -328,31 +393,40 @@ public partial class FriendsPanel : UserControl
             foreach (var m in party.Members) inParty.Add(m.Uuid);
             rows.Add(new PartyHeaderVm
             {
-                Title = $"PARTY · {party.Members.Count}/8",
+                Title = $"PARTY - {party.Members.Count}/8",
                 Unread = s.UnreadParty,
                 IsLeader = leader,
                 CanWarp = game?.Server != null,
                 WarpTip = game?.Server is { } server
                     ? $"Ask your party to join you on {SocialText.DisplayServer(server)} ({game.Version})"
-                    : "Join a server in Minecraft first (started from this launcher), then warp your party to it",
+                    : "Join a server to warp (start Minecraft from this launcher first)",
             });
-            rows.AddRange(party.Members
+            AddCard(rows, party.Members
                 .OrderByDescending(m => m.Uuid == party.Leader)
                 .ThenByDescending(m => m.Online)
                 .ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(m => new MemberVm
+                .Select(m =>
                 {
-                    Uuid = m.Uuid,
-                    Name = m.Name,
-                    Status = m.Uuid == me ? "You" : s.Friend(m.Uuid) is { } f ? StatusShort(f) : m.Online ? "Online" : "Offline",
-                    IsLeader = m.Uuid == party.Leader,
-                    IsMe = m.Uuid == me,
-                    IsOnline = m.Online,
-                    CanManage = leader && m.Uuid != me,
+                    var friend = s.Friend(m.Uuid);
+                    var isMe = m.Uuid == me;
+                    return (CardRowVm)new MemberVm
+                    {
+                        Uuid = m.Uuid,
+                        Name = m.Name,
+                        Status = isMe ? "You" : friend != null ? StatusShort(friend) : m.Online ? "Online" : "Offline",
+                        IsLeader = m.Uuid == party.Leader,
+                        IsMe = isMe,
+                        IsOnline = m.Online,
+                        IsFriend = friend != null,
+                        CanJoin = friend?.IsOnServer == true && !isMe,
+                        HasMenu = !isMe && (friend != null || leader),
+                        Unread = s.Unread.GetValueOrDefault(m.Uuid),
+                        JoinTip = friend != null ? JoinTipFor(friend) : "Join their server",
+                    };
                 }));
         }
 
-        // 4. Friends: online first, offline folds.
+        // 4. Friends who aren't in your party: online first, offline folds.
         FriendVm Row(FriendInfo f)
         {
             var unread = s.Unread.GetValueOrDefault(f.Uuid);
@@ -365,57 +439,65 @@ public partial class FriendsPanel : UserControl
                 Preview = unread > 0 ? s.ConversationWith(f.Uuid).LastOrDefault(m => m.From == f.Uuid)?.Text : null,
                 IsOnline = f.Online,
                 CanJoin = f.IsOnServer,
-                CanInvite = !inParty.Contains(f.Uuid),
                 Unread = unread,
-                JoinTip = f.IsOnServer
-                    ? $"Launch Minecraft {f.Version} and join {f.Name} on {SocialText.DisplayServer(f.Server!)}"
-                    : "Join their server",
+                JoinTip = JoinTipFor(f),
             };
         }
-        var onlineFriends = s.Friends.Where(f => f.Online).ToList();
-        var offlineFriends = s.Friends.Where(f => !f.Online).ToList();
-        if (s.Friends.Count > 0)
+        var others = s.Friends.Where(f => !inParty.Contains(f.Uuid)).ToList();
+        var onlineFriends = others.Where(f => f.Online).ToList();
+        var offlineFriends = others.Where(f => !f.Online).ToList();
+        if (others.Count > 0)
         {
-            rows.Add(new SectionVm { Key = "online", Title = "ONLINE", Count = onlineFriends.Count });
-            if (onlineFriends.Count == 0) rows.Add(new HintVm { Text = "No friends are online right now." });
-            rows.AddRange(onlineFriends.Select(Row));
+            rows.Add(new SectionVm { Id = "online", Title = "ONLINE", Count = onlineFriends.Count });
+            if (onlineFriends.Count == 0)
+            {
+                AddCard(rows, [new HintVm
+                {
+                    Id = "online-none",
+                    Text = inParty.Count > 0 ? "No other friends are online." : "No friends are online right now.",
+                }]);
+            }
+            else
+            {
+                AddCard(rows, onlineFriends.Select(Row));
+            }
             if (offlineFriends.Count > 0)
             {
                 rows.Add(new SectionVm
                 {
-                    Key = "offline", Title = "OFFLINE", Count = offlineFriends.Count,
+                    Id = "offline", Title = "OFFLINE", Count = offlineFriends.Count,
                     Collapsible = true, Collapsed = _offlineCollapsed,
                 });
-                if (!_offlineCollapsed) rows.AddRange(offlineFriends.Select(Row));
+                if (!_offlineCollapsed) AddCard(rows, offlineFriends.Select(Row));
             }
         }
-        else if (rows.Count > 0 || s.Outgoing.Count > 0 || s.Blocked.Count > 0)
+        else if (s.Friends.Count == 0 && (rows.Count > 0 || s.Outgoing.Count > 0 || s.Blocked.Count > 0))
         {
-            rows.Add(new SectionVm { Key = "friends", Title = "FRIENDS" });
-            rows.Add(new HintVm { Text = "No friends yet. Use the + at the top to add someone." });
+            rows.Add(new SectionVm { Id = "friends", Title = "FRIENDS" });
+            AddCard(rows, [new HintVm { Id = "friends-none", Text = "No friends yet. Use the + at the top to add someone." }]);
         }
 
         // 5. Requests you sent, and people you blocked: last, quiet.
         if (s.Outgoing.Count > 0)
         {
-            rows.Add(new SectionVm { Key = "sent", Title = "SENT", Count = s.Outgoing.Count });
-            rows.AddRange(s.Outgoing.Select(r => new PendingVm { Uuid = r.Uuid, Name = r.Name }));
+            rows.Add(new SectionVm { Id = "sent", Title = "SENT", Count = s.Outgoing.Count });
+            AddCard(rows, s.Outgoing.Select(r => (CardRowVm)new PendingVm { Uuid = r.Uuid, Name = r.Name }));
         }
         if (s.Blocked.Count > 0)
         {
-            rows.Add(new SectionVm { Key = "blocked", Title = "BLOCKED", Count = s.Blocked.Count });
-            rows.AddRange(s.Blocked.Select(b => new BlockedVm { Uuid = b.Uuid, Name = b.Name }));
+            rows.Add(new SectionVm { Id = "blocked", Title = "BLOCKED", Count = s.Blocked.Count });
+            AddCard(rows, s.Blocked.Select(b => (CardRowVm)new BlockedVm { Uuid = b.Uuid, Name = b.Name }));
         }
 
         var empty = rows.Count == 0;
         EmptyPane.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
         RowList.Visibility = empty ? Visibility.Collapsed : Visibility.Visible;
-        Reconcile(_rows, rows, r => r.Signature);
+        KeyedDiff.Apply(_rows, rows, r => r.Key, r => r.Signature);
 
         var total = s.Friends.Count;
         SetHeader("Friends", total == 0
             ? ""
-            : $"{onlineFriends.Count} online · {total} {(total == 1 ? "friend" : "friends")}");
+            : $"{s.Friends.Count(f => f.Online)} online - {total} {(total == 1 ? "friend" : "friends")}");
     }
 
     private void RenderChat()
@@ -424,6 +506,7 @@ public partial class FriendsPanel : UserControl
         var me = s.Me?.Uuid ?? "";
         List<ChatRowVm> rows;
         string emptyTitle, emptyBody, hint;
+        var offerInvite = false;
         var party = _chatKey == SocialSnapshot.PartyKey;
 
         StaleStrip.Visibility = s.Status == SocialStatus.Online ? Visibility.Collapsed : Visibility.Visible;
@@ -432,12 +515,14 @@ public partial class FriendsPanel : UserControl
         {
             var members = s.Party?.Members ?? [];
             var online = members.Count(m => m.Online);
-            SetHeader("Party chat", members.Count == 1 ? "Just you so far" : $"{members.Count} members · {online} online");
+            SetHeader("Party chat", members.Count == 1 ? "Just you so far" : $"{members.Count} members - {online} online");
             ChatBar.Visibility = Visibility.Collapsed;
+            ChatBarDivider.Visibility = Visibility.Collapsed;
             ChatMoreButton.Visibility = Visibility.Collapsed;
             rows = ChatLineVm.Build(s.PartyChat.Select(m => (m.Id, m.From, m.Name, m.Text, m.At)), me);
             emptyTitle = "The party chat is quiet";
-            emptyBody = members.Count == 1 ? "Invite a friend to start chatting." : "Messages here go to everyone in your party.";
+            offerInvite = members.Count <= 1;
+            emptyBody = offerInvite ? "You're the only one here. Invite a friend to start chatting." : "Messages here go to everyone in your party.";
             hint = "Message the party";
         }
         else
@@ -448,7 +533,9 @@ public partial class FriendsPanel : UserControl
             var inMyParty = s.Party?.Members.Any(m => m.Uuid == friend.Uuid) == true;
             ChatJoinButton.Visibility = friend.IsOnServer ? Visibility.Visible : Visibility.Collapsed;
             ChatInviteButton.Visibility = inMyParty ? Visibility.Collapsed : Visibility.Visible;
-            ChatBar.Visibility = friend.IsOnServer || !inMyParty ? Visibility.Visible : Visibility.Collapsed;
+            var bar = friend.IsOnServer || !inMyParty;
+            ChatBar.Visibility = bar ? Visibility.Visible : Visibility.Collapsed;
+            ChatBarDivider.Visibility = bar ? Visibility.Visible : Visibility.Collapsed;
             ChatMoreButton.Visibility = Visibility.Visible;
             rows = ChatLineVm.Build(s.ConversationWith(friend.Uuid)
                 .Select(m => (m.Id, m.From, friend.Name, m.Text, m.At)), me);
@@ -461,15 +548,20 @@ public partial class FriendsPanel : UserControl
 
         ChatEmptyTitle.Text = emptyTitle;
         ChatEmptyBody.Text = emptyBody;
+        ChatEmptyAction.Visibility = offerInvite ? Visibility.Visible : Visibility.Collapsed;
         ChatHint.Text = hint;
 
         var atBottom = ChatScroll.ScrollableHeight - ChatScroll.VerticalOffset < 24;
-        var changed = Reconcile(_chatRows, rows, r => r.Signature);
+        var lastBefore = _chatRows.Count > 0 ? _chatRows[^1].Key : null;
+        var changed = KeyedDiff.Apply(_chatRows, rows, r => r.Key, r => r.Signature);
         ChatEmpty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (!changed) return;
 
-        // Newest in view: follow it when you were at the bottom or sent it; otherwise say there's more.
-        if (atBottom || (rows.LastOrDefault() as ChatLineVm)?.IsMine == true)
+        // Something NEW arrived only when the newest row is a different one (trimming the
+        // oldest lines of a full 200-line chat doesn't count).
+        var newest = rows.Count > 0 ? rows[^1] : null;
+        if (newest == null || newest.Key == lastBefore) return;
+        if (atBottom || lastBefore == null || (newest as ChatLineVm)?.IsMine == true)
         {
             Dispatcher.BeginInvoke(() => ChatScroll.ScrollToEnd(), DispatcherPriority.Loaded);
             JumpButton.Visibility = Visibility.Collapsed;
@@ -480,30 +572,6 @@ public partial class FriendsPanel : UserControl
         }
     }
 
-    /// <summary>Edits a list in place so only rows that changed are rebuilt. True = something did.</summary>
-    private static bool Reconcile<T>(ObservableCollection<T> target, IReadOnlyList<T> next, Func<T, string> signature)
-    {
-        var changed = false;
-        var shared = Math.Min(target.Count, next.Count);
-        for (var i = 0; i < shared; i++)
-        {
-            if (signature(target[i]) == signature(next[i])) continue;
-            target[i] = next[i];
-            changed = true;
-        }
-        while (target.Count > next.Count)
-        {
-            target.RemoveAt(target.Count - 1);
-            changed = true;
-        }
-        for (var i = target.Count; i < next.Count; i++)
-        {
-            target.Add(next[i]);
-            changed = true;
-        }
-        return changed;
-    }
-
     private void BackToList(bool render = true)
     {
         _chatKey = null;
@@ -511,7 +579,11 @@ public partial class FriendsPanel : UserControl
         JumpButton.Visibility = Visibility.Collapsed;
         ChatError.Visibility = Visibility.Collapsed;
         if (_shown) Service.SetOpenConversation(null);
-        if (render) Render();
+        if (render)
+        {
+            _renderDirty = true;
+            Render();
+        }
     }
 
     private void SetAddOpen(bool open)
@@ -545,6 +617,20 @@ public partial class FriendsPanel : UserControl
         }
     }
 
+    /// <summary>One action per thing at a time: a second press while the first is asking or running does nothing.</summary>
+    private async Task GuardedAsync(string key, Func<Task> work)
+    {
+        if (!_busy.Add(key)) return;
+        try
+        {
+            await work();
+        }
+        finally
+        {
+            _busy.Remove(key);
+        }
+    }
+
     private static T? Row<T>(object sender) where T : class => (sender as FrameworkElement)?.DataContext as T;
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -573,9 +659,10 @@ public partial class FriendsPanel : UserControl
 
     private void Section_Click(object sender, RoutedEventArgs e)
     {
-        if (Row<SectionVm>(sender) is not { Key: "offline" }) return;
+        if (Row<SectionVm>(sender) is not { Id: "offline" }) return;
         _offlineCollapsed = !_offlineCollapsed;
-        RenderList();
+        _renderDirty = true;
+        Render();
     }
 
     // ---- add friend ---------------------------------------------------------------
@@ -600,11 +687,16 @@ public partial class FriendsPanel : UserControl
         HideNotice();
         if (await RunAsync(AddFriendButton, () => Service.AddFriendAsync(name), $"Friend request sent to {name}."))
             AddFriendBox.Text = "";
+        else if (NoticeStrip.Visibility == Visibility.Visible)
+            SetAddInvalid(true);
         AddFriendBox.Focus();
     }
 
-    private void AddFriendBox_TextChanged(object sender, TextChangedEventArgs e) =>
+    private void AddFriendBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
         AddFriendHint.Visibility = AddFriendBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        SetAddInvalid(false);
+    }
 
     private async void AppearOffline_Changed(object sender, RoutedEventArgs e)
     {
@@ -630,7 +722,7 @@ public partial class FriendsPanel : UserControl
         }
     }
 
-    // ---- friend rows and their menu ---------------------------------------------------
+    // ---- rows and their menu ---------------------------------------------------------
 
     private void FriendRow_Click(object sender, RoutedEventArgs e)
     {
@@ -642,65 +734,121 @@ public partial class FriendsPanel : UserControl
     private void FriendJoin_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (Row<FriendVm>(sender) is { } row && _snapshot.Friend(row.Uuid) is { } friend) JoinFriend(friend);
-    }
-
-    private async void FriendInvite_Click(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        if (Row<FriendVm>(sender) is { } row) await InviteFriendAsync(row.Uuid, row.Name, sender);
+        if (Row<FriendVm>(sender) is { } row) JoinFriend(row.Uuid);
     }
 
     private void FriendMore_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (Row<FriendVm>(sender) is { } row && _snapshot.Friend(row.Uuid) is { } friend)
-            OpenMenu(BuildFriendMenu(friend, inChat: false), (FrameworkElement)sender, atMouse: false);
+        if (Row<FriendVm>(sender) is { } row)
+            OpenMenu(BuildMenu(row.Uuid, inChat: false, member: false), (FrameworkElement)sender, atMouse: false);
     }
 
     // Right-click or the Menu key on a row: the same menu, at the pointer.
     private void FriendRow_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         e.Handled = true;
-        if (Row<FriendVm>(sender) is { } row && _snapshot.Friend(row.Uuid) is { } friend)
-            OpenMenu(BuildFriendMenu(friend, inChat: false), (FrameworkElement)sender, atMouse: e.CursorLeft >= 0);
+        if (Row<FriendVm>(sender) is { } row)
+            OpenMenu(BuildMenu(row.Uuid, inChat: false, member: false), (FrameworkElement)sender, atMouse: e.CursorLeft >= 0);
+    }
+
+    private void MemberRow_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, sender)) return;
+        if (Row<MemberVm>(sender) is { Clickable: true } row) OpenConversation(row.Uuid);
+    }
+
+    private void MemberJoin_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (Row<MemberVm>(sender) is { } row) JoinFriend(row.Uuid);
+    }
+
+    private void MemberMore_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (Row<MemberVm>(sender) is { } row)
+            OpenMenu(BuildMenu(row.Uuid, inChat: false, member: true), (FrameworkElement)sender, atMouse: false);
+    }
+
+    private void MemberRow_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        e.Handled = true;
+        if (Row<MemberVm>(sender) is { HasMenu: true } row)
+            OpenMenu(BuildMenu(row.Uuid, inChat: false, member: true), (FrameworkElement)sender, atMouse: e.CursorLeft >= 0);
     }
 
     private void ChatMore_Click(object sender, RoutedEventArgs e)
     {
-        if (_chatKey != null && _chatKey != SocialSnapshot.PartyKey && _snapshot.Friend(_chatKey) is { } friend)
-            OpenMenu(BuildFriendMenu(friend, inChat: true), (FrameworkElement)sender, atMouse: false);
+        if (_chatKey != null && _chatKey != SocialSnapshot.PartyKey)
+            OpenMenu(BuildMenu(_chatKey, inChat: true, member: false), (FrameworkElement)sender, atMouse: false);
     }
 
-    private static void OpenMenu(ContextMenu menu, FrameworkElement target, bool atMouse)
+    /// <summary>
+    /// Opens a menu and holds back list redraws until it closes: a sync can no longer
+    /// tear down the row the menu is anchored to.
+    /// </summary>
+    private void OpenMenu(ContextMenu menu, FrameworkElement target, bool atMouse)
     {
+        if (menu.Items.Count == 0) return;
         menu.PlacementTarget = target;
         menu.Placement = atMouse ? PlacementMode.MousePoint : PlacementMode.Bottom;
         menu.HorizontalOffset = atMouse ? 0 : Math.Min(0, target.ActualWidth - 196);
+        _menuOpen = true;
+        menu.Closed += (_, _) =>
+        {
+            _menuOpen = false;
+            if (_renderDirty) Render();
+        };
         menu.IsOpen = true;
     }
 
     /// <summary>
-    /// A friend's actions. In the list: message, join, invite, then the two that
-    /// can't be undone with one click. In a chat the first three are already
-    /// buttons, so the menu holds only Remove and Block.
+    /// A person's actions, grouped: message / join / invite (list rows), then Make leader and
+    /// Kick (the leader, on a party member), then Remove and Block (a friend). In a chat the
+    /// first group is already buttons. Items remember the uuid and look everything else up
+    /// when clicked, so a stale server or name is never used.
     /// </summary>
-    private ContextMenu BuildFriendMenu(FriendInfo friend, bool inChat)
+    private ContextMenu BuildMenu(string uuid, bool inChat, bool member)
     {
-        var menu = new ContextMenu { Style = (Style)FindResource("Menu.Popup") };
-        var inMyParty = _snapshot.Party?.Members.Any(m => m.Uuid == friend.Uuid) == true;
+        var s = _snapshot;
+        var friend = s.Friend(uuid);
+        var inParty = s.Party?.Members.Any(m => m.Uuid == uuid) == true;
+        var groups = new List<List<MenuItem>>();
 
-        if (!inChat)
+        var reach = new List<MenuItem>();
+        if (!inChat && friend != null)
         {
-            menu.Items.Add(MenuItemFor("Message", "Icon.Chat", () => OpenConversation(friend.Uuid)));
+            reach.Add(MenuItemFor("Message", "Icon.Chat", () => OpenConversation(uuid)));
             if (friend.IsOnServer)
-                menu.Items.Add(MenuItemFor($"Join {SocialText.DisplayServer(friend.Server!)}", "Icon.External", () => JoinFriend(friend)));
-            if (!inMyParty)
-                menu.Items.Add(MenuItemFor("Invite to party", "Icon.UserPlus", () => _ = InviteFriendAsync(friend.Uuid, friend.Name, null)));
-            menu.Items.Add(new Separator { Style = (Style)FindResource("Menu.Separator") });
+                reach.Add(MenuItemFor($"Join {SocialText.DisplayServer(friend.Server!)}", "Icon.External", () => JoinFriend(uuid)));
+            if (!inParty)
+                reach.Add(MenuItemFor("Invite to party", "Icon.UserPlus", () => _ = InviteFriendAsync(uuid, null)));
         }
-        menu.Items.Add(MenuItemFor("Remove friend", "Icon.UserMinus", () => _ = RemoveFriendAsync(friend.Uuid), danger: true));
-        menu.Items.Add(MenuItemFor("Block", "Icon.Block", () => _ = BlockFriendAsync(friend.Uuid), danger: true));
+        groups.Add(reach);
+
+        var party = new List<MenuItem>();
+        if (member && s.IsPartyLeader && uuid != s.Me?.Uuid)
+        {
+            party.Add(MenuItemFor("Make leader", "Icon.Crown", () => _ = PromoteAsync(uuid)));
+            party.Add(MenuItemFor("Kick from party", "Icon.UserMinus", () => _ = KickAsync(uuid), danger: true));
+        }
+        groups.Add(party);
+
+        var person = new List<MenuItem>();
+        if (friend != null)
+        {
+            person.Add(MenuItemFor("Remove friend", "Icon.Trash", () => _ = RemoveFriendAsync(uuid), danger: true));
+            person.Add(MenuItemFor("Block", "Icon.Block", () => _ = BlockFriendAsync(uuid), danger: true));
+        }
+        groups.Add(person);
+
+        var menu = new ContextMenu { Style = (Style)FindResource("Menu.Popup") };
+        foreach (var group in groups.Where(g => g.Count > 0))
+        {
+            if (menu.Items.Count > 0) menu.Items.Add(new Separator { Style = (Style)FindResource("Menu.Separator") });
+            foreach (var item in group) menu.Items.Add(item);
+        }
         return menu;
     }
 
@@ -725,38 +873,60 @@ public partial class FriendsPanel : UserControl
         return item;
     }
 
-    private void JoinFriend(FriendInfo friend) =>
+    /// <summary>Joins whatever server the friend is on right now (looked up when pressed).</summary>
+    private void JoinFriend(string uuid)
+    {
+        if (_snapshot.Friend(uuid) is not { } friend) return;
+        if (!friend.IsOnServer)
+        {
+            ShowNotice($"{friend.Name} isn't on a server right now.", error: true);
+            return;
+        }
         JoinRequested?.Invoke(new JoinRequest(friend.Name, friend.Version, friend.Server));
+    }
 
-    private Task<bool> InviteFriendAsync(string uuid, string name, object? sender) =>
-        RunAsync(sender, () => Service.InviteToPartyAsync(uuid), $"Party invite sent to {name}.");
+    private Task InviteFriendAsync(string uuid, object? sender) =>
+        GuardedAsync($"invite:{uuid}", () => RunAsync(sender, () => Service.InviteToPartyAsync(uuid),
+            $"Party invite sent to {_snapshot.NameOf(uuid)}."));
 
-    private async Task RemoveFriendAsync(string uuid)
+    private Task RemoveFriendAsync(string uuid) => GuardedAsync($"friend:{uuid}", async () =>
     {
         if (_snapshot.Friend(uuid) is not { } friend) return;
         if (!await Confirm.ShowAsync($"Remove {friend.Name}?",
-                "You'll stop seeing each other online. You can add them again later.", "REMOVE", "CANCEL"))
+                "You'll stop seeing each other online. You can add them again later.", "REMOVE", "CANCEL", destructive: true))
             return;
-        if (await RunAsync(null, () => Service.RemoveFriendAsync(friend.Uuid)))
+        if (await RunAsync(null, () => Service.RemoveFriendAsync(uuid)))
         {
-            if (_chatKey == friend.Uuid) BackToList();
+            if (_chatKey == uuid) BackToList();
             ShowNotice($"{friend.Name} was removed from your friends.", error: false);
         }
-    }
+    });
 
-    private async Task BlockFriendAsync(string uuid)
+    private Task BlockFriendAsync(string uuid) => GuardedAsync($"friend:{uuid}", async () =>
     {
         if (_snapshot.Friend(uuid) is not { } friend) return;
         if (!await Confirm.ShowAsync($"Block {friend.Name}?",
                 "They'll be removed from your friends and can't message you or send you requests. You can unblock them from the bottom of your friends list.",
-                "BLOCK", "CANCEL"))
+                "BLOCK", "CANCEL", destructive: true))
             return;
-        if (await RunAsync(null, () => Service.BlockAsync(friend.Uuid)))
+        if (await RunAsync(null, () => Service.BlockAsync(uuid)))
         {
-            if (_chatKey == friend.Uuid) BackToList();
+            if (_chatKey == uuid) BackToList();
             ShowNotice($"{friend.Name} is blocked.", error: false);
         }
-    }
+    });
+
+    private Task PromoteAsync(string uuid) => GuardedAsync($"lead:{uuid}", () =>
+        RunAsync(null, () => Service.PromoteAsync(uuid), $"{_snapshot.NameOf(uuid)} now leads the party."));
+
+    private Task KickAsync(string uuid) => GuardedAsync($"kick:{uuid}", async () =>
+    {
+        var name = _snapshot.NameOf(uuid);
+        if (!await Confirm.ShowAsync($"Kick {name}?", "They'll be removed from the party. You can invite them again later.",
+                "KICK", "CANCEL", destructive: true))
+            return;
+        await RunAsync(null, () => Service.KickAsync(uuid));
+    });
 
     // ---- requests, invites, party ------------------------------------------------------
 
@@ -788,21 +958,6 @@ public partial class FriendsPanel : UserControl
     {
         if (Row<InviteVm>(sender) is { } row)
             await RunAsync(sender, () => Service.DeclinePartyAsync(row.PartyId));
-    }
-
-    private async void MemberPromote_Click(object sender, RoutedEventArgs e)
-    {
-        if (Row<MemberVm>(sender) is { } row)
-            await RunAsync(sender, () => Service.PromoteAsync(row.Uuid), $"{row.Name} now leads the party.");
-    }
-
-    private async void MemberKick_Click(object sender, RoutedEventArgs e)
-    {
-        if (Row<MemberVm>(sender) is not { } row) return;
-        if (!await Confirm.ShowAsync($"Kick {row.Name}?", "They'll be removed from the party. You can invite them again later.",
-                "KICK", "CANCEL"))
-            return;
-        await RunAsync(sender, () => Service.KickAsync(row.Uuid));
     }
 
     private async void Unblock_Click(object sender, RoutedEventArgs e)
@@ -837,13 +992,19 @@ public partial class FriendsPanel : UserControl
 
     private void ChatJoin_Click(object sender, RoutedEventArgs e)
     {
-        if (_chatKey != null && _snapshot.Friend(_chatKey) is { } friend) JoinFriend(friend);
+        if (_chatKey != null) JoinFriend(_chatKey);
     }
 
     private async void ChatInvite_Click(object sender, RoutedEventArgs e)
     {
-        if (_chatKey != null && _snapshot.Friend(_chatKey) is { } friend)
-            await InviteFriendAsync(friend.Uuid, friend.Name, sender);
+        if (_chatKey != null) await InviteFriendAsync(_chatKey, sender);
+    }
+
+    // "Invite a friend" in an empty party chat: back to the list, where each friend's "..." menu has Invite.
+    private void ChatEmptyAction_Click(object sender, RoutedEventArgs e)
+    {
+        BackToList();
+        ShowNotice("Press ... on a friend, then choose Invite to party.", error: false);
     }
 
     private void Jump_Click(object sender, RoutedEventArgs e)
@@ -886,11 +1047,13 @@ public partial class FriendsPanel : UserControl
         if (key == null || string.IsNullOrWhiteSpace(text) || !ChatSendButton.IsEnabled) return;
 
         ChatError.Visibility = Visibility.Collapsed;
+        // The box empties at once, so what you type next can't be mistaken for (or re-send) this message.
+        ChatInput.Text = "";
         var sent = await RunAsync(ChatSendButton, () => key == SocialSnapshot.PartyKey
             ? Service.PartyChatAsync(text)
             : Service.SendMessageAsync(key, text));
-        // Keep what was typed if it failed (rate limit, offline) so nothing is lost.
-        if (sent && _chatKey == key && ChatInput.Text == text) ChatInput.Text = "";
+        // A failure (rate limit, offline) gives the text back, unless you've already started something new.
+        if (!sent && _chatKey == key && ChatInput.Text.Length == 0) ChatInput.Text = text;
         ChatInput.Focus();
     }
 }

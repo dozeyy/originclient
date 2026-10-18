@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
+using OriginLauncher.App.UI.Controls;
 
 namespace OriginLauncher.App.UI;
 
@@ -71,6 +72,7 @@ public static class SocialShots
         }
         if (_menu != null) _menu.IsOpen = false;
         KeyboardChecks(window, outDir);
+        ToastClearance(window, outDir);
         window.Close();
     }
 
@@ -84,6 +86,56 @@ public static class SocialShots
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var file = File.Create(Path.Combine(dir, name + ".png"));
         encoder.Save(file);
+    }
+
+    // ---- layout ---------------------------------------------------------------------
+
+    private static Rect BoundsIn(FrameworkElement element, Visual ancestor) =>
+        element.TransformToAncestor(ancestor).TransformBounds(new Rect(0, 0, element.ActualWidth, element.ActualHeight));
+
+    private static T? FindVisual<T>(DependencyObject parent, Func<T, bool> match) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T t && match(t)) return t;
+            if (FindVisual(child, match) is { } found) return found;
+        }
+        return default;
+    }
+
+    /// <summary>Do the toasts (two shown, "+N more" for the rest) stay off the Play button? Numbers, not a picture. Written to layout-checks.txt.</summary>
+    private static void ToastClearance(MainWindow window, string outDir)
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var report = new StringBuilder();
+        SocialHub.Service.ShowDemo(SocialDemo.Online(now));
+        window.TourSetFriendsOpen(false);
+        foreach (var (width, height) in new[] { (1180, 740), (980, 600) })
+        {
+            window.Width = width;
+            window.Height = height;
+            window.TourClearToasts();
+            RenderShots.Pump(500);
+            foreach (var toast in SocialDemo.Toasts()) window.TourShowToast(toast);
+            window.TourShowToast(new SocialToast(SocialToastKind.FriendRequest, "Friend request", "OjoTheCat wants to be friends", Uuid: SocialDemo.Ojo));
+            window.TourShowToast(new SocialToast(SocialToastKind.PartyInvite, "Party invite", "Kai_Builds invited you", Uuid: SocialDemo.Kai, PartyId: "p2"));
+            RenderShots.Pump(600);
+            window.UpdateLayout();
+            var root = (Visual)window.Content;
+            var play = FindVisual<Button>(root, b => ReferenceEquals(b.Style, Application.Current.FindResource("Button.PlayHero")));
+            var toasts = FindVisual<SocialToastHost>(root, _ => true);
+            if (play == null || toasts == null)
+            {
+                report.AppendLine($"{width}x{height}: play button found = {play != null}, toast host found = {toasts != null} (cannot check)");
+                continue;
+            }
+            var stack = BoundsIn(toasts, root);
+            var playRect = BoundsIn(play, root);
+            report.AppendLine($"{width}x{height}: toast stack {stack} ; Play button {playRect} ; overlap = {stack.IntersectsWith(playRect)}");
+        }
+        window.TourClearToasts();
+        File.WriteAllText(Path.Combine(outDir, "layout-checks.txt"), report.ToString());
     }
 
     // ---- keyboard ------------------------------------------------------------------
@@ -288,6 +340,8 @@ public static class SocialShots
             w.TourFriendsPanel.OpenConversation(key);
         }
 
+        static Border? Bd(Button row) => row.Template.FindName("Bd", row) as Border;
+
         static void OpenAt(MainWindow w, ContextMenu menu, double x, double y)
         {
             menu.PlacementTarget = w;
@@ -314,8 +368,28 @@ public static class SocialShots
             new("list-add-error", w =>
             {
                 List(w, SocialDemo.Online(now));
-                w.TourFriendsPanel.TourSetAddOpen(true);
-                w.TourFriendsPanel.ShowNotice("That isn't a Minecraft username.", error: true);
+                w.TourFriendsPanel.TourShowAddError("That isn't a Minecraft username.");
+            }),
+            // Hover and keyboard focus can't be made by an offscreen run, so these two paint what the
+            // row's own triggers paint: the hover fill (Brush.CardAlt), and the 2 px accent focus frame.
+            new("row-hover", w =>
+            {
+                List(w, SocialDemo.Online(now));
+                w.TourFriendsPanel.TourSetAddOpen(false);
+                RenderShots.Pump(250);
+                if (w.TourFriendsPanel.TourFindRow(SocialDemo.Kai) is { } row && Bd(row) is { } bd)
+                    bd.Background = (Brush)Application.Current.FindResource("Brush.CardAlt");
+            }),
+            new("row-focus", w =>
+            {
+                List(w, SocialDemo.Online(now));
+                w.TourFriendsPanel.TourSetAddOpen(false);
+                RenderShots.Pump(250);
+                if (w.TourFriendsPanel.TourFindRow(SocialDemo.Kai) is { } row && Bd(row) is { } bd)
+                {
+                    bd.BorderBrush = (Brush)Application.Current.FindResource("Brush.Accent");
+                    bd.BorderThickness = new Thickness(2);
+                }
             }),
             new("list-notice", w =>
             {
@@ -336,6 +410,14 @@ public static class SocialShots
                 RenderShots.Pump(200);
                 _menu = w.TourFriendsPanel.TourFriendMenu(SocialDemo.Steve, inChat: false);
                 OpenAt(w, _menu!, w.ActualWidth - 330, 300);
+            }, () => _menu),
+            new("menu-party-member", w =>
+            {
+                List(w, SocialDemo.Online(now));
+                w.TourFriendsPanel.TourSetAddOpen(false);
+                RenderShots.Pump(200);
+                _menu = w.TourFriendsPanel.TourMemberMenu(SocialDemo.Alex);
+                OpenAt(w, _menu, w.ActualWidth - 330, 300);
             }, () => _menu),
             new("menu-friend-chat", w =>
             {
@@ -389,6 +471,7 @@ public static class SocialShots
                 Show(SocialDemo.Online(now));
                 foreach (var toast in SocialDemo.Toasts()) w.TourShowToast(toast);
                 w.TourShowToast(new SocialToast(SocialToastKind.FriendRequest, "Friend request", "OjoTheCat wants to be friends", Uuid: SocialDemo.Ojo));
+                w.TourShowToast(new SocialToast(SocialToastKind.PartyInvite, "Party invite", "Kai_Builds invited you to their party", Uuid: SocialDemo.Kai, PartyId: "p2"));
             }),
             new("toasts-drawer-open", w =>
             {

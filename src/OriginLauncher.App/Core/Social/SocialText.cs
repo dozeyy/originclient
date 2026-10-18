@@ -16,16 +16,26 @@ public static class SocialText
     /// </summary>
     public static string StatusLine(FriendInfo friend)
     {
+        var text = ActivityLine(friend);
+        if (!friend.Online || friend.Client == "launcher" || string.IsNullOrWhiteSpace(friend.Version)) return text;
+        return $"{text} · {friend.Version}";
+    }
+
+    /// <summary>
+    /// The same line without the Minecraft version ("Playing on hypixel.net"): what a
+    /// narrow list row shows, with the version left to a tooltip or a chat header.
+    /// </summary>
+    public static string ActivityLine(FriendInfo friend)
+    {
         if (!friend.Online) return "Offline";
         if (friend.Client == "launcher") return "In the launcher";
 
-        var text = friend.Activity switch
+        return friend.Activity switch
         {
             "server" when !string.IsNullOrWhiteSpace(friend.Server) => $"Playing on {DisplayServer(friend.Server)}",
             "singleplayer" => "Playing singleplayer",
             _ => "In game",
         };
-        return string.IsNullOrWhiteSpace(friend.Version) ? text : $"{text} · {friend.Version}";
     }
 
     /// <summary>"hypixel.net:25565" reads as "hypixel.net"; other ports stay.</summary>

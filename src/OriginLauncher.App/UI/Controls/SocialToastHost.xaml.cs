@@ -31,18 +31,24 @@ public sealed class ToastVm
 
 public partial class SocialToastHost : UserControl
 {
-    private const int MaxVisible = 3;
+    // Two on screen at most; the rest wait and show as "+N more" (the Play card stays uncovered).
+    private const int MaxVisible = 2;
+    private const int MaxWaiting = 20;
     private static readonly TimeSpan ShortLife = TimeSpan.FromSeconds(7);
     // A warp stays up longer: the service keeps it for two minutes.
     private static readonly TimeSpan WarpLife = TimeSpan.FromSeconds(30);
 
     private readonly ObservableCollection<ToastVm> _items = new();
+    private readonly Queue<SocialToast> _waiting = new();
 
     /// <summary>The card was clicked: open whatever it's about.</summary>
     public event Action<SocialToast>? Opened;
 
     /// <summary>JOIN / ACCEPT was clicked.</summary>
     public event Action<SocialToast>? ActionClicked;
+
+    /// <summary>"+N more" was clicked: open the drawer.</summary>
+    public event Action? MoreClicked;
 
     public SocialToastHost()
     {
@@ -52,8 +58,18 @@ public partial class SocialToastHost : UserControl
 
     public void Show(SocialToast toast)
     {
-        while (_items.Count >= MaxVisible) Remove(_items[0]);
+        if (_items.Count >= MaxVisible)
+        {
+            _waiting.Enqueue(toast);
+            while (_waiting.Count > MaxWaiting) _waiting.Dequeue();
+            UpdateMore();
+            return;
+        }
+        Display(toast);
+    }
 
+    private void Display(SocialToast toast)
+    {
         var timer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = toast.Kind == SocialToastKind.Warp ? WarpLife : ShortLife,
@@ -62,17 +78,37 @@ public partial class SocialToastHost : UserControl
         timer.Tick += (_, _) => Remove(vm);
         _items.Add(vm);
         timer.Start();
+        UpdateMore();
     }
 
     public void Clear()
     {
+        _waiting.Clear();
         foreach (var vm in _items.ToList()) Remove(vm);
+        UpdateMore();
     }
 
     private void Remove(ToastVm vm)
     {
         vm.Timer.Stop();
         _items.Remove(vm);
+        // A place opened up: the next waiting toast takes it.
+        while (_items.Count < MaxVisible && _waiting.Count > 0) Display(_waiting.Dequeue());
+        UpdateMore();
+    }
+
+    private void UpdateMore()
+    {
+        MoreButton.Visibility = _waiting.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        MoreButton.Content = $"+{_waiting.Count} more";
+    }
+
+    private void More_Click(object sender, RoutedEventArgs e)
+    {
+        // Everything waiting is also in the drawer (messages, requests, invites, the warp card).
+        _waiting.Clear();
+        UpdateMore();
+        MoreClicked?.Invoke();
     }
 
     private Geometry IconFor(SocialToastKind kind) => (Geometry)FindResource(kind switch
