@@ -303,7 +303,10 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			Minecraft mc = Minecraft.getInstance();
-			if ((warmed & 1) == 0) {
+			// The icon atlas waits for the icon shader: ModIcons picks its atlas ONCE, from
+			// whether that shader exists, and the shader only arrives late in the load.
+			// Asked earlier, every icon would stay on the blurrier mask atlas all session.
+			if ((warmed & 1) == 0 && com.origin.client.client.gui.OriginShaders.ICON != null) {
 				warmed |= 1;
 				com.origin.client.client.gui.ModIcons.has("@title-singleplayer");   // decodes the icon atlases
 				return;

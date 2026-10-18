@@ -312,7 +312,13 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			Minecraft mc = Minecraft.getInstance();
-			if ((warmed & 1) == 0) {
+			// The icon atlas waits for the finished load (the menu screen exists only then).
+			// On 1.21.2-1.21.4 ModIcons asks the ShaderManager for the icon program, and
+			// asking before the manager has loaded this pack's shaders fails into
+			// Minecraft.triggerResourcePackRecovery: the loading screen is dropped mid-load
+			// and every screen after it renders black (dev-shots 1.21.4-handoff-fix3; the
+			// same trap as GuiMesh's RENDERTYPE_GUI note).
+			if ((warmed & 1) == 0 && mc.screen != null) {
 				warmed |= 1;
 				com.origin.client.client.gui.ModIcons.has("@title-singleplayer");   // decodes the icon atlases
 				return;

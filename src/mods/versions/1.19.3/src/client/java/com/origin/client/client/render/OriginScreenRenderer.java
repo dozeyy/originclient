@@ -297,13 +297,18 @@ public final class OriginScreenRenderer {
 			return;
 		}
 		try {
-			if ((warmed & 1) == 0) {
+			// The icon atlas waits for the icon shader: ModIcons picks its atlas ONCE, from
+			// whether that shader exists, and the shader only arrives late in the load.
+			// Asked earlier, every icon would stay on the blurrier mask atlas all session.
+			if ((warmed & 1) == 0 && com.origin.client.client.gui.OriginShaders.ICON != null) {
 				warmed |= 1;
 				com.origin.client.client.gui.ModIcons.has("@title-singleplayer");   // decodes the icon atlases
 				return;
 			}
-			warmed |= 2;
-			com.origin.client.client.gui.OriginUi.ready();   // decodes the panel/switch/logo textures
+			if ((warmed & 2) == 0) {
+				warmed |= 2;
+				com.origin.client.client.gui.OriginUi.ready();   // decodes the panel/switch/logo textures
+			}
 		} catch (Throwable t) {
 			warmed = WARM_ALL;   // a warm-up is only an optimisation: never retried, never fatal
 		}
