@@ -676,7 +676,7 @@ public class CosmeticsScreen extends OriginWindow {
 		d.icon("@chev-right", hx + hw + 8, hy - 6, 12, MUTE);
 
 		// position rows between the player and the hint, one per worn item
-		adjustTop = y + h - 44 - rowsH;
+		adjustTop = rows.isEmpty() ? y + h + 4 : y + h - 44 - rowsH;   // no rows: the whole card drags (click limit is adjustTop - 4)
 		if (!rows.isEmpty()) {
 			d.rect(x + 16, adjustTop - 2, w - 32, 1, 0, LINE);
 			float ry = adjustTop + 4;
