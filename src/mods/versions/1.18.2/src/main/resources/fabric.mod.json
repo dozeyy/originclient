@@ -12,6 +12,9 @@
 	"icon": "assets/originclient/icon.png",
 	"environment": "client",
 	"entrypoints": {
+		"preLaunch": [
+			"com.origin.client.client.OriginHandoff"
+		],
 		"main": [
 			"com.origin.client.OriginClient"
 		],

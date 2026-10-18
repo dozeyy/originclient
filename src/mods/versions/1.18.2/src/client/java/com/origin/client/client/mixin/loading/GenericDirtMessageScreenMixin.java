@@ -4,23 +4,24 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.screens.GenericDirtMessageScreen;
+import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // The "Preparing Resources..." / "Saving world" screen is GenericDirtMessageScreen
-// before 1.20.5 (GenericMessageScreen after). 1.21.1 shows the Origin loading
-// scene (backdrop + sweeping bar) behind that message; here the scene is painted
-// at the HEAD of render(), the dirt it would normally draw is already suppressed
-// by ScreenBackgroundMixin while out of a world, and the screen's own text renders
-// on top as usual. Non-cancelling and fail-soft: if the scene cannot draw, vanilla
-// shows its dirt as before.
+// before 1.20.5 (GenericMessageScreen after). Like 1.21.1, the whole Origin
+// loading scene draws here, the screen's title included, so vanilla's own render
+// (dirt + centred title, no widgets) is cancelled -- but only for a frame the
+// scene actually drew. Fail-soft: if it cannot draw, vanilla shows as before.
 @Mixin(GenericDirtMessageScreen.class)
 public class GenericDirtMessageScreenMixin {
 
-	@Inject(method = "render", at = @At("HEAD"))
+	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackground(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		OriginScreenRenderer.renderLoadingScene(new Gfx(poseStack), null);
+		if (OriginScreenRenderer.renderLoadingScene(new Gfx(poseStack), ((Screen) (Object) this).getTitle())) {
+			ci.cancel();
+		}
 	}
 }
