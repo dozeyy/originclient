@@ -76,7 +76,8 @@
 		"CosmeticCapeMixin",
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
-		"CosmeticsPreviewMixin"
+		"CosmeticsPreviewMixin",
+		"PackSelectionScreenAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 0
