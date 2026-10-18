@@ -151,7 +151,9 @@ h2 span, h1 span { color: var(--muted); }
 /* One quick pass left -> right first (so the first one comes right after the page
    opens), then it rests off to the right until the next loop. */
 @keyframes lens-glint { 0% { background-position: 100% 0, 0 0; } 22%, 100% { background-position: 0% 0, 0 0; } }
-.hero__lede { color: var(--dim); font-size: clamp(17px, 1.5vw, 20px); line-height: 1.6; margin: -.4365em 0 calc(var(--u) * 5 - .4365em); text-wrap: pretty; }
+/* One line, sized like the logo so its ink spans the column edge to edge (19.67em
+   wide, first letter .04em inside its box). New wording = re-measure that width. */
+.hero__lede { color: var(--dim); font-size: calc(var(--col) / 19.67); line-height: 1; white-space: nowrap; margin: -.1365em 0 calc(var(--u) * 5 - .1365em) -.04em; }
 .hero__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--u) * 2); }
 /* While Download is "Soon" it can't be the bright button, so the versions link takes the lead. */
 .hero__actions:has(.btn[data-soon]) .btn--ghost { background: var(--acc); color: var(--on-acc); border-color: transparent; }
