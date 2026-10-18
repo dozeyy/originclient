@@ -53,7 +53,7 @@ public abstract class ReloadTaskBudgetMixin {
 	/** The game's startup load is on screen (no world, no server) and still running. */
 	private static boolean originclient$startupLoading(Minecraft mc) {
 		if (mc.level != null || mc.getConnection() != null || !OriginScreenRenderer.isActive()
-				|| !(mc.getOverlay() instanceof LoadingOverlayAccessor overlay)) {
+				|| !(mc.gui.overlay() instanceof LoadingOverlayAccessor overlay)) {   // 26.2+: the overlay lives on Minecraft.gui
 			return false;
 		}
 		ReloadInstance reload = overlay.originclient$reload();
