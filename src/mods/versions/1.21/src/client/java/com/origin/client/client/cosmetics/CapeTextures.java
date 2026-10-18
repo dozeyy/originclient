@@ -15,62 +15,111 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Cape textures, made by tools/cosmetics/export-capes.mjs from the store's
- * own art (so the game and the store always match). Each PNG is Minecraft's
- * cape layout at 4x (256x128 per frame); animated capes stack FRAMES frames
- * vertically, one LOOP of the website animation. Frames are cut into
- * separate textures on first use and then just picked by the clock.
+ * Cape textures. Each cape is a PNG in Minecraft's cape layout (64x32 model
+ * px) at the item's own scale, animated capes stacking their frames
+ * vertically (FORMAT.md "Capes"). The scale, frame count and fps come from the
+ * item's item.json ({@link CosmeticDef#cape}); nothing is read from the PNG's
+ * size except to check it matches. Frames are cut into separate textures on
+ * first use and then just picked by the clock.
  */
 public final class CapeTextures {
 	private CapeTextures() {
 	}
 
-	/** One frame's time: the website's LOOP (2.4 s) / the exporter's FRAMES (24). */
-	static final long FRAME_MS = 100;
-	/** Size of one frame, also the outside face's place within it (for thumbnails). */
-	public static final int FRAME_W = 256, FRAME_H = 128;
-	public static final int FACE_U = 4, FACE_V = 4, FACE_W = 40, FACE_H = 64;
+	/** One loaded cape. `frames` are in order; all `w` x `h`. */
+	private record Loaded(ResourceLocation[] frames, int w, int h, int scale, float fps) {
+		static final Loaded NONE = new Loaded(new ResourceLocation[0], 0, 0, 1, 10f);
+	}
 
-	// Render thread only. An empty array = tried and failed: never retried, so
-	// a missing texture costs one log line, not one per frame.
-	private static final Map<String, ResourceLocation[]> FRAMES = new HashMap<>();
+	/**
+	 * The outside face of a cape as a rectangle of one frame, for thumbnails:
+	 * blit `tex` region (u, v, w, h) of a texW x texH texture.
+	 */
+	public record Face(ResourceLocation tex, int u, int v, int w, int h, int texW, int texH) {
+	}
+
+	// Render thread only. NONE = tried and failed: never retried, so a missing or
+	// wrong-sized texture costs one log line, not one per frame.
+	private static final Map<String, Loaded> LOADED = new HashMap<>();
 
 	/** The texture to draw right now for cape `id`, or null if there isn't one. */
 	public static ResourceLocation current(String id) {
-		if (!RenderSystem.isOnRenderThread()) {
-			return null;
-		}
-		ResourceLocation[] frames = FRAMES.computeIfAbsent(id, CapeTextures::load);
-		if (frames.length == 0) {
-			return null;
-		}
-		return frames[(int) ((Util.getMillis() / FRAME_MS) % frames.length)];
+		Loaded l = loaded(id);
+		return l == null ? null : l.frames[frameIndex(l)];
 	}
 
-	private static ResourceLocation[] load(String id) {
-		ResourceLocation file = ResourceLocation.fromNamespaceAndPath("originclient", "textures/cosmetics/capes/" + id + ".png");
-		Optional<Resource> res = Minecraft.getInstance().getResourceManager().getResource(file);
-		if (res.isEmpty()) {
-			OriginClient.LOGGER.warn("Origin cosmetics: no cape texture for {}", id);
-			return new ResourceLocation[0];
+	/** The cape's outside face (vanilla layout: 10 x 16 px at 1,1), at the current frame; null if no cape. */
+	public static Face face(String id) {
+		Loaded l = loaded(id);
+		if (l == null) {
+			return null;
 		}
-		try (InputStream in = res.get().open(); NativeImage sheet = NativeImage.read(in)) {
-			int count = Math.max(1, sheet.getHeight() / FRAME_H);
-			ResourceLocation[] out = new ResourceLocation[count];
-			for (int f = 0; f < count; f++) {
-				NativeImage frame = new NativeImage(FRAME_W, FRAME_H, false);
-				for (int y = 0; y < FRAME_H; y++) {
-					for (int x = 0; x < FRAME_W; x++) {
-						frame.setPixelRGBA(x, y, sheet.getPixelRGBA(x, f * FRAME_H + y));
-					}
-				}
-				out[f] = ResourceLocation.fromNamespaceAndPath("originclient", "cosmetics/cape/" + id + "/" + f);
-				Minecraft.getInstance().getTextureManager().register(out[f], new DynamicTexture(frame));
+		int s = l.scale;
+		return new Face(l.frames[frameIndex(l)], s, s, 10 * s, 16 * s, l.w, l.h);
+	}
+
+	private static int frameIndex(Loaded l) {
+		if (l.frames.length <= 1) {
+			return 0;
+		}
+		return (int) ((Util.getMillis() * (double) l.fps / 1000.0) % l.frames.length);
+	}
+
+	private static Loaded loaded(String id) {
+		if (id == null || !RenderSystem.isOnRenderThread()) {
+			return null;
+		}
+		Loaded l = LOADED.get(id);
+		if (l == null) {
+			l = load(id);
+			// A catalog that isn't loaded yet (resources still reloading) must not be remembered as "no cape".
+			if (l != Loaded.NONE || CosmeticCatalog.item(id) != null) {
+				LOADED.put(id, l);
 			}
-			return out;
-		} catch (Exception e) {
+		}
+		return l.frames.length == 0 ? null : l;
+	}
+
+	/** Drops every cut frame (resource reload); the next draw cuts them again. */
+	public static void clear() {
+		LOADED.clear();
+	}
+
+	private static Loaded load(String id) {
+		try {
+			CosmeticDef def = CosmeticCatalog.def(id);
+			if (def == null || def.cape == null) {
+				return Loaded.NONE;
+			}
+			int scale = def.cape.scale(), count = Math.max(1, def.cape.frames());
+			int w = 64 * scale, h = 32 * scale;
+			Optional<Resource> res = Minecraft.getInstance().getResourceManager().getResource(CosmeticCatalog.texture(id));
+			if (res.isEmpty()) {
+				OriginClient.LOGGER.warn("Origin cosmetics: no cape texture for {}", id);
+				return Loaded.NONE;
+			}
+			try (InputStream in = res.get().open(); NativeImage sheet = NativeImage.read(in)) {
+				if (sheet.getWidth() != w || sheet.getHeight() < h * count) {
+					OriginClient.LOGGER.warn("Origin cosmetics: cape {} is {}x{} but item.json says {} frame(s) at scale {} ({}x{} each)",
+							id, sheet.getWidth(), sheet.getHeight(), count, scale, w, h);
+					return Loaded.NONE;
+				}
+				ResourceLocation[] out = new ResourceLocation[count];
+				for (int f = 0; f < count; f++) {
+					NativeImage frame = new NativeImage(w, h, false);
+					for (int y = 0; y < h; y++) {
+						for (int x = 0; x < w; x++) {
+							frame.setPixelRGBA(x, y, sheet.getPixelRGBA(x, f * h + y));
+						}
+					}
+					out[f] = ResourceLocation.fromNamespaceAndPath("originclient", "cosmetics/cape/" + id + "/" + f);
+					Minecraft.getInstance().getTextureManager().register(out[f], new DynamicTexture(frame));
+				}
+				return new Loaded(out, w, h, scale, def.cape.fps() > 0f ? def.cape.fps() : 10f);
+			}
+		} catch (Throwable e) {
 			OriginClient.LOGGER.warn("Origin cosmetics: couldn't load cape texture {}", id, e);
-			return new ResourceLocation[0];
+			return Loaded.NONE;
 		}
 	}
 }

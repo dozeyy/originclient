@@ -76,6 +76,7 @@
 		"NickHiderLobbyMixin",
 		"ScreenshotKeyMixin",
 		"CosmeticCapeMixin",
+		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsBedMixin",
