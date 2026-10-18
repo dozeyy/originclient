@@ -103,8 +103,16 @@ jobs:
           # (net/minecraft/client/...). Bundled dependency jars (Sodium, Lithium...)
           # are remapped from intermediary names (net/minecraft/class_2818); their
           # lines are skipped -- they are those mods' own optional hooks, not Origin's.
+          # Classes intermediary never renames (com/mojang/...) give no such hint, so a
+          # line also counts only when an Origin mixin names that method in quotes
+          # (method = "x" / target = "...;x(...)") -- 1.21's compile-only Sodium 0.5.11
+          # prints dead RenderSystem hooks of its own that Origin never mentions.
           dead=$(grep -E "Cannot remap .* does not exist in any of the targets \[(net/minecraft|com/mojang)/" gradle.log \
-                 | grep -vE "targets \[net/minecraft/class_[0-9]+" || true)
+                 | grep -vE "targets \[net/minecraft/class_[0-9]+" \
+                 | while IFS= read -r line; do
+                     name=$(sed -E 's/^.*Cannot remap ([A-Za-z0-9_$<>]+).*/\1/' <<<"$line")
+                     if grep -rqE "[\";]${name}[\"(]" src --include='*.java'; then echo "$line"; fi
+                   done || true)
           if [ -n "$dead" ]; then
             echo "::error::Origin mixins target methods that don't exist on Minecraft ${{ matrix.covers }} (the feature behind each would silently do nothing):"
             echo "$dead"
