@@ -11,11 +11,17 @@ Updated 2026-10-18.
     - Capes: Origin, Origin+ (members only), Void, Golden Hour, Frost, Inferno, Starfall,
       Orbit, Glitch (the last three passed on their third and final try)
     - Ember Wings
-    - Menu themes: Emerald, Crimson, Ocean, Rose
   - **Dropped after 3 tries:** Pixel Crown and Aurora Cape. Both are `onSale:false`, so
     owners still own and wear them.
-  - **Still being drawn and judged:** Orbit and Golden halos; Explorer Pack; Origin Bandana;
-    Visor Mask.
+  - **Being judged:** menu themes Amethyst, Crimson, Ocean, Rose (reworked, below); Orbit and
+    Golden halos; Explorer Pack; Origin Bandana; Visor Mask.
+- **Menu themes rebuilt on the real main theme** (Will: the old ones didn't match the in-game
+  menu). A theme is now the main theme's own colour tokens (`DEF_` in OriginDeck/OriginTheme)
+  re-tinted in OKLCH by `cosmetics/lib/theme.mjs`, so every contrast and alpha carries over;
+  the main theme fed back in reproduces itself exactly (build fails otherwise). The mod only
+  assigns the precomputed tokens from item.json. Store/screen pictures are the real menu design
+  (mock4) rendered in the theme (`tools/cosmetics/theme-preview.mjs`), smooth, not pixel art.
+  Emerald was replaced by Amethyst: re-tinted properly it was nearly the free default.
 - **Menu themes and the mod-card toggle.** With a theme equipped, the DISABLED bar is neutral
   grey and the hovered ENABLED bar follows the theme's accent. Before, it stayed red and
   flashed green, so on Crimson "on" and "off" were both red. With no theme it is

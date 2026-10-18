@@ -14,7 +14,7 @@ import java.util.Objects;
  * Applies the equipped THEME cosmetic (FORMAT.md "Themes") to Origin's own menus.
  * Local only: it follows YOUR look ({@link CosmeticsService#myLook}), nobody
  * else's. Once a client tick it compares the worn theme id with the one applied
- * and, when they differ, pushes the eight colours into {@link OriginTheme} and
+ * and, when they differ, pushes the theme's colours into {@link OriginTheme} and
  * {@link OriginDeck} (or resets both to today's colours for "no theme"). Menus
  * read those values every frame, so a change repaints at once.
  *
@@ -59,8 +59,8 @@ public final class ThemeManager {
 				return;
 			}
 			ThemeColors c = def.theme;
-			OriginTheme.applyTheme(c.bg(), c.card(), c.line(), c.text(), c.dim(), c.acc(), c.accHi(), c.onAcc());
-			OriginDeck.applyTheme(c.bg(), c.card(), c.line(), c.text(), c.dim(), c.acc(), c.accHi(), c.onAcc());
+			OriginTheme.applyTheme(c.workbench());
+			OriginDeck.applyTheme(c.deck());
 			applied = want;
 		} catch (Throwable t) {
 			if (!warned) {

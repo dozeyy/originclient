@@ -1,31 +1,57 @@
 package com.origin.client.client.cosmetics;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-/**
- * A theme item's palette (FORMAT.md "Themes"): eight tokens, 0xAARRGGBB.
- * Missing tokens fall back to Origin's default palette, so a theme can be
- * partial. {@link com.origin.client.client.theme.ThemeManager} pushes the
- * worn theme into OriginTheme / OriginDeck.
- */
-public record ThemeColors(int bg, int card, int line, int text, int dim, int acc, int accHi, int onAcc) {
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
-	/** Today's menu colours expressed as theme tokens (what the store's example theme block also lists). */
-	public static final ThemeColors DEFAULT = new ThemeColors(0xFF0E1110, 0xFF1D2420, 0xFF2E3B33, 0xFFF1E9D2,
-			0xFFB8B5A6, 0xFF5FD09B, 0xFF83E2B5, 0xFF0A1710);
+/**
+ * A theme item's colours (FORMAT.md "Themes"), as the build wrote them into item.json:
+ * {@code "deck": {"PANEL": "#rrggbbaa", ...}} for {@link com.origin.client.client.gui.OriginDeck}
+ * and {@code "workbench": {...}} for {@link com.origin.client.client.theme.OriginTheme},
+ * token names exactly as those classes' fields. Every value was worked out from the main
+ * theme by cosmetics/lib/theme.mjs, so nothing is derived here. Unreadable values are
+ * dropped (that token keeps today's colour). {@link com.origin.client.client.theme.ThemeManager}
+ * applies the worn theme.
+ */
+public record ThemeColors(Map<String, Integer> deck, Map<String, Integer> workbench) {
 
 	static ThemeColors parse(JsonObject o) {
-		ThemeColors d = DEFAULT;
-		return new ThemeColors(hex(Cosmetics.str(o, "bg", null), d.bg), hex(Cosmetics.str(o, "card", null), d.card),
-				hex(Cosmetics.str(o, "line", null), d.line), hex(Cosmetics.str(o, "text", null), d.text),
-				hex(Cosmetics.str(o, "dim", null), d.dim), hex(Cosmetics.str(o, "acc", null), d.acc),
-				hex(Cosmetics.str(o, "accHi", null), d.accHi), hex(Cosmetics.str(o, "onAcc", null), d.onAcc));
+		return new ThemeColors(tokens(o.get("deck")), tokens(o.get("workbench")));
 	}
 
-	/** "#rgb", "#rrggbb" or "#rrggbbaa" (CSS order) to 0xAARRGGBB; `def` for anything else. */
+	/** A deck token, or {@code def} if the theme doesn't set it (the Cosmetics screen's swatch fallback). */
+	public int deck(String name, int def) {
+		return deck.getOrDefault(name, def);
+	}
+
+	private static Map<String, Integer> tokens(JsonElement e) {
+		Map<String, Integer> out = new HashMap<>();
+		if (e instanceof JsonObject o) {
+			for (Map.Entry<String, JsonElement> en : o.entrySet()) {
+				if (en.getValue().isJsonPrimitive()) {
+					Integer v = parse(en.getValue().getAsString());
+					if (v != null) {
+						out.put(en.getKey(), v);
+					}
+				}
+			}
+		}
+		return Collections.unmodifiableMap(out);
+	}
+
+	/** {@link #parse}, or {@code def} for anything unreadable (CosmeticDef's effect colours use it too). */
 	static int hex(String s, int def) {
+		Integer v = parse(s);
+		return v != null ? v : def;
+	}
+
+	/** "#rgb", "#rrggbb" or "#rrggbbaa" (CSS order) to 0xAARRGGBB; null for anything else. */
+	static Integer parse(String s) {
 		if (s == null) {
-			return def;
+			return null;
 		}
 		try {
 			String h = s.startsWith("#") ? s.substring(1) : s;
@@ -40,8 +66,8 @@ public record ThemeColors(int bg, int card, int line, int text, int dim, int acc
 				return (int) (((v & 0xFF) << 24) | (v >>> 8));
 			}
 		} catch (NumberFormatException ignored) {
-			// fall through to the default
+			// fall through
 		}
-		return def;
+		return null;
 	}
 }

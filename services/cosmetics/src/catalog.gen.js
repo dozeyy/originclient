@@ -19,7 +19,7 @@ export const CATALOG = {
   'halo-orbit': { name: 'Orbit Halo', cents: 799, slot: 'head', kind: 'halo', onSale: true, plusOnly: false },
   'halo-gold': { name: 'Golden Halo', cents: 599, slot: 'head', kind: 'halo', onSale: true, plusOnly: false },
   'crown-pixel': { name: 'Pixel Crown', cents: 699, slot: 'head', kind: 'crown', onSale: false, plusOnly: false },
-  'theme-emerald': { name: 'Emerald', cents: 599, slot: 'theme', kind: 'theme', onSale: true, plusOnly: false },
+  'theme-amethyst': { name: 'Amethyst', cents: 599, slot: 'theme', kind: 'theme', onSale: true, plusOnly: false },
   'theme-crimson': { name: 'Crimson', cents: 599, slot: 'theme', kind: 'theme', onSale: true, plusOnly: false },
   'theme-ocean': { name: 'Ocean', cents: 599, slot: 'theme', kind: 'theme', onSale: true, plusOnly: false },
   'theme-rose': { name: 'Rose', cents: 599, slot: 'theme', kind: 'theme', onSale: true, plusOnly: false },

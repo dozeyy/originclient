@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Canvas, decodePNG } from '../../cosmetics/lib/px.mjs';
 import { checkModel, cubeSize } from '../../cosmetics/lib/model.mjs';
 import { composeCape } from '../../cosmetics/lib/cape.mjs';
+import { checkIdentity } from '../../cosmetics/lib/theme.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ITEMS_DIR = path.join(ROOT, 'cosmetics/items');
@@ -103,6 +104,30 @@ function checkClearance(id, meta, model) {
 }
 
 // -------------------------------------------------------------- painting
+// A theme's picture is the real menu rendered in it by tools/cosmetics/theme-preview.mjs
+// (Chromium, so it is rendered once and committed, not repainted here). The store gets it
+// full size; the mod gets a 4x box-filtered copy at about the size the Cosmetics screen
+// draws it, so the game's plain (nearest) blit doesn't shimmer.
+function themePicture(id) {
+  const src = sources.get(id), dir = path.join(ITEMS_DIR, id);
+  const rerun = `run node tools/cosmetics/theme-preview.mjs ${id}`;
+  if (!src.theme?.deck || !src.theme?.workbench) fail(`${id}: theme must be themeTokens(...) from cosmetics/lib/theme.mjs`);
+  if (!fs.existsSync(path.join(dir, 'preview.png'))) fail(`${id}: no preview.png; ${rerun}`);
+  const was = JSON.parse(fs.readFileSync(path.join(dir, 'preview.tokens.json'), 'utf8'));
+  if (JSON.stringify(was) !== JSON.stringify(src.theme)) fail(`${id}: preview.png shows older colours; ${rerun}`);
+  const site = decodePNG(fs.readFileSync(path.join(dir, 'preview.png')));
+  return { site, mod: shrink(site, 4) };
+}
+function shrink(c, k) {
+  const out = new Canvas(Math.floor(c.w / k), Math.floor(c.h / k));
+  for (let y = 0; y < out.h; y++) for (let x = 0; x < out.w; x++) {
+    const sum = [0, 0, 0, 0];
+    for (let j = 0; j < k; j++) for (let i = 0; i < k; i++) { const p = c.get(x * k + i, y * k + j); for (let n = 0; n < 4; n++) sum[n] += p[n]; }
+    out.set(x, y, sum.map(v => Math.round(v / (k * k))));
+  }
+  return out;
+}
+
 function paintItem(id) {
   const src = sources.get(id), meta = metas.get(id);
   const frames = src.cape?.frames ?? src.anim?.frames ?? 1;
@@ -159,12 +184,17 @@ function itemJson(id) {
 const outputs = new Map();    // absolute path -> string | Canvas (a PNG)
 const paintIds = only ? [only] : [...sources.keys()];
 if (only && !sources.has(only)) fail(`--only ${only}: no such item`);
+{
+  const bad = checkIdentity();
+  if (bad.length) fail(`cosmetics/lib/theme.mjs no longer reproduces the main menu colours:\n  ${bad.join('\n  ')}`);
+}
 for (const id of paintIds) {
-  const json = itemJson(id), tex = paintItem(id);
-  for (const base of [OUT_SITE, OUT_MOD]) {
-    outputs.set(path.join(base, id, 'item.json'), json);
-    outputs.set(path.join(base, id, 'texture.png'), tex);
-  }
+  const json = itemJson(id);
+  const tex = metas.get(id).kind === 'theme' ? themePicture(id) : (t => ({ site: t, mod: t }))(paintItem(id));
+  outputs.set(path.join(OUT_SITE, id, 'item.json'), json);
+  outputs.set(path.join(OUT_MOD, id, 'item.json'), json);
+  outputs.set(path.join(OUT_SITE, id, 'texture.png'), tex.site);
+  outputs.set(path.join(OUT_MOD, id, 'texture.png'), tex.mod);
 }
 const catalogItems = order.filter(id => metas.has(id)).map(id => metas.get(id));
 const catalogJson = stringify({ schema: 2, items: catalogItems }) + '\n';

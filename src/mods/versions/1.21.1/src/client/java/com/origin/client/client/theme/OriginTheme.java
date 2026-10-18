@@ -137,34 +137,37 @@ public final class OriginTheme {
 	}
 
 	/**
-	 * Recolours the tokens from a theme's eight colours (0xAARRGGBB). Derived tokens
-	 * (strokes, glows, hover fills) are computed so a theme only names eight.
+	 * Recolours the tokens from an equipped theme (cosmetics/ThemeColors): token name ->
+	 * 0xAARRGGBB, named exactly like the fields above. The build works every value out
+	 * from these DEF_ colours (cosmetics/lib/theme.mjs), so the game only assigns; a token
+	 * the theme leaves out keeps today's colour.
 	 */
-	public static void applyTheme(int bg, int card, int line, int text, int dim, int acc, int accHi, int onAcc) {
-		BG = opaque(bg);
-		BG_ALT = opaque(lerpColor(bg, card, 0.25));
-		PANEL = opaque(lerpColor(bg, card, 0.5));
-		PANEL_TRANSLUCENT = withAlpha(PANEL, 0xA6);
-		PANEL_ALT = opaque(card);
-		STROKE = withAlpha(line, 0x60);
-		STROKE_STRONG = withAlpha(line, 0xA0);
-		STROKE_HOVER = opaque(lerpColor(line, acc, 0.5));
-		TEXT = opaque(text);
-		TEXT_DIM = opaque(dim);
-		MUTED = opaque(lerpColor(dim, bg, 0.45));
-		ACCENT = opaque(acc);
-		ACCENT_2 = opaque(accHi);
-		ACCENT_GLOW = withAlpha(acc, 0x59);
-		ACCENT_DIM = withAlpha(acc, 0x8C);
-		ACCENT_SOFT = withAlpha(acc, 0x24);
-		ACCENT_BORDER = withAlpha(acc, 0x99);
-		BOX_FILL = withAlpha(card, 0xB3);
-		BOX_FILL_HOVER = withAlpha(lerpColor(card, text, 0.05), 0xD1);
-		BOX_BORDER = withAlpha(lerpColor(bg, 0xFF000000, 0.5), 0xF0);
-		BOX_BORDER_HOVER = STROKE_HOVER;
-		SWITCH_ON = opaque(acc);
-		SWITCH_OFF = opaque(lerpColor(card, text, 0.07));
-		SWITCH_KNOB = TEXT;
+	public static void applyTheme(java.util.Map<String, Integer> t) {
+		resetTheme();
+		BG = t.getOrDefault("BG", BG);
+		BG_ALT = t.getOrDefault("BG_ALT", BG_ALT);
+		PANEL = t.getOrDefault("PANEL", PANEL);
+		PANEL_TRANSLUCENT = t.getOrDefault("PANEL_TRANSLUCENT", PANEL_TRANSLUCENT);
+		PANEL_ALT = t.getOrDefault("PANEL_ALT", PANEL_ALT);
+		STROKE = t.getOrDefault("STROKE", STROKE);
+		STROKE_STRONG = t.getOrDefault("STROKE_STRONG", STROKE_STRONG);
+		STROKE_HOVER = t.getOrDefault("STROKE_HOVER", STROKE_HOVER);
+		TEXT = t.getOrDefault("TEXT", TEXT);
+		TEXT_DIM = t.getOrDefault("TEXT_DIM", TEXT_DIM);
+		MUTED = t.getOrDefault("MUTED", MUTED);
+		ACCENT = t.getOrDefault("ACCENT", ACCENT);
+		ACCENT_2 = t.getOrDefault("ACCENT_2", ACCENT_2);
+		ACCENT_GLOW = t.getOrDefault("ACCENT_GLOW", ACCENT_GLOW);
+		ACCENT_DIM = t.getOrDefault("ACCENT_DIM", ACCENT_DIM);
+		ACCENT_SOFT = t.getOrDefault("ACCENT_SOFT", ACCENT_SOFT);
+		ACCENT_BORDER = t.getOrDefault("ACCENT_BORDER", ACCENT_BORDER);
+		BOX_FILL = t.getOrDefault("BOX_FILL", BOX_FILL);
+		BOX_FILL_HOVER = t.getOrDefault("BOX_FILL_HOVER", BOX_FILL_HOVER);
+		BOX_BORDER = t.getOrDefault("BOX_BORDER", BOX_BORDER);
+		BOX_BORDER_HOVER = t.getOrDefault("BOX_BORDER_HOVER", BOX_BORDER_HOVER);
+		SWITCH_ON = t.getOrDefault("SWITCH_ON", SWITCH_ON);
+		SWITCH_OFF = t.getOrDefault("SWITCH_OFF", SWITCH_OFF);
+		SWITCH_KNOB = t.getOrDefault("SWITCH_KNOB", SWITCH_KNOB);
 	}
 
 	/** Back to today's colours. */
@@ -193,10 +196,6 @@ public final class OriginTheme {
 		SWITCH_ON = DEF_SWITCH_ON;
 		SWITCH_OFF = DEF_SWITCH_OFF;
 		SWITCH_KNOB = DEF_SWITCH_KNOB;
-	}
-
-	private static int opaque(int rgb) {
-		return 0xFF000000 | (rgb & 0xFFFFFF);
 	}
 
 	public static int aurora(double t) {

@@ -384,25 +384,31 @@ export function encodePNG(c) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 }
 // Reads back PNGs written by encodePNG (8-bit RGBA, non-interlaced). Used by
-// build.mjs --check so the drift gate compares pixels, not zlib's bytes.
+// build.mjs --check so the drift gate compares pixels, not zlib's bytes. Also reads
+// 8-bit RGB (Chromium's screenshots: theme previews), filled in as opaque RGBA.
 export function decodePNG(buf) {
-  let p = 8, w = 0, h = 0; const idat = [];
+  let p = 8, w = 0, h = 0, bpp = 4; const idat = [];
   while (p < buf.length) {
     const len = buf.readUInt32BE(p), type = buf.toString('ascii', p + 4, p + 8), data = buf.subarray(p + 8, p + 8 + len);
-    if (type === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); if (data[8] !== 8 || data[9] !== 6 || data[12] !== 0) throw new Error('unsupported PNG'); }
+    if (type === 'IHDR') {
+      w = data.readUInt32BE(0); h = data.readUInt32BE(4);
+      if (data[8] !== 8 || (data[9] !== 6 && data[9] !== 2) || data[12] !== 0) throw new Error('unsupported PNG');
+      bpp = data[9] === 6 ? 4 : 3;
+    }
     if (type === 'IDAT') idat.push(data);
     p += 12 + len;
   }
-  const raw = zlib.inflateSync(Buffer.concat(idat)), stride = w * 4, c = new Canvas(w, h), prev = Buffer.alloc(stride);
+  const raw = zlib.inflateSync(Buffer.concat(idat)), stride = w * bpp, c = new Canvas(w, h), prev = Buffer.alloc(stride);
   let cur = Buffer.alloc(stride);
   for (let y = 0; y < h; y++) {
     const f = raw[y * (stride + 1)], line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
     for (let i = 0; i < stride; i++) {
-      const a = i >= 4 ? cur[i - 4] : 0, b = prev[i], cc = i >= 4 ? prev[i - 4] : 0;
+      const a = i >= bpp ? cur[i - bpp] : 0, b = prev[i], cc = i >= bpp ? prev[i - bpp] : 0;
       const pr = f === 0 ? 0 : f === 1 ? a : f === 2 ? b : f === 3 ? (a + b) >> 1 : (() => { const pp = a + b - cc, pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - cc); return pa <= pb && pa <= pc ? a : pb <= pc ? b : cc; })();
       cur[i] = (line[i] + pr) & 255;
     }
-    c.data.set(cur, y * stride);
+    if (bpp === 4) c.data.set(cur, y * stride);
+    else for (let x = 0; x < w; x++) c.data.set([cur[x * 3], cur[x * 3 + 1], cur[x * 3 + 2], 255], (y * w + x) * 4);
     cur.copy(prev); 
   }
   return c;

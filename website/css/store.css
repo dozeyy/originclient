@@ -91,7 +91,7 @@ body.no-webgl .fit__hint { display: none; }
 .item__art { position: absolute; inset: 0; display: grid; place-items: center; }
 .item__art img { width: 100%; height: 100%; object-fit: cover; }
 .item__art .item__flat { width: auto; object-fit: contain; image-rendering: pixelated; }
-.item__art .item__theme { object-fit: cover; image-rendering: pixelated; }
+.item__art .item__theme { position: absolute; left: -5%; top: 16px; width: 190%; height: auto; max-width: none; }   /* close-up of the real menu (theme-preview.mjs): header, chips, ENABLED bars; the try-on view shows all of it */
 .shop__empty { grid-column: 1 / -1; margin: 24px 0; color: var(--muted); font: 600 13px/1.5 var(--mono); }
 .item__flat--cape { height: 74%; }
 .item__flat--wings { height: 60%; }

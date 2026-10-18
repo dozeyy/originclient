@@ -10,6 +10,7 @@ import com.origin.client.client.cosmetics.Cosmetics;
 import com.origin.client.client.cosmetics.CosmeticsService;
 import com.origin.client.client.cosmetics.CosmeticsService.Look;
 import com.origin.client.client.cosmetics.MenuPlayerPreview;
+import com.origin.client.client.cosmetics.ThemeColors;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -467,11 +468,12 @@ public class CosmeticsScreen extends OriginWindow {
 			return;
 		}
 		float w = Math.min(boxW, 150), h = 84, x = cx - w / 2, y = cy - h / 2;
-		d.rect(x, y, w, h, 8, def.theme.bg(), def.theme.line());
-		d.rect(x + 10, y + 10, w - 20, 34, 6, def.theme.card());
-		d.rect(x + 18, y + 22, 52, 10, 5, def.theme.text());
-		d.rect(x + 10, y + 54, 56, 20, 6, def.theme.acc());
-		d.rect(x + 74, y + 54, 24, 20, 6, def.theme.accHi());
+		ThemeColors th = def.theme;
+		d.rect(x, y, w, h, 8, th.deck("PANEL", PANEL), th.deck("LINE2", LINE2));
+		d.rect(x + 10, y + 10, w - 20, 34, 6, th.deck("CARD", CARD));
+		d.rect(x + 18, y + 22, 52, 10, 5, th.deck("TEXT", TEXT));
+		d.rect(x + 10, y + 54, 56, 20, 6, th.deck("ACC", ACC));
+		d.rect(x + 74, y + 54, 24, 20, 6, th.deck("ACC_D", ACC_D));
 	}
 
 	/**

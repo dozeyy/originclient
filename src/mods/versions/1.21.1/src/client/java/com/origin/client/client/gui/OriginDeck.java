@@ -190,29 +190,30 @@ public final class OriginDeck {
 	}
 
 	/**
-	 * Recolours the menu chrome from a theme's eight tokens (all 0xAARRGGBB; cosmetics/
-	 * ThemeColors). Derived tokens (hover card, soft accent, ...) are computed so a
-	 * theme only has to name eight colours.
+	 * Recolours the menu chrome from an equipped theme (cosmetics/ThemeColors): token name
+	 * -> 0xAARRGGBB, named exactly like the fields above. The build works every value out
+	 * from these DEF_ colours (cosmetics/lib/theme.mjs), so the game only assigns; a token
+	 * the theme leaves out keeps today's colour (OFF* stays the red DISABLED bar).
 	 */
-	public static void applyTheme(int bg, int card, int line, int text, int dim, int acc, int accHi, int onAcc) {
-		PANEL = withAlpha(bg, 0xF0);
-		CARD = opaque(card);
-		CARD_H = opaque(lerp(card, text, 0.035f));
-		LINE = withAlpha(line, 0x99);
-		LINE2 = withAlpha(line, 0xCC);
-		TEXT = opaque(text);
-		DIM = withAlpha(dim, 0xE0);
-		MUTE = withAlpha(dim, 0x8C);
-		ACC = opaque(acc);
-		ACC_D = opaque(lerp(acc, bg, 0.5f));
-		ACC_SOFT = withAlpha(acc, 0x24);
-		ON_ACC = opaque(onAcc);
-		ON_TEXT = opaque(lerp(accHi, 0xFFFFFFFF, 0.6f));
-		ACC_D_H = opaque(lerp(acc, bg, 0.42f));
-		// Neutral DISABLED under a theme: the accent alone says "on".
-		OFF = withAlpha(dim, 0xE0);
-		OFF_SOFT = withAlpha(text, 0x14);
-		OFF_SOFT_H = withAlpha(text, 0x24);
+	public static void applyTheme(java.util.Map<String, Integer> t) {
+		resetTheme();
+		PANEL = t.getOrDefault("PANEL", PANEL);
+		CARD = t.getOrDefault("CARD", CARD);
+		CARD_H = t.getOrDefault("CARD_H", CARD_H);
+		LINE = t.getOrDefault("LINE", LINE);
+		LINE2 = t.getOrDefault("LINE2", LINE2);
+		TEXT = t.getOrDefault("TEXT", TEXT);
+		DIM = t.getOrDefault("DIM", DIM);
+		MUTE = t.getOrDefault("MUTE", MUTE);
+		ACC = t.getOrDefault("ACC", ACC);
+		ACC_D = t.getOrDefault("ACC_D", ACC_D);
+		ACC_SOFT = t.getOrDefault("ACC_SOFT", ACC_SOFT);
+		ON_ACC = t.getOrDefault("ON_ACC", ON_ACC);
+		ON_TEXT = t.getOrDefault("ON_TEXT", ON_TEXT);
+		ACC_D_H = t.getOrDefault("ACC_D_H", ACC_D_H);
+		OFF = t.getOrDefault("OFF", OFF);
+		OFF_SOFT = t.getOrDefault("OFF_SOFT", OFF_SOFT);
+		OFF_SOFT_H = t.getOrDefault("OFF_SOFT_H", OFF_SOFT_H);
 	}
 
 	/** Back to today's colours. */
@@ -234,14 +235,6 @@ public final class OriginDeck {
 		OFF = RED;
 		OFF_SOFT = RED_SOFT;
 		OFF_SOFT_H = DEF_OFF_SOFT_H;
-	}
-
-	private static int withAlpha(int rgb, int a) {
-		return (a << 24) | (rgb & 0xFFFFFF);
-	}
-
-	private static int opaque(int rgb) {
-		return 0xFF000000 | (rgb & 0xFFFFFF);
 	}
 
 	// ---- geometry ----
