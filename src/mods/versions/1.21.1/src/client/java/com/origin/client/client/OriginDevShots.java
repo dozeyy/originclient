@@ -37,7 +37,10 @@ public final class OriginDevShots {
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
 		MENU_CLEAR,
 		// Friends (social/SocialDemo fills it): a chat, then the party
-		FRIENDS, FRIENDS_PARTY;
+		FRIENDS, FRIENDS_PARTY,
+		// ORIGIN_SHOTS_SET=social (the 2026-10-18 social redesign): every Friends state, the toasts, the entry points
+		SOC_CHAT, SOC_PARTY, SOC_HOME, SOC_OFFLINE, SOC_EMPTY, SOC_SIGNEDOUT, SOC_UNREACHABLE,
+		SOC_STRESS_CHAT, SOC_STRESS_PARTY, SOC_TOASTS, SOC_RSHIFT, SOC_MENU;
 
 		Screen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -47,6 +50,7 @@ public final class OriginDevShots {
 			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", this == MENU_CLEAR ? 0.0 : 1.0);
 			// The friends demo only on its own shots, so every other shot looks the same in both passes.
 			com.origin.client.client.social.SocialDemo.clear();
+			Minecraft.getInstance().getToasts().clear();
 			return switch (this) {
 				case TITLE -> new TitleScreen();
 				case MENU -> new OriginModMenuScreen().preview(false, false);
@@ -75,6 +79,66 @@ public final class OriginDevShots {
 					yield new com.origin.client.client.gui.FriendsScreen(null)
 							.select(com.origin.client.client.gui.FriendsScreen.PARTY);
 				}
+				case SOC_CHAT -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL);
+				}
+				case SOC_PARTY -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY);
+				}
+				case SOC_HOME -> {
+					com.origin.client.client.social.SocialDemo.installHome();
+					yield new com.origin.client.client.gui.FriendsScreen(null);
+				}
+				case SOC_OFFLINE -> {
+					com.origin.client.client.social.SocialDemo.installHome();
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select("e5b1d7f3a9c24e6b0d8f2a4c6e1b9d38");   // Lumen
+				}
+				case SOC_EMPTY -> new com.origin.client.client.gui.FriendsScreen(null);
+				case SOC_SIGNEDOUT -> {
+					com.origin.client.client.social.SocialDemo.status(
+							com.origin.client.client.social.SocialClient.Status.SIGNED_OUT, null);
+					yield new com.origin.client.client.gui.FriendsScreen(null);
+				}
+				case SOC_UNREACHABLE -> {
+					com.origin.client.client.social.SocialDemo.status(
+							com.origin.client.client.social.SocialClient.Status.UNREACHABLE, null);
+					yield new com.origin.client.client.gui.FriendsScreen(null);
+				}
+				case SOC_STRESS_CHAT -> {
+					com.origin.client.client.social.SocialDemo.installStress();
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.firstStressFriend());
+				}
+				case SOC_STRESS_PARTY -> {
+					com.origin.client.client.social.SocialDemo.installStress();
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY);
+				}
+				case SOC_TOASTS -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					Minecraft mc = Minecraft.getInstance();
+					com.origin.client.client.social.SocialToast.message(mc, com.origin.client.client.social.SocialDemo.KESTREL,
+							"Kestrel", "I'm in a lobby on hypixel now, join when you're ready and bring the good pickaxe");
+					com.origin.client.client.social.SocialToast.request(mc, "9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14", "Quartzling");
+					com.origin.client.client.social.SocialToast.invite(mc, "1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52", "Ravenmoor");
+					com.origin.client.client.social.SocialToast.warp(mc, "0b7e4d2c9a1f4e6b8c3d5a7f2e9b1c63", "Ember_Fox",
+							new com.origin.client.client.social.SocialState.Warp("play.originsmp.net", "1.21.1",
+									System.currentTimeMillis(), "0b7e4d2c9a1f4e6b8c3d5a7f2e9b1c63", "Ember_Fox"));
+					yield new TitleScreen();
+				}
+				case SOC_RSHIFT -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new HudEditorScreen(true);
+				}
+				case SOC_MENU -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new OriginModMenuScreen().preview(false, false);
+				}
 			};
 		}
 	}
@@ -93,6 +157,15 @@ public final class OriginDevShots {
 	static {
 		if (WORLD) {
 			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("social".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// Friends / party / chat / toasts: 1080p at GUI scale 2, 3 and 4 (the contract), plus 720p at 2.
+			for (int[] s : new int[][]{{1920, 1080, 2}, {1920, 1080, 4}, {1920, 1080, 3}, {1280, 720, 2}}) {
+				for (Kind k : Kind.values()) {
+					if (k.name().startsWith("SOC_")) {
+						SHOTS.add(new Shot(s[0], s[1], s[2], k));
+					}
+				}
+			}
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review (the menu / HUD-editor redesign loop): every screen at
 			// the two most common desktop sizes, auto GUI scale.
