@@ -28,10 +28,8 @@ public partial class App : Application
         if (render >= 0 && render + 1 < e.Args.Length)
         {
             var outDir = e.Args[render + 1];
-            // First thing, before any code reads a launcher path: all launcher data goes
-            // to a throwaway folder, so this run can't touch the player's settings.
-            OriginPaths.UseScratchRoot(System.IO.Path.Combine(
-                System.IO.Path.GetTempPath(), "origin-render-shots-" + Guid.NewGuid().ToString("N")));
+            var scratch = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "origin-render-shots-" + Guid.NewGuid().ToString("N"));
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             // Any failure, on any thread, leaves its stack trace for the CI log.
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
@@ -41,6 +39,9 @@ public partial class App : Application
             DisableMotion();
             try
             {
+                // First thing that reads a launcher path: all launcher data goes to a
+                // throwaway folder, so this run can't touch the player's settings.
+                OriginPaths.UseScratchRoot(scratch);
                 OriginPaths.EnsureScaffold();
                 UI.RenderShots.Run(outDir);
                 Shutdown(0);
@@ -49,6 +50,11 @@ public partial class App : Application
             {
                 WriteRenderError(outDir, ex.ToString());
                 Shutdown(1);
+            }
+            finally
+            {
+                // Best effort: the scratch profile is only ever this run's.
+                try { System.IO.Directory.Delete(scratch, recursive: true); } catch { }
             }
             return;
         }

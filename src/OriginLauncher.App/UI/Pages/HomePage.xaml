@@ -13,12 +13,12 @@
             <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
-            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Padding" Value="6,4"/>
             <Setter Property="VerticalAlignment" Value="Top"/>
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="40,16,40,40">
+    <Grid Margin="32,16,32,40">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1.06*"/>
             <ColumnDefinition Width="0.94*"/>
@@ -141,7 +141,7 @@
 
         <!-- Version picker sits above Home content but below the launch overlay
              so a launch that starts while it's (somehow) open still covers it. -->
-        <controls:VersionSelectOverlay Grid.ColumnSpan="2" x:Name="VersionOverlay" Margin="-40,-16,-40,-40"/>
-        <controls:LaunchLoadingOverlay Grid.ColumnSpan="2" x:Name="LoadingOverlay" Margin="-40,-16,-40,-40"/>
+        <controls:VersionSelectOverlay Grid.ColumnSpan="2" x:Name="VersionOverlay" Margin="-32,-16,-32,-40"/>
+        <controls:LaunchLoadingOverlay Grid.ColumnSpan="2" x:Name="LoadingOverlay" Margin="-32,-16,-32,-40"/>
     </Grid>
 </UserControl>

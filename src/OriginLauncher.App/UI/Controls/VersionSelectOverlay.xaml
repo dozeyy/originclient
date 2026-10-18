@@ -102,14 +102,16 @@
         <Grid.RenderTransform>
             <TranslateTransform x:Name="OverlayTranslate"/>
         </Grid.RenderTransform>
-        <Grid Margin="40,24,40,32">
+        <Grid x:Name="OverlayInner" Margin="40,24,40,32" SizeChanged="OverlayInner_SizeChanged">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Grid Grid.Row="0" Margin="8,0,8,16">
+            <!-- Margin is set in code (UpdateHeaderInset): the grid's edges when the cards are shown, the
+                 list's edge in the detail view. -->
+            <Grid Grid.Row="0" x:Name="HeaderRow" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -117,7 +119,7 @@
                 </Grid.ColumnDefinitions>
                 <!-- Back-to-grid (only in detail view) -->
                 <Button Grid.Column="0" x:Name="BackButton" Style="{StaticResource Button.Chrome}" Width="34" Height="34"
-                        Padding="8" VerticalAlignment="Center" Margin="0,0,12,0" Visibility="Collapsed"
+                        Padding="8" VerticalAlignment="Center" Margin="-9,0,12,0" Visibility="Collapsed"
                         Click="Back_Click" ToolTip="All versions">
                     <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}"
                           Width="16" Height="16" Stroke="{StaticResource Brush.TextDim}"/>
@@ -125,7 +127,7 @@
                 <TextBlock Grid.Column="1" Text="Versions" Style="{StaticResource Text.H1}"
                            VerticalAlignment="Center"/>
                 <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" Width="34" Height="34" Padding="8"
-                        VerticalAlignment="Center" Click="Close_Click" ToolTip="Close">
+                        VerticalAlignment="Center" Margin="0,0,-10,0" Click="Close_Click" ToolTip="Close">
                     <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                           Width="14" Height="14" Stroke="{StaticResource Brush.TextDim}"/>
                 </Button>
@@ -133,7 +135,8 @@
 
             <!-- ===== GRID STATE ===== -->
             <Viewbox Grid.Row="1" x:Name="GridState" Stretch="Uniform" StretchDirection="DownOnly"
-                     MaxWidth="1040" HorizontalAlignment="Center" VerticalAlignment="Center">
+                     MaxWidth="1040" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     SizeChanged="GridState_SizeChanged">
                 <ListBox x:Name="GridList" Background="Transparent" BorderThickness="0"
                          ItemContainerStyle="{StaticResource CardItem}"
                          ItemTemplate="{StaticResource GridCardTemplate}"
@@ -238,7 +241,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,20,0" VerticalAlignment="Bottom">
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Bottom">
                                 <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}" Margin="0,0,0,6"/>
                                 <ComboBox x:Name="VersionDropdown" MinWidth="190" MinHeight="46" FontSize="15"
                                           ItemContainerStyle="{StaticResource Input.ComboBoxItem}"
@@ -247,7 +250,7 @@
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Left">
                                 <Button x:Name="LaunchButton" Content="LAUNCH" Style="{StaticResource Button.Primary}"
-                                        FontSize="16" Padding="52,15" Margin="0,0,12,0" Click="Launch_Click"/>
+                                        FontSize="16" Padding="52,15" Margin="0,0,16,0" Click="Launch_Click"/>
                                 <Button x:Name="ModsButton" Content="MODS" Style="{StaticResource Button.Secondary}"
                                         FontSize="16" Padding="36,15" Click="Mods_Click"
                                         ToolTip="Open this version's mods folder to add your own mods (shared by all your accounts)"/>

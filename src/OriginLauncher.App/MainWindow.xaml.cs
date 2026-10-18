@@ -305,11 +305,16 @@ public partial class MainWindow : Window
 
     internal void TourHideVersions() => _homePage.TourHideVersions();
 
-    internal void TourSetAccountOpen(bool open) => SetAccountPanelOpen(open);
+    internal void TourSetAccountOpen(bool open)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        SetAccountPanelOpen(open);
+    }
 
     /// <summary>Render mode: 0 = Home, 1 = Mods, 2 = Settings.</summary>
     internal void TourGoTo(int page)
     {
+        if (!Core.OriginPaths.IsScratchRoot) return;
         switch (page)
         {
             case 1: NavMods.IsChecked = true; break;

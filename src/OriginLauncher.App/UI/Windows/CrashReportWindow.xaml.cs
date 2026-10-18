@@ -49,7 +49,7 @@ public partial class CrashReportWindow : Window
                 CulpritList.Children.Add(new TextBlock
                 {
                     Text = line,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xF1, 0xE9, 0xD2)),
+                    Foreground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF0, 0xE8)),
                     FontSize = 13,
                     Margin = new Thickness(0, 2, 0, 2),
                     TextWrapping = TextWrapping.Wrap

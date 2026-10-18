@@ -127,7 +127,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock x:Name="RamHint" Style="{StaticResource Text.Caption}"
-                                                   VerticalAlignment="Center"/>
+                                                   VerticalAlignment="Center" LineHeight="NaN"/>
                                         <Button x:Name="RamResetButton" Grid.Column="1" Style="{StaticResource Button.Chrome}"
                                                 Content="Use recommended" Padding="8,4" FontSize="{StaticResource FontSize.Caption}"
                                                 Click="RamResetButton_Click"/>
@@ -177,7 +177,7 @@
                         <TextBlock x:Name="InstallingTitle" Style="{StaticResource Text.H1}" HorizontalAlignment="Center"
                                    Margin="0,6,0,24"/>
                         <Border x:Name="ProgressTrack" Style="{StaticResource Setup.ProgressTrack}" Width="380">
-                            <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="1"
+                            <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="{StaticResource Radius.Bar}"
                                     Background="{StaticResource Brush.PrimaryGradient}"/>
                         </Border>
                         <Grid Width="380" Margin="0,12,0,0">

@@ -12,6 +12,18 @@
         </Setter>
     </Style>
 
+    <!-- The same frame for controls with Card-radius corners (the home banner). -->
+    <Style x:Key="Focus.Card" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-3" CornerRadius="{StaticResource Radius.FocusCard}" BorderThickness="2"
+                            BorderBrush="{StaticResource Brush.Accent}" Opacity="0.9"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!--
         Press/release choreography: press eases down subtly and release
         always eases back to 1.0, regardless of hover. Combining hover-lift and

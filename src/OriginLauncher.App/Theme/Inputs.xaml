@@ -79,8 +79,9 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Radius.Control}">
+                        <!-- No Margin here: a TextBox applies its own Padding to the text, so a
+                             Margin as well doubled the inset (26 px against the combo box's 12). -->
                         <ScrollViewer x:Name="PART_ContentHost"
-                                      Margin="{TemplateBinding Padding}"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -219,6 +220,7 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="12,9"/>
         <Setter Property="MinHeight" Value="40"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
