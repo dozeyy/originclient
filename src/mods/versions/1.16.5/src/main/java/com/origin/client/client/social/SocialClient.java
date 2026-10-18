@@ -43,7 +43,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -66,7 +65,7 @@ import java.util.concurrent.TimeUnit;
  *    just arrived; 20 s in a party; 30 s idle; 60 s once the game window has
  *    been unfocused 5 minutes). In a party the 20 s poll is a HELD sync: the
  *    service keeps it open up to 20 s and answers the moment party chat or a
- *    DM lands, so /originpc lines show in ~1-3 s for the same requests. The
+ *    DM lands, so /originpc lines show in a few seconds for the same requests. The
  *    held request waits on a HOLD thread (Java 8), so actions never queue
  *    behind it; any action or the window opening drops it for a fresh sync;
  *  - everything fails soft: no service, no endpoints yet, no network or an
@@ -99,8 +98,15 @@ public final class SocialClient {
 	private static final long AWAY_AFTER_MS = 5 * 60_000, HOT_MS = 2 * 60_000;
 	private static final long MISSING_RETRY_MS = 5 * 60_000, SIGNED_OUT_RETRY_MS = 10 * 60_000;
 	private static final long WAKE_FLOOR_WHEN_DOWN_MS = 60_000;
-	/** Held sync (docs/SOCIAL.md "Held sync"): the wait asked for, the soonest re-hold after an early answer, and when a lost one is dropped. */
-	private static final long HOLD_MS = 20_000, HOLD_REARM_MS = 2_000, HELD_GIVE_UP_MS = HOLD_MS + 30_000;
+	/**
+	 * Held sync (docs/SOCIAL.md "Held sync"): the wait asked for; the soonest
+	 * re-hold after an early answer that brought news; how much longer than the
+	 * wait the request may take before it times out; how much shorter than the
+	 * wait an answer must be to count as early; and when a lost hold is dropped.
+	 */
+	private static final long HOLD_MS = 20_000, HOLD_REARM_MS = 2_000;
+	private static final long HOLD_TIMEOUT_MARGIN_MS = 15_000, HOLD_EARLY_SLACK_MS = 1_000;
+	private static final long HELD_GIVE_UP_MS = HOLD_MS + 2 * HOLD_TIMEOUT_MARGIN_MS;
 	private static final int CHAT_KEEP = 200;
 
 	/** Held syncs wait on these (a dropped one finishes its wait here, harmlessly). */
@@ -354,7 +360,9 @@ public final class SocialClient {
 	/** A held /v1/sync is out (its answer arrives via heldDone); holdGen tells a dropped one's answer apart. */
 	private static boolean holding = false;
 	private static long holdGen = 0, heldStartedAt = 0;
-	private static Future<?> heldCall = null;
+	private static HeldCall heldCall = null;
+	/** The presence the out-standing hold carried: if the player moves on, the hold is dropped (tick). */
+	private static Presence heldPresence = null;
 	/** The last answer's `held` (-1 = not a held answer) and the wait that was asked for. */
 	private static long lastHeld = -1, lastWait = 0;
 	/** The last answer brought something (a DM, a party line, a changed friends list or party). */
@@ -629,9 +637,14 @@ public final class SocialClient {
 			long now = System.currentTimeMillis();
 			if (holding) {
 				// A held sync answers by itself. Something newer (an action, the window
-				// opening) drops it for a fresh sync now; a lost one is dropped too.
-				if (!wake && now - heldStartedAt < HELD_GIVE_UP_MS) {
+				// opening, a new server / world) drops it for a fresh sync now, so
+				// friends see where you are at once; a lost one is dropped too.
+				boolean moved = !samePlace(presence, heldPresence);
+				if (!wake && !moved && now - heldStartedAt < HELD_GIVE_UP_MS) {
 					return;
+				}
+				if (moved) {
+					wake = true;
 				}
 				dropHeld();
 			}
@@ -676,7 +689,7 @@ public final class SocialClient {
 		try {
 			round.run();
 		} catch (Exception e) {
-			failed(started, e);
+			failed(System.currentTimeMillis(), e);
 			return;
 		}
 		failures = 0;
@@ -685,7 +698,7 @@ public final class SocialClient {
 		long t = System.currentTimeMillis();
 		long h = lastHeld;
 		lastHeld = -1;
-		if (h >= 0 && h < lastWait - 1_000 && lastNews) {
+		if (h >= 0 && h < lastWait - HOLD_EARLY_SLACK_MS && lastNews) {
 			// The service answered a held sync early because something arrived. Hold
 			// again straight away (at most one round per HOLD_REARM_MS, so a busy
 			// chat can't turn into a request storm). An early answer that brought
@@ -748,26 +761,54 @@ public final class SocialClient {
 	 * {@link #heldDone}.
 	 */
 	private static void startHeld(String api, long wait, long now) throws Exception {
-		String t = token(api, null);
-		JsonObject body = syncBody(wait);
-		long gen = ++holdGen;
-		holding = true;
-		heldStartedAt = now;
-		heldCall = HOLD.submit(() -> {
+		String sent = token(api, null);
+		Presence p = presence;
+		JsonObject body = syncBody(wait, p);
+		HeldCall call = new HeldCall();
+		long gen = holdGen + 1;
+		HOLD.execute(() -> {
 			Reply r = null;
 			Exception err = null;
 			try {
-				r = post(api + "/v1/sync", body, t, (int) (wait + 15_000));
+				r = post(api + "/v1/sync", body, sent, (int) (wait + HOLD_TIMEOUT_MARGIN_MS), call);
 			} catch (Exception e) {
 				err = e;
 			}
 			Reply fr = r;
 			Exception fe = err;
-			WORKER.execute(() -> heldDone(gen, now, wait, fr, fe));
+			WORKER.execute(() -> heldDone(gen, now, wait, sent, fr, fe));
 		});
+		// Only now is a hold really out (a throw above leaves `holding` false, so tick carries on).
+		holdGen = gen;
+		holding = true;
+		heldStartedAt = now;
+		heldPresence = p;
+		heldCall = call;
 	}
 
-	private static void heldDone(long gen, long started, long wait, Reply resp, Exception err) {
+	/** One held request on Java 8: its connection, so dropping the hold can close it. */
+	private static final class HeldCall {
+		private volatile HttpURLConnection conn;
+		private volatile boolean dropped;
+
+		/** Called by post() once connected: a hold dropped meanwhile is closed at once. */
+		void opened(HttpURLConnection c) {
+			conn = c;
+			if (dropped) {
+				c.disconnect();
+			}
+		}
+
+		void drop() {
+			dropped = true;
+			HttpURLConnection c = conn;
+			if (c != null) {
+				c.disconnect();   // unblocks the HOLD thread's read: the request is really aborted
+			}
+		}
+	}
+
+	private static void heldDone(long gen, long started, long wait, String sent, Reply resp, Exception err) {
 		if (gen != holdGen || !holding) {
 			return; // dropped for a newer sync
 		}
@@ -784,6 +825,7 @@ public final class SocialClient {
 				if (api == null) {
 					throw new IllegalStateException("no service");
 				}
+				token(api, sent);   // the held token is dead: sign in again now, not after one more 401
 				syncNow(api);
 				return;
 			}
@@ -794,16 +836,27 @@ public final class SocialClient {
 
 	private static void dropHeld() {
 		holding = false;
-		holdGen++;
-		Future<?> c = heldCall;
+		holdGen++;   // its answer, if it still comes, is ignored (heldDone)
+		HeldCall c = heldCall;
 		heldCall = null;
+		heldPresence = null;
 		if (c != null) {
-			c.cancel(true);
+			c.drop();
 		}
 	}
 
 	private static void syncNow(String api) throws Exception {
-		finishSync(authed(api, "/v1/sync", syncBody(0)));
+		finishSync(authed(api, "/v1/sync", syncBody(0, presence)));
+	}
+
+	/** Same activity, server, version and party-world key: what a hold's presence write showed is still true. */
+	private static boolean samePlace(Presence a, Presence b) {
+		if (a == null || b == null) {
+			return a == b;
+		}
+		return java.util.Objects.equals(a.activity(), b.activity()) && java.util.Objects.equals(a.server(), b.server())
+				&& java.util.Objects.equals(a.version(), b.version())
+				&& java.util.Objects.equals(a.party() == null ? null : a.party().server(), b.party() == null ? null : b.party().server());
 	}
 
 	private static void finishSync(Reply r) throws Exception {
@@ -817,13 +870,13 @@ public final class SocialClient {
 		lastHeld = o.has("held") && !o.get("held").isJsonNull() ? lng(o, "held") : -1;
 		Party before = state.party();
 		JsonObject pO = obj(o, "party");
-		lastNews = arr(o, "messages").size() > 0 || arr(o, "partyMessages").size() > 0 || o.has("friends")
+		// Chat or a different party is news (hold again soon); a refreshed friends list alone is not.
+		lastNews = arr(o, "messages").size() > 0 || arr(o, "partyMessages").size() > 0
 				|| !java.util.Objects.equals(before == null ? null : before.id(), pO == null ? null : str(pO, "id"));
 		apply(o);
 	}
 
-	private static JsonObject syncBody(long wait) {
-		Presence p = presence;
+	private static JsonObject syncBody(long wait, Presence p) {
 		JsonObject body = new JsonObject();
 		body.add("since", cursor);
 		if (friendsEtag != null) {
@@ -1339,14 +1392,17 @@ public final class SocialClient {
 	// the timeouts and headers 1.21.1's HttpClient requests carry (CosmeticsService's
 	// 1.16.5 transport, the same shape).
 	private static Reply post(String url, JsonObject body, String bearer) throws Exception {
-		return post(url, body, bearer, 10000);
+		return post(url, body, bearer, 10000, null);
 	}
 
-	private static Reply post(String url, JsonObject body, String bearer, int readTimeoutMs) throws Exception {
+	private static Reply post(String url, JsonObject body, String bearer, int readTimeoutMs, HeldCall held) throws Exception {
 		HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
 		try {
 			c.setConnectTimeout(8000);
 			c.setReadTimeout(readTimeoutMs);
+			if (held != null) {
+				held.opened(c);
+			}
 			c.setInstanceFollowRedirects(true);
 			c.setRequestMethod("POST");
 			c.setRequestProperty("User-Agent", "OriginClient-social");

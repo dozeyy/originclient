@@ -840,19 +840,23 @@ async function chatParty() {
   await befriend(will, alex);
   const pid = (await call(will.token, '/v1/party/invite', { uuid: alex.uuid })).body.party.id;
   await call(alex.token, '/v1/party/accept', { partyId: pid });
-  await call(will.token, '/v1/party/chat', { text: 'hello' });   // a cursor of 0 is a first sync: never held
+  await call(will.token, '/v1/party/chat', { text: 'hello' });
   const first = await sync(alex);
   assert.ok(first.cursor > 0);
   step = 0;
   return { will, alex, pid, since: first.cursor, friendsEtag: first.friendsEtag };
 }
+const settleMicrotasks = async (done, what) => {
+  for (let i = 0; i < 1000 && !done(); i++) await new Promise(r => setImmediate(r));
+  assert.ok(done(), what);
+};
 
-test('held sync: a quiet one waits the full 20 s (checking every 2 s) and says so', async () => {
+test('held sync: a quiet one waits the full 20 s (checking every 3 s) and says so', async () => {
   const { alex, since, friendsEtag } = await chatParty();
   const { r, took } = await held(alex, { since, friendsEtag });
   assert.equal(took, 20_000);
   assert.equal(r.held, 20_000);
-  assert.equal(checks, 10);                                       // 11 queries: one per 2 s, plus the first
+  assert.equal(checks, 7);                                        // sleeps 3+3+3+3+3+3+2: 8 chat checks in all
   assert.equal(r.partyMessages.length, 0);
   assert.equal(r.cursor, since);
   assert.ok(!('friends' in r));                                   // etag still current
@@ -860,21 +864,21 @@ test('held sync: a quiet one waits the full 20 s (checking every 2 s) and says s
   assert.equal((await held(alex, { since, friendsEtag, wait: 600_000 })).took, 20_000);
 });
 
-test('held sync: a party line sent mid-hold is answered within one check (2 s)', async () => {
+test('held sync: a party line sent mid-hold is answered within one check (3 s)', async () => {
   const { will, alex, since, friendsEtag } = await chatParty();
   let sentAt = null;
   const start = clock;
-  duringHold = async t => {
-    if (sentAt === null && t - start >= 6_000) {
-      sentAt = clock - 500;                                       // landed half a second before this check
+  duringHold = async () => {
+    if (sentAt === null && clock - start >= 9_000) {
+      sentAt = clock - 2_500;                                     // landed 2.5 s before this check: the worst case
       await call(will.token, '/v1/party/chat', { text: '/originpc hi' });
     }
   };
   const { r, took } = await held(alex, { since, friendsEtag });
   assert.deepEqual(r.partyMessages.map(m => [m.name, m.text]), [['Will', '/originpc hi']]);
-  assert.equal(took, 6_000);                                      // answered at the first check after it
-  assert.equal(r.held, 6_000);
-  assert.ok(clock - sentAt <= 2_000);
+  assert.equal(took, 9_000);                                      // answered at the first check after it
+  assert.equal(r.held, 9_000);
+  assert.ok(clock - sentAt <= 3_000);
   assert.ok(r.cursor > since);
   // the sender's own line also ends the sender's hold (another client of theirs shows it)
   duringHold = null;
@@ -884,7 +888,7 @@ test('held sync: a party line sent mid-hold is answered within one check (2 s)',
   assert.deepEqual(w.r.partyMessages.map(m => m.text), ['/originpc hi']);
 });
 
-test('held sync: a DM, a friends-list change or leaving the party also end it; nothing else does', async () => {
+test('held sync: only chat ends it (a DM to you, a party line); friends-list and party changes ride along', async () => {
   const { will, alex, since, friendsEtag } = await chatParty();
   const sam = await signIn('Sam');
   step = 1001;
@@ -893,23 +897,24 @@ test('held sync: a DM, a friends-list change or leaving the party also end it; n
   // a DM to Alex
   duringHold = async () => { if (checks === 2) await call(will.token, '/v1/messages/send', { to: alex.uuid, text: 'dm' }); };
   let h = await held(alex, { since, friendsEtag });
-  assert.equal(h.took, 4_000);
+  assert.equal(h.took, 6_000);
   assert.deepEqual(h.r.messages.map(m => m.text), ['dm']);
-  // a friend request to Alex (bumps Alex's friends list): the answer carries the new list
+  // a friend request to Alex bumps Alex's list but doesn't end the hold (no extra requests per friend change)
   checks = 0;
   duringHold = async () => { if (checks === 1) await call(sam.token, '/v1/friends/request', { name: 'Alex' }); };
   h = await held(alex, { since: h.r.cursor, friendsEtag: h.r.friendsEtag });
-  assert.equal(h.took, 2_000);
-  assert.deepEqual(h.r.requests.incoming.map(q => q.name), ['Sam']);
-  // kicked from the party
+  assert.equal(h.took, 20_000);
+  const after = await sync(alex, { since: h.r.cursor, friendsEtag: h.r.friendsEtag });
+  assert.deepEqual(after.requests.incoming.map(q => q.name), ['Sam']);   // the next sync brings it
+  // kicked from the party: shown by the hold's answer, without ending it early
+  checks = 0;
+  duringHold = async () => { if (checks === 3) await call(will.token, '/v1/party/kick', { uuid: alex.uuid }); };
+  h = await held(alex, { since: after.cursor, friendsEtag: after.friendsEtag });
+  assert.equal(h.took, 20_000);
+  assert.equal(h.r.party, null);
+  // someone else's DMs don't wake a hold
   checks = 0;
   tick(1_000);
-  duringHold = async () => { if (checks === 3) await call(will.token, '/v1/party/kick', { uuid: alex.uuid }); };
-  h = await held(alex, { since: h.r.cursor, friendsEtag: h.r.friendsEtag });
-  assert.equal(h.took, 6_000);
-  assert.equal(h.r.party, null);
-  // pings, positions and someone else's DMs don't wake a hold
-  checks = 0;
   duringHold = async () => { if (checks === 1) await call(will.token, '/v1/messages/send', { to: sam.uuid, text: 'not for alex' }); };
   h = await held(alex, { since: h.r.cursor, friendsEtag: h.r.friendsEtag });
   assert.equal(h.took, 20_000);
@@ -939,4 +944,51 @@ test('held sync: a cursor of 0 with no chat stored yet is still held (holds neve
   const h = await held(will, { since: 0, friendsEtag: first.friendsEtag });
   assert.equal(h.took, 20_000);
   assert.equal(h.r.held, 20_000);
+});
+
+test('held sync: presence is written when the request arrives, never stamped with the answer time', async () => {
+  const { will, alex, since, friendsEtag } = await chatParty();
+  const presenceRow = () => rows(`SELECT server, at FROM presence WHERE uuid = '${alex.uuid}' AND client = 'game'`)[0];
+  const start = clock;
+  let seenByWill = null, rowMidHold = null;
+  duringHold = async () => {
+    if (checks === 2) {
+      rowMidHold = { ...presenceRow() };
+      seenByWill = (await sync(will, { since })).friends.find(f => f.uuid === alex.uuid);
+    }
+  };
+  const h = await held(alex, { since, friendsEtag, ...onServer('a.net') });
+  assert.equal(h.took, 20_000);
+  assert.deepEqual(rowMidHold, { server: 'a.net', at: start });  // written before the hold, at the request's time
+  assert.equal(seenByWill.server, 'a.net');                       // friends see the right server during the hold
+  assert.deepEqual({ ...presenceRow() }, { server: 'a.net', at: start });   // the answer didn't rewrite it 20 s later
+  // a held sync carrying a LAN position writes it at the start too
+  checks = 0;
+  const lan = at('192.168.1.5:41000', 7);
+  await held(alex, { since: h.r.cursor, friendsEtag: h.r.friendsEtag, presence: { client: 'game', activity: 'singleplayer', version: '1.21.1' }, partyState: lan });
+  const st = rows(`SELECT state, state_at FROM party_members WHERE uuid = '${alex.uuid}'`)[0];
+  assert.equal(JSON.parse(st.state).x, 7);
+  assert.equal(st.state_at, start + 20_000);                      // = when that second request arrived
+});
+
+test('held sync: one hold per account; a newer hold ends the older one at once', async () => {
+  const { alex, since, friendsEtag } = await chatParty();
+  const pending = [];
+  holdClock.sleep = ms => new Promise(r => pending.push(() => { clock += ms; r(); }));
+  const t0 = clock;
+  let first = null, second = null;
+  held(alex, { since, friendsEtag }).then(r => { first = r; });
+  await settleMicrotasks(() => pending.length === 1, 'first hold sleeping');
+  held(alex, { since, friendsEtag }).then(r => { second = r; });
+  await settleMicrotasks(() => first !== null, 'the older hold answered when the newer one started');
+  assert.equal(first.took, 0);                                    // no time passed: it was ended, not waited out
+  assert.ok(second === null);
+  await settleMicrotasks(() => pending.length === 2, 'second hold sleeping');
+  pending.shift();                                                // the first hold's abandoned sleep: never fires
+  while (second === null) {
+    if (pending.length) pending.shift()();
+    await new Promise(r => setImmediate(r));
+  }
+  assert.equal(second.r.held, 20_000);
+  assert.equal(clock - t0, 20_000);
 });

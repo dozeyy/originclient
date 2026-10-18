@@ -144,27 +144,31 @@ function friendView(f, now) {
 // Party chat used to wait for the receiver's next poll (20 s in a party), so
 // /originpc lines took 0-20 s to show. No WebSockets on the free plan, so a
 // sync may ask to be HELD instead: `wait: <ms>` (capped at L.HOLD_MAX_MS).
-// While nothing is new for the caller the service keeps the request open and
-// re-checks every L.HOLD_CHECK_MS with ONE cheap indexed query; the moment a
-// DM to them or a line in their party lands (or their friends list / party
-// changes) it answers with a normal, fresh sync. A quiet hold answers after
-// the full wait. Either way the answer carries `held: <ms waited>`, which is
-// also how a client knows this service holds (an older one just ignores
-// `wait` and answers at once, so the client keeps its old cadence).
+// The presence / partyState the request carries is written FIRST, stamped
+// with the request's own time (friends never see a stale server). Then, while
+// no chat is new for the caller, the service keeps the request open and
+// re-checks every L.HOLD_CHECK_MS with ONE indexed chat query; the moment a
+// DM to them or a line in their party lands it answers with a normal, fresh
+// sync. A quiet hold answers after the full wait. Either way the answer
+// carries `held: <ms waited>`, which is also how a client knows this service
+// holds (an older one ignores `wait` and answers at once, so the client keeps
+// its old cadence). Friends-list changes, invites, warps and pings don't end
+// a hold: they come with its answer, at most 20 s later, as with polling.
 // A stale friendsEtag is answered at once (the lists changed). `since: 0` is
 // held too, so a cursor that is still 0 (no chat stored yet) doesn't turn
 // holds off; when chat exists the first check answers it at once anyway.
+// One hold per account per Worker machine: a newer hold ends the older one at
+// once (its client already dropped it), so a client can't stack holds.
 export const holdClock = {
   sleep: ms => new Promise(r => setTimeout(r, ms)),
   now: () => Date.now(),
 };
+const activeHolds = new Map();   // uuid -> { stopped, stop() } (this isolate only)
 
-// Is anything new for `uuid` after chat id `since`? Index seeks only
-// (names PK, chat_to, party_members PK, chat_party): a few rows per check.
+// Is any chat new for `uuid` after chat id `since`? Index seeks only
+// (chat_to, party_members PK, chat_party): ~3 rows per check.
 function newsQuery(env, uuid, since) {
   return env.DB.prepare(`SELECT
-      (SELECT friends_rev FROM names WHERE uuid = ?1) AS rev,
-      (SELECT party_id FROM party_members WHERE uuid = ?1) AS party,
       EXISTS (SELECT 1 FROM chat WHERE to_uuid = ?1 AND id > ?2) AS dm,
       EXISTS (SELECT 1 FROM party_members me JOIN chat c ON c.party_id = me.party_id
               AND c.id > me.chat_from AND c.id > ?2 WHERE me.uuid = ?1) AS pc`).bind(uuid, since);
@@ -172,57 +176,44 @@ function newsQuery(env, uuid, since) {
 
 async function sync(env, me, body, now) {
   const waitRaw = Number(body.wait);
-  if (!(waitRaw > 0)) return json(await syncAnswer(env, me, body, now));
+  if (!(waitRaw > 0)) return json(await syncAnswer(env, me, body, now, true));
   const wait = Math.min(L.HOLD_MAX_MS, Math.floor(waitRaw));
   const sinceRaw = Number(body.since);
   const since = Number.isSafeInteger(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
-  const etagNow = `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`;
+  await syncWrites(env, me, body, now);
   let held = 0;
-  if (body.friendsEtag === etagNow) {
-    let party, rev = me.friendsRev;
-    for (;;) {
-      const n = await newsQuery(env, me.uuid, since).first();
-      if (held === 0) party = n?.party ?? null;
-      rev = Number(n?.rev) || 0;
-      if (!n || n.dm || n.pc || rev !== me.friendsRev || (n.party ?? null) !== party) break;
-      const left = wait - (holdClock.now() - now);
-      if (left <= 0) break;
-      await holdClock.sleep(Math.min(L.HOLD_CHECK_MS, left));
-      held = Math.max(1, holdClock.now() - now);
+  if (body.friendsEtag === `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`) {
+    activeHolds.get(me.uuid)?.stop();
+    let wakeUp;
+    const stopped = new Promise(r => { wakeUp = r; });
+    const mine = { stopped: false, stop() { mine.stopped = true; wakeUp(); } };
+    activeHolds.set(me.uuid, mine);
+    try {
+      for (;;) {
+        const n = await newsQuery(env, me.uuid, since).first();
+        if (!n || n.dm || n.pc || mine.stopped) break;
+        const left = wait - (holdClock.now() - now);
+        if (left <= 0) break;
+        await Promise.race([holdClock.sleep(Math.min(L.HOLD_CHECK_MS, left)), stopped]);
+        held = Math.max(1, holdClock.now() - now);
+        if (mine.stopped) break;
+      }
+    } finally {
+      if (activeHolds.get(me.uuid) === mine) activeHolds.delete(me.uuid);
     }
-    // Answer as of now (not as of when the request came in), with the
-    // friends rev the last check saw, so a bump that ended the hold shows.
-    if (held > 0) {
-      now = holdClock.now();
-      me = { ...me, friendsRev: rev };
-    }
+    if (held > 0) now = holdClock.now();   // answer as of now (reads only: nothing is written again)
   }
-  return json({ ...(await syncAnswer(env, me, body, now)), held });
+  return json({ ...(await syncAnswer(env, me, body, now, false)), held });
 }
 
-async function syncAnswer(env, me, body, now) {
-  const sinceRaw = Number(body.since);
-  const since = Number.isSafeInteger(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
-  const first = since === 0;
-  const pres = readPresence(body.presence, me.client);
-  const state = readPartyState(body.partyState);
-  // Where the caller is right now: party positions and pings are only shared
-  // between members on the same server.
-  // `stateServer` is where the game WOULD share positions (the LAN world it is
-  // in) while it holds partyState back because wantState was false; without
-  // it a LAN host (activity "singleplayer") could never learn to start again.
-  const myServer = state?.server ?? normServer(body.stateServer) ?? (pres?.activity === 'server' ? pres.server : null);
-  // The friends list, requests and blocked list only change when this
-  // account's friends_rev is bumped (or the 10-minute bucket rolls over).
-  // `me.friendsRev` was read with the session, before anything below, so a
-  // change racing this sync can only make the next sync refetch, never hide.
-  const friendsEtag = `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`;
-  const wantLists = body.friendsEtag !== friendsEtag;
+// The writes a sync carries (presence heartbeat / change, party position):
+// in an ordinary sync they share one batch with its reads; a held sync writes
+// them before it waits (syncWrites).
+function readSyncWrites(body, me) {
+  return { pres: readPresence(body.presence, me.client), state: readPartyState(body.partyState) };
+}
 
-  const keys = [], stmts = [];
-  const add = (key, stmt) => { keys.push(key); stmts.push(stmt); };
-
-  // Writes first, so the reads below already see them.
+function addWrites(env, me, pres, state, now, add) {
   if (pres) {
     // What friends saw before this write (to tell a heartbeat from a change).
     add('prevPresence', env.DB.prepare('SELECT activity, server, version, at FROM presence WHERE uuid = ? AND client = ?')
@@ -241,6 +232,54 @@ async function syncAnswer(env, me, body, now) {
           OR state_server IS NOT ?3 OR (state IS NOT ?2 AND state_at <= ?4 - ${L.STATE_CHANGE_MS}))`)
       .bind(me.uuid, JSON.stringify(state), state.server, now));
   }
+}
+
+// A presence write friends can see (came online, changed server/activity/
+// version) refreshes their friends lists. Heartbeats don't; going offline
+// is noticed by the cron (presenceSweep), since no write happens then.
+async function afterWrites(env, me, pres, res, meta, now) {
+  if (pres && meta.presence?.changes) {
+    const prev = res.prevPresence[0];
+    if (!prev || prev.at <= now - L.ONLINE_MS || prev.activity !== pres.activity
+        || prev.server !== pres.server || prev.version !== pres.version) {
+      await bumpFriendsOf(env, me.uuid).run();
+    }
+  }
+}
+
+async function syncWrites(env, me, body, now) {
+  const { pres, state } = readSyncWrites(body, me);
+  const keys = [], stmts = [];
+  addWrites(env, me, pres, state, now, (key, stmt) => { keys.push(key); stmts.push(stmt); });
+  if (!stmts.length) return;
+  const res = {}, meta = {};
+  (await env.DB.batch(stmts)).forEach((r, i) => { res[keys[i]] = r.results || []; meta[keys[i]] = r.meta || {}; });
+  await afterWrites(env, me, pres, res, meta, now);
+}
+
+async function syncAnswer(env, me, body, now, writes) {
+  const sinceRaw = Number(body.since);
+  const since = Number.isSafeInteger(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
+  const first = since === 0;
+  const { pres, state } = readSyncWrites(body, me);
+  // Where the caller is right now: party positions and pings are only shared
+  // between members on the same server.
+  // `stateServer` is where the game WOULD share positions (the LAN world it is
+  // in) while it holds partyState back because wantState was false; without
+  // it a LAN host (activity "singleplayer") could never learn to start again.
+  const myServer = state?.server ?? normServer(body.stateServer) ?? (pres?.activity === 'server' ? pres.server : null);
+  // The friends list, requests and blocked list only change when this
+  // account's friends_rev is bumped (or the 10-minute bucket rolls over).
+  // `me.friendsRev` was read with the session, before anything below, so a
+  // change racing this sync can only make the next sync refetch, never hide.
+  const friendsEtag = `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`;
+  const wantLists = body.friendsEtag !== friendsEtag;
+
+  const keys = [], stmts = [];
+  const add = (key, stmt) => { keys.push(key); stmts.push(stmt); };
+
+  // Writes first, so the reads below already see them (a held sync wrote them before waiting).
+  if (writes) addWrites(env, me, pres, state, now, add);
 
   add('maxId', env.DB.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM chat'));
   add('settings', env.DB.prepare('SELECT appear_offline FROM settings WHERE uuid = ?').bind(me.uuid));
@@ -282,16 +321,7 @@ async function syncAnswer(env, me, body, now) {
   const res = {}, meta = {};
   (await env.DB.batch(stmts)).forEach((r, i) => { res[keys[i]] = r.results || []; meta[keys[i]] = r.meta || {}; });
 
-  // A presence write friends can see (came online, changed server/activity/
-  // version) refreshes their friends lists. Heartbeats don't; going offline
-  // is noticed by the cron (presenceSweep), since no write happens then.
-  if (pres && meta.presence.changes) {
-    const prev = res.prevPresence[0];
-    if (!prev || prev.at <= now - L.ONLINE_MS || prev.activity !== pres.activity
-        || prev.server !== pres.server || prev.version !== pres.version) {
-      await bumpFriendsOf(env, me.uuid).run();
-    }
-  }
+  if (writes) await afterWrites(env, me, pres, res, meta, now);
 
   // ---- chat + cursor. The cursor is the newest chat id this answer covers.
   // First sync: the latest history, cursor = newest id overall. Later syncs:
