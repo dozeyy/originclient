@@ -1,8 +1,10 @@
 package com.origin.client.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import org.lwjgl.opengl.GL11;
 
 /**
  * The game half of Origin's launch journey (docs/MOTION.md). The launcher's
@@ -87,7 +89,15 @@ public final class StartupTransition {
 		}
 		int alpha = (int) Math.round((1.0 - ease(el / (double) WORLD_MS)) * 255);
 		if (alpha > 0) {
+			// The HUD's layers sit at rising z (LayeredDraw), so a plain fill at z 0
+			// would lose the depth test to the hotbar, chat and Origin HUD and they'd
+			// show at full strength through the charcoal. Draw what the HUD queued,
+			// clear depth (GameRenderer clears it again right after the HUD anyway,
+			// so screens are unaffected), then cover everything.
+			guiGraphics.flush();
+			RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
 			guiGraphics.fill(0, 0, guiGraphics.guiWidth(), guiGraphics.guiHeight(), (alpha << 24) | (OriginTheme.BG & 0xFFFFFF));
+			guiGraphics.flush();
 		}
 	}
 }
