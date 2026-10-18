@@ -11,7 +11,6 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Util;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -571,7 +570,7 @@ public class ResourcePackHubScreen extends OriginWindow {
 
 	private void openLink(String url) {
 		try {
-			Util.getPlatform().openUri(url);
+			com.mojang.blaze3d.Blaze3D.openUri(java.net.URI.create(url)); // 26.3: OS.openUri is gone
 		} catch (Throwable ignored) {
 			// no browser: nothing to do
 		}
@@ -885,7 +884,7 @@ public class ResourcePackHubScreen extends OriginWindow {
 		try {
 			Path dir = PackHub.packDir();
 			Files.createDirectories(dir);
-			Util.getPlatform().openFile(dir.toFile());
+			com.mojang.blaze3d.Blaze3D.openUri(dir.toUri()); // 26.3: OS.openFile is gone
 		} catch (Throwable ignored) {
 			// no file manager: nothing to do
 		}
