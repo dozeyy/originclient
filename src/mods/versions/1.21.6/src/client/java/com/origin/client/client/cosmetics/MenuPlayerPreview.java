@@ -41,7 +41,8 @@ import org.joml.Vector3f;
  * picture is drawn LATER in the same frame (deferred GUI), when the layer reads
  * it. Only this preview ever carries STATE_ID, so a stale look is never seen.
  *
- * Tile thumbnails ({@link #renderThumb}) are NOT drawn on this version: see there.
+ * Also draws the Cosmetics screen's tile thumbnails ({@link #renderThumb}),
+ * through MenuThumbs' own picture-in-picture renderers: see there.
  *
  * Same rotation, camera and box placement as the in-world preview, so the two
  * line up and turn the same way. Fails soft: any error turns it off for the
@@ -66,18 +67,14 @@ public final class MenuPlayerPreview {
 	}
 
 	/**
-	 * A tile thumbnail (1.21.1: the same model with one item on it, zoomed).
-	 * PER-VERSION (1.21.6-1.21.8): always false, so the Cosmetics screen draws
-	 * the tile's icon instead. A GUI entity here is a picture-in-picture, and
-	 * vanilla keeps ONE PictureInPictureRenderer (one texture) per render-state
-	 * class: a grid of player thumbnails plus the big preview in one frame
-	 * would all share that texture -- each draw overwriting the last, or a
-	 * size change freeing a texture an earlier element still points at. Not
-	 * worth the crash risk; a custom PiP renderer per tile would be the fix.
+	 * Puts on `wear` for one synchronous draw and returns what was worn before
+	 * (MenuThumbs: each thumbnail wears its own item while its texture renders,
+	 * then the big preview's look goes back). Render thread.
 	 */
-	public static boolean renderThumb(GuiGraphics g, float cx, float cy, float size, float yaw,
-			CosmeticsService.Look wear) {
-		return false;
+	static CosmeticsService.Look swapLook(CosmeticsService.Look wear) {
+		CosmeticsService.Look was = look;
+		look = wear;
+		return was;
 	}
 
 	/**
@@ -91,49 +88,12 @@ public final class MenuPlayerPreview {
 		if (broken) {
 			return false;
 		}
-		Minecraft mc = Minecraft.getInstance();
 		try {
-			GameProfile profile = mc.getGameProfile();
-			if (profile == null || profile.getId() == null) {
+			PlayerRenderState state = buildState(wear, true, yaw);
+			if (state == null) {
 				return false;
 			}
-			// Nick Hider's "hide own skin" applies here too, as on your in-world model.
-			PlayerSkin skin = NickHider.skinFor(profile);
-			if (skin == null) {
-				skin = mc.getSkinManager().getInsecureSkin(profile);
-			}
-			if (skin == null) {
-				return false;
-			}
-			String capeId = wear == null ? null : wear.cape();
-			ResourceLocation cape = capeId != null ? CapeTextures.current(capeId) : null;
-			if (cape != null) {
-				// What CosmeticCapeMixin does to a real player's skin.
-				skin = new PlayerSkin(skin.texture(), skin.textureUrl(), cape, skin.elytraTexture(), skin.model(), skin.secure());
-			}
-			boolean capeHidden = wear != null && wear.hidesCape();   // wings / a backpack replace it
 			look = wear;
-
-			float ticks = (Util.getMillis() % 3_600_000L) / 50f;
-			PlayerRenderState state = new PlayerRenderState();
-			state.entityType = EntityType.PLAYER;
-			state.id = STATE_ID;
-			state.ageInTicks = ticks;
-			state.skin = skin;
-			state.showHat = mc.options.isModelPartEnabled(PlayerModelPart.HAT);
-			state.showJacket = mc.options.isModelPartEnabled(PlayerModelPart.JACKET);
-			state.showLeftPants = mc.options.isModelPartEnabled(PlayerModelPart.LEFT_PANTS_LEG);
-			state.showRightPants = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_PANTS_LEG);
-			state.showLeftSleeve = mc.options.isModelPartEnabled(PlayerModelPart.LEFT_SLEEVE);
-			state.showRightSleeve = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_SLEEVE);
-			state.showCape = mc.options.isModelPartEnabled(PlayerModelPart.CAPE) && !capeHidden;
-			// CapeLayer rests at 6 degrees + capeFlap: 1.21.1's gentle sway.
-			state.capeFlap = 2.5f * (float) Math.sin(ticks * 0.06f);
-			// LivingEntityRenderer turns the body by 180 - bodyRot; the head looks ahead.
-			state.bodyRot = 180 + yaw;
-			state.yRot = 0;
-			state.xRot = 0;
-
 			// InventoryScreen.renderEntityInInventoryFollowsMouse's rotation + camera.
 			Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI);
 			Quaternionf camera = new Quaternionf().rotateX(-0.12f);
@@ -146,5 +106,89 @@ public final class MenuPlayerPreview {
 			OriginClient.LOGGER.warn("Origin cosmetics: menu preview failed; showing the message instead", t);
 			return false;
 		}
+	}
+
+	/**
+	 * A tile thumbnail: like {@link #render} (same box / size / shift / yaw
+	 * meaning) but with no cape from the account, so a tile shows nothing but
+	 * its own item; the caller zooms by choosing the shift and size.
+	 *
+	 * PER-VERSION (1.21.6-1.21.8): NOT submitEntityRenderState. Vanilla keeps one
+	 * entity PictureInPictureRenderer -- one texture -- for every entity in the
+	 * GUI, so a grid of thumbnails plus the big preview in one frame would all
+	 * draw into that one texture (each overwriting the last; a size change frees
+	 * a texture an earlier box still points at). {@link MenuThumbs} gives every
+	 * tile its own renderer and texture instead. False (the caller shows the
+	 * tile's icon) when those renderers aren't there or all are in use.
+	 */
+	public static boolean renderThumb(GuiGraphics g, int x0, int y0, int x1, int y1, float size,
+			float shiftX, float shiftY, float yaw, CosmeticsService.Look wear) {
+		if (broken || x1 <= x0 || y1 <= y0 || size <= 0 || !MenuThumbs.ready()) {
+			return false;
+		}
+		try {
+			PlayerRenderState state = buildState(wear, false, yaw);
+			if (state == null) {
+				return false;
+			}
+			Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI);
+			Quaternionf camera = new Quaternionf().rotateX(-0.12f);
+			rotation.mul(camera);
+			Vector3f offset = new Vector3f(shiftX / size, HEIGHT / 2f + shiftY / size, 0);
+			return MenuThumbs.submit(g, state, wear, size, offset, rotation, camera, x0, y0, x1, y1);
+		} catch (Throwable t) {
+			OriginClient.LOGGER.warn("Origin cosmetics: tile thumbnail failed; showing its icon", t);
+			return false;
+		}
+	}
+
+	/**
+	 * The PlayerRenderState PlayerRenderer.extractRenderState would fill for a
+	 * grown-up player standing still, wearing `wear`. `accountCape` false drops
+	 * the account's own cape (thumbnails). Null when there is no profile / skin.
+	 */
+	private static PlayerRenderState buildState(CosmeticsService.Look wear, boolean accountCape, float yaw) {
+		Minecraft mc = Minecraft.getInstance();
+		GameProfile profile = mc.getGameProfile();
+		if (profile == null || profile.getId() == null) {
+			return null;
+		}
+		// Nick Hider's "hide own skin" applies here too, as on your in-world model.
+		PlayerSkin skin = NickHider.skinFor(profile);
+		if (skin == null) {
+			skin = mc.getSkinManager().getInsecureSkin(profile);
+		}
+		if (skin == null) {
+			return null;
+		}
+		String capeId = wear == null ? null : wear.cape();
+		ResourceLocation cape = capeId != null ? CapeTextures.current(capeId) : null;
+		if (cape != null) {
+			// What CosmeticCapeMixin does to a real player's skin.
+			skin = new PlayerSkin(skin.texture(), skin.textureUrl(), cape, skin.elytraTexture(), skin.model(), skin.secure());
+		}
+		boolean capeHidden = wear != null && wear.hidesCape();   // wings / a backpack replace it
+
+		float ticks = (Util.getMillis() % 3_600_000L) / 50f;
+		PlayerRenderState state = new PlayerRenderState();
+		state.entityType = EntityType.PLAYER;
+		state.id = STATE_ID;
+		state.ageInTicks = ticks;
+		state.skin = skin;
+		state.showHat = mc.options.isModelPartEnabled(PlayerModelPart.HAT);
+		state.showJacket = mc.options.isModelPartEnabled(PlayerModelPart.JACKET);
+		state.showLeftPants = mc.options.isModelPartEnabled(PlayerModelPart.LEFT_PANTS_LEG);
+		state.showRightPants = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_PANTS_LEG);
+		state.showLeftSleeve = mc.options.isModelPartEnabled(PlayerModelPart.LEFT_SLEEVE);
+		state.showRightSleeve = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_SLEEVE);
+		state.showCape = mc.options.isModelPartEnabled(PlayerModelPart.CAPE) && !capeHidden
+				&& (cape != null || accountCape);
+		// CapeLayer rests at 6 degrees + capeFlap: 1.21.1's gentle sway.
+		state.capeFlap = 2.5f * (float) Math.sin(ticks * 0.06f);
+		// LivingEntityRenderer turns the body by 180 - bodyRot; the head looks ahead.
+		state.bodyRot = 180 + yaw;
+		state.yRot = 0;
+		state.xRot = 0;
+		return state;
 	}
 }

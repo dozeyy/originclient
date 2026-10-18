@@ -55,8 +55,8 @@ import static com.origin.client.client.gui.OriginDeck.*;
  *   * the backdrop is vanilla's own renderBackground stratum (OriginWindow);
  *   * the cape art is a pipeline blit with the fade riding its ARGB (no
  *     setShaderColor in a batched GUI);
- *   * hat / mask / wing / backpack tiles show an icon, not the zoomed model
- *     (one picture-in-picture texture per frame: MenuPlayerPreview.renderThumb);
+ *   * hat / mask / wing / backpack thumbnails are picture-in-picture boxes too,
+ *     each with its own renderer and texture (cosmetics/MenuThumbs);
  *   * the preview is a picture-in-picture: an entity render state submitted
  *     with a GUI-px box (the card's inside, which is also its clip). The box's
  *     centre is the entity's anchor, so 1.21.1's placement (centred on the
@@ -335,6 +335,7 @@ public class CosmeticsScreen extends OriginWindow {
 
 	/** Four across, scrolling down; cards outside the grid are clipped. */
 	private void drawGrid(OriginDeck d, CosmeticsService.Mine mine, Look look) {
+		com.origin.client.client.cosmetics.MenuThumbs.beginFrame();   // 1.21.6+: free every thumbnail slot
 		List<Tile> tiles = tilesFor(tab, mine);
 		int rows = (tiles.size() + COLS - 1) / COLS;
 		float contentH = rows == 0 ? 0 : rows * TILE_H + (rows - 1) * GAP + 24;
@@ -494,13 +495,42 @@ public class CosmeticsScreen extends OriginWindow {
 	}
 
 	/**
-	 * A hat, mask, wing or backpack's picture. 1.21.1 draws the real model zoomed
-	 * to the part it sits on; PER-VERSION (1.21.6-1.21.8) it is always false, so
-	 * the tile shows its icon: a GUI entity is a picture-in-picture here, and a
-	 * grid of them in one frame isn't safe (MenuPlayerPreview.renderThumb says why).
+	 * A hat, mask, wing or backpack: the real model on your character, zoomed to
+	 * the part it sits on, swaying a little. Drawn through MenuPlayerPreview with
+	 * only this item worn. False if it couldn't be drawn (the caller shows an icon).
+	 *
+	 * 1.21.6-1.21.8: a picture-in-picture box per tile (MenuThumbs gives each its
+	 * own texture), so 1.21.1's placement is turned into the tile's box in GUI px
+	 * (rounded inward, as for the big preview) and the model centre's shift from
+	 * that box's centre.
 	 */
 	private boolean drawModelThumb(OriginDeck d, Tile t, float x, float y, float w, float h) {
-		return MenuPlayerPreview.renderThumb(d.g, 0f, 0f, 0f, 0f, Look.NONE.with(t.slot(), t.id()));
+		boolean back = t.slot() == Cosmetics.Slot.BACK;
+		boolean face = t.slot() == Cosmetics.Slot.FACE;
+		float blocks = back ? 1.7f : face ? 0.9f : 1.15f;   // how much of the world fits the tile's height
+		float focus = back ? 1.15f : face ? 1.64f : 1.72f;  // height above the feet at the tile's centre, blocks
+		float sway = (float) Math.sin(Util.getMillis() / 1100.0) * 22f;
+		float turn = (back ? 200f : 20f) + sway;           // the back for wings / packs, the front for the rest
+		boolean drew = false;
+		d.clip(x, y, w, h);
+		try {
+			double gs = d.gs;
+			int bx0 = (int) Math.ceil((d.ox + x * d.s) / gs - 1e-4);
+			int by0 = (int) Math.ceil((d.oy + y * d.s) / gs - 1e-4);
+			int bx1 = (int) Math.floor((d.ox + (x + w) * d.s) / gs + 1e-4);
+			int by1 = (int) Math.floor((d.oy + (y + h) * d.s) / gs + 1e-4);
+			float size = (float) (h * d.s / gs) / blocks;
+			float gx = (float) ((d.ox + (x + w / 2) * d.s) / gs);
+			float gy = (float) ((d.oy + (y + h / 2) * d.s) / gs) + (focus - MenuPlayerPreview.HEIGHT / 2f) * size;
+			float shiftX = gx - (bx0 + bx1) / 2f, shiftY = gy - (by0 + by1) / 2f;
+			drew = MenuPlayerPreview.renderThumb(d.g, bx0, by0, bx1, by1, size, shiftX, shiftY, turn,
+					Look.NONE.with(t.slot(), t.id()));
+		} catch (Throwable ex) {
+			drew = false;
+		} finally {
+			d.unclip();
+		}
+		return drew;
 	}
 
 	/** Your character, turning slowly (drag to spin). */

@@ -174,6 +174,13 @@ public class OriginClientMod implements ClientModInitializer {
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
 		}
+		// 1.21.6+: the Cosmetics tiles' model thumbnails, one picture-in-picture renderer
+		// per tile (MenuThumbs). Its own try: without it the tiles just show icons.
+		try {
+			com.origin.client.client.cosmetics.MenuThumbs.register();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetic thumbnails failed to register", t);
+		}
 		// Friends, chat and parties (docs/SOCIAL.md): the service client (background
 		// thread, fail-soft), its tick / world / toast-click hooks and /originpc.
 		try {
