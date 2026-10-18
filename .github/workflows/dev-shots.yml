@@ -159,12 +159,13 @@ jobs:
             xvfb=$!
             export DISPLAY=:99
             sleep 2
-            setsid ./gradlew runClient --no-daemon > run.log 2>&1 &
+            # Loom wraps runClient in its own `xvfb-run -a` (1280x1024, behind an
+            # access cookie) whenever CI is set; unset it so the game opens on :99.
+            setsid env -u CI ./gradlew runClient --no-daemon > run.log 2>&1 &
             pid=$!
             # Start filming as the game opens its window, not during Gradle's compile.
-            # The game doesn't draw on :99: something in the run (not this script)
-            # opens it on its own Xvfb, behind an access cookie. So take DISPLAY and
-            # XAUTHORITY from the game process itself and film that, at its size.
+            # DISPLAY/XAUTHORITY come from the game process itself, so the film
+            # follows the game even if Loom's wrapper ever comes back.
             ( for i in $(seq 1 600); do grep -q "Backend library" run.log 2>/dev/null && break; sleep 1; done
               game=$(pgrep -n -f devlaunchinjector || pgrep -n -f KnotClient)
               export DISPLAY=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^DISPLAY=//p')
