@@ -225,7 +225,18 @@ public final class SocialToast implements Toast {
 				LIVE.remove(this);
 				joinWarp(mc, warp);
 			}
-			case REQUEST -> finish(SocialClient.respond(uuid, true), "Friend request", "You and " + who + " are friends.");
+			case REQUEST -> {
+				boolean pending = false;
+				for (SocialState.Request r : SocialClient.state().incoming()) {
+					pending |= uuid != null && uuid.equals(r.uuid());
+				}
+				if (!pending) {
+					// answered somewhere else (the list, the launcher) since the toast came up: don't POST again
+					settle("Friend request", "Already answered", false);
+					return;
+				}
+				finish(SocialClient.respond(uuid, true), "Friend request", "Friend added", "You and " + who + " are friends.");
+			}
 			case INVITE -> {
 				String partyId = null;
 				for (SocialState.PartyInvite i : SocialClient.state().invites()) {
@@ -235,13 +246,11 @@ public final class SocialToast implements Toast {
 					}
 				}
 				if (partyId == null) {
-					// the invite is gone already (expired or answered elsewhere): show the party instead
-					dismissed = true;
-					LIVE.remove(this);
-					Social.openFriends(FriendsScreen.PARTY);
+					// expired or answered elsewhere since the toast came up
+					settle("Party invite", "That invite is gone", false);
 					return;
 				}
-				finish(SocialClient.acceptInvite(partyId), "Party invite", "You joined " + who + "'s party.");
+				finish(SocialClient.acceptInvite(partyId), "Party invite", "Joined party", "You joined " + who + "'s party.");
 			}
 			default -> {
 			}
@@ -249,7 +258,16 @@ public final class SocialToast implements Toast {
 	}
 
 	/** Swap the buttons for the outcome (a few seconds), whichever way it went. */
-	private void finish(java.util.concurrent.CompletableFuture<String> result, String heading, String okLine) {
+	private void settle(String heading, String text, boolean bad) {
+		acted = true;
+		failed = bad;
+		title = heading;
+		line = text;
+		showMs = RESULT_MS;
+		restart = true;
+	}
+
+	private void finish(java.util.concurrent.CompletableFuture<String> result, String heading, String okTitle, String okLine) {
 		acted = true;
 		failed = false;
 		title = heading;
@@ -258,7 +276,7 @@ public final class SocialToast implements Toast {
 		restart = true;
 		result.thenAccept(err -> Minecraft.getInstance().execute(() -> {
 			failed = err != null;
-			title = failed ? "Couldn't do that" : heading;
+			title = failed ? "Couldn't do that" : okTitle;
 			line = failed ? err : okLine;
 			showMs = RESULT_MS;
 			restart = true;

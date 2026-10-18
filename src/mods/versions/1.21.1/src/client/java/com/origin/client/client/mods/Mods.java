@@ -636,7 +636,7 @@ public final class Mods {
 				ModOption.toggle("border", "Border", false),
 				ModOption.color("borderColor", "Border Color", 0x66FFFFFF).under("border"),
 				ModOption.color("color", "Text Color", 0xFFFFFFFF),
-				ModOption.color("bgColor", "Background Color", 0x66000000));
+				ModOption.color("bgColor", "Background Color", 0x00000000));
 	}
 
 	// ---- Lunar parity, batch 4b: WorldEdit CUI (2026-10-11) ----

@@ -74,7 +74,7 @@ public class FriendsScreen extends OriginWindow {
 	private static final float ROW_H = 46, LABEL_H = 30, GAP = 8;
 	private static final float LINE_H = 19, HEAD_EXTRA = 28, MSG_GAP = 4;
 	private static final int MAX_CHAT = 256;
-	private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_]{3,16}");
+	private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_]{1,16}");
 
 	private enum Focus { NONE, SEARCH, CHAT }
 
@@ -86,14 +86,16 @@ public class FriendsScreen extends OriginWindow {
 
 	private String sel;                       // friend uuid, PARTY, or null
 	private Focus focus = Focus.SEARCH;       // opens ready to search / add
-	private String search = "", chatText = "";
+	private Focus lastField = Focus.SEARCH;   // the field you last had the cursor in (typing with no focus goes there)
+	private String search = "";
+	/** One unsent message per conversation (friend uuid or PARTY): switching never sends the wrong text. */
+	private final java.util.Map<String, String> drafts = new java.util.HashMap<>();
 	private String notice = null;
 	private boolean noticeRed = false;
 	private long noticeAt = 0;
 	private String armed = null;              // "<menu>:<label>" waiting for a second click
 	private long armedAt = 0;
 	private boolean showBlocked = false;
-	private boolean resolvedOnce = false;
 
 	private double listScroll, listTarget, chatScroll, chatTarget;
 	private float listMax, chatMax;
@@ -105,12 +107,12 @@ public class FriendsScreen extends OriginWindow {
 	private boolean canAddNow = false;
 
 	// the one pop-up menu (friend "...", party member, invite picker)
-	private record MenuItem(String label, boolean danger, boolean confirm, boolean enabled, Runnable action) {
+	private record MenuItem(String label, String confirmLabel, boolean danger, boolean confirm, boolean enabled, Runnable action) {
 	}
 
 	private List<MenuItem> menu = null;
 	private String menuId = null;
-	private float menuX, menuY, menuW = 208;
+	private float menuX, menuY, menuRight = Float.NaN;   // menuRight set = right-aligned to that edge
 
 	// tooltip for the few icon-only controls
 	private String tipText = null, tipKey = null;
@@ -138,22 +140,21 @@ public class FriendsScreen extends OriginWindow {
 		if (REQUESTS.equals(what)) {
 			sel = null;
 			listTarget = 0;
-			focus = Focus.SEARCH;
+			setFocus(Focus.SEARCH);
 		} else if (what != null) {
 			sel = what;
 			chatTarget = chatScroll = 0;
-			focus = Focus.CHAT;   // you came to answer: the cursor is in the message box
+			setFocus(Focus.CHAT);   // you came to answer: the cursor is in the message box
 			menu = null;
 			scrollToKey = what;
 		}
-		resolvedOnce = true;
 		return this;
 	}
 
 	/** DEV SHOTS ONLY: type into the search box before the first frame. */
 	public FriendsScreen devSearch(String text) {
 		search = text;
-		focus = Focus.SEARCH;
+		setFocus(Focus.SEARCH);
 		return this;
 	}
 
@@ -319,6 +320,27 @@ public class FriendsScreen extends OriginWindow {
 
 	private static boolean drawWarned = false;
 
+	private void setFocus(Focus f) {
+		focus = f;
+		if (f != Focus.NONE) {
+			lastField = f;
+		}
+	}
+
+	private String chatText() {
+		return sel == null ? "" : drafts.getOrDefault(sel, "");
+	}
+
+	private void setChatText(String t) {
+		if (sel != null) {
+			if (t.isEmpty()) {
+				drafts.remove(sel);
+			} else {
+				drafts.put(sel, t);
+			}
+		}
+	}
+
 	private boolean friendSelected() {
 		return sel != null && !PARTY.equals(sel);
 	}
@@ -326,18 +348,6 @@ public class FriendsScreen extends OriginWindow {
 	private void resolveSelection(SocialState s) {
 		if (sel != null && !PARTY.equals(sel) && s.friend(sel) == null) {
 			sel = null;
-		}
-		if (sel == null && !resolvedOnce) {
-			// opened by hand: jump to a chat that has something new, else stay on the list
-			for (Friend f : s.friends()) {
-				if (SocialClient.unread(f.uuid()) > 0) {
-					sel = f.uuid();
-					focus = Focus.CHAT;
-					scrollToKey = sel;
-					break;
-				}
-			}
-			resolvedOnce = true;
 		}
 	}
 
@@ -403,10 +413,14 @@ public class FriendsScreen extends OriginWindow {
 	private void drawList(OriginDeck d, SocialState s) {
 		searchField(d);
 
-		List<Item> items = build(d, s);
+		List<Item> items = items(d, s);
 		float contentH = 12;
 		for (Item it : items) {
 			contentH += it.h();
+		}
+		List<String> nl = noticeLines(d);
+		if (nl != null) {
+			contentH += 16 + nl.size() * 18 + 8;   // the result pill sits over the foot of the list: leave room to scroll past it
 		}
 		float view = BOTTOM - LIST_TOP;
 		listMax = Math.max(0, contentH - view);
@@ -452,7 +466,27 @@ public class FriendsScreen extends OriginWindow {
 		};
 	}
 
-	/** Builds the rows for this frame; also records the keyboard order and what Enter would do. */
+	// the row list only changes with the snapshot, the search text, the blocked fold or the scale
+	private List<Item> cachedItems = null;
+	private SocialState cachedState = null;
+	private String cachedSearch = null;
+	private boolean cachedBlocked = false;
+	private float cachedScale = 0;
+
+	private List<Item> items(OriginDeck d, SocialState s) {
+		if (cachedItems != null && cachedState == s && search.equals(cachedSearch) && showBlocked == cachedBlocked
+				&& d.s == cachedScale) {
+			return cachedItems;
+		}
+		cachedItems = build(d, s);
+		cachedState = s;
+		cachedSearch = search;
+		cachedBlocked = showBlocked;
+		cachedScale = d.s;
+		return cachedItems;
+	}
+
+	/** Builds the rows; also records the keyboard order and what Enter would do. */
 	private List<Item> build(OriginDeck d, SocialState s) {
 		List<Item> out = new ArrayList<>();
 		navKeys.clear();
@@ -460,7 +494,17 @@ public class FriendsScreen extends OriginWindow {
 		String raw = search.trim();
 		String q = raw.toLowerCase(Locale.ROOT);
 		boolean filtering = !q.isEmpty();
-		canAddNow = filtering && NAME.matcher(raw).matches() && !knownName(s, raw);
+		boolean anyMatch = false;
+		if (filtering) {
+			for (Friend f : s.friends()) {
+				anyMatch |= nz(f.name()).toLowerCase(Locale.ROOT).contains(q);
+			}
+			for (Request r : s.incoming()) {
+				anyMatch |= nz(r.name()).toLowerCase(Locale.ROOT).contains(q);
+			}
+		}
+		// 1-2 character names can be real, but offering "Add" while a friend matches is just noise
+		canAddNow = filtering && NAME.matcher(raw).matches() && !knownName(s, raw) && (raw.length() >= 3 || !anyMatch);
 		if (canAddNow) {
 			out.add(new Item(K.ADD, ROW_H, raw, null, 0));
 		}
@@ -545,8 +589,8 @@ public class FriendsScreen extends OriginWindow {
 	}
 
 	private void addNote(OriginDeck d, List<Item> out, String text) {
-		int lines = d.wrap(text, LIST_W - 28, 13, false).size();
-		out.add(new Item(K.NOTE, lines * 19 + 12, null, text, 0));
+		List<String> lines = d.wrap(text, LIST_W - 28, 13, false);
+		out.add(new Item(K.NOTE, lines.size() * 19 + 12, lines, text, 0));
 	}
 
 	private static boolean knownName(SocialState s, String name) {
@@ -578,7 +622,7 @@ public class FriendsScreen extends OriginWindow {
 		float clearW = search.isEmpty() ? 0 : 30;
 		inputField(d, BODY_X, TOP, w - clearW, SEARCH_H, search, hint, focused, "@find", null, false);
 		d.hit(BODY_X, TOP, w - clearW, SEARCH_H, () -> {
-			focus = Focus.SEARCH;
+			setFocus(Focus.SEARCH);
 			menu = null;
 		});
 		if (clearW > 0) {
@@ -589,7 +633,7 @@ public class FriendsScreen extends OriginWindow {
 			tip(d, "friends-clear", "Clear (Esc)", cx, cy, 28, 28);
 			d.hit(cx, cy, 28, 28, () -> {
 				search = "";
-				focus = Focus.SEARCH;
+				setFocus(Focus.SEARCH);
 			});
 		}
 	}
@@ -611,7 +655,9 @@ public class FriendsScreen extends OriginWindow {
 			case BLOCKED_TOGGLE -> blockedToggle(d, it.count(), y);
 			case NOTE -> {
 				float ny = y + 6;
-				for (String line : d.wrap(it.text(), LIST_W - 28, 13, false)) {
+				@SuppressWarnings("unchecked")
+				List<String> noteLines = (List<String>) it.data();
+				for (String line : noteLines) {
 					d.text(line, BODY_X + 14, ny + 14, 13, false, 0, soft());
 					ny += 19;
 				}
@@ -758,7 +804,7 @@ public class FriendsScreen extends OriginWindow {
 		int unread = SocialClient.unread(f.uuid());
 		boolean plus = CosmeticsService.isPlus(f.uuid());
 		boolean inParty = s.party() != null && s.party().member(f.uuid()) != null;
-		boolean joinable = isJoinable(f);
+		boolean joinable = isJoinable(f) && !selected;   // the selected row's header already has JOIN / INVITE
 
 		// the right-hand gutter is fixed per row (never changes under the pointer)
 		float right = BODY_X + LIST_W - 10;
@@ -777,7 +823,7 @@ public class FriendsScreen extends OriginWindow {
 		float textX = BODY_X + 50;
 		float textMax = Math.max(60, bx - textX - 4);
 		float inviteW = miniW(d, "Invite");
-		if (hov && !inParty) {
+		if (hov && !selected && !inParty) {
 			textMax = Math.max(60, bx - inviteW - 8 - 12 - textX);   // stop at the hover toolbar
 		}
 
@@ -799,7 +845,7 @@ public class FriendsScreen extends OriginWindow {
 		d.text(d.fit(rowStatus(f), textMax, 12.5f, false, 0), textX, y + 37, 12.5f, false, 0, f.online() ? DIM : soft());
 
 		d.hit(BODY_X, y, LIST_W, ROW_H, () -> pick(f.uuid()));
-		if (hov && !inParty) {
+		if (hov && !selected && !inParty) {
 			// hover toolbar: the second-most-common job, one click (it covers the text under it)
 			float iw = miniW(d, "Invite");
 			float px = bx - iw - 8;
@@ -828,7 +874,7 @@ public class FriendsScreen extends OriginWindow {
 		sel = key;
 		chatTarget = chatScroll = 0;
 		menu = null;
-		focus = PARTY.equals(key) && !SocialClient.state().inParty() ? Focus.NONE : Focus.CHAT;
+		setFocus(PARTY.equals(key) && !SocialClient.state().inParty() ? Focus.NONE : Focus.CHAT);
 	}
 
 	// ---- right: one friend ----
@@ -860,13 +906,13 @@ public class FriendsScreen extends OriginWindow {
 
 		// "..." holds the two destructive jobs, each behind a second click
 		float mx = RX + RW - 32;
-		Runnable openFriendMenu = () -> openMenu("friend:" + f.uuid(), mx + 32 - menuW, HEAD_ROW + 38,
-				List.of(new MenuItem("Remove friend", false, true, true,
+		Runnable openFriendMenu = () -> openMenuRight("friend:" + f.uuid(), mx + 32, HEAD_ROW + 38,
+				List.of(new MenuItem("Remove friend", "Click again to remove " + f.name(), false, true, true,
 								() -> {
 									run(SocialClient.removeFriend(f.uuid()), f.name() + " was removed.");
 									sel = null;
 								}),
-						new MenuItem("Block " + f.name(), true, true, true,
+						new MenuItem("Block " + f.name(), "Click again to block " + f.name(), true, true, true,
 								() -> {
 									run(SocialClient.block(f.uuid()), f.name() + " is blocked.");
 									sel = null;
@@ -880,13 +926,16 @@ public class FriendsScreen extends OriginWindow {
 		d.fill(RX, DIVIDER, RW, 1, LINE);
 		String self = s.me() != null ? s.me().uuid() : "";
 		String myName = s.me() != null ? nz(s.me().name()) : "You";
-		List<Msg> msgs = new ArrayList<>();
-		for (Message m : SocialClient.chat(f.uuid())) {
-			boolean mine = m.from().equals(self);
-			msgs.add(new Msg(m.from(), mine ? myName : nz(f.name()), m.text(), m.at(), m.pending()));
-		}
-		drawChat(d, RX, RW, DIVIDER + 8, msgs, self, "friend:" + f.uuid(),
-				"No messages yet. Say hi to " + f.name() + ".");
+		List<Message> raw = SocialClient.chat(f.uuid());
+		drawChat(d, RX, RW, DIVIDER + 8, raw.size(), sigDm(raw), () -> {
+			List<Msg> msgs = new ArrayList<>(raw.size());
+			for (Message m : raw) {
+				boolean mine = m.from().equals(self);
+				msgs.add(new Msg(m.from(), mine ? myName : nz(f.name()), m.text(), m.at(), m.pending()));
+			}
+			return msgs;
+		}, self, "friend:" + f.uuid() + ":" + nz(f.name()) + ":" + myName,
+				"No messages yet. Say hi to " + f.name() + ".", "@user");
 		chatInput(d, RX, RW, "Message " + f.name());
 	}
 
@@ -953,18 +1002,19 @@ public class FriendsScreen extends OriginWindow {
 		});
 		d.fill(RX, DIVIDER, RW, 1, LINE);
 
-		// member tiles, four across (a party holds at most 8)
-		float tileW = (RW - 3 * 8) / 4f, tileH = 44;
-		float gy = DIVIDER + 14;
+		// member tiles, two across so names and statuses fit (a party holds at most 8)
+		float tileW = (RW - 8) / 2f, tileH = 40, pitch = 46;
+		float gy = DIVIDER + 12;
+		Minecraft mc = Minecraft.getInstance();
+		String here = FairPlay.positionKey(mc);
 		int i = 0;
 		for (Member m : party.members()) {
-			float tileX = RX + (i % 4) * (tileW + 8), tileY = gy + (i / 4) * (tileH + 8);
-			memberTile(d, s, m, tileX, tileY, tileW, tileH, leader, self);
+			float tileX = RX + (i % 2) * (tileW + 8), tileY = gy + (i / 2) * pitch;
+			memberTile(d, s, m, tileX, tileY, tileW, tileH, leader, self, here);
 			i++;
 		}
-		float gridBottom = gy + ((party.members().size() + 3) / 4) * (tileH + 8) - 8;
+		float gridBottom = gy + ((party.members().size() + 1) / 2) * pitch - 6;
 		float chatTop = gridBottom + 10;
-		Minecraft mc = Minecraft.getInstance();
 		if (FairPlay.positionsOffHere(mc)) {
 			// Will's baseline: markers, health and pings only in LAN worlds
 			d.text("Markers, health and pings show in LAN worlds only.", RX + 2, chatTop + 11, 12, false, 0, GOLD);
@@ -972,50 +1022,53 @@ public class FriendsScreen extends OriginWindow {
 		}
 		d.fill(RX, chatTop - 2, RW, 1, LINE);
 
-		List<Msg> msgs = new ArrayList<>();
-		for (PartyMessage m : SocialClient.partyChat()) {
-			msgs.add(new Msg(m.from(), nz(m.name()), m.text(), m.at(), m.pending()));
-		}
-		drawChat(d, RX, RW, chatTop + 6, msgs, self, "party",
-				"Party chat. In game, type /" + Social.COMMAND + " <message>.");
+		List<PartyMessage> rawParty = SocialClient.partyChat();
+		drawChat(d, RX, RW, chatTop + 6, rawParty.size(), sigParty(rawParty), () -> {
+			List<Msg> msgs = new ArrayList<>(rawParty.size());
+			for (PartyMessage m : rawParty) {
+				msgs.add(new Msg(m.from(), nz(m.name()), m.text(), m.at(), m.pending()));
+			}
+			return msgs;
+		}, self, "party", "Party chat. In game, type /" + Social.COMMAND + " <message>.", "@title-multiplayer");
 		chatInput(d, RX, RW, "Message your party");
 	}
 
-	private void memberTile(OriginDeck d, SocialState s, Member m, float x, float y, float w, float h, boolean leader, String self) {
+	private void memberTile(OriginDeck d, SocialState s, Member m, float x, float y, float w, float h, boolean leader,
+							String self, String here) {
 		boolean isLeader = m.uuid().equals(s.party().leader());
 		boolean me = m.uuid().equals(self);
-		List<MenuItem> items = memberMenu(s, m, leader, me);
-		boolean clickable = !items.isEmpty();
+		Friend fr = s.friend(m.uuid());
+		boolean clickable = !me && (fr != null || leader);   // the menu is built only when it is clicked
 		boolean hov = clickable && !menuOpen() && d.over(x, y, w, h);
 		float hp = OriginUi.hover("friends-mem:" + m.uuid(), hov);
 		d.rect(x, y, w, h, 6, lerp(CARD, CARD_H, hp), LINE);
-		face(d, m.uuid(), x + 8, y + 10, 24, m.online());
-		float nx = x + 40;
-		float max = w - 40 - 8;
+		face(d, m.uuid(), x + 8, y + 9, 22, m.online());
+		float nx = x + 38, max = w - 38 - 10;
 		String sub;
 		if (!m.online()) {
 			sub = "Offline";
 		} else if (me) {
 			sub = "You";
-		} else if (m.state() != null && FairPlay.positionKey(Minecraft.getInstance()) != null
-				&& FairPlay.positionKey(Minecraft.getInstance()).equals(Social.normalize(nz(m.state().server())))) {
+		} else if (m.state() != null && here != null && here.equals(Social.normalize(nz(m.state().server())))) {
 			sub = "In your world";
-		} else if (s.friend(m.uuid()) != null) {
-			sub = shortStatus(s.friend(m.uuid()));
+		} else if (fr != null) {
+			sub = shortStatus(fr);
 		} else {
 			sub = "Online";
 		}
-		d.text(d.fit(nz(m.name()), max, 13, true, 0), nx, y + 19, 13, true, 0, m.online() ? TEXT : DIM);
+		float tagW = isLeader ? d.textW("LEADER", 8.5f, true, 1.0f) + 10 : 0;
+		d.text(d.fit(nz(m.name()), max - (isLeader ? tagW + 6 : 0), 13, true, 0), nx, y + 17, 13, true, 0, m.online() ? TEXT : DIM);
 		if (isLeader) {
-			// the leader's mark sits on the tile's top edge, so it never costs the name any width
-			float tagW = d.textW("LEADER", 8.5f, true, 1.0f) + 10;
-			d.rect(x + w - tagW - 6, y - 6, tagW, 13, 3, GOLD_BG, 0x33E9C46A);
-			d.textMid("LEADER", x + w - tagW - 1, y + 0.5f, 8.5f, true, 1.0f, GOLD);
+			// inside the tile, top-right: it never costs the status line any width
+			d.rect(x + w - tagW - 8, y + 6, tagW, 14, 3, GOLD_BG);
+			d.textMid("LEADER", x + w - tagW - 3, y + 13.5f, 8.5f, true, 1.0f, GOLD);
 		}
-		d.text(d.fit(sub, max, 12, false, 0), nx, y + 35, 12, false, 0, m.online() ? DIM : soft());
+		d.text(d.fit(sub, max - (clickable ? 16 : 0), 12, false, 0), nx, y + 32, 12, false, 0, m.online() ? DIM : soft());
 		if (clickable) {
-			d.hit(x, y, w, h, () -> openMenu("member:" + m.uuid(), Math.min(x, RX + RW - menuW), y + h + 2, items));
+			d.icon("@chev-down", x + w - 22, y + h - 20, 12, lerp(soft(), TEXT, hp));
+			d.hit(x, y, w, h, () -> openMenu("member:" + m.uuid(), x, y + h + 2, memberMenu(s, m, leader, me)));
 		}
+		tip(d, "mem:" + m.uuid(), nz(m.name()) + " \u2022 " + sub, x, y, w, h);
 	}
 
 	private List<MenuItem> memberMenu(SocialState s, Member m, boolean leader, boolean me) {
@@ -1024,12 +1077,12 @@ public class FriendsScreen extends OriginWindow {
 			return items;
 		}
 		if (s.friend(m.uuid()) != null) {
-			items.add(new MenuItem("Message", false, false, true, () -> pick(m.uuid())));
+			items.add(new MenuItem("Message", null, false, false, true, () -> pick(m.uuid())));
 		}
 		if (leader) {
-			items.add(new MenuItem("Make leader", false, false, true,
+			items.add(new MenuItem("Make leader", null, false, false, true,
 					() -> run(SocialClient.promote(m.uuid()), m.name() + " leads the party now.")));
-			items.add(new MenuItem("Remove from party", true, true, true,
+			items.add(new MenuItem("Remove from party", "Click again to remove " + nz(m.name()), true, true, true,
 					() -> run(SocialClient.kick(m.uuid()), m.name() + " was removed from the party.")));
 		}
 		return items;
@@ -1046,13 +1099,13 @@ public class FriendsScreen extends OriginWindow {
 				extra++;
 				continue;
 			}
-			items.add(new MenuItem(nz(f.name()), false, false, true,
+			items.add(new MenuItem(nz(f.name()), null, false, false, true,
 					() -> run(SocialClient.inviteToParty(f.uuid()), "Party invite sent to " + f.name() + ".")));
 		}
 		if (items.isEmpty()) {
-			items.add(new MenuItem("No friends online to invite", false, false, false, null));
+			items.add(new MenuItem("No friends online to invite", null, false, false, false, null));
 		} else if (extra > 0) {
-			items.add(new MenuItem("+" + extra + " more: hover them in the list", false, false, false, null));
+			items.add(new MenuItem("+" + extra + " more: hover them in the list", null, false, false, false, null));
 		}
 		openMenu("invite", x, y, items);
 	}
@@ -1076,7 +1129,7 @@ public class FriendsScreen extends OriginWindow {
 				sy += 40;
 			}
 		} else {
-			emptyState(d, RX, RW, "Pick a friend", "Click a name to chat. Hover a row to invite them to your party; a green Join means they are on a server.", "@user");
+			emptyState(d, RX, RW, "Pick a friend to chat.", "", "@user");
 		}
 	}
 
@@ -1174,15 +1227,35 @@ public class FriendsScreen extends OriginWindow {
 	}
 
 	/** Messages bottom-anchored between `top` and CHAT_BOTTOM; scroll 0 = newest. */
-	private void drawChat(OriginDeck d, float x, float w, float top, List<Msg> msgs, String self, String scope, String empty) {
+	/** A cheap fingerprint of a DM list (first id, last id, last pending flag, last length): no per-frame walk over the history. */
+	private static String sigDm(List<Message> l) {
+		int n = l.size();
+		if (n == 0) {
+			return "";
+		}
+		Message a = l.get(0), z = l.get(n - 1);
+		return a.id() + "|" + z.id() + "|" + z.pending() + "|" + z.text().length();
+	}
+
+	private static String sigParty(List<PartyMessage> l) {
+		int n = l.size();
+		if (n == 0) {
+			return "";
+		}
+		PartyMessage a = l.get(0), z = l.get(n - 1);
+		return a.id() + "|" + z.id() + "|" + z.pending() + "|" + z.text().length();
+	}
+
+	private void drawChat(OriginDeck d, float x, float w, float top, int count, String sig,
+						  java.util.function.Supplier<List<Msg>> msgs, String self, String scope, String empty, String emptyIcon) {
 		float viewH = CHAT_BOTTOM - top;
 		d.hit(x, top, w, viewH, () -> {
 			if (focus != Focus.CHAT) {
-				focus = Focus.CHAT;
+				setFocus(Focus.CHAT);
 			}
 		});
-		if (msgs.isEmpty()) {
-			d.icon("@title-multiplayer", x + w / 2 - 12, (top + CHAT_BOTTOM) / 2 - 30, 24, soft());
+		if (count == 0) {
+			d.icon(emptyIcon, x + w / 2 - 12, (top + CHAT_BOTTOM) / 2 - 30, 24, soft());
 			for (String line : d.wrap(empty, w - 64, 13.5f, false)) {
 				d.textCenter(line, x + w / 2, (top + CHAT_BOTTOM) / 2 + 6, 13.5f, false, 0, DIM);
 				break;
@@ -1190,10 +1263,10 @@ public class FriendsScreen extends OriginWindow {
 			chatMax = 0;
 			return;
 		}
-		String key = scope + "|" + msgs.hashCode() + "|" + Math.round(w) + "|" + d.s;
+		String key = scope + "|" + count + "|" + sig + "|" + Math.round(w) + "|" + d.s;
 		if (!key.equals(chatKey)) {
 			chatKey = key;
-			layoutChat(d, msgs, self, w);
+			layoutChat(d, msgs.get(), self, w);
 		}
 		chatMax = Math.max(0, chatTotal - viewH);
 		chatTarget = Math.max(0, Math.min(chatMax, chatTarget));
@@ -1241,10 +1314,11 @@ public class FriendsScreen extends OriginWindow {
 	private void chatInput(OriginDeck d, float x, float w, String placeholder) {
 		float sw = 84;
 		float fy = BOTTOM - INPUT_H;
-		inputField(d, x, fy, w - sw - 8, INPUT_H, chatText, placeholder, focus == Focus.CHAT, null,
-				chatText.length() > MAX_CHAT - 56 ? chatText.length() + "/" + MAX_CHAT : null, chatText.length() >= MAX_CHAT);
-		d.hit(x, fy, w - sw - 8, INPUT_H, () -> focus = Focus.CHAT);
-		button(d, "Send", null, x + w - sw, fy, sw, INPUT_H, Style.PRIMARY, !chatText.isBlank(), this::submitChat);
+		String ct = chatText();
+		inputField(d, x, fy, w - sw - 8, INPUT_H, ct, placeholder, focus == Focus.CHAT, null,
+				ct.length() > MAX_CHAT - 56 ? ct.length() + "/" + MAX_CHAT : null, ct.length() >= MAX_CHAT);
+		d.hit(x, fy, w - sw - 8, INPUT_H, () -> setFocus(Focus.CHAT));
+		button(d, "Send", null, x + w - sw, fy, sw, INPUT_H, Style.PRIMARY, !ct.isBlank(), this::submitChat);
 	}
 
 	// ---- small widgets ----
@@ -1334,7 +1408,7 @@ public class FriendsScreen extends OriginWindow {
 			}
 			default -> {
 				fill = hov ? 0x24FFFFFF : 0x14FFFFFF;
-				fg = hov ? TEXT : DIM;
+				fg = TEXT;
 			}
 		}
 		if ((fill >>> 24) != 0) {
@@ -1369,7 +1443,13 @@ public class FriendsScreen extends OriginWindow {
 		menuId = id;
 		menuX = x;
 		menuY = y;
+		menuRight = Float.NaN;
 		armed = null;
+	}
+
+	private void openMenuRight(String id, float rightEdge, float y, List<MenuItem> items) {
+		openMenu(id, rightEdge, y, items);
+		menuRight = rightEdge;
 	}
 
 	private void closeMenu() {
@@ -1385,7 +1465,16 @@ public class FriendsScreen extends OriginWindow {
 		d.hit(0, 0, W, H, this::closeMenu);
 		float itemH = 32;
 		float h = menu.size() * itemH + 8;
-		float x = Math.max(8, Math.min(W - menuW - 8, menuX));
+		float menuW = 208;   // wide enough for the longest label, including the named confirm line
+		for (MenuItem mi : menu) {
+			menuW = Math.max(menuW, d.textW(mi.label(), 13, false, 0) + 28);
+			if (mi.confirmLabel() != null) {
+				menuW = Math.max(menuW, d.textW(mi.confirmLabel(), 13, false, 0) + 28);
+			}
+		}
+		menuW = Math.min(menuW, 340);
+		float left = Float.isNaN(menuRight) ? menuX : menuRight - menuW;
+		float x = Math.max(8, Math.min(W - menuW - 8, left));
 		float y = Math.min(menuY, H - h - 8);
 		d.shadow(x, y, menuW, h, 6);
 		d.rect(x, y, menuW, h, 6, CARD_H, LINE2);
@@ -1397,14 +1486,19 @@ public class FriendsScreen extends OriginWindow {
 			if (hov) {
 				d.rect(x + 4, iy, menuW - 8, itemH, 4, mi.danger() ? RED_SOFT : 0x1AFFFFFF);
 			}
-			String label = isArmed ? "Click again to confirm" : mi.label();
+			String label = isArmed ? (mi.confirmLabel() != null ? mi.confirmLabel() : "Click again to confirm") : mi.label();
 			int col = !mi.enabled() ? soft() : mi.danger() || isArmed ? RED : hov ? TEXT : DIM;
 			d.textMid(d.fit(label, menuW - 28, 13, false, 0), x + 14, iy + itemH / 2, 13, false, 0, col);
 			if (mi.enabled()) {
 				d.hit(x + 4, iy, menuW - 8, itemH, () -> {
-					if (mi.confirm() && !armedFor(key)) {
-						arm(key);
-						return;
+					if (mi.confirm()) {
+						if (!armedFor(key)) {
+							arm(key);
+							return;
+						}
+						if (System.currentTimeMillis() - armedAt < 350) {
+							return;   // a fast double-click must not skip the confirm
+						}
 					}
 					closeMenu();
 					if (mi.action() != null) {
@@ -1418,17 +1512,30 @@ public class FriendsScreen extends OriginWindow {
 
 	// ---- the result pill (what an action just did, next to where you clicked) ----
 
+	private String nlText = null;
+	private List<String> nlLines = List.of();
+
+	/** The pill's wrapped lines while a notice is showing (cached per text), else null. */
+	private List<String> noticeLines(OriginDeck d) {
+		if (notice == null || System.currentTimeMillis() - noticeAt > 5000) {
+			return null;
+		}
+		if (!notice.equals(nlText)) {
+			nlText = notice;
+			List<String> l = d.wrap(notice, LIST_W - 40, 13, false);
+			nlLines = l.size() > 3 ? l.subList(0, 3) : l;
+		}
+		return nlLines;
+	}
+
 	private void drawNotice(OriginDeck d) {
 		if (notice == null) {
 			return;
 		}
 		long age = System.currentTimeMillis() - noticeAt;
-		if (age > 5000) {
+		List<String> lines = noticeLines(d);
+		if (lines == null) {
 			return;
-		}
-		List<String> lines = d.wrap(notice, LIST_W - 40, 13, false);
-		if (lines.size() > 3) {
-			lines = lines.subList(0, 3);
 		}
 		float h = 16 + lines.size() * 18;
 		float y = BOTTOM - h - 8;
@@ -1549,13 +1656,13 @@ public class FriendsScreen extends OriginWindow {
 	}
 
 	private void submitChat() {
-		String t = chatText.strip();
+		String t = chatText().strip();
 		if (t.isEmpty()) {
 			return;
 		}
-		chatText = "";
+		setChatText("");
 		chatTarget = 0;
-		focus = Focus.CHAT;
+		setFocus(Focus.CHAT);
 		if (PARTY.equals(sel)) {
 			run(SocialClient.partyChat(t, false), null);
 		} else if (friendSelected()) {
@@ -1618,9 +1725,13 @@ public class FriendsScreen extends OriginWindow {
 		if (SocialClient.status() != SocialClient.Status.READY) {
 			return super.charTyped(chr, modifiers);
 		}
+		if (menuOpen()) {
+			return true;   // a menu is waiting for its click: typing must not land anywhere else
+		}
 		if (focus == Focus.NONE) {
 			// just start typing: into the open chat, or the search box when no chat is open
-			focus = chatAvailable() ? Focus.CHAT : Focus.SEARCH;
+			// no field has the cursor: text goes where it last was (the chat only if you were just typing in it)
+			setFocus(lastField == Focus.CHAT && chatAvailable() ? Focus.CHAT : Focus.SEARCH);
 		}
 		if (focus == Focus.SEARCH) {
 			if ((Character.isLetterOrDigit(chr) || chr == '_') && chr < 128 && search.length() < 16) {
@@ -1630,8 +1741,9 @@ public class FriendsScreen extends OriginWindow {
 			return true;
 		}
 		if (focus == Focus.CHAT) {
-			if (chatText.length() < MAX_CHAT) {
-				chatText += chr;
+			String ct = chatText();
+			if (ct.length() < MAX_CHAT) {
+				setChatText(ct + chr);
 			}
 			return true;
 		}
@@ -1654,8 +1766,11 @@ public class FriendsScreen extends OriginWindow {
 				beginClose();
 				return true;
 			}
+			if (menuOpen()) {
+				return true;   // Esc (above) closes it; Up/Down/Enter/Backspace do nothing behind it
+			}
 			if (keyCode == GLFW.GLFW_KEY_F && hasControlDown()) {
-				focus = Focus.SEARCH;
+				setFocus(Focus.SEARCH);
 				return true;
 			}
 			if (focus != Focus.CHAT && (keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_UP)) {
@@ -1675,7 +1790,7 @@ public class FriendsScreen extends OriginWindow {
 					if (focus == Focus.SEARCH) {
 						search = cut(search, hasControlDown());
 					} else {
-						chatText = cut(chatText, hasControlDown());
+						setChatText(cut(chatText(), hasControlDown()));
 					}
 					return true;
 				}

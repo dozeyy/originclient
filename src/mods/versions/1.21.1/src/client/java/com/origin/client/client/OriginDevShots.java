@@ -45,7 +45,9 @@ public final class OriginDevShots {
 		SOC_ADD, SOC_FILTER, SOC_MENU_FRIEND, SOC_MENU_INVITE, SOC_NOTICE,
 		// ORIGIN_SHOTS_SET=social-act: scripted synthetic input (FriendsScreen.dev*), no OS input -- the click paths
 		ACT_HOVER, ACT_INVITE, ACT_CHAT, ACT_MENU_ARM, ACT_ACCEPT, ACT_SEARCH_ENTER, ACT_PARTY_MENU,
-		ACT_TOAST_REQUEST, ACT_TOAST_INVITE;
+		ACT_TOAST_REQUEST, ACT_TOAST_INVITE, ACT_TOAST_STALE,
+		// review follow-ups: fast double-click on a confirm, per-conversation drafts, typing with no focus
+		ACT_DOUBLECLICK, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH;
 
 		Screen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -164,11 +166,18 @@ public final class OriginDevShots {
 							.select(com.origin.client.client.social.SocialDemo.KESTREL)
 							.devNotice("Party invite sent to Kestrel.", false);
 				}
-				case ACT_HOVER, ACT_INVITE, ACT_CHAT, ACT_ACCEPT, ACT_SEARCH_ENTER -> {
+				case ACT_HOVER, ACT_INVITE, ACT_CHAT, ACT_ACCEPT, ACT_SEARCH_ENTER, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH -> {
 					com.origin.client.client.social.SocialDemo.installHome();
 					yield new com.origin.client.client.gui.FriendsScreen(null);
 				}
-				case ACT_MENU_ARM -> {
+				case ACT_TOAST_STALE -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					Minecraft mc = Minecraft.getInstance();
+					com.origin.client.client.social.SocialToast.request(mc, "00000000000000000000000000000099", "Ghost_One");
+					com.origin.client.client.social.SocialToast.invite(mc, "00000000000000000000000000000098", "Ghost_Two");
+					yield new TitleScreen();
+				}
+				case ACT_MENU_ARM, ACT_DOUBLECLICK -> {
 					com.origin.client.client.social.SocialDemo.install(false);
 					yield new com.origin.client.client.gui.FriendsScreen(null)
 							.select(com.origin.client.client.social.SocialDemo.KESTREL);
@@ -220,7 +229,21 @@ public final class OriginDevShots {
 		ACTS.put(Kind.ACT_MENU_ARM, List.of(s -> fs(s).devClick(880, 158), s -> fs(s).devHover(792, 200),
 				s -> fs(s).devClick(792, 200)));
 		ACTS.put(Kind.ACT_SEARCH_ENTER, List.of(s -> fs(s).devChars("zed_nine"), s -> fs(s).devKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER)));
-		ACTS.put(Kind.ACT_PARTY_MENU, List.of(s -> fs(s).devClick(573, 222)));
+		ACTS.put(Kind.ACT_PARTY_MENU, List.of(s -> fs(s).devClick(760, 218)));
+		ACTS.put(Kind.ACT_DOUBLECLICK, List.of(s -> fs(s).devClick(880, 158), s -> {
+			fs(s).devClick(792, 200);   // arms
+			fs(s).devClick(792, 200);   // a second click inside 350 ms must be ignored
+		}));
+		ACTS.put(Kind.ACT_DRAFT, List.of(s -> fs(s).devClick(140, 385), s -> fs(s).devChars("draft for ember only"),
+				s -> fs(s).devClick(140, 431)));
+		ACTS.put(Kind.ACT_DRAFT_BACK, List.of(s -> fs(s).devClick(140, 385), s -> fs(s).devChars("draft for ember only"),
+				s -> fs(s).devClick(140, 431), s -> fs(s).devClick(140, 385)));
+		ACTS.put(Kind.ACT_TYPE_SEARCH, List.of(s -> fs(s).devClick(140, 385), s -> fs(s).devClick(150, 106),
+				s -> fs(s).devClick(400, 40), s -> fs(s).devChars("ke")));
+		ACTS.put(Kind.ACT_TOAST_STALE, List.of(s -> {
+			com.origin.client.client.social.SocialToast.devClickButton("req:00000000000000000000000000000099");
+			com.origin.client.client.social.SocialToast.devClickButton("inv:00000000000000000000000000000098");
+		}));
 		ACTS.put(Kind.ACT_TOAST_REQUEST, List.of(s -> com.origin.client.client.social.SocialToast.devClickButton("req:9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14")));
 		ACTS.put(Kind.ACT_TOAST_INVITE, List.of(s -> com.origin.client.client.social.SocialToast.devClickButton("inv:1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52")));
 	}
