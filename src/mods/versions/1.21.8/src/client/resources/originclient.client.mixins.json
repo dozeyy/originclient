@@ -78,7 +78,9 @@
 		"HypixelBedwarsSoundMixin",
 		"EquipmentLayerTintMixin",
 		"ItemPhysicsStateMixin",
-		"GlintPipelineMixin"
+		"GlintPipelineMixin",
+		"OptionsAutosaveMixin",
+		"OptionsSetKeyMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

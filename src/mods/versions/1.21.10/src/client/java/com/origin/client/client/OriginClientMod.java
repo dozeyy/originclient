@@ -87,6 +87,8 @@ public class OriginClientMod implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 		// Tells Origin Launcher the game is past its loading screen (OriginHandoff).
 		ClientTickEvents.END_CLIENT_TICK.register(OriginHandoff::tick);
+		// Vanilla options save the moment they change (Settings Sync needs it).
+		OptionsAutosave.register();
 		// Team View, Discord Status and Hypixel register their own events.
 		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
@@ -273,6 +275,14 @@ public class OriginClientMod implements ClientModInitializer {
 	// others, and nothing here is allowed to throw into the shutdown path.
 	private void onClientStopping(Minecraft client) {
 		try {
+			// a slider mid-drag or a half-typed text field in the mod menu
+			if (client.screen instanceof com.origin.client.client.gui.OriginModMenuScreen) {
+				((com.origin.client.client.gui.OriginModMenuScreen) client.screen).commitPendingEdits();
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to keep the mod menu's last edit on exit", t);
+		}
+		try {
 			Mods.flush();                     // mod settings + HUD positions -> originclient-mods.json
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to save mod settings on exit", t);
@@ -284,6 +294,15 @@ public class OriginClientMod implements ClientModInitializer {
 		}
 		try {
 			if (client.options != null) {
+				// quitting mid-zoom: write the player's own values, not Zoom's
+				if (zoomSensApplied) {
+					client.options.sensitivity().set(savedSensitivity);
+					zoomSensApplied = false;
+				}
+				if (smoothCamApplied) {
+					client.options.smoothCamera = savedSmoothCam;
+					smoothCamApplied = false;
+				}
 				client.options.save();        // vanilla game options -> options.txt
 			}
 		} catch (Throwable t) {
@@ -672,6 +691,9 @@ public class OriginClientMod implements ClientModInitializer {
 			client.options.smoothCamera = savedSmoothCam;
 			smoothCamApplied = false;
 		}
+		// Zoom's sensitivity and smooth camera are not the player's settings:
+		// options.txt waits until they are put back.
+		OptionsAutosave.held = zoomSensApplied || smoothCamApplied;
 	}
 
 	// Weather Changer: forces client-side rain/thunder levels per the mode.

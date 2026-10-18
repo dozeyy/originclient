@@ -78,7 +78,9 @@
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
-		"ChatReceiveMixin"
+		"ChatReceiveMixin",
+		"OptionsAutosaveMixin",
+		"OptionsSetKeyMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

@@ -275,6 +275,13 @@ public class OriginModMenuScreen extends Screen {
 		}
 	}
 
+	/** Quitting with the menu open (Alt+F4 included): keep a slider mid-drag
+	 *  and a half-typed text field, exactly as clicking away would. */
+	public void commitPendingEdits() {
+		flushSlider();
+		commitText();
+	}
+
 	private void flushSlider() {
 		if (sliderUnsaved) {
 			sliderUnsaved = false;

@@ -80,7 +80,9 @@
 		"CosmeticCapeMixin",
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
-		"PackSelectionScreenAccessor"
+		"PackSelectionScreenAccessor",
+		"OptionsAutosaveMixin",
+		"OptionsSetKeyMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

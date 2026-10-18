@@ -81,7 +81,9 @@
 		"CosmeticsPauseMixin",
 		"HypixelBedwarsGuiMixin",
 		"HypixelBedwarsBedMixin",
-		"HypixelBedwarsSoundMixin"
+		"HypixelBedwarsSoundMixin",
+		"OptionsAutosaveMixin",
+		"OptionsSetKeyMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

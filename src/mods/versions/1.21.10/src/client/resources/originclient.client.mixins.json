@@ -80,7 +80,9 @@
 		"HypixelBedwarsSoundMixin",
 		"CosmeticCapeMixin",
 		"CapePhysicsMixin",
-		"CosmeticsPauseMixin"
+		"CosmeticsPauseMixin",
+		"OptionsAutosaveMixin",
+		"OptionsSetKeyMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

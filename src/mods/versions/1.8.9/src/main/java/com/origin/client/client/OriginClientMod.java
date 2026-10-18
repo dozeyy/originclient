@@ -132,12 +132,25 @@ public class OriginClientMod {
 			tickBroken = true;
 			com.origin.client.OriginClient.LOGGER.error("Origin tick hub failed; its features are off for this session", t);
 		}
+		// Vanilla options save the moment they change (Settings Sync needs it);
+		// Zoom's sensitivity / smooth camera / perspective are not the player's
+		// settings, so options.txt waits until they are put back.
+		OptionsAutosave.held = zoomSensApplied || smoothCamApplied || savedPerspective >= 0;
+		OptionsAutosave.tick(Minecraft.getMinecraft());
 	}
 
 	// Flush everything to disk once, when Minecraft is shutting down. Each
 	// store is saved in its own try so a failure in one never blocks the
 	// others, and nothing here is allowed to throw into the shutdown path.
 	private static void onClientStopping(Minecraft client) {
+		try {
+			// a slider mid-drag or a half-typed text field in the mod menu
+			if (client != null && client.currentScreen instanceof com.origin.client.client.gui.OriginModMenuScreen) {
+				((com.origin.client.client.gui.OriginModMenuScreen) client.currentScreen).commitPendingEdits();
+			}
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to keep the mod menu's last edit on exit", t);
+		}
 		try {
 			Mods.flush();                     // mod settings + HUD positions -> originclient-mods.json
 		} catch (Throwable t) {
