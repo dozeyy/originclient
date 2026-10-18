@@ -194,7 +194,7 @@ public final class OriginScreenRenderer {
 			// the same clear GameRenderer does before the GUI. This era batches the
 			// GUI: the title's queued draws must land (flush) before the clear.
 			guiGraphics.flush();
-			RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
+			RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT);
 			if (toTitle) {
 				MarkMotion.startFlight();
 			}
