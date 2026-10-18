@@ -8,7 +8,7 @@
 // Texels are painted from their position in the cube frame, so the reflection and edges run
 // continuously across the lens pieces. Everything hugs the head: the lens is 0.625 px proud of the
 // face, the brow lip 0.75 px (z <= 4.75; FORMAT.md face limit 5).
-import { clamp, smoothstep, bayer } from '../../lib/px.mjs';
+import { clamp, smoothstep, mix, toHex } from '../../lib/px.mjs';
 import { layoutCubes, newTexture, paintCube } from '../../lib/model.mjs';
 
 const S = 8, px = 1 / S;
@@ -90,11 +90,11 @@ function world(c, f, x, y) {
 // a crisp two-texel reflection band right above the horizon (the premium tint look), a dark edge line, then
 // dark ground fading to a faint bounce near the lower edge. The horizon curves up toward the wrap (the lens
 // is curved), the ends fall off darker, the +x side (facing the light) a half step brighter.
-// glassStep returns a fractional ramp index; ordered dither (world texels, so it runs seamlessly across the
-// lens pieces) turns the fraction into stepped clusters, never a smooth blend.
+// glassStep returns a fractional ramp index, a continuous function of the world position (so it runs
+// seamlessly across the lens pieces); dpick turns it into smooth colour bands.
 const horizon = a => 3.4 + 0.02 * a * a;
 function glassStep(a, Y) {
-  const h = horizon(a), lit = a > 0 ? 0.4 : 0, end = smoothstep(2.6, 5.6, Math.abs(a));   // 0 centre .. 1 at the wrap ends
+  const h = horizon(a), lit = 0.4 * smoothstep(-5, 5, a), end = smoothstep(2.6, 5.6, Math.abs(a));   // 0 centre .. 1 at the wrap ends
   if (Y >= 4.625) return 1;                                              // in the brow's shadow
   if (Y >= 4.5) return 7.7 - 2.2 * end + lit * 0.5;                       // the thin bright top rim
   if (Y >= h + 2 * px) {                                                 // sky: lighter under the rim, deepening toward the horizon
@@ -107,10 +107,11 @@ function glassStep(a, Y) {
   const g = Y - (2.875 + 0.012 * a * a);                                   // ground: dark, a faint cool bounce band near the bottom
   return (g < 0.2 ? 2.9 : g < 0.45 ? 2.1 : g < 0.7 ? 1.6 : 1.2) + lit * 0.6 - 0.4 * end;
 }
-// fractional ramp index -> colour, dithered on world texel coordinates
+// fractional ramp index -> colour: interpolated between the ramp steps and quantised to 4 sub-steps each, so a
+// gradient is a run of clean parallel bands (no dither, no grain). u, w are unused (kept for the call sites).
 const dpick = (R, v, u, w) => {
-  const lo = Math.floor(v), f = v - lo, up = f > 0.5 + (bayer(Math.floor(u * S), Math.floor(w * S), 4) - 0.5) * 0.9;
-  return R[clamp(lo + (up ? 1 : 0), 0, R.length - 1)];
+  const p = clamp(Math.round(v * 4) / 4, 0, R.length - 1), lo = Math.floor(p), hi = Math.min(R.length - 1, lo + 1);
+  return toHex(mix(R[lo], R[hi], p - lo));
 };
 function paintLens(v, f, c) {
   for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {

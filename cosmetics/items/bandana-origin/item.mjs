@@ -10,7 +10,7 @@
 // The mark is rasterised here at the size it appears (30 px, 1 px thread): traced centre lines with
 // L-corner doubles removed, ring 0 mirrored on both axes, ring 1 point-symmetric, ring 2 = ring 1
 // mirrored, so it is exactly symmetric (FORMAT.md art rule 1: never resampled).
-import { clamp, smoothstep, bayer } from '../../lib/px.mjs';
+import { clamp, smoothstep, bayer, mix } from '../../lib/px.mjs';
 import { layoutCubes, newTexture, paintCube } from '../../lib/model.mjs';
 
 const S = 8, px = 1 / S;
@@ -97,49 +97,50 @@ function world(c, f, x, y) {
 
 // ---- the mark -----------------------------------------------------------------------------------------
 // Three stroke-only ellipses at 0 / 60 / 120 degrees sharing one centre (rx 90/75/60, ry 32/27/22, the
-// website mark). Rasterised here, pixel by pixel, at the size it is stitched (MW texels = 4 model px):
-// a texel is thread when its CENTRE is within HALF of a ring's exact centre line (so the stroke is an even
-// ~2 texels everywhere, no traced stair-step doubles). The pixel grid is point-symmetric. The rings weave:
-// at each crossing one strand runs over (full thread colours) and the other dives under (its texels beside
-// the over strand drop to the darkest thread step), alternating by quadrant, so it reads as embroidery.
-const MW = 32, HALF = 0.95, GAP = 0.8;
+// website mark), rasterised here at the size it is stitched (MW texels = 4 model px). Each texel gets an
+// anti-aliased COVERAGE from its centre's exact distance to the ring's centre line (full inside HALF, a
+// 1 texel soft edge), so strokes are an even width, diagonals have no stair-step doubles and crossings are
+// clean. The grid is point-symmetric. The rings weave: at each crossing one strand runs over (full) and the
+// other dives under (its coverage fades to a third next to the over strand), alternating by quadrant.
+const MW = 32, HALF = 0.55, EDGE = 0.9, UNDER = 1.0;
 const RINGS = [{ rx: 90, ry: 32, rot: 0 }, { rx: 75, ry: 27, rot: 60 }, { rx: 60, ry: 22, rot: 120 }];
 const MARK = (() => {
-  const k = (MW / 2 - HALF) / 90, N = 1440;
+  const k = (MW / 2 - HALF - 0.5) / 90, N = 2880;
   const poly = RINGS.map(r => {
     const th = (r.rot * Math.PI) / 180, c = Math.cos(th), sn = Math.sin(th), pts = [];
     for (let i = 0; i < N; i++) { const t = (i / N) * 2 * Math.PI, u = r.rx * k * Math.cos(t), v = r.ry * k * Math.sin(t); pts.push([u * c - v * sn, u * sn + v * c]); }
     return pts;
   });
-  const tone = new Int8Array(MW * MW).fill(-1), shade = new Int8Array(MW * MW);       // tone: thread step 0..3, -1 none; shade: 1 = a gap texel (cloth darkened)
+  const cov = new Float32Array(MW * MW), tone = new Float32Array(MW * MW);          // cov 0..1; tone 0..1 = how lit the thread is
+  const smooth = t => t * t * (3 - 2 * t);
   for (let y = 0; y < MW; y++) for (let x = 0; x < MW; x++) {
     const px0 = x + 0.5 - MW / 2, py0 = y + 0.5 - MW / 2;
     const near = poly.map(pts => { let d = 1e9, q = null; for (const p of pts) { const e = (p[0] - px0) ** 2 + (p[1] - py0) ** 2; if (e < d) { d = e; q = p; } } return { d: Math.sqrt(d), q }; });
-    const close = near.map((n, i) => i).filter(i => near[i].d <= HALF + GAP);
-    if (!close.length) continue;
-    let own = close[0];
-    if (close.length > 1) {
-      // the pair crossing here: over = parity of (ring pair, quadrant); a quadrant is 180 degree symmetric
-      const [a, b] = close.sort((p, q) => near[p].d - near[q].d), quad = Math.floor(((Math.atan2(py0, px0) + Math.PI) / (Math.PI / 2))) & 1;
-      own = ((a + b + quad) & 1) ? a : b;
-      if (near[own].d > HALF) {                                   // the under strand beside the over one: kept, but in the darkest thread step
-        const under = own === a ? b : a;
-        if (near[under].d <= HALF) tone[y * MW + x] = 0;
-        continue;
+    const quad = Math.floor((Math.atan2(py0, px0) + Math.PI) / (Math.PI / 2)) & 1;
+    let best = 0, bi = -1;
+    near.forEach((n, i) => {
+      let c = 1 - smooth(clamp((n.d - HALF) / EDGE));                                 // anti-aliased stroke coverage
+      for (let j = 0; j < 3; j++) {
+        if (j === i || near[j].d > HALF + UNDER) continue;
+        const over = ((i + j + quad) & 1) ? j : i;                                    // the pair's over strand here
+        if (over !== i) c *= 0.3 + 0.7 * smooth(clamp((near[j].d - HALF) / UNDER));   // under: fades beside the over strand
       }
-    } else if (near[own].d > HALF) continue;
-    // thread shading: a lit upper-left flank, a mid body, a shadowed lower-right flank (the stroke is a rounded cord)
-    const n = near[own], nxv = px0 - n.q[0], nyv = py0 - n.q[1], len = Math.hypot(nxv, nyv) || 1;
-    const lit = (-nxv * 0.55 - nyv * 0.8) / len;                                       // +1 = facing the light
-    tone[y * MW + x] = lit > 0.35 ? 3 : lit > -0.3 ? 2 : lit > -0.75 ? 1 : 0;
+      if (c > best) { best = c; bi = i; }
+    });
+    if (bi < 0) continue;
+    const n = near[bi], nxv = px0 - n.q[0], nyv = py0 - n.q[1], len = Math.hypot(nxv, nyv) || 1;
+    cov[y * MW + x] = best;
+    // a rounded cord: bright on the upper-left flank, mid body, darker lower-right flank
+    tone[y * MW + x] = clamp(0.62 + 0.38 * ((-nxv * 0.55 - nyv * 0.8) / len) * smooth(clamp(n.d / HALF)) - 0.22 * (1 - smooth(clamp(n.d / HALF))) * 0);
   }
-  return { tone, shade };
+  return { cov, tone };
 })();
 const MARK_CY = 1.0625;                                // centre row 15.5 of the 30-row band (hem above, jaw fold below); x centre 0 = a seam
 const markIdx = (X, Y) => { const ix = Math.floor(X * S + MW / 2), iy = Math.floor((MARK_CY - Y) * S + MW / 2); return ix < 0 || iy < 0 || ix >= MW || iy >= MW ? -1 : iy * MW + ix; };
-// thread step 0..3 at (X, Y) on the front band, or -1
-const markAt = (X, Y) => { const i = markIdx(X, Y); return i < 0 ? -1 : MARK.tone[i]; };
-const markGap = (X, Y) => { const i = markIdx(X, Y); return i >= 0 && MARK.shade[i] === 1; };
+const markCov = (X, Y) => { const i = markIdx(X, Y); return i < 0 ? 0 : MARK.cov[i]; };
+const markTone = (X, Y) => { const i = markIdx(X, Y); return i < 0 ? 0 : MARK.tone[i]; };
+// thread colour for a 0..1 tone (darkest step .. #e0e0e0), interpolated so the cord shading is smooth
+const threadCol = t => { const p = clamp(t) * (TH.length - 1), lo = Math.floor(p); return mix(TH[lo], TH[Math.min(TH.length - 1, lo + 1)], p - lo); };
 
 // ---- the print: small tone-on-tone rings on a half-drop grid ------------------------------------------
 // Cloth-space (a, b) in texels; returns true on a ring's 1 px stroke or its centre dot.
@@ -181,10 +182,10 @@ function paintFront(v, f, c) {
     else if (y === H - 2) col = cloth(frontLight(X, Y) - 0.22, x, y);
     else {
       const L = frontLight(X, Y);
-      const m = markAt(X, Y);
-      if (m >= 0) col = TH[clamp(m, 0, 3)];                                  // thread: lit flank / body / shadow flank
-      else if (markGap(X, Y) || markAt(X - px, Y + px) >= 0) col = cloth(L - 0.28, x, y);   // under-strand gap + a 1 texel shadow down-right of the thread
-      else col = cloth(L, x, y);
+      const base = cloth(L, x, y), cv = markCov(X, Y);
+      const sh = clamp(markCov(X - px, Y + px) * 0.8);                       // a soft 1 texel shadow down-right of the thread
+      const under = sh > 0 ? mix(base, cloth(L - 0.3, x, y), sh) : base;
+      col = cv > 0.02 ? mix(under, threadCol(markTone(X, Y)), cv) : under;
     }
     tex.push([x, y, col]);
   }
