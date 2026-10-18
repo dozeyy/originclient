@@ -3,7 +3,6 @@ package com.origin.client.client.mods;
 import com.google.gson.JsonObject;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ServerData;
 
 import java.io.Closeable;
 import java.io.EOFException;
@@ -20,9 +19,14 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Discord Status (Lunar parity): Discord Rich Presence for the "Origin Client"
- * Discord application, spoken directly over Discord's local IPC -- pure Java, no
+ * Discord Rich Presence for the "Origin Client" Discord application (Discord shows
+ * "Playing Origin Client"). Always on for every player: it is not a mod and has no
+ * switch in the mod menu. Spoken directly over Discord's local IPC -- pure Java, no
  * native library, nothing sent anywhere but the Discord app on this PC.
+ *
+ * What it shows: details = "Minecraft <version>"; state = "In the menus",
+ * "Singleplayer" or "Multiplayer" (the server address is never shown); elapsed
+ * time since launch. An old saved "discord" config block is simply never read.
  *
  * The protocol: Discord listens on a local pipe/socket named discord-ipc-0..9
  * (Windows: the named pipe \\.\pipe\discord-ipc-N; macOS/Linux: a Unix socket in
@@ -33,15 +37,13 @@ import java.util.UUID;
  *
  * Everything runs on one daemon thread. The game thread only publishes the
  * wanted status string (tick()); the thread connects when Discord is running,
- * retries every 15 s when it isn't, sends only when the status actually changed
- * (and at most once every 5 s -- Discord's own limit is 5 per 20 s), and clears
- * the status the moment the mod is switched off. Any IPC error just drops the
+ * retries every 15 s when it isn't, and sends only when the status actually changed
+ * (and at most once every 5 s -- Discord's own limit is 5 per 20 s). Any IPC error just drops the
  * connection and retries later: Discord being closed is never an error.
  *
  * The large image is the application's Rich Presence art asset named "origin".
  */
 public final class DiscordPresence {
-	private static final String MOD = "discord";
 	private static final String CLIENT_ID = "1558941171546464356";
 	private static final long RETRY_MS = 15_000L;
 	private static final long MIN_GAP_MS = 5_000L;
@@ -49,8 +51,8 @@ public final class DiscordPresence {
 	private DiscordPresence() {
 	}
 
-	// The status the game wants shown right now; null = show nothing. Written by
-	// the game thread, read by the IPC thread.
+	// The status the game wants shown right now. Written by the game thread,
+	// read by the IPC thread.
 	private record Wanted(String details, String state, long startSec) {
 	}
 
@@ -61,28 +63,26 @@ public final class DiscordPresence {
 	// ---- game thread ----
 
 	static void tick(Minecraft mc) {
-		wanted = Mods.on(MOD) ? build(mc) : null;
-		if (wanted != null && (thread == null || !thread.isAlive())) {
-			thread = new Thread(DiscordPresence::run, "Origin Discord Status");
+		wanted = build(mc);
+		if (thread == null || !thread.isAlive()) {
+			thread = new Thread(DiscordPresence::run, "Origin Discord Presence");
 			thread.setDaemon(true);
 			thread.start();
+			com.origin.client.OriginClient.LOGGER.info("Origin: Discord presence started (always on)");
 		}
 	}
 
 	private static Wanted build(Minecraft mc) {
-		String details = Mods.bool(MOD, "showVersion")
-				? "Minecraft " + SharedConstants.getCurrentVersion().getName() : "Minecraft";
+		String details = "Minecraft " + SharedConstants.getCurrentVersion().getName();
 		String state;
 		if (mc.level == null || mc.player == null) {
 			state = "In the menus";
 		} else if (mc.hasSingleplayerServer()) {
 			state = "Singleplayer";
 		} else {
-			ServerData server = mc.getCurrentServer();
-			state = server != null && server.ip != null && !server.ip.isBlank() && Mods.bool(MOD, "showServer")
-					? "Playing on " + server.ip.trim() : "Multiplayer";
+			state = "Multiplayer";   // never the address: there is no switch to hide it
 		}
-		return new Wanted(details, state, Mods.bool(MOD, "showTime") ? LAUNCHED_SEC : 0L);
+		return new Wanted(details, state, LAUNCHED_SEC);
 	}
 
 	// ---- IPC thread ----
@@ -90,15 +90,12 @@ public final class DiscordPresence {
 	private static void run() {
 		Ipc ipc = null;
 		Wanted sent = null;
-		boolean cleared = true;
+		boolean announced = false;
 		long lastSendAt = 0;
 		long nextConnectAt = 0;
 		while (true) {
 			Wanted w = wanted;
 			try {
-				if (w == null && ipc == null) {
-					return;   // switched off and nothing showing: the thread ends (tick restarts it)
-				}
 				if (ipc == null) {
 					if (System.currentTimeMillis() < nextConnectAt) {
 						Thread.sleep(500);
@@ -110,19 +107,15 @@ public final class DiscordPresence {
 						continue;   // Discord isn't running
 					}
 					sent = null;
-					cleared = true;
 				}
 				long now = System.currentTimeMillis();
-				boolean changed = w == null ? !cleared : !w.equals(sent);
-				if (changed && now - lastSendAt >= MIN_GAP_MS) {
+				if (w != null && !w.equals(sent) && now - lastSendAt >= MIN_GAP_MS) {
 					ipc.setActivity(w);
 					lastSendAt = now;
 					sent = w;
-					cleared = w == null;
-					if (w == null) {
-						ipc.close();   // off: status cleared, let go of the pipe
-						ipc = null;
-						return;
+					if (!announced) {
+						announced = true;   // once per run, so a closed Discord never spams the log
+						com.origin.client.OriginClient.LOGGER.info("Origin: Discord presence is live ({} / {})", w.details(), w.state());
 					}
 				}
 				Thread.sleep(500);
