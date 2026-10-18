@@ -943,7 +943,7 @@ public class OriginModMenuScreen extends Screen {
 		float bw = 14 + 14 + 8 + d.textW(l, 10.5f, true, CAPS_TRACK) + 14;
 		float bx = M + CW - 10 - bw, by = y + 128 - 10 - 30;
 		boolean hov = d.over(bx, by, bw, 30);
-		d.rect(bx, by, bw, 30, 6, hov ? withAlpha(CARD_H, 0xF0) : 0xD10E1110, LINE2);
+		d.rect(bx, by, bw, 30, 6, hov ? withAlpha(OriginDeck.CARD_H, 0xF0) : 0xD10E1110, LINE2);
 		d.icon("@hudeditor", bx + 14, by + 8, 14, TEXT);
 		d.textMid(l, bx + 36, by + 15, 10.5f, true, CAPS_TRACK, TEXT);
 		d.hit(bx, by, bw, 30, () -> Minecraft.getInstance().setScreen(new HudEditorScreen(false, this)));

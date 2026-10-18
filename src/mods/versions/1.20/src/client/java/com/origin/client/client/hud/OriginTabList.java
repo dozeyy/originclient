@@ -114,7 +114,7 @@ public final class OriginTabList {
 		boolean[] plus = new boolean[n];
 		boolean anyPlus = false;
 		for (int i = 0; i < n; i++) {
-			plus[i] = CosmeticsService.isPlus(list.get(i).getProfile().getId());
+			plus[i] = CosmeticsService.usesOrigin(list.get(i).getProfile().getId());
 			anyPlus |= plus[i];
 		}
 		int badgeW = anyPlus ? 9 : 0;

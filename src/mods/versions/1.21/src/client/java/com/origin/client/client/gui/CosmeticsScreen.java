@@ -33,13 +33,22 @@ import static com.origin.client.client.gui.OriginDeck.*;
 
 /**
  * Cosmetics: pick what you wear from your owned items: capes, wings and
- * backpacks, hats and masks, menu themes. The tabs, "None" tiles, captions
- * and thumbnails all come from the catalog (cosmetics/CosmeticCatalog): a new
- * item or kind needs no change here. Built on
+ * backpacks, hats and masks, menu themes. The tabs, captions and thumbnails
+ * all come from the catalog (cosmetics/CosmeticCatalog): a new item or kind
+ * needs no change here. Built on
  * the shared OriginWindow frame (the redesigned mod menu's panel, header and
  * cards). A turning preview of your character fills the left card (drag to
- * spin); your items sit in a card grid on the right under type tabs, "None"
- * first. Picking applies straight away on your side and saves to the
+ * spin); your items sit in a card grid on the right under type tabs.
+ *
+ * Picking (Will, 2026-10-18): click an item to wear it, click it again to take
+ * it off; ONE "None" tile takes off everything worn on the character (the menu
+ * theme keeps its own "Origin menu" default tile in the Themes tab). A cape and
+ * a back item (wings, backpack) never go together: wearing one takes the other
+ * off. Under the preview, up / down arrows move each worn item to suit your
+ * skin (CosmeticsService.Adjust); a run of clicks is saved once, shortly after
+ * the last one, and the preview follows every click straight away.
+ *
+ * Picking applies straight away on your side and saves to the
  * cosmetics service so other Origin players see it too (a theme is local: it
  * recolours your own menus, so this very screen repaints when you pick one).
  * Thumbnails are the real model (MenuPlayerPreview), the cape's own texture,
@@ -134,8 +143,16 @@ public class CosmeticsScreen extends OriginWindow {
 	}
 
 	// ---- what's on offer ----
+	/** `slot` null = the one "None" tile (takes everything off); `id` null with THEME = the default menu colours. */
 	private record Tile(Cosmetics.Slot slot, String id, String label) {
+		boolean none() {
+			return slot == null;
+		}
 	}
+
+	/** The slots worn on the character (everything but the menu theme), top of the body down. */
+	private static final Cosmetics.Slot[] BODY_SLOTS = {
+			Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK, Cosmetics.Slot.CAPE };
 
 	/** The type tabs across the top of the list; one is shown only if the catalog has items for it. */
 	private enum Tab {
@@ -165,10 +182,6 @@ public class CosmeticsScreen extends OriginWindow {
 			return false;
 		}
 	}
-
-	/** The order slots are listed in (and get their "None" tile in). */
-	private static final Cosmetics.Slot[] SLOT_ORDER = {
-			Cosmetics.Slot.CAPE, Cosmetics.Slot.BACK, Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.THEME };
 
 	private Tab tab = Tab.ALL;
 
@@ -215,26 +228,30 @@ public class CosmeticsScreen extends OriginWindow {
 		return false;
 	}
 
-	private static String noneLabel(Cosmetics.Slot slot) {
-		return switch (slot) {
-			case CAPE -> "No cape";
-			case BACK -> "No wings or pack";
-			case HEAD -> "No hat";
-			case FACE -> "No mask";
-			case THEME -> "Origin menu";
-		};
+	/** Is anything worn on the character? */
+	private static boolean wearsAnything(Look look) {
+		for (Cosmetics.Slot slot : BODY_SLOTS) {
+			if (look.get(slot) != null) {
+				return true;
+			}
+		}
+		return false;
 	}
 
-	/** What a tab lists: the "take it off" tiles first, then your owned items for that tab, in shop order. */
+	/**
+	 * What a tab lists: the "take it off" tile first (the one "None" for anything
+	 * worn on the character; the default menu colours in the Themes tab), then
+	 * your owned items for that tab, in shop order.
+	 */
 	private List<Tile> tilesFor(Tab tab, CosmeticsService.Mine mine) {
 		List<Tile> out = new ArrayList<>();
 		if (mine == null) {
 			return out;
 		}
-		for (Cosmetics.Slot slot : SLOT_ORDER) {
-			if (tab.covers(slot) && catalogHas(slot)) {
-				out.add(new Tile(slot, null, noneLabel(slot)));
-			}
+		if (tab == Tab.THEMES) {
+			out.add(new Tile(Cosmetics.Slot.THEME, null, "Origin menu"));
+		} else {
+			out.add(new Tile(null, null, "None"));
 		}
 		for (Cosmetics.Item item : Cosmetics.all()) {
 			if (!mine.owned().contains(item.id()) || !tab.covers(item.slot())) {
@@ -252,6 +269,11 @@ public class CosmeticsScreen extends OriginWindow {
 		long now = System.nanoTime();
 		float dt = lastNanos == 0 ? 0.016f : Math.min(0.05f, (now - lastNanos) / 1e9f);
 		lastNanos = now;
+		Look pending = pendingAdjust;
+		if (pending != null && !saving && System.currentTimeMillis() >= adjustSaveAt) {
+			pendingAdjust = null;
+			save(pending);
+		}
 		if (dragFrom == null && System.currentTimeMillis() > idleUntil) {
 			yaw += dt * 20;                      // slow showroom turn
 		}
@@ -354,8 +376,8 @@ public class CosmeticsScreen extends OriginWindow {
 	}
 
 	private void drawTile(OriginDeck d, Tile t, Look look, float x, float y) {
-		String worn = look.get(t.slot());
-		boolean selected = t.id() == null ? worn == null : t.id().equals(worn);
+		boolean selected = t.none() ? !wearsAnything(look)
+				: t.id() == null ? look.get(t.slot()) == null : t.id().equals(look.get(t.slot()));
 		boolean hov = !saving && d.over(x, y, TILE_W, TILE_H);
 		float hp = OriginUi.hover("cosmetics:tile:" + t.slot() + ":" + t.id(), hov);
 		int fill = lerp(CARD, OriginDeck.CARD_H, hp);
@@ -382,8 +404,11 @@ public class CosmeticsScreen extends OriginWindow {
 	}
 
 	private static String caption(Tile t) {
+		if (t.none()) {
+			return "TAKE ALL OFF";
+		}
 		if (t.id() == null) {
-			return "NONE";
+			return "DEFAULT";
 		}
 		if (Cosmetics.isPlusOnly(t.id())) {
 			return Cosmetics.Slot.THEME == t.slot() ? "ORIGIN+ THEME" : "ORIGIN+ MEMBERS";
@@ -514,9 +539,128 @@ public class CosmeticsScreen extends OriginWindow {
 		return drew;
 	}
 
+	// ---- moving worn items up / down ----
+	private static final float ADJ_ROW_H = 30, ADJ_BTN = 24;
+
+	/** Design y where the position rows start (clicks below it are buttons, not a drag). */
+	private float adjustTop = PREV_Y + PREV_H;
+	/** Tweaks shown but not saved yet, and when to save them (a run of clicks saves once). */
+	private volatile Look pendingAdjust = null;
+	private long adjustSaveAt = 0;
+
+	/** The worn slots that get a row, top of the body down. */
+	private List<Cosmetics.Slot> adjustableSlots(Look look) {
+		List<Cosmetics.Slot> out = new ArrayList<>();
+		if (status() != CosmeticsService.Status.READY || mine() == null) {
+			return out;
+		}
+		for (Cosmetics.Slot slot : BODY_SLOTS) {
+			if (look.get(slot) != null && Cosmetics.get(look.get(slot)) != null) {
+				out.add(slot);
+			}
+		}
+		return out;
+	}
+
+	private static String slotLabel(Cosmetics.Slot slot, String id) {
+		Cosmetics.Item it = Cosmetics.get(id);
+		String kind = it == null || it.kind() == null ? slot.key : it.kind();
+		return switch (kind) {
+			case "pack" -> "BACKPACK";
+			default -> kind.toUpperCase(Locale.ROOT);
+		};
+	}
+
+	/** "+1.5", "0", "-2" (model px; one click = half a skin pixel). */
+	private static String adjustText(float v) {
+		if (v == 0f) {
+			return "0";
+		}
+		String n = v == Math.round(v) ? Integer.toString(Math.round(Math.abs(v))) : Float.toString(Math.abs(v));
+		return (v > 0 ? "+" : "-") + n;
+	}
+
+	/** One row: the item's kind, then down / value / up, and a reset once it has moved. */
+	private void drawAdjustRow(OriginDeck d, Cosmetics.Slot slot, Look look, float x, float y, float w) {
+		float v = look.adjust(slot);
+		float mid = y + ADJ_ROW_H / 2;
+		d.textMid(slotLabel(slot, look.get(slot)), x, mid, 10.5f, true, CAPS_TRACK, DIM);
+		float upX = x + w - ADJ_BTN;
+		float valW = 34;
+		float downX = upX - valW - ADJ_BTN;
+		boolean canUp = v < CosmeticsService.Adjust.MAX;
+		boolean canDown = v > -CosmeticsService.Adjust.MAX;
+		adjustButton(d, "cosmetics:adj:down:" + slot, downX, mid - ADJ_BTN / 2, false, canDown,
+				() -> nudge(slot, v - CosmeticsService.Adjust.STEP));
+		d.textCenter(adjustText(v), downX + ADJ_BTN + valW / 2, mid + 4.5f, 12, true, 0, v == 0f ? MUTE : TEXT);
+		adjustButton(d, "cosmetics:adj:up:" + slot, upX, mid - ADJ_BTN / 2, true, canUp,
+				() -> nudge(slot, v + CosmeticsService.Adjust.STEP));
+		if (v != 0f) {
+			float rx = downX - 8 - ADJ_BTN;
+			float hp = OriginUi.hover("cosmetics:adj:reset:" + slot, d.over(rx, mid - ADJ_BTN / 2, ADJ_BTN, ADJ_BTN));
+			d.icon("@reset", rx + 5, mid - 7, 14, lerp(MUTE, TEXT, hp));
+			d.hit(rx, mid - ADJ_BTN / 2, ADJ_BTN, ADJ_BTN, () -> nudge(slot, 0f));
+		}
+	}
+
+	private void adjustButton(OriginDeck d, String key, float x, float y, boolean up, boolean enabled, Runnable onClick) {
+		float hp = OriginUi.hover(key, enabled && d.over(x, y, ADJ_BTN, ADJ_BTN));
+		d.rect(x, y, ADJ_BTN, ADJ_BTN, 6, lerp(0x0AFFFFFF, 0x1AFFFFFF, hp), enabled ? LINE2 : LINE);
+		int color = !enabled ? mul(MUTE, 0.5f) : lerp(DIM, TEXT, hp);
+		float ix = x + 5, iy = y + 5, is = 14;
+		if (up) {
+			// the atlas has no up chevron: the down one, flipped about its own centre
+			var pose = d.g.pose();
+			float pcx = d.ox + (ix + is / 2) * d.s, pcy = d.oy + (iy + is / 2) * d.s;
+			pose.pushPose();
+			try {
+				pose.translate(pcx, pcy, 0);
+				pose.scale(1f, -1f, 1f);
+				pose.translate(-pcx, -pcy, 0);
+				d.icon("@chev-down", ix, iy, is, color);
+			} finally {
+				pose.popPose();
+			}
+		} else {
+			d.icon("@chev-down", ix, iy, is, color);
+		}
+		if (enabled) {
+			d.hit(x, y, ADJ_BTN, ADJ_BTN, onClick);
+		}
+	}
+
+	/** Moves `slot`'s item to height `to` (model px): shown at once, saved after a short pause. */
+	private void nudge(Cosmetics.Slot slot, float to) {
+		Look now = wearing();
+		Look next = now.withAdjust(now.adjust().with(slot, to));
+		if (next.equals(now)) {
+			return;
+		}
+		if (DEMO) {
+			demoLook = next;
+			return;
+		}
+		CosmeticsService.show(next);
+		pendingAdjust = next;
+		adjustSaveAt = System.currentTimeMillis() + 700;
+	}
+
+	@Override
+	public void removed() {
+		super.removed();
+		Look pending = pendingAdjust;
+		if (pending != null) {
+			pendingAdjust = null;
+			CosmeticsService.wear(pending);   // closed mid-run of clicks: still save it
+		}
+	}
+
 	/** Your character, turning slowly (drag to spin). */
 	private void drawPreview(OriginDeck d) {
 		float x = PREV_X, y = PREV_Y, w = PREV_W, h = PREV_H;
+		Look worn = wearing();
+		List<Cosmetics.Slot> rows = adjustableSlots(worn);
+		float rowsH = rows.isEmpty() ? 0 : rows.size() * ADJ_ROW_H + 10;
 		boolean hov = d.over(x, y, w, h) || dragFrom != null;
 		d.rect(x, y, w, h, 8, CARD, hov ? 0x29F1E9D2 : LINE);
 		var user = Minecraft.getInstance().getUser();
@@ -531,11 +675,22 @@ public class CosmeticsScreen extends OriginWindow {
 		d.textMid(hint, hx, hy, 10, true, 1.6f, MUTE);
 		d.icon("@chev-right", hx + hw + 8, hy - 6, 12, MUTE);
 
-		// the player: feet a little above the hint, ~half the card tall, so a halo
-		// (it rises ~1.4x the body height off the floor) stays clear of the name
+		// position rows between the player and the hint, one per worn item
+		adjustTop = rows.isEmpty() ? y + h + 4 : y + h - 44 - rowsH;   // no rows: the whole card drags (click limit is adjustTop - 4)
+		if (!rows.isEmpty()) {
+			d.rect(x + 16, adjustTop - 2, w - 32, 1, 0, LINE);
+			float ry = adjustTop + 4;
+			for (Cosmetics.Slot slot : rows) {
+				drawAdjustRow(d, slot, worn, x + 20, ry, w - 40);
+				ry += ADJ_ROW_H;
+			}
+		}
+
+		// the player: feet a little above the hint (and the rows), ~half the card tall,
+		// so a halo (it rises ~1.4x the body height off the floor) stays clear of the name
 		float cx = x + w / 2;
-		float tall = Math.min(w * 0.9f, h * 0.5f);
-		float feet = y + h - 76;
+		float feet = y + h - 76 - rowsH;
+		float tall = Math.min(Math.min(w * 0.9f, h * 0.5f), (feet - (y + 64)) / 1.4f);
 		float cy = feet - tall / 2;
 		d.rect(cx - 52, feet - 4, 104, 10, 5, mul(0xFF000000, 0.35f));   // floor shadow
 		OriginUi.softGlow(d.g, d.ox + cx * d.s, d.oy + cy * d.s, 340 * d.s, mul(0xFFFFFFFF, 0.06f * d.alpha));
@@ -555,7 +710,7 @@ public class CosmeticsScreen extends OriginWindow {
 			float size = tall * d.s / gs / MenuPlayerPreview.HEIGHT;
 			LocalPlayer player = Minecraft.getInstance().player;
 			drew = player != null ? drawWorldPlayer(d, player, gx, gy, size)
-					: MenuPlayerPreview.render(d.g, gx, gy, size, yaw, wearing());
+					: MenuPlayerPreview.render(d.g, gx, gy, size, yaw, worn);
 		} catch (Throwable t) {
 			drew = false;
 		} finally {
@@ -635,7 +790,7 @@ public class CosmeticsScreen extends OriginWindow {
 	@Override
 	public boolean mouseClicked(double mx, double my, int button) {
 		float x = dX(mx), y = dY(my);
-		if (button == 0 && x >= PREV_X && x < PREV_X + PREV_W && y >= PREV_Y && y < PREV_Y + PREV_H) {
+		if (button == 0 && x >= PREV_X && x < PREV_X + PREV_W && y >= PREV_Y && y < adjustTop - 4) {
 			dragFrom = (double) x;
 			dragYaw = yaw;
 			return true;
@@ -663,10 +818,30 @@ public class CosmeticsScreen extends OriginWindow {
 		return super.mouseReleased(mx, my, button);
 	}
 
+	/**
+	 * Click = wear it; click what you already wear = take it off; "None" = take
+	 * off everything on the character. A cape and a back item (wings, backpack)
+	 * replace each other.
+	 */
 	private void pick(Tile t) {
+		if (saving) {
+			return;
+		}
 		Look now = wearing();
-		Look next = now.with(t.slot(), t.id());
-		if (next.equals(now) || saving) {
+		Look next;
+		if (t.none()) {
+			next = now.bare();
+		} else if (t.id() == null || t.id().equals(now.get(t.slot()))) {
+			next = now.with(t.slot(), null);
+		} else {
+			next = now.with(t.slot(), t.id());
+			if (t.slot() == Cosmetics.Slot.BACK) {
+				next = next.with(Cosmetics.Slot.CAPE, null);
+			} else if (t.slot() == Cosmetics.Slot.CAPE) {
+				next = next.with(Cosmetics.Slot.BACK, null);
+			}
+		}
+		if (next.equals(now)) {
 			return;
 		}
 		if (DEMO) {
@@ -674,6 +849,11 @@ public class CosmeticsScreen extends OriginWindow {
 			showMessage(null);
 			return;
 		}
+		pendingAdjust = null;   // this save carries any height tweaks too
+		save(next);
+	}
+
+	private void save(Look next) {
 		saving = true;
 		message = null;
 		CosmeticsService.wear(next).thenAccept(error -> {

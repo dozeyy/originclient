@@ -413,7 +413,7 @@ public class FriendsScreen extends OriginWindow {
 	private void partyRow(OriginDeck d, SocialState s, float y) {
 		boolean selected = PARTY.equals(sel);
 		float hp = rowBack(d, "party", y, selected);
-		d.circle(BODY_X + 24, y + ROW_H / 2, 14, selected ? 0x295FD09B : 0x14FFFFFF);
+		d.circle(BODY_X + 24, y + ROW_H / 2, 14, selected ? withAlpha(ACC, 0x29) : 0x14FFFFFF);
 		d.icon("@user", BODY_X + 17, y + ROW_H / 2 - 7, 14, selected ? ACC : DIM);
 		int n = s.party().members().size();
 		d.text("Your party", BODY_X + 48, y + 21, 13.5f, true, 0, selected ? ACC : lerp(DIM, TEXT, hp));
@@ -753,7 +753,7 @@ public class FriendsScreen extends OriginWindow {
 					d.text(d.fit(b.name(), w, 11, true, 0), bx + 2, y + 12, 11, true, 0, MUTE);
 				}
 				if (b.mine()) {
-					d.rect(bx, by, bw, bh, 8, b.pending() ? 0x145FD09B : ACC_SOFT);
+					d.rect(bx, by, bw, bh, 8, b.pending() ? withAlpha(ACC, 0x14) : ACC_SOFT);
 				} else {
 					d.rect(bx, by, bw, bh, 8, CARD, LINE);
 				}
@@ -788,7 +788,7 @@ public class FriendsScreen extends OriginWindow {
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		if (online) {
 			float r = Math.max(4, size * 0.16f);
-			d.circle(x + size, y + size, r + 2, 0xFF141816);
+			d.circle(x + size, y + size, r + 2, withAlpha(PANEL, 0xFF));
 			d.circle(x + size, y + size, r, ACC);
 		}
 	}
@@ -800,7 +800,7 @@ public class FriendsScreen extends OriginWindow {
 	private void iconButton(OriginDeck d, String icon, float x, float y, float size, boolean enabled, Runnable action,
 							boolean accent) {
 		boolean hov = enabled && d.over(x, y, size, size);
-		int fill = accent ? (hov ? 0xFF83E2B5 : ACC) : hov ? 0x1AFFFFFF : 0x0FFFFFFF;
+		int fill = accent ? (hov ? ACC_H : ACC) : hov ? 0x1AFFFFFF : 0x0FFFFFFF;
 		int fg = accent ? ON_ACC : enabled ? (hov ? TEXT : DIM) : MUTE;
 		d.rect(x, y, size, size, 6, fill);
 		float is = 14;
