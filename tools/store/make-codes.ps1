@@ -41,7 +41,7 @@ Write-Host ""
 Write-Host "$($r.codes.Count) new code(s), each one $what, works once:" -ForegroundColor Green
 $r.codes | ForEach-Object { Write-Host "  $_" }
 Write-Host ""
-Write-Host "Players type it in 'Have a code?' at originclient.org/store.html"
+Write-Host "Players type it in 'Have a code?' at originclient.org/store"
 
 $r.codes -join "`r`n" | Set-Clipboard
 $log = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Origin store codes.txt'

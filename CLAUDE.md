@@ -192,7 +192,7 @@ floating corner controls. In-game menus match this exactly.
   every tag push), so Will pushes the tag from PowerShell.
 - Merged, awaiting Will's in-game pass: 26.1–26.3 and 1.8.9 back on Forge + OptiFine (#32);
   launch experience v2 + smooth loading + snappy menus on 1.21.1 (#33).
-- Branch claude/origin-client-development-4790bv (2026-10-18): launch v2 + loading + Pack Hub + FPS
+- Merged to main 2026-10-18, ships as `launcher-v1.0.54` once Will tags it: launch v2 + loading + Pack Hub + FPS
   graph ported to every live version (Origin Render only on 1.21–1.21.4); 26.x mod-menu/outline fixes;
   Settings Sync ON by default + every setting saved instantly (MEMORY.md → 2026-10-18 Settings Sync).
 - Auth: Minecraft `login_with_xbox` 403 (app approval pending) — `OfflineTestMode` is the test path.

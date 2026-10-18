@@ -5270,3 +5270,11 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
   - Exit (CLIENT_STOPPING; 1.8.9 JVM shutdown hook) also commits the mod menu's mid-drag slider and
     half-typed text field (`OriginModMenuScreen.commitPendingEdits`). Alt+F4 is a clean shutdown.
   - Not changed: Sodium/Iris video settings still apply on their Apply/Done (their own design).
+
+## 2026-10-18 — originclient.org is served by Vercel, not GitHub Pages
+- The live domain is the Vercel project `willhenry/orginclient` (git-connected; posts a "Vercel"
+  commit status). deploy-website.yml's GitHub Pages copy is NOT what players see. Its 404 page reads
+  "404 NOT_FOUND sfo1::…".
+- Clean addresses (/store, /terms) need `"cleanUrls": true` — in both `vercel.json` and
+  `website/vercel.json`, because the project's Root Directory setting isn't recorded. With it, Vercel
+  308-redirects old *.html links (query kept), so ad/banner.html and the mod's store.html still work.
