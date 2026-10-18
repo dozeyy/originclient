@@ -301,6 +301,10 @@ public partial class MainWindow : Window
 
     internal void TourHideLaunch() => _homePage.TourHideLaunch();
 
+    internal void TourShowSettings() => NavigateTo(LauncherPage.Settings);
+
+    internal void TourSetSettingsSync(bool on) => _settingsPage.TourSetSettingsSync(on);
+
     private void OpenSignInPanel()
     {
         if (_signInPanelOpen) return;

@@ -34,6 +34,53 @@
             <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
                     CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,18"/>
 
+            <!-- Settings Sync (Core/SettingsSync.cs): off by default. Its own section,
+                 first on the page — it is the setting players most often go looking
+                 for ("where do my settings follow me?"), so it is never buried in a
+                 row of another section. -->
+            <Border Style="{StaticResource SectionCard}" Padding="24,22">
+                <StackPanel>
+                    <TextBlock Text="Settings Sync" Style="{StaticResource Text.H2}" Margin="0,0,0,6"/>
+                    <TextBlock Text="Your keybinds, video settings, HUD layout and server list follow you to every version."
+                               Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" TextTrimming="None"
+                               Margin="0,0,0,16"/>
+
+                    <Border Background="{StaticResource Brush.PanelElevated}"
+                            BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                            CornerRadius="{StaticResource Radius.Row}" Padding="16,0" MinHeight="56">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Sync settings across versions"
+                                       Style="{StaticResource Text.Body}" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <!-- On/Off read-out: state only, so it takes the accent when on. -->
+                            <TextBlock Grid.Column="1" Margin="0,0,14,0" VerticalAlignment="Center"
+                                       AutomationProperties.Name="Settings Sync state">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+                                        <Setter Property="Text" Value="Off"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsChecked, ElementName=SettingsSyncToggle}" Value="True">
+                                                <Setter Property="Text" Value="On"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Brush.AccentHover}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ToggleButton Grid.Column="2" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Switch}"
+                                          VerticalAlignment="Center"
+                                          AutomationProperties.Name="Sync settings across versions"
+                                          Checked="SettingsSyncToggle_Checked" Unchecked="SettingsSyncToggle_Unchecked"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
             <!-- Performance -->
             <Border Style="{StaticResource SectionCard}">
                 <StackPanel>
@@ -157,23 +204,6 @@
                         <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Style="{StaticResource Toggle.Switch}"
                                       VerticalAlignment="Center"
                                       Checked="OriginUiToggle_Checked" Unchecked="OriginUiToggle_Unchecked"/>
-                    </Grid>
-
-                    <!-- Settings Sync (Core/SettingsSync.cs): off by default. -->
-                    <Grid Margin="0,14,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
-                            <TextBlock Text="Sync settings across versions" Style="{StaticResource Text.BodyDim}"/>
-                            <TextBlock Text="Your keybinds, video settings, HUD layout and server list follow you to every version."
-                                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"
-                                       Margin="0,2,0,0"/>
-                        </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Switch}"
-                                      VerticalAlignment="Center"
-                                      Checked="SettingsSyncToggle_Checked" Unchecked="SettingsSyncToggle_Unchecked"/>
                     </Grid>
 
                 </StackPanel>

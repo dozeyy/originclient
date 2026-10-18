@@ -13,7 +13,7 @@ namespace OriginLauncher.App.UI;
 /// CI-only: `OriginLauncher.App.exe --render-shots &lt;folder&gt;` opens the real
 /// main window with made-up social data (Core/Social/SocialDemo) and saves
 /// pictures of Home (also its Play button in the "Running" state, and the Play press's
-/// loading scene) and the Friends drawer, so launcher UI changes are looked
+/// loading scene), the Friends drawer and Settings, so launcher UI changes are looked
 /// at before they ship (.github/workflows/launcher-shots.yml). Nothing is
 /// signed in to and the social service never touches the network.
 /// </summary>
@@ -92,6 +92,17 @@ public static class RenderShots
         Snap(window, outDir, "07-play-running");
 
         SnapBanners(window, outDir);
+
+        // Settings (after the banners: they live on Home): the Settings Sync
+        // section is first on the page, shown Off as shipped, then On. The
+        // switch is set without its handlers running (no settings write).
+        window.TourShowSettings();
+        window.TourSetSettingsSync(false);
+        Pump(600);
+        Snap(window, outDir, "09-settings");
+        window.TourSetSettingsSync(true);
+        Pump(500);
+        Snap(window, outDir, "09-settings-sync-on");
 
         window.Close();
     }

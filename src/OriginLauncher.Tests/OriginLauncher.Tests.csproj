@@ -41,6 +41,14 @@
     <Compile Include="..\OriginLauncher.App\Core\Accounts\AccountStore.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\Accounts\StoredAccount.cs" LinkBase="Accounts" />
     <Compile Include="..\OriginLauncher.App\Core\OriginPaths.cs" LinkBase="Accounts" />
+    <!-- The installer -> launcher hand-off: the launcher's reader/apply rules and the installer's
+         own writer, round-tripped in SetupHandoffTests (never the real settings.json). -->
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesData.cs" LinkBase="Install" />
+    <Compile Include="..\OriginLauncher.App\Core\Install\SetupChoicesFile.cs" LinkBase="Install" />
+    <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Install" />
+    <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Install" />
+    <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" LinkBase="Install" />
+    <Compile Include="..\OriginSetup\Engine\Handoff.cs" LinkBase="Install" />
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameHandoff.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\StageProgress.cs" LinkBase="Launch" />
