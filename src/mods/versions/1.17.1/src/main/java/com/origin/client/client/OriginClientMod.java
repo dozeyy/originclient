@@ -189,6 +189,9 @@ public class OriginClientMod implements ClientModInitializer {
 				// Friends & Party: ping beams + the camera capture for the party markers
 				// (also with Waypoints off). Fail-soft inside.
 				com.origin.client.client.social.Social.renderWorld(context);
+				// Cosmetic sparkles (cosmetics/CosmeticEffects): drawn here, inside the
+				// identity window, for the same reason. Fail-soft inside.
+				com.origin.client.client.cosmetics.CosmeticEffects.renderWorld(context);
 			} finally {
 				modelView.popPose();
 				com.mojang.blaze3d.systems.RenderSystem.applyModelViewMatrix();
@@ -228,16 +231,19 @@ public class OriginClientMod implements ClientModInitializer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
 		}
 		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
-		// client (background thread, fail-soft) and the head-cosmetic layer on
-		// every player model. Capes ride vanilla's cape slot (CosmeticCapeMixin).
+		// client (background thread, fail-soft), the data-driven model layer
+		// (hats, masks, wings, backpacks) on every player model, and the menu
+		// theme. Capes ride vanilla's cape slot (CosmeticCapeMixin); the sparkles
+		// draw from the LAST hook above.
 		// Fabric API 0.46.1+1.17 has the feature-renderer callback with the
 		// EntityRendererProvider.Context argument (1.17's renderer factories).
 		try {
 			com.origin.client.client.cosmetics.CosmeticsService.start();
+			com.origin.client.client.theme.ThemeManager.register();
 			net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
 					(type, renderer, helper, ctx) -> {
 						if (renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer player) {
-							helper.register(new com.origin.client.client.cosmetics.CosmeticHeadLayer(player));
+							helper.register(new com.origin.client.client.cosmetics.CosmeticLayer(player));
 						}
 					});
 		} catch (Throwable t) {

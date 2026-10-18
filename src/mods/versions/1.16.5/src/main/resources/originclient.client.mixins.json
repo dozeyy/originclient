@@ -75,6 +75,7 @@
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
 		"CosmeticCapeMixin",
+		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"CosmeticsPreviewMixin",
 		"CosmeticHeadLayerMixin"

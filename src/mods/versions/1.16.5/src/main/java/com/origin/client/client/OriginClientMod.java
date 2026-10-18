@@ -181,6 +181,9 @@ public class OriginClientMod implements ClientModInitializer {
 				// Friends & Party: ping beams + the camera capture for the party markers
 				// (also with Waypoints off). Fail-soft inside.
 				com.origin.client.client.social.Social.renderWorld(context);
+				// Cosmetic sparkles (cosmetics/CosmeticEffects): drawn here, inside the
+				// identity model-view, for the same reason. Fail-soft inside.
+				com.origin.client.client.cosmetics.CosmeticEffects.renderWorld(context);
 				com.origin.client.client.render.OriginRenderTypes.draw();
 			} catch (Throwable t) {
 				// never take the frame down
@@ -222,12 +225,15 @@ public class OriginClientMod implements ClientModInitializer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
 		}
 		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
-		// client (background thread, fail-soft). Capes ride vanilla's cape slot
-		// (CosmeticCapeMixin); the head-cosmetic layer is added to every player
+		// client (background thread, fail-soft) and the menu theme. Capes ride
+		// vanilla's cape slot (CosmeticCapeMixin); the model layer (hats, masks,
+		// wings, backpacks: cosmetics/CosmeticLayer) is added to every player
 		// renderer by CosmeticHeadLayerMixin -- Fabric API 0.42.0+1.16 has no
 		// LivingEntityFeatureRendererRegistrationCallback (it arrived with 1.17).
+		// The sparkles draw from the LAST hook above.
 		try {
 			com.origin.client.client.cosmetics.CosmeticsService.start();
+			com.origin.client.client.theme.ThemeManager.register();
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
 		}
