@@ -5303,3 +5303,8 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
   1.21.1 CosmeticDef/ModelCosmetic). Old jars read it as amp-0 rot = still rings. Halo rule y 10..13
   caps ring minor axis ~1.06 px. Other modules: spin + adjust + new screen NOT ported yet (port after
   Will approves 1.21.1).
+- 2026-10-18: Vercel (Hobby plan) hit its daily deployment limit ("Deployment rate limited — retry in
+  24 hours") because it built a preview for EVERY branch push from every session, so the redesign
+  push to main never went live. Both vercel.json copies now set git.deploymentEnabled to main only
+  ("**": false, "main": true; a branch deploys if any matching rule is true). A branch cut from an
+  older main still lacks this until it merges main.
