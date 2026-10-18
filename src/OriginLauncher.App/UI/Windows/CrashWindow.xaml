@@ -77,7 +77,7 @@
         <Border Grid.Row="2" Margin="0,18,0,0" Background="#FF121918" BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="6">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                      Background="Transparent" Foreground="#FFEFF7F4" BorderThickness="0"
-                     FontFamily="{StaticResource Font.Mono}" FontSize="12" Padding="14"
+                     FontFamily="{StaticResource Font.Mono}" FontSize="12" Padding="28"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>

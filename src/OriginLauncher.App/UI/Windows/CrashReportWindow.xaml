@@ -90,7 +90,7 @@
                 BorderThickness="1" CornerRadius="6">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                      Background="Transparent" Foreground="#FFA7BBB5" BorderThickness="0"
-                     FontFamily="{StaticResource Font.Mono}" FontSize="11" Padding="14"
+                     FontFamily="{StaticResource Font.Mono}" FontSize="11" Padding="28"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
