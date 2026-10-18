@@ -89,6 +89,56 @@ public static class RenderShots
 
         SnapBanners(window, outDir);
 
+        // The other pages and overlays, so a restyle is checked on all of them.
+        window.TourHideLaunch();
+        window.TourGoTo(0);
+        Pump(400);
+        var playerVersion = window.TourCurrentVersion;
+        window.TourShowVersions(-1);
+        Pump(500);
+        Snap(window, outDir, "10-versions-grid");
+        window.TourShowVersions(1);
+        Pump(500);
+        Snap(window, outDir, "11-versions-detail");
+        window.TourHideVersions();
+        window.TourRestoreVersion(playerVersion);   // browsing saved a version; put the player's back
+        Pump(300);
+        window.TourSetAccountOpen(true);
+        Pump(500);
+        Snap(window, outDir, "12-accounts");
+        window.TourSetAccountOpen(false);
+        Pump(300);
+        window.TourGoTo(1);
+        Pump(800);
+        Snap(window, outDir, "13-mods");
+        window.TourGoTo(2);
+        Pump(800);
+        Snap(window, outDir, "14-settings");
+
+        // The smallest window the launcher allows (what 125-150 % scaling leaves on
+        // a 1080p screen): the same screens again, to prove nothing clips.
+        window.Width = 980;
+        window.Height = 600;
+        window.TourSetAccountOpen(false);
+        window.TourGoTo(0);
+        Pump(600);
+        Snap(window, outDir, "20-min-home");
+        window.TourShowVersions(-1);
+        Pump(500);
+        Snap(window, outDir, "21-min-versions-grid");
+        window.TourShowVersions(1);
+        Pump(500);
+        Snap(window, outDir, "22-min-versions-detail");
+        window.TourHideVersions();
+        window.TourRestoreVersion(playerVersion);
+        Pump(300);
+        window.TourGoTo(1);
+        Pump(800);
+        Snap(window, outDir, "23-min-mods");
+        window.TourGoTo(2);
+        Pump(800);
+        Snap(window, outDir, "24-min-settings");
+
         window.Close();
     }
 

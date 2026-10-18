@@ -4,21 +4,21 @@
         Title="Origin — Minecraft crashed"
         Width="620" Height="480" MinWidth="480" MinHeight="360"
         WindowStartupLocation="CenterOwner"
-        Background="#FF090D0C"
+        Background="#FF0E1110"
         FontFamily="{StaticResource Font.Primary}"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
-    <!-- Self-contained styling (hardcoded, no theme StaticResources), same
+    <!-- Self-contained styling (hardcoded Workbench hex, no theme StaticResources), same
          rule as CrashWindow: a crash surface must render no matter what. -->
     <Window.Resources>
         <Style x:Key="CrashButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="16,9"/>
             <Setter Property="MinWidth" Value="110"/>
-            <Setter Property="Foreground" Value="#FFEFF7F4"/>
-            <Setter Property="Background" Value="#FF192320"/>
+            <Setter Property="Foreground" Value="#FFF1E9D2"/>
+            <Setter Property="Background" Value="#FF1D2420"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#FF263732"/>
+            <Setter Property="BorderBrush" Value="#FF2E3B33"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -28,7 +28,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF23302C"/>
+                                <Setter TargetName="B" Property="Background" Value="#FF27302A"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -36,9 +36,9 @@
             </Setter>
         </Style>
         <Style x:Key="CrashButtonPrimary" TargetType="Button" BasedOn="{StaticResource CrashButton}">
-            <Setter Property="Background" Value="#FF4BC8AE"/>
-            <Setter Property="Foreground" Value="#FF061512"/>
-            <Setter Property="BorderBrush" Value="#FF79DEC9"/>
+            <Setter Property="Background" Value="#FF5FD09B"/>
+            <Setter Property="Foreground" Value="#FF0A1710"/>
+            <Setter Property="BorderBrush" Value="#FF83E2B5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -48,7 +48,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF79DEC9"/>
+                                <Setter TargetName="B" Property="Background" Value="#FF83E2B5"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -70,25 +70,25 @@
              names which one crashed: "<account> · Minecraft <version>". -->
         <StackPanel Grid.Row="0">
             <TextBlock Text="Minecraft crashed while starting"
-                       Foreground="#FFEFF7F4" FontSize="26" FontWeight="SemiBold"/>
-            <TextBlock x:Name="WhoText" Foreground="#FF4BC8AE" FontSize="13.5" FontWeight="SemiBold"
+                       Foreground="#FFF1E9D2" FontSize="26" FontWeight="SemiBold"/>
+            <TextBlock x:Name="WhoText" Foreground="#FF5FD09B" FontSize="13.5" FontWeight="SemiBold"
                        Margin="0,6,0,0" Visibility="Collapsed"/>
         </StackPanel>
 
-        <TextBlock Grid.Row="1" x:Name="ReasonText" Foreground="#FFA7BBB5" FontSize="13.5" LineHeight="20"
+        <TextBlock Grid.Row="1" x:Name="ReasonText" Foreground="#FFB8B5A6" FontSize="13.5" LineHeight="20"
                    TextWrapping="Wrap" Margin="0,8,0,0"/>
 
         <!-- One row per implicated mod; hidden when the culprit is unknown. -->
-        <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,14,0,0" Background="#FF121918"
-                BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="2" Padding="14"
+        <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,14,0,0" Background="#FF121614"
+                BorderBrush="#FF4E705C" BorderThickness="1" CornerRadius="2" Padding="14"
                 Visibility="Collapsed">
             <StackPanel x:Name="CulpritList"/>
         </Border>
 
-        <Border Grid.Row="3" Margin="0,12,0,0" Background="#FF121918" BorderBrush="#FF3B524C"
+        <Border Grid.Row="3" Margin="0,12,0,0" Background="#FF121614" BorderBrush="#FF4E705C"
                 BorderThickness="1" CornerRadius="2">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
-                     Background="Transparent" Foreground="#FFA7BBB5" BorderThickness="0"
+                     Background="Transparent" Foreground="#FFB8B5A6" BorderThickness="0"
                      FontFamily="{StaticResource Font.Mono}" FontSize="11" Padding="14"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>

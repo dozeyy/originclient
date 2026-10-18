@@ -12,6 +12,7 @@
                 <ResourceDictionary Source="Theme/Spacing.xaml"/>
                 <ResourceDictionary Source="Theme/Buttons.xaml"/>
                 <ResourceDictionary Source="Theme/Inputs.xaml"/>
+                <ResourceDictionary Source="Theme/Surfaces.xaml"/>
                 <ResourceDictionary Source="Theme/Brand.xaml"/>
                 <ResourceDictionary Source="Theme/Icons.xaml"/>
             </ResourceDictionary.MergedDictionaries>

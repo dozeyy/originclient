@@ -16,7 +16,7 @@
 
     <Color x:Key="Color.Text">#FFF1E9D2</Color>
     <Color x:Key="Color.TextDim">#FFB8B5A6</Color>
-    <Color x:Key="Color.TextMuted">#FF7D8279</Color>
+    <Color x:Key="Color.TextMuted">#FF8C9187</Color>
 
     <Color x:Key="Color.Accent">#FF5FD09B</Color>
     <Color x:Key="Color.AccentHover">#FF83E2B5</Color>
@@ -28,6 +28,26 @@
     <!-- Alpha-0 variant of SoftStroke: same RGB as the hover target so a hover
          fade only animates alpha, never drifts white via RGB interpolation. -->
     <Color x:Key="Color.GhostRest">#0027302A</Color>
+
+    <!-- Site-style translucent surfaces (website ghost button / .vcard li chips:
+         a faint wash of the text colour over whatever is behind, one step
+         brighter on hover). Parchment, never white, so the green-black
+         deepslate stays warm. -->
+    <Color x:Key="Color.Ghost">#14F1E9D2</Color>
+    <Color x:Key="Color.GhostHover">#24F1E9D2</Color>
+    <Color x:Key="Color.Chip">#10F1E9D2</Color>
+
+    <!-- Sunken field surface for text boxes and combo boxes. -->
+    <Color x:Key="Color.Field">#FF121614</Color>
+
+    <!-- Card colour at the opacities the picker/banner art fades use. -->
+    <Color x:Key="Color.CardFade95">#F21D2420</Color>
+    <Color x:Key="Color.CardFade90">#E61D2420</Color>
+    <Color x:Key="Color.CardFade48">#7A1D2420</Color>
+    <Color x:Key="Color.CardFade0">#001D2420</Color>
+    <Color x:Key="Color.InkFade0">#00090D0C</Color>
+    <Color x:Key="Color.InkFade95">#F2090D0C</Color>
+    <Color x:Key="Color.InkFade85">#D9090D0C</Color>
 
     <!-- Lapis (docs/ORIGIN_UI_SYSTEM.md): information only, never decoration. -->
     <Color x:Key="Color.Info">#FF6FAEE8</Color>
@@ -48,6 +68,11 @@
     <SolidColorBrush x:Key="Brush.CardAlt" Color="{StaticResource Color.CardAlt}"/>
     <SolidColorBrush x:Key="Brush.Stroke" Color="{StaticResource Color.Stroke}"/>
     <SolidColorBrush x:Key="Brush.SoftStroke" Color="{StaticResource Color.SoftStroke}"/>
+
+    <SolidColorBrush x:Key="Brush.Ghost" Color="{StaticResource Color.Ghost}"/>
+    <SolidColorBrush x:Key="Brush.GhostHover" Color="{StaticResource Color.GhostHover}"/>
+    <SolidColorBrush x:Key="Brush.Chip" Color="{StaticResource Color.Chip}"/>
+    <SolidColorBrush x:Key="Brush.Field" Color="{StaticResource Color.Field}"/>
 
     <SolidColorBrush x:Key="Brush.Text" Color="{StaticResource Color.Text}"/>
     <SolidColorBrush x:Key="Brush.TextDim" Color="{StaticResource Color.TextDim}"/>
@@ -70,11 +95,12 @@
 
     <!-- Window material and subtle atmospheric wash. The hue only appears in
          the accent glow and interactive state, keeping the chrome restrained. -->
-    <LinearGradientBrush x:Key="Brush.WindowBackdrop" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#FF0E1110" Offset="0"/>
-        <GradientStop Color="#FF151B17" Offset="0.58"/>
+    <RadialGradientBrush x:Key="Brush.WindowBackdrop" Center="0.68,0.36" GradientOrigin="0.68,0.36"
+                         RadiusX="0.78" RadiusY="0.9">
+        <GradientStop Color="#FF1B231E" Offset="0"/>
+        <GradientStop Color="#FF0F1311" Offset="0.6"/>
         <GradientStop Color="#FF090C0A" Offset="1"/>
-    </LinearGradientBrush>
+    </RadialGradientBrush>
     <LinearGradientBrush x:Key="Brush.PrimaryGradient" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#FF83E2B5" Offset="0"/>
         <GradientStop Color="#FF5FD09B" Offset="0.55"/>

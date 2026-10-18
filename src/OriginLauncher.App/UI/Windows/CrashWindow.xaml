@@ -4,7 +4,7 @@
         Title="Origin Launcher — Error"
         Width="660" Height="560" MinWidth="480" MinHeight="380"
         WindowStartupLocation="CenterScreen"
-        Background="#FF090D0C"
+        Background="#FF0E1110"
         FontFamily="{StaticResource Font.Primary}"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
@@ -16,10 +16,10 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="16,9"/>
             <Setter Property="MinWidth" Value="110"/>
-            <Setter Property="Foreground" Value="#FFEFF7F4"/>
-            <Setter Property="Background" Value="#FF192320"/>
+            <Setter Property="Foreground" Value="#FFF1E9D2"/>
+            <Setter Property="Background" Value="#FF1D2420"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#FF263732"/>
+            <Setter Property="BorderBrush" Value="#FF2E3B33"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -29,7 +29,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF23302C"/>
+                                <Setter TargetName="B" Property="Background" Value="#FF27302A"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -37,9 +37,9 @@
             </Setter>
         </Style>
         <Style x:Key="CrashButtonPrimary" TargetType="Button" BasedOn="{StaticResource CrashButton}">
-            <Setter Property="Background" Value="#FF4BC8AE"/>
-            <Setter Property="Foreground" Value="#FF061512"/>
-            <Setter Property="BorderBrush" Value="#FF79DEC9"/>
+            <Setter Property="Background" Value="#FF5FD09B"/>
+            <Setter Property="Foreground" Value="#FF0A1710"/>
+            <Setter Property="BorderBrush" Value="#FF83E2B5"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -49,7 +49,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="B" Property="Background" Value="#FF79DEC9"/>
+                                <Setter TargetName="B" Property="Background" Value="#FF83E2B5"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -68,20 +68,20 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" x:Name="Heading" Text="Origin Launcher ran into a problem"
-                   Foreground="#FFEFF7F4" FontSize="26" FontWeight="SemiBold"/>
+                   Foreground="#FFF1E9D2" FontSize="26" FontWeight="SemiBold"/>
 
-        <TextBlock Grid.Row="1" x:Name="Summary" Foreground="#FFA7BBB5" FontSize="13.5" LineHeight="20" TextWrapping="Wrap" Margin="0,8,0,0"
+        <TextBlock Grid.Row="1" x:Name="Summary" Foreground="#FFB8B5A6" FontSize="13.5" LineHeight="20" TextWrapping="Wrap" Margin="0,8,0,0"
                    Text="Origin closed unexpectedly. Copy the details if you need support."/>
 
-        <Border Grid.Row="2" Margin="0,18,0,0" Background="#FF121918" BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="2">
+        <Border Grid.Row="2" Margin="0,18,0,0" Background="#FF121614" BorderBrush="#FF4E705C" BorderThickness="1" CornerRadius="2">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
-                     Background="Transparent" Foreground="#FFEFF7F4" BorderThickness="0"
+                     Background="Transparent" Foreground="#FFF1E9D2" BorderThickness="0"
                      FontFamily="{StaticResource Font.Mono}" FontSize="12" Padding="14"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
 
-        <TextBlock Grid.Row="3" x:Name="SavedTo" Foreground="#FF6D817B" FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="3" x:Name="SavedTo" Foreground="#FF8C9187" FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap"/>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button x:Name="CopyButton" Content="Copy details" Style="{StaticResource CrashButton}" Margin="0,0,8,0" Click="Copy_Click"/>

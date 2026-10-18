@@ -11,11 +11,8 @@
          card over a dim scrim), not a Win32 MessageBox. Awaited via ShowAsync;
          Primary returns true, Secondary/Esc returns false. -->
     <Border Background="{StaticResource Brush.Scrim}">
-        <Border HorizontalAlignment="Center" VerticalAlignment="Center"
-                MaxWidth="440" Margin="24"
-                Background="{StaticResource Brush.PanelElevated}"
-                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Dialog}" Padding="28,26"
+        <Border Style="{StaticResource Surface.Panel}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                MaxWidth="440" Margin="24" Padding="28,26"
                 Effect="{StaticResource Shadow.Card}">
             <StackPanel>
                 <TextBlock x:Name="TitleText" Style="{StaticResource Text.H2}" TextWrapping="Wrap"/>

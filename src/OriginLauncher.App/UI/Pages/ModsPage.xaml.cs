@@ -72,7 +72,7 @@ public partial class ModsPage : UserControl
 
     private Border RowShell() => new()
     {
-        Background = (Brush)FindResource("Brush.Panel"),
+        Background = (Brush)FindResource("Brush.PanelGlass"),
         BorderBrush = (Brush)FindResource("Brush.SoftStroke"),
         BorderThickness = new Thickness(1),
         CornerRadius = (CornerRadius)FindResource("Radius.Row"),
@@ -277,8 +277,8 @@ public partial class ModsPage : UserControl
 
     private void DropZone_DragLeave(object sender, DragEventArgs e)
     {
-        DropZone.BorderBrush = (Brush)FindResource("Brush.Stroke");
-        DropZone.Background = (Brush)FindResource("Brush.Panel");
+        DropZone.ClearValue(Border.BorderBrushProperty);
+        DropZone.ClearValue(Border.BackgroundProperty);
     }
 
     private void DropZone_Drop(object sender, DragEventArgs e)

@@ -11,7 +11,7 @@
          animation work. -->
     <Grid Background="{StaticResource Brush.WindowBackdrop}" ClipToBounds="True">
         <!-- Brush.Deepslate (Theme/Brand.xaml) — shared with the installer. -->
-        <Rectangle Opacity="0.72" Fill="{StaticResource Brush.Deepslate}"/>
+        <Rectangle Opacity="0.5" Fill="{StaticResource Brush.Deepslate}"/>
 
     </Grid>
 </UserControl>

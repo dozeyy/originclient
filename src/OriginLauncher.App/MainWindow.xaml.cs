@@ -301,6 +301,27 @@ public partial class MainWindow : Window
 
     internal void TourHideLaunch() => _homePage.TourHideLaunch();
 
+    internal void TourShowVersions(int detailIndex) => _homePage.TourShowVersions(detailIndex);
+
+    internal void TourHideVersions() => _homePage.TourHideVersions();
+
+    internal string? TourCurrentVersion => _homePage.CurrentVersion;
+
+    internal void TourRestoreVersion(string? version) => _homePage.TourRestoreVersion(version);
+
+    internal void TourSetAccountOpen(bool open) => SetAccountPanelOpen(open);
+
+    /// <summary>Render mode: 0 = Home, 1 = Mods, 2 = Settings.</summary>
+    internal void TourGoTo(int page)
+    {
+        switch (page)
+        {
+            case 1: NavMods.IsChecked = true; break;
+            case 2: NavSettings.IsChecked = true; break;
+            default: NavHome.IsChecked = true; break;
+        }
+    }
+
     private void OpenSignInPanel()
     {
         if (_signInPanelOpen) return;

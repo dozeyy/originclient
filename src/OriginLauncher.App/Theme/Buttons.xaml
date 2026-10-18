@@ -45,7 +45,7 @@
                             CornerRadius="{StaticResource Radius.Control}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter Margin="{TemplateBinding Padding}"
-                                          HorizontalAlignment="Center"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="Center"
                                           RecognizesAccessKey="True"/>
                     </Border>
@@ -98,32 +98,52 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Secondary / default button: surfaces lighten one step on hover -->
+    <!-- Secondary / default button: the website's ghost button (ghost button): a
+         faint wash of the text colour with a soft stroke; hover lifts the wash one
+         step and brightens the stroke. A disabled button never reacts. -->
     <Style x:Key="Button.Secondary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
-        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        <Setter Property="Background">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.Ghost}"/>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.SoftStroke}"/>
+            </Setter.Value>
+        </Setter>
         <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Trigger.EnterActions>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsEnabled" Value="True"/>
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.CardAlt}"
+                                            To="{StaticResource Color.GhostHover}"
+                                            Duration="{StaticResource Motion.Base}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.Stroke}"
                                             Duration="{StaticResource Motion.Base}"/>
                         </Storyboard>
                     </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                            To="{StaticResource Color.Card}"
-                                            Duration="{StaticResource Motion.Base}"/>
+                                            To="{StaticResource Color.Ghost}"
+                                            Duration="{StaticResource Motion.Release}"/>
+                            <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
+                                            To="{StaticResource Color.SoftStroke}"
+                                            Duration="{StaticResource Motion.Release}"/>
                         </Storyboard>
                     </BeginStoryboard>
-                </Trigger.ExitActions>
-            </Trigger>
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
         </Style.Triggers>
     </Style>
 
@@ -163,34 +183,66 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Primary / launch button: emerald ore state with a hard block shadow. -->
+    <!-- Primary / launch button: flat emerald with the website's hover ring. -->
     <Style x:Key="Button.Primary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Padding" Value="24,14"/>
         <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
-        <Setter Property="Effect" Value="{StaticResource Shadow.Primary}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Row}"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter Margin="{TemplateBinding Padding}"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
-                    </Border>
+                    <Grid>
+                        <Border x:Name="Halo" Margin="{StaticResource Halo.Margin}" CornerRadius="4"
+                                BorderThickness="3" BorderBrush="{StaticResource Brush.AccentSoft}"
+                                IsHitTestVisible="False" Opacity="0"/>
+                        <Border x:Name="Bg"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource Radius.Row}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                                <Condition Property="IsEnabled" Value="True"/>
+                            </MultiTrigger.Conditions>
+                            <MultiTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="{StaticResource Motion.Base}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </MultiTrigger.EnterActions>
+                            <MultiTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="{StaticResource Motion.Release}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </MultiTrigger.ExitActions>
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
         <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Trigger.EnterActions>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsEnabled" Value="True"/>
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
@@ -198,8 +250,8 @@
                                             Duration="{StaticResource Motion.Base}"/>
                         </Storyboard>
                     </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
@@ -207,8 +259,8 @@
                                             Duration="{StaticResource Motion.Release}"/>
                         </Storyboard>
                     </BeginStoryboard>
-                </Trigger.ExitActions>
-            </Trigger>
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
             <Trigger Property="IsPressed" Value="True">
                 <Trigger.EnterActions>
                     <BeginStoryboard>
@@ -255,7 +307,6 @@
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Opacity" Value="0.45"/>
-                <Setter Property="Effect" Value="{x:Null}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -365,10 +416,9 @@
     </Style>
 
     <!--
-        The one primary action on the whole app. A calm, wide command surface
-        reads as native desktop UI while the ion-jade state color connects it to
-        the in-game client. Its shadow stays static: animating WPF blur effects
-        forces expensive software re-rasterization on every frame.
+        The one primary action on the whole app: a flat emerald surface like the
+        website's primary button, with the same hover ring (the template's Halo,
+        a hard 3 px frame; no blur effect, which would be re-rasterized every frame).
     -->
     <Style x:Key="Button.PlayHero" TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="Background" Value="{StaticResource Brush.Accent}"/>
@@ -378,31 +428,59 @@
         <Setter Property="Width" Value="360"/>
         <Setter Property="Height" Value="58"/>
         <Setter Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
-        <Setter Property="Effect">
-            <Setter.Value>
-                <DropShadowEffect x:Name="HeroGlow" Color="#FF5FD09B" Opacity="0.52" BlurRadius="0" ShadowDepth="4" Direction="270"/>
-            </Setter.Value>
-        </Setter>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bg"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Row}"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter Margin="{TemplateBinding Padding}"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
-                    </Border>
+                    <Grid>
+                        <Border x:Name="Halo" Margin="{StaticResource Halo.Margin}" CornerRadius="4"
+                                BorderThickness="3" BorderBrush="{StaticResource Brush.AccentSoft}"
+                                IsHitTestVisible="False" Opacity="0"/>
+                        <Border x:Name="Bg"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource Radius.Row}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                                <Condition Property="IsEnabled" Value="True"/>
+                            </MultiTrigger.Conditions>
+                            <MultiTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="{StaticResource Motion.Base}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </MultiTrigger.EnterActions>
+                            <MultiTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Halo" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="{StaticResource Motion.Release}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </MultiTrigger.ExitActions>
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
         <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Trigger.EnterActions>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsEnabled" Value="True"/>
+                </MultiTrigger.Conditions>
+                <MultiTrigger.EnterActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
@@ -410,8 +488,8 @@
                                             Duration="{StaticResource Motion.Base}"/>
                         </Storyboard>
                     </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
+                </MultiTrigger.EnterActions>
+                <MultiTrigger.ExitActions>
                     <BeginStoryboard>
                         <Storyboard>
                             <ColorAnimation Storyboard.TargetProperty="Background.Color"
@@ -419,8 +497,8 @@
                                             Duration="{StaticResource Motion.Release}"/>
                         </Storyboard>
                     </BeginStoryboard>
-                </Trigger.ExitActions>
-            </Trigger>
+                </MultiTrigger.ExitActions>
+            </MultiTrigger>
             <Trigger Property="IsPressed" Value="True">
                 <Trigger.EnterActions>
                     <BeginStoryboard>

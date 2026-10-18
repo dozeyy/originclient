@@ -58,7 +58,11 @@
             </StackPanel>
 
             <!-- Top-right: account avatar + minimize/close cluster -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,16,0">
+            <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,16,0" Padding="3"
+                    Background="{StaticResource Brush.PanelGlass}"
+                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Row}">
+            <StackPanel Orientation="Horizontal">
                 <!-- Update badge: hidden until UpdateService finds a newer
                      release; clicking downloads it, swaps the install, and
                      restarts the launcher. Download glyph in the same
@@ -108,13 +112,14 @@
                           Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
                 </Button>
             </StackPanel>
+            </Border>
 
             <!-- Compact inventory-style navigation rail: 44px targets, a
                  block edge, and one emerald selected-state marker. -->
             <Border Width="56" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0"
                     Background="{StaticResource Brush.PanelGlass}"
                     BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                    CornerRadius="2" Padding="6,8">
+                    CornerRadius="{StaticResource Radius.Row}" Padding="6,8">
                 <StackPanel Orientation="Vertical">
                     <ToggleButton x:Name="NavHome" Style="{StaticResource Button.NavItem}"
                                   Checked="NavHome_Checked" Unchecked="Nav_Unchecked" Width="44" Height="44" Padding="0"

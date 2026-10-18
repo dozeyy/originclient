@@ -216,6 +216,21 @@ public partial class VersionSelectOverlay : UserControl
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseOverlay();
 
+    // Render mode only (UI/RenderShots.cs): open the picker, optionally straight
+    // into one family's detail view (index into VersionCatalog.Groups).
+    internal void TourOpen(int detailIndex)
+    {
+        Show(null);
+        if (detailIndex >= 0 && detailIndex < VersionCatalog.Groups.Count)
+            GridList.SelectedItem = VersionCatalog.Groups[detailIndex];
+    }
+
+    internal void TourClose()
+    {
+        ++_sceneRevision;
+        Visibility = Visibility.Collapsed;
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);

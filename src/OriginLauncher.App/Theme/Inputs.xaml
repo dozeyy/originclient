@@ -61,10 +61,15 @@
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <Setter Property="CaretBrush" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource Brush.AccentBorder}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
         <Setter Property="Padding" Value="12,9"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.SoftStroke}"/>
+            </Setter.Value>
+        </Setter>
         <Setter Property="MinHeight" Value="40"/>
         <!-- Centered is right for the single-line boxes that make up most of the
              app, so it stays the default here rather than being hardcoded in the
@@ -74,28 +79,29 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
-                    <Border x:Name="Bd"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Control}">
-                        <ScrollViewer x:Name="PART_ContentHost"
-                                      Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                    </Border>
+                    <Grid>
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource Radius.Control}">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <!-- Focus: the 2 px emerald frame (docs/ORIGIN_UI_SYSTEM.md), drawn
+                             inside the box so nothing shifts when it appears. -->
+                        <Border x:Name="FocusFrame" BorderBrush="{StaticResource Brush.Accent}" BorderThickness="2"
+                                CornerRadius="{StaticResource Radius.Control}" IsHitTestVisible="False" Opacity="0"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsFocused" Value="True">
-                            <Trigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <ColorAnimation Storyboard.TargetName="Bd"
-                                                        Storyboard.TargetProperty="BorderBrush.Color"
-                                                        To="{StaticResource Color.Accent}"
-                                                        Duration="{StaticResource Motion.Base}"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.EnterActions>
-                            <Trigger.ExitActions>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                                <Condition Property="IsKeyboardFocusWithin" Value="False"/>
+                                <Condition Property="IsEnabled" Value="True"/>
+                            </MultiTrigger.Conditions>
+                            <MultiTrigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>
                                         <ColorAnimation Storyboard.TargetName="Bd"
@@ -104,7 +110,40 @@
                                                         Duration="{StaticResource Motion.Base}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
+                            </MultiTrigger.EnterActions>
+                            <MultiTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <ColorAnimation Storyboard.TargetName="Bd"
+                                                        Storyboard.TargetProperty="BorderBrush.Color"
+                                                        To="{StaticResource Color.SoftStroke}"
+                                                        Duration="{StaticResource Motion.Release}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </MultiTrigger.ExitActions>
+                        </MultiTrigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="FocusFrame"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="{StaticResource Motion.Base}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="FocusFrame"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="{StaticResource Motion.Release}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
                             </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -214,8 +253,12 @@
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Field}"/>
+        <Setter Property="BorderBrush">
+            <Setter.Value>
+                <SolidColorBrush Color="{StaticResource Color.SoftStroke}"/>
+            </Setter.Value>
+        </Setter>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="12,9"/>
         <Setter Property="MinHeight" Value="40"/>
@@ -244,7 +287,11 @@
                                                     <Storyboard>
                                                         <ColorAnimation Storyboard.TargetName="ToggleBg"
                                                                         Storyboard.TargetProperty="Background.Color"
-                                                                        To="{StaticResource Color.CardAlt}"
+                                                                        To="{StaticResource Color.Card}"
+                                                                        Duration="{StaticResource Motion.Base}"/>
+                                                        <ColorAnimation Storyboard.TargetName="ToggleBg"
+                                                                        Storyboard.TargetProperty="BorderBrush.Color"
+                                                                        To="{StaticResource Color.Stroke}"
                                                                         Duration="{StaticResource Motion.Base}"/>
                                                     </Storyboard>
                                                 </BeginStoryboard>
@@ -254,8 +301,12 @@
                                                     <Storyboard>
                                                         <ColorAnimation Storyboard.TargetName="ToggleBg"
                                                                         Storyboard.TargetProperty="Background.Color"
-                                                                        To="{StaticResource Color.Card}"
-                                                                        Duration="{StaticResource Motion.Base}"/>
+                                                                        To="{StaticResource Color.Field}"
+                                                                        Duration="{StaticResource Motion.Release}"/>
+                                                        <ColorAnimation Storyboard.TargetName="ToggleBg"
+                                                                        Storyboard.TargetProperty="BorderBrush.Color"
+                                                                        To="{StaticResource Color.SoftStroke}"
+                                                                        Duration="{StaticResource Motion.Release}"/>
                                                     </Storyboard>
                                                 </BeginStoryboard>
                                             </Trigger.ExitActions>
@@ -276,7 +327,7 @@
                                                     <Storyboard>
                                                         <ColorAnimation Storyboard.TargetName="ToggleBg"
                                                                         Storyboard.TargetProperty="BorderBrush.Color"
-                                                                        To="{StaticResource Color.Stroke}"
+                                                                        To="{StaticResource Color.SoftStroke}"
                                                                         Duration="{StaticResource Motion.Base}"/>
                                                     </Storyboard>
                                                 </BeginStoryboard>
@@ -328,12 +379,12 @@
                         <ContentPresenter/>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.AccentSoft}"/>
                             <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                         </Trigger>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.Card}"/>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource Brush.GhostHover}"/>
                             <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>

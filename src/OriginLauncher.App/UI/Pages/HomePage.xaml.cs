@@ -1104,6 +1104,16 @@ public partial class HomePage : UserControl
 
     internal void TourHideLaunch() => LoadingOverlay.Hide();
 
+    internal void TourShowVersions(int detailIndex) => VersionOverlay.TourOpen(detailIndex);
+
+    internal void TourHideVersions() => VersionOverlay.TourClose();
+
+    /// <summary>Browsing the picker selects (and saves) versions; the render run puts the player's own back.</summary>
+    internal void TourRestoreVersion(string? version)
+    {
+        if (version != null) OnVersionSelected(version);
+    }
+
     private enum StatusTone
     {
         Neutral,

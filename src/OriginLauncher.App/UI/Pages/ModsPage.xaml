@@ -5,39 +5,52 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d">
 
+    <UserControl.Resources>
+        <!-- Card surface with a hover edge. The code-behind only sets local values
+             while a file is dragged over it, and clears them again afterwards. -->
+        <Style x:Key="ModsPage.DropZone" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.PanelGlass}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <!-- MainWindow reserves the compact navigation rail. Scrollbar stays hidden
          while wheel scrolling remains available. -->
-    <ScrollViewer Margin="28,20,36,24" VerticalScrollBarVisibility="Hidden">
+    <ScrollViewer Margin="{StaticResource Layout.PageMargin}" VerticalScrollBarVisibility="Hidden">
         <ScrollViewer.Resources>
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
         </ScrollViewer.Resources>
 
-        <StackPanel Width="720" HorizontalAlignment="Left">
+        <StackPanel MaxWidth="{StaticResource Layout.PageWidth}">
 
-            <!-- Header -->
-            <Grid Margin="0,0,0,4">
+            <!-- Page head, as on the website: eyebrow, then the big line; the
+                 version this list belongs to sits on the right as a chip. -->
+            <Grid Margin="0,0,0,22">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Mods" Style="{StaticResource Text.H1}"/>
-                <Border Grid.Column="1" x:Name="VersionChip" VerticalAlignment="Center"
-                        Background="{StaticResource Brush.AccentSoft}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Chip}" Padding="10,4">
-                    <TextBlock x:Name="VersionChipText" Text="—" Style="{StaticResource Text.BodyDim}"/>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="MINECRAFT" Style="{StaticResource Text.Eyebrow}" Margin="1,0,0,4"/>
+                    <TextBlock Text="Mods" Style="{StaticResource Text.Headline}"/>
+                </StackPanel>
+                <Border Grid.Column="1" x:Name="VersionChip" VerticalAlignment="Bottom"
+                        Style="{StaticResource Chip.Accent}" Margin="0,0,0,6" Padding="10,5">
+                    <TextBlock x:Name="VersionChipText" Text="—" Style="{StaticResource Text.Chip}" FontSize="{StaticResource FontSize.Body}"/>
                 </Border>
             </Grid>
-            <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
-                    CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,18"/>
 
             <!-- Drop zone: drag .jar files in, or click to open the mods folder -->
             <Border x:Name="DropZone" AllowDrop="True" Cursor="Hand"
-                    Background="{StaticResource Brush.PanelGlass}"
-                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                    CornerRadius="{StaticResource Radius.Card}"
+                    BorderThickness="1" CornerRadius="{StaticResource Radius.Card}"
                     Padding="30" Margin="0,0,0,24"
                     MouseLeftButtonUp="DropZone_Click"
+                    Style="{StaticResource ModsPage.DropZone}"
                     DragEnter="DropZone_DragEnter" DragOver="DropZone_DragEnter"
                     DragLeave="DropZone_DragLeave" Drop="DropZone_Drop">
                 <StackPanel HorizontalAlignment="Center">
