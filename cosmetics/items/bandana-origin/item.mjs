@@ -183,8 +183,11 @@ function paintFront(v, f, c) {
     else {
       const L = frontLight(X, Y);
       const base = cloth(L, x, y), cv = markCov(X, Y);
-      const sh = clamp(markCov(X - px, Y + px) * 0.8);                       // a soft 1 texel shadow down-right of the thread
-      const under = sh > 0 ? mix(base, cloth(L - 0.3, x, y), sh) : base;
+      // a soft dark halo hugging the thread (2 texels, fading out) so the thin stroke never sinks into the cloth
+      let halo = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const r = Math.hypot(dx, dy); if (r <= 2.3) halo = Math.max(halo, markCov(X + dx * px, Y + dy * px) * (1 - r / 2.8)); }
+      const sh = clamp(halo * 1.15);
+      const under = sh > 0 ? mix(base, cloth(L - 0.42, x, y), sh) : base;
       col = cv > 0.02 ? mix(under, threadCol(markTone(X, Y)), cv) : under;
     }
     tex.push([x, y, col]);

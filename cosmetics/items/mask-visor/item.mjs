@@ -35,17 +35,23 @@ const LZ = [4.0, 4.625];
 // steps toward the temples so the ends taper into the wrap.
 // The pieces overlap by a texel (painted from world position, so overlaps are seamless): adjacent boxes
 // that only touch leave hairline cracks where the skin shows through.
-part('lens', [-4.375, 3.375, LZ[0]], [4.375, 4.75, LZ[1]]);
-part('lens', [-3.5, 2.875, LZ[0]], [3.5, 3.5, LZ[1]]);
+// The lower edge is shaped, never a bar: a small nose-bridge notch (|x| < 0.75 rides up to y 3.375), full depth
+// beside it (y 2.875), then the edge curves up toward each temple in three steps (3.125, 3.5, 3.875): a 1 px
+// wrap at each end.
+const BOT = 3.875;
+part('lens', [-4.375, BOT, LZ[0]], [4.375, 4.75, LZ[1]]);
+part('lens', [-0.875, 3.375, LZ[0]], [0.875, BOT + 0.125, LZ[1]]);
 for (const sx of [1, -1]) {
   const m = (a, b) => (sx > 0 ? [a, b] : [-b, -a]);
-  const [b0, b1] = m(3.375, 4.0);
-  part('lens', [b0, 3.125, LZ[0]], [b1, 3.5, LZ[1]], { sx });
+  for (const [x0, x1, y0] of [[0.75, 2.875, 2.875], [2.75, 3.625, 3.125], [3.5, 4.125, 3.5]]) {
+    const [b0, b1] = m(x0, x1);
+    part('lens', [b0, y0, LZ[0]], [b1, BOT + 0.125, LZ[1]], { sx });
+  }
   // wraparound side glass, its front end sunk into the lens (the 1 texel left showing is a stepped chamfer)
   const [s0, s1] = m(4.0, 4.5);
   // ...then tapers toward the temple in two steps (the second overlaps the first by a texel)
-  part('lensSide', [s0, 3.5, 3.25], [s1, 4.75, 4.125], { sx });
-  part('lensSide', [s0, 3.75, 2.375], [s1, 4.75, 3.375], { sx, tail: true });
+  part('lensSide', [s0, 3.75, 3.25], [s1, 4.75, 4.125], { sx });
+  part('lensSide', [s0, 3.875, 2.375], [s1, 4.75, 3.375], { sx, tail: true });
   // brow lip over the side glass
   const [w0, w1] = m(4.0, 4.625);
   part('brow', [w0, 4.625, 2.0], [w1, 5.0, 3.875], { sx });
@@ -142,7 +148,7 @@ function paintLensSide(v, f, c) {
       const lower = !c.tail && Z < 3.375 ? 3.75 : yb;                                    // under the tail piece's step
       col = back ? G[0] : Y < yb + px ? G[0] : Y < yb + 2 * px ? G[3] : dpick(G, glassStep(a, Y) - 0.6, Z, Y);
       void lower;
-    } else if (f === 'south') col = Y < 3.5 + px ? G[0] : dpick(G, glassStep(sx * 4.4, Y), X, Y);     // the 1 texel chamfer
+    } else if (f === 'south') col = Y < 3.75 + px ? G[0] : dpick(G, glassStep(sx * 4.4, Y), X, Y);     // the 1 texel chamfer
     else col = G[0];
     void X;
     v.set(x, y, col);
