@@ -33,13 +33,9 @@ public partial class SocialToastHost : UserControl
 {
     // Two on screen at most; the rest wait and show as "+N more" (the Play card stays uncovered).
     private const int MaxVisible = 2;
-    private const int MaxWaiting = 20;
-    private static readonly TimeSpan ShortLife = TimeSpan.FromSeconds(7);
-    // A warp stays up longer: the service keeps it for two minutes.
-    private static readonly TimeSpan WarpLife = TimeSpan.FromSeconds(30);
 
     private readonly ObservableCollection<ToastVm> _items = new();
-    private readonly Queue<SocialToast> _waiting = new();
+    private readonly ToastQueue _waiting = new(capacity: 20);
 
     /// <summary>The card was clicked: open whatever it's about.</summary>
     public event Action<SocialToast>? Opened;
@@ -60,20 +56,16 @@ public partial class SocialToastHost : UserControl
     {
         if (_items.Count >= MaxVisible)
         {
-            _waiting.Enqueue(toast);
-            while (_waiting.Count > MaxWaiting) _waiting.Dequeue();
+            _waiting.Enqueue(toast, DateTimeOffset.UtcNow);
             UpdateMore();
             return;
         }
-        Display(toast);
+        Display(toast, ToastQueue.LifeOf(toast.Kind));
     }
 
-    private void Display(SocialToast toast)
+    private void Display(SocialToast toast, TimeSpan life)
     {
-        var timer = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = toast.Kind == SocialToastKind.Warp ? WarpLife : ShortLife,
-        };
+        var timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = life };
         var vm = new ToastVm { Toast = toast, Icon = IconFor(toast.Kind), Timer = timer };
         timer.Tick += (_, _) => Remove(vm);
         _items.Add(vm);
@@ -92,21 +84,23 @@ public partial class SocialToastHost : UserControl
     {
         vm.Timer.Stop();
         _items.Remove(vm);
-        // A place opened up: the next waiting toast takes it.
-        while (_items.Count < MaxVisible && _waiting.Count > 0) Display(_waiting.Dequeue());
+        // A place opened up: the next waiting toast that is still fresh takes it, for what is left of its life.
+        while (_items.Count < MaxVisible && _waiting.TakeNext(DateTimeOffset.UtcNow) is { } next)
+            Display(next.Toast, next.Left);
         UpdateMore();
     }
 
     private void UpdateMore()
     {
+        _waiting.Purge(DateTimeOffset.UtcNow);
         MoreButton.Visibility = _waiting.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         MoreButton.Content = $"+{_waiting.Count} more";
     }
 
     private void More_Click(object sender, RoutedEventArgs e)
     {
-        // Everything waiting is also in the drawer (messages, requests, invites, the warp card).
-        _waiting.Clear();
+        // Messages, requests, invites and the warp are all in the drawer; a Notice has no row there, so it keeps waiting.
+        _waiting.DropDrawerKinds();
         UpdateMore();
         MoreClicked?.Invoke();
     }

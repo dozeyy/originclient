@@ -10,15 +10,15 @@ public static class SocialText
         $"{Math.Max(0, count).ToString("N0", CultureInfo.InvariantCulture)} playing Origin";
 
     /// <summary>
-    /// A friend's one-line status: "Playing on hypixel.net · 1.21.1",
-    /// "Playing singleplayer · 1.20.1", "In game · 1.21.1", "In the launcher",
+    /// A friend's one-line status: "Playing on hypixel.net - 1.21.1",
+    /// "Playing singleplayer - 1.20.1", "In game - 1.21.1", "In the launcher",
     /// "Offline". The version is left off when the friend's client didn't send one.
     /// </summary>
     public static string StatusLine(FriendInfo friend)
     {
         var text = ActivityLine(friend);
         if (!friend.Online || friend.Client == "launcher" || string.IsNullOrWhiteSpace(friend.Version)) return text;
-        return $"{text} · {friend.Version}";
+        return $"{text} - {friend.Version}";
     }
 
     /// <summary>

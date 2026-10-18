@@ -90,6 +90,94 @@ public class KeyedDiffTests
         Assert.Equal(["c", "a", "b"], list.Select(r => r.Key));
     }
 
+    private static int Count(List<NotifyCollectionChangedAction> actions, NotifyCollectionChangedAction kind) =>
+        actions.Count(a => a == kind);
+
+    [Fact]
+    public void RowsWithUnchangedSignaturesKeepTheirInstances()
+    {
+        var originals = Enumerable.Range(0, 6).Select(i => new Row($"k{i}", "s")).ToList();
+        var list = new ObservableCollection<Row>(originals);
+        // Same keys and contents in a new order, as brand-new objects: nothing may be replaced.
+        var next = new[] { 3, 0, 1, 5, 2, 4 }.Select(i => new Row($"k{i}", "s")).ToArray();
+        Apply(list, next);
+        Assert.Equal(next.Select(r => r.Key), list.Select(r => r.Key));
+        Assert.All(list, row => Assert.Contains(originals, o => ReferenceEquals(o, row)));
+    }
+
+    [Fact]
+    public void ARowJumpingTenPlacesIsOneMove()
+    {
+        var rows = Enumerable.Range(0, 12).Select(i => new Row($"k{i}")).ToList();
+
+        var down = new ObservableCollection<Row>(rows);
+        var downActions = Record(down);
+        Apply(down, rows.Skip(1).Append(rows[0]).ToArray()); // the first row goes to the end
+        Assert.Equal([NotifyCollectionChangedAction.Move], downActions);
+        Assert.Same(rows[0], down[^1]);
+
+        var up = new ObservableCollection<Row>(rows);
+        var upActions = Record(up);
+        Apply(up, rows.TakeLast(1).Concat(rows.SkipLast(1)).ToArray()); // the last row goes to the front
+        Assert.Equal([NotifyCollectionChangedAction.Move], upActions);
+        Assert.Same(rows[^1], up[0]);
+    }
+
+    [Fact]
+    public void ARotationMovesOnlyTheRowsThatTurnedAround()
+    {
+        var rows = "abcde".Select(c => new Row(c.ToString())).ToList();
+        var list = new ObservableCollection<Row>(rows);
+        var actions = Record(list);
+        Apply(list, rows[2], rows[3], rows[4], rows[0], rows[1]);
+        Assert.Equal("cdeab", string.Concat(list.Select(r => r.Key)));
+        Assert.Equal(2, Count(actions, NotifyCollectionChangedAction.Move));
+        Assert.Equal(2, actions.Count);
+    }
+
+    [Fact]
+    public void AMoveAndAContentChangeIsAMoveThenAReplace()
+    {
+        var a = new Row("a", "1");
+        var b = new Row("b", "1");
+        var c = new Row("c", "1");
+        var list = new ObservableCollection<Row> { a, b, c };
+        var actions = Record(list);
+        Apply(list, new Row("c", "2"), a, b);
+        Assert.Equal([NotifyCollectionChangedAction.Move, NotifyCollectionChangedAction.Replace], actions);
+        Assert.Equal("c2", list[0].Key + list[0].Sig);
+        Assert.Same(a, list[1]);
+        Assert.Same(b, list[2]);
+    }
+
+    [Fact]
+    public void ADuplicateKeyNeverThrowsAndTheListEndsAsRequested()
+    {
+        var list = new ObservableCollection<Row> { new("a"), new("a"), new("b") };
+        Apply(list, new Row("a"), new Row("b"), new Row("a"));
+        Assert.Equal("aba", string.Concat(list.Select(r => r.Key)));
+
+        Apply(list, new Row("b"), new Row("b"), new Row("b"), new Row("a"));
+        Assert.Equal("bbba", string.Concat(list.Select(r => r.Key)));
+
+        Apply(list, new Row("a"));
+        Assert.Equal("a", string.Concat(list.Select(r => r.Key)));
+    }
+
+    [Fact]
+    public void ATrimOfSeveralOldRowsPlusSeveralNewOnesCostsOnlyThose()
+    {
+        var list = new ObservableCollection<Row>(Enumerable.Range(1, 200).Select(i => new Row($"m{i}")));
+        var kept = list[10];
+        var actions = Record(list);
+        Apply(list, Enumerable.Range(4, 200).Select(i => new Row($"m{i}")).ToArray());
+        Assert.Equal(3, Count(actions, NotifyCollectionChangedAction.Remove));
+        Assert.Equal(3, Count(actions, NotifyCollectionChangedAction.Add));
+        Assert.Equal(6, actions.Count);
+        Assert.Same(kept, list[10 - 3]);
+        Assert.Equal("m203", list[^1].Key);
+    }
+
     [Fact]
     public void AnyChangeEndsWithExactlyTheNewList()
     {
@@ -125,8 +213,72 @@ public class SocialActivityLineTests
     public void StatusLineIsTheActivityPlusTheVersionWhenThereIsOne()
     {
         var f = Friend(true);
-        Assert.Equal(SocialText.ActivityLine(f) + " · 1.21.1", SocialText.StatusLine(f));
+        Assert.Equal(SocialText.ActivityLine(f) + " - 1.21.1", SocialText.StatusLine(f));
         Assert.Equal("In game", SocialText.StatusLine(Friend(true, activity: "menu", server: null, version: null)));
         Assert.Equal("In the launcher", SocialText.StatusLine(Friend(true, client: "launcher", activity: "menu")));
+    }
+}
+
+public class ToastQueueTests
+{
+    private static readonly DateTimeOffset T0 = new(2026, 10, 18, 12, 0, 0, TimeSpan.Zero);
+
+    private static SocialToast Toast(SocialToastKind kind, string title = "t") => new(kind, title, "body");
+
+    [Fact]
+    public void WhatOverflowsIsCounted()
+    {
+        var queue = new ToastQueue(capacity: 3);
+        for (var i = 0; i < 5; i++) queue.Enqueue(Toast(SocialToastKind.Message, $"m{i}"), T0);
+        Assert.Equal(2, queue.Overflow);
+        Assert.Equal(5, queue.Count);
+    }
+
+    [Fact]
+    public void ANoticeIsDroppedLastWhenRoomRunsOut()
+    {
+        var queue = new ToastQueue(capacity: 2);
+        queue.Enqueue(Toast(SocialToastKind.Notice, "why"), T0);
+        queue.Enqueue(Toast(SocialToastKind.Message, "m1"), T0);
+        queue.Enqueue(Toast(SocialToastKind.Message, "m2"), T0);
+        Assert.Equal(1, queue.Overflow);
+        Assert.Equal("why", queue.TakeNext(T0)!.Value.Toast.Title);
+        Assert.Equal("m2", queue.TakeNext(T0)!.Value.Toast.Title);
+    }
+
+    [Fact]
+    public void OpeningTheDrawerClearsOnlyWhatTheDrawerShows()
+    {
+        var queue = new ToastQueue(capacity: 5);
+        queue.Enqueue(Toast(SocialToastKind.Message), T0);
+        queue.Enqueue(Toast(SocialToastKind.Notice, "why"), T0);
+        queue.Enqueue(Toast(SocialToastKind.FriendRequest), T0);
+        queue.Enqueue(Toast(SocialToastKind.Warp), T0);
+        queue.DropDrawerKinds();
+        Assert.Equal(1, queue.Count);
+        Assert.Equal("why", queue.TakeNext(T0)!.Value.Toast.Title);
+        Assert.Null(queue.TakeNext(T0));
+    }
+
+    [Fact]
+    public void AToastThatOutwaitedItsLifeIsNeverShownLate()
+    {
+        var queue = new ToastQueue(capacity: 5);
+        queue.Enqueue(Toast(SocialToastKind.Message, "old"), T0);
+        queue.Enqueue(Toast(SocialToastKind.Message, "fresh"), T0 + TimeSpan.FromSeconds(6));
+        var next = queue.TakeNext(T0 + TimeSpan.FromSeconds(8));
+        Assert.Equal("fresh", next!.Value.Toast.Title);
+        Assert.Null(queue.TakeNext(T0 + TimeSpan.FromSeconds(8)));
+        Assert.Equal(0, queue.Count);
+    }
+
+    [Fact]
+    public void ALateToastGetsOnlyWhatIsLeftOfItsLife()
+    {
+        var queue = new ToastQueue(capacity: 5);
+        queue.Enqueue(Toast(SocialToastKind.Message), T0);
+        queue.Enqueue(Toast(SocialToastKind.Warp), T0);
+        Assert.Equal(TimeSpan.FromSeconds(4), queue.TakeNext(T0 + TimeSpan.FromSeconds(3))!.Value.Left);
+        Assert.Equal(TimeSpan.FromSeconds(27), queue.TakeNext(T0 + TimeSpan.FromSeconds(3))!.Value.Left);
     }
 }

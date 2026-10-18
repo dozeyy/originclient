@@ -48,6 +48,9 @@ public partial class FriendsPanel : UserControl
     private string? _chatKey;
     private bool _shown;
     private bool _menuOpen;
+    // The menu that holds the list still, and the action its item chose (run once the menu has closed).
+    private ContextMenu? _menu;
+    private Action? _menuAction;
     private bool _renderDirty = true;
     private bool _syncingToggle;
     private bool _appearOfflinePending;
@@ -80,7 +83,14 @@ public partial class FriendsPanel : UserControl
     {
         _shown = shown;
         Service.SetOpenConversation(shown ? _chatKey : null);
-        if (!shown) return;
+        if (!shown)
+        {
+            // Closing the drawer abandons a menu and a pending Remove / Block / Kick question
+            // (releasing the in-flight guard it held).
+            CloseMenu();
+            Confirm.Dismiss();
+            return;
+        }
         if (_chatKey == null) HideNotice();
         if (_renderDirty) Render();
     }
@@ -88,6 +98,7 @@ public partial class FriendsPanel : UserControl
     /// <summary>Opens a conversation (a friend's uuid, or <see cref="SocialSnapshot.PartyKey"/>).</summary>
     public void OpenConversation(string key)
     {
+        CloseMenu();
         _chatKey = key;
         ChatInput.Text = "";
         ChatError.Visibility = Visibility.Collapsed;
@@ -574,6 +585,7 @@ public partial class FriendsPanel : UserControl
 
     private void BackToList(bool render = true)
     {
+        CloseMenu();
         _chatKey = null;
         _chatRows.Clear();
         JumpButton.Visibility = Visibility.Collapsed;
@@ -785,22 +797,46 @@ public partial class FriendsPanel : UserControl
     }
 
     /// <summary>
-    /// Opens a menu and holds back list redraws until it closes: a sync can no longer
-    /// tear down the row the menu is anchored to.
+    /// Opens a menu and holds back list redraws while it is open: a sync can no longer
+    /// tear down the row the menu is anchored to. The flag follows the menu's own
+    /// Opened / Closed events (and <see cref="CloseMenu"/>), so it can't stay stuck.
+    /// The chosen item runs after the menu has closed, so focus the menu gives back to
+    /// the row can't steal the focus an action such as "Message" has just placed.
     /// </summary>
     private void OpenMenu(ContextMenu menu, FrameworkElement target, bool atMouse)
     {
         if (menu.Items.Count == 0) return;
+        CloseMenu();
         menu.PlacementTarget = target;
         menu.Placement = atMouse ? PlacementMode.MousePoint : PlacementMode.Bottom;
         menu.HorizontalOffset = atMouse ? 0 : Math.Min(0, target.ActualWidth - 196);
-        _menuOpen = true;
+        menu.Opened += (_, _) =>
+        {
+            if (ReferenceEquals(_menu, menu)) _menuOpen = true;
+        };
         menu.Closed += (_, _) =>
         {
+            if (!ReferenceEquals(_menu, menu)) return;
+            _menu = null;
             _menuOpen = false;
+            var action = _menuAction;
+            _menuAction = null;
             if (_renderDirty) Render();
+            // Background priority: after the focus the closing menu restores has settled.
+            if (action != null) Dispatcher.BeginInvoke(action, DispatcherPriority.Background);
         };
+        _menu = menu;
         menu.IsOpen = true;
+    }
+
+    /// <summary>Closes any open menu and forgets its pending action; the list may draw again.</summary>
+    private void CloseMenu()
+    {
+        var menu = _menu;
+        _menu = null;
+        _menuAction = null;
+        _menuOpen = false;
+        if (menu is { IsOpen: true }) menu.IsOpen = false;
     }
 
     /// <summary>
@@ -869,7 +905,8 @@ public partial class FriendsPanel : UserControl
             },
         };
         if (danger) item.Foreground = (Brush)FindResource("Brush.Danger");
-        item.Click += (_, _) => action();
+        // Remembered, then run by OpenMenu once the menu has closed.
+        item.Click += (_, _) => _menuAction = action;
         return item;
     }
 
