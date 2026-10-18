@@ -260,6 +260,9 @@ public final class OriginScreenRenderer {
 				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
 		loadFillAt = scene;
 
+		if (drive) {
+			warmTitle(guiGraphics, clamped >= 1f);
+		}
 		// No orbit rings here (Will 2026-10-18): the moving mark is the scene.
 		guiGraphics.fill(0, 0, w, h, fade(OriginTheme.BG));
 		drawGrain(guiGraphics, w, h);
@@ -289,6 +292,84 @@ public final class OriginScreenRenderer {
 		// same reason). The animated wordmark + bar carry the scene — which is
 		// also the original mock's look. Corner brackets on top of everything.
 		drawCornerBrackets(guiGraphics, w, h);
+	}
+
+	// The main menu's first frame was its slowest, and it lands exactly on the
+	// hand-off (dev-shots: 4x a normal frame, the loading mark frozen meanwhile).
+	// Each kind of draw the menu makes costs extra the first time: its textures
+	// decoded and uploaded, the graphics driver building that shader. The loading
+	// screen pays those up front instead, one step per frame, drawn tiny and
+	// near-transparent in the corner and then covered by its own opaque backdrop.
+	// Steps that need the finished load (the menu's shaders, its text) wait for it.
+	private static final int WARM_ALL = 0b11111;
+	/** Barely-there white: inks every pixel path without being seen, under the backdrop anyway. */
+	private static final int WARM_INK = 0x08FFFFFF;
+	private static int warmed;   // bit set of the warm-up steps done
+
+	/** True once the startup reload behind the loading overlay has finished every task. */
+	private static boolean reloadDone(Minecraft mc) {
+		if (!(mc.getOverlay() instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor overlay)) {
+			return false;
+		}
+		net.minecraft.server.packs.resources.ReloadInstance reload = overlay.originclient$reload();
+		return reload != null && reload.isDone();
+	}
+
+	private static void warmTitle(GuiGraphics guiGraphics, boolean loadDone) {
+		if (warmed == WARM_ALL) {
+			return;
+		}
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			// The icon atlas waits until the reload has fully finished. On 1.21.2-1.21.4
+			// ModIcons asks the ShaderManager for the icon program, and asking before the
+			// manager has loaded this pack's shaders fails into
+			// Minecraft.triggerResourcePackRecovery: the loading screen is dropped mid-load
+			// and every screen after it renders black (dev-shots 1.21.4-handoff-fix3; the
+			// same trap as GuiMesh's RENDERTYPE_GUI note). mc.screen is NOT a safe signal
+			// here (a screen already exists mid-load: dev-shots 1.21.4-handoff-fix4). No
+			// readable reload (accessor not applied) = never: the menu loads icons itself.
+			if ((warmed & 1) == 0 && reloadDone(mc)) {
+				warmed |= 1;
+				com.origin.client.client.gui.ModIcons.has("@title-singleplayer");   // decodes the icon atlases
+				return;
+			}
+			if ((warmed & 2) == 0) {
+				warmed |= 2;
+				com.origin.client.client.gui.OriginUi.ready();   // decodes the panel/switch/logo textures
+				return;
+			}
+			// Every warm draw below waits for the finished reload too, for the same
+			// reason as the icon step: no draw may ask the ShaderManager mid-load.
+			if (!reloadDone(mc)) {
+				return;
+			}
+			boolean drew = false;
+			if ((warmed & 4) == 0 && mc.screen != null) {
+				warmed |= 4;
+				com.origin.client.client.gui.OriginUi.panel(guiGraphics, 0, 0, 8, 8, 3, WARM_INK, 0);
+				drew = true;
+			} else if ((warmed & 8) == 0 && com.origin.client.client.gui.OriginShaders.ICON != null) {
+				warmed |= 8;
+				com.origin.client.client.gui.ModIcons.draw(guiGraphics, "@title-singleplayer", 0, 0, 8, WARM_INK);
+				drew = true;
+			} else if ((warmed & 16) == 0 && loadDone) {
+				warmed |= 16;
+				com.origin.client.client.gui.OriginText.drawBold(guiGraphics, mc.font, "Singleplayer", 0, 0, WARM_INK, true);
+				renderTitleAccountChip(guiGraphics);
+				guiGraphics.flush();
+				drew = true;
+			}
+			if (drew) {
+				// The menu draws some of these a little in front (z > 0): clear depth so
+				// the backdrop drawn next covers them, the same clear GameRenderer does.
+				RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT);
+			}
+		} catch (Throwable t) {
+			warmed = WARM_ALL;   // a warm-up is only an optimisation: never retried, never fatal
+		} finally {
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		}
 	}
 
 	/**

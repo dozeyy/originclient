@@ -20,14 +20,17 @@ import com.origin.client.client.theme.OriginTheme;
  * Entering a world has no transition on purpose (Will 2026-10-18: "like normal
  * once the world loads") — the world appears the frame it is ready.
  *
- * Render thread only. The clock is a plain timestamp: nothing ticks between
- * transitions, so a finished transition costs nothing.
+ * Render thread only. Everything in the hand-off counts on ONE clock,
+ * {@link #clockMs}: the scene clock the loading mark, its flight and the rings
+ * run on. The dissolve, the flight and the title's entrance used to read two
+ * different clocks, so a slow frame at the hand-off (the main menu's first
+ * frame) moved one and not the other and the picture jumped (Will 2026-10-18).
  */
 public final class StartupTransition {
 	/** Loading -> title dissolve. Mirrors the launcher's Motion.Intro. */
 	public static final long REVEAL_MS = 560;
 
-	// System.currentTimeMillis() of the startup reveal's first frame; 0 = none yet.
+	// clockMs() at the startup reveal's first frame; 0 = none yet.
 	private static long titleRevealAt = 0;
 	// 1.8.9: the startup intro is claimed (played, or given up) at most once.
 	private static boolean introClaimed = false;
@@ -43,8 +46,16 @@ public final class StartupTransition {
 	/** The startup loading screen began dissolving into the title (first frame only counts). */
 	public static void titleRevealed() {
 		if (titleRevealAt == 0) {
-			titleRevealAt = System.currentTimeMillis();
+			titleRevealAt = clockMs();
 		}
+	}
+
+	/**
+	 * The hand-off's clock in ms (never 0): RingField's scene clock, which glides
+	 * through uneven frames and drops a freeze instead of jumping past it.
+	 */
+	public static long clockMs() {
+		return 1L + (long) com.origin.client.client.render.RingField.sceneMs();
 	}
 
 	/**

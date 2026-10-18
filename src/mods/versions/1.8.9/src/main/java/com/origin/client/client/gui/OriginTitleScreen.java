@@ -84,7 +84,7 @@ public class OriginTitleScreen extends OriginScreen {
 	@Override
 	protected void init() {
 		if (openedAt == 0) {           // first title of the game only -- a resize or return doesn't replay
-			openedAt = System.currentTimeMillis();
+			openedAt = com.origin.client.client.StartupTransition.clockMs();
 			if (StartupTransition.claimIntro() && OriginScreenRenderer.isActive()) {
 				intro = HOLD;
 			}
@@ -149,7 +149,7 @@ public class OriginTitleScreen extends OriginScreen {
 	/** The nav's staggered entrance rise on Y (the dock sits still), re-applied
 	 *  every frame like the other versions' title mixins. */
 	private void applyPositions() {
-		long el = System.currentTimeMillis() - StartupTransition.titleIntroStart(openedAt);
+		long el = com.origin.client.client.StartupTransition.clockMs() - StartupTransition.titleIntroStart(openedAt);
 		for (int i = 0; i < nav.size(); i++) {
 			int[] t = navPos.get(i);
 			double e = el > 1200 ? 1.0 : ease((el - 120 - i * 55) / 380.0);
@@ -176,7 +176,7 @@ public class OriginTitleScreen extends OriginScreen {
 		}
 		long fadeT = -1;
 		if (intro == DISSOLVE) {
-			long t = dissolveAt == 0 ? 0 : System.currentTimeMillis() - dissolveAt;
+			long t = dissolveAt == 0 ? 0 : StartupTransition.clockMs() - dissolveAt;
 			if (t >= StartupTransition.REVEAL_MS) {
 				// The dissolve's last frame: end the layer BEFORE the title draws, or
 				// the title's mark (hidden while the layer is up) blinks out for a
@@ -214,7 +214,7 @@ public class OriginTitleScreen extends OriginScreen {
 				// First dissolve frame: the layer still fully covers the title (whose
 				// slow first frame is now out of the way). Both the dissolve and the
 				// title's entrance count from here.
-				dissolveAt = System.currentTimeMillis();
+				dissolveAt = StartupTransition.clockMs();
 				StartupTransition.titleRevealed();
 			}
 		}
