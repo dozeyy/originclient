@@ -95,10 +95,14 @@ Updated 2026-10-18.
   compiled), the installer smoke test passed, and the launcher logic tests passed.
   cosmetics-service and launcher-shots also passed. Compiling is not running:
   **nothing has been run in game.**
-- **CI on e2e1e992 (every version ported): build-check all green**, ref-189 green. Dev shots on
-  1.20, 1.20.2, 1.20.4 and 1.21 booted with no mixin-apply failures and the Cosmetics screen
-  showed the worn cape, wings and halo on the model. Dev shots are automated headless boots,
-  not a player's test.
+- **CI on e2e1e992 (every version ported): build-check all green**, ref-189 green.
+- **Dev shots (label `cosv2`, branch `claude/dev-shots`):** every live version booted with zero
+  mixin-apply failures and no Origin exceptions. The Cosmetics screen looks the same on all of
+  them, model wearing cape, wings and halo; in a fresh world it opens over the game on every
+  version except 1.16.5, whose world run failed twice downloading Mojang's game assets before
+  the game started (infra, not this code; its menu run passed). Dev shots are automated
+  headless boots: worn cosmetics on a player in a world, cape physics and the nametag badge
+  are not in them, so they still need a player's test.
 
 ## Needs in-game / on-PC testing (nothing below has been seen running)
 - Launcher start, normal and with Windows animations off: does the intro play, skip on a
