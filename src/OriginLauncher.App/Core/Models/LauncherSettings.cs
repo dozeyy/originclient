@@ -42,12 +42,14 @@ public sealed class LauncherSettings
     // and everything loads exactly as before.
     public bool PlayWithExternalMods { get; set; } = true;
 
-    // "Sync settings across versions" (Settings -> Origin Client). OFF by
-    // default (Will's call): when on, keybinds, video settings, mod settings,
-    // HUD layout and the server list follow the player to every version — see
-    // Core/SettingsSync.cs. Turning it off just stops syncing; every instance
+    // "Sync settings across versions" (Settings -> Origin Client). ON by
+    // default (Will, 2026-10-18 — it used to be off and nobody knew it existed):
+    // keybinds, video settings, every Origin mod setting, HUD positions and the
+    // server list follow the player to every version — see Core/SettingsSync.cs.
+    // Renamed from SettingsSyncEnabled so everyone's old saved "off" is dropped
+    // once and they start on. Turning it off just stops syncing; every instance
     // keeps whatever it has.
-    public bool SettingsSyncEnabled { get; set; }
+    public bool SyncSettingsAcrossVersions { get; set; } = true;
 
     // Custom JVM arguments, keyed by Minecraft version id (Settings -> JVM
     // arguments). Versions the player never customized are simply absent, so an

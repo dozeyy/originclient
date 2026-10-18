@@ -57,7 +57,7 @@ public partial class SettingsPage : UserControl
         OriginUiToggle.IsChecked = OriginClientConfigBridge.IsOriginUiEnabled();
         ShaderCacheToggle.IsChecked = _settings.ShaderCacheNvidia || _settings.ShaderCacheAmd;
         OfflineTestToggle.IsChecked = _settings.OfflineTestMode;
-        SettingsSyncToggle.IsChecked = _settings.SettingsSyncEnabled;
+        SettingsSyncToggle.IsChecked = _settings.SyncSettingsAcrossVersions;
         StartWithWindowsToggle.IsChecked = InstallRegistry.IsStartWithWindows();
 
         InitializeJvmSection();
@@ -144,16 +144,16 @@ public partial class SettingsPage : UserControl
     private void SettingsSyncToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
-        _settings.SettingsSyncEnabled = true;
-        SettingsStore.Update(s => s.SettingsSyncEnabled = true);
+        _settings.SyncSettingsAcrossVersions = true;
+        SettingsStore.Update(s => s.SyncSettingsAcrossVersions = true);
         _ = Task.Run(SettingsSync.Seed);
     }
 
     private void SettingsSyncToggle_Unchecked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;
-        _settings.SettingsSyncEnabled = false;
-        SettingsStore.Update(s => s.SettingsSyncEnabled = false);
+        _settings.SyncSettingsAcrossVersions = false;
+        SettingsStore.Update(s => s.SyncSettingsAcrossVersions = false);
     }
 
     private void ShaderCacheToggle_Checked(object sender, RoutedEventArgs e)

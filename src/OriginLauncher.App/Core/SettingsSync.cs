@@ -8,7 +8,7 @@ using OriginLauncher.App.Core.Versions;
 namespace OriginLauncher.App.Core;
 
 // Settings Sync (Settings -> Origin Client -> "Sync settings across versions",
-// LauncherSettings.SettingsSyncEnabled, off by default): the player's keybinds,
+// LauncherSettings.SyncSettingsAcrossVersions, on by default): the player's keybinds,
 // video settings, HUD layout, mod settings and server list follow them to
 // every Minecraft version. Every version already has its own isolated instance,
 // so the launcher simply carries the settings files between instances around
@@ -90,7 +90,7 @@ public static class SettingsSync
     public static void AfterExit(string account, string version) => Run($"exit {account} {version}", () =>
     {
         RunningGames.TryRemove(OriginPaths.GameDir(version, account), out _);
-        if (!SettingsStore.Load().SettingsSyncEnabled) return;
+        if (!SettingsStore.Load().SyncSettingsAcrossVersions) return;
         var storePath = OriginPaths.SettingsSyncStoreFor(account);
         var store = SyncStoreFile.Load(storePath);
         if (store == null) return; // the next launch seeds

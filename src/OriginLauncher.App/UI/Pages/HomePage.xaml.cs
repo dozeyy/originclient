@@ -583,7 +583,7 @@ public partial class HomePage : UserControl
             // other versions, then write it into this one. After provisioning
             // (which seeds/sanitizes config files) and before the game reads
             // them. Never throws — a sync problem just means an unsynced launch.
-            if (freshSettings.SettingsSyncEnabled)
+            if (freshSettings.SyncSettingsAcrossVersions)
             {
                 Stage("Syncing settings");
                 await Task.Run(() => SettingsSync.BeforeLaunch(key, version));
