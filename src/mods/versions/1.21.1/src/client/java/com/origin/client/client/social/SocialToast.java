@@ -124,6 +124,9 @@ public final class SocialToast implements Toast {
 			lastY = m.m31();
 			lastDrawn = System.currentTimeMillis();
 			if (!LIVE.contains(this)) {
+				// ToastComponent.clear() (leaving a world) drops toasts without a last render: forget the ones not drawn for a while
+				long cutoff = lastDrawn - 2_000;
+				LIVE.removeIf(t -> t != this && t.lastDrawn < cutoff);
 				LIVE.add(this);
 			}
 			draw(g, toasts.getMinecraft().font);
@@ -208,8 +211,10 @@ public final class SocialToast implements Toast {
 	/** DEV SHOTS ONLY: click the button of the live toast with this token (e.g. "req:<uuid>"); false if none. */
 	public static boolean devClickButton(String token) {
 		Minecraft mc = Minecraft.getInstance();
-		for (SocialToast t : LIVE) {
-			if (t.token.equals(token) && !Float.isNaN(t.lastX)) {
+		long now = System.currentTimeMillis();
+		for (int i = LIVE.size() - 1; i >= 0; i--) {   // newest first, and only toasts that are on screen right now
+			SocialToast t = LIVE.get(i);
+			if (t.token.equals(token) && !Float.isNaN(t.lastX) && now - t.lastDrawn <= 250) {
 				int bw = t.buttonW(mc.font);
 				return bw > 0 && click(t.lastX + W - bw / 2.0 - 8, t.lastY + H / 2.0);
 			}

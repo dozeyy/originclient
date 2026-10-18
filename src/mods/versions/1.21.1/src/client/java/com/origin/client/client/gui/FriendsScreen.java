@@ -97,7 +97,8 @@ public class FriendsScreen extends OriginWindow {
 	private long armedAt = 0;
 	private boolean showBlocked = false;
 
-	private double listScroll, listTarget, chatScroll, chatTarget;
+	private double listScroll, listTarget, chatScroll, chatTarget, memScroll, memTarget;
+	private float memMax, gridTop = 0, gridBot = 0;
 	private float listMax, chatMax;
 	private String scrollToKey = null;        // keyboard moves: bring this row into view
 
@@ -417,11 +418,9 @@ public class FriendsScreen extends OriginWindow {
 		for (Item it : items) {
 			contentH += it.h();
 		}
+		// while the result pill shows, the list's viewport ends above it (rows are clipped there, never hidden under it)
 		List<String> nl = noticeLines(d);
-		if (nl != null) {
-			contentH += 16 + nl.size() * 18 + 8;   // the result pill sits over the foot of the list: leave room to scroll past it
-		}
-		float view = BOTTOM - LIST_TOP;
+		float view = BOTTOM - LIST_TOP - (nl != null ? 16 + nl.size() * 18 + 8 + 4 : 0);
 		listMax = Math.max(0, contentH - view);
 		if (scrollToKey != null) {
 			float yy = 0;
@@ -1006,18 +1005,35 @@ public class FriendsScreen extends OriginWindow {
 		});
 		d.fill(RX, DIVIDER, RW, 1, LINE);
 
-		// member tiles, two across so names and statuses fit (a party holds at most 8)
-		float tileW = (RW - 8) / 2f, tileH = 40, pitch = 46;
-		float gy = DIVIDER + 12;
+		// member tiles: two across, three once there are more than four; at most two rows show, the rest scroll
+		int n = party.members().size();
+		int cols = n > 4 ? 3 : 2;
+		float tileW = (RW - (cols - 1) * 8) / (float) cols, tileH = 40, pitch = 46;
+		int rows = (n + cols - 1) / cols, shown = Math.min(rows, 2);
+		float gy = DIVIDER + 12, gridH = shown * pitch - 6;
+		memMax = Math.max(0, (rows - shown) * pitch);
+		memTarget = Math.max(0, Math.min(memMax, memTarget));
+		memScroll += (memTarget - memScroll) * 0.3;
+		memScroll = Math.max(0, Math.min(memMax, memScroll));
+		gridTop = gy;
+		gridBot = gy + gridH;
 		Minecraft mc = Minecraft.getInstance();
 		String here = FairPlay.positionKey(mc);
+		d.clip(RX, gy, RW, gridH);
 		int i = 0;
 		for (Member m : party.members()) {
-			float tileX = RX + (i % 2) * (tileW + 8), tileY = gy + (i / 2) * pitch;
-			memberTile(d, s, m, tileX, tileY, tileW, tileH, leader, self, here);
+			float tileX = RX + (i % cols) * (tileW + 8), tileY = gy + (i / cols) * pitch - (float) memScroll;
+			if (tileY + tileH >= gy && tileY <= gy + gridH) {
+				memberTile(d, s, m, tileX, tileY, tileW, tileH, leader, self, here);
+			}
 			i++;
 		}
-		float gridBottom = gy + ((party.members().size() + 1) / 2) * pitch - 6;
+		d.unclip();
+		if (memMax > 0) {
+			float thumb = Math.max(18, gridH * gridH / (gridH + memMax));
+			d.rect(RX + RW + 6, gy + (gridH - thumb) * (float) (memScroll / memMax), 3, thumb, 1.5f, 0x33FFFFFF);
+		}
+		float gridBottom = gy + gridH;
 		float chatTop = gridBottom + 10;
 		if (mc.level != null && !mc.hasSingleplayerServer() && here == null) {   // = FairPlay.positionsOffHere, without a second lookup
 			// Will's baseline: markers, health and pings only in LAN worlds
@@ -1070,7 +1086,7 @@ public class FriendsScreen extends OriginWindow {
 		d.text(d.fit(sub, max - (clickable ? 16 : 0), 12, false, 0), nx, y + 32, 12, false, 0, m.online() ? DIM : soft());
 		if (clickable) {
 			d.icon("@chev-down", x + w - 22, y + h - 20, 12, lerp(soft(), TEXT, hp));
-			d.hit(x, y, w, h, () -> openMenu("member:" + m.uuid(), x, y + h + 2, memberMenu(s, m, leader, me)));
+			d.hit(x, y, w, h, () -> openMenu("member:" + m.uuid(), x, y + h + 2, memberMenu(s, m, leader, me), w));
 		}
 		if (!menuOpen() && d.over(x, y, w, h)) {
 			tip(d, "mem:" + m.uuid(), nz(m.name()) + " \u2022 " + sub, x, y, w, h);   // text built only while hovered
@@ -1386,6 +1402,9 @@ public class FriendsScreen extends OriginWindow {
 			}
 			d.text(r.text(), textX, ty + 14, 14, false, 0, r.pending() ? DIM : TEXT);
 		}
+		if (chatScroll < chatMax - 0.5 && !d.seeThrough) {
+			d.gradient(x, top, w, 18, PANEL, withAlpha(PANEL, 0));   // more above: fade the cut edge instead of slicing a line
+		}
 		d.unclip();
 		if (chatMax > 0 && chatScroll > 8) {
 			// scrolled up: a quiet way back down
@@ -1413,7 +1432,10 @@ public class FriendsScreen extends OriginWindow {
 	/** A text field: the focused one carries an emerald edge (never colour-only: the caret blinks too). */
 	private void inputField(OriginDeck d, float x, float y, float w, float h, String text, String placeholder,
 							boolean focused, String icon, String counter, boolean counterRed) {
-		d.rect(x, y, w, h, 6, FIELD, focused ? withAlpha(ACC, 0xCC) : LINE2);
+		if (focused) {
+			d.rect(x - 1, y - 1, w + 2, h + 2, 7, 0x00000000, ACC);   // outer half of the 2 px emerald frame
+		}
+		d.rect(x, y, w, h, 6, FIELD, focused ? ACC : LINE2);
 		float tx = x + 12;
 		if (icon != null) {
 			d.icon(icon, tx, y + h / 2 - 7, 14, soft());
@@ -1487,7 +1509,7 @@ public class FriendsScreen extends OriginWindow {
 			}
 			case DANGER -> {
 				fill = hov ? 0x3DD9675A : RED_SOFT;
-				fg = RED;
+				fg = RED_TEXT;
 			}
 			case GHOST -> {
 				fill = hov ? 0x14FFFFFF : 0x00000000;
@@ -1525,7 +1547,14 @@ public class FriendsScreen extends OriginWindow {
 
 	// ---- the pop-up menu ----
 
+	private float menuMinW = 208;
+
 	private void openMenu(String id, float x, float y, List<MenuItem> items) {
+		openMenu(id, x, y, items, 208);
+	}
+
+	private void openMenu(String id, float x, float y, List<MenuItem> items, float minW) {
+		menuMinW = minW;
 		menu = items;
 		menuId = id;
 		menuX = x;
@@ -1552,7 +1581,7 @@ public class FriendsScreen extends OriginWindow {
 		d.hit(0, 0, W, H, this::closeMenu);
 		float itemH = 32;
 		float h = menu.size() * itemH + 8;
-		float menuW = 208;   // wide enough for the longest label, including the named confirm line
+		float menuW = menuMinW;   // at least the tile it came from; wider for the longest label, including the named confirm line
 		for (MenuItem mi : menu) {
 			menuW = Math.max(menuW, d.textW(mi.label(), 13, false, 0) + 28);
 			if (mi.confirmLabel() != null) {
@@ -1574,7 +1603,7 @@ public class FriendsScreen extends OriginWindow {
 				d.rect(x + 4, iy, menuW - 8, itemH, 4, mi.danger() ? RED_SOFT : 0x1AFFFFFF);
 			}
 			String label = isArmed ? (mi.confirmLabel() != null ? mi.confirmLabel() : "Click again to confirm") : mi.label();
-			int col = !mi.enabled() ? soft() : mi.danger() || isArmed ? RED : hov ? TEXT : DIM;
+			int col = !mi.enabled() ? soft() : mi.danger() || isArmed ? RED_TEXT : hov ? TEXT : DIM;
 			d.textMid(d.fit(label, menuW - 28, 13, false, 0), x + 14, iy + itemH / 2, 13, false, 0, col);
 			if (mi.enabled()) {
 				d.hit(x + 4, iy, menuW - 8, itemH, () -> {
@@ -1805,9 +1834,11 @@ public class FriendsScreen extends OriginWindow {
 		if (menuOpen()) {
 			return true;
 		}
-		float x = dX(mx);
+		float x = dX(mx), y = dY(my);
 		if (x < SPLIT) {
 			listTarget = Math.max(0, Math.min(listMax, listTarget - sy * (ROW_H + 4) * 2));
+		} else if (PARTY.equals(sel) && memMax > 0 && y >= gridTop && y < gridBot) {
+			memTarget = Math.max(0, Math.min(memMax, memTarget - sy * 46));
 		} else {
 			chatTarget = Math.max(0, Math.min(chatMax, chatTarget + sy * 48));
 		}
