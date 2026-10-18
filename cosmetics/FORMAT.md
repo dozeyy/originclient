@@ -81,7 +81,8 @@ vanilla cape layout (below), not a model.
 
 **Clearance (Will: "I don't want a big hat you can't see over")**: head items
 stay within 3 px above the head top (y <= 11) and 1.5 px outside the head
-sides, except halos, which float (y 10..13) and must be thin (<= 1.5 px).
+sides, except halos, which float (y 10..13) and must be thin (<= 1.5 px), and hats, whose brim or peak may reach 4 px past
+the face at the FRONT only (z <= 8; sides, back and height rules unchanged).
 Face items hug the face (z 4..5). Back items: wings span <= 14 px each side of
 the spine and never rise above y = +6 (they must not cover the head from
 behind); backpacks <= 5 px deep, inside x -4..4.
