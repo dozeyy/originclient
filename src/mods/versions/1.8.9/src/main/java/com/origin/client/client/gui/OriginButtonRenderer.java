@@ -41,22 +41,13 @@ import java.util.concurrent.ConcurrentHashMap;
 // so 1.16.5's renderCheckbox / renderImageButton / renderTab are not ported.
 public final class OriginButtonRenderer {
 
-	// Glass palette -- one material with the rest of the Origin UI.
-	private static final int FILL_NORMAL = OriginTheme.BOX_FILL;
-	private static final int FILL_HOVER = OriginTheme.BOX_FILL_HOVER;
+	// Glass palette -- one material with the rest of the Origin UI. Fill, border, label
+	// and handle colours are read live from the OriginTheme tokens at every draw (never
+	// copied into a static final here): an equipped theme repaints them at runtime, and a
+	// copy taken at class load would keep the default green hover forever. Slider handles
+	// read as the accent (ACCENT_BORDER, brightening to ACCENT on hover).
 	private static final int FILL_DISABLED = 0x40171C19;
-	private static final int BORDER_NORMAL = OriginTheme.BOX_BORDER;
-	private static final int BORDER_HOVER = OriginTheme.BOX_BORDER_HOVER;
 	private static final int BORDER_DISABLED = 0x99080B09;
-	private static final int LABEL_COLOR = OriginTheme.TEXT;
-	private static final int LABEL_DISABLED = OriginTheme.MUTED;
-	private static final int TITLE_FILL = OriginTheme.PANEL;
-	private static final int TITLE_FILL_HOVER = OriginTheme.PANEL_ALT;
-	private static final int TITLE_FILL_PRESSED = 0xFF294333;
-	// Slider handles read as the accent -- the one place a control's "value"
-	// carries the brand hue; brightens toward full accent on hover.
-	private static final int HANDLE = OriginTheme.ACCENT_BORDER;
-	private static final int HANDLE_HOVER = OriginTheme.ACCENT;
 	private static final int RADIUS = OriginTheme.RADIUS_SM;
 	private static final double HOVER_IN_MS = OriginTheme.HOVER_IN_MS;
 	private static final double HOVER_OUT_MS = OriginTheme.HOVER_OUT_MS;
@@ -255,7 +246,7 @@ public final class OriginButtonRenderer {
 		if (button.packedFGColour != 0) {
 			return 0xFF000000 | button.packedFGColour;
 		}
-		return button.enabled ? LABEL_COLOR : LABEL_DISABLED;
+		return button.enabled ? OriginTheme.TEXT : OriginTheme.MUTED;
 	}
 
 	// ---- sliders (FOV, volumes, sensitivity, OptiFine's sliders, Forge's) ----
@@ -282,7 +273,7 @@ public final class OriginButtonRenderer {
 			int travel = Math.max(0, w - 2 * inset - handleW);
 			int handleX = x + inset + (int) Math.round(travel * v);
 			g.fill(handleX, handleY, handleX + handleW, handleY + handleH,
-					enabled ? OriginTheme.lerpColor(HANDLE, HANDLE_HOVER, hv) : 0x66808080);
+					enabled ? OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, hv) : 0x66808080);
 
 			drawLabelCentered(g, slider, x + w / 2.0, y + h / 2.0, labelColor(slider));
 			return true;
@@ -380,7 +371,7 @@ public final class OriginButtonRenderer {
 		try {
 			Gfx g = new Gfx();
 			int fill = enabled ? 0x8C0B0F0D : FILL_DISABLED;
-			int border = focused ? OriginTheme.ACCENT_BORDER : (enabled ? BORDER_NORMAL : BORDER_DISABLED);
+			int border = focused ? OriginTheme.ACCENT_BORDER : (enabled ? OriginTheme.BOX_BORDER : BORDER_DISABLED);
 			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 			return true;
 		} catch (Throwable t) {
@@ -397,15 +388,15 @@ public final class OriginButtonRenderer {
 	private static void box(Gfx g, int x, int y, int w, int h, boolean enabled, double hv, boolean primary) {
 		if (primary && enabled) {
 			// Accent-washed glass: the one accent moment on a screen.
-			int fill = OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv);
+			int fill = OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hv);
 			int border = OriginTheme.lerpColor(OriginTheme.ACCENT_BORDER, OriginTheme.ACCENT, hv);
 			OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 			int wash = OriginTheme.withAlpha(OriginTheme.ACCENT, (int) Math.round(0x2E + 0x1C * hv));
 			OriginUi.panel(g, x, y, w, h, RADIUS, wash, 0);
 			return;
 		}
-		int fill = enabled ? OriginTheme.lerpColor(FILL_NORMAL, FILL_HOVER, hv) : FILL_DISABLED;
-		int border = enabled ? OriginTheme.lerpColor(BORDER_NORMAL, BORDER_HOVER, hv) : BORDER_DISABLED;
+		int fill = enabled ? OriginTheme.lerpColor(OriginTheme.BOX_FILL, OriginTheme.BOX_FILL_HOVER, hv) : FILL_DISABLED;
+		int border = enabled ? OriginTheme.lerpColor(OriginTheme.BOX_BORDER, OriginTheme.BOX_BORDER_HOVER, hv) : BORDER_DISABLED;
 		OriginUi.panel(g, x, y, w, h, RADIUS, fill, border);
 		// Accent wash: a translucent accent fill that fades in with hover only.
 		if (enabled && hv > 0.01) {
@@ -418,9 +409,9 @@ public final class OriginButtonRenderer {
 	 * direct hover/press feedback. 1.8.9: "pressed" is LWJGL's live left button. */
 	private static void titleBox(Gfx g, GuiButton button, boolean enabled, double hover) {
 		boolean pressed = enabled && button.isMouseOver() && Mouse.isButtonDown(0);
-		int fill = enabled ? OriginTheme.lerpColor(TITLE_FILL, TITLE_FILL_HOVER, hover) : FILL_DISABLED;
+		int fill = enabled ? OriginTheme.lerpColor(OriginTheme.PANEL, OriginTheme.PANEL_ALT, hover) : FILL_DISABLED;
 		if (pressed) {
-			fill = TITLE_FILL_PRESSED;
+			fill = OriginTheme.lerpColor(OriginTheme.PANEL_ALT, OriginTheme.ACCENT, 0.15);
 		}
 		OriginUi.panel(g, button.xPosition, button.yPosition, button.width, button.height, RADIUS, fill, 0);
 	}
@@ -442,7 +433,7 @@ public final class OriginButtonRenderer {
 	private static void drawTitlePresentation(Gfx g, GuiButton button, TitlePresentation title,
 											  boolean enabled, double hover) {
 		int x = button.xPosition, y = button.yPosition, w = button.width, h = button.height;
-		int color = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hover) : LABEL_DISABLED;
+		int color = enabled ? OriginTheme.lerpColor(OriginTheme.TEXT_DIM, OriginTheme.TEXT, hover) : OriginTheme.MUTED;
 		int iconSize = Math.max(10, Math.min(12, h - 5));
 		if (title.iconOnly()) {
 			ModIcons.draw(g, title.icon(), x + (w - iconSize) / 2, y + (h - iconSize) / 2, iconSize, color);

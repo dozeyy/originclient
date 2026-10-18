@@ -201,6 +201,10 @@ public final class ModelCosmetic {
 				continue;
 			}
 			CosmeticDef.Motion m = list.get(i);
+			if (m.spin()) {
+				off[b * 6 + m.axis()] += (float) ((m.speed() * (double) t) % 360.0);
+				continue;
+			}
 			float a = m.amp() + m.walkAmp() * walk01 + m.airAmp() * air01;
 			float v = (float) Math.sin(2.0 * Math.PI * (t / m.period() + m.phase())) * a;
 			off[b * 6 + (m.pos() ? 3 : 0) + m.axis()] += v;
@@ -314,6 +318,13 @@ public final class ModelCosmetic {
 
 		void push() {
 			stack.push(m.clone());
+		}
+
+		/** A snapshot of the current matrix (no stack), e.g. CapePhysics' joint frames. */
+		Mat copy() {
+			Mat c = new Mat();
+			c.m = m.clone();
+			return c;
 		}
 
 		void pop() {

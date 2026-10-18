@@ -52,25 +52,138 @@ public final class CosmeticsService {
 	}
 
 	/**
+	 * How far each worn slot sits above (+) or below (-) its default spot, in
+	 * model px (FORMAT.md "Height tweaks"): players move items to suit their skin
+	 * (Will, 2026-10-18). Saved with what they wear, so everyone sees it.
+	 */
+	// Java 8 has no records: a final value class with the same canonical
+	// constructor, accessors and equals/hashCode the record had.
+	public static final class Adjust {
+		public static final Adjust NONE = new Adjust(0f, 0f, 0f, 0f);
+		/** One click of the up / down arrows, and the furthest either way (the service clamps the same). */
+		public static final float STEP = 0.5f, MAX = 4f;
+
+		private final float cape, head, face, back;
+
+		public Adjust(float cape, float head, float face, float back) {
+			this.cape = cape;
+			this.head = head;
+			this.face = face;
+			this.back = back;
+		}
+
+		public float cape() {
+			return this.cape;
+		}
+
+		public float head() {
+			return this.head;
+		}
+
+		public float face() {
+			return this.face;
+		}
+
+		public float back() {
+			return this.back;
+		}
+
+		// 1.8.9: Java 8 has no switch expressions, statement switches
+		public float get(Cosmetics.Slot slot) {
+			switch (slot) {
+				case CAPE:
+					return cape;
+				case HEAD:
+					return head;
+				case FACE:
+					return face;
+				case BACK:
+					return back;
+				default:
+					return 0f;   // THEME
+			}
+		}
+
+		/** A copy with one slot moved to `v` (rounded to a STEP, clamped to MAX). */
+		public Adjust with(Cosmetics.Slot slot, float v) {
+			float r = clean(v);
+			switch (slot) {
+				case CAPE:
+					return new Adjust(r, head, face, back);
+				case HEAD:
+					return new Adjust(cape, r, face, back);
+				case FACE:
+					return new Adjust(cape, head, r, back);
+				case BACK:
+					return new Adjust(cape, head, face, r);
+				default:
+					return this;   // THEME
+			}
+		}
+
+		static float clean(float v) {
+			if (Float.isNaN(v) || Float.isInfinite(v)) {
+				return 0f;
+			}
+			return Math.round(Math.max(-MAX, Math.min(MAX, v)) / STEP) * STEP;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (!(obj instanceof Adjust)) {
+				return false;
+			}
+			Adjust other = (Adjust) obj;
+			// Float.compare = the record's equals for float components
+			return Float.compare(cape, other.cape) == 0 && Float.compare(head, other.head) == 0
+					&& Float.compare(face, other.face) == 0 && Float.compare(back, other.back) == 0;
+		}
+
+		@Override
+		public int hashCode() {
+			return java.util.Objects.hash(cape, head, face, back);
+		}
+	}
+
+	/**
 	 * What a player wears; null = nothing in that slot. `face`, `back` and
-	 * `theme` are newer than `cape` / `head`: the two-argument form is kept
-	 * for callers (and old service replies) that only know those two.
+	 * `theme` are newer than `cape` / `head`, and `adjust` newer still: the
+	 * shorter forms are kept for callers (and old service replies) that only
+	 * know those.
 	 */
 	// Java 8 has no records: a final value class with the same canonical
 	// constructor, accessors and equals/hashCode the record had.
 	public static final class Look {
 		private final String cape, head, face, back, theme;
+		private final Adjust adjust;
 
-		public Look(String cape, String head, String face, String back, String theme) {
+		public Look(String cape, String head, String face, String back, String theme, Adjust adjust) {
 			this.cape = cape;
 			this.head = head;
 			this.face = face;
 			this.back = back;
 			this.theme = theme;
+			this.adjust = adjust != null ? adjust : Adjust.NONE;
+		}
+
+		public Look(String cape, String head, String face, String back, String theme) {
+			this(cape, head, face, back, theme, Adjust.NONE);
 		}
 
 		public Look(String cape, String head) {
-			this(cape, head, null, null, null);
+			this(cape, head, null, null, null, Adjust.NONE);
+		}
+
+		public Adjust adjust() {
+			return this.adjust;
+		}
+
+		/** The height tweak (model px, + = up) for whatever is worn in `slot`. */
+		public float adjust(Cosmetics.Slot slot) {
+			return adjust.get(slot);
 		}
 
 		public String cape() {
@@ -134,20 +247,30 @@ public final class CosmeticsService {
 			return off;
 		}
 
-		/** A copy with one slot changed (null = take it off). */
+		/** A copy with one slot changed (null = take it off). The height tweaks stay. */
 		public Look with(Cosmetics.Slot slot, String id) {
 			switch (slot) {
 				case CAPE:
-					return new Look(id, head, face, back, theme);
+					return new Look(id, head, face, back, theme, adjust);
 				case HEAD:
-					return new Look(cape, id, face, back, theme);
+					return new Look(cape, id, face, back, theme, adjust);
 				case FACE:
-					return new Look(cape, head, id, back, theme);
+					return new Look(cape, head, id, back, theme, adjust);
 				case BACK:
-					return new Look(cape, head, face, id, theme);
+					return new Look(cape, head, face, id, theme, adjust);
 				default:
-					return new Look(cape, head, face, back, id);
+					return new Look(cape, head, face, back, id, adjust);
 			}
+		}
+
+		/** A copy with different height tweaks. */
+		public Look withAdjust(Adjust a) {
+			return new Look(cape, head, face, back, theme, a);
+		}
+
+		/** Everything worn on the character taken off (the menu theme and height tweaks stay). */
+		public Look bare() {
+			return new Look(null, null, null, null, theme, adjust);
 		}
 
 		@Override
@@ -163,15 +286,16 @@ public final class CosmeticsService {
 					&& java.util.Objects.equals(this.head, other.head)
 					&& java.util.Objects.equals(this.face, other.face)
 					&& java.util.Objects.equals(this.back, other.back)
-					&& java.util.Objects.equals(this.theme, other.theme);
+					&& java.util.Objects.equals(this.theme, other.theme)
+					&& this.adjust.equals(other.adjust);
 		}
 
 		@Override
 		public int hashCode() {
-			return java.util.Objects.hash(cape, head, face, back, theme);
+			return java.util.Objects.hash(cape, head, face, back, theme, adjust);
 		}
 
-		public static final Look NONE = new Look(null, null, null, null, null);
+		public static final Look NONE = new Look(null, null, null, null, null, Adjust.NONE);
 	}
 
 	/** The signed-in player's own cosmetics; `plus` = an Origin+ member. */
@@ -233,17 +357,24 @@ public final class CosmeticsService {
 		READY
 	}
 
+	/** `origin` = in game on Origin lately (the name badge). */
 	// Java 8 has no records: a final value class with the same canonical
 	// constructor, accessors and equals/hashCode the record had.
 	private static final class Entry {
 		private final Look look;
 		private final boolean plus;
+		private final boolean origin;
 		private final long freshUntil;
 
-		private Entry(Look look, boolean plus, long freshUntil) {
+		private Entry(Look look, boolean plus, boolean origin, long freshUntil) {
 			this.look = look;
 			this.plus = plus;
+			this.origin = origin;
 			this.freshUntil = freshUntil;
+		}
+
+		public boolean origin() {
+			return this.origin;
 		}
 
 		public Look look() {
@@ -268,12 +399,12 @@ public final class CosmeticsService {
 			}
 			Entry other = (Entry) obj;
 			return java.util.Objects.equals(this.look, other.look) && this.plus == other.plus
-					&& this.freshUntil == other.freshUntil;
+					&& this.origin == other.origin && this.freshUntil == other.freshUntil;
 		}
 
 		@Override
 		public int hashCode() {
-			return java.util.Objects.hash(look, plus, freshUntil);
+			return java.util.Objects.hash(look, plus, origin, freshUntil);
 		}
 	}
 
@@ -399,6 +530,29 @@ public final class CosmeticsService {
 		return e != null && e.plus();
 	}
 
+	/**
+	 * Does this player get the Origin badge by their name? Anyone in game on
+	 * Origin (Will, 2026-10-18: not only Origin+ members): you always, others
+	 * when the service saw their game lately, or when they're a member. Same
+	 * cache and lookup queue as {@link #lookOf}. Render thread; never blocks.
+	 */
+	public static boolean usesOrigin(UUID uuid) {
+		if (uuid == null) {
+			return false;
+		}
+		if (uuid.equals(selfId())) {
+			return true;   // you are using Origin right now, service or not
+		}
+		if (status != Status.READY) {
+			return false;
+		}
+		Entry e = LOOKS.get(uuid);
+		if ((e == null || e.freshUntil() < System.currentTimeMillis()) && WANTED.size() < MAX_WANTED) {
+			WANTED.add(uuid);
+		}
+		return e != null && (e.origin() || e.plus());
+	}
+
 	/** {@link #isPlus(UUID)} for a service-style id string (dashed or not); bad input = false. */
 	public static boolean isPlus(String uuid) {
 		if (uuid == null) {
@@ -431,6 +585,15 @@ public final class CosmeticsService {
 	}
 
 	/**
+	 * Shows `look` as yours straight away WITHOUT saving it - the Cosmetics
+	 * screen's height arrows, which save once the player stops clicking
+	 * ({@link #wear} follows).
+	 */
+	public static void show(Look look) {
+		picked = look;
+	}
+
+	/**
 	 * Wear `look` (every slot; only the changed ones are sent). Completes with null on success, or a message
 	 * to show the player. Your own view switches immediately.
 	 */
@@ -439,8 +602,8 @@ public final class CosmeticsService {
 		CompletableFuture<String> done = new CompletableFuture<>();
 		WORKER.execute(() -> {
 			String error = wearNow(look);
-			if (error != null) {
-				picked = null;
+			if (error != null && picked == look) {
+				picked = null;   // only if nothing newer was shown meanwhile (a height nudge during the save)
 			}
 			done.complete(error);
 		});
@@ -526,7 +689,13 @@ public final class CosmeticsService {
 					}
 				}
 			}
-			mine = new Mine(owned, lookFrom(o), plusFrom(o));
+			Look worn = lookFrom(o);
+			if (!o.has("adjust")) {
+				// a service from before height tweaks: keep what was set this session
+				Mine m = mine;
+				worn = worn.withAdjust(m != null ? m.wearing().adjust() : Adjust.NONE);
+			}
+			mine = new Mine(owned, worn, flag(o, "plus"));
 			mineFailed = false;
 		} catch (Exception e) {
 			mineFailed = true;
@@ -554,12 +723,14 @@ public final class CosmeticsService {
 			JsonObject players = r.response().getAsJsonObject("players");
 			for (UUID u : batch) {
 				JsonObject p = players != null ? players.getAsJsonObject(undashed(u)) : null;
-				LOOKS.put(u, new Entry(p != null ? lookFrom(p) : Look.NONE, p != null && plusFrom(p), now + FRESH_MS));
+				LOOKS.put(u, new Entry(p != null ? lookFrom(p) : Look.NONE, p != null && flag(p, "plus"),
+						p != null && flag(p, "origin"), now + FRESH_MS));
 			}
 		} catch (Exception e) {
 			for (UUID u : batch) {
 				Entry old = LOOKS.get(u);
-				LOOKS.put(u, new Entry(old != null ? old.look() : Look.NONE, old != null && old.plus(), now + RETRY_MS));
+				LOOKS.put(u, new Entry(old != null ? old.look() : Look.NONE, old != null && old.plus(),
+						old != null && old.origin(), now + RETRY_MS));
 			}
 		}
 	}
@@ -586,6 +757,9 @@ public final class CosmeticsService {
 		putIfChanged(body, "face", look.face(), was == null ? null : was.face(), was == null);
 		putIfChanged(body, "back", look.back(), was == null ? null : was.back(), was == null);
 		putIfChanged(body, "theme", look.theme(), was == null ? null : was.theme(), was == null);
+		if (was == null || !look.adjust().equals(was.adjust())) {
+			body.add("adjust", adjustJson(look.adjust()));
+		}
 		try {
 			// Origin's own sign-in, the one friends use (it signs in first if needed).
 			String token = SocialClient.tokenFor(api, null);
@@ -597,9 +771,15 @@ public final class CosmeticsService {
 			if (r.status() == 200) {
 				JsonObject o = r.response();
 				Mine m = mine;
-				mine = new Mine(m != null ? m.owned() : java.util.Collections.<String>emptyList(), lookFrom(o),
+				Look saved = lookFrom(o);
+				if (!o.has("adjust")) {
+					saved = saved.withAdjust(look.adjust());   // a service from before height tweaks: keep them for this session
+				}
+				mine = new Mine(m != null ? m.owned() : java.util.Collections.<String>emptyList(), saved,
 						m != null && m.plus());
-				picked = null;
+				if (picked == look) {
+					picked = null;   // a newer pick/nudge shown meanwhile stays on screen until its own save lands
+				}
 				return null;
 			}
 			if (r.status() == 403) {
@@ -637,18 +817,43 @@ public final class CosmeticsService {
 		if (o == null) {
 			return Look.NONE;
 		}
+		Adjust adjust = adjustFrom(o.get("adjust"));
 		if (o.get("equipped") instanceof JsonObject) {
 			o = (JsonObject) o.get("equipped");
 		}
 		return new Look(known(o, "cape", Cosmetics.Slot.CAPE), known(o, "head", Cosmetics.Slot.HEAD),
 				known(o, "face", Cosmetics.Slot.FACE), known(o, "back", Cosmetics.Slot.BACK),
-				known(o, "theme", Cosmetics.Slot.THEME));
+				known(o, "theme", Cosmetics.Slot.THEME), adjust);
 	}
 
-	// `plus` is newer than the service's first release: absent / odd = not a member.
-	private static boolean plusFrom(JsonObject o) {
+	private static final Cosmetics.Slot[] ADJUSTABLE = {Cosmetics.Slot.CAPE, Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK};
+
+	/** {"cape": 1.5, "head": -0.5, ...}; absent / odd values = 0 (default spot). */
+	private static Adjust adjustFrom(JsonElement e) {
+		Adjust a = Adjust.NONE;
+		if (e instanceof JsonObject) {
+			JsonObject ao = (JsonObject) e;
+			for (Cosmetics.Slot slot : ADJUSTABLE) {
+				a = a.with(slot, (float) Cosmetics.num(ao, slot.key, 0));
+			}
+		}
+		return a;
+	}
+
+	private static JsonObject adjustJson(Adjust a) {
+		JsonObject o = new JsonObject();
+		for (Cosmetics.Slot slot : ADJUSTABLE) {
+			if (a.get(slot) != 0f) {
+				o.addProperty(slot.key, a.get(slot));
+			}
+		}
+		return o;
+	}
+
+	// `plus` and `origin` are newer than the service's first release: absent / odd = false.
+	private static boolean flag(JsonObject o, String key) {
 		try {
-			JsonElement e = o != null ? o.get("plus") : null;
+			JsonElement e = o != null ? o.get(key) : null;
 			return e != null && e.isJsonPrimitive() && e.getAsBoolean();
 		} catch (Exception ignored) {
 			return false;

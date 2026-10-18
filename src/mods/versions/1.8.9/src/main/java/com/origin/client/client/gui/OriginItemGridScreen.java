@@ -505,7 +505,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 			boolean sel = isSelected(e);
 			boolean marked = !sel && isMarked(e);
 			float hp = OriginUi.hover(hoverKey + ":cell:" + e.key, hov);
-			int fill = sel ? lerp(ACC_SOFT, 0x385FD09B, hp) : lerp(CARD, OriginDeck.CARD_H, hp);
+			int fill = sel ? lerp(ACC_SOFT, withAlpha(ACC, 0x38), hp) : lerp(CARD, OriginDeck.CARD_H, hp);
 			int border = sel ? mul(ACC, 0.7f) : marked ? mul(ACC, 0.45f) : lerp(LINE, 0x29F1E9D2, hp);
 			d.rect(x, y, CELL, CELL, 6, fill, border);
 			drawItem(d, e.stack, x, y, CELL, ITEM);
