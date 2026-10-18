@@ -100,6 +100,7 @@ const state = {
   themeView: true,             // a worn theme shows its menu preview instead of the player
   busy: false,
   codeBusy: false,
+  redeemed: '',                // after a bag code: the bag's note says what arrived, until the bag changes
 };
 let room = null;
 
@@ -296,6 +297,7 @@ async function redeemCode() {
       const got = new Set(j.items);
       state.owned = new Set([...(state.owned || []), ...got]);
       state.bag = state.bag.filter(id => !got.has(id));
+      state.redeemed = `Free with your code: ${[...got].map(id => byId.get(id)?.name || id).join(', ')}.`;
       say(`Done! ${got.size === 1 ? 'It\u2019s' : `All ${got.size} are`} on ${player.name} now: open Cosmetics in game to wear ${got.size === 1 ? 'it' : 'them'}.`, 'done');
     }
     save();
@@ -513,7 +515,7 @@ function renderBag(error = '') {
   note.textContent = error || (!open
     ? 'The store opens soon. Try everything on in the meantime.'
     : state.catalog === 'error' ? 'Checkout can\u2019t be reached right now. Please try again in a minute.'
-    : !items.length ? 'Add a cosmetic to get started.'
+    : !items.length ? state.redeemed || 'Add a cosmetic to get started.'
     : blocked.length ? `${blocked[0].name} isn\u2019t on sale yet. Remove it to check out.`
     : !canCheckout() ? 'Type the Minecraft name these are for.'
     : state.catalog === 'loading' ? 'Loading prices…'
@@ -638,6 +640,7 @@ function syncFit(focus) {
 }
 
 function toggleBag(id) {
+  state.redeemed = '';
   const at = state.bag.indexOf(id);
   if (at >= 0) state.bag.splice(at, 1);
   else {

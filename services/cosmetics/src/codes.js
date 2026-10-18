@@ -96,12 +96,18 @@ export async function redeem(env, body, now = Date.now()) {
       .bind(uuid, id, payment, now, code, uuid, now))
     : [env.DB.prepare(`INSERT OR IGNORE INTO plus (subscription, uuid, name, customer, status, period_end, event_at) SELECT ?, ?, ?, '', 'active', ?, 0 WHERE ${ours}`)
       .bind(payment, uuid, name, FOREVER_S, code, uuid, now)];
+  // The claim also re-checks nothing in the bag got bought since the check
+  // above, so a spent code always gave everything it said.
+  const notOwned = ids.length ? ` AND NOT EXISTS (SELECT 1 FROM owned WHERE uuid = ? AND item IN (${ids.map(() => '?').join(',')}))` : '';
   const [claim] = await env.DB.batch([
-    env.DB.prepare('UPDATE codes SET used_by = ?, used_name = ?, used_at = ?, items = ? WHERE code = ? AND used_at IS NULL')
-      .bind(uuid, name, now, ids.join(',') || null, code),
+    env.DB.prepare(`UPDATE codes SET used_by = ?, used_name = ?, used_at = ?, items = ? WHERE code = ? AND used_at IS NULL${notOwned}`)
+      .bind(uuid, name, now, ids.join(',') || null, code, ...(ids.length ? [uuid, ...ids] : [])),
     ...give,
   ]);
-  if (!claim?.meta?.changes) return fail(409, 'That code has already been used.');
+  if (!claim?.meta?.changes) {
+    const used = await env.DB.prepare('SELECT used_at FROM codes WHERE code = ?').bind(code).first('used_at');
+    return fail(409, used != null ? 'That code has already been used.' : `${name} just got something in your bag. Refresh the page and try again.`);
+  }
   // Still paying for a membership they now have for free: tell them to stop it.
   const paying = row.kind === 'plus' &&
     !!(await env.DB.prepare(`SELECT 1 FROM plus WHERE uuid = ? AND subscription NOT LIKE 'code:%' AND status IN ('active', 'trialing', 'past_due')`).bind(uuid).first());
