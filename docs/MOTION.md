@@ -20,6 +20,13 @@ assemble's flight) and leaving. Spins are allowed only as the rings' own orbit
 (wall-clock angles, so the launcher's and the game's rings line up exactly) and
 the assemble's spin-up that settles into it. No particles, no flashes.
 
+Smoothness (Will 2026-10-18): in the game every loading-scene motion runs on
+`RingField.sceneMs()`, a clock that steps at most one 30 fps frame at a time and
+quietly earns the rest back, so a slow frame while Minecraft loads is a pause,
+never a skip. Bar ends are placed to a fraction of a pixel (`fillSmooth`, launcher
+`SlideFill`). Menus are snappy: fades of 110 ms or less that never block a click,
+closing is instant, and the main menu's entrance plays once per game start.
+
 Reduced motion: Windows "Show animations" off zeroes every launcher token
 (`App.DisableMotion`): the scene appears complete, no glide, no button fold.
 Minecraft has no system-wide equivalent; the in-game transitions are short and

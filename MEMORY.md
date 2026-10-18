@@ -5208,9 +5208,23 @@ Order of work: 1.21.1 + launcher only (working order). Plan/status lines below g
   wall-clock ring angles keep both halves aligned. Launcher is system-DPI aware: screen px / TransformToDevice.M11 = DIP.
   Unverified until Will runs it: GLFW hidden-window + setMode interplay on Windows, mixed-DPI glide accuracy.
 
-## 2026-10-18 — Screen-open lag (Will's report, open)
+## 2026-10-18 — Screen-open lag (Will's report; built on 1.21.1, awaiting his pass)
 Will, verbatim: "also the loading lag whenever loading into screens shouldn't be there it's annoying and makes my pc feel
 slow even if it isn't slow". Reported right after launch experience v2 landed (7f08f27). Wants it gone: opening a screen must
 feel instant. To do (1.21.1 first): find what runs on every screen open — deliberate entrance fades/rises/blur ramps that delay
 input, and real per-open work that hitches a frame (texture/file loads, framebuffer/blur passes, widget rebuilds) — then cut the
 cost and keep motion short and never blocking. Ask Will which screens/moments he means if it isn't obvious from the code.
+Will's answers: it's the Origin loading screen ("the rings are jumpy and the loading bar isn't smooth", visible in the dev-shots
+video too); feel = "Snappy" (screens open and take clicks at once, fades <= 0.12 s never delay anything, closing instant, the
+menu intro once per game start). Causes: frames arrive unevenly during the resource reload and wall-clock motion turns each slow
+frame into a skip; bar ends moved in whole GUI units; vanilla's currentProgress is smoothed per FRAME (crawls at low fps, never
+full before the dissolve, then jumps); the launcher re-tessellated + re-blurred its rings every frame. Built:
+- RingField.sceneMs(): smoothed scene clock (step <= 33 ms, owed time repaid at +30%, debt cap 1 s). Rings, sweep, scene/startup
+  bar fill and the wordmark build all run on it. Rings start at wall-clock angles (launcher sync) and may drift <= ~1 s after.
+- Startup bar reads the reload's real progress via LoadingOverlayAccessor (loading config, required:false; falls back to
+  currentProgress) and glides (FILL_TAU 140 ms); the dissolve keeps gliding it to full. fillSmooth(): sub-pixel bar ends.
+- Launcher LoadingScene: steady frames only set each ring's RotateTransform.Angle (no OnRender, no blur radius change);
+  SlideFill sub-pixel bar ends, _front SnapsToDevicePixels off.
+- Snappy: OriginWindow + OriginModMenuScreen close instantly (beginClose -> setScreen(returnTo) when still the screen; no
+  click-blocking close fade), open/page fades 110 ms, card stagger capped (<= 8 rows x 8 ms, 110 ms each), HUD editor + colour
+  picker 110 ms, title entrance once per game start (TitleScreenMixin openedAt static). Untouched: MenuBlur (a setting).

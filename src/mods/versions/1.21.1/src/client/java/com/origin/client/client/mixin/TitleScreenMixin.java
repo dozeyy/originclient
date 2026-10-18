@@ -67,8 +67,10 @@ public class TitleScreenMixin {
 	private Button originclient$modsNav;
 	@Unique
 	private Button originclient$cosmeticsNav;
+	// Static: the menu's entrance plays once per game start (Will 2026-10-18,
+	// "snappy"), not again every time the player comes back from a world.
 	@Unique
-	private long originclient$openedAt = 0;
+	private static long originclient$openedAt = 0;
 	@Unique
 	private final List<AbstractWidget> originclient$nav = new ArrayList<>();
 	@Unique
