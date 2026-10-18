@@ -784,9 +784,9 @@ public class OriginModMenuScreen extends Screen {
 		float sy = y + CARD_H - 8 - 30;
 		boolean sh = d.over(x + 8, sy, w - 16, 30);
 		float sk = OriginUi.anim("deck-state:" + id, on, 140.0);
-		int fillOff = sh ? 0x3DD9675A : RED_SOFT, fillOn = sh ? 0xFF35895F : ACC_D;
+		int fillOff = sh ? OFF_SOFT_H : OFF_SOFT, fillOn = sh ? ACC_D_H : ACC_D;
 		d.rect(x + 8, sy, w - 16, 30, 5, lerp(fillOff, fillOn, sk));
-		d.textCenter(on ? "ENABLED" : "DISABLED", x + w / 2, sy + 15, 11, true, CAPS_TRACK, on ? ON_TEXT : RED);
+		d.textCenter(on ? "ENABLED" : "DISABLED", x + w / 2, sy + 15, 11, true, CAPS_TRACK, on ? ON_TEXT : OFF);
 		d.hit(x + 8, sy, w - 16, 30, () -> Mods.setOn(id, !on));
 
 		// pin (shown when pinned, offered on hover) + NEW badge

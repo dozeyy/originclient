@@ -1,0 +1,241 @@
+<title>Origin Store Setup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one phone-width column of numbered steps, each a tickable card with
+   an Open button and tap-to-copy values. Origin brand: monochrome, one tonal accent. */
+:root {
+  --bg: #0d0d0e; --surface: #161618; --line: #2a2a2e; --fg: #ececed; --muted: #9a9aa0;
+  --accent: #e0e0e0; --on-accent: #0d0d0e; --done: #6f6f75; --warn: #f2c35b;
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #f4f4f5; --surface: #ffffff; --line: #dcdce0; --fg: #141416; --muted: #5e5e66;
+  --accent: #1c1c1f; --on-accent: #f4f4f5; --done: #9a9aa2; --warn: #8a5a00; color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #f4f4f5; --surface: #ffffff; --line: #dcdce0; --fg: #141416; --muted: #5e5e66;
+  --accent: #1c1c1f; --on-accent: #f4f4f5; --done: #9a9aa2; --warn: #8a5a00; color-scheme: light; }
+
+body { background: var(--bg); color: var(--fg); font: 400 16px/1.55 var(--sans); }
+.wrap { max-width: 620px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 14px; }
+header { display: grid; gap: 8px; padding-bottom: 6px; }
+.mark { width: 34px; height: 34px; color: var(--accent); }
+h1 { font-size: 1.6rem; line-height: 1.2; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); }
+.progress { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar { flex: 1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+.part { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 18px 0 0; }
+
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.step.done { opacity: .62; }
+.step.done h2 { text-decoration: line-through; text-decoration-color: var(--done); }
+.top { display: flex; gap: 12px; align-items: flex-start; }
+.tick { flex: none; appearance: none; width: 28px; height: 28px; margin: 0; border: 2px solid var(--muted); border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer; font: 600 .8rem var(--sans); color: var(--muted); }
+.tick::before { content: attr(data-n); }
+.tick:checked { background: var(--accent); border-color: var(--accent); }
+.tick:checked::before { content: "✓"; color: var(--on-accent); font-size: .95rem; }
+.tick:focus-visible, a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h2 { font-size: 1.05rem; line-height: 1.3; margin: 3px 0 0; }
+.where { font-size: .85rem; color: var(--muted); margin: 2px 0 0; }
+ol, ul { margin: 0; padding-left: 1.25em; display: grid; gap: 6px; }
+li::marker { color: var(--muted); }
+b { font-weight: 600; }
+.open { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent); text-decoration: none; font-weight: 600; font-size: .9rem; }
+.copy { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer;
+  padding: 9px 12px; border: 1px dashed var(--line); border-radius: 10px; background: transparent; color: var(--fg); font: inherit; min-width: 0; }
+.copy code { font: 500 .82rem/1.4 var(--mono); overflow-wrap: anywhere; flex: 1; min-width: 0; }
+.copy span { flex: none; font-size: .75rem; color: var(--muted); }
+.copy.ok span { color: var(--fg); }
+.copies { display: grid; gap: 6px; }
+.note { font-size: .88rem; color: var(--muted); margin: 0; }
+.careful { font-size: .88rem; margin: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); }
+.careful b { color: var(--warn); }
+.reset { justify-self: center; background: none; border: 0; color: var(--muted); font: inherit; font-size: .85rem; text-decoration: underline; cursor: pointer; padding: 8px; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <svg class="mark" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <ellipse cx="20" cy="20" rx="17" ry="7"/><ellipse cx="20" cy="20" rx="17" ry="7" transform="rotate(60 20 20)"/><ellipse cx="20" cy="20" rx="17" ry="7" transform="rotate(120 20 20)"/>
+    </svg>
+    <h1>Turn on the Origin store</h1>
+    <p class="lede">Ten steps, all doable on your phone. Claude already did step 2 and most of Stripe's setup. Tap the circle when a step is done. Your ticks are saved on this phone.</p>
+    <div class="progress"><div class="bar"><i id="bar"></i></div><span id="count">0 of 10 done</span></div>
+  </header>
+
+  <p class="careful"><b>Phone tip:</b> if a Stripe or Cloudflare menu is missing, open your browser menu and pick <b>Desktop site</b>. Keys and secrets go only into Cloudflare. Never paste them in chat, Discord or anywhere else.</p>
+
+  <p class="part">Stripe</p>
+
+  <section class="step" data-step="1">
+    <div class="top"><input type="checkbox" class="tick" id="s1" data-n="1" aria-label="Step 1 done"><div>
+      <h2>Activate your Stripe account</h2><p class="where">So Stripe can take real money and pay you</p></div></div>
+    <a class="open" href="https://dashboard.stripe.com/" target="_blank" rel="noopener">Open Stripe ↗</a>
+    <ol>
+      <li><b>No banner?</b> Your account may already be active. Check two pages with the buttons below: <b>Business details</b> should show your name and address, and <b>Payouts</b> should show a bank account. If both are filled in, skip to step 2. If Stripe still needs something, it shows a red <b>Action required</b> or <b>Complete your profile</b> on the Home page or in the bell menu.</li>
+      <li>If something's missing, fill in your details, ID and the bank account for payouts. The account holder has to be 18+; if you're not, a parent or guardian sets it up in their name.</li>
+      <li>When it asks about your business, paste these:</li>
+    </ol>
+    <div class="copies">
+      <button class="copy" type="button"><code>https://originclient.org</code><span>Copy</span></button>
+      <button class="copy" type="button"><code>Cosmetic items (capes and hats) and an optional Origin+ membership for the Origin Minecraft client. Looks only, no gameplay advantage.</code><span>Copy</span></button>
+      <button class="copy" type="button"><code>ORIGIN CLIENT</code><span>Copy</span></button>
+    </div>
+    <a class="open" href="https://dashboard.stripe.com/settings/account" target="_blank" rel="noopener">Open Business details ↗</a>
+    <a class="open" href="https://dashboard.stripe.com/settings/payouts" target="_blank" rel="noopener">Open Payouts ↗</a>
+    <p class="note">The last copy line is what shows on buyers' bank statements. Final check: in step 6, if Stripe lets you make a key starting <code>rk_live_</code>, the account is active.</p>
+  </section>
+
+  <section class="step" data-step="2">
+    <div class="top"><input type="checkbox" class="tick" id="s2" data-n="2" aria-label="Step 2 done"><div>
+      <h2>Sales tax</h2><p class="where">Done: Stripe Tax is on with your address</p></div></div>
+    <p class="note">Nothing to do. Stripe watches your sales and tells you under <b>Registrations</b> when a state or country says you have to start collecting tax there.</p>
+  </section>
+
+  <section class="step" data-step="3">
+    <div class="top"><input type="checkbox" class="tick" id="s3" data-n="3" aria-label="Step 3 done"><div>
+      <h2>Receipts, Google Pay and your icon</h2><p class="where">Checkout colors are already set to Origin's dark look</p></div></div>
+    <a class="open" href="https://dashboard.stripe.com/settings/emails" target="_blank" rel="noopener">Open Customer emails ↗</a>
+    <ol><li>Switch on <b>Successful payments</b>. Also switch on <b>Refunds</b> if you see it.</li></ol>
+    <a class="open" href="https://dashboard.stripe.com/settings/payment_methods" target="_blank" rel="noopener">Open Payment methods ↗</a>
+    <ol start="2"><li>Find <b>Google Pay</b> and turn it on. Cards, Apple Pay and Link are already on.</li></ol>
+    <a class="open" href="https://dashboard.stripe.com/settings/branding" target="_blank" rel="noopener">Open Branding ↗</a>
+    <ol start="3"><li>Under <b>Icon</b>, upload the Origin icon Claude sent you in chat (save it to your phone first). Leave the colors as they are.</li></ol>
+  </section>
+
+  <section class="step" data-step="4">
+    <div class="top"><input type="checkbox" class="tick" id="s4" data-n="4" aria-label="Step 4 done"><div>
+      <h2>Get a fresh signing secret</h2><p class="where">Claude already connected Stripe to the store</p></div></div>
+    <a class="open" href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener">Open Webhooks ↗</a>
+    <ol>
+      <li>Tap the one ending in <b>/v1/stripe/webhook</b>.</li>
+      <li>Under <b>Signing secret</b>, tap <b>Roll secret</b> and pick <b>Now</b>. This kills the first secret, which passed through our chat.</li>
+      <li>Tap <b>Reveal</b> and copy the new secret. It starts with <code>whsec_</code>.</li>
+    </ol>
+  </section>
+
+  <p class="part">Cloudflare</p>
+
+  <section class="step" data-step="5">
+    <div class="top"><input type="checkbox" class="tick" id="s5" data-n="5" aria-label="Step 5 done"><div>
+      <h2>Paste the signing secret into Cloudflare</h2><p class="where">Proves to the store that a payment message really came from Stripe</p></div></div>
+    <a class="open" href="https://dash.cloudflare.com/?to=/:account/workers-and-pages" target="_blank" rel="noopener">Open Cloudflare Workers ↗</a>
+    <ol>
+      <li>Tap <b>origin-cosmetics</b>, then <b>Settings</b>, then <b>Variables and Secrets</b>.</li>
+      <li>Tap <b>Add</b>. Set Type to <b>Secret</b>. Name:</li>
+    </ol>
+    <div class="copies"><button class="copy" type="button"><code>STRIPE_WEBHOOK_SECRET</code><span>Copy</span></button></div>
+    <ol start="3">
+      <li>Value: paste the <code>whsec_</code> secret from step 4. Tap <b>Deploy</b> (or <b>Save</b>).</li>
+      <li>If you see an old <b>TEBEX_SECRET</b> in the list, delete it.</li>
+    </ol>
+    <p class="note">Leave <b>STRIPE_TEST_PLAYERS</b> alone if you see it. It's set from the code.</p>
+  </section>
+
+  <p class="part">Stripe, then Cloudflare</p>
+
+  <section class="step" data-step="6">
+    <div class="top"><input type="checkbox" class="tick" id="s6" data-n="6" aria-label="Step 6 done"><div>
+      <h2>Make the store's key</h2><p class="where">A limited key that can only start checkouts</p></div></div>
+    <a class="open" href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener">Open API keys ↗</a>
+    <ol>
+      <li>Tap <b>Create restricted key</b>. If it asks how you'll use it, pick <b>Building your own integration</b>.</li>
+      <li>Name it:</li>
+    </ol>
+    <div class="copies"><button class="copy" type="button"><code>Origin store</code><span>Copy</span></button></div>
+    <ol start="3">
+      <li>Set these three to <b>Write</b> and leave everything else on <b>None</b>: <b>Checkout Sessions</b>, <b>Products</b>, <b>Prices</b>.</li>
+      <li>Tap <b>Create key</b> and copy it. It starts with <code>rk_live_</code>.</li>
+    </ol>
+  </section>
+
+  <section class="step" data-step="7">
+    <div class="top"><input type="checkbox" class="tick" id="s7" data-n="7" aria-label="Step 7 done"><div>
+      <h2>Paste the key into Cloudflare</h2><p class="where">The store opens by itself once this is in</p></div></div>
+    <a class="open" href="https://dash.cloudflare.com/?to=/:account/workers-and-pages" target="_blank" rel="noopener">Open Cloudflare Workers ↗</a>
+    <ol>
+      <li><b>origin-cosmetics</b> → <b>Settings</b> → <b>Variables and Secrets</b> → <b>Add</b>, Type <b>Secret</b>. Name:</li>
+    </ol>
+    <div class="copies"><button class="copy" type="button"><code>STRIPE_SECRET_KEY</code><span>Copy</span></button></div>
+    <ol start="2"><li>Value: paste the <code>rk_live_</code> key from step 6. Tap <b>Deploy</b> (or <b>Save</b>).</li></ol>
+  </section>
+
+  <p class="part">Check it works</p>
+
+  <section class="step" data-step="8">
+    <div class="top"><input type="checkbox" class="tick" id="s8" data-n="8" aria-label="Step 8 done"><div>
+      <h2>Tell Claude the keys are in</h2><p class="where">I'll confirm the store reports itself open</p></div></div>
+    <div class="copies"><button class="copy" type="button"><code>keys are in</code><span>Copy</span></button></div>
+  </section>
+
+  <section class="step" data-step="9">
+    <div class="top"><input type="checkbox" class="tick" id="s9" data-n="9" aria-label="Step 9 done"><div>
+      <h2>Buy something, then refund it</h2><p class="where">A real $5.99 charge you get straight back</p></div></div>
+    <a class="open" href="https://originclient.org/store.html" target="_blank" rel="noopener">Open the store ↗</a>
+    <ol>
+      <li>Add a $5.99 item (like the <b>Origin Cape</b>), type <b>dozeyy</b> as the name, and pay.</li>
+      <li>Check your email for the receipt.</li>
+      <li>Open Origin on that account. The item should be in Cosmetics within a minute.</li>
+      <li>Refund it in Stripe: <b>Payments</b> → the payment → <b>Refund</b> → full amount.</li>
+      <li>Back in game, the item should be gone within a minute.</li>
+    </ol>
+    <a class="open" href="https://dashboard.stripe.com/payments" target="_blank" rel="noopener">Open Stripe Payments ↗</a>
+  </section>
+
+  <section class="step" data-step="10">
+    <div class="top"><input type="checkbox" class="tick" id="s10" data-n="10" aria-label="Step 10 done"><div>
+      <h2>Try Origin+, then cancel it</h2><p class="where">A real $4.99 charge you get straight back</p></div></div>
+    <a class="open" href="https://originclient.org/store.html" target="_blank" rel="noopener">Open the store ↗</a>
+    <ol>
+      <li>On the store, type <b>dozeyy</b> as the name, pick <b>Monthly</b> in the Origin+ card and join.</li>
+      <li>Back on the store with the same name, it should say you're a member and show the 20% lower prices.</li>
+      <li>Tap <b>Manage or cancel</b>, sign in with the email you paid with, and cancel. It stays active until the month ends.</li>
+      <li>Refund the $4.99 in Stripe: <b>Payments</b> → the payment → <b>Refund</b>. Then end it now: <b>Customers</b> → that customer → the subscription → <b>Cancel</b> → <b>Immediately</b>. The store should stop showing you as a member within a minute.</li>
+      <li>One thing to check with whoever does your taxes: Origin+ is filed under Stripe's tax category <b>"Video Games, streamed, subscription"</b>. It's the closest match Stripe has. Change it on the Origin+ product if they say otherwise.</li>
+    </ol>
+    <a class="open" href="https://dashboard.stripe.com/subscriptions" target="_blank" rel="noopener">Open Stripe Subscriptions ↗</a>
+  </section>
+
+  <button class="reset" id="reset" type="button">Clear all ticks</button>
+</div>
+
+<script>
+(() => {
+  const KEY = 'origin-store-setup-ticks';
+  const ticks = [...document.querySelectorAll('.tick')];
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch {}
+
+  function render() {
+    let n = 0;
+    for (const t of ticks) { t.closest('.step').classList.toggle('done', t.checked); if (t.checked) n++; }
+    document.getElementById('bar').style.width = (n / ticks.length * 100) + '%';
+    document.getElementById('count').textContent = n === ticks.length ? 'All done' : `${n} of ${ticks.length} done`;
+  }
+  function save() {
+    const s = {}; for (const t of ticks) s[t.id] = t.checked;
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+  }
+  for (const t of ticks) { t.checked = !!saved[t.id]; t.addEventListener('change', () => { render(); save(); }); }
+  document.getElementById('reset').addEventListener('click', () => { for (const t of ticks) t.checked = false; render(); save(); });
+  render();
+
+  // Copy needs the call inside the tap; if the app refuses it, select the text instead.
+  for (const b of document.querySelectorAll('.copy')) {
+    b.addEventListener('click', () => {
+      const code = b.querySelector('code'), label = b.querySelector('span');
+      const done = () => { b.classList.add('ok'); label.textContent = 'Copied'; setTimeout(() => { b.classList.remove('ok'); label.textContent = 'Copy'; }, 1600); };
+      const select = () => { const r = document.createRange(); r.selectNodeContents(code); const s = getSelection(); s.removeAllRanges(); s.addRange(r); label.textContent = 'Selected, tap Copy'; };
+      try { navigator.clipboard.writeText(code.textContent).then(done, select); } catch { select(); }
+    });
+  }
+})();
+</script>

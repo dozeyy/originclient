@@ -1,60 +1,155 @@
 package com.origin.client.client.cosmetics;
 
-import java.util.LinkedHashMap;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.Locale;
 
 /**
- * Every cosmetic the mod can draw. The ids are the contract shared with the
- * store (website/js/store.js ITEMS), the Tebex package commands and the
- * delivery service (services/cosmetics) - see docs/STORE.md. Adding an item:
- * add it here AND its art (capes: tools/cosmetics/export-capes.mjs; head
- * items: {@link HeadModels}).
+ * What the mod knows about cosmetics, as DATA (cosmetics v2, cosmetics/FORMAT.md):
+ * the list of items comes from assets/originclient/cosmetics/catalog.json and
+ * each item's art from cosmetics/&lt;id&gt;/item.json + texture.png, both read by
+ * {@link CosmeticCatalog}. Nothing here names an item: adding one is an art-
+ * pipeline run (node tools/cosmetics/build.mjs), never a code change.
+ *
+ * The ids are the contract shared with the store website, the store service
+ * (services/cosmetics) and the generated catalog - ids are forever.
+ *
+ * This class keeps the {@link Item} (the "meta" every item.json / catalog.json
+ * entry carries), the {@link Slot} enum, and the static facade the rest of the
+ * mod already calls ({@link #get}, {@link #all}, {@link #isPlusOnly}).
  */
 public final class Cosmetics {
 	private Cosmetics() {
 	}
 
-	public enum Slot { CAPE, HEAD }
+	/** One thing a player can wear per slot. THEME is local-only (it recolours your own menus). */
+	public enum Slot {
+		CAPE("cape"), HEAD("head"), FACE("face"), BACK("back"), THEME("theme");
 
-	public record Item(String id, String name, Slot slot) {
-	}
+		/** The key this slot has in the service's JSON and in item.json ("slot"). */
+		public final String key;
 
-	public static final List<Item> ALL = List.of(
-			new Item("cape-orbit", "Orbit Cape", Slot.CAPE),
-			new Item("cape-glitch", "Glitch Cape", Slot.CAPE),
-			new Item("cape-inferno", "Inferno Cape", Slot.CAPE),
-			new Item("cape-aurora", "Aurora Cape", Slot.CAPE),
-			new Item("cape-starfall", "Starfall Cape", Slot.CAPE),
-			new Item("cape-origin", "Origin Cape", Slot.CAPE),
-			new Item("cape-golden", "Golden Hour Cape", Slot.CAPE),
-			new Item("cape-frost", "Frost Cape", Slot.CAPE),
-			new Item("cape-void", "Void Cape", Slot.CAPE),
-			new Item("halo-orbit", "Orbit Halo", Slot.HEAD),
-			new Item("crown-pixel", "Pixel Crown", Slot.HEAD),
-			new Item("halo-gold", "Golden Halo", Slot.HEAD));
+		Slot(String key) {
+			this.key = key;
+		}
 
-	private static final Map<String, Item> BY_ID = new LinkedHashMap<>();
+		public static Slot fromKey(String key) {
+			if (key != null) {
+				for (Slot s : values()) {
+					if (s.key.equals(key)) {
+						return s;
+					}
+				}
+			}
+			return null;
+		}
 
-	static {
-		for (Item i : ALL) {
-			BY_ID.put(i.id(), i);
+		/** FORMAT.md: kind -> slot (cape; wings, pack -> back; mask, bandana -> face; hat, halo, crown -> head; theme). */
+		public static Slot ofKind(String kind) {
+			if (kind == null) {
+				return null;
+			}
+			return switch (kind) {
+				case "cape" -> CAPE;
+				case "wings", "pack" -> BACK;
+				case "mask", "bandana" -> FACE;
+				case "hat", "halo", "crown" -> HEAD;
+				case "theme" -> THEME;
+				default -> null;
+			};
 		}
 	}
 
-	/** The item for an id, or null for anything this build can't draw (e.g. an
-	 *  item added to the store after this release): such ids are ignored. */
-	public static Item get(String id) {
-		return id == null ? null : BY_ID.get(id);
+	/**
+	 * The item meta (FORMAT.md "Item meta"). Fields the service/store need
+	 * (cents, onSale, blurb) are kept so the screen can show them; the mod draws
+	 * from {@link #slot}, {@link #hidesCape} and {@link #capeOffset}.
+	 */
+	public record Item(String id, String name, String kind, Slot slot, int cents, String blurb, boolean animated,
+			boolean plusOnly, boolean onSale, boolean hidesCape, float capeOffset) {
+
+		/** Parses one meta object; null if it has no usable id/kind (that item is then absent). Fail-soft. */
+		static Item fromJson(JsonObject o) {
+			try {
+				String id = str(o, "id", null);
+				if (id == null || !id.matches("[a-z0-9-]+")) {
+					return null;
+				}
+				String kind = str(o, "kind", null);
+				if (kind == null) {
+					int dash = id.indexOf('-');
+					kind = dash > 0 ? id.substring(0, dash) : null;
+				}
+				Slot slot = Slot.fromKey(str(o, "slot", null));
+				if (slot == null) {
+					slot = Slot.ofKind(kind);
+				}
+				if (slot == null) {
+					return null;
+				}
+				return new Item(id, str(o, "name", id), kind != null ? kind : slot.key.toLowerCase(Locale.ROOT),
+						slot, (int) num(o, "cents", 0), str(o, "blurb", ""), bool(o, "animated", false),
+						bool(o, "plusOnly", false), bool(o, "onSale", true), bool(o, "hidesCape", false),
+						(float) num(o, "capeOffset", 0));
+			} catch (Exception e) {
+				return null;
+			}
+		}
 	}
 
-	/** Items that move on their own (website + in game); the Animated tab shows these. */
-	private static final Set<String> ANIMATED = Set.of(
-			"cape-orbit", "cape-glitch", "cape-inferno", "cape-aurora", "cape-starfall", "halo-orbit");
+	// ---- tiny fail-soft JSON readers, shared by the cosmetics parsers ----
 
+	static String str(JsonObject o, String key, String def) {
+		try {
+			JsonElement e = o.get(key);
+			return e != null && e.isJsonPrimitive() ? e.getAsString() : def;
+		} catch (Exception ex) {
+			return def;
+		}
+	}
+
+	static double num(JsonObject o, String key, double def) {
+		try {
+			JsonElement e = o.get(key);
+			return e != null && e.isJsonPrimitive() ? e.getAsDouble() : def;
+		} catch (Exception ex) {
+			return def;
+		}
+	}
+
+	static boolean bool(JsonObject o, String key, boolean def) {
+		try {
+			JsonElement e = o.get(key);
+			return e != null && e.isJsonPrimitive() ? e.getAsBoolean() : def;
+		} catch (Exception ex) {
+			return def;
+		}
+	}
+
+	// ---- the facade ----
+
+	/** Every item in the catalog, in shop order (empty if the catalog is missing or broken). */
+	public static List<Item> all() {
+		return CosmeticCatalog.items();
+	}
+
+	/** The item for an id, or null for anything this build can't draw (e.g. an item added to the store after this release): such ids are ignored. */
+	public static Item get(String id) {
+		return CosmeticCatalog.item(id);
+	}
+
+	/** Items that move on their own (website + in game). */
 	public static boolean isAnimated(String id) {
-		return ANIMATED.contains(id);
+		Item i = get(id);
+		return i != null && i.animated();
+	}
+
+	/** Members-only items (never sold): the service grants them while the player is an Origin+ member. */
+	public static boolean isPlusOnly(String id) {
+		Item i = get(id);
+		return i != null && i.plusOnly();
 	}
 
 	public static final String STORE_URL = "https://originclient.org/store.html";

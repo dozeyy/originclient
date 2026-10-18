@@ -1,10 +1,12 @@
 package com.origin.client.client.hooks;
 
 import com.origin.client.OriginClient;
-import com.origin.client.client.cosmetics.CosmeticHeadLayer;
+import com.origin.client.client.cosmetics.CosmeticEffects;
+import com.origin.client.client.cosmetics.CosmeticLayer;
 import com.origin.client.client.cosmetics.CosmeticsService;
 import com.origin.client.client.social.Social;
 import com.origin.client.client.social.SocialToast;
+import com.origin.client.client.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraftforge.client.event.GuiScreenEvent;
@@ -20,13 +22,14 @@ import org.lwjgl.input.Mouse;
  *
  * 1.8.9 stand-ins for 1.16.5's Fabric callbacks:
  *  - END_CLIENT_TICK -> ClientTickEvent END: presence, the ping key, the social
- *    events turned into toasts / chat lines; on the first tick the head-cosmetic
- *    layer joins the player renderers (CosmeticHeadLayer.installAll);
+ *    events turned into toasts / chat lines, the equipped menu theme
+ *    (ThemeManager.tick); on the first tick the cosmetics layer joins the player
+ *    renderers (CosmeticLayer.installAll);
  *  - ScreenMouseEvents.allowMouseClick -> GuiScreenEvent.MouseInputEvent.Pre:
  *    a left press on a Friends toast is taken (cancelled) before the screen sees
  *    it, in any screen including the chat box;
  *  - WorldRenderEvents.LAST -> RenderWorldLastEvent: ping beams + the camera the
- *    party markers project through;
+ *    party markers project through, and the cosmetics' sparkles (CosmeticEffects);
  *  - the toast stack itself (1.8.9 has no toast system) draws at the END of
  *    every render tick, over the HUD and any screen, as vanilla's toasts do.
  * Starting the social and cosmetics workers is idempotent, so they start here
@@ -53,8 +56,9 @@ public final class SocialHooks {
 			Minecraft mc = Minecraft.getMinecraft();
 			if (!layersInstalled) {
 				layersInstalled = true;
-				CosmeticHeadLayer.installAll();
+				CosmeticLayer.installAll();
 			}
+			ThemeManager.tick();   // fail-soft inside
 			Social.tick(mc);
 		} catch (Throwable t) {
 			// a bad tick drops this tick's presence/toasts, never the game
@@ -103,5 +107,6 @@ public final class SocialHooks {
 	@SubscribeEvent
 	public void onRenderWorldLast(RenderWorldLastEvent e) {
 		Social.renderWorld(e.partialTicks);   // fail-soft inside
+		CosmeticEffects.renderWorld(e.partialTicks);   // fail-soft inside
 	}
 }

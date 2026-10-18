@@ -30,12 +30,19 @@ import java.util.function.Supplier;
  * (your skin from SkinManager -- the same lookup the title screen's head chip
  * uses -- with the equipped Origin cape swapped in, your Skin Customization
  * choices, the turn) and hands it to a PlayerRenderer. Vanilla's own body, cape
- * layer and arm sway then draw it exactly as in the world; the head item comes
- * from CosmeticHeadLayer, which reads it from {@link #headId()} when the state
- * carries {@link #STATE_ID}. The renderers are built from the
- * EntityRendererProvider.Context Fabric hands OriginClientMod's layer callback
- * (refreshed on every resource reload); they are this preview's own instances,
- * so CosmeticHeadLayer is added to them here.
+ * layer and arm sway then draw it exactly as in the world; the head / face /
+ * back items come from CosmeticLayer (the same placement and animation the
+ * in-world layer uses), which reads them from {@link #look()} when the state
+ * carries {@link #STATE_ID} -- and so does CapePhysicsMixin, which hides the
+ * cape under wings / a backpack and moves it back for worn items. The renderers
+ * are built from the EntityRendererProvider.Context Fabric hands
+ * OriginClientMod's layer callback (refreshed on every resource reload); they
+ * are this preview's own instances, so CosmeticLayer is added to them here.
+ *
+ * Also draws the Cosmetics screen's tile thumbnails ({@link #renderThumb}):
+ * the same model with just one item on it, zoomed by the caller. drawSpecial
+ * draws on the spot in this era, so {@link #look()} only has to hold for the
+ * call.
  *
  * Transforms mirror renderEntityInInventory step for step, so this and the
  * in-world preview line up and turn the same way. Fails soft: any error turns
@@ -56,7 +63,7 @@ public final class MenuPlayerPreview {
 	private static PlayerRenderer wide, slim;
 	private static UUID skinOwner;
 	private static Supplier<PlayerSkin> skinSupplier;
-	private static volatile String head;
+	private static volatile CosmeticsService.Look look;
 	private static boolean broken = false;
 
 	/** OriginClientMod's layer callback: the context this reload's renderers were built from. */
@@ -68,9 +75,9 @@ public final class MenuPlayerPreview {
 		}
 	}
 
-	/** The head cosmetic the preview is wearing (CosmeticHeadLayer, for STATE_ID). */
-	public static String headId() {
-		return head;
+	/** What the preview being drawn wears (CosmeticLayer / CapePhysicsMixin, for STATE_ID); null = nothing. */
+	public static CosmeticsService.Look look() {
+		return look;
 	}
 
 	/**
@@ -79,6 +86,21 @@ public final class MenuPlayerPreview {
 	 * preview), wearing `look`. Render thread. False if it couldn't draw.
 	 */
 	public static boolean render(GuiGraphics g, float cx, float cy, float size, float yaw, CosmeticsService.Look look) {
+		return render(g, cx, cy, size, yaw, look, true);
+	}
+
+	/**
+	 * A thumbnail: like {@link #render} but with no cape from the account (only
+	 * what `look` itself carries) so a tile shows nothing but its own item. The
+	 * caller zooms by choosing `cy` and `size` (and clips to its tile).
+	 */
+	public static boolean renderThumb(GuiGraphics g, float cx, float cy, float size, float yaw,
+			CosmeticsService.Look look) {
+		return render(g, cx, cy, size, yaw, look, false);
+	}
+
+	private static boolean render(GuiGraphics g, float cx, float cy, float size, float yaw,
+			CosmeticsService.Look wear, boolean accountCape) {
 		if (broken) {
 			return false;
 		}
@@ -95,14 +117,14 @@ public final class MenuPlayerPreview {
 			if (renderer == null) {
 				return false;
 			}
-			String capeId = look == null ? null : look.cape();
+			String capeId = wear == null ? null : wear.cape();
 			ResourceLocation cape = capeId != null ? CapeTextures.current(capeId) : null;
 			if (cape != null) {
 				// the CosmeticCapeMixin swap, for a skin no player entity carries
 				skin = new PlayerSkin(skin.texture(), skin.textureUrl(), cape, skin.elytraTexture(), skin.model(), skin.secure());
 			}
-			String headId = look == null ? null : look.head();
-			head = headId != null && Cosmetics.get(headId) != null ? headId : null;
+			boolean capeHidden = wear != null && wear.hidesCape();   // wings / a backpack replace it
+			look = wear;
 
 			PlayerRenderState st = renderer.createRenderState();
 			st.id = STATE_ID;
@@ -117,7 +139,9 @@ public final class MenuPlayerPreview {
 			st.showRightPants = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_PANTS_LEG);
 			st.showLeftSleeve = mc.options.isModelPartEnabled(PlayerModelPart.LEFT_SLEEVE);
 			st.showRightSleeve = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_SLEEVE);
-			st.showCape = mc.options.isModelPartEnabled(PlayerModelPart.CAPE);
+			// A thumbnail shows only its own item: no account cape.
+			st.showCape = mc.options.isModelPartEnabled(PlayerModelPart.CAPE) && !capeHidden
+					&& (cape != null || accountCape);
 
 			// InventoryScreen.renderEntityInInventory (x, y, 50; scale; offset; pose)
 			pose.translate(cx, cy, 50.0f);
@@ -137,6 +161,7 @@ public final class MenuPlayerPreview {
 			OriginClient.LOGGER.warn("Origin cosmetics: menu preview failed; showing the message instead", t);
 			return false;
 		} finally {
+			look = null;
 			pose.popPose();
 			if (lit) {
 				Lighting.setupFor3DItems();
@@ -166,7 +191,7 @@ public final class MenuPlayerPreview {
 		return new PlayerRenderer(ctx, isSlim) {
 			{
 				// Fabric's layer callback only runs for the game's own renderers.
-				addLayer(new CosmeticHeadLayer(this));
+				addLayer(new CosmeticLayer(this));
 			}
 		};
 	}

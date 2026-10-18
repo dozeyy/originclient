@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Origin cosmetics viewer</title>
+<style>html,body{margin:0;background:#2a302d}canvas{display:block}</style>
+<canvas id="c" width="480" height="480"></canvas>
+<script type="module">
+// Driven by tools/cosmetics/shots.mjs (Playwright). Uses the store's own renderer
+// (js/cosmetics.js -> js/rig.js) so renders match what a shopper sees.
+import { createStage, getSource, setBase, loopSeconds } from '/js/cosmetics.js';
+setBase(new URL('/cosmetics', location.href).href);
+const canvas = document.getElementById('c');
+let st = null;
+window.__init = (w, h) => {
+  canvas.width = w; canvas.height = h;
+  st = createStage(canvas, { alpha: false });
+  st.renderer.setClearColor(0x2c3330, 1);
+  st.renderer.setSize(w, h, false);
+  return true;
+};
+window.__wear = async ids => (await st.wear(ids)).map(i => i.id);
+window.__item = async id => { const s = await getSource(id); return { item: s.item, loop: loopSeconds(s.item) }; };
+window.__shot = v => { st.draw(v); return canvas.toDataURL('image/png'); };
+window.__ready = true;
+</script>

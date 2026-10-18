@@ -11,6 +11,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using OriginLauncher.App.Core;
+using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Promos;
 
 namespace OriginLauncher.App.UI.Controls;
@@ -34,7 +35,11 @@ namespace OriginLauncher.App.UI.Controls;
 //     off: it wraps, and shrinks a step at a time until it fits (FitText).
 //   - Ad network ("network.enabled" in the feed): the feed's page hosted in a
 //     dedicated, always-muted WebView2 (BannerAdHost). Falls back to house
-//     promos on any failure, retrying after 10 minutes.
+//     promos on any failure, retrying after 10 minutes. Origin+ perk "no ads
+//     in the launcher": while the selected account is a member
+//     (Core/Promos/OriginPlusMembership) the ad network never shows — house
+//     promos and tips do. The ad waits for the membership answer (it never
+//     flashes at a member), and any lookup failure counts as "not a member".
 //
 // VISIBILITY GATING — mandatory, and the reason this file is shaped the way
 // it is. Ads loading or refreshing where nobody can see them are fraudulent
@@ -111,6 +116,15 @@ public partial class PromoBanner : UserControl
     private BannerAdHost? _adHost;
     private DateTime _networkFailedAt = DateTime.MinValue;
 
+    // Origin+ "no ads" perk. The ad network may only show once the selected
+    // account's membership is RESOLVED and it is not a member.
+    private readonly OriginPlusMembership _membership = new(PromoHttp.GetTextAsync);
+    private bool _membershipStarted;
+    private bool _membershipResolved;
+    private bool _isMember;
+    private string? _membershipAccountId;
+    private long _membershipRevision;
+
     public PromoBanner()
     {
         InitializeComponent();
@@ -120,7 +134,11 @@ public partial class PromoBanner : UserControl
         _discordTimer = new DispatcherTimer(DispatcherPriority.Background);
         _discordTimer.Tick += (_, _) => _ = RefreshDiscordAsync();
         _feedTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = FeedRefreshInterval };
-        _feedTimer.Tick += (_, _) => _ = RefreshFeedAsync();
+        _feedTimer.Tick += (_, _) =>
+        {
+            _ = RefreshFeedAsync();
+            _ = RefreshMembershipAsync();
+        };
 
         _gate.ActiveChanged += OnActiveChanged;
         IsVisibleChanged += (_, _) => UpdateGate(() => _gate.OnHomePage = IsVisible);
@@ -143,6 +161,13 @@ public partial class PromoBanner : UserControl
 
     /// <summary>MainWindow: the account panel or the sign-in card (and its scrim) is up.</summary>
     public void SetChromeOverlayOpen(bool open) => UpdateGate(() => _gate.ChromeOverlayOpen = open);
+
+    /// <summary>HomePage: the selected account changed (switched, added, signed in) — re-check Origin+ for it.</summary>
+    public void NotifyAccountChanged()
+    {
+        // Before the banner's own startup the check hasn't begun; startup reads the selected account itself.
+        if (_membershipStarted) _ = RefreshMembershipAsync();
+    }
 
     // ---- Lifecycle -----------------------------------------------------------
 
@@ -288,8 +313,9 @@ public partial class PromoBanner : UserControl
         try
         {
             var local = await Task.Run(_loader.LoadLocal);
-            ApplyFeed(local);
-            await RefreshFeedAsync();
+            ApplyFeed(local); // no ad yet: membership is unresolved, so house promos show
+            _membershipStarted = true;
+            await Task.WhenAll(RefreshMembershipAsync(), RefreshFeedAsync());
         }
         finally
         {
@@ -338,6 +364,7 @@ public partial class PromoBanner : UserControl
     {
         var network = _feed?.Network;
         var wanted = network is { IsUsable: true }
+                     && AdAllowed
                      && DateTime.UtcNow - _networkFailedAt >= NetworkRetryDelay;
 
         if (wanted && _adHost == null)
@@ -361,6 +388,57 @@ public partial class PromoBanner : UserControl
         HouseCard.Visibility = networkMode ? Visibility.Collapsed : Visibility.Visible;
         Dots.Visibility = networkMode ? Visibility.Collapsed : Visibility.Visible;
         UpdateRootVisibility();
+    }
+
+    // ---- Origin+ membership --------------------------------------------------
+
+    private bool AdAllowed => _membershipResolved && !_isMember;
+
+    // Reads the selected account off the UI thread, then answers from cache or
+    // one short request. Never throws; a stale answer (another account was
+    // selected meanwhile) is dropped.
+    private async Task RefreshMembershipAsync()
+    {
+        var revision = ++_membershipRevision;
+        var member = false;
+        string? accountId = null;
+        try
+        {
+            accountId = await Task.Run(() => AccountStore.GetSelected(AccountStore.Load())?.Id);
+            if (revision != _membershipRevision) return;
+
+            if (!_membership.TryGetCached(accountId, out member))
+            {
+                // A different account is unknown until asked — hold the ad back.
+                // The same account re-checking keeps its current state meanwhile
+                // (no ad flicker every 30 minutes).
+                if (!_membershipResolved || accountId != _membershipAccountId)
+                    SetMembership(accountId, resolved: false, member: false);
+                member = await _membership.IsMemberAsync(accountId, CancellationToken.None);
+                if (revision != _membershipRevision) return;
+            }
+        }
+        catch (Exception)
+        {
+            // Deliberately broad, like BannerAdHost: whatever went wrong, the
+            // answer is "not a member" — today's behavior — never a crash.
+            member = false;
+            if (revision != _membershipRevision) return;
+        }
+        SetMembership(accountId, resolved: true, member);
+    }
+
+    private void SetMembership(string? accountId, bool resolved, bool member)
+    {
+        var before = AdAllowed;
+        _membershipAccountId = accountId;
+        _membershipResolved = resolved;
+        _isMember = member;
+        if (before == AdAllowed) return;
+
+        // The ad host appears or goes away; the house card follows.
+        SyncNetworkMode();
+        RebuildSlides();
     }
 
     private void OnAdFailed(object? sender, EventArgs e)

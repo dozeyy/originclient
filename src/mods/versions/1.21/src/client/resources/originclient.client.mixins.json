@@ -5,6 +5,7 @@
 	"client": [
 		"AbstractButtonMixin",
     "CosmeticCapeMixin",
+    "CapePhysicsMixin",
     "CosmeticsPauseMixin",
 		"SprintKeyMixin",
 		"AbstractSliderButtonMixin",

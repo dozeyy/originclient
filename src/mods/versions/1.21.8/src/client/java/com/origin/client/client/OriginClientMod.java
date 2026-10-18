@@ -156,20 +156,30 @@ public class OriginClientMod implements ClientModInitializer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
 		}
 		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
-		// client (background thread, fail-soft) and the head-cosmetic layer on
-		// every player model. Capes ride vanilla's cape slot (CosmeticCapeMixin).
+		// client (background thread, fail-soft), the data-driven model layer
+		// (hats, masks, wings, backpacks) on every player model, and the menu
+		// theme. Capes ride vanilla's cape slot (CosmeticCapeMixin).
 		// 1.21.2-1.21.8: the callback hands the renderer as LivingEntityRenderer<?, ?, ?>;
 		// PlayerRenderer is a RenderLayerParent<PlayerRenderState, PlayerModel>.
 		try {
 			com.origin.client.client.cosmetics.CosmeticsService.start();
+			com.origin.client.client.cosmetics.CosmeticEffects.register();
+			com.origin.client.client.theme.ThemeManager.register();
 			net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
 					(type, renderer, helper, ctx) -> {
 						if (renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer player) {
-							helper.register(new com.origin.client.client.cosmetics.CosmeticHeadLayer(player));
+							helper.register(new com.origin.client.client.cosmetics.CosmeticLayer(player));
 						}
 					});
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetics failed to start", t);
+		}
+		// 1.21.6+: the Cosmetics tiles' model thumbnails, one picture-in-picture renderer
+		// per tile (MenuThumbs). Its own try: without it the tiles just show icons.
+		try {
+			com.origin.client.client.cosmetics.MenuThumbs.register();
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("Origin: cosmetic thumbnails failed to register", t);
 		}
 		// Friends, chat and parties (docs/SOCIAL.md): the service client (background
 		// thread, fail-soft), its tick / world / toast-click hooks and /originpc.

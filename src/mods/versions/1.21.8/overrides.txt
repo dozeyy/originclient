@@ -18,12 +18,14 @@ client/java/com/origin/client/client/mixin/GameRendererMixin.java
 # not been reskinned yet — promoting these to shared/ would change hover/text
 # colour there without the matching buttons. Delete this line (and shared's old
 # values) once 1.20/1.20.2/1.20.4 ship the skin too.
+# DELIBERATE FORK (cosmetics v2) - also menu themes: palette tokens are runtime statics (applyTheme / resetTheme with DEF_ values).
 client/java/com/origin/client/client/theme/OriginTheme.java
 
 # FORK (2026-08-01) — this module's own card set. The Tab Editor card was added
 # here when the tab-list editor was ported; shared/'s Mods.java still lists the
 # card set of the versions that don't have it. Same deliberate fork every other
 # 1.21.x module already carries.
+# DELIBERATE FORK (cosmetics v2) - also the Cosmetic Effects and Cape Physics toggles.
 client/java/com/origin/client/client/mods/Mods.java
 
 # DESIGN PORT (2026-10-11) — brought onto the 1.21.1 design (Command Deck menu,

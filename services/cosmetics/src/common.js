@@ -1,6 +1,8 @@
 // Pieces shared by the cosmetics API (index.js) and Origin social
 // (social.js, party.js) and identity checks (mojang.js): responses, UUIDs, names.
 
+import { CATALOG } from './catalog.gen.js';
+
 export const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -22,10 +24,9 @@ export function normUuid(raw) {
 
 export const NAME_RE = /^[A-Za-z0-9_]{1,16}$/;
 
-// Which slot an item id wears in. The id is the contract shared with the
-// store (website/js/store.js ITEMS, stripe.js CATALOG) and the mod.
+// Which slot an item wears in (cape, head, face, back, theme), from the
+// generated catalog (cosmetics/FORMAT.md). Unknown ids have none.
+export const SLOTS = ['cape', 'head', 'face', 'back', 'theme'];
 export function slotOf(item) {
-  if (/^cape-[a-z0-9-]+$/.test(item)) return 'cape';
-  if (/^(halo|crown|hat)-[a-z0-9-]+$/.test(item)) return 'head';
-  return null;
+  return Object.hasOwn(CATALOG, item) ? CATALOG[item].slot : null;
 }

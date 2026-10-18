@@ -44,13 +44,68 @@ public final class CosmeticsService {
 	private CosmeticsService() {
 	}
 
-	/** What a player wears; null = nothing in that slot. */
-	public record Look(String cape, String head) {
-		public static final Look NONE = new Look(null, null);
+	/**
+	 * What a player wears; null = nothing in that slot. `face`, `back` and
+	 * `theme` are newer than `cape` / `head`: the two-argument form is kept
+	 * for callers (and old service replies) that only know those two.
+	 */
+	public record Look(String cape, String head, String face, String back, String theme) {
+		public static final Look NONE = new Look(null, null, null, null, null);
+
+		public Look(String cape, String head) {
+			this(cape, head, null, null, null);
+		}
+
+		public String get(Cosmetics.Slot slot) {
+			return switch (slot) {
+				case CAPE -> cape;
+				case HEAD -> head;
+				case FACE -> face;
+				case BACK -> back;
+				case THEME -> theme;
+			};
+		}
+
+		/** True if something worn here (wings, a mask...) says the cape must not be drawn. */
+		public boolean hidesCape() {
+			for (Cosmetics.Slot slot : new Cosmetics.Slot[] {Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK}) {
+				Cosmetics.Item it = Cosmetics.get(get(slot));
+				if (it != null && it.hidesCape()) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/** How far (model px) the cape must sit further back so worn items don't poke through it. */
+		public float capeOffset() {
+			float off = 0f;
+			for (Cosmetics.Slot slot : new Cosmetics.Slot[] {Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK}) {
+				Cosmetics.Item it = Cosmetics.get(get(slot));
+				if (it != null) {
+					off = Math.max(off, it.capeOffset());
+				}
+			}
+			return off;
+		}
+
+		/** A copy with one slot changed (null = take it off). */
+		public Look with(Cosmetics.Slot slot, String id) {
+			return switch (slot) {
+				case CAPE -> new Look(id, head, face, back, theme);
+				case HEAD -> new Look(cape, id, face, back, theme);
+				case FACE -> new Look(cape, head, id, back, theme);
+				case BACK -> new Look(cape, head, face, id, theme);
+				case THEME -> new Look(cape, head, face, back, id);
+			};
+		}
 	}
 
-	/** The signed-in player's own cosmetics. */
-	public record Mine(List<String> owned, Look wearing) {
+	/** The signed-in player's own cosmetics; `plus` = an Origin+ member. */
+	public record Mine(List<String> owned, Look wearing, boolean plus) {
+		public Mine(List<String> owned, Look wearing) {
+			this(owned, wearing, false);
+		}
 	}
 
 	public enum Status {
@@ -63,7 +118,7 @@ public final class CosmeticsService {
 		READY
 	}
 
-	private record Entry(Look look, long freshUntil) {
+	private record Entry(Look look, boolean plus, long freshUntil) {
 	}
 
 	private static final long FRESH_MS = 5L * 60L * 1000L;
@@ -90,6 +145,8 @@ public final class CosmeticsService {
 	private static final Set<UUID> WANTED = ConcurrentHashMap.newKeySet();
 
 	private static volatile Mine mine = null;
+	/** The last read of your own cosmetics failed (the screen says so instead of "Loading..." forever). */
+	private static volatile boolean mineFailed = false;
 	/** What you just picked, shown straight away while the save is in flight. */
 	private static volatile Look picked = null;
 
@@ -108,6 +165,11 @@ public final class CosmeticsService {
 
 	public static Mine mine() {
 		return mine;
+	}
+
+	/** True when the last attempt to read your own cosmetics failed and none are loaded. */
+	public static boolean mineFailed() {
+		return mineFailed && mine == null;
 	}
 
 	/**
@@ -139,9 +201,72 @@ public final class CosmeticsService {
 		return e != null ? e.look() : Look.NONE;
 	}
 
-	/** Re-reads your own cosmetics (e.g. when the Cosmetics screen opens, after a purchase). */
+	/**
+	 * What YOU wear right now (a pick still being saved counts), or NONE while the
+	 * service isn't ready. For things that only ever concern the local player,
+	 * like the menu theme. Render thread; never blocks.
+	 */
+	public static Look myLook() {
+		if (status != Status.READY) {
+			return Look.NONE;
+		}
+		Look p = picked;
+		if (p != null) {
+			return p;
+		}
+		Mine m = mine;
+		return m != null ? m.wearing() : Look.NONE;
+	}
+
+	/**
+	 * Is this player an Origin+ member (for the badge)? Same cache and lookup
+	 * queue as {@link #lookOf}; unknown / not looked up yet / old service
+	 * without the field = false. Render thread; never blocks.
+	 */
+	public static boolean isPlus(UUID uuid) {
+		if (uuid == null || status != Status.READY) {
+			return false;
+		}
+		if (uuid.equals(selfId())) {
+			Mine m = mine;
+			return m != null && m.plus();
+		}
+		Entry e = LOOKS.get(uuid);
+		if ((e == null || e.freshUntil() < System.currentTimeMillis()) && WANTED.size() < MAX_WANTED) {
+			WANTED.add(uuid);
+		}
+		return e != null && e.plus();
+	}
+
+	/** {@link #isPlus(UUID)} for a service-style id string (dashed or not); bad input = false. */
+	public static boolean isPlus(String uuid) {
+		if (uuid == null) {
+			return false;
+		}
+		try {
+			String t = uuid.trim();
+			if (t.length() == 32) {
+				t = t.substring(0, 8) + "-" + t.substring(8, 12) + "-" + t.substring(12, 16) + "-"
+						+ t.substring(16, 20) + "-" + t.substring(20);
+			}
+			return isPlus(UUID.fromString(t));
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Re-reads your own cosmetics (e.g. when the Cosmetics screen opens, after a purchase).
+	 * If the service wasn't reachable earlier (game started offline), looks for it again
+	 * now instead of waiting out the 10-minute rediscovery in tick().
+	 */
 	public static void refreshMine() {
-		WORKER.execute(CosmeticsService::refreshMineNow);
+		WORKER.execute(() -> {
+			if (status != Status.READY) {
+				discover();
+			}
+			refreshMineNow();
+		});
 	}
 
 	/**
@@ -210,18 +335,21 @@ public final class CosmeticsService {
 		try {
 			JsonObject o = getJson(api + "/v1/players/" + undashed(self));
 			if (o == null) {
+				mineFailed = true;
 				return;
 			}
 			List<String> owned = new ArrayList<>();
 			if (o.get("owned") instanceof JsonArray arr) {
 				for (JsonElement el : arr) {
-					if (Cosmetics.get(el.getAsString()) != null) {
-						owned.add(el.getAsString());
+					if (el != null && el.isJsonPrimitive()) {
+						owned.add(el.getAsString());   // unknown ids are harmless: the screen only shows catalog items
 					}
 				}
 			}
-			mine = new Mine(owned, lookFrom(o.getAsJsonObject("equipped")));
+			mine = new Mine(owned, lookFrom(o), plusFrom(o));
+			mineFailed = false;
 		} catch (Exception e) {
+			mineFailed = true;
 			OriginClient.LOGGER.debug("Origin cosmetics: couldn't load your cosmetics", e);
 		}
 	}
@@ -246,13 +374,19 @@ public final class CosmeticsService {
 			JsonObject players = r.response().getAsJsonObject("players");
 			for (UUID u : batch) {
 				JsonObject p = players != null ? players.getAsJsonObject(undashed(u)) : null;
-				LOOKS.put(u, new Entry(p != null ? lookFrom(p) : Look.NONE, now + FRESH_MS));
+				LOOKS.put(u, new Entry(p != null ? lookFrom(p) : Look.NONE, p != null && plusFrom(p), now + FRESH_MS));
 			}
 		} catch (Exception e) {
 			for (UUID u : batch) {
 				Entry old = LOOKS.get(u);
-				LOOKS.put(u, new Entry(old != null ? old.look() : Look.NONE, now + RETRY_MS));
+				LOOKS.put(u, new Entry(old != null ? old.look() : Look.NONE, old != null && old.plus(), now + RETRY_MS));
 			}
+		}
+	}
+
+	private static void putIfChanged(JsonObject body, String slot, String now, String was, boolean always) {
+		if (always || !java.util.Objects.equals(now, was)) {
+			body.addProperty(slot, now);
 		}
 	}
 
@@ -261,8 +395,17 @@ public final class CosmeticsService {
 			return "Cosmetics aren't available right now.";
 		}
 		JsonObject body = new JsonObject();
-		body.addProperty("cape", look.cape());
-		body.addProperty("head", look.head());
+		// Only the slots that change: a string wears it, null takes it off, and an
+		// absent key leaves it as saved. That keeps what the service saved but isn't
+		// showing - a lapsed member's Origin+ cape comes back when they rejoin -
+		// instead of overwriting it with the null this client was shown.
+		Mine m0 = mine;
+		Look was = m0 != null ? m0.wearing() : null;
+		putIfChanged(body, "cape", look.cape(), was == null ? null : was.cape(), was == null);
+		putIfChanged(body, "head", look.head(), was == null ? null : was.head(), was == null);
+		putIfChanged(body, "face", look.face(), was == null ? null : was.face(), was == null);
+		putIfChanged(body, "back", look.back(), was == null ? null : was.back(), was == null);
+		putIfChanged(body, "theme", look.theme(), was == null ? null : was.theme(), was == null);
 		try {
 			// Origin's own sign-in, the one friends use (it signs in first if needed).
 			String token = SocialClient.tokenFor(api, null);
@@ -274,7 +417,8 @@ public final class CosmeticsService {
 			if (r.status() == 200) {
 				JsonObject o = r.response();
 				Mine m = mine;
-				mine = new Mine(m != null ? m.owned() : List.of(), lookFrom(o.getAsJsonObject("equipped")));
+				mine = new Mine(m != null ? m.owned() : List.of(), lookFrom(o),
+						m != null && m.plus());
 				picked = null;
 				return null;
 			}
@@ -304,21 +448,50 @@ public final class CosmeticsService {
 		}
 	}
 
+	/**
+	 * Reads a look from a service object: the slots may sit under "equipped"
+	 * ({equipped:{cape,head,face,back,theme}}) or directly on it (the batch
+	 * reply). Each slot is read on its own, so one odd value costs only that slot.
+	 */
 	private static Look lookFrom(JsonObject o) {
 		if (o == null) {
 			return Look.NONE;
 		}
-		return new Look(known(o, "cape"), known(o, "head"));
+		if (o.get("equipped") instanceof JsonObject eq) {
+			o = eq;
+		}
+		return new Look(known(o, "cape", Cosmetics.Slot.CAPE), known(o, "head", Cosmetics.Slot.HEAD),
+				known(o, "face", Cosmetics.Slot.FACE), known(o, "back", Cosmetics.Slot.BACK),
+				known(o, "theme", Cosmetics.Slot.THEME));
 	}
 
-	// Only ids this build can draw; anything newer is treated as "nothing".
-	private static String known(JsonObject o, String key) {
-		JsonElement e = o.get(key);
-		if (e == null || e.isJsonNull()) {
+	// `plus` is newer than the service's first release: absent / odd = not a member.
+	private static boolean plusFrom(JsonObject o) {
+		try {
+			JsonElement e = o != null ? o.get("plus") : null;
+			return e != null && e.isJsonPrimitive() && e.getAsBoolean();
+		} catch (Exception ignored) {
+			return false;
+		}
+	}
+
+	// An id string for one slot. An id the catalog knows to belong to ANOTHER slot is dropped; an id
+	// it doesn't know is kept (the catalog may still be loading, and renderers ignore unknown ids).
+	private static String known(JsonObject o, String key, Cosmetics.Slot slot) {
+		try {
+			JsonElement e = o.get(key);
+			if (e == null || !e.isJsonPrimitive()) {
+				return null;
+			}
+			String id = e.getAsString();
+			if (id.isBlank() || id.length() > 64) {
+				return null;
+			}
+			Cosmetics.Item item = Cosmetics.get(id);
+			return item != null && item.slot() != slot ? null : id;
+		} catch (Exception ex) {
 			return null;
 		}
-		String id = e.getAsString();
-		return Cosmetics.get(id) != null ? id : null;
 	}
 
 	private record Reply(int status, JsonObject response) {

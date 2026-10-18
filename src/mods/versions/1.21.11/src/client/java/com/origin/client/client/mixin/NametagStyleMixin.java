@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -56,11 +57,31 @@ public class NametagStyleMixin {
 		if (party != null) {
 			color = (color & 0xFF000000) | (party & 0xFFFFFF);
 		}
+		boolean self = originclient$isSelf(text);   // on the tag's own text, before any padding
+		// Origin+ badge: blank text in front of the name makes vanilla's own centring and
+		// background box grow to hold it; the badge is then drawn over the blank in each
+		// pass, with that pass's alpha/light/mode (so sneaking + see-through match the name).
+		// The member is matched by the tag's text (PlusBadge.wantsNametag), like `self`.
+		float padW = 0f;
+		try {
+			if (PlusBadge.wantsNametag(text)) {
+				String pad = PlusBadge.namePad(font);
+				if (pad != null) {
+					padW = font.width(pad);
+					text = Component.literal(pad).append(text);
+					x -= padW / 2f;
+				}
+			}
+		} catch (Throwable ignored) {
+			padW = 0f;
+		}
 		if (!Mods.on("nametags")) {
 			font.drawInBatch(text, x, y, color, shadow, matrix, buffer, mode, bgColor, light);
+			if (padW > 0f) {
+				PlusBadge.nametag(matrix, buffer, mode, x, y, padW, color >>> 24, light);
+			}
 			return;
 		}
-		boolean self = originclient$isSelf(text);
 		boolean over = self && Mods.bool("nametags", "ownOverride");
 		double op = Mods.num("nametags", "opacity");
 		if (op <= 0.0) {
@@ -89,6 +110,9 @@ public class NametagStyleMixin {
 			newBg = originclient$scaleAlpha(bg, op);
 		}
 		font.drawInBatch(text, x, y, newColor, wantShadow, matrix, buffer, mode, newBg, light);
+		if (padW > 0f) {
+			PlusBadge.nametag(matrix, buffer, mode, x, y, padW, newColor >>> 24, light);
+		}
 	}
 
 	private static boolean originclient$isSelf(Component text) {

@@ -1,5 +1,7 @@
 package com.origin.client.client.hud;
 
+import com.origin.client.client.cosmetics.CosmeticsService;
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
@@ -142,6 +144,16 @@ public final class OriginTabList {
 
 		int headW = heads ? ROW_H : 0;
 
+		// Origin+ members get the Origin mark in a narrow column left of the name; the
+		// column only exists while someone listed is a member, so a normal list is unchanged.
+		boolean[] plus = new boolean[n];
+		boolean anyPlus = false;
+		for (int i = 0; i < n; i++) {
+			plus[i] = CosmeticsService.isPlus(list.get(i).getGameProfile().getId());
+			anyPlus |= plus[i];
+		}
+		int badgeW = anyPlus ? 9 : 0;
+
 		String[] names = new String[n];
 		int[] scores = objective != null ? new int[n] : null;
 		int maxName = 0;
@@ -162,7 +174,7 @@ public final class OriginTabList {
 
 		int pingW = hidePing ? 0 : (pingNum ? font.getStringWidth("999ms") : 11);
 		int healthW = showHealth ? font.getStringWidth("20") + 4 : 0; // widest number + a hair of gap
-		int cellW = headW + maxName + 6 + healthW + scoreW + pingW;
+		int cellW = headW + badgeW + maxName + 6 + healthW + scoreW + pingW;
 
 		// columns: <=20 per column, then widen
 		int rows = n, cols = 1;
@@ -202,6 +214,13 @@ public final class OriginTabList {
 				g.blit(skin, px, ry, 8, 8, 40f, 8f, 8, 8, 64, 64);
 				GlStateManager.disableBlend();
 				px += ROW_H;
+			}
+			if (badgeW > 0) {
+				if (plus[i]) {
+					PlusBadge.gui(g, px, ry, 7);
+					GlStateManager.disableBlend();   // 1.8.9: as after the face above
+				}
+				px += badgeW;
 			}
 			UUID id = info.getGameProfile().getId();
 			boolean isSelf = self != null && self.equals(id);

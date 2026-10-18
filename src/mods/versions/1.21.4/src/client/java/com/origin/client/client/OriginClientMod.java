@@ -156,17 +156,19 @@ public class OriginClientMod implements ClientModInitializer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
 		}
 		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
-		// client (background thread, fail-soft) and the head-cosmetic layer on
-		// every player model. Capes ride vanilla's cape slot (CosmeticCapeMixin).
-		// 1.21.2+: layers render from PlayerRenderState, so the head layer reads
-		// the wearer's cosmetic from the state (CosmeticRenderStateMixin stashes
-		// it at extraction, where the player still exists).
+		// client (background thread, fail-soft), the data-driven model layer
+		// (hats, masks, wings, backpacks) on every player model, and the menu
+		// theme. Capes ride vanilla's cape slot (CosmeticCapeMixin).
+		// 1.21.2+: layers render from PlayerRenderState, so CosmeticLayer looks the
+		// wearer up by the state's entity id (the LevelHeadMixin pattern).
 		try {
 			com.origin.client.client.cosmetics.CosmeticsService.start();
+			com.origin.client.client.cosmetics.CosmeticEffects.register();
+			com.origin.client.client.theme.ThemeManager.register();
 			net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
 					(type, renderer, helper, ctx) -> {
 						if (renderer instanceof net.minecraft.client.renderer.entity.player.PlayerRenderer player) {
-							helper.register(new com.origin.client.client.cosmetics.CosmeticHeadLayer(player));
+							helper.register(new com.origin.client.client.cosmetics.CosmeticLayer(player));
 							// the Cosmetics window's title-screen preview builds its renderers from this
 							com.origin.client.client.cosmetics.MenuPlayerPreview.onRenderersCreated(ctx);
 						}

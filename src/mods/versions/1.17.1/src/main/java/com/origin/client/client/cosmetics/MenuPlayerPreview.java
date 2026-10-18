@@ -34,7 +34,11 @@ import java.util.UUID;
  *     (wide or slim to match the skin), textured with the account's skin;
  *   - the cape: PlayerModel.renderCloak with CapeLayer's resting pose, using
  *     the equipped Origin cape (CapeTextures) or else the account's own cape;
- *   - the head item: HeadModels, placed exactly as CosmeticHeadLayer places it.
+ *   - the head / face / back items: CosmeticLayer.renderItems, the same call
+ *     (and so the same placement and animation) the in-world layer makes.
+ *
+ * Also draws the Cosmetics screen's tile thumbnails ({@link #renderThumb}):
+ * the same model with just one item on it, zoomed by the caller.
  *
  * 1.17.1 (no PlayerSkin before 1.20.2): the skin, its arm model and the cape
  * come from SkinManager.registerSkins -- the title screen's account chip uses the
@@ -68,6 +72,20 @@ public final class MenuPlayerPreview {
 	 * Render thread. False if it couldn't draw.
 	 */
 	public static boolean render(float cx, float cy, float size, float yaw, CosmeticsService.Look look) {
+		return render(cx, cy, size, yaw, look, true);
+	}
+
+	/**
+	 * A thumbnail: like {@link #render} but with no cape from the account (only
+	 * what `look` itself carries) so a tile shows nothing but its own item. The
+	 * caller zooms by choosing `cy` and `size` (and clips to its tile).
+	 */
+	public static boolean renderThumb(float cx, float cy, float size, float yaw, CosmeticsService.Look look) {
+		return render(cx, cy, size, yaw, look, false);
+	}
+
+	private static boolean render(float cx, float cy, float size, float yaw, CosmeticsService.Look look,
+			boolean accountCape) {
 		if (broken) {
 			return false;
 		}
@@ -125,28 +143,22 @@ public final class MenuPlayerPreview {
 
 			String capeId = look == null ? null : look.cape();
 			ResourceLocation cape = capeId != null ? CapeTextures.current(capeId) : null;
-			if (cape == null && hidden == null) {
+			if (cape == null && hidden == null && accountCape) {
 				cape = capeTex;
 			}
-			if (cape != null && mc.options.isModelPartEnabled(PlayerModelPart.CAPE)) {
+			boolean capeHidden = look != null && look.hidesCape();   // wings / a backpack replace it
+			if (cape != null && !capeHidden && mc.options.isModelPartEnabled(PlayerModelPart.CAPE)) {
 				// CapeLayer's pose for a player standing still, with a gentle sway.
 				pose.pushPose();
-				pose.translate(0.0, 0.0, 0.125);
+				pose.translate(0.0, 0.0, 0.125 + (look == null ? 0f : look.capeOffset()) / 16f);
 				pose.mulPose(Vector3f.XP.rotationDegrees(6f + 2.5f * (float) Math.sin(ticks * 0.06f)));
 				pose.mulPose(Vector3f.YP.rotationDegrees(180f));
 				model.renderCloak(pose, buffers.getBuffer(RenderType.entitySolid(cape)), LIGHT, OverlayTexture.NO_OVERLAY);
 				pose.popPose();
 			}
 
-			String headId = look == null ? null : look.head();
-			if (headId != null && Cosmetics.get(headId) != null) {
-				// Exactly CosmeticHeadLayer's placement.
-				pose.pushPose();
-				model.head.translateAndRotate(pose);
-				pose.scale(1 / 16f, -1 / 16f, -1 / 16f);
-				pose.translate(0.0, -24.0, 0.0);
-				HeadModels.render(headId, pose, buffers, LIGHT, ticks / 20f);
-				pose.popPose();
+			if (look != null) {
+				CosmeticLayer.renderItems(model, pose, buffers, LIGHT, look, ticks / 20f, 0f, 0f, false);
 			}
 			buffers.endBatch();
 			return true;

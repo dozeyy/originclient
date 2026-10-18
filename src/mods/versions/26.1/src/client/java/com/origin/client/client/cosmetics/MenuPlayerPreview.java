@@ -15,7 +15,9 @@ import net.minecraft.world.entity.player.PlayerSkin;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
@@ -31,8 +33,15 @@ import java.util.function.Supplier;
  *     state's PlayerSkin exactly as CosmeticCapeMixin swaps it in game, else
  *     the account's own cape -- vanilla's cape layer draws it, with a gentle
  *     resting sway;
- *   - the head item: CosmeticHeadLayer draws it, finding the wearer through
- *     {@link #headFor} (the state carries no level entity to look up).
+ *   - the head / face / back items: CosmeticLayer draws them, finding what
+ *     the state wears through {@link #lookFor} (the state carries no level
+ *     entity to look up); CapePhysicsMixin reads the same look to hide the
+ *     cape under wings / a backpack or push it back.
+ *
+ * Also draws the Cosmetics screen's tile thumbnails ({@link #renderThumb}):
+ * the same model with just one item on it, zoomed by the caller. Several
+ * states can be in flight in one frame (the PIP boxes draw later), so each
+ * call takes its own state id and the look is kept per id.
  *
  * PER-VERSION DELTA (1.21.11, extract/submit era): 1.21.1 draws a baked
  * PlayerModel immediately into GuiGraphicsExtractor' buffer source. This era's GUI is
@@ -55,18 +64,25 @@ public final class MenuPlayerPreview {
 	public static final float HEIGHT = 1.8f;
 	/** The entity id the menu state carries: never a real entity's (those are >= 0). */
 	public static final int STATE_ID = -1_998_877;
+	/** Menu states take ids STATE_ID, STATE_ID - 1, ... in a ring of this many (more than a frame ever draws). */
+	private static final int ID_RING = 256;
 	// Our cape frames only cover the cape, so the elytra slot keeps its own texture.
 	private static final Identifier ELYTRA = Identifier.withDefaultNamespace("textures/entity/equipment/wings/elytra.png");
 
 	private static UUID skinOwner;
 	private static Supplier<PlayerSkin> skinSupplier;
 	private static boolean broken = false;
-	/** The head cosmetic the menu state wears (read by CosmeticHeadLayer during the frame). */
-	private static volatile String menuHead = null;
+	/** What each in-flight menu state wears, by its state id (read by CosmeticLayer / CapePhysicsMixin). */
+	private static final Map<Integer, CosmeticsService.Look> MENU_LOOKS = new ConcurrentHashMap<>();
+	private static int nextSlot = 0;
 
-	/** The head cosmetic for a render state that is the menu preview's, else null. */
-	public static String headFor(AvatarRenderState state) {
-		return state != null && state.id == STATE_ID ? menuHead : null;
+	/** The look of a render state that is one of ours, else null (a real player: look it up by entity). */
+	public static CosmeticsService.Look lookFor(AvatarRenderState state) {
+		if (state == null || state.id > STATE_ID || state.id <= STATE_ID - ID_RING) {
+			return null;
+		}
+		CosmeticsService.Look l = MENU_LOOKS.get(state.id);
+		return l != null ? l : CosmeticsService.Look.NONE;
 	}
 
 	/**
@@ -77,6 +93,21 @@ public final class MenuPlayerPreview {
 	 */
 	public static boolean render(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, float cx, float cy, float size,
 			float yaw, CosmeticsService.Look look) {
+		return render(g, x0, y0, x1, y1, cx, cy, size, yaw, look, true);
+	}
+
+	/**
+	 * A thumbnail: like {@link #render} but with no cape from the account (only
+	 * what `look` itself carries) so a tile shows nothing but its own item. The
+	 * caller zooms by choosing `cy` and `size` inside its tile's box.
+	 */
+	public static boolean renderThumb(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, float cx, float cy,
+			float size, float yaw, CosmeticsService.Look look) {
+		return render(g, x0, y0, x1, y1, cx, cy, size, yaw, look, false);
+	}
+
+	private static boolean render(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, float cx, float cy,
+			float size, float yaw, CosmeticsService.Look look, boolean accountCape) {
 		if (broken || x1 <= x0 || y1 <= y0 || size <= 0) {
 			return false;
 		}
@@ -93,14 +124,17 @@ public final class MenuPlayerPreview {
 						: new ClientAsset.ResourceTexture(ELYTRA, ELYTRA);
 				skin = new PlayerSkin(skin.body(), new ClientAsset.ResourceTexture(cape, cape), elytra,
 						skin.model(), skin.secure());
+			} else if (!accountCape && skin.cape() != null) {
+				skin = new PlayerSkin(skin.body(), null, skin.elytra(), skin.model(), skin.secure());
 			}
-			String headId = look == null ? null : look.head();
-			menuHead = headId != null && Cosmetics.get(headId) != null ? headId : null;
+			int stateId = STATE_ID - nextSlot;
+			nextSlot = (nextSlot + 1) % ID_RING;
+			MENU_LOOKS.put(stateId, look == null ? CosmeticsService.Look.NONE : look);
 
 			float ticks = (Util.getMillis() % 3_600_000L) / 50f;
 			AvatarRenderState st = new AvatarRenderState();
 			st.entityType = net.minecraft.world.entity.EntityType.PLAYER;
-			st.id = STATE_ID;
+			st.id = stateId;
 			st.skin = skin;
 			st.ageInTicks = ticks;           // vanilla's idle arm sway reads this
 			st.bodyRot = 180 + yaw;          // what the in-world preview sets on the player
@@ -115,7 +149,8 @@ public final class MenuPlayerPreview {
 			st.showRightPants = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_PANTS_LEG);
 			st.showLeftSleeve = mc.options.isModelPartEnabled(PlayerModelPart.LEFT_SLEEVE);
 			st.showRightSleeve = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_SLEEVE);
-			st.showCape = mc.options.isModelPartEnabled(PlayerModelPart.CAPE);
+			// wings / a backpack replace the cape
+			st.showCape = mc.options.isModelPartEnabled(PlayerModelPart.CAPE) && (look == null || !look.hidesCape());
 			// CapeLayer's resting pose (6 deg + lean/2 + flap) with 1.21.1's gentle sway.
 			st.capeFlap = 2.5f * (float) Math.sin(ticks * 0.06f);
 			st.capeLean = 0f;

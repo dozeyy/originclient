@@ -7,6 +7,12 @@ package com.origin.client.client.theme;
 // overlay and restyled vanilla control. Keep this class import-free so each
 // rendering generation can consume the same identity without adapter code.
 //
+// The surface, edge, type and accent tokens are plain statics, not constants: an
+// equipped theme item (cosmetics, FORMAT.md "Themes") repaints them through
+// applyTheme / resetTheme (theme/ThemeManager, render thread). The DEF_ values
+// are today's colours. Read them fresh each frame; never copy one into a
+// static final. SUCCESS / INFO / DANGER / WARNING are not themed.
+//
 // Colors are 0xAARRGGBB. Emerald is the sole general interaction accent; lapis,
 // redstone and gold are reserved for information, danger and warning.
 public final class OriginTheme {
@@ -14,44 +20,68 @@ public final class OriginTheme {
 	}
 
 	// ---- Primitive surfaces: voidstone -> polished deepslate ----
-	public static final int BG = 0xFF0E1110;
-	public static final int BG_ALT = 0xFF121614;
-	public static final int PANEL = 0xFF171C19;
-	public static final int PANEL_TRANSLUCENT = 0xA6171C19;
-	public static final int PANEL_ALT = 0xFF202720;
+	private static final int DEF_BG = 0xFF0E1110;
+	public static int BG = DEF_BG;
+	private static final int DEF_BG_ALT = 0xFF121614;
+	public static int BG_ALT = DEF_BG_ALT;
+	private static final int DEF_PANEL = 0xFF171C19;
+	public static int PANEL = DEF_PANEL;
+	private static final int DEF_PANEL_TRANSLUCENT = 0xA6171C19;
+	public static int PANEL_TRANSLUCENT = DEF_PANEL_TRANSLUCENT;
+	private static final int DEF_PANEL_ALT = 0xFF202720;
+	public static int PANEL_ALT = DEF_PANEL_ALT;
 
 	// ---- Semantic edges ----
-	public static final int STROKE = 0x246F796F;
-	public static final int STROKE_STRONG = 0x527D897E;
-	public static final int STROKE_HOVER = 0xFF4E705C;
+	private static final int DEF_STROKE = 0x246F796F;
+	public static int STROKE = DEF_STROKE;
+	private static final int DEF_STROKE_STRONG = 0x527D897E;
+	public static int STROKE_STRONG = DEF_STROKE_STRONG;
+	private static final int DEF_STROKE_HOVER = 0xFF4E705C;
+	public static int STROKE_HOVER = DEF_STROKE_HOVER;
 
 	// ---- Type: warm parchment over cool mineral surfaces ----
-	public static final int TEXT = 0xFFF1E9D2;
-	public static final int TEXT_DIM = 0xFFB8B5A6;
-	public static final int MUTED = 0xFF7D8279;
+	private static final int DEF_TEXT = 0xFFF1E9D2;
+	public static int TEXT = DEF_TEXT;
+	private static final int DEF_TEXT_DIM = 0xFFB8B5A6;
+	public static int TEXT_DIM = DEF_TEXT_DIM;
+	private static final int DEF_MUTED = 0xFF7D8279;
+	public static int MUTED = DEF_MUTED;
 
 	// ---- Interaction and semantic ores ----
-	public static final int ACCENT = 0xFF5FD09B;
-	public static final int ACCENT_2 = 0xFF83E2B5;
-	public static final int ACCENT_GLOW = 0x595FD09B;
-	public static final int ACCENT_DIM = 0x8C5FD09B;
-	public static final int ACCENT_SOFT = 0x245FD09B;
-	public static final int ACCENT_BORDER = 0x995FD09B;
+	private static final int DEF_ACCENT = 0xFF5FD09B;
+	public static int ACCENT = DEF_ACCENT;
+	private static final int DEF_ACCENT_2 = 0xFF83E2B5;
+	public static int ACCENT_2 = DEF_ACCENT_2;
+	private static final int DEF_ACCENT_GLOW = 0x595FD09B;
+	public static int ACCENT_GLOW = DEF_ACCENT_GLOW;
+	private static final int DEF_ACCENT_DIM = 0x8C5FD09B;
+	public static int ACCENT_DIM = DEF_ACCENT_DIM;
+	private static final int DEF_ACCENT_SOFT = 0x245FD09B;
+	public static int ACCENT_SOFT = DEF_ACCENT_SOFT;
+	private static final int DEF_ACCENT_BORDER = 0x995FD09B;
+	public static int ACCENT_BORDER = DEF_ACCENT_BORDER;
 	public static final int SUCCESS = 0xFF68C490;
 	public static final int INFO = 0xFF6FAEE8;
 	public static final int DANGER = 0xFFE06B5B;
 	public static final int WARNING = 0xFFD8B45B;
 
 	// ---- Unified card/control material ----
-	public static final int BOX_FILL = 0xB31D2420;
-	public static final int BOX_FILL_HOVER = 0xD127302A;
-	public static final int BOX_BORDER = 0xF0080B09;
-	public static final int BOX_BORDER_HOVER = 0xFF4E705C;
+	private static final int DEF_BOX_FILL = 0xB31D2420;
+	public static int BOX_FILL = DEF_BOX_FILL;
+	private static final int DEF_BOX_FILL_HOVER = 0xD127302A;
+	public static int BOX_FILL_HOVER = DEF_BOX_FILL_HOVER;
+	private static final int DEF_BOX_BORDER = 0xF0080B09;
+	public static int BOX_BORDER = DEF_BOX_BORDER;
+	private static final int DEF_BOX_BORDER_HOVER = 0xFF4E705C;
+	public static int BOX_BORDER_HOVER = DEF_BOX_BORDER_HOVER;
 
 	// ---- Toggle ----
-	public static final int SWITCH_ON = SUCCESS;
-	public static final int SWITCH_OFF = 0xFF303732;
-	public static final int SWITCH_KNOB = TEXT;
+	private static final int DEF_SWITCH_ON = SUCCESS;
+	public static int SWITCH_ON = DEF_SWITCH_ON;
+	private static final int DEF_SWITCH_OFF = 0xFF303732;
+	public static int SWITCH_OFF = DEF_SWITCH_OFF;
+	private static final int DEF_SWITCH_KNOB = DEF_TEXT;
+	public static int SWITCH_KNOB = DEF_SWITCH_KNOB;
 	public static final int SWITCH_STROKE = 0x52080B09;
 
 	// ---- Spacing: Minecraft's compact 4/8 rhythm ----
@@ -104,6 +134,68 @@ public final class OriginTheme {
 		int rg = (int) Math.round(lerp(ag, bg, t));
 		int rb = (int) Math.round(lerp(ab, bb, t));
 		return (ra << 24) | (rr << 16) | (rg << 8) | rb;
+	}
+
+	/**
+	 * Recolours the tokens from an equipped theme (cosmetics/ThemeColors): token name ->
+	 * 0xAARRGGBB, named exactly like the fields above. The build works every value out
+	 * from these DEF_ colours (cosmetics/lib/theme.mjs), so the game only assigns; a token
+	 * the theme leaves out keeps today's colour.
+	 */
+	public static void applyTheme(java.util.Map<String, Integer> t) {
+		resetTheme();
+		BG = t.getOrDefault("BG", BG);
+		BG_ALT = t.getOrDefault("BG_ALT", BG_ALT);
+		PANEL = t.getOrDefault("PANEL", PANEL);
+		PANEL_TRANSLUCENT = t.getOrDefault("PANEL_TRANSLUCENT", PANEL_TRANSLUCENT);
+		PANEL_ALT = t.getOrDefault("PANEL_ALT", PANEL_ALT);
+		STROKE = t.getOrDefault("STROKE", STROKE);
+		STROKE_STRONG = t.getOrDefault("STROKE_STRONG", STROKE_STRONG);
+		STROKE_HOVER = t.getOrDefault("STROKE_HOVER", STROKE_HOVER);
+		TEXT = t.getOrDefault("TEXT", TEXT);
+		TEXT_DIM = t.getOrDefault("TEXT_DIM", TEXT_DIM);
+		MUTED = t.getOrDefault("MUTED", MUTED);
+		ACCENT = t.getOrDefault("ACCENT", ACCENT);
+		ACCENT_2 = t.getOrDefault("ACCENT_2", ACCENT_2);
+		ACCENT_GLOW = t.getOrDefault("ACCENT_GLOW", ACCENT_GLOW);
+		ACCENT_DIM = t.getOrDefault("ACCENT_DIM", ACCENT_DIM);
+		ACCENT_SOFT = t.getOrDefault("ACCENT_SOFT", ACCENT_SOFT);
+		ACCENT_BORDER = t.getOrDefault("ACCENT_BORDER", ACCENT_BORDER);
+		BOX_FILL = t.getOrDefault("BOX_FILL", BOX_FILL);
+		BOX_FILL_HOVER = t.getOrDefault("BOX_FILL_HOVER", BOX_FILL_HOVER);
+		BOX_BORDER = t.getOrDefault("BOX_BORDER", BOX_BORDER);
+		BOX_BORDER_HOVER = t.getOrDefault("BOX_BORDER_HOVER", BOX_BORDER_HOVER);
+		SWITCH_ON = t.getOrDefault("SWITCH_ON", SWITCH_ON);
+		SWITCH_OFF = t.getOrDefault("SWITCH_OFF", SWITCH_OFF);
+		SWITCH_KNOB = t.getOrDefault("SWITCH_KNOB", SWITCH_KNOB);
+	}
+
+	/** Back to today's colours. */
+	public static void resetTheme() {
+		BG = DEF_BG;
+		BG_ALT = DEF_BG_ALT;
+		PANEL = DEF_PANEL;
+		PANEL_TRANSLUCENT = DEF_PANEL_TRANSLUCENT;
+		PANEL_ALT = DEF_PANEL_ALT;
+		STROKE = DEF_STROKE;
+		STROKE_STRONG = DEF_STROKE_STRONG;
+		STROKE_HOVER = DEF_STROKE_HOVER;
+		TEXT = DEF_TEXT;
+		TEXT_DIM = DEF_TEXT_DIM;
+		MUTED = DEF_MUTED;
+		ACCENT = DEF_ACCENT;
+		ACCENT_2 = DEF_ACCENT_2;
+		ACCENT_GLOW = DEF_ACCENT_GLOW;
+		ACCENT_DIM = DEF_ACCENT_DIM;
+		ACCENT_SOFT = DEF_ACCENT_SOFT;
+		ACCENT_BORDER = DEF_ACCENT_BORDER;
+		BOX_FILL = DEF_BOX_FILL;
+		BOX_FILL_HOVER = DEF_BOX_FILL_HOVER;
+		BOX_BORDER = DEF_BOX_BORDER;
+		BOX_BORDER_HOVER = DEF_BOX_BORDER_HOVER;
+		SWITCH_ON = DEF_SWITCH_ON;
+		SWITCH_OFF = DEF_SWITCH_OFF;
+		SWITCH_KNOB = DEF_SWITCH_KNOB;
 	}
 
 	public static int aurora(double t) {

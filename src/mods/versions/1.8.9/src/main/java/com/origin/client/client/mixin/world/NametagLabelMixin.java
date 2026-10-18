@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.world;
 
+import com.origin.client.client.cosmetics.PlusBadge;
 import com.origin.client.client.hooks.WorldHooks;
 import com.origin.client.client.hooks.WorldLabel;
 import com.origin.client.client.mods.Mods;
@@ -30,13 +31,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *     passes, hooks/WorldLabel) with: Scale (about the entity's feet, so lines
  *     keep their spacing), text shadow, opacity, custom text/background colours
  *     and the own-tag overrides, the party colour, and the Level Head text --
- *     inline after the name ("Level Above Name" off) or as one more line above it.
+ *     inline after the name ("Level Above Name" off) or as one more line above it,
+ *     and the Origin+ badge in front of a member's name (cosmetics/PlusBadge).
  * The name line is told from the score line by its text (vanilla passes
  * getDisplayName().getFormattedText() for the name).
  *
  * The sneaking tag (drawn by RendererLivingEntity without this routine) only
  * honours the hide toggles (WorldHooks' RenderLivingEvent.Specials.Pre), as
- * vanilla draws it faint and unstyled.
+ * vanilla draws it faint and unstyled -- so it carries no Origin+ badge either.
  */
 @Mixin(Render.class)
 public abstract class NametagLabelMixin {
@@ -64,7 +66,9 @@ public abstract class NametagLabelMixin {
 			boolean nameLine = entity.getDisplayName() != null
 					&& text.equals(entity.getDisplayName().getFormattedText());
 			String level = nameLine && entity instanceof EntityPlayer ? originclient$level((EntityPlayer) entity) : null;
-			if (!modOn && party == null && level == null) {
+			// 1.8.9: the name line is the one 1.21.1 tells from the score line with PlusBadge.isScoreLine
+			boolean plus = nameLine && PlusBadge.wantsNametag(entity);
+			if (!modOn && party == null && level == null && !plus) {
 				return;   // pure vanilla
 			}
 			boolean levelAbove = level != null && Mods.bool("hypixel", "levelAbove");
@@ -73,9 +77,9 @@ public abstract class NametagLabelMixin {
 			ci.cancel();
 			originclient$reentry = true;
 			try {
-				originclient$draw(entity, shown, x, y, z, modOn, party);
+				originclient$draw(entity, shown, x, y, z, modOn, party, plus);
 				if (levelAbove) {
-					originclient$draw(entity, level, x, y + originclient$LINE, z, modOn, null);
+					originclient$draw(entity, level, x, y + originclient$LINE, z, modOn, null, false);
 				}
 			} finally {
 				originclient$reentry = false;
@@ -87,7 +91,7 @@ public abstract class NametagLabelMixin {
 
 	/** vanilla's label, restyled (see the class doc). */
 	private static void originclient$draw(Entity entity, String text, double x, double y, double z,
-										  boolean modOn, Integer party) {
+										  boolean modOn, Integer party, boolean plus) {
 		Minecraft mc = Minecraft.getMinecraft();
 		FontRenderer font = mc.fontRendererObj;
 		boolean self = entity == mc.thePlayer;
@@ -134,11 +138,25 @@ public abstract class NametagLabelMixin {
 		double feetY = entity.lastTickPosY + (entity.posY - entity.lastTickPosY) * pt - rm.viewerPosY;
 		double lift = (y - feetY) + entity.height + 0.5;
 		int yOff = "deadmau5".equals(text) ? -10 : 0;   // vanilla's own special case
+		// Origin+ badge: blank text in front of the name makes the centring and the
+		// backdrop grow to hold it; the badge is then drawn over the blank in both passes.
+		int padW = 0;
+		if (plus) {
+			String pad = PlusBadge.namePad(font);
+			if (pad != null) {
+				padW = font.getStringWidth(pad);
+				drawn = pad + drawn;
+			}
+		}
 		WorldLabel.begin(x, feetY, z, s, lift, WorldLabel.VANILLA_SCALE, false);
 		try {
 			int half = font.getStringWidth(drawn) / 2;
 			WorldLabel.backdrop(-half - 1, -1 + yOff, half + 1, 8 + yOff, bg);
 			WorldLabel.text(drawn, -half, yOff, ghost, solid, shadow, true);
+			if (padW > 0) {
+				PlusBadge.nametag(-half, yOff, padW, ghost >>> 24, solid >>> 24, Math.sqrt(x * x + y * y + z * z),
+						WorldLabel.VANILLA_SCALE * s);
+			}
 		} finally {
 			WorldLabel.end();
 		}

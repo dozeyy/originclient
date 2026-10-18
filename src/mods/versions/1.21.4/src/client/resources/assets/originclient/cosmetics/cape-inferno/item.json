@@ -1,0 +1,29 @@
+{
+  "id": "cape-inferno",
+  "name": "Inferno Cape",
+  "kind": "cape",
+  "slot": "cape",
+  "cents": 899,
+  "blurb": "Charred black cloth with living flames licking up from a glowing hem.",
+  "animated": true,
+  "plusOnly": false,
+  "onSale": true,
+  "hidesCape": false,
+  "capeOffset": 0,
+  "cape": {"scale":4,"frames":24,"fps":12},
+  "fx": [
+    {
+      "bone": "body",
+      "at": [0,-14,-3.4],
+      "spread": [7,0.6,0.4],
+      "color": "#ff6a1a",
+      "color2": "#ffc65a",
+      "perSecond": 3,
+      "life": [1.6,2.6],
+      "size": 0.35,
+      "rise": 3.5,
+      "drift": [0,0,-0.8],
+      "glow": true
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+<UserControl x:Class="OriginLauncher.App.UI.Controls.StartupIntro"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Bg}"
+             Focusable="False">
+
+    <!--
+        The launcher's opening: the Origin mark (same geometry as OriginMark:
+        180x64 / 150x54 / 120x44 rings, 0/60/120 degrees) draws its three
+        rings in and swings them out to their angles, then the whole layer
+        fades away to reveal the launcher already built underneath. Purely
+        decorative - there is no progress bar because nothing here is
+        measuring progress; the only real signal it waits on is "the window
+        has rendered and the UI thread is idle" (see StartupIntro.xaml.cs).
+        Any click or key skips it.
+    -->
+    <Viewbox x:Name="MarkBox" Width="132" Height="132"
+             HorizontalAlignment="Center" VerticalAlignment="Center"
+             RenderTransformOrigin="0.5,0.5">
+        <Viewbox.RenderTransform>
+            <ScaleTransform x:Name="MarkScale" ScaleX="0.94" ScaleY="0.94"/>
+        </Viewbox.RenderTransform>
+        <!-- The glow's properties never animate; it re-blurs with the turning rings for under a second, then the layer is gone. -->
+        <Grid Width="200" Height="200" Effect="{StaticResource Effect.OriginGlow}">
+            <Ellipse x:Name="Ring0" Width="180" Height="64" Stroke="{StaticResource Brush.Text}"
+                     StrokeThickness="3" Fill="Transparent"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     RenderTransformOrigin="0.5,0.5">
+                <Ellipse.RenderTransform><RotateTransform x:Name="Turn0"/></Ellipse.RenderTransform>
+            </Ellipse>
+            <Ellipse x:Name="Ring1" Width="150" Height="54" Stroke="{StaticResource Brush.Text}"
+                     StrokeThickness="3" Fill="Transparent"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     RenderTransformOrigin="0.5,0.5">
+                <Ellipse.RenderTransform><RotateTransform x:Name="Turn1"/></Ellipse.RenderTransform>
+            </Ellipse>
+            <Ellipse x:Name="Ring2" Width="120" Height="44" Stroke="{StaticResource Brush.Text}"
+                     StrokeThickness="3" Fill="Transparent"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     RenderTransformOrigin="0.5,0.5">
+                <Ellipse.RenderTransform><RotateTransform x:Name="Turn2"/></Ellipse.RenderTransform>
+            </Ellipse>
+        </Grid>
+    </Viewbox>
+</UserControl>

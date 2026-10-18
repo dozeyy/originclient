@@ -1,0 +1,14 @@
+{
+  "id": "cape-orbit",
+  "name": "Orbit Cape",
+  "kind": "cape",
+  "slot": "cape",
+  "cents": 999,
+  "blurb": "Electrons circle the three rings of the Origin mark.",
+  "animated": true,
+  "plusOnly": false,
+  "onSale": true,
+  "hidesCape": false,
+  "capeOffset": 0,
+  "cape": {"scale":4,"frames":32,"fps":12}
+}

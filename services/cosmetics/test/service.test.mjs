@@ -6,9 +6,12 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { handle, slotOf } from '../src/index.js';
-import { CATALOG, verifySignature } from '../src/stripe.js';
+import { CATALOG, PLUS_MANAGE_URL, forSale, verifySignature } from '../src/stripe.js';
 import { d1 } from './d1.mjs';   // D1 stand-in with every migration applied
 import { authBody, seedKeys } from './mojang.mjs';
+
+// What a player wears with nothing on, slot by slot (cosmetics/FORMAT.md).
+const BARE = { cape: null, head: null, face: null, back: null, theme: null };
 
 const UUID = '069a79f444e94726a5befca90e38aaf5';
 const DASHED = '069a79f4-44e9-4726-a5be-fca90e38aaf5';
@@ -46,8 +49,8 @@ const api = (method, path, body, token) => handle(new Request(`https://svc.test$
 function sign(raw, secret = WHSEC, t = Math.floor(Date.now() / 1000)) {
   return `t=${t},v1=${createHmac('sha256', secret).update(`${t}.${raw}`).digest('hex')}`;
 }
-function stripeEvent(type, object, signature) {
-  const raw = JSON.stringify({ id: 'evt_1', type, data: { object } });
+function stripeEvent(type, object, signature, created = Math.floor(Date.now() / 1000)) {
+  const raw = JSON.stringify({ id: 'evt_1', type, created, data: { object } });
   return handle(new Request('https://svc.test/v1/stripe/webhook', {
     method: 'POST', headers: { 'Stripe-Signature': signature ?? sign(raw) }, body: raw,
   }), env);
@@ -68,14 +71,16 @@ test('catalog: the store page sells exactly what the service charges for, at the
   const page = readFileSync(new URL('../../../website/js/store.js', import.meta.url), 'utf8');
   const items = [...page.matchAll(/\{ id: '([a-z0-9-]+)', name: '([^']+)',.*?price: ([\d.]+) \}/g)]
     .map(([, id, name, price]) => [id, { name, cents: Math.round(Number(price) * 100) }]);
-  assert.deepEqual(Object.fromEntries(items), CATALOG);
+  const sold = Object.entries(CATALOG).filter(([id]) => forSale(id)).map(([id, c]) => [id, { name: c.name, cents: c.cents }]);
+  assert.deepEqual(Object.fromEntries(items), Object.fromEntries(sold));
 });
 
 test('catalog: every item and its price, and whether checkout is open', async () => {
   let c = await (await api('GET', '/v1/store/catalog')).json();
   assert.equal(c.open, true);
   assert.equal(c.currency, 'USD');
-  assert.deepEqual(c.items['cape-orbit'], { name: 'Orbit Cape', price: 9.99 });
+  assert.deepEqual(c.items['cape-orbit'], { name: 'Orbit Cape', price: 9.99, memberPrice: 7.99 });
+  assert.deepEqual(c.plus, { month: 4.99, year: 39.99, percentOff: 20, manageUrl: PLUS_MANAGE_URL });
   for (const { price } of Object.values(c.items)) assert.ok(price >= 5 && price <= 10);   // Will: $5-$10
   delete env.STRIPE_SECRET_KEY;
   c = await (await api('GET', '/v1/store/catalog')).json();
@@ -196,7 +201,7 @@ test('refunds and chargebacks take that payment\'s items back and off; partial r
   await stripeEvent('charge.refunded', { id: 'ch_a', payment_intent: 'pi_a', refunded: true });
   const view = await (await api('GET', `/v1/players/${UUID}`)).json();
   assert.deepEqual(view.owned, ['cape-void']);
-  assert.deepEqual(view.equipped, { cape: null, head: null });
+  assert.deepEqual(view.equipped, BARE);
 
   await stripeEvent('charge.dispute.created', { id: 'dp_1', payment_intent: 'pi_b' });
   assert.deepEqual(await ownedNow(), []);
@@ -233,11 +238,22 @@ test('equip: wear owned items, signed in with an Origin token', async () => {
   const token = await signIn();
   const r = await api('POST', '/v1/equip', { cape: 'cape-orbit', head: 'halo-gold' }, token);
   assert.equal(r.status, 200);
-  assert.deepEqual((await r.json()).equipped, { cape: 'cape-orbit', head: 'halo-gold' });
+  assert.deepEqual((await r.json()).equipped, { ...BARE, cape: 'cape-orbit', head: 'halo-gold' });
 
   const batch = await (await api('POST', '/v1/players/equipped', { uuids: [DASHED, 'not-a-uuid', 'f'.repeat(32)] })).json();
-  assert.deepEqual(batch.players, { [UUID]: { cape: 'cape-orbit', head: 'halo-gold' } });
+  assert.deepEqual(batch.players, { [UUID]: { ...BARE, cape: 'cape-orbit', head: 'halo-gold', plus: false } });
   assert.equal(calls.length, 0);   // nothing asked of Mojang (or anyone)
+});
+
+test('equip: a slot the request leaves out stays on (older mods only know some slots); null takes it off', async () => {
+  await own('cape-orbit', 'halo-gold');
+  const token = await signIn();
+  const wear = async body => (await (await api('POST', '/v1/equip', body, token)).json()).equipped;
+  assert.deepEqual(await wear({ cape: 'cape-orbit' }), { ...BARE, cape: 'cape-orbit' });
+  assert.deepEqual(await wear({ head: 'halo-gold' }), { ...BARE, cape: 'cape-orbit', head: 'halo-gold' });
+  assert.deepEqual(await wear({ cape: null }), { ...BARE, head: 'halo-gold' });
+  assert.equal((await api('POST', '/v1/equip', { back: 'cape-orbit' }, token)).status, 403);   // a cape isn't worn on the back
+  assert.deepEqual(await wear({}), { ...BARE, head: 'halo-gold' });
 });
 
 test('equip: refuses items you do not own, wrong slots, missing/bad tokens and old mods', async () => {
@@ -265,4 +281,148 @@ test('api: CORS preflight, bad uuid, unknown path', async () => {
   assert.equal((await api('GET', '/v1/players/nope')).status, 400);
   assert.equal((await api('GET', '/v2/whatever')).status, 404);
   assert.equal((await api('GET', '/v1/players/' + UUID)).headers.get('Access-Control-Allow-Origin'), '*');
+});
+
+// ------------------------------------------------------------------ Origin+
+const DAY = 24 * 3600;
+const nowS = () => Math.floor(Date.now() / 1000);
+// A subscription the way Stripe's events carry it (period on the item, as in
+// newer API versions; older ones put it on the subscription itself).
+const sub = (status, { id = 'sub_1', uuid = UUID, periodEnd = nowS() + 30 * DAY, product = 'origin-plus', name = 'Will' } = {}) => ({
+  id, object: 'subscription', status, customer: 'cus_1', metadata: { uuid, name, plan: 'month' },
+  items: { data: [{ current_period_end: periodEnd, price: { product, recurring: { interval: 'month' } } }] },
+});
+const subEvent = (type, s, created = nowS()) => stripeEvent(type, s, undefined, created);
+const me = async () => (await (await api('GET', `/v1/players/${UUID}`)).json());
+
+test('origin+ checkout: a Stripe subscription at our price, the player on the subscription, tax on', async () => {
+  routes.push(['https://api.stripe.com/v1/checkout/sessions', { body: { id: 'cs_2', url: 'https://checkout.stripe.com/c/pay/cs_2' } }]);
+  const r = await api('POST', '/v1/plus/checkout', { uuid: DASHED, name: 'Will', plan: 'year' });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).url, 'https://checkout.stripe.com/c/pay/cs_2');
+  const sent = new URLSearchParams(calls[0].body.toString());
+  assert.equal(sent.get('mode'), 'subscription');
+  assert.equal(sent.get('automatic_tax[enabled]'), 'true');
+  assert.equal(sent.get('line_items[0][price_data][unit_amount]'), '3999');
+  assert.equal(sent.get('line_items[0][price_data][recurring][interval]'), 'year');
+  assert.equal(sent.get('line_items[0][price_data][product]'), 'origin-plus');
+  assert.equal(sent.get('subscription_data[metadata][uuid]'), UUID);
+  assert.equal(sent.get('subscription_data[metadata][name]'), 'Will');
+  assert.match(sent.get('success_url'), /store\.html\?plus=done$/);
+  assert.equal(sent.get('payment_intent_data[metadata][uuid]'), null);   // not allowed in subscription mode
+});
+
+test('origin+ checkout: refuses bad input, a closed store, non-testers on a test key, and existing members', async () => {
+  routes.push(['https://api.stripe.com/v1/checkout/sessions', { body: { id: 'cs_2', url: 'https://checkout.stripe.com/c/pay/cs_2' } }]);
+  assert.equal((await api('POST', '/v1/plus/checkout', { uuid: DASHED, name: 'Will', plan: 'week' })).status, 400);
+  assert.equal((await api('POST', '/v1/plus/checkout', { uuid: DASHED, name: 'Will', plan: 'toString' })).status, 400);
+  assert.equal((await api('POST', '/v1/plus/checkout', { uuid: 'nope', name: 'Will', plan: 'month' })).status, 400);
+  assert.equal((await api('POST', '/v1/plus/checkout', { uuid: 'f'.repeat(32), name: 'Someone', plan: 'month' })).status, 403);
+  await subEvent('customer.subscription.created', sub('active'));
+  const r = await api('POST', '/v1/plus/checkout', { uuid: DASHED, name: 'Will', plan: 'month' });
+  assert.equal(r.status, 409);
+  assert.match((await r.json()).error, /already an Origin\+ member/);
+  delete env.STRIPE_SECRET_KEY;
+  assert.equal((await api('POST', '/v1/plus/checkout', { uuid: DASHED, name: 'Will', plan: 'month' })).status, 503);
+  assert.equal(calls.length, 0);   // no Stripe call for any of these
+});
+
+test('origin+ webhook: a member once paid, through renewals, until it ends; out-of-order events change nothing', async () => {
+  await subEvent('customer.subscription.created', sub('incomplete'), 100);   // card not through yet
+  assert.equal((await me()).plus, false);
+  await subEvent('customer.subscription.updated', sub('active'), 101);
+  let m = await me();
+  assert.equal(m.plus, true);
+  assert.ok(m.owned.includes('cape-plus'));
+  await subEvent('customer.subscription.updated', sub('incomplete'), 100);   // a stale event arriving late
+  assert.equal((await me()).plus, true);
+  await subEvent('customer.subscription.updated', sub('past_due'), 102);     // renewal failed, Stripe retrying
+  assert.equal((await me()).plus, true);
+  await subEvent('customer.subscription.deleted', sub('canceled'), 103);
+  m = await me();
+  assert.equal(m.plus, false);
+  assert.ok(!m.owned.includes('cape-plus'));
+  await subEvent('customer.subscription.updated', sub('active'), 104);       // an ended membership stays ended
+  assert.equal((await me()).plus, false);
+});
+
+test('origin+ webhook: "paid" and "created" stamped the same second, in either order, leave a member', async () => {
+  await subEvent('customer.subscription.updated', sub('active'), 200);
+  await subEvent('customer.subscription.created', sub('incomplete'), 200);
+  assert.equal((await me()).plus, true);
+});
+
+test('origin+ webhook: perks stop a little after an unrenewed period; other products, non-testers and old API shapes', async () => {
+  await subEvent('customer.subscription.created', sub('active', { periodEnd: nowS() - 3 * DAY }));
+  assert.equal((await me()).plus, false);                                    // past the 2-day grace
+  await subEvent('customer.subscription.updated', sub('active', { periodEnd: nowS() - DAY }));
+  assert.equal((await me()).plus, true);                                     // inside it
+  await subEvent('customer.subscription.created', sub('active', { id: 'sub_x', product: 'something-else', uuid: 'a'.repeat(32) }));
+  await subEvent('customer.subscription.created', sub('active', { id: 'sub_y', uuid: 'b'.repeat(32), name: 'Someone' }));   // test mode, not a tester
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) n FROM plus').get().n, 1);
+  // Older Stripe API versions: the period on the subscription, the product expanded.
+  const old = { ...sub('active', { id: 'sub_2' }), current_period_end: nowS() + 30 * DAY };
+  old.items = { data: [{ price: { product: { id: 'origin-plus' } } }] };
+  await subEvent('customer.subscription.created', old);
+  assert.equal(env.DB.raw.prepare("SELECT period_end > 0 ok FROM plus WHERE subscription = 'sub_2'").get().ok, 1);
+});
+
+test('origin+ checkout completion grants nothing by itself; the subscription events do', async () => {
+  await stripeEvent('checkout.session.completed', { id: 'cs_2', mode: 'subscription', payment_status: 'paid', metadata: { uuid: UUID, name: 'Will', plan: 'month' } });
+  const m = await me();
+  assert.equal(m.plus, false);
+  assert.deepEqual(m.owned, []);
+});
+
+test('origin+: members pay 20% less in the store, worked out by the service', async () => {
+  routes.push(['https://api.stripe.com/v1/checkout/sessions', { body: { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' } }]);
+  await subEvent('customer.subscription.created', sub('active'));
+  await api('POST', '/v1/store/checkout', { uuid: DASHED, name: 'Will', items: ['cape-orbit', 'cape-origin'] });
+  const sent = new URLSearchParams(calls[0].body.toString());
+  assert.equal(sent.get('line_items[0][price_data][unit_amount]'), '799');   // 9.99 -> 7.99
+  assert.equal(sent.get('line_items[1][price_data][unit_amount]'), '479');   // 5.99 -> 4.79
+  assert.equal(sent.get('metadata[plus]'), '1');
+  assert.match(sent.get('line_items[0][price_data][product_data][description]'), /Origin\+ 20% off/);
+});
+
+test('origin+ cape and badge: members wear the cape and show up for their badge; it hides when the membership ends', async () => {
+  await subEvent('customer.subscription.created', sub('active'), 100);
+  const token = await signIn();
+  let r = await api('POST', '/v1/equip', { cape: 'cape-plus', head: null }, token);
+  assert.equal(r.status, 200);
+  assert.deepEqual((await r.json()).equipped, { ...BARE, cape: 'cape-plus' });
+  const other = 'c'.repeat(32);
+  env.STRIPE_TEST_PLAYERS += `,${other}`;
+  await subEvent('customer.subscription.created', sub('active', { id: 'sub_3', uuid: other }));   // a member wearing nothing
+  let batch = await (await api('POST', '/v1/players/equipped', { uuids: [UUID, other] })).json();
+  assert.deepEqual(batch.players, {
+    [UUID]: { ...BARE, cape: 'cape-plus', plus: true },
+    [other]: { ...BARE, plus: true },
+  });
+
+  await subEvent('customer.subscription.deleted', sub('canceled'), 101);
+  batch = await (await api('POST', '/v1/players/equipped', { uuids: [UUID] })).json();
+  assert.deepEqual(batch.players, {});                                       // no cape shown, no badge
+  assert.deepEqual((await me()).equipped, BARE);
+  assert.equal((await api('POST', '/v1/equip', { cape: 'cape-plus', head: null }, token)).status, 403);
+  // Joining again brings the saved cape straight back.
+  await subEvent('customer.subscription.created', sub('active', { id: 'sub_4' }));
+  assert.deepEqual((await me()).equipped, { ...BARE, cape: 'cape-plus' });
+});
+
+test('origin+ menu themes: members unlock every theme, nobody can buy one, and it hides when the membership ends', async () => {
+  const themes = Object.keys((await import('../src/catalog.gen.js')).CATALOG).filter(id => id.startsWith('theme-'));
+  assert.ok(themes.length >= 4);
+  const c = await (await api('GET', '/v1/store/catalog')).json();
+  for (const id of themes) assert.equal(c.items[id], undefined);              // not in the store's price list
+  const token = await signIn();
+  assert.equal((await api('POST', '/v1/equip', { theme: themes[0] }, token)).status, 403);
+  await subEvent('customer.subscription.created', sub('active', { id: 'sub_th' }), 100);
+  const m = await me();
+  for (const id of themes) assert.ok(m.owned.includes(id));
+  assert.equal((await api('POST', '/v1/equip', { theme: themes[0] }, token)).status, 200);
+  assert.equal((await me()).equipped.theme, themes[0]);
+  await subEvent('customer.subscription.deleted', sub('canceled', { id: 'sub_th' }), 101);
+  assert.equal((await me()).equipped.theme, null);
+  assert.ok(!(await me()).owned.includes(themes[0]));
 });

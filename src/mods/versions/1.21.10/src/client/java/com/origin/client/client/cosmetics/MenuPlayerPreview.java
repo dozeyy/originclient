@@ -30,9 +30,15 @@ import java.util.function.Supplier;
  *   - the cape: the equipped Origin cape (CapeTextures), swapped into the
  *     state's PlayerSkin exactly as CosmeticCapeMixin swaps it in game, else
  *     the account's own cape -- vanilla's cape layer draws it, with a gentle
- *     resting sway;
- *   - the head item: CosmeticHeadLayer draws it, finding the wearer through
- *     {@link #headFor} (the state carries no level entity to look up).
+ *     resting sway (hidden while wings / a backpack replace it, moved back for
+ *     items worn on the back: CapePhysicsMixin reads {@link #lookFor});
+ *   - the head / face / back items: CosmeticLayer draws them, finding what
+ *     this state wears through {@link #lookFor} (the state carries no level
+ *     entity to look up) -- the same layer, placement and animation as in game.
+ *
+ * The Cosmetics screen's tile thumbnails are NOT drawn through here (see
+ * CosmeticThumbs: one entity picture-in-picture per frame is what this
+ * module relies on); {@link #skinNow} gives them your skin.
  *
  * PER-VERSION DELTA (1.21.10, extract/submit era): 1.21.1 draws a baked
  * PlayerModel immediately into GuiGraphics' buffer source. This era's GUI is
@@ -61,12 +67,21 @@ public final class MenuPlayerPreview {
 	private static UUID skinOwner;
 	private static Supplier<PlayerSkin> skinSupplier;
 	private static boolean broken = false;
-	/** The head cosmetic the menu state wears (read by CosmeticHeadLayer during the frame). */
-	private static volatile String menuHead = null;
+	/** What the menu state wears (read by CosmeticLayer / CapePhysicsMixin during the frame). */
+	private static volatile CosmeticsService.Look menuLook = CosmeticsService.Look.NONE;
 
-	/** The head cosmetic for a render state that is the menu preview's, else null. */
-	public static String headFor(AvatarRenderState state) {
-		return state != null && state.id == STATE_ID ? menuHead : null;
+	/** What a render state wears if it is the menu preview's, else null (a real player: look it up). */
+	public static CosmeticsService.Look lookFor(AvatarRenderState state) {
+		return state != null && state.id == STATE_ID ? menuLook : null;
+	}
+
+	/** Your skin as the menu preview shows it (null if unknown). Render thread. */
+	static PlayerSkin skinNow() {
+		try {
+			return skin(Minecraft.getInstance());
+		} catch (Throwable t) {
+			return null;
+		}
 	}
 
 	/**
@@ -94,8 +109,7 @@ public final class MenuPlayerPreview {
 				skin = new PlayerSkin(skin.body(), new ClientAsset.ResourceTexture(cape, cape), elytra,
 						skin.model(), skin.secure());
 			}
-			String headId = look == null ? null : look.head();
-			menuHead = headId != null && Cosmetics.get(headId) != null ? headId : null;
+			menuLook = look == null ? CosmeticsService.Look.NONE : look;
 
 			float ticks = (Util.getMillis() % 3_600_000L) / 50f;
 			AvatarRenderState st = new AvatarRenderState();
@@ -115,7 +129,8 @@ public final class MenuPlayerPreview {
 			st.showRightPants = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_PANTS_LEG);
 			st.showLeftSleeve = mc.options.isModelPartEnabled(PlayerModelPart.LEFT_SLEEVE);
 			st.showRightSleeve = mc.options.isModelPartEnabled(PlayerModelPart.RIGHT_SLEEVE);
-			st.showCape = mc.options.isModelPartEnabled(PlayerModelPart.CAPE);
+			// wings / a backpack replace the cape
+			st.showCape = mc.options.isModelPartEnabled(PlayerModelPart.CAPE) && !menuLook.hidesCape();
 			// CapeLayer's resting pose (6 deg + lean/2 + flap) with 1.21.1's gentle sway.
 			st.capeFlap = 2.5f * (float) Math.sin(ticks * 0.06f);
 			st.capeLean = 0f;

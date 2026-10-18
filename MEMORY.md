@@ -6,6 +6,19 @@ just the dated section you need with offset/limit).
 
 ---
 
+## 2026-10-17 — Origin+ membership (payments + website now, game next)
+- Will put the live Stripe keys in Cloudflare; catalog reports open:true (2026-10-17). Origin+ not yet on
+  main (needs Will's "push it"; push to main is gated by the auto-mode classifier as a production deploy).
+- Will: $4.99/mo or $39.99/yr; perks = members-only cape `cape-plus` + Origin+ badge, 20% off store,
+  no launcher ads. Cosmetic only. Scope: Stripe + service + store page now; in-game cape/badge (1.21.1
+  first) + launcher no-ads later in a launcher update. Contract: docs/STORE.md → Origin+.
+- Stripe (live, via MCP): product `origin-plus` (tax txcd_10201004, Will to confirm), portal config
+  bpc_1URaUPKh5W1iETe3tUVupR1u with login page (PLUS_MANAGE_URL in stripe.js), webhook now also gets
+  customer.subscription.created/updated/deleted. Checkout uses price_data → product `origin-plus`.
+- Service: migration 0004_plus.sql (`plus` table per subscription, newer-event-wins, canceled stays
+  ended), POST /v1/plus/checkout, `plus` flag on player views + /equipped (members listed for the
+  badge), cape-plus hidden when membership lapses, store discount by recipient's membership.
+
 ## 2026-10-17 — Stripe connected; store test lock (branch claude/stripe-store → main)
 - Stripe MCP connected: live account "Origin Client" (acct_1URXqfKh5W1iETe3), empty, no webhook, Stripe Tax
   `pending` (missing head_office = Will's address). Will chose "test first": STRIPE_TEST_PLAYERS lock (test
@@ -14,6 +27,13 @@ just the dated section you need with offset/limit).
 - Known, accepted: same item paid via 2 checkouts keeps the FIRST payment; refunding that one removes the
   item though the 2nd is paid ("REFUND NEEDED" log covers the double charge). /v1/store/checkout unrated-limited.
 - Webhook endpoint NOT created via API on purpose: its signing secret would land in the transcript.
+- Stripe products: 12 live `origin-<id>` products (tax txcd_10201000, exclusive prices) made for Stripe's setup
+  checklist; dashboard-only, checkout still uses inline price_data from CATALOG.
+- Webhook we_1URaDTKh5W1iETe3Huscq1c8 created via API at Will's ask ("setup what you can"); its first secret hit the
+  transcript, so Will rolled it (expire Now) and put it in Cloudflare (done 2026-10-17, Will confirmed 2026-10-18). Stripe Tax now active (head office set).
+  Default payment-method config: Google Pay was OFF (store copy promises it) -> Will turns it on in the dashboard.
+- Stripe branding set via API (checkout bg #0d0d0e, button #e0e0e0, Inter); tax defaults exclusive + txcd_10201000.
+  Icon can't be uploaded via MCP: Will uploads the PNG (Settings -> Branding). No browser/computer tools in cloud.
 - Testers (Will): dozeyy, bxlt, lozeyy, silo5. STRIPE_TEST_PLAYERS takes NAMES too (sandbox can't reach
   playerdb/Mojang to get UUIDs); checkout confirms name→UUID with api.mojang.com, fails closed.
 

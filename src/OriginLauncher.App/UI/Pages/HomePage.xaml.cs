@@ -248,6 +248,8 @@ public partial class HomePage : UserControl
             ReleaseScene(_sceneGame, handedOff: false);
         UpdatePlayState();
         SyncSocialMirror();
+        // Origin+ members never see the banner's ad network: re-check for this account.
+        PromoBanner.NotifyAccountChanged();
     }
 
     /// <summary>Called by MainWindow when the update badge lights up, so the

@@ -37,21 +37,48 @@ import java.util.List;
  */
 public final class OriginDeck {
 	// ---- the mock's palette (design/menu-redesign/mock/mock4.tpl.html :root) ----
-	public static final int PANEL = 0xF0141816;      // rgba(20,24,22,.94)
-	public static final int CARD = 0xFF1D2320;
-	public static final int CARD_H = 0xFF232A26;
-	public static final int LINE = 0x0FFFFFFF;       // white .06
-	public static final int LINE2 = 0x1AFFFFFF;      // white .10
-	public static final int TEXT = 0xFFF1E9D2;
-	public static final int DIM = 0xADF1E9D2;        // text .68
-	public static final int MUTE = 0x6BF1E9D2;       // text .42
-	public static final int ACC = 0xFF5FD09B;
-	public static final int ACC_D = 0xFF2E7A57;
-	public static final int ACC_SOFT = 0x245FD09B;   // accent .14
-	public static final int ON_ACC = 0xFF0A1710;     // text on an accent fill
-	public static final int ON_TEXT = 0xFFDFF7EA;    // text on the ENABLED bar
+	// The themed tokens are plain statics (not constants) so an equipped theme item can
+	// repaint every Origin menu: theme/ThemeManager calls applyTheme / resetTheme on the
+	// render thread. The DEF_ values are today's colours; with no theme they are exactly
+	// what is used. Screens read PANEL, ACC... fresh each frame, never cache them in a
+	// static final. RED, GOLD, GOLD_BG and FIELD are not themed.
+	private static final int DEF_PANEL = 0xF0141816;
+	public static int PANEL = DEF_PANEL;      // rgba(20,24,22,.94)
+	private static final int DEF_CARD = 0xFF1D2320;
+	public static int CARD = DEF_CARD;
+	private static final int DEF_CARD_H = 0xFF232A26;
+	public static int CARD_H = DEF_CARD_H;
+	private static final int DEF_LINE = 0x0FFFFFFF;
+	public static int LINE = DEF_LINE;       // white .06
+	private static final int DEF_LINE2 = 0x1AFFFFFF;
+	public static int LINE2 = DEF_LINE2;      // white .10
+	private static final int DEF_TEXT = 0xFFF1E9D2;
+	public static int TEXT = DEF_TEXT;
+	private static final int DEF_DIM = 0xADF1E9D2;
+	public static int DIM = DEF_DIM;        // text .68
+	private static final int DEF_MUTE = 0x6BF1E9D2;
+	public static int MUTE = DEF_MUTE;       // text .42
+	private static final int DEF_ACC = 0xFF5FD09B;
+	public static int ACC = DEF_ACC;
+	private static final int DEF_ACC_D = 0xFF2E7A57;
+	public static int ACC_D = DEF_ACC_D;
+	private static final int DEF_ACC_SOFT = 0x245FD09B;
+	public static int ACC_SOFT = DEF_ACC_SOFT;   // accent .14
+	private static final int DEF_ON_ACC = 0xFF0A1710;
+	public static int ON_ACC = DEF_ON_ACC;     // text on an accent fill
+	private static final int DEF_ON_TEXT = 0xFFDFF7EA;
+	public static int ON_TEXT = DEF_ON_TEXT;    // text on the ENABLED bar
 	public static final int RED = 0xFFD9675A;
 	public static final int RED_SOFT = 0x29D9675A;   // red .16
+	// The mod card's ENABLED / DISABLED bar. Default: red DISABLED, green hover. A theme
+	// recolours both, so a red-accent theme (crimson) never has ENABLED and DISABLED
+	// reading as the same red, and no theme flashes the default green on hover.
+	private static final int DEF_ACC_D_H = 0xFF35895F;
+	public static int ACC_D_H = DEF_ACC_D_H;    // ENABLED bar, hovered
+	public static int OFF = RED;                // DISABLED label
+	public static int OFF_SOFT = RED_SOFT;      // DISABLED bar
+	private static final int DEF_OFF_SOFT_H = 0x3DD9675A;
+	public static int OFF_SOFT_H = DEF_OFF_SOFT_H; // DISABLED bar, hovered
 	public static final int GOLD = 0xFFE9C46A;
 	public static final int GOLD_BG = 0xFF3A3220;
 	public static final int FIELD = 0x47000000;      // black .28 (search / text fields)
@@ -160,6 +187,54 @@ public final class OriginDeck {
 
 	public static int lerp(int a, int b, float t) {
 		return com.origin.client.client.theme.OriginTheme.lerpColor(a, b, t);
+	}
+
+	/**
+	 * Recolours the menu chrome from an equipped theme (cosmetics/ThemeColors): token name
+	 * -> 0xAARRGGBB, named exactly like the fields above. The build works every value out
+	 * from these DEF_ colours (cosmetics/lib/theme.mjs), so the game only assigns; a token
+	 * the theme leaves out keeps today's colour (OFF* stays the red DISABLED bar).
+	 */
+	public static void applyTheme(java.util.Map<String, Integer> t) {
+		resetTheme();
+		PANEL = t.getOrDefault("PANEL", PANEL);
+		CARD = t.getOrDefault("CARD", CARD);
+		CARD_H = t.getOrDefault("CARD_H", CARD_H);
+		LINE = t.getOrDefault("LINE", LINE);
+		LINE2 = t.getOrDefault("LINE2", LINE2);
+		TEXT = t.getOrDefault("TEXT", TEXT);
+		DIM = t.getOrDefault("DIM", DIM);
+		MUTE = t.getOrDefault("MUTE", MUTE);
+		ACC = t.getOrDefault("ACC", ACC);
+		ACC_D = t.getOrDefault("ACC_D", ACC_D);
+		ACC_SOFT = t.getOrDefault("ACC_SOFT", ACC_SOFT);
+		ON_ACC = t.getOrDefault("ON_ACC", ON_ACC);
+		ON_TEXT = t.getOrDefault("ON_TEXT", ON_TEXT);
+		ACC_D_H = t.getOrDefault("ACC_D_H", ACC_D_H);
+		OFF = t.getOrDefault("OFF", OFF);
+		OFF_SOFT = t.getOrDefault("OFF_SOFT", OFF_SOFT);
+		OFF_SOFT_H = t.getOrDefault("OFF_SOFT_H", OFF_SOFT_H);
+	}
+
+	/** Back to today's colours. */
+	public static void resetTheme() {
+		PANEL = DEF_PANEL;
+		CARD = DEF_CARD;
+		CARD_H = DEF_CARD_H;
+		LINE = DEF_LINE;
+		LINE2 = DEF_LINE2;
+		TEXT = DEF_TEXT;
+		DIM = DEF_DIM;
+		MUTE = DEF_MUTE;
+		ACC = DEF_ACC;
+		ACC_D = DEF_ACC_D;
+		ACC_SOFT = DEF_ACC_SOFT;
+		ON_ACC = DEF_ON_ACC;
+		ON_TEXT = DEF_ON_TEXT;
+		ACC_D_H = DEF_ACC_D_H;
+		OFF = RED;
+		OFF_SOFT = RED_SOFT;
+		OFF_SOFT_H = DEF_OFF_SOFT_H;
 	}
 
 	// ---- geometry ----

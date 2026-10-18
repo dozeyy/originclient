@@ -1,0 +1,14 @@
+{
+  "id": "cape-aurora",
+  "name": "Aurora Cape",
+  "kind": "cape",
+  "slot": "cape",
+  "cents": 899,
+  "blurb": "A rippling green, teal and violet aurora over a starry night and a dark pine horizon.",
+  "animated": true,
+  "plusOnly": false,
+  "onSale": false,
+  "hidesCape": false,
+  "capeOffset": 0,
+  "cape": {"scale":4,"frames":24,"fps":8}
+}

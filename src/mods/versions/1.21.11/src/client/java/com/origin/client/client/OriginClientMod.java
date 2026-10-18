@@ -112,17 +112,20 @@ public class OriginClientMod implements ClientModInitializer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: chat/screenshot hooks failed to register", t);
 		}
 		// Cosmetics bought in the Origin Store (docs/STORE.md): the service
-		// client (background thread, fail-soft) and the head-cosmetic layer on
-		// every player model. Capes ride vanilla's cape slot (CosmeticCapeMixin).
+		// client (background thread, fail-soft), the data-driven model layer
+		// (hats, masks, wings, backpacks) on every player model, and the menu
+		// theme. Capes ride vanilla's cape slot (CosmeticCapeMixin).
 		// 1.21.11: the player renderer is AvatarRenderer (Fabric fires this
 		// callback for it from EntityRenderers.createAvatarRenderers -- the shape
 		// of Fabric API's own 1.21.11 FeatureRendererTest).
 		try {
 			com.origin.client.client.cosmetics.CosmeticsService.start();
+			com.origin.client.client.cosmetics.CosmeticEffects.register();
+			com.origin.client.client.theme.ThemeManager.register();
 			net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback.EVENT.register(
 					(type, renderer, helper, ctx) -> {
 						if (renderer instanceof net.minecraft.client.renderer.entity.player.AvatarRenderer<?> player) {
-							helper.register(new com.origin.client.client.cosmetics.CosmeticHeadLayer(player));
+							helper.register(new com.origin.client.client.cosmetics.CosmeticLayer(player));
 						}
 					});
 		} catch (Throwable t) {
