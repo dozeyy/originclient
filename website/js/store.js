@@ -50,7 +50,7 @@ const PRICE_LIST = [
   { id: 'hat-goggles', name: 'Pilot Goggles', blurb: 'Retro pilot goggles pushed up on your forehead: mirrored lenses with a pink-to-lime sheen in chrome rims, a padded bridge and a glint that sweeps by.', price: 6.99 },
   { id: 'halo-orbit', name: 'Orbit Halo', blurb: 'The Origin mark as an atom: three silver rings tumbling round a glowing white centre above your head, a spark of light racing round each.', price: 7.99 },
   { id: 'halo-gold', name: 'Golden Halo', blurb: 'A classic polished gold halo. It floats just above your head, a glint sliding round it.', price: 5.99 },
-  { id: 'hat-headband', name: 'Sport Headband', blurb: 'An off-white terry sweatband with looped pile, a polished chrome stripe and the Origin mark stitched at the front.', price: 5.99 },
+  { id: 'hat-headband', name: 'Sport Headband', blurb: 'A slim off-white terry sweatband with a polished chrome stripe and a gunmetal badge carrying the Origin mark in silver thread.', price: 5.99 },
 ];
 // Items the store shows: the catalog once loaded, else the price list. Each: { id, name, blurb, price, kind, slot, animated }.
 let ITEMS = [];

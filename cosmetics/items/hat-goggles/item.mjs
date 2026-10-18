@@ -189,6 +189,7 @@ function paintGlass(v, sx) {
     // the rim's shadow on the glass: widest on the side facing the light (upper right)
     const toward = (dx * 0.6 - dy * 0.8) / (rr || 1), wd = 1.0 + 1.1 * Math.max(0, toward), edge = HOLE_R - rr;
     if (edge < wd) tone -= 1.8 * (1 - clamp(edge / wd));
+    tone = tone * 0.74 - 0.2;                                  // smoked glass: the body of the lens is dark, the hue lives in the reflection
     let col = specCol(band, tone);
     // the crescent of light, upper right, tapering at both ends
     const ang = (Math.atan2(-dy, dx) * 180) / Math.PI;

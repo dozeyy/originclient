@@ -43,7 +43,9 @@ const inLens = (a, Y) => Math.abs(a) < N * STEP && Y >= bottomOf(a) && Y < topOf
 // ---- ramps --------------------------------------------------------------------------------------------------
 // Prizm hue stops, warm to cool: gold, peach, rose pink, hot magenta, violet, sky blue, cyan, mint, lime.
 const HUES = ['#f8c862', '#f69c6e', '#f2739f', '#dc54c8', '#9270f2', '#4a9ef6', '#2cdeee', '#66f0ba', '#b6f65e'];
-const INK = '#14101f', GLINT = '#fff7ee';
+const INK = '#14101f', GLINT = '#fff7ee', EDGE = '#05070b';
+// smoked gunmetal for the lens body: five cool tones, deep blue-black .. soft steel
+const GUN = ['#0b0e14', '#161b24', '#232a37', '#343e4e', '#4d5a6e'];
 // per hue, 7 lit steps: deep tinted shadow .. the hue .. a pearly highlight (shadows cooler, lights warmer)
 const HR = HUES.map(h => [mix(h, INK, 0.86), mix(h, INK, 0.68), mix(h, INK, 0.42), mix(h, INK, 0.16), h, mix(h, GLINT, 0.42), mix(h, GLINT, 0.78)]);
 // chrome, cool shadows -> warm white specular
@@ -65,9 +67,11 @@ function slab(role, sx, sg, y0, y1, off, thick, extra = {}) {
   parts.push({ role, sx, sg, from: [xa, y0, fz - thick], to: [xb, y1, fz], uv: [0, 0], rotation: { origin: [fx, 0, fz], angle: [0, sx * sg.deg, 0] }, ...extra });
 }
 for (const sx of [1, -1]) for (const sg of SEG) {
-  const am = sg.a0 + STEP / 2, y0 = bottomOf(am), y1 = topOf(am);
+  const am = sg.a0 + STEP / 2, y1 = topOf(am);
+  let y0 = 9;                                                            // the slab box reaches the lowest texel column; the rest is cut away by alpha
+  for (let k = 0; k < STEP * S; k++) y0 = Math.min(y0, bottomOf(sg.a0 + (k + 0.5) * px));
   slab('lens', sx, sg, y0, y1, 0, T);
-  slab('bar', sx, sg, y1 - 0.125, y1 + 0.25, 0.0625, 0.5);
+  slab('bar', sx, sg, y1 - 0.25, y1 + 0.25, 0.0625, 0.5);
 }
 // earstems: from the lens ends back past the ear, angled in to touch the head; the last stretch is a rubber tip
 const END = SEG[N - 1];
@@ -95,66 +99,57 @@ function world(c, f, x, y) {
 // local x -> signed arc length along the lens (positive toward the player's left, +x)
 const arcOf = (c, X) => (c.sx > 0 ? c.sg.a0 + (X - c.from[0]) : -(c.sg.a0 + (c.to[0] - X)));
 
-// ---- the sheen ------------------------------------------------------------------------------------------------
-// hue coordinate 0..1: warm at the upper-viewer-left, cool toward the lower-right, with a slow diagonal ripple
-// so the bands are not plain stripes. `tilt` drifts the whole sheen a little as the glint passes.
-function hueT(a, Y, tilt) {
-  const t = 0.5 + 0.062 * a - 0.115 * (Y - 3.85) + 0.035 * Math.sin(a * 0.9 + Y * 1.3) + tilt;
-  return clamp(t);
-}
-// brightness as a fractional index 0..6 into the hue ramp
-function lensL(a, Y, glintP) {
+// ---- the lens colour --------------------------------------------------------------------------------------------
+// Monochrome first: the lens body is smoked gunmetal in clean diagonal tone steps (lighter toward the player's
+// +x / top, where the light is). Colour lives ONLY in two diagonal sheen bands, a wide one and a thin one, that
+// run warm (peach / rose) at the top to cool (cyan) at the bottom. An animated white glint crosses it on top.
+const diag = (a, Y) => a * 0.86 + (Y - 3.85) * 0.62;                       // runs perpendicular to the sheen bands
+function bodyL(a, Y) {
   const top = topOf(Math.abs(a)), bot = bottomOf(Math.abs(a));
-  const u = (top - Y) / (top - bot);                                      // 0 at the top edge .. 1 at the bottom edge
-  const end = smoothstep(3.2, 6.0, Math.abs(a));
-  let L = 4.6 - 1.6 * u - 0.9 * end;                                      // bright mirror up top, a tinted gradient low
-  L += 0.35 * smoothstep(-5.5, 5.5, a);                                       // the +x side faces the light
-  // two soft diagonal reflections (a wide one and a thin echo), slanting like a window on the lens
-  const d = a * 0.86 + (Y - 3.85) * 0.62;
-  if (d > -2.45 && d < -2.1) L += 1.0;
-  else if (d > -2.1 && d < -1.85) L += 0.45;
-  if (d > -1.2 && d < -1.05) L += 0.6;
-  // a dark horizon: the mirror reflects a ground line low on the lens
-  if (u > 0.78 && u < 0.84) L -= 0.7;
-  if (glintP !== null) {                                                   // the animated glint: a soft band sweeping across
-    const g = a * 0.8 + (Y - 3.85) * 0.55 - glintP;
-    if (g > -0.14 && g < 0.14) L += 2.0;
-    else if (g > -0.5 && g < -0.14) L += 1.0;
-    else if (g > -0.95 && g < -0.5) L += 0.4;
-  }
-  return L;
+  const u = clamp((top - Y) / (top - bot));
+  const end = smoothstep(3.6, 6.0, Math.abs(a));
+  return 1.7 + 1.9 * smoothstep(-4.6, 4.2, diag(a, Y)) + 0.7 * (1 - u) - 0.6 * end;
 }
+const BANDS = [{ c: -2.0, w: 0.5, hue: 0.0 }, { c: -0.55, w: 0.14, hue: 0.12 }];   // diagonal centre, half-width, hue shift
 function lensColor(a, Y, x, y, glintP) {
-  const t = hueT(a, Y, glintP === null ? 0 : 0.012 * Math.sin(glintP));
-  const k = t * (HUES.length - 1), lo = Math.floor(k), f = k - lo;
-  // clean hue bands with a narrow 1 texel checker where one band melts into the next (a pixel-art gradient,
-  // never a field of noise)
-  const cb = (x + y) & 1;
-  const hi = Math.min(HUES.length - 1, f < 0.34 ? lo : f > 0.66 ? lo + 1 : lo + (cb ? 1 : 0));
-  return lerpStep(HR[hi], clamp(Math.round(lensL(a, Y, glintP) * 2) / 2, 0, 6));
+  const L = bodyL(a, Y), fl = Math.floor(L), fr = L - fl;
+  let col = GUN[clamp(fl + (fr < 0.5 ? 0 : 1), 0, GUN.length - 1)];   // hard diagonal tone steps, no dither
+  const d = diag(a, Y);
+  for (const b of BANDS) {
+    const off = Math.abs(d - b.c);
+    if (off > b.w) continue;
+    const t = clamp(0.5 - 0.17 * (Y - 3.85) + b.hue), k = t * (HUES.length - 1);
+    const h = Math.round(k), hue = HR[clamp(h, 0, HUES.length - 1)];
+    col = off < b.w * 0.55 ? hue[4] : mix(col, hue[3], 0.6);                  // vivid core, softer edge
+  }
+  if (glintP !== null) {
+    const g = d * 0.93 - glintP;
+    if (Math.abs(g) < 0.16) col = mix(col, GLINT, 0.7);
+    else if (g < 0 && g > -0.55) col = mix(col, GLINT, 0.22);
+  }
+  return col;
 }
 
 // ---- painters ---------------------------------------------------------------------------------------------------
 function paintLens(v, f, c, glintP) {
+  const endSlab = c.sg.i === N - 1;
   for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
     const [X, Y] = world(c, f, x, y);
-    const a = arcOf(c, X);
+    const a = arcOf(c, X), am = Math.abs(a);
     let col;
-    if (f === 'south') {
-      const am = Math.abs(a);
-      const topEdge = !inLens(a, Y + px), botEdge = !inLens(a, Y - px) && Y < topOf(am) - 2 * px;
-      const sideL = !inLens(a - px * Math.sign(a || 1), Y) && am > 0.5;
-      if (topEdge) col = mix(lensColor(a, Y, x, y, glintP), GLINT, 0.55);   // the lens' bright top bevel
-      else if (!inLens(a, Y + 2 * px)) col = mix(lensColor(a, Y, x, y, glintP), GLINT, 0.22);
-      else if (botEdge) col = mix(lensColor(a, Y, x, y, glintP), INK, 0.5);  // a darker lip along the bottom
-      else if (!inLens(a, Y - 2 * px)) col = mix(lensColor(a, Y, x, y, glintP), INK, 0.2);
-      else col = lensColor(a, Y, x, y, glintP);
-      if (sideL && inLens(a, Y)) col = mix(col, GLINT, 0.4);
-    } else if (f === 'down') col = HR[2][3];
-    else if (f === 'up') col = HR[1][1];
-    else if (f === 'north') col = mix(lensColor(a, Y, x, y, glintP), INK, 0.5);                                // the back of the lens, against the face
-    else col = lensColor(a, Y, x, y, glintP);                              // slab ends: the lens colour itself, so no seam shows
-    v.set(x, y, toHex(col));
+    if (f === 'south' || f === 'north') {
+      if (!inLens(a, Y)) continue;                                           // alpha cut-out: the true outline, one texel at a time
+      if (f === 'north') { v.set(x, y, toHex(GUN[1])); continue; }
+      col = lensColor(a, Y, x, y, glintP);
+      const nearOuter = am > 5.7;
+      const below = !inLens(a, Y - px), side = !nearOuter && (!inLens(a - px, Y) || !inLens(a + px, Y));
+      if (below || side) col = EDGE;                                           // 1 texel dark outline along the bottom and round the nose cut-out
+      else if (!inLens(a, Y - 2 * px) || (!nearOuter && (!inLens(a - 2 * px, Y) || !inLens(a + 2 * px, Y)))) col = mix(col, GLINT, 0.16);   // a faint lit lip inside it
+      else if (!inLens(a, Y + px)) col = mix(col, GLINT, 0.45);              // lit top bevel under the bar
+      v.set(x, y, toHex(col));
+    } else if (endSlab && (f === 'east' || f === 'west') && inLens(a, Y)) {
+      v.set(x, y, toHex(GUN[2]));                                              // the lens' outer end
+    }
   }
 }
 // chrome bar: three texel rows on the front (specular on top, mid, a dark under-lip), pinched highlights
@@ -164,21 +159,19 @@ function paintBar(v, f, c, glintP) {
     const a = arcOf(c, X);
     let s;
     if (f === 'south' || f === 'east' || f === 'west') {
-      const r = Math.floor((c.to[1] - Y) / px);                           // 0 = top texel row
-      s = r === 0 ? 7 : r === 1 ? 2.6 : 5.0;                               // chrome: white top, a dark reflected horizon, a bright bounce
+      const r = Math.floor((c.to[1] - Y) / px);                           // 0 = top texel row of 4
+      s = r === 0 ? 7 : r === 1 ? 5.4 : r === 2 ? 2.2 : 3.6;               // chrome brow: white spec, bright body, dark reflected horizon, a soft under-lip
       if (f !== 'south') s -= 0.9;
       s += 0.6 * smoothstep(-5.5, 5.5, a);
       // two bright bands where the curve catches the light, one near the nose, one at the temple
       if (Math.abs(a - 2.4 * Math.sign(a || 1)) < 0.28) s += 1.0;
       if (glintP !== null && Math.abs(a * 0.8 + 0.6 - glintP) < 0.3) s += 1.2;
-      if (r === 2 && Math.abs(a) < 0.12) s = 1.2;                         // a centre seam
+      if (r === 3 && Math.abs(a) < 0.12) s = 1.2;                         // a centre seam
     } else if (f === 'up') s = 6;
     else if (f === 'down') s = 0.9;
     else s = 2.0;
-    // the bar picks up the lens sheen, faintly
-    const base = pickC(CH, s), tint = HUES[Math.round(hueT(a, c.to[1] - 0.2, 0) * (HUES.length - 1))];
     void Z;
-    v.set(x, y, toHex(f === 'south' ? mix(base, tint, 0.14) : base));
+    v.set(x, y, pickC(CH, s));
   }
 }
 function paintStem(v, f, c) {
