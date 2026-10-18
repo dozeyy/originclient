@@ -8,40 +8,66 @@
              Visibility="Collapsed"
              IsHitTestVisible="True">
 
-    <!-- Covers the whole Home page during install + launch. The scene IS the
-         game's Origin loading screen (LoadingScene: same rings, mark, bar and
-         brackets, laid out by the game's formulas), so when Minecraft's window
-         fades in over it nothing seems to change. Transparent here and hit-
-         testable: the scene paints its own charcoal as the Play press lands,
-         and nothing can click through to Home meanwhile. -->
-    <Grid Background="Transparent">
-        <controls:LoadingScene x:Name="Scene"/>
-
-        <!-- Launcher-only lines (the game's screen has none): what is happening,
-             and the way out. Low and quiet, under the game's composition, and
-             gone before the scene glides onto the game window. -->
-        <StackPanel x:Name="LoadingStage" HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                    Margin="0,0,0,44" RenderTransformOrigin="0.5,0.5">
+    <!-- Load-then-snap cover for the whole Home page during install+launch —
+         opaque, not a translucent scrim, since there's real work happening
+         behind it and nothing underneath should be interactive meanwhile.
+         The origin mark doubles as the spinner: same brand geometry, just
+         given a continuous spin instead of sitting static. -->
+    <Border Background="{StaticResource Brush.WindowBackdrop}">
+        <StackPanel x:Name="LoadingStage" HorizontalAlignment="Center" VerticalAlignment="Center" Width="420"
+                    RenderTransformOrigin="0.5,0.5">
             <StackPanel.RenderTransform>
                 <TranslateTransform x:Name="LoadingStageTranslate"/>
             </StackPanel.RenderTransform>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock x:Name="EyebrowText" Text="STARTING" Style="{StaticResource Text.Eyebrow}"
-                           Foreground="{StaticResource Brush.AccentHover}"/>
-                <TextBlock x:Name="VersionText" Style="{StaticResource Text.Eyebrow}" Margin="8,0,0,0"/>
-            </StackPanel>
+            <controls:OriginMark x:Name="Mark" Width="72" Height="72" Margin="0,0,0,28"
+                                  RenderTransformOrigin="0.5,0.5"/>
+
+            <TextBlock x:Name="EyebrowText" Text="STARTING" Style="{StaticResource Text.Eyebrow}"
+                       Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
+            <TextBlock x:Name="VersionText" Style="{StaticResource Text.H1}"
+                       HorizontalAlignment="Center" Margin="0,4,0,2"/>
             <TextBlock x:Name="LoaderCaptionText" Style="{StaticResource Text.Label}"
-                       HorizontalAlignment="Center" Margin="0,4,0,0" Visibility="Collapsed"/>
+                       HorizontalAlignment="Center" Margin="0,0,0,22"/>
 
-            <TextBlock x:Name="StageText" Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center"
-                       Margin="0,6,0,0"/>
+            <!-- The bar. Launch: a stage with a real count ("Downloading
+                 libraries (12/340)") fills to it; any other stage slides an
+                 84px block across the track, since an honest "working" beats a
+                 made-up percentage (Core/Launch/StageProgress). Self-update:
+                 a fill driven by downloaded bytes. The fill is a full-width bar
+                 scaled from its left edge (a GPU transform, no layout per
+                 frame) with pixel snapping off, so its right end moves by
+                 fractions of a pixel instead of stepping. Animated from the
+                 code-behind. -->
+            <Border x:Name="ProgressTrack" Width="280" Height="4" CornerRadius="0"
+                    Background="{StaticResource Brush.SoftStroke}" HorizontalAlignment="Center"
+                    ClipToBounds="True" Margin="0,0,0,14"
+                    SnapsToDevicePixels="False" UseLayoutRounding="False">
+                <Grid>
+                    <Border x:Name="ProgressFill" Height="4" CornerRadius="0"
+                            Background="{StaticResource Brush.Accent}" Visibility="Collapsed"
+                            SnapsToDevicePixels="False" UseLayoutRounding="False"
+                            RenderTransformOrigin="0,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform x:Name="ProgressScale" ScaleX="0"/>
+                        </Border.RenderTransform>
+                    </Border>
+                    <Border x:Name="ProgressSweep" Width="84" Height="4" CornerRadius="0"
+                            Background="{StaticResource Brush.Accent}" HorizontalAlignment="Left">
+                        <Border.RenderTransform>
+                            <TranslateTransform x:Name="ProgressTranslate" X="-70"/>
+                        </Border.RenderTransform>
+                    </Border>
+                </Grid>
+            </Border>
 
-            <!-- The abort path: cancels the in-flight provisioning (the newest
-                 launch action always wins — CLAUDE.md hard requirement), or
-                 stops a game that is already starting. -->
+            <TextBlock x:Name="StageText" Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center"/>
+
+            <!-- The overlay is opaque and covers Home, so the abort path has
+                 to live here: cancels the in-flight provisioning (the newest
+                 launch action always wins — CLAUDE.md hard requirement). -->
             <Button x:Name="CancelButton" Style="{StaticResource Button.Chrome}"
-                    Content="Cancel" Padding="18,6" Margin="0,18,0,0"
+                    Content="Cancel" Padding="18,6" Margin="0,28,0,0"
                     HorizontalAlignment="Center" Click="CancelButton_Click"/>
         </StackPanel>
-    </Grid>
+    </Border>
 </UserControl>

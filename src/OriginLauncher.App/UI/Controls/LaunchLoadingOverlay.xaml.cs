@@ -7,23 +7,24 @@ using OriginLauncher.App.Core.Updates;
 
 namespace OriginLauncher.App.UI.Controls;
 
-// The full-page loading scene: used for install+launch (Show) and for the
+// The full-page progress screen: used for install+launch (Show) and for the
 // launcher's own self-update (ShowUpdate), so both read as the same Origin
-// moment. The scene is the game's own loading screen (LoadingScene). In a
-// launch it stays up through Minecraft's start: with a game that announces its
-// window it lifts out of the launcher and glides onto that window
-// (MoveToGameWindow), otherwise it dissolves with Hide(handedOff: true) once
-// the game draws its own Origin loading screen (Core/Launch/GameHandoff).
+// moment — spinning mark, title, bar, stage line. In a launch it stays up
+// through Minecraft's start and lowers (Hide) once the game's own window is up
+// and showing its loading screen (Core/Launch/GameHandoff decides when).
 public partial class LaunchLoadingOverlay : UserControl
 {
-    // The Play button's mark, if the press didn't come from a button.
-    private const double CentreMarkSize = 72;
+    // ProgressSweep's width in the XAML: the sliding block of an unmeasured stage.
+    private const double SweepWidth = 84;
+    // Glide between the ~8-10/s progress reports instead of stepping.
+    private static readonly Duration FillGlide = new(TimeSpan.FromMilliseconds(140));
 
+    private AnimationClock? _spinClock;
+    private AnimationClock? _sweepClock;
     private long _sceneRevision;
     private long _stageRevision;
     // Launch mode reads real counts out of stage lines; update mode's fill is ReportUpdate's.
     private bool _launchMode;
-    private SceneHandoffWindow? _handoff;
 
     public LaunchLoadingOverlay()
     {
@@ -34,20 +35,17 @@ public partial class LaunchLoadingOverlay : UserControl
     /// showed the overlay cancels its in-flight provisioning.</summary>
     public event EventHandler? CancelRequested;
 
-    /// <summary>
-    /// The Play press: the scene's rings spin out of <paramref name="from"/>
-    /// (the Play button) into the loading orbit. No loader name anywhere: the
-    /// player never sees which loader a version runs on (mandate 1).
-    /// </summary>
-    public void Show(string version, FrameworkElement? from = null)
+    /// <summary>The Play press. No loader name anywhere: the player never sees
+    /// which loader a version runs on (mandate 1).</summary>
+    public void Show(string version)
     {
         _launchMode = true;
         EyebrowText.Text = "STARTING";
         CancelButton.Visibility = Visibility.Visible;
         CancelButton.ToolTip = null;
         LoaderCaptionText.Visibility = Visibility.Collapsed;
-        Scene.Progress = null;
-        ShowScene(version, from);
+        ShowScene(version);
+        ShowProgress(null);
     }
 
     /// <summary>Self-update mode: same scene, no Cancel (updates are
@@ -60,8 +58,8 @@ public partial class LaunchLoadingOverlay : UserControl
         CancelButton.Visibility = Visibility.Collapsed;
         LoaderCaptionText.Text = "Getting the newest version";
         LoaderCaptionText.Visibility = Visibility.Visible;
-        Scene.Progress = 0;
-        ShowScene($"Origin Launcher {newVersion}", from: null);
+        ShowScene($"Origin Launcher {newVersion}");
+        ShowProgress(0);
     }
 
     /// <summary>Moves the update fill and stage line. A report without a
@@ -76,7 +74,7 @@ public partial class LaunchLoadingOverlay : UserControl
         else
             ReportStage(progress.Describe());
         var fraction = progress.Stage == UpdateService.UpdateStage.Downloading ? progress.Fraction : 1.0;
-        if (fraction is { } f) Scene.Progress = f; // the scene eases it, like the game's bar
+        if (fraction is { } f) ShowProgress(f);
     }
 
     /// <summary>The game process is up: Cancel now stops that starting game.</summary>
@@ -85,12 +83,8 @@ public partial class LaunchLoadingOverlay : UserControl
         CancelButton.ToolTip = "Stop Minecraft starting";
     }
 
-    private void ShowScene(string title, FrameworkElement? from)
+    private void ShowScene(string title)
     {
-        // A Show during a previous Hide's fade takes the scene back; a scene
-        // still out on a game window from an earlier launch goes at once.
-        _handoff?.FadeOutAndClose(new Duration(TimeSpan.Zero));
-        _handoff = null;
         ++_stageRevision;
         StageText.BeginAnimation(OpacityProperty, null);
         VersionText.Text = title;
@@ -100,126 +94,119 @@ public partial class LaunchLoadingOverlay : UserControl
         ++_sceneRevision;
         Visibility = Visibility.Visible;
         IsHitTestVisible = true;
-        Scene.Visibility = Visibility.Visible;
 
         BeginAnimation(OpacityProperty, null);
         LoadingStage.BeginAnimation(OpacityProperty, null);
         LoadingStageTranslate.BeginAnimation(TranslateTransform.YProperty, null);
         Opacity = 1;
-        LoadingStage.Opacity = 1;
-        LoadingStageTranslate.Y = 0;
 
-        // The Play press (docs/MOTION.md "play"): the rings start as a mark on
-        // the button and spin out into the orbit while the charcoal comes up
-        // behind them; the launcher's lines settle in as the rings land. Every
-        // animation ends on the resting value, so the scene is complete even if
-        // a clock never ticks.
-        UpdateLayout();
-        var size = CentreMarkSize;
-        var origin = new Point(ActualWidth / 2, ActualHeight / 2);
-        if (from is { IsVisible: true, ActualWidth: > 0 })
+        if (SystemParameters.ClientAreaAnimation)
         {
-            origin = from.TranslatePoint(new Point(from.ActualWidth / 2, from.ActualHeight / 2), Scene);
-            size = Math.Min(from.ActualHeight * 1.6, from.ActualWidth);
+            var duration = (Duration)FindResource("Motion.Scene");
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            LoadingStage.BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0, 1, duration) { EasingFunction = ease },
+                HandoffBehavior.SnapshotAndReplace);
+            LoadingStageTranslate.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(12, 0, duration) { EasingFunction = ease },
+                HandoffBehavior.SnapshotAndReplace);
         }
-        Scene.Assemble(origin, size);
+        else
+        {
+            LoadingStage.Opacity = 1;
+            LoadingStageTranslate.Y = 0;
+        }
 
+        // The bar starts empty and bare; Show/ShowUpdate then pick fill or sweep.
+        StopClock(ref _sweepClock);
+        ProgressSweep.Visibility = Visibility.Collapsed;
+        ProgressFill.Visibility = Visibility.Collapsed;
+        ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        ProgressScale.ScaleX = 0;
+
+        // The mark doubles as the spinner. Reduced motion leaves it still.
+        var transform = new RotateTransform();
+        Mark.RenderTransform = transform;
+        StopClock(ref _spinClock);
         if (!SystemParameters.ClientAreaAnimation) return;
-        var assemble = TimeSpan.FromMilliseconds(LoadingScene.AssembleMs);
-        var settle = TimeSpan.FromTicks(assemble.Ticks * 6 / 10);
-        LoadingStage.BeginAnimation(OpacityProperty,
-            OriginMark.Hold(0, 1, settle, assemble), HandoffBehavior.SnapshotAndReplace);
-        LoadingStageTranslate.BeginAnimation(TranslateTransform.YProperty,
-            OriginMark.Hold(12, 0, settle, assemble), HandoffBehavior.SnapshotAndReplace);
-    }
-
-    /// <summary>The scene's centre in screen pixels, or null when it isn't on screen.</summary>
-    public (int X, int Y)? ScreenCentre()
-    {
-        try
+        var spin = new DoubleAnimation(0, 360, new Duration(TimeSpan.FromSeconds(2.5)))
         {
-            if (!IsVisible || PresentationSource.FromVisual(this) == null) return null;
-            var c = PointToScreen(new Point(ActualWidth / 2, ActualHeight / 2));
-            return ((int)Math.Round(c.X), (int)Math.Round(c.Y));
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
-        }
+            RepeatBehavior = RepeatBehavior.Forever
+        };
+        _spinClock = spin.CreateClock();
+        transform.ApplyAnimationClock(RotateTransform.AngleProperty, _spinClock);
     }
 
     /// <summary>
-    /// The game opened its (still invisible) window at <paramref name="rect"/>:
-    /// lift the scene out of the launcher and glide it onto that rect, where the
-    /// window will fade in over the same picture. Does nothing (the scene stays
-    /// and dissolves at Hide) when it can't be seen anyway: launcher minimised,
-    /// reduced motion, or already lifted.
+    /// The bar. A real <paramref name="fraction"/> (0..1) fills to it, gliding
+    /// between the reports; null (a stage with nothing measurable) goes to the
+    /// sliding block. Never a made-up percentage (StageProgress).
     /// </summary>
-    public void MoveToGameWindow(GameWindowRect rect)
+    private void ShowProgress(double? fraction)
     {
-        if (_handoff != null || Visibility != Visibility.Visible || !IsVisible || !SystemParameters.ClientAreaAnimation)
+        if (fraction is not { } f)
+        {
+            if (ProgressSweep.Visibility == Visibility.Visible) return;
+            ProgressFill.Visibility = Visibility.Collapsed;
+            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            ProgressScale.ScaleX = 0;
+            ProgressSweep.Visibility = Visibility.Visible;
+            StartSweep();
             return;
-        if (Window.GetWindow(this) is not { WindowState: not WindowState.Minimized } owner) return;
-        if (PresentationSource.FromVisual(this)?.CompositionTarget is not { } target) return;
-        try
-        {
-            var dpd = target.TransformToDevice.M11 > 0 ? target.TransformToDevice.M11 : 1;
-            var topLeft = PointToScreen(new Point(0, 0));
-            var bottomRight = PointToScreen(new Point(ActualWidth, ActualHeight));
-            var from = new Rect(topLeft.X / dpd, topLeft.Y / dpd,
-                (bottomRight.X - topLeft.X) / dpd, (bottomRight.Y - topLeft.Y) / dpd);
-            var to = new Rect(rect.X / dpd, rect.Y / dpd, rect.Width / dpd, rect.Height / dpd);
-            var scale = rect.GuiScale > 0 ? rect.GuiScale : LoadingScene.AutoGuiScale(rect.Width, rect.Height);
-            var toLayout = (scale / dpd, Math.Ceiling(rect.Width / (double)scale), Math.Ceiling(rect.Height / (double)scale));
+        }
 
-            var handoff = new SceneHandoffWindow(owner, from, Scene.CurrentLayout(), to, toLayout, scale,
-                Scene.Progress, (Duration)FindResource("Motion.Intro"));
-            _handoff = handoff;
-            var sceneRevision = _sceneRevision;
-            handoff.ContentRendered += (_, _) =>
-            {
-                if (!ReferenceEquals(_handoff, handoff) || _sceneRevision != sceneRevision) return;
-                // The copy is on screen exactly over ours: ours goes, the copy glides,
-                // and Home shows round it as it travels.
-                Scene.Visibility = Visibility.Hidden;
-                IsHitTestVisible = false;
-                handoff.Glide();
-                var fade = new DoubleAnimation(0, (Duration)FindResource("Motion.Scene"));
-                fade.Completed += (_, _) =>
-                {
-                    if (_sceneRevision == sceneRevision) Visibility = Visibility.Collapsed;
-                };
-                LoadingStage.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
-            };
-            handoff.Show();
-        }
-        catch (Exception ex)
+        f = Math.Clamp(f, 0, 1);
+        if (ProgressSweep.Visibility != Visibility.Collapsed)
         {
-            // Purely visual: the scene simply stays and dissolves at Hide.
-            System.Diagnostics.Debug.WriteLine($"[LaunchLoadingOverlay] window handoff skipped: {ex}");
-            _handoff?.FadeOutAndClose(new Duration(TimeSpan.Zero));
-            _handoff = null;
-            Scene.Visibility = Visibility.Visible;
+            StopClock(ref _sweepClock);
+            ProgressSweep.Visibility = Visibility.Collapsed;
+            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            ProgressScale.ScaleX = 0;
         }
+        ProgressFill.Visibility = Visibility.Visible;
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            ProgressScale.ScaleX = f;
+            return;
+        }
+        ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(f, FillGlide), HandoffBehavior.SnapshotAndReplace);
     }
 
-    /// <summary>
-    /// Lowers the scene. <paramref name="handedOff"/>: the game is now showing
-    /// its own Origin loading screen, so the scene leaves at the handoff's pace
-    /// (a slower dissolve; out on the game window, the copy dissolves to reveal
-    /// the identical game underneath) instead of the quick exit used for
-    /// cancel/failure/done. Home is clickable from the moment it starts leaving.
-    /// </summary>
-    public void Hide(bool handedOff = false)
+    // Slide the block across the track (start fully off-left, finish fully
+    // off-right), easing at each end so it reads as a smooth continuous sweep.
+    // Reduced motion parks it at the left edge.
+    private void StartSweep()
+    {
+        StopClock(ref _sweepClock);
+        ProgressTranslate.ApplyAnimationClock(TranslateTransform.XProperty, null);
+        ProgressTranslate.X = 0;
+        if (!SystemParameters.ClientAreaAnimation) return;
+        var slide = new DoubleAnimation(-SweepWidth, ProgressTrack.Width, new Duration(TimeSpan.FromSeconds(1.15)))
+        {
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+        };
+        _sweepClock = slide.CreateClock();
+        ProgressTranslate.ApplyAnimationClock(TranslateTransform.XProperty, _sweepClock);
+    }
+
+    private static void StopClock(ref AnimationClock? clock)
+    {
+        clock?.Controller?.Stop();
+        clock = null;
+    }
+
+    /// <summary>Fades the screen out. Home is clickable from the moment it starts leaving.</summary>
+    public void Hide()
     {
         var sceneRevision = ++_sceneRevision;
         ++_stageRevision;
         StageText.BeginAnimation(OpacityProperty, null);
         IsHitTestVisible = false;
-        var duration = (Duration)FindResource(handedOff ? "Motion.Handoff" : "Motion.Exit");
-
-        _handoff?.FadeOutAndClose(duration);
-        _handoff = null;
+        StopClock(ref _spinClock);
+        StopClock(ref _sweepClock);
 
         if (!SystemParameters.ClientAreaAnimation || Visibility != Visibility.Visible)
         {
@@ -227,11 +214,11 @@ public partial class LaunchLoadingOverlay : UserControl
             return;
         }
 
-        var fade = new DoubleAnimation(0, duration) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } };
+        var fade = new DoubleAnimation(0, (Duration)FindResource("Motion.Exit"));
         fade.Completed += (_, _) =>
         {
-            if (_sceneRevision != sceneRevision) return;
-            Visibility = Visibility.Collapsed;
+            if (_sceneRevision == sceneRevision)
+                Visibility = Visibility.Collapsed;
         };
         BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
     }
@@ -268,18 +255,6 @@ public partial class LaunchLoadingOverlay : UserControl
                 HandoffBehavior.SnapshotAndReplace);
         };
         StageText.BeginAnimation(OpacityProperty, fadeOut, HandoffBehavior.SnapshotAndReplace);
-    }
-
-    /// <summary>
-    /// Launch mode's bar: a stage with a real count fills to it (the scene
-    /// eases between the ~8/s reports, as the game's bar does); a stage
-    /// without one goes back to the game's sweep. Never a made-up percentage
-    /// (StageProgress).
-    /// </summary>
-    private void ShowProgress(double? fraction)
-    {
-        Scene.Progress = fraction;
-        if (_handoff != null) _handoff.Progress = fraction;
     }
 
     private void SetStageImmediately(string stage)

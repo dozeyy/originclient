@@ -1,18 +1,18 @@
 # Origin motion — the launch journey
 
 One short spec for the launcher (WPF) and the mod (Java). Will's brief: from
-clicking Play to standing in a world, nothing may feel like a cut. One picture —
-the Origin loading scene's orbiting rings — carries the whole way: it unfolds
-out of the Play button, becomes the game's loading screen, lives on behind the
-menus, and steps aside once the world is ready (it then appears like vanilla).
+clicking Play to standing in a world, nothing may feel like a cut. The launcher
+shows a plain progress screen while it prepares and starts the game; Minecraft
+then opens its own window normally, and from its loading screen on the game
+carries the Origin scene: it lives on behind the menus and steps aside once
+the world is ready (it then appears like vanilla). Will 2026-10-18: no launcher-side
+loading scene and no window glide — the game loads like normal, then animates.
 
 | Token | Value | Launcher (`Theme/Spacing.xaml`, `UI/Controls`) | Mod (1.21.1) |
 |---|---|---|---|
-| Intro | 560 ms | `Motion.Intro`: launcher mark on first open; the scene's glide onto the game window | `StartupTransition.REVEAL_MS`: loading screen dissolves into the title |
-| Handoff | 320 ms | `Motion.Handoff`: scene copy melts away once the game shows the same picture | `OriginHandoff.RAMP_MS`: game window fades in |
-| Scene | 180 ms | `Motion.Scene`: launcher lines leave as the glide starts | — |
-| Assemble | 1100 ms | `LoadingScene.AssembleMs`: Play → rings spin out into the orbit | ring-field settle (`RingField`) |
-| Glide wait | 620 ms | — | `OriginHandoff.GLIDE_MS`: window stays invisible while the scene glides on |
+| Intro | 560 ms | `Motion.Intro`: the launcher mark assembling on first open | `StartupTransition.REVEAL_MS`: loading screen dissolves into the title |
+| Settle | 320 ms | `Motion.Settle`: wordmark and Play card settling in under the first-open mark | `OriginHandoff.RAMP_MS`: game window fades in |
+| Scene | 180 ms | `Motion.Scene`: progress screen lines arriving | — |
 
 Easing: cubic ease-out for arrivals, cubic in-out for travel (the glide, the
 assemble's flight) and leaving. Spins are allowed only as the rings' own orbit
@@ -27,45 +27,38 @@ never a skip. Bar ends are placed to a fraction of a pixel (`fillSmooth`, launch
 closing is instant, and the main menu's entrance plays once per game start.
 
 Reduced motion: Windows "Show animations" off zeroes every launcher token
-(`App.DisableMotion`): the scene appears complete, no glide, no button fold.
+(`App.DisableMotion`): screens appear complete, the mark stays still.
 Minecraft has no system-wide equivalent; the in-game transitions are short and
 never delay input.
 
 ## The journey
 
 ```
-Launcher:  Play press → the button folds into the Origin mark; its 3 rings unfold,
-           spin up and fly out into the loading orbit (LoadingScene = the game's
-           loading screen, laid out by the game's own formulas) while the charcoal
-           rises behind them. Preparing (real counts on the bar) → Starting Minecraft
-Handoff:   the game opens its window INVISIBLY, centred on the scene, and reports
-           its rect → the launcher lifts the scene into a click-through window
-           (SceneHandoffWindow) that glides and stretches onto that rect →
-           the game window fades in showing the identical picture → the copy melts.
-Game:      loading screen ─resources done→ 560 ms dissolve → title: no panorama,
-           the same rings slow, drift and lean toward the mouse, the logo settles
-           out of them ─world→ the rings swing back into the loading orbit with
-           real chunk progress → the world appears the frame it is ready, like
+Launcher:  Play press → the progress screen: spinning Origin mark, version, stage
+           line, a bar that fills to real counts (sliding block when a stage has
+           none), Cancel. Preparing → Starting Minecraft → Loading Minecraft.
+Game:      opens its own window normally (visible, Minecraft's default place and
+           size); once it shows the Origin loading screen the launcher's screen
+           lowers. loading screen ─resources done→ 560 ms dissolve → title: no
+           panorama, the same rings slow, drift and lean toward the mouse, the logo
+           settles out of them ─world→ the rings swing back into the loading orbit
+           with real chunk progress → the world appears the frame it is ready, like
            vanilla (Will 2026-10-18: no zoom/lens).
 ```
 
 ## The launcher ↔ game handshake
 
-- The launcher passes `-Dorigin.handoff=<random 32-hex token>` per launch, and
-  `-Dorigin.handoff.window=<cx>,<cy>` (the scene's centre, screen px).
-- The mod prints `origin-handoff <token> hello|window x,y,w,h,scale|loading|ready`
-  to the game's stdout, which the launcher already captures. No socket, pipe or
-  file, so nothing outside the game process can reach it; the token stops chat or
-  other mods from faking a stage.
-- `hello`: pre-launch. `window`: the hidden window's rect and GUI scale (only with
-  a window target, never fullscreen). `loading`: the game window is fully shown
-  on an Origin loading frame, so the launcher's copy melts away. `ready`: the
-  startup loading screen is gone (title, or a Quick Play world loading).
+- The launcher passes `-Dorigin.handoff=<random 32-hex token>` per launch. It no
+  longer passes `-Dorigin.handoff.window` (the hidden-window glide is gone).
+- The mod prints `origin-handoff <token> hello|loading|ready` to the game's stdout,
+  which the launcher already captures. No socket, pipe or file, so nothing outside
+  the game process can reach it; the token stops chat or other mods from faking a
+  stage. A `window x,y,w,h,scale` line from a mod build that still sends one is
+  read as a hello and otherwise ignored.
+- `hello`: pre-launch. `loading`: the game window is up on an Origin loading frame,
+  so the launcher's progress screen lowers. `ready`: the startup loading screen is
+  gone (title, or a Quick Play world loading).
 - Fallbacks (`Core/Launch/GameHandoff.cs`): window seen with no hello for 3 s
-  means an older build, so it behaves as before; no loading frame 20 s after the
-  window means the scene lowers anyway; 90 s from process start means ready
-  regardless. In the game, the hidden window always shows within 3 s of its first
-  frame even if no Origin loading frame draws. A crash or exit at any point lowers the scene and
-  shows the error.
-- Mixed-DPI monitor setups may land the glide a few pixels off; the crossfade
-  hides it.
+  means an older build, so the window is the signal; no loading frame 20 s after
+  the window means the screen lowers anyway; 90 s from process start means ready
+  regardless. A crash or exit at any point lowers the screen and shows the error.

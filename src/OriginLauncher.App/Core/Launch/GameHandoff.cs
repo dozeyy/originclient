@@ -9,26 +9,17 @@ public enum HandoffStage
     Starting,
     /// <summary>Minecraft's window exists, the Origin loading screen isn't on it yet.</summary>
     Opening,
-    /// <summary>The game is drawing the Origin loading screen: it has taken over from the launcher.</summary>
+    /// <summary>The game is drawing the Origin loading screen: its own window carries the wait from here.</summary>
     Loading,
     /// <summary>The loading screen is gone (title screen, or straight into a Quick Play world).</summary>
     Ready,
 }
 
-/// <summary>
-/// Where the game opened its (still transparent) window, in screen pixels: the
-/// client area, not the frame. <paramref name="GuiScale"/> is the game's GUI
-/// scale (0: unknown, use Minecraft's auto rule), so the launcher can lay its
-/// scene out exactly as the game will draw it.
-/// </summary>
-public readonly record struct GameWindowRect(int X, int Y, int Width, int Height, int GuiScale);
-
 /// <summary>What the launcher should do right now for one starting game.</summary>
 /// <param name="Stage">The furthest stage reached.</param>
-/// <param name="ReleaseScene">Lower the launcher's loading scene: the game has taken over (or never will say so).</param>
+/// <param name="ReleaseScene">Lower the launcher's progress screen: the game's window is up and showing its own loading screen (or never will say so).</param>
 /// <param name="GameReady">The account's game counts as running (Play button stops spinning).</param>
-/// <param name="Window">The game announced its window: glide the scene onto it (null: older build, or fullscreen).</param>
-public readonly record struct HandoffView(HandoffStage Stage, bool ReleaseScene, bool GameReady, GameWindowRect? Window = null);
+public readonly record struct HandoffView(HandoffStage Stage, bool ReleaseScene, bool GameReady);
 
 /// <summary>
 /// The launcher-to-game startup handshake. The launcher passes a fresh random
@@ -36,12 +27,13 @@ public readonly record struct HandoffView(HandoffStage Stage, bool ReleaseScene,
 /// the handshake prints <c>origin-handoff &lt;token&gt; &lt;stage&gt;</c> on its
 /// stdout (hello at pre-launch, loading on its first loading-screen frame,
 /// ready once the loading screen is gone), which the launcher already
-/// reads into the launch log. With <see cref="WindowArgument"/> the game also
-/// opens its window invisibly, centred where the launcher asked, and says
-/// <c>window x,y,w,h,scale</c>: the launcher glides its scene onto that rect
-/// and the window fades in over it, saying <c>loading</c> once fully shown. No socket, pipe or file: nothing outside the
-/// game process can reach it, and the per-launch token keeps any other text in
-/// the log (a server's chat line, another mod) from counterfeiting a stage.
+/// reads into the launch log. The game opens its window normally (visible, at
+/// Minecraft's own position and size); the launcher's progress screen lowers
+/// once that window is showing the game's loading screen. No socket, pipe or
+/// file: nothing outside the game process can reach it, and the per-launch
+/// token keeps any other text in the log (a server's chat line, another mod)
+/// from counterfeiting a stage. A <c>window</c> marker from a build that still
+/// sends one only counts as a hello; nothing is done with its rectangle.
 ///
 /// Every stage has a fallback, so a build that never speaks it (1.8.9, older
 /// jars, a version not yet wired) behaves like before: the window appearing
@@ -55,7 +47,6 @@ public sealed class GameHandoff
 {
     public const string Property = "origin.handoff";
     public const string Marker = "origin-handoff";
-    public const string WindowProperty = "origin.handoff.window";
 
     /// <summary>Window up but no hello this long after: the build doesn't speak the handshake.</summary>
     public static readonly TimeSpan HelloGrace = TimeSpan.FromSeconds(3);
@@ -68,7 +59,6 @@ public sealed class GameHandoff
     private DateTime? _startedAt;
     private DateTime? _windowAt;
     private bool _hello;
-    private GameWindowRect? _window;
     private HandoffStage _reported = HandoffStage.Starting;
 
     /// <summary>Made before provisioning (the token goes into the JVM arguments); the clock starts at <see cref="ProcessStarted"/>.</summary>
@@ -81,9 +71,6 @@ public sealed class GameHandoff
 
     /// <summary>The JVM argument that hands the token to the game.</summary>
     public string JvmArgument => $"-D{Property}={Token}";
-
-    /// <summary>Asks the game to open its window centred on this screen point (pixels), hidden until the handoff.</summary>
-    public static string WindowArgument(int centerX, int centerY) => $"-D{WindowProperty}={centerX},{centerY}";
 
     public static string NewToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
 
@@ -98,14 +85,9 @@ public sealed class GameHandoff
         if (stage is null) return false;
         lock (_gate)
         {
-            if (stage == "window")
-            {
-                if (_window != null || ParseWindow(line, Token) is not { } rect) return false;
-                _window = rect;
-                _hello = true;
-                return true;
-            }
-            if (stage == "hello")
+            // "window" is what a mod build from the glide era says right after
+            // hello; it still proves the build speaks the handshake.
+            if (stage is "hello" or "window")
             {
                 if (_hello) return false;
                 _hello = true;
@@ -154,29 +136,8 @@ public sealed class GameHandoff
                           || sinceWindow >= LoadingCeiling
                           || pastReadyCeiling;
             var ready = stage == HandoffStage.Ready || silentBuild || pastReadyCeiling;
-            return new HandoffView(stage, release, ready, _window);
+            return new HandoffView(stage, release, ready);
         }
-    }
-
-    /// <summary>The rect of a <c>window x,y,w,h,scale</c> marker carrying this token, or null if malformed.</summary>
-    public static GameWindowRect? ParseWindow(string line, string token)
-    {
-        var probe = Marker + " " + token + " window ";
-        var at = line.IndexOf(probe, StringComparison.Ordinal);
-        if (at < 0) return null;
-        var rest = line[(at + probe.Length)..];
-        var space = rest.IndexOfAny([' ', '\r', '\n', '\t']);
-        if (space >= 0) rest = rest[..space];
-        var parts = rest.Split(',');
-        if (parts.Length != 5) return null;
-        var n = new int[5];
-        for (var i = 0; i < 5; i++)
-            if (!int.TryParse(parts[i], System.Globalization.NumberStyles.AllowLeadingSign,
-                    System.Globalization.CultureInfo.InvariantCulture, out n[i])) return null;
-        // Anything a real monitor layout can't produce is not the game talking.
-        if (Math.Abs(n[0]) > 100_000 || Math.Abs(n[1]) > 100_000) return null;
-        if (n[2] is < 1 or > 16_384 || n[3] is < 1 or > 16_384 || n[4] is < 0 or > 16) return null;
-        return new GameWindowRect(n[0], n[1], n[2], n[3], n[4]);
     }
 
     /// <summary>The stage word of a marker line carrying this token, or null.</summary>

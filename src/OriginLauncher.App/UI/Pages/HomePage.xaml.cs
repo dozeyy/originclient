@@ -69,15 +69,13 @@ public partial class HomePage : UserControl
         public required GameHandoff Handoff { get; init; }
         // The furthest handshake stage Home has already acted on.
         public HandoffStage Shown { get; set; }
-        // The player stopped it from the loading scene: its exit is not a crash.
+        // The player stopped it from the progress screen: its exit is not a crash.
         public bool StoppedByPlayer { get; set; }
-        // The scene already glided onto this game's window (once per game).
-        public bool WindowGlided { get; set; }
     }
 
-    // The game whose start the loading scene is showing, once its process is
-    // up (before that the scene belongs to _overlayTicket). Null when the
-    // scene shows nothing of a game's.
+    // The game whose start the progress screen is showing, once its process is
+    // up (before that the screen belongs to _overlayTicket). Null when the
+    // screen shows nothing of a game's.
     private RunningGame? _sceneGame;
 
     // The players-online pill: fetched once the first frame is up, then every 5 min.
@@ -120,10 +118,10 @@ public partial class HomePage : UserControl
         s_introPlayed = true;
         var intro = (Duration)FindResource("Motion.Intro");
         if (!SystemParameters.ClientAreaAnimation || !intro.HasTimeSpan || intro.TimeSpan <= TimeSpan.Zero) return;
-        var scene = ((Duration)FindResource("Motion.Handoff")).TimeSpan;
+        var settle = ((Duration)FindResource("Motion.Settle")).TimeSpan;
         HomeMark.Align(intro);
-        Settle(HomeLockupText, rise: 6, delay: TimeSpan.FromMilliseconds(160), scene);
-        Settle(HomeCard, rise: 10, delay: TimeSpan.FromMilliseconds(220), scene);
+        Settle(HomeLockupText, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
+        Settle(HomeCard, rise: 10, delay: TimeSpan.FromMilliseconds(220), settle);
     }
 
     private static void Settle(UIElement element, double rise, TimeSpan delay, TimeSpan length)
@@ -245,7 +243,7 @@ public partial class HomePage : UserControl
         // the scene is that game's, not this account's Home — lower it (the
         // game carries on; the boot watch still follows it).
         if (_sceneGame != null && _sceneGame.Key != SelectedKey())
-            ReleaseScene(_sceneGame, handedOff: false);
+            ReleaseScene(_sceneGame, gameLoading: false);
         UpdatePlayState();
         SyncSocialMirror();
         // Origin+ members never see the banner's ad network: re-check for this account.
@@ -294,34 +292,6 @@ public partial class HomePage : UserControl
     // Only the button: Play / spinner / Running for the selected account's
     // phase (AccountLaunchBook.ButtonFor). Leaves the status line alone, so a
     // specific message a launch just set isn't clobbered.
-    // The Play press: the button folds down into the mark the loading scene's
-    // rings spin out of, then comes back (FillBehavior.Stop) once the scene's
-    // charcoal covers Home — so it is never left shrunk if a launch ends early.
-    private void ShrinkPlayButton()
-    {
-        if (!SystemParameters.ClientAreaAnimation) return;
-        // The style's shared transform is frozen; give the button its own.
-        if (PlayButton.RenderTransform is not ScaleTransform { IsFrozen: false } scale)
-        {
-            scale = new ScaleTransform(1, 1);
-            PlayButton.RenderTransform = scale;
-        }
-        var fold = TimeSpan.FromMilliseconds(220);
-        var held = TimeSpan.FromMilliseconds(LoadingScene.AssembleMs * 0.55);
-        DoubleAnimationUsingKeyFrames To(double from, double to)
-        {
-            var a = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
-            a.KeyFrames.Add(new DiscreteDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-            a.KeyFrames.Add(new EasingDoubleKeyFrame(to, KeyTime.FromTimeSpan(fold),
-                new CubicEase { EasingMode = EasingMode.EaseIn }));
-            a.KeyFrames.Add(new DiscreteDoubleKeyFrame(to, KeyTime.FromTimeSpan(held)));
-            return a;
-        }
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, To(1, 0.2));
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, To(1, 0.6));
-        PlayButton.BeginAnimation(OpacityProperty, To(1, 0));
-    }
-
     private void RefreshPlayButton()
     {
         var key = SelectedKey();
@@ -514,11 +484,7 @@ public partial class HomePage : UserControl
         _overlayTicket = ticket;
         _sceneGame = null; // the scene is this launch's now, whatever it showed before
         RefreshPlayButton();
-        // The press becomes the launch animation (docs/MOTION.md "play"): the
-        // button folds into the Origin mark, whose rings spin out into the
-        // loading scene. No loader name: the player never sees one (mandate 1).
-        ShrinkPlayButton();
-        LoadingOverlay.Show(version, PlayButton);
+        LoadingOverlay.Show(version);
 
         // Only the launch the scene is showing reports into it — an older
         // launch still finishing for another account stays quiet.
@@ -575,11 +541,6 @@ public partial class HomePage : UserControl
             var handoff = new GameHandoff();
             launchOption.ExtraJvmArguments = (launchOption.ExtraJvmArguments ?? Enumerable.Empty<MArgument>())
                 .Append(new MArgument(handoff.JvmArgument)).ToList();
-            // Where the scene is on screen: the game opens its window centred
-            // there, so the scene can glide straight onto it (window handoff).
-            if (LoadingOverlay.ScreenCentre() is { } centre)
-                launchOption.ExtraJvmArguments = launchOption.ExtraJvmArguments
-                    .Append(new MArgument(GameHandoff.WindowArgument(centre.X, centre.Y))).ToList();
             if (target?.Server is { } server)
             {
                 // Straight into the friend's server: Quick Play on 1.20+, the
@@ -645,7 +606,7 @@ public partial class HomePage : UserControl
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
             // The launcher is the foreground app right now; let the game take
-            // the focus when its window appears behind the gliding scene.
+            // the focus when its window appears over the progress screen.
             UI.GameWindow.AllowForeground(process);
             // Synchronous since the cancellation check above, so the ticket is
             // still this account's newest action.
@@ -709,7 +670,7 @@ public partial class HomePage : UserControl
                     LoadingOverlay.EnterGameStart();
                     // The player switched account while it was preparing: that
                     // switch ran before the scene had a game, so lower it now.
-                    if (started.Key != SelectedKey()) ReleaseScene(started, false);
+                    if (started.Key != SelectedKey()) ReleaseScene(started, gameLoading: false);
                 }
                 else
                 {
@@ -728,10 +689,10 @@ public partial class HomePage : UserControl
         }
     }
 
-    // Owns the tail of one game's launch: keeps the loading scene up and the
-    // Play button spinning after the game process starts, until the game says
-    // it has taken over (Core/Launch/GameHandoff: its loading screen lowers
-    // the scene, its title screen makes the account Running) or the process
+    // Owns the tail of one game's launch: keeps the progress screen up and the
+    // Play button spinning after the game process starts, until the game's
+    // window is up showing its own loading screen (Core/Launch/GameHandoff:
+    // that lowers the screen; its title screen makes the account Running) or the process
     // dies during boot (crash — surface it). The game's markers act the
     // moment they arrive (OnHandoff); this poll only watches for the window,
     // the exit and the handshake's fallback ceilings, so the scene and the
@@ -757,7 +718,7 @@ public partial class HomePage : UserControl
                     // later, then finds nothing left to do).
                     _launches.Exited(game.Key, game);
                     SyncSocialMirror();
-                    ReleaseScene(game, handedOff: false);
+                    ReleaseScene(game, gameLoading: false);
                     if (game.StoppedByPlayer)
                     {
                         Note(game.Key, "Cancelled", LaunchTone.Neutral);
@@ -799,7 +760,7 @@ public partial class HomePage : UserControl
             }
             // The process handle stopped answering: assume the game is running
             // rather than reporting a failure that didn't happen.
-            ReleaseScene(game, handedOff: false);
+            ReleaseScene(game, gameLoading: false);
             if (_launches.WindowShown(game.Key, game))
                 Note(game.Key, runningMessage, LaunchTone.Success);
         }
@@ -818,7 +779,7 @@ public partial class HomePage : UserControl
         RefreshPlayButton();
     }
 
-    // Moves Home along with the game's start: the scene's line, its exit, and
+    // Moves Home along with the game's start: the screen's line, its exit, and
     // the account going Running. True once the game counts as ready (the boot
     // watch is then done). runningMessage null: leave the Running line to the
     // boot watch, which knows it (it re-polls within half a second).
@@ -833,32 +794,26 @@ public partial class HomePage : UserControl
             if (view.Stage is HandoffStage.Opening or HandoffStage.Loading && !view.GameReady)
                 Note(game.Key, $"Loading {game.Version}", LaunchTone.Neutral);
         }
-        // The game's window is open (still invisible) — glide the scene onto it.
-        if (view.Window is { } rect && !game.WindowGlided && ReferenceEquals(_sceneGame, game))
-        {
-            game.WindowGlided = true;
-            LoadingOverlay.MoveToGameWindow(rect);
-        }
         if (view.ReleaseScene)
-            ReleaseScene(game, handedOff: view.Stage >= HandoffStage.Loading);
+            ReleaseScene(game, gameLoading: view.Stage >= HandoffStage.Loading);
         if (!view.GameReady || runningMessage == null) return false;
         if (_launches.WindowShown(game.Key, game))
             Note(game.Key, runningMessage, LaunchTone.Success);
         return true;
     }
 
-    // Lowers the loading scene if it is showing this game's start. handedOff:
-    // the game is drawing its own Origin loading screen right now, so the
-    // scene dissolves into it — and if the player is still looking at the
-    // launcher (it is the active window), the game's window is brought to the
-    // front once. Once: no loop, and never when the player has moved on to
-    // something else (Windows would refuse it then anyway).
-    private void ReleaseScene(RunningGame game, bool handedOff)
+    // Lowers the progress screen if it is showing this game's start.
+    // gameLoading: the game's window is up drawing its own Origin loading
+    // screen, so if the player is still looking at the launcher (it is the
+    // active window), the game's window is brought to the front once. Once: no
+    // loop, and never when the player has moved on to something else (Windows
+    // would refuse it then anyway).
+    private void ReleaseScene(RunningGame game, bool gameLoading)
     {
         if (!ReferenceEquals(_sceneGame, game)) return;
         _sceneGame = null;
-        LoadingOverlay.Hide(handedOff);
-        if (handedOff && Window.GetWindow(this) is { IsActive: true })
+        LoadingOverlay.Hide();
+        if (gameLoading && Window.GetWindow(this) is { IsActive: true })
             UI.GameWindow.BringToFront(game.Process);
     }
 
@@ -1140,14 +1095,10 @@ public partial class HomePage : UserControl
     }
 
     /// <summary>
-    /// Render mode only (UI/RenderShots.cs): the Play press's animation and
-    /// the loading scene, without preparing or starting anything.
+    /// Render mode only (UI/RenderShots.cs): the launch progress screen,
+    /// without preparing or starting anything.
     /// </summary>
-    internal void TourShowLaunch(string version)
-    {
-        ShrinkPlayButton();
-        LoadingOverlay.Show(version, PlayButton);
-    }
+    internal void TourShowLaunch(string version) => LoadingOverlay.Show(version);
 
     internal void TourReportLaunch(string stage) => LoadingOverlay.ReportStage(stage);
 

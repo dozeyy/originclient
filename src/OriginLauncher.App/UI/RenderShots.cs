@@ -12,8 +12,8 @@ namespace OriginLauncher.App.UI;
 /// <summary>
 /// CI-only: `OriginLauncher.App.exe --render-shots &lt;folder&gt;` opens the real
 /// main window with made-up social data (Core/Social/SocialDemo) and saves
-/// pictures of Home (also its Play button in the "Running" state, and the Play press's
-/// loading scene) and the Friends drawer, so launcher UI changes are looked
+/// pictures of Home (also its Play button in the "Running" state, and the launch
+/// progress screen) and the Friends drawer, so launcher UI changes are looked
 /// at before they ship (.github/workflows/launcher-shots.yml). Nothing is
 /// signed in to and the social service never touches the network.
 /// </summary>
@@ -67,20 +67,16 @@ public static class RenderShots
         Pump(600);
         Snap(window, outDir, "06-signed-out");
 
-        // The Play press: the button folds into the rings, which spin out into
-        // the loading scene (the game's own loading screen, LoadingScene).
+        // The Play press: the plain launch progress screen, first with a stage
+        // that has no count (the sliding block), then one with real counts (the fill).
         window.TourSetFriendsOpen(false);
         Pump(400);
         window.TourShowLaunch("1.21.1");
-        Pump(120);
-        Snap(window, outDir, "08-launch-a-press");
-        Pump(330);
-        Snap(window, outDir, "08-launch-b-unfold");
-        Pump(350);
-        Snap(window, outDir, "08-launch-c-orbit");
+        Pump(500);
+        Snap(window, outDir, "08-launch-a-preparing");
         window.TourReportLaunch("Downloading libraries (240/600)");
-        Pump(1200);
-        Snap(window, outDir, "08-launch-d-scene");
+        Pump(900);
+        Snap(window, outDir, "08-launch-b-counted");
         window.TourHideLaunch();
         Pump(500);
 
