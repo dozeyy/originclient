@@ -5248,3 +5248,25 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
 - Snappy: OriginWindow + OriginModMenuScreen close instantly (beginClose -> setScreen(returnTo) when still the screen; no
   click-blocking close fade), open/page fades 110 ms, card stagger capped (<= 8 rows x 8 ms, 110 ms each), HUD editor + colour
   picker 110 ms, title entrance once per game start (TitleScreenMixin openedAt static). Untouched: MenuBlur (a setting).
+
+## 2026-10-18 — Settings Sync on for everyone + instant saving (every version)
+- Will: sync should carry mod settings + HUD positions too, on by default, and every change must
+  hit disk the instant it's made ("if they alt f4 it should still save"). He didn't know sync existed.
+- Launcher: `LauncherSettings.SettingsSyncEnabled` renamed `SyncSettingsAcrossVersions` (default
+  true) so everyone's old saved "off" is dropped once. Caption now names mod settings + HUD positions.
+  Sync itself was already complete: SyncedFiles carries options.txt, servers.dat, sodium-options.json,
+  iris.properties and every config/originclient*.json (mods + HUD + profiles, waypoints, itemsizes…).
+  All versions write the same originclient-mods.json layout (enabled/mods/hud/meta/profiles) and the
+  same HudPos format (checked 1.8.9, 1.16.5, 1.19.4, 1.20, 1.21.1, 26.3) — values land correctly.
+- Mod (every live module): Origin stores already saved on every change. Added vanilla options:
+  - 1.19+ (shared `OptionsAutosave` + `OptionsAutosaveMixin` on OptionInstance.set HEAD, only real
+    changes — the Chat mod re-sets the same values each tick; `OptionsSetKeyMixin` on Options.setKey)
+    → dirty flag → `options.save()` on the next client tick, max every 250 ms. 1.19.x carry copies.
+  - 1.16.5/1.17.1/1.18.2 (no single setter) and 1.8.9 (GameSettings, OptiFine replaces the class):
+    reflective fingerprint of every options field (keybinds by saved form/key code) every 5 ticks,
+    save when it moves. Extra saves from F3/F5 fields are harmless.
+  - `OptionsAutosave.held` = Zoom sensitivity / smooth camera (1.8.9: + perspective) swapped in →
+    no write until restored; the exit flush restores them before `options.save()`.
+  - Exit (CLIENT_STOPPING; 1.8.9 JVM shutdown hook) also commits the mod menu's mid-drag slider and
+    half-typed text field (`OriginModMenuScreen.commitPendingEdits`). Alt+F4 is a clean shutdown.
+  - Not changed: Sodium/Iris video settings still apply on their Apply/Done (their own design).
