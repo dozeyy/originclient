@@ -27,9 +27,9 @@
         <!-- Origin's signature is the only decorative statement on Home. -->
         <Grid Grid.Column="0" Margin="28,0,52,0" VerticalAlignment="Center">
             <Grid Width="410" Height="330" HorizontalAlignment="Left">
-                <controls:OriginMark Width="146" Height="146" HorizontalAlignment="Left"
+                <controls:OriginMark x:Name="HomeMark" Width="146" Height="146" HorizontalAlignment="Left"
                                      Margin="67,0,0,98" VerticalAlignment="Center"/>
-                <StackPanel VerticalAlignment="Bottom" Margin="0,0,0,8">
+                <StackPanel x:Name="HomeLockupText" VerticalAlignment="Bottom" Margin="0,0,0,8">
                     <TextBlock Text="MINECRAFT" Style="{StaticResource Text.Eyebrow}"
                                Foreground="{StaticResource Brush.AccentHover}" Margin="3,0,0,7"/>
                     <Path Style="{StaticResource Brand.Wordmark}"
@@ -42,7 +42,7 @@
         <!-- Play card + the home banner under it, centred together. The
              banner reserves its row from the first frame (no jump when its
              feed arrives) and stretches with the card on resize. -->
-        <StackPanel Grid.Column="1" MaxWidth="400" Margin="12,0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+        <StackPanel x:Name="HomeCard" Grid.Column="1" MaxWidth="400" Margin="12,0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
             <Border Padding="24"
                     Background="{StaticResource Brush.PanelGlass}"
                     BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"

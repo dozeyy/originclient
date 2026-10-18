@@ -8,12 +8,13 @@
     <!--
         Three tilted original rings sharing one center (atom/origin pattern):
         same ellipse, rotated 0/60/120 degrees, different sizes so they read
-        as distinct rings rather than one thick line. Static mark — the
+        as distinct rings rather than one thick line. Static mark (Align()
+        plays the one-shot startup assembly) — the
         animated background system (OriginBackground) reuses this visual
         language at a larger scale with continuous rotation, but is a
         separate control since the two have nothing else in common.
     -->
-    <Viewbox Stretch="Uniform">
+    <Viewbox x:Name="Rings" Stretch="Uniform">
         <Grid Width="200" Height="200" Effect="{StaticResource Effect.OriginGlow}">
             <Ellipse Width="180" Height="64" Stroke="{StaticResource Brush.Text}"
                      StrokeThickness="3" Fill="Transparent"
@@ -28,7 +29,7 @@
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      RenderTransformOrigin="0.5,0.5">
                 <Ellipse.RenderTransform>
-                    <RotateTransform Angle="60"/>
+                    <RotateTransform x:Name="MiddleRing" Angle="60"/>
                 </Ellipse.RenderTransform>
             </Ellipse>
             <Ellipse Width="120" Height="44" Stroke="{StaticResource Brush.Text}"
@@ -36,7 +37,7 @@
                      HorizontalAlignment="Center" VerticalAlignment="Center"
                      RenderTransformOrigin="0.5,0.5">
                 <Ellipse.RenderTransform>
-                    <RotateTransform Angle="120"/>
+                    <RotateTransform x:Name="InnerRing" Angle="120"/>
                 </Ellipse.RenderTransform>
             </Ellipse>
         </Grid>

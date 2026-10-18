@@ -18,6 +18,7 @@ using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.Core.Updates;
 using OriginLauncher.App.Core.Versions;
+using OriginLauncher.App.UI.Controls;
 
 namespace OriginLauncher.App.UI.Pages;
 
@@ -64,7 +65,18 @@ public partial class HomePage : UserControl
         public string? LastWhereLine { get; set; }
         // Its id in SocialHub.Game while it is the mirrored (selected account's) game.
         public int MirrorId { get; set; }
+        // The startup handshake with this game (Core/Launch/GameHandoff).
+        public required GameHandoff Handoff { get; init; }
+        // The furthest handshake stage Home has already acted on.
+        public HandoffStage Shown { get; set; }
+        // The player stopped it from the loading scene: its exit is not a crash.
+        public bool StoppedByPlayer { get; set; }
     }
+
+    // The game whose start the loading scene is showing, once its process is
+    // up (before that the scene belongs to _overlayTicket). Null when the
+    // scene shows nothing of a game's.
+    private RunningGame? _sceneGame;
 
     // The players-online pill: fetched once the first frame is up, then every 5 min.
     private readonly DispatcherTimer _playersTimer = new(DispatcherPriority.Background) { Interval = PlayersOnline.Refresh };
@@ -74,7 +86,11 @@ public partial class HomePage : UserControl
     {
         InitializeComponent();
         _settings = SettingsStore.Load();
-        LoadingOverlay.CancelRequested += (_, _) => _overlayTicket?.Source.Cancel();
+        LoadingOverlay.CancelRequested += (_, _) =>
+        {
+            if (_overlayTicket != null) _overlayTicket.Source.Cancel();
+            else if (_sceneGame != null) StopStartingGame(_sceneGame);
+        };
         VersionOverlay.VersionSelected += OnVersionSelected;
         VersionOverlay.LaunchRequested += OnLaunchRequested;
         // The home banner pauses under either scene (and, in ad mode, its
@@ -84,6 +100,36 @@ public partial class HomePage : UserControl
         InitVersionSelection();
         RefreshAccountState();
         Loaded += (_, _) => StartPlayersOnline();
+        Loaded += (_, _) => PlayIntroOnce();
+    }
+
+    // Once per launcher run: Home is the first thing it shows.
+    private static bool s_introPlayed;
+
+    // The launcher opening (docs/MOTION.md "intro"): the big mark assembles,
+    // then the wordmark and the Play card settle in under it. Home is fully
+    // interactive on its first frame — this is opacity and transforms only,
+    // nothing waits on it — and every animation ends on the resting value
+    // (FillBehavior.Stop), so it can never leave Home half-shown. Reduced
+    // motion (Windows' animation setting) zeroes Motion.Intro: no intro.
+    private void PlayIntroOnce()
+    {
+        if (s_introPlayed) return;
+        s_introPlayed = true;
+        var intro = (Duration)FindResource("Motion.Intro");
+        if (!SystemParameters.ClientAreaAnimation || !intro.HasTimeSpan || intro.TimeSpan <= TimeSpan.Zero) return;
+        var scene = ((Duration)FindResource("Motion.Handoff")).TimeSpan;
+        HomeMark.Align(intro);
+        Settle(HomeLockupText, rise: 6, delay: TimeSpan.FromMilliseconds(160), scene);
+        Settle(HomeCard, rise: 10, delay: TimeSpan.FromMilliseconds(220), scene);
+    }
+
+    private static void Settle(UIElement element, double rise, TimeSpan delay, TimeSpan length)
+    {
+        var shift = new TranslateTransform();
+        element.RenderTransform = shift;
+        element.BeginAnimation(OpacityProperty, OriginMark.Hold(0, 1, delay, length));
+        shift.BeginAnimation(TranslateTransform.YProperty, OriginMark.Hold(rise, 0, delay, length));
     }
 
     private void StartPlayersOnline()
@@ -193,6 +239,11 @@ public partial class HomePage : UserControl
         // The first account ever selected inherits the old one-folder-per-
         // version game data (a no-op once that is done — see AccountFolders).
         AccountFolders.EnsureMigrated(SelectedKey());
+        // Switched to another account while this one's game is still starting:
+        // the scene is that game's, not this account's Home — lower it (the
+        // game carries on; the boot watch still follows it).
+        if (_sceneGame != null && _sceneGame.Key != SelectedKey())
+            ReleaseScene(_sceneGame, handedOff: false);
         UpdatePlayState();
         SyncSocialMirror();
     }
@@ -429,6 +480,7 @@ public partial class HomePage : UserControl
         // aborts this one.
         if (_launches.BeginPrepare(key, version) is not { } ticket) return;
         _overlayTicket = ticket;
+        _sceneGame = null; // the scene is this launch's now, whatever it showed before
         RefreshPlayButton();
         // Loader label only — the player never chooses one; 1.8.9 quietly
         // runs Forge+OptiFine, everything else Fabric.
@@ -485,6 +537,10 @@ public partial class HomePage : UserControl
             // "Multiple garbage collectors selected" no matter what the player
             // changed. Same read the external-mods/offline switches already use.
             var launchOption = LaunchProfileBuilder.Build(freshSettings, session, version);
+            // The startup handshake's token, last so nothing overrides it.
+            var handoff = new GameHandoff();
+            launchOption.ExtraJvmArguments = (launchOption.ExtraJvmArguments ?? Enumerable.Empty<MArgument>())
+                .Append(new MArgument(handoff.JvmArgument)).ToList();
             if (target?.Server is { } server)
             {
                 // Straight into the friend's server: Quick Play on 1.20+, the
@@ -537,7 +593,7 @@ public partial class HomePage : UserControl
             // landed after provisioning finished must not still launch.
             ticket.Token.ThrowIfCancellationRequested();
 
-            Stage("Launching");
+            Stage("Starting Minecraft");
             var game = new RunningGame
             {
                 Key = key,
@@ -545,8 +601,10 @@ public partial class HomePage : UserControl
                 AccountName = accountName,
                 GameDir = gameDir,
                 Process = process,
+                Handoff = handoff,
             };
             StartWithLifecycleCapture(game);
+            handoff.ProcessStarted(DateTime.UtcNow);
             // Synchronous since the cancellation check above, so the ticket is
             // still this account's newest action.
             gameStarted = _launches.GameStarted(ticket, game);
@@ -597,10 +655,21 @@ public partial class HomePage : UserControl
             // to idle — unless a newer launch for it already took over.
             if (!gameStarted) _launches.EndPrepare(ticket);
             // The scene belongs to the newest launch; only that one lowers it.
+            // A launch that started its game hands the scene to that game: it
+            // stays up through Minecraft's own start until the game takes over
+            // (WatchBootAsync / OnHandoff lower it).
             if (ReferenceEquals(_overlayTicket, ticket))
             {
                 _overlayTicket = null;
-                LoadingOverlay.Hide();
+                if (gameStarted && _launches.GameOf(key) is RunningGame started)
+                {
+                    _sceneGame = started;
+                    LoadingOverlay.EnterGameStart();
+                }
+                else
+                {
+                    LoadingOverlay.Hide();
+                }
             }
             // The book no longer holds this ticket (EndPrepare/GameStarted or a
             // newer BeginPrepare released it), and the scene's Cancel can't
@@ -614,19 +683,22 @@ public partial class HomePage : UserControl
         }
     }
 
-    // Owns the tail of one game's launch: keeps the Play button spinning after
-    // the game process starts, until Minecraft's window actually exists (the
-    // account goes Running) or the process dies during boot (crash — surface
-    // it). Runs on the UI context; the polls are cheap and non-blocking. The
-    // 90s ceiling is a fail-open safety net for a machine where window
-    // detection misbehaves — the button must never spin forever.
+    // Owns the tail of one game's launch: keeps the loading scene up and the
+    // Play button spinning after the game process starts, until the game says
+    // it has taken over (Core/Launch/GameHandoff: its loading screen lowers
+    // the scene, its title screen makes the account Running) or the process
+    // dies during boot (crash — surface it). The game's markers act the
+    // moment they arrive (OnHandoff); this poll only watches for the window,
+    // the exit and the handshake's fallback ceilings, so the scene and the
+    // button can never be left waiting forever. Runs on the UI context; the
+    // polls are cheap and non-blocking.
     private async Task WatchBootAsync(RunningGame game, string runningMessage)
     {
         var process = game.Process;
+        var windowSeen = false;
         try
         {
-            var deadline = DateTime.UtcNow.AddSeconds(90);
-            while (DateTime.UtcNow < deadline)
+            while (true)
             {
                 bool exited;
                 try { exited = process.HasExited; }
@@ -640,6 +712,12 @@ public partial class HomePage : UserControl
                     // later, then finds nothing left to do).
                     _launches.Exited(game.Key, game);
                     SyncSocialMirror();
+                    ReleaseScene(game, handedOff: false);
+                    if (game.StoppedByPlayer)
+                    {
+                        Note(game.Key, "Cancelled", LaunchTone.Neutral);
+                        return;
+                    }
                     if (exitCode == 0)
                     {
                         Note(game.Key, "Ready", LaunchTone.Neutral);
@@ -660,23 +738,23 @@ public partial class HomePage : UserControl
                     return;
                 }
 
-                try
+                if (!windowSeen)
                 {
-                    process.Refresh();
-                    if (process.MainWindowHandle != IntPtr.Zero)
+                    try
                     {
-                        if (_launches.WindowShown(game.Key, game))
-                            Note(game.Key, runningMessage, LaunchTone.Success);
-                        return;
+                        process.Refresh();
+                        windowSeen = process.MainWindowHandle != IntPtr.Zero;
                     }
+                    catch { break; }
+                    if (windowSeen) game.Handoff.WindowSeen(DateTime.UtcNow);
                 }
-                catch { break; }
 
+                if (ApplyHandoff(game, runningMessage)) return;
                 await Task.Delay(500);
             }
-            // Timed out without seeing a window — assume the game is running
-            // (headless/odd window setups) rather than reporting a failure
-            // that didn't happen.
+            // The process handle stopped answering: assume the game is running
+            // rather than reporting a failure that didn't happen.
+            ReleaseScene(game, handedOff: false);
             if (_launches.WindowShown(game.Key, game))
                 Note(game.Key, runningMessage, LaunchTone.Success);
         }
@@ -684,6 +762,63 @@ public partial class HomePage : UserControl
         {
             RefreshPlayButton();
         }
+    }
+
+    // A handshake marker arrived on the game's output (UI thread): act now,
+    // not at the next poll.
+    private void OnHandoff(RunningGame game)
+    {
+        if (!ReferenceEquals(_launches.GameOf(game.Key), game)) return;
+        ApplyHandoff(game, runningMessage: null);
+        RefreshPlayButton();
+    }
+
+    // Moves Home along with the game's start: the scene's line, its exit, and
+    // the account going Running. True once the game counts as ready (the boot
+    // watch is then done). runningMessage null: leave the Running line to the
+    // boot watch, which knows it (it re-polls within half a second).
+    private bool ApplyHandoff(RunningGame game, string? runningMessage)
+    {
+        var view = game.Handoff.Poll(DateTime.UtcNow);
+        if (view.Stage > game.Shown)
+        {
+            game.Shown = view.Stage;
+            if (view.Stage == HandoffStage.Opening && ReferenceEquals(_sceneGame, game))
+                LoadingOverlay.ReportStage("Loading Minecraft");
+            if (view.Stage is HandoffStage.Opening or HandoffStage.Loading && !view.GameReady)
+                Note(game.Key, $"Loading {game.Version}", LaunchTone.Neutral);
+        }
+        if (view.ReleaseScene)
+            ReleaseScene(game, handedOff: view.Stage >= HandoffStage.Loading);
+        if (!view.GameReady || runningMessage == null) return false;
+        if (_launches.WindowShown(game.Key, game))
+            Note(game.Key, runningMessage, LaunchTone.Success);
+        return true;
+    }
+
+    // Lowers the loading scene if it is showing this game's start. handedOff:
+    // the game is drawing its own Origin loading screen right now, so the
+    // scene dissolves into it — and if the player is still looking at the
+    // launcher (it is the active window), the game's window is brought to the
+    // front once. Once: no loop, and never when the player has moved on to
+    // something else (Windows would refuse it then anyway).
+    private void ReleaseScene(RunningGame game, bool handedOff)
+    {
+        if (!ReferenceEquals(_sceneGame, game)) return;
+        _sceneGame = null;
+        LoadingOverlay.Hide(handedOff);
+        if (handedOff && Window.GetWindow(this) is { IsActive: true })
+            UI.GameWindow.BringToFront(game.Process);
+    }
+
+    // The loading scene's Cancel after the game process started: stop that
+    // game. Its exit then reads "Cancelled" (not a crash) in the boot watch,
+    // which also lowers the scene.
+    private static void StopStartingGame(RunningGame game)
+    {
+        game.StoppedByPlayer = true;
+        try { game.Process.Kill(entireProcessTree: true); }
+        catch { /* already gone: the boot watch sees the exit either way */ }
     }
 
     // ---- the friends drawer's view of "the game" (SocialHub.Game) -------------
@@ -864,6 +999,9 @@ public partial class HomePage : UserControl
                 // rare matching lines cross over to the UI thread.
                 if (RunningGameTracker.ParseConnect(data) != null || RunningGameTracker.IsSingleplayerStart(data))
                     Dispatcher.BeginInvoke(() => OnGameWhere(game, data));
+                // The startup handshake: only this launch's token counts.
+                if (game.Handoff.Observe(data))
+                    Dispatcher.BeginInvoke(() => OnHandoff(game));
                 lock (gate) { logWriter?.WriteLine(data); }
             }
             catch { /* best-effort logging; never surface onto this thread */ }
