@@ -143,6 +143,69 @@ public class GameHandoffTests
     }
 }
 
+public class GameWindowHandoffTests
+{
+    private const string Token = "0123456789abcdef0123456789abcdef";
+    private static string Line(string rest, string token = Token) =>
+        $"[12:00:01] [Render thread/INFO]: origin-handoff {token} {rest}";
+
+    [Fact]
+    public void WindowArgumentCarriesTheCentre() =>
+        Assert.Equal("-Dorigin.handoff.window=-640,360", GameHandoff.WindowArgument(-640, 360));
+
+    [Fact]
+    public void WindowMarkerAnnouncesTheRect()
+    {
+        var h = new GameHandoff(Token);
+        Assert.True(h.Observe(Line("window -1280,40,1280,720,3")));
+        var view = h.Poll(DateTime.UtcNow);
+        Assert.Equal(new GameWindowRect(-1280, 40, 1280, 720, 3), view.Window);
+        // The window alone hands nothing over: the scene waits for "loading".
+        Assert.False(view.ReleaseScene);
+    }
+
+    [Fact]
+    public void OnlyTheFirstWindowCounts()
+    {
+        var h = new GameHandoff(Token);
+        Assert.True(h.Observe(Line("window 0,0,854,480,0")));
+        Assert.False(h.Observe(Line("window 5,5,100,100,2")));
+        Assert.Equal(854, h.Poll(DateTime.UtcNow).Window?.Width);
+    }
+
+    [Fact]
+    public void AWindowMeansTheBuildSpeaksTheHandshake()
+    {
+        var t0 = new DateTime(2026, 10, 18, 12, 0, 0, DateTimeKind.Utc);
+        var h = new GameHandoff(Token);
+        h.ProcessStarted(t0);
+        h.Observe(Line("window 0,0,854,480,2"));
+        h.WindowSeen(t0);
+        // Past the hello grace the scene still waits for the fade-in to finish.
+        Assert.False(h.Poll(t0 + GameHandoff.HelloGrace).ReleaseScene);
+    }
+
+    [Theory]
+    [InlineData("window")]
+    [InlineData("window 1,2,3,4")]
+    [InlineData("window 1,2,3,4,5,6")]
+    [InlineData("window a,2,3,4,5")]
+    [InlineData("window 1,2,0,4,1")]
+    [InlineData("window 1,2,3,99999,1")]
+    [InlineData("window 1,2,3,4,99")]
+    [InlineData("window 9999999,2,3,4,1")]
+    public void MalformedWindowsAreIgnored(string rest)
+    {
+        var h = new GameHandoff(Token);
+        Assert.False(h.Observe(Line(rest)));
+        Assert.Null(h.Poll(DateTime.UtcNow).Window);
+    }
+
+    [Fact]
+    public void AnotherTokensWindowIsIgnored() =>
+        Assert.False(new GameHandoff(Token).Observe(Line("window 0,0,854,480,2", "ffffffffffffffffffffffffffffffff")));
+}
+
 public class StageProgressTests
 {
     [Theory]

@@ -71,6 +71,8 @@ public partial class HomePage : UserControl
         public HandoffStage Shown { get; set; }
         // The player stopped it from the loading scene: its exit is not a crash.
         public bool StoppedByPlayer { get; set; }
+        // The scene already glided onto this game's window (once per game).
+        public bool WindowGlided { get; set; }
     }
 
     // The game whose start the loading scene is showing, once its process is
@@ -290,6 +292,34 @@ public partial class HomePage : UserControl
     // Only the button: Play / spinner / Running for the selected account's
     // phase (AccountLaunchBook.ButtonFor). Leaves the status line alone, so a
     // specific message a launch just set isn't clobbered.
+    // The Play press: the button folds down into the mark the loading scene's
+    // rings spin out of, then comes back (FillBehavior.Stop) once the scene's
+    // charcoal covers Home — so it is never left shrunk if a launch ends early.
+    private void ShrinkPlayButton()
+    {
+        if (!SystemParameters.ClientAreaAnimation) return;
+        // The style's shared transform is frozen; give the button its own.
+        if (PlayButton.RenderTransform is not ScaleTransform { IsFrozen: false } scale)
+        {
+            scale = new ScaleTransform(1, 1);
+            PlayButton.RenderTransform = scale;
+        }
+        var fold = TimeSpan.FromMilliseconds(220);
+        var held = TimeSpan.FromMilliseconds(LoadingScene.AssembleMs * 0.55);
+        DoubleAnimationUsingKeyFrames To(double from, double to)
+        {
+            var a = new DoubleAnimationUsingKeyFrames { FillBehavior = FillBehavior.Stop };
+            a.KeyFrames.Add(new DiscreteDoubleKeyFrame(from, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+            a.KeyFrames.Add(new EasingDoubleKeyFrame(to, KeyTime.FromTimeSpan(fold),
+                new CubicEase { EasingMode = EasingMode.EaseIn }));
+            a.KeyFrames.Add(new DiscreteDoubleKeyFrame(to, KeyTime.FromTimeSpan(held)));
+            return a;
+        }
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, To(1, 0.2));
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, To(1, 0.6));
+        PlayButton.BeginAnimation(OpacityProperty, To(1, 0));
+    }
+
     private void RefreshPlayButton()
     {
         var key = SelectedKey();
@@ -482,9 +512,11 @@ public partial class HomePage : UserControl
         _overlayTicket = ticket;
         _sceneGame = null; // the scene is this launch's now, whatever it showed before
         RefreshPlayButton();
-        // Loader label only — the player never chooses one; 1.8.9 quietly
-        // runs Forge+OptiFine, everything else Fabric.
-        LoadingOverlay.Show(version, Core.Loaders.LegacyForgeInstaller.IsLegacy(version) ? "Forge" : "Fabric");
+        // The press becomes the launch animation (docs/MOTION.md "play"): the
+        // button folds into the Origin mark, whose rings spin out into the
+        // loading scene. No loader name: the player never sees one (mandate 1).
+        ShrinkPlayButton();
+        LoadingOverlay.Show(version, PlayButton);
 
         // Only the launch the scene is showing reports into it — an older
         // launch still finishing for another account stays quiet.
@@ -541,6 +573,11 @@ public partial class HomePage : UserControl
             var handoff = new GameHandoff();
             launchOption.ExtraJvmArguments = (launchOption.ExtraJvmArguments ?? Enumerable.Empty<MArgument>())
                 .Append(new MArgument(handoff.JvmArgument)).ToList();
+            // Where the scene is on screen: the game opens its window centred
+            // there, so the scene can glide straight onto it (window handoff).
+            if (LoadingOverlay.ScreenCentre() is { } centre)
+                launchOption.ExtraJvmArguments = launchOption.ExtraJvmArguments
+                    .Append(new MArgument(GameHandoff.WindowArgument(centre.X, centre.Y))).ToList();
             if (target?.Server is { } server)
             {
                 // Straight into the friend's server: Quick Play on 1.20+, the
@@ -605,6 +642,9 @@ public partial class HomePage : UserControl
             };
             StartWithLifecycleCapture(game);
             handoff.ProcessStarted(DateTime.UtcNow);
+            // The launcher is the foreground app right now; let the game take
+            // the focus when its window appears behind the gliding scene.
+            UI.GameWindow.AllowForeground(process);
             // Synchronous since the cancellation check above, so the ticket is
             // still this account's newest action.
             gameStarted = _launches.GameStarted(ticket, game);
@@ -790,6 +830,12 @@ public partial class HomePage : UserControl
                 LoadingOverlay.ReportStage("Loading Minecraft");
             if (view.Stage is HandoffStage.Opening or HandoffStage.Loading && !view.GameReady)
                 Note(game.Key, $"Loading {game.Version}", LaunchTone.Neutral);
+        }
+        // The game's window is open (still invisible) — glide the scene onto it.
+        if (view.Window is { } rect && !game.WindowGlided && ReferenceEquals(_sceneGame, game))
+        {
+            game.WindowGlided = true;
+            LoadingOverlay.MoveToGameWindow(rect);
         }
         if (view.ReleaseScene)
             ReleaseScene(game, handedOff: view.Stage >= HandoffStage.Loading);

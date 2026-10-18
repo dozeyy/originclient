@@ -22,5 +22,7 @@ public class GameRendererFrameMixin {
 		GlintColorizer.sync();
 		// frame-time ring for the FPS module's 1% low / frame time / graph
 		com.origin.client.client.hud.FrameStats.frame(System.nanoTime());
+		// the game window's fade-in under the launcher's scene (one boolean read once done)
+		com.origin.client.client.OriginHandoff.frame();
 	}
 }
