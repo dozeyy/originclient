@@ -113,6 +113,27 @@ function requestFrame() {
   requestAnimationFrame(() => { queued = false; frame(); });
 }
 
+// ------------------------------------------------------------ hero island
+// Desktop: the island and its rings are centred in the free area to the right of the
+// hero copy (up to the header's right edge) and sized to fit it, so the two never
+// overlap and the right side is never empty. Phone/tablet: the island sits in the band
+// between the header and the copy and shrinks if that band is too short for it. Uses
+// layout offsets, not scroll position, so it holds still while scrolling.
+function heroZone() {
+  const hero = $('.hero'), copy = $('.hero__copy'), head = $('.top'), act = $('.top__action');
+  if (!hero || !copy) return null;
+  const pad = parseFloat(getComputedStyle(hero).paddingLeft) || 0;
+  const l = copy.offsetLeft + copy.offsetWidth + Math.max(24, innerWidth * 0.02);
+  const r = act ? act.getBoundingClientRect().right : innerWidth - pad;   // the header's right edge: the island lines up with the nav
+  return {
+    cx: (l + r) / 2, cy: copy.offsetTop + copy.offsetHeight / 2, w: Math.max(0, r - l),
+    ...(innerWidth <= 900 && { w: innerWidth - 2 * pad }),
+    // (the header may be slid away when resized mid-page, hence the floor)
+    top: Math.max(head ? head.getBoundingClientRect().bottom : 0, 62) + 4, bottom: copy.offsetTop - 14,
+  };
+}
+function syncHeroZone() { const z = heroZone(); if (world && z) world.setHeroZone(z); }
+
 // ------------------------------------------------------------------ boot
 async function boot() {
   initDownload();
@@ -129,7 +150,9 @@ async function boot() {
   // the 3D world (fails soft to the flat sky backdrop)
   try {
     const { createWorld } = await import('./world.js');
-    world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion });   // same 900px line as the CSS phone/tablet layout
+    world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion, heroZone: heroZone() });   // same 900px line as the CSS phone/tablet layout
+    addEventListener('resize', syncHeroZone);
+    document.fonts?.ready.then(syncHeroZone);
     frame();
   } catch (err) {
     console.warn('Origin: 3D world unavailable, using the flat backdrop.', err);
