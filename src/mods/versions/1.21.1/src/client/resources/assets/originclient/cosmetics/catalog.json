@@ -192,7 +192,7 @@
       "blurb": "The Origin mark in orbit: three silver rings round one centre above your head, a soft glow beneath and a spark of light racing round each.",
       "animated": true,
       "plusOnly": false,
-      "onSale": false,
+      "onSale": true,
       "hidesCape": false,
       "capeOffset": 0
     },

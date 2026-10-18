@@ -12,10 +12,12 @@ Updated 2026-10-18.
       Orbit, Glitch (the last three passed on their third and final try)
     - Ember Wings, Explorer Pack, Golden Halo, Origin Bandana, Visor Mask (the last three on
       their second try; Will asked for an extra polish pass on the bandana and visor)
+    - Orbit Halo (Will: "keep going with orbit", past the 3-try limit): redrawn as the Origin
+      mark lying flat, three thin silver rings round a small bead with a soft glow, and passed
+      on its eighth try. Back on sale.
     - Menu themes: Amethyst, Crimson, Ocean, Rose (reworked, below)
-  - **Dropped after 3 tries:** Pixel Crown, Aurora Cape and Orbit Halo (best 7: the inner orbits
-    read as a knot, not atom rings). All three are `onSale:false`, so owners still own and
-    wear them.
+  - **Dropped after 3 tries:** Pixel Crown and Aurora Cape. Both are `onSale:false`, so owners
+    still own and wear them.
 - **Menu themes rebuilt on the real main theme** (Will: the old ones didn't match the in-game
   menu). A theme is now the main theme's own colour tokens (`DEF_` in OriginDeck/OriginTheme)
   re-tinted in OKLCH by `cosmetics/lib/theme.mjs`, so every contrast and alpha carries over;
@@ -85,7 +87,7 @@ Updated 2026-10-18.
 ## Needs in-game / on-PC testing (nothing below has been seen running)
 - Launcher start, normal and with Windows animations off: does the intro play, skip on a
   click or key, and leave?
-- 1.21.1: every passed cosmetic worn, with animated cape speed, wings and cape clearance,
+- 1.21.1: every passed cosmetic worn (Orbit Halo: does its soft glow look right in game?), with animated cape speed, wings and cape clearance,
   and the Origin+ cape as member and non-member.
 - 1.21.1: each menu theme on the mod menu, checking ENABLED/DISABLED and hover.
 - 1.21.1: the Cosmetics screen offline, then online again.

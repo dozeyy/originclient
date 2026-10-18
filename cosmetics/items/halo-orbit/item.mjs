@@ -203,7 +203,7 @@ function frame(f) {
 }
 
 export default {
-  meta: { id: 'halo-orbit', name: 'Orbit Halo', kind: 'halo', cents: 799, onSale: false, blurb: 'The Origin mark in orbit: three silver rings round one centre above your head, a soft glow beneath and a spark of light racing round each.' },
+  meta: { id: 'halo-orbit', name: 'Orbit Halo', kind: 'halo', cents: 799, blurb: 'The Origin mark in orbit: three silver rings round one centre above your head, a soft glow beneath and a spark of light racing round each.' },
   model: { texSize: TEX, scale: S, bones },
   anim: { frames: FRAMES, fps: FPS, motion: [
     { bone: 'halo', channel: 'pos', axis: 'y', amp: FLOAT, period: 3, phase: 0 },
