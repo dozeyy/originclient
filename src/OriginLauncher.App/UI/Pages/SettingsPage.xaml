@@ -6,6 +6,14 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.PanelGlass}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
         <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
             <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
@@ -20,14 +28,14 @@
          is hidden rather than disabled so wheel-scroll still works as a
          safety net if a future addition pushes past that budget, instead of
          silently clipping content. -->
-    <ScrollViewer Margin="{StaticResource Layout.PageMargin}" VerticalScrollBarVisibility="Hidden">
-        <StackPanel MaxWidth="{StaticResource Layout.PageWidth}">
-            <!-- Page head, as on the website: eyebrow, then the big line. -->
-            <TextBlock Text="LAUNCHER" Style="{StaticResource Text.Eyebrow}" Margin="1,0,0,4"/>
-            <TextBlock Text="Settings" Style="{StaticResource Text.Headline}" Margin="0,0,0,22"/>
+    <ScrollViewer Margin="28,20,36,24" VerticalScrollBarVisibility="Hidden">
+        <StackPanel Width="720" HorizontalAlignment="Left">
+            <TextBlock Text="Settings" Style="{StaticResource Text.H1}"/>
+            <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
+                    CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,18"/>
 
             <!-- Performance -->
-            <ContentControl Style="{StaticResource Surface.Card}">
+            <Border Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="Performance" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
 
@@ -57,10 +65,10 @@
                                       Checked="ShaderCacheToggle_Checked" Unchecked="ShaderCacheToggle_Unchecked"/>
                     </Grid>
                 </StackPanel>
-            </ContentControl>
+            </Border>
 
             <!-- Game -->
-            <ContentControl Style="{StaticResource Surface.Card}">
+            <Border Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="Game" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
 
@@ -92,11 +100,11 @@
                         </Grid>
                     </StackPanel>
                 </StackPanel>
-            </ContentControl>
+            </Border>
 
             <!-- JVM arguments (per version: the lineup spans Java 8 to 25, so a
                  flag that is valid on one version aborts startup on another) -->
-            <ContentControl Style="{StaticResource Surface.Card}">
+            <Border Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="JVM arguments" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
 
@@ -132,10 +140,10 @@
                     <TextBlock x:Name="JvmCustomizedVersionsText" Style="{StaticResource Text.BodyDim}"
                                TextWrapping="Wrap" Margin="0,12,0,0"/>
                 </StackPanel>
-            </ContentControl>
+            </Border>
 
             <!-- Origin Client -->
-            <ContentControl Style="{StaticResource Surface.Card}">
+            <Border Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="Origin Client" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
 
@@ -169,11 +177,11 @@
                     </Grid>
 
                 </StackPanel>
-            </ContentControl>
+            </Border>
 
             <!-- Startup — the installer offers the same choice; this is where a
                  player turns it back off (one Run value, see InstallRegistry). -->
-            <ContentControl Style="{StaticResource Surface.Card}">
+            <Border Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="Startup" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
 
@@ -189,10 +197,10 @@
                                       Checked="StartWithWindowsToggle_Changed" Unchecked="StartWithWindowsToggle_Changed"/>
                     </Grid>
                 </StackPanel>
-            </ContentControl>
+            </Border>
 
             <!-- Developer (temporary: remove before public release) -->
-            <ContentControl Style="{StaticResource Surface.Card}">
+            <Border Style="{StaticResource SectionCard}">
                 <StackPanel>
                     <TextBlock Text="Developer" Style="{StaticResource Text.H2}" Margin="0,0,0,10"/>
 
@@ -208,7 +216,7 @@
                                       Checked="OfflineTestToggle_Checked" Unchecked="OfflineTestToggle_Unchecked"/>
                     </Grid>
                 </StackPanel>
-            </ContentControl>
+            </Border>
 
             <!-- Which build this is — what a bug report needs, and the one place
                  the launcher states it (Windows' Installed apps list keeps the

@@ -4,13 +4,13 @@
     <!-- Shared glow for the Origin mark. Ion jade is the restrained state
          accent used in-game; it is never sprayed across ordinary surfaces. -->
     <DropShadowEffect x:Key="Effect.OriginGlow"
-                      Color="#FF5FD09B"
+                      Color="#FF4BC8AE"
                       Opacity="0.50"
                       BlurRadius="20"
                       ShadowDepth="0"/>
 
     <DropShadowEffect x:Key="Effect.OriginGlowSoft"
-                      Color="#FF5FD09B"
+                      Color="#FF4BC8AE"
                       Opacity="0.22"
                       BlurRadius="18"
                       ShadowDepth="0"/>

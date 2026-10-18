@@ -9,7 +9,6 @@
     <FontFamily x:Key="Font.Mono">/OriginSetup;component/Assets/Fonts/#Monocraft, Consolas</FontFamily>
 
     <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.Display">40</system:Double>
-    <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.Headline">32</system:Double>
     <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.H1">26</system:Double>
     <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.H2">17</system:Double>
     <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.Body">13</system:Double>
@@ -23,16 +22,6 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <Setter Property="LineHeight" Value="46"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
-    </Style>
-
-    <!-- Page title under an eyebrow (website section head: small uppercase
-         label, then the big line). Mods, Settings, Versions. -->
-    <Style x:Key="Text.Headline" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Headline}"/>
-        <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
     </Style>
 
     <Style x:Key="Text.H1" TargetType="TextBlock">
@@ -78,15 +67,6 @@
         <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
-    </Style>
-
-    <!-- Text inside a Chip (Theme/Surfaces.xaml). -->
-    <Style x:Key="Text.Chip" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
-        <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="LineHeight" Value="14"/>
-        <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
     <Style x:Key="Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.BodyDim}">

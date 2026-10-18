@@ -61,10 +61,10 @@
                 <Rectangle IsHitTestVisible="False">
                     <Rectangle.Fill>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="{StaticResource Color.CardFade95}" Offset="0"/>
-                            <GradientStop Color="{StaticResource Color.CardFade90}" Offset="0.36"/>
-                            <GradientStop Color="{StaticResource Color.CardFade48}" Offset="0.58"/>
-                            <GradientStop Color="{StaticResource Color.CardFade0}" Offset="0.82"/>
+                            <GradientStop Color="#F21D2420" Offset="0"/>
+                            <GradientStop Color="#E61D2420" Offset="0.36"/>
+                            <GradientStop Color="#7A1D2420" Offset="0.58"/>
+                            <GradientStop Color="#001D2420" Offset="0.82"/>
                         </LinearGradientBrush>
                     </Rectangle.Fill>
                 </Rectangle>

@@ -9,16 +9,8 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <Style x:Key="AccountRow" TargetType="Border">
-            <Setter Property="Background">
-                <Setter.Value>
-                    <SolidColorBrush Color="{StaticResource Color.Ghost}"/>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="BorderBrush">
-                <Setter.Value>
-                    <SolidColorBrush Color="{StaticResource Color.SoftStroke}"/>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
             <Setter Property="Padding" Value="14,12"/>
@@ -30,10 +22,7 @@
                         <BeginStoryboard>
                             <Storyboard>
                                 <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                                To="{StaticResource Color.GhostHover}"
-                                                Duration="{StaticResource Motion.Base}"/>
-                                <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                                To="{StaticResource Color.Stroke}"
+                                                To="{StaticResource Color.CardAlt}"
                                                 Duration="{StaticResource Motion.Base}"/>
                             </Storyboard>
                         </BeginStoryboard>
@@ -42,11 +31,8 @@
                         <BeginStoryboard>
                             <Storyboard>
                                 <ColorAnimation Storyboard.TargetProperty="Background.Color"
-                                                To="{StaticResource Color.Ghost}"
-                                                Duration="{StaticResource Motion.Release}"/>
-                                <ColorAnimation Storyboard.TargetProperty="BorderBrush.Color"
-                                                To="{StaticResource Color.SoftStroke}"
-                                                Duration="{StaticResource Motion.Release}"/>
+                                                To="{StaticResource Color.Card}"
+                                                Duration="{StaticResource Motion.Base}"/>
                             </Storyboard>
                         </BeginStoryboard>
                     </Trigger.ExitActions>

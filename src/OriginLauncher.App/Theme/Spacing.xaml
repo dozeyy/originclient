@@ -10,14 +10,6 @@
     <system:Double x:Key="Space.5">32</system:Double>
     <system:Double x:Key="Space.6">48</system:Double>
 
-    <!-- Page rhythm (website: 14 px card gap, 22 px card padding, a centred
-         column). One content column width for Mods and Settings, one card
-         padding, one gap between stacked cards. -->
-    <system:Double x:Key="Layout.PageWidth">760</system:Double>
-    <Thickness x:Key="Layout.PageMargin">28,20,36,24</Thickness>
-    <Thickness x:Key="Layout.CardPadding">20</Thickness>
-    <Thickness x:Key="Layout.CardGap">0,0,0,16</Thickness>
-
     <!-- Block-built corners: one-pixel controls and only a slight softening on
          large containers. Circular geometry is reserved for the Origin mark. -->
     <CornerRadius x:Key="Radius.Chip">1</CornerRadius>
@@ -39,17 +31,19 @@
     <Duration x:Key="Motion.Intro">0:0:0.56</Duration>
     <Duration x:Key="Motion.Settle">0:0:0.32</Duration>
 
-    <!-- Hover/press halo around the primary button (website primary button hover
-         ring): a 3 px outset frame, drawn by the button template, never a blur. -->
-    <Thickness x:Key="Halo.Margin">-3</Thickness>
-
-    <!-- Dialogs and toasts only. Cards are flat glass with a stroke, like the
-         website; a hard, blur-free drop keeps floating surfaces readable. -->
-    <DropShadowEffect x:Key="Shadow.Card"
-                      Color="#FF000000"
-                      Opacity="0.38"
+    <!-- Hard-edged depth reads like a Minecraft button, without blur work. -->
+    <DropShadowEffect x:Key="Shadow.Primary"
+                      Color="#FF5FD09B"
+                      Opacity="0.55"
                       BlurRadius="0"
                       ShadowDepth="3"
+                      Direction="270"/>
+
+    <DropShadowEffect x:Key="Shadow.Card"
+                      Color="#FF000000"
+                      Opacity="0.48"
+                      BlurRadius="0"
+                      ShadowDepth="4"
                       Direction="270"/>
 
 </ResourceDictionary>

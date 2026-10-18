@@ -7,10 +7,9 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!-- Shared by the status pill and the players-online pill so they always match.
-             The website's chip: a faint wash with a soft stroke. -->
+        <!-- Shared by the status pill and the players-online pill so they always match. -->
         <Style x:Key="Home.Pill" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.Chip}"/>
+            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
@@ -44,27 +43,24 @@
              banner reserves its row from the first frame (no jump when its
              feed arrives) and stretches with the card on resize. -->
         <StackPanel x:Name="HomeCard" Grid.Column="1" MaxWidth="400" Margin="12,0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
-            <ContentControl Style="{StaticResource Surface.Card}" Padding="24" Margin="0">
+            <Border Padding="24"
+                    Background="{StaticResource Brush.PanelGlass}"
+                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Dialog}" Effect="{StaticResource Shadow.Card}">
                 <StackPanel>
                     <Button x:Name="VersionButton" Style="{StaticResource Button.Secondary}"
                             Height="66" Margin="0,0,0,12" Padding="16,10"
                             HorizontalContentAlignment="Stretch" Click="VersionButton_Click"
                             AutomationProperties.Name="Choose Minecraft version">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
                             <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
                                 <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}"/>
-                                <TextBlock x:Name="VersionButtonText" Text="—" Style="{StaticResource Text.H2}" Margin="0,4,0,0"/>
+                                <TextBlock x:Name="VersionButtonText" Text="—" Style="{StaticResource Text.H2}" Margin="0,2,0,0"/>
                             </StackPanel>
-                            <Path Grid.Column="1" Data="{StaticResource Icon.Chevron}" Style="{StaticResource Icon.Base}"
-                                  Width="16" Height="16" Stroke="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
                         </Grid>
                     </Button>
 
-                    <Border Margin="0,0,0,18" Padding="16,13" Background="{StaticResource Brush.Ghost}"
+                    <Border Margin="0,0,0,18" Padding="16,13" Background="{StaticResource Brush.Card}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                             CornerRadius="{StaticResource Radius.Control}">
                         <Grid x:Name="ExternalModsRow">
@@ -138,7 +134,7 @@
                         </Border>
                     </Grid>
                 </StackPanel>
-            </ContentControl>
+            </Border>
 
             <controls:PromoBanner x:Name="PromoBanner" Margin="0,12,0,0"/>
         </StackPanel>
