@@ -158,7 +158,8 @@ function friendView(f, now) {
 // held too, so a cursor that is still 0 (no chat stored yet) doesn't turn
 // holds off; when chat exists the first check answers it at once anyway.
 // One hold per account per Worker machine: a newer hold ends the older one at
-// once (its client already dropped it), so a client can't stack holds.
+// once (its client already dropped it) with a bare `{ held, stopped: true }`,
+// so a client can't stack holds.
 export const holdClock = {
   sleep: ms => new Promise(r => setTimeout(r, ms)),
   now: () => Date.now(),
@@ -180,9 +181,13 @@ async function sync(env, me, body, now) {
   const wait = Math.min(L.HOLD_MAX_MS, Math.floor(waitRaw));
   const sinceRaw = Number(body.since);
   const since = Number.isSafeInteger(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
+  // A stale friendsEtag (the lists changed) is answered at once: one ordinary batch.
+  if (body.friendsEtag !== `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`) {
+    return json({ ...(await syncAnswer(env, me, body, now, true)), held: 0 });
+  }
   await syncWrites(env, me, body, now);
   let held = 0;
-  if (body.friendsEtag === `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`) {
+  {
     activeHolds.get(me.uuid)?.stop();
     let wakeUp;
     const stopped = new Promise(r => { wakeUp = r; });
@@ -201,6 +206,10 @@ async function sync(env, me, body, now) {
     } finally {
       if (activeHolds.get(me.uuid) === mine) activeHolds.delete(me.uuid);
     }
+    // Ended by a newer hold of the same account: its client already dropped this
+    // request, so answer without reading anything. (Only clients that send `wait`
+    // can get this, and they ignore it.)
+    if (mine.stopped) return json({ held, stopped: true });
     if (held > 0) now = holdClock.now();   // answer as of now (reads only: nothing is written again)
   }
   return json({ ...(await syncAnswer(env, me, body, now, false)), held });

@@ -133,20 +133,29 @@ worst 17.8-19.9 s). Polling faster costs requests the free plan doesn't have, so
   queries per request.
 - Only chat ends a hold. Friends-list changes, party changes, invites, warps and pings come with the hold's answer
   (≤ 20 s later), exactly as with 20 s polling.
-- Answered at once (`held: 0`): a stale or missing `friendsEtag` (the lists changed), or chat newer than `since`
-  already waiting. `since: 0` is held too (a cursor that is still 0 because no chat is stored yet must not turn holds
-  off).
-- One hold per account per Worker machine (`activeHolds`, in memory): a newer hold ends the older one at once (its
-  client already dropped it), so one client can't stack open requests.
+- Answered at once (`held: 0`): a stale or missing `friendsEtag` (the lists changed; one ordinary batch, writes
+  included), or chat newer than `since` already waiting. `since: 0` is held too (a cursor that is still 0 because no
+  chat is stored yet must not turn holds off).
+- Friends churn: every visible friend change (a friend changing server, coming online) bumps your friends list, so
+  the NEXT held sync finds its etag stale and is answered at once with the lists. The game counts that `held: 0` +
+  lists answer as news and holds again 2 s later with the fresh etag, so churn costs one extra quick request per
+  change, never a 20 s gap without a hold. It can't repeat: the follow-up carries the current etag.
+- One hold per account per Worker machine (`activeHolds`, in memory): a newer hold ends the older one at once with a
+  bare `{ held, stopped: true }` (no D1 reads; its client already dropped that request), so one client can't stack
+  open requests. Only clients that send `wait` can get it; the game ignores it (nothing to apply, 20 s cadence).
+  Known limits (not fixed): "newer" is by arrival order on that machine, and holds are keyed by account only, so two
+  game windows on ONE account end each other's holds (each falls back to ~20 s polling for that cycle); two Worker
+  machines can each hold one request for the same account.
 - `held` is in the answer only when `wait` was sent; that is how a client knows the service holds. An older
   service ignores `wait` and answers at once without `held`, and the client simply keeps its old cadence.
 - The game holds ONLY in a party, when it would otherwise poll every 20 s (or 60 s unfocused): never while the
   Friends window is open, `wantState` is true (positions need the 4 s cadence) or a DM/invite just arrived; those
   poll every 4 s as before. After a quiet hold it holds again straight away (the period stays ~20 s). After an early
-  answer that brought chat or a different party it holds again no sooner than 2 s after the previous one started,
+  answer that brought chat, a different party, or lists on a `held: 0` answer (friends churn, above) it holds again no sooner than 2 s after the previous one started,
   so a busy chat can't become a request storm; any other answer (a refreshed friends list alone, nothing at all)
   keeps the 20 s cadence. The held request waits off the social worker (the sendAsync future, cancelled to abort it;
-  on Java 8 a hold thread whose connection is closed to abort it), so actions never queue behind it. Any action,
+  on Java 8 a hold thread whose connection is closed, on that pool, to abort it, and a hold dropped before it sent
+  is never sent), so actions never queue behind it. Any action,
   the Friends window opening, or the player changing server / world / version drops it for a fresh sync; a dropped
   hold's late answer is ignored (generation counter).
 - Delay a party line now takes to show: designed worst ~4-5 s (3 s check + the ≤1 s re-arm gap + round trips),

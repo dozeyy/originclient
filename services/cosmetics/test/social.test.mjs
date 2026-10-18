@@ -927,9 +927,10 @@ test('held sync: answered at once for a stale friendsEtag or chat newer than `si
   assert.deepEqual(h.r.partyMessages.map(m => m.text), ['hello']);
   h = await held(alex, { since: 0 });                              // no etag yet = stale
   assert.equal(h.took, 0); assert.equal(h.r.held, 0);
-  h = await held(alex, { since, friendsEtag: 'old' });
+  h = await held(alex, { since, friendsEtag: 'old', ...onServer('b.net') });
   assert.equal(h.took, 0); assert.equal(h.r.held, 0);
   assert.ok(Array.isArray(h.r.friends));
+  assert.equal(rows(`SELECT server FROM presence WHERE uuid = '${alex.uuid}'`)[0].server, 'b.net');   // written in the same batch
   const plain = await sync(alex, { since, friendsEtag });
   assert.ok(!('held' in plain));                                  // old clients see the old answer
   assert.equal(checks, 0);
@@ -982,6 +983,8 @@ test('held sync: one hold per account; a newer hold ends the older one at once',
   held(alex, { since, friendsEtag }).then(r => { second = r; });
   await settleMicrotasks(() => first !== null, 'the older hold answered when the newer one started');
   assert.equal(first.took, 0);                                    // no time passed: it was ended, not waited out
+  assert.deepEqual(Object.keys(first.r).sort(), ['held', 'stopped']);   // a bare answer: nothing read for a dropped request
+  assert.equal(first.r.stopped, true);
   assert.ok(second === null);
   await settleMicrotasks(() => pending.length === 2, 'second hold sleeping');
   pending.shift();                                                // the first hold's abandoned sleep: never fires

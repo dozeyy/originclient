@@ -819,7 +819,16 @@ public final class SocialClient {
 			dropped = true;
 			HttpURLConnection c = conn;
 			if (c != null) {
-				c.disconnect();   // unblocks the HOLD thread's read: the request is really aborted
+				// unblocks the HOLD thread's read: the request is really aborted. On a HOLD
+				// thread, never the worker: closing a TLS socket can block.
+				HOLD.execute(c::disconnect);
+			}
+		}
+
+		/** post() calls this before and after sending: a hold dropped by then never reaches the service. */
+		void check() throws java.io.IOException {
+			if (dropped) {
+				throw new java.io.IOException("held sync dropped");
 			}
 		}
 	}
@@ -884,10 +893,21 @@ public final class SocialClient {
 		}
 		JsonObject o = r.body();
 		lastHeld = o.has("held") && !o.get("held").isJsonNull() ? lng(o, "held") : -1;
+		if (bool(o, "stopped")) {
+			// A newer hold of this account ended this one (a second Origin window on the
+			// same account): a bare answer with nothing to apply; keep the 20 s cadence.
+			lastHeld = -1;
+			lastNews = false;
+			return;
+		}
 		Party before = state.party();
 		JsonObject pO = obj(o, "party");
-		// Chat or a different party is news (hold again soon); a refreshed friends list alone is not.
+		// Chat or a different party is news (hold again soon). A refreshed friends list
+		// alone is not, EXCEPT when it is why a hold was answered at once (held 0: our
+		// friendsEtag was stale, e.g. a friend changed server): this answer carries the
+		// fresh etag, so the next hold can start right away and can't repeat this.
 		lastNews = arr(o, "messages").size() > 0 || arr(o, "partyMessages").size() > 0
+				|| (lastHeld == 0 && o.has("friends"))
 				|| !java.util.Objects.equals(before == null ? null : before.id(), pO == null ? null : str(pO, "id"));
 		apply(o);
 	}
@@ -1431,8 +1451,14 @@ public final class SocialClient {
 				c.setRequestProperty("Authorization", "Bearer " + bearer);
 			}
 			c.setDoOutput(true);
+			if (held != null) {
+				held.check();   // disconnect() before connecting doesn't stop a request: don't start one
+			}
 			try (OutputStream out = c.getOutputStream()) {
 				out.write(body.toString().getBytes(StandardCharsets.UTF_8));
+			}
+			if (held != null) {
+				held.check();
 			}
 			int code = c.getResponseCode();
 			JsonObject o = null;

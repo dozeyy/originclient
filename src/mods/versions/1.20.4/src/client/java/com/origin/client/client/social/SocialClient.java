@@ -639,10 +639,21 @@ public final class SocialClient {
 		}
 		JsonObject o = r.body();
 		lastHeld = o.has("held") && !o.get("held").isJsonNull() ? lng(o, "held") : -1;
+		if (bool(o, "stopped")) {
+			// A newer hold of this account ended this one (a second Origin window on the
+			// same account): a bare answer with nothing to apply; keep the 20 s cadence.
+			lastHeld = -1;
+			lastNews = false;
+			return;
+		}
 		Party before = state.party();
 		JsonObject pO = obj(o, "party");
-		// Chat or a different party is news (hold again soon); a refreshed friends list alone is not.
+		// Chat or a different party is news (hold again soon). A refreshed friends list
+		// alone is not, EXCEPT when it is why a hold was answered at once (held 0: our
+		// friendsEtag was stale, e.g. a friend changed server): this answer carries the
+		// fresh etag, so the next hold can start right away and can't repeat this.
 		lastNews = arr(o, "messages").size() > 0 || arr(o, "partyMessages").size() > 0
+				|| (lastHeld == 0 && o.has("friends"))
 				|| !java.util.Objects.equals(before == null ? null : before.id(), pO == null ? null : str(pO, "id"));
 		apply(o);
 	}
