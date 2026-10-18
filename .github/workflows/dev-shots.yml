@@ -162,19 +162,17 @@ jobs:
             setsid ./gradlew runClient --no-daemon > run.log 2>&1 &
             pid=$!
             # Start filming as the game opens its window, not during Gradle's compile.
-            # The game's window has turned up on a second X display (not :99) on
-            # the runner, so film whichever display actually holds a window, at
-            # that display's own size.
-            ( for i in $(seq 1 600); do
-                for sock in /tmp/.X11-unix/X*; do
-                  d=":${sock##*/X}"
-                  xwininfo -display "$d" -root -children 2>/dev/null | grep -Eq '^ +[1-9][0-9]* child' && break 2
-                done
-                sleep 0.5
-              done
-              size=$(xdpyinfo -display "$d" | awk '/dimensions:/{print $2; exit}')
-              { echo "filming $d at $size"; for sock in /tmp/.X11-unix/X*; do e=":${sock##*/X}"; echo "== $e"; xwininfo -display "$e" -root -tree; done; } > "$ORIGIN_SHOTS/screenshots/x-probe.txt" 2>&1
-              exec ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate 30 -video_size "$size" -i "$d" -t 600 \
+            # The game doesn't draw on :99: something in the run (not this script)
+            # opens it on its own Xvfb, behind an access cookie. So take DISPLAY and
+            # XAUTHORITY from the game process itself and film that, at its size.
+            ( for i in $(seq 1 600); do grep -q "Backend library" run.log 2>/dev/null && break; sleep 1; done
+              game=$(pgrep -n -f devlaunchinjector || pgrep -n -f KnotClient)
+              export DISPLAY=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^DISPLAY=//p')
+              export XAUTHORITY=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^XAUTHORITY=//p')
+              sleep 2
+              size=$(xdpyinfo | awk '/dimensions:/{print $2; exit}')
+              { echo "game pid $game DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY size=$size"; ls -la /tmp/.X11-unix; xwininfo -root -tree; } > "$ORIGIN_SHOTS/screenshots/x-probe.txt" 2>&1
+              exec ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate 30 -video_size "${size:-1920x1080}" -i "$DISPLAY" -t 600 \
                 -vf scale=1280:-2 -c:v libx264 -preset ultrafast -crf 26 -pix_fmt yuv420p \
                 -movflags +frag_keyframe+empty_moov "$ORIGIN_SHOTS/screenshots/loading.mp4" ) &
             rec=$!
