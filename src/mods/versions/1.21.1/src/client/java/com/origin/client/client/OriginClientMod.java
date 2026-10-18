@@ -84,7 +84,7 @@ public class OriginClientMod implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 		// Tells Origin Launcher the game is past its loading screen (OriginHandoff).
 		ClientTickEvents.END_CLIENT_TICK.register(OriginHandoff::tick);
-		// Team View, Discord Status and Hypixel register their own events.
+		// Team View, Discord presence (always on) and Hypixel register their own events.
 		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
 		com.origin.client.client.mods.SaturationOverlay.registerTooltip();

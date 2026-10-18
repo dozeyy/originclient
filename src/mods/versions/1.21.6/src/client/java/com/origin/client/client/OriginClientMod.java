@@ -75,7 +75,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// shaders are RenderPipelines built as static fields, compiled lazily on first
 		// draw. Fabric's CoreShaderRegistrationCallback does not exist on this era.)
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
-		// Team View, Discord Status and Hypixel register their own events.
+		// Team View, Discord presence (always on) and Hypixel register their own events.
 		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
 		com.origin.client.client.mods.SaturationOverlay.registerTooltip();

@@ -83,7 +83,7 @@ public class OriginClientMod implements ClientModInitializer {
 		// Lunar-parity mods' own pipelines (saturation glow, shine, glint, CUI).
 		com.origin.client.client.render.LunarPipelines.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
-		// Team View, Discord Status and Hypixel register their own events.
+		// Team View, Discord presence (always on) and Hypixel register their own events.
 		com.origin.client.client.mods.ServerMods.register();
 		// Saturation mod's food tooltip ("Hunger +3, Saturation +3.6").
 		com.origin.client.client.mods.SaturationOverlay.registerTooltip();
