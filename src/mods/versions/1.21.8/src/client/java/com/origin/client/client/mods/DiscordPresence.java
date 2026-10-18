@@ -7,8 +7,11 @@ import net.minecraft.client.Minecraft;
 import java.io.Closeable;
 import java.io.EOFException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.RandomAccessFile;
+import java.net.SocketTimeoutException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
 import java.nio.ByteBuffer;
@@ -36,10 +39,15 @@ import java.util.UUID;
  * commands (op 1) and read each reply so the pipe never backs up.
  *
  * Everything runs on one daemon thread. The game thread only publishes the
- * wanted status string (tick()); the thread connects when Discord is running,
- * retries every 15 s when it isn't, and sends only when the status actually changed
- * (and at most once every 5 s -- Discord's own limit is 5 per 20 s). Any IPC error just drops the
- * connection and retries later: Discord being closed is never an error.
+ * wanted status (tick(), allocation-free: one cached Wanted per state); the thread
+ * connects when Discord is running, retries every 15 s when it isn't, and sends when
+ * the status changed (at most once every 5 s -- Discord's own limit is 5 per 20 s).
+ * While connected it re-sends the current status every 15 s as a keepalive: that
+ * write is how a Discord that quit or restarted is noticed when the status itself
+ * never changes. Every read and write has a 5 s deadline, so a hung Discord (or
+ * something else squatting on discord-ipc-0) can never wedge the thread. Any IPC
+ * error just drops the connection and retries later: Discord being closed is never
+ * an error.
  *
  * The large image is the application's Rich Presence art asset named "origin".
  */
@@ -47,6 +55,9 @@ public final class DiscordPresence {
 	private static final String CLIENT_ID = "1558941171546464356";
 	private static final long RETRY_MS = 15_000L;
 	private static final long MIN_GAP_MS = 5_000L;
+	private static final long KEEPALIVE_MS = 15_000L;   // re-send while connected (4 per minute, well under 5 per 20 s)
+	private static final long IO_TIMEOUT_MS = 5_000L;   // deadline for each frame read/write
+	private static final long POLL_MS = 5L;
 
 	private DiscordPresence() {
 	}
@@ -60,10 +71,26 @@ public final class DiscordPresence {
 	private static final long LAUNCHED_SEC = System.currentTimeMillis() / 1000L;
 	private static Thread thread;
 
+	// tick() runs every client tick, so it must not allocate: details never
+	// changes and there are only three states, so each Wanted is built once
+	// (game thread only) and tick() just picks one.
+	private static final String[] STATE_TEXT = {"In the menus", "Singleplayer", "Multiplayer"};   // never the address: there is no switch to hide it
+	private static final Wanted[] BY_STATE = new Wanted[STATE_TEXT.length];
+	private static String details;
+
 	// ---- game thread ----
 
 	static void tick(Minecraft mc) {
-		wanted = build(mc);
+		int state = stateOf(mc);
+		Wanted w = BY_STATE[state];
+		if (w == null) {
+			if (details == null) {
+				details = "Minecraft " + SharedConstants.getCurrentVersion().name();
+			}
+			w = new Wanted(details, STATE_TEXT[state], LAUNCHED_SEC);
+			BY_STATE[state] = w;
+		}
+		wanted = w;
 		if (thread == null || !thread.isAlive()) {
 			thread = new Thread(DiscordPresence::run, "Origin Discord Presence");
 			thread.setDaemon(true);
@@ -72,17 +99,11 @@ public final class DiscordPresence {
 		}
 	}
 
-	private static Wanted build(Minecraft mc) {
-		String details = "Minecraft " + SharedConstants.getCurrentVersion().name();
-		String state;
+	private static int stateOf(Minecraft mc) {
 		if (mc.level == null || mc.player == null) {
-			state = "In the menus";
-		} else if (mc.hasSingleplayerServer()) {
-			state = "Singleplayer";
-		} else {
-			state = "Multiplayer";   // never the address: there is no switch to hide it
+			return 0;
 		}
-		return new Wanted(details, state, LAUNCHED_SEC);
+		return mc.hasSingleplayerServer() ? 1 : 2;
 	}
 
 	// ---- IPC thread ----
@@ -109,7 +130,11 @@ public final class DiscordPresence {
 					sent = null;
 				}
 				long now = System.currentTimeMillis();
-				if (w != null && !w.equals(sent) && now - lastSendAt >= MIN_GAP_MS) {
+				// Send on a change (rate limited), or as a keepalive: with an unchanged
+				// status the pipe is otherwise never touched, so a Discord that quit or
+				// restarted would go unnoticed and presence would never come back.
+				boolean changed = w != null && !w.equals(sent);
+				if (w != null && (changed ? now - lastSendAt >= MIN_GAP_MS : now - lastSendAt >= KEEPALIVE_MS)) {
 					ipc.setActivity(w);
 					lastSendAt = now;
 					sent = w;
@@ -127,6 +152,7 @@ public final class DiscordPresence {
 				if (ipc != null) {
 					ipc.close();
 					ipc = null;
+					com.origin.client.OriginClient.LOGGER.info("Origin: Discord connection lost, will retry");
 				}
 				nextConnectAt = System.currentTimeMillis() + RETRY_MS;
 			}
@@ -137,12 +163,18 @@ public final class DiscordPresence {
 	private static final class Ipc {
 		private final Closeable handle;
 		private final RandomAccessFile pipe;      // Windows
-		private final SocketChannel socket;        // macOS / Linux
+		private final FileInputStream pipeIn;      // Windows: same handle, used only for available()
+		private final SocketChannel socket;        // macOS / Linux, non-blocking
 
-		private Ipc(RandomAccessFile pipe, SocketChannel socket) {
+		private Ipc(RandomAccessFile pipe, SocketChannel socket) throws IOException {
 			this.pipe = pipe;
 			this.socket = socket;
 			this.handle = pipe != null ? pipe : socket;
+			// RandomAccessFile has no way to ask "is anything waiting?" and its read()
+			// blocks forever. FileInputStream.available() on a pipe handle is a
+			// PeekNamedPipe call, so reads can poll it against a deadline instead.
+			// Shares the descriptor: closing the pipe closes this too.
+			this.pipeIn = pipe != null ? new FileInputStream(pipe.getFD()) : null;
 		}
 
 		/** Connects to the first discord-ipc-N that answers and handshakes; null if none. */
@@ -170,14 +202,28 @@ public final class DiscordPresence {
 			String name = "discord-ipc-" + n;
 			try {
 				if (System.getProperty("os.name", "").toLowerCase().contains("win")) {
-					return new Ipc(new RandomAccessFile("\\\\.\\pipe\\" + name, "rw"), null);
+					RandomAccessFile raf = new RandomAccessFile("\\\\.\\pipe\\" + name, "rw");
+					try {
+						return new Ipc(raf, null);
+					} catch (IOException e) {
+						raf.close();
+						throw e;
+					}
 				}
 				for (String dir : unixDirs()) {
 					File f = new File(dir, name);
 					if (f.exists()) {
 						SocketChannel ch = SocketChannel.open(StandardProtocolFamily.UNIX);
 						try {
-							ch.connect(UnixDomainSocketAddress.of(f.toPath()));
+							// Non-blocking from the start: a full accept backlog (a stuck
+							// Discord) must not park the thread in connect().
+							ch.configureBlocking(false);
+							long deadline = deadline();
+							if (!ch.connect(UnixDomainSocketAddress.of(f.toPath()))) {
+								while (!ch.finishConnect()) {
+									pause(deadline);
+								}
+							}
 							return new Ipc(null, ch);
 						} catch (IOException e) {
 							ch.close();
@@ -233,42 +279,85 @@ public final class DiscordPresence {
 			ByteBuffer buf = ByteBuffer.allocate(8 + body.length).order(ByteOrder.LITTLE_ENDIAN);
 			buf.putInt(op).putInt(body.length).put(body);
 			if (pipe != null) {
+				// A frame is a few hundred bytes and the pipe buffer is far larger;
+				// replies are drained and a missed reply drops the connection, so this
+				// cannot fill up and block.
 				pipe.write(buf.array());
 			} else {
 				buf.flip();
+				long deadline = deadline();
 				while (buf.hasRemaining()) {
-					socket.write(buf);
+					if (socket.write(buf) == 0) {
+						pause(deadline);
+					}
 				}
 			}
 		}
 
-		/** Reads one whole frame and discards it; throws if Discord closed the pipe. */
+		/**
+		 * Reads one whole frame and discards it; throws if Discord closed the pipe or
+		 * the whole frame did not arrive within IO_TIMEOUT_MS.
+		 */
 		private void read() throws IOException {
-			ByteBuffer head = ByteBuffer.wrap(readFully(8)).order(ByteOrder.LITTLE_ENDIAN);
+			long deadline = deadline();
+			ByteBuffer head = ByteBuffer.wrap(readFully(8, deadline)).order(ByteOrder.LITTLE_ENDIAN);
 			int op = head.getInt();
 			int len = head.getInt();
 			if (len < 0 || len > 1 << 20) {
 				throw new IOException("bad frame");
 			}
-			readFully(len);
+			readFully(len, deadline);
 			if (op == 2) {
 				throw new EOFException("Discord closed the connection");   // CLOSE frame
 			}
 		}
 
-		private byte[] readFully(int n) throws IOException {
+		private byte[] readFully(int n, long deadline) throws IOException {
 			byte[] b = new byte[n];
 			if (pipe != null) {
-				pipe.readFully(b);
+				int off = 0;
+				while (off < n) {
+					int ready = pipeIn.available();   // throws once Discord has closed its end
+					if (ready <= 0) {
+						pause(deadline);
+						continue;
+					}
+					int got = pipe.read(b, off, Math.min(ready, n - off));   // data is waiting: cannot block
+					if (got < 0) {
+						throw new EOFException();
+					}
+					off += got;
+				}
 			} else {
 				ByteBuffer bb = ByteBuffer.wrap(b);
 				while (bb.hasRemaining()) {
-					if (socket.read(bb) < 0) {
+					int got = socket.read(bb);
+					if (got < 0) {
 						throw new EOFException();
+					}
+					if (got == 0) {
+						pause(deadline);
 					}
 				}
 			}
 			return b;
+		}
+
+		private static long deadline() {
+			return System.nanoTime() + IO_TIMEOUT_MS * 1_000_000L;
+		}
+
+		/** Sleeps one poll step, or throws once the deadline has passed. */
+		private static void pause(long deadline) throws IOException {
+			if (System.nanoTime() - deadline >= 0) {
+				throw new SocketTimeoutException("Discord IPC did not answer within " + IO_TIMEOUT_MS + " ms");
+			}
+			try {
+				Thread.sleep(POLL_MS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new InterruptedIOException("interrupted");
+			}
 		}
 
 		void close() {
