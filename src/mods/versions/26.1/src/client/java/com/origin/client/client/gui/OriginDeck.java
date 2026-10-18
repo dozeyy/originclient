@@ -60,6 +60,10 @@ public final class OriginDeck {
 	public static int MUTE = DEF_MUTE;       // text .42
 	private static final int DEF_ACC = 0xFF5FD09B;
 	public static int ACC = DEF_ACC;
+	// ACC_H: an accent-filled button, hovered (theme.mjs re-tints it with the accent, so
+	// a themed menu never flashes this default green on hover).
+	private static final int DEF_ACC_H = 0xFF83E2B5;
+	public static int ACC_H = DEF_ACC_H;
 	private static final int DEF_ACC_D = 0xFF2E7A57;
 	public static int ACC_D = DEF_ACC_D;
 	private static final int DEF_ACC_SOFT = 0x245FD09B;
@@ -188,6 +192,11 @@ public final class OriginDeck {
 		return out;
 	}
 
+	/** `argb`'s colour at alpha `a` (0..255) - a themed token at a one-off strength. */
+	public static int withAlpha(int argb, int a) {
+		return com.origin.client.client.theme.OriginTheme.withAlpha(argb, a);
+	}
+
 	public static int lerp(int a, int b, float t) {
 		return com.origin.client.client.theme.OriginTheme.lerpColor(a, b, t);
 	}
@@ -209,6 +218,7 @@ public final class OriginDeck {
 		DIM = t.getOrDefault("DIM", DIM);
 		MUTE = t.getOrDefault("MUTE", MUTE);
 		ACC = t.getOrDefault("ACC", ACC);
+		ACC_H = t.getOrDefault("ACC_H", ACC_H);
 		ACC_D = t.getOrDefault("ACC_D", ACC_D);
 		ACC_SOFT = t.getOrDefault("ACC_SOFT", ACC_SOFT);
 		ON_ACC = t.getOrDefault("ON_ACC", ON_ACC);
@@ -230,6 +240,7 @@ public final class OriginDeck {
 		DIM = DEF_DIM;
 		MUTE = DEF_MUTE;
 		ACC = DEF_ACC;
+		ACC_H = DEF_ACC_H;
 		ACC_D = DEF_ACC_D;
 		ACC_SOFT = DEF_ACC_SOFT;
 		ON_ACC = DEF_ON_ACC;
