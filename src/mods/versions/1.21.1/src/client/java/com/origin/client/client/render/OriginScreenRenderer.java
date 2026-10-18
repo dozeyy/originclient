@@ -23,6 +23,7 @@ import java.util.function.Supplier;
 
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
+import org.lwjgl.opengl.GL11;
 
 // Shared Origin screen rendering, used by the loading screen
 // (LoadingOverlayMixin), the main menu (TitleScreenMixin) and every out-of-world
@@ -170,6 +171,11 @@ public final class OriginScreenRenderer {
 		}
 		try {
 			layerAlpha = Math.max(0f, Math.min(1f, alpha));
+			// The title drew its labels and icons a little in front (z > 0); without
+			// this they win the depth test against the loading layer and show
+			// at full strength while everything else dissolves. GL_DEPTH_BUFFER_BIT,
+			// the same clear GameRenderer does before the GUI.
+			RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
