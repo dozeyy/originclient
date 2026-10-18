@@ -40,7 +40,12 @@ public final class OriginDevShots {
 		FRIENDS, FRIENDS_PARTY,
 		// ORIGIN_SHOTS_SET=social (the 2026-10-18 social redesign): every Friends state, the toasts, the entry points
 		SOC_CHAT, SOC_PARTY, SOC_HOME, SOC_OFFLINE, SOC_EMPTY, SOC_SIGNEDOUT, SOC_UNREACHABLE,
-		SOC_STRESS_CHAT, SOC_STRESS_PARTY, SOC_TOASTS, SOC_RSHIFT, SOC_MENU;
+		SOC_STRESS_CHAT, SOC_STRESS_PARTY, SOC_TOASTS, SOC_RSHIFT, SOC_MENU,
+		// the redesign's new states: add-by-name row, filtered list, the "..." menu, the invite picker, a result pill
+		SOC_ADD, SOC_FILTER, SOC_MENU_FRIEND, SOC_MENU_INVITE, SOC_NOTICE,
+		// ORIGIN_SHOTS_SET=social-act: scripted synthetic input (FriendsScreen.dev*), no OS input -- the click paths
+		ACT_HOVER, ACT_INVITE, ACT_CHAT, ACT_MENU_ARM, ACT_ACCEPT, ACT_SEARCH_ENTER, ACT_PARTY_MENU,
+		ACT_TOAST_REQUEST, ACT_TOAST_INVITE;
 
 		Screen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -135,6 +140,51 @@ public final class OriginDevShots {
 					com.origin.client.client.social.SocialDemo.install(false);
 					yield new HudEditorScreen(true);
 				}
+				case SOC_ADD -> {
+					com.origin.client.client.social.SocialDemo.installHome();
+					yield new com.origin.client.client.gui.FriendsScreen(null).devSearch("Zed_Nine");
+				}
+				case SOC_FILTER -> {
+					com.origin.client.client.social.SocialDemo.installHome();
+					yield new com.origin.client.client.gui.FriendsScreen(null).devSearch("mo");
+				}
+				case SOC_MENU_FRIEND -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL).devMenu();
+				}
+				case SOC_MENU_INVITE -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY).devMenu();
+				}
+				case SOC_NOTICE -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL)
+							.devNotice("Party invite sent to Kestrel.", false);
+				}
+				case ACT_HOVER, ACT_INVITE, ACT_CHAT, ACT_ACCEPT, ACT_SEARCH_ENTER -> {
+					com.origin.client.client.social.SocialDemo.installHome();
+					yield new com.origin.client.client.gui.FriendsScreen(null);
+				}
+				case ACT_MENU_ARM -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL);
+				}
+				case ACT_PARTY_MENU -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					yield new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY);
+				}
+				case ACT_TOAST_REQUEST, ACT_TOAST_INVITE -> {
+					com.origin.client.client.social.SocialDemo.install(false);
+					Minecraft mc = Minecraft.getInstance();
+					com.origin.client.client.social.SocialToast.request(mc, "9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14", "Quartzling");
+					com.origin.client.client.social.SocialToast.invite(mc, "1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52", "Ravenmoor");
+					yield new TitleScreen();
+				}
 				case SOC_MENU -> {
 					com.origin.client.client.social.SocialDemo.install(false);
 					yield new OriginModMenuScreen().preview(false, false);
@@ -150,13 +200,44 @@ public final class OriginDevShots {
 	}
 
 	private static final List<Shot> SHOTS = new ArrayList<>();
+
+	/** Scripted steps per ACT_ kind, run one per ~600 ms after the screen is up, then the capture. */
+	private static final java.util.Map<Kind, List<java.util.function.Consumer<Screen>>> ACTS = new java.util.EnumMap<>(Kind.class);
+	private static int actIdx = 0;
+
+	private static com.origin.client.client.gui.FriendsScreen fs(Screen s) {
+		return (com.origin.client.client.gui.FriendsScreen) s;
+	}
+
+	static {
+		// design-px coordinates of the 1080p layout (panel origin 500,250 on screen): see FriendsScreen's layout constants
+		ACTS.put(Kind.ACT_HOVER, List.of(s -> fs(s).devHover(180, 385)));
+		ACTS.put(Kind.ACT_INVITE, List.of(s -> fs(s).devHover(180, 385), s -> fs(s).devClick(248, 385)));
+		ACTS.put(Kind.ACT_ACCEPT, List.of(s -> fs(s).devHover(228, 233), s -> fs(s).devClick(228, 233)));
+		ACTS.put(Kind.ACT_CHAT, List.of(s -> fs(s).devClick(140, 385),
+				s -> fs(s).devChars("hello there, ready for the stronghold? I have the good pickaxe and 12 eyes of ender"),
+				s -> fs(s).devKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER)));
+		ACTS.put(Kind.ACT_MENU_ARM, List.of(s -> fs(s).devClick(880, 158), s -> fs(s).devHover(792, 200),
+				s -> fs(s).devClick(792, 200)));
+		ACTS.put(Kind.ACT_SEARCH_ENTER, List.of(s -> fs(s).devChars("zed_nine"), s -> fs(s).devKey(org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER)));
+		ACTS.put(Kind.ACT_PARTY_MENU, List.of(s -> fs(s).devClick(573, 222)));
+		ACTS.put(Kind.ACT_TOAST_REQUEST, List.of(s -> com.origin.client.client.social.SocialToast.devClickButton("req:9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14")));
+		ACTS.put(Kind.ACT_TOAST_INVITE, List.of(s -> com.origin.client.client.social.SocialToast.devClickButton("inv:1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52")));
+	}
 	private static double savedBgOpacity = -1;
 	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
 	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
-
 	static {
 		if (WORLD) {
 			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("social-act".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			for (int sc : new int[]{2, 4}) {
+				for (Kind k : Kind.values()) {
+					if (k.name().startsWith("ACT_")) {
+						SHOTS.add(new Shot(1920, 1080, sc, k));
+					}
+				}
+			}
 		} else if ("social".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Friends / party / chat / toasts: 1080p at GUI scale 2, 3 and 4 (the contract), plus 720p at 2.
 			for (int[] s : new int[][]{{1920, 1080, 2}, {1920, 1080, 4}, {1920, 1080, 3}, {1280, 720, 2}}) {
@@ -268,10 +349,17 @@ public final class OriginDevShots {
 					// Fresh screens so entrance animations replay and get captured settled.
 					mc.setScreen(s.kind().open());
 					mc.resizeDisplay();
+					actIdx = 0;
 					phase = 2;
 					nextAt = now + (s.kind() == Kind.TITLE ? 1900 : 900);
 				}
 				case 2 -> {
+					List<java.util.function.Consumer<Screen>> acts = ACTS.get(s.kind());
+					if (acts != null && actIdx < acts.size()) {
+						acts.get(actIdx++).accept(mc.screen);
+						nextAt = now + 700;
+						return;
+					}
 					// Windows may apply a resize one message-loop later (especially
 					// immediately after changing GUI scale). Never label a capture with
 					// dimensions its framebuffer did not actually reach.

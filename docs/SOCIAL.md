@@ -209,6 +209,13 @@ So the free plan carries a few dozen all-day players (more who play a few hours)
 - A Friends window (gui/OriginWindow) opened from a FRIENDS tab in the mod menu header and a button in the
   Right Shift centre group; same content as the launcher drawer (list, requests, add, chat, party, appear offline).
 - Toasts (Origin style) for DMs, friend requests, party invites, warps; click opens the Friends window.
+- 2026-10-18 redesign (1.21.1 first; other versions port it): one search-or-add box (typing filters; no match and a valid
+  name -> an "Add <name>" row, Enter sends), one list ordered REQUESTS (friend requests + party invites, labelled
+  ACCEPT / JOIN / DECLINE), PARTY (one row), ONLINE, OFFLINE, SENT, BLOCKED. Rows carry their job: JOIN (friend on a server) always
+  visible, INVITE on hover. The friend pane has JOIN / INVITE TO PARTY and a "..." menu (Remove / Block, each confirms); chats
+  are grouped by sender with times and day breaks; the party pane has member tiles (click = message / make leader / remove),
+  WARP / INVITE FRIEND / LEAVE. Request and party-invite toasts carry ACCEPT / JOIN. Ctrl+F searches, Up/Down walk the list,
+  Esc clears the search then closes. UI only: nothing here changes what is sent or how often.
 - Party chat: shown in vanilla chat as "[Party] <name>: <text>" (client-side only, the server never sees it);
   sent from the Friends window or the client-only command `/originpc <text>` (Will, 2026-10-12: a name no
   server uses — `/pc` and `/p` belong to server plugins).
