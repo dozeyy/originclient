@@ -1,5 +1,6 @@
-// Ember Wings (try 2): obsidian-boned dragon wings, charred leather cells that warm from char to
-// ember toward the shoulder, a few cracks lit from inside near the bones, and drifting embers.
+// Ember Wings (try 3): obsidian-boned dragon wings (tapered bones, chamfered knuckles, three fanned
+// fingers), charred leather cells that warm from char to ember toward the shoulder, a few cracks lit
+// from inside near the bones (the hottest with a yellow-white core), and drifting embers.
 // Animated: two segments per wing (arm + fingers, the fingers lag) flap 10-15 degrees up and down
 // plus a small sweep; a 6-frame texture loop pulses the lit cracks outward from the shoulder.
 // Both faces of every membrane are drawn.
@@ -13,18 +14,18 @@ import { ramp, clamp, lerp, smoothstep, hash2, noise2, bayer } from '../../lib/p
 import { footprint, layoutCubes, newTexture, paintCube, LIGHT } from '../../lib/model.mjs';
 
 const S = 4, TEX = [40, 42], FRAMES = 6, FPS = 6, PERIOD = 1.5;
-const BASE_YAW = 32;                                            // wings rest swept back this far (deg)
-const REST_DROOP = -7;                                          // and drooped a little, so the up-flap stays below the head
+const BASE_YAW = 24;                                            // wings rest swept back this far (deg)
+const REST_DROOP = -3;                                          // and a touch low, so the up-flap stays under y +6
 
 // ---- the planar wing (model px, body frame, left wing, before the sweep) -----------
 // Dropped ~4 px against try 1: the root sits low on the back and the tips hang to the hips.
 const P = {
-  S: [2.4, -3.0], E: [5.4, 1.4], Wr: [9.0, -0.2],
-  F: [[12.7, -2.0], [12.7, -5.6], [11.3, -10.8], [6.2, -13.2]],    // fingertips, leading edge first
-  B: [3.2, -10.8],
+  S: [2.4, -3.0], E: [6.0, 2.4], Wr: [10.2, 1.0],                // the leading edge arcs up to the elbow, then sweeps out and back
+  F: [[13.6, -1.0], [13.2, -7.0], [7.2, -11.8]],                 // three fingertips, leading edge first, fanned ~75 deg
+  B: [3.2, -10.0],
 };
 const ZI = -2.9, ZO = -3.15;                                    // z of the inner and outer membranes (outer sits behind)
-const TIP = 0.8;                                                // the finger bones poke this far past the membrane
+const TIP = 0.5;                                                // the finger tips poke this far past the membrane
 
 // Trailing edge between two fingertips: a concave scallop pulled toward the wrist.
 function scallop(a, b, toward, depth, n = 18) {
@@ -34,14 +35,22 @@ function scallop(a, b, toward, depth, n = 18) {
   return pts;
 }
 const SEAM = 0.8;                                               // the inner membrane runs this far under the outer one
-const [F1, F2, F3, F4] = P.F;
-const trailI = scallop(F4, P.B, P.Wr, 0.26);
-const trailO = [F1, ...scallop(F1, F2, P.Wr, 0.34), F2, ...scallop(F2, F3, P.Wr, 0.34), F3, ...scallop(F3, F4, P.Wr, 0.34), F4];
-const OUT_I = [P.S, P.E, P.Wr, [P.Wr[0] + SEAM, P.Wr[1] - 0.2], [F4[0] + SEAM, F4[1]], F4, ...trailI, P.B];
+const [F1, F2, F3] = P.F;
+const trailI = scallop(F3, P.B, P.Wr, 0.26);
+const trailO = [F1, ...scallop(F1, F2, P.Wr, 0.3), F2, ...scallop(F2, F3, P.Wr, 0.3), F3];
+const OUT_I = [P.S, P.E, P.Wr, [P.Wr[0] + SEAM, P.Wr[1] - 0.2], [F3[0] + SEAM, F3[1]], F3, ...trailI, P.B];
 const OUT_O = [P.Wr, ...trailO];
-const TRAIL_I = [F4, ...trailI, P.B], TRAIL_O = trailO;
+const TRAIL_I = [F3, ...trailI, P.B], TRAIL_O = trailO;
 const ARM = [[P.S, P.E], [P.E, P.Wr]];
-const FINGERS = P.F.map(f => [P.Wr, f]);
+// Each finger is a gently bowed polyline (bows toward the leading edge) in three tapering segments.
+const FINGER_T = [0, 0.36, 0.7, 1];
+const fingerPath = f => {
+  const dx = f[0] - P.Wr[0], dy = f[1] - P.Wr[1], d = Math.hypot(dx, dy), nx = -dy / d, ny = dx / d;       // nx,ny: toward the leading edge
+  return FINGER_T.map(t => [P.Wr[0] + dx * t + nx * 0.9 * Math.sin(Math.PI * t), P.Wr[1] + dy * t + ny * 0.9 * Math.sin(Math.PI * t)]);
+};
+const FPATHS = P.F.map(fingerPath);
+const FINGERS = FPATHS.flatMap(pts => pts.slice(0, -1).map((a, k) => [a, pts[k + 1]]));
+const TIPS = P.F;
 
 // Bounding rectangles (model px, multiples of 1/S) of the planes; sizes are whole texture px.
 const floorS = v => Math.floor(v * S) / S, ceilS = v => Math.ceil(v * S) / S;
@@ -81,23 +90,35 @@ function plane(name, reg, side, extra = {}) {
     ...(extra.emissive ? { emissive: true } : {}),
   };
 }
-const BONE_TH = { humerus: 1.25, forearm: 1, claw: 0.75, f1: 0.75, f2: 0.75, f3: 0.75, f4: 0.75 };
-const CLAW_TIP = [11.5, 1.5];
 const along = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+// A bone that tapers in whole-pixel steps: one limb cube per segment of `pts`, thickness `ths[k]` (model px).
+const taper = (name, grp, pts, ths, z, side, extendLast = 0) => pts.slice(0, -1).map((a, k) => ({
+  ...limb(`${name}${k}`, grp, a, pts[k + 1], ths[k], z, side, k === pts.length - 2 ? extendLast : 0), th: ths[k],
+}));
+// A chamfered joint: three overlapping boxes (each long in one axis), so every edge and corner is cut by 1 texture px.
+function knuckle(name, grp, c, z, side, k) {
+  const h = k / 2, q = k / 2 - 0.25, out = [];
+  for (const [ax, tag] of [[0, 'x'], [1, 'y'], [2, 'z']]) {
+    const hs = [q, q, q]; hs[ax] = h;
+    const lo = [c[0] - hs[0], c[1] - hs[1], z - hs[2]], hi = [c[0] + hs[0], c[1] + hs[1], z + hs[2]];
+    out.push(side > 0 ? { name: `${name}_${tag}`, grp, from: lo, to: hi, th: k, knuckle: true } : { name: `${name}_${tag}`, grp, from: [-hi[0], lo[1], lo[2]], to: [-lo[0], hi[1], hi[2]], mirror: true, th: k, knuckle: true });
+  }
+  return out;
+}
 const leftBones = side => [
-  limb('humerus', 'in', P.S, P.E, BONE_TH.humerus, ZI, side), limb('forearm', 'in', P.E, P.Wr, BONE_TH.forearm, ZI, side),
-  knuckle('kS', 'in', P.S, ZI, side, 1.5), knuckle('kE', 'in', P.E, ZI, side, 1.5),
-  limb('claw', 'out', P.Wr, CLAW_TIP, BONE_TH.claw, ZO, side),
-  ...FINGERS.map(([a, b], i) => limb(`f${i + 1}`, 'out', a, b, BONE_TH[`f${i + 1}`], ZO, side, TIP)),
-  knuckle('kW', 'out', P.Wr, ZO, side, 1.25),
-  ...FINGERS.map(([a, b], i) => knuckle(`k${i + 1}`, 'out', along(a, b, 0.55), ZO, side, 1)),
+  ...taper('hum', 'in', [P.S, along(P.S, P.E, 0.5), P.E], [1.25, 1], ZI, side),
+  ...taper('fore', 'in', [P.E, along(P.E, P.Wr, 0.5), P.Wr], [1, 0.75], ZI, side),
+  ...knuckle('kS', 'in', P.S, ZI, side, 1.5), ...knuckle('kE', 'in', P.E, ZI, side, 1.5),
+  ...FPATHS.flatMap((pts, i) => taper(`f${i + 1}_`, 'out', pts, [0.75, 0.5, 0.25], ZO, side, TIP)),
+  ...knuckle('kW', 'out', P.Wr, ZO, side, 1.25),
+  ...FPATHS.flatMap((pts, i) => knuckle(`k${i + 1}`, 'out', pts[1], ZO, side, 1)),
 ];
 // pack the bone cubes below the planes (the left wing defines the UV, the mirror reuses it)
 const boneL = leftBones(+1), boneR = leftBones(-1);
-layoutCubes(boneL, [TEX[0], 24], S);
+layoutCubes(boneL, [TEX[0], 60], S);
 boneL.forEach((c, i) => { c.uv = [c.uv[0], c.uv[1] + BONES_Y / S]; boneR[i].uv = c.uv; });
 TEX[1] = Math.ceil(Math.max(...boneL.map(c => footprint(c, S).y + footprint(c, S).h)) / S);
-const strip = ({ name, grp, ...c }) => c;
+const strip = ({ name, grp, th, knuckle, ...c }) => c;
 
 function wing(side) {
   const k = side > 0 ? 'L' : 'R', bones = side > 0 ? boneL : boneR, sx = side;

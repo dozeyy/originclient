@@ -28,6 +28,58 @@
       "capeOffset": 0
     },
     {
+      "id": "cape-void",
+      "name": "Void Cape",
+      "kind": "cape",
+      "slot": "cape",
+      "cents": 599,
+      "blurb": "A black hole rift in violet-black cloth, ringed in light, under a scatter of stars.",
+      "animated": false,
+      "plusOnly": false,
+      "onSale": true,
+      "hidesCape": false,
+      "capeOffset": 0
+    },
+    {
+      "id": "cape-inferno",
+      "name": "Inferno Cape",
+      "kind": "cape",
+      "slot": "cape",
+      "cents": 899,
+      "blurb": "Charred black cloth with living flames licking up from a glowing hem.",
+      "animated": true,
+      "plusOnly": false,
+      "onSale": true,
+      "hidesCape": false,
+      "capeOffset": 0
+    },
+    {
+      "id": "cape-orbit",
+      "name": "Orbit Cape",
+      "kind": "cape",
+      "slot": "cape",
+      "cents": 999,
+      "blurb": "Electrons circle the three rings of the Origin mark.",
+      "animated": true,
+      "plusOnly": false,
+      "onSale": true,
+      "hidesCape": false,
+      "capeOffset": 0
+    },
+    {
+      "id": "cape-golden",
+      "name": "Golden Hour Cape",
+      "kind": "cape",
+      "slot": "cape",
+      "cents": 599,
+      "blurb": "A low sun, a violet-to-gold sky and layered pine ridges, painted on the cloth.",
+      "animated": false,
+      "plusOnly": false,
+      "onSale": true,
+      "hidesCape": false,
+      "capeOffset": 0
+    },
+    {
       "id": "wings-ember",
       "name": "Ember Wings",
       "kind": "wings",
