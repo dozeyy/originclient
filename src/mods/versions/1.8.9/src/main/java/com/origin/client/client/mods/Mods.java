@@ -76,7 +76,11 @@ public final class Mods {
 			ModOption.dropdown("menuLayout", "Mod Menu Layout", "Auto", "3 across (compact)", "2 across (large)")
 					.tip("How many mod cards fit in a row. Auto fits the screen (up to four). Compact and large scroll down."),
 			// 1.8.9: achievements, not advancements -- the GuiAchievement pop-up.
-			ModOption.toggle("showAchievements", "Show Achievements", true).tip("Show the achievement pop-ups."));
+			ModOption.toggle("showAchievements", "Show Achievements", true).tip("Show the achievement pop-ups."),
+			ModOption.toggle("cosmeticEffects", "Cosmetic Effects", true)
+					.tip("Sparkles on capes and crowns, yours and other players'. Off draws none."),
+			ModOption.toggle("capePhysics", "Cape Physics", true)
+					.tip("Origin capes swing and flow with how you move. Off uses the stiff vanilla cape."));
 
 	// Entity/Tile Entity Distance are a percentage of your render distance: at
 	// 100% nothing extra is culled; lower values stop drawing distant entities /

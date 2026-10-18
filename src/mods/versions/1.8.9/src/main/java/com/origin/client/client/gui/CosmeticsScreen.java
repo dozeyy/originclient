@@ -2,10 +2,13 @@ package com.origin.client.client.gui;
 
 import com.origin.client.client.OriginDevShots;
 import com.origin.client.client.cosmetics.CapeTextures;
+import com.origin.client.client.cosmetics.CosmeticCatalog;
+import com.origin.client.client.cosmetics.CosmeticDef;
 import com.origin.client.client.cosmetics.Cosmetics;
 import com.origin.client.client.cosmetics.CosmeticsService;
 import com.origin.client.client.cosmetics.CosmeticsService.Look;
 import com.origin.client.client.cosmetics.MenuPlayerPreview;
+import com.origin.client.client.cosmetics.ThemeColors;
 import com.origin.client.client.mods.Mods;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -14,22 +17,33 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.texture.TextureUtil;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ResourceLocation;
 
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static com.origin.client.client.gui.OriginDeck.*;
 
 /**
- * Cosmetics: pick which of your owned capes and head items you wear. Built on
+ * Cosmetics: pick what you wear from your owned items: capes, wings and
+ * backpacks, hats and masks, menu themes. The tabs, "None" tiles, captions
+ * and thumbnails all come from the catalog (cosmetics/CosmeticCatalog): a new
+ * item or kind needs no change here. Built on
  * the shared OriginWindow frame (the redesigned mod menu's panel, header and
  * cards). A turning preview of your character fills the left card (drag to
  * spin); your items sit in a card grid on the right under type tabs, "None"
  * first. Picking applies straight away on your side and saves to the
- * cosmetics service so other Origin players see it too. Opened from the mod
+ * cosmetics service so other Origin players see it too (a theme is local: it
+ * recolours your own menus, so this very screen repaints when you pick one).
+ * Thumbnails are the real model (MenuPlayerPreview), the cape's own texture,
+ * or the theme's preview picture. Opened from the mod
  * menu's Cosmetics tab and the title / pause buttons; Esc goes back there.
  *
  * The preview: in a world it is your real player (armour, held item, cape
@@ -63,7 +77,24 @@ public class CosmeticsScreen extends OriginWindow {
 	 * to put the grid and the preview's cosmetics on camera. Never on in play.
 	 */
 	private static final boolean DEMO = OriginDevShots.enabled();
-	private Look demoLook = new Look("cape-orbit", "halo-orbit");
+	private Look demoLook = null;
+
+	/** Dev shots: the first catalog item of the cape, head and back slots, worn. */
+	private Look demoLook() {
+		if (demoLook == null) {
+			Look l = Look.NONE;
+			for (Cosmetics.Slot slot : new Cosmetics.Slot[] {Cosmetics.Slot.CAPE, Cosmetics.Slot.HEAD, Cosmetics.Slot.BACK}) {
+				for (Cosmetics.Item it : Cosmetics.all()) {
+					if (it.slot() == slot) {
+						l = l.with(slot, it.id());
+						break;
+					}
+				}
+			}
+			demoLook = l;
+		}
+		return demoLook;
+	}
 
 	private float yaw = 200;              // degrees; the preview starts showing the back
 	private Double dragFrom = null;       // design px where a preview drag began
@@ -154,16 +185,38 @@ public class CosmeticsScreen extends OriginWindow {
 		}
 	}
 
-	/** The four type tabs across the top of the list. */
+	/** The type tabs across the top of the list; one is shown only if the catalog has items for it. */
 	private enum Tab {
-		ALL("All"), CAPES("Capes"), ANIMATED("Animated"), HEAD("Hats & halos");
+		ALL("All"),
+		CAPES("Capes", Cosmetics.Slot.CAPE),
+		BACK("Wings & backpacks", Cosmetics.Slot.BACK),
+		HEAD("Hats & masks", Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE),
+		THEMES("Themes", Cosmetics.Slot.THEME);
 
 		final String label;
+		final Cosmetics.Slot[] slots;
 
-		Tab(String label) {
+		Tab(String label, Cosmetics.Slot... slots) {
 			this.label = label;
+			this.slots = slots;
+		}
+
+		boolean covers(Cosmetics.Slot slot) {
+			if (this == ALL) {
+				return true;
+			}
+			for (Cosmetics.Slot s : slots) {
+				if (s == slot) {
+					return true;
+				}
+			}
+			return false;
 		}
 	}
+
+	/** The order slots are listed in (and get their "None" tile in). */
+	private static final Cosmetics.Slot[] SLOT_ORDER = {
+			Cosmetics.Slot.CAPE, Cosmetics.Slot.BACK, Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.THEME };
 
 	private Tab tab = Tab.ALL;
 
@@ -174,57 +227,75 @@ public class CosmeticsScreen extends OriginWindow {
 	private CosmeticsService.Mine mine() {
 		if (DEMO) {
 			List<String> all = new ArrayList<>();
-			Cosmetics.ALL.forEach(i -> all.add(i.id()));
-			return new CosmeticsService.Mine(all, demoLook);
+			Cosmetics.all().forEach(i -> all.add(i.id()));
+			return new CosmeticsService.Mine(all, demoLook());
 		}
 		return CosmeticsService.mine();
 	}
 
 	private Look wearing() {
 		if (DEMO) {
-			return demoLook;
+			return demoLook();
 		}
 		java.util.UUID self = CosmeticsService.selfId();
 		return self == null ? Look.NONE : CosmeticsService.lookOf(self);
 	}
 
-	/** What a tab lists: the "take it off" tiles first, then your owned items for that tab. */
+	/** Does the catalog have any item for this slot at all (whether or not you own one)? */
+	private static boolean catalogHas(Cosmetics.Slot slot) {
+		for (Cosmetics.Item it : Cosmetics.all()) {
+			if (it.slot() == slot) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean tabShown(Tab t) {
+		if (t == Tab.ALL) {
+			return true;
+		}
+		for (Cosmetics.Slot s : t.slots) {
+			if (catalogHas(s)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// 1.8.9: Java 8 has no switch expressions, a statement switch
+	private static String noneLabel(Cosmetics.Slot slot) {
+		switch (slot) {
+			case CAPE:
+				return "No cape";
+			case BACK:
+				return "No wings or pack";
+			case HEAD:
+				return "No hat";
+			case FACE:
+				return "No mask";
+			default:
+				return "Origin menu";   // THEME
+		}
+	}
+
+	/** What a tab lists: the "take it off" tiles first, then your owned items for that tab, in shop order. */
 	private List<Tile> tilesFor(Tab tab, CosmeticsService.Mine mine) {
 		List<Tile> out = new ArrayList<>();
 		if (mine == null) {
 			return out;
 		}
-		if (tab == Tab.ALL) {
-			out.add(new Tile(Cosmetics.Slot.CAPE, null, "No cape"));
-			out.add(new Tile(Cosmetics.Slot.HEAD, null, "No hat"));
-		} else if (tab == Tab.CAPES) {
-			out.add(new Tile(Cosmetics.Slot.CAPE, null, "No cape"));
-		} else if (tab == Tab.HEAD) {
-			out.add(new Tile(Cosmetics.Slot.HEAD, null, "No hat"));
+		for (Cosmetics.Slot slot : SLOT_ORDER) {
+			if (tab.covers(slot) && catalogHas(slot)) {
+				out.add(new Tile(slot, null, noneLabel(slot)));
+			}
 		}
-		for (String id : mine.owned()) {
-			Cosmetics.Item item = Cosmetics.get(id);
-			if (item == null) {
+		for (Cosmetics.Item item : Cosmetics.all()) {
+			if (!mine.owned().contains(item.id()) || !tab.covers(item.slot())) {
 				continue;
 			}
-			boolean inTab;
-			switch (tab) {
-				case CAPES:
-					inTab = item.slot() == Cosmetics.Slot.CAPE;
-					break;
-				case HEAD:
-					inTab = item.slot() == Cosmetics.Slot.HEAD;
-					break;
-				case ANIMATED:
-					inTab = Cosmetics.isAnimated(id);
-					break;
-				default:
-					inTab = true;   // ALL
-			}
 			// The card's caption already says "Cape": "Orbit Cape" reads as "Orbit".
-			if (inTab) {
-				out.add(new Tile(item.slot(), id, item.name().replace(" Cape", "")));
-			}
+			out.add(new Tile(item.slot(), item.id(), "cape".equals(item.kind()) ? item.name().replace(" Cape", "") : item.name()));
 		}
 		return out;
 	}
@@ -251,7 +322,9 @@ public class CosmeticsScreen extends OriginWindow {
 				blocker = "Couldn't reach Origin. Check your connection.";
 				break;
 			case READY:
-				blocker = mine == null ? "Loading your cosmetics..." : null;
+				blocker = mine != null ? null
+						: !DEMO && CosmeticsService.mineFailed() ? "Couldn't load your cosmetics. Close and reopen this screen to try again."
+						: "Loading your cosmetics...";
 				break;
 			default:
 				blocker = "Loading your cosmetics...";   // STARTING
@@ -260,7 +333,7 @@ public class CosmeticsScreen extends OriginWindow {
 		if (blocker != null) {
 			emptyState(d, blocker, null);
 		} else if (mine.owned().isEmpty()) {
-			emptyState(d, "You don't own any cosmetics yet.", "Capes, halos and crowns are in the Origin Store.");
+			emptyState(d, "You don't own any cosmetics yet.", "Capes, wings and hats are in the Origin Store. Menu themes come with Origin+.");
 		} else {
 			drawTabs(d, mine);
 			drawGrid(d, mine, wearing());
@@ -284,7 +357,13 @@ public class CosmeticsScreen extends OriginWindow {
 
 	private void drawTabs(OriginDeck d, CosmeticsService.Mine mine) {
 		float x = LIST_X;
+		if (!tabShown(tab)) {
+			tab = Tab.ALL;   // the catalog changed under us
+		}
 		for (Tab t : Tab.values()) {
+			if (!tabShown(t)) {
+				continue;
+			}
 			String label = t.label.toUpperCase(Locale.ROOT);
 			String count = t == Tab.ALL ? Integer.toString(mine.owned().size()) : null;
 			float w = 24 + d.textW(label, 11, true, CAPS_TRACK) + (count == null ? 0 : 7 + d.textW(count, 11, true, 0));
@@ -325,6 +404,10 @@ public class CosmeticsScreen extends OriginWindow {
 			drawTile(d, tiles.get(i), look, x, y);
 		}
 		d.unclip();
+		if (tab == Tab.THEMES && !mine.plus()) {
+			// Themes are Origin+ menu unlocks, never sold: a non-member sees only "None" here, so say why.
+			d.textCenter("Menu themes come with Origin+.", LIST_X + LIST_W / 2, GRID_TOP + TILE_H + 44 - (float) scroll, 13, false, 0, DIM);
+		}
 		double op = Mods.metaNum("menuBgOpacity", 1.0);
 		if (op > 0.02 && maxScroll > 0 && scroll < maxScroll - 1) {
 			d.gradient(LIST_X - 4, GRID_BOTTOM - 40, LIST_W + 8, 40, mul(PANEL, 0), mul(PANEL, (float) op));
@@ -333,7 +416,7 @@ public class CosmeticsScreen extends OriginWindow {
 	}
 
 	private void drawTile(OriginDeck d, Tile t, Look look, float x, float y) {
-		String worn = t.slot() == Cosmetics.Slot.CAPE ? look.cape() : look.head();
+		String worn = look.get(t.slot());
 		boolean selected = t.id() == null ? worn == null : t.id().equals(worn);
 		boolean hov = !saving && d.over(x, y, TILE_W, TILE_H);
 		float hp = OriginUi.hover("cosmetics:tile:" + t.slot() + ":" + t.id(), hov);
@@ -348,6 +431,10 @@ public class CosmeticsScreen extends OriginWindow {
 				selected || hp > 0.5f ? TEXT : DIM);
 		d.textCenter(caption(t), x + TILE_W / 2, y + 146, 10, true, 1.6f, MUTE);
 
+		if (t.id() != null && Cosmetics.isPlusOnly(t.id())) {
+			// members-only: the Origin mark in the corner (+ the caption below)
+			d.logo(x + TILE_W - 18, y + 16, 16, 0.2f);
+		}
 		if (selected) {
 			String badge = t.id() == null ? "ON" : "WORN";
 			float bw = 12 + d.textW(badge, 10, true, 1.4f);
@@ -360,58 +447,141 @@ public class CosmeticsScreen extends OriginWindow {
 		if (t.id() == null) {
 			return "NONE";
 		}
-		if (t.slot() == Cosmetics.Slot.CAPE) {
-			return Cosmetics.isAnimated(t.id()) ? "ANIMATED CAPE" : "CAPE";
+		if (Cosmetics.isPlusOnly(t.id())) {
+			return Cosmetics.Slot.THEME == t.slot() ? "ORIGIN+ THEME" : "ORIGIN+ MEMBERS";
 		}
-		return t.id().startsWith("crown") ? "CROWN" : "HALO";
+		Cosmetics.Item item = Cosmetics.get(t.id());
+		String kind = item == null || item.kind() == null ? "" : item.kind();
+		// 1.8.9: Java 8 has no switch expressions, a statement switch on the string
+		switch (kind) {
+			case "cape":
+				return Cosmetics.isAnimated(t.id()) ? "ANIMATED CAPE" : "CAPE";
+			case "pack":
+				return "BACKPACK";
+			case "theme":
+				return "MENU THEME";
+			default:
+				return kind.toUpperCase(Locale.ROOT);
+		}
 	}
 
-	/** A card's picture, centred on (cx, cy) design px. `bg` is the card's fill (for ring holes). */
+	/** A card's picture, centred on (cx, cy) design px. `bg` is the card's fill. */
 	private void drawArt(OriginDeck d, Tile t, float cx, float cy, int bg) {
 		if (t.id() == null) {
 			d.icon("@close", cx - 14, cy - 14, 28, MUTE);
 			return;
 		}
-		if (t.slot() == Cosmetics.Slot.CAPE) {
-			ResourceLocation tex = CapeTextures.current(t.id());
-			if (tex == null) {
-				d.icon("@shirt", cx - 16, cy - 16, 32, MUTE);
-				return;
+		try {
+			switch (t.slot()) {
+				case CAPE:
+					drawCapeArt(d, t, cx, cy);
+					break;
+				case THEME:
+					drawThemeArt(d, t, cx, cy);
+					break;
+				default:
+					if (!drawModelThumb(d, t, cx - TILE_W / 2 + 6, cy - 54, TILE_W - 12, 104)) {
+						d.icon("@shirt", cx - 16, cy - 16, 32, MUTE);
+					}
 			}
-			// the cape's outside face (40x64 texels at (4,4)) at 42x67 design px,
-			// in physical px like everything the deck draws
-			int x0 = Math.round(d.ox + (cx - 21) * d.s), y0 = Math.round(d.oy + (cy - 33.5f) * d.s);
-			int w = Math.round(42 * d.s), h = Math.round(67 * d.s);
+		} catch (Throwable ex) {
+			d.icon("@shirt", cx - 16, cy - 16, 32, MUTE);   // a picture must never break the screen
+		}
+	}
+
+	/** The cape's outside face from its own texture. */
+	private void drawCapeArt(OriginDeck d, Tile t, float cx, float cy) {
+		CapeTextures.Face face = CapeTextures.face(t.id());
+		if (face == null) {
+			d.icon("@shirt", cx - 16, cy - 16, 32, MUTE);
+			return;
+		}
+		// 42x67 design px (10:16), in physical px like everything the deck draws
+		int x0 = Math.round(d.ox + (cx - 21) * d.s), y0 = Math.round(d.oy + (cy - 33.5f) * d.s);
+		int w = Math.round(42 * d.s), h = Math.round(67 * d.s);
+		Gfx.defaultBlend();
+		GlStateManager.color(1f, 1f, 1f, d.alpha);   // fixed function: the GL colour tints the blit
+		d.g.blit(face.tex(), x0, y0, w, h, face.u(), face.v(), face.w(), face.h(), face.texW(), face.texH());
+		Gfx.resetColor();
+	}
+
+	/** Sizes of theme preview pictures (0,0 = unreadable), read once. */
+	private static final Map<ResourceLocation, int[]> PICTURE_SIZE = new HashMap<>();
+
+	// 1.8.9: no NativeImage; the picture is read once as a BufferedImage just for its size
+	// (IResource isn't Closeable, its stream is; TextureUtil.readBufferedImage closes it).
+	private static int[] pictureSize(ResourceLocation rl) {
+		int[] size = PICTURE_SIZE.get(rl);
+		if (size == null) {
+			try {
+				InputStream in = Minecraft.getMinecraft().getResourceManager().getResource(rl).getInputStream();
+				BufferedImage img = TextureUtil.readBufferedImage(in);
+				size = new int[] {img.getWidth(), img.getHeight()};
+			} catch (Exception e) {
+				size = new int[] {0, 0};
+			}
+			PICTURE_SIZE.put(rl, size);
+		}
+		return size;
+	}
+
+	/** A theme's preview picture (the mod menu in its palette), or three colour swatches if there isn't one. */
+	private void drawThemeArt(OriginDeck d, Tile t, float cx, float cy) {
+		float boxW = TILE_W - 28, boxH = 96;
+		ResourceLocation rl = CosmeticCatalog.texture(t.id());
+		int[] size = pictureSize(rl);
+		if (size[0] > 0 && size[1] > 0) {
+			float k = Math.min(boxW / size[0], boxH / size[1]);
+			float w = size[0] * k, h = size[1] * k;
+			int x0 = Math.round(d.ox + (cx - w / 2) * d.s), y0 = Math.round(d.oy + (cy - h / 2) * d.s);
 			Gfx.defaultBlend();
-			GlStateManager.color(1f, 1f, 1f, d.alpha);   // fixed function: the GL colour tints the blit
-			d.g.blit(tex, x0, y0, w, h, CapeTextures.FACE_U, CapeTextures.FACE_V,
-					CapeTextures.FACE_W, CapeTextures.FACE_H, CapeTextures.FRAME_W, CapeTextures.FRAME_H);
+			GlStateManager.color(1f, 1f, 1f, d.alpha);
+			d.g.blit(rl, x0, y0, Math.round(w * d.s), Math.round(h * d.s), 0f, 0f, size[0], size[1], size[0], size[1]);
 			Gfx.resetColor();
 			return;
 		}
-		switch (t.id()) {
-			case "halo-orbit":
-				d.logo(cx, cy, 50, 0.35f);
-				break;
-			case "halo-gold": {
-				OriginUi.softGlow(d.g, d.ox + cx * d.s, d.oy + cy * d.s, 90 * d.s, mul(0xFFFFD56B, 0.35f * d.alpha));
-				d.rect(cx - 26, cy - 9, 52, 18, 9, 0xFFFFD56B);
-				d.rect(cx - 21, cy - 4.5f, 42, 9, 4.5f, bg);
-				break;
-			}
-			case "crown-pixel": {
-				int gold = 0xFFF2C14E;
-				d.rect(cx - 22, cy - 2, 44, 14, 2, gold);
-				for (int i = -1; i <= 1; i++) {
-					float ph = i == 0 ? 16 : 12;
-					d.rect(cx + i * 18 - 4, cy - 2 - ph, 8, ph + 2, 2, gold);
-				}
-				d.rect(cx - 3, cy + 2, 6, 6, 1.5f, 0xFFE0485B);
-				break;
-			}
-			default:
-				d.icon("@shirt", cx - 16, cy - 16, 32, MUTE);
+		CosmeticDef def = CosmeticCatalog.def(t.id());
+		if (def == null || def.theme == null) {
+			d.icon("@shirt", cx - 16, cy - 16, 32, MUTE);
+			return;
 		}
+		float w = Math.min(boxW, 150), h = 84, x = cx - w / 2, y = cy - h / 2;
+		ThemeColors th = def.theme;
+		d.rect(x, y, w, h, 8, th.deck("PANEL", PANEL), th.deck("LINE2", LINE2));
+		d.rect(x + 10, y + 10, w - 20, 34, 6, th.deck("CARD", CARD));
+		d.rect(x + 18, y + 22, 52, 10, 5, th.deck("TEXT", TEXT));
+		d.rect(x + 10, y + 54, 56, 20, 6, th.deck("ACC", ACC));
+		d.rect(x + 74, y + 54, 24, 20, 6, th.deck("ACC_D", ACC_D));
+	}
+
+	/**
+	 * A hat, mask, wing or backpack: the real model on your character, zoomed to
+	 * the part it sits on, swaying a little. Drawn through MenuPlayerPreview with
+	 * only this item worn. False if it couldn't be drawn (the caller shows an icon).
+	 *
+	 * 1.8.9: like the big preview, in physical px straight under the deck's pose
+	 * (the GL matrix stack), so there is no GUI-px round trip.
+	 */
+	private boolean drawModelThumb(OriginDeck d, Tile t, float x, float y, float w, float h) {
+		boolean back = t.slot() == Cosmetics.Slot.BACK;
+		boolean face = t.slot() == Cosmetics.Slot.FACE;
+		float blocks = back ? 1.7f : face ? 0.9f : 1.15f;   // how much of the world fits the tile's height
+		float focus = back ? 1.15f : face ? 1.64f : 1.72f;  // height above the feet at the tile's centre, blocks
+		float sway = (float) Math.sin(Minecraft.getSystemTime() / 1100.0) * 22f;
+		float turn = (back ? 200f : 20f) + sway;           // the back for wings / packs, the front for the rest
+		boolean drew;
+		d.clip(x, y, w, h);
+		try {
+			float size = h * d.s / blocks;
+			float px = d.ox + (x + w / 2) * d.s;
+			float py = d.oy + (y + h / 2) * d.s + (focus - MenuPlayerPreview.HEIGHT / 2f) * size;
+			drew = MenuPlayerPreview.renderThumb(px, py, size, turn, Look.NONE.with(t.slot(), t.id()));
+		} catch (Throwable ex) {
+			drew = false;
+		} finally {
+			d.unclip();
+		}
+		return drew;
 	}
 
 	/** Your character, turning slowly (drag to spin). */
@@ -613,7 +783,7 @@ public class CosmeticsScreen extends OriginWindow {
 
 	private void pick(Tile t) {
 		Look now = wearing();
-		Look next = t.slot() == Cosmetics.Slot.CAPE ? new Look(t.id(), now.head()) : new Look(now.cape(), t.id());
+		Look next = now.with(t.slot(), t.id());
 		if (next.equals(now) || saving) {
 			return;
 		}
