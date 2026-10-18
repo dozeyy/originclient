@@ -94,8 +94,11 @@ blit-rework + HitboxRenderState era even though the version is not shipped.
 **Gone LIVE 2026-07-14 (launcher-v1.0.23):** `1.20.2`, `1.21.4` (covers 1.21.2/3/4),
 `1.21.6` (covers 1.21.6/7), and the `1.21.10` split — all boot-swept clean, in-world
 verified on 1.21.11 by Will (outline, overlay, chunk borders, particles, motion blur,
-zoom, lock icon). Remaining known gaps: motion blur inert on <=1.21.5 (no persistent
-post-target support). On 1.21.11 hitboxes (gizmo system), nametags, and
+zoom, lock icon). Remaining known gaps: motion blur inert on 1.21.5 (pulled; no persistent
+post-target support). 1.21.4 has none either, so since 2026-10-18 it ships
+1.21.2-format chains (`post_effect/`) whose last-frame target
+`originclient:motion_prev` is swapped for an Origin-owned texture by
+`PostChainPrevTargetMixin` (MotionBlur.java explains why). On 1.21.11 hitboxes (gizmo system), nametags, and
 tile-entity culling are now ported and wired (2026-07-26) — the earlier
 "deferred-render port pending" note is resolved. **1.21.11 motion-blur caveat
 (era limitation, accepted per mandate 5):** its reworked `PostPass` bakes each

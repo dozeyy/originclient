@@ -9,7 +9,7 @@
                 { "sampler_name": "Prev", "target": "prev" }
             ],
             "output": "swap",
-            "uniforms": { "BlendConfig": [ { "name": "Blend", "type": "float", "value": 0.70 } ] }
+            "uniforms": { "BlendConfig": [ { "name": "Blend", "type": "float", "value": 0.85 } ] }
         },
         {
             "vertex_shader": "minecraft:core/screenquad",

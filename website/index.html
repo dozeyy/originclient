@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0e1110">
+  <meta name="theme-color" content="#0a0a0b">
   <meta name="color-scheme" content="dark">
   <title>Origin Client</title>
-  <meta name="description" content="Origin is a free Minecraft launcher and in-game client for Windows. Pick any of 21 versions from 1.8.9 to 1.21.11 and Origin installs the right loader, shaders and its own menus, HUD and mods for it, in one click.">
+  <meta name="description" content="Origin is a free Minecraft launcher and in-game client for Windows. Pick one of 26 versions, from 1.8.9 to 26.3, and Origin installs the right loader, shaders and its own menus, HUD and mods for it, in one click.">
   <meta property="og:title" content="Origin Client">
   <meta property="og:description" content="Pick a Minecraft version. Play in one click. A free launcher and in-game client for Windows.">
   <meta property="og:type" content="website">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/fonts/monocraft.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/site.css">
+  <script src="js/nav.js"></script>
   <script type="module" src="js/site.js"></script>
-  <script type="module" src="js/why.js"></script>
 </head>
 <body>
   <!-- Brand geometry, reused everywhere through <use>. Paths are the launcher's own
@@ -28,14 +28,11 @@
         <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
       </g>
     </symbol>
-    <symbol id="wordmark" viewBox="0 360 4440 840">
-      <path fill="currentColor" d="M120 1080H0V480H120V360H480V480H600V1080H480V1200H120V1080H480V480H120ZM888 600H1248V720H1368V1200H1248V720H888V1200H768V360H1248V480H1368V600H1248V480H888ZM1656 1200V1080H1776V480H1656V360H2016V480H1896V1080H2016V1200ZM2424 1200V1080H2304V480H2424V360H2904V480H2424V1080H2784V720H2664V600H2904V1080H2784V1200ZM3192 1200V1080H3312V480H3192V360H3552V480H3432V1080H3552V1200ZM3840 1200V360H3960V480H4080V600H4200V720H4320V360H4440V1200H4320V840H4200V720H4080V600H3960V1200Z"/>
-    </symbol>
   </svg>
 
   <a class="skip" href="#main">Skip to content</a>
 
-  <!-- The world: a floating island built from Minecraft's own block textures. -->
+  <!-- The world: a floating island in the sky, built from Minecraft's own block textures. -->
   <div class="backdrop" aria-hidden="true"></div>
   <canvas id="world" aria-hidden="true"></canvas>
   <div class="world-shade" aria-hidden="true"></div>
@@ -43,15 +40,14 @@
   <header class="top" data-top>
     <a class="brand" href="#top" aria-label="Origin, back to top">
       <svg class="brand__mark"><use href="#mark"/></svg>
-      <svg class="brand__word"><use href="#wordmark"/></svg>
+      <span class="brand__word">Origin</span>
     </a>
     <nav class="top__nav" aria-label="Sections">
       <a href="#versions">Versions</a>
-      <a href="#shaders">Shaders</a>
       <a href="#why">Why Origin</a>
       <a href="store" class="nav-store">Store</a>
     </nav>
-    <a class="btn btn--primary btn--sm" data-download href="#get">Download</a>
+    <a class="btn btn--primary btn--sm top__action" data-download href="#get">Download</a>
   </header>
 
   <main id="main">
@@ -59,68 +55,168 @@
     <!-- ===================== HERO ===================== -->
     <section class="hero" id="top" data-scene="hero">
       <div class="hero__copy">
-        <p class="eyebrow eyebrow--accent">Minecraft launcher &amp; client · Windows</p>
-        <h1 class="hero__title">Pick a version.<br><span>Play in one click.</span></h1>
-        <p class="hero__lede">Pick any Minecraft from 1.8.9 to 1.21.11. Origin installs the right loader, shaders and its own menus, HUD and mods for it, then gets out of your way.</p>
+        <p class="eyebrow eyebrow--accent">Minecraft: Java Edition · Windows</p>
+        <!-- The name in Y2K chrome with a passing lens glint (site.css .logo-title).
+             data-text feeds the chrome face layer (CSS ::after); keep it equal to the text. -->
+        <h1 class="hero__title logo-title"><span class="logo-title__main" data-text="Origin">Origin</span> <span class="logo-title__sub" data-text="Client">Client</span></h1>
+        <p class="hero__lede">The free Minecraft client. Pick any of <span data-version-count>26</span> versions from 1.8.9 to 26.3 and play in one click, with shaders, a clean HUD and handy mods already set up.</p>
         <div class="hero__actions">
           <a class="btn btn--primary btn--lg" data-download href="#get">Download</a>
           <a class="btn btn--ghost btn--lg" href="#versions"><span>See the versions</span><span class="scroll-cue" aria-hidden="true"></span></a>
         </div>
         <ul class="facts" aria-label="At a glance">
-          <li><b>21</b><span>versions</span></li>
+          <li><b data-version-count>26</b><span>versions</span></li>
           <li><b>1</b><span>click to play</span></li>
-          <li><b>Free</b><span>forever</span></li>
+          <li><b>Free</b><span>to use</span></li>
         </ul>
       </div>
-      <p class="hero__hint" aria-hidden="true">Scroll</p>
     </section>
 
-    <!-- ===================== VERSIONS + SHADERS ===================== -->
+    <!-- ===================== VERSIONS ===================== -->
     <section class="section versions" id="versions" data-scene="versions">
       <div class="section__head">
         <p class="eyebrow eyebrow--accent">Versions</p>
-        <h2>Twenty-one versions.<br><span>One look.</span></h2>
+        <h2><span data-version-count>26</span> versions.<br><span>One look.</span></h2>
         <p class="lede">Each version is its own build, made for that version's code, never a one-size-fits-all port. The menus, HUD and mods look the same on all of them.</p>
       </div>
       <div class="vgrid" data-vgrid></div>
     </section>
 
-    <!-- ===================== SHADERS ===================== -->
-    <section class="section shaders" id="shaders" data-scene="shaders">
-      <div class="shaders__copy">
-        <p class="eyebrow eyebrow--accent">Shaders, built in</p>
-        <h2>Shaders.<br><span>Built in.</span></h2>
-        <p class="lede">Iris + Sodium on modern versions, OptiFine on 1.8.9. No hunting for loaders or compatible jars. Shaders come installed and tuned, and they've been on this whole time. Flip the switch to see plain Minecraft.</p>
-        <button class="sw" type="button" role="switch" aria-checked="true" data-shaders><span class="sw__track"><span class="sw__knob"></span></span><span class="sw__label">Shaders</span></button>
-      </div>
-    </section>
-
     <!-- ===================== WHY ORIGIN ===================== -->
-    <!-- No other client is named on purpose: every row has to stay true as they
-         change, and every Origin cell describes something the launcher really does. -->
+    <!-- Six cards, one small looping picture and one line each. No other client is
+         named on purpose, and every line describes something the launcher really does.
+         The pictures are decorative (aria-hidden); the headings and lines are the content. -->
     <section class="section why" id="why" data-scene="why">
       <div class="section__head">
         <p class="eyebrow eyebrow--accent">Why Origin</p>
-        <h2>Six blocks.<br><span>Six reasons.</span></h2>
-        <p class="lede">Click a block. Break it open.</p>
+        <h2>Six reasons.<br><span>Built in.</span></h2>
       </div>
-      <!-- js/why.js builds the mining game here; the table below is the no-JS fallback. -->
-      <div class="why__stage" data-why-stage></div>
-      <div class="compare" data-reveal>
-        <table>
-          <thead>
-            <tr><th scope="col"><span class="sr">Feature</span></th><th scope="col" class="compare__us">Origin</th><th scope="col">Most clients</th></tr>
-          </thead>
-          <tbody>
-            <tr><th scope="row">Shaders</th><td class="compare__us"><b aria-hidden="true">&#10003;</b>Built in, ready to go</td><td>Some versions, or set them up yourself</td></tr>
-            <tr><th scope="row">Several accounts</th><td class="compare__us"><b aria-hidden="true">&#10003;</b>All at once, one window each</td><td>One at a time</td></tr>
-            <tr><th scope="row">Your own mods</th><td class="compare__us"><b aria-hidden="true">&#10003;</b>Add them right next to Origin's</td><td>Often locked to the client's own</td></tr>
-            <tr><th scope="row">Switching versions</th><td class="compare__us"><b aria-hidden="true">&#10003;</b>Keybinds, mod settings and servers come with you</td><td>Set up each version again</td></tr>
-            <tr><th scope="row">Low FPS</th><td class="compare__us"><b aria-hidden="true">&#10003;</b>FPS Coach finds what's causing your lag</td><td>You guess</td></tr>
-            <tr><th scope="row">The code</th><td class="compare__us"><b aria-hidden="true">&#10003;</b>Public: read every line</td><td>Closed</td></tr>
-          </tbody>
-        </table>
-      </div>
+      <ul class="bento" data-bento>
+
+        <li class="bcard bcard--a" data-reveal style="--i:0">
+          <div class="viz" aria-hidden="true">
+            <div class="shade">
+              <svg viewBox="0 0 400 300" class="shade__flat">
+                <path d="M0 190C50 150 90 138 140 162S230 118 280 138 360 150 400 124V300H0Z" fill="#232327" stroke="rgba(255,255,255,.14)"/>
+                <path d="M0 226C60 190 120 200 170 215S260 168 320 190 380 200 400 184V300H0Z" fill="#1b1b1e" stroke="rgba(255,255,255,.12)"/>
+                <path d="M0 264C70 240 130 250 200 256S320 236 400 250V300H0Z" fill="#141416" stroke="rgba(255,255,255,.1)"/>
+              </svg>
+              <svg viewBox="0 0 400 300" class="shade__lit">
+                <defs>
+                  <radialGradient id="sun"><stop offset="0" stop-color="#fff"/><stop offset=".3" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+                  <linearGradient id="ridge-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9d9de"/><stop offset=".55" stop-color="#4a4a50"/><stop offset="1" stop-color="#1e1e22"/></linearGradient>
+                  <linearGradient id="ridge-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9a9b0"/><stop offset=".6" stop-color="#36363b"/><stop offset="1" stop-color="#18181b"/></linearGradient>
+                  <linearGradient id="ridge-c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6e6e75"/><stop offset=".7" stop-color="#24242a"/><stop offset="1" stop-color="#121214"/></linearGradient>
+                </defs>
+                <g class="shade__sun"><circle cx="318" cy="70" r="62" fill="url(#sun)"/><circle cx="318" cy="70" r="13" fill="#fff"/></g>
+                <path d="M0 190C50 150 90 138 140 162S230 118 280 138 360 150 400 124V300H0Z" fill="url(#ridge-a)" stroke="rgba(255,255,255,.75)" stroke-width="1.4"/>
+                <path d="M0 226C60 190 120 200 170 215S260 168 320 190 380 200 400 184V300H0Z" fill="url(#ridge-b)" stroke="rgba(255,255,255,.55)" stroke-width="1.2"/>
+                <path d="M0 264C70 240 130 250 200 256S320 236 400 250V300H0Z" fill="url(#ridge-c)" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
+              </svg>
+              <span class="shade__line"></span>
+            </div>
+          </div>
+          <h3>Shaders, built in</h3>
+          <p>Installed and tuned for you. Nothing to hunt down.</p>
+        </li>
+
+        <li class="bcard bcard--b" data-reveal style="--i:1">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 400 210" preserveAspectRatio="xMidYMid meet">
+              <g class="win" style="--d:0">
+                <rect x="14" y="14" width="186" height="104" rx="14" fill="#161619" stroke="rgba(255,255,255,.2)"/>
+                <circle cx="32" cy="32" r="4" fill="rgba(255,255,255,.35)"/><circle cx="46" cy="32" r="4" fill="rgba(255,255,255,.2)"/><circle cx="60" cy="32" r="4" fill="rgba(255,255,255,.2)"/>
+                <rect x="30" y="52" width="40" height="40" rx="10" fill="rgba(255,255,255,.14)"/><rect x="34" y="56" width="32" height="14" rx="6" fill="rgba(255,255,255,.3)"/>
+                <rect x="82" y="58" width="90" height="8" rx="4" fill="rgba(255,255,255,.4)"/><rect x="82" y="76" width="60" height="8" rx="4" fill="rgba(255,255,255,.18)"/>
+              </g>
+              <g class="win" style="--d:.4">
+                <rect x="108" y="54" width="186" height="104" rx="14" fill="#1b1b1f" stroke="rgba(255,255,255,.24)"/>
+                <circle cx="126" cy="72" r="4" fill="rgba(255,255,255,.35)"/><circle cx="140" cy="72" r="4" fill="rgba(255,255,255,.2)"/><circle cx="154" cy="72" r="4" fill="rgba(255,255,255,.2)"/>
+                <rect x="124" y="92" width="40" height="40" rx="10" fill="rgba(255,255,255,.18)"/><rect x="128" y="96" width="32" height="14" rx="6" fill="rgba(255,255,255,.4)"/>
+                <rect x="176" y="98" width="90" height="8" rx="4" fill="rgba(255,255,255,.5)"/><rect x="176" y="116" width="52" height="8" rx="4" fill="rgba(255,255,255,.2)"/>
+              </g>
+              <g class="win" style="--d:.8">
+                <rect x="200" y="92" width="186" height="104" rx="14" fill="#202024" stroke="rgba(255,255,255,.34)"/>
+                <circle cx="218" cy="110" r="4" fill="#fff" class="win__dot"/><circle cx="232" cy="110" r="4" fill="rgba(255,255,255,.2)"/><circle cx="246" cy="110" r="4" fill="rgba(255,255,255,.2)"/>
+                <rect x="216" y="130" width="40" height="40" rx="10" fill="rgba(255,255,255,.22)"/><rect x="220" y="134" width="32" height="14" rx="6" fill="rgba(255,255,255,.5)"/>
+                <rect x="268" y="136" width="90" height="8" rx="4" fill="rgba(255,255,255,.6)"/><rect x="268" y="154" width="64" height="8" rx="4" fill="rgba(255,255,255,.22)"/>
+              </g>
+            </svg>
+          </div>
+          <h3>Several accounts</h3>
+          <p>Run them all at once, one window each.</p>
+        </li>
+
+        <li class="bcard bcard--c" data-reveal style="--i:2">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+              <g>
+                <rect x="30" y="39" width="72" height="72" rx="18" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)"/>
+                <rect x="112" y="39" width="72" height="72" rx="18" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)"/>
+                <rect x="194" y="39" width="72" height="72" rx="18" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)"/>
+                <svg class="tm" x="46" y="55" width="40" height="40"><use href="#mark"/></svg>
+                <svg class="tm" x="128" y="55" width="40" height="40"><use href="#mark"/></svg>
+                <svg class="tm" x="210" y="55" width="40" height="40"><use href="#mark"/></svg>
+              </g>
+              <rect x="276" y="39" width="72" height="72" rx="18" fill="none" stroke="rgba(255,255,255,.3)" stroke-dasharray="5 6"/>
+              <rect class="mod--ring" x="276" y="39" width="72" height="72" rx="18" fill="none" stroke="#fff" stroke-width="2"/>
+              <g class="mod--yours">
+                <rect x="276" y="39" width="72" height="72" rx="18" fill="#e0e0e0"/>
+                <path d="M312 63v24M300 75h24" stroke="#0a0a0b" stroke-width="5" stroke-linecap="round" fill="none"/>
+              </g>
+            </svg>
+          </div>
+          <h3>Your own mods</h3>
+          <p>Drop them in right next to Origin's.</p>
+        </li>
+
+        <li class="bcard bcard--d" data-reveal style="--i:3">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+              <rect x="22" y="52" width="104" height="46" rx="23" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)"/>
+              <text x="74" y="81" text-anchor="middle" font-size="17">1.21.1</text>
+              <rect class="chip-in" x="274" y="52" width="104" height="46" rx="23" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.22)" stroke-width="1.5"/>
+              <text x="326" y="81" text-anchor="middle" font-size="17">1.20</text>
+              <path d="M134 75H266" stroke="rgba(255,255,255,.25)" stroke-dasharray="3 7" stroke-linecap="round" fill="none"/>
+              <g class="hop" style="--d:0"><rect x="136" y="66" width="18" height="18" rx="5" fill="#fff"/><rect x="141" y="72" width="8" height="6" rx="2" fill="#0a0a0b"/></g>
+              <g class="hop" style="--d:.35"><rect x="136" y="66" width="18" height="18" rx="5" fill="#e0e0e0"/><circle cx="145" cy="75" r="4" fill="none" stroke="#0a0a0b" stroke-width="2"/></g>
+              <g class="hop" style="--d:.7"><rect x="136" y="66" width="18" height="18" rx="5" fill="#c4c4c8"/><path d="M141 71h8M141 75h8M141 79h8" stroke="#0a0a0b" stroke-width="1.8" stroke-linecap="round"/></g>
+            </svg>
+          </div>
+          <h3>Switch versions</h3>
+          <p>Keybinds, mod settings and servers come with you.</p>
+        </li>
+
+        <li class="bcard bcard--e" data-reveal style="--i:4">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+              <path d="M16 40H384M16 75H384M16 110H384" stroke="rgba(255,255,255,.07)" fill="none"/>
+              <path class="trace" pathLength="1" d="M16 52L52 48L88 55L124 46L160 51L184 56L204 112L224 58L256 48L292 53L328 46L364 50L384 48" fill="none" stroke="#e8e8e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle class="found found--ring" cx="204" cy="112" r="8" fill="none" stroke="#fff" stroke-width="2"/>
+              <circle class="found" cx="204" cy="112" r="6" fill="#fff"/>
+              <g class="found"><rect x="222" y="98" width="88" height="30" rx="15" fill="#e0e0e0"/><text x="266" y="118" text-anchor="middle" font-size="14" style="fill:#0a0a0b">Found it</text></g>
+            </svg>
+          </div>
+          <h3>FPS Coach</h3>
+          <p>Finds what's causing your lag.</p>
+        </li>
+
+        <li class="bcard bcard--f" data-reveal style="--i:5">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+              <rect x="26" y="10" width="348" height="130" rx="14" fill="rgba(0,0,0,.35)" stroke="rgba(255,255,255,.14)"/>
+              <circle cx="44" cy="26" r="3.5" fill="rgba(255,255,255,.3)"/><circle cx="57" cy="26" r="3.5" fill="rgba(255,255,255,.18)"/><circle cx="70" cy="26" r="3.5" fill="rgba(255,255,255,.18)"/>
+              <g class="ln" style="--d:0"><rect x="46" y="42" width="64" height="8" rx="4" fill="rgba(255,255,255,.75)"/><rect x="118" y="42" width="96" height="8" rx="4" fill="rgba(255,255,255,.3)"/></g>
+              <g class="ln" style="--d:.25"><rect x="62" y="58" width="48" height="8" rx="4" fill="rgba(255,255,255,.3)"/><rect x="118" y="58" width="130" height="8" rx="4" fill="rgba(255,255,255,.5)"/></g>
+              <g class="ln" style="--d:.5"><rect x="62" y="74" width="100" height="8" rx="4" fill="rgba(255,255,255,.5)"/><rect x="170" y="74" width="60" height="8" rx="4" fill="rgba(255,255,255,.22)"/></g>
+              <g class="ln" style="--d:.75"><rect x="78" y="90" width="72" height="8" rx="4" fill="rgba(255,255,255,.3)"/><rect x="158" y="90" width="110" height="8" rx="4" fill="rgba(255,255,255,.65)"/></g>
+              <g class="ln" style="--d:1"><rect x="62" y="106" width="56" height="8" rx="4" fill="rgba(255,255,255,.5)"/><rect x="126" y="106" width="40" height="8" rx="4" fill="rgba(255,255,255,.22)"/><rect class="caret" x="174" y="104" width="6" height="12" rx="2" fill="#fff"/></g>
+            </svg>
+          </div>
+          <h3><a class="bcard__link" href="https://github.com/dozeyy/originclient" target="_blank" rel="noopener" aria-label="Public code: read the Origin source on GitHub (opens in a new tab)">Public code <span aria-hidden="true">&#8599;</span></a></h3>
+          <p>Read every line.</p>
+        </li>
+      </ul>
     </section>
 
     <!-- Player screenshots: hidden until site.js lists some (SCREENSHOTS). -->
@@ -140,9 +236,8 @@
   </main>
 
   <footer class="foot">
-    <a class="brand" href="#top" aria-label="Origin, back to top"><svg class="brand__mark"><use href="#mark"/></svg><svg class="brand__word"><use href="#wordmark"/></svg></a>
+    <a class="brand" href="#top" aria-label="Origin, back to top"><svg class="brand__mark"><use href="#mark"/></svg><span class="brand__word">Origin</span></a>
     <p>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft. Minecraft block textures © Mojang AB.</p>
-    <p class="foot__credits">Type: Monocraft and Inter (SIL OFL). 3D: three.js (MIT).</p>
     <nav><a href="store">Store</a><a href="terms">Terms &amp; Privacy</a><span>© 2026 Origin Client</span></nav>
   </footer>
 

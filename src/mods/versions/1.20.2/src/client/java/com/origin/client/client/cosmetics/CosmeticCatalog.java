@@ -113,8 +113,10 @@ public final class CosmeticCatalog {
 			ordered = List.copyOf(map.values());
 			loaded = true;
 		} catch (Throwable t) {
-			logOnce("catalog", "Origin cosmetics: couldn't read catalog.json; no cosmetics this session", t);
-			loaded = true;   // broken, not missing: don't retry every 5 seconds
+			// Not final: the first read often comes from the service's background thread while the
+			// game is still loading its resources, and a pack swapped out mid-read throws. Giving up
+			// here left the whole session with no cosmetics, so the next ask after RETRY_MS tries again.
+			logOnce("catalog", "Origin cosmetics: couldn't read catalog.json; will retry", t);
 		}
 	}
 
@@ -162,6 +164,12 @@ public final class CosmeticCatalog {
 
 	/** Parses a resource as JSON; null if it doesn't exist (a malformed file throws). */
 	private static JsonElement readJson(ResourceLocation file) throws Exception {
+		// No resource manager yet (the service thread asks very early in boot, before Minecraft has made
+		// one): count it as "missing" so the RETRY_MS retry picks the catalog up once resources exist.
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		if (mc == null || mc.getResourceManager() == null) {
+			return null;
+		}
 		Optional<Resource> res = Minecraft.getInstance().getResourceManager().getResource(file);
 		if (res.isEmpty()) {
 			return null;
