@@ -186,8 +186,8 @@ floating corner controls. In-game menus match this exactly.
 - One control, one job: no UI handler may mutate a setting other than its own.
 
 ## Current state (2026-10-18)
-- Latest release `launcher-v1.0.52`; `launcher-v1.0.53` (main @ 1c094fe0: cosmetics v2 + launch v2 +
-  smooth loading, #33) is green and waiting on its tag. Tag `origin/main` directly
+- Latest release `launcher-v1.0.53` (2026-10-18, main @ 1c094fe0: cosmetics v2 + launch v2 + smooth
+  loading, #33). Tag `origin/main` directly
   (`git tag launcher-v1.0.N origin/main`). Cloud sessions can't push tags (the git proxy drops
   every tag push), so Will pushes the tag from PowerShell.
 - Merged, awaiting Will's in-game pass: 26.1–26.3 and 1.8.9 back on Forge + OptiFine (#32);
