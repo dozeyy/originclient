@@ -68,6 +68,24 @@ Deliberately broken shaders (no depth margin, too-coarse pyramid level, one-pixe
 
 **Not yet proven.** Whether it makes the game faster. It saves vertex and fragment work on hidden terrain (caves, hills, towns), but costs a small compute pass. Gains are likely only when the GPU is the bottleneck. Measure with the frame-time graph; no FPS claims until then.
 
+## Launch journey (launcher → game, 1.21.1 first)
+Spec and timings: `docs/MOTION.md`. Durations are mirrored once each in `Theme/Spacing.xaml` and the mod's `StartupTransition`.
+- **Launcher intro:** on first open, the home mark's rings fan out from one line (560 ms) and the lockup and Play card settle in. It never delays input, runs once per launcher run, and is skipped when Windows animations are off.
+- **Play → scene:** the overlay rises with the mark growing into focus.
+  - Install steps with real counts fill the bar; everything else sweeps (no fake percentages).
+  - Stage text goes "Starting Minecraft" → "Loading Minecraft" once the window is up.
+  - Cancel works before the game starts (cancels) and after (stops the starting game).
+- **Handoff** (`Core/Launch/GameHandoff.cs` + the mod's `OriginHandoff`):
+  - A per-launch random token goes in as `-Dorigin.handoff=…`. The mod prints `origin-handoff <token> hello|loading|ready` to the stdout the launcher already captures. No socket, pipe or file.
+  - The scene lowers on the game's first Origin loading frame, and the game window is brought forward once, only if the launcher was the active window.
+  - The game is never hidden and the launcher never hides itself.
+  - Fallbacks: no hello 3 s after the window → old behaviour; no loading frame in 20 s → lower anyway; 90 s → ready. A crash or exit at any stage lowers the scene and shows the usual error.
+- **Loading → title:** the Origin loading screen dissolves into the title over 560 ms instead of holding for 2 s and hard-cutting.
+  - The title's mark settles and its buttons rise from that moment.
+  - Vanilla's 2 s blank fade-in is skipped, so the menu is clickable when the dissolve ends.
+  - This is a HEAD-cancel that runs only after vanilla's completion step, so vanilla's own end stays the safety net.
+- **Menu → world:** the first world frames fade out of the loading scene's charcoal over 320 ms. The fade is drawn over the HUD, so input is live from the first frame and error screens draw above it. It also plays for dimension changes and server joins.
+
 ## Performance
 No blind optimisations and no FPS claims. The stack (Sodium, Lithium, FerriteCore, ImmediatelyFast, ModernFix, Krypton) already covers what Lunar, Feather and Badlion ship. The new frame graph and 1% low are the measuring tools that should come first.
 
@@ -82,6 +100,9 @@ No blind optimisations and no FPS claims. The stack (Sodium, Lithium, FerriteCor
 - `python3 tools/packhub-tests/run.py --gson <gson.jar>`: **73 passed, 0 failed**. Covers file names, mcmeta, zips, search/URL building, the index, ordering, the installer (local HTTP server), the library scan and FrameStats.
 - `python3 tools/origin-render-tests/run.py`: **37 passed, 0 failed** (GPU culler on Mesa GL 4.5; downloads LWJGL itself).
 - **Not compiled against Minecraft**: Fabric/Mojang maven is 403 in the sandbox. Pushing the branch lets build-check CI compile it. The Origin Render glue was type-checked by javac against stubs of the exact Sodium 0.6.13 / Iris signatures.
+- `dotnet test src/OriginLauncher.Tests`: **358 passed** (about 30 new handshake and progress tests: stages, token spoofing, every fallback).
+- The launcher can't build its XAML in the sandbox (BG1002), so every launcher `.cs` was type-checked against generated XAML stubs: **0 errors**. CI builds it for real.
+- The new mod classes and mixins compile against stubs. Mixin field names (`LoadingOverlay.fadeOutStart/fadeIn/minecraft`, `TitleScreen.fadeInStart`) are only proven at mixin apply.
 - An independent review judged the game-side API names right. It flagged only `PackSelectionScreen.model` / `reload()` as "verify at mixin apply".
 
 ## Needs Will's in-game test (1.21.1, `runClient`)
@@ -98,12 +119,20 @@ No blind optimisations and no FPS claims. The stack (Sodium, Lithium, FerriteCor
    - Load a shaderpack: F3 says paused and the shaders look normal. Unload it: it resumes.
    - Compare FPS and the frame-time graph with it on and off at the same spot.
 
+7. Launch journey (launcher + 1.21.1):
+   - Open the launcher: the logo assembles once, quickly. Press Play: the scene appears at once and the bar only fills while files are downloading.
+   - When Minecraft's window opens, the launcher scene should lower as the Origin loading screen appears, with no blank or white gap.
+   - The loading screen should dissolve into the title, with buttons clickable straight away. Enter a singleplayer world and a server: each should fade in from dark, not pop.
+   - Also check fullscreen, F3+T (a quick dissolve, no title replay) and Cancel while Minecraft is starting.
+   - Check 1.8.9 or another version still launches as before (no handshake there, so the old timing applies).
+
 ## Main files
 - `src/mods/versions/1.21.1/src/client/java/com/origin/client/client/packs/*`
 - `mixin/PackSelectionScreenAccessor.java` + `originclient.client.mixins.json`
 - `OriginClientMod.java` (button + cleanup hook)
 - `hud/FrameStats.java`, `hud/HudElements.java`, `mixin/GameRendererFrameMixin.java`, `mods/Mods.java` (1.21.1 fork)
 - `tools/packhub-tests/`
+- Launch journey: `Core/Launch/GameHandoff.cs`, `StageProgress.cs`, `UI/Pages/HomePage.xaml(.cs)`, `UI/Controls/LaunchLoadingOverlay.xaml.cs`, `OriginMark.xaml(.cs)`; mod `OriginHandoff.java`, `StartupTransition.java`, `mixin/loading/LoadingOverlayRevealMixin.java`, `TitleScreenFadeMixin.java`, `render/OriginScreenRenderer.java`, `mixin/GuiHudMixin.java`, `mixin/TitleScreenMixin.java`
 - `render/terrain/*` (OriginRender, TerrainCuller, TerrainShaders), `mixin/Sodium*`, `mixin/DebugScreenOriginRenderMixin.java`, `tools/origin-render-tests/`
 
 ## Next

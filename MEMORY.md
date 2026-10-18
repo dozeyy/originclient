@@ -5173,3 +5173,11 @@ Built for 1.21.1 only. Full detail is in `DEVELOPMENT_REPORT.md`. Nothing is in 
 - **Licensing**: written from scratch. Not forked from Sodium (PolyForm Shield), Nvidium (NVIDIA-only, off with shaders) or Voxy (ARR).
 - **Unverified**: Gradle build, runClient mixin apply, any FPS gain.
 - **Next if it measures well**: occlusion-cull entities and block entities against the same pyramid; replace the 4096-slot hint hash with region ids at high render distance.
+
+## 2026-10-18 — Launch journey (launcher → game handshake + transitions, 1.21.1)
+- **Handshake**: launcher passes `-Dorigin.handoff=<32-hex token>` (last JVM arg); mod `OriginHandoff` (preLaunch entrypoint + END_CLIENT_TICK) logs `origin-handoff <token> hello|loading|ready` via slf4j → stdout, which `StartWithLifecycleCapture` already reads. No socket/pipe/file. `Core/Launch/GameHandoff.cs` is pure + unit-tested; fallbacks 3 s no-hello = old build, 20 s lower scene, 90 s ready.
+- **Only 1.21.1 speaks it** so far; other versions use the fallback (= old behaviour). Porting = OriginHandoff + preLaunch entry + the renderLoading `loading()` call per module.
+- **Loading → title**: `LoadingOverlayRevealMixin` HEAD-cancels ONLY after `fadeOutStart` is set (completion already ran), 560 ms dissolve via `OriginScreenRenderer.shade()`/`layerAlpha` (all shader colours in that file go through shade). `TitleScreenFadeMixin` skips vanilla's 2 s fade (vanilla draws no widgets/logo for its first second).
+- **World entry**: `StartupTransition.drawWorldEntry` at GuiHudMixin RETURN, armed by `renderLoadingScene0`.
+- Launcher XAML can't build in the sandbox (BG1002); type-check via stubs from x:Name (scratch `wpfcheck/gen.py`).
+- **Unverified**: mixin apply of the new shadows; the visual timing in-game.
