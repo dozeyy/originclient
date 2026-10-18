@@ -78,7 +78,9 @@
 		"SodiumShaderChunkRendererAccessor",
 		"SodiumDefaultChunkRendererAccessor",
 		"SodiumChunkRendererMixin",
-		"DebugScreenOriginRenderMixin"
+		"DebugScreenOriginRenderMixin",
+		"OptionsAutosaveMixin",
+		"OptionsSetKeyMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
