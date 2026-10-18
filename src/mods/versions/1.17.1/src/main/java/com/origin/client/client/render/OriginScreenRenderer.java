@@ -246,6 +246,9 @@ public final class OriginScreenRenderer {
 				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
 		loadFillAt = scene;
 
+		if (drive) {
+			warmTitle();
+		}
 		// No orbit rings here (Will 2026-10-18): the moving mark is the scene.
 		guiGraphics.fill(0, 0, w, h, OriginTheme.BG);
 		drawGrain(guiGraphics, w, h);
@@ -275,6 +278,33 @@ public final class OriginScreenRenderer {
 		// same reason). The animated wordmark + bar carry the scene — which is
 		// also the original mock's look. Corner brackets on top of everything.
 		drawCornerBrackets(guiGraphics, w, h);
+	}
+
+	// The main menu's first frame was its slowest, and it lands exactly on the
+	// hand-off (dev-shots: 4x a normal frame, the loading mark frozen meanwhile).
+	// Each kind of draw the menu makes costs extra the first time: its textures
+	// decoded and uploaded, the graphics driver building that shader. The loading
+	// screen pays the texture decodes up front instead, one step per frame. (This
+	// version draws the GUI differently from 1.21.1, so only the decodes are warmed,
+	// not draws: nothing here can ever show on screen.)
+	private static final int WARM_ALL = 0b11;
+	private static int warmed;   // bit set of the warm-up steps done
+
+	private static void warmTitle() {
+		if (warmed == WARM_ALL) {
+			return;
+		}
+		try {
+			if ((warmed & 1) == 0) {
+				warmed |= 1;
+				com.origin.client.client.gui.ModIcons.has("@title-singleplayer");   // decodes the icon atlases
+				return;
+			}
+			warmed |= 2;
+			com.origin.client.client.gui.OriginUi.ready();   // decodes the panel/switch/logo textures
+		} catch (Throwable t) {
+			warmed = WARM_ALL;   // a warm-up is only an optimisation: never retried, never fatal
+		}
 	}
 
 	/**
