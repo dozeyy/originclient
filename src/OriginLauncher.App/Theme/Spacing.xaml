@@ -26,6 +26,11 @@
     <Duration x:Key="Motion.Release">0:0:0.064</Duration>
     <Duration x:Key="Motion.Scene">0:0:0.18</Duration>
     <Duration x:Key="Motion.Exit">0:0:0.12</Duration>
+    <!-- The launch journey (docs/MOTION.md, mirrored in the mod's
+         StartupTransition): the mark assembling at startup, and the loading
+         scene handing over to the game. -->
+    <Duration x:Key="Motion.Intro">0:0:0.56</Duration>
+    <Duration x:Key="Motion.Handoff">0:0:0.32</Duration>
 
     <!-- Hard-edged depth reads like a Minecraft button, without blur work. -->
     <DropShadowEffect x:Key="Shadow.Primary"
