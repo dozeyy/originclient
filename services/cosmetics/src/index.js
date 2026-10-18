@@ -15,7 +15,9 @@
 //            Bearer <token>` from Origin sign-in (/v1/auth, identity v2:
 //            Mojang-signed proofs checked offline, mojang.js). No Microsoft
 //            or Mojang token ever reaches us.
-//  3. Origin social (friends, chat, parties, players online): social.js and
+//  3. Free store codes Will makes (codes.js): a bag of cosmetics, or Origin+
+//     for good, with no card.
+//  4. Origin social (friends, chat, parties, players online): social.js and
 //     party.js, contract in docs/SOCIAL.md. Its upkeep runs on the cron.
 //
 // Secrets/bindings (wrangler.toml + Cloudflare dashboard, never the repo):
@@ -29,6 +31,7 @@ import { CATALOG } from './catalog.gen.js';
 import { handleSocial, socialCleanup, presenceSweep, session } from './social.js';
 import { keysDiag } from './mojang.js';
 import { catalog, checkout, plusCheckout, webhook, isMember, membersAmong, PLUS_CAPE } from './stripe.js';
+import { makeCodes, redeem } from './codes.js';
 
 export { normUuid, slotOf };
 
@@ -114,6 +117,8 @@ export async function handle(request, env) {
     if (request.method === 'POST' && url.pathname === '/v1/store/checkout') return await checkout(env, await request.json().catch(() => null));
     if (request.method === 'POST' && url.pathname === '/v1/plus/checkout') return await plusCheckout(env, await request.json().catch(() => null));
     if (request.method === 'POST' && url.pathname === '/v1/stripe/webhook') return await webhook(request, env);
+    if (request.method === 'POST' && url.pathname === '/v1/store/redeem') return await redeem(env, await request.json().catch(() => null));
+    if (request.method === 'POST' && url.pathname === '/v1/admin/codes') return await makeCodes(request, env, await request.json().catch(() => null));
     if (request.method === 'GET' && url.pathname === '/') return json({ service: 'origin-cosmetics', ok: true });
     // How many of Mojang's keys the service holds (counts only), checked after every deploy.
     if (request.method === 'GET' && url.pathname === '/v1/diag/keys') return json(await keysDiag(env));

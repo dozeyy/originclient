@@ -215,14 +215,14 @@ public final class FpsCoach {
 
 		if (result != null && !resultOpened && mc.gui.screen() == null && !inCombat(now)) {
 			resultOpened = true;
-			mc.setScreenAndShow(new FpsCoachScreen(null));
+			mc.gui.setScreen(new FpsCoachScreen(null));
 		}
 	}
 
 	private static void handleKey(Minecraft mc) {
 		boolean down = Mods.on(ID) && mc.gui.screen() == null && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "key"));
 		if (down && !keyWasDown) {
-			mc.setScreenAndShow(new FpsCoachScreen(null));
+			mc.gui.setScreen(new FpsCoachScreen(null));
 		}
 		keyWasDown = down;
 	}

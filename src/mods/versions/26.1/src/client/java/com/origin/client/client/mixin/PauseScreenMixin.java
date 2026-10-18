@@ -42,13 +42,13 @@ public abstract class PauseScreenMixin extends Screen {
 		final Button original = target;
 		final Screen self = this;
 		this.removeWidget(original);
-		Button guarded = Button.builder(original.getMessage(), b -> this.minecraft.setScreenAndShow(new ConfirmScreen(
+		Button guarded = Button.builder(original.getMessage(), b -> this.minecraft.setScreen(new ConfirmScreen(
 				confirmed -> {
 					if (confirmed) {
 						// 1.21.11: onPress takes the triggering input; synthesize an Enter press.
 						original.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
 					} else {
-						this.minecraft.setScreenAndShow(self);
+						this.minecraft.setScreen(self);
 					}
 				},
 				Component.literal("Leave this world?"),

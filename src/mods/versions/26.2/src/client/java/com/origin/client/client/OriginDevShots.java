@@ -164,7 +164,7 @@ public final class OriginDevShots {
 			if (mc.gui.overlay() == null && mc.gui.screen() != null && !(mc.gui.screen() instanceof TitleScreen)
 					&& !(mc.gui.screen() instanceof OriginModMenuScreen)) {
 				mc.options.onboardAccessibility = false;
-				mc.setScreenAndShow(new TitleScreen());
+				mc.gui.setScreen(new TitleScreen());
 				return;
 			}
 			if (mc.gui.overlay() == null && mc.gui.screen() instanceof TitleScreen) {
@@ -211,7 +211,7 @@ public final class OriginDevShots {
 				}
 				case 1 -> {
 					// Fresh screens so entrance animations replay and get captured settled.
-					mc.setScreenAndShow(s.kind().open());
+					mc.gui.setScreen(s.kind().open());
 					mc.framebufferSizeChanged();
 					phase = 2;
 					nextAt = now + (s.kind() == Kind.TITLE ? 1900 : 900);

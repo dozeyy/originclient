@@ -95,7 +95,7 @@ public final class Quickplay {
 		boolean open = active && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "key"));
 		boolean again = active && OriginClientMod.isRawKeyDown(Mods.keyCode(ID, "requeueKey"));
 		if (open && !openWasDown) {
-			mc.setScreenAndShow(new com.origin.client.client.gui.QuickplayScreen());
+			mc.setScreen(new com.origin.client.client.gui.QuickplayScreen());
 		} else if (again && !againWasDown) {
 			if (lastId != null) {
 				run(mc, "play " + lastId, lastLabel);

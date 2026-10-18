@@ -81,7 +81,7 @@ public final class MinimapHud {
 			stepZoom(mc, -1);
 		}
 		if (free && map && !mapKeyWasDown && mc.player != null) {
-			mc.setScreenAndShow(new MinimapScreen());
+			mc.gui.setScreen(new MinimapScreen());
 		}
 		zoomInWasDown = in;
 		zoomOutWasDown = out;

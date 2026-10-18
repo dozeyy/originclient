@@ -113,14 +113,14 @@ public final class IrisBridge {
 		try {
 			Class<?> cls = Class.forName("net.irisshaders.iris.gui.screen.ShaderPackScreen");
 			Screen screen = (Screen) cls.getConstructor(Screen.class).newInstance(mc.screen);
-			mc.setScreenAndShow(screen);
+			mc.setScreen(screen);
 			return true;
 		} catch (Throwable t) {
 			try {
 				Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
 				Object inst = api.getMethod("getInstance").invoke(null);
 				Object screen = api.getMethod("openMainIrisScreenObj", Object.class).invoke(inst, mc.screen);
-				mc.setScreenAndShow((Screen) screen);
+				mc.setScreen((Screen) screen);
 				return true;
 			} catch (Throwable t2) {
 				com.origin.client.OriginClient.LOGGER.warn("Could not open Iris screen", t2);

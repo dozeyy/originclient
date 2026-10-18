@@ -99,6 +99,8 @@ const state = {
   worn: {},                    // slot -> item id: what the fitting room wears (one item per slot)
   themeView: true,             // a worn theme shows its menu preview instead of the player
   busy: false,
+  codeBusy: false,
+  redeemed: '',                // after a bag code: the bag's note says what arrived, until the bag changes
 };
 let room = null;
 
@@ -252,6 +254,60 @@ async function checkout() {
     state.busy = false;
     // Service errors are already sentences for the buyer; a network failure isn't.
     renderBag(err instanceof TypeError ? 'Couldn’t reach checkout. Nothing was charged; please try again.' : err.message);
+  }
+}
+
+// A free code Will made (services/cosmetics/src/codes.js): everything in the
+// bag, or Origin+ for good. No Stripe, so it works whether or not checkout is
+// open; the service checks the code and gives the items in the same step.
+async function redeemCode() {
+  if (state.codeBusy) return;
+  const input = $('#store-code');
+  const code = input.value.trim();
+  const say = (text, kind = '') => {
+    const note = $('[data-code-note]');
+    note.textContent = text;
+    note.classList.toggle('is-error', kind === 'error');
+    note.classList.toggle('is-done', kind === 'done');
+  };
+  if (!canCheckout()) {
+    say('Type the Minecraft name this is for first.', 'error');
+    $('#mc-name').focus();
+    return;
+  }
+  if (!code) { say('Type your code.', 'error'); input.focus(); return; }
+  if (!state.api) { say('The store can\u2019t be reached right now. Please try again in a minute.', 'error'); return; }
+  state.codeBusy = true;
+  $('[data-code-go]').disabled = true;
+  say('Checking your code\u2026');
+  const player = state.player;
+  try {
+    const r = await fetch(`${state.api}/v1/store/redeem`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uuid: player.uuid, name: player.name, code, items: state.bag }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'That code can\u2019t be used right now. Please try again in a minute.');
+    input.value = '';
+    if (j.plus) {
+      state.member = true;
+      say(`Origin+ is on ${player.name} for good: the cape, badge and menu themes are in Cosmetics in game.${j.paying ? ' You still have a paid membership: cancel it under \u201cManage or cancel\u201d so it stops billing.' : ''}`, 'done');
+    } else {
+      const got = new Set(j.items);
+      state.owned = new Set([...(state.owned || []), ...got]);
+      state.bag = state.bag.filter(id => !got.has(id));
+      state.redeemed = `Free with your code: ${[...got].map(id => byId.get(id)?.name || id).join(', ')}.`;
+      say(`Done! ${got.size === 1 ? 'It\u2019s' : `All ${got.size} are`} on ${player.name} now: open Cosmetics in game to wear ${got.size === 1 ? 'it' : 'them'}.`, 'done');
+    }
+    save();
+    renderGrid(); renderBag(); renderPlus();
+    checkMember();
+  } catch (err) {
+    say(err instanceof TypeError ? 'Couldn\u2019t reach the store. Please try again.' : err.message, 'error');
+  } finally {
+    state.codeBusy = false;
+    $('[data-code-go]').disabled = false;
   }
 }
 
@@ -459,7 +515,7 @@ function renderBag(error = '') {
   note.textContent = error || (!open
     ? 'The store opens soon. Try everything on in the meantime.'
     : state.catalog === 'error' ? 'Checkout can\u2019t be reached right now. Please try again in a minute.'
-    : !items.length ? 'Add a cosmetic to get started.'
+    : !items.length ? state.redeemed || 'Add a cosmetic to get started.'
     : blocked.length ? `${blocked[0].name} isn\u2019t on sale yet. Remove it to check out.`
     : !canCheckout() ? 'Type the Minecraft name these are for.'
     : state.catalog === 'loading' ? 'Loading prices…'
@@ -584,6 +640,7 @@ function syncFit(focus) {
 }
 
 function toggleBag(id) {
+  state.redeemed = '';
   const at = state.bag.indexOf(id);
   if (at >= 0) state.bag.splice(at, 1);
   else {
@@ -708,6 +765,8 @@ async function boot() {
     if (b) toggleBag(b.dataset.remove);
   });
   $('[data-checkout]').addEventListener('click', checkout);
+  $('[data-code-go]').addEventListener('click', redeemCode);
+  $('#store-code').addEventListener('keydown', e => { if (e.key === 'Enter') redeemCode(); });
   $('[data-bagbar] button').addEventListener('click', () => {
     $('#checkout').scrollIntoView({ behavior: smoothScroll(), block: 'start' });
     if (!state.name) setTimeout(() => input.focus({ preventScroll: true }), 400);

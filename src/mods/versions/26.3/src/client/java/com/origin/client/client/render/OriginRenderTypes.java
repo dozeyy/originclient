@@ -39,8 +39,14 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
  * doesn't arise. Outside a frame (no collector) draw() just discards.
  *
  * <p>OVERLAY_QUADS = vanilla DEBUG_QUADS (POSITION_COLOR quads, translucent) with
- * no culling, a LEQUAL depth test, no depth write, and the view-offset layering
- * vanilla's outline uses, so faces lying ON a block win the depth tie.
+ * no culling, a closer-or-equal depth test, no depth write, and the view-offset
+ * layering vanilla's outline uses, so faces lying ON a block win the depth tie.
+ *
+ * <p>26.3 DEPTH IS REVERSED-Z: the depth buffer clears to 0.0 (far) and nearer
+ * fragments have LARGER depth, so "closer or equal" is GREATER_THAN_OR_EQUAL --
+ * what every vanilla 26.3 world pipeline uses (e.g. LINES_DEPTH_BIAS). The
+ * 26.2-derived LESS_THAN_OR_EQUAL passed only for fragments BEHIND the terrain:
+ * the outline's front edges vanished and its back edges showed through the block.
  */
 public final class OriginRenderTypes {
 	private OriginRenderTypes() {
@@ -49,12 +55,12 @@ public final class OriginRenderTypes {
 	private static RenderType overlay;
 	private static boolean overlayBroken;
 
-	/** Translucent, LEQUAL-tested, non-depth-writing, unculled POSITION_COLOR quads (null if unavailable). */
+	/** Translucent, depth-tested (reversed-Z GEQUAL), non-depth-writing, unculled POSITION_COLOR quads (null if unavailable). */
 	public static RenderType overlayQuads() {
 		if (overlay == null && !overlayBroken && RenderPipelines.DEBUG_QUADS != null) {
 			try {
 				RenderPipeline p = OriginShaders.derive(RenderPipelines.DEBUG_QUADS, "pipeline/overlay_quads", null,
-						b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false)));
+						b -> b.withCull(false).withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false)));
 				overlay = RenderType.create("originclient_overlay_quads",
 						RenderSetup.builder(p).setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING).createRenderSetup());
 			} catch (Throwable t) {
