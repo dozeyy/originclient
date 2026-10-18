@@ -320,8 +320,8 @@ public class OriginClientMod implements ClientModInitializer {
 	private void onClientStopping(Minecraft client) {
 		try {
 			// a slider mid-drag or a half-typed text field in the mod menu
-			if (client.screen instanceof com.origin.client.client.gui.OriginModMenuScreen) {
-				((com.origin.client.client.gui.OriginModMenuScreen) client.screen).commitPendingEdits();
+			if (client.gui.screen() instanceof com.origin.client.client.gui.OriginModMenuScreen) {
+				((com.origin.client.client.gui.OriginModMenuScreen) client.gui.screen()).commitPendingEdits();
 			}
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Origin: failed to keep the mod menu's last edit on exit", t);

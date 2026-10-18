@@ -83,7 +83,7 @@
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"OptionsAutosaveMixin",
-		"OptionsSetKeyMixin"
+		"KeyRebindMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

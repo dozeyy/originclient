@@ -80,7 +80,7 @@
 		"HypixelBedwarsSoundMixin",
 		"ChatReceiveMixin",
 		"OptionsAutosaveMixin",
-		"OptionsSetKeyMixin"
+		"KeyRebindMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

@@ -80,7 +80,7 @@
 		"SodiumChunkRendererMixin",
 		"DebugScreenOriginRenderMixin",
 		"OptionsAutosaveMixin",
-		"OptionsSetKeyMixin"
+		"KeyRebindMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

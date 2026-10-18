@@ -81,7 +81,7 @@
 		"CosmeticsPauseMixin",
 		"PackSelectionScreenAccessor",
 		"OptionsAutosaveMixin",
-		"OptionsSetKeyMixin"
+		"KeyRebindMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
