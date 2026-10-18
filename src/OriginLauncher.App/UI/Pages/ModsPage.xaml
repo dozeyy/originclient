@@ -7,12 +7,12 @@
 
     <!-- MainWindow reserves the compact navigation rail. Scrollbar stays hidden
          while wheel scrolling remains available. -->
-    <ScrollViewer Margin="28,20,36,24" VerticalScrollBarVisibility="Hidden">
+    <ScrollViewer Margin="32,16,32,24" VerticalScrollBarVisibility="Hidden">
         <ScrollViewer.Resources>
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
         </ScrollViewer.Resources>
 
-        <StackPanel Width="720" HorizontalAlignment="Left">
+        <StackPanel Width="720" HorizontalAlignment="Center">
 
             <!-- Header -->
             <Grid Margin="0,0,0,4">
@@ -29,7 +29,7 @@
                 </Border>
             </Grid>
             <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
-                    CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,18"/>
+                    CornerRadius="1" HorizontalAlignment="Left" Margin="0,8,0,16"/>
 
             <!-- Drop zone: drag .jar files in, or click to open the mods folder -->
             <Border x:Name="DropZone" AllowDrop="True" Cursor="Hand"
@@ -59,15 +59,15 @@
                        Visibility="Collapsed" Margin="0,0,0,12"/>
 
             <!-- Your mods -->
-            <TextBlock Text="Your mods" Style="{StaticResource Text.H2}" Margin="2,0,0,10"/>
+            <TextBlock Text="Your mods" Style="{StaticResource Text.H2}" Margin="0,0,0,8"/>
             <StackPanel x:Name="UserModsPanel"/>
             <TextBlock x:Name="UserEmptyState"
                        Text="No mods"
-                       Style="{StaticResource Text.BodyDim}" Margin="2,2,0,0"/>
+                       Style="{StaticResource Text.BodyDim}" Margin="0,0,0,0"/>
 
             <!-- Built-in (Origin-managed, read-only) -->
-            <StackPanel x:Name="BuiltInSection" Visibility="Collapsed" Margin="0,20,0,0">
-                <TextBlock Text="Built-in" Style="{StaticResource Text.H2}" Margin="2,0,0,10"/>
+            <StackPanel x:Name="BuiltInSection" Visibility="Collapsed" Margin="0,24,0,0">
+                <TextBlock Text="Built-in" Style="{StaticResource Text.H2}" Margin="0,0,0,8"/>
                 <StackPanel x:Name="BuiltInPanel"/>
             </StackPanel>
 

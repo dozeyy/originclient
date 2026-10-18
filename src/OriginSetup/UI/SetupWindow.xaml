@@ -212,7 +212,7 @@
                 <!-- ============ PROBLEM ============ -->
                 <Grid x:Name="ProblemPage" Visibility="Collapsed">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="540">
-                        <Border Width="48" Height="48" CornerRadius="2" BorderThickness="2" HorizontalAlignment="Center"
+                        <Border Width="48" Height="48" CornerRadius="{StaticResource Radius.Row}" BorderThickness="2" HorizontalAlignment="Center"
                                 BorderBrush="{StaticResource Brush.Warning}" Margin="0,0,0,24">
                             <TextBlock Text="!" FontFamily="{StaticResource Font.Display}" FontSize="24" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Warning}" HorizontalAlignment="Center"

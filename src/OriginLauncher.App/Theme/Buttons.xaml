@@ -5,7 +5,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-3" CornerRadius="2" BorderThickness="2"
+                    <Border Margin="-3" CornerRadius="{StaticResource Radius.Focus}" BorderThickness="2"
                             BorderBrush="{StaticResource Brush.Accent}" Opacity="0.9"/>
                 </ControlTemplate>
             </Setter.Value>
@@ -178,7 +178,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Row}"
+                            CornerRadius="{StaticResource Radius.Control}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter Margin="{TemplateBinding Padding}"
                                           HorizontalAlignment="Center"
@@ -390,7 +390,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Radius.Row}"
+                            CornerRadius="{StaticResource Radius.Control}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter Margin="{TemplateBinding Padding}"
                                           HorizontalAlignment="Center"

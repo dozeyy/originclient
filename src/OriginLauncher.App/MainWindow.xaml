@@ -41,7 +41,7 @@
         <Grid Background="Transparent" MouseLeftButtonDown="RootGrid_MouseLeftButtonDown">
 
             <!-- The page canvas clears the compact app rail and title bar. -->
-            <ContentControl x:Name="PageHost" Margin="72,58,0,0" ClipToBounds="True">
+            <ContentControl x:Name="PageHost" Margin="80,58,0,0" ClipToBounds="True">
                 <ContentControl.RenderTransform>
                     <TranslateTransform x:Name="PageTransform"/>
                 </ContentControl.RenderTransform>
@@ -50,7 +50,7 @@
             <!-- Top-left: a deterministic vector lockup, visible on frame one
                  without waiting for the embedded display font to resolve. -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top"
-                        Margin="20,16,0,0">
+                        Margin="16,18,0,0">
                 <controls:OriginMark Width="24" Height="24" VerticalAlignment="Center"/>
                 <Path Style="{StaticResource Brand.Wordmark}"
                       Width="80" Height="16" Margin="10,0,0,0" VerticalAlignment="Center"
@@ -111,10 +111,10 @@
 
             <!-- Compact inventory-style navigation rail: 44px targets, a
                  block edge, and one emerald selected-state marker. -->
-            <Border Width="56" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0"
+            <Border Width="56" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0"
                     Background="{StaticResource Brush.PanelGlass}"
                     BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                    CornerRadius="2" Padding="6,8">
+                    CornerRadius="{StaticResource Radius.Row}" Padding="6,8">
                 <StackPanel Orientation="Vertical">
                     <ToggleButton x:Name="NavHome" Style="{StaticResource Button.NavItem}"
                                   Checked="NavHome_Checked" Unchecked="Nav_Unchecked" Width="44" Height="44" Padding="0"

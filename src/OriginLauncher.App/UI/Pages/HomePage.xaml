@@ -18,7 +18,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="36,12,40,40">
+    <Grid Margin="40,16,40,40">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1.06*"/>
             <ColumnDefinition Width="0.94*"/>
@@ -49,7 +49,7 @@
                     CornerRadius="{StaticResource Radius.Dialog}" Effect="{StaticResource Shadow.Card}">
                 <StackPanel>
                     <Button x:Name="VersionButton" Style="{StaticResource Button.Secondary}"
-                            Height="66" Margin="0,0,0,12" Padding="16,10"
+                            Height="66" Margin="0,0,0,16" Padding="16,10"
                             HorizontalContentAlignment="Stretch" Click="VersionButton_Click"
                             AutomationProperties.Name="Choose Minecraft version">
                         <Grid>
@@ -60,7 +60,7 @@
                         </Grid>
                     </Button>
 
-                    <Border Margin="0,0,0,18" Padding="16,13" Background="{StaticResource Brush.Card}"
+                    <Border Margin="0,0,0,16" Padding="16,13" Background="{StaticResource Brush.Card}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                             CornerRadius="{StaticResource Radius.Control}">
                         <Grid x:Name="ExternalModsRow">
@@ -108,7 +108,7 @@
                          LEFT ("Ready", "Sign in to play", errors), and on the
                          RIGHT how many people are on Origin right now (hidden
                          until the count arrives, and whenever it can't). -->
-                    <Grid Margin="0,17,0,0">
+                    <Grid Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -136,12 +136,12 @@
                 </StackPanel>
             </Border>
 
-            <controls:PromoBanner x:Name="PromoBanner" Margin="0,12,0,0"/>
+            <controls:PromoBanner x:Name="PromoBanner" Margin="0,16,0,0"/>
         </StackPanel>
 
         <!-- Version picker sits above Home content but below the launch overlay
              so a launch that starts while it's (somehow) open still covers it. -->
-        <controls:VersionSelectOverlay Grid.ColumnSpan="2" x:Name="VersionOverlay" Margin="-36,-12,-40,-40"/>
-        <controls:LaunchLoadingOverlay Grid.ColumnSpan="2" x:Name="LoadingOverlay" Margin="-36,-12,-40,-40"/>
+        <controls:VersionSelectOverlay Grid.ColumnSpan="2" x:Name="VersionOverlay" Margin="-40,-16,-40,-40"/>
+        <controls:LaunchLoadingOverlay Grid.ColumnSpan="2" x:Name="LoadingOverlay" Margin="-40,-16,-40,-40"/>
     </Grid>
 </UserControl>

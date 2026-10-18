@@ -10,7 +10,8 @@
 
     <!-- Self-contained styling: literal colours and system fonts only (Segoe UI, Consolas), no
          theme resources, so a crash surface renders even if the theme is what broke.
-         Each hex mirrors a Theme/Colors.xaml token (keep them in step by hand):
+         Each hex mirrors a Theme/Colors.xaml token (keep them in step by hand); corner radii mirror
+         Radius.Control (4, buttons) and Radius.Card (6, boxes) in Theme/Spacing.xaml:
          #FF0E1110 Color.Bg, #FFF1E9D2 Color.Text, #FFB8B5A6 Color.TextDim, #FF8C9187 Color.TextMuted,
          #FF1D2420 Color.Card, #FF27302A Color.CardAlt, #FF121614 Color.Field, #FF2E3B33 Color.SoftStroke,
          #FF4E705C Color.Stroke, #FF5FD09B Color.Accent, #FF83E2B5 Color.AccentHover, #FF0A1710 Color.TextOnAccent. -->
@@ -27,7 +28,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" SnapsToDevicePixels="True">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -47,7 +48,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" SnapsToDevicePixels="True">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -84,13 +85,13 @@
 
         <!-- One row per implicated mod; hidden when the culprit is unknown. -->
         <Border Grid.Row="2" x:Name="CulpritPanel" Margin="0,14,0,0" Background="#FF121614"
-                BorderBrush="#FF4E705C" BorderThickness="1" CornerRadius="2" Padding="14"
+                BorderBrush="#FF4E705C" BorderThickness="1" CornerRadius="6" Padding="14"
                 Visibility="Collapsed">
             <StackPanel x:Name="CulpritList"/>
         </Border>
 
         <Border Grid.Row="3" Margin="0,12,0,0" Background="#FF121614" BorderBrush="#FF4E705C"
-                BorderThickness="1" CornerRadius="2">
+                BorderThickness="1" CornerRadius="6">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                      Background="Transparent" Foreground="#FFB8B5A6" BorderThickness="0"
                      FontFamily="Consolas" FontSize="11" Padding="14"

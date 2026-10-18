@@ -12,7 +12,7 @@
              which a Border+MouseLeftButtonUp was not. The item chrome is stripped;
              the DataTemplate paints the whole card. -->
         <Style x:Key="CardItem" TargetType="ListBoxItem">
-            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Margin" Value="8"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -89,7 +89,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
             <Setter Property="Padding" Value="9,5"/>
-            <Setter Property="Margin" Value="0,0,7,0"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
         </Style>
 
         <!-- Version dropdown entry: the plain version string ("1.20.4"). -->
@@ -102,14 +102,14 @@
         <Grid.RenderTransform>
             <TranslateTransform x:Name="OverlayTranslate"/>
         </Grid.RenderTransform>
-        <Grid Margin="36,24,40,32">
+        <Grid Margin="40,24,40,32">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Grid Grid.Row="0" Margin="8,0,8,18">
+            <Grid Grid.Row="0" Margin="8,0,8,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -182,7 +182,7 @@
                 </ScrollViewer>
 
                 <!-- Right: the selected family's detail -->
-                <Grid Grid.Column="1" x:Name="DetailPanel" Margin="32,4,0,0">
+                <Grid Grid.Column="1" x:Name="DetailPanel" Margin="32,0,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -197,7 +197,7 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Smaller, crisp hero image -->
-                        <Border Grid.Column="0" Width="360" Height="225" CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True">
+                        <Border Grid.Column="0" Width="320" Height="200" CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True">
                             <Border.Background>
                                 <ImageBrush ImageSource="{Binding ImagePath}" Stretch="UniformToFill"/>
                             </Border.Background>
@@ -205,21 +205,22 @@
                         </Border>
 
                         <!-- Headline info -->
-                        <StackPanel Grid.Column="1" Margin="24,4,0,0" VerticalAlignment="Top">
+                        <StackPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Top">
                             <TextBlock Text="{Binding Tagline}" Style="{StaticResource Text.Eyebrow}"
                                        Foreground="{StaticResource Brush.TextDim}"/>
-                            <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H1}" Margin="0,2,0,0"/>
+                            <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H1}" Margin="0,4,0,0"
+                                       TextWrapping="Wrap" TextTrimming="None"/>
                             <TextBlock x:Name="FactsText" Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <WrapPanel Margin="0,16,0,0">
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="ORIGIN UI" Style="{StaticResource Text.Eyebrow}"/></Border>
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="PERFORMANCE" Style="{StaticResource Text.Eyebrow}"/></Border>
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="SHADERS" Style="{StaticResource Text.Eyebrow}"/></Border>
-                            </StackPanel>
+                            </WrapPanel>
                         </StackPanel>
                     </Grid>
 
                     <!-- Description -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,22,0,0">
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,24,0,0">
                         <ScrollViewer.Resources>
                             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
                         </ScrollViewer.Resources>
@@ -231,7 +232,7 @@
                     </ScrollViewer>
 
                     <!-- Actions -->
-                    <StackPanel Grid.Row="2" Margin="0,20,0,0">
+                    <StackPanel Grid.Row="2" Margin="0,24,0,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>

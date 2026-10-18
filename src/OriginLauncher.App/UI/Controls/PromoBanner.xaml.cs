@@ -803,7 +803,8 @@ public partial class PromoBanner : UserControl
     // The card's rounded rect (inside its 1 px border), so zoomed art stays inside.
     private void ClipLayers()
     {
-        var r = ((CornerRadius)FindResource("Radius.Card")).TopLeft;
+        // One pixel inside the card border, so the clip follows the rounded frame without a gap.
+        var r = Math.Max(0, ((CornerRadius)FindResource("Radius.Card")).TopLeft - 1);
         Layers.Clip = new RectangleGeometry(new Rect(Layers.RenderSize), r, r);
     }
 
