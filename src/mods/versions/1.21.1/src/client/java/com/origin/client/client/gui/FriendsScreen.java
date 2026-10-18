@@ -127,7 +127,6 @@ public class FriendsScreen extends OriginWindow {
 	private record Msg(String from, String name, String text, long at, boolean pending) {
 	}
 
-	private String chatKey = "";
 	private List<ChatRow> chatRows = List.of();
 	private float chatTotal = 0;
 
@@ -501,6 +500,12 @@ public class FriendsScreen extends OriginWindow {
 			}
 			for (Request r : s.incoming()) {
 				anyMatch |= nz(r.name()).toLowerCase(Locale.ROOT).contains(q);
+			}
+			for (Request r : s.outgoing()) {
+				anyMatch |= nz(r.name()).toLowerCase(Locale.ROOT).contains(q);
+			}
+			for (PartyInvite i : s.invites()) {
+				anyMatch |= nz(i.name()).toLowerCase(Locale.ROOT).contains(q);
 			}
 		}
 		// 1-2 character names can be real, but offering "Add" while a friend matches is just noise
@@ -907,12 +912,12 @@ public class FriendsScreen extends OriginWindow {
 		// "..." holds the two destructive jobs, each behind a second click
 		float mx = RX + RW - 32;
 		Runnable openFriendMenu = () -> openMenuRight("friend:" + f.uuid(), mx + 32, HEAD_ROW + 38,
-				List.of(new MenuItem("Remove friend", "Click again to remove " + f.name(), false, true, true,
+				List.of(new MenuItem("Remove friend", "Click again to remove " + nz(f.name()), false, true, true,
 								() -> {
 									run(SocialClient.removeFriend(f.uuid()), f.name() + " was removed.");
 									sel = null;
 								}),
-						new MenuItem("Block " + f.name(), "Click again to block " + f.name(), true, true, true,
+						new MenuItem("Block " + nz(f.name()), "Click again to block " + nz(f.name()), true, true, true,
 								() -> {
 									run(SocialClient.block(f.uuid()), f.name() + " is blocked.");
 									sel = null;
@@ -927,15 +932,14 @@ public class FriendsScreen extends OriginWindow {
 		String self = s.me() != null ? s.me().uuid() : "";
 		String myName = s.me() != null ? nz(s.me().name()) : "You";
 		List<Message> raw = SocialClient.chat(f.uuid());
-		drawChat(d, RX, RW, DIVIDER + 8, raw.size(), sigDm(raw), () -> {
+		drawChat(d, RX, RW, DIVIDER + 8, sigDm(f.uuid(), f.name(), myName, raw), () -> {
 			List<Msg> msgs = new ArrayList<>(raw.size());
 			for (Message m : raw) {
 				boolean mine = m.from().equals(self);
 				msgs.add(new Msg(m.from(), mine ? myName : nz(f.name()), m.text(), m.at(), m.pending()));
 			}
 			return msgs;
-		}, self, "friend:" + f.uuid() + ":" + nz(f.name()) + ":" + myName,
-				"No messages yet. Say hi to " + f.name() + ".", "@user");
+		}, self, "No messages yet. Say hi to " + nz(f.name()) + ".", "@user");
 		chatInput(d, RX, RW, "Message " + f.name());
 	}
 
@@ -1015,7 +1019,7 @@ public class FriendsScreen extends OriginWindow {
 		}
 		float gridBottom = gy + ((party.members().size() + 1) / 2) * pitch - 6;
 		float chatTop = gridBottom + 10;
-		if (FairPlay.positionsOffHere(mc)) {
+		if (mc.level != null && !mc.hasSingleplayerServer() && here == null) {   // = FairPlay.positionsOffHere, without a second lookup
 			// Will's baseline: markers, health and pings only in LAN worlds
 			d.text("Markers, health and pings show in LAN worlds only.", RX + 2, chatTop + 11, 12, false, 0, GOLD);
 			chatTop += 22;
@@ -1023,13 +1027,13 @@ public class FriendsScreen extends OriginWindow {
 		d.fill(RX, chatTop - 2, RW, 1, LINE);
 
 		List<PartyMessage> rawParty = SocialClient.partyChat();
-		drawChat(d, RX, RW, chatTop + 6, rawParty.size(), sigParty(rawParty), () -> {
+		drawChat(d, RX, RW, chatTop + 6, sigParty(PARTY, rawParty), () -> {
 			List<Msg> msgs = new ArrayList<>(rawParty.size());
 			for (PartyMessage m : rawParty) {
 				msgs.add(new Msg(m.from(), nz(m.name()), m.text(), m.at(), m.pending()));
 			}
 			return msgs;
-		}, self, "party", "Party chat. In game, type /" + Social.COMMAND + " <message>.", "@title-multiplayer");
+		}, self, "Party chat. In game, type /" + Social.COMMAND + " <message>.", "@title-multiplayer");
 		chatInput(d, RX, RW, "Message your party");
 	}
 
@@ -1068,7 +1072,9 @@ public class FriendsScreen extends OriginWindow {
 			d.icon("@chev-down", x + w - 22, y + h - 20, 12, lerp(soft(), TEXT, hp));
 			d.hit(x, y, w, h, () -> openMenu("member:" + m.uuid(), x, y + h + 2, memberMenu(s, m, leader, me)));
 		}
-		tip(d, "mem:" + m.uuid(), nz(m.name()) + " \u2022 " + sub, x, y, w, h);
+		if (!menuOpen() && d.over(x, y, w, h)) {
+			tip(d, "mem:" + m.uuid(), nz(m.name()) + " \u2022 " + sub, x, y, w, h);   // text built only while hovered
+		}
 	}
 
 	private List<MenuItem> memberMenu(SocialState s, Member m, boolean leader, boolean me) {
@@ -1227,27 +1233,106 @@ public class FriendsScreen extends OriginWindow {
 	}
 
 	/** Messages bottom-anchored between `top` and CHAT_BOTTOM; scroll 0 = newest. */
-	/** A cheap fingerprint of a DM list (first id, last id, last pending flag, last length): no per-frame walk over the history. */
-	private static String sigDm(List<Message> l) {
+	/**
+	 * What the chat layout depends on, held as plain fields so comparing frames builds no strings: the
+	 * conversation, the list's ends, the trailing run of pending lines (a confirmed one changes it), the width,
+	 * the scale and today's date (the "Today" / "Yesterday" labels roll over at midnight).
+	 */
+	private static final class ChatSig {
+		String scope, nameA, nameB, firstId, lastId, firstPending;
+		int count, pending, lastLen, width;
+		float scale;
+		long today;
+
+		boolean same(ChatSig o) {
+			return count == o.count && pending == o.pending && lastLen == o.lastLen && width == o.width
+					&& scale == o.scale && today == o.today && java.util.Objects.equals(scope, o.scope)
+					&& java.util.Objects.equals(nameA, o.nameA) && java.util.Objects.equals(nameB, o.nameB)
+					&& java.util.Objects.equals(firstId, o.firstId) && java.util.Objects.equals(lastId, o.lastId)
+					&& java.util.Objects.equals(firstPending, o.firstPending);
+		}
+
+		void copy(ChatSig o) {
+			scope = o.scope;
+			nameA = o.nameA;
+			nameB = o.nameB;
+			firstId = o.firstId;
+			lastId = o.lastId;
+			firstPending = o.firstPending;
+			count = o.count;
+			pending = o.pending;
+			lastLen = o.lastLen;
+			width = o.width;
+			scale = o.scale;
+			today = o.today;
+		}
+	}
+
+	private final ChatSig curSig = new ChatSig(), laidSig = new ChatSig();
+	private long todayDay = 0, todayCheckedAt = 0;
+
+	/** Today's epoch day, re-read twice a minute at most. */
+	private long today() {
+		long now = System.currentTimeMillis();
+		if (now - todayCheckedAt > 30_000) {
+			todayCheckedAt = now;
+			todayDay = LocalDate.now(ZONE).toEpochDay();
+		}
+		return todayDay;
+	}
+
+	private ChatSig sigDm(String scope, String nameA, String nameB, List<Message> l) {
+		ChatSig c = curSig;
+		c.scope = scope;
+		c.nameA = nameA;
+		c.nameB = nameB;
 		int n = l.size();
+		c.count = n;
+		c.pending = 0;
+		c.firstPending = null;
 		if (n == 0) {
-			return "";
+			c.firstId = c.lastId = null;
+			c.lastLen = 0;
+			return c;
 		}
 		Message a = l.get(0), z = l.get(n - 1);
-		return a.id() + "|" + z.id() + "|" + z.pending() + "|" + z.text().length();
+		c.firstId = a.id();
+		c.lastId = z.id();
+		c.lastLen = z.text().length();
+		for (int i = n - 1; i >= 0 && l.get(i).pending(); i--) {   // pending lines sit at the tail
+			c.pending++;
+			c.firstPending = l.get(i).id();
+		}
+		return c;
 	}
 
-	private static String sigParty(List<PartyMessage> l) {
+	private ChatSig sigParty(String scope, List<PartyMessage> l) {
+		ChatSig c = curSig;
+		c.scope = scope;
+		c.nameA = c.nameB = null;
 		int n = l.size();
+		c.count = n;
+		c.pending = 0;
+		c.firstPending = null;
 		if (n == 0) {
-			return "";
+			c.firstId = c.lastId = null;
+			c.lastLen = 0;
+			return c;
 		}
 		PartyMessage a = l.get(0), z = l.get(n - 1);
-		return a.id() + "|" + z.id() + "|" + z.pending() + "|" + z.text().length();
+		c.firstId = a.id();
+		c.lastId = z.id();
+		c.lastLen = z.text().length();
+		for (int i = n - 1; i >= 0 && l.get(i).pending(); i--) {
+			c.pending++;
+			c.firstPending = l.get(i).id();
+		}
+		return c;
 	}
 
-	private void drawChat(OriginDeck d, float x, float w, float top, int count, String sig,
-						  java.util.function.Supplier<List<Msg>> msgs, String self, String scope, String empty, String emptyIcon) {
+	private void drawChat(OriginDeck d, float x, float w, float top, ChatSig sig,
+						  java.util.function.Supplier<List<Msg>> msgs, String self, String empty, String emptyIcon) {
+		int count = sig.count;
 		float viewH = CHAT_BOTTOM - top;
 		d.hit(x, top, w, viewH, () -> {
 			if (focus != Focus.CHAT) {
@@ -1263,9 +1348,11 @@ public class FriendsScreen extends OriginWindow {
 			chatMax = 0;
 			return;
 		}
-		String key = scope + "|" + count + "|" + sig + "|" + Math.round(w) + "|" + d.s;
-		if (!key.equals(chatKey)) {
-			chatKey = key;
+		sig.width = Math.round(w);
+		sig.scale = d.s;
+		sig.today = today();
+		if (!sig.same(laidSig)) {
+			laidSig.copy(sig);
 			layoutChat(d, msgs.get(), self, w);
 		}
 		chatMax = Math.max(0, chatTotal - viewH);
@@ -1660,14 +1747,29 @@ public class FriendsScreen extends OriginWindow {
 		if (t.isEmpty()) {
 			return;
 		}
+		String key = sel;
+		java.util.concurrent.CompletableFuture<String> sent = null;
+		if (PARTY.equals(key)) {
+			sent = SocialClient.partyChat(t, false);
+		} else if (friendSelected()) {
+			sent = SocialClient.sendMessage(key, t);
+		}
+		if (sent == null) {
+			return;
+		}
 		setChatText("");
 		chatTarget = 0;
 		setFocus(Focus.CHAT);
-		if (PARTY.equals(sel)) {
-			run(SocialClient.partyChat(t, false), null);
-		} else if (friendSelected()) {
-			run(SocialClient.sendMessage(sel, t), null);
-		}
+		// the text leaves the box at once (the pending line shows); if the send fails it comes back,
+		// unless that conversation already has a newer draft
+		sent.thenAccept(err -> Minecraft.getInstance().execute(() -> {
+			if (err != null) {
+				if (drafts.getOrDefault(key, "").isEmpty()) {
+					drafts.put(key, t);
+				}
+				say(err, true);
+			}
+		}));
 	}
 
 	/** Enter in the search box: open the first match; with no match, add the typed name. */

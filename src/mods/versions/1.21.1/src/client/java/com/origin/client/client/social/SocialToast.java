@@ -226,11 +226,13 @@ public final class SocialToast implements Toast {
 				joinWarp(mc, warp);
 			}
 			case REQUEST -> {
+				// "already answered" is only knowable from a fresh snapshot: on a dropped connection just send it
+				boolean live = SocialClient.status() == SocialClient.Status.READY && !SocialClient.stale();
 				boolean pending = false;
 				for (SocialState.Request r : SocialClient.state().incoming()) {
 					pending |= uuid != null && uuid.equals(r.uuid());
 				}
-				if (!pending) {
+				if (live && !pending) {
 					// answered somewhere else (the list, the launcher) since the toast came up: don't POST again
 					settle("Friend request", "Already answered", false);
 					return;
@@ -238,6 +240,7 @@ public final class SocialToast implements Toast {
 				finish(SocialClient.respond(uuid, true), "Friend request", "Friend added", "You and " + who + " are friends.");
 			}
 			case INVITE -> {
+				boolean live = SocialClient.status() == SocialClient.Status.READY && !SocialClient.stale();
 				String partyId = null;
 				for (SocialState.PartyInvite i : SocialClient.state().invites()) {
 					if (uuid != null && uuid.equals(i.from())) {
@@ -246,8 +249,12 @@ public final class SocialToast implements Toast {
 					}
 				}
 				if (partyId == null) {
-					// expired or answered elsewhere since the toast came up
-					settle("Party invite", "That invite is gone", false);
+					if (live) {
+						// expired or answered elsewhere since the toast came up
+						settle("Party invite", "That invite is gone", false);
+					} else {
+						settle("Couldn't do that", "Can't reach Origin. Try again.", true);
+					}
 					return;
 				}
 				finish(SocialClient.acceptInvite(partyId), "Party invite", "Joined party", "You joined " + who + "'s party.");
