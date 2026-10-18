@@ -67,7 +67,6 @@ const FILTERS = {
   back: i => i.slot === 'back',
   wear: i => i.slot === 'head' || i.slot === 'face',
 };
-const EMPTY_NOTE = { back: 'Wings and backpacks are on their way.', wear: 'More hats and masks are on their way.', animated: 'No animated items yet.', cape: 'No capes yet.' };
 const SLOTS = ['cape', 'back', 'head', 'face', 'theme'];
 const SAVE_KEY = 'origin.store.v1';
 const NAME_RE = /^[A-Za-z0-9_]{3,16}$/;   // Java Edition usernames
@@ -194,8 +193,8 @@ function confirmPurchase() {
   if (done) {
     state.confirming = null;
     notice.innerHTML = c.kind === 'plus'
-      ? '<b>Welcome to Origin+.</b> Your membership is active. A receipt is on its way to your email.'
-      : `<b>Thank you!</b> Your cosmetics are on <b>${esc(state.player.name)}</b> now: open Cosmetics in game to wear them. A receipt is on its way to your email.`;
+      ? '<b>Welcome to Origin+.</b> Your membership is active.'
+      : `<b>Thank you.</b> Your cosmetics are on <b>${esc(state.player.name)}</b> now.`;
     return;
   }
   if (--c.tries > 0) { setTimeout(checkMember, CONFIRM_EVERY); return; }
@@ -206,7 +205,7 @@ function confirmPurchase() {
 async function joinPlus() {
   if (!STORE.live || state.plusBusy || state.catalog !== 'ok' || state.member) return;
   if (!canCheckout()) {         // the name box lives with the bag, which is below the shop on phones
-    state.plusError = 'Type the Minecraft name the membership is for.';
+    state.plusError = 'Enter the Minecraft name this is for.';
     renderPlus();
     $('#checkout').scrollIntoView({ behavior: smoothScroll(), block: 'start' });
     setTimeout(() => $('#mc-name').focus({ preventScroll: true }), reducedMotion() ? 0 : 400);
@@ -271,7 +270,7 @@ async function redeemCode() {
     note.classList.toggle('is-done', kind === 'done');
   };
   if (!canCheckout()) {
-    say('Type the Minecraft name this is for first.', 'error');
+    say('Enter the Minecraft name first.', 'error');
     $('#mc-name').focus();
     return;
   }
@@ -292,13 +291,13 @@ async function redeemCode() {
     input.value = '';
     if (j.plus) {
       state.member = true;
-      say(`Origin+ is on ${player.name} for good: the cape, badge and menu themes are in Cosmetics in game.${j.paying ? ' You still have a paid membership: cancel it under \u201cManage or cancel\u201d so it stops billing.' : ''}`, 'done');
+      say(`Origin+ is on ${player.name}.${j.paying ? ' You still have a paid membership: cancel it under \u201cManage or cancel\u201d so it stops billing.' : ''}`, 'done');
     } else {
       const got = new Set(j.items);
       state.owned = new Set([...(state.owned || []), ...got]);
       state.bag = state.bag.filter(id => !got.has(id));
       state.redeemed = `Free with your code: ${[...got].map(id => byId.get(id)?.name || id).join(', ')}.`;
-      say(`Done! ${got.size === 1 ? 'It\u2019s' : `All ${got.size} are`} on ${player.name} now: open Cosmetics in game to wear ${got.size === 1 ? 'it' : 'them'}.`, 'done');
+      say(`Done. ${got.size === 1 ? 'It\u2019s' : `All ${got.size} are`} on ${player.name} now.`, 'done');
     }
     save();
     renderGrid(); renderBag(); renderPlus();
@@ -396,11 +395,11 @@ function renderName() {
     head.removeAttribute('src');
   }
   note.textContent = {
-    empty: 'Your cosmetics go to this player. Buying a gift? Type your friend’s name.',
+    empty: 'Who are these for?',
     bad: 'Minecraft names are 3–16 letters, numbers or underscores.',
     checking: 'Checking that name…',
-    ok: `Found ${state.player?.name}. Everything in your bag goes to this player.`,
-    missing: 'No Minecraft account has that name. Check the spelling.',
+    ok: `Found ${state.player?.name}.`,
+    missing: 'No Minecraft account has that name.',
     unknown: 'Couldn’t check that name right now. Try again in a moment.',
   }[state.nameState];
 }
@@ -427,7 +426,7 @@ function renderGrid() {
           : `<button class="btn btn--sm ${inBag ? 'btn--ghost' : 'btn--primary'}" type="button" data-add ${soon ? 'disabled data-soon' : ''} aria-pressed="${inBag}">${inBag ? 'In bag ✓' : 'Add to bag'}</button>`}
       </div>
     </article>`;
-  }).join('') : `<p class="shop__empty">${state.catalog === 'loading' && !ITEMS.length ? 'Loading…' : esc(EMPTY_NOTE[filter] || 'Nothing here yet.')}</p>`;
+  }).join('') : `<p class="shop__empty">${state.catalog === 'loading' && !ITEMS.length ? 'Loading…' : 'Nothing here right now.'}</p>`;
   paintArt();
 }
 
@@ -513,13 +512,13 @@ function renderBag(error = '') {
   const failed = error || (open && state.catalog === 'error');
   note.classList.toggle('is-error', !!failed);
   note.textContent = error || (!open
-    ? 'The store opens soon. Try everything on in the meantime.'
+    ? 'Checkout opens soon.'
     : state.catalog === 'error' ? 'Checkout can\u2019t be reached right now. Please try again in a minute.'
-    : !items.length ? state.redeemed || 'Add a cosmetic to get started.'
+    : !items.length ? state.redeemed || ''
     : blocked.length ? `${blocked[0].name} isn\u2019t on sale yet. Remove it to check out.`
-    : !canCheckout() ? 'Type the Minecraft name these are for.'
+    : !canCheckout() ? 'Enter the Minecraft name these are for.'
     : state.catalog === 'loading' ? 'Loading prices…'
-    : 'Secure checkout by Stripe: card, plus Apple Pay or Google Pay on devices that support them. Sales tax is added at checkout where it applies.');
+    : 'Secure checkout by Stripe.');
 
   const bar = $('[data-bagbar]');
   bar.hidden = !items.length;
@@ -562,10 +561,8 @@ function renderPlus() {
   $('[data-plus-off]').textContent = `${plus.percentOff}%`;
   $('[data-plus-price]').textContent = money(year ? plus.year : plus.month, cur);
   $('[data-plus-per]').textContent = year ? 'per year' : 'per month';
-  $('[data-plus-sub]').textContent = year
-    ? `About ${money(plus.year / 12, cur)} a month, ${percentSaved()}% less than paying monthly.`
-    : 'Switch to yearly to save.';
-  $('[data-plus-fine]').textContent = `Renews automatically every ${year ? 'year' : 'month'} until you cancel. Cancel any time: your perks last until the end of the period you’ve paid for. Taxes are added at checkout where they apply.`;
+  $('[data-plus-sub]').textContent = year ? `About ${money(plus.year / 12, cur)} a month.` : '';
+  $('[data-plus-fine]').textContent = `Renews every ${year ? 'year' : 'month'} until you cancel. Taxes added at checkout where they apply.`;
 
   // A member sees their status instead of the Join controls.
   $('[data-plus-join]').hidden = member;
@@ -590,7 +587,7 @@ function renderPlus() {
     : state.catalog === 'error' ? 'Membership can’t be reached right now. Please try again in a minute.'
     : state.catalog === 'loading' ? 'Loading…'
     : canCheckout() ? `Membership goes to ${state.player.name}.`
-    : 'It goes to the Minecraft name you type. Gifts welcome.');
+    : 'Goes to the name you enter.');
 }
 
 // One item per slot: trying a second one in the same slot swaps it, trying a worn one takes it off.
