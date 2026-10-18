@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_17",
 	"client": [
 		"CosmeticCapeMixin",
+		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"AbstractWidgetMixin",
 		"AbstractSliderButtonAccessor",
