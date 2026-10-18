@@ -64,7 +64,7 @@ dependencies {
 	// Sodium the launcher installs for 1.21 (PerformanceModCatalog "1.21":
 	// mc1.21-0.5.11-fabric, Modrinth version id RncWhTxD). compileOnly: never
 	// bundled, never on the dev runtime classpath (libs/ above serves runClient).
-	modCompileOnly "maven.modrinth:sodium:mc1.21-0.5.11-fabric"
+	modCompileOnly "maven.modrinth:sodium:RncWhTxD"   // version id: unique, unlike a version number
 
 	// The perf/shader stack is NOT bundled here — the launcher installs the
 	// matching 1.21 stack from PerformanceModCatalog alongside this jar. Only the
