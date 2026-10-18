@@ -7,7 +7,9 @@
 		"LevelLoadingScreenMixin",
 		"ReceivingLevelScreenMixin",
 		"ProgressScreenMixin",
-		"ConnectScreenMixin"
+		"ConnectScreenMixin",
+		"LoadingOverlayRevealMixin",
+		"TitleScreenFadeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

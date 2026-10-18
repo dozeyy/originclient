@@ -143,6 +143,9 @@ public final class OriginScreenRenderer {
 	 * reads more premium.
 	 */
 	public static void renderLoading(GuiGraphics guiGraphics, float progress) {
+		// The game is on screen now (Origin's scene, or vanilla's if ours
+		// broke): Origin Launcher's loading scene can hand over.
+		com.origin.client.client.OriginHandoff.loading();
 		// Drawn at TAIL over vanilla's overlay, so skipping when broken simply
 		// reveals the vanilla loading screen -- no cancel to unwind.
 		if (broken) {
@@ -153,6 +156,42 @@ public final class OriginScreenRenderer {
 		} catch (Throwable t) {
 			fail(t);
 		}
+	}
+
+	/**
+	 * The startup loading screen at {@code alpha} over whatever is already drawn
+	 * this frame — the loading -> title dissolve (LoadingOverlayRevealMixin).
+	 * Loading is done by then, so the bar shows full. False (nothing to cancel)
+	 * when Origin rendering is off or this draw fails.
+	 */
+	public static boolean renderLoadingFade(GuiGraphics guiGraphics, float alpha) {
+		if (broken) {
+			return false;
+		}
+		try {
+			layerAlpha = Math.max(0f, Math.min(1f, alpha));
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			shade(1f, 1f, 1f, 1f);
+			renderLoading0(guiGraphics, 1f);
+			guiGraphics.flush();
+			return true;
+		} catch (Throwable t) {
+			return fail(t);
+		} finally {
+			layerAlpha = 1f;
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		}
+	}
+
+	// Every shader colour in this file goes through shade(): it multiplies in
+	// layerAlpha, so a whole scene can be drawn translucent (the loading -> title
+	// dissolve) without each helper knowing. GuiGraphics.fill flushes per call
+	// outside a managed batch, so fills pick it up too. 1 everywhere else.
+	private static float layerAlpha = 1f;
+
+	private static void shade(float r, float g, float b, float a) {
+		RenderSystem.setShaderColor(r, g, b, a * layerAlpha);
 	}
 
 	private static void renderLoading0(GuiGraphics guiGraphics, float progress) {
@@ -226,6 +265,7 @@ public final class OriginScreenRenderer {
 	}
 
 	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title) {
+		com.origin.client.client.StartupTransition.worldLoading();
 		ensureLoaded();
 		Minecraft mc = Minecraft.getInstance();
 		int w = mc.getWindow().getGuiScaledWidth();
@@ -368,11 +408,11 @@ public final class OriginScreenRenderer {
 		if (radialGlowId != null) {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
-			RenderSystem.setShaderColor(0x4B / 255f, 0xC8 / 255f, 0xAE / 255f, 0.09f);
+			shade(0x4B / 255f, 0xC8 / 255f, 0xAE / 255f, 0.09f);
 			int d = (int) Math.round(w * 1.1);
 			guiGraphics.blit(radialGlowId, (int) Math.round(w * 0.70 - d / 2.0), (int) Math.round(h * 0.15 - d / 2.0),
 					d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			shade(1f, 1f, 1f, 1f);
 		}
 		drawVignette(guiGraphics, w, h);
 	}
@@ -401,7 +441,7 @@ public final class OriginScreenRenderer {
 
 	private static void drawRadial(GuiGraphics guiGraphics, double cx, double cy, double diameter, double alpha) {
 		int d = Math.max(2, (int) Math.round(diameter));
-		RenderSystem.setShaderColor(1f, 1f, 1f, (float) alpha);
+		shade(1f, 1f, 1f, (float) alpha);
 		guiGraphics.blit(radialGlowId, (int) Math.round(cx - d / 2.0), (int) Math.round(cy - d / 2.0),
 				d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
 	}
@@ -428,7 +468,9 @@ public final class OriginScreenRenderer {
 			int w = mc.getWindow().getGuiScaledWidth();
 			int h = mc.getWindow().getGuiScaledHeight();
 			TitleLayout L = TitleLayout.of(w, h);
-			long el = titleOpenedAt > 0 ? System.currentTimeMillis() - titleOpenedAt : Long.MAX_VALUE;
+			long el = titleOpenedAt > 0
+					? System.currentTimeMillis() - com.origin.client.client.StartupTransition.titleIntroStart(titleOpenedAt)
+					: Long.MAX_VALUE;
 			double t = el == Long.MAX_VALUE ? 1.0
 					: OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, (el - 40.0) / 420.0)));
 			int size = Math.max(1, (int) Math.round(L.markSize * (0.88 + 0.12 * t)));
@@ -472,9 +514,9 @@ public final class OriginScreenRenderer {
 		pose.translate(cx - icx, cy - icy, 0);
 		pose.scale(scale, scale, 1f);
 		RenderSystem.enableBlend();
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+		shade(1f, 1f, 1f, alpha);
 		guiGraphics.blit(tex, 0, 0, 0, 0, texW, texH, texW, texH);
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		shade(1f, 1f, 1f, 1f);
 		pose.popPose();
 	}
 
@@ -575,11 +617,11 @@ public final class OriginScreenRenderer {
 			pose.mulPose(Axis.ZP.rotationDegrees((float) angle));
 			pose.scale(scale, scale, 1f);
 			pose.translate(-TEX / 2f, -TEX / 2f, 0);
-			RenderSystem.setShaderColor(1f, 1f, 1f, ring.opacity());
+			shade(1f, 1f, 1f, ring.opacity());
 			guiGraphics.blit(ring.texture(), 0, 0, 0, 0, TEX, TEX, TEX, TEX);
 			pose.popPose();
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		shade(1f, 1f, 1f, 1f);
 	}
 
 	private static void drawGrain(GuiGraphics guiGraphics, int w, int h) {
@@ -598,13 +640,13 @@ public final class OriginScreenRenderer {
 		pose.pushPose();
 		pose.scale((float) (1.0 / gs), (float) (1.0 / gs), 1f);
 		RenderSystem.enableBlend();
-		RenderSystem.setShaderColor(1f, 1f, 1f, 0.028f);
+		shade(1f, 1f, 1f, 0.028f);
 		for (int y = 0; y < realH; y += tile) {
 			for (int x = 0; x < realW; x += tile) {
 				guiGraphics.blit(grainId, x, y, 0, 0, tile, tile, tile, tile);
 			}
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		shade(1f, 1f, 1f, 1f);
 		pose.popPose();
 	}
 
@@ -671,7 +713,7 @@ public final class OriginScreenRenderer {
 			drawRadial(guiGraphics, px, py, core * 3.2, body[4] * 0.28); // halo
 			drawRadial(guiGraphics, px, py, core, body[4]);              // core
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		shade(1f, 1f, 1f, 1f);
 	}
 
 	/** Extra wordmark pass at a scale multiplier and alpha -- used for the breathing glow. */
@@ -688,10 +730,10 @@ public final class OriginScreenRenderer {
 		pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
 		pose.scale(scale, scale, 1f);
 		RenderSystem.enableBlend();
-		RenderSystem.setShaderColor(1f, 1f, 1f, alpha);
+		shade(1f, 1f, 1f, alpha);
 		guiGraphics.blit(wordmarkId, 0, 0, 0, 0, wmTexW, wmTexH, wmTexW, wmTexH);
 		pose.popPose();
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		shade(1f, 1f, 1f, 1f);
 	}
 
 	/** Shared frame dressing for the ring backdrop: edge vignette + corner brackets. */
@@ -709,7 +751,7 @@ public final class OriginScreenRenderer {
 		pose.pushPose();
 		pose.scale((float) w / VIGNETTE_TEX, (float) h / VIGNETTE_TEX, 1f);
 		RenderSystem.enableBlend();
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		shade(1f, 1f, 1f, 1f);
 		guiGraphics.blit(vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX);
 		pose.popPose();
 	}
@@ -777,10 +819,10 @@ public final class OriginScreenRenderer {
 				continue;
 			}
 			int yoff = (int) Math.round((1.0 - eased) * rise);
-			RenderSystem.setShaderColor(1f, 1f, 1f, (float) eased);
+			shade(1f, 1f, 1f, (float) eased);
 			guiGraphics.blit(wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH);
 		}
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		shade(1f, 1f, 1f, 1f);
 		pose.popPose();
 	}
 
@@ -796,7 +838,7 @@ public final class OriginScreenRenderer {
 			pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
 			pose.scale(scale, scale, 1f);
 			RenderSystem.enableBlend();
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+			shade(1f, 1f, 1f, 1f);
 			guiGraphics.blit(wordmarkId, 0, 0, 0, 0, wmTexW, wmTexH, wmTexW, wmTexH);
 			pose.popPose();
 
@@ -888,7 +930,7 @@ public final class OriginScreenRenderer {
 		}
 		total -= 1;
 		RenderSystem.enableBlend();
-		RenderSystem.setShaderColor(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
+		shade(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
 				(argb & 0xFF) / 255f, ((argb >>> 24) & 0xFF) / 255f);
 		PoseStack pose = guiGraphics.pose();
 		pose.pushPose();
@@ -908,7 +950,7 @@ public final class OriginScreenRenderer {
 			x += w + 1;
 		}
 		pose.popPose();
-		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+		shade(1f, 1f, 1f, 1f);
 	}
 
 	/** Draws the progress bar centered on cx at barTop, with the given width/height. */

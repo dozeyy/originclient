@@ -129,7 +129,9 @@ public class TitleScreenMixin {
 	 *  until this. A handful of setX/setY calls a frame is nothing. */
 	@Unique
 	private void originclient$applyPositions() {
-		long el = System.currentTimeMillis() - originclient$openedAt;
+		// Counted from the startup reveal when that came later: the first init
+		// happens behind the loading screen, where the rise would play unseen.
+		long el = System.currentTimeMillis() - com.origin.client.client.StartupTransition.titleIntroStart(originclient$openedAt);
 		for (int i = 0; i < originclient$nav.size(); i++) {
 			int[] t = originclient$navPos.get(i);
 			double e = el > 1200 ? 1.0 : originclient$ease((el - 120 - i * 55) / 380.0);
