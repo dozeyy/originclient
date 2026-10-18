@@ -111,3 +111,9 @@ client/java/com/origin/client/client/mixin/ToastComponentMixin.java
 # FramerateLimitTrackerMixin already hooks. The leftover copy bound nothing and
 # printed "Cannot remap getFramerateLimit" on every build. Removed 2026-10-11.
 client/java/com/origin/client/client/mixin/MinecraftFramerateMixin.java
+
+# DELIBERATE FORK (2026-10-18) — launch experience v2 (ported from 1.21.1). The world-loading
+# screen hands the real chunk progress (LevelLoadingScreenAccessor) to the living-
+# rings loading scene. Promote to shared/ when the other versions get the rings.
+client/java/com/origin/client/client/mixin/loading/LevelLoadingScreenMixin.java
+

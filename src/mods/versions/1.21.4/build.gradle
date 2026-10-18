@@ -10,6 +10,17 @@ base {
 
 repositories {
 	mavenCentral()
+
+	// Modrinth maven — compile-only Sodium for Origin Render (see dependencies).
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Modrinth"
+				url = "https://api.modrinth.com/maven"
+			}
+		}
+		filter { includeGroup "maven.modrinth" }
+	}
 }
 
 loom {
@@ -43,6 +54,12 @@ dependencies {
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Origin Render (render/terrain, Sodium mixins) compiles against the Sodium
+	// the launcher installs for 1.21.4 (PerformanceModCatalog: mc1.21.4-0.6.13-fabric,
+	// Modrinth version id c3YkZvne). 1.21.2/1.21.3 get Sodium 0.6.1/0.6.8, whose
+	// members Origin Render uses have the same shape. compileOnly: never bundled.
+	modCompileOnly "maven.modrinth:sodium:c3YkZvne"   // version id: unique, unlike a version number
 
 	// The perf/shader stack (Sodium, Iris, Lithium, ...) is NOT bundled here —
 	// the launcher installs the matching 1.21.11 stack from its
