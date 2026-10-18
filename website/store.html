@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0e1110">
+  <meta name="theme-color" content="#0a0a0b">
   <meta name="color-scheme" content="dark">
   <title>Origin Store</title>
   <meta name="description" content="Capes, wings, hats and more for Origin Client, plus Origin+ membership. Try them on, enter a Minecraft username, and check out with card, PayPal, Apple Pay or Google Pay.">
@@ -11,10 +11,11 @@
   <meta property="og:description" content="Capes, wings, hats and more for Origin Client.">
   <meta property="og:type" content="website">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/fonts/monocraft.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/site.css">
   <link rel="stylesheet" href="css/store.css">
+  <script src="js/nav.js"></script>
   <script type="module" src="js/store.js"></script>
 </head>
 <body class="page-store">
@@ -27,33 +28,29 @@
         <ellipse cx="100" cy="100" rx="60" ry="22" transform="rotate(120 100 100)"/>
       </g>
     </symbol>
-    <symbol id="wordmark" viewBox="0 360 4440 840">
-      <path fill="currentColor" d="M120 1080H0V480H120V360H480V480H600V1080H480V1200H120V1080H480V480H120ZM888 600H1248V720H1368V1200H1248V720H888V1200H768V360H1248V480H1368V600H1248V480H888ZM1656 1200V1080H1776V480H1656V360H2016V480H1896V1080H2016V1200ZM2424 1200V1080H2304V480H2424V360H2904V480H2424V1080H2784V720H2664V600H2904V1080H2784V1200ZM3192 1200V1080H3312V480H3192V360H3552V480H3432V1080H3552V1200ZM3840 1200V360H3960V480H4080V600H4200V720H4320V360H4440V1200H4320V840H4200V720H4080V600H3960V1200Z"/>
-    </symbol>
   </svg>
 
   <a class="skip" href="#main">Skip to content</a>
   <div class="backdrop" aria-hidden="true"></div>
 
-  <header class="top is-solid">
+  <header class="top is-solid" data-top>
     <a class="brand" href="./" aria-label="Origin, home">
       <svg class="brand__mark"><use href="#mark"/></svg>
-      <svg class="brand__word"><use href="#wordmark"/></svg>
+      <span class="brand__word">Origin</span>
     </a>
     <nav class="top__nav" aria-label="Pages">
-      <a href="./">Home</a>
+      <a href="./" class="nav-home">Home</a>
       <a href="store" class="is-on nav-store" aria-current="page">Store</a>
     </nav>
-    <a class="btn btn--ghost btn--sm top__bag" href="#checkout">Bag <span class="top__count" data-bag-count></span></a>
+    <a class="btn btn--primary btn--sm top__action top__bag" href="#checkout">Bag <span class="top__count" data-bag-count></span></a>
   </header>
 
   <main id="main" class="store">
     <div class="notice" data-notice role="status" hidden></div>
 
     <section class="store__intro">
-      <p class="eyebrow eyebrow--accent">Origin Store</p>
       <h1>Capes, wings &amp; more</h1>
-      <p class="lede">Cosmetics for Origin Client. Pick an item, enter the Minecraft username it's for, and check out.</p>
+      <p class="lede">Cosmetics for Origin Client.</p>
     </section>
 
     <div class="store__layout">
@@ -75,7 +72,7 @@
           <label class="field__label" for="mc-name">Minecraft name</label>
           <div class="name" data-name data-state="empty">
             <img class="name__head" data-name-head alt="" width="48" height="48" hidden>
-            <input id="mc-name" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="16" placeholder="e.g. Notch" aria-describedby="name-note">
+            <input id="mc-name" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="16" placeholder="Minecraft name" aria-describedby="name-note">
             <span class="name__state" aria-hidden="true"></span>
           </div>
           <p class="name__note" id="name-note" data-name-note aria-live="polite"></p>
@@ -83,7 +80,7 @@
           <h2 class="bag__title">Your bag</h2>
           <ul class="bag" data-bag></ul>
           <div class="bag__total"><span>Total</span><b data-total></b></div>
-          <p class="bag__member" data-bag-member hidden>Origin+ member prices. The final amount is confirmed at checkout.</p>
+          <p class="bag__member" data-bag-member hidden>Member prices applied.</p>
           <button class="btn btn--primary btn--lg bag__go" type="button" data-checkout>Checkout</button>
           <p class="bag__note" data-checkout-note aria-live="polite"></p>
           <details class="code" data-code>
@@ -92,9 +89,8 @@
               <input id="store-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="ORIGIN-XXXX-XXXX-XXXX" aria-label="Your code" aria-describedby="code-note">
               <button class="btn btn--ghost code__go" type="button" data-code-go>Use code</button>
             </div>
-            <p class="code__note" id="code-note" data-code-note aria-live="polite">Fill your bag first: a code makes everything in it free. Origin+ codes work with an empty bag. No card needed.</p>
+            <p class="code__note" id="code-note" data-code-note aria-live="polite"></p>
           </details>
-          <ul class="pay" aria-label="Ways to pay"><li>Card</li><li>PayPal</li><li>Apple Pay</li><li>Google Pay</li></ul>
         </div>
       </aside>
 
@@ -104,23 +100,19 @@
         <!-- Origin+ membership. Everything here is driven by js/store.js (renderPlus). -->
         <section class="plus" id="plus" data-plus aria-labelledby="plus-title">
           <div class="plus__art" data-plus-art>
-            <img class="plus__cape" data-plus-cape alt="Preview of the Origin+ cape: the three rings and a plus sign on a dark cape." width="160" height="256" hidden>
-            <p class="plus__caption">Members-only cape. Preview art, may change.</p>
+            <img class="plus__cape" data-plus-cape alt="The Origin+ cape: the three rings and a plus sign on a dark cape." width="160" height="256" hidden>
           </div>
           <div class="plus__body">
-            <p class="eyebrow eyebrow--accent">Membership</p>
             <h2 class="plus__title" id="plus-title"><svg class="plus__mark" aria-hidden="true"><use href="#mark"/></svg>Origin+</h2>
-            <p class="plus__lede">Cosmetic perks and a discount on the whole store. Never a gameplay advantage.</p>
+            <p class="plus__lede">Cosmetic perks, never a gameplay advantage.</p>
 
             <ul class="plus__perks">
-              <li><span><b>Members-only Origin+ cape.</b> <small class="plus__why">Never sold; you wear it while you're a member.</small></span> <i class="plus__tag">Next update</i></li>
-              <li><span><b>Origin+ badge by your name.</b> <small class="plus__why">The ring mark in the friends list and above your head, for other Origin players to see.</small></span> <i class="plus__tag">Next update</i></li>
-              <li class="plus__themes-perk"><span><b>Every menu theme.</b> <small class="plus__why">Re-colour Origin's menus in game. Members only; try one on:</small></span> <i class="plus__tag">Next update</i>
-                <span class="plus__themes" data-plus-themes></span></li>
-              <li><span><b><span data-plus-off>20%</span> off everything in the store.</b> <small class="plus__why">Applied automatically at checkout.</small></span> <i class="plus__tag plus__tag--now">Works now</i></li>
-              <li><span><b>No ads in the launcher.</b></span> <i class="plus__tag">Next update</i></li>
+              <li>Members-only Origin+ cape</li>
+              <li>Origin+ badge by your name</li>
+              <li class="plus__themes-perk"><span>Every menu theme</span><span class="plus__themes" data-plus-themes></span></li>
+              <li><span><span data-plus-off>20%</span> off the whole store</span></li>
+              <li>No ads in the launcher</li>
             </ul>
-            <p class="plus__soon">The cape, badge, menu themes and ad-free launcher arrive with the next Origin update. Joining now gets you the discount right away, and the rest as it ships.</p>
 
             <div class="plus__join" data-plus-join>
               <div class="plus__plans" role="group" aria-label="Billing period">
@@ -135,7 +127,7 @@
             </div>
 
             <p class="plus__member" data-plus-member role="status" hidden></p>
-            <p class="plus__manage"><a href="https://billing.stripe.com/p/login/eVqfZi2uF97zdlEgr40co00" target="_blank" rel="noopener" data-plus-manage>Manage or cancel membership<span class="sr"> (opens in a new tab)</span> <span aria-hidden="true">&#8599;</span></a> <span>Already a member? Sign in with your checkout email.</span></p>
+            <p class="plus__manage"><a href="https://billing.stripe.com/p/login/eVqfZi2uF97zdlEgr40co00" target="_blank" rel="noopener" data-plus-manage>Manage or cancel membership<span class="sr"> (opens in a new tab)</span> <span aria-hidden="true">&#8599;</span></a></p>
           </div>
         </section>
 
@@ -149,12 +141,7 @@
 
         <div class="shop__grid" data-grid></div>
 
-        <div class="fine">
-          <p><b>Looks only.</b> Cosmetics change how a player looks in Origin. They never give an advantage in game.</p>
-          <p><b>Goes to the name you type.</b> Every item is tied to that Minecraft account and shows in game wherever you play Origin. Gifts welcome: just type your friend's name.</p>
-          <p><b>Safe checkout.</b> Payments are handled by Stripe, which runs checkout for millions of businesses. Origin never sees your card details. Sales tax is added at checkout where it applies.</p>
-          <p><b>Origin+ billing.</b> The membership renews automatically, monthly or yearly, until you cancel. Cancel any time from the manage link: you keep the perks until the end of the period you've paid for. Memberships are tied to the Minecraft name you type, so they make a good gift too.</p>
-        </div>
+        <p class="fine">Cosmetics are visual only and go to the name you enter. Payments by Stripe; tax is added where it applies.</p>
       </section>
     </div>
   </main>
@@ -166,9 +153,8 @@
   </div>
 
   <footer class="foot">
-    <a class="brand" href="./" aria-label="Origin, home"><svg class="brand__mark"><use href="#mark"/></svg><svg class="brand__word"><use href="#wordmark"/></svg></a>
+    <a class="brand" href="./" aria-label="Origin, home"><svg class="brand__mark"><use href="#mark"/></svg><span class="brand__word">Origin</span></a>
     <p>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft. Checkout and payments by Stripe.</p>
-    <p class="foot__credits">Type: Monocraft and Inter (SIL OFL). 3D: three.js (MIT). Player heads and skins: mc-heads.net, Crafatar.</p>
     <nav><a href="./">Home</a><a href="terms">Terms &amp; Privacy</a><span>© 2026 Origin Client</span></nav>
   </footer>
 </body>

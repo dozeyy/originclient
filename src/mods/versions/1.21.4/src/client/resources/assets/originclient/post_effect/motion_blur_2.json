@@ -1,0 +1,27 @@
+{
+    "targets": {
+        "swap": {},
+        "originclient:motion_prev": {}
+    },
+    "passes": [
+        {
+            "program": "originclient:post/motion_blur",
+            "inputs": [
+                { "sampler_name": "In", "target": "minecraft:main" },
+                { "sampler_name": "Prev", "target": "originclient:motion_prev" }
+            ],
+            "output": "swap",
+            "uniforms": [ { "name": "Blend", "values": [ 0.70 ] } ]
+        },
+        {
+            "program": "minecraft:post/blit",
+            "inputs": [ { "sampler_name": "In", "target": "swap" } ],
+            "output": "originclient:motion_prev"
+        },
+        {
+            "program": "minecraft:post/blit",
+            "inputs": [ { "sampler_name": "In", "target": "swap" } ],
+            "output": "minecraft:main"
+        }
+    ]
+}

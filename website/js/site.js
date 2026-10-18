@@ -1,6 +1,6 @@
-// Origin website: hero -> versions -> shaders -> download, over the island in
+// Origin website: hero -> versions -> why Origin -> download, over the island in
 // the sky (world.js). Scrolling blends the camera from one scene's pose to the
-// next; shaders are on the whole way down.
+// next; the island is always drawn with its shader lighting.
 
 // ---------------------------------------------------------------------------
 // THE ONE SWITCH: flip `live` to true on release day.
@@ -15,22 +15,24 @@ const DOWNLOAD = {
 const SCREENSHOTS = [];
 // ---------------------------------------------------------------------------
 
-// Every live Minecraft version, grouped like the launcher's picker
-// (VersionCatalog.cs; supported = VersionManager.OriginBuilds).
+// Every live Minecraft version, grouped exactly like the launcher's picker
+// (src/OriginLauncher.App/Core/Versions/VersionCatalog.cs; supported =
+// VersionManager.OriginBuilds). Keep this list, the version count in index.html
+// ("26") and its meta description in step with that file.
 const VERSION_GROUPS = [
+  { title: '26.1 – 26.3', tag: 'The Latest Releases', versions: ['26.3', '26.2', '26.1.2', '26.1.1', '26.1'] },
   { title: '1.21 – 1.21.11', tag: 'Tricky Trials', versions: ['1.21.11', '1.21.10', '1.21.8', '1.21.7', '1.21.6', '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21'] },
   { title: '1.20 – 1.20.4', tag: 'Trails & Tales', versions: ['1.20.4', '1.20.2', '1.20.1', '1.20'] },
-  { title: '1.19 – 1.19.4', tag: 'The Wild Update', versions: ['1.19.4', '1.19.3', '1.19.2'] },
+  { title: '1.19.2 – 1.19.4', tag: 'The Wild Update', versions: ['1.19.4', '1.19.3', '1.19.2'] },
   { title: '1.18.2', tag: 'Caves & Cliffs II', versions: ['1.18.2'] },
   { title: '1.17.1', tag: 'Caves & Cliffs I', versions: ['1.17.1'] },
   { title: '1.16.5', tag: 'The Nether Update', versions: ['1.16.5'] },
   { title: '1.8.9', tag: 'The Bountiful Update', versions: ['1.8.9'] },
-  { title: '26.x', tag: 'The Latest Releases', versions: ['26.2'], dev: true },
 ];
 
 // Scenes top to bottom: [section id, world pose, how much to darken the island].
-// "why" holds the shaders pose and darkens it so the table reads over the island.
-const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.62], ['shaders', 'shaders', 0], ['why', 'shaders', 0.7], ['get', 'get', 0.2]];
+// "why" darkens the island so the cards read over it.
+const SCENES = [['top', 'hero', 0], ['versions', 'versions', 0.9], ['why', 'why', 0.92], ['get', 'get', 0.2]];
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -39,9 +41,7 @@ const smooth = t => t * t * (3 - 2 * t);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const root = document.documentElement;
 
-// Shaders are on for the whole experience; the switch in the Shaders section
-// lets a player compare against plain Minecraft.
-let world = null, shaders = true;
+let world = null;
 
 function initDownload() {
   for (const a of $$('[data-download]')) {
@@ -62,39 +62,35 @@ function initDownload() {
 }
 
 function initVersions() {
-  $('[data-vgrid]').innerHTML = VERSION_GROUPS.map(g => `<article class="vcard${g.dev ? ' vcard--dev' : ''}" data-reveal>`
-    + `<header><h3>${g.title}</h3><span class="tag">${g.dev ? 'In development' : g.tag}</span></header>`
-    + `<ul>${g.versions.map(v => `<li${g.dev ? ' class="dev"' : ''}>${v}</li>`).join('')}</ul></article>`).join('');
+  $('[data-vgrid]').innerHTML = VERSION_GROUPS.map((g, i) => `<article class="vcard${g.versions.length > 6 ? ' vcard--wide' : ''}" data-reveal style="--i:${i % 4}">`
+    + `<header><h3>${g.title}</h3><span class="tag">${g.tag}</span></header>`
+    + `<ul>${g.versions.map(v => `<li>${v}</li>`).join('')}</ul></article>`).join('');
+  const count = VERSION_GROUPS.reduce((n, g) => n + g.versions.length, 0);
+  for (const el of $$('[data-version-count]')) el.textContent = count;
   if (SCREENSHOTS.length) {
     $('[data-shots]').hidden = false;
     $('[data-shots-grid]').innerHTML = SCREENSHOTS.map(s => `<figure data-reveal><img src="${s.src}" alt="${s.caption}" loading="lazy"><figcaption>${s.caption}</figcaption></figure>`).join('');
   }
 }
 
-function initShaders() {
-  const sw = $('[data-shaders]');
-  const paint = () => {
-    sw.setAttribute('aria-checked', String(shaders));
-    root.style.setProperty('--sunset', shaders ? 1 : 0);
-  };
-  paint();
-  sw.addEventListener('click', () => {
-    shaders = !shaders;
-    paint();
-    world?.setShaders(shaders);
-  });
+// The six cards' loops only run while their card is on screen.
+function initBento() {
+  const io = new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle('is-off', !e.isIntersecting)), { rootMargin: '80px' });
+  $$('.bcard').forEach(c => { c.classList.add('is-off'); io.observe(c); });
 }
 
 // ---------------------------------------------------------------- scroll
 let lastY = 0, queued = false;
 function frame() {
   const H = innerHeight, y = scrollY;
-  // each scene blends into the next as it scrolls up into view
+  // each scene blends into the next as it scrolls up into view, finished by
+  // the time its top is halfway up the screen, so the shade is already dark
+  // behind the heading before anyone reads it (phones: the island sits there)
   let pose = ['hero', 'hero', 0], shade = 0;
   for (let i = 1; i < SCENES.length; i++) {
     const top = document.getElementById(SCENES[i][0]).getBoundingClientRect().top;
     if (top >= H) break;
-    const t = smooth(clamp(1 - top / H)), [, pa, sa] = SCENES[i - 1], [, pb, sb] = SCENES[i];
+    const t = smooth(clamp((H - top) / (H * 0.5))), [, pa, sa] = SCENES[i - 1], [, pb, sb] = SCENES[i];
     pose = [pa, pb, t]; shade = sa + (sb - sa) * t;
   }
   world?.setPose(...pose);
@@ -121,19 +117,19 @@ function requestFrame() {
 async function boot() {
   initDownload();
   initVersions();
-  initShaders();
+  initBento();
   frame();
   addEventListener('scroll', requestFrame, { passive: true });
   addEventListener('resize', requestFrame);
 
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }), { threshold: 0.15 });
-  $$('.section__head, .shaders__copy, .get > *').forEach(el => { el.dataset.reveal = ''; });
+  $$('.section__head, .get > *').forEach(el => { el.dataset.reveal = ''; });
   $$('[data-reveal]').forEach(el => io.observe(el));
 
   // the 3D world (fails soft to the flat sky backdrop)
   try {
     const { createWorld } = await import('./world.js');
-    world = await createWorld($('#world'), { mobile: innerWidth < 900, reducedMotion, shaders });
+    world = await createWorld($('#world'), { mobile: innerWidth < 900, reducedMotion });
     frame();
   } catch (err) {
     console.warn('Origin: 3D world unavailable, using the flat backdrop.', err);
