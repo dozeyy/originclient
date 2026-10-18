@@ -136,13 +136,7 @@ final class MarkMotion {
 	static void startFlight() {
 		if (flightAt < 0 && snapCx >= 0) {
 			flightAt = RingField.sceneMs();
-			HandoffProbe.event("flight start");
 		}
-	}
-
-	// TEMPORARY (HandoffProbe): ms into the flight on the scene clock, -1 = none.
-	static double probeFlightT() {
-		return flightAt < 0 ? -1 : RingField.probeClock() - flightAt;
 	}
 
 	/** True once the startup flight began (the title then leaves its mark to the flight). */

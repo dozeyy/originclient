@@ -194,7 +194,6 @@ public class TitleScreenMixin {
 			return;
 		}
 		Screen self = (Screen) (Object) this;
-		com.origin.client.client.render.HandoffProbe.event("title init tail");
 		if (originclient$openedAt == 0) {           // first init only — a resize re-init doesn't replay
 			originclient$openedAt = com.origin.client.client.StartupTransition.clockMs();
 		}

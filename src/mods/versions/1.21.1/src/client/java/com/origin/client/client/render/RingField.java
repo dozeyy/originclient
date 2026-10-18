@@ -139,15 +139,6 @@ public final class RingField {
 		return clockMs;
 	}
 
-	// TEMPORARY (HandoffProbe): read-only views of the scene clock.
-	static double probeClock() {
-		return clockMs;
-	}
-
-	static double probeDebt() {
-		return clockDebt;
-	}
-
 	/** Ring i's rotation in degrees. Wall-clock exact until the field first leaves LOADING. */
 	public static double angle(int i, double angle0, double periodS, boolean reverse) {
 		if (phase == null || i >= phase.length) {

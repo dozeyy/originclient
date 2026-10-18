@@ -12,7 +12,8 @@
 		"ConnectScreenMixin",
 		"LoadingOverlayRevealMixin",
 		"TitleScreenFadeMixin",
-		"ReloadTaskBudgetMixin"
+		"ReloadTaskBudgetMixin",
+		"ShaderReloadMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

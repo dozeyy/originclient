@@ -63,7 +63,6 @@ public abstract class LoadingOverlayRevealMixin {
 			return;
 		}
 		Screen screen = this.minecraft.screen;
-		com.origin.client.client.render.HandoffProbe.event("reveal t=" + t + " sinceFadeOut=" + (now - this.fadeOutStart));
 		if (t >= StartupTransition.REVEAL_MS) {
 			// Dissolve finished: this frame is the screen alone, and from the
 			// next one the game renders and routes input to it normally. The
