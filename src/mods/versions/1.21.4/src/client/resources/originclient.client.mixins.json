@@ -23,6 +23,7 @@
 		"CapePhysicsMixin",
 		"CosmeticsPauseMixin",
 		"ScreenInvoker",
+		"PackSelectionScreenAccessor",
 		"ScreenBackgroundMixin",
 		"LevelRendererMixin",
 		"LightTextureMixin",
@@ -74,7 +75,11 @@
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
 		"EquipmentLayerTintMixin",
-		"ItemPhysicsStateMixin"
+		"ItemPhysicsStateMixin",
+		"SodiumShaderChunkRendererAccessor",
+		"SodiumDefaultChunkRendererAccessor",
+		"SodiumChunkRendererMixin",
+		"DebugScreenOriginRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

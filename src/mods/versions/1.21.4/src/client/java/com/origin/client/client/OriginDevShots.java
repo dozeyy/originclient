@@ -149,7 +149,9 @@ public final class OriginDevShots {
 			}
 			if (mc.getOverlay() == null && mc.screen instanceof TitleScreen) {
 				if (nextAt == 0) {
-					nextAt = now + 1500;
+					// The world set holds the title longer: dev-shots' video option
+					// films this run, and the menu's entrance should be seen settled.
+					nextAt = now + (WORLD ? 4000 : 1500);
 				} else if (now >= nextAt) {
 					File output = new File(DIR);
 					if (!output.isDirectory() && !output.mkdirs()) {

@@ -35,7 +35,7 @@ public final class OriginColorPicker {
 	private static int anchorX, anchorY;
 	private static long openedAt;
 	private static final int PW = 234, PH = 236;
-	private static final long ANIM_MS = 160;
+	private static final long ANIM_MS = 110;
 	private static int drag = 0; // 0 none, 1 field, 2 hue, 3 alpha, 4 speed, 5 window move
 	// Window dragging (Will): once the player grabs the header the popup detaches
 	// from its row anchor and stays wherever they drop it. `grabDX/DY` is the

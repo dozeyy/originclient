@@ -60,6 +60,12 @@ dependencies {
 	// inside the Origin jar via include().
 	modImplementation(include("maven.modrinth:jei:${project.jei_version}"))
 
+	// Origin Render (render/terrain, Sodium mixins) compiles against the exact
+	// Sodium the launcher installs for 1.21 (PerformanceModCatalog "1.21":
+	// mc1.21-0.5.11-fabric, Modrinth version id RncWhTxD). compileOnly: never
+	// bundled, never on the dev runtime classpath (libs/ above serves runClient).
+	modCompileOnly "maven.modrinth:sodium:RncWhTxD"   // version id: unique, unlike a version number
+
 	// The perf/shader stack is NOT bundled here — the launcher installs the
 	// matching 1.21 stack from PerformanceModCatalog alongside this jar. Only the
 	// Origin client itself is in this jar (BundlesPerfStack:false, same model as

@@ -17,6 +17,9 @@
 		],
 		"client": [
 			"com.origin.client.client.OriginClientMod"
+		],
+		"preLaunch": [
+			"com.origin.client.client.OriginHandoff"
 		]
 	},
 	"mixins": [
