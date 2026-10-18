@@ -21,7 +21,7 @@ store page ──{uuid, name, items}──▶ services/cosmetics POST /v1/store/
   (prices from stripe.js CATALOG; refuses items that player already owns)
         │ Stripe Checkout Session, uuid + items in its metadata
         ▼
-buyer pays on checkout.stripe.com ──▶ back to store.html?purchase=done
+buyer pays on checkout.stripe.com ──▶ back to /store?purchase=done
         │
 Stripe webhook ──▶ POST /v1/stripe/webhook (signature checked)
   checkout.session.completed (paid) / async_payment_succeeded → owned rows
