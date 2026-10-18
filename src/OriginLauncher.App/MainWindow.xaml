@@ -130,7 +130,14 @@
                         <Path Data="{StaticResource Icon.Mods}" Style="{StaticResource Icon.Base}"
                               Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
-                    <ToggleButton x:Name="NavSettings" Style="{StaticResource Button.NavItem}"
+                    <ToggleButton x:Name="NavProfiles" Style="{StaticResource Button.NavItem}"
+                                  Checked="NavProfiles_Checked" Unchecked="Nav_Unchecked" Width="44" Height="44" Padding="0"
+                                  HorizontalContentAlignment="Center" ToolTip="Profiles" AutomationProperties.Name="Profiles"
+                                  Margin="0,0,0,6">
+                        <Path Data="{StaticResource Icon.Profiles}" Style="{StaticResource Icon.Base}"
+                              Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                    </ToggleButton>
+                    <ToggleButton x:Name="NavSettings"Style="{StaticResource Button.NavItem}"
                                   Checked="NavSettings_Checked" Unchecked="Nav_Unchecked" Width="44" Height="44" Padding="0"
                                   HorizontalContentAlignment="Center" ToolTip="Settings" AutomationProperties.Name="Settings">
                         <Path Data="{StaticResource Icon.Settings}" Style="{StaticResource Icon.Base}"

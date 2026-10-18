@@ -4,7 +4,9 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Mods;
+using OriginLauncher.App.Core.Profiles;
 
 namespace OriginLauncher.App.UI.Pages;
 
@@ -18,6 +20,7 @@ namespace OriginLauncher.App.UI.Pages;
 public partial class ModsPage : UserControl
 {
     private string? _version;
+    private ModProfile? _profile;      // the selected mod profile when it belongs to _version; else null (normal mods)
     private string? _pendingRemove;   // filename awaiting the inline "Remove?" confirm
     private bool _suppressToggle;      // guards programmatic IsChecked changes
 
@@ -32,11 +35,37 @@ public partial class ModsPage : UserControl
     {
         _version = version;
         _pendingRemove = null;
+        ResolveProfile();
         VersionChipText.Text = version ?? "No version";
         DropZone.IsEnabled = version != null;
         DropZone.Opacity = version != null ? 1.0 : 0.5;
         HideStatus();
         Refresh();
+    }
+
+    // A selected mod profile (Profiles page) owns the mods list for ITS version:
+    // adds, toggles and removals then go to that profile's own folder. On any
+    // other version the page keeps managing the version's normal mods.
+    private void ResolveProfile()
+    {
+        var settings = SettingsStore.Load();
+        _profile = ProfileRules.Active(settings.ModProfiles, settings.SelectedProfileId, _version);
+        var selected = settings.ModProfiles.FirstOrDefault(p => p.Id == settings.SelectedProfileId && ProfileRules.IsUsable(p));
+
+        if (_profile != null)
+        {
+            ProfileNote.Text = $"Mods for your profile \"{_profile.Name}\". Only this profile loads them.";
+            ProfileNote.Visibility = Visibility.Visible;
+            DropCaption.Text = "Added to this profile only";
+        }
+        else
+        {
+            ProfileNote.Text = selected != null && _version != null
+                ? $"Your profile \"{selected.Name}\" is for {selected.Version}, so these are your normal mods."
+                : "";
+            ProfileNote.Visibility = ProfileNote.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            DropCaption.Text = "Shared by all your accounts on this version";
+        }
     }
 
     private void Refresh()
@@ -52,9 +81,11 @@ public partial class ModsPage : UserControl
             return;
         }
 
-        var mods = ModManager.Enumerate(_version);
+        var mods = ModManager.Enumerate(_version, _profile?.Id);
         var user = mods.Where(m => !m.IsManaged).ToList();
-        var managed = mods.Where(m => m.IsManaged).ToList();
+        // A profile folder holds only the player's own mods; Origin's built-in
+        // ones come from the version's shared folder and aren't part of it.
+        var managed = _profile != null ? new List<ModEntry>() : mods.Where(m => m.IsManaged).ToList();
 
         foreach (var mod in user)
             UserModsPanel.Children.Add(
@@ -155,7 +186,7 @@ public partial class ModsPage : UserControl
         };
         confirm.Click += (_, _) =>
         {
-            var result = ModManager.Remove(_version!, mod.FileName);
+            var result = ModManager.Remove(_version!, mod.FileName, _profile?.Id);
             _pendingRemove = null;
             if (!result.Ok) ShowStatus(result.Error);
             else HideStatus();
@@ -237,7 +268,7 @@ public partial class ModsPage : UserControl
     {
         if (_suppressToggle || _version == null) return;
 
-        var result = ModManager.SetEnabled(_version, fileName, enable);
+        var result = ModManager.SetEnabled(_version, fileName, enable, _profile?.Id);
         if (result.Ok)
         {
             toggle.ToolTip = enable ? "On — loads in-game" : "Off — skipped at launch";
@@ -256,7 +287,7 @@ public partial class ModsPage : UserControl
     private void DropZone_Click(object sender, MouseButtonEventArgs e)
     {
         if (_version == null) return;
-        var result = ModManager.OpenFolder(_version);
+        var result = ModManager.OpenFolder(_version, _profile?.Id);
         if (!result.Ok) ShowStatus(result.Error);
     }
 
@@ -287,7 +318,7 @@ public partial class ModsPage : UserControl
         if (_version == null || !HasJar(e)) return;
 
         var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-        var result = ModManager.Import(_version, files);
+        var result = ModManager.Import(_version, files, _profile?.Id);
         if (!result.Ok) ShowStatus(result.Error);
         else HideStatus();
         Refresh();

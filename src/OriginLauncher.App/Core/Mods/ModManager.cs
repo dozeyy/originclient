@@ -43,8 +43,12 @@ public static class ModManager
     public const string JarSuffix = ".jar";
     private const string DownloadSuffix = ".jar.download";
 
-    // The version's mods folder, the same for every account.
-    public static string ModsFolder(string version) => OriginPaths.ModsDir(version);
+    // The folder the Mods page edits: the version's mods folder (the same for
+    // every account), or — while a mod profile is selected (Core/Profiles) —
+    // that profile's own folder. Every operation below takes the same optional
+    // profileId, so the page manages whichever one it is showing.
+    public static string ModsFolder(string version, string? profileId = null) =>
+        profileId == null ? OriginPaths.ModsDir(version) : OriginPaths.ProfileModsDir(version, profileId);
 
     // Another account may be playing this version right now (the folder is
     // shared), so the blocker is "a game", not "your game".
@@ -53,9 +57,9 @@ public static class ModManager
     /// <summary>Every mod in the version's folder, enabled and disabled, sorted
     /// by display name. User (unmanaged) entries first so they lead the list.
     /// Never throws — an unreadable folder yields an empty list.</summary>
-    public static IReadOnlyList<ModEntry> Enumerate(string version)
+    public static IReadOnlyList<ModEntry> Enumerate(string version, string? profileId = null)
     {
-        var folder = ModsFolder(version);
+        var folder = ModsFolder(version, profileId);
         if (!Directory.Exists(folder))
             return Array.Empty<ModEntry>();
 
@@ -111,9 +115,9 @@ public static class ModManager
     /// <summary>Enable/disable a user mod by renaming between "foo.jar" and
     /// "foo.jar.disabled". Idempotent; tolerant of the target already existing
     /// (a prior crash could leave both) — the stale duplicate is overwritten.</summary>
-    public static ModActionResult SetEnabled(string version, string fileName, bool enabled)
+    public static ModActionResult SetEnabled(string version, string fileName, bool enabled, string? profileId = null)
     {
-        var folder = ModsFolder(version);
+        var folder = ModsFolder(version, profileId);
         var jarPath = Path.Combine(folder, fileName);
         var disabledPath = jarPath + ".disabled";
         var from = enabled ? disabledPath : jarPath;
@@ -146,9 +150,9 @@ public static class ModManager
     /// Non-.jar files are skipped (reported back). Importing "foo.jar" also
     /// clears any existing "foo.jar.disabled" so the import always lands enabled
     /// rather than silently colliding with a disabled twin.</summary>
-    public static ModActionResult Import(string version, IEnumerable<string> paths)
+    public static ModActionResult Import(string version, IEnumerable<string> paths, string? profileId = null)
     {
-        var folder = ModsFolder(version);
+        var folder = ModsFolder(version, profileId);
         try
         {
             Directory.CreateDirectory(folder);
@@ -158,7 +162,7 @@ public static class ModManager
             return ModActionResult.Fail($"Couldn't open the mods folder: {ex.Message}");
         }
 
-        int imported = 0, skipped = 0;
+        int imported = 0, skipped = 0, alreadyOrigins = 0;
         foreach (var src in paths)
         {
             if (!src.EndsWith(JarSuffix, StringComparison.OrdinalIgnoreCase) || !File.Exists(src))
@@ -168,6 +172,13 @@ public static class ModManager
             }
 
             var name = Path.GetFileName(src);
+            // A profile never loads a second copy of a mod Origin installs itself
+            // (two Fabric APIs stop Fabric booting), so it isn't taken in.
+            if (profileId != null && IsOriginProvisioned(name))
+            {
+                alreadyOrigins++;
+                continue;
+            }
             var dest = Path.Combine(folder, name);
             var temp = dest + ".download"; // a *.jar.download is never listed or loaded
             try
@@ -192,15 +203,16 @@ public static class ModManager
 
         if (imported == 0)
             return ModActionResult.Fail(
-                skipped > 0 ? "Only .jar mod files can be added." : "No mods to add.");
+                alreadyOrigins > 0 ? "Origin already includes that mod, so there's no need to add it."
+                : skipped > 0 ? "Only .jar mod files can be added." : "No mods to add.");
 
         return ModActionResult.Success;
     }
 
     /// <summary>Delete a mod (whichever enabled/disabled form is on disk).</summary>
-    public static ModActionResult Remove(string version, string fileName)
+    public static ModActionResult Remove(string version, string fileName, string? profileId = null)
     {
-        var folder = ModsFolder(version);
+        var folder = ModsFolder(version, profileId);
         try
         {
             foreach (var candidate in new[] { Path.Combine(folder, fileName), Path.Combine(folder, fileName + ".disabled") })
@@ -220,9 +232,9 @@ public static class ModManager
 
     /// <summary>Open the version's mods folder in Explorer, creating it first so
     /// the click always lands somewhere real even before the first launch.</summary>
-    public static ModActionResult OpenFolder(string version)
+    public static ModActionResult OpenFolder(string version, string? profileId = null)
     {
-        var folder = ModsFolder(version);
+        var folder = ModsFolder(version, profileId);
         try
         {
             Directory.CreateDirectory(folder);
@@ -259,6 +271,16 @@ public static class ModManager
             || Loaders.LegacyStackInstaller.IsStackJar(jarName)
             || IsBundledPerfJar(jarName);
     }
+
+    /// <summary>
+    /// Everything Origin itself puts in a version's mods folder: the managed
+    /// set plus Simple Voice Chat (SimpleVoiceChatInstaller adds it to every
+    /// Fabric version, but it stays a normal, toggleable row on the Mods page).
+    /// A mod-profile launch (Core/Profiles/LaunchModFolder) takes THESE from the
+    /// shared folder and everything else from the profile.
+    /// </summary>
+    public static bool IsOriginProvisioned(string jarName) =>
+        IsManaged(jarName) || jarName.StartsWith("voicechat-", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// The performance jars Origin's own catalog installs (Sodium, Indium,

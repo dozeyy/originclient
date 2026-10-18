@@ -16,6 +16,10 @@ namespace OriginLauncher.App.Core.GameFolders;
 //                                                (SharedMods has the why and the merge;
 //                                                Forge 1.8.9 can't, so it gets a copy
 //                                                in the account's mods/: SharedMods.Mirror)
+//     profiles/<id>/mods/                       one MOD PROFILE's own jars (Core/Profiles): the
+//                                                player's named per-server mod sets. Shared by
+//                                                every account like mods/; a launch copies them
+//                                                into the account's own launch folder.
 //     accounts/<account>/                       one ACCOUNT's game folder (--gameDir):
 //       options.txt servers.dat saves/ config/   its own settings, worlds, servers and
 //       logs/ screenshots/ ...                   mod configs
@@ -32,6 +36,9 @@ public static class InstanceLayout
     /// <summary>The version's shared mods folder, directly in its root.</summary>
     public const string ModsFolder = "mods";
 
+    /// <summary>The folder holding a version's mod profiles, directly in its root.</summary>
+    public const string ProfilesFolder = "profiles";
+
     /// <summary>The game folder used by offline test mode (no account signed in).</summary>
     public const string OfflineKey = "offline";
 
@@ -41,7 +48,7 @@ public static class InstanceLayout
     private static readonly HashSet<string> Shared = new(StringComparer.OrdinalIgnoreCase)
     {
         "versions", "libraries", "assets", "runtime", "resources",
-        AccountsFolder, ModsFolder, "origin-verified.json",
+        AccountsFolder, ModsFolder, ProfilesFolder, "origin-verified.json",
     };
 
     public static bool IsSharedEntry(string name) => Shared.Contains(name);
@@ -58,6 +65,18 @@ public static class InstanceLayout
     /// <summary>The mods folder every account's game of this version loads.</summary>
     public static string ModsDir(string instancesRoot, string version) =>
         Path.Combine(VersionRoot(instancesRoot, version), ModsFolder);
+
+    /// <summary>All of a version's mod profiles (one folder per profile id).</summary>
+    public static string ProfilesDir(string instancesRoot, string version) =>
+        Path.Combine(VersionRoot(instancesRoot, version), ProfilesFolder);
+
+    /// <summary>One profile's folder: instances/&lt;version&gt;/profiles/&lt;id&gt;. The id must be a ProfileRules.IsValidId one.</summary>
+    public static string ProfileDir(string instancesRoot, string version, string profileId) =>
+        Path.Combine(ProfilesDir(instancesRoot, version), profileId);
+
+    /// <summary>The mods a profile loads: instances/&lt;version&gt;/profiles/&lt;id&gt;/mods.</summary>
+    public static string ProfileModsDir(string instancesRoot, string version, string profileId) =>
+        Path.Combine(ProfileDir(instancesRoot, version, profileId), ModsFolder);
 
     /// <summary>The shared mods folder for an account game folder (instances/&lt;version&gt;/accounts/&lt;account&gt;).</summary>
     public static string ModsDirForGameDir(string gameDir)

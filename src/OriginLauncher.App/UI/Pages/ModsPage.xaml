@@ -31,6 +31,10 @@
             <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
                     CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,18"/>
 
+            <!-- Which mods these are, when a mod profile is in play (set in code). -->
+            <TextBlock x:Name="ProfileNote" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
+                       Visibility="Collapsed" Margin="1,-8,0,16"/>
+
             <!-- Drop zone: drag .jar files in, or click to open the mods folder -->
             <Border x:Name="DropZone" AllowDrop="True" Cursor="Hand"
                     Background="{StaticResource Brush.PanelGlass}"
@@ -48,7 +52,7 @@
                                Style="{StaticResource Text.Body}" HorizontalAlignment="Center"/>
                     <TextBlock Text="or open the folder"
                                Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                    <TextBlock Text="Shared by all your accounts on this version"
+                    <TextBlock x:Name="DropCaption" Text="Shared by all your accounts on this version"
                                Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center" Margin="0,10,0,0"
                                Opacity="0.7"/>
                 </StackPanel>
