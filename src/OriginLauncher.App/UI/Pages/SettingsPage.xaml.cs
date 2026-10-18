@@ -141,6 +141,14 @@ public partial class SettingsPage : UserControl
     // version (newest file wins per setting, so nothing the player set is
     // lost) — on a worker thread, since it reads every instance. Turning it off
     // only stops syncing: every version keeps exactly what it has.
+    /// <summary>Render mode only (UI/RenderShots.cs): shows the switch On/Off without running its handlers (no settings write, no seeding).</summary>
+    internal void TourSetSettingsSync(bool on)
+    {
+        _isLoading = true;
+        SettingsSyncToggle.IsChecked = on;
+        _isLoading = false;
+    }
+
     private void SettingsSyncToggle_Checked(object sender, RoutedEventArgs e)
     {
         if (_isLoading) return;

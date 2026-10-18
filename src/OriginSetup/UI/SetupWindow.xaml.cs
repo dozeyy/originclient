@@ -34,6 +34,7 @@ public partial class SetupWindow : Window
 
     private bool _loading = true;
     private bool _ramChanged;
+    private bool _syncInitial; // Settings Sync as the existing install has it (off on a fresh PC)
     private bool _installing;
     private CancellationTokenSource? _cts;
     private InstallOptions? _pendingOptions;
@@ -74,6 +75,8 @@ public partial class SetupWindow : Window
         VersionCombo.SelectedIndex = 0;
 
         StartupToggle.IsChecked = SafeIsStartWithWindows();
+        _syncInitial = Handoff.IsSettingsSyncOn(Handoff.SettingsPath);
+        SyncToggle.IsChecked = _syncInitial;
 
         FillWelcome();
         if (_existing != null)
@@ -180,6 +183,9 @@ public partial class SetupWindow : Window
             StartWithWindows = StartupToggle.IsChecked == true,
             RamMb = _ramChanged ? (int)RamSlider.Value : (int?)null,
             DefaultVersion = (VersionCombo.SelectedItem as ComboBoxItem)?.Tag as string,
+            // Only a change is handed over, so updating over an install that
+            // already has sync on never switches it off by accident.
+            SettingsSync = (SyncToggle.IsChecked == true) != _syncInitial ? SyncToggle.IsChecked == true : (bool?)null,
             SourceZip = _sourceZip,
         };
 
@@ -520,9 +526,10 @@ public partial class SetupWindow : Window
         ShowPage(WelcomePage, step: 1);
     }
 
-    internal void TourCustomize(string? problem)
+    internal void TourCustomize(string? problem, bool syncOn = false)
     {
         _existing = null;
+        SyncToggle.IsChecked = syncOn;
         FillWelcome();
         LocationBox.IsReadOnly = false;
         BrowseButton.IsEnabled = true;

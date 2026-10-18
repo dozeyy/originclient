@@ -25,6 +25,8 @@ public static class RenderTour
         setup.TourWelcome(null);              Snap(setup, outDir, "01-welcome");
         setup.TourWelcome("1.0.39");          Snap(setup, outDir, "02-welcome-update");
         setup.TourCustomize(null);            Snap(setup, outDir, "03-customize");
+        setup.TourCustomize(null, syncOn: true);  Settle(setup, 400); // the switch slides to On
+                                              Snap(setup, outDir, "03b-customize-sync-on");
         setup.TourCustomize("Origin can't go in Program Files or Windows — it updates itself, which needs a folder you own.");
                                               Snap(setup, outDir, "04-customize-problem");
         setup.TourInstalling(new InstallProgress(InstallStage.Downloading, 0.42, 53 * mb, 126 * mb, "1.0.40"));
@@ -42,6 +44,17 @@ public static class RenderTour
         uninstall.TourRemoving();             Snap(uninstall, outDir, "11-uninstall-removing");
         uninstall.TourDone(keptData: true);   Snap(uninstall, outDir, "12-uninstall-done");
         uninstall.Close();
+    }
+
+    // Lets running animations (a toggle sliding) finish before a snapshot.
+    private static void Settle(Window window, int ms)
+    {
+        var end = DateTime.UtcNow.AddMilliseconds(ms);
+        while (DateTime.UtcNow < end)
+        {
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.Background);
+            System.Threading.Thread.Sleep(8);
+        }
     }
 
     private static void Snap(Window window, string dir, string name)
