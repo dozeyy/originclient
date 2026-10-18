@@ -293,6 +293,12 @@ public partial class MainWindow : Window
 
     internal void TourShowRunning(string playerName) => _homePage.TourShowRunning(playerName);
 
+    internal void TourShowLaunch(string version) => _homePage.TourShowLaunch(version);
+
+    internal void TourReportLaunch(string stage) => _homePage.TourReportLaunch(stage);
+
+    internal void TourHideLaunch() => _homePage.TourHideLaunch();
+
     private void OpenSignInPanel()
     {
         if (_signInPanelOpen) return;

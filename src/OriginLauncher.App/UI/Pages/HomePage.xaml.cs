@@ -1137,6 +1137,20 @@ public partial class HomePage : UserControl
         SetStatus($"Running · {playerName}", StatusTone.Success);
     }
 
+    /// <summary>
+    /// Render mode only (UI/RenderShots.cs): the Play press's animation and
+    /// the loading scene, without preparing or starting anything.
+    /// </summary>
+    internal void TourShowLaunch(string version)
+    {
+        ShrinkPlayButton();
+        LoadingOverlay.Show(version, PlayButton);
+    }
+
+    internal void TourReportLaunch(string stage) => LoadingOverlay.ReportStage(stage);
+
+    internal void TourHideLaunch() => LoadingOverlay.Hide();
+
     private enum StatusTone
     {
         Neutral,
