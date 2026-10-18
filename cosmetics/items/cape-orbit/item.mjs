@@ -4,7 +4,7 @@
 // density: an animated cape is 40x64 art px (4 px per model px), half of cape-origin's 80x128, so the
 // stroke is 1 px (the same thickness on the cape as cape-origin's 2 px) and the mark is drawn once, here,
 // at exactly that size, never resampled. It is identical in all 32 frames. Four electrons ride the ring
-// centre lines: a 2x2 bright dot with a 1 px halo and a 4 px trail that fades along the curve. They slip
+// centre lines: a 2x2 bright dot with a 1 px halo and a 4 px trail that fades along the curve; the mark has a dim 1 px halo. They slip
 // under a ring wherever the thread passes beneath another. Monochrome only (the #E0E0E0 family).
 // Loop: whole laps per ring, so frame 32 = frame 0.
 import { Canvas, ramp, clamp, smoothstep, mix } from '../../lib/px.mjs';
@@ -14,10 +14,11 @@ const S = 4, W = 10 * S, H = 16 * S, FRAMES = 32;
 const MX = 20, MY = 31, MSIZE = 36, OPEN = 1.15, STROKE = 1, GAPR2 = 2;   // mark: centre on a pixel seam; width; ring fatness; stroke px; crossing break radius^2
 const FX = x => 2 * MX - 1 - x, FY = y => 2 * MY - 1 - y;
 
-const clothFine = ramp('#363940', 9, { lo: 0.06, hi: 0.26, tint: 0.025, shadowHue: 232, lightHue: 215, shift: 0.3 });
+const clothFine = ramp('#2e3036', 9, { lo: 0.045, hi: 0.2, tint: 0.025, shadowHue: 232, lightHue: 215, shift: 0.3 });
 const cloth = [0, 2, 4, 6, 8].map(i => clothFine[i]);
 const OUTLINE = cloth[0];
-const RING = '#bcbcbc';                                  // rings sit below the electrons so the beads and trails read
+const HALO_EDGE = 0.2, HALO_CORNER = 0.09;               // halo strength beside the thread
+const RING = '#b2b2b2';                                  // rings sit below the electrons so the beads and trails read
 // ---------------------------------------------------------------- cloth folds (scale 4: 40x64 art px)
 // Same construction as cape-origin (uneven soft folds, 9-step hue-shifted ramp, light from the top-left),
 // halved to the 4 px/model-px density of an animated cape.
@@ -157,6 +158,20 @@ function buildBase() {
   }
   const mark = buildMark();
   for (const [k] of mark.owner) if (!mark.gap.has(k)) c.set(k % W, (k / W) | 0, RING);
+  // dim 1 px halo: the cloth beside every thread pixel catches a little of the thread's light (edge neighbours
+  // stronger than corner neighbours); it never touches the thread itself, so the 1 px line stays crisp
+  const glow = new Map();
+  for (const [k] of mark.owner) {
+    if (mark.gap.has(k)) continue;
+    const px = k % W, py = (k / W) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const nk = (py + dy) * W + px + dx;
+      if (mark.owner.has(nk) && !mark.gap.has(nk)) continue;
+      glow.set(nk, Math.max(glow.get(nk) || 0, (dx && dy) ? HALO_CORNER : HALO_EDGE));
+    }
+  }
+  for (const [k, g] of glow) c.set(k % W, (k / W) | 0, mix(c.get(k % W, (k / W) | 0), '#e0e0e0', g));
   for (let x = 0; x < W; x++) { c.set(x, 0, OUTLINE); c.set(x, H - 1, OUTLINE); }
   for (let y = 0; y < H; y++) { c.set(0, y, OUTLINE); c.set(W - 1, y, OUTLINE); }
 

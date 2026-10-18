@@ -16,7 +16,7 @@ const FX = x => 2 * MX - 1 - x, FY = y => 2 * MY - 1 - y;
 const clothFine = ramp('#2b2f3a', 9, { lo: 0.05, hi: 0.24, tint: 0.03, shadowHue: 232, lightHue: 205, shift: 0.3 });
 const cloth = [0, 2, 4, 6, 8].map(i => clothFine[i]);
 const OUTLINE = cloth[0];
-const BODY = '#e0e0e0';
+const BODY = '#e0e0e0', HALO_EDGE = 0.2, HALO_CORNER = 0.09;   // thread colour; halo strength beside it
 // the cloth body is one flat tone ruled by even scanlines: every odd row one step darker
 const bodyLevel = () => 4;
 const clothLevel = (x, y) => Math.round(bodyLevel(x, y) / 2);
@@ -137,6 +137,20 @@ function buildBase() {
   }
   const mark = buildMark();
   for (const [k] of mark.owner) if (!mark.gap.has(k)) c.set(k % W, (k / W) | 0, BODY);
+  // dim 1 px halo: the cloth beside every thread pixel catches a little of the thread's light (edge neighbours
+  // stronger than corner neighbours); it never touches the thread itself, so the 1 px line stays crisp
+  const glow = new Map();
+  for (const [k] of mark.owner) {
+    if (mark.gap.has(k)) continue;
+    const px = k % W, py = (k / W) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const nk = (py + dy) * W + px + dx;
+      if (mark.owner.has(nk) && !mark.gap.has(nk)) continue;
+      glow.set(nk, Math.max(glow.get(nk) || 0, (dx && dy) ? HALO_CORNER : HALO_EDGE));
+    }
+  }
+  for (const [k, g] of glow) c.set(k % W, (k / W) | 0, mix(c.get(k % W, (k / W) | 0), '#e0e0e0', g));
   for (let x = 0; x < W; x++) { c.set(x, 0, OUTLINE); c.set(x, H - 1, OUTLINE); }
   for (let y = 0; y < H; y++) { c.set(0, y, OUTLINE); c.set(W - 1, y, OUTLINE); }
   BASE = c;
@@ -146,13 +160,15 @@ function buildBase() {
 // frame -> { split: px of RGB split, bands: [[y, height, dx]], flick: scanline darkening 0..1, dim: mark flicker }
 // Band rows are shifted whole, edge included: the cape's silhouette is notched where a band slides.
 const SCHEDULE = {
-  9:  { split: 1, bands: [[22, 3, 2], [40, 2, -1]], flick: 0.2, dim: 0 },
-  10: { split: 1, bands: [[10, 3, -3], [20, 5, 3], [31, 2, -2], [44, 4, 2]], flick: 0.45, dim: 0.25 },
-  11: { split: 1, bands: [[28, 3, -2], [37, 3, 3]], flick: 0.25, dim: 0 },
+  9:  { split: 1, bands: [[22, 3, 2], [40, 3, -3]], flick: 0.2, dim: 0 },
+  10: { split: 2, bands: [[10, 3, -3], [20, 5, 3], [31, 3, -2], [44, 4, 3]], flick: 0.45, dim: 0.25 },
+  11: { split: 1, bands: [[28, 3, -2], [37, 4, 3]], flick: 0.25, dim: 0 },
   17: { split: 1, bands: [], flick: 0, dim: 0 },
-  23: { split: 1, bands: [[16, 4, 3], [34, 3, -3], [48, 2, 2]], flick: 0.35, dim: 0.2 },
-  24: { split: 1, bands: [[26, 4, -2], [42, 2, 3]], flick: 0.18, dim: 0 },
+  23: { split: 2, bands: [[16, 4, 3], [34, 3, -3], [48, 3, 2]], flick: 0.35, dim: 0.2 },
+  24: { split: 1, bands: [[26, 4, -3], [42, 3, 2]], flick: 0.18, dim: 0 },
 };
+// calm frames: one faint scanline now and then catches the light (frame -> row)
+const BLINK = { 2: 21, 5: 46, 13: 18, 14: 18, 20: 38, 28: 27, 30: 52 };
 
 function glitchFrame(src, g, f) {
   const out = new Canvas(W, H);
@@ -162,8 +178,10 @@ function glitchFrame(src, g, f) {
     for (let x = 0; x < W; x++) {
       const sx = x - dx;
       if (sx < 0 || sx >= W) continue;                       // slid out of / into the cape: transparent notch
-      const cr = src.get(Math.min(W - 1, sx + d), y), cg = src.get(sx, y);   // red ghost one px over, the line itself cyan
-      out.set(x, y, [cr[0], cg[1], cg[2]]);
+      const cr = src.get(Math.min(W - 1, sx + d), y), cg = src.get(sx, y);   // red ghost d px over, the line itself cyan
+      if (d && cg[0] > 150) out.set(x, y, [70, 255, 245]);                  // thread: saturated cyan
+      else if (d && cr[0] > 150) out.set(x, y, [255, 40, 84]);              // its ghost: saturated red
+      else out.set(x, y, [cr[0], cg[1], cg[2]]);
     }
   }
   if (g.flick > 0) {
@@ -189,6 +207,7 @@ export default {
     if (!BASE) buildBase();
     const g = SCHEDULE[f];
     const c = g ? glitchFrame(BASE, g, f) : BASE.clone();
+    if (BLINK[f] !== undefined) for (let x = 1; x < W - 1; x++) c.set(x, BLINK[f], mix(c.get(x, BLINK[f]), '#9ab0c8', 0.16));
     // the slow scan band: one soft bright band drifting down the cape once per loop
     const cy = -8 + (f / FRAMES) * (H + 16);
     for (let y = Math.max(1, Math.floor(cy - 6)); y <= Math.min(H - 2, Math.ceil(cy + 6)); y++) {
