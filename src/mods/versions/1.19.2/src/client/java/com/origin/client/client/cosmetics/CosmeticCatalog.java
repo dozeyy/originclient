@@ -112,8 +112,10 @@ public final class CosmeticCatalog {
 			ordered = List.copyOf(map.values());
 			loaded = true;
 		} catch (Throwable t) {
-			logOnce("catalog", "Origin cosmetics: couldn't read catalog.json; no cosmetics this session", t);
-			loaded = true;   // broken, not missing: don't retry every 5 seconds
+			// Not final: the first read often comes from the service's background thread while the
+			// game is still loading its resources, and a pack swapped out mid-read throws. Giving up
+			// here left the whole session with no cosmetics, so the next ask after RETRY_MS tries again.
+			logOnce("catalog", "Origin cosmetics: couldn't read catalog.json; will retry", t);
 		}
 	}
 
