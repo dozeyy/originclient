@@ -45,35 +45,82 @@ public final class CosmeticsService {
 	}
 
 	/**
-	 * How far each worn slot sits above (+) or below (-) its default spot, in
-	 * model px (FORMAT.md "Height tweaks"): players move items to suit their skin
-	 * (Will, 2026-10-18). Saved with what they wear, so everyone sees it.
+	 * Where each worn slot sits relative to its default spot, in model px
+	 * (FORMAT.md "Position tweaks"): players move items to suit their skin
+	 * (Will, 2026-10-18). Every slot moves up (+) / down (-); head and face
+	 * items also move sideways (+ = toward the player's left) and forward
+	 * (+ = toward the face) (Will, 2026-10-19). Saved with what they wear, so
+	 * everyone sees it.
 	 */
-	public record Adjust(float cape, float head, float face, float back) {
-		public static final Adjust NONE = new Adjust(0f, 0f, 0f, 0f);
-		/** One click of the up / down arrows, and the furthest either way (the service clamps the same). */
+	public record Adjust(float cape, float head, float face, float back, float headX, float headZ, float faceX,
+			float faceZ) {
+		public static final Adjust NONE = new Adjust(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+		/** One click of an arrow, and the furthest either way on each axis (the service clamps the same). */
 		public static final float STEP = 0.5f, MAX = 4f;
 
+		/** The directions a slot's item moves in. Y = up, X = the player's left, Z = toward the face. */
+		public enum Axis {
+			Y, X, Z
+		}
+
+		public Adjust(float cape, float head, float face, float back) {
+			this(cape, head, face, back, 0f, 0f, 0f, 0f);
+		}
+
+		/** Head and face items move every way; the cape and back items only up / down. */
+		public static boolean movesFreely(Cosmetics.Slot slot) {
+			return slot == Cosmetics.Slot.HEAD || slot == Cosmetics.Slot.FACE;
+		}
+
+		/** The height tweak (+ = up). */
 		public float get(Cosmetics.Slot slot) {
-			return switch (slot) {
-				case CAPE -> cape;
-				case HEAD -> head;
-				case FACE -> face;
-				case BACK -> back;
-				case THEME -> 0f;
+			return get(slot, Axis.Y);
+		}
+
+		public float get(Cosmetics.Slot slot, Axis axis) {
+			return switch (axis) {
+				case Y -> switch (slot) {
+					case CAPE -> cape;
+					case HEAD -> head;
+					case FACE -> face;
+					case BACK -> back;
+					case THEME -> 0f;
+				};
+				case X -> slot == Cosmetics.Slot.HEAD ? headX : slot == Cosmetics.Slot.FACE ? faceX : 0f;
+				case Z -> slot == Cosmetics.Slot.HEAD ? headZ : slot == Cosmetics.Slot.FACE ? faceZ : 0f;
 			};
 		}
 
-		/** A copy with one slot moved to `v` (rounded to a STEP, clamped to MAX). */
+		/** A copy with one slot's height moved to `v` (rounded to a STEP, clamped to MAX). */
 		public Adjust with(Cosmetics.Slot slot, float v) {
+			return with(slot, Axis.Y, v);
+		}
+
+		/** A copy with one slot moved to `v` along `axis`; an axis the slot can't move in is ignored. */
+		public Adjust with(Cosmetics.Slot slot, Axis axis, float v) {
 			float r = clean(v);
-			return switch (slot) {
-				case CAPE -> new Adjust(r, head, face, back);
-				case HEAD -> new Adjust(cape, r, face, back);
-				case FACE -> new Adjust(cape, head, r, back);
-				case BACK -> new Adjust(cape, head, face, r);
-				case THEME -> this;
+			if (axis != Axis.Y && !movesFreely(slot)) {
+				return this;
+			}
+			boolean h = slot == Cosmetics.Slot.HEAD;
+			return switch (axis) {
+				case Y -> switch (slot) {
+					case CAPE -> new Adjust(r, head, face, back, headX, headZ, faceX, faceZ);
+					case HEAD -> new Adjust(cape, r, face, back, headX, headZ, faceX, faceZ);
+					case FACE -> new Adjust(cape, head, r, back, headX, headZ, faceX, faceZ);
+					case BACK -> new Adjust(cape, head, face, r, headX, headZ, faceX, faceZ);
+					case THEME -> this;
+				};
+				case X -> h ? new Adjust(cape, head, face, back, r, headZ, faceX, faceZ)
+						: new Adjust(cape, head, face, back, headX, headZ, r, faceZ);
+				case Z -> h ? new Adjust(cape, head, face, back, headX, r, faceX, faceZ)
+						: new Adjust(cape, head, face, back, headX, headZ, faceX, r);
 			};
+		}
+
+		/** The JSON key of one slot's axis: the slot name for Y ("head"), plus X / Z ("headX", "faceZ"). */
+		static String key(Cosmetics.Slot slot, Axis axis) {
+			return axis == Axis.Y ? slot.key : slot.key + axis.name();
 		}
 
 		static float clean(float v) {
@@ -118,6 +165,11 @@ public final class CosmeticsService {
 		/** The height tweak (model px, + = up) for whatever is worn in `slot`. */
 		public float adjust(Cosmetics.Slot slot) {
 			return adjust.get(slot);
+		}
+
+		/** The position tweak (model px) along `axis` for whatever is worn in `slot`. */
+		public float adjust(Cosmetics.Slot slot, Adjust.Axis axis) {
+			return adjust.get(slot, axis);
 		}
 
 		/** True if something worn here (wings, a mask...) says the cape must not be drawn. */
@@ -246,8 +298,22 @@ public final class CosmeticsService {
 		return status == Status.READY ? api : null;
 	}
 
+	/** DEV-ONLY (dev-shots world set, OriginDevWorld): what your own player wears, without the service. */
+	private static volatile Look devLook = null;
+
+	/** DEV-ONLY: dresses your own player in `look` (null = back to the service); ignored outside dev shots. */
+	public static void devWear(Look look) {
+		if (com.origin.client.client.OriginDevShots.enabled()) {
+			devLook = look;
+		}
+	}
+
 	/** What a player is wearing, for rendering. Render thread; never blocks. */
 	public static Look lookOf(UUID uuid) {
+		Look dev = devLook;
+		if (dev != null && uuid != null && uuid.equals(selfId())) {
+			return dev;
+		}
 		if (uuid == null || status != Status.READY) {
 			return Look.NONE;
 		}
@@ -579,12 +645,16 @@ public final class CosmeticsService {
 				known(o, "theme", Cosmetics.Slot.THEME), adjust);
 	}
 
-	/** {"cape": 1.5, "head": -0.5, ...}; absent / odd values = 0 (default spot). */
+	private static final Cosmetics.Slot[] ADJUST_SLOTS = {Cosmetics.Slot.CAPE, Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK};
+
+	/** {"cape": 1.5, "head": -0.5, "headX": 1, "faceZ": 0.5, ...}; absent / odd values = 0 (default spot). */
 	private static Adjust adjustFrom(JsonElement e) {
 		Adjust a = Adjust.NONE;
 		if (e instanceof JsonObject ao) {
-			for (Cosmetics.Slot slot : new Cosmetics.Slot[] {Cosmetics.Slot.CAPE, Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK}) {
-				a = a.with(slot, (float) Cosmetics.num(ao, slot.key, 0));
+			for (Cosmetics.Slot slot : ADJUST_SLOTS) {
+				for (Adjust.Axis axis : Adjust.Axis.values()) {
+					a = a.with(slot, axis, (float) Cosmetics.num(ao, Adjust.key(slot, axis), 0));
+				}
 			}
 		}
 		return a;
@@ -592,9 +662,11 @@ public final class CosmeticsService {
 
 	private static JsonObject adjustJson(Adjust a) {
 		JsonObject o = new JsonObject();
-		for (Cosmetics.Slot slot : new Cosmetics.Slot[] {Cosmetics.Slot.CAPE, Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK}) {
-			if (a.get(slot) != 0f) {
-				o.addProperty(slot.key, a.get(slot));
+		for (Cosmetics.Slot slot : ADJUST_SLOTS) {
+			for (Adjust.Axis axis : Adjust.Axis.values()) {
+				if (a.get(slot, axis) != 0f) {
+					o.addProperty(Adjust.key(slot, axis), a.get(slot, axis));
+				}
 			}
 		}
 		return o;
