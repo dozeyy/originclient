@@ -62,15 +62,25 @@ zip" step after the zip is final. The launcher (`Core/Updates/UpdateService.cs`
 checks it **before anything is unpacked**:
 
 - **Mismatch, or fewer bytes than Content-Length** -> the download is deleted,
-  nothing is extracted or applied, the badge reads "Update failed ... click to
-  retry" (a click, or the next relaunch, tries again) and the reason goes to
-  `%LocalAppData%\OriginLauncher\logs\update.log`.
+  nothing is extracted or applied, and the reason goes to
+  `%LocalAppData%\OriginLauncher\logs\update.log`. **A failed check never
+  blocks play** (mandate 4): the update leaves the mandatory-update gate at
+  once, the badge hides, and the player launches the version they have
+  (`Core/Updates/UpdateGate.cs`). It is retried quietly: ignored for 30 min,
+  then fetched and verified in the background with no UI; if that fails again
+  the wait doubles (1 h, 2 h, 4 h, capped at 6 h); a new launcher start retries
+  at once. Only a download that has verified is published to the gate (badge
+  lights, Play gated), so a broken release can never block play.
 - **No hash published** (a release cut before this step existed, or the asset
   missing) -> accepted unverified and logged, so old releases still update.
-  With no sidecar the launcher also accepts GitHub's own `digest` field for the
-  zip (the installer already relies on it).
-- **A hash that is listed but cannot be fetched or parsed** is a failure
-  (retry later), never treated as "no hash".
+  With no sidecar the launcher also uses GitHub's own `digest` field for the
+  zip (the installer already relies on it), but only a clean `sha256:<64 hex>`:
+  any other digest (another algorithm, empty, missing, a future format) counts
+  as "no hash", never a mismatch, so a GitHub API change cannot brick updates.
+- **A sidecar that is listed but cannot be parsed** is a verification failure
+  (same quiet back-off as above), never treated as "no hash". A plain network
+  failure (offline, stalled connection, HTTP error) is not a verification
+  failure and behaves as before: the badge stays and offers "click to retry".
 - A connection with no bytes for 60 s aborts the download; the half-written
   `.part` file is always deleted, and the zip only appears under its real name
   once verified.

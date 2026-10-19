@@ -20,7 +20,9 @@ namespace OriginLauncher.App.Core.Updates;
 //
 // Update policy (Will): updates are MANDATORY — a launcher older than the
 // latest published release must update before it can launch the game.
-// HomePage enforces that via UpdateRequired. Two deliberate softenings:
+// HomePage enforces that via UpdateRequired. Three deliberate softenings:
+//  - A download that fails its integrity check (UpdateVerifier) never blocks play: the update is ungated,
+//    the file discarded, and it is retried quietly with back-off (UpdateGate); only a verified one can be forced.
 //  - If the feed is unreachable (offline, rate-limited), the check fails
 //    OPEN: we can't tell "no update" from "no internet", and blocking all
 //    offline play on a feed hiccup would be worse than a stale client.
@@ -63,7 +65,13 @@ public static class UpdateService
     public static AvailableUpdate? Available { get; private set; }
 
     /// <summary>Mandatory-update gate: true when a newer release is known and this is a CI-stamped build.</summary>
-    public static bool UpdateRequired => Available != null && !IsDevBuild;
+    public static bool UpdateRequired { get { lock (Gate) return Gate.Required(IsDevBuild); } }
+
+    // The gate's state machine (Core/Updates/UpdateGate.cs). Always touched under lock (Gate): the poll loop,
+    // the focus check, Play and the badge click all reach it from different continuations.
+    private static readonly UpdateGate Gate = new();
+    // The version whose zip sits verified on disk from a quiet retry (the badge click then skips the download).
+    private static Version? _verifiedZipVersion;
 
     /// <summary>Raised (possibly off the UI thread) the first time a given newer release is seen.</summary>
     public static event EventHandler? AvailableChanged;
@@ -90,20 +98,55 @@ public static class UpdateService
             if (asset?.DownloadUrl == null)
                 return;
 
-            if (Normalize(remote) <= Normalize(CurrentVersion))
-                return;
-            if (Available != null && Normalize(Available.Version) >= Normalize(remote))
+            UpdateGate.Decision decision;
+            lock (Gate) decision = Gate.Evaluate(remote, CurrentVersion, DateTime.UtcNow);
+            if (decision is UpdateGate.Decision.Skip or UpdateGate.Decision.Wait)
                 return;
 
             var hashAsset = release.Assets?.FirstOrDefault(a =>
                 string.Equals(a.Name, HashAssetName, StringComparison.OrdinalIgnoreCase));
-            Available = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);
-            AvailableChanged?.Invoke(null, EventArgs.Empty);
+            var update = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);
+            if (decision == UpdateGate.Decision.Quiet)
+            {
+                // An earlier download of this release failed its check: never put it in front of the player
+                // (or gate Play on it) again until it has been fetched and verified in the background.
+                _ = QuietRetryAsync(update);
+                return;
+            }
+            Publish(update);
         }
         catch
         {
             // Fail open: offline / rate-limited / repo not public. The next
             // poll retries; play is never blocked on a failed check.
+        }
+    }
+
+    private static void Publish(AvailableUpdate update)
+    {
+        lock (Gate) Gate.Publish(update.Version);
+        Available = update;
+        AvailableChanged?.Invoke(null, EventArgs.Empty);
+    }
+
+    // Quiet retry after a failed check (see UpdateGate): download + verify with no UI, publish only on success.
+    // Any failure just extends the back-off; nothing is shown and Play is never touched.
+    private static async Task QuietRetryAsync(AvailableUpdate update)
+    {
+        try
+        {
+            var updatesRoot = Path.Combine(OriginPaths.Root, "updates");
+            Directory.CreateDirectory(updatesRoot);
+            await DownloadVerifiedAsync(update, Path.Combine(updatesRoot, AssetName), null).ConfigureAwait(false);
+            _verifiedZipVersion = update.Version;
+            lock (Gate) Gate.Verified(update.Version);
+            Log($"update {update.Version}: quiet retry verified, offering it now");
+            Publish(update);
+        }
+        catch (Exception)
+        {
+            // DownloadVerifiedAsync already logged why.
+            lock (Gate) Gate.VerifyFailed(update.Version, DateTime.UtcNow);
         }
     }
 
@@ -126,6 +169,13 @@ public static class UpdateService
         {
             await DownloadStageAndRestartAsync(update, progress, () => restarting = true);
         }
+        catch (UpdateVerificationException)
+        {
+            // Never blocks play: ungate, back off, retry quietly (UpdateGate). The caller shows no error.
+            lock (Gate) Gate.VerifyFailed(update.Version, DateTime.UtcNow);
+            Available = null;
+            throw;
+        }
         finally
         {
             if (!restarting) run.Dispose();
@@ -143,7 +193,10 @@ public static class UpdateService
 
         progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
         var zipPath = Path.Combine(updatesRoot, AssetName);
-        await DownloadVerifiedAsync(update, zipPath, progress);
+        // A quiet retry may already have fetched and verified this very zip.
+        if (_verifiedZipVersion != update.Version || !File.Exists(zipPath))
+            await DownloadVerifiedAsync(update, zipPath, progress);
+        _verifiedZipVersion = null;
 
         progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
         // Off the UI thread so the loading scene keeps animating while ~126 MB
@@ -236,9 +289,9 @@ endlocal
             switch (verdict)
             {
                 case UpdateVerdict.Mismatch:
-                    throw new IOException("the download was damaged (it failed its integrity check)");
+                    throw new UpdateVerificationException("the download was damaged (it failed its integrity check)");
                 case UpdateVerdict.Truncated:
-                    throw new IOException("the download was cut short");
+                    throw new UpdateVerificationException("the download was cut short");
                 case UpdateVerdict.OkUnverified:
                     Log($"update {update.Version}: release published no SHA-256, applying unverified (older release)");
                     break;
@@ -255,8 +308,8 @@ endlocal
     }
 
     // The sidecar .sha256 asset first, then the release API's own asset digest, else null (older release).
-    // A hash that is ADVERTISED but unreadable or malformed is a failure, never "no hash": an update we
-    // cannot verify is retried later, not applied.
+    // A SIDECAR that is listed but unreadable or malformed is a verification failure, never "no hash": an
+    // update we cannot verify is not applied (and, like any verification failure, never blocks play).
     private static async Task<string?> ResolveExpectedHashAsync(AvailableUpdate update)
     {
         if (update.Sha256Url != null)
@@ -264,12 +317,11 @@ endlocal
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             var text = await Http.GetStringAsync(update.Sha256Url, cts.Token).ConfigureAwait(false);
             return UpdateVerifier.ParseSha256(text, AssetName)
-                   ?? throw new IOException("the published SHA-256 file could not be read");
+                   ?? throw new UpdateVerificationException("the published SHA-256 file could not be read");
         }
-        if (update.DigestSha256 != null)
-            return UpdateVerifier.ParseSha256(update.DigestSha256, AssetName)
-                   ?? throw new IOException("the release's SHA-256 digest could not be read");
-        return null;
+        // GitHub's own digest is only a fallback and only ever helps: anything but a clean "sha256:<64 hex>"
+        // (another algorithm, empty, missing, a format change) is "no hash", never a mismatch.
+        return UpdateVerifier.ParseDigest(update.DigestSha256);
     }
 
     private static readonly object LogGate = new();
@@ -291,12 +343,6 @@ endlocal
             // a courtesy
         }
     }
-
-    // System.Version treats unset components as -1, which makes "1.0.5" and
-    // "1.0.5.0" unequal; pad to four components before comparing.
-    private static Version Normalize(Version v) => new(
-        Math.Max(v.Major, 0), Math.Max(v.Minor, 0),
-        Math.Max(v.Build, 0), Math.Max(v.Revision, 0));
 
     public sealed record AvailableUpdate(Version Version, string DownloadUrl, string? Sha256Url = null, string? DigestSha256 = null);
 

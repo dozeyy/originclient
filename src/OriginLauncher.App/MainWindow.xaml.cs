@@ -150,6 +150,16 @@ public partial class MainWindow : Window
             // the swap script relaunches the updated launcher.
             await UpdateService.DownloadAndRestartAsync(progress);
         }
+        catch (UpdateVerificationException)
+        {
+            // The download failed its integrity check. It was discarded and the update is out of the gate
+            // (UpdateService/UpdateGate): the player launches what they have; a quiet retry offers it again
+            // only once it verifies. Nothing blocking is shown.
+            if (onScene) _homePage.EndUpdateScene();
+            UpdateBadge.IsEnabled = true;
+            UpdateBadge.Visibility = Visibility.Collapsed;
+            _homePage.RefreshUpdateGate();
+        }
         catch (Exception ex)
         {
             if (onScene) _homePage.EndUpdateScene();

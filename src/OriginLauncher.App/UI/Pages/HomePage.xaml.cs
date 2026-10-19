@@ -360,10 +360,10 @@ public partial class HomePage : UserControl
     /// status line explains why Play is about to refuse.</summary>
     public void RefreshUpdateGate()
     {
-        if (UpdateService.UpdateRequired && SelectedPhase() == GamePhase.Idle)
-        {
-            SetStatus("Update required", StatusTone.Warning);
-        }
+        if (SelectedPhase() != GamePhase.Idle) return;
+        // Also the way back out: an update that failed its check is ungated, so the plain status line returns.
+        if (UpdateService.UpdateRequired) SetStatus("Update required", StatusTone.Warning);
+        else UpdatePlayState();
     }
 
     // The selected account's folder key (offline test mode's when nobody is

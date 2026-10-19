@@ -25,12 +25,30 @@ public enum UpdateVerdict
     Truncated
 }
 
+/// <summary>
+/// The download failed its integrity check (mismatch, short file, or a published hash we cannot read). It never
+/// blocks play: UpdateGate ungates the update and retries quietly later.
+/// </summary>
+public sealed class UpdateVerificationException(string message) : IOException(message);
+
 public static class UpdateVerifier
 {
     /// <summary>
-    /// Reads a published hash: a bare 64-digit hex string, sha256sum format ("hex  filename" or
-    /// "hex *filename"), or GitHub's "sha256:hex" digest. Returns lower-case hex, or null when nothing
-    /// valid is there. With several lines, only the line naming <paramref name="assetName"/> counts.
+    /// GitHub's asset "digest" field ("sha256:" + 64 hex). Anything else (another algorithm, empty, missing,
+    /// a changed format) is "no hash", never a mismatch, so a change on GitHub's side cannot brick updates.
+    /// </summary>
+    public static string? ParseDigest(string? digest)
+    {
+        const string prefix = "sha256:";
+        if (digest == null || digest.Length != prefix.Length + 64
+            || !digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            || !IsHex(digest.AsSpan(prefix.Length))) return null;
+        return digest[prefix.Length..].ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Reads the published sidecar: a bare 64-digit hex string or sha256sum format ("hex  filename" or
+    /// "hex *filename"). Returns lower-case hex, or null when nothing valid is there. With several lines, only the line naming <paramref name="assetName"/> counts.
     /// </summary>
     public static string? ParseSha256(string? text, string assetName)
     {
@@ -38,7 +56,7 @@ public static class UpdateVerifier
         var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var raw in lines)
         {
-            var line = raw.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase) ? raw["sha256:".Length..] : raw;
+            var line = raw;
             if (line.Length < 64 || !IsHex(line.AsSpan(0, 64))) continue;
             var name = line[64..].Trim().TrimStart('*').Trim();
             if (name.Length == 0 ? lines.Length == 1 : string.Equals(name, assetName, StringComparison.OrdinalIgnoreCase))

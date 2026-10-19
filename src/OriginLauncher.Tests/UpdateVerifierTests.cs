@@ -117,7 +117,6 @@ public sealed class UpdateVerifierTests : IDisposable
     [InlineData(Hex + "\n")]
     [InlineData(Hex + "  " + Asset + "\n")]
     [InlineData(Hex + " *" + Asset + "\r\n")]
-    [InlineData("sha256:" + Hex)]
     [InlineData("  " + Hex + "  ")]
     public void ParseSha256_reads_the_published_formats(string text) =>
         Assert.Equal(Hex, UpdateVerifier.ParseSha256(text, Asset));
@@ -147,6 +146,39 @@ public sealed class UpdateVerifierTests : IDisposable
     [InlineData("<html>404</html>")]
     public void ParseSha256_rejects_anything_else(string? text) =>
         Assert.Null(UpdateVerifier.ParseSha256(text, Asset));
+
+    [Fact]
+    public void ParseDigest_reads_GitHubs_sha256_digest()
+    {
+        Assert.Equal(Hex, UpdateVerifier.ParseDigest("sha256:" + Hex));
+        Assert.Equal(Hex, UpdateVerifier.ParseDigest("SHA256:" + Hex.ToUpperInvariant()));
+    }
+
+    // A GitHub API change must never brick updates: every odd digest is "no hash" (null), not a mismatch.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("sha256:")]
+    [InlineData("sha256:abc")]
+    [InlineData("sha512:" + Hex + Hex)]                       // another algorithm
+    [InlineData("md5:d41d8cd98f00b204e9800998ecf8427e")]
+    [InlineData(Hex)]                                          // no algorithm prefix
+    [InlineData("sha256-" + Hex)]                              // another separator
+    [InlineData("sha256:" + Hex + "00")]                       // too long
+    [InlineData("sha256:zz7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")]
+    [InlineData("{\"algorithm\":\"sha256\"}")]
+    public void ParseDigest_treats_an_odd_digest_as_no_hash(string? digest) =>
+        Assert.Null(UpdateVerifier.ParseDigest(digest));
+
+    [Fact]
+    public async Task An_odd_digest_downloads_unverified_instead_of_failing()
+    {
+        // what UpdateService does with a digest it cannot read: expected = null -> accepted, file kept
+        var expected = UpdateVerifier.ParseDigest("sha512:" + Hex + Hex);
+        Assert.Null(expected);
+        Assert.Equal(UpdateVerdict.OkUnverified, await RunAsync(_zip, _zip.Length, expected));
+        Assert.True(File.Exists(Dest));
+    }
 
     [Fact]
     public void ParseSha256_rejects_a_huge_body()
