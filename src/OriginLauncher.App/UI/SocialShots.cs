@@ -39,7 +39,7 @@ public static class SocialShots
     {
         Directory.CreateDirectory(outDir);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        SocialHub.OnlineCountOverride = 1284;
+        SocialHub.PlayersOnlineOff = true;
 
         var window = new MainWindow
         {

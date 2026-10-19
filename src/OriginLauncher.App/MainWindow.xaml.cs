@@ -432,6 +432,21 @@ public partial class MainWindow : Window
             DragMove();
     }
 
+    // The tabs stay centred on the window until the right-hand actions (update, import,
+    // friends, account, window buttons) would come within Space.5 of SETTINGS, as at
+    // 980 px with an update waiting; then they slide left just enough, never past the brand.
+    // A render transform, so moving them never re-runs layout.
+    private void TopBar_LayoutChanged(object sender, SizeChangedEventArgs e)
+    {
+        double width = TopBar.ActualWidth, tabs = NavTabs.ActualWidth;
+        if (width <= 0 || tabs <= 0) return;
+        var gap = (double)FindResource("Space.5");
+        double tabsRight = (width + tabs) / 2, tabsLeft = (width - tabs) / 2;
+        double overlap = tabsRight + gap - (width - BarActions.ActualWidth);
+        double room = tabsLeft - (BarBrand.ActualWidth + gap);
+        NavTabsShift.X = overlap > 0 ? -Math.Min(overlap, Math.Max(0, room)) : 0;
+    }
+
     private void MinimizeButton_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;

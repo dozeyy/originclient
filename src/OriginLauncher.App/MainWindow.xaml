@@ -50,15 +50,22 @@
             </ContentControl>
 
             <!-- The top bar: brand left, page tabs centred, actions right. -->
-            <Grid x:Name="TopBar" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" Margin="24,0,12,0">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center"
+            <Grid x:Name="TopBar" Height="{StaticResource Size.Bar}" VerticalAlignment="Top" Margin="24,0,12,0"
+                  SizeChanged="TopBar_LayoutChanged">
+                <StackPanel x:Name="BarBrand" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center"
                             AutomationProperties.Name="Origin">
                     <controls:OriginMark Width="30" Height="30" VerticalAlignment="Center"/>
                     <Image Source="/Assets/Brand/wordmark.png" Height="20" Margin="10,0,0,0" VerticalAlignment="Center"
                            RenderOptions.BitmapScalingMode="HighQuality"/>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <!-- Centred on the window; TopBar_LayoutChanged slides it left only when the
+                     actions on the right would come within Space.5 of SETTINGS (narrow windows). -->
+                <StackPanel x:Name="NavTabs" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            SizeChanged="TopBar_LayoutChanged">
+                    <StackPanel.RenderTransform>
+                        <TranslateTransform x:Name="NavTabsShift"/>
+                    </StackPanel.RenderTransform>
                     <ToggleButton x:Name="NavHome" Style="{StaticResource Button.NavItem}"
                                   Checked="NavHome_Checked" Unchecked="Nav_Unchecked"
                                   ToolTip="Home (Ctrl+1)" AutomationProperties.Name="Home">
@@ -81,7 +88,8 @@
                     </ToggleButton>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel x:Name="BarActions" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            SizeChanged="TopBar_LayoutChanged">
                     <!-- Update badge: hidden until UpdateService finds a newer release;
                          clicking downloads it, swaps the install, and restarts. -->
                     <Button x:Name="UpdateBadge" Click="UpdateBadge_Click"

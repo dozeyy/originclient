@@ -62,7 +62,7 @@
                         ToolTip="Load the .jar mods you added">
                     <StackPanel Orientation="Horizontal">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
-                            <controls:TrackedText Text="YOUR MODS" Tracking="0.16" ScaleX="0.94" FontSize="{StaticResource FontSize.Eyebrow}"
+                            <controls:TrackedText Text="YOUR MODS" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
                                                   FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
                             <TextBlock x:Name="YourModsState" Text="On" FontSize="13" FontWeight="SemiBold" Margin="0,2,0,0"
                                        Foreground="{StaticResource Brush.Text}"/>
@@ -157,7 +157,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <controls:TrackedText x:Name="UserHeader" Text="YOUR MODS" Tracking="0.16" ScaleX="0.94" FontSize="{StaticResource FontSize.Eyebrow}"
+                    <controls:TrackedText x:Name="UserHeader" Text="YOUR MODS" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
                                           FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
                     <TextBlock x:Name="UserCount" Text="0" FontSize="11" FontWeight="Bold" Margin="8,0,0,0"
                                Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>
@@ -183,7 +183,7 @@
             <StackPanel x:Name="BuiltInSection" Visibility="Collapsed" Margin="0,32,0,0">
                 <Grid Margin="0,0,0,10">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <controls:TrackedText Text="BUILT IN" Tracking="0.16" ScaleX="0.94" FontSize="{StaticResource FontSize.Eyebrow}"
+                        <controls:TrackedText Text="BUILT IN" Tracking="0.16" FontSize="{StaticResource FontSize.Eyebrow}"
                                               FontWeight="SemiBold" Foreground="{StaticResource Brush.TextMuted}"/>
                         <TextBlock x:Name="BuiltInCount" Text="0" FontSize="11" FontWeight="Bold" Margin="8,0,0,0"
                                    Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center"/>

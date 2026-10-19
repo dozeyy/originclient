@@ -43,7 +43,7 @@ public static class RenderShots
         }
         Directory.CreateDirectory(outDir);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        SocialHub.OnlineCountOverride = 1284;
+        SocialHub.PlayersOnlineOff = true;
         SocialHub.Service.ShowDemo(SocialDemo.Online(now));
 
         var window = new MainWindow
@@ -145,7 +145,7 @@ public static class RenderShots
         Pump(600);
         Snap(window, outDir, "07-play-running");
 
-        SnapBanners(window, outDir);
+        if (Pages.HomePage.HomeBannerOn) SnapBanners(window, outDir);
 
         // Import from another launcher: every state of the card, with a made-up backend.
         ImportShots.Run(window, outDir);

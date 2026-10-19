@@ -160,8 +160,9 @@ public partial class HomePage : UserControl
         VersionOverlay.LaunchRequested += OnLaunchRequested;
         // The home banner pauses under either scene (and, in ad mode, its
         // native WebView2 would otherwise draw on top of them).
-        VersionOverlay.IsVisibleChanged += (_, _) => PromoBanner.SetHomeSceneOpen(HasOpenScene);
-        LoadingOverlay.IsVisibleChanged += (_, _) => PromoBanner.SetHomeSceneOpen(HasOpenScene);
+        VersionOverlay.IsVisibleChanged += (_, _) => _banner?.SetHomeSceneOpen(HasOpenScene);
+        LoadingOverlay.IsVisibleChanged += (_, _) => _banner?.SetHomeSceneOpen(HasOpenScene);
+        if (HomeBannerOn) AddBanner();
         InitVersionSelection();
         RefreshAccountState();
         Loaded += (_, _) => StartPlayersOnline();
@@ -184,7 +185,7 @@ public partial class HomePage : UserControl
         var intro = (Duration)FindResource("Motion.Intro");
         if (!SystemParameters.ClientAreaAnimation || !intro.HasTimeSpan || intro.TimeSpan <= TimeSpan.Zero) return;
         var settle = ((Duration)FindResource("Motion.Settle")).TimeSpan;
-        Settle(HomeLockupText, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
+        Settle(HomeLockup, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
         Settle(PlayButton, rise: 10, delay: TimeSpan.FromMilliseconds(220), settle);
     }
 
@@ -208,8 +209,8 @@ public partial class HomePage : UserControl
     // Network off the UI thread; any failure just hides the pill until the next try.
     private async Task RefreshPlayersOnlineAsync()
     {
-        int? count = SocialHub.OnlineCountOverride;
-        if (count == null)
+        int? count = null;
+        if (!SocialHub.PlayersOnlineOff)
         {
             try
             {
@@ -299,7 +300,8 @@ public partial class HomePage : UserControl
         {
             ProfileNameText.Text = "No profile";
             ProfileSubText.Text = "Plain Origin";
-            ProfileInitial.Text = "O";
+            ProfileInitial.Visibility = Visibility.Collapsed;
+            ProfileMark.Visibility = Visibility.Visible;
             ProfileEmblem.Background = (Brush)FindResource("Brush.CardAlt");
             ProfileRow.ToolTip = "Switch profile";
         }
@@ -309,6 +311,8 @@ public partial class HomePage : UserControl
             ProfileSubText.Text = active == null ? $"For {selected.Version} only"
                 : active.HasServer ? ProfileRules.JoinLabel(active) : "Singleplayer";
             ProfileInitial.Text = ProfileLook.Initial(selected.Name);
+            ProfileInitial.Visibility = Visibility.Visible;
+            ProfileMark.Visibility = Visibility.Collapsed;
             ProfileEmblem.Background = ProfileLook.Tint(selected.Id);
             ProfileRow.ToolTip = active != null ? "Play uses this profile's mods (switch on the Profiles page)"
                 : $"This profile is for {selected.Version}, so {_selectedVersion} uses your normal mods";
@@ -334,7 +338,37 @@ public partial class HomePage : UserControl
         || LoadingOverlay.Visibility == Visibility.Visible;
 
     /// <summary>MainWindow: the account panel / sign-in card covers Home — the banner pauses.</summary>
-    public void SetChromeOverlayOpen(bool open) => PromoBanner.SetChromeOverlayOpen(open);
+    public void SetChromeOverlayOpen(bool open) => _banner?.SetChromeOverlayOpen(open);
+
+    /// <summary>
+    /// The home banner (originclient.org, Discord, tips, the ad network: PromoBanner and
+    /// Core/Promos) is off for now (Will, 2026-10-19: it fought the poster). Every line of
+    /// the feature stays; true brings it back top right, exactly as before.
+    /// </summary>
+    internal static readonly bool HomeBannerOn = false;
+
+    private PromoBanner? _banner;
+
+    // Built only when the banner is on, so while it is off nothing fetches the feed or
+    // spins up the ad WebView. The first-run welcome hides it while that shows.
+    private void AddBanner()
+    {
+        _banner = new PromoBanner();
+        _banner.SetBinding(VisibilityProperty, new System.Windows.Data.Binding(nameof(Visibility))
+        {
+            Source = ImportCard,
+            Converter = new InvertVisibility(),
+        });
+        BannerSlot.Children.Add(_banner);
+    }
+
+    private sealed class InvertVisibility : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type t, object p, System.Globalization.CultureInfo c) =>
+            value is Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+        public object ConvertBack(object value, Type t, object p, System.Globalization.CultureInfo c) =>
+            throw new NotSupportedException();
+    }
 
     /// <summary>
     /// Covers Home with the loading scene in self-update mode (MainWindow's
@@ -383,7 +417,7 @@ public partial class HomePage : UserControl
         UpdatePlayState();
         SyncSocialMirror();
         // Origin+ members never see the banner's ad network: re-check for this account.
-        PromoBanner.NotifyAccountChanged();
+        _banner?.NotifyAccountChanged();
     }
 
     /// <summary>Called by MainWindow when the update badge lights up, so the
@@ -514,7 +548,7 @@ public partial class HomePage : UserControl
         ShowFamily(version);
     }
 
-    // The family on screen follows the version: its accent, label and range here,
+    // The family on screen follows the version: its accent and the pill's count here,
     // its art and the giant numeral on the stage behind (crossfade + roll).
     private void ShowFamily(string? version)
     {
@@ -522,8 +556,6 @@ public partial class HomePage : UserControl
         _familyShown = true;
         FamilyTheme.Apply(version, animate);
         var family = FamilyTheme.Current;
-        FamilyLabel.Text = family.Label;
-        FamilyRange.Text = family.Range;
         VersionSubText.Text = family.Count == 1 ? "1 version in this family" : $"{family.Count} versions in this family";
         ArtStage.Request(version, animate);
     }

@@ -13,22 +13,11 @@
          the right. -->
     <Grid x:Name="HomeRoot">
 
-        <!-- Top right, under the bar: the home banner's slot. The one-time import
-             offer takes it over while it shows, and the banner returns once it is
-             answered. -->
-        <Grid x:Name="BannerSlot" Width="380" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,72,32,0">
-            <controls:PromoBanner x:Name="PromoBanner">
-                <controls:PromoBanner.Style>
-                    <Style TargetType="controls:PromoBanner">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding Visibility, ElementName=ImportCard}" Value="Visible">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </controls:PromoBanner.Style>
-            </controls:PromoBanner>
-        </Grid>
+        <!-- Top right, under the bar: the home banner's slot. Empty while
+             HomePage.HomeBannerOn is false (Will, 2026-10-19: off for now, it fought the
+             poster); the feed code (PromoBanner, Core/Promos) is untouched and comes back
+             by flipping that flag. The first-run welcome hides it while it shows. -->
+        <Grid x:Name="BannerSlot" Width="380" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,72,32,0"/>
 
         <Grid x:Name="HomeCard" VerticalAlignment="Bottom" Margin="32,0,32,32">
             <Grid.ColumnDefinitions>
@@ -39,31 +28,22 @@
                 <TranslateTransform x:Name="StripShift"/>
             </Grid.RenderTransform>
 
-            <StackPanel Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,24,0">
-                <!-- TRICKY TRIALS / 1.21 TO 1.21.11 -->
-                <StackPanel x:Name="HomeLockupText" Orientation="Horizontal" Margin="0,0,0,12"
-                            TextElement.FontSize="{StaticResource FontSize.Eyebrow}" TextElement.FontWeight="SemiBold">
-                    <Rectangle Width="8" Height="8" Fill="{DynamicResource Brush.Acc}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <controls:TrackedText x:Name="FamilyLabel" Text="TRICKY TRIALS" Tracking="0.16" ScaleX="0.94"
-                                          Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
-                    <TextBlock Text="/" Margin="10,0" Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center"/>
-                    <controls:TrackedText x:Name="FamilyRange" Text="1.21 TO 1.21.11" Tracking="0.16" ScaleX="0.94"
-                                          Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center"/>
-                </StackPanel>
-
+            <StackPanel x:Name="HomeLockup" Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,24,0">
+                <!-- No family eyebrow above the pills (Will, 2026-10-19): the pill already
+                     names the version, and the art and numeral name the family. -->
                 <StackPanel Orientation="Horizontal">
                     <!-- The version pill: opens the bottom-sheet picker. -->
                     <Button x:Name="VersionButton" Style="{StaticResource Button.Pill}" Padding="18,0,14,0"
                             Click="VersionButton_Click" ToolTip="Choose a Minecraft version"
                             AutomationProperties.Name="Choose Minecraft version">
                         <StackPanel Orientation="Horizontal">
-                            <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0.01" ScaleX="0.8"
-                                                  FontSize="22" FontWeight="Bold" Foreground="{StaticResource Brush.Text}"
-                                                  VerticalAlignment="Center" Margin="0,0,14,0"/>
+                            <controls:TrackedText x:Name="VersionButtonText" Text="1.21.1" Tracking="0"
+                                                  FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.PillNumber}"
+                                                  FontWeight="ExtraBold" Foreground="{StaticResource Brush.Text}"
+                                                  VerticalAlignment="Center" Margin="0,0,16,0"/>
                             <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
-                                <TextBlock Text="Change version" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"/>
-                                <TextBlock x:Name="VersionSubText" Text="10 versions in this family" FontSize="11.5" Margin="0,1,0,0"
-                                           Foreground="{StaticResource Brush.TextDim}"/>
+                                <TextBlock Text="Change version" Style="{StaticResource Text.PillTitle}"/>
+                                <TextBlock x:Name="VersionSubText" Text="10 versions in this family" Style="{StaticResource Text.PillSub}"/>
                             </StackPanel>
                             <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
                                   Width="16" Height="16" VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
@@ -77,15 +57,20 @@
                         <StackPanel Orientation="Horizontal">
                             <Border x:Name="ProfileEmblem" Width="36" Height="36" CornerRadius="6" Margin="0,0,12,0"
                                     Background="{StaticResource Brush.CardAlt}">
-                                <controls:TrackedText x:Name="ProfileInitial" Text="O" Tracking="0" FontSize="15" FontWeight="Bold"
-                                                      Foreground="{StaticResource Brush.OnPhoto}"
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Grid>
+                                    <!-- No profile: the Origin mark itself (plain Origin), never a bare letter. -->
+                                    <controls:OriginMark x:Name="ProfileMark" Width="24" Height="24"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <controls:TrackedText x:Name="ProfileInitial" Text="" Tracking="0" FontSize="15" FontWeight="Bold"
+                                                          Foreground="{StaticResource Brush.OnPhoto}" Visibility="Collapsed"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
                             </Border>
                             <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
-                                <TextBlock x:Name="ProfileNameText" Text="No profile" FontSize="13" FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Text}" MaxWidth="220" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock x:Name="ProfileSubText" Text="Plain Origin" FontSize="11.5" Margin="0,1,0,0"
-                                           Foreground="{StaticResource Brush.TextDim}" MaxWidth="220" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="ProfileNameText" Text="No profile" Style="{StaticResource Text.PillTitle}"
+                                           MaxWidth="220" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="ProfileSubText" Text="Plain Origin" Style="{StaticResource Text.PillSub}"
+                                           MaxWidth="220" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
                             <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
                                   Width="16" Height="16" VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
@@ -95,21 +80,23 @@
 
                 <!-- The status line: a 6 px square (the accent while live) and one line. The
                      players-online count joins it once it arrives, and only then. -->
-                <StackPanel x:Name="StatusRow" Orientation="Horizontal" Margin="0,12,0,0">
+                <StackPanel x:Name="StatusRow" Orientation="Horizontal" Margin="2,14,0,0">
                     <Rectangle x:Name="StatusDot" Width="6" Height="6" Fill="{StaticResource Brush.TextDim}"
                                VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBlock x:Name="StatusText" Text="Sign in to play" FontSize="12.5"
+                    <TextBlock x:Name="StatusText" Text="Sign in to play" Style="{StaticResource Text.Status}"
                                Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" MaxWidth="520"/>
                     <StackPanel x:Name="PlayersPill" Orientation="Horizontal" Visibility="Collapsed" Margin="14,0,0,0"
                                 ToolTip="People with the Origin launcher or game open right now">
-                        <TextBlock Text="/" Foreground="{StaticResource Brush.TextMuted}" FontSize="12.5" Margin="0,0,14,0" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="PlayersText" FontSize="12.5" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
+                        <TextBlock Text="/" Style="{StaticResource Text.Status}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="PlayersText" Style="{StaticResource Text.Status}" Foreground="{StaticResource Brush.TextDim}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+            <!-- Play sits on the strip's floor: the ring's base and the status line's
+                 bottom share one line, and PLAY's caps centre on the ring. -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,0,0,-4">
                 <!-- The selected profile's server: straight in with that profile's mods.
                      Hidden when the profile has none. -->
                 <Button x:Name="JoinButton" Style="{StaticResource Button.Pill}" Height="64" Padding="20,0,22,0"
@@ -133,13 +120,13 @@
                         AutomationProperties.Name="Play Minecraft"
                         Click="PlayButton_Click">
                     <Grid>
-                        <controls:TrackedText x:Name="PlayLabel" Text="PLAY" Tracking="0.05" ScaleX="0.82"
-                                              FontFamily="{StaticResource Font.Display}" FontSize="46" FontWeight="ExtraBold"
+                        <controls:TrackedText x:Name="PlayLabel" Text="PLAY" Tracking="0.02"
+                                              FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.PlayWord}" FontWeight="ExtraBold"
                                               Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Center"/>
                         <!-- The selected account's game is already open: Play becomes
                              RUNNING and clicking it brings that window forward. -->
-                        <controls:TrackedText x:Name="RunningLabel" Text="RUNNING" Tracking="0.05" ScaleX="0.82" Visibility="Collapsed"
-                                              FontFamily="{StaticResource Font.Display}" FontSize="46" FontWeight="ExtraBold"
+                        <controls:TrackedText x:Name="RunningLabel" Text="RUNNING" Tracking="0.02" Visibility="Collapsed"
+                                              FontFamily="{StaticResource Font.Display}" FontSize="{StaticResource FontSize.PlayWord}" FontWeight="ExtraBold"
                                               Foreground="{StaticResource Brush.OnPhoto}" VerticalAlignment="Center"/>
                         <Path x:Name="PlaySpinner" Visibility="Collapsed"
                               Width="30" Height="30" HorizontalAlignment="Center" VerticalAlignment="Center"

@@ -10,9 +10,12 @@ namespace OriginLauncher.App.UI.Controls;
 /// One line of text with letter-spacing (WPF's TextBlock has none). The Poster
 /// type uses tracked caps everywhere: eyebrows (.14em), nav tabs, PLAY (.05em).
 /// Draws each character's FormattedText with <see cref="Tracking"/> em of extra
-/// advance after every character but the last. ScaleX narrows the glyphs for the
-/// condensed poster caps (Inter has no width axis in WPF). Font, size, weight and
-/// colour inherit like a TextBlock's. Never wraps or trims: size its slot to fit.
+/// advance after every character but the last. Digits are tabular: each sits centred
+/// in one shared cell (the widest digit), so "26.3", "1.21.11" and a counting
+/// percentage never jitter or reflow as they change. Glyphs are never stretched
+/// (a horizontal squish made the caps look smeared; ScaleX stays for callers that
+/// truly need it, default 1). Font, size, weight and colour inherit like a
+/// TextBlock's. Never wraps or trims: size its slot to fit.
 /// </summary>
 public sealed class TrackedText : FrameworkElement
 {
@@ -48,6 +51,8 @@ public sealed class TrackedText : FrameworkElement
 
     private FormattedText[]? _glyphs;
     private double _height;
+    private double _digit; // the tabular cell: the widest of 0-9 in this face and size
+
 
     private static void Invalidate(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((TrackedText)d)._glyphs = null;
 
@@ -66,6 +71,15 @@ public sealed class TrackedText : FrameworkElement
             _glyphs[i] = ft;
             _height = Math.Max(_height, ft.Height);
         }
+        _digit = 0;
+        foreach (var ch in text)
+        {
+            if (!char.IsAsciiDigit(ch)) continue;
+            for (var d = '0'; d <= '9'; d++)
+                _digit = Math.Max(_digit, new FormattedText(d.ToString(), CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight, face, FontSize, Foreground, dip).WidthIncludingTrailingWhitespace);
+            break;
+        }
         if (text.Length == 0)
             _height = new FormattedText(" ", CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, face, FontSize, Foreground, dip).Height;
         return _glyphs;
@@ -75,9 +89,24 @@ public sealed class TrackedText : FrameworkElement
     {
         var g = Glyphs();
         double w = 0;
-        for (var i = 0; i < g.Length; i++) w += g[i].WidthIncludingTrailingWhitespace;
+        for (var i = 0; i < g.Length; i++) w += Advance(i, g);
         if (g.Length > 1) w += Tracking * FontSize * (g.Length - 1);
         return w * ScaleX;
+    }
+
+    private double Advance(int i, FormattedText[] g) =>
+        char.IsAsciiDigit(Text[i]) && _digit > 0 ? _digit : g[i].WidthIncludingTrailingWhitespace;
+
+    /// <summary>Distance from the top of the line box to the baseline, for lining up two
+    /// sizes on one baseline (the launch count and its %).</summary>
+    public double Baseline
+    {
+        get
+        {
+            var face = new Typeface(FontFamily, FontStyles.Normal, FontWeight, FontStretches.Normal);
+            return new FormattedText("0", CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, face, FontSize,
+                Foreground, VisualTreeHelper.GetDpi(this).PixelsPerDip).Baseline;
+        }
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -98,8 +127,9 @@ public sealed class TrackedText : FrameworkElement
         for (var i = 0; i < g.Length; i++)
         {
             g[i].SetForegroundBrush(Foreground);
-            dc.DrawText(g[i], new Point(x, 0));
-            x += g[i].WidthIncludingTrailingWhitespace + step;
+            var advance = Advance(i, g);
+            dc.DrawText(g[i], new Point(x + (advance - g[i].WidthIncludingTrailingWhitespace) / 2, 0));
+            x += advance + step;
         }
         if (scaled) dc.Pop();
     }

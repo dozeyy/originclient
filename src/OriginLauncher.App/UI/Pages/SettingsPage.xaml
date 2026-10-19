@@ -80,22 +80,22 @@
                     <TranslateTransform x:Name="RailShift"/>
                 </StackPanel.RenderTransform>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecPerformance" Checked="Rail_Checked" IsChecked="True">
-                    <controls:TrackedText Text="PERFORMANCE" Tracking="0.16" ScaleX="0.94"/>
+                    <controls:TrackedText Text="PERFORMANCE" Tracking="0.16"/>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecGame" Checked="Rail_Checked">
-                    <controls:TrackedText Text="GAME" Tracking="0.16" ScaleX="0.94"/>
+                    <controls:TrackedText Text="GAME" Tracking="0.16"/>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecJvm" Checked="Rail_Checked">
-                    <controls:TrackedText Text="JVM ARGUMENTS" Tracking="0.16" ScaleX="0.94"/>
+                    <controls:TrackedText Text="JVM ARGUMENTS" Tracking="0.16"/>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecClient" Checked="Rail_Checked">
-                    <controls:TrackedText Text="ORIGIN CLIENT" Tracking="0.16" ScaleX="0.94"/>
+                    <controls:TrackedText Text="ORIGIN CLIENT" Tracking="0.16"/>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecStartup" Checked="Rail_Checked">
-                    <controls:TrackedText Text="STARTUP" Tracking="0.16" ScaleX="0.94"/>
+                    <controls:TrackedText Text="STARTUP" Tracking="0.16"/>
                 </RadioButton>
                 <RadioButton Style="{StaticResource RailItem}" Tag="SecDeveloper" Checked="Rail_Checked">
-                    <controls:TrackedText Text="DEVELOPER" Tracking="0.16" ScaleX="0.94"/>
+                    <controls:TrackedText Text="DEVELOPER" Tracking="0.16"/>
                 </RadioButton>
             </StackPanel>
 

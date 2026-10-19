@@ -3,10 +3,10 @@
                     xmlns:system="clr-namespace:System;assembly=mscorlib">
 
     <!-- Poster type: Inter (OFL, the same face as the in-game Origin menus, bundled
-         from tools/font-atlas/fonts) for everything. The poster's condensed caps
-         (page titles, the version numeral, PLAY) are Inter ExtraBold narrowed with a
-         horizontal scale (Text.Poster's LayoutTransform), since WPF cannot drive a
-         variable width axis. Segoe UI is fail-soft only. Monocraft stays bundled for
+         from tools/font-atlas/fonts) for everything. Display sizes (page titles, PLAY,
+         the launch count) are Inter ExtraBold at its true width, laid out in Ideal mode:
+         the old horizontal squish and the window's pixel-snapped Display mode made big
+         caps look smeared and wobbly (Will, 2026-10-19). Segoe UI is fail-soft only. Monocraft stays bundled for
          monospace fields (Font.Mono). -->
     <FontFamily x:Key="Font.Display">/OriginSetup;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
     <FontFamily x:Key="Font.Primary">/OriginSetup;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
@@ -18,7 +18,16 @@
     <system:Double x:Key="FontSize.Body">13.5</system:Double>
     <system:Double x:Key="FontSize.Caption">12</system:Double>
     <system:Double x:Key="FontSize.Eyebrow">11</system:Double>
-    <system:Double x:Key="FontSize.Poster">58</system:Double>
+    <system:Double x:Key="FontSize.Poster">52</system:Double>
+    <!-- Home's bottom strip: PLAY, the version number in its pill. -->
+    <system:Double x:Key="FontSize.PlayWord">40</system:Double>
+    <system:Double x:Key="FontSize.PillNumber">20</system:Double>
+    <!-- The launch screen's count ("42" and its smaller "%"). -->
+    <system:Double x:Key="FontSize.LaunchCount">112</system:Double>
+    <system:Double x:Key="FontSize.LaunchPercent">42</system:Double>
+    <!-- A dialog's poster title ("NEW PROFILE") and a card's name. -->
+    <system:Double x:Key="FontSize.DialogTitle">30</system:Double>
+    <system:Double x:Key="FontSize.CardTitle">18</system:Double>
 
     <!-- Condensed caps for page titles (MODS, PROFILES, SETTINGS...). -->
     <Style x:Key="Text.Poster" TargetType="TextBlock">
@@ -26,13 +35,10 @@
         <Setter Property="FontSize" Value="{StaticResource FontSize.Poster}"/>
         <Setter Property="FontWeight" Value="ExtraBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="LineHeight" Value="58"/>
+        <Setter Property="LineHeight" Value="{StaticResource FontSize.Poster}"/>
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
-        <Setter Property="LayoutTransform">
-            <Setter.Value>
-                <ScaleTransform ScaleX="0.8" ScaleY="1"/>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
+        <Setter Property="TextOptions.TextRenderingMode" Value="Grayscale"/>
     </Style>
 
     <Style x:Key="Text.Display" TargetType="TextBlock">
@@ -42,6 +48,7 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <Setter Property="LineHeight" Value="44"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
     </Style>
 
     <Style x:Key="Text.H1" TargetType="TextBlock">
@@ -88,6 +95,60 @@
         <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+    </Style>
+
+    <!-- The two lines inside Home's pills ("Change version" / "10 versions in this family"). -->
+    <Style x:Key="Text.PillTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="17"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <!-- The two lines centre on each other, as in the poster mockup. -->
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="Text.PillSub" TargetType="TextBlock" BasedOn="{StaticResource Text.PillTitle}">
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="LineHeight" Value="15"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+    </Style>
+
+    <!-- Home's status line beside Play ("Ready to play"). -->
+    <Style x:Key="Text.Status" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+    </Style>
+
+    <!-- A card's name (profiles, import results): bold display face, two lines at most. -->
+    <Style x:Key="Text.CardTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.CardTitle}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="22"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
+    </Style>
+
+    <!-- A card's quiet lines ("Plays as", "6 mods", "Joins ..."). -->
+    <Style x:Key="Text.Meta" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <!-- A form field's label, 8 px above its box. -->
+    <Style x:Key="Text.FieldLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
 
     <Style x:Key="Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.BodyDim}">
