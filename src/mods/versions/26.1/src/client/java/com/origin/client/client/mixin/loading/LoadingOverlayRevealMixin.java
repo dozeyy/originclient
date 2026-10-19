@@ -152,9 +152,14 @@ public abstract class LoadingOverlayRevealMixin {
 		// The game's first load landing on the title: the loading mark flies onto
 		// the title's logo instead of dissolving (a later resource reload just fades).
 		boolean toTitle = !this.fadeIn && screen instanceof net.minecraft.client.gui.screens.TitleScreen;
-		if (OriginScreenRenderer.renderLoadingFade(guiGraphics, alpha, toTitle)) {
-			ci.cancel();
+		boolean drawn = OriginScreenRenderer.renderLoadingFade(guiGraphics, alpha, toTitle);
+		if (!drawn) {
+			// Origin rendering just failed: show the screen as it is, no overlay.
+			this.minecraft.setOverlay(null);
 		}
+		// The screen is already extracted: always cancel, so vanilla's own pass
+		// can't extract it (and its blur: "Can only blur once per frame") again.
+		ci.cancel();
 	}
 
 	/** One settle-hold frame: the screen for real, the finished loading picture over it; ends the hold when settled. */
@@ -194,9 +199,12 @@ public abstract class LoadingOverlayRevealMixin {
 						+ String.format(java.util.Locale.ROOT, "%.1f", originclient$limit()) + " ms");
 			}
 		}
-		if (drawn) {
-			ci.cancel();
+		if (!drawn) {
+			// Origin rendering just failed: show the screen as it is, no overlay.
+			this.minecraft.setOverlay(null);
 		}
+		// The screen is already extracted: always cancel (see the dissolve above).
+		ci.cancel();
 	}
 
 	/** The last SETTLE_FRAMES hold frames were all under the settle limit. */

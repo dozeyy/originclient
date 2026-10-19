@@ -45,7 +45,7 @@ public final class OriginAssets {
 	/** Everything the loaders read. Order: what the hand-off needs first. */
 	private static final String[] IMAGES = {
 			UI + "mod_icons_sdf.png", UI + "mod_icons.png",
-			UI + "button_fill.png", UI + "button_border.png", UI + "switch_track.png", UI + "switch_knob.png",
+			UI + "switch_track.png", UI + "switch_knob.png",   // no button_fill/border: this era's OriginUi bakes masks
 			UI + "radial_glow.png", UI + "ring-0.png", UI + "origin_logo.png", UI + "star.png",
 			FONT + "inter_msdf.png", FONT + "inter_msdf_bold.png",
 	};

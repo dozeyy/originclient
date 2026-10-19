@@ -24,12 +24,12 @@ public abstract class FrameLogOverlayMixin {
 		OriginFrameLog.sectionEnd("onFinish");
 	}
 
-	@Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;init(Lnet/minecraft/client/Minecraft;II)V"))
+	@Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;init(II)V"))
 	private void originclient$initBegin(CallbackInfo ci) {
 		OriginFrameLog.sectionBegin();
 	}
 
-	@Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;init(Lnet/minecraft/client/Minecraft;II)V", shift = At.Shift.AFTER))
+	@Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;init(II)V", shift = At.Shift.AFTER))
 	private void originclient$initEnd(CallbackInfo ci) {
 		OriginFrameLog.sectionEnd("screen.init");
 	}

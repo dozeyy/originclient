@@ -793,7 +793,6 @@ public final class OriginUi {
 	}
 
 	private static final String[] TEXTURES = {
-			"/assets/originclient/textures/ui/button_fill.png", "/assets/originclient/textures/ui/button_border.png",
 			"/assets/originclient/textures/ui/switch_track.png", "/assets/originclient/textures/ui/switch_knob.png",
 			"/assets/originclient/textures/ui/radial_glow.png", "/assets/originclient/textures/ui/ring-0.png",
 			"/assets/originclient/textures/ui/origin_logo.png", "/assets/originclient/textures/ui/star.png",
