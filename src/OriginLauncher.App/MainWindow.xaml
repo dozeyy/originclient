@@ -192,26 +192,17 @@
             <ContentControl x:Name="SignInPanelHost"/>
         </Border>
 
-        <!-- Import from another Minecraft launcher: a modal card like the sign-in one
-             (ImportPanel). It shares the Scrim; a scrim click never closes it while an
-             import is writing. -->
-        <Border x:Name="ImportPanelCard" Width="740" Height="560"
-                HorizontalAlignment="Center" VerticalAlignment="Center"
+        <!-- Import drawer (ImportPanel): the same right-hand drawer as Friends, 380 px, over the shared Scrim.
+             Only one drawer is open at once; a scrim click never closes it while an import is writing. -->
+        <Border x:Name="ImportDrawer" Width="380" HorizontalAlignment="Right"
                 Background="{StaticResource Brush.PanelElevated}"
-                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Dialog}"
-                Opacity="0" Visibility="Collapsed" IsHitTestVisible="False"
-                RenderTransformOrigin="0.5,0.5">
-            <Border.Effect><StaticResource ResourceKey="Shadow.Card"/></Border.Effect>
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
+                Visibility="Collapsed" IsHitTestVisible="False">
             <Border.RenderTransform>
-                <ScaleTransform x:Name="ImportPanelScale" ScaleX="0.94" ScaleY="0.94"/>
+                <TranslateTransform x:Name="ImportDrawerTransform" X="380"/>
             </Border.RenderTransform>
             <ContentControl x:Name="ImportPanelHost"/>
         </Border>
-
-        <!-- One-time first-run offer to import (bottom left, beside the rail; never modal). -->
-        <controls:ImportPromptCard x:Name="FirstRunPrompt" HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                                   Margin="84,0,0,20"/>
 
         <!-- Social toasts, above everything. Moves left of the Friends drawer while it's open. -->
         <controls:SocialToastHost x:Name="Toasts" Width="320"

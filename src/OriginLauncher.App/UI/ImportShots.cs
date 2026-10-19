@@ -9,83 +9,132 @@ using OriginLauncher.App.UI.Controls;
 namespace OriginLauncher.App.UI;
 
 /// <summary>
-/// CI screen render (RenderShots): the import card in every state, driven by a made-up backend. There is
-/// no scan, no plan against a real folder and nothing is written: the plan is built in memory here, and
+/// CI screen render (RenderShots): the Import drawer in every state, driven by a made-up backend. There is
+/// no scan, no plan against a real folder and nothing is written: the plans are built in memory here, and
 /// "Import" only plays back canned progress.
+///
+/// Shot numbers: 17 is the Home card; 30-41 are the drawer (20-27 are the smallest-window set in RenderShots).
 /// </summary>
 internal static class ImportShots
 {
-    private enum Demo { Choose, Auto, Unsupported, Blocked, Progress, Done, Failed, Empty, Bulk }
+    // Bulk: the normal scan, plan and a successful apply. Progress: the apply stops part way and waits. Failed: the
+    // apply rolls back with a reason. Blocked: the plan says Minecraft is running. Empty: nothing found.
+    private enum Demo { Bulk, Progress, Failed, Blocked, Empty }
 
     public static void Run(MainWindow window, string outDir)
     {
+        var realNotSure = ImportPanel.NotSureNote;
         try
         {
-            // 12a: the Profiles page's Import button, pressed like a click (the real click path), on a PC with no other launcher.
+            ImportPanel.NotSureNote = DemoEvidence;
+
+            // 17: the one-time first-run card, in Home's banner slot (the banner hides while it shows), for many setups
+            // and for exactly one.
+            window.TourHideLaunch();
+            window.TourGoTo(0);
+            RenderShots.Pump(500);
+            var many = BulkSetups();
+            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(many));
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "17-home-import-card");
+            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(new[] { many[0] }));
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "17b-home-import-card-one-setup");
+            window.TourImportPrompt.Hide();
+            RenderShots.Pump(300);
+
+            // 38: nothing found. Pressed like a click on the Profiles page's Import button (the real click path).
             window.TourBackendFactory = () => new DemoBackend(Demo.Empty);
             window.TourShowProfiles(new Core.Models.LauncherSettings(), _ => 0, openForm: false);
             RenderShots.Pump(500);
             window.TourClickProfilesImport();
             RenderShots.Pump(900);
-            RenderShots.Snap(window, outDir, "12a-import-from-profiles-empty");
+            RenderShots.Snap(window, outDir, "38-import-drawer-empty");
             window.TourBackendFactory = null;
-
-            // 12: nothing is obvious, so the player picks (Find).
-            Open(window, Demo.Choose, 900);
-            RenderShots.Snap(window, outDir, "12-import-find");
-
-            // 13: one clear instance: straight to Review, with counts and "needs attention" open.
-            var panel = Open(window, Demo.Auto, 1500);
-            RenderShots.Snap(window, outDir, "13-import-review");
-
-            // 14: the details: options and every item.
-            panel.TourSetDetails(true);
-            RenderShots.Pump(500);
-            panel.TourScrollReview(430);
-            RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "14-import-review-details");
-            panel.TourScrollReview(double.MaxValue); // the per-item tables at the bottom
-            RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "14b-import-review-tables");
-
-            // 15: importing (progress bar and the step text; Home's Play is disabled behind the card).
-            panel = Open(window, Demo.Progress, 1500);
-            panel.TourPrimary();
-            RenderShots.Pump(900);
-            RenderShots.Snap(window, outDir, "15-import-progress");
-            panel.TourAskCancel(); // the "Cancel the import?" confirmation
-            RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "15b-import-cancel-confirm");
-            DemoBackend.Release();
-            RenderShots.Pump(400);
-
-            // 16: done.
-            panel = Open(window, Demo.Done, 1500);
-            panel.TourPrimary();
-            RenderShots.Pump(1200);
-            RenderShots.Snap(window, outDir, "16-import-done");
-
-            // 17: the one-time first-run card.
             window.TourCloseImport();
-            RenderShots.Pump(300);
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(new[] { Instance("Survival 1.21.1", SourceKind.Prism, "1.21.1", 147600) }));
             RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "17-import-first-run-prompt");
-            window.TourImportPrompt.Hide();
 
-            // 18: a source version Origin does not have (Import stays off until a version is picked).
-            Open(window, Demo.Unsupported, 1500);
-            RenderShots.Snap(window, outDir, "18-import-review-unsupported");
+            // 30: the default view: every setup found, "Import all" on top.
+            var panel = Open(window, Demo.Bulk, 1500);
+            RenderShots.Snap(window, outDir, "30-import-drawer-all");
+            panel.TourScrollOverview(double.MaxValue);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "30b-import-drawer-all-scrolled");
+            panel.TourScrollOverview(0);
 
-            // 19: blocked (Minecraft is still running from the old instance).
-            Open(window, Demo.Blocked, 1500);
-            RenderShots.Snap(window, outDir, "19-import-review-blocked");
+            // 31: every kind of problem line on one screen (a tall window, so no row hides below the fold).
+            window.Height = 1100;
+            RenderShots.Pump(500);
+            RenderShots.Snap(window, outDir, "31-import-drawer-attention");
+            window.Height = 740;
+            RenderShots.Pump(400);
 
-            // 20: failed and rolled back.
-            panel = Open(window, Demo.Failed, 1500);
-            panel.TourPrimary();
+            // 32: whose settings (1.20.1 has two setups with about the same playtime).
+            panel.TourOpenChooser("1.20.1");
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "32-import-drawer-pick-settings");
+            panel.TourBack();
+            RenderShots.Pump(300);
+
+            // 33: Details: the options, then what each setup brings.
+            panel.TourOpenDetails();
+            RenderShots.Pump(500);
+            RenderShots.Snap(window, outDir, "33-import-drawer-details");
+            panel.TourScrollPage(480);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "33b-import-drawer-details-groups");
+            panel.TourBack();
+            RenderShots.Pump(300);
+
+            // 39: one setup on its own: a supported one, then one Origin cannot take as it is (pick a version).
+            panel.TourOpenSingle("Survival 1.21.1");
             RenderShots.Pump(1200);
-            RenderShots.Snap(window, outDir, "20-import-failed");
+            RenderShots.Snap(window, outDir, "39-import-single-review");
+            panel.TourBack();
+            RenderShots.Pump(300);
+            panel.TourOpenSingle("Better MC");
+            RenderShots.Pump(700);
+            RenderShots.Snap(window, outDir, "39b-import-single-unsupported");
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+
+            // 34: importing (one bar and the step line; Home's Play is off behind the drawer).
+            panel = Open(window, Demo.Progress, 1500);
+            panel.TourImportAll();
+            RenderShots.Pump(900);
+            RenderShots.Snap(window, outDir, "34-import-drawer-progress");
+
+            // 35: the "Cancel the import?" confirmation (opens on Keep importing).
+            panel.TourAskCancel();
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "35-import-drawer-cancel-confirm");
+            DemoBackend.Release();
+            RenderShots.Pump(600);
+
+            // 36: done, then its details.
+            panel = Open(window, Demo.Bulk, 1500);
+            panel.TourImportAll();
+            RenderShots.Pump(1500);
+            RenderShots.Snap(window, outDir, "36-import-drawer-done");
+            panel.TourSecondary();
+            RenderShots.Pump(500);
+            RenderShots.Snap(window, outDir, "36b-import-drawer-done-details");
+
+            // 37: nothing changed (failed and rolled back).
+            panel = Open(window, Demo.Failed, 1500);
+            panel.TourImportAll();
+            RenderShots.Pump(1200);
+            RenderShots.Snap(window, outDir, "37-import-drawer-failed");
+
+            // 40: blocked (Minecraft is still running from one of the setups).
+            Open(window, Demo.Blocked, 1500);
+            RenderShots.Snap(window, outDir, "40-import-drawer-blocked");
+
+            // 41: a game is starting: Import is off until it opens.
+            panel = Open(window, Demo.Bulk, 1500);
+            panel.TourLaunchBusy(true);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "41-import-drawer-launching");
         }
         catch (Exception ex)
         {
@@ -93,7 +142,10 @@ internal static class ImportShots
         }
         finally
         {
+            ImportPanel.NotSureNote = realNotSure;
             DemoBackend.Release();
+            window.Height = 740;
+            window.TourBackendFactory = null;
             window.TourCloseImport();
             RenderShots.Pump(300);
         }
@@ -106,6 +158,10 @@ internal static class ImportShots
         return panel;
     }
 
+    // Made-up evidence for the "not sure" slot: Vanilla+ says 1.21.1 but the game last ran 1.21.4.
+    private static string? DemoEvidence(DetectedInstance setup) =>
+        setup.Name == "Vanilla+" ? "Not sure this is 1.21.1: the game last ran 1.21.4." : null;
+
     private static DetectedInstance Instance(string name, SourceKind kind, string mc, long playSeconds,
         LoaderKind loader = LoaderKind.Fabric, int lastPlayedDaysAgo = 1, Confidence confidence = Confidence.Exact) => new()
     {
@@ -117,7 +173,7 @@ internal static class ImportShots
     /// <summary>
     /// "Import everything" demo data: 3 launchers, 9 setups on 4 Minecraft versions. 1.21.1 has a clear settings
     /// winner; 1.20.1 has an unclear one and a Forge setup that can only bring its packs; 1.8.9 is Forge and fine;
-    /// two setups are on 1.21.5, which Origin does not have.
+    /// two setups are on 1.21.5, which Origin does not have; one (Vanilla+) is "not sure" of its version.
     /// </summary>
     private static List<DetectedInstance> BulkSetups() => new()
     {
@@ -153,27 +209,7 @@ internal static class ImportShots
         public Task<ScanResult> ScanAsync(IProgress<ImportProgress>? progress, CancellationToken ct)
         {
             var scan = new ScanResult();
-            switch (_demo)
-            {
-                case Demo.Choose:
-                    scan.Instances.Add(Instance("Survival 1.21.1", SourceKind.Prism, "1.21.1", 41 * 3600, lastPlayedDaysAgo: 2));
-                    scan.Instances.Add(Instance("Skyblock", SourceKind.Prism, "1.20.1", 38 * 3600, lastPlayedDaysAgo: 9));
-                    scan.Instances.Add(Instance("Cobblemon pack", SourceKind.Modrinth, "1.21.1", 0, LoaderKind.NeoForge, 5, Confidence.Inferred));
-                    scan.Instances.Add(Instance("All the Mods 10", SourceKind.CurseForge, "1.21.1", 0, LoaderKind.NeoForge, 30));
-                    scan.Instances.Add(Instance("1.8.9 PvP", SourceKind.OfficialLauncher, "1.8.9", 0, LoaderKind.Forge, 120));
-                    break;
-                case Demo.Bulk:
-                    scan.Instances.AddRange(BulkSetups());
-                    break;
-                case Demo.Empty:
-                    break;
-                case Demo.Unsupported:
-                    scan.Instances.Add(Instance("Old survival world", SourceKind.OfficialLauncher, "1.19", 0, LoaderKind.Fabric, 200));
-                    break;
-                default:
-                    scan.Instances.Add(Instance("Survival 1.21.1", SourceKind.Prism, "1.21.1", 41 * 3600, lastPlayedDaysAgo: 2));
-                    break;
-            }
+            if (_demo != Demo.Empty) scan.Instances.AddRange(BulkSetups());
             return Task.FromResult(scan);
         }
 
@@ -184,7 +220,7 @@ internal static class ImportShots
             IProgress<ImportProgress>? progress, CancellationToken ct)
         {
             var target = targetVersion ?? source.McVersion ?? "1.21.1";
-            return Task.FromResult(BuildPlan(source, target, options, SetupRole.Full, "Prism: Survival 1.21.1",
+            return Task.FromResult(BuildPlan(source, target, options, SetupRole.Full, $"{source.SourceLabel}: {source.Name}",
                 "0123456789abcdef0123456789abcdef", _demo == Demo.Blocked));
         }
 
@@ -201,7 +237,7 @@ internal static class ImportShots
                 ProfileId = "fedcba9876543210fedcba9876543210", ProfileName = profileName,
             };
             if (blocked)
-                plan.Blocked.Add("Close Minecraft first: it is still running from the instance you're importing.");
+                plan.Blocked.Add("Close Minecraft first: it is still running from one of your setups.");
 
             ModDecision Mod(string file, string name, ModOutcome outcome, string? reason = null) =>
                 new(file, null, name, null, outcome, reason, outcome is ModOutcome.Copied or ModOutcome.CopiedDisabled ? file : null, "demo");
@@ -212,12 +248,12 @@ internal static class ImportShots
                 Mod("waystones-fabric.jar", "Waystones", ModOutcome.Copied),
                 Mod("jade-15.jar", "Jade", ModOutcome.Copied),
                 Mod("appleskin-3.0.jar", "AppleSkin", ModOutcome.Copied),
-                Mod("create-fabric.jar", "Create", ModOutcome.CopiedDisabled, "needs Fabric Kotlin, which is not in this instance"),
+                Mod("create-fabric.jar", "Create", ModOutcome.CopiedDisabled, "needs Fabric Kotlin, which is not in this setup"),
                 Mod("sodium-fabric-0.6.13.jar", "Sodium", ModOutcome.BuiltIn, "Origin includes Sodium 0.6.13"),
                 Mod("lithium-fabric-0.14.jar", "Lithium", ModOutcome.BuiltIn, "Origin includes Lithium 0.14.3"),
                 Mod("iris-1.8.8.jar", "Iris", ModOutcome.BuiltIn, "Origin includes Iris 1.8.8"),
                 Mod("fabric-api-0.116.jar", "Fabric API", ModOutcome.BuiltIn, "Origin includes Fabric API"),
-                Mod("oldmap-1.20.1.jar", "Old Map Mod", ModOutcome.WrongMinecraft, "built for Minecraft 1.20.1, this is 1.21.1"),
+                Mod("oldmap-1.20.1.jar", "Old Map Mod", ModOutcome.WrongMinecraft, "built for Minecraft 1.20.1, this is " + target),
             });
             if (role == SetupRole.PacksOnly)
             {
@@ -252,7 +288,7 @@ internal static class ImportShots
             if (role == SetupRole.Full)
             {
                 plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting, "Resource pack \"Old Textures\"",
-                    "was in the options but is not in the instance's resourcepacks folder."));
+                    "was in the options but is not in the setup's resourcepacks folder."));
                 plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Setting, "authlib-injector.cfg",
                     "Skipped for safety: it looks like a login or account file."));
                 plan.SkippedForSafety.Add("authlib-injector.cfg");
@@ -277,6 +313,7 @@ internal static class ImportShots
             IProgress<BulkPlanProgress>? progress, CancellationToken ct)
         {
             var plan = new BulkImportPlan { RunId = "bulk0123456789abcdef0123456789ab" };
+            if (_demo == Demo.Blocked) plan.Blocked.Add("Close Minecraft first: it is still running from one of your setups.");
             var chosen = BulkSetups().Where(selection.Includes).ToList();
             var byVersion = new List<(string Version, List<DetectedInstance> Setups)>();
             var done = 0;
@@ -286,7 +323,7 @@ internal static class ImportShots
                 var version = setup.McVersion ?? "";
                 if (!DemoTargets.Contains(version))
                 {
-                    var skipped = new SkippedSetup(setup, $"Origin doesn't support Minecraft {version}, so this setup can't come over.");
+                    var skipped = new SkippedSetup(setup, $"Origin doesn't support Minecraft {version}.");
                     plan.Skipped.Add(skipped);
                     progress?.Report(new BulkPlanProgress(++done, chosen.Count, setup.Name, Skipped: skipped));
                     continue;
@@ -329,17 +366,33 @@ internal static class ImportShots
             {
                 ct.ThrowIfCancellationRequested();
                 var planned = all[i];
+                var label = $"{planned.Setup.SourceLabel}: {planned.Setup.Name}";
                 var bytes = planned.Plan.BytesToCopy;
-                progress.Report(new BulkProgress(i, all.Count, planned.Setup.Name,
+                progress.Report(new BulkProgress(i, all.Count, label,
                     new ImportProgress(ImportStage.Mods, 1, 3, "xaeros-minimap-24.2.jar"), done, plan.BytesToCopy));
-                progress.Report(new BulkProgress(i, all.Count, planned.Setup.Name,
-                    new ImportProgress(ImportStage.Packs, 2, 3, "Faithful 64x.zip"), done + bytes / 2, plan.BytesToCopy));
+                if (_demo == Demo.Progress && i == 2)
+                {
+                    // Stop here, a third of the way in, until the render lets go (or the player cancels).
+                    progress.Report(new BulkProgress(i, all.Count, label,
+                        new ImportProgress(ImportStage.Packs, 2, 3, "Faithful 64x.zip"), done + bytes / 2, plan.BytesToCopy));
+                    using (ct.Register(() => _hold.TrySetResult(true))) await _hold.Task;
+                    return new BulkImportResult { RunId = plan.RunId, State = ImportState.RolledBack, Cancelled = true };
+                }
+                if (_demo == Demo.Failed && i == 1)
+                    return new BulkImportResult
+                    {
+                        RunId = plan.RunId, State = ImportState.RolledBack,
+                        Error = "The import didn't finish (Not enough space on the drive). Everything was put back the way it was.",
+                    };
                 done += bytes;
                 await Task.Yield();
             }
 
             var versions = plan.Groups.Select(g => new VersionOutcome(g.Version, g.Setups.Select(s => new SetupOutcome(
                 s.Setup, s.Role, s.Role == SetupRole.PacksOnly ? SetupResultKind.ImportedPartly : SetupResultKind.Imported, s.Note)).ToList())).ToList();
+            // A setup that never came over is listed under its own Minecraft version.
+            versions.AddRange(plan.Skipped.GroupBy(k => k.Setup.McVersion ?? "").Select(g => new VersionOutcome(g.Key,
+                g.Select(k => new SetupOutcome(k.Setup, SetupRole.Full, SetupResultKind.Skipped, k.Reason)).ToList())));
             var notImported = plan.Skipped.Select(k => new NotImportedItem(k.Setup.Name, "Whole setup", k.Reason))
                 .Concat(plan.Groups.SelectMany(g => g.Setups).SelectMany(s => s.Plan.Lines
                     .Where(l => l.Section == SummarySection.NotImported)
@@ -372,7 +425,7 @@ internal static class ImportShots
                 NeedsChoice = chosenWinner == null && pick.Mode == PickMode.Choose,
                 GameFileOp = new PlannedOp
                 {
-                    Kind = OpKind.Custom, Item = PlanItemKind.GameFile, Label = $"Game files for Minecraft {version}",
+                    Kind = OpKind.Custom, Item = PlanItemKind.GameFile, Label = $"Files Minecraft {version} needs",
                     Dest = Path.Combine("demo", "versions", version), Bytes = 96_000_000,
                 },
             };
@@ -397,7 +450,7 @@ internal static class ImportShots
             if (_demo == Demo.Progress)
             {
                 progress?.Report(new ImportProgress(ImportStage.Mods, 14, 40, "xaeros-minimap-24.2.jar"));
-                await _hold.Task;
+                using (ct.Register(() => _hold.TrySetResult(true))) await _hold.Task;
                 return new ImportResult { ImportId = plan.ImportId, State = ImportState.RolledBack, Cancelled = true, SummaryText = "" };
             }
             if (_demo == Demo.Failed)
