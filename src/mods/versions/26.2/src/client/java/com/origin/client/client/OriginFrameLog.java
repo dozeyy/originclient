@@ -338,6 +338,68 @@ public final class OriginFrameLog {
 		return String.format(java.util.Locale.ROOT, "%.4f", v);
 	}
 
+	// ---- world-loading bar check ----
+	// The world-load scenes' bar (LevelLoadingScreen and the screens around it)
+	// must never move back within one world load. A load = scene frames with no
+	// gap over SCENE_GAP_NS. Independent of the hand-off log above (runs after it).
+	private static final long SCENE_GAP_NS = 3_000_000_000L;
+	private static long sceneLast = 0;
+	private static String sceneScreen;
+	private static double sceneShown = -2, sceneRaw = -2, sceneBackMax = 0;
+	private static int sceneLoads = 0, sceneFrames = 0, sceneBack = 0, sceneToSweep = 0;
+
+	/** One world-loading scene frame: the screen's title, the raw progress (-1 = none) and the fill drawn (-1 = sweep). */
+	public static void sceneBar(String screen, float raw, double shown) {
+		if (!ENABLED) {
+			return;
+		}
+		long now = System.nanoTime();
+		if (sceneLast == 0 || now - sceneLast > SCENE_GAP_NS) {
+			if (sceneLast != 0) {
+				sceneSummary();
+			} else {
+				Runtime.getRuntime().addShutdownHook(new Thread(OriginFrameLog::sceneSummary));
+			}
+			sceneLoads++;
+			sceneFrames = sceneBack = sceneToSweep = 0;
+			sceneBackMax = 0;
+			sceneShown = sceneRaw = -2;
+			sceneScreen = null;
+			com.origin.client.OriginClient.LOGGER.info(P + "scene bar: world load #{} begins (uptime {} s)", sceneLoads, uptimeS());
+		}
+		sceneLast = now;
+		if (sceneShown > -2 && sceneShown >= 0) {
+			if (shown < 0) {
+				sceneToSweep++;
+				com.origin.client.OriginClient.LOGGER.info(P + "scene bar BACK TO SWEEP from {} (raw {} -> {}) [{}]", fmt4(sceneShown), fmt4(sceneRaw), fmt4(raw), screen);
+			} else if (shown < sceneShown - 1e-6) {
+				sceneBack++;
+				sceneBackMax = Math.max(sceneBackMax, sceneShown - shown);
+				com.origin.client.OriginClient.LOGGER.info(P + "scene bar BACKWARD shown {} -> {} (raw {} -> {}) [{}]", fmt4(sceneShown), fmt4(shown), fmt4(sceneRaw), fmt4(raw), screen);
+			}
+		}
+		if (SCENE_PROBE && (!screen.equals(sceneScreen) || raw != sceneRaw)) {
+			com.origin.client.OriginClient.LOGGER.info(P + "sceneprobe raw={} shown={} [{}] uptime {} s", fmt4(raw), fmt4(shown), screen, uptimeS());
+		}
+		sceneScreen = screen;
+		sceneShown = shown;
+		sceneRaw = raw;
+		sceneFrames++;
+	}
+
+	// TEMP (world-bar investigation, 2026-10-19): per-change raw/shown/screen lines.
+	private static final boolean SCENE_PROBE = true;
+
+	private static void sceneSummary() {
+		if (sceneLoads == 0) {
+			return;
+		}
+		// stdout, not the logger: this also runs from a shutdown hook.
+		System.out.println(P + "scene bar summary: load #" + sceneLoads + " monotonic=" + (sceneBack == 0 && sceneToSweep == 0 ? "yes" : "NO")
+				+ " frames=" + sceneFrames + " backward=" + sceneBack + " (max " + fmt4(sceneBackMax) + ") to-sweep=" + sceneToSweep
+				+ " final=" + fmt4(sceneShown));
+	}
+
 	/** The title's entrance ends at this scene-clock time (RingField.sceneMs). */
 	public static void entranceEndsAt(double sceneMs) {
 		if (ENABLED) {

@@ -468,6 +468,7 @@ public final class OriginScreenRenderer {
 					: target + (sceneFill - target) * Math.exp(-(now - sceneFillAt) / FILL_TAU);
 		}
 		sceneFillAt = now;
+		com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		drawSceneText(guiGraphics, mc.font, w, h, title == null ? "" : title.getString().trim(), sceneFill);
 	}
 
