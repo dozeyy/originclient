@@ -114,6 +114,7 @@ public static class SettingsMigrator
             LoadSourceOptions();   // every role: options.txt names the resource packs in use
             PlanResourcePacks();
             PlanShaders();
+            if (_c.Options.CopyScreenshots) PlanScreenshots(); // every role: they belong to no version's settings
             if (_c.Role == SetupRole.PacksOnly) { SettingsComeFrom(); return; }
             PlanConfig();
             if (Winner)
@@ -235,7 +236,7 @@ public static class SettingsMigrator
 
         private void PlanShaders()
         {
-            var shaderpacks = Path.Combine(_src, "shaderpacks");
+            var shaderpacks = _c.Source.ShaderPacksFolder;
 
             // Iris (or Oculus, its Forge twin) keeps the selection in iris.properties; OptiFine in optionsshaders.txt.
             foreach (var candidate in new[] { "iris.properties", "oculus.properties" })
@@ -602,11 +603,72 @@ public static class SettingsMigrator
                     "OptiFine settings only apply on 1.8.9. Origin uses Sodium + Iris on this version.");
         }
 
+        // ---------------------------------------------------------------- screenshots (on by default)
+
+        private static readonly HashSet<string> ScreenshotTypes = new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
+
+        // Each picture in screenshots/ (the game writes them flat), copied beside Origin's own. Never replaces one:
+        // a different picture with the same name lands as "<name> (imported).png". Name + size decide "already here"
+        // (a repeat import adds nothing); nothing is hashed, so a folder of thousands plans as fast as listing it.
+        // ONE summary line for all of them, not one per picture.
+        private void PlanScreenshots()
+        {
+            var srcDir = _c.Source.ScreenshotsFolder;
+            var dstDir = Path.Combine(_dst, "screenshots");
+            int copied = 0, already = 0;
+            long bytes = 0;
+            foreach (var file in Fs.EnumerateFiles(srcDir, recursive: false).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                _c.Ct.ThrowIfCancellationRequested();
+                var name = Path.GetFileName(file);
+                if (!ScreenshotTypes.Contains(Path.GetExtension(name))) continue;
+                if (ImportFiles.SizeOrNull(file) is not { } size) continue; // vanished since it was listed
+                var dest = ScreenshotDest(file, name, size, dstDir);
+                if (dest == null) { already++; continue; }
+                Ledger.Add(dest, file, _c.SetupLabel, owner: _c.SetupKey);
+                Plan.Ops.Add(new PlannedOp
+                {
+                    Kind = OpKind.CopyFile, Item = PlanItemKind.Screenshot, Label = "screenshots/" + Path.GetFileName(dest),
+                    Source = file, Dest = dest, Bytes = size, TouchNow = false, ClaimKey = DestinationLedger.PathKey(dest),
+                });
+                copied++;
+                bytes += size;
+            }
+            if (copied > 0)
+                Line(SummarySection.Imported, PlanItemKind.Screenshot, copied == 1 ? "1 screenshot" : $"{copied} screenshots",
+                    already > 0 ? $"{already} already in Origin, left as they are" : null, bytes);
+            else if (already > 0)
+                Line(SummarySection.Imported, PlanItemKind.Screenshot, "Screenshots", "already in Origin, left as they are");
+        }
+
+        // Where a screenshot lands, or null when it is already there: the same name and size in Origin, under its own
+        // name or an earlier "(imported)" one, or already brought by another setup of this run.
+        private string? ScreenshotDest(string file, string name, long size, string dstDir)
+        {
+            var stem = Path.GetFileNameWithoutExtension(name);
+            var ext = Path.GetExtension(name);
+            for (var n = 0; n < 1000; n++)
+            {
+                var candidate = Path.Combine(dstDir, n == 0 ? name : n == 1 ? $"{stem} (imported){ext}" : $"{stem} (imported {n}){ext}");
+                if (Ledger.ClaimOf(candidate) is { } claim)
+                {
+                    if (claim.Source != null && Detection.SetupKey.SameFolder(claim.Source, file)) return null; // the same file, already coming
+                    if (claim.Source != null && ImportFiles.SizeOrNull(claim.Source) == size
+                        && string.Equals(Path.GetFileName(claim.Source), name, StringComparison.OrdinalIgnoreCase)) return null;
+                    continue;
+                }
+                if (Directory.Exists(candidate)) continue;
+                if (!File.Exists(candidate)) return candidate;
+                if (ImportFiles.SizeOrNull(candidate) == size) return null;
+            }
+            return null; // a thousand different pictures of one name: leave it out rather than loop on
+        }
+
         // ---------------------------------------------------------------- worlds (opt-in)
 
         private void PlanWorlds()
         {
-            var savesDir = Path.Combine(_src, "saves");
+            var savesDir = _c.Source.SavesFolder;
             var dstSaves = Path.Combine(_dst, "saves");
             foreach (var world in Fs.EnumerateDirectories(savesDir).OrderBy(w => w, StringComparer.OrdinalIgnoreCase))
             {

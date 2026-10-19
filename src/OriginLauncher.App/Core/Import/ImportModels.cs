@@ -83,6 +83,20 @@ public sealed record DetectedInstance
     /// <summary>Where this setup's mods are read from: <see cref="ModsDir"/>, else &lt;GameDir&gt;/mods.</summary>
     public string ModsFolder => ModsDir ?? Path.Combine(GameDir, "mods");
 
+    /// <summary>
+    /// The client's main game folder when it is not <see cref="GameDir"/>: Lunar keeps options.txt, servers.dat and
+    /// packs per version line in .lunarclient/profiles/&lt;line&gt; but plays worlds and screenshots out of its "game
+    /// directory" (.minecraft by default). Null = everything is in GameDir.
+    /// </summary>
+    public string? SharedGameDir { get; init; }
+
+    /// <summary>A shader pack folder not named &lt;GameDir&gt;/shaderpacks (Lunar's per-profile "shaders"). Null = the usual one.</summary>
+    public string? ShaderPacksDir { get; init; }
+
+    public string SavesFolder => Path.Combine(SharedGameDir ?? GameDir, "saves");
+    public string ScreenshotsFolder => Path.Combine(SharedGameDir ?? GameDir, "screenshots");
+    public string ShaderPacksFolder => ShaderPacksDir ?? Path.Combine(GameDir, "shaderpacks");
+
     // ---- detection accuracy (Core/Import/Detection): what the version answer rests on ----
 
     /// <summary>
@@ -168,7 +182,7 @@ public sealed class ScanResult
 
 // ---- the plan ----------------------------------------------------------------
 
-public enum PlanItemKind { Mod, Setting, Config, ResourcePack, ShaderPack, World, GameFile, Cache }
+public enum PlanItemKind { Mod, Setting, Config, ResourcePack, ShaderPack, World, GameFile, Cache, Screenshot }
 
 /// <summary>The summary.txt sections, in the order they are written.</summary>
 public enum SummarySection { Imported, ReusedGameFiles, ReusedCaches, NeedsAttention, NotImported }
@@ -207,6 +221,12 @@ public sealed record ImportOptions
 
     /// <summary>Copy single-player worlds (off by default: they are big and the player may not want them).</summary>
     public bool CopyWorlds { get; init; }
+
+    /// <summary>
+    /// Copy screenshots (on by default; copied, never moved). One already in Origin under the same name and size is
+    /// left as it is, so importing again adds nothing.
+    /// </summary>
+    public bool CopyScreenshots { get; init; } = true;
 
     /// <summary>
     /// Engine B: when Origin already has a Distant Horizons / Voxy cache where one would land, replace it
@@ -384,7 +404,7 @@ public sealed class ImportPlan
 
 public enum ImportState { Planned, Applying, Committed, RolledBack }
 
-public enum ImportStage { Scanning, Planning, Mods, Settings, Packs, Worlds, GameFiles, Caches, Finishing }
+public enum ImportStage { Scanning, Planning, Mods, Settings, Packs, Worlds, Screenshots, GameFiles, Caches, Finishing }
 
 public sealed record ImportProgress(ImportStage Stage, int Done, int Total, string? Item = null);
 

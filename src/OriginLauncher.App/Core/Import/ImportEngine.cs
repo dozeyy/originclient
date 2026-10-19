@@ -688,6 +688,7 @@ public sealed partial class ImportEngine
         PlanItemKind.Setting or PlanItemKind.Config => ImportStage.Settings,
         PlanItemKind.ResourcePack or PlanItemKind.ShaderPack => ImportStage.Packs,
         PlanItemKind.World => ImportStage.Worlds,
+        PlanItemKind.Screenshot => ImportStage.Screenshots,
         PlanItemKind.GameFile => ImportStage.GameFiles,
         _ => ImportStage.Caches,
     };
