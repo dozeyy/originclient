@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using OriginLauncher.App.Core.Import;
 using OriginLauncher.App.Core.Import.Bulk;
@@ -91,7 +92,10 @@ public sealed class SetupRowVm : CardRowVm, INotifyPropertyChanged
         }
     }
 
-    public bool ShowTick => _canTick;
+    public bool ShowTick => _canTick && !NoTick;
+
+    /// <summary>A row that only reports (the Review page): no tick box, whatever <see cref="CanTick"/> says.</summary>
+    public bool NoTick { get; init; }
 
     /// <summary>Drawn quieter: this setup can't come over.</summary>
     public bool Dimmed { get => _dimmed; set => Set(ref _dimmed, value, nameof(Dimmed)); }
@@ -202,4 +206,169 @@ public sealed class ImportLineVm : CardRowVm
 
     public override string Key => $"L|{Id}";
     protected override string Body => $"{Id}|{Title}|{Caption}|{Warning}|{Status}";
+}
+
+
+// ---------------------------------------------------------------- the launcher -> versions -> version flow
+// These rows stay on screen while the player ticks and switches, so they change in place (PropertyChanged) instead of
+// the list being rebuilt under the pointer: a hover, the focus and the scroll position all survive a toggle.
+
+/// <summary>A card row whose words change while it is shown.</summary>
+public abstract class LiveCardRowVm : CardRowVm, INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected bool Set<T>(ref T field, T value, [CallerMemberName] string name = "")
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+        field = value;
+        Raise(name);
+        return true;
+    }
+
+    protected void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+/// <summary>One launcher on the first page: "Lunar Client / 4 versions, 12 worlds", or greyed with why ("Not installed").</summary>
+public sealed class LauncherTileVm : LiveCardRowVm
+{
+    private string _caption = "";
+    private bool _enabled;
+    private string _tip = "";
+
+    public required SourceKind Kind { get; init; }
+    public required string Title { get; init; }
+    public string Initial => ImportLogic.Initial(Title);
+
+    public string Caption
+    {
+        get => _caption;
+        set { if (Set(ref _caption, value)) Raise(nameof(AutomationName)); }
+    }
+
+    /// <summary>Something to import: the tile opens the launcher's versions. Off: greyed, the tooltip says why.</summary>
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    public string Tip { get => _tip; set => Set(ref _tip, value); }
+
+    public string AutomationName => $"{Title}, {Caption}";
+    public override string Key => $"W|{Kind}";
+    protected override string Body => $"{Kind}|{Caption}|{Enabled}";
+}
+
+/// <summary>"Import from all versions": one tick box over every version Origin can take (mixed when some are ticked).</summary>
+public sealed class SelectAllVm : LiveCardRowVm
+{
+    private bool? _state = true;
+    private string _caption = "";
+    private bool _enabled = true;
+
+    public bool? State { get => _state; set => Set(ref _state, value); }
+    public string Caption { get => _caption; set => Set(ref _caption, value); }
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    /// <summary>The tick box's binding keeps its own toggled value after a click; this puts the model's answer back.</summary>
+    public void Resync() => Raise(nameof(State));
+
+    public override string Key => "A";
+    protected override string Body => $"{State}|{Caption}|{Enabled}";
+}
+
+/// <summary>One Minecraft version: its setups in a line, what they hold, whose settings win; a tick box and a way in.</summary>
+public sealed class VersionRowVm : LiveCardRowVm
+{
+    private string _caption = "";
+    private string _contents = "";
+    private string? _warning;
+    private bool _ticked;
+
+    public required string VersionKey { get; init; }
+    public required string Title { get; init; }
+
+    /// <summary>False for a version Origin can't take: no tick box, drawn quieter, the reason in gold.</summary>
+    public bool CanTick { get; init; }
+    public bool Dimmed => !CanTick;
+
+    public string Caption { get => _caption; set { if (Set(ref _caption, value)) Raise(nameof(AutomationName)); } }
+
+    /// <summary>"12 mods, 2 worlds, 3 packs" (empty until the folders are counted).</summary>
+    public string Contents { get => _contents; set { if (Set(ref _contents, value)) Raise(nameof(HasContents)); } }
+    public bool HasContents => !string.IsNullOrEmpty(_contents);
+
+    public string? Warning { get => _warning; set { if (Set(ref _warning, value)) Raise(nameof(HasWarning)); } }
+    public bool HasWarning => !string.IsNullOrEmpty(_warning);
+
+    public bool Ticked { get => _ticked; set => Set(ref _ticked, value); }
+
+    public void Resync() => Raise(nameof(Ticked));
+
+    public string AutomationName => $"Minecraft {Title}, {Caption}";
+    public string TickName => $"Import Minecraft {Title}";
+    public string RowTip => CanTick ? $"Choose what {Title} brings" : $"See the setups on {Title}";
+    public override string Key => $"V|{VersionKey}";
+    protected override string Body => $"{VersionKey}|{Caption}|{Contents}|{Warning}|{Ticked}";
+}
+
+/// <summary>"What to bring": a row of switches, one per kind of thing (for every version, or for one).</summary>
+public sealed class CategoryBarVm : CardRowVm
+{
+    public required string Id { get; init; }
+    public required IReadOnlyList<CategoryChipVm> Chips { get; init; }
+    public override string Key => $"B|{Id}";
+    protected override string Body => Id + "|" + string.Join(",", Chips.Select(c => $"{c.IsOn}{c.Count}{c.Enabled}"));
+}
+
+/// <summary>One "what to bring" switch: "Worlds 4". On, off, or mixed (some versions bring it).</summary>
+public sealed class CategoryChipVm : INotifyPropertyChanged
+{
+    private bool? _isOn;
+    private string _count = "";
+    private bool _enabled = true;
+
+    public required ImportCategories Category { get; init; }
+    public required string Label { get; init; }
+
+    public bool? IsOn { get => _isOn; set { if (Set(ref _isOn, value)) { Raise(nameof(AutomationName)); Raise(nameof(Tip)); } } }
+
+    /// <summary>"12", or empty for the yes/no kinds and before counting.</summary>
+    public string Count { get => _count; set { if (Set(ref _count, value)) { Raise(nameof(Text)); Raise(nameof(AutomationName)); } } }
+
+    /// <summary>Off when the setups have none of it (nothing to switch).</summary>
+    public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) Raise(nameof(Tip)); } }
+
+    public string Text => string.IsNullOrEmpty(_count) ? Label : $"{Label} {_count}";
+
+    public string AutomationName => $"Bring {Label}" + (string.IsNullOrEmpty(_count) ? "" : $", {_count}")
+        + (_isOn == true ? ", on" : _isOn == false ? ", off" : ", on for some versions");
+
+    public string Tip => !_enabled ? $"No {Label.ToLowerInvariant()} to bring"
+        : _isOn == null ? $"Some versions bring {Label.ToLowerInvariant()}. Press to bring them for all."
+        : _isOn == true ? $"Bringing {Label.ToLowerInvariant()}. Press to leave them out."
+        : $"Leaving {Label.ToLowerInvariant()} out. Press to bring them.";
+
+    /// <summary>The switch keeps its own toggled value after a click; this puts the model's answer back.</summary>
+    public void Resync() => Raise(nameof(IsOn));
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private bool Set<T>(ref T field, T value, [CallerMemberName] string name = "")
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+        field = value;
+        Raise(name);
+        return true;
+    }
+
+    private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+/// <summary>A quiet line inside a card whose words change in place ("Settings from Hypixel. Mods and packs from every ticked setup.").</summary>
+public sealed class ImportNoteVm : LiveCardRowVm
+{
+    private string _text = "";
+
+    public required string Id { get; init; }
+    public string Text { get => _text; set => Set(ref _text, value); }
+    public override string Key => $"Q|{Id}";
+    protected override string Body => Text;
 }

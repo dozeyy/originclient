@@ -374,4 +374,45 @@ internal sealed class ImportFlowModel
 
     /// <summary>Whether a skipped setup belongs on the Review and Done pages: setups of another launcher were never part of this import.</summary>
     public bool Shows(SkippedSetup skipped) => skipped.Kind != SkipKind.NotSelected && InScopeOf(skipped.Setup);
+
+    /// <summary>
+    /// The result the Done page reads: the same run, without the setups that were never part of it (another launcher's,
+    /// NotSelected) in its skipped list or its "didn't come over" lines. Everything else is passed on as the engine wrote it.
+    /// </summary>
+    public BulkImportResult ForDone(BulkImportResult result)
+    {
+        var hidden = result.Skipped.Where(s => !Shows(s)).ToList();
+        if (hidden.Count == 0) return result;
+        var hiddenLabels = new HashSet<string>(hidden.Select(s => s.Setup.BulkLabel()), StringComparer.Ordinal);
+        var shownLabels = new HashSet<string>(result.Skipped.Where(Shows).Select(s => s.Setup.BulkLabel()), StringComparer.Ordinal);
+        return new BulkImportResult
+        {
+            RunId = result.RunId, State = result.State, Cancelled = result.Cancelled, Error = result.Error,
+            Versions = result.Versions, Notes = result.Notes, SummaryText = result.SummaryText,
+            Skipped = result.Skipped.Where(Shows).ToList(),
+            // A whole-setup line of a hidden setup goes with it (a shown setup with the same label keeps its line).
+            DidntComeOver = result.DidntComeOver
+                .Where(d => !(hiddenLabels.Contains(d.SetupLabel) && !shownLabels.Contains(d.SetupLabel) && d.Name == WholeSetup))
+                .ToList(),
+        };
+    }
+
+    /// <summary>The engine's name for a skipped setup's line in "didn't come over" (BulkEngine).</summary>
+    public const string WholeSetup = "Whole setup";
+
+    /// <summary>
+    /// Everything <see cref="Selection"/> and the settings choices depend on, as one string: two equal keys (with equal
+    /// options) plan the same, so the Review page reuses its plan when the player only looked around.
+    /// </summary>
+    public string SelectionKey()
+    {
+        var left = new List<string>();
+        foreach (var version in Versions().Where(v => v.Supported))
+            foreach (var setup in version.Setups)
+                if (!IsSelected(version) || !IsTicked(setup))
+                    left.Add(setup.BulkId());
+        left.Sort(StringComparer.Ordinal);
+        var choices = Choices.OrderBy(c => c.Key, StringComparer.Ordinal).Select(c => c.Key + "=" + c.Value);
+        return $"{Scope?.ToString() ?? "all"}|{_setups.Count}|{string.Join(",", left)}|{string.Join(",", choices)}";
+    }
 }

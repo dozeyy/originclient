@@ -8,13 +8,14 @@
              KeyboardNavigation.TabNavigation="Cycle">
 
     <!-- The Import drawer: a sibling of the Friends drawer (same 380 px right drawer, header, section
-         headings, card rows and small actions; every style is Theme/Social.xaml). One drawer, these pages:
-           ScanPane      looking
-           EmptyPane     nothing found
-           OverviewList  every setup found, "Import all" on top
-           PageList      the page behind a back arrow: whose settings, one setup, details, done
-           ProgressPane  importing
-           FailedPane    nothing changed
+         headings, card rows and small actions; every style is Theme/Social.xaml). One page at a time:
+           LaunchersList  where to import from (one tile per launcher; "Looking..." while the scan runs)
+           VersionsList   that launcher's Minecraft versions: what to bring, "Import from all versions"
+           VersionList    one version: what it brings, its setups, whose settings
+           ReviewPane     what comes over, where, and what is left out; IMPORT n
+           PageGrid       behind a back arrow: whose settings, one setup on its own, details, done
+           ProgressPane   importing
+           FailedPane     nothing changed
          The lists are virtualized like the Friends list. Words are few: only a problem gets a sentence. -->
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
@@ -47,9 +48,23 @@
             </Setter>
         </Style>
 
+        <!-- The arrow on a row that opens a page (Icon.Chevron turned to point right). -->
+        <Style x:Key="Import.Go" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
+            <Setter Property="Data" Value="{StaticResource Icon.Chevron}"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Height" Value="10"/>
+            <Setter Property="Margin" Value="10,0,2,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Stroke" Value="{StaticResource Brush.TextMuted}"/>
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="RenderTransform">
+                <Setter.Value><RotateTransform Angle="-90"/></Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ================= rows ================= -->
 
-        <!-- A launcher's heading, or a folding one (Done: "SKIPPED - 2"). -->
+        <!-- A heading, or a folding one (Done: "SKIPPED - 2"). -->
         <DataTemplate DataType="{x:Type controls:ImportSectionVm}">
             <Grid Margin="0,14,0,6" MinHeight="24">
                 <Button x:Name="Btn" Style="{StaticResource Social.SectionButton}" Padding="2,2" Click="Section_Click">
@@ -97,7 +112,119 @@
             </Border>
         </DataTemplate>
 
-        <!-- One setup: the row opens its own review; the tick box takes it in or out of "Import all". -->
+        <!-- A quiet line that changes in place (the version page's "Settings from ..."). -->
+        <DataTemplate DataType="{x:Type controls:ImportNoteVm}">
+            <Border Style="{StaticResource Social.RowStatic}">
+                <TextBlock Text="{Binding Text}" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"/>
+            </Border>
+        </DataTemplate>
+
+        <!-- A launcher: its initial, its name, what was found; the arrow when there is something to import.
+             Greyed (and skipped by Tab) when there is nothing: the tooltip still says why. -->
+        <DataTemplate DataType="{x:Type controls:LauncherTileVm}">
+            <Button Style="{StaticResource Social.Row}" Click="Tile_Click" IsEnabled="{Binding Enabled}"
+                    AutomationProperties.Name="{Binding AutomationName}" ToolTip="{Binding Tip}"
+                    ToolTipService.ShowOnDisabled="True">
+                <Grid MinHeight="38">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="Avatar" Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                    </Border>
+                    <StackPanel x:Name="Words" Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <Path x:Name="Go" Grid.Column="2" Style="{StaticResource Import.Go}"/>
+                </Grid>
+            </Button>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Enabled}" Value="False">
+                    <Setter TargetName="Avatar" Property="Opacity" Value="0.55"/>
+                    <Setter TargetName="Words" Property="Opacity" Value="0.55"/>
+                    <Setter TargetName="Go" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- "Import from all versions": the whole row and its tick box do the same thing (mixed = some versions). -->
+        <DataTemplate DataType="{x:Type controls:SelectAllVm}">
+            <Button Style="{StaticResource Social.Row}" Click="SelectAll_Click" IsEnabled="{Binding Enabled}"
+                    AutomationProperties.Name="Import from all versions" ToolTip="Tick or untick every version">
+                <Grid MinHeight="38">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Import from all versions" Style="{StaticResource Social.Name}" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" Style="{StaticResource Social.Check}" IsThreeState="False"
+                              IsChecked="{Binding State, Mode=OneWay}" IsEnabled="{Binding Enabled}"
+                              Click="SelectAllTick_Click" ToolTip="Tick or untick every version"
+                              AutomationProperties.Name="Import from all versions"/>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
+        <!-- One Minecraft version: the row opens it (what it brings, its setups); the tick box takes it in or out. -->
+        <DataTemplate DataType="{x:Type controls:VersionRowVm}">
+            <Button Style="{StaticResource Social.Row}" Click="VersionRow_Click"
+                    AutomationProperties.Name="{Binding AutomationName}" ToolTip="{Binding RowTip}">
+                <Grid MinHeight="38">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel x:Name="Words" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                        <TextBlock Text="{Binding Contents}" Style="{StaticResource Social.Quiet}"
+                                   Visibility="{Binding HasContents, Converter={StaticResource BoolToVis}}"/>
+                        <TextBlock Text="{Binding Warning}" Style="{StaticResource Import.Warning}"
+                                   Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                    <CheckBox Grid.Column="1" Style="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=OneWay}"
+                              Visibility="{Binding CanTick, Converter={StaticResource BoolToVis}}"
+                              Click="VersionTick_Click" ToolTip="Include in import"
+                              AutomationProperties.Name="{Binding TickName}"/>
+                    <Path Grid.Column="2" Style="{StaticResource Import.Go}"/>
+                </Grid>
+            </Button>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Dimmed}" Value="True">
+                    <Setter TargetName="Words" Property="Opacity" Value="0.55"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- "What to bring": the switches wrap inside one card (Import.Chip, Theme/Social.xaml). -->
+        <DataTemplate DataType="{x:Type controls:CategoryBarVm}">
+            <Border Style="{StaticResource Social.RowStatic}" Padding="10,10,4,4">
+                <ItemsControl ItemsSource="{Binding Chips}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ToggleButton Style="{StaticResource Import.Chip}" Content="{Binding Text}"
+                                          IsChecked="{Binding IsOn, Mode=OneWay}" IsEnabled="{Binding Enabled}"
+                                          ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True"
+                                          AutomationProperties.Name="{Binding AutomationName}" Click="Chip_Click"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </DataTemplate>
+
+        <!-- One setup: the row opens its own review; the tick box takes it in or out. -->
         <DataTemplate DataType="{x:Type controls:SetupRowVm}">
             <Button Style="{StaticResource Social.Row}" Click="SetupRow_Click"
                     AutomationProperties.Name="{Binding AutomationName}" ToolTip="{Binding RowTip}">
@@ -111,7 +238,8 @@
                         <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock x:Name="NameText" Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
+                        <TextBlock x:Name="NameText" Text="{Binding Name}" Style="{StaticResource Social.Name}"
+                                   TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="CaptionText" Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
                         <TextBlock Text="{Binding Warning}" Style="{StaticResource Import.Warning}"
                                    Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}"/>
@@ -125,7 +253,7 @@
                         <CheckBox Style="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=TwoWay}"
                                   Visibility="{Binding ShowTick, Converter={StaticResource BoolToVis}}"
                                   IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
-                                  Click="SetupTick_Click" ToolTip="Include in Import"
+                                  Click="SetupTick_Click" ToolTip="Include in import"
                                   AutomationProperties.Name="{Binding TickName}"/>
                     </StackPanel>
                 </Grid>
@@ -139,7 +267,7 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- Whose settings: the setup and how much it was played; the picked one has a 1 px emerald frame (like SELECTED on Profiles). -->
+        <!-- Whose settings: the setup and how much it was played; the picked one has a 1 px accent frame (like SELECTED on Profiles). -->
         <DataTemplate DataType="{x:Type controls:ChooseRowVm}">
             <Button Style="{StaticResource Social.Row}" Click="ChooseRow_Click"
                     AutomationProperties.Name="{Binding Name}">
@@ -155,7 +283,7 @@
                         <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
+                        <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
                         <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}" TextWrapping="Wrap" TextTrimming="None"/>
                     </StackPanel>
                 </Grid>
@@ -231,7 +359,7 @@
             <RowDefinition Height="Auto"/>   <!-- footer -->
         </Grid.RowDefinitions>
 
-        <!-- Header: back (behind-a-page only), title and one quiet line, then the page's own button and close.
+        <!-- Header: back (every page but the first), title and one quiet line, then Browse and close.
              The quiet line keeps its height when empty, so the title never jumps between pages. -->
         <StackPanel Grid.Row="0">
             <Grid Margin="16,16,12,10">
@@ -258,6 +386,14 @@
                     </StackPanel>
                 </Grid>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Path x:Name="ScanSpinner" Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
+                          Width="14" Height="14" Margin="0,0,8,0" Stroke="{StaticResource Brush.Accent}"
+                          RenderTransformOrigin="0.5,0.5" Visibility="Collapsed" VerticalAlignment="Center"
+                          ToolTip="Looking for your setups">
+                        <Path.RenderTransform>
+                            <RotateTransform x:Name="ScanSpin"/>
+                        </Path.RenderTransform>
+                    </Path>
                     <Button x:Name="BrowseIconButton" Style="{StaticResource Social.Icon}" Click="Browse_Click"
                             ToolTip="Browse for a folder" AutomationProperties.Name="Browse for a folder">
                         <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
@@ -287,40 +423,26 @@
             </Grid>
         </Border>
 
-        <!-- ============ the page (one at a time) ============ -->
+        <!-- ============ the page (one at a time) ============
+             Each step keeps its own list, so Back returns to the same scroll position and focus. -->
         <Grid Grid.Row="2">
+            <ItemsControl x:Name="LaunchersList" Style="{StaticResource Import.List}"/>
+            <ItemsControl x:Name="VersionsList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
+            <ItemsControl x:Name="VersionList" Style="{StaticResource Import.List}" Visibility="Collapsed"/>
 
-            <!-- Looking: a line and three quiet blocks, never an empty box. -->
-            <StackPanel x:Name="ScanPane" Margin="16,12,16,0" VerticalAlignment="Top">
-                <StackPanel Orientation="Horizontal" Margin="2,0,0,14">
-                    <Path x:Name="ScanSpinner" Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
+            <Grid x:Name="ReviewPane" Visibility="Collapsed">
+                <ItemsControl x:Name="ReviewList" Style="{StaticResource Import.List}"/>
+                <StackPanel x:Name="ReviewPlanning" Orientation="Horizontal" Margin="18,12,16,0"
+                            VerticalAlignment="Top" Visibility="Collapsed">
+                    <Path Data="{StaticResource Icon.Loading}" Style="{StaticResource Icon.Base}"
                           Width="14" Height="14" Stroke="{StaticResource Brush.Accent}" RenderTransformOrigin="0.5,0.5">
                         <Path.RenderTransform>
-                            <RotateTransform x:Name="ScanSpin"/>
+                            <RotateTransform x:Name="ReviewSpin"/>
                         </Path.RenderTransform>
                     </Path>
-                    <TextBlock Text="Looking for your setups..." Style="{StaticResource Social.Quiet}" Margin="10,0,0,0"
+                    <TextBlock Text="Checking what can come over..." Style="{StaticResource Social.Quiet}" Margin="10,0,0,0"
                                VerticalAlignment="Center"/>
                 </StackPanel>
-                <Border Height="56" Margin="0,0,0,8" Opacity="0.6" Background="{StaticResource Brush.Card}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Card}"/>
-                <Border Height="56" Margin="0,0,0,8" Opacity="0.45" Background="{StaticResource Brush.Card}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Card}"/>
-                <Border Height="56" Opacity="0.3" Background="{StaticResource Brush.Card}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Card}"/>
-            </StackPanel>
-
-            <!-- Nothing found: one line (and the scan's note); BROWSE FOR A FOLDER is the footer's primary, like every page. -->
-            <StackPanel x:Name="EmptyPane" Margin="18,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
-                <TextBlock Text="No other launchers found." Style="{StaticResource Text.H2}"
-                           TextWrapping="Wrap" TextTrimming="None"/>
-                <TextBlock x:Name="EmptyNote" Style="{StaticResource Social.Quiet}" Margin="0,8,0,0"
-                           TextWrapping="Wrap" TextTrimming="None" Visibility="Collapsed"/>
-            </StackPanel>
-
-            <!-- Every setup. The one action (IMPORT n) is in the footer, like every other page. -->
-            <Grid x:Name="OverviewPane" Visibility="Collapsed">
-                <ItemsControl x:Name="OverviewList" Style="{StaticResource Import.List}"/>
             </Grid>
 
             <!-- Behind a back arrow: whose settings, one setup, the details, the result. -->
@@ -335,6 +457,9 @@
                               SelectionChanged="TargetBox_SelectionChanged" AutomationProperties.Name="Origin version"/>
                     <TextBlock x:Name="TargetNote" Style="{StaticResource Import.Warning}" Margin="2,8,0,0"
                                Visibility="Collapsed"/>
+                    <!-- What this setup brings: the same switches as its version's page (one choice per version). -->
+                    <TextBlock Text="WHAT TO BRING" Style="{StaticResource Social.Section}" Margin="2,14,0,6"/>
+                    <ContentControl x:Name="SingleBring" Focusable="False" IsTabStop="False"/>
                 </StackPanel>
                 <ItemsControl x:Name="PageList" Grid.Row="1" Style="{StaticResource Import.List}"/>
                 <StackPanel x:Name="PlanningRow" Grid.Row="1" Orientation="Horizontal" Margin="18,6,16,0"
@@ -375,7 +500,7 @@
             </StackPanel>
         </Grid>
 
-        <!-- Footer: the page's note and its buttons, centred, never stretched. -->
+        <!-- Footer: the page's note and its buttons, never stretched. -->
         <Border x:Name="Footer" Grid.Row="3" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="0,1,0,0"
                 Padding="16,10,16,12" MinHeight="56">
             <Grid>

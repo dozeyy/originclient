@@ -296,4 +296,78 @@ public class ImportFlowModelTests
         Assert.True(model.Shows(new SkippedSetup(setups[0], "x", SkipKind.Unticked)));
         Assert.False(model.Shows(new SkippedSetup(setups[4], "x", SkipKind.Unticked)));
     }
+
+    [Fact]
+    public void ForDone_drops_other_launchers_setups_and_their_whole_setup_lines_only()
+    {
+        var (model, setups) = Mixed();
+        model.SetScope(SourceKind.Lunar);
+        var result = new BulkImportResult
+        {
+            RunId = "r", State = ImportState.Committed,
+            Skipped = new List<SkippedSetup>
+            {
+                new(setups[2], "Origin doesn't support Minecraft 1.21.5.", SkipKind.Unsupported),
+                new(setups[3], "Another launcher.", SkipKind.NotSelected),
+                new(setups[4], "Another launcher.", SkipKind.NotSelected),
+            },
+            DidntComeOver = new List<NotImportedItem>
+            {
+                new(setups[2].BulkLabel(), ImportFlowModel.WholeSetup, "Origin doesn't support Minecraft 1.21.5."),
+                new(setups[3].BulkLabel(), ImportFlowModel.WholeSetup, "Another launcher."),
+                new(setups[4].BulkLabel(), ImportFlowModel.WholeSetup, "Another launcher."),
+                new(setups[0].BulkLabel(), "oldmap.jar", "built for 1.20.1"),
+            },
+        };
+
+        var shown = model.ForDone(result);
+
+        Assert.Equal(new[] { setups[2] }, shown.Skipped.Select(s => s.Setup));
+        Assert.Equal(new[] { setups[2].BulkLabel(), setups[0].BulkLabel() }, shown.DidntComeOver.Select(d => d.SetupLabel));
+        var done = ImportDoneModel.FromBulk(shown);
+        Assert.DoesNotContain(done.Lost, l => l.Title.Contains("Hypixel") || l.Title.Contains("Latest release"));
+    }
+
+    [Fact]
+    public void ForDone_passes_a_result_with_nothing_hidden_through_unchanged()
+    {
+        var (model, setups) = Mixed();
+        var result = new BulkImportResult
+        {
+            RunId = "r", State = ImportState.Committed,
+            Skipped = new List<SkippedSetup> { new(setups[2], "x", SkipKind.Unsupported) },
+        };
+
+        Assert.Same(result, model.ForDone(result));
+    }
+
+    [Fact]
+    public void SelectionKey_changes_with_every_choice_the_plan_depends_on_and_nothing_else()
+    {
+        var (model, setups) = Mixed();
+        var start = model.SelectionKey();
+
+        Assert.Equal(start, model.SelectionKey());
+        model.SetScope(SourceKind.Lunar);
+        var lunar = model.SelectionKey();
+        Assert.NotEqual(start, lunar);
+
+        model.SetSelected("1.8.9", false);
+        var without = model.SelectionKey();
+        Assert.NotEqual(lunar, without);
+        model.SetSelected("1.8.9", true);
+        Assert.Equal(lunar, model.SelectionKey());
+
+        model.SetTicked(setups[0], false);
+        Assert.NotEqual(lunar, model.SelectionKey());
+        model.SetTicked(setups[0], true);
+
+        model.Choices["1.21.1"] = setups[0].BulkId();
+        Assert.NotEqual(lunar, model.SelectionKey());
+        model.Choices.Clear();
+
+        // What to bring is part of the options, not the key: the Review page compares both.
+        model.SetBring("1.21.1", ImportCategories.Worlds, true);
+        Assert.Equal(lunar, model.SelectionKey());
+    }
 }
