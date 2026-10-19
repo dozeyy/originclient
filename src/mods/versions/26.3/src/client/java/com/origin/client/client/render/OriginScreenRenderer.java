@@ -253,6 +253,7 @@ public final class OriginScreenRenderer {
 		loadFill = loadFill < 0 || clamped < loadFill - 0.25 ? clamped
 				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
 		loadFillAt = scene;
+		com.origin.client.client.OriginFrameLog.bar(currentReload(), clamped, loadFill);
 
 		double markT = scene - loadStartScene;
 		if (drive) {
