@@ -175,7 +175,7 @@ class DevShotsFilm(unittest.TestCase):
 class DevShotsWorkflow(unittest.TestCase):
     YML = DevShotsFilm.YML
 
-    def _plan(self, modules):
+    def _plan(self, modules, msg=""):
         """Runs the plan job's module picker exactly as CI does; returns (exit code, stdout, stderr)."""
         import subprocess, sys
         yml = _read(self.YML)
@@ -184,7 +184,7 @@ class DevShotsWorkflow(unittest.TestCase):
         lines = m.group(1).splitlines()
         indent = min(len(l) - len(l.lstrip()) for l in lines if l.strip())
         script = "\n".join(l[indent:] for l in lines)
-        env = dict(os.environ, INPUT=modules, MSG="")
+        env = dict(os.environ, INPUT=modules, MSG=msg)
         p = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, capture_output=True, text=True)
         return p.returncode, p.stdout, p.stderr
 
@@ -196,6 +196,23 @@ class DevShotsWorkflow(unittest.TestCase):
         self.assertNotIn("modules=", out)
         code, _, _ = self._plan("1.21.1,1.21.l1")
         self.assertNotEqual(code, 0)
+
+    def test_prose_example_in_body_does_not_fail(self):
+        # Run 39289921229: a body documenting "([shots:1.21.l1])" failed the plan.
+        msg = "ci: tidy\n\nThe gate rejects typos (like [shots:1.21.l1]) now.\nSee [shots:bogus] too.\n"
+        code, out, err = self._plan("", msg)
+        self.assertEqual(code, 0, err)
+        self.assertIn('"module": "1.21.1"', out)
+
+    def test_typo_in_real_tag_still_fails(self):
+        code, out, err = self._plan("", "1.21.1: fix thing [shots:1.21.l1]\n\nbody")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("::error::", err)
+        msg = "ci: x\n\nprose [shots:1.8.9] here\n\nreal tag below\n[shots:1.20]\n"
+        code, out, err = self._plan("", msg)
+        self.assertEqual(code, 0, err)
+        self.assertIn('"module": "1.20"', out)
+        self.assertNotIn('"module": "1.8.9"', out)
 
     def test_known_modules_are_planned(self):
         code, out, err = self._plan("1.21.1, 1.8.9")

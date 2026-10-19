@@ -85,9 +85,10 @@ jobs:
           java = {m["module"]: m.get("java", "21") for m in entries}
           raw = os.environ.get("INPUT") or ""
           if not raw:
-              # A tag WITH a module list wins over a bare one wherever it sits: a
-              # message may mention the bare tag in its prose too.
-              tags = re.findall(r"\[shots(?::([^\]]+))?\]", os.environ.get("MSG", ""))
+              # A tag WITH a module list wins over a bare one wherever it sits.
+              # Rule: a tag counts only at the END of a line (every real past use
+              # is a subject/line suffix); prose like "(the [shots:x] tag)" is ignored.
+              tags = re.findall(r"\[shots(?::([^\]]+))?\][ \t\r]*$", os.environ.get("MSG", ""), re.M)
               listed = [t for t in tags if t]
               raw = listed[-1] if listed else "1.21.1"
           raw = raw.strip()
