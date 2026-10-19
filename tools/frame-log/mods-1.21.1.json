@@ -1,0 +1,22 @@
+{
+  "_why": "The frame log's 'with mods' scenario: popular Fabric 1.21.1 mods that add a lot of resources (blocks, models, textures, sounds, entity features), so the startup reload's apply steps grow the way a player's modded install does. Pinned by Modrinth VERSION id (the number alone is ambiguous across loaders). Picked 2026-10-18 from api.modrinth.com.",
+  "mods": [
+    {"slug": "farmers-delight-refabricated", "version": "wbVXT4Ua", "number": "1.21.1-3.3.6"},
+    {"slug": "macaws-furniture", "version": "x2pXgG0s", "number": "3.4.1"},
+    {"slug": "macaws-doors", "version": "Zsfvgzu6", "number": "1.1.5"},
+    {"slug": "macaws-roofs", "version": "BgPUaaiV", "number": "2.3.2"},
+    {"slug": "supplementaries", "version": "CjTooKpp", "number": "1.21.1-4.0.2"},
+    {"slug": "moonlight", "version": "fWlk6YEB", "number": "1.21.1-3.7.2"},
+    {"slug": "chipped", "version": "6h2mVZcb", "number": "4.0.2"},
+    {"slug": "athena-ctm", "version": "JfyYsWKP", "number": "4.0.6"},
+    {"slug": "resourceful-lib", "version": "Hf91FuVF", "number": "3.0.12"},
+    {"slug": "jade", "version": "adpNvTZS", "number": "15.10.6+fabric"},
+    {"slug": "appleskin", "version": "b5ZiCjAr", "number": "3.0.6+mc1.21"},
+    {"slug": "xaeros-minimap", "version": "W4dcLcUs", "number": "fabric-1.21.1-26.6.0"},
+    {"slug": "entitytexturefeatures", "version": "LNZeTHJf", "number": "7.2.6-fabric-1.21"},
+    {"slug": "entity-model-features", "version": "90RfzkYP", "number": "3.3.12-fabric-1.21"},
+    {"slug": "continuity", "version": "kSPJ4hQv", "number": "3.0.0+1.21"},
+    {"slug": "waystones", "version": "nSAwjAk4", "number": "21.1.46+fabric-1.21.1"},
+    {"slug": "balm", "version": "EghJxg4h", "number": "21.0.66+fabric-1.21.1"}
+  ]
+}
