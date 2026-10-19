@@ -41,6 +41,9 @@ public partial class App : Application
             return;
         }
 
+        // Hover-label timing and placement (UI/ToolTipDefaults.cs): before any window exists.
+        UI.ToolTipDefaults.Apply();
+
         // CI screen render (UI/RenderShots.cs): no single-instance guard, no
         // main window of its own, no motion; pictures, then exit (1 = failed).
         var render = Array.IndexOf(e.Args, "--render-shots");

@@ -120,14 +120,14 @@
                 <!-- Back-to-grid (only in detail view) -->
                 <Button Grid.Column="0" x:Name="BackButton" Style="{StaticResource Button.Chrome}" MinWidth="34" MinHeight="34"
                         Padding="8" VerticalAlignment="Center" Margin="-9,0,12,0" Visibility="Collapsed"
-                        Click="Back_Click" ToolTip="All versions">
+                        Click="Back_Click" ToolTip="All versions" AutomationProperties.Name="All versions">
                     <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}"
                           Width="16" Height="16" Stroke="{StaticResource Brush.TextDim}"/>
                 </Button>
                 <TextBlock Grid.Column="1" Text="Versions" Style="{StaticResource Text.H1}"
                            VerticalAlignment="Center"/>
                 <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" MinWidth="34" MinHeight="34" Padding="8"
-                        VerticalAlignment="Center" Margin="0,0,-10,0" Click="Close_Click" ToolTip="Close">
+                        VerticalAlignment="Center" Margin="0,0,-10,0" Click="Close_Click" ToolTip="Close" AutomationProperties.Name="Close">
                     <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                           Width="14" Height="14" Stroke="{StaticResource Brush.TextDim}"/>
                 </Button>
