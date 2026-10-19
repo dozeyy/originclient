@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -40,6 +41,10 @@ public class ScreenBackgroundMixin {
 
 	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackdrop(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		// Vanilla mode (Button Style Minecraft + Main Menu Style Vanilla): stock backdrop.
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;
+		}
 		// Cancel vanilla's backdrop only when the Origin one actually drew
 		// (fail-soft contract): a failed draw releases the vanilla backdrop
 		// instead of leaving the screen black.
@@ -54,6 +59,9 @@ public class ScreenBackgroundMixin {
 	// stays, the spotlight draws on top of it.
 	@Inject(method = "renderBackground", at = @At("TAIL"))
 	private void originclient$inWorldGlow(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;
+		}
 		OriginScreenRenderer.renderTitleCursorGlow(guiGraphics, mouseX, mouseY, originclient$hoveringClickable());
 	}
 
@@ -63,7 +71,7 @@ public class ScreenBackgroundMixin {
 		// can no longer bind it. Suppress it ONLY on the title screen (the sole
 		// screen with a panorama) when Origin's main-menu style is active + healthy.
 		if ((Object) this instanceof net.minecraft.client.gui.screens.TitleScreen
-				&& com.origin.client.client.mods.Mods.mode(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle").equals("Origin")
+				&& !OriginStyle.vanillaTitle()
 				&& OriginScreenRenderer.isActive()) {
 			ci.cancel();
 		}
@@ -72,7 +80,8 @@ public class ScreenBackgroundMixin {
 	private static void originclient$noListTexture(GuiGraphics guiGraphics, ResourceLocation texture, int x, int y, float uOffset, float vOffset, int width, int height, CallbackInfo ci) {
 		// Gated on renderer health: if the Origin backdrop is broken, lists
 		// get their vanilla strip back along with the vanilla background.
-		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()) {
+		if (Minecraft.getInstance().level == null && !OriginStyle.vanillaMenusOn(Minecraft.getInstance().screen)
+				&& OriginScreenRenderer.isActive()) {
 			ci.cancel();
 		}
 	}

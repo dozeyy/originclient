@@ -70,6 +70,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Origin's own textures + metadata decode in the startup reload's prepare
 		// stage, on its worker threads, instead of on the render thread at first draw.
@@ -159,7 +160,8 @@ public class OriginClientMod implements ClientModInitializer {
 				try {
 					Minecraft mc = Minecraft.getInstance();
 					if (mc.level != null
-							|| !com.origin.client.client.render.OriginScreenRenderer.isActive()) {
+							|| !com.origin.client.client.render.OriginScreenRenderer.isActive()
+							|| com.origin.client.client.OriginStyle.vanillaMenusOn(s)) {
 						return;
 					}
 					com.origin.client.client.gui.Gfx g = new com.origin.client.client.gui.Gfx(poseStack);

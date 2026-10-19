@@ -1,5 +1,6 @@
 package com.origin.client.client.shaders;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
@@ -21,6 +22,11 @@ public class OriginShaderButton extends Button {
 	// 1.19.3 is the renderButton era (renderWidget arrived in 1.19.4).
 	@Override
 	public void renderButton(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+		// Button Style = Minecraft: this entry is a plain stock button like its neighbours.
+		if (OriginStyle.vanillaButtonsOn(Minecraft.getInstance().screen)) {
+			super.renderButton(poseStack, mouseX, mouseY, partialTick);
+			return;
+		}
 		Gfx g = new Gfx(poseStack);
 		boolean hover = isHoveredOrFocused();
 		float hp = OriginUi.hover("shader-entry:" + System.identityHashCode(this), hover);

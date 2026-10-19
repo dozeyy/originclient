@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.loading;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.origin.client.client.gui.Gfx;
@@ -19,6 +20,9 @@ public class ConnectScreenMixin {
 
 	@Inject(method = "render", at = @At("TAIL"))
 	private void originclient$originBar(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;   // vanilla mode: stock screen
+		}
 		OriginScreenRenderer.renderConnectingBar(new Gfx(poseStack));
 	}
 }

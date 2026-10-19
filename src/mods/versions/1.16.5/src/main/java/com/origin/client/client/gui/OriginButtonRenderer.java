@@ -79,7 +79,9 @@ public final class OriginButtonRenderer {
 	// classes still keep their own art (OriginWidgetOwnership.isForeign).
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getInstance();
-		return mc != null && mc.screen != null;
+		// Button Style = Minecraft hands every vanilla widget back (outside Origin's own windows).
+		return mc != null && mc.screen != null
+				&& !com.origin.client.client.OriginStyle.vanillaButtonsOn(mc.screen);
 	}
 
 	// PRIMARY buttons (the one main action on a screen, e.g. Singleplayer on the

@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.menus;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiDownloadTerrain;
@@ -23,6 +24,9 @@ public abstract class GuiDownloadTerrainMixin {
 	private void originclient$originLoadingScene(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
 		try {
 			// Only cancel vanilla when the Origin scene actually drew (fail-soft).
+			if (OriginStyle.vanillaMenusOn(this)) {
+				return;   // vanilla mode: stock screen
+			}
 			if (OriginScreenRenderer.renderLoadingScene(new Gfx(), I18n.format("multiplayer.downloadingTerrain"))) {
 				ci.cancel();
 			}

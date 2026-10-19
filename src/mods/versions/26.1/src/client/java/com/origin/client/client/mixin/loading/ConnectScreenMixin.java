@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.loading;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ConnectScreen;
@@ -18,6 +19,9 @@ public class ConnectScreenMixin {
 
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void originclient$originBar(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;   // vanilla mode: no sweeping bar
+		}
 		OriginScreenRenderer.renderConnectingBar(guiGraphics);
 	}
 }

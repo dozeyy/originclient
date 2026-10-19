@@ -81,6 +81,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		// FIRST world-render registration: every later COLLECT_SUBMITS listener
 		// (Origin's overlays, Social, WorldEdit CUI, Team View) records into
 		// OriginRenderTypes, which submits to the collector remembered here.

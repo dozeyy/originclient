@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin.loading;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.screens.GenericDirtMessageScreen;
@@ -20,6 +21,9 @@ public class GenericDirtMessageScreenMixin {
 
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void originclient$originBackground(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;   // vanilla mode: stock screen
+		}
 		if (OriginScreenRenderer.renderLoadingScene(new Gfx(poseStack), ((Screen) (Object) this).getTitle())) {
 			ci.cancel();
 		}

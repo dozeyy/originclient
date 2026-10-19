@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.loading;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.FocusableTextWidget;
@@ -31,6 +32,9 @@ public class GenericMessageScreenMixin {
 		// frame's widget pass, which runs right after the background; a failed
 		// Origin draw leaves it visible over vanilla's background.
 		Screen self = (Screen) (Object) this;
+		if (OriginStyle.vanillaMenusOn(self)) {
+			return;   // vanilla mode: stock "Preparing..." screen
+		}
 		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, self.getTitle())) {
 			for (GuiEventListener child : self.children()) {
 				if (child instanceof FocusableTextWidget label) {

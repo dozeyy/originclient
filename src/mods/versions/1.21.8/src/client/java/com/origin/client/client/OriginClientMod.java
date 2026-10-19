@@ -70,6 +70,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// (No OriginShaders.register() here: on 1.21.6-1.21.8 the MSDF / ICON / GRADE
 		// shaders are RenderPipelines built as static fields, compiled lazily on first

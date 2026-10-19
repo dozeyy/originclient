@@ -85,6 +85,7 @@ public class OriginClientMod {
 
 	/** Called once by OriginClient (FMLInitializationEvent). */
 	public static void init() {
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		instance = new OriginClientMod();
 		OriginHooks.registerObject(instance);

@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin.loading;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.OriginFrameLog;
 import com.origin.client.client.StartupTransition;
 import com.origin.client.client.gui.Gfx;
@@ -101,7 +102,7 @@ public abstract class LoadingOverlayRevealMixin {
 		if (OriginFrameLog.ENABLED && !this.fadeIn && this.reload.isDone()) {
 			OriginFrameLog.reloadSeenDone();   // dev-only: the bar-full frame
 		}
-		if (this.fadeOutStart <= -1L || !OriginScreenRenderer.isActive()) {
+		if (this.fadeOutStart <= -1L || !OriginScreenRenderer.isActive() || OriginStyle.vanillaMenus()) {
 			return;
 		}
 		long now = Util.getMillis();

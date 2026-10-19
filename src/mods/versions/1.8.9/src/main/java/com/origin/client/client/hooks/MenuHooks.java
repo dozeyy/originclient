@@ -1,5 +1,6 @@
 package com.origin.client.client.hooks;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.OriginHandoff;
 import com.origin.client.client.StartupTransition;
 import com.origin.client.client.gui.CosmeticsScreen;
@@ -59,6 +60,8 @@ public class MenuHooks {
 	private static final Map<GuiButton, Runnable> ACTIONS = new WeakHashMap<>();
 	/** Ids for added buttons: far from every vanilla / Forge / OptiFine id. */
 	private static final int COSMETICS_ID = 0x4F5243;
+	/** Id of the plain "Origin Mods" button on the stock title screen. */
+	private static final int MODS_ID = 0x4F5244;
 
 	/** Vanilla's pause-menu Disconnect / "Save and Quit to Title" button id. */
 	private static final int DISCONNECT_ID = 1;
@@ -74,7 +77,7 @@ public class MenuHooks {
 
 	private static boolean originMenuStyle() {
 		try {
-			return "Origin".equals(Mods.mode(Mods.GENERAL_ID, "mainMenuStyle"));
+			return !OriginStyle.vanillaTitle();
 		} catch (Throwable t) {
 			return false;
 		}
@@ -117,7 +120,8 @@ public class MenuHooks {
 		try {
 			GuiScreen screen = event.gui;
 			if (screen == null || Minecraft.getMinecraft().theWorld != null
-					|| !OriginScreenRenderer.isActive()) {
+					|| !OriginScreenRenderer.isActive()
+					|| OriginStyle.vanillaMenusOn(screen)) {
 				return;
 			}
 			// Screens that paint their own scene: every Origin screen (the title,
@@ -162,12 +166,34 @@ public class MenuHooks {
 			// Another mod's button that landed on Origin's title layout is moved
 			// to free space (TitleScreenMixin's avoidOverlap call on the others).
 			OriginForeignWidgets.avoidOverlap(screen, event.buttonList);
+		} else if (screen.getClass() == GuiMainMenu.class && OriginStyle.vanillaTitle()) {
+			addVanillaModsEntry(event.buttonList);
 		} else if (screen instanceof GuiIngameMenu) {
 			addCosmeticsRow(screen, event.buttonList);
 		} else if (IrisBridge.isShaderScreen(screen)) {
 			addDownloadShaders(screen, event.buttonList);
 		} else if (screen instanceof GuiScreenResourcePacks) {
 			addBrowsePacks(screen, event.buttonList);
+		}
+	}
+
+	/**
+	 * The stock title screen has no way into the mod menu (Right Shift does nothing while a
+	 * screen is open), so a plain vanilla-sized button in the top-left corner opens it. Whatever
+	 * Button Style says, it is an ordinary GuiButton. Fail-soft: the stock title stays as it is.
+	 */
+	private static void addVanillaModsEntry(List<GuiButton> buttons) {
+		try {
+			GuiButton entry = new GuiButton(MODS_ID, 4, 4, 80, 20, "Origin Mods");
+			buttons.add(entry);
+			ACTIONS.put(entry, new Runnable() {
+				@Override
+				public void run() {
+					Minecraft.getMinecraft().displayGuiScreen(new com.origin.client.client.gui.OriginModMenuScreen());
+				}
+			});
+		} catch (Throwable ignored) {
+			// the stock title as it is
 		}
 	}
 
@@ -368,7 +394,12 @@ public class MenuHooks {
 				// A launch straight into a server: the startup intro is not owed later.
 				StartupTransition.claimIntro();
 			}
-			if (mc.loadingScreen != null && !(mc.loadingScreen instanceof OriginLoadingRenderer)
+			if (OriginStyle.vanillaMenus()) {
+				// vanilla mode: Mojang's own loading screen (put back if Origin's was installed earlier)
+				if (mc.loadingScreen instanceof OriginLoadingRenderer) {
+					mc.loadingScreen = new net.minecraft.client.LoadingScreenRenderer(mc);
+				}
+			} else if (mc.loadingScreen != null && !(mc.loadingScreen instanceof OriginLoadingRenderer)
 					&& OriginScreenRenderer.isActive()) {
 				mc.loadingScreen = new OriginLoadingRenderer(mc);
 			}

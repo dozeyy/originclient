@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.OriginButtonRenderer;
 import com.origin.client.client.gui.OriginForeignWidgets;
 import com.origin.client.client.gui.CosmeticsScreen;
@@ -92,7 +93,22 @@ public class TitleScreenMixin {
 	// SETTINGS > General > Main Menu Style. "Vanilla" turns the entire re-skin
 	// off — every inject below no-ops so the stock title screen shows through.
 	private static boolean originclient$origin() {
-		return Mods.mode(Mods.GENERAL_ID, "mainMenuStyle").equals("Origin");
+		return !OriginStyle.vanillaTitle();
+	}
+
+	/** The stock title screen has no way into the mod menu (Right Shift does nothing
+	 *  while a screen is open), so a plain vanilla-sized button in the top-left corner
+	 *  opens it. Whatever Button Style says, it is an ordinary Button. */
+	@Unique
+	private void originclient$vanillaEntry() {
+		try {
+			Minecraft mc = Minecraft.getInstance();
+			Button entry = Button.builder(Component.literal("Origin Mods"),
+					b -> mc.setScreen(new OriginModMenuScreen())).bounds(4, 4, 80, 20).build();
+			((ScreenInvoker) (Screen) (Object) this).originclient$addRenderableWidget(entry);
+		} catch (Throwable ignored) {
+			// fail-soft: the stock title stays as it is
+		}
 	}
 
 	@Unique
@@ -247,6 +263,7 @@ public class TitleScreenMixin {
 	@Inject(method = "init", at = @At("TAIL"))
 	private void originclient$layout(CallbackInfo ci) {
 		if (!originclient$origin()) {
+			originclient$vanillaEntry();
 			return;
 		}
 		Screen self = (Screen) (Object) this;
@@ -357,16 +374,25 @@ public class TitleScreenMixin {
 			dock.addAll(icons);                               // Language + Accessibility
 			if (main.size() > 5) dock.add(main.get(5));       // Quit
 			for (int i = 6; i < main.size(); i++) dock.add(main.get(i));
-			int totalW = dock.size() * L.dockSize + Math.max(0, dock.size() - 1) * L.dockGap;
+			// Button Style = Minecraft: the dock's Options / Quit are stock text buttons,
+			// not Origin's icon-only squares, so they get a width their label fits in.
+			boolean plain = OriginStyle.vanillaButtons();
+			int[] dockW = new int[dock.size()];
+			int totalW = Math.max(0, dock.size() - 1) * L.dockGap;
+			for (int di = 0; di < dock.size(); di++) {
+				dockW[di] = plain && !icons.contains(dock.get(di)) ? 74 : L.dockSize;
+				totalW += dockW[di];
+			}
 			int dx = (self.width - totalW) / 2;
-			for (AbstractWidget w : dock) {
+			for (int di = 0; di < dock.size(); di++) {
+				AbstractWidget w = dock.get(di);
 				w.setX(dx);
 				w.setY(L.dockY);
-				w.setWidth(L.dockSize);
+				w.setWidth(dockW[di]);
 				((AbstractWidgetAccessor) w).originclient$setHeight(L.dockSize);
 				originclient$icons.add(w);
 				originclient$iconPos.add(new int[]{dx, L.dockY});
-				dx += L.dockSize + L.dockGap;
+				dx += dockW[di] + L.dockGap;
 			}
 			for (AbstractWidget iconButton : icons) {
 				// narrator.button.language / narrator.button.accessibility

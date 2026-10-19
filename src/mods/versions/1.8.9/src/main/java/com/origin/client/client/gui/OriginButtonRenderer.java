@@ -72,7 +72,9 @@ public final class OriginButtonRenderer {
 	// own art (OriginWidgetOwnership.isForeign), see skins().
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getMinecraft();
-		return mc != null && mc.currentScreen != null;
+		// Button Style = Minecraft hands every vanilla widget back (outside Origin's own windows).
+		return mc != null && mc.currentScreen != null
+				&& !com.origin.client.client.OriginStyle.vanillaButtonsOn(mc.currentScreen);
 	}
 
 	// PRIMARY buttons (the one main action on a screen) draw with the accent.

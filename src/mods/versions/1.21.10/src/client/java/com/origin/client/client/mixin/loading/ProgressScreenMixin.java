@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.loading;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ProgressScreen;
@@ -18,6 +19,9 @@ public class ProgressScreenMixin {
 
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void originclient$originLoadingScene(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;   // vanilla mode: stock screen
+		}
 		// Only cancel vanilla when the Origin scene actually drew (fail-soft).
 		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, ((Screen) (Object) this).getTitle())) {
 			ci.cancel();
