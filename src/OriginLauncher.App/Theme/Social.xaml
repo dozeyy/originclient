@@ -192,10 +192,12 @@
         </Setter>
     </Style>
 
-    <!-- Icon-only button (always has a tooltip and an automation name). -->
+    <!-- Icon-only button (always has a tooltip and an automation name). Its glyph is Icon.Small:
+         14 px + 7 px padding each side = Social.IconSize. Min, not fixed, size: a bigger glyph makes
+         the button bigger instead of being cut off by it. -->
     <Style x:Key="Social.Icon" TargetType="Button" BasedOn="{StaticResource Button.Chrome}">
-        <Setter Property="Width" Value="{StaticResource Social.IconSize}"/>
-        <Setter Property="Height" Value="{StaticResource Social.IconSize}"/>
+        <Setter Property="MinWidth" Value="{StaticResource Social.IconSize}"/>
+        <Setter Property="MinHeight" Value="{StaticResource Social.IconSize}"/>
         <Setter Property="Padding" Value="7"/>
         <Setter Property="Margin" Value="0"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
