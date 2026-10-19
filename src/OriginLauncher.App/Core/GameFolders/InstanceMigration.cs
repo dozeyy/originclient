@@ -179,6 +179,8 @@ public static class InstanceMigration
     }
 
     /// <summary>Records the inheriting account. Atomic (temp file + rename).</summary>
+    /// <remarks>Runs on the UI thread (App startup, HomePage.RefreshAccountState), so a busy marker file fails at
+    /// once rather than freezing the window while it waits; the migration then pauses and resumes on a later call.</remarks>
     public static void WriteMarker(string markerPath, string accountKey) =>
-        Sync.AtomicFile.WriteAllText(markerPath, JsonSerializer.Serialize(new Marker { Account = accountKey }));
+        Sync.AtomicFile.WriteAllText(markerPath, JsonSerializer.Serialize(new Marker { Account = accountKey }), waitOutReaders: false);
 }
