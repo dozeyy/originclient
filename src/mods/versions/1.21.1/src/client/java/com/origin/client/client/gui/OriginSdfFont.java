@@ -172,7 +172,13 @@ public final class OriginSdfFont {
 			// MSDF REQUIRES linear filtering — register our own DynamicTexture with
 			// setFilter(true, false) rather than a nearest-sampled SimpleTexture.
 			NativeImage img = com.origin.client.client.OriginAssets.image("/assets/originclient/textures/font/" + base + ".png");
-			DynamicTexture tex = new DynamicTexture(img);
+			DynamicTexture tex;
+			try {
+				tex = new DynamicTexture(img);
+			} catch (Throwable t) {
+				img.close();   // never reached a texture: ours to free
+				throw t;
+			}
 			tex.setFilter(true, false);
 			Minecraft.getInstance().getTextureManager().register(f.atlas, tex);
 			f.ok = true;

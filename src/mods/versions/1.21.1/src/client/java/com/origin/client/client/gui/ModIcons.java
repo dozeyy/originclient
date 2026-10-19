@@ -166,7 +166,13 @@ public final class ModIcons {
 							sdfImage.close();
 							throw new IllegalStateException("Origin icon SDF atlas dimensions do not match the mask atlas");
 						}
-						DynamicTexture sdfTexture = new DynamicTexture(sdfImage);
+						DynamicTexture sdfTexture;
+						try {
+							sdfTexture = new DynamicTexture(sdfImage);
+						} catch (Throwable t) {
+							sdfImage.close();   // never reached a texture: ours to free
+							throw t;
+						}
 						sdfTexture.setFilter(true, false);
 						Minecraft.getInstance().getTextureManager().register(SDF_ATLAS, sdfTexture);
 						sdfOk = true;
@@ -178,7 +184,13 @@ public final class ModIcons {
 				if (sdfOk) {
 					img.close();
 				} else {
-					DynamicTexture tex = new DynamicTexture(img);
+					DynamicTexture tex;
+					try {
+						tex = new DynamicTexture(img);
+					} catch (Throwable t) {
+						img.close();   // never reached a texture: ours to free
+						throw t;
+					}
 					tex.setFilter(true, false);
 					Minecraft.getInstance().getTextureManager().register(ATLAS, tex);
 				}
