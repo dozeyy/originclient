@@ -349,6 +349,9 @@ public static class RenderShots
     /// a toggle's knob). Empty space past a MinWidth is not a loss. A clip the XAML asks for (ClipToBounds,
     /// a scroll viewport) is not a loss either: it is never smaller than the element it clips. Nor is a picture
     /// set to cover its box (Stretch UniformToFill), which crops by design.</item>
+    /// <item>CUT past a ClipToBounds element: something visible that reaches outside an ancestor that clips to its
+    /// own bounds (pushed out by a negative margin, an overhang or a static transform). Something mid-animation is
+    /// skipped: it is moving, not laid out.</item>
     /// <item>TRIMMED: a one-line text drawn with an ellipsis because it doesn't fit. Long names and status/server
     /// lines may trim (the tooltip has the rest): those are warnings in trim-checks.txt. A button's own label and a
     /// header title (Text.H1 / Text.H2) must never trim: those count as cut.</item>
@@ -360,18 +363,23 @@ public static class RenderShots
         var inkCount = 0;
         var hits = new List<string>();
         var trims = new List<string>();
-        var clips = new List<(Rect Rect, FrameworkElement By)>(); // the too-small slots above the current element, in root space
+        // The edges above the current element that cut what crosses them, in root space: a slot too small for its
+        // element (Slot), or an element that clips its content to its own bounds (ClipToBounds), which catches
+        // content pushed past it by a negative margin, an overhang or a static transform.
+        var clips = new List<(Rect Rect, FrameworkElement By, bool Slot)>();
         var reported = new HashSet<FrameworkElement>();
         var h1 = Application.Current.TryFindResource("Text.H1");
         var h2 = Application.Current.TryFindResource("Text.H2");
 
-        void Walk(DependencyObject d)
+        // floor: the first entry of `clips` that applies. Inside a scroll viewport, content past an outer edge is
+        // just scrolled out of view (the viewport can reach it), so only edges inside the viewport count there.
+        void Walk(DependencyObject d, int floor)
         {
             for (var i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
             {
                 var child = VisualTreeHelper.GetChild(d, i);
                 if (child is UIElement { IsVisible: false }) continue;
-                var pushed = false;
+                var pushed = 0;
                 if (child is FrameworkElement fe)
                 {
                     var toRoot = fe.TransformToAncestor(root);
@@ -379,34 +387,44 @@ public static class RenderShots
                         && System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(fe) is { } clip
                         && (clip.Bounds.Width < fe.RenderSize.Width - 0.5 || clip.Bounds.Height < fe.RenderSize.Height - 0.5))
                     {
-                        clips.Add((toRoot.TransformBounds(clip.Bounds), fe));
-                        pushed = true;
+                        clips.Add((toRoot.TransformBounds(clip.Bounds), fe, true));
+                        pushed++;
+                    }
+                    if (fe.ClipToBounds)
+                    {
+                        clips.Add((toRoot.TransformBounds(new Rect(fe.RenderSize)), fe, false));
+                        pushed++;
                     }
                     if (Ink(fe) is { } ink)
                     {
                         inkCount++;
                         var inkInRoot = toRoot.TransformBounds(ink);
-                        foreach (var (rect, by) in clips)
+                        foreach (var (rect, by, slot) in clips.Skip(floor))
                         {
-                            if (Inside(inkInRoot, rect) || !reported.Add(by)) continue;
-                            hits.Add($"{name}: CUT {Describe(by)} needs {by.RenderSize.Width:0.#}x{by.RenderSize.Height:0.#} "
-                                + $"but its slot is {rect.Width:0.#}x{rect.Height:0.#}; it cuts {Describe(fe)}");
+                            if ((!slot && ReferenceEquals(by, fe)) || Inside(inkInRoot, rect) || !reported.Add(by)) continue;
+                            hits.Add(slot
+                                ? $"{name}: CUT {Describe(by)} needs {by.RenderSize.Width:0.#}x{by.RenderSize.Height:0.#} "
+                                  + $"but its slot is {rect.Width:0.#}x{rect.Height:0.#}; it cuts {Describe(fe)}"
+                                : $"{name}: CUT {Describe(fe)} reaches past {Describe(by)}, which clips to its "
+                                  + $"{rect.Width:0.#}x{rect.Height:0.#} bounds (ClipToBounds)");
                         }
                     }
                     if (fe is TextBlock tb && Trimmed(tb) is { } fullWidth)
                     {
-                        var label = Ancestor<System.Windows.Controls.Primitives.ButtonBase>(tb) is { Content: string c } && c == tb.Text;
+                        // A button's own label: its string content, or a TextBlock given as its content.
+                        var label = Ancestor<System.Windows.Controls.Primitives.ButtonBase>(tb) is { } button
+                                    && (button.Content is string c && c == tb.Text || ReferenceEquals(button.Content, tb));
                         var title = tb.Name == "HeaderTitle" || ReferenceEquals(tb.Style, h1) || ReferenceEquals(tb.Style, h2);
                         var what = $"'{tb.Text}' needs {fullWidth:0.#} px, has {tb.ActualWidth:0.#} ({Describe(tb)})";
                         if (label || title) hits.Add($"{name}: TRIMMED {(label ? "button label" : "header title")} {what}");
                         else trims.Add($"WARN {name}: {what}");
                     }
                 }
-                Walk(child);
-                if (pushed) clips.RemoveAt(clips.Count - 1);
+                Walk(child, child is ScrollContentPresenter ? clips.Count : floor);
+                clips.RemoveRange(clips.Count - pushed, pushed);
             }
         }
-        Walk(root);
+        Walk(root, 0);
         File.AppendAllText(Path.Combine(dir, "clip-checks.txt"),
             $"{name}: {inkCount} visible pieces checked, {hits.Count} cut off, {trims.Count} allowed trims{Environment.NewLine}");
         if (hits.Count > 0) File.AppendAllLines(Path.Combine(dir, "clip-errors.txt"), hits);
@@ -457,6 +475,9 @@ public static class RenderShots
     private static Rect? Ink(FrameworkElement fe)
     {
         var all = new Rect(fe.RenderSize);
+        // A picture set to cover its box is cropped by design, and a mid-animation transform (the launch bar's
+        // sweep, the banner art's slow zoom) is motion, not layout: neither has edges to lose.
+        if (CoverFill(fe) || fe.RenderTransform is { HasAnimatedProperties: true }) return null;
         switch (fe)
         {
             case System.Windows.Shapes.Shape or Image:

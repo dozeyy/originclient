@@ -108,7 +108,10 @@ public partial class HomePage : UserControl
         var gap = (double)FindResource(compact ? "Space.2" : "Space.3");
         // The page's bottom margin gives 8 px back too: at 980x600 with a profile row and Join, the card and
         // banner came to 488 px in a 486 px slot and lost a pixel of their top and bottom edges.
-        HomeRoot.Margin = new Thickness(32, 16, 32, compact ? 32 : 40);
+        var bottom = compact ? 32 : 40;
+        HomeRoot.Margin = new Thickness(32, 16, 32, bottom);
+        // The version picker and the launch screen cancel the page margin to fill the whole page: they follow it.
+        VersionOverlay.Margin = LoadingOverlay.Margin = new Thickness(-32, -16, -32, -bottom);
         HomeCardBorder.Padding = new Thickness((double)FindResource(compact ? "Space.3" : "Space.4"));
         VersionButton.Height = compact ? 56 : 66;
         VersionButton.Padding = compact ? new Thickness(16, 6, 16, 6) : new Thickness(16, 10, 16, 10);
