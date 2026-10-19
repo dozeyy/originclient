@@ -497,29 +497,36 @@ public final class OriginDevShots {
 	}
 
 	// The shader browser's thumbnails load async (Modrinth fetch + WebP decode) and a
-	// run's first open starts them; under CI's software GL that took longer than the
-	// screen's 900 ms settle on the Java 8/16/17 modules, so their first capture showed
-	// placeholder tiles (the same session's second capture, a cache hit, showed the
-	// images). Wait for the loads (max 20 s), then one settle so a frame with the
-	// uploaded textures is on screen before the grab.
+	// run's first open starts them, so the first capture could show placeholder tiles
+	// while the same session's second capture (a cache hit) showed the images. Two
+	// races: the loads can outlast the screen's 900 ms settle (Java 8/16/17 modules
+	// under CI's software GL), and the last upload + LOADING decrement run in the
+	// frame-start task batch AHEAD of this client tick, so loading() can read false
+	// while the framebuffer the grab reads was drawn before the textures existed.
+	// So: wait for the loads (max 20 s), then ALWAYS settle once with loading() false,
+	// which guarantees at least one frame rendered after the last upload.
 	private static long previewWaitFrom = 0;   // 0 = not waiting
+	private static boolean previewSettled = false;
 
 	private static boolean waitForShaderPreviews(long now) {
 		boolean loading = com.origin.client.client.shaders.ShaderPreviews.loading();
-		if (loading && (previewWaitFrom == 0 || now - previewWaitFrom < 20000)) {
-			if (previewWaitFrom == 0) {
-				previewWaitFrom = now;
-			}
+		if (previewWaitFrom == 0) {
+			previewWaitFrom = now;
+		}
+		if (loading && now - previewWaitFrom < 20000) {
+			previewSettled = false;
 			nextAt = now + 250;
 			return true;
 		}
-		if (previewWaitFrom != 0) {
-			com.origin.client.OriginClient.LOGGER.info("[dev-shots] waited {} ms for shader previews{}",
-					now - previewWaitFrom, loading ? " (gave up, still loading)" : "");
-			previewWaitFrom = 0;
+		if (!previewSettled) {
+			previewSettled = true;
 			nextAt = now + 500;
 			return true;
 		}
+		com.origin.client.OriginClient.LOGGER.info("[dev-shots] waited {} ms for shader previews{}",
+				now - previewWaitFrom, loading ? " (gave up, still loading)" : "");
+		previewWaitFrom = 0;
+		previewSettled = false;
 		return false;
 	}
 
