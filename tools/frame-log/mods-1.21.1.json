@@ -1,7 +1,11 @@
 {
- "_why": "The frame log's 'with mods' scenario = the public part of Will's own 1.21.1 instance (the list he saw the hand-off stutter get worse with), matched to Modrinth by SHA-1 of his jars on 2026-10-18, so every pin is the exact file he runs. Pinned by Modrinth VERSION id. Left out: fabric-api (fabricApi below replaces the dev build's pin instead), jei (the dev build bundles the same 19.27.0.340), exposure-catalog/-polaroid (they need his local exposure voxyfix build), and every jar not on Modrinth: originclient, voxy (local -dirty build), exposure voxyfix, hollowkin, smokeables, souls-elevators, redlight, newspaper, shrimpmod, park-benches, paper-lanterns, trainworks-local, oblivion-magic-private, height-extender, pale-oak-and-poplar, smallships-extra-woods.",
- "fabricApi": "0.116.17+1.21.1",
+ "_why": "The frame log's 'with mods' scenario = the public part of Will's own 1.21.1 instance (the list he saw the hand-off stutter get worse with), matched to Modrinth by SHA-1 of his jars on 2026-10-18, so every pin is the exact file he runs. Pinned by Modrinth VERSION id. Run with prodClient (a production Fabric game: Cobblemon and others cannot run in the Mojang-named dev game), so the set brings its own fabric-api, his exact 0.116.17. Left out: jei (the dev build bundles the same 19.27.0.340), exposure-catalog/-polaroid (they need his local exposure voxyfix build), and every jar not on Modrinth: originclient, voxy (local -dirty build), exposure voxyfix, hollowkin, smokeables, souls-elevators, redlight, newspaper, shrimpmod, park-benches, paper-lanterns, trainworks-local, oblivion-magic-private, height-extender, pale-oak-and-poplar, smallships-extra-woods.",
  "mods": [
+  {
+   "slug": "fabric-api",
+   "version": "Mys3P7lK",
+   "number": "0.116.17+1.21.1"
+  },
   {
    "slug": "accessories",
    "version": "uPPIhLTH",

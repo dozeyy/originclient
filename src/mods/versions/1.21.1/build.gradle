@@ -195,6 +195,28 @@ dependencies {
 	// modImplementation(include("maven.modrinth:krypton:${project.krypton_version}"))
 }
 
+// `.\gradlew.bat prodClient -PextraMods=<folder> [-PframeLog]`: the BUILT jar
+// (remapJar, with its jar-in-jar stack) in a production Fabric game, i.e. the
+// intermediary namespace a real instance runs in, plus every jar in that folder.
+// Why it exists: the frame log's "with mods" scenario. Many popular mods (Cobblemon
+// first: ClassNotFoundException net.minecraft.class_2960 at init, 2026-10-18)
+// cannot run in runClient's Mojang-named dev game at all, only in production.
+// The folder must bring its own Fabric API (a player's instance does). Game dir
+// run-prod/, so nothing from the dev run's run/mods leaks in.
+tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+	group = "origin"
+	description = "Runs the built Origin jar + -PextraMods=<folder> in a production Fabric client (run-prod/)."
+	mods.from(tasks.named("remapJar"))
+	if (project.hasProperty("extraMods")) {
+		mods.from(fileTree(project.property("extraMods").toString()) { include "*.jar" })
+	}
+	runDir = file("run-prod")
+	if (project.hasProperty("frameLog")) {
+		jvmArgs.add("-Dorigin.frameLog=true")
+		jvmArgs.add("-Xlog:gc:stdout:uptime,level,tags")
+	}
+}
+
 processResources {
 	def version = project.version
 	inputs.property "version", version
