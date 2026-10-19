@@ -34,10 +34,13 @@ internal static class TooltipShots
         Shot(window, dir, "32-tooltip-in-page", FindIconButton(window, "Delete"));
     }
 
+    /// <summary>The label of a control whether its ToolTip is still the plain string or already the ToolTip the first hover wrapped it in.</summary>
+    private static string? TipText(FrameworkElement e) => e.ToolTip switch { string s => s, ToolTip { Content: string c } => c, _ => null };
+
     private static void Shot(MainWindow window, string dir, string name, FrameworkElement owner)
     {
         var root = (Panel)window.Content;
-        var text = owner.ToolTip as string ?? throw new InvalidOperationException($"{name}: the control has no string ToolTip");
+        var text = TipText(owner) ?? throw new InvalidOperationException($"{name}: the control has no string ToolTip");
         // A ToolTip refuses any parent, so it is laid out on its own and its picture (1:1, 96 dpi like the
         // shot) goes into the window; the style comes from the app resources as it does for a real tip.
         var tip = new ToolTip { Content = text };
@@ -83,7 +86,7 @@ internal static class TooltipShots
     /// <summary>The first visible button whose label is <paramref name="label"/> (its tooltip), in tree order.</summary>
     private static FrameworkElement FindIconButton(DependencyObject parent, string label)
     {
-        if (parent is ButtonBase { IsVisible: true } button && button.ToolTip as string == label) return button;
+        if (parent is ButtonBase { IsVisible: true } button && TipText(button) == label) return button;
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             if (TryFind(VisualTreeHelper.GetChild(parent, i), label) is { } found) return found;
         throw new InvalidOperationException($"no visible button labelled \"{label}\"");
@@ -91,7 +94,7 @@ internal static class TooltipShots
 
     private static FrameworkElement? TryFind(DependencyObject parent, string label)
     {
-        if (parent is ButtonBase { IsVisible: true } button && button.ToolTip as string == label) return button;
+        if (parent is ButtonBase { IsVisible: true } button && TipText(button) == label) return button;
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
             if (TryFind(VisualTreeHelper.GetChild(parent, i), label) is { } found) return found;
         return null;

@@ -18,16 +18,40 @@ public class ToolTipTests
     private static readonly string[] ButtonTags = ["Button", "ToggleButton", "RepeatButton"];
     private static readonly string AppDir = Path.Combine(TestRepo.Root, "src", "OriginLauncher.App");
 
-    private static IEnumerable<(string File, XElement Button)> IconButtons() =>
-        from f in Directory.EnumerateFiles(AppDir, "*.xaml", SearchOption.AllDirectories)
-        where !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
-              && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+    private static readonly string[] GlyphShapes = ["Path", "Image", "Viewbox", "Canvas", "Polygon", "Polyline", "Line"];
+
+    /// <summary>
+    /// An icon-only button: no words anywhere in it (no Content text, no TextBlock/Run with letters, no binding
+    /// that could fill one), but a drawn glyph: a Path/Image/shape, or a TextBlock holding only a symbol.
+    /// Walks the whole subtree, so a Path nested in a Grid or Viewbox still counts.
+    /// </summary>
+    private static bool IsIconOnly(XElement b)
+    {
+        static bool HasLetters(string? t) => t is not null && (t.TrimStart().StartsWith('{') || Regex.IsMatch(t, @"\p{L}{2,}"));
+        if (HasLetters((string?)b.Attribute("Content"))) return false;
+        var inner = b.Descendants().Where(e => e.Name.Namespace == Wpf && !e.Name.LocalName.Contains('.')).ToList();
+        var words = inner.Where(e => e.Name.LocalName is "TextBlock" or "Run" or "Label" or "AccessText")
+                         .Select(e => (string?)e.Attribute("Text") ?? (string?)e.Attribute("Content") ?? e.Value);
+        if (words.Any(HasLetters)) return false;
+        // A TextBlock with no Text attribute is filled from code (a banner card's title): words, not an icon.
+        if (inner.Any(e => e.Name.LocalName == "TextBlock" && e.Attribute("Text") is null && string.IsNullOrWhiteSpace(e.Value))) return false;
+        return inner.Any(e => GlyphShapes.Contains(e.Name.LocalName) || e.Name.LocalName == "TextBlock");
+    }
+
+    private static IEnumerable<string> UiXamlFiles() =>
+        Directory.EnumerateFiles(AppDir, "*.xaml", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                        && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                        && !f.Contains($"{Path.DirectorySeparatorChar}Theme{Path.DirectorySeparatorChar}")); // Theme/ holds control templates, not placed buttons
+
+    private static IEnumerable<(string File, XElement Button)> AllButtons() =>
+        from f in UiXamlFiles()
         let name = Path.GetRelativePath(AppDir, f)
         from b in XDocument.Load(f, LoadOptions.SetLineInfo).Descendants()
         where ButtonTags.Contains(b.Name.LocalName) && b.Name.Namespace == Wpf
-        let kids = b.Elements().Where(e => !e.Name.LocalName.Contains('.')).ToList()
-        where kids.Count == 1 && kids[0].Name == Wpf + "Path"
         select (name, b);
+
+    private static IEnumerable<(string File, XElement Button)> IconButtons() => AllButtons().Where(x => IsIconOnly(x.Button));
 
     private static string Where(string file, XElement e) => $"{file}:{((System.Xml.IXmlLineInfo)e).LineNumber}";
 
@@ -57,6 +81,17 @@ public class ToolTipTests
             .Select(x => Where(x.File, x.Button))
             .ToList();
         Assert.True(bad.Count == 0, "Icon-only buttons without a ToolTip and AutomationProperties.Name: " + string.Join(", ", bad));
+    }
+
+    [Fact]
+    public void EverySwitchHasAnAutomationName()
+    {
+        // A switch sits beside its own visible label, so it needs no hover text, but a screen reader needs the name.
+        var bad = AllButtons()
+            .Where(x => ((string?)x.Button.Attribute("Style") ?? "").Contains("Toggle.Switch")
+                        && string.IsNullOrWhiteSpace((string?)x.Button.Attribute("AutomationProperties.Name")))
+            .Select(x => Where(x.File, x.Button)).ToList();
+        Assert.True(bad.Count == 0, "Toggle.Switch controls without AutomationProperties.Name: " + string.Join(", ", bad));
     }
 
     [Fact]

@@ -102,7 +102,7 @@ internal static class ToolTipDefaults
     /// Where a label of <paramref name="tip"/> size goes for a control at <paramref name="box"/> in a window of
     /// <paramref name="window"/> size: the placement mode and the offsets from that mode's own anchor (Bottom
     /// anchors the label's left edge at the control's left edge, Right its top edge at the control's top).
-    /// Pure, so the tests check the clamping without a window.
+    /// Pure (no window needed), but not unit-tested: the tests project has no WPF, so the placement is proven by the tooltip shots in launcher-shots.
     /// </summary>
     internal static (PlacementMode Mode, double X, double Y) Place(Rect box, Size tip, Size window, PlacementMode wanted)
     {
