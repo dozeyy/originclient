@@ -283,8 +283,6 @@ public sealed class SettingsDelta
 {
     public ModProfile? AddProfile { get; set; }
 
-    /// <summary>"Import everything": one profile per Minecraft version, all added in the same single settings write. Null for a single-instance import and for journals written before this existed.</summary>
-    public List<ModProfile>? AddProfiles { get; set; }
     public string? SetSelectedVersion { get; set; }
     public string? SetSelectedProfileId { get; set; }
     public string? PreviousSelectedVersion { get; set; }
@@ -292,7 +290,8 @@ public sealed class SettingsDelta
 
     /// <summary>
     /// A bulk import ("import everything") adds one profile per setup with mods, in ONE settings change. Apply adds
-    /// each (once); revert removes each. <see cref="AddProfile"/> stays for single imports and older journals.
+    /// each (once); revert removes each. <see cref="AddProfile"/> stays for single imports and older journals
+    /// (null there, and in journals written before this existed).
     /// </summary>
     public List<ModProfile>? AddProfiles { get; set; }
 }
