@@ -34,6 +34,7 @@ public final class OriginHandoff implements PreLaunchEntrypoint {
 
 	@Override
 	public void onPreLaunch() {
+		OriginBootLog.mark("preLaunch");
 		say(HELLO, "hello");
 	}
 

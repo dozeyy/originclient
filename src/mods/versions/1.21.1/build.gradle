@@ -94,6 +94,24 @@ loom {
 				property "origin.frameLog", "true"
 				vmArg "-Xlog:gc:stdout:uptime,level,tags"
 			}
+			// `-PbootLog`: the boot timeline (OriginBootLog, lines start "[OriginBoot]"):
+			// JVM start -> interactive title screen. `-PbootQuit` closes the game a few
+			// seconds after the title is interactive (CI boots it again);
+			// `-PreloadProfile` logs every reload listener's prepare/apply time;
+			// `-PbootJfr=<file>` records a JFR CPU profile of the whole boot.
+			// .github/workflows/boot-time.yml drives these.
+			if (project.hasProperty("bootLog")) {
+				property "origin.bootLog", "true"
+			}
+			if (project.hasProperty("bootQuit")) {
+				property "origin.bootLog.quit", "true"
+			}
+			if (project.hasProperty("reloadProfile")) {
+				property "origin.bootLog.reloadProfile", "true"
+			}
+			if (project.hasProperty("bootJfr")) {
+				vmArg "-XX:StartFlightRecording=filename=" + file(project.property("bootJfr").toString()).absolutePath + ",settings=profile,dumponexit=true"
+			}
 			// `-PextraMods=<folder>`: also load every mod jar in that folder (Fabric
 			// Loader's fabric.addMods), without copying anything into run/mods.
 			// The frame log's "with mods" scenario (tools/frame-log/fetch_mods.py).
