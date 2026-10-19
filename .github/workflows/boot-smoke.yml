@@ -123,7 +123,7 @@ jobs:
           echo "Gradle JAVA_HOME=$JAVA_HOME"
           args=()
           if [ -n "$RUN_JAVA" ]; then args+=(--run-java "$RUN_JAVA"); fi
-          for a in $SMOKE_GRADLE_ARGS; do args+=(--gradle-arg "$a"); done
+          for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
           xvfb-run -a -s "-screen 0 1280x720x24" \
             python tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
               --timeout "${{ github.event.inputs.timeout || 360 }}" "${args[@]}"
