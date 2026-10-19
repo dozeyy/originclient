@@ -39,12 +39,22 @@ public static class SetupKey
     public static bool SameFolder(string a, string b) => string.Equals(Folder(a), Folder(b), PathCompare);
 
     /// <summary>
+    /// The key of one setup: its game folder, plus its own mods folder when it has one (a PvP client's per-version
+    /// mods next to a shared .minecraft are a setup of their own, never merged into the .minecraft one).
+    /// Unchanged from <see cref="Folder"/> for every setup that reads &lt;GameDir&gt;/mods, so existing ids stay put.
+    /// </summary>
+    public static string Of(string gameDir, string? modsDir) =>
+        modsDir == null ? Folder(gameDir) : Folder(gameDir) + "|mods=" + Folder(modsDir);
+
+    public static string Of(DetectedInstance setup) => Of(setup.GameDir, setup.ModsDir);
+
+    /// <summary>
     /// "setup-1a2b3c4d5e6f7a8b": deterministic from the full folder path and NOTHING else — one folder is one setup, so
     /// the id must not change when another launcher's entry wins the name, or when Browse finds the same folder.
     /// </summary>
-    public static string StableId(string gameDir)
+    public static string StableId(string gameDir, string? modsDir = null)
     {
-        var folder = Folder(gameDir);
+        var folder = Of(gameDir, modsDir);
         if (OperatingSystem.IsWindows()) folder = folder.ToUpperInvariant();
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(folder));
         return "setup-" + Convert.ToHexString(hash, 0, 8).ToLowerInvariant();
@@ -240,9 +250,12 @@ public sealed class ModsEvidence
     /// Reads at most <see cref="MaxJars"/> jars of <paramref name="gameDir"/>/mods (smallest first: cheapest to open,
     /// and a 400-mod pack is still a quick scan). Disabled jars are not counted. Null when there is no mods folder or no jar.
     /// </summary>
-    public static ModsEvidence? Read(string gameDir, SourceFs fs, CancellationToken ct)
+    public static ModsEvidence? Read(string gameDir, SourceFs fs, CancellationToken ct) =>
+        ReadFolder(Path.Combine(gameDir, "mods"), fs, ct);
+
+    /// <summary>As <see cref="Read"/>, for a mods folder given directly (a PvP client's own per-version folder).</summary>
+    public static ModsEvidence? ReadFolder(string mods, SourceFs fs, CancellationToken ct)
     {
-        var mods = Path.Combine(gameDir, "mods");
         if (!Directory.Exists(mods)) return null;
         var jars = new List<(string Path, long Size)>();
         foreach (var path in fs.EnumerateFiles(mods, recursive: false))
@@ -327,6 +340,17 @@ public sealed record FolderEvidence(LogEvidence? Log, ModsEvidence? Mods, bool H
         if (!Directory.Exists(gameDir)) return None;
         return new FolderEvidence(LogParser.Read(gameDir, fs), ModsEvidence.Read(gameDir, fs, ct), HasData(gameDir), OptionsEvidence.Read(gameDir, fs));
     }
+
+    /// <summary>
+    /// A setup whose mods live in a folder of their own (<see cref="DetectedInstance.ModsDir"/>): only those mods
+    /// speak for it. The shared game folder's latest.log and options.txt describe whatever game last ran there (the
+    /// official launcher's, another client's), not this setup, so they are not evidence for it.
+    /// </summary>
+    public static FolderEvidence ReadOwnMods(string modsDir, SourceFs fs, CancellationToken ct) =>
+        !Directory.Exists(modsDir) ? None : new FolderEvidence(null, ModsEvidence.ReadFolder(modsDir, fs, ct), true, null);
+
+    public static FolderEvidence For(DetectedInstance setup, SourceFs fs, CancellationToken ct) =>
+        setup.ModsDir != null ? ReadOwnMods(setup.ModsDir, fs, ct) : Read(setup.GameDir, fs, ct);
 
     /// <summary>The folder holds something a player made: a mods folder, settings, or worlds.</summary>
     public static bool HasData(string gameDir) =>

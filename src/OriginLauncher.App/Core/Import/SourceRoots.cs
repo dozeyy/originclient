@@ -22,4 +22,13 @@ public sealed record SourceRoots
 
     /// <summary>CurseForge's instances folder (one folder per instance).</summary>
     public string? CurseForgeDir { get; init; }
+
+    /// <summary>Lunar Client's own folder (%USERPROFILE%\.lunarclient: profiles/ holds its per-version Fabric mods).</summary>
+    public string? LunarDir { get; init; }
+
+    /// <summary>Feather Client's own folder (%APPDATA%\.feather).</summary>
+    public string? FeatherDir { get; init; }
+
+    /// <summary>Badlion Client's own folder (%APPDATA%\Badlion Client). Badlion plays out of .minecraft itself.</summary>
+    public string? BadlionDir { get; init; }
 }

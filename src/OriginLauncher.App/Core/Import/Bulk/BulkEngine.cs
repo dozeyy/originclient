@@ -173,6 +173,10 @@ public sealed partial class ImportEngine
         SourceKind.Prism => "Prism / MultiMC",
         SourceKind.Modrinth => "Modrinth",
         SourceKind.CurseForge => "CurseForge",
+        SourceKind.Lunar => "Lunar Client",
+        SourceKind.Feather => "Feather Client",
+        SourceKind.Badlion => "Badlion Client",
+        SourceKind.LabyMod => "LabyMod",
         _ => "the picked launcher's",
     };
 

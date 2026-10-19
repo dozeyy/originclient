@@ -102,6 +102,11 @@ public static class SettingsMigrator
         private SourceFs Fs => _c.Fs;
         private bool Target189 => _c.TargetVersion == "1.8.9";
         private bool Winner => _c.Role == SetupRole.Full;
+
+        // Every shader pack, not only the active one: asked for ("copy unused packs"), or a PvP client's setup,
+        // whose shader pick lives in the client's own closed settings, so no file here says which pack is in use and
+        // "only the active one" would leave every pack behind without a word. Copied, never selected.
+        private bool AllShaderPacks => _c.Options.CopyUnusedPacks || Sources.PvpClientSource.BuiltInModsNote(_c.Source.Kind) != null;
         private DestinationLedger Ledger => _c.Ledger;
 
         public void Run()
@@ -264,7 +269,7 @@ public static class SettingsMigrator
             }
 
             var hasShaderPacks = Directory.Exists(shaderpacks);
-            if (active == null && !_c.Options.CopyUnusedPacks && optifineFile == null) return;
+            if (active == null && !AllShaderPacks && optifineFile == null) return;
 
             if (Target189)
             {
@@ -282,7 +287,7 @@ public static class SettingsMigrator
                     else Line(SummarySection.NeedsAttention, PlanItemKind.ShaderPack, active,
                         "Your active shader pack wasn't found in your old setup.");
                 }
-                if (_c.Options.CopyUnusedPacks) CopyUnusedShaderPacks(shaderpacks, active);
+                if (AllShaderPacks) CopyUnusedShaderPacks(shaderpacks, active);
                 if (optifineFile != null && Winner) // OptiFine's settings come from the winner only
                 {
                     var dest = Path.Combine(_dst, "optionsshaders.txt");
@@ -326,7 +331,7 @@ public static class SettingsMigrator
                     }
                 }
             }
-            if (_c.Options.CopyUnusedPacks) CopyUnusedShaderPacks(shaderpacks, active);
+            if (AllShaderPacks) CopyUnusedShaderPacks(shaderpacks, active);
         }
 
         // A file name with no folder part: safe to join onto a pack folder.

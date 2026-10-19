@@ -172,6 +172,7 @@ public sealed partial class ImportEngine
         new PrismSource(),
         new ModrinthSource(),
         new CurseForgeSource(),
+        new PvpClientSource(),
     };
 
     // ------------------------------------------------------------------ scan
@@ -264,6 +265,8 @@ public sealed partial class ImportEngine
 
         // ---- mods -> a new profile (a packs-only setup's mods are never even read) ----
         if (r.Role != SetupRole.PacksOnly) PlanMods(plan, r, fs, target, ct);
+        if (PvpClientSource.BuiltInModsNote(source.Kind) is { } builtIn)
+            plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, builtIn.Name, builtIn.Reason));
         progress?.Report(new ImportProgress(ImportStage.Planning, 1, 3, "settings"));
 
         // ---- settings, packs, worlds ----
@@ -302,7 +305,7 @@ public sealed partial class ImportEngine
             plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, "Origin's built-in mod list",
                 "Origin's built-in mod list is incomplete for this version, so a mod Origin already includes may have been copied too."));
 
-        var sourceMods = ModSetResolver.ReadSourceMods(Path.Combine(plan.Source.GameDir, "mods"), fs, ct);
+        var sourceMods = ModSetResolver.ReadSourceMods(plan.Source.ModsFolder, fs, ct);
         var decisions = ModSetResolver.Resolve(sourceMods, new ResolveContext(target, builtIns, JavaFor(target)));
         plan.Mods.AddRange(decisions);
 

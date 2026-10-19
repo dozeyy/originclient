@@ -364,7 +364,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     private static int GroupOrder(string label) => label switch
     {
-        "Minecraft" => 0, "Prism" => 1, "Modrinth" => 2, "CurseForge" => 3, _ => 4,
+        "Minecraft" => 0, "Prism" => 1, "Modrinth" => 2, "CurseForge" => 3,
+        "Lunar" => 4, "Feather" => 5, "Badlion" => 6, "LabyMod" => 7, _ => 8,
     };
 
     private static string GroupTitle(string label) => ImportLogic.GroupTitle(label);

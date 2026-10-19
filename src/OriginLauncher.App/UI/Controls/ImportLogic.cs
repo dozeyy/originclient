@@ -16,6 +16,9 @@ internal static class ImportLogic
         "Minecraft" => "Minecraft launcher",
         "Prism" => "Prism Launcher",
         "Modrinth" => "Modrinth App",
+        "Lunar" => "Lunar Client",
+        "Feather" => "Feather Client",
+        "Badlion" => "Badlion Client",
         "Folder" => "Picked folders",
         _ => sourceLabel,
     };

@@ -1,3 +1,4 @@
+using System.IO;
 using OriginLauncher.App.Core.Profiles;
 
 namespace OriginLauncher.App.Core.Import;
@@ -20,6 +21,11 @@ public enum SourceKind
     Modrinth,
     CurseForge,
     Folder,      // "Browse..." — the player pointed at a folder
+    // The PvP clients (Sources/PvpClientSource.cs). Kept after Folder so the numbers above never move.
+    Lunar,
+    Feather,
+    Badlion,
+    LabyMod,
 }
 
 public enum LoaderKind { None, Fabric, Quilt, Forge, NeoForge, Unknown }
@@ -60,8 +66,22 @@ public sealed record DetectedInstance
         SourceKind.Prism => "Prism",
         SourceKind.Modrinth => "Modrinth",
         SourceKind.CurseForge => "CurseForge",
+        SourceKind.Lunar => "Lunar",
+        SourceKind.Feather => "Feather",
+        SourceKind.Badlion => "Badlion",
+        SourceKind.LabyMod => "LabyMod",
         _ => "Folder",
     };
+
+    /// <summary>
+    /// The folder this setup's mods come from when it is NOT &lt;GameDir&gt;/mods: a PvP client keeps its Fabric
+    /// mods in a folder of its own per version (Lunar's profiles, LabyMod's labymod-neo) while worlds, packs
+    /// and options.txt stay in .minecraft. Null = the usual &lt;GameDir&gt;/mods.
+    /// </summary>
+    public string? ModsDir { get; init; }
+
+    /// <summary>Where this setup's mods are read from: <see cref="ModsDir"/>, else &lt;GameDir&gt;/mods.</summary>
+    public string ModsFolder => ModsDir ?? Path.Combine(GameDir, "mods");
 
     // ---- detection accuracy (Core/Import/Detection): what the version answer rests on ----
 
@@ -94,7 +114,7 @@ public sealed record DetectedInstance
     /// A stable id for this setup: derived only from the game folder's full path (one folder is one setup), so a
     /// selection or an unticked setup survives a rescan, another launcher winning the name, and Browse.
     /// </summary>
-    public string SetupId => Detection.SetupKey.StableId(GameDir);
+    public string SetupId => Detection.SetupKey.StableId(GameDir, ModsDir);
 }
 
 /// <summary>Where a piece of version evidence came from.</summary>
