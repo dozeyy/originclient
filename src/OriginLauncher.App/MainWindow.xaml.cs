@@ -588,7 +588,7 @@ public partial class MainWindow : Window
         if (_friendsOpen) SetFriendsOpen(false);
         FirstRunPrompt.Hide();
 
-        var panel = new ImportPanel(backend ?? new LauncherImportBackend());
+        var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend());
         panel.CloseRequested += (_, _) => CloseImportPanel();
         panel.Imported += (_, _) =>
         {
@@ -708,6 +708,11 @@ public partial class MainWindow : Window
     }
 
     internal void TourCloseImport() => CloseImportPanel();
+
+    // CI screen render: the backend a real click on Import gets (never the real machine).
+    internal Func<IImportBackend>? TourBackendFactory { get; set; }
+
+    internal void TourClickProfilesImport() => _profilesPage.TourClickImport();
 
     internal ImportPromptCard TourImportPrompt => FirstRunPrompt;
 

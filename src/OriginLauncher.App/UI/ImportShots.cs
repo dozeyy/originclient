@@ -14,12 +14,21 @@ namespace OriginLauncher.App.UI;
 /// </summary>
 internal static class ImportShots
 {
-    private enum Demo { Choose, Auto, Unsupported, Blocked, Progress, Done, Failed }
+    private enum Demo { Choose, Auto, Unsupported, Blocked, Progress, Done, Failed, Empty }
 
     public static void Run(MainWindow window, string outDir)
     {
         try
         {
+            // 12a: the Profiles page's Import button, pressed like a click (the real click path), on a PC with no other launcher.
+            window.TourBackendFactory = () => new DemoBackend(Demo.Empty);
+            window.TourShowProfiles(new Core.Models.LauncherSettings(), _ => 0, openForm: false);
+            RenderShots.Pump(500);
+            window.TourClickProfilesImport();
+            RenderShots.Pump(900);
+            RenderShots.Snap(window, outDir, "12a-import-from-profiles-empty");
+            window.TourBackendFactory = null;
+
             // 12: nothing is obvious, so the player picks (Find).
             Open(window, Demo.Choose, 900);
             RenderShots.Snap(window, outDir, "12-import-find");
@@ -34,12 +43,18 @@ internal static class ImportShots
             panel.TourScrollReview(430);
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "14-import-review-details");
+            panel.TourScrollReview(double.MaxValue); // the per-item tables at the bottom
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "14b-import-review-tables");
 
             // 15: importing (progress bar and the step text; Home's Play is disabled behind the card).
             panel = Open(window, Demo.Progress, 1500);
             panel.TourPrimary();
             RenderShots.Pump(900);
             RenderShots.Snap(window, outDir, "15-import-progress");
+            panel.TourAskCancel(); // the "Cancel the import?" confirmation
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "15b-import-cancel-confirm");
             DemoBackend.Release();
             RenderShots.Pump(400);
 
@@ -127,6 +142,8 @@ internal static class ImportShots
                     scan.Instances.Add(Instance("Cobblemon pack", SourceKind.Modrinth, "1.21.1", 0, LoaderKind.NeoForge, 5, Confidence.Inferred));
                     scan.Instances.Add(Instance("All the Mods 10", SourceKind.CurseForge, "1.21.1", 0, LoaderKind.NeoForge, 30));
                     scan.Instances.Add(Instance("1.8.9 PvP", SourceKind.OfficialLauncher, "1.8.9", 0, LoaderKind.Forge, 120));
+                    break;
+                case Demo.Empty:
                     break;
                 case Demo.Unsupported:
                     scan.Instances.Add(Instance("Old survival world", SourceKind.OfficialLauncher, "1.19", 0, LoaderKind.Fabric, 200));

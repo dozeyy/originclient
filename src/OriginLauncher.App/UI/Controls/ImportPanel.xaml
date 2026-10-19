@@ -99,7 +99,7 @@
                                 <StackPanel>
                                     <TextBlock Text="FROM" Style="{StaticResource Text.Eyebrow}"/>
                                     <TextBlock x:Name="SourceName" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,4,0,0"/>
-                                    <TextBlock x:Name="SourceDetail" Style="{StaticResource Text.Caption}" Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="SourceDetail" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None" Margin="0,2,12,0"/>
                                 </StackPanel>
                                 <Button x:Name="ChooseAnotherButton" Grid.Column="1" Content="Choose another" VerticalAlignment="Center"
                                         Style="{StaticResource Button.Chrome}" Padding="12,6" MinHeight="32" Click="ChooseAnother_Click"

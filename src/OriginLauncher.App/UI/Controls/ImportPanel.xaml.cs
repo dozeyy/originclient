@@ -505,7 +505,7 @@ public partial class ImportPanel : UserControl, IDisposable
         });
         return new Border
         {
-            Width = 156, MinHeight = 66, Margin = new Thickness(0, 0, 8, 8), Padding = new Thickness(12, 8, 10, 8),
+            Width = 120, MinHeight = 66, Margin = new Thickness(0, 0, 8, 8), Padding = new Thickness(12, 8, 10, 8),
             Background = (Brush)FindResource("Brush.Card"), BorderBrush = (Brush)FindResource("Brush.SoftStroke"),
             BorderThickness = new Thickness(1), CornerRadius = (CornerRadius)FindResource("Radius.Card"), Child = stack,
         };
@@ -742,13 +742,14 @@ public partial class ImportPanel : UserControl, IDisposable
         }
         else
         {
-            DoneHeadline.Text = result.Cancelled ? "Import cancelled" : "The import didn't finish";
+            DoneHeadline.Text = result.Cancelled ? "Import cancelled" : "Nothing was imported";
             DoneNote.Text = view.Outcome ?? (result.Cancelled ? "Cancelled: nothing was changed." : "Nothing was changed.");
             DoneError.Text = result.Error ?? "";
             DoneError.Visibility = string.IsNullOrEmpty(result.Error) ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        foreach (var block in view.Blocks)
+        // After a cancel or a failure the plan's lines describe what WOULD have happened, not what did: show none of them.
+        foreach (var block in result.Succeeded ? view.Blocks : Array.Empty<SummaryBlock>())
         {
             if (block.Lines.Count == 0) continue;
             DoneSections.Children.Add(new TextBlock
@@ -955,4 +956,6 @@ public partial class ImportPanel : UserControl, IDisposable
     internal void TourSetDetails(bool open) => SetDetails(open);
 
     internal void TourScrollReview(double offset) => ReviewScroll.ScrollToVerticalOffset(offset);
+
+    internal void TourAskCancel() => _ = AskCancelAsync();
 }

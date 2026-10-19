@@ -71,6 +71,9 @@ public partial class ProfilesPage : UserControl
 
     internal void TourOpenForm() => OpenForm(null);
 
+    /// <summary>CI screen render: presses the header's Import button the way a click does.</summary>
+    internal void TourClickImport() => ImportButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+
     private LauncherSettings Current() => _demo ?? SettingsStore.Load();
 
     // ---- list ------------------------------------------------------------
