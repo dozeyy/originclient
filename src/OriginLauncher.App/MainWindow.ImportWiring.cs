@@ -189,15 +189,37 @@ public partial class MainWindow
 
     // ---- the first-run card ---------------------------------------------------------------------------
 
+    private bool _importPromptMarked; // written once per run: opening the drawer again needs no second settings write
+
+    /// <summary>
+    /// The import drawer opened: the first-run card has done its job, so it never comes back (it could otherwise offer
+    /// setups the player just imported). One settings write, off the UI thread; never in the CI render.
+    /// </summary>
+    private void MarkImportPromptSeen()
+    {
+        if (_importPromptMarked || App.IsRenderMode) return;
+        _importPromptMarked = true;
+        _ = Task.Run(() =>
+        {
+            try { Core.SettingsStore.Update(s => s.ImportPromptSeen = true); }
+            catch (Exception) { /* the card may show once more; nothing else depends on it */ }
+        });
+    }
+
     // Off the UI thread: the settings read, the account check and the quick scan. The card's wording comes from
     // the QUALIFYING setups only (versions Origin supports); a machine with none gets no card. Null = no card.
+    // The scan runs at most once a week (ImportPrompt.ShouldScan): every completed scan stamps ImportPromptCheckedUtc,
+    // whatever it found, so a PC with no other launcher does not scan again after every start and account switch.
     private static Task<string?> ComputeImportPromptQuestionAsync() => Task.Run(async () =>
     {
-        if (Core.SettingsStore.Load().ImportPromptSeen) return null;
+        var settings = Core.SettingsStore.Load();
+        // The card would only say "sign in first" without an account: keep the one-time card for later.
         var canImport = Core.GameFolders.Launcher.AccountFolders.SelectedKey() != null;
-        if (!canImport) return null; // the import would only say "sign in first": keep the one-time card for later
+        if (!ImportPrompt.ShouldScan(settings.ImportPromptSeen, canImport, settings.ImportPromptCheckedUtc, DateTime.UtcNow)) return null;
         var backend = new LauncherImportBackend();
         var scan = await backend.ScanAsync(null, CancellationToken.None).ConfigureAwait(false);
+        var checkedAt = DateTime.UtcNow;
+        Core.SettingsStore.Update(s => s.ImportPromptCheckedUtc = checkedAt);
         var targets = await backend.GetSupportedTargetsAsync(CancellationToken.None).ConfigureAwait(false);
         var qualifying = ImportPrompt.Qualifying(scan.Instances, targets);
         return ImportPrompt.ShouldShow(alreadySeen: false, openedWithImportFlag: false, canImport, qualifying.Count)

@@ -20,6 +20,23 @@ public static class ImportPrompt
     public static bool ShouldShow(bool alreadySeen, bool openedWithImportFlag, bool canImport, int qualifyingSetups) =>
         !alreadySeen && !openedWithImportFlag && canImport && qualifyingSetups > 0;
 
+    /// <summary>How long a completed check for other launchers counts: the card's scan runs at most once in this time.</summary>
+    public static readonly TimeSpan RecheckAfter = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// Whether the first-run card's background scan should run now: never once the card was seen (or the drawer opened),
+    /// never while nobody can import (the card would be wasted on "Sign in first"), and otherwise only when no check has
+    /// completed in the last <see cref="RecheckAfter"/>. A stamp in the future (the clock was moved back) counts as stale.
+    /// A qualifying setup that appears later is still offered, at the next check.
+    /// </summary>
+    public static bool ShouldScan(bool alreadySeen, bool canImport, DateTime? lastCheckedUtc, DateTime nowUtc)
+    {
+        if (alreadySeen || !canImport) return false;
+        if (lastCheckedUtc is not { } last) return true;
+        var age = nowUtc - last;
+        return age < TimeSpan.Zero || age >= RecheckAfter;
+    }
+
     /// <summary>The setups an import can actually take: their Minecraft version is exactly one Origin supports.</summary>
     public static IReadOnlyList<DetectedInstance> Qualifying(IEnumerable<DetectedInstance> instances, IReadOnlyCollection<string> supportedTargets) =>
         instances.Where(i => i.McVersion != null && supportedTargets.Contains(i.McVersion)).ToList();

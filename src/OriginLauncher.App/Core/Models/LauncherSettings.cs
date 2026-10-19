@@ -52,9 +52,16 @@ public sealed class LauncherSettings
     public string? SelectedProfileId { get; set; }
 
     // The one-time "Bring over your mods and settings from <launcher>?" card
-    // (Core/Import/Launcher/ImportPrompt). Set the moment the card is shown, so
-    // it never appears twice; the Profiles page's Import button is always there.
+    // (Core/Import/Launcher/ImportPrompt). Set the moment the card is shown, or the
+    // import drawer opens from anywhere, so it never appears twice (and never offers
+    // setups the player already imported); the Profiles page's Import button is always there.
     public bool ImportPromptSeen { get; set; }
+
+    // When the first-run card's background scan last COMPLETED (whatever it found).
+    // A machine with no other launcher would otherwise re-scan after every start and
+    // every account switch: the scan runs again only after ImportPrompt.RecheckAfter.
+    // Null = never checked (older settings files too).
+    public DateTime? ImportPromptCheckedUtc { get; set; }
 
     // "Sync settings across versions" (Settings -> Origin Client). ON by
     // default (Will, 2026-10-18 — it used to be off and nobody knew it existed):

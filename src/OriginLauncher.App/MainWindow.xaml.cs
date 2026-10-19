@@ -623,6 +623,7 @@ public partial class MainWindow : Window
         if (_accountPanelOpen) SetAccountPanelOpen(false);
         if (_friendsOpen) SetFriendsOpen(false);
         _homePage.ImportCard.Hide();
+        MarkImportPromptSeen(); // any way in (Profiles, the Home card, --import, a second launch): the card never offers it again
 
         var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend());
         // A launch starting or an update running turns Import off: the panel learns the sentence now and on every

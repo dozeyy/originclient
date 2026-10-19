@@ -205,6 +205,29 @@ public sealed class LauncherGlueTests
         Assert.True(ImportPrompt.ShouldShow(new LauncherSettings().ImportPromptSeen, false, true, 1));
     }
 
+    // ---- the card's background scan: at most once a week, never after the card or the drawer was seen ----
+
+    private static readonly DateTime Now = new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public void The_card_scan_runs_when_never_checked_and_again_only_after_a_week()
+    {
+        Assert.True(ImportPrompt.ShouldScan(alreadySeen: false, canImport: true, lastCheckedUtc: null, Now));
+        Assert.False(ImportPrompt.ShouldScan(false, true, Now.AddMinutes(-5), Now));            // the next start: no scan
+        Assert.False(ImportPrompt.ShouldScan(false, true, Now.AddDays(-6.9), Now));
+        Assert.True(ImportPrompt.ShouldScan(false, true, Now.AddDays(-7), Now));                // a week on: look again
+        Assert.True(ImportPrompt.ShouldScan(false, true, Now.AddDays(-30), Now));
+        Assert.True(ImportPrompt.ShouldScan(false, true, Now.AddDays(1), Now));                 // clock moved back: stale
+    }
+
+    [Fact]
+    public void The_card_scan_never_runs_once_seen_or_while_nobody_can_import()
+    {
+        Assert.False(ImportPrompt.ShouldScan(alreadySeen: true, canImport: true, lastCheckedUtc: null, Now));
+        Assert.False(ImportPrompt.ShouldScan(alreadySeen: false, canImport: false, lastCheckedUtc: null, Now));
+        Assert.Null(new LauncherSettings().ImportPromptCheckedUtc); // older settings files: never checked
+    }
+
     // ---- bulk profiles in the settings delta ----
 
     private static ModProfile Prof(char c, string version) =>

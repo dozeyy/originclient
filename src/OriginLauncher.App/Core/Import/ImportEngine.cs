@@ -630,6 +630,7 @@ public sealed partial class ImportEngine
     /// from the import's backup folder, new files are removed, the launcher
     /// settings are reverted. Backups of only the newest few imports are kept.
     /// </summary>
+    // Not reachable from the UI yet (no "undo" button); ImportRetention keeps the newest 3 imports' backups for it.
     public Task<ImportResult> RollbackAsync(string importId, IImportSettings settings) =>
         Task.Run(() =>
         {
