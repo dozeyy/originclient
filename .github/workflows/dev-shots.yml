@@ -167,6 +167,10 @@ jobs:
             python3 "$GITHUB_WORKSPACE/tools/frame-log/fetch_mods.py" "$RUNNER_TEMP/extra-mods" \
               "$GITHUB_WORKSPACE/tools/frame-log/mods-${{ matrix.module }}.json"
             gargs="$gargs -PextraMods=$RUNNER_TEMP/extra-mods"
+            # The set's own Fabric API (the player's), instead of the dev build's pin.
+            fapi=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('fabricApi',''))" \
+              "$GITHUB_WORKSPACE/tools/frame-log/mods-${{ matrix.module }}.json")
+            [ -n "$fapi" ] && gargs="$gargs -Pfabric_api_version=$fapi"
           fi
           # The harness quits the game itself once every shot is taken. The whole
           # gradle + java tree runs in its own process group so a hang is killed

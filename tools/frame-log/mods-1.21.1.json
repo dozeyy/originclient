@@ -1,22 +1,291 @@
 {
-  "_why": "The frame log's 'with mods' scenario: popular Fabric 1.21.1 mods that add a lot of resources (blocks, models, textures, sounds, entity features), so the startup reload's apply steps grow the way a player's modded install does. Pinned by Modrinth VERSION id (the number alone is ambiguous across loaders). Picked 2026-10-18 from api.modrinth.com.",
-  "mods": [
-    {"slug": "farmers-delight-refabricated", "version": "wbVXT4Ua", "number": "1.21.1-3.3.6"},
-    {"slug": "macaws-furniture", "version": "x2pXgG0s", "number": "3.4.1"},
-    {"slug": "macaws-doors", "version": "Zsfvgzu6", "number": "1.1.5"},
-    {"slug": "macaws-roofs", "version": "BgPUaaiV", "number": "2.3.2"},
-    {"slug": "supplementaries", "version": "CjTooKpp", "number": "1.21.1-4.0.2"},
-    {"slug": "moonlight", "version": "fWlk6YEB", "number": "1.21.1-3.7.2"},
-    {"slug": "chipped", "version": "6h2mVZcb", "number": "4.0.2"},
-    {"slug": "athena-ctm", "version": "JfyYsWKP", "number": "4.0.6"},
-    {"slug": "resourceful-lib", "version": "Hf91FuVF", "number": "3.0.12"},
-    {"slug": "jade", "version": "adpNvTZS", "number": "15.10.6+fabric"},
-    {"slug": "appleskin", "version": "b5ZiCjAr", "number": "3.0.6+mc1.21"},
-    {"slug": "xaeros-minimap", "version": "W4dcLcUs", "number": "fabric-1.21.1-26.6.0"},
-    {"slug": "entitytexturefeatures", "version": "LNZeTHJf", "number": "7.2.6-fabric-1.21"},
-    {"slug": "entity-model-features", "version": "90RfzkYP", "number": "3.3.12-fabric-1.21"},
-    {"slug": "continuity", "version": "kSPJ4hQv", "number": "3.0.0+1.21"},
-    {"slug": "waystones", "version": "nSAwjAk4", "number": "21.1.46+fabric-1.21.1"},
-    {"slug": "balm", "version": "EghJxg4h", "number": "21.0.66+fabric-1.21.1"}
-  ]
+ "_why": "The frame log's 'with mods' scenario = the public part of Will's own 1.21.1 instance (the list he saw the hand-off stutter get worse with), matched to Modrinth by SHA-1 of his jars on 2026-10-18, so every pin is the exact file he runs. Pinned by Modrinth VERSION id. Left out: fabric-api (fabricApi below replaces the dev build's pin instead), jei (the dev build bundles the same 19.27.0.340), exposure-catalog/-polaroid (they need his local exposure voxyfix build), and every jar not on Modrinth: originclient, voxy (local -dirty build), exposure voxyfix, hollowkin, smokeables, souls-elevators, redlight, newspaper, shrimpmod, park-benches, paper-lanterns, trainworks-local, oblivion-magic-private, height-extender, pale-oak-and-poplar, smallships-extra-woods.",
+ "fabricApi": "0.116.17+1.21.1",
+ "mods": [
+  {
+   "slug": "accessories",
+   "version": "uPPIhLTH",
+   "number": "1.1.0-beta.52+1.21.1"
+  },
+  {
+   "slug": "accessories-compat-layer",
+   "version": "OkGF8Kho",
+   "number": "0.1.10"
+  },
+  {
+   "slug": "amendments",
+   "version": "uSU0iJNb",
+   "number": "fabric_1.21-1.2.24"
+  },
+  {
+   "slug": "architectury-api",
+   "version": "Wto0RchG",
+   "number": "13.0.8+fabric"
+  },
+  {
+   "slug": "backport-copper-age",
+   "version": "3GZU7zrg",
+   "number": "1.21.1-0.1.5"
+  },
+  {
+   "slug": "balm",
+   "version": "oMDgFhLP",
+   "number": "21.0.45+fabric-1.21.1"
+  },
+  {
+   "slug": "better-combat",
+   "version": "nsxmEb8y",
+   "number": "2.3.2+1.21.1-fabric"
+  },
+  {
+   "slug": "boxlib",
+   "version": "8cx5eu01",
+   "number": "14.4.2-Boxlib"
+  },
+  {
+   "slug": "cardinal-components-api",
+   "version": "xzMJDzyx",
+   "number": "6.1.2"
+  },
+  {
+   "slug": "cicada",
+   "version": "W9GCQZ1l",
+   "number": "0.13.1+1.21-1.21.1"
+  },
+  {
+   "slug": "cloth-config",
+   "version": "HpMb5wGb",
+   "number": "15.0.140+fabric"
+  },
+  {
+   "slug": "cobbledollars",
+   "version": "cqsHXSXe",
+   "number": "2.0.0+Beta-5.1"
+  },
+  {
+   "slug": "cobblemon",
+   "version": "YgmyyFcs",
+   "number": "1.8.0"
+  },
+  {
+   "slug": "cobblemon-mega-showdown",
+   "version": "TACsHsKC",
+   "number": "1.0.2+1.8+1.21.1-release"
+  },
+  {
+   "slug": "cobblemon-pokenav",
+   "version": "BV5KiAcY",
+   "number": "2.4.1"
+  },
+  {
+   "slug": "cobblemon-tim-core",
+   "version": "5BfmZHcz",
+   "number": "1.8.0-fabric-1.32.0"
+  },
+  {
+   "slug": "cobbreeding",
+   "version": "dED6lApR",
+   "number": "2.3.0"
+  },
+  {
+   "slug": "combat-roll",
+   "version": "UkTSsgGt",
+   "number": "2.0.6+1.21.1-fabric"
+  },
+  {
+   "slug": "continuity",
+   "version": "kSPJ4hQv",
+   "number": "3.0.0+1.21"
+  },
+  {
+   "slug": "coordinates-display",
+   "version": "fav229SS",
+   "number": "13.2.0-fabric"
+  },
+  {
+   "slug": "cubes-without-borders",
+   "version": "m350hyy8",
+   "number": "3.0.0+1.21"
+  },
+  {
+   "slug": "do-a-barrel-roll",
+   "version": "vBXl66wc",
+   "number": "3.7.3+1.21-fabric"
+  },
+  {
+   "slug": "easy-item-list",
+   "version": "cxh6HLNj",
+   "number": "0.1.4-1.20.5"
+  },
+  {
+   "slug": "ebe",
+   "version": "HBZAPs3u",
+   "number": "0.10.2+1.21"
+  },
+  {
+   "slug": "forge-config-api-port",
+   "version": "NqVx7ywO",
+   "number": "v21.1.3-1.21.1-Fabric"
+  },
+  {
+   "slug": "freecam",
+   "version": "Cg10zLnR",
+   "number": "1.3.0+mc1.21.1"
+  },
+  {
+   "slug": "fzzy-config",
+   "version": "kOmySYD4",
+   "number": "0.7.6+1.21"
+  },
+  {
+   "slug": "held-item-info",
+   "version": "EvcC3qTM",
+   "number": "1.7.0"
+  },
+  {
+   "slug": "immersive-aircraft",
+   "version": "JC1GraWr",
+   "number": "1.2.4+1.21.1"
+  },
+  {
+   "slug": "immersive-machinery",
+   "version": "xWfKx36d",
+   "number": "0.2.0+1.21.1"
+  },
+  {
+   "slug": "joy-of-painting",
+   "version": "LheqdhBz",
+   "number": "1.21.1-1.0.1"
+  },
+  {
+   "slug": "keybind-fix-plus",
+   "version": "jFW6823S",
+   "number": "2.0.0"
+  },
+  {
+   "slug": "lets-do-herbalbrews",
+   "version": "E7Okput0",
+   "number": "1.1.3"
+  },
+  {
+   "slug": "lets-do-vinery",
+   "version": "BV45cdzS",
+   "number": "1.5.3"
+  },
+  {
+   "slug": "lighty",
+   "version": "vsdQU0pB",
+   "number": "3.0.0-beta.8+1.21.1"
+  },
+  {
+   "slug": "litematica",
+   "version": "K4RVeB0Z",
+   "number": "0.19.58"
+  },
+  {
+   "slug": "lithostitched",
+   "version": "7FWLrZRG",
+   "number": "1.5.0-fabric-1.21.1"
+  },
+  {
+   "slug": "macaws-furniture",
+   "version": "9l6iYqCb",
+   "number": "3.3.0"
+  },
+  {
+   "slug": "malilib",
+   "version": "dhYkRfSJ",
+   "number": "0.21.8"
+  },
+  {
+   "slug": "moonlight",
+   "version": "9M9Oclxa",
+   "number": "1.21-2.28.3-fabric"
+  },
+  {
+   "slug": "owo-lib",
+   "version": "JB1fLQnc",
+   "number": "0.12.15.4+1.21"
+  },
+  {
+   "slug": "playeranimator",
+   "version": "CkedfDp3",
+   "number": "2.0.4+1.21.1-fabric"
+  },
+  {
+   "slug": "puzzles-lib",
+   "version": "fxxItf4t",
+   "number": "v21.1.38-1.21.1-Fabric"
+  },
+  {
+   "slug": "rctapi",
+   "version": "poXTxoNY",
+   "number": "0.16.0-beta"
+  },
+  {
+   "slug": "rctmod",
+   "version": "jdUENp3C",
+   "number": "0.19.0-beta"
+  },
+  {
+   "slug": "simply-swords",
+   "version": "gcFhYOoT",
+   "number": "1.63.0-1.21.1"
+  },
+  {
+   "slug": "simply-tooltips",
+   "version": "jrFEfRpA",
+   "number": "0.1.3"
+  },
+  {
+   "slug": "small-ships",
+   "version": "BSRcyUiv",
+   "number": "2.0.0-b2.1"
+  },
+  {
+   "slug": "supplementaries",
+   "version": "gTcgfFjQ",
+   "number": "fabric_1.21-3.1.7"
+  },
+  {
+   "slug": "tacz-refabricated",
+   "version": "sqMweCpe",
+   "number": "1.21.1-0.7.0-forge1.1.8-hotfix"
+  },
+  {
+   "slug": "tectonic",
+   "version": "JcTr4Nqs",
+   "number": "3.0.16"
+  },
+  {
+   "slug": "terralith",
+   "version": "MuJMtPGQ",
+   "number": "2.5.8"
+  },
+  {
+   "slug": "torchmaster",
+   "version": "zHm4qOmP",
+   "number": "21.1.9-release"
+  },
+  {
+   "slug": "travelersbackpack",
+   "version": "4slYkmpO",
+   "number": "1.21.1-10.1.22"
+  },
+  {
+   "slug": "trinkets",
+   "version": "JagCscwi",
+   "number": "3.10.0"
+  },
+  {
+   "slug": "waystones",
+   "version": "5QbmQMeD",
+   "number": "21.1.19+fabric-1.21.1"
+  },
+  {
+   "slug": "worldedit",
+   "version": "WTAFvuRx",
+   "number": "7.3.8"
+  }
+ ]
 }
