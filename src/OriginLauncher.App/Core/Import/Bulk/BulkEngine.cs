@@ -205,13 +205,17 @@ public sealed partial class ImportEngine
     }
 
     // A group of the previous plan that is exactly what would be planned now (same setups in the same order, same
-    // winner, same switches and account) is kept: re-planning one version never re-reads the others.
+    // winner, same switches and account) is kept: re-planning one version never re-reads the others. Never one whose
+    // Origin folder took an import or undo since the previous plan was made: its "World1 is already in Origin" may be
+    // untrue now, and the new plan's fresh stamp would carry it past the apply's stale-plan check (TRY AGAIN after a
+    // refused apply did exactly that: an undone world never came back while the summary said it was there).
     private static VersionGroup? Reusable(BulkImportPlan previous, BulkRequest request, string version, List<DetectedInstance> order,
         DetectedInstance? winner)
     {
         var old = previous.Groups.FirstOrDefault(g => g.Version == version);
         var before = previous.Request;
         if (old == null || before == null) return null;
+        if (ImportTargetLocks.ChangedSince(new[] { old.TargetGameDir }, previous.PlannedAt)) return null;
         if (before.Options != request.Options || before.AccountKey != request.AccountKey) return null;
         if (old.Setups.Count != order.Count) return null;
         for (var i = 0; i < order.Count; i++)
@@ -357,6 +361,9 @@ public sealed partial class ImportEngine
 
         // Plan lines a landed stand-in made untrue ("already brought over from X"): left out of the result.
         public readonly HashSet<SummaryLine> Superseded = new(ReferenceEqualityComparer.Instance);
+
+        // Ops left out whose plan line counts several items ("40 screenshots"): that line is recounted, not dropped.
+        public readonly List<PlannedOp> CountedLeftOut = new();
     }
 
     private BulkImportResult ApplyBulk(BulkImportPlan plan, IImportSettings settings, IProgress<BulkProgress>? progress, CancellationToken ct)
@@ -478,7 +485,7 @@ public sealed partial class ImportEngine
                     if (Directory.Exists(group.TargetGameDir) && _env.IsGameRunning(group.TargetGameDir))
                         throw new TargetStartedException(group.Version);
 
-                    var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = planned.Setup.GameDir };
+                    var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = planned.Setup.GameDir, SharedRoot = planned.Setup.SharedGameDir };
                     for (var i = 0; i < setupPlan.Ops.Count; i++)
                     {
                         var op = setupPlan.Ops[i];
@@ -514,7 +521,8 @@ public sealed partial class ImportEngine
                             // and its claim passes to the next setup that has the same thing.
                             // Its planned "Imported" line is no longer true: dropped, so the result never lists it twice.
                             state.Extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, CouldntReadSource));
-                            if (op.PlannedLine != null) state.Superseded.Add(op.PlannedLine);
+                            if (op.CountedLine) state.CountedLeftOut.Add(op);
+                            else if (op.PlannedLine != null) state.Superseded.Add(op.PlannedLine);
                             if (op.ClaimKey != null)
                             {
                                 released.Add(op.ClaimKey);
@@ -527,6 +535,7 @@ public sealed partial class ImportEngine
                         }
                         if (!op.Fallback) bytesDone += op.Bytes;
                     }
+                    state.Extra.AddRange(ImportSummary.Recount(setupPlan.Ops, state.CountedLeftOut, state.Superseded));
                     state.Kind = planned.Role == SetupRole.PacksOnly ? SetupResultKind.ImportedPartly : SetupResultKind.Imported;
                     index++;
                 }
@@ -623,7 +632,8 @@ public sealed partial class ImportEngine
             {
                 var st = states[s];
                 return new SetupOutcome(s.Setup, s.Role, st.Kind, st.Message, null,
-                    s.Plan.Lines.Where(l => !st.Superseded.Contains(l)).Concat(st.Extra).ToList());
+                    s.Plan.Lines.Where(l => !st.Superseded.Contains(l)).Concat(st.Extra).ToList(),
+                    st.Extra.Where(l => l.Section == SummarySection.NotImported).ToList());
             }).ToList();
             var winner = g.Setups.FirstOrDefault(s => s.Role == SetupRole.Full);
             var settingsFrom = winner != null && states[winner].Kind == SetupResultKind.Imported ? winner.Setup.BulkLabel() : null;

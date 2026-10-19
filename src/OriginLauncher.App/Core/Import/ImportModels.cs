@@ -318,6 +318,12 @@ public sealed record PlannedOp
     /// source couldn't be read, that line is no longer true and is left out of the result (compared by reference).
     /// </summary>
     public SummaryLine? PlannedLine { get; init; }
+
+    /// <summary>
+    /// <see cref="PlannedLine"/> counts several ops ("40 screenshots"): an op left out at apply lowers that count
+    /// (<see cref="ImportSummary.Recount"/>) instead of dropping the whole line.
+    /// </summary>
+    public bool CountedLine { get; init; }
 }
 
 /// <summary>
@@ -418,6 +424,12 @@ public sealed class ImportResult
     public string? Error { get; init; }
     public string SummaryText { get; init; } = "";
     public bool Succeeded => State == ImportState.Committed;
+
+    /// <summary>
+    /// What this import left out while it ran (a mod an antivirus had open, a world deleted since the plan, a file
+    /// skipped for safety): "Not imported" lines the plan did not have. The Done page names each one.
+    /// </summary>
+    public IReadOnlyList<SummaryLine> LeftOut { get; init; } = Array.Empty<SummaryLine>();
 }
 
 // ---- Engine B: game-file reuse and cache migration (plug in through IImportPlanContributor) ----

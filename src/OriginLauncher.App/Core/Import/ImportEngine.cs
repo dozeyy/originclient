@@ -224,7 +224,7 @@ public sealed partial class ImportEngine
     private ImportPlan BuildPlan(ImportRequest r, IProgress<ImportProgress>? progress, CancellationToken ct, out SourceFs fs)
     {
         var plannedAt = ImportTargetLocks.Now(); // before anything in Origin's folder is looked at
-        fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = r.Source.GameDir };
+        fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = r.Source.GameDir, SharedRoot = r.Source.SharedGameDir };
         var source = r.Source;
 
         // The target: what the player picked, else the source's own version when Origin has it.
@@ -511,9 +511,10 @@ public sealed partial class ImportEngine
         var logRoot = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_env.InstancesRoot)) ?? _env.InstancesRoot;
         using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, plan.ImportId, _env.Clock, plan.Source.Name, plan.TargetVersion, _env.Guard,
             plan.TargetGameDir);
-        var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = plan.Source.GameDir };
+        var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = plan.Source.GameDir, SharedRoot = plan.Source.SharedGameDir };
         var extra = new List<SummaryLine>();
         var dropped = new HashSet<SummaryLine>(ReferenceEqualityComparer.Instance);
+        var countedLeftOut = new List<PlannedOp>();
         IAsyncDisposable? gate = null; // D28: held while shared version files are written (released in finally)
         IDisposable? folder = null;     // this game folder's writer lock, always taken before the version gate
         try
@@ -550,9 +551,10 @@ public sealed partial class ImportEngine
                 {
                     // Same rule as a bulk run (B16): a mod jar or world file the old launcher (or an antivirus) has
                     // open, or one deleted since the plan, leaves THAT item out. It used to roll the whole import back.
-                    LeftOut(op, extra, dropped);
+                    LeftOut(op, extra, dropped, countedLeftOut);
                 }
             }
+            extra.AddRange(ImportSummary.Recount(plan.Ops, countedLeftOut, dropped));
 
             progress?.Report(new ImportProgress(ImportStage.Finishing, plan.Ops.Count, plan.Ops.Count));
             ct.ThrowIfCancellationRequested(); // the last chance to cancel: past here the settings change is made
@@ -565,7 +567,11 @@ public sealed partial class ImportEngine
             ImportTargetLocks.MarkChanged(new[] { plan.TargetGameDir });
             var text = ImportSummary.Render(plan, extra, dropped: dropped);
             WriteSummary(plan.ImportId, text);
-            return new ImportResult { ImportId = plan.ImportId, State = ImportState.Committed, SummaryText = text };
+            return new ImportResult
+            {
+                ImportId = plan.ImportId, State = ImportState.Committed, SummaryText = text,
+                LeftOut = extra.Where(l => l.Section == SummarySection.NotImported).ToList(),
+            };
         }
         catch (OperationCanceledException)
         {
@@ -635,11 +641,12 @@ public sealed partial class ImportEngine
     internal const string CouldntReadSource = "Couldn't read it in your old setup (it may be in use, or gone), so it was left out.";
 
     // An item apply left out because its source couldn't be read: one "Not imported" line under its file name, and
-    // the plan's "Imported" line for it is dropped (it is no longer true).
-    private static void LeftOut(PlannedOp op, List<SummaryLine> extra, HashSet<SummaryLine> dropped)
+    // the plan's "Imported" line for it is dropped (it is no longer true), or recounted when it counts several items.
+    private static void LeftOut(PlannedOp op, List<SummaryLine> extra, HashSet<SummaryLine> dropped, List<PlannedOp> countedLeftOut)
     {
         extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, CouldntReadSource));
-        if (op.PlannedLine != null) dropped.Add(op.PlannedLine);
+        if (op.CountedLine) countedLeftOut.Add(op);
+        else if (op.PlannedLine != null) dropped.Add(op.PlannedLine);
     }
 
     private void Execute(PlannedOp op, ImportPlan plan, ImportTransaction tx, SourceFs fs, CancellationToken ct,

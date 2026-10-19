@@ -194,12 +194,20 @@ public sealed class PvpClientSource : IInstanceSource
                 && settings.ValueKind == System.Text.Json.JsonValueKind.Object
                 && settings.TryGetProperty("gameDirectory", out var dir)
                 && dir.ValueKind == System.Text.Json.JsonValueKind.String
+                && IsLocalFullPath(dir.GetString())
                 && SourceHelpers.Normalize(dir.GetString()) is { } path && Directory.Exists(path))
                 return path;
         }
         catch (System.Text.Json.JsonException) { }
         return null;
     }
+
+    // A drive path ("C:\Games\mc", "/home/me/mc"), never a relative one (it would resolve against the launcher's own
+    // folder) or a network share (\\server\share: a dead server can stall the scan, and the world walk would read
+    // whatever that machine serves). Lunar's default is a local .minecraft, the fallback for anything else.
+    private static bool IsLocalFullPath(string? path) =>
+        !string.IsNullOrWhiteSpace(path) && Path.IsPathFullyQualified(path)
+        && !path.StartsWith(@"\\", StringComparison.Ordinal) && !path.StartsWith("//", StringComparison.Ordinal);
 
     private static IEnumerable<string> Sorted(IEnumerable<string> dirs) => dirs.OrderBy(d => d, StringComparer.OrdinalIgnoreCase);
 

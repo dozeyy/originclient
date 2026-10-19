@@ -615,8 +615,9 @@ public static class SettingsMigrator
         {
             var srcDir = _c.Source.ScreenshotsFolder;
             var dstDir = Path.Combine(_dst, "screenshots");
-            int copied = 0, already = 0;
+            int already = 0;
             long bytes = 0;
+            var copies = new List<(string File, string Dest, long Size)>();
             foreach (var file in Fs.EnumerateFiles(srcDir, recursive: false).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
             {
                 _c.Ct.ThrowIfCancellationRequested();
@@ -626,19 +627,24 @@ public static class SettingsMigrator
                 var dest = ScreenshotDest(file, name, size, dstDir);
                 if (dest == null) { already++; continue; }
                 Ledger.Add(dest, file, _c.SetupLabel, owner: _c.SetupKey);
+                copies.Add((file, dest, size));
+                bytes += size;
+            }
+            if (copies.Count == 0)
+            {
+                if (already > 0) Line(SummarySection.Imported, PlanItemKind.Screenshot, "Screenshots", "already in Origin, left as they are");
+                return;
+            }
+            // Every copy points at the one line, which apply recounts when it has to leave a picture out.
+            var line = Line(SummarySection.Imported, PlanItemKind.Screenshot, ImportSummary.CountName(PlanItemKind.Screenshot, copies.Count),
+                already > 0 ? $"{already} already in Origin, left as they are" : null, bytes);
+            foreach (var (file, dest, size) in copies)
                 Plan.Ops.Add(new PlannedOp
                 {
                     Kind = OpKind.CopyFile, Item = PlanItemKind.Screenshot, Label = "screenshots/" + Path.GetFileName(dest),
                     Source = file, Dest = dest, Bytes = size, TouchNow = false, ClaimKey = DestinationLedger.PathKey(dest),
+                    PlannedLine = line, CountedLine = true,
                 });
-                copied++;
-                bytes += size;
-            }
-            if (copied > 0)
-                Line(SummarySection.Imported, PlanItemKind.Screenshot, copied == 1 ? "1 screenshot" : $"{copied} screenshots",
-                    already > 0 ? $"{already} already in Origin, left as they are" : null, bytes);
-            else if (already > 0)
-                Line(SummarySection.Imported, PlanItemKind.Screenshot, "Screenshots", "already in Origin, left as they are");
         }
 
         // Where a screenshot lands, or null when it is already there: the same name and size in Origin, under its own
