@@ -40,6 +40,14 @@ public final class ModIcons {
 	private ModIcons() {
 	}
 
+	/**
+	 * Loads (uploads) the atlas now (OriginAssets' per-frame upload slices).
+	 */
+	public static boolean preload() {
+		ensureLoaded();
+		return true;
+	}
+
 	/** Whether this id has a glyph in the atlas. */
 	public static boolean has(String id) {
 		ensureLoaded();
@@ -91,10 +99,9 @@ public final class ModIcons {
 			}
 			loaded = true;
 			try {
-				JsonObject j;
-				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.json")) {
-					j = GSON.fromJson(new String(com.origin.client.client.IoCompat.readAllBytes(in), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-				}
+				// Both atlases and the metrics are decoded on the startup reload's worker
+				// threads (OriginAssets); what's left here is the one GPU upload.
+				JsonObject j = com.origin.client.client.OriginAssets.json("/assets/originclient/textures/ui/mod_icons.json");
 				cell = j.get("cell").getAsInt();
 				JsonObject icons = j.getAsJsonObject("icons");
 				// Gson 2.8.0 (1.16.5 / 1.17.1) has no JsonObject.keySet(): iterate the entries.
@@ -107,19 +114,24 @@ public final class ModIcons {
 				if (!CELLS.containsKey("friends") && CELLS.containsKey("@user")) {
 					CELLS.put("friends", CELLS.get("@user"));
 				}
-				NativeImage img;
-				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.png")) {
-					img = NativeImage.read(in);
-				}
+				NativeImage img = com.origin.client.client.OriginAssets.image("/assets/originclient/textures/ui/mod_icons.png");
 				atlasW = img.getWidth();
 				atlasH = img.getHeight();
 				// 1.16.5: no icon SDF shader, so the mask atlas is the one GPU atlas.
-				DynamicTexture tex = new DynamicTexture(img);
+				DynamicTexture tex;
+				try {
+					tex = new DynamicTexture(img);
+				} catch (Throwable t) {
+					img.close();   // never reached a texture: ours to free
+					throw t;
+				}
 				tex.setFilter(true, false);
 				Minecraft.getInstance().getTextureManager().register(ATLAS, tex);
 				ok = true;
 			} catch (Throwable t) {
 				ok = false;
+				// The prefetched atlas, never handed over (the metrics failed first): free it.
+				com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/ui/mod_icons.png");
 				com.origin.client.OriginClient.LOGGER.warn("Origin mod icons failed to load; cards draw without icons", t);
 			}
 		}
