@@ -663,27 +663,36 @@ function syncAdjust(themeShown = false) {
   if (!slots.includes(state.moving)) state.moving = slots[slots.length - 1] || null;
   panel.hidden = !room || !state.moving || themeShown;
   if (panel.hidden) return;
-  const tabs = $('[data-adjust-tabs]');
-  tabs.replaceChildren(...slots.map(sl => {
-    const name = byId.get(state.worn[sl]).name;
-    if (slots.length === 1) { const t = document.createElement('span'); t.className = 'adjust__one'; t.textContent = name; return t; }
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'adjust__tab';
-    b.dataset.adjustSlot = sl;
-    b.setAttribute('aria-pressed', String(sl === state.moving));
-    b.textContent = name;
-    return b;
-  }));
+  // Rebuild the tabs only when what's worn changes, so a focused tab keeps focus.
+  const tabs = $('[data-adjust-tabs]'), key = slots.map(sl => state.worn[sl]).join(' ');
+  if (tabs.dataset.key !== key) {
+    tabs.dataset.key = key;
+    tabs.replaceChildren(...slots.map(sl => {
+      const name = byId.get(state.worn[sl]).name;
+      if (slots.length === 1) { const t = document.createElement('span'); t.className = 'adjust__one'; t.textContent = name; return t; }
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'adjust__tab';
+      b.dataset.adjustSlot = sl;
+      b.textContent = name;
+      return b;
+    }));
+  }
+  for (const b of $$('[data-adjust-slot]', tabs)) b.setAttribute('aria-pressed', String(b.dataset.adjustSlot === state.moving));
   const v = state.adjust[state.moving], name = byId.get(state.worn[state.moving]).name;
   for (const [ax, i] of Object.entries(AXES)) $(`[data-adjust-val="${ax}"]`).textContent = ax === 'x' ? sideways(v[i]) : signed(v[i]);
-  const say = { y: ['Move %s down', 'Move %s up'], x: ['Move %s right', 'Move %s left'], z: ['Move %s back', 'Move %s forward'] };
   for (const b of $$('[data-nudge]', panel)) {
     const i = AXES[b.dataset.nudge], dir = Number(b.dataset.dir);
     b.disabled = dir > 0 ? v[i] >= LIMIT : v[i] <= -LIMIT;
-    b.setAttribute('aria-label', say[b.dataset.nudge][dir > 0 ? 1 : 0].replace('%s', name));
+    b.setAttribute('aria-label', `Move ${name} ${WORDS[b.dataset.nudge][dir > 0 ? 1 : 0]}`);
   }
   $('[data-adjust-reset]').disabled = v.every(n => n === 0);
+}
+// Screen readers hear where it is now, in words ("1.5 pixels to their left").
+const WORDS = { y: ['down', 'up'], x: ['to their right', 'to their left'], z: ['back', 'forward'] };
+function sayWhere(axis, n) {
+  const words = n === 0 ? 'centred' : `${Math.abs(n)} pixel${Math.abs(n) === 1 ? '' : 's'} ${WORDS[axis][n > 0 ? 1 : 0]}`;
+  $('[data-adjust-say]').textContent = `${byId.get(state.worn[state.moving]).name}: ${words}`;
 }
 function nudge(axis, dir) {
   const sl = state.moving;
@@ -693,6 +702,7 @@ function nudge(axis, dir) {
   state.adjust[sl] = v;
   room?.setAdjust(sl, v);
   syncAdjust();
+  sayWhere(axis, v[i]);
   // At the limit the pressed button disables itself: hand focus to its opposite.
   const b = $(`[data-nudge="${axis}"][data-dir="${dir}"]`);
   if (b.disabled) $(`[data-nudge="${axis}"][data-dir="${-dir}"]`).focus();
@@ -703,6 +713,7 @@ function resetAdjust() {
   state.adjust[sl] = [0, 0, 0];
   room?.setAdjust(sl, state.adjust[sl]);
   syncAdjust();
+  $('[data-adjust-say]').textContent = `${byId.get(state.worn[sl]).name}: back where it started`;
   $('[data-nudge="y"][data-dir="1"]').focus();   // the Reset button just disabled itself; keep focus in the panel
 }
 

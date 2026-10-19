@@ -226,14 +226,18 @@ function buildModel(item, tex) {
   const AX = { x: 0, y: 1, z: 2 };
   const box = boxOf(item.slot);
   let grow = 0;                                      // px of overlay to sit over (0 = bare skin)
-  const posed = new Map(), chain = new THREE.Matrix4(), vtx = new THREE.Vector3();
-  // object -> matrix in the root frame (the root's own placement is excluded: that is the adjust offset)
+  const mats = new Map(), posed = new Set(), chain = new THREE.Matrix4(), vtx = new THREE.Vector3();
+  // object -> matrix in the root frame (the root's own placement is excluded: that is the adjust
+  // offset). One Matrix4 per object, reused every frame; `posed` marks this frame's fresh ones.
   const toRoot = o => {
     if (o === root) return null;
-    if (posed.has(o)) return posed.get(o);
+    let mat = mats.get(o);
+    if (!mat) mats.set(o, (mat = new THREE.Matrix4()));
+    if (posed.has(o)) return mat;
     o.updateMatrix();
-    const up = toRoot(o.parent), mat = up ? new THREE.Matrix4().multiplyMatrices(up, o.matrix) : o.matrix.clone();
-    posed.set(o, mat);
+    const up = toRoot(o.parent);
+    if (up) mat.multiplyMatrices(up, o.matrix); else mat.copy(o.matrix);
+    posed.add(o);
     return mat;
   };
   // Re-pose only the meshes whose matrix (or grow) changed: static items settle after one pass.

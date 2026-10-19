@@ -43,25 +43,31 @@ body.no-webgl .fit__hint { display: none; }
 
 .fit__panel { padding: 22px; }
 
-/* Adjust the fit: opens under the player when a hat or face item is worn. */
-.fit:has(.adjust:not([hidden])) { max-height: calc(100vh - 104px); overflow-y: auto; }
-.fit:has(.adjust:not([hidden])) .fit__stage { height: clamp(240px, 32vh, 360px); }
-.adjust { padding: 16px 22px 14px; border-bottom: 1px solid var(--soft); }
+/* Adjust the fit: opens under the player when a hat or face item is worn. Kept compact
+   (one row of three steppers) so the sticky sidebar still fits a laptop screen. */
+.fit:has(.adjust:not([hidden])) .fit__stage { height: clamp(240px, 34vh, 380px); }
+.adjust { padding: 14px 18px 12px; border-bottom: 1px solid var(--soft); }
 .adjust[hidden] { display: none; }
 .adjust__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
-.adjust__title { margin: 0 auto 0 0; font: 600 15px/1.2 var(--sans); letter-spacing: 0; color: var(--text); }
-.adjust__tabs { display: flex; flex-wrap: wrap; gap: 6px; order: 3; flex-basis: 100%; }
-.adjust__tabs:empty { display: none; }
+.adjust__title { margin: 0; font: 600 15px/1.2 var(--sans); letter-spacing: 0; color: var(--text); }
+.adjust__tabs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
 .adjust__one { color: var(--dim); font: 600 13px/1.2 var(--sans); }
-.adjust__tab, .adjust__reset, .adjust__btn { min-height: 44px; padding: 0 14px; border: 1px solid var(--soft); border-radius: 999px; background: rgba(255, 255, 255, .05); color: var(--dim); font: 600 13px/1 var(--sans); cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; }
-.adjust__tab:hover, .adjust__reset:hover:not(:disabled), .adjust__btn:hover:not(:disabled) { color: var(--text); background: rgba(255, 255, 255, .1); border-color: var(--stroke); }
+.adjust__tab, .adjust__reset { min-height: 44px; padding: 0 14px; border: 1px solid var(--soft); border-radius: 999px; background: rgba(255, 255, 255, .05); color: var(--dim); font: 600 13px/1 var(--sans); cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; }
+.adjust__tab { min-height: 36px; padding: 0 12px; font-size: 12px; }
+.adjust__reset { margin-left: auto; }
+.adjust__tabs:has(.adjust__tab) { order: 3; flex-basis: 100%; }   /* two items worn: their tabs get a row of their own */
 .adjust__tab[aria-pressed="true"] { background: var(--acc); border-color: var(--acc); color: var(--on-acc); }
-.adjust__reset:disabled, .adjust__btn:disabled { opacity: .4; cursor: default; }
-.adjust__row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 52px 84px; align-items: center; gap: 6px; padding: 3px 0; }
-.adjust__name { color: var(--dim); font: 600 13px/1.2 var(--sans); }
-.adjust__btn { padding: 0 8px; }
-.adjust__val { color: var(--text); font: 600 15px/1 var(--sans); font-variant-numeric: tabular-nums; text-align: center; }
-.adjust__note { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.adjust__axes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.adjust__axis { display: grid; gap: 6px; justify-items: center; }
+.adjust__name { color: var(--dim); font: 600 12px/1.2 var(--sans); text-align: center; }
+.adjust__step { display: grid; grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr); align-items: center; width: 100%; background: rgba(255, 255, 255, .04); border: 1px solid var(--soft); border-radius: 999px; }
+.adjust__btn { display: grid; place-items: center; height: 44px; min-width: 0; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--dim); cursor: pointer; transition: background-color .2s, color .2s; }
+.adjust__btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.adjust__tab:hover, .adjust__reset:hover:not(:disabled), .adjust__btn:hover:not(:disabled) { color: var(--text); background: rgba(255, 255, 255, .1); }
+.adjust__reset:disabled, .adjust__btn:disabled { opacity: .35; cursor: default; }
+.adjust__val { color: var(--text); font: 600 14px/1 var(--sans); font-variant-numeric: tabular-nums; text-align: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.adjust__note { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .adjust__note b { color: var(--dim); font-weight: 600; }
 .field__label { display: block; margin-bottom: 8px; font: 600 13px/1 var(--sans); color: var(--dim); }
 .name { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 16px; background: rgba(255, 255, 255, .05); border: 1px solid var(--soft); border-radius: 14px; transition: border-color .2s; }
@@ -212,7 +218,8 @@ body.no-webgl .fit__hint { display: none; }
   .fit__stage { order: 1; height: 320px; overflow: hidden; scroll-margin-top: 80px; }
   .shop { order: 2; }
   .fit__panel { order: 3; scroll-margin-top: 80px; }
-  .adjust { order: 1; background-color: var(--glass); border: 1px solid var(--soft); border-radius: 24px; }
+  .adjust { order: 1; padding: 14px 14px 12px; background-color: var(--glass); border: 1px solid var(--soft); border-radius: 24px; }
+  .adjust__axes { gap: 6px; }
   .bagbar:not([hidden]) { display: flex; }
   .page-store .foot { padding-bottom: 140px; }
   .shop__grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
@@ -227,11 +234,4 @@ body.no-webgl .fit__hint { display: none; }
   .plus__body { padding: 22px 18px; }
   .plus__go { max-width: none; }
   .plus__themes { margin-left: 0; }
-}
-
-@media (max-width: 420px) {
-  /* Narrow phones: each row's name sits above its two buttons. */
-  .adjust { padding: 14px 14px 12px; }
-  .adjust__row { grid-template-columns: 1fr 52px 1fr; }
-  .adjust__name { grid-column: 1 / -1; margin-top: 4px; }
 }

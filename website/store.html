@@ -75,25 +75,34 @@
             <div class="adjust__tabs" role="group" aria-label="Item to move" data-adjust-tabs></div>
             <button type="button" class="adjust__reset" data-adjust-reset disabled>Reset</button>
           </div>
-          <div class="adjust__row">
-            <span class="adjust__name" id="adj-y">Up / down</span>
-            <button type="button" class="adjust__btn" data-nudge="y" data-dir="-1">Down</button>
-            <output class="adjust__val" data-adjust-val="y" aria-labelledby="adj-y">0</output>
-            <button type="button" class="adjust__btn" data-nudge="y" data-dir="1">Up</button>
+          <div class="adjust__axes">
+            <div class="adjust__axis" role="group" aria-labelledby="adj-y">
+              <span class="adjust__name" id="adj-y">Up / down</span>
+              <div class="adjust__step">
+                <button type="button" class="adjust__btn" data-nudge="y" data-dir="-1"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
+                <span class="adjust__val" data-adjust-val="y" aria-hidden="true">0</span>
+                <button type="button" class="adjust__btn" data-nudge="y" data-dir="1"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 10 4-4 4 4"/></svg></button>
+              </div>
+            </div>
+            <div class="adjust__axis" role="group" aria-labelledby="adj-x">
+              <span class="adjust__name" id="adj-x">Sideways</span>
+              <div class="adjust__step">
+                <button type="button" class="adjust__btn" data-nudge="x" data-dir="1"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 4-4 4 4 4"/></svg></button>
+                <span class="adjust__val" data-adjust-val="x" aria-hidden="true">0</span>
+                <button type="button" class="adjust__btn" data-nudge="x" data-dir="-1"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button>
+              </div>
+            </div>
+            <div class="adjust__axis" role="group" aria-labelledby="adj-z">
+              <span class="adjust__name" id="adj-z">Forward</span>
+              <div class="adjust__step">
+                <button type="button" class="adjust__btn" data-nudge="z" data-dir="-1"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8"/></svg></button>
+                <span class="adjust__val" data-adjust-val="z" aria-hidden="true">0</span>
+                <button type="button" class="adjust__btn" data-nudge="z" data-dir="1"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8h8M8 4v8"/></svg></button>
+              </div>
+            </div>
           </div>
-          <div class="adjust__row">
-            <span class="adjust__name" id="adj-x">Sideways</span>
-            <button type="button" class="adjust__btn" data-nudge="x" data-dir="1">Left</button>
-            <output class="adjust__val" data-adjust-val="x" aria-labelledby="adj-x">0</output>
-            <button type="button" class="adjust__btn" data-nudge="x" data-dir="-1">Right</button>
-          </div>
-          <div class="adjust__row">
-            <span class="adjust__name" id="adj-z">Forward / back</span>
-            <button type="button" class="adjust__btn" data-nudge="z" data-dir="-1">Back</button>
-            <output class="adjust__val" data-adjust-val="z" aria-labelledby="adj-z">0</output>
-            <button type="button" class="adjust__btn" data-nudge="z" data-dir="1">Forward</button>
-          </div>
-          <p class="adjust__note">Just a preview. In game, open <b>Cosmetics</b> and use the arrows by the item to set where it sits; other players see it there.</p>
+          <p class="sr-only" aria-live="polite" data-adjust-say></p>
+          <p class="adjust__note">Half a skin pixel per tap. Left and right are the player’s own. Just a preview: in game, set it in <b>Cosmetics</b> and other players see it too.</p>
         </section>
 
         <div class="fit__panel" id="checkout">
