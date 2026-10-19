@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin.loading;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.Util;
@@ -31,7 +32,7 @@ public abstract class TitleScreenFadeMixin {
 	@Inject(method = "render", at = @At("HEAD"))
 	private void originclient$skipVanillaFade(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		if (this.fadeInStart == 0L && OriginScreenRenderer.isActive()
-				&& Mods.mode(Mods.GENERAL_ID, "mainMenuStyle").equals("Origin")) {
+				&& !OriginStyle.vanillaTitle()) {
 			this.fadeInStart = Util.getMillis() - 2001L;
 		}
 	}
