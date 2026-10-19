@@ -70,6 +70,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
 		// menus. Fails soft — if they don't load, the UI uses the software path.

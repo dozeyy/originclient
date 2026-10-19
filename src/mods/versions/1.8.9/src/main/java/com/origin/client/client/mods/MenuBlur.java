@@ -60,7 +60,7 @@ public final class MenuBlur {
 
 	/** Whether Menu Blur (rather than vanilla) draws this screen's backdrop. */
 	public static boolean handles(GuiScreen screen) {
-		return screen != null && !broken && Minecraft.getMinecraft().theWorld != null
+		return screen != null && !com.origin.client.client.OriginStyle.vanillaMenusOn(screen) && !broken && Minecraft.getMinecraft().theWorld != null
 				&& Mods.on(MOD) && Mods.bool(MOD, kind(screen))
 				&& OpenGlHelper.isFramebufferEnabled() && !IrisBridge.shadersActive();
 	}

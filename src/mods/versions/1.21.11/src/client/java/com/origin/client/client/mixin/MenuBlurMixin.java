@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.mods.MenuBlur;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -26,7 +27,7 @@ public class MenuBlurMixin {
 	@Inject(method = "renderBlurredBackground(Lnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$menuBlur(GuiGraphics guiGraphics, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
-		if (MenuBlur.handles(self)) {
+		if (!OriginStyle.vanillaMenusOn(self) && MenuBlur.handles(self)) {
 			MenuBlur.blur(guiGraphics);
 			ci.cancel();
 		}
@@ -36,7 +37,7 @@ public class MenuBlurMixin {
 	@Inject(method = "renderMenuBackground(Lnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$menuTint(GuiGraphics guiGraphics, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
-		if (MenuBlur.handles(self)) {
+		if (!OriginStyle.vanillaMenusOn(self) && MenuBlur.handles(self)) {
 			MenuBlur.tint(guiGraphics, self);
 			ci.cancel();
 		}
@@ -47,7 +48,7 @@ public class MenuBlurMixin {
 	@Inject(method = "renderTransparentBackground(Lnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$inventoryBlur(GuiGraphics guiGraphics, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
-		if (self instanceof AbstractContainerScreen<?> && MenuBlur.handles(self)) {
+		if (self instanceof AbstractContainerScreen<?> && !OriginStyle.vanillaMenusOn(self) && MenuBlur.handles(self)) {
 			MenuBlur.blur(guiGraphics);
 			MenuBlur.tint(guiGraphics, self);
 			ci.cancel();

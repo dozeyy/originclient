@@ -81,6 +81,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Lunar-parity mods' own pipelines (saturation glow, shine, glint, CUI).
 		com.origin.client.client.render.LunarPipelines.register();

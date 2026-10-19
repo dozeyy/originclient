@@ -1,6 +1,7 @@
 package com.origin.client.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.OriginModMenuScreen;
 import com.origin.client.client.mods.ChunkBorderRenderer;
 import com.origin.client.client.mods.MotionBlur;
@@ -78,6 +79,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
 		// menus. Fails soft — if they don't load, the UI uses the software path.
@@ -154,8 +156,9 @@ public class OriginClientMod implements ClientModInitializer {
 				try {
 					Minecraft mc = Minecraft.getInstance();
 					if (mc.level != null
-							|| !com.origin.client.client.render.OriginScreenRenderer.isActive()) {
-						return;
+							|| !com.origin.client.client.render.OriginScreenRenderer.isActive()
+							|| OriginStyle.vanillaMenusOn(s)) {
+						return;   // vanilla mode: Minecraft's own backdrop
 					}
 					if (com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(g)) {
 						boolean hovering = false;

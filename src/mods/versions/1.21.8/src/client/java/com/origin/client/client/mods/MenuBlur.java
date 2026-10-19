@@ -52,7 +52,7 @@ public final class MenuBlur {
 
 	/** Whether Menu Blur (rather than vanilla) draws this screen's backdrop. */
 	public static boolean handles(Screen screen) {
-		return screen != null && Minecraft.getInstance().level != null
+		return screen != null && !com.origin.client.client.OriginStyle.vanillaMenusOn(screen) && Minecraft.getInstance().level != null
 				&& Mods.on(MOD) && Mods.bool(MOD, kind(screen));
 	}
 
