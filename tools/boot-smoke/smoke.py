@@ -158,7 +158,10 @@ def _check_game_jvm(expected, verdict):
             # Loom wraps the game in `sh -c "... java ... KnotClient"` (xvfb-run); skip the
             # shell, the real JVM is the process whose binary is named java.
             real = os.path.realpath(f"/proc/{pid}/exe")
-            if b"KnotClient" in cmdline and os.path.basename(real).startswith("java"):
+            # Loom's launcher names devlaunchinjector on the command line, Knot is its main
+            # class: accept either (dev-shots.yml's pgrep does the same).
+            if (b"devlaunchinjector" in cmdline or b"KnotClient" in cmdline) \
+                    and os.path.basename(real).startswith("java"):
                 exe = real
                 break
         except OSError:

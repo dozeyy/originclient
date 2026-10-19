@@ -87,8 +87,11 @@ public final class OriginAssets {
 						.thenCompose(v -> barrier.wait(null));
 			}
 		});
-		// DEV ONLY: see registerDevFailOnce.
-		if ("social-failreload".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+		// DEV ONLY: see registerDevFailOnce. Both env vars, like OriginDevShots itself
+		// (ORIGIN_SHOTS is its output dir): a stray ORIGIN_SHOTS_SET alone must never
+		// fail a player's reload (vanilla's rollback would reset their pack selection).
+		if ("social-failreload".equals(System.getenv("ORIGIN_SHOTS_SET"))
+				&& System.getenv("ORIGIN_SHOTS") != null && !System.getenv("ORIGIN_SHOTS").isEmpty()) {
 			registerDevFailOnce();
 		}
 	}

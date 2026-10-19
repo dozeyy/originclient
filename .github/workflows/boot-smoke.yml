@@ -37,7 +37,7 @@ on:
         description: "Per-version hard timeout (seconds)"
         default: "360"
       only:
-        description: "Comma-separated modules to boot (blank = every row), e.g. 1.20,1.16.5"
+        description: "Comma-separated modules to boot (blank = every row), e.g. 1.20,1.17.1 (spaces are ignored; an unknown module fails the run)"
         default: ""
       gradle_args:
         description: "Extra Gradle args for runClient, e.g. --stacktrace (diagnostics)"
@@ -48,12 +48,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Normalises the `only` filter (spaces stripped) and FAILS on a name that is not a
+  # matrix row, so a typo can never skip every row and read as a green run.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      only: ${{ steps.only.outputs.only }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+      - name: Validate the module filter
+        id: only
+        env:
+          ONLY: ${{ github.event.inputs.only }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import os, re, sys
+          wanted = [t for t in re.sub(r"\s+", "", os.environ.get("ONLY", "")).split(",") if t]
+          rows = set(re.findall(r'\{ version: "([0-9][^"]*)"', open(".github/workflows/boot-smoke.yml").read()))
+          bad = [t for t in wanted if t not in rows]
+          if bad:
+              sys.exit("boot-smoke: not a matrix row: %s (rows: %s)" % (", ".join(bad), ", ".join(sorted(rows))))
+          print("only=" + ",".join(wanted))
+          EOF
+
   smoke:
     name: Boot ${{ matrix.version }}
+    needs: plan
     runs-on: ubuntu-latest
     # `only` filters rows: a job-level `if` can't see the matrix, so every step checks this.
     env:
-      SMOKE_ROW: ${{ github.event.inputs.only == '' || contains(format(',{0},', github.event.inputs.only), format(',{0},', matrix.version)) }}
+      SMOKE_ROW: ${{ needs.plan.outputs.only == '' || contains(format(',{0},', needs.plan.outputs.only), format(',{0},', matrix.version)) }}
     strategy:
       fail-fast: false
       matrix:
