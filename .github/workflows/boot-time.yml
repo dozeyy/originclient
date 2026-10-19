@@ -1,0 +1,156 @@
+# Boot time: how long from the JVM starting to an interactive Origin title
+# screen, measured, A/B. Boots a module's dev client headlessly several times
+# with the boot timeline on (OriginBootLog, -PbootLog: "[OriginBoot]" marks in
+# JVM uptime ms) and prints per-mark medians to the job summary.
+#
+# A/B on ONE runner: `base_ref` (variant a) and this ref (variant b) are both
+# checked out and built, then booted alternately (a b, b a, ...) so runner speed
+# and drift hit both alike. One warm-up boot per variant first (asset download,
+# first-run config files) is not counted: the measured boots are a returning
+# player's. `profile` adds one more boot per variant with a JFR CPU profile
+# (prof-<v>.jfr) and every reload listener's prepare/apply time (vanilla's
+# ProfiledReloadInstance lines), as artifacts.
+#
+# CI's llvmpipe software GL and 4 vCPUs are not a player's PC: compare a and b
+# as a relative change, never quote the absolute seconds as a player's.
+name: boot-time
+
+# Start it by hand (Run workflow, once this file is on main), or from a push to a
+# claude/** branch whose head commit message carries a tag:
+#   [boot-time base=<branch, tag or FULL 40-char sha> boots=5 profile module=1.21.1 java=21 label=x
+#              jvm_b=-XX:Foo,-XX:Bar mfx_b=mixin.perf.x=true,mixin.perf.y=false]
+# (every key optional; a bare [boot-time] measures this ref alone, 5 boots).
+# jvm_a/jvm_b add JVM args to one variant, mfx_a/mfx_b set its ModernFix options
+# (comma-separated). Every boot runs with the launcher's own JVM flags (Aikar's
+# set + -Xms4G -Xmx4G, like a player's launch) unless devjvm is given.
+# task=prodClient boots the built jar in a production (intermediary) Fabric game +
+# Fabric API, like a player's instance, instead of the dev game (task=runClient,
+# default; the dev game remaps every mixin target at runtime, ~1 s a player never
+# pays). gradle_a/gradle_b add gradle args to one variant (e.g. -PnoBootArgs);
+# selfab boots both variants from this ref (no base needed). Loop and flags:
+# tools/boot-time/run-all.sh.
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "Module under src/mods/versions/ (needs OriginBootLog: 1.21.1)"
+        default: "1.21.1"
+      base_ref:
+        description: "Ref/SHA to compare against (variant a); empty = only this ref (variant b)"
+        default: ""
+      boots:
+        description: "Measured boots per variant"
+        default: "5"
+      profile:
+        description: "Also one JFR-profiled boot per variant (+ per-listener reload times)"
+        type: boolean
+        default: false
+      java:
+        description: "JDK for Gradle (21; 25 for 26.x)"
+        default: "21"
+      label:
+        description: "Optional run name (keeps parallel runs from cancelling each other)"
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: boot-time-${{ github.ref }}-${{ github.event_name }}-${{ github.event.inputs.label || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  boot:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[boot-time')
+    name: Boot time
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Settings (inputs, or the commit message tag)
+        id: cfg
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+          I_MODULE: ${{ github.event.inputs.module }}
+          I_BASE: ${{ github.event.inputs.base_ref }}
+          I_BOOTS: ${{ github.event.inputs.boots }}
+          I_PROFILE: ${{ github.event.inputs.profile }}
+          I_JAVA: ${{ github.event.inputs.java }}
+          I_LABEL: ${{ github.event.inputs.label }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, re
+          cfg = {"module": "1.21.1", "base": "", "boots": "5", "profile": "false", "java": "21", "label": "",
+                 "jvm_a": "", "jvm_b": "", "mfx_a": "", "mfx_b": "", "devjvm": "false",
+                 "task": "runClient", "gradle_a": "", "gradle_b": "", "selfab": "false"}
+          if os.environ.get("I_MODULE"):
+              cfg.update(module=os.environ["I_MODULE"], base=os.environ.get("I_BASE", ""),
+                         boots=os.environ.get("I_BOOTS") or "5", profile=os.environ.get("I_PROFILE") or "false",
+                         java=os.environ.get("I_JAVA") or "21", label=os.environ.get("I_LABEL", ""))
+          else:
+              m = re.findall(r"\[boot-time([^\]]*)\]", os.environ.get("MSG", ""))
+              for tok in (m[-1].split() if m else []):
+                  if tok in ("profile", "devjvm", "selfab"):
+                      cfg[tok] = "true"
+                  elif "=" in tok:
+                      k, v = tok.split("=", 1)
+                      if k in cfg and re.fullmatch(r"[A-Za-z0-9._/=,:+-]+", v):
+                          cfg[k] = v
+          if cfg["task"] not in ("runClient", "prodClient"):
+              cfg["task"] = "runClient"
+          if not re.fullmatch(r"\d{1,2}", cfg["boots"]):
+              cfg["boots"] = "5"
+          for k, v in cfg.items():
+              print(f"{k}={v}")
+          PY
+
+      - name: Check out this ref (variant b)
+        uses: actions/checkout@v7
+        with:
+          path: b
+
+      - name: Check out base ref (variant a)
+        if: steps.cfg.outputs.base != ''
+        uses: actions/checkout@v7
+        with:
+          path: a
+          ref: ${{ steps.cfg.outputs.base }}
+
+      - name: Set up Java ${{ steps.cfg.outputs.java }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ steps.cfg.outputs.java }}
+
+      - name: Headless GL deps (Xvfb + Mesa software rasterizer)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
+
+      - name: Boot ${{ steps.cfg.outputs.module }} (warm-up, then measured boots)
+        env:
+          MODULE: ${{ steps.cfg.outputs.module }}
+          BOOTS: ${{ steps.cfg.outputs.boots }}
+          PROFILE: ${{ steps.cfg.outputs.profile }}
+          JVM_A: ${{ steps.cfg.outputs.jvm_a }}
+          JVM_B: ${{ steps.cfg.outputs.jvm_b }}
+          MFX_A: ${{ steps.cfg.outputs.mfx_a }}
+          MFX_B: ${{ steps.cfg.outputs.mfx_b }}
+          DEVJVM: ${{ steps.cfg.outputs.devjvm }}
+          TASK: ${{ steps.cfg.outputs.task }}
+          GRADLE_A: ${{ steps.cfg.outputs.gradle_a }}
+          GRADLE_B: ${{ steps.cfg.outputs.gradle_b }}
+          SELFAB: ${{ steps.cfg.outputs.selfab }}
+        run: |
+          bash b/tools/boot-time/run-all.sh "$GITHUB_WORKSPACE" "$RUNNER_TEMP/boots"
+          cat "$RUNNER_TEMP/boots/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Keep the logs (and profiles) as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-time-${{ steps.cfg.outputs.module }}${{ steps.cfg.outputs.label != '' && format('-{0}', steps.cfg.outputs.label) || '' }}
+          path: ${{ runner.temp }}/boots/
+          if-no-files-found: warn

@@ -77,6 +77,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginBootLog.mark("origin-client-init-begin");
 		OriginKeyBindings.register();
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
 		// menus. Fails soft — if they don't load, the UI uses the software path.
@@ -247,6 +248,7 @@ public class OriginClientMod implements ClientModInitializer {
 				return true; // fail-soft: let vanilla draw its outline
 			}
 		});
+		OriginBootLog.mark("origin-client-init-end");
 	}
 
 	// Lunar parity, batch 3a (chat / server): per-tick work. Each in its own

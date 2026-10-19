@@ -43,7 +43,10 @@ public static class LaunchProfileBuilder
         var flags = new List<string>();
 
         if (custom is not { ReplacePresets: true })
+        {
             flags.AddRange(JvmArgPresets.AikarsFlags);
+            flags.AddRange(JvmArgPresets.BootArgsFor(version));
+        }
 
         if (custom != null)
             flags.AddRange(JvmArgLine.Split(custom.Arguments));

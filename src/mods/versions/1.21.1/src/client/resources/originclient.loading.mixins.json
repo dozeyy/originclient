@@ -17,7 +17,10 @@
 		"FrameLogTitleMixin",
 		"ReloadTaskTagMixin",
 		"SimpleReloadInstanceAccessor",
-		"FrameLogOverlayMixin"
+		"FrameLogOverlayMixin",
+		"BootLogMixin",
+		"BootLogReloadMixin",
+		"StartupInputMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

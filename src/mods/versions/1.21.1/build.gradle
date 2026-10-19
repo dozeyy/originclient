@@ -80,6 +80,15 @@ loom {
 	// out of the class instead of inferred from silence.
 	runs {
 		client {
+			// The launcher's boot flags for 1.21.1 (src/OriginLauncher.App/Core/Launch/
+			// JvmArgPresets.cs BootArgsFor), so every dev run, dev shot and boot-time
+			// measurement runs the game the way a player's launch does. ModernFix
+			// dynamic_resources: block/item models are baked when first used instead of
+			// all of them under the loading screen (boot-time A/B, 2026-10-19).
+			// `-PnoBootArgs` drops them (to measure or shoot the game without).
+			if (!project.hasProperty("noBootArgs")) {
+				vmArg "-Dmodernfix.config.mixin.perf.dynamic_resources=true"
+			}
 			if (project.hasProperty("quickplay")) {
 				programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
 			}
@@ -93,6 +102,33 @@ loom {
 			if (project.hasProperty("frameLog")) {
 				property "origin.frameLog", "true"
 				vmArg "-Xlog:gc:stdout:uptime,level,tags"
+			}
+			// `-PbootLog`: the boot timeline (OriginBootLog, lines start "[OriginBoot]"):
+			// JVM start -> interactive title screen. `-PbootQuit` closes the game a few
+			// seconds after the title is interactive (CI boots it again);
+			// `-PreloadProfile` logs every reload listener's prepare/apply time;
+			// `-PbootJfr=<file>` records a JFR CPU profile of the whole boot.
+			// .github/workflows/boot-time.yml drives these.
+			if (project.hasProperty("bootLog")) {
+				property "origin.bootLog", "true"
+			}
+			if (project.hasProperty("bootQuit")) {
+				property "origin.bootLog.quit", "true"
+			}
+			if (project.hasProperty("reloadProfile")) {
+				property "origin.bootLog.reloadProfile", "true"
+			}
+			// `-PbootWorld`: then open a fixed world and time its terrain (OriginBootWorld).
+			if (project.hasProperty("bootWorld")) {
+				property "origin.bootLog.world", "true"
+			}
+			// `-PbootJvmArgs=-Xms4G,-Xmx4G,...`: extra JVM args, comma-separated (boot-time.yml
+			// boots with the launcher's own flag set this way).
+			if (project.hasProperty("bootJvmArgs")) {
+				project.property("bootJvmArgs").toString().split(",").each { if (!it.isBlank()) vmArg it.trim() }
+			}
+			if (project.hasProperty("bootJfr")) {
+				vmArg "-XX:StartFlightRecording=filename=" + file(project.property("bootJfr").toString()).absolutePath + ",settings=profile,dumponexit=true"
 			}
 			// `-PextraMods=<folder>`: also load every mod jar in that folder (Fabric
 			// Loader's fabric.addMods), without copying anything into run/mods.
@@ -211,9 +247,42 @@ tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask
 		mods.from(fileTree(project.property("extraMods").toString()) { include "*.jar" })
 	}
 	runDir = file("run-prod")
+	// Same launcher boot flags as runClient above.
+	if (!project.hasProperty("noBootArgs")) {
+		jvmArgs.add("-Dmodernfix.config.mixin.perf.dynamic_resources=true")
+	}
 	if (project.hasProperty("frameLog")) {
 		jvmArgs.add("-Dorigin.frameLog=true")
 		jvmArgs.add("-Xlog:gc:stdout:uptime,level,tags")
+	}
+	// `-PwithFabricApi`: add Fabric API from maven (the intermediary jar a player's
+	// instance gets), for a run with no -PextraMods folder to bring it. Together with
+	// the boot-time switches below this is the boot-time workflow's `task=prodClient`:
+	// the boot a player's 1.21.1 instance does, without the dev game's runtime
+	// remapping of every mixin target (~1 s of the dev boot, JFR 2026-10-19).
+	if (project.hasProperty("withFabricApi")) {
+		def api = configurations.detachedConfiguration(dependencies.create("net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"))
+		api.transitive = false
+		mods.from(api)
+	}
+	// Same boot-time switches as runClient above (boot-time.yml).
+	if (project.hasProperty("bootLog")) {
+		jvmArgs.add("-Dorigin.bootLog=true")
+	}
+	if (project.hasProperty("bootQuit")) {
+		jvmArgs.add("-Dorigin.bootLog.quit=true")
+	}
+	if (project.hasProperty("reloadProfile")) {
+		jvmArgs.add("-Dorigin.bootLog.reloadProfile=true")
+	}
+	if (project.hasProperty("bootWorld")) {
+		jvmArgs.add("-Dorigin.bootLog.world=true")
+	}
+	if (project.hasProperty("bootJvmArgs")) {
+		project.property("bootJvmArgs").toString().split(",").each { if (!it.isBlank()) jvmArgs.add(it.trim()) }
+	}
+	if (project.hasProperty("bootJfr")) {
+		jvmArgs.add("-XX:StartFlightRecording=filename=" + file(project.property("bootJfr").toString()).absolutePath + ",settings=profile,dumponexit=true")
 	}
 }
 
