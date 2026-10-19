@@ -200,7 +200,7 @@ jobs:
               # launcher (Core/Loaders/ForgeSplashTheme.cs -- keep these values
               # identical, test_ci_gates.py checks), so the film shows that, not Forge red.
               mkdir -p "$rundir/config"
-              printf 'enabled=true\nbackground=0x050505\nfont=0xF5F5F5\nbar=0xE0E0E0\nbarBorder=0x3A3A3A\nbarBackground=0x161616\n' > "$rundir/config/splash.properties"
+              printf 'enabled=true\nbackground=0x5A5A5A\nfont=0xF5F5F5\nbar=0xE0E0E0\nbarBorder=0x1E1E1E\nbarBackground=0x3A3A3A\n' > "$rundir/config/splash.properties"
             fi
             Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
             xvfb=$!
