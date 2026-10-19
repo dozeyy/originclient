@@ -194,6 +194,18 @@
             <ContentControl x:Name="SignInPanelHost"/>
         </Border>
 
+        <!-- Import drawer (ImportPanel): the same right-hand drawer as Friends, 380 px, over the shared Scrim.
+             Only one drawer is open at once; a scrim click never closes it while an import is writing. -->
+        <Border x:Name="ImportDrawer" Width="380" HorizontalAlignment="Right"
+                Background="{StaticResource Brush.PanelElevated}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1,0,0,0"
+                Visibility="Collapsed" IsHitTestVisible="False">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="ImportDrawerTransform" X="380"/>
+            </Border.RenderTransform>
+            <ContentControl x:Name="ImportPanelHost"/>
+        </Border>
+
         <!-- Social toasts, above everything. Moves left of the Friends drawer while it's open. -->
         <controls:SocialToastHost x:Name="Toasts" Width="320"
                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"/>

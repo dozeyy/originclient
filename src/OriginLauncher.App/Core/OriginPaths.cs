@@ -60,6 +60,14 @@ public static class OriginPaths
     // Which account inherited the old one-folder-per-version game data
     // (Core/GameFolders/InstanceMigration.cs).
     public static string AccountMigrationMarker => Path.Combine(Instances, "account-migration.json");
+
+    // Import from another Minecraft instance (Core/Import): each run lives in
+    // imports/<importId>/ with its journal.json (what was created or replaced,
+    // so a cancel, failure or crash can be undone), backup/ (the files an
+    // import replaced), staging/ (big trees are copied here, then renamed in),
+    // import.log and summary.txt. The pure engine takes this as a parameter
+    // (ImportLayout) and never reads this property itself.
+    public static string Imports => Path.Combine(Root, "imports");
     public static string Accounts => Path.Combine(Root, "accounts");
     public static string Logs => Path.Combine(Root, "logs");
 

@@ -5,6 +5,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using OriginLauncher.App.Core.Auth;
+using OriginLauncher.App.Core.Import;
+using OriginLauncher.App.Core.Import.Launcher;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.Core.Updates;
@@ -25,6 +27,9 @@ public partial class MainWindow : Window
     private bool _accountPanelOpen;
     private bool _signInPanelOpen;
     private bool _friendsOpen;
+    private bool _importPanelOpen;
+    private ImportPanel? _importPanel;
+    private bool _promptChecking;
     private bool _syncingNavigation;
     private LauncherPage _currentPage = LauncherPage.Home;
 
@@ -58,6 +63,8 @@ public partial class MainWindow : Window
             if (_currentPage == LauncherPage.Mods) _modsPage.ShowVersion(_homePage.CurrentVersion);
             // Friends belong to the selected account: sign in again as it.
             SocialHub.Service.ResetAccount();
+            // A player who just signed in for the first time can now be offered the one-time import card.
+            _ = MaybeShowImportPromptAsync();
         };
         _accountPanel.AccountSelected += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AddAccountRequested += (_, _) => OpenSignInPanel();
@@ -68,6 +75,11 @@ public partial class MainWindow : Window
         Scrim.IsVisibleChanged += (_, _) => _homePage.SetChromeOverlayOpen(Scrim.IsVisible);
 
         NavHome.IsChecked = true;
+
+        _profilesPage.ImportRequested += (_, _) => OpenImportPanel();
+        _homePage.ImportCard.ImportRequested += (_, _) => OpenImportPanel();
+        HookImportWiring(); // MainWindow.ImportWiring.cs: closing mid-import, recovery refresh, run-state refusals, the page behind the panel
+        ContentRendered += async (_, _) => await AfterFirstRenderAsync();
 
         InitSocial();
 
@@ -107,6 +119,8 @@ public partial class MainWindow : Window
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
     {
         if (UpdateService.Available is not { } update) return;
+        // An import running now (or started while this downloads) is waited for before the restart, and no new
+        // import can open or apply once the download is under way (Core/Import/Launcher/UpdateRunState).
 
         UpdateBadge.IsEnabled = false;
         UpdateBadge.ToolTip = "Updating...";
@@ -118,9 +132,15 @@ public partial class MainWindow : Window
         NavigateTo(LauncherPage.Home);
         var onScene = _currentPage == LauncherPage.Home
                       && _homePage.BeginUpdateScene(update.Version.ToString());
+        var toldAboutImport = false;
         var progress = new Progress<UpdateService.UpdateProgress>(p =>
         {
             UpdateBadge.ToolTip = p.Describe();
+            if (p.Stage == UpdateService.UpdateStage.FinishingImport && !toldAboutImport)
+            {
+                toldAboutImport = true;
+                ToastFinishingImportBeforeUpdate(); // MainWindow.ImportWiring.cs
+            }
             if (onScene) _homePage.ReportUpdate(p);
         });
 
@@ -246,12 +266,12 @@ public partial class MainWindow : Window
 
     private void FriendsButton_Click(object sender, RoutedEventArgs e) => SetFriendsOpen(!_friendsOpen);
 
-    private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen;
+    private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen || _importPanelOpen;
 
     private void SetFriendsOpen(bool open)
     {
         if (open == _friendsOpen) return;
-        if (open && _signInPanelOpen) return; // finish (or cancel) signing in first
+        if (open && (_signInPanelOpen || _importPanelOpen)) return; // finish (or cancel) signing in or importing first
         if (open && _accountPanelOpen) SetAccountPanelOpen(false);
 
         _friendsOpen = open;
@@ -512,7 +532,8 @@ public partial class MainWindow : Window
 
     private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_signInPanelOpen) CloseSignInPanel();
+        if (_importPanelOpen) { _ = _importPanel?.RequestClose(); }
+        else if (_signInPanelOpen) CloseSignInPanel();
         else if (_friendsOpen) SetFriendsOpen(false);
         else SetAccountPanelOpen(false);
     }
@@ -590,11 +611,152 @@ public partial class MainWindow : Window
             HandoffBehavior.SnapshotAndReplace);
     }
 
+    // ---- import from another Minecraft launcher (UI/Controls/ImportPanel) -------------
+
+    // Opens the import card (the Profiles page's Import button, the first-run card, `--import`). The scan
+    // starts here, when the card opens - never at launcher startup. The backend is the real one unless
+    // the CI screen render passes a made-up one.
+    private void OpenImportPanel(IImportBackend? backend = null)
+    {
+        if (_importPanelOpen || _signInPanelOpen) return;
+        if (ImportBlockedByUpdate()) return; // MainWindow.ImportWiring.cs: an update is downloading / restarting
+        if (_accountPanelOpen) SetAccountPanelOpen(false);
+        if (_friendsOpen) SetFriendsOpen(false);
+        _homePage.ImportCard.Hide();
+        MarkImportPromptSeen(); // any way in (Profiles, the Home card, --import, a second launch): the card never offers it again
+
+        var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend());
+        // A launch starting or an update running turns Import off: the panel learns the sentence now and on every
+        // change (MainWindow.ImportWiring.cs PushImportRefusal); the window's close asks it as an IImportCloseHost.
+        panel.SetRefusal(ImportHooks.Refusal());
+        panel.CloseRequested += (_, _) => CloseImportPanel();
+        panel.Imported += (_, _) =>
+        {
+            // The import changed the selected version and added a profile: Home picks both up.
+            _homePage.RefreshProfile();
+        };
+        _importPanel = panel;
+        ImportPanelHost.Content = panel;
+        SetImportPanelOpen(true);
+        panel.Start();
+    }
+
+    private void CloseImportPanel()
+    {
+        if (!_importPanelOpen) return;
+        SetImportPanelOpen(false);
+        _importPanel?.Dispose(); // cancels a scan or plan in flight; the drawer's content stays until it has slid out
+        _importPanel = null;
+    }
+
+    // Slides the Import drawer in and out exactly like the Friends drawer (SetFriendsOpen): the same ease, Motion.Scene in
+    // and Motion.Exit out, the shared Scrim 0 <-> 0.5, the toasts shift left of it. The page behind is switched off while
+    // it is open, so the keyboard cannot reach it either.
+    private void SetImportPanelOpen(bool open)
+    {
+        _importPanelOpen = open;
+        OnImportPanelOpenChanged(open); // MainWindow.ImportWiring.cs: the page behind goes inert / comes back, focus restored
+        Toasts.Margin = new Thickness(0, 0, open ? ImportDrawer.Width + 20 : 20, 20);
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
+
+        if (open)
+        {
+            Scrim.Visibility = Visibility.Visible;
+            ImportDrawer.Visibility = Visibility.Visible;
+        }
+        ImportDrawer.IsHitTestVisible = open;
+
+        var slide = new DoubleAnimation(open ? 0 : ImportDrawer.Width, duration) { EasingFunction = ease };
+        slide.Completed += (_, _) =>
+        {
+            if (!_importPanelOpen)
+            {
+                ImportDrawer.Visibility = Visibility.Collapsed;
+                ImportPanelHost.Content = null;
+                if (!AnyDrawerOpen) Scrim.Visibility = Visibility.Collapsed;
+            }
+        };
+        ImportDrawerTransform.BeginAnimation(TranslateTransform.XProperty, slide, HandoffBehavior.SnapshotAndReplace);
+
+        var scrimOn = open || AnyDrawerOpen;
+        Scrim.IsHitTestVisible = scrimOn;
+        Scrim.BeginAnimation(OpacityProperty, new DoubleAnimation(scrimOn ? 0.5 : 0.0, duration), HandoffBehavior.SnapshotAndReplace);
+
+        if (open)
+            Dispatcher.BeginInvoke(() => ImportPanelHost.MoveFocus(new TraversalRequest(FocusNavigationDirection.First)));
+    }
+
+    // After the first window is up: tell the player about an import that was rolled back at start (the
+    // recovery itself ran on the thread pool), open the import card for `--import`, or - once, and only
+    // when another launcher is found and the player could import - offer it.
+    private async Task AfterFirstRenderAsync()
+    {
+        await ShowRecoveryResultAsync(); // MainWindow.ImportWiring.cs: the toast, and Home/Profiles refreshed after a rollback
+
+        if (App.IsRenderMode) return;
+        if (App.StartWithImport)
+        {
+            await Task.Delay(1200); // let the opening animation finish
+            OpenImportPanel();
+            return;
+        }
+        await Task.Delay(3000); // never compete with startup
+        await MaybeShowImportPromptAsync();
+    }
+
+    private async Task MaybeShowImportPromptAsync()
+    {
+        if (_promptChecking || App.IsRenderMode || App.StartWithImport) return;
+        _promptChecking = true;
+        try
+        {
+            // Off the UI thread: the settings read, the account check and the quick scan (MainWindow.ImportWiring.cs).
+            var question = await ComputeImportPromptQuestionAsync();
+            if (question == null || _importPanelOpen) return;
+
+            // The card sits in Home's banner slot (it shows when Home does), and stays out while Import would be refused
+            // (a game starting, an update): never offer a click that lands on a refusal.
+            _homePage.ImportCard.SetRefusal(ImportHooks.Refusal()); // and again on every change (PushImportRefusal)
+            _homePage.ImportCard.ShowQuestion(question);
+            // Shown once: set the moment it appears, so it never comes back.
+            _ = Task.Run(() => Core.SettingsStore.Update(s => s.ImportPromptSeen = true));
+        }
+        catch (Exception)
+        {
+            // a failed look for other launchers just means no card
+        }
+        finally
+        {
+            _promptChecking = false;
+        }
+    }
+
+    // ---- render mode (CI): the import card with a made-up backend, never the real machine ----
+
+    internal ImportPanel TourOpenImport(IImportBackend backend)
+    {
+        if (_importPanelOpen) CloseImportPanel();
+        OpenImportPanel(backend);
+        return _importPanel!;
+    }
+
+    internal void TourCloseImport() => CloseImportPanel();
+
+    // CI screen render: the backend a real click on Import gets (never the real machine).
+    internal Func<IImportBackend>? TourBackendFactory { get; set; }
+
+    internal void TourClickProfilesImport() => _profilesPage.TourClickImport();
+
+    internal ImportPromptCard TourImportPrompt => _homePage.ImportCard;
+
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
         {
-            if (_signInPanelOpen) CloseSignInPanel();
+            if (_importPanelOpen) _importPanel?.HandleEscape();
+            else if (_signInPanelOpen) CloseSignInPanel();
             else if (_accountPanelOpen) SetAccountPanelOpen(false);
             else if (_friendsOpen)
             {
@@ -604,6 +766,9 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
+
+        // The import card is modal: no page shortcuts, and Enter belongs to it.
+        if (_importPanelOpen) return;
 
         // A Home scene owns the keyboard while it is open. In particular,
         // Ctrl+1/2/3/4 must not navigate behind the version picker and leave it

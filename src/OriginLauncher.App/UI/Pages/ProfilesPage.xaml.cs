@@ -71,6 +71,9 @@ public partial class ProfilesPage : UserControl
 
     internal void TourOpenForm() => OpenForm(null);
 
+    /// <summary>CI screen render: presses the header's Import button the way a click does.</summary>
+    internal void TourClickImport() => ImportButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+
     private LauncherSettings Current() => _demo ?? SettingsStore.Load();
 
     // ---- list ------------------------------------------------------------
@@ -281,6 +284,11 @@ public partial class ProfilesPage : UserControl
     // ---- create / edit form ----------------------------------------------
 
     private void NewButton_Click(object sender, RoutedEventArgs e) => OpenForm(null);
+
+    /// <summary>The header's Import button: MainWindow opens the import card (Core/Import, UI/Controls/ImportPanel).</summary>
+    public event EventHandler? ImportRequested;
+
+    private void ImportButton_Click(object sender, RoutedEventArgs e) => ImportRequested?.Invoke(this, EventArgs.Empty);
 
     private void OpenForm(ModProfile? editing)
     {

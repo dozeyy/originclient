@@ -417,7 +417,8 @@ public partial class SetupWindow : Window
         var exe = Path.Combine(dir, InstallLocation.LauncherExe);
         try
         {
-            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = dir });
+            // The finish page's optional checkbox: open straight into the launcher's import card.
+            Process.Start(FinishLaunch.StartInfo(exe, dir, ImportToggle.IsChecked == true));
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is FileNotFoundException)
         {

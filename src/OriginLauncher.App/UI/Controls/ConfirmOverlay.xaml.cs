@@ -21,7 +21,7 @@ public partial class ConfirmOverlay : UserControl
     /// false), matching the launcher's "newest action wins" rule.
     /// </summary>
     public Task<bool> ShowAsync(string title, string message, string primaryText, string secondaryText,
-        bool destructive = false)
+        bool destructive = false, bool focusSecondary = false)
     {
         _tcs?.TrySetResult(false);
 
@@ -38,8 +38,9 @@ public partial class ConfirmOverlay : UserControl
         Focus();
         // Enter does what the focused button does and Esc cancels. A normal question starts on the
         // primary action; a destructive one (Remove, Block, Kick) starts on CANCEL, so a double
-        // tap of Enter can never confirm it.
-        (destructive ? SecondaryButton : PrimaryButton).Focus();
+        // tap of Enter can never confirm it. focusSecondary does the same without the red button:
+        // for a primary action that is merely risky (cancelling an import), so Enter keeps things as they are.
+        (destructive || focusSecondary ? SecondaryButton : PrimaryButton).Focus();
         return _tcs.Task;
     }
 

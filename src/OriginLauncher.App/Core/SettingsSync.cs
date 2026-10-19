@@ -119,7 +119,7 @@ public static class SettingsSync
         return instances;
     }
 
-    private static bool IsGameRunning(string instanceDirectory)
+    internal static bool IsGameRunning(string instanceDirectory)
     {
         if (RunningGames.TryGetValue(instanceDirectory, out var process))
         {

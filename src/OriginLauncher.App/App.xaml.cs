@@ -14,6 +14,12 @@ public partial class App : Application
     // folder is a corruption class, not a feature.
     private static System.Threading.Mutex? _singleInstanceMutex;
 
+    /// <summary>`--render-shots` (CI): the real window with made-up data; nothing reads this PC.</summary>
+    internal static bool IsRenderMode { get; private set; }
+
+    /// <summary>`--import`: the installer's finish-page checkbox. The launcher starts normally, then opens straight into the import card.</summary>
+    internal static bool StartWithImport { get; private set; }
+
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
@@ -22,12 +28,26 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // `--import-plan <out.json>`: a read-only dry run of the import against this PC (Core/Import/Launcher/
+        // ImportPlanReport). No window, no single-instance guard, and NOTHING below this block runs - in
+        // particular not EnsureScaffold or the recovery - so no Origin folder is created or written. It writes
+        // only the one json file and exits (0 written, 2 refused, 1 failed).
+        var dryRun = Array.IndexOf(e.Args, "--import-plan");
+        if (dryRun >= 0 && dryRun + 1 < e.Args.Length)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var code = Core.Import.Launcher.ImportPlanReport.Run(e.Args[dryRun + 1]);
+            Shutdown(code);
+            return;
+        }
+
         // CI screen render (UI/RenderShots.cs): no single-instance guard, no
         // main window of its own, no motion; pictures, then exit (1 = failed).
         var render = Array.IndexOf(e.Args, "--render-shots");
         if (render >= 0 && render + 1 < e.Args.Length)
         {
             var outDir = e.Args[render + 1];
+            IsRenderMode = true;
             var scratch = System.IO.Path.Combine(
                 System.IO.Path.GetTempPath(), "origin-render-shots-" + Guid.NewGuid().ToString("N"));
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -59,6 +79,8 @@ public partial class App : Application
             return;
         }
 
+        StartWithImport = Array.IndexOf(e.Args, "--import") >= 0;
+
 		var mutexName = @"Local\OriginLauncher.SingleInstance";
 #if DEBUG
 		// A locally built launcher must not hand focus to an older installed
@@ -74,7 +96,9 @@ public partial class App : Application
             initiallyOwned: true, mutexName, out var isFirst);
         if (!isFirst)
         {
-            // Another launcher is already running — front it and bow out.
+            // `--import` must not be lost: hand the request to the running launcher (one fixed word over a
+            // per-user pipe, short timeout; Core/Import/Launcher/ImportIpc), then front it and bow out.
+            if (StartWithImport) Core.Import.Launcher.ImportIpc.TrySend(ImportPipeName(mutexName));
             FocusExistingInstance();
             Shutdown();
             return;
@@ -90,6 +114,9 @@ public partial class App : Application
 
         OriginPaths.EnsureScaffold();
         System.Threading.Tasks.Task.Run(DeleteLegacySignInProfile);
+        // An import that was interrupted last time (crash, power cut) is rolled back, on the thread pool;
+        // MainWindow tells the player once the first window is up (Core/Import/Launcher/ImportStartup).
+        Core.Import.Launcher.ImportStartup.StartRecovery();
 
         // Per-account game folders (Core/GameFolders): the first run of this
         // code moves each version's old single game folder into the selected
@@ -116,8 +143,31 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
 
+        // Listens for a second launch's `--import` (see above). A pool thread; the window is opened on the UI thread.
+        _importIpc = new Core.Import.Launcher.ImportIpcServer(
+            ImportPipeName(mutexName), OnImportRequestedByAnotherInstance, Core.Import.Launcher.ImportLog.Write);
+        _importIpc.Start();
+
         new MainWindow().Show();
     }
+
+    private static Core.Import.Launcher.ImportIpcServer? _importIpc;
+
+    // The pipe a second `--import` launch talks to: named from this user's SID and logon session (never the
+    // account name, which is guessable and can collide between a local and a domain account).
+    private static string ImportPipeName(string mutexName)
+    {
+        var sid = System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
+        return Core.Import.Launcher.ImportIpc.PipeName(mutexName, sid, System.Diagnostics.Process.GetCurrentProcess().SessionId);
+    }
+
+    private void OnImportRequestedByAnotherInstance() => Dispatcher.BeginInvoke(() =>
+    {
+        if (Current.MainWindow is OriginLauncher.App.MainWindow { IsLoaded: true } window)
+            window.OpenImportFromAnotherInstance();
+        else
+            StartWithImport = true; // the window is still opening: it opens the import panel itself once it is up
+    });
 
     private static void WriteRenderError(string outDir, string? error)
     {

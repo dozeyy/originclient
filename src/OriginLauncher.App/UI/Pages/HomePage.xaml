@@ -163,7 +163,24 @@
                 </StackPanel>
             </Border>
 
-            <controls:PromoBanner x:Name="PromoBanner" Margin="0,16,0,0"/>
+            <!-- The banner's slot. The one-time import offer takes it over while it shows (same footprint, same
+                 gap above: its margin follows the banner's, which ApplyDensity sets) and the banner returns when
+                 it is answered. -->
+            <Grid>
+                <controls:PromoBanner x:Name="PromoBanner" Margin="0,16,0,0">
+                    <controls:PromoBanner.Style>
+                        <Style TargetType="controls:PromoBanner">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Visibility, ElementName=ImportCard}" Value="Visible">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </controls:PromoBanner.Style>
+                </controls:PromoBanner>
+                <controls:ImportPromptCard x:Name="ImportCard"
+                                           Margin="{Binding Margin, ElementName=PromoBanner}"/>
+            </Grid>
         </StackPanel>
 
         <!-- Version picker sits above Home content but below the launch overlay

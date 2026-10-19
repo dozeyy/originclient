@@ -139,6 +139,32 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Row button: a whole list row that is also a button (the import panel's
+         instance list). Same states as Secondary (hover steps one surface up,
+         press, 2 px emerald focus frame, 45% disabled) but the content stretches
+         and left-aligns instead of centering, and the corners are the row radius. -->
+    <Style x:Key="Button.Row" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="14,10"/>
+        <Setter Property="MinHeight" Value="44"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bg"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Radius.Row}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Title-bar icon buttons (minimize/close/account): transparent at rest.
          Uses a same-RGB alpha-0 color as the rest state so the hover fade only
          animates alpha, avoiding the white-flash artifact of animating toward

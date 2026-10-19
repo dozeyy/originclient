@@ -47,6 +47,9 @@ public static class RenderShots
 
         Snap(window, outDir, "01-home");
 
+        // The one-time import card in Home's banner slot, at the normal and the smallest window (before anything makes Home "running").
+        ImportShots.RunHomeCard(window, outDir);
+
         window.TourSetFriendsOpen(true);
         Pump(600);
         Snap(window, outDir, "02-friends");
@@ -122,6 +125,9 @@ public static class RenderShots
         Snap(window, outDir, "07-play-running");
 
         SnapBanners(window, outDir);
+
+        // Import from another launcher: every state of the card, with a made-up backend.
+        ImportShots.Run(window, outDir);
 
         // The other pages and overlays, so a restyle is checked on all of them.
         window.TourHideLaunch();
@@ -284,7 +290,9 @@ public static class RenderShots
     /// window's visual tree that DPI (<see cref="SetTreeDpi"/>), so layout rounding and text are laid out
     /// for it exactly as on a scaled monitor; this only rasterizes at the matching pixel density.
     /// </summary>
-    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null)
+    /// <param name="adorners">Also draw the window's adorner layer (it sits outside window.Content): WPF's own keyboard
+    /// focus frame lives there, so the focus shots (ImportShots 42/42b) pass true.</param>
+    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null, bool adorners = false)
     {
         window.UpdateLayout();
         var root = (FrameworkElement)window.Content;
@@ -307,6 +315,7 @@ public static class RenderShots
         }
         bitmap.Render(backed);
         bitmap.Render(root);
+        if (adorners && System.Windows.Documents.AdornerLayer.GetAdornerLayer(root) is { } layer) bitmap.Render(layer);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using (var file = File.Create(Path.Combine(dir, name + ".png")))

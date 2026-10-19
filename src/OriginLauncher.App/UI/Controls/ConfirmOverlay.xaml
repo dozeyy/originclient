@@ -5,7 +5,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
              Visibility="Collapsed"
-             IsHitTestVisible="True">
+             IsHitTestVisible="True"
+             KeyboardNavigation.TabNavigation="Contained"
+             KeyboardNavigation.DirectionalNavigation="Contained">
 
     <!-- Modal confirm dialog in the launcher's own visual language (a layered
          card over a dim scrim), not a Win32 MessageBox. Awaited via ShowAsync;
