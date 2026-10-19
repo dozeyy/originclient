@@ -78,4 +78,14 @@ public abstract class FrameLogMixin {
 	private void originclient$waitEnd(boolean renderLevel, CallbackInfo ci) {
 		OriginFrameLog.waitEnd();
 	}
+
+	@Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen(II)V"))
+	private void originclient$blitBegin(boolean renderLevel, CallbackInfo ci) {
+		OriginFrameLog.blitBegin();
+	}
+
+	@Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen(II)V", shift = At.Shift.AFTER))
+	private void originclient$blitEnd(boolean renderLevel, CallbackInfo ci) {
+		OriginFrameLog.blitEnd();
+	}
 }
