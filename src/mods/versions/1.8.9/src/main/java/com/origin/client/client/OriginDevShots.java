@@ -50,7 +50,17 @@ public final class OriginDevShots {
 		// the mod menu with "Solid Menu Background" off (the see-through mode)
 		MENU_CLEAR,
 		// Friends (social/SocialDemo fills it): a chat, then the party
-		FRIENDS, FRIENDS_PARTY;
+		FRIENDS, FRIENDS_PARTY,
+		// ORIGIN_SHOTS_SET=social (the 2026-10-18 social redesign): every Friends state, the toasts, the entry points
+		SOC_CHAT, SOC_PARTY, SOC_HOME, SOC_OFFLINE, SOC_EMPTY, SOC_SIGNEDOUT, SOC_UNREACHABLE,
+		SOC_STRESS_CHAT, SOC_STRESS_PARTY, SOC_TOASTS, SOC_RSHIFT, SOC_MENU,
+		// the redesign's new states: add-by-name row, filtered list, the "..." menu, the invite picker, a result pill
+		SOC_ADD, SOC_FILTER, SOC_MENU_FRIEND, SOC_MENU_INVITE, SOC_NOTICE,
+		// ORIGIN_SHOTS_SET=social-act: scripted synthetic input (FriendsScreen.dev*), no OS input -- the click paths
+		ACT_HOVER, ACT_INVITE, ACT_CHAT, ACT_MENU_ARM, ACT_ACCEPT, ACT_SEARCH_ENTER, ACT_PARTY_MENU,
+		ACT_TOAST_REQUEST, ACT_TOAST_INVITE, ACT_TOAST_STALE,
+		// review follow-ups: fast double-click on a confirm, per-conversation drafts, typing with no focus
+		ACT_DOUBLECLICK, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH;
 
 		GuiScreen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -60,6 +70,12 @@ public final class OriginDevShots {
 			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", this == MENU_CLEAR ? 0.0 : 1.0);
 			// The friends demo only on its own shots, so every other shot looks the same in both passes.
 			callStatic(P + "social.SocialDemo", "clear");
+			// 1.21.1 clears vanilla's ToastComponent here; on 1.8.9 SocialToast is the toast stack
+			com.origin.client.client.social.SocialToast.clearAll();
+			GuiScreen social = openSocial();
+			if (social != null) {
+				return social;
+			}
 			switch (this) {
 				case TITLE:
 					// GuiOpenEvent hands the menus area its chance to swap in the Origin title.
@@ -102,6 +118,113 @@ public final class OriginDevShots {
 					return make(P + "hud.HudEditorScreen", true);
 			}
 		}
+
+		/** The social / social-act shots (1.21.1's list, same states); null for every other kind. */
+		private GuiScreen openSocial() {
+			Minecraft mc = Minecraft.getMinecraft();
+			switch (this) {
+				case SOC_CHAT:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL);
+				case SOC_PARTY:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY);
+				case SOC_HOME:
+					com.origin.client.client.social.SocialDemo.installHome();
+					return new com.origin.client.client.gui.FriendsScreen(null);
+				case SOC_OFFLINE:
+					com.origin.client.client.social.SocialDemo.installHome();
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select("e5b1d7f3a9c24e6b0d8f2a4c6e1b9d38");   // Lumen
+				case SOC_EMPTY:
+					return new com.origin.client.client.gui.FriendsScreen(null);
+				case SOC_SIGNEDOUT:
+					com.origin.client.client.social.SocialDemo.status(
+							com.origin.client.client.social.SocialClient.Status.SIGNED_OUT, null);
+					return new com.origin.client.client.gui.FriendsScreen(null);
+				case SOC_UNREACHABLE:
+					com.origin.client.client.social.SocialDemo.status(
+							com.origin.client.client.social.SocialClient.Status.UNREACHABLE, null);
+					return new com.origin.client.client.gui.FriendsScreen(null);
+				case SOC_STRESS_CHAT:
+					com.origin.client.client.social.SocialDemo.installStress();
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.firstStressFriend());
+				case SOC_STRESS_PARTY:
+					com.origin.client.client.social.SocialDemo.installStress();
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY);
+				case SOC_TOASTS:
+					com.origin.client.client.social.SocialDemo.install(false);
+					com.origin.client.client.social.SocialToast.message(mc, com.origin.client.client.social.SocialDemo.KESTREL,
+							"Kestrel", "I'm in a lobby on hypixel now, join when you're ready and bring the good pickaxe");
+					com.origin.client.client.social.SocialToast.request(mc, "9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14", "Quartzling");
+					com.origin.client.client.social.SocialToast.invite(mc, "1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52", "Ravenmoor");
+					com.origin.client.client.social.SocialToast.warp(mc, "0b7e4d2c9a1f4e6b8c3d5a7f2e9b1c63", "Ember_Fox",
+							new com.origin.client.client.social.SocialState.Warp("play.originsmp.net", "1.8.9",
+									System.currentTimeMillis(), "0b7e4d2c9a1f4e6b8c3d5a7f2e9b1c63", "Ember_Fox"));
+					return new GuiMainMenu();
+				case SOC_RSHIFT:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return make(P + "hud.HudEditorScreen", true);
+				case SOC_ADD:
+					com.origin.client.client.social.SocialDemo.installHome();
+					return new com.origin.client.client.gui.FriendsScreen(null).devSearch("Zed_Nine");
+				case SOC_FILTER:
+					com.origin.client.client.social.SocialDemo.installHome();
+					return new com.origin.client.client.gui.FriendsScreen(null).devSearch("mo");
+				case SOC_MENU_FRIEND:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL).devMenu();
+				case SOC_MENU_INVITE:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY).devMenu();
+				case SOC_NOTICE:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL)
+							.devNotice("Party invite sent to Kestrel.", false);
+				case ACT_HOVER:
+				case ACT_INVITE:
+				case ACT_CHAT:
+				case ACT_ACCEPT:
+				case ACT_SEARCH_ENTER:
+				case ACT_DRAFT:
+				case ACT_DRAFT_BACK:
+				case ACT_TYPE_SEARCH:
+					com.origin.client.client.social.SocialDemo.installHome();
+					return new com.origin.client.client.gui.FriendsScreen(null);
+				case ACT_TOAST_STALE:
+					com.origin.client.client.social.SocialDemo.install(false);
+					com.origin.client.client.social.SocialToast.request(mc, "00000000000000000000000000000099", "Ghost_One");
+					com.origin.client.client.social.SocialToast.invite(mc, "00000000000000000000000000000098", "Ghost_Two");
+					return new GuiMainMenu();
+				case ACT_MENU_ARM:
+				case ACT_DOUBLECLICK:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.social.SocialDemo.KESTREL);
+				case ACT_PARTY_MENU:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return new com.origin.client.client.gui.FriendsScreen(null)
+							.select(com.origin.client.client.gui.FriendsScreen.PARTY);
+				case ACT_TOAST_REQUEST:
+				case ACT_TOAST_INVITE:
+					com.origin.client.client.social.SocialDemo.install(false);
+					com.origin.client.client.social.SocialToast.request(mc, "9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14", "Quartzling");
+					com.origin.client.client.social.SocialToast.invite(mc, "1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52", "Ravenmoor");
+					return new GuiMainMenu();
+				case SOC_MENU:
+					com.origin.client.client.social.SocialDemo.install(false);
+					return preview(make(P + "gui.OriginModMenuScreen"), false, false);
+				default:
+					return null;
+			}
+		}
 	}
 
 	// Java 8 has no records: a final value class.
@@ -124,6 +247,51 @@ public final class OriginDevShots {
 	}
 
 	private static final List<Shot> SHOTS = new ArrayList<>();
+
+	/** Scripted steps per ACT_ kind, run one per ~700 ms after the screen is up, then the capture. */
+	private static final java.util.Map<Kind, List<java.util.function.Consumer<GuiScreen>>> ACTS = new java.util.EnumMap<>(Kind.class);
+	private static int actIdx = 0;
+
+	private static com.origin.client.client.gui.FriendsScreen fs(GuiScreen s) {
+		return (com.origin.client.client.gui.FriendsScreen) s;
+	}
+
+	@SafeVarargs
+	private static List<java.util.function.Consumer<GuiScreen>> steps(java.util.function.Consumer<GuiScreen>... s) {
+		return java.util.Arrays.asList(s);
+	}
+
+	static {
+		// design-px coordinates of the 1080p layout (panel origin 500,250 on screen): see FriendsScreen's layout
+		// constants -- the same as 1.21.1's (one OriginWindow frame), so the same scripts drive both
+		ACTS.put(Kind.ACT_HOVER, steps(s -> fs(s).devHover(180, 385)));
+		ACTS.put(Kind.ACT_INVITE, steps(s -> fs(s).devHover(180, 385), s -> fs(s).devClick(248, 385)));
+		ACTS.put(Kind.ACT_ACCEPT, steps(s -> fs(s).devHover(228, 233), s -> fs(s).devClick(228, 233)));
+		ACTS.put(Kind.ACT_CHAT, steps(s -> fs(s).devClick(140, 385),
+				s -> fs(s).devChars("hello there, ready for the stronghold? I have the good pickaxe and 12 eyes of ender"),
+				s -> fs(s).devKey(org.lwjgl.input.Keyboard.KEY_RETURN)));
+		ACTS.put(Kind.ACT_MENU_ARM, steps(s -> fs(s).devClick(880, 158), s -> fs(s).devHover(792, 200),
+				s -> fs(s).devClick(792, 200)));
+		ACTS.put(Kind.ACT_SEARCH_ENTER, steps(s -> fs(s).devChars("zed_nine"), s -> fs(s).devKey(org.lwjgl.input.Keyboard.KEY_RETURN)));
+		ACTS.put(Kind.ACT_PARTY_MENU, steps(s -> fs(s).devClick(760, 218)));
+		ACTS.put(Kind.ACT_DOUBLECLICK, steps(s -> fs(s).devClick(880, 158), s -> {
+			fs(s).devClick(792, 200);   // arms
+			fs(s).devClick(792, 200);   // a second click inside 350 ms must be ignored
+		}));
+		ACTS.put(Kind.ACT_DRAFT, steps(s -> fs(s).devClick(140, 385), s -> fs(s).devChars("draft for ember only"),
+				s -> fs(s).devClick(140, 431)));
+		ACTS.put(Kind.ACT_DRAFT_BACK, steps(s -> fs(s).devClick(140, 385), s -> fs(s).devChars("draft for ember only"),
+				s -> fs(s).devClick(140, 431), s -> fs(s).devClick(140, 385)));
+		ACTS.put(Kind.ACT_TYPE_SEARCH, steps(s -> fs(s).devClick(140, 385), s -> fs(s).devClick(150, 106),
+				s -> fs(s).devClick(400, 40), s -> fs(s).devChars("ke")));
+		ACTS.put(Kind.ACT_TOAST_STALE, steps(s -> {
+			com.origin.client.client.social.SocialToast.devClickButton("req:00000000000000000000000000000099");
+			com.origin.client.client.social.SocialToast.devClickButton("inv:00000000000000000000000000000098");
+		}));
+		ACTS.put(Kind.ACT_TOAST_REQUEST, steps(s -> com.origin.client.client.social.SocialToast.devClickButton("req:9c4a2e8f6b1d4c7e3a5f9b0d2e8c6a14")));
+		ACTS.put(Kind.ACT_TOAST_INVITE, steps(s -> com.origin.client.client.social.SocialToast.devClickButton("inv:1d9f5b3e7a0c4f2d8b6e4a1c9f3d7b52")));
+	}
+
 	private static double savedBgOpacity = -1;
 	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
 	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
@@ -131,6 +299,23 @@ public final class OriginDevShots {
 	static {
 		if (WORLD) {
 			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("social-act".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			for (int sc : new int[]{2, 4}) {
+				for (Kind k : Kind.values()) {
+					if (k.name().startsWith("ACT_")) {
+						SHOTS.add(new Shot(1920, 1080, sc, k));
+					}
+				}
+			}
+		} else if ("social".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// Friends / party / chat / toasts: 1080p at GUI scale 2, 3 and 4 (the contract), plus 720p at 2.
+			for (int[] s : new int[][]{{1920, 1080, 2}, {1920, 1080, 4}, {1920, 1080, 3}, {1280, 720, 2}}) {
+				for (Kind k : Kind.values()) {
+					if (k.name().startsWith("SOC_")) {
+						SHOTS.add(new Shot(s[0], s[1], s[2], k));
+					}
+				}
+			}
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review: every screen at the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
@@ -228,11 +413,18 @@ public final class OriginDevShots {
 						break;
 					}
 					mc.displayGuiScreen(screen);
+					actIdx = 0;
 					phase = 2;
 					nextAt = now + (s.kind == Kind.TITLE ? 1900 : 900);
 					break;
 				}
 				case 2: {
+					List<java.util.function.Consumer<GuiScreen>> acts = ACTS.get(s.kind);
+					if (acts != null && actIdx < acts.size()) {
+						acts.get(actIdx++).accept(mc.currentScreen);
+						nextAt = now + 700;
+						return;
+					}
 					// The window manager may apply a resize a little later. Never label a
 					// capture with dimensions its framebuffer did not actually reach.
 					if ((mc.displayWidth != s.w || mc.displayHeight != s.h) && resizeRetries++ < 8) {
