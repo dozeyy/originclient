@@ -171,6 +171,17 @@ final class OriginDevWorld {
 					mc.gui.setScreen(null);
 				}
 				grab(mc, dir, "overlays_world_1920x1080.png");
+				// The Right Shift HUD editor over the world: its widget previews (Cooldowns'
+				// ender pearl + shield, Armor's diamond set) must draw real item icons in a
+				// world too, not only the title screen's display stacks (gui/ItemStacks).
+				mc.player.setXRot(0f);
+				mc.gui.setScreen(new com.origin.client.client.hud.HudEditorScreen(true));
+				phase = 12;
+				nextAt = now + 2500;
+				return;
+			}
+			if (phase == 12) {
+				grab(mc, dir, "rshift_world_1920x1080.png");
 				phase = 10;
 				return;
 			}

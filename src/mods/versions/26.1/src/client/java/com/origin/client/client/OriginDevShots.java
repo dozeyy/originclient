@@ -407,6 +407,9 @@ public final class OriginDevShots {
 						nextAt = now + 700;
 						return;
 					}
+					if (s.kind() == Kind.SHADERS && waitForShaderPreviews(now)) {
+						return;
+					}
 					// Windows may apply a resize one message-loop later (especially
 					// immediately after changing GUI scale). Never label a capture with
 					// dimensions its framebuffer did not actually reach.
@@ -475,6 +478,33 @@ public final class OriginDevShots {
 			}
 		}
 		return out;
+	}
+
+	// The shader browser's thumbnails load async (Modrinth fetch + WebP decode) and a
+	// run's first open starts them; under CI's software GL that took longer than the
+	// screen's 900 ms settle on the Java 8/16/17 modules, so their first capture showed
+	// placeholder tiles (the same session's second capture, a cache hit, showed the
+	// images). Wait for the loads (max 20 s), then one settle so a frame with the
+	// uploaded textures is on screen before the grab.
+	private static long previewWaitFrom = 0;   // 0 = not waiting
+
+	private static boolean waitForShaderPreviews(long now) {
+		boolean loading = com.origin.client.client.shaders.ShaderPreviews.loading();
+		if (loading && (previewWaitFrom == 0 || now - previewWaitFrom < 20000)) {
+			if (previewWaitFrom == 0) {
+				previewWaitFrom = now;
+			}
+			nextAt = now + 250;
+			return true;
+		}
+		if (previewWaitFrom != 0) {
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] waited {} ms for shader previews{}",
+					now - previewWaitFrom, loading ? " (gave up, still loading)" : "");
+			previewWaitFrom = 0;
+			nextAt = now + 500;
+			return true;
+		}
+		return false;
 	}
 
 	private static void finish(Minecraft mc) {
