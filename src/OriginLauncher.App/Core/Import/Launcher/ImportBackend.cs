@@ -75,6 +75,28 @@ public interface IImportBackend
         PlanBulkAsync(selection, plan.Request?.Options ?? new ImportOptions(), progress, ct);
 
     Task<BulkImportResult> ApplyBulkAsync(BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct);
+
+    // ---- the drawer's launcher tiles and version rows (Core/Import/SetupInventory) ----
+
+    /// <summary>
+    /// The launchers installed on this PC (their folder exists), so a tile can say "Not installed" apart from
+    /// "Installed, nothing to import". Null = unknown (the default: tiles then only say whether setups were found).
+    /// </summary>
+    Task<IReadOnlySet<SourceKind>?> GetInstalledLaunchersAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlySet<SourceKind>?>(null);
+
+    /// <summary>What each setup holds (worlds, packs, mods...), by <see cref="DetectedInstance.SetupId"/>. Folder listings only, on the thread pool.</summary>
+    Task<IReadOnlyDictionary<string, SetupContents>> GetContentsAsync(IReadOnlyList<DetectedInstance> setups, CancellationToken ct) =>
+        Task.Run<IReadOnlyDictionary<string, SetupContents>>(() =>
+        {
+            var map = new Dictionary<string, SetupContents>(StringComparer.Ordinal);
+            foreach (var setup in setups)
+            {
+                ct.ThrowIfCancellationRequested();
+                map[setup.SetupId] = SetupInventory.Read(setup);
+            }
+            return map;
+        }, ct);
 }
 
 /// <summary>Lets the engine wait for a version's provisioning gate: a launch or install of that version holds it too.</summary>
@@ -185,6 +207,13 @@ public sealed class LauncherImportBackend : IImportBackend
             var scan = await ScanCoreAsync(parts, progress, ct).ConfigureAwait(false);
             Volatile.Write(ref _lastScan, scan.Instances.ToList());
             return scan;
+        }, ct);
+
+    public Task<IReadOnlySet<SourceKind>?> GetInstalledLaunchersAsync(CancellationToken ct) =>
+        Task.Run<IReadOnlySet<SourceKind>?>(async () =>
+        {
+            var parts = await _parts.GetAsync().WaitAsync(ct).ConfigureAwait(false);
+            return SetupInventory.Installed(ImportRoots.Sources(parts.Folders));
         }, ct);
 
     private static Task<ScanResult> ScanCoreAsync(BackendParts parts, IProgress<ImportProgress>? progress, CancellationToken ct) =>
