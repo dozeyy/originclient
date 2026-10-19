@@ -74,7 +74,7 @@
                     <TextBlock Text="Uninstalling Origin" Style="{StaticResource Text.H1}" HorizontalAlignment="Center"
                                Margin="0,6,0,22"/>
                     <Border x:Name="ProgressTrack" Style="{StaticResource Setup.ProgressTrack}" Width="320">
-                        <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="1"
+                        <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="{StaticResource Radius.Bar}"
                                 Background="{StaticResource Brush.PrimaryGradient}"/>
                     </Border>
                 </StackPanel>

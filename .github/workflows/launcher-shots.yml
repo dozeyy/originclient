@@ -64,6 +64,20 @@ jobs:
           }
           Write-Host "Rendered $($shots.Count) screens."
 
+      - name: Render Friends drawer
+        shell: pwsh
+        run: |
+          $p = Start-Process .\lbin\OriginLauncher.App.exe -ArgumentList '--render-shots launcher-shots\social --social' -Wait -PassThru
+          $shots = @(Get-ChildItem launcher-shots\social -Filter *.png -ErrorAction SilentlyContinue)
+          foreach ($f in 'launcher-shots\social\social-error.txt', 'launcher-shots\social\render-error.txt') {
+            if (Test-Path $f) { Get-Content $f; Write-Host "::error::Friends drawer render reported an error ($f)"; exit 1 }
+          }
+          if ($p.ExitCode -ne 0 -or $shots.Count -lt 20) {
+            Write-Host "::error::Friends drawer render failed (exit $($p.ExitCode), $($shots.Count) images)"
+            exit 1
+          }
+          Write-Host "Rendered $($shots.Count) Friends drawer screens."
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:

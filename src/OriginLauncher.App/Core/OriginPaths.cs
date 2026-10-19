@@ -5,8 +5,31 @@ namespace OriginLauncher.App.Core;
 
 public static class OriginPaths
 {
-    public static string Root { get; } = Path.Combine(
+    private static string? _root;
+
+    /// <summary>
+    /// Every launcher file lives under this folder. Normally %LocalAppData%\OriginLauncher;
+    /// a render-shots run (UI/RenderShots.cs) points it at a scratch folder first, so the
+    /// harness can never read or write the player's own settings, accounts or instances.
+    /// </summary>
+    public static string Root => _root ??= Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OriginLauncher");
+
+    /// <summary>True only after <see cref="UseScratchRoot"/> (render-shots mode).</summary>
+    public static bool IsScratchRoot { get; private set; }
+
+    /// <summary>
+    /// Render-shots only, and only before anything has read <see cref="Root"/>: redirect all
+    /// launcher data to <paramref name="folder"/>. Throws if the real root was already used,
+    /// so a late call can't leave half the paths on the player's data.
+    /// </summary>
+    public static void UseScratchRoot(string folder)
+    {
+        if (_root != null) throw new InvalidOperationException("OriginPaths.Root was already resolved.");
+        _root = Path.GetFullPath(folder);
+        IsScratchRoot = true;
+        Directory.CreateDirectory(_root);
+    }
 
     // Game folders: instances/<version>/ holds the version's shared game files,
     // instances/<version>/accounts/<account>/ is one account's own game folder

@@ -91,11 +91,30 @@ public partial class VersionSelectOverlay : UserControl
 
     // ---- state transitions ----
 
+    // The header (title, close X) lines up with the card grid's outer edges, which move with the
+    // grid's Viewbox scale; in the detail view it lines up with the list's left edge and the content's
+    // right edge. The 8 px is each card's own margin, scaled with the grid.
+    private void UpdateHeaderInset()
+    {
+        var inset = 0.0;
+        if (GridState.Visibility == Visibility.Visible && GridState.ActualWidth > 0 && GridList.ActualWidth > 0)
+        {
+            var scale = GridState.ActualWidth / GridList.ActualWidth;
+            inset = Math.Max(0, (OverlayInner.ActualWidth - GridState.ActualWidth) / 2 + 8 * scale);
+        }
+        HeaderRow.Margin = new Thickness(inset, 0, inset, 16);
+    }
+
+    private void GridState_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateHeaderInset();
+
+    private void OverlayInner_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateHeaderInset();
+
     private void ToGridState(bool animate)
     {
         DetailState.Visibility = Visibility.Collapsed;
         BackButton.Visibility = Visibility.Collapsed;
         GridState.Visibility = Visibility.Visible;
+        Dispatcher.BeginInvoke(UpdateHeaderInset, System.Windows.Threading.DispatcherPriority.Loaded);
         if (animate)
         {
             GridState.BeginAnimation(OpacityProperty, null);
@@ -116,6 +135,7 @@ public partial class VersionSelectOverlay : UserControl
         GridState.Visibility = Visibility.Collapsed;
         DetailState.Visibility = Visibility.Visible;
         BackButton.Visibility = Visibility.Visible;
+        UpdateHeaderInset();
 
         _syncing = true;
         StackList.SelectedItem = group;
@@ -215,6 +235,25 @@ public partial class VersionSelectOverlay : UserControl
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => CloseOverlay();
+
+    // Render mode only (UI/RenderShots.cs): open the picker, optionally straight
+    // into one family's detail view (index into VersionCatalog.Groups).
+    // They do nothing outside a render-shots run (OriginPaths.IsScratchRoot): picking a
+    // family raises VersionSelected, which saves the player's version.
+    internal void TourOpen(int detailIndex)
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        Show(null);
+        if (detailIndex >= 0 && detailIndex < VersionCatalog.Groups.Count)
+            GridList.SelectedItem = VersionCatalog.Groups[detailIndex];
+    }
+
+    internal void TourClose()
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        ++_sceneRevision;
+        Visibility = Visibility.Collapsed;
+    }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

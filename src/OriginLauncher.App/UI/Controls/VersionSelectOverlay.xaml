@@ -12,7 +12,7 @@
              which a Border+MouseLeftButtonUp was not. The item chrome is stripped;
              the DataTemplate paints the whole card. -->
         <Style x:Key="CardItem" TargetType="ListBoxItem">
-            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Margin" Value="8"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -89,7 +89,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
             <Setter Property="Padding" Value="9,5"/>
-            <Setter Property="Margin" Value="0,0,7,0"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
         </Style>
 
         <!-- Version dropdown entry: the plain version string ("1.20.4"). -->
@@ -102,14 +102,16 @@
         <Grid.RenderTransform>
             <TranslateTransform x:Name="OverlayTranslate"/>
         </Grid.RenderTransform>
-        <Grid Margin="36,24,40,32">
+        <Grid x:Name="OverlayInner" Margin="40,24,40,32" SizeChanged="OverlayInner_SizeChanged">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Grid Grid.Row="0" Margin="8,0,8,18">
+            <!-- Margin is set in code (UpdateHeaderInset): the grid's edges when the cards are shown, the
+                 list's edge in the detail view. -->
+            <Grid Grid.Row="0" x:Name="HeaderRow" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -117,7 +119,7 @@
                 </Grid.ColumnDefinitions>
                 <!-- Back-to-grid (only in detail view) -->
                 <Button Grid.Column="0" x:Name="BackButton" Style="{StaticResource Button.Chrome}" Width="34" Height="34"
-                        Padding="8" VerticalAlignment="Center" Margin="0,0,12,0" Visibility="Collapsed"
+                        Padding="8" VerticalAlignment="Center" Margin="-9,0,12,0" Visibility="Collapsed"
                         Click="Back_Click" ToolTip="All versions">
                     <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}"
                           Width="16" Height="16" Stroke="{StaticResource Brush.TextDim}"/>
@@ -125,7 +127,7 @@
                 <TextBlock Grid.Column="1" Text="Versions" Style="{StaticResource Text.H1}"
                            VerticalAlignment="Center"/>
                 <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" Width="34" Height="34" Padding="8"
-                        VerticalAlignment="Center" Click="Close_Click" ToolTip="Close">
+                        VerticalAlignment="Center" Margin="0,0,-10,0" Click="Close_Click" ToolTip="Close">
                     <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                           Width="14" Height="14" Stroke="{StaticResource Brush.TextDim}"/>
                 </Button>
@@ -133,7 +135,8 @@
 
             <!-- ===== GRID STATE ===== -->
             <Viewbox Grid.Row="1" x:Name="GridState" Stretch="Uniform" StretchDirection="DownOnly"
-                     MaxWidth="1040" HorizontalAlignment="Center" VerticalAlignment="Center">
+                     MaxWidth="1040" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     SizeChanged="GridState_SizeChanged">
                 <ListBox x:Name="GridList" Background="Transparent" BorderThickness="0"
                          ItemContainerStyle="{StaticResource CardItem}"
                          ItemTemplate="{StaticResource GridCardTemplate}"
@@ -182,7 +185,7 @@
                 </ScrollViewer>
 
                 <!-- Right: the selected family's detail -->
-                <Grid Grid.Column="1" x:Name="DetailPanel" Margin="32,4,0,0">
+                <Grid Grid.Column="1" x:Name="DetailPanel" Margin="32,0,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -197,7 +200,7 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Smaller, crisp hero image -->
-                        <Border Grid.Column="0" Width="360" Height="225" CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True">
+                        <Border Grid.Column="0" Width="320" Height="200" CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True">
                             <Border.Background>
                                 <ImageBrush ImageSource="{Binding ImagePath}" Stretch="UniformToFill"/>
                             </Border.Background>
@@ -205,21 +208,22 @@
                         </Border>
 
                         <!-- Headline info -->
-                        <StackPanel Grid.Column="1" Margin="24,4,0,0" VerticalAlignment="Top">
+                        <StackPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Top">
                             <TextBlock Text="{Binding Tagline}" Style="{StaticResource Text.Eyebrow}"
                                        Foreground="{StaticResource Brush.TextDim}"/>
-                            <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H1}" Margin="0,2,0,0"/>
+                            <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H1}" Margin="0,4,0,0"
+                                       TextWrapping="Wrap" TextTrimming="None"/>
                             <TextBlock x:Name="FactsText" Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <WrapPanel Margin="0,16,0,0">
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="ORIGIN UI" Style="{StaticResource Text.Eyebrow}"/></Border>
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="PERFORMANCE" Style="{StaticResource Text.Eyebrow}"/></Border>
                                 <Border Style="{StaticResource DetailChip}"><TextBlock Text="SHADERS" Style="{StaticResource Text.Eyebrow}"/></Border>
-                            </StackPanel>
+                            </WrapPanel>
                         </StackPanel>
                     </Grid>
 
                     <!-- Description -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,22,0,0">
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,24,0,0">
                         <ScrollViewer.Resources>
                             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
                         </ScrollViewer.Resources>
@@ -231,22 +235,24 @@
                     </ScrollViewer>
 
                     <!-- Actions -->
-                    <StackPanel Grid.Row="2" Margin="0,20,0,0">
+                    <StackPanel Grid.Row="2" Margin="0,24,0,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,20,0" VerticalAlignment="Bottom">
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Bottom">
                                 <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}" Margin="0,0,0,6"/>
-                                <ComboBox x:Name="VersionDropdown" MinWidth="190" MinHeight="46" FontSize="15"
+                                <!-- A fixed width (the 230 px it always came to: its widest entry plus padding). A content-sized combo box grew
+                                     with the chevron's extra padding and pushed MODS off the right edge at 980 px. -->
+                                <ComboBox x:Name="VersionDropdown" Width="230" MinHeight="46" FontSize="15"
                                           ItemContainerStyle="{StaticResource Input.ComboBoxItem}"
                                           ItemTemplate="{StaticResource VersionItemTemplate}"
                                           SelectionChanged="VersionDropdown_SelectionChanged"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Left">
                                 <Button x:Name="LaunchButton" Content="LAUNCH" Style="{StaticResource Button.Primary}"
-                                        FontSize="16" Padding="52,15" Margin="0,0,12,0" Click="Launch_Click"/>
+                                        FontSize="16" Padding="52,15" Margin="0,0,16,0" Click="Launch_Click"/>
                                 <Button x:Name="ModsButton" Content="MODS" Style="{StaticResource Button.Secondary}"
                                         FontSize="16" Padding="36,15" Click="Mods_Click"
                                         ToolTip="Open this version's mods folder to add your own mods (shared by all your accounts)"/>
