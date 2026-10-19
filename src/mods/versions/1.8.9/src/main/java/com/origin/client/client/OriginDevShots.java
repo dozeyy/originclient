@@ -295,6 +295,13 @@ public final class OriginDevShots {
 	private static double savedBgOpacity = -1;
 	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
 	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
+	/**
+	 * ORIGIN_SHOTS_SET=handoff: the startup hand-off film. 1.8.9 has no OriginFrameLog
+	 * to wait on, so the first resize waits out the title's startup intro instead
+	 * (OriginTitleScreen: HOLD ~1.1 s + the 560 ms DISSOLVE) -- resizing under it
+	 * would cut the dissolve out of the film.
+	 */
+	private static final boolean HANDOFF = "handoff".equals(System.getenv("ORIGIN_SHOTS_SET"));
 
 	static {
 		if (WORLD) {
@@ -316,6 +323,10 @@ public final class OriginDevShots {
 					}
 				}
 			}
+		} else if (HANDOFF) {
+			// The loading -> title hand-off (filmed with dev-shots `video`): one title
+			// shot, taken only after the startup intro has fully dissolved (see tick).
+			SHOTS.add(new Shot(1920, 1080, 0, Kind.TITLE));
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review: every screen at the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
@@ -362,7 +373,7 @@ public final class OriginDevShots {
 		if (step < 0) {
 			if (mc.theWorld == null && isTitle(mc.currentScreen)) {
 				if (nextAt == 0) {
-					nextAt = now + 1500;
+					nextAt = now + (HANDOFF ? 5000 : 1500);
 				} else if (now >= nextAt) {
 					File output = new File(DIR);
 					if (!output.isDirectory() && !output.mkdirs()) {

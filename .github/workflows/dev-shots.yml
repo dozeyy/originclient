@@ -195,6 +195,13 @@ jobs:
             # screen, no auto-pause when Xvfb's window "loses focus").
             mkdir -p "$rundir"
             printf 'onboardAccessibility:false\npauseOnLostFocus:false\noverrideWidth:1920\noverrideHeight:1080\n' > "$rundir/options.txt"
+            if [ "${{ matrix.module }}" = "1.8.9" ]; then
+              # 1.8.9's startup load is FML's splash; players get it themed by the
+              # launcher (LegacyStackInstaller.SeedSplashTheme -- keep these values
+              # identical, test_ci_gates.py checks), so the film shows that, not Forge red.
+              mkdir -p "$rundir/config"
+              printf 'enabled=true\nshowMemory=false\nbackgroundColor=0x050505\nfontColor=0xF5F5F5\nbarColor=0xE0E0E0\nbarBorderColor=0x3A3A3A\nbarBackgroundColor=0x161616\n' > "$rundir/config/splash.properties"
+            fi
             Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
             xvfb=$!
             export DISPLAY=:99
@@ -204,12 +211,20 @@ jobs:
             setsid env -u CI ./gradlew $task --no-daemon $gargs > run.log 2>&1 &
             pid=$!
             # Start filming as the game opens its window, not during Gradle's compile.
-            # DISPLAY/XAUTHORITY come from the game process itself, so the film
-            # follows the game even if Loom's wrapper ever comes back.
-            ( for i in $(seq 1 600); do grep -q "Backend library" run.log 2>/dev/null && break; sleep 1; done
-              game=$(pgrep -n -f devlaunchinjector || pgrep -n -f KnotClient)
-              export DISPLAY=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^DISPLAY=//p')
-              export XAUTHORITY=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^XAUTHORITY=//p')
+            # The window-open line is per era: GLFW/SDL modules log "Backend library:
+            # LWJGL version 3.x"; 1.8.9 (LWJGL 2 + Forge) never does -- it logs
+            # "LWJGL Version: 2.9.4" right before Display.create (no film in run
+            # 39267523866 until this). DISPLAY/XAUTHORITY come from the game process
+            # itself when it can be found, so the film follows the game even if
+            # Loom's xvfb wrapper ever comes back; else the :99 set above.
+            ( for i in $(seq 1 600); do grep -qE "Backend library|LWJGL Version:" run.log 2>/dev/null && break; sleep 1; done
+              game=$(pgrep -n -f devlaunchinjector || pgrep -n -f KnotClient || pgrep -n -f launchwrapper || true)
+              if [ -n "$game" ]; then
+                d=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^DISPLAY=//p' || true)
+                a=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^XAUTHORITY=//p' || true)
+                if [ -n "$d" ]; then export DISPLAY="$d"; fi
+                if [ -n "$a" ]; then export XAUTHORITY="$a"; fi
+              fi
               sleep 2
               size=$(xdpyinfo | awk '/dimensions:/{print $2; exit}')
               { echo "game pid $game DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY size=$size"; ls -la /tmp/.X11-unix; xwininfo -root -tree; } > "$ORIGIN_SHOTS/screenshots/x-probe.txt" 2>&1

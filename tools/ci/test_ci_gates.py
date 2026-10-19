@@ -149,5 +149,27 @@ class Smoke(unittest.TestCase):
             self.assertIn(True, hits, f"{v}: OriginClientMod never prints the boot-smoke title marker")
 
 
+class DevShotsFilm(unittest.TestCase):
+    YML = os.path.join(ROOT, ".github", "workflows", "dev-shots.yml")
+
+    def test_film_trigger_covers_lwjgl2(self):
+        # 1.8.9 never prints "Backend library" -> no loading.mp4 (run 39267523866).
+        yml = _read(self.YML)
+        m = re.search(r'grep -qE "([^"]+)" run\.log', yml)
+        self.assertIsNotNone(m, "film trigger grep not found")
+        trig = re.compile(m.group(1))
+        self.assertTrue(trig.search("[14:25:26] [main/INFO] (Minecraft) LWJGL Version: 2.9.4"))
+        self.assertTrue(trig.search("[Render thread/INFO]: Backend library: LWJGL version 3.3.3+5"))
+
+    def test_film_splash_theme_matches_launcher(self):
+        # The filmed 1.8.9 splash must be the one players get.
+        cs = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "LegacyStackInstaller.cs"))
+        launcher = re.findall(r'"(\w+=[^"\\]+)\\n"', cs)
+        self.assertGreaterEqual(len(launcher), 5)
+        m = re.search(r"printf '([^']*)' > \"\$rundir/config/splash\.properties\"", _read(self.YML))
+        self.assertIsNotNone(m, "dev-shots no longer seeds splash.properties")
+        self.assertEqual(m.group(1).split("\\n")[:-1], launcher)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
