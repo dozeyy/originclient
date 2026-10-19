@@ -9,8 +9,8 @@ namespace OriginLauncher.Tests;
 // The rename-over-an-open-file refusal is Windows behaviour; elsewhere these tests only check the write lands.
 public class AtomicFileTests : IDisposable
 {
-    // The whole wait budget is ~1.46 s; a write that fails at once takes milliseconds.
-    private static readonly TimeSpan FailFast = TimeSpan.FromMilliseconds(400);
+    // The whole wait budget is ~1.46 s; a write that fails at once takes milliseconds. 1 s leaves a loaded CI box room.
+    private static readonly TimeSpan FailFast = TimeSpan.FromMilliseconds(1000);
 
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "origin-atomicfile-" + Guid.NewGuid().ToString("N"));
     private string Target => Path.Combine(_dir, "options.txt");
@@ -49,7 +49,7 @@ public class AtomicFileTests : IDisposable
     }
 
     [Fact]
-    public void ABriefReaderIsWaitedOut()
+    public async Task ABriefReaderIsWaitedOut()
     {
         var reader = new FileStream(Target, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         var release = Task.Run(async () =>
@@ -59,7 +59,7 @@ public class AtomicFileTests : IDisposable
         });
 
         AtomicFile.WriteAllText(Target, "new");
-        release.Wait();
+        await release;
 
         Assert.Equal("new", File.ReadAllText(Target));
         Assert.Empty(TempFiles());

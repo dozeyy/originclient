@@ -178,6 +178,31 @@ public static class InstanceMigration
         }
     }
 
+    /// <summary>
+    /// The first-run move of every version's old single game folder into the inheriting account's. The inheriting
+    /// account is the marker's, else <paramref name="candidateKey"/> (recorded in the marker before anything moves).
+    /// Returns that account and whether every version finished, or (null, false) while no account is known yet.
+    /// Throws when the marker can't be written; nothing has moved then, and the next call starts over.
+    /// </summary>
+    public static (string? Key, bool Complete) MigrateAll(string markerPath, IEnumerable<string> versionRoots,
+        string? candidateKey, Action<string>? log = null)
+    {
+        var key = ReadMarker(markerPath);
+        if (key == null)
+        {
+            if (candidateKey == null) return (null, false);
+            key = candidateKey;
+            Directory.CreateDirectory(Path.GetDirectoryName(markerPath)!);
+            WriteMarker(markerPath, key);
+            log?.Invoke($"old game folders go to account {key}");
+        }
+
+        var complete = true;
+        foreach (var root in versionRoots)
+            complete &= MigrateVersion(root, key, log);
+        return (key, complete);
+    }
+
     /// <summary>Records the inheriting account. Atomic (temp file + rename).</summary>
     /// <remarks>Runs on the UI thread (App startup, HomePage.RefreshAccountState), so a busy marker file fails at
     /// once rather than freezing the window while it waits; the migration then pauses and resumes on a later call.</remarks>
