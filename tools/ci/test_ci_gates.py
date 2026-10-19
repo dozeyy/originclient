@@ -270,6 +270,44 @@ class DevShotsWorkflow(unittest.TestCase):
         self.assertNotIn("download-artifact", pub)
         self.assertRegex(pub, r"gh run download .*-n \"\$n\"")
 
+    def _collect(self, gh_body):
+        """Runs the publish job's artifact-collect step with a fake `gh` (and a no-wait `sleep`)."""
+        import subprocess, stat
+        if not (_have("bash")):
+            self.skipTest("needs bash")
+        yml = _read(self.YML)
+        m = re.search(r"- name: Collect every module's shots[^\n]*\n(?:.*\n)*?        run: \|\n((?:          .*\n|\n)+)", yml)
+        self.assertIsNotNone(m, "collect step not found")
+        script = "\n".join(l[10:] for l in m.group(1).splitlines())
+        tmp = tempfile.mkdtemp()
+        for name, body in (("gh", gh_body), ("sleep", "exit 0")):
+            p = os.path.join(tmp, name)
+            with open(p, "w", newline="\n") as f:
+                f.write("#!/bin/sh\n" + body + "\n")
+            os.chmod(p, os.stat(p).st_mode | stat.S_IEXEC)
+        env = dict(os.environ, PATH=tmp + os.pathsep + os.environ["PATH"], RUNNER_TEMP=tmp,
+                   GITHUB_REPOSITORY="o/r", GITHUB_RUN_ID="1", GH_TOKEN="x")
+        return subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True)
+
+    def test_failed_artifact_listing_fails_the_job(self):
+        # A flaky API must never read as "nothing to publish" (green with no shots published).
+        p = self._collect("exit 1")
+        self.assertNotEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("could not list", p.stdout + p.stderr)
+
+    def test_successful_empty_listing_is_fine(self):
+        p = self._collect("exit 0")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("no shots artifacts", p.stdout)
+
+    def test_workflow_files_are_clean_utf8(self):
+        # A BOM or mojibake (an em-dash turned into a-circumflex...) crept in via a PowerShell rewrite.
+        for f in ("dev-shots.yml", "launcher-shots.yml"):
+            raw = open(os.path.join(ROOT, ".github", "workflows", f), "rb").read()
+            self.assertFalse(raw.startswith(b"\xef\xbb\xbf"), f + " has a BOM")
+            text = raw.decode("utf-8")
+            self.assertNotIn("â€", text, f + " has mojibake")
+
     def test_publish_pushes_per_module_without_history(self):
         body = _read(PUBLISH_SH)
         # one push per module folder (inside the folder loop), never one giant push

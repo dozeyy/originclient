@@ -324,7 +324,7 @@ jobs:
 
       # One small labelled image of every screen (_sheet.jpg): a session looks at
       # that first instead of opening every PNG (each image read stays in the
-      # conversation for good â€” Claude Lean). Never fails the run.
+      # conversation for good — Claude Lean). Never fails the run.
       - name: Contact sheet
         if: always()
         run: python3 tools/lean/contact_sheet.py "${{ runner.temp }}/shots/screenshots" || true
@@ -390,11 +390,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           pub="$RUNNER_TEMP/pub"; mkdir -p "$pub"
-          names=""
+          listed=0
           for try in 1 2 3 4 5; do
-            names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --paginate --jq '.artifacts[].name' | grep '^shots-' | sort -u)" && break
+            if all="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --paginate --jq '.artifacts[].name')"; then listed=1; break; fi
             echo "artifact list failed (try $try)"; sleep $((try * 5))
           done
+          # Only a SUCCESSFUL empty list is "nothing to publish"; a failed list must fail the job.
+          [ "$listed" = 1 ] || { echo "::error::could not list this run's artifacts"; exit 1; }
+          names="$(printf '%s\n' "$all" | grep '^shots-' | sort -u || true)"
           [ -n "$names" ] || { echo "no shots artifacts"; exit 0; }
           fail=0
           for n in $names; do
