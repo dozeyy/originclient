@@ -38,6 +38,14 @@ on:
         description: "Also film the run (boot, loading screen, menu, world entry) as loading.mp4 next to the shots"
         type: boolean
         default: false
+      framelog:
+        description: "Log loading -> main menu frame times (-PframeLog: [OriginFrameLog] lines + GC) into run.log; use with set 'handoff'"
+        type: boolean
+        default: false
+      extra_mods:
+        description: "Also load the pinned 'with mods' set (tools/frame-log/mods-<module>.json) on top of Origin's own"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -141,9 +149,32 @@ jobs:
           ORIGIN_SHOTS: ${{ runner.temp }}/shots
           ORIGIN_SHOTS_SET: ${{ github.event.inputs.set || 'design' }}
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
+          FRAMELOG: ${{ github.event.inputs.framelog || 'false' }}
+          EXTRA_MODS: ${{ github.event.inputs.extra_mods || 'false' }}
         run: |
           chmod +x gradlew
           mkdir -p "$ORIGIN_SHOTS/screenshots"
+          # Frame-log runs: -PframeLog ([OriginFrameLog] lines + -Xlog:gc), a first
+          # boot that lands on the title like a player's (no one-time accessibility
+          # screen), and optionally the pinned "with mods" set loaded on top.
+          gargs=""
+          task=runClient
+          rundir=run
+          if [ "$EXTRA_MODS" = "true" ]; then
+            # A player's modded instance runs in production (intermediary names);
+            # many big mods (Cobblemon) can't start in the Mojang-named dev game.
+            # prodClient = the built jar + the set, in a production Fabric game (run-prod/).
+            python3 "$GITHUB_WORKSPACE/tools/frame-log/fetch_mods.py" "$RUNNER_TEMP/extra-mods" \
+              "$GITHUB_WORKSPACE/tools/frame-log/mods-${{ matrix.module }}.json"
+            gargs="$gargs -PextraMods=$RUNNER_TEMP/extra-mods"
+            task=prodClient
+            rundir=run-prod
+          fi
+          if [ "$FRAMELOG" = "true" ]; then
+            gargs="$gargs -PframeLog"
+            mkdir -p "$rundir"
+            [ -f "$rundir/options.txt" ] || printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > "$rundir/options.txt"
+          fi
           # The harness quits the game itself once every shot is taken. The whole
           # gradle + java tree runs in its own process group so a hang is killed
           # outright after 15 minutes (a plain `timeout` only reached xvfb-run and
@@ -153,15 +184,15 @@ jobs:
             # Filmed run: a fixed display ffmpeg can grab, and a first boot that
             # looks like a player's (full-size window, no one-time accessibility
             # screen, no auto-pause when Xvfb's window "loses focus").
-            mkdir -p run
-            printf 'onboardAccessibility:false\npauseOnLostFocus:false\noverrideWidth:1920\noverrideHeight:1080\n' > run/options.txt
+            mkdir -p "$rundir"
+            printf 'onboardAccessibility:false\npauseOnLostFocus:false\noverrideWidth:1920\noverrideHeight:1080\n' > "$rundir/options.txt"
             Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
             xvfb=$!
             export DISPLAY=:99
             sleep 2
             # Loom wraps runClient in its own `xvfb-run -a` (1280x1024, behind an
             # access cookie) whenever CI is set; unset it so the game opens on :99.
-            setsid env -u CI ./gradlew runClient --no-daemon > run.log 2>&1 &
+            setsid env -u CI ./gradlew $task --no-daemon $gargs > run.log 2>&1 &
             pid=$!
             # Start filming as the game opens its window, not during Gradle's compile.
             # DISPLAY/XAUTHORITY come from the game process itself, so the film
@@ -178,7 +209,7 @@ jobs:
                 -movflags +frag_keyframe+empty_moov "$ORIGIN_SHOTS/screenshots/loading.mp4" ) &
             rec=$!
           else
-            setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClient --no-daemon > run.log 2>&1 &
+            setsid xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew $task --no-daemon $gargs > run.log 2>&1 &
             pid=$!
           fi
           for i in $(seq 1 900); do kill -0 $pid 2>/dev/null || break; sleep 1; done
@@ -197,6 +228,12 @@ jobs:
           tail -n 120 run.log
           echo "--- dev-shots lines ---"
           grep -F "[dev-shots]" run.log || echo "no dev-shots lines"
+          if [ "$FRAMELOG" = "true" ]; then
+            echo "--- frame log (slow frames, marks, summary) ---"
+            grep -F "[OriginFrameLog]" run.log | grep -v " trace " || echo "no frame-log lines"
+            echo "--- mods loaded ---"
+            grep -E "Loading [0-9]+ mods" run.log || true
+          fi
           echo "--- mixin failures (should be none) ---"
           grep -iE "Mixin apply(ing)? .*failed|Critical injection failure" run.log || echo "none"
           cp run.log "$ORIGIN_SHOTS/screenshots/run.log" || true

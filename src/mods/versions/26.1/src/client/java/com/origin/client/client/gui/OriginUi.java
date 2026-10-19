@@ -1,6 +1,5 @@
 package com.origin.client.client.gui;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -44,7 +43,6 @@ import java.util.Map;
 // Every rewritten descriptor must be javap-verified against the mapped 1.21.11
 // jar before shipping (see PORT-12111.md).
 public final class OriginUi {
-	private static final Gson GSON = new Gson();
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
@@ -877,6 +875,13 @@ public final class OriginUi {
 		ensureLoaded0();
 	}
 
+	private static final String[] TEXTURES = {
+			"/assets/originclient/textures/ui/button_fill.png", "/assets/originclient/textures/ui/button_border.png",
+			"/assets/originclient/textures/ui/switch_track.png", "/assets/originclient/textures/ui/switch_knob.png",
+			"/assets/originclient/textures/ui/radial_glow.png", "/assets/originclient/textures/ui/ring-0.png",
+			"/assets/originclient/textures/ui/origin_logo.png", "/assets/originclient/textures/ui/star.png",
+	};
+
 	private static synchronized void ensureLoaded0() {
 		if (loaded) {
 			return;
@@ -898,31 +903,38 @@ public final class OriginUi {
 			ok = true;
 		} catch (Throwable e) {
 			ok = false;
+			// The images after the failing one were decoded by the prefetch but never
+			// handed over: free them (a no-op for the ones already taken).
+			for (String p : TEXTURES) {
+				com.origin.client.client.OriginAssets.discard(p);
+			}
 			com.origin.client.OriginClient.LOGGER.warn("Origin UI assets failed to load; using flat fallbacks", e);
 		}
 	}
 
+	// Decoded on the startup reload's worker threads (OriginAssets); only the GPU upload happens here.
 	private static JsonObject readJson(String path) throws Exception {
-		try (InputStream in = OriginUi.class.getResourceAsStream(path)) {
-			return GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-		}
+		return com.origin.client.client.OriginAssets.json(path);
 	}
 
 	private static Identifier reg(Minecraft mc, String name, String path) throws Exception {
-		NativeImage image;
-		try (InputStream in = OriginUi.class.getResourceAsStream(path)) {
-			image = NativeImage.read(in);
-		}
+		NativeImage image = com.origin.client.client.OriginAssets.image(path);
 		Identifier id = Identifier.fromNamespaceAndPath("originclient", name);
 		// 1.21.11: DynamicTexture lost setFilter — filtering now rides the texture's
 		// GpuSampler. GUI_TEXTURED's default samples NEAREST (choppy icons/font), so
 		// bind a LINEAR clamp sampler to match the smooth pre-1.21.6 look.
-		DynamicTexture tex = new DynamicTexture(() -> "originclient:" + name, image) {
-			{
-				// 1.21.11 dropped setFilter; bind a LINEAR clamp sampler for smooth icons/font.
-				this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
-			}
-		};
+		DynamicTexture tex;
+		try {
+			tex = new DynamicTexture(() -> "originclient:" + name, image) {
+				{
+					// 1.21.11 dropped setFilter; bind a LINEAR clamp sampler for smooth icons/font.
+					this.sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+				}
+			};
+		} catch (Throwable t) {
+			image.close();   // never reached a texture: ours to free
+			throw t;
+		}
 		mc.getTextureManager().register(id, tex);
 		return id;
 	}

@@ -58,10 +58,29 @@ public final class OriginShaders {
 	 * mask atlas (2026-10-18: the "+" in Friends drew as a faint dot): ModIcons
 	 * first loads from the loading screen's warm-up. The getters return null while
 	 * this holds and build on the first call after it.
+	 *
+	 * <p>Pending = the loading overlay's reload is still RUNNING, not "an overlay is
+	 * up": once reload.isDone() the shader sources are all there (the hand-off port
+	 * builds every pipeline then, 0 "Couldn't find source" lines on CI). Keying on
+	 * the overlay itself pushed every build, plus the icon atlas upload, into the
+	 * dissolve's last frame, the one that clears the overlay and draws the title
+	 * (65.6 ms visible frame vs ~30 ms, dev-shots handoff run 39218641818).
+	 * An overlay this can't read stays pending, as before.
 	 */
 	public static boolean sourcesPending() {
 		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-		return mc == null || mc.gui == null || mc.gui.overlay() != null;
+		if (mc == null || mc.gui == null) {
+			return true;
+		}
+		Object overlay = mc.gui.overlay();
+		if (overlay == null) {
+			return false;
+		}
+		if (overlay instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor loading) {
+			net.minecraft.server.packs.resources.ReloadInstance reload = loading.originclient$reload();
+			return reload == null || !reload.isDone();
+		}
+		return true;
 	}
 
 	/** MSDF text pipeline (Inter menu font), or null -> vanilla font. */

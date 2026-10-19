@@ -62,9 +62,15 @@ public final class OriginShaders {
 	 *  render thread (every caller is a draw path). One attempt per session. */
 	public static void ensureCompiled() {
 		// Not while a resource reload is in flight (the loading overlay is up and the
-		// pack list is being rebuilt): callers take their fallback for those frames and
-		// the first draw after the overlay closes compiles instead.
-		if (compiled || Minecraft.getInstance().getOverlay() != null) {
+		// pack list is being rebuilt): callers take their fallback for those frames.
+		// A FINISHED reload is fine (the pack list is final): the startup settle hold
+		// renders the title under the finished loading picture, and compiling there
+		// means (a) ModIcons, which picks its atlas once, sees ICON and takes the SDF
+		// atlas instead of latching the blurrier mask for the session, and (b) the
+		// four compiles (138 ms on CI's llvmpipe) land in the unseen hold, not on the
+		// dissolve's last frame, where the first overlay-free draw used to pay them
+		// (frame log 2026-10-19: 101-138 ms, title render).
+		if (compiled || reloadInFlight()) {
 			return;
 		}
 		compiled = true;
@@ -72,6 +78,19 @@ public final class OriginShaders {
 		ICON = compile("rendertype_origin_icon", DefaultVertexFormat.POSITION_TEX_COLOR, "icon SDF");
 		ROUND = compile("rendertype_origin_round", DefaultVertexFormat.POSITION_TEX, "rounded-box SDF");
 		GRADE = compile("rendertype_origin_grade", DefaultVertexFormat.POSITION_TEX, "fullscreen color-grade");
+	}
+
+	private static boolean reloadInFlight() {
+		Object overlay = Minecraft.getInstance().getOverlay();
+		if (overlay == null) {
+			return false;
+		}
+		if (overlay instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor) {
+			net.minecraft.server.packs.resources.ReloadInstance reload =
+					((com.origin.client.client.mixin.loading.LoadingOverlayAccessor) overlay).originclient$reload();
+			return reload == null || !reload.isDone();
+		}
+		return true;
 	}
 
 	private static ShaderInstance compile(String name, VertexFormat format, String what) {

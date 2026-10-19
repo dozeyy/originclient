@@ -86,6 +86,20 @@ loom {
 			if (project.hasProperty("mixinexport")) {
 				property "mixin.debug.export", "true"
 			}
+			// `-PframeLog`: the loading -> main menu frame-time log (OriginFrameLog,
+			// lines start "[OriginFrameLog]") plus the JVM's own GC pause lines
+			// (-Xlog:gc, "[gc]"), both to the console. Loom drops `--args`, so
+			// these are the only way to switch them on in a dev run.
+			if (project.hasProperty("frameLog")) {
+				property "origin.frameLog", "true"
+				vmArg "-Xlog:gc:stdout:uptime,level,tags"
+			}
+			// `-PextraMods=<folder>`: also load every mod jar in that folder (Fabric
+			// Loader's fabric.addMods), without copying anything into run/mods.
+			// The frame log's "with mods" scenario (tools/frame-log/fetch_mods.py).
+			if (project.hasProperty("extraMods")) {
+				property "fabric.addMods", file(project.property("extraMods").toString()).absolutePath
+			}
 		}
 	}
 }
@@ -179,6 +193,28 @@ dependencies {
 	// before ever reaching a menu. Re-enable before any real release build --
 	// this only affects the dev client, not the actual launcher-shipped jar.
 	// modImplementation(include("maven.modrinth:krypton:${project.krypton_version}"))
+}
+
+// `.\gradlew.bat prodClient -PextraMods=<folder> [-PframeLog]`: the BUILT jar
+// (remapJar, with its jar-in-jar stack) in a production Fabric game, i.e. the
+// intermediary namespace a real instance runs in, plus every jar in that folder.
+// Why it exists: the frame log's "with mods" scenario. Many popular mods (Cobblemon
+// first: ClassNotFoundException net.minecraft.class_2960 at init, 2026-10-18)
+// cannot run in runClient's Mojang-named dev game at all, only in production.
+// The folder must bring its own Fabric API (a player's instance does). Game dir
+// run-prod/, so nothing from the dev run's run/mods leaks in.
+tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+	group = "origin"
+	description = "Runs the built Origin jar + -PextraMods=<folder> in a production Fabric client (run-prod/)."
+	mods.from(tasks.named("remapJar"))
+	if (project.hasProperty("extraMods")) {
+		mods.from(fileTree(project.property("extraMods").toString()) { include "*.jar" })
+	}
+	runDir = file("run-prod")
+	if (project.hasProperty("frameLog")) {
+		jvmArgs.add("-Dorigin.frameLog=true")
+		jvmArgs.add("-Xlog:gc:stdout:uptime,level,tags")
+	}
 }
 
 processResources {

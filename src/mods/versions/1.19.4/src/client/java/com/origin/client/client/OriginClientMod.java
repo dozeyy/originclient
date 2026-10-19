@@ -80,6 +80,9 @@ public class OriginClientMod implements ClientModInitializer {
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
 		// menus. Fails soft — if they don't load, the UI uses the software path.
 		com.origin.client.client.gui.OriginShaders.register();
+		// Origin's own textures + metadata decode in the startup reload's prepare
+		// stage, on its worker threads, instead of on the render thread at first draw.
+		OriginAssets.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 		// Tells Origin Launcher the game is past its loading screen (OriginHandoff).
 		ClientTickEvents.END_CLIENT_TICK.register(OriginHandoff::tick);

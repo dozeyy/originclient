@@ -45,6 +45,20 @@ loom {
 			if (project.hasProperty("mixinexport")) {
 				property "mixin.debug.export", "true"
 			}
+			// `-PframeLog`: the loading -> main menu frame-time log (OriginFrameLog,
+			// lines start "[OriginFrameLog]") plus the JVM's own GC pause lines
+			// (-Xlog:gc, "[gc]"), both to the console. Loom drops `--args`, so
+			// these are the only way to switch them on in a dev run.
+			if (project.hasProperty("frameLog")) {
+				property "origin.frameLog", "true"
+				vmArg "-Xlog:gc:stdout:uptime,level,tags"
+			}
+			// `-PextraMods=<folder>`: also load every mod jar in that folder (Fabric
+			// Loader's fabric.addMods), without copying anything into run/mods.
+			// The frame log's "with mods" scenario (tools/frame-log/fetch_mods.py).
+			if (project.hasProperty("extraMods")) {
+				property "fabric.addMods", file(project.property("extraMods").toString()).absolutePath
+			}
 		}
 	}
 }

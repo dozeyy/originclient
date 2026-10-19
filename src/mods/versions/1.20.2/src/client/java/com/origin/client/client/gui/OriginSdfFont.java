@@ -1,6 +1,5 @@
 package com.origin.client.client.gui;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -15,7 +14,6 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
 
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,7 +44,6 @@ public final class OriginSdfFont {
 	// centered"). TUNE THIS if labels read a hair high/low after a rebuild.
 	public static final float MATCH_DY = -2.0f;
 
-	private static final Gson GSON = new Gson();
 
 	// Typographic characters the bundled Inter atlas does NOT carry, mapped to
 	// glyphs it DOES — otherwise each renders as a blank space-width GAP (the "on
@@ -112,6 +109,11 @@ public final class OriginSdfFont {
 	private OriginSdfFont() {
 	}
 
+	/** Uploads both faces now (OriginAssets' per-frame upload slices), not on a screen's first frame. */
+	public static void preload() {
+		ensureLoaded();
+	}
+
 	/** True when at least the regular face + the shader are live. */
 	public static boolean ready() {
 		ensureLoaded();
@@ -139,11 +141,9 @@ public final class OriginSdfFont {
 
 	private static void loadFace(Face f, String base) {
 		try {
-			JsonObject j;
-			try (InputStream in = OriginSdfFont.class.getResourceAsStream(
-					"/assets/originclient/textures/font/" + base + ".json")) {
-				j = GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-			}
+			// Metrics and atlas are decoded on the startup reload's worker threads
+			// (OriginAssets); only the GPU upload happens here.
+			JsonObject j = com.origin.client.client.OriginAssets.json("/assets/originclient/textures/font/" + base + ".json");
 			f.size = j.get("size").getAsFloat();
 			f.atlasW = j.get("atlasW").getAsFloat();
 			f.atlasH = j.get("atlasH").getAsFloat();
@@ -170,17 +170,21 @@ public final class OriginSdfFont {
 			}
 			// MSDF REQUIRES linear filtering — register our own DynamicTexture with
 			// setFilter(true, false) rather than a nearest-sampled SimpleTexture.
-			NativeImage img;
-			try (InputStream in = OriginSdfFont.class.getResourceAsStream(
-					"/assets/originclient/textures/font/" + base + ".png")) {
-				img = NativeImage.read(in);
+			NativeImage img = com.origin.client.client.OriginAssets.image("/assets/originclient/textures/font/" + base + ".png");
+			DynamicTexture tex;
+			try {
+				tex = new DynamicTexture(img);
+			} catch (Throwable t) {
+				img.close();   // never reached a texture: ours to free
+				throw t;
 			}
-			DynamicTexture tex = new DynamicTexture(img);
 			tex.setFilter(true, false);
 			Minecraft.getInstance().getTextureManager().register(f.atlas, tex);
 			f.ok = true;
 		} catch (Throwable t) {
 			f.ok = false;
+			// The prefetched atlas, if the metrics failed before it was taken: free it.
+			com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/font/" + base + ".png");
 			com.origin.client.OriginClient.LOGGER.warn("Origin MSDF face '" + base + "' failed to load; using vanilla text", t);
 		}
 	}

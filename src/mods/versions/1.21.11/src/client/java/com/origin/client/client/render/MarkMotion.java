@@ -106,20 +106,147 @@ final class MarkMotion {
 
 	/** The loading loop at {@code t} ms since the loading screen first drew. */
 	static void drawLoading(GuiGraphics g, double cx, double cy, double size, double t, double alpha) {
-		double[][] s = loadingState(t);
+		double[][] s;
+		double dotT;
+		if (settleT >= 0 && t > settleT) {
+			double p = settleProgress(t);
+			s = new double[3][];
+			for (int k = 0; k < 3; k++) {
+				s[k] = lerp(settleFrom[k], settleTo[k], p);
+			}
+			// The dot slows with the same curve (its speed at p = 0 matches the loop's) and fades.
+			dotT = settleT + DOT_GLIDE_MS * p;
+		} else {
+			s = loadingState(t, t);
+			dotT = t;
+		}
 		for (int k = 0; k < 3; k++) {
 			System.arraycopy(s[k], 0, snap[k], 0, N);
 		}
 		snapCx = cx;
 		snapCy = cy;
 		snapSize = size;
-		snapT = t;
-		draw(g, cx, cy, size, s, alpha, dotAngle(t), 1.0);
+		snapT = dotT;
+		snapDot = dotAlpha(t);
+		draw(g, cx, cy, size, s, alpha, dotAngle(dotT), snapDot);
 	}
 
-	private static double[][] loadingState(double t) {
-		double[][] out = new double[3][];
+	// ---- Settle: the calm before the menu ----
+	// The last stretch of the startup load runs every reload listener's apply step
+	// on the render thread (atlas uploads, model bake, shaders, sound engine), and
+	// with mods installed single steps take hundreds of ms. A frame that long is
+	// invisible only if nothing is moving. So once the load reaches that stretch
+	// (OriginScreenRenderer: reload work has been QUEUED for the render thread),
+	// the loop glides in SETTLE_MS to the nearest clean shape of the loop (the
+	// shape it is holding, or whichever end of the morph in progress is closer:
+	// circles, triangles, squares or the mark, always concentric) and stops
+	// there, the riding dot slowing and fading with it. Meanwhile
+	// ReloadTaskBudgetMixin runs no queued render-thread task until atRest(), so
+	// no long step can freeze the mark mid-motion or on an in-between shape (the
+	// with-mods film, 2026-10-19: frozen ~8 s on a blob after a decay settle).
+	// From then on only the bar moves (a bar that pauses reads as loading), the
+	// main menu's settle hold shows this same still picture, and the flight to
+	// the title starts from it.
+
+	/** Loop time (ms) the settle was asked for; -1 = looping. */
+	private static double settleT = -1;
+	/** The glide from the shape at settleT to the clean rest shape. */
+	static final double SETTLE_MS = 280;
+	/** How far the dot still travels (in loop ms) while it slows: matches its speed at the start of an ease-out cubic. */
+	private static final double DOT_GLIDE_MS = SETTLE_MS / 3.0;
+	/** The three strokes when the settle began, and their clean rest pose. */
+	private static final double[][] settleFrom = new double[3][], settleTo = new double[3][];
+	// The dot's alpha in the last loading frame (the flight's dot starts from it).
+	private static double snapDot = 1.0;
+
+	/** Ask the loop to come to rest on its nearest clean shape (idempotent). */
+	static void settle(double t) {
+		if (settleT >= 0) {
+			return;
+		}
+		settleT = t;
+		double[][] now = loadingState(t, t);
+		double intro = INTRO_MS + 2 * STAGGER_MS;
 		double drift = t / 1000.0 * DRIFT_DEG_PER_S;
+		if (t < intro) {
+			// Still blooming from the seed: rest on the circles it is becoming.
+			for (int k = 0; k < 3; k++) {
+				settleFrom[k] = now[k];
+				settleTo[k] = CIRCLES[k].clone();
+				settleTo[k][ROT] += drift;
+			}
+			return;
+		}
+		double stepMs = HOLD_MS + MORPH_MS;
+		long step = (long) Math.floor((t - intro) / stepMs);
+		double within = (t - intro) - step * stepMs;
+		double[] e = new double[3];
+		double mean = 0;
+		for (int k = 0; k < 3; k++) {
+			e[k] = inOut((within - HOLD_MS - k * STAGGER_MS) / (MORPH_MS - 2 * STAGGER_MS));
+			mean += e[k] / 3.0;
+		}
+		// The nearer end of the morph in progress (holding a shape: that shape, mean 0).
+		long rest = mean < 0.5 ? step : step + 1;
+		double[][] from = LOOP[(int) (step % LOOP.length)], to = LOOP[(int) ((step + 1) % LOOP.length)];
+		double[][] shape = LOOP[(int) (rest % LOOP.length)];
+		for (int k = 0; k < 3; k++) {
+			settleFrom[k] = now[k];
+			settleTo[k] = shape[k].clone();
+			// Rotation continuous with the current one (no wrap at 360): exactly the
+			// turn the loop itself gives that shape (its own angle + rest steps of
+			// spin + the drift), measured from where this stroke is now.
+			double base = from[k][ROT] + (to[k][ROT] - from[k][ROT]) * e[k];
+			double want = now[k][ROT] + (shape[k][ROT] - base) + (rest - (step + e[k])) * SPIN_PER_STEP;
+			// The same picture repeats every `period` degrees (circle: any angle,
+			// square 90, triangle 120, the mark's ellipses 180): turn the short way.
+			double period = symmetry(shape[k]);
+			settleTo[k][ROT] = period <= 0 ? now[k][ROT]
+					: want - period * Math.round((want - now[k][ROT]) / period);
+		}
+	}
+
+	/** Rotational symmetry of a pure loop shape in degrees (0 = a circle: every angle looks the same). */
+	private static double symmetry(double[] s) {
+		if (s[W_TRI] >= 1.0) {
+			return 120.0;
+		}
+		if (s[W_SQUARE] >= 1.0) {
+			return 90.0;
+		}
+		return s[ASPECT] == 1.0 ? 0.0 : 180.0;   // a circle, or one of the mark's ellipses
+	}
+
+	/** 0..1 along the settle glide (ease-out cubic: leaves at speed, lands at rest). */
+	private static double settleProgress(double t) {
+		double u = Math.max(0.0, Math.min(1.0, (t - settleT) / SETTLE_MS));
+		double v = 1.0 - u;
+		return 1.0 - v * v * v;
+	}
+
+	/** True once a settle was asked for (until {@link #unsettle}). */
+	static boolean settling() {
+		return settleT >= 0;
+	}
+
+	/** A new reload began (a resource-pack change after startup): loop again. */
+	static void unsettle() {
+		settleT = -1;
+	}
+
+	/** True once the strokes have landed on their clean pose and the dot is gone: nothing moves but the bar. */
+	static boolean atRest(double t) {
+		return settleT >= 0 && t >= settleT + SETTLE_MS;
+	}
+
+	private static double dotAlpha(double t) {
+		return settleT < 0 || t <= settleT ? 1.0 : 1.0 - smooth((t - settleT) / SETTLE_MS);
+	}
+
+	/** The loop's shapes at {@code t}, with its slow turn read at {@code driftT}. */
+	private static double[][] loadingState(double t, double driftT) {
+		double[][] out = new double[3][];
+		double drift = driftT / 1000.0 * DRIFT_DEG_PER_S;
 		if (t < INTRO_MS + 2 * STAGGER_MS) {
 			for (int k = 0; k < 3; k++) {
 				out[k] = lerp(SEED[k], CIRCLES[k], inOut((t - k * STAGGER_MS) / INTRO_MS));
@@ -169,7 +296,7 @@ final class MarkMotion {
 		double t = RingField.sceneMs() - flightAt;
 		double[][] s = new double[3][];
 		double[] cx = new double[3], cy = new double[3], size = new double[3];
-		double dotFade = 1.0 - smooth(t / (FLIGHT_MS * 0.3));
+		double dotFade = (1.0 - smooth(t / (FLIGHT_MS * 0.3))) * snapDot;   // gone already if the mark settled
 		for (int k = 0; k < 3; k++) {
 			double e = inOut((t - k * FLIGHT_STAGGER_MS) / (FLIGHT_MS - 2 * FLIGHT_STAGGER_MS));
 			double[] from = snap[k].clone();

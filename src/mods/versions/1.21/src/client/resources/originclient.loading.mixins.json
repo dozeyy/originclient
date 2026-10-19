@@ -12,7 +12,12 @@
 		"ConnectScreenMixin",
 		"LoadingOverlayRevealMixin",
 		"TitleScreenFadeMixin",
-		"ReloadTaskBudgetMixin"
+		"ReloadTaskBudgetMixin",
+		"FrameLogMixin",
+		"FrameLogTitleMixin",
+		"FrameLogOverlayMixin",
+		"ReloadTaskTagMixin",
+		"SimpleReloadInstanceAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 0
