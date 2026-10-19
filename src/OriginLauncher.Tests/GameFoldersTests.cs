@@ -8,12 +8,17 @@ namespace OriginLauncher.Tests;
 // one-folder-per-version layout, seeding a new account's folder, and the
 // per-account launch state machine behind the Play button. Folder tests run on
 // real files in a temp directory.
-public class GameFoldersTests
+public class GameFoldersTests : IDisposable
 {
     private const string Steve = "069a79f444e94726a5befca90e38aaf5";
     private const string Alex = "853c80ef3c3749fdaa49938b674adae6";
 
     private readonly string _root = Directory.CreateTempSubdirectory("game-folders").FullName;
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_root, true); } catch { /* best effort: a locked temp folder must not fail the test */ }
+    }
 
     private string Write(string relativePath, string text = "x")
     {
