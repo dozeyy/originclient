@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.menus;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiScreenWorking;
@@ -30,8 +31,8 @@ public abstract class GuiScreenWorkingMixin {
 	@Inject(method = "drawScreen", at = @At("HEAD"), cancellable = true)
 	private void originclient$originLoadingScene(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
 		try {
-			if (doneWorking) {
-				return;
+			if (doneWorking || OriginStyle.vanillaMenusOn(this)) {
+				return;   // vanilla mode: the stock screen
 			}
 			if (OriginScreenRenderer.renderLoadingScene(new Gfx(), field_146591_a, field_146589_f,
 					progress > 0 ? progress : -1)) {

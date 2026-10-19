@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.menus;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.mods.MenuBlur;
 import com.origin.client.client.render.OriginScreenRenderer;
@@ -35,7 +36,7 @@ public abstract class GuiScreenBackgroundMixin {
 		try {
 			GuiScreen self = (GuiScreen) (Object) this;
 			if (Minecraft.getMinecraft().theWorld == null) {
-				if (OriginScreenRenderer.isActive()) {
+				if (OriginScreenRenderer.isActive() && !OriginStyle.vanillaMenusOn(this)) {
 					ci.cancel();
 				}
 				return;
@@ -51,7 +52,8 @@ public abstract class GuiScreenBackgroundMixin {
 
 	@Inject(method = "drawBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressDirt(int tint, CallbackInfo ci) {
-		if (Minecraft.getMinecraft().theWorld == null && OriginScreenRenderer.isActive()) {
+		if (Minecraft.getMinecraft().theWorld == null && OriginScreenRenderer.isActive()
+				&& !OriginStyle.vanillaMenusOn(this)) {
 			ci.cancel();
 		}
 	}

@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.menus;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.multiplayer.GuiConnecting;
@@ -19,6 +20,9 @@ public abstract class GuiConnectingMixin {
 	@Inject(method = "drawScreen", at = @At("TAIL"))
 	private void originclient$originBar(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
 		try {
+			if (OriginStyle.vanillaMenusOn(this)) {
+				return;   // vanilla mode: no sweeping bar
+			}
 			OriginScreenRenderer.renderConnectingBar(new Gfx());
 		} catch (Throwable t) {
 			// the vanilla connect screen as it is

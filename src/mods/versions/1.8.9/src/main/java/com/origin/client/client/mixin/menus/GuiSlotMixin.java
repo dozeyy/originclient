@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.menus;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiSlot;
 import org.spongepowered.asm.mixin.Mixin;
@@ -28,14 +29,16 @@ public abstract class GuiSlotMixin {
 
 	@Inject(method = "drawContainerBackground", at = @At("HEAD"), cancellable = true, remap = false)
 	private void originclient$transparentRows(CallbackInfo ci) {
-		if (OriginScreenRenderer.isActive()) {
+		if (OriginScreenRenderer.isActive()
+			&& !OriginStyle.vanillaMenusOn(net.minecraft.client.Minecraft.getMinecraft().currentScreen)) {
 			ci.cancel();
 		}
 	}
 
 	@Inject(method = "overlayBackground", at = @At("HEAD"), cancellable = true)
 	private void originclient$transparentStrips(int startY, int endY, int startAlpha, int endAlpha, CallbackInfo ci) {
-		if (OriginScreenRenderer.isActive()) {
+		if (OriginScreenRenderer.isActive()
+			&& !OriginStyle.vanillaMenusOn(net.minecraft.client.Minecraft.getMinecraft().currentScreen)) {
 			ci.cancel();
 		}
 	}
