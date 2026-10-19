@@ -209,8 +209,8 @@ floating corner controls. In-game menus match this exactly.
 
 ## Token discipline (Claude Lean — `.claude/hooks/lean/README.md`)
 Usage is ~all re-reading of the conversation, so what enters it stays forever.
-These Origin rules override the global `~/.claude` ones where they differ.
-- Search before reading (Grep/Glob), then Read only the lines you need (offset/limit).
+These Origin rules override the global `~/.claude` ones where they differ (search-then-
+read-ranges is the global `context-efficiency.md` rule).
 - Don't re-read a file that's unchanged and still in context (a hook denies it once;
   repeating the identical call goes through if it was summarized away).
 - Build/test output is auto-trimmed to errors + verdict; the full log path is printed.
@@ -223,7 +223,7 @@ These Origin rules override the global `~/.claude` ones where they differ.
   research, or review/verify passes — each agent re-pays its own context. Use
   Origin's agents in `.claude/agents/` (Will's claude-config set, adapted to Origin
   with a token contract): coding/porting/debugging on opus, building/reviewing on
-  sonnet, mechanical on haiku (pinned `claude-haiku-5-5`: the `haiku` alias lags). Ask for short reports; CI checks at most every 3 min.
+  sonnet, mechanical on haiku (pinned ID per `model-routing.md`). Ask for short reports; CI checks at most every 3 min.
 
 # Compact instructions
 When compacting, keep: the user's current request and any decisions/"never" rules they
