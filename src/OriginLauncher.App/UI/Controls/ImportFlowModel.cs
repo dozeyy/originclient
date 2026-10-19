@@ -372,6 +372,11 @@ internal sealed class ImportFlowModel
     public static string LeftOutNames(ImportCategories bring) =>
         string.Join(", ", CategoryFilter.Each.Where(c => (bring & c) == 0).Select(CategoryFilter.Name));
 
+    /// <summary>"a, b, c" or "a, b and 4 more": a list of names that stays one or two lines in the drawer.</summary>
+    public static string JoinFew(IReadOnlyList<string> names, int shown = 3) =>
+        names.Count <= shown ? string.Join(", ", names)
+            : string.Join(", ", names.Take(shown - 1)) + $" and {names.Count - (shown - 1)} more";
+
     /// <summary>Whether a skipped setup belongs on the Review and Done pages: setups of another launcher were never part of this import.</summary>
     public bool Shows(SkippedSetup skipped) => skipped.Kind != SkipKind.NotSelected && InScopeOf(skipped.Setup);
 

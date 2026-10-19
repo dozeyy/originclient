@@ -1095,13 +1095,16 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         var attention = new List<CardRowVm>();
         for (var i = 0; i < plan.Notes.Count; i++)
             attention.Add(new ImportLineVm { Id = "n" + i, Title = plan.Notes[i] });
-        foreach (var planned in setups)
-            foreach (var line in planned.Plan.Lines.Where(l => l.Section == SummarySection.NeedsAttention))
-                attention.Add(new ImportLineVm
-                {
-                    Id = $"a{attention.Count}", Title = line.Name, Caption = planned.Setup.Name,
-                    Warning = ImportLogic.StatusLine(line.Reason),
-                });
+        // One line per problem, naming every setup it is in ("Create" turned off in five setups is one line, not five).
+        var problems = setups
+            .SelectMany(p => p.Plan.Lines.Where(l => l.Section == SummarySection.NeedsAttention).Select(l => (Line: l, p.Setup.Name)))
+            .GroupBy(x => (x.Line.Name, Reason: ImportLogic.StatusLine(x.Line.Reason)));
+        foreach (var problem in problems)
+            attention.Add(new ImportLineVm
+            {
+                Id = $"a{attention.Count}", Title = problem.Key.Name, Warning = problem.Key.Reason,
+                Caption = ImportFlowModel.JoinFew(problem.Select(x => x.Name).Distinct().ToList()),
+            });
         if (attention.Count > 0)
         {
             items.Add(new ImportSectionVm { Id = "attention", Title = "NEEDS ATTENTION", Count = attention.Count, Gold = true });
@@ -1145,12 +1148,17 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         }
 
         var left = new List<CardRowVm>();
-        foreach (var group in plan.Groups.OrderByDescending(g => g.Version, Comparer<string>.Create(McVersion.Compare)))
-        {
-            var names = ImportFlowModel.LeftOutNames(_model.BringFor(group.Version));
-            if (names.Length > 0)
-                left.Add(new ImportLineVm { Id = "c" + group.Version, Title = names, Caption = $"Minecraft {group.Version} - switched off in What to bring" });
-        }
+        // What each version leaves out, one line per choice ("Worlds" off everywhere is one line naming every version).
+        var offs = plan.Groups.OrderByDescending(g => g.Version, Comparer<string>.Create(McVersion.Compare))
+            .Select(g => (g.Version, Names: ImportFlowModel.LeftOutNames(_model.BringFor(g.Version))))
+            .Where(x => x.Names.Length > 0)
+            .GroupBy(x => x.Names);
+        foreach (var off in offs)
+            left.Add(new ImportLineVm
+            {
+                Id = "c" + off.Key, Title = off.Key,
+                Caption = $"Minecraft {ImportFlowModel.JoinFew(off.Select(x => x.Version).ToList())} - switched off in What to bring",
+            });
         foreach (var skipped in plan.Skipped.Where(_model.Shows))
             left.Add(new ImportLineVm
             {

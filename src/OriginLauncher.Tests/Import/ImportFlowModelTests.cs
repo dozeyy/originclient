@@ -329,6 +329,15 @@ public class ImportFlowModelTests
     }
 
     [Fact]
+    public void JoinFew_names_up_to_three_then_counts_the_rest()
+    {
+        Assert.Equal("", ImportFlowModel.JoinFew(Array.Empty<string>()));
+        Assert.Equal("a", ImportFlowModel.JoinFew(new[] { "a" }));
+        Assert.Equal("a, b, c", ImportFlowModel.JoinFew(new[] { "a", "b", "c" }));
+        Assert.Equal("a, b and 3 more", ImportFlowModel.JoinFew(new[] { "a", "b", "c", "d", "e" }));
+    }
+
+    [Fact]
     public void ForDone_passes_a_result_with_nothing_hidden_through_unchanged()
     {
         var (model, setups) = Mixed();

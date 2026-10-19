@@ -164,7 +164,8 @@
                         <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
                     </StackPanel>
                     <CheckBox Grid.Column="1" Style="{StaticResource Social.Check}" IsThreeState="False"
-                              IsChecked="{Binding State, Mode=OneWay}" IsEnabled="{Binding Enabled}"
+                              IsChecked="{Binding State, Mode=OneWay}"
+                              IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
                               Click="SelectAllTick_Click" ToolTip="Tick or untick every version"
                               AutomationProperties.Name="Import from all versions"/>
                 </Grid>
@@ -183,14 +184,17 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel x:Name="Words" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"
+                                   TextWrapping="Wrap" TextTrimming="None"/>
                         <TextBlock Text="{Binding Contents}" Style="{StaticResource Social.Quiet}"
+                                   TextWrapping="Wrap" TextTrimming="None"
                                    Visibility="{Binding HasContents, Converter={StaticResource BoolToVis}}"/>
                         <TextBlock Text="{Binding Warning}" Style="{StaticResource Import.Warning}"
                                    Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
                     <CheckBox Grid.Column="1" Style="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=OneWay}"
                               Visibility="{Binding CanTick, Converter={StaticResource BoolToVis}}"
+                              IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
                               Click="VersionTick_Click" ToolTip="Include in import"
                               AutomationProperties.Name="{Binding TickName}"/>
                     <Path Grid.Column="2" Style="{StaticResource Import.Go}"/>
@@ -206,7 +210,8 @@
         <!-- "What to bring": the switches wrap inside one card (Import.Chip, Theme/Social.xaml). -->
         <DataTemplate DataType="{x:Type controls:CategoryBarVm}">
             <Border Style="{StaticResource Social.RowStatic}" Padding="10,10,4,4">
-                <ItemsControl ItemsSource="{Binding Chips}" Focusable="False">
+                <ItemsControl ItemsSource="{Binding Chips}" Focusable="False"
+                              IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel/>
@@ -240,7 +245,8 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="NameText" Text="{Binding Name}" Style="{StaticResource Social.Name}"
                                    TextTrimming="CharacterEllipsis"/>
-                        <TextBlock x:Name="CaptionText" Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                        <TextBlock x:Name="CaptionText" Text="{Binding Caption}" Style="{StaticResource Social.Caption}"
+                                   TextWrapping="Wrap" TextTrimming="None"/>
                         <TextBlock Text="{Binding Warning}" Style="{StaticResource Import.Warning}"
                                    Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
