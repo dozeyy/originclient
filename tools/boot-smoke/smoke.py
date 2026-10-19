@@ -67,6 +67,8 @@ def main():
     ap.add_argument("--world", default="", help="quickplay singleplayer world name (blank = boot to menu)")
     ap.add_argument("--run-java", type=int, default=0,
                     help="boot the game JVM on this Java major (Gradle stays on its own JDK) and verify it")
+    ap.add_argument("--gradle-arg", action="append", default=[],
+                    help="extra argument for the gradle runClient call (repeatable), e.g. --stacktrace")
     args = ap.parse_args()
 
     module = os.path.abspath(args.module)
@@ -76,6 +78,7 @@ def main():
 
     gradlew = os.path.join(module, "gradlew.bat" if os.name == "nt" else "gradlew")
     cmd = [gradlew, "runClient", "--no-daemon"]
+    cmd += args.gradle_arg
     if args.world:
         cmd.append(f"-Pquickplay={args.world}")
     if args.run_java:
