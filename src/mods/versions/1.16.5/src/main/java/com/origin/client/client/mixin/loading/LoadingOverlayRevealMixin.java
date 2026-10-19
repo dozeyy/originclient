@@ -42,6 +42,9 @@ public abstract class LoadingOverlayRevealMixin {
 	private boolean fadeIn;
 	@Shadow
 	private long fadeOutStart;
+	@Shadow
+	@Final
+	private net.minecraft.server.packs.resources.ReloadInstance reload;
 
 	// StartupTransition.clockMs() just after this overlay's first dissolve frame; 0 = none yet.
 	// The dissolve's clock starts here, not at fadeOutStart: vanilla sets that
@@ -53,6 +56,9 @@ public abstract class LoadingOverlayRevealMixin {
 
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void originclient$reveal(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (com.origin.client.client.OriginFrameLog.ENABLED && !this.fadeIn && this.reload.isDone()) {
+			com.origin.client.client.OriginFrameLog.reloadSeenDone();   // dev-only: the bar-full frame
+		}
 		if (this.fadeOutStart <= -1L || !OriginScreenRenderer.isActive()) {
 			return;
 		}

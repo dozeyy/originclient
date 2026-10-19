@@ -93,6 +93,10 @@ public final class OriginDevShots {
 	static {
 		if (WORLD) {
 			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("handoff".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// The loading -> title hand-off measurement (OriginFrameLog): one title
+			// shot, taken only once the frame log has printed, then quit.
+			SHOTS.add(new Shot(1920, 1080, 0, Kind.TITLE));
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review (the menu / HUD-editor redesign loop): every screen at
 			// the two most common desktop sizes, auto GUI scale.
@@ -152,7 +156,7 @@ public final class OriginDevShots {
 					// The world set holds the title longer: dev-shots' video option
 					// films this run, and the menu's entrance should be seen settled.
 					nextAt = now + (WORLD ? 4000 : 1500);
-				} else if (now >= nextAt) {
+				} else if (now >= nextAt && OriginFrameLog.done()) {   // never resize under the hand-off being measured
 					File output = new File(DIR);
 					if (!output.isDirectory() && !output.mkdirs()) {
 						com.origin.client.OriginClient.LOGGER.error(

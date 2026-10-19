@@ -36,14 +36,23 @@ public abstract class ReloadTaskBudgetMixin {
 	@Shadow
 	public abstract boolean pollTask();
 
+	@Shadow
+	@org.spongepowered.asm.mixin.Final
+	private java.util.Queue<Runnable> pendingRunnables;
+
 	@Inject(method = "runAllTasks", at = @At("HEAD"), cancellable = true)
 	private void originclient$budgetReloadTasks(CallbackInfo ci) {
 		if (!((Object) this instanceof Minecraft mc) || !originclient$startupLoading(mc)) {
 			return;
 		}
 		long end = System.nanoTime() + BUDGET_NS;
-		while (this.pollTask()) {
-			if (System.nanoTime() >= end) {
+		while (true) {
+			// Dev-only step timing (OriginFrameLog); one static-final check when off.
+			Object next = com.origin.client.client.OriginFrameLog.ENABLED ? this.pendingRunnables.peek() : null;
+			com.origin.client.client.OriginFrameLog.pollBegin();
+			boolean ran = this.pollTask();
+			com.origin.client.client.OriginFrameLog.pollEnd(next);
+			if (!ran || System.nanoTime() >= end) {
 				break;
 			}
 		}

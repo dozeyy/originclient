@@ -21,11 +21,37 @@ import com.origin.client.client.theme.OriginTheme;
 public final class StartupTransition {
 	/** Loading -> title dissolve. Mirrors the launcher's Motion.Intro. */
 	public static final long REVEAL_MS = 560;
+	/** The title's entrance (the buttons' rise, TitleScreenMixin) is over this long after the reveal starts. */
+	public static final long TITLE_ENTRANCE_MS = 1200;
 
 	// clockMs() at the startup reveal's first frame; 0 = none yet.
 	private static long titleRevealAt = 0;
 
 	private StartupTransition() {
+	}
+
+	// System.nanoTime() of the last reload task run on the render thread
+	// (ReloadTaskTagMixin); 0 = none yet. Any reload counts, not only the
+	// overlay's own: during the startup load every such step stalls the
+	// loading screen alike (1.21.1, CI 2026-10-18).
+	private static volatile long renderWorkAt = 0;
+
+	/** A reload listener's task is about to run on its apply executor. */
+	public static void reloadRenderWork(Object reload, String listener) {
+		if (!com.mojang.blaze3d.systems.RenderSystem.isOnRenderThread()) {
+			return;   // a server-thread (data pack) reload: never stalls the loading screen
+		}
+		if (renderWorkAt == 0 && OriginFrameLog.ENABLED) {
+			OriginFrameLog.mark("render-thread reload work begins (" + (listener == null ? "?" : listener) + ", "
+					+ reload.getClass().getSimpleName() + ")");
+		}
+		renderWorkAt = System.nanoTime();
+	}
+
+	/** True when reload work has run on the render thread since {@code sinceNanos}: from here a frame can stall for long. */
+	public static boolean reloadRenderWorkSince(long sinceNanos) {
+		long at = renderWorkAt;
+		return at != 0 && at - sinceNanos > 0;
 	}
 
 	/** Cubic ease-out on 0..1 (clamped), the curve both halves use. */
@@ -37,6 +63,8 @@ public final class StartupTransition {
 	public static void titleRevealed() {
 		if (titleRevealAt == 0) {
 			titleRevealAt = clockMs();
+			OriginFrameLog.mark("dissolve-start");
+			OriginFrameLog.entranceEndsAt(titleRevealAt - 1 + TITLE_ENTRANCE_MS);
 		}
 	}
 

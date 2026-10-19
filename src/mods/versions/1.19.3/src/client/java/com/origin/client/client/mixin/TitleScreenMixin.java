@@ -151,7 +151,7 @@ public class TitleScreenMixin {
 		long el = com.origin.client.client.StartupTransition.clockMs() - com.origin.client.client.StartupTransition.titleIntroStart(originclient$openedAt);
 		for (int i = 0; i < originclient$nav.size(); i++) {
 			int[] t = originclient$navPos.get(i);
-			double e = el > 1200 ? 1.0 : originclient$ease((el - 120 - i * 55) / 380.0);
+			double e = el > com.origin.client.client.StartupTransition.TITLE_ENTRANCE_MS ? 1.0 : originclient$ease((el - 120 - i * 55) / 380.0);
 			AbstractWidget w = originclient$nav.get(i);
 			w.setX(t[0]);
 			w.setY(t[1] + (int) Math.round((1.0 - e) * 8));

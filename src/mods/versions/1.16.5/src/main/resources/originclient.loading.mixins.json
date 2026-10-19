@@ -12,7 +12,11 @@
 		"LoadingOverlayAccessor",
 		"LoadingOverlayRevealMixin",
 		"TitleScreenFadeMixin",
-		"ReloadTaskBudgetMixin"
+		"ReloadTaskBudgetMixin",
+		"FrameLogMixin",
+		"FrameLogTitleMixin",
+		"ReloadTaskTagMixin",
+		"FrameLogOverlayMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
