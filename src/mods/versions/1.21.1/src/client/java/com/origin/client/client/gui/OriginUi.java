@@ -1,6 +1,5 @@
 package com.origin.client.client.gui;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -17,7 +16,6 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
 
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +25,6 @@ import java.util.Map;
 // ever pixelated. GL discipline as documented in CODE_REVIEW.md: blend +
 // default func before textured draws, shader color reset after tints.
 public final class OriginUi {
-	private static final Gson GSON = new Gson();
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
@@ -630,17 +627,13 @@ public final class OriginUi {
 		}
 	}
 
+	// Decoded on the startup reload's worker threads (OriginAssets); only the GPU upload happens here.
 	private static JsonObject readJson(String path) throws Exception {
-		try (InputStream in = OriginUi.class.getResourceAsStream(path)) {
-			return GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-		}
+		return com.origin.client.client.OriginAssets.json(path);
 	}
 
 	private static ResourceLocation reg(Minecraft mc, String name, String path) throws Exception {
-		NativeImage image;
-		try (InputStream in = OriginUi.class.getResourceAsStream(path)) {
-			image = NativeImage.read(in);
-		}
+		NativeImage image = com.origin.client.client.OriginAssets.image(path);
 		ResourceLocation id = ResourceLocation.fromNamespaceAndPath("originclient", name);
 		DynamicTexture tex = new DynamicTexture(image);
 		tex.setFilter(true, false);

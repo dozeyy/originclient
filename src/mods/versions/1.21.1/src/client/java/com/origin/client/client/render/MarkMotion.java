@@ -91,7 +91,7 @@ final class MarkMotion {
 
 	/** The loading loop at {@code t} ms since the loading screen first drew. */
 	static void drawLoading(GuiGraphics g, double cx, double cy, double size, double t, double alpha) {
-		double[][] s = loadingState(t);
+		double[][] s = settleT >= 0 ? loadingState(Math.min(t, restT), settledDrift(t)) : loadingState(t, t);
 		for (int k = 0; k < 3; k++) {
 			System.arraycopy(s[k], 0, snap[k], 0, N);
 		}
@@ -99,12 +99,77 @@ final class MarkMotion {
 		snapCy = cy;
 		snapSize = size;
 		snapT = t;
-		draw(g, cx, cy, size, s, alpha, dotAngle(t), 1.0);
+		snapDot = dotAlpha(t);
+		draw(g, cx, cy, size, s, alpha, dotAngle(t), snapDot);
 	}
 
-	private static double[][] loadingState(double t) {
+	// ---- Settle: the calm before the menu ----
+	// The last stretch of the startup load runs every reload listener's apply step
+	// on the render thread (atlas uploads, model bake, shaders, sound engine), and
+	// with mods installed single steps take hundreds of ms. A frame that long is
+	// invisible only if nothing is moving. So once the load reaches that stretch
+	// (OriginScreenRenderer: all preparations done), the loop finishes the morph
+	// it is in — never cut — and rests on that shape, its slow turn eases to a
+	// stop and the riding dot fades out. From then on only the bar moves (a bar
+	// that pauses reads as loading), the main menu's settle hold shows this same
+	// still picture, and the flight to the title starts from it.
+
+	/** Loop time (ms) the settle was asked for; -1 = looping. */
+	private static double settleT = -1;
+	/** Loop time the strokes come to rest (the end of the morph in progress at settleT). */
+	private static double restT;
+	/** How quickly the slow turn eases out after a settle, and how long the dot takes to fade. */
+	private static final double DRIFT_TAU_MS = 400, DOT_FADE_MS = 360;
+	// The dot's alpha in the last loading frame (the flight's dot starts from it).
+	private static double snapDot = 1.0;
+
+	/** Ask the loop to come to rest (idempotent): finishes the current morph, then holds. */
+	static void settle(double t) {
+		if (settleT >= 0) {
+			return;
+		}
+		settleT = t;
+		double intro = INTRO_MS + 2 * STAGGER_MS;
+		if (t < intro) {
+			restT = intro;   // the seed finishes blooming into circles
+			return;
+		}
+		double stepMs = HOLD_MS + MORPH_MS;
+		double step = Math.floor((t - intro) / stepMs);
+		double within = (t - intro) - step * stepMs;
+		// Holding a shape: rest right there. Mid-morph: rest when it lands (every
+		// stroke's morph, stagger included, ends by the step's end).
+		restT = within < HOLD_MS ? t : intro + (step + 1) * stepMs;
+	}
+
+	/** True once a settle was asked for (until {@link #unsettle}). */
+	static boolean settling() {
+		return settleT >= 0;
+	}
+
+	/** A new reload began (a resource-pack change after startup): loop again. */
+	static void unsettle() {
+		settleT = -1;
+	}
+
+	/** True once the strokes have landed and the dot is gone: nothing on the loading screen moves but the bar. */
+	static boolean atRest(double t) {
+		return settleT >= 0 && t >= Math.max(restT, settleT + DOT_FADE_MS);
+	}
+
+	/** The drift's clock after a settle: it eases out instead of stopping dead. */
+	private static double settledDrift(double t) {
+		return t <= settleT ? t : settleT + DRIFT_TAU_MS * (1.0 - Math.exp(-(t - settleT) / DRIFT_TAU_MS));
+	}
+
+	private static double dotAlpha(double t) {
+		return settleT < 0 || t <= settleT ? 1.0 : 1.0 - smooth((t - settleT) / DOT_FADE_MS);
+	}
+
+	/** The loop's shapes at {@code t}, with its slow turn read at {@code driftT}. */
+	private static double[][] loadingState(double t, double driftT) {
 		double[][] out = new double[3][];
-		double drift = t / 1000.0 * DRIFT_DEG_PER_S;
+		double drift = driftT / 1000.0 * DRIFT_DEG_PER_S;
 		if (t < INTRO_MS + 2 * STAGGER_MS) {
 			for (int k = 0; k < 3; k++) {
 				out[k] = lerp(SEED[k], CIRCLES[k], inOut((t - k * STAGGER_MS) / INTRO_MS));
@@ -154,7 +219,7 @@ final class MarkMotion {
 		double t = RingField.sceneMs() - flightAt;
 		double[][] s = new double[3][];
 		double[] cx = new double[3], cy = new double[3], size = new double[3];
-		double dotFade = 1.0 - smooth(t / (FLIGHT_MS * 0.3));
+		double dotFade = (1.0 - smooth(t / (FLIGHT_MS * 0.3))) * snapDot;   // gone already if the mark settled
 		for (int k = 0; k < 3; k++) {
 			double e = inOut((t - k * FLIGHT_STAGGER_MS) / (FLIGHT_MS - 2 * FLIGHT_STAGGER_MS));
 			double[] from = snap[k].clone();

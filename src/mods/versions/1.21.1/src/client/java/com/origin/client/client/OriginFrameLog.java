@@ -156,6 +156,24 @@ public final class OriginFrameLog {
 		flushLead();
 	}
 
+	private static long sectionStart;
+
+	/** A named stretch of render-thread work begins (FrameLogOverlayMixin: onFinish, screen.init). */
+	public static void sectionBegin() {
+		if (ENABLED) {
+			sectionStart = System.nanoTime();
+		}
+	}
+
+	/** ...and ends: named on its frame's line (any length). */
+	public static void sectionEnd(String name) {
+		if (!ENABLED || finished || sectionStart == 0) {
+			return;
+		}
+		named(name, (System.nanoTime() - sectionStart) / 1e6);
+		sectionStart = 0;
+	}
+
 	private static long pollStart;
 	private static boolean pollTagged;
 

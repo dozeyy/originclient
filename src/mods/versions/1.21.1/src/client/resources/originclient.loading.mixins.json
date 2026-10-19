@@ -15,7 +15,9 @@
 		"ReloadTaskBudgetMixin",
 		"FrameLogMixin",
 		"FrameLogTitleMixin",
-		"ReloadTaskTagMixin"
+		"ReloadTaskTagMixin",
+		"SimpleReloadInstanceAccessor",
+		"FrameLogOverlayMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
