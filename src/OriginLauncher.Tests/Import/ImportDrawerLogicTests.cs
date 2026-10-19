@@ -47,6 +47,15 @@ public class ImportDrawerLogicTests
     }
 
     [Theory]
+    [InlineData("Pack file missing. Skipped.", "Pack file missing. Skipped.")]     // two sentences: kept as they are
+    [InlineData("Imported but turned off: needs Fabric API.", "Imported but turned off: needs Fabric API")]
+    [InlineData("Comes over turned off - needs Fabric Kotlin", "Comes over turned off - needs Fabric Kotlin")]
+    [InlineData("Looking...", "Looking...")]
+    [InlineData(null, null)]
+    public void StatusLine_DropsOneSentencesFullStop(string? text, string? expected) =>
+        Assert.Equal(expected, ImportLogic.StatusLine(text));
+
+    [Theory]
     [InlineData(SetupRole.Full, 6, "Settings, packs, 6 mods")]
     [InlineData(SetupRole.Full, 1, "Settings, packs, 1 mod")]
     [InlineData(SetupRole.Full, 0, "Settings and packs")]

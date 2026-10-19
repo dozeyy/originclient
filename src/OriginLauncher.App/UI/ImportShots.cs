@@ -387,7 +387,7 @@ internal static class ImportShots
                 Mod("waystones-fabric.jar", "Waystones", ModOutcome.Copied),
                 Mod("jade-15.jar", "Jade", ModOutcome.Copied),
                 Mod("appleskin-3.0.jar", "AppleSkin", ModOutcome.Copied),
-                Mod("create-fabric.jar", "Create", ModOutcome.CopiedDisabled, "Needs Fabric Kotlin."),
+                Mod("create-fabric.jar", "Create", ModOutcome.CopiedDisabled, "needs Fabric Kotlin"),
                 Mod("sodium-fabric-0.6.13.jar", "Sodium", ModOutcome.BuiltIn, "Origin includes Sodium 0.6.13"),
                 Mod("lithium-fabric-0.14.jar", "Lithium", ModOutcome.BuiltIn, "Origin includes Lithium 0.14.3"),
                 Mod("iris-1.8.8.jar", "Iris", ModOutcome.BuiltIn, "Origin includes Iris 1.8.8"),
@@ -409,7 +409,7 @@ internal static class ImportShots
                 if (m.Outcome == ModOutcome.Copied)
                     plan.Lines.Add(new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, label, null, 600_000));
                 else if (m.Outcome == ModOutcome.CopiedDisabled)
-                    plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, label, "Comes over turned off. " + m.Reason, 4_200_000));
+                    plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, label, "Comes over turned off - " + m.Reason, 4_200_000));
                 else
                     plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{label} ({m.FileName})", m.Reason));
             }
@@ -427,7 +427,7 @@ internal static class ImportShots
             if (role == SetupRole.Full)
             {
                 plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.ResourcePack, "Old Textures",
-                    "Pack file missing. Skipped."));
+                    "Pack file missing - skipped"));
                 plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Setting, "authlib-injector.cfg",
                     "Skipped for safety: it looks like a login or account file."));
                 plan.SkippedForSafety.Add("authlib-injector.cfg");

@@ -282,7 +282,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     }
 
     // The overview's footer note: one line in the 380 px drawer (it used to wrap). The other launchers are only read.
-    private const string FooterCopiesNote = "Copies, never moves.";
+    private const string FooterCopiesNote = "Copies, never moves";
 
     private string OverviewSubtitle() => $"{ImportLogic.Plural(_all.Count, "setup", "setups")} found";
 
@@ -892,7 +892,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (attention.Count > 0)
         {
             items.Add(new ImportSectionVm { Id = "attention", Title = "NEEDS ATTENTION", Count = attention.Count, Gold = true });
-            var rows = attention.Select((l, i) => new ImportLineVm { Id = "a" + i, Title = l.Name, Warning = l.Reason }).ToList<CardRowVm>();
+            var rows = attention.Select((l, i) => new ImportLineVm { Id = "a" + i, Title = l.Name, Warning = ImportLogic.StatusLine(l.Reason) }).ToList<CardRowVm>();
             AssignPos(rows);
             items.AddRange(rows);
         }

@@ -62,6 +62,18 @@ internal static class ImportLogic
         };
     }
 
+    /// <summary>
+    /// A plan line shown as a row's status line: one sentence loses its full stop (rows and Friends carry none). Text with
+    /// more than one sentence keeps its punctuation, so nothing is run together.
+    /// </summary>
+    public static string? StatusLine(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+        var t = text.Trim();
+        var body = t.EndsWith('.') && !t.EndsWith("...", StringComparison.Ordinal) ? t[..^1] : t;
+        return body.Contains(". ", StringComparison.Ordinal) ? t : body;
+    }
+
     /// <summary>A skipped setup's row caption (no full stop): the short form of the plan's sentence, which Details and Done show.</summary>
     public static string SkipCaption(SkipKind kind) => kind switch
     {

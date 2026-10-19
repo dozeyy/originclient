@@ -297,7 +297,16 @@ public sealed class LauncherWiringTests : IDisposable
         using var server = new ImportIpcServer(name, () => { }, line => { lock (log) log.Add(line); });
         server.Start();
 
-        await Task.Delay(1800); // failures at ~0, 0.25, 0.75, 1.75 s: four attempts, one log line
+        // Wait for the FIRST failure instead of assuming it lands within a fixed time: on a slow, busy run the server's
+        // pool thread can start late, and a fixed 1.8 s sleep then saw no line at all (a flaky miss, not a bug).
+        var first = System.Diagnostics.Stopwatch.StartNew();
+        while (first.Elapsed < TimeSpan.FromSeconds(15))
+        {
+            lock (log) if (log.Count > 0) break;
+            await Task.Delay(25);
+        }
+        // Then give it time for several more back-off attempts (0.25 + 0.5 + 1 s): they must stay silent.
+        await Task.Delay(1900);
         lock (log)
         {
             Assert.Single(log);
