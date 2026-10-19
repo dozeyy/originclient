@@ -657,11 +657,9 @@ public final class SocialClient {
 		Party before = state.party();
 		JsonObject pO = obj(o, "party");
 		// Chat or a different party is news (hold again soon). A refreshed friends list
-		// alone is not, EXCEPT when it is why a hold was answered at once (held 0: our
-		// friendsEtag was stale, e.g. a friend changed server): this answer carries the
-		// fresh etag, so the next hold can start right away and can't repeat this.
+		// is not: the service holds a stale friendsEtag like any other sync and sends
+		// the lists with that hold's answer, so friends churn costs no extra requests.
 		lastNews = arr(o, "messages").size() > 0 || arr(o, "partyMessages").size() > 0
-				|| (lastHeld == 0 && o.has("friends"))
 				|| !java.util.Objects.equals(before == null ? null : before.id(), pO == null ? null : str(pO, "id"));
 		apply(o);
 	}

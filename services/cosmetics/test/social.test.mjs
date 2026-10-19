@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { handle, scheduled } from '../src/index.js';
 import { socialCleanup, presenceSweep, holdClock } from '../src/social.js';
+import { friendsEtagOf } from '../src/social-shared.js';
 import { d1 } from './d1.mjs';
 import { authBody, seedKeys, b64, spki, MOJANG_CERT, MOJANG_PROFILE, NOT_MOJANG, PLAYER_KEY, OTHER_PLAYER_KEY } from './mojang.mjs';
 
@@ -899,13 +900,15 @@ test('held sync: only chat ends it (a DM to you, a party line); friends-list and
   let h = await held(alex, { since, friendsEtag });
   assert.equal(h.took, 6_000);
   assert.deepEqual(h.r.messages.map(m => m.text), ['dm']);
-  // a friend request to Alex bumps Alex's list but doesn't end the hold (no extra requests per friend change)
+  // a friend request to Alex bumps Alex's list but doesn't end the hold (no extra requests per
+  // friend change); the hold's own answer brings it, with an etag that is current again
   checks = 0;
   duringHold = async () => { if (checks === 1) await call(sam.token, '/v1/friends/request', { name: 'Alex' }); };
   h = await held(alex, { since: h.r.cursor, friendsEtag: h.r.friendsEtag });
   assert.equal(h.took, 20_000);
+  assert.deepEqual(h.r.requests.incoming.map(q => q.name), ['Sam']);
   const after = await sync(alex, { since: h.r.cursor, friendsEtag: h.r.friendsEtag });
-  assert.deepEqual(after.requests.incoming.map(q => q.name), ['Sam']);   // the next sync brings it
+  assert.ok(!('requests' in after));                                    // nothing left for the next sync
   // kicked from the party: shown by the hold's answer, without ending it early
   checks = 0;
   duringHold = async () => { if (checks === 3) await call(will.token, '/v1/party/kick', { uuid: alex.uuid }); };
@@ -920,20 +923,134 @@ test('held sync: only chat ends it (a DM to you, a party line); friends-list and
   assert.equal(h.took, 20_000);
 });
 
-test('held sync: answered at once for a stale friendsEtag or chat newer than `since`; no `held` without `wait`', async () => {
+test('held sync: answered at once for chat newer than `since`; a stale friendsEtag is held like any other; no `held` without `wait`', async () => {
   const { alex, since, friendsEtag } = await chatParty();
   let h = await held(alex, { since: 0, friendsEtag });             // chat exists: the first check answers
   assert.equal(h.took, 0); assert.equal(h.r.held, 0);
   assert.deepEqual(h.r.partyMessages.map(m => m.text), ['hello']);
-  h = await held(alex, { since: 0 });                              // no etag yet = stale
-  assert.equal(h.took, 0); assert.equal(h.r.held, 0);
-  h = await held(alex, { since, friendsEtag: 'old', ...onServer('b.net') });
+  h = await held(alex, { since: 0 });                              // no etag yet: the chat answers it, lists come along
   assert.equal(h.took, 0); assert.equal(h.r.held, 0);
   assert.ok(Array.isArray(h.r.friends));
-  assert.equal(rows(`SELECT server FROM presence WHERE uuid = '${alex.uuid}'`)[0].server, 'b.net');   // written in the same batch
-  const plain = await sync(alex, { since, friendsEtag });
+  h = await held(alex, { since, friendsEtag: 'old', ...onServer('b.net') });
+  assert.equal(h.took, 20_000); assert.equal(h.r.held, 20_000);    // a stale etag no longer ends a hold early...
+  assert.ok(Array.isArray(h.r.friends));                           // ...its lists come with the hold's answer
+  assert.equal(rows(`SELECT server FROM presence WHERE uuid = '${alex.uuid}'`)[0].server, 'b.net');   // written before the hold
+  checks = 0;
+  const plain = await sync(alex, { since, friendsEtag: h.r.friendsEtag });
   assert.ok(!('held' in plain));                                  // old clients see the old answer
+  assert.ok(!('friends' in plain));                               // the held answer's etag was current
   assert.equal(checks, 0);
+});
+
+// Records every env.DB.batch call's statement count while `seen.on` is true,
+// and (`seen.lists`) the rows each of the last batch's four list queries returned.
+const LIST_SQL = { friends: /FROM friends f\b/, incoming: /WHERE r\.to_uuid\b/, outgoing: /WHERE r\.from_uuid\b/, blocked: /FROM blocks b\b/ };
+function countBatches() {
+  const seen = { on: true, batches: [], lists: null };
+  const batch = env.DB.batch;
+  env.DB.batch = list => {
+    const out = batch(list);
+    if (seen.on) {
+      seen.batches.push(list.length);
+      seen.lists = Object.fromEntries(Object.entries(LIST_SQL).map(([k, re]) => {
+        const i = list.findIndex(s => re.test(s.sql));
+        return [k, i < 0 ? null : out[i].results.length];
+      }));
+    }
+    return out;
+  };
+  return seen;
+}
+const revOf = who => rows(`SELECT friends_rev FROM names WHERE uuid = '${who.uuid}'`)[0].friends_rev;
+// Counts the friends / friend_requests / blocks index entries a query steps
+// through (not just the rows it returns): temp views shadow the three tables
+// and call visit() once per row they hand to the query. EXPLAIN QUERY PLAN
+// still shows the same index seeks through them (checked on node:sqlite 3.53).
+function countVisits() {
+  const v = { n: 0 };
+  env.DB.raw.function('visit', { deterministic: false }, () => { v.n++; return 1; });
+  env.DB.raw.exec(`CREATE TEMP VIEW friends AS SELECT * FROM main.friends WHERE visit();
+    CREATE TEMP VIEW friend_requests AS SELECT * FROM main.friend_requests WHERE visit();
+    CREATE TEMP VIEW blocks AS SELECT * FROM main.blocks WHERE visit();`);
+  v.stop = () => env.DB.raw.exec('DROP VIEW temp.friends; DROP VIEW temp.friend_requests; DROP VIEW temp.blocks;');
+  return v;
+}
+
+test('held sync: a stale friendsEtag is held; the answer is ONE batch whose rev, etag and lists are read at answer time', async () => {
+  const { alex, since, friendsEtag } = await chatParty();
+  const sam = await signIn('Sam');
+  const seen = countBatches();
+  // Sam's friend request lands DURING the hold (its batches are Sam's request, not counted).
+  duringHold = async () => {
+    if (checks === 2) { seen.on = false; await call(sam.token, '/v1/friends/request', { name: 'Alex' }); seen.on = true; }
+  };
+  const revBefore = revOf(alex);
+  const { r, took } = await held(alex, { since, friendsEtag: 'stale', ...onServer('a.net') });
+  assert.equal(took, 20_000);                                      // held for the full wait, not answered at once
+  assert.equal(r.held, 20_000);
+  assert.equal(checks, 7);                                         // the chat checks are .first() reads, not batches
+  // exactly two batches: the presence write before the wait, and the one answer batch
+  // (9 reads + the in-batch friends_rev + the 4 guarded list queries)
+  assert.deepEqual(seen.batches, [2, 14]);
+  assert.ok(revOf(alex) > revBefore);                              // Sam's request bumped Alex's rev mid-hold
+  assert.equal(r.friendsEtag, friendsEtagOf(revOf(alex), clock));  // the etag of the rev at answer time, not the session's
+  assert.notEqual(r.friendsEtag, friendsEtag);
+  assert.deepEqual(r.friends.map(f => f.name), ['Will']);          // lists present...
+  assert.deepEqual(r.requests.incoming.map(q => q.name), ['Sam']);  // ...including the change made during the hold
+  assert.deepEqual(r.blocked, []);
+  assert.deepEqual(seen.lists, { friends: 1, incoming: 1, outgoing: 0, blocked: 0 });   // the SQL returned them
+  // a current etag on the held path: the same one batch; the guarded list queries return
+  // nothing and are left out. The guard sits in the index seek key, so they don't even step
+  // through Alex's friend / request entries (as a plain AND term it checked each one).
+  seen.batches.length = 0; checks = 0; duringHold = null;
+  const visits = countVisits();
+  const q = await held(alex, { since: r.cursor, friendsEtag: r.friendsEtag });
+  visits.stop();
+  assert.equal(q.took, 20_000);
+  assert.deepEqual(seen.batches, [14]);                            // no presence carried: no write batch
+  assert.deepEqual(seen.lists, { friends: 0, incoming: 0, outgoing: 0, blocked: 0 });   // empty in SQL, not just dropped by JS
+  assert.equal(visits.n, 0);                                       // and no index entry visited
+  assert.equal(q.r.friendsEtag, r.friendsEtag);
+  assert.ok(!('friends' in q.r) && !('requests' in q.r) && !('blocked' in q.r));
+  // the probe itself sees visits: a stale etag steps through Alex's 1 friend + 1 request
+  const probe = countVisits();
+  await held(alex, { since: q.r.cursor, friendsEtag: 'stale' });
+  probe.stop();
+  assert.equal(probe.n, 2);
+  // the ordinary (non-held) path keeps its shape: unchanged lists are skipped as statements, not just rows
+  seen.batches.length = 0;
+  await sync(alex, { since: r.cursor, friendsEtag: r.friendsEtag });
+  assert.deepEqual(seen.batches, [9]);
+});
+
+test('held sync: friends churning (a friend changing server again and again) never ends a hold early', async () => {
+  const { will, alex, since, friendsEtag } = await chatParty();
+  // Will hops between two servers twice per hold (each hop bumps Alex's friends_rev) while Alex's game keeps holding.
+  let hops = 0, lastServer = null;
+  const t0 = clock;
+  let cursor = since, etag = friendsEtag, requests = 0;
+  for (let i = 0; i < 5; i++) {
+    checks = 0;
+    duringHold = async () => {
+      if (checks === 1 || checks === 4) {      // +3 s and +12 s into each hold: 9-11 s apart, over the 5 s change floor
+        const rev = revOf(alex);
+        lastServer = hops++ % 2 ? 'one.net' : 'two.net';
+        await sync(will, { since, ...onServer(lastServer) });
+        assert.ok(revOf(alex) > rev, 'the hop bumped Alex\'s list');
+      }
+    };
+    const h = await held(alex, { since: cursor, friendsEtag: etag, ...onServer('a.net') });
+    requests++;
+    assert.equal(h.took, 20_000, `hold ${i} ran its full wait`);   // churn never answers a hold at once
+    assert.equal(h.r.held, 20_000);
+    // the answer brings the friend's newest server, and an etag current as of the answer
+    assert.equal(h.r.friends.find(f => f.uuid === will.uuid).server, lastServer, `hold ${i} shows the latest hop`);
+    assert.equal(h.r.friendsEtag, friendsEtagOf(revOf(alex), clock));
+    cursor = h.r.cursor; etag = h.r.friendsEtag;
+  }
+  assert.equal(hops, 10);                                          // Will really churned: 2 hops per hold
+  assert.equal(requests, 5);                                       // one request per hold...
+  assert.equal(clock - t0, 100_000);                               // ...over 100 s: 3 a minute, as quiet as no churn
 });
 
 test('held sync: a cursor of 0 with no chat stored yet is still held (holds never switch off)', async () => {

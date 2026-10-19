@@ -133,13 +133,21 @@ worst 17.8-19.9 s). Polling faster costs requests the free plan doesn't have, so
   queries per request.
 - Only chat ends a hold. Friends-list changes, party changes, invites, warps and pings come with the hold's answer
   (≤ 20 s later), exactly as with 20 s polling.
-- Answered at once (`held: 0`): a stale or missing `friendsEtag` (the lists changed; one ordinary batch, writes
-  included), or chat newer than `since` already waiting. `since: 0` is held too (a cursor that is still 0 because no
-  chat is stored yet must not turn holds off).
-- Friends churn: every visible friend change (a friend changing server, coming online) bumps your friends list, so
-  the NEXT held sync finds its etag stale and is answered at once with the lists. The game counts that `held: 0` +
-  lists answer as news and holds again 2 s later with the fresh etag, so churn costs one extra quick request per
-  change, never a 20 s gap without a hold. It can't repeat: the follow-up carries the current etag.
+- Answered at once (`held: 0`): only chat newer than `since` already waiting. `since: 0` is held too (a cursor that
+  is still 0 because no chat is stored yet must not turn holds off).
+- A stale or missing `friendsEtag` is held like any other sync (2026-10-18, second pass). The answer's `friendsEtag`
+  and whether it carries `friends` / `requests` / `blocked` come from `friends_rev` read INSIDE the answer's one D1
+  batch, never from the session lookup made before the wait: the batch reads the rev, and the four list queries carry
+  the same test in SQL (`COALESCE(friends_rev, 0) IS NOT <the rev the sent etag is current for>`; a batch can't
+  branch), so the lists are present exactly when that in-batch etag differs from the one sent, and a change made
+  during the hold arrives with that same answer. The test is the index seek key itself (`WHERE f.a = (SELECT ?1
+  WHERE <test>)`: my uuid, or NULL, which seeks nothing), not an `AND` term: SQLite checks an `AND` term per row, so
+  a current etag would still step through every friend / request / block entry on each hold. The etag string is
+  built in one place (`friendsEtagOf`, social-shared.js).
+- Friends churn: every visible friend change (a friend changing server, coming online) bumps your friends list. It
+  no longer ends or shortens a hold: the change rides along with the hold's answer (≤ 20 s), whose etag is current,
+  so churn costs no extra requests (measured below). Until this pass a stale etag was answered at once and the game
+  held again 2 s later, one extra request per change per party member.
 - One hold per account per Worker machine (`activeHolds`, in memory): a newer hold ends the older one at once with a
   bare `{ held, stopped: true }` (no D1 reads; its client already dropped that request), so one client can't stack
   open requests. Only clients that send `wait` can get it; the game ignores it (nothing to apply, 20 s cadence).
@@ -151,9 +159,9 @@ worst 17.8-19.9 s). Polling faster costs requests the free plan doesn't have, so
 - The game holds ONLY in a party, when it would otherwise poll every 20 s (or 60 s unfocused): never while the
   Friends window is open, `wantState` is true (positions need the 4 s cadence) or a DM/invite just arrived; those
   poll every 4 s as before. After a quiet hold it holds again straight away (the period stays ~20 s). After an early
-  answer that brought chat, a different party, or lists on a `held: 0` answer (friends churn, above) it holds again no sooner than 2 s after the previous one started,
-  so a busy chat can't become a request storm; any other answer (a refreshed friends list alone, nothing at all)
-  keeps the 20 s cadence. The held request waits off the social worker (the sendAsync future, cancelled to abort it;
+  answer that brought chat or a different party it holds again no sooner than 2 s after the previous one started,
+  so a busy chat can't become a request storm; any other answer (a refreshed friends list, nothing at all) keeps
+  the 20 s cadence. The held request waits off the social worker (the sendAsync future, cancelled to abort it;
   on Java 8 a hold thread whose connection is closed, on that pool, to abort it, and a hold dropped before it sent
   is never sent), so actions never queue behind it. Any action,
   the Friends window opening, or the player changing server / world / version drops it for a fresh sync; a dropped
@@ -164,6 +172,12 @@ worst 17.8-19.9 s). Polling faster costs requests the free plan doesn't have, so
   max 19.8 s; now mean 1.26 s, median 1.22 s, max 2.57 s. Real Cloudflare round trips add on top. The launcher does
   not send `wait` (unchanged: 4 s while the drawer is open or for 2 minutes after a DM/invite/party line, else
   20/30 s).
+- Friends churn, measured on the same harness (2026-10-18, a friend of the receiver changing server every 30 s):
+  with no chat for 5 minutes, before this pass 4.36 requests a minute, now 2.73 (one per 20 s hold). With 15 party
+  lines (two runs each): before 6.10 / 6.38 a minute (in the second run 7 holds were ended early by the etag alone),
+  now 4.25 / 4.59 (none), level with the same chat and no churn (4.60 / 4.74 before, 5.13 / 4.63 now; the spread is
+  the random line timing). Line delay within the run-to-run spread: before mean 1.39 / 1.38 s, max 2.59 / 2.35 s;
+  now mean 1.72 / 1.51 s, max 2.86 / 2.45 s.
 
 ## Actions (all POST, all Bearer, JSON body, 200 → { ok: true, ... } unless noted)
     /v1/settings              { appearOffline: bool }
@@ -231,13 +245,18 @@ Before 2026-10-18 (20 s polls; a party line took 0-20 s to show):
 Now (held syncs, a party line shows in a few seconds):
 - requests: a quiet hold lasts 20 s, so still ≤ 4,320 per member (**~17,300**, 17%), plus at most one extra per
   party line per other member (a line ends their hold early and their 20 s period restarts): 500 lines a day in the
-  party ≈ +1,500 (**~18,800**, 19%). Friend-list changes add nothing (they don't end holds). Measured on the local
+  party ≈ +1,500 (**~18,800**, 19%). Friend-list changes add nothing (they don't end holds, and since the second
+  pass a stale etag doesn't either). Measured on the local
   harness: a quiet party 2.9 requests a minute holding vs 3.2 polling; 4.9 a minute during a dense test chat
   (15 lines in under 4 minutes).
 - rows read: each held sync is the presence write's 2 reads, up to 8 checks of ~3 index entries (chat_to,
-  party_members PK, chat_party; EXPLAIN QUERY PLAN: all index searches), and the answer's reads (~44) ≈ **~70 per
-  20 s** (was ~46) → 4,320 × ~70 ≈ 300,000 per member a day, **~1.2 M** for the party (24%, was 16%). So all-day
-  party players are capped by rows read at ~16 (5 M / 300,000; ~25 before) and by requests at ~23. Idle players
+  party_members PK, chat_party; EXPLAIN QUERY PLAN: all index searches), and the answer's reads (~44, plus one
+  `names` PK seek each for the in-batch `friends_rev` and the four guarded list queries) ≈ **~75 per 20 s** (was
+  ~46). With a current etag the guarded list queries visit no friend / request / block entry at all (200 of each:
+  a visit-counting probe on SQLite 3.53 saw 0, and SQLite 3.49's VM instruction count stayed flat from 0 to 200
+  rows; the earlier `AND`-term form visited all 200 and returned none); with a stale one they read the lists as an
+  ordinary sync does → 4,320 × ~75 ≈ 320,000 per member a day, **~1.3 M** for the party (26%, was 16%). So all-day
+  party players are capped by rows read at ~15 (5 M / 320,000; ~25 before) and by requests at ~23. Idle players
   outside a party never hold and cost the same as before. The check's rows are an estimate from the query plan,
   not a D1 measurement: after deploy read real `rows_read` in Cloudflare's D1 analytics (D1 → origin-cosmetics →
   Metrics) and, if it is higher, raise `L.HOLD_CHECK_MS` (the one knob) or move to Workers Paid.
@@ -251,7 +270,7 @@ Now (held syncs, a party line shows in a few seconds):
   This is the extreme case; a few LAN hours a day cost a few hours' share of it.
 
 For scale: ~25 players idle all day plus one 4-player server party all day ≈ 96,000 requests, ~2.1 M rows read
-(~2.5 M with held syncs), ~87,000 rows written. Players who play a few hours a day cost that fraction, so the daily-active count the free
+(~2.6 M with held syncs), ~87,000 rows written. Players who play a few hours a day cost that fraction, so the daily-active count the free
 plan carries is several times the all-day figures.
 
 So the free plan carries a few dozen all-day players (more who play a few hours), not a big community: the $5 Workers Paid plan (10 M requests and

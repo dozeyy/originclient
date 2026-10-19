@@ -15,7 +15,7 @@ import { json, fail, normUuid, NAME_RE } from './common.js';
 import { verifyIdentity } from './mojang.js';
 import {
   L, MSG, CLIENTS, ACTIVITIES, randomHex, sha256Hex, cleanText, normServer, normVersion, normDim, coord, num,
-  allow, areFriends, addChat, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf,
+  allow, areFriends, addChat, partyOut, MEMBER_COLUMNS, bumpRev, bumpFriendsOf, friendsEtagOf,
 } from './social-shared.js';
 import { PARTY_ROUTES, leaveParty } from './party.js';
 
@@ -154,9 +154,14 @@ function friendView(f, now) {
 // holds (an older one ignores `wait` and answers at once, so the client keeps
 // its old cadence). Friends-list changes, invites, warps and pings don't end
 // a hold: they come with its answer, at most 20 s later, as with polling.
-// A stale friendsEtag is answered at once (the lists changed). `since: 0` is
-// held too, so a cursor that is still 0 (no chat stored yet) doesn't turn
-// holds off; when chat exists the first check answers it at once anyway.
+// That includes a friendsEtag that is already stale when the hold starts: it
+// is held like any other, and the answer's etag and lists come from the
+// friends_rev read INSIDE the answer batch (the session's copy is from before
+// the wait), so a list that changed during the hold arrives with that same
+// answer and the etag it returns is current. One request per hold, however
+// often friends change server. `since: 0` is held too, so a cursor that is
+// still 0 (no chat stored yet) doesn't turn holds off; when chat exists the
+// first check answers it at once anyway.
 // One hold per account per Worker machine: a newer hold ends the older one at
 // once (its client already dropped it) with a bare `{ held, stopped: true }`,
 // so a client can't stack holds.
@@ -181,10 +186,6 @@ async function sync(env, me, body, now) {
   const wait = Math.min(L.HOLD_MAX_MS, Math.floor(waitRaw));
   const sinceRaw = Number(body.since);
   const since = Number.isSafeInteger(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
-  // A stale friendsEtag (the lists changed) is answered at once: one ordinary batch.
-  if (body.friendsEtag !== `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`) {
-    return json({ ...(await syncAnswer(env, me, body, now, true)), held: 0 });
-  }
   await syncWrites(env, me, body, now);
   let held = 0;
   {
@@ -278,11 +279,30 @@ async function syncAnswer(env, me, body, now, writes) {
   // it a LAN host (activity "singleplayer") could never learn to start again.
   const myServer = state?.server ?? normServer(body.stateServer) ?? (pres?.activity === 'server' ? pres.server : null);
   // The friends list, requests and blocked list only change when this
-  // account's friends_rev is bumped (or the 10-minute bucket rolls over).
-  // `me.friendsRev` was read with the session, before anything below, so a
-  // change racing this sync can only make the next sync refetch, never hide.
-  const friendsEtag = `${me.friendsRev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`;
-  const wantLists = body.friendsEtag !== friendsEtag;
+  // account's friends_rev is bumped (or the 10-minute bucket rolls over), so
+  // they are sent only when the client's friendsEtag isn't the current one.
+  // - Ordinary sync: `me.friendsRev` was read with the session, moments
+  //   before this batch, so a change racing it can only make the next sync
+  //   refetch, never hide anything.
+  // - Held answer (writes = false): the session's copy is from before the
+  //   wait (up to 20 s old), so friends_rev is read again INSIDE this batch
+  //   (`rev`) and the four list queries carry the same test in SQL (a batch
+  //   can't branch): they return rows exactly when that in-batch rev's etag
+  //   differs from the one sent. `sentRev` is the only rev the sent etag is
+  //   current for (null when none is), found by building it back with
+  //   friendsEtagOf, so the format lives in one place. Batches are atomic,
+  //   so the guard and the `rev` read see the same value.
+  //   The test sits IN the index seek key (`listKey`: my uuid when the lists
+  //   are wanted, else NULL, which seeks nothing). As a plain `AND` term SQLite
+  //   checked it per row, stepping through every friend / request / block
+  //   index entry on each 20 s hold even when nothing was returned.
+  const sent = typeof body.friendsEtag === 'string' ? body.friendsEtag : null;
+  const revInBatch = !writes;
+  const sentDigits = sent && /^(\d{1,15})\./.exec(sent);
+  const sentRev = sentDigits && friendsEtagOf(Number(sentDigits[1]), now) === sent ? Number(sentDigits[1]) : null;
+  const sessionEtag = friendsEtagOf(me.friendsRev, now);
+  const listKey = revInBatch ? '(SELECT ?1 WHERE COALESCE((SELECT friends_rev FROM names WHERE uuid = ?1), 0) IS NOT ?2)' : '?1';
+  const listsArgs = revInBatch ? [me.uuid, sentRev] : [me.uuid];
 
   const keys = [], stmts = [];
   const add = (key, stmt) => { keys.push(key); stmts.push(stmt); };
@@ -292,17 +312,18 @@ async function syncAnswer(env, me, body, now, writes) {
 
   add('maxId', env.DB.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM chat'));
   add('settings', env.DB.prepare('SELECT appear_offline FROM settings WHERE uuid = ?').bind(me.uuid));
-  if (wantLists) {
+  if (revInBatch) add('rev', env.DB.prepare('SELECT friends_rev FROM names WHERE uuid = ?').bind(me.uuid));
+  if (revInBatch || sent !== sessionEtag) {
     add('friends', env.DB.prepare(`SELECT f.b AS uuid, n.name, s.appear_offline, s.offline_since,
           p.client, p.activity, p.server, p.version, p.at
         FROM friends f LEFT JOIN names n ON n.uuid = f.b LEFT JOIN settings s ON s.uuid = f.b
-        LEFT JOIN presence p ON p.uuid = f.b WHERE f.a = ?`).bind(me.uuid));
+        LEFT JOIN presence p ON p.uuid = f.b WHERE f.a = ${listKey}`).bind(...listsArgs));
     add('incoming', env.DB.prepare(`SELECT r.from_uuid AS uuid, n.name, r.at FROM friend_requests r
-        LEFT JOIN names n ON n.uuid = r.from_uuid WHERE r.to_uuid = ? ORDER BY r.at`).bind(me.uuid));
+        LEFT JOIN names n ON n.uuid = r.from_uuid WHERE r.to_uuid = ${listKey} ORDER BY r.at`).bind(...listsArgs));
     add('outgoing', env.DB.prepare(`SELECT r.to_uuid AS uuid, n.name, r.at FROM friend_requests r
-        LEFT JOIN names n ON n.uuid = r.to_uuid WHERE r.from_uuid = ? ORDER BY r.at`).bind(me.uuid));
+        LEFT JOIN names n ON n.uuid = r.to_uuid WHERE r.from_uuid = ${listKey} ORDER BY r.at`).bind(...listsArgs));
     add('blocked', env.DB.prepare(`SELECT b.blocked AS uuid, n.name FROM blocks b
-        LEFT JOIN names n ON n.uuid = b.blocked WHERE b.blocker = ? ORDER BY b.at`).bind(me.uuid));
+        LEFT JOIN names n ON n.uuid = b.blocked WHERE b.blocker = ${listKey} ORDER BY b.at`).bind(...listsArgs));
   }
   add('dms', dmQuery(env, me.uuid, since, first ? 'DESC' : 'ASC', first ? L.DM_HISTORY : L.DM_PAGE + 1));
   add('party', env.DB.prepare(`SELECT p.id, p.leader FROM party_members me JOIN parties p ON p.id = me.party_id
@@ -331,6 +352,10 @@ async function syncAnswer(env, me, body, now, writes) {
   (await env.DB.batch(stmts)).forEach((r, i) => { res[keys[i]] = r.results || []; meta[keys[i]] = r.meta || {}; });
 
   if (writes) await afterWrites(env, me, pres, res, meta, now);
+
+  // Same rule as the SQL guard above: COALESCE(friends_rev, 0) vs sentRev.
+  const friendsEtag = revInBatch ? friendsEtagOf(Number(res.rev[0]?.friends_rev) || 0, now) : sessionEtag;
+  const wantLists = sent !== friendsEtag;
 
   // ---- chat + cursor. The cursor is the newest chat id this answer covers.
   // First sync: the latest history, cursor = newest id overall. Later syncs:
