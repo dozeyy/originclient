@@ -75,6 +75,13 @@ public partial class PromoBanner : UserControl
     // brightest part of the preview art (BannerCard's last text step lifts it).
     private const double TextMaxWidth = 250;
 
+    // The card is 96 px tall; its text box is that minus the 1 px borders and the text margins
+    // (6 top, 11 bottom). Text that cannot fit even at the smallest step (the feed's longest
+    // allowed title and subtitle on a narrow window) makes the card grow, up to MaxCardHeight,
+    // into the free space below it, instead of cutting lines off. Fit is always judged against
+    // the nominal box, so growing never changes which step is chosen.
+    private const double BaseCardHeight = 96, BoxOverhead = 19, MaxCardHeight = 144;
+
     private readonly BannerVisibilityGate _gate = new();
     private readonly PromoFeedLoader _loader = new(PromoHttp.GetTextAsync, OriginPaths.PromoFeedCache);
     private readonly DispatcherTimer _occlusionTimer;
@@ -665,9 +672,15 @@ public partial class PromoBanner : UserControl
             SubtitleRow.InvalidateMeasure();
             TextStack.InvalidateMeasure();
             TextStack.Measure(constraint);
-            return TextStack.DesiredSize.Height <= box.Height;
+            return TextStack.DesiredSize.Height <= BaseCardHeight - BoxOverhead;
         });
         ApplyTextStep(step);
+        TitleText.InvalidateMeasure();
+        SubtitleText.InvalidateMeasure();
+        SubtitleRow.InvalidateMeasure();
+        TextStack.InvalidateMeasure();
+        TextStack.Measure(constraint);
+        Root.Height = Math.Min(MaxCardHeight, Math.Max(BaseCardHeight, TextStack.DesiredSize.Height + BoxOverhead + 4));
     }
 
     private void ApplyTextStep(BannerTextStep step)
@@ -803,7 +816,8 @@ public partial class PromoBanner : UserControl
     // The card's rounded rect (inside its 1 px border), so zoomed art stays inside.
     private void ClipLayers()
     {
-        var r = ((CornerRadius)FindResource("Radius.Card")).TopLeft;
+        // One pixel inside the card border, so the clip follows the rounded frame without a gap.
+        var r = Math.Max(0, ((CornerRadius)FindResource("Radius.Card")).TopLeft - 1);
         Layers.Clip = new RectangleGeometry(new Rect(Layers.RenderSize), r, r);
     }
 

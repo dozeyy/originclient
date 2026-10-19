@@ -12,13 +12,13 @@
             <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Row}"/>
-            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
+            <Setter Property="Padding" Value="6,4"/>
             <Setter Property="VerticalAlignment" Value="Top"/>
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="36,12,40,40">
+    <Grid Margin="32,16,32,40">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1.06*"/>
             <ColumnDefinition Width="0.94*"/>
@@ -43,13 +43,13 @@
              banner reserves its row from the first frame (no jump when its
              feed arrives) and stretches with the card on resize. -->
         <StackPanel x:Name="HomeCard" Grid.Column="1" MaxWidth="400" Margin="12,0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
-            <Border Padding="24"
+            <Border x:Name="HomeCardBorder" Padding="24"
                     Background="{StaticResource Brush.PanelGlass}"
                     BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                     CornerRadius="{StaticResource Radius.Dialog}" Effect="{StaticResource Shadow.Card}">
                 <StackPanel>
                     <Button x:Name="VersionButton" Style="{StaticResource Button.Secondary}"
-                            Height="66" Margin="0,0,0,12" Padding="16,10"
+                            Height="66" Margin="0,0,0,16" Padding="16,10"
                             HorizontalContentAlignment="Stretch" Click="VersionButton_Click"
                             AutomationProperties.Name="Choose Minecraft version">
                         <Grid>
@@ -62,11 +62,11 @@
 
                     <!-- The mod profile Play will use (chosen on the Profiles page).
                          Read-only here, and hidden until a profile is selected. -->
-                    <Border x:Name="ProfileRow" Visibility="Collapsed" Margin="0,0,0,12" Padding="16,13"
+                    <Border x:Name="ProfileRow" Visibility="Collapsed" Margin="0,0,0,16" Padding="16,13" MinHeight="52"
                             Background="{StaticResource Brush.Card}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                             CornerRadius="{StaticResource Radius.Control}">
-                        <Grid>
+                        <Grid VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
@@ -79,10 +79,11 @@
                         </Grid>
                     </Border>
 
-                    <Border Margin="0,0,0,18" Padding="16,13" Background="{StaticResource Brush.Card}"
+                    <Border x:Name="ModsRowBorder" Margin="0,0,0,16" Padding="16,13" MinHeight="52"
+                            Background="{StaticResource Brush.Card}"
                             BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                             CornerRadius="{StaticResource Radius.Control}">
-                        <Grid x:Name="ExternalModsRow">
+                        <Grid x:Name="ExternalModsRow" VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -127,14 +128,14 @@
                          straight into it with that profile's mods. Plain Play above
                          still launches normally. Hidden when the profile has none. -->
                     <Button x:Name="JoinButton" Style="{StaticResource Button.Secondary}"
-                            Visibility="Collapsed" Margin="0,10,0,0" Height="40"
+                            Visibility="Collapsed" Margin="0,16,0,0" Height="40"
                             HorizontalAlignment="Stretch" Click="JoinButton_Click"/>
 
                     <!-- Two matching pills under Play: the launch status on the
                          LEFT ("Ready", "Sign in to play", errors), and on the
                          RIGHT how many people are on Origin right now (hidden
                          until the count arrives, and whenever it can't). -->
-                    <Grid Margin="0,17,0,0">
+                    <Grid x:Name="StatusRow" Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -162,12 +163,12 @@
                 </StackPanel>
             </Border>
 
-            <controls:PromoBanner x:Name="PromoBanner" Margin="0,12,0,0"/>
+            <controls:PromoBanner x:Name="PromoBanner" Margin="0,16,0,0"/>
         </StackPanel>
 
         <!-- Version picker sits above Home content but below the launch overlay
              so a launch that starts while it's (somehow) open still covers it. -->
-        <controls:VersionSelectOverlay Grid.ColumnSpan="2" x:Name="VersionOverlay" Margin="-36,-12,-40,-40"/>
-        <controls:LaunchLoadingOverlay Grid.ColumnSpan="2" x:Name="LoadingOverlay" Margin="-36,-12,-40,-40"/>
+        <controls:VersionSelectOverlay Grid.ColumnSpan="2" x:Name="VersionOverlay" Margin="-32,-16,-32,-40"/>
+        <controls:LaunchLoadingOverlay Grid.ColumnSpan="2" x:Name="LoadingOverlay" Margin="-32,-16,-32,-40"/>
     </Grid>
 </UserControl>

@@ -32,6 +32,13 @@ export const L = {
   DM_PAGE: 200,                    // later syncs: at most this many per call; the
   PARTY_PAGE: 200,                 // cursor then stops at the last one returned
   RATE_KEEP_MS: HOUR,
+  // Held sync (`wait`): the service keeps a quiet sync open up to HOLD_MAX_MS,
+  // checking every HOLD_CHECK_MS for chat (one indexed query, ~3 rows), and
+  // answers as soon as a line arrives. 20 s / 3 s = at most 8 checks, well under
+  // the free plan's 50 D1 queries per request; sleeping costs no CPU time. The
+  // check interval is the rows-read budget knob (docs/SOCIAL.md).
+  HOLD_MAX_MS: 20 * SECOND,
+  HOLD_CHECK_MS: 3 * SECOND,
 };
 
 export const CLIENTS = new Set(['game', 'launcher']);

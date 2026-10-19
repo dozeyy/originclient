@@ -124,7 +124,7 @@ internal sealed class BannerAdHost : IDisposable
             var webView = new WebView2
             {
                 // Card color: the slot never flashes white while the page loads.
-                DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 0x1D, 0x24, 0x20),
+                DefaultBackgroundColor = CardColor(),
                 Visibility = _active ? Visibility.Visible : Visibility.Collapsed,
             };
             _webView = webView;
@@ -287,4 +287,12 @@ internal sealed class BannerAdHost : IDisposable
             _webView = null;
         }
     }
+
+    // The Card token as a WebView2 colour: the slot never flashes white while the page loads.
+    private static System.Drawing.Color CardColor()
+    {
+        var c = (System.Windows.Media.Color)System.Windows.Application.Current.FindResource("Color.Card");
+        return System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
+    }
 }
+

@@ -152,6 +152,7 @@ public partial class MainWindow : Window
         FriendsPanelHost.Content = _friendsPanel;
 
         Toasts.Opened += OnToastOpened;
+        Toasts.MoreClicked += () => SetFriendsOpen(true);
         Toasts.ActionClicked += toast => _ = OnToastActionAsync(toast);
 
         var social = SocialHub.Service;
@@ -291,6 +292,8 @@ public partial class MainWindow : Window
 
     internal FriendsPanel TourFriendsPanel => _friendsPanel;
 
+    internal bool TourFriendsOpen => _friendsOpen;
+
     internal void TourSetFriendsOpen(bool open) => SetFriendsOpen(open);
 
     internal void TourShowToast(SocialToast toast) => Toasts.Show(toast);
@@ -304,6 +307,28 @@ public partial class MainWindow : Window
     internal void TourReportLaunch(string stage) => _homePage.TourReportLaunch(stage);
 
     internal void TourHideLaunch() => _homePage.TourHideLaunch();
+
+    internal void TourShowVersions(int detailIndex) => _homePage.TourShowVersions(detailIndex);
+
+    internal void TourHideVersions() => _homePage.TourHideVersions();
+
+    internal void TourSetAccountOpen(bool open)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        SetAccountPanelOpen(open);
+    }
+
+    /// <summary>Render mode: 0 = Home, 1 = Mods, 2 = Settings.</summary>
+    internal void TourGoTo(int page)
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        switch (page)
+        {
+            case 1: NavMods.IsChecked = true; break;
+            case 2: NavSettings.IsChecked = true; break;
+            default: NavHome.IsChecked = true; break;
+        }
+    }
 
     // The Profiles page with made-up profiles (never the real settings), the
     // new-profile form open or not.

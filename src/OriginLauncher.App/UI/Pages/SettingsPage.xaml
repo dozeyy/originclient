@@ -11,7 +11,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
-            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Padding" Value="24,20"/>
             <Setter Property="Margin" Value="0,0,0,16"/>
         </Style>
         <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
@@ -28,11 +28,11 @@
          is hidden rather than disabled so wheel-scroll still works as a
          safety net if a future addition pushes past that budget, instead of
          silently clipping content. -->
-    <ScrollViewer Margin="28,20,36,24" VerticalScrollBarVisibility="Hidden">
-        <StackPanel Width="720" HorizontalAlignment="Left">
+    <ScrollViewer Margin="32,16,32,24" VerticalScrollBarVisibility="Hidden">
+        <StackPanel Width="720" HorizontalAlignment="Center">
             <TextBlock Text="Settings" Style="{StaticResource Text.H1}"/>
             <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
-                    CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,18"/>
+                    CornerRadius="1" HorizontalAlignment="Left" Margin="0,8,0,16"/>
 
             <!-- Performance -->
             <Border Style="{StaticResource SectionCard}">

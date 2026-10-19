@@ -16,7 +16,7 @@
 
     <Color x:Key="Color.Text">#FFF1E9D2</Color>
     <Color x:Key="Color.TextDim">#FFB8B5A6</Color>
-    <Color x:Key="Color.TextMuted">#FF7D8279</Color>
+    <Color x:Key="Color.TextMuted">#FF8C9187</Color>
 
     <Color x:Key="Color.Accent">#FF5FD09B</Color>
     <Color x:Key="Color.AccentHover">#FF83E2B5</Color>

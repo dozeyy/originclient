@@ -8,9 +8,10 @@
         FontFamily="{StaticResource Font.Primary}"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
 
-    <!-- Self-contained styling (hardcoded, no theme StaticResources): a crash
-         dialog must render even if something in the app's resources is the very
-         thing that broke. -->
+    <!-- Colours, sizes and corner radii are hardcoded literals (no theme brushes, styles or
+         tokens), so this dialog still renders its content if the colour theme is what broke.
+         The fonts are the exception: they come from the theme's Font.Primary / Font.Mono.
+         Radii mirror Radius.Control (4, buttons) and Radius.Card (6, boxes) in Theme/Spacing.xaml. -->
     <Window.Resources>
         <Style x:Key="CrashButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
@@ -24,7 +25,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" SnapsToDevicePixels="True">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -44,7 +45,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="2" SnapsToDevicePixels="True">
+                        <Border x:Name="B" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
                             <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -73,10 +74,10 @@
         <TextBlock Grid.Row="1" x:Name="Summary" Foreground="#FFA7BBB5" FontSize="13.5" LineHeight="20" TextWrapping="Wrap" Margin="0,8,0,0"
                    Text="Origin closed unexpectedly. Copy the details if you need support."/>
 
-        <Border Grid.Row="2" Margin="0,18,0,0" Background="#FF121918" BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="2">
+        <Border Grid.Row="2" Margin="0,18,0,0" Background="#FF121918" BorderBrush="#FF3B524C" BorderThickness="1" CornerRadius="6">
             <TextBox x:Name="DetailsBox" IsReadOnly="True" IsReadOnlyCaretVisible="True"
                      Background="Transparent" Foreground="#FFEFF7F4" BorderThickness="0"
-                     FontFamily="{StaticResource Font.Mono}" FontSize="12" Padding="14"
+                     FontFamily="{StaticResource Font.Mono}" FontSize="12" Padding="28"
                      TextWrapping="NoWrap" AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </Border>
