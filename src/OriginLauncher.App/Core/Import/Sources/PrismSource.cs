@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using OriginLauncher.App.Core.Import.Detection;
 
 namespace OriginLauncher.App.Core.Import.Sources;
 
@@ -14,9 +15,11 @@ namespace OriginLauncher.App.Core.Import.Sources;
 //                                   net.fabricmc.fabric-loader / org.quiltmc.quilt-loader /
 //                                   net.minecraftforge / net.neoforged
 //   game dir                        <id>/.minecraft if it exists and <id>/minecraft does not, else <id>/minecraft
-// There is no "pinned" notion in either launcher. Version and loader come from mmc-pack.json,
-// so they are Exact; a damaged pack file is "Couldn't read details" (a formatVersion other than 1
-// is rejected the same way), never an exception.
+// There is no "pinned" notion in either launcher. Version and loader come from mmc-pack.json
+// (Exact), cross-checked by SetupResolver against the instance's latest.log and mods: the pack
+// file's mtime is "when the launcher last changed it", so a newer log that disagrees wins the
+// preselection but the setup is marked not certain. A formatVersion other than 1 is "Couldn't
+// read details" (never guessed at); a damaged pack file falls back to the log and mods. Never an exception.
 public sealed class PrismSource : IInstanceSource
 {
     public SourceKind Kind => SourceKind.Prism;
@@ -32,6 +35,7 @@ public sealed class PrismSource : IInstanceSource
         Task.Run(() =>
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var members = new List<SetupMember>();
             foreach (var root in new[] { roots.PrismDataDir, roots.MultiMcDir })
             {
                 if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) continue;
@@ -39,9 +43,10 @@ public sealed class PrismSource : IInstanceSource
                 {
                     ct.ThrowIfCancellationRequested();
                     if (!seen.Add(instanceDir)) continue;
-                    if (ReadInstance(instanceDir, fs, ct) is { } instance) into.Instances.Add(instance);
+                    if (ReadMember(instanceDir, fs) is { } member) members.Add(member);
                 }
             }
+            SetupResolver.AddSetups(into, members, fs, ct);
         }, ct);
 
     /// <summary>The instance folders under a data root: every direct child of the instances folder that holds an instance.cfg.</summary>
@@ -67,7 +72,11 @@ public sealed class PrismSource : IInstanceSource
     /// One instance folder (the folder holding instance.cfg), or null when it isn't one.
     /// Also used by Browse, so a MultiMC-format folder picked by hand reads the same.
     /// </summary>
-    public static DetectedInstance? ReadInstance(string instanceDir, SourceFs fs, CancellationToken ct)
+    public static DetectedInstance? ReadInstance(string instanceDir, SourceFs fs, CancellationToken ct) =>
+        ReadMember(instanceDir, fs) is { } member ? SetupResolver.ResolveOne(member, fs, ct) : null;
+
+    /// <summary>The launcher's own description of one instance folder (not yet weighed against its log and mods).</summary>
+    public static SetupMember? ReadMember(string instanceDir, SourceFs fs)
     {
         var cfg = Path.Combine(instanceDir, "instance.cfg");
         if (!File.Exists(cfg)) return null;
@@ -84,7 +93,7 @@ public sealed class PrismSource : IInstanceSource
             Name = values != null && values.TryGetValue("name", out var name) && name.Length > 0 ? name : folderName,
             GameDir = gameDir,
         };
-        if (values == null) return SourceHelpers.Unreadable(instance);
+        if (values == null) return new SetupMember(SourceHelpers.Unreadable(instance)) { NoInference = true };
 
         if (values.TryGetValue("totalTimePlayed", out var played)
             && long.TryParse(played, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds))
@@ -96,16 +105,26 @@ public sealed class PrismSource : IInstanceSource
             catch (ArgumentOutOfRangeException) { /* a nonsense timestamp is just "unknown" */ }
         }
 
-        var pack = ReadPack(Path.Combine(instanceDir, "mmc-pack.json"), fs, out var rejected);
-        if (rejected) return SourceHelpers.Unreadable(instance);
-        if (pack?.McVersion != null)
-            return instance with { McVersion = pack.McVersion, Loader = pack.Loader, LoaderVersion = pack.LoaderVersion };
+        var packPath = Path.Combine(instanceDir, "mmc-pack.json");
+        var pack = ReadPack(packPath, fs, out var rejected);
+        if (rejected) return new SetupMember(SourceHelpers.Unreadable(instance)) { NoInference = true };
+        if (pack == null || (pack.McVersion == null && !pack.HasLoaderComponent))
+            return new SetupMember(instance); // no usable component list: the folder's log and mods decide (always Inferred)
 
-        // No usable component list: look at the instance itself (always Inferred), else "Couldn't read details".
-        return InstanceInference.Complete(instance, fs, ct);
+        // The pack file's mtime is when Prism last changed the components (EvidenceJudge V3 compares it with the log's).
+        DateTimeOffset? changed = null;
+        try { changed = new DateTimeOffset(File.GetLastWriteTimeUtc(packPath), TimeSpan.Zero); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        var statement = new VersionEvidence(EvidenceSource.LauncherMetadata, pack.McVersion, pack.Loader, pack.LoaderVersion, changed)
+        {
+            From = instance.Name,
+        };
+        return new SetupMember(instance) { Metadata = new[] { statement } };
     }
 
-    private static InferredVersion? ReadPack(string path, SourceFs fs, out bool rejected)
+    private sealed record Pack(string? McVersion, LoaderKind Loader, string? LoaderVersion, bool HasLoaderComponent);
+
+    private static Pack? ReadPack(string path, SourceFs fs, out bool rejected)
     {
         rejected = false;
         if (!File.Exists(path)) return null;
@@ -140,7 +159,8 @@ public sealed class PrismSource : IInstanceSource
                     case "net.neoforged": loader = LoaderKind.NeoForge; loaderVersion = v; break;
                 }
             }
-            return new InferredVersion(mc, loader, loaderVersion);
+            // A complete component list with no loader component IS a statement: vanilla.
+            return new Pack(mc, loader, loaderVersion, loader != LoaderKind.None);
         }
         catch (JsonException)
         {

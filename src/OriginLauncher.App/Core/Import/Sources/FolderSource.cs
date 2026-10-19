@@ -1,4 +1,5 @@
 using System.IO;
+using OriginLauncher.App.Core.Import.Detection;
 
 namespace OriginLauncher.App.Core.Import.Sources;
 
@@ -81,7 +82,7 @@ public sealed class FolderSource : IInstanceSource
             {
                 Kind = SourceKind.Folder, Name = name, GameDir = gameDir, Confidence = Confidence.Inferred,
             };
-            result.Instances.Add(InstanceInference.Complete(instance2, fs, ct));
+            result.Instances.Add(SetupResolver.ResolveOne(new SetupMember(instance2), fs, ct));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

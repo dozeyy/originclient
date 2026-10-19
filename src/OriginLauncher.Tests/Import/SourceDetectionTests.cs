@@ -30,10 +30,16 @@ public class SourceDetectionTests : IDisposable
 
     // ------------------------------------------------------------ official launcher (criterion 1)
 
+    // Accuracy round (2026-10-18): a never-played profile on a folder with no game data is no longer a setup, and
+    // profiles sharing a folder collapse into one. So the never-played "latest-release" (on .minecraft) and "Never"
+    // profiles get folders with real game data (options.txt), and "Never" its own folder, to keep testing what
+    // these tests are about: one candidate per profile, version resolution, the 1970 "never played" date.
     private string BuildOfficial(string mcDir, string absoluteGameDir)
     {
         Directory.CreateDirectory(Path.Combine(mcDir, "relpack"));
         Directory.CreateDirectory(absoluteGameDir);
+        Kit.Write(mcDir, "options.txt", "fov:0.5");
+        Kit.Write(mcDir, "neverdir/options.txt", "fov:0.5");
         Kit.Write(mcDir, "versions/fabric-loader-0.16.10-1.21.1/fabric-loader-0.16.10-1.21.1.json",
             """{"id":"fabric-loader-0.16.10-1.21.1","inheritsFrom":"1.21.1","libraries":[{"name":"net.fabricmc:fabric-loader:0.16.10"}]}""");
         Kit.Write(mcDir, "versions/1.21.4/1.21.4.json", """{"id":"1.21.4"}""");
@@ -48,7 +54,7 @@ public class SourceDetectionTests : IDisposable
                 "p2": { "name": "Abs", "type": "custom", "lastVersionId": "1.20.4",
                         "lastUsed": "2026-09-01T10:00:00.000Z", "gameDir": "{{absolute}}" },
                 "latest-release": { "type": "latest-release", "lastUsed": "1970-01-02T00:00:00.000Z" },
-                "p4": { "name": "Never", "type": "custom", "lastVersionId": "1.8.9", "lastUsed": "1970-01-01T00:00:00.000Z" }
+                "p4": { "name": "Never", "type": "custom", "lastVersionId": "1.8.9", "lastUsed": "1970-01-01T00:00:00.000Z", "gameDir": "neverdir" }
               },
               "authenticationDatabase": { "abc": { "accessToken": "SECRET-ACCESS-TOKEN-123", "username": "steve@example.com" } },
               "clientToken": "SECRET-CLIENT-TOKEN-XYZ",
@@ -90,7 +96,9 @@ public class SourceDetectionTests : IDisposable
 
         var scan = await Scan(new SourceRoots { OfficialMinecraftDir = mc });
 
-        var latest = scan.Instances.Single(i => i.Name == "Latest release");
+        // A folder only latest-* profiles use is named after the folder; the profile is an alias (accuracy round 2).
+        var latest = scan.Instances.Single(i => i.Aliases.Contains("Latest release"));
+        Assert.Equal("Minecraft Launcher (dotminecraft)", latest.Name);
         Assert.Equal("1.21.4", latest.McVersion);                // from version_manifest_v2.json
         Assert.Equal(mc, latest.GameDir);                        // no gameDir = the .minecraft itself
         Assert.Null(latest.LastPlayed);                          // 1970-01-02 is the launcher's "never"
@@ -104,6 +112,7 @@ public class SourceDetectionTests : IDisposable
         Kit.Write(mc, "versions/1.20.4/1.20.4.json", "{}");
         Kit.Write(mc, "versions/1.21.1/1.21.1.json", "{}");
         Kit.Write(mc, "versions/fabric-loader-0.16.10-1.21.1/fabric-loader-0.16.10-1.21.1.json", "{}");
+        Kit.Write(mc, "options.txt", "fov:0.5"); // game data: a never-played profile on an empty folder is not a setup
         Kit.Write(mc, "launcher_profiles.json", """{"profiles":{"latest-release":{"type":"latest-release"}}}""");
 
         var scan = await Scan(new SourceRoots { OfficialMinecraftDir = mc });
@@ -200,7 +209,7 @@ public class SourceDetectionTests : IDisposable
     public async Task ATruncatedProfileListKeepsTheProfilesReadBeforeTheDamage()
     {
         var mc = Path.Combine(_root, "truncated");
-        Directory.CreateDirectory(Path.Combine(mc, "g"));
+        Kit.Write(mc, "g/options.txt", "fov:0.5"); // game data: a never-played profile on an empty folder is not a setup
         Kit.Write(mc, "versions/1.21.1/1.21.1.json", "{}");
         Kit.Write(mc, "launcher_profiles.json",
             """{"profiles":{"a":{"name":"Whole","type":"custom","lastVersionId":"1.21.1","gameDir":"g"},"b":{"name":"Cut off","type":"custom","lastVer""");
@@ -215,7 +224,7 @@ public class SourceDetectionTests : IDisposable
     public async Task AProfileWhoseVersionCannotBeToldIsMarkedCouldntReadDetails()
     {
         var mc = Path.Combine(_root, "unknown-version");
-        Directory.CreateDirectory(Path.Combine(mc, "g"));
+        Kit.Write(mc, "g/options.txt", "fov:0.5"); // game data: a never-played profile on an empty folder is not a setup
         Kit.Write(mc, "launcher_profiles.json",
             """{"profiles":{"a":{"name":"Odd","type":"custom","lastVersionId":"some-modpack-build-7","gameDir":"g"}}}""");
 
@@ -263,9 +272,14 @@ public class SourceDetectionTests : IDisposable
         var mc = Path.Combine(_root, "dotminecraft");
         Kit.Write(mc, "versions/fabric-loader-0.16.10-1.21.1/fabric-loader-0.16.10-1.21.1.json", """{"inheritsFrom":"1.21.1"}""");
         var profiles = new List<string>();
+        // Every folder carries game data and a log, so the scan also pays for the accuracy cross-check (log + mods).
+        const string fabricLog = "[main/INFO] (FabricLoader) Loading Minecraft 1.21.1 with Fabric Loader 0.16.10\n";
+        var jar = Kit.FabricJar("speedmod", minecraft: "~1.21.1");
         for (var i = 0; i < 200; i++)
         {
-            Directory.CreateDirectory(Path.Combine(mc, "games", "g" + i));
+            Kit.Write(mc, $"games/g{i}/options.txt", "fov:0.5");
+            Kit.Write(mc, $"games/g{i}/logs/latest.log", fabricLog);
+            Kit.WriteBytes(mc, $"games/g{i}/mods/speedmod.jar", jar);
             profiles.Add($"\"p{i}\":{{\"name\":\"Profile {i}\",\"type\":\"custom\",\"lastVersionId\":\"fabric-loader-0.16.10-1.21.1\",\"gameDir\":\"games/g{i}\"}}");
         }
         Kit.Write(mc, "launcher_profiles.json", "{\"profiles\":{" + string.Join(",", profiles) + "}}");
@@ -273,9 +287,9 @@ public class SourceDetectionTests : IDisposable
         for (var i = 0; i < 200; i++)
         {
             Kit.Write(prism, $"instances/I{i}/instance.cfg", $"[General]\nname=Pack {i}\ntotalTimePlayed={i}\n");
-            Kit.Write(prism, $"instances/I{i}/mmc-pack.json",
-                """{"formatVersion":1,"components":[{"uid":"net.minecraft","version":"1.21.1"}]}""");
-            Directory.CreateDirectory(Path.Combine(prism, $"instances/I{i}/.minecraft"));
+            Kit.Write(prism, $"instances/I{i}/mmc-pack.json", FabricPack); // Fabric, like the log and the mods (a vanilla pack would rightly be "not sure")
+            Kit.Write(prism, $"instances/I{i}/.minecraft/logs/latest.log", fabricLog);
+            Kit.WriteBytes(prism, $"instances/I{i}/.minecraft/mods/speedmod.jar", jar);
         }
         var log = new List<string>();
         var engine = new ImportEngine(new ImportEnvironment
@@ -290,6 +304,7 @@ public class SourceDetectionTests : IDisposable
 
         Assert.Equal(400, scan.Instances.Count);
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"scan took {watch.Elapsed}");
+        Assert.All(scan.Instances, i => Assert.True(i.VersionCertain, i.UncertainReason)); // metadata, log and mods all agree
         Assert.True(scan.Elapsed > TimeSpan.Zero);
         Assert.Contains(log, l => l.StartsWith("import scan: 400 instances in "));
     }

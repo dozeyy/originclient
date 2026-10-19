@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using OriginLauncher.App.Core.Import.Detection;
 
 namespace OriginLauncher.App.Core.Import.Sources;
 
@@ -19,7 +20,14 @@ namespace OriginLauncher.App.Core.Import.Sources;
 // The version a profile runs: lastVersionId (or, for the two "latest" profiles,
 // the launcher's version manifest, else the newest release/snapshot installed).
 // An id like fabric-loader-0.16.10-1.21.1 is read for its loader, and
-// versions/<id>/<id>.json's inheritsFrom names the Minecraft version.
+// versions/<id>/<id>.json's inheritsFrom names the Minecraft version (its
+// libraries name the loader when the id was renamed).
+//
+// That is only the launcher's statement: SetupResolver weighs it against the
+// folder's log and mods, and collapses profiles that share a game folder (the
+// default .minecraft, typically "Latest release" + "Latest snapshot" + a custom
+// one) into ONE setup with the other profile names as aliases. A never-played
+// profile on a folder with no game data is not a setup at all.
 public sealed class OfficialLauncherSource : IInstanceSource
 {
     public SourceKind Kind => SourceKind.OfficialLauncher;
@@ -32,7 +40,9 @@ public sealed class OfficialLauncherSource : IInstanceSource
     private static readonly Regex ForgeId = new(@"^(?<mc>\d+\.\d+(\.\d+)?)-[Ff]orge-?(?<loader>.+)$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex NeoForgeId = new(@"^neoforge-(?<loader>.+)$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex PlainRelease = new(@"^\d+\.\d+(\.\d+)?$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
-    private static readonly Regex PlainMinecraft = new(@"^(\d+\.\d+(\.\d+)?(-\w+(-\d+)?)?|\d{2}w\d{2}[a-z])$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    // A real Minecraft version id: 1.21.1, 1.21-pre1, 1.21.1-rc1, 26.4-snapshot-3, 26.1-pre-2, 24w14a. NOT a custom
+    // install like "1.20.1-OptiFine_HD_U_I6" or "1.20.1-forge-47.2.0" (those resolve through their version json).
+    private static readonly Regex PlainMinecraft = new(@"^(\d+\.\d+(\.\d+)?(-(pre|rc)-?\d+|-snapshot-\d+)?|\d{2}w\d{2}[a-z])$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     private sealed class RawProfile
     {
@@ -57,28 +67,34 @@ public sealed class OfficialLauncherSource : IInstanceSource
 
         var manifest = new Lazy<(string? Release, string? Snapshot)>(() => ReadManifest(minecraftDir, fs));
         var installed = new Lazy<List<string>>(() => InstalledVersions(minecraftDir));
+        var resolved = new Dictionary<string, InferredVersion?>(StringComparer.Ordinal); // 200 profiles on one version read its json once
 
+        var members = new List<SetupMember>();
         foreach (var profile in profiles)
         {
             ct.ThrowIfCancellationRequested();
             try
             {
-                into.Instances.Add(ToInstance(profile, minecraftDir, fs, manifest, installed, ct));
+                members.Add(ToMember(profile, minecraftDir, fs, manifest, installed, resolved));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
             {
                 // One damaged profile never breaks the scan.
-                into.Instances.Add(new DetectedInstance
+                members.Add(new SetupMember(new DetectedInstance
                 {
                     Kind = SourceKind.OfficialLauncher, Name = profile.Name is { Length: > 0 } n ? n : profile.Id,
                     GameDir = minecraftDir, Problem = DetectedInstance.CouldntRead,
-                });
+                }) { NoInference = true });
             }
         }
+
+        // Profiles sharing a game folder (the default .minecraft very often) become ONE setup with aliases;
+        // never-played profiles on an empty folder are not setups at all (SetupResolver).
+        SetupResolver.AddSetups(into, members, fs, ct, new ResolveOptions { DropEmptyNeverPlayed = true, FlagMissingFolder = true });
     }
 
-    private static DetectedInstance ToInstance(RawProfile p, string minecraftDir, SourceFs fs,
-        Lazy<(string? Release, string? Snapshot)> manifest, Lazy<List<string>> installed, CancellationToken ct)
+    private static SetupMember ToMember(RawProfile p, string minecraftDir, SourceFs fs,
+        Lazy<(string? Release, string? Snapshot)> manifest, Lazy<List<string>> installed, Dictionary<string, InferredVersion?> cache)
     {
         var name = !string.IsNullOrWhiteSpace(p.Name) ? p.Name!.Trim()
             : p.Type == "latest-release" ? "Latest release"
@@ -97,36 +113,41 @@ public sealed class OfficialLauncherSource : IInstanceSource
             && used >= NeverPlayedBefore)
             lastPlayed = used;
 
-        // latest-release / latest-snapshot resolve to a concrete version.
+        // latest-release / latest-snapshot resolve to a concrete version — but only "whatever is newest today",
+        // not necessarily what the folder last ran, so that statement is not Explicit (EvidenceJudge V1/V4).
         var versionId = p.LastVersionId;
+        var latest = false;
         if (p.Type == "latest-release" || versionId == "latest-release")
+        {
             versionId = manifest.Value.Release ?? NewestInstalled(installed.Value, release: true);
+            latest = true;
+        }
         else if (p.Type == "latest-snapshot" || versionId == "latest-snapshot")
+        {
             versionId = manifest.Value.Snapshot ?? NewestInstalled(installed.Value, release: false);
+            latest = true;
+        }
 
         var instance = new DetectedInstance
         {
             Kind = SourceKind.OfficialLauncher, Name = name, GameDir = gameDir, LastPlayed = lastPlayed,
         };
 
-        var resolved = string.IsNullOrWhiteSpace(versionId) ? null : ResolveVersion(versionId!, minecraftDir, fs);
-        if (resolved?.McVersion != null)
-        {
-            instance = instance with { McVersion = resolved.McVersion, Loader = resolved.Loader, LoaderVersion = resolved.LoaderVersion };
-        }
-        else if (Directory.Exists(gameDir))
-        {
-            // The profile's version couldn't be resolved: look at the instance itself (D5, always Inferred).
-            instance = InstanceInference.Complete(instance, fs, ct);
-        }
-        else
-        {
-            instance = SourceHelpers.Unreadable(instance);
-        }
+        InferredVersion? resolved = null;
+        if (!string.IsNullOrWhiteSpace(versionId) && !cache.TryGetValue(versionId!, out resolved))
+            cache[versionId!] = resolved = ResolveVersion(versionId!, minecraftDir, fs);
 
-        if (!Directory.Exists(gameDir) && instance.Problem == null)
-            instance = instance with { Problem = "This profile's game folder isn't there" };
-        return instance;
+        // An unresolvable id ("some-modpack-build-7") is no statement at all: the folder's own evidence decides.
+        var metadata = resolved?.McVersion == null
+            ? Array.Empty<VersionEvidence>()
+            : new[]
+            {
+                new VersionEvidence(EvidenceSource.LauncherMetadata, resolved.McVersion, resolved.Loader, resolved.LoaderVersion, lastPlayed)
+                {
+                    Explicit = !latest, From = name, TimeIsLaunch = true,
+                },
+            };
+        return new SetupMember(instance) { Metadata = metadata, IsLatestProfile = p.Type is "latest-release" or "latest-snapshot" };
     }
 
     // ---- launcher_profiles.json: profiles.*.{name,type,lastVersionId,lastUsed,gameDir} and NOTHING else ----
@@ -231,19 +252,35 @@ public sealed class OfficialLauncherSource : IInstanceSource
         else if (PlainMinecraft.IsMatch(versionId))
         { mc = versionId; }
 
-        // The version json's inheritsFrom is the launcher's own statement of the Minecraft version.
-        var inherits = ReadInheritsFrom(Path.Combine(minecraftDir, "versions", versionId, versionId + ".json"), fs);
-        if (inherits != null) mc = inherits;
+        // The version json is the launcher's own statement: inheritsFrom names the Minecraft version (followed a
+        // few levels for a custom id that inherits from another custom id), and when the id was RENAMED
+        // ("My Fabric", "fabric-custom") its libraries still name the loader (net.fabricmc:fabric-loader:0.16.10).
+        var id = versionId;
+        for (var depth = 0; depth < 4; depth++)
+        {
+            var json = ReadVersionJson(Path.Combine(minecraftDir, "versions", id, id + ".json"), fs);
+            if (json == null) break;
+            if (loader == LoaderKind.None && json.Value.Loader != LoaderKind.None)
+            { loader = json.Value.Loader; loaderVersion = json.Value.LoaderVersion; }
+            if (json.Value.InheritsFrom is not { Length: > 0 } parent) break;
+            mc = parent;
+            if (PlainMinecraft.IsMatch(parent)) break;
+            id = parent;
+        }
+        if (mc != null && !PlainMinecraft.IsMatch(mc)) mc = null; // a chain that ends on an unknown custom id names no version
 
         return mc == null ? null : new InferredVersion(mc, loader, loaderVersion);
     }
 
-    // Takes only the top-level "inheritsFrom" of a version json (they run to hundreds of KB).
-    private static string? ReadInheritsFrom(string jsonPath, SourceFs fs)
+    // Takes only the top-level "inheritsFrom" and libraries[].name of a version json (they run to hundreds of KB).
+    private static (string? InheritsFrom, LoaderKind Loader, string? LoaderVersion)? ReadVersionJson(string jsonPath, SourceFs fs)
     {
         if (!File.Exists(jsonPath)) return null;
         using var stream = fs.OpenRead(jsonPath);
         if (stream == null) return null;
+        string? inherits = null;
+        var loader = LoaderKind.None;
+        string? loaderVersion = null;
         try
         {
             using var buffer = new MemoryStream();
@@ -252,17 +289,52 @@ public sealed class OfficialLauncherSource : IInstanceSource
             if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) return null;
             while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
             {
-                var match = reader.ValueTextEquals("inheritsFrom");
+                var isInherits = reader.ValueTextEquals("inheritsFrom");
+                var isLibraries = reader.ValueTextEquals("libraries");
                 reader.Read();
-                if (match && reader.TokenType == JsonTokenType.String) return reader.GetString();
+                if (isInherits && reader.TokenType == JsonTokenType.String) { inherits = reader.GetString(); continue; }
+                if (isLibraries && reader.TokenType == JsonTokenType.StartArray)
+                {
+                    while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                    {
+                        if (reader.TokenType != JsonTokenType.StartObject) { reader.Skip(); continue; }
+                        while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
+                        {
+                            var isName = reader.ValueTextEquals("name");
+                            reader.Read();
+                            if (isName && reader.TokenType == JsonTokenType.String && loader == LoaderKind.None)
+                                (loader, loaderVersion) = LoaderFromLibrary(reader.GetString());
+                            else reader.Skip();
+                        }
+                    }
+                    continue;
+                }
                 reader.Skip();
             }
         }
-        catch (Exception ex) when (ex is JsonException or IOException)
+        catch (Exception ex) when (ex is JsonException or IOException or InvalidOperationException)
         {
-            // damaged version json: fall back to the id's own shape
+            // damaged version json: keep what was read before the damage; the id's own shape still counts
         }
-        return null;
+        return (inherits, loader, loaderVersion);
+    }
+
+    // "net.fabricmc:fabric-loader:0.16.10" -> Fabric 0.16.10; quilt-loader, net.neoforged:neoforge, net.minecraftforge:forge (mc-version).
+    private static (LoaderKind, string?) LoaderFromLibrary(string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return (LoaderKind.None, null);
+        var parts = name.Split(':');
+        if (parts.Length < 3) return (LoaderKind.None, null);
+        var version = parts[2];
+        return (parts[0], parts[1]) switch
+        {
+            ("net.fabricmc", "fabric-loader") => (LoaderKind.Fabric, version),
+            ("org.quiltmc", "quilt-loader") => (LoaderKind.Quilt, version),
+            ("net.neoforged", "neoforge") or ("net.neoforged", "forge") => (LoaderKind.NeoForge, version),
+            ("net.minecraftforge", "forge") or ("net.minecraftforge", "fmlloader") =>
+                (LoaderKind.Forge, version.Contains('-') ? version[(version.IndexOf('-') + 1)..] : version),
+            _ => (LoaderKind.None, null),
+        };
     }
 
     private static (string? Release, string? Snapshot) ReadManifest(string minecraftDir, SourceFs fs)
