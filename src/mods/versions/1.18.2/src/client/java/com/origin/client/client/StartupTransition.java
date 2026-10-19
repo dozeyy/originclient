@@ -21,11 +21,57 @@ import com.origin.client.client.theme.OriginTheme;
 public final class StartupTransition {
 	/** Loading -> title dissolve. Mirrors the launcher's Motion.Intro. */
 	public static final long REVEAL_MS = 560;
+	/** The title's entrance (the buttons' rise, TitleScreenMixin) is over this long after the reveal starts. */
+	public static final long TITLE_ENTRANCE_MS = 1200;
 
 	// clockMs() at the startup reveal's first frame; 0 = none yet.
 	private static long titleRevealAt = 0;
 
 	private StartupTransition() {
+	}
+
+	// System.nanoTime() of the last client reload task QUEUED for the render
+	// thread (ReloadTaskTagMixin, any thread); 0 = none yet. Any client reload
+	// counts, not only the overlay's own (1.21.1, CI 2026-10-18): during the
+	// startup load every such step stalls the loading screen alike.
+	private static volatile long renderWorkQueuedAt = 0;
+	private static boolean renderWorkRanSeen = false;
+
+	/** A client reload listener queued a task for the render thread. Any thread. */
+	public static void reloadRenderWorkQueued() {
+		renderWorkQueuedAt = System.nanoTime();
+	}
+
+	/** Dev frame log only: the first queued render-thread reload task is starting. */
+	public static void reloadRenderWorkRan(String listener) {
+		if (!renderWorkRanSeen && OriginFrameLog.ENABLED) {
+			renderWorkRanSeen = true;
+			OriginFrameLog.mark("render-thread reload work begins (" + listener + ")");
+		}
+	}
+
+	/**
+	 * Pre-1.19.3 (ReloadTaskTagMixin): a reload apply step submitted ON the render
+	 * thread during the startup load is queued (Minecraft.tell) instead of letting
+	 * Minecraft.execute run it inline, wherever the submitter happens to be (inside
+	 * the buffer swap's render-call replay, for TextureManager). True = queued.
+	 */
+	public static boolean deferInlineApply(Runnable hop) {
+		if (!com.mojang.blaze3d.systems.RenderSystem.isOnRenderThread()) {
+			return false;   // from a worker thread Minecraft.execute queues it anyway
+		}
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		if (mc == null || mc.level != null || !(mc.getOverlay() instanceof net.minecraft.client.gui.screens.LoadingOverlay)) {
+			return false;
+		}
+		mc.tell(hop);
+		return true;
+	}
+
+	/** True when render-thread reload work has been queued since {@code sinceNanos}: from here a frame can stall for long. */
+	public static boolean reloadRenderWorkSince(long sinceNanos) {
+		long at = renderWorkQueuedAt;
+		return at != 0 && at - sinceNanos > 0;
 	}
 
 	/** Cubic ease-out on 0..1 (clamped), the curve both halves use. */
@@ -37,6 +83,8 @@ public final class StartupTransition {
 	public static void titleRevealed() {
 		if (titleRevealAt == 0) {
 			titleRevealAt = clockMs();
+			OriginFrameLog.mark("dissolve-start");
+			OriginFrameLog.entranceEndsAt(titleRevealAt - 1 + TITLE_ENTRANCE_MS);
 		}
 	}
 

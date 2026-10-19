@@ -248,9 +248,32 @@ public final class OriginScreenRenderer {
 				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
 		loadFillAt = scene;
 
+		double markT = scene - loadStartScene;
 		if (drive) {
-			warmTitle();
+			// Origin's textures were decoded on the reload's workers; upload one
+			// loader's worth per frame now, so the title's first frames don't.
+			com.origin.client.client.OriginAssets.uploadSlice();
+			net.minecraft.server.packs.resources.ReloadInstance reload = currentReload();
+			if (reload != markReload) {
+				// A new reload (a resource-pack change after startup): the mark loops again.
+				markReload = reload;
+				markReloadAt = System.nanoTime();
+				MarkMotion.unsettle();
+			}
+			String why = reload == null || MarkMotion.settling() ? null : settleReason(reload);
+			if (why != null) {
+				MarkMotion.settle(markT);
+				markRestLogged = false;
+				com.origin.client.client.OriginFrameLog.mark("mark-settle (" + why + ")");
+			}
+			if (!markRestLogged && MarkMotion.atRest(markT)) {
+				markRestLogged = true;
+				com.origin.client.client.OriginFrameLog.mark("mark at rest (clean pose)");
+			}
+		} else {
+			MarkMotion.settle(markT);   // the settle hold / dissolve: the load is done
 		}
+		lastMarkT = markT;
 		// No orbit rings here (Will 2026-10-18): the moving mark is the scene.
 		guiGraphics.fill(0, 0, w, h, OriginTheme.BG);
 		drawGrain(guiGraphics, w, h);
@@ -282,35 +305,92 @@ public final class OriginScreenRenderer {
 		drawCornerBrackets(guiGraphics, w, h);
 	}
 
-	// The main menu's first frame was its slowest, and it lands exactly on the
-	// hand-off (dev-shots: 4x a normal frame, the loading mark frozen meanwhile).
-	// Each kind of draw the menu makes costs extra the first time: its textures
-	// decoded and uploaded, the graphics driver building that shader. The loading
-	// screen pays the texture decodes up front instead, one step per frame. (This
-	// version draws the GUI differently from 1.21.1, so only the decodes are warmed,
-	// not draws: nothing here can ever show on screen.)
-	private static final int WARM_ALL = 0b11;
-	private static int warmed;   // bit set of the warm-up steps done
+	// The title's first-use costs (textures, driver shader builds, glyphs) used to
+	// be guessed at here, one hand-picked warm-up per loading frame. They are now
+	// paid by the real title screen itself, rendered for real under the finished
+	// loading picture during the settle hold (LoadingOverlayRevealMixin), so
+	// nothing has to be guessed and nothing is missed.
 
-	private static void warmTitle() {
-		if (warmed == WARM_ALL) {
-			return;
+	// The reload the loading mark's settle belongs to, and the mark's loop time last frame.
+	private static net.minecraft.server.packs.resources.ReloadInstance markReload;
+	private static long markReloadAt;   // nanoTime the loading screen first drew for markReload
+	private static boolean markRestLogged;   // dev frame log: "mark at rest" said for this settle
+	private static double lastMarkT = 0;
+
+	private static net.minecraft.server.packs.resources.ReloadInstance currentReload() {
+		Object overlay = Minecraft.getInstance().getOverlay();
+		return overlay instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor
+				? ((com.origin.client.client.mixin.loading.LoadingOverlayAccessor) overlay).originclient$reload() : null;
+	}
+
+	// The reload has reached the stretch where its work runs on the render thread,
+	// where one step can hold a frame for hundreds of ms: a listener ran its first
+	// task there (ReloadTaskTagMixin; some mods do heavy work there while others
+	// still prepare), or every listener has prepared (the apply steps), or it is
+	// done. Without the mixins: only once done.
+	private static String settleReason(net.minecraft.server.packs.resources.ReloadInstance reload) {
+		if (reload.isDone()) {
+			return "load done";
+		}
+		if (com.origin.client.client.StartupTransition.reloadRenderWorkSince(markReloadAt)) {
+			return "render-thread reload work queued";
+		}
+		if (reload instanceof com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor
+				&& ((com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor) reload).originclient$allPreparations().isDone()) {
+			return "all listeners prepared";
+		}
+		return null;
+	}
+
+	/**
+	 * ReloadTaskBudgetMixin: hold the render-thread queue this frame. True while
+	 * render-thread reload work is waiting for THIS loading screen and the mark
+	 * has not finished its settle glide (MarkMotion.SETTLE_MS) onto its clean
+	 * pose, so no long step can freeze it mid-motion. The settle itself starts in
+	 * the loading screen's draw the frame the work is queued. The caller caps it.
+	 */
+	public static boolean holdReloadTasksForMark() {
+		if (broken || markReload == null || currentReload() != markReload) {
+			return false;
+		}
+		if (!com.origin.client.client.StartupTransition.reloadRenderWorkSince(markReloadAt)) {
+			return false;
+		}
+		return !MarkMotion.atRest(lastMarkT);
+	}
+
+	/** The loading mark has landed and stopped (the settle hold may end). */
+	public static boolean loadingMarkAtRest() {
+		return MarkMotion.atRest(lastMarkT);
+	}
+
+	/**
+	 * The settle hold (LoadingOverlayRevealMixin): the finished loading picture,
+	 * opaque, over the screen the hold has just rendered for real underneath, so
+	 * the screen's first-use costs are paid where nobody can see them. Bar full,
+	 * the mark at rest. False (nothing to cancel) when Origin rendering is off or
+	 * this draw fails.
+	 */
+	public static boolean renderLoadingHold(Gfx guiGraphics) {
+		if (broken) {
+			return false;
 		}
 		try {
-			// The icon atlas waits for the icon shader: ModIcons picks its atlas ONCE, from
-			// whether that shader exists, and the shader only arrives late in the load.
-			// Asked earlier, every icon would stay on the blurrier mask atlas all session.
-			if ((warmed & 1) == 0 && com.origin.client.client.gui.OriginShaders.ICON != null) {
-				warmed |= 1;
-				com.origin.client.client.gui.ModIcons.has("@title-singleplayer");   // decodes the icon atlases
-				return;
-			}
-			if ((warmed & 2) == 0) {
-				warmed |= 2;
-				com.origin.client.client.gui.OriginUi.ready();   // decodes the panel/switch/logo textures
-			}
+			layerAlpha = 1f;
+			// The screen drew its labels a little in front (z > 0): clear depth so the
+			// loading picture covers them, the same clear GameRenderer does before the GUI.
+			RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
+			RenderSystem.enableBlend();
+			RenderSystem.defaultBlendFunc();
+			shade(1f, 1f, 1f, 1f);
+			// The screen underneath drives the ring field: don't pull it back.
+			renderLoading0(guiGraphics, 1f, false, true);
+			guiGraphics.flush();
+			return true;
 		} catch (Throwable t) {
-			warmed = WARM_ALL;   // a warm-up is only an optimisation: never retried, never fatal
+			return fail(t);
+		} finally {
+			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
 	}
 
@@ -1164,48 +1244,10 @@ public final class OriginScreenRenderer {
 			com.origin.client.OriginClient.LOGGER.warn("Origin vignette failed to load; skipping edge vignette", e);
 		}
 
-		// Wordmark loads separately: a failure here falls back to vanilla-font
-		// text without disabling the ring/grain background.
-		try {
-			Minecraft mc = Minecraft.getInstance();
-			JsonObject wm;
-			try (InputStream in = open("/assets/originclient/textures/ui/wordmark.json")) {
-				wm = GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-			}
-			wmTexW = wm.get("width").getAsInt();
-			wmTexH = wm.get("height").getAsInt();
-			wmInkX = wm.get("inkX").getAsInt();
-			wmInkY = wm.get("inkY").getAsInt();
-			wmInkW = wm.get("inkWidth").getAsInt();
-			wmInkH = wm.get("inkHeight").getAsInt();
-			// Per-letter reveal bands (optional): [[x0,x1],...] texture columns.
-			if (wm.has("letters")) {
-				var la = wm.getAsJsonArray("letters");
-				int[] x0 = new int[la.size()];
-				int[] x1 = new int[la.size()];
-				for (int i = 0; i < la.size(); i++) {
-					var band = la.get(i).getAsJsonArray();
-					x0[i] = band.get(0).getAsInt();
-					x1[i] = band.get(1).getAsInt();
-				}
-				wmLetterX0 = x0;
-				wmLetterX1 = x1;
-			} else {
-				wmLetterX0 = null;
-				wmLetterX1 = null;
-			}
-			wordmarkId = registerTexture(mc, "origin_wordmark", "/assets/originclient/textures/ui/wordmark.png");
-		} catch (Exception e) {
-			wordmarkId = null;
-			wmLetterX0 = null;
-			wmLetterX1 = null;
-			com.origin.client.OriginClient.LOGGER.warn("Origin wordmark failed to load; using vanilla font", e);
-		}
 		// One typography voice: the title and loading mark use Minecraft's native
-		// font path too. Retain the old asset loader only for binary compatibility.
-		wordmarkId = null;
-		wmLetterX0 = null;
-		wmLetterX1 = null;
+		// font path, so the baked wordmark is never drawn (wordmarkId stays null and
+		// every wordmark draw takes its fallback). It used to be decoded and uploaded
+		// here anyway, on the render thread, and then thrown away: no longer loaded.
 
 		// Cursor-follow glow texture. Optional; skipped entirely on failure.
 		try {

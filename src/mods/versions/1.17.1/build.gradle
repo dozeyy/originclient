@@ -35,6 +35,14 @@ loom {
 			if (project.hasProperty("mixinexport")) {
 				property "mixin.debug.export", "true"
 			}
+			// `-PframeLog`: the loading -> main menu frame-time log (OriginFrameLog,
+			// lines start "[OriginFrameLog]") plus the JVM's own GC pause lines
+			// (-Xlog:gc, "[gc]"; the dev client runs on Gradle's JDK 17+), both to
+			// the console. Loom drops `--args`, so this is the only switch in a dev run.
+			if (project.hasProperty("frameLog")) {
+				property "origin.frameLog", "true"
+				vmArg "-Xlog:gc:stdout:uptime,level,tags"
+			}
 		}
 	}
 }

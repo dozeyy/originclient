@@ -13,6 +13,11 @@
 		"LoadingOverlayRevealMixin",
 		"TitleScreenFadeMixin",
 		"ReloadTaskBudgetMixin",
+		"FrameLogMixin",
+		"FrameLogTitleMixin",
+		"ReloadTaskTagMixin",
+		"SimpleReloadInstanceAccessor",
+		"FrameLogOverlayMixin",
 		"ShaderReloadMixin"
 	],
 	"injectors": {

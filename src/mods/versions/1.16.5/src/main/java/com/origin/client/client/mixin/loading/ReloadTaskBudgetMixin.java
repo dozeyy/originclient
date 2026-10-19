@@ -6,6 +6,7 @@ import net.minecraft.server.packs.resources.ReloadInstance;
 import net.minecraft.util.thread.BlockableEventLoop;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -32,9 +33,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ReloadTaskBudgetMixin {
 	/** Task time per frame while the startup load finishes (ns): leaves room for the frame itself at 60 fps. */
 	private static final long BUDGET_NS = 8_000_000L;
+	/** Longest the queue is ever held for the mark's settle (ns); the settle itself takes ~280 ms. */
+	@Unique
+	private static final long GATE_CAP_NS = 600_000_000L;
+	// The reload the hold belongs to and when it began (each reload is held at most once).
+	@Unique
+	private static Object originclient$gateReload;
+	@Unique
+	private static long originclient$gateStart;
 
 	@Shadow
 	public abstract boolean pollTask();
+
+	@Shadow
+	@org.spongepowered.asm.mixin.Final
+	private java.util.Queue<Runnable> pendingRunnables;
 
 	@Inject(method = "runAllTasks", at = @At("HEAD"), cancellable = true)
 	private void originclient$budgetReloadTasks(CallbackInfo ci) {
@@ -42,12 +55,43 @@ public abstract class ReloadTaskBudgetMixin {
 			return;
 		}
 		long end = System.nanoTime() + BUDGET_NS;
-		while (this.pollTask()) {
-			if (System.nanoTime() >= end) {
+		while (true) {
+			// Checked before EVERY task: one that runs now can queue the first
+			// render-thread reload step, which must then wait for the mark too.
+			if (originclient$holdForMark((Minecraft) (Object) this)) {
+				break;
+			}
+			// Dev-only step timing (OriginFrameLog); one static-final check when off.
+			Object next = com.origin.client.client.OriginFrameLog.ENABLED ? this.pendingRunnables.peek() : null;
+			com.origin.client.client.OriginFrameLog.pollBegin();
+			boolean ran = this.pollTask();
+			com.origin.client.client.OriginFrameLog.pollEnd(next);
+			if (!ran || System.nanoTime() >= end) {
 				break;
 			}
 		}
 		ci.cancel();
+	}
+
+	/**
+	 * Hold the queue while the loading mark glides to rest (MarkMotion.SETTLE_MS),
+	 * so the first long render-thread step (fonts, Shader Loader, models) lands on
+	 * a still mark on a clean pose, never mid-motion. Once per reload and capped:
+	 * a mark that never reports rest delays the load by at most GATE_CAP_NS.
+	 */
+	@Unique
+	private static boolean originclient$holdForMark(Minecraft mc) {
+		if (!OriginScreenRenderer.holdReloadTasksForMark()) {
+			return false;
+		}
+		long now = System.nanoTime();
+		Object reload = ((LoadingOverlayAccessor) mc.getOverlay()).originclient$reload();
+		if (originclient$gateReload != reload) {
+			originclient$gateReload = reload;
+			originclient$gateStart = now;
+			com.origin.client.client.OriginFrameLog.mark("render-thread reload tasks held while the mark settles");
+		}
+		return now - originclient$gateStart < GATE_CAP_NS;
 	}
 
 	/** The game's startup load is on screen (no world, no server) and still running. */

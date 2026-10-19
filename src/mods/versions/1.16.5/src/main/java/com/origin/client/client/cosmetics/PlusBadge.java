@@ -212,20 +212,45 @@ public final class PlusBadge {
 		if (!RenderSystem.isOnRenderThread()) {
 			return; // try again on the render thread; nothing is marked failed
 		}
-		try (InputStream in = PlusBadge.class.getResourceAsStream(SOURCE)) {
-			if (in == null) {
-				throw new IllegalStateException("origin_logo.png missing");
+		try {
+			// Built on the startup reload's worker threads (OriginAssets); only the
+			// three GPU uploads happen here. Built here if that didn't run.
+			NativeImage[] levels = com.origin.client.client.OriginAssets.derived(com.origin.client.client.OriginAssets.PLUS_BADGE);
+			if (levels == null) {
+				levels = buildLevels();
 			}
 			ResourceLocation[] made = new ResourceLocation[LEVELS.length];
-			try (NativeImage src = NativeImage.read(in)) {
-				for (int i = 0; i < LEVELS.length; i++) {
-					made[i] = register(boxFilter(src, LEVELS[i]), "plus_badge_" + LEVELS[i]);
-				}
+			for (int i = 0; i < LEVELS.length; i++) {
+				made[i] = register(levels[i], "plus_badge_" + LEVELS[i]);
 			}
 			textures = made;
 		} catch (Throwable t) {
 			failed = true;
 			OriginClient.LOGGER.warn("Origin+ badge: couldn't build the badge textures; no badge will draw", t);
+		}
+	}
+
+	/** Uploads the badge now (OriginAssets' per-frame upload slices) instead of on its first draw. */
+	public static void preload() {
+		ensure();
+	}
+
+	/**
+	 * The badge's sizes, box-filtered from the logo: pure CPU, no GL, so the
+	 * startup prefetch runs it on a worker thread.
+	 */
+	public static NativeImage[] buildLevels() throws Exception {
+		try (InputStream in = PlusBadge.class.getResourceAsStream(SOURCE)) {
+			if (in == null) {
+				throw new IllegalStateException("origin_logo.png missing");
+			}
+			NativeImage[] out = new NativeImage[LEVELS.length];
+			try (NativeImage src = NativeImage.read(in)) {
+				for (int i = 0; i < LEVELS.length; i++) {
+					out[i] = boxFilter(src, LEVELS[i]);
+				}
+			}
+			return out;
 		}
 	}
 
