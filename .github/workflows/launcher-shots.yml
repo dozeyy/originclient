@@ -140,7 +140,10 @@ jobs:
             rc=0
             git ls-remote --exit-code --heads "$url" claude/dev-shots >/dev/null 2>&1 || rc=$?
             rm -rf "$site"
-            if [ "$rc" = 0 ] && git clone -q --depth 1 --branch claude/dev-shots "$url" "$site"; then break; fi
+            # Partial + sparse: the branch holds GBs of dev-shots PNGs (a plain depth-1 clone
+            # downloaded all of them); this run only touches its own folder.
+            if [ "$rc" = 0 ] && timeout 300 git clone -q --depth 1 --filter=blob:none --no-checkout --branch claude/dev-shots "$url" "$site" \
+               && git -C "$site" sparse-checkout set --no-cone "/$folder/" && timeout 300 git -C "$site" checkout -q claude/dev-shots; then break; fi
             if [ "$rc" = 2 ]; then
               mkdir -p "$site" && git -C "$site" init -q && git -C "$site" checkout -q -b claude/dev-shots && break
             fi
@@ -161,7 +164,7 @@ jobs:
             if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then echo "published on attempt $attempt"; exit 0; fi
             echo "push lost the race (attempt $attempt/$max)"
             pause "$attempt"
-            git fetch -q --depth 1 "$url" claude/dev-shots && git reset -q --hard FETCH_HEAD || echo "fetch of the new tip failed; will retry"
+            git fetch -q --depth 1 --filter=blob:none "$url" claude/dev-shots && git reset -q --hard FETCH_HEAD || echo "fetch of the new tip failed; will retry"
           done
           echo "::error::could not publish to claude/dev-shots after $max attempts"
           exit 1

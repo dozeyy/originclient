@@ -4,8 +4,8 @@
 #
 # Why: the cloud sandbox Claude works in can't run Minecraft, so this is how a
 # UI change gets LOOKED AT before it reaches Will. The PNGs are force-pushed to
-# the `claude/dev-shots` branch (one orphan commit, latest run only), one
-# folder per module, so a session can `git fetch` them; also kept as artifacts.
+# the `claude/dev-shots` branch (a fresh root commit per publish, no history; other
+# runs' folders stay -- tools/ci/publish_shots.sh), one folder per module, so a session can `git fetch` them; also kept as artifacts.
 #
 # Which modules: put a tag in the commit message on a claude/** branch --
 #   [shots]                -> 1.21.1
@@ -324,7 +324,7 @@ jobs:
 
       # One small labelled image of every screen (_sheet.jpg): a session looks at
       # that first instead of opening every PNG (each image read stays in the
-      # conversation for good — Claude Lean). Never fails the run.
+      # conversation for good â€” Claude Lean). Never fails the run.
       - name: Contact sheet
         if: always()
         run: python3 tools/lean/contact_sheet.py "${{ runner.temp }}/shots/screenshots" || true
@@ -361,79 +361,64 @@ jobs:
     needs: shots
     if: always() && needs.shots.result != 'skipped'
     runs-on: ubuntu-latest
-    # claude/dev-shots holds every module's latest shots for every label (~7 GB of
-    # PNGs, 2026-10-19). The old full `clone --depth 1` of it on every publish hung
-    # run 39257723261 for 30+ min. Now: a partial clone (trees only) + a sparse
-    # checkout of just the folders this run replaces, every git network call capped,
-    # and the job itself bounded.
-    timeout-minutes: 20
+    # Why this job is built the way it is (runs 39271223735, 39303597442, 39325641289):
+    #   * one publisher at a time -- parallel runs raced ("fetch first" x5) and doubled the
+    #     load on the one big branch. (GitHub keeps one pending run per group: a third
+    #     queued publisher replaces the second; its shots stay in its run artifacts.)
+    #   * the shots are pushed ONE MODULE PER PUSH (~110 MB). A 20-module run pushed as one
+    #     ~2.2 GB commit got "HTTP 500 / curl 22" every time and then hit the timeout.
+    #   * every publish is a fresh root commit holding the branch's current tree (forced,
+    #     with --force-with-lease on the tip it started from), so the branch no longer
+    #     accumulates history -- it had grown to ~10 GB / 614 folders.
+    #   * artifacts are fetched one by one with retries, not all at once.
+    # The logic lives in tools/ci/publish_shots.sh (tested in tools/ci/test_ci_gates.py).
+    concurrency:
+      group: dev-shots-publish
+      cancel-in-progress: false
+    timeout-minutes: 45
     permissions:
       contents: write
+      actions: read
     steps:
-      - name: Collect every module's shots
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
         with:
-          pattern: shots-*
-          path: ${{ runner.temp }}/pub
+          sparse-checkout: tools/ci
+          persist-credentials: false
+
+      - name: Collect every module's shots (retried per artifact)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pub="$RUNNER_TEMP/pub"; mkdir -p "$pub"
+          names=""
+          for try in 1 2 3 4 5; do
+            names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --paginate --jq '.artifacts[].name' | grep '^shots-' | sort -u)" && break
+            echo "artifact list failed (try $try)"; sleep $((try * 5))
+          done
+          [ -n "$names" ] || { echo "no shots artifacts"; exit 0; }
+          fail=0
+          for n in $names; do
+            ok=0
+            for try in 1 2 3 4; do
+              rm -rf "$pub/$n"
+              if timeout 600 gh run download "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" -n "$n" -D "$pub/$n"; then ok=1; break; fi
+              echo "download of $n failed (try $try)"; sleep $((try * 10))
+            done
+            [ "$ok" = 1 ] || { echo "::error::could not download $n"; fail=1; }
+          done
+          [ "$fail" = 0 ]
 
       - name: Publish to the claude/dev-shots branch
         env:
           SET: ${{ github.event.inputs.set || 'design' }}
           LABEL: ${{ github.event.inputs.label }}
         run: |
-          pub="$RUNNER_TEMP/pub"
-          mkdir -p "$pub"
-          # Only THIS run's folders are replaced; every other module's latest shots
-          # stay (several runs publish in parallel). Folder = module for the design
-          # set, <module>-world for the world set; SOURCE.txt inside each says which
-          # commit + run made it.
+          # Folder = module for the design set, <module>-world for the world set, then
+          # -<label>; SOURCE.txt inside each says which commit + run made it. Only THIS
+          # run's folders are replaced; every other module's latest shots stay.
           suffix=""; [ "$SET" = "world" ] && suffix="-world"
           [ -n "$LABEL" ] && suffix="$suffix-$(printf '%s' "$LABEL" | tr -c 'A-Za-z0-9._-' '_')"
-          url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
-          folders=""
-          for d in "$pub"/shots-*; do
-            [ -d "$d" ] || continue
-            m="$(basename "$d")"; folders="$folders ${m#shots-}$suffix"
-          done
-          [ -n "$folders" ] || { echo "no shots to publish"; exit 0; }
-          git config --global user.name "origin-dev-shots"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Every attempt starts from the branch's CURRENT tip and re-applies this
-          # run's folders on top, so a push rejected as non-fast-forward (another
-          # run published first) becomes a rebase-retry, never a lost publish.
-          # Bounded: 6 attempts, each clone/checkout/push capped at 5 min.
-          for attempt in 1 2 3 4 5 6; do
-            cd "$RUNNER_TEMP"; rm -rf site
-            if timeout 120 git ls-remote --exit-code --heads "$url" claude/dev-shots >/dev/null 2>&1; then
-              if ! timeout 300 git clone -q --depth 1 --filter=blob:none --no-checkout --branch claude/dev-shots "$url" site; then
-                echo "attempt $attempt: clone failed"; sleep $((attempt * 10 + RANDOM % 10)); continue
-              fi
-              cd site
-              if ! git sparse-checkout set --no-cone /SOURCE.txt $(for m in $folders; do printf '/%s/ ' "$m"; done) \
-                 || ! timeout 300 git checkout -q claude/dev-shots; then
-                echo "attempt $attempt: checkout failed"; sleep $((attempt * 10 + RANDOM % 10)); continue
-              fi
-            else
-              mkdir site && cd site && git init -q && git checkout -q -b claude/dev-shots
-            fi
-            for m in $folders; do
-              rm -rf "$m"; cp -r "$pub/shots-${m%"$suffix"}" "$m"
-              printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$m/SOURCE.txt"
-            done
-            printf 'last run: %s/%s/actions/runs/%s (%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_SHA" > SOURCE.txt
-            git add -A
-            # Safety net: a sparse checkout that came up empty would stage the whole
-            # branch as deleted. Only deletions inside this run's folders are allowed.
-            stray="$(git diff --cached --name-only --diff-filter=D | grep -vE "^($(echo $folders | sed 's/[.]/[.]/g; s/ /|/g'))/" | head -n 3 || true)"
-            if [ -n "$stray" ]; then
-              echo "::error::publish would delete files outside this run's folders (e.g. $stray); refusing"; exit 1
-            fi
-            git commit -qm "dev shots ($SET) for ${GITHUB_SHA::7}" || true
-            if out="$(timeout 300 git push -q "$url" HEAD:refs/heads/claude/dev-shots 2>&1)"; then
-              echo "published:$folders (attempt $attempt)"; exit 0
-            fi
-            echo "attempt $attempt: push failed: $(printf '%s' "$out" | tail -n 3)"
-            sleep $((attempt * 10 + RANDOM % 10))
-          done
-          echo "::error::could not publish to claude/dev-shots after 6 attempts (the shots are still in this run's artifacts)"
-          exit 1
+          export URL="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+          export PUB="$RUNNER_TEMP/pub" SUFFIX="$suffix" SHA="$GITHUB_SHA" \
+                 RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          bash tools/ci/publish_shots.sh

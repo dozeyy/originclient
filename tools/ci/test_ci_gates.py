@@ -252,12 +252,142 @@ class DevShotsWorkflow(unittest.TestCase):
 
     def test_every_publish_attempt_starts_from_the_fresh_tip(self):
         # Run 39273133310 lost the push race 5 times: it cloned once and retried the stale commit.
-        yml = _read(self.YML)
-        loop = re.search(r"for attempt in [\d ]+; do\n(.*?)could not publish", yml, re.S)
+        body = _read(PUBLISH_SH)
+        loop = re.search(r'for attempt in .*?; do\n(.*?)could not publish', body, re.S)
         self.assertIsNotNone(loop, "publish retry loop not found")
-        body = loop.group(1)
-        self.assertIn("git clone", body)
-        self.assertLess(body.index("git clone"), body.index("git push"))
+        loop = loop.group(1)
+        self.assertIn("git clone", loop)
+        self.assertLess(loop.index("git clone"), loop.index("git push"))
+
+    def test_publish_is_serialized_and_bounded(self):
+        # Runs 39271223735 (5 lost races), 39303597442 / 39325641289 (HTTP 500 then the timeout).
+        yml = _read(self.YML)
+        pub = yml.split("\n  publish:\n", 1)[1]
+        self.assertRegex(pub, r"concurrency:\n      group: dev-shots-publish\n      cancel-in-progress: false")
+        self.assertRegex(pub, r"timeout-minutes: \d+")
+        self.assertIn("publish_shots.sh", pub)
+        # artifacts are fetched one by one with a retry, not one all-at-once download action
+        self.assertNotIn("download-artifact", pub)
+        self.assertRegex(pub, r"gh run download .*-n \"\$n\"")
+
+    def test_publish_pushes_per_module_without_history(self):
+        body = _read(PUBLISH_SH)
+        # one push per module folder (inside the folder loop), never one giant push
+        self.assertRegex(body, r'(?s)for m in \$folders; do.*git push.*done')
+        # a root commit (no inherited history) guarded by a lease, never a bare --force
+        self.assertIn("--force-with-lease", body)
+        self.assertNotRegex(body, r"push [^\n]*--force(?!-)")
+        # partial + sparse clone, not a full one
+        self.assertIn("--filter=blob:none", body)
+        self.assertIn("sparse-checkout", body)
+        # launcher-shots shares the branch and must not full-clone it either
+        ls = _read(os.path.join(ROOT, ".github", "workflows", "launcher-shots.yml"))
+        self.assertIn("--filter=blob:none", ls)
+
+
+PUBLISH_SH = os.path.join(HERE, "publish_shots.sh")
+
+
+def _have(cmd):
+    import shutil
+    return shutil.which(cmd) is not None
+
+
+@unittest.skipUnless(_have("bash") and _have("git") and _have("timeout"), "needs bash + git + timeout")
+class PublishShotsScript(unittest.TestCase):
+    """Runs the real publish script against a local bare repo standing in for GitHub."""
+
+    def _git(self, cwd, *args):
+        import subprocess
+        return subprocess.run(["git", *args], cwd=cwd, env=self.env, capture_output=True, text=True, check=True).stdout.strip()
+
+    def setUp(self):
+        import pathlib
+        self.tmp = pathlib.Path(tempfile.mkdtemp())
+        self.env = dict(os.environ, HOME=str(self.tmp), USERPROFILE=str(self.tmp), GIT_CONFIG_NOSYSTEM="1",
+                        GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        self.remote = self.tmp / "remote.git"
+        self._git(self.tmp, "init", "-q", "--bare", str(self.remote))
+        self._git(self.remote, "config", "uploadpack.allowFilter", "true")
+        self._git(self.remote, "config", "uploadpack.allowAnySHA1InWant", "true")
+        # a branch that already has history and another run's folder, like the real one
+        seed = self.tmp / "seed"
+        seed.mkdir()
+        self._git(seed, "init", "-q", "-b", "claude/dev-shots")
+        for i in range(3):
+            (seed / "1.16.5").mkdir(exist_ok=True)
+            (seed / "1.16.5" / "title.png").write_bytes(b"old%d" % i)
+            self._git(seed, "add", "-A")
+            self._git(seed, "commit", "-qm", f"old {i}")
+        self._git(seed, "push", "-q", self.remote.as_uri(), "HEAD:refs/heads/claude/dev-shots")
+        self.pub = self.tmp / "pub"
+        for m in ("1.21.1", "1.20"):
+            (self.pub / f"shots-{m}").mkdir(parents=True)
+            (self.pub / f"shots-{m}" / "title_1920x1080_s0.png").write_bytes(b"new-" + m.encode())
+
+    def _run(self, **extra):
+        import subprocess
+        env = dict(self.env, URL=self.remote.as_uri(), PUB=str(self.pub), WORK=str(self.tmp / "work"),
+                   SLEEP_SCALE="0", SHA="abcdef1234", RUN_URL="http://run/1", SET="design", SUFFIX="")
+        env.update(extra)
+        (self.tmp / "work").mkdir(exist_ok=True)
+        return subprocess.run(["bash", PUBLISH_SH], env=env, capture_output=True, text=True)
+
+    def _files(self):
+        return set(self._git(self.remote, "ls-tree", "-r", "--name-only", "claude/dev-shots").splitlines())
+
+    def test_publishes_per_module_squashes_history_and_keeps_other_folders(self):
+        p = self._run()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        files = self._files()
+        self.assertTrue({"1.21.1/title_1920x1080_s0.png", "1.20/title_1920x1080_s0.png", "1.16.5/title.png", "SOURCE.txt"} <= files, files)
+        # 3 old commits squashed away: one root commit + one per module pushed after it
+        self.assertEqual(self._git(self.remote, "rev-list", "--count", "claude/dev-shots"), "2")
+        self.assertEqual(self._git(self.remote, "rev-list", "--max-parents=0", "claude/dev-shots").count("\n"), 0)
+        self.assertEqual(p.stdout.count("pushed "), 2)
+
+    def test_second_publish_replaces_its_folder_only(self):
+        self.assertEqual(self._run().returncode, 0)
+        (self.pub / "shots-1.20" / "title_1920x1080_s0.png").write_bytes(b"newer")
+        import shutil
+        shutil.rmtree(self.pub / "shots-1.21.1")
+        p = self._run()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(self._git(self.remote, "show", "claude/dev-shots:1.20/title_1920x1080_s0.png"), "newer")
+        self.assertIn("1.21.1/title_1920x1080_s0.png", self._files())
+
+    def test_label_suffix_goes_into_the_folder_name(self):
+        p = self._run(SUFFIX="-world-x")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("1.20-world-x/title_1920x1080_s0.png", self._files())
+
+    def test_rejected_push_is_retried_from_a_fresh_clone(self):
+        # The remote refuses the first push (a lost race / an HTTP 500); the publish must still land.
+        hook = self.remote / "hooks" / "pre-receive"
+        marker = (self.tmp / "refused").as_posix()
+        hook.write_text(f'#!/bin/sh\nif [ ! -e "{marker}" ]; then : > "{marker}"; echo refused >&2; exit 1; fi\nexit 0\n', newline="\n")
+        os.chmod(hook, 0o755)
+        p = self._run()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertRegex(p.stdout, r"push of 1\.\S+ failed")
+        self.assertIn("(attempt 2)", p.stdout)
+        self.assertIn("1.20/title_1920x1080_s0.png", self._files())
+
+    def test_gives_up_loudly_when_every_push_fails(self):
+        hook = self.remote / "hooks" / "pre-receive"
+        hook.write_text("#!/bin/sh\nexit 1\n", newline="\n")
+        os.chmod(hook, 0o755)
+        p = self._run(ATTEMPTS="2")
+        self.assertNotEqual(p.returncode, 0)
+        self.assertIn("could not publish", p.stdout)
+        # nothing was lost on the branch
+        self.assertIn("1.16.5/title.png", self._files())
+
+    def test_nothing_to_publish_is_not_an_error(self):
+        import shutil
+        shutil.rmtree(self.pub)
+        self.pub.mkdir()
+        self.assertEqual(self._run().returncode, 0)
 
 
 class CheckShotsNames(unittest.TestCase):
