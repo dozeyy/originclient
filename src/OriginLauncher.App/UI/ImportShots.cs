@@ -59,7 +59,7 @@ internal static class ImportShots
             RenderShots.Snap(window, outDir, "30-import-drawer-all");
 
             // 31: every kind of problem line (pick whose settings, Forge, unsupported, not sure), in two screens of the list.
-            panel.TourScrollOverview(170);
+            panel.TourScrollOverview(100);
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "31-import-drawer-attention");
             panel.TourScrollOverview(double.MaxValue);
