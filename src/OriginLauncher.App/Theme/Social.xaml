@@ -83,7 +83,6 @@
     </Style>
 
     <Style x:Key="Social.Section" TargetType="TextBlock" BasedOn="{StaticResource Text.Eyebrow}">
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 

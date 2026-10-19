@@ -39,9 +39,7 @@ Emerald is the only general-purpose interaction accent. Lapis, redstone, and gol
 
 ### Shape and depth
 
-- Small controls: 1 px radius.
-- Rows and cards: 2 px radius.
-- Dialogs and large shells: 3 px radius.
+- Radii come from `Theme/Spacing.xaml` (the launcher's source of truth): small controls 4 px (`Radius.Control`), rows and cards 6 px (`Radius.Row`, `Radius.Card`), dialogs and large shells 8 px (`Radius.Dialog`). Never type a radius in a view.
 - Toggles and sliders use square block handles; pills are not part of the core component language.
 - Raised controls use a lighter top edge and a hard dark lower frame. Blurred card shadows and idle glows are avoided.
 
@@ -62,7 +60,7 @@ Motion uses ease-out curves and opacity/color/scale only where scale cannot move
 
 ## Component rules
 
-- Buttons: sentence case by default; one primary action per decision area. Icon-only buttons always have an accessible name and tooltip.
+- Buttons: the case follows the surface. Drawers (Friends, Import) and their dialogs use UPPERCASE button labels (JOIN, IMPORT 7, KEEP GOING); pages and Home cards use sentence case ("Not now", "New profile"). One primary action per decision area, in the same place on every page of a drawer (the footer, right). Icon-only buttons always have an accessible name and tooltip.
 - Settings rows: label and description on the left, current value/control on the right. Use the same 32 px minimum control height and alignment grid everywhere.
 - Toggles: square inventory-style track and handle; emerald means on, neutral charcoal means off. Redstone is reserved for destructive/error.
 - Sliders: block handle and squared track; show the value while focused, hovered, or dragged; support keyboard increments and reset.

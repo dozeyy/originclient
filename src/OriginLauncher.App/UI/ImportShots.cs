@@ -24,6 +24,7 @@ internal static class ImportShots
     public static void Run(MainWindow window, string outDir)
     {
         var realNotSure = ImportPanel.NotSureNote;
+        var (windowWidth, windowHeight) = (window.Width, window.Height);
         try
         {
             ImportPanel.NotSureNote = DemoEvidence;
@@ -131,9 +132,29 @@ internal static class ImportShots
 
             // 41: a game is starting: Import is off until it opens.
             panel = Open(window, Demo.Bulk, 1500);
-            panel.TourLaunchBusy(true);
+            panel.TourRefusal("Wait for Minecraft to finish starting.");
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "41-import-drawer-launching");
+
+            // 50-53: the smallest window the launcher allows, for the Home card, the drawer and a single review.
+            window.TourCloseImport();
+            window.Width = 980;
+            window.Height = 600;
+            RenderShots.Pump(600);
+            window.TourGoTo(0);
+            RenderShots.Pump(500);
+            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(many));
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "50-min-home-import-card");
+            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(new[] { many[0] }));
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "51-min-home-import-card-one-setup");
+            window.TourImportPrompt.Hide();
+            panel = Open(window, Demo.Bulk, 1500);
+            RenderShots.Snap(window, outDir, "52-min-import-drawer-all");
+            panel.TourOpenSingle("Survival 1.21.1");
+            RenderShots.Pump(1200);
+            RenderShots.Snap(window, outDir, "53-min-import-single-review");
         }
         catch (Exception ex)
         {
@@ -143,6 +164,8 @@ internal static class ImportShots
         {
             ImportPanel.NotSureNote = realNotSure;
             DemoBackend.Release();
+            window.Width = windowWidth;
+            window.Height = windowHeight;
             window.TourBackendFactory = null;
             window.TourCloseImport();
             RenderShots.Pump(300);
@@ -158,7 +181,7 @@ internal static class ImportShots
 
     // Made-up evidence for the "not sure" slot: Vanilla+ says 1.21.1 but the game last ran 1.21.4.
     private static string? DemoEvidence(DetectedInstance setup) =>
-        setup.Name == "Vanilla+" ? "Not sure this is 1.21.1: the game last ran 1.21.4." : null;
+        setup.Name == "Vanilla+" ? "Not sure: last played on 1.21.4." : null;
 
     private static DetectedInstance Instance(string name, SourceKind kind, string mc, long playSeconds,
         LoaderKind loader = LoaderKind.Fabric, int lastPlayedDaysAgo = 1, Confidence confidence = Confidence.Exact) => new()
@@ -246,7 +269,7 @@ internal static class ImportShots
                 Mod("waystones-fabric.jar", "Waystones", ModOutcome.Copied),
                 Mod("jade-15.jar", "Jade", ModOutcome.Copied),
                 Mod("appleskin-3.0.jar", "AppleSkin", ModOutcome.Copied),
-                Mod("create-fabric.jar", "Create", ModOutcome.CopiedDisabled, "needs Fabric Kotlin, which is not in this setup"),
+                Mod("create-fabric.jar", "Create", ModOutcome.CopiedDisabled, "Needs Fabric Kotlin."),
                 Mod("sodium-fabric-0.6.13.jar", "Sodium", ModOutcome.BuiltIn, "Origin includes Sodium 0.6.13"),
                 Mod("lithium-fabric-0.14.jar", "Lithium", ModOutcome.BuiltIn, "Origin includes Lithium 0.14.3"),
                 Mod("iris-1.8.8.jar", "Iris", ModOutcome.BuiltIn, "Origin includes Iris 1.8.8"),
@@ -268,7 +291,7 @@ internal static class ImportShots
                 if (m.Outcome == ModOutcome.Copied)
                     plan.Lines.Add(new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, label, null, 600_000));
                 else if (m.Outcome == ModOutcome.CopiedDisabled)
-                    plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, label, "Imported but turned off: " + m.Reason, 4_200_000));
+                    plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, label, "Comes over turned off. " + m.Reason, 4_200_000));
                 else
                     plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{label} ({m.FileName})", m.Reason));
             }
@@ -285,8 +308,8 @@ internal static class ImportShots
             }
             if (role == SetupRole.Full)
             {
-                plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting, "Resource pack \"Old Textures\"",
-                    "was in the options but is not in the setup's resourcepacks folder."));
+                plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.ResourcePack, "Old Textures",
+                    "Pack file missing. Skipped."));
                 plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Setting, "authlib-injector.cfg",
                     "Skipped for safety: it looks like a login or account file."));
                 plan.SkippedForSafety.Add("authlib-injector.cfg");
@@ -303,7 +326,7 @@ internal static class ImportShots
         // ---- "import everything": built from BulkSetups() with the real VersionPicker, so the grouping, the
         // unclear-winner choice and the roles behave the way the engine will. Nothing is read or written. ----
 
-        private const string ForgeNote = "Forge mods can't come over. Origin runs Fabric, except on 1.8.9.";
+        private const string ForgeNote = "Forge mods can't come over (Fabric only, except 1.8.9).";
 
         private static readonly string[] DemoTargets = { "1.21.1", "1.20.1", "1.20", "1.19.2", "1.8.9" };
 
@@ -321,7 +344,7 @@ internal static class ImportShots
                 var version = setup.McVersion ?? "";
                 if (!DemoTargets.Contains(version))
                 {
-                    var skipped = new SkippedSetup(setup, $"Origin doesn't support Minecraft {version}.");
+                    var skipped = new SkippedSetup(setup, "Not supported.");
                     plan.Skipped.Add(skipped);
                     progress?.Report(new BulkPlanProgress(++done, chosen.Count, setup.Name, Skipped: skipped));
                     continue;
@@ -381,7 +404,7 @@ internal static class ImportShots
                     return new BulkImportResult
                     {
                         RunId = plan.RunId, State = ImportState.RolledBack,
-                        Error = "The import didn't finish (Not enough space on the drive). Everything was put back the way it was.",
+                        Error = "Not enough space on the drive.",
                     };
                 done += bytes;
                 await Task.Yield();
@@ -458,7 +481,7 @@ internal static class ImportShots
                 return new ImportResult
                 {
                     ImportId = plan.ImportId, State = ImportState.RolledBack, SummaryText = failed,
-                    Error = "The import didn't finish (Not enough space on the drive). Everything was put back the way it was.",
+                    Error = "Not enough space on the drive.",
                 };
             }
             var text = ImportSummary.Render(plan);

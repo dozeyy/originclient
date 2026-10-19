@@ -58,8 +58,8 @@ public sealed class SetupRowVm : CardRowVm, INotifyPropertyChanged
     public string Id => Setup.BulkId();
     public string Name => Setup.Name;
 
-    /// <summary>The launcher's first letter (the section above says which launcher).</summary>
-    public string Initial => Setup.SourceLabel.Length > 0 ? Setup.SourceLabel[..1].ToUpperInvariant() : "?";
+    /// <summary>The setup's own first letter (like a friend's initial).</summary>
+    public string Initial => ImportLogic.Initial(Setup.Name);
 
     /// <summary>"1.21.1 - Fabric - 12 mods".</summary>
     public string Caption { get => _caption; set => Set(ref _caption, value, nameof(Caption)); }
@@ -108,6 +108,8 @@ public sealed class SetupRowVm : CardRowVm, INotifyPropertyChanged
     public bool HasChoice => _choiceVersion != null;
 
     public string AutomationName => $"{Name}, {Caption}";
+    public string TickName => $"Include {Setup.SourceLabel}: {Name}";
+    public string ChangeName => $"Pick whose settings to use for {Name}";
     public string RowTip => CanTick ? "Review this setup on its own" : "This setup can't be imported as it is. Press to pick a version.";
 
     public override string Key => $"U|{Id}";
@@ -139,7 +141,7 @@ public sealed class ChooseRowVm : CardRowVm, INotifyPropertyChanged
 
     public string Id => Setup.BulkId();
     public string Name => Setup.Name;
-    public string Initial => Setup.SourceLabel.Length > 0 ? Setup.SourceLabel[..1].ToUpperInvariant() : "?";
+    public string Initial => ImportLogic.Initial(Setup.Name);
 
     public bool Selected
     {

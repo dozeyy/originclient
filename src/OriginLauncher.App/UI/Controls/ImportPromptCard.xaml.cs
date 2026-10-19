@@ -32,14 +32,29 @@ public partial class ImportPromptCard : UserControl
         return $"Bring over your setup from {from}?";
     }
 
+    private bool _pending; // the question is waiting for an answer
+    private bool _refused; // Import would be refused right now (a game starting, an update): the card stays out
+
     public void ShowQuestion(string question)
     {
         QuestionText.Text = question;
         System.Windows.Automation.AutomationProperties.SetName(this, question);
-        Visibility = Visibility.Visible;
+        _pending = true;
+        Visibility = _refused ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    public void Hide() => Visibility = Visibility.Collapsed;
+    /// <summary>The sentence from the wiring's refusal check, or null when Import can run: hides the card while it can't, shows it again after.</summary>
+    public void SetRefusal(string? sentence)
+    {
+        _refused = sentence != null;
+        Visibility = _pending && !_refused ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public void Hide()
+    {
+        _pending = false;
+        Visibility = Visibility.Collapsed;
+    }
 
     private void NotNow_Click(object sender, RoutedEventArgs e) => Hide();
 

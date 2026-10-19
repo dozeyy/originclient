@@ -9,7 +9,7 @@ namespace OriginLauncher.App.UI.Controls;
 // wiring review describes, in ONE place: when that branch is merged, only the marked line in each method changes.
 /// <summary>
 /// What the window's close button needs from the import drawer: is an import writing, and may it be cancelled.
-/// WIRING: the same name and shape as the interface on claude/import-wiring; when that branch merges, delete this
+/// MERGE: the same name and shape as IImportCloseHost on claude/import-wiring; when that branch merges, delete this
 /// declaration and keep the `: IImportCloseHost` on ImportPanel.
 /// </summary>
 public interface IImportCloseHost
@@ -22,35 +22,32 @@ public interface IImportCloseHost
 
 internal static class ImportHooks
 {
-    /// <summary>
-    /// The Minecraft versions an import can go into. Never read <see cref="IImportBackend.SupportedTargets"/> on the UI
-    /// thread (the real backend can build its whole engine for it): this runs the read off it.
-    /// WIRING: becomes `backend.GetSupportedTargetsAsync(ct)`.
-    /// </summary>
+    // Each placeholder is ONE line. MERGE: when claude/import-wiring lands, replace that line with the named API.
+
+    /// <summary>Never read IImportBackend.SupportedTargets on the UI thread: this runs the read off it.</summary>
     public static Task<IReadOnlyList<string>> TargetsAsync(IImportBackend backend, CancellationToken ct) =>
-        Task.Run(() => backend.SupportedTargets, ct);
+        Task.Run(() => backend.SupportedTargets, ct); // MERGE: backend.GetSupportedTargetsAsync(ct)
 
-    /// <summary>
-    /// "Browse for a folder": works out what the picked folder is. The caller passes its OWN token source, never the scan's.
-    /// WIRING: becomes `backend.InspectPickedFolderAsync(path, ct)`.
-    /// </summary>
+    /// <summary>"Browse for a folder": the caller passes its OWN token source, never the scan's.</summary>
     public static Task<FolderInspection> InspectPickedFolderAsync(IImportBackend backend, string path, CancellationToken ct) =>
-        backend.InspectFolderAsync(path, ct);
+        backend.InspectFolderAsync(path, ct); // MERGE: backend.InspectPickedFolderAsync(path, ct)
 
-    /// <summary>
-    /// Marks "an import is writing" (Home keeps Play and Join off) for as long as the result is alive:
-    /// `using var run = ImportHooks.EnterRun();` is the first statement of the method that applies.
-    /// WIRING: becomes `ImportRunState.Enter()`.
-    /// </summary>
-    public static IDisposable EnterRun()
-    {
-        ImportRunState.Begin();
-        return new Run();
-    }
+    /// <summary>"An import is writing" for as long as the result is alive: the first statement of the apply methods.</summary>
+    public static IDisposable EnterRun() => RunMarker.Enter(); // MERGE: ImportRunState.Enter()
 
-    private sealed class Run : IDisposable
+    /// <summary>The sentence to show when Import must be off (a launch is starting or an update is running), else null.</summary>
+    public static string? Refusal() => null; // MERGE: LaunchRunState.ImportRefusal()
+
+    // Stand-in for ImportRunState.Enter(): the same Begin/End pair, disposed once. Deleted by the merge.
+    private sealed class RunMarker : IDisposable
     {
         private int _done;
+
+        public static IDisposable Enter()
+        {
+            ImportRunState.Begin();
+            return new RunMarker();
+        }
 
         public void Dispose()
         {

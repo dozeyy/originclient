@@ -49,9 +49,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     internal static Func<DetectedInstance, string?> NotSureNote { get; set; } = DefaultNotSure;
 
     private static string? DefaultNotSure(DetectedInstance i) =>
-        i.McVersion != null && i.Confidence == Confidence.Inferred ? $"Not sure this is {i.McVersion}: Origin guessed it." : null;
+        i.McVersion != null && i.Confidence == Confidence.Inferred ? $"Not sure: Origin guessed {i.McVersion}." : null;
 
-    private const string ForgeFallback = "Forge mods can't come over. Origin runs Fabric, except on 1.8.9.";
+    private const string ForgeFallback = "Forge mods can't come over (Fabric only, except 1.8.9).";
 
     private readonly IImportBackend _backend;
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(100) };
@@ -76,8 +76,6 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private bool _planFailed;
     private bool _singlePlanning;
     private bool _suppressTarget;
-    private bool _launchBusy;
-    private bool _updateBusy;
     private string? _refusal; // the wiring's sentence (LaunchRunState.ImportRefusal()); null = Import is allowed
     private bool _wantPrimaryFocus;
     private bool _lostCollapsed;
@@ -100,15 +98,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private ImportPlan? _singlePlan;
     private BulkImportResult? _bulkResult;
     private ImportResult? _singleResult;
-    private DoneModel? _done;
-
-    /// <summary>
-    /// The confirm dialog MainWindow hosts over the whole window (a 380 px drawer is too narrow for a dialog with two
-    /// real buttons). Null: the drawer's own overlay is used.
-    /// </summary>
-    internal ConfirmOverlay? ConfirmHost { get; set; }
-
-    private ConfirmOverlay Overlay => ConfirmHost ?? Confirm;
+    private ImportDoneModel? _done;
 
     /// <summary>Import buttons are on (off while a game starts or an import writes). The row and section buttons bind to it.</summary>
     public static readonly DependencyProperty AllowedProperty =
@@ -131,6 +121,12 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         InitializeComponent();
         _tick.Tick += (_, _) => ShowLatestProgress();
         Unloaded += (_, _) => StopSpinners();
+        // The primary button takes the focus when it becomes available, unless the player already went somewhere
+        // else (a tick box, a row): the landing spots (Close, Browse, Back) don't count.
+        AddHandler(Keyboard.GotKeyboardFocusEvent, new KeyboardFocusChangedEventHandler((_, e) =>
+        {
+            if (e.NewFocus is not (Button { Name: "CloseButton" or "BrowseIconButton" or "BackButton" })) _wantPrimaryFocus = false;
+        }), true);
         ShowScanning();
     }
 
@@ -141,29 +137,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     {
         if (_started || _disposed) return;
         _started = true;
+        SetRefusal(ImportHooks.Refusal());
         _ = ScanAsync();
-    }
-
-    /// <summary>
-    /// A game is starting: Import turns off until it has opened (a launch would race the import).
-    /// WIRING (import-wiring agent): MainWindow calls this from LaunchRunState.Changed once that exists.
-    /// </summary>
-    public void SetLaunchBusy(bool busy)
-    {
-        if (_launchBusy == busy) return;
-        _launchBusy = busy;
-        BusyChanged();
-    }
-
-    /// <summary>
-    /// The launcher is downloading or restarting for an update: Import is off, with a one-line reason.
-    /// WIRING (import-wiring agent): MainWindow calls this from the shared update busy state (UpdateRunState) once that exists.
-    /// </summary>
-    public void SetUpdateBusy(bool busy)
-    {
-        if (_updateBusy == busy) return;
-        _updateBusy = busy;
-        BusyChanged();
     }
 
     /// <summary>
@@ -178,12 +153,16 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         BusyChanged();
     }
 
-    private bool Busy => _refusal != null || _launchBusy || _updateBusy;
+    private bool Busy => _refusal != null;
 
-    private string BusyReason => _refusal
-        ?? (_launchBusy ? "Wait for Minecraft to finish starting." : "Origin is updating. Import is off until it restarts.");
+    private string BusyReason => _refusal ?? "";
 
-    /// <summary>IImportCloseHost: the window's close asks this while an import is writing (true = cancel, false = keep importing).</summary>
+    /// <summary>
+    /// IImportCloseHost: asks "Stop importing?" (destructive confirm, focus on KEEP GOING) and returns the answer.
+    /// True = the player chose to cancel: the cancel has only been STARTED, the engine rolls back and the pane then shows
+    /// "Nothing changed" (Import cancelled), so a caller that must wait for the rollback (the window's close) awaits
+    /// that itself. False = keep importing. Also false when a confirm is already open or nothing is importing.
+    /// </summary>
     public Task<bool> ConfirmCancelAsync() => AskCancelAsync();
 
     private void BusyChanged()
@@ -194,7 +173,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         UpdateFooterEnabled();
     }
 
-    private void UpdateAllowed() => Allowed = !Busy && !IsApplying;
+    // One disabled set for every reason Import can't run: a launch or update (refusal), an import writing, or a plan that is blocked.
+    private void UpdateAllowed() => Allowed = !Busy && !IsApplying && _plan is not { Blocked.Count: > 0 };
 
     // ---------------------------------------------------------------- scan
 
@@ -284,17 +264,22 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         WantFocus();
     }
 
+    private bool _listDirty;
+
     private void ShowOverview()
     {
+        var rebuild = _listDirty;
+        if (rebuild) BuildOverview();
         ShowPane(Pane.Overview);
         SetHeader("Import", OverviewSubtitle());
-        SetFooter("Your other launchers stay as they are.", "DETAILS", () => OpenDetails(), null, null);
-        _primary = ImportAllButton;
+        SetFooter("Other launchers stay as they are.", "DETAILS", () => OpenDetails(), "IMPORT", ImportAll);
+        _primary = FooterPrimary;
         UpdateImportAll();
         WantFocus();
+        if (rebuild) _ = ReplanAsync();
     }
 
-    private string OverviewSubtitle() => $"{_all.Count} {(_all.Count == 1 ? "setup" : "setups")} found";
+    private string OverviewSubtitle() => $"{ImportLogic.Plural(_all.Count, "setup", "setups")} found";
 
     private void SetFooter(string? note, string? secondaryText, Action? secondary, string? primaryText, Action? primary)
     {
@@ -318,6 +303,10 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             FooterPrimary.IsEnabled = !Busy && _singlePlan is { CanApply: true } p && !string.IsNullOrEmpty(p.TargetVersion);
             FooterSecondary.IsEnabled = _singlePlan != null;
         }
+        else if (_pane == Pane.Overview)
+        {
+            FooterSecondary.IsEnabled = true; // the primary (IMPORT n) is UpdateImportAll's
+        }
         else
         {
             FooterPrimary.IsEnabled = !(Busy && _pane == Pane.Failed);
@@ -339,7 +328,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     private void TryFocusPrimary()
     {
-        if (!_wantPrimaryFocus || _disposed || Overlay.Visibility == Visibility.Visible) return;
+        if (!_wantPrimaryFocus || _disposed || Confirm.Visibility == Visibility.Visible) return;
         if (_primary is { IsVisible: true, IsEnabled: true } button)
         {
             _wantPrimaryFocus = false;
@@ -361,7 +350,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         else if (_pane is Pane.Overview or Pane.Empty && _flash != null)
             text = _flash;
         NoticeText.Text = text ?? "";
-        NoticeText.Foreground = (Brush)FindResource(_planFailed && _pane == Pane.Overview ? "Brush.Danger" : "Brush.Warning");
+        NoticeText.Foreground = (Brush)FindResource("Brush.Warning");
         NoticeIcon.Stroke = NoticeText.Foreground;
         NoticeStrip.Visibility = V(!string.IsNullOrEmpty(text));
     }
@@ -373,14 +362,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         "Minecraft" => 0, "Prism" => 1, "Modrinth" => 2, "CurseForge" => 3, _ => 4,
     };
 
-    private static string GroupTitle(string label) => label switch
-    {
-        "Minecraft" => "Minecraft launcher",
-        "Prism" => "Prism Launcher",
-        "Modrinth" => "Modrinth App",
-        "Folder" => "Picked folders",
-        _ => label,
-    };
+    private static string GroupTitle(string label) => ImportLogic.GroupTitle(label);
 
     private static void AssignPos(IReadOnlyList<CardRowVm> rows)
     {
@@ -403,7 +385,6 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             items.Add(new ImportSectionVm
             {
                 Id = group.Key, Title = title.ToUpperInvariant(), Count = members.Count,
-                ActionText = "IMPORT", ActionTip = $"Import everything from {title}", Launcher = members[0].Kind,
             });
             var cards = new List<CardRowVm>();
             foreach (var setup in members)
@@ -416,6 +397,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             items.AddRange(cards);
         }
         _overviewItems = items;
+        _listDirty = false;
         OverviewList.ItemsSource = items;
     }
 
@@ -437,14 +419,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     }
 
     /// <summary>"1.21.1 - Fabric - 12 mods" (ASCII only; the mod count only once the plan knows it).</summary>
-    internal static string Describe(DetectedInstance setup, int mods)
-    {
-        var parts = new List<string>();
-        if (setup.McVersion != null) parts.Add(setup.McVersion);
-        if (setup.Loader is not (LoaderKind.None or LoaderKind.Unknown)) parts.Add(setup.Loader.ToString());
-        if (mods > 0) parts.Add($"{mods} {(mods == 1 ? "mod" : "mods")}");
-        return string.Join(" - ", parts);
-    }
+    internal static string Describe(DetectedInstance setup, int mods) => ImportLogic.Describe(setup, mods);
 
     private BulkSelection CurrentSelection()
     {
@@ -525,7 +500,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
                 if (planned.Role == SetupRole.PacksOnly)
                     lines.Add(string.IsNullOrWhiteSpace(planned.Note) ? ForgeFallback : planned.Note!);
                 var choose = group.NeedsChoice && group.Winner.BulkId() == row.Id;
-                if (choose) lines.Add("Pick whose settings to use");
+                if (choose) lines.Add("Pick settings");
                 if (NotSureNote(planned.Setup) is { } notSure) lines.Add(notSure);
                 row.Caption = Describe(planned.Setup, planned.Plan.Mods.Count(m => m.IsCopied));
                 row.Warning = lines.Count == 0 ? null : string.Join("\n", lines);
@@ -547,27 +522,13 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     private void UpdateImportAll()
     {
+        UpdateAllowed();
         if (_pane != Pane.Overview) return;
-        string label;
-        var enabled = false;
-        if (_planning)
-        {
-            label = "CHECKING...";
-        }
-        else if (_planFailed)
-        {
-            label = "CHECK AGAIN";
-            enabled = !Busy;
-        }
-        else
-        {
-            var importable = _plan?.Groups.Sum(g => g.Setups.Count) ?? 0;
-            var everything = _rows.Values.Where(r => r.CanTick).All(r => r.Ticked);
-            label = importable == 0 ? "IMPORT" : everything ? "IMPORT ALL" : $"IMPORT {importable} {(importable == 1 ? "SETUP" : "SETUPS")}";
-            enabled = _plan is { CanApply: true } && !Busy;
-        }
-        ImportAllButton.Content = label;
-        ImportAllButton.IsEnabled = enabled;
+        var importable = _plan?.Groups.Sum(g => g.Setups.Count) ?? 0;
+        var everything = _rows.Values.Where(r => r.CanTick).All(r => r.Ticked);
+        var (label, enabled) = ImportLogic.ImportAllButton(_planning, _planFailed, _plan is { CanApply: true }, importable, everything, Busy);
+        FooterPrimary.Content = label;
+        FooterPrimary.IsEnabled = enabled;
         TryFocusPrimary();
     }
 
@@ -576,9 +537,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (!IsApplying && !_planning && !_singlePlanning) _tick.Stop();
     }
 
-    private void ImportAll_Click(object sender, RoutedEventArgs e)
+    private void ImportAll()
     {
-        if (!ImportAllButton.IsEnabled) return;
+        if (_pane != Pane.Overview || !FooterPrimary.IsEnabled) return;
         if (_planFailed)
         {
             _ = ReplanAsync();
@@ -617,67 +578,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         }
     }
 
-    private void SectionAction_Click(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        if (Row<ImportSectionVm>(sender) is { Launcher: { } kind } && !IsApplying && !Busy) _ = RunLauncherAsync(kind);
-    }
-
     private static T? Row<T>(object sender) where T : class => (sender as FrameworkElement)?.DataContext as T;
-
-    // ---------------------------------------------------------------- one launcher
-
-    // "IMPORT" on a launcher's heading: plan just that launcher's ticked setups, then import them.
-    private async Task RunLauncherAsync(SourceKind kind)
-    {
-        var selection = BulkSelection.OfLauncher(kind);
-        foreach (var id in _unticked) selection = selection.Without(id);
-        var options = _options;
-        var choices = new Dictionary<string, string>(_choice);
-
-        var seq = ++_planSeq;
-        var cts = Replace(ref _planCts);
-        _planning = true;
-        ShowPane(Pane.Importing);
-        SetHeader("Import", "Getting ready");
-        SetFooter(null, null, null, null, null);
-        _primary = null;
-        CancelButton.IsEnabled = false;
-        ProgressCaption.Text = "Checking what can come over...";
-        ProgressSetup.Text = "";
-        ProgressDetail.Text = "";
-        _barFraction = 0;
-        SetBar(0);
-
-        BulkImportPlan? plan = null;
-        try
-        {
-            await ImportStartup.Recovery.ConfigureAwait(true);
-            plan = await Task.Run(() => PlanWithChoicesAsync(selection, options, choices, cts.Token), cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        catch (Exception)
-        {
-            plan = null;
-        }
-        if (_disposed || seq != _planSeq) return;
-        _planning = false;
-        CancelButton.IsEnabled = true;
-
-        if (plan is not { CanApply: true })
-        {
-            // Back to the overview with the reason on the notice line.
-            _flash = plan == null ? "Couldn't check your setups." : plan.Blocked.Count > 0 ? string.Join(" ", plan.Blocked) : "Nothing from that launcher can come over.";
-            ShowOverview();
-            RefreshNotice();
-            _ = ReplanAsync();
-            return;
-        }
-        StartBulk(plan);
-    }
 
     // ---------------------------------------------------------------- whose settings
 
@@ -694,7 +595,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             .ToList();
         var cards = ordered.Select(setup => new ChooseRowVm
         {
-            Setup = setup, Caption = Evidence(setup),
+            Setup = setup, Caption = (group.Pick.Preselected != null && group.Pick.Preselected.BulkId() == setup.BulkId() ? "Suggested - " : "") + Evidence(setup),
             Suggested = group.Pick.Preselected != null && group.Pick.Preselected.BulkId() == setup.BulkId(),
             Selected = group.Winner.BulkId() == setup.BulkId(),
         }).ToList<CardRowVm>();
@@ -702,7 +603,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         PageList.ItemsSource = cards;
 
         ShowPane(Pane.Chooser);
-        SetHeader($"{version} settings", "Pick whose settings to use");
+        SetHeader($"{version} settings", "Use settings from");
         SetFooter(null, null, null, null, null);
         _primary = null;
     }
@@ -740,6 +641,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         }
         if (_disposed || seq != _planSeq) return;
         _planning = false;
+        StopTickIfIdle();
         _planFailed = plan == null;
         _plan = plan;
         if (plan != null) ApplyPlan(plan);
@@ -750,10 +652,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     /// <summary>"38 h played - 9 days ago": the evidence for picking one setup's settings.</summary>
     private static string Evidence(DetectedInstance setup)
     {
-        var parts = new List<string>();
+        var parts = new List<string> { setup.SourceLabel };
         if (setup.PlaytimeSeconds is > 0) parts.Add(Playtime(setup.PlaytimeSeconds.Value) + " played");
         if (setup.LastPlayed is { } last && last > DateTimeOffset.MinValue.AddYears(2)) parts.Add(Ago(last));
-        if (parts.Count == 0) parts.Add(Describe(setup, 0));
         return string.Join(" - ", parts);
     }
 
@@ -780,8 +681,19 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     // The Minecraft versions an import can go into, read once and off the UI thread (never SupportedTargets directly).
     private Task<IReadOnlyList<string>>? _targetsTask;
 
-    private Task<IReadOnlyList<string>> TargetsAsync() =>
-        _targetsTask ??= ImportHooks.TargetsAsync(_backend, CancellationToken.None);
+    private async Task<IReadOnlyList<string>> TargetsAsync()
+    {
+        var task = _targetsTask ??= ImportHooks.TargetsAsync(_backend, CancellationToken.None);
+        try
+        {
+            return await task;
+        }
+        catch
+        {
+            if (ReferenceEquals(_targetsTask, task)) _targetsTask = null; // never cache a failure: the next setup tries again
+            throw;
+        }
+    }
 
     private void OpenSingle(DetectedInstance setup)
     {
@@ -843,8 +755,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_singleTarget == null)
         {
             text = _single.McVersion == null
-                ? "Origin couldn't tell the Minecraft version. Pick one."
-                : $"Origin doesn't support Minecraft {_single.McVersion}. Pick another version.";
+                ? "Version unknown. Pick one."
+                : $"{_single.McVersion} isn't supported. Pick another.";
         }
         else if (_single.McVersion != null && _singleTarget != _single.McVersion)
         {
@@ -871,9 +783,12 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         var cts = Replace(ref _singleCts);
         _singlePlan = null;
         _singlePlanning = true;
-        PageList.ItemsSource = new List<RowVm>();
-        PlanningRow.Visibility = Visibility.Visible;
-        StartSpin(PlanSpin);
+        if (_pane == Pane.Single)
+        {
+            PageList.ItemsSource = new List<RowVm>();
+            PlanningRow.Visibility = Visibility.Visible;
+            StartSpin(PlanSpin);
+        }
         _tick.Start();
         UpdateFooterEnabled();
 
@@ -902,14 +817,19 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         StopSpin(PlanSpin);
         PlanningRow.Visibility = Visibility.Collapsed;
         _singlePlan = plan;
-        if (plan == null)
+        _singleFailure = plan == null ? failure : null;
+        if (_pane == Pane.Details && _detailsFrom == Pane.Single)
         {
-            PageList.ItemsSource = new List<RowVm> { new HintVm { Id = "fail", Text = $"Couldn't check this setup ({failure}).", Pos = CardPos.Only } };
+            BuildDetails(); // the Details page stays; it just gets the new plan (or says it couldn't)
+        }
+        else if (plan == null)
+        {
+            if (_pane == Pane.Single)
+                PageList.ItemsSource = new List<RowVm> { new HintVm { Id = "fail", Text = $"Couldn't check this setup ({failure}).", Pos = CardPos.Only } };
             UpdateFooterEnabled();
             return;
         }
-        if (_pane == Pane.Single) RenderSinglePlan(plan);
-        else if (_pane == Pane.Details && _detailsFrom == Pane.Single) BuildDetails();
+        else if (_pane == Pane.Single) RenderSinglePlan(plan);
         RefreshNotice();
         UpdateFooterEnabled();
     }
@@ -924,18 +844,21 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
                 stats.Add(new ImportStatVm { Id = id, Label = label, Value = count.ToString(CultureInfo.InvariantCulture) });
         }
         var copied = plan.Mods.Count(m => m.IsCopied);
-        Stat("mods", "Mods", copied, always: true);
-        Stat("builtin", "Already in Origin", plan.Mods.Count(m => m.Outcome == ModOutcome.BuiltIn));
+        var builtIn = plan.Mods.Count(m => m.Outcome == ModOutcome.BuiltIn);
+        stats.Add(new ImportStatVm
+        {
+            Id = "mods", Label = "Mods",
+            Value = copied.ToString(CultureInfo.InvariantCulture) + (builtIn > 0 ? $" ({builtIn} already in Origin)" : ""),
+        });
         Stat("settings", "Settings files", plan.Ops.Count(o => o.Item is PlanItemKind.Setting or PlanItemKind.Config));
         Stat("resource", "Resource packs", plan.Ops.Count(o => o.Item == PlanItemKind.ResourcePack));
         Stat("shader", "Shader packs", plan.Ops.Count(o => o.Item == PlanItemKind.ShaderPack));
         if (plan.Options.CopyWorlds || plan.Ops.Any(o => o.Item == PlanItemKind.World))
             Stat("worlds", "Worlds", plan.Ops.Count(o => o.Item == PlanItemKind.World), always: true);
-        Stat("files", "Files Minecraft needs (already on this PC)", plan.GameFiles?.ReusedCount ?? 0);
         Stat("terrain", "Distant Horizons / Voxy terrain", plan.Caches.Count(c => c.WillImport));
         // The download size is the last line of the same card.
         if (plan.GameFiles is { MetadataUnavailable: false, ToDownloadBytes: > 0 } files)
-            stats.Add(new HintVm { Id = "download", Text = $"About {ImportSummary.Megabytes(files.ToDownloadBytes)} downloads the first time you press Play." });
+            stats.Add(new HintVm { Id = "download", Text = $"{ImportSummary.Megabytes(files.ToDownloadBytes)} to download on first Play." });
         AssignPos(stats);
         items.AddRange(stats);
 
@@ -981,11 +904,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             items.Add(new ImportSectionVm { Id = "options", Title = "OPTIONS" });
             _optionRows = new List<ImportOptionVm>
             {
-                new() { Id = "worlds", Label = "Copy my single-player worlds", Caption = "Off by default: worlds can be big.", IsOn = _options.CopyWorlds },
+                new() { Id = "worlds", Label = "Copy worlds", Caption = "Off: worlds can be big.", IsOn = _options.CopyWorlds },
                 new() { Id = "packs", Label = "Copy unused packs", Caption = "Also bring packs you weren't using.", IsOn = _options.CopyUnusedPacks },
-                new() { Id = "keep", Label = "Keep my current Origin settings", Caption = "Don't replace settings Origin already has.", IsOn = _options.KeepMyOriginSettings },
-                new() { Id = "servers", Label = "Replace server list", Caption = "Use the old list. Origin's is saved first.", IsOn = _options.ReplaceServerList },
-                new() { Id = "terrain", Label = "Replace existing Distant Horizons / Voxy terrain", Caption = "Origin's existing terrain is saved first.", IsOn = _options.ReplaceExistingCaches },
+                new() { Id = "keep", Label = "Keep Origin's settings", Caption = "Don't replace settings Origin has.", IsOn = _options.KeepMyOriginSettings },
+                new() { Id = "servers", Label = "Replace server list", Caption = "Origin's list is saved first.", IsOn = _options.ReplaceServerList },
+                new() { Id = "terrain", Label = "Replace far-view terrain", Caption = "Distant Horizons, Voxy. Saved first.", IsOn = _options.ReplaceExistingCaches },
             };
             AssignPos(_optionRows.ToList<CardRowVm>());
             items.AddRange(_optionRows);
@@ -1017,10 +940,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         foreach (var group in _plan.Groups.OrderByDescending(g => g.Version, Comparer<string>.Create(McVersion.Compare)))
         {
             items.Add(new ImportSectionVm { Id = "v" + group.Version, Title = $"MINECRAFT {group.Version}", Count = group.Setups.Count });
-            var rows = new List<CardRowVm>
-            {
-                new HintVm { Id = "s" + group.Version, Text = $"Settings from {group.Winner.Name}" },
-            };
+            var rows = new List<CardRowVm>();
             foreach (var planned in group.Setups)
             {
                 var mods = planned.Plan.Mods.Count(m => m.IsCopied);
@@ -1044,9 +964,19 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     }
 
     // Every item the plan knows about, with what happens and why: nothing is dropped without a line here.
+    private string? _singleFailure;
+
     private void AddSinglePlanDetails(List<RowVm> items)
     {
-        if (_singlePlan is not { } plan) return;
+        if (_singlePlan is not { } plan)
+        {
+            items.Add(new HintVm
+            {
+                Id = "noplan", Pos = CardPos.Only,
+                Text = _singlePlanning ? "Checking what can come over..." : $"Couldn't check this setup ({_singleFailure}).",
+            });
+            return;
+        }
         items.Add(new ImportSectionVm { Id = "mods", Title = "MODS", Count = plan.Mods.Count });
         if (plan.Mods.Count == 0)
         {
@@ -1073,7 +1003,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (reusedFiles.Count > 0)
             more.Add(new ImportLineVm
             {
-                Id = "reused", Title = $"{reusedFiles.Count} files Minecraft needs (already on this PC)",
+                Id = "reused", Title = $"{ImportLogic.Plural(reusedFiles.Count, "file", "files")} Minecraft needs (already on this PC)",
                 Caption = $"Copied from another launcher on this PC ({ImportSummary.Megabytes(reusedFiles.Sum(l => l.Bytes))}), checked before use.",
                 Status = "Reused", StatusBrush = Res("Brush.Info"),
             });
@@ -1104,7 +1034,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             }
             if (bulk.DidntComeOver.Count > 0)
             {
-                items.Add(new ImportSectionVm { Id = "didnt", Title = "DIDN'T COME OVER", Count = bulk.DidntComeOver.Count, Gold = true });
+                items.Add(new ImportSectionVm { Id = "didnt", Title = "NOT IMPORTED", Count = bulk.DidntComeOver.Count, Gold = true });
                 var rows = bulk.DidntComeOver.Select((n, i) => new ImportLineVm { Id = "d" + i, Title = n.Name, Caption = n.SetupLabel, Warning = n.Reason }).ToList<CardRowVm>();
                 AssignPos(rows);
                 items.AddRange(rows);
@@ -1272,7 +1202,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         }
         _flash = added == 0 ? "That folder is already in the list." : null;
         if (_pane is Pane.Overview or Pane.Empty && added > 0) ShowOverviewOrEmpty();
-        else RefreshNotice();
+        else
+        {
+            if (added > 0) _listDirty = true; // the player is on a side page: the overview is rebuilt when they get back
+            RefreshNotice();
+        }
     }
 
     // ---------------------------------------------------------------- importing
@@ -1284,12 +1218,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         ProgressCaption.Text = caption;
         ProgressSetup.Text = "";
         ProgressDetail.Text = "";
-        CancelButton.IsEnabled = true;
         _applyProgress.Last = null;
         _singleProgress.Last = null;
         ShowPane(Pane.Importing);
-        SetHeader("Import", "Importing");
-        SetFooter(null, null, null, null, null);
+        SetHeader("Import", null);
+        SetFooter(null, "CANCEL", () => _ = AskCancelAsync(), null, null);
         _primary = null;
         _tick.Start();
     }
@@ -1318,7 +1251,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             result = new BulkImportResult
             {
                 RunId = plan.RunId, State = ImportState.RolledBack,
-                Error = $"The import didn't finish ({ImportErrors.Plain(ex)}). If anything was changed, Origin puts it back the next time it starts.",
+                Error = $"{ImportErrors.Plain(ex)}. If anything changed, Origin undoes it at the next start.",
             };
         }
         finally
@@ -1330,7 +1263,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_disposed) return;
         _bulkResult = result;
         _singleResult = null;
-        ShowResult(DoneModel.FromBulk(result));
+        ShowResult(ImportDoneModel.FromBulk(result));
     }
 
     private async Task RunSingleAsync(ImportPlan plan)
@@ -1353,7 +1286,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             {
                 ImportId = plan.ImportId, State = ImportState.RolledBack, Cancelled = ex is OperationCanceledException,
                 Error = ex is OperationCanceledException ? null
-                    : $"The import didn't finish ({ImportErrors.Plain(ex)}). If anything was changed, Origin puts it back the next time it starts.",
+                    : $"{ImportErrors.Plain(ex)}. If anything changed, Origin undoes it at the next start.",
             };
         }
         finally
@@ -1365,12 +1298,12 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_disposed) return;
         _singleResult = result;
         _bulkResult = null;
-        ShowResult(DoneModel.FromSingle(plan, result));
+        ShowResult(ImportDoneModel.FromSingle(plan, result));
     }
 
     private void StartBulk(BulkImportPlan plan)
     {
-        if (IsApplying || Busy) return;
+        if (ImportLogic.CheckStart(IsApplying, Busy ? BusyReason : null) != ImportLogic.StartKind.Start) return;
         _ = RunBulkAsync(plan);
     }
 
@@ -1380,15 +1313,13 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         _ = RunSingleAsync(plan);
     }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e) => _ = AskCancelAsync();
-
-    /// <summary>Asks "Cancel the import?". True = the player chose to cancel (the engine is rolling back); false = keep importing.</summary>
+    /// <summary>Asks "Stop importing?". True = the player chose to stop (the engine is rolling back); false = keep importing.</summary>
     private async Task<bool> AskCancelAsync()
     {
-        if (!IsApplying || Overlay.Visibility == Visibility.Visible) return false;
+        if (!IsApplying || Confirm.Visibility == Visibility.Visible) return false;
         // A destructive confirm opens on "Keep importing", so a double tap of Enter never cancels.
-        var cancel = await Overlay.ShowAsync("Cancel the import?",
-            "Everything copied so far is put back the way it was.", "Cancel import", "Keep importing", destructive: true);
+        var cancel = await Confirm.ShowAsync("Stop importing?",
+            "Anything copied so far is undone.", "STOP", "KEEP GOING", destructive: true);
         if (cancel && IsApplying) _applyCts?.Cancel();
         return cancel;
     }
@@ -1446,64 +1377,14 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     {
         var inner = Math.Max(0, ProgressTrack.ActualWidth - 2);
         ProgressFill.Width = inner * fraction;
-        ProgressPercent.Text = Math.Round(fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "%";
+        ProgressPercent.Text = Math.Round(fraction * 100).ToString("0", CultureInfo.InvariantCulture) + "% overall";
     }
 
     // ---------------------------------------------------------------- done / nothing changed
 
-    /// <summary>What the Done page says, whichever way the import ran (one setup or many).</summary>
-    private sealed class DoneModel
+    private void ShowResult(ImportDoneModel model)
     {
-        public bool Succeeded { get; init; }
-        public bool Cancelled { get; init; }
-        public string? Error { get; init; }
-        public string Id { get; init; } = "";
-        public int Brought { get; set; }
-        public List<(string Version, string Text)> VersionLines { get; } = new();
-        public List<(string Title, string? Caption, string Reason)> Lost { get; } = new();
-
-        public static DoneModel FromBulk(BulkImportResult r)
-        {
-            var m = new DoneModel { Succeeded = r.Succeeded, Cancelled = r.Cancelled, Error = r.Error, Id = r.RunId };
-            if (!m.Succeeded) return m;
-            var landed = new List<string>();
-            foreach (var version in r.Versions)
-            {
-                var ok = version.Setups.Where(s => s.Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly).ToList();
-                landed.AddRange(ok.Select(s => s.Setup.Name));
-                m.Brought += ok.Count;
-                if (ok.Count > 0)
-                {
-                    var full = ok.FirstOrDefault(s => s.Role == SetupRole.Full);
-                    var tail = full != null ? $", settings from {full.Setup.Name}" : ok.All(s => s.Role == SetupRole.PacksOnly) ? ", packs only" : "";
-                    m.VersionLines.Add((version.Version, $"{ok.Count} {(ok.Count == 1 ? "setup" : "setups")}{tail}"));
-                }
-                foreach (var s in version.Setups.Where(s => s.Kind is SetupResultKind.Skipped or SetupResultKind.Failed))
-                    m.Lost.Add((s.Setup.Name, $"{GroupTitle(s.Setup.SourceLabel)}" + (s.Setup.McVersion == null ? "" : " - " + s.Setup.McVersion), s.Message ?? "Couldn't come over."));
-            }
-            // A whole setup the engine only reports in its "didn't come over" list.
-            foreach (var item in r.DidntComeOver)
-            {
-                if (landed.Any(n => item.SetupLabel.Contains(n, StringComparison.OrdinalIgnoreCase))) continue;
-                if (m.Lost.Any(l => item.SetupLabel.Contains(l.Title, StringComparison.OrdinalIgnoreCase) || l.Title.Contains(item.SetupLabel, StringComparison.OrdinalIgnoreCase))) continue;
-                m.Lost.Add((item.SetupLabel, null, item.Reason));
-            }
-            return m;
-        }
-
-        public static DoneModel FromSingle(ImportPlan plan, ImportResult r)
-        {
-            var m = new DoneModel { Succeeded = r.Succeeded, Cancelled = r.Cancelled, Error = r.Error, Id = r.ImportId };
-            if (!m.Succeeded) return m;
-            m.Brought = 1;
-            m.VersionLines.Add((plan.TargetVersion, $"1 setup, settings from {plan.Source.Name}"));
-            return m;
-        }
-    }
-
-    private void ShowResult(DoneModel model)
-    {
-        Overlay.Dismiss(); // the import ended while "Cancel the import?" was still up
+        Confirm.Dismiss(); // the import ended while "Stop importing?" was still up
         _done = model;
         if (!model.Succeeded)
         {
@@ -1520,7 +1401,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_done is not { } m) return;
         var items = new List<RowVm>
         {
-            new ImportTitleVm { Title = $"Done: {m.Brought} {(m.Brought == 1 ? "setup" : "setups")} brought over" },
+            new ImportTitleVm { Title = $"Done: {ImportLogic.Plural(m.Brought, "setup", "setups")} brought over", Sub = "Find them in Profiles." },
         };
         var lines = m.VersionLines.Select(v => new ImportLineVm { Id = "v" + v.Version, Title = v.Version, Caption = v.Text }).ToList<CardRowVm>();
         AssignPos(lines);
@@ -1529,7 +1410,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         {
             items.Add(new ImportSectionVm
             {
-                Id = "lost", Title = $"{m.Lost.Count} COULDN'T COME OVER", Gold = true, Collapsible = true, Collapsed = _lostCollapsed,
+                Id = "lost", Title = "SKIPPED", Count = m.Lost.Count, Gold = true, Collapsible = true, Collapsed = _lostCollapsed,
             });
             if (!_lostCollapsed)
             {
@@ -1540,25 +1421,25 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         }
         PageList.ItemsSource = items;
         ShowPane(Pane.Done);
-        SetHeader("Import", "Done");
-        SetFooter(null, "VIEW DETAILS", () => OpenDetails(), "CLOSE", () => CloseRequested?.Invoke(this, EventArgs.Empty));
+        SetHeader("Import", null);
+        SetFooter(null, "DETAILS", () => OpenDetails(), "CLOSE", () => CloseRequested?.Invoke(this, EventArgs.Empty));
         _primary = FooterPrimary;
         WantFocus();
     }
 
-    private void ShowFailed(DoneModel m)
+    private void ShowFailed(ImportDoneModel m)
     {
         ShowPane(Pane.Failed);
         SetHeader("Import", null);
         if (m.Cancelled && string.IsNullOrEmpty(m.Error))
         {
-            FailedReason.Text = "Import cancelled.";
+            FailedReason.Text = "You stopped it.";
             FailedReason.Foreground = (Brush)FindResource("Brush.TextDim");
         }
         else
         {
             FailedReason.Text = string.IsNullOrEmpty(m.Error) ? "The import didn't finish." : m.Error;
-            FailedReason.Foreground = (Brush)FindResource("Brush.Danger");
+            FailedReason.Foreground = (Brush)FindResource("Brush.Warning");
         }
         SetFooter(null, "CLOSE", () => CloseRequested?.Invoke(this, EventArgs.Empty), "TRY AGAIN", TryAgain);
         _primary = FooterPrimary;
@@ -1582,9 +1463,10 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private void Close_Click(object sender, RoutedEventArgs e) => _ = RequestClose();
 
     /// <summary>
-    /// Closes the drawer, unless an import is writing: then it asks "Cancel the import?" and returns the answer
-    /// (true = cancel, the engine rolls back and the drawer closes after; false = keep importing). The window's close
-    /// button uses it, so the window only closes after a "yes".
+    /// Closes the drawer, unless an import is writing: then it asks "Stop importing?" and returns the answer.
+    /// True = closed, or the player chose to cancel: the cancel is only STARTED, the engine rolls back and the pane then
+    /// shows "Nothing changed" (Import cancelled), so the drawer is still open when this returns. False = keep importing.
+    /// A window-close host must await the rollback itself (the wiring's IImportCloseHost.IsApplying turning false).
     /// </summary>
     public async Task<bool> RequestClose()
     {
@@ -1596,9 +1478,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     /// <summary>MainWindow's Esc: a prompt closes first, a running import asks, a side page goes back, otherwise the drawer closes.</summary>
     public bool HandleEscape()
     {
-        if (Overlay.Visibility == Visibility.Visible)
+        if (Confirm.Visibility == Visibility.Visible)
         {
-            Overlay.Dismiss();
+            Confirm.Dismiss();
             return true;
         }
         if (_pane is Pane.Chooser or Pane.Single or Pane.Details && !IsApplying)
@@ -1613,7 +1495,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         // Enter runs the page's one primary action unless focus is on something that uses Enter itself.
-        if (e.Key == Key.Enter && Overlay.Visibility != Visibility.Visible
+        if (e.Key == Key.Enter && Confirm.Visibility != Visibility.Visible
             && _primary is { IsVisible: true, IsEnabled: true } primary
             && Keyboard.FocusedElement is not (ButtonBase or ComboBox or TextBoxBase))
         {
@@ -1659,7 +1541,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         _disposed = true;
         _tick.Stop();
         StopSpinners();
-        if (!IsApplying) Overlay.Dismiss();
+        if (!IsApplying) Confirm.Dismiss();
         foreach (var cts in new[] { _scanCts, _planCts, _browseCts, _singleCts })
         {
             try { cts?.Cancel(); } catch (ObjectDisposedException) { }
@@ -1675,7 +1557,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     // ---------------------------------------------------------------- CI screen render (UI/ImportShots.cs)
 
-    internal void TourImportAll() => ImportAll_Click(ImportAllButton, new RoutedEventArgs());
+    internal void TourImportAll() => ImportAll();
 
     internal void TourAskCancel() => _ = AskCancelAsync();
 
@@ -1698,7 +1580,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     internal void TourScrollPage(double offset) => ScrollOf(PageList)?.ScrollToVerticalOffset(offset);
 
-    internal void TourLaunchBusy(bool busy) => SetLaunchBusy(busy);
+    internal void TourRefusal(string? sentence) => SetRefusal(sentence);
 
     private static ScrollViewer? ScrollOf(ItemsControl list) => FindScroll(list);
 

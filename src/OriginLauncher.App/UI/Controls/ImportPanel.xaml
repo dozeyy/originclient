@@ -48,7 +48,7 @@
 
         <!-- ================= rows ================= -->
 
-        <!-- A launcher's heading, or a folding one (Done: "2 COULDN'T COME OVER"). -->
+        <!-- A launcher's heading, or a folding one (Done: "SKIPPED - 2"). -->
         <DataTemplate DataType="{x:Type controls:ImportSectionVm}">
             <Grid Margin="0,14,0,6" MinHeight="24">
                 <Button x:Name="Btn" Style="{StaticResource Social.SectionButton}" Padding="2,2" Click="Section_Click">
@@ -60,10 +60,6 @@
                               Visibility="Collapsed"/>
                     </Grid>
                 </Button>
-                <Button Content="{Binding ActionText}" Style="{StaticResource Social.Action}" HorizontalAlignment="Right"
-                        Visibility="{Binding HasAction, Converter={StaticResource BoolToVis}}"
-                        ToolTip="{Binding ActionTip}" Click="SectionAction_Click"
-                        IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"/>
             </Grid>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding Collapsible}" Value="False">
@@ -115,24 +111,21 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="NameText" Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
                         <TextBlock x:Name="CaptionText" Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
-                        <!-- The problem line; Change (whose settings) sits on the same line, so the caption above keeps its width. -->
-                        <Grid Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding Warning}" Style="{StaticResource Import.Warning}"/>
-                            <Button Grid.Column="1" Content="CHANGE" Style="{StaticResource Social.Action}"
-                                    Margin="8,2,0,0" VerticalAlignment="Top"
-                                    Visibility="{Binding HasChoice, Converter={StaticResource BoolToVis}}"
-                                    IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
-                                    ToolTip="Pick whose settings to use" Click="SetupChange_Click"/>
-                        </Grid>
+                        <TextBlock Text="{Binding Warning}" Style="{StaticResource Import.Warning}"
+                                   Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}"/>
                     </StackPanel>
-                    <CheckBox Grid.Column="2" Style="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=TwoWay}"
-                              Visibility="{Binding ShowTick, Converter={StaticResource BoolToVis}}"
-                              Click="SetupTick_Click" ToolTip="Include in Import all"
-                              AutomationProperties.Name="Include in Import all"/>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Button Content="CHANGE" Style="{StaticResource Social.Action}"
+                                Visibility="{Binding HasChoice, Converter={StaticResource BoolToVis}}"
+                                IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
+                                ToolTip="Pick whose settings to use" Click="SetupChange_Click"
+                                AutomationProperties.Name="{Binding ChangeName}"/>
+                        <CheckBox Style="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=TwoWay}"
+                                  Visibility="{Binding ShowTick, Converter={StaticResource BoolToVis}}"
+                                  IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
+                                  Click="SetupTick_Click" ToolTip="Include in Import"
+                                  AutomationProperties.Name="{Binding TickName}"/>
+                    </StackPanel>
                 </Grid>
             </Button>
             <DataTemplate.Triggers>
@@ -144,7 +137,7 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- Whose settings: the setup, how much it was played, a check on the one picked. -->
+        <!-- Whose settings: the setup and how much it was played; the picked one has a 1 px emerald frame (like SELECTED on Profiles). -->
         <DataTemplate DataType="{x:Type controls:ChooseRowVm}">
             <Button Style="{StaticResource Social.Row}" Click="ChooseRow_Click"
                     AutomationProperties.Name="{Binding Name}">
@@ -152,28 +145,22 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
+                    <Border x:Name="Frame" Grid.ColumnSpan="2" Margin="-10,-8" BorderBrush="{StaticResource Brush.Accent}"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" IsHitTestVisible="False"
+                            Visibility="Collapsed"/>
                     <Border Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
-                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
-                        <TextBlock x:Name="Suggest" Text="SUGGESTED" Style="{StaticResource Social.Quiet}" Margin="0,0,10,0"
-                                   Visibility="{Binding Suggested, Converter={StaticResource BoolToVis}}"
-                                   VerticalAlignment="Center"/>
-                        <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}"
-                              Width="14" Height="14" Stroke="{StaticResource Brush.Accent}" StrokeThickness="2.2"
-                              Visibility="Hidden" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}" TextWrapping="Wrap" TextTrimming="None"/>
                     </StackPanel>
                 </Grid>
             </Button>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding Selected}" Value="True">
-                    <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="Frame" Property="Visibility" Value="Visible"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -330,15 +317,9 @@
                         Margin="0,22,0,0" HorizontalAlignment="Left" Click="Browse_Click"/>
             </StackPanel>
 
-            <!-- Every setup, with the one big action above it. -->
+            <!-- Every setup. The one action (IMPORT n) is in the footer, like every other page. -->
             <Grid x:Name="OverviewPane" Visibility="Collapsed">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Button x:Name="ImportAllButton" Content="IMPORT ALL" Style="{StaticResource Import.Primary}"
-                        Margin="16,0,16,10" Click="ImportAll_Click" AutomationProperties.Name="Import all"/>
-                <ItemsControl x:Name="OverviewList" Grid.Row="1" Style="{StaticResource Import.List}"/>
+                <ItemsControl x:Name="OverviewList" Style="{StaticResource Import.List}"/>
             </Grid>
 
             <!-- Behind a back arrow: whose settings, one setup, the details, the result. -->
@@ -348,7 +329,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <StackPanel x:Name="SingleTop" Margin="16,0,16,10" Visibility="Collapsed">
-                    <TextBlock Text="INTO ORIGIN" Style="{StaticResource Social.Section}" Margin="2,0,0,6"/>
+                    <TextBlock Text="VERSION" Style="{StaticResource Social.Section}" Margin="2,0,0,6"/>
                     <ComboBox x:Name="TargetBox" Tag="Pick a version" MinHeight="36" Padding="12,6,30,6"
                               SelectionChanged="TargetBox_SelectionChanged" AutomationProperties.Name="Origin version"/>
                     <TextBlock x:Name="TargetNote" Style="{StaticResource Import.Warning}" Margin="2,8,0,0"
@@ -381,20 +362,17 @@
                             CornerRadius="{StaticResource Radius.Control}"/>
                 </Border>
                 <Grid Margin="2,8,0,0">
-                    <TextBlock x:Name="ProgressDetail" Style="{StaticResource Social.Quiet}" Margin="0,0,48,0"
+                    <TextBlock x:Name="ProgressDetail" Style="{StaticResource Social.Quiet}" Margin="0,0,84,0"
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock x:Name="ProgressPercent" Text="0%" Style="{StaticResource Social.Quiet}"
                                HorizontalAlignment="Right"/>
                 </Grid>
-                <Button x:Name="CancelButton" Content="CANCEL" Style="{StaticResource Import.FooterAction}"
-                        Margin="0,20,0,0" HorizontalAlignment="Left" Click="Cancel_Click"
-                        AutomationProperties.Name="Cancel the import"/>
             </StackPanel>
 
             <!-- Nothing changed. -->
             <StackPanel x:Name="FailedPane" Margin="16,12,16,0" VerticalAlignment="Top" Visibility="Collapsed">
-                <TextBlock Text="Nothing changed." Style="{StaticResource Text.H2}" Margin="2,0,0,0"/>
-                <TextBlock x:Name="FailedReason" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Danger}"
+                <TextBlock Text="Import stopped. Nothing changed." Style="{StaticResource Text.H2}" Margin="2,0,0,0" TextWrapping="Wrap" TextTrimming="None"/>
+                <TextBlock x:Name="FailedReason" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Warning}"
                            TextWrapping="Wrap" TextTrimming="None" Margin="2,8,0,0"/>
             </StackPanel>
         </Grid>
@@ -403,14 +381,13 @@
         <Border x:Name="Footer" Grid.Row="3" BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="0,1,0,0"
                 Padding="16,10,16,12" MinHeight="56">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <!-- The note gets the drawer's full width (one line); the buttons sit under it, right-aligned. -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 <TextBlock x:Name="FooterNote" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"
-                           Margin="2,0,0,10"/>
-                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                           VerticalAlignment="Center" Margin="2,0,8,0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="FooterSecondary" Style="{StaticResource Import.FooterAction}" Click="FooterSecondary_Click"/>
                     <Button x:Name="FooterPrimary" Style="{StaticResource Import.FooterPrimary}" Click="FooterPrimary_Click"/>
                 </StackPanel>
