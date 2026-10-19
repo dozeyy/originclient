@@ -118,12 +118,8 @@ public partial class MainWindow : Window
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
     {
         if (UpdateService.Available is not { } update) return;
-        // Updating restarts the launcher: never in the middle of an import writing to the game folders.
-        if (ImportRunState.IsApplying)
-        {
-            UpdateBadge.ToolTip = "An import is running. Update when it finishes.";
-            return;
-        }
+        // An import running now (or started while this downloads) is waited for before the restart, and no new
+        // import can open or apply once the download is under way (Core/Import/Launcher/UpdateRunState).
 
         UpdateBadge.IsEnabled = false;
         UpdateBadge.ToolTip = "Updating...";
@@ -135,9 +131,15 @@ public partial class MainWindow : Window
         NavigateTo(LauncherPage.Home);
         var onScene = _currentPage == LauncherPage.Home
                       && _homePage.BeginUpdateScene(update.Version.ToString());
+        var toldAboutImport = false;
         var progress = new Progress<UpdateService.UpdateProgress>(p =>
         {
             UpdateBadge.ToolTip = p.Describe();
+            if (p.Stage == UpdateService.UpdateStage.FinishingImport && !toldAboutImport)
+            {
+                toldAboutImport = true;
+                ToastFinishingImportBeforeUpdate(); // MainWindow.ImportWiring.cs
+            }
             if (onScene) _homePage.ReportUpdate(p);
         });
 
@@ -616,6 +618,7 @@ public partial class MainWindow : Window
     private void OpenImportPanel(IImportBackend? backend = null)
     {
         if (_importPanelOpen || _signInPanelOpen) return;
+        if (ImportBlockedByUpdate()) return; // MainWindow.ImportWiring.cs: an update is downloading / restarting
         if (_accountPanelOpen) SetAccountPanelOpen(false);
         if (_friendsOpen) SetFriendsOpen(false);
         FirstRunPrompt.Hide();

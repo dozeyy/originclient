@@ -17,7 +17,21 @@ namespace OriginLauncher.App.Core.Import.Launcher;
 /// </summary>
 public interface IImportBackend
 {
-    /// <summary>The Minecraft versions an import can go into (the version picker's list that also has an Origin build).</summary>
+    /// <summary>
+    /// The Minecraft versions an import can go into (the version picker's list that also has an Origin build).
+    /// Built on the thread pool: the first call touches VersionManager's static state, which must never happen on the UI thread.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetSupportedTargetsAsync(CancellationToken ct) =>
+#pragma warning disable CS0618 // the compatibility default for backends that only have the property
+        Task.FromResult(SupportedTargets);
+#pragma warning restore CS0618
+
+    /// <summary>
+    /// Compatibility shim: NEVER read this from the UI thread before <see cref="GetSupportedTargetsAsync"/> or a scan
+    /// has completed (the real backend builds it lazily and a first read does disk and static-init work). New code
+    /// awaits <see cref="GetSupportedTargetsAsync"/>.
+    /// </summary>
+    [Obsolete("Use GetSupportedTargetsAsync: reading this on the UI thread can do disk work.")]
     IReadOnlyList<string> SupportedTargets { get; }
 
     /// <summary>imports/ (where each run's summary.txt and import.log live).</summary>
@@ -130,11 +144,15 @@ public sealed class LauncherImportBackend : IImportBackend
         return new BackendParts(folders, engine, targets);
     }
 
+    /// <summary>The versions an import can go into, built on the thread pool (and cached for every later call).</summary>
+    public async Task<IReadOnlyList<string>> GetSupportedTargetsAsync(CancellationToken ct) =>
+        (await _parts.GetAsync().WaitAsync(ct).ConfigureAwait(false)).SupportedTargets;
+
     /// <summary>
-    /// The versions an import can go into. The first read builds the parts (it touches VersionManager's static
-    /// state), so the scan reads it on the pool before it returns: by the time a panel reads this after a scan
-    /// it is already cached.
+    /// Compatibility shim for a panel that still reads the property. Free once any scan/plan/GetSupportedTargetsAsync
+    /// has built the parts (the panel only reads it after a scan); before that it builds on the calling thread.
     /// </summary>
+    [Obsolete("Use GetSupportedTargetsAsync: reading this on the UI thread can do disk work.")]
     public IReadOnlyList<string> SupportedTargets => _parts.Value.SupportedTargets;
 
     public string ImportsRoot => OriginPaths.Imports;

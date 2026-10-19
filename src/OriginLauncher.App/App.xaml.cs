@@ -98,7 +98,7 @@ public partial class App : Application
         {
             // `--import` must not be lost: hand the request to the running launcher (one fixed word over a
             // per-user pipe, short timeout; Core/Import/Launcher/ImportIpc), then front it and bow out.
-            if (StartWithImport) Core.Import.Launcher.ImportIpc.TrySend(Core.Import.Launcher.ImportIpc.PipeName(mutexName));
+            if (StartWithImport) Core.Import.Launcher.ImportIpc.TrySend(ImportPipeName(mutexName));
             FocusExistingInstance();
             Shutdown();
             return;
@@ -145,13 +145,21 @@ public partial class App : Application
 
         // Listens for a second launch's `--import` (see above). A pool thread; the window is opened on the UI thread.
         _importIpc = new Core.Import.Launcher.ImportIpcServer(
-            Core.Import.Launcher.ImportIpc.PipeName(mutexName), OnImportRequestedByAnotherInstance);
+            ImportPipeName(mutexName), OnImportRequestedByAnotherInstance, Core.Import.Launcher.ImportLog.Write);
         _importIpc.Start();
 
         new MainWindow().Show();
     }
 
     private static Core.Import.Launcher.ImportIpcServer? _importIpc;
+
+    // The pipe a second `--import` launch talks to: named from this user's SID and logon session (never the
+    // account name, which is guessable and can collide between a local and a domain account).
+    private static string ImportPipeName(string mutexName)
+    {
+        var sid = System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
+        return Core.Import.Launcher.ImportIpc.PipeName(mutexName, sid, System.Diagnostics.Process.GetCurrentProcess().SessionId);
+    }
 
     private void OnImportRequestedByAnotherInstance() => Dispatcher.BeginInvoke(() =>
     {

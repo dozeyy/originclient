@@ -32,10 +32,12 @@ public static class LaunchRunState
     }
 
     /// <summary>
-    /// The plain sentence an import shows when it cannot start because a launch is still starting; null when it may go.
+    /// The plain sentence an import shows when it cannot start: a launch is still starting, or the launcher is
+    /// downloading/restarting for an update (<see cref="UpdateRunState"/>); null when it may go.
     /// (It deliberately ignores ImportRunState: the panel marks an import running BEFORE it calls Apply.)
     /// </summary>
-    public static string? ImportRefusal() => IsStarting ? Refusal : null;
+    public static string? ImportRefusal() =>
+        IsStarting ? Refusal : UpdateRunState.IsRunning ? UpdateRunState.Refusal : null;
 
     private static void Release()
     {

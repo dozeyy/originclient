@@ -39,23 +39,55 @@ public partial class MainWindow
         base.OnClosing(e);
         if (e.Cancel) return;
         // Closing mid-import would kill it halfway (the next start would roll it back, but the player should be
-        // asked first): hold the close, show the panel's "Cancel the import?", and close when the result is back.
-        if (_closeGuard.ShouldHoldClose(ImportRunState.IsApplying))
+        // asked first): hold the close, show the panel's "Cancel the import?", and close when the result is back
+        // (unless they answered "keep importing"). During the startup recovery there is no panel to ask: say why
+        // the window is still there.
+        var panelImporting = _importPanelOpen && _importPanel is { IsApplying: true };
+        switch (_closeGuard.OnClosing(ImportRunState.IsApplying, panelImporting))
         {
-            e.Cancel = true;
-            RequestImportCancelConfirm();
+            case CloseHold.ImportRunning:
+                e.Cancel = true;
+                _ = AskCancelImportBeforeCloseAsync();
+                break;
+            case CloseHold.RecoveryRunning:
+                e.Cancel = true;
+                Toasts.Show(new SocialToast(SocialToastKind.Notice, "Import", "Finishing an interrupted import..."));
+                break;
         }
     }
 
     /// <summary>
-    /// THE hook into the panel: asks the player whether to cancel the running import. The current panel does it
-    /// from RequestClose() when it is applying; if the redesigned panel names this differently, this is the one
-    /// line to change. Does nothing when no panel is applying (startup recovery: the close just waits for it).
+    /// THE hook into the panel: asks the player whether to cancel the running import and learns the ANSWER. A panel
+    /// that implements <see cref="IImportCloseHost"/> answers (true = cancel, false = keep importing, which forgets
+    /// the held close). The current ImportPanel does not implement it yet: its RequestClose() asks the question but
+    /// cannot report the answer, so the held close is forgotten at once (the player closes again when they want
+    /// to) and the window never closes on its own after "Keep importing".
     /// </summary>
-    private void RequestImportCancelConfirm()
+    private async Task AskCancelImportBeforeCloseAsync()
     {
-        if (_importPanelOpen && _importPanel is { IsApplying: true } panel) panel.RequestClose();
+        if (_importPanel is not { IsApplying: true } panel) return;
+        if (panel is IImportCloseHost host)
+        {
+            _closeGuard.OnConfirmAnswered(await host.ConfirmCancelAsync());
+            return;
+        }
+        panel.RequestClose();
+        _closeGuard.Forget();
     }
+
+    // ---- an update downloading or restarting ----------------------------------------------------------
+
+    /// <summary>True (with a toast) while an update is downloading or restarting: no import opens until it is back.</summary>
+    private bool ImportBlockedByUpdate()
+    {
+        if (!UpdateRunState.IsRunning) return false;
+        Toasts.Show(new SocialToast(SocialToastKind.Notice, "Import", UpdateRunState.Refusal));
+        return true;
+    }
+
+    /// <summary>The update finished downloading while an import still runs: it restarts once the import is done.</summary>
+    private void ToastFinishingImportBeforeUpdate() =>
+        Toasts.Show(new SocialToast(SocialToastKind.Notice, "Update", "Finishing your import first..."));
 
     // ---- the startup recovery -------------------------------------------------------------------------
 
@@ -141,7 +173,8 @@ public partial class MainWindow
         if (!canImport) return null; // the import would only say "sign in first": keep the one-time card for later
         var backend = new LauncherImportBackend();
         var scan = await backend.ScanAsync(null, CancellationToken.None).ConfigureAwait(false);
-        var qualifying = ImportPrompt.Qualifying(scan.Instances, backend.SupportedTargets);
+        var targets = await backend.GetSupportedTargetsAsync(CancellationToken.None).ConfigureAwait(false);
+        var qualifying = ImportPrompt.Qualifying(scan.Instances, targets);
         return ImportPrompt.ShouldShow(alreadySeen: false, openedWithImportFlag: false, canImport, qualifying.Count)
             ? ImportPrompt.Question(qualifying) : null;
     });

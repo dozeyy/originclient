@@ -44,6 +44,32 @@ public static class ImportRunState
         if (changed) Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Completes when nothing is writing for an import (at once when already idle). Cancelling the token abandons
+    /// the wait without changing the state. Continuations run on the caller's context (an await on the UI thread
+    /// resumes on it).
+    /// </summary>
+    public static Task WhenIdleAsync(CancellationToken ct = default)
+    {
+        if (!IsApplying) return Task.CompletedTask;
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnChanged()
+        {
+            if (IsApplying) return;
+            Changed -= OnChanged;
+            done.TrySetResult();
+        }
+        Changed += OnChanged;
+        if (!IsApplying) OnChanged(); // it went idle between the check above and the subscription
+        if (ct.CanBeCanceled)
+            ct.Register(() =>
+            {
+                Changed -= OnChanged;
+                done.TrySetCanceled(ct);
+            });
+        return done.Task;
+    }
+
     private sealed class Holder : IDisposable
     {
         private int _released;

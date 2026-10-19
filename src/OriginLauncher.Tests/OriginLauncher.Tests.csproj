@@ -65,6 +65,7 @@
          and the lazy builder that keeps the backend constructor free of disk work. -->
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportRunState.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\LaunchRunState.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\UpdateRunState.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportRecoveryRunner.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportIpc.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportCloseGuard.cs" LinkBase="Import" />

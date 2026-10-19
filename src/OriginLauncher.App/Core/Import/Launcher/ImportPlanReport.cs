@@ -52,6 +52,7 @@ public static class ImportPlanReport
     {
         var backend = new LauncherImportBackend(dryRun: true);
         var scan = await backend.ScanAsync(null, ct).ConfigureAwait(false);
+        var targets = await backend.GetSupportedTargetsAsync(ct).ConfigureAwait(false);
         var guard = CredentialGuard.Default;
         var pick = VersionPicker.Pick(scan.Instances);
 
@@ -60,7 +61,7 @@ public static class ImportPlanReport
             plan = await backend.PlanAsync(chosen, null, new ImportOptions(), null, ct).ConfigureAwait(false);
         var others = new List<ImportPlan>();
         foreach (var instance in scan.Instances
-                     .Where(i => !ReferenceEquals(i, pick.Preselected) && i.McVersion != null && backend.SupportedTargets.Contains(i.McVersion))
+                     .Where(i => !ReferenceEquals(i, pick.Preselected) && i.McVersion != null && targets.Contains(i.McVersion))
                      .Take(3))
             others.Add(await backend.PlanAsync(instance, null, new ImportOptions(), null, ct).ConfigureAwait(false));
 
@@ -124,7 +125,7 @@ public static class ImportPlanReport
 
             // "Import everything": the scan grouped by Minecraft version (winner, roles, skipped + why). While the
             // engine's PlanBulkAsync is not connected (see LauncherImportBackend) this is scan-only.
-            ImportBulkReport.Write(w, ImportBulkReport.Group(scan.Instances, backend.SupportedTargets));
+            ImportBulkReport.Write(w, ImportBulkReport.Group(scan.Instances, targets));
             w.WriteEndObject();
         }
         return Encoding.UTF8.GetString(stream.ToArray());
