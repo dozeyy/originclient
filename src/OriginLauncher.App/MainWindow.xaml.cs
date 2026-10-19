@@ -523,7 +523,7 @@ public partial class MainWindow : Window
 
     private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_importPanelOpen) { _importPanel?.RequestClose(); }
+        if (_importPanelOpen) { _ = _importPanel?.RequestClose(); }
         else if (_signInPanelOpen) CloseSignInPanel();
         else if (_friendsOpen) SetFriendsOpen(false);
         else SetAccountPanelOpen(false);
@@ -618,6 +618,9 @@ public partial class MainWindow : Window
         {
             ConfirmHost = ImportConfirm,
         };
+        // WIRING (import-wiring agent): feed the shared busy states in here once they exist on this branch:
+        //   LaunchRunState.Changed -> panel.SetLaunchBusy(...), UpdateRunState.Changed -> panel.SetUpdateBusy(...),
+        // and the window's close button asks `await panel.RequestClose()` (true = go ahead and close).
         panel.CloseRequested += (_, _) => CloseImportPanel();
         panel.Imported += (_, _) =>
         {

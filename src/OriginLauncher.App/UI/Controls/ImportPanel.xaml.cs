@@ -77,6 +77,7 @@ public partial class ImportPanel : UserControl, IDisposable
     private bool _singlePlanning;
     private bool _suppressTarget;
     private bool _launchBusy;
+    private bool _updateBusy;
     private bool _wantPrimaryFocus;
     private bool _lostCollapsed;
     private double _barFraction;
@@ -150,13 +151,33 @@ public partial class ImportPanel : UserControl, IDisposable
     {
         if (_launchBusy == busy) return;
         _launchBusy = busy;
+        BusyChanged();
+    }
+
+    /// <summary>
+    /// The launcher is downloading or restarting for an update: Import is off, with a one-line reason.
+    /// WIRING (import-wiring agent): MainWindow calls this from the shared update busy state (UpdateRunState) once that exists.
+    /// </summary>
+    public void SetUpdateBusy(bool busy)
+    {
+        if (_updateBusy == busy) return;
+        _updateBusy = busy;
+        BusyChanged();
+    }
+
+    private bool Busy => _launchBusy || _updateBusy;
+
+    private string BusyReason => _launchBusy ? "Wait for Minecraft to finish starting." : "Origin is updating. Import is off until it restarts.";
+
+    private void BusyChanged()
+    {
         UpdateAllowed();
         RefreshNotice();
         UpdateImportAll();
         UpdateFooterEnabled();
     }
 
-    private void UpdateAllowed() => Allowed = !_launchBusy && !IsApplying;
+    private void UpdateAllowed() => Allowed = !Busy && !IsApplying;
 
     // ---------------------------------------------------------------- scan
 
@@ -277,12 +298,12 @@ public partial class ImportPanel : UserControl, IDisposable
     {
         if (_pane == Pane.Single)
         {
-            FooterPrimary.IsEnabled = !_launchBusy && _singlePlan is { CanApply: true } p && !string.IsNullOrEmpty(p.TargetVersion);
+            FooterPrimary.IsEnabled = !Busy && _singlePlan is { CanApply: true } p && !string.IsNullOrEmpty(p.TargetVersion);
             FooterSecondary.IsEnabled = _singlePlan != null;
         }
         else
         {
-            FooterPrimary.IsEnabled = !(_launchBusy && _pane == Pane.Failed);
+            FooterPrimary.IsEnabled = !(Busy && _pane == Pane.Failed);
             FooterSecondary.IsEnabled = true;
         }
         TryFocusPrimary();
@@ -312,8 +333,8 @@ public partial class ImportPanel : UserControl, IDisposable
     private void RefreshNotice()
     {
         string? text = null;
-        if (_launchBusy && _pane is Pane.Overview or Pane.Single or Pane.Failed or Pane.Empty)
-            text = "Minecraft is starting. Import is off until it opens.";
+        if (Busy && _pane is Pane.Overview or Pane.Single or Pane.Failed or Pane.Empty)
+            text = BusyReason;
         else if (_pane == Pane.Overview && _planFailed)
             text = "Couldn't check your setups.";
         else if (_pane == Pane.Overview && _plan is { Blocked.Count: > 0 } plan)
@@ -519,14 +540,14 @@ public partial class ImportPanel : UserControl, IDisposable
         else if (_planFailed)
         {
             label = "CHECK AGAIN";
-            enabled = !_launchBusy;
+            enabled = !Busy;
         }
         else
         {
             var importable = _plan?.Groups.Sum(g => g.Setups.Count) ?? 0;
             var everything = _rows.Values.Where(r => r.CanTick).All(r => r.Ticked);
             label = importable == 0 ? "IMPORT" : everything ? "IMPORT ALL" : $"IMPORT {importable} {(importable == 1 ? "SETUP" : "SETUPS")}";
-            enabled = _plan is { CanApply: true } && !_launchBusy;
+            enabled = _plan is { CanApply: true } && !Busy;
         }
         ImportAllButton.Content = label;
         ImportAllButton.IsEnabled = enabled;
@@ -546,7 +567,7 @@ public partial class ImportPanel : UserControl, IDisposable
             _ = ReplanAsync();
             return;
         }
-        if (_plan is { CanApply: true } plan) _ = RunBulkAsync(plan);
+        if (_plan is { CanApply: true } plan) StartBulk(plan);
     }
 
     private void SetupRow_Click(object sender, RoutedEventArgs e)
@@ -582,7 +603,7 @@ public partial class ImportPanel : UserControl, IDisposable
     private void SectionAction_Click(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (Row<ImportSectionVm>(sender) is { Launcher: { } kind } && !IsApplying && !_launchBusy) _ = RunLauncherAsync(kind);
+        if (Row<ImportSectionVm>(sender) is { Launcher: { } kind } && !IsApplying && !Busy) _ = RunLauncherAsync(kind);
     }
 
     private static T? Row<T>(object sender) where T : class => (sender as FrameworkElement)?.DataContext as T;
@@ -638,7 +659,7 @@ public partial class ImportPanel : UserControl, IDisposable
             _ = ReplanAsync();
             return;
         }
-        await RunBulkAsync(plan);
+        StartBulk(plan);
     }
 
     // ---------------------------------------------------------------- whose settings
@@ -739,6 +760,12 @@ public partial class ImportPanel : UserControl, IDisposable
 
     // ---------------------------------------------------------------- one setup on its own
 
+    // The Minecraft versions an import can go into, read once and off the UI thread (never SupportedTargets directly).
+    private Task<IReadOnlyList<string>>? _targetsTask;
+
+    private Task<IReadOnlyList<string>> TargetsAsync() =>
+        _targetsTask ??= ImportHooks.TargetsAsync(_backend, CancellationToken.None);
+
     private void OpenSingle(DetectedInstance setup)
     {
         if (IsApplying) return;
@@ -748,20 +775,45 @@ public partial class ImportPanel : UserControl, IDisposable
         try { _singleCts?.Cancel(); } catch (ObjectDisposedException) { }
         PageList.ItemsSource = new List<RowVm>();
 
-        var targets = _backend.SupportedTargets.OrderByDescending(v => v, Comparer<string>.Create(McVersion.Compare)).ToList();
+        _singleTarget = null;
+        _suppressTarget = true;
+        TargetBox.ItemsSource = null;
+        _suppressTarget = false;
+        TargetBox.IsEnabled = false;
+
+        ShowPane(Pane.Single);
+        SetHeader(setup.Name, GroupTitle(setup.SourceLabel) + (setup.McVersion == null ? "" : " - " + setup.McVersion));
+        SetFooter(null, "DETAILS", () => OpenDetails(), "IMPORT", () => { if (FooterPrimary.IsEnabled) StartSingle(); });
+        _primary = FooterPrimary;
+        TargetNote.Visibility = Visibility.Collapsed;
+        WantFocus();
+        UpdateFooterEnabled();
+        _ = LoadTargetsAsync(setup);
+    }
+
+    // Fills the version list once the targets are known, then plans when the setup's own version is one of them.
+    private async Task LoadTargetsAsync(DetectedInstance setup)
+    {
+        IReadOnlyList<string> raw;
+        try
+        {
+            raw = await TargetsAsync();
+        }
+        catch (Exception)
+        {
+            raw = Array.Empty<string>();
+        }
+        if (_disposed || _pane != Pane.Single || !ReferenceEquals(_single, setup)) return; // the player moved on
+
+        var targets = raw.OrderByDescending(v => v, Comparer<string>.Create(McVersion.Compare)).ToList();
         var supported = setup.McVersion != null && targets.Contains(setup.McVersion);
         _suppressTarget = true;
         TargetBox.ItemsSource = targets;
         TargetBox.SelectedItem = supported ? setup.McVersion : null;
         _suppressTarget = false;
+        TargetBox.IsEnabled = true;
         _singleTarget = supported ? setup.McVersion : null;
-
-        ShowPane(Pane.Single);
-        SetHeader(setup.Name, GroupTitle(setup.SourceLabel) + (setup.McVersion == null ? "" : " - " + setup.McVersion));
-        SetFooter(null, "DETAILS", () => OpenDetails(), "IMPORT", () => { if (FooterPrimary.IsEnabled) _ = RunSingleAsync(); });
-        _primary = FooterPrimary;
         UpdateTargetNote();
-        WantFocus();
         if (supported) _ = ReplanSingleAsync();
         else UpdateFooterEnabled();
     }
@@ -880,7 +932,7 @@ public partial class ImportPanel : UserControl, IDisposable
         }
         PageList.ItemsSource = items;
 
-        SetFooter(null, "DETAILS", () => OpenDetails(), "IMPORT", () => { if (FooterPrimary.IsEnabled) _ = RunSingleAsync(); });
+        SetFooter(null, "DETAILS", () => OpenDetails(), "IMPORT", () => { if (FooterPrimary.IsEnabled) StartSingle(); });
         _primary = FooterPrimary;
     }
 
@@ -1176,7 +1228,7 @@ public partial class ImportPanel : UserControl, IDisposable
         FolderInspection found;
         try
         {
-            found = await Task.Run(() => _backend.InspectFolderAsync(folder, cts.Token), cts.Token);
+            found = await Task.Run(() => ImportHooks.InspectPickedFolderAsync(_backend, folder, cts.Token), cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -1225,15 +1277,15 @@ public partial class ImportPanel : UserControl, IDisposable
         _tick.Start();
     }
 
+    // The callers check IsApplying / Busy first; the method itself starts with the run marker, nothing before it.
     private async Task RunBulkAsync(BulkImportPlan plan)
     {
-        if (IsApplying || _launchBusy) return;
+        using var run = ImportHooks.EnterRun();
         var cts = new CancellationTokenSource();
         _applyCts = cts;
         BeginApply("Getting ready...");
         IsApplying = true;
         UpdateAllowed();
-        ImportRunState.Begin(); // WIRING (import-wiring agent): becomes `using var _ = ImportRunState.Enter();` once that exists
 
         BulkImportResult result;
         try
@@ -1256,7 +1308,6 @@ public partial class ImportPanel : UserControl, IDisposable
         {
             IsApplying = false;
             UpdateAllowed();
-            ImportRunState.End();
             StopTickIfIdle();
         }
         if (_disposed) return;
@@ -1265,15 +1316,14 @@ public partial class ImportPanel : UserControl, IDisposable
         ShowResult(DoneModel.FromBulk(result));
     }
 
-    private async Task RunSingleAsync()
+    private async Task RunSingleAsync(ImportPlan plan)
     {
-        if (_singlePlan is not { CanApply: true } plan || IsApplying || _launchBusy) return;
+        using var run = ImportHooks.EnterRun();
         var cts = new CancellationTokenSource();
         _applyCts = cts;
         BeginApply("Getting ready...");
         IsApplying = true;
         UpdateAllowed();
-        ImportRunState.Begin(); // WIRING (import-wiring agent): becomes `using var _ = ImportRunState.Enter();` once that exists
 
         ImportResult result;
         try
@@ -1293,7 +1343,6 @@ public partial class ImportPanel : UserControl, IDisposable
         {
             IsApplying = false;
             UpdateAllowed();
-            ImportRunState.End();
             StopTickIfIdle();
         }
         if (_disposed) return;
@@ -1302,15 +1351,29 @@ public partial class ImportPanel : UserControl, IDisposable
         ShowResult(DoneModel.FromSingle(plan, result));
     }
 
+    private void StartBulk(BulkImportPlan plan)
+    {
+        if (IsApplying || Busy) return;
+        _ = RunBulkAsync(plan);
+    }
+
+    private void StartSingle()
+    {
+        if (_singlePlan is not { CanApply: true } plan || IsApplying || Busy) return;
+        _ = RunSingleAsync(plan);
+    }
+
     private void Cancel_Click(object sender, RoutedEventArgs e) => _ = AskCancelAsync();
 
-    private async Task AskCancelAsync()
+    /// <summary>Asks "Cancel the import?". True = the player chose to cancel (the engine is rolling back); false = keep importing.</summary>
+    private async Task<bool> AskCancelAsync()
     {
-        if (!IsApplying || Overlay.Visibility == Visibility.Visible) return;
+        if (!IsApplying || Overlay.Visibility == Visibility.Visible) return false;
         // A destructive confirm opens on "Keep importing", so a double tap of Enter never cancels.
         var cancel = await Overlay.ShowAsync("Cancel the import?",
             "Everything copied so far is put back the way it was.", "Cancel import", "Keep importing", destructive: true);
         if (cancel && IsApplying) _applyCts?.Cancel();
+        return cancel;
     }
 
     private void ShowLatestProgress()
@@ -1499,16 +1562,16 @@ public partial class ImportPanel : UserControl, IDisposable
 
     // ---------------------------------------------------------------- buttons, keys
 
-    private void Close_Click(object sender, RoutedEventArgs e) => RequestClose();
+    private void Close_Click(object sender, RoutedEventArgs e) => _ = RequestClose();
 
-    /// <summary>Closes unless an import is writing (then it asks about cancelling instead). True when it closed or asked.</summary>
-    public bool RequestClose()
+    /// <summary>
+    /// Closes the drawer, unless an import is writing: then it asks "Cancel the import?" and returns the answer
+    /// (true = cancel, the engine rolls back and the drawer closes after; false = keep importing). The window's close
+    /// button uses it, so the window only closes after a "yes".
+    /// </summary>
+    public async Task<bool> RequestClose()
     {
-        if (IsApplying)
-        {
-            _ = AskCancelAsync();
-            return true;
-        }
+        if (IsApplying) return await AskCancelAsync();
         CloseRequested?.Invoke(this, EventArgs.Empty);
         return true;
     }
@@ -1521,13 +1584,13 @@ public partial class ImportPanel : UserControl, IDisposable
             Overlay.Dismiss();
             return true;
         }
-        if (IsApplying) return RequestClose();
-        if (_pane is Pane.Chooser or Pane.Single or Pane.Details)
+        if (_pane is Pane.Chooser or Pane.Single or Pane.Details && !IsApplying)
         {
             GoBack();
             return true;
         }
-        return RequestClose();
+        _ = RequestClose();
+        return true;
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
