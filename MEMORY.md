@@ -5344,3 +5344,12 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
   26.3 2.5 s → 0.33 s; 1.21.4 → 0.37 s.
 - 1.19.2 still pauses 1.67 s: vanilla's own shader reload on CI's software GPU. Needs Will's check
   on real hardware.
+
+## 2026-10-18 - Website hero spacing fix
+- The live site (originclient.org, Vercel) builds from origin/main only; the local checkout's main was 341 commits behind, so website fixes must start from origin/main in a worktree.
+- Root cause: createWorld read `mobile: innerWidth <= 900` once at load, so a window opened narrow then widened kept the centred phone island pose behind the desktop copy (title overlapped the island, right side empty).
+- Fix: island + rings are fitted live from layout (site.js heroZone/syncHeroZone, world.js fitHero/setHeroZone) using the worst-case ring envelope; RING_K 1.25/1.12/1 (was 1.5/1.25/1) grew the island ~30% inside the same envelope; phones centre the island in the band above the copy; landscape phones use the zone beside the copy; a no-fit case parks a small island top-right.
+- Perf: viewport W/H cached in resize(); ResizeObserver on <html> catches scrollbar toggles (clientWidth changes with no resize event); poseValues writes into preallocated arrays. Canvas is clientWidth wide, not innerWidth.
+- Verified (browser, ring envelope sampled over full spin): no overlap at 1920x1080, 1440x900, 1100, 1000, 950, 901, 768x1024, 375x812, 812x375, and a 700->1280 widen; no horizontal scroll. Also fixed `.scroll-cue{flex:none}` (arrow squashed to a 2 px slash at ~1000 px).
+- Measurement traps: sample ring bounds only after the spring settles (~4 s); a hidden browser pane stalls rAF; port 8123 is blocked on Will's PC.
+- Open (Low, latent): no-fit parked island could clip the copy only if zone.w < ~140 (never happens at real widths); poseValues still reads innerWidth per frame; destroy() doesn't disconnect the ResizeObserver; pointerSpring allocates a 2-element array per frame.
