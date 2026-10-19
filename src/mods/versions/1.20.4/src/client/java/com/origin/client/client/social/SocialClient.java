@@ -433,6 +433,14 @@ public final class SocialClient {
 		UNREAD.putAll(unread);
 	}
 
+	/** DEV SHOTS ONLY: put the client in a non-READY state so the Friends window's calm messages can be shot. */
+	static void demoStatus(Status st, String reason) {
+		if (DEMO) {
+			status = st;
+			signedOutReason = reason;
+		}
+	}
+
 	// ------------------------------------------------------------- the loop
 
 	private static void tick() {

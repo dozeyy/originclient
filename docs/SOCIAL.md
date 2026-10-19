@@ -270,11 +270,11 @@ So the free plan carries a few dozen all-day players (more who play a few hours)
   `warp` from the party leader → a prompt "Join <leader> on <server>" with a Join button.
 - Presence: client "launcher", activity "menu" (the game's own sync takes over while it runs).
 
-### Game (Origin mod, 1.21.1 first, then every version)
+### Game (Origin mod, every shipped version)
 - A Friends window (gui/OriginWindow) opened from a FRIENDS tab in the mod menu header and a button in the
   Right Shift centre group; same content as the launcher drawer (list, requests, add, chat, party, appear offline).
 - Toasts (Origin style) for DMs, friend requests, party invites, warps; click opens the Friends window.
-- 2026-10-18 redesign (1.21.1 first; other versions port it): one search-or-add box (typing filters; no match and a valid
+- 2026-10-18 redesign (Friends redesign live on every shipped module (2026-10-18)): one search-or-add box (typing filters; no match and a valid
   name -> an "Add <name>" row, Enter sends), one list ordered REQUESTS (friend requests + party invites, labelled
   ACCEPT / JOIN / DECLINE), PARTY (one row), ONLINE, OFFLINE, SENT, BLOCKED. Rows carry their job: JOIN (friend on a server) always
   visible, INVITE on hover. The friend pane has JOIN / INVITE TO PARTY and a "..." menu (Remove / Block, each confirms); chats

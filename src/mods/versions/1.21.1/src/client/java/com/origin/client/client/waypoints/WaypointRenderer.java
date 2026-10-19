@@ -1,11 +1,9 @@
 package com.origin.client.client.waypoints;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexSorting;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.AfterShadersPass;
 import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -13,9 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 
 // The WORLD-SPACE half of waypoint rendering: the beam and the block highlight —
 // the parts that belong in the world and are allowed to be hidden by terrain
@@ -32,51 +28,27 @@ public final class WaypointRenderer {
 	private WaypointRenderer() {
 	}
 
-	// ---- shader-pack path: draw AFTER the pack's composite (its clouds) ----
-	//
-	// With an Iris shader pack on, a draw made at WorldRenderEvents.LAST lands in
-	// the pack's gbuffers (position_color -> gbuffers_basic) BEFORE the pack's
-	// composite passes, and packs paint their volumetric clouds in composite --
-	// on top of it (Eclipse: composite3/4). This beam writes no depth, so a pack
-	// can't even place it in front of a cloud. So while a pack is in use, the
-	// LAST pass only records the frame's matrices + camera, and the world part is
-	// drawn from GameRendererPostShadersMixin, right after LevelRenderer.renderLevel
-	// returns: Iris has run composite + final into the main target by then, its
-	// shader overrides are off (isRenderingWorld=false), and the main target's
-	// depth texture still holds the scene depth (Iris's depthtex0 IS that
-	// texture), while vanilla's hand depth clear comes only after. Result: the
-	// beam is depth-tested against terrain exactly as before, but nothing a pack
-	// composites (clouds, fog, volumetrics) can cover it -- the HUD-waypoint
-	// behaviour Lunar / Xaero have.
-	//
-	// Shaders OFF: unchanged -- drawn at LAST, same calls, same order.
-	// Fail-soft: the deferred path is used only once the post hook has been seen
-	// to run; if that mixin ever fails to apply, beams keep drawing at LAST.
-	private static boolean postHookAlive;
-	private static boolean pending;
-	private static final Matrix4f PEND_POSE = new Matrix4f();
-	private static final Matrix3f PEND_NORMAL = new Matrix3f();
-	private static final Matrix4f PEND_VIEW = new Matrix4f();
-	private static final Matrix4f PEND_PROJ = new Matrix4f();
-	private static VertexSorting pendSorting = VertexSorting.DISTANCE_TO_ORIGIN;
-	private static Vec3 pendCam = Vec3.ZERO;
-	// The deferred pass's own line buffer: the frame's shared bufferSource is
-	// Iris's fully-buffered one during renderLevel (see OriginRenderTypes).
-	private static final MultiBufferSource.BufferSource POST_LINES =
-			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
-	// Reused every deferred frame (reset to identity first): no per-frame alloc.
-	private static final PoseStack POST_POSE = new PoseStack();
-	// Frames a shader pack has been on while the post hook has never run. Past
-	// ~60 the hook almost certainly failed to apply: say so once in the log.
-	private static int hookMissingFrames;
-	private static boolean warnedHookMissing, warnedFailure;
+	// Shader packs: with an Iris pack on, the world part below is NOT drawn at
+	// LAST but by AfterShadersPass (right after the pack's composite), so a
+	// pack's clouds can't cover the beam. See that class for the why and the
+	// fail-soft rule. Shaders OFF: unchanged -- drawn at LAST, same calls, same
+	// order, into the frame's shared bufferSource.
+	private static boolean warnedFailure;
 
-	/** First failure of either pass goes to the log once, with its stack. */
-	public static void warnOnce(String where, Throwable t) {
+	/** First failure of the LAST pass goes to the log once, with its stack. */
+	private static void warnOnce(String where, Throwable t) {
 		if (!warnedFailure) {
 			warnedFailure = true;
 			com.origin.client.OriginClient.LOGGER.warn("Origin: waypoint {} pass failed (logged once)", where, t);
 		}
+	}
+
+	// AfterShadersPass slot; -1 = not registered, so the LAST entry keeps drawing.
+	private static int slot = -1;
+
+	/** Registers the after-shaders drawer (from OriginClientMod, in draw order). */
+	public static void init() {
+		slot = AfterShadersPass.register("waypoints", WaypointRenderer::drawDeferred);
 	}
 
 	public static void render(WorldRenderContext ctx) {
@@ -87,85 +59,40 @@ public final class WaypointRenderer {
 		}
 	}
 
-	private static void renderLast(WorldRenderContext ctx) {
+	// The ONE early-out for both paths: waypoints mod on and a player in a world.
+	// Returns the client, or null when there is nothing to draw.
+	private static Minecraft active() {
 		if (!Mods.on("waypoints")) {
-			return;
+			return null;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) {
+		return mc.player == null || mc.level == null ? null : mc;
+	}
+
+	private static void renderLast(WorldRenderContext ctx) {
+		Minecraft mc = active();
+		if (mc == null) {
 			return;
 		}
 		PoseStack pose = ctx.matrixStack();
 		if (pose == null) {
 			return;
 		}
-		// Hand the view/projection matrices + camera position to the HUD overlay.
+		// Hand the view/projection matrices + camera position to the HUD overlay
+		// (also while the world part is deferred: this is the HUD's own capture).
 		WaypointHud.capture(ctx);
-
-		Vec3 c = ctx.camera().getPosition();
-		boolean shaders = ShaderPack.inUse();
-		if (shaders && !postHookAlive && !warnedHookMissing && ++hookMissingFrames > 60) {
-			warnedHookMissing = true;
-			com.origin.client.OriginClient.LOGGER.warn("Origin: GameRendererPostShadersMixin never ran with a shader pack on;"
-					+ " waypoint beams are drawn at WorldRenderEvents.LAST, under the pack's clouds");
+		if (AfterShadersPass.deferring(slot)) {
+			return;   // AfterShadersPass.run() draws it, after the pack's composite
 		}
-		if (shaders && postHookAlive) {
-			// Record exactly what world geometry is transformed by right now.
-			PEND_POSE.set(pose.last().pose());
-			PEND_NORMAL.set(pose.last().normal());
-			PEND_VIEW.set(RenderSystem.getModelViewMatrix());
-			PEND_PROJ.set(RenderSystem.getProjectionMatrix());
-			pendSorting = RenderSystem.getVertexSorting();
-			pendCam = c;
-			pending = true;
-			return;
-		}
-		drawWorld(mc, pose, c, mc.renderBuffers().bufferSource());
+		drawWorld(mc, pose, ctx.camera().getPosition(), mc.renderBuffers().bufferSource());
 	}
 
-	/**
-	 * Called from GameRendererPostShadersMixin after LevelRenderer.renderLevel,
-	 * every frame. Draws the world part recorded by render() when a shader pack
-	 * is in use; otherwise does nothing.
-	 */
-	public static void renderAfterShaders() {
-		try {
-			renderPost();
-		} catch (Throwable t) {
-			warnOnce("after-shaders", t);
-		}
-	}
-
-	private static void renderPost() {
-		postHookAlive = true;
-		if (!pending) {
-			return;
-		}
-		pending = false;
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) {
-			return;
-		}
-		// By reference: setProjectionMatrix stores a fresh copy in RenderSystem's
-		// field (javap, 1.21.1), so this object is never written while we hold it.
-		Matrix4f oldProj = RenderSystem.getProjectionMatrix();
-		VertexSorting oldSorting = RenderSystem.getVertexSorting();
-		Matrix4fStack mv = RenderSystem.getModelViewStack();
-		mv.pushMatrix();
-		try {
-			mc.getMainRenderTarget().bindWrite(false);
-			RenderSystem.setProjectionMatrix(PEND_PROJ, pendSorting);   // copied inside
-			mv.set(PEND_VIEW);
-			RenderSystem.applyModelViewMatrix();
-			// Copy, don't mulPose: mulPose allocates a Matrix3f for non-translations.
-			POST_POSE.setIdentity();
-			POST_POSE.last().pose().set(PEND_POSE);
-			POST_POSE.last().normal().set(PEND_NORMAL);
-			drawWorld(mc, POST_POSE, pendCam, POST_LINES);
-		} finally {
-			mv.popMatrix();
-			RenderSystem.applyModelViewMatrix();
-			RenderSystem.setProjectionMatrix(oldProj, oldSorting);
+	// The AfterShadersPass drawer: same drawWorld body as the LAST path, with the
+	// pass's recorded matrices and its own line buffer, behind the same active() check.
+	private static void drawDeferred(PoseStack pose, Vec3 cam, MultiBufferSource.BufferSource lines) {
+		Minecraft mc = active();
+		if (mc != null) {
+			drawWorld(mc, pose, cam, lines);
 		}
 	}
 
@@ -255,24 +182,5 @@ public final class WaypointRenderer {
 		nz /= len;
 		vc.addVertex(m, ax, ay, az).setColor(argb).setNormal(pose, nx, ny, nz);
 		vc.addVertex(m, bx, by, bz).setColor(argb).setNormal(pose, nx, ny, nz);
-	}
-
-	/** Is an Iris shader pack rendering the world? Iris is bundled jar-in-jar
-	 *  on 1.21.1 (build.gradle include), so this is the direct API call, as in
-	 *  OriginRender.shaderPackOn(); the loaded check is resolved once. */
-	static final class ShaderPack {
-		private static final boolean IRIS =
-				net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("iris");
-
-		static boolean inUse() {
-			if (!IRIS) {
-				return false;
-			}
-			try {
-				return net.irisshaders.iris.api.v0.IrisApi.getInstance().isShaderPackInUse();
-			} catch (Throwable t) {
-				return false;
-			}
-		}
 	}
 }

@@ -7,6 +7,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.origin.client.client.gui.OriginColorPicker;
 import com.origin.client.client.mods.Mods;
+import com.origin.client.client.render.AfterShadersPass;
 import com.origin.client.client.render.OriginRenderTypes;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
@@ -135,23 +136,52 @@ final class CuiRenderer {
 	private CuiRenderer() {
 	}
 
+	// AfterShadersPass slot; -1 = not registered, so the LAST entry keeps drawing.
+	private static int slot = -1;
+
+	/** Registers the after-shaders drawer (via WorldEditCui.registerAfterShaders). */
+	static void init() {
+		slot = AfterShadersPass.register("worldedit cui", CuiRenderer::drawDeferred);
+	}
+
+	/** WorldRenderEvents.LAST entry. Under an Iris shader pack AfterShadersPass
+	 *  draws the selection instead (after the pack's composite, so its clouds
+	 *  can't cover it) and this returns at once. */
 	static void render(WorldRenderContext ctx) {
-		if (!Mods.on(M)) {
+		if (AfterShadersPass.deferring(slot)) {
+			return;
+		}
+		if (ctx.matrixStack() == null) {
+			return;
+		}
+		draw(ctx.matrixStack(), ctx.camera().getPosition());
+	}
+
+	// The AfterShadersPass drawer: same render types, same state, only the timing
+	// differs. This overlay owns its buffers (OriginRenderTypes + HIDDEN_BUFFER),
+	// so the pass's line buffer is unused.
+	private static void drawDeferred(PoseStack stack, Vec3 cam, MultiBufferSource.BufferSource unusedLines) {
+		draw(stack, cam);
+	}
+
+	private static void draw(PoseStack stack, Vec3 cam) {
+		// running(): registration is unconditional (it happens before WorldEditCui.init
+		// knows whether the CUI starts), and regions() allocates a list per call.
+		if (!Mods.on(M) || !WorldEditCui.running()) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || ctx.matrixStack() == null) {
+		if (mc.player == null || mc.level == null) {
 			return;
 		}
 		List<CuiRegion> regions = WorldEditCui.regions();
 		if (regions.isEmpty()) {
 			return;
 		}
-		Vec3 cam = ctx.camera().getPosition();
 		camX = cam.x;
 		camY = cam.y;
 		camZ = cam.z;
-		pose = ctx.matrixStack().last();
+		pose = stack.last();
 		showGrid = Mods.bool(M, "grid");
 		halfPerBlock = HALF_WIDTH_PER_STEP * Math.max(1, Math.min(5, Mods.num(M, "thickness")));
 		colOutline = OriginColorPicker.liveColor(M, "outlineColor");

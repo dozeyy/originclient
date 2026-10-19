@@ -314,7 +314,7 @@ public final class PartyWorld {
 	// ---- C: the Party HUD element ----
 
 	private static final int LINE = 11, FACE = 8;
-	private static final int HEALTH = 0xFFFF5555, DIMMED = 0xFF8A8A8A;
+	private static final int HEALTH = 0xFFFF5555, DIMMED = 0xFFAAAAAA;
 
 	// Java 8 has no records: a final value class with the record's constructor,
 	// accessors and equals/hashCode.

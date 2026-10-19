@@ -107,6 +107,16 @@ public final class WorldEditCui {
 		}
 	}
 
+	/** Registers the CUI's after-shaders drawer (from OriginClientMod, in draw order). */
+	public static void registerAfterShaders() {
+		CuiRenderer.init();
+	}
+
+	/** True once init() has started the CUI (its channel is up and its LAST listener is registered). */
+	static boolean running() {
+		return sender != null;
+	}
+
 	// ---- channel ----
 
 	/** Sends one protocol line to the server. */
