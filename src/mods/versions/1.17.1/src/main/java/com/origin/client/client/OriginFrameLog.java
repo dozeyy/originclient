@@ -79,6 +79,12 @@ public final class OriginFrameLog {
 	private OriginFrameLog() {
 	}
 
+	// Loading bar check: within one reload the bar may only ever move forward.
+	private static Object barReload;
+	private static double barShown = -1, barRaw = -1, barBackMax = 0, barRawDropMax = 0;
+	private static int barFrames = 0, barBack = 0, barRawDrops = 0, barReloads = 0, barEarlyFull = 0;
+	private static double barAtDone = Double.NaN;
+
 	// ---- hooks ----
 
 	/** Minecraft.runTick HEAD: one frame ends, the next begins. */
@@ -169,6 +175,7 @@ public final class OriginFrameLog {
 			return;
 		}
 		doneAt = start[n - 1];
+		barAtDone = barShown;
 		current = Phase.DONE;
 		phase[n - 1] = Phase.DONE;
 		com.origin.client.OriginClient.LOGGER.info(P + "mark reload-done (bar full) uptime {} s", uptimeS());
@@ -336,6 +343,115 @@ public final class OriginFrameLog {
 		com.origin.client.OriginClient.LOGGER.info(P + "mark {} t={} ms uptime {} s", what, fmt(sinceDone(now)), uptimeS());
 	}
 
+	/**
+	 * One loading-screen frame's bar: the reload it belongs to, the reload's raw
+	 * fraction done and the fill actually drawn. Any frame where the drawn fill is
+	 * lower than the frame before, within the same reload, is logged as
+	 * "bar BACKWARD"; the summary says whether the bar stayed monotonic.
+	 */
+	public static void bar(Object reload, float raw, double shown) {
+		if (!ENABLED || finished) {
+			return;
+		}
+		boolean same = reload == barReload && barShown >= 0;
+		if (same) {
+			if (shown < barShown - 1e-6) {
+				barBack++;
+				barBackMax = Math.max(barBackMax, barShown - shown);
+				com.origin.client.OriginClient.LOGGER.info(P + "bar BACKWARD shown {} -> {} (raw {} -> {})",
+						fmt4(barShown), fmt4(shown), fmt4(barRaw), fmt4(raw));
+			}
+			if (raw < barRaw - 1e-6) {
+				barRawDrops++;
+				barRawDropMax = Math.max(barRawDropMax, barRaw - raw);
+			}
+		} else {
+			barReloads++;
+			com.origin.client.OriginClient.LOGGER.info(P + "bar reload #{} {} (shown {} raw {})", barReloads, ident(reload), fmt4(shown), fmt4(raw));
+		}
+		if (doneAt == 0 && shown >= 0.9999) {
+			barEarlyFull++;   // drawn full before the reload was seen done
+		}
+		barReload = reload;
+		barShown = shown;
+		barRaw = raw;
+		barFrames++;
+	}
+
+	private static String ident(Object o) {
+		return o == null ? "null" : o.getClass().getSimpleName() + "@" + Integer.toHexString(System.identityHashCode(o));
+	}
+
+	private static String fmt4(double v) {
+		return String.format(java.util.Locale.ROOT, "%.4f", v);
+	}
+
+	// ---- world-loading bar check ----
+	// The world-load scenes' bar (LevelLoadingScreen and the screens around it)
+	// must never move back within one world load, and never be drawn full (the
+	// world replaces the scene the moment it is ready). A new load = more than
+	// LoadBar.NEW_LOAD_FRAMES frames drawn without the scene, the bar's own rule (a
+	// time gap split loads at render-thread stalls). Independent of the hand-off
+	// log above (runs after it).
+	private static long sceneLast = -1;
+	private static String sceneScreen;
+	private static double sceneShown = -2, sceneRaw = -2, sceneBackMax = 0;
+	private static int sceneLoads = 0, sceneFrames = 0, sceneBack = 0, sceneToSweep = 0, sceneFull = 0;
+
+	/** One world-loading scene frame: the screen's title, the raw progress (-1 = none) and the fill drawn (-1 = sweep). */
+	public static void sceneBar(String screen, float raw, double shown) {
+		if (!ENABLED) {
+			return;
+		}
+		long now = com.origin.client.client.hud.FrameStats.frames();
+		if (sceneLast < 0 || now < sceneLast || now - sceneLast - 1 > com.origin.client.client.render.LoadBar.NEW_LOAD_FRAMES) {
+			if (sceneLast >= 0) {
+				sceneSummary();
+			} else {
+				Runtime.getRuntime().addShutdownHook(new Thread(OriginFrameLog::sceneSummary));
+			}
+			sceneLoads++;
+			sceneFrames = sceneBack = sceneToSweep = sceneFull = 0;
+			sceneBackMax = 0;
+			sceneShown = sceneRaw = -2;
+			sceneScreen = null;
+			com.origin.client.OriginClient.LOGGER.info(P + "scene bar: world load #{} begins (uptime {} s)", sceneLoads, uptimeS());
+		}
+		sceneLast = now;
+		if (sceneShown > -2 && sceneShown >= 0) {
+			if (shown < 0) {
+				sceneToSweep++;
+				com.origin.client.OriginClient.LOGGER.info(P + "scene bar BACK TO SWEEP from {} (raw {} -> {}) [{}]", fmt4(sceneShown), fmt4(sceneRaw), fmt4(raw), screen);
+			} else if (shown < sceneShown - 1e-6) {
+				sceneBack++;
+				sceneBackMax = Math.max(sceneBackMax, sceneShown - shown);
+				com.origin.client.OriginClient.LOGGER.info(P + "scene bar BACKWARD shown {} -> {} (raw {} -> {}) [{}]", fmt4(sceneShown), fmt4(shown), fmt4(sceneRaw), fmt4(raw), screen);
+			}
+		}
+		if (shown >= 0.9999) {
+			sceneFull++;
+		}
+		if (!screen.equals(sceneScreen) || (raw >= 0) != (sceneRaw >= 0)) {
+			// one line per scene change (not per frame): what each stage showed
+			com.origin.client.OriginClient.LOGGER.info(P + "scene bar stage [{}] raw {} shown {} (uptime {} s)", screen, fmt4(raw), fmt4(shown), uptimeS());
+		}
+		sceneScreen = screen;
+		sceneShown = shown;
+		sceneRaw = raw;
+		sceneFrames++;
+	}
+
+	private static void sceneSummary() {
+		if (sceneLoads == 0) {
+			return;
+		}
+		// stdout, not the logger: this also runs from a shutdown hook.
+		System.out.println(P + "scene bar summary: load #" + sceneLoads + " monotonic=" + (sceneBack == 0 && sceneToSweep == 0 ? "yes" : "NO")
+				+ " frames=" + sceneFrames + " backward=" + sceneBack + " (max " + fmt4(sceneBackMax) + ") to-sweep=" + sceneToSweep
+				+ " full=" + sceneFull
+				+ " final=" + fmt4(sceneShown));
+	}
+
 	/** The title's entrance ends at this scene-clock time (RingField.sceneMs). */
 	public static void entranceEndsAt(double sceneMs) {
 		if (ENABLED) {
@@ -408,6 +524,9 @@ public final class OriginFrameLog {
 	}
 
 	private static void summary() {
+		com.origin.client.OriginClient.LOGGER.info(P + "bar summary: monotonic={} frames={} backward={} (max {}) raw-drops={} (max {}) reloads={} full-before-done={} at-reload-done={} final={}",
+				barBack == 0 ? "yes" : "NO", barFrames, barBack, fmt4(barBackMax), barRawDrops, fmt4(barRawDropMax), barReloads,
+				barEarlyFull, fmt4(barAtDone), fmt4(barShown));
 		// Window A: LEAD_MS before reload done -> end. Window B: bar full (reload done) -> end.
 		long fromA = doneAt == 0 ? 0 : doneAt - (long) (LEAD_MS * 1e6);
 		Stats a = stats(fromA, false), b = stats(doneAt, false), visible = stats(doneAt, true);

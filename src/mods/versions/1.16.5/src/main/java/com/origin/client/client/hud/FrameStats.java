@@ -36,8 +36,16 @@ public final class FrameStats {
 
 	public static final byte NORMAL = 0, SPIKE = 1, GC = 2;
 
+	private static long frames = 0;
+
+	/** Frames seen so far (every call, never capped): the world-loading bar tells world loads apart with it. */
+	public static long frames() {
+		return frames;
+	}
+
 	/** Render thread, once per frame. */
 	public static void frame(long nanos) {
+		frames++;
 		long prev = lastNanos;
 		lastNanos = nanos;
 		if (prev == 0) {
