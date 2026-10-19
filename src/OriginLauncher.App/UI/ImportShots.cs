@@ -57,17 +57,16 @@ internal static class ImportShots
             // 30: the default view: every setup found, "Import all" on top.
             var panel = Open(window, Demo.Bulk, 1500);
             RenderShots.Snap(window, outDir, "30-import-drawer-all");
+
+            // 31: every kind of problem line (pick whose settings, Forge, unsupported, not sure), in two screens of the list.
+            panel.TourScrollOverview(170);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "31-import-drawer-attention");
             panel.TourScrollOverview(double.MaxValue);
             RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "30b-import-drawer-all-scrolled");
+            RenderShots.Snap(window, outDir, "31b-import-drawer-attention-bottom");
             panel.TourScrollOverview(0);
-
-            // 31: every kind of problem line on one screen (a tall window, so no row hides below the fold).
-            window.Height = 1100;
-            RenderShots.Pump(500);
-            RenderShots.Snap(window, outDir, "31-import-drawer-attention");
-            window.Height = 740;
-            RenderShots.Pump(400);
+            RenderShots.Pump(200);
 
             // 32: whose settings (1.20.1 has two setups with about the same playtime).
             panel.TourOpenChooser("1.20.1");
@@ -144,7 +143,6 @@ internal static class ImportShots
         {
             ImportPanel.NotSureNote = realNotSure;
             DemoBackend.Release();
-            window.Height = 740;
             window.TourBackendFactory = null;
             window.TourCloseImport();
             RenderShots.Pump(300);
@@ -362,6 +360,7 @@ internal static class ImportShots
         {
             var all = plan.Groups.SelectMany(g => g.Setups).ToList();
             long done = 0;
+            var total = all.Sum(p => p.Plan.BytesToCopy);
             for (var i = 0; i < all.Count; i++)
             {
                 ct.ThrowIfCancellationRequested();
@@ -369,12 +368,12 @@ internal static class ImportShots
                 var label = $"{planned.Setup.SourceLabel}: {planned.Setup.Name}";
                 var bytes = planned.Plan.BytesToCopy;
                 progress.Report(new BulkProgress(i, all.Count, label,
-                    new ImportProgress(ImportStage.Mods, 1, 3, "xaeros-minimap-24.2.jar"), done, plan.BytesToCopy));
+                    new ImportProgress(ImportStage.Mods, 1, 3, "xaeros-minimap-24.2.jar"), done, total));
                 if (_demo == Demo.Progress && i == 2)
                 {
                     // Stop here, a third of the way in, until the render lets go (or the player cancels).
                     progress.Report(new BulkProgress(i, all.Count, label,
-                        new ImportProgress(ImportStage.Packs, 2, 3, "Faithful 64x.zip"), done + bytes / 2, plan.BytesToCopy));
+                        new ImportProgress(ImportStage.Packs, 2, 3, "Faithful 64x.zip"), done + bytes / 2, total));
                     using (ct.Register(() => _hold.TrySetResult(true))) await _hold.Task;
                     return new BulkImportResult { RunId = plan.RunId, State = ImportState.RolledBack, Cancelled = true };
                 }

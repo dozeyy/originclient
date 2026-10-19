@@ -302,7 +302,7 @@
     <!-- Footer buttons: 32 px, centred in the footer, never stretched. -->
     <Style x:Key="Import.FooterAction" TargetType="Button" BasedOn="{StaticResource Social.Action}">
         <Setter Property="MinHeight" Value="32"/>
-        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="Padding" Value="10,0"/>
         <Setter Property="Margin" Value="8,0,0,0"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>

@@ -62,7 +62,8 @@
                 </Button>
                 <Button Content="{Binding ActionText}" Style="{StaticResource Social.Action}" HorizontalAlignment="Right"
                         Visibility="{Binding HasAction, Converter={StaticResource BoolToVis}}"
-                        ToolTip="{Binding ActionTip}" Click="SectionAction_Click"/>
+                        ToolTip="{Binding ActionTip}" Click="SectionAction_Click"
+                        IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"/>
             </Grid>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding Collapsible}" Value="False">
@@ -114,18 +115,24 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Name="NameText" Text="{Binding Name}" Style="{StaticResource Social.Name}"/>
                         <TextBlock x:Name="CaptionText" Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
-                        <TextBlock Text="{Binding Warning}" Style="{StaticResource Import.Warning}"
-                                   Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}"/>
+                        <!-- The problem line; Change (whose settings) sits on the same line, so the caption above keeps its width. -->
+                        <Grid Visibility="{Binding HasWarning, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding Warning}" Style="{StaticResource Import.Warning}"/>
+                            <Button Grid.Column="1" Content="CHANGE" Style="{StaticResource Social.Action}"
+                                    Margin="8,2,0,0" VerticalAlignment="Top"
+                                    Visibility="{Binding HasChoice, Converter={StaticResource BoolToVis}}"
+                                    IsEnabled="{Binding Allowed, RelativeSource={RelativeSource AncestorType={x:Type controls:ImportPanel}}}"
+                                    ToolTip="Pick whose settings to use" Click="SetupChange_Click"/>
+                        </Grid>
                     </StackPanel>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                        <Button Content="CHANGE" Style="{StaticResource Social.Action}"
-                                Visibility="{Binding HasChoice, Converter={StaticResource BoolToVis}}"
-                                ToolTip="Pick whose settings to use" Click="SetupChange_Click"/>
-                        <CheckBox Style="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=TwoWay}"
-                                  Visibility="{Binding ShowTick, Converter={StaticResource BoolToVis}}"
-                                  Click="SetupTick_Click" ToolTip="Include in Import all"
-                                  AutomationProperties.Name="Include in Import all"/>
-                    </StackPanel>
+                    <CheckBox Grid.Column="2" Style="{StaticResource Social.Check}" IsChecked="{Binding Ticked, Mode=TwoWay}"
+                              Visibility="{Binding ShowTick, Converter={StaticResource BoolToVis}}"
+                              Click="SetupTick_Click" ToolTip="Include in Import all"
+                              AutomationProperties.Name="Include in Import all"/>
                 </Grid>
             </Button>
             <DataTemplate.Triggers>
@@ -247,7 +254,7 @@
                 <Button x:Name="BackButton" Style="{StaticResource Social.Icon}" Margin="0,0,8,0"
                         Visibility="Collapsed" Click="Back_Click" ToolTip="Back (Esc)"
                         AutomationProperties.Name="Back">
-                    <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}"
+                    <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -257,12 +264,12 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="BrowseIconButton" Style="{StaticResource Social.Icon}" Click="Browse_Click"
                             ToolTip="Browse for a folder" AutomationProperties.Name="Browse for a folder">
-                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}"
+                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
                     <Button x:Name="CloseButton" Style="{StaticResource Social.Icon}" Click="Close_Click"
                             ToolTip="Close (Esc)" AutomationProperties.Name="Close import">
-                        <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
+                        <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
                 </StackPanel>
@@ -363,7 +370,9 @@
 
             <!-- Importing: one bar and one line. -->
             <StackPanel x:Name="ProgressPane" Margin="16,12,16,0" VerticalAlignment="Top" Visibility="Collapsed">
-                <TextBlock x:Name="ProgressCaption" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="2,4,0,12"
+                <TextBlock x:Name="ProgressCaption" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="2,4,0,0"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="ProgressSetup" Style="{StaticResource Text.BodyDim}" Margin="2,2,0,14"
                            TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                 <Border x:Name="ProgressTrack" Height="8" Background="{StaticResource Brush.CardAlt}"
                         BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"

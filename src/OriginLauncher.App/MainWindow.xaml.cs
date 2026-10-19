@@ -614,7 +614,10 @@ public partial class MainWindow : Window
         if (_friendsOpen) SetFriendsOpen(false);
         _homePage.ImportCard.Hide();
 
-        var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend());
+        var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend())
+        {
+            ConfirmHost = ImportConfirm,
+        };
         panel.CloseRequested += (_, _) => CloseImportPanel();
         panel.Imported += (_, _) =>
         {

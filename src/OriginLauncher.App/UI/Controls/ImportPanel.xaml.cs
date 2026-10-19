@@ -100,6 +100,24 @@ public partial class ImportPanel : UserControl, IDisposable
     private ImportResult? _singleResult;
     private DoneModel? _done;
 
+    /// <summary>
+    /// The confirm dialog MainWindow hosts over the whole window (a 380 px drawer is too narrow for a dialog with two
+    /// real buttons). Null: the drawer's own overlay is used.
+    /// </summary>
+    internal ConfirmOverlay? ConfirmHost { get; set; }
+
+    private ConfirmOverlay Overlay => ConfirmHost ?? Confirm;
+
+    /// <summary>Import buttons are on (off while a game starts or an import writes). The row and section buttons bind to it.</summary>
+    public static readonly DependencyProperty AllowedProperty =
+        DependencyProperty.Register(nameof(Allowed), typeof(bool), typeof(ImportPanel), new PropertyMetadata(true));
+
+    public bool Allowed
+    {
+        get => (bool)GetValue(AllowedProperty);
+        private set => SetValue(AllowedProperty, value);
+    }
+
     /// <summary>True from the moment the import starts writing until the engine has finished or rolled back.</summary>
     public bool IsApplying { get; private set; }
 
@@ -132,10 +150,13 @@ public partial class ImportPanel : UserControl, IDisposable
     {
         if (_launchBusy == busy) return;
         _launchBusy = busy;
+        UpdateAllowed();
         RefreshNotice();
         UpdateImportAll();
         UpdateFooterEnabled();
     }
+
+    private void UpdateAllowed() => Allowed = !_launchBusy && !IsApplying;
 
     // ---------------------------------------------------------------- scan
 
@@ -280,7 +301,7 @@ public partial class ImportPanel : UserControl, IDisposable
 
     private void TryFocusPrimary()
     {
-        if (!_wantPrimaryFocus || _disposed || Confirm.Visibility == Visibility.Visible) return;
+        if (!_wantPrimaryFocus || _disposed || Overlay.Visibility == Visibility.Visible) return;
         if (_primary is { IsVisible: true, IsEnabled: true } button)
         {
             _wantPrimaryFocus = false;
@@ -585,6 +606,7 @@ public partial class ImportPanel : UserControl, IDisposable
         _primary = null;
         CancelButton.IsEnabled = false;
         ProgressCaption.Text = "Checking what can come over...";
+        ProgressSetup.Text = "";
         ProgressDetail.Text = "";
         _barFraction = 0;
         SetBar(0);
@@ -842,11 +864,11 @@ public partial class ImportPanel : UserControl, IDisposable
             Stat("worlds", "Worlds", plan.Ops.Count(o => o.Item == PlanItemKind.World), always: true);
         Stat("files", "Files Minecraft needs (already on this PC)", plan.GameFiles?.ReusedCount ?? 0);
         Stat("terrain", "Distant Horizons / Voxy terrain", plan.Caches.Count(c => c.WillImport));
+        // The download size is the last line of the same card.
+        if (plan.GameFiles is { MetadataUnavailable: false, ToDownloadBytes: > 0 } files)
+            stats.Add(new HintVm { Id = "download", Text = $"About {ImportSummary.Megabytes(files.ToDownloadBytes)} downloads the first time you press Play." });
         AssignPos(stats);
         items.AddRange(stats);
-
-        if (plan.GameFiles is { MetadataUnavailable: false, ToDownloadBytes: > 0 } files)
-            items.Add(new HintVm { Id = "download", Pos = CardPos.Only, Text = $"About {ImportSummary.Megabytes(files.ToDownloadBytes)} downloads the first time you press Play." });
 
         var attention = plan.Lines.Where(l => l.Section == SummarySection.NeedsAttention).ToList();
         if (attention.Count > 0)
@@ -858,8 +880,7 @@ public partial class ImportPanel : UserControl, IDisposable
         }
         PageList.ItemsSource = items;
 
-        SetFooter(plan.ProfileName != null && plan.CanApply ? $"Mods go in a profile called \"{plan.ProfileName}\"." : null,
-            "DETAILS", () => OpenDetails(), "IMPORT", () => { if (FooterPrimary.IsEnabled) _ = RunSingleAsync(); });
+        SetFooter(null, "DETAILS", () => OpenDetails(), "IMPORT", () => { if (FooterPrimary.IsEnabled) _ = RunSingleAsync(); });
         _primary = FooterPrimary;
     }
 
@@ -1192,6 +1213,7 @@ public partial class ImportPanel : UserControl, IDisposable
         _barFraction = 0;
         SetBar(0);
         ProgressCaption.Text = caption;
+        ProgressSetup.Text = "";
         ProgressDetail.Text = "";
         CancelButton.IsEnabled = true;
         _applyProgress.Last = null;
@@ -1210,6 +1232,7 @@ public partial class ImportPanel : UserControl, IDisposable
         _applyCts = cts;
         BeginApply("Getting ready...");
         IsApplying = true;
+        UpdateAllowed();
         ImportRunState.Begin(); // WIRING (import-wiring agent): becomes `using var _ = ImportRunState.Enter();` once that exists
 
         BulkImportResult result;
@@ -1232,6 +1255,7 @@ public partial class ImportPanel : UserControl, IDisposable
         finally
         {
             IsApplying = false;
+            UpdateAllowed();
             ImportRunState.End();
             StopTickIfIdle();
         }
@@ -1248,6 +1272,7 @@ public partial class ImportPanel : UserControl, IDisposable
         _applyCts = cts;
         BeginApply("Getting ready...");
         IsApplying = true;
+        UpdateAllowed();
         ImportRunState.Begin(); // WIRING (import-wiring agent): becomes `using var _ = ImportRunState.Enter();` once that exists
 
         ImportResult result;
@@ -1267,6 +1292,7 @@ public partial class ImportPanel : UserControl, IDisposable
         finally
         {
             IsApplying = false;
+            UpdateAllowed();
             ImportRunState.End();
             StopTickIfIdle();
         }
@@ -1280,9 +1306,9 @@ public partial class ImportPanel : UserControl, IDisposable
 
     private async Task AskCancelAsync()
     {
-        if (!IsApplying || Confirm.Visibility == Visibility.Visible) return;
+        if (!IsApplying || Overlay.Visibility == Visibility.Visible) return;
         // A destructive confirm opens on "Keep importing", so a double tap of Enter never cancels.
-        var cancel = await Confirm.ShowAsync("Cancel the import?",
+        var cancel = await Overlay.ShowAsync("Cancel the import?",
             "Everything copied so far is put back the way it was.", "Cancel import", "Keep importing", destructive: true);
         if (cancel && IsApplying) _applyCts?.Cancel();
     }
@@ -1297,14 +1323,15 @@ public partial class ImportPanel : UserControl, IDisposable
                 fraction = b.BytesTotal > 0
                     ? b.BytesDone / (double)b.BytesTotal
                     : (b.SetupIndex + Inner(b.Inner)) / Math.Max(1, b.SetupCount);
-                ProgressCaption.Text = $"Setup {b.SetupIndex + 1} of {b.SetupCount} - {b.SetupLabel}";
+                ProgressCaption.Text = $"Setup {b.SetupIndex + 1} of {b.SetupCount}";
+                ProgressSetup.Text = b.SetupLabel;
                 ProgressDetail.Text = StageText(b.Inner.Stage) + (string.IsNullOrEmpty(b.Inner.Item) ? "" : ": " + b.Inner.Item);
             }
             else if (_singleProgress.Last is { } p)
             {
                 fraction = p.Stage == ImportStage.Finishing ? 1 : Inner(p);
-                var label = _single == null ? "" : $" - {_single.SourceLabel}: {_single.Name}";
-                ProgressCaption.Text = "Setup 1 of 1" + label;
+                ProgressCaption.Text = "Setup 1 of 1";
+                ProgressSetup.Text = _single == null ? "" : $"{_single.SourceLabel}: {_single.Name}";
                 ProgressDetail.Text = StageText(p.Stage) + (string.IsNullOrEmpty(p.Item) ? "" : ": " + p.Item);
             }
             if (fraction is { } f)
@@ -1396,6 +1423,7 @@ public partial class ImportPanel : UserControl, IDisposable
 
     private void ShowResult(DoneModel model)
     {
+        Overlay.Dismiss(); // the import ended while "Cancel the import?" was still up
         _done = model;
         if (!model.Succeeded)
         {
@@ -1416,7 +1444,6 @@ public partial class ImportPanel : UserControl, IDisposable
         };
         var lines = m.VersionLines.Select(v => new ImportLineVm { Id = "v" + v.Version, Title = v.Version, Caption = v.Text }).ToList<CardRowVm>();
         AssignPos(lines);
-        if (lines.Count > 0) items.Add(new ImportSectionVm { Id = "versions", Title = "MINECRAFT", Count = lines.Count });
         items.AddRange(lines);
         if (m.Lost.Count > 0)
         {
@@ -1489,9 +1516,9 @@ public partial class ImportPanel : UserControl, IDisposable
     /// <summary>MainWindow's Esc: a prompt closes first, a running import asks, a side page goes back, otherwise the drawer closes.</summary>
     public bool HandleEscape()
     {
-        if (Confirm.Visibility == Visibility.Visible)
+        if (Overlay.Visibility == Visibility.Visible)
         {
-            Confirm.Dismiss();
+            Overlay.Dismiss();
             return true;
         }
         if (IsApplying) return RequestClose();
@@ -1506,7 +1533,7 @@ public partial class ImportPanel : UserControl, IDisposable
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         // Enter runs the page's one primary action unless focus is on something that uses Enter itself.
-        if (e.Key == Key.Enter && Confirm.Visibility != Visibility.Visible
+        if (e.Key == Key.Enter && Overlay.Visibility != Visibility.Visible
             && _primary is { IsVisible: true, IsEnabled: true } primary
             && Keyboard.FocusedElement is not (ButtonBase or ComboBox or TextBoxBase))
         {
@@ -1552,6 +1579,7 @@ public partial class ImportPanel : UserControl, IDisposable
         _disposed = true;
         _tick.Stop();
         StopSpinners();
+        if (!IsApplying) Overlay.Dismiss();
         foreach (var cts in new[] { _scanCts, _planCts, _browseCts, _singleCts })
         {
             try { cts?.Cancel(); } catch (ObjectDisposedException) { }

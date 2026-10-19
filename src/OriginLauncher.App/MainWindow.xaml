@@ -204,6 +204,10 @@
             <ContentControl x:Name="ImportPanelHost"/>
         </Border>
 
+        <!-- The import drawer's questions ("Cancel the import?"): a dialog over the whole window, since a 380 px
+             drawer is too narrow for one with two real buttons. -->
+        <controls:ConfirmOverlay x:Name="ImportConfirm"/>
+
         <!-- Social toasts, above everything. Moves left of the Friends drawer while it's open. -->
         <controls:SocialToastHost x:Name="Toasts" Width="320"
                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"/>
