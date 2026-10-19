@@ -103,6 +103,9 @@ dependencies {
 	runtimeOnly "org.anarres:jcpp:1.4.14"
 	runtimeOnly "io.github.douira:glsl-transformer:2.0.0-pre13"
 	runtimeOnly "org.antlr:antlr4-runtime:4.11.1"
+	// Sodium nests JOML and a raw files() jar does not unpack nested jars: entering ANY world crashed with
+	// NoClassDefFoundError org/joml/Matrix4f (CI dev-shots world run 39313801544). 1.19.2 ships no JOML.
+	runtimeOnly "org.joml:joml:1.10.5"
 
 	// WebP preview decoding for the shader browser (fail-soft if the reader is
 	// absent). implementation = compile + dev classpath; include = jar-in-jar.

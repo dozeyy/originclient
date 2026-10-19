@@ -129,6 +129,11 @@ jobs:
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
             x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
 
+      # The real pinned Sodium + Iris (see dev-shots.yml): without them the boot never touches the
+      # @Pseudo Sodium/Iris mixins. Skipped for modules with no libs/ pins (1.21.1 gets them from Gradle).
+      - name: Fetch pinned Sodium + Iris into libs/
+        run: python3 tools/ci/perf_libs.py "src/mods/versions/${{ matrix.version }}"
+
       - name: Download dependencies + assets (retried on Maven 429 / timeouts)
         run: bash tools/ci/gradle_prefetch.sh "src/mods/versions/${{ matrix.version }}"
 
@@ -147,6 +152,8 @@ jobs:
           echo "Gradle JAVA_HOME=$JAVA_HOME"
           args=()
           if [ -n "$RUN_JAVA" ]; then args+=(--run-java "$RUN_JAVA"); fi
+          m="src/mods/versions/${{ matrix.version }}"
+          if ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; then args+=(--perf); fi
           for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
           xvfb-run -a -s "-screen 0 1280x720x24" \
             python3 tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
