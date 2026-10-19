@@ -19,7 +19,8 @@
 		"SimpleReloadInstanceAccessor",
 		"FrameLogOverlayMixin",
 		"BootLogMixin",
-		"BootLogReloadMixin"
+		"BootLogReloadMixin",
+		"StartupInputMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

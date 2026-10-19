@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin.loading;
 
 import com.origin.client.client.OriginBootLog;
+import com.origin.client.client.StartupTransition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.LoadingOverlay;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -58,6 +59,10 @@ public abstract class BootLogMixin {
 		}
 		if (mc.screen instanceof TitleScreen) {
 			OriginBootLog.mark("title-screen-set");
+			// The title takes the mouse from here (StartupInputMixin), under the dissolve.
+			if (mc.getOverlay() instanceof LoadingOverlay && StartupTransition.startupRevealInProgress()) {
+				OriginBootLog.mark("title-input");
+			}
 			if (mc.getOverlay() == null) {
 				OriginBootLog.interactive();
 			}
