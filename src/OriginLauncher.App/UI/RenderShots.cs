@@ -290,7 +290,9 @@ public static class RenderShots
     /// window's visual tree that DPI (<see cref="SetTreeDpi"/>), so layout rounding and text are laid out
     /// for it exactly as on a scaled monitor; this only rasterizes at the matching pixel density.
     /// </summary>
-    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null)
+    /// <param name="adorners">Also draw the window's adorner layer (it sits outside window.Content): WPF's own keyboard
+    /// focus frame lives there, so the focus shots (ImportShots 42/42b) pass true.</param>
+    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null, bool adorners = false)
     {
         window.UpdateLayout();
         var root = (FrameworkElement)window.Content;
@@ -313,6 +315,7 @@ public static class RenderShots
         }
         bitmap.Render(backed);
         bitmap.Render(root);
+        if (adorners && System.Windows.Documents.AdornerLayer.GetAdornerLayer(root) is { } layer) bitmap.Render(layer);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using (var file = File.Create(Path.Combine(dir, name + ".png")))

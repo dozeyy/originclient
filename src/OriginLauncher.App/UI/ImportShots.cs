@@ -180,13 +180,13 @@ internal static class ImportShots
             PressTab(window);
             RenderShots.Pump(300);
             var tickFrame = FocusFrame(window, panel.TourFirstTick(), "tick", focusLog);
-            RenderShots.Snap(window, outDir, "42-import-drawer-focus-tick");
+            RenderShots.Snap(window, outDir, "42-import-drawer-focus-tick", adorners: true);
             tickFrame?.Invoke();
             panel.TourFocusFooterSecondary();
             PressTab(window);
             RenderShots.Pump(300);
             var footerFrame = FocusFrame(window, panel.TourFooterPrimary(), "footer primary", focusLog);
-            RenderShots.Snap(window, outDir, "42b-import-drawer-focus-footer");
+            RenderShots.Snap(window, outDir, "42b-import-drawer-focus-footer", adorners: true);
             footerFrame?.Invoke();
             File.WriteAllText(Path.Combine(outDir, "focus-checks.txt"), focusLog.ToString());
 
@@ -239,7 +239,7 @@ internal static class ImportShots
         }
         if (target.IsKeyboardFocused)
         {
-            log.AppendLine($"{what}: real keyboard focus after Tab (window active: {window.IsActive})");
+            log.AppendLine($"{what}: real keyboard focus after Tab (window active: {window.IsActive}); WPF's own focus frame, from the adorner layer");
             return null;
         }
         log.AppendLine($"{what}: no keyboard focus in CI (window active: {window.IsActive}, focused: {focused?.GetType().Name ?? "nothing"}); "
