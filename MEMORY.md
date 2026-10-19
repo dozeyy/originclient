@@ -5361,6 +5361,7 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
 - Verified: build green (--rerun-tasks), sync.py --check OK, javap shows no per-frame new/invokedynamic/iterator in the pass, registry logic passes a standalone java check, code-reviewer + verifier PASS x2. NOT verified in game: looks under Eclipse, shader toggle, no double draw.
 - Known lows (accepted): waypoint highlight lines flush before Chunk Border posts; each drawer's empty flush may allocate a tiny iterator inside vanilla BufferSource.
 - Other modules still draw these overlays at LAST (per-era work, not done): 1.16.5-1.20.4 and 1.21 (no post hook), 1.21.6/1.21.8 (RenderPipelines era), 1.21.10/1.21.11 (END_MAIN / extract-submit era). 1.21.4 is hands-off.
+
 ## 2026-10-19 — Cosmetics sit over the outer skin layer + head/face 3-axis adjust (every live version; branch claude/cosmetics-outer-layer)
 Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible from the side, wanted to move head gear.
 - Fit rule (mod + website, cosmetics/FORMAT.md): per axis u=p-c; |u|>=h → u+sign(u)·g, else u·(h+g)/h. HEAD c(0,4,0) h(4,4,4) g0.5 when
