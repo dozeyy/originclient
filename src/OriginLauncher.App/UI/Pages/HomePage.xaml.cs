@@ -112,7 +112,8 @@ public partial class HomePage : UserControl
         VersionButton.Margin = new Thickness(0, 0, 0, gap);
         ProfileRow.Margin = new Thickness(0, 0, 0, gap);
         ModsRowBorder.Margin = new Thickness(0, 0, 0, gap);
-        JoinButton.Margin = new Thickness(0, gap, 0, 0);
+        // Play to Join stays 16 px at every size: the two buttons are a pair.
+        JoinButton.Margin = new Thickness(0, (double)FindResource("Space.3"), 0, 0);
         StatusRow.Margin = new Thickness(0, gap, 0, 0);
         PromoBanner.Margin = new Thickness(0, gap, 0, 0);
     }
