@@ -74,6 +74,9 @@ public class OriginClientMod implements ClientModInitializer {
 		// (No OriginShaders.register() here: on 1.21.6-1.21.8 the MSDF / ICON / GRADE
 		// shaders are RenderPipelines built as static fields, compiled lazily on first
 		// draw. Fabric's CoreShaderRegistrationCallback does not exist on this era.)
+		// Origin's own textures + metadata decode in the startup reload's prepare
+		// stage, on its worker threads, instead of on the render thread at first draw.
+		OriginAssets.register();
 		ClientTickEvents.END_CLIENT_TICK.register(this::onEndTick);
 		// Tells Origin Launcher the game is past its loading screen (OriginHandoff).
 		ClientTickEvents.END_CLIENT_TICK.register(OriginHandoff::tick);

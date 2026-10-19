@@ -1,6 +1,5 @@
 package com.origin.client.client.gui;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -19,7 +18,6 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fc;
 
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -47,7 +45,6 @@ import java.util.Map;
  * DynamicTexture takes a debug-label supplier (no setFilter).
  */
 public final class ModIcons {
-	private static final Gson GSON = new Gson();
 	private static final Identifier ATLAS = Identifier.fromNamespaceAndPath("originclient", "ui_mod_icons");
 	private static final Identifier SDF_ATLAS = Identifier.fromNamespaceAndPath("originclient", "ui_mod_icons_sdf");
 
@@ -66,6 +63,18 @@ public final class ModIcons {
 	private static boolean maskRegistered = false;
 
 	private ModIcons() {
+	}
+
+	/**
+	 * OriginAssets' per-frame upload slice: decodes now and uploads the atlas if
+	 * the icon pipeline can be decided. False = not yet (pipeline still pending
+	 * behind the loading overlay, see OriginShaders.sourcesPending); the slice
+	 * retries, and if the overlay closes first the first draw uploads instead.
+	 * Never registers the mask early -- that would lock the session onto it.
+	 */
+	public static boolean preload() {
+		ensureLoaded();
+		return !ok || ensureAtlas();
 	}
 
 	/** Whether this id has a glyph in the atlas. */
@@ -174,10 +183,9 @@ public final class ModIcons {
 			}
 			loaded = true;
 			try {
-				JsonObject j;
-				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.json")) {
-					j = GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-				}
+				// The metrics and both atlases are decoded on the startup reload's worker
+				// threads (OriginAssets); the one GPU upload is ensureAtlas's.
+				JsonObject j = com.origin.client.client.OriginAssets.json("/assets/originclient/textures/ui/mod_icons.json");
 				cell = j.get("cell").getAsInt();
 				JsonObject icons = j.getAsJsonObject("icons");
 				for (String k : icons.keySet()) {
@@ -188,16 +196,14 @@ public final class ModIcons {
 				if (!CELLS.containsKey("friends") && CELLS.containsKey("@user")) {
 					CELLS.put("friends", CELLS.get("@user"));
 				}
-				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.png")) {
-					maskImage = NativeImage.read(in);
-				}
+				// Decode only (main 0ccf5094): registration waits for ensureAtlas, the first
+				// draw that can use an atlas. The images come from OriginAssets' prefetch
+				// (decoded on the reload's worker threads) or are decoded now if it hasn't run.
+				maskImage = com.origin.client.client.OriginAssets.image("/assets/originclient/textures/ui/mod_icons.png");
 				atlasW = maskImage.getWidth();
 				atlasH = maskImage.getHeight();
 				try {
-					try (InputStream in = ModIcons.class.getResourceAsStream(
-							"/assets/originclient/textures/ui/mod_icons_sdf.png")) {
-						sdfImage = NativeImage.read(in);
-					}
+					sdfImage = com.origin.client.client.OriginAssets.image("/assets/originclient/textures/ui/mod_icons_sdf.png");
 					if (sdfImage.getWidth() != atlasW || sdfImage.getHeight() != atlasH) {
 						sdfImage.close();
 						sdfImage = null;
@@ -211,6 +217,18 @@ public final class ModIcons {
 			} catch (Throwable t) {
 				ok = false;
 				sdfOk = false;
+				// Decoded atlases that will never be registered: free them, and any
+				// prefetched ones never handed over (the metrics failed first).
+				if (maskImage != null) {
+					maskImage.close();
+					maskImage = null;
+				}
+				if (sdfImage != null) {
+					sdfImage.close();
+					sdfImage = null;
+				}
+				com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/ui/mod_icons.png");
+				com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/ui/mod_icons_sdf.png");
 				com.origin.client.OriginClient.LOGGER.warn("Origin mod icons failed to load; cards draw without icons", t);
 			}
 		}
@@ -259,11 +277,17 @@ public final class ModIcons {
 		NativeImage img = maskImage;
 		maskImage = null;
 		try {
-			DynamicTexture tex = new DynamicTexture(() -> "originclient:ui_mod_icons", img) {
-				{
-					this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
-				}
-			};
+			DynamicTexture tex;
+			try {
+				tex = new DynamicTexture(() -> "originclient:ui_mod_icons", img) {
+					{
+						this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+					}
+				};
+			} catch (Throwable t) {
+				img.close();   // never reached a texture: ours to free
+				throw t;
+			}
 			Minecraft.getInstance().getTextureManager().register(ATLAS, tex);
 			maskRegistered = true;
 			return true;

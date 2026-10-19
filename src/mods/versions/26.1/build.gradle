@@ -45,6 +45,14 @@ loom {
 			if (project.hasProperty("mixinexport")) {
 				property "mixin.debug.export", "true"
 			}
+			// `-PframeLog`: the loading -> main menu frame-time log (OriginFrameLog,
+			// lines start "[OriginFrameLog]") plus the JVM's own GC pause lines
+			// (-Xlog:gc, "[gc]"), both to the console. Loom drops `--args`, so
+			// these are the only way to switch them on in a dev run.
+			if (project.hasProperty("frameLog")) {
+				property "origin.frameLog", "true"
+				vmArg "-Xlog:gc:stdout:uptime,level,tags"
+			}
 			// The launcher's JVM preset (Core/Launch/JvmArgPresets.cs, Aikar's flags),
 			// so every dev run / dev-shots boot proves Java 25 still accepts each flag
 			// (an expired -XX option stops the JVM before the game starts).

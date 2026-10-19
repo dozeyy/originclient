@@ -1,6 +1,5 @@
 package com.origin.client.client.gui;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.textures.GpuTextureView;
@@ -14,7 +13,6 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix3x2f;
 
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,7 +49,6 @@ public final class OriginSdfFont {
 	public static final float EM_PX = 9.0f;
 	public static final float MATCH_DY = -2.0f;
 
-	private static final Gson GSON = new Gson();
 
 	private static final Map<Character, Character> SUBS = new HashMap<>();
 	static {
@@ -110,6 +107,11 @@ public final class OriginSdfFont {
 	private OriginSdfFont() {
 	}
 
+	/** Uploads both faces now (OriginAssets' per-frame upload slices), not on a screen's first frame. */
+	public static void preload() {
+		ensureLoaded();
+	}
+
 	/** True when at least the regular face + the pipeline are live. */
 	public static boolean ready() {
 		ensureLoaded();
@@ -132,11 +134,9 @@ public final class OriginSdfFont {
 
 	private static void loadFace(Face f, String base) {
 		try {
-			JsonObject j;
-			try (InputStream in = OriginSdfFont.class.getResourceAsStream(
-					"/assets/originclient/textures/font/" + base + ".json")) {
-				j = GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-			}
+			// Metrics and atlas are decoded on the startup reload's worker threads
+			// (OriginAssets); only the GPU upload happens here.
+			JsonObject j = com.origin.client.client.OriginAssets.json("/assets/originclient/textures/font/" + base + ".json");
 			f.size = j.get("size").getAsFloat();
 			f.atlasW = j.get("atlasW").getAsFloat();
 			f.atlasH = j.get("atlasH").getAsFloat();
@@ -161,12 +161,14 @@ public final class OriginSdfFont {
 				// glyph boxes carry half the distance range as padding on each side
 				f.capTop = f.glyphs.get('H').oy + range / 2f;
 			}
-			NativeImage img;
-			try (InputStream in = OriginSdfFont.class.getResourceAsStream(
-					"/assets/originclient/textures/font/" + base + ".png")) {
-				img = NativeImage.read(in);
+			NativeImage img = com.origin.client.client.OriginAssets.image("/assets/originclient/textures/font/" + base + ".png");
+			DynamicTexture tex;
+			try {
+				tex = new DynamicTexture(() -> base, img);
+			} catch (Throwable t) {
+				img.close();   // never reached a texture: ours to free
+				throw t;
 			}
-			DynamicTexture tex = new DynamicTexture(() -> base, img);
 			// MSDF REQUIRES linear filtering (the edge is reconstructed between
 			// texels); a DynamicTexture samples NEAREST until told otherwise, which
 			// turns every glyph edge into stair-steps. Same call ModIcons makes for
@@ -179,6 +181,8 @@ public final class OriginSdfFont {
 					base, f.glyphs.size(), f.atlasW, f.atlasH, f.size, f.atlas);
 		} catch (Throwable t) {
 			f.ok = false;
+			// The prefetched atlas, if the metrics failed before it was taken: free it.
+			com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/font/" + base + ".png");
 			com.origin.client.OriginClient.LOGGER.warn("Origin MSDF face '" + base + "' failed to load; using vanilla text", t);
 		}
 	}
