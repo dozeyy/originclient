@@ -152,8 +152,11 @@ def _check_game_jvm(expected, verdict):
         try:
             with open(f"/proc/{pid}/cmdline", "rb") as f:
                 cmdline = f.read()
-            if b"KnotClient" in cmdline:
-                exe = os.path.realpath(f"/proc/{pid}/exe")
+            # Loom wraps the game in `sh -c "... java ... KnotClient"` (xvfb-run); skip the
+            # shell, the real JVM is the process whose binary is named java.
+            real = os.path.realpath(f"/proc/{pid}/exe")
+            if b"KnotClient" in cmdline and os.path.basename(real).startswith("java"):
+                exe = real
                 break
         except OSError:
             continue
