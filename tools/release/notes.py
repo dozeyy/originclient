@@ -65,7 +65,7 @@ NOISE_TITLE = re.compile(
     r"(?i)(^merge\b|^revert\b|\bdev[- ]?only\b|\bci[- ]?only\b|\btest[- ]?only\b"
     r"|\blauncher[- ]shots?\b|\bdev[- ]?shots?\b|\bframe[- ]log\b|\brender-shots\b"
     r"|\bboot-smoke\b|\bcheck_consistency\b|\bscale-checks\b"
-    r"|^review\b|\breview round \d|\bfollow-?ups?\b|\bpolish from\b|\binterface skeleton\b"
+    r"|^review\b|\breview fix(?:es)?\s*:|\breview round \d|\bfollow-?ups?\b|\bpolish from\b|\binterface skeleton\b"
     r"|\bseams?\b|\.xaml\b|\bper the\b|\bGradle\b|\bJDK\b|\bfixtures?\b|\bwiring\b|\balloc\b|\bflush on throw\b)")
 # Code identifiers are only recognised by shapes no product/feature name has:
 # a dotted or underscored name ("SettingsDelta.AddProfiles", "check_consistency"),
@@ -208,6 +208,17 @@ def versions_updated(prev: str, tag: str) -> list[str] | None:
     return sorted(labels, key=lambda s: tuple(int(p) for p in re.findall(r"\d+", s)[:3]), reverse=True)
 
 
+def _git_error_text(e: Exception) -> str:
+    """One line for an error: git's own stderr when it is a failed git call."""
+    if isinstance(e, subprocess.CalledProcessError):
+        err = e.stderr
+        if isinstance(err, bytes):
+            err = err.decode("utf-8", "replace")
+        err = (err or "").strip()
+        return err.splitlines()[0] if err else f"exit {e.returncode} from {' '.join(map(str, e.cmd))}"
+    return f"{type(e).__name__}: {e}"
+
+
 def render(head: str, prev: str) -> str:
     """Notes for the release at git ref `head` (a tag, or a sha in a rehearsal)."""
     if not prev:  # the first release: its "changes" are the whole project
@@ -226,8 +237,10 @@ def render(head: str, prev: str) -> str:
 
     try:
         updated = versions_updated(prev, head)
-    except (subprocess.CalledProcessError, ValueError, KeyError, TypeError, OSError):
+    except (subprocess.CalledProcessError, ValueError, KeyError, TypeError, OSError) as e:
         updated = None  # the version list is a nicety; never let it block a release
+        # ...but say so: a silently missing section is invisible in CI logs otherwise.
+        print(f"notes.py: warning: version list skipped: {_git_error_text(e)}", file=sys.stderr)
     if updated is not None:
         out += ["## Minecraft versions updated"]
         out += ([", ".join(updated)] if updated else
@@ -287,7 +300,11 @@ def main() -> int:
     head = args.head or args.tag
     if not head:
         ap.error("--tag or --head is required (or use --backfill)")
-    body = render(head, args.prev)
+    try:
+        body = render(head, args.prev)
+    except subprocess.CalledProcessError as e:
+        print(f"notes.py: git failed: {_git_error_text(e)}", file=sys.stderr)
+        return 1
     if args.out:
         args.out.write_text(body, encoding="utf-8")
     else:

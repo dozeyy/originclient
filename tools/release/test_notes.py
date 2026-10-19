@@ -9,9 +9,13 @@ first 3 of them are kept, which is all the filter needs).
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import json
+import subprocess
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -34,6 +38,11 @@ class FilterRules(unittest.TestCase):
                   "Import drawer review round 1", "Bulk import interface skeleton",
                   "Setup: SettingsDelta.AddProfiles declared once", "Fix check_consistency drift",
                   "Import drawer implements IImportCloseHost, one refusal sentence"):
+            self.assertEqual(notes.classify(t)[0], "skip", t)
+
+    def test_review_fixes_prefix_titles_are_dropped_in_any_case(self):
+        for t in ("LoadBar review fixes: creep always runs, build-check also runs on tools/loading-bar-tests changes",
+                  "Foo Review Fix: tidy", "1.21.1: Menu REVIEW FIXES: spacing"):
             self.assertEqual(notes.classify(t)[0], "skip", t)
 
     def test_real_features_with_camelcase_or_review_words_are_kept(self):
@@ -73,6 +82,32 @@ class FilterRules(unittest.TestCase):
 
     def test_only_noise_leaves_nothing(self):
         self.assertEqual(lines(("docs: x", ["docs/x.md"])), {"new": [], "fixes": []})
+
+
+class GitFailures(unittest.TestCase):
+    def run_main(self, *argv):
+        err = io.StringIO()
+        with unittest.mock.patch.object(sys, "argv", ["notes.py", *argv]), contextlib.redirect_stderr(err):
+            code = notes.main()
+        return code, err.getvalue()
+
+    def test_bad_ref_prints_one_clear_line_and_exits_nonzero(self):
+        code, err = self.run_main("--head", "HEAD", "--prev", "no-such-ref-xyz")
+        self.assertNotEqual(code, 0)
+        self.assertEqual(len(err.strip().splitlines()), 1, err)
+        self.assertTrue(err.startswith("notes.py: git failed: "), err)
+        self.assertIn("no-such-ref-xyz", err)
+
+    def test_version_list_failure_warns_on_stderr_and_keeps_notes(self):
+        boom = subprocess.CalledProcessError(128, ["git", "x"], stderr="fatal: boom")
+        err = io.StringIO()
+        with unittest.mock.patch.object(notes, "commit_records", return_value=[]), \
+             unittest.mock.patch.object(notes, "versions_updated", side_effect=boom), \
+             contextlib.redirect_stderr(err):
+            body = notes.render("HEAD", "v0")
+        self.assertIn("warning", err.getvalue())
+        self.assertIn("fatal: boom", err.getvalue())
+        self.assertNotIn("Minecraft versions updated", body)
 
 
 class RealRange(unittest.TestCase):
