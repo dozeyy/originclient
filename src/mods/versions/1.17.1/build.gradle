@@ -95,6 +95,9 @@ dependencies {
 	// runClient resolution under this module's older run toolchain.
 	if (file("libs/sodium-fabric-mc1.17.1-0.3.4+build.13.jar").exists()) {
 		runtimeOnly "org.anarres:jcpp:1.4.14"
+		// Sodium 0.3.4 nests JOML; a raw files() jar does not unpack it, so entering ANY world crashed with
+		// NoClassDefFoundError org/joml/Matrix4fc (CI dev-shots world run 39313801544). 1.17.1 ships no JOML.
+		runtimeOnly "org.joml:joml:1.10.5"
 		// (no glsl-transformer / antlr here: Iris 1.2.7 nests only jcpp, and glsl-transformer needs JVM 17+, which
 		// failed the whole runtimeClasspath resolution on this older toolchain -- CI run 39311020937)
 	}
