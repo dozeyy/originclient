@@ -30,10 +30,13 @@
 
             <StackPanel x:Name="HomeLockup" Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,24,0">
                 <!-- No family eyebrow above the pills (Will, 2026-10-19): the pill already
-                     names the version, and the art and numeral name the family. -->
-                <StackPanel Orientation="Horizontal">
+                     names the version, and the art and numeral name the family.
+                     A DockPanel, not a StackPanel: when Play grows (RUNNING, Join) or the
+                     window is narrow, the profile pill gets the width that is left and its
+                     name trims, instead of the whole row being cut off. -->
+                <DockPanel LastChildFill="True">
                     <!-- The version pill: opens the bottom-sheet picker. -->
-                    <Button x:Name="VersionButton" Style="{StaticResource Button.Pill}" Padding="18,0,14,0"
+                    <Button x:Name="VersionButton" DockPanel.Dock="Left" Style="{StaticResource Button.Pill}" Padding="18,0,14,0"
                             Click="VersionButton_Click" ToolTip="Choose a Minecraft version"
                             AutomationProperties.Name="Choose Minecraft version">
                         <StackPanel Orientation="Horizontal">
@@ -52,9 +55,15 @@
 
                     <!-- The profile chip: the mod profile Play will use; opens Profiles. -->
                     <Button x:Name="ProfileRow" Style="{StaticResource Button.Pill}" Padding="10,0,14,0" Margin="8,0,0,0"
+                            HorizontalAlignment="Left" HorizontalContentAlignment="Stretch"
                             Click="ProfileRow_Click" ToolTip="Switch profile"
                             AutomationProperties.Name="Switch profile">
-                        <StackPanel Orientation="Horizontal">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
                             <Border x:Name="ProfileEmblem" Width="36" Height="36" CornerRadius="6" Margin="0,0,12,0"
                                     Background="{StaticResource Brush.CardAlt}">
                                 <Grid>
@@ -66,17 +75,17 @@
                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
-                            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
                                 <TextBlock x:Name="ProfileNameText" Text="No profile" Style="{StaticResource Text.PillTitle}"
                                            MaxWidth="220" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock x:Name="ProfileSubText" Text="Plain Origin" Style="{StaticResource Text.PillSub}"
                                            MaxWidth="220" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
-                            <Path Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
+                            <Path Grid.Column="2" Data="{StaticResource Icon.ChevronDown}" Style="{StaticResource Icon.Base}"
                                   Width="16" Height="16" VerticalAlignment="Center" Stroke="{StaticResource Brush.TextDim}"/>
-                        </StackPanel>
+                        </Grid>
                     </Button>
-                </StackPanel>
+                </DockPanel>
 
                 <!-- The status line: a 6 px square (the accent while live) and one line. The
                      players-online count joins it once it arrives, and only then. -->
