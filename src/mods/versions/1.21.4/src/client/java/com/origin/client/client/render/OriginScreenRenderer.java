@@ -462,7 +462,9 @@ public final class OriginScreenRenderer {
 		// load; it sweeps until the load's first measured stage (LoadBar.scene).
 		double now = RingField.sceneMs();
 		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(), progress, now, FILL_TAU);
-		com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
+		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
+			com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
+		}
 		drawSceneText(guiGraphics, mc.font, w, h, title == null ? "" : title.getString().trim(), sceneFill);
 	}
 
