@@ -80,6 +80,15 @@ loom {
 	// out of the class instead of inferred from silence.
 	runs {
 		client {
+			// The launcher's boot flags for 1.21.1 (src/OriginLauncher.App/Core/Launch/
+			// JvmArgPresets.cs BootArgsFor), so every dev run, dev shot and boot-time
+			// measurement runs the game the way a player's launch does. ModernFix
+			// dynamic_resources: block/item models are baked when first used instead of
+			// all of them under the loading screen (boot-time A/B, 2026-10-19).
+			// `-PnoBootArgs` drops them (to measure or shoot the game without).
+			if (!project.hasProperty("noBootArgs")) {
+				vmArg "-Dmodernfix.config.mixin.perf.dynamic_resources=true"
+			}
 			if (project.hasProperty("quickplay")) {
 				programArgs "--quickPlaySingleplayer", project.property("quickplay").toString()
 			}
@@ -234,6 +243,10 @@ tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask
 		mods.from(fileTree(project.property("extraMods").toString()) { include "*.jar" })
 	}
 	runDir = file("run-prod")
+	// Same launcher boot flags as runClient above.
+	if (!project.hasProperty("noBootArgs")) {
+		jvmArgs.add("-Dmodernfix.config.mixin.perf.dynamic_resources=true")
+	}
 	if (project.hasProperty("frameLog")) {
 		jvmArgs.add("-Dorigin.frameLog=true")
 		jvmArgs.add("-Xlog:gc:stdout:uptime,level,tags")
