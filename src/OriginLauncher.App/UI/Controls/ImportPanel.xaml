@@ -44,7 +44,7 @@
                             <ScrollViewer.Template>
                                 <ControlTemplate TargetType="ScrollViewer">
                                     <Grid>
-                                        <ScrollContentPresenter Margin="{TemplateBinding Padding}"
+                                        <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Margin="{TemplateBinding Padding}"
                                                                 CanContentScroll="{TemplateBinding CanContentScroll}"/>
                                         <ScrollBar x:Name="PART_VerticalScrollBar" HorizontalAlignment="Right" Margin="0,0,0,9"
                                                    Orientation="Vertical" Minimum="0"

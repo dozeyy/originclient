@@ -1614,6 +1614,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     /// <summary>Puts focus on the footer's secondary button (the render then presses Tab, which lands on the primary).</summary>
     internal void TourFocusFooterSecondary() => FooterSecondary.Focus();
 
+    /// <summary>The first setup row's tick box and the footer's primary: where the two focus shots expect the Tab to land.</summary>
+    internal FrameworkElement? TourFirstTick() => FindFirst<CheckBox>(OverviewList, _ => true);
+
+    internal FrameworkElement TourFooterPrimary() => FooterPrimary;
+
     private static T? FindFirst<T>(DependencyObject root, Func<T, bool> match) where T : DependencyObject
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)

@@ -173,14 +173,22 @@ internal static class ImportShots
             window.TourCloseImport();
             RenderShots.Pump(400);
             panel = Open(window, Demo.Bulk, 1500);
+            var focusLog = new System.Text.StringBuilder();
+            window.Activate(); // the render window opens without activation; keyboard focus needs an active window
+            RenderShots.Pump(200);
             panel.TourFocusFirstRow();
             PressTab(window);
             RenderShots.Pump(300);
+            var tickFrame = FocusFrame(window, panel.TourFirstTick(), "tick", focusLog);
             RenderShots.Snap(window, outDir, "42-import-drawer-focus-tick");
+            tickFrame?.Invoke();
             panel.TourFocusFooterSecondary();
             PressTab(window);
             RenderShots.Pump(300);
+            var footerFrame = FocusFrame(window, panel.TourFooterPrimary(), "footer primary", focusLog);
             RenderShots.Snap(window, outDir, "42b-import-drawer-focus-footer");
+            footerFrame?.Invoke();
+            File.WriteAllText(Path.Combine(outDir, "focus-checks.txt"), focusLog.ToString());
 
             // 52, 53: the smallest window the launcher allows, for the drawer and a single review (50, 51: the Home card, RunHomeCard).
             window.TourCloseImport();
@@ -213,6 +221,62 @@ internal static class ImportShots
         var panel = window.TourOpenImport(new DemoBackend(demo));
         RenderShots.Pump(pumpMs);
         return panel;
+    }
+
+    /// <summary>
+    /// After the real Tab: when the expected control holds keyboard focus, WPF has drawn its focus frame itself. When the
+    /// CI window could not become active (no keyboard focus at all), the control's OWN FocusVisualStyle is drawn on it the
+    /// way WPF's focus adorner does, so the frame can still be judged; focus-checks.txt says which happened. Returns the
+    /// undo for a drawn frame.
+    /// </summary>
+    private static Action? FocusFrame(MainWindow window, System.Windows.FrameworkElement? target, string what, System.Text.StringBuilder log)
+    {
+        var focused = System.Windows.Input.Keyboard.FocusedElement as System.Windows.FrameworkElement;
+        if (target == null)
+        {
+            log.AppendLine($"{what}: target not found (focused: {focused?.GetType().Name ?? "nothing"})");
+            return null;
+        }
+        if (target.IsKeyboardFocused)
+        {
+            log.AppendLine($"{what}: real keyboard focus after Tab (window active: {window.IsActive})");
+            return null;
+        }
+        log.AppendLine($"{what}: no keyboard focus in CI (window active: {window.IsActive}, focused: {focused?.GetType().Name ?? "nothing"}); "
+            + "its FocusVisualStyle is drawn on it instead");
+        if (target.FocusVisualStyle == null || System.Windows.Documents.AdornerLayer.GetAdornerLayer(target) is not { } layer) return null;
+        var adorner = new StyleAdorner(target, target.FocusVisualStyle);
+        layer.Add(adorner);
+        RenderShots.Pump(200);
+        return () => layer.Remove(adorner);
+    }
+
+    /// <summary>What WPF's own focus adorner is: a Control wearing the element's FocusVisualStyle, laid over the element.</summary>
+    private sealed class StyleAdorner : System.Windows.Documents.Adorner
+    {
+        private readonly System.Windows.Controls.Control _frame;
+
+        public StyleAdorner(System.Windows.UIElement target, System.Windows.Style style) : base(target)
+        {
+            _frame = new System.Windows.Controls.Control { Style = style, Focusable = false, IsHitTestVisible = false };
+            AddVisualChild(_frame);
+        }
+
+        protected override int VisualChildrenCount => 1;
+
+        protected override System.Windows.Media.Visual GetVisualChild(int index) => _frame;
+
+        protected override System.Windows.Size MeasureOverride(System.Windows.Size constraint)
+        {
+            _frame.Measure(AdornedElement.RenderSize);
+            return AdornedElement.RenderSize;
+        }
+
+        protected override System.Windows.Size ArrangeOverride(System.Windows.Size finalSize)
+        {
+            _frame.Arrange(new System.Windows.Rect(finalSize));
+            return finalSize;
+        }
     }
 
     /// <summary>
