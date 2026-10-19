@@ -9,9 +9,12 @@ namespace OriginLauncher.App.Core.Import;
 // Names and reasons only — no file contents, no paths into the player's secrets.
 public static class ImportSummary
 {
-    public static string Render(ImportPlan plan, IReadOnlyList<SummaryLine>? extraLines = null, string? outcome = null)
+    /// <param name="dropped">Plan lines apply proved untrue (an item left out because its source couldn't be read), by reference.</param>
+    public static string Render(ImportPlan plan, IReadOnlyList<SummaryLine>? extraLines = null, string? outcome = null,
+        IReadOnlySet<SummaryLine>? dropped = null)
     {
-        var lines = plan.Lines.Concat(extraLines ?? Array.Empty<SummaryLine>()).ToList();
+        var lines = plan.Lines.Where(l => dropped == null || !dropped.Contains(l))
+            .Concat(extraLines ?? Array.Empty<SummaryLine>()).ToList();
         var sb = new StringBuilder();
         sb.AppendLine("Origin import");
         sb.AppendLine($"From: {plan.Source.SourceLabel}: {plan.Source.Name}"

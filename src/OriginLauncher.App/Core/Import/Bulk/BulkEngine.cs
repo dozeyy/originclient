@@ -265,7 +265,7 @@ public sealed partial class ImportEngine
                 continue;
             }
 
-            if (setupPlan.ProfileId != null)
+            if (setupPlan.ProfileId != null && !setupPlan.ProfileReused)
                 plannedProfiles.Add(new ModProfile { Id = setupPlan.ProfileId, Name = setupPlan.ProfileName!, Version = version });
             string? note = null;
             if (role == SetupRole.PacksOnly)
@@ -497,8 +497,9 @@ public sealed partial class ImportEngine
                         {
                             // B16: a soft SOURCE problem (gone, unreadable, in use) leaves that item out, with a line —
                             // and its claim passes to the next setup that has the same thing.
-                            state.Extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label,
-                                "Couldn't read it in your old setup (it may be in use, or gone), so it was left out."));
+                            // Its planned "Imported" line is no longer true: dropped, so the result never lists it twice.
+                            state.Extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, CouldntReadSource));
+                            if (op.PlannedLine != null) state.Superseded.Add(op.PlannedLine);
                             if (op.ClaimKey != null)
                             {
                                 released.Add(op.ClaimKey);
@@ -565,7 +566,8 @@ public sealed partial class ImportEngine
             .Where(s => states[s].Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly)
             .ToList();
         if (imported.Count == 0) return null;
-        var profiles = imported.Where(s => s.Plan.ProfileId != null)
+        // A reused profile (a repeat import) is the player's already: never added, so never removed by an undo.
+        var profiles = imported.Where(s => s.Plan.ProfileId != null && !s.Plan.ProfileReused)
             .Select(s => new ModProfile { Id = s.Plan.ProfileId!, Name = s.Plan.ProfileName!, Version = s.Plan.TargetVersion })
             .ToList();
         var ranked = imported.OrderBy(s => s.Setup, BulkRanking.Order).ToList();

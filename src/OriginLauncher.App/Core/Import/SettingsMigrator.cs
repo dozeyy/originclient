@@ -449,12 +449,12 @@ public static class SettingsMigrator
                 return null;
             }
             Ledger.AddPack(name, dest, srcPath, _c.SetupLabel, isDir, _c.SetupKey);
+            var packLine = Line(SummarySection.Imported, kind, finalName, reason, bytes);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = isDir ? OpKind.CopyTree : OpKind.CopyFile, Item = kind, Label = finalName,
-                Source = srcPath, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest),
+                Source = srcPath, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest), PlannedLine = packLine,
             });
-            Line(SummarySection.Imported, kind, finalName, reason, bytes);
             return finalName;
         }
 
@@ -610,6 +610,12 @@ public static class SettingsMigrator
                 var name = Path.GetFileName(world);
                 // Two setups can share one game folder: a world folder is copied once per run.
                 var dest = Path.Combine(dstSaves, name);
+                // Imported before and unchanged since (byte for byte): importing again must not add "World1 (imported)".
+                if (Directory.Exists(dest) && !Ledger.IsClaimed(dest) && FileCompare.SameTree(world, dest, Fs))
+                {
+                    Line(SummarySection.Imported, PlanItemKind.World, name, "already in Origin (same world), left as it is");
+                    continue;
+                }
                 if (Directory.Exists(dest) || File.Exists(dest) || Ledger.IsClaimed(dest))
                 {
                     // Never merged into another world: a second "New World" is saved beside the first.
@@ -625,13 +631,13 @@ public static class SettingsMigrator
                 var finalName = Path.GetFileName(dest);
                 Ledger.Add(dest, world, _c.SetupLabel, isDirectory: true, _c.SetupKey);
                 var bytes = DirectorySize(world);
+                var worldLine = Line(SummarySection.Imported, PlanItemKind.World, finalName,
+                    finalName == name ? null : $"a world called \"{name}\" already exists, so this copy is saved as \"{finalName}\"", bytes);
                 Plan.Ops.Add(new PlannedOp
                 {
                     Kind = OpKind.CopyTree, Item = PlanItemKind.World, Label = finalName,
-                    Source = world, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest),
+                    Source = world, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest), PlannedLine = worldLine,
                 });
-                Line(SummarySection.Imported, PlanItemKind.World, finalName,
-                    finalName == name ? null : $"a world called \"{name}\" already exists, so this copy is saved as \"{finalName}\"", bytes);
             }
         }
 
@@ -658,12 +664,12 @@ public static class SettingsMigrator
                 }
                 Ledger.Add(dest, src, _c.SetupLabel, owner: _c.SetupKey);
                 Plan.Created++;
+                var createdLine = quiet ? null : Line(SummarySection.Imported, kind, label);
                 Plan.Ops.Add(new PlannedOp
                 {
                     Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
-                    ClaimKey = DestinationLedger.PathKey(dest),
+                    ClaimKey = DestinationLedger.PathKey(dest), PlannedLine = createdLine,
                 });
-                if (!quiet) Line(SummarySection.Imported, kind, label);
                 return true;
             }
             if (File.Exists(dest))
@@ -682,12 +688,12 @@ public static class SettingsMigrator
                 Plan.Created++;
             }
             Ledger.Add(dest, src, _c.SetupLabel, owner: _c.SetupKey);
+            var fileLine = quiet ? null : Line(SummarySection.Imported, kind, label);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
-                ClaimKey = DestinationLedger.PathKey(dest),
+                ClaimKey = DestinationLedger.PathKey(dest), PlannedLine = fileLine,
             });
-            if (!quiet) Line(SummarySection.Imported, kind, label);
             return true;
         }
 

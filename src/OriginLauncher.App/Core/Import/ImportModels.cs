@@ -272,6 +272,12 @@ public sealed record PlannedOp
     /// is left out of the result.
     /// </summary>
     public SummaryLine? DeferredLine { get; init; }
+
+    /// <summary>
+    /// The plan line that says this item comes over ("Imported: World1"). When apply leaves the item out because its
+    /// source couldn't be read, that line is no longer true and is left out of the result (compared by reference).
+    /// </summary>
+    public SummaryLine? PlannedLine { get; init; }
 }
 
 /// <summary>
@@ -311,6 +317,12 @@ public sealed class ImportPlan
     public string TargetGameDir { get; set; } = "";
     public string? ProfileId { get; set; }
     public string? ProfileName { get; set; }
+
+    /// <summary>
+    /// <see cref="ProfileId"/> is an EXISTING profile that already holds exactly these mods (a repeat import): no
+    /// mod is copied and the profile is never added to (or, on undo, removed from) the settings.
+    /// </summary>
+    public bool ProfileReused { get; set; }
     public required ImportOptions Options { get; init; }
 
     /// <summary>Plain sentences. Anything in here means Apply is refused ("Close Minecraft first").</summary>
