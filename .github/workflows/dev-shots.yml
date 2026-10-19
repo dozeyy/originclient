@@ -338,7 +338,7 @@ jobs:
           m="src/mods/versions/${{ matrix.module }}"
           req=""
           if [ "${{ github.event.inputs.perf_mods }}" != "false" ] && { ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; }; then req="--require-loaded"; fi
-          python3 tools/ci/perf_log.py "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.module }}" $req
+          python3 tools/ci/perf_log.py "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.module }}" --module-dir "$m" $req
 
   publish:
     needs: shots

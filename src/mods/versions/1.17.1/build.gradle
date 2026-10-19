@@ -95,8 +95,8 @@ dependencies {
 	// runClient resolution under this module's older run toolchain.
 	if (file("libs/sodium-fabric-mc1.17.1-0.3.4+build.13.jar").exists()) {
 		runtimeOnly "org.anarres:jcpp:1.4.14"
-		runtimeOnly "io.github.douira:glsl-transformer:2.0.0-pre13"
-		runtimeOnly "org.antlr:antlr4-runtime:4.11.1"
+		// (no glsl-transformer / antlr here: Iris 1.2.7 nests only jcpp, and glsl-transformer needs JVM 17+, which
+		// failed the whole runtimeClasspath resolution on this older toolchain -- CI run 39311020937)
 	}
 
 	// WebP preview decoding for the shader browser (fail-soft if the reader is

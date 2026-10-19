@@ -315,7 +315,13 @@ public final class OriginDevShots {
 		for (String cn : classNames) {
 			try {
 				Class<?> c = Class.forName(cn, true, OriginDevShots.class.getClassLoader());
-				Screen s = (Screen) c.getConstructor(Screen.class).newInstance(new TitleScreen());
+				Screen s;
+				try {
+					s = (Screen) c.getConstructor(Screen.class).newInstance(new TitleScreen());
+				} catch (NoSuchMethodException noCtor) {
+					// Sodium 0.6+ builds its options screen through a static factory instead
+					s = (Screen) c.getMethod("createScreen", Screen.class).invoke(null, new TitleScreen());
+				}
 				com.origin.client.OriginClient.LOGGER.info("[dev-shots] perf screen opened: {}", cn);
 				return s;
 			} catch (ClassNotFoundException | NoClassDefFoundError ignored) {

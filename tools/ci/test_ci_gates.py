@@ -368,6 +368,14 @@ class PerfLogGate(unittest.TestCase):
         ok, lines = perf_log.gate(MODLIST + MIXING, "m")
         self.assertIn("mixins applied: 1", "\n".join(lines))
 
+    def test_declared_mixins_are_listed_against_applied(self):
+        names = perf_log.declared(os.path.join(ROOT, "src", "mods", "versions", "1.20"))
+        self.assertIn("IrisWatermarkMixin", names)
+        self.assertIn("IrisShadowDirectivesMixin", names)
+        ok, lines = perf_log.gate(MODLIST + MIXING, "m", declared_names=names)
+        self.assertIn("NOT applied", "\n".join(lines))
+        self.assertIn("IrisShadowDirectivesMixin", "\n".join(lines))
+
     def test_zero_applied_with_mods_loaded_warns_but_passes(self):
         ok, lines = perf_log.gate(MODLIST, "m", require_loaded=True)
         self.assertTrue(ok)
