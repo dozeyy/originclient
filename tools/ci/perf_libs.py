@@ -33,7 +33,8 @@ import urllib.request
 API = "https://api.modrinth.com/v2"
 UA = "originclient-ci/1.0 (github.com/dozeyy/originclient)"
 # libs/<file> inside a modRuntimeOnly line that is not a comment.
-PIN = re.compile(r'^\s*modRuntimeOnly\s+files\(\s*"libs/([^"]+\.jar)"\s*\)', re.M)
+PIN = re.compile(r'^\s*modRuntimeOnly\s+files\(\s*"libs/([^"/\\]+\.jar)"\s*\)', re.M)   # no path separators in the name
+DOWNLOAD_HOST = "cdn.modrinth.com"   # the only host a jar may be fetched from
 SLUGS = (("sodium", "sodium"), ("iris", "iris"))   # (file-name prefix, Modrinth project)
 
 
@@ -45,6 +46,8 @@ def pins(gradle_text):
     """The libs/ jar names a build.gradle loads, in order, de-duplicated. Comment lines never match."""
     seen = []
     for name in PIN.findall(gradle_text):
+        if ".." in name:
+            raise PerfLibsError(f"unsafe jar name in build.gradle: {name!r}")
         if name not in seen:
             seen.append(name)
     return seen
@@ -97,6 +100,8 @@ def verify(data, expected_sha512):
 
 def fetch_one(filename, out_dir, fetch_json=None, fetch_bytes=None):
     """Download + verify one pinned jar. Returns 'ok' or 'skipped: <why>'. Raises PerfLibsError on mismatch."""
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise PerfLibsError(f"unsafe jar name: {filename!r}")
     fetch_json = fetch_json or (lambda u: json.loads(_get(u)))
     fetch_bytes = fetch_bytes or _get
     vid = resolve(filename, fetch_json)
@@ -106,6 +111,9 @@ def fetch_one(filename, out_dir, fetch_json=None, fetch_bytes=None):
     f = next((x for x in info.get("files", []) if x.get("filename") == filename), None)
     if not f:
         return "skipped: version has no such file"
+    parts = urllib.parse.urlsplit(f["url"])
+    if parts.scheme != "https" or parts.hostname != DOWNLOAD_HOST:
+        raise PerfLibsError(f"refusing to download from {parts.scheme}://{parts.hostname} (only https://{DOWNLOAD_HOST})")
     data = fetch_bytes(f["url"])
     verify(data, f.get("hashes", {}).get("sha512"))
     os.makedirs(out_dir, exist_ok=True)
@@ -126,7 +134,11 @@ def main():
     name = os.path.basename(os.path.abspath(args.module))
     out = args.out or os.path.join(args.module, "libs")
     with open(gradle, encoding="utf-8") as fh:
-        wanted = pins(fh.read())
+        try:
+            wanted = pins(fh.read())
+        except PerfLibsError as e:
+            print(f"::error title=perf-libs {name}::{e}")
+            return 1
     if not wanted:
         print(f"perf-libs: {name}: no libs/ pins in build.gradle (Sodium/Iris come from Gradle, if at all); nothing to fetch")
         return 0

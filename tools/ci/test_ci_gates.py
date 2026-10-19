@@ -332,7 +332,7 @@ class PerfLibs(unittest.TestCase):
         listing = perf_libs.API + "/project/iris/version?loaders=" + perf_libs.urllib.parse.quote('["fabric"]')
         api = {
             listing: [{"id": "V1", "files": [{"filename": fn}]}],
-            perf_libs.API + "/version/V1": {"files": [{"filename": fn, "url": "http://x/f.jar",
+            perf_libs.API + "/version/V1": {"files": [{"filename": fn, "url": "https://cdn.modrinth.com/data/x/f.jar",
                                                        "hashes": {"sha512": hashlib.sha512(b"good").hexdigest()}}]},
         }
         out = tempfile.mkdtemp()
@@ -344,6 +344,27 @@ class PerfLibs(unittest.TestCase):
         # Not on Modrinth under that name -> skipped, never guessed.
         api[listing] = []
         self.assertTrue(perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"good").startswith("skipped"))
+
+    def test_only_the_modrinth_cdn_is_a_download_host(self):
+        import hashlib
+        fn = "iris-mc1.20-1.6.4.jar"
+        listing = perf_libs.API + "/project/iris/version?loaders=" + perf_libs.urllib.parse.quote('["fabric"]')
+        for url in ("http://cdn.modrinth.com/f.jar", "https://evil.example/f.jar", "https://cdn.modrinth.com.evil.example/f.jar"):
+            api = {listing: [{"id": "V1", "files": [{"filename": fn}]}],
+                   perf_libs.API + "/version/V1": {"files": [{"filename": fn, "url": url,
+                                                              "hashes": {"sha512": hashlib.sha512(b"good").hexdigest()}}]}}
+            out = tempfile.mkdtemp()
+            with self.assertRaises(perf_libs.PerfLibsError, msg=url):
+                perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"good")
+            self.assertFalse(os.path.exists(os.path.join(out, fn)))
+
+    def test_pin_names_cannot_carry_a_path(self):
+        self.assertEqual(perf_libs.pins('modRuntimeOnly files("libs/sub/iris.jar")\n'), [])
+        self.assertEqual(perf_libs.pins('modRuntimeOnly files("libs/a\\\\b.jar")\n'), [])
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.pins('modRuntimeOnly files("libs/iris..jar")\n')
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.fetch_one("../iris.jar", tempfile.mkdtemp(), lambda u: [], lambda u: b"")
 
 
 class PerfLogGate(unittest.TestCase):
@@ -380,6 +401,25 @@ class PerfLogGate(unittest.TestCase):
         ok, lines = perf_log.gate(MODLIST, "m", require_loaded=True)
         self.assertTrue(ok)
         self.assertIn("::warning", "\n".join(lines))
+
+    def test_missing_or_empty_log_fails_the_gate(self):
+        import sys
+        d = tempfile.mkdtemp()
+        empty = os.path.join(d, "empty.log")
+        open(empty, "w").close()
+        blank = os.path.join(d, "blank.log")
+        with open(blank, "w") as fh:
+            fh.write("\n  \n")
+        good = os.path.join(d, "good.log")
+        with open(good, "w") as fh:
+            fh.write(MODLIST + MIXING)
+        old = sys.argv
+        try:
+            for path, want in ((os.path.join(d, "missing.log"), 1), (empty, 1), (blank, 1), (good, 0)):
+                sys.argv = ["perf_log.py", path, "--require-loaded"]
+                self.assertEqual(perf_log.main(), want, path)
+        finally:
+            sys.argv = old
 
     def test_smoke_and_workflows_wire_the_gate(self):
         self.assertEqual(smoke.classify("InvalidInjectionException: @Inject target"), "fail")

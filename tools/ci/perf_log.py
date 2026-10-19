@@ -108,8 +108,13 @@ def main():
     try:
         with open(args.run_log, encoding="utf-8", errors="replace") as f:
             text = f.read()
-    except OSError:
-        text = ""
+    except OSError as e:
+        # A missing log must FAIL: an empty text has no failure lines, so the gate would pass on nothing.
+        print(f"::error title=perf log::cannot read {args.run_log}: {e}")
+        return 1
+    if not text.strip():
+        print(f"::error title=perf log::{args.run_log} is empty -- the game never logged, nothing was gated")
+        return 1
     name = args.module or os.path.basename(os.path.dirname(os.path.abspath(args.run_log)))
     ok, lines = gate(text, name, args.require_loaded, declared(args.module_dir) if args.module_dir else None)
     print("\n".join(lines))
