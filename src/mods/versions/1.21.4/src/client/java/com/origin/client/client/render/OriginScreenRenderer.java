@@ -328,23 +328,12 @@ public final class OriginScreenRenderer {
 				? overlay.originclient$reload() : null;
 	}
 
-	// The reload has reached the stretch where its work runs on the render thread,
-	// where one step can hold a frame for hundreds of ms: a listener ran its first
-	// task there (ReloadTaskTagMixin; some mods do heavy work there while others
-	// still prepare), or every listener has prepared (the apply steps), or it is
-	// done. Without the mixins: only once done.
+	// When the loading mark comes to rest. Here: once the reload is done (the
+	// settle hold then shows it still). The 1.21.1 reference also settles earlier,
+	// at the first render-thread reload task (ReloadTaskTagMixin) or once every
+	// listener has prepared; that part is ported separately.
 	private static String settleReason(net.minecraft.server.packs.resources.ReloadInstance reload) {
-		if (reload.isDone()) {
-			return "load done";
-		}
-		if (com.origin.client.client.StartupTransition.reloadRenderWorkSince(markReloadAt)) {
-			return "render-thread reload work";
-		}
-		if (reload instanceof com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor s
-				&& s.originclient$allPreparations().isDone()) {
-			return "all listeners prepared";
-		}
-		return null;
+		return reload.isDone() ? "load done" : null;
 	}
 
 	/** The loading mark has landed and stopped (the settle hold may end). */
@@ -366,19 +355,16 @@ public final class OriginScreenRenderer {
 		try {
 			layerAlpha = 1f;
 			// The screen drew its labels a little in front (z > 0): clear depth so the
-			// loading picture covers them, the same clear GameRenderer does before the GUI.
+			// loading picture covers them, the same clear GameRenderer does before the
+			// GUI. This era batches the GUI: the screen's queued draws land (flush) first.
+			guiGraphics.flush();
 			RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT);
-			RenderSystem.enableBlend();
-			RenderSystem.defaultBlendFunc();
-			shade(1f, 1f, 1f, 1f);
 			// The screen underneath drives the ring field: don't pull it back.
 			renderLoading0(guiGraphics, 1f, false, true);
 			guiGraphics.flush();
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
-		} finally {
-			RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
 	}
 

@@ -8,7 +8,6 @@ import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.util.profiling.ProfilerFiller;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -83,7 +82,6 @@ public final class OriginAssets {
 
 			@Override
 			public CompletableFuture<Void> reload(PreparationBarrier barrier, ResourceManager manager,
-												  ProfilerFiller prepareProfiler, ProfilerFiller applyProfiler,
 												  Executor background, Executor game) {
 				return CompletableFuture.runAsync(OriginAssets::prefetch, background)
 						.exceptionally(t -> null)
@@ -172,11 +170,11 @@ public final class OriginAssets {
 	 * idempotent ensure; a step that isn't ready yet (the icon shader arrives
 	 * late in the load) is retried on later frames.
 	 *
-	 * <p>Porting note: this runs while the reload is still in progress and its
-	 * icon step reads OriginShaders. Fine on 1.21.1; on 1.21.2-1.21.4 touching the
-	 * ShaderManager mid-reload is the 3eb35971 trap (loading screen dropped, every
-	 * later screen black), so there the caller must only call this once
-	 * reload.isDone().
+	 * <p>PER-VERSION (1.21.2-1.21.4): this runs while the reload is still in
+	 * progress, and ModIcons asks the ShaderManager for the icon program. Touching
+	 * the ShaderManager mid-reload is the 3eb35971 trap (the loading screen is
+	 * dropped and every later screen renders black), so the icon step waits for
+	 * reload.isDone() and comes last; the other steps only touch the texture manager.
 	 */
 	public static void uploadSlice() {
 		if (!prepared || uploadStep >= UPLOADS.size()) {
@@ -196,10 +194,6 @@ public final class OriginAssets {
 				com.origin.client.client.gui.OriginUi.ready();
 				return true;
 			},
-			// The icon atlas waits for the icon shader: ModIcons picks its atlas once,
-			// from whether that shader exists, and the shader only arrives late in the
-			// load. Asked earlier, every icon would stay on the blurrier mask atlas.
-			() -> com.origin.client.client.gui.OriginShaders.ICON != null && com.origin.client.client.gui.ModIcons.preload(),
 			() -> {
 				com.origin.client.client.cosmetics.PlusBadge.preload();
 				return true;
@@ -207,7 +201,20 @@ public final class OriginAssets {
 			() -> {
 				com.origin.client.client.gui.OriginSdfFont.preload();
 				return true;
-			});
+			},
+			// Last, and only once the reload is done: ModIcons compiles/fetches the icon
+			// program through the ShaderManager (see the note above).
+			() -> reloadDone() && com.origin.client.client.gui.ModIcons.preload());
+
+	/** The startup reload behind the loading overlay has finished (false if unreadable: then never). */
+	private static boolean reloadDone() {
+		if (!(net.minecraft.client.Minecraft.getInstance().getOverlay()
+				instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor overlay)) {
+			return false;
+		}
+		net.minecraft.server.packs.resources.ReloadInstance reload = overlay.originclient$reload();
+		return reload != null && reload.isDone();
+	}
 
 	// ---- decoding ----
 

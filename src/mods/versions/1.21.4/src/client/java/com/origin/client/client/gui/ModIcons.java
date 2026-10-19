@@ -153,7 +153,7 @@ public final class ModIcons {
 				// 1.21.4: the icon program compiles on demand (render thread) -- ask for
 				// it before deciding which atlas to keep resident.
 				OriginShaders.icon();
-								// Both atlases and the metrics are decoded on the startup reload's worker
+				// Both atlases and the metrics are decoded on the startup reload's worker
 				// threads (OriginAssets); what's left here is the one GPU upload.
 				JsonObject j = com.origin.client.client.OriginAssets.json("/assets/originclient/textures/ui/mod_icons.json");
 				cell = j.get("cell").getAsInt();
