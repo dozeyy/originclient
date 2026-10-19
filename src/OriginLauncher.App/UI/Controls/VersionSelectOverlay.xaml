@@ -243,7 +243,9 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Bottom">
                                 <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}" Margin="0,0,0,6"/>
-                                <ComboBox x:Name="VersionDropdown" MinWidth="190" MinHeight="46" FontSize="15"
+                                <!-- A fixed width (the 230 px it always came to: its widest entry plus padding). A content-sized combo box grew
+                                     with the chevron's extra padding and pushed MODS off the right edge at 980 px. -->
+                                <ComboBox x:Name="VersionDropdown" Width="230" MinHeight="46" FontSize="15"
                                           ItemContainerStyle="{StaticResource Input.ComboBoxItem}"
                                           ItemTemplate="{StaticResource VersionItemTemplate}"
                                           SelectionChanged="VersionDropdown_SelectionChanged"/>

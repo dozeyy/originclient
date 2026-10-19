@@ -169,9 +169,10 @@ public static class SocialShots
         };
         SocialHub.Service.ShowDemo(SocialDemo.Online(now));
         window.TourSetFriendsOpen(false);
-        foreach (var (width, height) in new[] { (1180, 740), (980, 600) })
+        // No profile first, at both sizes, THEN the profile: once a profile is shown, Home keeps it.
+        foreach (var withProfile in new[] { false, true })
         {
-            foreach (var withProfile in new[] { false, true })
+            foreach (var (width, height) in new[] { (1180, 740), (980, 600) })
             {
                 window.Width = width;
                 window.Height = height;

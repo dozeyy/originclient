@@ -496,14 +496,17 @@
             </StackPanel>
 
             <!-- The list: virtualized, so a long friends list costs nothing off screen. -->
-            <ItemsControl x:Name="RowList" Margin="16,0,6,0" Focusable="False"
+            <!-- The list sits 3 px inside the scroll viewport on every side (the margins here and on the
+                 presenter cancel out, so the rows don't move): the outset keyboard-focus frame is drawn
+                 inside the viewport's clip and would lose its left, right and edge sides without it. -->
+            <ItemsControl x:Name="RowList" Margin="13,-3,3,0" Focusable="False"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel"
                           ScrollViewer.CanContentScroll="True">
                 <ItemsControl.Template>
                     <ControlTemplate TargetType="ItemsControl">
-                        <ScrollViewer Focusable="False" Padding="0,0,8,12" VerticalScrollBarVisibility="Auto"
+                        <ScrollViewer Focusable="False" Padding="0,0,8,9" VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
-                            <ItemsPresenter/>
+                            <ItemsPresenter Margin="3"/>
                         </ScrollViewer>
                     </ControlTemplate>
                 </ItemsControl.Template>
