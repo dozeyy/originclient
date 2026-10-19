@@ -12,6 +12,8 @@ import java.util.Random;
 // run.py against the shared copy (every module's copy must be byte-identical).
 public class LoadBarTests {
 	static final double TAU = 140.0, FRAME = 16.0;
+	/** Before done the bar stays visibly short of full (CI loads included). */
+	static final double CEIL = 0.99;
 	static int passed = 0, failed = 0;
 
 	static void check(boolean ok, String what) {
@@ -38,7 +40,7 @@ public class LoadBarTests {
 				check(f[i] - prev <= 0.06, name + ": jumped " + (f[i] - prev) + " at frame " + i);
 			}
 			if (!done) {
-				check(f[i] < 1, name + ": full before done at frame " + i);
+				check(f[i] <= CEIL, name + ": past the not-done ceiling at frame " + i + " (" + f[i] + ")");
 			}
 			prev = f[i];
 		}
@@ -271,7 +273,7 @@ public class LoadBarTests {
 					check(v == -1, "world 1.21.1: sweeps before the first count (" + v + ")");
 					continue;
 				}
-				check(v >= 0 && v < 1, "world 1.21.1: in range, never full (" + v + " at " + i + ")");
+				check(v >= 0 && v <= CEIL, "world 1.21.1: in range, never full (" + v + " at " + i + ")");
 				check(prev < 0 || v >= prev, "world 1.21.1: went back at " + i + " (" + prev + " -> " + v + ")");
 				check(prev < 0 || v - prev <= 0.06, "world 1.21.1: jumped " + (v - prev) + " at " + i);
 				if (i >= 361 && i % 15 == 0) {
@@ -279,7 +281,7 @@ public class LoadBarTests {
 				}
 				prev = v;
 			}
-			check(prev > 0.9, "world 1.21.1: near full at the end (" + prev + ")");
+			check(prev > 0.8, "world 1.21.1: past the count at the end (" + prev + ")");
 		}
 
 		// 13. 1.21.10+ (CI): the count sits at 100% while the client waits for chunks,
@@ -293,7 +295,7 @@ public class LoadBarTests {
 				frame++;
 				t += i == 250 ? 3000 : FRAME;
 				double v = bar.scene(frame, p, t, TAU);
-				check(v >= prev && v < 1, "world 1.21.10: monotonic, never full (" + prev + " -> " + v + " at " + i + ")");
+				check(v >= prev && v <= CEIL, "world 1.21.10: monotonic, never full (" + prev + " -> " + v + " at " + i + ")");
 				prev = v;
 			}
 		}
@@ -326,7 +328,29 @@ public class LoadBarTests {
 			check(v >= 0 && v < 0.05, "world: frame counter reset starts over (" + v + ")");
 		}
 
-		// 15. Fuzz: random measured stages, unmeasured scenes, stalls and short gaps.
+		// 15. 1.18.2 (CI): no count for 10 s, then the chunk count climbs 1% a second
+		// for 93 s, then Loading terrain. Every small rise used to restart a saturated
+		// creep, compounding to a full bar long before the world was ready.
+		{
+			LoadBar bar = new LoadBar();
+			long frame = 1;
+			double t = 0, prev = -1, at50 = 0;
+			for (int i = 0; i < 4800; i++) {          // 30 ms frames, 144 s
+				double sec = i * 0.03;
+				double p = sec < 10 ? 0 : sec < 103 ? Math.min(1, Math.floor(sec - 10) / 93.0) : -1;
+				t += 30;
+				double v = bar.scene(++frame, p, t, TAU);
+				check(v >= prev && v <= CEIL, "world 1.18.2 slow climb: monotonic, under the ceiling (" + prev + " -> " + v + " at " + sec + " s)");
+				if (Math.abs(sec - 56.5) < 0.015) {
+					at50 = v;
+				}
+				prev = v;
+			}
+			check(at50 < 0.97 && prev - at50 > 0.01, "world 1.18.2 slow climb: still a way to go halfway, and goes it (" + at50 + " -> " + prev + ")");
+			
+		}
+
+		// 16. Fuzz: random measured stages, unmeasured scenes, stalls and short gaps.
 		Random wr = new Random(7);
 		for (int trial = 0; trial < 2000; trial++) {
 			LoadBar bar = new LoadBar();

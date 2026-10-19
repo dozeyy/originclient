@@ -28,11 +28,14 @@ package com.origin.client.client.render;
  *       LEFT, {@code target += (1 - target) * (raw - last) / (1 - last)}. With no
  *       dips this is exactly {@code target = raw}; after a dip the bar moves on
  *       every rise, never backward;</li>
- *   <li>meanwhile the bar creeps on toward at most {@link #CREEP_MAX} of what is
- *       left ({@link #CREEP_MS}) and shows whichever is further, so it never
- *       stands still (a dip, one long step, or a fraction inching up by tiny
- *       amounts) and never reaches full before the reload is done; a rise that
- *       beats the creep restarts it from there;</li>
+ *   <li>meanwhile it creeps, every frame: what is left shrinks as
+ *       {@code dLeft/dt = -left^2 / CREEP_K_MS} ({@link #CREEP_K_MS}), so it
+ *       never stands still (a dip, one long step, or a fraction inching up by
+ *       tiny amounts) and slows the nearer it gets to full, so it never gets
+ *       there before done. (An exponential creep restarted on each rise -- the
+ *       first version -- compounded: every small rise gave it a fresh 75% of what
+ *       was left, and a long, steadily rising load, 1.18.2's chunk count in CI
+ *       at 1% a second for 90 s, drew a full bar long before done.)</li>
  *   <li>a different reload (another ReloadInstance) replacing one that had not
  *       finished: the bar CONTINUES from where it is and the new reload's
  *       progress fills what is left (to the player it is still one load);</li>
@@ -49,10 +52,11 @@ package com.origin.client.client.render;
 public final class LoadBar {
 	/** The bar share the reload's own fraction maps to before it is done. */
 	static final double PREP_SHARE = 0.75;
-	/** While the fraction doesn't rise, the bar creeps toward this share of what is left... */
-	static final double CREEP_MAX = 0.75;
-	/** ...with this time constant (ms). */
-	static final double CREEP_MS = 1200.0;
+	/**
+	 * The creep's scale (ms): from what is left {@code L} it takes {@code CREEP_K_MS * (1/L' - 1/L)}
+	 * to reach {@code L'}: 0.25 -> 0.125 in 16 s, 0.05 -> 0.04 in 20 s.
+	 */
+	static final double CREEP_K_MS = 4000.0;
 
 	private static final Object NONE = new Object();
 
@@ -60,8 +64,6 @@ public final class LoadBar {
 	private boolean finished;      // the load being shown has completed
 	private double last;           // its (scaled) fraction last frame
 	private double target = -1;    // monotonic mapped progress, 0..1 (-1 = nothing shown yet)
-	private double creepFrom;      // target when the fraction last rose
-	private double creepAt;        // clock (ms) then
 	private double fill = -1;      // what is drawn (glides toward target)
 	private double fillAt;         // clock (ms) of the last update
 
@@ -81,8 +83,6 @@ public final class LoadBar {
 			finished = done;
 			last = raw;
 			target = raw;
-			creepFrom = raw;
-			creepAt = nowMs;
 			fill = raw;
 			fillAt = nowMs;
 			return fill;
@@ -96,19 +96,14 @@ public final class LoadBar {
 			target = 1;
 			finished = true;
 		} else {
-			// The creep always runs; a rise only restarts it when the rise itself
-			// moved the bar further than the creep would have (a raw that inches up
-			// every frame -- thousands of worker tasks finishing one by one -- must
-			// not hold the bar near-still by restarting the creep each frame).
-			double creep = creepFrom + (1 - creepFrom) * CREEP_MAX * (1 - Math.exp(-Math.max(0, nowMs - creepAt) / CREEP_MS));
-			double rise = raw > last ? target + (1 - target) * (raw - last) / (1 - last) : target;
-			if (rise > creep && rise > target) {
-				target = rise;
-				creepFrom = target;
-				creepAt = nowMs;
-			} else {
-				target = Math.max(target, creep);
+			// A rise covers its share of what is left; then the creep (exact over
+			// the frame's time, so the same at any frame rate).
+			double left = 1 - target;
+			if (raw > last) {
+				left *= (1 - raw) / (1 - last);
 			}
+			left /= 1 + left * Math.max(0, nowMs - fillAt) / CREEP_K_MS;
+			target = 1 - left;
 		}
 		last = raw;
 		double k = tauMs > 0 ? Math.exp(-Math.max(0, nowMs - fillAt) / tauMs) : 0;
