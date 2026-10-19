@@ -264,50 +264,7 @@ public class SourceDetectionTests : IDisposable
         Assert.All(scan.Instances, i => Assert.Equal(DetectedInstance.CouldntRead, i.Problem));
     }
 
-    // ------------------------------------------------------------ speed (criterion 7)
-
-    [Fact]
-    public async Task ScanningTwoHundredInstancesIsFastAndTheDurationIsLogged()
-    {
-        var mc = Path.Combine(_root, "dotminecraft");
-        Kit.Write(mc, "versions/fabric-loader-0.16.10-1.21.1/fabric-loader-0.16.10-1.21.1.json", """{"inheritsFrom":"1.21.1"}""");
-        var profiles = new List<string>();
-        // Every folder carries game data and a log, so the scan also pays for the accuracy cross-check (log + mods).
-        const string fabricLog = "[main/INFO] (FabricLoader) Loading Minecraft 1.21.1 with Fabric Loader 0.16.10\n";
-        var jar = Kit.FabricJar("speedmod", minecraft: "~1.21.1");
-        for (var i = 0; i < 200; i++)
-        {
-            Kit.Write(mc, $"games/g{i}/options.txt", "fov:0.5");
-            Kit.Write(mc, $"games/g{i}/logs/latest.log", fabricLog);
-            Kit.WriteBytes(mc, $"games/g{i}/mods/speedmod.jar", jar);
-            profiles.Add($"\"p{i}\":{{\"name\":\"Profile {i}\",\"type\":\"custom\",\"lastVersionId\":\"fabric-loader-0.16.10-1.21.1\",\"gameDir\":\"games/g{i}\"}}");
-        }
-        Kit.Write(mc, "launcher_profiles.json", "{\"profiles\":{" + string.Join(",", profiles) + "}}");
-        var prism = Path.Combine(_root, "prism");
-        for (var i = 0; i < 200; i++)
-        {
-            Kit.Write(prism, $"instances/I{i}/instance.cfg", $"[General]\nname=Pack {i}\ntotalTimePlayed={i}\n");
-            Kit.Write(prism, $"instances/I{i}/mmc-pack.json", FabricPack); // Fabric, like the log and the mods (a vanilla pack would rightly be "not sure")
-            Kit.Write(prism, $"instances/I{i}/.minecraft/logs/latest.log", fabricLog);
-            Kit.WriteBytes(prism, $"instances/I{i}/.minecraft/mods/speedmod.jar", jar);
-        }
-        var log = new List<string>();
-        var engine = new ImportEngine(new ImportEnvironment
-        {
-            InstancesRoot = Path.Combine(_root, "OL", "instances"), ImportsRoot = Path.Combine(_root, "OL", "imports"), Log = log.Add,
-        });
-
-        var watch = Stopwatch.StartNew();
-        var scan = await engine.ScanAsync(new SourceRoots { OfficialMinecraftDir = mc, PrismDataDir = prism },
-            ImportEngine.DefaultSources(), null, CancellationToken.None);
-        watch.Stop();
-
-        Assert.Equal(400, scan.Instances.Count);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"scan took {watch.Elapsed}");
-        Assert.All(scan.Instances, i => Assert.True(i.VersionCertain, i.UncertainReason)); // metadata, log and mods all agree
-        Assert.True(scan.Elapsed > TimeSpan.Zero);
-        Assert.Contains(log, l => l.StartsWith("import scan: 400 instances in "));
-    }
+    // ------------------------------------------------------------ speed (criterion 7): ImportTimingTests (runs alone)
 
     // ------------------------------------------------------------ Prism / MultiMC (criterion 2)
 

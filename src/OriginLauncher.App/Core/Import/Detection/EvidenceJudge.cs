@@ -35,8 +35,8 @@ public sealed record Judgement(
 //     (a vanilla profile nobody launched says nothing about a modded folder);
 //   * a LAUNCH recorded after the log was last written that names something else:
 //     the game rewrites latest.log at every start, so that launch never ran the
-//     game here — unless options.txt is newer than the log, which proves the game
-//     did run since. (Proven on Will's real .minecraft: "Latest release/snapshot"
+//     game here — unless options.txt is newer than the log AND names a different
+//     version (something else ran since). (Proven on Will's real .minecraft: "Latest release/snapshot"
 //     lastUsed in October, a July Fabric 1.21.1 log, Fabric 1.21.1 mods.)
 //   The mods STATE a version only when their consensus is that version; a range
 //   that merely accepts it (~1.21.1 accepts 1.21.10) supports nothing.
@@ -101,7 +101,10 @@ public static class EvidenceJudge
                 !(!r.Played && !r.Explicit)                                            // never-played latest-*: alias
                 && !(!r.Played && r.Loader == LoaderKind.None && folderLoader)          // never-played vanilla in a modded folder
                 && !(logPiece != null && r.LaunchTime && r.Time > logPiece.Time && !Agrees(r, logPiece.Mc, logPiece.Loader)
-                     && !(optionsPiece != null && optionsPiece.Time > logPiece.Time))) // launch the log never saw (unless a newer options.txt proves the game ran since)
+                     && !(optionsPiece != null && optionsPiece.Time > logPiece.Time && !Same(optionsPiece.Mc, logPiece.Mc))))
+        // ^ a launch the log never saw is set aside — unless a NEWER options.txt names a DIFFERENT version than the log
+        //   (something else ran in this folder since). A newer options.txt with the log's own version, or no version
+        //   line at all, is just another tool rewriting settings: it proves nothing about those launches.
             .ToList();
 
         // ---- preselection
