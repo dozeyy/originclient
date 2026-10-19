@@ -379,6 +379,9 @@ public final class OriginDevShots {
 						nextAt = now + 700;
 						return;
 					}
+					if (s.kind() == Kind.SHADERS && waitForShaderPreviews(now)) {
+						return;
+					}
 					// Windows may apply a resize one message-loop later (especially
 					// immediately after changing GUI scale). Never label a capture with
 					// dimensions its framebuffer did not actually reach.
@@ -409,6 +412,40 @@ public final class OriginDevShots {
 			phase = 0;
 			nextAt = now + 250;
 		}
+	}
+
+	// The shader browser's thumbnails load async (Modrinth fetch + WebP decode) and a
+	// run's first open starts them, so the first capture could show placeholder tiles
+	// while the same session's second capture (a cache hit) showed the images. Two
+	// races: the loads can outlast the screen's 900 ms settle (Java 8/16/17 modules
+	// under CI's software GL), and the last upload + LOADING decrement run in the
+	// frame-start task batch AHEAD of this client tick, so loading() can read false
+	// while the framebuffer the grab reads was drawn before the textures existed.
+	// So: wait for the loads (max 20 s), then ALWAYS settle once with loading() false,
+	// which guarantees at least one frame rendered after the last upload.
+	private static long previewWaitFrom = 0;   // 0 = not waiting
+	private static boolean previewSettled = false;
+
+	private static boolean waitForShaderPreviews(long now) {
+		boolean loading = com.origin.client.client.shaders.ShaderPreviews.loading();
+		if (previewWaitFrom == 0) {
+			previewWaitFrom = now;
+		}
+		if (loading && now - previewWaitFrom < 20000) {
+			previewSettled = false;
+			nextAt = now + 250;
+			return true;
+		}
+		if (!previewSettled) {
+			previewSettled = true;
+			nextAt = now + 500;
+			return true;
+		}
+		com.origin.client.OriginClient.LOGGER.info("[dev-shots] waited {} ms for shader previews{}",
+				now - previewWaitFrom, loading ? " (gave up, still loading)" : "");
+		previewWaitFrom = 0;
+		previewSettled = false;
+		return false;
 	}
 
 	private static void finish(Minecraft mc) {
