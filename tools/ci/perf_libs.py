@@ -7,8 +7,12 @@ and libs/ is gitignored, so CI never had them: dev-shots and boot-smoke ran with
 and NO Iris, the @Pseudo Sodium/Iris mixins found no target, and require=0 hid whether a
 target was right or wrong. This puts the exact jars there BEFORE Gradle runs.
 
-The pins are read from the module's own build.gradle (the file names in its libs/ lines);
-nothing is invented here. Each file name is resolved to a Modrinth version through the
+SOURCE OF TRUTH = the launcher's PerformanceModCatalog (what players actually get). The catalog
+entry named after the module (src/mods/versions/<mc>) gives the Sodium + Iris file names; the module's
+build.gradle libs/ lines MUST name exactly those files (otherwise Gradle would not load what was
+fetched, or would load a pair Fabric refuses: 1.21.4-1.21.10 once pointed at 1.21.11's Sodium 0.8.13,
+1.21 at an Iris that needs Sodium 0.6.x). A mismatch fails the step and test_ci_gates.py checks every
+module statically. Each file name is resolved to a Modrinth version through the
 public API (project sodium / iris, newest-first listing), then:
     GET api.modrinth.com/v2/version/<id>  ->  files[].url + files[].hashes.sha512
 and the downloaded bytes MUST hash to that sha512, or the step fails (exit 1).
@@ -34,6 +38,9 @@ API = "https://api.modrinth.com/v2"
 UA = "originclient-ci/1.0 (github.com/dozeyy/originclient)"
 # libs/<file> inside a modRuntimeOnly line that is not a comment.
 PIN = re.compile(r'^\s*modRuntimeOnly\s+files\(\s*"libs/([^"/\\]+\.jar)"\s*\)', re.M)   # no path separators in the name
+CATALOG = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                       "src", "OriginLauncher.App", "Core", "Loaders", "PerformanceModCatalog.Data.cs")
+PERF_MOD = re.compile(r'new PerfMod\("[^"]*", "[^"]*", "([^"/\\]+\.jar)"\)')
 DOWNLOAD_HOST = "cdn.modrinth.com"   # the only host a jar may be fetched from
 SLUGS = (("sodium", "sodium"), ("iris", "iris"))   # (file-name prefix, Modrinth project)
 
@@ -51,6 +58,30 @@ def pins(gradle_text):
         if name not in seen:
             seen.append(name)
     return seen
+
+
+def catalog_files(catalog_text, mc_version):
+    """The (sodium, iris) jar file names the launcher ships for one catalog key, or None if no such entry.
+    Entries are one line each: ["<mc>"] = new("<mc>", Tier, Sodium, Indium, Lithium, Ferrite, Krypton, Iris, ...)."""
+    start = catalog_text.find('["%s"] = new(' % mc_version)
+    if start < 0:
+        return None
+    end = catalog_text.find(chr(10), start)
+    names = PERF_MOD.findall(catalog_text[start:end if end >= 0 else len(catalog_text)])
+    sodium = next((n for n in names if slug_of(n) == "sodium"), None)
+    iris = next((n for n in names if slug_of(n) == "iris"), None)
+    return (sodium, iris)
+
+
+def expected_pins(catalog_text, module, gradle_pins):
+    """What to fetch for a module whose build.gradle has libs/ pins: the catalog's Sodium + Iris. Raises when the
+    module has no catalog entry, the entry lacks either mod, or the build.gradle pins are not exactly those files."""
+    cf = catalog_files(catalog_text, module)
+    if not cf or not all(cf):
+        raise PerfLibsError(f"module {module} has libs/ pins but PerformanceModCatalog has no Sodium+Iris entry for it")
+    if sorted(gradle_pins) != sorted(cf):
+        raise PerfLibsError(f"build.gradle libs/ pins {sorted(gradle_pins)} differ from what PerformanceModCatalog ships {sorted(cf)}")
+    return list(cf)
 
 
 def slug_of(filename):
@@ -142,6 +173,12 @@ def main():
     if not wanted:
         print(f"perf-libs: {name}: no libs/ pins in build.gradle (Sodium/Iris come from Gradle, if at all); nothing to fetch")
         return 0
+    try:
+        with open(CATALOG, encoding="utf-8") as fh:
+            wanted = expected_pins(fh.read(), name, wanted)
+    except (PerfLibsError, OSError) as e:
+        print(f"::error title=perf-libs {name}::{e}")
+        return 1
     fetched = skipped = 0
     for fn in wanted:
         try:

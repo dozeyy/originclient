@@ -77,9 +77,9 @@ dependencies {
 	// an unconditional files("libs/...") fails the whole build on a fresh runner
 	// with NoSuchFileException. The check keeps the dev-only shader integration
 	// for runClient while letting the shipping `./gradlew build` run without them.
-	if (file("libs/sodium-fabric-0.8.13+mc1.21.11.jar").exists()) {
-		modRuntimeOnly files("libs/sodium-fabric-0.8.13+mc1.21.11.jar")
-		modRuntimeOnly files("libs/iris-fabric-1.10.4+mc1.21.11.jar")
+	if (file("libs/sodium-fabric-0.7.3+mc1.21.8.jar").exists()) {
+		modRuntimeOnly files("libs/sodium-fabric-0.7.3+mc1.21.8.jar")
+		modRuntimeOnly files("libs/iris-fabric-1.9.6+mc1.21.8.jar")
 	}
 	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
 	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loading Iris via a raw
@@ -87,7 +87,7 @@ dependencies {
 	// nested jars never reach the runClient dev classpath — same dev-only class
 	// of bug the 1.21.1 and 1.20.4 modules already document/fix. glsl-transformer
 	// tracks the Sodium 0.8 / Iris 1.10 line (3.0.0-pre3), matching what
-	// iris-fabric-1.10.4+mc1.21.11.jar nests (confirm via its META-INF/jars/ at
+	// iris-fabric-1.9.6+mc1.21.8.jar nests (confirm via its META-INF/jars/ at
 	// build time). Dev-runtime only — a real launcher install extracts these
 	// from inside Iris's own jar via Fabric Loader's nested-jar mechanism.
 	runtimeOnly "org.anarres:jcpp:1.4.14"

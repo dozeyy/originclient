@@ -319,6 +319,36 @@ class PerfLibs(unittest.TestCase):
             self.assertEqual(sorted(perf_libs.slug_of(p) for p in pins), ["iris", "sodium"], mod)
         self.assertEqual(perf_libs.pins(_read(os.path.join(ROOT, "src", "mods", "versions", "1.8.9", "build.gradle"))), [])
 
+    CATALOG_TEXT = ('        ["1.21"] = new("1.21", PerfStackTier.Full, new PerfMod("a", "https://cdn.modrinth.com/x", "sodium-fabric-0.5.11+mc1.21.jar"), '
+                    'new PerfMod("b", "u", "indium-1.jar"), null, null, null, new PerfMod("c", "u", "iris-1.7.3+mc1.21.jar"));' + chr(10) +
+                    '        ["1.20.6"] = new("1.20.6", PerfStackTier.Partial, null, null, null);' + chr(10))
+
+    def test_catalog_is_the_source_of_truth_for_pins(self):
+        cf = perf_libs.catalog_files(self.CATALOG_TEXT, "1.21")
+        self.assertEqual(cf, ("sodium-fabric-0.5.11+mc1.21.jar", "iris-1.7.3+mc1.21.jar"))   # Indium is not picked up
+        self.assertEqual(perf_libs.expected_pins(self.CATALOG_TEXT, "1.21", ["iris-1.7.3+mc1.21.jar", cf[0]]), list(cf))
+        # The 1.21 bug: build.gradle pinned an Iris that needs Sodium 0.6.x next to Sodium 0.5.11.
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.expected_pins(self.CATALOG_TEXT, "1.21", [cf[0], "iris-fabric-1.8.8+mc1.21.1.jar"])
+        with self.assertRaises(perf_libs.PerfLibsError):    # entry without Sodium + Iris (Partial tier)
+            perf_libs.expected_pins(self.CATALOG_TEXT, "1.20.6", ["sodium-x.jar", "iris-x.jar"])
+        with self.assertRaises(perf_libs.PerfLibsError):    # no entry at all
+            perf_libs.expected_pins(self.CATALOG_TEXT, "9.9", ["sodium-x.jar", "iris-x.jar"])
+
+    def test_every_live_module_pin_matches_what_ships(self):
+        # Make CI test what players get: each live module with libs/ pins names exactly the catalog's jars.
+        import json
+        catalog = _read(perf_libs.CATALOG)
+        live = [m["module"] for m in json.loads(_read(os.path.join(ROOT, "src", "mods", "live-modules.json")))["modules"]]
+        checked = 0
+        for mod in live:
+            pins = perf_libs.pins(_read(os.path.join(ROOT, "src", "mods", "versions", mod, "build.gradle")))
+            if not pins:
+                continue
+            perf_libs.expected_pins(catalog, mod, pins)   # raises with the diff on any mismatch
+            checked += 1
+        self.assertGreaterEqual(checked, 15)
+
     def test_hash_mismatch_fails(self):
         import hashlib
         data = b"jar bytes"
