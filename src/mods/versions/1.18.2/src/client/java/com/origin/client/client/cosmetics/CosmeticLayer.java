@@ -69,22 +69,26 @@ public final class CosmeticLayer extends RenderLayer<AbstractClientPlayer, Playe
 
 	/**
 	 * Draws the head / face / back items of `look` on `model`, whose parts the
-	 * caller has already posed. Shared with MenuPlayerPreview (the title-screen
-	 * preview has no entity). Each item is isolated: one failing never stops
-	 * the others.
+	 * caller has already posed (and whose hat / jacket visibility it has set:
+	 * the renderer does from the player's skin options, MenuPlayerPreview from
+	 * yours). Shared with MenuPlayerPreview (the title-screen preview has no
+	 * entity). Each item is isolated: one failing never stops the others.
 	 */
 	public static void renderItems(PlayerModel<AbstractClientPlayer> model, PoseStack pose, MultiBufferSource buffers,
 			int light, CosmeticsService.Look look, float t, float walk01, float air01, boolean hideBack) {
-		draw(model.head, look.head(), look.adjust(Cosmetics.Slot.HEAD), pose, buffers, light, t, walk01, air01);
-		draw(model.head, look.face(), look.adjust(Cosmetics.Slot.FACE), pose, buffers, light, t, walk01, air01);
+		// Sit over the outer skin layer when it is shown, instead of clipping into it (Will, 2026-10-19).
+		ModelCosmetic.Fit headFit = model.hat.visible ? ModelCosmetic.Fit.HEAD : null;
+		draw(model.head, look.head(), look, Cosmetics.Slot.HEAD, headFit, pose, buffers, light, t, walk01, air01);
+		draw(model.head, look.face(), look, Cosmetics.Slot.FACE, headFit, pose, buffers, light, t, walk01, air01);
 		if (!hideBack) {
-			draw(model.body, look.back(), look.adjust(Cosmetics.Slot.BACK), pose, buffers, light, t, walk01, air01);
+			draw(model.body, look.back(), look, Cosmetics.Slot.BACK, model.jacket.visible ? ModelCosmetic.Fit.BODY : null,
+					pose, buffers, light, t, walk01, air01);
 		}
 	}
 
-	/** `lift` = the player's height tweak for this slot, model px (+ = up, along the bone). */
-	private static void draw(ModelPart bone, String id, float lift, PoseStack pose, MultiBufferSource buffers, int light,
-			float t, float walk01, float air01) {
+	/** The player's position tweak for `slot` (model px, FORMAT space) moves the item along its bone. */
+	private static void draw(ModelPart bone, String id, CosmeticsService.Look look, Cosmetics.Slot slot,
+			ModelCosmetic.Fit fit, PoseStack pose, MultiBufferSource buffers, int light, float t, float walk01, float air01) {
 		if (id == null) {
 			return;
 		}
@@ -98,8 +102,9 @@ public final class CosmeticLayer extends RenderLayer<AbstractClientPlayer, Playe
 			// FORMAT space -> vanilla model space: 1/16 block per px, y up, face to +z
 			// (vanilla is y down, face to -z; a 180 degree turn about X, so no mirroring).
 			pose.scale(1 / 16f, -1 / 16f, -1 / 16f);
-			pose.translate(0f, lift, 0f);
-			m.render(pose, buffers, light, t, walk01, air01);
+			pose.translate(look.adjust(slot, CosmeticsService.Adjust.Axis.X), look.adjust(slot),
+					look.adjust(slot, CosmeticsService.Adjust.Axis.Z));
+			m.render(pose, buffers, light, t, walk01, air01, fit);
 		} catch (Throwable ex) {
 			if (!warned) {
 				warned = true;

@@ -92,23 +92,29 @@ public final class CosmeticLayer implements LayerRenderer<AbstractClientPlayer> 
 
 	/**
 	 * Draws the head / face / back items of `look` on `model`, whose parts the
-	 * caller has already posed. Shared with MenuPlayerPreview (the title-screen
-	 * preview has no entity). Each item is isolated: one failing never stops
-	 * the others.
+	 * caller has already posed (and whose hat / jacket visibility it has set:
+	 * the renderer does from the player's skin options, MenuPlayerPreview from
+	 * yours). Shared with MenuPlayerPreview (the title-screen preview has no
+	 * entity). Each item is isolated: one failing never stops the others.
 	 *
 	 * 1.8.9: `sneaking` = ModelBiped.render's whole-model 0.2 block drop, which
 	 * the layers don't inherit (LayerCustomHead repeats it the same way).
 	 */
 	public static void renderItems(ModelPlayer model, CosmeticsService.Look look, float t, float walk01, float air01,
 			boolean sneaking) {
-		draw(model.bipedHead, look.head(), look.adjust(Cosmetics.Slot.HEAD), t, walk01, air01, sneaking);
-		draw(model.bipedHead, look.face(), look.adjust(Cosmetics.Slot.FACE), t, walk01, air01, sneaking);
-		draw(model.bipedBody, look.back(), look.adjust(Cosmetics.Slot.BACK), t, walk01, air01, sneaking);
+		// Sit over the outer skin layer when it is shown, instead of clipping into it (Will, 2026-10-19).
+		// 1.8.9: the hat / jacket layers are bipedHeadwear / bipedBodyWear, and their showModel is what
+		// RenderPlayer.setModelVisibilities sets from isWearing(HAT / JACKET) (1.21.1's hat / jacket.visible).
+		ModelCosmetic.Fit headFit = model.bipedHeadwear.showModel ? ModelCosmetic.Fit.HEAD : null;
+		draw(model.bipedHead, look.head(), look, Cosmetics.Slot.HEAD, headFit, t, walk01, air01, sneaking);
+		draw(model.bipedHead, look.face(), look, Cosmetics.Slot.FACE, headFit, t, walk01, air01, sneaking);
+		draw(model.bipedBody, look.back(), look, Cosmetics.Slot.BACK,
+				model.bipedBodyWear.showModel ? ModelCosmetic.Fit.BODY : null, t, walk01, air01, sneaking);
 	}
 
-	/** `lift` = the player's height tweak for this slot, model px (+ = up, along the bone). */
-	private static void draw(ModelRenderer bone, String id, float lift, float t, float walk01, float air01,
-			boolean sneaking) {
+	/** The player's position tweak for `slot` (model px, FORMAT space) moves the item along its bone. */
+	private static void draw(ModelRenderer bone, String id, CosmeticsService.Look look, Cosmetics.Slot slot,
+			ModelCosmetic.Fit fit, float t, float walk01, float air01, boolean sneaking) {
 		if (id == null) {
 			return;
 		}
@@ -126,8 +132,9 @@ public final class CosmeticLayer implements LayerRenderer<AbstractClientPlayer> 
 			// FORMAT space -> vanilla model space: 1/16 block per px, y up, face to +z
 			// (vanilla is y down, face to -z; a 180 degree turn about X, so no mirroring).
 			GlStateManager.scale(1 / 16f, -1 / 16f, -1 / 16f);
-			GlStateManager.translate(0f, lift, 0f);
-			m.render(t, walk01, air01);
+			GlStateManager.translate(look.adjust(slot, CosmeticsService.Adjust.Axis.X), look.adjust(slot),
+					look.adjust(slot, CosmeticsService.Adjust.Axis.Z));
+			m.render(t, walk01, air01, fit);
 		} catch (Throwable ex) {
 			if (!warned) {
 				warned = true;

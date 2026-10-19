@@ -7,7 +7,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
-import com.mojang.math.Vector3f;
 
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +21,11 @@ import java.util.Map;
  * attach bone with `scale(1/16, -1/16, -1/16)` applied, which turns FORMAT
  * space (model px, y up, +z front, +x the player's left) into vanilla's
  * (blocks, y down, -z front). Everything below is in FORMAT space.
+ *
+ * Every vertex is placed on the CPU in the attach frame (the bone chain as a
+ * 3x4 matrix per bone, plain float math: 1.16.5 has no JOML), so the
+ * outer-skin-layer fit ({@link Fit}) can bend the item over the hat / jacket
+ * layer before it is drawn with the attach pose.
  *
  * Passes: LIT + EMISSIVE quads go into one entityCutoutNoCull buffer (emissive
  * ones at full-bright light); GLOW quads go into a second, additive
@@ -44,6 +48,7 @@ public final class ModelCosmetic {
 	private final CosmeticDef.Anim anim;
 	private final int[] motionBone;
 	private final float[] off;   // per bone: rot x y z, pos x y z (scratch, render thread only)
+	private final float[] boneM;   // per bone: bone frame -> attach frame, 12 floats row-major 3x4 (scratch, render thread only)
 	private final int frames;
 	private final float fps;
 	private boolean failed = false;
@@ -58,6 +63,7 @@ public final class ModelCosmetic {
 			motionBone[i] = geo.boneIndex(anim.motion().get(i).bone());
 		}
 		this.off = new float[geo.names.length * 6];
+		this.boneM = new float[geo.names.length * 12];
 		this.frames = Math.max(1, anim.frames());
 		this.fps = anim.fps();
 	}
@@ -94,13 +100,63 @@ public final class ModelCosmetic {
 	}
 
 	/**
+	 * The outer-skin-layer fit (FORMAT.md "Outer skin layer"): when the player
+	 * shows the hat (head + face items) or jacket (back items) layer, the item
+	 * is bent outward over it instead of clipping into it. Per axis, around the
+	 * bone's skin box (centre c, half size h), u = p - c becomes u + sign(u) * g
+	 * on or outside the skin and u * (h + g) / h inside it: continuous, so
+	 * wraparound items (glasses, bands) wrap the layer and animated parts never
+	 * jump. Applied in the attach frame after the item's own animation, before
+	 * the player's position tweak. The website preview (rig.js) uses the same rule.
+	 */
+	public static final class Fit {
+		/** Head bone: head cube x -4..4, y 0..8, z -4..4; vanilla's hat layer is 0.5 px out. */
+		public static final Fit HEAD = new Fit(0f, 4f, 0f, 4f, 4f, 4f, 0.5f);
+		/** Body bone: torso x -4..4, y -12..0, z -2..2; vanilla's jacket layer is 0.25 px out. */
+		public static final Fit BODY = new Fit(0f, -6f, 0f, 4f, 6f, 2f, 0.25f);
+
+		// Java 8: a small final class where 1.17+ uses a record.
+		private final float cx, cy, cz, hx, hy, hz, g;
+
+		public Fit(float cx, float cy, float cz, float hx, float hy, float hz, float g) {
+			this.cx = cx;
+			this.cy = cy;
+			this.cz = cz;
+			this.hx = hx;
+			this.hy = hy;
+			this.hz = hz;
+			this.g = g;
+		}
+
+		static float axis(float p, float c, float h, float g) {
+			float u = p - c;
+			float a = Math.abs(u);
+			return c + (a >= h ? u + Math.signum(u) * g : u * (h + g) / h);
+		}
+
+		/** `p` = x, y, z in the attach frame, moved in place. */
+		void apply(float[] p) {
+			p[0] = axis(p[0], cx, hx, g);
+			p[1] = axis(p[1], cy, hy, g);
+			p[2] = axis(p[2], cz, hz, g);
+		}
+	}
+
+	/** Draws the model without the outer-layer fit. */
+	public void render(PoseStack pose, MultiBufferSource buffers, int light, float t, float walk01, float air01) {
+		render(pose, buffers, light, t, walk01, air01, null);
+	}
+
+	/**
 	 * Draws the model.
 	 *
 	 * @param t        seconds on the animation clock (game: ticks / 20 + partial)
 	 * @param walk01   horizontal speed / sprint speed, 0..1
 	 * @param air01    0 on the ground, easing to 1 in the air
+	 * @param fit      the outer-layer fit, or null when the player hides that layer
 	 */
-	public void render(PoseStack pose, MultiBufferSource buffers, int light, float t, float walk01, float air01) {
+	public void render(PoseStack pose, MultiBufferSource buffers, int light, float t, float walk01, float air01,
+			Fit fit) {
 		if (failed) {
 			return;
 		}
@@ -110,14 +166,20 @@ public final class ModelCosmetic {
 			float vOff = frame * geo.texH;
 			float invU = 1f / geo.texW, invV = 1f / (geo.texH * (float) frames);
 
-			VertexConsumer solid = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
 			for (int root : geo.roots) {
-				drawBone(pose, solid, root, ModelGeometry.LIT, ModelGeometry.EMISSIVE, light, vOff, invU, invV);
+				chain(root, IDENTITY, 0);
+			}
+			PoseStack.Pose attach = pose.last();
+			int bones = geo.names.length;
+			VertexConsumer solid = buffers.getBuffer(RenderType.entityCutoutNoCull(texture));
+			for (int b = 0; b < bones; b++) {
+				emit(attach, boneM, b * 12, fit, solid, geo.quads[b][ModelGeometry.LIT], light, vOff, invU, invV);
+				emit(attach, boneM, b * 12, fit, solid, geo.quads[b][ModelGeometry.EMISSIVE], FULL_BRIGHT, vOff, invU, invV);
 			}
 			if (geo.hasGlow) {
 				VertexConsumer glow = buffers.getBuffer(RenderType.eyes(texture));
-				for (int root : geo.roots) {
-					drawBone(pose, glow, root, ModelGeometry.GLOW, ModelGeometry.GLOW, light, vOff, invU, invV);
+				for (int b = 0; b < bones; b++) {
+					emit(attach, boneM, b * 12, fit, glow, geo.quads[b][ModelGeometry.GLOW], FULL_BRIGHT, vOff, invU, invV);
 				}
 			}
 		} catch (Throwable t2) {
@@ -217,58 +279,74 @@ public final class ModelCosmetic {
 		}
 	}
 
-	private void drawBone(PoseStack pose, VertexConsumer vc, int b, int kindA, int kindB, int light,
-			float vOff, float invU, float invV) {
-		pose.pushPose();
-		try {
-			float[] pv = geo.pivot[b], r = geo.rot[b];
-			int o = b * 6;
-			pose.translate(off[o + 3], off[o + 4], off[o + 5]);
-			pose.translate(pv[0], pv[1], pv[2]);
-			float rx = r[0] + off[o], ry = r[1] + off[o + 1], rz = r[2] + off[o + 2];
-			if (rx != 0f || ry != 0f || rz != 0f) {
-				// Z first, then Y, then X (FORMAT.md): R = Rx * Ry * Rz. mulPose post-multiplies,
-				// so X, Y, Z in this order build exactly that product (1.16.5: no JOML).
-				if (rx != 0f) {
-					pose.mulPose(Vector3f.XP.rotationDegrees(rx));
-				}
-				if (ry != 0f) {
-					pose.mulPose(Vector3f.YP.rotationDegrees(ry));
-				}
-				if (rz != 0f) {
-					pose.mulPose(Vector3f.ZP.rotationDegrees(rz));
-				}
-			}
-			pose.translate(-pv[0], -pv[1], -pv[2]);
-			emit(pose, vc, geo.quads[b][kindA], kindA == ModelGeometry.GLOW ? FULL_BRIGHT : light, vOff, invU, invV);
-			if (kindB != kindA) {
-				emit(pose, vc, geo.quads[b][kindB], FULL_BRIGHT, vOff, invU, invV);
-			}
-			for (int child : geo.children[b]) {
-				drawBone(pose, vc, child, kindA, kindB, light, vOff, invU, invV);
-			}
-		} finally {
-			pose.popPose();
+	private static final float[] IDENTITY = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
+	private static final float[] P = new float[3];
+
+	/**
+	 * Fills boneM for `b` and its children: parent * T(off) * T(pivot) * (Rx * Ry * Rz) * T(-pivot)
+	 * (FORMAT.md order; the same per-axis rotations as pointInAttachFrame). Matrices are row-major 3x4
+	 * (rotation in columns 0..2, translation in column 3); `parent` starts at `po`.
+	 */
+	private void chain(int b, float[] parent, int po) {
+		float[] pv = geo.pivot[b], r = geo.rot[b];
+		int o = b * 6;
+		double ax = Math.toRadians(r[0] + off[o]), ay = Math.toRadians(r[1] + off[o + 1]),
+				az = Math.toRadians(r[2] + off[o + 2]);
+		float cx = (float) Math.cos(ax), sx = (float) Math.sin(ax);
+		float cy = (float) Math.cos(ay), sy = (float) Math.sin(ay);
+		float cz = (float) Math.cos(az), sz = (float) Math.sin(az);
+		// Ry * Rz, then Rx on the left: rows of R = Rx * Ry * Rz
+		float a00 = cy * cz, a01 = -cy * sz, a02 = sy;
+		float a10 = sz, a11 = cz, a12 = 0f;
+		float a20 = -sy * cz, a21 = sy * sz, a22 = cy;
+		float r00 = a00, r01 = a01, r02 = a02;
+		float r10 = cx * a10 - sx * a20, r11 = cx * a11 - sx * a21, r12 = cx * a12 - sx * a22;
+		float r20 = sx * a10 + cx * a20, r21 = sx * a11 + cx * a21, r22 = sx * a12 + cx * a22;
+		// local translation: off + pivot - R * pivot
+		float t0 = off[o + 3] + pv[0] - (r00 * pv[0] + r01 * pv[1] + r02 * pv[2]);
+		float t1 = off[o + 4] + pv[1] - (r10 * pv[0] + r11 * pv[1] + r12 * pv[2]);
+		float t2 = off[o + 5] + pv[2] - (r20 * pv[0] + r21 * pv[1] + r22 * pv[2]);
+		float[] m = boneM;
+		int k = b * 12;
+		for (int row = 0; row < 3; row++) {
+			float p0 = parent[po + row * 4], p1 = parent[po + row * 4 + 1], p2 = parent[po + row * 4 + 2],
+					p3 = parent[po + row * 4 + 3];
+			m[k + row * 4] = p0 * r00 + p1 * r10 + p2 * r20;
+			m[k + row * 4 + 1] = p0 * r01 + p1 * r11 + p2 * r21;
+			m[k + row * 4 + 2] = p0 * r02 + p1 * r12 + p2 * r22;
+			m[k + row * 4 + 3] = p0 * t0 + p1 * t1 + p2 * t2 + p3;
+		}
+		for (int child : geo.children[b]) {
+			chain(child, m, k);
 		}
 	}
 
-	private static void emit(PoseStack pose, VertexConsumer vc, float[] quads, int light, float vOff, float invU, float invV) {
-		if (quads.length == 0) {
-			return;
-		}
-		PoseStack.Pose p = pose.last();
+	/** Emits `quads` of one bone: bone frame -> attach frame (`m` at `mo`), the fit, then the attach pose. */
+	private static void emit(PoseStack.Pose attach, float[] m, int mo, Fit fit, VertexConsumer vc, float[] quads,
+			int light, float vOff, float invU, float invV) {
 		for (int i = 0; i < quads.length; i += ModelGeometry.QUAD) {
-			float nx = quads[i + 20], ny = quads[i + 21], nz = quads[i + 22];
+			float qx = quads[i + 20], qy = quads[i + 21], qz = quads[i + 22];
+			// the normal turns with the bone (rotation part only); it stays unit length
+			float nx = m[mo] * qx + m[mo + 1] * qy + m[mo + 2] * qz;
+			float ny = m[mo + 4] * qx + m[mo + 5] * qy + m[mo + 6] * qz;
+			float nz = m[mo + 8] * qx + m[mo + 9] * qy + m[mo + 10] * qz;
 			for (int v = 0; v < 4; v++) {
 				int k = i + v * 5;
+				float x = quads[k], y = quads[k + 1], z = quads[k + 2];
+				P[0] = m[mo] * x + m[mo + 1] * y + m[mo + 2] * z + m[mo + 3];
+				P[1] = m[mo + 4] * x + m[mo + 5] * y + m[mo + 6] * z + m[mo + 7];
+				P[2] = m[mo + 8] * x + m[mo + 9] * y + m[mo + 10] * z + m[mo + 11];
+				if (fit != null) {
+					fit.apply(P);
+				}
 				// 1.16.5 VertexConsumer: the chained builder in the entity format's order
 				// (position, colour, uv, overlay, light, normal) closed by endVertex().
-				vc.vertex(p.pose(), quads[k], quads[k + 1], quads[k + 2])
+				vc.vertex(attach.pose(), P[0], P[1], P[2])
 						.color(255, 255, 255, 255)
 						.uv(quads[k + 3] * invU, (quads[k + 4] + vOff) * invV)
 						.overlayCoords(OverlayTexture.NO_OVERLAY)
 						.uv2(light)
-						.normal(p.normal(), nx, ny, nz)
+						.normal(attach.normal(), nx, ny, nz)
 						.endVertex();
 			}
 		}

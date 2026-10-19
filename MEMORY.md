@@ -5373,3 +5373,18 @@ full before the dissolve, then jumps); the launcher re-tessellated + re-blurred 
 - **No windows on Will's PC (Will, 2026-10-18):** never run runClient, boot-smoke, the launcher or --render-shots locally. One agent's scripted clicks once landed in his open FL Studio project. Test in CI: push `claude/<name>`; build-check, launcher-shots (windows-latest, renders 1180x740 as 1044x740) and dev-shots (workflow_dispatch: modules comma-list, set, label; Xvfb). Deploys only run from main.
 - **CI traps:** dev-shots can report success with 0 shots when Loom downloadAssets fails, so count the PNGs. Parallel dev-shots publishes race on the claude/dev-shots branch; the artifacts are still valid. build-check cancels older runs on main via concurrency, so read the newest run.
 - **Open:** 26.3 draws `@plus` as an empty circle (likely a pre-existing 26.3 icon-shader issue). On 1.21.10+, `(char) event.codepoint()` truncates emoji. Held sync: a stale etag still ends a hold early, nearly doubling requests while friends churn (fix: read friends_rev at answer time). The local "Origin Client" folder checkout is 300+ commits behind origin/main and has unrelated uncommitted changes (left untouched).
+
+## 2026-10-19 — Cosmetics sit over the outer skin layer + head/face 3-axis adjust (every live version; branch claude/cosmetics-outer-layer)
+Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible from the side, wanted to move head gear.
+- Fit rule (mod + website, cosmetics/FORMAT.md): per axis u=p-c; |u|>=h → u+sign(u)·g, else u·(h+g)/h. HEAD c(0,4,0) h(4,4,4) g0.5 when
+  the hat layer shows; BODY c(0,-6,0) h(4,6,2) g0.25 when the jacket shows. After bone animation, before the player's adjust. Capes untouched.
+- Mod: ModelCosmetic now poses vertices + normals on the CPU (per-bone matrix chain → Fit → attach pose). That also fixed the Chrome
+  Shell side walls. Era notes: pre-1.20 has no JOML → plain-float 3x4 bone matrices; 1.21.10/11 + 26.x run it inside the custom-geometry
+  replay keyed on AvatarRenderState.showHat/showJacket; 1.8.9 already posed on the CPU (bipedHeadwear/bipedBodyWear.showModel).
+- Adjust: 0.5 px steps, ±4, keys head/face/headX/headZ/faceX/faceZ (+cape/back); Cosmetics screen got Sideways/Forward rows.
+- Options.toggleModelPart(part,bool) exists only up to 1.21.1; 1.21.2+ and 26.x use setModelPart + broadcastOptions; 1.16.5 is the
+  one-arg toggle. (Mojang client mappings are downloadable from piston-meta in the sandbox: good for API checks.)
+- Website fitting room: "Adjust the fit" panel (head + face, 3 axes, preview only), live on main (b3a7f729).
+- Verified: build-check green on all 19 modules; world dev-shots (1.8.9, 1.16.5, 1.19.2, 1.20.4, 1.21.6, 1.21.11, 26.3) have zero
+  mixin failures and the fit shots render. 1.8.9's world shots spawn against a cave wall, so its third-person views are cramped
+  (harness only). Awaiting Will's in-game pass, then merge + launcher-v1.0.57.
