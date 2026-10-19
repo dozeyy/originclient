@@ -51,13 +51,15 @@ jobs:
           - { version: "1.21.8", java: "21" }
           - { version: "1.21.10", java: "21" }
           - { version: "1.21.11", java: "21" }
-          - { version: "1.20", java: "17" }
-          - { version: "1.20.2", java: "17" }
-          - { version: "1.20.4", java: "17" }
-          - { version: "1.18.2", java: "17" }
-          - { version: "1.19.2", java: "17" }
-          - { version: "1.19.3", java: "17" }
-          - { version: "1.19.4", java: "17" }
+          # Gradle itself needs JVM 21 (Loom 1.17); these modules still emit Java 17
+          # bytecode via options.release and boot fine on 21 (same as dev-shots).
+          - { version: "1.20", java: "21" }
+          - { version: "1.20.2", java: "21" }
+          - { version: "1.20.4", java: "21" }
+          - { version: "1.18.2", java: "21" }
+          - { version: "1.19.2", java: "21" }
+          - { version: "1.19.3", java: "21" }
+          - { version: "1.19.4", java: "21" }
     steps:
       - name: Check out code
         uses: actions/checkout@v7
