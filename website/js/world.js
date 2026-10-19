@@ -331,6 +331,8 @@ const DUST_VERT = /* glsl */`
     gl_Position = projectionMatrix * mv;
   }`;
 
+// `mobile` is only the load-time budget (pixel-ratio cap, dust count): cheap to leave as it
+// was at load. The hero POSE follows the live window width instead (isMobile below).
 export async function createWorld(canvas, { mobile = false, reducedMotion = false, heroZone = null } = {}) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
@@ -396,6 +398,9 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   // as the logo from anywhere. They circle the island's bounding sphere, so no
   // ring can ever pass through a block, whatever the camera angle.
   const inner = bounds.radius + 0.87 + 0.8;   // + half a block diagonal + clearance
+  // Ring radii as multiples of `inner` (the innermost is the least that clears every block).
+  // Kept close so the island fills as much of the rings' sweep as it can.
+  const RING_K = [1.25, 1.12, 1];
   const rings = new THREE.Group();
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.95 });
   const ringGlow = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -407,7 +412,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     fragmentShader: 'varying vec2 vUv; void main() { float a = pow(vUv.x, 2.4); gl_FragColor = vec4(mix(vec3(0.6), vec3(1.0), a) * a * 0.9, 1.0); }',
   });
   const spinners = [];
-  [[1.5, 0], [1.25, 60], [1, 120]].forEach(([k, deg], i) => {
+  [[RING_K[0], 0], [RING_K[1], 60], [RING_K[2], 120]].forEach(([k, deg], i) => {
     const rad = inner * k;
     const holder = new THREE.Group();
     holder.rotation.z = THREE.MathUtils.degToRad(deg);
@@ -458,25 +463,34 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   // load: a window dragged wider after opening must not keep the stacked phone pose
   // behind the desktop two-column copy.
   const isMobile = () => window.innerWidth <= 900;
+  // The canvas is `position: fixed; inset: 0`, i.e. the viewport WITHOUT the scrollbar, so
+  // all picture maths uses clientWidth (innerWidth would be wider than what is drawn).
+  const vw = () => document.documentElement.clientWidth, vh = () => window.innerHeight;
 
   // Hero framing, taken from the page: site.js reports the free area around the copy
-  // (px) and the island is sized and placed so its three rings fit it, whatever the
-  // window shape. Desktop: the area right of the copy (centre cx/cy, width w). Phone and
-  // tablet: the band between the header and the copy (top/bottom), where the island may
-  // only shrink, never grow past its pose. The rings spin, so the safe size is
-  // everything the longest one can sweep.
-  const zone = { cx: 0, cy: 0, w: 0, top: 0, bottom: 0, ...heroZone };   // known at start, so the first frame is already in place
-  const fit = { key: '', pos: [0, 0, 0], sx: 0, sy: 0 };
+  // (px, viewport space) and the island is sized and placed so its three rings fit it,
+  // whatever the window shape. Desktop: the area right of the copy (centre cx/cy, width
+  // w). Phone and tablet: the band above the copy (top/bottom, bandW wide), centred, and
+  // allowed to grow only a little past its pose; a phone held sideways has no such band, so
+  // it uses the free area beside the copy like the desktop. The rings spin, so the safe size
+  // is everything the longest one can sweep. Too little room anywhere = no fit: the pose's
+  // own framing is used instead of a fit that cannot hold.
+  const MIN_ZONE_W = 200, MIN_BAND_H = 160;
+  const zone = { cx: 0, cy: 0, w: 0, bandW: 0, top: 0, bottom: 0, ...heroZone };   // known at start, so the first frame is already in place
+  // Bumped whenever the zone or the window changes; the fit is recomputed only then
+  // (never per frame, and nothing is allocated on the cached path).
+  let rev = 1;
+  const fit = { rev: 0, mobile: null, ok: false, pos: [0, 0, 0], sx: 0, sy: 0 };
   const fitCam = new THREE.PerspectiveCamera(), fa = new THREE.Vector3(), fb = new THREE.Vector3(), frel = new THREE.Vector3(), ftarget = new THREE.Vector3();
   // The rings face the camera but are tilted ~69 deg about their own axis (cos = .355),
   // so as they spin their near side swings toward the lens and looks bigger than a flat
   // circle of the same radius. `project` returns the largest on-screen distance (px) any
   // ring point (or the orb's halo) can reach from the island's centre, over every spin
   // angle, for the pose camera pulled back by factor k; it leaves the centre's NDC in fa.
-  const RING_R = inner * 1.5 + 1.2, TILT_C = 0.355, TILT_S = Math.sqrt(1 - 0.355 * 0.355);
+  const RING_R = inner * RING_K[0] + 1.2, TILT_C = 0.355, TILT_S = Math.sqrt(1 - 0.355 * 0.355);
   function project(q, k, W, H) {
-    ftarget.set(...q.target);
-    frel.set(...q.pos).sub(ftarget).multiplyScalar(k);
+    ftarget.set(q.target[0], q.target[1], q.target[2]);
+    frel.set(q.pos[0], q.pos[1], q.pos[2]).sub(ftarget).multiplyScalar(k);
     fitCam.fov = q.fov; fitCam.aspect = W / H;
     fitCam.position.copy(ftarget).add(frel);
     fitCam.lookAt(ftarget);
@@ -492,36 +506,40 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     return max;
   }
   function fitHero(q, mobile) {
-    const W = window.innerWidth, H = window.innerHeight, key = `${mobile}/${W}x${H}/${zone.cx}/${zone.cy}/${zone.w}/${zone.top}/${zone.bottom}`;
-    if (fit.key === key) return fit;
-    const bandH = zone.bottom - zone.top;
-    const half = mobile ? Math.min(zone.w / 2, bandH / 2) : Math.min(zone.w / 2, H * 0.47);
+    if (fit.rev === rev && fit.mobile === mobile) return fit;
+    fit.rev = rev; fit.mobile = mobile;
+    const W = vw(), H = vh(), bandH = zone.bottom - zone.top;
+    let half, cx, cy, kMin;
+    if (mobile && bandH >= MIN_BAND_H && zone.bandW >= MIN_ZONE_W) {   // stacked: centred in the band above the copy
+      half = Math.min(zone.bandW / 2, bandH / 2); cx = W / 2; cy = (zone.top + zone.bottom) / 2; kMin = 0.8;
+    } else if (zone.w >= MIN_ZONE_W) {                                 // beside the copy (desktop, or a phone with no band)
+      half = Math.min(zone.w / 2, H * 0.47); cx = zone.cx; cy = mobile ? H / 2 : zone.cy; kMin = 0.7;
+    } else { fit.ok = false; return fit; }
+    fit.ok = true;
     let k = 1;   // camera distance factor (>1 = further away); perspective makes it non-linear, so close in over a few passes
-    for (let i = 0; i < 4; i++) k = Math.min(Math.max(k * project(q, k, W, H) / half, mobile ? 1 : 0.7), 3);
+    for (let i = 0; i < 4; i++) k = Math.min(Math.max(k * project(q, k, W, H) / half, kMin), 3);
     project(q, k, W, H);   // leaves the island's projected centre in fa
     fit.pos[0] = q.target[0] + (q.pos[0] - q.target[0]) * k;
     fit.pos[1] = q.target[1] + (q.pos[1] - q.target[1]) * k;
     fit.pos[2] = q.target[2] + (q.pos[2] - q.target[2]) * k;
-    let cx = zone.cx, cy = zone.cy;
-    if (mobile) {   // keep the pose's own spot, but inside the band (the rings are `half` tall at most)
-      cx = W / 2;
-      const r = project(q, k, W, H), y0 = H / 2 - fa.y * H / 2 - q.shiftY * H;
-      cy = bandH > 2 * r ? Math.min(Math.max(y0, zone.top + r), zone.bottom - r) : (zone.top + zone.bottom) / 2;
-    }
-    // centre the island on (cx, cy): ndc -> px, then the framing offset that closes the gap
+    // ndc -> px, then the framing offset that puts the island's centre on (cx, cy)
     fit.sx = (cx - W / 2 - fa.x * W / 2) / W;
     fit.sy = (H / 2 - fa.y * H / 2 - cy) / H;   // positive offset lifts the picture
-    fit.key = key;
     return fit;
   }
   const poseValues = name => {
-    const mobile = isMobile();
-    const q = name === 'hero' && mobile ? (window.innerWidth > 600 ? POSES.heroTablet : POSES.heroMobile) : POSES[name];
-    let pos = q.pos, sx = mobile ? 0 : q.shiftX, sy = q.shiftY;
-    if (name === 'hero' && zone.w > 0) ({ pos, sx, sy } = fitHero(q, mobile));
+    const phone = isMobile();
+    // a desktop window whose free zone is too narrow to hold the island falls back to the phone pose
+    const heroPhone = phone || (name === 'hero' && zone.w < MIN_ZONE_W);
+    const q = name === 'hero' && heroPhone ? (window.innerWidth > 600 ? POSES.heroTablet : POSES.heroMobile) : POSES[name];
+    let pos = q.pos, sx = phone ? 0 : q.shiftX, sy = q.shiftY;
+    if (name === 'hero') {
+      const f = fitHero(q, heroPhone);
+      if (f.ok) { pos = f.pos; sx = f.sx; sy = f.sy; } else if (heroPhone) sx = 0;
+    }
     return [...pos, ...q.target, q.fov, sx,
       // phones: sink the island under the content chapters so it never sits behind the text
-      mobile && (name === 'versions' || name === 'why') ? sy - 0.24 : sy, q.orbit];
+      phone && (name === 'versions' || name === 'why') ? sy - 0.24 : sy, q.orbit];
   };
   const want = { a: 'hero', b: 'hero', t: 0 };
   // One spring carries the whole camera (position, target, lens, framing, sway),
@@ -531,16 +549,17 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
   const goal = new Array(10);
 
   function resize() {
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-    camera.aspect = window.innerWidth / window.innerHeight;
-    dustUniforms.uScale.value = window.innerHeight * 0.5 * pixelRatio / Math.tan(THREE.MathUtils.degToRad(21));
+    rev++;   // the window changed: the hero fit is stale
+    renderer.setSize(vw(), vh(), false);
+    camera.aspect = vw() / vh();
+    dustUniforms.uScale.value = vh() * 0.5 * pixelRatio / Math.tan(THREE.MathUtils.degToRad(21));
   }
   resize();
   window.addEventListener('resize', resize);
   window.addEventListener('pointermove', e => {
     if (e.pointerType === 'touch') return;
-    pointer.x = e.clientX / window.innerWidth * 2 - 1;
-    pointer.y = e.clientY / window.innerHeight * 2 - 1;
+    pointer.x = e.clientX / vw() * 2 - 1;
+    pointer.y = e.clientY / vh() * 2 - 1;
   }, { passive: true });
 
   // ---- loop
@@ -575,7 +594,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     camera.position.copy(camTarget).add(rel);
     camera.lookAt(camTarget);
     camera.fov = c[6];
-    const W = window.innerWidth, H = window.innerHeight;
+    const W = vw(), H = vh();
     camera.setViewOffset(W, H, -c[7] * W, c[8] * H, W, H);
     camera.updateProjectionMatrix();
 
@@ -612,7 +631,7 @@ export async function createWorld(canvas, { mobile = false, reducedMotion = fals
     /** Blend between two named poses (t 0..1); the camera glides toward it. */
     setPose(a, b = a, t = 0) { want.a = a; want.b = b; want.t = t; },
     /** Free hero area in px ({cx, cy, w} desktop: right of the copy; {w, top, bottom} phone/tablet: above it): where the island is centred and sized to fit. */
-    setHeroZone(z) { Object.assign(zone, z); },
+    setHeroZone(z) { Object.assign(zone, z); rev++; },
     destroy() { running = false; stop(); renderer.dispose(); },
   };
 }

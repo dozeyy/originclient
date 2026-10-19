@@ -117,22 +117,30 @@ function requestFrame() {
 // Desktop: the island and its rings are centred in the free area to the right of the
 // hero copy (up to the header's right edge) and sized to fit it, so the two never
 // overlap and the right side is never empty. Phone/tablet: the island sits in the band
-// between the header and the copy and shrinks if that band is too short for it. Uses
-// layout offsets, not scroll position, so it holds still while scrolling.
+// between the header and the copy and shrinks if that band is too short for it. All in
+// viewport space (getBoundingClientRect, clientWidth = the width the canvas really has,
+// without the scrollbar); y is taken at scroll 0, where the hero is, so scrolling never
+// moves it.
 function heroZone() {
   const hero = $('.hero'), copy = $('.hero__copy'), head = $('.top'), act = $('.top__action');
   if (!hero || !copy) return null;
-  const pad = parseFloat(getComputedStyle(hero).paddingLeft) || 0;
-  const l = copy.offsetLeft + copy.offsetWidth + Math.max(24, innerWidth * 0.02);
-  const r = act ? act.getBoundingClientRect().right : innerWidth - pad;   // the header's right edge: the island lines up with the nav
+  const vw = document.documentElement.clientWidth, pad = parseFloat(getComputedStyle(hero).paddingLeft) || 0;
+  const c = copy.getBoundingClientRect(), top = c.top + scrollY;
+  const l = c.right + Math.max(16, vw * 0.01);
+  const r = act ? act.getBoundingClientRect().right : vw - pad;   // the header's right edge: the island lines up with the nav
   return {
-    cx: (l + r) / 2, cy: copy.offsetTop + copy.offsetHeight / 2, w: Math.max(0, r - l),
-    ...(innerWidth <= 900 && { w: innerWidth - 2 * pad }),
+    cx: (l + r) / 2, cy: top + c.height / 2, w: Math.max(0, r - l), bandW: vw - 2 * pad,
     // (the header may be slid away when resized mid-page, hence the floor)
-    top: Math.max(head ? head.getBoundingClientRect().bottom : 0, 62) + 4, bottom: copy.offsetTop - 14,
+    top: Math.max(head ? head.getBoundingClientRect().bottom : 0, 62) + 4, bottom: top - 14,
   };
 }
-function syncHeroZone() { const z = heroZone(); if (world && z) world.setHeroZone(z); }
+// Resize storms and font loads only mark the zone dirty; it is measured once, on the next frame.
+let zoneDirty = false;
+function syncHeroZone() {
+  if (zoneDirty) return;
+  zoneDirty = true;
+  requestAnimationFrame(() => { zoneDirty = false; const z = heroZone(); if (world && z) world.setHeroZone(z); });
+}
 
 // ------------------------------------------------------------------ boot
 async function boot() {
@@ -152,7 +160,7 @@ async function boot() {
     const { createWorld } = await import('./world.js');
     world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion, heroZone: heroZone() });   // same 900px line as the CSS phone/tablet layout
     addEventListener('resize', syncHeroZone);
-    document.fonts?.ready.then(syncHeroZone);
+    document.fonts?.ready.then(syncHeroZone).catch(() => {});
     frame();
   } catch (err) {
     console.warn('Origin: 3D world unavailable, using the flat backdrop.', err);
