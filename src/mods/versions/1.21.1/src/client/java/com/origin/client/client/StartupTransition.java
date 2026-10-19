@@ -72,6 +72,18 @@ public final class StartupTransition {
 	}
 
 	/**
+	 * True during the startup reveal's dissolve (its first {@link #REVEAL_MS}): the
+	 * title is fully loaded and on screen under the fading loading screen, so it
+	 * takes mouse input through it (StartupInputMixin) instead of only once the
+	 * overlay is gone. Clock-bounded, so a later resource reload's loading screen
+	 * never passes input.
+	 */
+	public static boolean startupRevealInProgress() {
+		long at = titleRevealAt;
+		return at != 0 && clockMs() - at < REVEAL_MS;
+	}
+
+	/**
 	 * The hand-off's clock in ms (never 0): RingField's scene clock, which glides
 	 * through uneven frames and drops a freeze instead of jumping past it.
 	 */

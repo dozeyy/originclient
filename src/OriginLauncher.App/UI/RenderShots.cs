@@ -153,6 +153,9 @@ public static class RenderShots
         Pump(800);
         Snap(window, outDir, "14-settings");
 
+        // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
+        TooltipShots.Run(window, outDir, demoProfiles, demoCount);
+
         // The smallest window the launcher allows (what 125-150 % scaling leaves on
         // a 1080p screen): the same screens again, to prove nothing clips.
         window.Width = 980;

@@ -60,7 +60,10 @@ public final class OriginDevShots {
 		ACT_HOVER, ACT_INVITE, ACT_CHAT, ACT_MENU_ARM, ACT_ACCEPT, ACT_SEARCH_ENTER, ACT_PARTY_MENU,
 		ACT_TOAST_REQUEST, ACT_TOAST_INVITE, ACT_TOAST_STALE,
 		// review follow-ups: fast double-click on a confirm, per-conversation drafts, typing with no focus
-		ACT_DOUBLECLICK, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH;
+		ACT_DOUBLECLICK, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH,
+		// ORIGIN_SHOTS_SET=style (Button Style / Main Menu Style, 2026-10-19): Minecraft's own menus, to see
+		// whether they come out Origin-styled or plain vanilla. Run once per ORIGIN_SHOTS_STYLE state.
+		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING;
 
 		GuiScreen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -221,6 +224,25 @@ public final class OriginDevShots {
 				case SOC_MENU:
 					com.origin.client.client.social.SocialDemo.install(false);
 					return preview(make(P + "gui.OriginModMenuScreen"), false, false);
+				case STY_OPTIONS:
+					return new net.minecraft.client.gui.GuiOptions(new GuiMainMenu(), Minecraft.getMinecraft().gameSettings);
+				case STY_VIDEO:
+					return new net.minecraft.client.gui.GuiVideoSettings(new GuiMainMenu(), Minecraft.getMinecraft().gameSettings);
+				case STY_SOUND:
+					return new net.minecraft.client.gui.GuiScreenOptionsSounds(new GuiMainMenu(), Minecraft.getMinecraft().gameSettings);
+				case STY_WORLDS:
+					return new net.minecraft.client.gui.GuiSelectWorld(new GuiMainMenu());
+				case STY_CREATE:
+					return new net.minecraft.client.gui.GuiCreateWorld(new GuiMainMenu());
+				case STY_SERVERS:
+					return new net.minecraft.client.gui.GuiMultiplayer(new GuiMainMenu());
+				case STY_LOADING: {
+					net.minecraft.client.gui.GuiScreenWorking w = new net.minecraft.client.gui.GuiScreenWorking();
+					w.displaySavingString("Preparing for world creation...");
+					w.displayLoadingString("Building terrain");
+					w.setLoadingProgress(40);
+					return w;
+				}
 				default:
 					return null;
 			}
@@ -295,10 +317,25 @@ public final class OriginDevShots {
 	private static double savedBgOpacity = -1;
 	/** ORIGIN_SHOTS_SET=world: OriginDevWorld captures inside a fresh world instead. */
 	private static final boolean WORLD = "world".equals(System.getenv("ORIGIN_SHOTS_SET"));
+	/**
+	 * ORIGIN_SHOTS_SET=handoff: the startup hand-off film. 1.8.9 has no OriginFrameLog
+	 * to wait on, so the first resize waits out the title's startup intro instead
+	 * (OriginTitleScreen: HOLD ~1.1 s + the 560 ms DISSOLVE) -- resizing under it
+	 * would cut the dissolve out of the film.
+	 */
+	private static final boolean HANDOFF = "handoff".equals(System.getenv("ORIGIN_SHOTS_SET"));
 
 	static {
 		if (WORLD) {
 			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("style".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// Button Style / Main Menu Style: the title, the Origin windows (which must stay Origin in every
+			// state) and Minecraft's own menus, at GUI scale 2 on 1080p.
+			Kind[] ks = {Kind.TITLE, Kind.MENU, Kind.SETTINGS, Kind.RSHIFT, Kind.STY_OPTIONS, Kind.STY_VIDEO,
+					Kind.STY_SOUND, Kind.STY_WORLDS, Kind.STY_CREATE, Kind.STY_SERVERS, Kind.STY_LOADING};
+			for (Kind k : ks) {
+				SHOTS.add(new Shot(1920, 1080, 2, k));
+			}
 		} else if ("social-act".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			for (int sc : new int[]{2, 4}) {
 				for (Kind k : Kind.values()) {
@@ -316,11 +353,17 @@ public final class OriginDevShots {
 					}
 				}
 			}
+		} else if (HANDOFF) {
+			// The loading -> title hand-off (filmed with dev-shots `video`): one title
+			// shot, taken only after the startup intro has fully dissolved (see tick).
+			SHOTS.add(new Shot(1920, 1080, 0, Kind.TITLE));
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review: every screen at the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
 				for (Kind k : Kind.values()) {
-					SHOTS.add(new Shot(s[0], s[1], 0, k));
+					if (!k.name().startsWith("STY_")) {
+						SHOTS.add(new Shot(s[0], s[1], 0, k));
+					}
 				}
 			}
 			// Same menu at a forced GUI scale: the redesign must not change size with it.
@@ -354,6 +397,36 @@ public final class OriginDevShots {
 		return DIR != null && !DIR.isEmpty();
 	}
 
+	/**
+	 * ORIGIN_SHOTS_STYLE (dev-only, only with ORIGIN_SHOTS set): forces the two style options for the whole
+	 * run: "buttons" = Button Style Minecraft; "menu" = Main Menu Style Vanilla; "vanilla" = both. Unset/empty =
+	 * the player's own settings. The real options are written and put back when the shot matrix finishes.
+	 * Called from OriginClientMod.init.
+	 */
+	public static void applyStyleOverride() {
+		String style = System.getenv("ORIGIN_SHOTS_STYLE");
+		if (!enabled() || style == null || style.isEmpty()) {
+			return;
+		}
+		try {
+			String g = com.origin.client.client.mods.Mods.GENERAL_ID;
+			savedStyle = new String[]{com.origin.client.client.mods.Mods.mode(g, "buttonStyle"),
+					com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
+			if (style.equals("buttons") || style.equals("vanilla")) {
+				com.origin.client.client.mods.Mods.set(g, "buttonStyle", "Minecraft");
+			}
+			if (style.equals("menu") || style.equals("vanilla")) {
+				com.origin.client.client.mods.Mods.set(g, "mainMenuStyle", "Vanilla");
+			}
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] style override '{}' (was buttons={}, menu={})",
+					style, savedStyle[0], savedStyle[1]);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] style override failed", t);
+		}
+	}
+
+	private static String[] savedStyle;
+
 	public static void tick(Minecraft mc) {
 		if (done) {
 			return;
@@ -362,7 +435,7 @@ public final class OriginDevShots {
 		if (step < 0) {
 			if (mc.theWorld == null && isTitle(mc.currentScreen)) {
 				if (nextAt == 0) {
-					nextAt = now + 1500;
+					nextAt = now + (HANDOFF ? 5000 : 1500);
 				} else if (now >= nextAt) {
 					File output = new File(DIR);
 					if (!output.isDirectory() && !output.mkdirs()) {
@@ -456,6 +529,13 @@ public final class OriginDevShots {
 
 	private static void finish(Minecraft mc) {
 		done = true;
+		if (savedStyle != null) {
+			try {
+				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "buttonStyle", savedStyle[0]);
+				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle", savedStyle[1]);
+			} catch (Throwable ignored) {
+			}
+		}
 		if (savedBgOpacity >= 0) {
 			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", savedBgOpacity);
 		}

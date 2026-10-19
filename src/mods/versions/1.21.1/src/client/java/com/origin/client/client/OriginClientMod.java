@@ -77,6 +77,8 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginBootLog.mark("origin-client-init-begin");
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		// Register the scalable (MSDF text + rounded-box SDF) core shaders for the
 		// menus. Fails soft — if they don't load, the UI uses the software path.
@@ -247,6 +249,7 @@ public class OriginClientMod implements ClientModInitializer {
 				return true; // fail-soft: let vanilla draw its outline
 			}
 		});
+		OriginBootLog.mark("origin-client-init-end");
 	}
 
 	// Lunar parity, batch 3a (chat / server): per-tick work. Each in its own
@@ -358,7 +361,15 @@ public class OriginClientMod implements ClientModInitializer {
 		return Mods.on("togglesprint") && Mods.bool("togglesprint", "sprint");
 	}
 
+	/** Dev-only boot-smoke marker (env ORIGIN_SMOKE, set by tools/boot-smoke/smoke.py): pending until the title screen is first up. */
+	private static boolean smokeTitlePending = System.getenv("ORIGIN_SMOKE") != null;
+
 	private void onEndTick(Minecraft client) {
+		// boot-smoke's "ready" = the title screen really reached (not just GL up). Players never set ORIGIN_SMOKE.
+		if (smokeTitlePending && client.getOverlay() == null && client.screen instanceof net.minecraft.client.gui.screens.TitleScreen) {
+			smokeTitlePending = false;
+			com.origin.client.OriginClient.LOGGER.info("[origin-smoke] title screen reached");
+		}
 		// Dev-only screenshot matrix (env ORIGIN_SHOTS) — see OriginDevShots.
 		if (OriginDevShots.enabled()) {
 			OriginDevShots.tick(client);

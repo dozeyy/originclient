@@ -1,5 +1,6 @@
 package com.origin.client.client.shaders;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.Gfx;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
@@ -36,6 +37,11 @@ public class OriginShaderButton extends GuiButton {
 
 	@Override
 	public void drawButton(Minecraft mc, int mouseX, int mouseY) {
+		// Button Style = Minecraft: this entry is a plain stock button like its neighbours.
+		if (OriginStyle.vanillaButtonsOn(mc.currentScreen)) {
+			super.drawButton(mc, mouseX, mouseY);
+			return;
+		}
 		if (!visible) {
 			return;
 		}

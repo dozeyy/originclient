@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -52,7 +53,8 @@ public class ScreenBackgroundMixin {
 	// nothing is cancelled and vanilla's backdrop returns.
 	@Inject(method = "renderBackground(Lcom/mojang/blaze3d/vertex/PoseStack;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressVanillaBackground(PoseStack poseStack, CallbackInfo ci) {
-		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()) {
+		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()
+				&& !OriginStyle.vanillaMenusOn(this)) {
 			ci.cancel();
 		}
 	}
@@ -66,7 +68,8 @@ public class ScreenBackgroundMixin {
 	// directly); the int is vanilla's texture-scroll offset.
 	@Inject(method = "renderDirtBackground(I)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$suppressVanillaDirt(int vOffset, CallbackInfo ci) {
-		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()) {
+		if (Minecraft.getInstance().level == null && OriginScreenRenderer.isActive()
+				&& !OriginStyle.vanillaMenusOn(this)) {
 			ci.cancel();
 		}
 	}
@@ -78,6 +81,9 @@ public class ScreenBackgroundMixin {
 	// before TAIL is reached.
 	@Inject(method = "renderBackground(Lcom/mojang/blaze3d/vertex/PoseStack;)V", at = @At("TAIL"))
 	private void originclient$inWorldGlow(PoseStack poseStack, CallbackInfo ci) {
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;   // vanilla mode: stock backdrop, no Origin glow
+		}
 		OriginScreenRenderer.renderTitleCursorGlow(new Gfx(poseStack), originclient$mouseX(), originclient$mouseY(), originclient$hoveringClickable());
 	}
 

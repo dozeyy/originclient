@@ -1,5 +1,6 @@
 package com.origin.client.client.shaders;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.gui.OriginUi;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
@@ -22,6 +23,12 @@ public class OriginShaderButton extends Button {
 	// vanilla sprite the final renderWidget draws first.
 	@Override
 	protected void extractContents(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
+		// Button Style = Minecraft: this entry is a plain stock button like its neighbours.
+		if (OriginStyle.vanillaButtonsOn(Minecraft.getInstance().gui.screen())) {
+			extractDefaultSprite(g);
+			extractDefaultLabel(g.textRendererForWidget(this, GuiGraphicsExtractor.HoveredTextEffects.NONE));
+			return;
+		}
 		boolean hover = isHoveredOrFocused();
 		float hp = OriginUi.hover("shader-entry:" + System.identityHashCode(this), hover);
 		OriginUi.panel(g, getX(), getY(), getWidth(), getHeight(), 7,

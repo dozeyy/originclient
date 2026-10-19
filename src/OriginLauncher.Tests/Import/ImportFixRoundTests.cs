@@ -194,7 +194,9 @@ public class ImportFixRoundTests : IDisposable
     }
 
     [Fact]
-    public async Task AFolderThatCantBeReadMakesAWorldCopyFailAndRollBackInsteadOfCopyingHalfAWorld()
+    // 2026-10-19 stress round: a single import now follows the bulk rule (B16) — the world is LEFT OUT, never half
+    // copied, and the rest of the import still lands (it used to roll everything back over one unreadable folder).
+    public async Task AFolderThatCantBeReadLeavesTheWorldOutInsteadOfCopyingHalfAWorld()
     {
         Kit.Write(_rig.Source, "options.txt", "fov:0.5\n");
         Kit.Write(_rig.Source, "saves/World1/level.dat", "LEVEL");
@@ -203,17 +205,17 @@ public class ImportFixRoundTests : IDisposable
         var locked = Src("saves/World1/region");
         DenyAccess(locked);
         _restore.Add(locked);
-        var before = Kit.TreeHash(_rig.Instances, mtimes: true);
 
         var engine = _rig.Engine();
         var plan = await engine.PlanAsync(_rig.Request(options: new ImportOptions { CopyWorlds = true }), null, CancellationToken.None);
         Assert.Contains(plan.Lines, l => l.Section == SummarySection.NeedsAttention && l.Name.StartsWith("Couldn't read:"));   // said at plan time
         var result = await engine.ApplyAsync(plan, _rig.Settings, null, CancellationToken.None);
 
-        Assert.False(result.Succeeded);
-        Assert.Equal(ImportState.RolledBack, result.State);
-        Assert.Contains("couldn't be read", result.Error);
-        Assert.Equal(before, Kit.TreeHash(_rig.Instances, mtimes: true));              // no half world anywhere
+        Assert.True(result.Succeeded, result.Error);
+        Assert.False(Directory.Exists(Path.Combine(_rig.GameDir(), "saves", "World1")));  // no half world anywhere
+        Assert.Contains("fov:0.5", File.ReadAllText(Path.Combine(_rig.GameDir(), "options.txt")));
+        Assert.Contains("World1: Couldn't read it in your old setup", result.SummaryText);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(ImportLayout.RunDir(_rig.Imports, plan.ImportId)).Where(p => Path.GetFileName(p) == "staging"));
     }
 
     [Fact]

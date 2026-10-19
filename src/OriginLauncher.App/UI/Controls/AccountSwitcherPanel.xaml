@@ -61,7 +61,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="Accounts" Style="{StaticResource Text.H2}" VerticalAlignment="Center"/>
             <Button Grid.Column="1" Style="{StaticResource Button.Chrome}" MinWidth="28" MinHeight="28" Padding="6"
-                    Click="CloseButton_Click">
+                    Click="CloseButton_Click" ToolTip="Close" AutomationProperties.Name="Close">
                 <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                       Width="12" Height="12" Stroke="{StaticResource Brush.TextDim}"/>
             </Button>

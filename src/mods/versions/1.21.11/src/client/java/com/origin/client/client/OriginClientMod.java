@@ -78,6 +78,7 @@ public class OriginClientMod implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		OriginDevShots.applyStyleOverride();   // dev-only (env ORIGIN_SHOTS_STYLE); no-op for players
 		OriginKeyBindings.register();
 		OriginShaders.register();
 		// Lunar-parity mods' own pipelines (saturation glow, shine, glint, CUI).
@@ -384,7 +385,15 @@ public class OriginClientMod implements ClientModInitializer {
 		return Mods.on("togglesprint") && Mods.bool("togglesprint", "sprint");
 	}
 
+	/** Dev-only boot-smoke marker (env ORIGIN_SMOKE, set by tools/boot-smoke/smoke.py): pending until the title screen is first up. */
+	private static boolean smokeTitlePending = System.getenv("ORIGIN_SMOKE") != null;
+
 	private void onEndTick(Minecraft client) {
+		// boot-smoke's "ready" = the title screen really reached (not just GL up). Players never set ORIGIN_SMOKE.
+		if (smokeTitlePending && client.getOverlay() == null && client.screen instanceof net.minecraft.client.gui.screens.TitleScreen) {
+			smokeTitlePending = false;
+			com.origin.client.OriginClient.LOGGER.info("[origin-smoke] title screen reached");
+		}
 		// Dev-only screenshot matrix (env ORIGIN_SHOTS) — see OriginDevShots.
 		if (OriginDevShots.enabled()) {
 			OriginDevShots.tick(client);

@@ -55,6 +55,10 @@ public static class ImportPrompt
         SourceKind.Prism => "Prism",
         SourceKind.Modrinth => "Modrinth",
         SourceKind.CurseForge => "CurseForge",
+        SourceKind.Lunar => "Lunar Client",
+        SourceKind.Feather => "Feather Client",
+        SourceKind.Badlion => "Badlion Client",
+        SourceKind.LabyMod => "LabyMod",
         _ => "other",
     };
 }

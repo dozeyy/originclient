@@ -47,6 +47,14 @@ public final class ShaderPreviews {
 
 	private static final Map<String, Preview> READY = new ConcurrentHashMap<>();
 	private static final Set<String> INFLIGHT = ConcurrentHashMap.newKeySet();
+	// Loads not finished yet (fetch + decode + the render-thread upload). Only the dev
+	// shots read it: they wait on it so a capture never races a run's first fetch.
+	private static final java.util.concurrent.atomic.AtomicInteger LOADING = new java.util.concurrent.atomic.AtomicInteger();
+
+	/** True while any preview is still downloading, decoding or waiting for its GL upload. */
+	public static boolean loading() {
+		return LOADING.get() > 0;
+	}
 	private static final Gson GSON = new Gson();
 	private static final String UA = "OriginClient (will@willhenry.me)";
 
@@ -57,7 +65,15 @@ public final class ShaderPreviews {
 			return p;
 		}
 		if (INFLIGHT.add(slug)) {
-			Thread t = new Thread(() -> load(slug), "origin-shader-preview-" + slug);
+			LOADING.incrementAndGet();
+			Thread t = new Thread(() -> {
+				try {
+					load(slug);
+				} finally {
+					// Queued behind load()'s own upload task (same FIFO queue), so it counts the upload too.
+					Minecraft.getInstance().execute(LOADING::decrementAndGet);
+				}
+			}, "origin-shader-preview-" + slug);
 			t.setDaemon(true);
 			t.start();
 		}

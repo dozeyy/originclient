@@ -56,7 +56,7 @@ public static class ImportRecovery
             try
             {
                 var staging = Path.Combine(run, ImportLayout.StagingFolder);
-                if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true);
+                ImportFiles.DeleteTree(staging);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* swept later */ }
 
@@ -96,8 +96,9 @@ public static class ImportRetention
             }
             foreach (var old in committed.OrderByDescending(c => c.Started).Skip(keep))
             {
-                var backup = Path.Combine(old.Dir, ImportLayout.BackupFolder);
-                if (Directory.Exists(backup)) Directory.Delete(backup, recursive: true);
+                // One backup that can't go (a file in use) must not keep every older one on disk too.
+                try { ImportFiles.DeleteTree(Path.Combine(old.Dir, ImportLayout.BackupFolder)); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* tried again next import */ }
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

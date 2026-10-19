@@ -35,4 +35,24 @@ public static class JvmArgPresets
         "-XX:+PerfDisableSharedMem",
         "-XX:MaxTenuringThreshold=1"
     ];
+
+    // Per-version boot speed-ups, measured one at a time with the boot-time
+    // workflow (.github/workflows/boot-time.yml) and checked in dev shots before
+    // they were listed here. Only versions where that was done get them.
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> BootArgs =
+        new Dictionary<string, IReadOnlyList<string>>
+        {
+            // ModernFix (bundled in the 1.21.1 jar) bakes block/item models the
+            // first time they are used instead of every model under the loading
+            // screen: the startup reload went 4.1 s -> 2.3 s, time to an
+            // interactive title -11.8% and -10.3% (CI runs 39270959643 and
+            // 39284372584, 5 boots each, 2026-10-19). ModernFix's
+            // own documented switch, read as a JVM property before its config file.
+            // The 1.21.1 module's build.gradle runs dev builds with the same flag.
+            ["1.21.1"] = ["-Dmodernfix.config.mixin.perf.dynamic_resources=true"],
+        };
+
+    /// <summary>The boot flags measured for this version (none for the rest).</summary>
+    public static IReadOnlyList<string> BootArgsFor(string? version) =>
+        version != null && BootArgs.TryGetValue(version, out var args) ? args : [];
 }

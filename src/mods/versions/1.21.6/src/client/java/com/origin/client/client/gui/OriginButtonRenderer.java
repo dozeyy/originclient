@@ -82,9 +82,13 @@ public final class OriginButtonRenderer {
 	// one design (the Lunar model). This lifts the 2026-08-23 "vanilla menus
 	// keep vanilla buttons" rule on Will's instruction. Another mod's own widget
 	// classes still keep their own art (OriginWidgetOwnership.isForeign).
+	//
+	// Will, 2026-10-19: Button Style = Minecraft hands every vanilla widget back to
+	// vanilla -- except inside Origin's own windows (OriginStyle.vanillaButtonsOn).
+	// This is the ONE gate the widget mixins all pass through.
 	private static boolean originOwnsScreen() {
 		Minecraft mc = Minecraft.getInstance();
-		return mc != null && mc.screen != null;
+		return mc != null && mc.screen != null && !com.origin.client.client.OriginStyle.vanillaButtonsOn(mc.screen);
 	}
 
 	// PRIMARY buttons (the one main action on a screen, e.g. Singleplayer on the

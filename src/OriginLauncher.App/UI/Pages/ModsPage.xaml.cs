@@ -137,12 +137,13 @@ public partial class ModsPage : UserControl
             Margin = new Thickness(0, 0, 4, 0),
             ToolTip = mod.Enabled ? "On — loads in-game" : "Off — skipped at launch"
         };
+        System.Windows.Automation.AutomationProperties.SetName(toggle, $"Enable {mod.DisplayName}");
         toggle.Checked += (s, _) => OnToggle(mod.FileName, true, (ToggleButton)s);
         toggle.Unchecked += (s, _) => OnToggle(mod.FileName, false, (ToggleButton)s);
         Grid.SetColumn(toggle, 1);
         grid.Children.Add(toggle);
 
-        var remove = IconButton("Icon.Trash", "Remove this mod");
+        var remove = IconButton("Icon.Trash", "Remove mod", $"Remove {mod.DisplayName}");
         remove.Click += (_, _) => { _pendingRemove = mod.FileName; Refresh(); };
         Grid.SetColumn(remove, 2);
         grid.Children.Add(remove);
@@ -240,7 +241,7 @@ public partial class ModsPage : UserControl
         return border;
     }
 
-    private Button IconButton(string iconKey, string tooltip)
+    private Button IconButton(string iconKey, string tooltip, string automationName)
     {
         var path = new Path
         {
@@ -250,7 +251,7 @@ public partial class ModsPage : UserControl
             Width = 18,
             Height = 18
         };
-        return new Button
+        var button = new Button
         {
             Content = path,
             Style = (Style)FindResource("Button.Chrome"),
@@ -260,6 +261,8 @@ public partial class ModsPage : UserControl
             ToolTip = tooltip,
             VerticalAlignment = VerticalAlignment.Center
         };
+        System.Windows.Automation.AutomationProperties.SetName(button, automationName);
+        return button;
     }
 
     // ---- actions ----------------------------------------------------------

@@ -406,6 +406,8 @@ public sealed class CacheContributor : IImportPlanContributor
         ctx.Ct.ThrowIfCancellationRequested();
         // The walk follows the folder it starts at: that folder must not be a link.
         if (!ctx.Fs.IsLinkFree(sourceDir)) { Left(ctx, label, Rebuilds); return; }
+        // Gone since the plan: it walks as empty, and an empty copy would REPLACE Origin's own cache data.
+        if (!Directory.Exists(sourceDir)) { Left(ctx, label, Rebuilds); return; }
         if (probeFiles(ctx.Fs, sourceDir).Any(CacheProbes.IsLocked)) { Left(ctx, label, InUse); return; }
 
         var occupied = File.Exists(destDir) || (Directory.Exists(destDir) && Directory.EnumerateFileSystemEntries(destDir).Any());
@@ -433,7 +435,7 @@ public sealed class CacheContributor : IImportPlanContributor
         }
         afterStaged?.Invoke(label);
         if (probeFiles(ctx.Fs, sourceDir).Any(CacheProbes.IsLocked)) { Discard(stage); Left(ctx, label, InUse); return; }
-        if (skippedUnreadable > 0 || ctx.Fs.UnreadableHits > unreadableBefore) { Discard(stage); Left(ctx, label, "Some of it couldn't be read, so none of it was copied."); return; }
+        if (skippedUnreadable > 0 || ctx.Fs.UnreadableHits > unreadableBefore || !Directory.Exists(sourceDir)) { Discard(stage); Left(ctx, label, "Some of it couldn't be read, so none of it was copied."); return; }
 
         if (Directory.Exists(destDir) || File.Exists(destDir)) ctx.Tx.RemoveWithBackup(destDir);
         ctx.Tx.PlaceDirectory(stage, destDir);

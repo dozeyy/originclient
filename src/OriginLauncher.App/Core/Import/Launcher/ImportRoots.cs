@@ -31,6 +31,9 @@ public static class ImportRoots
             PrismDataDir = IfExists(Path.Combine(f.AppData, "PrismLauncher"), exists),
             ModrinthDir = ModrinthRoot(f, exists),
             CurseForgeDir = CurseForgeMinecraft(f, exists) is { } cf ? Path.Combine(cf, "Instances") : null,
+            LunarDir = IfExists(Path.Combine(f.UserProfile, ".lunarclient"), exists),
+            FeatherDir = IfExists(Path.Combine(f.AppData, ".feather"), exists),
+            BadlionDir = IfExists(Path.Combine(f.AppData, "Badlion Client"), exists),
         };
     }
 

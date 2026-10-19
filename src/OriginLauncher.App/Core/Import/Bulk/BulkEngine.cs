@@ -60,7 +60,7 @@ public sealed partial class ImportEngine
         IProgress<BulkPlanProgress>? progress, CancellationToken ct)
     {
         var watch = Stopwatch.StartNew();
-        var plan = new BulkImportPlan { RunId = previous?.RunId ?? _env.NewId(), Request = request };
+        var plan = new BulkImportPlan { RunId = previous?.RunId ?? _env.NewId(), Request = request, PlannedAt = ImportTargetLocks.Now() };
         var counter = new PlanCounter { Total = request.Setups.Count };
 
         void Skip(DetectedInstance setup, string reason, SkipKind kind)
@@ -173,6 +173,10 @@ public sealed partial class ImportEngine
         SourceKind.Prism => "Prism / MultiMC",
         SourceKind.Modrinth => "Modrinth",
         SourceKind.CurseForge => "CurseForge",
+        SourceKind.Lunar => "Lunar Client",
+        SourceKind.Feather => "Feather Client",
+        SourceKind.Badlion => "Badlion Client",
+        SourceKind.LabyMod => "LabyMod",
         _ => "the picked launcher's",
     };
 
@@ -201,13 +205,17 @@ public sealed partial class ImportEngine
     }
 
     // A group of the previous plan that is exactly what would be planned now (same setups in the same order, same
-    // winner, same switches and account) is kept: re-planning one version never re-reads the others.
+    // winner, same switches and account) is kept: re-planning one version never re-reads the others. Never one whose
+    // Origin folder took an import or undo since the previous plan was made: its "World1 is already in Origin" may be
+    // untrue now, and the new plan's fresh stamp would carry it past the apply's stale-plan check (TRY AGAIN after a
+    // refused apply did exactly that: an undone world never came back while the summary said it was there).
     private static VersionGroup? Reusable(BulkImportPlan previous, BulkRequest request, string version, List<DetectedInstance> order,
         DetectedInstance? winner)
     {
         var old = previous.Groups.FirstOrDefault(g => g.Version == version);
         var before = previous.Request;
         if (old == null || before == null) return null;
+        if (ImportTargetLocks.ChangedSince(new[] { old.TargetGameDir }, previous.PlannedAt)) return null;
         if (before.Options != request.Options || before.AccountKey != request.AccountKey) return null;
         if (old.Setups.Count != order.Count) return null;
         for (var i = 0; i < order.Count; i++)
@@ -238,7 +246,7 @@ public sealed partial class ImportEngine
                 : ReferenceEquals(setup, winner) ? SetupRole.Full : SetupRole.ModsAndPacks;
             var r = new ImportRequest
             {
-                Source = setup, TargetVersion = version, AccountKey = request.AccountKey, Options = request.Options,
+                Source = setup, TargetVersion = version, AccountKey = request.AccountKey, Options = request.Options.ForVersion(version),
                 SupportedTargets = request.SupportedTargets, BundledOriginJarPath = facts.BundledOriginJarPath,
                 CatalogMods = facts.CatalogMods, TargetHasIris = facts.TargetHasIris,
                 // B11: unique among the version's existing profiles AND the ones this run already named.
@@ -265,7 +273,7 @@ public sealed partial class ImportEngine
                 continue;
             }
 
-            if (setupPlan.ProfileId != null)
+            if (setupPlan.ProfileId != null && !setupPlan.ProfileReused)
                 plannedProfiles.Add(new ModProfile { Id = setupPlan.ProfileId, Name = setupPlan.ProfileName!, Version = version });
             string? note = null;
             if (role == SetupRole.PacksOnly)
@@ -353,6 +361,9 @@ public sealed partial class ImportEngine
 
         // Plan lines a landed stand-in made untrue ("already brought over from X"): left out of the result.
         public readonly HashSet<SummaryLine> Superseded = new(ReferenceEqualityComparer.Instance);
+
+        // Ops left out whose plan line counts several items ("40 screenshots"): that line is recounted, not dropped.
+        public readonly List<PlannedOp> CountedLeftOut = new();
     }
 
     private BulkImportResult ApplyBulk(BulkImportPlan plan, IImportSettings settings, IProgress<BulkProgress>? progress, CancellationToken ct)
@@ -390,6 +401,7 @@ public sealed partial class ImportEngine
         tx.Journal.GateVersions = gated.Select(g => g.Version).ToList();
 
         var held = new List<IAsyncDisposable>();
+        IDisposable? folders = null; // every target folder's writer lock, taken before the version gates
         // Claims whose owner didn't write them (its setup was skipped, or its copy failed on the source side): a later
         // setup's stand-in (PlannedOp.Fallback) for the same claim then lands its copy, once. Per version group: a
         // claim belongs to one target folder, so another group's released claim never fires a stand-in here.
@@ -408,6 +420,16 @@ public sealed partial class ImportEngine
         try
         {
             tx.Begin();
+            var dirs = plan.Groups.Select(g => g.TargetGameDir).ToList();
+            folders = ImportTargetLocks.Acquire(dirs, ct);
+            if (ImportTargetLocks.ChangedSince(dirs, plan.PlannedAt))
+            {
+                tx.Rollback(settings); // nothing was changed yet: this only closes the journal
+                return new BulkImportResult
+                {
+                    RunId = plan.RunId, State = ImportState.Planned, Skipped = plan.Skipped.ToList(), Error = ImportTargetLocks.StalePlan,
+                };
+            }
             foreach (var group in gated)
             {
                 var waiting = $"Waiting for Minecraft {group.Version} to finish installing";
@@ -463,7 +485,7 @@ public sealed partial class ImportEngine
                     if (Directory.Exists(group.TargetGameDir) && _env.IsGameRunning(group.TargetGameDir))
                         throw new TargetStartedException(group.Version);
 
-                    var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = planned.Setup.GameDir };
+                    var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = planned.Setup.GameDir, SharedRoot = planned.Setup.SharedGameDir };
                     for (var i = 0; i < setupPlan.Ops.Count; i++)
                     {
                         var op = setupPlan.Ops[i];
@@ -497,8 +519,10 @@ public sealed partial class ImportEngine
                         {
                             // B16: a soft SOURCE problem (gone, unreadable, in use) leaves that item out, with a line —
                             // and its claim passes to the next setup that has the same thing.
-                            state.Extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label,
-                                "Couldn't read it in your old setup (it may be in use, or gone), so it was left out."));
+                            // Its planned "Imported" line is no longer true: dropped, so the result never lists it twice.
+                            state.Extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, CouldntReadSource));
+                            if (op.CountedLine) state.CountedLeftOut.Add(op);
+                            else if (op.PlannedLine != null) state.Superseded.Add(op.PlannedLine);
                             if (op.ClaimKey != null)
                             {
                                 released.Add(op.ClaimKey);
@@ -511,6 +535,7 @@ public sealed partial class ImportEngine
                         }
                         if (!op.Fallback) bytesDone += op.Bytes;
                     }
+                    state.Extra.AddRange(ImportSummary.Recount(setupPlan.Ops, state.CountedLeftOut, state.Superseded));
                     state.Kind = planned.Role == SetupRole.PacksOnly ? SetupResultKind.ImportedPartly : SetupResultKind.Imported;
                     index++;
                 }
@@ -526,6 +551,7 @@ public sealed partial class ImportEngine
                 settings.Apply(delta);
             }
             tx.Commit();
+            ImportTargetLocks.MarkChanged(plan.Groups.Select(g => g.TargetGameDir));
             _env.Log?.Invoke($"import bulk apply: {tx.Journal.Entries.Count} journal entries, {tx.JournalBytesWritten} journal bytes written, "
                 + $"{ImportSummary.Megabytes(bytesDone)} copied");
             return Finished(plan, ImportState.Committed, states, versionExtra, cancelled: false, error: null);
@@ -547,6 +573,7 @@ public sealed partial class ImportEngine
         finally
         {
             for (var i = held.Count - 1; i >= 0; i--) ReleaseGate(held[i]);
+            folders?.Dispose();
         }
     }
 
@@ -565,7 +592,8 @@ public sealed partial class ImportEngine
             .Where(s => states[s].Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly)
             .ToList();
         if (imported.Count == 0) return null;
-        var profiles = imported.Where(s => s.Plan.ProfileId != null)
+        // A reused profile (a repeat import) is the player's already: never added, so never removed by an undo.
+        var profiles = imported.Where(s => s.Plan.ProfileId != null && !s.Plan.ProfileReused)
             .Select(s => new ModProfile { Id = s.Plan.ProfileId!, Name = s.Plan.ProfileName!, Version = s.Plan.TargetVersion })
             .ToList();
         var ranked = imported.OrderBy(s => s.Setup, BulkRanking.Order).ToList();
@@ -604,7 +632,8 @@ public sealed partial class ImportEngine
             {
                 var st = states[s];
                 return new SetupOutcome(s.Setup, s.Role, st.Kind, st.Message, null,
-                    s.Plan.Lines.Where(l => !st.Superseded.Contains(l)).Concat(st.Extra).ToList());
+                    s.Plan.Lines.Where(l => !st.Superseded.Contains(l)).Concat(st.Extra).ToList(),
+                    st.Extra.Where(l => l.Section == SummarySection.NotImported).ToList());
             }).ToList();
             var winner = g.Setups.FirstOrDefault(s => s.Role == SetupRole.Full);
             var settingsFrom = winner != null && states[winner].Kind == SetupResultKind.Imported ? winner.Setup.BulkLabel() : null;

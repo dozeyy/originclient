@@ -16,6 +16,9 @@ internal static class ImportLogic
         "Minecraft" => "Minecraft launcher",
         "Prism" => "Prism Launcher",
         "Modrinth" => "Modrinth App",
+        "Lunar" => "Lunar Client",
+        "Feather" => "Feather Client",
+        "Badlion" => "Badlion Client",
         "Folder" => "Picked folders",
         _ => sourceLabel,
     };
@@ -139,6 +142,7 @@ internal sealed class ImportDoneModel
                 seen.Add(s.Setup.BulkId());
             }
             m.Brought += ok.Count;
+            foreach (var s in ok) m.LoseItems(s.LeftOut, s.Setup.BulkLabel());
             if (ok.Count > 0)
             {
                 var full = ok.FirstOrDefault(s => s.Role == SetupRole.Full);
@@ -168,6 +172,15 @@ internal sealed class ImportDoneModel
         if (!m.Succeeded) return m;
         m.Brought = 1;
         m.VersionLines.Add((plan.TargetVersion, $"1 setup, settings from {plan.Source.Name}"));
+        m.LoseItems(r.LeftOut, plan.Source.BulkLabel());
         return m;
+    }
+
+    // Items an import that finished still had to leave out (a mod an antivirus held, a world deleted since the plan):
+    // one row each under the setup they belong to, so a profile missing fabric-api.jar is never a silent surprise.
+    private void LoseItems(IReadOnlyList<SummaryLine>? leftOut, string setupLabel)
+    {
+        foreach (var line in leftOut ?? Array.Empty<SummaryLine>())
+            Lost.Add((line.Name, setupLabel, line.Reason ?? "Left out."));
     }
 }

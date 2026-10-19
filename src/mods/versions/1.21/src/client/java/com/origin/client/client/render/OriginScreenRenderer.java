@@ -85,10 +85,10 @@ public final class OriginScreenRenderer {
 	// frame (-1 = not yet), so the per-letter reveal is time-driven on the same
 	// smoothed clock as the rings.
 	private static double loadStartScene = -1;
-	// The startup bar's shown fill (-1 = none yet) and the scene time it was set:
-	// it glides to the reload's real progress instead of stepping with it.
+	// The startup bar's shown fill (-1 = none yet): it glides to the reload's real
+	// progress instead of stepping with it, and never moves backward (LoadBar).
 	private static double loadFill = -1;
-	private static double loadFillAt = 0;
+	private static final LoadBar LOAD_BAR = new LoadBar();
 	/** The startup and world-loading bars' glide time constant (ms). */
 	private static final double FILL_TAU = 140.0;
 
@@ -148,6 +148,12 @@ public final class OriginScreenRenderer {
 		// Drawn at TAIL over vanilla's overlay, so skipping when broken simply
 		// reveals the vanilla loading screen -- no cancel to unwind.
 		if (broken) {
+			return;
+		}
+		// Vanilla mode (Button Style + Main Menu Style both off): Mojang's loading screen
+		// stays, but the handoff above and the per-frame texture uploads still run.
+		if (com.origin.client.client.OriginStyle.vanillaMenus()) {
+			com.origin.client.client.OriginAssets.uploadSlice();
 			return;
 		}
 		try {
@@ -244,12 +250,13 @@ public final class OriginScreenRenderer {
 			loadStartScene = scene;
 		}
 		long elapsed = (long) (scene - loadStartScene);
-		// A new reload (resource pack change) starts the bar over; otherwise the
-		// fill only ever glides forward. The dissolve passes 1: the bar finishes
-		// its glide while the title appears instead of jumping full.
-		loadFill = loadFill < 0 || clamped < loadFill - 0.25 ? clamped
-				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
-		loadFillAt = scene;
+		// The fill only ever moves forward within a load and is full exactly when
+		// the reload is done (LoadBar: the reload's own fraction dips mid-load as
+		// work is queued); a load after a finished one starts it over. The
+		// dissolve passes 1: the bar finishes its glide while the title appears.
+		net.minecraft.server.packs.resources.ReloadInstance barReload = currentReload();
+		loadFill = LOAD_BAR.update(barReload, barReload != null ? barReload.isDone() : clamped >= 1f, clamped, scene, FILL_TAU);
+		com.origin.client.client.OriginFrameLog.bar(barReload, clamped, loadFill);
 
 		double markT = scene - loadStartScene;
 		if (drive) {
@@ -432,7 +439,8 @@ public final class OriginScreenRenderer {
 	// The world-loading scene's shown bar fill, gliding to each new count.
 	// sceneFill < 0 = the bar is sweeping.
 	private static double sceneFill = -1;
-	private static double sceneFillAt = 0;
+	// Never backward within a world load, never full before the world is up (LoadBar.scene).
+	private static final LoadBar SCENE_BAR = new LoadBar();
 
 	private static void renderLoadingScene0(GuiGraphics guiGraphics, net.minecraft.network.chat.Component title, float progress) {
 		ensureLoaded();
@@ -450,17 +458,13 @@ public final class OriginScreenRenderer {
 		}
 		drawFrame(guiGraphics, w, h);
 
-		// The fill glides to each new count (chunk counts arrive in steps), and
-		// a new scene with no count goes back to the sweep.
+		// The fill glides to each new count and only moves forward within one world
+		// load; it sweeps until the load's first measured stage (LoadBar.scene).
 		double now = RingField.sceneMs();
-		if (progress < 0f) {
-			sceneFill = -1;
-		} else {
-			double target = Math.max(0.0, Math.min(1.0, progress));
-			sceneFill = sceneFill < 0 || target < sceneFill ? target
-					: target + (sceneFill - target) * Math.exp(-(now - sceneFillAt) / FILL_TAU);
+		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(), progress, now, FILL_TAU);
+		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
+			com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		}
-		sceneFillAt = now;
 		drawSceneText(guiGraphics, mc.font, w, h, title == null ? "" : title.getString().trim(), sceneFill);
 	}
 

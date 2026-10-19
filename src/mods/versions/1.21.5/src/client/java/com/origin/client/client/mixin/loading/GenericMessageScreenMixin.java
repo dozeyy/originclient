@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.loading;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.GenericMessageScreen;
@@ -24,6 +25,9 @@ public class GenericMessageScreenMixin {
 	private void originclient$originBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
 		// null title -> Origin draws its backdrop + indeterminate bar only; the
 		// screen's own "Preparing Resources..." label renders over it as usual.
+		if (OriginStyle.vanillaMenusOn(this)) {
+			return;   // vanilla mode: stock screen
+		}
 		if (OriginScreenRenderer.renderLoadingScene(guiGraphics, null)) {
 			ci.cancel();
 		}

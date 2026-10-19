@@ -150,7 +150,12 @@ internal sealed class FakeSettings : IImportSettings
 
     public int ApplyCalls { get; private set; }
 
-    public void Apply(SettingsDelta delta)
+    // Locked like SettingsStore.Update (the real store serializes writers): concurrent-import tests share one fake.
+    private readonly object _gate = new();
+
+    public void Apply(SettingsDelta delta) { lock (_gate) ApplyLocked(delta); }
+
+    private void ApplyLocked(SettingsDelta delta)
     {
         ApplyCalls++;
         var s = Load();
@@ -162,7 +167,9 @@ internal sealed class FakeSettings : IImportSettings
         Save(s);
     }
 
-    public void Revert(SettingsDelta delta)
+    public void Revert(SettingsDelta delta) { lock (_gate) RevertLocked(delta); }
+
+    private void RevertLocked(SettingsDelta delta)
     {
         var s = Load();
         if (delta.AddProfile != null) s.Profiles.RemoveAll(p => p.Id == delta.AddProfile.Id);

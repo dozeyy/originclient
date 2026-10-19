@@ -85,31 +85,7 @@ public static class LegacyStackInstaller
         }
     }
 
-    // FML's boot splash (the earliest thing a player sees) is configurable via
-    // config/splash.properties — seed it themed to the Origin palette so even
-    // the Forge load screen is charcoal + white instead of the default red.
-    // Only written when absent: the file is player-ownable config. FML reads
-    // it from <gameDir>/config, i.e. the ACCOUNT's own game folder, so every
-    // account gets its own copy the first time it plays.
-    public static void SeedSplashTheme(string configFolder)
-    {
-        try
-        {
-            var path = Path.Combine(configFolder, "splash.properties");
-            if (File.Exists(path)) return;
-            Directory.CreateDirectory(configFolder);
-            File.WriteAllText(path,
-                "enabled=true\n" +
-                "showMemory=false\n" +
-                "backgroundColor=0x050505\n" +
-                "fontColor=0xF5F5F5\n" +
-                "barColor=0xE0E0E0\n" +
-                "barBorderColor=0x3A3A3A\n" +
-                "barBackgroundColor=0x161616\n");
-        }
-        catch
-        {
-            // Cosmetic only — never block a launch over it.
-        }
-    }
+    // FML's boot splash themed to the Origin palette (ForgeSplashTheme: the keys,
+    // and why the first seed never took). Per account game folder.
+    public static void SeedSplashTheme(string configFolder) => ForgeSplashTheme.Seed(configFolder);
 }

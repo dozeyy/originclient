@@ -17,6 +17,10 @@
 # `video` (or [video] in the commit message) also films the run as loading.mp4.
 # Software GL limits (Xvfb + llvmpipe, Sodium's GL 4.6 spoofed) are the same
 # as boot-smoke.yml -- see the notes there.
+# A job FAILS when it captured fewer PNGs than its set planned (tools/ci/check_shots.py).
+# No Video Settings (Sodium) shot: the mod rail was removed on Will's call
+# (2026-10-12, MEMORY.md), and only 1.21.1 has Sodium on the CI dev classpath --
+# every other module loads it from a gitignored libs/ jar that CI doesn't have.
 name: dev-shots
 
 on:
@@ -31,6 +35,9 @@ on:
       set:
         description: "design (Origin screens) or world (inside a fresh world: OriginDevWorld)"
         default: "design"
+      style:
+        description: "Button Style / Main Menu Style forced for the run (ORIGIN_SHOTS_STYLE): empty = the default (Origin), 'buttons' = Button Style Minecraft, 'menu' = Main Menu Style Vanilla, 'vanilla' = both. Use with set 'style' (Minecraft's own menus) or 'world' (pause menu)"
+        default: ""
       label:
         description: "Optional name for this run's output (folder <module>[-world]-<label>), so parallel sessions don't overwrite each other"
         default: ""
@@ -47,8 +54,10 @@ on:
         type: boolean
         default: false
 
+# Read-only by default: the shots job runs the repo's Gradle build. Only the
+# publish job (which runs no repo code) gets a write token.
 permissions:
-  contents: write
+  contents: read
 
 # Only runs that will actually take shots share a group: a push WITHOUT a
 # [shots] tag still starts a (skipped) run, and in the shared group it would
@@ -56,7 +65,7 @@ permissions:
 # module list + set, so parallel sessions/agents shooting different modules
 # never cancel each other.
 concurrency:
-  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}', github.event.inputs.modules, github.event.inputs.set, github.event.inputs.label) || contains(github.event.head_commit.message, '[shots') }}
+  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}-{3}', github.event.inputs.modules, github.event.inputs.set, github.event.inputs.label, github.event.inputs.style) || contains(github.event.head_commit.message, '[shots') }}
   cancel-in-progress: true
 
 jobs:
@@ -71,17 +80,25 @@ jobs:
         env:
           MSG: ${{ github.event.head_commit.message }}
           INPUT: ${{ github.event.inputs.modules }}
+          EVENT: ${{ github.event_name }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import json, os, re
+          import json, os, re, sys
           entries = json.load(open("src/mods/live-modules.json"))["modules"]
           live = [m["module"] for m in entries]
           java = {m["module"]: m.get("java", "21") for m in entries}
           raw = os.environ.get("INPUT") or ""
           if not raw:
-              # A tag WITH a module list wins over a bare one wherever it sits: a
-              # message may mention the bare tag in its prose too.
-              tags = re.findall(r"\[shots(?::([^\]]+))?\]", os.environ.get("MSG", ""))
+              # A tag WITH a module list wins over a bare one wherever it sits.
+              # Rule: a tag counts only at the END of a line (every real past use
+              # is a subject/line suffix); prose like "(the [shots:x] tag)" is ignored.
+              tags = re.findall(r"\[shots(?::([^\]]+))?\][ \t\r]*$", os.environ.get("MSG", ""), re.M)
+              if not tags and os.environ.get("EVENT") != "workflow_dispatch":
+                  # The cheap if: guard only sees a substring; a prose mention
+                  # mid-line is not a tag. Plan nothing; shots/publish skip.
+                  print("dev-shots: no end-of-line shots tag; nothing to shoot", file=sys.stderr)
+                  print("modules=[]")
+                  sys.exit(0)
               listed = [t for t in tags if t]
               raw = listed[-1] if listed else "1.21.1"
           raw = raw.strip()
@@ -95,13 +112,20 @@ jobs:
                   return java[x]
               m = re.search(r"options\.release\s*=\s*(\d+)", open(f"src/mods/versions/{x}/build.gradle").read())
               return "25" if m and int(m.group(1)) > 21 else "21"
-          picked = live if raw == "all" else [x.strip() for x in raw.split(",") if known(x.strip())]
-          picked = picked or ["1.21.1"]
+          picked = live if raw == "all" else [x.strip() for x in raw.split(",") if x.strip()]
+          # A typo ([shots:1.21.l1]) must fail loudly, never quietly shoot some
+          # other module and go green without testing the one that was asked for.
+          unknown = [x for x in picked if not known(x)]
+          if unknown or not picked:
+              print(f"::error::dev-shots: unknown module(s) {unknown or raw!r}; expected names from src/mods/live-modules.json or src/mods/versions/", file=sys.stderr)
+              sys.exit(1)
           print("modules=" + json.dumps([{"module": x, "java": java_of(x)} for x in picked]))
           EOF
 
   shots:
     needs: plan
+    # An empty matrix is an error in Actions: skip the job when nothing is planned.
+    if: needs.plan.outputs.modules != '[]'
     name: Shots ${{ matrix.module }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -134,6 +158,11 @@ jobs:
         env:
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
 
+      # Maven 429 / Loom :downloadAssets timeouts used to fail (or, with 0 shots,
+      # falsely pass) jobs at random: fetch everything first, retried with backoff.
+      - name: Download dependencies + assets (retried on Maven 429 / timeouts)
+        run: bash tools/ci/gradle_prefetch.sh "src/mods/versions/${{ matrix.module }}"
+
       - name: Boot ${{ matrix.module }} and capture the Origin screens
         working-directory: src/mods/versions/${{ matrix.module }}
         env:
@@ -148,6 +177,7 @@ jobs:
           SDL_VIDEO_FORCE_EGL: "1"
           ORIGIN_SHOTS: ${{ runner.temp }}/shots
           ORIGIN_SHOTS_SET: ${{ github.event.inputs.set || 'design' }}
+          ORIGIN_SHOTS_STYLE: ${{ github.event.inputs.style || '' }}
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
           FRAMELOG: ${{ github.event.inputs.framelog || 'false' }}
           EXTRA_MODS: ${{ github.event.inputs.extra_mods || 'false' }}
@@ -172,6 +202,9 @@ jobs:
           fi
           if [ "$FRAMELOG" = "true" ]; then
             gargs="$gargs -PframeLog"
+            # A made-up launcher token (not a secret) so OriginHandoff prints its
+            # "origin-handoff <token> hello|loading|ready" lines into run.log.
+            export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Dorigin.handoff=0123456789abcdef0123456789abcdef"
             mkdir -p "$rundir"
             [ -f "$rundir/options.txt" ] || printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > "$rundir/options.txt"
           fi
@@ -186,6 +219,13 @@ jobs:
             # screen, no auto-pause when Xvfb's window "loses focus").
             mkdir -p "$rundir"
             printf 'onboardAccessibility:false\npauseOnLostFocus:false\noverrideWidth:1920\noverrideHeight:1080\n' > "$rundir/options.txt"
+            if [ "${{ matrix.module }}" = "1.8.9" ]; then
+              # 1.8.9's startup load is FML's splash; players get it themed by the
+              # launcher (Core/Loaders/ForgeSplashTheme.cs -- keep these values
+              # identical, test_ci_gates.py checks), so the film shows that, not Forge red.
+              mkdir -p "$rundir/config"
+              printf 'enabled=true\nbackground=0x5A5A5A\nfont=0xF5F5F5\nbar=0xE0E0E0\nbarBorder=0x1E1E1E\nbarBackground=0x3A3A3A\n' > "$rundir/config/splash.properties"
+            fi
             Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
             xvfb=$!
             export DISPLAY=:99
@@ -195,12 +235,20 @@ jobs:
             setsid env -u CI ./gradlew $task --no-daemon $gargs > run.log 2>&1 &
             pid=$!
             # Start filming as the game opens its window, not during Gradle's compile.
-            # DISPLAY/XAUTHORITY come from the game process itself, so the film
-            # follows the game even if Loom's wrapper ever comes back.
-            ( for i in $(seq 1 600); do grep -q "Backend library" run.log 2>/dev/null && break; sleep 1; done
-              game=$(pgrep -n -f devlaunchinjector || pgrep -n -f KnotClient)
-              export DISPLAY=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^DISPLAY=//p')
-              export XAUTHORITY=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^XAUTHORITY=//p')
+            # The window-open line is per era: GLFW/SDL modules log "Backend library:
+            # LWJGL version 3.x"; 1.8.9 (LWJGL 2 + Forge) never does -- it logs
+            # "LWJGL Version: 2.9.4" right before Display.create (no film in run
+            # 39267523866 until this). DISPLAY/XAUTHORITY come from the game process
+            # itself when it can be found, so the film follows the game even if
+            # Loom's xvfb wrapper ever comes back; else the :99 set above.
+            ( for i in $(seq 1 600); do grep -qE "Backend library|LWJGL Version:" run.log 2>/dev/null && break; sleep 1; done
+              game=$(pgrep -n -f devlaunchinjector || pgrep -n -f KnotClient || pgrep -n -f launchwrapper || true)
+              if [ -n "$game" ]; then
+                d=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^DISPLAY=//p' || true)
+                a=$(tr '\0' '\n' < /proc/$game/environ | sed -n 's/^XAUTHORITY=//p' || true)
+                if [ -n "$d" ]; then export DISPLAY="$d"; fi
+                if [ -n "$a" ]; then export XAUTHORITY="$a"; fi
+              fi
               sleep 2
               size=$(xdpyinfo | awk '/dimensions:/{print $2; exit}')
               { echo "game pid $game DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY size=$size"; ls -la /tmp/.X11-unix; xwininfo -root -tree; } > "$ORIGIN_SHOTS/screenshots/x-probe.txt" 2>&1
@@ -254,10 +302,26 @@ jobs:
           path: ${{ runner.temp }}/shots/screenshots/
           if-no-files-found: warn
 
+      # The gate: the job FAILS unless the harness printed "[dev-shots] done" and
+      # every shot it planned is on disk (0 PNGs after a Maven 429 once went green).
+      # Runs after the upload so a failed run's partial shots + run.log are kept.
+      - name: Every planned shot captured
+        run: |
+          python3 tools/ci/check_shots.py "${{ runner.temp }}/shots/screenshots" \
+            "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.module }}"
+
   publish:
     needs: shots
     if: always() && needs.shots.result != 'skipped'
     runs-on: ubuntu-latest
+    # claude/dev-shots holds every module's latest shots for every label (~7 GB of
+    # PNGs, 2026-10-19). The old full `clone --depth 1` of it on every publish hung
+    # run 39257723261 for 30+ min. Now: a partial clone (trees only) + a sparse
+    # checkout of just the folders this run replaces, every git network call capped,
+    # and the job itself bounded.
+    timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
       - name: Collect every module's shots
         uses: actions/download-artifact@v4
@@ -279,24 +343,50 @@ jobs:
           suffix=""; [ "$SET" = "world" ] && suffix="-world"
           [ -n "$LABEL" ] && suffix="$suffix-$(printf '%s' "$LABEL" | tr -c 'A-Za-z0-9._-' '_')"
           url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
-          for attempt in 1 2 3 4 5; do
-            rm -rf "$RUNNER_TEMP/site"
-            if git clone -q --depth 1 --branch claude/dev-shots "$url" "$RUNNER_TEMP/site" 2>/dev/null; then :; else
-              mkdir -p "$RUNNER_TEMP/site" && git -C "$RUNNER_TEMP/site" init -q && git -C "$RUNNER_TEMP/site" checkout -q -b claude/dev-shots
+          folders=""
+          for d in "$pub"/shots-*; do
+            [ -d "$d" ] || continue
+            m="$(basename "$d")"; folders="$folders ${m#shots-}$suffix"
+          done
+          [ -n "$folders" ] || { echo "no shots to publish"; exit 0; }
+          git config --global user.name "origin-dev-shots"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Every attempt starts from the branch's CURRENT tip and re-applies this
+          # run's folders on top, so a push rejected as non-fast-forward (another
+          # run published first) becomes a rebase-retry, never a lost publish.
+          # Bounded: 6 attempts, each clone/checkout/push capped at 5 min.
+          for attempt in 1 2 3 4 5 6; do
+            cd "$RUNNER_TEMP"; rm -rf site
+            if timeout 120 git ls-remote --exit-code --heads "$url" claude/dev-shots >/dev/null 2>&1; then
+              if ! timeout 300 git clone -q --depth 1 --filter=blob:none --no-checkout --branch claude/dev-shots "$url" site; then
+                echo "attempt $attempt: clone failed"; sleep $((attempt * 10 + RANDOM % 10)); continue
+              fi
+              cd site
+              if ! git sparse-checkout set --no-cone /SOURCE.txt $(for m in $folders; do printf '/%s/ ' "$m"; done) \
+                 || ! timeout 300 git checkout -q claude/dev-shots; then
+                echo "attempt $attempt: checkout failed"; sleep $((attempt * 10 + RANDOM % 10)); continue
+              fi
+            else
+              mkdir site && cd site && git init -q && git checkout -q -b claude/dev-shots
             fi
-            cd "$RUNNER_TEMP/site"
-            git config user.name "origin-dev-shots"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            for d in "$pub"/shots-*; do
-              [ -d "$d" ] || continue
-              m="$(basename "$d")"; m="${m#shots-}$suffix"
-              rm -rf "$m"; cp -r "$d" "$m"
+            for m in $folders; do
+              rm -rf "$m"; cp -r "$pub/shots-${m%"$suffix"}" "$m"
               printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$m/SOURCE.txt"
             done
             printf 'last run: %s/%s/actions/runs/%s (%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_SHA" > SOURCE.txt
             git add -A
+            # Safety net: a sparse checkout that came up empty would stage the whole
+            # branch as deleted. Only deletions inside this run's folders are allowed.
+            stray="$(git diff --cached --name-only --diff-filter=D | grep -vE "^($(echo $folders | sed 's/[.]/[.]/g; s/ /|/g'))/" | head -n 3 || true)"
+            if [ -n "$stray" ]; then
+              echo "::error::publish would delete files outside this run's folders (e.g. $stray); refusing"; exit 1
+            fi
             git commit -qm "dev shots ($SET) for ${GITHUB_SHA::7}" || true
-            if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then exit 0; fi
-            cd "$RUNNER_TEMP"; sleep $((attempt * 5))
+            if out="$(timeout 300 git push -q "$url" HEAD:refs/heads/claude/dev-shots 2>&1)"; then
+              echo "published:$folders (attempt $attempt)"; exit 0
+            fi
+            echo "attempt $attempt: push failed: $(printf '%s' "$out" | tail -n 3)"
+            sleep $((attempt * 10 + RANDOM % 10))
           done
+          echo "::error::could not publish to claude/dev-shots after 6 attempts (the shots are still in this run's artifacts)"
           exit 1

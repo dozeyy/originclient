@@ -139,7 +139,7 @@ public final class OriginScreenRenderer {
 	public static void renderLoading(GuiGraphics guiGraphics, float progress) {
 		// Drawn at TAIL over vanilla's overlay, so skipping when broken simply
 		// reveals the vanilla loading screen -- no cancel to unwind.
-		if (broken) {
+		if (broken || com.origin.client.client.OriginStyle.vanillaMenus()) {   // vanilla mode: Mojang's screen
 			return;
 		}
 		try {

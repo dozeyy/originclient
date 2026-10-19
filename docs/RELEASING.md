@@ -64,9 +64,15 @@ would have posted are attached to the run as a "rehearsal-release" download
 
 Written automatically from the commit titles since the previous release:
 
-- **What's new** / **Fixes** / **Behind the scenes** — grouped by the title's
-  prefix (`feat:`, `fix:`, `docs:`, `ci:`, `MEMORY:` …). A scope prefix like
-  `1.21.11:` or `Tab Editor:` is kept so the line says what it's about.
+- **What's new** / **Fixes** — grouped by the title's prefix (`feat:`,
+  `fix:` …); `fix(launcher):`-style prefixes are stripped into plain sentences.
+  Left out entirely: merges, reverts (and what they undo), `docs:` / `ci:` /
+  `test:` / `chore:` / `MEMORY:`, titles saying dev-only / frame log /
+  launcher shots / dev shots / review round / WIP, titles naming code
+  identifiers (`OriginAssets`), and any commit whose files are all under
+  tests, tools, docs, website, `.github` or `.claude`. The same change listed
+  per version collapses to one line. Nothing left → "Fixes and stability
+  improvements." Tests: `python3 tools/release/test_notes.py`.
 - **Minecraft versions updated** — the shipped versions whose mod code
   changed.
 - Install/update instructions and a link to the full diff.

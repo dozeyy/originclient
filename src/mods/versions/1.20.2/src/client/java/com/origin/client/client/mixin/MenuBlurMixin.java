@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.mods.MenuBlur;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -26,7 +27,7 @@ public class MenuBlurMixin {
 	@Inject(method = "renderTransparentBackground(Lnet/minecraft/client/gui/GuiGraphics;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$menuBlur(GuiGraphics guiGraphics, CallbackInfo ci) {
 		Screen self = (Screen) (Object) this;
-		if (MenuBlur.handles(self)) {
+		if (!OriginStyle.vanillaMenusOn(self) && MenuBlur.handles(self)) {
 			MenuBlur.blur(Minecraft.getInstance().getFrameTime());
 			MenuBlur.tint(guiGraphics, self);
 			ci.cancel();

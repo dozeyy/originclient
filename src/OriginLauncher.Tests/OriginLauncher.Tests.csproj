@@ -61,6 +61,7 @@
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportPrompt.cs" LinkBase="Import" />
     <!-- The Import drawer's words and decisions that need no WPF (plurals, the Import all label, the Done page's summary). -->
     <Compile Include="..\OriginLauncher.App\UI\Controls\ImportLogic.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\UI\Controls\ImportFlowModel.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSummaryView.cs" LinkBase="Import" />
     <!-- Launch/import safety glue (pure: no WPF, no OriginPaths, no files): the run-state counters, the startup
          recovery wrapper, the second-launch pipe, the close-while-importing rule, the bulk dry-run grouping,
@@ -78,6 +79,8 @@
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameHandoff.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\StageProgress.cs" LinkBase="Launch" />
+    <!-- 1.8.9's FML splash theme (pure file IO). -->
+    <Compile Include="..\OriginLauncher.App\Core\Loaders\ForgeSplashTheme.cs" LinkBase="Loaders" />
   </ItemGroup>
 
   <ItemGroup>

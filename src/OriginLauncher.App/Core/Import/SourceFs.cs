@@ -167,11 +167,18 @@ public sealed class SourceFs
     /// <summary>The source instance's game folder. When set, links are refused on any path segment below it (see <see cref="IsLinkFree"/>).</summary>
     public string? InstanceRoot { get; init; }
 
+    /// <summary>
+    /// A second game folder the setup reads worlds and screenshots from (a client's "game directory", Lunar's
+    /// .minecraft). Paths below it get the same per-segment link check as paths below <see cref="InstanceRoot"/>.
+    /// </summary>
+    public string? SharedRoot { get; init; }
+
     // The instance's own first-level folders that launchers link on purpose (a Prism setup sharing saves/ or
-    // mods/): what the player's instance points at, so they are followed. Nothing deeper ever is.
+    // mods/, or screenshots/ moved to a bigger drive): what the player's instance points at, so they are followed.
+    // "shaders" is Lunar's name for shaderpacks/. Nothing deeper ever is.
     private static readonly HashSet<string> FollowedFirstLevel = new(StringComparer.OrdinalIgnoreCase)
     {
-        "saves", "mods", "config", "resourcepacks", "shaderpacks",
+        "saves", "mods", "config", "resourcepacks", "shaderpacks", "screenshots", "shaders",
     };
 
     // The instance's own first-level settings FILES, followed like the folders above when a launcher links them
@@ -191,10 +198,11 @@ public sealed class SourceFs
     /// </summary>
     public bool IsLinkFree(string path, string? root = null)
     {
-        root ??= InstanceRoot;
         string full;
         try { full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)); }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+        // Below the shared game folder (worlds, screenshots) and not below the instance: that folder is the root.
+        root ??= SharedRoot != null && !IsBelow(InstanceRoot, full) && IsBelow(SharedRoot, full) ? SharedRoot : InstanceRoot;
         if (root != null)
         {
             var top = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
@@ -218,6 +226,20 @@ public sealed class SourceFs
             }
         }
         return !IsLink(full);
+    }
+
+    private static bool IsBelow(string? root, string full)
+    {
+        if (root == null) return false;
+        try
+        {
+            var rel = Path.GetRelativePath(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)), full);
+            return rel != ".." && !Path.IsPathRooted(rel) && !rel.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Remembers a link a caller found on a built path (not a walk) and left out, for the summary.</summary>

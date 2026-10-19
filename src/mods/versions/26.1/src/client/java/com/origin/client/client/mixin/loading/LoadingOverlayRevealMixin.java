@@ -1,5 +1,6 @@
 package com.origin.client.client.mixin.loading;
 
+import com.origin.client.client.OriginStyle;
 import com.origin.client.client.OriginFrameLog;
 import net.minecraft.server.packs.resources.ReloadInstance;
 import com.origin.client.client.StartupTransition;
@@ -109,7 +110,7 @@ public abstract class LoadingOverlayRevealMixin {
 		if (OriginFrameLog.ENABLED && !this.fadeIn && this.reload.isDone()) {
 			OriginFrameLog.reloadSeenDone();   // dev-only: the bar-full frame
 		}
-		if (this.fadeOutStart <= -1L || !OriginScreenRenderer.isActive()) {
+		if (this.fadeOutStart <= -1L || !OriginScreenRenderer.isActive() || OriginStyle.vanillaMenus()) {
 			return;
 		}
 		long now = Util.getMillis();
