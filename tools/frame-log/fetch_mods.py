@@ -5,11 +5,14 @@
 Every jar is pinned by Modrinth version id (mods-1.21.1.json next to this
 script) and checked against the SHA-512 Modrinth publishes for that file; a
 mismatch deletes the file and fails. Already-present jars with the right hash
-are kept. Then run the dev client with the folder added on top of its own mods:
+are kept. Then, from src/mods/versions/1.21.1, run the BUILT Origin jar plus the
+folder in a production Fabric game (many of these mods can't start in the
+Mojang-named dev game that runClient is):
 
-    ./gradlew runClient -PframeLog -PextraMods=<out-dir>
+    ./gradlew prodClient -PframeLog -PextraMods=<out-dir>
 
-Nothing is copied into run/mods, so a normal runClient afterwards is unchanged.
+Nothing is copied into run/mods (prodClient's game folder is run-prod/), so a
+normal runClient afterwards is unchanged.
 Standard library only.
 """
 import hashlib
