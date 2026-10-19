@@ -73,6 +73,8 @@
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportCloseGuard.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportBulkReport.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\Deferred.cs" LinkBase="Import" />
+    <!-- The self-update zip's integrity check (pure: streams + files; UpdateService, the WPF/HTTP glue, stays out). -->
+    <Compile Include="..\OriginLauncher.App\Core\Updates\UpdateVerifier.cs" LinkBase="Updates" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->

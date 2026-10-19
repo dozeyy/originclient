@@ -20,7 +20,8 @@ internal static class ImportShots
 {
     // Bulk: the normal scan, plan and a successful apply. Progress: the apply stops part way and waits. Failed: the
     // apply rolls back with a reason. Blocked: the plan says Minecraft is running. Empty: nothing found.
-    private enum Demo { Bulk, Progress, Failed, Blocked, Empty }
+    // Scanning: the scan itself waits (until Release or the drawer closes), so the "Looking for your setups..." pane stays up.
+    private enum Demo { Bulk, Progress, Failed, Blocked, Empty, Scanning }
 
     /// <summary>
     /// 17, 17b, 50, 51: the one-time first-run card in Home's banner slot, at the normal size and the smallest one. Runs early
@@ -86,6 +87,13 @@ internal static class ImportShots
             RenderShots.Snap(window, outDir, "38-import-drawer-empty");
             window.TourBackendFactory = null;
             window.TourCloseImport();
+            RenderShots.Pump(400);
+
+            // 38b: still looking (the scan pane: spinner + "Looking for your setups..."), held by a scan that waits.
+            Open(window, Demo.Scanning, 900);
+            RenderShots.Snap(window, outDir, "38b-import-drawer-scanning");
+            window.TourCloseImport();
+            DemoBackend.Release();
             RenderShots.Pump(400);
 
             // 30: the default view: every setup found, "Import all" on top.
@@ -335,7 +343,7 @@ internal static class ImportShots
         public DemoBackend(Demo demo)
         {
             _demo = demo;
-            if (demo == Demo.Progress) _hold = new TaskCompletionSource<bool>();
+            if (demo is Demo.Progress or Demo.Scanning) _hold = new TaskCompletionSource<bool>();
         }
 
         /// <summary>Lets a held apply finish (so the render does not leave a task waiting).</summary>
@@ -347,6 +355,8 @@ internal static class ImportShots
 
         public Task<ScanResult> ScanAsync(IProgress<ImportProgress>? progress, CancellationToken ct)
         {
+            if (_demo == Demo.Scanning)
+                return _hold.Task.WaitAsync(ct).ContinueWith(_ => new ScanResult(), TaskContinuationOptions.OnlyOnRanToCompletion);
             var scan = new ScanResult();
             if (_demo != Demo.Empty) scan.Instances.AddRange(BulkSetups());
             return Task.FromResult(scan);

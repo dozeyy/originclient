@@ -152,6 +152,10 @@ public static class RenderShots
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");
+        // 14b: the same page scrolled to the Settings Sync row, which is below the fold in 14 (and so never checked).
+        window.TourScrollSettingsToSync();
+        Pump(400);
+        Snap(window, outDir, "14b-settings-sync");
 
         // The smallest window the launcher allows (what 125-150 % scaling leaves on
         // a 1080p screen): the same screens again, to prove nothing clips.
@@ -175,6 +179,9 @@ public static class RenderShots
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "24-min-settings");
+        window.TourScrollSettingsToSync();
+        Pump(400);
+        Snap(window, outDir, "24b-min-settings-sync");
 
         // The Profiles page and Home with a profile (profile row + Join under Play), at the smallest
         // window too, the second time with the toasts up: the Play card, Play and Join must all fit

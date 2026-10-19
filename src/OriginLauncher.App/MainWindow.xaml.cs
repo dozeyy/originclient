@@ -350,6 +350,13 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Render mode: Settings scrolled to the Settings Sync row (call after TourGoTo(2)).</summary>
+    internal void TourScrollSettingsToSync()
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        _settingsPage.TourScrollToSync();
+    }
+
     // The Profiles page with made-up profiles (never the real settings), the
     // new-profile form open or not.
     internal void TourShowProfiles(Core.Models.LauncherSettings demo, Func<Core.Profiles.ModProfile, int> countMods, bool openForm)

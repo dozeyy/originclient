@@ -37,6 +37,10 @@ public static class UpdateService
     private const string Repo = "originclient";
     private const string TagPrefix = "launcher-v";
     private const string AssetName = "OriginLauncher-win-x64.zip";
+    // The release pipeline publishes the zip's SHA-256 next to it (sha256sum format); see UpdateVerifier.
+    private const string HashAssetName = AssetName + ".sha256";
+    // A stalled connection (no bytes for this long) aborts the download so the player can retry.
+    private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(60);
 
     private static readonly Version DevVersion = new(1, 0, 0, 0);
     private static readonly HttpClient Http = CreateClient();
@@ -91,7 +95,9 @@ public static class UpdateService
             if (Available != null && Normalize(Available.Version) >= Normalize(remote))
                 return;
 
-            Available = new AvailableUpdate(remote, asset.DownloadUrl);
+            var hashAsset = release.Assets?.FirstOrDefault(a =>
+                string.Equals(a.Name, HashAssetName, StringComparison.OrdinalIgnoreCase));
+            Available = new AvailableUpdate(remote, asset.DownloadUrl, hashAsset?.DownloadUrl, asset.Digest);
             AvailableChanged?.Invoke(null, EventArgs.Empty);
         }
         catch
@@ -137,7 +143,7 @@ public static class UpdateService
 
         progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
         var zipPath = Path.Combine(updatesRoot, AssetName);
-        await DownloadToFileAsync(update.DownloadUrl, zipPath, progress);
+        await DownloadVerifiedAsync(update, zipPath, progress);
 
         progress?.Report(new UpdateProgress(UpdateStage.Installing, 0, null));
         // Off the UI thread so the loading scene keeps animating while ~126 MB
@@ -188,33 +194,102 @@ endlocal
         Application.Current.Shutdown();
     }
 
-    // The byte loop runs off the UI thread (ConfigureAwait(false)); progress
-    // still lands on the UI thread because Progress<T> captured it. Reports
-    // are capped at ~10/s — each one is a dispatcher hop.
-    private static async Task DownloadToFileAsync(string url, string path, IProgress<UpdateProgress>? progress)
+    // Fetches the expected SHA-256, downloads the zip and checks it (UpdateVerifier policy: refuse a
+    // mismatch or a short file, accept a release that published no hash). The zip only ever appears at
+    // zipPath once verified: it is written as zipPath.part and every failure path deletes that. Any
+    // failure throws; MainWindow shows "Update failed ... click to retry", and nothing was extracted
+    // or applied.
+    // The byte loop runs off the UI thread (ConfigureAwait(false)); progress still lands on the UI
+    // thread because Progress<T> captured it. Reports are capped at ~10/s (each is a dispatcher hop).
+    private static async Task DownloadVerifiedAsync(AvailableUpdate update, string zipPath, IProgress<UpdateProgress>? progress)
     {
-        using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        var total = response.Content.Headers.ContentLength;
-        await using var source = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-        await using var file = new FileStream(path, FileMode.Create, FileAccess.Write,
-            FileShare.None, bufferSize: 1 << 16, useAsync: true);
-
-        var buffer = new byte[1 << 16];
-        long received = 0;
-        var lastReport = Stopwatch.StartNew();
-        int read;
-        while ((read = await source.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+        var partPath = zipPath + ".part";
+        try
         {
-            await file.WriteAsync(buffer.AsMemory(0, read)).ConfigureAwait(false);
-            received += read;
-            if (lastReport.ElapsedMilliseconds >= 100)
+            var expected = await ResolveExpectedHashAsync(update).ConfigureAwait(false);
+
+            using var stall = new CancellationTokenSource(StallTimeout);
+            using var response = await Http.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, stall.Token).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            var total = response.Content.Headers.ContentLength;
+            await using var source = await response.Content.ReadAsStreamAsync(stall.Token).ConfigureAwait(false);
+
+            var lastReport = Stopwatch.StartNew();
+            UpdateVerdict verdict;
+            try
             {
-                lastReport.Restart();
-                progress?.Report(new UpdateProgress(UpdateStage.Downloading, received, total));
+                verdict = await UpdateVerifier.CopyAndVerifyAsync(source, partPath, total, expected, received =>
+                {
+                    stall.CancelAfter(StallTimeout); // bytes are flowing: restart the stall clock
+                    if (lastReport.ElapsedMilliseconds >= 100)
+                    {
+                        lastReport.Restart();
+                        progress?.Report(new UpdateProgress(UpdateStage.Downloading, received, total));
+                    }
+                }, stall.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new IOException("the connection stalled");
+            }
+
+            switch (verdict)
+            {
+                case UpdateVerdict.Mismatch:
+                    throw new IOException("the download was damaged (it failed its integrity check)");
+                case UpdateVerdict.Truncated:
+                    throw new IOException("the download was cut short");
+                case UpdateVerdict.OkUnverified:
+                    Log($"update {update.Version}: release published no SHA-256, applying unverified (older release)");
+                    break;
+            }
+            File.Move(partPath, zipPath, overwrite: true);
+            progress?.Report(new UpdateProgress(UpdateStage.Downloading, total ?? 0, total ?? 0));
+        }
+        catch (Exception ex)
+        {
+            try { File.Delete(partPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            Log($"update {update.Version}: not applied, will retry later: {ex.GetType().Name}: {ex.Message}");
+            throw;
+        }
+    }
+
+    // The sidecar .sha256 asset first, then the release API's own asset digest, else null (older release).
+    // A hash that is ADVERTISED but unreadable or malformed is a failure, never "no hash": an update we
+    // cannot verify is retried later, not applied.
+    private static async Task<string?> ResolveExpectedHashAsync(AvailableUpdate update)
+    {
+        if (update.Sha256Url != null)
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var text = await Http.GetStringAsync(update.Sha256Url, cts.Token).ConfigureAwait(false);
+            return UpdateVerifier.ParseSha256(text, AssetName)
+                   ?? throw new IOException("the published SHA-256 file could not be read");
+        }
+        if (update.DigestSha256 != null)
+            return UpdateVerifier.ParseSha256(update.DigestSha256, AssetName)
+                   ?? throw new IOException("the release's SHA-256 digest could not be read");
+        return null;
+    }
+
+    private static readonly object LogGate = new();
+
+    private static void Log(string message)
+    {
+        try
+        {
+            lock (LogGate)
+            {
+                Directory.CreateDirectory(OriginPaths.Logs);
+                var path = Path.Combine(OriginPaths.Logs, "update.log");
+                if (File.Exists(path) && new FileInfo(path).Length > 256 * 1024) File.Delete(path);
+                File.AppendAllText(path, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
             }
         }
-        progress?.Report(new UpdateProgress(UpdateStage.Downloading, received, total ?? received));
+        catch (Exception)
+        {
+            // a courtesy
+        }
     }
 
     // System.Version treats unset components as -1, which makes "1.0.5" and
@@ -223,7 +298,7 @@ endlocal
         Math.Max(v.Major, 0), Math.Max(v.Minor, 0),
         Math.Max(v.Build, 0), Math.Max(v.Revision, 0));
 
-    public sealed record AvailableUpdate(Version Version, string DownloadUrl);
+    public sealed record AvailableUpdate(Version Version, string DownloadUrl, string? Sha256Url = null, string? DigestSha256 = null);
 
     public enum UpdateStage { Downloading, Installing, Restarting, FinishingImport }
 
@@ -257,5 +332,6 @@ endlocal
 
     private sealed record ReleaseAsset(
         [property: JsonPropertyName("name")] string? Name,
-        [property: JsonPropertyName("browser_download_url")] string? DownloadUrl);
+        [property: JsonPropertyName("browser_download_url")] string? DownloadUrl,
+        [property: JsonPropertyName("digest")] string? Digest = null);
 }

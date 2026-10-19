@@ -41,8 +41,9 @@ end to end):
    silent install of this build's zip over it (every file checked
    byte-for-byte plus shortcuts, Add/Remove Programs entry and
    Start-with-Windows), then a silent uninstall checked to remove all of it.
-   Only then does it publish the GitHub release with both the setup.exe and
-   `OriginLauncher-win-x64.zip`, titled "Origin Launcher 1.0.N".
+   Only then does it hash the zip and publish the GitHub release with the
+   setup.exe, `OriginLauncher-win-x64.zip` and
+   `OriginLauncher-win-x64.zip.sha256`, titled "Origin Launcher 1.0.N".
 
 Before this pipeline (≤ v1.0.39) the same work ran one version after
 another on a single Windows machine and took 12-40 minutes.
@@ -51,6 +52,36 @@ Within ~2 minutes (or instantly on window focus), every running launcher
 sees the new release and lights the download badge. Updates are mandatory:
 Play refuses until the player clicks the badge, which shows the download as
 a full-screen progress bar and restarts into the new build.
+
+## Self-update integrity (the .sha256 asset)
+
+Every release carries `OriginLauncher-win-x64.zip.sha256` (sha256sum format,
+`<64 hex>  OriginLauncher-win-x64.zip`), written by the "Hash the self-update
+zip" step after the zip is final. The launcher (`Core/Updates/UpdateService.cs`
++ `UpdateVerifier.cs`) fetches it first, hashes the zip while it downloads and
+checks it **before anything is unpacked**:
+
+- **Mismatch, or fewer bytes than Content-Length** -> the download is deleted,
+  nothing is extracted or applied, the badge reads "Update failed ... click to
+  retry" (a click, or the next relaunch, tries again) and the reason goes to
+  `%LocalAppData%\OriginLauncher\logs\update.log`.
+- **No hash published** (a release cut before this step existed, or the asset
+  missing) -> accepted unverified and logged, so old releases still update.
+  With no sidecar the launcher also accepts GitHub's own `digest` field for the
+  zip (the installer already relies on it).
+- **A hash that is listed but cannot be fetched or parsed** is a failure
+  (retry later), never treated as "no hash".
+- A connection with no bytes for 60 s aborts the download; the half-written
+  `.part` file is always deleted, and the zip only appears under its real name
+  once verified.
+
+The hash proves the bytes are the ones the pipeline published (corruption, a
+truncated or swapped CDN copy). It does not defend against someone who can
+replace release assets, since the hash sits beside the zip: signing would be a
+separate step. `check_consistency.py` fails CI if the workflow stops
+publishing the asset the launcher looks for. Tests:
+`src/OriginLauncher.Tests/UpdateVerifierTests.cs`. Never rename the `.sha256`
+asset (installed launchers key on it; an absent one is accepted, see above).
 
 ## Rehearse first (optional, publishes nothing)
 

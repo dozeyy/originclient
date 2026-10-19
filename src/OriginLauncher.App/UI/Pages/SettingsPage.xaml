@@ -28,7 +28,7 @@
          is hidden rather than disabled so wheel-scroll still works as a
          safety net if a future addition pushes past that budget, instead of
          silently clipping content. -->
-    <ScrollViewer Margin="32,16,32,24" VerticalScrollBarVisibility="Hidden">
+    <ScrollViewer x:Name="PageScroll" Margin="32,16,32,24" VerticalScrollBarVisibility="Hidden">
         <StackPanel Width="720" HorizontalAlignment="Center">
             <TextBlock Text="Settings" Style="{StaticResource Text.H1}"/>
             <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
