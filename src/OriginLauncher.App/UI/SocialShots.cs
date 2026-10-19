@@ -115,6 +115,8 @@ public static class SocialShots
                 window.Width = width;
                 window.Height = height;
                 RenderShots.Pump(400);
+                // What the real window got (capped at the desktop on CI) before any picture lays it out bigger.
+                var real = ((FrameworkElement)window.Content).RenderSize;
                 foreach (var (scene, index) in picked)
                 {
                     try
@@ -140,8 +142,8 @@ public static class SocialShots
                 RenderShots.Snap(window, outDir, $"00-home-{width}x{height}-{percent}pct", percent * 0.96, new Size(width, height));
                 var root = (FrameworkElement)window.Content;
                 var deep = FindVisual<Button>(root, _ => true);
-                report.AppendLine($"{percent} % {width}x{height}: window {root.ActualWidth:0}x{root.ActualHeight:0} DIP, pictures laid out at "
-                    + $"{Math.Max(width, root.ActualWidth):0}x{Math.Max(height, root.ActualHeight):0} DIP, "
+                report.AppendLine($"{percent} % {width}x{height}: window {real.Width:0}x{real.Height:0} DIP, pictures laid out at "
+                    + $"{Math.Max(width, real.Width):0}x{Math.Max(height, real.Height):0} DIP, "
                     + $"tree DPI {(deep != null ? VisualTreeHelper.GetDpi(deep).PixelsPerInchX : 0):0}");
             }
         }
