@@ -34,19 +34,37 @@ public abstract class ReloadTaskTagMixin {
 	private Executor originclient$watchApplySteps(Executor apply, @Local PreparableReloadListener listener) {
 		final Object self = this;
 		final String name = OriginFrameLog.ENABLED ? originclient$name(listener) : null;
-		return task -> apply.execute(() -> {
-			StartupTransition.reloadRenderWork(self, name);
-			if (name == null) {
-				task.run();
+		return task -> {
+			Runnable step = () -> {
+				StartupTransition.reloadRenderWork(self, name);
+				if (name == null) {
+					task.run();
+					return;
+				}
+				long t0 = System.nanoTime();
+				try {
+					task.run();
+				} finally {
+					OriginFrameLog.reloadTask(name, (System.nanoTime() - t0) / 1e6);
+				}
+			};
+			// 1.16.5-1.19.2 only: TextureManager's apply step runs as a RenderSystem
+			// render call (recordRenderCall), replayed inside Window.updateDisplay
+			// (RenderSystem.flipFrame -> replayQueue), outside any event-loop task, and
+			// Minecraft.execute runs a task INLINE there (scheduleExecutables() is
+			// runningTask() || !sameThread: false on the render thread between tasks).
+			// Every later listener's apply step is chained on the one before it, so
+			// they all ran nested inside that one call, in ONE frame (CI frame log
+			// 2026-10-19: 1.7-2.5 s, all of it in "swap"; 1.19.2's "1.67 s pause").
+			// ReloadTaskBudgetMixin's per-frame budget never saw them. Queued instead,
+			// they run from runAllTasks, one budget per frame, as on 1.19.3+ (whose
+			// TextureManager completes through the queue). javap-verified: flipFrame
+			// -> replayQueue, BlockableEventLoop.execute/tell, TextureManager.reload.
+			if (StartupTransition.deferInlineApply(() -> apply.execute(step))) {
 				return;
 			}
-			long t0 = System.nanoTime();
-			try {
-				task.run();
-			} finally {
-				OriginFrameLog.reloadTask(name, (System.nanoTime() - t0) / 1e6);
-			}
-		});
+			apply.execute(step);
+		};
 	}
 
 	@Unique

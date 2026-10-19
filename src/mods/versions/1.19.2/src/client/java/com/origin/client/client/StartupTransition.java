@@ -48,6 +48,24 @@ public final class StartupTransition {
 		renderWorkAt = System.nanoTime();
 	}
 
+	/**
+	 * Pre-1.19.3 (ReloadTaskTagMixin): a reload apply step submitted ON the render
+	 * thread during the startup load is queued (Minecraft.tell) instead of letting
+	 * Minecraft.execute run it inline, wherever the submitter happens to be (inside
+	 * the buffer swap's render-call replay, for TextureManager). True = queued.
+	 */
+	public static boolean deferInlineApply(Runnable hop) {
+		if (!com.mojang.blaze3d.systems.RenderSystem.isOnRenderThread()) {
+			return false;   // from a worker thread Minecraft.execute queues it anyway
+		}
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		if (mc == null || mc.level != null || !(mc.getOverlay() instanceof net.minecraft.client.gui.screens.LoadingOverlay)) {
+			return false;
+		}
+		mc.tell(hop);
+		return true;
+	}
+
 	/** True when reload work has run on the render thread since {@code sinceNanos}: from here a frame can stall for long. */
 	public static boolean reloadRenderWorkSince(long sinceNanos) {
 		long at = renderWorkAt;
