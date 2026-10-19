@@ -183,8 +183,9 @@ final class OriginDevWorld {
 			com.origin.client.client.cosmetics.CosmeticsService.devWear(null);
 			com.origin.client.OriginClient.LOGGER.info("[dev-shots] fit shots done");
 			OriginFreelookState.active = false;
-			mc.options.toggleModelPart(net.minecraft.world.entity.player.PlayerModelPart.HAT, true);
-			mc.options.toggleModelPart(net.minecraft.world.entity.player.PlayerModelPart.JACKET, true);
+			mc.options.setModelPart(net.minecraft.world.entity.player.PlayerModelPart.HAT, true);
+			mc.options.setModelPart(net.minecraft.world.entity.player.PlayerModelPart.JACKET, true);
+			mc.options.broadcastOptions();
 			mc.options.fov().set(70);
 			mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
 			return false;
@@ -193,8 +194,10 @@ final class OriginDevWorld {
 		String[] look = FIT_LOOKS[noLayer ? 0 : fitStep / perLook];
 		com.origin.client.client.cosmetics.CosmeticsService.devWear(
 				new com.origin.client.client.cosmetics.CosmeticsService.Look(null, look[0], look[1], look[2], null));
-		mc.options.toggleModelPart(net.minecraft.world.entity.player.PlayerModelPart.HAT, !noLayer);
-		mc.options.toggleModelPart(net.minecraft.world.entity.player.PlayerModelPart.JACKET, !noLayer);
+		// this era has no Options.toggleModelPart (1.21.1); setModelPart + broadcastOptions tells the server
+		mc.options.setModelPart(net.minecraft.world.entity.player.PlayerModelPart.HAT, !noLayer);
+		mc.options.setModelPart(net.minecraft.world.entity.player.PlayerModelPart.JACKET, !noLayer);
+		mc.options.broadcastOptions();
 		float rel = noLayer ? 90f : (Float) FIT_VIEWS[fitStep % perLook][0];
 		OriginFreelookState.cameraYaw = fitBaseYaw + rel;
 		OriginFreelookState.cameraPitch = 12f;
