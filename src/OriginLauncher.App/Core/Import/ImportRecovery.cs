@@ -39,11 +39,20 @@ public static class ImportRecovery
             }
             if (journal.State != ImportState.Applying) continue;
 
-            var problems = ImportUndo.Run(journal, settings, line => AppendLog(run, line), logRoot);
+            // An interrupted undo of a FINISHED import keeps its reused game files, like the undo it finishes.
+            var problems = ImportUndo.Run(journal, settings, line => AppendLog(run, line), logRoot, keepGameFiles: journal.UndoOfCommitted);
             journal.State = ImportState.RolledBack;
             journal.FinishedUtc = DateTime.UtcNow;
             journal.RollbackProblems = problems;
+            // One snapshot with every entry (Load merged the appended log into it); the old log is no longer named.
+            var oldLog = journal.EntriesLog;
+            journal.EntriesLog = null;
             ImportJournalStore.Save(journal, journalPath);
+            if (oldLog != null && Path.GetFileName(oldLog) == oldLog)
+            {
+                try { File.Delete(Path.Combine(run, oldLog)); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* never read again */ }
+            }
             try
             {
                 var staging = Path.Combine(run, ImportLayout.StagingFolder);

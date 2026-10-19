@@ -252,6 +252,26 @@ public sealed record PlannedOp
 
     /// <summary>For <see cref="OpKind.Custom"/>: the work, run in order inside the transaction.</summary>
     public Action<ImportOpContext>? Run { get; init; }
+
+    /// <summary>
+    /// Bulk import: what this op claims in its target folder (a path or a cache identity, DestinationLedger.PathKey /
+    /// CacheKey). Null for ops nobody else could claim.
+    /// </summary>
+    public string? ClaimKey { get; init; }
+
+    /// <summary>
+    /// Bulk import: a stand-in for a copy another setup claimed first. It runs only when that claim is released —
+    /// its setup was skipped mid-run, or its copy failed on the source side — and only once per claim. Never counted
+    /// in a plan's bytes; a single import never runs one.
+    /// </summary>
+    public bool Fallback { get; init; }
+
+    /// <summary>
+    /// For a stand-in: the plan line that says this item comes from another setup ("already brought over from X",
+    /// "Another of your setups already brings this one"). When the stand-in lands, that line is no longer true and
+    /// is left out of the result.
+    /// </summary>
+    public SummaryLine? DeferredLine { get; init; }
 }
 
 /// <summary>
@@ -266,6 +286,12 @@ public sealed class SettingsDelta
     public string? SetSelectedProfileId { get; set; }
     public string? PreviousSelectedVersion { get; set; }
     public string? PreviousSelectedProfileId { get; set; }
+
+    /// <summary>
+    /// A bulk import ("import everything") adds one profile per setup with mods, in ONE settings change. Apply adds
+    /// each (once); revert removes each. <see cref="AddProfile"/> stays for single imports and older journals.
+    /// </summary>
+    public List<ModProfile>? AddProfiles { get; set; }
 }
 
 /// <summary>Where the launcher's settings are changed (the glue implements it with one atomic settings update; tests use a file).</summary>

@@ -34,12 +34,7 @@ public sealed class SourceFs
     /// </summary>
     public bool Allow(string path)
     {
-        var name = Path.GetFileName(path);
-        if (_guard.IsDenied(name))
-        {
-            if (!CredentialGuard.IsHarmlessNoise(name)) _skipped.Add(name);
-            return false;
-        }
+        if (!PassesGuard(path)) return false;
         if (!IsLinkFree(path))
         {
             _links.Add(Short(path));
@@ -50,6 +45,29 @@ public sealed class SourceFs
     }
 
     /// <summary>
+    /// <see cref="Allow"/> for a file a walk of this reader just returned (<see cref="EnumerateFiles"/>): the walk
+    /// already refused every link below the folder it started at, and its callers check that folder themselves
+    /// (CopyTree, cache copies), so only the guard is asked here — no per-file link probe for every file in a world.
+    /// </summary>
+    internal bool AllowWalked(string path)
+    {
+        if (!PassesGuard(path)) return false;
+        _onOpen?.Invoke(path);
+        return true;
+    }
+
+    private bool PassesGuard(string path)
+    {
+        var name = Path.GetFileName(path);
+        if (!_guard.IsDenied(name)) return true;
+        if (!CredentialGuard.IsHarmlessNoise(name)) _skipped.Add(name);
+        return false;
+    }
+
+    /// <summary>How many link probes (file-attribute reads) this reader has made: a test seam for the per-file cost.</summary>
+    internal int LinkProbes { get; private set; }
+
+    /// <summary>
     /// The gate for a Mojang game-file candidate that is about to be checked against Mojang's SHA-1 (game-file
     /// reuse). Its content is proven by the hash, so the broad credential NAME pattern adds nothing (it would
     /// refuse com/mojang/authlib/...): only the launchers' known credential stores are refused, and nothing is
@@ -58,7 +76,10 @@ public sealed class SourceFs
     public bool AllowVerifiedGameFile(string path)
     {
         if (CredentialGuard.IsKnownCredentialStore(Path.GetFileName(path))) return false;
-        if (!IsLinkFree(path)) return false;
+        // Only the file itself: its SHA-1 proves the content, so a launcher that junctions .minecraftssets or
+        // libraries somewhere else is fine — the instance-root rule (no link on any segment) would refuse every
+        // candidate under it. The leaf is still never a link.
+        if (IsLink(path)) return false;
         _onOpen?.Invoke(path);
         return true;
     }
@@ -153,6 +174,14 @@ public sealed class SourceFs
         "saves", "mods", "config", "resourcepacks", "shaderpacks",
     };
 
+    // The instance's own first-level settings FILES, followed like the folders above when a launcher links them
+    // (a shared options.txt): each is read and parsed by the importer (or copied as the one known file it is),
+    // never walked, so a link there can't lead the import anywhere else.
+    private static readonly HashSet<string> FollowedFirstLevelFiles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "options.txt", "servers.dat", "optionsof.txt", "optionsshaders.txt",
+    };
+
     private readonly HashSet<string> _linkFreeDirs = new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     /// <summary>
@@ -179,6 +208,7 @@ public sealed class SourceFs
                 {
                     current = Path.Combine(current, parts[i]);
                     if (i == 0 && FollowedFirstLevel.Contains(parts[0])) continue;
+                    if (i == 0 && parts.Length == 1 && FollowedFirstLevelFiles.Contains(parts[0])) continue;
                     var isLast = i == parts.Length - 1;
                     if (!isLast && _linkFreeDirs.Contains(current)) continue;
                     if (IsLink(current)) return false;
@@ -193,8 +223,9 @@ public sealed class SourceFs
     /// <summary>Remembers a link a caller found on a built path (not a walk) and left out, for the summary.</summary>
     public void NoteLink(string path) => _links.Add(Short(path));
 
-    private static bool IsLink(string path)
+    private bool IsLink(string path)
     {
+        LinkProbes++;
         try
         {
             return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;

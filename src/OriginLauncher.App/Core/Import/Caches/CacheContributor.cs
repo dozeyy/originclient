@@ -1,4 +1,5 @@
 using System.IO;
+using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Import.Mods;
 
 namespace OriginLauncher.App.Core.Import.Caches;
@@ -29,7 +30,7 @@ public sealed class CacheContributor : IImportPlanContributor
     public Task ContributeAsync(ImportPlan plan, ImportRequest request, SourceFs fs, CancellationToken ct)
     {
         if (!plan.CanApply) return Task.CompletedTask;
-        new Planner(plan, fs, ct, AfterStaged).Run();
+        new Planner(plan, fs, ct, AfterStaged, request?.Ledger, plan.Source.BulkLabel(), request?.SetupKey).Run();
         return Task.CompletedTask;
     }
 
@@ -45,9 +46,16 @@ public sealed class CacheContributor : IImportPlanContributor
         private readonly string? _dhProblem;
         private readonly string? _voxyProblem;
         private readonly Dictionary<string, string?> _worldProblems = new(StringComparer.OrdinalIgnoreCase); // world -> why not (null = fine)
+        private readonly DestinationLedger? _ledger; // a bulk run's: the first setup (in apply order) to bring a cache wins
+        private readonly string _setupLabel;
+        private readonly string? _setupKey;
 
-        public Planner(ImportPlan plan, SourceFs fs, CancellationToken ct, Action<string>? afterStaged)
+        public Planner(ImportPlan plan, SourceFs fs, CancellationToken ct, Action<string>? afterStaged, DestinationLedger? ledger, string setupLabel,
+            string? setupKey)
         {
+            _ledger = ledger;
+            _setupKey = setupKey;
+            _setupLabel = setupLabel;
             _plan = plan;
             _fs = fs;
             _ct = ct;
@@ -128,8 +136,15 @@ public sealed class CacheContributor : IImportPlanContributor
                     SkipServer(server, "Not a readable Distant Horizons database: skipped.");
                     return;
                 }
-
             var bytes = DirectorySize(server.Dir, skipLoneWal: true);
+            var identity = Identity(CacheKind.DistantHorizons, CacheScope.Multiplayer, server.Folder, "");
+            Action<ImportOpContext> run = ctx => CopyFolder(ctx, server.Dir, dest, label, _replace, skipLoneWal: true, DhProbeFiles, _afterStaged);
+            if (!ClaimFirst(identity))
+            {
+                AddFallback(identity, label, bytes, run, server.Dir, dest, SkipServer(server, AnotherSetup));
+                return;
+            }
+
             foreach (var level in server.Levels)
                 _plan.Caches.Add(new CachePlanItem(CacheKind.DistantHorizons, CacheScope.Multiplayer, server.Folder, level.Dimension,
                     !level.LoneWal, level.LoneWal ? "A leftover journal file with no database next to it: skipped." : null, 0));
@@ -137,7 +152,7 @@ public sealed class CacheContributor : IImportPlanContributor
             _plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Source = server.Dir, Dest = dest, Bytes = bytes,
-                Run = ctx => CopyFolder(ctx, server.Dir, dest, label, _replace, skipLoneWal: true, DhProbeFiles, _afterStaged),
+                Run = run, ClaimKey = _ledger == null ? null : DestinationLedger.CacheKey(_targetDir, identity),
             });
         }
 
@@ -192,11 +207,39 @@ public sealed class CacheContributor : IImportPlanContributor
             return problem;
         }
 
+        // A bulk run: one cache identity (kind, scope, world or server, dimension) comes over once, from the first
+        // setup in apply order; a later setup's copy is never merged into it. A single import has no ledger.
+        private static string Identity(CacheKind kind, CacheScope scope, string owner, string dimension) => $"{kind}|{scope}|{owner}|{dimension}";
+
+        private bool ClaimFirst(string identity) => _ledger == null || _ledger.TryClaimCache(identity, _setupLabel, out _);
+
+        // If the setup that claimed this cache is skipped mid-run, this setup's copy is brought instead (once).
+        private void AddFallback(string identity, string label, long bytes, Action<ImportOpContext> run, string? source, string dest,
+            SummaryLine deferredLine)
+        {
+            if (_setupKey == null) return;
+            _plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Source = source, Dest = dest, Bytes = bytes, Run = run,
+                ClaimKey = DestinationLedger.CacheKey(_targetDir, identity), Fallback = true, DeferredLine = deferredLine,
+            });
+        }
+
         private void Take(CacheKind kind, CacheScope scope, string owner, string dimension, string label, long bytes, Action<ImportOpContext> run)
         {
+            var identity = Identity(kind, scope, owner, dimension);
+            if (!ClaimFirst(identity))
+            {
+                AddFallback(identity, label, bytes, run, null, _targetDir, Skip(kind, scope, owner, dimension, AnotherSetup));
+                return;
+            }
             _plan.Caches.Add(new CachePlanItem(kind, scope, owner, dimension, true, null, bytes));
             _plan.Lines.Add(new SummaryLine(SummarySection.ReusedCaches, PlanItemKind.Cache, label, null, bytes));
-            _plan.Ops.Add(new PlannedOp { Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Dest = _targetDir, Bytes = bytes, Run = run });
+            _plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Dest = _targetDir, Bytes = bytes, Run = run,
+                ClaimKey = _ledger == null ? null : DestinationLedger.CacheKey(_targetDir, identity),
+            });
         }
 
         private void Travels(CacheKind kind, string owner, string dimension, string label)
@@ -205,19 +248,23 @@ public sealed class CacheContributor : IImportPlanContributor
             _plan.Lines.Add(new SummaryLine(SummarySection.ReusedCaches, PlanItemKind.Cache, label, "travels with the world copy"));
         }
 
-        private void Skip(CacheKind kind, CacheScope scope, string owner, string dimension, string reason)
+        private SummaryLine Skip(CacheKind kind, CacheScope scope, string owner, string dimension, string reason)
         {
             _plan.Caches.Add(new CachePlanItem(kind, scope, owner, dimension, false, reason, 0));
             var what = kind == CacheKind.Voxy ? "Voxy" : "Distant Horizons";
             var name = dimension.Length == 0 ? $"{owner} ({what})" : $"{owner} / {dimension} ({what})";
-            _plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Cache, name, reason));
+            var line = new SummaryLine(SummarySection.NotImported, PlanItemKind.Cache, name, reason);
+            _plan.Lines.Add(line);
+            return line;
         }
 
-        private void SkipServer(DhServerFolder server, string reason)
+        private SummaryLine SkipServer(DhServerFolder server, string reason)
         {
             foreach (var level in server.Levels)
                 _plan.Caches.Add(new CachePlanItem(CacheKind.DistantHorizons, CacheScope.Multiplayer, server.Folder, level.Dimension, false, reason, 0));
-            _plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Cache, $"{server.DisplayName} (Distant Horizons)", reason));
+            var line = new SummaryLine(SummarySection.NotImported, PlanItemKind.Cache, $"{server.DisplayName} (Distant Horizons)", reason);
+            _plan.Lines.Add(line);
+            return line;
         }
 
         // Distant Horizons: the imported mod set must run a DH of the same 2.x line and at least the source's version.
@@ -233,7 +280,7 @@ public sealed class CacheContributor : IImportPlanContributor
                 return why.Outcome switch
                 {
                     ModOutcome.CopiedDisabled => $"Distant Horizons is imported turned off ({why.Reason?.TrimEnd('.')}), so it will rebuild — left in the source.",
-                    ModOutcome.CopiedAsBefore => "Distant Horizons was turned off in your old instance, so it will rebuild — left in the source.",
+                    ModOutcome.CopiedAsBefore => "Distant Horizons was turned off in your old setup, so it will rebuild — left in the source.",
                     _ => $"Distant Horizons isn't coming across ({why.Reason?.TrimEnd('.')}), so it will rebuild — left in the source.",
                 };
             }
@@ -287,11 +334,7 @@ public sealed class CacheContributor : IImportPlanContributor
     // ================================================================ apply
 
     // A size that can't be read (gone, no access) counts as nothing: a size is never a reason to fail the plan.
-    private static long SizeOf(string file)
-    {
-        try { return new FileInfo(file).Length; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
-    }
+    private static long SizeOf(string file) => ImportFiles.SizeOf(file);
 
     private static bool SamePath(string a, string b) =>
         string.Equals(Path.TrimEndingDirectorySeparator(a), Path.TrimEndingDirectorySeparator(b),
@@ -378,7 +421,7 @@ public sealed class CacheContributor : IImportPlanContributor
             {
                 ctx.Ct.ThrowIfCancellationRequested();
                 if (skipLoneWal && IsLoneWal(file)) continue;
-                if (!ctx.Fs.Allow(file)) { skippedUnreadable++; continue; }
+                if (!ctx.Fs.AllowWalked(file)) { skippedUnreadable++; continue; } // the walk refused links; sourceDir was checked above
                 var target = Path.Combine(stage, Path.GetRelativePath(sourceDir, file));
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 File.Copy(file, target, overwrite: true); // as-is: nothing in a cache folder is ever edited
@@ -398,6 +441,7 @@ public sealed class CacheContributor : IImportPlanContributor
     }
 
     private const string InUse = "In use right now, so it was left in the source.";
+    private const string AnotherSetup = "Another of your setups already brings this one.";
     private const string Rebuilds = "Couldn't be read; it will rebuild — left in the source.";
 
 

@@ -486,8 +486,9 @@ public class GameFileTests : IDisposable
         Assert.False(File.Exists(options));                                             // the import's own files are undone
         foreach (var rel in _mojang.Required)
             Assert.True(File.Exists(Dest(rel)), rel);                                   // the reused game files stay
-        Assert.Equal(2, gate.Acquired);
-        Assert.Equal(2, gate.Released);
+        // 3: the refused undo takes the gate too, and only then looks for a running game (review round 3, F1).
+        Assert.Equal(3, gate.Acquired);
+        Assert.Equal(3, gate.Released);
     }
 
     [Fact]

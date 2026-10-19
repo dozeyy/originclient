@@ -14,8 +14,12 @@ public static class ImportErrors
 {
     private const string PathStart = @"(?:[A-Za-z]:[\\/]|\\\\|/)";
 
+    // Double quotes can't appear in a Windows path, so a double-quoted path ends at the next double quote.
+    // Single quotes can (O'Neil): inside a single-quoted path a quote is part of the name when a letter or
+    // digit follows it; the path ends at the quote followed by whitespace, punctuation or the end of the
+    // message. Both need at least one character after the path start, so a lone '/' isn't taken for a path.
     private static readonly Regex QuotedPath = new(
-        @"(['""])(" + PathStart + @"[^'""]*)\1",
+        @"""(" + PathStart + @"[^""\r\n]+)""|'(" + PathStart + @"(?:[^'\r\n]|'(?=\w))+)'(?=[\s.,;:!?)\]}]|$)",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     private static readonly Regex AbsolutePath = new(
@@ -26,7 +30,7 @@ public static class ImportErrors
 
     public static string Plain(string message)
     {
-        var text = QuotedPath.Replace(message, m => NameOf(m.Groups[2].Value));
+        var text = QuotedPath.Replace(message, m => NameOf(m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value));
         text = AbsolutePath.Replace(text, m => NameOf(m.Value));
         return text.Replace("\"\"", "\"").Trim().TrimEnd('.');
     }

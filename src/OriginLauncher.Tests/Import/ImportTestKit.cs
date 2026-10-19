@@ -50,6 +50,9 @@ internal static class Kit
             foreach (var (name, data) in entries)
             {
                 var entry = zip.CreateEntry(name);
+                // A fixed stamp: the same entries always make the same bytes (a "now" stamp made two identical
+                // packs differ whenever the fixture crossed a 2-second boundary, which flaked the dedupe tests).
+                entry.LastWriteTime = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
                 using var s = entry.Open();
                 s.Write(data);
             }
@@ -152,6 +155,8 @@ internal sealed class FakeSettings : IImportSettings
         ApplyCalls++;
         var s = Load();
         if (delta.AddProfile != null) s.Profiles.Add(delta.AddProfile);
+        foreach (var profile in delta.AddProfiles ?? new List<ModProfile>())
+            if (s.Profiles.All(p => p.Id != profile.Id)) s.Profiles.Add(profile);
         if (delta.SetSelectedVersion != null) s.SelectedVersion = delta.SetSelectedVersion;
         if (delta.SetSelectedProfileId != null) s.SelectedProfileId = delta.SetSelectedProfileId;
         Save(s);
@@ -161,6 +166,8 @@ internal sealed class FakeSettings : IImportSettings
     {
         var s = Load();
         if (delta.AddProfile != null) s.Profiles.RemoveAll(p => p.Id == delta.AddProfile.Id);
+        foreach (var profile in delta.AddProfiles ?? new List<ModProfile>())
+            s.Profiles.RemoveAll(p => p.Id == profile.Id);
         if (delta.SetSelectedVersion != null) s.SelectedVersion = delta.PreviousSelectedVersion;
         if (delta.SetSelectedProfileId != null) s.SelectedProfileId = delta.PreviousSelectedProfileId;
         Save(s);
