@@ -1,10 +1,7 @@
 package com.origin.client.client.waypoints;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexSorting;
 import com.origin.client.client.mods.Mods;
 import com.origin.client.client.render.OriginRenderTypes;
 import com.origin.client.client.render.ThickLine;
@@ -14,7 +11,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fStack;
 
 // The WORLD-SPACE half of waypoint rendering: the beam and the block highlight —
 // the parts that belong in the world and are allowed to be hidden by terrain
@@ -31,38 +27,6 @@ public final class WaypointRenderer {
 	private WaypointRenderer() {
 	}
 
-	// ---- shader-pack path: draw AFTER the pack's composite (its clouds) ----
-	//
-	// With an Iris shader pack on, a draw made at WorldRenderEvents.LAST lands in
-	// the pack's gbuffers (position_color -> gbuffers_basic) BEFORE the pack's
-	// composite passes, and packs paint their volumetric clouds in composite --
-	// on top of it (Eclipse: composite3/4). This beam writes no depth, so a pack
-	// can't even place it in front of a cloud. So while a pack is in use, the
-	// LAST pass only records the frame's matrices + camera, and the world part is
-	// drawn from GameRendererPostShadersMixin, right after LevelRenderer.renderLevel
-	// returns: Iris has run composite + final into the main target by then, its
-	// shader overrides are off (isRenderingWorld=false), and the main target's
-	// depth texture still holds the scene depth (Iris's depthtex0 IS that
-	// texture), while vanilla's hand depth clear comes only after. Result: the
-	// beam is depth-tested against terrain exactly as before, but nothing a pack
-	// composites (clouds, fog, volumetrics) can cover it -- the HUD-waypoint
-	// behaviour Lunar / Xaero have.
-	//
-	// Shaders OFF: unchanged -- drawn at LAST, same calls, same order.
-	// Fail-soft: the deferred path is used only once the post hook has been seen
-	// to run; if that mixin ever fails to apply, beams keep drawing at LAST.
-	private static boolean postHookAlive;
-	private static boolean pending;
-	private static final Matrix4f PEND_POSE = new Matrix4f();
-	private static final Matrix4f PEND_VIEW = new Matrix4f();
-	private static final Matrix4f PEND_PROJ = new Matrix4f();
-	private static VertexSorting pendSorting = VertexSorting.DISTANCE_TO_ORIGIN;
-	private static Vec3 pendCam = Vec3.ZERO;
-	// The deferred pass's own line buffer: the frame's shared bufferSource is
-	// Iris's fully-buffered one during renderLevel (see OriginRenderTypes).
-	private static final MultiBufferSource.BufferSource POST_LINES =
-			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 14));
-
 	public static void render(WorldRenderContext ctx) {
 		if (!Mods.on("waypoints")) {
 			return;
@@ -78,56 +42,9 @@ public final class WaypointRenderer {
 		// Hand the view/projection matrices + camera position to the HUD overlay.
 		WaypointHud.capture(ctx);
 
-		Vec3 c = ctx.camera().getPosition();
-		if (postHookAlive && ShaderPack.inUse()) {
-			// Record exactly what world geometry is transformed by right now.
-			PEND_POSE.set(pose.last().pose());
-			PEND_VIEW.set(RenderSystem.getModelViewMatrix());
-			PEND_PROJ.set(RenderSystem.getProjectionMatrix());
-			pendSorting = RenderSystem.getVertexSorting();
-			pendCam = c;
-			pending = true;
-			return;
-		}
-		drawWorld(mc, pose, c, mc.renderBuffers().bufferSource());
-	}
-
-	/**
-	 * Called from GameRendererPostShadersMixin after LevelRenderer.renderLevel,
-	 * every frame. Draws the world part recorded by render() when a shader pack
-	 * is in use; otherwise does nothing.
-	 */
-	public static void renderAfterShaders() {
-		postHookAlive = true;
-		if (!pending) {
-			return;
-		}
-		pending = false;
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null) {
-			return;
-		}
-		Matrix4f oldProj = new Matrix4f(RenderSystem.getProjectionMatrix());
-		VertexSorting oldSorting = RenderSystem.getVertexSorting();
-		Matrix4fStack mv = RenderSystem.getModelViewStack();
-		mv.pushMatrix();
-		try {
-			mc.getMainRenderTarget().bindWrite(false);
-			RenderSystem.setProjectionMatrix(new Matrix4f(PEND_PROJ), pendSorting);
-			mv.set(PEND_VIEW);
-			RenderSystem.applyModelViewMatrix();
-			PoseStack pose = new PoseStack();
-			pose.mulPose(PEND_POSE);
-			drawWorld(mc, pose, pendCam, POST_LINES);
-		} finally {
-			mv.popMatrix();
-			RenderSystem.applyModelViewMatrix();
-			RenderSystem.setProjectionMatrix(oldProj, oldSorting);
-		}
-	}
-
-	private static void drawWorld(Minecraft mc, PoseStack pose, Vec3 c, MultiBufferSource.BufferSource buf) {
 		String dim = mc.level.dimension().location().toString();
+		Vec3 c = ctx.camera().getPosition();
+		MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
 		// Beam hard-cutoff distance (no fade): the player's render distance, in blocks.
 		double cutoff = mc.options.getEffectiveRenderDistance() * 16.0;
 
@@ -203,35 +120,5 @@ public final class WaypointRenderer {
 		nz /= len;
 		vc.addVertex(m, ax, ay, az).setColor(argb).setNormal(pose, nx, ny, nz);
 		vc.addVertex(m, bx, by, bz).setColor(argb).setNormal(pose, nx, ny, nz);
-	}
-
-	/** Iris soft dependency: is a shader pack rendering the world? Reflection,
-	 *  resolved once (same rule as IrisBridge: no compile-time Iris API use). */
-	static final class ShaderPack {
-		private static boolean resolved;
-		private static Object api;
-		private static java.lang.reflect.Method inUse;
-
-		static boolean inUse() {
-			if (!resolved) {
-				resolved = true;
-				try {
-					Class<?> c = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
-					api = c.getMethod("getInstance").invoke(null);
-					inUse = c.getMethod("isShaderPackInUse");
-				} catch (Throwable t) {
-					api = null;   // no Iris: always the vanilla path
-				}
-			}
-			if (api == null) {
-				return false;
-			}
-			try {
-				return Boolean.TRUE.equals(inUse.invoke(api));
-			} catch (Throwable t) {
-				api = null;
-				return false;
-			}
-		}
 	}
 }

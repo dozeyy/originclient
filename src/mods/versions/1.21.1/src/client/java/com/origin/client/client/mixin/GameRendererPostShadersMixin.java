@@ -10,7 +10,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // TARGET: GameRenderer.renderLevel(DeltaTracker), right AFTER its call to
 // LevelRenderer.renderLevel(...) -- and therefore before the vanilla
 // "hand" section's RenderSystem.clear(GL_DEPTH_BUFFER_BIT) + renderItemInHand
-// that follow it (javap of 1.21 and 1.21.1 GameRenderer.renderLevel: same call, same order).
+// that follow it (javap of 1.21.1 GameRenderer.renderLevel, and of method_3188 in the
+// production client-intermediary.jar: the call is at bci 580, once).
 //
 // WHY: Origin's waypoint beams must stay visible through a shader pack's
 // clouds. Iris 1.8.8 runs the pack's composite + final passes in
@@ -37,7 +38,8 @@ public class GameRendererPostShadersMixin {
 		try {
 			WaypointRenderer.renderAfterShaders();
 		} catch (Throwable t) {
-			// a waypoint beam must never take the frame down
+			// a waypoint beam must never take the frame down -- but say why, once
+			WaypointRenderer.warnOnce("after-shaders hook", t);
 		}
 	}
 }
