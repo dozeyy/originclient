@@ -176,6 +176,9 @@ jobs:
           fi
           if [ "$FRAMELOG" = "true" ]; then
             gargs="$gargs -PframeLog"
+            # A made-up launcher token (not a secret) so OriginHandoff prints its
+            # "origin-handoff <token> hello|loading|ready" lines into run.log.
+            export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Dorigin.handoff=0123456789abcdef0123456789abcdef"
             mkdir -p "$rundir"
             [ -f "$rundir/options.txt" ] || printf 'onboardAccessibility:false\npauseOnLostFocus:false\n' > "$rundir/options.txt"
           fi
