@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using OriginLauncher.App.Core.Import;
 using OriginLauncher.App.Core.Import.Launcher;
 using OriginLauncher.App.Core.Social;
 
@@ -210,7 +211,9 @@ public partial class MainWindow
     // the QUALIFYING setups only (versions Origin supports); a machine with none gets no card. Null = no card.
     // The scan runs at most once a week (ImportPrompt.ShouldScan): every completed scan stamps ImportPromptCheckedUtc,
     // whatever it found, so a PC with no other launcher does not scan again after every start and account switch.
-    private static Task<string?> ComputeImportPromptQuestionAsync() => Task.Run(async () =>
+    // The question and the setups it is about (the welcome card names their launchers); null = no card.
+    private static Task<(string Question, IReadOnlyList<DetectedInstance> Setups)?> ComputeImportPromptQuestionAsync() =>
+        Task.Run<(string Question, IReadOnlyList<DetectedInstance> Setups)?>(async () =>
     {
         var settings = Core.SettingsStore.Load();
         // The card would only say "sign in first" without an account: keep the one-time card for later.
@@ -223,6 +226,6 @@ public partial class MainWindow
         var targets = await backend.GetSupportedTargetsAsync(CancellationToken.None).ConfigureAwait(false);
         var qualifying = ImportPrompt.Qualifying(scan.Instances, targets);
         return ImportPrompt.ShouldShow(alreadySeen: false, openedWithImportFlag: false, canImport, qualifying.Count)
-            ? ImportPrompt.Question(qualifying) : null;
+            ? (ImportPrompt.Question(qualifying), qualifying) : null;
     });
 }

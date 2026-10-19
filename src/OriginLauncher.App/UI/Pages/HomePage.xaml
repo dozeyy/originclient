@@ -28,7 +28,6 @@
                     </Style>
                 </controls:PromoBanner.Style>
             </controls:PromoBanner>
-            <controls:ImportPromptCard x:Name="ImportCard"/>
         </Grid>
 
         <Grid x:Name="HomeCard" VerticalAlignment="Bottom" Margin="32,0,32,32">
@@ -156,6 +155,9 @@
         <!-- Version picker above Home content, below the launch screen, so a launch
              that starts while it is (somehow) open still covers it. Both fill the
              whole window, top bar included. -->
+        <!-- The one-time first-run welcome: centred over Home (the banner stays hidden while it shows). -->
+        <controls:ImportPromptCard x:Name="ImportCard"/>
+
         <controls:VersionSelectOverlay x:Name="VersionOverlay"/>
         <controls:LaunchLoadingOverlay x:Name="LoadingOverlay"/>
     </Grid>

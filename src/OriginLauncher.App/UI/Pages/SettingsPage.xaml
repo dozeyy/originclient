@@ -113,13 +113,15 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
+                            <!-- The readout comes first: setting Minimum fires ValueChanged during load, and the
+                                 handler writes to it. -->
+                            <TextBlock Grid.Column="1" x:Name="RamValueText" Text="4096 MB" MinWidth="80" TextAlignment="Right"
+                                       FontFamily="{StaticResource Font.Display}" FontSize="18" FontWeight="ExtraBold"
+                                       Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" Margin="24,0,0,0"/>
                             <Slider x:Name="RamSlider" Minimum="1024" SmallChange="256" VerticalAlignment="Center"
                                     LargeChange="1024" TickFrequency="256" IsSnapToTickEnabled="True"
                                     AutomationProperties.Name="RAM allocation"
                                     ValueChanged="RamSlider_ValueChanged"/>
-                            <TextBlock Grid.Column="1" x:Name="RamValueText" Text="4096 MB" MinWidth="80" TextAlignment="Right"
-                                       FontFamily="{StaticResource Font.Display}" FontSize="18" FontWeight="ExtraBold"
-                                       Foreground="{StaticResource Brush.Text}" VerticalAlignment="Center" Margin="24,0,0,0"/>
                         </Grid>
                     </StackPanel>
                 </Border>

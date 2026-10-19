@@ -57,6 +57,13 @@
     <Page Include="..\OriginLauncher.App\Theme\Brand.xaml" Link="Theme\Brand.xaml" />
     <Page Include="..\OriginLauncher.App\Theme\Icons.xaml" Link="Theme\Icons.xaml" />
     <Resource Include="..\..\tools\font-atlas\fonts\Monocraft.ttf" Link="Assets\Fonts\Monocraft.ttf" />
+    <!-- Inter (OFL): Typography.xaml mirrors the launcher's, whose text face is Inter since the Poster restyle. -->
+    <Resource Include="..\..\tools\font-atlas\fonts\Inter-400.ttf" Link="Assets\Fonts\Inter-400.ttf" />
+    <Resource Include="..\..\tools\font-atlas\fonts\Inter-500.ttf" Link="Assets\Fonts\Inter-500.ttf" />
+    <Resource Include="..\..\tools\font-atlas\fonts\Inter-600.ttf" Link="Assets\Fonts\Inter-600.ttf" />
+    <Resource Include="..\..\tools\font-atlas\fonts\Inter-700.ttf" Link="Assets\Fonts\Inter-700.ttf" />
+    <Resource Include="..\..\tools\font-atlas\fonts\Inter-800.ttf" Link="Assets\Fonts\Inter-800.ttf" />
+    <EmbeddedResource Include="..\..\website\assets\fonts\Inter-LICENSE.txt" LogicalName="Inter-LICENSE.txt" />
     <Resource Include="..\OriginLauncher.App\Assets\origin.ico" Link="Assets\origin.ico" />
     <EmbeddedResource Include="..\..\tools\font-atlas\fonts\Monocraft-LICENSE.txt" LogicalName="Monocraft-LICENSE.txt" />
     <EmbeddedResource Include="..\mods\live-modules.json" LogicalName="live-modules.json" />

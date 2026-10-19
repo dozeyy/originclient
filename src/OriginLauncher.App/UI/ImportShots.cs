@@ -36,10 +36,10 @@ internal static class ImportShots
             var one = new[] { many[0] };
             window.TourGoTo(0);
             RenderShots.Pump(400);
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many), many);
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "17-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one), one);
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "17b-home-import-card-one-setup");
 
@@ -53,10 +53,10 @@ internal static class ImportShots
             window.Width = 980;
             window.Height = 600;
             RenderShots.Pump(600);
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many), many);
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "50-min-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one), one);
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "51-min-home-import-card-one-setup");
         }

@@ -3,33 +3,53 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d" Visibility="Collapsed">
 
-    <!-- The one-time first-run offer. It lives in Home's banner slot (HomePage.xaml: the banner hides while
-         this shows, and comes back when it is answered), the same footprint as the banner card: one question
-         and two buttons, no eyebrow, no caption. It stays until the player answers (Import opens the import
-         drawer, Not now closes it) and is never shown again. -->
-    <Border MinHeight="96" Padding="16,12"
-            Background="{StaticResource Brush.Card}"
-            BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-            CornerRadius="{StaticResource Radius.Card}">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <TextBlock x:Name="QuestionText" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
-                       TextWrapping="Wrap" TextTrimming="None"/>
-            <!-- A fixed 12 px under the question, so a two-line question never sits tight on the buttons. -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                        Margin="0,12,0,0">
-                <Button x:Name="NotNowButton" Content="Not now" Style="{StaticResource Button.Secondary}"
-                        Padding="16,0" MinHeight="32" Margin="0,0,8,0" VerticalAlignment="Center" Click="NotNow_Click"/>
-                <Button x:Name="ImportButton" Content="Import" Style="{StaticResource Button.Primary}"
-                        Padding="20,0" MinHeight="32" MinWidth="88" VerticalAlignment="Center" Effect="{x:Null}"
-                        Click="Import_Click"/>
+    <!-- The one-time first-run welcome (Poster): a centred card over the dimmed Home art. It names the
+         launchers it found, by their real logos, and asks one question with two answers. It stays until the
+         player answers (Import opens the import drawer, Not now closes it) and is never shown again. -->
+    <Grid>
+        <Rectangle Fill="{StaticResource Brush.Scrim}"/>
+        <Border x:Name="Card" MaxWidth="680" Margin="32,80,32,32" Padding="32,30,32,26"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Card}">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="CardLift"/>
+            </Border.RenderTransform>
+            <StackPanel>
+                <controls:OriginMark Width="34" Height="34" HorizontalAlignment="Left"/>
+                <TextBlock Text="WELCOME TO ORIGIN" Style="{StaticResource Text.Poster}" FontSize="48" LineHeight="50"
+                           HorizontalAlignment="Left" Margin="0,22,0,0" TextWrapping="Wrap"/>
+                <TextBlock x:Name="QuestionText" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
+                           FontSize="16" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                <TextBlock Text="Your worlds, mods, servers and settings come over as Origin profiles. Nothing in the other launchers changes."
+                           Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="480" HorizontalAlignment="Left"
+                           Margin="0,6,0,0"/>
+
+                <!-- One chip per launcher with setups to bring: logo, name, how many setups. -->
+                <WrapPanel x:Name="LaunchersPanel" Margin="0,18,0,0"/>
+
+                <Grid Margin="0,22,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="ImportButton" Style="{StaticResource Button.Primary}"
+                            Padding="22,0" Height="44" MinWidth="120" Click="Import_Click"
+                            AutomationProperties.Name="Import">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                                  Margin="0,0,8,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <TextBlock Text="Import" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="NotNowButton" Grid.Column="1" Content="Not now" Style="{StaticResource Button.Chrome}"
+                            Padding="14,0" Height="44" HorizontalAlignment="Right" Click="NotNow_Click"/>
+                </Grid>
+                <TextBlock Text="You can import later from Profiles, or the Import button at the top."
+                           Style="{StaticResource Text.Caption}" Margin="0,16,0,0" TextWrapping="Wrap"/>
             </StackPanel>
-        </Grid>
-    </Border>
+        </Border>
+    </Grid>
 </UserControl>

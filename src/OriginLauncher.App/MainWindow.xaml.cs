@@ -749,13 +749,13 @@ public partial class MainWindow : Window
         try
         {
             // Off the UI thread: the settings read, the account check and the quick scan (MainWindow.ImportWiring.cs).
-            var question = await ComputeImportPromptQuestionAsync();
-            if (question == null || _importPanelOpen) return;
+            var prompt = await ComputeImportPromptQuestionAsync();
+            if (prompt is not { } found || _importPanelOpen) return;
 
             // The card sits in Home's banner slot (it shows when Home does), and stays out while Import would be refused
             // (a game starting, an update): never offer a click that lands on a refusal.
             _homePage.ImportCard.SetRefusal(ImportHooks.Refusal()); // and again on every change (PushImportRefusal)
-            _homePage.ImportCard.ShowQuestion(question);
+            _homePage.ImportCard.ShowQuestion(found.Question, found.Setups);
             // Shown once: set the moment it appears, so it never comes back.
             _ = Task.Run(() => Core.SettingsStore.Update(s => s.ImportPromptSeen = true));
         }
