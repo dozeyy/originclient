@@ -445,6 +445,17 @@ public final class SocialClient {
 		UNREAD.putAll(unread);
 	}
 
+	/**
+	 * DEV SHOTS ONLY: put the client in a non-READY state so the Friends window's calm messages can be shot.
+	 * `reason` is what REFUSED shows (this era's SIGNED_OUT carries no sentence; 1.21.1's does).
+	 */
+	static void demoStatus(Status st, String reason) {
+		if (DEMO) {
+			status = st;
+			refusal = reason;
+		}
+	}
+
 	// ------------------------------------------------------------- the loop
 
 	private static void tick() {

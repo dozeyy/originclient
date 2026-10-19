@@ -112,4 +112,69 @@ public final class SocialDemo {
 				new PartyMessage("9", MOSS, "MossyCobble", "bringing eyes of ender", now - 40_000, false));
 		SocialClient.demoInstall(s, chats, partyChat, Map.of(KESTREL, 2));
 	}
+
+	/** Signed in, friends and requests, but no party and nothing unread (the "home" view). */
+	public static void installHome() {
+		if (!SocialClient.DEMO) {
+			return;
+		}
+		install(false);
+		SocialState s = SocialClient.state();
+		SocialClient.demoInstall(new SocialState(s.me(), s.friends(), s.incoming(), s.outgoing(), List.of(), null,
+				List.of(), s.invites(), null), Map.of(), List.of(), Map.of());
+	}
+
+	/** Long names, long server hosts, a long unbroken word, a full party: for overflow checks. */
+	public static void installStress() {
+		if (!SocialClient.DEMO) {
+			return;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		String me = mc.getUser() != null && mc.getUser().getGameProfile().getId() != null
+				? mc.getUser().getGameProfile().getId().toString().replace("-", "") : "00000000000000000000000000000000";
+		String myName = mc.getUser() != null ? mc.getUser().getName() : "You";
+		long now = System.currentTimeMillis();
+		String[] names = {"WWWWWWWWWWWWWWWW", "Mmmmmmmmmmmmmmmm", "xX_DragonSlayer_Xx", "Kestrel", "Ember_Fox", "MossyCobble",
+				"Tidewalker", "Lumen", "Ravenmoor", "Quartzling", "SableWing", "Pixel_Pilot_99", "BlockBard", "IronIvy", "GlowSquid",
+				"Redstoner_01", "NetherNomad", "CopperCrab", "Cave_Spider", "DeepDarkDan", "ElytraEli", "FrostFang", "GolemGuy"};
+		java.util.ArrayList<Friend> friends = new java.util.ArrayList<>();
+		for (int i = 0; i < names.length; i++) {
+			String id = String.format("%032x", 0x1000L + i * 7919L);
+			boolean online = i < 14;
+			String host = i % 3 == 0 ? "survival-eu-west-12.some-very-long-network-name.example.com" : i % 3 == 1 ? "mc.hypixel.net" : null;
+			friends.add(new Friend(id, names[i], online, online ? "game" : null, online ? (host != null ? "server" : "singleplayer") : null,
+					online ? host : null, online ? (i % 4 == 0 ? "1.20.4" : Social.version()) : null, now - (online ? 0 : i * 3_600_000L)));
+		}
+		java.util.ArrayList<Member> members = new java.util.ArrayList<>();
+		members.add(new Member(me, myName, true, null, now));
+		for (int i = 0; i < 7; i++) {
+			members.add(new Member(friends.get(i).uuid(), friends.get(i).name(), i != 5, null, now));
+		}
+		SocialState s = new SocialState(new Me(me, myName, false), friends,
+				List.of(new Request(QUARTZ, "Quartzling", now - 120_000), new Request(String.format("%032x", 1L), "WWWWWWWWWWWWWWWW", now - 5_000)),
+				List.of(new Request(SABLE, "SableWing", now - 600_000)),
+				List.of(new Request(String.format("%032x", 2L), "Annoying_Person_1", now - 99_000)),
+				new Party("demo", friends.get(2).uuid(), members), List.of(),
+				List.of(new PartyInvite("demo-2", RAVEN, "Ravenmoor", now - 30_000)), null);
+		String id0 = friends.get(0).uuid();
+		String longWord = "supercalifragilisticexpialidocious_supercalifragilisticexpialidocious_supercalifragilisticexpialidocious";
+		Map<String, List<Message>> chats = Map.of(id0, List.of(
+				new Message("1", id0, me, longWord, now - 600_000, false),
+				new Message("2", me, id0, "ok that is a very long message that should wrap onto several lines without ever running outside its bubble or the window, even at the biggest GUI scale", now - 500_000, false),
+				new Message("3", id0, me, "short", now - 400_000, false),
+				new Message("4", id0, me, "another one right after", now - 399_000, false)));
+		List<PartyMessage> pc = List.of(
+				new PartyMessage("5", friends.get(2).uuid(), friends.get(2).name(), longWord, now - 90_000, false),
+				new PartyMessage("6", me, myName, "on my way, hold the portal open please " + longWord.substring(0, 40), now - 80_000, false));
+		SocialClient.demoInstall(s, chats, pc, Map.of(id0, 12));
+	}
+
+	/** The calm non-READY messages ("Sign in with Microsoft...", "Couldn't reach Origin"). */
+	public static void status(SocialClient.Status st, String reason) {
+		SocialClient.demoStatus(st, reason);
+	}
+
+	public static String firstStressFriend() {
+		return String.format("%032x", 0x1000L);
+	}
 }

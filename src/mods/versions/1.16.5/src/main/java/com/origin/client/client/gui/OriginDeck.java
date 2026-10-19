@@ -86,6 +86,9 @@ public final class OriginDeck {
 	public static int ON_TEXT = DEF_ON_TEXT;    // text on the ENABLED bar
 	public static final int RED = 0xFFD9675A;
 	public static final int RED_SOFT = 0x29D9675A;   // red .16
+	// Destructive TEXT on raised / hovered surfaces: RED itself is 3.06:1 on the red-washed menu row and 4.22:1 on the
+	// danger buttons; this lighter shade is >= 4.5:1 on every one of them (4.66:1 on the worst, #39403C).
+	public static final int RED_TEXT = 0xFFF98E80;
 	// The mod card's ENABLED / DISABLED bar. Default: red DISABLED, green hover. A theme
 	// recolours both, so a red-accent theme (crimson) never has ENABLED and DISABLED
 	// reading as the same red, and no theme flashes the default green on hover.
