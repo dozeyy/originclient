@@ -65,7 +65,7 @@ public static class ModSetResolver
         {
             foreach (var mod in candidates)
                 decisions[mod] = Copy(mod, mod.DisabledInSource ? ModOutcome.CopiedAsBefore : ModOutcome.Copied,
-                    mod.DisabledInSource ? "Disabled in your old instance." : null);
+                    mod.DisabledInSource ? "Disabled in your old setup." : null);
             return Ordered(mods, decisions);
         }
 
@@ -107,7 +107,7 @@ public static class ModSetResolver
         foreach (var mod in kept)
         {
             if (mod.DisabledInSource)
-                decisions[mod] = Copy(mod, ModOutcome.CopiedAsBefore, "Disabled in your old instance.");
+                decisions[mod] = Copy(mod, ModOutcome.CopiedAsBefore, "Disabled in your old setup.");
             else if (disabledBy.TryGetValue(mod, out var reason))
                 decisions[mod] = Copy(mod, ModOutcome.CopiedDisabled, reason);
             else

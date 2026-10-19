@@ -152,6 +152,8 @@ internal sealed class FakeSettings : IImportSettings
         ApplyCalls++;
         var s = Load();
         if (delta.AddProfile != null) s.Profiles.Add(delta.AddProfile);
+        foreach (var profile in delta.AddProfiles ?? new List<ModProfile>())
+            if (s.Profiles.All(p => p.Id != profile.Id)) s.Profiles.Add(profile);
         if (delta.SetSelectedVersion != null) s.SelectedVersion = delta.SetSelectedVersion;
         if (delta.SetSelectedProfileId != null) s.SelectedProfileId = delta.SetSelectedProfileId;
         Save(s);
@@ -161,6 +163,8 @@ internal sealed class FakeSettings : IImportSettings
     {
         var s = Load();
         if (delta.AddProfile != null) s.Profiles.RemoveAll(p => p.Id == delta.AddProfile.Id);
+        foreach (var profile in delta.AddProfiles ?? new List<ModProfile>())
+            s.Profiles.RemoveAll(p => p.Id == profile.Id);
         if (delta.SetSelectedVersion != null) s.SelectedVersion = delta.PreviousSelectedVersion;
         if (delta.SetSelectedProfileId != null) s.SelectedProfileId = delta.PreviousSelectedProfileId;
         Save(s);

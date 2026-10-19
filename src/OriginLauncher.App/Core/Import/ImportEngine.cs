@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using OriginLauncher.App.Core.GameFolders;
+using OriginLauncher.App.Core.Import.Bulk;
+using OriginLauncher.App.Core.Import.GameFiles;
 using OriginLauncher.App.Core.Import.Mods;
 using OriginLauncher.App.Core.Import.Sources;
 using OriginLauncher.App.Core.Profiles;
@@ -68,6 +70,15 @@ public interface IImportPlanContributor
     Task ContributeAsync(ImportPlan plan, ImportRequest request, SourceFs fs, CancellationToken ct);
 }
 
+/// <summary>
+/// A contributor whose work belongs to the target VERSION, not to one setup (game-file reuse: the files a version
+/// needs are the same whichever setup is imported). A single import runs it like any other; a bulk import runs it
+/// once per version group instead of once per setup.
+/// </summary>
+public interface IVersionWideContributor : IImportPlanContributor
+{
+}
+
 /// <summary>"Is Minecraft running from this folder?": its latest.log cannot be opened exclusively.</summary>
 public static class GameRunningProbe
 {
@@ -119,13 +130,33 @@ public sealed record ImportRequest
     public bool PlayWithExternalMods { get; init; } = true;
     public string? SelectedVersion { get; init; }
     public string? SelectedProfileId { get; init; }
+
+    // ---- set by a bulk import ("import everything") for each setup it plans; a single import leaves them alone ----
+
+    /// <summary>What this setup brings to its version group (a single import is always Full).</summary>
+    internal SetupRole Role { get; init; } = SetupRole.Full;
+
+    /// <summary>The target folder's ledger, shared by every setup of the version in one run (null = a private one).</summary>
+    internal DestinationLedger? Ledger { get; init; }
+
+    /// <summary>The run's id: every setup of a bulk run shares it (null = a new id).</summary>
+    internal string? ImportId { get; init; }
+
+    /// <summary>Part of a bulk run: no per-setup space check, no per-setup settings notes (the run checks and says them once).</summary>
+    internal bool Bulk { get; init; }
+
+    /// <summary>The setup whose settings this version gets in a bulk run (for the "settings come from" line).</summary>
+    internal string? SettingsWinnerLabel { get; init; }
+
+    /// <summary>One metadata session for every version a bulk plan looks at (null = fetch per plan).</summary>
+    internal MetadataCache? Metadata { get; init; }
 }
 
 // Scan -> plan -> apply, each async, cancellable and progress-reporting, and
 // none of them touching the UI thread. The engine only ever READS the source;
 // everything it writes to the destination goes through ImportTransaction, so a
 // cancel, an error or a crash puts the player's folders back exactly as they were.
-public sealed class ImportEngine
+public sealed partial class ImportEngine
 {
     private readonly ImportEnvironment _env;
 
@@ -182,7 +213,7 @@ public sealed class ImportEngine
             if (plan.CanApply)
                 foreach (var contributor in _env.Contributors)
                     await contributor.ContributeAsync(plan, request, fs, ct).ConfigureAwait(false);
-            Finish(plan, fs);
+            Finish(plan, fs, checkSpace: true);
             return plan;
         }, ct);
 
@@ -196,7 +227,7 @@ public sealed class ImportEngine
             : r.SupportedTargets.Contains(source.McVersion ?? "") ? source.McVersion! : "";
         var plan = new ImportPlan
         {
-            ImportId = _env.NewId(), Source = source, TargetVersion = target, Options = r.Options,
+            ImportId = r.ImportId ?? _env.NewId(), Source = source, TargetVersion = target, Options = r.Options,
         };
 
         // ---- blockers: any of these means no plan, with a plain sentence for the player ----
@@ -226,8 +257,8 @@ public sealed class ImportEngine
 
         progress?.Report(new ImportProgress(ImportStage.Planning, 0, 3, source.Name));
 
-        // ---- mods -> a new profile ----
-        PlanMods(plan, r, fs, target, ct);
+        // ---- mods -> a new profile (a packs-only setup's mods are never even read) ----
+        if (r.Role != SetupRole.PacksOnly) PlanMods(plan, r, fs, target, ct);
         progress?.Report(new ImportProgress(ImportStage.Planning, 1, 3, "settings"));
 
         // ---- settings, packs, worlds ----
@@ -235,6 +266,8 @@ public sealed class ImportEngine
         {
             Fs = fs, Source = source, TargetVersion = target, TargetGameDir = plan.TargetGameDir,
             Options = r.Options, TargetHasIris = r.TargetHasIris ?? target != "1.8.9", Plan = plan, Ct = ct,
+            Role = r.Role, Ledger = r.Ledger ?? new DestinationLedger(), SetupLabel = source.BulkLabel(),
+            SettingsWinnerLabel = r.SettingsWinnerLabel,
         });
         progress?.Report(new ImportProgress(ImportStage.Planning, 2, 3, "checking space"));
         return plan;
@@ -282,7 +315,13 @@ public sealed class ImportEngine
                 case ModOutcome.Copied:
                 case ModOutcome.CopiedAsBefore:
                 case ModOutcome.CopiedDisabled:
-                    var bytes = new FileInfo(d.SourcePath!).Length;
+                    if (ImportFiles.SizeOrNull(d.SourcePath!) is not { } bytes)
+                    {
+                        // It vanished (or became unreadable) since it was read: left out, never a reason to fail the plan.
+                        plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{label} ({d.FileName})",
+                            "It disappeared from the old setup while Origin was looking at it."));
+                        break;
+                    }
                     plan.Ops.Add(new PlannedOp
                     {
                         Kind = OpKind.CopyFile, Item = PlanItemKind.Mod, Label = d.DestFileName!, Source = d.SourcePath,
@@ -311,7 +350,8 @@ public sealed class ImportEngine
                 PreviousSelectedProfileId = r.SelectedProfileId,
             };
             // Imported mods only load when "personal mods" is on; we never flip that switch for the player.
-            if (!r.PlayWithExternalMods)
+            // (A bulk run says this once for the whole run, not once per setup.)
+            if (!r.PlayWithExternalMods && !r.Bulk)
                 plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, "Your own mods are turned off",
                     "The imported mods are in the new profile, but \"Play with my own mods\" is off, so they won't load until you turn it on."));
         }
@@ -339,12 +379,12 @@ public sealed class ImportEngine
         }
     }
 
-    private void Finish(ImportPlan plan, SourceFs fs)
+    private void Finish(ImportPlan plan, SourceFs fs, bool checkSpace)
     {
         if (!plan.CanApply) return;
         foreach (var link in fs.SkippedLinks)
             plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting, $"Linked item left out: {link}",
-                "Links inside an instance are never followed, so what it points to wasn't imported."));
+                "Links inside a setup's folder are never followed, so what it points to wasn't imported."));
         foreach (var unreadable in fs.UnreadablePaths)
             plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting, $"Couldn't read: {unreadable}",
                 "Some of it may be missing from the import (and from the space check)."));
@@ -355,6 +395,7 @@ public sealed class ImportEngine
                 "Skipped for safety: it looks like a login or account file."));
         }
         plan.BytesToCopy = plan.Ops.Sum(o => o.Bytes);
+        if (!checkSpace) return; // a bulk run checks the space for all of its setups at once
 
         // D30: the bytes to copy plus 10% must fit where they land.
         var needed = (long)(plan.BytesToCopy * 1.1);
@@ -428,7 +469,16 @@ public sealed class ImportEngine
         {
             tx.Begin();
             if (plan.ProvisioningGate != null)
+            {
                 gate = plan.ProvisioningGate.AcquireAsync(plan.TargetVersion, ct).GetAwaiter().GetResult();
+                // Checked again WITH the gate held: a launch of this version holds the gate while it starts the game,
+                // so only now is "not running" a fact that stays true for the rest of the apply.
+                if (plan.TargetGameDir.Length > 0 && Directory.Exists(plan.TargetGameDir) && _env.IsGameRunning(plan.TargetGameDir))
+                {
+                    tx.Rollback(settings); // nothing was changed yet: this only closes the journal
+                    return new ImportResult { ImportId = plan.ImportId, State = ImportState.Planned, Error = "Close Minecraft first: Origin's game is still running." };
+                }
+            }
             for (var i = 0; i < plan.Ops.Count; i++)
             {
                 var op = plan.Ops[i];
@@ -462,6 +512,22 @@ public sealed class ImportEngine
         {
             ReleaseGate(gate);
         }
+    }
+
+    // A single import's journal names one version (its gate is taken whenever there is a gate to take); a bulk run's
+    // names the versions its apply gated, already in ascending order.
+    private static IEnumerable<string> UndoGateVersions(ImportJournal journal)
+    {
+        if (journal.SetupCount != null) return journal.GateVersions ?? new List<string>();
+        return string.IsNullOrEmpty(journal.TargetVersion) ? Array.Empty<string>() : new[] { journal.TargetVersion };
+    }
+
+    private static IEnumerable<string> TargetDirs(ImportJournal journal)
+    {
+        var dirs = new List<string>();
+        if (!string.IsNullOrEmpty(journal.TargetGameDir)) dirs.Add(journal.TargetGameDir);
+        if (journal.TargetGameDirs != null) dirs.AddRange(journal.TargetGameDirs.Where(d => !string.IsNullOrEmpty(d)));
+        return dirs.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     // Releasing the gate happens after the result is decided (often after Commit): a release that throws is
@@ -580,16 +646,21 @@ public sealed class ImportEngine
                     return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = why };
 
                 var committed = journal.State == ImportState.Committed;
-                // A finished import's files may be in use: never undo under a running game.
-                if (committed && journal.TargetGameDir is { Length: > 0 } targetDir && Directory.Exists(targetDir) && _env.IsGameRunning(targetDir))
-                    return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = "Close Minecraft first: Origin's game is still running." };
 
-                // The version's gate, so nothing installs or launches that version while its folder changes.
-                IAsyncDisposable? gate = null;
-                if (committed && _env.VersionGate != null && !string.IsNullOrEmpty(journal.TargetVersion))
-                    gate = _env.VersionGate.AcquireAsync(journal.TargetVersion, CancellationToken.None).GetAwaiter().GetResult();
+                // The versions' gates FIRST, so nothing installs or launches those versions while their folders change —
+                // and only with the gates held is "no game is running" a fact (a launch holds its version's gate while
+                // it starts the game). A bulk run takes the same versions in the same (ascending) order its apply did.
+                var gates = new List<IAsyncDisposable>();
                 try
                 {
+                    if (committed && _env.VersionGate != null)
+                        foreach (var version in UndoGateVersions(journal))
+                            gates.Add(_env.VersionGate.AcquireAsync(version, CancellationToken.None).GetAwaiter().GetResult());
+
+                    // A finished import's files may be in use: never undo under a running game (any of a bulk run's folders).
+                    if (committed && TargetDirs(journal).Any(dir => Directory.Exists(dir) && _env.IsGameRunning(dir)))
+                        return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = "Close Minecraft first: Origin's game is still running." };
+
                     var logRoot = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_env.InstancesRoot)) ?? _env.InstancesRoot;
                     using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, journal, _env.Clock);
                     // Reused game files stay after a finished import (JournalEntry.GameFile).
@@ -602,7 +673,7 @@ public sealed class ImportEngine
                 }
                 finally
                 {
-                    ReleaseGate(gate);
+                    for (var i = gates.Count - 1; i >= 0; i--) ReleaseGate(gates[i]);
                 }
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)

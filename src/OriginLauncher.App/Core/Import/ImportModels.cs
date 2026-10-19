@@ -195,6 +195,12 @@ public sealed class SettingsDelta
     public string? SetSelectedProfileId { get; set; }
     public string? PreviousSelectedVersion { get; set; }
     public string? PreviousSelectedProfileId { get; set; }
+
+    /// <summary>
+    /// A bulk import ("import everything") adds one profile per setup with mods, in ONE settings change. Apply adds
+    /// each (once); revert removes each. <see cref="AddProfile"/> stays for single imports and older journals.
+    /// </summary>
+    public List<ModProfile>? AddProfiles { get; set; }
 }
 
 /// <summary>Where the launcher's settings are changed (the glue implements it with one atomic settings update; tests use a file).</summary>

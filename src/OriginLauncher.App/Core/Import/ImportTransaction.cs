@@ -143,7 +143,7 @@ public sealed class ImportTransaction : IDisposable
         // The walk follows the folder it starts at, so that folder (and every segment above it inside the
         // instance) must not be a link: a linked world or pack could lead anywhere.
         if (!fs.IsLinkFree(srcDir))
-            throw new IOException($"{Path.GetFileName(srcDir)} is a link, so it wasn't copied");
+            throw new SourceUnreadableException($"{Path.GetFileName(srcDir)} is a link, so it wasn't copied");
         var stage = Path.Combine(StagingDir, "tree-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
         var count = 0;
@@ -151,7 +151,7 @@ public sealed class ImportTransaction : IDisposable
         foreach (var file in fs.EnumerateFiles(srcDir, recursive: true))
         {
             ct.ThrowIfCancellationRequested();
-            if (!fs.Allow(file)) continue;
+            if (!fs.AllowWalked(file)) continue; // the walk already refused links below srcDir (checked above)
             var target = Path.Combine(stage, Path.GetRelativePath(srcDir, file));
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target, overwrite: true);
@@ -161,7 +161,7 @@ public sealed class ImportTransaction : IDisposable
         // A part of the tree that couldn't be listed would make this a half copy (a world missing regions):
         // refuse, so the import rolls back instead of presenting a damaged copy as done.
         if (fs.UnreadableHits > unreadableBefore)
-            throw new IOException($"Part of {Path.GetFileName(srcDir)} couldn't be read, so none of it was copied");
+            throw new SourceUnreadableException($"Part of {Path.GetFileName(srcDir)} couldn't be read, so none of it was copied");
         Prepare(destDir, isDirectory: true);
         MoveDirectory(stage, destDir);
         Log($"copied folder {Rel(destDir)} ({count} files)");
@@ -262,6 +262,16 @@ public sealed class ImportTransaction : IDisposable
         // Nothing here may throw: a full disk or a locked log must not turn "put everything back" into a crash
         // that leaves the journal saying Applying. (If the journal itself can't be saved, it stays Applying and
         // ImportRecovery finishes the job at the next start — undoing twice is harmless.)
+        if (keepGameFiles)
+        {
+            // The undo of a FINISHED import: say so in the journal BEFORE anything moves, and mark it Applying, so a
+            // crash mid-undo (or a journal that can't be saved at the end) is finished by ImportRecovery with the
+            // same rule — the reused game files stay. Without the flag recovery would delete them.
+            Journal.UndoOfCommitted = true;
+            Journal.State = ImportState.Applying;
+            try { Flush(); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* the undo still runs; the end state is saved below if it can be */ }
+        }
         var problems = ImportUndo.Run(Journal, settings, Log, _logRoot, keepGameFiles);
         Journal.State = ImportState.RolledBack;
         Journal.FinishedUtc = _clock();
@@ -372,9 +382,10 @@ public sealed class ImportTransaction : IDisposable
 public static class FileCompare
 {
     /// <param name="source">When given, <paramref name="a"/> is a SOURCE file: it is opened through the guard (denied = not the same) so the hook sees it.</param>
-    public static bool Same(string a, string b, SourceFs? source = null)
+    /// <param name="walked"><paramref name="a"/> came from a walk of <paramref name="source"/> (its links are already refused): only the guard is asked.</param>
+    public static bool Same(string a, string b, SourceFs? source = null, bool walked = false)
     {
-        if (source != null && !source.Allow(a)) return false;
+        if (source != null && !(walked ? source.AllowWalked(a) : source.Allow(a))) return false;
         var fa = new FileInfo(a);
         var fb = new FileInfo(b);
         if (!fa.Exists || !fb.Exists || fa.Length != fb.Length) return false;
@@ -420,7 +431,7 @@ public static class FileCompare
             .Select(f => Path.GetRelativePath(destDir, f)).ToHashSet(StringComparer.Ordinal);
         if (!src.SetEquals(dst)) return false;
         foreach (var rel in src)
-            if (!Same(Path.Combine(sourceDir, rel), Path.Combine(destDir, rel), fs)) return false;
+            if (!Same(Path.Combine(sourceDir, rel), Path.Combine(destDir, rel), fs, walked: true)) return false;
         return true;
     }
 }
@@ -540,7 +551,9 @@ public static class ImportUndo
         var limit = finished.AddSeconds(2); // the clock the files were stamped with is the same one: this is slack, not a window
         foreach (var entry in journal.Entries)
         {
-            if (entry.Path == null) continue;
+            // Reused game files stay after the undo of a finished import (keepGameFiles), so a later change to one
+            // (a launch rewriting an asset index) is nothing the undo would lose: never a reason to refuse.
+            if (entry.Path == null || entry.GameFile) continue;
             try
             {
                 var newer = entry.Kind switch

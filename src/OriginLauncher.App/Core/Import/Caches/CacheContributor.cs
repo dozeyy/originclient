@@ -1,4 +1,5 @@
 using System.IO;
+using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Import.Mods;
 
 namespace OriginLauncher.App.Core.Import.Caches;
@@ -29,7 +30,7 @@ public sealed class CacheContributor : IImportPlanContributor
     public Task ContributeAsync(ImportPlan plan, ImportRequest request, SourceFs fs, CancellationToken ct)
     {
         if (!plan.CanApply) return Task.CompletedTask;
-        new Planner(plan, fs, ct, AfterStaged).Run();
+        new Planner(plan, fs, ct, AfterStaged, request?.Ledger, plan.Source.BulkLabel()).Run();
         return Task.CompletedTask;
     }
 
@@ -45,9 +46,13 @@ public sealed class CacheContributor : IImportPlanContributor
         private readonly string? _dhProblem;
         private readonly string? _voxyProblem;
         private readonly Dictionary<string, string?> _worldProblems = new(StringComparer.OrdinalIgnoreCase); // world -> why not (null = fine)
+        private readonly DestinationLedger? _ledger; // a bulk run's: the first setup (in apply order) to bring a cache wins
+        private readonly string _setupLabel;
 
-        public Planner(ImportPlan plan, SourceFs fs, CancellationToken ct, Action<string>? afterStaged)
+        public Planner(ImportPlan plan, SourceFs fs, CancellationToken ct, Action<string>? afterStaged, DestinationLedger? ledger, string setupLabel)
         {
+            _ledger = ledger;
+            _setupLabel = setupLabel;
             _plan = plan;
             _fs = fs;
             _ct = ct;
@@ -128,6 +133,7 @@ public sealed class CacheContributor : IImportPlanContributor
                     SkipServer(server, "Not a readable Distant Horizons database: skipped.");
                     return;
                 }
+            if (!ClaimFirst(CacheKind.DistantHorizons, CacheScope.Multiplayer, server.Folder, "")) { SkipServer(server, AnotherSetup); return; }
 
             var bytes = DirectorySize(server.Dir, skipLoneWal: true);
             foreach (var level in server.Levels)
@@ -192,8 +198,14 @@ public sealed class CacheContributor : IImportPlanContributor
             return problem;
         }
 
+        // A bulk run: one cache identity (kind, scope, world or server, dimension) comes over once, from the first
+        // setup in apply order; a later setup's copy is never merged into it. A single import has no ledger.
+        private bool ClaimFirst(CacheKind kind, CacheScope scope, string owner, string dimension) =>
+            _ledger == null || _ledger.TryClaimCache($"{kind}|{scope}|{owner}|{dimension}", _setupLabel, out _);
+
         private void Take(CacheKind kind, CacheScope scope, string owner, string dimension, string label, long bytes, Action<ImportOpContext> run)
         {
+            if (!ClaimFirst(kind, scope, owner, dimension)) { Skip(kind, scope, owner, dimension, AnotherSetup); return; }
             _plan.Caches.Add(new CachePlanItem(kind, scope, owner, dimension, true, null, bytes));
             _plan.Lines.Add(new SummaryLine(SummarySection.ReusedCaches, PlanItemKind.Cache, label, null, bytes));
             _plan.Ops.Add(new PlannedOp { Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Dest = _targetDir, Bytes = bytes, Run = run });
@@ -233,7 +245,7 @@ public sealed class CacheContributor : IImportPlanContributor
                 return why.Outcome switch
                 {
                     ModOutcome.CopiedDisabled => $"Distant Horizons is imported turned off ({why.Reason?.TrimEnd('.')}), so it will rebuild — left in the source.",
-                    ModOutcome.CopiedAsBefore => "Distant Horizons was turned off in your old instance, so it will rebuild — left in the source.",
+                    ModOutcome.CopiedAsBefore => "Distant Horizons was turned off in your old setup, so it will rebuild — left in the source.",
                     _ => $"Distant Horizons isn't coming across ({why.Reason?.TrimEnd('.')}), so it will rebuild — left in the source.",
                 };
             }
@@ -287,11 +299,7 @@ public sealed class CacheContributor : IImportPlanContributor
     // ================================================================ apply
 
     // A size that can't be read (gone, no access) counts as nothing: a size is never a reason to fail the plan.
-    private static long SizeOf(string file)
-    {
-        try { return new FileInfo(file).Length; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
-    }
+    private static long SizeOf(string file) => ImportFiles.SizeOf(file);
 
     private static bool SamePath(string a, string b) =>
         string.Equals(Path.TrimEndingDirectorySeparator(a), Path.TrimEndingDirectorySeparator(b),
@@ -378,7 +386,7 @@ public sealed class CacheContributor : IImportPlanContributor
             {
                 ctx.Ct.ThrowIfCancellationRequested();
                 if (skipLoneWal && IsLoneWal(file)) continue;
-                if (!ctx.Fs.Allow(file)) { skippedUnreadable++; continue; }
+                if (!ctx.Fs.AllowWalked(file)) { skippedUnreadable++; continue; } // the walk refused links; sourceDir was checked above
                 var target = Path.Combine(stage, Path.GetRelativePath(sourceDir, file));
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 File.Copy(file, target, overwrite: true); // as-is: nothing in a cache folder is ever edited
@@ -398,6 +406,7 @@ public sealed class CacheContributor : IImportPlanContributor
     }
 
     private const string InUse = "In use right now, so it was left in the source.";
+    private const string AnotherSetup = "Another of your setups already brings this one.";
     private const string Rebuilds = "Couldn't be read; it will rebuild — left in the source.";
 
 

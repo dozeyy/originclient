@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Sync;
 
 namespace OriginLauncher.App.Core.Import;
@@ -19,6 +20,19 @@ public sealed class MigrationContext
     public required bool TargetHasIris { get; init; }
     public required ImportPlan Plan { get; init; }
     public CancellationToken Ct { get; init; }
+
+    /// <summary>What this setup brings (bulk import): Full = everything; ModsAndPacks = no settings, configs only where
+    /// nothing else writes them; PacksOnly = resource and shader packs only. A single import is Full.</summary>
+    public SetupRole Role { get; init; } = SetupRole.Full;
+
+    /// <summary>What this run already writes into the target folder (shared by every setup of a bulk run's version).</summary>
+    public DestinationLedger Ledger { get; init; } = new();
+
+    /// <summary>How this setup is named in "already brought over from ..." lines.</summary>
+    public string SetupLabel { get; init; } = "";
+
+    /// <summary>Bulk: the setup whose settings this version gets (a non-winner says so in its summary).</summary>
+    public string? SettingsWinnerLabel { get; init; }
 }
 
 // Plans the non-mod part of an import (D15-D19): options.txt, mod configs, the
@@ -40,6 +54,11 @@ public sealed class MigrationContext
 //    pack and its settings file (everything with "copy unused packs"). A pack
 //    never overwrites another: same bytes -> skipped, different -> "<name>
 //    (imported)" and the reference follows.
+//  * a bulk import ("import everything") plans several setups into one folder: the winner (Full) as above;
+//    the others (ModsAndPacks) bring packs (copied, never selected) and only the config files nothing else
+//    writes - never options.txt, servers.dat, iris/sodium or OptiFine settings; a Forge setup on a Fabric
+//    version (PacksOnly) brings its packs and nothing else. One DestinationLedger per folder keeps them
+//    from landing on each other.
 //  * every settings file is stamped "modified now", or Settings Sync's
 //    newest-file-wins rule would overwrite the imported keybinds with an older
 //    copy from another version on the first Play.
@@ -63,7 +82,6 @@ public static class SettingsMigrator
         private readonly MigrationContext _c;
         private readonly string _src;
         private readonly string _dst;
-        private readonly HashSet<string> _plannedDestinations = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string?> _irisOverrides = new(StringComparer.Ordinal);
         private Dictionary<string, string>? _sourceOptions;
         private string? _resourcePacksValue;
@@ -80,16 +98,33 @@ public static class SettingsMigrator
         private ImportPlan Plan => _c.Plan;
         private SourceFs Fs => _c.Fs;
         private bool Target189 => _c.TargetVersion == "1.8.9";
+        private bool Winner => _c.Role == SetupRole.Full;
+        private DestinationLedger Ledger => _c.Ledger;
 
         public void Run()
         {
-            LoadSourceOptions();
+            LoadSourceOptions();   // every role: options.txt names the resource packs in use
             PlanResourcePacks();
             PlanShaders();
+            if (_c.Role == SetupRole.PacksOnly) { SettingsComeFrom(); return; }
             PlanConfig();
-            PlanLoneFiles();
-            PlanOptions();
+            if (Winner)
+            {
+                PlanLoneFiles();
+                PlanOptions();
+            }
+            else
+            {
+                SettingsComeFrom();
+            }
             if (_c.Options.CopyWorlds) PlanWorlds();
+        }
+
+        // A setup that isn't its version's settings winner says whose settings the version got.
+        private void SettingsComeFrom()
+        {
+            if (_c.SettingsWinnerLabel != null)
+                Line(SummarySection.NotImported, PlanItemKind.Setting, $"Settings for Minecraft {_c.TargetVersion} come from {_c.SettingsWinnerLabel}");
         }
 
         // ---------------------------------------------------------------- options.txt
@@ -99,8 +134,8 @@ public static class SettingsMigrator
             var path = Path.Combine(_src, "options.txt");
             if (!File.Exists(path) || !Fs.Allow(path)) return;
             _sourceOptions = OptionsTxtFormat.Instance.Read(path);
-            if (_sourceOptions == null)
-                Line(SummarySection.NeedsAttention, PlanItemKind.Setting, "options.txt", "Couldn't read the settings file in your old instance.");
+            if (_sourceOptions == null && Winner)
+                Line(SummarySection.NeedsAttention, PlanItemKind.Setting, "options.txt", "Couldn't read the settings file in your old setup.");
         }
 
         private void PlanOptions()
@@ -142,7 +177,7 @@ public static class SettingsMigrator
                 if (!File.Exists(path) && !Directory.Exists(path))
                 {
                     Line(SummarySection.NeedsAttention, PlanItemKind.ResourcePack, name,
-                        "Selected in your old instance, but the pack wasn't found there.");
+                        "Selected in your old setup, but the pack wasn't found there.");
                     continue;
                 }
                 if (PlanPack(name, path, dstDir, PlanItemKind.ResourcePack) is { } reference) references.Add(reference);
@@ -242,10 +277,10 @@ public static class SettingsMigrator
                 {
                     if (PackExists(shaderpacks, active)) refName = CopyShaderPack(active, shaderpacks);
                     else Line(SummarySection.NeedsAttention, PlanItemKind.ShaderPack, active,
-                        "Your active shader pack wasn't found in your old instance.");
+                        "Your active shader pack wasn't found in your old setup.");
                 }
                 if (_c.Options.CopyUnusedPacks) CopyUnusedShaderPacks(shaderpacks, active);
-                if (optifineFile != null)
+                if (optifineFile != null && Winner) // OptiFine's settings come from the winner only
                 {
                     var dest = Path.Combine(_dst, "optionsshaders.txt");
                     if (refName != null && refName != active && optifineText != null)
@@ -275,7 +310,7 @@ public static class SettingsMigrator
                 if (!hasShaderPacks || !PackExists(shaderpacks, active))
                 {
                     Line(SummarySection.NeedsAttention, PlanItemKind.ShaderPack, active,
-                        "Your active shader pack wasn't found in your old instance, so shaders stay as they are.");
+                        "Your active shader pack wasn't found in your old setup, so shaders stay as they are.");
                 }
                 else
                 {
@@ -351,11 +386,26 @@ public static class SettingsMigrator
             var finalName = name;
             string? reason = null;
 
-            if (File.Exists(dest) || Directory.Exists(dest) || _plannedDestinations.Contains(dest))
+            if (Ledger.ClaimOf(dest) is { } claim)
             {
-                var same = !_plannedDestinations.Contains(dest) && (isDir
+                // Another setup of this run already brings a pack of this name: the same bytes land once.
+                var sameAsClaimed = claim.Source != null && claim.IsDirectory == isDir && (isDir
+                    ? FileCompare.SameTree(srcPath, claim.Source, Fs)
+                    : FileCompare.Same(srcPath, claim.Source, Fs));
+                if (sameAsClaimed)
+                {
+                    Line(SummarySection.Imported, kind, name, $"already brought over from {claim.SetupLabel}");
+                    return name;
+                }
+                finalName = FreeImportedName(dstDir, name, isDir);
+                dest = Path.Combine(dstDir, finalName);
+                reason = $"a different pack called \"{name}\" is already coming over, so this one is saved as \"{finalName}\"";
+            }
+            else if (File.Exists(dest) || Directory.Exists(dest))
+            {
+                var same = isDir
                     ? Directory.Exists(dest) && FileCompare.SameTree(srcPath, dest, Fs)
-                    : File.Exists(dest) && FileCompare.Same(srcPath, dest, Fs));
+                    : File.Exists(dest) && FileCompare.Same(srcPath, dest, Fs);
                 if (same)
                 {
                     Line(SummarySection.Imported, kind, name, "already in Origin (same file), left as it is");
@@ -366,8 +416,16 @@ public static class SettingsMigrator
                 reason = $"a different pack called \"{name}\" is already there, so this one is saved as \"{finalName}\"";
             }
 
-            _plannedDestinations.Add(dest);
-            var bytes = isDir ? DirectorySize(srcPath) : new FileInfo(srcPath).Length;
+            long bytes;
+            if (isDir) bytes = DirectorySize(srcPath);
+            else if (ImportFiles.SizeOrNull(srcPath) is { } size) bytes = size;
+            else
+            {
+                // It vanished (or became unreadable) since it was listed: left out, never a reason to fail the plan.
+                Line(SummarySection.NeedsAttention, kind, name, "Couldn't read this pack in your old setup, so it wasn't imported.");
+                return null;
+            }
+            Ledger.Add(dest, srcPath, _c.SetupLabel, isDir);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = isDir ? OpKind.CopyTree : OpKind.CopyFile, Item = kind, Label = finalName,
@@ -385,7 +443,7 @@ public static class SettingsMigrator
             {
                 var candidate = n == 1 ? $"{stem} (imported){ext}" : $"{stem} (imported {n}){ext}";
                 var path = Path.Combine(dir, candidate);
-                if (!File.Exists(path) && !Directory.Exists(path) && !_plannedDestinations.Contains(path)) return candidate;
+                if (!File.Exists(path) && !Directory.Exists(path) && !Ledger.IsClaimed(path)) return candidate;
             }
         }
 
@@ -409,18 +467,23 @@ public static class SettingsMigrator
                     withheld++;
                     continue;
                 }
-                if (rel == SodiumFile) { PlanSodium(file); continue; }
+                if (rel == SodiumFile)
+                {
+                    if (Winner) PlanSodium(file); // only the winner's video settings are merged
+                    continue;
+                }
 
                 var dest = Path.Combine(_dst, "config", rel.Replace('/', Path.DirectorySeparatorChar));
                 if (PlanFile(file, dest, "config/" + rel, PlanItemKind.Config, touchNow: true, quiet: true)) copied++;
             }
             if (copied > 0)
-                Line(SummarySection.Imported, PlanItemKind.Config, $"Mod settings ({copied} config {(copied == 1 ? "file" : "files")})");
+                Line(SummarySection.Imported, PlanItemKind.Config, $"Mod settings ({copied} config {(copied == 1 ? "file" : "files")})",
+                    Winner ? null : "only the ones Origin didn't have yet");
             if (withheld > 0)
                 Line(SummarySection.NotImported, PlanItemKind.Config, $"{withheld} Origin / built-in mod config {(withheld == 1 ? "file" : "files")}",
                     "Origin manages these itself.");
 
-            PlanIris();
+            if (Winner) PlanIris();
         }
 
         private void PlanSodium(string srcFile)
@@ -441,7 +504,7 @@ public static class SettingsMigrator
             var map = Fs.Allow(srcFile) ? JsonConfigFormat.ThirdParty.Read(srcFile) : null;
             if (map == null)
             {
-                Line(SummarySection.NeedsAttention, PlanItemKind.Config, SodiumFile, "Couldn't read this settings file in your old instance.");
+                Line(SummarySection.NeedsAttention, PlanItemKind.Config, SodiumFile, "Couldn't read this settings file in your old setup.");
                 return;
             }
             Plan.Ops.Add(new PlannedOp
@@ -522,14 +585,21 @@ public static class SettingsMigrator
                 _c.Ct.ThrowIfCancellationRequested();
                 if (!File.Exists(Path.Combine(world, "level.dat"))) continue; // not a world
                 var name = Path.GetFileName(world);
+                // Two setups can share one game folder: a world folder is copied once per run.
+                if (!Ledger.TryClaimWorldSource(world, _c.SetupLabel, out var first))
+                {
+                    Line(SummarySection.Imported, PlanItemKind.World, name, $"already brought over from {first}");
+                    continue;
+                }
                 var dest = Path.Combine(dstSaves, name);
                 var finalName = name;
-                if (Directory.Exists(dest) || File.Exists(dest) || _plannedDestinations.Contains(dest))
+                if (Directory.Exists(dest) || File.Exists(dest) || Ledger.IsClaimed(dest))
                 {
+                    // Never merged into another world: a second "New World" is saved beside the first.
                     finalName = FreeImportedName(dstSaves, name, isDirectory: true);
                     dest = Path.Combine(dstSaves, finalName);
                 }
-                _plannedDestinations.Add(dest);
+                Ledger.Add(dest, world, _c.SetupLabel, isDirectory: true);
                 var bytes = DirectorySize(world);
                 Plan.Ops.Add(new PlannedOp
                 {
@@ -549,7 +619,21 @@ public static class SettingsMigrator
         /// </summary>
         private bool PlanFile(string src, string dest, string label, PlanItemKind kind, bool touchNow = true, bool quiet = false)
         {
-            var length = new FileInfo(src).Length;
+            if (ImportFiles.SizeOrNull(src) is not { } length) return false; // vanished since it was listed: nothing to copy
+            if (!Winner)
+            {
+                // Not the settings winner: a file is only CREATED, where neither Origin nor anything earlier in
+                // this run writes that path - never replaced, never merged.
+                if (File.Exists(dest) || Ledger.IsClaimed(dest)) { Plan.Kept++; return false; }
+                Ledger.Add(dest, src, _c.SetupLabel);
+                Plan.Created++;
+                Plan.Ops.Add(new PlannedOp
+                {
+                    Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
+                });
+                if (!quiet) Line(SummarySection.Imported, kind, label);
+                return true;
+            }
             if (File.Exists(dest))
             {
                 if (FileCompare.Same(src, dest, Fs)) { Plan.Unchanged++; return false; }
@@ -565,6 +649,7 @@ public static class SettingsMigrator
             {
                 Plan.Created++;
             }
+            Ledger.Add(dest, src, _c.SetupLabel);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
@@ -591,10 +676,7 @@ public static class SettingsMigrator
         {
             long total = 0;
             foreach (var file in Fs.EnumerateFiles(dir, recursive: true))
-            {
-                try { total += new FileInfo(file).Length; }
-                catch (IOException) { /* a file that vanished mid-scan adds nothing */ }
-            }
+                total += ImportFiles.SizeOf(file); // a file that vanished mid-scan adds nothing
             return total;
         }
     }

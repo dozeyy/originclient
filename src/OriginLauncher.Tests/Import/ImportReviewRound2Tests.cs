@@ -91,9 +91,9 @@ public class ImportReviewRound2Tests : IDisposable
         using var tx = new ImportTransaction(_rig.Imports, _rig.Root, ProfileId(), () => DateTime.UtcNow, "x", "1.21.1");
         tx.Begin();
 
-        Assert.Throws<IOException>(() => tx.CopyTree(fs, Src("saves/W1"), Dst("saves/W1"), CancellationToken.None));
+        Assert.ThrowsAny<IOException>(() => tx.CopyTree(fs, Src("saves/W1"), Dst("saves/W1"), CancellationToken.None));
         // "DIM-1/region" is already in UnreadablePaths: the second world must still be refused, not placed half-empty.
-        Assert.Throws<IOException>(() => tx.CopyTree(fs, Src("saves/W2"), Dst("saves/W2"), CancellationToken.None));
+        Assert.ThrowsAny<IOException>(() => tx.CopyTree(fs, Src("saves/W2"), Dst("saves/W2"), CancellationToken.None));
         Assert.False(Directory.Exists(Dst("saves/W2")));
         Assert.Equal(2, fs.UnreadableHits);
         tx.Rollback(null);

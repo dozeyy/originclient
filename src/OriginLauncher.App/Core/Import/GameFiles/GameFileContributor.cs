@@ -19,7 +19,7 @@ namespace OriginLauncher.App.Core.Import.GameFiles;
 //    checksum pass over everything, copied files included;
 //  * the version's provisioning gate is held while the files are written (IVersionGate);
 //  * only small metadata documents are fetched (MetadataClient), never a game file.
-public sealed class GameFileContributor : IImportPlanContributor
+public sealed class GameFileContributor : IVersionWideContributor
 {
     private const int ChunkSize = 128; // files journaled per write (a journal rewrite per file would be quadratic)
 
@@ -41,7 +41,9 @@ public sealed class GameFileContributor : IImportPlanContributor
         if (!plan.CanApply) return;
         var target = plan.TargetVersion;
 
-        var set = await new MojangMetadata(new MetadataClient(_http)).GetRequiredSetAsync(target, ct).ConfigureAwait(false);
+        // A bulk plan shares one metadata session across its versions (the version list is fetched once).
+        var http = request?.Metadata?.Over(_http) ?? _http;
+        var set = await new MojangMetadata(new MetadataClient(http)).GetRequiredSetAsync(target, ct).ConfigureAwait(false);
         if (set.Unavailable)
         {
             plan.GameFiles = new GameFilePlanStats(0, 0, 0, 0, 0, MetadataUnavailable: true, JavaSkipped: false);
@@ -107,20 +109,13 @@ public sealed class GameFileContributor : IImportPlanContributor
             foreach (var candidate in source.Candidates(file, target))
             {
                 if (!File.Exists(candidate)) continue;
-                if (file.Size > 0 && SizeOf(candidate) != file.Size) continue;
+                if (file.Size > 0 && ImportFiles.SizeOrNull(candidate) != file.Size) continue; // gone or unreadable: no match
                 // The SHA-1 proves the content, so the credential NAME pattern isn't asked (it would refuse
                 // com/mojang/authlib); launcher credential stores are still never opened, and are never required.
                 if (!fs.AllowVerifiedGameFile(candidate)) continue;
                 if (Sha1Matches(fs, candidate, file.Sha1, ct)) return candidate;
             }
         return null;
-    }
-
-    // A size that can't be read (the file vanished, no access) is no match: never a reason to fail the plan.
-    private static long SizeOf(string path)
-    {
-        try { return new FileInfo(path).Length; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return -1; }
     }
 
     private static bool Sha1Matches(SourceFs fs, string path, string sha1, CancellationToken ct)

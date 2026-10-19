@@ -48,6 +48,28 @@ public sealed class ImportJournal
 
     /// <summary>Origin's game folder the import wrote into (undo of a finished import refuses while a game runs from it).</summary>
     public string? TargetGameDir { get; set; }
+
+    // ---- a bulk import ("import everything") writes into several versions in ONE run; the single fields above
+    // stay for journals written before (and for single imports). ----
+
+    /// <summary>Every Minecraft version a bulk run wrote into (null for a single import).</summary>
+    public List<string>? TargetVersions { get; set; }
+
+    /// <summary>Every Origin game folder a bulk run wrote into: undo refuses while a game runs from any of them.</summary>
+    public List<string>? TargetGameDirs { get; set; }
+
+    /// <summary>How many setups a bulk run imported (null for a single import).</summary>
+    public int? SetupCount { get; set; }
+
+    /// <summary>The versions whose provisioning gate the bulk apply held, in the order it took them (ascending): undo takes the same.</summary>
+    public List<string>? GateVersions { get; set; }
+
+    /// <summary>
+    /// Set (and saved, with State = Applying) just before the undo of a FINISHED import starts: if that undo is cut
+    /// short, ImportRecovery finishes it with the same rule (reused game files stay) instead of removing them.
+    /// </summary>
+    public bool UndoOfCommitted { get; set; }
+
     public List<JournalEntry> Entries { get; set; } = new();
 
     /// <summary>Things a rollback could not put back (one sentence each); empty when it was clean.</summary>
