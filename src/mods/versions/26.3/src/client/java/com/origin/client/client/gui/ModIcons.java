@@ -56,6 +56,14 @@ public final class ModIcons {
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 	private static boolean sdfOk = false;
+	// 26.3: the SDF pipeline cannot be built during the startup reload (see
+	// OriginShaders.sourcesPending), and the loading screen's warm-up is what
+	// first loads this class. So the atlases are DECODED in ensureLoaded but only
+	// registered on the first draw that can use them (ensureAtlas): the SDF once
+	// the pipeline exists, the mask only if the pipeline is really broken. Before
+	// this split the mask was registered and the SDF never retried (2026-10-18).
+	private static NativeImage maskImage, sdfImage;
+	private static boolean maskRegistered = false;
 
 	private ModIcons() {
 	}
@@ -91,7 +99,10 @@ public final class ModIcons {
 		if (c == null) {
 			return;
 		}
-		if (sdfOk && OriginShaders.icon() != null) {
+		if (!ensureAtlas()) {
+			return;   // pipeline still pending (loading overlay): draw nothing this frame
+		}
+		if (sdfOk) {
 			drawSdf(g, c, x, y, size, argb);
 			return;
 		}
@@ -177,48 +188,24 @@ public final class ModIcons {
 				if (!CELLS.containsKey("friends") && CELLS.containsKey("@user")) {
 					CELLS.put("friends", CELLS.get("@user"));
 				}
-				NativeImage img;
 				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.png")) {
-					img = NativeImage.read(in);
+					maskImage = NativeImage.read(in);
 				}
-				atlasW = img.getWidth();
-				atlasH = img.getHeight();
-				// Keep only one GPU atlas resident. The high-range SDF is the normal
-				// path; the alpha mask is registered only if the icon shader did not
-				// compile, preserving a usable fail-soft UI without doubling VRAM.
-				if (OriginShaders.icon() != null) {
-					try {
-						NativeImage sdfImage;
-						try (InputStream in = ModIcons.class.getResourceAsStream(
-								"/assets/originclient/textures/ui/mod_icons_sdf.png")) {
-							sdfImage = NativeImage.read(in);
-						}
-						if (sdfImage.getWidth() != atlasW || sdfImage.getHeight() != atlasH) {
-							sdfImage.close();
-							throw new IllegalStateException("Origin icon SDF atlas dimensions do not match the mask atlas");
-						}
-						// Sampling is chosen per draw (IconGlyphRenderState binds LINEAR), so
-						// the texture itself registers plain. 1.21.11 DynamicTexture takes a
-						// debug-label supplier; setFilter is gone.
-						DynamicTexture sdfTexture = new DynamicTexture(() -> "originclient:ui_mod_icons_sdf", sdfImage);
-						Minecraft.getInstance().getTextureManager().register(SDF_ATLAS, sdfTexture);
-						sdfOk = true;
-					} catch (Throwable sdfFailure) {
-						com.origin.client.OriginClient.LOGGER.warn(
-								"Origin icon SDF failed to load; using the smooth mask fallback", sdfFailure);
+				atlasW = maskImage.getWidth();
+				atlasH = maskImage.getHeight();
+				try {
+					try (InputStream in = ModIcons.class.getResourceAsStream(
+							"/assets/originclient/textures/ui/mod_icons_sdf.png")) {
+						sdfImage = NativeImage.read(in);
 					}
-				}
-				if (sdfOk) {
-					img.close();
-				} else {
-					// The mask blits through GUI_TEXTURED, whose default sampler is NEAREST,
-					// so bind a LINEAR clamp sampler on the texture (same pattern as OriginUi.reg).
-					DynamicTexture tex = new DynamicTexture(() -> "originclient:ui_mod_icons", img) {
-						{
-							this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
-						}
-					};
-					Minecraft.getInstance().getTextureManager().register(ATLAS, tex);
+					if (sdfImage.getWidth() != atlasW || sdfImage.getHeight() != atlasH) {
+						sdfImage.close();
+						sdfImage = null;
+						throw new IllegalStateException("Origin icon SDF atlas dimensions do not match the mask atlas");
+					}
+				} catch (Throwable sdfFailure) {
+					com.origin.client.OriginClient.LOGGER.warn(
+							"Origin icon SDF failed to load; using the smooth mask fallback", sdfFailure);
 				}
 				ok = true;
 			} catch (Throwable t) {
@@ -226,6 +213,64 @@ public final class ModIcons {
 				sdfOk = false;
 				com.origin.client.OriginClient.LOGGER.warn("Origin mod icons failed to load; cards draw without icons", t);
 			}
+		}
+	}
+
+	/**
+	 * Render thread, from draw: registers the one atlas this session draws with.
+	 * Keeps only one GPU atlas resident: the high-range SDF is the normal path;
+	 * the alpha mask is registered only if the icon pipeline is genuinely broken
+	 * (or the SDF png failed), preserving a usable fail-soft UI without doubling
+	 * VRAM. Returns false while the pipeline is still pending -- nothing to draw
+	 * with yet, and registering the mask then would lock the session onto it.
+	 */
+	private static boolean ensureAtlas() {
+		if (sdfOk || maskRegistered) {
+			return true;
+		}
+		if (sdfImage != null) {
+			if (OriginShaders.icon() == null && OriginShaders.sourcesPending()) {
+				return false;
+			}
+			if (OriginShaders.icon() != null) {
+				try {
+					// Sampling is chosen per draw (IconGlyphRenderState binds LINEAR), so
+					// the texture itself registers plain. 1.21.11 DynamicTexture takes a
+					// debug-label supplier; setFilter is gone.
+					DynamicTexture sdfTexture = new DynamicTexture(() -> "originclient:ui_mod_icons_sdf", sdfImage);
+					sdfImage = null;   // owned by the texture now
+					Minecraft.getInstance().getTextureManager().register(SDF_ATLAS, sdfTexture);
+					sdfOk = true;
+					maskImage.close();
+					maskImage = null;
+					return true;
+				} catch (Throwable sdfFailure) {
+					com.origin.client.OriginClient.LOGGER.warn(
+							"Origin icon SDF failed to load; using the smooth mask fallback", sdfFailure);
+				}
+			}
+			if (sdfImage != null) {
+				sdfImage.close();
+				sdfImage = null;
+			}
+		}
+		// The mask blits through GUI_TEXTURED, whose default sampler is NEAREST,
+		// so bind a LINEAR clamp sampler on the texture (same pattern as OriginUi.reg).
+		NativeImage img = maskImage;
+		maskImage = null;
+		try {
+			DynamicTexture tex = new DynamicTexture(() -> "originclient:ui_mod_icons", img) {
+				{
+					this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+				}
+			};
+			Minecraft.getInstance().getTextureManager().register(ATLAS, tex);
+			maskRegistered = true;
+			return true;
+		} catch (Throwable t) {
+			ok = false;
+			com.origin.client.OriginClient.LOGGER.warn("Origin mod icons failed to load; cards draw without icons", t);
+			return false;
 		}
 	}
 }

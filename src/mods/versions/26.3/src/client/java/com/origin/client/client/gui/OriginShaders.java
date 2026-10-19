@@ -36,6 +36,8 @@ import java.util.function.UnaryOperator;
  * from mod init, before the vanilla pipelines it copies are guaranteed to exist.
  * A build failure latches that pipeline off (null) for the session and every
  * caller falls back (vanilla font, mask icons, no grade) -- never a crash.
+ * Nothing is built while the loading overlay is up ({@link #sourcesPending}):
+ * a failure there is not a real failure, and latching it would be.
  * No RenderPipelines.register: the GPU device compiles a pipeline on its first
  * draw (proven by the staged module's GRADE/MSDF boots).
  */
@@ -47,9 +49,24 @@ public final class OriginShaders {
 	private OriginShaders() {
 	}
 
+	/**
+	 * 26.3: true while a resource reload's loading overlay is up. {@link #derive}
+	 * compiles eagerly on this version, and during the startup reload the shader
+	 * source lookup sees only vanilla's startup pack -- "Couldn't find source for
+	 * FRAGMENT shader (originclient:...)" -- so a build then fails and latches the
+	 * pipeline off for the whole session. That is how every icon fell back to the
+	 * mask atlas (2026-10-18: the "+" in Friends drew as a faint dot): ModIcons
+	 * first loads from the loading screen's warm-up. The getters return null while
+	 * this holds and build on the first call after it.
+	 */
+	public static boolean sourcesPending() {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		return mc == null || mc.gui == null || mc.gui.overlay() != null;
+	}
+
 	/** MSDF text pipeline (Inter menu font), or null -> vanilla font. */
 	public static RenderPipeline msdf() {
-		if (msdf == null && !msdfBroken && RenderPipelines.GUI_TEXTURED != null) {
+		if (msdf == null && !msdfBroken && RenderPipelines.GUI_TEXTURED != null && !sourcesPending()) {
 			try {
 				msdf = derive(RenderPipelines.GUI_TEXTURED, "pipeline/origin_msdf", "core/rendertype_origin_msdf", null);
 			} catch (Throwable t) {
@@ -62,7 +79,7 @@ public final class OriginShaders {
 
 	/** Single-channel SDF icon pipeline (mod icons, close/chevron/edit glyphs), or null -> mask atlas. */
 	public static RenderPipeline icon() {
-		if (icon == null && !iconBroken && RenderPipelines.GUI_TEXTURED != null) {
+		if (icon == null && !iconBroken && RenderPipelines.GUI_TEXTURED != null && !sourcesPending()) {
 			try {
 				icon = derive(RenderPipelines.GUI_TEXTURED, "pipeline/origin_icon", "core/rendertype_origin_icon", null);
 			} catch (Throwable t) {
@@ -79,7 +96,7 @@ public final class OriginShaders {
 	 * blending colour target would double-expose the frame.
 	 */
 	public static RenderPipeline grade() {
-		if (grade == null && !gradeBroken && RenderPipelines.GUI_TEXTURED != null) {
+		if (grade == null && !gradeBroken && RenderPipelines.GUI_TEXTURED != null && !sourcesPending()) {
 			try {
 				grade = derive(RenderPipelines.GUI_TEXTURED, "pipeline/origin_grade", "core/rendertype_origin_grade",
 						b -> b.withColorTargetState(ColorTargetState.DEFAULT));
