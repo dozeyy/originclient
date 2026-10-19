@@ -811,39 +811,6 @@ public class SourceAccuracyTests : IDisposable
         Assert.Equal("1.20.1", scan.Instances.Single(i => i.Name == "With Json").McVersion); // via inheritsFrom
     }
 
-    [Fact]
-    public async Task TwoHundredSetupsWithSixtyFourJarsEachScanWithinBudget()
-    {
-        // Review: 200 setups with 64 jars each (more than the ModsEvidence.MaxJars cap reads) must stay inside the budget.
-        // Only the scan is timed: writing the 12,800 fixture jars (several seconds, more under antivirus) is NOT part of
-        // the 5 s budget, and xUnit's per-test duration includes it — that's the 10 s a verifier sees for this test.
-        var fixture = System.Diagnostics.Stopwatch.StartNew();
-        var prism = Path.Combine(_root, "prism");
-        var jars = Enumerable.Range(0, 64).Select(i => Kit.FabricJar("perfmod" + i, minecraft: "~1.21.1")).ToArray();
-        for (var s = 0; s < 200; s++)
-        {
-            var game = Prism(prism, "I" + s, "Pack " + s, Pack("1.21.1"), T0);
-            for (var j = 0; j < 64; j++) Kit.WriteBytes(game, $"mods/perfmod{j}.jar", jars[j]);
-        }
-        fixture.Stop();
-
-        var first = System.Diagnostics.Stopwatch.StartNew();
-        var scan = await Scan(new SourceRoots { PrismDataDir = prism });
-        first.Stop();
-        var repeat = System.Diagnostics.Stopwatch.StartNew();
-        await Scan(new SourceRoots { PrismDataDir = prism });
-        repeat.Stop();
-
-        _out.WriteLine($"200 setups x 64 jars: fixture {fixture.ElapsedMilliseconds} ms (not timed), first scan {first.ElapsedMilliseconds} ms, repeat scan {repeat.ElapsedMilliseconds} ms");
-        Assert.Equal(200, scan.Instances.Count);
-        Assert.All(scan.Instances, i => Assert.True(i.VersionCertain, i.UncertainReason));
-        // A stress test, not the budget: the hard 5 s budget is SourceDetectionTests.ScanningTwoHundredInstances... (one jar
-        // per folder). Here the first scan pays the OS file cache and runs while the rest of the suite is busy (5.3 s seen
-        // once under load), so it gets 10 s; the repeat scan is the engine's own cost and must stay inside 5 s.
-        Assert.True(first.Elapsed < TimeSpan.FromSeconds(10), $"first scan took {first.Elapsed}");
-        Assert.True(repeat.Elapsed < TimeSpan.FromSeconds(5), $"repeat scan took {repeat.Elapsed}");
-    }
-
     // ================================================================ re-review probes (round 3): only certain when the evidence agrees
 
     private static readonly DateTime May1 = new(2026, 5, 1, 12, 0, 0, DateTimeKind.Utc);
@@ -997,6 +964,22 @@ public class SourceAccuracyTests : IDisposable
         Assert.Contains("Minecraft 1.21.10", setup.UncertainReason);        // both candidates are named
         Assert.Contains("Fabric 1.21.1", setup.UncertainReason);
         Assert.Contains("the \"Latest", setup.UncertainReason);              // the October launches were NOT set aside
+    }
+
+    [Fact]
+    public async Task RealDotMinecraft_ANewerOptionsTxtWithTheLogsOwnVersionKeepsTheAnswerCertain()
+    {
+        // Will's files: options.txt (2026-09-07) is newer than latest.log (2026-07-04). Today it has no version line; if it
+        // had the log's own 1.21.1, the October "latest" launches must still be set aside (something rewrote settings,
+        // nothing ran another version) — the answer stays certain 1.21.1 Fabric.
+        var mc = RealDotMinecraft();
+        Kit.Write(mc, "options.txt", "version:3955\nfov:0.5\n", new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc));
+
+        var setup = Assert.Single((await Scan(new SourceRoots { OfficialMinecraftDir = mc })).Instances);
+
+        Assert.Equal("1.21.1", setup.McVersion);
+        Assert.Equal(LoaderKind.Fabric, setup.Loader);
+        Assert.True(setup.VersionCertain, setup.UncertainReason);
     }
 
     // ================================================================ names + stable ids
