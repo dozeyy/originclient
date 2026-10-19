@@ -141,6 +141,20 @@ def main():
         return 2
     name = os.path.basename(module)
 
+    # A FRESH game dir (every CI run) opens vanilla's one-time accessibility
+    # onboarding screen (1.19.4+) instead of the title, so the title marker never
+    # comes -- every 1.19.4+ module timed out on the first run of this gate while
+    # 1.8.9-1.19.3 passed. Seed the option a returning player already has; an
+    # existing run/options.txt (a local dev setup) is left alone. OriginDevShots
+    # skips the same screen for dev-shots.
+    run_dir = os.path.join(module, "run")
+    options = os.path.join(run_dir, "options.txt")
+    if not os.path.exists(options):
+        os.makedirs(run_dir, exist_ok=True)
+        with open(options, "w", encoding="ascii", newline="\n") as f:
+            f.write("onboardAccessibility:false\npauseOnLostFocus:false\n")
+        print(f"boot-smoke: seeded {options} (onboardAccessibility:false)", flush=True)
+
     gradlew = os.path.join(module, "gradlew.bat" if os.name == "nt" else "gradlew")
     cmd = [gradlew, "runClient", "--no-daemon"]
     if args.world:
