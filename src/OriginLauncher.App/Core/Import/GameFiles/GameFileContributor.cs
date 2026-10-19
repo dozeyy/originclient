@@ -107,16 +107,25 @@ public sealed class GameFileContributor : IImportPlanContributor
             foreach (var candidate in source.Candidates(file, target))
             {
                 if (!File.Exists(candidate)) continue;
-                if (file.Size > 0 && new FileInfo(candidate).Length != file.Size) continue;
-                if (!fs.Allow(candidate)) continue;
+                if (file.Size > 0 && SizeOf(candidate) != file.Size) continue;
+                // The SHA-1 proves the content, so the credential NAME pattern isn't asked (it would refuse
+                // com/mojang/authlib); launcher credential stores are still never opened, and are never required.
+                if (!fs.AllowVerifiedGameFile(candidate)) continue;
                 if (Sha1Matches(fs, candidate, file.Sha1, ct)) return candidate;
             }
         return null;
     }
 
+    // A size that can't be read (the file vanished, no access) is no match: never a reason to fail the plan.
+    private static long SizeOf(string path)
+    {
+        try { return new FileInfo(path).Length; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return -1; }
+    }
+
     private static bool Sha1Matches(SourceFs fs, string path, string sha1, CancellationToken ct)
     {
-        using var stream = fs.OpenRead(path);
+        using var stream = fs.OpenVerifiedGameFile(path);
         if (stream == null) return false;
         try
         {
@@ -130,7 +139,7 @@ public sealed class GameFileContributor : IImportPlanContributor
             }
             return Convert.ToHexString(hash.GetHashAndReset()).Equals(sha1, StringComparison.OrdinalIgnoreCase);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return false;
         }
@@ -181,7 +190,7 @@ public sealed class GameFileContributor : IImportPlanContributor
 
     private static bool CopyVerified(ImportOpContext ctx, Item item, string temp)
     {
-        if (!ctx.Fs.Allow(item.Source)) return false;
+        if (!ctx.Fs.AllowVerifiedGameFile(item.Source)) return false;
         try
         {
             using var input = new FileStream(item.Source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);

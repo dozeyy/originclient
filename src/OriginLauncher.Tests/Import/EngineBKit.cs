@@ -21,12 +21,12 @@ public sealed class WindowsOnlyFactAttribute : FactAttribute
 internal static class EngineBKit
 {
     public static ImportEngine Engine(Rig rig, IReadOnlyList<IImportPlanContributor> contributors, Func<string, long>? freeSpace = null,
-        Func<string, bool>? isRunning = null) => new(new ImportEnvironment
+        Func<string, bool>? isRunning = null, IVersionGate? versionGate = null) => new(new ImportEnvironment
         {
             InstancesRoot = rig.Instances, ImportsRoot = rig.Imports,
             FreeSpace = freeSpace ?? (_ => long.MaxValue),
             IsGameRunning = isRunning ?? (dir => rig.RunningDirs.Contains(dir)),
-            OnSourceOpen = rig.Opened.Add, Log = rig.LogLines.Add, Contributors = contributors,
+            OnSourceOpen = rig.Opened.Add, Log = rig.LogLines.Add, Contributors = contributors, VersionGate = versionGate,
         });
 
     public static string Sha1(byte[] data) => Convert.ToHexString(SHA1.HashData(data)).ToLowerInvariant();
@@ -92,11 +92,13 @@ internal sealed class RecordingHttp : IMetadataHttp
     public Dictionary<string, byte[]?> Docs { get; } = new();
     public List<(string Url, int Length)> Requests { get; } = new();
 
-    public Task<byte[]?> GetAsync(string url, long maxBytes, CancellationToken ct)
+    public Dictionary<string, string> FinalUrls { get; } = new();
+
+    public Task<MetadataResponse?> GetAsync(string url, long maxBytes, CancellationToken ct)
     {
         Docs.TryGetValue(url, out var body);
         Requests.Add((url, body?.Length ?? 0));
-        return Task.FromResult(body);
+        return Task.FromResult(body == null ? null : new MetadataResponse(body, FinalUrls.TryGetValue(url, out var final) ? final : url));
     }
 }
 
@@ -152,6 +154,7 @@ internal sealed class Mojang
         Bytes("versions/1.21.1/1.21.1.jar", "CLIENT-JAR " + new string('c', 3000));
         Bytes("libraries/com/a/b/1/b-1.jar", "LIB-A " + new string('a', 2000));
         Bytes("libraries/org/c/d/1/d-1.jar", "LIB-D " + new string('d', 1500));
+        Bytes("libraries/com/mojang/authlib/6.0.54/authlib-6.0.54.jar", "AUTHLIB " + new string('u', 700)); // "auth" in its name: still a game file
         Bytes("libraries/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-windows.jar", "NATIVE " + new string('n', 1000));
         Bytes("libraries/old/native/1/native-1-natives-windows.jar", "OLDNATIVE " + new string('o', 800));
         for (var i = 1; i <= 3; i++) Asset("asset-content-" + i + new string('x', 400 * i));
@@ -173,6 +176,7 @@ internal sealed class Mojang
             libraries = new object[]
             {
                 new { name = "com.a:b:1", downloads = new { artifact = Artifact("com/a/b/1/b-1.jar") } },
+                new { name = "com.mojang:authlib:6.0.54", downloads = new { artifact = Artifact("com/mojang/authlib/6.0.54/authlib-6.0.54.jar") } },
                 new
                 {
                     name = "org.c:d:1", downloads = new { artifact = Artifact("org/c/d/1/d-1.jar") },

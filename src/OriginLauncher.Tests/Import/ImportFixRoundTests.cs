@@ -108,7 +108,7 @@ public class ImportFixRoundTests : IDisposable
 
     // ------------------------------------------------------------ 2: links inside an instance are never followed
 
-    private static void Link(string link, string target)
+    internal static void Link(string link, string target)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(link)!);
         if (OperatingSystem.IsWindows())
@@ -164,7 +164,7 @@ public class ImportFixRoundTests : IDisposable
 
     // ------------------------------------------------------------ 3: an unreadable folder is reported, never silently empty
 
-    private static void DenyAccess(string dir)
+    internal static void DenyAccess(string dir)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -179,7 +179,7 @@ public class ImportFixRoundTests : IDisposable
         }
     }
 
-    private static void RestoreAccess(string dir)
+    internal static void RestoreAccess(string dir)
     {
         if (OperatingSystem.IsWindows())
         {

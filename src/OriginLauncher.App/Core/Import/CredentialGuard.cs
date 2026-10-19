@@ -44,6 +44,18 @@ public sealed class CredentialGuard
     }
 
     /// <summary>
+    /// The launchers' known credential stores only (exact names and prefixes), without the broad name pattern:
+    /// for files whose content is proven another way (a Mojang SHA-1) that must still never read a store.
+    /// </summary>
+    public static bool IsKnownCredentialStore(string name)
+    {
+        foreach (var prefix in DeniedPrefixes)
+            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return true;
+        return name.Equals("app.db", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("accounts.json", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Lock files are never worth copying and are not credentials, so they are
     /// dropped silently rather than reported as "skipped for safety"
     /// (every world holds a session.lock, which the name pattern would catch).

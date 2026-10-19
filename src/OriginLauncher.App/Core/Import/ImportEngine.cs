@@ -45,6 +45,9 @@ public sealed class ImportEnvironment
     /// <summary>Plan steps added later (game-file reuse, caches).</summary>
     public IReadOnlyList<IImportPlanContributor> Contributors { get; init; } = Array.Empty<IImportPlanContributor>();
 
+    /// <summary>The versions' provisioning gate, held while a finished import is undone (null = none to take).</summary>
+    public IVersionGate? VersionGate { get; init; }
+
     private static long DriveFreeSpace(string path)
     {
         try
@@ -185,7 +188,7 @@ public sealed class ImportEngine
 
     private ImportPlan BuildPlan(ImportRequest r, IProgress<ImportProgress>? progress, CancellationToken ct, out SourceFs fs)
     {
-        fs = new SourceFs(_env.Guard, _env.OnSourceOpen);
+        fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = r.Source.GameDir };
         var source = r.Source;
 
         // The target: what the player picked, else the source's own version when Origin has it.
@@ -416,8 +419,9 @@ public sealed class ImportEngine
             return new ImportResult { ImportId = plan.ImportId, State = ImportState.Planned, Error = "Close Minecraft first: Origin's game is still running." };
 
         var logRoot = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_env.InstancesRoot)) ?? _env.InstancesRoot;
-        using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, plan.ImportId, _env.Clock, plan.Source.Name, plan.TargetVersion, _env.Guard);
-        var fs = new SourceFs(_env.Guard, _env.OnSourceOpen);
+        using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, plan.ImportId, _env.Clock, plan.Source.Name, plan.TargetVersion, _env.Guard,
+            plan.TargetGameDir);
+        var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = plan.Source.GameDir };
         var extra = new List<SummaryLine>();
         IAsyncDisposable? gate = null; // D28: held while shared version files are written (released in finally)
         try
@@ -456,7 +460,22 @@ public sealed class ImportEngine
         }
         finally
         {
-            if (gate != null) gate.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            ReleaseGate(gate);
+        }
+    }
+
+    // Releasing the gate happens after the result is decided (often after Commit): a release that throws is
+    // logged and never turns a committed import into a "rolled back" report.
+    private void ReleaseGate(IAsyncDisposable? gate)
+    {
+        if (gate == null) return;
+        try
+        {
+            gate.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _env.Log?.Invoke($"import: releasing the version gate failed ({ImportErrors.Plain(ex)})");
         }
     }
 
@@ -560,14 +579,31 @@ public sealed class ImportEngine
                 if (journal.State == ImportState.Committed && ImportUndo.CannotUndoReason(journal) is { } why)
                     return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = why };
 
-                var logRoot = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_env.InstancesRoot)) ?? _env.InstancesRoot;
-                using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, journal, _env.Clock);
-                var problems = tx.Rollback(settings);
-                return new ImportResult
+                var committed = journal.State == ImportState.Committed;
+                // A finished import's files may be in use: never undo under a running game.
+                if (committed && journal.TargetGameDir is { Length: > 0 } targetDir && Directory.Exists(targetDir) && _env.IsGameRunning(targetDir))
+                    return new ImportResult { ImportId = importId, State = ImportState.Planned, Error = "Close Minecraft first: Origin's game is still running." };
+
+                // The version's gate, so nothing installs or launches that version while its folder changes.
+                IAsyncDisposable? gate = null;
+                if (committed && _env.VersionGate != null && !string.IsNullOrEmpty(journal.TargetVersion))
+                    gate = _env.VersionGate.AcquireAsync(journal.TargetVersion, CancellationToken.None).GetAwaiter().GetResult();
+                try
                 {
-                    ImportId = importId, State = ImportState.RolledBack,
-                    Error = problems.Count > 0 ? string.Join(" ", problems) : null,
-                };
+                    var logRoot = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_env.InstancesRoot)) ?? _env.InstancesRoot;
+                    using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, journal, _env.Clock);
+                    // Reused game files stay after a finished import (JournalEntry.GameFile).
+                    var problems = tx.Rollback(settings, keepGameFiles: committed);
+                    return new ImportResult
+                    {
+                        ImportId = importId, State = ImportState.RolledBack,
+                        Error = problems.Count > 0 ? string.Join(" ", problems) : null,
+                    };
+                }
+                finally
+                {
+                    ReleaseGate(gate);
+                }
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {

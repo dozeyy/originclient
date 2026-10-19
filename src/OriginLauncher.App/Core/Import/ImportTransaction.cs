@@ -32,7 +32,7 @@ public sealed class ImportTransaction : IDisposable
     /// <param name="logRoot">Paths in import.log are shown relative to this (the Origin data folder).</param>
     /// <param name="guard">Asked again by <see cref="CopyFile"/> before it copies a source file (defence in depth: the engine has already filtered).</param>
     public ImportTransaction(string importsRoot, string logRoot, string importId, Func<DateTime> clock,
-        string? sourceName, string? targetVersion, CredentialGuard? guard = null)
+        string? sourceName, string? targetVersion, CredentialGuard? guard = null, string? targetGameDir = null)
     {
         _guard = guard ?? CredentialGuard.Default;
         _importsRoot = importsRoot;
@@ -43,7 +43,7 @@ public sealed class ImportTransaction : IDisposable
         StagingDir = ImportLayout.Staging(importsRoot, importId);
         Journal = new ImportJournal
         {
-            ImportId = importId, SourceName = sourceName, TargetVersion = targetVersion,
+            ImportId = importId, SourceName = sourceName, TargetVersion = targetVersion, TargetGameDir = targetGameDir,
             State = ImportState.Planned, StartedUtc = clock(),
         };
     }
@@ -140,10 +140,14 @@ public sealed class ImportTransaction : IDisposable
     {
         if (Directory.Exists(destDir) || File.Exists(destDir))
             throw new IOException($"{Path.GetFileName(destDir)} already exists");
+        // The walk follows the folder it starts at, so that folder (and every segment above it inside the
+        // instance) must not be a link: a linked world or pack could lead anywhere.
+        if (!fs.IsLinkFree(srcDir))
+            throw new IOException($"{Path.GetFileName(srcDir)} is a link, so it wasn't copied");
         var stage = Path.Combine(StagingDir, "tree-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
         var count = 0;
-        var unreadableBefore = fs.UnreadablePaths.Count;
+        var unreadableBefore = fs.UnreadableHits;
         foreach (var file in fs.EnumerateFiles(srcDir, recursive: true))
         {
             ct.ThrowIfCancellationRequested();
@@ -156,7 +160,7 @@ public sealed class ImportTransaction : IDisposable
         ct.ThrowIfCancellationRequested();
         // A part of the tree that couldn't be listed would make this a half copy (a world missing regions):
         // refuse, so the import rolls back instead of presenting a damaged copy as done.
-        if (fs.UnreadablePaths.Count > unreadableBefore)
+        if (fs.UnreadableHits > unreadableBefore)
             throw new IOException($"Part of {Path.GetFileName(srcDir)} couldn't be read, so none of it was copied");
         Prepare(destDir, isDirectory: true);
         MoveDirectory(stage, destDir);
@@ -223,9 +227,9 @@ public sealed class ImportTransaction : IDisposable
             files.Add(dest);
         }
         foreach (var dir in dirs)
-            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = dir, IsDirectory = true });
+            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = dir, IsDirectory = true, GameFile = true });
         foreach (var file in files)
-            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = file });
+            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = file, GameFile = true });
         Flush();
     }
 
@@ -252,12 +256,13 @@ public sealed class ImportTransaction : IDisposable
     }
 
     /// <summary>Undoes everything journaled, newest first. Returns the things it could not put back (empty = clean).</summary>
-    public List<string> Rollback(IImportSettings? settings)
+    /// <param name="keepGameFiles">True for the undo of a FINISHED import: reused game files stay (see <see cref="JournalEntry.GameFile"/>).</param>
+    public List<string> Rollback(IImportSettings? settings, bool keepGameFiles = false)
     {
         // Nothing here may throw: a full disk or a locked log must not turn "put everything back" into a crash
         // that leaves the journal saying Applying. (If the journal itself can't be saved, it stays Applying and
         // ImportRecovery finishes the job at the next start — undoing twice is harmless.)
-        var problems = ImportUndo.Run(Journal, settings, Log, _logRoot);
+        var problems = ImportUndo.Run(Journal, settings, Log, _logRoot, keepGameFiles);
         Journal.State = ImportState.RolledBack;
         Journal.FinishedUtc = _clock();
         Journal.RollbackProblems = problems;
@@ -425,7 +430,13 @@ public static class FileCompare
 // stops the rest from being restored; whatever could not be is reported.
 public static class ImportUndo
 {
-    public static List<string> Run(ImportJournal journal, IImportSettings? settings, Action<string> log, string logRoot)
+    /// <param name="keepGameFiles">
+    /// True for the undo of a FINISHED import: reused game files are left in place. They are Mojang-verified files
+    /// Origin would download anyway, they keep their source's timestamps (so a later change can't be seen), and a
+    /// launch may already be using them. A failed, cancelled or crashed apply removes them like everything else.
+    /// </param>
+    public static List<string> Run(ImportJournal journal, IImportSettings? settings, Action<string> log, string logRoot,
+        bool keepGameFiles = false)
     {
         var problems = new List<string>();
         string Rel(string p) => Path.GetRelativePath(logRoot, p).Replace('\\', '/');
@@ -433,6 +444,7 @@ public static class ImportUndo
         for (var i = journal.Entries.Count - 1; i >= 0; i--)
         {
             var entry = journal.Entries[i];
+            if (keepGameFiles && entry.GameFile) continue;
             try
             {
                 switch (entry.Kind)

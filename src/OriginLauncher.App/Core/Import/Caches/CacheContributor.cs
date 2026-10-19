@@ -94,10 +94,10 @@ public sealed class CacheContributor : IImportPlanContributor
                 Skip(CacheKind.DistantHorizons, db.Scope, db.Owner, db.Dimension, "Origin already has Distant Horizons data for this world: left alone.");
                 return;
             }
-            var members = db.Members.Select(Path.GetFileName).ToList();
-            var bytes = db.Members.Sum(m => new FileInfo(m).Length);
+            var bytes = db.Members.Sum(SizeOf);
+            // The group's members are found again when it is copied: a -wal can be checkpointed away meanwhile.
             Take(CacheKind.DistantHorizons, db.Scope, db.Owner, db.Dimension, label + " (Distant Horizons)", bytes,
-                ctx => CopyDhGroup(ctx, db.Dir, destDir, members!, label, _replace, _afterStaged));
+                ctx => CopyDhGroup(ctx, db.Dir, destDir, label, _replace, _afterStaged));
         }
 
         private void PlanVoxySinglePlayer(VoxyBase voxy)
@@ -276,8 +276,7 @@ public sealed class CacheContributor : IImportPlanContributor
             foreach (var file in _fs.EnumerateFiles(dir, recursive: true))
             {
                 if (skipLoneWal && IsLoneWal(file)) continue;
-                try { total += new FileInfo(file).Length; }
-                catch (IOException) { }
+                total += SizeOf(file);
             }
             return total;
         }
@@ -286,6 +285,13 @@ public sealed class CacheContributor : IImportPlanContributor
     }
 
     // ================================================================ apply
+
+    // A size that can't be read (gone, no access) counts as nothing: a size is never a reason to fail the plan.
+    private static long SizeOf(string file)
+    {
+        try { return new FileInfo(file).Length; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return 0; }
+    }
 
     private static bool SamePath(string a, string b) =>
         string.Equals(Path.TrimEndingDirectorySeparator(a), Path.TrimEndingDirectorySeparator(b),
@@ -303,11 +309,14 @@ public sealed class CacheContributor : IImportPlanContributor
     private static IEnumerable<string> VoxyProbeFiles(SourceFs fs, string dir) =>
         fs.EnumerateFiles(dir, recursive: true).Where(f => Path.GetFileName(f).Equals("LOCK", StringComparison.Ordinal));
 
-    private static void CopyDhGroup(ImportOpContext ctx, string sourceDir, string destDir, List<string> members, string label, bool replace, Action<string>? afterStaged)
+    private static void CopyDhGroup(ImportOpContext ctx, string sourceDir, string destDir, string label, bool replace, Action<string>? afterStaged)
     {
         ctx.Report(ImportStage.Caches, 0, 1, label);
         ctx.Ct.ThrowIfCancellationRequested();
-        var group = members.Select(m => Path.Combine(sourceDir, m)).ToList();
+        // The group as it is NOW (not as planned): SQLite may have checkpointed the -wal away since.
+        var group = DhDatabase.GroupNames.Select(n => Path.Combine(sourceDir, n)).Where(File.Exists).ToList();
+        if (!File.Exists(Path.Combine(sourceDir, DhDatabase.MainName))) { Left(ctx, label, Rebuilds); return; }
+        if (!ctx.Fs.IsLinkFree(sourceDir) || group.Any(f => !ctx.Fs.IsLinkFree(f))) { Left(ctx, label, Rebuilds); return; }
         if (group.Any(CacheProbes.IsLocked)) { Left(ctx, label, InUse); return; }
 
         if (!replace && DhDatabase.GroupNames.Any(n => File.Exists(Path.Combine(destDir, n))))
@@ -319,11 +328,19 @@ public sealed class CacheContributor : IImportPlanContributor
         // The whole group goes to staging first; only a complete, unlocked group is ever placed.
         var stage = ctx.Tx.NewStagingPath("dh-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
-        foreach (var file in group)
+        try
         {
-            ctx.Ct.ThrowIfCancellationRequested();
-            if (!ctx.Fs.Allow(file)) { Discard(stage); Left(ctx, label, "Skipped for safety."); return; }
-            File.Copy(file, Path.Combine(stage, Path.GetFileName(file)), overwrite: true);
+            foreach (var file in group)
+            {
+                ctx.Ct.ThrowIfCancellationRequested();
+                if (!ctx.Fs.Allow(file)) { Discard(stage); Left(ctx, label, "Skipped for safety."); return; }
+                File.Copy(file, Path.Combine(stage, Path.GetFileName(file)), overwrite: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A cache is never worth the import: a file that vanished or is held (an antivirus scan) leaves it to rebuild.
+            Discard(stage); Left(ctx, label, Rebuilds); return;
         }
         afterStaged?.Invoke(label);
         if (group.Any(CacheProbes.IsLocked)) { Discard(stage); Left(ctx, label, InUse); return; }
@@ -344,6 +361,8 @@ public sealed class CacheContributor : IImportPlanContributor
     {
         ctx.Report(ImportStage.Caches, 0, 1, label);
         ctx.Ct.ThrowIfCancellationRequested();
+        // The walk follows the folder it starts at: that folder must not be a link.
+        if (!ctx.Fs.IsLinkFree(sourceDir)) { Left(ctx, label, Rebuilds); return; }
         if (probeFiles(ctx.Fs, sourceDir).Any(CacheProbes.IsLocked)) { Left(ctx, label, InUse); return; }
 
         var occupied = File.Exists(destDir) || (Directory.Exists(destDir) && Directory.EnumerateFileSystemEntries(destDir).Any());
@@ -352,19 +371,26 @@ public sealed class CacheContributor : IImportPlanContributor
         var stage = ctx.Tx.NewStagingPath("cache-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stage);
         var skippedUnreadable = 0;
-        var unreadableBefore = ctx.Fs.UnreadablePaths.Count;
-        foreach (var file in ctx.Fs.EnumerateFiles(sourceDir, recursive: true))
+        var unreadableBefore = ctx.Fs.UnreadableHits; // every hit of THIS walk counts, even a short name seen before
+        try
         {
-            ctx.Ct.ThrowIfCancellationRequested();
-            if (skipLoneWal && IsLoneWal(file)) continue;
-            if (!ctx.Fs.Allow(file)) { skippedUnreadable++; continue; }
-            var target = Path.Combine(stage, Path.GetRelativePath(sourceDir, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(file, target, overwrite: true); // as-is: nothing in a cache folder is ever edited
+            foreach (var file in ctx.Fs.EnumerateFiles(sourceDir, recursive: true))
+            {
+                ctx.Ct.ThrowIfCancellationRequested();
+                if (skipLoneWal && IsLoneWal(file)) continue;
+                if (!ctx.Fs.Allow(file)) { skippedUnreadable++; continue; }
+                var target = Path.Combine(stage, Path.GetRelativePath(sourceDir, file));
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(file, target, overwrite: true); // as-is: nothing in a cache folder is ever edited
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Discard(stage); Left(ctx, label, Rebuilds); return;
         }
         afterStaged?.Invoke(label);
         if (probeFiles(ctx.Fs, sourceDir).Any(CacheProbes.IsLocked)) { Discard(stage); Left(ctx, label, InUse); return; }
-        if (skippedUnreadable > 0 || ctx.Fs.UnreadablePaths.Count > unreadableBefore) { Discard(stage); Left(ctx, label, "Some of it couldn't be read, so none of it was copied."); return; }
+        if (skippedUnreadable > 0 || ctx.Fs.UnreadableHits > unreadableBefore) { Discard(stage); Left(ctx, label, "Some of it couldn't be read, so none of it was copied."); return; }
 
         if (Directory.Exists(destDir) || File.Exists(destDir)) ctx.Tx.RemoveWithBackup(destDir);
         ctx.Tx.PlaceDirectory(stage, destDir);
@@ -372,6 +398,7 @@ public sealed class CacheContributor : IImportPlanContributor
     }
 
     private const string InUse = "In use right now, so it was left in the source.";
+    private const string Rebuilds = "Couldn't be read; it will rebuild — left in the source.";
 
 
     private static void Left(ImportOpContext ctx, string label, string reason) =>

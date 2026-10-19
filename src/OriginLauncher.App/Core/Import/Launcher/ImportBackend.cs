@@ -72,6 +72,7 @@ public sealed class LauncherImportBackend : IImportBackend
             // started before this launcher was restarted): the same test Settings Sync uses.
             IsGameRunning = SettingsSync.IsGameRunning,
             Log = dryRun ? null : ImportLog.Write, // a dry run appends to no file at all
+            VersionGate = new LauncherVersionGate(),
             Contributors = new IImportPlanContributor[]
             {
                 new GameFileContributor(gameFiles, new ImportMetadataHttp(), new LauncherVersionGate()),

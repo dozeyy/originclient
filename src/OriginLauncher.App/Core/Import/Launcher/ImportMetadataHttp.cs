@@ -27,7 +27,7 @@ public sealed class ImportMetadataHttp : IMetadataHttp
 
     private static readonly TimeSpan PerDocument = TimeSpan.FromSeconds(15);
 
-    public async Task<byte[]?> GetAsync(string url, long maxBytes, CancellationToken ct)
+    public async Task<MetadataResponse?> GetAsync(string url, long maxBytes, CancellationToken ct)
     {
         if (!MetadataClient.IsAllowed(url)) return null;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -51,7 +51,7 @@ public sealed class ImportMetadataHttp : IMetadataHttp
                 if (body.Length + read > maxBytes) return null; // over the cap: stop reading, nothing is trusted
                 body.Write(buffer, 0, read);
             }
-            return body.ToArray();
+            return new MetadataResponse(body.ToArray(), final.AbsoluteUri);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

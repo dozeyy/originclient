@@ -450,20 +450,57 @@ public class GameFileTests : IDisposable
         Assert.False(Directory.Exists(ImportLayout.Staging(_rig.Imports, plan.ImportId)));
     }
 
+    // Review round 2, finding 2: undoing a FINISHED import leaves the reused game files (Mojang-verified files
+    // Origin would download anyway; their mtimes are the source's, so a later use can't be seen), refuses while
+    // Origin's game runs, and holds the version's gate while it changes the folder.
     [Fact]
-    public async Task AFullImportThenUndoLeavesTheVersionFolderAsItWas()
+    public async Task UndoingAFinishedImportKeepsReusedGameFilesRefusesWhileTheGameRunsAndHoldsTheVersionGate()
     {
         MinimalSource();
         _mojang.WriteOfficial(Official);
-        var engine = Engine();
+        var gate = new FakeGate();
+        var engine = EngineBKit.Engine(_rig, new IImportPlanContributor[] { new GameFileContributor(Roots(), _mojang.Http) }, versionGate: gate);
         var plan = await engine.PlanAsync(_rig.Request(), null, CancellationToken.None);
         var result = await engine.ApplyAsync(plan, _rig.Settings, null, CancellationToken.None);
         Assert.True(result.Succeeded);
-        Assert.True(File.Exists(Dest("assets/indexes/17.json")));
+        var options = Path.Combine(plan.TargetGameDir, "options.txt");
+        Assert.True(File.Exists(options));
 
-        var undone = await engine.RollbackAsync(plan.ImportId, _rig.Settings);
+        _rig.RunningDirs.Add(plan.TargetGameDir);
+        var refused = await engine.RollbackAsync(plan.ImportId, _rig.Settings);
+        Assert.Equal(ImportState.Planned, refused.State);
+        Assert.StartsWith("Close Minecraft first", refused.Error);
+        Assert.True(File.Exists(options));                                              // nothing touched
+        _rig.RunningDirs.Clear();
+
+        var held = await gate.AcquireAsync(Mojang.Version, CancellationToken.None);   // someone is installing 1.21.1
+        var undo = engine.RollbackAsync(plan.ImportId, _rig.Settings);
+        await Task.Delay(300);
+        Assert.False(undo.IsCompleted);                                                 // the undo waits for the gate
+        Assert.True(File.Exists(options));
+        await held.DisposeAsync();
+        var undone = await undo;
 
         Assert.Null(undone.Error);
-        Assert.False(Directory.Exists(_rig.Instances));
+        Assert.Equal(ImportState.RolledBack, undone.State);
+        Assert.False(File.Exists(options));                                             // the import's own files are undone
+        foreach (var rel in _mojang.Required)
+            Assert.True(File.Exists(Dest(rel)), rel);                                   // the reused game files stay
+        Assert.Equal(2, gate.Acquired);
+        Assert.Equal(2, gate.Released);
+    }
+
+    [Fact]
+    public async Task ACancelledApplyStillRemovesTheGameFilesItCopied()
+    {
+        MinimalSource();
+        _mojang.WriteOfficial(Official);
+        var (plan, result) = await Run();
+        Assert.True(result.Succeeded);
+        // A crash-recovery style rollback of the same journal (not a finished-import undo) removes everything.
+        var journal = ImportJournalStore.Load(ImportLayout.Journal(_rig.Imports, plan.ImportId))!;
+        Assert.Contains(journal.Entries, e => e.GameFile && e.Path == Dest("assets/indexes/17.json"));
+        ImportUndo.Run(journal, _rig.Settings, _ => { }, _rig.Root);
+        Assert.False(File.Exists(Dest("assets/indexes/17.json")));
     }
 }

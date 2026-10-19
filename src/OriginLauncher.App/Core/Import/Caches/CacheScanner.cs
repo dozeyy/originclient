@@ -74,16 +74,17 @@ public static class CacheScanner
         {
             ct.ThrowIfCancellationRequested();
             var name = Path.GetFileName(world);
-            AddDh(scan, name, "", world);
-            AddDh(scan, name, "DIM-1", Path.Combine(world, "DIM-1"));
-            AddDh(scan, name, "DIM1", Path.Combine(world, "DIM1"));
+            AddDh(scan, fs, name, "", world);
+            AddDh(scan, fs, name, "DIM-1", Path.Combine(world, "DIM-1"));
+            AddDh(scan, fs, name, "DIM1", Path.Combine(world, "DIM1"));
             foreach (var dimension in CustomDimensions(world, fs, 0))
-                AddDh(scan, name, Path.GetRelativePath(world, dimension).Replace('\\', '/'), dimension);
+                AddDh(scan, fs, name, Path.GetRelativePath(world, dimension).Replace('\\', '/'), dimension);
             var voxy = Path.Combine(world, "voxy");
-            if (Directory.Exists(voxy)) scan.Voxy.Add(new VoxyBase(CacheScope.SinglePlayer, name, voxy));
+            if (Directory.Exists(voxy) && LinkFree(fs, voxy)) scan.Voxy.Add(new VoxyBase(CacheScope.SinglePlayer, name, voxy));
         }
 
-        foreach (var server in fs.EnumerateDirectories(Path.Combine(gameDir, DhServerRoot)).OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
+        var dhRoot = Path.Combine(gameDir, DhServerRoot);
+        foreach (var server in (LinkFree(fs, dhRoot) ? fs.EnumerateDirectories(dhRoot) : Enumerable.Empty<string>()).OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
         {
             ct.ThrowIfCancellationRequested();
             var folder = Path.GetFileName(server);
@@ -100,7 +101,8 @@ public static class CacheScanner
             if (levels.Count > 0) scan.DhServers.Add(new DhServerFolder(folder, server, levels));
         }
 
-        foreach (var entry in fs.EnumerateDirectories(Path.Combine(gameDir, ".voxy", "saves")).OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
+        var voxyRoot = Path.Combine(gameDir, ".voxy", "saves");
+        foreach (var entry in (LinkFree(fs, voxyRoot) ? fs.EnumerateDirectories(voxyRoot) : Enumerable.Empty<string>()).OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
         {
             var name = Path.GetFileName(entry);
             if (name.Equals("UNKNOWN", StringComparison.OrdinalIgnoreCase))
@@ -113,17 +115,29 @@ public static class CacheScanner
         return scan;
     }
 
-    private static void AddDh(CacheScan scan, string world, string dimension, string dimensionDir)
+    private static void AddDh(CacheScan scan, SourceFs fs, string world, string dimension, string dimensionDir)
     {
         var db = new DhDatabase(CacheScope.SinglePlayer, world, dimension, Path.Combine(dimensionDir, "data"));
-        if (db.HasMain || db.LoneWal) scan.DhSinglePlayer.Add(db);
+        if (!db.HasMain && !db.LoneWal) return;
+        // Built by name, not found by a walk: a linked dimension, data folder or database file is never followed.
+        if (!LinkFree(fs, db.Dir) || db.Members.Any(m => !LinkFree(fs, m)) || !LinkFree(fs, db.MainPath + "-wal")) return;
+        scan.DhSinglePlayer.Add(db);
+    }
+
+    // A folder or file reached by a built path (not a walk, which skips links itself) is used only when no
+    // segment below the instance root is a link; one that is, is remembered as a left-out link.
+    private static bool LinkFree(SourceFs fs, string path)
+    {
+        if (fs.IsLinkFree(path)) return true;
+        fs.NoteLink(path);
+        return false;
     }
 
     // dimensions/<ns>/<path...>: folders only (never the region files), a few levels deep.
     private static IEnumerable<string> CustomDimensions(string world, SourceFs fs, int depth)
     {
         var root = Path.Combine(world, "dimensions");
-        if (!Directory.Exists(root)) yield break;
+        if (!Directory.Exists(root) || !LinkFree(fs, root)) yield break;
         var stack = new Stack<(string Dir, int Depth)>();
         stack.Push((root, 0));
         while (stack.Count > 0)

@@ -28,6 +28,9 @@ public sealed class JournalEntry
     public bool Recursive { get; set; }
     public string? Backup { get; set; }
     public SettingsDelta? Delta { get; set; }
+
+    /// <summary>A reused Mojang game file (or a folder made to hold them): once the import has finished, undo leaves it in place (it is the verified file Origin would download anyway, and may be in use by now).</summary>
+    public bool GameFile { get; set; }
 }
 
 // imports/<id>/journal.json. Written atomically BEFORE each change it describes
@@ -42,6 +45,9 @@ public sealed class ImportJournal
     public DateTime? FinishedUtc { get; set; }
     public string? SourceName { get; set; }
     public string? TargetVersion { get; set; }
+
+    /// <summary>Origin's game folder the import wrote into (undo of a finished import refuses while a game runs from it).</summary>
+    public string? TargetGameDir { get; set; }
     public List<JournalEntry> Entries { get; set; } = new();
 
     /// <summary>Things a rollback could not put back (one sentence each); empty when it was clean.</summary>

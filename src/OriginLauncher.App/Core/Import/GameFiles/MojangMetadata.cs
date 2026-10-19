@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace OriginLauncher.App.Core.Import.GameFiles;
 
@@ -42,6 +43,18 @@ public sealed class MojangMetadata
 
     private readonly MetadataClient _client;
 
+    // Metadata is data from outside and its values become file names: a hash is exactly 40 lower-case hex
+    // digits, a runtime component a plain lower-case word, and a relative path never climbs ('..'), names a
+    // drive (':') or starts at a root. Anything else is dropped (never guessed at).
+    private static readonly Regex Sha1Pattern = new("^[0-9a-f]{40}$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex ComponentPattern = new("^[a-z0-9-]+$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    internal static bool IsSha1(string? value) => value != null && Sha1Pattern.IsMatch(value);
+
+    internal static bool IsSafeRelative(string? path) =>
+        !string.IsNullOrEmpty(path) && !path.Contains("..", StringComparison.Ordinal) && !path.Contains(':')
+        && path[0] != '/' && path[0] != '\\';
+
     public MojangMetadata(MetadataClient client) => _client = client;
 
     public async Task<RequiredSet> GetRequiredSetAsync(string mcVersion, CancellationToken ct)
@@ -79,14 +92,15 @@ public sealed class MojangMetadata
                 break;
             }
         }
-        if (versionUrl == null) return false;
+        if (versionUrl == null || !IsSha1(versionSha1)) return false;
 
         var versionBytes = await _client.GetAsync(versionUrl, versionSha1, ct).ConfigureAwait(false);
         if (versionBytes == null) return false;
         using var version = JsonDocument.Parse(versionBytes);
         var root = version.RootElement;
 
-        if (root.TryGetProperty("downloads", out var downloads) && downloads.TryGetProperty("client", out var client))
+        if (root.TryGetProperty("downloads", out var downloads) && downloads.TryGetProperty("client", out var client)
+            && IsSha1(Str(client, "sha1")))
             set.Files.Add(new RequiredFile(RequiredKind.ClientJar, $"versions/{mcVersion}/{mcVersion}.jar",
                 Str(client, "sha1")!, Long(client, "size"), mcVersion));
 
@@ -94,9 +108,10 @@ public sealed class MojangMetadata
             foreach (var library in libraries.EnumerateArray()) AddLibrary(set, library);
 
         if (!root.TryGetProperty("assetIndex", out var assetIndex)) return false;
-        var indexId = Str(assetIndex, "id")!;
-        var indexSha1 = Str(assetIndex, "sha1")!;
-        set.Files.Add(new RequiredFile(RequiredKind.AssetIndex, $"assets/indexes/{indexId}.json", indexSha1, Long(assetIndex, "size"), indexId));
+        var indexId = Str(assetIndex, "id");
+        var indexSha1 = Str(assetIndex, "sha1");
+        if (!IsSafeRelative(indexId) || indexId!.Contains('/') || indexId.Contains('\\') || !IsSha1(indexSha1)) return false;
+        set.Files.Add(new RequiredFile(RequiredKind.AssetIndex, $"assets/indexes/{indexId}.json", indexSha1!, Long(assetIndex, "size"), indexId));
         var indexBytes = await _client.GetAsync(Str(assetIndex, "url") ?? "", indexSha1, ct).ConfigureAwait(false);
         if (indexBytes == null) return false;
         AddAssets(set, indexBytes);
@@ -112,14 +127,16 @@ public sealed class MojangMetadata
     {
         if (!Allowed(library)) return;
         if (!library.TryGetProperty("downloads", out var downloads)) return;
-        if (downloads.TryGetProperty("artifact", out var artifact) && Str(artifact, "path") is { } path && Str(artifact, "sha1") is { } sha1)
+        if (downloads.TryGetProperty("artifact", out var artifact) && Str(artifact, "path") is { } path && Str(artifact, "sha1") is { } sha1
+            && IsSafeRelative(path) && IsSha1(sha1))
             Add(set, new RequiredFile(RequiredKind.Library, "libraries/" + path, sha1, Long(artifact, "size"), path));
 
         // Older versions keep natives as classifiers: natives.windows names the key ("natives-windows", "natives-windows-${arch}").
         if (library.TryGetProperty("natives", out var natives) && Str(natives, "windows") is { } key
             && downloads.TryGetProperty("classifiers", out var classifiers)
             && classifiers.TryGetProperty(key.Replace("${arch}", "64"), out var native)
-            && Str(native, "path") is { } nativePath && Str(native, "sha1") is { } nativeSha1)
+            && Str(native, "path") is { } nativePath && Str(native, "sha1") is { } nativeSha1
+            && IsSafeRelative(nativePath) && IsSha1(nativeSha1))
             Add(set, new RequiredFile(RequiredKind.Native, "libraries/" + nativePath, nativeSha1, Long(native, "size"), nativePath));
     }
 
@@ -154,14 +171,15 @@ public sealed class MojangMetadata
         foreach (var asset in objects.EnumerateObject())
         {
             var hash = Str(asset.Value, "hash");
-            if (hash is not { Length: >= 2 } || !seen.Add(hash)) continue;
-            set.Files.Add(new RequiredFile(RequiredKind.Asset, $"assets/objects/{hash[..2]}/{hash}", hash, Long(asset.Value, "size"), hash));
+            if (!IsSha1(hash) || !seen.Add(hash!)) continue;
+            set.Files.Add(new RequiredFile(RequiredKind.Asset, $"assets/objects/{hash![..2]}/{hash}", hash, Long(asset.Value, "size"), hash));
         }
     }
 
     private async Task AddRuntimeAsync(RequiredSet set, string component, CancellationToken ct)
     {
         set.RuntimeComponent = component;
+        if (!ComponentPattern.IsMatch(component)) { set.JavaSkipped = true; return; } // it names a folder: plain words only
         var listBytes = await _client.GetAsync(MetadataClient.JavaRuntimeListUrl, null, ct).ConfigureAwait(false);
         string? url = null, sha1 = null;
         if (listBytes != null)
@@ -193,8 +211,8 @@ public sealed class MojangMetadata
         {
             if (Str(file.Value, "type") != "file") continue; // directories appear with their files; links can't be verified
             if (!file.Value.TryGetProperty("downloads", out var d) || !d.TryGetProperty("raw", out var raw)) continue;
-            if (Str(raw, "sha1") is not { } fileSha1) continue;
-            if (file.Name.Contains("..") || Path.IsPathRooted(file.Name)) continue; // a path that climbs out is never ours to write
+            if (Str(raw, "sha1") is not { } fileSha1 || !IsSha1(fileSha1)) continue;
+            if (!IsSafeRelative(file.Name) || Path.IsPathRooted(file.Name)) continue; // a path that climbs out is never ours to write
             set.Files.Add(new RequiredFile(RequiredKind.Runtime, $"runtime/{RuntimePlatform}/{component}/{file.Name}",
                 fileSha1, Long(raw, "size"), null, component, file.Name));
         }
