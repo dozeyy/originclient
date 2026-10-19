@@ -837,7 +837,12 @@ async function boot() {
   $('[data-adjust]').addEventListener('click', e => {
     const n = e.target.closest('[data-nudge]'), tab = e.target.closest('[data-adjust-slot]');
     if (n) nudge(n.dataset.nudge, Number(n.dataset.dir));
-    else if (tab) { state.moving = tab.dataset.adjustSlot; syncAdjust(); $(`[data-adjust-slot="${state.moving}"]`)?.focus(); }
+    else if (tab) {
+      state.moving = tab.dataset.adjustSlot;
+      syncAdjust();
+      $(`[data-adjust-slot="${state.moving}"]`)?.focus();
+      $('[data-adjust-say]').textContent = `Now moving ${byId.get(state.worn[state.moving]).name}`;
+    }
     else if (e.target.closest('[data-adjust-reset]')) resetAdjust();
   });
   $('[data-fit-themeview]').addEventListener('click', () => {
