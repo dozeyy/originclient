@@ -450,6 +450,10 @@ public class FriendsScreen extends OriginWindow {
 			y += it.h();
 		}
 		d.unclip();
+		if (listScroll < listMax - 0.5 && !d.seeThrough) {
+			// more below: a short fade instead of a thin slice of the next row at the viewport edge
+			d.gradient(BODY_X, LIST_TOP + view - 16, LIST_W, 16, withAlpha(PANEL, 0), PANEL);
+		}
 		if (listMax > 0) {
 			float thumb = Math.max(28, view * view / (view + listMax));
 			d.rect(SPLIT - 6, LIST_TOP + (view - thumb) * (float) (listScroll / listMax), 3, thumb, 1.5f, 0x33FFFFFF);
@@ -1433,9 +1437,13 @@ public class FriendsScreen extends OriginWindow {
 	private void inputField(OriginDeck d, float x, float y, float w, float h, String text, String placeholder,
 							boolean focused, String icon, String counter, boolean counterRed) {
 		if (focused) {
-			d.rect(x - 1, y - 1, w + 2, h + 2, 7, 0x00000000, ACC);   // outer half of the 2 px emerald frame
+			// a SOLID 2 px emerald frame: a filled emerald plate with the (opaque) field inset on top.
+			// Stacked 1 px SDF borders never reach full strength, so the frame is the plate, not a ring.
+			d.rect(x - 1, y - 1, w + 2, h + 2, 7, ACC);
+			d.rect(x + 1, y + 1, w - 2, h - 2, 5, over(FIELD, 0xFF000000 | (PANEL & 0xFFFFFF)));
+		} else {
+			d.rect(x, y, w, h, 6, FIELD, LINE2);
 		}
-		d.rect(x, y, w, h, 6, FIELD, focused ? ACC : LINE2);
 		float tx = x + 12;
 		if (icon != null) {
 			d.icon(icon, tx, y + h / 2 - 7, 14, soft());
