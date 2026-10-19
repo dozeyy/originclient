@@ -142,6 +142,41 @@ public static class UpdateVerifier
         return verdict;
     }
 
+    /// <summary>
+    /// Deletes every OriginLauncher-win-x64-*.zip and *.zip.part in <paramref name="updatesDir"/> that does not
+    /// belong to one of the <paramref name="keep"/> versions (a quit before applying, or a kill mid-download,
+    /// leaves ~126 MB behind per release). A locked or undeletable file is skipped, never an error. Returns how
+    /// many files were removed.
+    /// </summary>
+    public static int DeleteStaleDownloads(string updatesDir, string zipPrefix, params Version?[] keep)
+    {
+        if (!Directory.Exists(updatesDir)) return 0;
+        var kept = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var v in keep)
+        {
+            if (v == null) continue;
+            kept.Add($"{zipPrefix}-{v}.zip");
+            kept.Add($"{zipPrefix}-{v}.zip.part");
+        }
+        var removed = 0;
+        try
+        {
+            foreach (var path in Directory.EnumerateFiles(updatesDir, zipPrefix + "-*.zip*"))
+            {
+                var name = Path.GetFileName(path);
+                if (kept.Contains(name)) continue;
+                if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                    && !name.EndsWith(".zip.part", StringComparison.OrdinalIgnoreCase)) continue;
+                try { File.Delete(path); removed++; }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return removed;
+    }
+
     private static void TryDelete(string path)
     {
         try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }

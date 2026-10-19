@@ -82,6 +82,10 @@ public static class UpdateService
     /// </summary>
     public static async Task CheckAsync()
     {
+        // Once per process, off the UI thread, before any download of this run can start.
+        if (Interlocked.Exchange(ref _startupCleaned, 1) == 0)
+            await Task.Run(() => CleanStaleDownloads(null)).ConfigureAwait(false);
+
         try
         {
             var release = await Http.GetFromJsonAsync<Release>(
@@ -136,8 +140,27 @@ public static class UpdateService
     }
 
     // One zip (and one .part) per version, so two downloads of different releases never share a file.
+    private const string ZipPrefix = "OriginLauncher-win-x64";
     private static string ZipPathFor(Version version) =>
-        Path.Combine(OriginPaths.Root, "updates", $"OriginLauncher-win-x64-{version}.zip");
+        Path.Combine(OriginPaths.Root, "updates", $"{ZipPrefix}-{version}.zip");
+
+    // Removes zips/.part files of versions nobody is fetching or offering (quit before applying, killed
+    // mid-download). Never throws; a locked file is skipped. Keeps the version being fetched, the one offered
+    // and the one verified on disk.
+    private static void CleanStaleDownloads(Version? fetching)
+    {
+        try
+        {
+            Version? offered, verified;
+            lock (Gate) { offered = Available?.Version; verified = _verifiedZipVersion; }
+            var n = UpdateVerifier.DeleteStaleDownloads(
+                Path.Combine(OriginPaths.Root, "updates"), ZipPrefix, fetching, offered, verified);
+            if (n > 0) Log($"removed {n} stale update download file(s)");
+        }
+        catch (Exception) { /* housekeeping only */ }
+    }
+
+    private static int _startupCleaned;
 
     // Quiet retry after a failed check (see UpdateGate): download + verify with no UI, publish only on success.
     // Any failure just extends the back-off; nothing is shown and Play is never touched.
@@ -147,6 +170,7 @@ public static class UpdateService
         {
             var zipPath = ZipPathFor(update.Version);
             Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
+            CleanStaleDownloads(update.Version);
             await DownloadVerifiedAsync(update, zipPath, null).ConfigureAwait(false);
             lock (Gate) Gate.Verified(update.Version);
             if (TryPublish(update))
@@ -215,6 +239,7 @@ public static class UpdateService
     {
         var updatesRoot = Path.Combine(OriginPaths.Root, "updates");
         Directory.CreateDirectory(updatesRoot);
+        CleanStaleDownloads(update.Version);
         var stageDir = Path.Combine(updatesRoot, update.Version.ToString());
         if (Directory.Exists(stageDir))
             Directory.Delete(stageDir, recursive: true);
