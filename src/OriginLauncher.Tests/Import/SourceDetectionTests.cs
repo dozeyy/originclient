@@ -96,7 +96,9 @@ public class SourceDetectionTests : IDisposable
 
         var scan = await Scan(new SourceRoots { OfficialMinecraftDir = mc });
 
-        var latest = scan.Instances.Single(i => i.Name == "Latest release");
+        // A folder only latest-* profiles use is named after the folder; the profile is an alias (accuracy round 2).
+        var latest = scan.Instances.Single(i => i.Aliases.Contains("Latest release"));
+        Assert.Equal("Minecraft Launcher (dotminecraft)", latest.Name);
         Assert.Equal("1.21.4", latest.McVersion);                // from version_manifest_v2.json
         Assert.Equal(mc, latest.GameDir);                        // no gameDir = the .minecraft itself
         Assert.Null(latest.LastPlayed);                          // 1970-01-02 is the launcher's "never"

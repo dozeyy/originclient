@@ -8,7 +8,7 @@ namespace OriginLauncher.App.Core.Import.Detection;
 
 // What a game folder itself says about the version it runs, independent of any
 // launcher's record: its last log and its mods. Read once per folder, lazily and
-// capped (a 256 KB log head, at most 64 jars' metadata), through SourceFs so a
+// capped (a 256 KB log head, at most 32 jars' metadata), through SourceFs so a
 // credential file is never opened. Pure: every path comes from the caller.
 
 /// <summary>One folder = one setup. The key two setups are compared by, and the stable setup id.</summary>
@@ -38,13 +38,16 @@ public static class SetupKey
 
     public static bool SameFolder(string a, string b) => string.Equals(Folder(a), Folder(b), PathCompare);
 
-    /// <summary>"prism-1a2b3c4d5e6f7a8b": deterministic from (kind, full folder path) and nothing else.</summary>
-    public static string StableId(SourceKind kind, string gameDir)
+    /// <summary>
+    /// "setup-1a2b3c4d5e6f7a8b": deterministic from the full folder path and NOTHING else — one folder is one setup, so
+    /// the id must not change when another launcher's entry wins the name, or when Browse finds the same folder.
+    /// </summary>
+    public static string StableId(string gameDir)
     {
         var folder = Folder(gameDir);
         if (OperatingSystem.IsWindows()) folder = folder.ToUpperInvariant();
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(kind + "|" + folder));
-        return kind.ToString().ToLowerInvariant() + "-" + Convert.ToHexString(hash, 0, 8).ToLowerInvariant();
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(folder));
+        return "setup-" + Convert.ToHexString(hash, 0, 8).ToLowerInvariant();
     }
 }
 
@@ -132,7 +135,9 @@ public static class LogParser
 /// </summary>
 public sealed class ModsEvidence
 {
-    public const int MaxJars = 64;
+    // Measured 2026-10-18 (warm cache): 200 setups x 64 jars read at a 64 cap = 2.3 s, too close to the 5 s scan budget
+    // once a cold disk / antivirus is in play; 32 still gives a solid 80 % consensus at half the cost.
+    public const int MaxJars = 32;
 
     private readonly List<VersionPredicate> _ranges;
     private readonly Dictionary<ModLoader, int> _loaders;
@@ -268,15 +273,59 @@ public sealed class ModsEvidence
     }
 }
 
+/// <summary>
+/// options.txt's `version:` line: the DataVersion of the game that last wrote the file, i.e. what last ran in the
+/// folder, whatever the loader. Mapped to a Minecraft version; an unknown DataVersion is no evidence.
+/// </summary>
+public sealed record OptionsEvidence(string? McVersion, int DataVersion, DateTimeOffset ModifiedUtc)
+{
+    // Mirrors Core/Sync/OptionsTxtFormat.DataVersions (the vanilla data version of each Origin-supported version,
+    // from each version's own version.json); keep the two in step. Nothing here is guessed: a DataVersion not in
+    // this table (a snapshot, an unsupported version) gives no version evidence.
+    private static readonly Dictionary<int, string> VersionByDataVersion = new()
+    {
+        [2586] = "1.16.5", [2730] = "1.17.1", [2975] = "1.18.2", [3120] = "1.19.2",
+        [3218] = "1.19.3", [3337] = "1.19.4", [3463] = "1.20", [3465] = "1.20.1",
+        [3578] = "1.20.2", [3700] = "1.20.4", [3953] = "1.21", [3955] = "1.21.1",
+        [4080] = "1.21.2", [4082] = "1.21.3", [4189] = "1.21.4", [4435] = "1.21.6",
+        [4438] = "1.21.7", [4440] = "1.21.8", [4556] = "1.21.10", [4671] = "1.21.11",
+    };
+
+    public static string? VersionFor(int dataVersion) => VersionByDataVersion.GetValueOrDefault(dataVersion);
+
+    public VersionEvidence ToEvidence() =>
+        new(EvidenceSource.OptionsFile, McVersion, null, null, ModifiedUtc) { From = "options.txt" };
+
+    /// <summary>The `version:` of <paramref name="gameDir"/>/options.txt (only the first 64 KB is read); null when absent or unknown.</summary>
+    public static OptionsEvidence? Read(string gameDir, SourceFs fs)
+    {
+        var path = Path.Combine(gameDir, "options.txt");
+        if (!File.Exists(path)) return null;
+        var text = fs.ReadHeadText(path, 64 * 1024);
+        if (text == null) return null;
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (!line.StartsWith("version:", StringComparison.Ordinal)) continue;
+            if (!int.TryParse(line["version:".Length..], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var dataVersion)) return null;
+            if (VersionFor(dataVersion) is not { } mc) return null;
+            try { return new OptionsEvidence(mc, dataVersion, new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero)); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+        }
+        return null;
+    }
+}
+
 /// <summary>Everything one game folder says about itself, read once per folder.</summary>
-public sealed record FolderEvidence(LogEvidence? Log, ModsEvidence? Mods, bool HasGameData)
+public sealed record FolderEvidence(LogEvidence? Log, ModsEvidence? Mods, bool HasGameData, OptionsEvidence? Options = null)
 {
     public static readonly FolderEvidence None = new(null, null, false);
 
     public static FolderEvidence Read(string gameDir, SourceFs fs, CancellationToken ct)
     {
         if (!Directory.Exists(gameDir)) return None;
-        return new FolderEvidence(LogParser.Read(gameDir, fs), ModsEvidence.Read(gameDir, fs, ct), HasData(gameDir));
+        return new FolderEvidence(LogParser.Read(gameDir, fs), ModsEvidence.Read(gameDir, fs, ct), HasData(gameDir), OptionsEvidence.Read(gameDir, fs));
     }
 
     /// <summary>The folder holds something a player made: a mods folder, settings, or worlds.</summary>

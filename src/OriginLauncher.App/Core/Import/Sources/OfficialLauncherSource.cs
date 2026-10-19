@@ -40,7 +40,9 @@ public sealed class OfficialLauncherSource : IInstanceSource
     private static readonly Regex ForgeId = new(@"^(?<mc>\d+\.\d+(\.\d+)?)-[Ff]orge-?(?<loader>.+)$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex NeoForgeId = new(@"^neoforge-(?<loader>.+)$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Regex PlainRelease = new(@"^\d+\.\d+(\.\d+)?$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
-    private static readonly Regex PlainMinecraft = new(@"^(\d+\.\d+(\.\d+)?(-\w+(-\d+)?)?|\d{2}w\d{2}[a-z])$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    // A real Minecraft version id: 1.21.1, 1.21-pre1, 1.21.1-rc1, 26.4-snapshot-3, 26.1-pre-2, 24w14a. NOT a custom
+    // install like "1.20.1-OptiFine_HD_U_I6" or "1.20.1-forge-47.2.0" (those resolve through their version json).
+    private static readonly Regex PlainMinecraft = new(@"^(\d+\.\d+(\.\d+)?(-(pre|rc)-?\d+|-snapshot-\d+)?|\d{2}w\d{2}[a-z])$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     private sealed class RawProfile
     {

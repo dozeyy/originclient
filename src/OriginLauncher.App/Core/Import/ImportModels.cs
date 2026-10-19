@@ -91,10 +91,10 @@ public sealed record DetectedInstance
     public IReadOnlyList<string> Aliases { get; init; } = Array.Empty<string>();
 
     /// <summary>
-    /// A stable id for this setup: derived only from (Kind, the game folder's full path), so a selection or an
-    /// unticked setup survives a rescan. Same folder + same kind = same id; nothing else changes it.
+    /// A stable id for this setup: derived only from the game folder's full path (one folder is one setup), so a
+    /// selection or an unticked setup survives a rescan, another launcher winning the name, and Browse.
     /// </summary>
-    public string SetupId => Detection.SetupKey.StableId(Kind, GameDir);
+    public string SetupId => Detection.SetupKey.StableId(GameDir);
 }
 
 /// <summary>Where a piece of version evidence came from.</summary>
@@ -103,6 +103,7 @@ public enum EvidenceSource
     LauncherMetadata, // the launcher's own record: launcher_profiles.json + version json, mmc-pack.json, minecraftinstance.json
     LatestLog,        // logs/latest.log: what the game last actually ran
     ModDepends,       // the mods' depends.minecraft consensus and their loader types
+    OptionsFile,      // options.txt's `version:` DataVersion: the game that last wrote it, whatever the loader
 }
 
 /// <summary>

@@ -119,17 +119,24 @@ public static class SetupResolver
     {
         var metadata = members.SelectMany(m => m.Metadata).ToList();
         var noInference = members.All(m => m.NoInference) || (metadata.Count == 0 && members.Any(m => m.NoInference));
-        var verdict = noInference ? null : EvidenceJudge.Judge(metadata, folder.Log, folder.Mods);
+        var verdict = noInference ? null : EvidenceJudge.Judge(metadata, folder.Log, folder.Mods, folder.Options);
 
         var primary = NameWinner(members, verdict);
+
+        // A folder only latest-* profiles use has no name of its own: "Latest snapshot" would describe a version
+        // the launcher follows, not this folder. A plain, stable name instead; the profiles become aliases.
+        var name = members.All(m => m.IsLatestProfile)
+            ? $"Minecraft Launcher ({FolderLeaf(primary.Instance.GameDir)})"
+            : primary.Instance.Name;
         var aliases = members
             .SelectMany(m => m.Instance.Aliases.Prepend(m.Instance.Name))
-            .Where(n => !string.IsNullOrWhiteSpace(n) && !string.Equals(n, primary.Instance.Name, StringComparison.OrdinalIgnoreCase))
+            .Where(n => !string.IsNullOrWhiteSpace(n) && !string.Equals(n, name, StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var setup = primary.Instance with
         {
+            Name = name,
             Aliases = aliases,
             LastPlayed = members.Max(m => m.Instance.LastPlayed),
             PlaytimeSeconds = members.Max(m => m.Instance.PlaytimeSeconds),
@@ -142,7 +149,7 @@ public static class SetupResolver
             return setup with
             {
                 Problem = primary.Instance.Problem ?? DetectedInstance.CouldntRead,
-                VersionCertain = false, LoaderCertain = false,
+                VersionCertain = false, LoaderCertain = false, Confidence = Confidence.Inferred,
                 UncertainReason = "Origin couldn't read this setup's details.",
                 Evidence = metadata,
             };
@@ -151,6 +158,7 @@ public static class SetupResolver
         var evidence = new List<VersionEvidence>(metadata);
         if (folder.Log != null) evidence.Add(folder.Log.ToEvidence());
         if (folder.Mods != null) evidence.Add(folder.Mods.ToEvidence());
+        if (folder.Options != null) evidence.Add(folder.Options.ToEvidence());
 
         setup = setup with
         {
@@ -167,6 +175,12 @@ public static class SetupResolver
         if (options.FlagMissingFolder && setup.Problem == null && !Directory.Exists(setup.GameDir))
             setup = setup with { Problem = "This profile's game folder isn't there" };
         return setup;
+    }
+
+    private static string FolderLeaf(string gameDir)
+    {
+        var leaf = Path.GetFileName(Path.TrimEndingDirectorySeparator(gameDir));
+        return string.IsNullOrWhiteSpace(leaf) ? ".minecraft" : leaf;
     }
 
     // The most recently used entry; "latest" profiles only when nothing else uses the folder. When none of them
