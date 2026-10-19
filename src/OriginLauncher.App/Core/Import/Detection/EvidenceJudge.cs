@@ -35,8 +35,11 @@ public sealed record Judgement(
 //     (a vanilla profile nobody launched says nothing about a modded folder);
 //   * a LAUNCH recorded after the log was last written that names something else:
 //     the game rewrites latest.log at every start, so that launch never ran the
-//     game here. (Proven on Will's real .minecraft: "Latest release/snapshot"
+//     game here — unless options.txt is newer than the log, which proves the game
+//     did run since. (Proven on Will's real .minecraft: "Latest release/snapshot"
 //     lastUsed in October, a July Fabric 1.21.1 log, Fabric 1.21.1 mods.)
+//   The mods STATE a version only when their consensus is that version; a range
+//   that merely accepts it (~1.21.1 accepts 1.21.10) supports nothing.
 //
 // PRESELECTION (heuristic; the answer is ALWAYS a version+loader PAIR stated by one
 // source — a loader is only borrowed from a piece that states the same version):
@@ -58,7 +61,9 @@ public sealed record Judgement(
 //       never-played record, the mods) can never be outranked; and
 //   (b) it is corroborated: the version by an explicit launcher record or by two
 //       pieces; the loader by a launcher record or by two pieces.
-// Confidence is Exact only when certain AND the answer is an explicit launcher record's.
+// Confidence is Exact only when certain AND an explicit launcher record among the
+// agreeing pieces states the same version and loader (so a played Prism instance
+// whose newer log agrees is still Exact, not "guessed").
 public static class EvidenceJudge
 {
     private enum PieceKind { Record, Log, Options, Mods }
@@ -95,7 +100,8 @@ public static class EvidenceJudge
         var records = allRecords.Where(r =>
                 !(!r.Played && !r.Explicit)                                            // never-played latest-*: alias
                 && !(!r.Played && r.Loader == LoaderKind.None && folderLoader)          // never-played vanilla in a modded folder
-                && !(logPiece != null && r.LaunchTime && r.Time > logPiece.Time && !Agrees(r, logPiece.Mc, logPiece.Loader))) // launch the log never saw
+                && !(logPiece != null && r.LaunchTime && r.Time > logPiece.Time && !Agrees(r, logPiece.Mc, logPiece.Loader)
+                     && !(optionsPiece != null && optionsPiece.Time > logPiece.Time))) // launch the log never saw (unless a newer options.txt proves the game ran since)
             .ToList();
 
         // ---- preselection
@@ -130,7 +136,7 @@ public static class EvidenceJudge
             // Borrow the loader only from a piece that states this SAME version (never invent a pair).
             var donor = (logPiece?.Loader != null && Same(logPiece.Mc, mc) ? logPiece : null)
                 ?? allRecords.Where(r => r.Loader != null && Same(r.Mc, mc)).OrderByDescending(r => r.Time ?? DateTimeOffset.MinValue).FirstOrDefault()
-                ?? (modsPiece?.Loader != null && mods!.Fits(mc) ? modsPiece : null);
+                ?? (modsPiece?.Loader != null && Same(mods!.ConsensusVersion, mc) ? modsPiece : null); // the mods STATE this version, not merely accept it
             loader = donor?.Loader;
             loaderVersion = donor?.LoaderVersion;
         }
@@ -139,12 +145,15 @@ public static class EvidenceJudge
         // ---- the gate (a): agreement, or explained by time
         var timedPieces = records.Concat(new[] { logPiece, optionsPiece }.Where(p => p != null).Select(p => p!)).ToList();
         var support = timedPieces.Where(p => Agrees(p, mc, loader)).ToList();
-        var modsAgreeMc = mods is { HasRanges: true } && mods.Fits(mc);
+        // The mods support a version only when their consensus IS that version: a range like ~1.21.1 merely accepting
+        // 1.21.10 is no statement of it. (A range that rejects the answer is still a conflict, below.)
+        var modsAgreeMc = mods is { HasRanges: true } && mods.Fits(mc) && Same(mods.ConsensusVersion, mc);
         var modsAgreeLoader = mods?.MajorityLoader is { } jl && loader != null && ModsEvidence.Compatible(loader.Value, jl);
         var supportCount = support.Count + (modsAgreeMc || modsAgreeLoader ? 1 : 0);
         var newestAgreeingGame = support.Where(p => p.GameWritten).Select(p => p.Time).Max(); // null when none
 
-        var conflicts = new List<string>();
+        // Named in the reason in this order: what the game wrote, then the mods, then launcher records.
+        var conflicts = new List<(int Order, string Text)>();
         var mcCertain = true;
         var loaderCertain = true;
         foreach (var piece in timedPieces)
@@ -156,25 +165,25 @@ public static class EvidenceJudge
             if (outranked) continue;
             if (mcClash) mcCertain = false;
             if (loaderClash) loaderCertain = false;
-            conflicts.Add(Describe(piece, mods));
+            conflicts.Add((piece.GameWritten ? 0 : 2, Describe(piece, mods)));
         }
         if (mods is { HasRanges: true } && !mods.Fits(mc))
         {
             mcCertain = false;
-            conflicts.Add(mods.Rejects(mc) && mods.BestVersion is { } b && !Same(b, mc)
+            conflicts.Add((1, mods.Rejects(mc) && mods.BestVersion is { } b && !Same(b, mc)
                 ? $"most mods here are built for Minecraft {b}"
-                : $"only some of the mods here are built for Minecraft {mc}");
+                : $"only some of the mods here are built for Minecraft {mc}"));
         }
         if (mods != null && mods.MostlyIncompatibleWith(finalLoader))
         {
             loaderCertain = false;
-            conflicts.Add($"most mods here are {Name(mods.MajorityLoader ?? LoaderKind.Unknown)} mods");
+            conflicts.Add((1, $"most mods here are {Name(mods.MajorityLoader ?? LoaderKind.Unknown)} mods"));
         }
 
         // ---- the gate (b): corroboration
         var reasons = new List<string>();
         if (conflicts.Count > 0)
-            reasons.Add(Cap($"{Describe(anchor with { Loader = loader }, mods)}, but {string.Join(", and ", conflicts.Distinct().Take(2))}."));
+            reasons.Add(Cap($"{Describe(anchor with { Loader = loader }, mods)}, but {string.Join(", and ", conflicts.OrderBy(c => c.Order).Select(c => c.Text).Distinct().Take(3))}."));
 
         var mcStatements = support.Count(p => p.Mc != null) + (modsAgreeMc ? 1 : 0);
         if (mcCertain && !(support.Any(p => p.Kind == PieceKind.Record && p.Explicit && p.Mc != null) || mcStatements >= 2))
@@ -199,7 +208,10 @@ public static class EvidenceJudge
         }
 
         var certain = mcCertain && loaderCertain;
-        var confidence = certain && anchor.Kind == PieceKind.Record && anchor.Explicit && anchor.Loader != null
+        // Exact: certain AND an explicit launcher record among the agreeing pieces states this same version and loader
+        // (whether the preselection came from that record or from the newer log that agrees with it).
+        var confidence = certain && support.Any(p => p.Kind == PieceKind.Record && p.Explicit
+                                                      && Same(p.Mc, mc) && p.Loader != null && p.Loader == finalLoader)
             ? Confidence.Exact : Confidence.Inferred;
         var reason = certain ? null : string.Join(" ", reasons.Distinct());
         if (!certain && string.IsNullOrWhiteSpace(reason)) reason = "Origin isn't sure which version this is.";
@@ -215,7 +227,10 @@ public static class EvidenceJudge
         PieceKind.Log => $"the game last ran {Pair(p.Mc, p.Loader)}",
         PieceKind.Options => $"the game's settings were last saved by Minecraft {p.Mc}",
         PieceKind.Mods => $"most mods here are built for {Pair(p.Mc, p.Loader)}",
-        _ when p.LaunchTime && p.Time is { } t => $"the launcher profile \"{p.From}\" last played {Pair(p.Mc, p.Loader)} on {t:MMM d}",
+        // A latest-* profile's version is whatever is newest TODAY, not necessarily what was played on that date.
+        _ when !p.Explicit && p.Time is { } t => $"the \"{p.From}\" profile (now Minecraft {p.Mc}) was last used on {Day(t)}",
+        _ when !p.Explicit => $"the \"{p.From}\" profile (now Minecraft {p.Mc}) was never used",
+        _ when p.LaunchTime && p.Time is { } t => $"the launcher profile \"{p.From}\" last played {Pair(p.Mc, p.Loader)} on {Day(t)}",
         _ when p.LaunchTime => $"the launcher profile \"{p.From}\" is set to {Pair(p.Mc, p.Loader)} (never played)",
         _ => $"the launcher says {Pair(p.Mc, p.Loader)}",
     };
@@ -234,6 +249,9 @@ public static class EvidenceJudge
         LoaderKind.None => $"vanilla {mc}",
         _ => $"{Name(loader.Value)} {mc}",
     };
+
+    /// <summary>The player's local calendar day, in the invariant short date format (no culture-dependent month names).</summary>
+    public static string Day(DateTimeOffset t) => t.ToLocalTime().ToString("d", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
