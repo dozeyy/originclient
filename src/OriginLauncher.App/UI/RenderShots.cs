@@ -116,6 +116,9 @@ public static class RenderShots
 
         SnapBanners(window, outDir);
 
+        // Import from another launcher: every state of the card, with a made-up backend.
+        ImportShots.Run(window, outDir);
+
         window.Close();
     }
 
@@ -196,7 +199,7 @@ public static class RenderShots
     }
 
     /// <summary>Runs the dispatcher for a while so layout, bindings and animations settle.</summary>
-    private static void Pump(int milliseconds)
+    internal static void Pump(int milliseconds)
     {
         var frame = new DispatcherFrame();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };
@@ -209,7 +212,7 @@ public static class RenderShots
         Dispatcher.PushFrame(frame);
     }
 
-    private static void Snap(Window window, string dir, string name)
+    internal static void Snap(Window window, string dir, string name)
     {
         window.UpdateLayout();
         var root = (FrameworkElement)window.Content;

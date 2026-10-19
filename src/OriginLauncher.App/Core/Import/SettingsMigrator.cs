@@ -1,0 +1,706 @@
+using System.Globalization;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+using OriginLauncher.App.Core.Sync;
+
+namespace OriginLauncher.App.Core.Import;
+
+/// <summary>Everything the settings/pack planner needs: the source, the target, the switches, and the plan it adds to.</summary>
+public sealed class MigrationContext
+{
+    public required SourceFs Fs { get; init; }
+    public required DetectedInstance Source { get; init; }
+    public required string TargetVersion { get; init; }
+    public required string TargetGameDir { get; init; }
+    public required ImportOptions Options { get; init; }
+
+    /// <summary>The target has Iris (every Fabric version; not 1.8.9, which has OptiFine).</summary>
+    public required bool TargetHasIris { get; init; }
+    public required ImportPlan Plan { get; init; }
+    public CancellationToken Ct { get; init; }
+}
+
+// Plans the non-mod part of an import (D15-D19): options.txt, mod configs, the
+// resource and shader packs the player actually uses, and (only if asked)
+// single-player worlds. Planning only READS the source and the destination; the
+// result is a list of PlannedOps the engine executes inside the transaction.
+//
+// The rules, in short:
+//  * options.txt is read with the existing OptionsTxtFormat and written in the
+//    TARGET era's format (keybinds to LWJGL codes on 1.8.9, ao/quoting/lang per
+//    era); `version` is never copied; resourcePacks is written here, in the
+//    target era's form, because the sync format deliberately never carries it.
+//  * config/**: everything except Origin's own files, the built-in mods'
+//    internal mixin switches and anything credential-looking; sodium-options.json
+//    and iris.properties are key-merged, keeping what only the destination has.
+//  * a differing destination file is replaced after a backup; "Keep my current
+//    Origin settings" keeps it instead.
+//  * packs: only the resource packs options.txt selects plus the active shader
+//    pack and its settings file (everything with "copy unused packs"). A pack
+//    never overwrites another: same bytes -> skipped, different -> "<name>
+//    (imported)" and the reference follows.
+//  * every settings file is stamped "modified now", or Settings Sync's
+//    newest-file-wins rule would overwrite the imported keybinds with an older
+//    copy from another version on the first Play.
+public static class SettingsMigrator
+{
+    public static void Plan(MigrationContext ctx) => new Planner(ctx).Run();
+
+    // Config files that are Origin's own, or the internal mixin switches of the mods Origin bundles:
+    // copying them would fight the bundled versions.
+    private static readonly HashSet<string> BuiltInInternalConfigs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "sodium-mixins.properties", "lithium.properties", "modernfix-mixins.properties",
+        "ferritecore.mixin.properties", "immediatelyfast.json", "krypton.toml",
+    };
+
+    private const string IrisFile = "iris.properties";
+    private const string SodiumFile = "sodium-options.json";
+
+    private sealed class Planner
+    {
+        private readonly MigrationContext _c;
+        private readonly string _src;
+        private readonly string _dst;
+        private readonly HashSet<string> _plannedDestinations = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string?> _irisOverrides = new(StringComparer.Ordinal);
+        private Dictionary<string, string>? _sourceOptions;
+        private string? _resourcePacksValue;
+        private string? _irisSourceFile;
+        private Dictionary<string, string>? _irisMap;
+
+        public Planner(MigrationContext c)
+        {
+            _c = c;
+            _src = c.Source.GameDir;
+            _dst = c.TargetGameDir;
+        }
+
+        private ImportPlan Plan => _c.Plan;
+        private SourceFs Fs => _c.Fs;
+        private bool Target189 => _c.TargetVersion == "1.8.9";
+
+        public void Run()
+        {
+            LoadSourceOptions();
+            PlanResourcePacks();
+            PlanShaders();
+            PlanConfig();
+            PlanLoneFiles();
+            PlanOptions();
+            if (_c.Options.CopyWorlds) PlanWorlds();
+        }
+
+        // ---------------------------------------------------------------- options.txt
+
+        private void LoadSourceOptions()
+        {
+            var path = Path.Combine(_src, "options.txt");
+            if (!File.Exists(path) || !Fs.Allow(path)) return;
+            _sourceOptions = OptionsTxtFormat.Instance.Read(path);
+            if (_sourceOptions == null)
+                Line(SummarySection.NeedsAttention, PlanItemKind.Setting, "options.txt", "Couldn't read the settings file in your old instance.");
+        }
+
+        private void PlanOptions()
+        {
+            if (_sourceOptions == null) return;
+            var dest = Path.Combine(_dst, "options.txt");
+            var exists = File.Exists(dest);
+            if (exists && _c.Options.KeepMyOriginSettings)
+            {
+                Plan.Kept++;
+                Line(SummarySection.NotImported, PlanItemKind.Setting, "options.txt", "You chose to keep your current Origin settings.");
+                return;
+            }
+            Plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.WriteOptions, Item = PlanItemKind.Setting, Label = "options.txt",
+                Source = Path.Combine(_src, "options.txt"), Dest = dest, TouchNow = true,
+                Desired = _sourceOptions.ToDictionary(kv => kv.Key, kv => (string?)kv.Value, StringComparer.Ordinal),
+                TargetVersion = _c.TargetVersion, Extra = _resourcePacksValue,
+            });
+            if (exists) Plan.Replaced++; else Plan.Created++;
+            Line(SummarySection.Imported, PlanItemKind.Setting, "Game settings (options.txt)",
+                $"keybinds, video, sound and controls, written for {_c.TargetVersion}");
+        }
+
+        // ---------------------------------------------------------------- resource packs
+
+        private void PlanResourcePacks()
+        {
+            var srcDir = Path.Combine(_src, "resourcepacks");
+            var dstDir = Path.Combine(_dst, "resourcepacks");
+            var selected = SelectedResourcePacks(srcDir);
+            var references = new List<string>();
+
+            foreach (var name in selected)
+            {
+                _c.Ct.ThrowIfCancellationRequested();
+                var path = Path.Combine(srcDir, name);
+                if (!File.Exists(path) && !Directory.Exists(path))
+                {
+                    Line(SummarySection.NeedsAttention, PlanItemKind.ResourcePack, name,
+                        "Selected in your old instance, but the pack wasn't found there.");
+                    continue;
+                }
+                if (PlanPack(name, path, dstDir, PlanItemKind.ResourcePack) is { } reference) references.Add(reference);
+            }
+
+            if (_c.Options.CopyUnusedPacks)
+                foreach (var entry in PackEntries(srcDir))
+                    if (!selected.Contains(Path.GetFileName(entry), StringComparer.Ordinal))
+                        PlanPack(Path.GetFileName(entry), entry, dstDir, PlanItemKind.ResourcePack);
+
+            if (references.Count == 0) return;
+            // Era form: 1.13+ "file/<name>" after "vanilla"; older versions list the bare names.
+            var items = McVersion.AtLeast(_c.TargetVersion, "1.13")
+                ? new[] { "vanilla" }.Concat(references.Select(r => "file/" + r)).ToArray()
+                : references.ToArray();
+            _resourcePacksValue = JsonSerializer.Serialize(items);
+        }
+
+        // The file packs options.txt selects, in order. Built-in ids ("vanilla", "fabric", ...) are dropped.
+        private List<string> SelectedResourcePacks(string srcPacksDir)
+        {
+            var names = new List<string>();
+            if (_sourceOptions == null || !_sourceOptions.TryGetValue("resourcePacks", out var raw)) return names;
+            try
+            {
+                using var doc = JsonDocument.Parse(raw);
+                if (doc.RootElement.ValueKind != JsonValueKind.Array) return names;
+                foreach (var item in doc.RootElement.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.String) continue;
+                    var id = item.GetString()!;
+                    string? name = null;
+                    if (id.StartsWith("file/", StringComparison.Ordinal)) name = id["file/".Length..];
+                    else if (File.Exists(Path.Combine(srcPacksDir, id)) || Directory.Exists(Path.Combine(srcPacksDir, id))) name = id; // 1.8.9 lists bare file names
+                    // The list is the source's data, not ours: a name that climbs out of the pack folder is ignored.
+                    if (name != null && IsPlainName(name) && !names.Contains(name, StringComparer.Ordinal)) names.Add(name);
+                }
+            }
+            catch (JsonException)
+            {
+                // an unparseable list: no packs rather than a guess
+            }
+            return names;
+        }
+
+        // ---------------------------------------------------------------- shader packs
+
+        private void PlanShaders()
+        {
+            var shaderpacks = Path.Combine(_src, "shaderpacks");
+
+            // Iris (or Oculus, its Forge twin) keeps the selection in iris.properties; OptiFine in optionsshaders.txt.
+            foreach (var candidate in new[] { "iris.properties", "oculus.properties" })
+            {
+                var file = Path.Combine(_src, "config", candidate);
+                if (!File.Exists(file) || !Fs.Allow(file)) continue;
+                _irisMap = PropertiesFormat.Iris.Read(file);
+                if (_irisMap != null) { _irisSourceFile = file; break; }
+            }
+
+            string? active = null;
+            bool? enabled = null;
+            string? optifineFile = null;
+            string? optifineText = null;
+            if (_irisMap != null)
+            {
+                if (_irisMap.TryGetValue("shaderPack", out var raw)) active = ActivePackName(Unescape(raw));
+                if (_irisMap.TryGetValue("enableShaders", out var flag)) enabled = !string.Equals(flag.Trim(), "false", StringComparison.Ordinal);
+            }
+            else
+            {
+                var of = Path.Combine(_src, "optionsshaders.txt");
+                if (File.Exists(of) && Fs.Allow(of))
+                {
+                    optifineFile = of;
+                    optifineText = Fs.ReadText(of);
+                    foreach (var line in (optifineText ?? "").Replace("\r\n", "\n").Split('\n'))
+                        if (line.StartsWith("shaderPack=", StringComparison.Ordinal))
+                            active = ActivePackName(line["shaderPack=".Length..].Trim());
+                }
+            }
+
+            var hasShaderPacks = Directory.Exists(shaderpacks);
+            if (active == null && !_c.Options.CopyUnusedPacks && optifineFile == null) return;
+
+            if (Target189)
+            {
+                if (_irisMap != null)
+                {
+                    Line(SummarySection.NotImported, PlanItemKind.ShaderPack, active ?? "Shader settings",
+                        "1.8.9 uses OptiFine shaders, so Iris shader settings don't carry over.");
+                    return;
+                }
+                // OptiFine source onto OptiFine 1.8.9: the settings file as it is, plus the packs.
+                string? refName = null;
+                if (active != null)
+                {
+                    if (PackExists(shaderpacks, active)) refName = CopyShaderPack(active, shaderpacks);
+                    else Line(SummarySection.NeedsAttention, PlanItemKind.ShaderPack, active,
+                        "Your active shader pack wasn't found in your old instance.");
+                }
+                if (_c.Options.CopyUnusedPacks) CopyUnusedShaderPacks(shaderpacks, active);
+                if (optifineFile != null)
+                {
+                    var dest = Path.Combine(_dst, "optionsshaders.txt");
+                    if (refName != null && refName != active && optifineText != null)
+                    {
+                        var rewritten = string.Join("\n", optifineText.Replace("\r\n", "\n").Split('\n')
+                            .Select(l => l.StartsWith("shaderPack=", StringComparison.Ordinal) ? "shaderPack=" + refName : l));
+                        PlanText(dest, "optionsshaders.txt", PlanItemKind.ShaderPack, rewritten);
+                    }
+                    else
+                    {
+                        PlanFile(optifineFile, dest, "optionsshaders.txt", PlanItemKind.ShaderPack);
+                    }
+                }
+                return;
+            }
+
+            if (!_c.TargetHasIris)
+            {
+                if (active != null)
+                    Line(SummarySection.NotImported, PlanItemKind.ShaderPack, active, "This version doesn't have shader support.");
+                return;
+            }
+
+            // Fabric target with Iris: the same mapping whether the source was Iris or OptiFine.
+            if (active != null)
+            {
+                if (!hasShaderPacks || !PackExists(shaderpacks, active))
+                {
+                    Line(SummarySection.NeedsAttention, PlanItemKind.ShaderPack, active,
+                        "Your active shader pack wasn't found in your old instance, so shaders stay as they are.");
+                }
+                else
+                {
+                    var refName = CopyShaderPack(active, shaderpacks);
+                    if (refName != null)
+                    {
+                        _irisOverrides["shaderPack"] = refName == active && _irisMap != null && _irisMap.TryGetValue("shaderPack", out var rawName)
+                            ? rawName : EscapeValue(refName);
+                        _irisOverrides["enableShaders"] = enabled == false ? "false" : "true";
+                    }
+                }
+            }
+            if (_c.Options.CopyUnusedPacks) CopyUnusedShaderPacks(shaderpacks, active);
+        }
+
+        // A file name with no folder part: safe to join onto a pack folder.
+        private static bool IsPlainName(string name) =>
+            name.Length > 0 && name != "." && !name.Contains("..") && name.IndexOfAny(new[] { '/', '\\', '\0', ':' }) < 0
+            && name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+
+        private static bool PackExists(string dir, string name) =>
+            IsPlainName(name) && (File.Exists(Path.Combine(dir, name)) || Directory.Exists(Path.Combine(dir, name)));
+
+        private static string? ActivePackName(string value) =>
+            value.Length == 0 || value is "(internal)" or "OFF" or "off" ? null : value;
+
+        // Copies a shader pack and its <pack>.txt options; returns the name the pack has in the target.
+        private string? CopyShaderPack(string name, string shaderpacksDir)
+        {
+            var dstDir = Path.Combine(_dst, "shaderpacks");
+            var path = Path.Combine(shaderpacksDir, name);
+            var refName = PlanPack(name, path, dstDir, PlanItemKind.ShaderPack);
+            if (refName == null) return null; // refused by the guard: no settings file, no reference either
+            // Pack options: shaderpacks/<pack>.txt, where <pack> includes ".zip" for a zipped pack.
+            var settings = Path.Combine(shaderpacksDir, name + ".txt");
+            if (File.Exists(settings) && Fs.Allow(settings))
+                PlanFile(settings, Path.Combine(dstDir, refName + ".txt"), refName + ".txt", PlanItemKind.ShaderPack, touchNow: true);
+            return refName;
+        }
+
+        private void CopyUnusedShaderPacks(string shaderpacksDir, string? active)
+        {
+            foreach (var entry in PackEntries(shaderpacksDir))
+            {
+                var name = Path.GetFileName(entry);
+                if (name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) continue; // travels with its pack
+                if (string.Equals(name, active, StringComparison.Ordinal)) continue;
+                CopyShaderPack(name, shaderpacksDir);
+            }
+        }
+
+        // The packs in a folder: .zip files and folders (a pack's .txt settings travel with the pack).
+        private IEnumerable<string> PackEntries(string dir)
+        {
+            foreach (var file in Fs.EnumerateFiles(dir, recursive: false)
+                         .Where(f => !f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+                         .OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                yield return file;
+            foreach (var folder in Fs.EnumerateDirectories(dir).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                yield return folder;
+        }
+
+        // One pack (zip or folder) into <dstDir>: never overwrites. Same bytes -> skip; different -> "<name> (imported)".
+        // Returns the name the pack has in the target (what a reference must use).
+        private string? PlanPack(string name, string srcPath, string dstDir, PlanItemKind kind)
+        {
+            // The guard decides before anything reads the pack (even to compare it): a pack whose name looks like
+            // a credential file is left out entirely — not copied, not referenced from options.txt / iris.properties —
+            // and is named in the summary as skipped for safety (Fs remembers the name; ImportEngine lists it).
+            if (!Fs.Allow(srcPath)) return null;
+            var isDir = Directory.Exists(srcPath);
+            var dest = Path.Combine(dstDir, name);
+            var finalName = name;
+            string? reason = null;
+
+            if (File.Exists(dest) || Directory.Exists(dest) || _plannedDestinations.Contains(dest))
+            {
+                var same = !_plannedDestinations.Contains(dest) && (isDir
+                    ? Directory.Exists(dest) && FileCompare.SameTree(srcPath, dest, Fs)
+                    : File.Exists(dest) && FileCompare.Same(srcPath, dest, Fs));
+                if (same)
+                {
+                    Line(SummarySection.Imported, kind, name, "already in Origin (same file), left as it is");
+                    return name;
+                }
+                finalName = FreeImportedName(dstDir, name, isDir);
+                dest = Path.Combine(dstDir, finalName);
+                reason = $"a different pack called \"{name}\" is already there, so this one is saved as \"{finalName}\"";
+            }
+
+            _plannedDestinations.Add(dest);
+            var bytes = isDir ? DirectorySize(srcPath) : new FileInfo(srcPath).Length;
+            Plan.Ops.Add(new PlannedOp
+            {
+                Kind = isDir ? OpKind.CopyTree : OpKind.CopyFile, Item = kind, Label = finalName,
+                Source = srcPath, Dest = dest, Bytes = bytes,
+            });
+            Line(SummarySection.Imported, kind, finalName, reason, bytes);
+            return finalName;
+        }
+
+        private string FreeImportedName(string dir, string name, bool isDirectory)
+        {
+            var stem = isDirectory ? name : Path.GetFileNameWithoutExtension(name);
+            var ext = isDirectory ? "" : Path.GetExtension(name);
+            for (var n = 1; ; n++)
+            {
+                var candidate = n == 1 ? $"{stem} (imported){ext}" : $"{stem} (imported {n}){ext}";
+                var path = Path.Combine(dir, candidate);
+                if (!File.Exists(path) && !Directory.Exists(path) && !_plannedDestinations.Contains(path)) return candidate;
+            }
+        }
+
+        // ---------------------------------------------------------------- config/**
+
+        private void PlanConfig()
+        {
+            var srcConfig = Path.Combine(_src, "config");
+            var copied = 0;
+            var withheld = 0;
+            foreach (var file in Fs.EnumerateFiles(srcConfig, recursive: true).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                _c.Ct.ThrowIfCancellationRequested();
+                var rel = Path.GetRelativePath(srcConfig, file).Replace('\\', '/');
+                var name = Path.GetFileName(file);
+
+                if (rel is IrisFile or "oculus.properties") continue; // key-merged below / Forge-only twin
+                if (name.StartsWith("originclient", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                    || BuiltInInternalConfigs.Contains(name))
+                {
+                    withheld++;
+                    continue;
+                }
+                if (rel == SodiumFile) { PlanSodium(file); continue; }
+
+                var dest = Path.Combine(_dst, "config", rel.Replace('/', Path.DirectorySeparatorChar));
+                if (PlanFile(file, dest, "config/" + rel, PlanItemKind.Config, touchNow: true, quiet: true)) copied++;
+            }
+            if (copied > 0)
+                Line(SummarySection.Imported, PlanItemKind.Config, $"Mod settings ({copied} config {(copied == 1 ? "file" : "files")})");
+            if (withheld > 0)
+                Line(SummarySection.NotImported, PlanItemKind.Config, $"{withheld} Origin / built-in mod config {(withheld == 1 ? "file" : "files")}",
+                    "Origin manages these itself.");
+
+            PlanIris();
+        }
+
+        private void PlanSodium(string srcFile)
+        {
+            var dest = Path.Combine(_dst, "config", SodiumFile);
+            if (!File.Exists(dest))
+            {
+                // Sodium writes its own file on first run and a copied one could carry another version's schema.
+                Line(SummarySection.NotImported, PlanItemKind.Config, SodiumFile, "Sodium creates its own settings the first time it runs; set it up once and re-import if you want to carry values over.");
+                return;
+            }
+            if (_c.Options.KeepMyOriginSettings)
+            {
+                Plan.Kept++;
+                Line(SummarySection.NotImported, PlanItemKind.Config, SodiumFile, "You chose to keep your current Origin settings.");
+                return;
+            }
+            var map = Fs.Allow(srcFile) ? JsonConfigFormat.ThirdParty.Read(srcFile) : null;
+            if (map == null)
+            {
+                Line(SummarySection.NeedsAttention, PlanItemKind.Config, SodiumFile, "Couldn't read this settings file in your old instance.");
+                return;
+            }
+            Plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.MergeJson, Item = PlanItemKind.Config, Label = "config/" + SodiumFile,
+                Source = srcFile, Dest = dest, TouchNow = true, TargetVersion = _c.TargetVersion,
+                Desired = map.ToDictionary(kv => kv.Key, kv => (string?)kv.Value, StringComparer.Ordinal),
+            });
+            Plan.Replaced++;
+            Line(SummarySection.Imported, PlanItemKind.Config, "Sodium video settings", "merged into your current ones");
+        }
+
+        private void PlanIris()
+        {
+            if (_irisMap == null && _irisOverrides.Count == 0) return;
+            if (!_c.TargetHasIris) return;
+            var dest = Path.Combine(_dst, "config", IrisFile);
+            var exists = File.Exists(dest);
+            if (exists && _c.Options.KeepMyOriginSettings)
+            {
+                Plan.Kept++;
+                Line(SummarySection.NotImported, PlanItemKind.Config, IrisFile, "You chose to keep your current Origin settings.");
+                return;
+            }
+            var desired = new Dictionary<string, string?>(StringComparer.Ordinal);
+            if (_irisMap != null) foreach (var (k, v) in _irisMap) desired[k] = v;
+            foreach (var (k, v) in _irisOverrides) desired[k] = v;
+            Plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.MergeProperties, Item = PlanItemKind.Config, Label = "config/" + IrisFile,
+                Source = _irisSourceFile, Dest = dest, TouchNow = true, TargetVersion = _c.TargetVersion, Desired = desired,
+            });
+            if (exists) Plan.Replaced++; else Plan.Created++;
+            Line(SummarySection.Imported, PlanItemKind.Config, "Shader settings (iris.properties)",
+                _irisOverrides.ContainsKey("shaderPack") ? "your shader pack and shader options" : "your shader options");
+        }
+
+        // ---------------------------------------------------------------- servers.dat, OptiFine settings
+
+        private void PlanLoneFiles()
+        {
+            // The server list is the player's own curated data: an existing Origin list is KEPT by default
+            // (it is imported only where Origin has none), and "Replace my server list" (Advanced) swaps it
+            // after a backup. A byte-identical list is just "already the same".
+            var servers = Path.Combine(_src, "servers.dat");
+            if (File.Exists(servers) && Fs.Allow(servers))
+            {
+                var serversDest = Path.Combine(_dst, "servers.dat");
+                if (File.Exists(serversDest) && !_c.Options.ReplaceServerList && !FileCompare.Same(servers, serversDest, Fs))
+                {
+                    Plan.Kept++;
+                    Line(SummarySection.NotImported, PlanItemKind.Setting, "servers.dat (server list)",
+                        "Your Origin server list was kept; the old list is in Review details.");
+                }
+                else
+                {
+                    PlanFile(servers, serversDest, "servers.dat", PlanItemKind.Setting);
+                }
+            }
+
+            var of = Path.Combine(_src, "optionsof.txt");
+            if (!File.Exists(of)) return;
+            if (Target189 && Fs.Allow(of))
+                PlanFile(of, Path.Combine(_dst, "optionsof.txt"), "optionsof.txt", PlanItemKind.Setting);
+            else
+                Line(SummarySection.NotImported, PlanItemKind.Setting, "optionsof.txt (OptiFine settings)",
+                    "OptiFine settings only apply on 1.8.9. Origin uses Sodium + Iris on this version.");
+        }
+
+        // ---------------------------------------------------------------- worlds (opt-in)
+
+        private void PlanWorlds()
+        {
+            var savesDir = Path.Combine(_src, "saves");
+            var dstSaves = Path.Combine(_dst, "saves");
+            foreach (var world in Fs.EnumerateDirectories(savesDir).OrderBy(w => w, StringComparer.OrdinalIgnoreCase))
+            {
+                _c.Ct.ThrowIfCancellationRequested();
+                if (!File.Exists(Path.Combine(world, "level.dat"))) continue; // not a world
+                var name = Path.GetFileName(world);
+                var dest = Path.Combine(dstSaves, name);
+                var finalName = name;
+                if (Directory.Exists(dest) || File.Exists(dest) || _plannedDestinations.Contains(dest))
+                {
+                    finalName = FreeImportedName(dstSaves, name, isDirectory: true);
+                    dest = Path.Combine(dstSaves, finalName);
+                }
+                _plannedDestinations.Add(dest);
+                var bytes = DirectorySize(world);
+                Plan.Ops.Add(new PlannedOp
+                {
+                    Kind = OpKind.CopyTree, Item = PlanItemKind.World, Label = finalName,
+                    Source = world, Dest = dest, Bytes = bytes,
+                });
+                Line(SummarySection.Imported, PlanItemKind.World, finalName,
+                    finalName == name ? null : $"a world called \"{name}\" already exists, so this copy is saved as \"{finalName}\"", bytes);
+            }
+        }
+
+        // ---------------------------------------------------------------- shared steps
+
+        /// <summary>
+        /// One plain file: new -> copy; same bytes -> unchanged; different -> replace after a backup,
+        /// or keep the current one with "Keep my current Origin settings". Returns true when it will be copied.
+        /// </summary>
+        private bool PlanFile(string src, string dest, string label, PlanItemKind kind, bool touchNow = true, bool quiet = false)
+        {
+            var length = new FileInfo(src).Length;
+            if (File.Exists(dest))
+            {
+                if (FileCompare.Same(src, dest, Fs)) { Plan.Unchanged++; return false; }
+                if (_c.Options.KeepMyOriginSettings)
+                {
+                    Plan.Kept++;
+                    if (!quiet) Line(SummarySection.NotImported, kind, label, "You chose to keep your current Origin settings.");
+                    return false;
+                }
+                Plan.Replaced++;
+            }
+            else
+            {
+                Plan.Created++;
+            }
+            Plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
+            });
+            if (!quiet) Line(SummarySection.Imported, kind, label);
+            return true;
+        }
+
+        private void PlanText(string dest, string label, PlanItemKind kind, string text)
+        {
+            if (File.Exists(dest)) { if (_c.Options.KeepMyOriginSettings) { Plan.Kept++; return; } Plan.Replaced++; } else Plan.Created++;
+            Plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.WriteText, Item = kind, Label = label, Dest = dest, Text = text, TouchNow = true,
+                Bytes = Encoding.UTF8.GetByteCount(text),
+            });
+            Line(SummarySection.Imported, kind, label);
+        }
+
+        private void Line(SummarySection section, PlanItemKind kind, string name, string? reason = null, long bytes = 0) =>
+            Plan.Lines.Add(new SummaryLine(section, kind, name, reason, bytes));
+
+        private long DirectorySize(string dir)
+        {
+            long total = 0;
+            foreach (var file in Fs.EnumerateFiles(dir, recursive: true))
+            {
+                try { total += new FileInfo(file).Length; }
+                catch (IOException) { /* a file that vanished mid-scan adds nothing */ }
+            }
+            return total;
+        }
+    }
+
+    // ---------------------------------------------------------------- execution helpers (used by ImportEngine)
+
+    /// <summary>Applies the options.txt keys to <paramref name="tempPath"/> (which holds the current file, or does not exist).</summary>
+    public static void ApplyOptions(string tempPath, IReadOnlyDictionary<string, string?> desired, string targetVersion, string targetGameDir, string? resourcePacks)
+    {
+        OptionsTxtFormat.Instance.Apply(tempPath, desired, new SyncInstance(targetVersion, targetGameDir));
+        // Null when the target's data version isn't known and the file is new: the engine then says so.
+        if (resourcePacks != null && File.Exists(tempPath)) SetOptionsLine(tempPath, "resourcePacks", resourcePacks);
+    }
+
+    public static void ApplyJson(string tempPath, IReadOnlyDictionary<string, string?> desired, string targetVersion, string targetGameDir) =>
+        JsonConfigFormat.ThirdParty.Apply(tempPath, desired, new SyncInstance(targetVersion, targetGameDir));
+
+    /// <summary>
+    /// Key-merges iris.properties: keys the destination has are updated in place (PropertiesFormat.Iris), the
+    /// two shader keys are added when the file lacks them, and a missing file is created with the wanted keys.
+    /// A shader pack that isn't in the target's shaderpacks/ is never referenced.
+    /// </summary>
+    public static void ApplyIris(string tempPath, IReadOnlyDictionary<string, string?> desired, string targetVersion, string targetGameDir)
+    {
+        var instance = new SyncInstance(targetVersion, targetGameDir);
+        var existed = File.Exists(tempPath);
+        if (existed) PropertiesFormat.Iris.Apply(tempPath, desired, instance);
+
+        var lines = existed ? File.ReadAllText(tempPath, Encoding.Latin1).Replace("\r\n", "\n").Split('\n').ToList() : new List<string>();
+        if (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+        var have = new HashSet<string>(lines.Select(l => l.IndexOf('=') is var i and > 0 ? l[..i].Trim() : ""), StringComparer.Ordinal);
+        var changed = false;
+        foreach (var (key, value) in desired.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (value == null || have.Contains(key)) continue;
+            // A new file takes every wanted key; an existing one only gets the two shader keys it lacks.
+            if (existed && key is not ("shaderPack" or "enableShaders")) continue;
+            if (key == "shaderPack" && !PackPresent(targetGameDir, value)) continue;
+            lines.Add(key + "=" + value.Trim());
+            changed = true;
+        }
+        if (changed) AtomicFile.WriteAllBytes(tempPath, Encoding.Latin1.GetBytes(string.Join(Environment.NewLine, lines) + Environment.NewLine));
+    }
+
+    private static bool PackPresent(string gameDir, string raw)
+    {
+        var name = Unescape(raw.Trim());
+        if (name.Length == 0) return true;
+        if (name.Contains("..") || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return false;
+        var path = Path.Combine(gameDir, "shaderpacks", name);
+        return File.Exists(path) || Directory.Exists(path);
+    }
+
+    // Replaces (or adds) one `key:value` line of an options.txt, keeping the file's line endings.
+    private static void SetOptionsLine(string path, string key, string value)
+    {
+        var text = File.ReadAllText(path, Encoding.UTF8);
+        var newline = text.Contains("\r\n") ? "\r\n" : "\n";
+        var lines = text.Replace("\r\n", "\n").Split('\n').ToList();
+        if (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+        var index = lines.FindLastIndex(l => l.StartsWith(key + ":", StringComparison.Ordinal));
+        if (index >= 0) lines[index] = key + ":" + value; else lines.Add(key + ":" + value);
+        AtomicFile.WriteAllText(path, string.Join(newline, lines) + newline);
+    }
+
+    // ---- Java .properties text (the Iris shaderPack value) ----
+
+    private static string Unescape(string value)
+    {
+        var sb = new StringBuilder(value.Length);
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (c != '\\' || i + 1 >= value.Length) { sb.Append(c); continue; }
+            var next = value[++i];
+            if (next == 'u' && i + 4 < value.Length
+                && int.TryParse(value.AsSpan(i + 1, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var code))
+            {
+                sb.Append((char)code);
+                i += 4;
+            }
+            else
+            {
+                sb.Append(next switch { 't' => '\t', 'n' => '\n', 'r' => '\r', 'f' => '\f', _ => next });
+            }
+        }
+        return sb.ToString();
+    }
+
+    // What Properties.store writes for a value: \ = : # ! and a leading space escaped, non-Latin-1 as \uXXXX.
+    private static string EscapeValue(string value)
+    {
+        var sb = new StringBuilder(value.Length + 4);
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            switch (c)
+            {
+                case '\\': sb.Append("\\\\"); break;
+                case '=': case ':': case '#': case '!': sb.Append('\\').Append(c); break;
+                case ' ' when i == 0: sb.Append("\\ "); break;
+                case '\t': sb.Append("\\t"); break;
+                case > '~': sb.Append("\\u").Append(((int)c).ToString("X4", CultureInfo.InvariantCulture)); break;
+                default: sb.Append(c); break;
+            }
+        }
+        return sb.ToString();
+    }
+}

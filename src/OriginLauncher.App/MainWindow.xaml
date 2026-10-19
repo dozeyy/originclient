@@ -192,6 +192,27 @@
             <ContentControl x:Name="SignInPanelHost"/>
         </Border>
 
+        <!-- Import from another Minecraft launcher: a modal card like the sign-in one
+             (ImportPanel). It shares the Scrim; a scrim click never closes it while an
+             import is writing. -->
+        <Border x:Name="ImportPanelCard" Width="740" Height="560"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="{StaticResource Brush.PanelElevated}"
+                BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Dialog}"
+                Opacity="0" Visibility="Collapsed" IsHitTestVisible="False"
+                RenderTransformOrigin="0.5,0.5">
+            <Border.Effect><StaticResource ResourceKey="Shadow.Card"/></Border.Effect>
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="ImportPanelScale" ScaleX="0.94" ScaleY="0.94"/>
+            </Border.RenderTransform>
+            <ContentControl x:Name="ImportPanelHost"/>
+        </Border>
+
+        <!-- One-time first-run offer to import (bottom left, beside the rail; never modal). -->
+        <controls:ImportPromptCard x:Name="FirstRunPrompt" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                   Margin="84,0,0,20"/>
+
         <!-- Social toasts, above everything. Moves left of the Friends drawer while it's open. -->
         <controls:SocialToastHost x:Name="Toasts" Width="320"
                                   HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"/>

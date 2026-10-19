@@ -14,6 +14,12 @@ public partial class App : Application
     // folder is a corruption class, not a feature.
     private static System.Threading.Mutex? _singleInstanceMutex;
 
+    /// <summary>`--render-shots` (CI): the real window with made-up data; nothing reads this PC.</summary>
+    internal static bool IsRenderMode { get; private set; }
+
+    /// <summary>`--import`: the installer's finish-page checkbox. The launcher starts normally, then opens straight into the import card.</summary>
+    internal static bool StartWithImport { get; private set; }
+
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
@@ -22,12 +28,26 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // `--import-plan <out.json>`: a read-only dry run of the import against this PC (Core/Import/Launcher/
+        // ImportPlanReport). No window, no single-instance guard, and NOTHING below this block runs - in
+        // particular not EnsureScaffold or the recovery - so no Origin folder is created or written. It writes
+        // only the one json file and exits (0 written, 2 refused, 1 failed).
+        var dryRun = Array.IndexOf(e.Args, "--import-plan");
+        if (dryRun >= 0 && dryRun + 1 < e.Args.Length)
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            var code = Core.Import.Launcher.ImportPlanReport.Run(e.Args[dryRun + 1]);
+            Shutdown(code);
+            return;
+        }
+
         // CI screen render (UI/RenderShots.cs): no single-instance guard, no
         // main window of its own, no motion; pictures, then exit (1 = failed).
         var render = Array.IndexOf(e.Args, "--render-shots");
         if (render >= 0 && render + 1 < e.Args.Length)
         {
             var outDir = e.Args[render + 1];
+            IsRenderMode = true;
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             // Any failure, on any thread, leaves its stack trace for the CI log.
             AppDomain.CurrentDomain.UnhandledException += (_, args) =>
@@ -48,6 +68,8 @@ public partial class App : Application
             }
             return;
         }
+
+        StartWithImport = Array.IndexOf(e.Args, "--import") >= 0;
 
 		var mutexName = @"Local\OriginLauncher.SingleInstance";
 #if DEBUG
@@ -80,6 +102,9 @@ public partial class App : Application
 
         OriginPaths.EnsureScaffold();
         System.Threading.Tasks.Task.Run(DeleteLegacySignInProfile);
+        // An import that was interrupted last time (crash, power cut) is rolled back, on the thread pool;
+        // MainWindow tells the player once the first window is up (Core/Import/Launcher/ImportStartup).
+        Core.Import.Launcher.ImportStartup.StartRecovery();
 
         // Per-account game folders (Core/GameFolders): the first run of this
         // code moves each version's old single game folder into the selected

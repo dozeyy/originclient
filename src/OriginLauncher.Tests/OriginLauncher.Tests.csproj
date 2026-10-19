@@ -44,6 +44,20 @@
     <!-- Mod profiles: the naming/server/selection rules, the profile list edits,
          the launch mods folder and the profile folder copy/delete (all pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Profiles\*.cs" LinkBase="Profiles" />
+    <!-- Import from another Minecraft instance: the pure engine (detectors, version picker,
+         mod resolver, settings/pack migrator, transaction + journal). Core/Import/Launcher is
+         the Windows/WPF glue and stays out. Every root is a parameter, so the tests only ever
+         touch temp folders. -->
+    <Compile Include="..\OriginLauncher.App\Core\Import\**\*.cs" Exclude="..\OriginLauncher.App\Core\Import\Launcher\**" LinkBase="Import" />
+    <!-- The launcher glue that is pure: where each launcher keeps its data (roots), the settings change an
+         import makes, the one-time first-run card rules and the Done page's summary reader. The rest of
+         Core/Import/Launcher (backend, HTTP, startup, dry run) needs Windows and stays out. -->
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportRoots.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSettingsRules.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportPrompt.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSummaryView.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
+    <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameHandoff.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\StageProgress.cs" LinkBase="Launch" />

@@ -51,6 +51,11 @@ public sealed class LauncherSettings
     public List<Profiles.ModProfile> ModProfiles { get; set; } = new();
     public string? SelectedProfileId { get; set; }
 
+    // The one-time "Bring over your mods and settings from <launcher>?" card
+    // (Core/Import/Launcher/ImportPrompt). Set the moment the card is shown, so
+    // it never appears twice; the Profiles page's Import button is always there.
+    public bool ImportPromptSeen { get; set; }
+
     // "Sync settings across versions" (Settings -> Origin Client). ON by
     // default (Will, 2026-10-18 — it used to be off and nobody knew it existed):
     // keybinds, video settings, every Origin mod setting, HUD positions and the

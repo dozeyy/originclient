@@ -198,6 +198,46 @@ public sealed class VersionManager
     // toggle, which must reach every such instance, not just one pinned version.
     public static IReadOnlyCollection<string> OriginSupportedVersions => OriginBuilds.Keys.ToArray();
 
+    /// <summary>
+    /// The bundled originclient-&lt;jar&gt;.jar a version ships (OriginPaths.BundledOriginClientJar), or null for
+    /// a version with no Origin build. The path is not checked for existence: a dev build without the
+    /// module's Gradle output has none. Read-only; the import uses it to learn which mods Origin already includes.
+    /// </summary>
+    public static string? BundledJarFor(string version) =>
+        OriginBuilds.TryGetValue(version, out var build) ? OriginPaths.BundledOriginClientJar(build.JarFileName) : null;
+
+    /// <summary>
+    /// Takes the version's provisioning gate (the lock an install or launch of that version holds) for as
+    /// long as the result is kept; dispose it to release. The import holds it while it writes the version's
+    /// shared game files, so a launch of the same version waits instead of racing it.
+    /// </summary>
+    public static async Task<IAsyncDisposable> AcquireVersionGateAsync(string version, CancellationToken ct)
+    {
+        var gate = GateFor(version);
+        await gate.WaitAsync(ct).ConfigureAwait(false);
+        return new GateLease(gate);
+    }
+
+    private sealed class GateLease : IAsyncDisposable
+    {
+        private SemaphoreSlim? _gate;
+        public GateLease(SemaphoreSlim gate) => _gate = gate;
+
+        public ValueTask DisposeAsync()
+        {
+            try
+            {
+                Interlocked.Exchange(ref _gate, null)?.Release();
+            }
+            catch (Exception ex) when (ex is SemaphoreFullException or ObjectDisposedException)
+            {
+                // Releasing a gate must never throw into the import that holds it (the import has already finished or rolled back).
+                Import.Launcher.ImportLog.Write("version gate release failed: " + ex.GetType().Name);
+            }
+            return ValueTask.CompletedTask;
+        }
+    }
+
     public async Task<IReadOnlyList<string>> GetReleaseVersionsAsync()
     {
         await ReleaseVersionsGate.WaitAsync();

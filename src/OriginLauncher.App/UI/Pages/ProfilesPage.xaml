@@ -22,16 +22,29 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="Profiles" Style="{StaticResource Text.H1}"/>
-                <Button Grid.Column="1" x:Name="NewButton" Style="{StaticResource Button.Secondary}"
-                        Padding="14,8" VerticalAlignment="Center" Click="NewButton_Click"
-                        AutomationProperties.Name="New profile">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource Icon.Plus}" Style="{StaticResource Icon.Base}"
-                              Width="14" Height="14" Margin="0,0,8,0"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
-                        <TextBlock Text="New profile" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ImportButton" Style="{StaticResource Button.Secondary}"
+                            Padding="14,8" Margin="0,0,10,0" Click="ImportButton_Click"
+                            ToolTip="Bring your mods and settings over from another Minecraft launcher"
+                            AutomationProperties.Name="Import">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
+                                  Width="14" Height="14" Margin="0,0,8,0"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <TextBlock Text="Import" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="NewButton" Style="{StaticResource Button.Secondary}"
+                            Padding="14,8" Click="NewButton_Click"
+                            AutomationProperties.Name="New profile">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Plus}" Style="{StaticResource Icon.Base}"
+                                  Width="14" Height="14" Margin="0,0,8,0"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                            <TextBlock Text="New profile" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
             <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
                     CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,12"/>

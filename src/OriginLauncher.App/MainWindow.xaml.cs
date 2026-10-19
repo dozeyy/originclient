@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using OriginLauncher.App.Core.Auth;
+using OriginLauncher.App.Core.Import.Launcher;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
 using OriginLauncher.App.Core.Updates;
@@ -25,6 +26,9 @@ public partial class MainWindow : Window
     private bool _accountPanelOpen;
     private bool _signInPanelOpen;
     private bool _friendsOpen;
+    private bool _importPanelOpen;
+    private ImportPanel? _importPanel;
+    private bool _promptChecking;
     private bool _syncingNavigation;
     private LauncherPage _currentPage = LauncherPage.Home;
 
@@ -58,6 +62,8 @@ public partial class MainWindow : Window
             if (_currentPage == LauncherPage.Mods) _modsPage.ShowVersion(_homePage.CurrentVersion);
             // Friends belong to the selected account: sign in again as it.
             SocialHub.Service.ResetAccount();
+            // A player who just signed in for the first time can now be offered the one-time import card.
+            _ = MaybeShowImportPromptAsync();
         };
         _accountPanel.AccountSelected += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AddAccountRequested += (_, _) => OpenSignInPanel();
@@ -68,6 +74,10 @@ public partial class MainWindow : Window
         Scrim.IsVisibleChanged += (_, _) => _homePage.SetChromeOverlayOpen(Scrim.IsVisible);
 
         NavHome.IsChecked = true;
+
+        _profilesPage.ImportRequested += (_, _) => OpenImportPanel();
+        FirstRunPrompt.ImportRequested += (_, _) => OpenImportPanel();
+        ContentRendered += async (_, _) => await AfterFirstRenderAsync();
 
         InitSocial();
 
@@ -245,12 +255,12 @@ public partial class MainWindow : Window
 
     private void FriendsButton_Click(object sender, RoutedEventArgs e) => SetFriendsOpen(!_friendsOpen);
 
-    private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen;
+    private bool AnyDrawerOpen => _accountPanelOpen || _signInPanelOpen || _friendsOpen || _importPanelOpen;
 
     private void SetFriendsOpen(bool open)
     {
         if (open == _friendsOpen) return;
-        if (open && _signInPanelOpen) return; // finish (or cancel) signing in first
+        if (open && (_signInPanelOpen || _importPanelOpen)) return; // finish (or cancel) signing in or importing first
         if (open && _accountPanelOpen) SetAccountPanelOpen(false);
 
         _friendsOpen = open;
@@ -487,7 +497,8 @@ public partial class MainWindow : Window
 
     private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_signInPanelOpen) CloseSignInPanel();
+        if (_importPanelOpen) { _importPanel?.RequestClose(); }
+        else if (_signInPanelOpen) CloseSignInPanel();
         else if (_friendsOpen) SetFriendsOpen(false);
         else SetAccountPanelOpen(false);
     }
@@ -565,11 +576,147 @@ public partial class MainWindow : Window
             HandoffBehavior.SnapshotAndReplace);
     }
 
+    // ---- import from another Minecraft launcher (UI/Controls/ImportPanel) -------------
+
+    // Opens the import card (the Profiles page's Import button, the first-run card, `--import`). The scan
+    // starts here, when the card opens - never at launcher startup. The backend is the real one unless
+    // the CI screen render passes a made-up one.
+    private void OpenImportPanel(IImportBackend? backend = null)
+    {
+        if (_importPanelOpen || _signInPanelOpen) return;
+        if (_accountPanelOpen) SetAccountPanelOpen(false);
+        if (_friendsOpen) SetFriendsOpen(false);
+        FirstRunPrompt.Hide();
+
+        var panel = new ImportPanel(backend ?? new LauncherImportBackend());
+        panel.CloseRequested += (_, _) => CloseImportPanel();
+        panel.Imported += (_, _) =>
+        {
+            // The import changed the selected version and added a profile: Home picks both up.
+            _homePage.RefreshProfile();
+        };
+        _importPanel = panel;
+        ImportPanelHost.Content = panel;
+        SetImportPanelOpen(true);
+        panel.Start();
+    }
+
+    private void CloseImportPanel()
+    {
+        if (!_importPanelOpen) return;
+        SetImportPanelOpen(false);
+        _importPanel?.Dispose();
+        ImportPanelHost.Content = null;
+        _importPanel = null;
+    }
+
+    private void SetImportPanelOpen(bool open)
+    {
+        _importPanelOpen = open;
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
+
+        if (open)
+        {
+            ImportPanelCard.Visibility = Visibility.Visible;
+            Scrim.Visibility = Visibility.Visible;
+        }
+        ImportPanelCard.IsHitTestVisible = open;
+        Scrim.IsHitTestVisible = open || AnyDrawerOpen;
+        if (open) Scrim.BeginAnimation(OpacityProperty, new DoubleAnimation(0.5, duration), HandoffBehavior.SnapshotAndReplace);
+
+        var fade = new DoubleAnimation(open ? 1.0 : 0.0, duration);
+        fade.Completed += (_, _) =>
+        {
+            if (!_importPanelOpen)
+            {
+                ImportPanelCard.Visibility = Visibility.Collapsed;
+                if (!AnyDrawerOpen) Scrim.Visibility = Visibility.Collapsed;
+            }
+        };
+        ImportPanelCard.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
+        ImportPanelScale.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(open ? 1.0 : 0.97, duration) { EasingFunction = ease }, HandoffBehavior.SnapshotAndReplace);
+        ImportPanelScale.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(open ? 1.0 : 0.97, duration) { EasingFunction = ease }, HandoffBehavior.SnapshotAndReplace);
+
+        if (!open && !AnyDrawerOpen)
+        {
+            Scrim.IsHitTestVisible = false;
+            Scrim.BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, duration), HandoffBehavior.SnapshotAndReplace);
+        }
+    }
+
+    // After the first window is up: tell the player about an import that was rolled back at start (the
+    // recovery itself ran on the thread pool), open the import card for `--import`, or - once, and only
+    // when another launcher is found and the player could import - offer it.
+    private async Task AfterFirstRenderAsync()
+    {
+        if (await ImportStartup.Recovery.ConfigureAwait(true) > 0)
+            Toasts.Show(new SocialToast(SocialToastKind.Notice, "Import", "An interrupted import was undone."));
+
+        if (App.IsRenderMode) return;
+        if (App.StartWithImport)
+        {
+            await Task.Delay(1200); // let the opening animation finish
+            OpenImportPanel();
+            return;
+        }
+        await Task.Delay(3000); // never compete with startup
+        await MaybeShowImportPromptAsync();
+    }
+
+    private async Task MaybeShowImportPromptAsync()
+    {
+        if (_promptChecking || App.IsRenderMode || App.StartWithImport) return;
+        _promptChecking = true;
+        try
+        {
+            // Off the UI thread: the settings read, the account check and the quick scan.
+            var question = await Task.Run(async () =>
+            {
+                if (Core.SettingsStore.Load().ImportPromptSeen) return null;
+                var canImport = Core.GameFolders.Launcher.AccountFolders.SelectedKey() != null;
+                if (!canImport) return null; // the import would only say "sign in first": keep the one-time card for later
+                var scan = await new LauncherImportBackend().ScanAsync(null, CancellationToken.None);
+                return ImportPrompt.ShouldShow(alreadySeen: false, openedWithImportFlag: false, canImport, scan.Instances.Count)
+                    ? ImportPrompt.Question(scan.Instances) : null;
+            });
+            if (question == null || _importPanelOpen) return;
+
+            FirstRunPrompt.ShowQuestion(question);
+            // Shown once: set the moment it appears, so it never comes back.
+            _ = Task.Run(() => Core.SettingsStore.Update(s => s.ImportPromptSeen = true));
+        }
+        catch (Exception)
+        {
+            // a failed look for other launchers just means no card
+        }
+        finally
+        {
+            _promptChecking = false;
+        }
+    }
+
+    // ---- render mode (CI): the import card with a made-up backend, never the real machine ----
+
+    internal ImportPanel TourOpenImport(IImportBackend backend)
+    {
+        if (_importPanelOpen) CloseImportPanel();
+        OpenImportPanel(backend);
+        return _importPanel!;
+    }
+
+    internal void TourCloseImport() => CloseImportPanel();
+
+    internal ImportPromptCard TourImportPrompt => FirstRunPrompt;
+
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
         {
-            if (_signInPanelOpen) CloseSignInPanel();
+            if (_importPanelOpen) _importPanel?.HandleEscape();
+            else if (_signInPanelOpen) CloseSignInPanel();
             else if (_accountPanelOpen) SetAccountPanelOpen(false);
             else if (_friendsOpen)
             {
@@ -579,6 +726,9 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
+
+        // The import card is modal: no page shortcuts, and Enter belongs to it.
+        if (_importPanelOpen) return;
 
         // A Home scene owns the keyboard while it is open. In particular,
         // Ctrl+1/2/3/4 must not navigate behind the version picker and leave it

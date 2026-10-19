@@ -282,6 +282,11 @@ public partial class ProfilesPage : UserControl
 
     private void NewButton_Click(object sender, RoutedEventArgs e) => OpenForm(null);
 
+    /// <summary>The header's Import button: MainWindow opens the import card (Core/Import, UI/Controls/ImportPanel).</summary>
+    public event EventHandler? ImportRequested;
+
+    private void ImportButton_Click(object sender, RoutedEventArgs e) => ImportRequested?.Invoke(this, EventArgs.Empty);
+
     private void OpenForm(ModProfile? editing)
     {
         _editingId = editing?.Id;

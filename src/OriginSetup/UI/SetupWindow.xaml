@@ -201,7 +201,24 @@
                         <TextBlock x:Name="DoneBody" Style="{StaticResource Text.BodyDim}" TextAlignment="Center"
                                    TextWrapping="Wrap" TextTrimming="None" HorizontalAlignment="Center"
                                    Text="Origin is on your desktop and in the Start menu."/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,30,0,0">
+                        <!-- Optional: open the launcher straight into "Import from another Minecraft launcher" (it starts the launcher with the import flag). Off by default. -->
+                        <Border Style="{StaticResource Setup.Card}" Margin="0,24,0,0" Padding="18,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Import from another Minecraft launcher" Style="{StaticResource Text.Body}"/>
+                                    <TextBlock Text="Bring over your mods, settings and packs when Origin opens." Style="{StaticResource Text.Caption}"
+                                               Foreground="{StaticResource Brush.TextMuted}" TextWrapping="Wrap" TextTrimming="None"/>
+                                </StackPanel>
+                                <ToggleButton x:Name="ImportToggle" Grid.Column="1" Style="{StaticResource Toggle.Switch}"
+                                              VerticalAlignment="Center" Margin="16,0,0,0"
+                                              AutomationProperties.Name="Import from another Minecraft launcher"/>
+                            </Grid>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,24,0,0">
                             <Button x:Name="LaunchButton" Style="{StaticResource Button.Primary}" MinWidth="188"
                                     Content="Launch Origin" Click="LaunchButton_Click"/>
                             <Button Content="Close" MinWidth="110" Margin="14,0,0,0" Click="CloseButton_Click"/>

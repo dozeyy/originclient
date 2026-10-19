@@ -12,6 +12,7 @@ using OriginLauncher.App.Core.Accounts;
 using OriginLauncher.App.Core.Auth;
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.GameFolders.Launcher;
+using OriginLauncher.App.Core.Import.Launcher;
 using OriginLauncher.App.Core.Launch;
 using OriginLauncher.App.Core.Models;
 using OriginLauncher.App.Core.Profiles;
@@ -102,6 +103,8 @@ public partial class HomePage : UserControl
             else if (_sceneGame != null) StopStartingGame(_sceneGame);
         };
         VersionOverlay.VersionSelected += OnVersionSelected;
+        // While an import writes to the game folders, Play and Join stay off (Core/Import/Launcher/ImportRunState).
+        ImportRunState.Changed += () => Dispatcher.BeginInvoke(() => RefreshPlayButton());
         VersionOverlay.LaunchRequested += OnLaunchRequested;
         // The home banner pauses under either scene (and, in ad mode, its
         // native WebView2 would otherwise draw on top of them).
@@ -367,6 +370,12 @@ public partial class HomePage : UserControl
         ApplyPlayButton(AccountLaunchBook.ButtonFor(phase, canPlay: key != null, hasVersion: _selectedVersion != null));
         // Join follows Play: usable only when Play itself could start a launch.
         JoinButton.IsEnabled = key != null && phase == GamePhase.Idle && _selectedVersion != null;
+        if (ImportRunState.IsApplying)
+        {
+            PlayButton.IsEnabled = false;
+            JoinButton.IsEnabled = false;
+            PlayButton.ToolTip = "An import is running. Play comes back when it finishes.";
+        }
     }
 
     private void ApplyPlayButton(PlayButtonView view)
@@ -483,6 +492,12 @@ public partial class HomePage : UserControl
 
     private async Task LaunchAsync(LaunchTarget? target = null)
     {
+        // Enter, a friend's Join and the version picker all land here: none of them may start a game mid-import.
+        if (ImportRunState.IsApplying)
+        {
+            SetStatus("An import is running. Play comes back when it finishes.", StatusTone.Warning);
+            return;
+        }
         // One fresh read for every launch-gating setting: offline test mode
         // and the external-mods switch can both change on other pages between
         // clicks, and this launch must honour what's on disk NOW.
