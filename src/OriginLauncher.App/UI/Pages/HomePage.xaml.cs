@@ -93,9 +93,38 @@ public partial class HomePage : UserControl
     private readonly DispatcherTimer _playersTimer = new(DispatcherPriority.Background) { Interval = PlayersOnline.Refresh };
     private bool _playersStarted;
 
+    private const double CompactBelowHeight = 600;
+    private bool _compact;
+
+    /// <summary>
+    /// Regular spacing (16 px gaps, 24 px card padding, a 66 px version button) or compact (8 px gaps,
+    /// 16 px padding, 56 px button) by how tall the page is. Resize-driven, no animation.
+    /// </summary>
+    private void ApplyDensity(double pageHeight)
+    {
+        var compact = pageHeight < CompactBelowHeight;
+        if (compact == _compact) return;
+        _compact = compact;
+
+        var gap = (double)FindResource(compact ? "Space.2" : "Space.3");
+        HomeCardBorder.Padding = new Thickness((double)FindResource(compact ? "Space.3" : "Space.4"));
+        VersionButton.Height = compact ? 56 : 66;
+        VersionButton.Padding = compact ? new Thickness(16, 6, 16, 6) : new Thickness(16, 10, 16, 10);
+        VersionButton.Margin = new Thickness(0, 0, 0, gap);
+        ProfileRow.Margin = new Thickness(0, 0, 0, gap);
+        ModsRowBorder.Margin = new Thickness(0, 0, 0, gap);
+        // Play to Join stays 16 px at every size: the two buttons are a pair.
+        JoinButton.Margin = new Thickness(0, (double)FindResource("Space.3"), 0, 0);
+        StatusRow.Margin = new Thickness(0, gap, 0, 0);
+        PromoBanner.Margin = new Thickness(0, gap, 0, 0);
+    }
+
     public HomePage()
     {
         InitializeComponent();
+        // The Play card (with a profile row and Join) is taller than the smallest window leaves room for:
+        // below this page height every gap on it halves, so nothing touches the top bar or the bottom edge.
+        SizeChanged += (_, e) => ApplyDensity(e.NewSize.Height);
         _settings = SettingsStore.Load();
         LoadingOverlay.CancelRequested += (_, _) =>
         {
@@ -1193,6 +1222,10 @@ public partial class HomePage : UserControl
     internal void TourReportLaunch(string stage) => LoadingOverlay.ReportStage(stage);
 
     internal void TourHideLaunch() => LoadingOverlay.Hide();
+
+    internal void TourShowVersions(int detailIndex) => VersionOverlay.TourOpen(detailIndex);
+
+    internal void TourHideVersions() => VersionOverlay.TourClose();
 
     /// <summary>Render mode only: Home as if <paramref name="profile"/> were selected (no settings are touched).</summary>
     internal void TourShowProfile(ModProfile profile)

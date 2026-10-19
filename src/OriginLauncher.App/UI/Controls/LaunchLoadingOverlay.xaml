@@ -38,12 +38,12 @@
                  frame) with pixel snapping off, so its right end moves by
                  fractions of a pixel instead of stepping. Animated from the
                  code-behind. -->
-            <Border x:Name="ProgressTrack" Width="280" Height="4" CornerRadius="0"
+            <Border x:Name="ProgressTrack" Width="280" Height="4" CornerRadius="{StaticResource Radius.Bar}"
                     Background="{StaticResource Brush.SoftStroke}" HorizontalAlignment="Center"
                     ClipToBounds="True" Margin="0,0,0,14"
                     SnapsToDevicePixels="False" UseLayoutRounding="False">
                 <Grid>
-                    <Border x:Name="ProgressFill" Height="4" CornerRadius="0"
+                    <Border x:Name="ProgressFill" Height="4" CornerRadius="{StaticResource Radius.Bar}"
                             Background="{StaticResource Brush.Accent}" Visibility="Collapsed"
                             SnapsToDevicePixels="False" UseLayoutRounding="False"
                             RenderTransformOrigin="0,0.5">
@@ -51,7 +51,7 @@
                             <ScaleTransform x:Name="ProgressScale" ScaleX="0"/>
                         </Border.RenderTransform>
                     </Border>
-                    <Border x:Name="ProgressSweep" Width="84" Height="4" CornerRadius="0"
+                    <Border x:Name="ProgressSweep" Width="84" Height="4" CornerRadius="{StaticResource Radius.Bar}"
                             Background="{StaticResource Brush.Accent}" HorizontalAlignment="Left">
                         <Border.RenderTransform>
                             <TranslateTransform x:Name="ProgressTranslate" X="-70"/>

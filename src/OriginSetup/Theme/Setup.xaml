@@ -46,7 +46,7 @@
     <!-- Determinate progress: a block track with an accent fill. -->
     <Style x:Key="Setup.ProgressTrack" TargetType="Border">
         <Setter Property="Height" Value="6"/>
-        <Setter Property="CornerRadius" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Bar}"/>
         <Setter Property="Background" Value="{StaticResource Brush.SoftStroke}"/>
         <Setter Property="ClipToBounds" Value="True"/>
     </Style>

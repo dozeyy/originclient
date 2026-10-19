@@ -23,6 +23,12 @@ public static class RenderShots
 {
     public static void Run(string outDir)
     {
+        // `--social`: only the Friends / party / chat surfaces, every state (UI/SocialShots.cs).
+        if (Environment.GetCommandLineArgs().Contains("--social"))
+        {
+            SocialShots.Run(outDir);
+            return;
+        }
         Directory.CreateDirectory(outDir);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         SocialHub.OnlineCountOverride = 1284;
@@ -118,6 +124,68 @@ public static class RenderShots
 
         // Import from another launcher: every state of the card, with a made-up backend.
         ImportShots.Run(window, outDir);
+
+        // The other pages and overlays, so a restyle is checked on all of them.
+        window.TourHideLaunch();
+        window.TourGoTo(0);
+        Pump(400);
+        window.TourShowVersions(-1);
+        Pump(500);
+        Snap(window, outDir, "10-versions-grid");
+        window.TourShowVersions(1);
+        Pump(500);
+        Snap(window, outDir, "11-versions-detail");
+        window.TourHideVersions();
+        Pump(300);
+        window.TourSetAccountOpen(true);
+        Pump(500);
+        Snap(window, outDir, "12-accounts");
+        window.TourSetAccountOpen(false);
+        Pump(300);
+        window.TourGoTo(1);
+        Pump(800);
+        Snap(window, outDir, "13-mods");
+        window.TourGoTo(2);
+        Pump(800);
+        Snap(window, outDir, "14-settings");
+
+        // The smallest window the launcher allows (what 125-150 % scaling leaves on
+        // a 1080p screen): the same screens again, to prove nothing clips.
+        window.Width = 980;
+        window.Height = 600;
+        window.TourSetAccountOpen(false);
+        window.TourGoTo(0);
+        Pump(600);
+        Snap(window, outDir, "20-min-home");
+        window.TourShowVersions(-1);
+        Pump(500);
+        Snap(window, outDir, "21-min-versions-grid");
+        window.TourShowVersions(1);
+        Pump(500);
+        Snap(window, outDir, "22-min-versions-detail");
+        window.TourHideVersions();
+        Pump(300);
+        window.TourGoTo(1);
+        Pump(800);
+        Snap(window, outDir, "23-min-mods");
+        window.TourGoTo(2);
+        Pump(800);
+        Snap(window, outDir, "24-min-settings");
+
+        // The Profiles page and Home with a profile (profile row + Join under Play), at the smallest
+        // window too, the second time with the toasts up: the Play card, Play and Join must all fit
+        // under the top bar and above the bottom edge, and the toasts must leave them uncovered.
+        window.TourShowProfiles(demoProfiles, demoCount, openForm: false);
+        Pump(700);
+        Snap(window, outDir, "25-min-profiles");
+        window.TourShowHomeWithProfile(demoProfiles.ModProfiles[0]);
+        Pump(700);
+        Snap(window, outDir, "26-min-home-profile");
+        foreach (var toast in SocialDemo.Toasts()) window.TourShowToast(toast);
+        window.TourShowToast(new SocialToast(SocialToastKind.FriendRequest, "Friend request", "OjoTheCat wants to be friends", Uuid: SocialDemo.Ojo));
+        Pump(700);
+        Snap(window, outDir, "27-min-home-profile-toasts");
+        window.TourClearToasts();
 
         window.Close();
     }

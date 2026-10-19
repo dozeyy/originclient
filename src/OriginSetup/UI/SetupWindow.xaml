@@ -127,7 +127,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock x:Name="RamHint" Style="{StaticResource Text.Caption}"
-                                                   VerticalAlignment="Center"/>
+                                                   VerticalAlignment="Center" LineHeight="NaN"/>
                                         <Button x:Name="RamResetButton" Grid.Column="1" Style="{StaticResource Button.Chrome}"
                                                 Content="Use recommended" Padding="8,4" FontSize="{StaticResource FontSize.Caption}"
                                                 Click="RamResetButton_Click"/>
@@ -138,7 +138,7 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="230"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Default version" Style="{StaticResource Text.Body}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Default version" Style="{StaticResource Text.Body}" VerticalAlignment="Center" LineHeight="NaN"/>
                                         <ComboBox x:Name="VersionCombo" Grid.Column="1"
                                                   AutomationProperties.Name="Default Minecraft version"/>
                                     </Grid>
@@ -177,7 +177,7 @@
                         <TextBlock x:Name="InstallingTitle" Style="{StaticResource Text.H1}" HorizontalAlignment="Center"
                                    Margin="0,6,0,24"/>
                         <Border x:Name="ProgressTrack" Style="{StaticResource Setup.ProgressTrack}" Width="380">
-                            <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="1"
+                            <Border x:Name="ProgressFill" Width="0" HorizontalAlignment="Left" CornerRadius="{StaticResource Radius.Bar}"
                                     Background="{StaticResource Brush.PrimaryGradient}"/>
                         </Border>
                         <Grid Width="380" Margin="0,12,0,0">
@@ -229,7 +229,7 @@
                 <!-- ============ PROBLEM ============ -->
                 <Grid x:Name="ProblemPage" Visibility="Collapsed">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="540">
-                        <Border Width="48" Height="48" CornerRadius="2" BorderThickness="2" HorizontalAlignment="Center"
+                        <Border Width="48" Height="48" CornerRadius="{StaticResource Radius.Row}" BorderThickness="2" HorizontalAlignment="Center"
                                 BorderBrush="{StaticResource Brush.Warning}" Margin="0,0,0,24">
                             <TextBlock Text="!" FontFamily="{StaticResource Font.Display}" FontSize="24" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Warning}" HorizontalAlignment="Center"

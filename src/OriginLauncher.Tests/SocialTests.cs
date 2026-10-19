@@ -78,11 +78,11 @@ public class SocialTextTests
     [Fact]
     public void StatusLines()
     {
-        Assert.Equal("Playing on hypixel.net · 1.21.1", SocialText.StatusLine(Friend(true, activity: "server", server: "hypixel.net")));
-        Assert.Equal("Playing on hypixel.net · 1.21.1", SocialText.StatusLine(Friend(true, activity: "server", server: "hypixel.net:25565")));
-        Assert.Equal("Playing on mc.example.org:25570 · 1.21.1", SocialText.StatusLine(Friend(true, activity: "server", server: "mc.example.org:25570")));
-        Assert.Equal("Playing singleplayer · 1.20.1", SocialText.StatusLine(Friend(true, activity: "singleplayer", version: "1.20.1")));
-        Assert.Equal("In game · 1.21.1", SocialText.StatusLine(Friend(true, activity: "menu")));
+        Assert.Equal("Playing on hypixel.net - 1.21.1", SocialText.StatusLine(Friend(true, activity: "server", server: "hypixel.net")));
+        Assert.Equal("Playing on hypixel.net - 1.21.1", SocialText.StatusLine(Friend(true, activity: "server", server: "hypixel.net:25565")));
+        Assert.Equal("Playing on mc.example.org:25570 - 1.21.1", SocialText.StatusLine(Friend(true, activity: "server", server: "mc.example.org:25570")));
+        Assert.Equal("Playing singleplayer - 1.20.1", SocialText.StatusLine(Friend(true, activity: "singleplayer", version: "1.20.1")));
+        Assert.Equal("In game - 1.21.1", SocialText.StatusLine(Friend(true, activity: "menu")));
         Assert.Equal("In game", SocialText.StatusLine(Friend(true, activity: "menu", version: null)));
         Assert.Equal("In the launcher", SocialText.StatusLine(Friend(true, client: "launcher", activity: "menu")));
         Assert.Equal("Offline", SocialText.StatusLine(Friend(false, activity: "server", server: "hypixel.net")));

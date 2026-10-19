@@ -8,12 +8,12 @@
     <!-- Mod profiles: a named set of the player's own mods for ONE Minecraft
          version, optionally with a server. MainWindow reserves the navigation
          rail; the scrollbar stays hidden while wheel scrolling works. -->
-    <ScrollViewer Margin="28,20,36,24" VerticalScrollBarVisibility="Hidden">
+    <ScrollViewer Margin="32,16,32,24" VerticalScrollBarVisibility="Hidden">
         <ScrollViewer.Resources>
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
         </ScrollViewer.Resources>
 
-        <StackPanel Width="720" HorizontalAlignment="Left">
+        <StackPanel Width="720" HorizontalAlignment="Center">
 
             <!-- Header -->
             <Grid Margin="0,0,0,4">
@@ -35,7 +35,7 @@
                         </StackPanel>
                     </Button>
                     <Button x:Name="NewButton" Style="{StaticResource Button.Secondary}"
-                            Padding="14,8" Click="NewButton_Click"
+                            Padding="16,8" Click="NewButton_Click"
                             AutomationProperties.Name="New profile">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource Icon.Plus}" Style="{StaticResource Icon.Base}"
@@ -47,60 +47,60 @@
                 </StackPanel>
             </Grid>
             <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
-                    CornerRadius="1" HorizontalAlignment="Left" Margin="1,9,0,12"/>
+                    CornerRadius="1" HorizontalAlignment="Left" Margin="0,8,0,16"/>
             <TextBlock Text="Each profile keeps its own mods for one Minecraft version, and can remember a server to join."
-                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="1,0,0,18"/>
+                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="1,0,0,16"/>
 
             <!-- Status line (errors, "close Minecraft first", copy notes) -->
             <TextBlock x:Name="StatusText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
-                       Visibility="Collapsed" Margin="0,0,0,12"/>
+                       Visibility="Collapsed" Margin="0,0,0,16"/>
 
             <!-- Create / edit form -->
-            <Border x:Name="FormPanel" Visibility="Collapsed" Margin="0,0,0,18" Padding="20"
+            <Border x:Name="FormPanel" Visibility="Collapsed" Margin="0,0,0,16" Padding="24"
                     Background="{StaticResource Brush.PanelGlass}"
                     BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                     CornerRadius="{StaticResource Radius.Card}">
                 <StackPanel>
-                    <TextBlock x:Name="FormTitle" Text="New profile" Style="{StaticResource Text.H2}" Margin="0,0,0,14"/>
+                    <TextBlock x:Name="FormTitle" Text="New profile" Style="{StaticResource Text.H2}" Margin="0,0,0,16"/>
 
-                    <TextBlock Text="Name" Style="{StaticResource Text.Label}" Margin="0,0,0,6"/>
+                    <TextBlock Text="Name" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
                     <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
-                             AutomationProperties.Name="Profile name" Margin="0,0,0,14"/>
+                             AutomationProperties.Name="Profile name" Margin="0,0,0,16"/>
 
-                    <TextBlock Text="Minecraft version" Style="{StaticResource Text.Label}" Margin="0,0,0,6"/>
+                    <TextBlock Text="Minecraft version" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
                     <ComboBox x:Name="VersionBox" AutomationProperties.Name="Minecraft version" Margin="0,0,0,4"/>
                     <TextBlock x:Name="VersionHint" Text="A profile belongs to one version. It can't be changed later."
-                               Style="{StaticResource Text.Caption}" Margin="0,0,0,14"/>
+                               Style="{StaticResource Text.Caption}" Margin="0,0,0,16"/>
 
                     <Grid Margin="0,0,0,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="14"/>
+                            <ColumnDefinition Width="16"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Server name (optional)" Style="{StaticResource Text.Label}" Margin="0,0,0,6"/>
+                            <TextBlock Text="Server name (optional)" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
                             <TextBox x:Name="ServerNameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
                                      AutomationProperties.Name="Server name"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Server address (optional)" Style="{StaticResource Text.Label}" Margin="0,0,0,6"/>
+                            <TextBlock Text="Server address (optional)" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
                             <TextBox x:Name="ServerAddressBox" Style="{StaticResource Input.TextBox}" MaxLength="255"
                                      AutomationProperties.Name="Server address"/>
                         </StackPanel>
                     </Grid>
                     <TextBlock Text="With an address, Home shows a Join button for this profile."
-                               Style="{StaticResource Text.Caption}" Margin="0,6,0,14"/>
+                               Style="{StaticResource Text.Caption}" Margin="0,8,0,16"/>
 
                     <TextBlock x:Name="FormError" Foreground="{StaticResource Brush.Danger}"
                                Style="{StaticResource Text.Body}" TextWrapping="Wrap"
-                               Visibility="Collapsed" Margin="0,0,0,12"/>
+                               Visibility="Collapsed" Margin="0,0,0,16"/>
 
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="SaveButton" Content="Create" Style="{StaticResource Button.Primary}"
-                                Padding="18,8" Margin="0,0,10,0" Click="SaveButton_Click"/>
+                                Padding="16,8" Margin="0,0,8,0" Click="SaveButton_Click"/>
                         <Button Content="Cancel" Style="{StaticResource Button.Secondary}"
-                                Padding="18,8" Click="CancelButton_Click"/>
+                                Padding="16,8" Click="CancelButton_Click"/>
                     </StackPanel>
                 </StackPanel>
             </Border>

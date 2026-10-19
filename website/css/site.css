@@ -77,7 +77,7 @@ h2 span, h1 span { color: var(--muted); }
 .btn[data-soon]:hover { box-shadow: none; }
 .btn[data-soon]:active { transform: none; }
 .btn[data-soon]::after { content: "Soon"; padding: 4px 8px; border-radius: 999px; background: rgba(255, 255, 255, .12); color: var(--text); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
-.scroll-cue { width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translate(-2px, -2px); animation: cue 1.8s var(--ease-io) infinite; }
+.scroll-cue { flex: none; width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translate(-2px, -2px); animation: cue 1.8s var(--ease-io) infinite; }
 @keyframes cue { 50% { transform: rotate(45deg) translate(2px, 2px); } }
 
 /* ---------- header ---------- */

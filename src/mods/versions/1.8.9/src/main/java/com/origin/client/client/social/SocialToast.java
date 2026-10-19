@@ -18,24 +18,29 @@ import java.util.List;
  * Friends pop-ups: a DM, a friend request, a party invite, the leader's warp.
  * Top right, stacking, sliding in and out on their own, in the Origin panel
  * look the FPS Coach nudge uses. Clicking one opens the Friends window on that
- * friend (or the party); a warp toast carries a JOIN button.
+ * friend (or the party). The three that ask something carry a button so
+ * answering takes one click (2026-10-18; it used to take two, toast then the
+ * check in the list): ACCEPT on a friend request, JOIN on a party invite and on
+ * the leader's warp. The toast then shows what happened.
  *
  * 1.8.9 has no toast system (only the achievement pop-up, GuiAchievement), so
  * this class IS the toast stack, rebuilt on 1.16.5's ToastComponent rules:
  * up to {@link #MAX_VISIBLE} at a time from the top right, each sliding in over
- * 600 ms (squared ease, vanilla's), shown {@link #SHOW_MS}, sliding out over
- * 600 ms; a second DM from the same friend updates the visible toast instead of
- * stacking. SocialHooks draws it at the END of every render tick -- after the
- * HUD, any screen and its widgets, like vanilla's toasts are -- and asks
- * {@link #click} first on every screen mouse click, so a toast takes clicks
- * wherever the mouse is free (any menu, or the chat box in game). The draw
- * position is computed here, so click hit-testing needs no GL read-back.
+ * 600 ms (squared ease, vanilla's), shown {@link #SHOW_MS} (an answered one
+ * {@link #RESULT_MS}), sliding out over 600 ms; a second DM from the same
+ * friend updates the visible toast instead of stacking. SocialHooks draws it at
+ * the END of every render tick -- after the HUD, any screen and its widgets,
+ * like vanilla's toasts are -- and asks {@link #click} first on every screen
+ * mouse click, so a toast takes clicks wherever the mouse is free (any menu, or
+ * the chat box in game). The draw position is computed here, so click
+ * hit-testing needs no GL read-back. Unlike vanilla's, this stack is not
+ * cleared when a world is left (it never was on 1.8.9).
  */
 public final class SocialToast {
-	private static final int W = 220, H = 32;
-	private static final long SHOW_MS = 7_000;
+	private static final int W = 232, H = 32;
+	private static final long SHOW_MS = 7_000, RESULT_MS = 3_500;
 	private static final long SLIDE_MS = 600;
-	private static final int JOIN_W = 42;
+	private static final int BTN_H = 16;
 	private static final int MAX_VISIBLE = 5;
 
 	private enum Kind { MESSAGE, REQUEST, INVITE, WARP }
@@ -47,10 +52,15 @@ public final class SocialToast {
 	private final String token;
 	private final String uuid;
 	private String title, line;
+	/** The name the toast is about (kept when `line` is replaced by an outcome). */
+	private final String who;
 	private final SocialState.Warp warp;
-	private boolean dismissed = false;
+	private boolean restart = false, dismissed = false;
+	/** The button was pressed: it is gone and `line` shows the outcome (red when `failed`). */
+	private boolean acted = false, failed = false;
 	/** When it first showed / was last refreshed / started sliding out (ms; -1 = not yet). */
 	private long visibleAt = -1, shownFrom = -1, hideAt = -1;
+	private long showMs = SHOW_MS;
 	private float lastX = Float.NaN, lastY;
 	private long lastDrawn = 0;
 
@@ -60,6 +70,7 @@ public final class SocialToast {
 		this.uuid = uuid;
 		this.title = title;
 		this.line = line;
+		this.who = line;
 		this.warp = warp;
 	}
 
@@ -70,16 +81,16 @@ public final class SocialToast {
 	}
 
 	public static void request(Minecraft mc, String uuid, String name) {
-		show(mc, new SocialToast(Kind.REQUEST, "req:" + uuid, uuid, "Friend request", name + " wants to be friends", null));
+		show(mc, new SocialToast(Kind.REQUEST, "req:" + uuid, uuid, "Friend request", name, null));
 	}
 
 	public static void invite(Minecraft mc, String uuid, String name) {
-		show(mc, new SocialToast(Kind.INVITE, "inv:" + uuid, uuid, "Party invite", name + " invited you to their party", null));
+		show(mc, new SocialToast(Kind.INVITE, "inv:" + uuid, uuid, "Party invite", name, null));
 	}
 
 	public static void warp(Minecraft mc, String uuid, String name, SocialState.Warp w) {
 		String where = w.server() == null ? "their server" : w.server();
-		show(mc, new SocialToast(Kind.WARP, "warp", uuid, name + " is warping the party", "to " + where, w));
+		show(mc, new SocialToast(Kind.WARP, "warp", uuid, "Party warp", name + " on " + where, w));
 	}
 
 	/** A second DM from the same friend updates the visible toast instead of stacking. */
@@ -88,13 +99,19 @@ public final class SocialToast {
 			if (old.token.equals(t.token) && !old.dismissed && old.hideAt < 0) {
 				old.title = t.title;
 				old.line = t.line;
-				if (old.visibleAt >= 0) {
-					old.shownFrom = System.currentTimeMillis();
-				}
+				old.acted = false;
+				old.failed = false;
+				old.showMs = SHOW_MS;
+				old.restart = true;
 				return;
 			}
 		}
 		TOASTS.add(t);
+	}
+
+	/** DEV SHOTS ONLY: drop every toast (1.21.1's harness calls ToastComponent.clear() between shots). */
+	public static void clearAll() {
+		TOASTS.clear();
 	}
 
 	// ---- drawing (SocialHooks, end of every render tick) ----
@@ -115,7 +132,12 @@ public final class SocialToast {
 				t.visibleAt = now;
 				t.shownFrom = now;
 			}
-			if (t.hideAt < 0 && (t.dismissed || now - t.shownFrom >= SHOW_MS)) {
+			if (t.restart) {
+				// refreshed (a second DM) or answered: the show time starts again
+				t.restart = false;
+				t.shownFrom = now;
+			}
+			if (t.hideAt < 0 && (t.dismissed || now - t.shownFrom >= t.showMs)) {
 				t.hideAt = now;
 			}
 			float vis;
@@ -163,21 +185,45 @@ public final class SocialToast {
 		}
 	}
 
+	/** The button this toast carries, or null (a plain message toast, or one already answered). */
+	private String buttonLabel() {
+		if (acted) {
+			return null;
+		}
+		switch (kind) {
+			case REQUEST:
+				return "ACCEPT";
+			case INVITE:
+			case WARP:
+				return "JOIN";
+			default:
+				return null;
+		}
+	}
+
+	private int buttonW(FontRenderer font) {
+		String b = buttonLabel();
+		return b == null ? 0 : OriginText.widthBold(font, b) + 14;
+	}
+
 	private void draw(Gfx g, FontRenderer font) {
-		OriginUi.panel(g, 0, 0, W, H, 8, 0xF0121614, OriginTheme.STROKE_STRONG);
+		OriginUi.panel(g, 0, 0, W, H, 8, 0xF0121614, failed ? OriginTheme.DANGER : OriginTheme.STROKE_STRONG);
 		if (uuid != null && !uuid.isEmpty()) {
 			SocialSkins.face(g, uuid, 8, 8, 16);
 		} else {
 			OriginUi.logo(g, 16, 16, 16, 1f);
 		}
-		int textW = W - 38 - (kind == Kind.WARP ? JOIN_W + 6 : 0);
+		int bw = buttonW(font);
+		int textW = W - 38 - (bw > 0 ? bw + 6 : 0);
 		OriginText.drawBold(g, font, OriginText.ellipsize(font, title, textW), 30, 7, OriginTheme.TEXT, false);
-		OriginText.draw(g, font, OriginText.ellipsize(font, line, textW), 30, 19, OriginTheme.TEXT_DIM, false);
-		if (kind == Kind.WARP) {
-			int bx = W - JOIN_W - 8;
-			OriginUi.panel(g, bx, 8, JOIN_W, 16, 5, OriginTheme.ACCENT, 0);
-			int tw = OriginText.widthBold(font, "JOIN");
-			OriginText.drawBold(g, font, "JOIN", bx + (JOIN_W - tw) / 2, 12, com.origin.client.client.gui.OriginDeck.ON_ACC, false);
+		OriginText.draw(g, font, OriginText.ellipsize(font, line, textW), 30, 19,
+				failed ? OriginTheme.DANGER : OriginTheme.TEXT_DIM, false);
+		if (bw > 0) {
+			int bx = W - bw - 8, by = (H - BTN_H) / 2;
+			OriginUi.panel(g, bx, by, bw, BTN_H, 5, OriginTheme.ACCENT, 0);
+			String b = buttonLabel();
+			int tw = OriginText.widthBold(font, b);
+			OriginText.drawBold(g, font, b, bx + (bw - tw) / 2, by + 4, com.origin.client.client.gui.OriginDeck.ON_ACC, false);
 		}
 	}
 
@@ -193,17 +239,108 @@ public final class SocialToast {
 			if (lx < 0 || ly < 0 || lx >= W || ly >= H) {
 				continue;
 			}
-			t.dismissed = true;
 			Minecraft mc = Minecraft.getMinecraft();
-			if (t.kind == Kind.WARP && lx >= W - JOIN_W - 8) {
-				joinWarp(mc, t.warp);
-			} else {
+			int bw = t.buttonW(mc.fontRendererObj);
+			if (bw > 0 && lx >= W - bw - 10 && lx < W - 6) {
+				t.answer(mc);          // ACCEPT / JOIN: one click does the job
+				return true;
+			}
+			t.dismissed = true;
+			if (!t.acted) {
 				Social.openFriends(t.kind == Kind.INVITE || t.kind == Kind.WARP ? FriendsScreen.PARTY
 						: t.kind == Kind.REQUEST ? FriendsScreen.REQUESTS : t.uuid);
 			}
 			return true;
 		}
 		return false;
+	}
+
+	/** DEV SHOTS ONLY: click the button of the live toast with this token (e.g. "req:<uuid>"); false if none. */
+	public static boolean devClickButton(String token) {
+		Minecraft mc = Minecraft.getMinecraft();
+		long now = System.currentTimeMillis();
+		for (int i = Math.min(TOASTS.size(), MAX_VISIBLE) - 1; i >= 0; i--) {   // newest first, and only toasts on screen right now
+			SocialToast t = TOASTS.get(i);
+			if (t.token.equals(token) && !t.dismissed && t.hideAt < 0 && !Float.isNaN(t.lastX) && now - t.lastDrawn <= 250) {
+				int bw = t.buttonW(mc.fontRendererObj);
+				return bw > 0 && click(t.lastX + W - bw / 2.0 - 8, t.lastY + H / 2.0);
+			}
+		}
+		return false;
+	}
+
+	/** The toast's button: accept the request / party invite, or follow the warp. */
+	private void answer(Minecraft mc) {
+		switch (kind) {
+			case WARP:
+				dismissed = true;
+				joinWarp(mc, warp);
+				break;
+			case REQUEST: {
+				// "already answered" is only knowable from a fresh snapshot: on a dropped connection just send it
+				boolean live = SocialClient.status() == SocialClient.Status.READY && !SocialClient.stale();
+				boolean pending = false;
+				for (SocialState.Request r : SocialClient.state().incoming()) {
+					pending |= uuid != null && uuid.equals(r.uuid());
+				}
+				if (live && !pending) {
+					// answered somewhere else (the list, the launcher) since the toast came up: don't POST again
+					settle("Friend request", "Already answered", false);
+					return;
+				}
+				finish(SocialClient.respond(uuid, true), "Friend request", "Friend added", "You and " + who + " are friends.");
+				break;
+			}
+			case INVITE: {
+				boolean live = SocialClient.status() == SocialClient.Status.READY && !SocialClient.stale();
+				String partyId = null;
+				for (SocialState.PartyInvite i : SocialClient.state().invites()) {
+					if (uuid != null && uuid.equals(i.from())) {
+						partyId = i.partyId();
+						break;
+					}
+				}
+				if (partyId == null) {
+					if (live) {
+						// expired or answered elsewhere since the toast came up
+						settle("Party invite", "That invite is gone", false);
+					} else {
+						settle("Couldn't do that", "Can't reach Origin. Try again.", true);
+					}
+					return;
+				}
+				finish(SocialClient.acceptInvite(partyId), "Party invite", "Joined party", "You joined " + who + "'s party.");
+				break;
+			}
+			default:
+				break;
+		}
+	}
+
+	/** Swap the buttons for the outcome (a few seconds), whichever way it went. */
+	private void settle(String heading, String text, boolean bad) {
+		acted = true;
+		failed = bad;
+		title = heading;
+		line = text;
+		showMs = RESULT_MS;
+		restart = true;
+	}
+
+	private void finish(java.util.concurrent.CompletableFuture<String> result, String heading, String okTitle, String okLine) {
+		acted = true;
+		failed = false;
+		title = heading;
+		line = "Working...";
+		showMs = SHOW_MS;
+		restart = true;
+		result.thenAccept(err -> Minecraft.getMinecraft().addScheduledTask(() -> {
+			failed = err != null;
+			title = failed ? "Couldn't do that" : okTitle;
+			line = failed ? err : okLine;
+			showMs = RESULT_MS;
+			restart = true;
+		}));
 	}
 
 	/** The warp's JOIN: connect now if this game can, else say why (other version -> the launcher). */

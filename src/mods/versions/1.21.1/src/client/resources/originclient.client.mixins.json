@@ -54,6 +54,7 @@
 		"JeiClientInputHandlerMixin",
 		"HurtCamMixin",
 		"GameRendererFrameMixin",
+		"GameRendererPostShadersMixin",
 		"OverlayTextureAccessor",
 		"HumanoidArmorLayerMixin",
 		"GlintColorizerMixin",

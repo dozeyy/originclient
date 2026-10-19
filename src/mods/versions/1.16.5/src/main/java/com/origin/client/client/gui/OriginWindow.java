@@ -174,7 +174,7 @@ public abstract class OriginWindow extends Screen {
 				break;
 			case DANGER:
 				fill = hov ? 0x3DD9675A : RED_SOFT;
-				fg = RED;
+				fg = RED_TEXT;
 				break;
 			case GHOST:
 				fill = hov ? 0x0AFFFFFF : 0x00000000;

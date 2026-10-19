@@ -17,10 +17,11 @@ public sealed class ToastVm
     public string Title => Toast.Title;
     public string Body => Toast.Body;
 
-    /// <summary>Warp → JOIN, request / invite → ACCEPT; DMs and notices just open the drawer.</summary>
+    /// <summary>Warp → JOIN, request / invite → ACCEPT, DM → REPLY (opens that chat); notices just open the drawer.</summary>
     public string? ActionText => Toast.Kind switch
     {
         SocialToastKind.Warp => "JOIN",
+        SocialToastKind.Message => "REPLY",
         SocialToastKind.FriendRequest or SocialToastKind.PartyInvite => "ACCEPT",
         _ => null,
     };
@@ -30,18 +31,20 @@ public sealed class ToastVm
 
 public partial class SocialToastHost : UserControl
 {
-    private const int MaxVisible = 3;
-    private static readonly TimeSpan ShortLife = TimeSpan.FromSeconds(7);
-    // A warp stays up longer: the service keeps it for two minutes.
-    private static readonly TimeSpan WarpLife = TimeSpan.FromSeconds(30);
+    // Two on screen at most; the rest wait and show as "+N more" (the Play card stays uncovered).
+    private const int MaxVisible = 2;
 
     private readonly ObservableCollection<ToastVm> _items = new();
+    private readonly ToastQueue _waiting = new(capacity: 20);
 
     /// <summary>The card was clicked: open whatever it's about.</summary>
     public event Action<SocialToast>? Opened;
 
     /// <summary>JOIN / ACCEPT was clicked.</summary>
     public event Action<SocialToast>? ActionClicked;
+
+    /// <summary>"+N more" was clicked: open the drawer.</summary>
+    public event Action? MoreClicked;
 
     public SocialToastHost()
     {
@@ -51,27 +54,55 @@ public partial class SocialToastHost : UserControl
 
     public void Show(SocialToast toast)
     {
-        while (_items.Count >= MaxVisible) Remove(_items[0]);
-
-        var timer = new DispatcherTimer(DispatcherPriority.Background)
+        if (_items.Count >= MaxVisible)
         {
-            Interval = toast.Kind == SocialToastKind.Warp ? WarpLife : ShortLife,
-        };
+            _waiting.Enqueue(toast, DateTimeOffset.UtcNow);
+            UpdateMore();
+            return;
+        }
+        Display(toast, ToastQueue.LifeOf(toast.Kind));
+    }
+
+    private void Display(SocialToast toast, TimeSpan life)
+    {
+        var timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = life };
         var vm = new ToastVm { Toast = toast, Icon = IconFor(toast.Kind), Timer = timer };
         timer.Tick += (_, _) => Remove(vm);
         _items.Add(vm);
         timer.Start();
+        UpdateMore();
     }
 
     public void Clear()
     {
+        _waiting.Clear();
         foreach (var vm in _items.ToList()) Remove(vm);
+        UpdateMore();
     }
 
     private void Remove(ToastVm vm)
     {
         vm.Timer.Stop();
         _items.Remove(vm);
+        // A place opened up: the next waiting toast that is still fresh takes it, for what is left of its life.
+        while (_items.Count < MaxVisible && _waiting.TakeNext(DateTimeOffset.UtcNow) is { } next)
+            Display(next.Toast, next.Left);
+        UpdateMore();
+    }
+
+    private void UpdateMore()
+    {
+        _waiting.Purge(DateTimeOffset.UtcNow);
+        MoreButton.Visibility = _waiting.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        MoreButton.Content = $"+{_waiting.Count} more";
+    }
+
+    private void More_Click(object sender, RoutedEventArgs e)
+    {
+        // Messages, requests, invites and the warp are all in the drawer; a Notice has no row there, so it keeps waiting.
+        _waiting.DropDrawerKinds();
+        UpdateMore();
+        MoreClicked?.Invoke();
     }
 
     private Geometry IconFor(SocialToastKind kind) => (Geometry)FindResource(kind switch
@@ -94,7 +125,9 @@ public partial class SocialToastHost : UserControl
     {
         if (Vm(sender) is not { } vm) return;
         Remove(vm);
-        ActionClicked?.Invoke(vm.Toast);
+        // REPLY is "open the chat", the same as pressing the card.
+        if (vm.Toast.Kind == SocialToastKind.Message) Opened?.Invoke(vm.Toast);
+        else ActionClicked?.Invoke(vm.Toast);
     }
 
     private void Dismiss_Click(object sender, RoutedEventArgs e)

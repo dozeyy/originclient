@@ -129,13 +129,15 @@ function buildPlayer() {
   bodyBone.position.set(0, 24, 0);
   root.add(body, headBone, bodyBone);
   const limbs = {};
+  let legacy = false;                      // the current skin is a 64x32 one (no jacket layer)
+  let worn = [];                           // rigs from rig.js (set by setWorn)
 
   function setSkin(tex, slim = false) {
     disposeTree(body); body.clear();
     disposeTree(headBone.userData.skin || new THREE.Group());
     headBone.userData.skin?.removeFromParent();
     const img = tex.image, W = img.width || 64, H = img.height || 64;
-    const legacy = H === W / 2;       // pre-1.8 64x32 skins: no overlays, mirrored limbs
+    legacy = H === W / 2;             // pre-1.8 64x32 skins: no overlays, mirrored limbs
     const s = W / 64;                 // HD skins scale the whole layout
     const headSkin = new THREE.Group();
     headBone.add(headSkin);
@@ -159,11 +161,11 @@ function buildPlayer() {
       limbs[p.name] = holder;
       if (p.name === 'head') { holder.position.set(0, 4, 0); headSkin.add(holder); } else body.add(holder);
     }
+    fitOverSkin();
   }
   setSkin(mannequinSkin());
 
   // worn: rigs from rig.js. hidesCape / capeOffset follow FORMAT.md.
-  let worn = [];
   function setWorn(rigs) {
     for (const r of worn) r.group.removeFromParent();
     worn = rigs;
@@ -173,6 +175,15 @@ function buildPlayer() {
       const slot = r.item.slot;
       (slot === 'head' || slot === 'face' ? headBone : bodyBone).add(r.group);
       if (r.item.cape) { r.group.visible = !hides; r.setCapeOffset(offset); }
+    }
+    fitOverSkin();
+  }
+  // Items sit over the skin's outer layer, as in game (FORMAT.md "Outer skin layer"):
+  // head + face over the hat layer (0.5 px), back over the jacket (0.25 px; 64x32 skins have none).
+  function fitOverSkin() {
+    for (const r of worn) {
+      const slot = r.item.slot;
+      r.setGrow(slot === 'head' || slot === 'face' ? 0.5 : slot === 'back' && !legacy ? 0.25 : 0);
     }
   }
   // ctx: { t, walk 0..1, air 0..1, still, headYaw, headPitch } (angles in degrees)
@@ -186,7 +197,7 @@ function buildPlayer() {
     headBone.rotation.set(((ctx.headPitch || 0) * Math.PI) / 180, ((ctx.headYaw || 0) * Math.PI) / 180, 0);
     for (const r of worn) r.update(ctx);
   }
-  return { root, setSkin, setWorn, pose };
+  return { root, setSkin, setWorn, pose, worn: () => worn };
 }
 
 function floorShadow() {
@@ -268,6 +279,7 @@ export function createFittingRoom(canvas, { reducedMotion = false } = {}) {
   let view = viewFor(null), yaw = view.yaw, holdUntil = 0, drag = null, visible = true, raf = 0, last = performance.now();
   const cam = { ...view };
   let seq = 0;
+  const adjust = new Map();                 // slot ('head' | 'face') -> [x, y, z] preview nudge
 
   function frame(now) {
     raf = 0;
@@ -317,6 +329,7 @@ export function createFittingRoom(canvas, { reducedMotion = false } = {}) {
       let items;
       try { items = await st.wear(ids); } catch (err) { console.warn('Origin store: could not load an item for the preview.', err); return; }
       if (mine !== seq) return;
+      for (const r of st.player.worn()) if (adjust.has(r.item.slot)) r.setAdjust(...adjust.get(r.item.slot));
       const f = items[ids.indexOf(focus)];
       view = viewFor(f || null);
       holdUntil = performance.now() + 4500;
@@ -324,6 +337,14 @@ export function createFittingRoom(canvas, { reducedMotion = false } = {}) {
     },
     // skin: { tex, slim } from loadSkin, or null for the mannequin
     setSkin(skin) { st.setSkin(skin); wake(); },
+    // Preview-only nudge for the head or face slot: [x, y, z] px, FORMAT space
+    // (+x = the player's left, +y up, +z toward the face). Per slot, as in game:
+    // it carries over to whatever item is worn there next.
+    setAdjust(slot, xyz) {
+      adjust.set(slot, xyz);
+      for (const r of st.player.worn()) if (r.item.slot === slot) r.setAdjust(...xyz);
+      wake();
+    },
   };
 }
 

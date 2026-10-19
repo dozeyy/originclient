@@ -10,9 +10,10 @@
                 <ResourceDictionary Source="Theme/Typography.xaml"/>
                 <ResourceDictionary Source="Theme/Spacing.xaml"/>
                 <ResourceDictionary Source="Theme/Buttons.xaml"/>
+                <!-- Icons before Inputs: the shared combo box template uses the chevron. -->
+                <ResourceDictionary Source="Theme/Icons.xaml"/>
                 <ResourceDictionary Source="Theme/Inputs.xaml"/>
                 <ResourceDictionary Source="Theme/Brand.xaml"/>
-                <ResourceDictionary Source="Theme/Icons.xaml"/>
                 <ResourceDictionary Source="Theme/Setup.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
