@@ -271,7 +271,7 @@ public final class OriginFrameLog {
 		}
 		long now = System.nanoTime();
 		Phase relabel = null;
-		if (what.startsWith("render-thread reload work") && renderWorkAt == 0) {
+		if (what.startsWith("render-thread reload") && renderWorkAt == 0) {
 			renderWorkAt = now;   // the slow-frame list starts here if that is earlier
 		}
 		if (what.equals("hold-start") && holdAt == 0) {

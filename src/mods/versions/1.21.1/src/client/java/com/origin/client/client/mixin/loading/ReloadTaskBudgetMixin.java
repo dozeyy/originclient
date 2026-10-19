@@ -25,13 +25,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // While the startup loading screen is up, this runs that queue on a per-frame
 // time budget instead: at least one task, then more until BUDGET_NS is spent, and
 // the rest next frame. Each task still runs whole and in order on the render
-// thread, exactly as vanilla would run it a moment later, so nothing about the
-// load changes except that the loading screen keeps drawing between steps.
+// thread, exactly as vanilla would run it a moment later.
+//
+// It also HOLDS the queue (originclient$holdForMark): once render-thread reload
+// work has been queued, no task runs until the loading mark has glided to rest
+// on a clean pose, so the first long step can't freeze it mid-motion. The hold
+// stops the WHOLE Minecraft render-thread queue (every pending task, not only
+// reload steps), at most once per reload and for at most GATE_CAP_NS (600 ms of
+// wall-clock time) even if the mark never reports rest; the settle itself takes
+// ~280 ms (MarkMotion.SETTLE_MS). So the load can finish up to that much later.
 // Any other time (no loading screen, a world loaded, Origin rendering off) the
 // queue runs vanilla's way, untouched.
 //
 // Own mixin in the isolated required:false loading config: if the method ever
-// moves, only this smoothing is skipped.
+// moves, both the per-frame budget and the mark hold are skipped (the queue then
+// runs vanilla's way and the mark may be caught mid-motion by a long step).
 @Mixin(BlockableEventLoop.class)
 public abstract class ReloadTaskBudgetMixin {
 	/** Task time per frame while the startup load finishes (ns): leaves room for the frame itself at 60 fps. */

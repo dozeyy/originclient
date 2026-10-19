@@ -263,7 +263,12 @@ public final class OriginScreenRenderer {
 			String why = reload == null || MarkMotion.settling() ? null : settleReason(reload);
 			if (why != null) {
 				MarkMotion.settle(markT);
+				markRestLogged = false;
 				com.origin.client.client.OriginFrameLog.mark("mark-settle (" + why + ")");
+			}
+			if (!markRestLogged && MarkMotion.atRest(markT)) {
+				markRestLogged = true;
+				com.origin.client.client.OriginFrameLog.mark("mark at rest (clean pose)");
 			}
 		} else {
 			MarkMotion.settle(markT);   // the settle hold / dissolve: the load is done
@@ -309,6 +314,7 @@ public final class OriginScreenRenderer {
 	// The reload the loading mark's settle belongs to, and the mark's loop time last frame.
 	private static net.minecraft.server.packs.resources.ReloadInstance markReload;
 	private static long markReloadAt;   // nanoTime the loading screen first drew for markReload
+	private static boolean markRestLogged;   // dev frame log: "mark at rest" said for this settle
 	private static double lastMarkT = 0;
 
 	private static net.minecraft.server.packs.resources.ReloadInstance currentReload() {
@@ -316,12 +322,40 @@ public final class OriginScreenRenderer {
 				? overlay.originclient$reload() : null;
 	}
 
-	// When the loading mark comes to rest. Here: once the reload is done (the
-	// settle hold then shows it still). The 1.21.1 reference also settles earlier,
-	// at the first render-thread reload task (ReloadTaskTagMixin) or once every
-	// listener has prepared; that part is ported separately.
+	// The reload has reached the stretch where its work runs on the render thread,
+	// where one step can hold a frame for hundreds of ms: a listener ran its first
+	// task there (ReloadTaskTagMixin; some mods do heavy work there while others
+	// still prepare), or every listener has prepared (the apply steps), or it is
+	// done. Without the mixins: only once done.
 	private static String settleReason(net.minecraft.server.packs.resources.ReloadInstance reload) {
-		return reload.isDone() ? "load done" : null;
+		if (reload.isDone()) {
+			return "load done";
+		}
+		if (com.origin.client.client.StartupTransition.reloadRenderWorkSince(markReloadAt)) {
+			return "render-thread reload work queued";
+		}
+		if (reload instanceof com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor s
+				&& s.originclient$allPreparations().isDone()) {
+			return "all listeners prepared";
+		}
+		return null;
+	}
+
+	/**
+	 * ReloadTaskBudgetMixin: hold the render-thread queue this frame. True while
+	 * render-thread reload work is waiting for THIS loading screen and the mark
+	 * has not finished its settle glide (MarkMotion.SETTLE_MS) onto its clean
+	 * pose, so no long step can freeze it mid-motion. The settle itself starts in
+	 * the loading screen's draw the frame the work is queued. The caller caps it.
+	 */
+	public static boolean holdReloadTasksForMark() {
+		if (broken || markReload == null || currentReload() != markReload) {
+			return false;
+		}
+		if (!com.origin.client.client.StartupTransition.reloadRenderWorkSince(markReloadAt)) {
+			return false;
+		}
+		return !MarkMotion.atRest(lastMarkT);
 	}
 
 	/** The loading mark has landed and stopped (the settle hold may end). */
