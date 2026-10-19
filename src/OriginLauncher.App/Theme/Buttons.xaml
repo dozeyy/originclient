@@ -416,9 +416,8 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <!-- A soft dark pool under the word so PLAY holds 7:1 on any art. -->
-                        <Rectangle Grid.ColumnSpan="2" Margin="-30,-30,-36,-26" IsHitTestVisible="False" Fill="{StaticResource Fill.PlayGlow}"/>
-                        <ContentPresenter Grid.Column="0" VerticalAlignment="Center" Margin="0,0,18,0"/>
+                        <!-- No pool of its own: the bottom scrim (ArtStage) already holds PLAY at 7:1. -->
+                        <ContentPresenter x:Name="Word" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,18,0"/>
                         <Grid Grid.Column="1" x:Name="Ring" Width="58" Height="58" VerticalAlignment="Center"
                               RenderTransformOrigin="0.5,0.5">
                             <Grid.RenderTransform>
@@ -429,7 +428,7 @@
                                     <ScaleTransform x:Name="FillScale" ScaleX="0" ScaleY="0"/>
                                 </Ellipse.RenderTransform>
                             </Ellipse>
-                            <Ellipse Stroke="{DynamicResource Brush.Acc}" StrokeThickness="1.5"/>
+                            <Ellipse x:Name="RingStroke" Stroke="{DynamicResource Brush.Acc}" StrokeThickness="2"/>
                             <Path x:Name="Arrow" Data="M5,12 H19 M13,6 L19,12 L13,18" Width="24" Height="24" Stretch="None"
                                   StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="#FFE6E6E6">
@@ -490,6 +489,13 @@
                         <Trigger Property="Tag" Value="busy">
                             <Setter TargetName="Ring" Property="Opacity" Value="0.35"/>
                         </Trigger>
+                        <!-- Can't play yet (signed out, no version, an import running): a quiet, neutral
+                             PLAY. The accent is for things you can act on, so the ring goes grey. -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Word" Property="Opacity" Value="0.5"/>
+                            <Setter TargetName="RingStroke" Property="Stroke" Value="{StaticResource Brush.Stroke}"/>
+                            <Setter TargetName="Arrow" Property="Opacity" Value="0.5"/>
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -517,8 +523,9 @@
                     </BeginStoryboard>
                 </Trigger.ExitActions>
             </Trigger>
+            <!-- The disabled look is in the template (word dimmed, ring neutral): dimming the whole
+                 control left a muddy half-accent ring. -->
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.45"/>
                 <Setter Property="Cursor" Value="Arrow"/>
             </Trigger>
         </Style.Triggers>

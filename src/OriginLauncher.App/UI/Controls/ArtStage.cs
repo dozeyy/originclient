@@ -24,6 +24,24 @@ public sealed class ArtStage : Grid
 {
     public static ArtStage? Instance { get; private set; }
 
+    // Home picks its version in its constructor, which runs before MainWindow builds the stage
+    // (HomePage is a field initializer there). A request with no stage yet is kept here and
+    // shown when the stage is built, so cold start opens on the art and numeral, not a blank.
+    private static string? _pendingVersion;
+    private static bool _hasPending;
+
+    /// <summary>Show <paramref name="version"/>'s family now, or as soon as the stage exists.</summary>
+    public static void Request(string? version, bool animate)
+    {
+        if (Instance is { IsLoaded: true } stage)
+        {
+            stage.Show(version, animate);
+            return;
+        }
+        _pendingVersion = version;
+        _hasPending = true;
+    }
+
     private readonly Grid _stage = new() { RenderTransformOrigin = new Point(0.5, 0.5) };
     private readonly ScaleTransform _launchZoom = new();
     private readonly TranslateTransform _drift = new();
@@ -81,7 +99,16 @@ public sealed class ArtStage : Grid
         Children.Add(_dim);
 
         SizeChanged += (_, _) => PickResolution();
-        Loaded += (_, _) => StartDrift();
+        Loaded += (_, _) =>
+        {
+            // After the first layout, so the art is decoded once at the size the window really is.
+            if (_hasPending)
+            {
+                _hasPending = false;
+                Show(_pendingVersion, animate: false);
+            }
+            StartDrift();
+        };
     }
 
     /// <summary>Show the family of <paramref name="version"/> and its numeral (first frame: no animation).</summary>

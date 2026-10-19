@@ -525,7 +525,7 @@ public partial class HomePage : UserControl
         FamilyLabel.Text = family.Label;
         FamilyRange.Text = family.Range;
         VersionSubText.Text = family.Count == 1 ? "1 version in this family" : $"{family.Count} versions in this family";
-        ArtStage.Instance?.Show(version, animate);
+        ArtStage.Request(version, animate);
     }
 
     private bool _familyShown;
@@ -1246,6 +1246,30 @@ public partial class HomePage : UserControl
     {
         ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, canPlay: true, hasVersion: true));
         SetStatus($"Running - {playerName}", StatusTone.Success);
+    }
+
+    /// <summary>
+    /// Render mode only (UI/RenderShots.cs): Play as a signed-in player sees it, at rest or
+    /// hovered (the hover pose is set on the template parts; no mouse in render mode).
+    /// </summary>
+    internal void TourShowReady(bool hover)
+    {
+        ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Idle, canPlay: true, hasVersion: true));
+        SetStatus("Ready to play", StatusTone.Success);
+        PlayButton.ApplyTemplate();
+        if (PlayButton.Template.FindName("FillScale", PlayButton) is ScaleTransform fill)
+            fill.ScaleX = fill.ScaleY = hover ? 1 : 0;
+        if (PlayButton.Template.FindName("ArrowShift", PlayButton) is TranslateTransform shift)
+            shift.X = hover ? 4 : 0;
+        if (PlayButton.Template.FindName("Arrow", PlayButton) is System.Windows.Shapes.Path arrow)
+            arrow.Stroke = new SolidColorBrush(hover ? Color.FromRgb(0x0E, 0x0E, 0x0E) : Color.FromRgb(0xE6, 0xE6, 0xE6));
+    }
+
+    /// <summary>Render mode only: back to the real Play state after <see cref="TourShowReady"/>.</summary>
+    internal void TourEndReady()
+    {
+        TourShowReady(hover: false);
+        UpdatePlayState();
     }
 
     /// <summary>

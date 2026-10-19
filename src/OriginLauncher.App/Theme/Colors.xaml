@@ -154,12 +154,6 @@
         <GradientStop Color="#00FFFFFF" Offset="0.5"/>
         <GradientStop Color="#14000000" Offset="1"/>
     </LinearGradientBrush>
-    <!-- The dark pool behind Play (mockup: radial closest-side .42 to .2 to 0). -->
-    <RadialGradientBrush x:Key="Fill.PlayGlow">
-        <GradientStop Color="#6B000000" Offset="0"/>
-        <GradientStop Color="#33000000" Offset="0.6"/>
-        <GradientStop Color="#00000000" Offset="1"/>
-    </RadialGradientBrush>
     <!-- The shade a bottom sheet casts up onto the art (a gradient, not an effect). -->
     <LinearGradientBrush x:Key="Fill.SheetShade" StartPoint="0,0" EndPoint="0,1">
         <GradientStop Color="#00000000" Offset="0"/>

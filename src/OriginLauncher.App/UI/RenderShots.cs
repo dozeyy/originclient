@@ -58,6 +58,16 @@ public static class RenderShots
 
         Snap(window, outDir, "01-home");
 
+        // Play as a signed-in player sees it (the run above has no account), at rest and hovered.
+        window.TourShowReady(hover: false);
+        Pump(300);
+        Snap(window, outDir, "01b-home-ready");
+        window.TourShowReady(hover: true);
+        Pump(300);
+        Snap(window, outDir, "01c-home-play-hover");
+        window.TourEndReady();
+        Pump(300);
+
         // The one-time import card in Home's banner slot, at the normal and the smallest window (before anything makes Home "running").
         ImportShots.RunHomeCard(window, outDir);
 

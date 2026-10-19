@@ -45,8 +45,10 @@
                             </Border>
                             <TextBlock Grid.Row="1" Text="{Binding Range}" Margin="0,8,0,0" FontSize="15" FontWeight="Bold"
                                        Foreground="{StaticResource Brush.Text}" TextTrimming="CharacterEllipsis"/>
+                            <!-- Wraps to a second line before it is cut (tiles narrow to ~107 px at the smallest window). -->
                             <TextBlock Grid.Row="2" Text="{Binding Name}" Margin="0,2,0,10" FontSize="11.5"
-                                       Foreground="{StaticResource Brush.TextMuted}" TextTrimming="CharacterEllipsis"/>
+                                       Foreground="{StaticResource Brush.TextMuted}" TextTrimming="CharacterEllipsis"
+                                       TextWrapping="Wrap" LineStackingStrategy="BlockLineHeight" LineHeight="15" MaxHeight="30"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">

@@ -132,6 +132,7 @@ public partial class ProfilesPage : UserControl
         return emblem;
     }
 
+    // A name wraps to a second line before it is cut (cards narrow to ~220 px at the smallest window).
     private TextBlock Title(string text) => new()
     {
         Text = text,
@@ -139,6 +140,10 @@ public partial class ProfilesPage : UserControl
         FontSize = 22,
         FontWeight = FontWeights.Bold,
         Foreground = (Brush)FindResource("Brush.Text"),
+        TextWrapping = TextWrapping.Wrap,
+        LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+        LineHeight = 26,
+        MaxHeight = 52,
         TextTrimming = TextTrimming.CharacterEllipsis,
     };
 

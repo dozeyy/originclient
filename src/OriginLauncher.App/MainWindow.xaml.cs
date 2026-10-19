@@ -328,6 +328,10 @@ public partial class MainWindow : Window
 
     internal void TourShowRunning(string playerName) => _homePage.TourShowRunning(playerName);
 
+    internal void TourShowReady(bool hover) => _homePage.TourShowReady(hover);
+
+    internal void TourEndReady() => _homePage.TourEndReady();
+
     internal void TourShowLaunch(string version) => _homePage.TourShowLaunch(version);
 
     internal void TourReportLaunch(string stage) => _homePage.TourReportLaunch(stage);
