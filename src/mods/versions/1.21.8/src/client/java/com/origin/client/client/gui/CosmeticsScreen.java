@@ -45,7 +45,8 @@ import static com.origin.client.client.gui.OriginDeck.*;
  * theme keeps its own "Origin menu" default tile in the Themes tab). A cape and
  * a back item (wings, backpack) never go together: wearing one takes the other
  * off. Under the preview, up / down arrows move each worn item to suit your
- * skin (CosmeticsService.Adjust); a run of clicks is saved once, shortly after
+ * skin (CosmeticsService.Adjust), and a head / face item's name opens sideways
+ * and forward arrows too; a run of clicks is saved once, shortly after
  * the last one, and the preview follows every click straight away.
  *
  * Picking applies straight away on your side and saves to the
@@ -558,7 +559,7 @@ public class CosmeticsScreen extends OriginWindow {
 		return drew;
 	}
 
-	// ---- moving worn items up / down ----
+	// ---- moving worn items (up / down; head + face items every way) ----
 	private static final float ADJ_ROW_H = 30, ADJ_BTN = 24;
 
 	/** Design y where the position rows start (clicks below it are buttons, not a drag). */
@@ -566,6 +567,8 @@ public class CosmeticsScreen extends OriginWindow {
 	/** Tweaks shown but not saved yet, and when to save them (a run of clicks saves once). */
 	private volatile Look pendingAdjust = null;
 	private long adjustSaveAt = 0;
+	/** The head / face item whose sideways + forward rows are open (one at a time), or null. */
+	private Cosmetics.Slot moving = null;
 
 	/** The worn slots that get a row, top of the body down. */
 	private List<Cosmetics.Slot> adjustableSlots(Look look) {
@@ -599,35 +602,81 @@ public class CosmeticsScreen extends OriginWindow {
 		return (v > 0 ? "+" : "-") + n;
 	}
 
-	/** One row: the item's kind, then down / value / up, and a reset once it has moved. */
+	/** "L1", "R1.5", "0": sideways, as the player sees their own back (+x = the player's left). */
+	private static String sideText(float v) {
+		return v == 0f ? "0" : (v > 0 ? "L" : "R") + adjustText(Math.abs(v)).substring(1);
+	}
+
+	/** Rows under the preview: one per worn item, plus sideways + forward for the head / face item opened. */
+	private int adjustRowCount(List<Cosmetics.Slot> rows) {
+		return rows.size() + (moving != null && rows.contains(moving) ? 2 : 0);
+	}
+
+	/**
+	 * One row: the item's kind, then down / value / up, and a reset once it has moved.
+	 * Head and face items' kind is a toggle that opens their sideways + forward rows.
+	 */
 	private void drawAdjustRow(OriginDeck d, Cosmetics.Slot slot, Look look, float x, float y, float w) {
 		float v = look.adjust(slot);
 		float mid = y + ADJ_ROW_H / 2;
-		d.textMid(slotLabel(slot, look.get(slot)), x, mid, 10.5f, true, CAPS_TRACK, DIM);
-		float upX = x + w - ADJ_BTN;
+		String label = slotLabel(slot, look.get(slot));
+		if (CosmeticsService.Adjust.movesFreely(slot)) {
+			float lw = d.textW(label, 10.5f, true, CAPS_TRACK);
+			boolean open = moving == slot;
+			float hp = OriginUi.hover("cosmetics:adj:more:" + slot, d.over(x - 4, mid - ADJ_BTN / 2, lw + 26, ADJ_BTN));
+			d.textMid(label, x, mid, 10.5f, true, CAPS_TRACK, lerp(DIM, TEXT, hp));
+			d.icon(open ? "@chev-down" : "@chev-right", x + lw + 6, mid - 6, 12, lerp(MUTE, TEXT, hp));
+			d.hit(x - 4, mid - ADJ_BTN / 2, lw + 26, ADJ_BTN, () -> moving = open ? null : slot);
+		} else {
+			d.textMid(label, x, mid, 10.5f, true, CAPS_TRACK, DIM);
+		}
+		drawStepper(d, slot, CosmeticsService.Adjust.Axis.Y, v, adjustText(v), false, x, mid, w);
+	}
+
+	/** An opened head / face item's sideways or forward row, indented under its own row. */
+	private void drawAxisRow(OriginDeck d, Cosmetics.Slot slot, CosmeticsService.Adjust.Axis axis, Look look, float x,
+			float y, float w) {
+		float v = look.adjust(slot, axis);
+		float mid = y + ADJ_ROW_H / 2;
+		boolean side = axis == CosmeticsService.Adjust.Axis.X;
+		d.textMid(side ? "SIDEWAYS" : "FORWARD", x + 14, mid, 9.5f, true, CAPS_TRACK, MUTE);
+		// sideways: the left arrow moves it to the player's left (+x), as you see your own back in third person
+		drawStepper(d, slot, axis, v, side ? sideText(v) : adjustText(v), side, x, mid, w);
+	}
+
+	/**
+	 * Two buttons around the value at the row's right end, and a reset once moved: down / up
+	 * chevrons (left one lowers), or, `sideways`, left / right chevrons (left one = the player's left, +).
+	 */
+	private void drawStepper(OriginDeck d, Cosmetics.Slot slot, CosmeticsService.Adjust.Axis axis, float v, String text,
+			boolean sideways, float x, float mid, float w) {
+		float rightX = x + w - ADJ_BTN;
 		float valW = 34;
-		float downX = upX - valW - ADJ_BTN;
-		boolean canUp = v < CosmeticsService.Adjust.MAX;
-		boolean canDown = v > -CosmeticsService.Adjust.MAX;
-		adjustButton(d, "cosmetics:adj:down:" + slot, downX, mid - ADJ_BTN / 2, false, canDown,
-				() -> nudge(slot, v - CosmeticsService.Adjust.STEP));
-		d.textCenter(adjustText(v), downX + ADJ_BTN + valW / 2, mid + 4.5f, 12, true, 0, v == 0f ? MUTE : TEXT);
-		adjustButton(d, "cosmetics:adj:up:" + slot, upX, mid - ADJ_BTN / 2, true, canUp,
-				() -> nudge(slot, v + CosmeticsService.Adjust.STEP));
+		float leftX = rightX - valW - ADJ_BTN;
+		float step = sideways ? CosmeticsService.Adjust.STEP : -CosmeticsService.Adjust.STEP;   // what the LEFT button adds
+		boolean canLeft = sideways ? v < CosmeticsService.Adjust.MAX : v > -CosmeticsService.Adjust.MAX;
+		boolean canRight = sideways ? v > -CosmeticsService.Adjust.MAX : v < CosmeticsService.Adjust.MAX;
+		String k = slot + ":" + axis;
+		adjustButton(d, "cosmetics:adj:l:" + k, leftX, mid - ADJ_BTN / 2, sideways ? "@chev-left" : "@chev-down", false,
+				canLeft, () -> nudge(slot, axis, v + step));
+		d.textCenter(text, leftX + ADJ_BTN + valW / 2, mid + 4.5f, 12, true, 0, v == 0f ? MUTE : TEXT);
+		adjustButton(d, "cosmetics:adj:r:" + k, rightX, mid - ADJ_BTN / 2, sideways ? "@chev-right" : "@chev-down", !sideways,
+				canRight, () -> nudge(slot, axis, v - step));
 		if (v != 0f) {
-			float rx = downX - 8 - ADJ_BTN;
-			float hp = OriginUi.hover("cosmetics:adj:reset:" + slot, d.over(rx, mid - ADJ_BTN / 2, ADJ_BTN, ADJ_BTN));
+			float rx = leftX - 8 - ADJ_BTN;
+			float hp = OriginUi.hover("cosmetics:adj:reset:" + k, d.over(rx, mid - ADJ_BTN / 2, ADJ_BTN, ADJ_BTN));
 			d.icon("@reset", rx + 5, mid - 7, 14, lerp(MUTE, TEXT, hp));
-			d.hit(rx, mid - ADJ_BTN / 2, ADJ_BTN, ADJ_BTN, () -> nudge(slot, 0f));
+			d.hit(rx, mid - ADJ_BTN / 2, ADJ_BTN, ADJ_BTN, () -> nudge(slot, axis, 0f));
 		}
 	}
 
-	private void adjustButton(OriginDeck d, String key, float x, float y, boolean up, boolean enabled, Runnable onClick) {
+	private void adjustButton(OriginDeck d, String key, float x, float y, String icon, boolean turn, boolean enabled,
+			Runnable onClick) {
 		float hp = OriginUi.hover(key, enabled && d.over(x, y, ADJ_BTN, ADJ_BTN));
 		d.rect(x, y, ADJ_BTN, ADJ_BTN, 6, lerp(0x0AFFFFFF, 0x1AFFFFFF, hp), enabled ? LINE2 : LINE);
 		int color = !enabled ? mul(MUTE, 0.5f) : lerp(DIM, TEXT, hp);
 		float ix = x + 5, iy = y + 5, is = 14;
-		if (up) {
+		if (turn) {
 			// the atlas has no up chevron: the down one, turned 180 degrees about its own
 			// centre (1.21.6+: the GUI pose is a 2D Matrix3x2fStack; a turn, not a mirror,
 			// so the quad keeps its winding)
@@ -638,22 +687,22 @@ public class CosmeticsScreen extends OriginWindow {
 				pose.translate(pcx, pcy);
 				pose.rotate((float) Math.PI);
 				pose.translate(-pcx, -pcy);
-				d.icon("@chev-down", ix, iy, is, color);
+				d.icon(icon, ix, iy, is, color);
 			} finally {
 				pose.popMatrix();
 			}
 		} else {
-			d.icon("@chev-down", ix, iy, is, color);
+			d.icon(icon, ix, iy, is, color);
 		}
 		if (enabled) {
 			d.hit(x, y, ADJ_BTN, ADJ_BTN, onClick);
 		}
 	}
 
-	/** Moves `slot`'s item to height `to` (model px): shown at once, saved after a short pause. */
-	private void nudge(Cosmetics.Slot slot, float to) {
+	/** Moves `slot`'s item to `to` (model px) along `axis`: shown at once, saved after a short pause. */
+	private void nudge(Cosmetics.Slot slot, CosmeticsService.Adjust.Axis axis, float to) {
 		Look now = wearing();
-		Look next = now.withAdjust(now.adjust().with(slot, to));
+		Look next = now.withAdjust(now.adjust().with(slot, axis, to));
 		if (next.equals(now)) {
 			return;
 		}
@@ -681,7 +730,7 @@ public class CosmeticsScreen extends OriginWindow {
 		float x = PREV_X, y = PREV_Y, w = PREV_W, h = PREV_H;
 		Look worn = wearing();
 		List<Cosmetics.Slot> rows = adjustableSlots(worn);
-		float rowsH = rows.isEmpty() ? 0 : rows.size() * ADJ_ROW_H + 10;
+		float rowsH = rows.isEmpty() ? 0 : adjustRowCount(rows) * ADJ_ROW_H + 10;
 		boolean hov = d.over(x, y, w, h) || dragFrom != null;
 		d.rect(x, y, w, h, 8, CARD, hov ? 0x29F1E9D2 : LINE);
 		var user = Minecraft.getInstance().getUser();
@@ -704,6 +753,11 @@ public class CosmeticsScreen extends OriginWindow {
 			for (Cosmetics.Slot slot : rows) {
 				drawAdjustRow(d, slot, worn, x + 20, ry, w - 40);
 				ry += ADJ_ROW_H;
+				if (slot == moving) {
+					drawAxisRow(d, slot, CosmeticsService.Adjust.Axis.X, worn, x + 20, ry, w - 40);
+					drawAxisRow(d, slot, CosmeticsService.Adjust.Axis.Z, worn, x + 20, ry + ADJ_ROW_H, w - 40);
+					ry += 2 * ADJ_ROW_H;
+				}
 			}
 		}
 

@@ -15,8 +15,11 @@ namespace OriginLauncher.App.UI;
 
 /// <summary>
 /// `OriginLauncher.App.exe --render-shots &lt;folder&gt; --social` renders ONLY the
-/// Friends / party / chat surfaces, in every state, at 1180x740 and at the
-/// smallest window the launcher allows (980x600). Made-up data only (the
+/// Friends / party / chat surfaces, in every state, at 1180x740, at the
+/// smallest window the launcher allows (980x600) and at a 1440p-monitor size
+/// (1600x1000); then the key scenes and Home again at 125 % and 150 % display
+/// scale (<see cref="ScaledPass"/>). Every picture is also checked for icons and
+/// text cut off by their slot (<see cref="RenderShots.ClipCheck"/>). Made-up data only (the
 /// social service is in demo mode, nothing touches the network) and no setting
 /// is ever changed, so it can run on a PC with a real launcher install.
 /// </summary>
@@ -50,7 +53,7 @@ public static class SocialShots
         RenderShots.Pump(2500);
 
         var scenes = Scenes(now);
-        foreach (var (width, height) in new[] { (1180, 740), (980, 600) })
+        foreach (var (width, height) in Sizes)
         {
             window.Width = width;
             window.Height = height;
@@ -70,7 +73,7 @@ public static class SocialShots
                     scene.Setup(window);
                     RenderShots.Pump(450);
                     var name = $"{i + 1:00}-{scene.Name}-{width}x{height}";
-                    RenderShots.Snap(window, outDir, name);
+                    RenderShots.Snap(window, outDir, name, size: new Size(width, height));
                     if (scene.Extra?.Invoke() is { } extra) SnapElement(extra, outDir, name + "-popup");
                 }
                 catch (Exception ex)
@@ -82,9 +85,70 @@ public static class SocialShots
         if (_menu != null) _menu.IsOpen = false;
         _cleanup?.Invoke();
         _cleanup = null;
+        ScaledPass(window, outDir, scenes);
         KeyboardChecks(window, outDir);
         ToastClearance(window, outDir);
         window.Close();
+    }
+
+    // The smallest window the launcher allows, the usual one, and one sized like a 1440p monitor's.
+    private static readonly (int Width, int Height)[] Sizes = [(1180, 740), (980, 600), (1600, 1000)];
+
+    /// <summary>
+    /// Will's real drawer, then the scenes with the most icons, and Home, at 100 %, 125 % and 150 % display scale,
+    /// at every window size. How the scale is made: the window's visual tree is given that DPI
+    /// (<see cref="RenderShots.SetTreeDpi"/>, which is what per-monitor DPI does when a window moves to a scaled
+    /// monitor: layout rounding to that DPI's pixel grid, text shaped for it) and the picture is rasterized
+    /// at the same DPI, so its pixels are the pixels a 125 % / 150 % monitor shows. A bare RenderTargetBitmap
+    /// at 120 dpi would only scale a 100 % layout up, and miss rounding that only happens at that DPI.
+    /// </summary>
+    private static void ScaledPass(MainWindow window, string outDir, List<Scene> scenes)
+    {
+        string[] keep = ["will-one-offline", "list-leader", "list-long", "list-add-open", "chat-friend-online", "toasts-drawer-open"];
+        var picked = scenes.Select((s, i) => (Scene: s, Index: i)).Where(x => keep.Contains(x.Scene.Name)).ToList();
+        var report = new StringBuilder();
+        foreach (var percent in new[] { 100, 125, 150 })
+        {
+            RenderShots.SetTreeDpi(window, percent / 100.0);
+            foreach (var (width, height) in Sizes)
+            {
+                window.Width = width;
+                window.Height = height;
+                RenderShots.Pump(400);
+                // What the real window got (capped at the desktop on CI) before any picture lays it out bigger.
+                var real = ((FrameworkElement)window.Content).RenderSize;
+                foreach (var (scene, index) in picked)
+                {
+                    try
+                    {
+                        _cleanup?.Invoke();
+                        _cleanup = null;
+                        window.TourFriendsPanel.TourScrollListToTop();
+                        scene.Setup(window);
+                        RenderShots.Pump(450);
+                        RenderShots.Snap(window, outDir, $"{index + 1:00}-{scene.Name}-{width}x{height}-{percent}pct", percent * 0.96,
+                            new Size(width, height));
+                    }
+                    catch (Exception ex)
+                    {
+                        File.AppendAllText(Path.Combine(outDir, "social-error.txt"), $"{scene.Name} at {percent} %: {ex}{Environment.NewLine}");
+                    }
+                }
+                window.TourFriendsPanel.HandleEscape();
+                window.TourSetFriendsOpen(false);
+                window.TourClearToasts();
+                window.TourGoTo(0);
+                RenderShots.Pump(600);
+                RenderShots.Snap(window, outDir, $"00-home-{width}x{height}-{percent}pct", percent * 0.96, new Size(width, height));
+                var root = (FrameworkElement)window.Content;
+                var deep = FindVisual<Button>(root, _ => true);
+                report.AppendLine($"{percent} % {width}x{height}: window {real.Width:0}x{real.Height:0} DIP, pictures laid out at "
+                    + $"{Math.Max(width, real.Width):0}x{Math.Max(height, real.Height):0} DIP, "
+                    + $"tree DPI {(deep != null ? VisualTreeHelper.GetDpi(deep).PixelsPerInchX : 0):0}");
+            }
+        }
+        RenderShots.SetTreeDpi(window, 1.0);
+        File.WriteAllText(Path.Combine(outDir, "scale-checks.txt"), report.ToString());
     }
 
     private static T? FindAncestor<T>(DependencyObject start) where T : DependencyObject
@@ -333,6 +397,14 @@ public static class SocialShots
         };
     }
 
+    private static SocialSnapshot WillsDrawer(long now) => new()
+    {
+        Status = SocialStatus.Online,
+        HasData = true,
+        Me = new SocialMe(SocialDemo.Me, "OriginPlayer", false),
+        Friends = [new FriendInfo("b1".PadLeft(32, '0'), "Yozeyy", false, null, null, null, null, now - 11 * 3_600_000L)],
+    };
+
     private static SocialSnapshot AsMember(long now)
     {
         var s = SocialDemo.Online(now);
@@ -435,6 +507,13 @@ public static class SocialShots
 
         return
         [
+            // Exactly Will's drawer from his report (2026-10-18): one friend, offline, 0 online, the add box open
+            // and empty, appear offline off.
+            new("will-one-offline", w =>
+            {
+                List(w, WillsDrawer(now));
+                w.TourFriendsPanel.TourSetAddOpen(true);
+            }),
             new("list-leader", w => List(w, SocialDemo.Online(now))),
             new("list-member", w => List(w, AsMember(now))),
             new("list-no-party", w => List(w, NoParty(now))),

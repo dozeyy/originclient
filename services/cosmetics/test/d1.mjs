@@ -12,6 +12,7 @@ export function d1() {
   for (const f of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) db.exec(readFileSync(new URL(f, dir), 'utf8'));
   const returnsRows = sql => /^\s*(SELECT|WITH)\b/i.test(sql) || /\bRETURNING\b/i.test(sql);
   const stmt = (sql, args = []) => ({
+    sql,   // read by tests that look at a batch's statements
     bind: (...a) => stmt(sql, a),
     first: col => { const row = db.prepare(sql).get(...args); return row ? (col ? row[col] : { ...row }) : null; },
     all: () => ({ results: db.prepare(sql).all(...args).map(r => ({ ...r })), meta: {} }),

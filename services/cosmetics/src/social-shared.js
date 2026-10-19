@@ -109,6 +109,12 @@ export async function allow(env, uuid, kind, now) {
   return !!r.meta?.changes;
 }
 
+// The friendsEtag of an account whose names.friends_rev is `rev`, at `now`:
+// it changes with every bump below and every L.ETAG_REFRESH_MS (safety net).
+// The one place the string is built: clients only compare it for equality,
+// and the held answer finds the rev a sent etag stands for by rebuilding it here.
+export const friendsEtagOf = (rev, now) => `${rev}.${Math.floor(now / L.ETAG_REFRESH_MS)}`;
+
 // friendsEtag bumps (see names.friends_rev). Statements, so callers can put
 // them in the same batch as the change itself.
 export const bumpRev = (env, ...uuids) => env.DB.prepare(

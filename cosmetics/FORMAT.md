@@ -87,12 +87,29 @@ Face items hug the face (z 4..5). Back items: wings span <= 14 px each side of
 the spine and never rise above y = +6 (they must not cover the head from
 behind); backpacks <= 5 px deep, inside x -4..4.
 
-**Height tweaks (per player, not per item):** a player can raise or lower what
-sits in each body slot (cape, head, face, back) to suit their skin, in 0.5 px
-steps, within +-4 px (the Cosmetics screen's arrows). It is saved with what they
-wear (service `equipped.adjust`, `{"head": 1.5, ...}`, zero slots left out) so
-everyone sees it, and the renderers add it to the item's y after the bone
-transform. Items are authored for the default skin; the tweak is never baked in.
+**Position tweaks (per player, not per item):** a player can raise or lower what
+sits in each body slot (cape, head, face, back) to suit their skin, and move head
+and face items sideways (+x = their left) and forward (+z = toward the face) too,
+in 0.5 px steps, within +-4 px per axis (the Cosmetics screen's arrows; the
+website's fitting room has the same arrows as a preview only). It is saved with
+what they wear (service `equipped.adjust`: `{"head": 1.5, "headX": -1, "faceZ": 0.5, ...}`
+- the slot name is its height, `<slot>X` / `<slot>Z` its sideways / forward move,
+only for head and face; zero keys left out) so everyone sees it, and the renderers
+add it to the item's position in the attach frame after the bone transform and
+the outer-layer fit. Items are authored for the default skin; the tweak is never baked in.
+
+**Outer skin layer (both renderers, Will 2026-10-19):** items are authored against
+the bare skin, but most skins wear an outer layer (vanilla inflates the hat 0.5 px
+and the jacket 0.25 px), which a face item at z 4..5 or a band at x 4..4.5 would
+clip into. So when the player SHOWS that layer (hat for head + face items, jacket
+for back items; capes are untouched), every item vertex is bent outward over it,
+in the attach frame, after the item's own animation and before the position tweak.
+Per axis, around the bone's skin box (centre c, half size h), with u = p - c:
+`|u| >= h -> u + sign(u) * g`, else `u * (h + g) / h`. Head + face: c (0, 4, 0),
+h (4, 4, 4), g 0.5. Back: c (0, -6, 0), h (4, 6, 2), g 0.25. It is continuous, so
+wraparound items (glasses, bands, straps) wrap the layer instead of tearing and
+animated parts never jump. Keep authoring against the bare skin: the fit is the
+renderers' job (ModelCosmetic.Fit in the mod, rig.js on the site).
 
 ## Models
 

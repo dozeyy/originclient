@@ -118,7 +118,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <!-- Back-to-grid (only in detail view) -->
-                <Button Grid.Column="0" x:Name="BackButton" Style="{StaticResource Button.Chrome}" Width="34" Height="34"
+                <Button Grid.Column="0" x:Name="BackButton" Style="{StaticResource Button.Chrome}" MinWidth="34" MinHeight="34"
                         Padding="8" VerticalAlignment="Center" Margin="-9,0,12,0" Visibility="Collapsed"
                         Click="Back_Click" ToolTip="All versions">
                     <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}"
@@ -126,7 +126,7 @@
                 </Button>
                 <TextBlock Grid.Column="1" Text="Versions" Style="{StaticResource Text.H1}"
                            VerticalAlignment="Center"/>
-                <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" Width="34" Height="34" Padding="8"
+                <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" MinWidth="34" MinHeight="34" Padding="8"
                         VerticalAlignment="Center" Margin="0,0,-10,0" Click="Close_Click" ToolTip="Close">
                     <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
                           Width="14" Height="14" Stroke="{StaticResource Brush.TextDim}"/>
