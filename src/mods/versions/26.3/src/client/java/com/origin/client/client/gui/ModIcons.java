@@ -67,8 +67,8 @@ public final class ModIcons {
 
 	/**
 	 * OriginAssets' per-frame upload slice: decodes now and uploads the atlas if
-	 * the icon pipeline can be decided. False = not yet (pipeline still pending
-	 * behind the loading overlay, see OriginShaders.sourcesPending); the slice
+	 * the icon pipeline can be decided. False = not yet (the reload behind the
+	 * loading overlay still running, see OriginShaders.sourcesPending); the slice
 	 * retries, and if the overlay closes first the first draw uploads instead.
 	 * Never registers the mask early -- that would lock the session onto it.
 	 */
