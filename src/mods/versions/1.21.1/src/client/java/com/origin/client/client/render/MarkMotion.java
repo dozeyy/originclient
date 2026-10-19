@@ -91,16 +91,17 @@ final class MarkMotion {
 
 	/** The loading loop at {@code t} ms since the loading screen first drew. */
 	static void drawLoading(GuiGraphics g, double cx, double cy, double size, double t, double alpha) {
-		double[][] s = settleT >= 0 ? loadingState(Math.min(t, restT), settledDrift(t)) : loadingState(t, t);
+		double lt = loopTime(t);
+		double[][] s = settleT >= 0 ? loadingState(lt, settledDrift(t)) : loadingState(t, t);
 		for (int k = 0; k < 3; k++) {
 			System.arraycopy(s[k], 0, snap[k], 0, N);
 		}
 		snapCx = cx;
 		snapCy = cy;
 		snapSize = size;
-		snapT = t;
+		snapT = lt;
 		snapDot = dotAlpha(t);
-		draw(g, cx, cy, size, s, alpha, dotAngle(t), snapDot);
+		draw(g, cx, cy, size, s, alpha, dotAngle(lt), snapDot);
 	}
 
 	// ---- Settle: the calm before the menu ----
@@ -108,38 +109,61 @@ final class MarkMotion {
 	// on the render thread (atlas uploads, model bake, shaders, sound engine), and
 	// with mods installed single steps take hundreds of ms. A frame that long is
 	// invisible only if nothing is moving. So once the load reaches that stretch
-	// (OriginScreenRenderer: all preparations done), the loop finishes the morph
-	// it is in — never cut — and rests on that shape, its slow turn eases to a
-	// stop and the riding dot fades out. From then on only the bar moves (a bar
-	// that pauses reads as loading), the main menu's settle hold shows this same
-	// still picture, and the flight to the title starts from it.
+	// (OriginScreenRenderer: the first reload work on the render thread), the
+	// loop comes to rest fast: holding a shape, it stays; near the end of a morph,
+	// the morph lands (its ease-out already ends at rest); otherwise the whole
+	// loop decelerates to a stop in ~1/3 s (an exponential ease on its clock, so
+	// it loses speed smoothly instead of stopping dead). The slow turn eases out
+	// too and the riding dot fades. From then on only the bar moves (a bar that
+	// pauses reads as loading), the main menu's settle hold shows this same still
+	// picture, and the flight to the title starts from it. Why fast and not
+	// "finish the morph": the first heavy steps (fonts, models, Shader Loader;
+	// with Will's mods cobblemon:atlases at 4.7 s on CI) start within ~100 ms of
+	// the trigger, and a full morph takes up to 720 ms.
 
 	/** Loop time (ms) the settle was asked for; -1 = looping. */
 	private static double settleT = -1;
-	/** Loop time the strokes come to rest (the end of the morph in progress at settleT). */
+	/** Loop time the strokes come to rest when landing a morph (decel = false). */
 	private static double restT;
+	/** True: the loop decelerates instead of landing its morph. */
+	private static boolean decel;
+	/** A morph with at most this much left lands; more than this decelerates. */
+	private static final double LAND_MS = 250;
+	/** The loop clock's deceleration time constant; at rest after REST_TAUS of them. */
+	private static final double DECEL_TAU_MS = 110, REST_TAUS = 4;
 	/** How quickly the slow turn eases out after a settle, and how long the dot takes to fade. */
 	private static final double DRIFT_TAU_MS = 400, DOT_FADE_MS = 360;
 	// The dot's alpha in the last loading frame (the flight's dot starts from it).
 	private static double snapDot = 1.0;
 
-	/** Ask the loop to come to rest (idempotent): finishes the current morph, then holds. */
+	/** Ask the loop to come to rest (idempotent). */
 	static void settle(double t) {
 		if (settleT >= 0) {
 			return;
 		}
 		settleT = t;
 		double intro = INTRO_MS + 2 * STAGGER_MS;
+		double land;
 		if (t < intro) {
-			restT = intro;   // the seed finishes blooming into circles
-			return;
+			land = intro;   // the seed blooming into circles
+		} else {
+			double stepMs = HOLD_MS + MORPH_MS;
+			double step = Math.floor((t - intro) / stepMs);
+			double within = (t - intro) - step * stepMs;
+			// Holding a shape: rest right there. Mid-morph: the step's end (every
+			// stroke's morph, stagger included, has landed by then).
+			land = within < HOLD_MS ? t : intro + (step + 1) * stepMs;
 		}
-		double stepMs = HOLD_MS + MORPH_MS;
-		double step = Math.floor((t - intro) / stepMs);
-		double within = (t - intro) - step * stepMs;
-		// Holding a shape: rest right there. Mid-morph: rest when it lands (every
-		// stroke's morph, stagger included, ends by the step's end).
-		restT = within < HOLD_MS ? t : intro + (step + 1) * stepMs;
+		decel = land - t > LAND_MS;
+		restT = land;
+	}
+
+	/** The loop's own clock: real loop time, or after a settle the landing/decelerating one. */
+	private static double loopTime(double t) {
+		if (settleT < 0 || t <= settleT) {
+			return t;
+		}
+		return decel ? settleT + DECEL_TAU_MS * (1.0 - Math.exp(-(t - settleT) / DECEL_TAU_MS)) : Math.min(t, restT);
 	}
 
 	/** True once a settle was asked for (until {@link #unsettle}). */
@@ -154,7 +178,11 @@ final class MarkMotion {
 
 	/** True once the strokes have landed and the dot is gone: nothing on the loading screen moves but the bar. */
 	static boolean atRest(double t) {
-		return settleT >= 0 && t >= Math.max(restT, settleT + DOT_FADE_MS);
+		if (settleT < 0) {
+			return false;
+		}
+		double stopped = decel ? settleT + REST_TAUS * DECEL_TAU_MS : restT;
+		return t >= Math.max(stopped, settleT + DOT_FADE_MS);
 	}
 
 	/** The drift's clock after a settle: it eases out instead of stopping dead. */

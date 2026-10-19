@@ -120,19 +120,28 @@ public final class OriginAssets {
 
 	/** The decoded image at this classpath path: prefetched, or decoded now if it isn't yet. Caller owns it. */
 	public static NativeImage image(String path) throws Exception {
-		Slot<NativeImage> s = images.remove(path);
-		NativeImage img = s == null ? null : s.take();
+		NativeImage img = claim(images, path);
 		return img != null ? img : readImage(path);
 	}
 
 	/** A prefetched image the loader decided not to use: free it now. */
 	public static void discard(String path) {
-		Slot<NativeImage> s = images.remove(path);
-		NativeImage img = s == null ? null : s.take();
+		NativeImage img = claim(images, path);
 		if (img != null) {
 			img.close();
 		}
 	}
+
+	// Hands a result over exactly once. The key keeps a spent marker, so a
+	// prefetch that only reaches it later (a loader that asked early) skips it
+	// instead of decoding a second copy nobody would ever take or close.
+	@SuppressWarnings("unchecked")
+	private static <T> T claim(Map<String, Slot<T>> map, String key) {
+		Slot<T> s = map.put(key, (Slot<T>) SPENT);
+		return s == null ? null : s.take();
+	}
+
+	private static final Slot<Object> SPENT = Slot.spent();
 
 	/** The parsed JSON at this classpath path (shared, read-only). */
 	public static JsonObject json(String path) throws Exception {
@@ -141,11 +150,10 @@ public final class OriginAssets {
 		return j != null ? j : readJson(path);
 	}
 
-	/** A derived result registered with {@link #prepareDerived}, or null if it wasn't built (build it yourself). */
+	/** A derived result built by the prefetch (e.g. {@link #PLUS_BADGE}), or null if it wasn't (build it yourself). */
 	@SuppressWarnings("unchecked")
 	public static <T> T derived(String key) {
-		Slot<Object> s = derived.remove(key);
-		return s == null ? null : (T) s.take();
+		return (T) claim(derived, key);
 	}
 
 	/** True once the prefetch has run (everything above is a hand-over, not a decode). */
@@ -239,6 +247,14 @@ public final class OriginAssets {
 
 		Slot(Builder<T> builder) {
 			this.builder = builder;
+		}
+
+		/** Already handed over: never builds, always yields null. */
+		static <T> Slot<T> spent() {
+			Slot<T> s = new Slot<>(null);
+			s.state.set(2);
+			s.done.countDown();
+			return s;
 		}
 
 		/** Worker: build it unless a loader already claimed it. */
