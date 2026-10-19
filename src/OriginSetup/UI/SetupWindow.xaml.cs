@@ -418,8 +418,7 @@ public partial class SetupWindow : Window
         try
         {
             // The finish page's optional checkbox: open straight into the launcher's import card.
-            var args = ImportToggle.IsChecked == true ? "--import" : "";
-            Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = true, WorkingDirectory = dir });
+            Process.Start(FinishLaunch.StartInfo(exe, dir, ImportToggle.IsChecked == true));
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is FileNotFoundException)
         {

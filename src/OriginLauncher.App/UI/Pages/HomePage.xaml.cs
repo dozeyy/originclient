@@ -605,6 +605,11 @@ public partial class HomePage : UserControl
         // profile, only when it belongs to this version and personal mods are on.
         var profile = ProfileRules.ForLaunch(freshSettings.ModProfiles, freshSettings.SelectedProfileId, version, externalMods);
         if (_launches.BeginPrepare(key, version) is not { } ticket) return;
+        // An import must not start while this launch is still being prepared (the game process does not exist
+        // yet, so the "is a game running" probe cannot see it). Held until this method ends - a `using`, so every
+        // exit (started, cancelled, failed, any exception) releases it; from the process start on, the running
+        // game is what blocks an import (Core/Import/Launcher/LaunchRunState).
+        using var launchRun = LaunchRunState.Enter();
         _profileByKey[key] = profile?.Id;
         _overlayTicket = ticket;
         _sceneGame = null; // the scene is this launch's now, whatever it showed before

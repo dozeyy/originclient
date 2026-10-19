@@ -6,29 +6,34 @@ namespace OriginLauncher.App.Core.Import.Launcher;
 // The settings change an import makes, as plain edits of a LauncherSettings. The glue runs
 // each of these inside ONE SettingsStore.Update, so apply and revert are each a single atomic
 // write against what is on disk right now. PlayWithExternalMods is never touched.
+//
+// A single import carries one profile (AddProfile); an "import everything" run carries one per Minecraft
+// version (AddProfiles) in the same delta, so all of them land - and all of them go on a rollback - in that
+// one write. A journal written before AddProfiles existed only has AddProfile and still reverts.
 public static class ImportSettingsRules
 {
-    /// <summary>Adds the new profile (once), selects the target version and the profile.</summary>
+    /// <summary>Adds the new profile(s) (each once), selects the target version and the profile.</summary>
     public static void Apply(LauncherSettings s, SettingsDelta delta)
     {
-        if (delta.AddProfile is { } profile && s.ModProfiles.All(p => p.Id != profile.Id))
-            s.ModProfiles.Add(new ModProfile
-            {
-                Id = profile.Id, Name = profile.Name, Version = profile.Version,
-                ServerName = profile.ServerName, ServerAddress = profile.ServerAddress,
-            });
+        foreach (var profile in ProfilesOf(delta))
+            if (s.ModProfiles.All(p => p.Id != profile.Id))
+                s.ModProfiles.Add(new ModProfile
+                {
+                    Id = profile.Id, Name = profile.Name, Version = profile.Version,
+                    ServerName = profile.ServerName, ServerAddress = profile.ServerAddress,
+                });
         if (delta.SetSelectedVersion != null) s.SelectedVersion = delta.SetSelectedVersion;
         if (delta.SetSelectedProfileId != null) s.SelectedProfileId = delta.SetSelectedProfileId;
     }
 
     /// <summary>
-    /// Puts the settings back: the profile goes, and a selection goes back to what it was before — but
+    /// Puts the settings back: the profile(s) go, and a selection goes back to what it was before — but
     /// only when it is still what the import set, so a choice the player made since is never overwritten.
     /// Safe when <see cref="Apply"/> never ran (nothing matches, nothing changes).
     /// </summary>
     public static void Revert(LauncherSettings s, SettingsDelta delta)
     {
-        if (delta.AddProfile is { } profile)
+        foreach (var profile in ProfilesOf(delta))
             for (var i = s.ModProfiles.Count - 1; i >= 0; i--)
                 if (s.ModProfiles[i].Id == profile.Id) s.ModProfiles.RemoveAt(i);
 
@@ -37,5 +42,15 @@ public static class ImportSettingsRules
 
         if (delta.SetSelectedVersion != null && s.SelectedVersion == delta.SetSelectedVersion)
             s.SelectedVersion = delta.PreviousSelectedVersion;
+    }
+
+    // Every profile the delta adds: the single one (older journals) and the list (bulk), without repeats.
+    private static IEnumerable<ModProfile> ProfilesOf(SettingsDelta delta)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        if (delta.AddProfile is { } one && seen.Add(one.Id)) yield return one;
+        if (delta.AddProfiles != null)
+            foreach (var profile in delta.AddProfiles)
+                if (profile != null && seen.Add(profile.Id)) yield return profile;
     }
 }

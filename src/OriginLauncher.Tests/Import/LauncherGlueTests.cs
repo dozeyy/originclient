@@ -1,4 +1,5 @@
 using OriginLauncher.App.Core.Import;
+using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Import.Launcher;
 using OriginLauncher.App.Core.Models;
 using OriginLauncher.App.Core.Profiles;
@@ -161,13 +162,216 @@ public sealed class LauncherGlueTests
     public void First_run_card_shows_only_when_everything_allows_it(bool seen, bool flag, bool canImport, int found, bool expected) =>
         Assert.Equal(expected, ImportPrompt.ShouldShow(seen, flag, canImport, found));
 
+    private static DetectedInstance Inst(SourceKind k, string? version = "1.21.1") =>
+        new() { Kind = k, Name = "x", GameDir = "x", McVersion = version };
+
+    private static readonly string[] Supported = { "1.21.1", "1.20.1", "1.8.9" };
+
     [Fact]
-    public void First_run_question_names_the_launcher()
+    public void First_run_card_counts_only_qualifying_setups()
     {
-        DetectedInstance Inst(SourceKind k) => new() { Kind = k, Name = "x", GameDir = "x" };
-        Assert.Equal("Bring over your mods and settings from Prism Launcher?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism), Inst(SourceKind.Prism) }));
-        Assert.Equal("Bring over your mods and settings from the Minecraft launcher?", ImportPrompt.Question(new[] { Inst(SourceKind.OfficialLauncher) }));
-        Assert.Equal("Bring over your mods and settings from your other launchers?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism), Inst(SourceKind.CurseForge) }));
+        var found = new[] { Inst(SourceKind.Prism, "1.21.1"), Inst(SourceKind.Prism, "1.21.5"), Inst(SourceKind.Modrinth, null), Inst(SourceKind.CurseForge, "1.8.9") };
+        var qualifying = ImportPrompt.Qualifying(found, Supported);
+        Assert.Equal(new[] { "1.21.1", "1.8.9" }, qualifying.Select(i => i.McVersion));
+        Assert.True(ImportPrompt.ShouldShow(false, false, true, qualifying.Count));
+    }
+
+    [Fact]
+    public void First_run_card_does_not_show_when_every_setup_is_on_an_unsupported_version()
+    {
+        var found = new[] { Inst(SourceKind.Prism, "1.21.5"), Inst(SourceKind.Prism, "1.12.2"), Inst(SourceKind.Modrinth, null) };
+        var qualifying = ImportPrompt.Qualifying(found, Supported);
+        Assert.Empty(qualifying);
+        Assert.False(ImportPrompt.ShouldShow(false, false, true, qualifying.Count));
+    }
+
+    [Fact]
+    public void First_run_card_copy_names_the_launcher_for_one_setup_and_is_generic_for_several()
+    {
+        Assert.Equal("Bring over your setup from Prism Launcher?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism) }));
+        Assert.Equal("Bring over your setup from the Minecraft launcher?", ImportPrompt.Question(new[] { Inst(SourceKind.OfficialLauncher) }));
+        Assert.Equal("Bring over your setup from the Modrinth App?", ImportPrompt.Question(new[] { Inst(SourceKind.Modrinth) }));
+        Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism), Inst(SourceKind.Prism) }));
+        Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism), Inst(SourceKind.CurseForge) }));
+        Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Title);
+        Assert.Equal("Import", ImportPrompt.ImportLabel);
+        Assert.Equal("Not now", ImportPrompt.DismissLabel);
+    }
+
+    [Fact]
+    public void Existing_players_start_with_the_card_unseen_so_they_see_it_once()
+    {
+        Assert.False(new LauncherSettings().ImportPromptSeen);
+        Assert.True(ImportPrompt.ShouldShow(new LauncherSettings().ImportPromptSeen, false, true, 1));
+    }
+
+    // ---- bulk profiles in the settings delta ----
+
+    private static ModProfile Prof(char c, string version) =>
+        new() { Id = new string(c, 32), Name = "Imported " + version, Version = version };
+
+    private static SettingsDelta BulkDelta() => new()
+    {
+        AddProfiles = new List<ModProfile> { Prof('c', "1.21.1"), Prof('d', "1.20.1"), Prof('e', "1.8.9") },
+        SetSelectedVersion = "1.21.1", SetSelectedProfileId = new string('c', 32),
+        PreviousSelectedVersion = "1.20.1", PreviousSelectedProfileId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    };
+
+    [Fact]
+    public void Bulk_apply_adds_every_profile_and_revert_removes_every_one()
+    {
+        var delta = BulkDelta();
+        var s = Before();
+        ImportSettingsRules.Apply(s, delta);
+        Assert.Equal(4, s.ModProfiles.Count);
+        Assert.Equal("1.21.1", s.SelectedVersion);
+        Assert.Equal(new string('c', 32), s.SelectedProfileId);
+
+        ImportSettingsRules.Apply(s, delta); // twice: still once each
+        Assert.Equal(4, s.ModProfiles.Count);
+
+        ImportSettingsRules.Revert(s, delta);
+        Assert.Single(s.ModProfiles);
+        Assert.Equal("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", s.ModProfiles[0].Id);
+        Assert.Equal("1.20.1", s.SelectedVersion);
+        Assert.Equal("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", s.SelectedProfileId);
+    }
+
+    [Fact]
+    public void Bulk_revert_keeps_a_selection_the_player_changed_after_the_import()
+    {
+        var delta = BulkDelta();
+        var s = Before();
+        ImportSettingsRules.Apply(s, delta);
+        s.SelectedVersion = "1.8.9";
+        ImportSettingsRules.Revert(s, delta);
+        Assert.Equal("1.8.9", s.SelectedVersion);
+        Assert.Single(s.ModProfiles);
+    }
+
+    [Fact]
+    public void An_old_journal_with_only_AddProfile_still_reverts()
+    {
+        // The shape a journal written before AddProfiles existed has: no AddProfiles field at all.
+        var json = "{\"AddProfile\":{\"Id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"Name\":\"Imported\",\"Version\":\"1.21.1\"},"
+                   + "\"SetSelectedVersion\":\"1.21.1\",\"SetSelectedProfileId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\","
+                   + "\"PreviousSelectedVersion\":\"1.20.1\",\"PreviousSelectedProfileId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}";
+        var delta = System.Text.Json.JsonSerializer.Deserialize<SettingsDelta>(json)!;
+        Assert.Null(delta.AddProfiles);
+        var s = Before();
+        ImportSettingsRules.Apply(s, delta);
+        Assert.Equal(2, s.ModProfiles.Count);
+        ImportSettingsRules.Revert(s, delta);
+        Assert.Single(s.ModProfiles);
+        Assert.Equal("1.20.1", s.SelectedVersion);
+    }
+
+    [Fact]
+    public void A_delta_with_both_fields_adds_a_shared_profile_once()
+    {
+        var shared = Prof('c', "1.21.1");
+        var delta = new SettingsDelta { AddProfile = shared, AddProfiles = new List<ModProfile> { shared, Prof('d', "1.20.1") } };
+        var s = Before();
+        ImportSettingsRules.Apply(s, delta);
+        Assert.Equal(3, s.ModProfiles.Count);
+        ImportSettingsRules.Revert(s, delta);
+        Assert.Single(s.ModProfiles);
+    }
+
+    // ---- the --import-plan report ----
+
+    private static DetectedInstance Setup(SourceKind kind, string name, string? version, LoaderKind loader = LoaderKind.Fabric,
+        long? playtime = null, bool pinned = false) =>
+        new()
+        {
+            Kind = kind, Name = name, McVersion = version, Loader = loader, PlaytimeSeconds = playtime, Pinned = pinned,
+            GameDir = @"C:\Users\Will Henry\AppData\Roaming\PrismLauncher\instances\" + name + @"\minecraft",
+        };
+
+    [Fact]
+    public void Bulk_report_groups_by_version_and_skips_with_the_exact_reasons()
+    {
+        var found = new[]
+        {
+            Setup(SourceKind.Prism, "Survival", "1.21.1", playtime: 7200),
+            Setup(SourceKind.Modrinth, "Fresh", "1.21.1", playtime: 600),
+            Setup(SourceKind.CurseForge, "Forge pack", "1.21.1", LoaderKind.Forge),
+            Setup(SourceKind.Prism, "Old", "1.20.1"),
+            Setup(SourceKind.Prism, "Too new", "1.21.5"),
+            Setup(SourceKind.Prism, "Mystery", null),
+            Setup(SourceKind.CurseForge, "Forge 189", "1.8.9", LoaderKind.Forge),
+        };
+        var report = ImportBulkReport.Group(found, Supported);
+
+        Assert.Equal(new[] { "1.21.1", "1.20.1", "1.8.9" }, report.Groups.Select(g => g.Version));
+        var main = report.Groups[0];
+        Assert.Equal("Survival", main.Winner.Name); // clear playtime winner (1.5x rule)
+        Assert.False(main.NeedsChoice);
+        Assert.Equal(SetupRole.Full, main.Setups[0].Role);
+        Assert.Equal(SetupRole.ModsAndPacks, main.Setups.Single(s => s.Name == "Fresh").Role);
+        var forge = main.Setups.Single(s => s.Name == "Forge pack");
+        Assert.Equal(SetupRole.PacksOnly, forge.Role);
+        Assert.Equal("Forge mods can't come over. Origin runs Fabric, except on 1.8.9.", forge.Note);
+        // Forge on 1.8.9 is Origin's legacy Forge path: its mods do come over.
+        Assert.Null(report.Groups[2].Setups[0].Note);
+
+        Assert.Equal(2, report.Skipped.Count);
+        Assert.Equal("Origin doesn't support Minecraft 1.21.5, so this setup can't come over.", report.Skipped.Single(s => s.Name == "Too new").Reason);
+        Assert.Contains("couldn't tell which Minecraft version", report.Skipped.Single(s => s.Name == "Mystery").Reason);
+    }
+
+    [Fact]
+    public void Bulk_report_asks_for_a_choice_when_the_winner_is_unclear()
+    {
+        var report = ImportBulkReport.Group(new[]
+        {
+            Setup(SourceKind.Prism, "A", "1.21.1"), Setup(SourceKind.Prism, "B", "1.21.1"),
+        }, Supported);
+        Assert.True(report.Groups.Single().NeedsChoice);
+    }
+
+    private static string WriteBulk(ImportBulkReport.Report report)
+    {
+        using var stream = new MemoryStream();
+        using (var w = new System.Text.Json.Utf8JsonWriter(stream, new System.Text.Json.JsonWriterOptions { Indented = true }))
+        {
+            w.WriteStartObject();
+            ImportBulkReport.Write(w, report);
+            w.WriteEndObject();
+        }
+        return System.Text.Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    [Fact]
+    public void Bulk_report_json_has_no_paths_and_names_a_path_like_name_by_its_last_segment()
+    {
+        var found = new[]
+        {
+            Setup(SourceKind.Prism, "Survival", "1.21.1"),
+            Setup(SourceKind.Folder, @"C:\Users\Will Henry\Games\My Pack", "1.21.1"),
+            Setup(SourceKind.Prism, "Too new", "1.21.5"),
+        };
+        var json = WriteBulk(ImportBulkReport.Group(found, Supported));
+        foreach (var forbidden in new[] { "C:", @"Users\\", "Will Henry", "AppData", "PrismLauncher", "instances", "/home" })
+            Assert.DoesNotContain(forbidden, json);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var bulk = doc.RootElement.GetProperty("bulk");
+        Assert.Equal("scan-grouping", bulk.GetProperty("source").GetString());
+        Assert.Equal(1, bulk.GetProperty("groups").GetArrayLength());
+        Assert.Equal(1, bulk.GetProperty("skipped").GetArrayLength());
+        Assert.Contains("My Pack", json); // cut down to the folder's name, not dropped
+    }
+
+    [Fact]
+    public void The_failure_note_is_the_plain_reason_without_the_exception_message_or_a_path()
+    {
+        var ex = new UnauthorizedAccessException(@"Access to the path 'C:\Users\Will Henry\secret\accounts.json' is denied.");
+        var json = ImportBulkReport.ErrorJson(ex);
+        Assert.DoesNotContain(ex.Message, json);
+        foreach (var forbidden in new[] { "C:", "Users", "Will Henry", "secret" })
+            Assert.DoesNotContain(forbidden, json);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        Assert.Contains("accounts.json", doc.RootElement.GetProperty("error").GetString());
     }
 
     // ---- the Done page's reading of summary.txt ----

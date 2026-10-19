@@ -6,6 +6,7 @@ using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using System.Windows;
+using OriginLauncher.App.Core.Import.Launcher;
 
 namespace OriginLauncher.App.Core.Updates;
 
@@ -111,6 +112,22 @@ public static class UpdateService
     {
         var update = Available ?? throw new InvalidOperationException("No update is available.");
 
+        // From here until the process is gone no import may open or apply (Core/Import/Launcher/UpdateRunState):
+        // the restart below would kill it half done. A failed update releases it; a successful one never does.
+        var run = UpdateRunState.Enter();
+        var restarting = false;
+        try
+        {
+            await DownloadStageAndRestartAsync(update, progress, () => restarting = true);
+        }
+        finally
+        {
+            if (!restarting) run.Dispose();
+        }
+    }
+
+    private static async Task DownloadStageAndRestartAsync(AvailableUpdate update, IProgress<UpdateProgress>? progress, Action markRestarting)
+    {
         var updatesRoot = Path.Combine(OriginPaths.Root, "updates");
         Directory.CreateDirectory(updatesRoot);
         var stageDir = Path.Combine(updatesRoot, update.Version.ToString());
@@ -130,6 +147,10 @@ public static class UpdateService
             ZipFile.ExtractToDirectory(zipPath, stageDir, overwriteFiles: true);
             File.Delete(zipPath);
         });
+
+        // An import may have been started while this downloaded (or still be running from before): the restart
+        // waits for it, then shuts down on this same UI-thread turn, so none can begin in between.
+        await UpdateRunState.PrepareToRestartAsync(() => progress?.Report(new UpdateProgress(UpdateStage.FinishingImport, 0, null)));
 
         var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         var exePath = Environment.ProcessPath
@@ -163,6 +184,7 @@ endlocal
             CreateNoWindow = true
         });
         progress?.Report(new UpdateProgress(UpdateStage.Restarting, 0, null));
+        markRestarting();
         Application.Current.Shutdown();
     }
 
@@ -203,7 +225,7 @@ endlocal
 
     public sealed record AvailableUpdate(Version Version, string DownloadUrl);
 
-    public enum UpdateStage { Downloading, Installing, Restarting }
+    public enum UpdateStage { Downloading, Installing, Restarting, FinishingImport }
 
     /// <summary>One progress tick. TotalBytes is null when the server sent no
     /// Content-Length (then only the byte count is known, not a fraction).</summary>
@@ -222,6 +244,7 @@ endlocal
             UpdateStage.Downloading when ReceivedBytes > 0 => $"Downloading — {Mb(ReceivedBytes)} MB",
             UpdateStage.Downloading => "Downloading",
             UpdateStage.Installing => "Installing",
+            UpdateStage.FinishingImport => "Finishing your import first...",
             _ => "Restarting"
         };
 

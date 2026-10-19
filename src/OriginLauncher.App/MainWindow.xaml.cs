@@ -77,6 +77,7 @@ public partial class MainWindow : Window
 
         _profilesPage.ImportRequested += (_, _) => OpenImportPanel();
         FirstRunPrompt.ImportRequested += (_, _) => OpenImportPanel();
+        HookImportWiring(); // MainWindow.ImportWiring.cs: closing mid-import, recovery refresh, the page behind the panel
         ContentRendered += async (_, _) => await AfterFirstRenderAsync();
 
         InitSocial();
@@ -117,6 +118,8 @@ public partial class MainWindow : Window
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
     {
         if (UpdateService.Available is not { } update) return;
+        // An import running now (or started while this downloads) is waited for before the restart, and no new
+        // import can open or apply once the download is under way (Core/Import/Launcher/UpdateRunState).
 
         UpdateBadge.IsEnabled = false;
         UpdateBadge.ToolTip = "Updating...";
@@ -128,9 +131,15 @@ public partial class MainWindow : Window
         NavigateTo(LauncherPage.Home);
         var onScene = _currentPage == LauncherPage.Home
                       && _homePage.BeginUpdateScene(update.Version.ToString());
+        var toldAboutImport = false;
         var progress = new Progress<UpdateService.UpdateProgress>(p =>
         {
             UpdateBadge.ToolTip = p.Describe();
+            if (p.Stage == UpdateService.UpdateStage.FinishingImport && !toldAboutImport)
+            {
+                toldAboutImport = true;
+                ToastFinishingImportBeforeUpdate(); // MainWindow.ImportWiring.cs
+            }
             if (onScene) _homePage.ReportUpdate(p);
         });
 
@@ -609,6 +618,7 @@ public partial class MainWindow : Window
     private void OpenImportPanel(IImportBackend? backend = null)
     {
         if (_importPanelOpen || _signInPanelOpen) return;
+        if (ImportBlockedByUpdate()) return; // MainWindow.ImportWiring.cs: an update is downloading / restarting
         if (_accountPanelOpen) SetAccountPanelOpen(false);
         if (_friendsOpen) SetFriendsOpen(false);
         FirstRunPrompt.Hide();
@@ -638,6 +648,7 @@ public partial class MainWindow : Window
     private void SetImportPanelOpen(bool open)
     {
         _importPanelOpen = open;
+        OnImportPanelOpenChanged(open); // MainWindow.ImportWiring.cs: the page behind goes inert / comes back, focus restored
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
 
@@ -677,8 +688,7 @@ public partial class MainWindow : Window
     // when another launcher is found and the player could import - offer it.
     private async Task AfterFirstRenderAsync()
     {
-        if (await ImportStartup.Recovery.ConfigureAwait(true) > 0)
-            Toasts.Show(new SocialToast(SocialToastKind.Notice, "Import", "An interrupted import was undone."));
+        await ShowRecoveryResultAsync(); // MainWindow.ImportWiring.cs: the toast, and Home/Profiles refreshed after a rollback
 
         if (App.IsRenderMode) return;
         if (App.StartWithImport)
@@ -697,16 +707,8 @@ public partial class MainWindow : Window
         _promptChecking = true;
         try
         {
-            // Off the UI thread: the settings read, the account check and the quick scan.
-            var question = await Task.Run(async () =>
-            {
-                if (Core.SettingsStore.Load().ImportPromptSeen) return null;
-                var canImport = Core.GameFolders.Launcher.AccountFolders.SelectedKey() != null;
-                if (!canImport) return null; // the import would only say "sign in first": keep the one-time card for later
-                var scan = await new LauncherImportBackend().ScanAsync(null, CancellationToken.None);
-                return ImportPrompt.ShouldShow(alreadySeen: false, openedWithImportFlag: false, canImport, scan.Instances.Count)
-                    ? ImportPrompt.Question(scan.Instances) : null;
-            });
+            // Off the UI thread: the settings read, the account check and the quick scan (MainWindow.ImportWiring.cs).
+            var question = await ComputeImportPromptQuestionAsync();
             if (question == null || _importPanelOpen) return;
 
             FirstRunPrompt.ShowQuestion(question);

@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace OriginLauncher.App.Core.Import.Launcher;
 
 /// <summary>
@@ -7,31 +5,20 @@ namespace OriginLauncher.App.Core.Import.Launcher;
 /// power cut) and is rolled back, never resumed. It runs entirely on the thread pool, after the single-instance
 /// check and EnsureScaffold, and starts no UI work: when nothing is interrupted it is one Directory.Exists. The
 /// log line pair (start, done in N ms) is how "no startup change" is checked.
+///
+/// While it runs it is "an import writing" (<see cref="ImportRunState"/>, via <see cref="ImportRecoveryRunner"/>):
+/// Play stays disabled until it ends. Every import entry waits for <see cref="Recovery"/> before it scans or
+/// plans: the real backend awaits it first thing, so the Profiles button, the first-run card and --import are
+/// all covered without each caller remembering to.
 /// </summary>
 public static class ImportStartup
 {
-    /// <summary>Completes with how many interrupted imports were rolled back (0 when none, or when recovery itself failed).</summary>
+    /// <summary>Completes with how many interrupted imports were rolled back (0 when none, or when recovery itself failed). Never faults.</summary>
     public static Task<int> Recovery { get; private set; } = Task.FromResult(0);
 
-    public static void StartRecovery()
-    {
-        Recovery = Task.Run(() =>
-        {
-            var watch = Stopwatch.StartNew();
-            ImportLog.Write("import recovery: start");
-            var rolledBack = 0;
-            try
-            {
-                rolledBack = ImportRecovery.Recover(OriginPaths.Imports, OriginPaths.Root, new LauncherImportSettings(),
-                    ImportLog.Write, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                // Recovery must never keep the launcher from starting.
-                ImportLog.Write("import recovery failed: " + ex.GetType().Name);
-            }
-            ImportLog.Write($"import recovery: done in {watch.ElapsedMilliseconds} ms, rolled back {rolledBack}");
-            return rolledBack;
-        });
-    }
+    public static void StartRecovery() =>
+        Recovery = ImportRecoveryRunner.Run(
+            () => ImportRecovery.Recover(OriginPaths.Imports, OriginPaths.Root, new LauncherImportSettings(),
+                ImportLog.Write, CancellationToken.None),
+            ImportLog.Write);
 }

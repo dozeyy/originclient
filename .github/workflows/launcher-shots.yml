@@ -112,6 +112,14 @@ jobs:
           name: launcher-shots
           path: ${{ runner.temp }}/pub
 
+      # Several branches render at once and all push to the one claude/dev-shots branch, so a push is often
+      # rejected because someone else got there first. The window between "I looked at the branch tip" and "I
+      # pushed" is what loses the race, and a full clone of that branch is slow, so the clone happens ONCE.
+      # A lost race then costs seconds: fetch the new tip (depth 1), put this run's commit back on top of it
+      # (only this run's folder changes, so there is never a conflict), push again - up to 15 times with a short,
+      # jittered wait so runs that collided do not collide again in lockstep. Only "the branch does not exist
+      # yet" starts a fresh history; any other clone/fetch failure is retried, never answered with an unrelated
+      # root commit. The folder and files written are exactly what they always were.
       - name: Publish to the claude/dev-shots branch
         env:
           LABEL: ${{ github.event.inputs.label }}
@@ -119,19 +127,37 @@ jobs:
           folder="launcher"
           [ -n "$LABEL" ] && folder="launcher-$(printf '%s' "$LABEL" | tr -c 'A-Za-z0-9._-' '_')"
           url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
-          for attempt in 1 2 3 4 5; do
-            rm -rf "$RUNNER_TEMP/site"
-            if git clone -q --depth 1 --branch claude/dev-shots "$url" "$RUNNER_TEMP/site" 2>/dev/null; then :; else
-              mkdir -p "$RUNNER_TEMP/site" && git -C "$RUNNER_TEMP/site" init -q && git -C "$RUNNER_TEMP/site" checkout -q -b claude/dev-shots
+          max=15
+          pause() { local d=$(( 2 + RANDOM % 7 + $1 )); [ "$d" -gt 20 ] && d=20; echo "waiting ${d}s"; sleep "$d"; }
+
+          # 1. get the branch tip once (or start the branch when it truly does not exist)
+          site="$RUNNER_TEMP/site"
+          for try in 1 2 3 4 5 6; do
+            rc=0
+            git ls-remote --exit-code --heads "$url" claude/dev-shots >/dev/null 2>&1 || rc=$?
+            rm -rf "$site"
+            if [ "$rc" = 0 ] && git clone -q --depth 1 --branch claude/dev-shots "$url" "$site"; then break; fi
+            if [ "$rc" = 2 ]; then
+              mkdir -p "$site" && git -C "$site" init -q && git -C "$site" checkout -q -b claude/dev-shots && break
             fi
-            cd "$RUNNER_TEMP/site"
-            git config user.name "origin-dev-shots"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            echo "could not get claude/dev-shots (ls-remote exit $rc, try $try/6)"; pause "$try"
+          done
+          [ -d "$site/.git" ] || { echo "::error::could not clone claude/dev-shots"; exit 1; }
+
+          cd "$site"
+          git config user.name "origin-dev-shots"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 2. put this run's folder on top of the tip and push; on a lost race, move to the new tip and redo
+          for attempt in $(seq 1 "$max"); do
             rm -rf "$folder"; cp -r "$RUNNER_TEMP/pub" "$folder"
             printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$folder/SOURCE.txt"
             git add -A
             git commit -qm "launcher shots for ${GITHUB_SHA::7}" || true
-            if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then exit 0; fi
-            cd "$RUNNER_TEMP"; sleep $((attempt * 5))
+            if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then echo "published on attempt $attempt"; exit 0; fi
+            echo "push lost the race (attempt $attempt/$max)"
+            pause "$attempt"
+            git fetch -q --depth 1 "$url" claude/dev-shots && git reset -q --hard FETCH_HEAD || echo "fetch of the new tip failed; will retry"
           done
+          echo "::error::could not publish to claude/dev-shots after $max attempts"
           exit 1
