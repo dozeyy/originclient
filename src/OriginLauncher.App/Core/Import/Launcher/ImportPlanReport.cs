@@ -18,12 +18,21 @@ public static class ImportPlanReport
     /// <summary>Exit codes: 0 written, 2 refused (the file would land inside Origin's data folder), 1 failed.</summary>
     public static int Run(string outPath)
     {
+        // The one checked path: every write below (the report AND a failure note) goes to this, never to the raw argument.
+        string full;
         try
         {
-            var full = Path.GetFullPath(outPath);
-            var originRoot = Path.TrimEndingDirectorySeparator(OriginPaths.Root) + Path.DirectorySeparatorChar;
-            if (full.StartsWith(originRoot, StringComparison.OrdinalIgnoreCase)) return 2;
+            full = Path.GetFullPath(outPath);
+        }
+        catch (Exception)
+        {
+            return 1;
+        }
+        var originRoot = Path.TrimEndingDirectorySeparator(OriginPaths.Root) + Path.DirectorySeparatorChar;
+        if (full.StartsWith(originRoot, StringComparison.OrdinalIgnoreCase)) return 2;
 
+        try
+        {
             var json = Task.Run(() => BuildAsync(CancellationToken.None)).GetAwaiter().GetResult();
             var dir = Path.GetDirectoryName(full);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
@@ -32,7 +41,8 @@ public static class ImportPlanReport
         }
         catch (Exception ex)
         {
-            try { File.WriteAllText(outPath, JsonSerializer.Serialize(new { error = ex.GetType().Name + ": " + ex.Message })); }
+            // The plain reason only (paths cut to names): never the raw exception message.
+            try { File.WriteAllText(full, ImportBulkReport.ErrorJson(ex), new UTF8Encoding(false)); }
             catch (Exception) { /* nothing more to do */ }
             return 1;
         }
@@ -111,6 +121,10 @@ public static class ImportPlanReport
                 w.WriteEndObject();
             }
             w.WriteEndArray();
+
+            // "Import everything": the scan grouped by Minecraft version (winner, roles, skipped + why). While the
+            // engine's PlanBulkAsync is not connected (see LauncherImportBackend) this is scan-only.
+            ImportBulkReport.Write(w, ImportBulkReport.Group(scan.Instances, backend.SupportedTargets));
             w.WriteEndObject();
         }
         return Encoding.UTF8.GetString(stream.ToArray());

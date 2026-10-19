@@ -60,6 +60,16 @@
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSettingsRules.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportPrompt.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportSummaryView.cs" LinkBase="Import" />
+    <!-- Launch/import safety glue (pure: no WPF, no OriginPaths, no files): the run-state counters, the startup
+         recovery wrapper, the second-launch pipe, the close-while-importing rule, the bulk dry-run grouping,
+         and the lazy builder that keeps the backend constructor free of disk work. -->
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportRunState.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\LaunchRunState.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportRecoveryRunner.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportIpc.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportCloseGuard.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\ImportBulkReport.cs" LinkBase="Import" />
+    <Compile Include="..\OriginLauncher.App\Core\Import\Launcher\Deferred.cs" LinkBase="Import" />
     <Compile Include="..\OriginLauncher.App\Core\Models\LauncherSettings.cs" LinkBase="Models" />
     <Compile Include="..\OriginLauncher.App\Core\Models\VersionJvmOptions.cs" LinkBase="Models" />
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->

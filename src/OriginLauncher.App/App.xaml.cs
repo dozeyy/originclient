@@ -96,7 +96,9 @@ public partial class App : Application
             initiallyOwned: true, mutexName, out var isFirst);
         if (!isFirst)
         {
-            // Another launcher is already running — front it and bow out.
+            // `--import` must not be lost: hand the request to the running launcher (one fixed word over a
+            // per-user pipe, short timeout; Core/Import/Launcher/ImportIpc), then front it and bow out.
+            if (StartWithImport) Core.Import.Launcher.ImportIpc.TrySend(Core.Import.Launcher.ImportIpc.PipeName(mutexName));
             FocusExistingInstance();
             Shutdown();
             return;
@@ -141,8 +143,23 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
 
+        // Listens for a second launch's `--import` (see above). A pool thread; the window is opened on the UI thread.
+        _importIpc = new Core.Import.Launcher.ImportIpcServer(
+            Core.Import.Launcher.ImportIpc.PipeName(mutexName), OnImportRequestedByAnotherInstance);
+        _importIpc.Start();
+
         new MainWindow().Show();
     }
+
+    private static Core.Import.Launcher.ImportIpcServer? _importIpc;
+
+    private void OnImportRequestedByAnotherInstance() => Dispatcher.BeginInvoke(() =>
+    {
+        if (Current.MainWindow is OriginLauncher.App.MainWindow { IsLoaded: true } window)
+            window.OpenImportFromAnotherInstance();
+        else
+            StartWithImport = true; // the window is still opening: it opens the import panel itself once it is up
+    });
 
     private static void WriteRenderError(string outDir, string? error)
     {
