@@ -1,6 +1,7 @@
 package com.origin.client.client.mixin.loading;
 
 import com.origin.client.client.OriginBootLog;
+import com.origin.client.client.OriginBootWorld;
 import com.origin.client.client.StartupTransition;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.LoadingOverlay;
@@ -67,7 +68,12 @@ public abstract class BootLogMixin {
 				OriginBootLog.interactive();
 			}
 		}
-		if (OriginBootLog.shouldQuit()) {
+		// -PbootWorld: then a fixed world is opened and timed (OriginBootWorld), and
+		// the game closes after that instead of after the title.
+		if (OriginBootWorld.ENABLED && OriginBootLog.isInteractive()) {
+			OriginBootWorld.tick(mc);
+		}
+		if (OriginBootWorld.ENABLED ? OriginBootWorld.done() : OriginBootLog.shouldQuit()) {
 			mc.stop();
 		}
 	}

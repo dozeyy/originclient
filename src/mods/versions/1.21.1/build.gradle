@@ -118,6 +118,10 @@ loom {
 			if (project.hasProperty("reloadProfile")) {
 				property "origin.bootLog.reloadProfile", "true"
 			}
+			// `-PbootWorld`: then open a fixed world and time its terrain (OriginBootWorld).
+			if (project.hasProperty("bootWorld")) {
+				property "origin.bootLog.world", "true"
+			}
 			// `-PbootJvmArgs=-Xms4G,-Xmx4G,...`: extra JVM args, comma-separated (boot-time.yml
 			// boots with the launcher's own flag set this way).
 			if (project.hasProperty("bootJvmArgs")) {
@@ -270,6 +274,9 @@ tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask
 	}
 	if (project.hasProperty("reloadProfile")) {
 		jvmArgs.add("-Dorigin.bootLog.reloadProfile=true")
+	}
+	if (project.hasProperty("bootWorld")) {
+		jvmArgs.add("-Dorigin.bootLog.world=true")
 	}
 	if (project.hasProperty("bootJvmArgs")) {
 		project.property("bootJvmArgs").toString().split(",").each { if (!it.isBlank()) jvmArgs.add(it.trim()) }

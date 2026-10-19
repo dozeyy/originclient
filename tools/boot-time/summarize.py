@@ -25,14 +25,21 @@ def timelines(folder):
         if variant.startswith("warm") or variant.startswith("prof"):
             continue
         line = None
+        late = {}
         with open(path, errors="replace") as f:
             for raw in f:
                 if "[OriginBoot] summary" in raw:
                     line = raw
+                m = re.search(r"\[OriginBoot\] mark (\S+) (\d+)", raw)
+                if m:
+                    late.setdefault(m.group(1), int(m.group(2)))
         if line is None:
             out.setdefault(variant, []).append((name, None))
             continue
         marks = dict((k, int(v)) for k, v in re.findall(r"(\S+?)=(\d+)", line.split("summary", 1)[1]))
+        # Marks after the summary (the -PbootWorld world join) come from their own lines.
+        for k, v in late.items():
+            marks.setdefault(k, v)
         out.setdefault(variant, []).append((name, marks))
     return out
 
@@ -84,6 +91,21 @@ def main():
             ma, mb = statistics.median(a), statistics.median(b)
             print("\n**time to interactive title: a %d ms -> b %d ms (%+.1f%%)**" % (ma, mb, (mb - ma) / ma * 100.0))
             print("\nper boot a: %s\n\nper boot b: %s" % (a, b))
+        compare(data, "time to a title that takes the mouse",
+                # title-input (StartupInputMixin) when the build has it, else the overlay leaving.
+                lambda m: m.get("title-input", m.get(KEY)))
+        compare(data, "world open -> terrain built (-PbootWorld)",
+                lambda m: m["world-terrain"] - m["world-start"] if "world-terrain" in m and "world-start" in m else None)
+        compare(data, "JVM start -> world terrain built (-PbootWorld)", lambda m: m.get("world-terrain"))
+
+
+def compare(data, label, value):
+    a = [v for v in (value(m) for _, m in data["a"] if m) if v is not None]
+    b = [v for v in (value(m) for _, m in data["b"] if m) if v is not None]
+    if a and b:
+        ma, mb = statistics.median(a), statistics.median(b)
+        print("\n**%s: a %d ms -> b %d ms (%+.1f%%)**" % (label, ma, mb, (mb - ma) / ma * 100.0))
+        print("\nper boot a: %s\n\nper boot b: %s" % (a, b))
 
 
 if __name__ == "__main__":

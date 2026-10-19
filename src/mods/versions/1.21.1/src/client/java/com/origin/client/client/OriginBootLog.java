@@ -59,6 +59,18 @@ public final class OriginBootLog {
 		LOG.info(sb.toString());
 	}
 
+	/** A free-form line for the boot log (CI reads it from the log). */
+	public static void note(String text) {
+		if (ENABLED) {
+			LOG.info("[OriginBoot] note {}", text);
+		}
+	}
+
+	/** True once the title screen has taken input (the summary is printed). */
+	public static synchronized boolean isInteractive() {
+		return interactiveAt >= 0;
+	}
+
 	/** True once the quit delay after the interactive title has passed (CI only). */
 	public static boolean shouldQuit() {
 		return QUIT_AFTER_MS >= 0 && interactiveAt >= 0 && (System.nanoTime() - interactiveAt) / 1_000_000L >= QUIT_AFTER_MS;
