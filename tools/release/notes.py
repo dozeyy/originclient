@@ -65,13 +65,17 @@ NOISE_TITLE = re.compile(
     r"(?i)(^merge\b|^revert\b|\bdev[- ]?only\b|\bci[- ]?only\b|\btest[- ]?only\b"
     r"|\blauncher[- ]shots?\b|\bdev[- ]?shots?\b|\bframe[- ]log\b|\brender-shots\b"
     r"|\bboot-smoke\b|\bcheck_consistency\b|\bscale-checks\b"
-    r"|\breview\b|\bfollow-?ups?\b|\bpolish from\b|\bskeleton\b"
+    r"|^review\b|\breview round \d|\bfollow-?ups?\b|\bpolish from\b|\binterface skeleton\b"
     r"|\bseams?\b|\.xaml\b|\bper the\b|\bGradle\b|\bJDK\b|\bfixtures?\b|\bwiring\b|\balloc\b|\bflush on throw\b)")
-# CamelCase / camelCase words are code identifiers ("OriginAssets", "friendsEtag"),
-# never something a player reads. Product names are exempt.
-CODE_WORD = re.compile(r"\b(?:[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+|I[A-Z][a-z]+[A-Z]\w*|[a-z]+[A-Z]\w*)\b")
-PRODUCT_WORDS = {"OriginLauncher", "OriginClient", "OptiFine", "CurseForge", "GitHub", "YouTube", "JavaScript"}
+# Code identifiers are only recognised by shapes no product/feature name has:
+# a dotted or underscored name ("SettingsDelta.AddProfiles", "check_consistency"),
+# a call "name()", or a C# interface name ("IImportCloseHost"). Plain CamelCase
+# is NOT a signal: Y2K, ModMenu, FreeLook, macOS and iPhone are player words.
+CODE_WORD = re.compile(r"\b(?:[A-Za-z]+\.[A-Za-z]\w*|\w+_\w+|\w+\(\)|I[A-Z][a-z]+[A-Z]\w*)")
 # Files that never ship to a player. A commit touching only these is dropped.
+# website/ and services/ are deliberately in the list: the site and the store
+# service deploy on their own (deploy-website.yml, the Worker), not with the
+# launcher, so they are not part of this release's changes.
 NOISE_PATH = re.compile(
     r"^(\.github/|\.claude/|docs/|tools/|website/|services/)|(^|/)[^/]*[Tt]ests?/|[^/]*\.Tests/|\.md$|(^|/)(LICENSE|\.gitignore)$")
 # Leading "1.21.1:", "1.20-26.3:", "1.21.6, 1.21.8:", "26.3:" scope.
@@ -84,7 +88,7 @@ SCOPE_LABELS = {"launcher", "setup", "installer"}
 def is_noise_title(subject: str) -> bool:
     if NOISE_TITLE.search(subject):
         return True
-    return any(w not in PRODUCT_WORDS for w in CODE_WORD.findall(subject))
+    return bool(CODE_WORD.search(subject))
 
 
 def touches_only_noise(files: list[str]) -> bool:
@@ -220,7 +224,10 @@ def render(head: str, prev: str) -> str:
         out += ["Fixes and stability improvements." if records
                 else "Re-release of the previous build with no code changes.", ""]
 
-    updated = versions_updated(prev, head)
+    try:
+        updated = versions_updated(prev, head)
+    except (subprocess.CalledProcessError, ValueError, KeyError, TypeError, OSError):
+        updated = None  # the version list is a nicety; never let it block a release
     if updated is not None:
         out += ["## Minecraft versions updated"]
         out += ([", ".join(updated)] if updated else

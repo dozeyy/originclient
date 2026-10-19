@@ -1133,5 +1133,11 @@
 "src/mods/versions/1.21.1/src/client/java/com/origin/client/client/social/SocialClient.java",
 "src/mods/versions/1.21.1/src/client/java/com/origin/client/client/social/SocialDemo.java"
 ]
+},
+{
+"subject": "Cosmetics: Y2K drop, new hats",
+"files": [
+"src/OriginLauncher.App/Cosmetics.cs"
+]
 }
 ]
