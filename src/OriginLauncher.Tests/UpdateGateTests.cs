@@ -151,6 +151,62 @@ public sealed class UpdateGateTests
         }
     }
 
+    // Mandate 4: no failure mode may block play for good (antivirus on the zip, disk full, extract errors, a
+    // stalled connection, HTTP errors). The first plain failure keeps the retry badge; the second releases Play.
+    [Fact]
+    public void Two_plain_failures_in_a_row_release_play_with_the_quiet_back_off()
+    {
+        var gate = Published(out _);
+        Assert.False(gate.DownloadFailed(Next, T0));          // first: still gated, "click to retry"
+        Assert.True(gate.Required(false));
+        Assert.True(gate.DownloadFailed(Next, T0.AddMinutes(1))); // second: released
+        Assert.False(gate.Required(false));
+        Assert.Null(gate.Published);
+        Assert.Equal(Decision.Wait, gate.Evaluate(Next, Current, T0.AddMinutes(20)));
+        Assert.Equal(Decision.Quiet, gate.Evaluate(Next, Current, T0.AddMinutes(32)));
+        gate.Verified(Next);
+        gate.Publish(Next);
+        Assert.True(gate.Required(false));                     // only a verified retry gates again
+    }
+
+    [Fact]
+    public void A_verification_failure_resets_the_plain_failure_count()
+    {
+        var gate = Published(out _);
+        Assert.False(gate.DownloadFailed(Next, T0));
+        gate.VerifyFailed(Next, T0);                           // released at once, count cleared
+        gate.Verified(Next);
+        gate.Publish(Next);
+        Assert.False(gate.DownloadFailed(Next, T0.AddHours(1))); // counts from zero again
+        Assert.True(gate.Required(false));
+    }
+
+    [Fact]
+    public void A_plain_offline_start_never_gates()
+    {
+        // no release info at all (the feed was unreachable): nothing published, nothing required
+        var gate = new UpdateGate();
+        Assert.False(gate.Required(false));
+        Assert.Null(gate.Published);
+    }
+
+    [Fact]
+    public void A_late_quiet_retry_of_an_older_release_cannot_overwrite_a_newer_offer()
+    {
+        var gate = Published(out _);
+        gate.VerifyFailed(Next, T0);
+        Assert.Equal(Decision.Quiet, gate.Evaluate(Next, Current, T0.AddMinutes(31)));
+        var newer = new Version(1, 0, 59);
+        Assert.Equal(Decision.Publish, gate.Evaluate(newer, Current, T0.AddMinutes(32)));
+        gate.Publish(newer);
+
+        gate.Verified(Next);                                   // X's quiet retry finishes after Y was offered
+        Assert.False(gate.TryPublish(Next));
+        Assert.Equal(newer, gate.Published);
+        Assert.False(gate.TryPublish(newer));                  // not the same one twice either
+        Assert.True(gate.TryPublish(new Version(1, 0, 60)));
+    }
+
     [Fact]
     public void Versions_compare_with_padding()
     {

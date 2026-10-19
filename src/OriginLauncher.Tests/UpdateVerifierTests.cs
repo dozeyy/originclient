@@ -181,6 +181,35 @@ public sealed class UpdateVerifierTests : IDisposable
     }
 
     [Fact]
+    public async Task A_listed_sidecar_that_fetches_fine_is_read()
+    {
+        Assert.Equal(Hex, await UpdateVerifier.FetchSidecarAsync(_ => Task.FromResult(Hex + "  " + Asset + "\n"), Asset, TimeSpan.FromSeconds(5)));
+    }
+
+    // A listed .sha256 that cannot be had must be an UpdateVerificationException (it ungates Play), never a raw
+    // HttpRequestException / TaskCanceledException that would leave "Update required" up forever.
+    [Fact]
+    public async Task A_sidecar_that_404s_is_a_verification_failure()
+    {
+        await Assert.ThrowsAsync<UpdateVerificationException>(() => UpdateVerifier.FetchSidecarAsync(
+            _ => throw new HttpRequestException("404", null, System.Net.HttpStatusCode.NotFound), Asset, TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task A_sidecar_that_times_out_is_a_verification_failure()
+    {
+        await Assert.ThrowsAsync<UpdateVerificationException>(() => UpdateVerifier.FetchSidecarAsync(
+            async ct => { await Task.Delay(Timeout.Infinite, ct); return ""; }, Asset, TimeSpan.FromMilliseconds(50)));
+    }
+
+    [Fact]
+    public async Task A_sidecar_with_a_garbled_body_is_a_verification_failure()
+    {
+        await Assert.ThrowsAsync<UpdateVerificationException>(() => UpdateVerifier.FetchSidecarAsync(
+            _ => Task.FromResult("<html>Not Found</html>"), Asset, TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
     public void ParseSha256_rejects_a_huge_body()
     {
         Assert.Null(UpdateVerifier.ParseSha256(Hex + new string(' ', 5000), Asset));

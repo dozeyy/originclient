@@ -34,6 +34,8 @@ public sealed class UpdateGate
     private int _failures;
     private DateTime _retryAtUtc;
     private bool _quietInFlight;
+    private Version? _plainVersion;
+    private int _plainFailures;
 
     /// <summary>The version currently offered to the player (and gating Play on a CI build), if any.</summary>
     public Version? Published => _published;
@@ -57,15 +59,48 @@ public sealed class UpdateGate
 
     public void Publish(Version version) => _published = version;
 
-    /// <summary>The integrity check (or the quiet fetch) failed: ungate it and back off.</summary>
-    public void VerifyFailed(Version version, DateTime nowUtc)
+    /// <summary>
+    /// Publish unless this version or a newer one is already offered (a late quiet retry of X must not
+    /// overwrite the offer of a newer Y). Returns whether it was published.
+    /// </summary>
+    public bool TryPublish(Version version)
     {
+        if (_published != null && Normalize(_published) >= Normalize(version)) return false;
+        _published = version;
+        return true;
+    }
+
+    /// <summary>Consecutive non-verification failures (disk, antivirus, stall, HTTP) before Play is released.</summary>
+    public const int PlainFailuresBeforeUngate = 2;
+
+    /// <summary>
+    /// Any failure that is not an integrity failure (UpdateService.DownloadAndRestartAsync). The first leaves the
+    /// update gated (the player gets "click to retry"); the second in a row releases Play with the same quiet
+    /// back-off as a failed check, so no failure mode can block play for good. Returns true when it released Play.
+    /// </summary>
+    public bool DownloadFailed(Version version, DateTime nowUtc)
+    {
+        if (_plainVersion == null || Normalize(_plainVersion) != Normalize(version))
+        {
+            _plainVersion = version;
+            _plainFailures = 0;
+        }
+        if (++_plainFailures < PlainFailuresBeforeUngate) return false;
+        return VerifyFailed(version, nowUtc);
+    }
+
+    /// <summary>The integrity check (or the quiet fetch) failed: ungate it and back off. Always returns true.</summary>
+    public bool VerifyFailed(Version version, DateTime nowUtc)
+    {
+        _plainVersion = null;
+        _plainFailures = 0;
         if (_published != null && Normalize(_published) <= Normalize(version)) _published = null;
         _failures = _failedVersion != null && Normalize(_failedVersion) == Normalize(version) ? _failures + 1 : 1;
         _failedVersion = version;
         _quietInFlight = false;
         var minutes = Math.Min(FirstRetry.TotalMinutes * Math.Pow(2, _failures - 1), MaxRetry.TotalMinutes);
         _retryAtUtc = nowUtc + TimeSpan.FromMinutes(minutes);
+        return true;
     }
 
     /// <summary>A quiet fetch passed its check: forget the failures so the caller can publish it.</summary>
@@ -77,6 +112,8 @@ public sealed class UpdateGate
             _failures = 0;
         }
         _quietInFlight = false;
+        _plainVersion = null;
+        _plainFailures = 0;
     }
 
     // System.Version treats unset components as -1, which makes "1.0.5" and "1.0.5.0" unequal; pad to four.

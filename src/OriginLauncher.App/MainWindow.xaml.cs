@@ -150,11 +150,11 @@ public partial class MainWindow : Window
             // the swap script relaunches the updated launcher.
             await UpdateService.DownloadAndRestartAsync(progress);
         }
-        catch (UpdateVerificationException)
+        catch (Exception ex) when (ex is UpdateVerificationException || UpdateService.Available == null)
         {
-            // The download failed its integrity check. It was discarded and the update is out of the gate
-            // (UpdateService/UpdateGate): the player launches what they have; a quiet retry offers it again
-            // only once it verifies. Nothing blocking is shown.
+            // The download failed its integrity check, or failed twice in a row for any other reason: the update
+            // was discarded and is out of the gate (UpdateService/UpdateGate), so the player launches what they
+            // have; a quiet retry offers it again only once it verifies. Nothing blocking is shown.
             if (onScene) _homePage.EndUpdateScene();
             UpdateBadge.IsEnabled = true;
             UpdateBadge.Visibility = Visibility.Collapsed;
@@ -365,6 +365,13 @@ public partial class MainWindow : Window
     {
         if (!Core.OriginPaths.IsScratchRoot) return;
         _settingsPage.TourScrollToSync();
+    }
+
+    /// <summary>Render mode: Settings scrolled back to the top (undoes TourScrollSettingsToSync).</summary>
+    internal void TourScrollSettingsToTop()
+    {
+        if (!Core.OriginPaths.IsScratchRoot) return;
+        _settingsPage.TourScrollToTop();
     }
 
     // The Profiles page with made-up profiles (never the real settings), the

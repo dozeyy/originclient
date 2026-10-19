@@ -33,6 +33,9 @@ public partial class SettingsPage : UserControl
         PageScroll.ScrollToVerticalOffset(Math.Max(0, top - 160));
     }
 
+    /// <summary>Render mode: back to the top, so a later visit to this page (the min-size tour) starts where a player would.</summary>
+    internal void TourScrollToTop() => PageScroll.ScrollToVerticalOffset(0);
+
     public SettingsPage()
     {
         InitializeComponent();

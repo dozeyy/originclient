@@ -77,10 +77,17 @@ checks it **before anything is unpacked**:
   zip (the installer already relies on it), but only a clean `sha256:<64 hex>`:
   any other digest (another algorithm, empty, missing, a future format) counts
   as "no hash", never a mismatch, so a GitHub API change cannot brick updates.
-- **A sidecar that is listed but cannot be parsed** is a verification failure
-  (same quiet back-off as above), never treated as "no hash". A plain network
-  failure (offline, stalled connection, HTTP error) is not a verification
-  failure and behaves as before: the badge stays and offers "click to retry".
+- **A sidecar that is listed but cannot be fetched (404/403, timeout) or
+  parsed** is a verification failure (same quiet back-off as above), never
+  treated as "no hash".
+- **Any other failure** (antivirus on the zip, disk full, extract or staging
+  errors, a stalled connection, an HTTP error): the first leaves the badge up
+  with "click to retry"; the **second in a row releases Play** the same way
+  (quiet back-off), so no failure mode blocks play for good. An offline start
+  (no release info at all) never gates.
+- A quiet retry that finishes after a newer release was already offered is
+  dropped (it never overwrites the newer offer). Each version has its own zip
+  and `.part` file.
 - A connection with no bytes for 60 s aborts the download; the half-written
   `.part` file is always deleted, and the zip only appears under its real name
   once verified.

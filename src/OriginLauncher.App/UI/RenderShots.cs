@@ -156,6 +156,9 @@ public static class RenderShots
         window.TourScrollSettingsToSync();
         Pump(400);
         Snap(window, outDir, "14b-settings-sync");
+        // The offset sticks to the page: put it back so 24 (the min-size tour re-enters Settings) shows the top again.
+        window.TourScrollSettingsToTop();
+        Pump(200);
 
         // The smallest window the launcher allows (what 125-150 % scaling leaves on
         // a 1080p screen): the same screens again, to prove nothing clips.
@@ -182,6 +185,7 @@ public static class RenderShots
         window.TourScrollSettingsToSync();
         Pump(400);
         Snap(window, outDir, "24b-min-settings-sync");
+        window.TourScrollSettingsToTop();
 
         // The Profiles page and Home with a profile (profile row + Join under Play), at the smallest
         // window too, the second time with the toasts up: the Play card, Play and Join must all fit

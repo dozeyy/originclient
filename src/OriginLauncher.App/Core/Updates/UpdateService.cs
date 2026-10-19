@@ -113,7 +113,7 @@ public static class UpdateService
                 _ = QuietRetryAsync(update);
                 return;
             }
-            Publish(update);
+            TryPublish(update);
         }
         catch
         {
@@ -122,12 +122,22 @@ public static class UpdateService
         }
     }
 
-    private static void Publish(AvailableUpdate update)
+    // False (and nothing changes) when this version or a newer one is already offered: a late finisher
+    // (a quiet retry of X completing after Y was offered) must never overwrite the newer offer.
+    private static bool TryPublish(AvailableUpdate update)
     {
-        lock (Gate) Gate.Publish(update.Version);
-        Available = update;
+        lock (Gate)
+        {
+            if (!Gate.TryPublish(update.Version)) return false;
+            Available = update;
+        }
         AvailableChanged?.Invoke(null, EventArgs.Empty);
+        return true;
     }
+
+    // One zip (and one .part) per version, so two downloads of different releases never share a file.
+    private static string ZipPathFor(Version version) =>
+        Path.Combine(OriginPaths.Root, "updates", $"OriginLauncher-win-x64-{version}.zip");
 
     // Quiet retry after a failed check (see UpdateGate): download + verify with no UI, publish only on success.
     // Any failure just extends the back-off; nothing is shown and Play is never touched.
@@ -135,13 +145,21 @@ public static class UpdateService
     {
         try
         {
-            var updatesRoot = Path.Combine(OriginPaths.Root, "updates");
-            Directory.CreateDirectory(updatesRoot);
-            await DownloadVerifiedAsync(update, Path.Combine(updatesRoot, AssetName), null).ConfigureAwait(false);
-            _verifiedZipVersion = update.Version;
+            var zipPath = ZipPathFor(update.Version);
+            Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
+            await DownloadVerifiedAsync(update, zipPath, null).ConfigureAwait(false);
             lock (Gate) Gate.Verified(update.Version);
-            Log($"update {update.Version}: quiet retry verified, offering it now");
-            Publish(update);
+            if (TryPublish(update))
+            {
+                _verifiedZipVersion = update.Version;
+                Log($"update {update.Version}: quiet retry verified, offering it now");
+            }
+            else
+            {
+                // A newer release was offered while this one downloaded: drop the now-useless zip.
+                Log($"update {update.Version}: quiet retry verified but a newer release is already offered; dropped");
+                try { File.Delete(zipPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
         }
         catch (Exception)
         {
@@ -169,11 +187,22 @@ public static class UpdateService
         {
             await DownloadStageAndRestartAsync(update, progress, () => restarting = true);
         }
-        catch (UpdateVerificationException)
+        catch (Exception ex)
         {
-            // Never blocks play: ungate, back off, retry quietly (UpdateGate). The caller shows no error.
-            lock (Gate) Gate.VerifyFailed(update.Version, DateTime.UtcNow);
-            Available = null;
+            // Mandate 4 (never broken): no failure here may block play for good. A failed integrity check
+            // ungates at once; any other failure (antivirus on the zip, disk full, extract/stage errors, a
+            // stalled connection, HTTP errors) ungates on the second one in a row (UpdateGate). Either way
+            // the retry is quiet with back-off. When this ungated Play, Available is null on return, which
+            // is how the caller knows to show nothing blocking.
+            bool ungated;
+            lock (Gate)
+            {
+                ungated = ex is UpdateVerificationException
+                    ? Gate.VerifyFailed(update.Version, DateTime.UtcNow)
+                    : Gate.DownloadFailed(update.Version, DateTime.UtcNow);
+                if (ungated) Available = null;
+            }
+            Log($"update {update.Version}: {(ungated ? "gate released, retrying quietly later" : "failed once, Play still gated until the next failure")}");
             throw;
         }
         finally
@@ -192,7 +221,7 @@ public static class UpdateService
         Directory.CreateDirectory(stageDir);
 
         progress?.Report(new UpdateProgress(UpdateStage.Downloading, 0, null));
-        var zipPath = Path.Combine(updatesRoot, AssetName);
+        var zipPath = ZipPathFor(update.Version);
         // A quiet retry may already have fetched and verified this very zip.
         if (_verifiedZipVersion != update.Version || !File.Exists(zipPath))
             await DownloadVerifiedAsync(update, zipPath, progress);
@@ -314,10 +343,9 @@ endlocal
     {
         if (update.Sha256Url != null)
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var text = await Http.GetStringAsync(update.Sha256Url, cts.Token).ConfigureAwait(false);
-            return UpdateVerifier.ParseSha256(text, AssetName)
-                   ?? throw new UpdateVerificationException("the published SHA-256 file could not be read");
+            // 404/403, a timeout, a reset or a garbled body all surface as UpdateVerificationException.
+            return await UpdateVerifier.FetchSidecarAsync(
+                ct => Http.GetStringAsync(update.Sha256Url, ct), AssetName, TimeSpan.FromSeconds(30)).ConfigureAwait(false);
         }
         // GitHub's own digest is only a fallback and only ever helps: anything but a clean "sha256:<64 hex>"
         // (another algorithm, empty, missing, a format change) is "no hash", never a mismatch.

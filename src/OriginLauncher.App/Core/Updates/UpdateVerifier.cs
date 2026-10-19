@@ -65,6 +65,26 @@ public static class UpdateVerifier
         return null;
     }
 
+    /// <summary>
+    /// Fetches and parses the listed sidecar. EVERY failure (404/403, a timeout, a reset, an unreadable body) is an
+    /// UpdateVerificationException, so the caller ungates Play instead of showing "click to retry" forever.
+    /// </summary>
+    public static async Task<string> FetchSidecarAsync(Func<CancellationToken, Task<string>> fetch, string assetName, TimeSpan timeout)
+    {
+        string text;
+        try
+        {
+            using var cts = new CancellationTokenSource(timeout);
+            text = await fetch(cts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new UpdateVerificationException($"the published SHA-256 file could not be fetched ({ex.GetType().Name})");
+        }
+        return ParseSha256(text, assetName)
+               ?? throw new UpdateVerificationException("the published SHA-256 file could not be read");
+    }
+
     private static bool IsHex(ReadOnlySpan<char> s)
     {
         foreach (var c in s)
