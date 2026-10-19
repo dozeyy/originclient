@@ -48,6 +48,42 @@ public class BulkReviewRound2Tests : IDisposable
     }
 
     [Fact]
+    public async Task R2_1_ASkippedOwnerInOneVersionNeverMakesAnotherVersionsStandInReplaceItsOwnersCopy()
+    {
+        var a = WithCache("A", "1.21.1", 40);   // 1.21.1: its only setup, skipped mid-run (released, nobody stands in)
+        WithCache("C", "1.20.4", 20);           // 1.20.4's owner: copies its own
+        WithCache("D", "1.20.4", 10);           // 1.20.4's stand-in: must stay idle
+        var engine = _f.Engine(new IImportPlanContributor[] { new CacheContributor() });
+        var plan = await _f.Plan(engine, _f.Request(options: new ImportOptions { ReplaceExistingCaches = true }));
+        _f.Rig.RunningDirs.Add(a.GameDir);
+
+        var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(EngineBKit.Sqlite("cache-C"), File.ReadAllBytes(_f.Target("1.20.4", DhFile)));
+        Assert.DoesNotContain(Outcome(result, "D").Lines!, l => l.Reason?.StartsWith("came over from this setup", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public async Task R2_1_AStandInThatLandedInOneVersionNeverBlocksAGenuineReleaseInAnother()
+    {
+        var a = WithCache("A", "1.21.1", 40);
+        WithCache("B", "1.21.1", 30);           // lands for A
+        var c = WithCache("C", "1.20.4", 20);
+        WithCache("D", "1.20.4", 10);           // must land for C
+        var engine = _f.Engine(new IImportPlanContributor[] { new CacheContributor() });
+        var plan = await _f.Plan(engine);
+        _f.Rig.RunningDirs.Add(a.GameDir);
+        _f.Rig.RunningDirs.Add(c.GameDir);
+
+        var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(EngineBKit.Sqlite("cache-B"), File.ReadAllBytes(_f.Target("1.21.1", DhFile)));
+        Assert.Equal(EngineBKit.Sqlite("cache-D"), File.ReadAllBytes(_f.Target("1.20.4", DhFile)));
+    }
+
+    [Fact]
     public void R2_1_TheSameCacheInTwoTargetFoldersIsTwoClaims()
     {
         var identity = "DistantHorizons|Multiplayer|Hyp|";
