@@ -1,6 +1,5 @@
 package com.origin.client.client.mixin;
 
-import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.origin.client.client.gui.Gfx;
@@ -32,10 +31,6 @@ public class LoadingOverlayMixin {
 
 	@Inject(method = "render", at = @At("TAIL"))
 	private void originclient$drawOriginLoading(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		// Vanilla mode: Mojang's own loading screen, untouched.
-		if (OriginStyle.vanillaMenus()) {
-			return;
-		}
 		OriginScreenRenderer.renderLoading(new Gfx(poseStack), this.currentProgress);
 	}
 }

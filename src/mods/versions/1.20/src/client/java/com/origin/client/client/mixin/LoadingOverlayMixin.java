@@ -1,6 +1,5 @@
 package com.origin.client.client.mixin;
 
-import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.LoadingOverlay;
@@ -31,10 +30,6 @@ public class LoadingOverlayMixin {
 
 	@Inject(method = "render", at = @At("TAIL"))
 	private void originclient$drawOriginLoading(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-		// Vanilla mode: Mojang's own loading screen, untouched.
-		if (OriginStyle.vanillaMenus()) {
-			return;
-		}
 		OriginScreenRenderer.renderLoading(guiGraphics, this.currentProgress);
 	}
 }

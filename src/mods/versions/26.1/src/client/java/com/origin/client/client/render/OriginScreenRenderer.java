@@ -156,6 +156,12 @@ public final class OriginScreenRenderer {
 		if (broken) {
 			return;
 		}
+		// Vanilla mode (Button Style + Main Menu Style both off): Mojang's loading screen
+		// stays, but the handoff above and the per-frame texture uploads still run.
+		if (com.origin.client.client.OriginStyle.vanillaMenus()) {
+			com.origin.client.client.OriginAssets.uploadSlice();
+			return;
+		}
 		try {
 			renderLoading0(guiGraphics, reloadProgress(progress), true, true);
 		} catch (Throwable t) {

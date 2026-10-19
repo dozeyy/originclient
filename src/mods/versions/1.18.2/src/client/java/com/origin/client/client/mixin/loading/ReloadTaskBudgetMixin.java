@@ -1,6 +1,5 @@
 package com.origin.client.client.mixin.loading;
 
-import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.resources.ReloadInstance;
@@ -97,7 +96,7 @@ public abstract class ReloadTaskBudgetMixin {
 
 	/** The game's startup load is on screen (no world, no server) and still running. */
 	private static boolean originclient$startupLoading(Minecraft mc) {
-		if (mc.level != null || mc.getConnection() != null || !OriginScreenRenderer.isActive() || OriginStyle.vanillaMenus()
+		if (mc.level != null || mc.getConnection() != null || !OriginScreenRenderer.isActive()
 				|| !(mc.getOverlay() instanceof LoadingOverlayAccessor overlay)) {
 			return false;
 		}
