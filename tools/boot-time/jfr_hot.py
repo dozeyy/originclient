@@ -2,11 +2,11 @@
 
     jfr print --events jdk.ExecutionSample,jdk.NativeMethodSample,jdk.JVMInformation \
         --stack-depth 160 prof-b.jfr > prof.txt
-    python3 jfr_hot.py prof.txt [--until-ms 17000] [--top 40] [--match REGEX]
+    python3 jfr_hot.py prof.txt [--from-ms 12000] [--until-ms 17000] [--top 40] [--match REGEX]
 
 Groups samples by thread (Render thread / reload workers / everything else),
-keeps only samples taken before --until-ms of JVM uptime (the boot's
-title-interactive mark), and prints for each group the methods with the most
+keeps only samples taken between --from-ms and --until-ms of JVM uptime
+(e.g. the boot's reload-start and title-interactive marks), and prints for each group the methods with the most
 INCLUSIVE samples (a method counted once per sample it appears anywhere in) and
 the most SELF samples (top frame). Java samples are ~20 ms apart per running
 thread (JFR "profile" settings), native ones ~20 ms: read the counts as relative
@@ -77,6 +77,7 @@ def ms_of(t):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("file")
+    ap.add_argument("--from-ms", type=int, default=0)
     ap.add_argument("--until-ms", type=int, default=0)
     ap.add_argument("--top", type=int, default=35)
     ap.add_argument("--match", default="")
@@ -90,11 +91,11 @@ def main():
     for e in events:
         if not e["stack"]:
             continue
-        if a.until_ms and start is not None and e["t"] is not None:
+        if (a.until_ms or a.from_ms) and start is not None and e["t"] is not None:
             up = ms_of(e["t"]) - start
             if up < 0:
                 up += 24 * 3600 * 1000
-            if up > a.until_ms:
+            if (a.until_ms and up > a.until_ms) or up < a.from_ms:
                 continue
         g = group_of(e["thread"])
         total[g] += 1
