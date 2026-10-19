@@ -79,7 +79,8 @@ public final class OriginFrameLog {
 	// Loading bar check: within one reload the bar may only ever move forward.
 	private static Object barReload;
 	private static double barShown = -1, barRaw = -1, barBackMax = 0, barRawDropMax = 0;
-	private static int barFrames = 0, barBack = 0, barRawDrops = 0, barReloads = 0;
+	private static int barFrames = 0, barBack = 0, barRawDrops = 0, barReloads = 0, barEarlyFull = 0;
+	private static double barAtDone = Double.NaN;
 
 	// ---- hooks ----
 
@@ -168,6 +169,7 @@ public final class OriginFrameLog {
 			return;
 		}
 		doneAt = start[n - 1];
+		barAtDone = barShown;
 		current = Phase.DONE;
 		phase[n - 1] = Phase.DONE;
 		com.origin.client.OriginClient.LOGGER.info(P + "mark reload-done (bar full) uptime {} s", uptimeS());
@@ -319,8 +321,8 @@ public final class OriginFrameLog {
 			barReloads++;
 			com.origin.client.OriginClient.LOGGER.info(P + "bar reload #{} {} (shown {} raw {})", barReloads, ident(reload), fmt4(shown), fmt4(raw));
 		}
-		if (BAR_PROBE && (!same || raw != barRaw)) {
-			com.origin.client.OriginClient.LOGGER.info(P + "barprobe raw={} shown={} {} {}", fmt4(raw), fmt4(shown), ident(reload), probeFields(reload));
+		if (doneAt == 0 && shown >= 0.9999) {
+			barEarlyFull++;   // drawn full before the reload was seen done
 		}
 		barReload = reload;
 		barShown = shown;
@@ -328,44 +330,8 @@ public final class OriginFrameLog {
 		barFrames++;
 	}
 
-	// TEMP (bar-monotonic investigation, 2026-10-19): per-change raw/shown + the reload's counters.
-	private static final boolean BAR_PROBE = true;
-
 	private static String ident(Object o) {
 		return o == null ? "null" : o.getClass().getSimpleName() + "@" + Integer.toHexString(System.identityHashCode(o));
-	}
-
-	private static String probeFields(Object o) {
-		if (o == null) {
-			return "";
-		}
-		StringBuilder sb = new StringBuilder();
-		try {
-			for (Class<?> c = o.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
-				for (java.lang.reflect.Field f : c.getDeclaredFields()) {
-					if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
-						continue;
-					}
-					Class<?> t = f.getType();
-					Object v;
-					if (t == int.class || t == boolean.class || t == long.class
-							|| java.util.concurrent.atomic.AtomicInteger.class.isAssignableFrom(t)) {
-						f.setAccessible(true);
-						v = f.get(o);
-					} else if (java.util.Collection.class.isAssignableFrom(t)) {
-						f.setAccessible(true);
-						Object col = f.get(o);
-						v = col == null ? "null" : "#" + ((java.util.Collection<?>) col).size();
-					} else {
-						continue;
-					}
-					sb.append(f.getName()).append('=').append(v).append(' ');
-				}
-			}
-		} catch (Throwable t) {
-			sb.append("(").append(t.getClass().getSimpleName()).append(")");
-		}
-		return sb.toString();
 	}
 
 	private static String fmt4(double v) {
@@ -440,8 +406,9 @@ public final class OriginFrameLog {
 	}
 
 	private static void summary() {
-		com.origin.client.OriginClient.LOGGER.info(P + "bar summary: monotonic={} frames={} backward={} (max {}) raw-drops={} (max {}) reloads={} final={}",
-				barBack == 0 ? "yes" : "NO", barFrames, barBack, fmt4(barBackMax), barRawDrops, fmt4(barRawDropMax), barReloads, fmt4(barShown));
+		com.origin.client.OriginClient.LOGGER.info(P + "bar summary: monotonic={} frames={} backward={} (max {}) raw-drops={} (max {}) reloads={} full-before-done={} at-reload-done={} final={}",
+				barBack == 0 ? "yes" : "NO", barFrames, barBack, fmt4(barBackMax), barRawDrops, fmt4(barRawDropMax), barReloads,
+				barEarlyFull, fmt4(barAtDone), fmt4(barShown));
 		// Window A: LEAD_MS before reload done -> end. Window B: bar full (reload done) -> end.
 		long fromA = doneAt == 0 ? 0 : doneAt - (long) (LEAD_MS * 1e6);
 		Stats a = stats(fromA, false), b = stats(doneAt, false), visible = stats(doneAt, true);
