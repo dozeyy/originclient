@@ -78,6 +78,18 @@ jobs:
           }
           Write-Host "Rendered $($shots.Count) Friends drawer screens."
 
+      # Every picture above is also measured (RenderShots.ClipCheck): an icon or a piece of text that its
+      # slot cuts off is listed in clip-errors.txt. A cut "..." still looks like dots in a picture, so
+      # this is the check that catches it. Runs after both renders so every hit is listed at once.
+      - name: Check nothing is cut off
+        shell: pwsh
+        run: |
+          $files = @('launcher-shots\clip-errors.txt', 'launcher-shots\social\clip-errors.txt') | Where-Object { Test-Path $_ }
+          foreach ($f in $files) { Get-Content $f | ForEach-Object { Write-Host "::error::cut off: $_" } }
+          if ($files.Count -gt 0) { exit 1 }
+          $n = (Get-Content launcher-shots\clip-checks.txt, launcher-shots\social\clip-checks.txt | Measure-Object -Line).Lines
+          Write-Host "$n pictures checked, nothing cut off."
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:

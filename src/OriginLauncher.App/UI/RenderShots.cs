@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -277,11 +278,19 @@ public static class RenderShots
         Dispatcher.PushFrame(frame);
     }
 
-    internal static void Snap(Window window, string dir, string name)
+    /// <summary>
+    /// Saves the window's content as a PNG at <paramref name="dpi"/> (96 = 100 %, 120 = 125 %, 144 = 150 %),
+    /// then runs <see cref="ClipCheck"/> on what was drawn. For a DPI above 96 the caller first gives the
+    /// window's visual tree that DPI (<see cref="SetTreeDpi"/>), so layout rounding and text are laid out
+    /// for it exactly as on a scaled monitor; this only rasterizes at the matching pixel density.
+    /// </summary>
+    internal static void Snap(Window window, string dir, string name, double dpi = 96)
     {
         window.UpdateLayout();
         var root = (FrameworkElement)window.Content;
-        var bitmap = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+        var scale = dpi / 96.0;
+        var bitmap = new RenderTargetBitmap((int)Math.Round(root.ActualWidth * scale), (int)Math.Round(root.ActualHeight * scale),
+            dpi, dpi, PixelFormats.Pbgra32);
         // The window's own background sits behind its content.
         var backed = new DrawingVisual();
         using (var dc = backed.RenderOpen())
@@ -292,7 +301,83 @@ public static class RenderShots
         bitmap.Render(root);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var file = File.Create(Path.Combine(dir, name + ".png"));
-        encoder.Save(file);
+        using (var file = File.Create(Path.Combine(dir, name + ".png")))
+            encoder.Save(file);
+        ClipCheck(root, dir, name);
+    }
+
+    /// <summary>
+    /// Gives the whole window the DPI of a monitor scaled to <paramref name="scale"/> (1.25 = 125 %), the
+    /// way per-monitor DPI does when the window moves to such a monitor: WPF lays out in device-independent
+    /// pixels, rounds every edge to the device pixel grid of that DPI (UseLayoutRounding) and shapes text
+    /// for it. Re-measures everything so the new rounding applies. 1.0 puts it back.
+    /// </summary>
+    internal static void SetTreeDpi(Window window, double scale)
+    {
+        VisualTreeHelper.SetRootDpi(window, new DpiScale(scale, scale));
+        Invalidate(window);
+        window.UpdateLayout();
+    }
+
+    private static void Invalidate(DependencyObject d)
+    {
+        if (d is UIElement e)
+        {
+            e.InvalidateMeasure();
+            e.InvalidateArrange();
+            e.InvalidateVisual();
+        }
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++) Invalidate(VisualTreeHelper.GetChild(d, i));
+    }
+
+    /// <summary>
+    /// Finds every visible icon (any Shape: Path, Ellipse, Rectangle) and every piece of text that its
+    /// parent gave LESS room than it needs, so WPF cut it off at the edge of its slot (the layout clip).
+    /// A picture can hide this (a cut "..." still looks like dots); the numbers can't. One line per hit
+    /// goes to clip-errors.txt, which fails the launcher-shots workflow; clip-checks.txt counts what was checked.
+    /// </summary>
+    internal static void ClipCheck(FrameworkElement root, string dir, string name)
+    {
+        var checkedCount = 0;
+        var hits = new List<string>();
+        void Walk(DependencyObject d)
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
+            {
+                var child = VisualTreeHelper.GetChild(d, i);
+                if (child is UIElement { IsVisible: false }) continue;
+                if (child is FrameworkElement fe && fe is System.Windows.Shapes.Shape or TextBlock)
+                {
+                    checkedCount++;
+                    if (System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(fe) is { } clip)
+                    {
+                        var shown = clip.Bounds;
+                        var need = fe.RenderSize;
+                        if (shown.Width < need.Width - 0.5 || shown.Height < need.Height - 0.5)
+                            hits.Add($"{name}: {Describe(fe)} needs {need.Width:0.#}x{need.Height:0.#} but shows {shown.Width:0.#}x{shown.Height:0.#}");
+                    }
+                }
+                Walk(child);
+            }
+        }
+        Walk(root);
+        File.AppendAllText(Path.Combine(dir, "clip-checks.txt"), $"{name}: {checkedCount} icons and text checked, {hits.Count} cut off{Environment.NewLine}");
+        if (hits.Count > 0) File.AppendAllLines(Path.Combine(dir, "clip-errors.txt"), hits);
+    }
+
+    // "Path in Button 'Close friends' (Social.Icon)": enough to find it in the XAML.
+    private static string Describe(FrameworkElement fe)
+    {
+        var what = fe is TextBlock t ? $"TextBlock '{t.Text}'" : fe.GetType().Name + (string.IsNullOrEmpty(fe.Name) ? "" : $" '{fe.Name}'");
+        for (var d = VisualTreeHelper.GetParent(fe); d != null; d = VisualTreeHelper.GetParent(d))
+        {
+            if (d is System.Windows.Controls.Primitives.ButtonBase b)
+            {
+                var label = System.Windows.Automation.AutomationProperties.GetName(b);
+                if (string.IsNullOrEmpty(label)) label = b.Content as string ?? b.Name;
+                return $"{what} in {b.GetType().Name} '{label}'";
+            }
+        }
+        return what + (fe.Parent is FrameworkElement p ? $" in {p.GetType().Name} '{p.Name}'" : "");
     }
 }
