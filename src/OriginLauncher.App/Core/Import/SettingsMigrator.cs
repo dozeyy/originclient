@@ -33,6 +33,9 @@ public sealed class MigrationContext
 
     /// <summary>Bulk: the setup whose settings this version gets (a non-winner says so in its summary).</summary>
     public string? SettingsWinnerLabel { get; init; }
+
+    /// <summary>Bulk: this setup's key in the run (a claim's owner); null in a single import, which never defers to anyone.</summary>
+    public string? SetupKey { get; init; }
 }
 
 // Plans the non-mod part of an import (D15-D19): options.txt, mod configs, the
@@ -395,6 +398,10 @@ public static class SettingsMigrator
                 if (sameAsClaimed)
                 {
                     Line(SummarySection.Imported, kind, name, $"already brought over from {claim.SetupLabel}");
+                    // If that setup is skipped mid-run, this one's identical copy lands instead.
+                    if (DefersTo(claim.Owner))
+                        AddFallback(isDir ? OpKind.CopyTree : OpKind.CopyFile, kind, name, srcPath, dest,
+                            isDir ? DirectorySize(srcPath) : ImportFiles.SizeOf(srcPath));
                     return name;
                 }
                 finalName = FreeImportedName(dstDir, name, isDir);
@@ -425,11 +432,11 @@ public static class SettingsMigrator
                 Line(SummarySection.NeedsAttention, kind, name, "Couldn't read this pack in your old setup, so it wasn't imported.");
                 return null;
             }
-            Ledger.Add(dest, srcPath, _c.SetupLabel, isDir);
+            Ledger.Add(dest, srcPath, _c.SetupLabel, isDir, _c.SetupKey);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = isDir ? OpKind.CopyTree : OpKind.CopyFile, Item = kind, Label = finalName,
-                Source = srcPath, Dest = dest, Bytes = bytes,
+                Source = srcPath, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest),
             });
             Line(SummarySection.Imported, kind, finalName, reason, bytes);
             return finalName;
@@ -586,25 +593,25 @@ public static class SettingsMigrator
                 if (!File.Exists(Path.Combine(world, "level.dat"))) continue; // not a world
                 var name = Path.GetFileName(world);
                 // Two setups can share one game folder: a world folder is copied once per run.
-                if (!Ledger.TryClaimWorldSource(world, _c.SetupLabel, out var first))
-                {
-                    Line(SummarySection.Imported, PlanItemKind.World, name, $"already brought over from {first}");
-                    continue;
-                }
                 var dest = Path.Combine(dstSaves, name);
-                var finalName = name;
                 if (Directory.Exists(dest) || File.Exists(dest) || Ledger.IsClaimed(dest))
                 {
                     // Never merged into another world: a second "New World" is saved beside the first.
-                    finalName = FreeImportedName(dstSaves, name, isDirectory: true);
-                    dest = Path.Combine(dstSaves, finalName);
+                    dest = Path.Combine(dstSaves, FreeImportedName(dstSaves, name, isDirectory: true));
                 }
-                Ledger.Add(dest, world, _c.SetupLabel, isDirectory: true);
+                if (!Ledger.TryClaimWorldSource(world, dest, _c.SetupLabel, _c.SetupKey, out var first))
+                {
+                    Line(SummarySection.Imported, PlanItemKind.World, name, $"already brought over from {first!.SetupLabel}");
+                    if (DefersTo(first.Owner)) AddFallback(OpKind.CopyTree, PlanItemKind.World, Path.GetFileName(first.Dest), world, first.Dest, DirectorySize(world));
+                    continue;
+                }
+                var finalName = Path.GetFileName(dest);
+                Ledger.Add(dest, world, _c.SetupLabel, isDirectory: true, _c.SetupKey);
                 var bytes = DirectorySize(world);
                 Plan.Ops.Add(new PlannedOp
                 {
                     Kind = OpKind.CopyTree, Item = PlanItemKind.World, Label = finalName,
-                    Source = world, Dest = dest, Bytes = bytes,
+                    Source = world, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest),
                 });
                 Line(SummarySection.Imported, PlanItemKind.World, finalName,
                     finalName == name ? null : $"a world called \"{name}\" already exists, so this copy is saved as \"{finalName}\"", bytes);
@@ -624,12 +631,20 @@ public static class SettingsMigrator
             {
                 // Not the settings winner: a file is only CREATED, where neither Origin nor anything earlier in
                 // this run writes that path - never replaced, never merged.
-                if (File.Exists(dest) || Ledger.IsClaimed(dest)) { Plan.Kept++; return false; }
-                Ledger.Add(dest, src, _c.SetupLabel);
+                if (File.Exists(dest)) { Plan.Kept++; return false; }
+                if (Ledger.ClaimOf(dest) is { } claim)
+                {
+                    // An earlier setup of this run creates it; if that setup is skipped mid-run, this copy is created instead.
+                    Plan.Kept++;
+                    if (DefersTo(claim.Owner)) AddFallback(OpKind.CopyFile, kind, label, src, dest, length, touchNow);
+                    return false;
+                }
+                Ledger.Add(dest, src, _c.SetupLabel, owner: _c.SetupKey);
                 Plan.Created++;
                 Plan.Ops.Add(new PlannedOp
                 {
                     Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
+                    ClaimKey = DestinationLedger.PathKey(dest),
                 });
                 if (!quiet) Line(SummarySection.Imported, kind, label);
                 return true;
@@ -649,10 +664,11 @@ public static class SettingsMigrator
             {
                 Plan.Created++;
             }
-            Ledger.Add(dest, src, _c.SetupLabel);
+            Ledger.Add(dest, src, _c.SetupLabel, owner: _c.SetupKey);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
+                ClaimKey = DestinationLedger.PathKey(dest),
             });
             if (!quiet) Line(SummarySection.Imported, kind, label);
             return true;
@@ -668,6 +684,17 @@ public static class SettingsMigrator
             });
             Line(SummarySection.Imported, kind, label);
         }
+
+        // A bulk setup defers to another setup's claim (never to its own, never in a single import).
+        private bool DefersTo(string? owner) => _c.SetupKey != null && owner != null && owner != _c.SetupKey;
+
+        // The stand-in for a copy another setup claimed: it runs only if that claim is released (ImportEngine.ApplyBulk).
+        private void AddFallback(OpKind opKind, PlanItemKind kind, string label, string src, string dest, long bytes, bool touchNow = false) =>
+            Plan.Ops.Add(new PlannedOp
+            {
+                Kind = opKind, Item = kind, Label = label, Source = src, Dest = dest, Bytes = bytes, TouchNow = touchNow,
+                ClaimKey = DestinationLedger.PathKey(dest), Fallback = true,
+            });
 
         private void Line(SummarySection section, PlanItemKind kind, string name, string? reason = null, long bytes = 0) =>
             Plan.Lines.Add(new SummaryLine(section, kind, name, reason, bytes));

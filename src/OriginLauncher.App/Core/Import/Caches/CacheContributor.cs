@@ -30,7 +30,7 @@ public sealed class CacheContributor : IImportPlanContributor
     public Task ContributeAsync(ImportPlan plan, ImportRequest request, SourceFs fs, CancellationToken ct)
     {
         if (!plan.CanApply) return Task.CompletedTask;
-        new Planner(plan, fs, ct, AfterStaged, request?.Ledger, plan.Source.BulkLabel()).Run();
+        new Planner(plan, fs, ct, AfterStaged, request?.Ledger, plan.Source.BulkLabel(), request?.SetupKey).Run();
         return Task.CompletedTask;
     }
 
@@ -48,10 +48,13 @@ public sealed class CacheContributor : IImportPlanContributor
         private readonly Dictionary<string, string?> _worldProblems = new(StringComparer.OrdinalIgnoreCase); // world -> why not (null = fine)
         private readonly DestinationLedger? _ledger; // a bulk run's: the first setup (in apply order) to bring a cache wins
         private readonly string _setupLabel;
+        private readonly string? _setupKey;
 
-        public Planner(ImportPlan plan, SourceFs fs, CancellationToken ct, Action<string>? afterStaged, DestinationLedger? ledger, string setupLabel)
+        public Planner(ImportPlan plan, SourceFs fs, CancellationToken ct, Action<string>? afterStaged, DestinationLedger? ledger, string setupLabel,
+            string? setupKey)
         {
             _ledger = ledger;
+            _setupKey = setupKey;
             _setupLabel = setupLabel;
             _plan = plan;
             _fs = fs;
@@ -133,9 +136,16 @@ public sealed class CacheContributor : IImportPlanContributor
                     SkipServer(server, "Not a readable Distant Horizons database: skipped.");
                     return;
                 }
-            if (!ClaimFirst(CacheKind.DistantHorizons, CacheScope.Multiplayer, server.Folder, "")) { SkipServer(server, AnotherSetup); return; }
-
             var bytes = DirectorySize(server.Dir, skipLoneWal: true);
+            var identity = Identity(CacheKind.DistantHorizons, CacheScope.Multiplayer, server.Folder, "");
+            Action<ImportOpContext> run = ctx => CopyFolder(ctx, server.Dir, dest, label, _replace, skipLoneWal: true, DhProbeFiles, _afterStaged);
+            if (!ClaimFirst(identity))
+            {
+                SkipServer(server, AnotherSetup);
+                AddFallback(identity, label, bytes, run, server.Dir, dest);
+                return;
+            }
+
             foreach (var level in server.Levels)
                 _plan.Caches.Add(new CachePlanItem(CacheKind.DistantHorizons, CacheScope.Multiplayer, server.Folder, level.Dimension,
                     !level.LoneWal, level.LoneWal ? "A leftover journal file with no database next to it: skipped." : null, 0));
@@ -143,7 +153,7 @@ public sealed class CacheContributor : IImportPlanContributor
             _plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Source = server.Dir, Dest = dest, Bytes = bytes,
-                Run = ctx => CopyFolder(ctx, server.Dir, dest, label, _replace, skipLoneWal: true, DhProbeFiles, _afterStaged),
+                Run = run, ClaimKey = _ledger == null ? null : DestinationLedger.CacheKey(identity),
             });
         }
 
@@ -200,15 +210,37 @@ public sealed class CacheContributor : IImportPlanContributor
 
         // A bulk run: one cache identity (kind, scope, world or server, dimension) comes over once, from the first
         // setup in apply order; a later setup's copy is never merged into it. A single import has no ledger.
-        private bool ClaimFirst(CacheKind kind, CacheScope scope, string owner, string dimension) =>
-            _ledger == null || _ledger.TryClaimCache($"{kind}|{scope}|{owner}|{dimension}", _setupLabel, out _);
+        private static string Identity(CacheKind kind, CacheScope scope, string owner, string dimension) => $"{kind}|{scope}|{owner}|{dimension}";
+
+        private bool ClaimFirst(string identity) => _ledger == null || _ledger.TryClaimCache(identity, _setupLabel, out _);
+
+        // If the setup that claimed this cache is skipped mid-run, this setup's copy is brought instead (once).
+        private void AddFallback(string identity, string label, long bytes, Action<ImportOpContext> run, string? source, string dest)
+        {
+            if (_setupKey == null) return;
+            _plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Source = source, Dest = dest, Bytes = bytes, Run = run,
+                ClaimKey = DestinationLedger.CacheKey(identity), Fallback = true,
+            });
+        }
 
         private void Take(CacheKind kind, CacheScope scope, string owner, string dimension, string label, long bytes, Action<ImportOpContext> run)
         {
-            if (!ClaimFirst(kind, scope, owner, dimension)) { Skip(kind, scope, owner, dimension, AnotherSetup); return; }
+            var identity = Identity(kind, scope, owner, dimension);
+            if (!ClaimFirst(identity))
+            {
+                Skip(kind, scope, owner, dimension, AnotherSetup);
+                AddFallback(identity, label, bytes, run, null, _targetDir);
+                return;
+            }
             _plan.Caches.Add(new CachePlanItem(kind, scope, owner, dimension, true, null, bytes));
             _plan.Lines.Add(new SummaryLine(SummarySection.ReusedCaches, PlanItemKind.Cache, label, null, bytes));
-            _plan.Ops.Add(new PlannedOp { Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Dest = _targetDir, Bytes = bytes, Run = run });
+            _plan.Ops.Add(new PlannedOp
+            {
+                Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Dest = _targetDir, Bytes = bytes, Run = run,
+                ClaimKey = _ledger == null ? null : DestinationLedger.CacheKey(identity),
+            });
         }
 
         private void Travels(CacheKind kind, string owner, string dimension, string label)

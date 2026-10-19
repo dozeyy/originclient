@@ -50,6 +50,9 @@ internal static class Kit
             foreach (var (name, data) in entries)
             {
                 var entry = zip.CreateEntry(name);
+                // A fixed stamp: the same entries always make the same bytes (a "now" stamp made two identical
+                // packs differ whenever the fixture crossed a 2-second boundary, which flaked the dedupe tests).
+                entry.LastWriteTime = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
                 using var s = entry.Open();
                 s.Write(data);
             }

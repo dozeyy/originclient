@@ -181,6 +181,19 @@ public sealed record PlannedOp
 
     /// <summary>For <see cref="OpKind.Custom"/>: the work, run in order inside the transaction.</summary>
     public Action<ImportOpContext>? Run { get; init; }
+
+    /// <summary>
+    /// Bulk import: what this op claims in its target folder (a path or a cache identity, DestinationLedger.PathKey /
+    /// CacheKey). Null for ops nobody else could claim.
+    /// </summary>
+    public string? ClaimKey { get; init; }
+
+    /// <summary>
+    /// Bulk import: a stand-in for a copy another setup claimed first. It runs only when that claim is released —
+    /// its setup was skipped mid-run, or its copy failed on the source side — and only once per claim. Never counted
+    /// in a plan's bytes; a single import never runs one.
+    /// </summary>
+    public bool Fallback { get; init; }
 }
 
 /// <summary>

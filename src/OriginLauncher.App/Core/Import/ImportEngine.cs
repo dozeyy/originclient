@@ -148,6 +148,9 @@ public sealed record ImportRequest
     /// <summary>The setup whose settings this version gets in a bulk run (for the "settings come from" line).</summary>
     internal string? SettingsWinnerLabel { get; init; }
 
+    /// <summary>This setup's key in a bulk run (who owns a ledger claim); null in a single import.</summary>
+    internal string? SetupKey { get; init; }
+
     /// <summary>One metadata session for every version a bulk plan looks at (null = fetch per plan).</summary>
     internal MetadataCache? Metadata { get; init; }
 }
@@ -267,7 +270,7 @@ public sealed partial class ImportEngine
             Fs = fs, Source = source, TargetVersion = target, TargetGameDir = plan.TargetGameDir,
             Options = r.Options, TargetHasIris = r.TargetHasIris ?? target != "1.8.9", Plan = plan, Ct = ct,
             Role = r.Role, Ledger = r.Ledger ?? new DestinationLedger(), SetupLabel = source.BulkLabel(),
-            SettingsWinnerLabel = r.SettingsWinnerLabel,
+            SettingsWinnerLabel = r.SettingsWinnerLabel, SetupKey = r.SetupKey,
         });
         progress?.Report(new ImportProgress(ImportStage.Planning, 2, 3, "checking space"));
         return plan;
@@ -394,7 +397,7 @@ public sealed partial class ImportEngine
             plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Setting, name,
                 "Skipped for safety: it looks like a login or account file."));
         }
-        plan.BytesToCopy = plan.Ops.Sum(o => o.Bytes);
+        plan.BytesToCopy = plan.Ops.Where(o => !o.Fallback).Sum(o => o.Bytes); // a stand-in replaces a copy, it never adds one
         if (!checkSpace) return; // a bulk run checks the space for all of its setups at once
 
         // D30: the bytes to copy plus 10% must fit where they land.
@@ -482,6 +485,7 @@ public sealed partial class ImportEngine
             for (var i = 0; i < plan.Ops.Count; i++)
             {
                 var op = plan.Ops[i];
+                if (op.Fallback) continue; // only a bulk run has stand-ins (and runs them when a claim is released)
                 progress?.Report(new ImportProgress(StageOf(op.Item), i, plan.Ops.Count, op.Label));
                 ct.ThrowIfCancellationRequested();
                 Execute(op, plan, tx, fs, ct, extra, progress);

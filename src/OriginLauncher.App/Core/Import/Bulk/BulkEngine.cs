@@ -215,8 +215,9 @@ public sealed partial class ImportEngine
         var plannedProfiles = new List<ModProfile>();
         var facts = request.Facts?.Invoke(version) ?? new TargetFacts();
 
-        foreach (var setup in order)
+        for (var position = 0; position < order.Count; position++)
         {
+            var setup = order[position];
             ct.ThrowIfCancellationRequested();
             var role = BulkRules.IsPacksOnly(setup, version) ? SetupRole.PacksOnly
                 : ReferenceEquals(setup, winner) ? SetupRole.Full : SetupRole.ModsAndPacks;
@@ -231,6 +232,7 @@ public sealed partial class ImportEngine
                 SelectedVersion = request.SelectedVersion, SelectedProfileId = request.SelectedProfileId,
                 Role = role, Ledger = ledger, ImportId = runId, Bulk = true, Metadata = metadata,
                 SettingsWinnerLabel = role == SetupRole.Full ? null : winner?.BulkLabel(),
+                SetupKey = $"{version}#{position}", // who owns a ledger claim (labels can repeat; positions can't)
             };
 
             var setupPlan = BuildPlan(r, null, ct, out var fs);
@@ -366,6 +368,10 @@ public sealed partial class ImportEngine
         tx.Journal.GateVersions = gated.Select(g => g.Version).ToList();
 
         var held = new List<IAsyncDisposable>();
+        // Claims whose owner didn't write them (its setup was skipped, or its copy failed on the source side): a later
+        // setup's stand-in (PlannedOp.Fallback) for the same claim then lands its copy, once.
+        var released = new HashSet<string>(StringComparer.Ordinal);
+        var landedByStandIn = new HashSet<string>(StringComparer.Ordinal);
         var bytesTotal = plan.BytesToCopy;
         long bytesDone = 0;
         var index = 0;
@@ -420,6 +426,7 @@ public sealed partial class ImportEngine
                         state.Extra.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Setting,
                             "Minecraft was started from this setup while importing, so it was skipped. Close it and import it again."));
                         bytesDone += setupPlan.BytesToCopy;
+                        foreach (var claimed in setupPlan.Ops.Where(o => o.ClaimKey != null && !o.Fallback)) released.Add(claimed.ClaimKey!);
                         index++;
                         continue;
                     }
@@ -432,18 +439,29 @@ public sealed partial class ImportEngine
                     {
                         var op = setupPlan.Ops[i];
                         ct.ThrowIfCancellationRequested();
+                        // A stand-in runs only when its claim was released, and only the first one per claim.
+                        if (op.Fallback && !(released.Contains(op.ClaimKey!) && landedByStandIn.Add(op.ClaimKey!))) continue;
                         Report(new ImportProgress(StageOf(op.Item), i, setupPlan.Ops.Count, op.Label));
                         try
                         {
                             Execute(op, setupPlan, tx, fs, ct, state.Extra, inner);
+                            if (op.Fallback)
+                                state.Extra.Add(new SummaryLine(SummarySection.Imported, op.Item, op.Label,
+                                    "came over from this setup, because the setup it was coming from was left out"));
                         }
                         catch (Exception ex) when (IsSourceProblem(op, ex))
                         {
-                            // B16: a soft SOURCE problem (gone, unreadable, in use) leaves that item out, with a line.
+                            // B16: a soft SOURCE problem (gone, unreadable, in use) leaves that item out, with a line —
+                            // and its claim passes to the next setup that has the same thing.
                             state.Extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label,
                                 "Couldn't read it in your old setup (it may be in use, or gone), so it was left out."));
+                            if (op.ClaimKey != null)
+                            {
+                                released.Add(op.ClaimKey);
+                                if (op.Fallback) landedByStandIn.Remove(op.ClaimKey);
+                            }
                         }
-                        bytesDone += op.Bytes;
+                        if (!op.Fallback) bytesDone += op.Bytes;
                     }
                     state.Kind = planned.Role == SetupRole.PacksOnly ? SetupResultKind.ImportedPartly : SetupResultKind.Imported;
                     index++;

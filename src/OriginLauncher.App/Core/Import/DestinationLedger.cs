@@ -9,6 +9,8 @@ namespace OriginLauncher.App.Core.Import;
 ///  * a source world folder is copied at most once (two setups can share one game folder), and two different
 ///    worlds with the same name never merge;
 ///  * a Distant Horizons / Voxy cache is claimed once by its identity: the first setup in apply order brings it.
+/// A later setup that defers to a claim keeps a stand-in (a <see cref="PlannedOp.Fallback"/> op with the claim's
+/// <see cref="PlannedOp.ClaimKey"/>): if the claim's owner is skipped mid-run, the stand-in lands its copy instead.
 /// Planning only: nothing here touches a disk.
 /// </summary>
 public sealed class DestinationLedger
@@ -17,39 +19,58 @@ public sealed class DestinationLedger
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     private readonly Dictionary<string, Claim> _claims = new(PathComparer);
-    private readonly Dictionary<string, string> _worldSources = new(PathComparer);
+    private readonly Dictionary<string, WorldClaim> _worldSources = new(PathComparer);
     private readonly Dictionary<string, string> _caches = new(StringComparer.Ordinal);
 
-    /// <summary>A destination someone in this run will write: where from (null for a composed file) and whose setup.</summary>
-    public sealed record Claim(string? Source, string SetupLabel, bool IsDirectory);
+    /// <summary>A destination someone in this run will write: where from (null for a composed file), whose setup, and that setup's key.</summary>
+    public sealed record Claim(string? Source, string SetupLabel, bool IsDirectory, string? Owner = null);
+
+    /// <summary>A source world folder this run copies, and where it lands.</summary>
+    public sealed record WorldClaim(string SetupLabel, string Dest, string? Owner);
 
     public bool IsClaimed(string dest) => _claims.ContainsKey(dest);
 
     public Claim? ClaimOf(string dest) => _claims.TryGetValue(dest, out var claim) ? claim : null;
 
     /// <summary>Records that <paramref name="dest"/> will be written; the first claim of a path stays.</summary>
-    public void Add(string dest, string? source, string setupLabel, bool isDirectory = false) =>
-        _claims.TryAdd(dest, new Claim(source, setupLabel, isDirectory));
+    public void Add(string dest, string? source, string setupLabel, bool isDirectory = false, string? owner = null) =>
+        _claims.TryAdd(dest, new Claim(source, setupLabel, isDirectory, owner));
 
-    /// <summary>True when this run has not copied the world folder <paramref name="sourceWorld"/> yet (and now claims it); else the setup that did.</summary>
-    public bool TryClaimWorldSource(string sourceWorld, string setupLabel, out string? firstSetup) =>
-        TryClaim(_worldSources, Normalize(sourceWorld), setupLabel, out firstSetup);
+    /// <summary>
+    /// True when this run has not copied the world folder <paramref name="sourceWorld"/> yet (and now claims it for
+    /// <paramref name="dest"/>); else false with the first claim (who, and where it lands).
+    /// </summary>
+    public bool TryClaimWorldSource(string sourceWorld, string dest, string setupLabel, string? owner, out WorldClaim? first)
+    {
+        var key = Normalize(sourceWorld);
+        if (_worldSources.TryGetValue(key, out first)) return false;
+        _worldSources[key] = new WorldClaim(setupLabel, dest, owner);
+        first = null;
+        return true;
+    }
 
     /// <summary>True when no earlier setup in this run brings the cache with this identity (and now claims it); else the setup that does.</summary>
-    public bool TryClaimCache(string identity, string setupLabel, out string? firstSetup) =>
-        TryClaim(_caches, identity, setupLabel, out firstSetup);
-
-    private static bool TryClaim(Dictionary<string, string> map, string key, string setupLabel, out string? firstSetup)
+    public bool TryClaimCache(string identity, string setupLabel, out string? firstSetup)
     {
-        if (map.TryGetValue(key, out var first))
+        if (_caches.TryGetValue(identity, out var first))
         {
             firstSetup = first;
             return false;
         }
-        map[key] = setupLabel;
+        _caches[identity] = setupLabel;
         firstSetup = null;
         return true;
     }
+
+    /// <summary>The claim key of a destination path (case-folded where the file system is case-insensitive).</summary>
+    public static string PathKey(string dest)
+    {
+        var full = Normalize(dest);
+        return "path:" + (OperatingSystem.IsWindows() ? full.ToUpperInvariant() : full);
+    }
+
+    /// <summary>The claim key of a cache identity.</summary>
+    public static string CacheKey(string identity) => "cache:" + identity;
 
     private static string Normalize(string path)
     {

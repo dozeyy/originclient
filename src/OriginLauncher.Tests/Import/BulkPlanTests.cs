@@ -321,8 +321,10 @@ public class BulkPlanTests : IDisposable
         Assert.Equal(SetupRole.ModsAndPacks, s.Role);
         Assert.DoesNotContain(s.Plan.Ops, o => o.Kind is OpKind.WriteOptions or OpKind.MergeProperties or OpKind.MergeJson);
         Assert.DoesNotContain(s.Plan.Ops, o => Path.GetFileName(o.Dest) is "servers.dat" or "optionsof.txt" or "options.txt" or "optionsshaders.txt");
-        var secondConfigs = s.Plan.Ops.Where(o => o.Item == PlanItemKind.Config).Select(o => Path.GetFileName(o.Dest)).ToList();
+        var secondConfigs = s.Plan.Ops.Where(o => o.Item == PlanItemKind.Config && !o.Fallback).Select(o => Path.GetFileName(o.Dest)).ToList();
         Assert.Equal(new[] { "onlysecond.json" }, secondConfigs);                     // only where nobody else writes
+        Assert.Contains(s.Plan.Ops, o => o.Fallback && Path.GetFileName(o.Dest) == "somemod.json"); // a stand-in, should the winner drop out
+        Assert.DoesNotContain(s.Plan.Ops, o => o.Fallback && Path.GetFileName(o.Dest) == "existing.json"); // Origin's own: never
         Assert.Contains(s.Plan.Ops, o => o.Item == PlanItemKind.Mod);                 // its own mods
         Assert.NotNull(s.Plan.ProfileId);
         Assert.Contains(s.Plan.Ops, o => o.Label == "SecondPack.zip");                // its packs are copied...
@@ -407,7 +409,8 @@ public class BulkPlanTests : IDisposable
         var plan = await _f.Plan(_f.Engine());
 
         Assert.Contains(Planned(plan, a).Plan.Ops, o => o.Label == "Faithful.zip");
-        Assert.DoesNotContain(Planned(plan, b).Plan.Ops, o => o.Label.StartsWith("Faithful", StringComparison.Ordinal));
+        Assert.DoesNotContain(Planned(plan, b).Plan.Ops, o => !o.Fallback && o.Label.StartsWith("Faithful", StringComparison.Ordinal));
+        Assert.Single(Planned(plan, b).Plan.Ops, o => o.Fallback && o.Label == "Faithful.zip");
         Assert.Contains(Planned(plan, b).Plan.Lines, l => l.Name == "Faithful.zip" && l.Reason == "already brought over from Prism: A");
         Assert.Contains(Planned(plan, c).Plan.Ops, o => o.Label == "Faithful (imported).zip");
         Assert.Contains(Planned(plan, d).Plan.Ops, o => o.Label == "Faithful (imported 2).zip");
@@ -432,7 +435,7 @@ public class BulkPlanTests : IDisposable
 
         Assert.Contains(Planned(plan, a).Plan.Ops, o => o.Item == PlanItemKind.World && o.Label == "World1");
         Assert.Contains(Planned(plan, b).Plan.Ops, o => o.Item == PlanItemKind.World && o.Label == "World1 (imported)");
-        Assert.DoesNotContain(Planned(plan, shared).Plan.Ops, o => o.Item == PlanItemKind.World);
+        Assert.DoesNotContain(Planned(plan, shared).Plan.Ops, o => o.Item == PlanItemKind.World && !o.Fallback);
         Assert.Contains(Planned(plan, shared).Plan.Lines, l => l.Kind == PlanItemKind.World && l.Reason == "already brought over from Prism: A");
 
         var result = await _f.Engine().ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
@@ -456,7 +459,7 @@ public class BulkPlanTests : IDisposable
         var plan = await _f.Plan(_f.Engine(new IImportPlanContributor[] { new CacheContributor() }));
 
         Assert.Single(Planned(plan, first).Plan.Ops, o => o.Item == PlanItemKind.Cache);
-        Assert.DoesNotContain(Planned(plan, second).Plan.Ops, o => o.Item == PlanItemKind.Cache);
+        Assert.DoesNotContain(Planned(plan, second).Plan.Ops, o => o.Item == PlanItemKind.Cache && !o.Fallback);
         Assert.Contains(Planned(plan, second).Plan.Lines, l => l.Section == SummarySection.NotImported && l.Reason == "Another of your setups already brings this one.");
 
         var result = await _f.Engine(new IImportPlanContributor[] { new CacheContributor() }).ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
