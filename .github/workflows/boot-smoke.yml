@@ -51,7 +51,9 @@ jobs:
   smoke:
     name: Boot ${{ matrix.version }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.only == '' || contains(format(',{0},', github.event.inputs.only), format(',{0},', matrix.version)) }}
+    # `only` filters rows: a job-level `if` can't see the matrix, so every step checks this.
+    env:
+      SMOKE_ROW: ${{ github.event.inputs.only == '' || contains(format(',{0},', github.event.inputs.only), format(',{0},', matrix.version)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -79,30 +81,34 @@ jobs:
           - { version: "1.16.5", java: "21", run_java: "8" }
     steps:
       - name: Check out code
+        if: ${{ env.SMOKE_ROW == 'true' }}
         uses: actions/checkout@v7
 
       # The game's JDK first, Gradle's second: the LAST setup-java wins JAVA_HOME, so
       # Gradle runs on ${{ matrix.java }} while JAVA_HOME_<run_java>_X64 stays exported
       # for smoke.py --run-java.
       - name: Set up game Java ${{ matrix.run_java }}
-        if: ${{ matrix.run_java != '' }}
+        if: ${{ env.SMOKE_ROW == 'true' && matrix.run_java != '' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ matrix.run_java }}
 
       - name: Set up Java ${{ matrix.java }}
+        if: ${{ env.SMOKE_ROW == 'true' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
 
       - name: Headless GL deps (Xvfb + Mesa software rasterizer)
+        if: ${{ env.SMOKE_ROW == 'true' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0
 
       - name: Boot-smoke ${{ matrix.version }}
+        if: ${{ env.SMOKE_ROW == 'true' }}
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
