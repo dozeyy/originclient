@@ -84,6 +84,8 @@ public sealed class UpdateCleanupTests : IDisposable
     [Fact]
     public void A_locked_file_is_skipped_and_the_rest_still_go()
     {
+        // An open handle blocks File.Delete only on Windows (the launcher's platform); Linux CI unlinks it fine.
+        if (!OperatingSystem.IsWindows()) return;
         var locked = Touch($"{Prefix}-1.0.55.zip.part");
         var free = Touch($"{Prefix}-1.0.56.zip");
         using var hold = new FileStream(locked, FileMode.Open, FileAccess.Read, FileShare.None);
