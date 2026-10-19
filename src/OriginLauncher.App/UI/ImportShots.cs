@@ -237,14 +237,18 @@ internal static class ImportShots
             log.AppendLine($"{what}: target not found (focused: {focused?.GetType().Name ?? "nothing"})");
             return null;
         }
-        if (target.IsKeyboardFocused)
+        var layer = System.Windows.Documents.AdornerLayer.GetAdornerLayer(target);
+        if (target.IsKeyboardFocused && layer?.GetAdorners(target) is { Length: > 0 })
         {
             log.AppendLine($"{what}: real keyboard focus after Tab (window active: {window.IsActive}); WPF's own focus frame, from the adorner layer");
             return null;
         }
-        log.AppendLine($"{what}: no keyboard focus in CI (window active: {window.IsActive}, focused: {focused?.GetType().Name ?? "nothing"}); "
-            + "its FocusVisualStyle is drawn on it instead");
-        if (target.FocusVisualStyle == null || System.Windows.Documents.AdornerLayer.GetAdornerLayer(target) is not { } layer) return null;
+        // In CI the control does get real keyboard focus from the Tab (seen: "window active: True"), but WPF adds its focus
+        // adorner only for a key press from the real keyboard device, so none is there to capture.
+        log.AppendLine(target.IsKeyboardFocused
+            ? $"{what}: real keyboard focus after Tab, but WPF drew no focus adorner for the simulated key; its FocusVisualStyle is drawn on it instead"
+            : $"{what}: no keyboard focus in CI (window active: {window.IsActive}, focused: {focused?.GetType().Name ?? "nothing"}); its FocusVisualStyle is drawn on it instead");
+        if (target.FocusVisualStyle == null || layer == null) return null;
         var adorner = new StyleAdorner(target, target.FocusVisualStyle);
         layer.Add(adorner);
         RenderShots.Pump(200);
