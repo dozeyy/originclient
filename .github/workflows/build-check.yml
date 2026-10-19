@@ -1,6 +1,6 @@
 # Compile verification for every change — the counterpart to
 # launcher-release.yml, which only fires from launcher-v* tags. This one runs
-# on pushes to main and working branches and on PRs, builds every live mod +
+# on pushes to main and working branches, on PRs and by hand, builds every live mod +
 # the launcher exactly like a release would (same build-mods.yml, same
 # publish-launcher action, same bundled-jar assert), and publishes NOTHING.
 # It exists so code written in environments that can't build (e.g. the remote
@@ -20,6 +20,8 @@ on:
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
+      - "tools/boot-smoke/**"
+      - "tools/ci/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
       - ".github/actions/**"
@@ -29,9 +31,13 @@ on:
       - "tools/shared-sync/**"
       - "tools/release/**"
       - "tools/loading-bar-tests/**"
+      - "tools/boot-smoke/**"
+      - "tools/ci/**"
       - ".github/workflows/build-check.yml"
       - ".github/workflows/build-mods.yml"
       - ".github/actions/**"
+  # By hand (Run workflow), e.g. to re-test a CI-tool change.
+  workflow_dispatch:
 
 concurrency:
   group: build-check-${{ github.ref }}
@@ -63,6 +69,11 @@ jobs:
       # Facts kept in two places (launcher vs installer) must agree.
       - name: Check launcher/installer consistency
         run: python3 tools/release/check_consistency.py
+
+      # The CI gates can fail: dev-shots' PNG-count gate, boot-smoke's title-screen
+      # ready marker (present in every live module) and its retry rules.
+      - name: Test CI gates
+        run: python3 tools/ci/test_ci_gates.py
 
       # The installer's engine: release feed, download (resume, verify,
       # failures — against a fake server), launcher zip, staging, folder

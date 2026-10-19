@@ -1,8 +1,9 @@
-# Boot-smoke: prove each version doesn't just COMPILE but actually BOOTS with
-# zero mixin-apply failures. build-check.yml compiles every module; compiling
-# only proves mixin TARGETS exist -- @Inject descriptor / @Shadow mismatches
-# surface only when a mixin is APPLIED at class load, i.e. at boot. This runs the
-# real client headlessly and greps Minecraft's own log via tools/boot-smoke/smoke.py.
+# Boot-smoke: prove each version doesn't just COMPILE but actually BOOTS to the
+# title screen with zero mixin-apply failures. build-check.yml compiles every
+# module; compiling only proves mixin TARGETS exist -- @Inject descriptor /
+# @Shadow mismatches surface only when a mixin is APPLIED at class load, i.e. at
+# boot. This runs the real client headlessly and reads Minecraft's own log via
+# tools/boot-smoke/smoke.py.
 #
 # HONEST LIMITATIONS (read before making this a required check):
 #  - Headless GL: runners have no GPU, so this uses Xvfb + Mesa's llvmpipe
@@ -12,19 +13,26 @@
 #    limit, not an Origin bug. Tune per version before trusting a red result.
 #  - Coverage is BOOT + MAIN MENU. Mixins that only load on world join (JEI's
 #    runtime handlers, the hitbox entity mixin) are NOT exercised here without a
-#    seeded world -- keep verifying those with a local runClient (they DO run on
-#    Will's machine; see MEMORY.md -> runclient-in-claude-env).
+#    seeded world -- dev-shots.yml's `set: world` covers those.
+#  - READY = the title screen: every live module prints a dev-only
+#    "[origin-smoke] title screen reached" (OriginClientMod, env ORIGIN_SMOKE) the
+#    first tick the title is up with no loading overlay. It used to be "Backend
+#    library" (GL up), which a boot wedged on the loading screen also passed.
+#  - The matrix IS src/mods/live-modules.json: every live module, 1.16.5, 1.17.1
+#    and 1.8.9 (Forge; its run task pins a foojay-provisioned JDK 8 itself) included.
+#  - Maven 429 / asset timeouts: tools/ci/gradle_prefetch.sh downloads everything
+#    first with a bounded retry, and smoke.py retries a run that dies on a download
+#    before the game starts. A flake is never reported as a pass.
 #  - GAME JVM vs GRADLE JVM: Gradle always runs on 21 (Loom 1.17), but players run
-#    1.18.2-1.20.4 on Java 17. A row's `run_java` installs that JDK too and smoke.py
-#    --run-java pins runClient's launcher to it (tools/boot-smoke/run-java.init.gradle,
-#    CI only: module build.gradle files and local runs are untouched), then checks the
-#    real game process's `java -version` and prints it (grep "GAME JVM" in the log).
-#    options.release only checks the APIs OUR code uses; a bundled mod jar built for
-#    Java 21 would otherwise boot here and fail for players.
-#  - "ready" is the first of a few early log lines (window + GL up, or Sodium loaded),
-#    NOT the title screen: it proves mixins applied and the game started, not that the
-#    main menu drew. (1.21.5, 1.12.2 were pulled from the lineup 2026-08-06; 1.8.9 is
-#    Forge and not covered here.)
+#    1.18.2-1.20.4 on Java 17 and 1.17.1 on Java 16. The plan job's RUN_JAVA map installs
+#    that JDK too and smoke.py --run-java pins runClient's launcher to it
+#    (tools/boot-smoke/run-java.init.gradle, CI only: module build.gradle files and local
+#    runs are untouched), then checks the real game process's `java -version` and prints
+#    it (grep "GAME JVM" in the log). options.release only checks the APIs OUR code uses;
+#    a bundled mod jar built for Java 21 would otherwise boot here and fail for players.
+#    1.16.5 (Java 8) is NOT pinned: with runClient on a JDK 8 launcher the game dies with
+#    "Could not find or load main class net.fabricmc.devlaunchinjector.Main"
+#    (run 39254422987); it needs a dev-classpath fix first.
 #
 # Starts as manual (workflow_dispatch) so a flaky software-GL result can't block
 # merges. Promote to `on: pull_request` once it's proven stable per version.
@@ -33,109 +41,98 @@ name: boot-smoke
 on:
   workflow_dispatch:
     inputs:
+      modules:
+        description: "Comma-separated modules, or 'all' (= every module in src/mods/live-modules.json)"
+        default: "all"
       timeout:
-        description: "Per-version hard timeout (seconds)"
-        default: "360"
-      only:
-        description: "Comma-separated modules to boot (blank = every row), e.g. 1.20,1.17.1 (spaces are ignored; an unknown module fails the run)"
-        default: ""
+        description: "Per-attempt hard timeout (seconds)"
+        default: "600"
       gradle_args:
         description: "Extra Gradle args for runClient, e.g. --stacktrace (diagnostics)"
         default: ""
 
 concurrency:
-  group: boot-smoke-${{ github.ref }}
+  group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}
   cancel-in-progress: true
 
 jobs:
-  # Normalises the `only` filter (spaces stripped) and FAILS on a name that is not a
-  # matrix row, so a typo can never skip every row and read as a green run.
   plan:
     runs-on: ubuntu-latest
     outputs:
-      only: ${{ steps.only.outputs.only }}
+      modules: ${{ steps.pick.outputs.modules }}
     steps:
-      - name: Check out code
-        uses: actions/checkout@v7
-      - name: Validate the module filter
-        id: only
+      - uses: actions/checkout@v7
+      - id: pick
         env:
-          ONLY: ${{ github.event.inputs.only }}
+          INPUT: ${{ github.event.inputs.modules }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import os, re, sys
-          wanted = [t for t in re.sub(r"\s+", "", os.environ.get("ONLY", "")).split(",") if t]
-          rows = set(re.findall(r'\{ version: "([0-9][^"]*)"', open(".github/workflows/boot-smoke.yml").read()))
-          bad = [t for t in wanted if t not in rows]
-          if bad:
-              sys.exit("boot-smoke: not a matrix row: %s (rows: %s)" % (", ".join(bad), ", ".join(sorted(rows))))
-          print("only=" + ",".join(wanted))
+          import json, os
+          entries = json.load(open("src/mods/live-modules.json"))["modules"]
+          raw = (os.environ.get("INPUT") or "all").strip()
+          want = None if raw == "all" else {x.strip() for x in raw.split(",")}
+          # Gradle itself needs JVM 21 (Loom 1.17) for every 1.x module; each still
+          # emits its own bytecode level via options.release (1.8.9's runClient
+          # launches on its pinned JDK 8). 26.x needs 25 ("java" in live-modules.json).
+          # RUN_JAVA = the JDK players' game runs on, where it differs from Gradle's.
+          RUN_JAVA = {"1.17.1": "16", "1.18.2": "17", "1.19.2": "17", "1.19.3": "17",
+                      "1.19.4": "17", "1.20": "17", "1.20.2": "17", "1.20.4": "17"}
+          known = {m["module"] for m in entries}
+          if want is not None and want - known:
+              raise SystemExit("boot-smoke: not a live module: %s (live: %s)"
+                               % (", ".join(sorted(want - known)), ", ".join(sorted(known))))
+          picked = []
+          for m in entries:
+              if want is not None and m["module"] not in want:
+                  continue
+              row = {"version": m["module"], "java": m.get("java", "21")}
+              if m["module"] in RUN_JAVA:
+                  row["run_java"] = RUN_JAVA[m["module"]]
+              picked.append(row)
+          print("modules=" + json.dumps(picked))
           EOF
 
   smoke:
-    name: Boot ${{ matrix.version }}
     needs: plan
+    name: Boot ${{ matrix.version }}
     runs-on: ubuntu-latest
-    # `only` filters rows: a job-level `if` can't see the matrix, so every step checks this.
-    env:
-      SMOKE_ROW: ${{ needs.plan.outputs.only == '' || contains(format(',{0},', needs.plan.outputs.only), format(',{0},', matrix.version)) }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { version: "26.3", java: "25" }
-          - { version: "26.2", java: "25" }
-          - { version: "26.1", java: "25" }
-          - { version: "1.21.1", java: "21" }
-          - { version: "1.21", java: "21" }
-          - { version: "1.21.4", java: "21" }
-          - { version: "1.21.6", java: "21" }
-          - { version: "1.21.8", java: "21" }
-          - { version: "1.21.10", java: "21" }
-          - { version: "1.21.11", java: "21" }
-          # Gradle itself needs JVM 21 (Loom 1.17); the game JVM is what players run:
-          # Java 17 for 1.18.2-1.20.4 (run_java), Java 16 for 1.17.1. 1.16.5 (Java 8) is NOT
-          # here: with runClient pinned to a JDK 8 launcher the game dies with "Could not find
-          # or load main class net.fabricmc.devlaunchinjector.Main" (run 39254422987), and
-          # Loom's downloadAssets for it was flaky; it needs a dev-classpath fix first.
-          - { version: "1.20", java: "21", run_java: "17" }
-          - { version: "1.20.2", java: "21", run_java: "17" }
-          - { version: "1.20.4", java: "21", run_java: "17" }
-          - { version: "1.18.2", java: "21", run_java: "17" }
-          - { version: "1.19.2", java: "21", run_java: "17" }
-          - { version: "1.19.3", java: "21", run_java: "17" }
-          - { version: "1.19.4", java: "21", run_java: "17" }
-          - { version: "1.17.1", java: "21", run_java: "16" }
+        include: ${{ fromJson(needs.plan.outputs.modules) }}
     steps:
       - name: Check out code
-        if: ${{ env.SMOKE_ROW == 'true' }}
         uses: actions/checkout@v7
 
       # The game's JDK first, Gradle's second: the LAST setup-java wins JAVA_HOME, so
       # Gradle runs on ${{ matrix.java }} while JAVA_HOME_<run_java>_X64 stays exported
       # for smoke.py --run-java.
       - name: Set up game Java ${{ matrix.run_java }}
-        if: ${{ env.SMOKE_ROW == 'true' && matrix.run_java != '' }}
+        if: ${{ matrix.run_java != '' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ matrix.run_java }}
 
       - name: Set up Java ${{ matrix.java }}
-        if: ${{ env.SMOKE_ROW == 'true' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
 
       - name: Headless GL deps (Xvfb + Mesa software rasterizer)
-        if: ${{ env.SMOKE_ROW == 'true' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0
+          # x11-xserver-utils + libXxf86vm/libXrandr: LWJGL 2 (1.8.9) queries display
+          # modes through them at Display.create() (same list as dev-shots.yml).
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
+
+      - name: Download dependencies + assets (retried on Maven 429 / timeouts)
+        run: bash tools/ci/gradle_prefetch.sh "src/mods/versions/${{ matrix.version }}"
 
       - name: Boot-smoke ${{ matrix.version }}
-        if: ${{ env.SMOKE_ROW == 'true' }}
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
@@ -152,5 +149,5 @@ jobs:
           if [ -n "$RUN_JAVA" ]; then args+=(--run-java "$RUN_JAVA"); fi
           for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
           xvfb-run -a -s "-screen 0 1280x720x24" \
-            python tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
-              --timeout "${{ github.event.inputs.timeout || 360 }}" "${args[@]}"
+            python3 tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
+              --timeout "${{ github.event.inputs.timeout || 600 }}" "${args[@]}"
