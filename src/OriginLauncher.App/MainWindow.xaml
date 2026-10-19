@@ -69,7 +69,7 @@
                         Style="{StaticResource Button.Chrome}"
                         Padding="9" Margin="0,0,4,0" MinWidth="36" MinHeight="36"
                         Visibility="Collapsed"
-                        ToolTip="Update available — click to update and restart"
+                        ToolTip="Update and restart"
                         AutomationProperties.Name="Install update">
                     <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
                           Width="16" Height="16" Stroke="{StaticResource Brush.Text}"/>
@@ -120,28 +120,28 @@
                 <StackPanel Orientation="Vertical">
                     <ToggleButton x:Name="NavHome" Style="{StaticResource Button.NavItem}"
                                   Checked="NavHome_Checked" Unchecked="Nav_Unchecked" MinWidth="44" MinHeight="44" Padding="0"
-                                  HorizontalContentAlignment="Center" ToolTip="Home" AutomationProperties.Name="Home"
+                                  HorizontalContentAlignment="Center" ToolTip="Home" ToolTipService.Placement="Right" AutomationProperties.Name="Home"
                                   Margin="0,0,0,6">
                         <Path Data="{StaticResource Icon.Home}" Style="{StaticResource Icon.Base}"
                               Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
                     <ToggleButton x:Name="NavMods" Style="{StaticResource Button.NavItem}"
                                   Checked="NavMods_Checked" Unchecked="Nav_Unchecked" MinWidth="44" MinHeight="44" Padding="0"
-                                  HorizontalContentAlignment="Center" ToolTip="Mods" AutomationProperties.Name="Mods"
+                                  HorizontalContentAlignment="Center" ToolTip="Mods" ToolTipService.Placement="Right" AutomationProperties.Name="Mods"
                                   Margin="0,0,0,6">
                         <Path Data="{StaticResource Icon.Mods}" Style="{StaticResource Icon.Base}"
                               Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
                     <ToggleButton x:Name="NavProfiles" Style="{StaticResource Button.NavItem}"
                                   Checked="NavProfiles_Checked" Unchecked="Nav_Unchecked" MinWidth="44" MinHeight="44" Padding="0"
-                                  HorizontalContentAlignment="Center" ToolTip="Profiles" AutomationProperties.Name="Profiles"
+                                  HorizontalContentAlignment="Center" ToolTip="Profiles" ToolTipService.Placement="Right" AutomationProperties.Name="Profiles"
                                   Margin="0,0,0,6">
                         <Path Data="{StaticResource Icon.Profiles}" Style="{StaticResource Icon.Base}"
                               Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>
                     <ToggleButton x:Name="NavSettings" Style="{StaticResource Button.NavItem}"
                                   Checked="NavSettings_Checked" Unchecked="Nav_Unchecked" MinWidth="44" MinHeight="44" Padding="0"
-                                  HorizontalContentAlignment="Center" ToolTip="Settings" AutomationProperties.Name="Settings">
+                                  HorizontalContentAlignment="Center" ToolTip="Settings" ToolTipService.Placement="Right" AutomationProperties.Name="Settings">
                         <Path Data="{StaticResource Icon.Settings}" Style="{StaticResource Icon.Base}"
                               Width="18" Height="18" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
                     </ToggleButton>

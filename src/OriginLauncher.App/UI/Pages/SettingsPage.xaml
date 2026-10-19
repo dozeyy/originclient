@@ -59,7 +59,7 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Shader cache" Style="{StaticResource Text.Body}" VerticalAlignment="Center"/>
-                        <ToggleButton Grid.Column="1" x:Name="ShaderCacheToggle" Style="{StaticResource Toggle.Switch}"
+                        <ToggleButton Grid.Column="1" x:Name="ShaderCacheToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Shader cache"
                                       VerticalAlignment="Center"
                                       ToolTip="Reduce shader compilation stutter"
                                       Checked="ShaderCacheToggle_Checked" Unchecked="ShaderCacheToggle_Unchecked"/>
@@ -132,7 +132,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Replace defaults" Style="{StaticResource Text.BodyDim}"
                                    VerticalAlignment="Center"/>
-                        <ToggleButton Grid.Column="1" x:Name="JvmReplacePresetsToggle" Style="{StaticResource Toggle.Switch}"
+                        <ToggleButton Grid.Column="1" x:Name="JvmReplacePresetsToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Replace defaults"
                                       VerticalAlignment="Center"
                                       Checked="JvmReplacePresetsToggle_Checked" Unchecked="JvmReplacePresetsToggle_Unchecked"/>
                     </Grid>
@@ -154,7 +154,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Origin UI" Style="{StaticResource Text.BodyDim}"
                                    VerticalAlignment="Center"/>
-                        <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Style="{StaticResource Toggle.Switch}"
+                        <ToggleButton Grid.Column="1" x:Name="OriginUiToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Origin UI"
                                       VerticalAlignment="Center"
                                       Checked="OriginUiToggle_Checked" Unchecked="OriginUiToggle_Unchecked"/>
                     </Grid>
@@ -171,7 +171,7 @@
                                        Style="{StaticResource Text.Caption}" TextWrapping="Wrap" TextTrimming="None"
                                        Margin="0,2,0,0"/>
                         </StackPanel>
-                        <ToggleButton Grid.Column="1" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Switch}"
+                        <ToggleButton Grid.Column="1" x:Name="SettingsSyncToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Sync settings across versions"
                                       VerticalAlignment="Center"
                                       Checked="SettingsSyncToggle_Checked" Unchecked="SettingsSyncToggle_Unchecked"/>
                     </Grid>
@@ -192,7 +192,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Open Origin when Windows starts" Style="{StaticResource Text.BodyDim}"
                                    VerticalAlignment="Center"/>
-                        <ToggleButton Grid.Column="1" x:Name="StartWithWindowsToggle" Style="{StaticResource Toggle.Switch}"
+                        <ToggleButton Grid.Column="1" x:Name="StartWithWindowsToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Open Origin when Windows starts"
                                       VerticalAlignment="Center"
                                       Checked="StartWithWindowsToggle_Changed" Unchecked="StartWithWindowsToggle_Changed"/>
                     </Grid>
@@ -211,7 +211,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Offline test mode" Style="{StaticResource Text.BodyDim}"
                                    VerticalAlignment="Center"/>
-                        <ToggleButton Grid.Column="1" x:Name="OfflineTestToggle" Style="{StaticResource Toggle.Switch}"
+                        <ToggleButton Grid.Column="1" x:Name="OfflineTestToggle" Style="{StaticResource Toggle.Switch}" AutomationProperties.Name="Offline test mode"
                                       VerticalAlignment="Center"
                                       Checked="OfflineTestToggle_Checked" Unchecked="OfflineTestToggle_Unchecked"/>
                     </Grid>

@@ -155,15 +155,15 @@ public partial class ProfilesPage : UserControl
 
         AddAt(grid, 1, UseControl(selected, $"Use {profile.Name}", () => Select(profile)));
 
-        var edit = IconButton("Icon.Edit", "Rename or change the server", $"Edit {profile.Name}");
+        var edit = IconButton("Icon.Edit", "Edit", $"Edit {profile.Name}");
         edit.Click += (_, _) => OpenForm(profile);
         AddAt(grid, 2, edit);
 
-        var copy = IconButton("Icon.Copy", "Duplicate with its mods", $"Duplicate {profile.Name}");
+        var copy = IconButton("Icon.Copy", "Duplicate", $"Duplicate {profile.Name}");
         copy.Click += (_, _) => Duplicate(profile);
         AddAt(grid, 3, copy);
 
-        var delete = IconButton("Icon.Trash", "Delete this profile", $"Delete {profile.Name}");
+        var delete = IconButton("Icon.Trash", "Delete", $"Delete {profile.Name}");
         delete.Click += (_, _) => AskDelete(profile);
         AddAt(grid, 4, delete);
 

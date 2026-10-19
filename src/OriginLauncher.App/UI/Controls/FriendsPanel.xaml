@@ -110,7 +110,7 @@
                                 Visibility="{Binding CanJoin, Converter={StaticResource BoolToVis}}"
                                 ToolTip="{Binding JoinTip}" Click="FriendJoin_Click"/>
                         <Button Style="{StaticResource Social.Icon}" Click="FriendMore_Click"
-                                ToolTip="More: invite to party, remove, block (or right-click)"
+                                ToolTip="More"
                                 AutomationProperties.Name="More actions">
                             <Path Data="{StaticResource Icon.More}" Style="{StaticResource Icon.Small}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
@@ -231,7 +231,7 @@
                                 ToolTip="{Binding JoinTip}" Click="MemberJoin_Click"/>
                         <Button Style="{StaticResource Social.Icon}" Click="MemberMore_Click"
                                 Visibility="{Binding HasMenu, Converter={StaticResource BoolToVis}}"
-                                ToolTip="More (right-click)" AutomationProperties.Name="More actions">
+                                ToolTip="More" AutomationProperties.Name="More actions">
                             <Path Data="{StaticResource Icon.More}" Style="{StaticResource Icon.Small}"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                         </Button>
@@ -364,7 +364,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Button x:Name="BackButton" Style="{StaticResource Social.Icon}" Margin="0,0,8,0"
-                    Visibility="Collapsed" Click="Back_Click" ToolTip="Back to friends (Esc)"
+                    Visibility="Collapsed" Click="Back_Click" ToolTip="Back (Esc)"
                     AutomationProperties.Name="Back to friends">
                 <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Small}"
                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
@@ -384,7 +384,7 @@
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
                 <Button x:Name="ChatMoreButton" Style="{StaticResource Social.Icon}" Click="ChatMore_Click"
-                        Visibility="Collapsed" ToolTip="More: remove, block" AutomationProperties.Name="More actions">
+                        Visibility="Collapsed" ToolTip="More" AutomationProperties.Name="More actions">
                     <Path Data="{StaticResource Icon.More}" Style="{StaticResource Icon.Small}"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
