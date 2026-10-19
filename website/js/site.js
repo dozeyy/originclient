@@ -160,6 +160,8 @@ async function boot() {
     const { createWorld } = await import('./world.js');
     world = await createWorld($('#world'), { mobile: innerWidth <= 900, reducedMotion, heroZone: heroZone() });   // same 900px line as the CSS phone/tablet layout
     addEventListener('resize', syncHeroZone);
+    // a scrollbar coming or going shifts the layout without a resize event
+    if (window.ResizeObserver) { let cw = document.documentElement.clientWidth; new ResizeObserver(() => { const w = document.documentElement.clientWidth; if (w !== cw) { cw = w; syncHeroZone(); } }).observe(document.documentElement); }
     document.fonts?.ready.then(syncHeroZone).catch(() => {});
     frame();
   } catch (err) {
