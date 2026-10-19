@@ -9,7 +9,6 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.LightCoordsUtil;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.HashMap;
@@ -26,6 +25,10 @@ import java.util.Map;
  * space (model px, y up, +z front, +x the player's left) into vanilla's
  * (blocks, y down, -z front). Everything below is in FORMAT space.
  *
+ * Every vertex is placed on the CPU in the attach frame (the bone chain as a
+ * matrix per bone), so the outer-skin-layer fit ({@link Fit}) can bend the
+ * item over the hat / jacket layer before it is drawn with the attach pose.
+ *
  * Passes: LIT + EMISSIVE quads go into one entityCutout node (emissive ones
  * at full-bright light); GLOW quads go into a second, additive
  * RenderTypes.eyes node.
@@ -35,9 +38,9 @@ import java.util.Map;
  * one submitCustomGeometry node that the feature renderer replays LATER in
  * the frame with the pose captured at submit time, so the animation offsets
  * are worked out at submit time and the replay gets its own copy of them
- * (the scratch array is shared by every player wearing the item). The bone
- * walk then runs on a PoseStack rebuilt from the captured pose. 26.3's
- * PoseStack takes a quaternion through rotate() (it was mulPose).
+ * (the scratch array is shared by every player wearing the item). The replay
+ * builds the bone matrices from that copy and emits through the captured pose
+ * (no PoseStack walk, so 26.1/26.2's mulPose vs 26.3's rotate never matters).
  *
  * Every failure is swallowed (after one log line per item): a cosmetic never
  * breaks a frame, and a model that threw once is switched off for the session.
@@ -53,6 +56,7 @@ public final class ModelCosmetic {
 	private final CosmeticDef.Anim anim;
 	private final int[] motionBone;
 	private final float[] off;   // per bone: rot x y z, pos x y z (scratch, render thread only)
+	private final Matrix4f[] boneM;   // per bone: bone frame -> attach frame (scratch, render thread only)
 	private final int frames;
 	private final float fps;
 	private boolean failed = false;
@@ -67,6 +71,10 @@ public final class ModelCosmetic {
 			motionBone[i] = geo.boneIndex(anim.motion().get(i).bone());
 		}
 		this.off = new float[geo.names.length * 6];
+		this.boneM = new Matrix4f[geo.names.length];
+		for (int i = 0; i < boneM.length; i++) {
+			boneM[i] = new Matrix4f();
+		}
 		this.frames = Math.max(1, anim.frames());
 		this.fps = anim.fps();
 	}
@@ -103,13 +111,47 @@ public final class ModelCosmetic {
 	}
 
 	/**
+	 * The outer-skin-layer fit (FORMAT.md "Outer skin layer"): when the player
+	 * shows the hat (head + face items) or jacket (back items) layer, the item
+	 * is bent outward over it instead of clipping into it. Per axis, around the
+	 * bone's skin box (centre c, half size h), u = p - c becomes u + sign(u) * g
+	 * on or outside the skin and u * (h + g) / h inside it: continuous, so
+	 * wraparound items (glasses, bands) wrap the layer and animated parts never
+	 * jump. Applied in the attach frame after the item's own animation, before
+	 * the player's position tweak. The website preview (rig.js) uses the same rule.
+	 */
+	public record Fit(float cx, float cy, float cz, float hx, float hy, float hz, float g) {
+		/** Head bone: head cube x -4..4, y 0..8, z -4..4; vanilla's hat layer is 0.5 px out. */
+		public static final Fit HEAD = new Fit(0f, 4f, 0f, 4f, 4f, 4f, 0.5f);
+		/** Body bone: torso x -4..4, y -12..0, z -2..2; vanilla's jacket layer is 0.25 px out. */
+		public static final Fit BODY = new Fit(0f, -6f, 0f, 4f, 6f, 2f, 0.25f);
+
+		static float axis(float p, float c, float h, float g) {
+			float u = p - c;
+			float a = Math.abs(u);
+			return c + (a >= h ? u + Math.signum(u) * g : u * (h + g) / h);
+		}
+
+		void apply(Vector3f p) {
+			p.set(axis(p.x, cx, hx, g), axis(p.y, cy, hy, g), axis(p.z, cz, hz, g));
+		}
+	}
+
+	/** Draws the model without the outer-layer fit. */
+	public void render(PoseStack pose, SubmitNodeCollector collector, int light, float t, float walk01, float air01) {
+		render(pose, collector, light, t, walk01, air01, null);
+	}
+
+	/**
 	 * Draws the model.
 	 *
 	 * @param t        seconds on the animation clock (game: ticks / 20 + partial)
 	 * @param walk01   horizontal speed / sprint speed, 0..1
 	 * @param air01    0 on the ground, easing to 1 in the air
+	 * @param fit      the outer-layer fit, or null when the player hides that layer
 	 */
-	public void render(PoseStack pose, SubmitNodeCollector collector, int light, float t, float walk01, float air01) {
+	public void render(PoseStack pose, SubmitNodeCollector collector, int light, float t, float walk01, float air01,
+			Fit fit) {
 		if (failed) {
 			return;
 		}
@@ -121,10 +163,10 @@ public final class ModelCosmetic {
 			float invU = 1f / geo.texW, invV = 1f / (geo.texH * (float) frames);
 
 			collector.submitCustomGeometry(pose, RenderTypes.entityCutout(texture), (p, vc) ->
-					replay(p, vc, o, ModelGeometry.LIT, ModelGeometry.EMISSIVE, light, vOff, invU, invV));
+					replay(p, vc, o, fit, false, light, vOff, invU, invV));
 			if (geo.hasGlow) {
 				collector.submitCustomGeometry(pose, RenderTypes.eyes(texture), (p, vc) ->
-						replay(p, vc, o, ModelGeometry.GLOW, ModelGeometry.GLOW, light, vOff, invU, invV));
+						replay(p, vc, o, fit, true, light, vOff, invU, invV));
 			}
 		} catch (Throwable t2) {
 			failed = true;
@@ -132,17 +174,26 @@ public final class ModelCosmetic {
 		}
 	}
 
-	/** One pass, replayed by the feature renderer on the pose captured at submit time. */
-	private void replay(PoseStack.Pose p, VertexConsumer vc, float[] o, int kindA, int kindB, int light,
+	/**
+	 * One pass, replayed by the feature renderer on the attach pose captured at submit
+	 * time: LIT + EMISSIVE quads, or (`glowPass`) the GLOW ones.
+	 */
+	private void replay(PoseStack.Pose attach, VertexConsumer vc, float[] o, Fit fit, boolean glowPass, int light,
 			float vOff, float invU, float invV) {
 		if (failed) {
 			return;
 		}
 		try {
-			PoseStack stack = new PoseStack();
-			stack.last().set(p);
 			for (int root : geo.roots) {
-				drawBone(stack, vc, o, root, kindA, kindB, light, vOff, invU, invV);
+				chain(root, IDENTITY, o);
+			}
+			for (int b = 0; b < boneM.length; b++) {
+				if (glowPass) {
+					emit(attach, boneM[b], fit, vc, geo.quads[b][ModelGeometry.GLOW], LightCoordsUtil.FULL_BRIGHT, vOff, invU, invV);
+				} else {
+					emit(attach, boneM[b], fit, vc, geo.quads[b][ModelGeometry.LIT], light, vOff, invU, invV);
+					emit(attach, boneM[b], fit, vc, geo.quads[b][ModelGeometry.EMISSIVE], LightCoordsUtil.FULL_BRIGHT, vOff, invU, invV);
+				}
 			}
 		} catch (Throwable t2) {
 			failed = true;
@@ -220,50 +271,45 @@ public final class ModelCosmetic {
 		}
 	}
 
-	private static final Quaternionf Q = new Quaternionf();
+	private static final Matrix4f IDENTITY = new Matrix4f();
+	private static final Vector3f P = new Vector3f(), N = new Vector3f();
 
-	private void drawBone(PoseStack pose, VertexConsumer vc, float[] off, int b, int kindA, int kindB, int light,
-			float vOff, float invU, float invV) {
-		pose.pushPose();
-		try {
-			float[] pv = geo.pivot[b], r = geo.rot[b];
-			int o = b * 6;
-			pose.translate(off[o + 3], off[o + 4], off[o + 5]);
-			pose.translate(pv[0], pv[1], pv[2]);
-			float rx = r[0] + off[o], ry = r[1] + off[o + 1], rz = r[2] + off[o + 2];
-			if (rx != 0f || ry != 0f || rz != 0f) {
-				// Z first, then Y, then X (FORMAT.md): R = Rx * Ry * Rz
-				pose.rotate(Q.identity().rotateX((float) Math.toRadians(rx)).rotateY((float) Math.toRadians(ry))
-						.rotateZ((float) Math.toRadians(rz)));
-			}
-			pose.translate(-pv[0], -pv[1], -pv[2]);
-			emit(pose, vc, geo.quads[b][kindA], kindA == ModelGeometry.GLOW ? LightCoordsUtil.FULL_BRIGHT : light, vOff, invU, invV);
-			if (kindB != kindA) {
-				emit(pose, vc, geo.quads[b][kindB], LightCoordsUtil.FULL_BRIGHT, vOff, invU, invV);
-			}
-			for (int child : geo.children[b]) {
-				drawBone(pose, vc, off, child, kindA, kindB, light, vOff, invU, invV);
-			}
-		} finally {
-			pose.popPose();
+	/**
+	 * Fills boneM for `b` and its children from the offsets `off` (the submit-time copy):
+	 * parent * offset * pivot * (Rx * Ry * Rz) * -pivot (FORMAT.md order).
+	 */
+	private void chain(int b, Matrix4f parent, float[] off) {
+		float[] pv = geo.pivot[b], r = geo.rot[b];
+		int o = b * 6;
+		boneM[b].set(parent)
+				.translate(off[o + 3], off[o + 4], off[o + 5])
+				.translate(pv[0], pv[1], pv[2])
+				.rotateX((float) Math.toRadians(r[0] + off[o]))
+				.rotateY((float) Math.toRadians(r[1] + off[o + 1]))
+				.rotateZ((float) Math.toRadians(r[2] + off[o + 2]))
+				.translate(-pv[0], -pv[1], -pv[2]);
+		for (int child : geo.children[b]) {
+			chain(child, boneM[b], off);
 		}
 	}
 
-	private static void emit(PoseStack pose, VertexConsumer vc, float[] quads, int light, float vOff, float invU, float invV) {
-		if (quads.length == 0) {
-			return;
-		}
-		PoseStack.Pose p = pose.last();
+	/** Emits `quads` of one bone: bone frame -> attach frame (`m`), the fit, then the attach pose. */
+	private static void emit(PoseStack.Pose attach, Matrix4f m, Fit fit, VertexConsumer vc, float[] quads, int light,
+			float vOff, float invU, float invV) {
 		for (int i = 0; i < quads.length; i += ModelGeometry.QUAD) {
-			float nx = quads[i + 20], ny = quads[i + 21], nz = quads[i + 22];
+			m.transformDirection(N.set(quads[i + 20], quads[i + 21], quads[i + 22]));
 			for (int v = 0; v < 4; v++) {
 				int k = i + v * 5;
-				vc.addVertex(p, quads[k], quads[k + 1], quads[k + 2])
+				m.transformPosition(P.set(quads[k], quads[k + 1], quads[k + 2]));
+				if (fit != null) {
+					fit.apply(P);
+				}
+				vc.addVertex(attach, P.x, P.y, P.z)
 						.setColor(-1)
 						.setUv(quads[k + 3] * invU, (quads[k + 4] + vOff) * invV)
 						.setOverlay(OverlayTexture.NO_OVERLAY)
 						.setLight(light)
-						.setNormal(p, nx, ny, nz);
+						.setNormal(attach, N.x, N.y, N.z);
 			}
 		}
 	}

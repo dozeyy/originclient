@@ -24,7 +24,9 @@ import java.util.Set;
  * the game's own screens -- Select World -> "Create New World" -> "Create New
  * World" -- by pressing the buttons by their translated label (the same keys
  * on every version), waits for the world to draw, then captures it with Color
- * Saturation off and on, then the pause menu, the Cosmetics window and a demo
+ * Saturation off and on, then your player in third person wearing head, face
+ * and back items from every side (with and without the skin's outer layer:
+ * the cosmetics fit over it), the pause menu, the Cosmetics window and a demo
  * party (Party HUD, markers, a ping), and quits.
  *
  * PER-VERSION DELTA (1.21.11), the same swaps OriginDevShots makes:
@@ -108,6 +110,13 @@ final class OriginDevWorld {
 			if (phase == 3) {
 				grab(mc, dir, "world_bright_1920x1080.png");
 				Mods.setOn("colorsaturation", false);
+				phase = 30;
+				return;
+			}
+			if (phase == 30) {
+				if (fitStep(mc, dir)) {
+					return;
+				}
 				// The pause menu (its Cosmetics button sits among vanilla's buttons).
 				mc.setScreen(new PauseScreen(true));
 				phase = 4;
@@ -179,6 +188,82 @@ final class OriginDevWorld {
 			phase = 11;
 			mc.stop();
 		}
+	}
+
+	// ---- cosmetics on your own player, orbited by the freelook camera (toggle mode keeps it latched) ----
+	private static final String[][] FIT_LOOKS = {
+			{"hat-headband", "mask-shades", "pack-shell"},
+			{"hat-visor", "mask-goggles", "pack-explorer"},
+	};
+	/** Camera yaw relative to the player (0 = behind), and the shot's name. */
+	private static final Object[][] FIT_VIEWS = {{0f, "back"}, {90f, "side90"}, {-90f, "side270"}, {180f, "front"}, {35f, "back35"}};
+	private static int fitStep = -1;
+	private static float fitBaseYaw;
+
+	/** One step of the fit shots (dress, then aim + wait, then grab); false once every shot is taken. */
+	private static boolean fitStep(Minecraft mc, String dir) {
+		int perLook = FIT_VIEWS.length;
+		int total = FIT_LOOKS.length * perLook + 1;   // + the first look's side view with the outer layer hidden
+		if (mc.screen instanceof PauseScreen) {
+			mc.setScreen(null);
+		}
+		if (fitStep == -1) {
+			fitBaseYaw = mc.player.getYRot();
+			mc.player.setXRot(0f);
+			mc.options.fov().set(30);
+			mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
+			Mods.setOn("freelook", true);
+			Mods.set("freelook", "toggle", true);
+			fitStep = 0;
+		} else {
+			int done = fitStep - 1;   // the step aimed last tick: grab it now
+			boolean wasNoLayer = done == total - 1;
+			String[] look = FIT_LOOKS[wasNoLayer ? 0 : done / perLook];
+			String view = wasNoLayer ? "side90-nolayer" : (String) FIT_VIEWS[done % perLook][1];
+			grab(mc, dir, "fit_" + look[0] + "_" + view + "_1920x1080.png");
+		}
+		if (fitStep >= total) {
+			com.origin.client.client.cosmetics.CosmeticsService.devWear(null);
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] fit shots done");
+			OriginFreelookState.active = false;
+			showOuterLayer(mc, true);
+			mc.options.fov().set(70);
+			mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+			return false;
+		}
+		boolean noLayer = fitStep == total - 1;
+		String[] look = FIT_LOOKS[noLayer ? 0 : fitStep / perLook];
+		com.origin.client.client.cosmetics.CosmeticsService.devWear(
+				new com.origin.client.client.cosmetics.CosmeticsService.Look(null, look[0], look[1], look[2], null));
+		showOuterLayer(mc, !noLayer);
+		float rel = noLayer ? 90f : (Float) FIT_VIEWS[fitStep % perLook][0];
+		OriginFreelookState.cameraYaw = fitBaseYaw + rel;
+		OriginFreelookState.cameraPitch = 12f;
+		OriginFreelookState.active = true;
+		fitStep++;
+		nextAt = System.currentTimeMillis() + (noLayer ? 3000 : 1500);   // the layer change goes via the server
+		return true;
+	}
+
+	/**
+	 * Shows / hides the skin's hat + jacket layers, then broadcastOptions tells the server, which
+	 * syncs it back. The setter is looked up by name because this module has no member dump to prove
+	 * it: 26.2 / 26.3 have Options.setModelPart(PlayerModelPart, boolean), 1.21.1 toggleModelPart.
+	 * Dev shots only; if neither is found the no-layer shot just shows the layer.
+	 */
+	private static void showOuterLayer(Minecraft mc, boolean on) {
+		for (String name : new String[] {"setModelPart", "toggleModelPart"}) {
+			try {
+				var m = mc.options.getClass().getMethod(name, net.minecraft.world.entity.player.PlayerModelPart.class,
+						boolean.class);
+				m.invoke(mc.options, net.minecraft.world.entity.player.PlayerModelPart.HAT, on);
+				m.invoke(mc.options, net.minecraft.world.entity.player.PlayerModelPart.JACKET, on);
+				break;
+			} catch (ReflectiveOperationException ignored) {
+				// try the other name
+			}
+		}
+		mc.options.broadcastOptions();
 	}
 
 	private static boolean press(Minecraft mc, String label) {
