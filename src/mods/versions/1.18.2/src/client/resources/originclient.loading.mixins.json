@@ -16,6 +16,7 @@
 		"FrameLogMixin",
 		"FrameLogTitleMixin",
 		"ReloadTaskTagMixin",
+		"SimpleReloadInstanceAccessor",
 		"FrameLogOverlayMixin",
 		"ShaderReloadMixin"
 	],
