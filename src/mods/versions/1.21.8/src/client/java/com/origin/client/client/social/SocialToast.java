@@ -147,7 +147,7 @@ public final class SocialToast implements Toast {
 			lastX = m.m20();
 			lastY = m.m21();
 			lastDrawn = System.currentTimeMillis();
-			if (!LIVE.contains(this)) {
+			if (wanted == Visibility.SHOW && !LIVE.contains(this)) {
 				// ToastManager.clear() (leaving a world) drops toasts without a last render: forget the ones not drawn for a while
 				long cutoff = lastDrawn - 2_000;
 				LIVE.removeIf(t -> t != this && t.lastDrawn < cutoff);
