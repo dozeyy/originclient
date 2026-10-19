@@ -26,9 +26,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // matches; require = 0 + @Pseudo keep this a clean no-op if Iris is absent or
 // reshapes these internals. Gated on isActive() only (like
 // AbstractSelectionListMixin): a broken Origin renderer gives vanilla back.
+//
+// Both package roots: 1.20.2 players get iris-mc1.20.2-1.6.14 (net.coderbot),
+// whose two list classes override method_25320 the same way (javap 2026-10-19);
+// the irisshaders-only targets never applied on real installs.
 @Pseudo
 @Mixin(targets = {
-		"net.irisshaders.iris.gui.element.ShaderPackSelectionList",
+		"net.coderbot.iris.gui.element.ShaderPackSelectionList",   // Iris 1.6.x (shipped for 1.20.2)
+		"net.coderbot.iris.gui.element.ShaderPackOptionList",
+		"net.irisshaders.iris.gui.element.ShaderPackSelectionList", // Iris 1.7+
 		"net.irisshaders.iris.gui.element.ShaderPackOptionList"
 }, remap = false)
 public class IrisListDecorationsMixin {

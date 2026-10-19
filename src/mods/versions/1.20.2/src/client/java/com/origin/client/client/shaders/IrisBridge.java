@@ -48,8 +48,28 @@ public final class IrisBridge {
 		return packs;
 	}
 
+	// Iris moved its internals from net.coderbot.iris to net.irisshaders.iris in
+	// 1.7.0. The Iris builds this module's players get are on the OLD root
+	// (PerformanceModCatalog.Data.cs; the 1.20 jar also runs 1.20.1's Iris 1.7.6, on
+	// the new one), and an irisshaders-only lookup silently made currentPack()
+	// always null / apply() always fail here (2026-10-19). Try both roots; the
+	// public API (net.irisshaders.iris.api.v0) never moved and is used as-is.
+	private static final String[] IRIS_ROOTS = {"net.coderbot.iris.", "net.irisshaders.iris."};
+
+	private static Class<?> irisClass(String suffix) throws ClassNotFoundException {
+		ClassNotFoundException last = null;
+		for (String root : IRIS_ROOTS) {
+			try {
+				return Class.forName(root + suffix);
+			} catch (ClassNotFoundException e) {
+				last = e;
+			}
+		}
+		throw last;
+	}
+
 	private static Object irisConfig() throws Exception {
-		Class<?> iris = Class.forName("net.irisshaders.iris.Iris");
+		Class<?> iris = irisClass("Iris");
 		return iris.getMethod("getIrisConfig").invoke(null);
 	}
 
@@ -80,7 +100,7 @@ public final class IrisBridge {
 				// some builds fold enable-state into setShaderPackName(null)
 			}
 			cfg.getClass().getMethod("save").invoke(cfg);
-			Class.forName("net.irisshaders.iris.Iris").getMethod("reload").invoke(null);
+			irisClass("Iris").getMethod("reload").invoke(null);
 			return true;
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Iris apply via config failed, falling back to Iris screen", t);
@@ -101,7 +121,7 @@ public final class IrisBridge {
 			return;
 		}
 		try {
-			Class.forName("net.irisshaders.iris.Iris").getMethod("reload").invoke(null);
+			irisClass("Iris").getMethod("reload").invoke(null);
 		} catch (Throwable t) {
 			com.origin.client.OriginClient.LOGGER.warn("Iris reload after settings change failed", t);
 		}
@@ -111,7 +131,7 @@ public final class IrisBridge {
 	public static boolean openIrisScreen() {
 		Minecraft mc = Minecraft.getInstance();
 		try {
-			Class<?> cls = Class.forName("net.irisshaders.iris.gui.screen.ShaderPackScreen");
+			Class<?> cls = irisClass("gui.screen.ShaderPackScreen");
 			Screen screen = (Screen) cls.getConstructor(Screen.class).newInstance(mc.screen);
 			mc.setScreen(screen);
 			return true;

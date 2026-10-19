@@ -9,15 +9,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Cross-mod @Pseudo mixin into Iris's PackShadowDirectives.
 //
-// TARGET PACKAGE: on the Iris build this module ships (1.6.4+1.20) the class is
-// net.coderbot.iris.shaderpack.PackShadowDirectives -- Iris didn't finish the
-// net.coderbot -> net.irisshaders rename until 1.7. The 1.21.1/1.20.4 modules
-// target the new net.irisshaders...properties path; THIS module must use the
-// old coderbot path or the mixin silently never applies (@Pseudo + require=0 =
-// no error, just a dead no-op -- which is exactly what happened before this
-// fix: Shader Performance Mode did nothing at all on 1.20). Bytecode-verified
-// against iris-mc1.20-1.6.4.jar: getDistance()F and getResolution()I both live
-// on the coderbot class.
+// TARGET PACKAGE: this jar runs on TWO Iris builds that straddle Iris's
+// net.coderbot -> net.irisshaders rename (finished in 1.7): 1.20 gets
+// iris-mc1.20-1.6.4 (net.coderbot.iris.shaderpack.PackShadowDirectives) and
+// 1.20.1 gets iris-1.7.6+mc1.20.1 (net.irisshaders.iris.shaderpack.properties.
+// PackShadowDirectives) -- PerformanceModCatalog.Data.cs. Both are targeted;
+// @Pseudo skips whichever is absent. Targeting only one leaves the mixin a
+// silent dead no-op on the other version (@Pseudo + require=0 = no error):
+// Shader Performance Mode did nothing on 1.20 before the coderbot target, and
+// on 1.20.1 until the irisshaders one was added (2026-10-19). Bytecode-verified
+// (javap): getDistance()F exists on both classes.
 //
 // Shadow render distance is read from getDistance() by every Java-side consumer
 // (shadow ortho matrix, per-frame culling, shadowDistance uniform), so halving
@@ -36,7 +37,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // never disagree mid-run. remap = false + require = 0 so this no-ops cleanly if
 // Iris is absent or renames its internals.
 @Pseudo
-@Mixin(targets = "net.coderbot.iris.shaderpack.PackShadowDirectives", remap = false)
+@Mixin(targets = {
+		"net.coderbot.iris.shaderpack.PackShadowDirectives",              // Iris 1.6.4 (MC 1.20)
+		"net.irisshaders.iris.shaderpack.properties.PackShadowDirectives" // Iris 1.7.6 (MC 1.20.1)
+}, remap = false)
 public class IrisShadowDirectivesMixin {
 	private static boolean originclient$perf() {
 		try {
