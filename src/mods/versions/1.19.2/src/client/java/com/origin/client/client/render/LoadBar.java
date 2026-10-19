@@ -3,7 +3,8 @@ package com.origin.client.client.render;
 /**
  * The startup loading screen's bar fill: it only ever moves forward within one
  * load, keeps moving while the load runs, and reaches full when the reload is
- * done (never before), gliding all the way.
+ * done (never before), gliding all the way. The world-loading scenes' bar
+ * follows the same rules ({@link #scene}).
  *
  * <p>Why it can't just draw the reload's own fraction (CI frame log 2026-10-19,
  * every module): vanilla's {@code getActualProgress()} is
@@ -42,8 +43,8 @@ package com.origin.client.client.render;
  * drawn value, the same at any frame rate.
  *
  * <p>Pure logic (no Minecraft types), Java 8 clean: the same file is in every
- * Fabric module (shared/ for 1.20+, a byte-identical copy in each pre-1.20
- * module) and is tested by tools/loading-bar-tests.
+ * module (shared/ for 1.20+, a byte-identical copy in each pre-1.20 module
+ * and in 1.8.9) and is tested by tools/loading-bar-tests.
  */
 public final class LoadBar {
 	/** The bar share the reload's own fraction maps to before it is done. */
@@ -117,5 +118,47 @@ public final class LoadBar {
 		}
 		fillAt = nowMs;
 		return fill;
+	}
+
+	/** Frames drawn without the world-loading scene that mean the last world load is over. */
+	public static final long NEW_LOAD_FRAMES = 10;
+
+	private long sceneFrame = -1;  // the game's frame count at the last world-loading scene
+	private double sceneRaw = -1;  // the last measured stage fraction of this world load (-1 = none yet)
+
+	/**
+	 * The world-loading scenes' bar (LevelLoadingScreen, ReceivingLevelScreen,
+	 * ProgressScreen, ...): the same rules as the startup bar, with a world load
+	 * as "the load". {@code frame} is the game's running frame count, {@code
+	 * progress} the scene's measured fraction (0..1) or -1 when the scene has
+	 * none. Returns the fill to draw, or -1 for the sweep.
+	 *
+	 * <p>Why (CI frame log 2026-10-19): up to 1.21.8 the chunk count runs to 100%
+	 * and then "Loading terrain" (no measure) took over and the bar jumped from
+	 * full back to the sweep; from 1.21.10 the count sits at 100% while the client
+	 * still waits for chunks, so the bar was full seconds before the world was.
+	 * Now:
+	 * <ul>
+	 *   <li>the sweep only shows before this world load's first measured stage; a
+	 *       scene with no measure after that holds the bar and lets it creep;</li>
+	 *   <li>a measured fraction drives {@link #update} (its share, rises, dips
+	 *       held, creep), never done: the world replaces the scene the moment it
+	 *       is ready, so the bar is never drawn full before that;</li>
+	 *   <li>a new world load is told apart by frames, not time: more than
+	 *       {@link #NEW_LOAD_FRAMES} frames drawn without the scene (a menu, the
+	 *       world) end the last one. A render-thread stall inside one load (JEI
+	 *       starting at login: 3 s, no frames at all) does not.</li>
+	 * </ul>
+	 */
+	public double scene(long frame, double progress, double nowMs, double tauMs) {
+		if (sceneFrame < 0 || frame < sceneFrame || frame - sceneFrame - 1 > NEW_LOAD_FRAMES) {
+			target = -1;     // a new world load: a fresh bar at its first measured stage
+			sceneRaw = -1;
+		}
+		sceneFrame = frame;
+		if (progress >= 0) {   // false for NaN too: no measure this frame
+			sceneRaw = Math.min(1, progress);
+		}
+		return sceneRaw < 0 ? -1 : update(this, false, sceneRaw, nowMs, tauMs);
 	}
 }

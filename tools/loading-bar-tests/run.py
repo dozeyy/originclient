@@ -26,12 +26,12 @@ def main():
     print(f"LoadBar copies: {len(copies)} (all identical to shared: {'yes' if not bad else 'NO'})")
     for c in bad:
         print("  differs:", os.path.relpath(c, ROOT))
-    # Every live Fabric module draws the startup bar through it. 1.8.9 (Forge)
-    # draws Origin's loading layer only over a finished load (always full).
+    # Every live module draws its world-loading bar through it (and every Fabric
+    # one its startup bar too), 1.8.9 included.
     import json
     live = [m["module"] for m in json.load(open(os.path.join(ROOT, "src/mods/live-modules.json")))["modules"]]
     have = {os.path.relpath(c, ROOT).replace(os.sep, "/").split("/")[3] for c in copies}
-    missing = [m for m in live if m != "1.8.9" and m not in have]
+    missing = [m for m in live if m not in have]
     for m in missing:
         print("  missing in live module:", m)
     bad = bad + missing

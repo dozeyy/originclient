@@ -98,7 +98,8 @@ public final class OriginScreenRenderer {
 	private static final double FILL_TAU = 140.0;
 	// The world-loading scene's shown bar fill, gliding to each new value; < 0 = sweeping.
 	private static double sceneFill = -1;
-	private static double sceneFillAt = 0;
+	// Never backward within a world load, never full before the world is up (LoadBar.scene).
+	private static final LoadBar SCENE_BAR = new LoadBar();
 
 	// Every fill and blit colour of the loading layer goes through layerAlpha, so
 	// the whole layer can be drawn translucent (the loading -> title dissolve)
@@ -192,18 +193,11 @@ public final class OriginScreenRenderer {
 		}
 		drawFrame(guiGraphics, w, h);
 
-		// The fill glides to each new value (1.8.9 reports whole percents; the
-		// integrated server's spawn preparation only once a second), and a scene
-		// with no real measure goes back to the sweep.
+		// The fill glides to each new count and only moves forward within one world
+		// load; it sweeps until the load's first measured stage (LoadBar.scene).
 		double now = RingField.sceneMs();
-		if (progress < 0 || progress > 100) {
-			sceneFill = -1;
-		} else {
-			double target = progress / 100.0;
-			sceneFill = sceneFill < 0 || target < sceneFill ? target
-					: target + (sceneFill - target) * Math.exp(-(now - sceneFillAt) / FILL_TAU);
-		}
-		sceneFillAt = now;
+		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(),
+				progress < 0 || progress > 100 ? -1 : progress / 100.0, now, FILL_TAU);
 
 		FontRenderer font = mc.fontRendererObj;
 		int barW = Math.max(80, (int) (w * 0.30));

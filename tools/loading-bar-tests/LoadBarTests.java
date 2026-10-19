@@ -251,6 +251,105 @@ public class LoadBarTests {
 			check(prev == 1.0, "fuzz " + trial + ": ends at exactly 1 (" + prev + ")");
 		}
 
+		// --- The world-loading bar (LoadBar.scene): frame = the game's frame count. ---
+
+		// 12. Up to 1.21.8 (CI 1.21.1 / 1.16.5): "Preparing for world creation" (no
+		// measure) -> the chunk count 0 -> 100% -> "Loading terrain" (no measure).
+		// The old bar jumped from full back to the sweep there.
+		{
+			LoadBar bar = new LoadBar();
+			long frame = 100;
+			double t = 0, prev = -1;
+			boolean measured = false;
+			for (int i = 0; i < 520; i++) {
+				double p = i < 40 ? -1 : i < 140 ? 0 : i < 340 ? (i - 140) / 200.0 : i < 360 ? 1 : -1;
+				frame++;
+				t += FRAME;
+				double v = bar.scene(frame, p, t, TAU);
+				measured |= p >= 0;
+				if (!measured) {
+					check(v == -1, "world 1.21.1: sweeps before the first count (" + v + ")");
+					continue;
+				}
+				check(v >= 0 && v < 1, "world 1.21.1: in range, never full (" + v + " at " + i + ")");
+				check(prev < 0 || v >= prev, "world 1.21.1: went back at " + i + " (" + prev + " -> " + v + ")");
+				check(prev < 0 || v - prev <= 0.06, "world 1.21.1: jumped " + (v - prev) + " at " + i);
+				if (i >= 361 && i % 15 == 0) {
+					check(v > prev, "world 1.21.1: stands still in Loading terrain at " + i);
+				}
+				prev = v;
+			}
+			check(prev > 0.9, "world 1.21.1: near full at the end (" + prev + ")");
+		}
+
+		// 13. 1.21.10+ (CI): the count sits at 100% while the client waits for chunks,
+		// with a 3 s render-thread stall (JEI starting at login: no frames at all).
+		{
+			LoadBar bar = new LoadBar();
+			long frame = 5000;
+			double t = 0, prev = -1;
+			for (int i = 0; i < 400; i++) {
+				double p = i < 200 ? i / 200.0 : 1;
+				frame++;
+				t += i == 250 ? 3000 : FRAME;
+				double v = bar.scene(frame, p, t, TAU);
+				check(v >= prev && v < 1, "world 1.21.10: monotonic, never full (" + prev + " -> " + v + " at " + i + ")");
+				prev = v;
+			}
+		}
+
+		// 14. A few frames without the scene inside one load (a screen swap) keep the
+		// bar; a menu or the world (more than NEW_LOAD_FRAMES) ends the load, and the
+		// next one sweeps again, then starts a fresh bar from its own count.
+		{
+			LoadBar bar = new LoadBar();
+			long frame = 0;
+			double t = 0, v = -1;
+			for (int i = 0; i < 300; i++) {
+				t += FRAME;
+				v = bar.scene(++frame, i / 300.0, t, TAU);
+			}
+			double before = v;
+			frame += LoadBar.NEW_LOAD_FRAMES;    // exactly the limit: still the same load
+			t += FRAME;
+			v = bar.scene(++frame, -1, t, TAU);
+			check(v >= before, "world: a short gap keeps the bar (" + before + " -> " + v + ")");
+			frame += 5000;                        // played the world for a while
+			t += 80000;
+			v = bar.scene(++frame, -1, t, TAU);
+			check(v == -1, "world: a new load sweeps again (\"Saving world\") (" + v + ")");
+			frame += 2000;
+			t += 30000;
+			v = bar.scene(++frame, 0.02, t, TAU);
+			check(v >= 0 && v < 0.05, "world: a new load starts over from its count (" + v + ")");
+			v = bar.scene(frame - 50, 0.03, t + FRAME, TAU);   // a frame counter that went back: new load too
+			check(v >= 0 && v < 0.05, "world: frame counter reset starts over (" + v + ")");
+		}
+
+		// 15. Fuzz: random measured stages, unmeasured scenes, stalls and short gaps.
+		Random wr = new Random(7);
+		for (int trial = 0; trial < 2000; trial++) {
+			LoadBar bar = new LoadBar();
+			long frame = wr.nextInt(100000);
+			double t = wr.nextDouble() * 1e6, prev = -1, p = -1;
+			int n = 20 + wr.nextInt(500);
+			for (int i = 0; i < n; i++) {
+				double r = wr.nextDouble();
+				if (r < 0.05) {
+					p = -1;                                     // a scene with no measure
+				} else if (r < 0.1) {
+					p = wr.nextDouble() * 0.3;                  // a new stage restarts its count
+				} else if (r < 0.7) {
+					p = Math.min(1, Math.max(0, p) + wr.nextDouble() * 0.04);
+				}
+				frame += 1 + (wr.nextDouble() < 0.03 ? wr.nextInt((int) LoadBar.NEW_LOAD_FRAMES) : 0);
+				t += wr.nextDouble() < 0.01 ? 4000 : 1 + wr.nextDouble() * 120;
+				double v = bar.scene(frame, p, t, TAU);
+				check(v < 1 && (prev < 0 ? true : v >= prev), "world fuzz " + trial + ": frame " + i + " (" + prev + " -> " + v + ")");
+				prev = v;
+			}
+		}
+
 		System.out.println("LoadBar: " + passed + " checks passed, " + failed + " failed");
 		System.exit(failed == 0 ? 0 : 1);
 	}

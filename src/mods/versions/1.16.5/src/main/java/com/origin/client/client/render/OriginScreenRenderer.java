@@ -453,7 +453,8 @@ public final class OriginScreenRenderer {
 	// The world-loading scene's shown bar fill, gliding to each new count.
 	// sceneFill < 0 = the bar is sweeping.
 	private static double sceneFill = -1;
-	private static double sceneFillAt = 0;
+	// Never backward within a world load, never full before the world is up (LoadBar.scene).
+	private static final LoadBar SCENE_BAR = new LoadBar();
 
 	private static void renderLoadingScene0(Gfx guiGraphics, net.minecraft.network.chat.Component title, float progress) {
 		ensureLoaded();
@@ -471,17 +472,10 @@ public final class OriginScreenRenderer {
 		}
 		drawFrame(guiGraphics, w, h);
 
-		// The fill glides to each new count (chunk counts arrive in steps), and
-		// a new scene with no count goes back to the sweep.
+		// The fill glides to each new count and only moves forward within one world
+		// load; it sweeps until the load's first measured stage (LoadBar.scene).
 		double now = RingField.sceneMs();
-		if (progress < 0f) {
-			sceneFill = -1;
-		} else {
-			double target = Math.max(0.0, Math.min(1.0, progress));
-			sceneFill = sceneFill < 0 || target < sceneFill ? target
-					: target + (sceneFill - target) * Math.exp(-(now - sceneFillAt) / FILL_TAU);
-		}
-		sceneFillAt = now;
+		sceneFill = SCENE_BAR.scene(com.origin.client.client.hud.FrameStats.frames(), progress, now, FILL_TAU);
 		com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		drawSceneText(guiGraphics, mc.font, w, h, title == null ? "" : title.getString().trim(), sceneFill);
 	}
