@@ -109,6 +109,11 @@ loom {
 			if (project.hasProperty("reloadProfile")) {
 				property "origin.bootLog.reloadProfile", "true"
 			}
+			// `-PbootJvmArgs=-Xms4G,-Xmx4G,...`: extra JVM args, comma-separated (boot-time.yml
+			// boots with the launcher's own flag set this way).
+			if (project.hasProperty("bootJvmArgs")) {
+				project.property("bootJvmArgs").toString().split(",").each { if (!it.isBlank()) vmArg it.trim() }
+			}
 			if (project.hasProperty("bootJfr")) {
 				vmArg "-XX:StartFlightRecording=filename=" + file(project.property("bootJfr").toString()).absolutePath + ",settings=profile,dumponexit=true"
 			}

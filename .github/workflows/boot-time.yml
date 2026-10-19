@@ -17,8 +17,13 @@ name: boot-time
 
 # Start it by hand (Run workflow, once this file is on main), or from a push to a
 # claude/** branch whose head commit message carries a tag:
-#   [boot-time base=<ref> boots=5 profile module=1.21.1 java=21 label=x]
+#   [boot-time base=<ref> boots=5 profile module=1.21.1 java=21 label=x
+#              jvm_b=-XX:Foo,-XX:Bar mfx_b=mixin.perf.x=true,mixin.perf.y=false]
 # (every key optional; a bare [boot-time] measures this ref alone, 5 boots).
+# jvm_a/jvm_b add JVM args to one variant, mfx_a/mfx_b set its ModernFix options
+# (comma-separated). Every boot runs with the launcher's own JVM flags (Aikar's
+# set + -Xms4G -Xmx4G, like a player's launch) unless devjvm is given. Loop and
+# flags: tools/boot-time/run-all.sh.
 on:
   push:
     branches: ["claude/**"]
@@ -71,7 +76,8 @@ jobs:
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import os, re
-          cfg = {"module": "1.21.1", "base": "", "boots": "5", "profile": "false", "java": "21", "label": ""}
+          cfg = {"module": "1.21.1", "base": "", "boots": "5", "profile": "false", "java": "21", "label": "",
+                 "jvm_a": "", "jvm_b": "", "mfx_a": "", "mfx_b": "", "devjvm": "false"}
           if os.environ.get("I_MODULE"):
               cfg.update(module=os.environ["I_MODULE"], base=os.environ.get("I_BASE", ""),
                          boots=os.environ.get("I_BOOTS") or "5", profile=os.environ.get("I_PROFILE") or "false",
@@ -79,11 +85,11 @@ jobs:
           else:
               m = re.findall(r"\[boot-time([^\]]*)\]", os.environ.get("MSG", ""))
               for tok in (m[-1].split() if m else []):
-                  if tok == "profile":
-                      cfg["profile"] = "true"
+                  if tok in ("profile", "devjvm"):
+                      cfg[tok] = "true"
                   elif "=" in tok:
                       k, v = tok.split("=", 1)
-                      if k in cfg and re.fullmatch(r"[A-Za-z0-9._/-]+", v):
+                      if k in cfg and re.fullmatch(r"[A-Za-z0-9._/=,:+-]+", v):
                           cfg[k] = v
           if not re.fullmatch(r"\d{1,2}", cfg["boots"]):
               cfg["boots"] = "5"
@@ -120,39 +126,14 @@ jobs:
           MODULE: ${{ steps.cfg.outputs.module }}
           BOOTS: ${{ steps.cfg.outputs.boots }}
           PROFILE: ${{ steps.cfg.outputs.profile }}
+          JVM_A: ${{ steps.cfg.outputs.jvm_a }}
+          JVM_B: ${{ steps.cfg.outputs.jvm_b }}
+          MFX_A: ${{ steps.cfg.outputs.mfx_a }}
+          MFX_B: ${{ steps.cfg.outputs.mfx_b }}
+          DEVJVM: ${{ steps.cfg.outputs.devjvm }}
         run: |
-          out="$RUNNER_TEMP/boots"
-          mkdir -p "$out"
-          boot="$GITHUB_WORKSPACE/b/tools/boot-time/boot.sh"
-          variants="b"
-          [ -d "$GITHUB_WORKSPACE/a" ] && variants="a b"
-          nproc; free -m | head -2
-          for v in $variants; do
-            echo "::group::warm-up $v (build + first boot)"
-            bash "$boot" "$GITHUB_WORKSPACE/$v" "$MODULE" "$out/warm$v-0.log"
-            echo "::endgroup::"
-          done
-          for i in $(seq 1 "$BOOTS"); do
-            order="$variants"
-            # Alternate the order each round so neither variant always boots second.
-            [ $((i % 2)) -eq 0 ] && [ "$variants" = "a b" ] && order="b a"
-            for v in $order; do
-              echo "boot $v-$i"
-              bash "$boot" "$GITHUB_WORKSPACE/$v" "$MODULE" "$out/$v-$i.log"
-            done
-          done
-          if [ "$PROFILE" = "true" ]; then
-            for v in $variants; do
-              echo "profiled boot $v"
-              bash "$boot" "$GITHUB_WORKSPACE/$v" "$MODULE" "$out/prof$v-1.log" -PreloadProfile "-PbootJfr=$out/prof-$v.jfr"
-              echo "--- $v reload listeners ---"
-              grep -E "took approximately|Resource reload finished" "$out/prof$v-1.log" | sed -E 's/^.*\]: //' || true
-            done
-          fi
-          echo "--- mixin failures (should be none) ---"
-          grep -iE "Mixin apply(ing)? .*failed|Critical injection failure" "$out"/*.log || echo "none"
-          python3 "$GITHUB_WORKSPACE/b/tools/boot-time/summarize.py" "$out" | tee "$out/summary.md"
-          cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          bash b/tools/boot-time/run-all.sh "$GITHUB_WORKSPACE" "$RUNNER_TEMP/boots"
+          cat "$RUNNER_TEMP/boots/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Keep the logs (and profiles) as an artifact
         if: always()
