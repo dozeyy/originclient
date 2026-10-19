@@ -52,6 +52,12 @@ jobs:
       - name: Check shared-core sync
         run: python3 tools/shared-sync/sync.py --check
 
+      # The loading screen's bar (LoadBar, pure Java): never backward within a
+      # load, never full before the reload is done, never standing still; and
+      # every module's copy byte-identical (pre-1.20 copies are outside sync).
+      - name: Test loading bar
+        run: python3 tools/loading-bar-tests/run.py
+
       # Facts kept in two places (launcher vs installer) must agree.
       - name: Check launcher/installer consistency
         run: python3 tools/release/check_consistency.py

@@ -89,10 +89,10 @@ public final class OriginScreenRenderer {
 	// frame (-1 = not yet), so the per-letter reveal is time-driven on the same
 	// smoothed clock as the rings.
 	private static double loadStartScene = -1;
-	// The startup bar's shown fill (-1 = none yet) and the scene time it was set:
-	// it glides to the reload's real progress instead of stepping with it.
+	// The startup bar's shown fill (-1 = none yet): it glides to the reload's real
+	// progress instead of stepping with it, and never moves backward (LoadBar).
 	private static double loadFill = -1;
-	private static double loadFillAt = 0;
+	private static final LoadBar LOAD_BAR = new LoadBar();
 	/** The startup and world-loading bars' glide time constant (ms). */
 	private static final double FILL_TAU = 140.0;
 
@@ -247,13 +247,13 @@ public final class OriginScreenRenderer {
 			loadStartScene = scene;
 		}
 		long elapsed = (long) (scene - loadStartScene);
-		// A new reload (resource pack change) starts the bar over; otherwise the
-		// fill only ever glides forward. The dissolve passes 1: the bar finishes
-		// its glide while the title appears instead of jumping full.
-		loadFill = loadFill < 0 || clamped < loadFill - 0.25 ? clamped
-				: Math.max(loadFill, clamped + (loadFill - clamped) * Math.exp(-(scene - loadFillAt) / FILL_TAU));
-		loadFillAt = scene;
-		com.origin.client.client.OriginFrameLog.bar(currentReload(), clamped, loadFill);
+		// The fill only ever moves forward within a load and is full exactly when
+		// the reload is done (LoadBar: the reload's own fraction dips mid-load as
+		// work is queued); a load after a finished one starts it over. The
+		// dissolve passes 1: the bar finishes its glide while the title appears.
+		net.minecraft.server.packs.resources.ReloadInstance barReload = currentReload();
+		loadFill = LOAD_BAR.update(barReload, barReload != null ? barReload.isDone() : clamped >= 1f, clamped, scene, FILL_TAU);
+		com.origin.client.client.OriginFrameLog.bar(barReload, clamped, loadFill);
 
 		double markT = scene - loadStartScene;
 		if (drive) {
