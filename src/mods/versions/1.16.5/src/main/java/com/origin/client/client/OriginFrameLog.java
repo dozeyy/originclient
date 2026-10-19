@@ -53,7 +53,7 @@ public final class OriginFrameLog {
 	// Allocated on the first frame with the log on (~420 KB); never when it is off.
 	// Every reader runs only once n > 0, i.e. after that allocation.
 	private static long[] start;
-	private static float[] frameMs, tasksMs, renderMs, swapMs, titleMs, gcMs, sceneStep;
+	private static float[] frameMs, tasksMs, renderMs, swapMs, titleMs, gcMs, sceneStep, tickMs, waitMs;
 	private static int[] titleIndex, gcCount;
 	private static Phase[] phase;
 	private static String[] tasks;
@@ -62,7 +62,8 @@ public final class OriginFrameLog {
 
 	// The frame in progress.
 	private static long frameStart = 0, renderStart = 0, swapStart = 0, titleStart = 0, taskStart = 0;
-	private static double curTasks, curRender, curSwap, curTitle;
+	private static long tickStart = 0, waitStart = 0;
+	private static double curTasks, curRender, curSwap, curTitle, curTick, curWait;
 	private static StringBuilder curNamed;
 	private static int titleFrames = 0;
 	private static boolean titleThisFrame = false;
@@ -97,6 +98,8 @@ public final class OriginFrameLog {
 			titleMs = new float[CAP];
 			gcMs = new float[CAP];
 			sceneStep = new float[CAP];
+			tickMs = new float[CAP];
+			waitMs = new float[CAP];
 			titleIndex = new int[CAP];
 			gcCount = new int[CAP];
 			phase = new Phase[CAP];
@@ -132,7 +135,7 @@ public final class OriginFrameLog {
 		start[i] = now;
 		phase[i] = current;
 		frameStart = now;
-		curTasks = curRender = curSwap = curTitle = 0;
+		curTasks = curRender = curSwap = curTitle = curTick = curWait = 0;
 		curNamed = null;
 		titleThisFrame = false;
 	}
@@ -236,6 +239,34 @@ public final class OriginFrameLog {
 		}
 	}
 
+	/** Minecraft.tick (client ticks: up to 10 per frame when frames run long). */
+	public static void tickBegin() {
+		if (ENABLED) {
+			tickStart = System.nanoTime();
+		}
+	}
+
+	public static void tickEnd() {
+		if (ENABLED && tickStart != 0) {
+			curTick += (System.nanoTime() - tickStart) / 1e6;
+			tickStart = 0;
+		}
+	}
+
+	/** RenderSystem.limitDisplayFPS: the frame limiter's wait (menus cap at 60 fps). */
+	public static void waitBegin() {
+		if (ENABLED) {
+			waitStart = System.nanoTime();
+		}
+	}
+
+	public static void waitEnd() {
+		if (ENABLED && waitStart != 0) {
+			curWait += (System.nanoTime() - waitStart) / 1e6;
+			waitStart = 0;
+		}
+	}
+
 	public static void swapBegin() {
 		if (ENABLED) {
 			swapStart = System.nanoTime();
@@ -315,6 +346,8 @@ public final class OriginFrameLog {
 		renderMs[i] = (float) curRender;
 		swapMs[i] = (float) curSwap;
 		titleMs[i] = (float) curTitle;
+		tickMs[i] = (float) curTick;
+		waitMs[i] = (float) curWait;
 		titleIndex[i] = titleThisFrame ? titleFrames : 0;
 		tasks[i] = curNamed == null ? null : curNamed.toString();
 		long[] gc = gcTotals();
@@ -346,8 +379,8 @@ public final class OriginFrameLog {
 	private static void printFrame(int i) {
 		double t = sinceDone(start[i]);
 		if (frameMs[i] > SLOW_MS) {
-			com.origin.client.OriginClient.LOGGER.info(P + "slow t={} ms frame={} ms phase={} tasks={} render={} swap={} title={}{} gc={} ms/{} reload=[{}] scene+{} ms",
-					fmt(t), fmt(frameMs[i]), phase[i], fmt(tasksMs[i]), fmt(renderMs[i]), fmt(swapMs[i]), fmt(titleMs[i]),
+			com.origin.client.OriginClient.LOGGER.info(P + "slow t={} ms frame={} ms phase={} tasks={} render={} swap={} tick={} wait={} title={}{} gc={} ms/{} reload=[{}] scene+{} ms",
+					fmt(t), fmt(frameMs[i]), phase[i], fmt(tasksMs[i]), fmt(renderMs[i]), fmt(swapMs[i]), fmt(tickMs[i]), fmt(waitMs[i]), fmt(titleMs[i]),
 					titleIndex[i] > 0 && titleIndex[i] <= 3 ? " (title frame " + titleIndex[i] + ")" : "",
 					fmt(gcMs[i]), gcCount[i], tasks[i] == null ? "" : tasks[i], fmt(sceneStep[i]));
 		}

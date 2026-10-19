@@ -56,4 +56,26 @@ public abstract class FrameLogMixin {
 	private void originclient$swapEnd(boolean renderLevel, CallbackInfo ci) {
 		OriginFrameLog.swapEnd();
 	}
+
+	@Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;tick()V"))
+	private void originclient$tickBegin(boolean renderLevel, CallbackInfo ci) {
+		OriginFrameLog.tickBegin();
+	}
+
+	@Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;tick()V", shift = At.Shift.AFTER))
+	private void originclient$tickEnd(boolean renderLevel, CallbackInfo ci) {
+		OriginFrameLog.tickEnd();
+	}
+
+	// The frame limiter (javap: runTick -> RenderSystem.limitDisplayFPS(I), a
+	// glfwWaitEventsTimeout loop; menus cap at 60 fps).
+	@Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderSystem;limitDisplayFPS(I)V"))
+	private void originclient$waitBegin(boolean renderLevel, CallbackInfo ci) {
+		OriginFrameLog.waitBegin();
+	}
+
+	@Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderSystem;limitDisplayFPS(I)V", shift = At.Shift.AFTER))
+	private void originclient$waitEnd(boolean renderLevel, CallbackInfo ci) {
+		OriginFrameLog.waitEnd();
+	}
 }
