@@ -1,3 +1,4 @@
+using System.IO;
 using OriginLauncher.App.Core.Profiles;
 
 namespace OriginLauncher.App.Core.Import;
@@ -20,6 +21,11 @@ public enum SourceKind
     Modrinth,
     CurseForge,
     Folder,      // "Browse..." — the player pointed at a folder
+    // The PvP clients (Sources/PvpClientSource.cs). Kept after Folder so the numbers above never move.
+    Lunar,
+    Feather,
+    Badlion,
+    LabyMod,
 }
 
 public enum LoaderKind { None, Fabric, Quilt, Forge, NeoForge, Unknown }
@@ -60,8 +66,36 @@ public sealed record DetectedInstance
         SourceKind.Prism => "Prism",
         SourceKind.Modrinth => "Modrinth",
         SourceKind.CurseForge => "CurseForge",
+        SourceKind.Lunar => "Lunar",
+        SourceKind.Feather => "Feather",
+        SourceKind.Badlion => "Badlion",
+        SourceKind.LabyMod => "LabyMod",
         _ => "Folder",
     };
+
+    /// <summary>
+    /// The folder this setup's mods come from when it is NOT &lt;GameDir&gt;/mods: a PvP client keeps its Fabric
+    /// mods in a folder of its own per version (Lunar's profiles, LabyMod's labymod-neo) while worlds, packs
+    /// and options.txt stay in .minecraft. Null = the usual &lt;GameDir&gt;/mods.
+    /// </summary>
+    public string? ModsDir { get; init; }
+
+    /// <summary>Where this setup's mods are read from: <see cref="ModsDir"/>, else &lt;GameDir&gt;/mods.</summary>
+    public string ModsFolder => ModsDir ?? Path.Combine(GameDir, "mods");
+
+    /// <summary>
+    /// The client's main game folder when it is not <see cref="GameDir"/>: Lunar keeps options.txt, servers.dat and
+    /// packs per version line in .lunarclient/profiles/&lt;line&gt; but plays worlds and screenshots out of its "game
+    /// directory" (.minecraft by default). Null = everything is in GameDir.
+    /// </summary>
+    public string? SharedGameDir { get; init; }
+
+    /// <summary>A shader pack folder not named &lt;GameDir&gt;/shaderpacks (Lunar's per-profile "shaders"). Null = the usual one.</summary>
+    public string? ShaderPacksDir { get; init; }
+
+    public string SavesFolder => Path.Combine(SharedGameDir ?? GameDir, "saves");
+    public string ScreenshotsFolder => Path.Combine(SharedGameDir ?? GameDir, "screenshots");
+    public string ShaderPacksFolder => ShaderPacksDir ?? Path.Combine(GameDir, "shaderpacks");
 
     // ---- detection accuracy (Core/Import/Detection): what the version answer rests on ----
 
@@ -94,7 +128,7 @@ public sealed record DetectedInstance
     /// A stable id for this setup: derived only from the game folder's full path (one folder is one setup), so a
     /// selection or an unticked setup survives a rescan, another launcher winning the name, and Browse.
     /// </summary>
-    public string SetupId => Detection.SetupKey.StableId(GameDir);
+    public string SetupId => Detection.SetupKey.StableId(GameDir, ModsDir);
 }
 
 /// <summary>Where a piece of version evidence came from.</summary>
@@ -148,7 +182,7 @@ public sealed class ScanResult
 
 // ---- the plan ----------------------------------------------------------------
 
-public enum PlanItemKind { Mod, Setting, Config, ResourcePack, ShaderPack, World, GameFile, Cache }
+public enum PlanItemKind { Mod, Setting, Config, ResourcePack, ShaderPack, World, GameFile, Cache, Screenshot }
 
 /// <summary>The summary.txt sections, in the order they are written.</summary>
 public enum SummarySection { Imported, ReusedGameFiles, ReusedCaches, NeedsAttention, NotImported }
@@ -187,6 +221,12 @@ public sealed record ImportOptions
 
     /// <summary>Copy single-player worlds (off by default: they are big and the player may not want them).</summary>
     public bool CopyWorlds { get; init; }
+
+    /// <summary>
+    /// Copy screenshots (on by default; copied, never moved). One already in Origin under the same name and size is
+    /// left as it is, so importing again adds nothing.
+    /// </summary>
+    public bool CopyScreenshots { get; init; } = true;
 
     /// <summary>
     /// Engine B: when Origin already has a Distant Horizons / Voxy cache where one would land, replace it
@@ -272,6 +312,18 @@ public sealed record PlannedOp
     /// is left out of the result.
     /// </summary>
     public SummaryLine? DeferredLine { get; init; }
+
+    /// <summary>
+    /// The plan line that says this item comes over ("Imported: World1"). When apply leaves the item out because its
+    /// source couldn't be read, that line is no longer true and is left out of the result (compared by reference).
+    /// </summary>
+    public SummaryLine? PlannedLine { get; init; }
+
+    /// <summary>
+    /// <see cref="PlannedLine"/> counts several ops ("40 screenshots"): an op left out at apply lowers that count
+    /// (<see cref="ImportSummary.Recount"/>) instead of dropping the whole line.
+    /// </summary>
+    public bool CountedLine { get; init; }
 }
 
 /// <summary>
@@ -309,8 +361,17 @@ public sealed class ImportPlan
     public required DetectedInstance Source { get; init; }
     public required string TargetVersion { get; init; }
     public string TargetGameDir { get; set; } = "";
+
+    /// <summary>When planning started (<see cref="ImportTargetLocks.Now"/>): an apply refuses a plan older than its folder's last import.</summary>
+    public long PlannedAt { get; set; }
     public string? ProfileId { get; set; }
     public string? ProfileName { get; set; }
+
+    /// <summary>
+    /// <see cref="ProfileId"/> is an EXISTING profile that already holds exactly these mods (a repeat import): no
+    /// mod is copied and the profile is never added to (or, on undo, removed from) the settings.
+    /// </summary>
+    public bool ProfileReused { get; set; }
     public required ImportOptions Options { get; init; }
 
     /// <summary>Plain sentences. Anything in here means Apply is refused ("Close Minecraft first").</summary>
@@ -349,7 +410,7 @@ public sealed class ImportPlan
 
 public enum ImportState { Planned, Applying, Committed, RolledBack }
 
-public enum ImportStage { Scanning, Planning, Mods, Settings, Packs, Worlds, GameFiles, Caches, Finishing }
+public enum ImportStage { Scanning, Planning, Mods, Settings, Packs, Worlds, Screenshots, GameFiles, Caches, Finishing }
 
 public sealed record ImportProgress(ImportStage Stage, int Done, int Total, string? Item = null);
 
@@ -363,6 +424,12 @@ public sealed class ImportResult
     public string? Error { get; init; }
     public string SummaryText { get; init; } = "";
     public bool Succeeded => State == ImportState.Committed;
+
+    /// <summary>
+    /// What this import left out while it ran (a mod an antivirus had open, a world deleted since the plan, a file
+    /// skipped for safety): "Not imported" lines the plan did not have. The Done page names each one.
+    /// </summary>
+    public IReadOnlyList<SummaryLine> LeftOut { get; init; } = Array.Empty<SummaryLine>();
 }
 
 // ---- Engine B: game-file reuse and cache migration (plug in through IImportPlanContributor) ----

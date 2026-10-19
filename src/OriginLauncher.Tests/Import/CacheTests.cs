@@ -199,6 +199,23 @@ public class CacheTests : IDisposable
     }
 
     [Fact]
+    public async Task ACacheFolderDeletedFromTheOldSetupAfterThePlanNeverReplacesOriginsOwnData()
+    {
+        ServerFixture();
+        Kit.WriteBytes(_rig.GameDir(), "Distant_Horizons_server_data/Hyp/mine@minecraft@@overworld/DistantHorizons.sqlite", EngineBKit.Sqlite("MINE"));
+        var engine = Engine();
+        Kit.Write(_rig.Source, "options.txt", "fov:0.5\n");
+        var plan = await engine.PlanAsync(_rig.Request(options: new ImportOptions { ReplaceExistingCaches = true }), null, CancellationToken.None);
+        Directory.Delete(Src("Distant_Horizons_server_data/Hyp"), recursive: true); // the player cleared it while the plan sat open
+
+        var result = await engine.ApplyAsync(plan, _rig.Settings, null, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Error);
+        // It used to walk as empty and land as an empty folder in place of the player's own Distant Horizons data.
+        Assert.Equal(EngineBKit.Sqlite("MINE"), File.ReadAllBytes(Dst("Distant_Horizons_server_data/Hyp/mine@minecraft@@overworld/DistantHorizons.sqlite")));
+    }
+
+    [Fact]
     public async Task TheReplaceOptionBacksTheOldFolderUpFirstAndUndoPutsItBack()
     {
         ServerFixture();

@@ -9,9 +9,42 @@ namespace OriginLauncher.App.Core.Import;
 // Names and reasons only — no file contents, no paths into the player's secrets.
 public static class ImportSummary
 {
-    public static string Render(ImportPlan plan, IReadOnlyList<SummaryLine>? extraLines = null, string? outcome = null)
+    /// <summary>The name of a line that counts several ops: "1 screenshot", "40 screenshots".</summary>
+    public static string CountName(PlanItemKind kind, int count) => kind switch
     {
-        var lines = plan.Lines.Concat(extraLines ?? Array.Empty<SummaryLine>()).ToList();
+        PlanItemKind.Screenshot => count == 1 ? "1 screenshot" : $"{count} screenshots",
+        _ => count == 1 ? "1 file" : $"{count} files",
+    };
+
+    /// <summary>
+    /// Lines that count several ops (<see cref="PlannedOp.CountedLine"/>), after apply left some of those ops out:
+    /// each such line goes into <paramref name="dropped"/>, and when part of it still came over a line with the lower
+    /// count and size is returned in its place. "3 screenshots" with one unreadable becomes "2 screenshots".
+    /// </summary>
+    public static List<SummaryLine> Recount(IEnumerable<PlannedOp> ops, IReadOnlyCollection<PlannedOp> leftOut, ISet<SummaryLine> dropped)
+    {
+        var replacements = new List<SummaryLine>();
+        if (leftOut.Count == 0) return replacements;
+        var all = ops.ToList();
+        foreach (var group in leftOut.Where(o => o.CountedLine && o.PlannedLine != null)
+                     .GroupBy(o => o.PlannedLine!, ReferenceEqualityComparer.Instance))
+        {
+            var line = (SummaryLine)group.Key!;
+            var left = group.ToList();
+            var remaining = all.Count(o => !o.Fallback && ReferenceEquals(o.PlannedLine, line)) - left.Count;
+            dropped.Add(line);
+            if (remaining > 0)
+                replacements.Add(line with { Name = CountName(line.Kind, remaining), Bytes = Math.Max(0, line.Bytes - left.Sum(o => o.Bytes)) });
+        }
+        return replacements;
+    }
+
+    /// <param name="dropped">Plan lines apply proved untrue (an item left out because its source couldn't be read), by reference.</param>
+    public static string Render(ImportPlan plan, IReadOnlyList<SummaryLine>? extraLines = null, string? outcome = null,
+        IReadOnlySet<SummaryLine>? dropped = null)
+    {
+        var lines = plan.Lines.Where(l => dropped == null || !dropped.Contains(l))
+            .Concat(extraLines ?? Array.Empty<SummaryLine>()).ToList();
         var sb = new StringBuilder();
         sb.AppendLine("Origin import");
         sb.AppendLine($"From: {plan.Source.SourceLabel}: {plan.Source.Name}"

@@ -364,7 +364,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     private static int GroupOrder(string label) => label switch
     {
-        "Minecraft" => 0, "Prism" => 1, "Modrinth" => 2, "CurseForge" => 3, _ => 4,
+        "Minecraft" => 0, "Prism" => 1, "Modrinth" => 2, "CurseForge" => 3,
+        "Lunar" => 4, "Feather" => 5, "Badlion" => 6, "LabyMod" => 7, _ => 8,
     };
 
     private static string GroupTitle(string label) => ImportLogic.GroupTitle(label);
@@ -881,6 +882,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         Stat("shader", "Shader packs", plan.Ops.Count(o => o.Item == PlanItemKind.ShaderPack));
         if (plan.Options.CopyWorlds || plan.Ops.Any(o => o.Item == PlanItemKind.World))
             Stat("worlds", "Worlds", plan.Ops.Count(o => o.Item == PlanItemKind.World), always: true);
+        Stat("screenshots", "Screenshots", plan.Ops.Count(o => o.Item == PlanItemKind.Screenshot));
         Stat("terrain", "Distant Horizons / Voxy terrain", plan.Caches.Count(c => c.WillImport));
         // The download size is the last line of the same card.
         if (plan.GameFiles is { MetadataUnavailable: false, ToDownloadBytes: > 0 } files)
@@ -931,6 +933,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             _optionRows = new List<ImportOptionVm>
             {
                 new() { Id = "worlds", Label = "Copy worlds", Caption = "Worlds can be big.", IsOn = _options.CopyWorlds },
+                new() { Id = "screenshots", Label = "Copy screenshots", Caption = "Copied, never moved.", IsOn = _options.CopyScreenshots },
                 new() { Id = "packs", Label = "Copy unused packs", Caption = "Also bring packs you weren't using.", IsOn = _options.CopyUnusedPacks },
                 new() { Id = "keep", Label = "Keep Origin's settings", Caption = "Don't replace settings Origin has.", IsOn = _options.KeepMyOriginSettings },
                 new() { Id = "servers", Label = "Replace server list", Caption = "Origin's list is saved first.", IsOn = _options.ReplaceServerList },
@@ -1093,11 +1096,12 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     private void Option_Click(object sender, RoutedEventArgs e)
     {
-        if (_optionRows.Count != 5) return;
+        if (_optionRows.Count != 6) return;
         bool On(string id) => _optionRows.First(o => o.Id == id).IsOn;
         _options = new ImportOptions
         {
             CopyWorlds = On("worlds"),
+            CopyScreenshots = On("screenshots"),
             CopyUnusedPacks = On("packs"),
             KeepMyOriginSettings = On("keep"),
             ReplaceServerList = On("servers"),
@@ -1403,6 +1407,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         ImportStage.Settings => "Copying settings",
         ImportStage.Packs => "Copying packs",
         ImportStage.Worlds => "Copying worlds",
+        ImportStage.Screenshots => "Copying screenshots",
         ImportStage.GameFiles => "Reusing files Minecraft needs",
         ImportStage.Caches => "Moving Distant Horizons / Voxy terrain",
         ImportStage.Finishing => "Finishing up",

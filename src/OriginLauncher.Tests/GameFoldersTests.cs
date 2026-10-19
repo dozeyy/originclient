@@ -8,12 +8,17 @@ namespace OriginLauncher.Tests;
 // one-folder-per-version layout, seeding a new account's folder, and the
 // per-account launch state machine behind the Play button. Folder tests run on
 // real files in a temp directory.
-public class GameFoldersTests
+public class GameFoldersTests : IDisposable
 {
     private const string Steve = "069a79f444e94726a5befca90e38aaf5";
     private const string Alex = "853c80ef3c3749fdaa49938b674adae6";
 
     private readonly string _root = Directory.CreateTempSubdirectory("game-folders").FullName;
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_root, true); } catch { /* best effort: a locked temp folder must not fail the test */ }
+    }
 
     private string Write(string relativePath, string text = "x")
     {
@@ -224,6 +229,40 @@ public class GameFoldersTests
         InstanceMigration.WriteMarker(marker, Steve);
         Assert.Equal(Steve, InstanceMigration.ReadMarker(marker));
         Assert.Empty(Directory.EnumerateFiles(_root, "*.tmp"));
+    }
+
+    // The migration runs on the UI thread (App startup, Home's account refresh). A marker file another program holds
+    // open (antivirus, a backup tool) must fail the write at once: never a frozen window while it waits, nothing
+    // moved, and the next call does the whole move.
+    [Fact]
+    public void ABusyMarkerFailsTheMigrationAtOnceMovesNothingAndTheNextCallFinishes()
+    {
+        if (!OperatingSystem.IsWindows()) return; // Linux renames over an open file, so the marker is never busy there
+        var root = OldLayout("1.21.1");
+        var marker = Write("account-migration.json", ""); // unreadable, so no account is recorded yet
+        var reader = new FileStream(marker, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            Assert.ThrowsAny<Exception>(() => InstanceMigration.MigrateAll(marker, new[] { root }, Steve));
+        }
+        finally
+        {
+            clock.Stop();
+            reader.Dispose();
+        }
+
+        // The rename's wait for readers is ~1.46 s; the UI-thread write must not take it.
+        Assert.True(clock.ElapsedMilliseconds < 1000, $"a busy marker held the migration for {clock.ElapsedMilliseconds} ms");
+        Assert.True(InstanceMigration.NeedsMigration(root));
+        Assert.Equal("world", Read("1.21.1/saves/My World/level.dat"));
+        Assert.False(Exists("1.21.1/accounts"));
+
+        Assert.Equal((Steve, true), InstanceMigration.MigrateAll(marker, new[] { root }, Steve));
+        Assert.Equal(Steve, InstanceMigration.ReadMarker(marker));
+        Assert.Equal("world", Read($"1.21.1/accounts/{Steve}/saves/My World/level.dat"));
+        Assert.False(InstanceMigration.NeedsMigration(root));
     }
 
     [Fact]

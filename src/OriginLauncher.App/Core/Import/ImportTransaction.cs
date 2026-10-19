@@ -234,11 +234,17 @@ public sealed class ImportTransaction : IDisposable
         Directory.CreateDirectory(StagingDir);
         var temp = NewTemp(Path.GetFileName(dest));
         var existed = File.Exists(dest);
+        // File.Copy carries the attributes over: a read-only options.txt (players set it so the game can't reset
+        // it) gave a read-only temp the edit couldn't write, and the whole import rolled back over it.
+        var readOnly = existed && File.GetAttributes(dest).HasFlag(FileAttributes.ReadOnly);
         if (existed) File.Copy(dest, temp, overwrite: true);
+        if (readOnly) ImportFiles.MakeWritable(temp);
         edit(temp);
         if (!File.Exists(temp)) return false;
         if (existed && FileCompare.Same(temp, dest)) { File.Delete(temp); return false; }
         Place(temp, dest, touchNow, Verb: existed ? "merged into" : "created");
+        // The player's choice stays: the merged file is read-only again, like the one it replaced (in backup/).
+        if (readOnly) File.SetAttributes(dest, File.GetAttributes(dest) | FileAttributes.ReadOnly);
         return true;
     }
 
@@ -251,6 +257,10 @@ public sealed class ImportTransaction : IDisposable
     {
         if (Directory.Exists(destDir) || File.Exists(destDir))
             throw new IOException($"{Path.GetFileName(destDir)} already exists");
+        // A folder deleted from the old setup since the plan walks as empty: without this it landed as an empty
+        // "World1" in Origin, reported as imported.
+        if (!Directory.Exists(srcDir))
+            throw new SourceUnreadableException($"{Path.GetFileName(srcDir)} is no longer in your old setup");
         // The walk follows the folder it starts at, so that folder (and every segment above it inside the
         // instance) must not be a link: a linked world or pack could lead anywhere.
         if (!fs.IsLinkFree(srcDir))
@@ -271,7 +281,7 @@ public sealed class ImportTransaction : IDisposable
         ct.ThrowIfCancellationRequested();
         // A part of the tree that couldn't be listed would make this a half copy (a world missing regions):
         // refuse, so the import rolls back instead of presenting a damaged copy as done.
-        if (fs.UnreadableHits > unreadableBefore)
+        if (fs.UnreadableHits > unreadableBefore || !Directory.Exists(srcDir))
             throw new SourceUnreadableException($"Part of {Path.GetFileName(srcDir)} couldn't be read, so none of it was copied");
         Prepare(destDir, isDirectory: true);
         MoveDirectory(stage, destDir);
@@ -485,7 +495,7 @@ public sealed class ImportTransaction : IDisposable
 
     private void DeleteStaging()
     {
-        try { if (Directory.Exists(StagingDir)) Directory.Delete(StagingDir, recursive: true); }
+        try { ImportFiles.DeleteTree(StagingDir); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* swept with the run folder */ }
     }
 }
@@ -585,11 +595,14 @@ public static class ImportUndo
                             // something goes only if nothing else has moved in (e.g. imports/ beside instances/).
                             if (Directory.Exists(entry.Path)
                                 && (entry.Recursive || !Directory.EnumerateFileSystemEntries(entry.Path).Any()))
-                                Directory.Delete(entry.Path, recursive: entry.Recursive);
+                            {
+                                if (entry.Recursive) ImportFiles.DeleteTree(entry.Path);
+                                else Directory.Delete(entry.Path);
+                            }
                         }
                         else if (File.Exists(entry.Path))
                         {
-                            File.Delete(entry.Path);
+                            ImportFiles.DeleteFile(entry.Path);
                         }
                         log($"rollback: removed {Rel(entry.Path)}");
                         break;
@@ -598,7 +611,7 @@ public static class ImportUndo
                         // A whole folder that was moved aside (a cache replaced by an import).
                         if (Directory.Exists(entry.Backup))
                         {
-                            if (Directory.Exists(entry.Path)) Directory.Delete(entry.Path, recursive: true);
+                            ImportFiles.DeleteTree(entry.Path);
                             var dirParent = Path.GetDirectoryName(entry.Path);
                             if (!string.IsNullOrEmpty(dirParent)) Directory.CreateDirectory(dirParent);
                             Directory.Move(entry.Backup, entry.Path);
@@ -613,7 +626,7 @@ public static class ImportUndo
                     case JournalEntryKinds.Replaced when entry.Path != null && entry.Backup != null:
                         if (File.Exists(entry.Backup))
                         {
-                            if (File.Exists(entry.Path)) File.Delete(entry.Path);
+                            if (File.Exists(entry.Path)) ImportFiles.DeleteFile(entry.Path);
                             var parent = Path.GetDirectoryName(entry.Path);
                             if (!string.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
                             File.Move(entry.Backup, entry.Path);

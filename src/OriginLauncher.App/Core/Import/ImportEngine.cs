@@ -172,6 +172,7 @@ public sealed partial class ImportEngine
         new PrismSource(),
         new ModrinthSource(),
         new CurseForgeSource(),
+        new PvpClientSource(),
     };
 
     // ------------------------------------------------------------------ scan
@@ -222,7 +223,8 @@ public sealed partial class ImportEngine
 
     private ImportPlan BuildPlan(ImportRequest r, IProgress<ImportProgress>? progress, CancellationToken ct, out SourceFs fs)
     {
-        fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = r.Source.GameDir };
+        var plannedAt = ImportTargetLocks.Now(); // before anything in Origin's folder is looked at
+        fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = r.Source.GameDir, SharedRoot = r.Source.SharedGameDir };
         var source = r.Source;
 
         // The target: what the player picked, else the source's own version when Origin has it.
@@ -231,6 +233,7 @@ public sealed partial class ImportEngine
         var plan = new ImportPlan
         {
             ImportId = r.ImportId ?? _env.NewId(), Source = source, TargetVersion = target, Options = r.Options,
+            PlannedAt = plannedAt,
         };
 
         // ---- blockers: any of these means no plan, with a plain sentence for the player ----
@@ -262,6 +265,8 @@ public sealed partial class ImportEngine
 
         // ---- mods -> a new profile (a packs-only setup's mods are never even read) ----
         if (r.Role != SetupRole.PacksOnly) PlanMods(plan, r, fs, target, ct);
+        if (PvpClientSource.BuiltInModsNote(source.Kind) is { } builtIn)
+            plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, builtIn.Name, builtIn.Reason));
         progress?.Report(new ImportProgress(ImportStage.Planning, 1, 3, "settings"));
 
         // ---- settings, packs, worlds ----
@@ -300,14 +305,25 @@ public sealed partial class ImportEngine
             plan.Lines.Add(new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, "Origin's built-in mod list",
                 "Origin's built-in mod list is incomplete for this version, so a mod Origin already includes may have been copied too."));
 
-        var sourceMods = ModSetResolver.ReadSourceMods(Path.Combine(plan.Source.GameDir, "mods"), fs, ct);
+        var sourceMods = ModSetResolver.ReadSourceMods(plan.Source.ModsFolder, fs, ct);
         var decisions = ModSetResolver.Resolve(sourceMods, new ResolveContext(target, builtIns, JavaFor(target)));
         plan.Mods.AddRange(decisions);
 
         if (decisions.Any(d => d.IsCopied))
         {
-            plan.ProfileId = _env.NewId();
-            plan.ProfileName = MakeProfileName(plan.Source, target, r.ExistingProfiles);
+            // Importing the same setup again must not make "Hypixel 2", "Hypixel 3"...: a profile of this version
+            // that already holds exactly these mods (same files, same bytes, nothing else) is the one it lands in.
+            if (ProfileWithSameMods(target, decisions, r.ExistingProfiles, fs) is { } same)
+            {
+                plan.ProfileId = same.Id;
+                plan.ProfileName = same.Name;
+                plan.ProfileReused = true;
+            }
+            else
+            {
+                plan.ProfileId = _env.NewId();
+                plan.ProfileName = MakeProfileName(plan.Source, target, r.ExistingProfiles);
+            }
         }
 
         foreach (var d in decisions)
@@ -325,16 +341,23 @@ public sealed partial class ImportEngine
                             "It disappeared from the old setup while Origin was looking at it."));
                         break;
                     }
+                    if (plan.ProfileReused)
+                    {
+                        plan.Lines.Add(new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, label,
+                            $"already in your \"{plan.ProfileName}\" mod profile (same file), left as it is"));
+                        break;
+                    }
+                    var modLine = d.Outcome == ModOutcome.CopiedDisabled
+                        ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, label, "Imported but turned off: " + d.Reason, bytes)
+                        : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, label,
+                            d.Outcome == ModOutcome.CopiedAsBefore ? "imported turned off, as it was" : null, bytes);
                     plan.Ops.Add(new PlannedOp
                     {
                         Kind = OpKind.CopyFile, Item = PlanItemKind.Mod, Label = d.DestFileName!, Source = d.SourcePath,
                         Dest = Path.Combine(InstanceLayout.ProfileModsDir(_env.InstancesRoot, target, plan.ProfileId!), d.DestFileName!),
-                        Bytes = bytes,
+                        Bytes = bytes, PlannedLine = modLine,
                     });
-                    plan.Lines.Add(d.Outcome == ModOutcome.CopiedDisabled
-                        ? new SummaryLine(SummarySection.NeedsAttention, PlanItemKind.Mod, label, "Imported but turned off: " + d.Reason, bytes)
-                        : new SummaryLine(SummarySection.Imported, PlanItemKind.Mod, label,
-                            d.Outcome == ModOutcome.CopiedAsBefore ? "imported turned off, as it was" : null, bytes));
+                    plan.Lines.Add(modLine);
                     break;
                 default:
                     plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, $"{label} ({d.FileName})", d.Reason));
@@ -346,7 +369,8 @@ public sealed partial class ImportEngine
         {
             plan.SettingsDelta = new SettingsDelta
             {
-                AddProfile = new ModProfile { Id = plan.ProfileId, Name = plan.ProfileName!, Version = target },
+                // A reused profile is the player's already: never in the delta, so an undo can never remove it.
+                AddProfile = plan.ProfileReused ? null : new ModProfile { Id = plan.ProfileId, Name = plan.ProfileName!, Version = target },
                 SetSelectedVersion = target,
                 SetSelectedProfileId = plan.ProfileId,
                 PreviousSelectedVersion = r.SelectedVersion,
@@ -408,6 +432,28 @@ public sealed partial class ImportEngine
     }
 
     // "Minecraft: Hypixel" for the new profile: the source's name, unique among that version's profiles, within the 32-character limit.
+    // The existing profile of this version whose mods folder holds exactly the files this import would copy, byte
+    // for byte, and nothing else. Read-only: a folder that can't be read is simply not a match.
+    private ModProfile? ProfileWithSameMods(string target, IReadOnlyList<ModDecision> decisions, IReadOnlyList<ModProfile> existing, SourceFs fs)
+    {
+        var copied = decisions.Where(d => d.IsCopied && d.SourcePath != null && d.DestFileName != null).ToList();
+        if (copied.Count == 0) return null;
+        foreach (var profile in existing.Where(p => p.Version == target && ProfileRules.IsValidId(p.Id)))
+        {
+            try
+            {
+                var dir = InstanceLayout.ProfileModsDir(_env.InstancesRoot, target, profile.Id);
+                if (!Directory.Exists(dir)) continue;
+                var present = Directory.EnumerateFiles(dir).Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (present.Count != copied.Count) continue;
+                if (copied.All(d => present.Contains(d.DestFileName!) && FileCompare.Same(d.SourcePath!, Path.Combine(dir, d.DestFileName!), fs)))
+                    return profile;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* not provably the same */ }
+        }
+        return null;
+    }
+
     internal static string MakeProfileName(DetectedInstance source, string version, IReadOnlyList<ModProfile> existing)
     {
         var raw = new string($"{source.SourceLabel}: {source.Name}".Where(c => !char.IsControl(c)).ToArray()).Trim();
@@ -465,12 +511,21 @@ public sealed partial class ImportEngine
         var logRoot = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_env.InstancesRoot)) ?? _env.InstancesRoot;
         using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, plan.ImportId, _env.Clock, plan.Source.Name, plan.TargetVersion, _env.Guard,
             plan.TargetGameDir);
-        var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = plan.Source.GameDir };
+        var fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = plan.Source.GameDir, SharedRoot = plan.Source.SharedGameDir };
         var extra = new List<SummaryLine>();
+        var dropped = new HashSet<SummaryLine>(ReferenceEqualityComparer.Instance);
+        var countedLeftOut = new List<PlannedOp>();
         IAsyncDisposable? gate = null; // D28: held while shared version files are written (released in finally)
+        IDisposable? folder = null;     // this game folder's writer lock, always taken before the version gate
         try
         {
             tx.Begin();
+            folder = ImportTargetLocks.Acquire(new[] { plan.TargetGameDir }, ct);
+            if (ImportTargetLocks.ChangedSince(new[] { plan.TargetGameDir }, plan.PlannedAt))
+            {
+                tx.Rollback(settings); // nothing was changed yet: this only closes the journal
+                return new ImportResult { ImportId = plan.ImportId, State = ImportState.Planned, Error = ImportTargetLocks.StalePlan };
+            }
             if (plan.ProvisioningGate != null)
             {
                 gate = plan.ProvisioningGate.AcquireAsync(plan.TargetVersion, ct).GetAwaiter().GetResult();
@@ -488,8 +543,18 @@ public sealed partial class ImportEngine
                 if (op.Fallback) continue; // only a bulk run has stand-ins (and runs them when a claim is released)
                 progress?.Report(new ImportProgress(StageOf(op.Item), i, plan.Ops.Count, op.Label));
                 ct.ThrowIfCancellationRequested();
-                Execute(op, plan, tx, fs, ct, extra, progress);
+                try
+                {
+                    Execute(op, plan, tx, fs, ct, extra, progress);
+                }
+                catch (Exception ex) when (IsSourceProblem(op, ex))
+                {
+                    // Same rule as a bulk run (B16): a mod jar or world file the old launcher (or an antivirus) has
+                    // open, or one deleted since the plan, leaves THAT item out. It used to roll the whole import back.
+                    LeftOut(op, extra, dropped, countedLeftOut);
+                }
             }
+            extra.AddRange(ImportSummary.Recount(plan.Ops, countedLeftOut, dropped));
 
             progress?.Report(new ImportProgress(ImportStage.Finishing, plan.Ops.Count, plan.Ops.Count));
             ct.ThrowIfCancellationRequested(); // the last chance to cancel: past here the settings change is made
@@ -499,9 +564,14 @@ public sealed partial class ImportEngine
                 settings.Apply(plan.SettingsDelta);
             }
             tx.Commit();
-            var text = ImportSummary.Render(plan, extra);
+            ImportTargetLocks.MarkChanged(new[] { plan.TargetGameDir });
+            var text = ImportSummary.Render(plan, extra, dropped: dropped);
             WriteSummary(plan.ImportId, text);
-            return new ImportResult { ImportId = plan.ImportId, State = ImportState.Committed, SummaryText = text };
+            return new ImportResult
+            {
+                ImportId = plan.ImportId, State = ImportState.Committed, SummaryText = text,
+                LeftOut = extra.Where(l => l.Section == SummarySection.NotImported).ToList(),
+            };
         }
         catch (OperationCanceledException)
         {
@@ -515,6 +585,7 @@ public sealed partial class ImportEngine
         finally
         {
             ReleaseGate(gate);
+            folder?.Dispose();
         }
     }
 
@@ -567,6 +638,17 @@ public sealed partial class ImportEngine
         };
     }
 
+    internal const string CouldntReadSource = "Couldn't read it in your old setup (it may be in use, or gone), so it was left out.";
+
+    // An item apply left out because its source couldn't be read: one "Not imported" line under its file name, and
+    // the plan's "Imported" line for it is dropped (it is no longer true), or recounted when it counts several items.
+    private static void LeftOut(PlannedOp op, List<SummaryLine> extra, HashSet<SummaryLine> dropped, List<PlannedOp> countedLeftOut)
+    {
+        extra.Add(new SummaryLine(SummarySection.NotImported, op.Item, op.Label, CouldntReadSource));
+        if (op.CountedLine) countedLeftOut.Add(op);
+        else if (op.PlannedLine != null) dropped.Add(op.PlannedLine);
+    }
+
     private void Execute(PlannedOp op, ImportPlan plan, ImportTransaction tx, SourceFs fs, CancellationToken ct,
         List<SummaryLine> extra, IProgress<ImportProgress>? progress)
     {
@@ -613,6 +695,7 @@ public sealed partial class ImportEngine
         PlanItemKind.Setting or PlanItemKind.Config => ImportStage.Settings,
         PlanItemKind.ResourcePack or PlanItemKind.ShaderPack => ImportStage.Packs,
         PlanItemKind.World => ImportStage.Worlds,
+        PlanItemKind.Screenshot => ImportStage.Screenshots,
         PlanItemKind.GameFile => ImportStage.GameFiles,
         _ => ImportStage.Caches,
     };
@@ -656,6 +739,9 @@ public sealed partial class ImportEngine
                 // and only with the gates held is "no game is running" a fact (a launch holds its version's gate while
                 // it starts the game). A bulk run takes the same versions in the same (ascending) order its apply did.
                 var gates = new List<IAsyncDisposable>();
+                // The folders' writer locks before the gates (ImportTargetLocks' order rule): an undo never runs
+                // under an apply into the same folder.
+                using var folders = ImportTargetLocks.Acquire(TargetDirs(journal), CancellationToken.None);
                 try
                 {
                     if (committed && _env.VersionGate != null)
@@ -670,6 +756,7 @@ public sealed partial class ImportEngine
                     using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, journal, _env.Clock);
                     // Reused game files stay after a finished import (JournalEntry.GameFile).
                     var problems = tx.Rollback(settings, keepGameFiles: committed);
+                    if (committed) ImportTargetLocks.MarkChanged(TargetDirs(journal)); // a plan that saw these files is stale now
                     return new ImportResult
                     {
                         ImportId = importId, State = ImportState.RolledBack,

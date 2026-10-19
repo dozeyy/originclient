@@ -49,7 +49,7 @@ public static class SetupResolver
     /// <summary>Judges one entry on its own (Browse, or a launcher's single-instance reader).</summary>
     public static DetectedInstance ResolveOne(SetupMember member, SourceFs fs, CancellationToken ct, ResolveOptions? options = null)
     {
-        var folder = member.NoInference ? FolderEvidence.None : FolderEvidence.Read(member.Instance.GameDir, fs, ct);
+        var folder = member.NoInference ? FolderEvidence.None : FolderEvidence.For(member.Instance, fs, ct);
         return Resolve(new[] { member }, folder, options ?? new ResolveOptions());
     }
 
@@ -64,7 +64,7 @@ public static class SetupResolver
         var byKey = new Dictionary<string, int>(SetupKey.Comparer);
         foreach (var member in members)
         {
-            var key = SetupKey.Folder(member.Instance.GameDir);
+            var key = SetupKey.Of(member.Instance);
             if (byKey.TryGetValue(key, out var index)) groups[index].Members.Add(member);
             else
             {
@@ -75,7 +75,7 @@ public static class SetupResolver
         if (groups.Count == 0) return;
 
         var existing = new Dictionary<string, int>(SetupKey.Comparer);
-        for (var i = 0; i < into.Instances.Count; i++) existing.TryAdd(SetupKey.Folder(into.Instances[i].GameDir), i);
+        for (var i = 0; i < into.Instances.Count; i++) existing.TryAdd(SetupKey.Of(into.Instances[i]), i);
 
         foreach (var (key, group) in groups)
         {
@@ -86,7 +86,7 @@ public static class SetupResolver
             if (merging) all.Add(FromSetup(into.Instances[at]));
             all.AddRange(group);
 
-            var folder = all.All(m => m.NoInference) ? FolderEvidence.None : FolderEvidence.Read(group[0].Instance.GameDir, fs, ct);
+            var folder = all.All(m => m.NoInference) ? FolderEvidence.None : FolderEvidence.For(group[0].Instance, fs, ct);
             if (!merging && options.DropEmptyNeverPlayed && !folder.HasGameData && group.All(m => m.Instance.LastPlayed == null))
             {
                 into.Debug.Add($"import scan: left out {group.Count} never-played {group[0].Instance.Kind} profile(s) with no game data: "

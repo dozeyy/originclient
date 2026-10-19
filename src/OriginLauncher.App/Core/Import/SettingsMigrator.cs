@@ -102,6 +102,11 @@ public static class SettingsMigrator
         private SourceFs Fs => _c.Fs;
         private bool Target189 => _c.TargetVersion == "1.8.9";
         private bool Winner => _c.Role == SetupRole.Full;
+
+        // Every shader pack, not only the active one: asked for ("copy unused packs"), or a PvP client's setup,
+        // whose shader pick lives in the client's own closed settings, so no file here says which pack is in use and
+        // "only the active one" would leave every pack behind without a word. Copied, never selected.
+        private bool AllShaderPacks => _c.Options.CopyUnusedPacks || Sources.PvpClientSource.BuiltInModsNote(_c.Source.Kind) != null;
         private DestinationLedger Ledger => _c.Ledger;
 
         public void Run()
@@ -109,6 +114,7 @@ public static class SettingsMigrator
             LoadSourceOptions();   // every role: options.txt names the resource packs in use
             PlanResourcePacks();
             PlanShaders();
+            if (_c.Options.CopyScreenshots) PlanScreenshots(); // every role: they belong to no version's settings
             if (_c.Role == SetupRole.PacksOnly) { SettingsComeFrom(); return; }
             PlanConfig();
             if (Winner)
@@ -230,7 +236,7 @@ public static class SettingsMigrator
 
         private void PlanShaders()
         {
-            var shaderpacks = Path.Combine(_src, "shaderpacks");
+            var shaderpacks = _c.Source.ShaderPacksFolder;
 
             // Iris (or Oculus, its Forge twin) keeps the selection in iris.properties; OptiFine in optionsshaders.txt.
             foreach (var candidate in new[] { "iris.properties", "oculus.properties" })
@@ -264,7 +270,7 @@ public static class SettingsMigrator
             }
 
             var hasShaderPacks = Directory.Exists(shaderpacks);
-            if (active == null && !_c.Options.CopyUnusedPacks && optifineFile == null) return;
+            if (active == null && !AllShaderPacks && optifineFile == null) return;
 
             if (Target189)
             {
@@ -282,7 +288,7 @@ public static class SettingsMigrator
                     else Line(SummarySection.NeedsAttention, PlanItemKind.ShaderPack, active,
                         "Your active shader pack wasn't found in your old setup.");
                 }
-                if (_c.Options.CopyUnusedPacks) CopyUnusedShaderPacks(shaderpacks, active);
+                if (AllShaderPacks) CopyUnusedShaderPacks(shaderpacks, active);
                 if (optifineFile != null && Winner) // OptiFine's settings come from the winner only
                 {
                     var dest = Path.Combine(_dst, "optionsshaders.txt");
@@ -326,7 +332,7 @@ public static class SettingsMigrator
                     }
                 }
             }
-            if (_c.Options.CopyUnusedPacks) CopyUnusedShaderPacks(shaderpacks, active);
+            if (AllShaderPacks) CopyUnusedShaderPacks(shaderpacks, active);
         }
 
         // A file name with no folder part: safe to join onto a pack folder.
@@ -449,12 +455,12 @@ public static class SettingsMigrator
                 return null;
             }
             Ledger.AddPack(name, dest, srcPath, _c.SetupLabel, isDir, _c.SetupKey);
+            var packLine = Line(SummarySection.Imported, kind, finalName, reason, bytes);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = isDir ? OpKind.CopyTree : OpKind.CopyFile, Item = kind, Label = finalName,
-                Source = srcPath, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest),
+                Source = srcPath, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest), PlannedLine = packLine,
             });
-            Line(SummarySection.Imported, kind, finalName, reason, bytes);
             return finalName;
         }
 
@@ -597,11 +603,78 @@ public static class SettingsMigrator
                     "OptiFine settings only apply on 1.8.9. Origin uses Sodium + Iris on this version.");
         }
 
+        // ---------------------------------------------------------------- screenshots (on by default)
+
+        private static readonly HashSet<string> ScreenshotTypes = new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
+
+        // Each picture in screenshots/ (the game writes them flat), copied beside Origin's own. Never replaces one:
+        // a different picture with the same name lands as "<name> (imported).png". Name + size decide "already here"
+        // (a repeat import adds nothing); nothing is hashed, so a folder of thousands plans as fast as listing it.
+        // ONE summary line for all of them, not one per picture.
+        private void PlanScreenshots()
+        {
+            var srcDir = _c.Source.ScreenshotsFolder;
+            var dstDir = Path.Combine(_dst, "screenshots");
+            int already = 0;
+            long bytes = 0;
+            var copies = new List<(string File, string Dest, long Size)>();
+            foreach (var file in Fs.EnumerateFiles(srcDir, recursive: false).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                _c.Ct.ThrowIfCancellationRequested();
+                var name = Path.GetFileName(file);
+                if (!ScreenshotTypes.Contains(Path.GetExtension(name))) continue;
+                if (ImportFiles.SizeOrNull(file) is not { } size) continue; // vanished since it was listed
+                var dest = ScreenshotDest(file, name, size, dstDir);
+                if (dest == null) { already++; continue; }
+                Ledger.Add(dest, file, _c.SetupLabel, owner: _c.SetupKey);
+                copies.Add((file, dest, size));
+                bytes += size;
+            }
+            if (copies.Count == 0)
+            {
+                if (already > 0) Line(SummarySection.Imported, PlanItemKind.Screenshot, "Screenshots", "already in Origin, left as they are");
+                return;
+            }
+            // Every copy points at the one line, which apply recounts when it has to leave a picture out.
+            var line = Line(SummarySection.Imported, PlanItemKind.Screenshot, ImportSummary.CountName(PlanItemKind.Screenshot, copies.Count),
+                already > 0 ? $"{already} already in Origin, left as they are" : null, bytes);
+            foreach (var (file, dest, size) in copies)
+                Plan.Ops.Add(new PlannedOp
+                {
+                    Kind = OpKind.CopyFile, Item = PlanItemKind.Screenshot, Label = "screenshots/" + Path.GetFileName(dest),
+                    Source = file, Dest = dest, Bytes = size, TouchNow = false, ClaimKey = DestinationLedger.PathKey(dest),
+                    PlannedLine = line, CountedLine = true,
+                });
+        }
+
+        // Where a screenshot lands, or null when it is already there: the same name and size in Origin, under its own
+        // name or an earlier "(imported)" one, or already brought by another setup of this run.
+        private string? ScreenshotDest(string file, string name, long size, string dstDir)
+        {
+            var stem = Path.GetFileNameWithoutExtension(name);
+            var ext = Path.GetExtension(name);
+            for (var n = 0; n < 1000; n++)
+            {
+                var candidate = Path.Combine(dstDir, n == 0 ? name : n == 1 ? $"{stem} (imported){ext}" : $"{stem} (imported {n}){ext}");
+                if (Ledger.ClaimOf(candidate) is { } claim)
+                {
+                    if (claim.Source != null && Detection.SetupKey.SameFolder(claim.Source, file)) return null; // the same file, already coming
+                    if (claim.Source != null && ImportFiles.SizeOrNull(claim.Source) == size
+                        && string.Equals(Path.GetFileName(claim.Source), name, StringComparison.OrdinalIgnoreCase)) return null;
+                    continue;
+                }
+                if (Directory.Exists(candidate)) continue;
+                if (!File.Exists(candidate)) return candidate;
+                if (ImportFiles.SizeOrNull(candidate) == size) return null;
+            }
+            return null; // a thousand different pictures of one name: leave it out rather than loop on
+        }
+
         // ---------------------------------------------------------------- worlds (opt-in)
 
         private void PlanWorlds()
         {
-            var savesDir = Path.Combine(_src, "saves");
+            var savesDir = _c.Source.SavesFolder;
             var dstSaves = Path.Combine(_dst, "saves");
             foreach (var world in Fs.EnumerateDirectories(savesDir).OrderBy(w => w, StringComparer.OrdinalIgnoreCase))
             {
@@ -610,6 +683,12 @@ public static class SettingsMigrator
                 var name = Path.GetFileName(world);
                 // Two setups can share one game folder: a world folder is copied once per run.
                 var dest = Path.Combine(dstSaves, name);
+                // Imported before and unchanged since (byte for byte): importing again must not add "World1 (imported)".
+                if (Directory.Exists(dest) && !Ledger.IsClaimed(dest) && FileCompare.SameTree(world, dest, Fs))
+                {
+                    Line(SummarySection.Imported, PlanItemKind.World, name, "already in Origin (same world), left as it is");
+                    continue;
+                }
                 if (Directory.Exists(dest) || File.Exists(dest) || Ledger.IsClaimed(dest))
                 {
                     // Never merged into another world: a second "New World" is saved beside the first.
@@ -625,13 +704,13 @@ public static class SettingsMigrator
                 var finalName = Path.GetFileName(dest);
                 Ledger.Add(dest, world, _c.SetupLabel, isDirectory: true, _c.SetupKey);
                 var bytes = DirectorySize(world);
+                var worldLine = Line(SummarySection.Imported, PlanItemKind.World, finalName,
+                    finalName == name ? null : $"a world called \"{name}\" already exists, so this copy is saved as \"{finalName}\"", bytes);
                 Plan.Ops.Add(new PlannedOp
                 {
                     Kind = OpKind.CopyTree, Item = PlanItemKind.World, Label = finalName,
-                    Source = world, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest),
+                    Source = world, Dest = dest, Bytes = bytes, ClaimKey = DestinationLedger.PathKey(dest), PlannedLine = worldLine,
                 });
-                Line(SummarySection.Imported, PlanItemKind.World, finalName,
-                    finalName == name ? null : $"a world called \"{name}\" already exists, so this copy is saved as \"{finalName}\"", bytes);
             }
         }
 
@@ -658,12 +737,12 @@ public static class SettingsMigrator
                 }
                 Ledger.Add(dest, src, _c.SetupLabel, owner: _c.SetupKey);
                 Plan.Created++;
+                var createdLine = quiet ? null : Line(SummarySection.Imported, kind, label);
                 Plan.Ops.Add(new PlannedOp
                 {
                     Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
-                    ClaimKey = DestinationLedger.PathKey(dest),
+                    ClaimKey = DestinationLedger.PathKey(dest), PlannedLine = createdLine,
                 });
-                if (!quiet) Line(SummarySection.Imported, kind, label);
                 return true;
             }
             if (File.Exists(dest))
@@ -682,12 +761,12 @@ public static class SettingsMigrator
                 Plan.Created++;
             }
             Ledger.Add(dest, src, _c.SetupLabel, owner: _c.SetupKey);
+            var fileLine = quiet ? null : Line(SummarySection.Imported, kind, label);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.CopyFile, Item = kind, Label = label, Source = src, Dest = dest, Bytes = length, TouchNow = touchNow,
-                ClaimKey = DestinationLedger.PathKey(dest),
+                ClaimKey = DestinationLedger.PathKey(dest), PlannedLine = fileLine,
             });
-            if (!quiet) Line(SummarySection.Imported, kind, label);
             return true;
         }
 

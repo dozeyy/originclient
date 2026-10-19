@@ -27,6 +27,39 @@ public static class ImportFiles
     /// <summary>The volume is full (ERROR_DISK_FULL / ERROR_HANDLE_DISK_FULL): always a destination failure.</summary>
     public static bool IsDiskFull(Exception ex) =>
         ex is IOException && (ex.HResult & 0xFFFF) is 0x70 or 0x27;
+
+    // Deletes inside Origin's OWN folders (staging, backups, an undo) that a read-only file can't stop. A read-only
+    // file (a backed-up options.txt the player locked) made Directory.Delete throw, which left staging and old
+    // backups on disk for good and made an undo report a problem. Never used on a source.
+
+    public static void MakeWritable(string path)
+    {
+        var attributes = File.GetAttributes(path);
+        if (attributes.HasFlag(FileAttributes.ReadOnly)) File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+    }
+
+    public static void DeleteFile(string path)
+    {
+        try { File.Delete(path); }
+        catch (UnauthorizedAccessException) when (File.Exists(path) && File.GetAttributes(path).HasFlag(FileAttributes.ReadOnly))
+        {
+            MakeWritable(path);
+            File.Delete(path);
+        }
+    }
+
+    public static void DeleteTree(string dir)
+    {
+        if (!Directory.Exists(dir)) return;
+        try { Directory.Delete(dir, recursive: true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Clear read-only on what is left (links are not followed out of the folder), then once more.
+            var walk = new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true };
+            foreach (var file in Directory.EnumerateFiles(dir, "*", walk)) MakeWritable(file);
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }
 
 /// <summary>

@@ -196,6 +196,9 @@ public sealed record SkippedSetup(DetectedInstance Setup, string Reason, SkipKin
 public sealed class BulkImportPlan
 {
     public required string RunId { get; init; }
+
+    /// <summary>When planning started (<see cref="ImportTargetLocks.Now"/>): an apply refuses a plan older than any of its folders' last import.</summary>
+    public long PlannedAt { get; init; }
     public List<VersionGroup> Groups { get; } = new();
     public List<SkippedSetup> Skipped { get; } = new();
     public long BytesToCopy { get; set; }
@@ -234,7 +237,7 @@ public enum SetupResultKind
 /// <param name="Lines">What happened to this setup's items (Imported / Reused / Needs attention / Not imported).</param>
 public sealed record SetupOutcome(
     DetectedInstance Setup, SetupRole Role, SetupResultKind Kind, string? Message = null, ImportResult? Result = null,
-    IReadOnlyList<SummaryLine>? Lines = null);
+    IReadOnlyList<SummaryLine>? Lines = null, IReadOnlyList<SummaryLine>? LeftOut = null);
 
 /// <param name="SettingsFrom">The label of the setup whose settings this version got (null: none came over).</param>
 /// <param name="GameFiles">What game-file reuse found for this version.</param>

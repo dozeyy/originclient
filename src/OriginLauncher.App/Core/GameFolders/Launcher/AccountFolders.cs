@@ -86,19 +86,9 @@ public static class AccountFolders
             if (_migrationDone) return;
             try
             {
-                var key = InstanceMigration.ReadMarker(OriginPaths.AccountMigrationMarker);
-                if (key == null)
-                {
-                    if (candidateKey == null) return;
-                    key = candidateKey;
-                    Directory.CreateDirectory(OriginPaths.Instances);
-                    InstanceMigration.WriteMarker(OriginPaths.AccountMigrationMarker, key);
-                    Log($"old game folders go to account {key}");
-                }
-
-                var complete = true;
-                foreach (var version in VersionManager.OriginSupportedVersions)
-                    complete &= InstanceMigration.MigrateVersion(OriginPaths.VersionRoot(version), key, Log);
+                var (key, complete) = InstanceMigration.MigrateAll(OriginPaths.AccountMigrationMarker,
+                    VersionManager.OriginSupportedVersions.Select(OriginPaths.VersionRoot), candidateKey, Log);
+                if (key == null) return;
 
                 MoveLegacySyncStore(key);
                 _migrationDone = complete;
