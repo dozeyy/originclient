@@ -38,6 +38,9 @@ import java.util.Map;
  * transformed; the attach-bone placement stays on the GL stack. The GL state
  * each pass needs is set and restored here (as the old HeadModels did): cull
  * off, alpha test for the cutout passes, LayerSpiderEyes' state for the glow.
+ * Because every vertex is already in the attach frame on the CPU, the
+ * outer-skin-layer fit ({@link Fit}) bends it over the hat / jacket layer
+ * right before it is written (1.21.1 moved to this same CPU path for it).
  *
  * Every failure is swallowed (after one log line per item): a cosmetic never
  * breaks a frame, and a model that threw once is switched off for the session.
@@ -103,13 +106,55 @@ public final class ModelCosmetic {
 	}
 
 	/**
+	 * The outer-skin-layer fit (FORMAT.md "Outer skin layer"): when the player
+	 * shows the hat (head + face items) or jacket (back items) layer, the item
+	 * is bent outward over it instead of clipping into it. Per axis, around the
+	 * bone's skin box (centre c, half size h), u = p - c becomes u + sign(u) * g
+	 * on or outside the skin and u * (h + g) / h inside it: continuous, so
+	 * wraparound items (glasses, bands) wrap the layer and animated parts never
+	 * jump. Applied in the attach frame after the item's own animation, before
+	 * the player's position tweak. The website preview (rig.js) uses the same rule.
+	 */
+	// Java 8 has no records: a final value class with 1.21.1's record components.
+	public static final class Fit {
+		/** Head bone: head cube x -4..4, y 0..8, z -4..4; vanilla's hat layer is 0.5 px out. */
+		public static final Fit HEAD = new Fit(0f, 4f, 0f, 4f, 4f, 4f, 0.5f);
+		/** Body bone: torso x -4..4, y -12..0, z -2..2; vanilla's jacket layer is 0.25 px out. */
+		public static final Fit BODY = new Fit(0f, -6f, 0f, 4f, 6f, 2f, 0.25f);
+
+		final float cx, cy, cz, hx, hy, hz, g;
+
+		public Fit(float cx, float cy, float cz, float hx, float hy, float hz, float g) {
+			this.cx = cx;
+			this.cy = cy;
+			this.cz = cz;
+			this.hx = hx;
+			this.hy = hy;
+			this.hz = hz;
+			this.g = g;
+		}
+
+		static float axis(float p, float c, float h, float g) {
+			float u = p - c;
+			float a = Math.abs(u);
+			return c + (a >= h ? u + Math.signum(u) * g : u * (h + g) / h);
+		}
+	}
+
+	/** Draws the model without the outer-layer fit. */
+	public void render(float t, float walk01, float air01) {
+		render(t, walk01, air01, null);
+	}
+
+	/**
 	 * Draws the model.
 	 *
 	 * @param t        seconds on the animation clock (game: ticks / 20 + partial)
 	 * @param walk01   horizontal speed / sprint speed, 0..1
 	 * @param air01    0 on the ground, easing to 1 in the air
+	 * @param fit      the outer-layer fit, or null when the player hides that layer
 	 */
-	public void render(float t, float walk01, float air01) {
+	public void render(float t, float walk01, float air01, Fit fit) {
 		if (failed) {
 			return;
 		}
@@ -131,11 +176,11 @@ public final class ModelCosmetic {
 			GlStateManager.disableBlend();         // cutout, not translucent
 			GlStateManager.enableAlpha();
 			GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1f);
-			pass(ModelGeometry.LIT, vOff, invU, invV);
+			pass(ModelGeometry.LIT, fit, vOff, invU, invV);
 
 			GlStateManager.disableLighting();      // full-bright: no shading, sky+block light 15
 			OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240f, 240f);
-			pass(ModelGeometry.EMISSIVE, vOff, invU, invV);
+			pass(ModelGeometry.EMISSIVE, fit, vOff, invU, invV);
 
 			if (geo.hasGlow) {
 				// 1.8.9: LayerSpiderEyes' state is RenderType.eyes here: additive, no alpha test, no depth write.
@@ -143,7 +188,7 @@ public final class ModelCosmetic {
 				GlStateManager.disableAlpha();
 				GlStateManager.blendFunc(GL11.GL_ONE, GL11.GL_ONE);
 				GlStateManager.depthMask(false);
-				pass(ModelGeometry.GLOW, vOff, invU, invV);
+				pass(ModelGeometry.GLOW, fit, vOff, invU, invV);
 			}
 		} catch (Throwable t2) {
 			failed = true;
@@ -173,7 +218,7 @@ public final class ModelCosmetic {
 	}
 
 	/** One Tessellator batch: every bone's quads of `kind`, through the bone chain. */
-	private void pass(int kind, float vOff, float invU, float invV) {
+	private void pass(int kind, Fit fit, float vOff, float invU, float invV) {
 		boolean any = false;
 		for (int b = 0; b < geo.quads.length && !any; b++) {
 			any = geo.quads[b][kind].length > 0;
@@ -186,7 +231,7 @@ public final class ModelCosmetic {
 		wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR_NORMAL);
 		Mat pose = new Mat();
 		for (int root : geo.roots) {
-			drawBone(pose, wr, root, kind, vOff, invU, invV);
+			drawBone(pose, wr, root, kind, fit, vOff, invU, invV);
 		}
 		tess.draw();
 	}
@@ -261,7 +306,7 @@ public final class ModelCosmetic {
 		}
 	}
 
-	private void drawBone(Mat pose, WorldRenderer wr, int b, int kind, float vOff, float invU, float invV) {
+	private void drawBone(Mat pose, WorldRenderer wr, int b, int kind, Fit fit, float vOff, float invU, float invV) {
 		pose.push();
 		try {
 			float[] pv = geo.pivot[b], r = geo.rot[b];
@@ -276,9 +321,9 @@ public final class ModelCosmetic {
 				pose.rotateZ((float) Math.toRadians(rz));
 			}
 			pose.translate(-pv[0], -pv[1], -pv[2]);
-			emit(pose, wr, geo.quads[b][kind], vOff, invU, invV);
+			emit(pose, wr, geo.quads[b][kind], fit, vOff, invU, invV);
 			for (int child : geo.children[b]) {
-				drawBone(pose, wr, child, kind, vOff, invU, invV);
+				drawBone(pose, wr, child, kind, fit, vOff, invU, invV);
 			}
 		} finally {
 			pose.pop();
@@ -286,15 +331,22 @@ public final class ModelCosmetic {
 	}
 
 	// 1.8.9 WorldRenderer: elements in POSITION_TEX_COLOR_NORMAL's order, the
-	// position already through the CPU pose (the GL matrix adds the attach bone).
-	private static void emit(Mat pose, WorldRenderer wr, float[] quads, float vOff, float invU, float invV) {
+	// position already through the CPU pose and the fit (the GL matrix adds the
+	// attach bone, normals included: the fit only nudges positions, as on 1.21.1).
+	private static void emit(Mat pose, WorldRenderer wr, float[] quads, Fit fit, float vOff, float invU, float invV) {
 		for (int i = 0; i < quads.length; i += ModelGeometry.QUAD) {
 			float nx = quads[i + 20], ny = quads[i + 21], nz = quads[i + 22];
 			float tnx = pose.nx(nx, ny, nz), tny = pose.ny(nx, ny, nz), tnz = pose.nz(nx, ny, nz);
 			for (int v = 0; v < 4; v++) {
 				int k = i + v * 5;
 				float x = quads[k], y = quads[k + 1], z = quads[k + 2];
-				wr.pos(pose.x(x, y, z), pose.y(x, y, z), pose.z(x, y, z))
+				float px = pose.x(x, y, z), py = pose.y(x, y, z), pz = pose.z(x, y, z);
+				if (fit != null) {
+					px = Fit.axis(px, fit.cx, fit.hx, fit.g);
+					py = Fit.axis(py, fit.cy, fit.hy, fit.g);
+					pz = Fit.axis(pz, fit.cz, fit.hz, fit.g);
+				}
+				wr.pos(px, py, pz)
 						.tex(quads[k + 3] * invU, (quads[k + 4] + vOff) * invV)
 						.color(255, 255, 255, 255)
 						.normal(tnx, tny, tnz)

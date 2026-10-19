@@ -52,24 +52,41 @@ public final class CosmeticsService {
 	}
 
 	/**
-	 * How far each worn slot sits above (+) or below (-) its default spot, in
-	 * model px (FORMAT.md "Height tweaks"): players move items to suit their skin
-	 * (Will, 2026-10-18). Saved with what they wear, so everyone sees it.
+	 * Where each worn slot sits relative to its default spot, in model px
+	 * (FORMAT.md "Position tweaks"): players move items to suit their skin
+	 * (Will, 2026-10-18). Every slot moves up (+) / down (-); head and face
+	 * items also move sideways (+ = toward the player's left) and forward
+	 * (+ = toward the face) (Will, 2026-10-19). Saved with what they wear, so
+	 * everyone sees it.
 	 */
 	// Java 8 has no records: a final value class with the same canonical
 	// constructor, accessors and equals/hashCode the record had.
 	public static final class Adjust {
-		public static final Adjust NONE = new Adjust(0f, 0f, 0f, 0f);
-		/** One click of the up / down arrows, and the furthest either way (the service clamps the same). */
+		public static final Adjust NONE = new Adjust(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+		/** One click of an arrow, and the furthest either way on each axis (the service clamps the same). */
 		public static final float STEP = 0.5f, MAX = 4f;
 
-		private final float cape, head, face, back;
+		/** The directions a slot's item moves in. Y = up, X = the player's left, Z = toward the face. */
+		public enum Axis {
+			Y, X, Z
+		}
 
-		public Adjust(float cape, float head, float face, float back) {
+		private final float cape, head, face, back, headX, headZ, faceX, faceZ;
+
+		public Adjust(float cape, float head, float face, float back, float headX, float headZ, float faceX,
+				float faceZ) {
 			this.cape = cape;
 			this.head = head;
 			this.face = face;
 			this.back = back;
+			this.headX = headX;
+			this.headZ = headZ;
+			this.faceX = faceX;
+			this.faceZ = faceZ;
+		}
+
+		public Adjust(float cape, float head, float face, float back) {
+			this(cape, head, face, back, 0f, 0f, 0f, 0f);
 		}
 
 		public float cape() {
@@ -88,8 +105,40 @@ public final class CosmeticsService {
 			return this.back;
 		}
 
-		// 1.8.9: Java 8 has no switch expressions, statement switches
+		public float headX() {
+			return this.headX;
+		}
+
+		public float headZ() {
+			return this.headZ;
+		}
+
+		public float faceX() {
+			return this.faceX;
+		}
+
+		public float faceZ() {
+			return this.faceZ;
+		}
+
+		/** Head and face items move every way; the cape and back items only up / down. */
+		public static boolean movesFreely(Cosmetics.Slot slot) {
+			return slot == Cosmetics.Slot.HEAD || slot == Cosmetics.Slot.FACE;
+		}
+
+		/** The height tweak (+ = up). */
 		public float get(Cosmetics.Slot slot) {
+			return get(slot, Axis.Y);
+		}
+
+		// 1.8.9: Java 8 has no switch expressions, statement switches
+		public float get(Cosmetics.Slot slot, Axis axis) {
+			if (axis == Axis.X) {
+				return slot == Cosmetics.Slot.HEAD ? headX : slot == Cosmetics.Slot.FACE ? faceX : 0f;
+			}
+			if (axis == Axis.Z) {
+				return slot == Cosmetics.Slot.HEAD ? headZ : slot == Cosmetics.Slot.FACE ? faceZ : 0f;
+			}
 			switch (slot) {
 				case CAPE:
 					return cape;
@@ -104,21 +153,43 @@ public final class CosmeticsService {
 			}
 		}
 
-		/** A copy with one slot moved to `v` (rounded to a STEP, clamped to MAX). */
+		/** A copy with one slot's height moved to `v` (rounded to a STEP, clamped to MAX). */
 		public Adjust with(Cosmetics.Slot slot, float v) {
+			return with(slot, Axis.Y, v);
+		}
+
+		/** A copy with one slot moved to `v` along `axis`; an axis the slot can't move in is ignored. */
+		public Adjust with(Cosmetics.Slot slot, Axis axis, float v) {
 			float r = clean(v);
+			if (axis != Axis.Y && !movesFreely(slot)) {
+				return this;
+			}
+			boolean h = slot == Cosmetics.Slot.HEAD;
+			if (axis == Axis.X) {
+				return h ? new Adjust(cape, head, face, back, r, headZ, faceX, faceZ)
+						: new Adjust(cape, head, face, back, headX, headZ, r, faceZ);
+			}
+			if (axis == Axis.Z) {
+				return h ? new Adjust(cape, head, face, back, headX, r, faceX, faceZ)
+						: new Adjust(cape, head, face, back, headX, headZ, faceX, r);
+			}
 			switch (slot) {
 				case CAPE:
-					return new Adjust(r, head, face, back);
+					return new Adjust(r, head, face, back, headX, headZ, faceX, faceZ);
 				case HEAD:
-					return new Adjust(cape, r, face, back);
+					return new Adjust(cape, r, face, back, headX, headZ, faceX, faceZ);
 				case FACE:
-					return new Adjust(cape, head, r, back);
+					return new Adjust(cape, head, r, back, headX, headZ, faceX, faceZ);
 				case BACK:
-					return new Adjust(cape, head, face, r);
+					return new Adjust(cape, head, face, r, headX, headZ, faceX, faceZ);
 				default:
 					return this;   // THEME
 			}
+		}
+
+		/** The JSON key of one slot's axis: the slot name for Y ("head"), plus X / Z ("headX", "faceZ"). */
+		static String key(Cosmetics.Slot slot, Axis axis) {
+			return axis == Axis.Y ? slot.key : slot.key + axis.name();
 		}
 
 		static float clean(float v) {
@@ -136,15 +207,17 @@ public final class CosmeticsService {
 			if (!(obj instanceof Adjust)) {
 				return false;
 			}
-			Adjust other = (Adjust) obj;
+			Adjust o = (Adjust) obj;
 			// Float.compare = the record's equals for float components
-			return Float.compare(cape, other.cape) == 0 && Float.compare(head, other.head) == 0
-					&& Float.compare(face, other.face) == 0 && Float.compare(back, other.back) == 0;
+			return Float.compare(cape, o.cape) == 0 && Float.compare(head, o.head) == 0
+					&& Float.compare(face, o.face) == 0 && Float.compare(back, o.back) == 0
+					&& Float.compare(headX, o.headX) == 0 && Float.compare(headZ, o.headZ) == 0
+					&& Float.compare(faceX, o.faceX) == 0 && Float.compare(faceZ, o.faceZ) == 0;
 		}
 
 		@Override
 		public int hashCode() {
-			return java.util.Objects.hash(cape, head, face, back);
+			return java.util.Objects.hash(cape, head, face, back, headX, headZ, faceX, faceZ);
 		}
 	}
 
@@ -184,6 +257,11 @@ public final class CosmeticsService {
 		/** The height tweak (model px, + = up) for whatever is worn in `slot`. */
 		public float adjust(Cosmetics.Slot slot) {
 			return adjust.get(slot);
+		}
+
+		/** The position tweak (model px) along `axis` for whatever is worn in `slot`. */
+		public float adjust(Cosmetics.Slot slot, Adjust.Axis axis) {
+			return adjust.get(slot, axis);
 		}
 
 		public String cape() {
@@ -473,8 +551,22 @@ public final class CosmeticsService {
 		return status == Status.READY ? api : null;
 	}
 
+	/** DEV-ONLY (dev-shots world set, OriginDevWorld): what your own player wears, without the service. */
+	private static volatile Look devLook = null;
+
+	/** DEV-ONLY: dresses your own player in `look` (null = back to the service); ignored outside dev shots. */
+	public static void devWear(Look look) {
+		if (com.origin.client.client.OriginDevShots.enabled()) {
+			devLook = look;
+		}
+	}
+
 	/** What a player is wearing, for rendering. Render thread; never blocks. */
 	public static Look lookOf(UUID uuid) {
+		Look dev = devLook;
+		if (dev != null && uuid != null && uuid.equals(selfId())) {
+			return dev;
+		}
 		if (uuid == null || status != Status.READY) {
 			return Look.NONE;
 		}
@@ -828,13 +920,15 @@ public final class CosmeticsService {
 
 	private static final Cosmetics.Slot[] ADJUSTABLE = {Cosmetics.Slot.CAPE, Cosmetics.Slot.HEAD, Cosmetics.Slot.FACE, Cosmetics.Slot.BACK};
 
-	/** {"cape": 1.5, "head": -0.5, ...}; absent / odd values = 0 (default spot). */
+	/** {"cape": 1.5, "head": -0.5, "headX": 1, "faceZ": 0.5, ...}; absent / odd values = 0 (default spot). */
 	private static Adjust adjustFrom(JsonElement e) {
 		Adjust a = Adjust.NONE;
 		if (e instanceof JsonObject) {
 			JsonObject ao = (JsonObject) e;
 			for (Cosmetics.Slot slot : ADJUSTABLE) {
-				a = a.with(slot, (float) Cosmetics.num(ao, slot.key, 0));
+				for (Adjust.Axis axis : Adjust.Axis.values()) {
+					a = a.with(slot, axis, (float) Cosmetics.num(ao, Adjust.key(slot, axis), 0));
+				}
 			}
 		}
 		return a;
@@ -843,8 +937,10 @@ public final class CosmeticsService {
 	private static JsonObject adjustJson(Adjust a) {
 		JsonObject o = new JsonObject();
 		for (Cosmetics.Slot slot : ADJUSTABLE) {
-			if (a.get(slot) != 0f) {
-				o.addProperty(slot.key, a.get(slot));
+			for (Adjust.Axis axis : Adjust.Axis.values()) {
+				if (a.get(slot, axis) != 0f) {
+					o.addProperty(Adjust.key(slot, axis), a.get(slot, axis));
+				}
 			}
 		}
 		return o;
