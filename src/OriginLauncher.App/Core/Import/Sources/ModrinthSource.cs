@@ -1,4 +1,5 @@
 using System.IO;
+using OriginLauncher.App.Core.Import.Detection;
 
 namespace OriginLauncher.App.Core.Import.Sources;
 
@@ -18,20 +19,22 @@ public sealed class ModrinthSource : IInstanceSource
         {
             if (string.IsNullOrWhiteSpace(roots.ModrinthDir)) return;
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var members = new List<SetupMember>();
             foreach (var root in Roots(roots.ModrinthDir))
             {
                 foreach (var profile in fs.EnumerateDirectories(Path.Combine(root, "profiles")).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
                 {
                     ct.ThrowIfCancellationRequested();
                     if (!seen.Add(profile) || !FolderSource.LooksLikeGameDir(profile)) continue;
-                    var instance = new DetectedInstance
+                    members.Add(new SetupMember(new DetectedInstance
                     {
                         Kind = SourceKind.Modrinth, Name = Path.GetFileName(profile), GameDir = profile,
                         Confidence = Confidence.Inferred,
-                    };
-                    into.Instances.Add(InstanceInference.Complete(instance, fs, ct));
+                    }));
                 }
             }
+            // No launcher record: the log and the mods decide, and only both agreeing makes it certain (EvidenceJudge V5).
+            SetupResolver.AddSetups(into, members, fs, ct);
         }, ct);
 
     // The app's folder is %APPDATA%\ModrinthApp, or the older com.modrinth.theseus beside it (migrated automatically): look at both.

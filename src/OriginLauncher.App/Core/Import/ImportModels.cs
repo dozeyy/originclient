@@ -62,6 +62,66 @@ public sealed record DetectedInstance
         SourceKind.CurseForge => "CurseForge",
         _ => "Folder",
     };
+
+    // ---- detection accuracy (Core/Import/Detection): what the version answer rests on ----
+
+    /// <summary>
+    /// Every signal the scan weighed for this setup's version and loader: the launcher's own record (one per
+    /// profile that uses this folder), the game's last log, the mods' depends.minecraft. McVersion / Loader
+    /// above are the best answer from these (EvidenceJudge documents the rules).
+    /// </summary>
+    public IReadOnlyList<VersionEvidence> Evidence { get; init; } = Array.Empty<VersionEvidence>();
+
+    /// <summary>
+    /// True when the Minecraft version AND the loader are backed by agreeing evidence. False means "not sure":
+    /// the UI / bulk import must ask instead of importing silently. <see cref="UncertainReason"/> says why.
+    /// </summary>
+    public bool VersionCertain { get; init; } = true;
+
+    /// <summary>The loader part of <see cref="VersionCertain"/> on its own.</summary>
+    public bool LoaderCertain { get; init; } = true;
+
+    /// <summary>A short plain sentence when not certain ("The launcher says 1.20.1 but the game last ran 1.20.4."); null when certain.</summary>
+    public string? UncertainReason { get; init; }
+
+    /// <summary>
+    /// Other launcher profile names that point at this same game folder (one folder is one setup, never two).
+    /// <see cref="Name"/> is the display name; these are the rest.
+    /// </summary>
+    public IReadOnlyList<string> Aliases { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// A stable id for this setup: derived only from (Kind, the game folder's full path), so a selection or an
+    /// unticked setup survives a rescan. Same folder + same kind = same id; nothing else changes it.
+    /// </summary>
+    public string SetupId => Detection.SetupKey.StableId(Kind, GameDir);
+}
+
+/// <summary>Where a piece of version evidence came from.</summary>
+public enum EvidenceSource
+{
+    LauncherMetadata, // the launcher's own record: launcher_profiles.json + version json, mmc-pack.json, minecraftinstance.json
+    LatestLog,        // logs/latest.log: what the game last actually ran
+    ModDepends,       // the mods' depends.minecraft consensus and their loader types
+}
+
+/// <summary>
+/// One signal about a setup's version. McVersion / Loader are null when the signal says nothing about them
+/// (LoaderKind.None means "vanilla", which IS a statement). ObservedUtc: the profile's lastUsed, the metadata
+/// file's last change, or the log's mtime; null when unknown.
+/// </summary>
+public sealed record VersionEvidence(
+    EvidenceSource Source, string? McVersion, LoaderKind? Loader, string? LoaderVersion, DateTimeOffset? ObservedUtc)
+{
+    /// <summary>
+    /// The launcher names a concrete version (Prism component, CurseForge gameVersion, an official profile's
+    /// lastVersionId). False for an official "latest-release/latest-snapshot" profile: that follows whatever is
+    /// newest today, not what the folder last ran.
+    /// </summary>
+    public bool Explicit { get; init; } = true;
+
+    /// <summary>Which profile / file said it (a profile name, "latest.log", "mods"). Never a path or a secret.</summary>
+    public string? From { get; init; }
 }
 
 /// <summary>What a scan found, plus plain notes about things it could not read.</summary>
@@ -73,6 +133,9 @@ public sealed class ScanResult
     public List<string> Notes { get; } = new();
 
     public TimeSpan Elapsed { get; set; }
+
+    /// <summary>Debug-only lines (e.g. an empty, never-played profile that was left out). Not shown to the player; names only, never a path.</summary>
+    public List<string> Debug { get; } = new();
 }
 
 // ---- the plan ----------------------------------------------------------------
