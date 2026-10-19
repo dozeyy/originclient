@@ -17,6 +17,10 @@
 # `video` (or [video] in the commit message) also films the run as loading.mp4.
 # Software GL limits (Xvfb + llvmpipe, Sodium's GL 4.6 spoofed) are the same
 # as boot-smoke.yml -- see the notes there.
+# A job FAILS when it captured fewer PNGs than its set planned (tools/ci/check_shots.py).
+# No Video Settings (Sodium) shot: the mod rail was removed on Will's call
+# (2026-10-12, MEMORY.md), and only 1.21.1 has Sodium on the CI dev classpath --
+# every other module loads it from a gitignored libs/ jar that CI doesn't have.
 name: dev-shots
 
 on:
@@ -133,6 +137,11 @@ jobs:
           if [ "$VIDEO" = "true" ]; then sudo apt-get install -y ffmpeg x11-utils; fi
         env:
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
+
+      # Maven 429 / Loom :downloadAssets timeouts used to fail (or, with 0 shots,
+      # falsely pass) jobs at random: fetch everything first, retried with backoff.
+      - name: Download dependencies + assets (retried on Maven 429 / timeouts)
+        run: bash tools/ci/gradle_prefetch.sh "src/mods/versions/${{ matrix.module }}"
 
       - name: Boot ${{ matrix.module }} and capture the Origin screens
         working-directory: src/mods/versions/${{ matrix.module }}
@@ -253,6 +262,14 @@ jobs:
           name: shots-${{ matrix.module }}
           path: ${{ runner.temp }}/shots/screenshots/
           if-no-files-found: warn
+
+      # The gate: the job FAILS unless the harness printed "[dev-shots] done" and
+      # every shot it planned is on disk (0 PNGs after a Maven 429 once went green).
+      # Runs after the upload so a failed run's partial shots + run.log are kept.
+      - name: Every planned shot captured
+        run: |
+          python3 tools/ci/check_shots.py "${{ runner.temp }}/shots/screenshots" \
+            "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.module }}"
 
   publish:
     needs: shots

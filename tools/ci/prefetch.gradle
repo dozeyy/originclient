@@ -1,0 +1,16 @@
+// CI-only Gradle init script (tools/ci/gradle_prefetch.sh): adds an `originPrefetch`
+// task that resolves every resolvable *Classpath configuration of the module -- the
+// compile classpaths and the runtime classpath runClient launches with. Run together
+// with Loom's own `downloadAssets`, it pulls everything a boot needs from Maven /
+// Mojang up front, inside a bounded retry, so a Maven 429 lands here (retried) instead
+// of killing runClient mid-job. Applied with -I only; never part of a module's build.
+rootProject { p ->
+    p.tasks.register('originPrefetch') { t ->
+        def cfgs = p.configurations
+        t.doLast {
+            cfgs.findAll { it.canBeResolved && it.name.toLowerCase().endsWith('classpath') }.each { c ->
+                logger.lifecycle("originPrefetch: ${c.name} -> ${c.resolve().size()} files")
+            }
+        }
+    }
+}

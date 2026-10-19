@@ -1,8 +1,9 @@
-# Boot-smoke: prove each version doesn't just COMPILE but actually BOOTS with
-# zero mixin-apply failures. build-check.yml compiles every module; compiling
-# only proves mixin TARGETS exist -- @Inject descriptor / @Shadow mismatches
-# surface only when a mixin is APPLIED at class load, i.e. at boot. This runs the
-# real client headlessly and greps Minecraft's own log via tools/boot-smoke/smoke.py.
+# Boot-smoke: prove each version doesn't just COMPILE but actually BOOTS to the
+# title screen with zero mixin-apply failures. build-check.yml compiles every
+# module; compiling only proves mixin TARGETS exist -- @Inject descriptor /
+# @Shadow mismatches surface only when a mixin is APPLIED at class load, i.e. at
+# boot. This runs the real client headlessly and reads Minecraft's own log via
+# tools/boot-smoke/smoke.py.
 #
 # HONEST LIMITATIONS (read before making this a required check):
 #  - Headless GL: runners have no GPU, so this uses Xvfb + Mesa's llvmpipe
@@ -12,11 +13,16 @@
 #    limit, not an Origin bug. Tune per version before trusting a red result.
 #  - Coverage is BOOT + MAIN MENU. Mixins that only load on world join (JEI's
 #    runtime handlers, the hitbox entity mixin) are NOT exercised here without a
-#    seeded world -- keep verifying those with a local runClient (they DO run on
-#    Will's machine; see MEMORY.md -> runclient-in-claude-env).
-#  - Java 8/16 modules (1.16.5, 1.17.1) need their own game-runtime JDK and are
-#    intentionally NOT in the matrix yet. (1.21.5, 1.8.9, 1.12.2 were pulled
-#    from the lineup 2026-08-06.)
+#    seeded world -- dev-shots.yml's `set: world` covers those.
+#  - READY = the title screen: every live module prints a dev-only
+#    "[origin-smoke] title screen reached" (OriginClientMod, env ORIGIN_SMOKE) the
+#    first tick the title is up with no loading overlay. It used to be "Backend
+#    library" (GL up), which a boot wedged on the loading screen also passed.
+#  - The matrix IS src/mods/live-modules.json: every live module, 1.16.5, 1.17.1
+#    and 1.8.9 (Forge; its run task pins a foojay-provisioned JDK 8 itself) included.
+#  - Maven 429 / asset timeouts: tools/ci/gradle_prefetch.sh downloads everything
+#    first with a bounded retry, and smoke.py retries a run that dies on a download
+#    before the game starts. A flake is never reported as a pass.
 #
 # Starts as manual (workflow_dispatch) so a flaky software-GL result can't block
 # merges. Promote to `on: pull_request` once it's proven stable per version.
@@ -25,41 +31,50 @@ name: boot-smoke
 on:
   workflow_dispatch:
     inputs:
+      modules:
+        description: "Comma-separated modules, or 'all' (= every module in src/mods/live-modules.json)"
+        default: "all"
       timeout:
-        description: "Per-version hard timeout (seconds)"
-        default: "360"
+        description: "Per-attempt hard timeout (seconds)"
+        default: "600"
 
 concurrency:
-  group: boot-smoke-${{ github.ref }}
+  group: boot-smoke-${{ github.ref }}-${{ github.event.inputs.modules }}
   cancel-in-progress: true
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.pick.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: pick
+        env:
+          INPUT: ${{ github.event.inputs.modules }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os
+          entries = json.load(open("src/mods/live-modules.json"))["modules"]
+          raw = (os.environ.get("INPUT") or "all").strip()
+          want = None if raw == "all" else {x.strip() for x in raw.split(",")}
+          # Gradle itself needs JVM 21 (Loom 1.17) for every 1.x module; each still
+          # emits its own bytecode level via options.release (1.8.9's runClient
+          # launches on its pinned JDK 8). 26.x needs 25 ("java" in live-modules.json).
+          picked = [{"version": m["module"], "java": m.get("java", "21")}
+                    for m in entries if want is None or m["module"] in want]
+          print("modules=" + json.dumps(picked))
+          EOF
+
   smoke:
+    needs: plan
     name: Boot ${{ matrix.version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { version: "26.3", java: "25" }
-          - { version: "26.2", java: "25" }
-          - { version: "26.1", java: "25" }
-          - { version: "1.21.1", java: "21" }
-          - { version: "1.21", java: "21" }
-          - { version: "1.21.4", java: "21" }
-          - { version: "1.21.6", java: "21" }
-          - { version: "1.21.8", java: "21" }
-          - { version: "1.21.10", java: "21" }
-          - { version: "1.21.11", java: "21" }
-          # Gradle itself needs JVM 21 (Loom 1.17); these modules still emit Java 17
-          # bytecode via options.release and boot fine on 21 (same as dev-shots).
-          - { version: "1.20", java: "21" }
-          - { version: "1.20.2", java: "21" }
-          - { version: "1.20.4", java: "21" }
-          - { version: "1.18.2", java: "21" }
-          - { version: "1.19.2", java: "21" }
-          - { version: "1.19.3", java: "21" }
-          - { version: "1.19.4", java: "21" }
+        include: ${{ fromJson(needs.plan.outputs.modules) }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -73,7 +88,13 @@ jobs:
       - name: Headless GL deps (Xvfb + Mesa software rasterizer)
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0
+          # x11-xserver-utils + libXxf86vm/libXrandr: LWJGL 2 (1.8.9) queries display
+          # modes through them at Display.create() (same list as dev-shots.yml).
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0 \
+            x11-xserver-utils libxxf86vm1 libxrandr2 libxcursor1 libxtst6
+
+      - name: Download dependencies + assets (retried on Maven 429 / timeouts)
+        run: bash tools/ci/gradle_prefetch.sh "src/mods/versions/${{ matrix.version }}"
 
       - name: Boot-smoke ${{ matrix.version }}
         env:
@@ -86,5 +107,5 @@ jobs:
           SDL_VIDEO_FORCE_EGL: "1"
         run: |
           xvfb-run -a -s "-screen 0 1280x720x24" \
-            python tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
-              --timeout "${{ github.event.inputs.timeout || 360 }}"
+            python3 tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
+              --timeout "${{ github.event.inputs.timeout || 600 }}"

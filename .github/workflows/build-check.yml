@@ -56,6 +56,11 @@ jobs:
       - name: Check launcher/installer consistency
         run: python3 tools/release/check_consistency.py
 
+      # The CI gates can fail: dev-shots' PNG-count gate, boot-smoke's title-screen
+      # ready marker (present in every live module) and its retry rules.
+      - name: Test CI gates
+        run: python3 tools/ci/test_ci_gates.py
+
       # The installer's engine: release feed, download (resume, verify,
       # failures — against a fake server), launcher zip, staging, folder
       # rules. Also compiles it for .NET Framework 4.7.2 (the API check).
