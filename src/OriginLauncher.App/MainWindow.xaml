@@ -110,8 +110,10 @@
             </StackPanel>
 
             <!-- Compact inventory-style navigation rail: 44px targets, a
-                 block edge, and one emerald selected-state marker. -->
-            <Border Width="56" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0"
+                 block edge, and one emerald selected-state marker. It sizes from
+                 its targets (44 + 6 + 6 padding + 1 + 1 border = 58): a fixed 56
+                 left 42 px for the 44 px tiles and cut their right edge. -->
+            <Border HorizontalAlignment="Left" VerticalAlignment="Center" Margin="16,0,0,0"
                     Background="{StaticResource Brush.PanelGlass}"
                     BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
                     CornerRadius="{StaticResource Radius.Row}" Padding="6,8">

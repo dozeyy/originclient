@@ -340,54 +340,153 @@ public static class RenderShots
     }
 
     /// <summary>
-    /// Finds every visible icon (any Shape: Path, Ellipse, Rectangle) and every piece of text that its
-    /// parent gave LESS room than it needs, so WPF cut it off at the edge of its slot (the layout clip).
-    /// A picture can hide this (a cut "..." still looks like dots); the numbers can't. One line per hit
-    /// goes to clip-errors.txt, which fails the launcher-shots workflow; clip-checks.txt counts what was checked.
+    /// Finds everything the picture loses at an edge it shouldn't, in numbers (a cut "..." still looks
+    /// like dots in a picture; the numbers can't hide it):
+    /// <list type="bullet">
+    /// <item>CUT: an element its parent gave LESS room than it needs (WPF arranges it at full size and clips it
+    /// to the slot: its layout clip is smaller than its own size), when that clip loses something visible inside
+    /// it: an icon (any Shape), the letters of a text, an image, or a filled or outlined box (a button's tile,
+    /// a toggle's knob). Empty space past a MinWidth is not a loss. A clip the XAML asks for (ClipToBounds,
+    /// a scroll viewport) is not a loss either: it is never smaller than the element it clips. Nor is a picture
+    /// set to cover its box (Stretch UniformToFill), which crops by design.</item>
+    /// <item>TRIMMED: a one-line text drawn with an ellipsis because it doesn't fit. Long names and status/server
+    /// lines may trim (the tooltip has the rest): those are warnings in trim-checks.txt. A button's own label and a
+    /// header title (Text.H1 / Text.H2) must never trim: those count as cut.</item>
+    /// </list>
+    /// Each cut goes to clip-errors.txt, which fails the launcher-shots workflow; clip-checks.txt counts what was checked.
     /// </summary>
     internal static void ClipCheck(FrameworkElement root, string dir, string name)
     {
-        var checkedCount = 0;
+        var inkCount = 0;
         var hits = new List<string>();
+        var trims = new List<string>();
+        var clips = new List<(Rect Rect, FrameworkElement By)>(); // the too-small slots above the current element, in root space
+        var reported = new HashSet<FrameworkElement>();
+        var h1 = Application.Current.TryFindResource("Text.H1");
+        var h2 = Application.Current.TryFindResource("Text.H2");
+
         void Walk(DependencyObject d)
         {
             for (var i = 0; i < VisualTreeHelper.GetChildrenCount(d); i++)
             {
                 var child = VisualTreeHelper.GetChild(d, i);
                 if (child is UIElement { IsVisible: false }) continue;
-                if (child is FrameworkElement fe && fe is System.Windows.Shapes.Shape or TextBlock)
+                var pushed = false;
+                if (child is FrameworkElement fe)
                 {
-                    checkedCount++;
-                    if (System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(fe) is { } clip)
+                    var toRoot = fe.TransformToAncestor(root);
+                    if (!CoverFill(fe)
+                        && System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(fe) is { } clip
+                        && (clip.Bounds.Width < fe.RenderSize.Width - 0.5 || clip.Bounds.Height < fe.RenderSize.Height - 0.5))
                     {
-                        var shown = clip.Bounds;
-                        var need = Needs(fe);
-                        if (shown.Width < need.Width - 0.5 || shown.Height < need.Height - 0.5)
-                            hits.Add($"{name}: {Describe(fe)} needs {need.Width:0.#}x{need.Height:0.#} but shows {shown.Width:0.#}x{shown.Height:0.#}");
+                        clips.Add((toRoot.TransformBounds(clip.Bounds), fe));
+                        pushed = true;
+                    }
+                    if (Ink(fe) is { } ink)
+                    {
+                        inkCount++;
+                        var inkInRoot = toRoot.TransformBounds(ink);
+                        foreach (var (rect, by) in clips)
+                        {
+                            if (Inside(inkInRoot, rect) || !reported.Add(by)) continue;
+                            hits.Add($"{name}: CUT {Describe(by)} needs {by.RenderSize.Width:0.#}x{by.RenderSize.Height:0.#} "
+                                + $"but its slot is {rect.Width:0.#}x{rect.Height:0.#}; it cuts {Describe(fe)}");
+                        }
+                    }
+                    if (fe is TextBlock tb && Trimmed(tb) is { } fullWidth)
+                    {
+                        var label = Ancestor<System.Windows.Controls.Primitives.ButtonBase>(tb) is { Content: string c } && c == tb.Text;
+                        var title = tb.Name == "HeaderTitle" || ReferenceEquals(tb.Style, h1) || ReferenceEquals(tb.Style, h2);
+                        var what = $"'{tb.Text}' needs {fullWidth:0.#} px, has {tb.ActualWidth:0.#} ({Describe(tb)})";
+                        if (label || title) hits.Add($"{name}: TRIMMED {(label ? "button label" : "header title")} {what}");
+                        else trims.Add($"WARN {name}: {what}");
                     }
                 }
                 Walk(child);
+                if (pushed) clips.RemoveAt(clips.Count - 1);
             }
         }
         Walk(root);
-        File.AppendAllText(Path.Combine(dir, "clip-checks.txt"), $"{name}: {checkedCount} icons and text checked, {hits.Count} cut off{Environment.NewLine}");
+        File.AppendAllText(Path.Combine(dir, "clip-checks.txt"),
+            $"{name}: {inkCount} visible pieces checked, {hits.Count} cut off, {trims.Count} allowed trims{Environment.NewLine}");
         if (hits.Count > 0) File.AppendAllLines(Path.Combine(dir, "clip-errors.txt"), hits);
+        if (trims.Count > 0) File.AppendAllLines(Path.Combine(dir, "trim-checks.txt"), trims);
     }
 
-    // What must stay visible. An icon: all of it (Stretch draws the glyph to its full box). Text: its letters,
-    // not its box: a TextBlock with a MinWidth wider than its slot loses only empty space ("1.21.11" in the
-    // 230 px version dropdown has MinWidth 200), so it is measured by its text, one line, plus padding.
-    private static Size Needs(FrameworkElement fe)
+    // A picture asked to cover its box and crop the rest (Stretch UniformToFill: the home banner's preview art)
+    // is bigger than its slot on purpose.
+    private static bool CoverFill(FrameworkElement fe) => fe switch
     {
-        if (fe is not TextBlock { Inlines.Count: <= 1 } tb || string.IsNullOrEmpty(tb.Text)) return fe.RenderSize;
-        var text = new FormattedText(tb.Text, System.Globalization.CultureInfo.CurrentUICulture, tb.FlowDirection,
-            new Typeface(tb.FontFamily, tb.FontStyle, tb.FontWeight, tb.FontStretch), tb.FontSize, Brushes.Black,
-            VisualTreeHelper.GetDpi(tb).PixelsPerDip);
-        var lineHeight = double.IsNaN(tb.LineHeight) ? text.Height : Math.Max(text.Height, tb.LineHeight);
-        return new Size(
-            Math.Min(fe.RenderSize.Width, text.WidthIncludingTrailingWhitespace + tb.Padding.Left + tb.Padding.Right),
-            Math.Min(fe.RenderSize.Height, lineHeight + tb.Padding.Top + tb.Padding.Bottom));
+        Image i => i.Stretch == Stretch.UniformToFill,
+        System.Windows.Shapes.Shape s => s.Stretch == Stretch.UniformToFill,
+        Viewbox v => v.Stretch == Stretch.UniformToFill,
+        _ => false,
+    };
+
+    private static bool Inside(Rect ink, Rect slot) =>
+        ink.Left >= slot.Left - 0.5 && ink.Top >= slot.Top - 0.5 && ink.Right <= slot.Right + 0.5 && ink.Bottom <= slot.Bottom + 0.5;
+
+    private static T? Ancestor<T>(DependencyObject start) where T : DependencyObject
+    {
+        for (var d = VisualTreeHelper.GetParent(start); d != null; d = VisualTreeHelper.GetParent(d))
+            if (d is T t) return t;
+        return null;
     }
+
+    // One line of a TextBlock's text, shaped the way that TextBlock draws it (its own TextFormattingMode:
+    // Display in this window, which snaps glyphs to whole pixels and measures differently from Ideal).
+    private static FormattedText ShapeText(TextBlock tb) =>
+        new(tb.Text, System.Globalization.CultureInfo.CurrentUICulture, tb.FlowDirection,
+            new Typeface(tb.FontFamily, tb.FontStyle, tb.FontWeight, tb.FontStretch), tb.FontSize, Brushes.Black,
+            null, TextOptions.GetTextFormattingMode(tb), VisualTreeHelper.GetDpi(tb).PixelsPerDip);
+
+    private static bool OneLine(TextBlock tb) =>
+        tb.TextWrapping == TextWrapping.NoWrap && tb.Inlines.Count <= 1 && !string.IsNullOrEmpty(tb.Text);
+
+    // The full width of a trimmed one-line text, or null when it isn't trimmed.
+    private static double? Trimmed(TextBlock tb)
+    {
+        if (tb.TextTrimming == TextTrimming.None || !OneLine(tb)) return null;
+        var full = ShapeText(tb).WidthIncludingTrailingWhitespace;
+        return full > tb.ActualWidth - tb.Padding.Left - tb.Padding.Right + 0.5 ? full : null;
+    }
+
+    // What of an element is visible, in its own space, or null when it draws nothing of its own. Text: its
+    // letters, not its box (a TextBlock with a MinWidth wider than its slot only loses empty space: "1.21.11"
+    // in the 230 px version dropdown has MinWidth 200). A box: only when it is filled or outlined.
+    private static Rect? Ink(FrameworkElement fe)
+    {
+        var all = new Rect(fe.RenderSize);
+        switch (fe)
+        {
+            case System.Windows.Shapes.Shape or Image:
+                return all;
+            case TextBlock tb when string.IsNullOrEmpty(tb.Text):
+                return null;
+            case TextBlock tb when OneLine(tb):
+                var text = ShapeText(tb);
+                var lineHeight = double.IsNaN(tb.LineHeight) ? text.Height : Math.Max(text.Height, tb.LineHeight);
+                var w = Math.Min(all.Width, text.WidthIncludingTrailingWhitespace + tb.Padding.Left + tb.Padding.Right);
+                var h = Math.Min(all.Height, lineHeight + tb.Padding.Top + tb.Padding.Bottom);
+                var x = tb.TextAlignment switch { TextAlignment.Right => all.Width - w, TextAlignment.Center => (all.Width - w) / 2, _ => 0 };
+                return new Rect(x, 0, w, h);
+            case TextBlock:
+                return all;
+            case Border b when Paints(b.Background) || (Paints(b.BorderBrush) && b.BorderThickness != default):
+                return all;
+            case Panel p when Paints(p.Background):
+                return all;
+            default:
+                return null;
+        }
+    }
+
+    private static bool Paints(Brush? brush) => brush switch
+    {
+        null => false,
+        SolidColorBrush solid => solid.Color.A > 0 && solid.Opacity > 0,
+        _ => brush.Opacity > 0,
+    };
 
     // "Path in Button 'Close friends' (Social.Icon)": enough to find it in the XAML.
     private static string Describe(FrameworkElement fe)

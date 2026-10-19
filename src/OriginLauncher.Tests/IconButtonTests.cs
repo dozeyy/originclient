@@ -9,7 +9,7 @@ namespace OriginLauncher.Tests;
 /// a fixed 28 px with 7 px padding (a 14 px slot) around 18 px glyphs, so WPF cut every glyph at the
 /// slot's edge: "..." showed two dots, the X and the add-friend icon lost their right side (2026-10-18).
 /// With MinWidth/MinHeight a bigger glyph makes the button bigger instead, so that whole class of bug
-/// can't come back. Reads the launcher's XAML as plain XML (this test project runs without WPF); the
+/// can't come back. Reads the launcher's and the installer's XAML as plain XML (this test project runs without WPF); the
 /// render-time check that measures what is actually drawn is RenderShots.ClipCheck in launcher-shots.
 /// </summary>
 public class IconButtonTests
@@ -18,14 +18,22 @@ public class IconButtonTests
     private static readonly XNamespace X = "http://schemas.microsoft.com/winfx/2006/xaml";
     private static readonly string[] ButtonTags = ["Button", "ToggleButton", "RepeatButton"];
 
+    // The launcher and the installer (OriginSetup links the launcher's Buttons/Icons theme).
     private static List<(string File, XDocument Doc)> Xaml()
     {
-        var app = Path.Combine(TestRepo.Root, "src", "OriginLauncher.App");
-        return Directory.EnumerateFiles(app, "*.xaml", SearchOption.AllDirectories)
+        var src = Path.Combine(TestRepo.Root, "src");
+        return new[] { "OriginLauncher.App", "OriginSetup" }
+            .SelectMany(p => Directory.EnumerateFiles(Path.Combine(src, p), "*.xaml", SearchOption.AllDirectories))
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
                         && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
-            .Select(f => (Path.GetRelativePath(app, f), XDocument.Load(f, LoadOptions.SetLineInfo)))
+            .Select(f => (Path.GetRelativePath(src, f), XDocument.Load(f, LoadOptions.SetLineInfo)))
             .ToList();
+    }
+
+    [Fact]
+    public void TheInstallerIsScannedToo()
+    {
+        Assert.Contains(IconButtons(Xaml()), x => x.File.StartsWith("OriginSetup", StringComparison.Ordinal));
     }
 
     // A button whose only content is a Path (an icon).
