@@ -37,26 +37,65 @@ internal static class ToolTipDefaults
         ToolTipService.BetweenShowDelayProperty.OverrideMetadata(typeof(DependencyObject), new FrameworkPropertyMetadata(BetweenShowMs));
         ToolTipService.ShowDurationProperty.OverrideMetadata(typeof(DependencyObject), new FrameworkPropertyMetadata(ShowDurationMs));
         ToolTipService.PlacementProperty.OverrideMetadata(typeof(DependencyObject), new FrameworkPropertyMetadata(PlacementMode.Bottom));
-        EventManager.RegisterClassHandler(typeof(ToolTip), ToolTip.OpenedEvent, new RoutedEventHandler(OnOpened));
+        EventManager.RegisterClassHandler(typeof(FrameworkElement), ToolTipService.ToolTipOpeningEvent, new ToolTipEventHandler(OnToolTipOpening));
     }
 
-    private static void OnOpened(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Just BEFORE the label opens: a plain string tip becomes a ToolTip that asks for its position through a
+    /// placement callback, so the popup is put in the right place the first time it appears (nothing is moved
+    /// after it shows). Only the two placements this app defines are taken over: Bottom (the default) and
+    /// Right. A control that asked for anything else (Top, Left, Mouse, Custom...), or whose ToolTip is already
+    /// a ToolTip object, keeps exactly what it asked for. SetCurrentValue keeps a bound ToolTip ("{Binding
+    /// JoinTip}") bound: the binding's next value is a string again and is wrapped on its next open.
+    /// </summary>
+    private static void OnToolTipOpening(object sender, ToolTipEventArgs e)
     {
-        if (sender is not ToolTip tip) return;
-        var owner = tip.PlacementTarget as FrameworkElement ?? tip.Parent as FrameworkElement;
-        if (owner == null) return;
-        var wanted = ToolTipService.GetPlacement(owner);
-        if (wanted == PlacementMode.Mouse) return; // asked for explicitly: leave it where WPF puts it
-        // Inside a popup (a menu, a drop-down) there is no window to stay in; the screen edge is handled by WPF.
-        if (Window.GetWindow(owner) is not { Content: FrameworkElement root }) return;
+        try
+        {
+            if (sender is not FrameworkElement owner || !ReferenceEquals(e.OriginalSource, owner)) return;
+            if (owner.ToolTip is not string { Length: > 0 } text) return;
+            var wanted = ToolTipService.GetPlacement(owner);
+            if (wanted is not (PlacementMode.Bottom or PlacementMode.Right)) return;
+            owner.SetCurrentValue(FrameworkElement.ToolTipProperty, new ToolTip
+            {
+                Content = text,
+                PlacementTarget = owner,
+                Placement = PlacementMode.Custom,
+                CustomPopupPlacementCallback = (popup, target, _) => [PlaceNear(owner, popup, target, wanted)],
+            });
+        }
+        catch (Exception ex)
+        {
+            // A label is never worth an exception out of a hover: leave the plain string tip as it was.
+            System.Diagnostics.Debug.WriteLine("ToolTipDefaults.OnToolTipOpening: " + ex.Message);
+        }
+    }
 
-        var box = owner.TransformToAncestor(root).TransformBounds(new Rect(owner.RenderSize));
-        tip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var size = tip.DesiredSize;
-        var (placement, x, y) = Place(box, size, new Size(root.ActualWidth, root.ActualHeight), wanted);
-        tip.Placement = placement;
-        tip.HorizontalOffset = x;
-        tip.VerticalOffset = y;
+    /// <summary>The popup's top-left, relative to the control's top-left (what a custom placement returns).</summary>
+    private static CustomPopupPlacement PlaceNear(FrameworkElement owner, Size popup, Size target, PlacementMode wanted)
+    {
+        try
+        {
+            // Visual descendants of the window's content only: an adorner or a detached element has no box in it.
+            if (Window.GetWindow(owner) is { Content: FrameworkElement root } && owner.IsDescendantOf(root))
+            {
+                var box = owner.TransformToAncestor(root).TransformBounds(new Rect(owner.RenderSize));
+                var (mode, x, y) = Place(box, popup, new Size(root.ActualWidth, root.ActualHeight), wanted);
+                var point = mode switch
+                {
+                    PlacementMode.Right => new Point(target.Width + x, y),
+                    PlacementMode.Top => new Point(x, -popup.Height + y),
+                    _ => new Point(x, target.Height + y),
+                };
+                return new CustomPopupPlacement(point, PopupPrimaryAxis.None);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("ToolTipDefaults.PlaceNear: " + ex.Message);
+        }
+        // No window to stay in (a menu, a drop-down) or something went wrong: centred below, WPF keeps it on screen.
+        return new CustomPopupPlacement(new Point((target.Width - popup.Width) / 2, target.Height + Gap), PopupPrimaryAxis.None);
     }
 
     /// <summary>

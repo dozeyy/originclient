@@ -38,7 +38,7 @@ public class ToolTipTests
         var doc = XDocument.Load(path);
         Assert.Contains(doc.Descendants(Wpf + "Style"),
             s => (string?)s.Attribute("TargetType") == "ToolTip" && s.Attribute(XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml") + "Key") == null);
-        Assert.DoesNotMatch(new Regex("#[0-9A-Fa-f]{3,8}\b"), File.ReadAllText(path)); // colors come from Colors.xaml
+        Assert.DoesNotMatch(new Regex(@"#[0-9A-Fa-f]{3,8}\b"), File.ReadAllText(path)); // colors come from Colors.xaml
         Assert.Contains("Theme/ToolTips.xaml", File.ReadAllText(Path.Combine(AppDir, "App.xaml")));
     }
 
