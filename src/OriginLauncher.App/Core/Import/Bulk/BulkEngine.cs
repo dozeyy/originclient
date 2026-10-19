@@ -119,19 +119,32 @@ public sealed partial class ImportEngine
             }
 
             var members = bucket.ToList();
-            var (winner, pick, needsChoice) = PickWinner(request, version, members);
-            var order = OrderGroup(members, winner);
-            if (previous != null && Reusable(previous, request, version, order, winner) is { } same)
+            while (members.Count > 0)
             {
-                plan.Groups.Add(same); // unchanged: its plans stand as they are
-                foreach (var planned in same.Setups)
-                    progress?.Report(new BulkPlanProgress(++counter.Done, counter.Total, planned.Setup.BulkLabel(), Planned: planned));
-                continue;
-            }
+                var (winner, pick, needsChoice) = PickWinner(request, version, members);
+                var order = OrderGroup(members, winner);
+                if (previous != null && Reusable(previous, request, version, order, winner) is { } same)
+                {
+                    // Unchanged: its plans stand as they are. Only the choice flag follows the request (the player
+                    // confirming the preselected winner clears it).
+                    same.NeedsChoice = needsChoice;
+                    plan.Groups.Add(same);
+                    foreach (var planned in same.Setups)
+                        progress?.Report(new BulkPlanProgress(++counter.Done, counter.Total, planned.Setup.BulkLabel(), Planned: planned));
+                    break;
+                }
 
-            var group = await PlanGroupAsync(request, plan.RunId, version, targetDir, order, winner, pick, needsChoice, metadata,
-                counter, Skip, progress, ct).ConfigureAwait(false);
-            if (group.Setups.Count > 0) plan.Groups.Add(group);
+                var (group, failedWinner) = await PlanGroupAsync(request, plan.RunId, version, targetDir, order, winner, pick, needsChoice,
+                    metadata, counter, Skip, progress, ct).ConfigureAwait(false);
+                if (failedWinner != null)
+                {
+                    // The winner couldn't be planned (it changed since the scan): pick again from the rest, from scratch.
+                    members.Remove(failedWinner);
+                    continue;
+                }
+                if (group.Setups.Count > 0) plan.Groups.Add(group);
+                break;
+            }
         }
 
         // ---- the run as a whole ----
@@ -203,7 +216,9 @@ public sealed partial class ImportEngine
         return Equals(oldWinner?.BulkId(), winner?.BulkId()) ? old : null;
     }
 
-    private async Task<VersionGroup> PlanGroupAsync(BulkRequest request, string runId, string version, string targetDir,
+    // Returns the planned group, or (when the settings winner itself can't be planned) the winner that failed: the
+    // caller then picks a new winner and plans the group again, so no setup's settings role rests on a missing setup.
+    private async Task<(VersionGroup Group, DetectedInstance? FailedWinner)> PlanGroupAsync(BulkRequest request, string runId, string version, string targetDir,
         List<DetectedInstance> order, DetectedInstance? winner, PickResult pick, bool needsChoice, MetadataCache metadata,
         PlanCounter counter, Action<DetectedInstance, string, SkipKind> skip, IProgress<BulkPlanProgress>? progress, CancellationToken ct)
     {
@@ -246,6 +261,7 @@ public sealed partial class ImportEngine
             {
                 // It changed between the check above and its planning (its folder went away, a game started).
                 skip(setup, "Couldn't read this setup while planning, so it can't come over. Plan the import again to retry it.", SkipKind.FolderMissing);
+                if (role == SetupRole.Full) return (group, setup);
                 continue;
             }
 
@@ -292,7 +308,7 @@ public sealed partial class ImportEngine
             group.GameFiles = versionPlan.GameFiles;
             group.Lines.AddRange(versionPlan.Lines);
         }
-        return group;
+        return (group, null);
     }
 
     // ------------------------------------------------------------------ apply
@@ -478,6 +494,8 @@ public sealed partial class ImportEngine
                 settings.Apply(delta);
             }
             tx.Commit();
+            _env.Log?.Invoke($"import bulk apply: {tx.Journal.Entries.Count} journal entries, {tx.JournalBytesWritten} journal bytes written, "
+                + $"{ImportSummary.Megabytes(bytesDone)} copied");
             return Finished(plan, ImportState.Committed, states, versionExtra, cancelled: false, error: null);
         }
         catch (OperationCanceledException)
@@ -501,15 +519,11 @@ public sealed partial class ImportEngine
     }
 
     // B16: which failures are the SOURCE's fault (that item is left out) and which are the destination's (everything
-    // goes back). A full disk is always the destination; a contributor's own step (game files, caches) already
-    // handles its source problems, so anything escaping it is a destination failure.
-    private static bool IsSourceProblem(PlannedOp op, Exception ex)
-    {
-        if (ex is OperationCanceledException || ImportFiles.IsDiskFull(ex)) return false;
-        if (ex is SourceUnreadableException) return true;
-        if (op.Kind == OpKind.Custom || op.Source == null || ex is not (IOException or UnauthorizedAccessException)) return false;
-        return op.Kind == OpKind.CopyTree ? !Directory.Exists(op.Source) : !ImportFiles.CanOpen(op.Source);
-    }
+    // goes back). The transaction says so itself: every source read (a file copy, each file of a world or folder
+    // pack) turns its failures into SourceUnreadableException; anything else — a write, a move, a full disk, a
+    // contributor's own step (game files and caches handle their source problems themselves) — is the destination's.
+    private static bool IsSourceProblem(PlannedOp op, Exception ex) =>
+        ex is SourceUnreadableException && !ImportFiles.IsDiskFull(ex) && op.Kind != OpKind.Custom;
 
     // B12: ONE settings change for the run: every new profile, and the selection moves to the first setup (in
     // BulkRanking order) that got a profile — else just to that setup's version. PlayWithExternalMods is never touched.
@@ -561,9 +575,20 @@ public sealed partial class ImportEngine
             }).ToList();
             var winner = g.Setups.FirstOrDefault(s => s.Role == SetupRole.Full);
             var settingsFrom = winner != null && states[winner].Kind == SetupResultKind.Imported ? winner.Setup.BulkLabel() : null;
+            string? settingsNote = null;
+            if (state == ImportState.Committed && winner != null && states[winner].Kind == SetupResultKind.Skipped)
+            {
+                // The winner was left out at apply time: nobody's settings came over (the others never planned theirs),
+                // and every "settings come from <winner>" line the plan wrote is now untrue — it says so instead.
+                var label = winner.Setup.BulkLabel();
+                settingsNote = $"didn't come over: {label} was left out while importing";
+                var planned = new SummaryLine(SummarySection.NotImported, PlanItemKind.Setting, $"Settings for Minecraft {g.Version} come from {label}");
+                var actual = planned with { Name = $"Settings for Minecraft {g.Version} {settingsNote}" };
+                outcomes = outcomes.Select(o => o.Lines == null ? o : o with { Lines = o.Lines.Select(l => l == planned ? actual : l).ToList() }).ToList();
+            }
             // The plan's file lines are summed up by GameFiles; only its other lines and the apply's own travel on.
             var lines = g.Lines.Where(l => l.Kind != PlanItemKind.GameFile).Concat(versionExtra[g]).ToList();
-            return new VersionOutcome(g.Version, outcomes, settingsFrom, g.GameFiles, lines);
+            return new VersionOutcome(g.Version, outcomes, settingsFrom, g.GameFiles, lines, settingsNote);
         }).ToList();
         var draft = new BulkImportResult
         {

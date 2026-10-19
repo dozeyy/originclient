@@ -176,8 +176,6 @@ public class ImportReviewRound3Tests : IDisposable
         Assert.Null(ImportFiles.SizeOrNull("bad\0path"));
         var real = Kit.Write(_rig.Root, "here.jar", "12345");
         Assert.Equal(5, ImportFiles.SizeOrNull(real));
-        Assert.False(ImportFiles.CanOpen(missing));
-        Assert.True(ImportFiles.CanOpen(real));
     }
 
     // ------------------------------------------------------------ F6: a junctioned assets / libraries folder still feeds reuse

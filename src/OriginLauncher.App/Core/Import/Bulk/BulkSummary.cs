@@ -100,8 +100,8 @@ public static class BulkSummary
 
     private static BulkVersionView VersionView(VersionOutcome version)
     {
-        var settings = version.SettingsFrom != null
-            ? $"Minecraft {version.Version}: settings from {version.SettingsFrom}"
+        var settings = version.SettingsFrom != null ? $"Minecraft {version.Version}: settings from {version.SettingsFrom}"
+            : version.SettingsNote != null ? $"Minecraft {version.Version}: settings {version.SettingsNote}"
             : $"Minecraft {version.Version}: no settings came over";
         return new BulkVersionView(version.Version, settings, FilesLines(version),
             version.Setups.Select(s => SetupView(version.Version, s)).ToList());

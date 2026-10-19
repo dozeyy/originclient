@@ -235,8 +235,9 @@ public sealed record SetupOutcome(
 /// <param name="SettingsFrom">The label of the setup whose settings this version got (null: none came over).</param>
 /// <param name="GameFiles">What game-file reuse found for this version.</param>
 /// <param name="Lines">Version-wide lines (game-file reuse while it ran).</param>
+/// <param name="SettingsNote">Why no settings came over when the plan said they would ("didn't come over: Prism: A was left out while importing").</param>
 public sealed record VersionOutcome(string Version, IReadOnlyList<SetupOutcome> Setups, string? SettingsFrom = null,
-    GameFilePlanStats? GameFiles = null, IReadOnlyList<SummaryLine>? Lines = null);
+    GameFilePlanStats? GameFiles = null, IReadOnlyList<SummaryLine>? Lines = null, string? SettingsNote = null);
 
 /// <summary>One thing that did not come over, with the setup it was in and the plain reason.</summary>
 public sealed record NotImportedItem(string SetupLabel, string Name, string Reason);

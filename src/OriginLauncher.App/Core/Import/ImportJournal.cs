@@ -10,6 +10,9 @@ public static class JournalEntryKinds
     public const string Created = "created";
     public const string Replaced = "replaced";
     public const string SettingsDelta = "settings-delta";
+
+    /// <summary>Only in the append-only entries log: withdraws the last "created" file entry with this path (ImportTransaction.ForgetNewFile).</summary>
+    public const string Forget = "forget";
 }
 
 /// <summary>
@@ -72,33 +75,89 @@ public sealed class ImportJournal
 
     public List<JournalEntry> Entries { get; set; } = new();
 
+    /// <summary>
+    /// The append-only file (in the run folder) holding the entries written since this snapshot, one JSON line each;
+    /// null when the snapshot has them all (journals written before the log existed never name one).
+    /// </summary>
+    public string? EntriesLog { get; set; }
+
     /// <summary>Things a rollback could not put back (one sentence each); empty when it was clean.</summary>
     public List<string> RollbackProblems { get; set; } = new();
 }
 
+// journal.json is a SNAPSHOT (the header and the entries up to the last state change); entries added since are
+// APPENDED, one JSON line each, to the log the snapshot names (EntriesLog). Rewriting the whole journal before every
+// op made a big run quadratic (a bulk import journals ~10k entries); appending keeps it linear while every entry is
+// still on disk before its op runs. Load = snapshot + its log (a torn last line, from a crash mid-write, is the entry
+// of an op that never ran: it is dropped). A state change (begin, commit, rollback) writes a new snapshot with every
+// entry and starts a new log, so a finished journal is a single file again. Old journals (no log) load as they are.
 public static class ImportJournalStore
 {
-    private static readonly JsonSerializerOptions Options = new()
+    internal static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = false,
         Converters = { new JsonStringEnumConverter() },
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public static void Save(ImportJournal journal, string path) =>
-        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(journal, Options));
+    /// <summary>Writes the snapshot atomically (as it is: <see cref="ImportJournal.EntriesLog"/> included). Returns the bytes written.</summary>
+    public static long Save(ImportJournal journal, string path)
+    {
+        var text = JsonSerializer.Serialize(journal, Options);
+        AtomicFile.WriteAllText(path, text);
+        return System.Text.Encoding.UTF8.GetByteCount(text);
+    }
 
-    /// <summary>The journal at <paramref name="path"/>, or null when it is missing or unreadable.</summary>
+    /// <summary>One entry as the line the entries log holds (no newline).</summary>
+    internal static string Line(JournalEntry entry) => JsonSerializer.Serialize(entry, Options);
+
+    /// <summary>The journal at <paramref name="path"/> with its appended entries, or null when it is missing or unreadable.</summary>
     public static ImportJournal? Load(string path)
     {
+        ImportJournal? journal;
         try
         {
             if (!File.Exists(path)) return null;
-            return JsonSerializer.Deserialize<ImportJournal>(File.ReadAllText(path), Options);
+            journal = JsonSerializer.Deserialize<ImportJournal>(File.ReadAllText(path), Options);
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
             return null;
+        }
+        if (journal?.EntriesLog is { Length: > 0 } log && Path.GetFileName(log) == log)
+            Replay(journal, Path.Combine(Path.GetDirectoryName(path)!, log));
+        return journal;
+    }
+
+    private static void Replay(ImportJournal journal, string logPath)
+    {
+        string[] lines;
+        try
+        {
+            if (!File.Exists(logPath)) return;
+            using var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+            lines = reader.ReadToEnd().Split('\n');
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return; // the snapshot alone: every entry in it is still undone
+        }
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            JournalEntry? entry;
+            try { entry = JsonSerializer.Deserialize<JournalEntry>(line, Options); }
+            catch (JsonException) { break; } // a torn last line: its op never ran
+            if (entry == null) continue;
+            if (entry.Kind == JournalEntryKinds.Forget)
+            {
+                var index = journal.Entries.FindLastIndex(e => e.Kind == JournalEntryKinds.Created && !e.IsDirectory && e.Path == entry.Path);
+                if (index >= 0) journal.Entries.RemoveAt(index);
+                continue;
+            }
+            journal.Entries.Add(entry);
         }
     }
 }

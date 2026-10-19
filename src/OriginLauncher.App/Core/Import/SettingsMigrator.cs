@@ -389,6 +389,22 @@ public static class SettingsMigrator
             var finalName = name;
             string? reason = null;
 
+            // The same pack (same original name, same bytes) from an earlier setup lands once — even when that copy
+            // had to be saved as "<name> (imported)" because Origin already had a different pack of the name.
+            foreach (var (earlierDest, earlier) in Ledger.PacksNamed(name, isDir))
+            {
+                var identical = earlier.Source != null && (isDir
+                    ? FileCompare.SameTree(srcPath, earlier.Source, Fs)
+                    : FileCompare.Same(srcPath, earlier.Source, Fs));
+                if (!identical) continue;
+                var landedAs = Path.GetFileName(earlierDest);
+                Line(SummarySection.Imported, kind, landedAs, $"already brought over from {earlier.SetupLabel}");
+                if (DefersTo(earlier.Owner))
+                    AddFallback(isDir ? OpKind.CopyTree : OpKind.CopyFile, kind, landedAs, srcPath, earlierDest,
+                        isDir ? DirectorySize(srcPath) : ImportFiles.SizeOf(srcPath));
+                return landedAs;
+            }
+
             if (Ledger.ClaimOf(dest) is { } claim)
             {
                 // Another setup of this run already brings a pack of this name: the same bytes land once.
@@ -432,7 +448,7 @@ public static class SettingsMigrator
                 Line(SummarySection.NeedsAttention, kind, name, "Couldn't read this pack in your old setup, so it wasn't imported.");
                 return null;
             }
-            Ledger.Add(dest, srcPath, _c.SetupLabel, isDir, _c.SetupKey);
+            Ledger.AddPack(name, dest, srcPath, _c.SetupLabel, isDir, _c.SetupKey);
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = isDir ? OpKind.CopyTree : OpKind.CopyFile, Item = kind, Label = finalName,

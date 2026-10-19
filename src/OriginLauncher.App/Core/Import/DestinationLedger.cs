@@ -21,6 +21,7 @@ public sealed class DestinationLedger
     private readonly Dictionary<string, Claim> _claims = new(PathComparer);
     private readonly Dictionary<string, WorldClaim> _worldSources = new(PathComparer);
     private readonly Dictionary<string, string> _caches = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<(string Dest, Claim Claim)>> _packsByName = new(PathComparer);
 
     /// <summary>A destination someone in this run will write: where from (null for a composed file), whose setup, and that setup's key.</summary>
     public sealed record Claim(string? Source, string SetupLabel, bool IsDirectory, string? Owner = null);
@@ -35,6 +36,19 @@ public sealed class DestinationLedger
     /// <summary>Records that <paramref name="dest"/> will be written; the first claim of a path stays.</summary>
     public void Add(string dest, string? source, string setupLabel, bool isDirectory = false, string? owner = null) =>
         _claims.TryAdd(dest, new Claim(source, setupLabel, isDirectory, owner));
+
+    /// <summary>Records a pack claim under the pack's ORIGINAL name (its destination may be "&lt;name&gt; (imported)").</summary>
+    public void AddPack(string originalName, string dest, string source, string setupLabel, bool isDirectory, string? owner)
+    {
+        Add(dest, source, setupLabel, isDirectory, owner);
+        var key = (isDirectory ? "d|" : "f|") + originalName;
+        if (!_packsByName.TryGetValue(key, out var list)) _packsByName[key] = list = new();
+        list.Add((dest, new Claim(source, setupLabel, isDirectory, owner)));
+    }
+
+    /// <summary>Earlier packs of this run that had this original name, wherever they land (for an identical-bytes check).</summary>
+    public IReadOnlyList<(string Dest, Claim Claim)> PacksNamed(string originalName, bool isDirectory) =>
+        _packsByName.TryGetValue((isDirectory ? "d|" : "f|") + originalName, out var list) ? list : Array.Empty<(string, Claim)>();
 
     /// <summary>
     /// True when this run has not copied the world folder <paramref name="sourceWorld"/> yet (and now claims it for

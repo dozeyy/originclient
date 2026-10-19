@@ -23,6 +23,16 @@ public sealed class ImportTransaction : IDisposable
     private readonly CredentialGuard _guard;
     private StreamWriter? _log;
     private int _backupCounter;
+    private StreamWriter? _entries;      // the journal's append-only entries log (ImportJournalStore)
+    private FileStream? _entriesStream;
+    private int _unsynced;
+
+    // The entries log is forced to the disk every this many entries (and at once for a settings change); each entry
+    // is handed to the OS before its op runs either way, which is what a crash of this process needs.
+    private const int SyncEvery = 64;
+
+    /// <summary>Every byte this transaction wrote to its journal (snapshots + appended entries): a test seam for the linear-cost rule.</summary>
+    public long JournalBytesWritten { get; private set; }
 
     public ImportJournal Journal { get; }
     public string RunDir { get; }
@@ -68,7 +78,7 @@ public sealed class ImportTransaction : IDisposable
         Directory.CreateDirectory(RunDir);
         OpenLog();
         Journal.State = ImportState.Applying;
-        Flush();
+        Snapshot();
         Log("import started");
     }
 
@@ -79,7 +89,65 @@ public sealed class ImportTransaction : IDisposable
             FileMode.Append, FileAccess.Write, FileShare.Read), new UTF8Encoding(false)) { AutoFlush = true };
     }
 
-    private void Flush() => ImportJournalStore.Save(Journal, ImportLayout.Journal(_importsRoot, Journal.ImportId));
+    // A state change: the whole journal as one snapshot, and a fresh (empty) entries log after it. O(entries), so only
+    // at begin / commit / rollback — never per op.
+    private void Snapshot()
+    {
+        CloseEntries();
+        var old = Journal.EntriesLog;
+        Journal.EntriesLog = $"entries-{Guid.NewGuid():N}.log";
+        JournalBytesWritten += ImportJournalStore.Save(Journal, ImportLayout.Journal(_importsRoot, Journal.ImportId));
+        if (old != null && Path.GetFileName(old) == old)
+        {
+            try { File.Delete(Path.Combine(RunDir, old)); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* not named by the snapshot any more: never read */ }
+        }
+    }
+
+    // Write-ahead, linear: the entries are appended (one line each) and handed to the OS before the caller changes
+    // anything. inMemory = false for a record that only the log needs (a "forget").
+    private void Append(IReadOnlyList<JournalEntry> entries, bool sync = false, bool inMemory = true)
+    {
+        if (entries.Count == 0) return;
+        if (Journal.EntriesLog == null) Snapshot();
+        if (inMemory) Journal.Entries.AddRange(entries);
+        if (_entries == null)
+        {
+            Directory.CreateDirectory(RunDir);
+            _entriesStream = new FileStream(Path.Combine(RunDir, Journal.EntriesLog!), FileMode.Append, FileAccess.Write, FileShare.Read);
+            _entries = new StreamWriter(_entriesStream, new UTF8Encoding(false));
+        }
+        foreach (var entry in entries)
+        {
+            var line = ImportJournalStore.Line(entry);
+            _entries.Write(line);
+            _entries.Write('\n');
+            JournalBytesWritten += Encoding.UTF8.GetByteCount(line) + 1;
+        }
+        _entries.Flush();
+        _unsynced += entries.Count;
+        if (sync || _unsynced >= SyncEvery)
+        {
+            _entriesStream!.Flush(flushToDisk: true);
+            _unsynced = 0;
+        }
+    }
+
+    private void Append(JournalEntry entry, bool sync = false) => Append(new[] { entry }, sync);
+
+    private void CloseEntries()
+    {
+        try
+        {
+            _entries?.Flush();
+            _entriesStream?.Flush(flushToDisk: true);
+            _entries?.Dispose();
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException) { /* the next snapshot holds every entry anyway */ }
+        _entries = null;
+        _entriesStream = null;
+        _unsynced = 0;
+    }
 
     /// <summary>One line in import.log: an action and a path relative to the data folder. Never contents, never a token.</summary>
     public void Log(string action)
@@ -98,8 +166,45 @@ public sealed class ImportTransaction : IDisposable
         // Never copy a credential-looking file, whoever asks (the engine filters first; this is the backstop).
         if (_guard.IsDenied(Path.GetFileName(src))) throw new IOException($"{Path.GetFileName(src)} is left alone for safety");
         var temp = NewTemp(Path.GetFileName(dest));
-        File.Copy(src, temp, overwrite: true);
+        CopySource(src, temp);
         Place(temp, dest, touchNow, Verb: "copied");
+    }
+
+    /// <summary>
+    /// Copies a SOURCE file to a fresh file. A failure to open or read the source (gone, locked by another program,
+    /// a byte-range lock, no access) is a <see cref="SourceUnreadableException"/>: that item is left out. A failure to
+    /// write is the destination's and stays a plain IOException (the run rolls back). The source's time is kept, as
+    /// File.Copy kept it.
+    /// </summary>
+    internal static void CopySource(string src, string dest)
+    {
+        FileStream input;
+        try
+        {
+            input = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 81920);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new SourceUnreadableException($"{Path.GetFileName(src)} couldn't be read ({ImportErrors.Plain(ex)})");
+        }
+        using (input)
+        using (var output = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None, 81920))
+        {
+            var buffer = new byte[81920];
+            while (true)
+            {
+                int n;
+                try { n = input.Read(buffer, 0, buffer.Length); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new SourceUnreadableException($"{Path.GetFileName(src)} couldn't be read ({ImportErrors.Plain(ex)})");
+                }
+                if (n == 0) break;
+                output.Write(buffer, 0, n);
+            }
+        }
+        try { File.SetLastWriteTimeUtc(dest, File.GetLastWriteTimeUtc(src)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* the time is a courtesy */ }
     }
 
     /// <summary>Writes a file the importer composed itself, with the same replace-after-backup rule.</summary>
@@ -154,7 +259,7 @@ public sealed class ImportTransaction : IDisposable
             if (!fs.AllowWalked(file)) continue; // the walk already refused links below srcDir (checked above)
             var target = Path.Combine(stage, Path.GetRelativePath(srcDir, file));
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(file, target, overwrite: true);
+            CopySource(file, target); // a file in the world that can't be read: the world is left out, never half-copied
             count++;
         }
         ct.ThrowIfCancellationRequested();
@@ -170,8 +275,7 @@ public sealed class ImportTransaction : IDisposable
     /// <summary>Journals the launcher-settings change (before the glue applies it).</summary>
     public void RecordSettingsDelta(SettingsDelta delta)
     {
-        Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.SettingsDelta, Delta = delta });
-        Flush();
+        Append(new JournalEntry { Kind = JournalEntryKinds.SettingsDelta, Delta = delta }, sync: true);
         Log("launcher settings: profile + selection updated");
     }
 
@@ -199,8 +303,7 @@ public sealed class ImportTransaction : IDisposable
         var isDirectory = Directory.Exists(path);
         if (!isDirectory && !File.Exists(path)) return;
         var backup = Path.Combine(BackupDir, $"{++_backupCounter:D4}-{Path.GetFileName(path)}");
-        Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Replaced, Path = path, Backup = backup, IsDirectory = isDirectory });
-        Flush();
+        Append(new JournalEntry { Kind = JournalEntryKinds.Replaced, Path = path, Backup = backup, IsDirectory = isDirectory });
         Directory.CreateDirectory(BackupDir);
         if (isDirectory) Directory.Move(path, backup); else File.Move(path, backup);
         Log($"backed up {Rel(path)}");
@@ -226,11 +329,12 @@ public sealed class ImportTransaction : IDisposable
             foreach (var dir in chain) { seen.Add(dir); dirs.Add(dir); }
             files.Add(dest);
         }
+        var entries = new List<JournalEntry>(dirs.Count + files.Count);
         foreach (var dir in dirs)
-            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = dir, IsDirectory = true, GameFile = true });
+            entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = dir, IsDirectory = true, GameFile = true });
         foreach (var file in files)
-            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = file, GameFile = true });
-        Flush();
+            entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = file, GameFile = true });
+        Append(entries);
     }
 
     /// <summary>Withdraws a file journaled by <see cref="JournalNewFiles"/> that was not (or must not be) created.</summary>
@@ -239,7 +343,7 @@ public sealed class ImportTransaction : IDisposable
         var index = Journal.Entries.FindLastIndex(e => e.Kind == JournalEntryKinds.Created && !e.IsDirectory && e.Path == dest);
         if (index < 0) return;
         Journal.Entries.RemoveAt(index);
-        Flush();
+        Append(new[] { new JournalEntry { Kind = JournalEntryKinds.Forget, Path = dest } }, inMemory: false);
     }
 
     // ---- finishing ----
@@ -248,7 +352,7 @@ public sealed class ImportTransaction : IDisposable
     {
         Journal.State = ImportState.Committed;
         Journal.FinishedUtc = _clock();
-        Flush();
+        Snapshot();
         Log("import committed");
         DeleteStaging();
         Dispose();
@@ -269,7 +373,7 @@ public sealed class ImportTransaction : IDisposable
             // same rule — the reused game files stay. Without the flag recovery would delete them.
             Journal.UndoOfCommitted = true;
             Journal.State = ImportState.Applying;
-            try { Flush(); }
+            try { Snapshot(); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* the undo still runs; the end state is saved below if it can be */ }
         }
         var problems = ImportUndo.Run(Journal, settings, Log, _logRoot, keepGameFiles);
@@ -278,7 +382,7 @@ public sealed class ImportTransaction : IDisposable
         Journal.RollbackProblems = problems;
         try
         {
-            Flush();
+            Snapshot();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -293,6 +397,7 @@ public sealed class ImportTransaction : IDisposable
 
     public void Dispose()
     {
+        CloseEntries();
         try { _log?.Dispose(); }
         catch (IOException) { /* the log is a courtesy */ }
         _log = null;
@@ -313,8 +418,9 @@ public sealed class ImportTransaction : IDisposable
         for (var d = Path.GetDirectoryName(dest); !string.IsNullOrEmpty(d) && !Directory.Exists(d); d = Path.GetDirectoryName(d))
             missing.Add(d);
         missing.Reverse();
+        var entries = new List<JournalEntry>();
         foreach (var dir in missing)
-            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = dir, IsDirectory = true });
+            entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = dir, IsDirectory = true });
 
         string? backup = null;
         if (Directory.Exists(dest)) throw new IOException($"A folder is in the way of {Path.GetFileName(dest)}");
@@ -322,13 +428,13 @@ public sealed class ImportTransaction : IDisposable
         {
             if (isDirectory) throw new IOException($"A file is in the way of {Path.GetFileName(dest)}");
             backup = Path.Combine(BackupDir, $"{++_backupCounter:D4}-{Path.GetFileName(dest)}");
-            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Replaced, Path = dest, Backup = backup });
+            entries.Add(new JournalEntry { Kind = JournalEntryKinds.Replaced, Path = dest, Backup = backup });
         }
         else
         {
-            Journal.Entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = dest, IsDirectory = isDirectory, Recursive = isDirectory });
+            entries.Add(new JournalEntry { Kind = JournalEntryKinds.Created, Path = dest, IsDirectory = isDirectory, Recursive = isDirectory });
         }
-        Flush();
+        Append(entries);
 
         var parent = Path.GetDirectoryName(dest);
         if (!string.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
