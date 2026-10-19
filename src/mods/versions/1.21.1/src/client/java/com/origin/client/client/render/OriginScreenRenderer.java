@@ -260,11 +260,13 @@ public final class OriginScreenRenderer {
 			if (reload != markReload) {
 				// A new reload (a resource-pack change after startup): the mark loops again.
 				markReload = reload;
+				markReloadAt = System.nanoTime();
 				MarkMotion.unsettle();
 			}
-			if (reload != null && !MarkMotion.settling() && reloadApplying(reload)) {
+			String why = reload == null || MarkMotion.settling() ? null : settleReason(reload);
+			if (why != null) {
 				MarkMotion.settle(markT);
-				com.origin.client.client.OriginFrameLog.mark("mark-settle (apply steps begin)");
+				com.origin.client.client.OriginFrameLog.mark("mark-settle (" + why + ")");
 			}
 		} else {
 			MarkMotion.settle(markT);   // the settle hold / dissolve: the load is done
@@ -309,6 +311,7 @@ public final class OriginScreenRenderer {
 
 	// The reload the loading mark's settle belongs to, and the mark's loop time last frame.
 	private static net.minecraft.server.packs.resources.ReloadInstance markReload;
+	private static long markReloadAt;   // nanoTime the loading screen first drew for markReload
 	private static double lastMarkT = 0;
 
 	private static net.minecraft.server.packs.resources.ReloadInstance currentReload() {
@@ -321,11 +324,18 @@ public final class OriginScreenRenderer {
 	// task there (ReloadTaskTagMixin; some mods do heavy work there while others
 	// still prepare), or every listener has prepared (the apply steps), or it is
 	// done. Without the mixins: only once done.
-	private static boolean reloadApplying(net.minecraft.server.packs.resources.ReloadInstance reload) {
-		return reload.isDone()
-				|| com.origin.client.client.StartupTransition.reloadRenderWorkBegan(reload)
-				|| reload instanceof com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor s
-				&& s.originclient$allPreparations().isDone();
+	private static String settleReason(net.minecraft.server.packs.resources.ReloadInstance reload) {
+		if (reload.isDone()) {
+			return "load done";
+		}
+		if (com.origin.client.client.StartupTransition.reloadRenderWorkSince(markReloadAt)) {
+			return "render-thread reload work";
+		}
+		if (reload instanceof com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor s
+				&& s.originclient$allPreparations().isDone()) {
+			return "all listeners prepared";
+		}
+		return null;
 	}
 
 	/** The loading mark has landed and stopped (the settle hold may end). */
