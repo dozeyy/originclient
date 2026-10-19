@@ -56,11 +56,21 @@ public final class IrisBridge {
 	// public API (net.irisshaders.iris.api.v0) never moved and is used as-is.
 	private static final String[] IRIS_ROOTS = {"net.coderbot.iris.", "net.irisshaders.iris."};
 
+	// The root that resolved first time; one Iris jar has exactly one root, so
+	// every later lookup goes straight there (no repeated ClassNotFoundException).
+	private static volatile String irisRoot;
+
 	private static Class<?> irisClass(String suffix) throws ClassNotFoundException {
+		String known = irisRoot;
+		if (known != null) {
+			return Class.forName(known + suffix);
+		}
 		ClassNotFoundException last = null;
 		for (String root : IRIS_ROOTS) {
 			try {
-				return Class.forName(root + suffix);
+				Class<?> cls = Class.forName(root + suffix);
+				irisRoot = root;
+				return cls;
 			} catch (ClassNotFoundException e) {
 				last = e;
 			}
