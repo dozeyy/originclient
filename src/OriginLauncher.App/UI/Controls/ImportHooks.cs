@@ -7,6 +7,19 @@ namespace OriginLauncher.App.UI.Controls;
 // The three places the Import drawer reaches into the import wiring. The wiring agent's versions of these
 // (branch claude/import-wiring) are not on this branch's base, so each is written against the signature the
 // wiring review describes, in ONE place: when that branch is merged, only the marked line in each method changes.
+/// <summary>
+/// What the window's close button needs from the import drawer: is an import writing, and may it be cancelled.
+/// WIRING: the same name and shape as the interface on claude/import-wiring; when that branch merges, delete this
+/// declaration and keep the `: IImportCloseHost` on ImportPanel.
+/// </summary>
+public interface IImportCloseHost
+{
+    bool IsApplying { get; }
+
+    /// <summary>Asks "Cancel the import?". True = cancel (the engine rolls back), false = keep importing.</summary>
+    Task<bool> ConfirmCancelAsync();
+}
+
 internal static class ImportHooks
 {
     /// <summary>

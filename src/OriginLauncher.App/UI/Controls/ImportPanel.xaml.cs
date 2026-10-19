@@ -30,7 +30,7 @@ namespace OriginLauncher.App.UI.Controls;
 //  * while an import is applying, ImportRunState says so (Home keeps Play disabled), Esc and the window's close
 //    ask before cancelling, and a cancel puts everything back (the engine's rollback);
 //  * progress is shown from a 100 ms timer reading the latest report, never one UI hop per file.
-public partial class ImportPanel : UserControl, IDisposable
+public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 {
     public enum Pane { Scanning, Empty, Overview, Chooser, Single, Details, Importing, Done, Failed }
 
@@ -78,6 +78,7 @@ public partial class ImportPanel : UserControl, IDisposable
     private bool _suppressTarget;
     private bool _launchBusy;
     private bool _updateBusy;
+    private string? _refusal; // the wiring's sentence (LaunchRunState.ImportRefusal()); null = Import is allowed
     private bool _wantPrimaryFocus;
     private bool _lostCollapsed;
     private double _barFraction;
@@ -165,9 +166,25 @@ public partial class ImportPanel : UserControl, IDisposable
         BusyChanged();
     }
 
-    private bool Busy => _launchBusy || _updateBusy;
+    /// <summary>
+    /// The wiring's one answer to "why can't Import run right now?": the sentence from LaunchRunState.ImportRefusal()
+    /// (a launch is starting or an update is in progress), or null when it can. MainWindow calls this on
+    /// LaunchRunState.Changed and UpdateRunState.Changed. WIRING: those two types are on claude/import-wiring.
+    /// </summary>
+    public void SetRefusal(string? sentence)
+    {
+        if (_refusal == sentence) return;
+        _refusal = sentence;
+        BusyChanged();
+    }
 
-    private string BusyReason => _launchBusy ? "Wait for Minecraft to finish starting." : "Origin is updating. Import is off until it restarts.";
+    private bool Busy => _refusal != null || _launchBusy || _updateBusy;
+
+    private string BusyReason => _refusal
+        ?? (_launchBusy ? "Wait for Minecraft to finish starting." : "Origin is updating. Import is off until it restarts.");
+
+    /// <summary>IImportCloseHost: the window's close asks this while an import is writing (true = cancel, false = keep importing).</summary>
+    public Task<bool> ConfirmCancelAsync() => AskCancelAsync();
 
     private void BusyChanged()
     {

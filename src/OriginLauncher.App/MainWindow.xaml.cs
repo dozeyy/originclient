@@ -619,8 +619,8 @@ public partial class MainWindow : Window
             ConfirmHost = ImportConfirm,
         };
         // WIRING (import-wiring agent): feed the shared busy states in here once they exist on this branch:
-        //   LaunchRunState.Changed -> panel.SetLaunchBusy(...), UpdateRunState.Changed -> panel.SetUpdateBusy(...),
-        // and the window's close button asks `await panel.RequestClose()` (true = go ahead and close).
+        //   LaunchRunState.Changed and UpdateRunState.Changed -> panel.SetRefusal(LaunchRunState.ImportRefusal()),
+        // and the window's close button asks the panel as an IImportCloseHost (IsApplying, ConfirmCancelAsync).
         panel.CloseRequested += (_, _) => CloseImportPanel();
         panel.Imported += (_, _) =>
         {
