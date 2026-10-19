@@ -69,7 +69,10 @@ jobs:
           - { version: "1.21.10", java: "21" }
           - { version: "1.21.11", java: "21" }
           # Gradle itself needs JVM 21 (Loom 1.17); the game JVM is what players run:
-          # Java 17 for 1.18.2-1.20.4 (run_java), Java 16 for 1.17.1, Java 8 for 1.16.5.
+          # Java 17 for 1.18.2-1.20.4 (run_java), Java 16 for 1.17.1. 1.16.5 (Java 8) is NOT
+          # here: with runClient pinned to a JDK 8 launcher the game dies with "Could not find
+          # or load main class net.fabricmc.devlaunchinjector.Main" (run 39254422987), and
+          # Loom's downloadAssets for it was flaky; it needs a dev-classpath fix first.
           - { version: "1.20", java: "21", run_java: "17" }
           - { version: "1.20.2", java: "21", run_java: "17" }
           - { version: "1.20.4", java: "21", run_java: "17" }
@@ -78,7 +81,6 @@ jobs:
           - { version: "1.19.3", java: "21", run_java: "17" }
           - { version: "1.19.4", java: "21", run_java: "17" }
           - { version: "1.17.1", java: "21", run_java: "16" }
-          - { version: "1.16.5", java: "21", run_java: "8" }
     steps:
       - name: Check out code
         if: ${{ env.SMOKE_ROW == 'true' }}
