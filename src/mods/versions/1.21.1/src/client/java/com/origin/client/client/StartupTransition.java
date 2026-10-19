@@ -30,6 +30,25 @@ public final class StartupTransition {
 	private StartupTransition() {
 	}
 
+	// The reload whose listeners have started running work on the render thread
+	// (ReloadTaskTagMixin), by identity; null = none yet.
+	private static volatile Object renderWorkReload;
+
+	/** A reload listener's task is about to run on that reload's apply (game) executor. */
+	public static void reloadRenderWork(Object reload, String listener) {
+		if (renderWorkReload != reload) {
+			renderWorkReload = reload;
+			if (com.mojang.blaze3d.systems.RenderSystem.isOnRenderThread()) {
+				OriginFrameLog.mark("render-thread reload work begins (" + (listener == null ? "?" : listener) + ")");
+			}
+		}
+	}
+
+	/** True once this reload has run work on the render thread: from here a frame can stall for long. */
+	public static boolean reloadRenderWorkBegan(Object reload) {
+		return reload != null && renderWorkReload == reload;
+	}
+
 	/** Cubic ease-out on 0..1 (clamped), the curve both halves use. */
 	public static double ease(double t) {
 		return OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, t)));

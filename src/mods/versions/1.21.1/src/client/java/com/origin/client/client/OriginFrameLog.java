@@ -68,7 +68,7 @@ public final class OriginFrameLog {
 	private static List<GarbageCollectorMXBean> gcBeans;
 
 	// Marks (nanoTime; 0 = not yet).
-	private static long doneAt = 0, holdAt = 0, dissolveAt = 0, overlayGoneAt = 0, endAt = 0;
+	private static long doneAt = 0, holdAt = 0, dissolveAt = 0, overlayGoneAt = 0, endAt = 0, renderWorkAt = 0;
 	private static double entranceEndScene = Double.NaN;
 	private static Phase current = Phase.LOAD;
 
@@ -258,6 +258,9 @@ public final class OriginFrameLog {
 		}
 		long now = System.nanoTime();
 		Phase relabel = null;
+		if (what.startsWith("render-thread reload work") && renderWorkAt == 0) {
+			renderWorkAt = now;   // the slow-frame list starts here if that is earlier
+		}
 		if (what.equals("hold-start") && holdAt == 0) {
 			holdAt = now;
 			relabel = Phase.HOLD;
@@ -315,6 +318,9 @@ public final class OriginFrameLog {
 
 	private static void flushLead() {
 		long from = doneAt - (long) (LEAD_MS * 1e6);
+		if (renderWorkAt != 0 && renderWorkAt < from) {
+			from = renderWorkAt;
+		}
 		for (int i = 0; i < n - 1; i++) {   // the frame in progress prints when it closes
 			if (start[i] >= from) {
 				printFrame(i);

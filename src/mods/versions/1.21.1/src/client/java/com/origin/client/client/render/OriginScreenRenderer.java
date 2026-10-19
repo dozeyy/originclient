@@ -316,14 +316,15 @@ public final class OriginScreenRenderer {
 				? overlay.originclient$reload() : null;
 	}
 
-	// The reload is in its last stretch: every listener has prepared, and their
-	// apply steps now run on the render thread, where one can hold a frame for
-	// hundreds of ms. (Done counts too.) Without the accessor: only once done.
+	// The reload has reached the stretch where its work runs on the render thread,
+	// where one step can hold a frame for hundreds of ms: a listener ran its first
+	// task there (ReloadTaskTagMixin; some mods do heavy work there while others
+	// still prepare), or every listener has prepared (the apply steps), or it is
+	// done. Without the mixins: only once done.
 	private static boolean reloadApplying(net.minecraft.server.packs.resources.ReloadInstance reload) {
-		if (reload.isDone()) {
-			return true;
-		}
-		return reload instanceof com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor s
+		return reload.isDone()
+				|| com.origin.client.client.StartupTransition.reloadRenderWorkBegan(reload)
+				|| reload instanceof com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor s
 				&& s.originclient$allPreparations().isDone();
 	}
 

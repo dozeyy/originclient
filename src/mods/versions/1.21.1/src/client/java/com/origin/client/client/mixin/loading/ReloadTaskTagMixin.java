@@ -2,6 +2,7 @@ package com.origin.client.client.mixin.loading;
 
 import com.llamalad7.mixinextras.sugar.Local;
 import com.origin.client.client.OriginFrameLog;
+import com.origin.client.client.StartupTransition;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.server.packs.resources.SimpleReloadInstance;
 import org.spongepowered.asm.mixin.Mixin;
@@ -10,24 +11,34 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 import java.util.concurrent.Executor;
 
-// Dev-only (OriginFrameLog, -Dorigin.frameLog=true): names the reload listener
-// behind every render-thread apply step, so a slow frame says WHICH listener
-// (ModelManager, SoundManager, a mod's...) instead of "a CompletableFuture".
-// Target: SimpleReloadInstance's constructor, where each listener gets its own
-// apply executor (StateFactory.create(barrier, manager, listener, prepare,
-// apply), arg 4); with the logger on, that executor is wrapped to time each
-// step. With it off the original executor is passed through untouched. If the
-// target moves, steps are simply unnamed (required:false loading config).
+// Watches every reload listener's render-thread ("apply") executor. Target:
+// SimpleReloadInstance's constructor, where each listener gets its own apply
+// executor (StateFactory.create(barrier, manager, listener, prepare, apply),
+// arg 4); it is wrapped so that:
+//  - the loading mark knows the moment render-thread reload work begins
+//    (StartupTransition.reloadRenderWork), the stretch where a single step can
+//    hold a frame for hundreds of ms. Not only after every listener prepared:
+//    some mods run heavy work on this executor during prepare (TACZ's
+//    bedrockmodelloader, 1.35 s on CI, 2026-10-18), so allPreparations alone
+//    came too late;
+//  - with the dev frame log on (-Dorigin.frameLog=true), each step is timed and
+//    named by its listener.
+// The wrap is one lambda per task and changes nothing about how or when a task
+// runs. If the target moves, only these two signals are lost (required:false
+// loading config); the mark then settles once preparations finish or the load is done.
 @Mixin(SimpleReloadInstance.class)
 public abstract class ReloadTaskTagMixin {
 	@ModifyArg(method = "<init>", index = 4, at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/server/packs/resources/SimpleReloadInstance$StateFactory;create(Lnet/minecraft/server/packs/resources/PreparableReloadListener$PreparationBarrier;Lnet/minecraft/server/packs/resources/ResourceManager;Lnet/minecraft/server/packs/resources/PreparableReloadListener;Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;"))
-	private Executor originclient$tagApplySteps(Executor apply, @Local PreparableReloadListener listener) {
-		if (!OriginFrameLog.ENABLED) {
-			return apply;
-		}
-		String name = originclient$name(listener);
+	private Executor originclient$watchApplySteps(Executor apply, @Local PreparableReloadListener listener) {
+		Object self = this;
+		String name = OriginFrameLog.ENABLED ? originclient$name(listener) : null;
 		return task -> apply.execute(() -> {
+			StartupTransition.reloadRenderWork(self, name);
+			if (name == null) {
+				task.run();
+				return;
+			}
 			long t0 = System.nanoTime();
 			try {
 				task.run();
