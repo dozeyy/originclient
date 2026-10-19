@@ -260,6 +260,16 @@ test('equip: height tweaks are saved per slot, clamped to 0.5 px steps, and kept
   assert.equal('adjust' in (await (await api('POST', '/v1/players/equipped', { uuids: [UUID] })).json()).players[UUID], false);
 });
 
+test('equip: head and face items also move sideways and forward; other slots only up / down', async () => {
+  await own('halo-gold');
+  const token = await signIn();
+  const wear = async body => (await (await api('POST', '/v1/equip', body, token)).json());
+  const r = await wear({ head: 'halo-gold', adjust: { headX: -1.24, headZ: 7, faceX: 0.5, faceZ: 0, backX: 2, capeZ: 1 } });
+  assert.deepEqual(r.adjust, { headX: -1, headZ: 4, faceX: 0.5 });  // rounded, clamped; no sideways / forward for back or cape
+  const batch = await (await api('POST', '/v1/players/equipped', { uuids: [UUID] })).json();
+  assert.deepEqual(batch.players[UUID].adjust, { headX: -1, headZ: 4, faceX: 0.5 });
+});
+
 test('equipped: players in game on Origin lately are listed (for the name badge), even wearing nothing', async () => {
   const other = 'b'.repeat(32), stale = 'c'.repeat(32), launcherOnly = 'd'.repeat(32);
   const now = Date.now();

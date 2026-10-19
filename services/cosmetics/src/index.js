@@ -54,18 +54,20 @@ const looks = (row, member) => Object.fromEntries(SLOTS.map(slot => {
 }));
 const COLS = SLOTS.join(', ');
 
-// Height tweaks (FORMAT.md): how far each worn slot sits above (+) or below (-) its
-// default spot, model px in 0.5 steps, at most ADJUST_MAX either way. Theme has none.
-const ADJUST_SLOTS = ['cape', 'head', 'face', 'back'];
+// Position tweaks (FORMAT.md): how far each worn slot sits from its default spot, model px
+// in 0.5 steps, at most ADJUST_MAX either way. Every slot moves up (+) / down (-) under its
+// own name; head and face items also sideways (headX / faceX, + = the player's left) and
+// forward (headZ / faceZ, + = toward the face). Theme has none.
+const ADJUST_KEYS = ['cape', 'head', 'face', 'back', 'headX', 'headZ', 'faceX', 'faceZ'];
 const ADJUST_MAX = 4;
 function cleanAdjust(raw) {
   const out = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  for (const slot of ADJUST_SLOTS) {
-    const v = Number(raw[slot]);
+  for (const key of ADJUST_KEYS) {
+    const v = Number(raw[key]);
     if (!Number.isFinite(v)) continue;
     const r = Math.round(Math.max(-ADJUST_MAX, Math.min(ADJUST_MAX, v)) * 2) / 2;
-    if (r !== 0) out[slot] = r;
+    if (r !== 0) out[key] = r;
   }
   return out;
 }
