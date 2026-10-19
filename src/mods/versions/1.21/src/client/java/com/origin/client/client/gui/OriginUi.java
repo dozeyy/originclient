@@ -1,6 +1,5 @@
 package com.origin.client.client.gui;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -17,7 +16,6 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
 
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +25,6 @@ import java.util.Map;
 // ever pixelated. GL discipline as documented in CODE_REVIEW.md: blend +
 // default func before textured draws, shader color reset after tints.
 public final class OriginUi {
-	private static final Gson GSON = new Gson();
 	private static volatile boolean loaded = false;
 	private static boolean ok = false;
 
@@ -605,6 +602,13 @@ public final class OriginUi {
 		ensureLoaded0();
 	}
 
+	private static final String[] TEXTURES = {
+			"/assets/originclient/textures/ui/button_fill.png", "/assets/originclient/textures/ui/button_border.png",
+			"/assets/originclient/textures/ui/switch_track.png", "/assets/originclient/textures/ui/switch_knob.png",
+			"/assets/originclient/textures/ui/radial_glow.png", "/assets/originclient/textures/ui/ring-0.png",
+			"/assets/originclient/textures/ui/origin_logo.png", "/assets/originclient/textures/ui/star.png",
+	};
+
 	private static synchronized void ensureLoaded0() {
 		if (loaded) {
 			return;
@@ -626,23 +630,30 @@ public final class OriginUi {
 			ok = true;
 		} catch (Throwable e) {
 			ok = false;
+			// The images after the failing one were decoded by the prefetch but never
+			// handed over: free them (a no-op for the ones already taken).
+			for (String p : TEXTURES) {
+				com.origin.client.client.OriginAssets.discard(p);
+			}
 			com.origin.client.OriginClient.LOGGER.warn("Origin UI assets failed to load; using flat fallbacks", e);
 		}
 	}
 
+	// Decoded on the startup reload's worker threads (OriginAssets); only the GPU upload happens here.
 	private static JsonObject readJson(String path) throws Exception {
-		try (InputStream in = OriginUi.class.getResourceAsStream(path)) {
-			return GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-		}
+		return com.origin.client.client.OriginAssets.json(path);
 	}
 
 	private static ResourceLocation reg(Minecraft mc, String name, String path) throws Exception {
-		NativeImage image;
-		try (InputStream in = OriginUi.class.getResourceAsStream(path)) {
-			image = NativeImage.read(in);
-		}
+		NativeImage image = com.origin.client.client.OriginAssets.image(path);
 		ResourceLocation id = ResourceLocation.fromNamespaceAndPath("originclient", name);
-		DynamicTexture tex = new DynamicTexture(image);
+		DynamicTexture tex;
+		try {
+			tex = new DynamicTexture(image);
+		} catch (Throwable t) {
+			image.close();   // never reached a texture: ours to free
+			throw t;
+		}
 		tex.setFilter(true, false);
 		mc.getTextureManager().register(id, tex);
 		return id;

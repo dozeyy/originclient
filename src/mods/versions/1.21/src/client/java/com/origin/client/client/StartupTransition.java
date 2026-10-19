@@ -30,6 +30,32 @@ public final class StartupTransition {
 	private StartupTransition() {
 	}
 
+	// System.nanoTime() of the last reload task run on the render thread
+	// (ReloadTaskTagMixin); 0 = none yet. Any reload counts, not only the
+	// overlay's own: with Will's mods the first render-thread steps showed up
+	// ~8 s before the load finished while an identity match on the overlay's
+	// reload never fired (CI 2026-10-18), and during the startup load every
+	// such step stalls the loading screen alike.
+	private static volatile long renderWorkAt = 0;
+
+	/** A reload listener's task is about to run on its apply executor. */
+	public static void reloadRenderWork(Object reload, String listener) {
+		if (!com.mojang.blaze3d.systems.RenderSystem.isOnRenderThread()) {
+			return;   // a server-thread (data pack) reload: never stalls the loading screen
+		}
+		if (renderWorkAt == 0 && OriginFrameLog.ENABLED) {
+			OriginFrameLog.mark("render-thread reload work begins (" + (listener == null ? "?" : listener) + ", "
+					+ reload.getClass().getSimpleName() + ")");
+		}
+		renderWorkAt = System.nanoTime();
+	}
+
+	/** True when reload work has run on the render thread since {@code sinceNanos}: from here a frame can stall for long. */
+	public static boolean reloadRenderWorkSince(long sinceNanos) {
+		long at = renderWorkAt;
+		return at != 0 && at - sinceNanos > 0;
+	}
+
 	/** Cubic ease-out on 0..1 (clamped), the curve both halves use. */
 	public static double ease(double t) {
 		return OriginTheme.easeOut(Math.max(0.0, Math.min(1.0, t)));
