@@ -21,6 +21,49 @@ internal static class ImportShots
     // apply rolls back with a reason. Blocked: the plan says Minecraft is running. Empty: nothing found.
     private enum Demo { Bulk, Progress, Failed, Blocked, Empty }
 
+    /// <summary>
+    /// 17, 17b, 50, 51: the one-time first-run card in Home's banner slot, at the normal size and the smallest one. Runs early
+    /// (RenderShots, right after 01-home) so Home is in its plain state: the card is never offered while a game runs.
+    /// </summary>
+    public static void RunHomeCard(MainWindow window, string outDir)
+    {
+        var (width, height) = (window.Width, window.Height);
+        try
+        {
+            var many = BulkSetups();
+            var one = new[] { many[0] };
+            window.TourGoTo(0);
+            RenderShots.Pump(400);
+            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(many));
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "17-home-import-card");
+            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(one));
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "17b-home-import-card-one-setup");
+
+            window.Width = 980;
+            window.Height = 600;
+            RenderShots.Pump(600);
+            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(many));
+            RenderShots.Pump(400);
+            RenderShots.Snap(window, outDir, "50-min-home-import-card");
+            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(one));
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "51-min-home-import-card-one-setup");
+        }
+        catch (Exception ex)
+        {
+            File.WriteAllText(Path.Combine(outDir, "import-card-error.txt"), ex.ToString());
+        }
+        finally
+        {
+            window.TourImportPrompt.Hide();
+            window.Width = width;
+            window.Height = height;
+            RenderShots.Pump(400);
+        }
+    }
+
     public static void Run(MainWindow window, string outDir)
     {
         var realNotSure = ImportPanel.NotSureNote;
@@ -28,21 +71,6 @@ internal static class ImportShots
         try
         {
             ImportPanel.NotSureNote = DemoEvidence;
-
-            // 17: the one-time first-run card, in Home's banner slot (the banner hides while it shows), for many setups
-            // and for exactly one.
-            window.TourHideLaunch();
-            window.TourGoTo(0);
-            RenderShots.Pump(500);
-            var many = BulkSetups();
-            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(many));
-            RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "17-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(new[] { many[0] }));
-            RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "17b-home-import-card-one-setup");
-            window.TourImportPrompt.Hide();
-            RenderShots.Pump(300);
 
             // 38: nothing found. Pressed like a click on the Profiles page's Import button (the real click path).
             window.TourBackendFactory = () => new DemoBackend(Demo.Empty);
@@ -136,20 +164,11 @@ internal static class ImportShots
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "41-import-drawer-launching");
 
-            // 50-53: the smallest window the launcher allows, for the Home card, the drawer and a single review.
+            // 52, 53: the smallest window the launcher allows, for the drawer and a single review (50, 51: the Home card, RunHomeCard).
             window.TourCloseImport();
             window.Width = 980;
             window.Height = 600;
             RenderShots.Pump(600);
-            window.TourGoTo(0);
-            RenderShots.Pump(500);
-            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(many));
-            RenderShots.Pump(400);
-            RenderShots.Snap(window, outDir, "50-min-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(new[] { many[0] }));
-            RenderShots.Pump(300);
-            RenderShots.Snap(window, outDir, "51-min-home-import-card-one-setup");
-            window.TourImportPrompt.Hide();
             panel = Open(window, Demo.Bulk, 1500);
             RenderShots.Snap(window, outDir, "52-min-import-drawer-all");
             panel.TourOpenSingle("Survival 1.21.1");

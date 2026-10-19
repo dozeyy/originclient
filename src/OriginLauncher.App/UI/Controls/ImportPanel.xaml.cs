@@ -653,7 +653,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private static string Evidence(DetectedInstance setup)
     {
         var parts = new List<string> { setup.SourceLabel };
-        if (setup.PlaytimeSeconds is > 0) parts.Add(Playtime(setup.PlaytimeSeconds.Value) + " played");
+        if (setup.PlaytimeSeconds is > 0) parts.Add(Playtime(setup.PlaytimeSeconds.Value));
         if (setup.LastPlayed is { } last && last > DateTimeOffset.MinValue.AddYears(2)) parts.Add(Ago(last));
         return string.Join(" - ", parts);
     }
