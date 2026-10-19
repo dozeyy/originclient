@@ -36,8 +36,9 @@ public sealed class ImportSectionVm : RowVm
 /// <summary>Big plain text at the top of a page (Done: "Done: 7 setups brought over").</summary>
 public sealed class ImportTitleVm : RowVm
 {
-    public required string Title { get; init; }
+    public string? Title { get; init; }
     public string? Sub { get; init; }
+    public bool HasTitle => !string.IsNullOrEmpty(Title);
     public bool HasSub => !string.IsNullOrEmpty(Sub);
     public override string Key => "T";
     protected override string Body => $"{Title}|{Sub}";

@@ -66,6 +66,14 @@ public interface IImportBackend
     /// <summary>The player picked a different settings winner for one version: re-plans that group only.</summary>
     Task<BulkImportPlan> ReplanGroupAsync(BulkImportPlan plan, string version, DetectedInstance newWinner, CancellationToken ct);
 
+    /// <summary>
+    /// The player ticked or unticked setups: re-plans only the version groups whose setups changed, keeping the settings
+    /// winners already picked (they travel in the plan's request). The default plans afresh for backends without it.
+    /// </summary>
+    Task<BulkImportPlan> ReplanSelectionAsync(BulkImportPlan plan, BulkSelection selection,
+        IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
+        PlanBulkAsync(selection, plan.Request?.Options ?? new ImportOptions(), progress, ct);
+
     Task<BulkImportResult> ApplyBulkAsync(BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct);
 }
 
@@ -107,6 +115,10 @@ public sealed class LauncherImportBackend : IImportBackend
     private readonly Deferred<BackendParts> _parts;
     private readonly Func<Task> _recovery;
     private CancellationTokenSource? _inspectCts;
+
+    // The setups the last scan found: a bulk plan covers every one of them (selected or not), and the panel only
+    // plans after its scan. Replaced whole by each scan (never mutated), so a plan reads one consistent list.
+    private IReadOnlyList<DetectedInstance>? _lastScan;
 
     public LauncherImportBackend(bool dryRun = false) : this(dryRun, () => Build(dryRun), null)
     {
@@ -168,18 +180,41 @@ public sealed class LauncherImportBackend : IImportBackend
         }), ct);
 
     public Task<ScanResult> ScanAsync(IProgress<ImportProgress>? progress, CancellationToken ct) =>
-        OnPool(parts => parts.Engine.ScanAsync(ImportRoots.Sources(parts.Folders), ImportEngine.DefaultSources(), progress, ct), ct);
+        OnPool(async parts =>
+        {
+            var scan = await ScanCoreAsync(parts, progress, ct).ConfigureAwait(false);
+            Volatile.Write(ref _lastScan, scan.Instances.ToList());
+            return scan;
+        }, ct);
+
+    private static Task<ScanResult> ScanCoreAsync(BackendParts parts, IProgress<ImportProgress>? progress, CancellationToken ct) =>
+        parts.Engine.ScanAsync(ImportRoots.Sources(parts.Folders), ImportEngine.DefaultSources(), progress, ct);
 
     // Browse: reads only the picked folder (no Origin folder, no engine), so it needs no recovery.
     public Task<FolderInspection> InspectFolderAsync(string folder, CancellationToken ct) =>
         FolderSource.InspectAsync(folder, new SourceFs(), ct);
 
-    // Its own token, replaced only by a newer Browse: a running scan is never cancelled by picking a folder.
-    public Task<FolderInspection> InspectPickedFolderAsync(string folder)
+    // Its own token, replaced only by a newer Browse: a running scan is never cancelled by picking a folder. What it
+    // finds joins the setups a bulk plan covers (one folder is one setup: a folder already found is not added twice).
+    public async Task<FolderInspection> InspectPickedFolderAsync(string folder)
     {
         var mine = new CancellationTokenSource();
         Interlocked.Exchange(ref _inspectCts, mine)?.Cancel();
-        return FolderSource.InspectAsync(folder, new SourceFs(), mine.Token);
+        var found = await FolderSource.InspectAsync(folder, new SourceFs(), mine.Token).ConfigureAwait(false);
+        if (found.Instances.Count > 0) AddSetups(found.Instances);
+        return found;
+    }
+
+    private void AddSetups(IEnumerable<DetectedInstance> picked)
+    {
+        while (true)
+        {
+            var before = Volatile.Read(ref _lastScan);
+            var merged = (before ?? Array.Empty<DetectedInstance>()).ToList();
+            foreach (var setup in picked)
+                if (merged.All(m => m.SetupId != setup.SetupId)) merged.Add(setup);
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _lastScan, merged, before), before)) return;
+        }
     }
 
     public Task<ImportPlan> PlanAsync(DetectedInstance source, string? targetVersion, ImportOptions options,
@@ -202,13 +237,20 @@ public sealed class LauncherImportBackend : IImportBackend
             : parts.Engine.ApplyAsync(plan, new LauncherImportSettings(), progress, ct), CancellationToken.None);
     }
 
-    // ---- "import everything": wired to the contract; the engine side is a clearly marked seam ----
+    // ---- "import everything": the engine's bulk plan / re-plan / apply (Core/Import/Bulk) ----
 
     public Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options,
         IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
         OnPool(async parts =>
         {
-            var plan = await BulkPlanSeam(parts, selection, options, progress, ct).ConfigureAwait(false);
+            // The panel always scans first; a caller that didn't gets one here.
+            var setups = Volatile.Read(ref _lastScan);
+            if (setups == null)
+            {
+                setups = (await ScanCoreAsync(parts, null, ct).ConfigureAwait(false)).Instances.ToList();
+                Volatile.Write(ref _lastScan, setups);
+            }
+            var plan = await parts.Engine.PlanBulkAsync(BuildBulkRequest(parts, setups, selection, options), progress, ct).ConfigureAwait(false);
             BlockWhileLaunching(plan.Blocked);
             return plan;
         }, ct);
@@ -216,7 +258,16 @@ public sealed class LauncherImportBackend : IImportBackend
     public Task<BulkImportPlan> ReplanGroupAsync(BulkImportPlan plan, string version, DetectedInstance newWinner, CancellationToken ct) =>
         OnPool(async parts =>
         {
-            var replanned = await BulkReplanSeam(parts, plan, version, newWinner, ct).ConfigureAwait(false);
+            var replanned = await parts.Engine.ReplanGroupAsync(Fresh(plan), version, newWinner, null, ct).ConfigureAwait(false);
+            BlockWhileLaunching(replanned.Blocked);
+            return replanned;
+        }, ct);
+
+    public Task<BulkImportPlan> ReplanSelectionAsync(BulkImportPlan plan, BulkSelection selection,
+        IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
+        OnPool(async parts =>
+        {
+            var replanned = await parts.Engine.ReplanSelectionAsync(Fresh(plan), selection, progress, ct).ConfigureAwait(false);
             BlockWhileLaunching(replanned.Blocked);
             return replanned;
         }, ct);
@@ -224,35 +275,65 @@ public sealed class LauncherImportBackend : IImportBackend
     public Task<BulkImportResult> ApplyBulkAsync(BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct)
     {
         if (_dryRun) throw new InvalidOperationException("A dry run never applies.");
+        // As ApplyAsync: the launch check runs after the recovery wait, right before the engine writes, and a cancel
+        // is the engine's to handle (it rolls back and reports Cancelled), so ct is not tied to the pool task.
         return OnPool(parts => LaunchRunState.ImportRefusal() is { } refusal
-            ? Task.FromResult(new BulkImportResult { RunId = plan.RunId, State = ImportState.RolledBack, Error = refusal })
-            : BulkApplySeam(parts, plan, progress, ct), CancellationToken.None);
+            ? Task.FromResult(new BulkImportResult { RunId = plan.RunId, State = ImportState.RolledBack, Error = refusal, Skipped = plan.Skipped.ToList() })
+            : parts.Engine.ApplyBulkAsync(plan, new LauncherImportSettings(), progress, ct), CancellationToken.None);
     }
 
-    // TODO(integrator): the three seams below are the ONLY place the bulk engine plugs in. When ImportEngine gets
-    // PlanBulkAsync / ReplanGroupAsync / ApplyBulkAsync, call them here with parts.Engine (and, for the plan,
-    // BuildRequest(parts, ...) per setup, plus a new LauncherImportSettings() for apply). Everything around them
-    // (recovery wait, thread pool, launch refusal, dry-run refusal) already applies to the real call.
-    private static Task<BulkImportPlan> BulkPlanSeam(BackendParts parts, BulkSelection selection, ImportOptions options,
-        IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
-        Task.FromResult(NotBuilt());
-
-    private static Task<BulkImportPlan> BulkReplanSeam(BackendParts parts, BulkImportPlan plan, string version,
-        DetectedInstance newWinner, CancellationToken ct) =>
-        Task.FromResult(NotBuilt());
-
-    private static Task<BulkImportResult> BulkApplySeam(BackendParts parts, BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct) =>
-        Task.FromResult(new BulkImportResult
-        {
-            RunId = plan.RunId, State = ImportState.RolledBack, Error = "Importing everything isn't built yet. Nothing was changed.",
-        });
-
-    private static BulkImportPlan NotBuilt()
+    /// <summary>
+    /// A re-plan starts from the plan's request, whose launcher settings (profiles, selection, the external-mods switch)
+    /// may be minutes old: they are read again, so the settings delta is always named against what is saved now.
+    /// </summary>
+    private static BulkImportPlan Fresh(BulkImportPlan plan)
     {
-        var plan = new BulkImportPlan { RunId = Guid.NewGuid().ToString("N") };
-        plan.Blocked.Add("Importing everything isn't built yet.");
-        return plan;
+        if (plan.Request is not { } request) return plan;
+        var settings = SettingsStore.Load();
+        var refreshed = new BulkImportPlan
+        {
+            RunId = plan.RunId,
+            BytesToCopy = plan.BytesToCopy,
+            Request = request with
+            {
+                ExistingProfiles = settings.ModProfiles,
+                PlayWithExternalMods = settings.PlayWithExternalMods,
+                SelectedVersion = settings.SelectedVersion,
+                SelectedProfileId = settings.SelectedProfileId,
+            },
+        };
+        refreshed.Groups.AddRange(plan.Groups);
+        refreshed.Skipped.AddRange(plan.Skipped);
+        refreshed.Blocked.AddRange(plan.Blocked);
+        refreshed.Notes.AddRange(plan.Notes);
+        return refreshed;
     }
+
+    private BulkRequest BuildBulkRequest(BackendParts parts, IReadOnlyList<DetectedInstance> setups, BulkSelection selection, ImportOptions options)
+    {
+        var settings = SettingsStore.Load();
+        return new BulkRequest
+        {
+            Setups = setups,
+            Selection = selection,
+            // The dry run never opens the accounts file: it plans for the placeholder (offline) folder.
+            AccountKey = _dryRun ? InstanceLayout.OfflineKey : AccountFolders.SelectedKey(),
+            Options = options,
+            SupportedTargets = parts.SupportedTargets,
+            Facts = TargetFactsFor,
+            ExistingProfiles = settings.ModProfiles,
+            PlayWithExternalMods = settings.PlayWithExternalMods,
+            SelectedVersion = settings.SelectedVersion,
+            SelectedProfileId = settings.SelectedProfileId,
+        };
+    }
+
+    /// <summary>What the launcher knows about one target version: the bundled Origin jar (its built-ins) and the catalog's mods.</summary>
+    internal static TargetFacts TargetFactsFor(string version) => new()
+    {
+        BundledOriginJarPath = VersionManager.BundledJarFor(version),
+        CatalogMods = CatalogModsFor(version),
+    };
 
     // A launch that is still starting blocks planning too, so the panel says so before the player gets as far as Import.
     private static void BlockWhileLaunching(List<string> blocked)

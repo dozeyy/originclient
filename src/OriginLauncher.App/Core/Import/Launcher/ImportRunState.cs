@@ -16,6 +16,16 @@ public static class ImportRunState
 
     public static bool IsApplying => Volatile.Read(ref _holders) > 0;
 
+    /// <summary>
+    /// Tests only (the test project compiles this file): back to idle with no listeners, so one failed test can never
+    /// leave the process-wide state busy, or a stray listener attached, for the next.
+    /// </summary>
+    internal static void ResetForTests()
+    {
+        lock (Gate) _holders = 0;
+        Changed = null;
+    }
+
     /// <summary>Raised (on whichever thread changed it) when it goes busy or idle; listeners marshal to the UI themselves.</summary>
     public static event Action? Changed;
 

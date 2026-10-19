@@ -23,6 +23,9 @@ internal sealed class BulkFixture : IDisposable
     public void Dispose() => Rig.Dispose();
 
     /// <summary>Adds a scanned setup (and, unless <paramref name="populate"/> is false, a realistic folder for it).</summary>
+    /// <summary>The "not sure" reason the fixture gives an inferred setup (the engine must show it, not a stock sentence).</summary>
+    public const string GuessReason = "The launcher says 1.21.1, but the game last ran 1.21.4.";
+
     public DetectedInstance Add(string name, string? mc = "1.21.1", SourceKind kind = SourceKind.Prism, LoaderKind loader = LoaderKind.Fabric,
         long? playtimeHours = null, bool pinned = false, DateTimeOffset? lastPlayed = null, Confidence confidence = Confidence.Exact,
         bool populate = true, string? gameDir = null, string? problem = null)
@@ -34,6 +37,9 @@ internal sealed class BulkFixture : IDisposable
         {
             Kind = kind, Name = name, GameDir = dir, McVersion = mc, Loader = loader, Pinned = pinned,
             PlaytimeSeconds = playtimeHours * 3600, LastPlayed = lastPlayed, Confidence = confidence, Problem = problem,
+            // As the detectors write it (EvidenceJudge): an inferred version is not certain, and says why.
+            VersionCertain = confidence != Confidence.Inferred,
+            UncertainReason = confidence == Confidence.Inferred ? GuessReason : null,
         };
         Setups.Add(setup);
         return setup;

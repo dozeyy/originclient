@@ -5,15 +5,15 @@ using OriginLauncher.App.Core.Sync;
 namespace OriginLauncher.App.Core.Import.Launcher;
 
 // The `bulk` section of the --import-plan dry run: what "import everything" would do with the setups a scan
-// found, grouped by Minecraft version. Until the engine's PlanBulkAsync is connected this is a grouping of the
-// SCAN (no plans, no file reads): which setups qualify, which are skipped and why, who would win each version's
-// settings. It writes names, launcher labels, versions, roles and plain sentences - never a path, never a file's
-// contents. A setup name that is itself a path is cut down to its last segment (ImportErrors.Plain).
+// found, grouped by Minecraft version. Normally the ENGINE's plan (WriteEngine: ImportEngine.PlanBulkAsync, the
+// drawer's own call); if that fails, a grouping of the SCAN (Group + Write: no plans, no file reads). It writes
+// names, launcher labels, versions, roles, counts and plain sentences - never a path, never a file's contents.
+// A setup name that is itself a path is cut down to its last segment (ImportErrors.Plain).
 public static class ImportBulkReport
 {
-    public const string UnsupportedVersionFormat = "Origin doesn't support Minecraft {0}, so this setup can't come over.";
-    public const string ForgeReason = "Forge mods can't come over. Origin runs Fabric, except on 1.8.9.";
-    public const string UnknownVersionReason = "Origin couldn't tell which Minecraft version this setup uses, so it can't come over.";
+    // The sentences are BulkRules' (one source per message): the report says exactly what the plan and summary say.
+    public const string ForgeReason = BulkRules.ForgeNote;
+    public const string UnknownVersionReason = BulkRules.UnknownVersionReason;
 
     private const string LegacyForgeVersion = "1.8.9";
 
@@ -39,7 +39,7 @@ public static class ImportBulkReport
             if (string.IsNullOrWhiteSpace(s.McVersion))
                 skipped.Add(new SkipLine(Clean(s.Name), s.SourceLabel, null, UnknownVersionReason));
             else if (!supportedTargets.Contains(s.McVersion))
-                skipped.Add(new SkipLine(Clean(s.Name), s.SourceLabel, s.McVersion, string.Format(UnsupportedVersionFormat, s.McVersion)));
+                skipped.Add(new SkipLine(Clean(s.Name), s.SourceLabel, s.McVersion, BulkRules.UnsupportedReason(s.McVersion)));
             else
                 qualifying.Add(s);
         }
@@ -69,12 +69,92 @@ public static class ImportBulkReport
 
     private static string Clean(string name) => ImportErrors.Plain(name);
 
-    /// <summary>Writes the section as a JSON object value named "bulk".</summary>
-    public static void Write(Utf8JsonWriter w, Report report)
+    /// <summary>
+    /// Writes the engine's bulk plan as the JSON object "bulk": per version its target, winner, whether the player is
+    /// asked to pick, each setup's role, note, version certainty and counts; then every skipped setup with its kind and
+    /// reason, the run's blockers and notes. Names pass through ImportErrors.Plain; denied file names never appear.
+    /// </summary>
+    public static void WriteEngine(Utf8JsonWriter w, BulkImportPlan plan, CredentialGuard guard)
+    {
+        w.WriteStartObject("bulk");
+        w.WriteString("source", "engine");
+        w.WriteString("note", "ImportEngine.PlanBulkAsync for every setup found (selection: all), placeholder account. Nothing applied.");
+        w.WriteBoolean("canApply", plan.CanApply);
+        w.WriteNumber("bytesToCopy", plan.BytesToCopy);
+        w.WriteStartArray("blocked");
+        foreach (var b in plan.Blocked) w.WriteStringValue(Clean(b));
+        w.WriteEndArray();
+        w.WriteStartArray("notes");
+        foreach (var n in plan.Notes) w.WriteStringValue(Clean(n));
+        w.WriteEndArray();
+
+        w.WriteStartArray("groups");
+        foreach (var g in plan.Groups)
+        {
+            w.WriteStartObject();
+            w.WriteString("version", g.Version);
+            w.WriteStartObject("winner");
+            w.WriteString("name", Clean(g.Winner.Name));
+            w.WriteString("launcher", g.Winner.SourceLabel);
+            w.WriteString("setupId", g.Winner.SetupId);
+            w.WriteEndObject();
+            w.WriteBoolean("needsChoice", g.NeedsChoice);
+            w.WriteBoolean("carriesSettings", g.CarriesSettings);
+            if (g.GameFiles is { } files)
+            {
+                w.WriteStartObject("gameFiles");
+                w.WriteNumber("reused", files.ReusedCount);
+                w.WriteNumber("toDownload", files.ToDownloadCount);
+                w.WriteBoolean("metadataUnavailable", files.MetadataUnavailable);
+                w.WriteEndObject();
+            }
+            w.WriteStartArray("setups");
+            foreach (var s in g.Setups)
+            {
+                w.WriteStartObject();
+                w.WriteString("name", Clean(s.Setup.Name));
+                w.WriteString("launcher", s.Setup.SourceLabel);
+                w.WriteString("setupId", s.Setup.SetupId);
+                w.WriteString("role", s.Role.ToString());
+                if (s.Note != null) w.WriteString("note", Clean(s.Note));
+                w.WriteBoolean("versionUncertain", s.VersionUncertain);
+                w.WriteNumber("mods", s.Plan.Mods.Count(m => m.IsCopied));
+                w.WriteNumber("ops", s.Plan.Ops.Count(o => !o.Fallback));
+                w.WriteNumber("bytesToCopy", s.Plan.BytesToCopy);
+                w.WriteStartArray("needsAttention");
+                foreach (var l in s.Plan.Lines.Where(l => l.Section == SummarySection.NeedsAttention && !guard.IsDenied(l.Name)))
+                    w.WriteStringValue(Clean(l.Reason == null ? l.Name : $"{l.Name}: {l.Reason}"));
+                w.WriteEndArray();
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+            w.WriteEndObject();
+        }
+        w.WriteEndArray();
+
+        w.WriteStartArray("skipped");
+        foreach (var k in plan.Skipped)
+        {
+            w.WriteStartObject();
+            w.WriteString("name", Clean(k.Setup.Name));
+            w.WriteString("launcher", k.Setup.SourceLabel);
+            w.WriteString("setupId", k.Setup.SetupId);
+            if (k.Setup.McVersion != null) w.WriteString("minecraft", k.Setup.McVersion);
+            w.WriteString("kind", k.Kind.ToString());
+            w.WriteString("reason", Clean(k.Reason));
+            w.WriteEndObject();
+        }
+        w.WriteEndArray();
+        w.WriteEndObject();
+    }
+
+    /// <summary>Writes the scan-only section as a JSON object value named "bulk" (the fallback when the engine's plan failed).</summary>
+    public static void Write(Utf8JsonWriter w, Report report, string? engineError = null)
     {
         w.WriteStartObject("bulk");
         w.WriteString("source", "scan-grouping");
         w.WriteString("note", "Grouped from the scan alone (nothing planned): who would win each version and what is skipped.");
+        if (engineError != null) w.WriteString("engineError", engineError);
 
         w.WriteStartArray("groups");
         foreach (var g in report.Groups)

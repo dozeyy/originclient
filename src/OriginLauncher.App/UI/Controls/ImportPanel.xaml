@@ -20,7 +20,9 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
 
-        <!-- The virtualized list: the same frame as the Friends list, so the outset focus frame is never clipped. -->
+        <!-- The virtualized list: the same frame as the Friends list, so the outset focus frame is never clipped. The
+             scrollbar sits in a fixed 10 px gutter on the right instead of taking width when it appears, so cards have
+             the same 16 px right space on every page, long (with a scrollbar) or short (without). -->
         <Style x:Key="Import.List" TargetType="ItemsControl">
             <Setter Property="Margin" Value="13,-3,3,0"/>
             <Setter Property="Focusable" Value="False"/>
@@ -37,8 +39,22 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ItemsControl">
-                        <ScrollViewer Focusable="False" Padding="0,0,8,9" VerticalScrollBarVisibility="Auto"
+                        <ScrollViewer Focusable="False" Padding="0,0,10,9" VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
+                            <ScrollViewer.Template>
+                                <ControlTemplate TargetType="ScrollViewer">
+                                    <Grid>
+                                        <ScrollContentPresenter Margin="{TemplateBinding Padding}"
+                                                                CanContentScroll="{TemplateBinding CanContentScroll}"/>
+                                        <ScrollBar x:Name="PART_VerticalScrollBar" HorizontalAlignment="Right" Margin="0,0,0,9"
+                                                   Orientation="Vertical" Minimum="0"
+                                                   Maximum="{TemplateBinding ScrollableHeight}"
+                                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                                   Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                                    </Grid>
+                                </ControlTemplate>
+                            </ScrollViewer.Template>
                             <ItemsPresenter Margin="3"/>
                         </ScrollViewer>
                     </ControlTemplate>
@@ -83,9 +99,10 @@
 
         <DataTemplate DataType="{x:Type controls:ImportTitleVm}">
             <StackPanel Margin="2,12,0,12">
-                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H2}" TextWrapping="Wrap" TextTrimming="None"/>
+                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H2}" TextWrapping="Wrap" TextTrimming="None"
+                           Margin="0,0,0,4" Visibility="{Binding HasTitle, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Text="{Binding Sub}" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"
-                           Margin="0,4,0,0" Visibility="{Binding HasSub, Converter={StaticResource BoolToVis}}"/>
+                           Visibility="{Binding HasSub, Converter={StaticResource BoolToVis}}"/>
             </StackPanel>
         </DataTemplate>
 
@@ -244,10 +261,17 @@
                     <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock x:Name="HeaderTitle" Text="Import" Style="{StaticResource Text.H2}" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="HeaderSubtitle" Text=" " Style="{StaticResource Social.Quiet}"/>
-                </StackPanel>
+                <Grid Grid.Column="1">
+                    <!-- Reserves the title + state line height on every page (never shown), so the page never jumps. -->
+                    <StackPanel x:Name="HeaderSpacer" Visibility="Hidden" IsHitTestVisible="False">
+                        <TextBlock Text="X" Style="{StaticResource Text.H2}"/>
+                        <TextBlock Text="X" Style="{StaticResource Social.Quiet}"/>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="HeaderTitle" Text="Import" Style="{StaticResource Text.H2}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="HeaderSubtitle" Style="{StaticResource Social.Quiet}" Visibility="Collapsed"/>
+                    </StackPanel>
+                </Grid>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="BrowseIconButton" Style="{StaticResource Social.Icon}" Click="Browse_Click"
                             ToolTip="Browse for a folder" AutomationProperties.Name="Browse for a folder">
@@ -301,20 +325,12 @@
                         BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1" CornerRadius="{StaticResource Radius.Card}"/>
             </StackPanel>
 
-            <!-- Nothing found. -->
-            <StackPanel x:Name="EmptyPane" Margin="16,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
-                <Border Width="56" Height="56" HorizontalAlignment="Left" Background="{StaticResource Brush.Card}"
-                        BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                        CornerRadius="{StaticResource Radius.Swatch}">
-                    <Path Data="{StaticResource Icon.Import}" Style="{StaticResource Icon.Base}"
-                          Width="24" Height="24" Stroke="{StaticResource Brush.TextDim}"/>
-                </Border>
-                <TextBlock Text="No other launchers found." Style="{StaticResource Text.H2}" Margin="0,18,0,0"
+            <!-- Nothing found: one line (and the scan's note); BROWSE FOR A FOLDER is the footer's primary, like every page. -->
+            <StackPanel x:Name="EmptyPane" Margin="18,12,16,24" VerticalAlignment="Top" Visibility="Collapsed">
+                <TextBlock Text="No other launchers found." Style="{StaticResource Text.H2}"
                            TextWrapping="Wrap" TextTrimming="None"/>
                 <TextBlock x:Name="EmptyNote" Style="{StaticResource Social.Quiet}" Margin="0,8,0,0"
                            TextWrapping="Wrap" TextTrimming="None" Visibility="Collapsed"/>
-                <Button x:Name="EmptyBrowseButton" Content="BROWSE FOR A FOLDER" Style="{StaticResource Import.FooterPrimary}"
-                        Margin="0,22,0,0" HorizontalAlignment="Left" Click="Browse_Click"/>
             </StackPanel>
 
             <!-- Every setup. The one action (IMPORT n) is in the footer, like every other page. -->
@@ -349,11 +365,9 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Importing: one bar and one line. -->
+            <!-- Importing: one bar and one line. "Setup 3 of 7" is the header's state line. -->
             <StackPanel x:Name="ProgressPane" Margin="16,12,16,0" VerticalAlignment="Top" Visibility="Collapsed">
-                <TextBlock x:Name="ProgressCaption" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="2,4,0,0"
-                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                <TextBlock x:Name="ProgressSetup" Style="{StaticResource Text.BodyDim}" Margin="2,2,0,14"
+                <TextBlock x:Name="ProgressSetup" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="2,4,0,14"
                            TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                 <Border x:Name="ProgressTrack" Height="8" Background="{StaticResource Brush.CardAlt}"
                         BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
@@ -369,11 +383,10 @@
                 </Grid>
             </StackPanel>
 
-            <!-- Nothing changed. -->
+            <!-- Nothing changed (the header's state line): the reason, gold, is the page. -->
             <StackPanel x:Name="FailedPane" Margin="16,12,16,0" VerticalAlignment="Top" Visibility="Collapsed">
-                <TextBlock Text="Import stopped. Nothing changed." Style="{StaticResource Text.H2}" Margin="2,0,0,0" TextWrapping="Wrap" TextTrimming="None"/>
-                <TextBlock x:Name="FailedReason" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Warning}"
-                           TextWrapping="Wrap" TextTrimming="None" Margin="2,8,0,0"/>
+                <TextBlock x:Name="FailedReason" Style="{StaticResource Text.Body}" Foreground="{StaticResource Brush.Warning}"
+                           TextWrapping="Wrap" TextTrimming="None" Margin="2,4,0,0"/>
             </StackPanel>
         </Grid>
 
@@ -385,8 +398,8 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="FooterNote" Style="{StaticResource Social.Quiet}" TextWrapping="Wrap" TextTrimming="None"
-                           VerticalAlignment="Center" Margin="2,0,8,0"/>
+                <TextBlock x:Name="FooterNote" Style="{StaticResource Social.Quiet}" TextWrapping="NoWrap"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="2,0,8,0"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="FooterSecondary" Style="{StaticResource Import.FooterAction}" Click="FooterSecondary_Click"/>
                     <Button x:Name="FooterPrimary" Style="{StaticResource Import.FooterPrimary}" Click="FooterPrimary_Click"/>

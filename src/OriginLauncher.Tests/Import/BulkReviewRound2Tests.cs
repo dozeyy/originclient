@@ -184,4 +184,27 @@ public class BulkReviewRound2Tests : IDisposable
         var text = BulkSummary.Render(result);
         Assert.DoesNotContain("already brought over from Prism: A", text);
     }
+
+    [Fact]
+    public async Task R2_3b_WithThreeSetupsALaterStandInNamesTheSetupThatReallyBroughtIt()
+    {
+        // A owns the claim and is skipped mid-run; B's stand-in lands; C's stand-in stays idle because B already landed it.
+        // C's plan line said "already brought over from Prism: A": the result must name B, never the skipped A.
+        var a = WithCache("A", "1.21.1", 40);
+        WithCache("B", "1.21.1", 30);
+        WithCache("C", "1.21.1", 10);
+        var engine = _f.Engine(new IImportPlanContributor[] { new CacheContributor() });
+        var plan = await _f.Plan(engine);
+        Assert.Contains(plan.AllSetups.Single(s => s.Setup.Name == "C").Plan.Lines, l => l.Reason == "already brought over from Prism: A");
+        _f.Rig.RunningDirs.Add(a.GameDir);
+
+        var result = await engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Error);
+        var c = Outcome(result, "C").Lines!;
+        Assert.DoesNotContain(c, l => l.Reason == "already brought over from Prism: A");
+        Assert.Contains(c, l => l.Name == "Faithful.zip" && l.Reason == "already brought over from Prism: B");
+        Assert.DoesNotContain(c, l => l.Reason?.StartsWith("came over from this setup", StringComparison.Ordinal) == true); // C's stand-in never ran
+        Assert.DoesNotContain("already brought over from Prism: A", BulkSummary.Render(result));
+    }
 }

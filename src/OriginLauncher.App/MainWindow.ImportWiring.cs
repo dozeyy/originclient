@@ -22,14 +22,44 @@ public partial class MainWindow
     private readonly List<UIElement> _inertBehindImport = new();
     private IInputElement? _focusBeforeImport;
 
-    /// <summary>Called once from the constructor.</summary>
+    /// <summary>Called once from the constructor; everything it subscribes to is static, so Closed unsubscribes it.</summary>
     private void HookImportWiring()
     {
-        // The import (or the startup recovery) ended: a close the player asked for while it ran now goes through.
-        ImportRunState.Changed += () => Dispatcher.BeginInvoke(() =>
+        ImportRunState.Changed += OnImportRunChanged;
+        LaunchRunState.Changed += OnImportRefusalChanged;
+        UpdateRunState.Changed += OnImportRefusalChanged;
+        Closed += (_, _) =>
         {
-            if (_closeGuard.ShouldCloseNow(ImportRunState.IsApplying)) Close();
-        });
+            ImportRunState.Changed -= OnImportRunChanged;
+            LaunchRunState.Changed -= OnImportRefusalChanged;
+            UpdateRunState.Changed -= OnImportRefusalChanged;
+        };
+        PushImportRefusal(); // once now: the state may already be set when the window opens
+    }
+
+    // The import (or the startup recovery) ended: a close the player asked for while it ran now goes through - unless
+    // an update is running, which restarts (and so closes) the launcher itself once the import is done.
+    private void OnImportRunChanged() => Dispatcher.BeginInvoke(CloseIfHeldCloseIsDue);
+
+    private void CloseIfHeldCloseIsDue()
+    {
+        if (UpdateRunState.IsRunning)
+        {
+            if (!ImportRunState.IsApplying) _closeGuard.Forget();
+            return;
+        }
+        if (_closeGuard.ShouldCloseNow(ImportRunState.IsApplying)) Close();
+    }
+
+    // Raised on whichever thread started/ended a launch or an update: marshal to the UI thread, then tell both
+    // places that offer Import (the open drawer, Home's one-time card) the one sentence, or null when Import can run.
+    private void OnImportRefusalChanged() => Dispatcher.BeginInvoke(PushImportRefusal);
+
+    private void PushImportRefusal()
+    {
+        var refusal = LaunchRunState.ImportRefusal();
+        _importPanel?.SetRefusal(refusal);
+        _homePage.ImportCard.SetRefusal(refusal);
     }
 
     // ---- closing while an import writes ---------------------------------------------------------------
@@ -57,22 +87,17 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// THE hook into the panel: asks the player whether to cancel the running import and learns the ANSWER. A panel
-    /// that implements <see cref="IImportCloseHost"/> answers (true = cancel, false = keep importing, which forgets
-    /// the held close). The current ImportPanel does not implement it yet: its RequestClose() asks the question but
-    /// cannot report the answer, so the held close is forgotten at once (the player closes again when they want
-    /// to) and the window never closes on its own after "Keep importing".
+    /// THE hook into the panel: asks the player whether to cancel the running import (the panel as the wiring's
+    /// <see cref="IImportCloseHost"/>) and learns the ANSWER. False = keep importing, which forgets the held close.
+    /// True only STARTS the cancel: the engine rolls back, and the window closes when ImportRunState goes idle
+    /// (OnImportRunChanged), never before the rollback is done. If it already went idle while the question was up,
+    /// it closes now.
     /// </summary>
     private async Task AskCancelImportBeforeCloseAsync()
     {
-        if (_importPanel is not { IsApplying: true } panel) return;
-        if (panel is IImportCloseHost host)
-        {
-            _closeGuard.OnConfirmAnswered(await host.ConfirmCancelAsync());
-            return;
-        }
-        panel.RequestClose();
-        _closeGuard.Forget();
+        if (_importPanel is not IImportCloseHost { IsApplying: true } host) return;
+        _closeGuard.OnConfirmAnswered(await host.ConfirmCancelAsync());
+        CloseIfHeldCloseIsDue();
     }
 
     // ---- an update downloading or restarting ----------------------------------------------------------

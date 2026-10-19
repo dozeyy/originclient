@@ -342,6 +342,9 @@ public sealed partial class ImportEngine
             : base($"Origin's Minecraft {version} started while importing") { }
     }
 
+    // The start of the plan line a later setup gets for something an earlier one brings ("already brought over from X").
+    private const string AlreadyBroughtOver = "already brought over from ";
+
     private sealed class SetupState
     {
         public SetupResultKind Kind = SetupResultKind.Failed;
@@ -392,6 +395,9 @@ public sealed partial class ImportEngine
         // claim belongs to one target folder, so another group's released claim never fires a stand-in here.
         var released = new HashSet<string>(StringComparer.Ordinal);
         var landedByStandIn = new HashSet<string>(StringComparer.Ordinal);
+        // Which setup a landed stand-in came from, per claim: a later setup's "already brought over from X" line for the
+        // same claim must name THAT setup, never the claimant that was left out.
+        var standInFrom = new Dictionary<string, string>(StringComparer.Ordinal);
         var bytesTotal = plan.BytesToCopy;
         long bytesDone = 0;
         var index = 0;
@@ -418,6 +424,7 @@ public sealed partial class ImportEngine
             {
                 released.Clear();
                 landedByStandIn.Clear();
+                standInFrom.Clear();
                 // The version's shared work first (game-file reuse), once for the group.
                 if (group.VersionPlan is { } versionPlan)
                 {
@@ -462,7 +469,18 @@ public sealed partial class ImportEngine
                         var op = setupPlan.Ops[i];
                         ct.ThrowIfCancellationRequested();
                         // A stand-in runs only when its claim was released, and only the first one per claim.
-                        if (op.Fallback && !(released.Contains(op.ClaimKey!) && landedByStandIn.Add(op.ClaimKey!))) continue;
+                        if (op.Fallback && !(released.Contains(op.ClaimKey!) && landedByStandIn.Add(op.ClaimKey!)))
+                        {
+                            // Skipped because an earlier stand-in already landed this claim: the plan's line still names
+                            // the claimant that was left out. Say where it really came from.
+                            if (op.DeferredLine is { } stale && standInFrom.TryGetValue(op.ClaimKey!, out var from)
+                                && stale.Reason?.StartsWith(AlreadyBroughtOver, StringComparison.Ordinal) == true)
+                            {
+                                state.Superseded.Add(stale);
+                                state.Extra.Add(stale with { Reason = AlreadyBroughtOver + from });
+                            }
+                            continue;
+                        }
                         Report(new ImportProgress(StageOf(op.Item), i, setupPlan.Ops.Count, op.Label));
                         try
                         {
@@ -472,6 +490,7 @@ public sealed partial class ImportEngine
                                 state.Extra.Add(new SummaryLine(SummarySection.Imported, op.Item, op.Label,
                                     "came over from this setup, because the setup it was coming from was left out"));
                                 if (op.DeferredLine != null) state.Superseded.Add(op.DeferredLine);
+                                standInFrom[op.ClaimKey!] = planned.Setup.BulkLabel();
                             }
                         }
                         catch (Exception ex) when (IsSourceProblem(op, ex))
@@ -483,7 +502,11 @@ public sealed partial class ImportEngine
                             if (op.ClaimKey != null)
                             {
                                 released.Add(op.ClaimKey);
-                                if (op.Fallback) landedByStandIn.Remove(op.ClaimKey);
+                                if (op.Fallback)
+                                {
+                                    landedByStandIn.Remove(op.ClaimKey);
+                                    standInFrom.Remove(op.ClaimKey);
+                                }
                             }
                         }
                         if (!op.Fallback) bytesDone += op.Bytes;

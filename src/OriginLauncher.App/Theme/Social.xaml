@@ -11,8 +11,9 @@
     <system:Double x:Key="Social.AvatarSize">32</system:Double>
     <system:Double x:Key="Social.IconSize">28</system:Double>
 
-    <!-- Small print (section labels, times, day dividers, the character counter, hints) uses
-         Brush.TextMuted, which is 4.7:1 or better on Card, PanelElevated and the chat well. -->
+    <!-- Section labels (Social.Section) use Brush.TextDim, like Text.Eyebrow. Other small print (times,
+         day dividers, the character counter, hints) uses Brush.TextMuted, which is 4.7:1 or better on
+         Card, PanelElevated and the chat well. -->
 
     <!-- One card group of list rows, drawn row by row so the list can stay virtualized:
          the first row has the top corners, the last the bottom ones, and each row's top
@@ -308,11 +309,30 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
+    <!-- Disabled, the primary drops its emerald for the secondary's surface: a faded emerald still read brighter than
+         the enabled DETAILS beside it (the unsupported single review, shot 39b), so "off" now looks off. -->
     <Style x:Key="Import.FooterPrimary" TargetType="Button" BasedOn="{StaticResource Social.ActionPrimary}">
         <Setter Property="MinHeight" Value="32"/>
         <Setter Property="Padding" Value="16,0"/>
         <Setter Property="Margin" Value="8,0,0,0"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+        <Style.Triggers>
+            <!-- A template swap, not a Background setter: the hover storyboard's held colour would win over a setter. -->
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                                    BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
 </ResourceDictionary>

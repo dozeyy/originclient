@@ -31,7 +31,7 @@ internal static class ImportLogic
 
     /// <summary>The label and enabled state of the big button on the overview.</summary>
     public static (string Label, bool Enabled) ImportAllButton(bool planning, bool planFailed, bool planAllowsApply,
-        int importable, bool everythingTicked, bool refused)
+        int importable, bool refused)
     {
         if (planning) return ("CHECKING...", false);
         if (planFailed) return ("CHECK AGAIN", !refused);
@@ -39,6 +39,40 @@ internal static class ImportLogic
         var label = importable == 0 ? "IMPORT" : importable == 1 ? "IMPORT 1 SETUP" : $"IMPORT {importable}";
         return (label, planAllowsApply && importable > 0 && !refused);
     }
+
+    /// <summary>
+    /// Whether the row controls (tick boxes, CHANGE) are on: off only while Import is refused (a game starting, an update)
+    /// or an import is writing. A BLOCKED plan ("Not enough free disk space") leaves them on, so the player can untick
+    /// setups until it fits; Import itself follows the plan (<see cref="ImportAllButton"/>), the notice says why.
+    /// </summary>
+    public static bool RowControlsAllowed(bool refused, bool applying) => !refused && !applying;
+
+    /// <summary>
+    /// What a setup brings, in one short line: "Settings, packs, 6 mods". <paramref name="mods"/> null = the count is not
+    /// known (a result line), so mods are named without a number.
+    /// </summary>
+    public static string RoleCaption(SetupRole role, int? mods)
+    {
+        var count = mods is > 0 ? Plural(mods.Value, "mod", "mods") : null;
+        return role switch
+        {
+            SetupRole.Full => mods == null ? "Settings, mods, packs" : count == null ? "Settings and packs" : $"Settings, packs, {count}",
+            SetupRole.ModsAndPacks => mods == null ? "Mods and packs" : count == null ? "Packs" : $"Packs, {count}",
+            _ => "Packs only",
+        };
+    }
+
+    /// <summary>A skipped setup's row caption (no full stop): the short form of the plan's sentence, which Details and Done show.</summary>
+    public static string SkipCaption(SkipKind kind) => kind switch
+    {
+        SkipKind.Unsupported => BulkRules.UnsupportedCaption,
+        SkipKind.UnknownVersion => "Version unknown",
+        SkipKind.FolderMissing => "Folder not found",
+        SkipKind.InsideOrigin => "Already part of Origin",
+        SkipKind.SourceRunning or SkipKind.TargetRunning => "Close Minecraft first",
+        SkipKind.NotSelected => "Not picked",
+        _ => "Left out",
+    };
 
     /// <summary>The square avatar's letter: the first letter or digit of the setup's own name.</summary>
     public static string Initial(string name)
@@ -70,11 +104,28 @@ internal sealed class ImportDoneModel
     {
         var m = new ImportDoneModel { Succeeded = r.Succeeded, Cancelled = r.Cancelled, Error = r.Error, Id = r.RunId };
         if (!m.Succeeded) return m;
-        var landed = new List<string>();
+        // One row per setup: setups are told apart by their id (one folder = one setup), never by a name test, so a setup
+        // called "Pack" can never hide "Prism: Pack 2".
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var labels = new HashSet<string>(StringComparer.Ordinal); // every way a known setup is named (its name, "Prism: Name")
+        void Know(DetectedInstance setup)
+        {
+            labels.Add(setup.Name);
+            labels.Add(setup.BulkLabel());
+        }
+        void Lose(DetectedInstance setup, string reason)
+        {
+            Know(setup);
+            if (seen.Add(setup.BulkId())) m.Lost.Add((setup.Name, LostCaption(setup), reason));
+        }
         foreach (var version in r.Versions)
         {
             var ok = version.Setups.Where(s => s.Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly).ToList();
-            landed.AddRange(ok.Select(s => s.Setup.Name));
+            foreach (var s in ok)
+            {
+                Know(s.Setup);
+                seen.Add(s.Setup.BulkId());
+            }
             m.Brought += ok.Count;
             if (ok.Count > 0)
             {
@@ -83,19 +134,21 @@ internal sealed class ImportDoneModel
                 m.VersionLines.Add((version.Version, ImportLogic.Plural(ok.Count, "setup", "setups") + tail));
             }
             foreach (var s in version.Setups.Where(s => s.Kind is SetupResultKind.Skipped or SetupResultKind.Failed))
-                m.Lost.Add((s.Setup.Name, ImportLogic.GroupTitle(s.Setup.SourceLabel) + (s.Setup.McVersion == null ? "" : " - " + s.Setup.McVersion),
-                    s.Message ?? "Couldn't come over."));
+                Lose(s.Setup, s.Message ?? "Couldn't come over.");
         }
-        // A whole setup the engine only reports in its "didn't come over" list.
+        // The whole setups the plan skipped (unsupported, unticked, its folder gone), structured.
+        foreach (var k in r.Skipped) Lose(k.Setup, k.Reason);
+        // A whole setup the engine only reports in its "didn't come over" list (by label: exact, never a part of a name).
         foreach (var item in r.DidntComeOver)
         {
-            if (landed.Any(n => item.SetupLabel.Contains(n, StringComparison.OrdinalIgnoreCase))) continue;
-            if (m.Lost.Any(l => item.SetupLabel.Contains(l.Title, StringComparison.OrdinalIgnoreCase)
-                                || l.Title.Contains(item.SetupLabel, StringComparison.OrdinalIgnoreCase))) continue;
+            if (labels.Contains(item.SetupLabel) || !seen.Add("label|" + item.SetupLabel)) continue;
             m.Lost.Add((item.SetupLabel, null, item.Reason));
         }
         return m;
     }
+
+    private static string LostCaption(DetectedInstance setup) =>
+        ImportLogic.GroupTitle(setup.SourceLabel) + (setup.McVersion == null ? "" : " - " + setup.McVersion);
 
     public static ImportDoneModel FromSingle(ImportPlan plan, ImportResult r)
     {

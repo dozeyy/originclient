@@ -61,6 +61,7 @@ Motion uses ease-out curves and opacity/color/scale only where scale cannot move
 ## Component rules
 
 - Buttons: the case follows the surface. Drawers (Friends, Import) and their dialogs use UPPERCASE button labels (JOIN, IMPORT 7, KEEP GOING); pages and Home cards use sentence case ("Not now", "New profile"). One primary action per decision area, in the same place on every page of a drawer (the footer, right). Icon-only buttons always have an accessible name and tooltip.
+- Drawer words: a row's status line is short and has no full stop ("Pick settings", "Not supported", "Forge mods can't come over (Fabric only, except 1.8.9)"); the full sentence lives on Details and Done. The drawer header's quiet line carries the page's state ("Setup 3 of 7", "7 setups brought over", "Nothing changed"); a page without one centres its title against the close button. A disabled footer primary drops its emerald for the card surface, so "off" never reads brighter than an enabled DETAILS. Setups that did not come over are always grouped under one heading, "SKIPPED - n".
 - Settings rows: label and description on the left, current value/control on the right. Use the same 32 px minimum control height and alignment grid everywhere.
 - Toggles: square inventory-style track and handle; emerald means on, neutral charcoal means off. Redstone is reserved for destructive/error.
 - Sliders: block handle and squared track; show the value while focused, hovered, or dragged; support keyboard increments and reset.

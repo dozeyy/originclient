@@ -15,8 +15,10 @@ public class BulkPlanTests : IDisposable
 
     public void Dispose() => _f.Dispose();
 
+    // By the setup itself, not its id: SameNameWorlds... hands the engine two setups on ONE folder on purpose (a scan
+    // merges those into one setup, SetupResolver, so they share the folder-only id).
     private static PlannedSetup Planned(BulkImportPlan plan, DetectedInstance setup) =>
-        plan.AllSetups.Single(s => s.Setup.BulkId() == setup.BulkId());
+        plan.AllSetups.Single(s => s.Setup == setup);
 
     // ------------------------------------------------------------ composition (B2, B5, B9)
 
@@ -381,6 +383,9 @@ public class BulkPlanTests : IDisposable
     [Fact]
     public async Task AnUncertainVersionIsListedButStillComesOver()
     {
+        // Uncertain = the detector's VersionCertain/LoaderCertain (not Confidence): a certain setup is never flagged.
+        Assert.False(BulkRules.IsVersionUncertain(new DetectedInstance { Kind = SourceKind.Prism, Name = "x", GameDir = "x", McVersion = "1.21.1", Confidence = Confidence.Inferred }));
+        Assert.True(BulkRules.IsVersionUncertain(new DetectedInstance { Kind = SourceKind.Prism, Name = "x", GameDir = "x", McVersion = "1.21.1", LoaderCertain = false }));
         var guessed = _f.Add("Guess", "1.21.1", confidence: Confidence.Inferred);
 
         var plan = await _f.Plan(_f.Engine());
@@ -390,7 +395,7 @@ public class BulkPlanTests : IDisposable
         Assert.True(BulkRules.IsVersionUncertain(guessed));
         var line = p.Plan.Lines.Single(l => l.Name == "Not sure this is Minecraft 1.21.1");
         Assert.Equal(SummarySection.NeedsAttention, line.Section);
-        Assert.False(string.IsNullOrWhiteSpace(line.Reason));
+        Assert.Equal(BulkFixture.GuessReason, line.Reason); // the detector's own reason, not a stock sentence
         Assert.True(plan.CanApply);
     }
 

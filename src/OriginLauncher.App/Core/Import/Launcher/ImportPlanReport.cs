@@ -9,8 +9,10 @@ namespace OriginLauncher.App.Core.Import.Launcher;
 // lets the version picker choose, plans the picked instance for a placeholder account (the accounts file
 // is never opened) and writes ONLY the one JSON file. Plan never applies.
 //
-// What goes in the file: instances found (name, launcher, Minecraft version, loader), the picker's
-// choice, counts and statuses of the plan, the plan's lines (name + reason), the mods' outcomes.
+// What goes in the file: instances found (name, launcher, Minecraft version, loader, how certain the detector is and
+// why not, the other launcher names for the same folder, the folder-only setup id - a hash, never the path), the
+// picker's choice, counts and statuses of the plan, the plan's lines (name + reason), the mods' outcomes, and the
+// engine's real bulk plan ("import everything": groups, winners, roles, skipped + why).
 // What never does: file contents, folder paths, and any file whose NAME the credential guard denies -
 // those appear once, by name only, under skippedForSafety.
 public static class ImportPlanReport
@@ -65,6 +67,19 @@ public static class ImportPlanReport
                      .Take(3))
             others.Add(await backend.PlanAsync(instance, null, new ImportOptions(), null, ct).ConfigureAwait(false));
 
+        // "Import everything" through the engine itself (the same PlanBulkAsync the drawer calls), for the placeholder
+        // account. If it fails, the section falls back to the scan-only grouping and says why.
+        Bulk.BulkImportPlan? bulk = null;
+        string? bulkError = null;
+        try
+        {
+            bulk = await backend.PlanBulkAsync(Bulk.BulkSelection.All(), new ImportOptions(), null, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            bulkError = ImportErrors.Plain(ex);
+        }
+
         using var stream = new MemoryStream();
         using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
         {
@@ -90,6 +105,13 @@ public static class ImportPlanReport
                 if (i.PlaytimeSeconds is { } secs) w.WriteNumber("playtimeSeconds", secs);
                 if (i.LastPlayed is { } last) w.WriteString("lastPlayedUtc", last.UtcDateTime.ToString("o"));
                 if (i.Problem != null) w.WriteString("problem", i.Problem);
+                w.WriteString("setupId", i.SetupId);
+                w.WriteBoolean("versionCertain", i.VersionCertain);
+                w.WriteBoolean("loaderCertain", i.LoaderCertain);
+                if (i.UncertainReason != null) w.WriteString("uncertainReason", ImportErrors.Plain(i.UncertainReason));
+                w.WriteStartArray("aliases");
+                foreach (var alias in i.Aliases) w.WriteStringValue(ImportErrors.Plain(alias));
+                w.WriteEndArray();
                 w.WriteEndObject();
             }
             w.WriteEndArray();
@@ -123,9 +145,9 @@ public static class ImportPlanReport
             }
             w.WriteEndArray();
 
-            // "Import everything": the scan grouped by Minecraft version (winner, roles, skipped + why). While the
-            // engine's PlanBulkAsync is not connected (see LauncherImportBackend) this is scan-only.
-            ImportBulkReport.Write(w, ImportBulkReport.Group(scan.Instances, targets));
+            // "Import everything": the engine's bulk plan (groups, winner, roles, skipped + why); scan-only if it failed.
+            if (bulk != null) ImportBulkReport.WriteEngine(w, bulk, guard);
+            else ImportBulkReport.Write(w, ImportBulkReport.Group(scan.Instances, targets), bulkError);
             w.WriteEndObject();
         }
         return Encoding.UTF8.GetString(stream.ToArray());

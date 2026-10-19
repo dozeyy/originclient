@@ -41,17 +41,13 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     public event EventHandler? Imported;
 
     /// <summary>
-    /// The "not sure" evidence slot: a plain sentence for a setup whose Minecraft version may be wrong ("Not sure this is
-    /// 1.20.1: the game last ran 1.20.4."), or null. WIRING (detection-accuracy agent): replace <see cref="DefaultNotSure"/>
-    /// with a read of the detector's VersionCertain flag and its reason once those exist on DetectedInstance. The CI
-    /// render swaps it for made-up evidence (UI/ImportShots.cs).
+    /// A row's short "not sure" caption for a setup whose Minecraft version or loader the detector could not be certain of
+    /// (DetectedInstance.VersionCertain / LoaderCertain, via BulkRules), or null. The full reason (UncertainReason) is in Details.
     /// </summary>
-    internal static Func<DetectedInstance, string?> NotSureNote { get; set; } = DefaultNotSure;
+    private static string? NotSureNote(DetectedInstance i) =>
+        i.McVersion != null && BulkRules.IsVersionUncertain(i) ? BulkRules.UncertainCaption : null;
 
-    private static string? DefaultNotSure(DetectedInstance i) =>
-        i.McVersion != null && i.Confidence == Confidence.Inferred ? $"Not sure: Origin guessed {i.McVersion}." : null;
-
-    private const string ForgeFallback = "Forge mods can't come over (Fabric only, except 1.8.9).";
+    private string? _stopping; // set once the player chose STOP: the rollback is running, CANCEL is off
 
     private readonly IImportBackend _backend;
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(100) };
@@ -93,6 +89,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private ImportOptions _options = new();
 
     private BulkImportPlan? _plan;
+    private BulkImportPlan? _lastPlan; // the newest plan that landed: a tick change re-plans from it (only the groups that changed)
     private DetectedInstance? _single;
     private string? _singleTarget;
     private ImportPlan? _singlePlan;
@@ -173,8 +170,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         UpdateFooterEnabled();
     }
 
-    // One disabled set for every reason Import can't run: a launch or update (refusal), an import writing, or a plan that is blocked.
-    private void UpdateAllowed() => Allowed = !Busy && !IsApplying && _plan is not { Blocked.Count: > 0 };
+    // The row controls (tick boxes, CHANGE): off while Import is refused or an import writes. Never tied to a BLOCKED plan
+    // ("Not enough free disk space"): the player must be able to untick setups until it fits. IMPORT follows the plan.
+    private void UpdateAllowed() => Allowed = ImportLogic.RowControlsAllowed(Busy, IsApplying);
 
     // ---------------------------------------------------------------- scan
 
@@ -239,10 +237,13 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         RefreshNotice();
     }
 
+    // The header keeps a two-line height on every page (HeaderSpacer), so the page below never jumps; a page with no
+    // state line has its title centred against the close button instead of sitting on an empty line.
     private void SetHeader(string title, string? subtitle)
     {
         HeaderTitle.Text = title;
-        HeaderSubtitle.Text = string.IsNullOrEmpty(subtitle) ? " " : subtitle;
+        HeaderSubtitle.Text = subtitle ?? "";
+        HeaderSubtitle.Visibility = V(!string.IsNullOrEmpty(subtitle));
     }
 
     private void ShowScanning()
@@ -259,12 +260,13 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         SetHeader("Import", null);
         EmptyNote.Text = _scanNote ?? "";
         EmptyNote.Visibility = V(!string.IsNullOrEmpty(_scanNote));
-        SetFooter(null, null, null, null, null);
-        _primary = EmptyBrowseButton;
+        SetFooter(null, null, null, "BROWSE FOR A FOLDER", () => _ = BrowseAsync());
+        _primary = FooterPrimary;
         WantFocus();
     }
 
     private bool _listDirty;
+    private bool _listChanged; // Browse added setups: the next plan starts from scratch (the old plan's request lacks them)
 
     private void ShowOverview()
     {
@@ -272,12 +274,15 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (rebuild) BuildOverview();
         ShowPane(Pane.Overview);
         SetHeader("Import", OverviewSubtitle());
-        SetFooter("Other launchers stay as they are.", "DETAILS", () => OpenDetails(), "IMPORT", ImportAll);
+        SetFooter(FooterCopiesNote, "DETAILS", () => OpenDetails(), "IMPORT", ImportAll);
         _primary = FooterPrimary;
         UpdateImportAll();
         WantFocus();
         if (rebuild) _ = ReplanAsync();
     }
+
+    // The overview's footer note: one line in the 380 px drawer (it used to wrap). The other launchers are only read.
+    private const string FooterCopiesNote = "Copies, never moves.";
 
     private string OverviewSubtitle() => $"{ImportLogic.Plural(_all.Count, "setup", "setups")} found";
 
@@ -310,7 +315,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         else
         {
             FooterPrimary.IsEnabled = !(Busy && _pane == Pane.Failed);
-            FooterSecondary.IsEnabled = true;
+            FooterSecondary.IsEnabled = !(_pane == Pane.Importing && _stopping != null);
         }
         TryFocusPrimary();
     }
@@ -444,12 +449,16 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         var selection = CurrentSelection();
         var options = _options;
         var choices = new Dictionary<string, string>(_choice);
+        // Same switches as the last plan and the same setups found: only the selection changed, so only the groups whose
+        // setups changed are planned again. A switch change (Details) or a new folder (Browse) plans afresh.
+        var basis = _lastPlan is { Request: { } r } last && r.Options == options && !_listChanged ? last : null;
+        _listChanged = false;
         BulkImportPlan? plan = null;
         try
         {
             // A recovery of an interrupted import (at launcher start) finishes before anything is planned.
             await ImportStartup.Recovery.ConfigureAwait(true);
-            plan = await Task.Run(() => PlanWithChoicesAsync(selection, options, choices, cts.Token), cts.Token);
+            plan = await Task.Run(() => PlanWithChoicesAsync(basis, selection, options, choices, cts.Token), cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -465,7 +474,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         StopTickIfIdle();
         _planFailed = plan == null;
         _plan = plan;
-        if (plan != null) ApplyPlan(plan);
+        if (plan != null)
+        {
+            _lastPlan = plan;
+            ApplyPlan(plan);
+        }
         if (_pane == Pane.Overview) SetHeader("Import", OverviewSubtitle());
         UpdateImportAll();
         RefreshNotice();
@@ -473,10 +486,12 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     }
 
     // Plans, then re-applies every settings winner the player picked (a fresh plan forgets them).
-    private async Task<BulkImportPlan> PlanWithChoicesAsync(BulkSelection selection, ImportOptions options,
+    private async Task<BulkImportPlan> PlanWithChoicesAsync(BulkImportPlan? basis, BulkSelection selection, ImportOptions options,
         IReadOnlyDictionary<string, string> choices, CancellationToken ct)
     {
-        var plan = await _backend.PlanBulkAsync(selection, options, _planProgress, ct);
+        var plan = basis != null
+            ? await _backend.ReplanSelectionAsync(basis, selection, _planProgress, ct)
+            : await _backend.PlanBulkAsync(selection, options, _planProgress, ct);
         foreach (var version in plan.Groups.Select(g => g.Version).ToList())
         {
             if (!choices.TryGetValue(version, out var id)) continue;
@@ -497,8 +512,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             {
                 if (!_rows.TryGetValue(planned.Setup.BulkId(), out var row)) continue;
                 var lines = new List<string>();
-                if (planned.Role == SetupRole.PacksOnly)
-                    lines.Add(string.IsNullOrWhiteSpace(planned.Note) ? ForgeFallback : planned.Note!);
+                if (planned.Role == SetupRole.PacksOnly) lines.Add(BulkRules.ForgeCaption);
                 var choose = group.NeedsChoice && group.Winner.BulkId() == row.Id;
                 if (choose) lines.Add("Pick settings");
                 if (NotSureNote(planned.Setup) is { } notSure) lines.Add(notSure);
@@ -506,6 +520,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
                 row.Warning = lines.Count == 0 ? null : string.Join("\n", lines);
                 row.ChoiceVersion = choose ? group.Version : null;
                 row.CanTick = true;
+                row.Ticked = true;
                 row.Dimmed = false;
             }
         }
@@ -513,8 +528,17 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         {
             if (!_rows.TryGetValue(skipped.Setup.BulkId(), out var row)) continue;
             row.Caption = Describe(skipped.Setup, 0);
-            row.Warning = skipped.Reason;
             row.ChoiceVersion = null;
+            if (skipped.Kind == SkipKind.Unticked)
+            {
+                // Left out by the player: it keeps its tick box (so it can come back in) and needs no warning.
+                row.Warning = null;
+                row.CanTick = true;
+                row.Ticked = false;
+                row.Dimmed = false;
+                continue;
+            }
+            row.Warning = ImportLogic.SkipCaption(skipped.Kind);
             row.CanTick = false;
             row.Dimmed = true;
         }
@@ -525,8 +549,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         UpdateAllowed();
         if (_pane != Pane.Overview) return;
         var importable = _plan?.Groups.Sum(g => g.Setups.Count) ?? 0;
-        var everything = _rows.Values.Where(r => r.CanTick).All(r => r.Ticked);
-        var (label, enabled) = ImportLogic.ImportAllButton(_planning, _planFailed, _plan is { CanApply: true }, importable, everything, Busy);
+        var (label, enabled) = ImportLogic.ImportAllButton(_planning, _planFailed, _plan is { CanApply: true }, importable, Busy);
         FooterPrimary.Content = label;
         FooterPrimary.IsEnabled = enabled;
         TryFocusPrimary();
@@ -644,7 +667,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         StopTickIfIdle();
         _planFailed = plan == null;
         _plan = plan;
-        if (plan != null) ApplyPlan(plan);
+        if (plan != null)
+        {
+            _lastPlan = plan;
+            ApplyPlan(plan);
+        }
         UpdateImportAll();
         RefreshNotice();
     }
@@ -754,9 +781,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_single == null) return;
         if (_singleTarget == null)
         {
-            text = _single.McVersion == null
-                ? "Version unknown. Pick one."
-                : $"{_single.McVersion} isn't supported. Pick another.";
+            // The picker already says "Pick a version": the note only says why.
+            text = _single.McVersion == null ? "Version unknown." : $"{_single.McVersion} isn't supported.";
         }
         else if (_single.McVersion != null && _singleTarget != _single.McVersion)
         {
@@ -904,7 +930,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             items.Add(new ImportSectionVm { Id = "options", Title = "OPTIONS" });
             _optionRows = new List<ImportOptionVm>
             {
-                new() { Id = "worlds", Label = "Copy worlds", Caption = "Off: worlds can be big.", IsOn = _options.CopyWorlds },
+                new() { Id = "worlds", Label = "Copy worlds", Caption = "Worlds can be big.", IsOn = _options.CopyWorlds },
                 new() { Id = "packs", Label = "Copy unused packs", Caption = "Also bring packs you weren't using.", IsOn = _options.CopyUnusedPacks },
                 new() { Id = "keep", Label = "Keep Origin's settings", Caption = "Don't replace settings Origin has.", IsOn = _options.KeepMyOriginSettings },
                 new() { Id = "servers", Label = "Replace server list", Caption = "Origin's list is saved first.", IsOn = _options.ReplaceServerList },
@@ -923,12 +949,6 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         PageList.ItemsSource = items;
     }
 
-    private static string RoleText(SetupRole role) => role switch
-    {
-        SetupRole.Full => "Settings, mods and packs",
-        SetupRole.ModsAndPacks => "Mods and packs",
-        _ => "Packs only",
-    };
 
     private void AddBulkPlanDetails(List<RowVm> items)
     {
@@ -947,8 +967,10 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
                 rows.Add(new ImportLineVm
                 {
                     Id = "p" + planned.Setup.BulkId(), Title = planned.Setup.Name,
-                    Caption = RoleText(planned.Role) + (mods > 0 ? $" - {mods} {(mods == 1 ? "mod" : "mods")}" : ""),
-                    Warning = planned.Role == SetupRole.PacksOnly ? (string.IsNullOrWhiteSpace(planned.Note) ? ForgeFallback : planned.Note) : null,
+                    Caption = ImportLogic.RoleCaption(planned.Role, mods),
+                    // One status line: the Forge caption, else the detector's full "not sure" reason (the row has the short form).
+                    Warning = planned.Role == SetupRole.PacksOnly ? BulkRules.ForgeCaption
+                        : BulkRules.IsVersionUncertain(planned.Setup) ? BulkRules.UncertainReason(planned.Setup) : null,
                 });
             }
             AssignPos(rows);
@@ -956,7 +978,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         }
         if (_plan.Skipped.Count > 0)
         {
-            items.Add(new ImportSectionVm { Id = "skipped", Title = "CAN'T COME OVER", Count = _plan.Skipped.Count, Gold = true });
+            items.Add(new ImportSectionVm { Id = "skipped", Title = SkippedTitle, Count = _plan.Skipped.Count, Gold = true });
             var rows = _plan.Skipped.Select(s => new ImportLineVm { Id = "k" + s.Setup.BulkId(), Title = s.Setup.Name, Caption = Describe(s.Setup, 0), Warning = s.Reason }).ToList<CardRowVm>();
             AssignPos(rows);
             items.AddRange(rows);
@@ -1023,22 +1045,18 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         {
             foreach (var version in bulk.Versions)
             {
-                items.Add(new ImportSectionVm { Id = "v" + version.Version, Title = $"MINECRAFT {version.Version}", Count = version.Setups.Count });
-                var rows = version.Setups.Select(s => new ImportLineVm
+                var landed = version.Setups.Where(x => x.Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly).ToList();
+                if (landed.Count == 0) continue;
+                items.Add(new ImportSectionVm { Id = "v" + version.Version, Title = $"MINECRAFT {version.Version}", Count = landed.Count });
+                var rows = landed.Select(x => new ImportLineVm
                 {
-                    Id = "r" + s.Setup.BulkId(), Title = s.Setup.Name, Caption = OutcomeText(s),
-                    Warning = s.Kind is SetupResultKind.Skipped or SetupResultKind.Failed ? s.Message ?? "Couldn't come over." : null,
+                    Id = "r" + x.Setup.BulkId(), Title = x.Setup.Name, Caption = ImportLogic.RoleCaption(x.Role, null),
+                    Warning = x.Role == SetupRole.PacksOnly ? BulkRules.ForgeCaption : null,
                 }).ToList<CardRowVm>();
                 AssignPos(rows);
                 items.AddRange(rows);
             }
-            if (bulk.DidntComeOver.Count > 0)
-            {
-                items.Add(new ImportSectionVm { Id = "didnt", Title = "NOT IMPORTED", Count = bulk.DidntComeOver.Count, Gold = true });
-                var rows = bulk.DidntComeOver.Select((n, i) => new ImportLineVm { Id = "d" + i, Title = n.Name, Caption = n.SetupLabel, Warning = n.Reason }).ToList<CardRowVm>();
-                AssignPos(rows);
-                items.AddRange(rows);
-            }
+            AddLostRows(items, "dlost", collapsible: false);
             return;
         }
 
@@ -1055,13 +1073,23 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (items.Count == 0) items.Add(new HintVm { Id = "nothing", Pos = CardPos.Only, Text = "Nothing to show." });
     }
 
-    private static string OutcomeText(SetupOutcome s) => s.Kind switch
+    // The one name for setups that didn't come over, on every page that lists them (Details, Done, Done's details).
+    private const string SkippedTitle = "SKIPPED";
+
+    // "SKIPPED - n": every setup that didn't come over, one row each (its launcher and version, then the reason).
+    private void AddLostRows(List<RowVm> items, string id, bool collapsible)
     {
-        SetupResultKind.Imported => RoleText(s.Role),
-        SetupResultKind.ImportedPartly => RoleText(s.Role),
-        SetupResultKind.Skipped => "Skipped",
-        _ => "Put back",
-    };
+        if (_done is not { Lost.Count: > 0 } m) return;
+        items.Add(new ImportSectionVm
+        {
+            Id = id, Title = SkippedTitle, Count = m.Lost.Count, Gold = true, Collapsible = collapsible,
+            Collapsed = collapsible && _lostCollapsed,
+        });
+        if (collapsible && _lostCollapsed) return;
+        var rows = m.Lost.Select((l, i) => new ImportLineVm { Id = id + i, Title = l.Title, Caption = l.Caption, Warning = l.Reason }).ToList<CardRowVm>();
+        AssignPos(rows);
+        items.AddRange(rows);
+    }
 
     private void Option_Click(object sender, RoutedEventArgs e)
     {
@@ -1165,7 +1193,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     // ---------------------------------------------------------------- Browse
 
-    private async void Browse_Click(object sender, RoutedEventArgs e)
+    private void Browse_Click(object sender, RoutedEventArgs e) => _ = BrowseAsync();
+
+    private async Task BrowseAsync()
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Pick a Minecraft setup folder" };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true || string.IsNullOrWhiteSpace(dialog.FolderName)) return;
@@ -1196,10 +1226,11 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         var added = 0;
         foreach (var instance in found.Instances)
         {
-            if (_all.Any(a => string.Equals(a.GameDir, instance.GameDir, StringComparison.OrdinalIgnoreCase))) continue;
+            if (_all.Any(a => a.BulkId() == instance.BulkId())) continue; // one folder is one setup
             _all.Add(instance);
             added++;
         }
+        if (added > 0) _listChanged = true;
         _flash = added == 0 ? "That folder is already in the list." : null;
         if (_pane is Pane.Overview or Pane.Empty && added > 0) ShowOverviewOrEmpty();
         else
@@ -1214,14 +1245,14 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private void BeginApply(string caption)
     {
         _barFraction = 0;
+        _stopping = null;
         SetBar(0);
-        ProgressCaption.Text = caption;
         ProgressSetup.Text = "";
         ProgressDetail.Text = "";
         _applyProgress.Last = null;
         _singleProgress.Last = null;
         ShowPane(Pane.Importing);
-        SetHeader("Import", null);
+        SetHeader("Import", caption);
         SetFooter(null, "CANCEL", () => _ = AskCancelAsync(), null, null);
         _primary = null;
         _tick.Start();
@@ -1320,7 +1351,14 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         // A destructive confirm opens on "Keep importing", so a double tap of Enter never cancels.
         var cancel = await Confirm.ShowAsync("Stop importing?",
             "Anything copied so far is undone.", "STOP", "KEEP GOING", destructive: true);
-        if (cancel && IsApplying) _applyCts?.Cancel();
+        if (cancel && IsApplying)
+        {
+            _stopping = "Stopping...";
+            HeaderSubtitle.Text = _stopping;
+            HeaderSubtitle.Visibility = Visibility.Visible;
+            FooterSecondary.IsEnabled = false; // one STOP is enough: the engine is putting everything back
+            _applyCts?.Cancel();
+        }
         return cancel;
     }
 
@@ -1334,14 +1372,14 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
                 fraction = b.BytesTotal > 0
                     ? b.BytesDone / (double)b.BytesTotal
                     : (b.SetupIndex + Inner(b.Inner)) / Math.Max(1, b.SetupCount);
-                ProgressCaption.Text = $"Setup {b.SetupIndex + 1} of {b.SetupCount}";
+                if (_stopping == null) HeaderSubtitle.Text = $"Setup {b.SetupIndex + 1} of {b.SetupCount}";
                 ProgressSetup.Text = b.SetupLabel;
                 ProgressDetail.Text = StageText(b.Inner.Stage) + (string.IsNullOrEmpty(b.Inner.Item) ? "" : ": " + b.Inner.Item);
             }
             else if (_singleProgress.Last is { } p)
             {
                 fraction = p.Stage == ImportStage.Finishing ? 1 : Inner(p);
-                ProgressCaption.Text = "Setup 1 of 1";
+                if (_stopping == null) HeaderSubtitle.Text = "Setup 1 of 1";
                 ProgressSetup.Text = _single == null ? "" : $"{_single.SourceLabel}: {_single.Name}";
                 ProgressDetail.Text = StageText(p.Stage) + (string.IsNullOrEmpty(p.Item) ? "" : ": " + p.Item);
             }
@@ -1399,29 +1437,14 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private void RenderDone()
     {
         if (_done is not { } m) return;
-        var items = new List<RowVm>
-        {
-            new ImportTitleVm { Title = $"Done: {ImportLogic.Plural(m.Brought, "setup", "setups")} brought over", Sub = "Find them in Profiles." },
-        };
+        var items = new List<RowVm> { new ImportTitleVm { Sub = "Find them in Profiles." } };
         var lines = m.VersionLines.Select(v => new ImportLineVm { Id = "v" + v.Version, Title = v.Version, Caption = v.Text }).ToList<CardRowVm>();
         AssignPos(lines);
         items.AddRange(lines);
-        if (m.Lost.Count > 0)
-        {
-            items.Add(new ImportSectionVm
-            {
-                Id = "lost", Title = "SKIPPED", Count = m.Lost.Count, Gold = true, Collapsible = true, Collapsed = _lostCollapsed,
-            });
-            if (!_lostCollapsed)
-            {
-                var rows = m.Lost.Select((l, i) => new ImportLineVm { Id = "l" + i, Title = l.Title, Caption = l.Caption, Warning = l.Reason }).ToList<CardRowVm>();
-                AssignPos(rows);
-                items.AddRange(rows);
-            }
-        }
+        AddLostRows(items, "lost", collapsible: true);
         PageList.ItemsSource = items;
         ShowPane(Pane.Done);
-        SetHeader("Import", null);
+        SetHeader("Import", $"{ImportLogic.Plural(m.Brought, "setup", "setups")} brought over");
         SetFooter(null, "DETAILS", () => OpenDetails(), "CLOSE", () => CloseRequested?.Invoke(this, EventArgs.Empty));
         _primary = FooterPrimary;
         WantFocus();
@@ -1430,7 +1453,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private void ShowFailed(ImportDoneModel m)
     {
         ShowPane(Pane.Failed);
-        SetHeader("Import", null);
+        SetHeader("Import", "Nothing changed");
         if (m.Cancelled && string.IsNullOrEmpty(m.Error))
         {
             FailedReason.Text = "You stopped it.";
@@ -1581,6 +1604,26 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     internal void TourScrollPage(double offset) => ScrollOf(PageList)?.ScrollToVerticalOffset(offset);
 
     internal void TourRefusal(string? sentence) => SetRefusal(sentence);
+
+    /// <summary>Puts focus on the first setup row (the render then presses Tab, which lands on that row's tick box).</summary>
+    internal void TourFocusFirstRow()
+    {
+        if (FindFirst<Button>(OverviewList, b => b.DataContext is SetupRowVm) is { } row) row.Focus();
+    }
+
+    /// <summary>Puts focus on the footer's secondary button (the render then presses Tab, which lands on the primary).</summary>
+    internal void TourFocusFooterSecondary() => FooterSecondary.Focus();
+
+    private static T? FindFirst<T>(DependencyObject root, Func<T, bool> match) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T t && match(t)) return t;
+            if (FindFirst(child, match) is { } deeper) return deeper;
+        }
+        return null;
+    }
 
     private static ScrollViewer? ScrollOf(ItemsControl list) => FindScroll(list);
 

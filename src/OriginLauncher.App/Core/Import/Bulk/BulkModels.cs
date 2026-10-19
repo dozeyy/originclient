@@ -16,8 +16,12 @@ namespace OriginLauncher.App.Core.Import.Bulk;
 
 public static class InstanceIds
 {
-    /// <summary>A stable name for a setup within one scan (launcher + game folder); what a <see cref="BulkSelection"/> refers to.</summary>
-    public static string BulkId(this DetectedInstance setup) => setup.Kind + "|" + setup.GameDir.TrimEnd('\\', '/');
+    /// <summary>
+    /// The setup's one id (<see cref="DetectedInstance.SetupId"/>: from the game folder only), what a <see cref="BulkSelection"/>,
+    /// an untick and a settings-winner choice refer to. One folder is one setup, so a rescan, Browse or another launcher
+    /// naming the same folder never splits it into two ids.
+    /// </summary>
+    public static string BulkId(this DetectedInstance setup) => setup.SetupId;
 
     /// <summary>How a setup is named to the player in a bulk import: "Prism: Survival" (the launcher, then its own name).</summary>
     public static string BulkLabel(this DetectedInstance setup) => $"{setup.SourceLabel}: {setup.Name}";

@@ -44,15 +44,29 @@ public static class BulkRules
 
     public const string ForgeNote = "Forge mods can't come over. Origin runs Fabric, except on 1.8.9.";
 
-    /// <summary>
-    /// The one place a bulk import asks "is this setup's version a guess?". Today that is the detector's
-    /// <see cref="Confidence.Inferred"/>; switch it here (to the detector's own certainty flag) and every rule follows.
-    /// </summary>
-    public static bool IsVersionUncertain(DetectedInstance setup) => setup.Confidence == Confidence.Inferred;
+    // The drawer's short row captions for the same facts (row status lines carry no full stop). The sentences above
+    // are what the plan, the summary and the Done page say; these are what a row says. One source each.
 
-    /// <summary>Why the version is a guess, in plain words (the detector's evidence when it gives one).</summary>
+    /// <summary>A Forge/NeoForge setup's row caption: what happens, and why, in one line (Will asked for the reason to stay).</summary>
+    public const string ForgeCaption = "Forge mods can't come over (Fabric only, except 1.8.9)";
+
+    /// <summary>The row caption of a setup on a Minecraft version Origin doesn't have (the full sentence: <see cref="UnsupportedReason"/>).</summary>
+    public const string UnsupportedCaption = "Not supported";
+
+    /// <summary>The row caption of a setup whose version or loader is a guess (the full reason: <see cref="UncertainReason"/>).</summary>
+    public const string UncertainCaption = "Not sure of the version";
+
+    /// <summary>
+    /// The one place a bulk import asks "is this setup's version a guess?": the detector's own certainty
+    /// (<see cref="DetectedInstance.VersionCertain"/> and <see cref="DetectedInstance.LoaderCertain"/>, set by EvidenceJudge).
+    /// </summary>
+    public static bool IsVersionUncertain(DetectedInstance setup) => !setup.VersionCertain || !setup.LoaderCertain;
+
+    /// <summary>Why the version is a guess, in plain words: the detector's evidence when it gives one.</summary>
     public static string UncertainReason(DetectedInstance setup) =>
-        "Origin worked this out from the setup's files, not from its launcher. It comes over as this version unless you untick it.";
+        string.IsNullOrWhiteSpace(setup.UncertainReason)
+            ? "Origin worked this out from the setup's files, not from its launcher. It comes over as this version unless you untick it."
+            : setup.UncertainReason;
 
     /// <summary>
     /// Forge and NeoForge mods can't run on Origin's Fabric: such a setup brings only its resource and shader packs,

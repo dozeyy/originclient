@@ -13,7 +13,8 @@ namespace OriginLauncher.App.UI;
 /// no scan, no plan against a real folder and nothing is written: the plans are built in memory here, and
 /// "Import" only plays back canned progress.
 ///
-/// Shot numbers: 17 is the Home card; 30-41 are the drawer (20-27 are the smallest-window set in RenderShots).
+/// Shot numbers: 17, 17b, 17c are the Home card (17c: hidden while Import is refused); 30-41 are the drawer, 42/42b its
+/// keyboard focus; 50-53 the smallest window (20-27 are the smallest-window set in RenderShots).
 /// </summary>
 internal static class ImportShots
 {
@@ -34,20 +35,27 @@ internal static class ImportShots
             var one = new[] { many[0] };
             window.TourGoTo(0);
             RenderShots.Pump(400);
-            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(many));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many));
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "17-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(one));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one));
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "17b-home-import-card-one-setup");
+
+            // 17c: a game is starting (or an update runs): Import would be refused, so the card stays out of Home.
+            window.TourImportPrompt.SetRefusal("Wait for Minecraft to finish starting, then try again.");
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "17c-home-import-card-refused");
+            window.TourImportPrompt.SetRefusal(null);
+            RenderShots.Pump(200);
 
             window.Width = 980;
             window.Height = 600;
             RenderShots.Pump(600);
-            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(many));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(many));
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "50-min-home-import-card");
-            window.TourImportPrompt.ShowQuestion(ImportPromptCard.QuestionFor(one));
+            window.TourImportPrompt.ShowQuestion(ImportPrompt.Question(one));
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "51-min-home-import-card-one-setup");
         }
@@ -66,12 +74,9 @@ internal static class ImportShots
 
     public static void Run(MainWindow window, string outDir)
     {
-        var realNotSure = ImportPanel.NotSureNote;
         var (windowWidth, windowHeight) = (window.Width, window.Height);
         try
         {
-            ImportPanel.NotSureNote = DemoEvidence;
-
             // 38: nothing found. Pressed like a click on the Profiles page's Import button (the real click path).
             window.TourBackendFactory = () => new DemoBackend(Demo.Empty);
             window.TourShowProfiles(new Core.Models.LauncherSettings(), _ => 0, openForm: false);
@@ -164,6 +169,19 @@ internal static class ImportShots
             RenderShots.Pump(300);
             RenderShots.Snap(window, outDir, "41-import-drawer-launching");
 
+            // 42, 42b: keyboard focus, as Tab shows it: a setup's tick box, then the footer's primary button.
+            window.TourCloseImport();
+            RenderShots.Pump(400);
+            panel = Open(window, Demo.Bulk, 1500);
+            panel.TourFocusFirstRow();
+            PressTab(window);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "42-import-drawer-focus-tick");
+            panel.TourFocusFooterSecondary();
+            PressTab(window);
+            RenderShots.Pump(300);
+            RenderShots.Snap(window, outDir, "42b-import-drawer-focus-footer");
+
             // 52, 53: the smallest window the launcher allows, for the drawer and a single review (50, 51: the Home card, RunHomeCard).
             window.TourCloseImport();
             window.Width = 980;
@@ -181,7 +199,6 @@ internal static class ImportShots
         }
         finally
         {
-            ImportPanel.NotSureNote = realNotSure;
             DemoBackend.Release();
             window.Width = windowWidth;
             window.Height = windowHeight;
@@ -198,16 +215,29 @@ internal static class ImportShots
         return panel;
     }
 
-    // Made-up evidence for the "not sure" slot: Vanilla+ says 1.21.1 but the game last ran 1.21.4.
-    private static string? DemoEvidence(DetectedInstance setup) =>
-        setup.Name == "Vanilla+" ? "Not sure: last played on 1.21.4." : null;
+    /// <summary>
+    /// Presses Tab for real inside WPF (through the InputManager, as a key press would): the keyboard becomes the most
+    /// recent input, so the focus frame shows the way a keyboard player sees it (a programmatic Focus() alone draws none).
+    /// </summary>
+    private static void PressTab(MainWindow window)
+    {
+        if (System.Windows.PresentationSource.FromVisual(window) is not { } source) return;
+        var keyboard = System.Windows.Input.Keyboard.PrimaryDevice;
+        System.Windows.Input.InputManager.Current.ProcessInput(new System.Windows.Input.KeyEventArgs(keyboard, source, 0, System.Windows.Input.Key.Tab)
+        {
+            RoutedEvent = System.Windows.Input.Keyboard.KeyDownEvent,
+        });
+    }
 
     private static DetectedInstance Instance(string name, SourceKind kind, string mc, long playSeconds,
-        LoaderKind loader = LoaderKind.Fabric, int lastPlayedDaysAgo = 1, Confidence confidence = Confidence.Exact) => new()
+        LoaderKind loader = LoaderKind.Fabric, int lastPlayedDaysAgo = 1, string? notSure = null) => new()
     {
         Kind = kind, Name = name, GameDir = Path.Combine("demo", name), McVersion = mc, Loader = loader,
         PlaytimeSeconds = playSeconds > 0 ? playSeconds : null,
-        LastPlayed = DateTimeOffset.UtcNow.AddDays(-lastPlayedDaysAgo), Confidence = confidence,
+        LastPlayed = DateTimeOffset.UtcNow.AddDays(-lastPlayedDaysAgo),
+        // The detector's own verdict, as EvidenceJudge would write it for a setup whose evidence disagrees.
+        Confidence = notSure == null ? Confidence.Exact : Confidence.Inferred,
+        VersionCertain = notSure == null, UncertainReason = notSure,
     };
 
     /// <summary>
@@ -225,7 +255,8 @@ internal static class ImportShots
         Instance("Snapshot fun", SourceKind.Modrinth, "1.21.5", 2 * 3600, lastPlayedDaysAgo: 40),
         Instance("1.8.9 PvP", SourceKind.CurseForge, "1.8.9", 22 * 3600, LoaderKind.Forge, 20),
         Instance("Better MC", SourceKind.CurseForge, "1.21.5", 5 * 3600, LoaderKind.Fabric, 70),
-        Instance("Vanilla+", SourceKind.CurseForge, "1.21.1", 1 * 3600, LoaderKind.Fabric, 100, Confidence.Inferred),
+        Instance("Vanilla+", SourceKind.CurseForge, "1.21.1", 1 * 3600, LoaderKind.Fabric, 100,
+            "The launcher says 1.21.1, but the game last ran 1.21.4."),
     };
 
     private sealed class DemoBackend : IImportBackend
@@ -345,7 +376,7 @@ internal static class ImportShots
         // ---- "import everything": built from BulkSetups() with the real VersionPicker, so the grouping, the
         // unclear-winner choice and the roles behave the way the engine will. Nothing is read or written. ----
 
-        private const string ForgeNote = "Forge mods can't come over (Fabric only, except 1.8.9).";
+        private const string ForgeNote = BulkRules.ForgeNote;
 
         private static readonly string[] DemoTargets = { "1.21.1", "1.20.1", "1.20", "1.19.2", "1.8.9" };
 
@@ -354,16 +385,20 @@ internal static class ImportShots
         {
             var plan = new BulkImportPlan { RunId = "bulk0123456789abcdef0123456789ab" };
             if (_demo == Demo.Blocked) plan.Blocked.Add("Close Minecraft first: it is still running from one of your setups.");
-            var chosen = BulkSetups().Where(selection.Includes).ToList();
+            var all = BulkSetups();
+            var chosen = all.Where(selection.Includes).ToList();
             var byVersion = new List<(string Version, List<DetectedInstance> Setups)>();
             var done = 0;
+            // Like the engine: every setup found appears once; the ones the player took out are listed as left out.
+            foreach (var setup in all.Where(selection.IsUnticked))
+                plan.Skipped.Add(new SkippedSetup(setup, "You left this setup out.", SkipKind.Unticked));
             foreach (var setup in chosen)
             {
                 ct.ThrowIfCancellationRequested();
                 var version = setup.McVersion ?? "";
                 if (!DemoTargets.Contains(version))
                 {
-                    var skipped = new SkippedSetup(setup, "Not supported.");
+                    var skipped = new SkippedSetup(setup, BulkRules.UnsupportedReason(version), SkipKind.Unsupported);
                     plan.Skipped.Add(skipped);
                     progress?.Report(new BulkPlanProgress(++done, chosen.Count, setup.Name, Skipped: skipped));
                     continue;
@@ -431,17 +466,12 @@ internal static class ImportShots
 
             var versions = plan.Groups.Select(g => new VersionOutcome(g.Version, g.Setups.Select(s => new SetupOutcome(
                 s.Setup, s.Role, s.Role == SetupRole.PacksOnly ? SetupResultKind.ImportedPartly : SetupResultKind.Imported, s.Note)).ToList())).ToList();
-            // A setup that never came over is listed under its own Minecraft version.
-            versions.AddRange(plan.Skipped.GroupBy(k => k.Setup.McVersion ?? "").Select(g => new VersionOutcome(g.Key,
-                g.Select(k => new SetupOutcome(k.Setup, SetupRole.Full, SetupResultKind.Skipped, k.Reason)).ToList())));
-            var notImported = plan.Skipped.Select(k => new NotImportedItem(k.Setup.Name, "Whole setup", k.Reason))
-                .Concat(plan.Groups.SelectMany(g => g.Setups).SelectMany(s => s.Plan.Lines
-                    .Where(l => l.Section == SummarySection.NotImported)
-                    .Select(l => new NotImportedItem(s.Setup.Name, l.Name, l.Reason ?? ""))))
-                .ToList();
+            // Like the engine: the skipped setups are the "didn't come over" list (by label) and the structured Skipped list.
+            var notImported = plan.Skipped.Select(k => new NotImportedItem(k.Setup.BulkLabel(), "Whole setup", k.Reason)).ToList();
             return new BulkImportResult
             {
                 RunId = plan.RunId, State = ImportState.Committed, Versions = versions, DidntComeOver = notImported,
+                Skipped = plan.Skipped.ToList(),
                 SummaryText = $"Imported {all.Count} setups into {plan.Groups.Count} versions. {plan.Skipped.Count} could not come over.",
             };
         }

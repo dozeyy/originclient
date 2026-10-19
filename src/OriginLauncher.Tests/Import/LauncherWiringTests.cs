@@ -8,9 +8,22 @@ namespace OriginLauncher.Tests.Import;
 // The launch/import safety wiring (Core/Import/Launcher): the two run states, the startup recovery wrapper, the
 // close-while-importing rule, the second-launch pipe and the lazy backend builder. LauncherGlueTests has the
 // stateless pieces. The run states are process-wide statics, so every test that touches them lives in THIS
-// one class (xunit runs a class's tests one at a time) and leaves them idle.
-public sealed class LauncherWiringTests
+// one class, in a collection that never runs beside another (RunStateCollection), and every test starts and ends
+// with all three reset: one failure can't leave a holder or a listener behind and cascade into the next test.
+[Collection(RunStateCollection.Name)]
+public sealed class LauncherWiringTests : IDisposable
 {
+    public LauncherWiringTests() => ResetAll();
+
+    public void Dispose() => ResetAll();
+
+    private static void ResetAll()
+    {
+        ImportRunState.ResetForTests();
+        LaunchRunState.ResetForTests();
+        UpdateRunState.ResetForTests();
+    }
+
     // ---- LaunchRunState: a launch that is still starting blocks the import ----
 
     [Fact]
@@ -452,4 +465,11 @@ public sealed class LauncherWiringTests
     {
         await ImportRunState.WhenIdleAsync().WaitAsync(TimeSpan.FromSeconds(1));
     }
+}
+
+/// <summary>The process-wide run states (ImportRunState, LaunchRunState, UpdateRunState): tests that touch them never run in parallel with anything.</summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class RunStateCollection
+{
+    public const string Name = "Process-wide run states";
 }

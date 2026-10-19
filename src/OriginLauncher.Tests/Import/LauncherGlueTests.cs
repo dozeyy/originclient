@@ -188,9 +188,9 @@ public sealed class LauncherGlueTests
     [Fact]
     public void First_run_card_copy_names_the_launcher_for_one_setup_and_is_generic_for_several()
     {
-        Assert.Equal("Bring over your setup from Prism Launcher?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism) }));
-        Assert.Equal("Bring over your setup from the Minecraft launcher?", ImportPrompt.Question(new[] { Inst(SourceKind.OfficialLauncher) }));
-        Assert.Equal("Bring over your setup from the Modrinth App?", ImportPrompt.Question(new[] { Inst(SourceKind.Modrinth) }));
+        Assert.Equal("Bring over your Prism setup?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism) }));
+        Assert.Equal("Bring over your Minecraft launcher setup?", ImportPrompt.Question(new[] { Inst(SourceKind.OfficialLauncher) }));
+        Assert.Equal("Bring over your Modrinth setup?", ImportPrompt.Question(new[] { Inst(SourceKind.Modrinth) }));
         Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism), Inst(SourceKind.Prism) }));
         Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Question(new[] { Inst(SourceKind.Prism), Inst(SourceKind.CurseForge) }));
         Assert.Equal("Bring over your Minecraft setups?", ImportPrompt.Title);

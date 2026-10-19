@@ -625,10 +625,9 @@ public partial class MainWindow : Window
         _homePage.ImportCard.Hide();
 
         var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend());
-        // WIRING (import-wiring agent): feed the shared busy states in here once they exist on this branch:
-        //   LaunchRunState.Changed and UpdateRunState.Changed -> panel.SetRefusal(ImportHooks.Refusal()) and
-        //   _homePage.ImportCard.SetRefusal(ImportHooks.Refusal()) (the Home card hides while Import would be refused),
-        // and the window's close button asks the panel as an IImportCloseHost (IsApplying, ConfirmCancelAsync).
+        // A launch starting or an update running turns Import off: the panel learns the sentence now and on every
+        // change (MainWindow.ImportWiring.cs PushImportRefusal); the window's close asks it as an IImportCloseHost.
+        panel.SetRefusal(ImportHooks.Refusal());
         panel.CloseRequested += (_, _) => CloseImportPanel();
         panel.Imported += (_, _) =>
         {
@@ -718,7 +717,7 @@ public partial class MainWindow : Window
 
             // The card sits in Home's banner slot (it shows when Home does), and stays out while Import would be refused
             // (a game starting, an update): never offer a click that lands on a refusal.
-            _homePage.ImportCard.SetRefusal(ImportHooks.Refusal());
+            _homePage.ImportCard.SetRefusal(ImportHooks.Refusal()); // and again on every change (PushImportRefusal)
             _homePage.ImportCard.ShowQuestion(question);
             // Shown once: set the moment it appears, so it never comes back.
             _ = Task.Run(() => Core.SettingsStore.Update(s => s.ImportPromptSeen = true));

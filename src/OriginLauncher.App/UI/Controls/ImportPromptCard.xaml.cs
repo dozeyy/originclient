@@ -14,23 +14,7 @@ public partial class ImportPromptCard : UserControl
         InitializeComponent();
     }
 
-    /// <summary>
-    /// "Bring over your Minecraft setups?", or for exactly one setup "Bring over your setup from Prism Launcher?".
-    /// (The card words its own question; Core's ImportPrompt only decides whether to show it.)
-    /// </summary>
-    public static string QuestionFor(IReadOnlyCollection<DetectedInstance> setups)
-    {
-        if (setups.Count != 1) return "Bring over your Minecraft setups?";
-        var from = setups.First().Kind switch
-        {
-            SourceKind.OfficialLauncher => "the Minecraft launcher",
-            SourceKind.Prism => "Prism Launcher",
-            SourceKind.Modrinth => "the Modrinth App",
-            SourceKind.CurseForge => "CurseForge",
-            _ => "another launcher",
-        };
-        return $"Bring over your setup from {from}?";
-    }
+    // The question's words come from Core's ImportPrompt.Question (one source): MainWindow passes them to ShowQuestion.
 
     private bool _pending; // the question is waiting for an answer
     private bool _refused; // Import would be refused right now (a game starting, an update): the card stays out

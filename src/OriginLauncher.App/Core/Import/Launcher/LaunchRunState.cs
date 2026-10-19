@@ -19,6 +19,16 @@ public static class LaunchRunState
 
     public static bool IsStarting => Volatile.Read(ref _holders) > 0;
 
+    /// <summary>
+    /// Tests only (the test project compiles this file): back to idle with no listeners, so one failed test can never
+    /// leave the process-wide state busy, or a stray listener attached, for the next.
+    /// </summary>
+    internal static void ResetForTests()
+    {
+        lock (Gate) _holders = 0;
+        Changed = null;
+    }
+
     /// <summary>Raised (on whichever thread changed it) when a launch starts or the last one ends; listeners marshal to the UI themselves.</summary>
     public static event Action? Changed;
 

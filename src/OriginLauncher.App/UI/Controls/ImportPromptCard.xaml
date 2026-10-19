@@ -21,7 +21,9 @@
             </Grid.RowDefinitions>
             <TextBlock x:Name="QuestionText" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
                        TextWrapping="Wrap" TextTrimming="None"/>
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <!-- A fixed 12 px under the question, so a two-line question never sits tight on the buttons. -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        Margin="0,12,0,0">
                 <Button x:Name="NotNowButton" Content="Not now" Style="{StaticResource Button.Secondary}"
                         Padding="16,0" MinHeight="32" Margin="0,0,8,0" VerticalAlignment="Center" Click="NotNow_Click"/>
                 <Button x:Name="ImportButton" Content="Import" Style="{StaticResource Button.Primary}"

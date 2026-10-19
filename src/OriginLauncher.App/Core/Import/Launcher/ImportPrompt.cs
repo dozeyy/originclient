@@ -25,18 +25,19 @@ public static class ImportPrompt
         instances.Where(i => i.McVersion != null && supportedTargets.Contains(i.McVersion)).ToList();
 
     /// <summary>
-    /// The card's title: "Bring over your setup from Prism Launcher?" when exactly one setup qualifies,
-    /// otherwise "Bring over your Minecraft setups?". Pass the QUALIFYING setups.
+    /// The card's title: "Bring over your Prism setup?" when exactly one setup qualifies (the launcher's short name, so
+    /// the question stays one line in the card), otherwise "Bring over your Minecraft setups?". Pass the QUALIFYING
+    /// setups. The one source of the card's words (the CI render asks it too).
     /// </summary>
     public static string Question(IReadOnlyCollection<DetectedInstance> qualifying) =>
-        qualifying.Count == 1 ? $"Bring over your setup from {Name(qualifying.First().Kind)}?" : Title;
+        qualifying.Count == 1 ? $"Bring over your {ShortName(qualifying.First().Kind)} setup?" : Title;
 
-    private static string Name(SourceKind kind) => kind switch
+    private static string ShortName(SourceKind kind) => kind switch
     {
-        SourceKind.OfficialLauncher => "the Minecraft launcher",
-        SourceKind.Prism => "Prism Launcher",
-        SourceKind.Modrinth => "the Modrinth App",
+        SourceKind.OfficialLauncher => "Minecraft launcher",
+        SourceKind.Prism => "Prism",
+        SourceKind.Modrinth => "Modrinth",
         SourceKind.CurseForge => "CurseForge",
-        _ => "another launcher",
+        _ => "other",
     };
 }
