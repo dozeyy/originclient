@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using OriginLauncher.App.Core.Sync;
 
 namespace OriginLauncher.App.Core.Loaders;
 
@@ -85,10 +86,11 @@ public static class ForgeSplashTheme
         try
         {
             var path = Path.Combine(configFolder, "splash.properties");
+            // Atomic writes: a launcher killed mid-write must not leave a truncated
+            // file, which FML would read as its red defaults and nothing would repair.
             if (!File.Exists(path))
             {
-                Directory.CreateDirectory(configFolder);
-                File.WriteAllText(path, Content);
+                AtomicFile.WriteAllText(path, Content);
                 return;
             }
             var lines = File.ReadAllText(path).Replace("\r\n", "\n").Split('\n');
@@ -100,7 +102,7 @@ public static class ForgeSplashTheme
             var colours = Content.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(l => ForgeDefaults.ContainsKey(KeyOf(l)!));
             var hasEnabled = kept.Any(l => KeyOf(l) == "enabled");
             var output = (hasEnabled ? kept : kept.Append("enabled=true")).Concat(colours);
-            File.WriteAllText(path, string.Join("\n", output) + "\n");
+            AtomicFile.WriteAllText(path, string.Join("\n", output) + "\n");
         }
         catch
         {

@@ -51,8 +51,10 @@ on:
         type: boolean
         default: false
 
+# Read-only by default: the shots job runs the repo's Gradle build. Only the
+# publish job (which runs no repo code) gets a write token.
 permissions:
-  contents: write
+  contents: read
 
 # Only runs that will actually take shots share a group: a push WITHOUT a
 # [shots] tag still starts a (skipped) run, and in the shared group it would
@@ -99,8 +101,14 @@ jobs:
                   return java[x]
               m = re.search(r"options\.release\s*=\s*(\d+)", open(f"src/mods/versions/{x}/build.gradle").read())
               return "25" if m and int(m.group(1)) > 21 else "21"
-          picked = live if raw == "all" else [x.strip() for x in raw.split(",") if known(x.strip())]
-          picked = picked or ["1.21.1"]
+          picked = live if raw == "all" else [x.strip() for x in raw.split(",") if x.strip()]
+          # A typo ([shots:1.21.l1]) must fail loudly, never quietly shoot some
+          # other module and go green without testing the one that was asked for.
+          unknown = [x for x in picked if not known(x)]
+          if unknown or not picked:
+              import sys
+              print(f"::error::dev-shots: unknown module(s) {unknown or raw!r}; expected names from src/mods/live-modules.json or src/mods/versions/", file=sys.stderr)
+              sys.exit(1)
           print("modules=" + json.dumps([{"module": x, "java": java_of(x)} for x in picked]))
           EOF
 
@@ -296,6 +304,8 @@ jobs:
     # checkout of just the folders this run replaces, every git network call capped,
     # and the job itself bounded.
     timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
       - name: Collect every module's shots
         uses: actions/download-artifact@v4

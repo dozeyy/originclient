@@ -172,5 +172,90 @@ class DevShotsFilm(unittest.TestCase):
         self.assertEqual(m.group(1).split("\\n")[:-1], launcher)
 
 
+class DevShotsWorkflow(unittest.TestCase):
+    YML = DevShotsFilm.YML
+
+    def _plan(self, modules):
+        """Runs the plan job's module picker exactly as CI does; returns (exit code, stdout, stderr)."""
+        import subprocess, sys
+        yml = _read(self.YML)
+        m = re.search(r"python3 - <<'EOF' >> \"\$GITHUB_OUTPUT\"\n(.*?)\n\s*EOF\n", yml, re.S)
+        self.assertIsNotNone(m, "plan's module picker not found")
+        lines = m.group(1).splitlines()
+        indent = min(len(l) - len(l.lstrip()) for l in lines if l.strip())
+        script = "\n".join(l[indent:] for l in lines)
+        env = dict(os.environ, INPUT=modules, MSG="")
+        p = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, capture_output=True, text=True)
+        return p.returncode, p.stdout, p.stderr
+
+    def test_unknown_module_fails_instead_of_shooting_another(self):
+        # [shots:1.21.l1] used to shoot 1.21.1 and go green.
+        code, out, err = self._plan("1.21.l1")
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("::error::", err)
+        self.assertNotIn("modules=", out)
+        code, _, _ = self._plan("1.21.1,1.21.l1")
+        self.assertNotEqual(code, 0)
+
+    def test_known_modules_are_planned(self):
+        code, out, err = self._plan("1.21.1, 1.8.9")
+        self.assertEqual(code, 0, err)
+        self.assertIn('"module": "1.21.1"', out)
+        self.assertIn('"module": "1.8.9"', out)
+
+    def test_only_publish_can_write(self):
+        # The shots job runs the repo's Gradle build; it must hold a read-only token.
+        yml = _read(self.YML)
+        top = re.search(r"^permissions:\n((?:  .*\n)+)", yml, re.M)
+        self.assertIsNotNone(top, "no workflow-level permissions block")
+        self.assertNotIn("write", top.group(1))
+        jobs = re.split(r"^  (?=[\w-]+:\n)", yml.split("\njobs:\n", 1)[1], flags=re.M)
+        writers = [j.split(":", 1)[0] for j in jobs if re.search(r"^\s+contents:\s*write", j, re.M)]
+        self.assertEqual(writers, ["publish"])
+
+    def test_every_publish_attempt_starts_from_the_fresh_tip(self):
+        # Run 39273133310 lost the push race 5 times: it cloned once and retried the stale commit.
+        yml = _read(self.YML)
+        loop = re.search(r"for attempt in [\d ]+; do\n(.*?)could not publish", yml, re.S)
+        self.assertIsNotNone(loop, "publish retry loop not found")
+        body = loop.group(1)
+        self.assertIn("git clone", body)
+        self.assertLess(body.index("git clone"), body.index("git push"))
+
+
+class CheckShotsNames(unittest.TestCase):
+    def test_captured_shot_missing_fails_even_when_the_count_matches(self):
+        d = tempfile.mkdtemp()
+        for n in ("title_1920x1080_s0.png", "stray.png"):
+            open(os.path.join(d, n), "wb").close()
+        log = ("[dev-shots] captured title_1920x1080_s0.png\n[dev-shots] captured mods_1920x1080_s0.png\n"
+               "[dev-shots] done — 2 shots in /tmp/shots\n")
+        ok, msg = shots.check(d, log)
+        self.assertFalse(ok)
+        self.assertIn("mods_1920x1080_s0.png", msg)
+
+
+class LiveModules(unittest.TestCase):
+    def test_dropping_a_live_module_fails_consistency(self):
+        # Removing a module from live-modules.json while the launcher still ships it must go red.
+        import json, shutil
+        cc = _load("check_consistency", os.path.join(ROOT, "tools", "release", "check_consistency.py"))
+        self.assertEqual(cc.check_versions(), [])
+        data = json.loads(_read(os.path.join(ROOT, "src", "mods", "live-modules.json")))
+        victim = data["modules"][-1]["module"]
+        data["modules"] = data["modules"][:-1]
+        tmp = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmp, "src", "mods"))
+            with open(os.path.join(tmp, "src", "mods", "live-modules.json"), "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            from pathlib import Path
+            cc.REPO = Path(tmp)
+            problems = cc.check_versions()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        self.assertTrue(any(victim in p for p in problems), problems)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

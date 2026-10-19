@@ -21,6 +21,7 @@ import re
 import sys
 
 DONE = re.compile(r"\[dev-shots\] done \S* (?:(\d+) shots|world set)")
+CAPTURED = re.compile(r"\[dev-shots\] captured (\S+?\.png)\b", re.I)
 STEP_FAILED = re.compile(r"\[dev-shots\] step (\d+) failed")
 # What usually explains a run that never finished (shown in the failure message).
 HINTS = re.compile(r"\b429\b|Too Many Requests|Could not (GET|HEAD|download)|What went wrong|"
@@ -47,6 +48,11 @@ def check(shots_dir, log_text):
         if failed:
             msg += f" Harness steps that threw: {failed} (grep '[dev-shots] step' in run.log)."
         return False, msg
+    # Count alone can be fooled (a stray PNG standing in for a lost one): every shot
+    # the harness says it captured must be on disk under that exact name.
+    lost = sorted(set(CAPTURED.findall(log_text)) - set(pngs))
+    if lost:
+        return False, f"{len(lost)} captured shot(s) missing from the folder: {', '.join(lost[:5])}"
     label = f"{len(pngs)}/{expected}" if done.group(1) else f"{len(pngs)} (world set)"
     return True, f"{label} PNGs"
 
