@@ -205,6 +205,7 @@ floating corner controls. In-game menus match this exactly.
 - [~] Cosmetics over the outer skin layer + head/face move every way (2026-10-19, branch claude/cosmetics-outer-layer, every live
   version, CI green): awaiting Will's in-game pass, then merge + tag v1.0.57. MEMORY.md → 2026-10-19 Cosmetics sit over.
 - [~] Screen-open lag (Will, 2026-10-18): smooth loading scenes + snappy menus built on 1.21.1, awaiting Will's in-game pass; then port. MEMORY.md → 2026-10-18 screen-open lag.
+- [~] Button Style setting (Origin / Minecraft) + full vanilla menus when both styles are off (Will, 2026-10-19)
 
 ## Token discipline (Claude Lean — `.claude/hooks/lean/README.md`)
 Usage is ~all re-reading of the conversation, so what enters it stays forever.

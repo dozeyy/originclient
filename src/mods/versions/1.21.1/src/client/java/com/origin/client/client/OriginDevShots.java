@@ -47,7 +47,10 @@ public final class OriginDevShots {
 		ACT_HOVER, ACT_INVITE, ACT_CHAT, ACT_MENU_ARM, ACT_ACCEPT, ACT_SEARCH_ENTER, ACT_PARTY_MENU,
 		ACT_TOAST_REQUEST, ACT_TOAST_INVITE, ACT_TOAST_STALE,
 		// review follow-ups: fast double-click on a confirm, per-conversation drafts, typing with no focus
-		ACT_DOUBLECLICK, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH;
+		ACT_DOUBLECLICK, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH,
+		// ORIGIN_SHOTS_SET=style (Button Style / Main Menu Style, 2026-10-19): Minecraft's own menus, to see
+		// whether they come out Origin-styled or plain vanilla. Run once per ORIGIN_SHOTS_STYLE state.
+		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING;
 
 		Screen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -198,6 +201,14 @@ public final class OriginDevShots {
 					com.origin.client.client.social.SocialDemo.install(false);
 					yield new OriginModMenuScreen().preview(false, false);
 				}
+				case STY_OPTIONS, STY_VIDEO -> new net.minecraft.client.gui.screens.options.OptionsScreen(
+						new TitleScreen(), Minecraft.getInstance().options);
+				case STY_SOUND -> new net.minecraft.client.gui.screens.options.SoundOptionsScreen(
+						new TitleScreen(), Minecraft.getInstance().options);
+				case STY_WORLDS, STY_CREATE -> new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
+				case STY_SERVERS -> new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(new TitleScreen());
+				case STY_LOADING -> new net.minecraft.client.gui.screens.GenericMessageScreen(
+						net.minecraft.network.chat.Component.literal("Preparing for world creation..."));
 			};
 		}
 	}
@@ -213,6 +224,21 @@ public final class OriginDevShots {
 	/** Scripted steps per ACT_ kind, run one per ~600 ms after the screen is up, then the capture. */
 	private static final java.util.Map<Kind, List<java.util.function.Consumer<Screen>>> ACTS = new java.util.EnumMap<>(Kind.class);
 	private static int actIdx = 0;
+
+	/** Presses the button on {@code s} whose label is {@code label} (the game's own translation, so any language). */
+	private static void pressLabel(Screen s, String label) {
+		if (s == null) {
+			return;
+		}
+		for (var child : s.children()) {
+			if (child instanceof net.minecraft.client.gui.components.AbstractButton b && b.active
+					&& label.equals(b.getMessage().getString())) {
+				b.onPress();
+				return;
+			}
+		}
+		com.origin.client.OriginClient.LOGGER.warn("[dev-shots] no button labelled '{}' on {}", label, s.getClass().getSimpleName());
+	}
 
 	private static com.origin.client.client.gui.FriendsScreen fs(Screen s) {
 		return (com.origin.client.client.gui.FriendsScreen) s;
@@ -240,6 +266,12 @@ public final class OriginDevShots {
 				s -> fs(s).devClick(140, 431), s -> fs(s).devClick(140, 385)));
 		ACTS.put(Kind.ACT_TYPE_SEARCH, List.of(s -> fs(s).devClick(140, 385), s -> fs(s).devClick(150, 106),
 				s -> fs(s).devClick(400, 40), s -> fs(s).devChars("ke")));
+		// Style set: open Video Settings (Sodium's, through the real button) / Create New World (its tabs).
+		ACTS.put(Kind.STY_VIDEO, List.of(s -> pressLabel(s, net.minecraft.client.resources.language.I18n.get("options.video")), s -> {
+		}));
+		ACTS.put(Kind.STY_CREATE, List.of(s -> pressLabel(s, net.minecraft.client.resources.language.I18n.get("selectWorld.create")), s -> {
+		}, s -> {
+		}));
 		ACTS.put(Kind.ACT_TOAST_STALE, List.of(s -> {
 			com.origin.client.client.social.SocialToast.devClickButton("req:00000000000000000000000000000099");
 			com.origin.client.client.social.SocialToast.devClickButton("inv:00000000000000000000000000000098");
@@ -253,6 +285,15 @@ public final class OriginDevShots {
 	static {
 		if (WORLD) {
 			// no screen matrix: OriginDevWorld takes over once the title is up
+		} else if ("style".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// Button Style / Main Menu Style: the title, the Origin windows (which must stay Origin in every
+			// state) and Minecraft's own menus, at GUI scale 2 on 1080p. The pause menu and the startup loading
+			// screen are caught by the world set / the boot shot below.
+			Kind[] ks = {Kind.TITLE, Kind.MENU, Kind.SETTINGS, Kind.RSHIFT, Kind.STY_OPTIONS, Kind.STY_VIDEO,
+					Kind.STY_SOUND, Kind.STY_WORLDS, Kind.STY_CREATE, Kind.STY_SERVERS, Kind.STY_LOADING};
+			for (Kind k : ks) {
+				SHOTS.add(new Shot(1920, 1080, 2, k));
+			}
 		} else if ("social-act".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			for (int sc : new int[]{2, 4}) {
 				for (Kind k : Kind.values()) {
@@ -279,7 +320,9 @@ public final class OriginDevShots {
 			// the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
 				for (Kind k : Kind.values()) {
-					SHOTS.add(new Shot(s[0], s[1], 0, k));
+					if (!k.name().startsWith("STY_")) {
+						SHOTS.add(new Shot(s[0], s[1], 0, k));
+					}
 				}
 			}
 			// Same menu at a forced GUI scale: the redesign must not change size with it.
@@ -313,10 +356,58 @@ public final class OriginDevShots {
 		return DIR != null && !DIR.isEmpty();
 	}
 
+	/**
+	 * ORIGIN_SHOTS_STYLE (dev-only, only with ORIGIN_SHOTS set): forces the two style options for the whole
+	 * run, from the moment the mod starts so the startup loading screen is covered too:
+	 * "buttons" = Button Style Minecraft; "menu" = Main Menu Style Vanilla; "vanilla" = both. Unset/empty = the
+	 * player's own settings (Origin by default). The real options are written (so the mod menu shows what is
+	 * forced) and put back when the shot matrix finishes. Called from OriginClientMod.onInitializeClient.
+	 */
+	public static void applyStyleOverride() {
+		String style = System.getenv("ORIGIN_SHOTS_STYLE");
+		if (!enabled() || style == null || style.isEmpty()) {
+			return;
+		}
+		try {
+			String g = com.origin.client.client.mods.Mods.GENERAL_ID;
+			savedStyle = new String[]{com.origin.client.client.mods.Mods.mode(g, "buttonStyle"),
+					com.origin.client.client.mods.Mods.mode(g, "mainMenuStyle")};
+			if (style.equals("buttons") || style.equals("vanilla")) {
+				com.origin.client.client.mods.Mods.set(g, "buttonStyle", "Minecraft");
+			}
+			if (style.equals("menu") || style.equals("vanilla")) {
+				com.origin.client.client.mods.Mods.set(g, "mainMenuStyle", "Vanilla");
+			}
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] style override '{}' (was buttons={}, menu={})",
+					style, savedStyle[0], savedStyle[1]);
+		} catch (Throwable t) {
+			com.origin.client.OriginClient.LOGGER.warn("[dev-shots] style override failed", t);
+		}
+	}
+
+	private static String[] savedStyle;
+	private static boolean bootShot = false;
+	private static int overlayTicks = 0;
+
+	/** Style set only: one frame of the STARTUP loading screen (the overlay only exists while the game boots). */
+	private static void bootLoadingShot(Minecraft mc) {
+		if (bootShot || !"style".equals(System.getenv("ORIGIN_SHOTS_SET")) || mc.getOverlay() == null) {
+			return;
+		}
+		if (++overlayTicks >= 12) {
+			bootShot = true;
+			Screenshot.grab(new File(DIR), "loading_boot_" + mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight() + ".png",
+					mc.getMainRenderTarget(), c -> {
+					});
+			com.origin.client.OriginClient.LOGGER.info("[dev-shots] captured the startup loading screen");
+		}
+	}
+
 	public static void tick(Minecraft mc) {
 		if (done) {
 			return;
 		}
+		bootLoadingShot(mc);
 		long now = System.currentTimeMillis();
 		if (step < 0) {
 			// A fresh game directory (CI) opens vanilla's one-time accessibility
@@ -421,6 +512,13 @@ public final class OriginDevShots {
 
 	private static void finish(Minecraft mc) {
 		done = true;
+		if (savedStyle != null) {
+			try {
+				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "buttonStyle", savedStyle[0]);
+				com.origin.client.client.mods.Mods.set(com.origin.client.client.mods.Mods.GENERAL_ID, "mainMenuStyle", savedStyle[1]);
+			} catch (Throwable ignored) {
+			}
+		}
 		if (savedBgOpacity >= 0) {
 			com.origin.client.client.mods.Mods.setMetaNum("menuBgOpacity", savedBgOpacity);
 		}

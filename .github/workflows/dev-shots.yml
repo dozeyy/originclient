@@ -31,6 +31,9 @@ on:
       set:
         description: "design (Origin screens) or world (inside a fresh world: OriginDevWorld)"
         default: "design"
+      style:
+        description: "Button Style / Main Menu Style forced for the run (ORIGIN_SHOTS_STYLE): empty = the default (Origin), 'buttons' = Button Style Minecraft, 'menu' = Main Menu Style Vanilla, 'vanilla' = both. Use with set 'style' (Minecraft's own menus) or 'world' (pause menu)"
+        default: ""
       label:
         description: "Optional name for this run's output (folder <module>[-world]-<label>), so parallel sessions don't overwrite each other"
         default: ""
@@ -56,7 +59,7 @@ permissions:
 # module list + set, so parallel sessions/agents shooting different modules
 # never cancel each other.
 concurrency:
-  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}', github.event.inputs.modules, github.event.inputs.set, github.event.inputs.label) || contains(github.event.head_commit.message, '[shots') }}
+  group: dev-shots-${{ github.event_name == 'workflow_dispatch' && format('{0}-{1}-{2}-{3}', github.event.inputs.modules, github.event.inputs.set, github.event.inputs.label, github.event.inputs.style) || contains(github.event.head_commit.message, '[shots') }}
   cancel-in-progress: true
 
 jobs:
@@ -148,6 +151,7 @@ jobs:
           SDL_VIDEO_FORCE_EGL: "1"
           ORIGIN_SHOTS: ${{ runner.temp }}/shots
           ORIGIN_SHOTS_SET: ${{ github.event.inputs.set || 'design' }}
+          ORIGIN_SHOTS_STYLE: ${{ github.event.inputs.style || '' }}
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
           FRAMELOG: ${{ github.event.inputs.framelog || 'false' }}
           EXTRA_MODS: ${{ github.event.inputs.extra_mods || 'false' }}
