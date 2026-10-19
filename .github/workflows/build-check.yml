@@ -56,6 +56,9 @@ jobs:
       - name: Check launcher/installer consistency
         run: python3 tools/release/check_consistency.py
 
+      - name: Release-notes filter tests
+        run: python3 tools/release/test_notes.py
+
       # The installer's engine: release feed, download (resume, verify,
       # failures — against a fake server), launcher zip, staging, folder
       # rules. Also compiles it for .NET Framework 4.7.2 (the API check).
