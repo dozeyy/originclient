@@ -123,6 +123,13 @@ public sealed record VersionEvidence(
 
     /// <summary>Which profile / file said it (a profile name, "latest.log", "mods"). Never a path or a secret.</summary>
     public string? From { get; init; }
+
+    /// <summary>
+    /// ObservedUtc is a LAUNCH time (an official profile's lastUsed), not the time the record was changed (a Prism /
+    /// CurseForge metadata file's mtime). The game rewrites logs/latest.log at every start, so a launch recorded after
+    /// the log was last written, naming something else, never actually ran the game in this folder.
+    /// </summary>
+    public bool TimeIsLaunch { get; init; }
 }
 
 /// <summary>What a scan found, plus plain notes about things it could not read.</summary>

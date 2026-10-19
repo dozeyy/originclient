@@ -137,13 +137,15 @@ public class SourceAccuracyTests : IDisposable
 
         Assert.Equal("1.20.1", setup.McVersion);
         Assert.False(setup.VersionCertain);
-        Assert.Equal("The launcher says 1.20.1 but the game last ran 1.19.2.", setup.UncertainReason);
+        Assert.Contains("The launcher says Fabric 1.20.1, but the game last ran Fabric 1.19.2.", setup.UncertainReason);
         Assert.Equal(Confidence.Inferred, setup.Confidence);                // never Exact while not certain
     }
 
     [Fact]
-    public async Task AStaleLogIsExplainedWhenTheModsConfirmTheNewerLauncherRecord()
+    public async Task AStaleLogWithModsAgreeingWithTheNewerLauncherRecordIsStillAsked()
     {
+        // Round 3 (certainty gate): this used to be "certain" (launcher newer + mods agree). The game itself never
+        // wrote anything newer that agrees, so the 1.19.2 log is a conflict nothing explains -> ask, preselect 1.20.1.
         var prism = Path.Combine(_root, "prism");
         var game = Prism(prism, "p", "Pack", Pack("1.20.1"), packChanged: T0.AddDays(1));
         Log(game, FabricLog("1.19.2"), T0);
@@ -152,7 +154,24 @@ public class SourceAccuracyTests : IDisposable
         var setup = Assert.Single((await Scan(new SourceRoots { PrismDataDir = prism })).Instances);
 
         Assert.Equal("1.20.1", setup.McVersion);
-        Assert.True(setup.VersionCertain, setup.UncertainReason);          // V3 exception: launcher newer + mods agree
+        Assert.False(setup.VersionCertain);
+        Assert.Contains("the game last ran Fabric 1.19.2", setup.UncertainReason);
+    }
+
+    [Fact]
+    public async Task AnOlderConflictIsExplainedByANewerAgreeingPairTheGameWrote()
+    {
+        // The other side of the gate: the launcher record is OLDER than a log that agrees with the mods -> certain.
+        var prism = Path.Combine(_root, "prism");
+        var game = Prism(prism, "p", "Pack", Pack("1.20.1"), packChanged: T0);
+        Log(game, FabricLog("1.21.1"), T0.AddDays(2));
+        FabricMods(game, "m", 3, "~1.21.1");
+
+        var setup = Assert.Single((await Scan(new SourceRoots { PrismDataDir = prism })).Instances);
+
+        Assert.Equal("1.21.1", setup.McVersion);
+        Assert.True(setup.VersionCertain, setup.UncertainReason);
+        Assert.Equal(Confidence.Inferred, setup.Confidence);                // the answer isn't the launcher's record
     }
 
     [Fact]
@@ -168,7 +187,7 @@ public class SourceAccuracyTests : IDisposable
         Assert.Equal("0.15.11", setup.LoaderVersion);                       // W1: the loader comes from the winner too
         Assert.False(setup.VersionCertain);
         Assert.Equal(Confidence.Inferred, setup.Confidence);
-        Assert.Contains("The launcher says 1.20.1 but the game last ran 1.20.4.", setup.UncertainReason);
+        Assert.Contains("The game last ran Fabric 1.20.4, but the launcher says Fabric 1.20.1.", setup.UncertainReason);
         Assert.Contains(setup.Evidence, e => e.Source == EvidenceSource.LatestLog && e.McVersion == "1.20.4" && e.ObservedUtc != null);
     }
 
@@ -199,7 +218,7 @@ public class SourceAccuracyTests : IDisposable
 
         Assert.Equal("1.21.1", setup.McVersion);                            // the launcher's answer stays the preselection
         Assert.False(setup.VersionCertain);
-        Assert.Equal("Most mods here are built for Minecraft 1.20.4, not 1.21.1.", setup.UncertainReason);
+        Assert.Equal("The launcher says Fabric 1.21.1, but most mods here are built for Minecraft 1.20.4.", setup.UncertainReason);
         Assert.Contains(setup.Evidence, e => e.Source == EvidenceSource.ModDepends && e.McVersion == "1.20.4");
     }
 
@@ -215,7 +234,7 @@ public class SourceAccuracyTests : IDisposable
 
         Assert.Equal("1.21.1", setup.McVersion);
         Assert.False(setup.VersionCertain);
-        Assert.Equal("Only some of the mods here are built for Minecraft 1.21.1.", setup.UncertainReason);
+        Assert.Equal("The launcher says Fabric 1.21.1, but only some of the mods here are built for Minecraft 1.21.1.", setup.UncertainReason);
     }
 
     [Fact]
@@ -248,7 +267,7 @@ public class SourceAccuracyTests : IDisposable
         Assert.Equal(LoaderKind.Fabric, setup.Loader);                      // the launcher's answer stays the preselection
         Assert.False(setup.LoaderCertain);
         Assert.False(setup.VersionCertain);
-        Assert.Equal("This setup is set to Fabric, but most mods here are Forge mods.", setup.UncertainReason);
+        Assert.Equal("The launcher says Fabric 1.21.1, but most mods here are Forge mods.", setup.UncertainReason);
     }
 
     [Fact]
@@ -296,7 +315,7 @@ public class SourceAccuracyTests : IDisposable
         Assert.Equal("1.20.1", setup.McVersion);
         Assert.Equal(LoaderKind.Fabric, setup.Loader);                      // W2: the launcher record is newer
         Assert.False(setup.LoaderCertain);
-        Assert.Contains("The launcher says Fabric but the game last ran Forge.", setup.UncertainReason);
+        Assert.Contains("The launcher says Fabric 1.20.1, but the game last ran Forge 1.20.1.", setup.UncertainReason);
     }
 
     [Fact]
@@ -311,7 +330,7 @@ public class SourceAccuracyTests : IDisposable
         Assert.Equal(LoaderKind.Fabric, setup.Loader);
         Assert.False(setup.LoaderCertain);
         Assert.Equal(Confidence.Inferred, setup.Confidence);                // the loader no longer comes from the launcher
-        Assert.Contains("The launcher says vanilla but the game last ran Fabric.", setup.UncertainReason);
+        Assert.Contains("The game last ran Fabric 1.21.1, but the launcher says vanilla 1.21.1.", setup.UncertainReason);
     }
 
     // ================================================================ shared folders: one setup per folder
@@ -480,7 +499,8 @@ public class SourceAccuracyTests : IDisposable
         var setup = Assert.Single((await Scan(new SourceRoots { OfficialMinecraftDir = mc, PrismDataDir = prism })).Instances);
 
         Assert.False(setup.VersionCertain);
-        Assert.Contains("different versions", setup.UncertainReason);
+        Assert.Contains("1.20.4", setup.UncertainReason);                    // both candidates are named
+        Assert.Contains("1.21.1", setup.UncertainReason);
     }
 
     // ================================================================ regression: the real .minecraft (2026-10-18 dry run)
@@ -536,7 +556,7 @@ public class SourceAccuracyTests : IDisposable
         Assert.Equal("1.21.1", setup.McVersion);
         Assert.Equal(LoaderKind.Fabric, setup.Loader);
         Assert.False(setup.VersionCertain);                                 // the mods alone are a guess (V5)
-        Assert.Contains("Guessed 1.21.1 from the mods", setup.UncertainReason);
+        Assert.Contains("most mods here are built for Fabric 1.21.1, but the launcher profile \"Latest", setup.UncertainReason, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(Confidence.Inferred, setup.Confidence);
         Assert.Equal("Minecraft Launcher (.minecraft)", setup.Name);
     }
@@ -568,7 +588,7 @@ public class SourceAccuracyTests : IDisposable
         Assert.Equal("1.21.4", setup.McVersion);                            // the mods are what gets imported
         Assert.Equal(LoaderKind.Fabric, setup.Loader);
         Assert.False(setup.VersionCertain);
-        Assert.Contains("The game last ran 1.21.1 but most mods here are built for Minecraft 1.21.4.", setup.UncertainReason);
+        Assert.Contains("Most mods here are built for Fabric 1.21.4, but the game last ran Fabric 1.21.1.", setup.UncertainReason);
     }
 
     [Fact]
@@ -585,7 +605,7 @@ public class SourceAccuracyTests : IDisposable
         Assert.False(setup.LoaderCertain);
         Assert.False(setup.VersionCertain);
         Assert.Equal(Confidence.Inferred, setup.Confidence);
-        Assert.Contains("The launcher says vanilla but most mods here are Fabric mods.", setup.UncertainReason);
+        Assert.Contains("Most mods here are built for Fabric 1.21.1, but the launcher says vanilla 1.21.4.", setup.UncertainReason);
     }
 
     [Fact]
@@ -653,7 +673,8 @@ public class SourceAccuracyTests : IDisposable
 
         Assert.Equal("1.21.10", setup.McVersion);
         Assert.False(setup.VersionCertain);
-        Assert.Contains("different versions", setup.UncertainReason);
+        Assert.Contains("vanilla 1.21.10", setup.UncertainReason);          // both candidates are named
+        Assert.Contains("Fabric 1.20.1", setup.UncertainReason);
     }
 
     [Theory]
@@ -701,23 +722,40 @@ public class SourceAccuracyTests : IDisposable
 
         Assert.Equal("1.21.1", setup.McVersion);                            // V3: the latest record is not explicit
         Assert.False(setup.VersionCertain);
-        Assert.Contains("The launcher says 1.21.10 but the game last ran 1.21.1.", setup.UncertainReason);
+        Assert.Contains("The game's settings were last saved by Minecraft 1.21.1, but the launcher profile \"Latest release\" last played vanilla 1.21.10 on Oct 17.", setup.UncertainReason);
     }
 
     [Fact]
-    public async Task ALogAndOptionsTxtNamingDifferentVersionsAreNotCertain()
+    public async Task AnOptionsTxtNewerThanTheLogNamingAnotherVersionIsNotCertain()
     {
         var modrinth = Path.Combine(_root, "ModrinthApp");
         var game = Path.Combine(modrinth, "profiles", "Odd");
         Log(game, FabricLog("1.21.1"), T0);
-        Kit.Write(game, "options.txt", "version:4189\n");                   // 1.21.4
+        Kit.Write(game, "options.txt", "version:4189\n", T0.AddDays(1));   // 1.21.4, saved AFTER the log
+        FabricMods(game, "m", 3, "1.21.1");                                 // exactly 1.21.1 ("~1.21.1" would also accept 1.21.4)
+
+        var setup = Assert.Single((await Scan(new SourceRoots { ModrinthDir = modrinth })).Instances);
+
+        Assert.Equal("1.21.4", setup.McVersion);                            // the newest thing the game wrote
+        Assert.False(setup.VersionCertain);
+        Assert.Contains("settings were last saved by Minecraft 1.21.4", setup.UncertainReason);
+        Assert.Contains("1.21.1", setup.UncertainReason);
+    }
+
+    [Fact]
+    public async Task AnOptionsTxtOlderThanAnAgreeingLogAndModsIsExplained()
+    {
+        // The gate's "explained by time" case: options.txt (1.21.4) is older than a log (1.21.1) the mods agree with.
+        var modrinth = Path.Combine(_root, "ModrinthApp");
+        var game = Path.Combine(modrinth, "profiles", "Odd");
+        Log(game, FabricLog("1.21.1"), T0);
+        Kit.Write(game, "options.txt", "version:4189\n", T0.AddDays(-1));
         FabricMods(game, "m", 3, "~1.21.1");
 
         var setup = Assert.Single((await Scan(new SourceRoots { ModrinthDir = modrinth })).Instances);
 
-        Assert.Equal("1.21.1", setup.McVersion);                            // the log is preferred
-        Assert.False(setup.VersionCertain);
-        Assert.Contains("settings were last saved by Minecraft 1.21.4", setup.UncertainReason);
+        Assert.Equal("1.21.1", setup.McVersion);
+        Assert.True(setup.VersionCertain, setup.UncertainReason);
     }
 
     [Theory]
@@ -748,7 +786,8 @@ public class SourceAccuracyTests : IDisposable
         var setup = Assert.Single((await Scan(new SourceRoots { OfficialMinecraftDir = mc })).Instances);
 
         Assert.False(setup.VersionCertain);                                 // the loader can't say WHICH version
-        Assert.Contains("different versions", setup.UncertainReason);
+        Assert.Contains("Forge 1.20.1", setup.UncertainReason);             // both candidates are named
+        Assert.Contains("Fabric 1.21.1", setup.UncertainReason);
     }
 
     [Fact]
@@ -775,6 +814,9 @@ public class SourceAccuracyTests : IDisposable
     public async Task TwoHundredSetupsWithSixtyFourJarsEachScanWithinBudget()
     {
         // Review: 200 setups with 64 jars each (more than the ModsEvidence.MaxJars cap reads) must stay inside the budget.
+        // Only the scan is timed: writing the 12,800 fixture jars (several seconds, more under antivirus) is NOT part of
+        // the 5 s budget, and xUnit's per-test duration includes it — that's the 10 s a verifier sees for this test.
+        var fixture = System.Diagnostics.Stopwatch.StartNew();
         var prism = Path.Combine(_root, "prism");
         var jars = Enumerable.Range(0, 64).Select(i => Kit.FabricJar("perfmod" + i, minecraft: "~1.21.1")).ToArray();
         for (var s = 0; s < 200; s++)
@@ -782,15 +824,103 @@ public class SourceAccuracyTests : IDisposable
             var game = Prism(prism, "I" + s, "Pack " + s, Pack("1.21.1"), T0);
             for (var j = 0; j < 64; j++) Kit.WriteBytes(game, $"mods/perfmod{j}.jar", jars[j]);
         }
+        fixture.Stop();
 
-        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var first = System.Diagnostics.Stopwatch.StartNew();
         var scan = await Scan(new SourceRoots { PrismDataDir = prism });
-        watch.Stop();
+        first.Stop();
+        var repeat = System.Diagnostics.Stopwatch.StartNew();
+        await Scan(new SourceRoots { PrismDataDir = prism });
+        repeat.Stop();
 
-        _out.WriteLine($"200 setups x 64 jars: scan took {watch.ElapsedMilliseconds} ms");
+        _out.WriteLine($"200 setups x 64 jars: fixture {fixture.ElapsedMilliseconds} ms (not timed), first scan {first.ElapsedMilliseconds} ms, repeat scan {repeat.ElapsedMilliseconds} ms");
         Assert.Equal(200, scan.Instances.Count);
         Assert.All(scan.Instances, i => Assert.True(i.VersionCertain, i.UncertainReason));
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"scan took {watch.Elapsed}");
+        Assert.True(first.Elapsed < TimeSpan.FromSeconds(5), $"scan took {first.Elapsed}");
+    }
+
+    // ================================================================ re-review probes (round 3): only certain when the evidence agrees
+
+    private static readonly DateTime May1 = new(2026, 5, 1, 12, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime Oct17 = new(2026, 10, 17, 21, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public async Task ProbeA_LeftoverFabricModsAndAFreshVanillaPlayNeverMakeAVersionLoaderPairNobodyStated()
+    {
+        // "Latest release" (1.21.10) played Oct 17, which also wrote options.txt; the mods are leftover Fabric 1.20.1.
+        // 78ddd49a answered "1.21.10 Fabric, loader certain" — a setup that never existed.
+        var mc = Path.Combine(_root, "probeA", ".minecraft");
+        Manifest(mc, "1.21.10", "25w41a");
+        Kit.Write(mc, "options.txt", "version:4556\nfov:0.5\n", Oct17);
+        FabricMods(mc, "old", 4, "~1.20.1");
+        Kit.Write(mc, "launcher_profiles.json", OfficialProfiles(
+            Profile("latest-release", null, "latest-release", "latest-release", "2026-10-17T20:00:00.000Z")));
+
+        var setup = Assert.Single((await Scan(new SourceRoots { OfficialMinecraftDir = mc })).Instances);
+
+        Assert.Equal("1.21.10", setup.McVersion);                           // what the game last ran...
+        Assert.Equal(LoaderKind.None, setup.Loader);                         // ...as ONE source stated it: vanilla, never "1.21.10 Fabric"
+        Assert.False(setup.VersionCertain);
+        Assert.False(setup.LoaderCertain);
+        Assert.Equal(Confidence.Inferred, setup.Confidence);
+        Assert.Contains("1.20.1", setup.UncertainReason);                   // names the other candidate
+    }
+
+    [Fact]
+    public async Task ProbeB_ANeverPlayedLoaderProfileThatContradictsAFreshLogIsAskedAbout()
+    {
+        // A never-played "fabric-loader-1.20.1" profile, a fresh Fabric 1.21.1 log, 1.21.1 mods.
+        // 78ddd49a preselected 1.20.1 with the loader certain.
+        var mc = Path.Combine(_root, "probeB", ".minecraft");
+        FabricVersionJson(mc, id: "fabric-loader-0.16.10-1.20.1", inherits: "1.20.1");
+        Kit.Write(mc, "options.txt", "fov:0.5");
+        Log(mc, FabricLog("1.21.1"), Oct17);
+        FabricMods(mc, "m", 4, "~1.21.1");
+        Kit.Write(mc, "launcher_profiles.json", OfficialProfiles(
+            Profile("fab", "fabric-loader-1.20.1", "custom", "fabric-loader-0.16.10-1.20.1")));
+
+        var setup = Assert.Single((await Scan(new SourceRoots { OfficialMinecraftDir = mc })).Instances);
+
+        Assert.Equal("1.21.1", setup.McVersion);                            // the log + mods, not the never-played profile
+        Assert.Equal(LoaderKind.Fabric, setup.Loader);
+        Assert.False(setup.VersionCertain);                                 // a record with no time can never be outranked
+        Assert.Equal(Confidence.Inferred, setup.Confidence);
+        Assert.Contains("Fabric 1.20.1 (never played)", setup.UncertainReason);
+    }
+
+    [Fact]
+    public async Task ProbeC_AMoreRecentlyPlayedProfileContradictingOlderGameEvidenceIsAskedAbout()
+    {
+        // "Latest release" 1.21.10 played Oct 17; a Fabric 1.20.1 profile played in May; options.txt saved by 1.20.1 in May.
+        // 78ddd49a said "1.20.1 Fabric, certain, Exact".
+        var mc = Path.Combine(_root, "probeC", ".minecraft");
+        Manifest(mc, "1.21.10", "25w41a");
+        FabricVersionJson(mc, id: "fabric-loader-0.16.10-1.20.1", inherits: "1.20.1");
+        Kit.Write(mc, "options.txt", "version:3465\nfov:0.5\n", May1);
+        Kit.Write(mc, "launcher_profiles.json", OfficialProfiles(
+            Profile("latest-release", null, "latest-release", "latest-release", "2026-10-17T20:00:00.000Z"),
+            Profile("fab", "Fabric 1.20.1", "custom", "fabric-loader-0.16.10-1.20.1", "2026-05-01T11:00:00.000Z")));
+
+        var setup = Assert.Single((await Scan(new SourceRoots { OfficialMinecraftDir = mc })).Instances);
+
+        Assert.Equal("1.20.1", setup.McVersion);                            // the newest thing the GAME wrote...
+        Assert.Equal(LoaderKind.Fabric, setup.Loader);                       // ...paired with the record that states 1.20.1
+        Assert.False(setup.VersionCertain);                                 // a newer play contradicts it
+        Assert.NotEqual(Confidence.Exact, setup.Confidence);
+        Assert.Contains("vanilla 1.21.10 on Oct 17", setup.UncertainReason);
+    }
+
+    [Fact]
+    public async Task WhenTheModsVersionIsPreselectedItsLoaderComesFromTheModsToo()
+    {
+        // LOW: version from the mods + loader version from the log would be a pair no single source stated.
+        var mc = RealDotMinecraft(modsRange: "~1.21.4");                    // log: Fabric 0.19.3 on 1.21.1; mods: 1.21.4
+
+        var setup = Assert.Single((await Scan(new SourceRoots { OfficialMinecraftDir = mc })).Instances);
+
+        Assert.Equal("1.21.4", setup.McVersion);
+        Assert.Equal(LoaderKind.Fabric, setup.Loader);
+        Assert.Null(setup.LoaderVersion);                                   // 0.19.3 belongs to the 1.21.1 run, not to these mods
     }
 
     // ================================================================ names + stable ids
@@ -880,7 +1010,7 @@ public class SourceAccuracyTests : IDisposable
 
         Assert.Equal("1.21.1", setup.McVersion);
         Assert.False(setup.VersionCertain);
-        Assert.StartsWith("Guessed 1.21.1 from the game's last log; nothing else confirms it.", setup.UncertainReason);
+        Assert.StartsWith("Only the game's last log points to Minecraft 1.21.1; nothing else confirms it.", setup.UncertainReason);
         Assert.False(setup.LoaderCertain);                                  // the loader rests on the same lone log
     }
 
@@ -895,7 +1025,7 @@ public class SourceAccuracyTests : IDisposable
 
         Assert.Equal("1.20.4", setup.McVersion);
         Assert.False(setup.VersionCertain);
-        Assert.Contains("Guessed 1.20.4 from the mods", setup.UncertainReason);
+        Assert.Contains("Only the mods point to Minecraft 1.20.4", setup.UncertainReason);
     }
 
     // ================================================================ the log parser

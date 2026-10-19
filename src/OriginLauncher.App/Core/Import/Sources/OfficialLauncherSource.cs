@@ -144,7 +144,7 @@ public sealed class OfficialLauncherSource : IInstanceSource
             {
                 new VersionEvidence(EvidenceSource.LauncherMetadata, resolved.McVersion, resolved.Loader, resolved.LoaderVersion, lastPlayed)
                 {
-                    Explicit = !latest, From = name,
+                    Explicit = !latest, From = name, TimeIsLaunch = true,
                 },
             };
         return new SetupMember(instance) { Metadata = metadata, IsLatestProfile = p.Type is "latest-release" or "latest-snapshot" };

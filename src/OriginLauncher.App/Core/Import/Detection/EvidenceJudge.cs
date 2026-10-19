@@ -1,3 +1,5 @@
+using OriginLauncher.App.Core.Sync;
+
 namespace OriginLauncher.App.Core.Import.Detection;
 
 /// <summary>The best answer for one setup and whether it is certain.</summary>
@@ -8,314 +10,234 @@ public sealed record Judgement(
     public bool Certain => McCertain && LoaderCertain;
 }
 
-// Cross-checks a setup's version and loader. "Accuracy is key": importing a setup
-// into the wrong version imports the wrong thing, so when the signals don't line
-// up the answer is "not sure" (VersionCertain = false + a plain reason) and the
-// player is asked. The best answer is still filled in so the question can be
-// preselected.
+// Decides a setup's Minecraft version + loader, and whether that answer is CERTAIN.
+// Will: "if you can't find which one then ask". Importing a setup into the wrong
+// version imports the wrong thing, so certainty is ONE simple gate, and any
+// conflict it can't explain is "not sure" with a plain reason naming both sides.
 //
-// The signals:
-//   M  launcher metadata (one per profile that uses the folder): Prism mmc-pack,
-//      CurseForge gameVersion/baseModLoader, official lastVersionId (+ version json).
-//      "Explicit" unless it is an official latest-release/latest-snapshot profile.
-//      Its time = the profile's lastUsed (official) or the metadata file's mtime;
-//      "played" = an official profile with a real lastUsed (Prism/CurseForge always have a time).
-//   R  what the folder last RAN: logs/latest.log's version (time = its mtime), else
-//      options.txt's `version:` DataVersion mapped to a Minecraft version (time =
-//      its mtime). Both are written by the game itself, so they're independent of
-//      any launcher. If log and options.txt name different versions -> not certain.
-//   L  the log's loader line (Fabric / Quilt / Forge / NeoForge).
-//   D  the mods: a version "fits" when >= 80 % of the jars declaring depends.minecraft accept it.
+// THE EVIDENCE (each a "piece" that states a version and/or a loader):
+//   record   a launcher's record: Prism mmc-pack, CurseForge json, an official
+//            profile (lastVersionId + version json). Time = an official profile's
+//            lastUsed (a LAUNCH time) or the Prism/CurseForge file's mtime (a CHANGE
+//            time). Official latest-release/latest-snapshot records are not
+//            "explicit": they follow whatever is newest today.
+//   log      logs/latest.log (written by the game): version + loader line; a
+//            version with no loader line is a vanilla game. Time = its mtime.
+//   options  options.txt `version:` DataVersion (written by the game): a version,
+//            no loader. Time = its mtime.
+//   mods     the jars: a version "fits" when >= 80 % of the declaring jars accept
+//            it; the loader most jars are for. No time: the mods are simply what
+//            gets imported.
 //
-// MINECRAFT VERSION RULES
-//   V0  Vanilla records never speak for modded folders. When the folder's log
-//       names a loader or most of its jars are for one, records with no loader
-//       (every official latest-release/latest-snapshot profile, a vanilla Prism
-//       pack, a plain "1.21.4" profile) are set aside and R + D decide — unless
-//       an explicit loader-bearing record exists, which then decides as usual.
-//       An EXPLICIT vanilla record set aside this way leaves the loader not
-//       certain; latest-* profiles are only aliases and cost no certainty.
-//       Recency among launcher records only matters when there's no loader evidence.
-//       (Proven on a real .minecraft, 2026-10-18: two latest-* profiles with a
-//       recent lastUsed, a Fabric 1.21.1 log and Fabric 1.21.1 mods came out as
-//       "26.4-snapshot-3, vanilla, Exact" before this rule.)
-//   V1  Several metadata statements (profiles sharing the folder): weigh only
-//       PLAYED ones if any (a never-played profile never beats a played one,
-//       explicit or not), else all. If they name different versions, the one
-//       matching R (or that D fits) is used; the jar loader / log loader only
-//       break ties between records of the SAME version. Nothing tells them apart
-//       -> not certain, the most recently used is preselected (so a "Latest
-//       release" played yesterday beats an old Fabric profile, but unsure).
-//   V2  M and R agree -> certain.
-//   V3  M and R disagree:
-//         R is newer than M's time, or M is a non-explicit "latest" record (its
-//         lastUsed never outranks what the game wrote)  -> not certain, R preferred;
-//         otherwise -> not certain, M preferred, EXCEPT when M is strictly newer
-//         than R (R is simply stale: the launcher was changed after the last
-//         play) AND D fits M but not R -> certain M.
-//   V4  Only M (no R): certain when M is explicit; a non-explicit "latest" profile
-//       is certain only when D fits it.
-//   V5  No M: R alone -> not certain; R with D fitting it -> certain;
-//       R and D disagree -> not certain, D's 80 % consensus is preferred (the
-//       mods are what gets imported), R when the mods have no consensus;
-//       D alone -> not certain (its best version is the guess).
-//   V6  Whatever was chosen, if the mods declare ranges and D does NOT fit it
-//       (>= 80 % reject it, or the mods are split) -> not certain.
+// NOT EVIDENCE (dropped before anything else):
+//   * never-played latest-* profiles (the launcher creates them; they're aliases);
+//   * never-played vanilla records when the folder's log or jars carry a loader
+//     (a vanilla profile nobody launched says nothing about a modded folder);
+//   * a LAUNCH recorded after the log was last written that names something else:
+//     the game rewrites latest.log at every start, so that launch never ran the
+//     game here. (Proven on Will's real .minecraft: "Latest release/snapshot"
+//     lastUsed in October, a July Fabric 1.21.1 log, Fabric 1.21.1 mods.)
 //
-// LOADER RULES (same idea)
-//   W1  The loader comes from the same place as the version: M's loader, unless
-//       V3 preferred R (then the log's loader when it names one).
-//   W2  M and L both name a loader and they differ -> not certain (L preferred
-//       only when the log is newer than M).
-//   W3  M names no loader (CurseForge baseModLoader null): L's loader, certain only
-//       when the jars' majority agrees; else the jars' majority, not certain.
-//   W4  More than half of the loader-typed jars can't run on the chosen loader
-//       (Forge jars under Fabric, Fabric jars under vanilla) -> not certain.
+// PRESELECTION (heuristic; the answer is ALWAYS a version+loader PAIR stated by one
+// source — a loader is only borrowed from a piece that states the same version):
+//   1. a launcher record CHANGED after the newest game-written evidence (the player
+//      changed the version after the last play);
+//   2. else the newest game-written evidence (log / options.txt) — replaced by the
+//      mods' consensus pair only when that is NEWER than what the game last ran
+//      (the mods moved on; never preselect a version older than the worlds were
+//      last opened in);
+//   3. else launcher records: played ones newest first, then never-played explicit
+//      ones; a vanilla record is skipped when the folder's log or jars carry a loader;
+//   4. else the mods' pair (consensus, else the version most jars accept);
+//   5. else whatever record is left (never-played latest-* profiles).
 //
-// Confidence: Exact = the version AND loader came from the launcher's own record
-// AND both are certain; anything else is Inferred (never Exact while unsure).
+// THE CERTAINTY GATE: the answer is certain only when
+//   (a) every remaining piece agrees with it on version AND loader, except pieces
+//       strictly OLDER than an agreeing pair (two agreeing pieces) whose newest
+//       game-written piece is newer than them — a piece with no time (a
+//       never-played record, the mods) can never be outranked; and
+//   (b) it is corroborated: the version by an explicit launcher record or by two
+//       pieces; the loader by a launcher record or by two pieces.
+// Confidence is Exact only when certain AND the answer is an explicit launcher record's.
 public static class EvidenceJudge
 {
+    private enum PieceKind { Record, Log, Options, Mods }
+
+    private sealed record Piece(PieceKind Kind, string? Mc, LoaderKind? Loader, string? LoaderVersion, DateTimeOffset? Time)
+    {
+        public bool Explicit { get; init; }
+        public bool LaunchTime { get; init; }
+        public string? From { get; init; }
+        public bool Played => Time != null;
+        public bool GameWritten => Kind is PieceKind.Log or PieceKind.Options;
+    }
+
     public static Judgement Judge(IReadOnlyList<VersionEvidence> metadata, LogEvidence? log, ModsEvidence? mods, OptionsEvidence? options = null)
     {
+        // ---- the pieces
+        Piece? logPiece = log != null && (log.McVersion != null || log.Loader != null)
+            ? new Piece(PieceKind.Log, log.McVersion, log.Loader ?? (log.McVersion != null ? LoaderKind.None : null), log.LoaderVersion, log.ModifiedUtc)
+            : null;
+        Piece? optionsPiece = options?.McVersion != null ? new Piece(PieceKind.Options, options.McVersion, null, null, options.ModifiedUtc) : null;
+        Piece? modsPiece = mods != null && (mods.BestVersion != null || mods.MajorityLoader != null)
+            ? new Piece(PieceKind.Mods, mods.ConsensusVersion ?? mods.BestVersion, mods.MajorityLoader, null, null)
+            : null;
+
+        var folderLoader = (logPiece?.Loader is { } ll && ll != LoaderKind.None) || mods?.MajorityLoader is { } ml && ml != LoaderKind.None;
+
+        var allRecords = metadata
+            .Where(e => e.Source == EvidenceSource.LauncherMetadata && (e.McVersion != null || e.Loader != null))
+            .Select(e => new Piece(PieceKind.Record, e.McVersion, e.Loader, e.LoaderVersion, e.ObservedUtc)
+            {
+                Explicit = e.Explicit, LaunchTime = e.TimeIsLaunch, From = e.From,
+            })
+            .ToList();
+        var records = allRecords.Where(r =>
+                !(!r.Played && !r.Explicit)                                            // never-played latest-*: alias
+                && !(!r.Played && r.Loader == LoaderKind.None && folderLoader)          // never-played vanilla in a modded folder
+                && !(logPiece != null && r.LaunchTime && r.Time > logPiece.Time && !Agrees(r, logPiece.Mc, logPiece.Loader))) // launch the log never saw
+            .ToList();
+
+        // ---- preselection
+        var gameWritten = new[] { logPiece, optionsPiece }
+            .Where(p => p?.Mc != null).Select(p => p!)
+            .OrderByDescending(p => p.Time).ThenBy(p => p.Kind) // newest first; the log on a tie
+            .ToList();
+        var newestGame = gameWritten.FirstOrDefault();
+        var anchorEligible = records.Where(r => r.Mc != null && !(folderLoader && r.Loader == LoaderKind.None)).ToList();
+
+        Piece? anchor =
+            anchorEligible.Where(r => !r.LaunchTime && r.Played && (newestGame == null || r.Time > newestGame.Time))
+                .OrderByDescending(r => r.Time).FirstOrDefault()                                                   // 1
+            ?? (newestGame != null
+                ? (modsPiece?.Mc != null && mods!.ConsensusVersion != null && McVersion.Compare(mods.ConsensusVersion, newestGame.Mc!) > 0
+                    ? modsPiece : newestGame)                                                                      // 2
+                : null)
+            ?? anchorEligible.Where(r => r.Played).OrderByDescending(r => r.Time).FirstOrDefault()                 // 3
+            ?? anchorEligible.FirstOrDefault(r => r.Explicit)
+            ?? (modsPiece?.Mc != null ? modsPiece : null)                                                          // 4
+            ?? allRecords.Where(r => r.Mc != null).OrderByDescending(r => r.Time ?? DateTimeOffset.MinValue).FirstOrDefault(); // 5
+
+        if (anchor?.Mc == null)
+            return new Judgement(null, LoaderKind.None, null, Confidence.Inferred, false, false,
+                "Origin couldn't tell which Minecraft version this is.");
+
+        var mc = anchor.Mc;
+        var loader = anchor.Loader;
+        var loaderVersion = anchor.LoaderVersion;
+        if (loader == null)
+        {
+            // Borrow the loader only from a piece that states this SAME version (never invent a pair).
+            var donor = (logPiece?.Loader != null && Same(logPiece.Mc, mc) ? logPiece : null)
+                ?? allRecords.Where(r => r.Loader != null && Same(r.Mc, mc)).OrderByDescending(r => r.Time ?? DateTimeOffset.MinValue).FirstOrDefault()
+                ?? (modsPiece?.Loader != null && mods!.Fits(mc) ? modsPiece : null);
+            loader = donor?.Loader;
+            loaderVersion = donor?.LoaderVersion;
+        }
+        var finalLoader = loader ?? LoaderKind.None;
+
+        // ---- the gate (a): agreement, or explained by time
+        var timedPieces = records.Concat(new[] { logPiece, optionsPiece }.Where(p => p != null).Select(p => p!)).ToList();
+        var support = timedPieces.Where(p => Agrees(p, mc, loader)).ToList();
+        var modsAgreeMc = mods is { HasRanges: true } && mods.Fits(mc);
+        var modsAgreeLoader = mods?.MajorityLoader is { } jl && loader != null && ModsEvidence.Compatible(loader.Value, jl);
+        var supportCount = support.Count + (modsAgreeMc || modsAgreeLoader ? 1 : 0);
+        var newestAgreeingGame = support.Where(p => p.GameWritten).Select(p => p.Time).Max(); // null when none
+
+        var conflicts = new List<string>();
+        var mcCertain = true;
+        var loaderCertain = true;
+        foreach (var piece in timedPieces)
+        {
+            var mcClash = piece.Mc != null && !Same(piece.Mc, mc);
+            var loaderClash = piece.Loader != null && loader != null && piece.Loader != loader;
+            if (!mcClash && !loaderClash) continue;
+            var outranked = piece.Time is { } t && supportCount >= 2 && newestAgreeingGame is { } g && g > t;
+            if (outranked) continue;
+            if (mcClash) mcCertain = false;
+            if (loaderClash) loaderCertain = false;
+            conflicts.Add(Describe(piece, mods));
+        }
+        if (mods is { HasRanges: true } && !mods.Fits(mc))
+        {
+            mcCertain = false;
+            conflicts.Add(mods.Rejects(mc) && mods.BestVersion is { } b && !Same(b, mc)
+                ? $"most mods here are built for Minecraft {b}"
+                : $"only some of the mods here are built for Minecraft {mc}");
+        }
+        if (mods != null && mods.MostlyIncompatibleWith(finalLoader))
+        {
+            loaderCertain = false;
+            conflicts.Add($"most mods here are {Name(mods.MajorityLoader ?? LoaderKind.Unknown)} mods");
+        }
+
+        // ---- the gate (b): corroboration
         var reasons = new List<string>();
+        if (conflicts.Count > 0)
+            reasons.Add(Cap($"{Describe(anchor with { Loader = loader }, mods)}, but {string.Join(", and ", conflicts.Distinct().Take(2))}."));
 
-        // ---- R: what the folder last ran (log first, else options.txt)
-        string? ranMc = null;
-        DateTimeOffset? ranTime = null;
-        var ranFrom = "the game's last log";
-        if (log?.McVersion != null) { ranMc = log.McVersion; ranTime = log.ModifiedUtc; }
-        else if (options?.McVersion != null) { ranMc = options.McVersion; ranTime = options.ModifiedUtc; ranFrom = "the game's settings file"; }
-        var ranConflict = log?.McVersion != null && options?.McVersion != null && !Same(log.McVersion, options.McVersion);
-        if (ranConflict)
-            reasons.Add($"The game's log says {log!.McVersion} but its settings were last saved by Minecraft {options!.McVersion}.");
-
-        // ---- V0
-        var folderLoader = log?.Loader is { } fl && fl != LoaderKind.None ? fl : mods?.MajorityLoader;
-        var vanillaOverridden = false;
-        if (folderLoader is { } folderLoaderKind && folderLoaderKind != LoaderKind.None            && metadata.Any(e => e.Source == EvidenceSource.LauncherMetadata && e.Loader == LoaderKind.None))
-        {
-            var loaderBearing = metadata.Where(e => e.Loader != LoaderKind.None).ToList();
-            vanillaOverridden = loaderBearing.Count == 0
-                && metadata.Any(e => e.Source == EvidenceSource.LauncherMetadata && e.Loader == LoaderKind.None && e.Explicit);
-            metadata = loaderBearing;
-            if (vanillaOverridden)
-                reasons.Add(log?.Loader is { } ll && ll != LoaderKind.None
-                    ? $"The launcher says vanilla but the game last ran {Name(ll)}."
-                    : $"The launcher says vanilla but most mods here are {Name(folderLoaderKind)} mods.");
-        }
-
-        var meta = PickMetadata(metadata, ranMc, log, mods, out var mcAmbiguous, out var loaderAmbiguous);
-
-        string? mc = null;
-        var mcCertain = false;
-        var fromMeta = false;
-        var ranWon = false;
-
-        if (meta?.McVersion is { } m)
-        {
-            fromMeta = true;
-            mc = m;
-            if (ranMc != null && !Same(ranMc, m))
-            {
-                // V3 (a non-explicit "latest" record's lastUsed never outranks what the game wrote)
-                if (!meta.Explicit || (meta.ObservedUtc is { } t && ranTime > t))
-                {
-                    mc = ranMc;
-                    fromMeta = false;
-                    ranWon = true;
-                    reasons.Add($"The launcher says {m} but the game last ran {ranMc}.");
-                }
-                else if (meta.ObservedUtc is { } t2 && t2 > ranTime && mods != null && mods.Fits(m) && !mods.Fits(ranMc))
-                {
-                    mcCertain = true; // stale R, explained by time, mods confirm the launcher
-                }
-                else
-                {
-                    reasons.Add($"The launcher says {m} but the game last ran {ranMc}.");
-                }
-            }
-            else if (ranMc != null)
-            {
-                mcCertain = true; // V2
-            }
-            else if (meta.Explicit)
-            {
-                mcCertain = true; // V4
-            }
-            else if (mods != null && mods.Fits(m))
-            {
-                mcCertain = true; // V4, latest profile confirmed by the mods
-            }
-            else
-            {
-                reasons.Add($"The launcher's \"latest\" profile follows the newest version, so Origin can't tell if this folder last ran {m}.");
-            }
-
-            if (mcAmbiguous && !(ranMc != null && Same(ranMc, mc)))
-            {
-                mcCertain = false; // V1: nothing told the profiles apart
-                reasons.Add("The launcher profiles that use this folder name different versions.");
-            }
-        }
-        else if (ranMc != null)
-        {
-            mc = ranMc; // V5
-            if (mods != null && mods.Fits(ranMc)) mcCertain = true;
-            else if (mods?.ConsensusVersion is { } consensus)
-            {
-                mc = consensus; // R and mods disagree: the mods are what gets imported
-                reasons.Add($"The game last ran {ranMc} but most mods here are built for Minecraft {consensus}.");
-            }
-            else reasons.Add($"Guessed {ranMc} from {ranFrom}; nothing else confirms it.");
-        }
-        else if (mods?.BestVersion is { } best)
-        {
-            mc = best; // V5
-            reasons.Add($"Guessed {best} from the mods; there's no launcher record or game log.");
-        }
-
-        if (ranConflict) mcCertain = false;
-
-        // V6
-        if (mc != null && mods is { HasRanges: true } && !mods.Fits(mc))
+        var mcStatements = support.Count(p => p.Mc != null) + (modsAgreeMc ? 1 : 0);
+        if (mcCertain && !(support.Any(p => p.Kind == PieceKind.Record && p.Explicit && p.Mc != null) || mcStatements >= 2))
         {
             mcCertain = false;
-            if (mods.Rejects(mc))
-                reasons.Add(mods.BestVersion is { } b && !Same(b, mc)
-                    ? $"Most mods here are built for Minecraft {b}, not {mc}."
-                    : $"Most mods here aren't built for Minecraft {mc}.");
-            else
-                reasons.Add($"Only some of the mods here are built for Minecraft {mc}.");
+            reasons.Add(anchor.Kind == PieceKind.Record && !anchor.Explicit
+                ? $"The launcher's \"latest\" profile follows the newest version, and nothing in the folder confirms {mc}."
+                : $"Only {SourceName(anchor)} {(anchor.Kind == PieceKind.Mods ? "point" : "points")} to Minecraft {mc}; nothing else confirms it.");
         }
-
-        // ---- loader
-        var metaLoader = meta?.Loader;
-        var logLoader = log?.Loader;
-        LoaderKind loader;
-        string? loaderVersion;
-        var loaderCertain = false;
-        var loaderFromLog = false;
-
-        if (ranWon && logLoader != null)
-        {
-            loader = logLoader.Value; // W1
-            loaderVersion = log!.LoaderVersion;
-            loaderCertain = metaLoader == null || metaLoader == logLoader;
-            loaderFromLog = true;
-        }
-        else if (metaLoader != null)
-        {
-            loader = metaLoader.Value;
-            loaderVersion = meta!.LoaderVersion;
-            loaderCertain = true;
-            if (logLoader != null && logLoader != metaLoader)
-            {
-                // W2
-                loaderCertain = false;
-                reasons.Add($"The launcher says {Name(metaLoader.Value)} but the game last ran {Name(logLoader.Value)}.");
-                if (!meta.Explicit || (meta.ObservedUtc is { } t && log!.ModifiedUtc > t))
-                {
-                    loader = logLoader.Value;
-                    loaderVersion = log!.LoaderVersion;
-                    loaderFromLog = true;
-                }
-            }
-        }
-        else if (logLoader != null)
-        {
-            loader = logLoader.Value; // W3
-            loaderVersion = log!.LoaderVersion;
-            loaderCertain = mods?.MajorityLoader is { } jars && ModsEvidence.Compatible(loader, jars);
-            if (!loaderCertain)
-                reasons.Add(metadata.Count > 0
-                    ? $"The launcher didn't record a mod loader; {Name(loader)} is a guess from the game's last log."
-                    : $"{Name(loader)} is a guess from the game's last log.");
-        }
-        else if (mods?.MajorityLoader is { } jarLoader)
-        {
-            loader = jarLoader; // W3
-            loaderVersion = null;
-            reasons.Add($"{Name(loader)} is a guess from the mods.");
-        }
-        else
-        {
-            loader = LoaderKind.None;
-            loaderVersion = null;
-            if (mc != null) reasons.Add("Origin couldn't tell which mod loader this uses.");
-        }
-
-        // V1 for the loader: records that agree on the version but not the loader, and nothing told them apart
-        if (loaderAmbiguous && !ranWon && !(logLoader != null && logLoader == loader))
+        var loaderStatements = support.Count(p => p.Loader != null) + (modsAgreeLoader ? 1 : 0);
+        if (loader == null)
         {
             loaderCertain = false;
-            reasons.Add("The launcher profiles that use this folder name different mod loaders.");
+            reasons.Add("Origin couldn't tell which mod loader this uses.");
         }
-
-        // W4
-        if (mods != null && loaderCertain && mods.MostlyIncompatibleWith(loader))
+        else if (loaderCertain && !(support.Any(p => p.Kind == PieceKind.Record && p.Loader != null) || loaderStatements >= 2))
         {
             loaderCertain = false;
-            reasons.Add(loader == LoaderKind.None
-                ? $"This setup has no mod loader, but its mods folder has {Name(mods.MajorityLoader ?? LoaderKind.Unknown)} mods."
-                : $"This setup is set to {Name(loader)}, but most mods here are {Name(mods.MajorityLoader ?? LoaderKind.Unknown)} mods.");
+            reasons.Add(allRecords.Any(r => r.Loader == null && Same(r.Mc, mc))
+                ? $"The launcher didn't record a mod loader; only one source says {Name(loader.Value)}."
+                : $"Only one source says {Name(loader.Value)}; nothing else confirms the loader.");
         }
 
-        if (vanillaOverridden) loaderCertain = false; // V0: an explicit vanilla record contradicts the folder's loader
-
-        if (mc == null)
-        {
-            mcCertain = false;
-            loaderCertain = false;
-        }
-
-        // Exact only when the launcher's own record gave both answers AND both are certain (never Exact while unsure).
-        var confidence = fromMeta && metaLoader != null && !ranWon && !loaderFromLog && mcCertain && loaderCertain
-            ? Confidence.Exact : Confidence.Inferred;
         var certain = mcCertain && loaderCertain;
-        var reason = certain ? null
-            : mc == null ? "Origin couldn't tell which Minecraft version this is."
-            : string.Join(" ", reasons.Distinct());
+        var confidence = certain && anchor.Kind == PieceKind.Record && anchor.Explicit && anchor.Loader != null
+            ? Confidence.Exact : Confidence.Inferred;
+        var reason = certain ? null : string.Join(" ", reasons.Distinct());
         if (!certain && string.IsNullOrWhiteSpace(reason)) reason = "Origin isn't sure which version this is.";
-        return new Judgement(mc, loader, loaderVersion, confidence, mcCertain, loaderCertain, reason);
+        return new Judgement(mc, finalLoader, loaderVersion, confidence, mcCertain, loaderCertain, reason);
     }
 
-    /// <summary>V1: which metadata statement to weigh when several profiles share a folder.</summary>
-    private static VersionEvidence? PickMetadata(IReadOnlyList<VersionEvidence> metadata, string? ranMc, LogEvidence? log, ModsEvidence? mods,
-        out bool mcAmbiguous, out bool loaderAmbiguous)
+    // A piece agrees when it states nothing different: same version (if it names one) and same loader (if it names one).
+    private static bool Agrees(Piece p, string? mc, LoaderKind? loader) =>
+        (p.Mc == null || mc == null || Same(p.Mc, mc)) && (p.Loader == null || loader == null || p.Loader == loader);
+
+    private static string Describe(Piece p, ModsEvidence? mods) => p.Kind switch
     {
-        mcAmbiguous = loaderAmbiguous = false;
-        var usable = metadata.Where(e => e.Source == EvidenceSource.LauncherMetadata && (e.McVersion != null || e.Loader != null)).ToList();
-        if (usable.Count == 0) return null;
+        PieceKind.Log => $"the game last ran {Pair(p.Mc, p.Loader)}",
+        PieceKind.Options => $"the game's settings were last saved by Minecraft {p.Mc}",
+        PieceKind.Mods => $"most mods here are built for {Pair(p.Mc, p.Loader)}",
+        _ when p.LaunchTime && p.Time is { } t => $"the launcher profile \"{p.From}\" last played {Pair(p.Mc, p.Loader)} on {t:MMM d}",
+        _ when p.LaunchTime => $"the launcher profile \"{p.From}\" is set to {Pair(p.Mc, p.Loader)} (never played)",
+        _ => $"the launcher says {Pair(p.Mc, p.Loader)}",
+    };
 
-        // A never-played profile never beats a played one, explicit or not.
-        var pool = usable.Where(e => e.ObservedUtc != null).ToList();
-        if (pool.Count == 0) pool = usable;
+    private static string SourceName(Piece p) => p.Kind switch
+    {
+        PieceKind.Log => "the game's last log",
+        PieceKind.Options => "the game's settings file",
+        PieceKind.Mods => "the mods",
+        _ => "the launcher",
+    };
 
-        // Most recent first; OrderBy is stable, so the first listed wins ties.
-        var recent = pool.OrderByDescending(e => e.ObservedUtc ?? DateTimeOffset.MinValue).ToList();
-        if (recent.Select(Key).Distinct(StringComparer.Ordinal).Count() <= 1) return recent[0];
+    private static string Pair(string? mc, LoaderKind? loader) => loader switch
+    {
+        null => mc ?? "an unknown version",
+        LoaderKind.None => $"vanilla {mc}",
+        _ => $"{Name(loader.Value)} {mc}",
+    };
 
-        // Only version evidence (R, D) may decide between different versions...
-        int McScore(VersionEvidence e) =>
-            (ranMc != null && e.McVersion != null && Same(ranMc, e.McVersion) ? 2 : 0) + (mods != null && mods.Fits(e.McVersion) ? 1 : 0);
-        var topMc = recent.Max(McScore);
-        var byMc = recent.Where(e => McScore(e) == topMc).ToList();
-        mcAmbiguous = byMc.Select(e => e.McVersion ?? "?").Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1;
+    private static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
-        // ...and loader evidence (the log's loader, the jars') only between records of the same version.
-        int LoaderScore(VersionEvidence e) =>
-            (log?.Loader != null && e.Loader == log.Loader ? 2 : 0)
-            + (mods?.MajorityLoader is { } j && e.Loader is { } l && ModsEvidence.Compatible(l, j) ? 1 : 0);
-        var topLoader = byMc.Max(LoaderScore);
-        var best = byMc.Where(e => LoaderScore(e) == topLoader).ToList();
-        loaderAmbiguous = best.Select(e => e.Loader?.ToString() ?? "?").Distinct(StringComparer.Ordinal).Count() > 1;
-        return best[0];
-    }
-
-    private static string Key(VersionEvidence e) => (e.McVersion ?? "?") + "|" + (e.Loader?.ToString() ?? "?");
-
-    private static bool Same(string a, string? b) => string.Equals(a.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);
+    private static bool Same(string? a, string? b) => a != null && b != null && string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private static string Name(LoaderKind loader) => loader switch
     {
