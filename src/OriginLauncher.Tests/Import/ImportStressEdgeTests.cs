@@ -35,8 +35,13 @@ public class ImportStressEdgeTests : IDisposable
         Kit.WriteBytes(src, "mods/mod é ñ.jar", Kit.FabricJar("unicodemod", "1.0", minecraft: "~1.21.1"));
         var world = "Mundo ñ café 🌍";
         Kit.Write(src, $"saves/{world}/level.dat", "LEVEL");
-        // A region file deep enough that its full path is far past the old 260-character limit.
-        var deep = string.Join("/", Enumerable.Range(0, 12).Select(i => $"sub folder {i:D2} ü"));
+        // A region file deep enough that its full path is far past the old 260-character limit. The depth comes from
+        // the real temp folder's length (CI's is much shorter than a Windows profile's), so it always gets past 300.
+        var worldDir = Path.Combine(src, "saves", world);
+        var segments = new List<string>();
+        while (worldDir.Length + segments.Sum(s => s.Length + 1) + "/r.0.0.mca".Length <= 320)
+            segments.Add($"sub folder {segments.Count:D2} ü");
+        var deep = string.Join("/", segments);
         var deepFile = Kit.Write(src, $"saves/{world}/{deep}/r.0.0.mca", "DEEP");
         Assert.True(deepFile.Length > 300, $"the deep path is only {deepFile.Length} characters");
         var sourceBefore = Kit.TreeHash(src, mtimes: true);
@@ -241,6 +246,43 @@ public class ImportStressEdgeTests : IDisposable
             Assert.Contains("renderDistance:12", File.ReadAllText(Path.Combine(plan.TargetGameDir, "options.txt")));
         }
         Assert.NotEqual(planA.TargetGameDir, planB.TargetGameDir);
+    }
+
+    // The cause of the test above failing 7 runs in 10 on Windows: one import's commit prunes old backups, which READS
+    // every journal, while the other import renames its new journal over the old one. A reader that opened the file
+    // without delete-sharing makes that rename "Access to the path is denied", and the import rolled back. Readers
+    // and the atomic write are run against each other here: no write may ever fail.
+    [Fact]
+    public async Task ReadingAJournalNeverBlocksItsNextAtomicWrite()
+    {
+        var path = Path.Combine(_rig.Imports, "race", ImportLayout.JournalFile);
+        var journal = new ImportJournal { ImportId = "race", State = ImportState.Applying };
+        ImportJournalStore.Save(journal, path);
+        using var stop = new CancellationTokenSource();
+        var readers = Enumerable.Range(0, 3).Select(_ => Task.Run(() =>
+        {
+            // Each reader reads about once a millisecond: far more often than any real one, but not holding the file
+            // open without a break (no writer could ever replace a file that is never closed).
+            while (!stop.IsCancellationRequested)
+            {
+                ImportJournalStore.Load(path);
+                Thread.Sleep(1);
+            }
+        })).ToArray();
+        try
+        {
+            for (var i = 0; i < 2000; i++)
+            {
+                journal.SourceName = $"write {i}";
+                ImportJournalStore.Save(journal, path);
+            }
+        }
+        finally
+        {
+            stop.Cancel();
+            await Task.WhenAll(readers);
+        }
+        Assert.Equal("write 1999", ImportJournalStore.Load(path)!.SourceName);
     }
 
     [Fact]

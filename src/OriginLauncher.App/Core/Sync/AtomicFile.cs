@@ -16,12 +16,37 @@ public static class AtomicFile
         try
         {
             File.WriteAllBytes(temporaryPath, bytes);
-            File.Move(temporaryPath, path, overwrite: true);
+            ReplaceWith(temporaryPath, path);
         }
         finally
         {
             if (File.Exists(temporaryPath))
                 File.Delete(temporaryPath);
+        }
+    }
+
+    // Windows refuses to rename over a file while ANY handle is open on it ("Access to the path is denied", whatever
+    // the reader's sharing flags), and readers are everywhere: another import pruning backups reads every journal,
+    // Minecraft reads options.txt, antivirus and the search indexer open new files. Those reads take milliseconds,
+    // so the rename waits them out (~1.5 s in all) instead of failing the write; a real permission problem still
+    // throws once the waits run out. Proven: two imports committing at once rolled one back 7 runs in 10
+    // (ImportStressEdgeTests.ReadingAJournalNeverBlocksItsNextAtomicWrite).
+    private static readonly int[] RenameWaitsMs = { 2, 5, 10, 20, 40, 80, 150, 250, 400, 500 };
+
+    private static void ReplaceWith(string temporaryPath, string path)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                File.Move(temporaryPath, path, overwrite: true);
+                return;
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException && attempt < RenameWaitsMs.Length
+                                       && File.Exists(temporaryPath))
+            {
+                Thread.Sleep(RenameWaitsMs[attempt]);
+            }
         }
     }
 
