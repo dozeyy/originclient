@@ -139,6 +139,11 @@ public final class RingField {
 		return clockMs;
 	}
 
+	/** The scene clock's current value without advancing it (diagnostics: OriginFrameLog). */
+	public static double peekMs() {
+		return clockMs;
+	}
+
 	/** Ring i's rotation in degrees. Wall-clock exact until the field first leaves LOADING. */
 	public static double angle(int i, double angle0, double periodS, boolean reverse) {
 		if (phase == null || i >= phase.length) {

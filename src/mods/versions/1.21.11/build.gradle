@@ -45,6 +45,14 @@ loom {
 			if (project.hasProperty("mixinexport")) {
 				property "mixin.debug.export", "true"
 			}
+			// `-PframeLog`: the loading -> main menu frame-time log (OriginFrameLog,
+			// lines start "[OriginFrameLog]") plus the JVM's own GC pause lines
+			// (-Xlog:gc, "[gc]"), both to the console. Loom drops `--args`, so
+			// these are the only way to switch them on in a dev run.
+			if (project.hasProperty("frameLog")) {
+				property "origin.frameLog", "true"
+				vmArg "-Xlog:gc:stdout:uptime,level,tags"
+			}
 			// `-Ppanoramacapture` arms the F8 cubemap grabber (see
 			// client/dev/PanoramaCapture.java) used to author the title-screen
 			// panorama. The heap bump is not optional at capture time: each of

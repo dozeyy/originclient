@@ -1,9 +1,12 @@
 package com.origin.client.client.mixin.loading;
 
+import com.origin.client.client.OriginFrameLog;
 import com.origin.client.client.render.OriginScreenRenderer;
+import java.util.Queue;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.resources.ReloadInstance;
 import net.minecraft.util.thread.BlockableEventLoop;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -36,14 +39,23 @@ public abstract class ReloadTaskBudgetMixin {
 	@Shadow
 	public abstract boolean pollTask();
 
+	@Shadow
+	@Final
+	private Queue<Runnable> pendingRunnables;
+
 	@Inject(method = "runAllTasks", at = @At("HEAD"), cancellable = true)
 	private void originclient$budgetReloadTasks(CallbackInfo ci) {
 		if (!((Object) this instanceof Minecraft mc) || !originclient$startupLoading(mc)) {
 			return;
 		}
 		long end = System.nanoTime() + BUDGET_NS;
-		while (this.pollTask()) {
-			if (System.nanoTime() >= end) {
+		while (true) {
+			// Dev-only step timing (OriginFrameLog); one static-final check when off.
+			Object next = OriginFrameLog.ENABLED ? this.pendingRunnables.peek() : null;
+			OriginFrameLog.pollBegin();
+			boolean ran = this.pollTask();
+			OriginFrameLog.pollEnd(next);
+			if (!ran || System.nanoTime() >= end) {
 				break;
 			}
 		}

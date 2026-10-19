@@ -21,6 +21,8 @@ import com.origin.client.client.theme.OriginTheme;
 public final class StartupTransition {
 	/** Loading -> title dissolve. Mirrors the launcher's Motion.Intro. */
 	public static final long REVEAL_MS = 560;
+	/** The title's entrance (the buttons' rise, TitleScreenMixin) is over this long after the reveal starts. */
+	public static final long TITLE_ENTRANCE_MS = 1200;
 
 	// clockMs() at the startup reveal's first frame; 0 = none yet.
 	private static long titleRevealAt = 0;
@@ -37,6 +39,8 @@ public final class StartupTransition {
 	public static void titleRevealed() {
 		if (titleRevealAt == 0) {
 			titleRevealAt = clockMs();
+			OriginFrameLog.mark("dissolve-start");
+			OriginFrameLog.entranceEndsAt(titleRevealAt - 1 + TITLE_ENTRANCE_MS);
 		}
 	}
 
