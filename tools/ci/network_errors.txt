@@ -1,0 +1,20 @@
+# Download/network failure signatures -- THE one list, read by tools/ci/gradle_prefetch.sh
+# (grep -iE) and tools/boot-smoke/smoke.py (Python re, IGNORECASE). One regex per line,
+# joined with '|'. Keep to syntax both understand: no \d (use [0-9]), no lookarounds.
+# Deliberately NOT "Could not resolve" alone: a wrong version pin prints that too.
+# Tested by tools/ci/test_ci_gates.py.
+\b429\b
+Too Many Requests
+Could not (GET|HEAD|download)
+# Loom's downloader (e.g. :downloadAssets): "net.fabricmc.loom.util.download.DownloadException: Failed to download"
+DownloadException
+Failed to download
+Connection reset
+Connect(ion)? timed out
+Read timed out
+SocketTimeoutException
+UnknownHostException
+SSLHandshakeException
+Remote host terminated
+Received status code 5[0-9][0-9]
+Premature end of Content-Length

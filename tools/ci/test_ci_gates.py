@@ -109,6 +109,34 @@ class Smoke(unittest.TestCase):
         # A wrong pin is not a network flake: never retried.
         self.assertIsNone(smoke.NETWORK.search("Could not resolve net.fabricmc:fabric-loader:9.9.9."))
 
+    def test_loom_download_exception_is_network(self):
+        # boot-smoke 39267525399 (1.18.2, 1.19.2, 1.19.3): prefetch called this "non-network".
+        line = "> net.fabricmc.loom.util.download.DownloadException: Failed to download"
+        self.assertTrue(smoke.NETWORK.search(line))
+
+    def test_prefetch_reads_the_same_list(self):
+        # gradle_prefetch.sh and smoke.py must share tools/ci/network_errors.txt, not copies.
+        sh = _read(os.path.join(HERE, "gradle_prefetch.sh"))
+        self.assertIn("network_errors.txt", sh)
+        self.assertNotIn("Too Many Requests", sh)
+
+    def test_retry_only_on_network_in_what_went_wrong(self):
+        flake = ["> Task :downloadAssets FAILED\n", "FAILURE: Build failed with an exception.\n",
+                 "* What went wrong:\n", "Execution failed for task ':downloadAssets'.\n",
+                 "> net.fabricmc.loom.util.download.DownloadException: Failed to download\n",
+                 "* Try:\n", "> Run with --stacktrace option to get the stack trace.\n"]
+        self.assertTrue(smoke.retryable(flake))
+        # A 429 retried and recovered earlier in the log, then javac fails: a compile error, not a flake.
+        compile_fail = ["Could not GET 'https://x/y.pom'. Received status code 429 from server\n",
+                        "/src/Foo.java:12: error: cannot find symbol\n",
+                        "* What went wrong:\n", "Execution failed for task ':compileJava'.\n",
+                        "> Compilation failed; see the compiler error output for details.\n", "* Try:\n"]
+        self.assertFalse(smoke.retryable(compile_fail))
+        # A network line outside the "What went wrong" block alone is not enough.
+        noise = ["Read timed out (retrying)\n", "* What went wrong:\n",
+                 "A problem occurred evaluating root project.\n", "* Try:\n"]
+        self.assertFalse(smoke.retryable(noise))
+
     def test_every_live_module_prints_the_marker(self):
         import json
         live = [m["module"] for m in json.loads(_read(os.path.join(ROOT, "src", "mods", "live-modules.json")))["modules"]]

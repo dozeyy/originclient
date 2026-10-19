@@ -54,14 +54,13 @@ READY = re.compile(r"\[origin-smoke\] title screen reached")
 # Known red herrings that look scary but prove nothing about our code
 # (see MEMORY.md -> runclient-voxy-blocker, and the Iris shader-var warnings).
 IGNORE = re.compile(r"twelvemonkeys|ImageInputStreamSpi|BIOME_PALE_GARDEN|endFlashIntensity", re.I)
-# Gradle/HTTP download failures (Maven Central 429, Mojang asset CDN timeouts). Only
-# these make a failed run retryable; deliberately NOT "Could not resolve" alone,
-# which is also what a wrong version pin prints.
-NETWORK = re.compile(
-    r"\b429\b|Too Many Requests|Could not (GET|HEAD|download)|Connection reset|Connect(ion)? timed out"
-    r"|Read timed out|SocketTimeoutException|UnknownHostException|SSLHandshakeException"
-    r"|Remote host terminated|Received status code 5\d\d|Premature end of Content-Length",
-    re.I)
+# Gradle/HTTP download failures (Maven Central 429, Loom DownloadException, CDN
+# timeouts): ONE list shared with tools/ci/gradle_prefetch.sh.
+_NET_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ci", "network_errors.txt")
+with open(_NET_FILE, encoding="utf-8") as _f:
+    NETWORK = re.compile("|".join(l.strip() for l in _f if l.strip() and not l.lstrip().startswith("#")), re.I)
+# A compile error is never a download flake, whatever else the log says.
+COMPILE_ERROR = re.compile(r"Compilation failed|\.java:\d+: error:|^\s*error:", re.I)
 # Once one of these shows up the game JVM is running: a later failure is the game's,
 # never a download flake, so it is not retried.
 GAME_STARTED = re.compile(r"Loading Minecraft|Backend library|Setting user:|\[origin-smoke\]|Forge Mod Loader version", re.I)
@@ -76,6 +75,23 @@ def classify(line):
     if READY.search(line):
         return "ready"
     return None
+
+
+def retryable(pre_start_lines):
+    """True only when Gradle's own "What went wrong" block names a download/network
+    failure and nothing failed to compile. pre_start_lines = output before the game JVM
+    started (a failure after that is the game's, never a flake)."""
+    if any(COMPILE_ERROR.search(l) for l in pre_start_lines):
+        return False
+    block, inside = [], False
+    for l in pre_start_lines:
+        if "What went wrong" in l:
+            inside = True
+        elif inside and l.lstrip().startswith("* Try"):
+            inside = False
+        elif inside:
+            block.append(l)
+    return any(NETWORK.search(l) for l in block)
 
 
 def run_once(module, cmd, timeout):
@@ -101,14 +117,15 @@ def run_once(module, cmd, timeout):
 
     start = time.monotonic()
     verdict = None
-    network = started = False
+    started = False
+    pre_start = []
     try:
         for line in proc.stdout:
             sys.stdout.write(line)
             if not started and GAME_STARTED.search(line):
                 started = True
-            if not started and NETWORK.search(line):
-                network = True
+            if not started:
+                pre_start.append(line)
             kind = classify(line)
             if kind == "fail":
                 verdict = (False, f"failure signature: {line.strip()[:200]}", False)
@@ -122,9 +139,10 @@ def run_once(module, cmd, timeout):
         _kill_tree(proc)
     if verdict:
         return verdict
+    flake = not started and retryable(pre_start)
     if timed_out.is_set():
-        return (False, f"timeout after {timeout}s without reaching the title screen", network and not started)
-    return (False, "process exited before the title screen", network and not started)
+        return (False, f"timeout after {timeout}s without reaching the title screen", flake)
+    return (False, "process exited before the title screen", flake)
 
 
 def main():

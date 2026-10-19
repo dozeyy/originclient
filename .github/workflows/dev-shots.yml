@@ -275,6 +275,12 @@ jobs:
     needs: shots
     if: always() && needs.shots.result != 'skipped'
     runs-on: ubuntu-latest
+    # claude/dev-shots holds every module's latest shots for every label (~7 GB of
+    # PNGs, 2026-10-19). The old full `clone --depth 1` of it on every publish hung
+    # run 39257723261 for 30+ min. Now: a partial clone (trees only) + a sparse
+    # checkout of just the folders this run replaces, every git network call capped,
+    # and the job itself bounded.
+    timeout-minutes: 20
     steps:
       - name: Collect every module's shots
         uses: actions/download-artifact@v4
@@ -296,24 +302,50 @@ jobs:
           suffix=""; [ "$SET" = "world" ] && suffix="-world"
           [ -n "$LABEL" ] && suffix="$suffix-$(printf '%s' "$LABEL" | tr -c 'A-Za-z0-9._-' '_')"
           url="https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
-          for attempt in 1 2 3 4 5; do
-            rm -rf "$RUNNER_TEMP/site"
-            if git clone -q --depth 1 --branch claude/dev-shots "$url" "$RUNNER_TEMP/site" 2>/dev/null; then :; else
-              mkdir -p "$RUNNER_TEMP/site" && git -C "$RUNNER_TEMP/site" init -q && git -C "$RUNNER_TEMP/site" checkout -q -b claude/dev-shots
+          folders=""
+          for d in "$pub"/shots-*; do
+            [ -d "$d" ] || continue
+            m="$(basename "$d")"; folders="$folders ${m#shots-}$suffix"
+          done
+          [ -n "$folders" ] || { echo "no shots to publish"; exit 0; }
+          git config --global user.name "origin-dev-shots"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Every attempt starts from the branch's CURRENT tip and re-applies this
+          # run's folders on top, so a push rejected as non-fast-forward (another
+          # run published first) becomes a rebase-retry, never a lost publish.
+          # Bounded: 6 attempts, each clone/checkout/push capped at 5 min.
+          for attempt in 1 2 3 4 5 6; do
+            cd "$RUNNER_TEMP"; rm -rf site
+            if timeout 120 git ls-remote --exit-code --heads "$url" claude/dev-shots >/dev/null 2>&1; then
+              if ! timeout 300 git clone -q --depth 1 --filter=blob:none --no-checkout --branch claude/dev-shots "$url" site; then
+                echo "attempt $attempt: clone failed"; sleep $((attempt * 10 + RANDOM % 10)); continue
+              fi
+              cd site
+              if ! git sparse-checkout set --no-cone /SOURCE.txt $(for m in $folders; do printf '/%s/ ' "$m"; done) \
+                 || ! timeout 300 git checkout -q claude/dev-shots; then
+                echo "attempt $attempt: checkout failed"; sleep $((attempt * 10 + RANDOM % 10)); continue
+              fi
+            else
+              mkdir site && cd site && git init -q && git checkout -q -b claude/dev-shots
             fi
-            cd "$RUNNER_TEMP/site"
-            git config user.name "origin-dev-shots"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            for d in "$pub"/shots-*; do
-              [ -d "$d" ] || continue
-              m="$(basename "$d")"; m="${m#shots-}$suffix"
-              rm -rf "$m"; cp -r "$d" "$m"
+            for m in $folders; do
+              rm -rf "$m"; cp -r "$pub/shots-${m%"$suffix"}" "$m"
               printf 'source: %s\nrun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$m/SOURCE.txt"
             done
             printf 'last run: %s/%s/actions/runs/%s (%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_SHA" > SOURCE.txt
             git add -A
+            # Safety net: a sparse checkout that came up empty would stage the whole
+            # branch as deleted. Only deletions inside this run's folders are allowed.
+            stray="$(git diff --cached --name-only --diff-filter=D | grep -vE "^($(echo $folders | sed 's/[.]/[.]/g; s/ /|/g'))/" | head -n 3 || true)"
+            if [ -n "$stray" ]; then
+              echo "::error::publish would delete files outside this run's folders (e.g. $stray); refusing"; exit 1
+            fi
             git commit -qm "dev shots ($SET) for ${GITHUB_SHA::7}" || true
-            if git push -q "$url" HEAD:refs/heads/claude/dev-shots; then exit 0; fi
-            cd "$RUNNER_TEMP"; sleep $((attempt * 5))
+            if out="$(timeout 300 git push -q "$url" HEAD:refs/heads/claude/dev-shots 2>&1)"; then
+              echo "published:$folders (attempt $attempt)"; exit 0
+            fi
+            echo "attempt $attempt: push failed: $(printf '%s' "$out" | tail -n 3)"
+            sleep $((attempt * 10 + RANDOM % 10))
           done
+          echo "::error::could not publish to claude/dev-shots after 6 attempts (the shots are still in this run's artifacts)"
           exit 1

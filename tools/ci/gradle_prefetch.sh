@@ -16,8 +16,9 @@ here="$(cd "$(dirname "$0")" && pwd)"
 cd "$1" || exit 2
 chmod +x gradlew
 log="$(mktemp)"
-# Deliberately not "Could not resolve" alone: a wrong version pin prints that too.
-net='\b429\b|Too Many Requests|Could not (GET|HEAD|download)|Connection reset|Connect(ion)? timed out|Read timed out|SocketTimeoutException|UnknownHostException|SSLHandshakeException|Remote host terminated|Received status code 5[0-9][0-9]|Premature end of Content-Length|Downloading https://services\.gradle\.org.*(failed|Exception)'
+# The network signatures live in ONE file shared with smoke.py.
+net="$(grep -vE '^[[:space:]]*(#|$)' "$here/network_errors.txt" | tr -d '\r' | paste -sd'|' -)"
+[ -n "$net" ] || { echo "::error::tools/ci/network_errors.txt is empty"; exit 2; }
 attempts=4
 for i in $(seq 1 $attempts); do
   start=$(date +%s)
