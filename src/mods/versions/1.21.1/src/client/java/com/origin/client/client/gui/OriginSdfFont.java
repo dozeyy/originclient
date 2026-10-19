@@ -178,6 +178,8 @@ public final class OriginSdfFont {
 			f.ok = true;
 		} catch (Throwable t) {
 			f.ok = false;
+			// The prefetched atlas, if the metrics failed before it was taken: free it.
+			com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/font/" + base + ".png");
 			com.origin.client.OriginClient.LOGGER.warn("Origin MSDF face '" + base + "' failed to load; using vanilla text", t);
 		}
 	}

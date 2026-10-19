@@ -36,9 +36,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 // The settle limit is SETTLE_MS (20 ms, a 60 fps frame with slack), or 1.5x the
 // fastest hold frame on a machine whose steady frame is slower than that, so a
 // slow PC settles on "no more spikes" instead of always waiting out the cap.
-// Porting note (1.21.2-1.21.4): the hold only begins after the reload is done
-// (fadeOutStart is set only then), so nothing here touches the ShaderManager
-// mid-reload, the 3eb35971 trap.
+// The hold runs for the startup load only (!fadeIn). A later reload (F3+T, the
+// pack screen) dissolves at once: there is no new title to pay for, and with a
+// shader pack in a world the frames never settle, so it would only add the cap.
+// Porting note (1.21.2-1.21.4, the 3eb35971 trap: touching the ShaderManager
+// mid-reload drops the loading screen and blacks out every screen after): the
+// hold itself is safe, it only begins after the reload is done (fadeOutStart is
+// set only then). But OriginAssets.uploadSlice, called from the loading screen
+// while the load is still RUNNING, reads OriginShaders for its icon step: on
+// those versions gate uploadSlice on reload.isDone() (or drop the icon step).
 //
 // Why a HEAD cancel is safe HERE when it isn't in LoadingOverlayMixin: it only
 // cancels once fadeOutStart is set, i.e. after vanilla has already run the
@@ -105,8 +111,14 @@ public abstract class LoadingOverlayRevealMixin {
 		}
 		Screen screen = this.minecraft.screen;
 		if (this.originclient$revealAt == 0L) {
-			originclient$hold(guiGraphics, mouseX, mouseY, partialTick, screen, ci);
-			return;
+			if (!this.fadeIn) {
+				originclient$hold(guiGraphics, mouseX, mouseY, partialTick, screen, ci);
+				return;
+			}
+			// A later reload (F3+T, the pack screen): no fresh title to pay for, and
+			// in-world frames with a shader pack jitter too much to ever "settle",
+			// so a hold would only add up to HOLD_CAP_MS of blocked input. Dissolve now.
+			this.originclient$revealAt = StartupTransition.clockMs();
 		}
 		// The hand-off's one clock (StartupTransition.clockMs), the same the mark's
 		// flight and the title's entrance count on, so a slow frame moves all three alike.

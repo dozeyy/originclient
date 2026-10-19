@@ -48,12 +48,13 @@ public final class OriginFrameLog {
 	public enum Phase { LOAD, DONE, HOLD, DISSOLVE, TITLE }
 
 	private static final int CAP = 8192;
-	private static final long[] start = new long[CAP];
-	private static final float[] frameMs = new float[CAP], tasksMs = new float[CAP], renderMs = new float[CAP],
-			swapMs = new float[CAP], titleMs = new float[CAP], gcMs = new float[CAP], sceneStep = new float[CAP];
-	private static final int[] titleIndex = new int[CAP], gcCount = new int[CAP];
-	private static final Phase[] phase = new Phase[CAP];
-	private static final String[] tasks = new String[CAP];
+	// Allocated on the first frame with the log on (~420 KB); never when it is off.
+	// Every reader runs only once n > 0, i.e. after that allocation.
+	private static long[] start;
+	private static float[] frameMs, tasksMs, renderMs, swapMs, titleMs, gcMs, sceneStep;
+	private static int[] titleIndex, gcCount;
+	private static Phase[] phase;
+	private static String[] tasks;
 	private static int n = 0;           // frames recorded (the current one is n - 1)
 	private static boolean finished = false;
 
@@ -86,6 +87,18 @@ public final class OriginFrameLog {
 		if (n > 0) {
 			closeFrame(now);
 		} else {
+			start = new long[CAP];
+			frameMs = new float[CAP];
+			tasksMs = new float[CAP];
+			renderMs = new float[CAP];
+			swapMs = new float[CAP];
+			titleMs = new float[CAP];
+			gcMs = new float[CAP];
+			sceneStep = new float[CAP];
+			titleIndex = new int[CAP];
+			gcCount = new int[CAP];
+			phase = new Phase[CAP];
+			tasks = new String[CAP];
 			gcBeans = pauseBeans();
 			long[] gc = gcTotals();
 			lastGcMs = gc[0];

@@ -171,6 +171,12 @@ public final class OriginAssets {
 	 * the title's first frame pays for none. Each step is the loader's own
 	 * idempotent ensure; a step that isn't ready yet (the icon shader arrives
 	 * late in the load) is retried on later frames.
+	 *
+	 * <p>Porting note: this runs while the reload is still in progress and its
+	 * icon step reads OriginShaders. Fine on 1.21.1; on 1.21.2-1.21.4 touching the
+	 * ShaderManager mid-reload is the 3eb35971 trap (loading screen dropped, every
+	 * later screen black), so there the caller must only call this once
+	 * reload.isDone().
 	 */
 	public static void uploadSlice() {
 		if (!prepared || uploadStep >= UPLOADS.size()) {

@@ -186,6 +186,9 @@ public final class ModIcons {
 			} catch (Throwable t) {
 				ok = false;
 				sdfOk = false;
+				// Prefetched atlases never handed over (the metrics failed first): free them.
+				com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/ui/mod_icons.png");
+				com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/ui/mod_icons_sdf.png");
 				com.origin.client.OriginClient.LOGGER.warn("Origin mod icons failed to load; cards draw without icons", t);
 			}
 		}
