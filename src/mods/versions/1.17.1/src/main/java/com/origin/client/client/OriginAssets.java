@@ -209,10 +209,6 @@ public final class OriginAssets {
 				com.origin.client.client.gui.OriginUi.ready();
 				return true;
 			},
-			// The icon atlas waits for the icon shader: ModIcons picks its atlas once,
-			// from whether that shader exists, and the shader only arrives late in the
-			// load. Asked earlier, every icon would stay on the blurrier mask atlas.
-			() -> com.origin.client.client.gui.OriginShaders.ICON != null && com.origin.client.client.gui.ModIcons.preload(),
 			() -> {
 				com.origin.client.client.cosmetics.PlusBadge.preload();
 				return true;
@@ -220,7 +216,13 @@ public final class OriginAssets {
 			() -> {
 				com.origin.client.client.gui.OriginSdfFont.preload();
 				return true;
-			});
+			},
+			// The icon atlas waits for the icon shader: ModIcons picks its atlas once,
+			// from whether that shader exists. 1.17.1 compiles its core shaders itself
+			// (OriginShaders.ensureCompiled), and only once the reload is done, so this
+			// step is LAST here: it never blocks the other uploads during the load, and
+			// the atlas loads on the title's first draw in the settle hold, after the compile.
+			() -> com.origin.client.client.gui.OriginShaders.ICON != null && com.origin.client.client.gui.ModIcons.preload());
 
 	// ---- decoding ----
 
