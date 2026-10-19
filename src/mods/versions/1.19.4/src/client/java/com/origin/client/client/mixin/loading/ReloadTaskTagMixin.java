@@ -34,19 +34,22 @@ public abstract class ReloadTaskTagMixin {
 	private Executor originclient$watchApplySteps(Executor apply, @Local PreparableReloadListener listener) {
 		final Object self = this;
 		final String name = OriginFrameLog.ENABLED ? originclient$name(listener) : null;
-		return task -> apply.execute(() -> {
-			StartupTransition.reloadRenderWork(self, name);
-			if (name == null) {
-				task.run();
-				return;
-			}
-			long t0 = System.nanoTime();
-			try {
-				task.run();
-			} finally {
-				OriginFrameLog.reloadTask(name, (System.nanoTime() - t0) / 1e6);
-			}
-		});
+		return task -> {
+			Runnable step = () -> {
+				StartupTransition.reloadRenderWork(self, name);
+				if (name == null) {
+					task.run();
+					return;
+				}
+				long t0 = System.nanoTime();
+				try {
+					task.run();
+				} finally {
+					OriginFrameLog.reloadTask(name, (System.nanoTime() - t0) / 1e6);
+				}
+			};
+			apply.execute(step);
+		};
 	}
 
 	@Unique
