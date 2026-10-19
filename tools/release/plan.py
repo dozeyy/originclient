@@ -65,7 +65,8 @@ def load_modules() -> list[dict]:
 
 def git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=REPO, check=True,
-                          capture_output=True, text=True).stdout
+                          capture_output=True, text=True,
+                          encoding="utf-8", errors="replace").stdout
 
 
 def tag_version(tag: str) -> tuple[int, ...]:

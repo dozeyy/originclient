@@ -1,0 +1,1143 @@
+[
+{
+"subject": "docs: log import-from-launcher outcomes",
+"files": [
+"MEMORY.md"
+]
+},
+{
+"subject": "Import drawer: Friends' list frame back, single review starts at the list pages' depth, toggle knob reverted",
+"files": [
+"src/OriginLauncher.App/Theme/Inputs.xaml",
+"src/OriginLauncher.App/UI/Controls/ImportLogic.cs",
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml"
+]
+},
+{
+"subject": "fix(launcher): first-run import check runs once a week, not every start",
+"files": [
+"src/OriginLauncher.App/Core/Import/ImportEngine.cs",
+"src/OriginLauncher.App/Core/Import/Launcher/ImportPrompt.cs",
+"src/OriginLauncher.App/Core/Models/LauncherSettings.cs"
+]
+},
+{
+"subject": "Launcher shots: draw the control's FocusVisualStyle when WPF added no focus adorner",
+"files": [
+"src/OriginLauncher.App/UI/ImportShots.cs"
+]
+},
+{
+"subject": "Launcher shots: the focus shots draw the window's adorner layer, where WPF's focus frame lives",
+"files": [
+"src/OriginLauncher.App/UI/ImportShots.cs",
+"src/OriginLauncher.App/UI/RenderShots.cs"
+]
+},
+{
+"subject": "Launcher shots: focus shots activate the window and say whether the frame is WPF's own",
+"files": [
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml",
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml.cs",
+"src/OriginLauncher.App/UI/ImportShots.cs"
+]
+},
+{
+"subject": "Tests: the bulk plan budget runs in the import timing collection",
+"files": [
+"src/OriginLauncher.Tests/Import/BulkPerfTests.cs"
+]
+},
+{
+"subject": "Import: connect the seams - real bulk engine, accuracy signals, drawer wiring",
+"files": [
+"src/OriginLauncher.App/Core/Import/Bulk/BulkEngine.cs",
+"src/OriginLauncher.App/Core/Import/Bulk/BulkModels.cs",
+"src/OriginLauncher.App/Core/Import/Bulk/BulkRules.cs"
+]
+},
+{
+"subject": "26.3: build Origin pipelines once the reload is done, not once the overlay is gone",
+"files": [
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java",
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java"
+]
+},
+{
+"subject": "test(launcher): stable import timing tests; narrower options.txt exception",
+"files": [
+"src/OriginLauncher.App/Core/Import/Detection/EvidenceJudge.cs"
+]
+},
+{
+"subject": "ci(boot-smoke): run Gradle on JDK 21 for the Java-17-target modules",
+"files": [
+".github/workflows/boot-smoke.yml"
+]
+},
+{
+"subject": "Import: declare SettingsDelta.AddProfiles once (bulk-engine and wiring both added it)",
+"files": [
+"src/OriginLauncher.App/Core/Import/ImportModels.cs"
+]
+},
+{
+"subject": "pre-1.20 frame log: time blitToScreen and print other= per slow frame (dev-only)",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/mixin/loading/FrameLogMixin.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "26.x reveal always cancels once the screen is drawn; 1.21.11 frame-log init target; no button prefetch on baked-mask eras",
+"files": [
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/gui/OriginUi.java",
+"src/mods/versions/1.21.11/src/client/java/com/origin/client/client/mixin/loading/FrameLogOverlayMixin.java"
+]
+},
+{
+"subject": "MEMORY: 2026-10-19 launcher icon clipping, ClipCheck, 26.3 plus, held-sync churn",
+"files": [
+"MEMORY.md"
+]
+},
+{
+"subject": "pre-1.20 frame log: time Minecraft.tick and the frame limiter too (dev-only)",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/mixin/loading/FrameLogMixin.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "1.17.1: core shaders compile in the settle hold, before the title's first icon",
+"files": [
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/gui/OriginShaders.java"
+]
+},
+{
+"subject": "test(launcher): crash mid-run with a torn entries log recovers exactly",
+"files": [
+"src/OriginLauncher.Tests/Import/BulkReviewRound2Tests.cs"
+]
+},
+{
+"subject": "test(launcher): cross-version stand-in regression tests for review round 2",
+"files": [
+"src/OriginLauncher.Tests/Import/BulkReviewRound2Tests.cs"
+]
+},
+{
+"subject": "fix(launcher): bulk import review round 2",
+"files": [
+"src/OriginLauncher.App/Core/Import/Bulk/BulkEngine.cs",
+"src/OriginLauncher.App/Core/Import/Caches/CacheContributor.cs",
+"src/OriginLauncher.App/Core/Import/DestinationLedger.cs"
+]
+},
+{
+"subject": "1.16.5: loading mark always rests on a clean pose before any long render-thread step",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "1.17.1: loading mark always rests on a clean pose before any long render-thread step",
+"files": [
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "1.18.2: loading mark always rests on a clean pose before any long render-thread step",
+"files": [
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "1.19.2: loading mark always rests on a clean pose before any long render-thread step",
+"files": [
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/StartupTransition.java",
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/mixin/loading/ReloadTaskBudgetMixin.java"
+]
+},
+{
+"subject": "1.19.3: loading mark always rests on a clean pose before any long render-thread step",
+"files": [
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/StartupTransition.java",
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/mixin/loading/ReloadTaskBudgetMixin.java"
+]
+},
+{
+"subject": "1.19.4: loading mark always rests on a clean pose before any long render-thread step",
+"files": [
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/StartupTransition.java",
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/mixin/loading/ReloadTaskBudgetMixin.java"
+]
+},
+{
+"subject": "1.20-26.3: loading mark rests on a clean pose before any long render-thread step (8f5c7ff3 port)",
+"files": [
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/StartupTransition.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/mixin/loading/ReloadTaskBudgetMixin.java"
+]
+},
+{
+"subject": "1.19.2: settle hold + OriginAssets; reload apply steps no longer run inline inside the buffer swap",
+"files": [
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "1.19.3: loading -> main menu settle hold; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/cosmetics/PlusBadge.java"
+]
+},
+{
+"subject": "fix(launcher): import drawer review round 1 (home card shots early, shorter chooser meta)",
+"files": [
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml.cs",
+"src/OriginLauncher.App/UI/ImportShots.cs",
+"src/OriginLauncher.App/UI/RenderShots.cs"
+]
+},
+{
+"subject": "26.3: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "26.2: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/26.2/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/26.2/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/26.2/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "26.1: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "Launcher: Home overlays follow the compact margin; cut-off check sees ClipToBounds edges",
+"files": [
+"src/OriginLauncher.App/UI/Pages/HomePage.xaml.cs",
+"src/OriginLauncher.App/UI/RenderShots.cs"
+]
+},
+{
+"subject": "1.21.11: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.21.11/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21.11/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.21.11/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "1.21.10: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "fix(launcher): import drawer review round 1",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml",
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/Theme/Social.xaml"
+]
+},
+{
+"subject": "1.19.4: loading -> main menu settle hold; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/cosmetics/PlusBadge.java"
+]
+},
+{
+"subject": "1.21.6, 1.21.8: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.21.6/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21.6/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.21.6/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "1.21.4: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/gui/ModIcons.java",
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/render/OriginScreenRenderer.java"
+]
+},
+{
+"subject": "fix(launcher): agreeing setups are exact again; stricter mod version statements",
+"files": [
+"src/OriginLauncher.App/Core/Import/Detection/EvidenceJudge.cs"
+]
+},
+{
+"subject": "1.20, 1.20.2, 1.20.4: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "1.21: settle hold before the loading -> title dissolve; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.21/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.21/src/client/java/com/origin/client/client/StartupTransition.java"
+]
+},
+{
+"subject": "fix(launcher): bulk import review round 1",
+"files": [
+"src/OriginLauncher.App/Core/Import/Bulk/BulkEngine.cs",
+"src/OriginLauncher.App/Core/Import/Bulk/BulkModels.cs",
+"src/OriginLauncher.App/Core/Import/Bulk/BulkSummary.cs"
+]
+},
+{
+"subject": "1.21.1: loading mark always rests on a clean pose before any long render-thread step",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/StartupTransition.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/mixin/loading/ReloadTaskBudgetMixin.java"
+]
+},
+{
+"subject": "1.20-26.3: dev-only loading -> main menu frame log (-PframeLog) + dev-shots 'handoff' set",
+"files": [
+"src/mods/versions/1.20.2/build.gradle",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "pre-1.20: dev-only loading -> main menu frame log (-PframeLog) + dev-shots 'handoff' set",
+"files": [
+"src/mods/versions/1.16.5/build.gradle",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "fix(launcher): a skipped setup's claims pass to the next setup",
+"files": [
+"src/OriginLauncher.App/Core/Import/Bulk/BulkEngine.cs",
+"src/OriginLauncher.App/Core/Import/Caches/CacheContributor.cs",
+"src/OriginLauncher.App/Core/Import/DestinationLedger.cs"
+]
+},
+{
+"subject": "feat(launcher): import drawer implements IImportCloseHost, one refusal sentence",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/UI/Controls/ImportHooks.cs",
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml.cs"
+]
+},
+{
+"subject": "1.21.1: free a claimed atlas image if its DynamicTexture can't be built (ModIcons, OriginSdfFont)",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/ModIcons.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/OriginSdfFont.java"
+]
+},
+{
+"subject": "feat(launcher): import drawer hooks per the wiring review",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/UI/Controls/ImportHooks.cs",
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml.cs"
+]
+},
+{
+"subject": "fix(launcher): import detection is only certain when the evidence agrees",
+"files": [
+"src/OriginLauncher.App/Core/Import/Detection/EvidenceJudge.cs",
+"src/OriginLauncher.App/Core/Import/ImportModels.cs",
+"src/OriginLauncher.App/Core/Import/Sources/OfficialLauncherSource.cs"
+]
+},
+{
+"subject": "fix(launcher): import wiring review round 1",
+"files": [
+"src/OriginLauncher.App/App.xaml.cs",
+"src/OriginLauncher.App/Core/Import/Launcher/ImportBackend.cs",
+"src/OriginLauncher.App/Core/Import/Launcher/ImportCloseGuard.cs"
+]
+},
+{
+"subject": "1.21.1: review fixes - settle hold on the startup load only; lazy frame-log buffers; free unclaimed prefetched images",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/ModIcons.java"
+]
+},
+{
+"subject": "feat(launcher): import drawer footer note on one line, done page spacing",
+"files": [
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml",
+"src/OriginLauncher.App/UI/ImportShots.cs"
+]
+},
+{
+"subject": "Launcher: nav rail and Home card fit; cut-off check sees any clipped tile, trims and the installer",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml",
+"src/OriginLauncher.App/UI/Pages/HomePage.xaml",
+"src/OriginLauncher.App/UI/Pages/HomePage.xaml.cs"
+]
+},
+{
+"subject": "Held sync: a stale friendsEtag is held like any other",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/social/SocialClient.java"
+]
+},
+{
+"subject": "ci(launcher-shots): clone dev-shots once, redo only this run's folder on a lost push race",
+"files": [
+".github/workflows/launcher-shots.yml"
+]
+},
+{
+"subject": "Setup: mirror the launcher's eyebrow colour (check_consistency)",
+"files": [
+"src/OriginSetup/Theme/Typography.xaml"
+]
+},
+{
+"subject": "feat(launcher): import drawer polish from the first render",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml",
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/Theme/Social.xaml"
+]
+},
+{
+"subject": "feat(launcher): bulk import engine",
+"files": [
+"src/OriginLauncher.App/Core/Import/Bulk/BulkEngine.cs",
+"src/OriginLauncher.App/Core/Import/Bulk/BulkModels.cs",
+"src/OriginLauncher.App/Core/Import/Bulk/BulkRules.cs"
+]
+},
+{
+"subject": "fix(launcher): vanilla latest profiles never outrank a folder's mods and log",
+"files": [
+"src/OriginLauncher.App/Core/Import/Detection/EvidenceJudge.cs",
+"src/OriginLauncher.App/Core/Import/Detection/FolderEvidence.cs",
+"src/OriginLauncher.App/Core/Import/Detection/SetupResolver.cs"
+]
+},
+{
+"subject": "frame log: ignore run-prod/, document prodClient in fetch_mods.py",
+"files": [
+"src/mods/versions/1.21.1/.gitignore"
+]
+},
+{
+"subject": "feat(launcher): import drawer in the new social layout",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml",
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/Theme/Icons.xaml"
+]
+},
+{
+"subject": "Launcher shots: scale-checks.txt reports the real window size, not the laid-out one",
+"files": [
+"src/OriginLauncher.App/UI/SocialShots.cs"
+]
+},
+{
+"subject": "fix(launcher): import wiring around launches, close, recovery and installer",
+"files": [
+"src/OriginLauncher.App/App.xaml.cs",
+"src/OriginLauncher.App/Core/Import/ImportModels.cs",
+"src/OriginLauncher.App/Core/Import/Launcher/Deferred.cs"
+]
+},
+{
+"subject": "26.3: icon SDF pipeline no longer latches broken during the startup reload",
+"files": [
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/ModIcons.java",
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginShaders.java"
+]
+},
+{
+"subject": "1.21.1: loading mark comes to rest within ~1/3 s of the settle; OriginAssets hands each result over once",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/render/MarkMotion.java"
+]
+},
+{
+"subject": "Launcher: icon buttons size from their glyph, so no icon is cut off",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml",
+"src/OriginLauncher.App/Theme/Icons.xaml",
+"src/OriginLauncher.App/Theme/Social.xaml"
+]
+},
+{
+"subject": "Launcher shots: lay out bigger-than-desktop sizes for real, measure text by its letters",
+"files": [
+"src/OriginLauncher.App/UI/RenderShots.cs",
+"src/OriginLauncher.App/UI/SocialShots.cs"
+]
+},
+{
+"subject": "Launcher shots: Will's one-offline-friend drawer, 1600x1000, 100/125/150 % scale, and a cut-off icon/text check",
+"files": [
+"src/OriginLauncher.App/UI/RenderShots.cs",
+"src/OriginLauncher.App/UI/SocialShots.cs"
+]
+},
+{
+"subject": "1.21.1: settle on ANY render-thread reload work since the loading screen began",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/StartupTransition.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/render/OriginScreenRenderer.java"
+]
+},
+{
+"subject": "MEMORY: 2026-10-18 launcher restyle, Friends redesign, held sync",
+"files": [
+"MEMORY.md"
+]
+},
+{
+"subject": "feat(launcher): import detection cross-checks version, loader and shared folders",
+"files": [
+"src/OriginLauncher.App/Core/Import/Detection/EvidenceJudge.cs",
+"src/OriginLauncher.App/Core/Import/Detection/FolderEvidence.cs",
+"src/OriginLauncher.App/Core/Import/Detection/SetupResolver.cs"
+]
+},
+{
+"subject": "1.21.1: the loading mark also settles when a reload listener first runs work on the render thread",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginFrameLog.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/StartupTransition.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/mixin/loading/ReloadTaskTagMixin.java"
+]
+},
+{
+"subject": "Memory: blank line between entries",
+"files": [
+"MEMORY.md"
+]
+},
+{
+"subject": "feat(launcher): bulk import interface skeleton",
+"files": [
+"src/OriginLauncher.App/Core/Import/Bulk/BulkModels.cs",
+"src/OriginLauncher.App/Core/Import/Launcher/ImportBackend.cs",
+"src/OriginLauncher.App/UI/ImportShots.cs"
+]
+},
+{
+"subject": "1.21.1: one after-shaders pass for world overlays that must stay readable",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/mixin/GameRendererPostShadersMixin.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/mods/ChunkBorderRenderer.java"
+]
+},
+{
+"subject": "frame log: with-mods scenario runs in production (prodClient: built jar + the set, intermediary names)",
+"files": [
+"src/mods/versions/1.21.1/build.gradle"
+]
+},
+{
+"subject": "Memory: cosmetics outer-layer fit + 3-axis adjust on every version",
+"files": [
+"CLAUDE.md",
+"MEMORY.md"
+]
+},
+{
+"subject": "docs: Friends redesign live on every shipped module (2026-10-18)",
+"files": [
+"docs/SOCIAL.md"
+]
+},
+{
+"subject": "1.21.1: loading -> main menu settle gate; Origin textures decode in the reload's prepare stage",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginAssets.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginClientMod.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "Waypoints after-shaders pass: log failures once, flush on throw, no per-frame alloc; drop the 1.21 port",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/mixin/GameRendererPostShadersMixin.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/waypoints/WaypointRenderer.java",
+"src/mods/versions/1.21/src/client/java/com/origin/client/client/mixin/GameRendererPostShadersMixin.java"
+]
+},
+{
+"subject": "frame log: 'with mods' = the public part of Will's own 1.21.1 instance (57 mods, matched by SHA-1), with his Fabric API",
+"files": [
+".github/workflows/dev-shots.yml",
+"tools/frame-log/mods-1.21.1.json"
+]
+},
+{
+"subject": "fix(launcher): import engine review round 2",
+"files": [
+"src/OriginLauncher.App/Core/Import/Caches/CacheContributor.cs",
+"src/OriginLauncher.App/Core/Import/Caches/CacheScanner.cs",
+"src/OriginLauncher.App/Core/Import/CredentialGuard.cs"
+]
+},
+{
+"subject": "1.21.1: dev-only loading -> main menu frame log (-PframeLog) + dev-shots 'handoff' set and 'with mods' scenario",
+"files": [
+"src/mods/versions/1.21.1/build.gradle",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginFrameLog.java"
+]
+},
+{
+"subject": "Waypoints: draw beams after the shader pack's composite so clouds can't cover them (1.21.1, 1.21)",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/mixin/GameRendererPostShadersMixin.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/waypoints/WaypointRenderer.java",
+"src/mods/versions/1.21.1/src/client/resources/originclient.client.mixins.json"
+]
+},
+{
+"subject": "Dev shots: 1.21.4/1.21.6 show/hide skin layers with setModelPart",
+"files": [
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/1.21.6/src/client/java/com/origin/client/client/OriginDevWorld.java"
+]
+},
+{
+"subject": "Cosmetics fit over the outer skin layer + head/face move every way (1.21.8, 1.21.10, 1.21.11)",
+"files": [
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/cosmetics/CosmeticEffects.java",
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/cosmetics/CosmeticLayer.java"
+]
+},
+{
+"subject": "Cosmetics fit over the outer skin layer + head/face move every way (1.8.9)",
+"files": [
+"src/mods/versions/1.8.9/src/main/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/1.8.9/src/main/java/com/origin/client/client/cosmetics/CosmeticEffects.java",
+"src/mods/versions/1.8.9/src/main/java/com/origin/client/client/cosmetics/CosmeticLayer.java"
+]
+},
+{
+"subject": "Cosmetics fit over the outer skin layer + head/face move every way (1.17.1, 1.16.5)",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/cosmetics/CosmeticEffects.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/cosmetics/CosmeticLayer.java"
+]
+},
+{
+"subject": "Cosmetics fit over the outer skin layer + head/face move every way (26.1, 26.2, 26.3)",
+"files": [
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/cosmetics/CosmeticEffects.java",
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/cosmetics/CosmeticLayer.java"
+]
+},
+{
+"subject": "Cosmetics fit over the outer skin layer + head/face move every way (1.21.4, 1.21.6)",
+"files": [
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/cosmetics/CosmeticEffects.java",
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/cosmetics/CosmeticLayer.java"
+]
+},
+{
+"subject": "Cosmetics fit over the outer skin layer + head/face move every way (1.19.4, 1.19.3, 1.19.2, 1.18.2)",
+"files": [
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/cosmetics/CosmeticEffects.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/cosmetics/CosmeticLayer.java"
+]
+},
+{
+"subject": "Cosmetics fit over the outer skin layer + head/face move every way (1.21, 1.20, 1.20.2, 1.20.4)",
+"files": [
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/cosmetics/CosmeticEffects.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/cosmetics/CosmeticLayer.java"
+]
+},
+{
+"subject": "feat(launcher): import panel review layout and safe cancel focus (WIP pending review)",
+"files": [
+"src/OriginLauncher.App/UI/Controls/ConfirmOverlay.xaml.cs",
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml.cs"
+]
+},
+{
+"subject": "1.21.6, 1.21.8: a sliding-out social toast takes no clicks",
+"files": [
+"src/mods/versions/1.21.6/src/client/java/com/origin/client/client/social/SocialToast.java",
+"src/mods/versions/1.21.8/src/client/java/com/origin/client/client/social/SocialToast.java"
+]
+},
+{
+"subject": "1.16.5: Friends redesign port",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "26.3: Friends redesign port",
+"files": [
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/26.3/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "26.2: Friends redesign port",
+"files": [
+"src/mods/versions/26.2/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/26.2/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "26.1: Friends redesign port",
+"files": [
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/26.1/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.8.9: Friends redesign port",
+"files": [
+"src/mods/versions/1.8.9/src/main/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.8.9/src/main/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.8.9/src/main/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.21.11: Friends redesign port",
+"files": [
+"src/mods/versions/1.21.11/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.11/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.11/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.21.10: Friends redesign port",
+"files": [
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.10/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "feat(launcher): import panel polish from CI shots (WIP pending review)",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml",
+"src/OriginLauncher.App/UI/Controls/ImportPanel.xaml.cs"
+]
+},
+{
+"subject": "Store fit adjuster: say 'Forward / back', announce the item being moved",
+"files": [
+"website/js/store.js",
+"website/store.html"
+]
+},
+{
+"subject": "Store fit adjuster: compact steppers, spoken positions, steady tab focus",
+"files": [
+"website/css/store.css",
+"website/js/rig.js",
+"website/js/store.js",
+"website/store.html"
+]
+},
+{
+"subject": "1.21.8: Friends redesign port",
+"files": [
+"src/mods/versions/1.21.8/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.8/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.8/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "Store: adjust where hat and face items sit, and items sit over the skin's outer layer",
+"files": [
+"website/css/store.css",
+"website/js/cosmetics.js",
+"website/js/rig.js",
+"website/js/store.js",
+"website/store.html"
+]
+},
+{
+"subject": "1.17.1: Friends redesign port",
+"files": [
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.21.6: Friends redesign port",
+"files": [
+"src/mods/versions/1.21.6/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.6/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.6/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.18.2: Friends redesign port",
+"files": [
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.19.2: Friends redesign port",
+"files": [
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.19.2/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.19.3: Friends redesign port",
+"files": [
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.19.3/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.21.4: Friends redesign port",
+"files": [
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.4/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.19.4: Friends redesign port",
+"files": [
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.19.4/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.20: Friends redesign port",
+"files": [
+"src/mods/versions/1.20/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.20/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.20/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.20.2: Friends redesign port",
+"files": [
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.20.2/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "1.20.4: Friends redesign port",
+"files": [
+"src/mods/versions/1.20.4/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.20.4/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.20.4/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "feat(launcher): import from another Minecraft launcher (WIP pending review)",
+"files": [
+"src/OriginLauncher.App/App.xaml.cs",
+"src/OriginLauncher.App/Core/Import/Caches/CacheContributor.cs",
+"src/OriginLauncher.App/Core/Import/Caches/CacheScanner.cs"
+]
+},
+{
+"subject": "1.21: Friends redesign port",
+"files": [
+"src/mods/versions/1.21/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21/src/client/java/com/origin/client/client/gui/OriginDeck.java"
+]
+},
+{
+"subject": "Cosmetics sit over the outer skin layer; head and face items move every way",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginDevWorld.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/cosmetics/CosmeticEffects.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/cosmetics/CosmeticLayer.java"
+]
+},
+{
+"subject": "Friends redesign: solid 2 px focus frame, list bottom fade",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/FriendsScreen.java"
+]
+},
+{
+"subject": "Launcher: focus frame gets room in the list viewport; version dropdown keeps its width",
+"files": [
+"src/OriginLauncher.App/UI/Controls/FriendsPanel.xaml",
+"src/OriginLauncher.App/UI/Controls/VersionSelectOverlay.xaml",
+"src/OriginLauncher.App/UI/SocialShots.cs"
+]
+},
+{
+"subject": "Memory: website hero spacing fix",
+"files": [
+"MEMORY.md"
+]
+},
+{
+"subject": "Website hero round 3: no layout reads per frame, safe no-fit fallback, arrow fix",
+"files": [
+"website/css/site.css",
+"website/js/site.js",
+"website/js/world.js"
+]
+},
+{
+"subject": "Website hero round 2: bigger island, safer fallbacks, cheaper sync",
+"files": [
+"website/js/site.js",
+"website/js/world.js"
+]
+},
+{
+"subject": "Website hero: fit the island to the free space beside the copy",
+"files": [
+"website/js/site.js",
+"website/js/world.js"
+]
+},
+{
+"subject": "Launcher: Play to Join stays 16 px in the compact Home layout too",
+"files": [
+"src/OriginLauncher.App/UI/Pages/HomePage.xaml.cs"
+]
+},
+{
+"subject": "Setup: merge Icons.xaml before Inputs.xaml (shared combo box template uses the chevron)",
+"files": [
+"src/OriginSetup/App.xaml"
+]
+},
+{
+"subject": "Launcher: merge Icons.xaml before Inputs.xaml so the combo box chevron resolves",
+"files": [
+"src/OriginLauncher.App/App.xaml"
+]
+},
+{
+"subject": "Launcher: social last batch - row focus frame by position, shorter status lines, header hairline, Home/Profile fixes",
+"files": [
+"src/OriginLauncher.App/Theme/Inputs.xaml",
+"src/OriginLauncher.App/Theme/Social.xaml",
+"src/OriginLauncher.App/UI/Controls/FriendsPanel.xaml"
+]
+},
+{
+"subject": "Held sync: survive friends churn, abort Java 8 holds before sending",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/social/SocialClient.java"
+]
+},
+{
+"subject": "Friends redesign CI-review fixes (1.21.1)",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/OriginDeck.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/OriginWindow.java"
+]
+},
+{
+"subject": "Launcher: social re-review fixes - menu state, linear-ish list diff, toast queue, safer confirm",
+"files": [
+"src/OriginLauncher.App/Core/Social/SocialText.cs",
+"src/OriginLauncher.App/UI/Controls/ConfirmOverlay.xaml.cs",
+"src/OriginLauncher.App/UI/Controls/FriendsPanel.xaml.cs"
+]
+},
+{
+"subject": "Held sync review fixes: budget, real aborts, presence at request time",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/social/SocialClient.java"
+]
+},
+{
+"subject": "CI: render the Friends drawer (--social) in launcher-shots",
+"files": [
+".github/workflows/launcher-shots.yml"
+]
+},
+{
+"subject": "Launcher: social review fixes - keyed list diff, card groups, contrast, safer actions",
+"files": [
+"src/OriginLauncher.App/Core/Social/SocialText.cs",
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/Theme/Menus.xaml"
+]
+},
+{
+"subject": "Launcher: simpler Friends, party and chat drawer",
+"files": [
+"src/OriginLauncher.App/App.xaml",
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/Theme/Icons.xaml"
+]
+},
+{
+"subject": "Friends redesign re-review fixes (1.21.1)",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/social/SocialToast.java"
+]
+},
+{
+"subject": "Friends redesign review fixes (1.21.1)",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/mods/Mods.java"
+]
+},
+{
+"subject": "Launcher: final polish - crash-trace inset, combo text inset, installer label, small chips, lighter muted text",
+"files": [
+"src/OriginLauncher.App/Theme/Colors.xaml",
+"src/OriginLauncher.App/Theme/Inputs.xaml",
+"src/OriginLauncher.App/UI/Pages/HomePage.xaml"
+]
+},
+{
+"subject": "Launcher: review follow-ups - original crash-window colours, 4 px chips, concentric handles, aligned fields and picker header, banner grows instead of clipping",
+"files": [
+"src/OriginLauncher.App/App.xaml.cs",
+"src/OriginLauncher.App/MainWindow.xaml.cs",
+"src/OriginLauncher.App/Theme/Buttons.xaml"
+]
+},
+{
+"subject": "Friends redesign (1.21.1): one search-or-add box, requests-first list with labelled actions, JOIN/INVITE on the row, grouped chat with times, party member tiles, ACCEPT/JOIN on toasts",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/gui/FriendsScreen.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/mods/Mods.java"
+]
+},
+{
+"subject": "Party chat in ~1-3 s: held /v1/sync instead of 20 s polls",
+"files": [
+"src/mods/versions/1.16.5/src/main/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.17.1/src/main/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.18.2/src/client/java/com/origin/client/client/social/SocialClient.java"
+]
+},
+{
+"subject": "Launcher: rounder corners (4/6/8 px) and 8 px-grid placement tidy-ups",
+"files": [
+"src/OriginLauncher.App/MainWindow.xaml",
+"src/OriginLauncher.App/Theme/Buttons.xaml",
+"src/OriginLauncher.App/Theme/Inputs.xaml"
+]
+},
+{
+"subject": "Launcher: back to the original styling (colours, buttons, inputs, cards, backdrop, headers)",
+"files": [
+"src/OriginLauncher.App/App.xaml",
+"src/OriginLauncher.App/MainWindow.xaml",
+"src/OriginLauncher.App/Theme/Brand.xaml"
+]
+},
+{
+"subject": "Launcher restyle review fixes: render-shots runs on a scratch data root, static cards, token-driven web view colours",
+"files": [
+"src/OriginLauncher.App/App.xaml.cs",
+"src/OriginLauncher.App/Core/OriginPaths.cs",
+"src/OriginLauncher.App/MainWindow.xaml.cs"
+]
+},
+{
+"subject": "Launcher: restyle to match the website - glass cards, ghost buttons, version chips, page heads",
+"files": [
+"src/OriginLauncher.App/App.xaml",
+"src/OriginLauncher.App/MainWindow.xaml",
+"src/OriginLauncher.App/MainWindow.xaml.cs"
+]
+},
+{
+"subject": "dev shots: social set (ORIGIN_SHOTS_SET=social) and demo variants for the Friends screens",
+"files": [
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/OriginDevShots.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/social/SocialClient.java",
+"src/mods/versions/1.21.1/src/client/java/com/origin/client/client/social/SocialDemo.java"
+]
+},
+{
+"subject": "Cosmetics: Y2K drop, new hats",
+"files": [
+"src/OriginLauncher.App/Cosmetics.cs"
+]
+}
+]

@@ -75,6 +75,9 @@ jobs:
       - name: Test CI gates
         run: python3 tools/ci/test_ci_gates.py
 
+      - name: Release-notes filter tests
+        run: python3 tools/release/test_notes.py
+
       # The installer's engine: release feed, download (resume, verify,
       # failures — against a fake server), launcher zip, staging, folder
       # rules. Also compiles it for .NET Framework 4.7.2 (the API check).
