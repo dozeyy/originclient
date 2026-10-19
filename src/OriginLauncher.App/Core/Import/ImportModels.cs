@@ -194,6 +194,13 @@ public sealed record PlannedOp
     /// in a plan's bytes; a single import never runs one.
     /// </summary>
     public bool Fallback { get; init; }
+
+    /// <summary>
+    /// For a stand-in: the plan line that says this item comes from another setup ("already brought over from X",
+    /// "Another of your setups already brings this one"). When the stand-in lands, that line is no longer true and
+    /// is left out of the result.
+    /// </summary>
+    public SummaryLine? DeferredLine { get; init; }
 }
 
 /// <summary>

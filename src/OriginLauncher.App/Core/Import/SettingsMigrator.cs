@@ -398,10 +398,10 @@ public static class SettingsMigrator
                     : FileCompare.Same(srcPath, earlier.Source, Fs));
                 if (!identical) continue;
                 var landedAs = Path.GetFileName(earlierDest);
-                Line(SummarySection.Imported, kind, landedAs, $"already brought over from {earlier.SetupLabel}");
+                var deferred = Line(SummarySection.Imported, kind, landedAs, $"already brought over from {earlier.SetupLabel}");
                 if (DefersTo(earlier.Owner))
                     AddFallback(isDir ? OpKind.CopyTree : OpKind.CopyFile, kind, landedAs, srcPath, earlierDest,
-                        isDir ? DirectorySize(srcPath) : ImportFiles.SizeOf(srcPath));
+                        isDir ? DirectorySize(srcPath) : ImportFiles.SizeOf(srcPath), deferredLine: deferred);
                 return landedAs;
             }
 
@@ -413,11 +413,11 @@ public static class SettingsMigrator
                     : FileCompare.Same(srcPath, claim.Source, Fs));
                 if (sameAsClaimed)
                 {
-                    Line(SummarySection.Imported, kind, name, $"already brought over from {claim.SetupLabel}");
+                    var deferred = Line(SummarySection.Imported, kind, name, $"already brought over from {claim.SetupLabel}");
                     // If that setup is skipped mid-run, this one's identical copy lands instead.
                     if (DefersTo(claim.Owner))
                         AddFallback(isDir ? OpKind.CopyTree : OpKind.CopyFile, kind, name, srcPath, dest,
-                            isDir ? DirectorySize(srcPath) : ImportFiles.SizeOf(srcPath));
+                            isDir ? DirectorySize(srcPath) : ImportFiles.SizeOf(srcPath), deferredLine: deferred);
                     return name;
                 }
                 finalName = FreeImportedName(dstDir, name, isDir);
@@ -617,8 +617,9 @@ public static class SettingsMigrator
                 }
                 if (!Ledger.TryClaimWorldSource(world, dest, _c.SetupLabel, _c.SetupKey, out var first))
                 {
-                    Line(SummarySection.Imported, PlanItemKind.World, name, $"already brought over from {first!.SetupLabel}");
-                    if (DefersTo(first.Owner)) AddFallback(OpKind.CopyTree, PlanItemKind.World, Path.GetFileName(first.Dest), world, first.Dest, DirectorySize(world));
+                    var deferred = Line(SummarySection.Imported, PlanItemKind.World, name, $"already brought over from {first!.SetupLabel}");
+                    if (DefersTo(first.Owner))
+                        AddFallback(OpKind.CopyTree, PlanItemKind.World, Path.GetFileName(first.Dest), world, first.Dest, DirectorySize(world), deferredLine: deferred);
                     continue;
                 }
                 var finalName = Path.GetFileName(dest);
@@ -705,15 +706,20 @@ public static class SettingsMigrator
         private bool DefersTo(string? owner) => _c.SetupKey != null && owner != null && owner != _c.SetupKey;
 
         // The stand-in for a copy another setup claimed: it runs only if that claim is released (ImportEngine.ApplyBulk).
-        private void AddFallback(OpKind opKind, PlanItemKind kind, string label, string src, string dest, long bytes, bool touchNow = false) =>
+        private void AddFallback(OpKind opKind, PlanItemKind kind, string label, string src, string dest, long bytes, bool touchNow = false,
+            SummaryLine? deferredLine = null) =>
             Plan.Ops.Add(new PlannedOp
             {
                 Kind = opKind, Item = kind, Label = label, Source = src, Dest = dest, Bytes = bytes, TouchNow = touchNow,
-                ClaimKey = DestinationLedger.PathKey(dest), Fallback = true,
+                ClaimKey = DestinationLedger.PathKey(dest), Fallback = true, DeferredLine = deferredLine,
             });
 
-        private void Line(SummarySection section, PlanItemKind kind, string name, string? reason = null, long bytes = 0) =>
-            Plan.Lines.Add(new SummaryLine(section, kind, name, reason, bytes));
+        private SummaryLine Line(SummarySection section, PlanItemKind kind, string name, string? reason = null, long bytes = 0)
+        {
+            var line = new SummaryLine(section, kind, name, reason, bytes);
+            Plan.Lines.Add(line);
+            return line;
+        }
 
         private long DirectorySize(string dir)
         {

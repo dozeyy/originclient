@@ -83,8 +83,8 @@ public sealed class DestinationLedger
         return "path:" + (OperatingSystem.IsWindows() ? full.ToUpperInvariant() : full);
     }
 
-    /// <summary>The claim key of a cache identity.</summary>
-    public static string CacheKey(string identity) => "cache:" + identity;
+    /// <summary>The claim key of a cache identity in one target folder (the same server's cache in two versions is two claims).</summary>
+    public static string CacheKey(string targetDir, string identity) => "cache:" + PathKey(targetDir) + "|" + identity;
 
     private static string Normalize(string path)
     {

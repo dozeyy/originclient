@@ -141,8 +141,7 @@ public sealed class CacheContributor : IImportPlanContributor
             Action<ImportOpContext> run = ctx => CopyFolder(ctx, server.Dir, dest, label, _replace, skipLoneWal: true, DhProbeFiles, _afterStaged);
             if (!ClaimFirst(identity))
             {
-                SkipServer(server, AnotherSetup);
-                AddFallback(identity, label, bytes, run, server.Dir, dest);
+                AddFallback(identity, label, bytes, run, server.Dir, dest, SkipServer(server, AnotherSetup));
                 return;
             }
 
@@ -153,7 +152,7 @@ public sealed class CacheContributor : IImportPlanContributor
             _plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Source = server.Dir, Dest = dest, Bytes = bytes,
-                Run = run, ClaimKey = _ledger == null ? null : DestinationLedger.CacheKey(identity),
+                Run = run, ClaimKey = _ledger == null ? null : DestinationLedger.CacheKey(_targetDir, identity),
             });
         }
 
@@ -215,13 +214,14 @@ public sealed class CacheContributor : IImportPlanContributor
         private bool ClaimFirst(string identity) => _ledger == null || _ledger.TryClaimCache(identity, _setupLabel, out _);
 
         // If the setup that claimed this cache is skipped mid-run, this setup's copy is brought instead (once).
-        private void AddFallback(string identity, string label, long bytes, Action<ImportOpContext> run, string? source, string dest)
+        private void AddFallback(string identity, string label, long bytes, Action<ImportOpContext> run, string? source, string dest,
+            SummaryLine deferredLine)
         {
             if (_setupKey == null) return;
             _plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Source = source, Dest = dest, Bytes = bytes, Run = run,
-                ClaimKey = DestinationLedger.CacheKey(identity), Fallback = true,
+                ClaimKey = DestinationLedger.CacheKey(_targetDir, identity), Fallback = true, DeferredLine = deferredLine,
             });
         }
 
@@ -230,8 +230,7 @@ public sealed class CacheContributor : IImportPlanContributor
             var identity = Identity(kind, scope, owner, dimension);
             if (!ClaimFirst(identity))
             {
-                Skip(kind, scope, owner, dimension, AnotherSetup);
-                AddFallback(identity, label, bytes, run, null, _targetDir);
+                AddFallback(identity, label, bytes, run, null, _targetDir, Skip(kind, scope, owner, dimension, AnotherSetup));
                 return;
             }
             _plan.Caches.Add(new CachePlanItem(kind, scope, owner, dimension, true, null, bytes));
@@ -239,7 +238,7 @@ public sealed class CacheContributor : IImportPlanContributor
             _plan.Ops.Add(new PlannedOp
             {
                 Kind = OpKind.Custom, Item = PlanItemKind.Cache, Label = label, Dest = _targetDir, Bytes = bytes, Run = run,
-                ClaimKey = _ledger == null ? null : DestinationLedger.CacheKey(identity),
+                ClaimKey = _ledger == null ? null : DestinationLedger.CacheKey(_targetDir, identity),
             });
         }
 
@@ -249,19 +248,23 @@ public sealed class CacheContributor : IImportPlanContributor
             _plan.Lines.Add(new SummaryLine(SummarySection.ReusedCaches, PlanItemKind.Cache, label, "travels with the world copy"));
         }
 
-        private void Skip(CacheKind kind, CacheScope scope, string owner, string dimension, string reason)
+        private SummaryLine Skip(CacheKind kind, CacheScope scope, string owner, string dimension, string reason)
         {
             _plan.Caches.Add(new CachePlanItem(kind, scope, owner, dimension, false, reason, 0));
             var what = kind == CacheKind.Voxy ? "Voxy" : "Distant Horizons";
             var name = dimension.Length == 0 ? $"{owner} ({what})" : $"{owner} / {dimension} ({what})";
-            _plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Cache, name, reason));
+            var line = new SummaryLine(SummarySection.NotImported, PlanItemKind.Cache, name, reason);
+            _plan.Lines.Add(line);
+            return line;
         }
 
-        private void SkipServer(DhServerFolder server, string reason)
+        private SummaryLine SkipServer(DhServerFolder server, string reason)
         {
             foreach (var level in server.Levels)
                 _plan.Caches.Add(new CachePlanItem(CacheKind.DistantHorizons, CacheScope.Multiplayer, server.Folder, level.Dimension, false, reason, 0));
-            _plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Cache, $"{server.DisplayName} (Distant Horizons)", reason));
+            var line = new SummaryLine(SummarySection.NotImported, PlanItemKind.Cache, $"{server.DisplayName} (Distant Horizons)", reason);
+            _plan.Lines.Add(line);
+            return line;
         }
 
         // Distant Horizons: the imported mod set must run a DH of the same 2.x line and at least the source's version.

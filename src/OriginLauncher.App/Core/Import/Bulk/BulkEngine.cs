@@ -347,6 +347,9 @@ public sealed partial class ImportEngine
         public SetupResultKind Kind = SetupResultKind.Failed;
         public string? Message;
         public readonly List<SummaryLine> Extra = new();
+
+        // Plan lines a landed stand-in made untrue ("already brought over from X"): left out of the result.
+        public readonly HashSet<SummaryLine> Superseded = new(ReferenceEqualityComparer.Instance);
     }
 
     private BulkImportResult ApplyBulk(BulkImportPlan plan, IImportSettings settings, IProgress<BulkProgress>? progress, CancellationToken ct)
@@ -385,7 +388,8 @@ public sealed partial class ImportEngine
 
         var held = new List<IAsyncDisposable>();
         // Claims whose owner didn't write them (its setup was skipped, or its copy failed on the source side): a later
-        // setup's stand-in (PlannedOp.Fallback) for the same claim then lands its copy, once.
+        // setup's stand-in (PlannedOp.Fallback) for the same claim then lands its copy, once. Per version group: a
+        // claim belongs to one target folder, so another group's released claim never fires a stand-in here.
         var released = new HashSet<string>(StringComparer.Ordinal);
         var landedByStandIn = new HashSet<string>(StringComparer.Ordinal);
         var bytesTotal = plan.BytesToCopy;
@@ -412,6 +416,8 @@ public sealed partial class ImportEngine
 
             foreach (var group in plan.Groups)
             {
+                released.Clear();
+                landedByStandIn.Clear();
                 // The version's shared work first (game-file reuse), once for the group.
                 if (group.VersionPlan is { } versionPlan)
                 {
@@ -462,8 +468,11 @@ public sealed partial class ImportEngine
                         {
                             Execute(op, setupPlan, tx, fs, ct, state.Extra, inner);
                             if (op.Fallback)
+                            {
                                 state.Extra.Add(new SummaryLine(SummarySection.Imported, op.Item, op.Label,
                                     "came over from this setup, because the setup it was coming from was left out"));
+                                if (op.DeferredLine != null) state.Superseded.Add(op.DeferredLine);
+                            }
                         }
                         catch (Exception ex) when (IsSourceProblem(op, ex))
                         {
@@ -571,7 +580,8 @@ public sealed partial class ImportEngine
             var outcomes = g.Setups.Select(s =>
             {
                 var st = states[s];
-                return new SetupOutcome(s.Setup, s.Role, st.Kind, st.Message, null, s.Plan.Lines.Concat(st.Extra).ToList());
+                return new SetupOutcome(s.Setup, s.Role, st.Kind, st.Message, null,
+                    s.Plan.Lines.Where(l => !st.Superseded.Contains(l)).Concat(st.Extra).ToList());
             }).ToList();
             var winner = g.Setups.FirstOrDefault(s => s.Role == SetupRole.Full);
             var settingsFrom = winner != null && states[winner].Kind == SetupResultKind.Imported ? winner.Setup.BulkLabel() : null;

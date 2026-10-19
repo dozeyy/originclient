@@ -31,6 +31,9 @@ public sealed class ImportTransaction : IDisposable
     // is handed to the OS before its op runs either way, which is what a crash of this process needs.
     private const int SyncEvery = 64;
 
+    /// <summary>How many times the entries log was forced to the disk: a test seam for the sync rules.</summary>
+    internal int DiskSyncs { get; private set; }
+
     /// <summary>Every byte this transaction wrote to its journal (snapshots + appended entries): a test seam for the linear-cost rule.</summary>
     public long JournalBytesWritten { get; private set; }
 
@@ -126,9 +129,12 @@ public sealed class ImportTransaction : IDisposable
         }
         _entries.Flush();
         _unsynced += entries.Count;
-        if (sync || _unsynced >= SyncEvery)
+        // A "replaced" entry is followed by a move of the original into backup/: that move must never reach the disk
+        // without the entry that says where the original went, so such a batch is forced to the disk before it.
+        if (sync || _unsynced >= SyncEvery || entries.Any(e => e.Kind == JournalEntryKinds.Replaced))
         {
             _entriesStream!.Flush(flushToDisk: true);
+            DiskSyncs++;
             _unsynced = 0;
         }
     }
