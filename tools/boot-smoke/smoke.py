@@ -14,7 +14,13 @@ under Xvfb + a software GL (see .github/workflows/boot-smoke.yml). It does NOT
 render anything itself -- it only reads Minecraft's own log.
 
 Usage:
-    python tools/boot-smoke/smoke.py <module-dir> [--timeout SECONDS] [--world NAME]
+    python tools/boot-smoke/smoke.py <module-dir> [--timeout SECONDS] [--world NAME] [--run-java N]
+
+--run-java N (CI): run the GAME on JDK N while Gradle stays on its own JVM (21). It adds
+tools/boot-smoke/run-java.init.gradle, which pins runClient's javaLauncher to a JDK N
+toolchain (found through setup-java's JAVA_HOME_N_X64), then PROVES it: once the client
+is up, the Knot client process is located under /proc and its real java binary's
+`-version` is printed and checked against N. A mismatch fails the run.
 
 Exit code 0 = booted far enough with zero mixin-apply failures. 1 = a failure
 signature appeared, or it never reached a running state before the timeout.
@@ -26,6 +32,8 @@ import signal
 import subprocess
 import sys
 import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Lines that mean a mixin (ours or a bundled mod's) failed to apply, the mod set
 # was rejected, or the game threw during startup. Any one of these fails the run.
@@ -57,6 +65,8 @@ def main():
     ap.add_argument("module", help="path to the version module (e.g. src/mods/versions/1.21.1)")
     ap.add_argument("--timeout", type=int, default=300, help="hard cap in seconds")
     ap.add_argument("--world", default="", help="quickplay singleplayer world name (blank = boot to menu)")
+    ap.add_argument("--run-java", type=int, default=0,
+                    help="boot the game JVM on this Java major (Gradle stays on its own JDK) and verify it")
     args = ap.parse_args()
 
     module = os.path.abspath(args.module)
@@ -68,6 +78,17 @@ def main():
     cmd = [gradlew, "runClient", "--no-daemon"]
     if args.world:
         cmd.append(f"-Pquickplay={args.world}")
+    if args.run_java:
+        # setup-java exports JAVA_HOME_<major>_X64 (or _ARM64) for each JDK it installs.
+        home = next((os.environ[k] for k in (f"JAVA_HOME_{args.run_java}_X64", f"JAVA_HOME_{args.run_java}_ARM64")
+                     if os.environ.get(k)), "")
+        if not home:
+            print(f"boot-smoke: --run-java {args.run_java} needs JAVA_HOME_{args.run_java}_X64 (setup-java) in the environment",
+                  file=sys.stderr)
+            return 2
+        cmd += ["--init-script", os.path.join(HERE, "run-java.init.gradle"),
+                f"-DoriginRunJava={args.run_java}",
+                f"-Porg.gradle.java.installations.paths={home}"]
 
     print(f"boot-smoke: {os.path.basename(module)} -> {' '.join(cmd)}", flush=True)
     # New process group so we can kill the whole gradle+java tree on the way out.
@@ -96,6 +117,8 @@ def main():
             if not ready and any(p.search(line) for p in READY_PATTERNS):
                 ready = True
                 verdict = (True, f"ready: {line.strip()[:120]}")
+                if args.run_java:
+                    verdict = _check_game_jvm(args.run_java, verdict)
                 break
         else:
             # stream ended (process exited) with no verdict
@@ -107,6 +130,45 @@ def main():
     ok, reason = verdict if verdict else (False, "no output")
     print(f"\nboot-smoke: {os.path.basename(module)}: {'PASS' if ok else 'FAIL'} -- {reason}", flush=True)
     return 0 if ok else 1
+
+
+def _java_major(version_output):
+    """'openjdk version "17.0.13" ...' -> 17; '"1.8.0_492"' -> 8."""
+    m = re.search(r'version "(\d+)(?:\.(\d+))?', version_output)
+    if not m:
+        return None
+    major = int(m.group(1))
+    return int(m.group(2)) if major == 1 and m.group(2) else major
+
+
+def _check_game_jvm(expected, verdict):
+    """Find the running Minecraft JVM (the process whose command line names Fabric's
+    KnotClient) via /proc, print its real java binary and `-version`, and require the
+    expected major. Linux only (CI); anywhere else a --run-java run cannot be proven."""
+    if not os.path.isdir("/proc"):
+        return (False, "--run-java cannot verify the game JVM without /proc (Linux only)")
+    exe = None
+    for pid in filter(str.isdigit, os.listdir("/proc")):
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                cmdline = f.read()
+            if b"KnotClient" in cmdline:
+                exe = os.path.realpath(f"/proc/{pid}/exe")
+                break
+        except OSError:
+            continue
+    if not exe:
+        return (False, "game ready, but no KnotClient JVM found under /proc to verify its Java version")
+    out = subprocess.run([exe, "-version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         universal_newlines=True).stdout
+    print(f"boot-smoke: GAME JVM binary: {exe}", flush=True)
+    for ln in out.strip().splitlines():
+        print(f"boot-smoke: GAME JVM -version: {ln}", flush=True)
+    major = _java_major(out)
+    if major != expected:
+        return (False, f"game JVM is Java {major}, expected {expected} ({exe})")
+    ok, reason = verdict
+    return (ok, f"{reason} [game JVM = Java {major}: {exe}]")
 
 
 def _kill_tree(proc):

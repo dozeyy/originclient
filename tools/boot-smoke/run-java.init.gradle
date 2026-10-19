@@ -1,0 +1,25 @@
+// Boot-smoke only (CI): run the GAME on a different JDK than Gradle.
+//
+// Gradle needs JVM 21 (Loom 1.17), but a player runs 1.18.2-1.20.4 on Java 17 (and
+// 1.17.1 on 16, 1.16.5 on 8). options.release only checks the JDK APIs OUR code uses; a
+// bundled or dev mod jar built for Java 21 would boot fine on a 21 game JVM in CI and
+// then fail for players. So smoke.py passes `-DoriginRunJava=<N>` and this script pins
+// every JavaExec task (Loom's runClient is one) to a JDK <N> toolchain. Loom's run
+// tasks do not inherit a module's java{} toolchain (see 1.8.9/build.gradle), hence the
+// explicit launcher.
+//
+// Applied with `--init-script`, never from a module build.gradle, so a local
+// `gradlew runClient` is unchanged. The JDK <N> location is handed over by smoke.py as
+// -Porg.gradle.java.installations.paths (from setup-java's JAVA_HOME_<N>_X64).
+def runJava = System.getProperty('originRunJava')
+if (runJava) {
+	allprojects {
+		plugins.withId('java') {
+			tasks.withType(JavaExec).configureEach {
+				javaLauncher.set(project.javaToolchains.launcherFor {
+					languageVersion = JavaLanguageVersion.of(runJava as int)
+				})
+			}
+		}
+	}
+}

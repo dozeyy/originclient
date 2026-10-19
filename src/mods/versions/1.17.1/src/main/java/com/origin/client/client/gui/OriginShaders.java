@@ -88,7 +88,9 @@ public final class OriginShaders {
 		if (overlay instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor) {
 			net.minecraft.server.packs.resources.ReloadInstance reload =
 					((com.origin.client.client.mixin.loading.LoadingOverlayAccessor) overlay).originclient$reload();
-			return reload == null || !reload.isDone();
+			// A FAILED reload counts as in flight: isDone() is true for it, but vanilla swaps in a
+			// recovery reload, and compiling here would latch `compiled` against the failed sources.
+			return reload == null || !reload.isDone() || reload.done().isCompletedExceptionally();
 		}
 		return true;
 	}

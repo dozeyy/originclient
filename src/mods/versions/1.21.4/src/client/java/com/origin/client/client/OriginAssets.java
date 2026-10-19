@@ -213,7 +213,10 @@ public final class OriginAssets {
 			return false;
 		}
 		net.minecraft.server.packs.resources.ReloadInstance reload = overlay.originclient$reload();
-		return reload != null && reload.isDone();
+		// A FAILED reload is not ready: vanilla swaps in a recovery reload, and the icon
+		// pipeline must be built against ITS sources (a build against the failed one latches
+		// broken for the session). isDone() is also true for a failed reload, hence the check.
+		return reload != null && reload.isDone() && !reload.done().isCompletedExceptionally();
 	}
 
 	// ---- decoding ----
