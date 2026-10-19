@@ -10,6 +10,8 @@ namespace OriginLauncher.Tests.Import;
 
 // B19: a big scan plans in bounded time and the panel starts filling in at once. 50 realistic setups (each with
 // 30 extra mod jars) across 6 supported and 2 unsupported versions, game-file reuse against a fake Mojang, caches.
+// A stopwatch budget: it runs in the timing collection, never beside the rest of the suite.
+[Collection(ImportTimingCollection.Name)]
 public class BulkPerfTests : IDisposable
 {
     private readonly BulkFixture _f = new();
