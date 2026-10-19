@@ -6,13 +6,16 @@
 # Variant b = <workspace>/b (this ref), a = <workspace>/a (base ref) if present.
 # Env: MODULE, BOOTS, PROFILE, JVM_A/JVM_B and MFX_A/MFX_B (per-variant extra JVM
 # args / ModernFix options, comma-separated), DEVJVM=true to drop the launcher's
-# own JVM flags.
+# own JVM flags, TASK (runClient | prodClient, boot.sh), GRADLE_A/GRADLE_B (per-variant
+# gradle args, comma-separated), SELFAB=true to boot BOTH variants from this ref
+# (an A/B of gradle args / options alone, no base checkout needed).
 set -u
 ws="$1"; out="$2"
 mkdir -p "$out"
 boot="$ws/b/tools/boot-time/boot.sh"
 variants="b"
 [ -d "$ws/a" ] && variants="a b"
+[ "${SELFAB:-false}" = "true" ] && variants="a b"
 # The launcher's own flags (src/OriginLauncher.App/Core/Launch/JvmArgPresets.cs and
 # LaunchProfileBuilder's -Xms == -Xmx), so the boots behave like a player's launch.
 prod="-Xms4G,-Xmx4G,-XX:+UseG1GC,-XX:+ParallelRefProcEnabled,-XX:MaxGCPauseMillis=200,-XX:+UnlockExperimentalVMOptions,-XX:+DisableExplicitGC,-XX:G1NewSizePercent=30,-XX:G1MaxNewSizePercent=40,-XX:G1HeapRegionSize=8M,-XX:G1ReservePercent=20,-XX:G1HeapWastePercent=5,-XX:G1MixedGCCountTarget=4,-XX:InitiatingHeapOccupancyPercent=15,-XX:G1MixedGCLiveThresholdPercent=90,-XX:G1RSetUpdatingPauseTimePercent=5,-XX:SurvivorRatio=32,-XX:+PerfDisableSharedMem,-XX:MaxTenuringThreshold=1"
@@ -20,11 +23,12 @@ prod="-Xms4G,-Xmx4G,-XX:+UseG1GC,-XX:+ParallelRefProcEnabled,-XX:MaxGCPauseMilli
 
 one() { # one <variant> <log> [gradle args...]
   local v="$1" log="$2"; shift 2
-  local x m
-  if [ "$v" = "a" ]; then x="${JVM_A:-}"; m="${MFX_A:-}"; else x="${JVM_B:-}"; m="${MFX_B:-}"; fi
+  local x m g src="$ws/$v"
+  if [ "$v" = "a" ]; then x="${JVM_A:-}"; m="${MFX_A:-}"; g="${GRADLE_A:-}"; else x="${JVM_B:-}"; m="${MFX_B:-}"; g="${GRADLE_B:-}"; fi
+  [ "${SELFAB:-false}" = "true" ] && src="$ws/b"
   local j="$prod"
   [ -n "$x" ] && j="${j:+$j,}$x"
-  BOOT_JVM="$j" BOOT_MFX="$m" bash "$boot" "$ws/$v" "$MODULE" "$log" "$@"
+  BOOT_JVM="$j" BOOT_MFX="$m" BOOT_GRADLE="$g" BOOT_TASK="${TASK:-runClient}" bash "$boot" "$src" "$MODULE" "$log" "$@"
 }
 
 nproc; free -m | head -2

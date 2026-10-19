@@ -22,8 +22,13 @@ name: boot-time
 # (every key optional; a bare [boot-time] measures this ref alone, 5 boots).
 # jvm_a/jvm_b add JVM args to one variant, mfx_a/mfx_b set its ModernFix options
 # (comma-separated). Every boot runs with the launcher's own JVM flags (Aikar's
-# set + -Xms4G -Xmx4G, like a player's launch) unless devjvm is given. Loop and
-# flags: tools/boot-time/run-all.sh.
+# set + -Xms4G -Xmx4G, like a player's launch) unless devjvm is given.
+# task=prodClient boots the built jar in a production (intermediary) Fabric game +
+# Fabric API, like a player's instance, instead of the dev game (task=runClient,
+# default; the dev game remaps every mixin target at runtime, ~1 s a player never
+# pays). gradle_a/gradle_b add gradle args to one variant (e.g. -PnoBootArgs);
+# selfab boots both variants from this ref (no base needed). Loop and flags:
+# tools/boot-time/run-all.sh.
 on:
   push:
     branches: ["claude/**"]
@@ -77,7 +82,8 @@ jobs:
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import os, re
           cfg = {"module": "1.21.1", "base": "", "boots": "5", "profile": "false", "java": "21", "label": "",
-                 "jvm_a": "", "jvm_b": "", "mfx_a": "", "mfx_b": "", "devjvm": "false"}
+                 "jvm_a": "", "jvm_b": "", "mfx_a": "", "mfx_b": "", "devjvm": "false",
+                 "task": "runClient", "gradle_a": "", "gradle_b": "", "selfab": "false"}
           if os.environ.get("I_MODULE"):
               cfg.update(module=os.environ["I_MODULE"], base=os.environ.get("I_BASE", ""),
                          boots=os.environ.get("I_BOOTS") or "5", profile=os.environ.get("I_PROFILE") or "false",
@@ -85,12 +91,14 @@ jobs:
           else:
               m = re.findall(r"\[boot-time([^\]]*)\]", os.environ.get("MSG", ""))
               for tok in (m[-1].split() if m else []):
-                  if tok in ("profile", "devjvm"):
+                  if tok in ("profile", "devjvm", "selfab"):
                       cfg[tok] = "true"
                   elif "=" in tok:
                       k, v = tok.split("=", 1)
                       if k in cfg and re.fullmatch(r"[A-Za-z0-9._/=,:+-]+", v):
                           cfg[k] = v
+          if cfg["task"] not in ("runClient", "prodClient"):
+              cfg["task"] = "runClient"
           if not re.fullmatch(r"\d{1,2}", cfg["boots"]):
               cfg["boots"] = "5"
           for k, v in cfg.items():
@@ -131,6 +139,10 @@ jobs:
           MFX_A: ${{ steps.cfg.outputs.mfx_a }}
           MFX_B: ${{ steps.cfg.outputs.mfx_b }}
           DEVJVM: ${{ steps.cfg.outputs.devjvm }}
+          TASK: ${{ steps.cfg.outputs.task }}
+          GRADLE_A: ${{ steps.cfg.outputs.gradle_a }}
+          GRADLE_B: ${{ steps.cfg.outputs.gradle_b }}
+          SELFAB: ${{ steps.cfg.outputs.selfab }}
         run: |
           bash b/tools/boot-time/run-all.sh "$GITHUB_WORKSPACE" "$RUNNER_TEMP/boots"
           cat "$RUNNER_TEMP/boots/summary.md" >> "$GITHUB_STEP_SUMMARY" || true

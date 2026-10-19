@@ -251,6 +251,32 @@ tasks.register("prodClient", net.fabricmc.loom.task.prod.ClientProductionRunTask
 		jvmArgs.add("-Dorigin.frameLog=true")
 		jvmArgs.add("-Xlog:gc:stdout:uptime,level,tags")
 	}
+	// `-PwithFabricApi`: add Fabric API from maven (the intermediary jar a player's
+	// instance gets), for a run with no -PextraMods folder to bring it. Together with
+	// the boot-time switches below this is the boot-time workflow's `task=prodClient`:
+	// the boot a player's 1.21.1 instance does, without the dev game's runtime
+	// remapping of every mixin target (~1 s of the dev boot, JFR 2026-10-19).
+	if (project.hasProperty("withFabricApi")) {
+		def api = configurations.detachedConfiguration(dependencies.create("net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"))
+		api.transitive = false
+		mods.from(api)
+	}
+	// Same boot-time switches as runClient above (boot-time.yml).
+	if (project.hasProperty("bootLog")) {
+		jvmArgs.add("-Dorigin.bootLog=true")
+	}
+	if (project.hasProperty("bootQuit")) {
+		jvmArgs.add("-Dorigin.bootLog.quit=true")
+	}
+	if (project.hasProperty("reloadProfile")) {
+		jvmArgs.add("-Dorigin.bootLog.reloadProfile=true")
+	}
+	if (project.hasProperty("bootJvmArgs")) {
+		project.property("bootJvmArgs").toString().split(",").each { if (!it.isBlank()) jvmArgs.add(it.trim()) }
+	}
+	if (project.hasProperty("bootJfr")) {
+		jvmArgs.add("-XX:StartFlightRecording=filename=" + file(project.property("bootJfr").toString()).absolutePath + ",settings=profile,dumponexit=true")
+	}
 }
 
 processResources {
