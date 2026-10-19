@@ -709,13 +709,6 @@ public partial class HomePage : UserControl
             // shader cache so Iris packs don't recompile (and hitch) each launch.
             ShaderCache.Apply(process.StartInfo, freshSettings.ShaderCacheNvidia, freshSettings.ShaderCacheAmd);
 
-            // Faster JVM start: the class-data-sharing archive Mojang's Java
-            // runtime leaves out, built once per runtime (Core/Launch/ClassDataSharing.cs).
-            // Never throws except for this launch's own cancellation.
-            var jvmOptions = freshSettings.JvmArgsFor(version);
-            await Task.Run(() => ClassDataSharing.ApplyAsync(process.StartInfo, version,
-                jvmOptions?.ReplacePresets == true, jvmOptions?.Arguments, ticket.Token), ticket.Token);
-
             // Settings Sync: bring in what the player changed in this account's
             // other versions, then write it into this one. After provisioning
             // (which seeds/sanitizes config files) and before the game reads

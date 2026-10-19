@@ -78,8 +78,6 @@
     <!-- The launcher-to-game startup handshake and the loading bar's stage parsing (pure). -->
     <Compile Include="..\OriginLauncher.App\Core\Launch\GameHandoff.cs" LinkBase="Launch" />
     <Compile Include="..\OriginLauncher.App\Core\Launch\StageProgress.cs" LinkBase="Launch" />
-    <!-- The game JVM's class-data-sharing archive: which launches get it, its name, the argument. -->
-    <Compile Include="..\OriginLauncher.App\Core\Launch\ClassDataSharing.cs" LinkBase="Launch" />
   </ItemGroup>
 
   <ItemGroup>
