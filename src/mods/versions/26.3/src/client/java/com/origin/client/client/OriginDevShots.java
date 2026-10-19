@@ -278,7 +278,8 @@ public final class OriginDevShots {
 					}
 				}
 			}
-		} else if ("social".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+		} else if ("social".equals(System.getenv("ORIGIN_SHOTS_SET"))
+				|| "social-failreload".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Friends / party / chat / toasts: 1080p at GUI scale 2, 3 and 4 (the contract), plus 720p at 2.
 			for (int[] s : new int[][]{{1920, 1080, 2}, {1920, 1080, 4}, {1920, 1080, 3}, {1280, 720, 2}}) {
 				for (Kind k : Kind.values()) {

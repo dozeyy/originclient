@@ -88,6 +88,40 @@ public final class OriginAssets {
 						.thenCompose(v -> barrier.wait(null));
 			}
 		});
+		// DEV ONLY: see registerDevFailOnce.
+		if ("social-failreload".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			registerDevFailOnce();
+		}
+	}
+
+	/**
+	 * DEV ONLY (dev-shots set {@code social-failreload}, never set for players): makes the
+	 * FIRST reload end in an exception, as a broken resource pack would, so the run shows
+	 * that vanilla's rollback reload leaves Origin's shader/icon pipelines working. It
+	 * waits on the barrier first (a listener that never reaches it hangs every other
+	 * listener) and throws in the apply stage; later reloads pass.
+	 */
+	private static void registerDevFailOnce() {
+		final java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean();
+		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new IdentifiableResourceReloadListener() {
+			private final ResourceLocation id = ResourceLocation.fromNamespaceAndPath("originclient", "dev_fail_once");
+
+			@Override
+			public ResourceLocation getFabricId() {
+				return id;
+			}
+
+			@Override
+			public CompletableFuture<Void> reload(PreparationBarrier barrier, ResourceManager manager,
+												  Executor background, Executor game) {
+				return barrier.wait(null).thenRunAsync(() -> {
+					if (failed.compareAndSet(false, true)) {
+						com.origin.client.OriginClient.LOGGER.warn("Origin dev-shots: FORCING the startup reload to fail (once)");
+						throw new IllegalStateException("dev-shots: forced reload failure");
+					}
+				}, game);
+			}
+		});
 	}
 
 	private static void prefetch() {
