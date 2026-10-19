@@ -284,10 +284,18 @@ public static class RenderShots
     /// window's visual tree that DPI (<see cref="SetTreeDpi"/>), so layout rounding and text are laid out
     /// for it exactly as on a scaled monitor; this only rasterizes at the matching pixel density.
     /// </summary>
-    internal static void Snap(Window window, string dir, string name, double dpi = 96)
+    internal static void Snap(Window window, string dir, string name, double dpi = 96, Size? size = null)
     {
         window.UpdateLayout();
         var root = (FrameworkElement)window.Content;
+        // WPF caps a window at the desktop's size (SM_CXMAXTRACK: 1044x788 on the 1024x768 CI desktop), so a
+        // bigger window is laid out here instead: the window's content measured and arranged at that size, which
+        // is exactly the layout a window of that client size gets (it is chromeless: client = window).
+        if (size is { } s && (root.ActualWidth + 0.5 < s.Width || root.ActualHeight + 0.5 < s.Height))
+        {
+            root.Measure(s);
+            root.Arrange(new Rect(s));
+        }
         var scale = dpi / 96.0;
         var bitmap = new RenderTargetBitmap((int)Math.Round(root.ActualWidth * scale), (int)Math.Round(root.ActualHeight * scale),
             dpi, dpi, PixelFormats.Pbgra32);
@@ -304,6 +312,7 @@ public static class RenderShots
         using (var file = File.Create(Path.Combine(dir, name + ".png")))
             encoder.Save(file);
         ClipCheck(root, dir, name);
+        root.InvalidateMeasure(); // hand the content back to the window's own size
     }
 
     /// <summary>
@@ -352,7 +361,7 @@ public static class RenderShots
                     if (System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(fe) is { } clip)
                     {
                         var shown = clip.Bounds;
-                        var need = fe.RenderSize;
+                        var need = Needs(fe);
                         if (shown.Width < need.Width - 0.5 || shown.Height < need.Height - 0.5)
                             hits.Add($"{name}: {Describe(fe)} needs {need.Width:0.#}x{need.Height:0.#} but shows {shown.Width:0.#}x{shown.Height:0.#}");
                     }
@@ -363,6 +372,21 @@ public static class RenderShots
         Walk(root);
         File.AppendAllText(Path.Combine(dir, "clip-checks.txt"), $"{name}: {checkedCount} icons and text checked, {hits.Count} cut off{Environment.NewLine}");
         if (hits.Count > 0) File.AppendAllLines(Path.Combine(dir, "clip-errors.txt"), hits);
+    }
+
+    // What must stay visible. An icon: all of it (Stretch draws the glyph to its full box). Text: its letters,
+    // not its box: a TextBlock with a MinWidth wider than its slot loses only empty space ("1.21.11" in the
+    // 230 px version dropdown has MinWidth 200), so it is measured by its text, one line, plus padding.
+    private static Size Needs(FrameworkElement fe)
+    {
+        if (fe is not TextBlock { Inlines.Count: <= 1 } tb || string.IsNullOrEmpty(tb.Text)) return fe.RenderSize;
+        var text = new FormattedText(tb.Text, System.Globalization.CultureInfo.CurrentUICulture, tb.FlowDirection,
+            new Typeface(tb.FontFamily, tb.FontStyle, tb.FontWeight, tb.FontStretch), tb.FontSize, Brushes.Black,
+            VisualTreeHelper.GetDpi(tb).PixelsPerDip);
+        var lineHeight = double.IsNaN(tb.LineHeight) ? text.Height : Math.Max(text.Height, tb.LineHeight);
+        return new Size(
+            Math.Min(fe.RenderSize.Width, text.WidthIncludingTrailingWhitespace + tb.Padding.Left + tb.Padding.Right),
+            Math.Min(fe.RenderSize.Height, lineHeight + tb.Padding.Top + tb.Padding.Bottom));
     }
 
     // "Path in Button 'Close friends' (Social.Icon)": enough to find it in the XAML.

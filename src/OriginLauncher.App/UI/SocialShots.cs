@@ -50,7 +50,6 @@ public static class SocialShots
         };
         SocialHub.Service.ShowDemo(SocialDemo.Online(now));
         window.Show();
-        AllowLargerThanScreen(window);
         RenderShots.Pump(2500);
 
         var scenes = Scenes(now);
@@ -74,7 +73,7 @@ public static class SocialShots
                     scene.Setup(window);
                     RenderShots.Pump(450);
                     var name = $"{i + 1:00}-{scene.Name}-{width}x{height}";
-                    RenderShots.Snap(window, outDir, name);
+                    RenderShots.Snap(window, outDir, name, size: new Size(width, height));
                     if (scene.Extra?.Invoke() is { } extra) SnapElement(extra, outDir, name + "-popup");
                 }
                 catch (Exception ex)
@@ -94,25 +93,6 @@ public static class SocialShots
 
     // The smallest window the launcher allows, the usual one, and one sized like a 1440p monitor's.
     private static readonly (int Width, int Height)[] Sizes = [(1180, 740), (980, 600), (1600, 1000)];
-
-    /// <summary>
-    /// The CI desktop is 1024x768, and Windows caps a window at the screen's size (the 1180x740 pictures
-    /// came out 1044 wide). For the pictures only, lift that cap so the window really gets the size asked for.
-    /// </summary>
-    private static void AllowLargerThanScreen(Window window)
-    {
-        var source = System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(window).Handle);
-        source?.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
-        {
-            const int WM_GETMINMAXINFO = 0x0024;
-            if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
-            // MINMAXINFO: ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize (POINTs of two ints).
-            System.Runtime.InteropServices.Marshal.WriteInt32(lParam, 8 * 4, 4000);
-            System.Runtime.InteropServices.Marshal.WriteInt32(lParam, 8 * 4 + 4, 4000);
-            handled = true;
-            return IntPtr.Zero;
-        });
-    }
 
     /// <summary>
     /// Will's real drawer, then the scenes with the most icons, and Home, at 100 %, 125 % and 150 % display scale,
@@ -144,7 +124,8 @@ public static class SocialShots
                         window.TourFriendsPanel.TourScrollListToTop();
                         scene.Setup(window);
                         RenderShots.Pump(450);
-                        RenderShots.Snap(window, outDir, $"{index + 1:00}-{scene.Name}-{width}x{height}-{percent}pct", percent * 0.96);
+                        RenderShots.Snap(window, outDir, $"{index + 1:00}-{scene.Name}-{width}x{height}-{percent}pct", percent * 0.96,
+                            new Size(width, height));
                     }
                     catch (Exception ex)
                     {
@@ -156,10 +137,11 @@ public static class SocialShots
                 window.TourClearToasts();
                 window.TourGoTo(0);
                 RenderShots.Pump(600);
-                RenderShots.Snap(window, outDir, $"00-home-{width}x{height}-{percent}pct", percent * 0.96);
+                RenderShots.Snap(window, outDir, $"00-home-{width}x{height}-{percent}pct", percent * 0.96, new Size(width, height));
                 var root = (FrameworkElement)window.Content;
                 var deep = FindVisual<Button>(root, _ => true);
-                report.AppendLine($"{percent} % {width}x{height}: window content {root.ActualWidth:0}x{root.ActualHeight:0} DIP, "
+                report.AppendLine($"{percent} % {width}x{height}: window {root.ActualWidth:0}x{root.ActualHeight:0} DIP, pictures laid out at "
+                    + $"{Math.Max(width, root.ActualWidth):0}x{Math.Max(height, root.ActualHeight):0} DIP, "
                     + $"tree DPI {(deep != null ? VisualTreeHelper.GetDpi(deep).PixelsPerInchX : 0):0}");
             }
         }
