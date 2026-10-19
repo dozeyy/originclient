@@ -76,6 +76,10 @@ public static class OriginPaths
     // instances and game versions, maximising cache hits between sessions.
     public static string ShaderCache => Path.Combine(Root, "shader-cache");
 
+    // The game JVM's class-data-sharing archives (Core/Launch/ClassDataSharing.cs),
+    // one per Java runtime build. Rebuilt on demand, so deleting it is harmless.
+    public static string ClassDataSharing => Path.Combine(Root, "cache", "cds");
+
     // Home banner (UI/Controls/PromoBanner): the last good remote promo feed,
     // so the banner shows Will's current promos even when offline.
     public static string PromoFeedCache => Path.Combine(Root, "cache", "promos.json");
