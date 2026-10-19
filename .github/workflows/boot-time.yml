@@ -17,7 +17,7 @@ name: boot-time
 
 # Start it by hand (Run workflow, once this file is on main), or from a push to a
 # claude/** branch whose head commit message carries a tag:
-#   [boot-time base=<ref> boots=5 profile module=1.21.1 java=21 label=x
+#   [boot-time base=<branch, tag or FULL 40-char sha> boots=5 profile module=1.21.1 java=21 label=x
 #              jvm_b=-XX:Foo,-XX:Bar mfx_b=mixin.perf.x=true,mixin.perf.y=false]
 # (every key optional; a bare [boot-time] measures this ref alone, 5 boots).
 # jvm_a/jvm_b add JVM args to one variant, mfx_a/mfx_b set its ModernFix options

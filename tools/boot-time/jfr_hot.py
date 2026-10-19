@@ -35,7 +35,7 @@ def parse(path):
     events = []
     cur = None
     in_stack = False
-    with open(path, errors="replace") as f:
+    with open(path, encoding="utf-8-sig", errors="replace") as f:
         for line in f:
             s = line.strip()
             if s.startswith("jdk.JVMInformation"):
