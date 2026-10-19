@@ -175,7 +175,7 @@ class DevShotsFilm(unittest.TestCase):
 class DevShotsWorkflow(unittest.TestCase):
     YML = DevShotsFilm.YML
 
-    def _plan(self, modules, msg=""):
+    def _plan(self, modules, msg="", event="push"):
         """Runs the plan job's module picker exactly as CI does; returns (exit code, stdout, stderr)."""
         import subprocess, sys
         yml = _read(self.YML)
@@ -184,7 +184,7 @@ class DevShotsWorkflow(unittest.TestCase):
         lines = m.group(1).splitlines()
         indent = min(len(l) - len(l.lstrip()) for l in lines if l.strip())
         script = "\n".join(l[indent:] for l in lines)
-        env = dict(os.environ, INPUT=modules, MSG=msg)
+        env = dict(os.environ, INPUT=modules, MSG=msg, EVENT=event)
         p = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, capture_output=True, text=True)
         return p.returncode, p.stdout, p.stderr
 
@@ -202,16 +202,36 @@ class DevShotsWorkflow(unittest.TestCase):
         msg = "ci: tidy\n\nThe gate rejects typos (like [shots:1.21.l1]) now.\nSee [shots:bogus] too.\n"
         code, out, err = self._plan("", msg)
         self.assertEqual(code, 0, err)
+        self.assertIn("modules=[]", out)
+        self.assertNotIn('"module"', out)
+
+    def test_midline_mention_plans_nothing_on_push(self):
+        # The if: guard passes on any '[shots' substring; with no end-of-line tag the
+        # plan must be empty (shots/publish skip), never the 1.21.1 fallback.
+        code, out, err = self._plan("", "ci: x\n\nwe discuss the [shots] tag mid-line here\n")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out.strip(), "modules=[]")
+        self.assertIn("no end-of-line shots tag; nothing to shoot", err)
+        # A bare end-of-line tag still means 1.21.1; hand-started runs keep the default.
+        _, out, _ = self._plan("", "ci: y [shots]")
         self.assertIn('"module": "1.21.1"', out)
+        _, out, _ = self._plan("", "", event="workflow_dispatch")
+        self.assertIn('"module": "1.21.1"', out)
+
+    def test_shots_job_skips_on_empty_plan(self):
+        yml = _read(self.YML)
+        self.assertRegex(yml, r"shots:\r?\n    needs: plan\r?\n(?:    #[^\n]*\n)*    if: needs\.plan\.outputs\.modules != '\[\]'")
 
     def test_typo_in_real_tag_still_fails(self):
         code, out, err = self._plan("", "1.21.1: fix thing [shots:1.21.l1]\n\nbody")
         self.assertNotEqual(code, 0, out)
         self.assertIn("::error::", err)
-        msg = "ci: x\n\nprose [shots:1.8.9] here\n\nreal tag below\n[shots:1.20]\n"
+        # A mid-line tag WITH a list, then a bare end-of-line tag: only the
+        # end-of-line rule gives 1.21.1 (an anywhere-rule would pick 1.8.9).
+        msg = "ci: x\n\nprose [shots:1.8.9] here\n\nreal tag below [shots]\n"
         code, out, err = self._plan("", msg)
         self.assertEqual(code, 0, err)
-        self.assertIn('"module": "1.20"', out)
+        self.assertIn('"module": "1.21.1"', out)
         self.assertNotIn('"module": "1.8.9"', out)
 
     def test_known_modules_are_planned(self):

@@ -77,9 +77,10 @@ jobs:
         env:
           MSG: ${{ github.event.head_commit.message }}
           INPUT: ${{ github.event.inputs.modules }}
+          EVENT: ${{ github.event_name }}
         run: |
           python3 - <<'EOF' >> "$GITHUB_OUTPUT"
-          import json, os, re
+          import json, os, re, sys
           entries = json.load(open("src/mods/live-modules.json"))["modules"]
           live = [m["module"] for m in entries]
           java = {m["module"]: m.get("java", "21") for m in entries}
@@ -89,6 +90,12 @@ jobs:
               # Rule: a tag counts only at the END of a line (every real past use
               # is a subject/line suffix); prose like "(the [shots:x] tag)" is ignored.
               tags = re.findall(r"\[shots(?::([^\]]+))?\][ \t\r]*$", os.environ.get("MSG", ""), re.M)
+              if not tags and os.environ.get("EVENT") != "workflow_dispatch":
+                  # The cheap if: guard only sees a substring; a prose mention
+                  # mid-line is not a tag. Plan nothing; shots/publish skip.
+                  print("dev-shots: no end-of-line shots tag; nothing to shoot", file=sys.stderr)
+                  print("modules=[]")
+                  sys.exit(0)
               listed = [t for t in tags if t]
               raw = listed[-1] if listed else "1.21.1"
           raw = raw.strip()
@@ -107,7 +114,6 @@ jobs:
           # other module and go green without testing the one that was asked for.
           unknown = [x for x in picked if not known(x)]
           if unknown or not picked:
-              import sys
               print(f"::error::dev-shots: unknown module(s) {unknown or raw!r}; expected names from src/mods/live-modules.json or src/mods/versions/", file=sys.stderr)
               sys.exit(1)
           print("modules=" + json.dumps([{"module": x, "java": java_of(x)} for x in picked]))
@@ -115,6 +121,8 @@ jobs:
 
   shots:
     needs: plan
+    # An empty matrix is an error in Actions: skip the job when nothing is planned.
+    if: needs.plan.outputs.modules != '[]'
     name: Shots ${{ matrix.module }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
