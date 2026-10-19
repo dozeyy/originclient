@@ -50,7 +50,9 @@ public final class OriginDevShots {
 		ACT_DOUBLECLICK, ACT_DRAFT, ACT_DRAFT_BACK, ACT_TYPE_SEARCH,
 		// ORIGIN_SHOTS_SET=style (Button Style / Main Menu Style, 2026-10-19): Minecraft's own menus, to see
 		// whether they come out Origin-styled or plain vanilla. Run once per ORIGIN_SHOTS_STYLE state.
-		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING;
+		STY_OPTIONS, STY_VIDEO, STY_SOUND, STY_WORLDS, STY_SERVERS, STY_CREATE, STY_LOADING,
+		// ORIGIN_SHOTS_SET=perf: the real Sodium / Iris screens (opened by reflection, see perfScreen)
+		PERF_SODIUM, PERF_IRIS;
 
 		Screen open() {
 			// Only MENU_CLEAR shows the see-through panel; finish() restores the setting.
@@ -201,6 +203,8 @@ public final class OriginDevShots {
 					com.origin.client.client.social.SocialDemo.install(false);
 					yield new OriginModMenuScreen().preview(false, false);
 				}
+				case PERF_SODIUM -> perfScreen("net.caffeinemc.mods.sodium.client.gui.SodiumOptionsGUI", "me.jellysquid.mods.sodium.client.gui.SodiumOptionsGUI");
+				case PERF_IRIS -> perfScreen("net.irisshaders.iris.gui.screen.ShaderPackScreen", "net.coderbot.iris.gui.screen.ShaderPackScreen");
 				case STY_OPTIONS, STY_VIDEO -> new net.minecraft.client.gui.screens.options.OptionsScreen(
 						new TitleScreen(), Minecraft.getInstance().options);
 				case STY_SOUND -> new net.minecraft.client.gui.screens.options.SoundOptionsScreen(
@@ -217,6 +221,28 @@ public final class OriginDevShots {
 		String name() {
 			return kind.name().toLowerCase(java.util.Locale.ROOT) + "_" + w + "x" + h + "_s" + scale + ".png";
 		}
+	}
+
+	/**
+	 * ORIGIN_SHOTS_SET=perf: opens a Sodium / Iris screen by reflection (their package roots differ per
+	 * era: me.jellysquid / net.caffeinemc, net.coderbot / net.irisshaders). Throws when none is loaded, so a
+	 * run without the real Sodium/Iris jars loses the shot and tools/ci/check_shots.py fails the job instead
+	 * of capturing something else.
+	 */
+	private static Screen perfScreen(String... classNames) {
+		for (String cn : classNames) {
+			try {
+				Class<?> c = Class.forName(cn, true, OriginDevShots.class.getClassLoader());
+				Screen s = (Screen) c.getConstructor(Screen.class).newInstance(new TitleScreen());
+				com.origin.client.OriginClient.LOGGER.info("[dev-shots] perf screen opened: {}", cn);
+				return s;
+			} catch (ClassNotFoundException | NoClassDefFoundError ignored) {
+				// not this era's package root
+			} catch (Throwable t) {
+				com.origin.client.OriginClient.LOGGER.warn("[dev-shots] perf screen {} failed to open", cn, t);
+			}
+		}
+		throw new IllegalStateException("none of " + java.util.Arrays.toString(classNames) + " could be opened (Sodium/Iris not loaded?)");
 	}
 
 	private static final List<Shot> SHOTS = new ArrayList<>();
@@ -315,12 +341,18 @@ public final class OriginDevShots {
 			// The loading -> title hand-off measurement (OriginFrameLog): one title
 			// shot, taken only once the frame log has printed, then quit.
 			SHOTS.add(new Shot(1920, 1080, 0, Kind.TITLE));
+		} else if ("perf".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
+			// Sodium's Video Settings (with Origin's mod rail) and Iris's shader-pack screen, from the REAL
+			// jars dev-shots.yml fetches into libs/ (tools/ci/perf_libs.py). 1080p, GUI scale 2.
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.PERF_SODIUM));
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.PERF_IRIS));
 		} else if ("design".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			// Design review (the menu / HUD-editor redesign loop): every screen at
 			// the two most common desktop sizes, auto GUI scale.
 			for (int[] s : new int[][]{{1920, 1080}, {1366, 768}}) {
 				for (Kind k : Kind.values()) {
-					if (!k.name().startsWith("STY_")) {
+					if (!k.name().startsWith("STY_") && !k.name().startsWith("PERF_")) {
 						SHOTS.add(new Shot(s[0], s[1], 0, k));
 					}
 				}

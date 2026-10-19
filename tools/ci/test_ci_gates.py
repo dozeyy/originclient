@@ -294,5 +294,107 @@ class LiveModules(unittest.TestCase):
         self.assertTrue(any(victim in p for p in problems), problems)
 
 
+perf_libs = _load("perf_libs", os.path.join(HERE, "perf_libs.py"))
+perf_log = _load("perf_log", os.path.join(HERE, "perf_log.py"))
+
+MODLIST = ("[main/INFO] (FabricLoader) Loading 9 mods:\n\t- fabricloader 0.15.11\n\t- sodium 0.4.10+build.27\n"
+           "\t   \\-- nested 1.0\n\t- iris 1.6.4\n")
+MIXING = ("[main/INFO] (mixin) Mixing IrisWatermarkMixin from originclient.client.mixins.json into net.coderbot.iris.gui.screen.ShaderPackScreen\n"
+          "[main/INFO] (mixin) Mixing TitleScreenMixin from originclient.client.mixins.json into net.minecraft.client.gui.screens.TitleScreen\n")
+
+
+class PerfLibs(unittest.TestCase):
+    GRADLE = ('\t// modRuntimeOnly files("libs/sodium-commented-out.jar")\n'
+              '\tif (file("libs/sodium-fabric-mc1.20-0.4.10+build.27.jar").exists()) {\n'
+              '\t\tmodRuntimeOnly files("libs/sodium-fabric-mc1.20-0.4.10+build.27.jar")\n'
+              '\t\tmodRuntimeOnly files("libs/iris-mc1.20-1.6.4.jar")\n\t}\n')
+
+    def test_pins_come_from_build_gradle_not_comments(self):
+        self.assertEqual(perf_libs.pins(self.GRADLE),
+                         ["sodium-fabric-mc1.20-0.4.10+build.27.jar", "iris-mc1.20-1.6.4.jar"])
+
+    def test_every_pre_121_module_has_pins_and_1_8_9_none(self):
+        for mod in "1.16.5 1.17.1 1.18.2 1.19.2 1.19.3 1.19.4 1.20 1.20.2".split():
+            pins = perf_libs.pins(_read(os.path.join(ROOT, "src", "mods", "versions", mod, "build.gradle")))
+            self.assertEqual(sorted(perf_libs.slug_of(p) for p in pins), ["iris", "sodium"], mod)
+        self.assertEqual(perf_libs.pins(_read(os.path.join(ROOT, "src", "mods", "versions", "1.8.9", "build.gradle"))), [])
+
+    def test_hash_mismatch_fails(self):
+        import hashlib
+        data = b"jar bytes"
+        perf_libs.verify(data, hashlib.sha512(data).hexdigest())
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.verify(b"tampered", hashlib.sha512(data).hexdigest())
+
+    def test_fetch_one_rejects_a_bad_download_and_skips_an_unknown_pin(self):
+        import hashlib
+        fn = "iris-mc1.20-1.6.4.jar"
+        listing = perf_libs.API + "/project/iris/version?loaders=" + perf_libs.urllib.parse.quote('["fabric"]')
+        api = {
+            listing: [{"id": "V1", "files": [{"filename": fn}]}],
+            perf_libs.API + "/version/V1": {"files": [{"filename": fn, "url": "http://x/f.jar",
+                                                       "hashes": {"sha512": hashlib.sha512(b"good").hexdigest()}}]},
+        }
+        out = tempfile.mkdtemp()
+        with self.assertRaises(perf_libs.PerfLibsError):
+            perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"evil")
+        self.assertFalse(os.path.exists(os.path.join(out, fn)))
+        self.assertTrue(perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"good").startswith("ok"))
+        self.assertTrue(os.path.exists(os.path.join(out, fn)))
+        # Not on Modrinth under that name -> skipped, never guessed.
+        api[listing] = []
+        self.assertTrue(perf_libs.fetch_one(fn, out, api.__getitem__, lambda u: b"good").startswith("skipped"))
+
+
+class PerfLogGate(unittest.TestCase):
+    def test_mixin_failures_fail_the_job(self):
+        for bad in ("Mixin apply for mod originclient failed originclient.client.mixins.json:XMixin",
+                    "org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: x",
+                    "Critical injection failure: @Inject annotation on foo"):
+            ok, _ = perf_log.gate(MODLIST + bad + "\n", "m")
+            self.assertFalse(ok, bad)
+
+    def test_loaded_gate_needs_both_mods(self):
+        ok, _ = perf_log.gate("Loading 2 mods:\n\t- fabricloader 0.15\n", "m", require_loaded=True)
+        self.assertFalse(ok)
+        ok, _ = perf_log.gate("Loading 3 mods:\n\t- sodium 0.4.10\n", "m", require_loaded=True)
+        self.assertFalse(ok)
+        ok, lines = perf_log.gate(MODLIST + MIXING, "m", require_loaded=True)
+        self.assertTrue(ok)
+        self.assertIn("sodium=0.4.10+build.27", "\n".join(lines))
+
+    def test_counts_only_origin_mixins_on_sodium_iris(self):
+        self.assertEqual(perf_log.tally(MIXING), ["IrisWatermarkMixin -> ShaderPackScreen"])
+        ok, lines = perf_log.gate(MODLIST + MIXING, "m")
+        self.assertIn("mixins applied: 1", "\n".join(lines))
+
+    def test_zero_applied_with_mods_loaded_warns_but_passes(self):
+        ok, lines = perf_log.gate(MODLIST, "m", require_loaded=True)
+        self.assertTrue(ok)
+        self.assertIn("::warning", "\n".join(lines))
+
+    def test_smoke_and_workflows_wire_the_gate(self):
+        self.assertEqual(smoke.classify("InvalidInjectionException: @Inject target"), "fail")
+        ds = _read(os.path.join(ROOT, ".github", "workflows", "dev-shots.yml"))
+        bs = _read(os.path.join(ROOT, ".github", "workflows", "boot-smoke.yml"))
+        for wf in (ds, bs):
+            self.assertIn("tools/ci/perf_libs.py", wf)
+        self.assertIn("tools/ci/perf_log.py", ds)
+        self.assertIn("--perf", bs)
+        # the fetch runs before Gradle's prefetch (Loom checksums libs/ at configuration time)
+        self.assertLess(ds.index("python3 tools/ci/perf_libs.py"), ds.index("bash tools/ci/gradle_prefetch.sh"))
+        self.assertLess(bs.index("python3 tools/ci/perf_libs.py"), bs.index("bash tools/ci/gradle_prefetch.sh"))
+
+    def test_perf_set_is_in_every_harness_with_sodium_pins(self):
+        import glob
+        for mod in "1.16.5 1.17.1 1.18.2 1.19.2 1.19.3 1.19.4 1.20 1.20.2 1.21.1".split():
+            pat = os.path.join(ROOT, "src", "mods", "versions", mod, "src", "*", "java", "com", "origin", "client", "client", "OriginDevShots.java")
+            t = _read(glob.glob(pat)[0])
+            self.assertIn('"perf".equals(System.getenv("ORIGIN_SHOTS_SET"))', t, mod)
+            self.assertIn("PERF_SODIUM", t, mod)
+            # the design set must not pick the perf kinds up (they throw without the jars)
+            self.assertIn('!k.name().startsWith("PERF_")', t, mod)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

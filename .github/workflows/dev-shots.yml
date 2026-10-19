@@ -49,6 +49,10 @@ on:
         description: "Log loading -> main menu frame times (-PframeLog: [OriginFrameLog] lines + GC) into run.log; use with set 'handoff'"
         type: boolean
         default: false
+      perf_mods:
+        description: "Load the REAL pinned Sodium + Iris jars (tools/ci/perf_libs.py fetches them into libs/); use set 'perf' to shoot their screens"
+        type: boolean
+        default: true
       extra_mods:
         description: "Also load the pinned 'with mods' set (tools/frame-log/mods-<module>.json) on top of Origin's own"
         type: boolean
@@ -158,6 +162,15 @@ jobs:
         env:
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
 
+      # Sodium + Iris for the dev run: every pre-1.21 module's build.gradle loads them from an
+      # untracked libs/ folder CI never had, so these runs had neither and the @Pseudo Sodium/Iris
+      # mixins found no target. The exact pins come from the module's build.gradle; each jar is
+      # checked against Modrinth's sha512 (a mismatch fails the step); an unresolvable pin is
+      # listed and skipped. Must run BEFORE Gradle (Loom checksums libs/ at configuration time).
+      - name: Fetch pinned Sodium + Iris into libs/
+        if: ${{ github.event.inputs.perf_mods != 'false' }}
+        run: python3 tools/ci/perf_libs.py "src/mods/versions/${{ matrix.module }}"
+
       # Maven 429 / Loom :downloadAssets timeouts used to fail (or, with 0 shots,
       # falsely pass) jobs at random: fetch everything first, retried with backoff.
       - name: Download dependencies + assets (retried on Maven 429 / timeouts)
@@ -199,6 +212,11 @@ jobs:
             gargs="$gargs -PextraMods=$RUNNER_TEMP/extra-mods"
             task=prodClient
             rundir=run-prod
+          fi
+          if [ "${{ github.event.inputs.perf_mods }}" != "false" ]; then
+            # Mixin logs every "Mixing <mixin> from <config> into <target>" at INFO instead of DEBUG:
+            # tools/ci/perf_log.py counts the Origin mixins that really applied to Sodium/Iris.
+            export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Dmixin.debug.verbose=true"
           fi
           if [ "$FRAMELOG" = "true" ]; then
             gargs="$gargs -PframeLog"
@@ -309,6 +327,18 @@ jobs:
         run: |
           python3 tools/ci/check_shots.py "${{ runner.temp }}/shots/screenshots" \
             "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.module }}"
+
+      # The log gate: FAILS on any Mixin apply failure / InvalidInjection / Critical injection
+      # failure (the inline grep above only prints "none" and never failed the job), requires
+      # Sodium AND Iris in the mod list when they were supposed to be loaded, and prints how many
+      # Origin Sodium/Iris mixins applied (a wrong @Pseudo target is a visibly low count).
+      - name: Mixin failures + Sodium/Iris loaded gate
+        if: always()
+        run: |
+          m="src/mods/versions/${{ matrix.module }}"
+          req=""
+          if [ "${{ github.event.inputs.perf_mods }}" != "false" ] && { ls "$m"/libs/sodium*.jar >/dev/null 2>&1 || { grep -q 'maven.modrinth:sodium' "$m/build.gradle" && grep -q 'maven.modrinth:iris' "$m/build.gradle"; }; }; then req="--require-loaded"; fi
+          python3 tools/ci/perf_log.py "${{ runner.temp }}/shots/screenshots/run.log" --module "${{ matrix.module }}" $req
 
   publish:
     needs: shots

@@ -45,12 +45,15 @@ import threading
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "ci"))
+import perf_log   # tools/ci/perf_log.py: Sodium/Iris loaded + applied-mixin tally (shared with dev-shots)
 
 # Lines that mean a mixin (ours or a bundled mod's) failed to apply, the mod set
 # was rejected, or the game threw during startup. Any one of these fails the run.
 FAIL_PATTERNS = [
     re.compile(r"Mixin apply(ing)? .*failed", re.I),
     re.compile(r"Critical injection failure", re.I),
+    re.compile(r"InvalidInjection", re.I),
     re.compile(r"was not found in|Could not find any target|Injection point .*could not", re.I),
     re.compile(r"Incompatible mods found", re.I),
     re.compile(r"A mod crashed on startup", re.I),
@@ -102,9 +105,13 @@ def retryable(pre_start_lines):
     return any(NETWORK.search(l) for l in block)
 
 
-def run_once(module, cmd, timeout, run_java=0):
+def run_once(module, cmd, timeout, run_java=0, perf=None):
     """One runClient. Returns (ok, reason, retryable)."""
     env = dict(os.environ, ORIGIN_SMOKE="1")
+    if perf is not None:
+        # Mixin logs "Mixing X from Y into Z" at INFO only with this flag (perf_log.tally counts them).
+        env["JAVA_TOOL_OPTIONS"] = (env.get("JAVA_TOOL_OPTIONS", "") + " -Dmixin.debug.verbose=true").strip()
+    seen = []
     popen_kw = dict(cwd=module, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     bufsize=1, universal_newlines=True, env=env, errors="replace")
     # New process group so we can kill the whole gradle+java tree on the way out.
@@ -130,6 +137,8 @@ def run_once(module, cmd, timeout, run_java=0):
     try:
         for line in proc.stdout:
             sys.stdout.write(line)
+            if perf is not None:
+                seen.append(line)
             if not started and GAME_STARTED.search(line):
                 started = True
             if not started:
@@ -144,6 +153,13 @@ def run_once(module, cmd, timeout, run_java=0):
                 if run_java:
                     ok, reason = _check_game_jvm(run_java, (True, verdict[1]))
                     verdict = (ok, reason, False)
+                if perf is not None and verdict[0]:
+                    pok, plines = perf_log.gate("".join(seen), os.path.basename(module), perf)
+                    print(chr(10).join(plines), flush=True)
+                    if not pok:
+                        verdict = (False, "Sodium/Iris gate failed (see perf-gate lines above)", False)
+                    else:
+                        verdict = (True, verdict[1] + f"; Origin Sodium/Iris mixins applied: {len(perf_log.tally(''.join(seen)))}", False)
                 break
     finally:
         timer.cancel()
@@ -164,6 +180,9 @@ def main():
     ap.add_argument("--attempts", type=int, default=3, help="max runs when a download flake kills the run")
     ap.add_argument("--run-java", type=int, default=0,
                     help="boot the game JVM on this Java major (Gradle stays on its own JDK) and verify it")
+    ap.add_argument("--perf", action="store_true",
+                    help="CI: Sodium + Iris jars were fetched into libs/ (tools/ci/perf_libs.py); require both in the "
+                         "mod list and print how many Origin Sodium/Iris mixins applied")
     ap.add_argument("--gradle-arg", action="append", default=[],
                     help="extra argument for the gradle runClient call (repeatable), e.g. --stacktrace")
     args = ap.parse_args()
@@ -208,7 +227,7 @@ def main():
     ok, reason = False, "not run"
     for attempt in range(1, max(1, args.attempts) + 1):
         print(f"boot-smoke: {name} attempt {attempt} -> {' '.join(cmd)}", flush=True)
-        ok, reason, retryable = run_once(module, cmd, args.timeout, args.run_java)
+        ok, reason, retryable = run_once(module, cmd, args.timeout, args.run_java, True if args.perf else None)
         if ok or not retryable or attempt == args.attempts:
             if retryable and not ok:
                 reason += f" (network/download failure on all {attempt} attempts -- not an Origin bug; re-run)"
