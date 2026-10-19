@@ -1,6 +1,5 @@
 package com.origin.client.client.gui;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -19,7 +18,6 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fc;
 
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -47,7 +45,6 @@ import java.util.Map;
  * DynamicTexture takes a debug-label supplier (no setFilter).
  */
 public final class ModIcons {
-	private static final Gson GSON = new Gson();
 	private static final Identifier ATLAS = Identifier.fromNamespaceAndPath("originclient", "ui_mod_icons");
 	private static final Identifier SDF_ATLAS = Identifier.fromNamespaceAndPath("originclient", "ui_mod_icons_sdf");
 
@@ -58,6 +55,15 @@ public final class ModIcons {
 	private static boolean sdfOk = false;
 
 	private ModIcons() {
+	}
+
+	/**
+	 * Loads (uploads) the atlas now (OriginAssets' per-frame upload slices).
+	 * Only once the icon shader exists: the atlas choice is made once, here.
+	 */
+	public static boolean preload() {
+		ensureLoaded();
+		return true;
 	}
 
 	/** Whether this id has a glyph in the atlas. */
@@ -163,10 +169,9 @@ public final class ModIcons {
 			}
 			loaded = true;
 			try {
-				JsonObject j;
-				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.json")) {
-					j = GSON.fromJson(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), JsonObject.class);
-				}
+				// Both atlases and the metrics are decoded on the startup reload's worker
+				// threads (OriginAssets); what's left here is the one GPU upload.
+				JsonObject j = com.origin.client.client.OriginAssets.json("/assets/originclient/textures/ui/mod_icons.json");
 				cell = j.get("cell").getAsInt();
 				JsonObject icons = j.getAsJsonObject("icons");
 				for (String k : icons.keySet()) {
@@ -177,22 +182,18 @@ public final class ModIcons {
 				if (!CELLS.containsKey("friends") && CELLS.containsKey("@user")) {
 					CELLS.put("friends", CELLS.get("@user"));
 				}
-				NativeImage img;
-				try (InputStream in = ModIcons.class.getResourceAsStream("/assets/originclient/textures/ui/mod_icons.png")) {
-					img = NativeImage.read(in);
-				}
+				NativeImage img = com.origin.client.client.OriginAssets.image("/assets/originclient/textures/ui/mod_icons.png");
 				atlasW = img.getWidth();
 				atlasH = img.getHeight();
 				// Keep only one GPU atlas resident. The high-range SDF is the normal
 				// path; the alpha mask is registered only if the icon shader did not
 				// compile, preserving a usable fail-soft UI without doubling VRAM.
-				if (OriginShaders.icon() != null) {
+				if (OriginShaders.icon() == null) {
+					com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/ui/mod_icons_sdf.png");
+				} else {
 					try {
-						NativeImage sdfImage;
-						try (InputStream in = ModIcons.class.getResourceAsStream(
-								"/assets/originclient/textures/ui/mod_icons_sdf.png")) {
-							sdfImage = NativeImage.read(in);
-						}
+						NativeImage sdfImage = com.origin.client.client.OriginAssets.image(
+								"/assets/originclient/textures/ui/mod_icons_sdf.png");
 						if (sdfImage.getWidth() != atlasW || sdfImage.getHeight() != atlasH) {
 							sdfImage.close();
 							throw new IllegalStateException("Origin icon SDF atlas dimensions do not match the mask atlas");
@@ -200,7 +201,13 @@ public final class ModIcons {
 						// Sampling is chosen per draw (IconGlyphRenderState binds LINEAR), so
 						// the texture itself registers plain. 1.21.11 DynamicTexture takes a
 						// debug-label supplier; setFilter is gone.
-						DynamicTexture sdfTexture = new DynamicTexture(() -> "originclient:ui_mod_icons_sdf", sdfImage);
+						DynamicTexture sdfTexture;
+						try {
+							sdfTexture = new DynamicTexture(() -> "originclient:ui_mod_icons_sdf", sdfImage);
+						} catch (Throwable t) {
+							sdfImage.close();   // never reached a texture: ours to free
+							throw t;
+						}
 						Minecraft.getInstance().getTextureManager().register(SDF_ATLAS, sdfTexture);
 						sdfOk = true;
 					} catch (Throwable sdfFailure) {
@@ -213,17 +220,26 @@ public final class ModIcons {
 				} else {
 					// The mask blits through GUI_TEXTURED, whose default sampler is NEAREST,
 					// so bind a LINEAR clamp sampler on the texture (same pattern as OriginUi.reg).
-					DynamicTexture tex = new DynamicTexture(() -> "originclient:ui_mod_icons", img) {
-						{
-							this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
-						}
-					};
+					DynamicTexture tex;
+					try {
+						tex = new DynamicTexture(() -> "originclient:ui_mod_icons", img) {
+							{
+								this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
+							}
+						};
+					} catch (Throwable t) {
+						img.close();   // never reached a texture: ours to free
+						throw t;
+					}
 					Minecraft.getInstance().getTextureManager().register(ATLAS, tex);
 				}
 				ok = true;
 			} catch (Throwable t) {
 				ok = false;
 				sdfOk = false;
+				// Prefetched atlases never handed over (the metrics failed first): free them.
+				com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/ui/mod_icons.png");
+				com.origin.client.client.OriginAssets.discard("/assets/originclient/textures/ui/mod_icons_sdf.png");
 				com.origin.client.OriginClient.LOGGER.warn("Origin mod icons failed to load; cards draw without icons", t);
 			}
 		}
