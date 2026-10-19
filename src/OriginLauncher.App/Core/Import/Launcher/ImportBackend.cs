@@ -1,5 +1,6 @@
 using OriginLauncher.App.Core.GameFolders;
 using OriginLauncher.App.Core.GameFolders.Launcher;
+using OriginLauncher.App.Core.Import.Bulk;
 using OriginLauncher.App.Core.Import.Caches;
 using OriginLauncher.App.Core.Import.GameFiles;
 using OriginLauncher.App.Core.Import.Mods;
@@ -31,6 +32,20 @@ public interface IImportBackend
         IProgress<ImportProgress>? progress, CancellationToken ct);
 
     Task<ImportResult> ApplyAsync(ImportPlan plan, IProgress<ImportProgress>? progress, CancellationToken ct);
+
+    // ---- "import everything" (Core/Import/Bulk) ----
+
+    /// <summary>
+    /// Plans every selected setup and merges them per Minecraft version. <paramref name="progress"/> reports each
+    /// setup as it is planned (or skipped), so the panel can fill in while the rest still plans.
+    /// </summary>
+    Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options,
+        IProgress<BulkPlanProgress>? progress, CancellationToken ct);
+
+    /// <summary>The player picked a different settings winner for one version: re-plans that group only.</summary>
+    Task<BulkImportPlan> ReplanGroupAsync(BulkImportPlan plan, string version, DetectedInstance newWinner, CancellationToken ct);
+
+    Task<BulkImportResult> ApplyBulkAsync(BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct);
 }
 
 /// <summary>Lets the engine wait for a version's provisioning gate: a launch or install of that version holds it too.</summary>
@@ -100,6 +115,28 @@ public sealed class LauncherImportBackend : IImportBackend
     {
         if (_dryRun) throw new InvalidOperationException("A dry run never applies.");
         return _engine.ApplyAsync(plan, new LauncherImportSettings(), progress, ct);
+    }
+
+    // Not built yet (E0 skeleton): the interface exists so the panel can be built against it. Every call says so
+    // plainly instead of doing anything; nothing here touches a folder.
+    public Task<BulkImportPlan> PlanBulkAsync(BulkSelection selection, ImportOptions options,
+        IProgress<BulkPlanProgress>? progress, CancellationToken ct) =>
+        Task.FromResult(NotBuilt());
+
+    public Task<BulkImportPlan> ReplanGroupAsync(BulkImportPlan plan, string version, DetectedInstance newWinner, CancellationToken ct) =>
+        Task.FromResult(NotBuilt());
+
+    public Task<BulkImportResult> ApplyBulkAsync(BulkImportPlan plan, IProgress<BulkProgress> progress, CancellationToken ct) =>
+        Task.FromResult(new BulkImportResult
+        {
+            RunId = plan.RunId, State = ImportState.RolledBack, Error = "Importing everything isn't built yet. Nothing was changed.",
+        });
+
+    private static BulkImportPlan NotBuilt()
+    {
+        var plan = new BulkImportPlan { RunId = Guid.NewGuid().ToString("N") };
+        plan.Blocked.Add("Importing everything isn't built yet.");
+        return plan;
     }
 
     private ImportRequest BuildRequest(DetectedInstance source, string? targetVersion, ImportOptions options)
