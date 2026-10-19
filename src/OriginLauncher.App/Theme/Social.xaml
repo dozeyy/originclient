@@ -250,7 +250,63 @@
         <Setter Property="Margin" Value="0,2,0,0"/>
     </Style>
 
-    <!-- A tick box: a square block, emerald when ticked (the toggle's square-handle language).
+    <!-- "What to bring": one kind of thing (Mods 12, Worlds 4) as a small switch block. Off = the card surface,
+         on = the accent block with a tick (Social.Check's language), mixed = the accent border with a dash (some
+         versions bring it, some don't). Built only from the tokens above; 28 px tall, wraps in its card. -->
+    <Style x:Key="Import.Chip" TargetType="ToggleButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Focusable" Value="True"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="Margin" Value="0,0,6,6"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Bd" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.SoftStroke}"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Chip}" Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Style="{StaticResource Icon.Base}"
+                                  Width="10" Height="10" StrokeThickness="2.6" Margin="0,0,6,0"
+                                  Stroke="{StaticResource Brush.TextOnAccent}" Visibility="Collapsed" VerticalAlignment="Center"/>
+                            <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="False"/>
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Accent}"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+                            <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                            <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.AccentBorder}"/>
+                            <Setter TargetName="Mark" Property="Data" Value="{StaticResource Icon.Minus}"/>
+                            <Setter TargetName="Mark" Property="Stroke" Value="{StaticResource Brush.Text}"/>
+                            <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A tick box:a square block, emerald when ticked (the toggle's square-handle language).
          The whole 32 px square is the hit area; the box inside is 18 px. -->
     <Style x:Key="Social.Check" TargetType="CheckBox">
         <Setter Property="Cursor" Value="Hand"/>
@@ -280,6 +336,13 @@
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Box" Property="Background" Value="{StaticResource Brush.Accent}"/>
                             <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+                            <Setter TargetName="Tick" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <!-- Mixed (Import from all versions, with some ticked): the same filled block with a dash. -->
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="Box" Property="Background" Value="{StaticResource Brush.Accent}"/>
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
+                            <Setter TargetName="Tick" Property="Data" Value="{StaticResource Icon.Minus}"/>
                             <Setter TargetName="Tick" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">

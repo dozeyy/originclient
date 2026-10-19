@@ -63,6 +63,8 @@
     <Geometry x:Key="Icon.Import">M12,3 L12,15 M7,10 L12,15 17,10 M4,16 L4,20 L20,20 L20,16</Geometry>
     <Geometry x:Key="Icon.Plus">M12,5 L12,19 M5,12 L19,12</Geometry>
     <Geometry x:Key="Icon.Check">M20,6 L9,17 L4,12</Geometry>
+    <!-- "Some of them": a tick box or chip in its mixed state (Import: some versions ticked, not all). -->
+    <Geometry x:Key="Icon.Minus">M6,12 L18,12</Geometry>
     <Geometry x:Key="Icon.UserMinus">M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M4.5,7 A4,4 0 1 0 12.5,7 A4,4 0 1 0 4.5,7 Z M18,8 L23,13 M23,8 L18,13</Geometry>
     <Geometry x:Key="Icon.More">M4,12 A1.4,1.4 0 1 0 6.8,12 A1.4,1.4 0 1 0 4,12 Z M10.6,12 A1.4,1.4 0 1 0 13.4,12 A1.4,1.4 0 1 0 10.6,12 Z M17.2,12 A1.4,1.4 0 1 0 20,12 A1.4,1.4 0 1 0 17.2,12 Z</Geometry>
     <Geometry x:Key="Icon.Alert">M12,8 L12,12 M12,16 L12.01,16 M3,12 A9,9 0 1 0 21,12 A9,9 0 1 0 3,12 Z</Geometry>

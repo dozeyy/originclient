@@ -240,6 +240,33 @@ public sealed record ImportOptions
     /// where Origin has none.
     /// </summary>
     public bool ReplaceServerList { get; init; }
+
+    /// <summary>
+    /// Kinds of thing this import leaves out (the import drawer's "What to bring"). None = everything the switches
+    /// above allow. Worlds and screenshots here win over <see cref="CopyWorlds"/> / <see cref="CopyScreenshots"/>.
+    /// </summary>
+    public ImportCategories LeaveOut { get; init; }
+
+    /// <summary>Bulk import: what each Minecraft version brings (null = every version brings the same, from the switches above).</summary>
+    public CategoryMap? BringByVersion { get; init; }
+
+    /// <summary>
+    /// The options one setup of <paramref name="version"/> is planned with: that version's choice from
+    /// <see cref="BringByVersion"/> folded into <see cref="LeaveOut"/>, and worlds / screenshots onto their switches.
+    /// </summary>
+    public ImportOptions ForVersion(string version)
+    {
+        var leaveOut = LeaveOut;
+        if (BringByVersion != null) leaveOut |= ImportCategories.All & ~BringByVersion.For(version);
+        if (leaveOut == ImportCategories.None) return this;
+        return this with
+        {
+            LeaveOut = leaveOut,
+            BringByVersion = null,
+            CopyWorlds = CopyWorlds && (leaveOut & ImportCategories.Worlds) == 0,
+            CopyScreenshots = CopyScreenshots && (leaveOut & ImportCategories.Screenshots) == 0,
+        };
+    }
 }
 
 public enum OpKind

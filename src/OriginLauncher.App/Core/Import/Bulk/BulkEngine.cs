@@ -246,7 +246,7 @@ public sealed partial class ImportEngine
                 : ReferenceEquals(setup, winner) ? SetupRole.Full : SetupRole.ModsAndPacks;
             var r = new ImportRequest
             {
-                Source = setup, TargetVersion = version, AccountKey = request.AccountKey, Options = request.Options,
+                Source = setup, TargetVersion = version, AccountKey = request.AccountKey, Options = request.Options.ForVersion(version),
                 SupportedTargets = request.SupportedTargets, BundledOriginJarPath = facts.BundledOriginJarPath,
                 CatalogMods = facts.CatalogMods, TargetHasIris = facts.TargetHasIris,
                 // B11: unique among the version's existing profiles AND the ones this run already named.

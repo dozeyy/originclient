@@ -230,6 +230,9 @@ public sealed partial class ImportEngine
         // The target: what the player picked, else the source's own version when Origin has it.
         var target = !string.IsNullOrWhiteSpace(r.TargetVersion) ? r.TargetVersion!
             : r.SupportedTargets.Contains(source.McVersion ?? "") ? source.McVersion! : "";
+        // The player's "What to bring" for this version, folded into the switches (unchanged when nothing is left out).
+        if (r.Options.LeaveOut != ImportCategories.None || r.Options.BringByVersion != null)
+            r = r with { Options = r.Options.ForVersion(target) };
         var plan = new ImportPlan
         {
             ImportId = r.ImportId ?? _env.NewId(), Source = source, TargetVersion = target, Options = r.Options,
@@ -264,7 +267,7 @@ public sealed partial class ImportEngine
         progress?.Report(new ImportProgress(ImportStage.Planning, 0, 3, source.Name));
 
         // ---- mods -> a new profile (a packs-only setup's mods are never even read) ----
-        if (r.Role != SetupRole.PacksOnly) PlanMods(plan, r, fs, target, ct);
+        if (r.Role != SetupRole.PacksOnly && (r.Options.LeaveOut & ImportCategories.Mods) == 0) PlanMods(plan, r, fs, target, ct);
         if (PvpClientSource.BuiltInModsNote(source.Kind) is { } builtIn)
             plan.Lines.Add(new SummaryLine(SummarySection.NotImported, PlanItemKind.Mod, builtIn.Name, builtIn.Reason));
         progress?.Report(new ImportProgress(ImportStage.Planning, 1, 3, "settings"));
@@ -277,6 +280,8 @@ public sealed partial class ImportEngine
             Role = r.Role, Ledger = r.Ledger ?? new DestinationLedger(), SetupLabel = source.BulkLabel(),
             SettingsWinnerLabel = r.SettingsWinnerLabel, SetupKey = r.SetupKey,
         });
+        // What the player left out ("What to bring" in the drawer) comes out before the space check and the summary.
+        CategoryFilter.Apply(plan, r.Options.LeaveOut);
         progress?.Report(new ImportProgress(ImportStage.Planning, 2, 3, "checking space"));
         return plan;
     }
