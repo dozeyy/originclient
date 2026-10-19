@@ -45,7 +45,8 @@ public static class JvmArgPresets
             // ModernFix (bundled in the 1.21.1 jar) bakes block/item models the
             // first time they are used instead of every model under the loading
             // screen: the startup reload went 4.1 s -> 2.3 s, time to an
-            // interactive title -7.6% (CI, 5 boots each, 2026-10-19). ModernFix's
+            // interactive title -11.8% and -10.3% (CI runs 39270959643 and
+            // 39284372584, 5 boots each, 2026-10-19). ModernFix's
             // own documented switch, read as a JVM property before its config file.
             // The 1.21.1 module's build.gradle runs dev builds with the same flag.
             ["1.21.1"] = ["-Dmodernfix.config.mixin.perf.dynamic_resources=true"],
