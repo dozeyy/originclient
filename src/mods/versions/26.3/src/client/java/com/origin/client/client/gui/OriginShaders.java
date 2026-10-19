@@ -78,7 +78,10 @@ public final class OriginShaders {
 		}
 		if (overlay instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor loading) {
 			net.minecraft.server.packs.resources.ReloadInstance reload = loading.originclient$reload();
-			return reload == null || !reload.isDone();
+			// A FAILED reload is still pending: isDone() is true for it, but vanilla is about to
+			// swap in a recovery reload and a build against the failed one's sources would latch
+			// the pipeline off for the session. Pending clears when the recovery reload finishes.
+			return reload == null || !reload.isDone() || reload.done().isCompletedExceptionally();
 		}
 		return true;
 	}

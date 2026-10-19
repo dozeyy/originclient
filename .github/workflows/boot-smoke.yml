@@ -14,9 +14,17 @@
 #    runtime handlers, the hitbox entity mixin) are NOT exercised here without a
 #    seeded world -- keep verifying those with a local runClient (they DO run on
 #    Will's machine; see MEMORY.md -> runclient-in-claude-env).
-#  - Java 8/16 modules (1.16.5, 1.17.1) need their own game-runtime JDK and are
-#    intentionally NOT in the matrix yet. (1.21.5, 1.8.9, 1.12.2 were pulled
-#    from the lineup 2026-08-06.)
+#  - GAME JVM vs GRADLE JVM: Gradle always runs on 21 (Loom 1.17), but players run
+#    1.18.2-1.20.4 on Java 17. A row's `run_java` installs that JDK too and smoke.py
+#    --run-java pins runClient's launcher to it (tools/boot-smoke/run-java.init.gradle,
+#    CI only: module build.gradle files and local runs are untouched), then checks the
+#    real game process's `java -version` and prints it (grep "GAME JVM" in the log).
+#    options.release only checks the APIs OUR code uses; a bundled mod jar built for
+#    Java 21 would otherwise boot here and fail for players.
+#  - "ready" is the first of a few early log lines (window + GL up, or Sodium loaded),
+#    NOT the title screen: it proves mixins applied and the game started, not that the
+#    main menu drew. (1.21.5, 1.12.2 were pulled from the lineup 2026-08-06; 1.8.9 is
+#    Forge and not covered here.)
 #
 # Starts as manual (workflow_dispatch) so a flaky software-GL result can't block
 # merges. Promote to `on: pull_request` once it's proven stable per version.
@@ -28,15 +36,49 @@ on:
       timeout:
         description: "Per-version hard timeout (seconds)"
         default: "360"
+      only:
+        description: "Comma-separated modules to boot (blank = every row), e.g. 1.20,1.17.1 (spaces are ignored; an unknown module fails the run)"
+        default: ""
+      gradle_args:
+        description: "Extra Gradle args for runClient, e.g. --stacktrace (diagnostics)"
+        default: ""
 
 concurrency:
   group: boot-smoke-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Normalises the `only` filter (spaces stripped) and FAILS on a name that is not a
+  # matrix row, so a typo can never skip every row and read as a green run.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      only: ${{ steps.only.outputs.only }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+      - name: Validate the module filter
+        id: only
+        env:
+          ONLY: ${{ github.event.inputs.only }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import os, re, sys
+          wanted = [t for t in re.sub(r"\s+", "", os.environ.get("ONLY", "")).split(",") if t]
+          rows = set(re.findall(r'\{ version: "([0-9][^"]*)"', open(".github/workflows/boot-smoke.yml").read()))
+          bad = [t for t in wanted if t not in rows]
+          if bad:
+              sys.exit("boot-smoke: not a matrix row: %s (rows: %s)" % (", ".join(bad), ", ".join(sorted(rows))))
+          print("only=" + ",".join(wanted))
+          EOF
+
   smoke:
     name: Boot ${{ matrix.version }}
+    needs: plan
     runs-on: ubuntu-latest
+    # `only` filters rows: a job-level `if` can't see the matrix, so every step checks this.
+    env:
+      SMOKE_ROW: ${{ needs.plan.outputs.only == '' || contains(format(',{0},', needs.plan.outputs.only), format(',{0},', matrix.version)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -51,31 +93,49 @@ jobs:
           - { version: "1.21.8", java: "21" }
           - { version: "1.21.10", java: "21" }
           - { version: "1.21.11", java: "21" }
-          # Gradle itself needs JVM 21 (Loom 1.17); these modules still emit Java 17
-          # bytecode via options.release and boot fine on 21 (same as dev-shots).
-          - { version: "1.20", java: "21" }
-          - { version: "1.20.2", java: "21" }
-          - { version: "1.20.4", java: "21" }
-          - { version: "1.18.2", java: "21" }
-          - { version: "1.19.2", java: "21" }
-          - { version: "1.19.3", java: "21" }
-          - { version: "1.19.4", java: "21" }
+          # Gradle itself needs JVM 21 (Loom 1.17); the game JVM is what players run:
+          # Java 17 for 1.18.2-1.20.4 (run_java), Java 16 for 1.17.1. 1.16.5 (Java 8) is NOT
+          # here: with runClient pinned to a JDK 8 launcher the game dies with "Could not find
+          # or load main class net.fabricmc.devlaunchinjector.Main" (run 39254422987), and
+          # Loom's downloadAssets for it was flaky; it needs a dev-classpath fix first.
+          - { version: "1.20", java: "21", run_java: "17" }
+          - { version: "1.20.2", java: "21", run_java: "17" }
+          - { version: "1.20.4", java: "21", run_java: "17" }
+          - { version: "1.18.2", java: "21", run_java: "17" }
+          - { version: "1.19.2", java: "21", run_java: "17" }
+          - { version: "1.19.3", java: "21", run_java: "17" }
+          - { version: "1.19.4", java: "21", run_java: "17" }
+          - { version: "1.17.1", java: "21", run_java: "16" }
     steps:
       - name: Check out code
+        if: ${{ env.SMOKE_ROW == 'true' }}
         uses: actions/checkout@v7
 
+      # The game's JDK first, Gradle's second: the LAST setup-java wins JAVA_HOME, so
+      # Gradle runs on ${{ matrix.java }} while JAVA_HOME_<run_java>_X64 stays exported
+      # for smoke.py --run-java.
+      - name: Set up game Java ${{ matrix.run_java }}
+        if: ${{ env.SMOKE_ROW == 'true' && matrix.run_java != '' }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.run_java }}
+
       - name: Set up Java ${{ matrix.java }}
+        if: ${{ env.SMOKE_ROW == 'true' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
 
       - name: Headless GL deps (Xvfb + Mesa software rasterizer)
+        if: ${{ env.SMOKE_ROW == 'true' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils libglu1-mesa libegl1 libegl-mesa0
 
       - name: Boot-smoke ${{ matrix.version }}
+        if: ${{ env.SMOKE_ROW == 'true' }}
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIUM_DRIVER: llvmpipe
@@ -84,7 +144,13 @@ jobs:
           # 26.3+ (SDL3): Xvfb has no GLX visual SDL accepts; its EGL path works (dev-shots.yml).
           SDL_VIDEO_X11_NODIRECTCOLOR: "1"
           SDL_VIDEO_FORCE_EGL: "1"
+          RUN_JAVA: ${{ matrix.run_java }}
+          SMOKE_GRADLE_ARGS: ${{ github.event.inputs.gradle_args }}
         run: |
+          echo "Gradle JAVA_HOME=$JAVA_HOME"
+          args=()
+          if [ -n "$RUN_JAVA" ]; then args+=(--run-java "$RUN_JAVA"); fi
+          for a in $SMOKE_GRADLE_ARGS; do args+=("--gradle-arg=$a"); done
           xvfb-run -a -s "-screen 0 1280x720x24" \
             python tools/boot-smoke/smoke.py "src/mods/versions/${{ matrix.version }}" \
-              --timeout "${{ github.event.inputs.timeout || 360 }}"
+              --timeout "${{ github.event.inputs.timeout || 360 }}" "${args[@]}"
