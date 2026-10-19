@@ -19,7 +19,7 @@ public partial class ConfirmOverlay : UserControl
     /// prompt is live at a time; a second call supersedes the first (resolves it
     /// false), matching the launcher's "newest action wins" rule.
     /// </summary>
-    public Task<bool> ShowAsync(string title, string message, string primaryText, string secondaryText)
+    public Task<bool> ShowAsync(string title, string message, string primaryText, string secondaryText, bool focusSecondary = false)
     {
         _tcs?.TrySetResult(false);
 
@@ -31,8 +31,9 @@ public partial class ConfirmOverlay : UserControl
         _tcs = new TaskCompletionSource<bool>();
         Visibility = Visibility.Visible;
         Focus();
-        // Focus the primary action so Enter confirms and Esc cancels.
-        PrimaryButton.Focus();
+        // Focus the primary action so Enter confirms and Esc cancels - or, when the primary action is the
+        // risky one (cancelling an import), the safe secondary one, so Enter keeps things as they are.
+        (focusSecondary ? SecondaryButton : PrimaryButton).Focus();
         return _tcs.Task;
     }
 

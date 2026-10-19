@@ -451,8 +451,8 @@ public partial class ImportPanel : UserControl, IDisposable
         StatsPanel.Children.Clear();
         var imported = plan.Mods.Count(m => m.IsCopied);
         var off = plan.Mods.Count(m => m.Outcome is ModOutcome.CopiedDisabled or ModOutcome.CopiedAsBefore);
-        StatsPanel.Children.Add(Chip(imported.ToString(CultureInfo.InvariantCulture), off > 0 ? $"mods to import ({off} turned off)" : "mods to import"));
-        StatsPanel.Children.Add(Chip(plan.Mods.Count(m => m.Outcome == ModOutcome.BuiltIn).ToString(CultureInfo.InvariantCulture), "mods skipped: Origin has them"));
+        StatsPanel.Children.Add(Chip(imported.ToString(CultureInfo.InvariantCulture), off > 0 ? $"mods to import ({off} off)" : "mods to import"));
+        StatsPanel.Children.Add(Chip(plan.Mods.Count(m => m.Outcome == ModOutcome.BuiltIn).ToString(CultureInfo.InvariantCulture), "mods already in Origin"));
         StatsPanel.Children.Add(Chip(plan.Ops.Count(o => o.Item is PlanItemKind.Setting or PlanItemKind.Config).ToString(CultureInfo.InvariantCulture), "settings files"));
         StatsPanel.Children.Add(Chip(plan.Ops.Count(o => o.Item == PlanItemKind.ResourcePack).ToString(CultureInfo.InvariantCulture), "resource packs"));
         StatsPanel.Children.Add(Chip(plan.Ops.Count(o => o.Item == PlanItemKind.ShaderPack).ToString(CultureInfo.InvariantCulture), "shader packs"));
@@ -497,15 +497,17 @@ public partial class ImportPanel : UserControl, IDisposable
 
     private Border Chip(string number, string label)
     {
-        var stack = new StackPanel();
-        stack.Children.Add(new TextBlock { Text = number, Style = (Style)FindResource("Text.H2") });
+        // One line: "6  mods to import". The counts stay short so the Needs attention list is on screen without scrolling.
+        var stack = new StackPanel { Orientation = Orientation.Horizontal };
+        stack.Children.Add(new TextBlock { Text = number, Style = (Style)FindResource("Text.Body"), FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
         stack.Children.Add(new TextBlock
         {
-            Text = label, Style = (Style)FindResource("Text.Caption"), TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.None,
+            Text = label, Style = (Style)FindResource("Text.Caption"), TextTrimming = TextTrimming.None, Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
         });
         return new Border
         {
-            Width = 120, MinHeight = 66, Margin = new Thickness(0, 0, 8, 8), Padding = new Thickness(12, 8, 10, 8),
+            MinHeight = 32, Margin = new Thickness(0, 0, 8, 8), Padding = new Thickness(10, 5, 12, 5),
             Background = (Brush)FindResource("Brush.Card"), BorderBrush = (Brush)FindResource("Brush.SoftStroke"),
             BorderThickness = new Thickness(1), CornerRadius = (CornerRadius)FindResource("Radius.Card"), Child = stack,
         };
@@ -680,9 +682,8 @@ public partial class ImportPanel : UserControl, IDisposable
     {
         if (!IsApplying || Confirm.Visibility == Visibility.Visible) return;
         var cancel = await Confirm.ShowAsync("Cancel the import?",
-            "Everything copied so far is put back the way it was.", "Cancel import", "Keep importing");
+            "Everything copied so far is put back the way it was.", "Cancel import", "Keep importing", focusSecondary: true);
         if (cancel && IsApplying) _applyCts?.Cancel();
-        if (IsApplying) PrimaryButton.Focus();
     }
 
     private void ShowLatestProgress()
