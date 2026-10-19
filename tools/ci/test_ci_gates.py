@@ -163,8 +163,9 @@ class DevShotsFilm(unittest.TestCase):
 
     def test_film_splash_theme_matches_launcher(self):
         # The filmed 1.8.9 splash must be the one players get.
-        cs = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "LegacyStackInstaller.cs"))
-        launcher = re.findall(r'"(\w+=[^"\\]+)\\n"', cs)
+        cs = _read(os.path.join(ROOT, "src", "OriginLauncher.App", "Core", "Loaders", "ForgeSplashTheme.cs"))
+        block = cs[cs.index("string Content ="):]
+        launcher = re.findall(r'"(\w+=[^"\\]+)\\n"', block[:block.index(";")])
         self.assertGreaterEqual(len(launcher), 5)
         m = re.search(r"printf '([^']*)' > \"\$rundir/config/splash\.properties\"", _read(self.YML))
         self.assertIsNotNone(m, "dev-shots no longer seeds splash.properties")

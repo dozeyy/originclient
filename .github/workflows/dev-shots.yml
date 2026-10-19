@@ -197,10 +197,10 @@ jobs:
             printf 'onboardAccessibility:false\npauseOnLostFocus:false\noverrideWidth:1920\noverrideHeight:1080\n' > "$rundir/options.txt"
             if [ "${{ matrix.module }}" = "1.8.9" ]; then
               # 1.8.9's startup load is FML's splash; players get it themed by the
-              # launcher (LegacyStackInstaller.SeedSplashTheme -- keep these values
+              # launcher (Core/Loaders/ForgeSplashTheme.cs -- keep these values
               # identical, test_ci_gates.py checks), so the film shows that, not Forge red.
               mkdir -p "$rundir/config"
-              printf 'enabled=true\nshowMemory=false\nbackgroundColor=0x050505\nfontColor=0xF5F5F5\nbarColor=0xE0E0E0\nbarBorderColor=0x3A3A3A\nbarBackgroundColor=0x161616\n' > "$rundir/config/splash.properties"
+              printf 'enabled=true\nbackground=0x050505\nfont=0xF5F5F5\nbar=0xE0E0E0\nbarBorder=0x3A3A3A\nbarBackground=0x161616\n' > "$rundir/config/splash.properties"
             fi
             Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
             xvfb=$!
