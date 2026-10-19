@@ -104,6 +104,8 @@ const state = {
   plusCape: false,             // is the members' cape drawn yet (cape-plus in catalog.json)?
   plusThemes: [],              // the menu themes (members only, so not in the grid): tried on from the Origin+ card
   worn: {},                    // slot -> item id: what the fitting room wears (one item per slot)
+  adjust: { head: [0, 0, 0], face: [0, 0, 0] },   // preview-only nudge per slot, [x, y, z] px (+x = their left)
+  moving: null,                // 'head' | 'face': which worn item the Adjust panel moves
   themeView: true,             // a worn theme shows its menu preview instead of the player
   busy: false,
   codeBusy: false,
@@ -605,6 +607,7 @@ function tryOn(id) {
   const worn = state.worn[item.slot] === id;
   if (worn) delete state.worn[item.slot]; else state.worn[item.slot] = id;
   if (item.slot === 'theme') state.themeView = !worn;
+  if (!worn && MOVES.includes(item.slot)) state.moving = item.slot;   // the Adjust panel follows the newest hat / face item
   syncFit(worn ? null : id);
 }
 function clearWorn() {
@@ -642,6 +645,65 @@ function syncFit(focus) {
     $('.item__tryon', b).textContent = on ? 'Wearing' : 'Try on';
   }
   for (const b of $$('[data-plus-theme]')) b.setAttribute('aria-pressed', String(isWorn(b.dataset.plusTheme)));
+  syncAdjust(showTheme);
+}
+
+// ------------------------------------------------------------- adjust fit
+// Hat and face items can be nudged on the 3D player, every way, in half-pixel
+// steps up to 4 px -- the same steps and limits as the game's Cosmetics screen.
+// Preview only: the site has no Minecraft sign-in, so nothing is saved.
+const MOVES = ['head', 'face'];
+const STEP = 0.5, LIMIT = 4;
+const AXES = { x: 0, y: 1, z: 2 };
+const signed = v => (v === 0 ? '0' : `${v > 0 ? '+' : '\u2212'}${Math.abs(v)}`);
+const sideways = v => (v === 0 ? '0' : `${v > 0 ? 'L' : 'R'}${Math.abs(v)}`);
+function syncAdjust(themeShown = false) {
+  const panel = $('[data-adjust]');
+  const slots = MOVES.filter(sl => state.worn[sl]);
+  if (!slots.includes(state.moving)) state.moving = slots[slots.length - 1] || null;
+  panel.hidden = !room || !state.moving || themeShown;
+  if (panel.hidden) return;
+  const tabs = $('[data-adjust-tabs]');
+  tabs.replaceChildren(...slots.map(sl => {
+    const name = byId.get(state.worn[sl]).name;
+    if (slots.length === 1) { const t = document.createElement('span'); t.className = 'adjust__one'; t.textContent = name; return t; }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'adjust__tab';
+    b.dataset.adjustSlot = sl;
+    b.setAttribute('aria-pressed', String(sl === state.moving));
+    b.textContent = name;
+    return b;
+  }));
+  const v = state.adjust[state.moving], name = byId.get(state.worn[state.moving]).name;
+  for (const [ax, i] of Object.entries(AXES)) $(`[data-adjust-val="${ax}"]`).textContent = ax === 'x' ? sideways(v[i]) : signed(v[i]);
+  const say = { y: ['Move %s down', 'Move %s up'], x: ['Move %s right', 'Move %s left'], z: ['Move %s back', 'Move %s forward'] };
+  for (const b of $$('[data-nudge]', panel)) {
+    const i = AXES[b.dataset.nudge], dir = Number(b.dataset.dir);
+    b.disabled = dir > 0 ? v[i] >= LIMIT : v[i] <= -LIMIT;
+    b.setAttribute('aria-label', say[b.dataset.nudge][dir > 0 ? 1 : 0].replace('%s', name));
+  }
+  $('[data-adjust-reset]').disabled = v.every(n => n === 0);
+}
+function nudge(axis, dir) {
+  const sl = state.moving;
+  if (!sl) return;
+  const v = [...state.adjust[sl]], i = AXES[axis];
+  v[i] = Math.max(-LIMIT, Math.min(LIMIT, v[i] + dir * STEP));
+  state.adjust[sl] = v;
+  room?.setAdjust(sl, v);
+  syncAdjust();
+  // At the limit the pressed button disables itself: hand focus to its opposite.
+  const b = $(`[data-nudge="${axis}"][data-dir="${dir}"]`);
+  if (b.disabled) $(`[data-nudge="${axis}"][data-dir="${-dir}"]`).focus();
+}
+function resetAdjust() {
+  const sl = state.moving;
+  if (!sl) return;
+  state.adjust[sl] = [0, 0, 0];
+  room?.setAdjust(sl, state.adjust[sl]);
+  syncAdjust();
+  $('[data-nudge="y"][data-dir="1"]').focus();   // the Reset button just disabled itself; keep focus in the panel
 }
 
 function toggleBag(id) {
@@ -761,6 +823,12 @@ async function boot() {
     }
   });
   $('[data-fit-clear]').addEventListener('click', clearWorn);
+  $('[data-adjust]').addEventListener('click', e => {
+    const n = e.target.closest('[data-nudge]'), tab = e.target.closest('[data-adjust-slot]');
+    if (n) nudge(n.dataset.nudge, Number(n.dataset.dir));
+    else if (tab) { state.moving = tab.dataset.adjustSlot; syncAdjust(); $(`[data-adjust-slot="${state.moving}"]`)?.focus(); }
+    else if (e.target.closest('[data-adjust-reset]')) resetAdjust();
+  });
   $('[data-fit-themeview]').addEventListener('click', () => {
     state.themeView = !state.themeView;
     syncFit(null);

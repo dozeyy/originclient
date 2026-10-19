@@ -42,6 +42,27 @@ body.no-webgl .fit__hint { display: none; }
 .fit__hint { right: 18px; bottom: 18px; color: var(--muted); }
 
 .fit__panel { padding: 22px; }
+
+/* Adjust the fit: opens under the player when a hat or face item is worn. */
+.fit:has(.adjust:not([hidden])) { max-height: calc(100vh - 104px); overflow-y: auto; }
+.fit:has(.adjust:not([hidden])) .fit__stage { height: clamp(240px, 32vh, 360px); }
+.adjust { padding: 16px 22px 14px; border-bottom: 1px solid var(--soft); }
+.adjust[hidden] { display: none; }
+.adjust__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
+.adjust__title { margin: 0 auto 0 0; font: 600 15px/1.2 var(--sans); letter-spacing: 0; color: var(--text); }
+.adjust__tabs { display: flex; flex-wrap: wrap; gap: 6px; order: 3; flex-basis: 100%; }
+.adjust__tabs:empty { display: none; }
+.adjust__one { color: var(--dim); font: 600 13px/1.2 var(--sans); }
+.adjust__tab, .adjust__reset, .adjust__btn { min-height: 44px; padding: 0 14px; border: 1px solid var(--soft); border-radius: 999px; background: rgba(255, 255, 255, .05); color: var(--dim); font: 600 13px/1 var(--sans); cursor: pointer; transition: background-color .2s, color .2s, border-color .2s; }
+.adjust__tab:hover, .adjust__reset:hover:not(:disabled), .adjust__btn:hover:not(:disabled) { color: var(--text); background: rgba(255, 255, 255, .1); border-color: var(--stroke); }
+.adjust__tab[aria-pressed="true"] { background: var(--acc); border-color: var(--acc); color: var(--on-acc); }
+.adjust__reset:disabled, .adjust__btn:disabled { opacity: .4; cursor: default; }
+.adjust__row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 52px 84px; align-items: center; gap: 6px; padding: 3px 0; }
+.adjust__name { color: var(--dim); font: 600 13px/1.2 var(--sans); }
+.adjust__btn { padding: 0 8px; }
+.adjust__val { color: var(--text); font: 600 15px/1 var(--sans); font-variant-numeric: tabular-nums; text-align: center; }
+.adjust__note { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.adjust__note b { color: var(--dim); font-weight: 600; }
 .field__label { display: block; margin-bottom: 8px; font: 600 13px/1 var(--sans); color: var(--dim); }
 .name { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 16px; background: rgba(255, 255, 255, .05); border: 1px solid var(--soft); border-radius: 14px; transition: border-color .2s; }
 .name:focus-within { border-color: var(--stroke); }
@@ -191,6 +212,7 @@ body.no-webgl .fit__hint { display: none; }
   .fit__stage { order: 1; height: 320px; overflow: hidden; scroll-margin-top: 80px; }
   .shop { order: 2; }
   .fit__panel { order: 3; scroll-margin-top: 80px; }
+  .adjust { order: 1; background-color: var(--glass); border: 1px solid var(--soft); border-radius: 24px; }
   .bagbar:not([hidden]) { display: flex; }
   .page-store .foot { padding-bottom: 140px; }
   .shop__grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
@@ -205,4 +227,11 @@ body.no-webgl .fit__hint { display: none; }
   .plus__body { padding: 22px 18px; }
   .plus__go { max-width: none; }
   .plus__themes { margin-left: 0; }
+}
+
+@media (max-width: 420px) {
+  /* Narrow phones: each row's name sits above its two buttons. */
+  .adjust { padding: 14px 14px 12px; }
+  .adjust__row { grid-template-columns: 1fr 52px 1fr; }
+  .adjust__name { grid-column: 1 / -1; margin-top: 4px; }
 }

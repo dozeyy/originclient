@@ -138,6 +138,11 @@ export function buildRig(item, source) {
   const inner = rig.update;
   return {
     item, group: rig.group, fxBones: fx.map(f => f.spec.bone), setCapeOffset: rig.setOffset || (() => {}),
+    // Sit over the skin's outer layer: g px (0 = no overlay shown). Capes are left alone.
+    setGrow: g => rig.setGrow?.(g),
+    // The player's own nudge, FORMAT-space px (+y up, +x = the player's left, +z = toward the face).
+    // The group sits in the attach bone's frame, so this lands after the item's animation and the grow.
+    setAdjust: (x = 0, y = 0, z = 0) => rig.group.position.set(x, y, z),
     update(ctx) {
       if (frames > 1) {
         const k = Math.floor(ctx.t * fps) % frames;
@@ -152,15 +157,37 @@ export function buildRig(item, source) {
   };
 }
 
+// polygonOffset: after the overlay push (below) an item face can land exactly on the skin's
+// overlay surface; the item wins that tie instead of z-fighting.
 function materialFor(cube, tex) {
   if (cube.glow) return new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, alphaTest: 0.01 });
-  return new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, alphaTest: 0.5, side: THREE.FrontSide });
+  return new THREE.MeshBasicMaterial({ map: tex, vertexColors: true, alphaTest: 0.5, side: THREE.FrontSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+}
+
+// ------------------------------------------------------- over the outer skin
+// Items sit OVER the mannequin's overlay layers (hat 0.5 px, jacket 0.25 px) instead of
+// clipping into them. The game uses this exact rule (keep them identical). Per vertex, in the
+// attach-bone frame (FORMAT space, origin = bone pivot), after the item's own bone animation:
+// per axis u = p - c; |u| >= h -> u + sign(u)*g; else u * (h + g) / h. Continuous at |u| = h,
+// so wraparound items (glasses) wrap the overlay rather than tear.
+const SKIN_BOX = {
+  head: { c: [0, 4, 0], h: [4, 4, 4] },     // head cube x -4..4, y 0..8, z -4..4
+  back: { c: [0, -6, 0], h: [4, 6, 2] },    // torso x -4..4, y -12..0, z -2..2
+};
+const boxOf = slot => (slot === 'head' || slot === 'face' ? SKIN_BOX.head : slot === 'back' ? SKIN_BOX.back : null);
+function growAxis(p, c, h, g) {
+  const u = p - c;
+  return c + (Math.abs(u) >= h ? u + Math.sign(u) * g : (u * (h + g)) / h);
 }
 
 function buildModel(item, tex) {
   const m = item.model, frames = item.anim?.frames ?? 1;
   const texW = m.texSize[0] * m.scale, frameH = m.texSize[1] * m.scale;
   const root = new THREE.Group(), bones = new Map(), byName = new Map(m.bones.map(b => [b.name, b]));
+  // Bones and cube holders form the pose hierarchy (they also host particles) but carry no
+  // meshes: each cube's mesh is a direct child of `root` with its vertices posed on the CPU,
+  // so the overlay push can run between the item's animation and the player's offset.
+  const parts = [];
   for (const b of m.bones) {
     const g = new THREE.Group();
     g.userData.base = { pos: new THREE.Vector3(), rot: new THREE.Euler() };
@@ -179,19 +206,62 @@ function buildModel(item, tex) {
       geo.translate(-b.pivot[0], -b.pivot[1], -b.pivot[2]);
       const mesh = new THREE.Mesh(geo, materialFor(cube, tex));
       if (cube.glow) mesh.renderOrder = 2;
+      mesh.frustumCulled = false;                    // vertices move on the CPU; stored bounds would go stale
+      let anchor = g;
+      const local = new THREE.Matrix4();
       if (cube.rotation) {
         const o = cube.rotation.origin, h = new THREE.Group();
         h.position.set(o[0] - b.pivot[0], o[1] - b.pivot[1], o[2] - b.pivot[2]);
-        mesh.position.set(-h.position.x, -h.position.y, -h.position.z);
         const a = cube.rotation.angle;
         h.rotation.set(rad(a[0]), rad(a[1]), rad(a[2]), 'XYZ');
-        h.add(mesh); g.add(h);
-      } else g.add(mesh);
+        g.add(h);
+        anchor = h;
+        local.makeTranslation(-h.position.x, -h.position.y, -h.position.z);
+      }
+      root.add(mesh);
+      parts.push({ mesh, anchor, local, src: geo.attributes.position.array.slice(), out: geo.attributes.position, last: new Float32Array(16).fill(NaN), grown: NaN });
     }
   }
   const motion = item.anim?.motion || [];
   const AX = { x: 0, y: 1, z: 2 };
+  const box = boxOf(item.slot);
+  let grow = 0;                                      // px of overlay to sit over (0 = bare skin)
+  const posed = new Map(), chain = new THREE.Matrix4(), vtx = new THREE.Vector3();
+  // object -> matrix in the root frame (the root's own placement is excluded: that is the adjust offset)
+  const toRoot = o => {
+    if (o === root) return null;
+    if (posed.has(o)) return posed.get(o);
+    o.updateMatrix();
+    const up = toRoot(o.parent), mat = up ? new THREE.Matrix4().multiplyMatrices(up, o.matrix) : o.matrix.clone();
+    posed.set(o, mat);
+    return mat;
+  };
+  // Re-pose only the meshes whose matrix (or grow) changed: static items settle after one pass.
+  const refit = () => {
+    posed.clear();
+    for (const p of parts) {
+      chain.multiplyMatrices(toRoot(p.anchor), p.local);
+      const e = chain.elements;
+      let same = p.grown === grow;
+      for (let i = 0; same && i < 16; i++) same = p.last[i] === e[i];
+      if (same) continue;
+      p.last.set(e); p.grown = grow;
+      const src = p.src, dst = p.out.array;
+      for (let i = 0; i < src.length; i += 3) {
+        vtx.set(src[i], src[i + 1], src[i + 2]).applyMatrix4(chain);
+        if (box && grow) {
+          vtx.x = growAxis(vtx.x, box.c[0], box.h[0], grow);
+          vtx.y = growAxis(vtx.y, box.c[1], box.h[1], grow);
+          vtx.z = growAxis(vtx.z, box.c[2], box.h[2], grow);
+        }
+        dst[i] = vtx.x; dst[i + 1] = vtx.y; dst[i + 2] = vtx.z;
+      }
+      p.out.needsUpdate = true;
+    }
+  };
   const update = ctx => {
+    // reset to base first so entries on the same bone add up from rest
+    for (const g of bones.values()) { g.position.copy(g.userData.base.pos); g.rotation.copy(g.userData.base.rot); }
     for (const mo of motion) {
       const g = bones.get(mo.bone); if (!g) continue;
       const ax = ['x', 'y', 'z'][AX[mo.axis]];
@@ -200,10 +270,9 @@ function buildModel(item, tex) {
       if (mo.channel === 'pos') g.position[ax] = g.userData.base.pos[ax] + v;
       else g.rotation[ax] = g.userData.base.rot[ax] + rad(v);
     }
+    refit();
   };
-  // reset to base first so entries on the same bone add up from rest
-  const wrapped = ctx => { for (const g of bones.values()) { g.position.copy(g.userData.base.pos); g.rotation.copy(g.userData.base.rot); } update(ctx); };
-  return { group: root, update: wrapped, hosts: Object.fromEntries([...bones]) };
+  return { group: root, update, hosts: Object.fromEntries([...bones]), setGrow: g => { grow = g; } };
 }
 
 // The cape: vanilla 10x16x1 box hung from the top of the back, plus sway.
