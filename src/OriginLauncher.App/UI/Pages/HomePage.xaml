@@ -18,7 +18,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="32,16,32,40">
+    <Grid x:Name="HomeRoot" Margin="32,16,32,40">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1.06*"/>
             <ColumnDefinition Width="0.94*"/>

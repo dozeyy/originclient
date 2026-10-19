@@ -1,17 +1,30 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:system="clr-namespace:System;assembly=mscorlib">
 
     <!-- Origin Icon System v2 (2026-10-12): 24 px masters drawn at a 2.2 px
          stroke; at the usual 18 px icon size that's ~1.7 px. -->
+    <!-- Glyph sizes. An icon button sizes ITSELF from its glyph plus its padding (MinWidth/MinHeight,
+         never a fixed Width/Height smaller than that sum): a glyph bigger than its slot is cut off
+         at the slot's edge, which is how the Friends drawer's "..." lost a dot (2026-10-18). -->
+    <system:Double x:Key="Icon.Size">18</system:Double>
+    <system:Double x:Key="Icon.SizeSmall">14</system:Double>
+
     <Style x:Key="Icon.Base" TargetType="Path">
         <Setter Property="Stretch" Value="Uniform"/>
-        <Setter Property="Width" Value="18"/>
-        <Setter Property="Height" Value="18"/>
+        <Setter Property="Width" Value="{StaticResource Icon.Size}"/>
+        <Setter Property="Height" Value="{StaticResource Icon.Size}"/>
         <Setter Property="StrokeThickness" Value="1.7"/>
         <Setter Property="StrokeStartLineCap" Value="Round"/>
         <Setter Property="StrokeEndLineCap" Value="Round"/>
         <Setter Property="StrokeLineJoin" Value="Round"/>
         <Setter Property="Fill" Value="Transparent"/>
+    </Style>
+
+    <!-- The glyph inside a small icon button (Social.Icon: 14 px glyph + 7 px padding = the 28 px button). -->
+    <Style x:Key="Icon.Small" TargetType="Path" BasedOn="{StaticResource Icon.Base}">
+        <Setter Property="Width" Value="{StaticResource Icon.SizeSmall}"/>
+        <Setter Property="Height" Value="{StaticResource Icon.SizeSmall}"/>
     </Style>
 
     <!-- Converted from design/icon-proposals/origin-icon-system-v2/svg/launcher.*.svg

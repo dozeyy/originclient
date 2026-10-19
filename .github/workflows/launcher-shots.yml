@@ -78,6 +78,24 @@ jobs:
           }
           Write-Host "Rendered $($shots.Count) Friends drawer screens."
 
+      # Every picture above is also measured (RenderShots.ClipCheck): anything visible (icon, text, a tile)
+      # that its slot cuts off, or a button label or title that trims, is listed in clip-errors.txt. A cut "..." still looks like dots in a picture, so
+      # this is the check that catches it. Runs after both renders so every hit is listed at once.
+      - name: Check nothing is cut off
+        shell: pwsh
+        run: |
+          # Text allowed to trim (long names, status and server lines) is only counted: trim-checks.txt lists it.
+          $trims = @('launcher-shots\trim-checks.txt', 'launcher-shots\social\trim-checks.txt') | Where-Object { Test-Path $_ }
+          if ($trims.Count -gt 0) {
+            $t = (Get-Content $trims | Measure-Object -Line).Lines
+            Write-Host "::warning::$t trimmed texts that are allowed to trim (see trim-checks.txt in the artifact)"
+          }
+          $files = @(@('launcher-shots\clip-errors.txt', 'launcher-shots\social\clip-errors.txt') | Where-Object { Test-Path $_ })
+          foreach ($f in $files) { Get-Content $f | ForEach-Object { Write-Host "::error::$_" } }
+          if ($files.Count -gt 0) { exit 1 }
+          $n = (Get-Content launcher-shots\clip-checks.txt, launcher-shots\social\clip-checks.txt | Measure-Object -Line).Lines
+          Write-Host "$n pictures checked, nothing cut off."
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:
