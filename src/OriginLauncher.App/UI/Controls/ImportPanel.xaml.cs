@@ -1814,6 +1814,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         }
         finally
         {
+            // Drop the field before disposing so STOP can never cancel a disposed source.
+            if (ReferenceEquals(_applyCts, cts)) _applyCts = null;
+            cts.Dispose();
             IsApplying = false;
             UpdateAllowed();
             StopTickIfIdle();
@@ -1852,6 +1855,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         }
         finally
         {
+            // Drop the field before disposing so STOP can never cancel a disposed source.
+            if (ReferenceEquals(_applyCts, cts)) _applyCts = null;
+            cts.Dispose();
             IsApplying = false;
             UpdateAllowed();
             StopTickIfIdle();
