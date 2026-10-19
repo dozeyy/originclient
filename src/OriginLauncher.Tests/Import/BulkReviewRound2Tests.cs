@@ -91,6 +91,52 @@ public class BulkReviewRound2Tests : IDisposable
         Assert.Equal(DestinationLedger.CacheKey(_f.Rig.GameDir("1.21.1"), identity), DestinationLedger.CacheKey(_f.Rig.GameDir("1.21.1"), identity));
     }
 
+    // ------------------------------------------------------------ a real crash with a torn entries log, recovered end to end
+
+    [Fact]
+    public async Task ACrashMidRunWithATornLastLogLineHalfwayThroughAUtf8CharacterIsRecoveredExactly()
+    {
+        _f.Add("A", "1.21.1", playtimeHours: 30);
+        _f.Add("B", "1.21.1", playtimeHours: 20);
+        _f.Add("C", "1.20.4", playtimeHours: 10);
+        Kit.Write(_f.Target("1.21.1"), "options.txt", "fov:1.0\n");                 // a file the run REPLACES (backup + restore)
+        // "Crash": OutOfMemoryException is the one thing the engine never catches — the run stops dead, journal Applying.
+        var engine = _f.Engine(new IImportPlanContributor[] { new StepFor("C", _ => throw new OutOfMemoryException("simulated crash")) });
+        var plan = await _f.Plan(engine);
+        var before = Kit.TreeHash(_f.Rig.Instances, mtimes: true);
+        var settingsBefore = _f.Rig.Settings.FileHash();
+
+        await Assert.ThrowsAsync<OutOfMemoryException>(() => engine.ApplyBulkAsync(plan, _f.Rig.Settings, null, CancellationToken.None));
+
+        var run = ImportLayout.RunDir(_f.Rig.Imports, plan.RunId);
+        var log = Assert.Single(Directory.GetFiles(run, "entries-*.log"));          // the real mid-run log...
+        Assert.True(new FileInfo(log).Length > 0);
+        var snapshot = ImportJournalStore.Load(ImportLayout.Journal(_f.Rig.Imports, plan.RunId))!;
+        Assert.Equal(ImportState.Applying, snapshot.State);
+        Assert.Contains(snapshot.Entries, e => e.Kind == JournalEntryKinds.Replaced);  // ...holding A and B's entries
+        Assert.NotEqual(before, Kit.TreeHash(_f.Rig.Instances, mtimes: true));
+
+        // The power went out while the NEXT entry was being written: its line stops halfway through "é" (0xC3 0xA9).
+        // (The journal's writer escapes non-ASCII as é, so its own torn lines are ASCII; the reader must survive a
+        // raw multi-byte character torn in half too, so this line carries a raw UTF-8 "é".)
+        var next = ImportJournalStore.Line(new JournalEntry { Kind = JournalEntryKinds.Created, Path = Path.Combine(_f.Rig.GameDir("1.20.4"), "Café.jar") })
+            .Replace("\\u00E9", "é", StringComparison.OrdinalIgnoreCase);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(next);
+        var cut = Array.IndexOf(bytes, (byte)0xC3) + 1;
+        Assert.True(cut > 0);
+        using (var stream = new FileStream(log, FileMode.Append, FileAccess.Write)) stream.Write(bytes, 0, cut);
+
+        var recovered = ImportRecovery.Recover(_f.Rig.Imports, Path.Combine(_f.Rig.Root, "OriginLauncher"), _f.Rig.Settings, null, CancellationToken.None);
+
+        Assert.Equal(1, recovered);
+        Assert.Equal(before, Kit.TreeHash(_f.Rig.Instances, mtimes: true));
+        Assert.Equal(settingsBefore, _f.Rig.Settings.FileHash());
+        var after = ImportJournalStore.Load(ImportLayout.Journal(_f.Rig.Imports, plan.RunId))!;
+        Assert.Equal(ImportState.RolledBack, after.State);
+        Assert.Null(after.EntriesLog);
+        Assert.Empty(Directory.GetFiles(run, "entries-*.log"));                        // folded into one snapshot again
+    }
+
     // ------------------------------------------------------------ 2: a "replaced" entry is on the disk before the move
 
     [Fact]
