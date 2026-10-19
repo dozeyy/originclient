@@ -178,7 +178,7 @@ public abstract class OriginWindow extends Screen {
 			}
 			case DANGER -> {
 				fill = hov ? 0x3DD9675A : RED_SOFT;
-				fg = RED;
+				fg = RED_TEXT;
 			}
 			case GHOST -> {
 				fill = hov ? 0x0AFFFFFF : 0x00000000;
