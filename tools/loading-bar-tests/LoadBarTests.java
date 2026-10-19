@@ -186,7 +186,45 @@ public class LoadBarTests {
 			check(b >= a && c >= b, "dissolve: no step back (" + a + " -> " + b + " -> " + c + ")");
 		}
 
-		// 9. Fuzz: random loads with random dips and plateaus at 8..1000 fps.
+		// 9. Review case (08d004e6): raw inches 0.99 -> 0.9999 over 3 s, a tiny rise every
+		//    frame. The bar must keep moving as visibly as on a flat raw (it used to
+		//    restart the creep every frame and crawl ~1 px).
+		{
+			LoadBar inch = new LoadBar(), flat = new LoadBar();
+			int frames = (int) (3000 / FRAME);
+			double a0 = 0, a1 = 0, b0 = 0, b1 = 0;
+			for (int i = 0; i <= 40; i++) {   // reach 0.99 first
+				inch.update(reload, false, 0.99 * i / 40, i * FRAME, TAU);
+				flat.update(reload, false, 0.99 * i / 40, i * FRAME, TAU);
+			}
+			double prev = -1;
+			for (int i = 1; i <= frames; i++) {
+				double t = (40 + i) * FRAME;
+				double v = inch.update(reload, false, 0.99 + 0.0099 * i / frames, t, TAU);
+				double f = flat.update(reload, false, 0.99, t, TAU);
+				check(v >= prev && v < 1, "micro-rise: monotonic, not full");
+				prev = v;
+				if (i == 1) {
+					a0 = v;
+					b0 = f;
+				}
+				a1 = v;
+				b1 = f;
+			}
+			check(a1 - a0 >= 0.8 * (b1 - b0), "micro-rise: moves like a flat raw (" + (a1 - a0) + " vs " + (b1 - b0) + ")");
+		}
+
+		// 10. A non-finite clock reading never turns the fill NaN.
+		{
+			LoadBar bar = new LoadBar();
+			bar.update(reload, false, 0.2, 0, TAU);
+			double v = bar.update(reload, false, 0.3, Double.NaN, TAU);
+			double w = bar.update(reload, false, 0.4, Double.POSITIVE_INFINITY, TAU);
+			double x = bar.update(reload, false, 0.5, 500, TAU);
+			check(!Double.isNaN(v) && !Double.isNaN(w) && !Double.isNaN(x) && x >= w && w >= v, "NaN clock: fill stays a number (" + v + ", " + w + ", " + x + ")");
+		}
+
+		// 11. Fuzz: random loads with random dips and plateaus at 8..1000 fps.
 		Random rnd = new Random(42);
 		for (int trial = 0; trial < 2000; trial++) {
 			LoadBar bar = new LoadBar();

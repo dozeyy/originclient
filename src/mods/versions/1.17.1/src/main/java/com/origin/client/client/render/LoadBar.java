@@ -27,9 +27,11 @@ package com.origin.client.client.render;
  *       LEFT, {@code target += (1 - target) * (raw - last) / (1 - last)}. With no
  *       dips this is exactly {@code target = raw}; after a dip the bar moves on
  *       every rise, never backward;</li>
- *   <li>it doesn't rise (a dip, or one long step): the bar creeps on toward at
- *       most {@link #CREEP_MAX} of what is left ({@link #CREEP_MS}), so it never
- *       stands still and never reaches full before the reload is done;</li>
+ *   <li>meanwhile the bar creeps on toward at most {@link #CREEP_MAX} of what is
+ *       left ({@link #CREEP_MS}) and shows whichever is further, so it never
+ *       stands still (a dip, one long step, or a fraction inching up by tiny
+ *       amounts) and never reaches full before the reload is done; a rise that
+ *       beats the creep restarts it from there;</li>
  *   <li>a different reload (another ReloadInstance) replacing one that had not
  *       finished: the bar CONTINUES from where it is and the new reload's
  *       progress fills what is left (to the player it is still one load);</li>
@@ -69,6 +71,9 @@ public final class LoadBar {
 	 */
 	public double update(Object reload, boolean done, double raw, double nowMs, double tauMs) {
 		raw = done ? 1 : PREP_SHARE * (raw != raw ? 0 : Math.max(0, Math.min(1, raw)));   // NaN-safe
+		if (Double.isNaN(nowMs) || Double.isInfinite(nowMs)) {
+			nowMs = fillAt;   // a broken clock reading: no time passes (else the fill turns NaN for good)
+		}
 		if (target < 0 || (finished && !done)) {
 			// The first frame, or a new load after a finished one: a fresh bar.
 			this.reload = reload;
@@ -89,13 +94,20 @@ public final class LoadBar {
 		if (done) {
 			target = 1;
 			finished = true;
-		} else if (raw > last) {
-			target = Math.max(target, target + (1 - target) * (raw - last) / (1 - last));
-			creepFrom = target;
-			creepAt = nowMs;
 		} else {
+			// The creep always runs; a rise only restarts it when the rise itself
+			// moved the bar further than the creep would have (a raw that inches up
+			// every frame -- thousands of worker tasks finishing one by one -- must
+			// not hold the bar near-still by restarting the creep each frame).
 			double creep = creepFrom + (1 - creepFrom) * CREEP_MAX * (1 - Math.exp(-Math.max(0, nowMs - creepAt) / CREEP_MS));
-			target = Math.max(target, creep);
+			double rise = raw > last ? target + (1 - target) * (raw - last) / (1 - last) : target;
+			if (rise > creep && rise > target) {
+				target = rise;
+				creepFrom = target;
+				creepAt = nowMs;
+			} else {
+				target = Math.max(target, creep);
+			}
 		}
 		last = raw;
 		double k = tauMs > 0 ? Math.exp(-Math.max(0, nowMs - fillAt) / tauMs) : 0;
