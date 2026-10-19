@@ -239,7 +239,7 @@ public final class CosmeticEffects {
 		boolean head = slot == Cosmetics.Slot.HEAD || slot == Cosmetics.Slot.FACE;
 		Basis basis = null;
 		ModelCosmetic model = null;
-		float t = 0f, walk = 0f, air = 0f, lift = 0f;
+		float t = 0f, walk = 0f, air = 0f, shiftX = 0f, shiftY = 0f, shiftZ = 0f;
 		int made = 0;
 		ThreadLocalRandom rnd = ThreadLocalRandom.current();
 		for (int i = 0; i < def.fx.size() && i < FX_SLOTS; i++) {
@@ -258,13 +258,16 @@ public final class CosmeticEffects {
 					basis = basisOf(p, head, partial);
 					CosmeticsService.Look look = CosmeticsService.lookOf(p.getUUID());
 					model = ModelCosmetic.of(look.get(slot));
-					lift = look.adjust(slot);   // sparks follow the item when the player moved it up / down
+					// sparks follow the item when the player moved it (the outer-layer fit's half px is left out)
+					shiftX = look.adjust(slot, CosmeticsService.Adjust.Axis.X);
+					shiftY = look.adjust(slot);
+					shiftZ = look.adjust(slot, CosmeticsService.Adjust.Axis.Z);
 					CosmeticLayer.Feel feel = CosmeticLayer.feelOf(p);
 					t = (p.tickCount + partial) / 20f;
 					walk = feel.walk;
 					air = feel.air;
 				}
-				Particle pt = spawn(fx, basis, model, t, walk, air, lift, now, rnd);
+				Particle pt = spawn(fx, basis, model, t, walk, air, shiftX, shiftY, shiftZ, now, rnd);
 				if (pt != null) {
 					em.live.add(pt);
 					made++;
@@ -319,7 +322,7 @@ public final class CosmeticEffects {
 	private static final double[] W = new double[3];
 
 	private static Particle spawn(CosmeticDef.Fx fx, Basis basis, ModelCosmetic model, float t, float walk, float air,
-			float lift, double now, ThreadLocalRandom rnd) {
+			float shiftX, float shiftY, float shiftZ, double now, ThreadLocalRandom rnd) {
 		float lx = fx.at()[0] + (rnd.nextFloat() - 0.5f) * fx.spread()[0];
 		float ly = fx.at()[1] + (rnd.nextFloat() - 0.5f) * fx.spread()[1];
 		float lz = fx.at()[2] + (rnd.nextFloat() - 0.5f) * fx.spread()[2];
@@ -328,7 +331,9 @@ public final class CosmeticEffects {
 			ly = TMP.y;
 			lz = TMP.z;
 		}
-		ly += lift;
+		lx += shiftX;
+		ly += shiftY;
+		lz += shiftZ;
 		toWorld(basis, lx, ly, lz, W);
 		Particle pt = new Particle();
 		pt.ox = basis.ox + W[0];
