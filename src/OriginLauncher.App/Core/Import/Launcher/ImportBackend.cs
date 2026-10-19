@@ -293,6 +293,7 @@ public sealed class LauncherImportBackend : IImportBackend
         var refreshed = new BulkImportPlan
         {
             RunId = plan.RunId,
+            PlannedAt = plan.PlannedAt,
             BytesToCopy = plan.BytesToCopy,
             Request = request with
             {

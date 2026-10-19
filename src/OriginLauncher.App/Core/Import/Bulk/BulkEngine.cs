@@ -60,7 +60,7 @@ public sealed partial class ImportEngine
         IProgress<BulkPlanProgress>? progress, CancellationToken ct)
     {
         var watch = Stopwatch.StartNew();
-        var plan = new BulkImportPlan { RunId = previous?.RunId ?? _env.NewId(), Request = request };
+        var plan = new BulkImportPlan { RunId = previous?.RunId ?? _env.NewId(), Request = request, PlannedAt = ImportTargetLocks.Now() };
         var counter = new PlanCounter { Total = request.Setups.Count };
 
         void Skip(DetectedInstance setup, string reason, SkipKind kind)
@@ -390,6 +390,7 @@ public sealed partial class ImportEngine
         tx.Journal.GateVersions = gated.Select(g => g.Version).ToList();
 
         var held = new List<IAsyncDisposable>();
+        IDisposable? folders = null; // every target folder's writer lock, taken before the version gates
         // Claims whose owner didn't write them (its setup was skipped, or its copy failed on the source side): a later
         // setup's stand-in (PlannedOp.Fallback) for the same claim then lands its copy, once. Per version group: a
         // claim belongs to one target folder, so another group's released claim never fires a stand-in here.
@@ -408,6 +409,16 @@ public sealed partial class ImportEngine
         try
         {
             tx.Begin();
+            var dirs = plan.Groups.Select(g => g.TargetGameDir).ToList();
+            folders = ImportTargetLocks.Acquire(dirs, ct);
+            if (ImportTargetLocks.ChangedSince(dirs, plan.PlannedAt))
+            {
+                tx.Rollback(settings); // nothing was changed yet: this only closes the journal
+                return new BulkImportResult
+                {
+                    RunId = plan.RunId, State = ImportState.Planned, Skipped = plan.Skipped.ToList(), Error = ImportTargetLocks.StalePlan,
+                };
+            }
             foreach (var group in gated)
             {
                 var waiting = $"Waiting for Minecraft {group.Version} to finish installing";
@@ -527,6 +538,7 @@ public sealed partial class ImportEngine
                 settings.Apply(delta);
             }
             tx.Commit();
+            ImportTargetLocks.MarkChanged(plan.Groups.Select(g => g.TargetGameDir));
             _env.Log?.Invoke($"import bulk apply: {tx.Journal.Entries.Count} journal entries, {tx.JournalBytesWritten} journal bytes written, "
                 + $"{ImportSummary.Megabytes(bytesDone)} copied");
             return Finished(plan, ImportState.Committed, states, versionExtra, cancelled: false, error: null);
@@ -548,6 +560,7 @@ public sealed partial class ImportEngine
         finally
         {
             for (var i = held.Count - 1; i >= 0; i--) ReleaseGate(held[i]);
+            folders?.Dispose();
         }
     }
 

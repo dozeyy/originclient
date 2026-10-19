@@ -196,6 +196,9 @@ public sealed record SkippedSetup(DetectedInstance Setup, string Reason, SkipKin
 public sealed class BulkImportPlan
 {
     public required string RunId { get; init; }
+
+    /// <summary>When planning started (<see cref="ImportTargetLocks.Now"/>): an apply refuses a plan older than any of its folders' last import.</summary>
+    public long PlannedAt { get; init; }
     public List<VersionGroup> Groups { get; } = new();
     public List<SkippedSetup> Skipped { get; } = new();
     public long BytesToCopy { get; set; }

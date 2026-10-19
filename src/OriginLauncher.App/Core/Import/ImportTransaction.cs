@@ -257,6 +257,10 @@ public sealed class ImportTransaction : IDisposable
     {
         if (Directory.Exists(destDir) || File.Exists(destDir))
             throw new IOException($"{Path.GetFileName(destDir)} already exists");
+        // A folder deleted from the old setup since the plan walks as empty: without this it landed as an empty
+        // "World1" in Origin, reported as imported.
+        if (!Directory.Exists(srcDir))
+            throw new SourceUnreadableException($"{Path.GetFileName(srcDir)} is no longer in your old setup");
         // The walk follows the folder it starts at, so that folder (and every segment above it inside the
         // instance) must not be a link: a linked world or pack could lead anywhere.
         if (!fs.IsLinkFree(srcDir))
@@ -277,7 +281,7 @@ public sealed class ImportTransaction : IDisposable
         ct.ThrowIfCancellationRequested();
         // A part of the tree that couldn't be listed would make this a half copy (a world missing regions):
         // refuse, so the import rolls back instead of presenting a damaged copy as done.
-        if (fs.UnreadableHits > unreadableBefore)
+        if (fs.UnreadableHits > unreadableBefore || !Directory.Exists(srcDir))
             throw new SourceUnreadableException($"Part of {Path.GetFileName(srcDir)} couldn't be read, so none of it was copied");
         Prepare(destDir, isDirectory: true);
         MoveDirectory(stage, destDir);

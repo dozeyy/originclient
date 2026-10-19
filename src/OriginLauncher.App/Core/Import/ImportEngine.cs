@@ -222,6 +222,7 @@ public sealed partial class ImportEngine
 
     private ImportPlan BuildPlan(ImportRequest r, IProgress<ImportProgress>? progress, CancellationToken ct, out SourceFs fs)
     {
+        var plannedAt = ImportTargetLocks.Now(); // before anything in Origin's folder is looked at
         fs = new SourceFs(_env.Guard, _env.OnSourceOpen) { InstanceRoot = r.Source.GameDir };
         var source = r.Source;
 
@@ -231,6 +232,7 @@ public sealed partial class ImportEngine
         var plan = new ImportPlan
         {
             ImportId = r.ImportId ?? _env.NewId(), Source = source, TargetVersion = target, Options = r.Options,
+            PlannedAt = plannedAt,
         };
 
         // ---- blockers: any of these means no plan, with a plain sentence for the player ----
@@ -510,9 +512,16 @@ public sealed partial class ImportEngine
         var extra = new List<SummaryLine>();
         var dropped = new HashSet<SummaryLine>(ReferenceEqualityComparer.Instance);
         IAsyncDisposable? gate = null; // D28: held while shared version files are written (released in finally)
+        IDisposable? folder = null;     // this game folder's writer lock, always taken before the version gate
         try
         {
             tx.Begin();
+            folder = ImportTargetLocks.Acquire(new[] { plan.TargetGameDir }, ct);
+            if (ImportTargetLocks.ChangedSince(new[] { plan.TargetGameDir }, plan.PlannedAt))
+            {
+                tx.Rollback(settings); // nothing was changed yet: this only closes the journal
+                return new ImportResult { ImportId = plan.ImportId, State = ImportState.Planned, Error = ImportTargetLocks.StalePlan };
+            }
             if (plan.ProvisioningGate != null)
             {
                 gate = plan.ProvisioningGate.AcquireAsync(plan.TargetVersion, ct).GetAwaiter().GetResult();
@@ -550,6 +559,7 @@ public sealed partial class ImportEngine
                 settings.Apply(plan.SettingsDelta);
             }
             tx.Commit();
+            ImportTargetLocks.MarkChanged(new[] { plan.TargetGameDir });
             var text = ImportSummary.Render(plan, extra, dropped: dropped);
             WriteSummary(plan.ImportId, text);
             return new ImportResult { ImportId = plan.ImportId, State = ImportState.Committed, SummaryText = text };
@@ -566,6 +576,7 @@ public sealed partial class ImportEngine
         finally
         {
             ReleaseGate(gate);
+            folder?.Dispose();
         }
     }
 
@@ -717,6 +728,9 @@ public sealed partial class ImportEngine
                 // and only with the gates held is "no game is running" a fact (a launch holds its version's gate while
                 // it starts the game). A bulk run takes the same versions in the same (ascending) order its apply did.
                 var gates = new List<IAsyncDisposable>();
+                // The folders' writer locks before the gates (ImportTargetLocks' order rule): an undo never runs
+                // under an apply into the same folder.
+                using var folders = ImportTargetLocks.Acquire(TargetDirs(journal), CancellationToken.None);
                 try
                 {
                     if (committed && _env.VersionGate != null)
@@ -731,6 +745,7 @@ public sealed partial class ImportEngine
                     using var tx = new ImportTransaction(_env.ImportsRoot, logRoot, journal, _env.Clock);
                     // Reused game files stay after a finished import (JournalEntry.GameFile).
                     var problems = tx.Rollback(settings, keepGameFiles: committed);
+                    if (committed) ImportTargetLocks.MarkChanged(TargetDirs(journal)); // a plan that saw these files is stale now
                     return new ImportResult
                     {
                         ImportId = importId, State = ImportState.RolledBack,

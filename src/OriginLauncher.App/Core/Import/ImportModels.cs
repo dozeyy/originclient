@@ -315,6 +315,9 @@ public sealed class ImportPlan
     public required DetectedInstance Source { get; init; }
     public required string TargetVersion { get; init; }
     public string TargetGameDir { get; set; } = "";
+
+    /// <summary>When planning started (<see cref="ImportTargetLocks.Now"/>): an apply refuses a plan older than its folder's last import.</summary>
+    public long PlannedAt { get; set; }
     public string? ProfileId { get; set; }
     public string? ProfileName { get; set; }
 
