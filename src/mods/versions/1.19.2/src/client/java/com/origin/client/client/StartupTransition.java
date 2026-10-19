@@ -30,22 +30,24 @@ public final class StartupTransition {
 	private StartupTransition() {
 	}
 
-	// System.nanoTime() of the last reload task run on the render thread
-	// (ReloadTaskTagMixin); 0 = none yet. Any reload counts, not only the
-	// overlay's own: during the startup load every such step stalls the
-	// loading screen alike (1.21.1, CI 2026-10-18).
-	private static volatile long renderWorkAt = 0;
+	// System.nanoTime() of the last client reload task QUEUED for the render
+	// thread (ReloadTaskTagMixin, any thread); 0 = none yet. Any client reload
+	// counts, not only the overlay's own (1.21.1, CI 2026-10-18): during the
+	// startup load every such step stalls the loading screen alike.
+	private static volatile long renderWorkQueuedAt = 0;
+	private static boolean renderWorkRanSeen = false;
 
-	/** A reload listener's task is about to run on its apply executor. */
-	public static void reloadRenderWork(Object reload, String listener) {
-		if (!com.mojang.blaze3d.systems.RenderSystem.isOnRenderThread()) {
-			return;   // a server-thread (data pack) reload: never stalls the loading screen
+	/** A client reload listener queued a task for the render thread. Any thread. */
+	public static void reloadRenderWorkQueued() {
+		renderWorkQueuedAt = System.nanoTime();
+	}
+
+	/** Dev frame log only: the first queued render-thread reload task is starting. */
+	public static void reloadRenderWorkRan(String listener) {
+		if (!renderWorkRanSeen && OriginFrameLog.ENABLED) {
+			renderWorkRanSeen = true;
+			OriginFrameLog.mark("render-thread reload work begins (" + listener + ")");
 		}
-		if (renderWorkAt == 0 && OriginFrameLog.ENABLED) {
-			OriginFrameLog.mark("render-thread reload work begins (" + (listener == null ? "?" : listener) + ", "
-					+ reload.getClass().getSimpleName() + ")");
-		}
-		renderWorkAt = System.nanoTime();
 	}
 
 	/**
@@ -66,9 +68,9 @@ public final class StartupTransition {
 		return true;
 	}
 
-	/** True when reload work has run on the render thread since {@code sinceNanos}: from here a frame can stall for long. */
+	/** True when render-thread reload work has been queued since {@code sinceNanos}: from here a frame can stall for long. */
 	public static boolean reloadRenderWorkSince(long sinceNanos) {
-		long at = renderWorkAt;
+		long at = renderWorkQueuedAt;
 		return at != 0 && at - sinceNanos > 0;
 	}
 
