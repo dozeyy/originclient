@@ -49,8 +49,9 @@ public final class OriginRenderTypes extends RenderType {
 
 	// Private immediate buffer. 64 KiB start; ByteBufferBuilder grows on demand.
 	// Never shared with vanilla/Iris, so nothing else ever flushes or defers it.
-	private static final MultiBufferSource.BufferSource IMMEDIATE =
-			MultiBufferSource.immediate(new ByteBufferBuilder(1 << 16));
+	// Not final only so reset() can swap in a fresh pair after a failed flush.
+	private static ByteBufferBuilder bytes = new ByteBufferBuilder(1 << 16);
+	private static MultiBufferSource.BufferSource immediate = MultiBufferSource.immediate(bytes);
 
 	private OriginRenderTypes() {
 		super("originclient_overlay_quads", DefaultVertexFormat.POSITION_COLOR,
@@ -75,12 +76,26 @@ public final class OriginRenderTypes extends RenderType {
 
 	/** The consumer to emit OVERLAY_QUADS vertices into (addVertex + setColor). */
 	public static VertexConsumer begin() {
-		return IMMEDIATE.getBuffer(OVERLAY_QUADS);
+		return immediate.getBuffer(OVERLAY_QUADS);
 	}
 
 	/** Draws everything emitted since begin(), NOW, with the current matrices
 	 *  and depth buffer. Call once at the end of each world-render callback. */
 	public static void draw() {
-		IMMEDIATE.endBatch();
+		immediate.endBatch();
+	}
+
+	/** After a draw() that threw (an unfinished vertex makes build() throw and
+	 *  leaves its half-written bytes at the front of the next mesh): throw the
+	 *  buffer pair away and start clean. Rare path, so the allocation is fine. */
+	public static void reset() {
+		ByteBufferBuilder old = bytes;
+		bytes = new ByteBufferBuilder(1 << 16);
+		immediate = MultiBufferSource.immediate(bytes);
+		try {
+			old.close();
+		} catch (Throwable ignored) {
+			// leaking one block once beats losing the frame
+		}
 	}
 }

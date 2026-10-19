@@ -146,6 +146,20 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			}
 		});
+		// World overlays that must stay visible through a shader pack's clouds are
+		// drawn by one shared pass after the pack's composite (render/AfterShadersPass).
+		// ALL of them register here, in the order the pass draws them. The order
+		// matters: RenderType.lines() writes depth, and at LAST the lines sat in Iris's
+		// deferred buffer so they landed AFTER every quad overlay. Keep that: the
+		// quad-only overlays go first (party pings, WorldEdit CUI), then waypoints
+		// (beam quads + highlight lines), and Chunk Borders (posts + ring/lattice
+		// lines) goes last. Registering inside each overlay's own init would make the
+		// order depend on which init() runs first.
+		com.origin.client.client.render.AfterShadersPass.init();
+		com.origin.client.client.social.PartyWorld.init();
+		com.origin.client.client.worldedit.WorldEditCui.registerAfterShaders();
+		com.origin.client.client.waypoints.WaypointRenderer.init();
+		ChunkBorderRenderer.init();
 		WorldRenderEvents.LAST.register(context -> {
 			try {
 				ChunkBorderRenderer.render(context);
