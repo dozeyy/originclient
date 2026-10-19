@@ -47,6 +47,9 @@ public static class RenderShots
 
         Snap(window, outDir, "01-home");
 
+        // The one-time import card in Home's banner slot, at the normal and the smallest window (before anything makes Home "running").
+        ImportShots.RunHomeCard(window, outDir);
+
         window.TourSetFriendsOpen(true);
         Pump(600);
         Snap(window, outDir, "02-friends");

@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using OriginLauncher.App.Core.Auth;
+using OriginLauncher.App.Core.Import;
 using OriginLauncher.App.Core.Import.Launcher;
 using OriginLauncher.App.Core.Social;
 using OriginLauncher.App.Core.Social.Launcher;
@@ -76,8 +77,8 @@ public partial class MainWindow : Window
         NavHome.IsChecked = true;
 
         _profilesPage.ImportRequested += (_, _) => OpenImportPanel();
-        FirstRunPrompt.ImportRequested += (_, _) => OpenImportPanel();
-        HookImportWiring(); // MainWindow.ImportWiring.cs: closing mid-import, recovery refresh, the page behind the panel
+        _homePage.ImportCard.ImportRequested += (_, _) => OpenImportPanel();
+        HookImportWiring(); // MainWindow.ImportWiring.cs: closing mid-import, recovery refresh, run-state refusals, the page behind the panel
         ContentRendered += async (_, _) => await AfterFirstRenderAsync();
 
         InitSocial();
@@ -531,7 +532,7 @@ public partial class MainWindow : Window
 
     private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_importPanelOpen) { _importPanel?.RequestClose(); }
+        if (_importPanelOpen) { _ = _importPanel?.RequestClose(); }
         else if (_signInPanelOpen) CloseSignInPanel();
         else if (_friendsOpen) SetFriendsOpen(false);
         else SetAccountPanelOpen(false);
@@ -621,9 +622,13 @@ public partial class MainWindow : Window
         if (ImportBlockedByUpdate()) return; // MainWindow.ImportWiring.cs: an update is downloading / restarting
         if (_accountPanelOpen) SetAccountPanelOpen(false);
         if (_friendsOpen) SetFriendsOpen(false);
-        FirstRunPrompt.Hide();
+        _homePage.ImportCard.Hide();
 
         var panel = new ImportPanel(backend ?? TourBackendFactory?.Invoke() ?? new LauncherImportBackend());
+        // WIRING (import-wiring agent): feed the shared busy states in here once they exist on this branch:
+        //   LaunchRunState.Changed and UpdateRunState.Changed -> panel.SetRefusal(ImportHooks.Refusal()) and
+        //   _homePage.ImportCard.SetRefusal(ImportHooks.Refusal()) (the Home card hides while Import would be refused),
+        // and the window's close button asks the panel as an IImportCloseHost (IsApplying, ConfirmCancelAsync).
         panel.CloseRequested += (_, _) => CloseImportPanel();
         panel.Imported += (_, _) =>
         {
@@ -640,47 +645,47 @@ public partial class MainWindow : Window
     {
         if (!_importPanelOpen) return;
         SetImportPanelOpen(false);
-        _importPanel?.Dispose();
-        ImportPanelHost.Content = null;
+        _importPanel?.Dispose(); // cancels a scan or plan in flight; the drawer's content stays until it has slid out
         _importPanel = null;
     }
 
+    // Slides the Import drawer in and out exactly like the Friends drawer (SetFriendsOpen): the same ease, Motion.Scene in
+    // and Motion.Exit out, the shared Scrim 0 <-> 0.5, the toasts shift left of it. The page behind is switched off while
+    // it is open, so the keyboard cannot reach it either.
     private void SetImportPanelOpen(bool open)
     {
         _importPanelOpen = open;
         OnImportPanelOpenChanged(open); // MainWindow.ImportWiring.cs: the page behind goes inert / comes back, focus restored
+        Toasts.Margin = new Thickness(0, 0, open ? ImportDrawer.Width + 20 : 20, 20);
+
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");
 
         if (open)
         {
-            ImportPanelCard.Visibility = Visibility.Visible;
             Scrim.Visibility = Visibility.Visible;
+            ImportDrawer.Visibility = Visibility.Visible;
         }
-        ImportPanelCard.IsHitTestVisible = open;
-        Scrim.IsHitTestVisible = open || AnyDrawerOpen;
-        if (open) Scrim.BeginAnimation(OpacityProperty, new DoubleAnimation(0.5, duration), HandoffBehavior.SnapshotAndReplace);
+        ImportDrawer.IsHitTestVisible = open;
 
-        var fade = new DoubleAnimation(open ? 1.0 : 0.0, duration);
-        fade.Completed += (_, _) =>
+        var slide = new DoubleAnimation(open ? 0 : ImportDrawer.Width, duration) { EasingFunction = ease };
+        slide.Completed += (_, _) =>
         {
             if (!_importPanelOpen)
             {
-                ImportPanelCard.Visibility = Visibility.Collapsed;
+                ImportDrawer.Visibility = Visibility.Collapsed;
+                ImportPanelHost.Content = null;
                 if (!AnyDrawerOpen) Scrim.Visibility = Visibility.Collapsed;
             }
         };
-        ImportPanelCard.BeginAnimation(OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
-        ImportPanelScale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(open ? 1.0 : 0.97, duration) { EasingFunction = ease }, HandoffBehavior.SnapshotAndReplace);
-        ImportPanelScale.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(open ? 1.0 : 0.97, duration) { EasingFunction = ease }, HandoffBehavior.SnapshotAndReplace);
+        ImportDrawerTransform.BeginAnimation(TranslateTransform.XProperty, slide, HandoffBehavior.SnapshotAndReplace);
 
-        if (!open && !AnyDrawerOpen)
-        {
-            Scrim.IsHitTestVisible = false;
-            Scrim.BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, duration), HandoffBehavior.SnapshotAndReplace);
-        }
+        var scrimOn = open || AnyDrawerOpen;
+        Scrim.IsHitTestVisible = scrimOn;
+        Scrim.BeginAnimation(OpacityProperty, new DoubleAnimation(scrimOn ? 0.5 : 0.0, duration), HandoffBehavior.SnapshotAndReplace);
+
+        if (open)
+            Dispatcher.BeginInvoke(() => ImportPanelHost.MoveFocus(new TraversalRequest(FocusNavigationDirection.First)));
     }
 
     // After the first window is up: tell the player about an import that was rolled back at start (the
@@ -711,7 +716,10 @@ public partial class MainWindow : Window
             var question = await ComputeImportPromptQuestionAsync();
             if (question == null || _importPanelOpen) return;
 
-            FirstRunPrompt.ShowQuestion(question);
+            // The card sits in Home's banner slot (it shows when Home does), and stays out while Import would be refused
+            // (a game starting, an update): never offer a click that lands on a refusal.
+            _homePage.ImportCard.SetRefusal(ImportHooks.Refusal());
+            _homePage.ImportCard.ShowQuestion(question);
             // Shown once: set the moment it appears, so it never comes back.
             _ = Task.Run(() => Core.SettingsStore.Update(s => s.ImportPromptSeen = true));
         }
@@ -741,7 +749,7 @@ public partial class MainWindow : Window
 
     internal void TourClickProfilesImport() => _profilesPage.TourClickImport();
 
-    internal ImportPromptCard TourImportPrompt => FirstRunPrompt;
+    internal ImportPromptCard TourImportPrompt => _homePage.ImportCard;
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {

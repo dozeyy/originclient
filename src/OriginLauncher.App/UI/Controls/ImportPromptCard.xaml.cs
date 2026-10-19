@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using OriginLauncher.App.Core.Import;
 
 namespace OriginLauncher.App.UI.Controls;
 
@@ -13,14 +14,47 @@ public partial class ImportPromptCard : UserControl
         InitializeComponent();
     }
 
+    /// <summary>
+    /// "Bring over your Minecraft setups?", or for exactly one setup "Bring over your setup from Prism Launcher?".
+    /// (The card words its own question; Core's ImportPrompt only decides whether to show it.)
+    /// </summary>
+    public static string QuestionFor(IReadOnlyCollection<DetectedInstance> setups)
+    {
+        if (setups.Count != 1) return "Bring over your Minecraft setups?";
+        var from = setups.First().Kind switch
+        {
+            SourceKind.OfficialLauncher => "the Minecraft launcher",
+            SourceKind.Prism => "Prism Launcher",
+            SourceKind.Modrinth => "the Modrinth App",
+            SourceKind.CurseForge => "CurseForge",
+            _ => "another launcher",
+        };
+        return $"Bring over your setup from {from}?";
+    }
+
+    private bool _pending; // the question is waiting for an answer
+    private bool _refused; // Import would be refused right now (a game starting, an update): the card stays out
+
     public void ShowQuestion(string question)
     {
         QuestionText.Text = question;
         System.Windows.Automation.AutomationProperties.SetName(this, question);
-        Visibility = Visibility.Visible;
+        _pending = true;
+        Visibility = _refused ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    public void Hide() => Visibility = Visibility.Collapsed;
+    /// <summary>The sentence from the wiring's refusal check, or null when Import can run: hides the card while it can't, shows it again after.</summary>
+    public void SetRefusal(string? sentence)
+    {
+        _refused = sentence != null;
+        Visibility = _pending && !_refused ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public void Hide()
+    {
+        _pending = false;
+        Visibility = Visibility.Collapsed;
+    }
 
     private void NotNow_Click(object sender, RoutedEventArgs e) => Hide();
 
