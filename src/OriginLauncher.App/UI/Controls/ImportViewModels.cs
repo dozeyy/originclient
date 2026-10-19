@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using OriginLauncher.App.Core.Import;
 using OriginLauncher.App.Core.Import.Bulk;
 
@@ -235,10 +236,18 @@ public sealed class LauncherTileVm : LiveCardRowVm
     private string _caption = "";
     private bool _enabled;
     private string _tip = "";
+    private bool _notFound;
 
     public required SourceKind Kind { get; init; }
     public required string Title { get; init; }
     public string Initial => ImportLogic.Initial(Title);
+
+    /// <summary>The launcher's real logo (Assets/Logos, sources in Assets/SOURCES.md); null = show the initial.</summary>
+    public ImageSource? Logo => LauncherLogos.For(Kind);
+    public bool HasLogo => Logo != null;
+
+    /// <summary>Its folder isn't on this PC: the tile offers "Locate folder" (Browse) instead of greying out silently.</summary>
+    public bool NotFound { get => _notFound; set => Set(ref _notFound, value); }
 
     public string Caption
     {
@@ -253,7 +262,55 @@ public sealed class LauncherTileVm : LiveCardRowVm
 
     public string AutomationName => $"{Title}, {Caption}";
     public override string Key => $"W|{Kind}";
-    protected override string Body => $"{Kind}|{Caption}|{Enabled}";
+    protected override string Body => $"{Kind}|{Caption}|{Enabled}|{NotFound}";
+}
+
+/// <summary>
+/// The launcher logos, decoded once at tile size (2x for crisp scaling) and frozen so any thread may read them.
+/// Prism and MultiMC share one source kind and one tile ("Prism / MultiMC"), so the tile wears Prism's logo.
+/// </summary>
+internal static class LauncherLogos
+{
+    private static readonly Dictionary<SourceKind, ImageSource?> Cache = new();
+
+    public static ImageSource? For(SourceKind kind)
+    {
+        lock (Cache)
+        {
+            if (Cache.TryGetValue(kind, out var hit)) return hit;
+            var name = kind switch
+            {
+                SourceKind.OfficialLauncher => "minecraft",
+                SourceKind.Prism => "prism",
+                SourceKind.Modrinth => "modrinth",
+                SourceKind.CurseForge => "curseforge",
+                SourceKind.Lunar => "lunar",
+                SourceKind.Feather => "feather",
+                _ => null,
+            };
+            ImageSource? image = null;
+            if (name != null)
+            {
+                try
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.UriSource = new Uri($"pack://application:,,,/Assets/Logos/{name}.png", UriKind.Absolute);
+                    bmp.DecodePixelWidth = 72;
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    image = bmp;
+                }
+                catch
+                {
+                    image = null; // a missing logo falls back to the initial, never breaks the drawer
+                }
+            }
+            Cache[kind] = image;
+            return image;
+        }
+    }
 }
 
 /// <summary>"Import from all versions": one tick box over every version Origin can take (mixed when some are ticked).</summary>

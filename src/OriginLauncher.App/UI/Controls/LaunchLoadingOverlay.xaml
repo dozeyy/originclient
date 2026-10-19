@@ -8,51 +8,51 @@
              Visibility="Collapsed"
              IsHitTestVisible="True">
 
-    <!-- Load-then-snap cover for the whole Home page during install+launch —
-         opaque, not a translucent scrim, since there's real work happening
-         behind it and nothing underneath should be interactive meanwhile.
-         The origin mark doubles as the spinner: same brand geometry, just
-         given a continuous spin instead of sitting static. -->
-    <Border Background="{StaticResource Brush.WindowBackdrop}">
-        <StackPanel x:Name="LoadingStage" HorizontalAlignment="Center" VerticalAlignment="Center" Width="420"
+    <!-- The launch screen (Poster): the whole window, top bar included. The art
+         blooms into colour underneath (ArtStage.BeginLaunch) and this scrim keeps
+         every line on it at 7:1. Nothing behind is interactive meanwhile. The
+         origin mark doubles as the spinner. -->
+    <Grid Background="{StaticResource Brush.LaunchScrim}">
+        <StackPanel x:Name="LoadingStage" HorizontalAlignment="Center" VerticalAlignment="Center" Width="520"
                     RenderTransformOrigin="0.5,0.5">
             <StackPanel.RenderTransform>
                 <TranslateTransform x:Name="LoadingStageTranslate"/>
             </StackPanel.RenderTransform>
-            <controls:OriginMark x:Name="Mark" Width="72" Height="72" Margin="0,0,0,28"
+            <controls:OriginMark x:Name="Mark" Width="44" Height="44" Margin="0,0,0,22"
                                   RenderTransformOrigin="0.5,0.5"/>
 
-            <TextBlock x:Name="EyebrowText" Text="STARTING" Style="{StaticResource Text.Eyebrow}"
-                       Foreground="{StaticResource Brush.AccentHover}" HorizontalAlignment="Center"/>
-            <TextBlock x:Name="VersionText" Style="{StaticResource Text.H1}"
-                       HorizontalAlignment="Center" Margin="0,4,0,2"/>
-            <TextBlock x:Name="LoaderCaptionText" Style="{StaticResource Text.Label}"
-                       HorizontalAlignment="Center" Margin="0,0,0,22"/>
+            <controls:TrackedText x:Name="EyebrowText" Text="PREPARING MINECRAFT" Tracking="0.16" ScaleX="0.94"
+                                  FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                                  Foreground="{StaticResource Brush.OnPhoto}" HorizontalAlignment="Center"/>
+            <!-- The big line: the real percentage while a stage has a count, else
+                 the version (never a made-up number; Core/Launch/StageProgress). -->
+            <controls:TrackedText x:Name="VersionText" Text="1.21.1" Tracking="0.01" ScaleX="0.8"
+                                  FontFamily="{StaticResource Font.Display}" FontSize="96" FontWeight="ExtraBold"
+                                  Foreground="{StaticResource Brush.OnPhoto}" HorizontalAlignment="Center" Margin="0,6,0,14"/>
+            <TextBlock x:Name="LoaderCaptionText" FontSize="13" Foreground="{StaticResource Brush.TextDim}"
+                       HorizontalAlignment="Center" Margin="0,-6,0,18"/>
 
             <!-- The bar. Launch: a stage with a real count ("Downloading
-                 libraries (12/340)") fills to it; any other stage slides an
-                 84px block across the track, since an honest "working" beats a
-                 made-up percentage (Core/Launch/StageProgress). Self-update:
-                 a fill driven by downloaded bytes. The fill is a full-width bar
-                 scaled from its left edge (a GPU transform, no layout per
-                 frame) with pixel snapping off, so its right end moves by
-                 fractions of a pixel instead of stepping. Animated from the
-                 code-behind. -->
-            <Border x:Name="ProgressTrack" Width="280" Height="4" CornerRadius="{StaticResource Radius.Bar}"
-                    Background="{StaticResource Brush.SoftStroke}" HorizontalAlignment="Center"
-                    ClipToBounds="True" Margin="0,0,0,14"
+                 libraries (12/340)") fills to it; any other stage slides a block
+                 across the track. Self-update: a fill driven by downloaded bytes.
+                 The fill is a full-width bar scaled from its left edge (a GPU
+                 transform, no layout per frame), pixel snapping off so its end
+                 moves smoothly. The colour is the family accent (an indicator). -->
+            <Border x:Name="ProgressTrack" Width="420" Height="4" CornerRadius="{StaticResource Radius.Bar}"
+                    Background="{StaticResource Brush.ProgressTrack}" HorizontalAlignment="Center"
+                    ClipToBounds="True" Margin="0,0,0,16"
                     SnapsToDevicePixels="False" UseLayoutRounding="False">
                 <Grid>
                     <Border x:Name="ProgressFill" Height="4" CornerRadius="{StaticResource Radius.Bar}"
-                            Background="{StaticResource Brush.Accent}" Visibility="Collapsed"
+                            Background="{DynamicResource Brush.Acc}" Visibility="Collapsed"
                             SnapsToDevicePixels="False" UseLayoutRounding="False"
                             RenderTransformOrigin="0,0.5">
                         <Border.RenderTransform>
                             <ScaleTransform x:Name="ProgressScale" ScaleX="0"/>
                         </Border.RenderTransform>
                     </Border>
-                    <Border x:Name="ProgressSweep" Width="84" Height="4" CornerRadius="{StaticResource Radius.Bar}"
-                            Background="{StaticResource Brush.Accent}" HorizontalAlignment="Left">
+                    <Border x:Name="ProgressSweep" Width="96" Height="4" CornerRadius="{StaticResource Radius.Bar}"
+                            Background="{DynamicResource Brush.Acc}" HorizontalAlignment="Left">
                         <Border.RenderTransform>
                             <TranslateTransform x:Name="ProgressTranslate" X="-70"/>
                         </Border.RenderTransform>
@@ -60,14 +60,23 @@
                 </Grid>
             </Border>
 
-            <TextBlock x:Name="StageText" Style="{StaticResource Text.BodyDim}" HorizontalAlignment="Center"/>
+            <TextBlock x:Name="StageText" FontSize="13" Foreground="{StaticResource Brush.Text}" HorizontalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" MaxWidth="520"/>
 
-            <!-- The overlay is opaque and covers Home, so the abort path has
-                 to live here: cancels the in-flight provisioning (the newest
-                 launch action always wins — CLAUDE.md hard requirement). -->
-            <Button x:Name="CancelButton" Style="{StaticResource Button.Chrome}"
-                    Content="Cancel" Padding="18,6" Margin="0,28,0,0"
+            <!-- The abort path lives here (the screen covers everything): cancels the
+                 in-flight provisioning (the newest launch action always wins). -->
+            <Button x:Name="CancelButton" Style="{StaticResource Button.Secondary}"
+                    Content="Cancel" Padding="22,0" Height="40" Margin="0,28,0,0"
                     HorizontalAlignment="Center" Click="CancelButton_Click"/>
         </StackPanel>
-    </Border>
+
+        <!-- Bottom left: what is starting - the family, then account and profile. -->
+        <StackPanel x:Name="CaptionPanel" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="32,0,0,32">
+            <controls:TrackedText x:Name="CaptionFamily" Text="TRICKY TRIALS" Tracking="0.16" ScaleX="0.94"
+                                  FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                                  Foreground="{StaticResource Brush.OnPhoto}"/>
+            <TextBlock x:Name="CaptionDetail" FontSize="13" Margin="0,6,0,0" Foreground="{StaticResource Brush.TextDim}"
+                       TextTrimming="CharacterEllipsis" MaxWidth="480"/>
+        </StackPanel>
+    </Grid>
 </UserControl>

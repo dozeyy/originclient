@@ -54,10 +54,16 @@ public partial class MainWindow : Window
         // Opening animation over the already-built Home; ~0.85 s, skippable (StartupIntro).
         Intro.Play(this);
 
+        // Home's profile chip opens Profiles; its launch screen covers the bar too.
+        _homePage.ProfilesRequested += (_, _) => NavigateTo(LauncherPage.Profiles);
+        _homePage.LaunchSceneChanged += SetTopBarHidden;
+        RefreshAccountChip();
+
         _accountPanel.CloseRequested += (_, _) => SetAccountPanelOpen(false);
         _accountPanel.AccountsChanged += (_, _) =>
         {
             _homePage.RefreshAccountState();
+            RefreshAccountChip();
             // Every account has its own game folders, mods included: the Mods
             // page follows the selected account.
             if (_currentPage == LauncherPage.Mods) _modsPage.ShowVersion(_homePage.CurrentVersion);
@@ -154,7 +160,7 @@ public partial class MainWindow : Window
         {
             if (onScene) _homePage.EndUpdateScene();
             UpdateBadge.IsEnabled = true;
-            UpdateBadge.ToolTip = $"Update failed: {ex.Message} — click to retry";
+            UpdateBadge.ToolTip = $"Update failed: {ex.Message} - click to retry";
         }
     }
 
@@ -198,7 +204,7 @@ public partial class MainWindow : Window
         _friendsPanel.Apply(snapshot);
         var attention = snapshot.AttentionCount;
         FriendsBadge.Visibility = attention > 0 ? Visibility.Visible : Visibility.Collapsed;
-        FriendsButton.ToolTip = attention > 0 ? $"Friends — {attention} new" : "Friends";
+        FriendsButton.ToolTip = attention > 0 ? $"Friends - {attention} new" : "Friends";
     }
 
     private void ShowSocialToast(SocialToast toast)
@@ -339,6 +345,13 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Render mode: 0 = Home, 1 = Mods, 2 = Settings.</summary>
+    // Render mode only: the Mods page with made-up rows (and a jar carried over the zone).
+    internal void TourShowModsDemo(IReadOnlyList<Core.Mods.ModEntry> mods, int carrying)
+    {
+        TourGoTo(1);
+        _modsPage.TourShowDemo(mods, carrying);
+    }
+
     internal void TourGoTo(int page)
     {
         if (!Core.OriginPaths.IsScratchRoot) return;
@@ -489,8 +502,31 @@ public partial class MainWindow : Window
             _profilesPage.Show(_homePage.CurrentVersion);
 
         PageHost.Content = content;
+        // Home shows the art; every other page sits on it dimmed, numeral away.
+        Stage.SetPage(page == LauncherPage.Home);
         AnimatePageIn(direction == 0 ? 1 : direction);
     }
+
+    // The top-bar account chip: the selected account's face and name, "Offline"
+    // in offline test mode, "Sign in" when nobody can play.
+    private void RefreshAccountChip()
+    {
+        var name = Core.Accounts.AccountStore.GetSelected(Core.Accounts.AccountStore.Load())?.Gamertag;
+        var offline = name == null && Core.SettingsStore.Load().OfflineTestMode;
+        AccountName.Text = name ?? (offline ? "Offline" : "Sign in");
+        AccountFace.Seed = name ?? "Origin";
+        AccountButton.ToolTip = name != null ? $"Accounts ({name})" : "Accounts";
+    }
+
+    // Under the launch screen the bar fades away and stops taking clicks; it
+    // returns with the scene's exit.
+    private void SetTopBarHidden(bool hidden)
+    {
+        TopBar.IsHitTestVisible = !hidden;
+        TopBar.BeginAnimation(OpacityProperty, UI.Motion.To(hidden ? 0 : 1, hidden ? 200 : 320, UI.Motion.Out));
+    }
+
+    private void ImportButton_Click(object sender, RoutedEventArgs e) => OpenImportPanel();
 
     private void SetNavigationSelection(LauncherPage page)
     {

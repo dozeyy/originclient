@@ -119,33 +119,60 @@
             </Border>
         </DataTemplate>
 
-        <!-- A launcher: its initial, its name, what was found; the arrow when there is something to import.
-             Greyed (and skipped by Tab) when there is nothing: the tooltip still says why. -->
+        <!-- A launcher: its real logo (the initial when there is none), its name, what was found; the arrow
+             when there is something to import. Greyed when there is nothing: the tooltip still says why. A
+             launcher that isn't on this PC offers "Locate folder" (Browse) beside the row, outside the
+             disabled button so it stays clickable. -->
         <DataTemplate DataType="{x:Type controls:LauncherTileVm}">
-            <Button Style="{StaticResource Social.Row}" Click="Tile_Click" IsEnabled="{Binding Enabled}"
-                    AutomationProperties.Name="{Binding AutomationName}" ToolTip="{Binding Tip}"
-                    ToolTipService.ShowOnDisabled="True">
-                <Grid MinHeight="38">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Border x:Name="Avatar" Style="{StaticResource Social.Avatar}" Margin="0,0,10,0" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
-                    </Border>
-                    <StackPanel x:Name="Words" Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+            <Grid>
+                <Button Style="{StaticResource Social.Row}" Click="Tile_Click" IsEnabled="{Binding Enabled}"
+                        AutomationProperties.Name="{Binding AutomationName}" ToolTip="{Binding Tip}"
+                        ToolTipService.ShowOnDisabled="True">
+                    <Grid MinHeight="44">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Avatar" Width="36" Height="36" Background="{StaticResource Brush.Bg}"
+                                CornerRadius="{StaticResource Radius.Chip}" Margin="0,0,12,0" VerticalAlignment="Center">
+                            <Grid>
+                                <TextBlock x:Name="InitialText" Text="{Binding Initial}" Style="{StaticResource Social.Initial}"/>
+                                <Image x:Name="LogoImage" Source="{Binding Logo}" Width="24" Height="24"
+                                       RenderOptions.BitmapScalingMode="HighQuality" Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <StackPanel x:Name="Words" Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" Style="{StaticResource Social.Name}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="CaptionText" Text="{Binding Caption}" Style="{StaticResource Social.Caption}"/>
+                        </StackPanel>
+                        <Path x:Name="Go" Grid.Column="2" Style="{StaticResource Import.Go}"/>
+                    </Grid>
+                </Button>
+                <Button x:Name="LocateButton" Style="{StaticResource Button.Chrome}" Click="Browse_Click"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" Height="32" Padding="10,0" Margin="0,0,10,0"
+                        Visibility="Collapsed" AutomationProperties.Name="Locate folder"
+                        ToolTip="Point Origin at this launcher's folder">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource Icon.Folder}" Style="{StaticResource Icon.Base}" Width="13" Height="13"
+                              Margin="0,0,6,0" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        <TextBlock Text="Locate folder" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <Path x:Name="Go" Grid.Column="2" Style="{StaticResource Import.Go}"/>
-                </Grid>
-            </Button>
+                </Button>
+            </Grid>
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding HasLogo}" Value="True">
+                    <Setter TargetName="LogoImage" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="InitialText" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Enabled}" Value="False">
                     <Setter TargetName="Avatar" Property="Opacity" Value="0.55"/>
                     <Setter TargetName="Words" Property="Opacity" Value="0.55"/>
                     <Setter TargetName="Go" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding NotFound}" Value="True">
+                    <Setter TargetName="LocateButton" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="Words" Property="Margin" Value="0,0,120,0"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>

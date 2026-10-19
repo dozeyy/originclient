@@ -15,7 +15,7 @@ namespace OriginLauncher.App.UI.Controls;
 public partial class LaunchLoadingOverlay : UserControl
 {
     // ProgressSweep's width in the XAML: the sliding block of an unmeasured stage.
-    private const double SweepWidth = 84;
+    private const double SweepWidth = 96;
     // Glide between the ~8-10/s progress reports instead of stepping.
     private static readonly Duration FillGlide = new(TimeSpan.FromMilliseconds(140));
 
@@ -25,6 +25,8 @@ public partial class LaunchLoadingOverlay : UserControl
     private long _stageRevision;
     // Launch mode reads real counts out of stage lines; update mode's fill is ReportUpdate's.
     private bool _launchMode;
+    // The big line when no stage has a real count: the version starting (or updating to).
+    private string _bigFallback = "";
 
     public LaunchLoadingOverlay()
     {
@@ -37,13 +39,17 @@ public partial class LaunchLoadingOverlay : UserControl
 
     /// <summary>The Play press. No loader name anywhere: the player never sees
     /// which loader a version runs on (mandate 1).</summary>
-    public void Show(string version)
+    public void Show(string version, string? caption = null)
     {
         _launchMode = true;
-        EyebrowText.Text = "STARTING";
+        EyebrowText.Text = $"PREPARING MINECRAFT {version}";
         CancelButton.Visibility = Visibility.Visible;
         CancelButton.ToolTip = null;
         LoaderCaptionText.Visibility = Visibility.Collapsed;
+        CaptionFamily.Text = FamilyTheme.Of(version).Label;
+        CaptionDetail.Text = caption ?? "";
+        CaptionDetail.Visibility = string.IsNullOrEmpty(caption) ? Visibility.Collapsed : Visibility.Visible;
+        CaptionPanel.Visibility = Visibility.Visible;
         ShowScene(version);
         ShowProgress(null);
     }
@@ -54,11 +60,12 @@ public partial class LaunchLoadingOverlay : UserControl
     public void ShowUpdate(string newVersion)
     {
         _launchMode = false;
-        EyebrowText.Text = "UPDATING";
+        EyebrowText.Text = $"UPDATING ORIGIN LAUNCHER TO {newVersion}";
         CancelButton.Visibility = Visibility.Collapsed;
         LoaderCaptionText.Text = "Getting the newest version";
         LoaderCaptionText.Visibility = Visibility.Visible;
-        ShowScene($"Origin Launcher {newVersion}");
+        CaptionPanel.Visibility = Visibility.Collapsed;
+        ShowScene(newVersion);
         ShowProgress(0);
     }
 
@@ -87,6 +94,7 @@ public partial class LaunchLoadingOverlay : UserControl
     {
         ++_stageRevision;
         StageText.BeginAnimation(OpacityProperty, null);
+        _bigFallback = title;
         VersionText.Text = title;
         StageText.Text = "Preparing";
         StageText.Opacity = 1;
@@ -146,6 +154,7 @@ public partial class LaunchLoadingOverlay : UserControl
     {
         if (fraction is not { } f)
         {
+            VersionText.Text = _bigFallback;
             if (ProgressSweep.Visibility == Visibility.Visible) return;
             ProgressFill.Visibility = Visibility.Collapsed;
             ProgressScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
@@ -156,6 +165,7 @@ public partial class LaunchLoadingOverlay : UserControl
         }
 
         f = Math.Clamp(f, 0, 1);
+        VersionText.Text = $"{(int)Math.Floor(f * 100)}%";
         if (ProgressSweep.Visibility != Visibility.Collapsed)
         {
             StopClock(ref _sweepClock);

@@ -1,32 +1,53 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:system="clr-namespace:System;assembly=mscorlib">
 
-    <!-- One face everywhere. Monocraft mirrors Minecraft's block-built glyph
-         rhythm without redistributing Mojang assets; Segoe is fail-soft only. -->
-    <FontFamily x:Key="Font.Display">/OriginLauncher.App;component/Assets/Fonts/#Monocraft, Segoe UI</FontFamily>
-    <FontFamily x:Key="Font.Primary">/OriginLauncher.App;component/Assets/Fonts/#Monocraft, Segoe UI</FontFamily>
-    <FontFamily x:Key="Font.Mono">/OriginLauncher.App;component/Assets/Fonts/#Monocraft, Consolas</FontFamily>
+    <!-- Poster type: Inter (OFL, the same face as the in-game Origin menus, bundled
+         from tools/font-atlas/fonts) for everything. The poster's condensed caps
+         (page titles, the version numeral, PLAY) are Inter ExtraBold narrowed with a
+         horizontal scale (Text.Poster's LayoutTransform), since WPF cannot drive a
+         variable width axis. Segoe UI is fail-soft only. Monocraft stays bundled for
+         monospace fields (Font.Mono). -->
+    <FontFamily x:Key="Font.Display">/OriginLauncher.App;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
+    <FontFamily x:Key="Font.Primary">/OriginLauncher.App;component/Assets/Fonts/#Inter, Segoe UI</FontFamily>
+    <FontFamily x:Key="Font.Mono">Consolas, /OriginLauncher.App;component/Assets/Fonts/#Monocraft</FontFamily>
 
-    <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.Display">40</system:Double>
-    <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.H1">26</system:Double>
-    <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.H2">17</system:Double>
-    <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.Body">13</system:Double>
-    <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.Caption">12</system:Double>
-    <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="FontSize.Eyebrow">11</system:Double>
+    <system:Double x:Key="FontSize.Display">40</system:Double>
+    <system:Double x:Key="FontSize.H1">26</system:Double>
+    <system:Double x:Key="FontSize.H2">16</system:Double>
+    <system:Double x:Key="FontSize.Body">13.5</system:Double>
+    <system:Double x:Key="FontSize.Caption">12</system:Double>
+    <system:Double x:Key="FontSize.Eyebrow">11</system:Double>
+    <system:Double x:Key="FontSize.Poster">58</system:Double>
+
+    <!-- Condensed caps for page titles (MODS, PROFILES, SETTINGS...). -->
+    <Style x:Key="Text.Poster" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Poster}"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+        <Setter Property="LineHeight" Value="58"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="LayoutTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="0.8" ScaleY="1"/>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
     <Style x:Key="Text.Display" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Display}"/>
-        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="FontWeight" Value="ExtraBold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
-        <Setter Property="LineHeight" Value="46"/>
+        <Setter Property="LineHeight" Value="44"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
     <Style x:Key="Text.H1" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.H1}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
     </Style>
@@ -34,7 +55,7 @@
     <Style x:Key="Text.H2" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.H2}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
     </Style>
@@ -55,23 +76,24 @@
     <Style x:Key="Text.Label" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}"/>
-        <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
         <Setter Property="LineHeight" Value="20"/>
     </Style>
 
-    <!-- TextBlock has no CharacterCasing property (TextBox-only) — author eyebrow content in caps -->
+    <!-- TextBlock has no CharacterCasing or letter-spacing: author eyebrow content in
+         caps; the tracked poster eyebrows use controls:TrackedText. -->
     <Style x:Key="Text.Eyebrow" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Display}"/>
         <Setter Property="FontSize" Value="{StaticResource FontSize.Eyebrow}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <!-- TextDim, not TextMuted: 11 px small caps need the extra contrast (design review 2026-10-18). -->
-        <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
     </Style>
 
     <Style x:Key="Text.Caption" TargetType="TextBlock" BasedOn="{StaticResource Text.BodyDim}">
         <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
         <Setter Property="LineHeight" Value="18"/>
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}"/>
     </Style>
 
 </ResourceDictionary>

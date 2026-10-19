@@ -22,6 +22,17 @@ namespace OriginLauncher.App.UI;
 /// </summary>
 public static class RenderShots
 {
+    // Made-up rows for the Mods page shots (the scratch instance has no mods of its own).
+    private static readonly Core.Mods.ModEntry[] DemoMods =
+    {
+        new("XaerosWorldMap_1.39.2_Fabric_1.21.jar", "Xaero's World Map", true, false),
+        new("litematica-fabric-1.21.1-0.19.50.jar", "Litematica", true, false),
+        new("appleskin-fabric-mc1.21-3.0.5.jar", "AppleSkin", false, false),
+        new("origin-client-1.21.1.jar", "Origin Client", true, true),
+        new("sodium-fabric-0.6.13+mc1.21.1.jar", "Sodium", true, true),
+        new("iris-fabric-1.8.8+mc1.21.1.jar", "Iris Shaders", true, true),
+    };
+
     public static void Run(string outDir)
     {
         // `--social`: only the Friends / party / chat surfaces, every state (UI/SocialShots.cs).
@@ -149,6 +160,12 @@ public static class RenderShots
         window.TourGoTo(1);
         Pump(800);
         Snap(window, outDir, "13-mods");
+        window.TourShowModsDemo(DemoMods, 0);
+        Pump(600);
+        Snap(window, outDir, "13b-mods-list");
+        window.TourShowModsDemo(DemoMods, 1);
+        Pump(600);
+        Snap(window, outDir, "13c-mods-dragover");
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");
@@ -175,6 +192,9 @@ public static class RenderShots
         window.TourGoTo(1);
         Pump(800);
         Snap(window, outDir, "23-min-mods");
+        window.TourShowModsDemo(DemoMods, 0);
+        Pump(600);
+        Snap(window, outDir, "23b-min-mods-list");
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "24-min-settings");

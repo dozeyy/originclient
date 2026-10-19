@@ -78,133 +78,305 @@ public partial class ProfilesPage : UserControl
 
     // ---- list ------------------------------------------------------------
 
+    // Cards, not rows: a profile should feel like a setup you own (emblem, name,
+    // who it plays as, its mods, where it goes), with the version only a small tag.
     private void Rebuild()
     {
         RowsPanel.Children.Clear();
         var settings = Current();
         var profiles = settings.ModProfiles.Where(ProfileRules.IsUsable).ToList();
         var selectedId = profiles.Any(p => p.Id == settings.SelectedProfileId) ? settings.SelectedProfileId : null;
+        var player = _demo != null
+            ? "OriginPlayer"
+            : Core.Accounts.AccountStore.GetSelected(Core.Accounts.AccountStore.Load())?.Gamertag;
 
-        RowsPanel.Children.Add(BuildNoneRow(selectedId == null));
+        RowsPanel.Children.Add(BuildNoneCard(selectedId == null));
         foreach (var profile in profiles)
         {
             RowsPanel.Children.Add(profile.Id == _pendingDelete
-                ? BuildConfirmRow(profile)
-                : BuildProfileRow(profile, profile.Id == selectedId));
+                ? BuildConfirmCard(profile)
+                : BuildProfileCard(profile, profile.Id == selectedId, player));
         }
+        RowsPanel.Children.Add(BuildNewCard());
     }
 
-    private Border RowShell(bool selected) => new()
+    private Border CardShell(bool selected)
     {
-        Background = (Brush)FindResource("Brush.Panel"),
-        BorderBrush = (Brush)FindResource(selected ? "Brush.Accent" : "Brush.SoftStroke"),
-        BorderThickness = new Thickness(1),
-        CornerRadius = (CornerRadius)FindResource("Radius.Row"),
-        Padding = new Thickness(14, 10, 10, 10),
-        Margin = new Thickness(0, 0, 0, 8)
+        var card = new Border { Style = (Style)FindResource("Card.Profile") };
+        if (selected) card.SetResourceReference(Border.BorderBrushProperty, "Brush.Acc");
+        return card;
+    }
+
+    // The emblem: the profile's initial on its own muted tint (ProfileLook).
+    private Border Emblem(string initial, Brush tint)
+    {
+        var emblem = new Border
+        {
+            Width = 72,
+            Height = 72,
+            CornerRadius = (CornerRadius)FindResource("Radius.Sharp"),
+            Background = tint,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        emblem.Child = new Controls.TrackedText
+        {
+            Text = initial,
+            FontFamily = (FontFamily)FindResource("Font.Display"),
+            FontSize = 34,
+            FontWeight = FontWeights.ExtraBold,
+            ScaleX = 0.86,
+            Foreground = (Brush)FindResource("Brush.Text"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        return emblem;
+    }
+
+    private TextBlock Title(string text) => new()
+    {
+        Text = text,
+        FontFamily = (FontFamily)FindResource("Font.Display"),
+        FontSize = 22,
+        FontWeight = FontWeights.Bold,
+        Foreground = (Brush)FindResource("Brush.Text"),
+        TextTrimming = TextTrimming.CharacterEllipsis,
     };
 
-    private static Grid RowGrid(int autoColumns)
+    private TextBlock Small(string text, string brushKey = "Brush.TextDim", bool bold = false) => new()
+    {
+        Text = text,
+        FontSize = 12.5,
+        FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal,
+        Foreground = (Brush)FindResource(bold ? "Brush.Text" : brushKey),
+        VerticalAlignment = VerticalAlignment.Center,
+        TextTrimming = TextTrimming.CharacterEllipsis,
+    };
+
+    private Path Glyph(string key, double size = 14, string brushKey = "Brush.TextDim") => new()
+    {
+        Data = (Geometry)FindResource(key),
+        Style = (Style)FindResource("Icon.Base"),
+        Stroke = (Brush)FindResource(brushKey),
+        Width = size,
+        Height = size,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    // The card's top: emblem, name, and the second line (a face + "Plays as X").
+    private Grid CardHead(Border emblem, string name, UIElement second, params Button[] actions)
     {
         var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        for (var i = 0; i < autoColumns; i++)
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.Children.Add(emblem);
+
+        var text = new StackPanel { Margin = new Thickness(18, 2, 8, 0), VerticalAlignment = VerticalAlignment.Top };
+        text.Children.Add(Title(name));
+        text.Children.Add(second);
+        AddAt(grid, 1, text);
+
+        if (actions.Length > 0)
+        {
+            var bar = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -6, -8, 0) };
+            foreach (var action in actions) bar.Children.Add(action);
+            AddAt(grid, 2, bar);
+        }
         return grid;
     }
 
-    private StackPanel TitleBlock(string title, string detail, bool dim)
+    private StackPanel PlaysAs(string? player)
     {
-        var panel = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
-        panel.Children.Add(new TextBlock
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 0) };
+        line.Children.Add(Small(player != null ? "Plays as" : "Plays as the account you pick"));
+        if (player != null)
         {
-            Text = title,
-            Style = (Style)FindResource(dim ? "Text.BodyDim" : "Text.Body"),
-            FontWeight = FontWeights.Medium,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        });
-        panel.Children.Add(new TextBlock
-        {
-            Text = detail,
-            Style = (Style)FindResource("Text.Caption"),
-            Margin = new Thickness(0, 2, 0, 0),
-            TextTrimming = TextTrimming.CharacterEllipsis
-        });
-        return panel;
+            line.Children.Add(new Controls.PixelFace { Seed = player, Width = 16, Height = 16, Margin = new Thickness(8, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
+            line.Children.Add(Small(player, bold: true));
+        }
+        return line;
     }
 
-    private FrameworkElement BuildNoneRow(bool selected)
+    // The mods line: a square per mod (its initial when the name is known), a "+N"
+    // square past five, then the count.
+    private StackPanel ModsLine(ModProfile profile)
     {
-        var border = RowShell(selected);
-        var grid = RowGrid(1);
-        grid.Children.Add(TitleBlock("No profile", "Your normal mods, exactly as before", dim: !selected));
-        AddAt(grid, 1, UseControl(selected, "Use no profile", () => Select(null)));
-        border.Child = grid;
-        return border;
+        var count = _countMods(profile);
+        var names = _demo != null
+            ? new List<string>()
+            : Core.Mods.ModManager.Enumerate(profile.Version, profile.Id).Where(m => !m.IsManaged).Select(m => m.DisplayName).ToList();
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 20, 0, 0) };
+        var shown = Math.Min(count, 5);
+        for (var i = 0; i < shown; i++)
+        {
+            var name = i < names.Count ? names[i] : null;
+            UIElement face = name != null
+                ? new TextBlock { Text = ProfileLook.Initial(name), FontSize = 13, FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.TextDim"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+                : Glyph("Icon.Jar", 16);
+            var square = ModSquare(face);
+            if (name != null) square.ToolTip = name;
+            line.Children.Add(square);
+        }
+        if (count > shown)
+            line.Children.Add(ModSquare(new TextBlock { Text = $"+{count - shown}", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Brush.Text"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }));
+        var label = Small(count == 0 ? "No mods yet" : count == 1 ? "1 mod" : $"{count} mods");
+        label.Margin = new Thickness(count == 0 ? 0 : 6, 0, 0, 0);
+        line.Children.Add(label);
+        return line;
     }
 
-    private FrameworkElement BuildProfileRow(ModProfile profile, bool selected)
+    private Border ModSquare(UIElement content) => new()
     {
-        var border = RowShell(selected);
-        var grid = RowGrid(4);
+        Width = 36,
+        Height = 36,
+        Margin = new Thickness(0, 0, 4, 0),
+        Background = (Brush)FindResource("Brush.Bg"),
+        CornerRadius = (CornerRadius)FindResource("Radius.Sharp"),
+        Child = content,
+    };
 
-        var mods = _countMods(profile);
-        var detail = $"{profile.Version} - {mods} {(mods == 1 ? "mod" : "mods")}";
-        if (profile.HasServer) detail += $" - {profile.ServerName ?? profile.ServerAddress}";
-        grid.Children.Add(TitleBlock(profile.Name, detail, dim: false));
+    // Where it goes: "Joins <server>" or "Singleplayer".
+    private StackPanel WhereLine(ModProfile profile)
+    {
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 0) };
+        var server = ProfileRules.ServerLabel(profile);
+        line.Children.Add(Glyph(server != null ? "Icon.Server" : "Icon.Globe"));
+        var text = Small(server != null ? "Joins" : "Singleplayer");
+        text.Margin = new Thickness(8, 0, 0, 0);
+        line.Children.Add(text);
+        if (server != null)
+        {
+            var name = Small(server, bold: true);
+            name.Margin = new Thickness(6, 0, 0, 0);
+            line.Children.Add(name);
+        }
+        return line;
+    }
 
-        AddAt(grid, 1, UseControl(selected, $"Use {profile.Name}", () => Select(profile)));
+    // The foot: "Use profile" (or the Selected mark), and the version tag at the right.
+    private Grid CardFoot(bool selected, string automationName, Action use, string? version, bool running)
+    {
+        var foot = new Grid { Margin = new Thickness(0, 20, 0, 0), VerticalAlignment = VerticalAlignment.Bottom };
+        foot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        foot.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        foot.Children.Add(UseControl(selected, automationName, use, running));
+        if (version != null)
+        {
+            var tag = Small(version, bold: true);
+            tag.FontSize = 12;
+            tag.Foreground = (Brush)FindResource("Brush.TextDim");
+            AddAt(foot, 1, tag);
+        }
+        return foot;
+    }
+
+    // The card body is a top-to-bottom stack whose foot is pinned to the bottom
+    // (cards in one row share a height).
+    private static DockPanel CardBody(UIElement foot, params UIElement[] top)
+    {
+        var dock = new DockPanel { LastChildFill = false };
+        DockPanel.SetDock(foot, Dock.Bottom);
+        dock.Children.Add(foot);
+        foreach (var part in top)
+        {
+            DockPanel.SetDock(part, Dock.Top);
+            dock.Children.Add(part);
+        }
+        return dock;
+    }
+
+    private FrameworkElement BuildNoneCard(bool selected)
+    {
+        var card = CardShell(selected);
+        var sub = Small("Plain Origin");
+        sub.Margin = new Thickness(0, 6, 0, 0);
+        var head = CardHead(Emblem("O", (Brush)FindResource("Brush.CardAlt")), "No profile", sub);
+        var note = Small("Your normal mods for each version, exactly as before.", "Brush.TextMuted");
+        note.Margin = new Thickness(0, 20, 0, 0);
+        note.TextWrapping = TextWrapping.Wrap;
+        card.Child = CardBody(CardFoot(selected, "Use no profile", () => Select(null), null, false), head, note);
+        System.Windows.Automation.AutomationProperties.SetName(card, "No profile");
+        return card;
+    }
+
+    private FrameworkElement BuildProfileCard(ModProfile profile, bool selected, string? player)
+    {
+        var card = CardShell(selected);
 
         var edit = IconButton("Icon.Edit", "Edit", $"Edit {profile.Name}");
         edit.Click += (_, _) => OpenForm(profile);
-        AddAt(grid, 2, edit);
-
         var copy = IconButton("Icon.Copy", "Duplicate", $"Duplicate {profile.Name}");
         copy.Click += (_, _) => Duplicate(profile);
-        AddAt(grid, 3, copy);
-
         var delete = IconButton("Icon.Trash", "Delete", $"Delete {profile.Name}");
         delete.Click += (_, _) => AskDelete(profile);
-        AddAt(grid, 4, delete);
 
-        border.Child = grid;
-        return border;
+        var head = CardHead(Emblem(ProfileLook.Initial(profile.Name), ProfileLook.Tint(profile.Id)), profile.Name, PlaysAs(player), edit, copy, delete);
+        var foot = CardFoot(selected, $"Use {profile.Name}", () => Select(profile), profile.Version, _demo == null && _isInUse(profile.Id));
+        card.Child = CardBody(foot, head, ModsLine(profile), WhereLine(profile));
+        System.Windows.Automation.AutomationProperties.SetName(card, $"{profile.Name}, Minecraft {profile.Version}");
+        return card;
     }
 
-    // Inline destructive-action confirm (same pattern as the Mods page).
-    private FrameworkElement BuildConfirmRow(ModProfile profile)
+    // Inline destructive-action confirm (same pattern as the Mods page): the card
+    // turns into the question, with Delete / Cancel.
+    private FrameworkElement BuildConfirmCard(ModProfile profile)
     {
-        var border = RowShell(false);
-        border.BorderBrush = (Brush)FindResource("Brush.Danger");
-        var grid = RowGrid(2);
+        var card = CardShell(false);
+        card.BorderBrush = (Brush)FindResource("Brush.Danger");
 
-        grid.Children.Add(TitleBlock($"Delete {profile.Name}?", "Its mods are deleted with it", dim: false));
+        var sub = Small("Its mods are deleted with it");
+        sub.Margin = new Thickness(0, 6, 0, 0);
+        var head = CardHead(Emblem(ProfileLook.Initial(profile.Name), ProfileLook.Tint(profile.Id)), $"Delete {profile.Name}?", sub);
 
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 20, 0, 0) };
         var confirm = new Button
         {
             Content = "Delete",
-            Style = (Style)FindResource("Button.Base"),
-            Background = (Brush)FindResource("Brush.Danger"),
-            Foreground = (Brush)FindResource("Brush.TextOnAccent"),
-            Padding = new Thickness(12, 6, 12, 6),
+            Style = (Style)FindResource("Button.Danger"),
+            Padding = new Thickness(16, 0, 16, 0),
+            Height = 34,
             Margin = new Thickness(0, 0, 8, 0),
-            VerticalAlignment = VerticalAlignment.Center
         };
         confirm.Click += (_, _) => ConfirmDelete(profile);
-        AddAt(grid, 1, confirm);
-
+        buttons.Children.Add(confirm);
         var cancel = new Button
         {
             Content = "Cancel",
             Style = (Style)FindResource("Button.Secondary"),
-            Padding = new Thickness(12, 6, 12, 6),
-            VerticalAlignment = VerticalAlignment.Center
+            Padding = new Thickness(16, 0, 16, 0),
+            Height = 34,
         };
         cancel.Click += (_, _) => { _pendingDelete = null; Rebuild(); };
-        AddAt(grid, 2, cancel);
+        buttons.Children.Add(cancel);
 
-        border.Child = grid;
-        return border;
+        card.Child = CardBody(buttons, head);
+        return card;
+    }
+
+    private FrameworkElement BuildNewCard()
+    {
+        var content = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+        var plus = new Path
+        {
+            Data = (Geometry)FindResource("Icon.Plus"),
+            Style = (Style)FindResource("Icon.Base"),
+            Width = 22,
+            Height = 22,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 10),
+        };
+        var button = new Button { Style = (Style)FindResource("Card.New") };
+        plus.SetBinding(Shape.StrokeProperty, new System.Windows.Data.Binding(nameof(Foreground)) { Source = button });
+        content.Children.Add(plus);
+        content.Children.Add(new TextBlock { Text = "New profile", FontSize = 15, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center });
+        var sub = Small("Its own mods, one version", "Brush.TextMuted");
+        sub.HorizontalAlignment = HorizontalAlignment.Center;
+        sub.Margin = new Thickness(0, 4, 0, 0);
+        content.Children.Add(sub);
+        button.Content = content;
+        button.Click += (_, _) => OpenForm(null);
+        System.Windows.Automation.AutomationProperties.SetName(button, "New profile");
+        return button;
     }
 
     private static void AddAt(Grid grid, int column, UIElement element)
@@ -213,26 +385,26 @@ public partial class ProfilesPage : UserControl
         grid.Children.Add(element);
     }
 
-    // "Use" for a row that isn't selected; the SELECTED tag for the one that is.
-    private FrameworkElement UseControl(bool selected, string automationName, Action use)
+    // "Use profile" for a card that isn't selected; the Selected mark (an accent
+    // square, an indicator) for the one that is. A running game adds "Running".
+    private FrameworkElement UseControl(bool selected, string automationName, Action use, bool running)
     {
         if (selected)
         {
-            return new TextBlock
-            {
-                Text = "SELECTED",
-                Style = (Style)FindResource("Text.Eyebrow"),
-                Foreground = (Brush)FindResource("Brush.Accent"),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 10, 0)
-            };
+            var mark = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Height = 34 };
+            var dot = new Rectangle { Width = 8, Height = 8, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+            dot.SetResourceReference(Shape.FillProperty, "Brush.Acc");
+            mark.Children.Add(dot);
+            mark.Children.Add(Small(running ? "Selected / Running" : "Selected", bold: true));
+            return mark;
         }
         var button = new Button
         {
-            Content = "Use",
+            Content = "Use profile",
             Style = (Style)FindResource("Button.Secondary"),
-            Padding = new Thickness(14, 6, 14, 6),
-            Margin = new Thickness(0, 0, 6, 0),
+            Padding = new Thickness(14, 0, 14, 0),
+            Height = 34,
+            HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
         };
         System.Windows.Automation.AutomationProperties.SetName(button, automationName);
@@ -242,17 +414,8 @@ public partial class ProfilesPage : UserControl
 
     private Button IconButton(string iconKey, string tooltip, string automationName)
     {
-        var path = new Path
-        {
-            Data = (Geometry)FindResource(iconKey),
-            Style = (Style)FindResource("Icon.Base"),
-            Stroke = (Brush)FindResource("Brush.TextDim"),
-            Width = 18,
-            Height = 18
-        };
         var button = new Button
         {
-            Content = path,
             Style = (Style)FindResource("Button.Chrome"),
             Width = 34,
             Height = 34,
@@ -260,6 +423,16 @@ public partial class ProfilesPage : UserControl
             ToolTip = tooltip,
             VerticalAlignment = VerticalAlignment.Center
         };
+        var path = new Path
+        {
+            Data = (Geometry)FindResource(iconKey),
+            Style = (Style)FindResource("Icon.Base"),
+            Width = 16,
+            Height = 16
+        };
+        // The glyph follows the button's own foreground (dim at rest, bright on hover).
+        path.SetBinding(Shape.StrokeProperty, new System.Windows.Data.Binding(nameof(Foreground)) { Source = button });
+        button.Content = path;
         System.Windows.Automation.AutomationProperties.SetName(button, automationName);
         return button;
     }

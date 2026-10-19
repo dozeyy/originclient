@@ -28,7 +28,6 @@ public partial class HomePage : UserControl
 {
     private readonly LauncherSettings _settings;
     private readonly VersionManager _versionManager = new();
-    private bool _syncingToggles;
     private StoredAccount? _selectedAccount;
 
     // The version the player has chosen in the grid picker. Source of truth for
@@ -93,37 +92,51 @@ public partial class HomePage : UserControl
     private readonly DispatcherTimer _playersTimer = new(DispatcherPriority.Background) { Interval = PlayersOnline.Refresh };
     private bool _playersStarted;
 
-    private const double CompactBelowHeight = 600;
-    private bool _compact;
+    private const double CompactBelowHeight = 640;
+    private bool _compact = true;
 
     /// <summary>
-    /// Regular spacing (16 px gaps, 24 px card padding, a 66 px version button) or compact (8 px gaps,
-    /// 16 px padding, 56 px button) by how tall the page is. Resize-driven, no animation.
+    /// The bottom strip sits 32 px off the window's edges, 24 px when the window is
+    /// short (the 960x600 minimum) so the strip never crowds the banner above it.
     /// </summary>
     private void ApplyDensity(double pageHeight)
     {
         var compact = pageHeight < CompactBelowHeight;
         if (compact == _compact) return;
         _compact = compact;
-
-        var gap = (double)FindResource(compact ? "Space.2" : "Space.3");
-        // The page's bottom margin gives 8 px back too: at 980x600 with a profile row and Join, the card and
-        // banner came to 488 px in a 486 px slot and lost a pixel of their top and bottom edges.
-        var bottom = compact ? 32 : 40;
-        HomeRoot.Margin = new Thickness(32, 16, 32, bottom);
-        // The version picker and the launch screen cancel the page margin to fill the whole page: they follow it.
-        VersionOverlay.Margin = LoadingOverlay.Margin = new Thickness(-32, -16, -32, -bottom);
-        HomeCardBorder.Padding = new Thickness((double)FindResource(compact ? "Space.3" : "Space.4"));
-        VersionButton.Height = compact ? 56 : 66;
-        VersionButton.Padding = compact ? new Thickness(16, 6, 16, 6) : new Thickness(16, 10, 16, 10);
-        VersionButton.Margin = new Thickness(0, 0, 0, gap);
-        ProfileRow.Margin = new Thickness(0, 0, 0, gap);
-        ModsRowBorder.Margin = new Thickness(0, 0, 0, gap);
-        // Play to Join stays 16 px at every size: the two buttons are a pair.
-        JoinButton.Margin = new Thickness(0, (double)FindResource("Space.3"), 0, 0);
-        StatusRow.Margin = new Thickness(0, gap, 0, 0);
-        PromoBanner.Margin = new Thickness(0, gap, 0, 0);
+        var edge = compact ? 24 : 32;
+        HomeCard.Margin = new Thickness(edge, 0, edge, edge);
+        BannerSlot.Margin = new Thickness(0, compact ? 68 : 72, edge, 0);
     }
+
+    /// <summary>MainWindow: the profile chip asks for the Profiles page.</summary>
+    public event EventHandler? ProfilesRequested;
+
+    /// <summary>MainWindow: the launch screen came up or went down (the top bar hides under it).</summary>
+    public event Action<bool>? LaunchSceneChanged;
+
+    private void ProfileRow_Click(object sender, RoutedEventArgs e) => ProfilesRequested?.Invoke(this, EventArgs.Empty);
+
+    // The strip steps aside (fade + 16 px drop) while the picker or the launch
+    // screen is up, and the art blooms into colour under the launch screen.
+    private void OnSceneVisibilityChanged()
+    {
+        var launching = LoadingOverlay.Visibility == Visibility.Visible;
+        var away = launching || VersionOverlay.IsOpen;
+        HomeCard.IsHitTestVisible = !away;
+        HomeCard.BeginAnimation(OpacityProperty, Motion.To(away ? 0 : 1, away ? 200 : 260, Motion.Out));
+        StripShift.BeginAnimation(TranslateTransform.YProperty, Motion.To(away ? 16 : 0, 260, Motion.Out));
+        BannerSlot.BeginAnimation(OpacityProperty, Motion.To(away ? 0 : 1, 200, Motion.Out));
+        if (launching != _launchShown)
+        {
+            _launchShown = launching;
+            if (launching) ArtStage.Instance?.BeginLaunch();
+            else ArtStage.Instance?.EndLaunch();
+            LaunchSceneChanged?.Invoke(launching);
+        }
+    }
+
+    private bool _launchShown;
 
     public HomePage()
     {
@@ -131,6 +144,10 @@ public partial class HomePage : UserControl
         // The Play card (with a profile row and Join) is taller than the smallest window leaves room for:
         // below this page height every gap on it halves, so nothing touches the top bar or the bottom edge.
         SizeChanged += (_, e) => ApplyDensity(e.NewSize.Height);
+        // A Visibility flip, not IsVisible: navigation never leaves Home while either is up.
+        System.ComponentModel.DependencyPropertyDescriptor.FromProperty(VisibilityProperty, typeof(UIElement))
+            .AddValueChanged(LoadingOverlay, (_, _) => OnSceneVisibilityChanged());
+        VersionOverlay.IsVisibleChanged += (_, _) => OnSceneVisibilityChanged();
         _settings = SettingsStore.Load();
         LoadingOverlay.CancelRequested += (_, _) =>
         {
@@ -167,9 +184,8 @@ public partial class HomePage : UserControl
         var intro = (Duration)FindResource("Motion.Intro");
         if (!SystemParameters.ClientAreaAnimation || !intro.HasTimeSpan || intro.TimeSpan <= TimeSpan.Zero) return;
         var settle = ((Duration)FindResource("Motion.Settle")).TimeSpan;
-        HomeMark.Align(intro);
         Settle(HomeLockupText, rise: 6, delay: TimeSpan.FromMilliseconds(160), settle);
-        Settle(HomeCard, rise: 10, delay: TimeSpan.FromMilliseconds(220), settle);
+        Settle(PlayButton, rise: 10, delay: TimeSpan.FromMilliseconds(220), settle);
     }
 
     private static void Settle(UIElement element, double rise, TimeSpan delay, TimeSpan length)
@@ -229,8 +245,8 @@ public partial class HomePage : UserControl
         if (SelectedKey() is { } key && _launches.PhaseOf(key) is GamePhase.Starting or GamePhase.Running)
         {
             Note(key, _launches.PhaseOf(key) == GamePhase.Starting
-                ? "Minecraft is still starting on this account — try Join again in a moment"
-                : "Minecraft is already open on this account — close it to join, or switch accounts", LaunchTone.Warning);
+                ? "Minecraft is still starting on this account - try Join again in a moment"
+                : "Minecraft is already open on this account - close it to join, or switch accounts", LaunchTone.Warning);
             FocusGame(key);
             return;
         }
@@ -279,18 +295,32 @@ public partial class HomePage : UserControl
         var selected = settings.ModProfiles.FirstOrDefault(p => p.Id == settings.SelectedProfileId && ProfileRules.IsUsable(p));
         var active = ProfileRules.Active(settings.ModProfiles, settings.SelectedProfileId, _selectedVersion);
 
-        ProfileRow.Visibility = selected != null ? Visibility.Visible : Visibility.Collapsed;
-        ProfileNameText.Text = selected == null ? "" : active != null ? selected.Name : $"{selected.Name} · {selected.Version} only";
-        ProfileNameText.ToolTip = selected == null ? null
-            : active != null ? "Play uses this profile's mods (change it on the Profiles page)"
-            : $"This profile is for {selected.Version}, so {_selectedVersion} uses your normal mods";
+        if (selected == null)
+        {
+            ProfileNameText.Text = "No profile";
+            ProfileSubText.Text = "Plain Origin";
+            ProfileInitial.Text = "O";
+            ProfileEmblem.Background = (Brush)FindResource("Brush.CardAlt");
+            ProfileRow.ToolTip = "Switch profile";
+        }
+        else
+        {
+            ProfileNameText.Text = selected.Name;
+            ProfileSubText.Text = active == null ? $"For {selected.Version} only"
+                : active.HasServer ? ProfileRules.JoinLabel(active) : "Singleplayer";
+            ProfileInitial.Text = ProfileLook.Initial(selected.Name);
+            ProfileEmblem.Background = ProfileLook.Tint(selected.Id);
+            ProfileRow.ToolTip = active != null ? "Play uses this profile's mods (switch on the Profiles page)"
+                : $"This profile is for {selected.Version}, so {_selectedVersion} uses your normal mods";
+        }
+        System.Windows.Automation.AutomationProperties.SetName(ProfileRow, $"Profile: {ProfileNameText.Text}. Switch profile");
 
         _joinProfile = active is { HasServer: true } ? active : null;
         JoinButton.Visibility = _joinProfile != null ? Visibility.Visible : Visibility.Collapsed;
         if (_joinProfile != null)
         {
-            JoinButton.Content = ProfileRules.JoinLabel(_joinProfile);
-            System.Windows.Automation.AutomationProperties.SetName(JoinButton, JoinButton.Content.ToString());
+            JoinServerText.Text = ProfileRules.ServerLabel(_joinProfile) ?? "Server";
+            System.Windows.Automation.AutomationProperties.SetName(JoinButton, ProfileRules.JoinLabel(_joinProfile));
         }
     }
 
@@ -388,9 +418,9 @@ public partial class HomePage : UserControl
         if (key != null && _launches.PhaseOf(key) != GamePhase.Idle && _launches.NoteOf(key) is { } note)
             SetStatus(note.Text, ToneOf(note.Tone));
         else if (_selectedAccount != null)
-            SetStatus(_selectedAccount.Gamertag, StatusTone.Success);
+            SetStatus("Ready to play", StatusTone.Success);
         else if (key != null)
-            SetStatus("Offline", StatusTone.Warning);
+            SetStatus("Ready to play offline", StatusTone.Warning);
         else
             SetStatus("Sign in to play", StatusTone.Neutral);
     }
@@ -420,8 +450,11 @@ public partial class HomePage : UserControl
         System.Windows.Automation.AutomationProperties.SetName(PlayButton,
             view.ShowsRunning ? "Switch to Minecraft" : "Play Minecraft");
         SetPlayLaunching(view.Spinner);
-        PlayLabel.Visibility = !view.Spinner && !view.ShowsRunning ? Visibility.Visible : Visibility.Collapsed;
+        // Hidden, not Collapsed: the spinner takes PLAY's place without the button changing width.
+        PlayLabel.Visibility = !view.Spinner && !view.ShowsRunning ? Visibility.Visible
+            : view.ShowsRunning ? Visibility.Collapsed : Visibility.Hidden;
         RunningLabel.Visibility = !view.Spinner && view.ShowsRunning ? Visibility.Visible : Visibility.Collapsed;
+        PlayButton.Tag = view.Spinner || view.ShowsRunning ? "busy" : null;
     }
 
     // A status line for one account: remembered for it (switching back shows
@@ -459,7 +492,6 @@ public partial class HomePage : UserControl
             : VersionCatalog.DefaultVersion;
         SetVersionButtonText(_selectedVersion);
         SocialHub.PresenceVersion = _selectedVersion;
-        SyncExternalModsToggle();
         ApplyProfile(_settings);
         UpdatePlayState();
     }
@@ -476,38 +508,30 @@ public partial class HomePage : UserControl
         UpdatePlayState();
     }
 
-    private void SetVersionButtonText(string? version) =>
-        VersionButtonText.Text = version ?? "Select a version";
+    private void SetVersionButtonText(string? version)
+    {
+        VersionButtonText.Text = version ?? "Pick one";
+        ShowFamily(version);
+    }
+
+    // The family on screen follows the version: its accent, label and range here,
+    // its art and the giant numeral on the stage behind (crossfade + roll).
+    private void ShowFamily(string? version)
+    {
+        var animate = _familyShown;
+        _familyShown = true;
+        FamilyTheme.Apply(version, animate);
+        var family = FamilyTheme.Current;
+        FamilyLabel.Text = family.Label;
+        FamilyRange.Text = family.Range;
+        VersionSubText.Text = family.Count == 1 ? "1 version in this family" : $"{family.Count} versions in this family";
+        ArtStage.Instance?.Show(version, animate);
+    }
+
+    private bool _familyShown;
 
     private void VersionButton_Click(object sender, RoutedEventArgs e) =>
         VersionOverlay.Show(_selectedVersion);
-
-    // Reflect the persisted value into the switch without re-triggering the
-    // Checked/Unchecked save handlers (the _syncingToggles guard).
-    private void SyncExternalModsToggle()
-    {
-        _syncingToggles = true;
-        ExternalModsToggle.IsChecked = _settings.PlayWithExternalMods;
-        _syncingToggles = false;
-    }
-
-    private void ExternalModsToggle_Checked(object sender, RoutedEventArgs e)
-    {
-        if (_syncingToggles) return;
-        SaveExternalMods(true);
-    }
-
-    private void ExternalModsToggle_Unchecked(object sender, RoutedEventArgs e)
-    {
-        if (_syncingToggles) return;
-        SaveExternalMods(false);
-    }
-
-    private void ExternalModsLabel_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        ExternalModsToggle.IsChecked = ExternalModsToggle.IsChecked != true;
-        e.Handled = true;
-    }
 
     private void SaveExternalMods(bool value)
     {
@@ -567,7 +591,7 @@ public partial class HomePage : UserControl
         {
             case PlayAction.FocusGame:
                 if (_launches.VersionOf(key) is { } playing && playing != version)
-                    Note(key, $"{accountName} is already playing {playing} — close it first to play {version}", LaunchTone.Warning);
+                    Note(key, $"{accountName} is already playing {playing} - close it first to play {version}", LaunchTone.Warning);
                 FocusGame(key);
                 return;
             case PlayAction.None when _launches.PhaseOf(key) == GamePhase.Starting:
@@ -579,7 +603,7 @@ public partial class HomePage : UserControl
         if (_launches.PhaseOf(key) == GamePhase.Idle
             && AccountFolders.VersionPlayingOutsideLauncher(key) is { } openVersion)
         {
-            Note(key, $"Minecraft {openVersion} is still open on {accountName} — close it first", LaunchTone.Warning);
+            Note(key, $"Minecraft {openVersion} is still open on {accountName} - close it first", LaunchTone.Warning);
             return;
         }
 
@@ -614,7 +638,8 @@ public partial class HomePage : UserControl
         _overlayTicket = ticket;
         _sceneGame = null; // the scene is this launch's now, whatever it showed before
         RefreshPlayButton();
-        LoadingOverlay.Show(version);
+        LoadingOverlay.Show(version, profile != null || target?.Server != null
+            ? $"{accountName} - {target?.Server ?? profile!.Name}" : accountName);
 
         // Only the launch the scene is showing reports into it — an older
         // launch still finishing for another account stays quiet.
@@ -749,8 +774,8 @@ public partial class HomePage : UserControl
             // button and surfaces the crash.
             Note(key, $"Starting {version}", LaunchTone.Neutral);
             var runningMessage = target?.Server is { } joined
-                ? $"Playing on {SocialText.DisplayServer(joined)} · {version}"
-                : $"Running · {session.Username}";
+                ? $"Playing on {SocialText.DisplayServer(joined)} - {version}"
+                : $"Running - {session.Username}";
             _ = WatchBootAsync(game, runningMessage);
         }
         catch (OperationCanceledException)
@@ -770,7 +795,7 @@ public partial class HomePage : UserControl
         {
             // ex.Message is always a plain sentence (raw HTTP detail only goes to the log).
             var upToDateMessage = ex.Stage == "token_refresh"
-                ? "Your session expired — remove and re-add this account in the account switcher."
+                ? "Your session expired - remove and re-add this account in the account switcher."
                 : ex.Message;
             Note(key, await LaunchFailureTextAsync(ex, upToDateMessage), LaunchTone.Error);
             System.Diagnostics.Debug.WriteLine($"[HomePage] Launch failed (auth): {ex}");
@@ -860,7 +885,7 @@ public partial class HomePage : UserControl
                         return;
                     }
                     Note(game.Key, game.LogPath != null
-                        ? $"Minecraft crashed while starting (exit code {exitCode}) — log saved to {game.LogPath}"
+                        ? $"Minecraft crashed while starting (exit code {exitCode}) - log saved to {game.LogPath}"
                         : $"Minecraft crashed while starting (exit code {exitCode}).", LaunchTone.Error);
                     // A boot crash is the one case where a bad file on disk is a
                     // live suspect, so drop the "already verified" stamp and make
@@ -1007,7 +1032,7 @@ public partial class HomePage : UserControl
         {
             var analysis = await Task.Run(() => CrashAnalyzer.Analyze(game.GameDir, game.LogPath));
             var window = new UI.Windows.CrashReportWindow(analysis, game.LogPath,
-                $"{game.AccountName} · Minecraft {game.Version}")
+                $"{game.AccountName} - Minecraft {game.Version}")
             {
                 Owner = Window.GetWindow(this)
             };
@@ -1015,7 +1040,6 @@ public partial class HomePage : UserControl
             if (window.RetryWithoutExternalMods)
             {
                 SaveExternalMods(false);
-                SyncExternalModsToggle();
                 await LaunchAsync(new LaunchTarget(game.Version, AccountKey: game.Key));
             }
         }
@@ -1059,7 +1083,7 @@ public partial class HomePage : UserControl
     {
         await UpdateService.CheckAsync();
         return UpdateService.UpdateRequired
-            ? "Launch failed — please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version."
+            ? "Launch failed - please update the launcher (click the update dot in the top-right). This is very likely already fixed in the newest version."
             : upToDateMessage;
     }
 
@@ -1079,7 +1103,7 @@ public partial class HomePage : UserControl
 
         var detail = ReferenceEquals(inner, ex) || inner.Message == ex.Message
             ? ex.Message
-            : $"{ex.Message} — {inner.Message}";
+            : $"{ex.Message} - {inner.Message}";
 
         return $"{detail} [{code}]";
     }
@@ -1221,14 +1245,14 @@ public partial class HomePage : UserControl
     internal void TourShowRunning(string playerName)
     {
         ApplyPlayButton(AccountLaunchBook.ButtonFor(GamePhase.Running, canPlay: true, hasVersion: true));
-        SetStatus($"Running · {playerName}", StatusTone.Success);
+        SetStatus($"Running - {playerName}", StatusTone.Success);
     }
 
     /// <summary>
     /// Render mode only (UI/RenderShots.cs): the launch progress screen,
     /// without preparing or starting anything.
     /// </summary>
-    internal void TourShowLaunch(string version) => LoadingOverlay.Show(version);
+    internal void TourShowLaunch(string version) => LoadingOverlay.Show(version, "OriginPlayer - Survival SMP");
 
     internal void TourReportLaunch(string stage) => LoadingOverlay.ReportStage(stage);
 
@@ -1258,14 +1282,16 @@ public partial class HomePage : UserControl
     private void SetStatus(string text, StatusTone tone)
     {
         StatusText.Text = text;
+        // Ready is the family accent (an indicator, so the one hue may show); the
+        // rest keep their status colours. By reference: FamilyTheme swaps Brush.Acc.
         var brushKey = tone switch
         {
-            StatusTone.Success => "Brush.Success",
+            StatusTone.Success => "Brush.Acc",
             StatusTone.Warning => "Brush.Warning",
             StatusTone.Error => "Brush.Danger",
-            _ => "Brush.Accent"
+            _ => "Brush.TextDim"
         };
-        StatusDot.Fill = (Brush)FindResource(brushKey);
+        StatusDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, brushKey);
     }
 
     private void SetPlayLaunching(bool launching)

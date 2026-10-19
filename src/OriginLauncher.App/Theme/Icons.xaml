@@ -74,6 +74,11 @@
     <!-- Mod profiles (Feather layers / edit-2 / copy, MIT; plus and check are above). -->
     <Geometry x:Key="Icon.Profiles">M12,2 L2,7 12,12 22,7 Z M2,17 L12,22 22,17 M2,12 L12,17 22,12</Geometry>
     <Geometry x:Key="Icon.Edit">M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z</Geometry>
+    <Geometry x:Key="Icon.Server">M5.5,4 H18.5 A1.5,1.5 0 0 1 20,5.5 V9.5 A1.5,1.5 0 0 1 18.5,11 H5.5 A1.5,1.5 0 0 1 4,9.5 V5.5 A1.5,1.5 0 0 1 5.5,4 Z M5.5,13 H18.5 A1.5,1.5 0 0 1 20,14.5 V18.5 A1.5,1.5 0 0 1 18.5,20 H5.5 A1.5,1.5 0 0 1 4,18.5 V14.5 A1.5,1.5 0 0 1 5.5,13 Z M8,7.5 L8.01,7.5 M8,16.5 L8.01,16.5</Geometry>
+    <Geometry x:Key="Icon.Jar">M14,3 H7 A2,2 0 0 0 5,5 V19 A2,2 0 0 0 7,21 H17 A2,2 0 0 0 19,19 V8 Z M14,3 V8 H19 M9,13 H15 M9,17 H13</Geometry>
+    <Geometry x:Key="Icon.Drop">M12,3 V15 M7,10 L12,15 17,10 M4,15 V18 A2,2 0 0 0 6,20 H18 A2,2 0 0 0 20,18 V15</Geometry>
     <Geometry x:Key="Icon.Copy">M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1</Geometry>
+    <!-- Singleplayer (a world): globe, lucide-style. -->
+    <Geometry x:Key="Icon.Globe">M12,3 A9,9 0 1 0 12.001,3 Z M3,12 H21 M12,3 A14,14 0 0 1 12,21 A14,14 0 0 1 12,3 Z</Geometry>
 
 </ResourceDictionary>

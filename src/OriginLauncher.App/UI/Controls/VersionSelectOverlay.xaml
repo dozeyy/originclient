@@ -3,262 +3,212 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:controls="clr-namespace:OriginLauncher.App.UI.Controls"
              mc:Ignorable="d"
              Visibility="Collapsed" Focusable="True">
 
     <UserControl.Resources>
-
-        <!-- A card is a ListBoxItem: selection-on-click is built in and reliable,
-             which a Border+MouseLeftButtonUp was not. The item chrome is stripped;
-             the DataTemplate paints the whole card. -->
-        <Style x:Key="CardItem" TargetType="ListBoxItem">
-            <Setter Property="Margin" Value="8"/>
+        <!-- A family tile is a ListBoxItem (selection on click is built in). The
+             chrome is stripped; the template paints the tile: a 16:9 thumb in grey
+             that turns to colour on hover / selection, a 3 px bar in the family's
+             own accent, then the range and the name. Hover lifts it 4 px. -->
+        <Style x:Key="FamilyItem" TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="0,0,8,0"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <ContentPresenter/>
+                        <Grid x:Name="Tile" Background="Transparent" RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <TranslateTransform x:Name="Lift"/>
+                            </Grid.RenderTransform>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0" CornerRadius="{StaticResource Radius.Sharp}" ClipToBounds="True"
+                                    Background="{StaticResource Brush.Bg}" Height="{Binding ThumbHeight}">
+                                <Grid>
+                                    <Image Source="{Binding Grey}" Stretch="UniformToFill"/>
+                                    <Image x:Name="Colour" Source="{Binding Colour}" Stretch="UniformToFill" Opacity="0"/>
+                                    <Rectangle x:Name="Bar" Height="3" VerticalAlignment="Bottom" Fill="{Binding Accent}" Opacity="0"/>
+                                    <Border x:Name="CurrentTag" Visibility="{Binding CurrentVisibility}" Background="#E6111111"
+                                            CornerRadius="{StaticResource Radius.Knob}" Padding="6,3"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6">
+                                        <controls:TrackedText Text="PLAYING" Tracking="0.12" FontSize="10" FontWeight="Bold"
+                                                              Foreground="{StaticResource Brush.Text}"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <TextBlock Grid.Row="1" Text="{Binding Range}" Margin="0,8,0,0" FontSize="15" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Text}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Row="2" Text="{Binding Name}" Margin="0,2,0,10" FontSize="11.5"
+                                       Foreground="{StaticResource Brush.TextMuted}" TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y" To="-4" Duration="{StaticResource Motion.Scene}"/>
+                                            <DoubleAnimation Storyboard.TargetName="Colour" Storyboard.TargetProperty="Opacity" To="1" Duration="{StaticResource Motion.Scene}"/>
+                                            <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="Opacity" To="1" Duration="{StaticResource Motion.Scene}"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y" To="0" Duration="{StaticResource Motion.Scene}"/>
+                                            <!-- No To: each settles on its base value, which the
+                                                 IsSelected trigger sets (1 selected, 0 not). -->
+                                            <DoubleAnimation Storyboard.TargetName="Colour" Storyboard.TargetProperty="Opacity" Duration="{StaticResource Motion.Scene}"/>
+                                            <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="Opacity" Duration="{StaticResource Motion.Scene}"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Colour" Property="Opacity" Value="1"/>
+                                <Setter TargetName="Bar" Property="Opacity" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <!-- Big grid card (3x3 landing) -->
-        <DataTemplate x:Key="GridCardTemplate">
-            <Grid x:Name="CardRoot" Width="300" Height="188" RenderTransformOrigin="0.5,0.5">
-                <Grid.RenderTransform>
-                    <ScaleTransform ScaleX="1" ScaleY="1"/>
-                </Grid.RenderTransform>
-                <Border CornerRadius="{StaticResource Radius.Card}">
-                    <Border.Background>
-                        <ImageBrush ImageSource="{Binding ImagePath}" Stretch="UniformToFill"/>
-                    </Border.Background>
-                </Border>
-                <Border CornerRadius="{StaticResource Radius.Card}">
-                    <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                            <GradientStop Color="#00090D0C" Offset="0.38"/>
-                            <GradientStop Color="#F2090D0C" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Border.Background>
-                </Border>
-                <Border x:Name="Ring" CornerRadius="{StaticResource Radius.Card}" BorderThickness="2"
-                        BorderBrush="{StaticResource Brush.Accent}" Opacity="0"/>
-                <Border CornerRadius="{StaticResource Radius.Card}" BorderThickness="1"
-                        BorderBrush="{StaticResource Brush.SoftStroke}"/>
-                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H2}"
-                           VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="14,0,14,12"/>
-            </Grid>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                    <Setter TargetName="Ring" Property="Opacity" Value="0.6"/>
-                </DataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
-
-        <!-- Compact left-stack card (detail view) -->
-        <DataTemplate x:Key="StackCardTemplate">
-            <Grid x:Name="StackRoot" Height="58">
-                <Border CornerRadius="{StaticResource Radius.NavItem}">
-                    <Border.Background>
-                        <ImageBrush ImageSource="{Binding ImagePath}" Stretch="UniformToFill"/>
-                    </Border.Background>
-                </Border>
-                <Border CornerRadius="{StaticResource Radius.NavItem}" Background="#D9090D0C"/>
-                <Border x:Name="SelRing" CornerRadius="{StaticResource Radius.NavItem}" BorderThickness="2"
-                        BorderBrush="{StaticResource Brush.Accent}" Opacity="0"/>
-                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Margin="12,0"/>
-            </Grid>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                    <Setter TargetName="SelRing" Property="Opacity" Value="1"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
-                    <Setter TargetName="SelRing" Property="Opacity" Value="0.5"/>
-                </DataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
-
-        <!-- Small feature tag chip in the detail view -->
-        <Style x:Key="DetailChip" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="{StaticResource Radius.Chip}"/>
-            <Setter Property="Padding" Value="9,5"/>
-            <Setter Property="Margin" Value="0,0,8,8"/>
+        <!-- A version chip: a radio. Checked = the primary fill. -->
+        <Style x:Key="VersionChip" TargetType="RadioButton">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="64"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Button}"/>
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="RenderTransform"><Setter.Value><ScaleTransform/></Setter.Value></Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Body" Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Sharp}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.Stroke}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.Accent}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.95" ScaleY="0.95"/></Setter.Value></Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
-        <!-- Version dropdown entry: the plain version string ("1.20.4"). -->
-        <DataTemplate x:Key="VersionItemTemplate">
-            <TextBlock Text="{Binding}" Style="{StaticResource Text.Body}" MinWidth="200"/>
-        </DataTemplate>
+        <Style x:Key="Kbd" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.CardAlt}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Knob}"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="MinWidth" Value="22"/>
+            <Setter Property="Margin" Value="0,0,4,0"/>
+        </Style>
     </UserControl.Resources>
 
-    <Grid x:Name="OverlayStage" Background="{StaticResource Brush.WindowBackdrop}">
-        <Grid.RenderTransform>
-            <TranslateTransform x:Name="OverlayTranslate"/>
-        </Grid.RenderTransform>
-        <Grid x:Name="OverlayInner" Margin="40,24,40,32" SizeChanged="OverlayInner_SizeChanged">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+    <Grid>
+        <!-- Clicking the art above the sheet closes it. -->
+        <Border Background="Transparent" MouseLeftButtonDown="Backdrop_MouseLeftButtonDown"/>
 
-            <!-- Header -->
-            <!-- Margin is set in code (UpdateHeaderInset): the grid's edges when the cards are shown, the
-                 list's edge in the detail view. -->
-            <Grid Grid.Row="0" x:Name="HeaderRow" Margin="0,0,0,16">
+        <!-- The sheet and its shade slide as one. The shade is a gradient, not a
+             DropShadowEffect: an effect re-rasterises the whole sheet on every
+             hover frame. -->
+        <Grid x:Name="Sheet" VerticalAlignment="Bottom">
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="OverlayTranslate"/>
+            </Grid.RenderTransform>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="56"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Rectangle Grid.Row="0" Fill="{StaticResource Fill.SheetShade}" IsHitTestVisible="False"/>
+            <Border Grid.Row="1" Grid.RowSpan="3" Background="{StaticResource Brush.Panel}"/>
+
+            <Grid Grid.Row="1" Margin="32,16,16,12">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <!-- Back-to-grid (only in detail view) -->
-                <Button Grid.Column="0" x:Name="BackButton" Style="{StaticResource Button.Chrome}" MinWidth="34" MinHeight="34"
-                        Padding="8" VerticalAlignment="Center" Margin="-9,0,12,0" Visibility="Collapsed"
-                        Click="Back_Click" ToolTip="All versions" AutomationProperties.Name="All versions">
-                    <Path Data="{StaticResource Icon.Back}" Style="{StaticResource Icon.Base}"
-                          Width="16" Height="16" Stroke="{StaticResource Brush.TextDim}"/>
-                </Button>
-                <TextBlock Grid.Column="1" Text="Versions" Style="{StaticResource Text.H1}"
-                           VerticalAlignment="Center"/>
-                <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" MinWidth="34" MinHeight="34" Padding="8"
-                        VerticalAlignment="Center" Margin="0,0,-10,0" Click="Close_Click" ToolTip="Close" AutomationProperties.Name="Close">
-                    <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}"
-                          Width="14" Height="14" Stroke="{StaticResource Brush.TextDim}"/>
+                <controls:TrackedText Text="CHOOSE A VERSION" Tracking="0.02" ScaleX="0.8" FontFamily="{StaticResource Font.Display}"
+                                      FontSize="28" FontWeight="ExtraBold" Foreground="{StaticResource Brush.Text}"
+                                      VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0"
+                            TextElement.FontSize="11" TextElement.FontWeight="SemiBold" TextElement.Foreground="{StaticResource Brush.Text}">
+                    <Border Style="{StaticResource Kbd}"><TextBlock Text="&lt;" HorizontalAlignment="Center"/></Border>
+                    <Border Style="{StaticResource Kbd}"><TextBlock Text="&gt;" HorizontalAlignment="Center"/></Border>
+                    <TextBlock Text="family" FontSize="12" FontWeight="Normal" Foreground="{StaticResource Brush.TextMuted}" Margin="2,0,14,0" VerticalAlignment="Center"/>
+                    <Border Style="{StaticResource Kbd}"><TextBlock Text="Enter"/></Border>
+                    <TextBlock Text="play" FontSize="12" FontWeight="Normal" Foreground="{StaticResource Brush.TextMuted}" Margin="2,0,14,0" VerticalAlignment="Center"/>
+                    <Border Style="{StaticResource Kbd}"><TextBlock Text="Esc"/></Border>
+                    <TextBlock Text="close" FontSize="12" FontWeight="Normal" Foreground="{StaticResource Brush.TextMuted}" Margin="2,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button Grid.Column="2" Style="{StaticResource Button.Chrome}" MinWidth="36" MinHeight="36" Padding="10"
+                        VerticalAlignment="Center" Click="Close_Click" ToolTip="Close" AutomationProperties.Name="Close">
+                    <Path Data="{StaticResource Icon.Close}" Style="{StaticResource Icon.Base}" Width="14" Height="14"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                 </Button>
             </Grid>
 
-            <!-- ===== GRID STATE ===== -->
-            <Viewbox Grid.Row="1" x:Name="GridState" Stretch="Uniform" StretchDirection="DownOnly"
-                     MaxWidth="1040" HorizontalAlignment="Center" VerticalAlignment="Center"
-                     SizeChanged="GridState_SizeChanged">
-                <ListBox x:Name="GridList" Background="Transparent" BorderThickness="0"
-                         ItemContainerStyle="{StaticResource CardItem}"
-                         ItemTemplate="{StaticResource GridCardTemplate}"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                         SelectionChanged="GridList_SelectionChanged">
-                    <ListBox.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <!-- Columns fixed at 3, rows left to UniformGrid so the
-                                 grid follows the catalog instead of a hardcoded 9.
-                                 Eight cards today (3/3/2): the 26 card (back
-                                 2026-10-13), six Fabric families, and 1.8
-                                 (Forge, back 2026-10-13) last. -->
-                            <UniformGrid Columns="3"/>
-                        </ItemsPanelTemplate>
-                    </ListBox.ItemsPanel>
-                </ListBox>
-            </Viewbox>
+            <!-- The families, newest first, in one row that fills the width. -->
+            <ListBox Grid.Row="2" x:Name="FamilyList" Margin="32,4,24,6" Background="Transparent" BorderThickness="0"
+                     ItemContainerStyle="{StaticResource FamilyItem}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     KeyboardNavigation.DirectionalNavigation="Cycle"
+                     SelectionChanged="FamilyList_SelectionChanged"
+                     AutomationProperties.Name="Version families">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Rows="1"/>
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
 
-            <!-- ===== DETAIL STATE ===== -->
-            <Grid Grid.Row="1" x:Name="DetailState" Visibility="Collapsed">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="230"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RenderTransform>
-                    <TranslateTransform x:Name="DetailSlide" X="0"/>
-                </Grid.RenderTransform>
-
-                <!-- Left: stacked cards, newest at top -->
-                <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,8,0">
-                    <ScrollViewer.Resources>
-                        <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
-                    </ScrollViewer.Resources>
-                    <ListBox x:Name="StackList" Background="Transparent" BorderThickness="0"
-                             ItemTemplate="{StaticResource StackCardTemplate}"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             SelectionChanged="StackList_SelectionChanged">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource CardItem}">
-                                <Setter Property="Margin" Value="0,0,0,8"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                    </ListBox>
-                </ScrollViewer>
-
-                <!-- Right: the selected family's detail -->
-                <Grid Grid.Column="1" x:Name="DetailPanel" Margin="32,0,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Top: compact hero + headline info -->
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Smaller, crisp hero image -->
-                        <Border Grid.Column="0" Width="320" Height="200" CornerRadius="{StaticResource Radius.Card}" ClipToBounds="True">
-                            <Border.Background>
-                                <ImageBrush ImageSource="{Binding ImagePath}" Stretch="UniformToFill"/>
-                            </Border.Background>
-                            <Border CornerRadius="{StaticResource Radius.Card}" BorderThickness="1" BorderBrush="{StaticResource Brush.SoftStroke}"/>
-                        </Border>
-
-                        <!-- Headline info -->
-                        <StackPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Top">
-                            <TextBlock Text="{Binding Tagline}" Style="{StaticResource Text.Eyebrow}"
-                                       Foreground="{StaticResource Brush.TextDim}"/>
-                            <TextBlock Text="{Binding Title}" Style="{StaticResource Text.H1}" Margin="0,4,0,0"
-                                       TextWrapping="Wrap" TextTrimming="None"/>
-                            <TextBlock x:Name="FactsText" Style="{StaticResource Text.BodyDim}" Margin="0,8,0,0" TextWrapping="Wrap"/>
-                            <WrapPanel Margin="0,16,0,0">
-                                <Border Style="{StaticResource DetailChip}"><TextBlock Text="ORIGIN UI" Style="{StaticResource Text.Eyebrow}"/></Border>
-                                <Border Style="{StaticResource DetailChip}"><TextBlock Text="PERFORMANCE" Style="{StaticResource Text.Eyebrow}"/></Border>
-                                <Border Style="{StaticResource DetailChip}"><TextBlock Text="SHADERS" Style="{StaticResource Text.Eyebrow}"/></Border>
-                            </WrapPanel>
+            <!-- The family's versions as chips, then Play. -->
+            <Grid Grid.Row="3" Background="{StaticResource Brush.Bg}">
+                <Grid Margin="32,14,32,24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <controls:TrackedText x:Name="ChipsLabel" Text="TRICKY TRIALS" Tracking="0.16" ScaleX="0.94"
+                                          FontSize="{StaticResource FontSize.Eyebrow}" FontWeight="SemiBold"
+                                          Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center" Margin="0,0,16,6"/>
+                    <WrapPanel Grid.Column="1" x:Name="ChipsPanel" VerticalAlignment="Center"
+                               AutomationProperties.Name="Version"/>
+                    <Button Grid.Column="2" x:Name="LaunchButton" Style="{StaticResource Button.Primary}"
+                            Height="44" Padding="20,0,24,0" Margin="16,0,0,6" VerticalAlignment="Center" Click="Launch_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M7,5 L19,12 L7,19 Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Width="12" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock x:Name="LaunchText" Text="Play 1.21.1" VerticalAlignment="Center"/>
                         </StackPanel>
-                    </Grid>
-
-                    <!-- Description -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,24,0,0">
-                        <ScrollViewer.Resources>
-                            <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
-                        </ScrollViewer.Resources>
-                        <StackPanel>
-                            <TextBlock Text="{Binding Description}" Style="{StaticResource Text.Body}"
-                                       Foreground="{StaticResource Brush.TextDim}" FontSize="14" LineHeight="22"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </ScrollViewer>
-
-                    <!-- Actions -->
-                    <StackPanel Grid.Row="2" Margin="0,24,0,0">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Bottom">
-                                <TextBlock Text="VERSION" Style="{StaticResource Text.Eyebrow}" Margin="0,0,0,6"/>
-                                <!-- A fixed width (the 230 px it always came to: its widest entry plus padding). A content-sized combo box grew
-                                     with the chevron's extra padding and pushed MODS off the right edge at 980 px. -->
-                                <ComboBox x:Name="VersionDropdown" Width="230" MinHeight="46" FontSize="15"
-                                          ItemContainerStyle="{StaticResource Input.ComboBoxItem}"
-                                          ItemTemplate="{StaticResource VersionItemTemplate}"
-                                          SelectionChanged="VersionDropdown_SelectionChanged"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Left">
-                                <Button x:Name="LaunchButton" Content="LAUNCH" Style="{StaticResource Button.Primary}"
-                                        FontSize="16" Padding="52,15" Margin="0,0,16,0" Click="Launch_Click"/>
-                                <Button x:Name="ModsButton" Content="MODS" Style="{StaticResource Button.Secondary}"
-                                        FontSize="16" Padding="36,15" Click="Mods_Click"
-                                        ToolTip="Open this version's mods folder to add your own mods (shared by all your accounts)"/>
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
+                    </Button>
                 </Grid>
             </Grid>
         </Grid>

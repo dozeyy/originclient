@@ -78,10 +78,17 @@ public static class ProfileRules
     /// <summary>"Join Hypixel" — or "Join play.example.net" when the profile has no server name.</summary>
     public static string JoinLabel(ModProfile profile)
     {
+        var name = ServerLabel(profile);
+        return name == null ? "Join server" : "Join " + name;
+    }
+
+    /// <summary>The server's name ("Hypixel"), else its host, else null (no usable server).</summary>
+    public static string? ServerLabel(ModProfile profile)
+    {
         var name = Clean(profile.ServerName);
         if (name == null && JoinArguments.TryParseServer(profile.ServerAddress, out var host, out _))
             name = host;
-        return name == null ? "Join server" : "Join " + name;
+        return name;
     }
 
     /// <summary>"Hypixel PvP copy", then "Hypixel PvP copy 2"... the first one free for the version.</summary>

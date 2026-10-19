@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using OriginLauncher.App.Core;
 using OriginLauncher.App.Core.Mods;
@@ -11,22 +12,30 @@ using OriginLauncher.App.Core.Profiles;
 namespace OriginLauncher.App.UI.Pages;
 
 // Per-version external-mod manager. Reads/writes the version's
-// /instances/{version}/mods/ folder — one per version, shared by every account
-// (Core/GameFolders/SharedMods.cs) — the same folder VersionManager provisions
+// /instances/{version}/mods/ folder - one per version, shared by every account
+// (Core/GameFolders/SharedMods.cs) - the same folder VersionManager provisions
 // and every account's game loads, so a mod toggled here is exactly what the
 // game does (or doesn't) load, whichever account plays. The version
 // is pushed in by MainWindow from HomePage's live selection (see ShowVersion),
 // so switching versions on Home swaps this whole list to match.
+//
+// Poster look: a dashed drop zone that behaves like drag and drop should (it
+// grows and lights while a jar is over it, says "Release to add", and the new
+// rows land below), then your mods as rows, then Origin's built-in mods as tiles.
 public partial class ModsPage : UserControl
 {
     private string? _version;
     private ModProfile? _profile;      // the selected mod profile when it belongs to _version; else null (normal mods)
     private string? _pendingRemove;   // filename awaiting the inline "Remove?" confirm
     private bool _suppressToggle;      // guards programmatic IsChecked changes
+    private bool _dragOver;
+    private bool _adding;              // an import is copying (off the UI thread)
+    private IReadOnlyList<ModEntry>? _demo; // render shots only: made-up rows instead of the disk
 
     public ModsPage()
     {
         InitializeComponent();
+        SizeChanged += (_, _) => ApplyDensity();
     }
 
     /// <summary>Point the page at a version and rebuild. Null = nothing
@@ -35,12 +44,43 @@ public partial class ModsPage : UserControl
     {
         _version = version;
         _pendingRemove = null;
+        _demo = null;
         ResolveProfile();
         VersionChipText.Text = version ?? "No version";
+        VersionChip.Visibility = version != null ? Visibility.Visible : Visibility.Collapsed;
         DropZone.IsEnabled = version != null;
         DropZone.Opacity = version != null ? 1.0 : 0.5;
+        SyncYourModsSwitch();
         HideStatus();
+        SetZone(over: false, hover: false, count: 0);
         Refresh();
+    }
+
+    // Short windows pull the column up under the bar (the drop zone stays on screen).
+    private void ApplyDensity()
+    {
+        var compact = ActualHeight > 0 && ActualHeight < 680;
+        Column.Margin = new Thickness(32, compact ? 80 : 100, 32, 40);
+        DropZone.Height = compact ? 140 : 168;
+    }
+
+    // The YOUR MODS switch mirrors the saved setting; the launch reads the same
+    // setting fresh (HomePage.Launch), so flipping it here applies next Play.
+    private void SyncYourModsSwitch()
+    {
+        var on = SettingsStore.Load().PlayWithExternalMods;
+        _suppressToggle = true;
+        YourModsSwitch.IsChecked = on;
+        _suppressToggle = false;
+        YourModsState.Text = on ? "On" : "Off";
+    }
+
+    private void YourModsSwitch_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressToggle) return;
+        var on = YourModsSwitch.IsChecked == true;
+        YourModsState.Text = on ? "On" : "Off";
+        SettingsStore.Update(s => s.PlayWithExternalMods = on);
     }
 
     // A selected mod profile (Profiles page) owns the mods list for ITS version:
@@ -53,99 +93,138 @@ public partial class ModsPage : UserControl
         var selected = settings.ModProfiles.FirstOrDefault(p => p.Id == settings.SelectedProfileId && ProfileRules.IsUsable(p));
 
         if (_profile != null)
-        {
-            ProfileNote.Text = $"Mods for your profile \"{_profile.Name}\". Only this profile loads them.";
-            ProfileNote.Visibility = Visibility.Visible;
-            DropCaption.Text = "Added to this profile only";
-        }
+            IntroText.Text = $"Mods for your profile \"{_profile.Name}\". Only this profile loads them; Origin's built-in mods stay up to date on their own.";
+        else if (selected != null && _version != null)
+            IntroText.Text = $"Your profile \"{selected.Name}\" is for {selected.Version}, so these are your normal mods for this version, shared by all your accounts.";
         else
-        {
-            ProfileNote.Text = selected != null && _version != null
-                ? $"Your profile \"{selected.Name}\" is for {selected.Version}, so these are your normal mods."
-                : "";
-            ProfileNote.Visibility = ProfileNote.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-            DropCaption.Text = "Shared by all your accounts on this version";
-        }
+            IntroText.Text = "Your own .jar mods for this version, shared by all your accounts. Origin's built-in mods stay up to date on their own.";
     }
 
-    private void Refresh()
+    private void Refresh(ICollection<string>? landed = null)
     {
         UserModsPanel.Children.Clear();
         BuiltInPanel.Children.Clear();
 
         if (_version == null)
         {
-            UserEmptyState.Text = "Choose a version first";
+            UserEmptyText.Text = "Choose a version first";
             UserEmptyState.Visibility = Visibility.Visible;
+            UserCount.Text = "0";
             BuiltInSection.Visibility = Visibility.Collapsed;
             return;
         }
 
-        var mods = ModManager.Enumerate(_version, _profile?.Id);
+        var mods = _demo ?? ModManager.Enumerate(_version, _profile?.Id);
         var user = mods.Where(m => !m.IsManaged).ToList();
         // A profile folder holds only the player's own mods; Origin's built-in
         // ones come from the version's shared folder and aren't part of it.
         var managed = _profile != null ? new List<ModEntry>() : mods.Where(m => m.IsManaged).ToList();
 
+        var delay = 0;
         foreach (var mod in user)
-            UserModsPanel.Children.Add(
-                mod.FileName == _pendingRemove ? BuildConfirmRow(mod) : BuildUserRow(mod));
+        {
+            var row = mod.FileName == _pendingRemove ? BuildConfirmRow(mod) : BuildUserRow(mod);
+            UserModsPanel.Children.Add(row);
+            if (landed != null && landed.Contains(mod.FileName))
+            {
+                Land(row, delay);
+                delay += 40;
+            }
+        }
 
-        UserEmptyState.Text = "No mods";
+        UserCount.Text = user.Count.ToString();
+        UserEmptyText.Text = "No mods yet. Drop a jar above to add one.";
         UserEmptyState.Visibility = user.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UserHint.Visibility = user.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         foreach (var mod in managed)
-            BuiltInPanel.Children.Add(BuildManagedRow(mod));
+            BuiltInPanel.Children.Add(BuildManagedTile(mod));
+        BuiltInCount.Text = managed.Count.ToString();
         BuiltInSection.Visibility = managed.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // A just-added row drops in from above and settles (Back ease), staggered.
+    private static void Land(FrameworkElement row, int delayMs)
+    {
+        if (Motion.Off) return;
+        var shift = new TranslateTransform();
+        row.RenderTransform = shift;
+        row.Opacity = 0;
+        row.BeginAnimation(OpacityProperty, Motion.FromTo(0, 1, 220, Motion.Out, delayMs));
+        shift.BeginAnimation(TranslateTransform.YProperty, Motion.FromTo(-14, 0, 420, Motion.Back, delayMs));
     }
 
     // ---- row builders -----------------------------------------------------
 
-    private Border RowShell() => new()
+    private Border RowShell() => new() { Style = (Style)FindResource("Row.Mod") };
+
+    // The square well with the jar glyph that leads every row and tile.
+    private Border IconWell(bool dim)
     {
-        Background = (Brush)FindResource("Brush.Panel"),
-        BorderBrush = (Brush)FindResource("Brush.SoftStroke"),
-        BorderThickness = new Thickness(1),
-        CornerRadius = (CornerRadius)FindResource("Radius.Row"),
-        Padding = new Thickness(14, 10, 10, 10),
-        Margin = new Thickness(0, 0, 0, 8)
+        var well = new Border { Style = (Style)FindResource("Mods.IconWell"), VerticalAlignment = VerticalAlignment.Center };
+        well.Child = new Path
+        {
+            Data = (Geometry)FindResource("Icon.Jar"),
+            Style = (Style)FindResource("Icon.Base"),
+            Stroke = (Brush)FindResource(dim ? "Brush.TextMuted" : "Brush.TextDim"),
+            Width = 18,
+            Height = 18,
+        };
+        return well;
+    }
+
+    private static TextBlock NameText(string text, bool dim, double size = 14) => new()
+    {
+        Text = text,
+        FontSize = size,
+        FontWeight = FontWeights.SemiBold,
+        Foreground = (Brush)Application.Current.FindResource(dim ? "Brush.TextDim" : "Brush.Text"),
+        TextTrimming = TextTrimming.CharacterEllipsis,
+    };
+
+    private static TextBlock FileText(string text) => new()
+    {
+        Text = text,
+        FontSize = 12,
+        Margin = new Thickness(0, 2, 0, 0),
+        Foreground = (Brush)Application.Current.FindResource("Brush.TextMuted"),
+        TextTrimming = TextTrimming.CharacterEllipsis,
     };
 
     private FrameworkElement BuildUserRow(ModEntry mod)
     {
         var border = RowShell();
         var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var name = new TextBlock
-        {
-            Text = mod.DisplayName,
-            Style = (Style)FindResource(mod.Enabled ? "Text.Body" : "Text.BodyDim"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 12, 0)
-        };
-        Grid.SetColumn(name, 0);
-        grid.Children.Add(name);
+        grid.Children.Add(IconWell(!mod.Enabled));
+
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 12, 0) };
+        text.Children.Add(NameText(mod.DisplayName, !mod.Enabled));
+        text.Children.Add(FileText(mod.FileName));
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
 
         var toggle = new ToggleButton
         {
             Style = (Style)FindResource("Toggle.Switch"),
             IsChecked = mod.Enabled,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 4, 0),
-            ToolTip = mod.Enabled ? "On — loads in-game" : "Off — skipped at launch"
+            Margin = new Thickness(0, 0, 12, 0),
+            ToolTip = mod.Enabled ? "On: loads in-game" : "Off: skipped at launch"
         };
         System.Windows.Automation.AutomationProperties.SetName(toggle, $"Enable {mod.DisplayName}");
         toggle.Checked += (s, _) => OnToggle(mod.FileName, true, (ToggleButton)s);
         toggle.Unchecked += (s, _) => OnToggle(mod.FileName, false, (ToggleButton)s);
-        Grid.SetColumn(toggle, 1);
+        Grid.SetColumn(toggle, 2);
         grid.Children.Add(toggle);
 
         var remove = IconButton("Icon.Trash", "Remove mod", $"Remove {mod.DisplayName}");
         remove.Click += (_, _) => { _pendingRemove = mod.FileName; Refresh(); };
-        Grid.SetColumn(remove, 2);
+        Grid.SetColumn(remove, 3);
         grid.Children.Add(remove);
 
         border.Child = grid;
@@ -159,29 +238,29 @@ public partial class ModsPage : UserControl
     {
         var border = RowShell();
         border.BorderBrush = (Brush)FindResource("Brush.Danger");
+        border.BorderThickness = new Thickness(1);
+        border.Padding = new Thickness(11, 9, 9, 9);
 
         var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var prompt = new TextBlock
-        {
-            Text = $"Remove {mod.DisplayName}?",
-            Style = (Style)FindResource("Text.Body"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 12, 0)
-        };
-        Grid.SetColumn(prompt, 0);
+        grid.Children.Add(IconWell(true));
+
+        var prompt = NameText($"Remove {mod.DisplayName}?", false);
+        prompt.VerticalAlignment = VerticalAlignment.Center;
+        prompt.Margin = new Thickness(14, 0, 12, 0);
+        Grid.SetColumn(prompt, 1);
         grid.Children.Add(prompt);
 
         var confirm = new Button
         {
             Content = "Remove",
-            Style = (Style)FindResource("Button.Base"),
-            Background = (Brush)FindResource("Brush.Danger"),
-            Foreground = (Brush)FindResource("Brush.TextOnAccent"),
-            Padding = new Thickness(12, 6, 12, 6),
+            Style = (Style)FindResource("Button.Danger"),
+            Padding = new Thickness(14, 0, 14, 0),
+            Height = 34,
             Margin = new Thickness(0, 0, 8, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -193,67 +272,51 @@ public partial class ModsPage : UserControl
             else HideStatus();
             Refresh();
         };
-        Grid.SetColumn(confirm, 1);
+        Grid.SetColumn(confirm, 2);
         grid.Children.Add(confirm);
 
         var cancel = new Button
         {
             Content = "Cancel",
             Style = (Style)FindResource("Button.Secondary"),
-            Padding = new Thickness(12, 6, 12, 6),
+            Padding = new Thickness(14, 0, 14, 0),
+            Height = 34,
             VerticalAlignment = VerticalAlignment.Center
         };
         cancel.Click += (_, _) => { _pendingRemove = null; Refresh(); };
-        Grid.SetColumn(cancel, 2);
+        Grid.SetColumn(cancel, 3);
         grid.Children.Add(cancel);
 
         border.Child = grid;
         return border;
     }
 
-    private FrameworkElement BuildManagedRow(ModEntry mod)
+    // A built-in mod: a read-only tile (Origin installs and updates it).
+    private FrameworkElement BuildManagedTile(ModEntry mod)
     {
-        var border = RowShell();
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var name = new TextBlock
+        var tile = new Border
         {
-            Text = mod.DisplayName,
-            Style = (Style)FindResource("Text.BodyDim"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 12, 0)
+            Background = (Brush)FindResource("Brush.Panel"),
+            CornerRadius = (CornerRadius)FindResource("Radius.Card"),
+            Padding = new Thickness(16, 14, 16, 14),
+            Margin = new Thickness(0, 0, 4, 4),
         };
-        Grid.SetColumn(name, 0);
-        grid.Children.Add(name);
-
-        var tag = new TextBlock
-        {
-            Text = "MANAGED",
-            Style = (Style)FindResource("Text.Eyebrow"),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        Grid.SetColumn(tag, 1);
-        grid.Children.Add(tag);
-
-        border.Child = grid;
-        return border;
+        var stack = new StackPanel();
+        var well = IconWell(false);
+        well.HorizontalAlignment = HorizontalAlignment.Left;
+        well.Margin = new Thickness(0, 0, 0, 12);
+        stack.Children.Add(well);
+        stack.Children.Add(NameText(mod.DisplayName, false));
+        stack.Children.Add(FileText(mod.FileName));
+        tile.Child = stack;
+        System.Windows.Automation.AutomationProperties.SetName(tile, $"{mod.DisplayName}, built in");
+        return tile;
     }
 
     private Button IconButton(string iconKey, string tooltip, string automationName)
     {
-        var path = new Path
-        {
-            Data = (Geometry)FindResource(iconKey),
-            Style = (Style)FindResource("Icon.Base"),
-            Stroke = (Brush)FindResource("Brush.TextDim"),
-            Width = 18,
-            Height = 18
-        };
         var button = new Button
         {
-            Content = path,
             Style = (Style)FindResource("Button.Chrome"),
             Width = 34,
             Height = 34,
@@ -261,6 +324,16 @@ public partial class ModsPage : UserControl
             ToolTip = tooltip,
             VerticalAlignment = VerticalAlignment.Center
         };
+        var path = new Path
+        {
+            Data = (Geometry)FindResource(iconKey),
+            Style = (Style)FindResource("Icon.Base"),
+            Width = 18,
+            Height = 18
+        };
+        // The glyph follows the button's own foreground (dim at rest, bright on hover).
+        path.SetBinding(Shape.StrokeProperty, new System.Windows.Data.Binding(nameof(Foreground)) { Source = button });
+        button.Content = path;
         System.Windows.Automation.AutomationProperties.SetName(button, automationName);
         return button;
     }
@@ -269,12 +342,12 @@ public partial class ModsPage : UserControl
 
     private void OnToggle(string fileName, bool enable, ToggleButton toggle)
     {
-        if (_suppressToggle || _version == null) return;
+        if (_suppressToggle || _version == null || _demo != null) return;
 
         var result = ModManager.SetEnabled(_version, fileName, enable, _profile?.Id);
         if (result.Ok)
         {
-            toggle.ToolTip = enable ? "On — loads in-game" : "Off — skipped at launch";
+            toggle.ToolTip = enable ? "On: loads in-game" : "Off: skipped at launch";
             HideStatus();
         }
         else
@@ -287,52 +360,154 @@ public partial class ModsPage : UserControl
         }
     }
 
-    private void DropZone_Click(object sender, MouseButtonEventArgs e)
+    private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
         if (_version == null) return;
         var result = ModManager.OpenFolder(_version, _profile?.Id);
         if (!result.Ok) ShowStatus(result.Error);
     }
 
+    // Browse: the same add path as a drop, through the system file picker.
+    private void Browse()
+    {
+        if (_version == null || _adding) return;
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Add mod jars",
+            Filter = "Mod jars (*.jar)|*.jar",
+            Multiselect = true,
+            CheckFileExists = true,
+        };
+        if (dialog.ShowDialog(Window.GetWindow(this)) == true)
+            AddFiles(dialog.FileNames);
+    }
+
+    // Copy the jars in off the UI thread (a big pack must not freeze the window),
+    // then land the new rows. The newest add wins; a second one waits its turn.
+    private async void AddFiles(string[] files)
+    {
+        if (_version == null || _adding) return;
+        _adding = true;
+        var version = _version;
+        var profileId = _profile?.Id;
+        var before = ModManager.Enumerate(version, profileId).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        ShowStatus(files.Length == 1 ? "Adding 1 mod..." : $"Adding {files.Length} mods...");
+
+        var result = await Task.Run(() => ModManager.Import(version, files, profileId));
+        _adding = false;
+        if (_version != version) return; // the page moved on to another version meanwhile
+
+        if (!result.Ok)
+        {
+            ShowStatus(result.Error);
+            Refresh();
+            return;
+        }
+        var after = ModManager.Enumerate(version, profileId);
+        var landed = after.Where(m => !before.Contains(m.FileName)).Select(m => m.FileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Re-added jars (already listed) still count as added; only new names land.
+        var jarCount = files.Count(f => f.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase));
+        ShowStatus(jarCount == 1 ? "Added 1 mod." : $"Added {jarCount} mods.");
+        Refresh(landed);
+        Pop(JarScale);
+    }
+
+    // The jar well's "landed" pop: a quick overshoot back to rest.
+    private static void Pop(ScaleTransform scale)
+    {
+        if (Motion.Off) return;
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, Motion.FromTo(1.14, 1, 420, Motion.Back));
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, Motion.FromTo(1.14, 1, 420, Motion.Back));
+    }
+
+    // ---- the drop zone's states -----------------------------------------
+
+    // idle -> hover (a little brighter) -> over (a jar is being carried in):
+    // grows 1.5 %, lights in the family accent, the dashes take the accent,
+    // the well lifts and the line reads "Release to add".
+    private void SetZone(bool over, bool hover, int count)
+    {
+        _dragOver = over;
+        var ms = 180;
+        DropZone.Background = (Brush)FindResource(over ? "Brush.Card" : hover ? "Brush.Card" : "Brush.Panel");
+        if (over) DropDash.SetResourceReference(Shape.StrokeProperty, "Brush.Acc");
+        else DropDash.Stroke = (Brush)FindResource(hover ? "Brush.TextMuted" : "Brush.Track");
+        JarIcon.Stroke = (Brush)FindResource(over || hover ? "Brush.Text" : "Brush.TextDim");
+
+        Animate(DropScale, ScaleTransform.ScaleXProperty, over ? 1.015 : 1, ms);
+        Animate(DropScale, ScaleTransform.ScaleYProperty, over ? 1.015 : 1, ms);
+        Animate(JarLift, TranslateTransform.YProperty, over ? -4 : 0, 260, Motion.Back);
+        Animate(JarScale, ScaleTransform.ScaleXProperty, over ? 1.06 : 1, 260, Motion.Back);
+        Animate(JarScale, ScaleTransform.ScaleYProperty, over ? 1.06 : 1, 260, Motion.Back);
+        Animate(DropLit, OpacityProperty, over ? 1 : 0, ms);
+        Animate(IdleText, OpacityProperty, over ? 0 : 1, 120);
+        Animate(OverText, OpacityProperty, over ? 1 : 0, 120);
+        Animate(Ghost, OpacityProperty, over ? 1 : 0, ms);
+        Animate(GhostTilt, RotateTransform.AngleProperty, over ? -4 : 0, 260, Motion.Back);
+        if (over) GhostText.Text = count == 1 ? "1 mod jar" : $"{count} mod jars";
+    }
+
+    private static void Animate(IAnimatable target, DependencyProperty property, double to, int ms, IEasingFunction? ease = null)
+    {
+        if (Motion.Off)
+        {
+            target.BeginAnimation(property, null);
+            ((DependencyObject)target).SetValue(property, to);
+            return;
+        }
+        target.BeginAnimation(property, Motion.To(to, ms, ease ?? Motion.Out), HandoffBehavior.SnapshotAndReplace);
+    }
+
+    private void DropZone_MouseEnter(object sender, MouseEventArgs e)
+    {
+        if (!_dragOver && _version != null) SetZone(over: false, hover: true, count: 0);
+    }
+
+    private void DropZone_MouseLeave(object sender, MouseEventArgs e)
+    {
+        if (!_dragOver) SetZone(over: false, hover: false, count: 0);
+    }
+
+    private void DropZone_Click(object sender, MouseButtonEventArgs e) => Browse();
+
+    private void DropZone_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space)) return;
+        Browse();
+        e.Handled = true;
+    }
+
     private void DropZone_DragEnter(object sender, DragEventArgs e)
     {
-        if (_version != null && HasJar(e))
-        {
-            e.Effects = DragDropEffects.Copy;
-            DropZone.BorderBrush = (Brush)FindResource("Brush.Accent");
-            DropZone.Background = (Brush)FindResource("Brush.SoftStroke");
-        }
-        else
-        {
-            e.Effects = DragDropEffects.None;
-        }
+        var jars = _version != null && !_adding ? Jars(e) : 0;
+        e.Effects = jars > 0 ? DragDropEffects.Copy : DragDropEffects.None;
+        if (jars > 0 && !_dragOver) SetZone(over: true, hover: false, count: jars);
         e.Handled = true;
     }
 
     private void DropZone_DragLeave(object sender, DragEventArgs e)
     {
-        DropZone.BorderBrush = (Brush)FindResource("Brush.Stroke");
-        DropZone.Background = (Brush)FindResource("Brush.Panel");
+        // DragLeave also fires when the pointer crosses onto a child: only leave
+        // for real when it is outside the zone.
+        var p = e.GetPosition(DropZone);
+        if (p.X > 0 && p.Y > 0 && p.X < DropZone.ActualWidth && p.Y < DropZone.ActualHeight) return;
+        SetZone(over: false, hover: false, count: 0);
     }
 
     private void DropZone_Drop(object sender, DragEventArgs e)
     {
-        DropZone_DragLeave(sender, e);
-        if (_version == null || !HasJar(e)) return;
-
-        var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-        var result = ModManager.Import(_version, files, _profile?.Id);
-        if (!result.Ok) ShowStatus(result.Error);
-        else HideStatus();
-        Refresh();
+        SetZone(over: false, hover: true, count: 0);
+        if (_version == null || Jars(e) == 0) return;
+        AddFiles((string[])e.Data.GetData(DataFormats.FileDrop));
+        e.Handled = true;
     }
 
-    private static bool HasJar(DragEventArgs e)
+    private static int Jars(DragEventArgs e)
     {
-        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return false;
-        var files = e.Data.GetData(DataFormats.FileDrop) as string[];
-        return files != null && files.Any(f =>
-            f.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase));
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return 0;
+        return e.Data.GetData(DataFormats.FileDrop) is string[] files
+            ? files.Count(f => f.EndsWith(ModManager.JarSuffix, StringComparison.OrdinalIgnoreCase))
+            : 0;
     }
 
     private void ShowStatus(string? message)
@@ -344,5 +519,15 @@ public partial class ModsPage : UserControl
     private void HideStatus()
     {
         StatusText.Visibility = Visibility.Collapsed;
+    }
+
+    // Render mode only (UI/RenderShots.cs): made-up rows, optionally with a jar
+    // "carried" over the zone. Never touches the disk or the settings.
+    internal void TourShowDemo(IReadOnlyList<ModEntry> mods, int carrying)
+    {
+        if (!OriginPaths.IsScratchRoot) return;
+        _demo = mods;
+        Refresh();
+        SetZone(over: carrying > 0, hover: false, count: carrying);
     }
 }

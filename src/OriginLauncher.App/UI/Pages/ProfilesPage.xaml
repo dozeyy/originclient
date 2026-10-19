@@ -5,26 +5,78 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d">
 
-    <!-- Mod profiles: a named set of the player's own mods for ONE Minecraft
-         version, optionally with a server. MainWindow reserves the navigation
-         rail; the scrollbar stays hidden while wheel scrolling works. -->
-    <ScrollViewer Margin="32,16,32,24" VerticalScrollBarVisibility="Hidden">
+    <UserControl.Resources>
+        <!-- A profile card: a flat panel that lifts to Card on hover. The selected
+             one gets the family accent as its border (set in code). -->
+        <Style x:Key="Card.Profile" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="20,20,20,18"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Brush.Card}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- The dashed "New profile" card at the end of the grid. -->
+        <Style x:Key="Card.New" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="MinHeight" Value="120"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Card}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="Body" Background="Transparent">
+                            <Rectangle x:Name="Dash" Stroke="{StaticResource Brush.Track}" StrokeThickness="2" StrokeDashArray="5 4"
+                                       RadiusX="4" RadiusY="4"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.Panel}"/>
+                                <Setter TargetName="Dash" Property="Stroke" Value="{StaticResource Brush.TextMuted}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.Card}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <!-- Mod profiles as cards (Poster): a named set of the player's own mods for
+         ONE Minecraft version, optionally with a server. The page sits on the
+         dimmed art; the top inset clears the 56 px bar. -->
+    <ScrollViewer VerticalScrollBarVisibility="Hidden" Focusable="False">
         <ScrollViewer.Resources>
             <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBar.Minimal}"/>
         </ScrollViewer.Resources>
 
-        <StackPanel Width="720" HorizontalAlignment="Center">
+        <StackPanel x:Name="Column" MaxWidth="1000" Margin="32,100,32,40">
 
             <!-- Header -->
-            <Grid Margin="0,0,0,4">
+            <Grid Margin="0,0,0,24">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Profiles" Style="{StaticResource Text.H1}"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="PROFILES" Style="{StaticResource Text.Poster}" HorizontalAlignment="Left"/>
+                    <TextBlock Text="Your setups. Each one keeps its own mods for one version, and can remember a server to join."
+                               Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" MaxWidth="520" HorizontalAlignment="Left"
+                               Margin="0,10,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="24,8,0,0">
                     <Button x:Name="ImportButton" Style="{StaticResource Button.Secondary}"
-                            Padding="14,8" Margin="0,0,10,0" Click="ImportButton_Click"
+                            Padding="16,0" Height="40" Margin="0,0,10,0" Click="ImportButton_Click"
                             ToolTip="Import from another launcher"
                             AutomationProperties.Name="Import from another launcher">
                         <StackPanel Orientation="Horizontal">
@@ -34,8 +86,8 @@
                             <TextBlock Text="Import" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="NewButton" Style="{StaticResource Button.Secondary}"
-                            Padding="16,8" Click="NewButton_Click"
+                    <Button x:Name="NewButton" Style="{StaticResource Button.Primary}"
+                            Padding="16,0" Height="40" Click="NewButton_Click"
                             AutomationProperties.Name="New profile">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource Icon.Plus}" Style="{StaticResource Icon.Base}"
@@ -46,10 +98,6 @@
                     </Button>
                 </StackPanel>
             </Grid>
-            <Border Height="2" Width="28" Background="{StaticResource Brush.Accent}"
-                    CornerRadius="1" HorizontalAlignment="Left" Margin="0,8,0,16"/>
-            <TextBlock Text="Each profile keeps its own mods for one Minecraft version, and can remember a server to join."
-                       Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap" Margin="1,0,0,16"/>
 
             <!-- Status line (errors, "close Minecraft first", copy notes) -->
             <TextBlock x:Name="StatusText" Style="{StaticResource Text.BodyDim}" TextWrapping="Wrap"
@@ -57,11 +105,10 @@
 
             <!-- Create / edit form -->
             <Border x:Name="FormPanel" Visibility="Collapsed" Margin="0,0,0,16" Padding="24"
-                    Background="{StaticResource Brush.PanelGlass}"
-                    BorderBrush="{StaticResource Brush.SoftStroke}" BorderThickness="1"
-                    CornerRadius="{StaticResource Radius.Card}">
+                    Background="{StaticResource Brush.Panel}" CornerRadius="{StaticResource Radius.Card}">
                 <StackPanel>
-                    <TextBlock x:Name="FormTitle" Text="New profile" Style="{StaticResource Text.H2}" Margin="0,0,0,16"/>
+                    <TextBlock x:Name="FormTitle" Text="New profile" FontFamily="{StaticResource Font.Display}" FontSize="22"
+                               FontWeight="Bold" Foreground="{StaticResource Brush.Text}" Margin="0,0,0,16"/>
 
                     <TextBlock Text="Name" Style="{StaticResource Text.Label}" Margin="0,0,0,8"/>
                     <TextBox x:Name="NameBox" Style="{StaticResource Input.TextBox}" MaxLength="32"
@@ -98,15 +145,16 @@
 
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="SaveButton" Content="Create" Style="{StaticResource Button.Primary}"
-                                Padding="16,8" Margin="0,0,8,0" Click="SaveButton_Click"/>
+                                Padding="20,0" Height="40" Margin="0,0,8,0" Click="SaveButton_Click"/>
                         <Button Content="Cancel" Style="{StaticResource Button.Secondary}"
-                                Padding="16,8" Click="CancelButton_Click"/>
+                                Padding="20,0" Height="40" Click="CancelButton_Click"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- "No profile" first, then one row per profile (built in code) -->
-            <StackPanel x:Name="RowsPanel"/>
+            <!-- "No profile" first, then one card per profile, then the dashed
+                 "New profile" card (all built in code). Two columns, equal rows. -->
+            <UniformGrid x:Name="RowsPanel" Columns="2" Margin="0,0,-8,0"/>
 
         </StackPanel>
     </ScrollViewer>

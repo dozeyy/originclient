@@ -192,6 +192,10 @@ public partial class App : Application
         Resources["Motion.Exit"] = none;
         Resources["Motion.Intro"] = none;
         Resources["Motion.Settle"] = none;
+        Resources["Motion.Hover"] = none;
+        Resources["Motion.Drawer"] = none;
+        Resources["Motion.Drag"] = none;
+        UI.Motion.Off = true;
     }
 
     // Removes the pre-2026-10-13 sign-in browser profile

@@ -29,6 +29,8 @@ public class ToolTipTests
     {
         static bool HasLetters(string? t) => t is not null && (t.TrimStart().StartsWith('{') || Regex.IsMatch(t, @"\p{L}{2,}"));
         if (HasLetters((string?)b.Attribute("Content"))) return false;
+        // TrackedText (UI/Controls) is a word drawn with letter tracking, e.g. Home's PLAY: words, not an icon.
+        if (b.Descendants().Any(e => e.Name.LocalName == "TrackedText" && HasLetters((string?)e.Attribute("Text")))) return false;
         var inner = b.Descendants().Where(e => e.Name.Namespace == Wpf && !e.Name.LocalName.Contains('.')).ToList();
         var words = inner.Where(e => e.Name.LocalName is "TextBlock" or "Run" or "Label" or "AccessText")
                          .Select(e => (string?)e.Attribute("Text") ?? (string?)e.Attribute("Content") ?? e.Value);

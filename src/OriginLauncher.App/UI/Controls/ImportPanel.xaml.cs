@@ -496,6 +496,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     {
         vm.Caption = tile.Caption;
         vm.Enabled = tile.Enabled;
+        vm.NotFound = tile.State == LauncherState.NotInstalled;
         vm.Tip = tile.State switch
         {
             LauncherState.Found => $"Import from {tile.Title}",
