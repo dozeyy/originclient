@@ -21,7 +21,9 @@ import java.util.ArrayDeque;
 
 /**
  * SETTINGS > Performance > Smart Terrain Updates (1.21.4 port of 1.21.1, default OFF). Shader packs only.
- * This module also serves 1.21.2/1.21.3, whose Sodium/Iris builds differ: VERSIONS_OK turns it off there.
+ * This module also serves 1.21.2/1.21.3, whose Sodium/Iris builds differ: there VERSIONS_OK turns it off,
+ * OriginMixinPlugin skips SodiumWorldRendererReuseMixin (its handlers take 0.6.13's FogParameters
+ * argument), and Mods hides the toggle (SodiumIrisBuilds.SMART_TERRAIN is the one test for all three).
  *
  * <p>What it saves (read from Sodium 0.6.13+mc1.21.4 / Iris 1.8.8+mc1.21.4 bytecode, 2026-10-20; the
  * same mechanism as the 1.21.1 builds): Sodium normally
@@ -87,7 +89,7 @@ public final class SmartTerrainUpdates {
 	private static final MethodHandle PACK_IN_USE = IrisState.PACK_IN_USE;
 
 	/** The exact builds whose internals this was written against; anything else = feature off. */
-	private static final boolean VERSIONS_OK = versionIs("sodium", "0.6.13") && versionIs("iris", "1.8.8");
+	private static final boolean VERSIONS_OK = SodiumIrisBuilds.SMART_TERRAIN;
 
 	private static boolean broken;
 
@@ -168,17 +170,6 @@ public final class SmartTerrainUpdates {
 
 	private static boolean shadowPass() throws Throwable {
 		return (boolean) SHADOW_PASS.invokeExact();
-	}
-
-	private static boolean versionIs(String mod, String prefix) {
-		try {
-			return net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer(mod)
-					.map(c -> c.getMetadata().getVersion().getFriendlyString().startsWith(prefix + "+")
-							|| c.getMetadata().getVersion().getFriendlyString().equals(prefix))
-					.orElse(false);
-		} catch (Throwable t) {
-			return false;
-		}
 	}
 
 	private static void fail(Throwable t) {

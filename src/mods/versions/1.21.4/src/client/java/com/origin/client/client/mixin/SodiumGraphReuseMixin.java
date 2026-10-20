@@ -9,9 +9,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Target: Sodium 0.6.13+mc1.21.4 RenderSectionManager (names and signatures read from that jar with
- * javap 2026-10-20: update(Camera, Viewport, FogParameters, boolean); the hooked methods below kept
- * their 1.21.1 names and the single setPendingUpdate call each).
+ * Target: Sodium RenderSectionManager, builds 0.6.13+mc1.21.4, 0.6.8 and 0.6.1 (+mc1.21.3) (javap of all
+ * three 2026-10-20: every hooked method has the same name in each, scheduleRebuild/scheduleSort one
+ * setPendingUpdate call each; only update/createTerrainRenderList differ, by 0.6.13's FogParameters
+ * argument, and every handler here takes only CallbackInfo so it fits all three).
  * Why: Smart Terrain Updates (SmartTerrainUpdates has the full proof). update() is the chunk-graph
  * walk; with a shader pack Iris forces it every frame. HEAD may cancel the MAIN pass's walk when
  * nothing changed (after restoring the last walk's lists); every method that changes what a walk
@@ -41,17 +42,10 @@ public abstract class SodiumGraphReuseMixin {
 		com.origin.client.client.render.OffMapShadows.walkBegin();
 	}
 
-	// Also: Off-Map Shadows disarms its section test, and in dev-shots only (ORIGIN_SHOTS) counts what a
-	// shadow-pass walk put in the shadow render lists (render/OffMapShadows.afterWalk).
-	// Signature on 1.21.4 (Camera, Viewport, FogParameters, int, boolean)V -- 1.21.4's Sodium passes the
-	// fog record where 1.21.1's read RenderSystem; javap of sodium-fabric-0.6.13+mc1.21.4, 2026-10-20.
-	@Inject(method = "createTerrainRenderList", at = @At("RETURN"))
-	private void originclient$walkEnd(net.minecraft.client.Camera camera,
-			net.caffeinemc.mods.sodium.client.render.viewport.Viewport viewport,
-			net.minecraft.client.renderer.FogParameters fog, int frame, boolean spectator, CallbackInfo ci) {
-		SmartTerrainUpdates.walkEnd();
-		com.origin.client.client.render.OffMapShadows.afterWalk((RenderSectionManager) (Object) this, viewport);
-	}
+	// The walk's RETURN hook (needs the Viewport argument) lives in SodiumWalkEndMixin, so no handler here
+	// depends on an argument list: this module also runs on Sodium 0.6.1/0.6.8 (1.21.2/1.21.3), whose
+	// update/createTerrainRenderList/setupTerrain have no FogParameters argument (javap 2026-10-20), and
+	// the chunk-change hooks below must apply on all three (Half-Rate Shadows needs them everywhere).
 
 	@Inject(method = "onSectionAdded", at = @At("HEAD"))
 	private void originclient$sectionAdded(CallbackInfo ci) {

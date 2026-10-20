@@ -8,8 +8,7 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 
 // SETTINGS > Performance > Limit Far Shadows, entity half (render/ShadowCasterLimit).
 // Target: EntityRenderDispatcher.shouldRender(Entity, Frustum, DDD)Z at RETURN (javap,
@@ -24,13 +23,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class ShadowCasterEntityMixin {
 	// The renderer local (slot 9, the only EntityRenderer local: getRenderer(entity) at offset 2, javap
 	// 2026-10-20) is captured so the culling box comes from it without a second map lookup.
-	@Inject(method = "shouldRender", at = @At("RETURN"), cancellable = true)
-	private void originclient$farShadowCaster(Entity entity, Frustum frustum, double camX, double camY, double camZ,
-			CallbackInfoReturnable<Boolean> cir, @Local EntityRenderer<?, ?> renderer) {
+	// ModifyReturnValue, not a cancellable Inject: this runs for every entity on every pass, and a
+	// cancellable RETURN Inject allocates a CallbackInfoReturnable each call; this allocates nothing.
+	@ModifyReturnValue(method = "shouldRender", at = @At("RETURN"))
+	private boolean originclient$farShadowCaster(boolean visible, Entity entity, Frustum frustum,
+			double camX, double camY, double camZ, @Local EntityRenderer<?, ?> renderer) {
 		// Off-Map Shadows first (render/OffMapShadows): an entity entirely off the shadow map's x/y edges.
-		if (cir.getReturnValueZ() && (com.origin.client.client.render.OffMapShadows.skipEntity(entity, renderer, camX, camY, camZ)
+		if (visible && (com.origin.client.client.render.OffMapShadows.skipEntity(entity, renderer, camX, camY, camZ)
 				|| ShadowCasterLimit.skipEntity(entity, renderer, camX, camY, camZ))) {
-			cir.setReturnValue(false);
+			return false;
 		}
+		return visible;
 	}
 }

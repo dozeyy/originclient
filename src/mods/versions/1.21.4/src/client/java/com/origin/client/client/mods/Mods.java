@@ -59,7 +59,7 @@ public final class Mods {
 	// sitting on the main menu. Shader Performance Mode halves every active
 	// shaderpack's shadow map resolution + shadow render distance (the biggest
 	// GPU lever with shaders on) via IrisShadowDirectivesMixin.
-	public static final List<ModOption> PERFORMANCE_SETTINGS = List.of(
+	public static final List<ModOption> PERFORMANCE_SETTINGS = runnableOnly(List.of(
 			ModOption.toggle("shaderPerformanceMode", "Shader Performance Mode", true).tip("Any shader you load renders shadows at half distance for a big FPS gain. Turn off for full quality; applies instantly."),
 			// Limit Far Shadows: render/ShadowCasterLimit + ShadowCaster*Mixin. Shader packs only.
 			ModOption.toggle("farShadowLimit", "Limit Far Shadows", false).tip("With a shader on, mobs and blocks like chests farther away than the distance below stop casting shadows. Saves work every frame in busy places; everything closer looks exactly the same."),
@@ -73,7 +73,26 @@ public final class Mods {
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
 			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"),
-			ModOption.toggle("originRender", "Origin Render (Experimental)", false).tip("Your graphics card skips terrain hidden behind other terrain. Works on almost every graphics card made since 2013; pauses while shaders are on. F3 shows what it's doing."));
+			ModOption.toggle("originRender", "Origin Render (Experimental)", false).tip("Your graphics card skips terrain hidden behind other terrain. Works on almost every graphics card made since 2013; pauses while shaders are on. F3 shows what it's doing.")));
+
+	/**
+	 * Drops options the installed Sodium/Iris builds can't run, so no toggle does nothing. This jar also
+	 * runs 1.21.2/1.21.3, whose Sodium 0.6.1/0.6.8 + Iris 1.8.0/1.8.1 Smart Terrain Updates doesn't support
+	 * (render/SodiumIrisBuilds). A stored value for a hidden key is kept; the feature stays inert there
+	 * (SmartTerrainUpdates.VERSIONS_OK is the same test).
+	 */
+	private static List<ModOption> runnableOnly(List<ModOption> options) {
+		if (com.origin.client.client.render.SodiumIrisBuilds.SMART_TERRAIN) {
+			return options;
+		}
+		List<ModOption> kept = new ArrayList<>(options.size());
+		for (ModOption o : options) {
+			if (!"smartTerrainUpdates".equals(o.key)) {
+				kept.add(o);
+			}
+		}
+		return List.copyOf(kept);
+	}
 
 	// Vanilla 1.21.1 particle types (net.minecraft.core.particles.ParticleTypes)
 	// — the Particle Changer builds a per-type control block from this list so

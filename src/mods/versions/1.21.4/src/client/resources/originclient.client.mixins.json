@@ -1,6 +1,7 @@
 {
 	"required": false,
 	"package": "com.origin.client.client.mixin",
+	"plugin": "com.origin.client.client.OriginMixinPlugin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"AbstractButtonMixin",
@@ -92,6 +93,7 @@
 		"SodiumSortedRenderListsAccessor",
 		"SodiumChunkRenderListAccessor",
 		"SodiumGraphReuseMixin",
+		"SodiumWalkEndMixin",
 		"SodiumOcclusionStampMixin",
 		"SodiumViewportShadowMapMixin",
 		"SodiumWorldRendererReuseMixin",
