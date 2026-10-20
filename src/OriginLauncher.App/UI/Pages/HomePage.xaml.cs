@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -309,7 +309,7 @@ public partial class HomePage : UserControl
         {
             ProfileNameText.Text = selected.Name;
             ProfileInitial.Text = ProfileLook.Initial(selected.Name);
-            ProfileIcon.Child = ProfileLook.EmblemGlyph(selected.Icon, 18, ProfileLook.Ink(selected));
+            ProfileIcon.Child = ProfileLook.EmblemGlyph(selected.Icon, ProfileLook.Ink(selected));
             ProfileInitial.Foreground = ProfileLook.Ink(selected);
             ProfileInitial.Visibility = ProfileIcon.Child == null ? Visibility.Visible : Visibility.Collapsed;
             ProfileMark.Visibility = Visibility.Collapsed;

@@ -34,9 +34,8 @@ public static class ProfileLook
     public static bool HasIcon(string? icon) => icon != null && Array.IndexOf(EmblemIcons, icon) >= 0;
 
     /// <summary>The icon drawn in <paramref name="brush"/>, or null when the profile shows its
-    /// letter. Always <see cref="EmblemSize"/> square: <paramref name="size"/> is kept so callers
-    /// don't change, but a scaled glyph would blur its strokes, so it is ignored.</summary>
-    public static FrameworkElement? EmblemGlyph(string? icon, double size, Brush brush)
+    /// letter. Always <see cref="EmblemSize"/> square: a scaled glyph would blur its strokes.</summary>
+    public static FrameworkElement? EmblemGlyph(string? icon, Brush brush)
     {
         if (!HasIcon(icon)) return null;
         var outline = (Geometry)Application.Current.FindResource("Icon.Emblem." + icon);
