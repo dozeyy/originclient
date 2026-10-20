@@ -151,7 +151,7 @@ public partial class ProfilesPage : UserControl
         var ink = ProfileLook.Ink(profile);
         var emblem = Emblem(ProfileLook.Initial(profile.Name), ProfileLook.Tint(profile));
         if (emblem.Child is Controls.TrackedText letter) letter.Foreground = ink;
-        if (ProfileLook.EmblemGlyph(profile.Icon, 22, ink) is { } glyph)
+        if (ProfileLook.EmblemGlyph(profile.Icon, ink) is { } glyph)
             emblem.Child = glyph;
         return emblem;
     }
@@ -606,7 +606,7 @@ public partial class ProfilesPage : UserControl
         FormInitial.Text = initial;
         FormEmblem.Background = ProfileLook.TintBrush(_formTint);
         FormInitial.Foreground = ProfileLook.InkBrush(_formTint);
-        var glyph = ProfileLook.EmblemGlyph(_formIcon, 20, ProfileLook.InkBrush(_formTint));
+        var glyph = ProfileLook.EmblemGlyph(_formIcon, ProfileLook.InkBrush(_formTint));
         FormInitial.Visibility = glyph == null ? Visibility.Visible : Visibility.Collapsed;
         FormIcon.Child = glyph;
         // The letter tile shows the letter the card would get.
@@ -628,7 +628,7 @@ public partial class ProfilesPage : UserControl
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
                 }
-                : ProfileLook.EmblemGlyph(icon, 18, (Brush)FindResource("Brush.Text"))!;
+                : ProfileLook.EmblemGlyph(icon, (Brush)FindResource("Brush.Text"))!;
             var tile = new Button
             {
                 Style = (Style)FindResource("Button.Chrome"),

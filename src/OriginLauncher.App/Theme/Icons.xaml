@@ -79,17 +79,40 @@
     <Geometry x:Key="Icon.Drop">M12,3 V15 M7,10 L12,15 17,10 M4,15 V18 A2,2 0 0 0 6,20 H18 A2,2 0 0 0 20,18 V15</Geometry>
     <Geometry x:Key="Icon.Copy">M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1</Geometry>
     <!-- Singleplayer (a world): globe, lucide-style. -->
-    <!-- Profile emblems (Poster, Profiles form): Feather's map, zap, camera, box, user,
-         star, target and sun (MIT, 24 px masters); the pen is Icon.Edit. -->
-    <Geometry x:Key="Icon.Emblem.Map">M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z M8,2 L8,18 M16,6 L16,22</Geometry>
-    <Geometry x:Key="Icon.Emblem.Zap">M13 2 3 14h9l-1 8 10-12h-9l1-8z</Geometry>
-    <Geometry x:Key="Icon.Emblem.Camera">M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M8,13 A4,4 0 1 0 16,13 A4,4 0 1 0 8,13 Z</Geometry>
-    <Geometry x:Key="Icon.Emblem.Box">M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.27,6.96 L12,12.01 20.73,6.96 M12,22.08 L12,12</Geometry>
-    <Geometry x:Key="Icon.Emblem.User">M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M8,7 A4,4 0 1 0 16,7 A4,4 0 1 0 8,7 Z</Geometry>
-    <Geometry x:Key="Icon.Emblem.Pen">M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z</Geometry>
-    <Geometry x:Key="Icon.Emblem.Star">M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z</Geometry>
-    <Geometry x:Key="Icon.Emblem.Target">M2,12 A10,10 0 1 0 22,12 A10,10 0 1 0 2,12 Z M6,12 A6,6 0 1 0 18,12 A6,6 0 1 0 6,12 Z M10,12 A2,2 0 1 0 14,12 A2,2 0 1 0 10,12 Z</Geometry>
-    <Geometry x:Key="Icon.Emblem.Sun">M7,12 A5,5 0 1 0 17,12 A5,5 0 1 0 7,12 Z M12,1 L12,3 M12,21 L12,23 M4.22,4.22 L5.64,5.64 M18.36,18.36 L19.78,19.78 M1,12 L3,12 M21,12 L23,12 M4.22,19.78 L5.64,18.36 M18.36,5.64 L19.78,4.22</Geometry>
+    <!-- Profile emblems (ProfileLook.EmblemGlyph). One set, drawn for Origin on a 24 px grid and
+         always shown at 24 px (the Origin mark's size), so a whole pixel is a whole grid unit:
+         2 px round stroke, axis-aligned edges on whole pixels (crisp at 100% and 200%), a tint
+         fill at ProfileLook.ToneOpacity inside every outline, and a solid layer (".Solid") for
+         details and small parts. F0 = even-odd, so a lens or ring reads as a hole. The name
+         after "Icon.Emblem." is what ModProfile.Icon stores, so never rename one. -->
+    <Geometry x:Key="Icon.Emblem.Star">M12,2.7 L14.65,9.26 21.7,9.75 16.28,14.29 18,21.15 12,17.4 6,21.15 7.72,14.29 2.3,9.75 9.35,9.26 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Zap">M14,2 L5,13 11,13 10,22 19,11 13,11 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Map">M3,6 L9,4 L15,6 L21,4 L21,18 L15,20 L9,18 L3,20 Z M9,4 L9,18 M15,6 L15,20</Geometry>
+    <Geometry x:Key="Icon.Emblem.Camera">F0 M3,7 L7,7 9,4 15,4 17,7 21,7 21,19 3,19 Z M8.5,13 A3.5,3.5 0 0 1 12,9.5 A3.5,3.5 0 0 1 15.5,13 A3.5,3.5 0 0 1 12,16.5 A3.5,3.5 0 0 1 8.5,13 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Target">F0 M3,12 A9,9 0 0 1 12,3 A9,9 0 0 1 21,12 A9,9 0 0 1 12,21 A9,9 0 0 1 3,12 Z M7,12 A5,5 0 0 1 12,7 A5,5 0 0 1 17,12 A5,5 0 0 1 12,17 A5,5 0 0 1 7,12 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Target.Solid">M10.2,12 A1.8,1.8 0 0 1 12,10.2 A1.8,1.8 0 0 1 13.8,12 A1.8,1.8 0 0 1 12,13.8 A1.8,1.8 0 0 1 10.2,12 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Sun">M8,12 A4,4 0 0 1 12,8 A4,4 0 0 1 16,12 A4,4 0 0 1 12,16 A4,4 0 0 1 8,12 Z M19.5,12 L22,12 M17.09,17.09 L18.65,18.65 M12,19.5 L12,22 M6.91,17.09 L5.35,18.65 M4.5,12 L2,12 M6.91,6.91 L5.35,5.35 M12,4.5 L12,2 M17.09,6.91 L18.65,5.35</Geometry>
+    <Geometry x:Key="Icon.Emblem.Pen">M16.6,3.16 L20.84,7.4 9.53,18.72 3.16,20.84 5.28,14.47 Z M13.77,5.99 L18.01,10.23 M5.28,14.47 L9.53,18.72</Geometry>
+    <Geometry x:Key="Icon.Emblem.User">M4,21 C4,16.5 7.5,14 12,14 C16.5,14 20,16.5 20,21 Z M8,8 A4,4 0 0 1 12,4 A4,4 0 0 1 16,8 A4,4 0 0 1 12,12 A4,4 0 0 1 8,8 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Box">M12,2 L21,7 L21,17 L12,22 L3,17 L3,7 Z M3,7 L12,12 L21,7 M12,12 L12,22</Geometry>
+    <Geometry x:Key="Icon.Emblem.Crown">M3,19 L3,8 L8,12 L12,5 L16,12 L21,8 L21,19 Z M3,16 L21,16</Geometry>
+    <Geometry x:Key="Icon.Emblem.Globe">M3,12 A9,9 0 0 1 12,3 A9,9 0 0 1 21,12 A9,9 0 0 1 12,21 A9,9 0 0 1 3,12 Z M3,12 L21,12 M12,3 A4,9 0 0 1 12,21 A4,9 0 0 1 12,3 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Server">M3,2 H21 V10 H3 Z M3,14 H21 V22 H3 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Server.Solid">M5.8,6 A1.2,1.2 0 0 1 7,4.8 A1.2,1.2 0 0 1 8.2,6 A1.2,1.2 0 0 1 7,7.2 A1.2,1.2 0 0 1 5.8,6 Z M5.8,18 A1.2,1.2 0 0 1 7,16.8 A1.2,1.2 0 0 1 8.2,18 A1.2,1.2 0 0 1 7,19.2 A1.2,1.2 0 0 1 5.8,18 Z M12,5 H18 V7 H12 Z M12,17 H18 V19 H12 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Sword">M7.05,12.42 L15.89,3.59 21.55,2.45 20.41,8.11 11.58,16.95</Geometry>
+    <Geometry x:Key="Icon.Emblem.Sword.Solid">M4.72,9.38 L14.62,19.28 12.35,21.55 2.45,11.65 Z M6.34,15.25 L8.75,17.66 5.92,20.49 3.51,18.08 Z M2.2,20.2 A1.6,1.6 0 0 1 3.8,18.6 A1.6,1.6 0 0 1 5.4,20.2 A1.6,1.6 0 0 1 3.8,21.8 A1.6,1.6 0 0 1 2.2,20.2 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Pickaxe">M4.57,3.88 Q23.66,0.34 20.12,19.43 L16.94,19.79 Q16.94,7.06 4.21,7.06 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Pickaxe.Solid">M13.05,8.54 L15.46,10.95 5.77,20.63 3.37,18.23 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Diamond">M6,3 H18 L22,9 L12,22 L2,9 Z M2,9 H22 M11,3 L8,9 L12,22 L16,9 L13,3</Geometry>
+    <Geometry x:Key="Icon.Emblem.Heart">M12,20.5 L4.4,12.9 A5.4,5.4 0 0 1 12,5.3 A5.4,5.4 0 0 1 19.6,12.9 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Creeper">M3,3 H21 V21 H3 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Creeper.Solid">M6,7 H10 V11 H6 Z M14,7 H18 V11 H14 Z M10,12 H14 V15 H16 V18 H13 V15 H11 V18 H8 V15 H10 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Potion">M14,3 V9 A6.5,6.5 0 1 1 10,9 V3 M8.5,3 H15.5</Geometry>
+    <Geometry x:Key="Icon.Emblem.Potion.Solid">M7.05,14.5 H16.95 A5,5 0 1 1 7.05,14.5 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Torch">M16.6,1.6 L18.81,8.15 A3.6,3.6 0 1 1 12.5,7.17 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Torch.Solid">M11.29,10.31 L13.69,12.71 4.15,22.26 1.74,19.85 Z M16,6.2 L16.86,9.64 A1.5,1.5 0 1 1 14.13,9.21 Z</Geometry>
+    <Geometry x:Key="Icon.Emblem.Chest">M3,5 H21 V20 H3 Z M3,10 H21</Geometry>
+    <Geometry x:Key="Icon.Emblem.Chest.Solid">M10,9 H14 V14 H10 Z</Geometry>
     <Geometry x:Key="Icon.Globe">M12,3 A9,9 0 1 0 12.001,3 Z M3,12 H21 M12,3 A14,14 0 0 1 12,21 A14,14 0 0 1 12,3 Z</Geometry>
 
 </ResourceDictionary>
