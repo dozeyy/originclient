@@ -31,6 +31,20 @@ public class LevelLoadingScreenMixin {
 		}
 	}
 
+	// Target: LevelLoadingScreen.renderBackground(GuiGraphics,int,int,float)
+	// (javap-verified 1.21.11; it draws panorama + blur + menu texture, or the
+	// nether/end portal). Why: on 1.21.6+ renderBackground runs BEFORE render
+	// (Screen.renderWithTooltipAndSubtitles), so the render-HEAD takeover above no
+	// longer skips it; the Origin scene draws its own backdrop, so vanilla's would
+	// stack a second dim under it (and the portal sprite over the panorama). If
+	// this stops applying, the scene still draws, over vanilla's backdrop.
+	@Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
+	private void originclient$noVanillaBackdrop(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+		if (!OriginStyle.vanillaMenusOn(this) && OriginScreenRenderer.isActive()) {
+			ci.cancel();
+		}
+	}
+
 	// The tracker's own 0..1 server progress, or -1 (sweep) while it has none
 	// or it can't be read (1.21.9+: LevelLoadTracker replaced the 0-100 count).
 	@Unique
