@@ -210,20 +210,31 @@ public sealed class ArtStage : Grid
         return Tiers[^1];
     }
 
+    // The tier for the window as laid out now; 0 until layout gives it a width (then nothing loads yet,
+    // so the first decode is at the real size and never repeated).
+    private int CurrentTier()
+    {
+        var width = ActualWidth * VisualTreeHelper.GetDpi(this).DpiScaleX;
+        return width > 0 ? TierFor(width) : 0;
+    }
+
     // Reload the shown family if the window's size or DPI moved it to another tier.
     private void PickResolution()
     {
-        var tier = TierFor(ActualWidth * VisualTreeHelper.GetDpi(this).DpiScaleX);
-        if (tier == _tier) return;
+        var tier = CurrentTier();
+        if (tier == 0 || tier == _tier) return;
+        if (_tier != 0) Cache.Clear();   // other tiers' frames are dead weight now (shown layers keep their own)
         _tier = tier;
         if (_artKey == null) return;
         Load(_grey[_front].Image, _artKey, "g", fadeIn: false);
         Load(_colour.Image, _artKey, "c", fadeIn: false);
     }
 
-    // Decoded art by file name. Bounded: a 2560 frame is 14.7 MB of pixels and a 3840 one 33 MB, so a long
-    // session that visits every family must not keep all of them. Layers on screen hold their own reference.
-    private const long CacheBudget = 100L * 1024 * 1024;
+    // Decoded art by file name, least recently used out first. Six frames = the current family's grey and
+    // colour layers plus those of the two families the arrow keys step to, so stepping and the crossfade
+    // never wait on a decode; at 3840 that is a few hundred MB at most, at 1280 about 20 MB. A layer on
+    // screen holds its own reference, so eviction never blanks it.
+    private const int CacheFrames = 6;
     private static readonly Dictionary<string, (BitmapSource Bmp, long Stamp)> Cache = new();
     private static long _stamp;
 
@@ -237,48 +248,60 @@ public sealed class ArtStage : Grid
     private static void CachePut(string name, BitmapSource bmp)
     {
         Cache[name] = (bmp, ++_stamp);
-        long Bytes(BitmapSource b) => (long)b.PixelWidth * b.PixelHeight * (b.Format.BitsPerPixel / 8);
-        var total = Cache.Values.Sum(v => Bytes(v.Bmp));
-        while (total > CacheBudget && Cache.Count > 1)
-        {
-            var oldest = Cache.Where(kv => kv.Key != name).MinBy(kv => kv.Value.Stamp);
-            total -= Bytes(oldest.Value.Bmp);
-            Cache.Remove(oldest.Key);
-        }
+        while (Cache.Count > CacheFrames)
+            Cache.Remove(Cache.MinBy(kv => kv.Value.Stamp).Key);
     }
 
-    /// <summary>Decode the best file for the tier: the tier's own, else the next one down that exists.</summary>
-    private static BitmapSource? DecodeBest(string key, string kind, int tier)
+    // Files known not to exist (a family with no file at some tier), so a miss costs one failed probe ever,
+    // not a thrown-and-caught exception per load.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> Absent = new();
+
+    /// <summary>The file that answers a request: the tier's own, else the next one down not known to be missing.</summary>
+    private static string? Candidate(string key, string kind, int tier)
     {
         for (var i = Array.IndexOf(Tiers, tier); i >= 0; i--)
-            if (Decode($"{key}-{kind}{Tiers[i]}.jpg") is { } bmp) return bmp;
+        {
+            var name = $"{key}-{kind}{Tiers[i]}.jpg";
+            if (!Absent.ContainsKey(name)) return name;
+        }
+        return null;
+    }
+
+    /// <summary>Decode the best file for the tier, remembering any tier that turns out to be missing.</summary>
+    private static (string Name, BitmapSource Bmp)? DecodeBest(string key, string kind, int tier)
+    {
+        while (Candidate(key, kind, tier) is { } name)
+        {
+            if (Decode(name) is { } bmp) return (name, bmp);
+            Absent[name] = 0;
+        }
         return null;
     }
 
     private void Load(Image target, string key, string kind, bool fadeIn, Action? then = null)
     {
-        if (_tier == 0) _tier = TierFor(ActualWidth * VisualTreeHelper.GetDpi(this).DpiScaleX);
+        if (_tier == 0) _tier = CurrentTier();
+        if (_tier == 0) return;   // no layout yet; PickResolution loads the shown family when there is one
         var tier = _tier;
-        var request = $"{key}-{kind}@{tier}";   // what was asked for; the file that answers it may be a lower tier
-        if (CacheGet(request) is { } hit)
+        if (Candidate(key, kind, tier) is { } name && CacheGet(name) is { } hit)
         {
             Set(target, hit, fadeIn, then);
             return;
         }
         if (Motion.Off)
         {
-            var b = DecodeBest(key, kind, tier);
-            if (b != null) CachePut(request, b);
-            Set(target, b, fadeIn, then);
+            var d = DecodeBest(key, kind, tier);
+            if (d is { } got) CachePut(got.Name, got.Bmp);
+            Set(target, d?.Bmp, fadeIn, then);
             return;
         }
         _ = System.Threading.Tasks.Task.Run(() => DecodeBest(key, kind, tier)).ContinueWith(t =>
         {
-            if (t.Result is { } bmp)
+            if (t.Result is { } got)
             {
-                CachePut(request, bmp);
+                CachePut(got.Name, got.Bmp);
                 // Only the newest request for this layer lands.
-                if (_artKey == key && _tier == tier) Set(target, bmp, fadeIn, then);
+                if (_artKey == key && _tier == tier) Set(target, got.Bmp, fadeIn, then);
             }
         }, System.Threading.Tasks.TaskScheduler.FromCurrentSynchronizationContext());
     }
