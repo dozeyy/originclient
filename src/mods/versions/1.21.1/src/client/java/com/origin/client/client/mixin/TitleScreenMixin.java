@@ -9,6 +9,7 @@ import com.origin.client.client.gui.OriginWidgetOwnership;
 import com.origin.client.client.OriginStyle;
 import com.origin.client.client.render.OriginScreenRenderer;
 import com.origin.client.client.render.TitleLayout;
+import com.origin.client.client.gui.MenuText;
 import com.origin.client.client.theme.OriginTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -356,17 +357,18 @@ public class TitleScreenMixin {
 				dx += dockW[i] + L.dockGap;
 			}
 
-			// Copyright line (legally required, stays): quiet grey, on the corner inset
-			// instead of hard against the window edge. Hover still shows vanilla's
-			// underlined white (PlainTextButton keeps its own underlined copy).
+			// Copyright line (legally required, stays): small muted Inter on the
+			// corner inset (PlainTextButtonMixin draws it; vanilla pixel text when
+			// the SDF face can't). Its box sits below the icon row's bottom
+			// (dockY + dockSize) so the two never overlap, even at GUI scale 4.
 			for (GuiEventListener child : self.children()) {
 				if (child instanceof PlainTextButton c && c.visible) {
 					String text = c.getMessage().getString();
-					c.setMessage(Component.literal(text).withStyle(st -> st.withColor(OriginTheme.CLEAN_TEXT_MUTED & 0xFFFFFF)));
-					int cw = Minecraft.getInstance().font.width(text);
-					c.setWidth(cw);
-					originclient$place(c, self.width - TitleLayout.CORNER - cw, self.height - TitleLayout.CORNER - 8,
-							cw, 10, false);
+					int cw = MenuText.usable(text)
+							? (int) Math.ceil(MenuText.width(text, OriginTheme.CLEAN_EM_HINT))
+							: Minecraft.getInstance().font.width(text);
+					int cy = Math.max(L.dockY + L.dockSize, self.height - TitleLayout.CORNER - 6);
+					originclient$place(c, self.width - TitleLayout.CORNER - cw, cy, cw, 8, false);
 				}
 			}
 
