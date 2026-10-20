@@ -156,7 +156,7 @@ public partial class HomePage : UserControl
         };
         VersionOverlay.VersionSelected += OnVersionSelected;
         // While an import writes to the game folders, Play and Join stay off (Core/Import/Launcher/ImportRunState).
-        ImportRunState.Changed += () => Dispatcher.BeginInvoke(() => RefreshPlayButton());
+        ImportRunState.Changed += () => Dispatcher.BeginInvoke(() => UpdatePlayState());
         VersionOverlay.LaunchRequested += OnLaunchRequested;
         // The home banner pauses under either scene (and, in ad mode, its
         // native WebView2 would otherwise draw on top of them).
@@ -440,6 +440,8 @@ public partial class HomePage : UserControl
     private GamePhase SelectedPhase() =>
         SelectedKey() is { } key ? _launches.PhaseOf(key) : GamePhase.Idle;
 
+    private const string ImportRunningText = "Importing - Play is back when it finishes";
+
     // The Play button AND the status pill for the selected account: its own
     // game state ("Running · Steve" while its game is open), or the plain
     // signed-in line when it has none.
@@ -447,8 +449,13 @@ public partial class HomePage : UserControl
     {
         RefreshPlayButton();
         var key = SelectedKey();
-        if (key != null && _launches.PhaseOf(key) != GamePhase.Idle && _launches.NoteOf(key) is { } note)
+        // Why Play is off is words on the status line, never a hover label.
+        if (ImportRunState.IsApplying)
+            SetStatus(ImportRunningText, StatusTone.Warning);
+        else if (key != null && _launches.PhaseOf(key) != GamePhase.Idle && _launches.NoteOf(key) is { } note)
             SetStatus(note.Text, ToneOf(note.Tone));
+        else if (key != null && _selectedVersion == null)
+            SetStatus("Select a version to play", StatusTone.Neutral);
         else if (_selectedAccount != null)
             SetStatus("Ready to play", StatusTone.Success);
         else if (key != null)
@@ -623,7 +630,7 @@ public partial class HomePage : UserControl
         // Enter, a friend's Join and the version picker all land here: none of them may start a game mid-import.
         if (ImportRunState.IsApplying)
         {
-            SetStatus("An import is running. Play comes back when it finishes.", StatusTone.Warning);
+            SetStatus(ImportRunningText, StatusTone.Warning);
             return;
         }
         // One fresh read for every launch-gating setting: offline test mode

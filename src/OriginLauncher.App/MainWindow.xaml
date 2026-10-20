@@ -102,8 +102,14 @@
                             Padding="9" Margin="0,0,4,0" MinWidth="36" MinHeight="36"
                             Visibility="Collapsed"
                             AutomationProperties.Name="Install update">
-                        <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
-                              Width="18" Height="18" Stroke="{StaticResource Brush.Text}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource Icon.Download}" Style="{StaticResource Icon.Base}"
+                                  Width="18" Height="18" Stroke="{StaticResource Brush.Text}"/>
+                            <!-- After a failed update: one calm word on the badge itself (no hover label needed). -->
+                            <TextBlock x:Name="UpdateRetryText" Text="Update failed - retry" Style="{StaticResource Text.Status}"
+                                       Visibility="Collapsed" VerticalAlignment="Center" Margin="8,0,2,0"
+                                       Foreground="{StaticResource Brush.Warning}"/>
+                        </StackPanel>
                     </Button>
                     <!-- Import from another launcher: opens the Import page. -->
                     <Button x:Name="ImportButton" Click="ImportButton_Click"

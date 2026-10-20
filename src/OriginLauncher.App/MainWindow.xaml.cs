@@ -132,6 +132,8 @@ public partial class MainWindow : Window
         // import can open or apply once the download is under way (Core/Import/Launcher/UpdateRunState).
 
         UpdateBadge.IsEnabled = false;
+        UpdateRetryText.Visibility = Visibility.Collapsed;
+        System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Install update");
 
         // Show the download on Home's full-page loading scene (a real
         // percentage fill), unless a game launch is mid-flight there — then
@@ -161,6 +163,9 @@ public partial class MainWindow : Window
         {
             if (onScene) _homePage.EndUpdateScene();
             UpdateBadge.IsEnabled = true;
+            // Visible, not a hover label: the badge says it failed and that a click retries.
+            UpdateRetryText.Visibility = Visibility.Visible;
+            System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Update failed, retry");
         }
     }
 

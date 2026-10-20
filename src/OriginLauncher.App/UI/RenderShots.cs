@@ -204,6 +204,18 @@ public static class RenderShots
         Snap(window, outDir, "11-versions-detail");
         window.TourHideVersions();
         Pump(300);
+        // A wide window: the picker's one-row layout (two rows below ~1184 px).
+        var (normalW, normalH) = (window.Width, window.Height);
+        window.Width = 1360;
+        window.Height = 800;
+        Pump(500);
+        window.TourShowVersions(-1);
+        Pump(500);
+        Snap(window, outDir, "11b-wide-versions-grid");
+        window.TourHideVersions();
+        window.Width = normalW;
+        window.Height = normalH;
+        Pump(500);
         window.TourSetAccountOpen(true);
         Pump(500);
         Snap(window, outDir, "12-accounts");
