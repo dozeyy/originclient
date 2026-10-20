@@ -12,10 +12,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // SETTINGS > Performance > Limit Far Shadows, block-entity half (render/ShadowCasterLimit).
 // Target: BlockEntityRenderDispatcher.render(BlockEntity, float, PoseStack, MultiBufferSource)V
-//   at HEAD (javap, 1.21.1 Mojmap; generic <E extends BlockEntity>, erased).
+//   at HEAD (javap, MC 1.20.4 Mojmap; generic <E extends BlockEntity>, erased).
 // Why: with a shader pack, Iris draws block entities into the shadow map through Sodium 0.5.8
-//   SodiumWorldRenderer.renderBlockEntity (bytecode offset 158) or, without Sodium, Iris's own
-//   ShadowRenderer.renderBlockEntities (offset 235) -- both end in this call, and Sodium's path
+//   SodiumWorldRenderer.renderBlockEntity (bytecode offset 166) or, without Sodium, Iris's own
+//   ShadowRenderer.renderBlockEntities (offset 229) -- both end in this call, and Sodium's path
 //   has no distance cull at all. Cancelling at HEAD skips the chest/sign/banner geometry build.
 //   Outside the shadow pass ShadowCasterLimit always answers "keep".
 // What breaks if it stops applying: nothing visible -- far block entities keep casting shadows.

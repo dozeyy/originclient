@@ -10,9 +10,9 @@ import org.spongepowered.asm.mixin.injection.At;
 
 /**
  * Target: Iris 1.7.2+1.20.4 IrisRenderingPipeline.beginLevelRendering()V, its first read of the
- * shadowRenderTargets field (bytecode 156, `getfield shadowRenderTargets; ifnull 445`: the
+ * shadowRenderTargets field (bytecode 138, `getfield shadowRenderTargets; ifnull 427`: the
  * "if (shadowRenderTargets != null)" around the per-frame shadow clear, the pack's shadow compute
- * dispatches and the shadow clear passes), javap of the jar 2026-10-20 (GETFIELD at offset 138, ifnull -> 427). No @Shadow: the pipeline's
+ * dispatches and the shadow clear passes), javap of the jar 2026-10-20. No @Shadow: the pipeline's
  * private fields are read by reflection in HalfRateShadows, so a different Iris build only turns the
  * feature off.
  * Why: Half-Rate Shadows (render/HalfRateShadows). This is where each frame decides whether it keeps
