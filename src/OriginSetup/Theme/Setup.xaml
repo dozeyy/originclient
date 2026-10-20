@@ -4,18 +4,38 @@
     <!-- Installer-only pieces, built from the launcher's tokens. Everything
          else (buttons, inputs, colours, type) is the launcher's own theme. -->
 
-    <!-- Same card as the launcher's Settings sections. -->
+    <!-- Card: the launcher's Surface.Card (src/OriginLauncher.App/Theme/Surfaces.xaml, which pulls in
+         launcher-only controls so it cannot be linked): Panel fill, clear 1 px edge, 4 px corners, 16 px
+         inside. Re-copy these values if Surfaces.xaml changes. No hover lift: nothing here is clickable. -->
     <Style x:Key="Setup.Card" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Brush.PanelGlass}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+        <Setter Property="Background" Value="{StaticResource Brush.Panel}"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}"/>
-        <Setter Property="Padding" Value="18,14"/>
-        <Setter Property="Margin" Value="0,0,0,10"/>
+        <Setter Property="Padding" Value="16"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+    </Style>
+
+    <!-- Dialog: the launcher's Surface.Dialog (same source file): elevated fill, soft edge, 8 px corners,
+         24 inside, the card shadow. Used by the "Origin is open" prompt. -->
+    <Style x:Key="Setup.Dialog" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.PanelElevated}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.SoftStroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource Radius.Dialog}"/>
+        <Setter Property="Padding" Value="24"/>
+        <Setter Property="Effect" Value="{StaticResource Shadow.Card}"/>
+    </Style>
+
+    <!-- A card's heading icon: the launcher's small stroke icon, tinted per section like Settings'
+         rail (TintInk.* from the linked Colors.xaml). Set Stroke and Data on use. -->
+    <Style x:Key="Setup.CardIcon" TargetType="Path" BasedOn="{StaticResource Icon.Small}">
+        <Setter Property="Margin" Value="0,0,8,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
     <Style x:Key="Setup.CardTitle" TargetType="TextBlock" BasedOn="{StaticResource Text.Eyebrow}">
-        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
     <!-- Short accent rule under page titles, as in the launcher's Settings. -->
