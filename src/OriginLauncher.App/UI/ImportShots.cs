@@ -111,8 +111,8 @@ internal static class ImportShots
             panel.TourToggleLauncher(SourceKind.Lunar);
             RenderShots.Pump(300);
 
-            // 61: Choose what to import, the grid: a row per launcher, a tick per thing, All versions first. Lunar's mods
-            // are greyed (built in), the Forge setup's columns say why.
+            // 61: Choose what to import, the grid: a row per launcher, a tick per thing, All versions first, one launcher's mods
+            // ticked so no warning. Lunar's mods are greyed (built in), the Forge setup's columns say why.
             panel.TourShowGrid();
             RenderShots.Pump(700);
             RenderShots.Snap(window, outDir, "61-import-grid");
@@ -122,7 +122,7 @@ internal static class ImportShots
             panel.TourGridTurnOn(SourceKind.Modrinth, GridColumn.Mods);
             RenderShots.Pump(400);
             RenderShots.Snap(window, outDir, "61b-import-grid-version-mixed");
-            // 61c: back on All versions, the warning names the version that mixes; Settings for 1.21.1 moved to Lunar.
+            // 61c: back on All versions, the warning stays (two launchers' mods ticked); Settings moved to Lunar.
             panel.TourGridTab("1.21.1");
             panel.TourGridTurnOn(SourceKind.Lunar, GridColumn.Settings);
             panel.TourGridTab(ImportGridModel.AllTab);

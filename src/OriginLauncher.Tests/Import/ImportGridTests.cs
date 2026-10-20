@@ -253,12 +253,66 @@ public sealed class ImportGridTests : IDisposable
         // Will's rule, literally: more than one launcher's Mods box ticked = the warning, whatever the versions.
         var grid = new ImportGridModel(new[] { Setup("Survival", SourceKind.Prism, "1.21.1", 40), Setup("FO", SourceKind.Modrinth, "1.20.4", 5) });
         Assert.True(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);
-        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
+        Assert.False(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);             // one launcher's mods by default
+        Assert.Null(grid.Warning());
+
+        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);                        // a second launcher's mods: the warning
         Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
         Assert.Empty(grid.MixedModsVersions());                                   // no version's folder mixes them
 
-        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);                        // one launcher's mods left: no warning
+        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);                        // back to one launcher's mods: none
         Assert.Null(grid.Warning());
+    }
+
+    [Fact]
+    public void TheDefaultGridNeverOpensWithTheModsWarning()
+    {
+        // Three launchers with mods on three versions: only the settings launcher's Mods start ticked.
+        var grid = new ImportGridModel(new[]
+        {
+            Setup("Survival", SourceKind.Prism, "1.21.1", 40),
+            Setup("Old", SourceKind.Prism, "1.20.1", 3),
+            Setup("Vanilla+", SourceKind.OfficialLauncher, "1.19.2", 20),
+            Setup("FO", SourceKind.Modrinth, "1.20.1", 9),
+            Setup("PvP", SourceKind.Modrinth, "1.21.1", 1),
+        });
+
+        Assert.Equal(SourceKind.Prism, grid.SettingsLauncher);
+        Assert.Equal(SourceKind.Prism, grid.DefaultModsLauncher);
+        Assert.Null(grid.Warning());
+        Assert.True(grid.Cell(SourceKind.Prism, GridColumn.Mods).On);
+        Assert.False(grid.Cell(SourceKind.OfficialLauncher, GridColumn.Mods).On);
+        Assert.False(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.ResourcePacks).On);      // the other columns keep their defaults
+        Assert.True(grid.Cell(SourceKind.OfficialLauncher, GridColumn.Worlds).On);
+        Assert.True(grid.Cell(SourceKind.OfficialLauncher, GridColumn.Servers).On);
+    }
+
+    [Fact]
+    public void WhenTheSettingsLauncherHasNoModsTheLauncherWithTheMostModsIsTicked()
+    {
+        var prism = Setup("Survival", SourceKind.Prism, "1.21.1", 40);
+        var modrinth = Setup("FO", SourceKind.Modrinth, "1.21.1", 5);
+        var curse = Setup("Pack", SourceKind.CurseForge, "1.21.1", 2);
+        var grid = new ImportGridModel(new[] { prism, modrinth, curse });
+        grid.Contents = new Dictionary<string, SetupContents>
+        {
+            [prism.SetupId] = new(Mods: 0, Settings: true),
+            [modrinth.SetupId] = new(Mods: 12),
+            [curse.SetupId] = new(Mods: 30),
+        };
+
+        Assert.Equal(SourceKind.Prism, grid.SettingsLauncher);
+        Assert.Equal(SourceKind.CurseForge, grid.DefaultModsLauncher);
+        Assert.True(grid.Cell(SourceKind.CurseForge, GridColumn.Mods).On);
+        Assert.False(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
+        Assert.Null(grid.Warning());
+
+        // Once the player pressed a Mods tick, a later count never moves it.
+        grid.Toggle(SourceKind.Modrinth, GridColumn.Mods);
+        grid.Contents = new Dictionary<string, SetupContents>(grid.Contents);
+        Assert.True(grid.Cell(SourceKind.Modrinth, GridColumn.Mods).On);
+        Assert.Equal(ImportGridModel.MixedModsWarning, grid.Warning());
     }
 
     [Fact]

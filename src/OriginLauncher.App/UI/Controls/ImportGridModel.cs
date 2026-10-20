@@ -13,7 +13,9 @@ namespace OriginLauncher.App.UI.Controls;
 //  * Settings is ONE launcher for the whole grid (a radio: ticking one unticks the other), so no two launchers'
 //    settings ever meet (Will, 2026-10-19). The default is the launcher the engine picks for the most versions
 //    (BulkComposer.DefaultSettingsLauncher); a version that launcher has no setup on keeps Origin's own settings;
-//  * every other column is a plain tick; mods from several launchers on one version are allowed, with a warning;
+//  * Mods start ticked for ONE launcher only (the settings launcher when it has mods, else the one with the most),
+//    so the grid never opens with the warning; ticking a second launcher's mods is allowed, with the warning;
+//  * every other column is a plain tick;
 //    packs, shaders and servers come from every ticked launcher with duplicates removed, worlds all come;
 //  * a cell with nothing behind it is greyed with the reason ("Lunar's mods are built in, not files"), never hidden;
 //  * with more than one version there are tabs: "All versions" (a tick there sets every version) and one per version.
@@ -40,6 +42,7 @@ internal sealed class ImportGridModel
     private readonly ImportGrid _cells = new();                                   // the ticks (Settings excluded)
     private SourceKind? _settingsPick;                                             // the player's Settings pick...
     private bool _settingsPicked;                                                  // ...once they made one
+    private bool _modsTouched;                                                     // the player pressed a Mods tick
 
     /// <param name="setups">The setups that can come over (a supported, known Minecraft version).</param>
     public ImportGridModel(IEnumerable<DetectedInstance> setups)
@@ -49,11 +52,51 @@ internal sealed class ImportGridModel
         foreach (var version in Versions)
             foreach (var kind in LaunchersOn(version))
                 _cells.Set(version, kind, BulkComposer.DefaultBrings(kind, version, _setups));
+        DefaultMods();
         Tab = ShowTabs ? AllTab : Versions.FirstOrDefault() ?? AllTab;
     }
 
-    /// <summary>What each setup holds (by SetupId), from the page's count; empty until counted (then every cell is open).</summary>
-    public IReadOnlyDictionary<string, SetupContents> Contents { get; set; } = new Dictionary<string, SetupContents>();
+    /// <summary>
+    /// What each setup holds (by SetupId), from the page's count; empty until counted (then every cell is open). The
+    /// count can change which launcher has the most mods, so the Mods default is re-picked until the player presses one.
+    /// </summary>
+    public IReadOnlyDictionary<string, SetupContents> Contents
+    {
+        get => _contents;
+        set
+        {
+            _contents = value;
+            if (!_modsTouched) DefaultMods();
+        }
+    }
+    private IReadOnlyDictionary<string, SetupContents> _contents = new Dictionary<string, SetupContents>();
+
+    /// <summary>The one launcher whose Mods start ticked; null when no launcher has mods.</summary>
+    public SourceKind? DefaultModsLauncher { get; private set; }
+
+    // Mods from one launcher only (Will, 2026-10-19: the grid never opens with the mixed-mods warning): the settings
+    // launcher when it has mods, else the launcher with the most mods (counted; before the count, the most versions the
+    // engine would take mods from, then the most played). Every other launcher's Mods start unticked.
+    private void DefaultMods()
+    {
+        var withMods = Versions.SelectMany(v => LaunchersOn(v).Where(k => Has(k, v, GridColumn.Mods))).Distinct().ToList();
+        int ModsCount(SourceKind kind) => Versions.Sum(v =>
+            BulkComposer.ModsSetup(kind, v, SetupsOf(kind, v)) is { } s && _contents.TryGetValue(s.SetupId, out var c) ? c.Mods : 0);
+        DefaultModsLauncher = SettingsLauncher is { } settings && withMods.Contains(settings)
+            ? settings
+            : withMods.OrderByDescending(ModsCount)
+                .ThenByDescending(k => Versions.Count(v => BulkComposer.DefaultModsLauncher(v, _setups) == k))
+                .ThenByDescending(k => _setups.Where(s => s.Kind == k).Sum(s => s.PlaytimeSeconds ?? 0))
+                .ThenBy(TileIndex)
+                .Select(k => (SourceKind?)k).FirstOrDefault();
+        foreach (var version in Versions)
+            foreach (var kind in LaunchersOn(version))
+            {
+                var brings = _cells.Brings(kind, version);
+                var on = kind == DefaultModsLauncher && Has(kind, version, GridColumn.Mods);
+                _cells.Set(version, kind, on ? brings | ImportCategories.Mods : brings & ~ImportCategories.Mods);
+            }
+    }
 
     /// <summary>Every Minecraft version the setups are on, newest first.</summary>
     public IReadOnlyList<string> Versions { get; }
@@ -249,6 +292,7 @@ internal sealed class ImportGridModel
             _settingsPick = on ? kind : null;
             return;
         }
+        if (column == GridColumn.Mods) _modsTouched = true;
         var category = Category(column);
         foreach (var version in TabVersions.Where(v => SetupsOf(kind, v).Count > 0 && Has(kind, v, column)))
         {
