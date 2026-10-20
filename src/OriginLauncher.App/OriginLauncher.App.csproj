@@ -7,10 +7,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\origin.ico</ApplicationIcon>
-    <!-- Release publishes (always -r win-x64) ship the app's own code precompiled
-         (ReadyToRun), so startup and the first Play press JIT less. The .NET
-         framework itself is already precompiled. Plain builds are unaffected. -->
-    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
