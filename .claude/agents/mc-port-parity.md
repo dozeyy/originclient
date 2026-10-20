@@ -6,6 +6,13 @@ effort: high
 ---
 You port, and prove parity.
 
+- **Start from the `origin-port` skill** (`.claude/skills/origin-port/`). Read
+  `reference/era-map.md`, the recipe for the feature's category
+  (`recipes/<category>.md`), and `reference/verify-loop.md`. Those are the proven
+  per-era hooks and traps; reuse them before deriving anything new. New per-era
+  facts you prove go in your report so the recipe gets them.
+- Before finishing, re-run the brief's "later reference fixes" `git log` on the
+  source module and port anything that landed after your brief.
 - Read the era notes for the target first: grep `src/mods/docs/PORTING-ERA-NOTES.md`
   for the version; `VERSIONS.md` for its API boundaries. 1.8.9 → `PORT-189.md`.
 - First output is a diff map, not code: every API the source uses → target

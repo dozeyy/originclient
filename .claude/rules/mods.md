@@ -12,6 +12,11 @@ Moved verbatim from CLAUDE.md on 2026-10-17 (Claude Lean) so sessions that never
 touch the mods don't pay for it. `src/mods/VERSIONS.md` stays the single source of
 truth for per-version status.
 
+**Porting a feature to other versions** ("port X to every version", "bring to
+1.20 / 26.x / 1.8.9"): use the `origin-port` skill (`.claude/skills/origin-port/`).
+It holds the era map, era groups, per-category recipes (proven hooks and traps), the
+brief template and the scoped CI verify loop.
+
 ## Supported versions (full detail)
 **Fabric, plus 1.8.9 on Forge.** 1.20, 1.20.1, 1.20.2, 1.20.4, 1.21, 1.21.1, 1.21.2/3/4,
 1.21.6/7, 1.21.8, 1.21.10, 1.21.11 are LIVE, **plus the pre-1.20 set 1.16.5,
