@@ -38,6 +38,11 @@ final class OriginDevWorld {
 			// Smart Terrain Updates "moving camera" window: turn 3 degrees every client tick.
 			mc.player.setYRot(mc.player.getYRot() + 3f);
 		}
+		if (hrSlide && mc.player != null) {
+			// Half-Rate Shadows "moving camera" window: slide sideways 0.1 block every client tick, height fixed.
+			mc.player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+			mc.player.setPos(mc.player.getX() + hrDx, hrY, mc.player.getZ() + hrDz);
+		}
 		if (now < nextAt) {
 			return;
 		}
@@ -96,7 +101,7 @@ final class OriginDevWorld {
 				phase = com.origin.client.client.shaders.IrisBridge.currentPack() != null ? 40 : 30;
 				return;
 			}
-			if (phase >= 40 && phase < 60) {
+			if (phase >= 40 && phase < 70) {
 				if (phase < 45 ? shadowLimitStep(mc, dir) : smartTerrainStep(mc, dir)) {
 					return;
 				}
@@ -354,8 +359,115 @@ final class OriginDevWorld {
 				log("[off-map] F3: " + com.origin.client.client.render.OffMapShadows.debugLine());
 				Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.OffMapShadows.KEY_ON, false);
 				omDepthA = omDepthB = null;
+				// Creative so the slide below can hover without the server's floating check.
+				server.execute(() -> server.getCommands().performPrefixedCommand(
+						server.createCommandSourceStack().withSuppressedOutput(), "gamemode creative @a"));
+				nextAt = System.currentTimeMillis() + 3000;
+			}
+			// ---- Half-Rate Shadows (same frozen scene, pigs kept as shadow casters): shadow maps kept vs
+			// drawn OFF vs ON, the shadow depth texture after a KEPT frame vs OFF, a slow sideways slide
+			// (kept/drawn + the swim check), then a block edit and a teleport must each force a redraw.
+			case 57 -> {
+				hrSnap();
+				omDepthA = omReadShadowDepth();
+				grab(mc, dir, "halfrate_off_a_1920x1080.png");
+				nextAt = System.currentTimeMillis() + 4000;
+			}
+			case 58 -> {
+				hrOffStill = hrMeasured();
+				omDepthB = omReadShadowDepth();
+				grab(mc, dir, "halfrate_off_b_1920x1080.png");
+				Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.HalfRateShadows.KEY_ON, true);
+				nextAt = System.currentTimeMillis() + 2000;
+			}
+			case 59 -> {
+				hrSnap();
+				nextAt = System.currentTimeMillis() + 4000;
+			}
+			case 60 -> {
+				// Read the shadow map right after a frame that KEPT it (no clear, no draw): a skipped clear
+				// that was not really skipped would show here as an empty map.
+				if (!com.origin.client.client.render.HalfRateShadows.devLastKept && hrTries++ < 100) {
+					nextAt = System.currentTimeMillis() + 20;
+					return true;
+				}
+				hrOnStill = hrMeasured() + " readAfterKeptFrame=" + com.origin.client.client.render.HalfRateShadows.devLastKept;
+				float[] depthOn = omReadShadowDepth();
+				hrDepthOffOn = omDepthDiff(omDepthB, depthOn);
+				grab(mc, dir, "halfrate_on_still_1920x1080.png");
+				omDepthA = omDepthB = null;
+				hrF3 = com.origin.client.client.render.HalfRateShadows.debugLine();
+				// The slide: sideways (perpendicular to the view), 0.1 block per client tick.
+				double yaw = Math.toRadians(mc.player.getYRot());
+				hrDx = Math.cos(yaw) * 0.1;
+				hrDz = Math.sin(yaw) * 0.1;
+				hrY = mc.player.getY();
+				mc.player.getAbilities().flying = true;
+				com.origin.client.client.render.HalfRateShadows.devMaxErrFixed = 0;
+				com.origin.client.client.render.HalfRateShadows.devMaxErrFresh = 0;
+				com.origin.client.client.render.HalfRateShadows.devSwimSamples = 0;
+				hrSlide = true;
+				hrSnap();
+				nextAt = System.currentTimeMillis() + 5000;
+			}
+			case 61 -> {
+				grab(mc, dir, "halfrate_on_move_1920x1080.png");
+				nextAt = System.currentTimeMillis() + 3000;
+			}
+			case 62 -> {
+				hrOnMove = hrMeasured() + String.format(java.util.Locale.ROOT, " swimSamples=%d swimErrWithFix=%.5f swimErrWithoutFix=%.5f",
+						com.origin.client.client.render.HalfRateShadows.devSwimSamples,
+						com.origin.client.client.render.HalfRateShadows.devMaxErrFixed,
+						com.origin.client.client.render.HalfRateShadows.devMaxErrFresh);
+				Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.HalfRateShadows.KEY_ON, false);
+				hrSnap();
+				nextAt = System.currentTimeMillis() + 2000;
+			}
+			case 63 -> {
+				grab(mc, dir, "halfrate_off_move_1920x1080.png");
+				nextAt = System.currentTimeMillis() + 3000;
+			}
+			case 64 -> {
+				hrOffMove = hrMeasured();
+				hrSlide = false;
+				Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.HalfRateShadows.KEY_ON, true);
+				nextAt = System.currentTimeMillis() + 5000;   // settle after the slide's chunk loads
+			}
+			case 65 -> {
+				// Block edit: a gold block 4 blocks along the view; the redraws it forces count as "chunks".
+				hrSnap();
+				net.minecraft.world.phys.Vec3 look = mc.player.getLookAngle();
+				hrEdit = net.minecraft.core.BlockPos.containing(mc.player.getEyePosition().add(look.scale(4)));
+				net.minecraft.core.BlockPos at = hrEdit;
+				server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(),
+						"setblock " + at.getX() + " " + at.getY() + " " + at.getZ() + " minecraft:gold_block"));
+				nextAt = System.currentTimeMillis() + 3000;
+			}
+			case 66 -> {
+				hrOnEdit = hrMeasured();
+				grab(mc, dir, "halfrate_on_edit_1920x1080.png");
+				// Teleport 20 blocks sideways (client-side move, like a /tp landing): must count as a jump.
+				hrSnap();
+				mc.player.setPos(mc.player.getX() + hrDx * 200, hrY, mc.player.getZ() + hrDz * 200);
+				nextAt = System.currentTimeMillis() + 3000;
+			}
+			case 67 -> {
+				String onTp = hrMeasured();
+				log("[half-rate] OFF still: " + hrOffStill);
+				log("[half-rate] ON still: " + hrOnStill);
+				log("[half-rate] shadow depth OFF vs ON (read after a kept frame): " + hrDepthOffOn);
+				log("[half-rate] ON sliding: " + hrOnMove);
+				log("[half-rate] OFF sliding: " + hrOffMove);
+				log("[half-rate] ON block edit: " + hrOnEdit);
+				log("[half-rate] ON teleport 20 blocks: " + onTp);
+				log("[half-rate] F3: " + hrF3);
+				Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.HalfRateShadows.KEY_ON, false);
+				net.minecraft.core.BlockPos at = hrEdit;
 				server.execute(() -> {
 					var src = server.createCommandSourceStack().withSuppressedOutput();
+					if (at != null) {
+						server.getCommands().performPrefixedCommand(src, "setblock " + at.getX() + " " + at.getY() + " " + at.getZ() + " minecraft:air");
+					}
 					server.getCommands().performPrefixedCommand(src, "kill @e[tag=origin_omtest]");
 					server.getCommands().performPrefixedCommand(src, "tick unfreeze");
 				});
@@ -366,7 +478,7 @@ final class OriginDevWorld {
 				if (stRenderDistance > 0) {
 					mc.options.renderDistance().set(stRenderDistance);
 				}
-				phase = 57;
+				phase = 68;
 				return false;
 			}
 			default -> {
@@ -375,6 +487,63 @@ final class OriginDevWorld {
 		}
 		phase++;
 		return true;
+	}
+
+	// ---- Half-Rate Shadows measurement ----
+	private static boolean hrSlide;
+	private static double hrDx, hrDz, hrY;
+	private static int hrTries;
+	private static net.minecraft.core.BlockPos hrEdit;
+	private static String hrOffStill, hrOnStill, hrDepthOffOn, hrOnMove, hrOffMove, hrOnEdit, hrF3;
+	private static long hrFrames, hrKept, hrDrawn, hrAlt, hrFirst, hrWorld, hrReload, hrResize, hrDist, hrJump, hrChunks,
+			hrClear, hrPack, hrNotReady, hrShadowWalks, hrShadowNs;
+
+	private static void hrSnap() {
+		hrFrames = com.origin.client.client.hud.FrameStats.frames();
+		hrKept = com.origin.client.client.render.HalfRateShadows.devKept;
+		hrDrawn = com.origin.client.client.render.HalfRateShadows.devDrawn;
+		hrAlt = com.origin.client.client.render.HalfRateShadows.devAlternate;
+		hrFirst = com.origin.client.client.render.HalfRateShadows.devFirst;
+		hrWorld = com.origin.client.client.render.HalfRateShadows.devWorld;
+		hrReload = com.origin.client.client.render.HalfRateShadows.devReload;
+		hrResize = com.origin.client.client.render.HalfRateShadows.devResize;
+		hrDist = com.origin.client.client.render.HalfRateShadows.devDistance;
+		hrJump = com.origin.client.client.render.HalfRateShadows.devJump;
+		hrChunks = com.origin.client.client.render.HalfRateShadows.devChunks;
+		hrClear = com.origin.client.client.render.HalfRateShadows.devFullClear;
+		hrPack = com.origin.client.client.render.HalfRateShadows.devPack;
+		hrNotReady = com.origin.client.client.render.HalfRateShadows.devNotReady;
+		hrShadowWalks = com.origin.client.client.render.SmartTerrainUpdates.totalShadowWalks;
+		hrShadowNs = com.origin.client.client.render.SmartTerrainUpdates.totalShadowNanos;
+	}
+
+	/**
+	 * Since hrSnap(): frames, shadow maps kept / drawn by the feature (its counters only move while it is
+	 * on), why each draw happened, and the shadow-pass chunk walks that really ran (Smart Terrain's
+	 * counter: one per real shadow draw, whatever the toggle). CPU-side counts only.
+	 */
+	private static String hrMeasured() {
+		long f = com.origin.client.client.hud.FrameStats.frames() - hrFrames;
+		long sw = com.origin.client.client.render.SmartTerrainUpdates.totalShadowWalks - hrShadowWalks;
+		long sn = com.origin.client.client.render.SmartTerrainUpdates.totalShadowNanos - hrShadowNs;
+		return String.format(java.util.Locale.ROOT,
+				"frames=%d shadowWalks=%d kept=%d drawn=%d [alternate=%d first=%d world=%d reload=%d resize=%d distance=%d"
+						+ " jump=%d chunks=%d fullClear=%d pack=%d notReady=%d] shadowWalkMs=%.3f",
+				f, sw,
+				com.origin.client.client.render.HalfRateShadows.devKept - hrKept,
+				com.origin.client.client.render.HalfRateShadows.devDrawn - hrDrawn,
+				com.origin.client.client.render.HalfRateShadows.devAlternate - hrAlt,
+				com.origin.client.client.render.HalfRateShadows.devFirst - hrFirst,
+				com.origin.client.client.render.HalfRateShadows.devWorld - hrWorld,
+				com.origin.client.client.render.HalfRateShadows.devReload - hrReload,
+				com.origin.client.client.render.HalfRateShadows.devResize - hrResize,
+				com.origin.client.client.render.HalfRateShadows.devDistance - hrDist,
+				com.origin.client.client.render.HalfRateShadows.devJump - hrJump,
+				com.origin.client.client.render.HalfRateShadows.devChunks - hrChunks,
+				com.origin.client.client.render.HalfRateShadows.devFullClear - hrClear,
+				com.origin.client.client.render.HalfRateShadows.devPack - hrPack,
+				com.origin.client.client.render.HalfRateShadows.devNotReady - hrNotReady,
+				sw == 0 ? 0.0 : sn / 1e6 / sw);
 	}
 
 	private static long omFrames, omWalks, omDrawnS, omOffS, omSeenE, omOffE, omSkipE, omSeenBE, omShadowWalks, omShadowNs;

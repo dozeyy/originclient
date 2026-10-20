@@ -50,6 +50,8 @@
 		"BlockEntityRenderDispatcherMixin",
 		"PauseScreenMixin",
 		"IrisShadowDirectivesMixin",
+		"IrisPipelineHalfRateMixin",
+		"IrisShadowRendererHalfRateMixin",
 		"JeiGuiEventHandlerMixin",
 		"JeiClientInputHandlerMixin",
 		"HurtCamMixin",

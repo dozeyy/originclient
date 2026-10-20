@@ -65,6 +65,8 @@ public abstract class SodiumGraphReuseMixin {
 	@Inject(method = "scheduleRebuild", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
 	private void originclient$rebuild(CallbackInfo ci) {
 		SmartTerrainUpdates.graphChanged(2);
+		// Half-Rate Shadows: a chunk is about to change, so the next frame redraws the shadow map.
+		com.origin.client.client.render.HalfRateShadows.onChunksChanged();
 	}
 
 	@Inject(method = "scheduleSort", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
@@ -75,6 +77,7 @@ public abstract class SodiumGraphReuseMixin {
 	@Inject(method = "processChunkBuildResults", at = @At("HEAD"))
 	private void originclient$buildResults(CallbackInfoReturnable<Boolean> cir) {
 		SmartTerrainUpdates.graphChanged(4);
+		com.origin.client.client.render.HalfRateShadows.onChunksChanged();
 	}
 
 	@Inject(method = "markGraphDirty", at = @At("HEAD"))
