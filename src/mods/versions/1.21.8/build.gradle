@@ -10,6 +10,17 @@ base {
 
 repositories {
 	mavenCentral()
+
+	// Modrinth maven: compile-only Sodium + Iris for the shader speed-ups (see dependencies).
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Modrinth"
+				url = "https://api.modrinth.com/maven"
+			}
+		}
+		filter { includeGroup "maven.modrinth" }
+	}
 }
 
 loom {
@@ -57,6 +68,14 @@ dependencies {
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// The shader speed-ups (Settings > Performance: Limit Far / Off-Map / Half-Rate Shadows, Smart
+	// Terrain Updates) mix into Sodium and Iris, so they compile against the exact builds the launcher
+	// installs here (PerformanceModCatalog.Data.cs: 1.21.6, 1.21.7 and 1.21.8 all get sodium-fabric-0.7.3+mc1.21.8, Modrinth version id 7pwil2dy, and iris-fabric-1.9.6+mc1.21.8, version id Rhzf61g1). Version ids, not numbers: they are unique.
+	// compileOnly: never bundled; every Iris member read at runtime is bound by reflection and fails
+	// soft (render/IrisState, render/HalfRateShadows).
+	modCompileOnly "maven.modrinth:sodium:7pwil2dy"
+	modCompileOnly "maven.modrinth:iris:Rhzf61g1"
 
 	// The perf/shader stack (Sodium, Iris, Lithium, ...) is NOT bundled here —
 	// the launcher installs the matching 1.21.11 stack from its
