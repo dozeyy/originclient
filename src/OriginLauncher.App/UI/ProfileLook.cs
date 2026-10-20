@@ -254,6 +254,11 @@ public static class ProfileLook
 
     public static Brush TintBrush(string tintName) => (Brush)Application.Current.FindResource("Tint." + tintName);
 
+    /// <summary>The light ink drawn on a profile's tile (its glyph or letter), the tile's own hue.</summary>
+    public static Brush Ink(ModProfile profile) => InkBrush(TintName(profile));
+
+    public static Brush InkBrush(string tintName) => (Brush)Application.Current.FindResource("TintInk." + tintName);
+
     /// <summary>The profile's tint name: its own pick when it is a known one, else from its id.</summary>
     public static string TintName(ModProfile profile) =>
         profile.Tint is { } own && Array.IndexOf(TintNames, own) >= 0 ? own : HashedTint(profile.Id);

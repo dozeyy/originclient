@@ -7,7 +7,7 @@
             <Setter.Value>
                 <ControlTemplate>
                     <Border Margin="-3" CornerRadius="{StaticResource Radius.Focus}" BorderThickness="2"
-                            BorderBrush="{StaticResource Brush.Accent}" Opacity="0.9"/>
+                            BorderBrush="{DynamicResource Brush.Acc}" Opacity="0.9"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -19,7 +19,7 @@
             <Setter.Value>
                 <ControlTemplate>
                     <Border Margin="-3" CornerRadius="{StaticResource Radius.FocusCard}" BorderThickness="2"
-                            BorderBrush="{StaticResource Brush.Accent}" Opacity="0.9"/>
+                            BorderBrush="{DynamicResource Brush.Acc}" Opacity="0.9"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

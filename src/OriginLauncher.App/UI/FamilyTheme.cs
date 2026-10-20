@@ -6,11 +6,12 @@ using OriginLauncher.App.Core.Versions;
 namespace OriginLauncher.App.UI;
 
 /// <summary>
-/// The version family on screen (Poster): its art, its two-line label and its one
-/// splash of colour. The accent lives in the app resource "Brush.Acc" and is only
-/// ever used by indicators (nav underline, Play ring, switches, slider fill, the
-/// small squares), never by text. Every consumer binds it with DynamicResource, so
-/// <see cref="Apply"/> swaps in one live brush and tweens its colour (700 ms).
+/// The version family on screen (Poster): its art, its two-line label and its
+/// colour. The accent lives in the app resources "Brush.Acc" (full), "Brush.AccLine"
+/// (60%) and "Brush.AccSoft" (18%) and is only ever used by indicators (nav underline,
+/// Play ring, switches, slider fill, the small squares, focus rings), never by text.
+/// Every consumer binds them with DynamicResource, so <see cref="Apply"/> swaps in
+/// live brushes and tweens Brush.Acc's colour (700 ms).
 /// </summary>
 public static class FamilyTheme
 {
@@ -49,12 +50,16 @@ public static class FamilyTheme
     /// <summary>A version's own family colour, for anything that shows ONE version
     /// whatever family Home has on screen: a profile card (its version), the launch
     /// screen (the version being launched). Brush.Acc is Home's family only.</summary>
-    public static Brush AccentBrush(string? version)
+    public static Brush AccentBrush(string? version, byte alpha = 0xFF)
     {
-        var brush = new SolidColorBrush(Of(version).Accent);
+        var c = Of(version).Accent;
+        var brush = new SolidColorBrush(Color.FromArgb(alpha, c.R, c.G, c.B));
         brush.Freeze();
         return brush;
     }
+
+    /// <summary>Alpha of Brush.AccLine (a quieter outline) and Brush.AccSoft (a wash).</summary>
+    public const byte LineAlpha = 0x99, SoftAlpha = 0x2E;
 
     /// <summary>Make <paramref name="version"/>'s family the one on screen.</summary>
     public static void Apply(string? version, bool animate = true)
@@ -68,14 +73,14 @@ public static class FamilyTheme
         // A fresh unfrozen brush each time: style setters freeze the brushes they hold.
         var brush = new SolidColorBrush(animate && !Motion.Off ? from : next.Accent);
         res["Brush.Acc"] = brush;
-        var soft = new SolidColorBrush(Color.FromArgb(0x2E, next.Accent.R, next.Accent.G, next.Accent.B));
+        var soft = new SolidColorBrush(Color.FromArgb(SoftAlpha, next.Accent.R, next.Accent.G, next.Accent.B));
         soft.Freeze();
         res["Brush.AccSoft"] = soft;
-        // The giant background numeral: the family colour at the neutral ink's low
-        // opacity (0x26, ~15%), so it tints the art without competing with the text.
-        var ink = new SolidColorBrush(Color.FromArgb(0x26, next.Accent.R, next.Accent.G, next.Accent.B));
-        ink.Freeze();
-        res["Brush.NumeralInk"] = ink;
+        var line = new SolidColorBrush(Color.FromArgb(LineAlpha, next.Accent.R, next.Accent.G, next.Accent.B));
+        line.Freeze();
+        res["Brush.AccLine"] = line;
+        // The giant numeral stays neutral (Brush.NumeralInk in Colors.xaml): Will
+        // wanted it black and white again, 2026-10-19.
         if (animate && !Motion.Off && from != next.Accent)
             brush.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(from, next.Accent, Motion.Ms(700)) { EasingFunction = Motion.Out });
 
