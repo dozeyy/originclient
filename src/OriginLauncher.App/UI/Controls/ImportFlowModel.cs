@@ -86,6 +86,16 @@ internal sealed class ImportFlowModel
 
     public IReadOnlyList<DetectedInstance> Setups => _setups;
 
+    /// <summary>
+    /// Setups the scan found that are already in Origin and unchanged (ImportMemory): never in <see cref="Setups"/>. A
+    /// launcher whose setups are ALL in here has no tile at all (Will, 2026-10-20: it "shouldn't show up anymore unless
+    /// something changes later"); one with only some of them left shows just those.
+    /// </summary>
+    public IReadOnlyList<DetectedInstance> AlreadyImported { get; set; } = Array.Empty<DetectedInstance>();
+
+    /// <summary>True when there is nothing to offer because everything found is already in Origin.</summary>
+    public bool EverythingImported => _setups.Count == 0 && AlreadyImported.Count > 0;
+
     private IReadOnlyDictionary<string, SetupContents> _contents = new Dictionary<string, SetupContents>();
 
     /// <summary>What each setup holds (by SetupId); empty until the drawer has counted. The grid greys its empty cells from it.</summary>
@@ -189,7 +199,12 @@ internal sealed class ImportFlowModel
     public IReadOnlyList<LauncherTile> Tiles(bool scanning)
     {
         var tiles = new List<LauncherTile>();
-        foreach (var kind in TileOrder) tiles.Add(Tile(kind, scanning));
+        foreach (var kind in TileOrder)
+        {
+            // Fully imported: no tile, not even a "Nothing to import" one.
+            if (!scanning && _setups.All(s => s.Kind != kind) && AlreadyImported.Any(s => s.Kind == kind)) continue;
+            tiles.Add(Tile(kind, scanning));
+        }
         if (_setups.Any(s => s.Kind == SourceKind.Folder)) tiles.Add(Tile(SourceKind.Folder, false));
         return tiles;
     }

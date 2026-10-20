@@ -270,6 +270,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (_disposed || cts.IsCancellationRequested) return;
 
         var model = NewModel(scan.Instances, targets);
+        model.AlreadyImported = scan.AlreadyImported.ToList();
         model.Add(_model.Setups.Where(s => s.Kind == SourceKind.Folder)); // a folder Browse found while the scan ran
         _model = model;
         _scanNote = scan.Notes.Count > 0 ? scan.Notes[0] : null;
@@ -595,6 +596,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         var launchers = found.Count(t => t.Kind != SourceKind.Folder);
         if (_scanning)
             SetHeader("Bring it all over", "Looking through your other launchers...", "Looking...", dot: false);
+        else if (nothing && _model.EverythingImported)
+            SetHeader("Bring it all over", "Everything from your other launchers is already in Origin. It shows up here again if something changes there.",
+                $"Scan complete - {ImportFlowModel.TileOrder.Count} launchers checked");
         else if (nothing)
             SetHeader("Bring it all over", "Nothing found to import. Add a setup's folder, or play once in your other launcher first.",
                 $"Scan complete - {ImportFlowModel.TileOrder.Count} launchers checked");
@@ -1479,7 +1483,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     private string ReviewSubtitle()
     {
         if (_planning || _plan == null) return "Checking what can come over...";
-        var setups = _plan.Groups.Sum(g => g.Setups.Count);
+        // Distinct sources: a setup lending its settings to another version is still one setup (the rows below show each copy).
+        var setups = ImportManifest.DistinctSetups(ImportManifest.From(_plan));
         return $"{ImportLogic.Plural(setups, "setup", "setups")} into {ImportLogic.Plural(_plan.Groups.Count, "version", "versions")}";
     }
 
@@ -1610,12 +1615,16 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         var items = new List<RowVm>();
         var setups = plan.AllSetups.ToList();
         int Ops(PlanItemKind kind) => setups.Sum(p => p.Plan.Ops.Count(o => o.Item == kind));
+        // The one list of copies this plan makes: the rows below, the Importing rows and Done all come from it, and the run
+        // executes this very plan, so what is shown here is exactly what happens.
+        var mappings = ImportManifest.From(plan);
 
         items.Add(new ImportSectionVm { Id = "coming", Title = "COMING OVER" });
         var stats = new List<CardRowVm>
         {
             new ImportStatVm { Id = "versions", Label = "Minecraft versions", Value = N(plan.Groups.Count) },
-            new ImportStatVm { Id = "setups", Label = "Setups", Value = N(setups.Count) },
+            // A setup that lends its settings to another version is one setup in two copies: counted once.
+            new ImportStatVm { Id = "setups", Label = "Setups", Value = N(ImportManifest.DistinctSetups(mappings)) },
         };
         void Stat(string id, string label, int n)
         {
@@ -1661,17 +1670,20 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             items.Add(new ImportSectionVm { Id = "v" + group.Version, Title = $"MINECRAFT {group.Version}", Count = group.Setups.Count });
             var capable = group.Setups.Count(s => s.Role != SetupRole.PacksOnly);
             var rows = new List<CardRowVm>();
-            foreach (var planned in group.Setups)
+            for (var slot = 0; slot < group.Setups.Count; slot++)
             {
-                var isWinner = group.Winner.BulkId() == planned.Setup.BulkId();
+                var planned = group.Setups[slot];
+                var mapping = ImportManifest.Of(mappings, group.Version, slot)!;
+                var isWinner = mapping.IsSettingsWinner;
                 var lines = new List<string>();
                 if (planned.Role == SetupRole.PacksOnly) lines.Add(BulkRules.ForgeCaption);
                 if (group.NeedsChoice && isWinner) lines.Add(PickSettings);
                 if (NotSureNote(planned.Setup) is { } notSure) lines.Add(notSure);
                 rows.Add(new SetupRowVm
                 {
-                    Setup = planned.Setup, NoTick = true, CanTick = true,
-                    Caption = $"{planned.Setup.SourceLabel} - {ImportLogic.RoleCaption(planned.Role, planned.Plan.Mods.Count(m => m.IsCopied))}",
+                    // "Lunar 1.8.9 -> 1.21.1" and what it brings, from the plan itself (ImportManifest).
+                    Setup = planned.Setup, Mapping = mapping, NoTick = true, CanTick = true,
+                    Caption = mapping.Caption,
                     Warning = lines.Count == 0 ? null : string.Join("\n", lines),
                     ChoiceVersion = isWinner && capable > 1 ? group.Version : null,
                 });
@@ -2007,17 +2019,20 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             items.Add(new HintVm { Id = "wait", Pos = CardPos.Only, Text = "Checking what can come over..." });
             return;
         }
+        var mappings = ImportManifest.From(_plan);
         foreach (var group in _plan.Groups.OrderByDescending(g => g.Version, Comparer<string>.Create(McVersion.Compare)))
         {
             items.Add(new ImportSectionVm { Id = "v" + group.Version, Title = $"MINECRAFT {group.Version}", Count = group.Setups.Count });
             var rows = new List<CardRowVm>();
-            foreach (var planned in group.Setups)
+            for (var slot = 0; slot < group.Setups.Count; slot++)
             {
-                var mods = planned.Plan.Mods.Count(m => m.IsCopied);
+                var planned = group.Setups[slot];
+                var mapping = ImportManifest.Of(mappings, group.Version, slot)!;
                 rows.Add(new ImportLineVm
                 {
-                    Id = "p" + planned.Setup.BulkId(), Title = planned.Setup.Name,
-                    Caption = ImportLogic.RoleCaption(planned.Role, mods),
+                    // Same names and words as the Review rows: both read the plan's ImportManifest.
+                    Id = "p" + mapping.Id, Title = mapping.Title,
+                    Caption = mapping.Caption,
                     // One status line: the Forge caption, else the detector's full "not sure" reason (the row has the short form).
                     Warning = planned.Role == SetupRole.PacksOnly ? BulkRules.ForgeCaption
                         : BulkRules.IsVersionUncertain(planned.Setup) ? BulkRules.UncertainReason(planned.Setup) : null,
@@ -2094,13 +2109,20 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         {
             foreach (var version in bulk.Versions)
             {
-                var landed = version.Setups.Where(x => x.Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly).ToList();
+                var landed = version.Setups.Select((x, slot) => (Outcome: x, Slot: slot))
+                    .Where(x => x.Outcome.Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly).ToList();
                 if (landed.Count == 0) continue;
                 items.Add(new ImportSectionVm { Id = "v" + version.Version, Title = $"MINECRAFT {version.Version}", Count = landed.Count });
-                var rows = landed.Select(x => new ImportLineVm
+                var rows = landed.Select(x =>
                 {
-                    Id = "r" + x.Setup.BulkId(), Title = x.Setup.Name, Caption = ImportLogic.RoleCaption(x.Role, null),
-                    Warning = x.Role == SetupRole.PacksOnly ? BulkRules.ForgeCaption : null,
+                    // Outcome i of a version is copy i of the plan (ImportManifest): the exact source and Origin versions.
+                    var mapping = ImportManifest.Of(_runMappings, version.Version, x.Slot);
+                    return new ImportLineVm
+                    {
+                        Id = "r" + (mapping?.Id ?? x.Outcome.Setup.BulkId()), Title = mapping?.Title ?? x.Outcome.Setup.Name,
+                        Caption = mapping?.Caption ?? ImportLogic.RoleCaption(x.Outcome.Role, null),
+                        Warning = x.Outcome.Role == SetupRole.PacksOnly ? BulkRules.ForgeCaption : null,
+                    };
                 }).ToList<CardRowVm>();
                 AssignPos(rows);
                 items.AddRange(rows);
@@ -2327,8 +2349,9 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
 
     private const string ImportingNote = "Your worlds, mods and settings are being copied into Origin. Your other launchers are only read, never changed.";
 
-    // One row per setup (in the plan's order, which is BulkProgress.SetupIndex's): Done before the current one, Waiting after.
-    private void BeginApply(IEnumerable<DetectedInstance> setups)
+    // One row per copy of the plan (ImportManifest, in the plan's order, which is BulkProgress.SetupIndex's): Done before
+    // the current one, Waiting after. The rows are named like the Review rows ("Lunar 1.8.9 -> 1.21.1").
+    private void BeginApply(IEnumerable<ImportMapping> mappings)
     {
         _barFraction = 0;
         _stopping = null;
@@ -2338,7 +2361,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         ProgressDetail.Text = "";
         _applyProgress.Last = null;
         _singleProgress.Last = null;
-        _progressRows = setups.Select(s => new ProgressRowVm { Setup = s }).ToList();
+        _progressRows = mappings.Select(m => new ProgressRowVm { Setup = m.Setup, Mapping = m }).ToList();
         ProgressList.ItemsSource = _progressRows;
         CancelButton.IsEnabled = true;
         ShowPane(Pane.Importing);
@@ -2348,6 +2371,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     }
 
     private int _activeRow = -1;
+    private IReadOnlyList<ImportMapping> _runMappings = Array.Empty<ImportMapping>(); // the copies of the run being (or last) applied
     private ImportPlan? _runSingle; // the single import being (or last) applied: Done's profile card reads it
 
     // The callers check IsApplying / Busy first; the method itself starts with the run marker, nothing before it.
@@ -2359,7 +2383,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         _lastRunSingle = false;
         _runPlan = plan;
         _runSingle = null;
-        BeginApply(plan.AllSetups.Select(p => p.Setup));
+        _runMappings = ImportManifest.From(plan);
+        BeginApply(_runMappings);
         IsApplying = true;
         UpdateAllowed();
 
@@ -2405,7 +2430,8 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         _lastRunSingle = true;
         _runPlan = null;
         _runSingle = plan;
-        BeginApply(new[] { plan.Source });
+        _runMappings = new[] { ImportManifest.From(plan) };
+        BeginApply(_runMappings);
         IsApplying = true;
         UpdateAllowed();
 
@@ -2591,20 +2617,29 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     {
         if (_done is not { } m) return;
 
-        // The setups that landed, with their plans.
-        var landed = new List<(DetectedInstance Setup, ImportPlan Plan)>();
+        // The copies that landed (ImportManifest: the same list the Review and Importing rows came from), with their plans.
+        // Outcome i of group g is copy (g, i): the engine reports in the order it applies.
+        var landed = new List<(ImportMapping Mapping, ImportPlan Plan)>();
         if (_bulkResult is { } bulk && _runPlan is { } run)
         {
-            var ids = new HashSet<string>(bulk.Versions.SelectMany(v => v.Setups)
-                .Where(s => s.Kind is SetupResultKind.Imported or SetupResultKind.ImportedPartly)
-                .Select(s => s.Setup.BulkId()), StringComparer.OrdinalIgnoreCase);
-            landed.AddRange(run.AllSetups.Where(p => ids.Contains(p.Setup.BulkId())).Select(p => (p.Setup, p.Plan)));
+            foreach (var version in bulk.Versions)
+            {
+                var group = run.Groups.FirstOrDefault(g => g.Version == version.Version);
+                if (group == null) continue;
+                for (var slot = 0; slot < version.Setups.Count && slot < group.Setups.Count; slot++)
+                {
+                    if (version.Setups[slot].Kind is not (SetupResultKind.Imported or SetupResultKind.ImportedPartly)) continue;
+                    if (ImportManifest.Of(_runMappings, group.Version, slot) is { } mapping) landed.Add((mapping, group.Setups[slot].Plan));
+                }
+            }
         }
         else if (_runSingle is { } single && _singleResult is { Succeeded: true })
         {
-            landed.Add((single.Source, single));
+            landed.Add((ImportManifest.From(single), single));
         }
 
+        // A copy that lends one version's settings to another has only settings and packs in its plan (no mods, no worlds),
+        // so summing the copies' plans counts each mod and world once.
         var worlds = landed.Sum(l => l.Plan.Ops.Count(o => o.Item == PlanItemKind.World));
         var mods = landed.Sum(l => l.Plan.Mods.Count(x => x.IsCopied));
 
@@ -2624,7 +2659,7 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
             .Select(v => new VersionCardVm
             {
                 Name = "Minecraft " + v.Version,
-                Caption = "From " + ImportFlowModel.JoinFew(v.Launchers),
+                Caption = "From " + v.From, // "Lunar 1.8.9 and 1.21.1": the exact source versions, as on Review
                 Kind = v.SettingsFrom,
             }).ToList();
         if (versions.Count > cards.Count)
@@ -2657,23 +2692,20 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
     // The version Play on Done opens: the most played version that got something (null before a result).
     private string? _playVersion;
 
-    // Per version that landed: its launchers (by title, tile order) and whose settings it got (the group's winner).
-    // The most played first (the playtime of its most played setup), then the newest.
-    private List<(string Version, IReadOnlyList<string> Launchers, SourceKind SettingsFrom)> DoneVersionList(
-        IReadOnlyList<(DetectedInstance Setup, ImportPlan Plan)> landed)
+    // Per Origin version that landed: where its copies came from (launcher + exact source versions, as on Review) and
+    // whose settings it got (the group's winner). The most played first (the playtime of its most played setup), then the newest.
+    private List<(string Version, string From, SourceKind SettingsFrom)> DoneVersionList(
+        IReadOnlyList<(ImportMapping Mapping, ImportPlan Plan)> landed)
     {
-        var list = new List<(string Version, IReadOnlyList<string> Launchers, SourceKind SettingsFrom, long Played)>();
-        foreach (var byVersion in landed.Where(l => !string.IsNullOrEmpty(l.Plan.TargetVersion)).GroupBy(l => l.Plan.TargetVersion!))
+        var list = new List<(string Version, string From, SourceKind SettingsFrom, long Played)>();
+        foreach (var byVersion in landed.Where(l => !string.IsNullOrEmpty(l.Mapping.TargetVersion)).GroupBy(l => l.Mapping.TargetVersion))
         {
-            var setups = byVersion.Select(l => l.Setup).ToList();
-            var winner = _runPlan?.Groups.FirstOrDefault(g => g.Version == byVersion.Key)?.Winner ?? setups[0];
-            var launchers = setups.Select(s => s.Kind).Distinct()
-                .OrderBy(k => ImportFlowModel.TileOrder.ToList().IndexOf(k))
-                .Select(k => ImportFlowModel.LauncherTitle(k)).ToList();
-            list.Add((byVersion.Key, launchers, winner.Kind, setups.Max(s => s.PlaytimeSeconds ?? 0)));
+            var mappings = byVersion.Select(l => l.Mapping).ToList();
+            var winner = _runPlan?.Groups.FirstOrDefault(g => g.Version == byVersion.Key)?.Winner ?? mappings[0].Setup;
+            list.Add((byVersion.Key, ImportManifest.FromText(mappings), winner.Kind, mappings.Max(m => m.Setup.PlaytimeSeconds ?? 0)));
         }
         return list.OrderByDescending(v => v.Played).ThenBy(v => v.Version, BulkRanking.NewestFirst)
-            .Select(v => (v.Version, v.Launchers, v.SettingsFrom)).ToList();
+            .Select(v => (v.Version, v.From, v.SettingsFrom)).ToList();
     }
 
     // Details stays one press away on Done (the footer holds Done and Play).

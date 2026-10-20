@@ -59,8 +59,14 @@ public sealed class SetupRowVm : CardRowVm, INotifyPropertyChanged
 
     public required DetectedInstance Setup { get; init; }
 
+    /// <summary>
+    /// The copy this row stands for (Review): the row is named "Lunar 1.8.9 -> 1.21.1", the exact source and Origin versions
+    /// of ONE copy of the plan (ImportManifest). Null on the scan lists, which name the setup itself.
+    /// </summary>
+    public ImportMapping? Mapping { get; init; }
+
     public string Id => Setup.BulkId();
-    public string Name => Setup.Name;
+    public string Name => Mapping?.Title ?? Setup.Name;
 
     /// <summary>The setup's own first letter (like a friend's initial).</summary>
     public string Initial => ImportLogic.Initial(Setup.Name);
@@ -119,8 +125,9 @@ public sealed class SetupRowVm : CardRowVm, INotifyPropertyChanged
     public string ChangeName => $"Pick whose settings to use for {Name}";
     public string RowTip => CanTick ? "Review this setup on its own" : "This setup can't be imported as it is. Press to pick a version.";
 
-    public override string Key => $"U|{Id}";
-    protected override string Body => $"{Id}|{Caption}|{Warning}|{Ticked}|{CanTick}|{ChoiceVersion}";
+    // A setup that lends its settings to another version is two rows (two copies): the key follows the copy.
+    public override string Key => $"U|{Mapping?.Id ?? Id}";
+    protected override string Body => $"{Id}|{Name}|{Caption}|{Warning}|{Ticked}|{CanTick}|{ChoiceVersion}";
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -398,7 +405,11 @@ public sealed class ProgressRowVm : LiveCardRowVm
     private double _fraction;
 
     public required DetectedInstance Setup { get; init; }
-    public string Name => Setup.Name;
+
+    /// <summary>The copy this row reports on (ImportManifest): the row is named "Lunar 1.8.9 -> 1.21.1", like the Review row it came from.</summary>
+    public ImportMapping? Mapping { get; init; }
+
+    public string Name => Mapping?.Title ?? Setup.Name;
     public string Launcher => ImportLogic.GroupTitle(Setup.SourceLabel);
     public string Initial => ImportLogic.Initial(Setup.Name);
     public ImageSource? Logo => LauncherLogos.For(Setup.Kind);
@@ -432,8 +443,8 @@ public sealed class ProgressRowVm : LiveCardRowVm
     /// <summary>The small bar's fill in px.</summary>
     public double BarWidth => Math.Round(BarTrack * Math.Clamp(_fraction, 0, 1));
 
-    public override string Key => $"PP|{Setup.BulkId()}";
-    protected override string Body => $"{Setup.BulkId()}|{State}|{Status}|{Fraction:0.00}";
+    public override string Key => $"PP|{Mapping?.Id ?? Setup.BulkId()}";
+    protected override string Body => $"{Setup.BulkId()}|{Name}|{State}|{Status}|{Fraction:0.00}";
 }
 
 /// <summary>
