@@ -53,12 +53,15 @@ public abstract class SodiumGraphReuseMixin {
 		SmartTerrainUpdates.graphChanged(1);
 	}
 
-	@Inject(method = "scheduleRebuild", at = @At("HEAD"))
+	// scheduleRebuild / scheduleSort: only when a section's pending update really changes (their one
+	// setPendingUpdate call each, javap 2026-10-19). Vanilla calls setSectionDirty for unbuilt
+	// sections thousands of times while chunks light up; those change nothing a walk would find.
+	@Inject(method = "scheduleRebuild", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
 	private void originclient$rebuild(CallbackInfo ci) {
 		SmartTerrainUpdates.graphChanged(2);
 	}
 
-	@Inject(method = "scheduleSort", at = @At("HEAD"))
+	@Inject(method = "scheduleSort", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/render/chunk/RenderSection;setPendingUpdate(Lnet/caffeinemc/mods/sodium/client/render/chunk/ChunkUpdateType;)V"))
 	private void originclient$sort(CallbackInfo ci) {
 		SmartTerrainUpdates.graphChanged(3);
 	}

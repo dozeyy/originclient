@@ -119,11 +119,11 @@ public final class SmartTerrainUpdates {
 	public static final String[] HOOK_NAMES = {"sectionAdded", "sectionRemoved", "scheduleRebuild", "scheduleSort",
 			"buildResults", "markGraphDirty", "cameraMark", "cullFrustum", "setupTerrain"};
 	/**
-	 * Hooks that fire during any world load (chunks added + built, Iris's per-frame mark, the camera
+	 * Hooks that fire during any world load (chunks added, built and re-meshed as neighbours arrive, Iris's per-frame mark, the camera
 	 * hooks): reuse waits until all of them have fired once, so a mixin that failed to apply (the
 	 * config is defaultRequire 0) turns the feature off instead of letting a change go unseen.
 	 */
-	private static final int REQUIRED_HOOKS = (1 << 0) | (1 << 4) | (1 << 5) | (1 << 7) | (1 << 8);
+	private static final int REQUIRED_HOOKS = (1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 7) | (1 << 8);
 
 	// ---- settings, cached once per frame ----
 	private static long settingsFrame = Long.MIN_VALUE;

@@ -224,6 +224,7 @@ final class OriginDevWorld {
 	private static long stFrames, stWalks, stReused, stMainNs, stShadowWalks, stShadowNs, stRestoreNs;
 	private static net.minecraft.core.BlockPos stEdit;
 	private static net.minecraft.client.CloudStatus stClouds;
+	private static int stRenderDistance = -1;
 	private static String stOffStill, stOnStill, stOnEdit, stOnMove;
 
 	private static boolean smartTerrainStep(Minecraft mc, String dir) {
@@ -249,7 +250,11 @@ final class OriginDevWorld {
 				mc.options.hideGui = true;
 				mc.player.setXRot(25f);
 				Mods.set(Mods.PERFORMANCE_ID, key, false);
-				nextAt = System.currentTimeMillis() + 6000;   // settle: rebuilds after the scene edits finish
+				// CI renders at a few fps, so a 12-chunk world is still loading and lighting minutes in
+				// (every frame adds sections and rebuilds: nothing to reuse). A 3-chunk view settles.
+				stRenderDistance = mc.options.renderDistance().get();
+				mc.options.renderDistance().set(3);
+				nextAt = System.currentTimeMillis() + 25000;
 			}
 			case 46 -> {
 				grab(mc, dir, "terrain_off_a_1920x1080.png");
@@ -314,6 +319,9 @@ final class OriginDevWorld {
 					mc.options.cloudStatus().set(stClouds);
 				}
 				mc.options.hideGui = false;
+				if (stRenderDistance > 0) {
+					mc.options.renderDistance().set(stRenderDistance);
+				}
 				phase = 53;
 				return false;
 			}
