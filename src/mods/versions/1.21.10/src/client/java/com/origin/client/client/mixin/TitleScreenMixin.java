@@ -309,24 +309,27 @@ public class TitleScreenMixin {
 				return;
 			}
 			main.sort(java.util.Comparator.comparingInt(AbstractWidget::getY).thenComparingInt(AbstractWidget::getX));
-			AbstractWidget singleplayer = null, multiplayer = null, realms = null, options = null, quit = null;
+			AbstractWidget realms = null, options = null, quit = null;
 			for (AbstractWidget w : main) {
-				if (singleplayer == null && originclient$is(w, "menu.singleplayer")) singleplayer = w;
-				else if (multiplayer == null && originclient$is(w, "menu.multiplayer")) multiplayer = w;
-				else if (realms == null && originclient$is(w, "menu.online")) realms = w;
+				if (realms == null && originclient$is(w, "menu.online")) realms = w;
 				else if (options == null && originclient$is(w, "menu.options")) options = w;
 				else if (quit == null && originclient$is(w, "menu.quit")) quit = w;
 			}
-			// Singleplayer and Multiplayer are found by their label keys (like Options
-			// and Quit) and always take the first two rows; any other button (another
-			// mod's, or demo mode's) follows in its old top-to-bottom order, so a mod
-			// button placed above them can never take a full-width slot of theirs.
-			List<AbstractWidget> full = new ArrayList<>();
-			if (singleplayer != null) full.add(singleplayer);
-			if (multiplayer != null) full.add(multiplayer);
+			// Singleplayer (or demo mode's Play Demo World) and Multiplayer lead the
+			// stack, found by their label like Options and Quit, so a button another
+			// mod placed above them can never take their full-width slots.
+			AbstractWidget play = null, online = null;
 			for (AbstractWidget w : main) {
-				if (w != singleplayer && w != multiplayer && w != realms && w != options && w != quit) {
-					full.add(w);
+				if (play == null && (originclient$is(w, "menu.singleplayer") || originclient$is(w, "menu.playdemo"))) play = w;
+				else if (online == null && originclient$is(w, "menu.multiplayer")) online = w;
+			}
+			List<AbstractWidget> full = new ArrayList<>();
+			if (play != null) full.add(play);
+			if (online != null) full.add(online);
+			int lead = full.size();
+			for (AbstractWidget w : main) {
+				if (w != realms && w != options && w != quit && w != play && w != online) {
+					full.add(w);   // the rest (other mods' buttons, demo's reset) in screen order
 				}
 			}
 
@@ -336,19 +339,20 @@ public class TitleScreenMixin {
 			// fit (many added buttons on a small GUI), the added ones pair up two to
 			// a row, as vanilla pairs Options | Quit.
 			boolean pair = options != null || originclient$modsNav != null;
+			int extra = full.size() - lead;
 			TitleLayout.rows(full.size() + (pair ? 1 : 0));
 			TitleLayout L = TitleLayout.of(self.width, self.height);
-			boolean halves = !L.fits && full.size() > 3;
+			boolean halves = !L.fits && extra > 1;
 			if (halves) {
-				TitleLayout.rows(2 + (full.size() - 1) / 2 + (pair ? 1 : 0));
+				TitleLayout.rows(lead + (extra + 1) / 2 + (pair ? 1 : 0));
 				L = TitleLayout.of(self.width, self.height);
 			}
 			int half = (L.mainW - L.pairGap) / 2;
 			int y = L.mainTop;
 			for (int i = 0; i < full.size(); i++) {
 				AbstractWidget w = full.get(i);
-				boolean right = halves && i >= 2 && (i - 2) % 2 == 1;
-				boolean alone = !halves || i < 2 || (!right && i == full.size() - 1);
+				boolean right = halves && i >= lead && (i - lead) % 2 == 1;
+				boolean alone = !halves || i < lead || (!right && i == full.size() - 1);
 				if (alone) {
 					originclient$place(w, L.mainX, y, L.mainW, L.buttonH, true);
 				} else {
