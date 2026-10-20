@@ -81,7 +81,17 @@
 		"CosmeticsPauseMixin",
 		"PackSelectionScreenAccessor",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"KeyRebindMixin",
+		"EntityRendererCullingBoxInvoker",
+		"ShadowCasterEntityMixin",
+		"ShadowCasterBlockEntityMixin",
+		"IrisPipelineHalfRateMixin",
+		"IrisShadowRendererHalfRateMixin",
+		"IrisDebugEntryOriginMixin",
+		"SodiumViewportShadowMapMixin",
+		"SodiumRenderSectionManagerHooksMixin",
+		"SodiumChunkChangeMixin",
+		"SodiumSortedRenderListsAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 0
