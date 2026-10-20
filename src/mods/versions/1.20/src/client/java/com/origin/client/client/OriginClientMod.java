@@ -139,7 +139,10 @@ public class OriginClientMod implements ClientModInitializer {
 				}
 			}
 		});
-		// Every out-of-world menu is its own clean Origin scene. The backdrop is
+		// Every out-of-world menu gets the clean backdrop (Will, 2026-10-19): Minecraft's
+		// own screens THIS version's panorama, blurred, dimmed and vignetted
+		// (renderMenuBackdrop); Origin's own screens the charcoal + rings backdrop with
+		// the cursor spotlight. The backdrop is
 		// drawn in beforeRender -- once, before ANY screen content -- so it clears
 		// the frame for EVERY screen, including list screens (SelectWorld,
 		// multiplayer, ...) that never call renderBackground and would otherwise
@@ -159,6 +162,19 @@ public class OriginClientMod implements ClientModInitializer {
 							|| !com.origin.client.client.render.OriginScreenRenderer.isActive()
 							|| OriginStyle.vanillaMenusOn(s)) {
 						return;   // vanilla mode: Minecraft's own backdrop
+					}
+					// The loading screens draw the whole loading scene, panorama included,
+					// in their own render (mixin/loading/*); a second backdrop here would
+					// blur twice and spin the shared panorama at double speed.
+					if (s instanceof net.minecraft.client.gui.screens.LevelLoadingScreen
+							|| s instanceof net.minecraft.client.gui.screens.ReceivingLevelScreen
+							|| s instanceof net.minecraft.client.gui.screens.ProgressScreen
+							|| s instanceof net.minecraft.client.gui.screens.GenericDirtMessageScreen) {
+						return;
+					}
+					if (!com.origin.client.client.gui.OriginWidgetOwnership.isOriginOwnClass(s)) {
+						com.origin.client.client.render.OriginScreenRenderer.renderMenuBackdrop(s, g, tick);
+						return;
 					}
 					if (com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(g)) {
 						boolean hovering = false;

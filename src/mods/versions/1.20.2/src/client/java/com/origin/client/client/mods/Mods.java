@@ -44,9 +44,7 @@ public final class Mods {
 			ModOption.toggle("smartDisconnect", "Smart Disconnect", true).tip("Ask for confirmation before leaving a world or server."),
 			ModOption.toggle("disableHotbarScrolling", "Disable Hotbar Scrolling", false),
 			ModOption.dropdown("mainMenuStyle", "Main Menu Style", "Origin", "Vanilla")
-					.tip("Origin re-skins the title screen; Vanilla keeps Minecraft's. With Button Style on Minecraft too, every Minecraft menu is plain vanilla."),
-			ModOption.dropdown("buttonStyle", "Button Style", "Origin", "Minecraft")
-					.tip("Origin draws Minecraft's buttons in its own style; Minecraft keeps the stock ones. With Main Menu Style on Vanilla too, every Minecraft menu is plain vanilla."),
+					.tip("Origin gives the title screen its own layout and puts this version's panorama behind every Minecraft menu and loading screen. Vanilla keeps all of them stock."),
 			ModOption.dropdown("menuLayout", "Mod Menu Layout", "Auto", "3 across (compact)", "2 across (large)")
 					.tip("How many mod cards fit in a row. Auto fits the screen (up to four). Compact and large scroll down."),
 			ModOption.toggle("showAchievements", "Show Achievements", true).tip("Show the advancement toast pop-ups."),
