@@ -530,7 +530,7 @@ public abstract class OriginItemGridScreen extends OriginWindow {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
-		if (event.button() == 0) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			searchFocused = false;   // the search field's own hit turns it back on
 		}
 		return super.mouseClicked(event, doubled);

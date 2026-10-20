@@ -74,7 +74,7 @@ public final class Social {
 		ScreenEvents.AFTER_INIT.register((client, screen, w, h) ->
 				ScreenMouseEvents.allowMouseClick(screen).register((s, click) -> {
 					try {
-						return click.button() != 0 || !SocialToast.click(click.x(), click.y());
+						return click.button() != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT || !SocialToast.click(click.x(), click.y());
 					} catch (Throwable t) {
 						return true;
 					}

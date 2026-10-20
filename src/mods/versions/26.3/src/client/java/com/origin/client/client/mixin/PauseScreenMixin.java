@@ -46,7 +46,7 @@ public abstract class PauseScreenMixin extends Screen {
 				confirmed -> {
 					if (confirmed) {
 						// 1.21.11: onPress takes the triggering input; synthesize an Enter press.
-						original.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+						original.onPress(new net.minecraft.client.input.KeyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_RETURN, 0, 0));
 					} else {
 						this.minecraft.gui.setScreen(self);
 					}

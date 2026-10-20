@@ -291,7 +291,7 @@ public final class OriginDevShots {
 		for (var child : s.children()) {
 			if (child instanceof net.minecraft.client.gui.components.AbstractButton b && b.active
 					&& label.equals(b.getMessage().getString())) {
-				b.onPress(new net.minecraft.client.input.MouseButtonInfo(0, 0));
+				b.onPress(new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT, 0));
 				return;
 			}
 		}

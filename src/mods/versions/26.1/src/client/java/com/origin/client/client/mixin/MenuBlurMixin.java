@@ -26,6 +26,13 @@ public class MenuBlurMixin {
 	// Pause + in-game menus: Origin's blur marker (and strength) instead of the vanilla option.
 	@Inject(method = "extractBlurredBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
 	private void originclient$menuBlur(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
+		// One blur per frame (GuiRenderState throws on a second). A frame that is
+		// already blurred skips this one instead of crashing: 26.x's Friends
+		// overlay blurs after redrawing a parent whose Origin backdrop blurred.
+		if (com.origin.client.client.render.OriginScreenRenderer.frameAlreadyBlurred(guiGraphics)) {
+			ci.cancel();
+			return;
+		}
 		Screen self = (Screen) (Object) this;
 		if (!OriginStyle.vanillaMenusOn(self) && MenuBlur.handles(self)) {
 			MenuBlur.blur(guiGraphics);

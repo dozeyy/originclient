@@ -35,7 +35,11 @@ public abstract class MouseHandlerMixin {
 		// A click made while a screen (inventory/menu) is open is a "cancelled"
 		// click for CPS purposes — track the held-state but don't count it.
 		boolean counts = Minecraft.getInstance().gui.screen() == null;
-		com.origin.client.client.mods.ClickStats.onButton(info.button(), action == com.mojang.blaze3d.platform.InputConstants.PRESS, counts);
+		// 26.3 (SDL3): buttons are numbered left=1, middle=2, right=3, but the
+		// shared ClickStats speaks the GLFW numbering (left=0, right=1).
+		int b = info.button();
+		int glfwButton = b == InputConstants.MOUSE_BUTTON_LEFT ? 0 : b == InputConstants.MOUSE_BUTTON_RIGHT ? 1 : -1;
+		com.origin.client.client.mods.ClickStats.onButton(glfwButton, action == com.mojang.blaze3d.platform.InputConstants.PRESS, counts);
 	}
 
 	// Scroll to Zoom: while actively zoomed, the wheel changes zoom depth (a

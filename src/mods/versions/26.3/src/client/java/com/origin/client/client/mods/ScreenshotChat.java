@@ -140,7 +140,7 @@ public final class ScreenshotChat {
 			if (screen instanceof ChatScreen) {
 				ScreenMouseEvents.allowMouseClick(screen).register((s, click) -> {
 					try {
-						return click.button() != 0 || !clicked(client, click.x(), click.y());
+						return click.button() != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT || !clicked(client, click.x(), click.y());
 					} catch (Throwable t) {
 						return true;
 					}

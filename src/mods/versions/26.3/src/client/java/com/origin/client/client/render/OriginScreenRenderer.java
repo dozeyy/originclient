@@ -567,19 +567,33 @@ public final class OriginScreenRenderer {
 	 * caught instead: the frame keeps its one blur either way.
 	 */
 	private static void blurOnce(com.origin.client.client.mixin.ScreenInvoker inv, GuiGraphicsExtractor g) {
-		try {
-			if ((Object) g instanceof com.origin.client.client.mixin.GuiGraphicsExtractorAccessor ga
-					&& (Object) ga.originclient$guiRenderState() instanceof com.origin.client.client.mixin.GuiRenderStateAccessor sa
-					&& sa.originclient$firstStratumAfterBlur() != Integer.MAX_VALUE) {
-				return;   // already blurred this frame
-			}
-		} catch (Throwable ignored) {
-			// accessors missing: fall through to the guarded call
+		// A screen drawn as ANOTHER screen's background (26.x FriendsOverlayScreen
+		// redraws its parent, then blurs itself with vanilla's unguarded call) must
+		// not take the frame's one blur, or the overlay's blur throws and crashes.
+		if ((Object) inv != Minecraft.getInstance().gui.screen() || frameAlreadyBlurred(g)) {
+			return;
 		}
 		try {
 			inv.originclient$extractBlurredBackground(g);
 		} catch (IllegalStateException alreadyBlurred) {
 			// "Can only blur once per frame": the frame is already blurred
+		}
+	}
+
+	/**
+	 * True when this frame's GUI already holds its one blur (firstStratumAfterBlur
+	 * set; MAX_VALUE = not yet). False when the accessors are missing, so callers
+	 * fall back to their own catch. MenuBlurMixin uses it to skip vanilla's
+	 * extractBlurredBackground, which would otherwise throw "Can only blur once
+	 * per frame" and crash the game.
+	 */
+	public static boolean frameAlreadyBlurred(GuiGraphicsExtractor g) {
+		try {
+			return (Object) g instanceof com.origin.client.client.mixin.GuiGraphicsExtractorAccessor ga
+					&& (Object) ga.originclient$guiRenderState() instanceof com.origin.client.client.mixin.GuiRenderStateAccessor sa
+					&& sa.originclient$firstStratumAfterBlur() != Integer.MAX_VALUE;
+		} catch (Throwable ignored) {
+			return false;
 		}
 	}
 

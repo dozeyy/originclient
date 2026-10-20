@@ -310,7 +310,7 @@ public class HudEditorScreen extends Screen {
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubled) {
 		double mx = event.x(), my = event.y();
 		int button = event.button();
-		if (button != 0) {
+		if (button != InputConstants.MOUSE_BUTTON_LEFT) {
 			return super.mouseClicked(event, doubled);
 		}
 		if (quick) {
