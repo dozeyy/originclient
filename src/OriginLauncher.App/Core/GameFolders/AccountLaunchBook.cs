@@ -29,7 +29,7 @@ public enum PlayAction
 }
 
 /// <summary>How the Play button looks for the selected account.</summary>
-public readonly record struct PlayButtonView(bool Enabled, bool Spinner, bool ShowsRunning, string? ToolTip);
+public readonly record struct PlayButtonView(bool Enabled, bool Spinner, bool ShowsRunning);
 
 /// <summary>One launch being prepared. Owns its cancellation source; the launch that created it disposes it.</summary>
 public sealed class LaunchTicket
@@ -235,10 +235,8 @@ public sealed class AccountLaunchBook
     /// <param name="hasVersion">A version is selected.</param>
     public static PlayButtonView ButtonFor(GamePhase phase, bool canPlay, bool hasVersion) => phase switch
     {
-        GamePhase.Running => new PlayButtonView(true, false, true,
-            "Minecraft is open on this account — click to switch to it"),
-        GamePhase.Preparing or GamePhase.Starting => new PlayButtonView(false, true, false, null),
-        _ => new PlayButtonView(canPlay && hasVersion, false, false,
-            canPlay ? (hasVersion ? null : "Select a version to play") : "Sign in to play"),
+        GamePhase.Running => new PlayButtonView(true, false, true),
+        GamePhase.Preparing or GamePhase.Starting => new PlayButtonView(false, true, false),
+        _ => new PlayButtonView(canPlay && hasVersion, false, false),
     };
 }

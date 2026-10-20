@@ -9,7 +9,9 @@ namespace OriginLauncher.Tests;
 /// have a small text that just says what it does"). Three rules, read straight from the launcher's XAML (this
 /// project runs without WPF; the look itself is proven by the tooltip shots in launcher-shots):
 ///   1. One global ToolTip style, merged into App.xaml, built from tokens only (no literal colors).
-///   2. Every icon-only button has a ToolTip AND an AutomationProperties.Name.
+///   2. Every icon-only button has an AutomationProperties.Name, and a ToolTip too - except on Home, the version
+///      picker and the update badge, which carry no hover label (Will, 2026-10-20: on the top bar and Home only
+///      Import, Friends, Minimize and Close keep one; pinned below).
 ///   3. That label is plain and short (1-3 words; a key hint in brackets, "(Esc)", doesn't count).
 /// </summary>
 public class ToolTipTests
@@ -74,15 +76,32 @@ public class ToolTipTests
         Assert.True(IconButtons().Count() >= 15); // guards the test itself: if the XAML moved, the rules below would pass on nothing
     }
 
+    /// <summary>Surfaces that carry no hover label: Home, the version picker, and the top bar's update badge.</summary>
+    private static bool IsLabelFree((string File, XElement Button) x) =>
+        x.File.EndsWith("HomePage.xaml", StringComparison.Ordinal)
+        || x.File.EndsWith("VersionSelectOverlay.xaml", StringComparison.Ordinal)
+        || (string?)x.Button.Attribute(XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml") + "Name") == "UpdateBadge";
+
     [Fact]
     public void EveryIconButtonHasAToolTipAndAnAutomationName()
     {
         var bad = IconButtons()
-            .Where(x => string.IsNullOrWhiteSpace((string?)x.Button.Attribute("ToolTip"))
-                        || string.IsNullOrWhiteSpace((string?)x.Button.Attribute("AutomationProperties.Name")))
+            .Where(x => string.IsNullOrWhiteSpace((string?)x.Button.Attribute("AutomationProperties.Name"))
+                        || (!IsLabelFree(x) && string.IsNullOrWhiteSpace((string?)x.Button.Attribute("ToolTip"))))
             .Select(x => Where(x.File, x.Button))
             .ToList();
         Assert.True(bad.Count == 0, "Icon-only buttons without a ToolTip and AutomationProperties.Name: " + string.Join(", ", bad));
+    }
+
+    [Fact]
+    public void TopBarAndHomeKeepHoverLabelsOnlyOnImportFriendsMinimizeClose()
+    {
+        var main = XDocument.Load(Path.Combine(AppDir, "MainWindow.xaml"));
+        var tips = main.Descendants().Where(e => e.Name.Namespace == Wpf && e.Attribute("ToolTip") != null)
+            .Select(e => (string)e.Attribute("ToolTip")!).OrderBy(t => t, StringComparer.Ordinal).ToArray();
+        Assert.Equal(new[] { "Close", "Friends", "Import", "Minimize" }, tips);
+        foreach (var f in new[] { Path.Combine("UI", "Pages", "HomePage.xaml"), Path.Combine("UI", "Controls", "VersionSelectOverlay.xaml") })
+            Assert.DoesNotContain("ToolTip=", File.ReadAllText(Path.Combine(AppDir, f)));
     }
 
     [Fact]

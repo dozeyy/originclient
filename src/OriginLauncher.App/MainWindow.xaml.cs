@@ -125,6 +125,14 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>The one short word on the update badge: "Updating..." off the loading scene, or the failure.</summary>
+    private void ShowUpdateNote(string text, string brushKey)
+    {
+        UpdateRetryText.Text = text;
+        UpdateRetryText.Foreground = (Brush)FindResource(brushKey);
+        UpdateRetryText.Visibility = Visibility.Visible;
+    }
+
     private async void UpdateBadge_Click(object sender, RoutedEventArgs e)
     {
         if (UpdateService.Available is not { } update) return;
@@ -132,19 +140,20 @@ public partial class MainWindow : Window
         // import can open or apply once the download is under way (Core/Import/Launcher/UpdateRunState).
 
         UpdateBadge.IsEnabled = false;
-        UpdateBadge.ToolTip = "Updating...";
+        UpdateRetryText.Visibility = Visibility.Collapsed;
+        System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Install update");
 
         // Show the download on Home's full-page loading scene (a real
-        // percentage fill), unless a game launch is mid-flight there — then
-        // the button tooltip alone carries the progress.
+        // percentage fill), unless a game launch is mid-flight there - then
+        // the badge's own "Updating..." label carries it.
         if (_accountPanelOpen) SetAccountPanelOpen(false);
         NavigateTo(LauncherPage.Home);
         var onScene = _currentPage == LauncherPage.Home
                       && _homePage.BeginUpdateScene(update.Version.ToString());
+        if (!onScene) ShowUpdateNote("Updating...", "Brush.TextDim");
         var toldAboutImport = false;
         var progress = new Progress<UpdateService.UpdateProgress>(p =>
         {
-            UpdateBadge.ToolTip = p.Describe();
             if (p.Stage == UpdateService.UpdateStage.FinishingImport && !toldAboutImport)
             {
                 toldAboutImport = true;
@@ -159,11 +168,13 @@ public partial class MainWindow : Window
             // the swap script relaunches the updated launcher.
             await UpdateService.DownloadAndRestartAsync(progress);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             if (onScene) _homePage.EndUpdateScene();
             UpdateBadge.IsEnabled = true;
-            UpdateBadge.ToolTip = $"Update failed: {ex.Message} - click to retry";
+            // Visible, not a hover label: the badge says it failed and that a click retries.
+            ShowUpdateNote("Update failed - retry", "Brush.Warning");
+            System.Windows.Automation.AutomationProperties.SetName(UpdateBadge, "Update failed, retry");
         }
     }
 
@@ -553,7 +564,6 @@ public partial class MainWindow : Window
         AccountName.Text = name ?? (offline ? "Offline" : "Sign in");
         // The player's own head; no account (offline / signed out) = the default head.
         AccountFace.Uuid = selected?.Id ?? "";
-        AccountButton.ToolTip = name != null ? $"Accounts ({name})" : "Accounts";
     }
 
     // Under the launch screen the bar fades away and stops taking clicks; it

@@ -607,7 +607,6 @@ public partial class PromoBanner : UserControl
             SubtitleText.Visibility = Visibility.Visible;
             OnlineDot.Visibility = info.Online != null ? Visibility.Visible : Visibility.Collapsed;
             ExternalIcon.Visibility = Visibility.Visible;
-            HouseCard.ToolTip = "Join on Discord";
             AutomationProperties.SetName(HouseCard, $"Join {info.Name} on Discord");
             SetIcon(info.IconUrl);
             // The server's own icon, blown up and blurred, is the Discord card's art.
@@ -624,7 +623,6 @@ public partial class PromoBanner : UserControl
             SubtitleText.Visibility = Visibility.Visible;
             OnlineDot.Visibility = Visibility.Collapsed;
             ExternalIcon.Visibility = Visibility.Collapsed;
-            HouseCard.ToolTip = "Next tip";
             AutomationProperties.SetName(HouseCard, $"Tip: {tip.Title}. Next tip");
             SetIcon(null);
             SetPreview(null, tip.Preview, blurred: false);
@@ -638,7 +636,6 @@ public partial class PromoBanner : UserControl
         OnlineDot.Visibility = Visibility.Collapsed;
         var opensLink = click == CardClick.OpenLink;
         ExternalIcon.Visibility = opensLink ? Visibility.Visible : Visibility.Collapsed;
-        HouseCard.ToolTip = opensLink ? promo.ClickUrl?.Host : click == CardClick.Advance ? "Next" : null;
         AutomationProperties.SetName(HouseCard, promo.Title);
         SetIcon(promo.ImageUrl);
         SetPreview(promo.PreviewUrl, PromoTips.BundledPreviewFor(promo.Id), blurred: false);
@@ -723,7 +720,6 @@ public partial class PromoBanner : UserControl
                 Margin = new Thickness(0, 0, 4, 0),
                 Cursor = System.Windows.Input.Cursors.Hand,
                 Child = track,
-                ToolTip = SlideName(_slides[i]),
             };
             AutomationProperties.SetName(hit, $"Show {SlideName(_slides[i])}");
             hit.MouseLeftButtonUp += (_, e) =>

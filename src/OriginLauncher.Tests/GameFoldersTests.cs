@@ -513,7 +513,6 @@ public class GameFoldersTests : IDisposable
         Assert.True(view.Enabled);
         Assert.True(view.ShowsRunning);
         Assert.False(view.Spinner);
-        Assert.NotNull(view.ToolTip);
     }
 
     [Theory]
@@ -529,15 +528,14 @@ public class GameFoldersTests : IDisposable
     }
 
     [Theory]
-    [InlineData(true, true, true, null)]
-    [InlineData(true, false, false, "Select a version to play")]
-    [InlineData(false, true, false, "Sign in to play")]
-    [InlineData(false, false, false, "Sign in to play")]
-    public void AnIdleAccountsPlayButton(bool canPlay, bool hasVersion, bool enabled, string? toolTip)
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, false)]
+    public void AnIdleAccountsPlayButton(bool canPlay, bool hasVersion, bool enabled)
     {
         var view = AccountLaunchBook.ButtonFor(GamePhase.Idle, canPlay, hasVersion);
         Assert.Equal(enabled, view.Enabled);
-        Assert.Equal(toolTip, view.ToolTip);
         Assert.False(view.ShowsRunning);
         Assert.False(view.Spinner);
     }
