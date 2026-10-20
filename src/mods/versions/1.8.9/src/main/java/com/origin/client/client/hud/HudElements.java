@@ -250,6 +250,22 @@ public final class HudElements {
 		return server.serverIP + " (" + players + ")";
 	}
 
+	// The Coordinates box asks for its lines twice a frame (measure, then render), and
+	// building them is String.format + a biome lookup + the F3 chunk string. Position
+	// only changes per game tick anyway, so the lines are rebuilt at most 20 times a
+	// second and shared by both asks (Lunar's HUD refreshes at the same rate).
+	private static List<String> coordsCache = new ArrayList<>();
+	private static long coordsCacheAt = 0L;
+
+	private static List<String> coordsLinesCached(Minecraft mc) {
+		long now = System.nanoTime();
+		if (now - coordsCacheAt >= 50_000_000L || now < coordsCacheAt) {
+			coordsCache = coordsLines(mc);
+			coordsCacheAt = now;
+		}
+		return coordsCache;
+	}
+
 	private static List<String> coordsLines(Minecraft mc) {
 		List<String> lines = new ArrayList<>();
 		EntityPlayerSP pl = mc.thePlayer;
@@ -458,7 +474,7 @@ public final class HudElements {
 		// ---- Coordinates ----
 		add("coords", "coords", "Coords", new HudPos(0, 6, 38, 1.0), mc -> {
 			float s = ms("coords");
-			List<String> lines = coordsLines(mc);
+			List<String> lines = coordsLinesCached(mc);
 			int wMax = 1;
 			for (String l : lines) {
 				wMax = Math.max(wMax, mc.fontRendererObj.getStringWidth(l));
@@ -478,9 +494,9 @@ public final class HudElements {
 			p.scale(s, s, 1f);
 			bgColored(g, "coords", "bgColor", "borderColor", (int) (w / s), (int) (h / s));
 			boolean shadow = Mods.bool("coords", "textShadow");
-			BiomeGenBase biomeH = biomeAt(mc, new BlockPos(mc.thePlayer));
+			BiomeGenBase biomeH = Mods.bool("coords", "biome") ? biomeAt(mc, new BlockPos(mc.thePlayer)) : null;
 			int y = 1;
-			for (String line : coordsLines(mc)) {
+			for (String line : coordsLinesCached(mc)) {
 				int col = (biomeH != null && line.startsWith("Biome:")) ? biomeColor(biomeH) : TEXT;
 				g.drawString(mc.fontRendererObj, line, 1, y, col, shadow);
 				y += 10;

@@ -68,18 +68,43 @@ public final class Gfx {
 	}
 
 	public int guiWidth() {
-		return new ScaledResolution(Minecraft.getMinecraft()).getScaledWidth();
+		return scaled().getScaledWidth();
 	}
 
 	public int guiHeight() {
-		return new ScaledResolution(Minecraft.getMinecraft()).getScaledHeight();
+		return scaled().getScaledHeight();
+	}
+
+	// ScaledResolution is built from exactly four inputs (window size, the GUI
+	// Scale option, Force Unicode). The HUD asked for a fresh one on every
+	// guiWidth()/guiHeight()/guiScale() call -- dozens per frame, each an object
+	// plus the scale-factor loop -- so one instance is kept and rebuilt only when
+	// an input changes. Render thread only.
+	private static ScaledResolution scaledCache;
+	private static int scaledW = -1, scaledH = -1, scaledOpt = -1;
+	private static boolean scaledUnicode;
+
+	/** The current GUI scale, as vanilla's {@code new ScaledResolution(mc)} would give, without the per-call allocation. */
+	public static ScaledResolution scaled() {
+		Minecraft mc = Minecraft.getMinecraft();
+		int opt = mc.gameSettings == null ? 0 : mc.gameSettings.guiScale;
+		boolean uni = mc.isUnicode();
+		if (scaledCache == null || scaledW != mc.displayWidth || scaledH != mc.displayHeight
+				|| scaledOpt != opt || scaledUnicode != uni) {
+			scaledCache = new ScaledResolution(mc);
+			scaledW = mc.displayWidth;
+			scaledH = mc.displayHeight;
+			scaledOpt = opt;
+			scaledUnicode = uni;
+		}
+		return scaledCache;
 	}
 
 	// ---- 1.8.9 helpers for code that asked the Window (no Window object here) ----
 
 	/** Minecraft's GUI scale factor (window px per GUI px): Window.getGuiScale() on later versions. */
 	public static int guiScale() {
-		return Math.max(1, new ScaledResolution(Minecraft.getMinecraft()).getScaleFactor());
+		return Math.max(1, scaled().getScaleFactor());
 	}
 
 	/** Framebuffer width in window px: Window.getWidth() on later versions. */

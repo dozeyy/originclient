@@ -106,7 +106,14 @@ public final class WorldLabel {
 		font.drawString(s, x, y, ghostArgb, false);
 		GlStateManager.enableDepth();
 		if (solid) {
+			// The solid pass WRITES depth, as vanilla's renderLivingLabel does
+			// (depthMask(true) before its second drawString). Without it the tag
+			// left no depth behind, so everything drawn after the entity pass --
+			// water's translucent pass, later entities (NPCs) -- painted over it
+			// (Will's 2026-10-20 playtest: tags behind water and NPCs).
+			GlStateManager.depthMask(true);
 			font.drawString(s, x, y, argb, shadow);
+			GlStateManager.depthMask(false);
 		}
 		return font.getStringWidth(s);
 	}

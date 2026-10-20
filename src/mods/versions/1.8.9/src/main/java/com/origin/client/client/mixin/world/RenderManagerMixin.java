@@ -71,7 +71,7 @@ public abstract class RenderManagerMixin {
 			if (!cir.getReturnValueZ()) {
 				return;
 			}
-			double pct = Mods.num(Mods.PERFORMANCE_ID, "entityDistance");
+			double pct = com.origin.client.client.mods.PerfSettings.entityDistancePct;
 			if (pct >= 100) {
 				return;
 			}

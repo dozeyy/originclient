@@ -14,4 +14,8 @@ void main() {
     vec4 outPos = ProjMat * vec4(Position.xy, 0.0, 1.0);
     gl_Position = vec4(outPos.xy, 0.2, 1.0);
     texCoord = Position.xy / OutSize;
+    // Vanilla 1.8.9's own post programs (blit.vsh, sobel.vsh) flip y here, and
+    // the chain ends in vanilla's blit, which flips again: every pass must flip
+    // or the picture lands upside down (Will's 2026-10-20 playtest).
+    texCoord.y = 1.0 - texCoord.y;
 }

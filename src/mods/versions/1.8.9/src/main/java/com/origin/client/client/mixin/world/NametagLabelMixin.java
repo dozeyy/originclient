@@ -63,11 +63,21 @@ public abstract class NametagLabelMixin {
 			}
 			boolean modOn = Mods.on("nametags");
 			Integer party = originclient$party(entity);
-			boolean nameLine = entity.getDisplayName() != null
-					&& text.equals(entity.getDisplayName().getFormattedText());
-			String level = nameLine && entity instanceof EntityPlayer ? originclient$level((EntityPlayer) entity) : null;
+			// getFormattedText() builds a fresh String, and this runs for every visible
+			// tag every frame (100+ players in a lobby). Only the two features that style
+			// just the name line need to know it IS the name line, so it is worked out
+			// only when one of them could apply -- an ordinary tag returns "pure vanilla"
+			// below without allocating anything.
+			boolean plusCandidate = PlusBadge.wantsNametag(entity);
+			boolean levelCandidate = entity instanceof EntityPlayer && Mods.on("hypixel") && Mods.bool("hypixel", "levelHead");
+			boolean nameLine = false;
+			if (plusCandidate || levelCandidate) {
+				nameLine = entity.getDisplayName() != null
+						&& text.equals(entity.getDisplayName().getFormattedText());
+			}
+			String level = nameLine && levelCandidate ? originclient$level((EntityPlayer) entity) : null;
 			// 1.8.9: the name line is the one 1.21.1 tells from the score line with PlusBadge.isScoreLine
-			boolean plus = nameLine && PlusBadge.wantsNametag(entity);
+			boolean plus = nameLine && plusCandidate;
 			if (!modOn && party == null && level == null && !plus) {
 				return;   // pure vanilla
 			}

@@ -88,12 +88,14 @@ public final class TeamView {
 
 	/** World pass (Forge RenderWorldLastEvent): project each marked player's head. */
 	public static void capture(float partialTicks) {
-		List<Marker> out = new ArrayList<>();
-		markers = out;
 		Minecraft mc = Minecraft.getMinecraft();
 		if (!Mods.on(MOD) || mc.thePlayer == null || mc.theWorld == null) {
+			// Off (the common case): no list to allocate every frame.
+			markers = java.util.Collections.<Marker>emptyList();
 			return;
 		}
+		List<Marker> out = new ArrayList<>();
+		markers = out;
 		boolean teams = Mods.bool(MOD, "scoreboardTeams");
 		boolean party = Mods.bool(MOD, "hypixel") && Hypixel.inSafeArea();
 		Team team = mc.thePlayer.getTeam();
@@ -116,7 +118,7 @@ public final class TeamView {
 		PROJECTION.get(PR);
 		RenderManager rm = mc.getRenderManager();
 		double camX = rm.viewerPosX, camY = rm.viewerPosY, camZ = rm.viewerPosZ;
-		ScaledResolution sr = new ScaledResolution(mc);
+		ScaledResolution sr = Gfx.scaled();
 		int sw = sr.getScaledWidth(), sh = sr.getScaledHeight();
 		int teamColor = Mods.color(MOD, "teamColor");
 		int partyColor = Mods.color(MOD, "partyColor");

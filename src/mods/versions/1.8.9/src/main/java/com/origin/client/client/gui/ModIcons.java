@@ -76,6 +76,64 @@ public final class ModIcons {
 		GlStateManager.color(1f, 1f, 1f, 1f);
 	}
 
+	// Pixel-exact small icons. The 192 px cell sampled GL_LINEAR at ~8x minification
+	// reads only 4 texels per pixel, so thin strokes stair-step ("the bottom icons
+	// look jagged", Will's 2026-10-20 playtest) and a mip chain washed them out
+	// (see ensureLoaded). Small fixed-size icons are instead area-averaged on the
+	// CPU to their exact device-pixel size, once, and drawn 1:1.
+	private static java.awt.image.BufferedImage atlasImg;
+	private static final java.util.Map<String, ResourceLocation> CRISP = new java.util.HashMap<>();
+
+	public static void drawCrisp(Gfx g, String id, int x, int y, int size, int argb) {
+		try {
+			int a = (argb >>> 24) & 0xFF;
+			if (a <= 2) {
+				return;
+			}
+			ensureLoaded();
+			int[] c = ok ? CELLS.get(id) : null;
+			if (c == null || atlasImg == null) {
+				return;
+			}
+			int scale = new net.minecraft.client.gui.ScaledResolution(net.minecraft.client.Minecraft.getMinecraft()).getScaleFactor();
+			int px = Math.max(1, size * scale);
+			String key = id + "@" + px;
+			ResourceLocation rl = CRISP.get(key);
+			if (rl == null) {
+				java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(px, px, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+				double step = cell / (double) px;
+				for (int oy = 0; oy < px; oy++) {
+					for (int ox = 0; ox < px; ox++) {
+						double x0 = c[0] + ox * step, x1 = x0 + step, y0 = c[1] + oy * step, y1 = y0 + step;
+						double sum = 0, wsum = 0;
+						for (int sy = (int) Math.floor(y0); sy < y1; sy++) {
+							double wy = Math.min(sy + 1, y1) - Math.max(sy, y0);
+							for (int sx = (int) Math.floor(x0); sx < x1; sx++) {
+								double w = wy * (Math.min(sx + 1, x1) - Math.max(sx, x0));
+								sum += w * (atlasImg.getRGB(Math.min(sx, atlasW - 1), Math.min(sy, atlasH - 1)) >>> 24);
+								wsum += w;
+							}
+						}
+						int al = wsum > 0 ? (int) Math.round(sum / wsum) : 0;
+						out.setRGB(ox, oy, (al << 24) | 0xFFFFFF);
+					}
+				}
+				rl = new ResourceLocation("originclient", "ui_mod_icon_" + id.replaceAll("[^a-z0-9_]", "_") + "_" + px);
+				if (Gfx.registerTexture(rl, out, true) == null) {
+					return;
+				}
+				CRISP.put(key, rl);
+			}
+			Gfx.defaultBlend();
+			GlStateManager.color(((argb >> 16) & 0xFF) / 255f, ((argb >> 8) & 0xFF) / 255f,
+					(argb & 0xFF) / 255f, a / 255f);
+			g.blit(rl, x, y, size, size, 0, 0, px, px, px, px);
+			GlStateManager.color(1f, 1f, 1f, 1f);
+		} catch (Throwable t) {
+			draw(g, id, x, y, size, argb);   // the linear atlas path
+		}
+	}
+
 	private static void ensureLoaded() {
 		if (loaded) {
 			return;
@@ -103,6 +161,7 @@ public final class ModIcons {
 					CELLS.put("friends", CELLS.get("@user"));
 				}
 				java.awt.image.BufferedImage img = Gfx.readImage("/assets/originclient/textures/ui/mod_icons.png");
+				atlasImg = img;
 				atlasW = img.getWidth();
 				atlasH = img.getHeight();
 				// 1.8.9: no icon SDF shader, so the mask atlas is the one GPU atlas, sampled

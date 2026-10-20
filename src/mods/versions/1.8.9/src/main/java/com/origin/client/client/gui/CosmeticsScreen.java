@@ -844,7 +844,7 @@ public class CosmeticsScreen extends OriginWindow {
 	private boolean drawWorldPlayer(EntityPlayerSP player, float x, float y, float size) {
 		float scale = Math.max(1f, size * MenuPlayerPreview.HEIGHT / player.height);
 		float feetY = y + player.height * scale / 2f;
-		drawEntity(x, feetY, scale, yaw, player);
+		drawEntity(x, feetY, scale, yaw, player, framePartialTick);
 		return true;
 	}
 
@@ -856,7 +856,7 @@ public class CosmeticsScreen extends OriginWindow {
 	 * and restored around the draw, so the player's actual facing is never
 	 * touched. Float position / scale: the deck's pose is physical px.
 	 */
-	private static void drawEntity(float x, float feetY, float scale, float yaw, EntityPlayerSP ent) {
+	private static void drawEntity(float x, float feetY, float scale, float yaw, EntityPlayerSP ent, float partial) {
 		// the deck's 2D draws may leave depth testing off; a model needs it for its
 		// own overlapping parts (the GUI's depth was cleared before the screen drew)
 		boolean depth = org.lwjgl.opengl.GL11.glIsEnabled(org.lwjgl.opengl.GL11.GL_DEPTH_TEST);
@@ -883,7 +883,9 @@ public class CosmeticsScreen extends OriginWindow {
 			RenderManager rm = Minecraft.getMinecraft().getRenderManager();
 			rm.setPlayerViewY(180.0F);
 			rm.setRenderShadow(false);
-			rm.renderEntityWithPosYaw(ent, 0.0D, 0.0D, 0.0D, 0.0F, 1.0F);
+			// the real partial tick: with a fixed 1.0 the cape sway and animated
+			// cosmetics (ageInTicks) stepped at 20 Hz -- the choppy preview
+			rm.renderEntityWithPosYaw(ent, 0.0D, 0.0D, 0.0D, 0.0F, partial);
 			rm.setRenderShadow(true);
 		} finally {
 			ent.renderYawOffset = body;

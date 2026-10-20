@@ -62,7 +62,7 @@ public final class FpsCoachToast {
 		float eased = 1f - (1f - t) * (1f - t) * (1f - t);
 		try {
 			mc.entityRenderer.setupOverlayRendering();
-			ScaledResolution sr = new ScaledResolution(mc);
+			ScaledResolution sr = Gfx.scaled();
 			int x = Math.round(sr.getScaledWidth() - (W + MARGIN) * eased);
 			GlStateManager.disableLighting();
 			GlStateManager.enableBlend();

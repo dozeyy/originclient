@@ -263,7 +263,7 @@ public class OriginTitleScreen extends OriginScreen {
 				continue;
 			}
 			int s = Math.max(8, Math.min(12, b.height - 8));
-			ModIcons.draw(g, dockIcon.get(i), b.xPosition + (b.width - s) / 2, b.yPosition + (b.height - s) / 2, s,
+			ModIcons.drawCrisp(g, dockIcon.get(i), b.xPosition + (b.width - s) / 2, b.yPosition + (b.height - s) / 2, s,
 					b.enabled ? 0xFFFFFFFF : 0xFFA0A0A0);
 		}
 	}

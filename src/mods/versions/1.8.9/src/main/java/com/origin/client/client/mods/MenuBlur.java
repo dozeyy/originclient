@@ -94,6 +94,15 @@ public final class MenuBlur {
 				PYRAMID[i].bindFramebuffer(true);
 				OriginScreenRenderer.drawFullscreenTexture(PYRAMID[i - 1]);
 			}
+			// Climb back up one halving at a time. Stretching the smallest level
+			// straight to full size (up to 8x) shows its pixel grid -- the
+			// "pixelated Esc menu" of Will's 2026-10-20 playtest; 2x bilinear steps
+			// compound into a smooth falloff. The levels are rebuilt every frame,
+			// so overwriting them here is free.
+			for (int i = levels - 1; i >= 1; i--) {
+				PYRAMID[i - 1].bindFramebuffer(true);
+				OriginScreenRenderer.drawFullscreenTexture(PYRAMID[i]);
+			}
 		} catch (Throwable t) {
 			broken = true;   // vanilla's darkened backdrop from now on
 			com.origin.client.OriginClient.LOGGER.warn("Origin: Menu Blur failed; using vanilla's menu backdrop", t);
@@ -106,7 +115,7 @@ public final class MenuBlur {
 			}
 			OriginScreenRenderer.restoreTarget(previous);
 		}
-		OriginScreenRenderer.drawFullscreenTexture(PYRAMID[levels - 1]);
+		OriginScreenRenderer.drawFullscreenTexture(PYRAMID[0]);
 		return true;
 	}
 

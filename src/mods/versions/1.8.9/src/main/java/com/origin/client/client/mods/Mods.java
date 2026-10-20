@@ -99,7 +99,11 @@ public final class Mods {
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
-			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"));
+			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"),
+			ModOption.toggle("packIconDownscale", "Pack Icon Downscale", true)
+					.tip("Shrinks big resource pack icons to 64 px before they load. The pack list opens faster and uses less video memory; the icons look the same."),
+			ModOption.toggle("noTextShadow", "Disable Text Shadow", false)
+					.tip("Draws no drop-shadow behind text anywhere in the game. Less to draw, flatter looking text."));
 
 	// Vanilla 1.21.1 particle types (net.minecraft.core.particles.ParticleTypes)
 	// — the Particle Changer builds a per-type control block from this list so
@@ -1221,13 +1225,20 @@ public final class Mods {
 
 	/** 1.8.9: true for a mod registered but hidden because 1.8.9 has nothing for it to act on. */
 	public static boolean unavailable(String modId) {
-		for (Mod m : UNAVAILABLE) {
-			if (m.id().equals(modId)) {
-				return true;
+		// Mods.on() asks this on every call (hundreds a frame from the HUD), so it is a
+		// set lookup, rebuilt only if addUnavailable ran since (registration is class-init only).
+		java.util.Set<String> ids = UNAVAILABLE_IDS;
+		if (ids == null || ids.size() != UNAVAILABLE.size()) {
+			ids = new java.util.HashSet<>();
+			for (Mod m : UNAVAILABLE) {
+				ids.add(m.id());
 			}
+			UNAVAILABLE_IDS = ids;
 		}
-		return false;
+		return ids.contains(modId);
 	}
+
+	private static volatile java.util.Set<String> UNAVAILABLE_IDS;
 
 	private Mods() {
 	}

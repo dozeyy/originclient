@@ -91,8 +91,12 @@ public abstract class OriginWindow extends OriginScreen {
 
 	// ---- render ----
 
+	/** This frame's partial tick, for animated 3D previews (a fixed 1.0 steps them at 20 Hz). */
+	protected float framePartialTick = 1f;
+
 	@Override
 	public void render(Gfx g, int mouseX, int mouseY, float partialTick) {
+		framePartialTick = partialTick;
 		if (Minecraft.getMinecraft().theWorld == null) {
 			com.origin.client.client.render.OriginScreenRenderer.renderTitleBackground(g);
 		} else {
