@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using OriginLauncher.App.Core.Profiles;
@@ -15,239 +16,57 @@ public static class ProfileLook
     /// <summary>The picker's order; each name is a Theme/Colors.xaml "Tint.*" brush.</summary>
     public static readonly string[] TintNames = ["Slate", "Plum", "Umber", "Moss", "Wine", "Graphite"];
 
-    /// <summary>The emblem picker's icons in order, after the first-letter tile. Line icons
-    /// are Theme/Icons.xaml geometries (the Origin set); the rest are <see cref="PixelIcons"/>.
-    /// The name is what ModProfile.Icon stores, so never rename one.</summary>
+    /// <summary>The emblem picker's icons in order, after the first-letter tile. Each is a
+    /// Theme/Icons.xaml geometry "Icon.Emblem.&lt;name&gt;" (plus an optional ".Solid" layer for
+    /// details). The name is what ModProfile.Icon stores, so never rename one.</summary>
     public static readonly string[] EmblemIcons =
         ["Star", "Zap", "Map", "Camera", "Target", "Sun", "Pen", "User", "Box", "Crown", "Globe", "Server",
          "Sword", "Pickaxe", "Diamond", "Heart", "Creeper", "Potion", "Torch", "Chest"];
 
-    // The line icons' resource keys: the emblem-only ones, then three from the launcher's own set.
-    private static readonly Dictionary<string, string> LineIcons = new()
-    {
-        ["Star"] = "Icon.Emblem.Star", ["Zap"] = "Icon.Emblem.Zap", ["Map"] = "Icon.Emblem.Map",
-        ["Camera"] = "Icon.Emblem.Camera", ["Target"] = "Icon.Emblem.Target", ["Sun"] = "Icon.Emblem.Sun",
-        ["Pen"] = "Icon.Emblem.Pen", ["User"] = "Icon.Emblem.User", ["Box"] = "Icon.Emblem.Box",
-        ["Crown"] = "Icon.Crown", ["Globe"] = "Icon.Globe", ["Server"] = "Icon.Server",
-    };
+    /// <summary>How much of the ink shows as the tint inside each outline (0..1).</summary>
+    public const double ToneOpacity = 0.26;
+
+    /// <summary>Emblems are drawn on a 24 px grid and shown at exactly 24 px (the Origin mark's
+    /// size), so 2 px strokes land on whole device pixels at 100% and 200%.</summary>
+    public const double EmblemSize = 24;
 
     /// <summary>True when the profile shows an icon (a known one), false when it shows its letter.</summary>
     public static bool HasIcon(string? icon) => icon != null && Array.IndexOf(EmblemIcons, icon) >= 0;
 
-    /// <summary>The icon drawn in <paramref name="brush"/>, about <paramref name="size"/> px, or
-    /// null when the profile shows its letter. Line icons stroke at that size; pixel icons
-    /// fill at a whole multiple of 16 px (16 or 32) so every pixel stays square and crisp.</summary>
+    /// <summary>The icon drawn in <paramref name="brush"/>, or null when the profile shows its
+    /// letter. Always <see cref="EmblemSize"/> square: <paramref name="size"/> is kept so callers
+    /// don't change, but a scaled glyph would blur its strokes, so it is ignored.</summary>
     public static FrameworkElement? EmblemGlyph(string? icon, double size, Brush brush)
     {
         if (!HasIcon(icon)) return null;
-        if (LineIcons.TryGetValue(icon!, out var key))
-            return new Path
-            {
-                Data = (Geometry)Application.Current.FindResource(key),
-                Style = (Style)Application.Current.FindResource("Icon.Base"),
-                Stroke = brush,
-                Width = size,
-                Height = size,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-        var px = Math.Max(16, Math.Floor(size * 1.25 / 16) * 16);
-        var path = new Path
+        var outline = (Geometry)Application.Current.FindResource("Icon.Emblem." + icon);
+        var canvas = new Canvas
         {
-            Data = PixelGeometry(icon!, px / 16),
-            Fill = brush,
-            Width = px,
-            Height = px,
-            Stretch = Stretch.None,
-            SnapsToDevicePixels = true,
+            Width = EmblemSize,
+            Height = EmblemSize,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
+            SnapsToDevicePixels = true,
+            UseLayoutRounding = true,
+            IsHitTestVisible = false,
         };
-        RenderOptions.SetEdgeMode(path, EdgeMode.Aliased);
-        return path;
-    }
-
-    private static readonly Dictionary<(string, double), Geometry> PixelCache = new();
-
-    // One rectangle per run of ink in each row, scaled to whole pixels; built once per size.
-    private static Geometry PixelGeometry(string icon, double scale)
-    {
-        if (PixelCache.TryGetValue((icon, scale), out var cached)) return cached;
-        var geometry = new StreamGeometry();
-        using (var ctx = geometry.Open())
+        // Layer 1: the tint inside the outline. Opacity on its own path keeps the ink brush live.
+        canvas.Children.Add(new Path { Data = outline, Fill = brush, Opacity = ToneOpacity });
+        // Layer 2: the 2 px outline.
+        canvas.Children.Add(new Path
         {
-            var rows = PixelIcons[icon];
-            for (var y = 0; y < rows.Length; y++)
-                for (var x = 0; x < rows[y].Length; x++)
-                {
-                    if (rows[y][x] != '#') continue;
-                    var end = x;
-                    while (end + 1 < rows[y].Length && rows[y][end + 1] == '#') end++;
-                    ctx.BeginFigure(new Point(x * scale, y * scale), true, true);
-                    ctx.PolyLineTo(new[]
-                    {
-                        new Point((end + 1) * scale, y * scale),
-                        new Point((end + 1) * scale, (y + 1) * scale),
-                        new Point(x * scale, (y + 1) * scale),
-                    }, false, false);
-                    x = end;
-                }
-        }
-        geometry.Freeze();
-        PixelCache[(icon, scale)] = geometry;
-        return geometry;
+            Data = outline,
+            Stroke = brush,
+            StrokeThickness = 2,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round,
+        });
+        // Layer 3: solid details.
+        if (Application.Current.TryFindResource("Icon.Emblem." + icon + ".Solid") is Geometry solid)
+            canvas.Children.Add(new Path { Data = solid, Fill = brush });
+        return canvas;
     }
-
-    /// <summary>Minecraft-style item icons, drawn for Origin (own 16x16 pixel art, no game
-    /// textures): '#' is ink, '.' is clear.</summary>
-    private static readonly Dictionary<string, string[]> PixelIcons = new()
-    {
-        ["Sword"] = [
-            "............####",
-            "...........#...#",
-            "..........#...#.",
-            ".........#...#..",
-            "........#...#...",
-            ".......#...#....",
-            "..##..#...#.....",
-            "..#.##...#......",
-            "...#.#..#.......",
-            "...##.##........",
-            "....###.#.......",
-            "...###.###......",
-            "..###...##......",
-            "####............",
-            "#..#............",
-            "####............",
-        ],
-        ["Pickaxe"] = [
-            "................",
-            "....#######.....",
-            "...#########....",
-            "..###.....###...",
-            "..##.......###..",
-            "..........#.###.",
-            ".........###.##.",
-            "........###..##.",
-            ".......###...##.",
-            "......###.....#.",
-            ".....###........",
-            "....###.........",
-            "...###..........",
-            "..###...........",
-            ".###............",
-            ".##.............",
-        ],
-        ["Diamond"] = [
-            "................",
-            "................",
-            "....########....",
-            "...#..#..#..#...",
-            "..############..",
-            ".##############.",
-            ".#.##########.#.",
-            "..#.########.#..",
-            "...#.######.#...",
-            "....#.####.#....",
-            ".....#.##.#.....",
-            "......#..#......",
-            ".......##.......",
-            "................",
-            "................",
-            "................",
-        ],
-        ["Heart"] = [
-            "................",
-            "................",
-            "..####....####..",
-            ".######..######.",
-            "################",
-            "##.#############",
-            "##.#############",
-            ".##############.",
-            "..############..",
-            "...##########...",
-            "....########....",
-            ".....######.....",
-            "......####......",
-            ".......##.......",
-            "................",
-            "................",
-        ],
-        ["Creeper"] = [
-            "################",
-            "################",
-            "##....####....##",
-            "##....####....##",
-            "##....####....##",
-            "##....####....##",
-            "######....######",
-            "######....######",
-            "####........####",
-            "####........####",
-            "####........####",
-            "####........####",
-            "####..####..####",
-            "####..####..####",
-            "################",
-            "################",
-        ],
-        ["Potion"] = [
-            "................",
-            "......####......",
-            "......####......",
-            ".......##.......",
-            ".......##.......",
-            "......#..#......",
-            ".....#....#.....",
-            "....#......#....",
-            "...############.",
-            "...############.",
-            "...##.#########.",
-            "...##.#########.",
-            "...############.",
-            "....##########..",
-            ".....########...",
-            "................",
-        ],
-        ["Torch"] = [
-            "................",
-            ".......#........",
-            "......###.......",
-            "......####......",
-            ".....######.....",
-            ".....######.....",
-            "......####......",
-            "......####......",
-            ".......##.......",
-            ".......##.......",
-            ".......##.......",
-            ".......##.......",
-            ".......##.......",
-            ".......##.......",
-            ".......##.......",
-            "................",
-        ],
-        ["Chest"] = [
-            "................",
-            "................",
-            ".##############.",
-            ".##############.",
-            ".##############.",
-            ".##############.",
-            ".......##.......",
-            ".######..######.",
-            ".######..######.",
-            ".##############.",
-            ".##############.",
-            ".##############.",
-            ".##############.",
-            ".##############.",
-            "................",
-            "................",
-        ],
-    };
-
     public static Brush Tint(ModProfile profile) => TintBrush(TintName(profile));
 
     public static Brush Tint(string? id) => TintBrush(HashedTint(id));
