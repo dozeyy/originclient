@@ -6,13 +6,14 @@ import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Target: Sodium 0.9.2+mc26.2 RenderSectionManager (javap 2026-10-20):
  *   public scheduleRebuild(IIIZ)V -- a block/light change asked for a section rebuild;
  *   private processChunkBuildResults(ArrayList, Viewport, UniformBufferManager)I -- built sections are
  *     uploaded (processChunkBuilds calls it only when results are non-empty).
- * CallbackInfo-only handlers, matched by name, no argument-dependent handler anywhere in this mixin: this
+ * Callback-object-only handlers (no captured arguments), matched by name, no argument-dependent handler anywhere in this mixin: this
  * is the hook Half-Rate Shadows MUST have to stay correct, so nothing else may make it fail to apply.
  * @Pseudo + string target: without Sodium the mixin is skipped.
  * Why: Half-Rate Shadows (render/HalfRateShadows.onChunksChanged). A kept shadow map must never hide
@@ -28,8 +29,11 @@ public abstract class SodiumChunkChangeMixin {
 		HalfRateShadows.onChunksChanged();
 	}
 
+	// processChunkBuildResults returns int, so the handler takes a CallbackInfoReturnable (a bare
+	// CallbackInfo failed apply with "Invalid descriptor", dev-shots 2026-10-20). Still no arguments.
+	// Sodium calls it only when there are results, so the callback object is not a per-frame cost.
 	@Inject(method = "processChunkBuildResults", at = @At("HEAD"), remap = false)
-	private void originclient$chunksUploaded(CallbackInfo ci) {
+	private void originclient$chunksUploaded(CallbackInfoReturnable<Integer> cir) {
 		HalfRateShadows.onChunksChanged();
 	}
 }
