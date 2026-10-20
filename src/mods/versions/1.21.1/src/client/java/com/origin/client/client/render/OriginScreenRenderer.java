@@ -490,6 +490,8 @@ public final class OriginScreenRenderer {
 			int pct = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
 			if (levelName != null && !levelName.isBlank()) {
 				big = levelName;
+			} else if (big.isEmpty() && net.minecraft.client.resources.language.I18n.exists("menu.loadingLevel")) {
+				big = net.minecraft.client.resources.language.I18n.get("menu.loadingLevel");   // vanilla "Loading world"
 			}
 			small = net.minecraft.client.resources.language.I18n.get("menu.preparingSpawn", pct);
 		}

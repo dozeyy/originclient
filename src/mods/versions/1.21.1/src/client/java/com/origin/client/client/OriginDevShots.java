@@ -54,6 +54,10 @@ public final class OriginDevShots {
 		// ORIGIN_SHOTS_SET=clean (Will's clean in-game look, 2026-10-19): the title with one button held in
 		// its hover state, Controls, and the world-loading / connecting screens, on top of the STY_ menus.
 		TITLE_HOVER, CONTROLS, LEVEL_LOADING, CONNECTING,
+		// ...and, LAST in the clean set because they create a world: the Create World screen (a fresh game dir
+		// has no saves, so Singleplayer goes straight there), the pause menu inside that new world, then the
+		// world list with that save in it after Save and Quit.
+		CREATE_TABS, WORLD_PAUSE, WORLDS_SAVED,
 		// ORIGIN_SHOTS_SET=perf: the real Sodium / Iris screens (opened by reflection, see perfScreen)
 		PERF_SODIUM, PERF_IRIS;
 
@@ -225,6 +229,17 @@ public final class OriginDevShots {
 				case LEVEL_LOADING -> new net.minecraft.client.gui.screens.LevelLoadingScreen(
 						net.minecraft.server.level.progress.StoringChunkProgressListener.create(2));
 				case CONNECTING -> connectScreen();
+				case CREATE_TABS, WORLD_PAUSE -> new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
+				case WORLDS_SAVED -> {
+					Minecraft mc = Minecraft.getInstance();
+					if (mc.level != null) {
+						// Vanilla's Save and Quit (PauseScreen.onDisconnect): blocks until the server has saved.
+						mc.level.disconnect();
+						mc.disconnect(new net.minecraft.client.gui.screens.GenericMessageScreen(
+								net.minecraft.network.chat.Component.translatable("menu.savingLevel")));
+					}
+					yield new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen());
+				}
 			};
 		}
 	}
@@ -329,6 +344,29 @@ public final class OriginDevShots {
 		ACTS.put(Kind.STY_CREATE, List.of(s -> pressLabel(s, net.minecraft.client.resources.language.I18n.get("selectWorld.create")), s -> {
 		}, s -> {
 		}));
+		// Clean set: let the Create World screen finish loading its data packs (a fresh game dir redirects
+		// Singleplayer there), then shoot it. WORLD_PAUSE also presses Create (only on that screen, never
+		// on a world list), waits out the world load (~20 s on CI's software GL) and opens the pause menu.
+		java.util.function.Consumer<Screen> idle = s -> {
+		};
+		ACTS.put(Kind.CREATE_TABS, List.of(idle, idle, idle, idle));
+		List<java.util.function.Consumer<Screen>> enter = new ArrayList<>(List.of(idle, idle, idle, idle, s -> {
+			if (s instanceof net.minecraft.client.gui.screens.worldselection.CreateWorldScreen) {
+				pressLabel(s, net.minecraft.client.resources.language.I18n.get("selectWorld.create"));
+			}
+		}));
+		for (int i = 0; i < 48; i++) {
+			enter.add(idle);
+		}
+		enter.add(s -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (mc.level != null && !(mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen)) {
+				mc.setScreen(new net.minecraft.client.gui.screens.PauseScreen(true));
+			}
+		});
+		enter.add(idle);
+		ACTS.put(Kind.WORLD_PAUSE, enter);
+		ACTS.put(Kind.WORLDS_SAVED, List.of(idle, idle));
 		ACTS.put(Kind.ACT_TOAST_STALE, List.of(s -> {
 			com.origin.client.client.social.SocialToast.devClickButton("req:00000000000000000000000000000099");
 			com.origin.client.client.social.SocialToast.devClickButton("inv:00000000000000000000000000000098");
@@ -352,19 +390,22 @@ public final class OriginDevShots {
 				SHOTS.add(new Shot(1920, 1080, 2, k));
 			}
 		} else if ("clean".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
-		// The clean in-game look: Minecraft's own menus + loading screens at GUI scale 2 on 1080p, the
-		// Origin mod menu (must be unchanged), and the title at 720p and GUI scale 3 / 4 (clipping checks).
-		// The pause menu comes from the world set; the startup loading screen from the boot shot below.
-		Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS,
-				Kind.STY_SOUND, Kind.STY_WORLDS, Kind.STY_CREATE, Kind.STY_SERVERS, Kind.STY_LOADING,
-				Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.MENU};
-		for (Kind k : ks) {
-			SHOTS.add(new Shot(1920, 1080, 2, k));
-		}
-		SHOTS.add(new Shot(1280, 720, 2, Kind.TITLE));
-		SHOTS.add(new Shot(1920, 1080, 3, Kind.TITLE));
-		SHOTS.add(new Shot(1920, 1080, 4, Kind.TITLE));
-		SHOTS.add(new Shot(1920, 1080, 3, Kind.STY_OPTIONS));
+			// The clean in-game look: Minecraft's own menus + loading screens at GUI scale 2 on 1080p, the
+			// Origin mod menu (must be unchanged), and the title at 720p and GUI scale 3 / 4 (clipping checks).
+			// The startup loading screen comes from the boot shot below.
+			Kind[] ks = {Kind.TITLE, Kind.TITLE_HOVER, Kind.STY_OPTIONS, Kind.STY_VIDEO, Kind.CONTROLS,
+					Kind.STY_SOUND, Kind.STY_SERVERS, Kind.STY_LOADING, Kind.LEVEL_LOADING, Kind.CONNECTING, Kind.MENU};
+			for (Kind k : ks) {
+				SHOTS.add(new Shot(1920, 1080, 2, k));
+			}
+			SHOTS.add(new Shot(1280, 720, 2, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 3, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 4, Kind.TITLE));
+			SHOTS.add(new Shot(1920, 1080, 3, Kind.STY_OPTIONS));
+			// These create a world, so they go last (everything above must be shot out of world).
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.CREATE_TABS));
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.WORLD_PAUSE));
+			SHOTS.add(new Shot(1920, 1080, 2, Kind.WORLDS_SAVED));
 		} else if ("social-act".equals(System.getenv("ORIGIN_SHOTS_SET"))) {
 			for (int sc : new int[]{2, 4}) {
 				for (Kind k : Kind.values()) {

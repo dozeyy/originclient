@@ -356,6 +356,20 @@ public class TitleScreenMixin {
 				dx += dockW[i] + L.dockGap;
 			}
 
+			// Copyright line (legally required, stays): quiet grey, on the corner inset
+			// instead of hard against the window edge. Hover still shows vanilla's
+			// underlined white (PlainTextButton keeps its own underlined copy).
+			for (GuiEventListener child : self.children()) {
+				if (child instanceof PlainTextButton c && c.visible) {
+					String text = c.getMessage().getString();
+					c.setMessage(Component.literal(text).withStyle(st -> st.withColor(OriginTheme.CLEAN_TEXT_MUTED & 0xFFFFFF)));
+					int cw = Minecraft.getInstance().font.width(text);
+					c.setWidth(cw);
+					originclient$place(c, self.width - TitleLayout.CORNER - cw, self.height - TitleLayout.CORNER - 8,
+							cw, 10, false);
+				}
+			}
+
 			// Quit: a square in the top-right corner.
 			if (quit != null) {
 				originclient$iconOnly(quit, "@title-quit");

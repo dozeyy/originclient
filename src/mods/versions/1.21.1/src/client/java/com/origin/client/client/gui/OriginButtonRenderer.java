@@ -484,12 +484,17 @@ public final class OriginButtonRenderer {
 		double hv = hoverEase(slider, enabled && slider.isHovered());
 		int[] c = cleanColors(enabled, false, hv, false);
 		OriginSurface.draw(g, x, y, w, h, c[0], c[1], c[3] / 1000f);
-		double inset = 3.0, knobW = 2.0;
+		// The value lives on a hairline track along the bottom edge, under the label,
+		// so the knob never cuts through the text (CI shot 2026-10-19: "FOV: |Normal").
+		double inset = 4.0, knobW = 3.0;
 		double travel = Math.max(0.0, w - 2 * inset - knobW);
 		double kx = x + inset + travel * v;
-		OriginSurface.fillPhysical(g, x + 1, y + 1, kx, y + h - 1, enabled ? 0x0FFFFFFF : 0x08FFFFFF);
-		OriginSurface.fillPhysical(g, kx, y + 3, kx + knobW, y + h - 3,
-				enabled ? OriginTheme.lerpColor(0xB3FFFFFF, 0xFFFFFFFF, hv) : 0x40FFFFFF);
+		double trackTop = y + h - 3.5, trackBot = y + h - 3.0;
+		OriginSurface.fillPhysical(g, x + 1, y + 1, kx, y + h - 1, enabled ? 0x0AFFFFFF : 0x05FFFFFF);
+		OriginSurface.fillPhysical(g, x + inset, trackTop, x + w - inset, trackBot, enabled ? 0x1FFFFFFF : 0x0FFFFFFF);
+		OriginSurface.fillPhysical(g, x + inset, trackTop, kx, trackBot, enabled ? 0x8CFFFFFF : 0x29FFFFFF);
+		OriginSurface.fillPhysical(g, kx, y + h - 5, kx + knobW, y + h - 1.5,
+				enabled ? OriginTheme.lerpColor(0xD9FFFFFF, 0xFFFFFFFF, hv) : 0x40FFFFFF);
 		if (keyboardFocus(slider)) {
 			OriginSurface.focusRing(g, x, y, w, h, OriginTheme.CLEAN_FOCUS);
 		}
