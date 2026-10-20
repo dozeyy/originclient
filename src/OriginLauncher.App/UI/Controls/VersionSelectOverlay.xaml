@@ -82,13 +82,14 @@
             </Setter>
         </Style>
 
-        <!-- A version chip: a radio. Checked = the primary fill. -->
+        <!-- A version chip: a radio in the ghost-outline look of the other buttons (Size.ControlSm tall, so the
+             1.21.x family fits one row). Checked = the primary fill. -->
         <Style x:Key="VersionChip" TargetType="RadioButton">
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="MinWidth" Value="64"/>
-            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Height" Value="{StaticResource Size.ControlSm}"/>
+            <Setter Property="MinWidth" Value="56"/>
+            <Setter Property="Padding" Value="10,0"/>
             <Setter Property="Margin" Value="0,0,6,6"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{StaticResource Brush.TextDim}"/>
@@ -98,17 +99,20 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Body" Background="{StaticResource Brush.CardAlt}" CornerRadius="{StaticResource Radius.Sharp}"
+                        <Border x:Name="Body" Background="{StaticResource Brush.GhostFill}" BorderBrush="{StaticResource Brush.GhostEdge}"
+                                BorderThickness="1" CornerRadius="{StaticResource Radius.Control}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.Stroke}"/>
+                                <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.GhostFillHover}"/>
+                                <Setter TargetName="Body" Property="BorderBrush" Value="{StaticResource Brush.GhostEdgeHover}"/>
                                 <Setter Property="Foreground" Value="{StaticResource Brush.Text}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="Body" Property="Background" Value="{StaticResource Brush.Accent}"/>
+                                <Setter TargetName="Body" Property="BorderBrush" Value="{StaticResource Brush.Accent}"/>
                                 <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">

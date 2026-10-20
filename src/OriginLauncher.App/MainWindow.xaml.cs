@@ -297,7 +297,7 @@ public partial class MainWindow : Window
         _friendsOpen = open;
         SocialHub.Service.SetDrawerOpen(open);
         _friendsPanel.SetShown(open);
-        Toasts.Margin = new Thickness(0, 0, open ? FriendsDrawer.Width + 20 : 20, 20);
+        Toasts.Margin = new Thickness(0, 0, open ? FriendsDrawer.Width + 32 : 32, 104);
 
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = (Duration)FindResource(open ? "Motion.Scene" : "Motion.Exit");

@@ -218,9 +218,11 @@
             <ContentControl x:Name="SignInPanelHost"/>
         </Border>
 
-        <!-- Social toasts, above everything. Moves left of the Friends drawer while it's open. -->
+        <!-- Social toasts, above everything. They sit 104 px up from the bottom, clear of Home's Play row
+             (48 px tall, 32 up) and its status line, so a toast never covers Play or Join server.
+             Moves left of the Friends drawer while it's open (MainWindow.xaml.cs: SetFriendsOpen). -->
         <controls:SocialToastHost x:Name="Toasts" Width="320"
-                                  HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"/>
+                                  HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,32,104"/>
 
         <!-- Opening animation, over everything; removes itself when done (StartupIntro.xaml.cs). -->
         <controls:StartupIntro x:Name="Intro"/>

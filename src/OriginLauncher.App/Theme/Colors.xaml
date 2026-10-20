@@ -159,6 +159,11 @@
     <Color x:Key="Color.GhostFillPress">#14E0E0E0</Color>
     <Color x:Key="Color.GhostEdge">#66E0E0E0</Color>
     <Color x:Key="Color.GhostEdgeHover">#A6E0E0E0</Color>
+    <!-- The same washes as static brushes, for controls that are not buttons (the version chips). -->
+    <SolidColorBrush x:Key="Brush.GhostFill" Color="{StaticResource Color.GhostFill}"/>
+    <SolidColorBrush x:Key="Brush.GhostFillHover" Color="{StaticResource Color.GhostFillHover}"/>
+    <SolidColorBrush x:Key="Brush.GhostEdge" Color="{StaticResource Color.GhostEdge}"/>
+    <SolidColorBrush x:Key="Brush.GhostEdgeHover" Color="{StaticResource Color.GhostEdgeHover}"/>
 
     <LinearGradientBrush x:Key="Fill.PrimarySheen" StartPoint="0,0" EndPoint="0,1">
         <GradientStop Color="#1FFFFFFF" Offset="0"/>

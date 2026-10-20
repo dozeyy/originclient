@@ -225,6 +225,8 @@ public static class RenderShots
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "14-settings");
+        // The lower sections (JVM arguments, Origin Client, Startup, Developer) are below the fold.
+        SnapSettingsScrolled(window, outDir, "14b-settings-middle", "14c-settings-bottom");
 
         // Hover labels: the nav rail, the window's Close, an icon inside a page (UI/TooltipShots.cs).
         TooltipShots.Run(window, outDir, demoProfiles, demoCount);
@@ -254,6 +256,7 @@ public static class RenderShots
         window.TourGoTo(2);
         Pump(800);
         Snap(window, outDir, "24-min-settings");
+        SnapSettingsScrolled(window, outDir, "24b-min-settings-middle", "24c-min-settings-bottom");
 
         // The Profiles page and Home with a profile (profile row + Join under Play), at the smallest
         // window too, the second time with the toasts up: the Play card, Play and Join must all fit
@@ -270,7 +273,53 @@ public static class RenderShots
         Snap(window, outDir, "27-min-home-profile-toasts");
         window.TourClearToasts();
 
+        SnapCrashWindows(outDir);
         window.Close();
+    }
+
+    /// <summary>Settings scrolled to its middle and its end, so the sections below the first screen are in the shots too.</summary>
+    private static void SnapSettingsScrolled(Window window, string dir, string middleName, string bottomName)
+    {
+        var scroller = FindVisual<Pages.SettingsPage>(window)?.Scroller;
+        if (scroller == null) return;
+        var max = scroller.ScrollableHeight;
+        if (max < 1) return;
+        scroller.ScrollToVerticalOffset(max / 2);
+        Pump(400);
+        Snap(window, dir, middleName);
+        scroller.ScrollToVerticalOffset(max);
+        Pump(400);
+        Snap(window, dir, bottomName);
+        scroller.ScrollToVerticalOffset(0);
+        Pump(200);
+    }
+
+    /// <summary>The two crash dialogs with made-up details (the themed layout; the in-code fallback is covered by src/OriginLauncher.UiTests).</summary>
+    private static void SnapCrashWindows(string dir)
+    {
+        try
+        {
+            var error = new Windows.CrashWindow(
+                "Origin Launcher - crash report\nVersion : 1.0.0\nType    : fatal\n\n----- error -----\nSystem.InvalidOperationException: Example failure\n   at Origin.Example.Run()",
+                @"C:\Users\Player\AppData\Local\OriginLauncher\logs\crash-example.txt", fatal: true);
+            error.Show();
+            Pump(400);
+            Snap(error, dir, "40-crash-window");
+            error.Close();
+
+            var analysis = new Core.Launch.CrashAnalysis(
+                [new Core.Launch.CrashCulprit("examplemod", "examplemod-1.2.3.jar", true), new Core.Launch.CrashCulprit("origin-hud", null, false)],
+                "Minecraft stopped while loading.", "java.lang.NullPointerException: example\n\tat examplemod.Init.run(Init.java:42)");
+            var report = new Windows.CrashReportWindow(analysis, null, "OriginPlayer - Minecraft 1.21.1");
+            report.Show();
+            Pump(400);
+            Snap(report, dir, "41-crash-report-window");
+            report.Close();
+        }
+        catch (Exception e)
+        {
+            File.WriteAllText(Path.Combine(dir, "crash-windows-error.txt"), e.ToString());
+        }
     }
 
     /// <summary>

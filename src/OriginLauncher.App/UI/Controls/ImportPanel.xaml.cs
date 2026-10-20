@@ -2482,13 +2482,13 @@ public partial class ImportPanel : UserControl, IDisposable, IImportCloseHost
         if (!IsApplying || Confirm.Visibility == Visibility.Visible) return false;
         // A destructive confirm opens on "Keep importing", so a double tap of Enter never cancels.
         var cancel = await Confirm.ShowAsync("Stop importing?",
-            "Anything copied so far is undone.", "STOP", "KEEP GOING", destructive: true);
+            "Anything copied so far is undone.", "Stop", "Keep going", destructive: true);
         if (cancel && IsApplying)
         {
             _stopping = "Stopping...";
             HeaderSubtitle.Text = _stopping;
             HeaderSubtitle.Visibility = Visibility.Visible;
-            CancelButton.IsEnabled = false; // one STOP is enough: the engine is putting everything back
+            CancelButton.IsEnabled = false; // one Stop is enough: the engine is putting everything back
             _applyCts?.Cancel();
         }
         return cancel;

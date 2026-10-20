@@ -127,6 +127,10 @@ jobs:
         with:
           jars-dir: modjars
 
+      # WPF windows built headless (never shown): the crash dialogs must still appear when the theme fails to load.
+      - name: WPF tests (crash window fallback)
+        run: dotnet test src/OriginLauncher.UiTests
+
       # Same launcher zip + installer build and smoke test as a release.
       - name: Build + smoke-test installer
         uses: ./.github/actions/build-installer

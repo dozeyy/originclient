@@ -8,12 +8,12 @@
          tokens from those files. -->
 
     <!-- A page's column (Mods, Profiles, Settings, Import): PageColumn fills the width up to 1000 and sits against
-         the left edge under the logo, x = 32, 96 below the top, so every page title starts at the same point
+         the left edge under the logo, x = 32, and PageColumn itself owns the top inset (96, or 80 in a short window), so every page title starts at the same point
          whatever the window width. (A plain element with a MaxWidth is centred when stretched and shrunk to its
          content when left-aligned, which is what put the old titles at four different x positions.) -->
     <Style x:Key="Page.Column" TargetType="controls:PageColumn">
         <Setter Property="ColumnMaxWidth" Value="1000"/>
-        <Setter Property="Margin" Value="32,96,32,32"/>
+        <Setter Property="Margin" Value="32,0,32,32"/>
     </Style>
 
     <!-- Card: a panel with 16 px inside and 8 px below it; it lifts to Card on hover. The 1 px border is clear

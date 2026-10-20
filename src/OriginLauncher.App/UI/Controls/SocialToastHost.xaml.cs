@@ -19,12 +19,12 @@ public sealed class ToastVm
     public string Title => Toast.Title;
     public string Body => Toast.Body;
 
-    /// <summary>Warp → JOIN, request / invite → ACCEPT, DM → REPLY (opens that chat); notices just open the drawer.</summary>
+    /// <summary>Warp → Join, request / invite → Accept, DM → Reply (opens that chat); notices just open the drawer.</summary>
     public string? ActionText => Toast.Kind switch
     {
-        SocialToastKind.Warp => "JOIN",
-        SocialToastKind.Message => "REPLY",
-        SocialToastKind.FriendRequest or SocialToastKind.PartyInvite => "ACCEPT",
+        SocialToastKind.Warp => "Join",
+        SocialToastKind.Message => "Reply",
+        SocialToastKind.FriendRequest or SocialToastKind.PartyInvite => "Accept",
         _ => null,
     };
 

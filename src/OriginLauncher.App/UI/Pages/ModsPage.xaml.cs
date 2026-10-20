@@ -62,7 +62,6 @@ public partial class ModsPage : UserControl
     private void ApplyDensity()
     {
         var compact = ActualHeight > 0 && ActualHeight < 680;
-        Column.Margin = new Thickness(32, compact ? 80 : 96, 32, 32);
         DropZone.Height = compact ? 140 : 168;
     }
 

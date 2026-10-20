@@ -20,10 +20,22 @@ public partial class CrashReportWindow : Window
     /// The caller (HomePage) flips the setting and relaunches.</summary>
     public bool RetryWithoutExternalMods { get; private set; }
 
+    /// <summary>True when the themed layout could not load and the plain in-code one is showing.</summary>
+    public bool UsingFallbackLayout { get; }
+
     /// <param name="who">Which game crashed, e.g. "Steve · Minecraft 1.21.1" (several can run at once).</param>
     public CrashReportWindow(CrashAnalysis analysis, string? logPath, string? who = null)
     {
-        InitializeComponent();
+        try
+        {
+            InitializeComponent();
+        }
+        catch (Exception)
+        {
+            // The theme did not load: same content and buttons, built in code with literal colours.
+            UsingFallbackLayout = true;
+            BuildFallbackLayout();
+        }
         _logPath = logPath;
         if (!string.IsNullOrEmpty(who))
         {
@@ -59,6 +71,34 @@ public partial class CrashReportWindow : Window
 
         DetailsBox.Text = analysis.DetailExcerpt ?? "No further detail was captured for this crash.";
         OpenLogButton.IsEnabled = _logPath != null && System.IO.File.Exists(_logPath);
+    }
+
+    // The same controls as CrashReportWindow.xaml (same field names), with no resource lookups.
+    private void BuildFallbackLayout()
+    {
+        var grid = CrashFallback.Frame(this, starRow: 3, rows: 5);
+        var head = new StackPanel();
+        head.Children.Add(CrashFallback.Heading("Minecraft crashed while starting"));
+        WhoText = CrashFallback.Accent(new Thickness(0, 6, 0, 0));
+        head.Children.Add(WhoText);
+        ReasonText = CrashFallback.Body(new Thickness(0, 8, 0, 0));
+        Grid.SetRow(ReasonText, 1);
+        CulpritList = new StackPanel();
+        CulpritPanel = CrashFallback.Card(new Thickness(0, 16, 0, 0), CulpritList);
+        Grid.SetRow(CulpritPanel, 2);
+        grid.Children.Add(head);
+        grid.Children.Add(ReasonText);
+        grid.Children.Add(CulpritPanel);
+        DetailsBox = CrashFallback.Details(grid, 3, new Thickness(0, 8, 0, 0), 11);
+        var buttons = CrashFallback.ButtonRow(grid, 4);
+        OpenLogButton = CrashFallback.Btn("Open log", primary: false, OpenLog_Click);
+        OpenLogButton.Margin = new Thickness(0, 0, 8, 0);
+        CloseButton = CrashFallback.Btn("Close", primary: false, Close_Click);
+        CloseButton.Margin = new Thickness(0, 0, 8, 0);
+        RetryButton = CrashFallback.Btn("Retry without mods", primary: true, Retry_Click);
+        buttons.Children.Add(OpenLogButton);
+        buttons.Children.Add(CloseButton);
+        buttons.Children.Add(RetryButton);
     }
 
     private void Retry_Click(object sender, RoutedEventArgs e)

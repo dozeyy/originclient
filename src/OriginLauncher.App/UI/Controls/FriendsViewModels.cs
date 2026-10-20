@@ -163,7 +163,7 @@ public sealed class PartyActionsVm : RowVm
     public bool CanWarp { get; init; }
     public required string WarpTip { get; init; }
 
-    public string ChatText => Unread > 0 ? $"CHAT - {(Unread > 9 ? "9+" : Unread.ToString(CultureInfo.InvariantCulture))}" : "CHAT";
+    public string ChatText => Unread > 0 ? $"Chat - {(Unread > 9 ? "9+" : Unread.ToString(CultureInfo.InvariantCulture))}" : "Chat";
     public override string Key => "A2";
     protected override string Body => $"{Unread}|{IsLeader}|{CanWarp}|{WarpTip}";
 }
