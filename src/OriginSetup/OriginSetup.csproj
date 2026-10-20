@@ -74,5 +74,7 @@
     <Compile Include="..\OriginLauncher.App\Core\RamAdvice.cs" Link="Shared\RamAdvice.cs" />
     <Compile Include="..\OriginLauncher.App\Core\SystemInfo.cs" Link="Shared\SystemInfo.cs" />
     <Compile Include="..\OriginLauncher.App\Core\Install\InstallRegistry.cs" Link="Shared\InstallRegistry.cs" />
+    <!-- Button press-scale (ui:Press), used by the linked Theme/Buttons.xaml. -->
+    <Compile Include="..\OriginLauncher.App\UI\Press.cs" Link="Shared\Press.cs" />
   </ItemGroup>
 </Project>

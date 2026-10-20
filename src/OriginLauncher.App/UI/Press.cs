@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -15,6 +16,9 @@ namespace OriginLauncher.App.UI;
 /// "Cannot resolve all property references in the property path 'RenderTransform.ScaleX'" (v1.0.58-60).
 /// Here the scale is added next to whatever transform the element already has, so a consumer's transform
 /// is kept and can never break the press. OriginLauncher.Tests/PressScaleTests forbids the old pattern.
+///
+/// Also compiled into Origin Setup (net472; OriginSetup.csproj links it beside Theme/Buttons.xaml), so it
+/// uses nothing launcher-only: plain BCL/WPF and the Motion.* duration resources both apps define.
 /// </summary>
 public static class Press
 {
@@ -44,10 +48,11 @@ public static class Press
         if (d is not FrameworkElement element) return;
         var down = (bool)e.NewValue;
         var scale = EnsureScale(element);
-        // Motion.Press / Motion.Release are zeroed by App.DisableMotion (reduced motion, CI renders).
+        // Motion.Press / Motion.Release (Theme/Spacing.xaml) are zeroed by the launcher's App.DisableMotion
+        // (reduced motion, CI renders); the fallback is their normal value.
         var duration = element.TryFindResource(down ? "Motion.Press" : "Motion.Release") is Duration d2
             ? d2
-            : Motion.Ms(down ? 80 : 140);
+            : new Duration(TimeSpan.FromMilliseconds(down ? 80 : 140));
         var animation = new DoubleAnimation(down ? GetScale(element) : 1.0, duration)
         {
             EasingFunction = down ? PressEase : ReleaseEase,
