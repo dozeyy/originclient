@@ -59,13 +59,38 @@ public final class Mods {
 	// sitting on the main menu. Shader Performance Mode halves every active
 	// shaderpack's shadow map resolution + shadow render distance (the biggest
 	// GPU lever with shaders on) via IrisShadowDirectivesMixin.
-	public static final List<ModOption> PERFORMANCE_SETTINGS = List.of(
+	public static final List<ModOption> PERFORMANCE_SETTINGS = runnableOnly(List.of(
 			ModOption.toggle("shaderPerformanceMode", "Shader Performance Mode", true).tip("Any shader you load renders shadows at half distance for a big FPS gain. Turn off for full quality; applies instantly."),
+			// Limit Far Shadows: render/ShadowCasterLimit + ShadowCaster*Mixin. Shader packs only.
+			ModOption.toggle("farShadowLimit", "Limit Far Shadows", false).tip("With a shader on, mobs and blocks like chests farther away than the distance below stop casting shadows. Saves work every frame in busy places; everything closer looks exactly the same."),
+			ModOption.slider("farShadowDistance", "Far Shadow Distance", 16, 160, 8, 64, "%.0f blocks").under("farShadowLimit"),
+			// Off-Map Shadows: render/OffMapShadows + SodiumViewportShadowMapMixin + ShadowCasterEntityMixin.
+			ModOption.toggle("offMapShadows", "Off-Map Shadows", false).tip("With a shader on, chunks and mobs that fall outside the shadow map stop being drawn into it. Saves work every frame at long render distances; shadows on everything near you look the same."),
+			ModOption.toggle("halfRateShadows", "Half-Rate Shadows", false).tip("Shadows update every other frame for more FPS. Moving shadows may look slightly less smooth."),
+			ModOption.toggle("smartTerrainUpdates", "Smart Terrain Updates", false).tip("With a shader on, the game stops re-working out which chunks you can see on frames where nothing moved or changed. Saves CPU time while you stand still; the picture is exactly the same."),
 			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),
 			ModOption.slider("entityDistance", "Entity Distance", 10, 100, 5, 100, "%.0f%%"),
-			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%"));
+			ModOption.slider("tileEntityDistance", "Tile Entity Distance", 10, 100, 5, 100, "%.0f%%")));
+
+	/**
+	 * Drops options the installed Sodium/Iris builds can't run, so no toggle does nothing. Smart Terrain
+	 * Updates is written against Sodium 0.8.12 + Iris 1.10.7 internals (render/SodiumIrisBuilds); any other
+	 * build hides it. A stored value for a hidden key is kept; the feature stays inert there.
+	 */
+	private static List<ModOption> runnableOnly(List<ModOption> options) {
+		if (com.origin.client.client.render.SodiumIrisBuilds.SMART_TERRAIN) {
+			return options;
+		}
+		List<ModOption> kept = new ArrayList<>(options.size());
+		for (ModOption o : options) {
+			if (!"smartTerrainUpdates".equals(o.key)) {
+				kept.add(o);
+			}
+		}
+		return List.copyOf(kept);
+	}
 
 	// Vanilla 1.21.1 particle types (net.minecraft.core.particles.ParticleTypes)
 	// — the Particle Changer builds a per-type control block from this list so
