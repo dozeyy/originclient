@@ -79,7 +79,16 @@
 		"CosmeticsPauseMixin",
 		"CosmeticsPreviewMixin",
 		"CosmeticHeadLayerMixin",
-		"PackSelectionScreenAccessor"
+		"PackSelectionScreenAccessor",
+		"ShadowCasterEntityMixin",
+		"ShadowCasterBlockEntityMixin",
+		"IrisShadowRendererHalfRateMixin",
+		"IrisPipelineHalfRateMixin",
+		"SodiumShadowWalkMixin",
+		"SodiumChunkChangeMixin",
+		"SodiumShadowWalkDevMixin",
+		"SodiumSectionShadowMapMixin",
+		"DebugScreenShaderSpeedupsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

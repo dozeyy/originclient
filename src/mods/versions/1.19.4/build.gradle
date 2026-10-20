@@ -89,6 +89,14 @@ dependencies {
 		modRuntimeOnly files("libs/sodium-fabric-mc1.19.4-0.4.10+build.24.jar")
 		modRuntimeOnly files("libs/iris-mc1.19.4-1.6.11.jar")
 	}
+	// COMPILE-ONLY: the shader speed-ups (render/ShadowCasterLimit, OffMapShadows,
+	// HalfRateShadows, SmartTerrainUpdates and their Sodium*/Iris* mixins) compile against the
+	// exact Sodium + Iris the launcher installs for 1.19.4 (PerformanceModCatalog.Data.cs:
+	// sodium-fabric-mc1.19.4-0.4.10+build.24, iris-mc1.19.4-1.6.11). Modrinth version ids, not
+	// version numbers. modCompileOnly = never on the runtime classpath, never `include`d: the
+	// shipping jar stays Origin-only and every hook fails soft when the mod isn't installed.
+	modCompileOnly "maven.modrinth:sodium:b4hTi3mo"
+	modCompileOnly "maven.modrinth:iris:wN6PuLPa"
 	// Iris bundles its GLSL toolchain (anarres jcpp preprocessor, douira's
 	// glsl-transformer, antlr4 runtime) as jar-in-jar. Loading Iris via a raw
 	// files() dependency (not Loom's Modrinth-maven include()) means those

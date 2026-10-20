@@ -71,6 +71,13 @@ public final class Mods {
 	// GPU lever with shaders on) via IrisShadowDirectivesMixin.
 	public static final List<ModOption> PERFORMANCE_SETTINGS = java.util.Arrays.asList(
 			ModOption.toggle("shaderPerformanceMode", "Shader Performance Mode", true).tip("Any shader you load renders shadows at half distance for a big FPS gain. Turn off for full quality; applies instantly."),
+			// The shader speed-ups (render/ShadowCasterLimit, OffMapShadows, HalfRateShadows; same text as 1.21.1).
+			// PER-VERSION (pre-1.20): no "Smart Terrain Updates" here -- Sodium 0.2 already skips the chunk walk
+			// while nothing moves (render/SmartTerrainUpdates says why; its F3 line covers a synced "on").
+			ModOption.toggle("farShadowLimit", "Limit Far Shadows", false).tip("With a shader on, mobs and blocks like chests farther away than the distance below stop casting shadows. Saves work every frame in busy places; everything closer looks exactly the same."),
+			ModOption.slider("farShadowDistance", "Far Shadow Distance", 16, 160, 8, 64, "%.0f blocks").under("farShadowLimit"),
+			ModOption.toggle("offMapShadows", "Off-Map Shadows", false).tip("With a shader on, chunks and mobs that fall outside the shadow map stop being drawn into it. Saves work every frame at long render distances; shadows on everything near you look the same."),
+			ModOption.toggle("halfRateShadows", "Half-Rate Shadows", false).tip("Shadows update every other frame for more FPS. Moving shadows may look slightly less smooth."),
 			ModOption.toggle("limitUnfocusedFps", "Limit Unfocused FPS", true),
 			ModOption.slider("maxUnfocusedFps", "Max Unfocused FPS", 5, 60, 5, 30, "%.0f").under("limitUnfocusedFps"),
 			ModOption.slider("maxMainMenuFps", "Max Main Menu FPS", 30, 260, 10, 120, "%.0f"),

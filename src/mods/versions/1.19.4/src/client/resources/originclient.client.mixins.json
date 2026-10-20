@@ -80,7 +80,17 @@
 		"HypixelBedwarsBedMixin",
 		"HypixelBedwarsSoundMixin",
 		"OptionsAutosaveMixin",
-		"KeyRebindMixin"
+		"KeyRebindMixin",
+		"ShadowCasterEntityMixin",
+		"ShadowCasterBlockEntityMixin",
+		"IrisShadowRendererHalfRateMixin",
+		"IrisPipelineHalfRateMixin",
+		"SodiumShadowWalkMixin",
+		"SodiumChunkChangeMixin",
+		"SodiumShadowWalkDevMixin",
+		"SodiumSectionShadowMapMixin",
+		"SodiumRegionShadowMapMixin",
+		"DebugScreenShaderSpeedupsMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
