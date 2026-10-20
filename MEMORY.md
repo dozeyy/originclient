@@ -5448,3 +5448,28 @@ Will: cosmetics clipped into the hat/jacket skin layer, Chrome Shell invisible f
   - a manual depth readback must reset GL_PACK_ROW_LENGTH/PBO after Screenshot.grab, or Mesa SIGSEGVs.
 - `tools/ci/perf_log.py` `declared()` now strips comments; a package name in a comment used to print a false "NOT applied".
 - Unverified: real FPS and feel in-game (Will). Never booted in CI: 1.21.2, 1.21.3, 1.21.7, 1.20.1, 26.1.1. The Sodium-off runs prove a clean boot, not world entry.
+
+## 2026-10-20 - Frozen brush crash in FamilyTheme.Apply (v1.0.60)
+- Cause: assigning a SolidColorBrush into Application.Resources freezes it; animating its Color afterwards throws "sealed or frozen". Fix: `Motion.PublishColor(res, key, from, to, ms)` starts the animation first, then publishes. Brushes it publishes must never be animated by a XAML storyboard. Test: BrushTweenTests.
+
+## 2026-10-20 - Press-scale crash (RenderTransform.ScaleX)
+- Cause: HomePage.Settle replaced Play's ScaleTransform with a TranslateTransform, so the IsPressed storyboard's `RenderTransform.ScaleX` path failed. Fix: `UI/Press.cs` attached property (`ui:Press.Scale`/`Down`) owns its own ScaleTransform composed with any existing RenderTransform. PressScaleTests scans XAML.
+- OriginSetup links the launcher's Theme/*.xaml: any new clr-namespace type used there must be linked into OriginSetup.csproj and compile on net472 (CI MC4003 "Cannot resolve the Style Property 'Down'" until Press.cs was linked).
+
+## 2026-10-20 - High-quality version art
+- ArtStage tiers 1280/2560/3840 picked by TierFor(physical width x 1.19), Absent set for missing tiers, 6-frame LRU. Sources: Mojang wallpaper packs (2560 max); 3840 is Real-ESRGAN realesr-animevideov3 upscale, q88. Generator tools/launcher-art/build_art.py; SHA-256 pins in Assets/SOURCES.md.
+
+## 2026-10-20 - Emblems, player heads, import memory, picker
+- Profile emblems: Theme/Icons.xaml `Icon.Emblem.*` with `.Solid` layers; ProfileLook.EmblemGlyph always 24 px. Import icon = folder with arrow in from the left (old one read as download/log in).
+- Player heads: Core/Skins (SkinFace, PlayerHeads) + UI/Controls/PlayerHead. Mojang session server then textures.minecraft.net, 24h cache at OriginPaths.SkinCache, Steve/Alex fallback, PNG IHDR size check against decode bombs, captive-portal-safe "no skin" marker. PixelFace removed. "Microsoft" label dropped from Accounts.
+- Import: ImportManifest is the single source for Review, Importing and Done (preview = what gets imported, exact source -> target versions). ImportMemory keyed by setup + account + target versions, stored in LauncherSettings.ImportedSetupsJson via SettingsStore.Update; fully imported setups hide until something changes.
+- Version picker is a full-window view, header row removed (X kept); hover tooltips removed everywhere except Import, Friends, Minimize, Close. Play arrow no longer shifts on hover.
+
+## 2026-10-20 - Cohesion pass + crash-window fallback
+- Ghost/outline Button.Secondary/Pill and chips (Brush.Ghost* tokens), Size.ControlSm/Control/ControlLg scale, Theme/Surfaces.xaml, PageColumn decorator owns the page top inset (96, 80 in short windows) and left-aligned column (x=32, max 1000). Sentence-case action labels (Join, Reply, Accept, Stop, Keep going); caps only for titles/eyebrows. Toasts sit bottom-right 104 px up so they clear Play/Join.
+- Crash windows must not die with the theme: CrashWindow/CrashReportWindow try the themed XAML, else build in code with literal colours (UI/Windows/CrashFallback.cs). src/OriginLauncher.UiTests (net8.0-windows, headless) proves both paths; CI step in build-check.yml.
+- RenderTargetBitmap.Render(root) shifts content by the root's own Margin: use Padding on a Border for a window's edge in shots.
+
+## 2026-10-20 - Released launcher-v1.0.61
+- main fast-forwarded to 767878949 (claude/launcher-cohesion); launcher-release workflow green with Setup.exe + win-x64 zip. Notes say "Minecraft versions updated: None" (launcher-only release).
+- Housekeeping: the repo has 90+ leftover worktrees under .claude/worktrees; local root main is behind origin/main.

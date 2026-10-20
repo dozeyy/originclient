@@ -185,8 +185,9 @@ floating corner controls. In-game menus match this exactly.
 - Newest launch action cancels any in-flight one FOR THE SAME ACCOUNT (other accounts' games keep running).
 - One control, one job: no UI handler may mutate a setting other than its own.
 
-## Current state (2026-10-18)
-- Latest release `launcher-v1.0.60` (2026-10-20, main @ 3eec248d6: shader speed-ups on every version: Limit Far, Smart Terrain, Off-Map Shadows, Half-Rate Shadows; v1.0.58 = A2 Poster launcher, import flow, clean vanilla in-game look; v1.0.59 = 1.21.2-1.21.4 Sodium-off crash fix). Tag `origin/main` directly. MEMORY.md → 2026-10-20 Shader speed-ups.
+## Current state (2026-10-20)
+- Latest release `launcher-v1.0.61` (2026-10-20, main @ 767878949: launcher polish + cohesion pass: crash fixes, 4K version art, real player heads, import memory, full-screen version picker, emblem icons, cleaner buttons/layout).
+- Awaiting Will's launcher pass for v1.0.61: arrowing through versions, pressing Play, 4K art look, a signed-in head, a real Lunar import, crash window + installer look.
 - In `launcher-v1.0.55`, awaiting Will's in-game pass: launcher mod profiles (Profiles page, Join
   <server> under Play; MEMORY.md → 2026-10-18 Launcher mod profiles) and the loading→menu freeze fix
   (MEMORY.md → 2026-10-18 Loading → main-menu freeze; 1.19.2 still to check on real hardware).
