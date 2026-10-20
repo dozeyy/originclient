@@ -75,7 +75,12 @@ public final class OffMapShadows {
 	private static final Matrix4f COMBINED = new Matrix4f();
 	private static boolean ortho;
 	private static float ax, ay, az, aw, bx, by, bz, bw, aax, aay, aaz, abx, aby, abz;
-	public static float halfPlane;
+	private static float halfPlane;
+
+	/** Dev-shots: the shadow map's half width in blocks (1 / PROJECTION.m00), from the last matrices seen. */
+	public static float devHalfPlane() {
+		return halfPlane;
+	}
 
 	private static long settingsFrame = Long.MIN_VALUE;
 	private static boolean cachedOn;
@@ -87,7 +92,10 @@ public final class OffMapShadows {
 	 */
 	private static boolean armed;
 
-	// Per-frame skip counts (last finished frame) for the F3 line.
+	// Per-frame skip counts (last finished frame) for the F3 line. Sections count section CHECKS the
+	// shadow walk answered "off the map": Sodium's walk can check one section more than once (from
+	// several neighbours, and its nearby-section pass), and empty air sections count too, so this is
+	// not the number of drawn sections removed (dev-shots measures that: afterWalk).
 	private static long frameId = -1, shadowFrame = Long.MIN_VALUE;
 	private static int curSkipS, curSkipE, lastSkipS, lastSkipE;
 
@@ -279,6 +287,6 @@ public final class OffMapShadows {
 		if (f - shadowFrame > 2) {
 			return null;   // no orthographic shadow pass lately (no pack, or the pack sets a shadow fov)
 		}
-		return "Origin Off-Map Shadows: skipped " + lastSkipS + " chunk sections, " + lastSkipE + " entities";
+		return "Origin Off-Map Shadows: " + lastSkipS + " chunk checks, " + lastSkipE + " entities skipped (off the shadow map)";
 	}
 }

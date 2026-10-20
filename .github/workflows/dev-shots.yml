@@ -202,6 +202,7 @@ jobs:
           VIDEO: ${{ github.event.inputs.video || contains(github.event.head_commit.message, '[video]') }}
           FRAMELOG: ${{ github.event.inputs.framelog || 'false' }}
           EXTRA_MODS: ${{ github.event.inputs.extra_mods || 'false' }}
+          SHADOW_DISTANCE: ${{ github.event.inputs.shadow_distance || '' }}
         run: |
           chmod +x gradlew
           mkdir -p "$ORIGIN_SHOTS/screenshots"
@@ -234,7 +235,7 @@ jobs:
             mkdir -p "$sp" "$rundir/config"
             printf '#version 120\nvoid main() { gl_Position = ftransform(); }\n' > "$sp/shadow.vsh"
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/shadow.fsh"
-            sd="${{ github.event.inputs.shadow_distance }}"
+            sd="$SHADOW_DISTANCE"
             case "$sd" in
               ''|*[!0-9]*) ;;
               *) printf 'const float shadowDistance = %s.0;\n' "$sd" >> "$sp/shadow.fsh" ;;

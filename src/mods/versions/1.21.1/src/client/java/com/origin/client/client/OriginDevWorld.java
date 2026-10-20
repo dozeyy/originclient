@@ -436,7 +436,7 @@ final class OriginDevWorld {
 		return String.format(java.util.Locale.ROOT,
 				"frames=%d shadowWalks=%d halfPlane=%.1f sectionsDrawn/walk=%.1f offMapDrawn/walk=%.1f"
 						+ " entitiesKept/frame=%.2f offMapKept/frame=%.2f skipped/frame=%.2f drawn/frame=%.2f blockEntities/frame=%.2f shadowWalkMs=%.3f",
-				f, w, com.origin.client.client.render.OffMapShadows.halfPlane, ds / fw, os / fw,
+				f, w, com.origin.client.client.render.OffMapShadows.devHalfPlane(), ds / fw, os / fw,
 				se / ff, oe / ff, ke / ff, (se - ke) / ff, be / ff, sw == 0 ? 0.0 : sn / 1e6 / sw);
 	}
 
