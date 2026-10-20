@@ -57,6 +57,10 @@ on:
         description: "Select a tiny shadow-pass shader pack (written into run/shaderpacks) so Iris loads PackShadowDirectives; proves IrisShadowDirectivesMixin applies. Use with set 'world'"
         type: boolean
         default: false
+      shadow_distance:
+        description: "With shaderpack: set the CI pack's shadowDistance (a const in shadow.fsh, the Iris half plane; Shader Performance Mode halves it). Empty = Iris default. Under the render distance, part of the shadow walk falls off the map (Off-Map Shadows run)"
+        type: string
+        default: ""
       extra_mods:
         description: "Also load the pinned 'with mods' set (tools/frame-log/mods-<module>.json) on top of Origin's own"
         type: boolean
@@ -230,6 +234,11 @@ jobs:
             mkdir -p "$sp" "$rundir/config"
             printf '#version 120\nvoid main() { gl_Position = ftransform(); }\n' > "$sp/shadow.vsh"
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/shadow.fsh"
+            sd="${{ github.event.inputs.shadow_distance }}"
+            case "$sd" in
+              ''|*[!0-9]*) ;;
+              *) printf 'const float shadowDistance = %s.0;\n' "$sd" >> "$sp/shadow.fsh" ;;
+            esac
             printf '#version 120\nvarying vec2 uv;\nvoid main() { gl_Position = ftransform(); uv = gl_MultiTexCoord0.xy; }\n' > "$sp/gbuffers_basic.vsh"
             printf '#version 120\nvoid main() { gl_FragData[0] = vec4(1.0); }\n' > "$sp/gbuffers_basic.fsh"
             # Textured terrain/entities (Iris falls gbuffers_terrain back to gbuffers_textured), so world

@@ -37,9 +37,13 @@ public abstract class SodiumGraphReuseMixin {
 		SmartTerrainUpdates.walkBegin();
 	}
 
+	// Also: dev-shots only (ORIGIN_SHOTS), Off-Map Shadows counts what a shadow-pass walk put in the
+	// shadow render lists (render/OffMapShadows.afterWalk). Signature (Camera, Viewport, int, boolean)V, javap.
 	@Inject(method = "createTerrainRenderList", at = @At("RETURN"))
-	private void originclient$walkEnd(CallbackInfo ci) {
+	private void originclient$walkEnd(net.minecraft.client.Camera camera,
+			net.caffeinemc.mods.sodium.client.render.viewport.Viewport viewport, int frame, boolean spectator, CallbackInfo ci) {
 		SmartTerrainUpdates.walkEnd();
+		com.origin.client.client.render.OffMapShadows.afterWalk((RenderSectionManager) (Object) this, viewport);
 	}
 
 	@Inject(method = "onSectionAdded", at = @At("HEAD"))

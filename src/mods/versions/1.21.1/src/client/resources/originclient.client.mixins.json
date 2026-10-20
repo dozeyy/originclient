@@ -89,6 +89,7 @@
 		"SodiumChunkRenderListAccessor",
 		"SodiumGraphReuseMixin",
 		"SodiumOcclusionStampMixin",
+    "SodiumViewportShadowMapMixin",
 		"SodiumWorldRendererReuseMixin",
 		"LevelRendererCullFrustumMixin"
 	],

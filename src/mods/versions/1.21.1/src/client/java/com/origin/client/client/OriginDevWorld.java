@@ -319,6 +319,44 @@ final class OriginDevWorld {
 						server.getCommands().performPrefixedCommand(src, "setblock " + at.getX() + " " + at.getY() + " " + at.getZ() + " minecraft:air");
 					}
 					server.getCommands().performPrefixedCommand(src, "kill @e[tag=origin_stutest]");
+				});
+				com.origin.client.client.render.SmartTerrainUpdates.hiddenSection = Long.MIN_VALUE;
+				omScene(mc, server);
+				nextAt = System.currentTimeMillis() + 6000;   // let the client receive the test pigs
+			}
+			// ---- Off-Map Shadows (same frozen scene): shadow-pass sections/entities OFF vs ON, plus a
+			// readback of Iris's shadow depth texture so the shadow map itself is compared texel by texel.
+			case 53 -> {
+				omSnap();
+				omDepthA = omReadShadowDepth();
+				grab(mc, dir, "offmap_off_a_1920x1080.png");
+				nextAt = System.currentTimeMillis() + 4000;
+			}
+			case 54 -> {
+				omOff = omMeasured();
+				omDepthB = omReadShadowDepth();
+				grab(mc, dir, "offmap_off_b_1920x1080.png");
+				Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.OffMapShadows.KEY_ON, true);
+				nextAt = System.currentTimeMillis() + 2000;
+			}
+			case 55 -> {
+				omSnap();
+				nextAt = System.currentTimeMillis() + 4000;
+			}
+			case 56 -> {
+				String on = omMeasured();
+				float[] depthOn = omReadShadowDepth();
+				grab(mc, dir, "offmap_on_1920x1080.png");
+				log("[off-map] OFF: " + omOff);
+				log("[off-map] ON: " + on);
+				log("[off-map] shadow depth OFF a vs OFF b: " + omDepthDiff(omDepthA, omDepthB));
+				log("[off-map] shadow depth OFF b vs ON: " + omDepthDiff(omDepthB, depthOn));
+				log("[off-map] F3: " + com.origin.client.client.render.OffMapShadows.debugLine());
+				Mods.set(Mods.PERFORMANCE_ID, com.origin.client.client.render.OffMapShadows.KEY_ON, false);
+				omDepthA = omDepthB = null;
+				server.execute(() -> {
+					var src = server.createCommandSourceStack().withSuppressedOutput();
+					server.getCommands().performPrefixedCommand(src, "kill @e[tag=origin_omtest]");
 					server.getCommands().performPrefixedCommand(src, "tick unfreeze");
 				});
 				if (stClouds != null) {
@@ -328,8 +366,7 @@ final class OriginDevWorld {
 				if (stRenderDistance > 0) {
 					mc.options.renderDistance().set(stRenderDistance);
 				}
-				com.origin.client.client.render.SmartTerrainUpdates.hiddenSection = Long.MIN_VALUE;
-				phase = 53;
+				phase = 57;
 				return false;
 			}
 			default -> {
@@ -338,6 +375,116 @@ final class OriginDevWorld {
 		}
 		phase++;
 		return true;
+	}
+
+	private static long omFrames, omWalks, omDrawnS, omOffS, omSeenE, omOffE, omSkipE, omSeenBE, omShadowWalks, omShadowNs;
+	private static String omOff;
+	private static float[] omDepthA, omDepthB;
+
+	/**
+	 * Off-Map Shadows test pigs, in front of the player along the world axis nearest the view: 3 at 12
+	 * blocks (on the map), 3 at 40 and 3 at 46 (off a 32-block half plane at noon, still inside RD 3).
+	 */
+	private static void omScene(Minecraft mc, net.minecraft.server.MinecraftServer server) {
+		net.minecraft.world.phys.Vec3 look = mc.player.getLookAngle();
+		boolean alongX = Math.abs(look.x) >= Math.abs(look.z);
+		int sign = (alongX ? look.x : look.z) >= 0 ? 1 : -1;
+		net.minecraft.core.BlockPos p = mc.player.blockPosition();
+		server.execute(() -> {
+			var src = server.createCommandSourceStack().withSuppressedOutput();
+			var level = server.overworld();
+			for (int d : new int[]{12, 40, 46}) {
+				for (int side = -6; side <= 6; side += 6) {
+					int x = p.getX() + (alongX ? sign * d : side);
+					int z = p.getZ() + (alongX ? side : sign * d);
+					int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z);
+					server.getCommands().performPrefixedCommand(src, "summon minecraft:pig " + x + " " + y + " " + z
+							+ " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"origin_omtest\"]}");
+				}
+			}
+		});
+		log("[off-map] scene: 9 pigs at 12/40/46 blocks along " + (sign > 0 ? "+" : "-") + (alongX ? "x" : "z")
+				+ " from " + p.toShortString());
+	}
+
+	private static void omSnap() {
+		omFrames = com.origin.client.client.hud.FrameStats.frames();
+		omWalks = com.origin.client.client.render.OffMapShadows.devWalks;
+		omDrawnS = com.origin.client.client.render.OffMapShadows.devDrawnS;
+		omOffS = com.origin.client.client.render.OffMapShadows.devOffS;
+		omSeenE = com.origin.client.client.render.OffMapShadows.devSeenE;
+		omOffE = com.origin.client.client.render.OffMapShadows.devOffE;
+		omSkipE = com.origin.client.client.render.OffMapShadows.devSkipE;
+		omSeenBE = com.origin.client.client.render.ShadowCasterLimit.totalSeenBE;
+		omShadowWalks = com.origin.client.client.render.SmartTerrainUpdates.totalShadowWalks;
+		omShadowNs = com.origin.client.client.render.SmartTerrainUpdates.totalShadowNanos;
+	}
+
+	/** Since omSnap(), per shadow walk / per frame. CPU-side counts and CPU walk time only. */
+	private static String omMeasured() {
+		long f = com.origin.client.client.hud.FrameStats.frames() - omFrames;
+		long w = com.origin.client.client.render.OffMapShadows.devWalks - omWalks;
+		long ds = com.origin.client.client.render.OffMapShadows.devDrawnS - omDrawnS;
+		long os = com.origin.client.client.render.OffMapShadows.devOffS - omOffS;
+		long se = com.origin.client.client.render.OffMapShadows.devSeenE - omSeenE;
+		long oe = com.origin.client.client.render.OffMapShadows.devOffE - omOffE;
+		long ke = com.origin.client.client.render.OffMapShadows.devSkipE - omSkipE;
+		long be = com.origin.client.client.render.ShadowCasterLimit.totalSeenBE - omSeenBE;
+		long sw = com.origin.client.client.render.SmartTerrainUpdates.totalShadowWalks - omShadowWalks;
+		long sn = com.origin.client.client.render.SmartTerrainUpdates.totalShadowNanos - omShadowNs;
+		double fw = Math.max(w, 1), ff = Math.max(f, 1);
+		return String.format(java.util.Locale.ROOT,
+				"frames=%d shadowWalks=%d halfPlane=%.1f sectionsDrawn/walk=%.1f offMapDrawn/walk=%.1f"
+						+ " entitiesKept/frame=%.2f offMapKept/frame=%.2f skipped/frame=%.2f drawn/frame=%.2f blockEntities/frame=%.2f shadowWalkMs=%.3f",
+				f, w, com.origin.client.client.render.OffMapShadows.halfPlane, ds / fw, os / fw,
+				se / ff, oe / ff, ke / ff, (se - ke) / ff, be / ff, sw == 0 ? 0.0 : sn / 1e6 / sw);
+	}
+
+	/** Dev only: Iris's shadow depth texture (shadowtex0) read back as floats; null if anything is missing. */
+	private static float[] omReadShadowDepth() {
+		try {
+			Object pm = Class.forName("net.irisshaders.iris.Iris").getMethod("getPipelineManager").invoke(null);
+			Object pipe = pm.getClass().getMethod("getPipelineNullable").invoke(pm);
+			java.lang.reflect.Field fr = pipe.getClass().getDeclaredField("shadowRenderer");
+			fr.setAccessible(true);
+			Object sr = fr.get(pipe);
+			java.lang.reflect.Field ft = sr.getClass().getDeclaredField("targets");
+			ft.setAccessible(true);
+			Object targets = ft.get(sr);
+			Object depth = targets.getClass().getMethod("getDepthTexture").invoke(targets);
+			int id = (int) depth.getClass().getMethod("getTextureId").invoke(depth);
+			int prev = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_TEXTURE_BINDING_2D);
+			org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, id);
+			int w = org.lwjgl.opengl.GL11.glGetTexLevelParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_TEXTURE_WIDTH);
+			int h = org.lwjgl.opengl.GL11.glGetTexLevelParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_TEXTURE_HEIGHT);
+			float[] out = new float[w * h];
+			org.lwjgl.opengl.GL11.glGetTexImage(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_DEPTH_COMPONENT,
+					org.lwjgl.opengl.GL11.GL_FLOAT, out);
+			org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, prev);
+			return out;
+		} catch (Throwable t) {
+			log("[off-map] shadow depth readback failed: " + t);
+			return null;
+		}
+	}
+
+	private static String omDepthDiff(float[] a, float[] b) {
+		if (a == null || b == null || a.length != b.length) {
+			return "n/a";
+		}
+		int diff = 0, coveredA = 0, coveredB = 0;
+		for (int i = 0; i < a.length; i++) {
+			if (Float.floatToRawIntBits(a[i]) != Float.floatToRawIntBits(b[i])) {
+				diff++;
+			}
+			if (a[i] < 1f) {
+				coveredA++;
+			}
+			if (b[i] < 1f) {
+				coveredB++;
+			}
+		}
+		return "texels=" + a.length + " differing=" + diff + " coveredA=" + coveredA + " coveredB=" + coveredB;
 	}
 
 	/** The entity-culling scene (see the comment above terrainSpin). Built before the settle wait. */

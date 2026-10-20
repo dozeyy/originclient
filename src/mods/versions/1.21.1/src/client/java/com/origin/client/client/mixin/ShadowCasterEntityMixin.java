@@ -23,7 +23,9 @@ public abstract class ShadowCasterEntityMixin {
 	@Inject(method = "shouldRender", at = @At("RETURN"), cancellable = true)
 	private void originclient$farShadowCaster(Entity entity, Frustum frustum, double camX, double camY, double camZ,
 			CallbackInfoReturnable<Boolean> cir) {
-		if (cir.getReturnValueZ() && ShadowCasterLimit.skipEntity(entity, camX, camY, camZ)) {
+		// Off-Map Shadows first (render/OffMapShadows): an entity entirely off the shadow map's x/y edges.
+		if (cir.getReturnValueZ() && (com.origin.client.client.render.OffMapShadows.skipEntity(entity, camX, camY, camZ)
+				|| ShadowCasterLimit.skipEntity(entity, camX, camY, camZ))) {
 			cir.setReturnValue(false);
 		}
 	}
