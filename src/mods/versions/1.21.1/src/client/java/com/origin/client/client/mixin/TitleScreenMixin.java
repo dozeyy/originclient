@@ -313,13 +313,34 @@ public class TitleScreenMixin {
 			full.remove(options);
 			full.remove(quit);
 
+			// Every button left in `full` is one row (vanilla's two, plus any another
+			// mod added), then the Options | Mods pair: the layout sizes the stack to
+			// the real count so it never runs into the icon row. If even that can't
+			// fit (many added buttons on a small GUI), the added ones pair up two to
+			// a row, as vanilla pairs Options | Quit.
+			boolean pair = options != null || originclient$modsNav != null;
+			TitleLayout.rows(full.size() + (pair ? 1 : 0));
 			TitleLayout L = TitleLayout.of(self.width, self.height);
-			int y = L.mainTop;
-			for (AbstractWidget w : full) {
-				originclient$place(w, L.mainX, y, L.mainW, L.buttonH, true);
-				y += L.rowStep;
+			boolean halves = !L.fits && full.size() > 3;
+			if (halves) {
+				TitleLayout.rows(2 + (full.size() - 1) / 2 + (pair ? 1 : 0));
+				L = TitleLayout.of(self.width, self.height);
 			}
 			int half = (L.mainW - L.pairGap) / 2;
+			int y = L.mainTop;
+			for (int i = 0; i < full.size(); i++) {
+				AbstractWidget w = full.get(i);
+				boolean right = halves && i >= 2 && (i - 2) % 2 == 1;
+				boolean alone = !halves || i < 2 || (!right && i == full.size() - 1);
+				if (alone) {
+					originclient$place(w, L.mainX, y, L.mainW, L.buttonH, true);
+				} else {
+					originclient$place(w, right ? L.mainX + L.mainW - half : L.mainX, y, half, L.buttonH, true);
+				}
+				if (alone || right) {
+					y += L.rowStep;
+				}
+			}
 			if (options != null) {
 				options.setMessage(Component.translatable("options.title"));   // "Options", sentence case
 			}

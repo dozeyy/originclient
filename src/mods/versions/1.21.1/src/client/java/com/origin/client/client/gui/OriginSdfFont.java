@@ -278,25 +278,6 @@ public final class OriginSdfFont {
 	// physical pixels), and text is placed by its BASELINE, not a box top --
 	// so labels sit exactly where the design puts them at every size.
 
-	/** True when every char of `text` has a glyph in the face (after the SUBS
-	 *  swaps), so the SDF path can draw it with no blank gaps. Non-Latin text
-	 *  (CJK, Cyrillic, ...) returns false and callers keep the vanilla font. */
-	public static boolean covers(String text, boolean bold) {
-		ensureLoaded();
-		Face f = face(bold);
-		if (!f.ok) {
-			return false;
-		}
-		text = normalize(text);
-		for (int i = 0; i < text.length(); i++) {
-			char c = text.charAt(i);
-			if (c != ' ' && !f.glyphs.containsKey(c)) {
-				return false;
-			}
-		}
-		return true;
-	}
-
 	/** Cap height of a face at em size `em` (what optical centring uses). */
 	public static float capHeight(float em, boolean bold) {
 		ensureLoaded();

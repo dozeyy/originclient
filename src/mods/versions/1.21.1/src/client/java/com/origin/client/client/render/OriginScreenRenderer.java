@@ -76,15 +76,7 @@ public final class OriginScreenRenderer {
 	// back to vanilla drawString.
 	private static ResourceLocation wordmarkId;
 	private static int wmTexW, wmTexH, wmInkX, wmInkY, wmInkW, wmInkH;
-	// Per-letter reveal bands: [x0,x1] texture-px columns, one per glyph, from
-	// wordmark.json. Null -> the loading screen draws the whole mark at once
-	// (no staggered reveal) instead of failing.
-	private static int[] wmLetterX0, wmLetterX1;
 
-	// Loading-screen animation clock: RingField.sceneMs() at the first loading
-	// frame (-1 = not yet), so the per-letter reveal is time-driven on the same
-	// smoothed clock as the rings.
-	private static double loadStartScene = -1;
 	// The startup bar's shown fill (-1 = none yet): it glides to the reload's real
 	// progress instead of stepping with it, and never moves backward (LoadBar).
 	private static double loadFill = -1;
@@ -96,16 +88,6 @@ public final class OriginScreenRenderer {
 	// Ellipse height:width of the ring textures (generate_textures HEIGHT_RATIO),
 	// needed to place a body on a ring's path.
 	private static final double RING_HEIGHT_RATIO = 0.37;
-	// Wordmark breathing-glow period (ms) on the title screen.
-	private static final double BREATH_MS = 3200.0;
-	// Orbiting bodies riding the rings: {ringIndex, periodSeconds, phase, coreFrac(of w), alpha}.
-	// One bright body on the front ring, one fainter/slower on a back ring.
-	private static final double[][] BODIES = {
-			{0, 26.0, 0.0, 0.010, 0.85},
-			{2, 40.0, 0.5, 0.008, 0.55},
-	};
-	// Sparse drifting background dust.
-	private static final int PARTICLE_COUNT = 28;
 
 	// Cursor-follow glow (the website's two-layer spotlight): one radial
 	// gradient texture drawn twice -- a tight core that snaps to the cursor
@@ -136,10 +118,9 @@ public final class OriginScreenRenderer {
 	// ---- Public entry points ----
 
 	/**
-	 * Startup resource-load screen: near-black + fine grain, the Origin mark as
-	 * live morphing strokes (MarkMotion: circles, triangles, squares, the mark,
-	 * on a loop), the "ORIGIN" wordmark building in letter by letter beneath it
-	 * and a word-width bar under that. No percentage caption.
+	 * Startup resource-load screen: near-black with a soft centre lift, the real
+	 * Origin logo (still), the "ORIGIN" wordmark beneath it, a thin bar and the
+	 * percent (renderLoading0).
 	 */
 	public static void renderLoading(GuiGraphics guiGraphics, float progress) {
 		// The game is on screen now (Origin's scene, or vanilla's if ours
@@ -157,7 +138,7 @@ public final class OriginScreenRenderer {
 			return;
 		}
 		try {
-			renderLoading0(guiGraphics, reloadProgress(progress), true, true);
+			renderLoading0(guiGraphics, reloadProgress(progress), true);
 		} catch (Throwable t) {
 			fail(t);
 		}
@@ -202,19 +183,10 @@ public final class OriginScreenRenderer {
 			RenderSystem.enableBlend();
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
-			// Clean look (2026-10-19): the title shows the real Origin logo, still, so
-			// the loading layer simply dissolves over it -- no mark flight.
-			boolean fly = false;
-			// The title underneath already drives the ring field: don't pull it back.
-			renderLoading0(guiGraphics, 1f, false, !fly);
+			// The title shows the real Origin logo, still, so the loading layer simply
+			// dissolves over it. The title underneath already drives the ring field.
+			renderLoading0(guiGraphics, 1f, false);
 			guiGraphics.flush();
-			if (fly) {
-				layerAlpha = 1f;
-				markHandedOff = false;
-				Minecraft mc = Minecraft.getInstance();
-				TitleLayout L = TitleLayout.of(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
-				MarkMotion.drawFlight(guiGraphics, L.markCenterX, L.markCenterY, L.markSize);
-			}
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -234,7 +206,7 @@ public final class OriginScreenRenderer {
 		RenderSystem.setShaderColor(r, g, b, a * layerAlpha);
 	}
 
-	private static void renderLoading0(GuiGraphics guiGraphics, float progress, boolean drive, boolean drawMark) {
+	private static void renderLoading0(GuiGraphics guiGraphics, float progress, boolean drive) {
 		ensureLoaded();
 		if (drive) {
 			field(RingField.Mood.LOADING);
@@ -245,10 +217,6 @@ public final class OriginScreenRenderer {
 		float clamped = Math.max(0f, Math.min(1f, progress));
 
 		double scene = RingField.sceneMs();
-		if (loadStartScene < 0) {
-			loadStartScene = scene;
-		}
-		long elapsed = (long) (scene - loadStartScene);
 		// The fill only ever moves forward within a load and is full exactly when
 		// the reload is done (LoadBar: the reload's own fraction dips mid-load as
 		// work is queued); a load after a finished one starts it over. The
@@ -257,51 +225,26 @@ public final class OriginScreenRenderer {
 		loadFill = LOAD_BAR.update(barReload, barReload != null ? barReload.isDone() : clamped >= 1f, clamped, scene, FILL_TAU);
 		com.origin.client.client.OriginFrameLog.bar(barReload, clamped, loadFill);
 
-		double markT = scene - loadStartScene;
 		if (drive) {
 			// Origin's textures were decoded on the reload's workers; upload one
 			// loader's worth per frame now, so the title's first frames don't.
 			com.origin.client.client.OriginAssets.uploadSlice();
-			net.minecraft.server.packs.resources.ReloadInstance reload = currentReload();
-			if (reload != markReload) {
-				// A new reload (a resource-pack change after startup): the mark loops again.
-				markReload = reload;
-				markReloadAt = System.nanoTime();
-				MarkMotion.unsettle();
-			}
-			String why = reload == null || MarkMotion.settling() ? null : settleReason(reload);
-			if (why != null) {
-				MarkMotion.settle(markT);
-				markRestLogged = false;
-				com.origin.client.client.OriginFrameLog.mark("mark-settle (" + why + ")");
-			}
-			if (!markRestLogged && MarkMotion.atRest(markT)) {
-				markRestLogged = true;
-				com.origin.client.client.OriginFrameLog.mark("mark at rest (clean pose)");
-			}
-		} else {
-			MarkMotion.settle(markT);   // the settle hold / dissolve: the load is done
 		}
-		lastMarkT = markT;
 		// Clean splash (Will's approved mockup, 2026-10-19): solid near-black with a
-		// soft centre lift, the REAL Origin logo, the ORIGIN wordmark, a thin bar
-		// and the real percent. MarkMotion above still runs its clock (the settle
-		// hold reads it), it just isn't drawn: the logo is the asset, not a redraw.
+		// soft centre lift, the REAL Origin logo (still), the ORIGIN wordmark, a
+		// thin bar and the real percent.
 		RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		guiGraphics.fill(0, 0, w, h, fade(OriginTheme.CLEAN_BG));
 		drawCenterLift(guiGraphics, w, h, 0.05f);
 		double size = clampD(h * 0.11, 24, 44);
 		double markCy = h * 0.44;
-		if (drawMark) {
-			drawLogo(guiGraphics, w / 2.0, markCy, size, layerAlpha);
-		}
+		drawLogo(guiGraphics, w / 2.0, markCy, size, layerAlpha);
 		double wordBase = markCy + size / 2.0 + 19;
 		drawWordmarkText(guiGraphics, w / 2.0, wordBase, fade(0xFFFFFFFF));
 		double barW = Math.min(160, w * 0.5);
 		double barTop = wordBase + 9;
 		drawThinBar(guiGraphics, w / 2.0, barTop, barW, (float) loadFill, false);
-		String pct = Math.round(Math.max(0.0, Math.min(1.0, loadFill)) * 100) + "%";
-		bootText(guiGraphics, pct, w / 2.0 + barW / 2.0, barTop + 5, 1f, 0, fade(OriginTheme.CLEAN_TEXT_FAINT), 1f);
+		bootText(guiGraphics, percentLabel(loadFill), w / 2.0 + barW / 2.0, barTop + 5, 1f, 0, fade(OriginTheme.CLEAN_TEXT_FAINT), 1f);
 	}
 
 	// The title's first-use costs (textures, driver shader builds, glyphs) used to
@@ -310,63 +253,30 @@ public final class OriginScreenRenderer {
 	// finished loading picture during the settle hold (LoadingOverlayRevealMixin),
 	// so nothing has to be guessed and nothing is missed.
 
-	// The reload the loading mark's settle belongs to, and the mark's loop time last frame.
-	private static net.minecraft.server.packs.resources.ReloadInstance markReload;
-	private static long markReloadAt;   // nanoTime the loading screen first drew for markReload
-	private static boolean markRestLogged;   // dev frame log: "mark at rest" said for this settle
-	private static double lastMarkT = 0;
-
 	private static net.minecraft.server.packs.resources.ReloadInstance currentReload() {
 		return Minecraft.getInstance().getOverlay() instanceof com.origin.client.client.mixin.loading.LoadingOverlayAccessor overlay
 				? overlay.originclient$reload() : null;
 	}
 
-	// The reload has reached the stretch where its work runs on the render thread,
-	// where one step can hold a frame for hundreds of ms: a listener ran its first
-	// task there (ReloadTaskTagMixin; some mods do heavy work there while others
-	// still prepare), or every listener has prepared (the apply steps), or it is
-	// done. Without the mixins: only once done.
-	private static String settleReason(net.minecraft.server.packs.resources.ReloadInstance reload) {
-		if (reload.isDone()) {
-			return "load done";
-		}
-		if (com.origin.client.client.StartupTransition.reloadRenderWorkSince(markReloadAt)) {
-			return "render-thread reload work queued";
-		}
-		if (reload instanceof com.origin.client.client.mixin.loading.SimpleReloadInstanceAccessor s
-				&& s.originclient$allPreparations().isDone()) {
-			return "all listeners prepared";
-		}
-		return null;
-	}
+	// The splash's "NN%" for a fill, rebuilt only when the whole percent changes
+	// (no string built per frame while it holds still).
+	private static int pctShown = -1;
+	private static String pctLabel = "0%";
 
-	/**
-	 * ReloadTaskBudgetMixin: hold the render-thread queue this frame. True while
-	 * render-thread reload work is waiting for THIS loading screen and the mark
-	 * has not finished its settle glide (MarkMotion.SETTLE_MS) onto its clean
-	 * pose, so no long step can freeze it mid-motion. The settle itself starts in
-	 * the loading screen's draw the frame the work is queued. The caller caps it.
-	 */
-	public static boolean holdReloadTasksForMark() {
-		if (broken || markReload == null || currentReload() != markReload) {
-			return false;
+	private static String percentLabel(double fill) {
+		int pct = (int) Math.round(Math.max(0.0, Math.min(1.0, fill)) * 100);
+		if (pct != pctShown) {
+			pctShown = pct;
+			pctLabel = pct + "%";
 		}
-		// Clean splash (2026-10-19): the logo is still, so there is no motion to
-		// protect -- never hold the reload's render-thread work for it.
-		return false;
-	}
-
-	/** The loading mark has landed and stopped (the settle hold may end). The
-	 *  clean splash's logo is still, so it is always at rest. */
-	public static boolean loadingMarkAtRest() {
-		return true;
+		return pctLabel;
 	}
 
 	/**
 	 * The settle hold (LoadingOverlayRevealMixin): the finished loading picture,
 	 * opaque, over the screen the hold has just rendered for real underneath, so
-	 * the screen's first-use costs are paid where nobody can see them. Bar full,
-	 * the mark at rest. False (nothing to cancel) when Origin rendering is off or
+	 * the screen's first-use costs are paid where nobody can see them. Bar full.
+	 * False (nothing to cancel) when Origin rendering is off or
 	 * this draw fails.
 	 */
 	public static boolean renderLoadingHold(GuiGraphics guiGraphics) {
@@ -382,7 +292,7 @@ public final class OriginScreenRenderer {
 			RenderSystem.defaultBlendFunc();
 			shade(1f, 1f, 1f, 1f);
 			// The screen underneath drives the ring field: don't pull it back.
-			renderLoading0(guiGraphics, 1f, false, true);
+			renderLoading0(guiGraphics, 1f, false);
 			guiGraphics.flush();
 			return true;
 		} catch (Throwable t) {
@@ -451,13 +361,11 @@ public final class OriginScreenRenderer {
 		if (com.origin.client.client.OriginFrameLog.ENABLED) {   // off: no title string built every frame
 			com.origin.client.client.OriginFrameLog.sceneBar(title == null ? "" : title.getString(), progress, sceneFill);
 		}
-		String screenTitle = title == null ? "" : title.getString().trim();
-		String big = screenTitle;
-		String small = "";
+		// World loading: the world's name big, vanilla's own "Preparing spawn area:
+		// N%" line small. Never an invented stage name. The strings are rebuilt only
+		// when the title, the world or the whole percent changes (sceneLabels).
+		String levelName = null;
 		if (progress >= 0f) {
-			// World loading: the world's name big, vanilla's own "Preparing spawn
-			// area: N%" line small. Never an invented stage name.
-			String levelName = null;
 			try {
 				if (mc.getSingleplayerServer() != null) {
 					levelName = mc.getSingleplayerServer().getWorldData().getLevelName();
@@ -465,7 +373,30 @@ public final class OriginScreenRenderer {
 			} catch (Throwable ignored) {
 				levelName = null;
 			}
-			int pct = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
+		}
+		int pct = progress >= 0f ? Math.round(Math.max(0f, Math.min(1f, progress)) * 100f) : -1;
+		if (title != labelTitle || levelName != labelLevel || pct != labelPct) {
+			labelTitle = title;
+			labelLevel = levelName;
+			labelPct = pct;
+			sceneLabels(title, levelName, pct);
+		}
+		String big = labelBig, small = labelSmall;
+		drawSceneText(guiGraphics, w, h, big, small, sceneFill);
+	}
+
+	// The loading scene's labels and what they were built from (compared by
+	// reference: the screen keeps one title Component, the server one level name).
+	private static net.minecraft.network.chat.Component labelTitle;
+	private static String labelLevel;
+	private static int labelPct = Integer.MIN_VALUE;
+	private static String labelBig = "", labelSmall = "";
+
+	/** Builds the scene's big and small lines (pct < 0: no world load, title only). */
+	private static void sceneLabels(net.minecraft.network.chat.Component title, String levelName, int pct) {
+		String big = title == null ? "" : title.getString().trim();
+		String small = "";
+		if (pct >= 0) {
 			if (levelName != null && !levelName.isBlank()) {
 				big = levelName;
 			} else if (big.isEmpty() && net.minecraft.client.resources.language.I18n.exists("menu.loadingLevel")) {
@@ -473,7 +404,8 @@ public final class OriginScreenRenderer {
 			}
 			small = net.minecraft.client.resources.language.I18n.get("menu.preparingSpawn", pct);
 		}
-		drawSceneText(guiGraphics, w, h, big, small, sceneFill);
+		labelBig = big;
+		labelSmall = small;
 	}
 
 	/** The loading scene's centred logo, title, bar and stage line (fill < 0: sweeping). */
@@ -819,24 +751,12 @@ public final class OriginScreenRenderer {
 	}
 
 
-	private static void drawRadial(GuiGraphics guiGraphics, double cx, double cy, double diameter, double alpha) {
-		int d = Math.max(2, (int) Math.round(diameter));
-		shade(1f, 1f, 1f, (float) alpha);
-		guiGraphics.blit(radialGlowId, (int) Math.round(cx - d / 2.0), (int) Math.round(cy - d / 2.0),
-				d, d, 0f, 0f, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX, RADIAL_TEX);
-	}
-
 	private static UUID titleSkinProfileId;
 	private static Supplier<net.minecraft.client.resources.PlayerSkin> titleSkinSupplier;
-	// False from the startup flight's first frame until the title draws its mark
-	// itself: while the loading overlay is still up, the dissolve layer draws the
-	// flying mark over the title.
-	private static boolean markHandedOff = true;
 
 	/**
-	 * Main menu: the Origin mark above the compact action stack. After the game's
-	 * first load it is the loading screen's mark finishing its flight here
-	 * (MarkMotion); any other time it is simply there.
+	 * Main menu: the Origin logo and wordmark above the button stack, still
+	 * (the loading screen dissolves over it after the first load).
 	 */
 	public static boolean renderTitleWordmark(GuiGraphics guiGraphics) {
 		if (broken) {
@@ -848,8 +768,13 @@ public final class OriginScreenRenderer {
 			TitleLayout L = TitleLayout.of(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
 			// The REAL Origin logo (origin_logo.png), still, and the spaced ORIGIN
 			// wordmark under it (Will 2026-10-19: use the real logo, not a redraw).
-			drawLogo(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1f);
-			drawWordmarkText(guiGraphics, L.markCenterX, L.wordBaseline, OriginTheme.CLEAN_TEXT);
+			// TitleLayout drops the logo, then the wordmark, when extra rows need the room.
+			if (L.markSize > 0) {
+				drawLogo(guiGraphics, L.markCenterX, L.markCenterY, L.markSize, 1f);
+			}
+			if (L.showWordmark) {
+				drawWordmarkText(guiGraphics, L.markCenterX, L.wordBaseline, OriginTheme.CLEAN_TEXT);
+			}
 			return true;
 		} catch (Throwable t) {
 			return fail(t);
@@ -960,19 +885,6 @@ public final class OriginScreenRenderer {
 		}
 	}
 
-	/** Clamps a target ink height so the wordmark's displayed width stays within maxWidthFrac of the screen. */
-	private static double fitInkHeight(double targetInkHeight, int w, double maxWidthFrac) {
-		if (wordmarkId == null || wmInkW <= 0) {
-			return targetInkHeight;
-		}
-		double dispW = wmInkW * (targetInkHeight / wmInkH);
-		double maxW = w * maxWidthFrac;
-		if (dispW > maxW) {
-			return wmInkH * (maxW / wmInkW);
-		}
-		return targetInkHeight;
-	}
-
 	// ---- Primitives ----
 
 	/** Advance the shared rings (RingField) for this frame's scene. */
@@ -1050,98 +962,6 @@ public final class OriginScreenRenderer {
 		pose.popPose();
 	}
 
-	private static double frac(double v) {
-		return v - Math.floor(v);
-	}
-
-	/**
-	 * Sparse drifting background dust: fixed pseudo-random particles (seeded from
-	 * the index, no stored state) that slowly drift and twinkle. Monochrome, very
-	 * low alpha -- depth and life without pulling focus.
-	 */
-	private static void drawParticles(GuiGraphics guiGraphics, int w, int h) {
-		double t = System.currentTimeMillis() / 1000.0;
-		for (int i = 0; i < PARTICLE_COUNT; i++) {
-			double h1 = frac(Math.sin(i * 12.9898) * 43758.5453);
-			double h2 = frac(Math.sin(i * 78.233) * 12345.678);
-			double h3 = frac(Math.sin(i * 39.425) * 98765.43);
-			double speed = 0.004 + 0.010 * h3;
-			double dir = (i % 2 == 0) ? 1.0 : -1.0;
-			double x = frac(h1 + t * speed * 0.15 * dir) * w;
-			double y = frac(h2 - t * speed * 0.10) * h;
-			double twinkle = 0.5 - 0.5 * Math.cos(t * (0.4 + 0.6 * h3) + h1 * 6.2832);
-			int a = (int) Math.round((0.04 + 0.09 * h3) * twinkle * 255);
-			if (a <= 1) {
-				continue;
-			}
-			int px = (int) Math.round(x), py = (int) Math.round(y);
-			int sz = h3 > 0.7 ? 2 : 1;
-			guiGraphics.fill(px, py, px + sz, py + sz, (a << 24) | 0x00FFFFFF);
-		}
-	}
-
-	/**
-	 * Bodies orbiting the rings: each body's parametric point on a ring's ellipse
-	 * (a, a*heightRatio) advances on its own period, then is rotated by that
-	 * ring's live rotation so it visually rides the tilted ellipse -- a small
-	 * glowing "planet on its orbit" that plays the Origin identity. Drawn with the
-	 * radial-glow texture (halo + core). Skipped if the rings/glow aren't loaded.
-	 */
-	private static void drawOrbitingBodies(GuiGraphics guiGraphics, int w, int h) {
-		if (ringsFailed || rings.isEmpty() || radialGlowId == null) {
-			return;
-		}
-		double cx = w / 2.0, cy = h / 2.0;
-		double now = System.currentTimeMillis() / 1000.0;
-		RenderSystem.enableBlend();
-		for (double[] body : BODIES) {
-			int idx = (int) body[0];
-			if (idx < 0 || idx >= rings.size()) {
-				continue;
-			}
-			Ring ring = rings.get(idx);
-			double a = ring.widthFrac() * w * 0.99 / 2.0;
-			double b = a * RING_HEIGHT_RATIO;
-			double revs = now / ring.periodSeconds();
-			double ringAngle = (ring.angle0() + (ring.reverse() ? -revs : revs) * 360.0) % 360.0;
-			double rad = Math.toRadians(ringAngle);
-			double phi = (now / body[1] + body[2]) * 2.0 * Math.PI;
-			double lx = a * Math.cos(phi), ly = b * Math.sin(phi);
-			double px = cx + lx * Math.cos(rad) - ly * Math.sin(rad);
-			double py = cy + lx * Math.sin(rad) + ly * Math.cos(rad);
-			double core = w * body[3];
-			drawRadial(guiGraphics, px, py, core * 3.2, body[4] * 0.28); // halo
-			drawRadial(guiGraphics, px, py, core, body[4]);              // core
-		}
-		shade(1f, 1f, 1f, 1f);
-	}
-
-	/** Extra wordmark pass at a scale multiplier and alpha -- used for the breathing glow. */
-	private static void drawWordmarkGlow(GuiGraphics guiGraphics, double inkCenterX, double inkCenterY,
-										 double targetInkHeight, double scaleMul, float alpha) {
-		if (wordmarkId == null || wmInkH <= 0 || alpha <= 0.001f) {
-			return;
-		}
-		float scale = (float) (targetInkHeight / wmInkH * scaleMul);
-		double icx = (wmInkX + wmInkW / 2.0) * scale;
-		double icy = (wmInkY + wmInkH / 2.0) * scale;
-		PoseStack pose = guiGraphics.pose();
-		pose.pushPose();
-		pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
-		pose.scale(scale, scale, 1f);
-		RenderSystem.enableBlend();
-		shade(1f, 1f, 1f, alpha);
-		guiGraphics.blit(wordmarkId, 0, 0, 0, 0, wmTexW, wmTexH, wmTexW, wmTexH);
-		pose.popPose();
-		shade(1f, 1f, 1f, 1f);
-	}
-
-	/** Shared frame dressing for the ring backdrop: edge vignette + corner brackets. */
-	private static void drawFrame(GuiGraphics guiGraphics, int w, int h) {
-		drawVignette(guiGraphics, w, h);
-		drawCornerBrackets(guiGraphics, w, h);
-	}
-
 	/** Full-screen edge vignette (the 1024px texture stretched to the GUI size). */
 	private static void drawVignette(GuiGraphics guiGraphics, int w, int h) {
 		if (vignetteId == null) {
@@ -1154,109 +974,6 @@ public final class OriginScreenRenderer {
 		shade(1f, 1f, 1f, 1f);
 		guiGraphics.blit(vignetteId, 0, 0, 0f, 0f, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX, VIGNETTE_TEX);
 		pose.popPose();
-	}
-
-	/**
-	 * Thin L-brackets inset from each screen corner — an aerospace/instrument
-	 * framing cue that matches the Michroma wordmark and adds "designed" edges
-	 * without a hue. Drawn in the soft-strong stroke tone so they read as quiet
-	 * registration marks, not a hard border.
-	 */
-	private static void drawCornerBrackets(GuiGraphics guiGraphics, int w, int h) {
-		int inset = Math.max(10, (int) Math.round(w * 0.022));
-		int len = Math.max(10, (int) Math.round(w * 0.018));
-		int th = Math.max(1, (int) Math.round(w * 0.0015));
-		int c = OriginTheme.STROKE_STRONG;
-		// top-left
-		guiGraphics.fill(inset, inset, inset + len, inset + th, c);
-		guiGraphics.fill(inset, inset, inset + th, inset + len, c);
-		// top-right
-		guiGraphics.fill(w - inset - len, inset, w - inset, inset + th, c);
-		guiGraphics.fill(w - inset - th, inset, w - inset, inset + len, c);
-		// bottom-left
-		guiGraphics.fill(inset, h - inset - th, inset + len, h - inset, c);
-		guiGraphics.fill(inset, h - inset - len, inset + th, h - inset, c);
-		// bottom-right
-		guiGraphics.fill(w - inset - len, h - inset - th, w - inset, h - inset, c);
-		guiGraphics.fill(w - inset - th, h - inset - len, w - inset, h - inset, c);
-	}
-
-	/**
-	 * Wordmark with a per-letter staggered reveal: each glyph band (from
-	 * wordmark.json) fades in and rises into place, offset by index, so the mark
-	 * assembles left-to-right instead of popping in whole. Once every letter has
-	 * finished (alpha 1, no offset) the bands tile seamlessly back into the full
-	 * wordmark. Falls back to the plain whole-mark draw if the bands are missing.
-	 */
-	private static void drawWordmarkReveal(GuiGraphics guiGraphics, double inkCenterX, double inkCenterY,
-										   double targetInkHeight, long elapsedMs) {
-		if (wordmarkId == null || wmLetterX0 == null || wmInkH <= 0) {
-			drawWordmark(guiGraphics, inkCenterX, inkCenterY, targetInkHeight);
-			return;
-		}
-		float scale = (float) (targetInkHeight / wmInkH);
-		double icx = (wmInkX + wmInkW / 2.0) * scale;
-		double icy = (wmInkY + wmInkH / 2.0) * scale;
-		double rise = wmInkH * 0.10;   // texture-px the letters drop in from
-		double stagger = 55.0;         // ms between successive letters
-		double dur = 300.0;            // ms per-letter fade/rise
-
-		PoseStack pose = guiGraphics.pose();
-		pose.pushPose();
-		pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
-		pose.scale(scale, scale, 1f);
-		RenderSystem.enableBlend();
-		for (int i = 0; i < wmLetterX0.length; i++) {
-			double lt = (elapsedMs - i * stagger) / dur;
-			lt = Math.max(0.0, Math.min(1.0, lt));
-			double eased = OriginTheme.easeOut(lt);
-			if (eased <= 0.001) {
-				continue;
-			}
-			int x0 = wmLetterX0[i];
-			int bw = wmLetterX1[i] - x0;
-			if (bw <= 0) {
-				continue;
-			}
-			int yoff = (int) Math.round((1.0 - eased) * rise);
-			shade(1f, 1f, 1f, (float) eased);
-			guiGraphics.blit(wordmarkId, x0, yoff, (float) x0, 0f, bw, wmTexH, wmTexW, wmTexH);
-		}
-		shade(1f, 1f, 1f, 1f);
-		pose.popPose();
-	}
-
-	/** Draws the wordmark with its ink box centered on (inkCenterX, inkCenterY), ink scaled to targetInkHeight. Returns ink bottom (screen Y). */
-	private static int drawWordmark(GuiGraphics guiGraphics, double inkCenterX, double inkCenterY, double targetInkHeight) {
-		if (wordmarkId != null) {
-			float scale = (float) (targetInkHeight / wmInkH);
-			double icx = (wmInkX + wmInkW / 2.0) * scale;
-			double icy = (wmInkY + wmInkH / 2.0) * scale;
-
-			PoseStack pose = guiGraphics.pose();
-			pose.pushPose();
-			pose.translate(inkCenterX - icx, inkCenterY - icy, 0);
-			pose.scale(scale, scale, 1f);
-			RenderSystem.enableBlend();
-			shade(1f, 1f, 1f, 1f);
-			guiGraphics.blit(wordmarkId, 0, 0, 0, 0, wmTexW, wmTexH, wmTexW, wmTexH);
-			pose.popPose();
-
-			return (int) Math.round(inkCenterY + (wmInkH * scale) / 2.0);
-		}
-
-		// "ORIGIN" in Minecraft's own letters, centered on the point. Never
-		// through mc.font: see BOOT FONT below for why.
-		float scale = 4.0f;
-		if (ensureBootFont()) {
-			PoseStack pose = guiGraphics.pose();
-			pose.pushPose();
-			pose.translate(inkCenterX, inkCenterY, 0);
-			pose.scale(scale, scale, 1f);
-			drawBootText(guiGraphics, "ORIGIN", -4, OriginTheme.TEXT);
-			pose.popPose();
-		}
-		return (int) Math.round(inkCenterY + 5 * scale);
 	}
 
 	// ---- BOOT FONT ----
