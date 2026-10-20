@@ -646,9 +646,36 @@ final class OriginDevWorld {
 			org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, id);
 			int w = org.lwjgl.opengl.GL11.glGetTexLevelParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_TEXTURE_WIDTH);
 			int h = org.lwjgl.opengl.GL11.glGetTexLevelParameteri(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_TEXTURE_HEIGHT);
+			if (w <= 0 || h <= 0 || (long) w * h > (1 << 26)) {
+				org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, prev);
+				log("[off-map] shadow depth readback skipped: size " + w + "x" + h);
+				return null;
+			}
 			float[] out = new float[w * h];
-			org.lwjgl.opengl.GL11.glGetTexImage(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_DEPTH_COMPONENT,
-					org.lwjgl.opengl.GL11.GL_FLOAT, out);
+			// PER-VERSION (1.21.6+): vanilla GlCommandEncoder.copyTextureToBuffer sets GL_PACK_ROW_LENGTH to the
+			// copied texture's width (screenshots: 1920) and never resets it, so a plain glGetTexImage of a smaller
+			// shadow map strides 1920 texels per row and writes past this array (SIGSEGV in Mesa, CI 2026-10-20).
+			// Pack state is set to defaults (and no pack PBO bound) for this one read, then put back.
+			int pRow = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_PACK_ROW_LENGTH);
+			int pSkipR = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_PACK_SKIP_ROWS);
+			int pSkipP = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_PACK_SKIP_PIXELS);
+			int pAlign = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_PACK_ALIGNMENT);
+			int pPbo = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL21.GL_PIXEL_PACK_BUFFER_BINDING);
+			org.lwjgl.opengl.GL15.glBindBuffer(org.lwjgl.opengl.GL21.GL_PIXEL_PACK_BUFFER, 0);
+			org.lwjgl.opengl.GL11.glPixelStorei(org.lwjgl.opengl.GL11.GL_PACK_ROW_LENGTH, 0);
+			org.lwjgl.opengl.GL11.glPixelStorei(org.lwjgl.opengl.GL11.GL_PACK_SKIP_ROWS, 0);
+			org.lwjgl.opengl.GL11.glPixelStorei(org.lwjgl.opengl.GL11.GL_PACK_SKIP_PIXELS, 0);
+			org.lwjgl.opengl.GL11.glPixelStorei(org.lwjgl.opengl.GL11.GL_PACK_ALIGNMENT, 4);
+			try {
+				org.lwjgl.opengl.GL11.glGetTexImage(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11.GL_DEPTH_COMPONENT,
+						org.lwjgl.opengl.GL11.GL_FLOAT, out);
+			} finally {
+				org.lwjgl.opengl.GL11.glPixelStorei(org.lwjgl.opengl.GL11.GL_PACK_ROW_LENGTH, pRow);
+				org.lwjgl.opengl.GL11.glPixelStorei(org.lwjgl.opengl.GL11.GL_PACK_SKIP_ROWS, pSkipR);
+				org.lwjgl.opengl.GL11.glPixelStorei(org.lwjgl.opengl.GL11.GL_PACK_SKIP_PIXELS, pSkipP);
+				org.lwjgl.opengl.GL11.glPixelStorei(org.lwjgl.opengl.GL11.GL_PACK_ALIGNMENT, pAlign);
+				org.lwjgl.opengl.GL15.glBindBuffer(org.lwjgl.opengl.GL21.GL_PIXEL_PACK_BUFFER, pPbo);
+			}
 			org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, prev);
 			return out;
 		} catch (Throwable t) {
